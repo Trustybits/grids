@@ -1,9 +1,9 @@
 <template>
   <p v-if="layoutStore.isLoading">Loading layout...</p>
   <grid-layout
-    v-else-if="layoutStore.currentLayout?.tiles?.length ?? 0"
+    v-else
     class="grid-container"
-    :layout="layoutStore.currentLayout?.tiles || []"
+    :layout="mergedLayout"
     :col-num="colNum"
     :row-height="rowHeight"
     :is-draggable="true"
@@ -12,38 +12,28 @@
     :restoreOnDrag="true"
     :use-css-transforms="true"
     :margin="[margin, margin]"
-    @layout-updated="layoutStore.updateLayout"
+    @layout-updated="handleLayoutUpdate"
     :style="{ width: `${gridWidth}px` }"
   >
+    <!-- Real tiles -->
     <joju-grid-tile
       v-for="tile in layoutStore.currentLayout?.tiles || []"
       :key="tile.i"
       :tile="tile"
     />
-  </grid-layout>
-  <grid-layout
-    v-else
-    class="grid-container"
-    :layout="suggestionLayout"
-    :col-num="colNum"
-    :row-height="rowHeight"
-    :is-draggable="false"
-    :is-resizable="false"
-    :vertical-compact="false"
-    :use-css-transforms="true"
-    :margin="[margin, margin]"
-    :style="{ width: `${gridWidth}px` }"
-  >
+    
+    <!-- Suggestion tiles -->
     <grid-item
-      v-for="suggestion in suggestionLayout"
+      v-for="suggestion in activeSuggestions"
       :key="suggestion.i"
       :x="suggestion.x"
       :y="suggestion.y"
       :w="suggestion.w"
       :h="suggestion.h"
       :i="suggestion.i"
-      :static="true"
+      :static="false"
       class="suggestion-grid-tile"
+      @click="handleSuggestionClick(suggestion)"
     >
       <div class="suggestion-tile-content">
         <div class="suggestion-icon">{{ suggestion.icon }}</div>
@@ -57,9 +47,19 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { GridLayout, GridItem } from "vue3-grid-layout";
-// import VueGridLayout from "vue-grid-layout-v3";
 import JojuGridTile from "./GridTile.vue";
 import { useLayoutStore } from "@/stores/layout";
+import { ContentType } from "@/types/TileContent";
+import { createTileContent } from "@/utils/TileUtils";
+import { v4 as uuidv4 } from "uuid";
+import { createTile } from "@/utils/TileUtils";
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from "firebase/storage";
+import { getAuth } from "firebase/auth";
 
 export default {
   components: {
@@ -75,8 +75,10 @@ export default {
   },
   setup(props) {
     const layoutStore = useLayoutStore();
-    const route = useRoute(); // Access route parameters
+    const route = useRoute();
     const margin = 48;
+    const auth = getAuth();
+    const storage = getStorage();
 
     const colNum = computed(() => {
       return layoutStore.currentLayout?.colNum || 10;
@@ -86,15 +88,153 @@ export default {
       return colNum.value * props.rowHeight + (colNum.value + 1) * margin;
     });
 
-    // Define suggestion tiles as grid items
-    const suggestionLayout = [
-      { i: "suggest-1", x: 0, y: 0, w: 2, h: 2, icon: "✏️", label: "Add Text" },
-      { i: "suggest-2", x: 2, y: 0, w: 2, h: 2, icon: "📷", label: "Add Photo" },
-      { i: "suggest-3", x: 4, y: 0, w: 2, h: 2, icon: "🔗", label: "Add Link" },
-      { i: "suggest-4", x: 0, y: 2, w: 2, h: 2, icon: "📽", label: "Add Video" },
-      { i: "suggest-5", x: 2, y: 2, w: 2, h: 2, icon: "💻", label: "Add Embed" },
-      { i: "suggest-6", x: 4, y: 2, w: 2, h: 2, icon: "🎵", label: "Add Music" },
+    // Track which suggestions have been used
+    const usedSuggestions = ref<Set<string>>(new Set());
+
+    // Define all possible suggestion tiles
+    const allSuggestions = [
+      { i: "suggest-text", type: "text", icon: "✏️", label: "Add Text", contentType: ContentType.TEXT },
+      { i: "suggest-photo", type: "photo", icon: "📷", label: "Add Photo", contentType: ContentType.IMAGE },
+      { i: "suggest-link", type: "link", icon: "🔗", label: "Add Link", contentType: ContentType.LINK },
+      { i: "suggest-video", type: "video", icon: "📽", label: "Add Video", contentType: ContentType.VIDEO },
+      { i: "suggest-embed", type: "embed", icon: "💻", label: "Add Embed", contentType: ContentType.EMBED },
+      { i: "suggest-music", type: "music", icon: "🎵", label: "Add Music", contentType: ContentType.LINK },
     ];
+
+    // Filter out used suggestions and calculate their positions
+    const activeSuggestions = computed(() => {
+      const realTiles = layoutStore.currentLayout?.tiles || [];
+      const lowestPoint = layoutStore.calculateLowestPoint();
+      
+      return allSuggestions
+        .filter(s => !usedSuggestions.value.has(s.i))
+        .map((suggestion, index) => {
+          const col = index % 3; // 3 columns
+          const row = Math.floor(index / 3);
+          return {
+            ...suggestion,
+            x: col * 2,
+            y: lowestPoint + row * 2,
+            w: 2,
+            h: 2,
+          };
+        });
+    });
+
+    // Merge real tiles with suggestion tiles for the layout
+    const mergedLayout = computed(() => {
+      const realTiles = layoutStore.currentLayout?.tiles || [];
+      return [...realTiles, ...activeSuggestions.value];
+    });
+
+    // Handle suggestion tile click
+    const handleSuggestionClick = async (suggestion: any) => {
+      if (!layoutStore.currentLayout) return;
+
+      const { x, y, w, h, contentType, type } = suggestion;
+
+      try {
+        // Different handling based on tile type
+        if (type === "photo") {
+          // Trigger file input for photos
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = "image/*";
+          input.onchange = async (e: any) => {
+            const file = e.target?.files?.[0];
+            if (!file) return;
+
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+              alert("You must be logged in to upload an image.");
+              return;
+            }
+
+            const filePath = `users/${currentUser.uid}/images/${Date.now()}_${file.name}`;
+            const fileRef = storageRef(storage, filePath);
+            await uploadBytes(fileRef, file);
+            const url = await getDownloadURL(fileRef);
+
+            const content = createTileContent(ContentType.IMAGE, { src: url });
+            const newTile = createTile(contentType, uuidv4(), x, y, w, h, content, "");
+            
+            layoutStore.currentLayout!.tiles.push(newTile);
+            usedSuggestions.value.add(suggestion.i);
+            layoutStore.updateLayout();
+          };
+          input.click();
+        } else if (type === "video") {
+          // Trigger file input for videos
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = "video/*";
+          input.onchange = async (e: any) => {
+            const file = e.target?.files?.[0];
+            if (!file) return;
+
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+              alert("You must be logged in to upload a video.");
+              return;
+            }
+
+            const filePath = `users/${currentUser.uid}/videos/${Date.now()}_${file.name}`;
+            const fileRef = storageRef(storage, filePath);
+            await uploadBytes(fileRef, file);
+            const url = await getDownloadURL(fileRef);
+
+            const content = createTileContent(ContentType.VIDEO, { src: url });
+            const newTile = createTile(contentType, uuidv4(), x, y, w, h, content, "");
+            
+            layoutStore.currentLayout!.tiles.push(newTile);
+            usedSuggestions.value.add(suggestion.i);
+            layoutStore.updateLayout();
+          };
+          input.click();
+        } else if (type === "link" || type === "music") {
+          // Prompt for link
+          const link = prompt("Please enter a link:");
+          if (link) {
+            const content = createTileContent(ContentType.LINK, { link });
+            const newTile = createTile(contentType, uuidv4(), x, y, w, h, content, "");
+            
+            layoutStore.currentLayout!.tiles.push(newTile);
+            usedSuggestions.value.add(suggestion.i);
+            layoutStore.updateLayout();
+          }
+        } else if (type === "embed") {
+          // Prompt for embed URL
+          const embedUrl = prompt("Please enter an embed URL:");
+          if (embedUrl) {
+            const content = createTileContent(ContentType.EMBED, { src: embedUrl });
+            const newTile = createTile(contentType, uuidv4(), x, y, w, h, content, "");
+            
+            layoutStore.currentLayout!.tiles.push(newTile);
+            usedSuggestions.value.add(suggestion.i);
+            layoutStore.updateLayout();
+          }
+        } else if (type === "text") {
+          // Create empty text tile
+          const content = createTileContent(ContentType.TEXT, {});
+          const newTile = createTile(contentType, uuidv4(), x, y, w, h, content, "");
+          
+          layoutStore.currentLayout!.tiles.push(newTile);
+          usedSuggestions.value.add(suggestion.i);
+          layoutStore.updateLayout();
+        }
+      } catch (error) {
+        console.error("Failed to create tile:", error);
+        alert("Failed to create tile. Please try again.");
+      }
+    };
+
+    // Handle layout updates (for real tiles only)
+    const handleLayoutUpdate = () => {
+      // Only update if there are real tiles (filter out suggestions)
+      if (layoutStore.currentLayout?.tiles.length) {
+        layoutStore.updateLayout();
+      }
+    };
 
     // Load layout using ID from the route
     onMounted(() => {
@@ -111,24 +251,12 @@ export default {
       gridWidth,
       margin,
       colNum,
-      suggestionLayout,
+      activeSuggestions,
+      mergedLayout,
+      handleSuggestionClick,
+      handleLayoutUpdate,
     };
   },
-
-  // mounted() {
-  //   document.body.style.backgroundImage = 'url("https://images.pexels.com/photos/247599/pexels-photo-247599.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1")';
-  //   document.body.style.backgroundRepeat = 'no-repeat';
-  //   // document.body.style.backgroundColor = 'lightblue';
-  //   // document.body.style.fontFamily = 'Arial';
-  //   // Add more styles as needed
-  // },
-  // beforeUnmount() {
-  //   // Reset styles when the component is destroyed (optional)
-  //   // document.body.style.backgroundColor = '#ffffff00';
-  //   document.body.style.backgroundImage = 'none';
-  //   // document.body.style.backgroundColor = 'blue';
-  //   // document.body.style.fontFamily = 'Inter';
-  // }
 };
 </script>
 

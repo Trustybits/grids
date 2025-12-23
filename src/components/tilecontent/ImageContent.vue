@@ -197,7 +197,7 @@ export default defineComponent({
 }
 
 .image-wrapper {
-  border-radius: 8px;
+  border-radius: 34px;
   position: relative;
   width: 100%;
   height: 100%;

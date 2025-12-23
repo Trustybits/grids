@@ -16,9 +16,10 @@
     :style="{ width: `${gridWidth}px` }"
   >
     <joju-grid-tile
-      v-for="tile in layoutStore.currentLayout?.tiles || []"
+      v-for="(tile, index) in layoutStore.currentLayout?.tiles || []"
       :key="tile.i"
       :tile="tile"
+      :neonColor="getNeonColor(index)"
     />
   </grid-layout>
   <grid-layout
@@ -106,12 +107,33 @@ export default {
       }
     });
 
+    // Neon color rotation - apply different colors to tiles
+    const neonColors = [
+      '#00ff88', // Cyan/green
+      '#a855f7', // Purple
+      '#3b82f6', // Blue
+      '#ec4899', // Pink
+      '#f97316', // Orange
+    ];
+
+    const getNeonColor = (index: number) => {
+      // Apply neon to every tile, rotating through colors
+      return neonColors[index % neonColors.length];
+      
+      // Alternative: Only apply to even tiles
+      // return index % 2 === 0 ? neonColors[Math.floor(index / 2) % neonColors.length] : '';
+      
+      // Alternative: Only apply to first 3 tiles
+      // return index < 3 ? neonColors[index] : '';
+    };
+
     return {
       layoutStore,
       gridWidth,
       margin,
       colNum,
       suggestionLayout,
+      getNeonColor,
     };
   },
 
@@ -151,7 +173,7 @@ export default {
     ) !important;
   }
   box-shadow: 1px 1px 15px rgb(153, 153, 153);
-  border-radius: 8px;
+  border-radius: 34px;
 
   &.vue-draggable-dragging {
     opacity: 1 !important;

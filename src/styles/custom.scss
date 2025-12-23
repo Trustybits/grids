@@ -46,7 +46,7 @@ $theme-dark: (
 // Mixin for Grid Tile Styling
 @mixin grid-tile($theme) {
   background: map.get($theme, grid-tile-bg);
-  border-radius: 16px;
+  border-radius: 34px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -55,7 +55,7 @@ $theme-dark: (
   background: map.get($theme, grid-dragging-bg) !important;
   border: 2px solid var(--primary-color);
   opacity: 0.2;
-  border-radius: 16px;
+  border-radius: 34px;
 }
 
 // Mixin for Grid Placeholder Styling
@@ -68,8 +68,8 @@ $theme-dark: (
   -ms-user-select: none;
   -o-user-select: none;
   user-select: none;
-  border-radius: 16px;
-  box-shadow: -3px -3px 4px 0px rgba(255, 255, 255, 0.13) inset, 3px 3px 4px 0px rgba(0, 0, 0, 0.55) inset;
+  border-radius: 34px;
+  box-shadow: -3px -3px 4px 0px rgba(255, 255, 255, 0.13) inset, 3px 3px 4px 0px rgba(0, 0, 0, 0.34) inset;
 }
 
 // Light Theme Styles

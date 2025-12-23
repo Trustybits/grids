@@ -12,7 +12,23 @@
     @move="onMove"
     @resized="onDragResize"
   >
-    <div class="card-body" ref="gridTileRef">
+    <div 
+      class="card-body" 
+      :class="{ 'neon-tile': isNeonVariant }"
+      :style="neonStyle"
+      ref="gridTileRef"
+    >
+      <!-- Neon glow effects (only for neon variant) -->
+      <template v-if="isNeonVariant">
+        <div class="neon-glow-container">
+          <div class="ambient-glow"></div>
+        </div>
+        <div class="active-neon-glow">
+          <div class="neon-glow-main"></div>
+          <div class="neon-glow-core"></div>
+        </div>
+      </template>
+
       <div v-if="headerComponent" class="header-options">
         <component :is="headerComponent" :content="tile.content" />
       </div>
@@ -89,6 +105,11 @@ export default defineComponent({
     tile: {
       type: Object as () => Tile,
       required: true,
+    },
+    // Optional: Enable neon styling
+    neonColor: {
+      type: String,
+      default: '',
     },
   },
   setup(props) {
@@ -187,6 +208,20 @@ export default defineComponent({
       };
     });
 
+    // Neon variant detection and styling
+    const isNeonVariant = computed(() => {
+      return !!props.neonColor;
+    });
+
+    const neonStyle = computed(() => {
+      if (props.neonColor) {
+        return {
+          '--neon-color': props.neonColor,
+        };
+      }
+      return {};
+    });
+
     onMounted(() => {
       loadComponent();
     });
@@ -209,6 +244,8 @@ export default defineComponent({
       layoutStore,
       isEditing,
       onDragResize,
+      isNeonVariant,
+      neonStyle,
     };
   },
 });
@@ -223,6 +260,29 @@ export default defineComponent({
   background-color: var(--tile-color);
   border-radius: 16px;
   backdrop-filter: blur(20px);
+
+  /* Neon Tile Variant */
+  &.neon-tile {
+    background-color: #181818;
+    border-radius: 34px;
+    padding: 4px;
+    overflow: hidden;
+
+    .card-inner {
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 34px;
+      backdrop-filter: blur(8px);
+      // padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: background-color 0.3s ease;
+    }
+
+    .card-inner::before {
+      display: none;
+    }
+  }
 
   .card-inner {
     width: 100%;
@@ -332,5 +392,136 @@ export default defineComponent({
 .card-body:hover .btn-close,
 .card-body:hover :deep(.hover-display) {
   display: flex;
+}
+
+/* Neon Glow Effects */
+.neon-glow-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ambient-glow {
+  position: absolute;
+  left: 80px;
+  top: 174px;
+  width: 252px;
+  height: 252px;
+  opacity: 0.1;
+  pointer-events: none;
+
+  &::before {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: white;
+    filter: blur(60px);
+  }
+}
+
+.active-neon-glow {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+  pointer-events: none;
+
+  .card-body.neon-tile:hover & {
+    opacity: 1;
+  }
+}
+
+.neon-glow-main {
+  position: absolute;
+  left: -100px;
+  top: 140px;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background-color: var(--neon-color, #ffffff);
+  opacity: 0.6;
+  filter: blur(80px);
+}
+
+.neon-glow-core {
+  position: absolute;
+  left: -60px;
+  top: 180px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background-color: var(--neon-color, #ffffff);
+  filter: blur(50px);
+  
+  .card-body.neon-tile:hover & {
+    animation: neon-flicker 0.4s linear infinite alternate;
+  }
+}
+
+@keyframes neon-flicker {
+  0%, 100% { opacity: 1; }
+  25% { opacity: 0.9; }
+  50% { opacity: 0.85; }
+  75% { opacity: 0.8; }
+}
+
+.neon-icon {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+}
+
+.icon-base {
+  stroke: white;
+  stroke-opacity: 0.34;
+  stroke-width: 0.96;
+  fill: white;
+  fill-opacity: 0.34;
+  transition: all 0.3s ease-out;
+  
+  .card-body.neon-tile:hover & {
+    fill: var(--neon-color, #ffffff);
+    fill-opacity: 1;
+    filter: drop-shadow(0 0 10px var(--neon-color, #ffffff));
+  }
+}
+
+.icon-lit {
+  stroke: white;
+  stroke-width: 1.5;
+  fill: none;
+  opacity: 0;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+  transition: opacity 0.2s ease-out;
+  
+  .card-body.neon-tile:hover & {
+    opacity: 1;
+  }
+}
+
+.neon-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fbfbfb;
+  margin: 0;
+}
+
+.neon-subtitle {
+  font-size: 12px;
+  font-weight: 400;
+  color: #fbfbfb;
+  opacity: 0.6;
+  margin: 0;
+  margin-top: 3px;
 }
 </style>

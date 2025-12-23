@@ -142,7 +142,7 @@ export default defineComponent({
   padding: 8px;
   width: 100%;
   scroll-behavior: smooth;
-  border-radius: 8px;
+  border-radius: inherit; /* Inherit from parent tile */
   overflow: auto;
   margin: 0;
   line-height: 1.3;

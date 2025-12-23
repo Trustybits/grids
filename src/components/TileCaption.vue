@@ -8,7 +8,7 @@
       v-if="!editing"
       class="caption-text"
     >
-      {{ tile.caption || 'Caption...' }}
+      {{ tile.caption || '+ caption' }}
     </p>
     <p
       v-else
@@ -76,23 +76,37 @@ export default {
 
 <style scoped>
 .tile-caption {
-  background-color: white;
-  color: black;
+  background-color: rgba(0, 0, 0, .55);
+  color: rgba(255, 255, 255, .55);
   cursor: pointer;
   display: none;
   position: absolute;
-  left: 10px;
-  bottom: 10px;
-  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: auto;
+  max-width: 85%;
+  left: 13px;
+  bottom: 13px;
+  border-radius: 21px;
+  
+}
+.tile-caption:hover {
+  background-color: rgba(0, 0, 0, .89);
+  color: rgba(255, 255, 255, .89);
+  transition: color 0.5s ease-out;
+  transition: background-color 0.5s ease-out;
 }
 p {
   margin-bottom: 0;
 }
 .caption-text {
-  padding: 4px;
+  font-size: 13px;
+  padding: 5px 13px;
 }
 .caption-input {
-  padding: 4px;
+  font-size: 13px;
+  padding: 5px 13px;
   border: none;
   outline: none;
   min-width: fit-content;

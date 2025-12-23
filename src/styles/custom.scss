@@ -54,7 +54,7 @@ $theme-dark: (
 @mixin grid-dragging($theme) {
   background: map.get($theme, grid-dragging-bg) !important;
   border: 2px solid var(--primary-color);
-  opacity: 0.2;
+  // opacity: 0.2;
   border-radius: 34px;
 }
 
@@ -62,14 +62,14 @@ $theme-dark: (
 @mixin grid-placeholder($theme) {
   background: map.get($theme, placeholder-bg) !important;
   opacity: map.get($theme, placeholder-opacity) !important;
-  z-index: 2;
+  z-index: -2;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   -o-user-select: none;
   user-select: none;
   border-radius: 34px;
-  box-shadow: -3px -3px 4px 0px rgba(255, 255, 255, 0.13) inset, 3px 3px 4px 0px rgba(0, 0, 0, 0.34) inset;
+  // box-shadow: -3px -3px 4px 0px rgba(255, 255, 255, 0.13) inset, 3px 3px 4px 0px rgba(0, 0, 0, 0.34) inset;
 }
 
 // Light Theme Styles

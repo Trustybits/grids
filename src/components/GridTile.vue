@@ -37,13 +37,15 @@
         {{ `x: ${tile.x}, y: ${tile.y} w: ${tile.w} h: ${tile.h}` }}
       </p>
 
-      <div class="card-inner h-100" @mousedown="startClick" @mouseup="endClick">
-        <component
-          :is="currentComponent"
-          :content="tile.content"
-          ref="childComponent"
-        />
-      </div>
+      <!-- Content directly in card-body, no extra wrapper -->
+      <component
+        class="tile-content"
+        :is="currentComponent"
+        :content="tile.content"
+        ref="childComponent"
+        @mousedown="startClick" 
+        @mouseup="endClick"
+      />
 
       <button
         class="btn btn-sm btn-danger btn-close"
@@ -261,58 +263,54 @@ export default defineComponent({
   border-radius: 16px;
   backdrop-filter: blur(20px);
 
-  /* Neon Tile Variant */
+  /* Simple border approach - no complex pseudo-elements */
+  &:not(.neon-tile) {
+    /* Option 1: Box shadow border */
+    box-shadow: 
+      inset 0 1px 2px rgba(255, 255, 255, 0.2),
+      inset 0 -1px 2px rgba(0, 0, 0, 0.1);
+    
+    /* Option 2: Solid border (uncomment to use instead)
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    */
+  }
+
+  /* Neon Tile Variant - simplified */
   &.neon-tile {
-    background-color: #181818;
     border-radius: 34px;
-    padding: 4px;
+    background: linear-gradient(135deg, #181818, #242424);
+    padding: 2px;
     overflow: hidden;
 
-    .card-inner {
+    /* Inner background visible through padding "border" */
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 2px;
       background: rgba(0, 0, 0, 0.5);
-      border-radius: 34px;
+      border-radius: calc(34px - 2px);
       backdrop-filter: blur(8px);
-      // padding: 24px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      transition: background-color 0.3s ease;
+      z-index: 0;
     }
-
-    .card-inner::before {
-      display: none;
-    }
-  }
-
-  .card-inner {
-    width: 100%;
-    height: 100%;
-
-    // overflow: hidden;
-  }
-
-  .card-inner::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 16px;
-    padding: 2px;
-    background: linear-gradient(
-      to bottom right,
-      #ffffff66,
-      #ffffff00,
-      #ffffff00,
-      #ffffff1a
-    );
-    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    mask-composite: exclude;
-    /* border-image-slice: 1; */
   }
 
   .meta-data {
     position: absolute;
     font-size: 10px;
     left: 10px;
+    z-index: 10;
+  }
+
+  /* Content fills the tile */
+  .tile-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    
+    /* Content should respect tile border-radius */
+    border-radius: inherit;
+    overflow: hidden;
   }
 }
 

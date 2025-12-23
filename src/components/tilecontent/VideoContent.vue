@@ -180,7 +180,7 @@ export default defineComponent({
 }
 
 .video-wrapper {
-  border-radius: 8px;
+  border-radius: inherit; /* Inherit from parent tile */
   position: relative;
   width: 100%;
   height: 100%;

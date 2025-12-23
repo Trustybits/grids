@@ -184,6 +184,9 @@ export default defineComponent({
   justify-content: center;
   align-items: center;
   position: relative;
+  /* Inherit border-radius from parent */
+  border-radius: inherit;
+  overflow: hidden;
 }
 
 .full-image {
@@ -197,7 +200,8 @@ export default defineComponent({
 }
 
 .image-wrapper {
-  border-radius: 34px;
+  /* Inherit border-radius from parent tile */
+  border-radius: inherit;
   position: relative;
   width: 100%;
   height: 100%;

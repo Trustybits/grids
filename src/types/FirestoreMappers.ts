@@ -1,0 +1,33 @@
+// src/types/FirestoreMappers.ts
+import type { Layout } from "./Layout";
+
+// Mapper function to ensure Firestore data matches the Layout type
+export function mapFirestoreToLayout(doc: any): Layout {
+  const data = doc.data();
+  return {
+    id: doc.id, // Explicitly set the Firestore document ID
+    userId: data.userId || "",
+    name: data.name || "Untitled",
+    colNum: data.colNum || 12,
+    tiles: Array.isArray(data.tiles) ? data.tiles : [], // Validate tiles is an array
+    backgroundImageSrc: "",
+    backgroundEmbed: false,
+  };
+}
+
+// Mapper for new layouts
+export function createDefaultLayout(userId: string, name: string): Layout {
+  if (!name) {
+    name = "";
+  }
+
+  return {
+    id: "", // Firestore will provide the ID later
+    userId,
+    name,
+    colNum: 12, // Default number of columns
+    tiles: [], // Start with no tiles
+    backgroundImageSrc: "",
+    backgroundEmbed: false,
+  };
+}

@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{userId}/images/{imageId} {
+      // Allow read if the image's metadata indicates it's published
+      allow read: if resource.metadata.published == 'true' || 
+                  (request.auth != null && request.auth.uid == userId);
+
+      // Allow write, update, delete only by the authenticated user who owns the layout
+      allow write, update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/videos/{videoId} {
+      // Allow read if the video's metadata indicates it's published
+      allow read: if resource.metadata.published == 'true' || 
+                  (request.auth != null && request.auth.uid == userId);
+
+      // Allow write, update, delete only by the authenticated user who owns the layout
+      allow write, update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

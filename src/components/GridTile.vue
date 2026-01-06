@@ -12,7 +12,7 @@
     @move="onMove"
     @resized="onDragResize"
   >
-    <div class="card-body" ref="gridTileRef">
+    <div class="card-body" ref="gridTileRef" @mousedown="startClick" @mouseup="endClick">
       <div v-if="headerComponent" class="header-options">
         <component :is="headerComponent" :content="tile.content" />
       </div>
@@ -21,13 +21,11 @@
         {{ `x: ${tile.x}, y: ${tile.y} w: ${tile.w} h: ${tile.h}` }}
       </p>
 
-      <div class="card-inner h-100" @mousedown="startClick" @mouseup="endClick">
-        <component
-          :is="currentComponent"
-          :content="tile.content"
-          ref="childComponent"
-        />
-      </div>
+      <component
+        :is="currentComponent"
+        :content="tile.content"
+        ref="childComponent"
+      />
 
       <button
         class="btn btn-sm btn-danger btn-close"
@@ -223,19 +221,22 @@ export default defineComponent({
   background-color: var(--color-tile-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: var(--tile-border-radius);
+  padding: var(--tile-padding);
   backdrop-filter: blur(20px);
-  transition: box-shadow var(--transition-normal);
-
-  .card-inner {
-    width: 100%;
-    height: 100%;
+  box-sizing: border-box;
+  
+  /* Remove transition that causes drag lag */
+  /* Only apply hover effect via :hover pseudo-class */
+  &:hover {
+    box-shadow: var(--shadow-tile-hover);
   }
+}
 
-  .meta-data {
-    position: absolute;
-    font-size: 10px;
-    left: 10px;
-  }
+.meta-data {
+  position: absolute;
+  font-size: 10px;
+  left: 10px;
+  top: 10px;
 }
 
 /* Remove Button */
@@ -247,8 +248,8 @@ export default defineComponent({
   z-index: 1;
   opacity: 0.5;
 
-  .btn-close:hover {
-    z-index: 0;
+  &:hover {
+    opacity: 1;
   }
 }
 
@@ -278,14 +279,14 @@ export default defineComponent({
 
 .resize-options button {
   font-size: 10px;
-  background-color: #ffffff1a;
-  border-radius: 16px;
+  background-color: var(--color-content-low);
+  border-radius: var(--radius-md);
   height: 32px;
   width: 32px;
   align-items: center;
   justify-content: center;
   padding: 0px;
-  border: solid #ffffff39 1px;
+  border: solid var(--color-tile-stroke) 1px;
 }
 
 :deep(.hover-display) {

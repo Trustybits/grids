@@ -1,5 +1,5 @@
 <template>
-  <div class="tile-content">
+  <div class="link-tile-content">
     <div class="tile-logo">
       <img :src="content.faviconUrl" :alt="content.domain" />
     </div>
@@ -54,4 +54,11 @@ export default defineComponent({
 </script>
 
 <style scoped>
+.link-tile-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tile-content-gap);
+  width: 100%;
+  height: 100%;
+}
 </style>

@@ -5,30 +5,27 @@
 }
 
 @mixin grid-tile($theme) {
-  background: var(--color-tile-background);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-tile);
-  transition: box-shadow var(--transition-normal);
-  
-  &:hover {
-    box-shadow: var(--shadow-tile-hover);
-  }
+  // vue-grid-item should be completely transparent - just a positioning wrapper
+  // All visual styling is handled by .card-body inside
+  background: transparent;
 }
 
 @mixin grid-dragging($theme) {
-  background: var(--color-content-low) !important;
-  border: 2px solid var(--color-content-high);
-  opacity: 0.2;
-  border-radius: var(--radius-md);
+  // Minimal styling for drag state - applied to wrapper
+  opacity: 0.5;
+  
+  .card-body {
+    border-color: var(--color-content-high) !important;
+  }
 }
 
 @mixin grid-placeholder($theme) {
-  background: var(--color-content-default) !important;
-  opacity: 0.5 !important;
+  background: var(--color-content-default);
+  border-radius: var(--tile-border-radius);
+  // Placeholder styling
+  
   z-index: var(--z-grid-placeholder);
   user-select: none;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-placeholder);
 }
 
 body.theme-light,

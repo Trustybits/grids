@@ -220,33 +220,15 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   position: relative;
-  background-color: var(--tile-color);
-  border-radius: 16px;
+  background-color: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--tile-border-radius);
   backdrop-filter: blur(20px);
+  transition: box-shadow var(--transition-normal);
 
   .card-inner {
     width: 100%;
     height: 100%;
-
-    // overflow: hidden;
-  }
-
-  .card-inner::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 16px;
-    padding: 2px;
-    background: linear-gradient(
-      to bottom right,
-      #ffffff66,
-      #ffffff00,
-      #ffffff00,
-      #ffffff1a
-    );
-    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    mask-composite: exclude;
-    /* border-image-slice: 1; */
   }
 
   .meta-data {
@@ -278,28 +260,11 @@ export default defineComponent({
   bottom: 4px;
   left: 50%;
   transform: translate(-50%, 100%);
-  border-radius: 24px;
+  border-radius: var(--radius-lg);
   padding: 6px;
   justify-content: center;
   gap: 0px;
-}
-
-.resize-options::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 24px;
-  padding: 2px;
-  background: linear-gradient(
-    to bottom right,
-    #ffffff66,
-    #ffffff00,
-    #ffffff00,
-    #ffffff1a
-  );
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  /* border-image-slice: 1; */
+  background-color: var(--color-content-low);
 }
 
 /* Customizable Header Styles */

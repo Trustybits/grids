@@ -1,14 +1,12 @@
 <template>
   <div>
-    <!-- <button @click="toggleTheme" class="primary">
-      {{ isDarkMode ? '☀🌑' : '🔆🌙' }}
-    </button> -->
-    <!-- <i class="fa fa-moon-o"></i> -->
     <label class="switch">
-      
-      <input @click="toggleTheme" type="checkbox">
+      <input 
+        @click="toggleTheme" 
+        type="checkbox" 
+        :checked="isDarkMode"
+      >
       <span class="slider round"></span>
-      
     </label>
   </div>
 </template>
@@ -60,8 +58,7 @@ export default {
   right: 0;
   bottom: 0;
   background-color: #5b488f;
-  -webkit-transition: .4s;
-  transition: .4s;
+  transition: var(--transition-normal);
 }
 
 .slider:before {
@@ -72,27 +69,19 @@ export default {
   left: 4px;
   bottom: 4px;
   background-color: white;
-  -webkit-transition: .4s;
-  transition: .4s;
+  transition: var(--transition-normal);
 }
 
 input:checked + .slider {
   background-color: #757c15;
 }
 
-/* input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
-} */
-
 input:checked + .slider:before {
-  -webkit-transform: translateX(20px);
-  -ms-transform: translateX(20px);
   transform: translateX(20px);
 }
 
-/* Rounded sliders */
 .slider.round {
-  border-radius: 34px;
+  border-radius: var(--radius-full);
 }
 
 .slider.round:before {

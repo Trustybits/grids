@@ -8,6 +8,12 @@
   // vue-grid-item should be completely transparent - just a positioning wrapper
   // All visual styling is handled by .card-body inside
   background: transparent;
+  
+  // Hide the default resize handle from vue3-grid-layout
+  .vue-resizable-handle {
+    // display: none !important;
+    opacity: 0 !important;
+  }
 }
 
 @mixin grid-dragging($theme) {

@@ -140,6 +140,8 @@ export default {
   transform: translate(-50%, 0);
 }
 
+/* Visual styling handled by custom.scss globally */
+/* JojuGrid only handles animation behavior */
 .vue-grid-item {
   :not(&.resizing) {
     transition-property: transform, width, height !important;
@@ -149,13 +151,6 @@ export default {
       0.27,
       1.55
     ) !important;
-  }
-  box-shadow: 1px 1px 15px rgb(153, 153, 153);
-  border-radius: 8px;
-
-  &.vue-draggable-dragging {
-    opacity: 1 !important;
-    background-color: white !important;
   }
 }
 

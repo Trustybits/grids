@@ -7,9 +7,10 @@ import { app as firebaseApp } from './firebase';
 import router from './router';
 
 import '@fortawesome/fontawesome-free/css/all.css';
-import 'bootstrap/dist/css/bootstrap.min.css'; // CSS
-// import 'bootstrap/dist/js/bootstrap.bundle.min.js'; // JS
+import 'bootstrap/dist/css/bootstrap.min.css';
 
+import './styles/tokens.scss';
+import './styles/themes.scss';
 import './styles/custom.scss';
 
 const app = createApp(App);

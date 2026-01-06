@@ -1,152 +1,92 @@
 @use "sass:map";
 
-// Define Theme Variables
-$theme-light: (
-  primary: #009688,
-  secondary: #bfc2c462,
-  destructive: #e91e63,
-  background: #f5f5f5, // Soft off-white for layout background
-  grid-bg: #ffffff00, // White for grid layout
-  text: #212529, // Dark text for readability
-  placeholder-bg: #000000, // Light cyan for placeholder
-  placeholder-opacity: 0.2,
-  grid-tile-bg: #ffffff00, // Light green for grid tiles
-  grid-dragging-bg: #0000000e, // Muted teal for dragging state
-);
-
-$theme-dark: (
-  primary: #9e4db6,
-  secondary: #312a354b,
-  destructive: #ec407a,
-  background: #2f2931, // Deep dark gray for layout background
-  grid-bg: #1e1e1e00, // Dark gray for grid layout
-  text: #ffffff, // Light text for readability
-  placeholder-bg: #1e1e1e, // Muted dark blue-gray for placeholder
-  placeholder-opacity: 0.5,
-  grid-tile-bg: #574d5731, // Darker gray-blue for grid tiles
-  grid-dragging-bg: #ffffff02, // Muted blue-gray for dragging state
-);
-
-// Mixin for applying theme variables
-@mixin theme($theme) {
-  background-color: map.get($theme, background);
-  color: map.get($theme, text);
-  --primary-color: #{map.get($theme, primary)};
-  --secondary-color: #{map.get($theme, secondary)};
-  --destructive-color: #{map.get($theme, destructive)};
-  --text-color: #{map.get($theme, text)};
-  --tile-color: #{map.get($theme, grid-tile-bg)};
-}
-
-// Mixin for Grid Layout Styling
 @mixin grid-layout($theme) {
-  background-color: map.get($theme, grid-bg);
+  background-color: transparent;
 }
 
-// Mixin for Grid Tile Styling
 @mixin grid-tile($theme) {
-  background: map.get($theme, grid-tile-bg);
-  border-radius: 16px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--color-tile-background);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-tile);
+  transition: box-shadow var(--transition-normal);
+  
+  &:hover {
+    box-shadow: var(--shadow-tile-hover);
+  }
 }
 
-// Mixin for Draggable Grid Tile Styling
 @mixin grid-dragging($theme) {
-  background: map.get($theme, grid-dragging-bg) !important;
-  border: 2px solid var(--primary-color);
+  background: var(--color-content-low) !important;
+  border: 2px solid var(--color-content-high);
   opacity: 0.2;
-  border-radius: 16px;
+  border-radius: var(--radius-md);
 }
 
-// Mixin for Grid Placeholder Styling
 @mixin grid-placeholder($theme) {
-  background: map.get($theme, placeholder-bg) !important;
-  opacity: map.get($theme, placeholder-opacity) !important;
-  z-index: 2;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  -o-user-select: none;
+  background: var(--color-content-default) !important;
+  opacity: 0.5 !important;
+  z-index: var(--z-grid-placeholder);
   user-select: none;
-  border-radius: 16px;
-  box-shadow: -3px -3px 4px 0px rgba(255, 255, 255, 0.13) inset, 3px 3px 4px 0px rgba(0, 0, 0, 0.55) inset;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-placeholder);
 }
 
-// Light Theme Styles
-body.theme-light {
-  @include theme($theme-light);
-}
-
-body.theme-light .vue-grid-layout {
-  @include grid-layout($theme-light);
-}
-
-body.theme-light .vue-grid-layout .vue-grid-item {
-  @include grid-tile($theme-light);
-}
-
-body.theme-light .vue-grid-layout .vue-draggable-dragging {
-  @include grid-dragging($theme-light);
-}
-
-body.theme-light .vue-grid-layout .vue-grid-placeholder {
-  @include grid-placeholder($theme-light);
-}
-
-// Dark Theme Styles
+body.theme-light,
 body.theme-dark {
-  @include theme($theme-dark);
+  .vue-grid-layout {
+    @include grid-layout(null);
+  }
+
+  .vue-grid-layout .vue-grid-item {
+    @include grid-tile(null);
+  }
+
+  .vue-grid-layout .vue-draggable-dragging {
+    @include grid-dragging(null);
+  }
+
+  .vue-grid-layout .vue-grid-placeholder {
+    @include grid-placeholder(null);
+  }
 }
 
-body.theme-dark .vue-grid-layout {
-  @include grid-layout($theme-dark);
+.bkg-primary { 
+  background-color: var(--color-substack);
 }
 
-body.theme-dark .vue-grid-layout .vue-grid-item {
-  @include grid-tile($theme-dark);
+.bkg-secondary { 
+  background-color: var(--color-content-default);
 }
 
-body.theme-dark .vue-grid-layout .vue-draggable-dragging {
-  @include grid-dragging($theme-dark);
+.text-primary {
+  color: var(--color-text-primary);
 }
 
-body.theme-dark .vue-grid-layout .vue-grid-placeholder {
-  @include grid-placeholder($theme-dark);
+.text-secondary {
+  color: var(--color-content-default);
 }
 
-body.theme-light {
-  /* Background Options */
-  .bkg-primary { background-color: #009688; }
-  .bkg-secondary { background-color: #6c757d; }
-  .bkg-destructive { background-color: #e91e63; }
-  .bkg-neutral { background-color: #f5f5f58c; }
-  .bkg-placeholder { background-color: #e0f7fa; }
-  .bkg-grid { background-color: #ffffff; }
-  .bkg-dragging { background-color: #b2dfdb; }
-
-  /* Text Color Options */
-  .txt-primary { color: #009688; }
-  .txt-secondary { color: #6c757d; }
-  .txt-destructive { color: #e91e63; }
-  .txt-neutral { color: #212529; }
+.bkg-instagram-gradient {
+  background: linear-gradient(
+    45deg,
+    var(--color-instagram-purple),
+    var(--color-instagram-pink),
+    var(--color-instagram-red),
+    var(--color-instagram-orange),
+    var(--color-instagram-yellow)
+  );
 }
 
-/* Dark Theme */
-body.theme-dark {
-  /* Background Options */
-  .bkg-primary { background-color: #e25ffc; }
-  .bkg-secondary { background-color: #1e1e1ebd; }
-  .bkg-destructive { background-color: #ec407a; }
-  .bkg-neutral { background-color: #1e1e1e8c; }
-  .bkg-placeholder { background-color: #37474f; }
-  .bkg-grid { background-color: #1e1e1e; }
-  .bkg-dragging { background-color: #455a64; }
+.bkg-youtube {
+  background-color: var(--color-youtube-red);
+}
 
-  /* Text Color Options */
-  .txt-primary { color: #4db6ac; }
-  .txt-secondary { color: #adb5bd; }
-  .txt-destructive { color: #ec407a; }
-  .txt-neutral { color: #f8f9fa; }
+.bkg-figma {
+  background-color: var(--color-figma-purple);
+}
+
+.bkg-substack {
+  background-color: var(--color-substack);
 }
 
 button {

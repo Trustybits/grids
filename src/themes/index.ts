@@ -16,30 +16,37 @@ const rgbaToHex = (r: number, g: number, b: number, a: number = 1): string => {
 };
 
 const rawColors = {
+  // Base colors
   mediumDark: '#000000',
   mediumLight: '#ffffff',
   
-  darkPrimaryBg: rgbaToHex(0.0627, 0.0627, 0.0549),
-  contentBg: rgbaToHex(1, 0.996, 0.96),
+  // Primary background and content colors
+  darkPrimaryBg: '#10100E',
+  contentBg: '#FFFEF5',
   
-  tileBgLightPrimary: rgbaToHex(0.9959, 0.9918, 0.9241),
-  tileBgDarkPrimary: rgbaToHex(0.2, 0.1936, 0.1725, 0.21),
+  // Tile backgrounds
+  tileBgLightPrimary: '#FEFDEC',
+  tileBgDarkPrimary: '#33312C21', // 21% opacity
   
-  textPrimary: rgbaToHex(0.2, 0.1936, 0.1725),
+  // Text
+  textPrimary: '#33312C',
   
-  strokeDarkPrimary: rgbaToHex(1, 0.996, 0.96, 0.13),
+  // Strokes
+  strokeDarkPrimary: '#FFFEF521', // 13% opacity
   
-  gridsLight100: rgbaToHex(0.9959, 0.9918, 0.9241),
-  gridsLight76: rgbaToHex(0.9959, 0.9918, 0.9241, 0.76),
-  gridsLight55: rgbaToHex(0.9959, 0.9918, 0.9241, 0.55),
-  gridsLight34: rgbaToHex(0.9959, 0.9918, 0.9241, 0.34),
-  gridsLight8: rgbaToHex(0.9959, 0.9918, 0.9241, 0.08),
+  // Grids light collection (based on #FEFDEC)
+  gridsLight100: '#FEFDEC',
+  gridsLight76: '#FEFDEC76',  // 76% opacity = C2 in hex
+  gridsLight55: '#FEFDEC55',  // 55% opacity = 8C in hex
+  gridsLight34: '#FEFDEC34',  // 34% opacity = 57 in hex
+  gridsLight8: '#FEFDEC08',   // 8% opacity
   
-  gridsDark0: rgbaToHex(0.2, 0.1936, 0.1725),
-  gridsDark76: rgbaToHex(0.2, 0.1936, 0.1725, 0.76),
-  gridsDark55: rgbaToHex(0.2, 0.1936, 0.1725, 0.55),
-  gridsDark34: rgbaToHex(0.2, 0.1936, 0.1725, 0.34),
-  gridsDark8: rgbaToHex(0.2, 0.1936, 0.1725, 0.08),
+  // Grids dark collection (based on #33312C)
+  gridsDark0: '#33312C',
+  gridsDark76: '#33312CC2',   // 76% opacity = C2 in hex
+  gridsDark55: '#33312C8C',   // 55% opacity = 8C in hex
+  gridsDark34: '#33312C57',   // 34% opacity = 57 in hex
+  gridsDark8: '#33312C08',    // 8% opacity
   
   substackPrimary: rgbaToHex(1, 0.4039, 0.0980),
   instagramYellow: rgbaToHex(1, 0.8392, 0),

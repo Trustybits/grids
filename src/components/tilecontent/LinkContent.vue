@@ -57,8 +57,9 @@ export default defineComponent({
 .link-tile-content {
   display: flex;
   flex-direction: column;
-  gap: var(--tile-content-gap);
+  justify-content: space-between;
   width: 100%;
   height: 100%;
+  padding: var(--tile-padding);
 }
 </style>

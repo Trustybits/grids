@@ -266,6 +266,8 @@ export default defineComponent({
   justify-content: center;
   gap: 0px;
   background-color: var(--color-content-low);
+  white-space: nowrap;
+  flex-wrap: nowrap;
 }
 
 /* Customizable Header Styles */

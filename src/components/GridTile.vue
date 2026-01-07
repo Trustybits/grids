@@ -221,9 +221,11 @@ export default defineComponent({
   background-color: var(--color-tile-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: var(--tile-border-radius);
-  padding: var(--tile-padding);
   backdrop-filter: blur(20px);
   box-sizing: border-box;
+  
+  /* Padding controlled by individual tile components */
+  /* This allows different tile types to use different padding amounts */
   
   /* Remove transition that causes drag lag */
   /* Only apply hover effect via :hover pseudo-class */

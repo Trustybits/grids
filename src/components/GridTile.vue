@@ -34,30 +34,11 @@
 
       <TileCaption :tile="tile" />
 
-      <div class="resize-options bkg-neutral text-primary">
-        <div class="quick-resize-inner">
-          <button
-            class="bkg-secondary txt-neutral small me-1"
-            @click="resize(5, 1)"
-          >
-            5x1
-          </button>
-          <button
-            class="bkg-secondary txt-neutral small me-1"
-            @click="resize(2, 2)"
-          >
-            2x2
-          </button>
-          <button
-            class="bkg-secondary txt-neutral small me-1"
-            @click="resize(3, 2)"
-          >
-            3x2
-          </button>
-          <button class="bkg-secondary txt-neutral small" @click="resize(2, 4)">
-            2x4
-          </button>
-        </div>
+      <div class="tile-toolbar" @mousedown.stop>
+        <button class="toolbar-btn" @click.stop="resize(5, 1)">5x1</button>
+        <button class="toolbar-btn" @click.stop="resize(2, 2)">2x2</button>
+        <button class="toolbar-btn" @click.stop="resize(3, 2)">3x2</button>
+        <button class="toolbar-btn" @click.stop="resize(2, 4)">2x4</button>
       </div>
     </div>
   </grid-item>
@@ -305,21 +286,31 @@ export default defineComponent({
   }
 }
 
-/* Resize Options */
-.resize-options {
-  display: none;
-  margin-top: 4px;
+/* Tile Toolbar (formerly resize options) */
+.tile-toolbar {
   position: absolute;
   bottom: 4px;
   left: 50%;
-  transform: translate(-50%, 100%);
-  border-radius: var(--radius-lg);
-  padding: 6px;
+  display: flex;
+  flex-direction: row;
   justify-content: center;
-  gap: 0px;
-  background-color: var(--color-content-low);
+  align-items: center;
+  gap: 4px;
   white-space: nowrap;
   flex-wrap: nowrap;
+  
+  /* Hidden by default with smooth animation properties */
+  opacity: 0;
+  transform: translate(-50%, calc(100% + 10px)) scale(0.9);
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--easing-ease-out),
+              transform var(--duration-normal) var(--easing-spring);
+  
+  /* Toolbar styling matching close button */
+  background-color: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-md);
+  padding: 6px;
 }
 
 /* Customizable Header Styles */
@@ -331,16 +322,26 @@ export default defineComponent({
   transform: translate(-50%, -100%);
 }
 
-.resize-options button {
+.tile-toolbar .toolbar-btn {
   font-size: 10px;
-  background-color: var(--color-content-low);
+  background-color: transparent;
+  color: var(--color-text-primary);
+  border: none;
   border-radius: var(--radius-md);
   height: 32px;
-  width: 32px;
+  min-width: 32px; /* Changed width to min-width for flexibility */
+  padding: 0 4px; /* Add horizontal padding for text buttons */
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0px;
-  border: solid var(--color-tile-stroke) 1px;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--easing-ease-in-out),
+              transform var(--duration-fast) var(--easing-ease-out);
+  
+  &:hover {
+    background-color: var(--color-content-low);
+    transform: scale(1.1);
+  }
 }
 
 :deep(.hover-display) {
@@ -348,7 +349,6 @@ export default defineComponent({
 }
 
 /* Show elements on tile hover with smooth animations */
-.card-body:hover .resize-options,
 .card-body:hover .header-options,
 .card-body:hover :deep(.hover-display) {
   display: flex;
@@ -357,6 +357,12 @@ export default defineComponent({
 .card-body:hover .btn-close {
   opacity: 1;
   transform: scale(1);
+  pointer-events: auto;
+}
+
+.card-body:hover .tile-toolbar {
+  opacity: 1;
+  transform: translate(-50%, 100%) scale(1);
   pointer-events: auto;
 }
 </style>

@@ -243,15 +243,65 @@ export default defineComponent({
 
 /* Remove Button */
 .card-body .btn-close {
-  display: none;
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: -8px;
+  right: -8px;
   z-index: 1;
-  opacity: 0.5;
+  cursor: pointer;
+  border-radius: 100%;
+  padding: 3px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* Hidden by default with smooth animation properties using tokens */
+  opacity: 0;
+  transform: scale(0.2);
+  pointer-events: none;
+  transition: transform var(--duration-normal) var(--easing-spring), 
+              // opacity var(--duration-fast) var(--easing-ease-out), 
+              background-color var(--duration-fast) var(--easing-ease-in-out), 
+              color var(--duration-fast) var(--easing-ease-in-out), 
+              border-color var(--duration-fast) var(--easing-ease-in-out);
+  
+  /* Default state - solid colors */
+  background-color: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  
+  /* Override Bootstrap btn-close filter to use our color token */
+  filter: none;
+  background-image: none;
+  
+  /* X icon styling - uses pseudo-element for proper color control */
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 2px;
+    background-color: var(--color-text-primary);
+    transition: background-color var(--duration-normal) var(--easing-ease-in-out);
+  }
+  
+  &::before {
+    transform: rotate(45deg);
+  }
+  
+  &::after {
+    transform: rotate(-45deg);
+  }
 
+  /* Button hover state - turns red */
   &:hover {
-    opacity: 1;
+    background-color: #ff3737;
+    border-color: #ff3737;
+    
+    &::before,
+    &::after {
+      background-color: #ffffff;
+    }
   }
 }
 
@@ -297,10 +347,16 @@ export default defineComponent({
   display: none;
 }
 
+/* Show elements on tile hover with smooth animations */
 .card-body:hover .resize-options,
 .card-body:hover .header-options,
-.card-body:hover .btn-close,
 .card-body:hover :deep(.hover-display) {
   display: flex;
+}
+
+.card-body:hover .btn-close {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
 }
 </style>

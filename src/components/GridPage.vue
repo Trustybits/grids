@@ -2,32 +2,6 @@
   <div class="background-image-container">
     <div :style="backgroundStyle" class="background-image-overlay"></div>
 
-    <button
-      v-if="isOwner"
-      class="btn btn-secondary background-image-button"
-      @click="selectImage"
-    >
-      Edit Background
-    </button>
-
-    <!-- Embed background -->
-    <button
-      v-if="isOwner"
-      class="btn btn-secondary background-embed-button"
-      @click="embedBackground"
-    >
-      Embed Background
-    </button>
-
-    <!-- Delete layout -->
-    <button
-      v-if="isOwner"
-      class="btn btn-danger delete-layout-button"
-      @click="confirmDelete"
-    >
-      🗑 Delete Layout
-    </button>
-
     <input
       type="file"
       ref="imageInput"
@@ -60,24 +34,11 @@
     </div>
   </div>
 
-  <div class="devToolbar">
-    <button type="button" class="devToolMenu" @click="toggleDevToolbar">
-      🛠
-    </button>
-    <div class="content" v-show="showDevToolbar">
-      <p>DEV TOOLBAR</p>
-      <div class="devOptions">
-        <label class="form-check-label">
-          <input
-            type="checkbox"
-            class="form-check-input"
-            v-model="layoutStore.showMetaData"
-          />
-          Metadata
-        </label>
-      </div>
-    </div>
-  </div>
+  <GridMenu
+    @select-image="selectImage"
+    @embed-background="embedBackground"
+    @confirm-delete="confirmDelete"
+  />
 </template>
 
 <script lang="ts">
@@ -93,12 +54,14 @@ import {
 
 import JojuGrid from "@/components/JojuGrid.vue";
 import JojuButtons from "@/components/TileButtons.vue";
+import GridMenu from "@/components/GridMenu.vue";
 import { useLayoutStore } from "@/stores/layout";
 
 export default defineComponent({
   components: {
     JojuGrid,
     JojuButtons,
+    GridMenu,
   },
   setup() {
     const layoutStore = useLayoutStore();
@@ -174,11 +137,6 @@ export default defineComponent({
       router.push("/dashboard");
     };
 
-    const showDevToolbar = ref(false);
-    const toggleDevToolbar = () => {
-      showDevToolbar.value = !showDevToolbar.value;
-    };
-
     onMounted(() => {
       const layoutId = route.params.id;
       if (layoutId) {
@@ -199,120 +157,15 @@ export default defineComponent({
       imageInput,
       auth,
       isOwner,
-      toggleDevToolbar,
-      showDevToolbar,
     };
   },
 });
 </script>
 
 <style lang="scss">
-.background-image-container > .background-image-button {
-  position: absolute;
-  top: 70px;
-  left: 10px;
-  display: none;
-  z-index: 1;
-}
-
-.background-image-container > .background-embed-button {
-  position: absolute;
-  z-index: 1;
-  top: 70px;
-  left: 170px;
-  display: none;
-}
-
-.background-image-container > .delete-layout-button {
-  position: absolute;
-  z-index: 1;
-  top: 70px;
-  right: 10px;
-  display: none;
-}
-
-.background-image-container:hover > .background-image-button,
-.background-image-container:hover > .background-embed-button,
-.background-image-container:hover > .delete-layout-button {
-  display: block;
-}
-
-.devToolbar {
-  position: fixed;
-  right: 0px;
-  top: 0px;
-  transform: translate(-2px, 200px);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  justify-content: center;
-  align-items: center;
-  height: auto;
-  backdrop-filter: blur(20px);
-  padding: 8px;
-  background-color: #ff6c6c39;
-  border: solid #ffffff39 1px;
-  border-radius: 8px;
-}
-
-.devToolMenu {
-  background-color: #eeeeee21;
-  color: #444;
-  cursor: pointer;
-  padding: 12px;
-  border: none;
-  text-align: left;
-  outline: none;
-  font-size: 15px;
-}
-
-.active,
-.devToolMenu:hover {
-  background-color: #ccc;
-}
-
-.content {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-}
-
-.devOptions {
-  background-color: #f1f1f11f;
-  border-radius: 8px;
-  padding: 8px;
-}
-
-.form-check-label {
-  cursor: pointer;
-  font-size: 12px;
-
-  input {
-    position: relative;
-    background-color: rgba(0, 0, 0, 0.103);
-    height: 18px;
-    width: 18px;
-    border: solid rgba(255, 255, 255, 0.527) 2px;
-    border-radius: 4px !important;
-    margin: 0px;
-  }
-}
-
-.checkmark {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 12px;
-  width: 12px;
-  margin: 0px;
-  background-color: rgba(0, 255, 255, 0.158);
-}
-
 .toolbar {
   position: fixed;
-  z-index: 1;
+  z-index: var(--z-dropdown);
   top: 6rem;
   left: 50vw;
   transform: translate(-50%, -50%);

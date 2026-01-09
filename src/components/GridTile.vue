@@ -327,7 +327,7 @@ export default defineComponent({
   background-color: transparent;
   color: var(--color-text-primary);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   height: 32px;
   min-width: 32px; /* Changed width to min-width for flexibility */
   padding: 0 4px; /* Add horizontal padding for text buttons */

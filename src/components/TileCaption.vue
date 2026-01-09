@@ -77,7 +77,7 @@ export default {
 <style scoped>
 .tile-caption {
   background-color: var(--color-tile-background);
-  color: var(--color-text-primary);
+  color: var(--color-text-primary)/0.5;
   cursor: pointer;
   display: none;
   position: absolute;
@@ -93,18 +93,21 @@ export default {
   
 }
 .tile-caption:hover {
-  background-color: var(--color-tile-background/0.8);
-  color: var(--color-text-primary/0.8);
+  background-color: var(--color-tile-background);
+  color: var(--color-text-primary);
   transition: color 0.5s ease-out;
   transition: background-color 0.5s ease-out;
 }
+
 p {
   margin-bottom: 0;
 }
+
 .caption-text {
   font-size: 13px;
   padding: 5px 13px;
 }
+
 .caption-input {
   font-size: 13px;
   padding: 5px 13px;

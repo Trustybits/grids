@@ -184,6 +184,8 @@ export default defineComponent({
   justify-content: center;
   align-items: center;
   position: relative;
+  border-radius: var(--tile-border-radius);
+  overflow: hidden;
 }
 
 .full-image {
@@ -197,7 +199,7 @@ export default defineComponent({
 }
 
 .image-wrapper {
-  border-radius: 8px;
+  border-radius: var(--tile-border-radius);
   position: relative;
   width: 100%;
   height: 100%;

@@ -3,6 +3,9 @@
     <!-- Left Navigation Bar -->
     <LeftNavBar />
 
+    <!-- User Menu at Bottom Left -->
+    <UserMenu />
+
     <!-- Top Bar for Layout Title Editor and Theme Toggle -->
     <div class="top-bar" v-if="showTopBar">
       <LayoutTitleEditor v-if="showTitleEditor" />
@@ -20,6 +23,7 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import LeftNavBar from './components/LeftNavBar.vue';
+import UserMenu from './components/UserMenu.vue';
 import LayoutTitleEditor from './components/LayoutTitleEditor.vue';
 import ThemeToggle from './components/ThemeToggle.vue';
 import { useLayoutStore } from '@/stores/layout';
@@ -49,9 +53,9 @@ const showTopBar = computed(() => {
   align-items: center;
   padding: var(--spacing-md) var(--spacing-lg);
   z-index: var(--z-base);
-  backdrop-filter: blur(20px);
-  background-color: var(--color-content-background);
-  opacity: 0.95;
+  // backdrop-filter: blur(20px);
+  // background-color: var(--color-content-background);
+  // opacity: 0.95;
 }
 
 .main-content {

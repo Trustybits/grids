@@ -25,11 +25,11 @@
       <button class="btn btn-secondary" @click="addLinkElement">
         🔗<!-- <img src="/src/svgs/icons/linkTile.svg" \/> -->
       </button>
-      <button class="btn btn-secondary" @click="addLinkElement">📽</button>
+      <!-- <button class="btn btn-secondary" @click="addLinkElement">📽</button>
       <button class="btn btn-secondary" @click="addLinkElement">🎵</button>
-      <button class="btn btn-secondary" @click="addLinkElement">📌</button>
+      <button class="btn btn-secondary" @click="addLinkElement">📌</button> -->
       <button class="btn btn-secondary" @click="addEmbedElement">💻</button>
-      <button class="btn btn-secondary" @click="addLinkElement">➕</button>
+      <!-- <button class="btn btn-secondary" @click="addLinkElement">➕</button> -->
 
       <input
         type="file"
@@ -194,8 +194,9 @@ export default {
   gap: 8px;
 
   position: relative;
+  top: -32px;
   background-color: var(--secondary-color);
-  border-radius: 32px;
+  border-radius: var(--radius-md);
   backdrop-filter: blur(20px);
 }
 
@@ -215,7 +216,7 @@ export default {
 .toolbarAlpha button {
   height: 40px;
   width: 40px;
-  border-radius: 20px;
+  border-radius: var(--radius-md);
   padding: 4px;
   cursor: pointer;
   font-size: 12px;

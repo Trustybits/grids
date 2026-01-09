@@ -135,8 +135,10 @@ export default defineComponent({
   top: 50%;
   transform: translateY(-50%);
   z-index: var(--z-fixed);
-  width: 6px;
-  transition: width var(--duration-normal) var(--easing-smooth);
+  /* Slightly wider to increase hover hitbox; inner bar stays narrow */
+  width: 32px;
+  transition: width var(--duration-normal) var(--easing-smooth),
+    opacity var(--duration-normal) var(--easing-smooth);
 
   &.is-expanded {
     width: 40px;
@@ -152,9 +154,13 @@ export default defineComponent({
     border: 1.4px solid var(--color-tile-stroke);
     border-radius: var(--radius-full);
     padding: var(--spacing-sm);
-    width: 100%;
+    width: 6px; /* visible bar width in collapsed state */
     min-height: fit-content;
     transition: all var(--duration-normal) var(--easing-smooth);
+  }
+
+  &.is-expanded .nav-bar-container {
+    width: 100%;
   }
 
   .nav-button {
@@ -170,9 +176,13 @@ export default defineComponent({
     cursor: pointer;
     text-decoration: none;
     color: var(--color-text-primary);
-    transition: all var(--duration-fast) var(--easing-smooth);
+    transition: opacity var(--duration-normal) var(--easing-smooth),
+      transform var(--duration-normal) var(--easing-smooth),
+      color var(--duration-fast) var(--easing-smooth);
     padding: 0;
     overflow: visible;
+    opacity: 1;
+    transform: translateX(0);
 
     .nav-button-icon {
       position: relative;
@@ -233,13 +243,10 @@ export default defineComponent({
       transform: translateX(0);
     }
   }
-
 }
 
 // Collapsed state - solid bar with no visible contents
 .left-nav-bar:not(.is-expanded) {
-  width: 6px;
-
   .nav-bar-container {
     background: var(--color-tile-stroke);
     border: 1px solid var(--color-tile-stroke);
@@ -248,7 +255,13 @@ export default defineComponent({
   }
 
   .nav-button {
-    display: none;
+    opacity: 0;
+    transform: translateX(-8px);
+    pointer-events: none;
+
+    .active-dot {
+      opacity: 0;
+    }
   }
 }
 </style>

@@ -195,8 +195,9 @@ export default {
 
   position: relative;
   top: -32px;
-  background-color: var(--secondary-color);
+  background-color: var(--color-tile-background);
   border-radius: var(--radius-md);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
   backdrop-filter: blur(20px);
 }
 
@@ -221,8 +222,12 @@ export default {
   cursor: pointer;
   font-size: 12px;
   color: white;
-  border: solid #ffffff39 1px;
-  background-color: rgba(255, 255, 255, 0.295);
+  border: none;
+  background-color: var(--color-tile-background);
+
+  &:hover {
+    background-color: var(--color-content-low);
+  }
 }
 
 .devToolbar {

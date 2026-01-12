@@ -26,6 +26,7 @@ export function createTile(
     y,
     w,
     h,
+    borderEnabled: true,
     content: createTileContent(type, contentData),
     caption,
   };

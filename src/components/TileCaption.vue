@@ -77,7 +77,7 @@ export default {
 <style scoped>
 .tile-caption {
   background-color: var(--color-tile-background);
-  color: var(--color-text-primary)/0.5;
+  color: var(--color-content-low);
   cursor: pointer;
   display: none;
   position: absolute;

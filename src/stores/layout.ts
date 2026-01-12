@@ -211,6 +211,16 @@ export const useLayoutStore = defineStore("layout", {
       }
     },
 
+    toggleTileBorder(id: string) {
+      if (!this.currentLayout) return;
+
+      const tile = this.currentLayout.tiles.find((tile) => tile.i === id);
+      if (tile) {
+        tile.borderEnabled = tile.borderEnabled === false ? true : false;
+        this.updateLayout();
+      }
+    },
+
     // Adjust tile's x value to ensure it doesn't extend past colNum
     adjustTilePosition(tile: { x: number; w: number }) {
       if (!this.currentLayout) {

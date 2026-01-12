@@ -178,7 +178,9 @@ export default defineComponent({
     color: var(--color-text-primary);
     transition: opacity var(--duration-normal) var(--easing-smooth),
       transform var(--duration-normal) var(--easing-smooth),
-      color var(--duration-fast) var(--easing-smooth);
+      color var(--duration-fast) var(--easing-smooth),
+      height var(--duration-normal) var(--easing-smooth),
+      margin var(--duration-normal) var(--easing-smooth);
     padding: 0;
     overflow: visible;
     opacity: 1;
@@ -251,11 +253,15 @@ export default defineComponent({
     background: var(--color-tile-stroke);
     border: 1px solid var(--color-tile-stroke);
     padding: var(--spacing-xs) 0;
-    min-height: 48px;
+    gap: 0;
+    min-height: 24px; /* Reduced min-height */
   }
 
   .nav-button {
     opacity: 0;
+    height: 0;
+    margin: 0;
+    overflow: hidden;
     transform: translateX(-8px);
     pointer-events: none;
 

@@ -135,8 +135,7 @@
 
         <button class="toolbar-btn" title="Tile color" @click.stop="onToolbarAction('color')">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="7" y="7" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" />
-            <rect x="8.5" y="8.5" width="7" height="7" rx="1.5" fill="var(--color-figma-purple)" />
+            <rect x="4" y="4" width="16" height="16" rx="2" fill="var(--color-figma-purple)" />
           </svg>
         </button>
 

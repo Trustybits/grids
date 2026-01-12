@@ -6,6 +6,7 @@ export interface Tile {
   y: number;
   w: number;
   h: number;
+  borderEnabled?: boolean;
   caption: string;
   content: TileContent;
 }

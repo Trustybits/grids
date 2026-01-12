@@ -34,7 +34,6 @@ export default defineComponent({
 .embed-wrapper {
   width: 100%;
   height: 100%;
-  border-radius: var(--tile-border-radius);
   overflow: hidden;
   position: relative;
 }

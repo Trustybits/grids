@@ -12,23 +12,71 @@
         class="btn btn-secondary"
         @click="addTextElement"
       >
-        ✏️<!-- <img src="/src/svgs/icons/dark-textTile.svg" /> -->
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect x="5" y="6" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5" />
+          <path d="M8 10H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          <path d="M8 13H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          <path d="M16 9.5L18.2 7.3C18.5 7 19 7 19.3 7.3L20.7 8.7C21 9 21 9.5 20.7 9.8L18.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <!-- <img src="/src/svgs/icons/dark-textTile.svg" /> -->
       </button>
       <!-- </template> -->
       <button v-else class="btn btn-secondary" @click="addTextElement">
-        ✏️<!-- <img src="/src/svgs/icons/textTile.svg" /> -->
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect x="5" y="6" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5" />
+          <path d="M8 10H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          <path d="M8 13H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          <path d="M16 9.5L18.2 7.3C18.5 7 19 7 19.3 7.3L20.7 8.7C21 9 21 9.5 20.7 9.8L18.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <!-- <img src="/src/svgs/icons/textTile.svg" /> -->
       </button>
 
       <button class="btn btn-secondary" @click="selectFile">
-        📷<!-- <img src="/src/svgs/icons/imageTile.svg" /> -->
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect x="5" y="6" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5" />
+          <circle cx="9" cy="10" r="1" fill="currentColor" />
+          <path d="M7 16L10 13L12 15L14 13L17 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <!-- <img src="/src/svgs/icons/imageTile.svg" /> -->
       </button>
       <button class="btn btn-secondary" @click="addLinkElement">
-        🔗<!-- <img src="/src/svgs/icons/linkTile.svg" \/> -->
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect x="5" y="9" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5" />
+          <rect x="12" y="8" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5" />
+          <path d="M11 12H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+        <!-- <img src="/src/svgs/icons/linkTile.svg" \/> -->
       </button>
       <!-- <button class="btn btn-secondary" @click="addLinkElement">📽</button>
       <button class="btn btn-secondary" @click="addLinkElement">🎵</button>
       <button class="btn btn-secondary" @click="addLinkElement">📌</button> -->
-      <button class="btn btn-secondary" @click="addEmbedElement">💻</button>
+      <button class="btn btn-secondary" @click="addEmbedElement">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect x="5" y="6" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5" />
+          <path d="M10 10L8.5 12L10 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M14 10L15.5 12L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
       <!-- <button class="btn btn-secondary" @click="addLinkElement">➕</button> -->
 
       <input
@@ -188,10 +236,10 @@ export default {
   /* border: 2px solid transparent; */
   width: fit-content;
   height: fit-content;
-  padding: 8px;
+  padding: 4px;
 
   display: flex;
-  gap: 8px;
+  gap: 4px;
 
   position: relative;
   top: -32px;
@@ -217,17 +265,28 @@ export default {
 .toolbarAlpha button {
   height: 40px;
   width: 40px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   padding: 4px;
   cursor: pointer;
   font-size: 12px;
-  color: white;
+  color: var(--color-text-primary);
   border: none;
   background-color: var(--color-tile-background);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 
   &:hover {
     background-color: var(--color-content-low);
   }
+}
+
+.toolbarAlpha button svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+  flex: 0 0 auto;
 }
 
 .devToolbar {

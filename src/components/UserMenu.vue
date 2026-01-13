@@ -82,7 +82,7 @@ export default defineComponent({
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: none;
 //   background: var(--color-tile-background);
 //   border: var(--tile-border-width) solid var(--color-tile-stroke);
@@ -107,7 +107,7 @@ export default defineComponent({
   }
 
   &:hover {
-    background: var(--color-content-low);
+    background: var(--color-base-34);
     
     .user-icon {
       color: var(--color-figma-purple);
@@ -141,7 +141,7 @@ export default defineComponent({
     font-size: var(--font-size-sm);
 
     &:hover {
-      background-color: var(--color-content-low);
+      background-color: var(--color-base-34);
     }
   }
 }

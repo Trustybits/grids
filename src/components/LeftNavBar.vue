@@ -14,12 +14,10 @@
         :class="{ 'is-active': isActiveRoute('/dashboard') }"
       >
         <div class="nav-button-icon">
-          <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="4" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/>
-            <rect x="18" y="4" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/>
-            <rect x="4" y="18" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/>
-            <rect x="18" y="18" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M23 23H28M28 23V28M28 23H23" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 10.5L12 4L20 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M6.5 9.5V19.5C6.5 20.0523 6.94772 20.5 7.5 20.5H16.5C17.0523 20.5 17.5 20.0523 17.5 19.5V9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M10 20.5V15.5C10 14.9477 10.4477 14.5 11 14.5H13C13.5523 14.5 14 14.9477 14 15.5V20.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </div>
         <span class="nav-button-label" v-show="isExpanded">Dashboard</span>
@@ -137,8 +135,8 @@ export default defineComponent({
   z-index: var(--z-fixed);
   /* Slightly wider to increase hover hitbox; inner bar stays narrow */
   width: 32px;
-  transition: width var(--duration-normal) var(--easing-smooth),
-    opacity var(--duration-normal) var(--easing-smooth);
+  transition: width var(--duration-normal) var(--easing-ease-in-out),
+    opacity var(--duration-normal) var(--easing-ease-in-out);
 
   &.is-expanded {
     width: 40px;
@@ -150,13 +148,13 @@ export default defineComponent({
     flex-direction: column;
     align-items: center;
     gap: var(--spacing-sm);
-    background: var(--color-tile-stroke);
+    background: var(--color-base-34);
     border: 1.4px solid var(--color-tile-stroke);
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-md);
     padding: var(--spacing-sm);
     width: 6px; /* visible bar width in collapsed state */
     min-height: fit-content;
-    transition: all var(--duration-normal) var(--easing-smooth);
+    transition: all var(--duration-normal) var(--easing-ease-in-out);
   }
 
   &.is-expanded .nav-bar-container {
@@ -176,11 +174,11 @@ export default defineComponent({
     cursor: pointer;
     text-decoration: none;
     color: var(--color-text-primary);
-    transition: opacity var(--duration-normal) var(--easing-smooth),
-      transform var(--duration-normal) var(--easing-smooth),
-      color var(--duration-fast) var(--easing-smooth),
-      height var(--duration-normal) var(--easing-smooth),
-      margin var(--duration-normal) var(--easing-smooth);
+    transition: opacity var(--duration-normal) var(--easing-ease-in-out),
+      transform var(--duration-normal) var(--easing-ease-in-out),
+      color var(--duration-fast) var(--easing-ease-in-out),
+      height var(--duration-normal) var(--easing-ease-in-out),
+      margin var(--duration-normal) var(--easing-ease-in-out);
     padding: 0;
     overflow: visible;
     opacity: 1;
@@ -195,7 +193,7 @@ export default defineComponent({
       width: 24px;
       height: 24px;
       color: var(--color-content-default);
-      transition: color var(--duration-fast) var(--easing-smooth);
+      transition: color var(--duration-fast) var(--easing-ease-in-out);
 
       svg {
         width: 100%;
@@ -208,9 +206,9 @@ export default defineComponent({
       left: -4px;
       top: 50%;
       transform: translateY(-50%);
-      width: 2px;
-      height: 4px;
-      background: white;
+      width: 3px;
+      height: 6px;
+      background: var(--color-text-primary);
       border-radius: 0 var(--radius-full) var(--radius-full) 0;
       z-index: 2;
     }
@@ -223,7 +221,7 @@ export default defineComponent({
 
     &.is-active {
       .nav-button-icon {
-        color: var(--color-figma-purple);
+        color: var(--color-text-primary);
       }
     }
 
@@ -236,7 +234,7 @@ export default defineComponent({
       color: var(--color-text-primary);
       opacity: 0;
       transform: translateX(-8px);
-      transition: all var(--duration-normal) var(--easing-smooth);
+      transition: all var(--duration-normal) var(--easing-ease-in-out);
       pointer-events: none;
     }
 
@@ -250,7 +248,7 @@ export default defineComponent({
 // Collapsed state - solid bar with no visible contents
 .left-nav-bar:not(.is-expanded) {
   .nav-bar-container {
-    background: var(--color-tile-stroke);
+    background: var(--color-content-high);
     border: 1px solid var(--color-tile-stroke);
     padding: var(--spacing-xs) 0;
     gap: 0;

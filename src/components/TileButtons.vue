@@ -163,6 +163,8 @@ import { useLayoutStore } from "@/stores/layout";
 import { ContentType } from "@/types/TileContent";
 import { createTileContent } from "@/utils/TileUtils";
 import { getAuth } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "@/firebase";
 import {
   getStorage,
   ref as storageRef,
@@ -241,7 +243,29 @@ export default {
       let link = prompt("Please enter a link");
       if (link) {
         const linkContent = createTileContent(ContentType.LINK, { link });
-        layoutStore.addTile(linkContent);
+        const tileId = layoutStore.addTile(linkContent);
+
+        if (tileId) {
+          (async () => {
+            try {
+              const getLinkPreview = httpsCallable(functions, "getLinkPreview");
+              const result = await getLinkPreview({ url: (linkContent as any).link });
+              const data = result.data as any;
+
+              layoutStore.patchTileContent(tileId, {
+                link: data?.url,
+                domain: data?.domain,
+                faviconUrl: data?.faviconUrl || (linkContent as any).faviconUrl,
+                metaTitle: data?.title,
+                metaDescription: data?.description,
+                metaImageUrl: data?.imageUrl,
+                metaSiteName: data?.siteName,
+              });
+            } catch (error) {
+              console.error("Failed to fetch link preview:", error);
+            }
+          })();
+        }
       }
     };
 

@@ -61,11 +61,15 @@ export function createTileContent(
       } as ImageContent;
 
     case ContentType.LINK:
-      let linkData = getLinkData((data as Partial<LinkContent>).link || "");
-      return {
-        type,
-        ...linkData,
-      } as LinkContent;
+      {
+        const input = data as Partial<LinkContent>;
+        const linkData = getLinkData(input.link || "");
+        return {
+          ...input,
+          type,
+          ...linkData,
+        } as LinkContent;
+      }
 
     case ContentType.VIDEO:
       return {
@@ -98,7 +102,7 @@ function getLinkData(url: string) {
 
     return { domain, faviconUrl, link };
   } catch (error) {
-    return null;
+    return {};
   }
 }
 

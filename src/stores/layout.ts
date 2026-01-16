@@ -131,8 +131,8 @@ export const useLayoutStore = defineStore("layout", {
     },
 
     // Add a new tile
-    addTile(content: TileContent) {
-      if (!this.currentLayout) return;
+    addTile(content: TileContent): string | null {
+      if (!this.currentLayout) return null;
 
       // TODO: Validate content before creating tile
 
@@ -152,6 +152,22 @@ export const useLayoutStore = defineStore("layout", {
       );
 
       this.currentLayout.tiles.push(newTile);
+      this.updateLayout();
+
+      return newTile.i;
+    },
+
+    patchTileContent(id: string, patch: Partial<any>) {
+      if (!this.currentLayout) return;
+
+      const tile = this.currentLayout.tiles.find((t) => t.i === id);
+      if (!tile) return;
+
+      tile.content = {
+        ...(tile.content as any),
+        ...(patch as any),
+      };
+
       this.updateLayout();
     },
 

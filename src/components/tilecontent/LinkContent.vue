@@ -1,11 +1,16 @@
 <template>
   <div class="link-tile-content">
+    <div v-if="content.metaImageUrl" class="tile-preview">
+      <img :src="content.metaImageUrl" :alt="content.metaTitle || content.domain" />
+    </div>
+
     <div class="tile-logo">
       <img :src="content.faviconUrl" :alt="content.domain" />
     </div>
-    
+
     <div class="tile-text">
-      <p class="tile-title">{{ content.domain || 'Social network' }}</p>
+      <p class="tile-title">{{ content.metaTitle || content.metaSiteName || content.domain || 'Link' }}</p>
+      <p v-if="content.metaDescription" class="tile-description">{{ content.metaDescription }}</p>
       <p class="tile-subtitle">{{ formatLink(content.link) }}</p>
     </div>
   </div>
@@ -61,5 +66,18 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   padding: var(--tile-padding);
+}
+
+.tile-preview {
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.tile-preview img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
 }
 </style>

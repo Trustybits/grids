@@ -26,7 +26,7 @@
       <div class="toolbar">
         <div class="row">
           <div class="col-md-12">
-            <grids-buttons />
+            <grid-buttons />
           </div>
         </div>
       </div>
@@ -53,14 +53,14 @@ import {
 } from "firebase/storage";
 
 import Grid from "@/components/Grid.vue";
-import Buttons from "@/components/TileButtons.vue";
+import GridButtons from "@/components/TileButtons.vue";
 import GridMenu from "@/components/GridMenu.vue";
 import { useLayoutStore } from "@/stores/layout";
 
 export default defineComponent({
   components: {
     Grid,
-    Buttons,
+    GridButtons,
     GridMenu,
   },
   setup() {
@@ -166,9 +166,9 @@ export default defineComponent({
 .toolbar {
   position: fixed;
   z-index: var(--z-dropdown);
-  top: 6rem;
+  bottom: 0rem;
   left: 50vw;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -10%);
 }
 
 .layout-container {

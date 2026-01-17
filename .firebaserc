@@ -1,7 +1,7 @@
 {
   "projects": {
     "default": "grids-one",
-    "joju-stage": "joju-stage"
+    "grids-stage": "grids-stage"
   },
   "targets": {},
   "etags": {}

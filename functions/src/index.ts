@@ -122,7 +122,7 @@ export const getLinkPreview = onCall(async (data, context) => {
       redirect: "follow",
       signal: controller.signal,
       headers: {
-        "user-agent": "Mozilla/5.0 (compatible; JojuLinkPreview/1.0)",
+        "user-agent": "Mozilla/5.0 (compatible; gridsLinkPreview/1.0)",
         "accept": "text/html,application/xhtml+xml",
       },
     });

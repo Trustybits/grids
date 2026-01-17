@@ -18,7 +18,7 @@ const routes = [
   { 
     path: '/grid/:id', 
     component: GridPage, 
-    meta: { requiresAuth: true } 
+    meta: { requiresAuth: false } 
   },
 ];
 

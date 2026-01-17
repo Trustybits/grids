@@ -8,7 +8,7 @@
     :style="tileStyle"
     :maxW="10"
     :maxH="10"
-    :isDraggable="!isEditing"
+    :isDraggable="layoutStore.isOwner && !isEditing"
     @move="onMove"
     @resized="onDragResize"
   >
@@ -29,7 +29,7 @@
       </div>
 
       <!-- UI Layer -->
-      <div v-if="headerComponent" class="header-options">
+      <div v-if="layoutStore.isOwner && headerComponent" class="header-options">
         <component :is="headerComponent" :content="tile.content" />
       </div>
 
@@ -38,13 +38,14 @@
       </p>
 
       <button
+        v-if="layoutStore.isOwner"
         class="btn btn-sm btn-danger btn-close"
         @click="removeElement"
       ></button>
 
       <TileCaption v-if="showCaption" :tile="tile" />
 
-      <div class="tile-toolbar" @mousedown.stop>
+      <div v-if="layoutStore.isOwner" class="tile-toolbar" @mousedown.stop>
         <button
           class="toolbar-btn"
           :class="{ 'is-active': isPresetActive(5, 1) }"

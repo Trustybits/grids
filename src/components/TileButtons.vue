@@ -360,7 +360,7 @@ export default {
   padding: 4px;
   cursor: pointer;
   font-size: 12px;
-  color: var(--color-text-primary);
+  color: var(--color-content-default);
   border: none;
   background-color: var(--color-tile-background);
   display: flex;
@@ -370,7 +370,7 @@ export default {
 
   &:hover {
     background-color: var(--color-base-55);
-    color: var(--color-figma-purple);
+    color: var(--color-text-primary);
   }
 }
 

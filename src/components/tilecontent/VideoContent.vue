@@ -1,6 +1,6 @@
 <template>
   <!-- Zoom Slider -->
-  <div v-if="isEditing" class="zoom-slider">
+  <div v-if="layoutStore.isOwner && isEditing" class="zoom-slider">
     <input type="range" min="1" max="2" step="0.1" v-model.number="content.zoom" @input="saveLayout" />
   </div>
 
@@ -31,6 +31,7 @@
 
     <!-- Edit Mode Button -->
     <button 
+      v-if="layoutStore.isOwner"
       class="edit-button hover-display" 
       :style="{ display: isEditing ? 'flex' : '' }"
       @click="toggleEditMode"
@@ -64,6 +65,10 @@ export default defineComponent({
 
     // Toggle edit mode
     const toggleEditMode = () => {
+      if (!layoutStore.isOwner) {
+        return;
+      }
+
       isEditing.value = !isEditing.value;
 
       if (!isEditing.value) {
@@ -145,6 +150,7 @@ export default defineComponent({
     }));
 
     return {
+      layoutStore,
       isEditing,
       toggleEditMode,
       startDragging,

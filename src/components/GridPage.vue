@@ -26,11 +26,11 @@
       <div class="toolbar">
         <div class="row">
           <div class="col-md-12">
-            <joju-buttons />
+            <grids-buttons />
           </div>
         </div>
       </div>
-      <joju-grid :row-height="rowHeight" />
+      <grid :row-height="rowHeight" />
     </div>
   </div>
 
@@ -52,15 +52,15 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 
-import JojuGrid from "@/components/JojuGrid.vue";
-import JojuButtons from "@/components/TileButtons.vue";
+import Grid from "@/components/Grid.vue";
+import Buttons from "@/components/TileButtons.vue";
 import GridMenu from "@/components/GridMenu.vue";
 import { useLayoutStore } from "@/stores/layout";
 
 export default defineComponent({
   components: {
-    JojuGrid,
-    JojuButtons,
+    Grid,
+    Buttons,
     GridMenu,
   },
   setup() {

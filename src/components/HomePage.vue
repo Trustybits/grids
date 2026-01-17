@@ -1,7 +1,7 @@
 <!-- src/views/HomePage.vue -->
 <template>
   <div class="home">
-    <h1>Welcome to Joju!</h1>
+    <h1>Welcome to grids.so!</h1>
     <p>This is the home page</p>
     <router-link to="/signup">Create an Account</router-link>
     <router-link to="/login">Login to Your Account</router-link>

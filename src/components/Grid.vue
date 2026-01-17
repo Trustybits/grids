@@ -15,7 +15,7 @@
     @layout-updated="layoutStore.updateLayout"
     :style="{ width: `${gridWidth}px` }"
   >
-    <joju-grid-tile
+    <grid-tile
       v-for="tile in layoutStore.currentLayout?.tiles || []"
       :key="tile.i"
       :tile="tile"
@@ -58,14 +58,14 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
-import JojuGridTile from "./GridTile.vue";
+import GridTile from "./GridTile.vue";
 import { useLayoutStore } from "@/stores/layout";
 
 export default {
   components: {
     GridLayout,
     GridItem,
-    JojuGridTile,
+    GridTile,
   },
   props: {
     rowHeight: {
@@ -141,7 +141,7 @@ export default {
 }
 
 /* Visual styling handled by custom.scss globally */
-/* JojuGrid only handles animation behavior */
+/* Grid only handles animation behavior */
 .vue-grid-item {
   :not(&.resizing) {
     transition-property: transform, width, height !important;

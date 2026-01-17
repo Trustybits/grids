@@ -2,7 +2,7 @@
   <nav class="navbar navbar-expand-lg bkg-neutral txt-primary">
     <div class="container-fluid container">
       <LayoutTitleEditor v-if="showTitleEditor" />
-      <h2 v-else>Joju</h2>
+      <h2 v-else>Grid</h2>
 
       <div class="nav-links">
         <router-link to="/" class="nav-link">🏠</router-link>

@@ -6,13 +6,13 @@
     :layout="layoutStore.currentLayout?.tiles || []"
     :col-num="colNum"
     :row-height="rowHeight"
-    :is-draggable="true"
-    :is-resizable="true"
+    :is-draggable="layoutStore.isOwner"
+    :is-resizable="layoutStore.isOwner"
     :vertical-compact="false"
     :restoreOnDrag="true"
     :use-css-transforms="true"
     :margin="[margin, margin]"
-    @layout-updated="layoutStore.updateLayout"
+    @layout-updated="onLayoutUpdated"
     :style="{ width: `${gridWidth}px` }"
   >
     <joju-grid-tile
@@ -78,6 +78,11 @@ export default {
     const route = useRoute(); // Access route parameters
     const margin = 48;
 
+    const onLayoutUpdated = () => {
+      if (!layoutStore.isOwner) return;
+      layoutStore.updateLayout();
+    };
+
     const colNum = computed(() => {
       return layoutStore.currentLayout?.colNum || 10;
     });
@@ -112,6 +117,7 @@ export default {
       margin,
       colNum,
       suggestionLayout,
+      onLayoutUpdated,
     };
   },
 

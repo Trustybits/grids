@@ -16,7 +16,6 @@
       contenteditable="true"
       class="caption-input"
       @blur="saveCaption"
-      @input="updateEditableCaption($event)"
     >
       {{ editableCaption }}
     </p>
@@ -42,18 +41,18 @@ export default {
 
     const startEditing = () => {
       editing.value = true;
-      editableCaption.value = props.tile.caption;
       nextTick(() => {
-        editableCaptionElement.value?.focus();
+        if (editableCaptionElement.value) {
+          editableCaptionElement.value.textContent = props.tile.caption || '';
+          // Optionally place caret at end here
+        }
       });
     };
-
     const saveCaption = () => {
-      editing.value = false;
-      props.tile.caption = editableCaption.value;
-
-      // Save the layout using the layoutStore
+      const text = editableCaptionElement.value?.innerText.trim() ?? '';
+      props.tile.caption = text;
       layoutStore.updateLayout();
+      editing.value = false;
     };
 
     const updateEditableCaption = (event) => {

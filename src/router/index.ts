@@ -9,7 +9,7 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 const routes = [
   { path: '/', component: HomePage },
   { path: '/login', component: AuthPage },
-  { path: '/signup', component: AuthPage },
+  { path: '/signup', redirect: '/login' },
   {
     path: '/dashboard',
     component: DashboardPage,
@@ -42,8 +42,20 @@ router.beforeEach((to, from, next) => {
       return;
     }
 
+    // If already authenticated, keep /login as a transient entry point and redirect into the app.
+    if (to.path === '/login' && user) {
+      const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : null;
+      next(redirect && redirect.length > 0 ? redirect : '/dashboard');
+      return;
+    }
+
     if (to.meta.requiresAuth && !user) {
-      next('/login'); // Redirect to login if not authenticated
+      next({
+        path: '/login',
+        query: {
+          redirect: to.fullPath,
+        },
+      }); // Redirect to login if not authenticated
       return;
     }
 

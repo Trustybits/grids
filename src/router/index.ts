@@ -34,25 +34,33 @@ let isAuthChecked = false;
 router.beforeEach((to, from, next) => {
   const auth = getAuth();
 
+  const resolveNavigation = (user: unknown) => {
+    // Firebase restores auth state asynchronously on page load. Use the first
+    // onAuthStateChanged callback to make an accurate decision for the landing route.
+    if (to.path === '/') {
+      next(user ? '/dashboard' : '/login');
+      return;
+    }
+
+    if (to.meta.requiresAuth && !user) {
+      next('/login'); // Redirect to login if not authenticated
+      return;
+    }
+
+    next();
+  };
+
   if (!isAuthChecked) {
     // Wait for Firebase Auth to initialize
     onAuthStateChanged(auth, (user) => {
       isAuthChecked = true;
 
-      if (to.meta.requiresAuth && !user) {
-        next('/login'); // Redirect to login if not authenticated
-      } else {
-        next(); // Allow navigation
-      }
+      resolveNavigation(user);
     });
   } else {
     const user = auth.currentUser;
 
-    if (to.meta.requiresAuth && !user) {
-      next('/login');
-    } else {
-      next();
-    }
+    resolveNavigation(user);
   }
 });
 

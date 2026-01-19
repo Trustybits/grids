@@ -40,7 +40,9 @@
       <button
         v-if="layoutStore.isOwner"
         class="btn btn-sm btn-danger btn-close"
-        @click="removeElement"
+        @mousedown.stop
+        @mouseup.stop
+        @click.stop="removeElement"
       ></button>
 
       <TileCaption v-if="showCaption" :tile="tile" />
@@ -160,6 +162,7 @@ import {
   onUnmounted,
   watch,
   computed,
+  provide,
 } from "vue";
 import { GridItem } from "vue3-grid-layout";
 import { type Tile } from "@/types/Tile";
@@ -181,6 +184,11 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
+
+    // Expose the tile's current grid height to content components.
+    // This is used for responsive content rendering (e.g. title line clamping).
+    provide("gridTileH", computed(() => props.tile.h));
+
     const isMoving = ref(false);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);

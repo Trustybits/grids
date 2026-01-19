@@ -12,6 +12,7 @@
 // https://firebase.google.com/docs/functions/typescript
 
 import { onCall, HttpsError } from "firebase-functions/v1/https";
+import * as logger from "firebase-functions/logger";
 import * as cheerio from "cheerio";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
@@ -40,10 +41,45 @@ function isPrivateOrLocalhost(hostname: string): boolean {
   }
 
   if (isIP(lower) === 6) {
-    return true;
+    // Allow public IPv6. Block only loopback, link-local, and unique-local ranges.
+    if (lower === "::1" || lower === "::") {
+      return true;
+    }
+
+    // Block IPv4-mapped IPv6 addresses that point to private ranges.
+    // Example: ::ffff:192.168.0.1
+    const v4MappedPrefix = "::ffff:";
+    if (lower.startsWith(v4MappedPrefix)) {
+      const v4 = lower.slice(v4MappedPrefix.length);
+      return isPrivateOrLocalhost(v4);
+    }
+
+    // IPv6 can be compressed and begin with "::" (leading zeros). In that case,
+    // the first hextet is effectively 0.
+    const firstHextetStr = lower.startsWith("::") ? "0" : (lower.split(":")[0] || "0");
+    const firstHextet = Number.parseInt(firstHextetStr, 16);
+    if (Number.isNaN(firstHextet)) {
+      return true;
+    }
+
+    // Unique local addresses: fc00::/7 (fc00-fdff)
+    if (firstHextet >= 0xfc00 && firstHextet <= 0xfdff) {
+      return true;
+    }
+
+    // Link-local addresses: fe80::/10 (fe80-febf)
+    if (firstHextet >= 0xfe80 && firstHextet <= 0xfebf) {
+      return true;
+    }
+
+    return false;
   }
 
   return false;
+}
+
+function googleFaviconUrl(base: URL): string {
+  return `https://s2.googleusercontent.com/s2/favicons?sz=64&domain_url=${base.origin}`;
 }
 
 function resolveUrl(maybeUrl: string | undefined, base: URL): string | undefined {
@@ -103,13 +139,30 @@ export const getLinkPreview = onCall(async (data, context) => {
   if (isIP(normalized.hostname) === 0) {
     try {
       const addresses = await lookup(normalized.hostname, { all: true });
-      if (addresses.some((a) => isPrivateOrLocalhost(a.address))) {
+      // Use console.* so the message appears in textPayload in Cloud Logs UI.
+      console.log("Resolved link preview hostname", normalized.hostname, addresses.map((a) => a.address));
+      logger.debug("Resolved link preview hostname", {
+        hostname: normalized.hostname,
+        addresses: addresses.map((a) => a.address),
+      });
+      const disallowed = addresses.filter((a) => isPrivateOrLocalhost(a.address)).map((a) => a.address);
+      if (disallowed.length > 0) {
+        console.warn("Blocked link preview request due to disallowed resolved address", normalized.hostname, disallowed);
+        logger.warn("Blocked link preview request due to disallowed resolved address", {
+          hostname: normalized.hostname,
+          disallowed,
+        });
         throw new HttpsError("permission-denied", "This hostname resolves to a disallowed address.");
       }
     } catch (err) {
       if (err instanceof HttpsError) {
         throw err;
       }
+      console.warn("Failed to resolve hostname for link preview", normalized.hostname, String(err));
+      logger.warn("Failed to resolve hostname for link preview", {
+        hostname: normalized.hostname,
+        error: String(err),
+      });
       throw new HttpsError("unavailable", "Failed to resolve hostname.");
     }
   }
@@ -122,18 +175,47 @@ export const getLinkPreview = onCall(async (data, context) => {
       redirect: "follow",
       signal: controller.signal,
       headers: {
-        "user-agent": "Mozilla/5.0 (compatible; gridsLinkPreview/1.0)",
+        // Some sites return 403/401 to bot-like UAs; this improves compatibility.
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "accept": "text/html,application/xhtml+xml",
+        "accept-language": "en-US,en;q=0.9",
       },
     });
 
+    // Some sites block server-side fetches (403/401), and some return other non-OK
+    // statuses from server-side environments. Return a usable fallback preview
+    // instead of failing link tile creation.
     if (!res.ok) {
-      throw new HttpsError("unavailable", `Failed to fetch URL (status ${res.status}).`);
+      logger.debug("Link preview fetch returned non-OK status", {
+        url: normalized.toString(),
+        status: res.status,
+      });
+      return {
+        url: normalized.toString(),
+        domain: normalized.hostname,
+        siteName: undefined,
+        title: undefined,
+        description: undefined,
+        imageUrl: undefined,
+        faviconUrl: googleFaviconUrl(normalized),
+      };
     }
 
     const contentType = res.headers.get("content-type") || "";
     if (!contentType.toLowerCase().includes("text/html")) {
-      throw new HttpsError("failed-precondition", "URL did not return HTML.");
+      logger.debug("Link preview response was not HTML", {
+        url: normalized.toString(),
+        contentType,
+      });
+      return {
+        url: normalized.toString(),
+        domain: normalized.hostname,
+        siteName: undefined,
+        title: undefined,
+        description: undefined,
+        imageUrl: undefined,
+        faviconUrl: googleFaviconUrl(normalized),
+      };
     }
 
     const html = (await res.text()).slice(0, 1_000_000);

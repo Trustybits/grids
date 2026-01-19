@@ -176,6 +176,6 @@ export default defineComponent({
 }
 
 .layout-container {
-  padding-top: 7rem;
+  padding-top: 2rem;
 }
 </style>

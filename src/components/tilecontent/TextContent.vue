@@ -6,7 +6,7 @@
   >
     <div 
       class="text-content" 
-      :class="{ 'not-editing': !isEditing, 'overflowing': isTextOverflowing }"
+      :class="{ 'not-editing': !isEditing, 'overflowing': isTextOverflowing, 'can-edit': layoutStore.isOwner }"
       :spellcheck="layoutStore.isOwner && isEditing"
     >
       <EditorContent :editor="editor" />
@@ -46,6 +46,7 @@ export default defineComponent({
     const textContentDiv = ref<HTMLDivElement | null>(null);
 
     const editor = useEditor({
+      editable: false,
       extensions: [
         StarterKit,
         TextStyle,
@@ -75,24 +76,31 @@ export default defineComponent({
     };  
 
     watch(
-      () => isEditing.value, 
-      (newVal) => {
-        if (newVal) {
-          if (editor?.value) {
-            editor.value.setEditable(true);
-            editor.value.commands.focus('end');
-          }
-        } else {
-          editor.value?.setEditable(false);
-          editor.value?.commands.focus('start');
-          editor.value?.commands.blur();
+      [() => layoutStore.isOwner, () => isEditing.value],
+      ([isOwner, editing]) => {
+        if (!editor?.value) return;
 
-          let output = JSON.stringify(editor.value?.getJSON());
-          output = output.replace(/^"(.*)"$/, "$1");
-          console.log(output);
-          props.content.text = output;
-          layoutStore.saveLayout();
+        const shouldBeEditable = isOwner && editing;
+        editor.value.setEditable(shouldBeEditable);
+
+        if (shouldBeEditable) {
+          editor.value.commands.focus('end');
+          return;
         }
+
+        // Ensure the editor never appears editable to public viewers.
+        editor.value.commands.blur();
+
+        if (!isOwner) {
+          isEditing.value = false;
+          return;
+        }
+
+        // Owner is leaving edit mode: persist changes.
+        let output = JSON.stringify(editor.value.getJSON());
+        output = output.replace(/^"(.*)"$/, "$1");
+        props.content.text = output;
+        layoutStore.saveLayout();
       }
     );
 
@@ -160,9 +168,10 @@ export default defineComponent({
 
 .not-editing {
   background-color: transparent;
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-  }
+}
+
+.not-editing.can-edit:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .overflowing::after {

@@ -45,7 +45,7 @@
         @click.stop="removeElement"
       ></button>
 
-      <TileCaption v-if="showCaption" :tile="tile" />
+      <TileCaption v-if="showCaption && (layoutStore.isOwner || tile.caption)" :tile="tile" />
 
       <div v-if="layoutStore.isOwner" class="tile-toolbar" @mousedown.stop>
         <button

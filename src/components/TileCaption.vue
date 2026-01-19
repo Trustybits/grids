@@ -13,7 +13,7 @@
     <p
       v-else
       ref="editableCaptionElement"
-      contenteditable="true"
+      :contenteditable="layoutStore.isOwner"
       class="caption-input"
       @blur="saveCaption"
     >
@@ -40,6 +40,9 @@ export default {
     const editableCaption = ref(props.tile.caption);
 
     const startEditing = () => {
+      if (!layoutStore.isOwner) {
+        return;
+      }
       editing.value = true;
       nextTick(() => {
         if (editableCaptionElement.value) {
@@ -49,6 +52,10 @@ export default {
       });
     };
     const saveCaption = () => {
+      if (!layoutStore.isOwner) {
+        editing.value = false;
+        return;
+      }
       const text = editableCaptionElement.value?.innerText.trim() ?? '';
       props.tile.caption = text;
       layoutStore.updateLayout();
@@ -62,6 +69,7 @@ export default {
     const editableCaptionElement = ref(null);
 
     return {
+      layoutStore,
       editing,
       editableCaption,
       startEditing,

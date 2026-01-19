@@ -2,7 +2,7 @@
   <div class="layout-title">
     <h2
       class="editable-text"
-      contenteditable="true"
+      :contenteditable="layoutStore.isOwner"
       spellcheck="false"
       @blur="saveName"
       @keydown.enter.prevent="blurOnEnter"
@@ -27,6 +27,9 @@ watch(
 );
 
 const saveName = (event) => {
+  if (!layoutStore.isOwner) {
+    return;
+  }
   const newName = event.target.innerText.trim();
   if (newName !== layoutStore.currentLayout?.name) {
     layoutStore.currentLayout.name = newName;
@@ -36,6 +39,9 @@ const saveName = (event) => {
 };
 
 const blurOnEnter = (event) => {
+  if (!layoutStore.isOwner) {
+    return;
+  }
   event.target.blur();
 };
 </script>
@@ -61,6 +67,7 @@ const blurOnEnter = (event) => {
 }
 
 .editable-text:hover {
+  color: inherit;
   /* color: var(--color-base-100); */
 }
 </style>

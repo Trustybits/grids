@@ -3,6 +3,7 @@
     <div :style="backgroundStyle" class="background-image-overlay"></div>
 
     <input
+      v-if="layoutStore.isOwner"
       type="file"
       ref="imageInput"
       style="display: none"
@@ -23,7 +24,7 @@
     </iframe>
 
     <div class="layout-container">
-      <div class="toolbar">
+      <div v-if="layoutStore.isOwner" class="toolbar">
         <div class="row">
           <div class="col-md-12">
             <grid-buttons />
@@ -35,6 +36,7 @@
   </div>
 
   <GridMenu
+    v-if="layoutStore.isOwner"
     @select-image="selectImage"
     @embed-background="embedBackground"
     @confirm-delete="confirmDelete"
@@ -73,12 +75,11 @@ export default defineComponent({
     const router = useRouter();
 
     const isOwner = computed(() => {
-      const user = auth.currentUser;
-      const layout = layoutStore.currentLayout;
-      return user && layout && user.uid === layout.userId;
+      return layoutStore.isOwner;
     });
 
     const selectImage = () => {
+      if (!layoutStore.isOwner) return;
       imageInput.value?.click();
     };
 
@@ -99,6 +100,7 @@ export default defineComponent({
     });
 
     const addBackgroundImage = async (event: Event) => {
+      if (!layoutStore.isOwner) return;
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
 
@@ -121,6 +123,7 @@ export default defineComponent({
     };
 
     const embedBackground = () => {
+      if (!layoutStore.isOwner) return;
       const link = prompt("Please enter an embed URL");
       if (link) {
         layoutStore.addBackgroundImage(link, true);
@@ -128,6 +131,7 @@ export default defineComponent({
     };
 
     const confirmDelete = async () => {
+      if (!layoutStore.isOwner) return;
       if (!layoutStore.currentLayout) return;
 
       const confirmed = confirm("Are you sure you want to delete this layout?");

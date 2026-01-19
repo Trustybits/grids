@@ -20,6 +20,7 @@ export const useLayoutStore = defineStore("layout", {
     isLoading: false,
     error: null as string | null,
     showMetaData: false,
+    isOwner: false,
   }),
 
   actions: {
@@ -86,9 +87,15 @@ export const useLayoutStore = defineStore("layout", {
     async loadLayout(id: string) {
       this.isLoading = true;
       this.error = null;
+      this.isOwner = false;
 
       try {
         this.currentLayout = await layoutService.fetchLayout(id);
+        this.isOwner = !!(
+          auth.currentUser?.uid &&
+          this.currentLayout?.userId &&
+          auth.currentUser.uid === this.currentLayout.userId
+        );
         this.checkShowMetaDataCookie();
       } catch (err) {
         this.error = "Failed to load layout.";
@@ -119,6 +126,10 @@ export const useLayoutStore = defineStore("layout", {
     async saveLayout() {
       if (!this.currentLayout) {
         console.warn("No layout to save.");
+        return;
+      }
+
+      if (!this.isOwner) {
         return;
       }
 
@@ -252,6 +263,10 @@ export const useLayoutStore = defineStore("layout", {
 
     // Update the entire layout
     updateLayout() {
+      if (!this.isOwner) {
+        return;
+      }
+
       const gridElement =
         document.querySelector<HTMLElement>(".vue-grid-layout");
       if (gridElement) {
@@ -265,6 +280,10 @@ export const useLayoutStore = defineStore("layout", {
     },
 
     async deleteLayout(id: string) {
+      if (!this.isOwner) {
+        return;
+      }
+
       try {
         await layoutService.deleteLayout(id);
         this.layouts = this.layouts.filter((layout) => layout.id !== id);

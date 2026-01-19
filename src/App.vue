@@ -13,7 +13,7 @@
     </div>
 
     <!-- Main Content Area -->
-    <div v-if="isAuthChecked" class="main-content">
+    <div class="main-content">
       <router-view />
     </div>
   </div>
@@ -27,14 +27,11 @@ import UserMenu from './components/UserMenu.vue';
 import LayoutTitleEditor from './components/LayoutTitleEditor.vue';
 import ThemeToggle from './components/ThemeToggle.vue';
 import { useLayoutStore } from '@/stores/layout';
-import { useAuthGuard } from "@/composables/useAuthGuard";
-
-const { isAuthChecked } = useAuthGuard();
 const route = useRoute();
 const layoutStore = useLayoutStore();
 
 const showTitleEditor = computed(() => {
-  return layoutStore.currentLayout && route.path.startsWith("/grid");
+  return layoutStore.isOwner && route.path.startsWith("/grid");
 });
 
 const showTopBar = computed(() => {
@@ -70,6 +67,7 @@ const showTopBar = computed(() => {
 
 .container {
   // margin: 0 !important;
+  display: block;
 }
 
 .w-fit {

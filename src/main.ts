@@ -13,10 +13,15 @@ import './styles/tokens.scss';
 import './styles/themes.scss';
 import './styles/custom.scss';
 
+import { useThemeStore } from '@/stores/theme';
+
 const app = createApp(App);
 const pinia = createPinia();
 
 app.use(router)
 
 app.use(pinia);
+
+useThemeStore(pinia).initializeTheme();
+
 app.mount('#app');

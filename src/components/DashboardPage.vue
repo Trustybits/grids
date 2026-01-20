@@ -1,59 +1,56 @@
 <template>
   <div class="dashboard">
     <div class="dashboard-sections">
-      <button @click="promptAndCreateLayout">NEW DISPLAY ➕</button>
-      <h1>Recent Displays</h1>
-      <div class="layout-list">
-        <div v-if="isLoading" class="loading">Loading displays...</div>
-        <div v-else-if="layouts.length === 0" class="no-layouts">
-          You have no displays. Create one to get started!
-        </div>
-
-        <ul class="grid-list">
-          <li
-            v-for="layout in layouts"
-            :key="layout.id"
-            class="display-card layout-item"
-            @click="goToLayout(layout.id)"
-            style="cursor: pointer;"
-          >
-            <span class="display-link">{{ layout.name }}</span>
-          </li>
-          <li @click="promptAndCreateLayout" class="new-display-inline-button">
-            NEW DISPLAY
-          </li>
-        </ul>
+      <div class="dashboard-header">
+        <h2>Your Grids</h2>
+        <button @click="promptAndCreateLayout" class="new-grid-button">
+          New Grid
+        </button>
       </div>
-
-      <h1>All Displays</h1>
       <div class="layout-list">
-        <div v-if="isLoading" class="loading">Loading displays...</div>
+        <div v-if="isLoading" class="loading">Loading grids...</div>
         <div v-else-if="layouts.length === 0" class="no-layouts">
-          You have no displays. Create one to get started!
+          You have no grids. Create one to get started!
         </div>
-        <ul class="grid-list">
+        <ul v-else class="grid-list">
           <li
             v-for="layout in layouts"
             :key="layout.id"
-            class="display-card layout-item"
+            class="grid-card"
           >
-            <router-link :to="`/grid/${layout.id}`" class="display-link">
-              {{ layout.name }}
+            <router-link :to="`/grid/${layout.id}`" class="grid-link">
+              <div class="grid-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                  <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                  <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+              </div>
+              <span class="grid-name">{{ layout.name }}</span>
+              <svg class="grid-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
             </router-link>
-          </li>
-          <li @click="promptAndCreateLayout" class="new-display-inline-button">
-            NEW DISPLAY
           </li>
         </ul>
       </div>
     </div>
+
+    <!-- Create Grid Modal -->
+    <CreateGridModal 
+      :show="showCreateModal" 
+      @close="closeModal" 
+      @create="handleCreateGrid" 
+    />
   </div>
 </template>
 
 <script setup>
-import { onMounted, computed } from 'vue';
+import { onMounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLayoutStore } from '@/stores/layout';
+import CreateGridModal from './CreateGridModal.vue';
 
 const layoutStore = useLayoutStore();
 const router = useRouter();
@@ -61,22 +58,25 @@ const router = useRouter();
 const layouts = computed(() => layoutStore.layouts);
 const isLoading = computed(() => layoutStore.isLoading);
 
+const showCreateModal = ref(false);
+
 onMounted(() => {
   layoutStore.fetchLayouts();
 });
 
-const goToLayout = (id) => {
-  router.push(`/grid/${id}`);
+const promptAndCreateLayout = () => {
+  showCreateModal.value = true;
 };
 
-const promptAndCreateLayout = async () => {
-  const name = prompt("Enter a name for your new layout:");
+const closeModal = () => {
+  showCreateModal.value = false;
+};
 
-  if (name === null) return;
-
+const handleCreateGrid = async (name) => {
   try {
     const newLayoutId = await layoutStore.createLayout(name);
     if (newLayoutId) {
+      closeModal();
       router.push(`/grid/${newLayoutId}`);
     }
   } catch (error) {
@@ -88,9 +88,11 @@ const promptAndCreateLayout = async () => {
 
 <style scoped>
 .dashboard {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: var(--spacing-xl);
-  max-width: 800px;
-  margin: 0 auto;
+  min-height: 100vh;
   font-family: var(--font-family-base);
   color: var(--color-text-primary);
   background-color: var(--color-content-background);
@@ -98,101 +100,133 @@ const promptAndCreateLayout = async () => {
 
 .dashboard-sections {
   display: flex;
-  align-items: left;
   flex-direction: column;
   gap: var(--spacing-xl);
-  margin-bottom: var(--spacing-lg);
+  width: 100%;
+  max-width: 900px;
+}
 
-  button {
-    border-radius: var(--radius-full);
-    width: fit-content;
-    padding: var(--spacing-sm) var(--spacing-md);
-    background-color: var(--primary-color);
-    color: var(--color-text-primary);
-    border: none;
-    cursor: pointer;
-    transition: background-color var(--duration-fast) var(--easing-smooth);
-  }
-
-  button:hover {
-    background-color: var(--color-content-high);
-  }
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
 }
 
 h1 {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-3xl);
   margin: 0;
   color: var(--color-text-primary);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+}
+
+.new-grid-button {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background-color: var(--color-content-high);
+  color: var(--color-text-primary);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--easing-smooth);
+}
+
+.new-grid-button:hover {
+  background-color: var(--color-content-low);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.new-grid-button svg {
+  color: var(--color-text-primary);
 }
 
 .layout-list {
-  border-top: var(--tile-border-width) solid var(--color-tile-stroke);
-  padding: var(--spacing-md);
-  padding-top: var(--spacing-xl);
-  background-color: var(--color-tile-background);
-  backdrop-filter: blur(20px);
-  border-radius: var(--radius-lg);
+  background-color: transparent;
 }
 
 .loading,
 .no-layouts {
   text-align: center;
-  margin-top: var(--spacing-md);
+  padding: var(--spacing-xl) 0;
   font-size: var(--font-size-lg);
   color: var(--color-content-default);
 }
 
-ul {
+.grid-list {
   display: flex;
   flex-direction: column;
-  flex-wrap: wrap;
-  justify-content: left;
-  align-items: left;
   gap: var(--spacing-sm);
-
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-li {
-  padding: var(--spacing-lg);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  background-color: var(--color-tile-background);
-  border-radius: var(--radius-md);
-  transition: background-color var(--duration-normal) var(--easing-smooth);
+.grid-card {
+  list-style: none;
 }
 
-li:hover {
-  background-color: var(--color-content-low);
-}
-
-.display-link {
-  color: var(--color-text-primary);
-  text-decoration: none;
-}
-
-.new-display-inline-button {
+.grid-link {
   display: flex;
-  justify-content: center;
   align-items: center;
-  color: var(--color-content-default);
-  background-color: var(--color-content-background);
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background-color: var(--color-tile-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--color-text-primary);
+  transition: all var(--duration-normal) var(--easing-smooth);
   cursor: pointer;
 }
 
-a {
-  text-decoration: none;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  border-bottom: 1px solid transparent;
-  color: var(--color-text-primary);
-  transition: border-color var(--duration-fast) var(--easing-smooth);
+.grid-link:hover {
+  background-color: var(--color-content-low);
+  border-color: var(--color-content-default);
+  transform: translateX(4px);
 }
 
-a:hover {
-  border-bottom: 1px solid var(--color-content-high);
+.grid-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background-color: var(--color-content-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-sm);
+  color: var(--color-content-default);
+  flex-shrink: 0;
+  transition: all var(--duration-fast) var(--easing-smooth);
+}
+
+.grid-link:hover .grid-icon {
+  background-color: var(--color-content-high);
+  color: var(--color-text-primary);
+}
+
+.grid-name {
+  flex: 1;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.grid-arrow {
+  color: var(--color-content-default);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: all var(--duration-fast) var(--easing-smooth);
+  flex-shrink: 0;
+}
+
+.grid-link:hover .grid-arrow {
+  opacity: 1;
+  transform: translateX(0);
 }
 </style>

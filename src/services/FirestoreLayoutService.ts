@@ -1,7 +1,7 @@
 import { type Layout } from "@/types/Layout";
 import { type LayoutService } from "./LayoutService";
 import { db } from "@/firebase";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 
 export class FirestoreLayoutService implements LayoutService {
   // Fetch a layout by ID
@@ -25,6 +25,9 @@ export class FirestoreLayoutService implements LayoutService {
         tiles: data.tiles || [],
         backgroundImageSrc: data.backgroundImageSrc || "",
         backgroundEmbed: data.backgroundEmbed || false,
+        createdAt: data.createdAt ?? null,
+        updatedAt: data.updatedAt ?? null,
+        lastOpenedAt: data.lastOpenedAt ?? null,
       };
     } catch (error) {
       console.error(`Error fetching layout with ID ${id}:`, error);
@@ -37,7 +40,17 @@ export class FirestoreLayoutService implements LayoutService {
     try {
       console.log(layout);
       const docRef = doc(db, "layouts", layout.id);
-      await setDoc(docRef, layout);
+      await setDoc(docRef, {
+        userId: layout.userId,
+        name: layout.name,
+        colNum: layout.colNum,
+        tiles: layout.tiles,
+        backgroundImageSrc: layout.backgroundImageSrc,
+        backgroundEmbed: layout.backgroundEmbed,
+        createdAt: layout.createdAt ?? serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastOpenedAt: layout.lastOpenedAt ?? serverTimestamp(),
+      }, { merge: true });
     } catch (error) {
       console.error(`Error saving layout with ID ${layout.id}:`, error);
       throw error;
@@ -52,6 +65,9 @@ export class FirestoreLayoutService implements LayoutService {
         name: layout.name,
         colNum: layout.colNum,
         tiles: layout.tiles,
+        backgroundImageSrc: layout.backgroundImageSrc,
+        backgroundEmbed: layout.backgroundEmbed,
+        updatedAt: serverTimestamp(),
       });
     } catch (error) {
       console.error(`Error updating layout with ID ${layout.id}:`, error);

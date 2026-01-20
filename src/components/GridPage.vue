@@ -44,7 +44,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted } from "vue";
+import { defineComponent, ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { getAuth } from "firebase/auth";
 import {
@@ -149,6 +149,15 @@ export default defineComponent({
         console.error("Layout ID is missing in the route.");
       }
     });
+
+    watch(
+      () => route.params.id,
+      (newId) => {
+        if (newId) {
+          layoutStore.loadLayout(newId as string);
+        }
+      }
+    );
 
     return {
       layoutStore,

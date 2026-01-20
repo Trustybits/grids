@@ -10,8 +10,11 @@ export function mapFirestoreToLayout(doc: any): Layout {
     name: data.name || "Untitled",
     colNum: data.colNum || 12,
     tiles: Array.isArray(data.tiles) ? data.tiles : [], // Validate tiles is an array
-    backgroundImageSrc: "",
-    backgroundEmbed: false,
+    backgroundImageSrc: data.backgroundImageSrc || "",
+    backgroundEmbed: !!data.backgroundEmbed,
+    createdAt: data.createdAt ?? null,
+    updatedAt: data.updatedAt ?? null,
+    lastOpenedAt: data.lastOpenedAt ?? null,
   };
 }
 

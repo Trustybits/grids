@@ -154,6 +154,18 @@
         @change.stop="addFile"
       />
     </div>
+
+    <!-- Modals -->
+    <AddLinkModal
+      :show="showLinkModal"
+      @close="closeLinkModal"
+      @add="handleAddLink"
+    />
+    <AddEmbedModal
+      :show="showEmbedModal"
+      @close="closeEmbedModal"
+      @add="handleAddEmbed"
+    />
   </div>
 </template>
 
@@ -174,8 +186,14 @@ import {
 
 import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
+import AddLinkModal from "./AddLinkModal.vue";
+import AddEmbedModal from "./AddEmbedModal.vue";
 
 export default {
+  components: {
+    AddLinkModal,
+    AddEmbedModal,
+  },
   setup() {
     const themeStore = useThemeStore();
     const isDarkMode = computed(() => themeStore.isDarkMode);
@@ -184,6 +202,9 @@ export default {
     const imageInput = ref<HTMLInputElement | null>(null);
     const auth = getAuth();
     const storage = getStorage();
+
+    const showLinkModal = ref(false);
+    const showEmbedModal = ref(false);
 
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
@@ -240,43 +261,55 @@ export default {
     };
 
     const addLinkElement = () => {
-      let link = prompt("Please enter a link");
-      if (link) {
-        const linkContent = createTileContent(ContentType.LINK, { link });
-        const tileId = layoutStore.addTile(linkContent);
+      showLinkModal.value = true;
+    };
 
-        if (tileId) {
-          (async () => {
-            try {
-              const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-              const result = await getLinkPreview({ url: (linkContent as any).link });
-              const data = result.data as any;
+    const closeLinkModal = () => {
+      showLinkModal.value = false;
+    };
 
-              layoutStore.patchTileContent(tileId, {
-                link: data?.url,
-                domain: data?.domain,
-                faviconUrl: data?.faviconUrl || (linkContent as any).faviconUrl,
-                metaTitle: data?.title,
-                metaDescription: data?.description,
-                metaImageUrl: data?.imageUrl,
-                metaSiteName: data?.siteName,
-              });
-            } catch (error) {
-              console.error("Failed to fetch link preview:", error);
-            }
-          })();
-        }
+    const handleAddLink = (link: string) => {
+      closeLinkModal();
+      const linkContent = createTileContent(ContentType.LINK, { link });
+      const tileId = layoutStore.addTile(linkContent);
+
+      if (tileId) {
+        (async () => {
+          try {
+            const getLinkPreview = httpsCallable(functions, "getLinkPreview");
+            const result = await getLinkPreview({ url: (linkContent as any).link });
+            const data = result.data as any;
+
+            layoutStore.patchTileContent(tileId, {
+              link: data?.url,
+              domain: data?.domain,
+              faviconUrl: data?.faviconUrl || (linkContent as any).faviconUrl,
+              metaTitle: data?.title,
+              metaDescription: data?.description,
+              metaImageUrl: data?.imageUrl,
+              metaSiteName: data?.siteName,
+            });
+          } catch (error) {
+            console.error("Failed to fetch link preview:", error);
+          }
+        })();
       }
     };
 
     const addEmbedElement = () => {
-      let link = prompt("Please enter an embed URL");
-      if (link) {
-        const embedContent = createTileContent(ContentType.EMBED, {
-          src: link,
-        });
-        layoutStore.addTile(embedContent);
-      }
+      showEmbedModal.value = true;
+    };
+
+    const closeEmbedModal = () => {
+      showEmbedModal.value = false;
+    };
+
+    const handleAddEmbed = (link: string) => {
+      closeEmbedModal();
+      const embedContent = createTileContent(ContentType.EMBED, {
+        src: link,
+      });
+      layoutStore.addTile(embedContent);
     };
 
     const addOtherElement = () => {
@@ -307,8 +340,13 @@ export default {
       addLinkElement,
       addEmbedElement,
       updateMetaData,
-
       isDarkMode,
+      showLinkModal,
+      showEmbedModal,
+      closeLinkModal,
+      closeEmbedModal,
+      handleAddLink,
+      handleAddEmbed,
     };
   },
 };

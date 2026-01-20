@@ -24,24 +24,30 @@
         <div class="active-dot" v-if="isActiveRoute('/dashboard')"></div>
       </router-link>
 
-      <!-- Current Grid Button -->
-      <router-link
-        v-if="user && currentGridPath"
-        :to="currentGridPath"
-        class="nav-button"
-        :class="{ 'is-active': isActiveRoute('/grid') }"
-      >
-        <div class="nav-button-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-            <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-            <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-            <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          </svg>
-        </div>
-        <span class="nav-button-label" v-show="isExpanded">{{ currentGridName || 'Grid' }}</span>
-        <div class="active-dot" v-if="isActiveRoute('/grid')"></div>
-      </router-link>
+      <!-- Divider -->
+      <div v-if="user" class="nav-divider"></div>
+
+      <!-- Recent Grids -->
+      <template v-if="user">
+        <router-link
+          v-for="g in recentGrids"
+          :key="g.id"
+          :to="`/grid/${g.id}`"
+          class="nav-button"
+          :class="{ 'is-active': isActiveGrid(g.id) }"
+        >
+          <div class="nav-button-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <span class="nav-button-label" v-show="isExpanded">{{ g.name || 'Grid' }}</span>
+          <div class="active-dot" v-if="isActiveGrid(g.id)"></div>
+        </router-link>
+      </template>
     </div>
   </nav>
 </template>
@@ -52,6 +58,7 @@ import { useRoute } from "vue-router";
 import { auth } from "@/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useLayoutStore } from "@/stores/layout";
+import type { Layout } from "@/types/Layout";
 
 export default defineComponent({
   name: "LeftNavBar",
@@ -65,7 +72,7 @@ export default defineComponent({
     onMounted(() => {
       onAuthStateChanged(auth, (currentUser) => {
         user.value = currentUser;
-        if (currentUser && layoutStore.layouts.length === 0) {
+        if (currentUser) {
           layoutStore.fetchLayouts();
         }
       });
@@ -78,19 +85,41 @@ export default defineComponent({
       return route.path.startsWith(path);
     };
 
-    const currentGridPath = computed(() => {
-      if (layoutStore.currentLayout?.id) {
-        return `/grid/${layoutStore.currentLayout.id}`;
-      }
-      // If no current layout, try to get the most recent one
-      if (layoutStore.layouts.length > 0) {
-        return `/grid/${layoutStore.layouts[0].id}`;
-      }
-      return null;
-    });
+    const isActiveGrid = (id: string) => {
+      return route.path.startsWith(`/grid/${id}`);
+    };
 
-    const currentGridName = computed(() => {
-      return layoutStore.currentLayout?.name || layoutStore.layouts[0]?.name || null;
+    const recentGrids = computed<Layout[]>(() => {
+      const toMillis = (v: any): number => {
+        if (!v) return 0;
+        try {
+          if (typeof v.toDate === 'function') return v.toDate().getTime();
+        } catch {}
+        if (v instanceof Date) return v.getTime();
+        if (typeof v === 'number') return v;
+        return 0;
+      };
+
+      const scored = (layoutStore.layouts || []).map((l) => ({
+        l,
+        s:
+          toMillis(l.lastOpenedAt) ||
+          toMillis(l.updatedAt) ||
+          toMillis(l.createdAt) ||
+          0,
+      }));
+
+      const sorted = scored
+        .sort((a, b) => b.s - a.s)
+        .map((x) => x.l)
+        .filter((x, idx, arr) => arr.findIndex((y) => y.id === x.id) === idx)
+        .slice(0, 3);
+
+      if (sorted.length === 0) {
+        if (layoutStore.currentLayout) return [layoutStore.currentLayout];
+        if (layoutStore.layouts.length > 0) return [layoutStore.layouts[0]];
+      }
+      return sorted;
     });
 
     const handleMouseEnter = () => {
@@ -116,8 +145,8 @@ export default defineComponent({
       user,
       isExpanded,
       isActiveRoute,
-      currentGridPath,
-      currentGridName,
+      isActiveGrid,
+      recentGrids,
       handleMouseEnter,
       handleMouseLeave,
       layoutStore,
@@ -267,5 +296,17 @@ export default defineComponent({
       opacity: 0;
     }
   }
+}
+
+.nav-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--color-tile-stroke);
+}
+
+.left-nav-bar:not(.is-expanded) .nav-divider {
+  opacity: 0;
+  height: 0;
+  margin: 0;
 }
 </style>

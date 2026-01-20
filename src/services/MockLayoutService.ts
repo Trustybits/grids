@@ -7,6 +7,7 @@ const mockData: Layout = {
   id: "mock-layout-id",
   name: "Mock Layout",
   colNum: 16,
+  verticalCompact: false,
   userId: "me",
   tiles: [
     createTile(

@@ -5,6 +5,7 @@ export interface Layout {
   userId: string;
   name: string;
   colNum: number;
+  verticalCompact: boolean;
   backgroundImageSrc: string;
   backgroundEmbed: boolean;
   tiles: Tile[];

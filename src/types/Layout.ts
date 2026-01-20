@@ -8,4 +8,7 @@ export interface Layout {
   backgroundImageSrc: string;
   backgroundEmbed: boolean;
   tiles: Tile[];
+  createdAt?: any;
+  updatedAt?: any;
+  lastOpenedAt?: any;
 }

@@ -44,6 +44,12 @@
       <p class="fineprint">
         By continuing, you agree to receive a sign-in link at your email.
       </p>
+
+      <p class="legal-links">
+        <router-link to="/terms">Terms</router-link>
+        <span class="legal-links__separator">·</span>
+        <router-link to="/privacy">Privacy</router-link>
+      </p>
     </div>
   </div>
 </template>
@@ -334,6 +340,27 @@ button:hover {
   margin: 0;
   font-size: 12px;
   color: var(--color-content-default);
+}
+
+.legal-links {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-content-default);
+}
+
+.legal-links a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.legal-links a:hover {
+  color: var(--color-content-high);
+  text-decoration: underline;
+}
+
+.legal-links__separator {
+  margin: 0 8px;
+  opacity: 0.7;
 }
 
 .solidDivider {

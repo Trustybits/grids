@@ -36,6 +36,8 @@ export interface LinkContent extends TileContent {
   faviconUrl?: string;
   metaTitle?: string;
   metaDescription?: string;
+  metaImageUrl?: string;
+  metaSiteName?: string;
 }
 
 export interface EmbedContent extends TileContent {

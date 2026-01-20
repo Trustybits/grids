@@ -6,16 +6,16 @@
     :layout="layoutStore.currentLayout?.tiles || []"
     :col-num="colNum"
     :row-height="rowHeight"
-    :is-draggable="true"
-    :is-resizable="true"
+    :is-draggable="layoutStore.isOwner"
+    :is-resizable="layoutStore.isOwner"
     :vertical-compact="false"
     :restoreOnDrag="true"
     :use-css-transforms="true"
     :margin="[margin, margin]"
-    @layout-updated="layoutStore.updateLayout"
+    @layout-updated="onLayoutUpdated"
     :style="{ width: `${gridWidth}px` }"
   >
-    <joju-grid-tile
+    <grid-tile
       v-for="tile in layoutStore.currentLayout?.tiles || []"
       :key="tile.i"
       :tile="tile"
@@ -58,14 +58,14 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
-import JojuGridTile from "./GridTile.vue";
+import GridTile from "./GridTile.vue";
 import { useLayoutStore } from "@/stores/layout";
 
 export default {
   components: {
     GridLayout,
     GridItem,
-    JojuGridTile,
+    GridTile,
   },
   props: {
     rowHeight: {
@@ -77,6 +77,11 @@ export default {
     const layoutStore = useLayoutStore();
     const route = useRoute(); // Access route parameters
     const margin = 48;
+
+    const onLayoutUpdated = () => {
+      if (!layoutStore.isOwner) return;
+      layoutStore.updateLayout();
+    };
 
     const colNum = computed(() => {
       return layoutStore.currentLayout?.colNum || 10;
@@ -112,6 +117,7 @@ export default {
       margin,
       colNum,
       suggestionLayout,
+      onLayoutUpdated,
     };
   },
 
@@ -140,6 +146,8 @@ export default {
   transform: translate(-50%, 0);
 }
 
+/* Visual styling handled by custom.scss globally */
+/* Grid only handles animation behavior */
 .vue-grid-item {
   :not(&.resizing) {
     transition-property: transform, width, height !important;
@@ -149,13 +157,6 @@ export default {
       0.27,
       1.55
     ) !important;
-  }
-  box-shadow: 1px 1px 15px rgb(153, 153, 153);
-  border-radius: 8px;
-
-  &.vue-draggable-dragging {
-    opacity: 1 !important;
-    background-color: white !important;
   }
 }
 

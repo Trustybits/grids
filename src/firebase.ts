@@ -3,19 +3,20 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
+import { getFunctions } from "firebase/functions";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyCjmQ3Bn0Qtvzmx5a4RL1syPDCdGnALbXk",
-  authDomain: "joju-stage.firebaseapp.com",
-  projectId: "joju-stage",
-  storageBucket: "joju-stage.firebasestorage.app",
-  messagingSenderId: "891449053644",
-  appId: "1:891449053644:web:350b514613b3ec43ac4d69",
-  measurementId: "G-DLS95BF0WQ"
+  apiKey: "AIzaSyD1SapZGG49zaIfBv3QqZWxobQmws263zQ",
+  authDomain: "grids-one.firebaseapp.com",
+  projectId: "grids-one",
+  storageBucket: "grids-one.firebasestorage.app",
+  messagingSenderId: "598562210148",
+  appId: "1:598562210148:web:6bfd6ef229fcd9fd5b3a71",
+  measurementId: "G-8Q904761XS"
 };
 
 // Initialize Firebase
@@ -23,5 +24,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const analytics = getAnalytics(app);
+const functions = getFunctions(app);
 
-export { app, auth, db, analytics };
+export { app, auth, db, analytics, functions };

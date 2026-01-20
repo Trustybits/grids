@@ -1,5 +1,5 @@
 <template>
-  <TextOptions v-if="editor" v-show="isEditing" :editor="editor" />
+  <TextOptions v-if="layoutStore.isOwner && editor" v-show="isEditing" :editor="editor" />
   <div 
     class="text-container" 
     ref="textContentDiv"
@@ -7,7 +7,7 @@
     <div 
       class="text-content" 
       :class="{ 'not-editing': !isEditing, 'overflowing': isTextOverflowing }"
-      :spellcheck="isEditing"
+      :spellcheck="layoutStore.isOwner && isEditing"
     >
       <EditorContent :editor="editor" />
     </div>
@@ -97,6 +97,10 @@ export default defineComponent({
     );
 
     const onShortClick = () => {
+      if (!layoutStore.isOwner) {
+        return;
+      }
+
       if (editor?.value && !isEditing.value) {
         isEditing.value = true;
       } else if (!editor.value?.isFocused) {
@@ -118,6 +122,7 @@ export default defineComponent({
     });
 
     return {
+      layoutStore,
       editor,
       isTextOverflowing,
       isEditing,
@@ -132,17 +137,17 @@ export default defineComponent({
 <style scoped>
 .text-container {
   height: 100%;
-  padding: 8px;
+  padding: var(--spacing-sm);
   display: flex;
   font-family: 'Inter';
 }
 
 .text-content {
   background-color: rgba(255, 255, 255, 0.1);
-  padding: 8px;
+  padding: var(--spacing-md);
   width: 100%;
   scroll-behavior: smooth;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   overflow: auto;
   margin: 0;
   line-height: 1.3;

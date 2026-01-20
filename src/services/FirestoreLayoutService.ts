@@ -22,6 +22,7 @@ export class FirestoreLayoutService implements LayoutService {
         userId: data.userId || "",
         name: data.name || "Untitled",
         colNum: data.colNum || 12,
+        verticalCompact: data.verticalCompact ?? false,
         tiles: data.tiles || [],
         backgroundImageSrc: data.backgroundImageSrc || "",
         backgroundEmbed: data.backgroundEmbed || false,
@@ -44,6 +45,7 @@ export class FirestoreLayoutService implements LayoutService {
         userId: layout.userId,
         name: layout.name,
         colNum: layout.colNum,
+        verticalCompact: layout.verticalCompact,
         tiles: layout.tiles,
         backgroundImageSrc: layout.backgroundImageSrc,
         backgroundEmbed: layout.backgroundEmbed,
@@ -64,6 +66,7 @@ export class FirestoreLayoutService implements LayoutService {
       await updateDoc(docRef, {
         name: layout.name,
         colNum: layout.colNum,
+        verticalCompact: layout.verticalCompact,
         tiles: layout.tiles,
         backgroundImageSrc: layout.backgroundImageSrc,
         backgroundEmbed: layout.backgroundEmbed,

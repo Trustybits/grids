@@ -24,6 +24,12 @@ export const useLayoutStore = defineStore("layout", {
     recentLayoutIds: [] as string[],
   }),
 
+  getters: {
+    verticalCompact(): boolean {
+      return this.currentLayout?.verticalCompact ?? true;
+    },
+  },
+
   actions: {
     async fetchLayouts() {
       this.isLoading = true;
@@ -180,6 +186,22 @@ export const useLayoutStore = defineStore("layout", {
       this.showMetaData = cookieValue === "true";
     },
 
+    // Toggle the vertical compact (gravity) setting
+    toggleVerticalCompact() {
+      if (!this.currentLayout) return;
+      
+      this.currentLayout.verticalCompact = !this.currentLayout.verticalCompact;
+      this.updateLayout();
+    },
+
+    // Set the vertical compact (gravity) setting
+    setVerticalCompact(value: boolean) {
+      if (!this.currentLayout) return;
+      
+      this.currentLayout.verticalCompact = value;
+      this.updateLayout();
+    },
+
     getCookieValue(name: string): string | null {
       const cookies = document.cookie.split("; ");
       const cookie = cookies.find((row) => row.startsWith(`${name}=`));
@@ -217,15 +239,14 @@ export const useLayoutStore = defineStore("layout", {
 
       // TODO: Validate content before creating tile
 
-      // Calculate the lowest point in the grid
-      const lowestY = this.calculateLowestPoint();
-
-      // Create the new tile below the lowest point
+      // Find the first available 2x2 spot (left-to-right, top-to-bottom)
+      const position = this.findFirstAvailableSpot(2, 2);
+      // Create the new tile at the found position
       const newTile = createTile(
         content.type,
         uuidv4(),
-        0,
-        lowestY,
+        position.x,
+        position.y,
         2,
         2,
         content,
@@ -334,6 +355,42 @@ export const useLayoutStore = defineStore("layout", {
         const bottom = tile.y + tile.h;
         return bottom > max ? bottom : max;
       }, 0);
+    },
+
+    // Find the first available spot for a tile of given width and height
+    // Scans left-to-right, top-to-bottom
+    findFirstAvailableSpot(width: number, height: number): { x: number; y: number } {
+      if (!this.currentLayout) {
+        return { x: 0, y: 0 };
+      }
+
+      const colNum = this.currentLayout.colNum || 12;
+      const maxY = this.calculateLowestPoint() + height; // Search up to current bottom + new tile height
+
+      // Helper function to check if a position overlaps with any existing tile
+      const hasOverlap = (x: number, y: number): boolean => {
+        return this.currentLayout!.tiles.some(tile => {
+          // Check if rectangles overlap
+          return !(
+            x + width <= tile.x ||  // new tile is to the left
+            x >= tile.x + tile.w || // new tile is to the right
+            y + height <= tile.y || // new tile is above
+            y >= tile.y + tile.h    // new tile is below
+          );
+        });
+      };
+
+      // Scan top-to-bottom, left-to-right
+      for (let y = 0; y <= maxY; y++) {
+        for (let x = 0; x <= colNum - width; x++) {
+          if (!hasOverlap(x, y)) {
+            return { x, y };
+          }
+        }
+      }
+
+      // If no spot found, fall back to bottom of grid
+      return { x: 0, y: this.calculateLowestPoint() };
     },
 
     // updateTile(id: string, newContent: TileContent) {

@@ -10,7 +10,8 @@
     :maxH="10"
     :isDraggable="layoutStore.isOwner && !isEditing && !isSuggestion"
     @move="onMove"
-    @resized="onDragResize"
+    @moved="onMoved"
+    @resized="onResized"
   >
     <div
       class="tile-wrapper"
@@ -320,6 +321,12 @@ export default defineComponent({
       setTimeout(() => (isMoving.value = false), 300);
     };
 
+    const onMoved = () => {
+      // Called when drag operation completes - save the final positions
+      if (!layoutStore.isOwner) return;
+      layoutStore.updateLayout();
+    };
+
     const resize = (w: number, h: number) => {
       layoutStore.resizeTile(props.tile.i, w, h);
       if (childComponent.value?.onResize) {
@@ -343,9 +350,14 @@ export default defineComponent({
       void action;
     };
 
-    const onDragResize = () => {
+    const onResized = () => {
+      // Called when resize operation completes
       if (childComponent.value?.onResize) {
         childComponent.value.onResize();
+      }
+      // Save the layout with the new size
+      if (layoutStore.isOwner) {
+        layoutStore.updateLayout();
       }
     };
 
@@ -471,7 +483,8 @@ export default defineComponent({
       gridTileRef,
       layoutStore,
       isEditing,
-      onDragResize,
+      onMoved,
+      onResized,
       showCaption,
       isPresetActive,
       borderEnabled,

@@ -8,11 +8,11 @@
     :row-height="rowHeight"
     :is-draggable="layoutStore.isOwner"
     :is-resizable="layoutStore.isOwner"
-    :vertical-compact="false"
-    :restoreOnDrag="true"
+    :vertical-compact="layoutStore.verticalCompact"
+    :prevent-collision="false"
+    :restore-on-drag="true"
     :use-css-transforms="true"
     :margin="[margin, margin]"
-    @layout-updated="onLayoutUpdated"
     :style="{ width: `${gridWidth}px` }"
   >
     <grid-tile
@@ -48,11 +48,6 @@ export default {
     const route = useRoute(); // Access route parameters
     const margin = 48;
 
-    const onLayoutUpdated = () => {
-      if (!layoutStore.isOwner) return;
-      layoutStore.updateLayout();
-    };
-
     const colNum = computed(() => {
       return layoutStore.currentLayout?.colNum || 10;
     });
@@ -77,7 +72,6 @@ export default {
       gridWidth,
       margin,
       colNum,
-      onLayoutUpdated,
     };
   },
 

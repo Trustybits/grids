@@ -158,17 +158,19 @@ export default defineComponent({
 <style lang="scss" scoped>
 .left-nav-bar {
   position: fixed;
-  left: 16px;
+  justify-items: end;
   top: 50%;
+  padding: 16px 0;
   transform: translateY(-50%);
   z-index: var(--z-fixed);
   /* Slightly wider to increase hover hitbox; inner bar stays narrow */
-  width: 32px;
+  width: 20px;
   transition: width var(--duration-normal) var(--easing-ease-in-out),
     opacity var(--duration-normal) var(--easing-ease-in-out);
 
   &.is-expanded {
     width: 40px;
+    left: 8px;
   }
 
   .nav-bar-container {

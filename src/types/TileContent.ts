@@ -4,6 +4,7 @@ export enum ContentType {
   VIDEO = "video",
   LINK = "link",
   EMBED = "embed",
+  SUGGESTION = "suggestion", // internal-only tile type
 }
 
 export interface TileContent {
@@ -51,4 +52,13 @@ export interface VideoContent extends TileContent {
   zoom: number;
   offsetX: number;
   offsetY: number;
+}
+
+export type SuggestionAction = "text" | "media" | "link" | "embed";
+
+export interface SuggestionContent extends TileContent {
+  type: ContentType.SUGGESTION;
+  action: SuggestionAction;
+  icon?: string;
+  label?: string;
 }

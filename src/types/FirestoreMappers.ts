@@ -9,9 +9,13 @@ export function mapFirestoreToLayout(doc: any): Layout {
     userId: data.userId || "",
     name: data.name || "Untitled",
     colNum: data.colNum || 12,
+    verticalCompact: data.verticalCompact !== undefined ? data.verticalCompact : true,
     tiles: Array.isArray(data.tiles) ? data.tiles : [], // Validate tiles is an array
-    backgroundImageSrc: "",
-    backgroundEmbed: false,
+    backgroundImageSrc: data.backgroundImageSrc || "",
+    backgroundEmbed: !!data.backgroundEmbed,
+    createdAt: data.createdAt ?? null,
+    updatedAt: data.updatedAt ?? null,
+    lastOpenedAt: data.lastOpenedAt ?? null,
   };
 }
 
@@ -26,6 +30,7 @@ export function createDefaultLayout(userId: string, name: string): Layout {
     userId,
     name,
     colNum: 12, // Default number of columns
+    verticalCompact: true, // Default to gravity ON
     tiles: [], // Start with no tiles
     backgroundImageSrc: "",
     backgroundEmbed: false,

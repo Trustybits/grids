@@ -1,10 +1,10 @@
 <template>
   <div id="app">
     <!-- Left Navigation Bar -->
-    <LeftNavBar />
+    <LeftNavBar v-if="isAuthenticated" />
 
     <!-- User Menu at Bottom Left -->
-    <UserMenu />
+    <UserMenu v-if="isAuthenticated" />
 
     <!-- Top Bar for Layout Title Editor and Theme Toggle -->
     <div class="top-bar" v-if="showTopBar">
@@ -13,22 +13,38 @@
     </div>
 
     <!-- Main Content Area -->
-    <div class="main-content">
+    <div class="main-content" :class="{ 'has-left-nav': isAuthenticated }">
       <router-view />
     </div>
+
+    <!-- Toast Notifications -->
+    <ToastContainer />
   </div>
 </template>
 
-<script setup>
-import { computed } from 'vue';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import LeftNavBar from './components/LeftNavBar.vue';
 import UserMenu from './components/UserMenu.vue';
 import LayoutTitleEditor from './components/LayoutTitleEditor.vue';
 import ThemeToggle from './components/ThemeToggle.vue';
+import ToastContainer from './components/ToastContainer.vue';
 import { useLayoutStore } from '@/stores/layout';
+import { auth } from '@/firebase';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 const route = useRoute();
 const layoutStore = useLayoutStore();
+
+const user = ref<User | null>(null);
+
+onMounted(() => {
+  onAuthStateChanged(auth, (currentUser) => {
+    user.value = currentUser;
+  });
+});
+
+const isAuthenticated = computed(() => !!user.value);
 
 const showTitleEditor = computed(() => {
   return layoutStore.isOwner && route.path.startsWith("/grid");
@@ -56,6 +72,10 @@ const showTopBar = computed(() => {
 }
 
 .main-content {
+  padding-left: 0;
+}
+
+.main-content.has-left-nav {
   padding-left: 20px; // Space for left nav bar
 }
 

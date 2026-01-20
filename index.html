@@ -9,6 +9,32 @@
     <link href='https://fonts.googleapis.com/css?family=Inter' rel='stylesheet'>
 
     <script type="text/javascript">
+      (function () {
+        try {
+          var storedThemeId = localStorage.getItem('themeId');
+          var legacyDarkMode = localStorage.getItem('darkMode');
+
+          var themeId = null;
+          if (storedThemeId === 'dark' || storedThemeId === 'light') {
+            themeId = storedThemeId;
+          } else if (legacyDarkMode !== null) {
+            themeId = legacyDarkMode === 'true' ? 'dark' : 'light';
+          } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            themeId = 'dark';
+          } else {
+            themeId = 'light';
+          }
+
+          var root = document.documentElement;
+          root.classList.remove('theme-light', 'theme-dark');
+          root.classList.add('theme-' + themeId);
+        } catch (e) {
+          document.documentElement.classList.add('theme-light');
+        }
+      })();
+    </script>
+
+    <script type="text/javascript">
       (function(c,l,a,r,i,t,y){
           c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
           t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;

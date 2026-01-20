@@ -30,3 +30,6 @@ coverage
 *.tsbuildinfo
 
 .firebase/hosting.*.cache
+
+.env
+.env.local

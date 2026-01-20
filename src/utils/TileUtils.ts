@@ -7,6 +7,7 @@ import {
   type LinkContent,
   type VideoContent,
   type EmbedContent,
+  type SuggestionContent,
 } from "@/types/TileContent";
 import { defineAsyncComponent, markRaw } from "vue";
 
@@ -35,7 +36,7 @@ export function createTile(
 export function createTileContent(
   type: ContentType,
   data: Partial<
-    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent
+    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent | SuggestionContent
   > = {}
 ): TileContent {
   switch (type) {
@@ -86,6 +87,14 @@ export function createTileContent(
         src: (data as Partial<EmbedContent>).src || "",
       } as EmbedContent;
 
+    case ContentType.SUGGESTION:
+      return {
+        type,
+        action: (data as Partial<SuggestionContent>).action || "text",
+        icon: (data as Partial<SuggestionContent>).icon,
+        label: (data as Partial<SuggestionContent>).label,
+      } as SuggestionContent;
+
     default:
       throw new Error(`Unsupported content type: ${type}`);
   }
@@ -128,6 +137,8 @@ export function validateTileContent(content: TileContent): boolean {
     case ContentType.EMBED:
       const embed = content as EmbedContent;
       return !!embed.src && embed.src.startsWith("http");
+    case ContentType.SUGGESTION:
+      return true; // internal placeholder is always valid
     default:
       return false;
   }
@@ -165,6 +176,8 @@ export function getContentComponent(content: TileContent): any {
           () => import("@/components/tilecontent/EmbedContent.vue")
         )
       );
+    case ContentType.SUGGESTION:
+      return null; // rendered inline in GridTile
     default:
       throw new Error(`Unsupported content type: ${content.type}`);
   }

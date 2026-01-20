@@ -1,4 +1,5 @@
-body.theme-light {
+body.theme-light,
+:root.theme-light {
   --color-content-background: #FFFEF5;
   --color-tile-background: #FFFEF5;
   --color-tile-stroke: #33312C;
@@ -35,7 +36,8 @@ body.theme-light {
   --tile-color: #ffffff00;
 }
 
-body.theme-dark {
+body.theme-dark,
+:root.theme-dark {
   --color-content-background: #10100E;
   --color-tile-background: #000000;
   --color-tile-stroke: #FFFEF521;

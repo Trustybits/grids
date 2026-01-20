@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { type Layout } from "@/types/Layout";
 import { getLayoutService } from "@/services/LayoutServiceFactory"; // Factory to switch services dynamically
-import type { TileContent } from "@/types/TileContent";
+import { ContentType, type TileContent } from "@/types/TileContent";
 import { v4 as uuidv4 } from "uuid";
 import { collection, addDoc, query, where, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
@@ -105,6 +105,11 @@ export const useLayoutStore = defineStore("layout", {
         );
         this.checkShowMetaDataCookie();
         this.recordRecent(id);
+
+        if (this.isOwner && (this.currentLayout?.tiles?.length ?? 0) === 0) {
+          this.ensureSuggestionTiles();
+        }
+
         try {
           const ref = doc(db, "layouts", id);
           await updateDoc(ref, { lastOpenedAt: serverTimestamp() });
@@ -231,6 +236,70 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
 
       return newTile.i;
+    },
+
+    setTileContent(id: string, content: TileContent) {
+      if (!this.currentLayout) return;
+
+      const tile = this.currentLayout.tiles.find((t) => t.i === id);
+      if (!tile) return;
+
+      tile.content = content as any;
+      this.updateLayout();
+    },
+
+    ensureSuggestionTiles() {
+      if (!this.currentLayout) return;
+      if (this.currentLayout.tiles.length !== 0) return;
+
+      const colNum = this.currentLayout.colNum || 12;
+      const startX = Math.max(0, Math.floor((colNum - 4) / 2));
+
+      const suggestions = [
+        createTile(
+          ContentType.SUGGESTION,
+          uuidv4(),
+          startX,
+          0,
+          2,
+          2,
+          { action: "text", label: "Add Text" },
+          ""
+        ),
+        createTile(
+          ContentType.SUGGESTION,
+          uuidv4(),
+          startX + 2,
+          0,
+          2,
+          2,
+          { action: "media", label: "Add Photo/Video" },
+          ""
+        ),
+        createTile(
+          ContentType.SUGGESTION,
+          uuidv4(),
+          startX,
+          2,
+          2,
+          2,
+          { action: "link", label: "Add Link" },
+          ""
+        ),
+        createTile(
+          ContentType.SUGGESTION,
+          uuidv4(),
+          startX + 2,
+          2,
+          2,
+          2,
+          { action: "embed", label: "Add Embed" },
+          ""
+        ),
+      ];
+
+      this.currentLayout.tiles = suggestions;
+      this.updateLayout();
     },
 
     patchTileContent(id: string, patch: Partial<any>) {

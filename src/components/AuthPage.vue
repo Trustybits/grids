@@ -105,76 +105,90 @@ const handleGoogleAuth = async () => {
   justify-content: center;
   align-items: center;
   height: 100vh;
+  background-color: var(--color-content-background);
 }
 
 .auth-container {
-  padding: 2rem;
-  border-radius: 8px;
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-lg);
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   width: fit-content;
+  background-color: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
 }
 
 input {
   display: block;
   width: 100%;
   height: 40px;
-  padding: 0.8rem;
-  margin: 0.5rem 0;
-  border: solid white 1px;
-  border-radius: 8px;
-  color: gray;
-  background-color: #1E1E1E;
+  padding: var(--spacing-sm);
+  margin: var(--spacing-sm) 0;
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  background-color: var(--color-content-background);
+  font-family: var(--font-family-base);
+  transition: border-color var(--duration-fast) var(--easing-smooth);
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--color-content-high);
 }
 
 button {
   width: 100%;
-  padding: 8px 12px;
-  border-radius: 8px;
-  color: white;
-  background-color: #4DB6AC;
-  font-size: 1rem;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  background-color: var(--primary-color);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family-base);
   cursor: pointer;
-  margin-top: 0.5rem;
+  margin-top: var(--spacing-sm);
+  border: none;
+  transition: background-color var(--duration-fast) var(--easing-smooth);
 }
 
 button:hover {
-  background-color: #69F1E4;
+  background-color: var(--color-content-high);
 }
 
 .google-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1E1E1E;
-  color: white;
-  border: solid white 1px;
+  background: var(--color-content-background);
+  color: var(--color-text-primary);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
 }
 
 .google-btn i {
-  margin-right: 0.5rem;
+  margin-right: var(--spacing-sm);
 }
 
 .loginTabs {
   overflow: hidden;
   display: flex;
   flex-direction: row;
-  border: solid #ffffff41 1px;
-  border-radius: 20px;
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-full);
   justify-content: space-evenly;
   align-items: center;
   width: fit-content;
   height: 40px;
-  margin-bottom: 40px;
+  margin-bottom: var(--spacing-xl);
+  background-color: var(--color-content-background);
 }
 
 .loginTabs button {
   width: 120px;
-  background-color: inherit;
-  border-radius: 20px;
-  transition: 0.3s;
+  background-color: transparent;
+  border-radius: var(--radius-full);
+  transition: background-color var(--duration-fast) var(--easing-smooth);
 }
 
 .tabButton {
@@ -182,20 +196,20 @@ button:hover {
 }
 
 .loginTabs .tabButton:hover {
-  background-color: #ffffff28;
+  background-color: var(--color-content-low);
 }
 
 .loginTabs .tabButton.active {
-  background-color: #ffffff41;
+  background-color: var(--color-content-default);
 }
 
 #signUpText {
-  color: gray;
-  margin-top: 1rem;
+  color: var(--color-content-default);
+  margin-top: var(--spacing-md);
 }
 
 a {
-  color: #007bff;
+  color: var(--primary-color);
   cursor: pointer;
 }
 
@@ -205,16 +219,16 @@ a:hover {
 
 #orBlock {
   width: 360px;
-  padding: 4px;
+  padding: var(--spacing-xs);
   display: flex;
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  gap: 16px;
+  gap: var(--spacing-md);
 }
 
 .solidDivider {
-  border: solid white 1px;
+  border: 1px solid var(--color-tile-stroke);
   border-radius: 1px;
   width: 100%;
 }

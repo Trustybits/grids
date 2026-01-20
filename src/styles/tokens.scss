@@ -1,0 +1,108 @@
+:root {
+  /* Raw Color Tokens */
+  --color-light-100: #FEFDEC;
+  --color-light-100-76: #FEFDECC2;
+  --color-light-100-55: #FEFDEC8C;
+  --color-light-100-34: #FEFDEC57;
+  --color-light-100-8: #FEFDEC14;
+  --color-light-100-0: #FEFDEC00;
+
+  --color-dark-0: #33312C;
+  --color-dark-0-76: #33312CC2;
+  --color-dark-0-55: #33312C8C;
+  --color-dark-0-34: #33312C57;
+  --color-dark-0-8: #33312C14;
+  --color-dark-0-0: #33312C00;
+
+  --color-red: #FFAFA3;
+  --color-orange: #FFD3A8;
+  --color-yellow: #FFE299;
+  --color-green: #B3EFBD;
+  --color-cyan: #B3F4EF;
+  --color-blue: #A8DAFF;
+  --color-purple: #D3BDFF;
+  --color-pink: #FFA8DB;
+
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 45px;
+  
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-full: 9999px;
+  
+  --tile-padding: 24px;
+  --tile-border-width: 2px;
+  --tile-border-radius: var(--radius-xl);
+  --tile-logo-size: 32px;
+  --tile-logo-radius: 8px;
+  --tile-content-gap: var(--spacing-3xl);
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.2);
+  
+  --shadow-tile: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-tile-hover: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --shadow-placeholder: -3px -3px 4px 0px rgba(255, 255, 255, 0.13) inset, 
+                        3px 3px 4px 0px rgba(0, 0, 0, 0.55) inset;
+  
+  /* Transition durations - use these for timing control */
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --duration-slower: 600ms;
+  
+  /* Easing functions - use these for motion patterns */
+  --easing-linear: linear;
+  --easing-ease: ease;
+  --easing-ease-in: ease-in;
+  --easing-ease-out: ease-out;
+  --easing-ease-in-out: ease-in-out;
+  --easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --easing-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Legacy combined tokens for backward compatibility */
+  --transition-fast: 150ms ease-in-out;
+  --transition-normal: 250ms ease-in-out;
+  --transition-slow: 400ms ease-in-out;
+  
+  /* Animation tokens for smooth UI interactions */
+  --animation-fade-in: fadeIn 0.2s ease-out;
+  --animation-fade-out: fadeOut 0.15s ease-in;
+  --animation-scale-in: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animation-slide-up: slideUp 0.3s ease-out;
+  --animation-slide-down: slideDown 0.3s ease-out;
+  
+  --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  --z-base: 1;
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  
+  --z-grid-placeholder: 2;
+  --z-grid-dragging: 3;
+}

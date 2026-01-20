@@ -88,43 +88,59 @@ const promptAndCreateLayout = async () => {
 
 <style scoped>
 .dashboard {
-  padding: 2rem;
+  padding: var(--spacing-xl);
   max-width: 800px;
   margin: 0 auto;
-  font-family: 'Inter';
+  font-family: var(--font-family-base);
+  color: var(--color-text-primary);
+  background-color: var(--color-content-background);
 }
 
 .dashboard-sections {
   display: flex;
   align-items: left;
   flex-direction: column;
-  gap: 32px;
-  margin-bottom: 1.5rem;
+  gap: var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
 
   button {
-    border-radius: 20px;
+    border-radius: var(--radius-full);
     width: fit-content;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--primary-color);
+    color: var(--color-text-primary);
+    border: none;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--easing-smooth);
+  }
+
+  button:hover {
+    background-color: var(--color-content-high);
   }
 }
 
 h1 {
-  font-size: 2rem;
+  font-size: var(--font-size-2xl);
   margin: 0;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .layout-list {
-  border-top: 1px solid #ccc;
-  padding: 16px;
-  padding-top: 2rem;
-  background-color: var(--tile-color);
+  border-top: var(--tile-border-width) solid var(--color-tile-stroke);
+  padding: var(--spacing-md);
+  padding-top: var(--spacing-xl);
+  background-color: var(--color-tile-background);
   backdrop-filter: blur(20px);
+  border-radius: var(--radius-lg);
 }
 
 .loading,
 .no-layouts {
   text-align: center;
-  margin-top: 1rem;
-  font-size: 1.2rem;
+  margin-top: var(--spacing-md);
+  font-size: var(--font-size-lg);
+  color: var(--color-content-default);
 }
 
 ul {
@@ -133,7 +149,7 @@ ul {
   flex-wrap: wrap;
   justify-content: left;
   align-items: left;
-  gap: 8px;
+  gap: var(--spacing-sm);
 
   list-style: none;
   padding: 0;
@@ -141,39 +157,42 @@ ul {
 }
 
 li {
-  padding: 20px;
-  border: #cccccc0e solid 1px;
-  background-color: var(--tile-color);
-  border-radius: 16px;
-  transition: background-color 0.5s ease-out;
+  padding: var(--spacing-lg);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  background-color: var(--color-tile-background);
+  border-radius: var(--radius-md);
+  transition: background-color var(--duration-normal) var(--easing-smooth);
 }
 
 li:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--color-content-low);
 }
 
 .display-link {
-  color: white;
+  color: var(--color-text-primary);
+  text-decoration: none;
 }
 
 .new-display-inline-button {
   display: flex;
   justify-content: center;
   align-items: center;
-  color: rgba(255, 255, 255, 0.5);
-  background-color: rgba(255, 255, 255, 0.001);
-  border: #cccccc21 solid 1px;
+  color: var(--color-content-default);
+  background-color: var(--color-content-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
   cursor: pointer;
 }
 
 a {
   text-decoration: none;
-  font-size: 1.1rem;
-  font-weight: bold;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
   border-bottom: 1px solid transparent;
+  color: var(--color-text-primary);
+  transition: border-color var(--duration-fast) var(--easing-smooth);
 }
 
 a:hover {
-  border-bottom: 1px solid #000;
+  border-bottom: 1px solid var(--color-content-high);
 }
 </style>

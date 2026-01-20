@@ -8,7 +8,7 @@
       v-if="!editing"
       class="caption-text"
     >
-      {{ tile.caption || 'Caption...' }}
+      {{ tile.caption || '+ caption' }}
     </p>
     <p
       v-else
@@ -16,7 +16,6 @@
       contenteditable="true"
       class="caption-input"
       @blur="saveCaption"
-      @input="updateEditableCaption($event)"
     >
       {{ editableCaption }}
     </p>
@@ -42,18 +41,18 @@ export default {
 
     const startEditing = () => {
       editing.value = true;
-      editableCaption.value = props.tile.caption;
       nextTick(() => {
-        editableCaptionElement.value?.focus();
+        if (editableCaptionElement.value) {
+          editableCaptionElement.value.textContent = props.tile.caption || '';
+          // Optionally place caret at end here
+        }
       });
     };
-
     const saveCaption = () => {
-      editing.value = false;
-      props.tile.caption = editableCaption.value;
-
-      // Save the layout using the layoutStore
+      const text = editableCaptionElement.value?.innerText.trim() ?? '';
+      props.tile.caption = text;
       layoutStore.updateLayout();
+      editing.value = false;
     };
 
     const updateEditableCaption = (event) => {
@@ -76,23 +75,41 @@ export default {
 
 <style scoped>
 .tile-caption {
-  background-color: white;
-  color: black;
+  background-color: var(--color-tile-background);
+  color: var(--color-content-low);
   cursor: pointer;
   display: none;
   position: absolute;
-  left: 10px;
-  bottom: 10px;
-  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: auto;
+  max-width: 85%;
+  left: 13px;
+  bottom: 13px;
+  border-radius: var(--radius-md);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  
 }
+.tile-caption:hover {
+  background-color: var(--color-tile-background);
+  color: var(--color-text-primary);
+  transition: color 0.5s ease-out;
+  transition: background-color 0.5s ease-out;
+}
+
 p {
   margin-bottom: 0;
 }
+
 .caption-text {
-  padding: 4px;
+  font-size: 13px;
+  padding: 5px 13px;
 }
+
 .caption-input {
-  padding: 4px;
+  font-size: 13px;
+  padding: 5px 13px;
   border: none;
   outline: none;
   min-width: fit-content;

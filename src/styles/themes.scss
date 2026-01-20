@@ -1,0 +1,79 @@
+body.theme-light {
+  --color-content-background: #FFFEF5;
+  --color-tile-background: #FFFEF5;
+  --color-tile-stroke: #33312C;
+  --color-text-primary: #33312C;
+  --color-content-high: #33312CC2;
+  --color-content-default: #33312C8C;
+  --color-content-low: #33312C57;
+
+  --color-base-100: var(--color-light-100);
+  --color-base-76: var(--color-light-100-76);
+  --color-base-55: var(--color-light-100-55);
+  --color-base-34: var(--color-light-100-34);
+  --color-base-8: var(--color-light-100-8);
+  --color-base-0: var(--color-light-100-0);
+  
+  --color-substack: #ff6719;
+  --color-instagram-yellow: #ffd600;
+  --color-instagram-orange: #ff7a00;
+  --color-instagram-red: #ff0069;
+  --color-instagram-pink: #d300c5;
+  --color-instagram-purple: #7638fa;
+  --color-youtube-magenta: #fe2792;
+  --color-youtube-red: #ff0132;
+  --color-figma-purple: #874fff;
+  --color-figma-red: #ff3737;
+  --color-figma-orange: #ff7237;
+  --color-figma-blue: #00b6ff;
+  --color-figma-green: #24cb71;
+  
+  --primary-color: #009688;
+  --secondary-color: #bfc2c462;
+  --destructive-color: #e91e63;
+  --text-color: #33312c;
+  --tile-color: #ffffff00;
+}
+
+body.theme-dark {
+  --color-content-background: #10100E;
+  --color-tile-background: #000000;
+  --color-tile-stroke: #FFFEF521;
+  --color-text-primary: #FFFEF5;
+  --color-content-high: #FEFDEC76;
+  --color-content-default: #FEFDEC55;
+  --color-content-low: #FEFDEC34;
+
+  --color-base-100: var(--color-dark-0);
+  --color-base-76: var(--color-dark-0-76);
+  --color-base-55: var(--color-dark-0-55);
+  --color-base-34: var(--color-dark-0-34);
+  --color-base-8: var(--color-dark-0-8);
+  --color-base-0: var(--color-dark-0-0);
+  
+  --color-substack: #ff6719;
+  --color-instagram-yellow: #ffd600;
+  --color-instagram-orange: #ff7a00;
+  --color-instagram-red: #ff0069;
+  --color-instagram-pink: #d300c5;
+  --color-instagram-purple: #7638fa;
+  --color-youtube-magenta: #fe2792;
+  --color-youtube-red: #ff0132;
+  --color-figma-purple: #874fff;
+  --color-figma-red: #ff3737;
+  --color-figma-orange: #ff7237;
+  --color-figma-blue: #00b6ff;
+  --color-figma-green: #24cb71;
+  
+  --primary-color: #9e4db6;
+  --secondary-color: #312a354b;
+  --destructive-color: #ec407a;
+  --text-color: #fffef5;
+  --tile-color: #574d5731;
+}
+
+body {
+  background-color: var(--color-content-background);
+  color: var(--color-text-primary);
+  transition: background-color var(--transition-normal), color var(--transition-normal);
+}

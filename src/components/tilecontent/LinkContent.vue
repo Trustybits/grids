@@ -1,11 +1,18 @@
 <template>
-  <!-- <div class="w-fit p-3 d-flex gap-2 flex-column flex-wrap h-100 justify-content-start align-items-start"> -->
-  <div class="linkTile">
-    <div class="favicon">
-      <img :src="content.faviconUrl" />
+  <div class="link-tile-content">
+    <div v-if="content.metaImageUrl" class="tile-preview">
+      <img :src="content.metaImageUrl" :alt="content.metaTitle || content.domain" />
     </div>
-    <!-- <p v-if="type === 'A'" class="mt-2">{{ content.domain }}</p> -->
-    <p class="tileDomain">{{ content.domain }}</p>
+
+    <div class="tile-logo">
+      <img :src="content.faviconUrl" :alt="content.domain" />
+    </div>
+
+    <div class="tile-text">
+      <p class="tile-title">{{ content.metaTitle || content.metaSiteName || content.domain || 'Link' }}</p>
+      <p v-if="content.metaDescription" class="tile-description">{{ content.metaDescription }}</p>
+      <p class="tile-subtitle">{{ formatLink(content.link) }}</p>
+    </div>
   </div>
 </template>
 
@@ -21,7 +28,22 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const onShortClick = (data: { id: string; content: any }) => {
+    const formatLink = (link: string) => {
+      if (!link) return '@handle or address';
+      
+      if (link.startsWith('http://') || link.startsWith('https://')) {
+        try {
+          const url = new URL(link);
+          return `@${url.hostname.replace('www.', '')}`;
+        } catch {
+          return `@${link}`;
+        }
+      }
+      
+      return link.startsWith('@') ? link : `@${link}`;
+    };
+
+    const onShortClick = () => {
       const url = props.content.link.startsWith("http")
         ? props.content.link
         : `https://${props.content.link}`;
@@ -29,6 +51,7 @@ export default defineComponent({
     };
 
     return {
+      formatLink,
       onShortClick
     }
   },
@@ -36,39 +59,25 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.favicon {
-  overflow: hidden;
-  border-radius: 10px;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
-  min-width: 40px;
-  /* box-shadow: 0 0px 5px rgba(0, 0, 0, 0.2); */
-}
-
-.favicon img {
-  width: 100%;
-}
-
-.linkTile {
-  /* clip-path: content-box; */
-  height: 100%;
+.link-tile-content {
   display: flex;
-  flex-wrap: wrap;
   flex-direction: column;
-  row-gap: 12px;
-  column-gap: 20px;
-  justify-content: top;
-  align-items: left;
-  overflow: hidden;
-  padding: 18px;
-  font-family: 'Inter';
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  padding: var(--tile-padding);
 }
 
-.tileDomain {
-  margin: 0px;
+.tile-preview {
   width: 100%;
-  display: flex;
-  justify-content: left;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.tile-preview img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
 }
 </style>

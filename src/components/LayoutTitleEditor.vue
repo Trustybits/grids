@@ -42,7 +42,7 @@ const blurOnEnter = (event) => {
 
 <style scoped>
 .layout-title {
-  color: white;
+  color: var(--color-base-76);
 }
 
 .editable-text {
@@ -56,6 +56,11 @@ const blurOnEnter = (event) => {
 }
 
 .editable-text:focus {
-  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-primary);
+  background-color: var(--color-content-low);
+}
+
+.editable-text:hover {
+  /* color: var(--color-base-100); */
 }
 </style>

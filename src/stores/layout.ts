@@ -20,6 +20,7 @@ export const useLayoutStore = defineStore("layout", {
     isLoading: false,
     error: null as string | null,
     showMetaData: false,
+    isOwner: false,
   }),
 
   actions: {
@@ -86,9 +87,15 @@ export const useLayoutStore = defineStore("layout", {
     async loadLayout(id: string) {
       this.isLoading = true;
       this.error = null;
+      this.isOwner = false;
 
       try {
         this.currentLayout = await layoutService.fetchLayout(id);
+        this.isOwner = !!(
+          auth.currentUser?.uid &&
+          this.currentLayout?.userId &&
+          auth.currentUser.uid === this.currentLayout.userId
+        );
         this.checkShowMetaDataCookie();
       } catch (err) {
         this.error = "Failed to load layout.";
@@ -122,6 +129,10 @@ export const useLayoutStore = defineStore("layout", {
         return;
       }
 
+      if (!this.isOwner) {
+        return;
+      }
+
       try {
         await layoutService.saveLayout(this.currentLayout);
       } catch (err) {
@@ -131,8 +142,8 @@ export const useLayoutStore = defineStore("layout", {
     },
 
     // Add a new tile
-    addTile(content: TileContent) {
-      if (!this.currentLayout) return;
+    addTile(content: TileContent): string | null {
+      if (!this.currentLayout) return null;
 
       // TODO: Validate content before creating tile
 
@@ -152,6 +163,22 @@ export const useLayoutStore = defineStore("layout", {
       );
 
       this.currentLayout.tiles.push(newTile);
+      this.updateLayout();
+
+      return newTile.i;
+    },
+
+    patchTileContent(id: string, patch: Partial<any>) {
+      if (!this.currentLayout) return;
+
+      const tile = this.currentLayout.tiles.find((t) => t.i === id);
+      if (!tile) return;
+
+      tile.content = {
+        ...(tile.content as any),
+        ...(patch as any),
+      };
+
       this.updateLayout();
     },
 
@@ -211,6 +238,16 @@ export const useLayoutStore = defineStore("layout", {
       }
     },
 
+    toggleTileBorder(id: string) {
+      if (!this.currentLayout) return;
+
+      const tile = this.currentLayout.tiles.find((tile) => tile.i === id);
+      if (tile) {
+        tile.borderEnabled = tile.borderEnabled === false ? true : false;
+        this.updateLayout();
+      }
+    },
+
     // Adjust tile's x value to ensure it doesn't extend past colNum
     adjustTilePosition(tile: { x: number; w: number }) {
       if (!this.currentLayout) {
@@ -226,6 +263,10 @@ export const useLayoutStore = defineStore("layout", {
 
     // Update the entire layout
     updateLayout() {
+      if (!this.isOwner) {
+        return;
+      }
+
       const gridElement =
         document.querySelector<HTMLElement>(".vue-grid-layout");
       if (gridElement) {
@@ -239,6 +280,10 @@ export const useLayoutStore = defineStore("layout", {
     },
 
     async deleteLayout(id: string) {
+      if (!this.isOwner) {
+        return;
+      }
+
       try {
         await layoutService.deleteLayout(id);
         this.layouts = this.layouts.filter((layout) => layout.id !== id);

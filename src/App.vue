@@ -16,6 +16,9 @@
     <div class="main-content" :class="{ 'has-left-nav': isAuthenticated }">
       <router-view />
     </div>
+
+    <!-- Toast Notifications -->
+    <ToastContainer />
   </div>
 </template>
 
@@ -26,6 +29,7 @@ import LeftNavBar from './components/LeftNavBar.vue';
 import UserMenu from './components/UserMenu.vue';
 import LayoutTitleEditor from './components/LayoutTitleEditor.vue';
 import ThemeToggle from './components/ThemeToggle.vue';
+import ToastContainer from './components/ToastContainer.vue';
 import { useLayoutStore } from '@/stores/layout';
 import { auth } from '@/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';

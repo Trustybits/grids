@@ -11,6 +11,81 @@ import {
 } from "@/types/TileContent";
 import { defineAsyncComponent, markRaw } from "vue";
 
+function ensureUrlHasProtocol(url: string): string {
+  if (!url) return url;
+  return url.startsWith("http://") || url.startsWith("https://")
+    ? url
+    : `https://${url}`;
+}
+
+function isYouTubeHostname(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    host === "youtu.be" ||
+    host === "youtube.com" ||
+    host.endsWith(".youtube.com") ||
+    host === "youtube-nocookie.com" ||
+    host.endsWith(".youtube-nocookie.com")
+  );
+}
+
+function extractYouTubeVideoId(parsedUrl: URL): string | null {
+  const host = parsedUrl.hostname.toLowerCase();
+  const path = parsedUrl.pathname;
+
+  // Supported formats:
+  // - https://youtu.be/<id>
+  // - https://www.youtube.com/watch?v=<id>
+  // - https://www.youtube.com/embed/<id>
+  // - https://www.youtube.com/shorts/<id>
+  // - https://www.youtube.com/live/<id>
+  let id: string | null = null;
+
+  if (host === "youtu.be") {
+    id = path.split("/").filter(Boolean)[0] || null;
+  } else if (path === "/watch") {
+    id = parsedUrl.searchParams.get("v");
+  } else {
+    const parts = path.split("/").filter(Boolean);
+    const prefix = parts[0];
+    if (prefix === "embed" || prefix === "shorts" || prefix === "live") {
+      id = parts[1] || null;
+    }
+  }
+
+  if (!id) return null;
+
+  // YouTube video IDs are typically 11 chars. We keep this strict so we don't
+  // accidentally turn channel/user URLs into embeds.
+  if (!/^[a-zA-Z0-9_-]{11}$/.test(id)) return null;
+
+  return id;
+}
+
+function normalizeEmbedSrc(src: string): string {
+  const formatted = ensureUrlHasProtocol(src.trim());
+  if (!formatted) return formatted;
+
+  try {
+    const parsed = new URL(formatted);
+    if (!isYouTubeHostname(parsed.hostname)) return formatted;
+
+    // If it's a YouTube URL, always store our own canonical embed URL.
+    const videoId = extractYouTubeVideoId(parsed);
+    if (!videoId) return formatted;
+    // Note: autoplay is intentionally NOT enabled by default.
+    // If you later add an autoplay toggle, you'd typically apply `autoplay=1&mute=1`.
+    const params = new URLSearchParams({
+      playsinline: "1",
+      rel: "0",
+      modestbranding: "1",
+    });
+    return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
+  } catch {
+    return formatted;
+  }
+}
+
 export function createTile(
   type: ContentType,
   i: string,
@@ -84,7 +159,9 @@ export function createTileContent(
     case ContentType.EMBED:
       return {
         type,
-        src: (data as Partial<EmbedContent>).src || "",
+        // For YouTube links, we normalize to an embeddable URL (watch/homepage URLs
+        // often refuse to render in iframes due to X-Frame-Options).
+        src: normalizeEmbedSrc((data as Partial<EmbedContent>).src || ""),
       } as EmbedContent;
 
     case ContentType.SUGGESTION:

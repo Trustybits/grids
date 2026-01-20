@@ -8,28 +8,51 @@
     :style="tileStyle"
     :maxW="10"
     :maxH="10"
-    :isDraggable="layoutStore.isOwner && !isEditing"
+    :isDraggable="layoutStore.isOwner && !isEditing && !isSuggestion"
     @move="onMove"
-    @resized="onDragResize"
+    @moved="onMoved"
+    @resized="onResized"
   >
     <div
       class="tile-wrapper"
       :data-border="borderEnabled ? 'on' : 'off'"
+      :data-suggestion="isSuggestion ? 'true' : 'false'"
       ref="gridTileRef"
       @mousedown="startClick"
       @mouseup="endClick"
     >
       <!-- Visual Frame with Overflow Hidden -->
       <div class="card-body">
-        <component
-          :is="currentComponent"
-          :content="tile.content"
-          ref="childComponent"
-        />
+        <template v-if="!isSuggestion">
+          <component
+            :is="currentComponent"
+            :content="tile.content"
+            ref="childComponent"
+          />
+        </template>
+        <template v-else>
+          <div class="suggestion-cta">
+            <div class="suggestion-icon">
+              <TextIcon v-if="suggestionAction === 'text'" :size="48" />
+              <ImageIcon v-else-if="suggestionAction === 'media'" :size="48" />
+              <LinkIcon v-else-if="suggestionAction === 'link'" :size="48" />
+              <EmbedIcon v-else-if="suggestionAction === 'embed'" :size="48" />
+            </div>
+            <span class="suggestion-label">{{ suggestionLabel }}</span>
+          </div>
+          <input
+            v-if="layoutStore.isOwner"
+            type="file"
+            ref="mediaInput"
+            style="display: none"
+            accept="image/*,video/*"
+            @change.stop="onMediaSelected"
+          />
+        </template>
       </div>
 
       <!-- UI Layer -->
-      <div v-if="layoutStore.isOwner && headerComponent" class="header-options">
+      <div v-if="layoutStore.isOwner && headerComponent && !isSuggestion" class="header-options">
         <component :is="headerComponent" :content="tile.content" />
       </div>
 
@@ -40,12 +63,14 @@
       <button
         v-if="layoutStore.isOwner"
         class="btn btn-sm btn-danger btn-close"
-        @click="removeElement"
+        @mousedown.stop
+        @mouseup.stop
+        @click.stop="removeElement"
       ></button>
 
-      <TileCaption v-if="showCaption" :tile="tile" />
+      <TileCaption v-if="showCaption && (layoutStore.isOwner || tile.caption)" :tile="tile" />
 
-      <div v-if="layoutStore.isOwner" class="tile-toolbar" @mousedown.stop>
+      <div v-if="layoutStore.isOwner && !isSuggestion" class="tile-toolbar" @mousedown.stop>
         <button
           class="toolbar-btn"
           :class="{ 'is-active': isPresetActive(5, 1) }"
@@ -160,18 +185,31 @@ import {
   onUnmounted,
   watch,
   computed,
+  provide,
 } from "vue";
 import { GridItem } from "vue3-grid-layout";
 import { type Tile } from "@/types/Tile";
 import { useLayoutStore } from "@/stores/layout";
 import TileCaption from "./TileCaption.vue";
-import { getContentComponent, getOptionComponent } from "@/utils/TileUtils";
+import { getContentComponent, getOptionComponent, createTileContent } from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
+import { getAuth } from "firebase/auth";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "@/firebase";
+import TextIcon from "./icons/TextIcon.vue";
+import ImageIcon from "./icons/ImageIcon.vue";
+import LinkIcon from "./icons/LinkIcon.vue";
+import EmbedIcon from "./icons/EmbedIcon.vue";
 
 export default defineComponent({
   components: {
     GridItem,
     TileCaption,
+    TextIcon,
+    ImageIcon,
+    LinkIcon,
+    EmbedIcon,
   },
   props: {
     tile: {
@@ -181,6 +219,11 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
+
+    // Expose the tile's current grid height to content components.
+    // This is used for responsive content rendering (e.g. title line clamping).
+    provide("gridTileH", computed(() => props.tile.h));
+
     const isMoving = ref(false);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
@@ -189,13 +232,21 @@ export default defineComponent({
     const gridTileRef = ref<HTMLElement | null>(null);
 
     const showCaption = computed(() => {
-      // Hide caption for Link, Text, and Embed tiles as requested
-      const hiddenTypes = [ContentType.LINK, ContentType.TEXT, ContentType.EMBED];
+      // Hide caption for Link, Text, Embed, and Suggestion tiles as requested
+      const hiddenTypes = [ContentType.LINK, ContentType.TEXT, ContentType.EMBED, ContentType.SUGGESTION];
       return !hiddenTypes.includes(props.tile.content.type);
     });
 
     const clickStart = ref<number | null>(null);
     const CLICK_THRESHOLD = 150;
+
+    const isSuggestion = computed(() => props.tile.content.type === ContentType.SUGGESTION);
+    const suggestionAction = computed(() => (props.tile.content as any)?.action ?? "text");
+    const suggestionLabel = computed(() => (props.tile.content as any)?.label ?? "");
+
+    const mediaInput = ref<HTMLInputElement | null>(null);
+    const auth = getAuth();
+    const storage = getStorage();
 
     const loadComponent = async () => {
       currentComponent.value = await getContentComponent(props.tile.content);
@@ -235,11 +286,15 @@ export default defineComponent({
       const clickDuration = Date.now() - (clickStart.value || 0);
 
       if (clickDuration < CLICK_THRESHOLD && !isMoving.value) {
-        if (childComponent.value?.onShortClick) {
-          childComponent.value.onShortClick();
-        }
-        if (childComponent.value?.onExitClick) {
-          addClickListener();
+        if (isSuggestion.value) {
+          onSuggestionShortClick();
+        } else {
+          if (childComponent.value?.onShortClick) {
+            childComponent.value.onShortClick();
+          }
+          if (childComponent.value?.onExitClick) {
+            addClickListener();
+          }
         }
       }
 
@@ -253,9 +308,23 @@ export default defineComponent({
       }
     );
 
+    // Watch for content type changes (e.g., suggestion -> text/image/link)
+    watch(
+      () => props.tile.content.type,
+      () => {
+        loadComponent();
+      }
+    );
+
     const onMove = () => {
       isMoving.value = true;
       setTimeout(() => (isMoving.value = false), 300);
+    };
+
+    const onMoved = () => {
+      // Called when drag operation completes - save the final positions
+      if (!layoutStore.isOwner) return;
+      layoutStore.updateLayout();
     };
 
     const resize = (w: number, h: number) => {
@@ -281,9 +350,105 @@ export default defineComponent({
       void action;
     };
 
-    const onDragResize = () => {
+    const onResized = () => {
+      // Called when resize operation completes
       if (childComponent.value?.onResize) {
         childComponent.value.onResize();
+      }
+      // Save the layout with the new size
+      if (layoutStore.isOwner) {
+        layoutStore.updateLayout();
+      }
+    };
+
+    const onSuggestionShortClick = () => {
+      if (!layoutStore.isOwner) return;
+      const action = (props.tile.content as any)?.action as "text" | "media" | "link" | "embed";
+      switch (action) {
+        case "text": {
+          const content = createTileContent(ContentType.TEXT, {});
+          layoutStore.setTileContent(props.tile.i, content);
+          break;
+        }
+        case "media": {
+          mediaInput.value?.click();
+          break;
+        }
+        case "link": {
+          const link = prompt("Please enter a link");
+          if (!link) return;
+          const linkContent = createTileContent(ContentType.LINK, { link });
+          layoutStore.setTileContent(props.tile.i, linkContent);
+          (async () => {
+            try {
+              const getLinkPreview = httpsCallable(functions, "getLinkPreview");
+              const result = await getLinkPreview({ url: (linkContent as any).link });
+              const data = result.data as any;
+
+              layoutStore.patchTileContent(props.tile.i, {
+                link: data?.url,
+                domain: data?.domain,
+                faviconUrl: data?.faviconUrl || (linkContent as any).faviconUrl,
+                metaTitle: data?.title,
+                metaDescription: data?.description,
+                metaImageUrl: data?.imageUrl,
+                metaSiteName: data?.siteName,
+              });
+            } catch (error) {
+              console.error("Failed to fetch link preview:", error);
+            }
+          })();
+          break;
+        }
+        case "embed": {
+          const url = prompt("Please enter an embed URL");
+          if (!url) return;
+          const embedContent = createTileContent(ContentType.EMBED, { src: url });
+          layoutStore.setTileContent(props.tile.i, embedContent);
+          break;
+        }
+      }
+    };
+
+    const onMediaSelected = async (event: Event) => {
+      const file = (event.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+      const maxSize = isImage ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
+
+      if (!isImage && !isVideo) {
+        alert("Unsupported file type. Please upload an image or video.");
+        return;
+      }
+
+      if (file.size > maxSize) {
+        alert(`File is too large! Maximum size: ${isImage ? "10MB" : "50MB"}`);
+        return;
+      }
+
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          alert("You must be logged in to upload.");
+          return;
+        }
+
+        const filePath = `users/${currentUser.uid}/${isImage ? "images" : "videos"}/${Date.now()}_${file.name}`;
+        const fileRef = storageRef(storage, filePath);
+
+        await uploadBytes(fileRef, file);
+        const url = await getDownloadURL(fileRef);
+
+        const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
+        const content = createTileContent(contentType, { src: url });
+        layoutStore.setTileContent(props.tile.i, content);
+      } catch (error) {
+        console.error("File upload failed:", error);
+        alert("Failed to upload file. Please try again.");
+      } finally {
+        if (mediaInput.value) mediaInput.value.value = "";
       }
     };
 
@@ -318,12 +483,19 @@ export default defineComponent({
       gridTileRef,
       layoutStore,
       isEditing,
-      onDragResize,
+      onMoved,
+      onResized,
       showCaption,
       isPresetActive,
       borderEnabled,
       toggleBorder,
       onToolbarAction,
+
+      isSuggestion,
+      suggestionAction,
+      suggestionLabel,
+      mediaInput,
+      onMediaSelected,
     };
   },
 });
@@ -573,5 +745,52 @@ export default defineComponent({
   opacity: 1;
   transform: translate(-50%, 100%) scale(1);
   pointer-events: auto;
+}
+
+/* Suggestion tile specific styling */
+.tile-wrapper[data-suggestion='true'] .card-body {
+  border: 2px dashed var(--color-tile-stroke);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tile-wrapper[data-suggestion='true'] .card-body::after {
+  opacity: 0;
+}
+
+/* Suggestion CTA styles */
+.suggestion-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.suggestion-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: all 0.3s ease;
+  color: var(--color-text-primary);
+}
+
+.tile-wrapper[data-suggestion='true']:hover .suggestion-icon {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.suggestion-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.tile-wrapper[data-suggestion='true']:hover .suggestion-label {
+  opacity: 1;
 }
 </style>

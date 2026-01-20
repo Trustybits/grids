@@ -52,13 +52,18 @@ export const useThemeStore = defineStore('theme', {
     },
     
     applyTheme() {
-      document.body.classList.forEach(cls => {
-        if (cls.startsWith('theme-')) {
-          document.body.classList.remove(cls);
-        }
-      });
-      
-      document.body.classList.add(this.themeClass);
+      const root = document.documentElement;
+      const body = document.body;
+
+      const rootThemeClassesToRemove = Array.from(root.classList).filter(cls => cls.startsWith('theme-'));
+      rootThemeClassesToRemove.forEach(cls => root.classList.remove(cls));
+      root.classList.add(this.themeClass);
+
+      if (body) {
+        const bodyThemeClassesToRemove = Array.from(body.classList).filter(cls => cls.startsWith('theme-'));
+        bodyThemeClassesToRemove.forEach(cls => body.classList.remove(cls));
+        body.classList.add(this.themeClass);
+      }
     },
     
     initializeTheme() {

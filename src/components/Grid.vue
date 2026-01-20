@@ -1,18 +1,18 @@
 <template>
   <p v-if="layoutStore.isLoading">Loading layout...</p>
   <grid-layout
-    v-else-if="layoutStore.currentLayout?.tiles?.length ?? 0"
+    v-else
     class="grid-container"
     :layout="layoutStore.currentLayout?.tiles || []"
     :col-num="colNum"
     :row-height="rowHeight"
     :is-draggable="layoutStore.isOwner"
     :is-resizable="layoutStore.isOwner"
-    :vertical-compact="false"
-    :restoreOnDrag="true"
+    :vertical-compact="layoutStore.verticalCompact"
+    :prevent-collision="false"
+    :restore-on-drag="true"
     :use-css-transforms="true"
     :margin="[margin, margin]"
-    @layout-updated="onLayoutUpdated"
     :style="{ width: `${gridWidth}px` }"
   >
     <grid-tile
@@ -20,36 +20,6 @@
       :key="tile.i"
       :tile="tile"
     />
-  </grid-layout>
-  <grid-layout
-    v-else
-    class="grid-container"
-    :layout="suggestionLayout"
-    :col-num="colNum"
-    :row-height="rowHeight"
-    :is-draggable="false"
-    :is-resizable="false"
-    :vertical-compact="false"
-    :use-css-transforms="true"
-    :margin="[margin, margin]"
-    :style="{ width: `${gridWidth}px` }"
-  >
-    <grid-item
-      v-for="suggestion in suggestionLayout"
-      :key="suggestion.i"
-      :x="suggestion.x"
-      :y="suggestion.y"
-      :w="suggestion.w"
-      :h="suggestion.h"
-      :i="suggestion.i"
-      :static="true"
-      class="suggestion-grid-tile"
-    >
-      <div class="suggestion-tile-content">
-        <div class="suggestion-icon">{{ suggestion.icon }}</div>
-        <span class="suggestion-label">{{ suggestion.label }}</span>
-      </div>
-    </grid-item>
   </grid-layout>
 </template>
 
@@ -78,11 +48,6 @@ export default {
     const route = useRoute(); // Access route parameters
     const margin = 48;
 
-    const onLayoutUpdated = () => {
-      if (!layoutStore.isOwner) return;
-      layoutStore.updateLayout();
-    };
-
     const colNum = computed(() => {
       return layoutStore.currentLayout?.colNum || 10;
     });
@@ -91,15 +56,6 @@ export default {
       return colNum.value * props.rowHeight + (colNum.value + 1) * margin;
     });
 
-    // Define suggestion tiles as grid items
-    const suggestionLayout = [
-      { i: "suggest-1", x: 0, y: 0, w: 2, h: 2, icon: "✏️", label: "Add Text" },
-      { i: "suggest-2", x: 2, y: 0, w: 2, h: 2, icon: "📷", label: "Add Photo" },
-      { i: "suggest-3", x: 4, y: 0, w: 2, h: 2, icon: "🔗", label: "Add Link" },
-      { i: "suggest-4", x: 0, y: 2, w: 2, h: 2, icon: "📽", label: "Add Video" },
-      { i: "suggest-5", x: 2, y: 2, w: 2, h: 2, icon: "💻", label: "Add Embed" },
-      { i: "suggest-6", x: 4, y: 2, w: 2, h: 2, icon: "🎵", label: "Add Music" },
-    ];
 
     // Load layout using ID from the route
     onMounted(() => {
@@ -116,8 +72,6 @@ export default {
       gridWidth,
       margin,
       colNum,
-      suggestionLayout,
-      onLayoutUpdated,
     };
   },
 

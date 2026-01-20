@@ -4,6 +4,7 @@ import GridPage from '@/components/GridPage.vue';
 import AuthPage from '@/components/AuthPage.vue';
 import DashboardPage from '@/components/DashboardPage.vue';
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import posthog from 'posthog-js';
 
 // Define routes
 const routes = [
@@ -73,6 +74,15 @@ router.beforeEach((to, from, next) => {
     const user = auth.currentUser;
 
     resolveNavigation(user);
+  }
+});
+
+// Track page views with PostHog
+router.afterEach((to) => {
+  if (import.meta.env.VITE_POSTHOG_KEY) {
+    posthog.capture('$pageview', {
+      $current_url: window.location.href,
+    });
   }
 });
 

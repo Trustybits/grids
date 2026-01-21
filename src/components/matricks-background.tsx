@@ -151,7 +151,7 @@ export const startMatricksBackground = (
     gridsTileOpacityBase = 0.45,
     gridsTileOpacityPulse = 0.08,
     gridsTileMoveChance = 0.15,
-    gridsTileCharChangeEveryFrames = 1,
+    gridsTileCharChangeEveryFrames = 24,
   } = options
 
   const ctx = canvas.getContext("2d")
@@ -404,7 +404,8 @@ export const startMatricksBackground = (
     for (let col = 0; col < columns; col++) {
       grid[col] = []
       for (let row = 0; row < rows; row++) {
-        const animationTypes: GridCell["animationType"][] = ["pulse", "flicker", "wave", "strobe", "fade"]
+        const animationTypes: GridCell["animationType"][] =
+          animationPattern === "grids" ? ["pulse"] : ["pulse", "flicker", "wave", "strobe", "fade"]
 
         const isEmphasizedCell =
           !!emphasizedText && row === textStartY && col >= textStartX && col < textStartX + (emphasizedText?.length || 0)
@@ -446,6 +447,12 @@ export const startMatricksBackground = (
           default:
             // Random animation (default) - no changes to initial values
             break
+        }
+
+        if (animationPattern === "grids") {
+          // Keep the background field calm behind the landing page content.
+          initialSpeed = (0.004 + Math.random() * 0.004) * animationSpeed
+          initialIntensity = 0.35 + Math.random() * 0.25
         }
 
         grid[col][row] = {
@@ -892,7 +899,7 @@ export const startMatricksBackground = (
               const interpolatedB = Math.floor(lowRGB[2] + (highRGB[2] - lowRGB[2]) * rippleEffect)
               
               ctx.fillStyle = `rgba(${interpolatedR}, ${interpolatedG}, ${interpolatedB}, ${opacity})`
-            } else if (Math.random() < flashFrequency) {
+            } else if (animationPattern !== "grids" && Math.random() < flashFrequency) {
               // Random bright flash with configurable intensity
               ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(opacity * maxFlashIntensity, maxFlashIntensity)})`
             } else {
@@ -908,7 +915,7 @@ export const startMatricksBackground = (
             const tileChar = charArray[hashU32(n) % Math.max(1, charArray.length)]
             cell.char = tileChar
 
-            const tilePulse = Math.sin((frameCount + tile.seed) * 0.018) * gridsTileOpacityPulse
+            const tilePulse = Math.sin((frameCount + tile.seed) * 0.012) * gridsTileOpacityPulse
             const tileOpacity = Math.min(0.85, Math.max(0.05, gridsTileOpacityBase + tilePulse))
             ctx.fillStyle = `rgba(${primaryColor}, ${tileOpacity})`
           }

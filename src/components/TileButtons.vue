@@ -52,7 +52,7 @@
 import { ref } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import { ContentType } from "@/types/TileContent";
-import { createTileContent } from "@/utils/TileUtils";
+import { createTileContent, createTileContentFromEmbedUrl } from "@/utils/TileUtils";
 import { getAuth } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
@@ -193,10 +193,8 @@ export default {
 
     const handleAddEmbed = (link: string) => {
       closeEmbedModal();
-      const embedContent = createTileContent(ContentType.EMBED, {
-        src: link,
-      });
-      layoutStore.addTile(embedContent);
+      const content = createTileContentFromEmbedUrl(link);
+      layoutStore.addTile(content);
     };
 
     const addOtherElement = () => {

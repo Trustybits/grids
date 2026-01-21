@@ -13,9 +13,59 @@ import { defineAsyncComponent, markRaw } from "vue";
 
 function ensureUrlHasProtocol(url: string): string {
   if (!url) return url;
+  if (url.startsWith("data:") || url.startsWith("blob:")) return url;
   return url.startsWith("http://") || url.startsWith("https://")
     ? url
     : `https://${url}`;
+}
+
+export function isDirectImageUrl(src: string): boolean {
+  const trimmed = (src || "").trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("data:image/")) return true;
+
+  const formatted = ensureUrlHasProtocol(trimmed);
+  try {
+    const url = new URL(formatted);
+    const pathname = url.pathname.toLowerCase();
+    return /\.(png|jpe?g|gif|webp|bmp|svg)$/.test(pathname);
+  } catch {
+    const lower = formatted.toLowerCase();
+    return lower.includes(".png") ||
+      lower.includes(".jpg") ||
+      lower.includes(".jpeg") ||
+      lower.includes(".gif") ||
+      lower.includes(".webp") ||
+      lower.includes(".bmp") ||
+      lower.includes(".svg");
+  }
+}
+
+export function isDirectVideoUrl(src: string): boolean {
+  const trimmed = (src || "").trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("data:video/")) return true;
+
+  const formatted = ensureUrlHasProtocol(trimmed);
+  try {
+    const url = new URL(formatted);
+    const pathname = url.pathname.toLowerCase();
+    return /\.(mp4|webm|mov)$/.test(pathname);
+  } catch {
+    const lower = formatted.toLowerCase();
+    return lower.includes(".mp4") || lower.includes(".webm") || lower.includes(".mov");
+  }
+}
+
+export function createTileContentFromEmbedUrl(src: string): TileContent {
+  const formatted = ensureUrlHasProtocol((src || "").trim());
+  if (isDirectImageUrl(formatted)) {
+    return createTileContent(ContentType.IMAGE, { src: formatted });
+  }
+  if (isDirectVideoUrl(formatted)) {
+    return createTileContent(ContentType.VIDEO, { src: formatted });
+  }
+  return createTileContent(ContentType.EMBED, { src: formatted });
 }
 
 function isYouTubeHostname(hostname: string): boolean {

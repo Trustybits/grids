@@ -191,7 +191,12 @@ import { GridItem } from "vue3-grid-layout";
 import { type Tile } from "@/types/Tile";
 import { useLayoutStore } from "@/stores/layout";
 import TileCaption from "./TileCaption.vue";
-import { getContentComponent, getOptionComponent, createTileContent } from "@/utils/TileUtils";
+import {
+  getContentComponent,
+  getOptionComponent,
+  createTileContent,
+  createTileContentFromEmbedUrl,
+} from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
 import { getAuth } from "firebase/auth";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -403,8 +408,8 @@ export default defineComponent({
         case "embed": {
           const url = prompt("Please enter an embed URL");
           if (!url) return;
-          const embedContent = createTileContent(ContentType.EMBED, { src: url });
-          layoutStore.setTileContent(props.tile.i, embedContent);
+          const content = createTileContentFromEmbedUrl(url);
+          layoutStore.setTileContent(props.tile.i, content);
           break;
         }
       }

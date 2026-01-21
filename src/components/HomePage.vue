@@ -8,9 +8,17 @@
     <main class="home-landing__content">
       <div class="home-landing__hero">
         <h1 class="home-landing__title">Grids</h1>
-        <p class="home-landing__subtitle">
-          A calm home for the links, notes, and ideas you want to keep close.
-        </p>
+        <h3 class="home-landing__subtitle">
+          <br />
+          The Future of Showcasing Your Work
+          <br />
+          <br />
+          <span class="home-landing__subtitle--small">A home for the links, notes, and ideas you want to share.</span>
+        </h3>
+      </div>
+
+      <div class="home-landing__hero-image">
+        <img src="@/assets/images/hero.gif" alt="" />
       </div>
 
       <div class="home-landing__beta">
@@ -52,6 +60,24 @@ import GriddleAnimation from '@/components/GriddleAnimation.vue';
   z-index: 0;
 }
 
+.home-landing__background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /*
+    Center mask: hide the animation behind the hero content.
+    The oval gradient keeps edges visible while the center is darker.
+  */
+  background:
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgba(0, 0, 0, 1) 0%,
+      rgba(0, 0, 0, 0.96) 89%,
+      rgba(0, 0, 0, 0.55) 100%
+    );
+}
+
 .home-landing__content {
   position: relative;
   z-index: 1;
@@ -81,6 +107,15 @@ import GriddleAnimation from '@/components/GriddleAnimation.vue';
   max-width: 56ch;
 }
 
+.home-landing__hero-image {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 512px;
+  clip-path: inset(5%);
+  border-radius: var(--radius-lg);
+}
+
 .home-landing__beta {
   display: flex;
   flex-direction: column;
@@ -99,8 +134,8 @@ import GriddleAnimation from '@/components/GriddleAnimation.vue';
   justify-content: center;
   gap: var(--spacing-sm);
   padding: 12px 18px;
-  border-radius: var(--radius-full);
-  background: var(--primary-color);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
   color: var(--color-light-100);
   font-weight: var(--font-weight-semibold);
   text-decoration: none;

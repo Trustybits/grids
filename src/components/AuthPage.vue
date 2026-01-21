@@ -45,11 +45,6 @@
         By continuing, you agree to receive a sign-in link at your email.
       </p>
 
-      <p class="legal-links">
-        <router-link to="/terms">Terms</router-link>
-        <span class="legal-links__separator">·</span>
-        <router-link to="/privacy">Privacy</router-link>
-      </p>
     </div>
   </div>
 </template>

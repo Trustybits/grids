@@ -39,7 +39,12 @@ router.beforeEach((to, from, next) => {
     // Firebase restores auth state asynchronously on page load. Use the first
     // onAuthStateChanged callback to make an accurate decision for the landing route.
     if (to.path === '/') {
-      next(user ? '/dashboard' : '/login');
+      if (user) {
+        next('/dashboard');
+        return;
+      }
+
+      next();
       return;
     }
 

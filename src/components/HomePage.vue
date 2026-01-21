@@ -1,49 +1,149 @@
 <!-- src/views/HomePage.vue -->
 <template>
-  <div class="home">
-    <h1>Welcome to grids.so!</h1>
-    <p>This is the home page</p>
-    <router-link to="/signup">Create an Account</router-link>
-    <router-link to="/login">Login to Your Account</router-link>
+  <div class="home-landing">
+    <div class="home-landing__background" aria-hidden="true">
+      <GriddleAnimation />
+    </div>
+
+    <main class="home-landing__content">
+      <div class="home-landing__hero">
+        <h1 class="home-landing__title">Grids</h1>
+        <p class="home-landing__subtitle">
+          A calm home for the links, notes, and ideas you want to keep close.
+        </p>
+      </div>
+
+      <div class="home-landing__beta">
+        <p class="home-landing__beta-text">We’re in beta. Join to start building your first grid.</p>
+
+        <router-link class="home-landing__cta" to="/login">
+          Join the Beta
+        </router-link>
+      </div>
+    </main>
+
+    <footer class="home-landing__footer">
+      <router-link class="home-landing__footer-link" to="/privacy">Privacy</router-link>
+      <span class="home-landing__footer-sep">·</span>
+      <router-link class="home-landing__footer-link" to="/terms">Terms</router-link>
+    </footer>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import GriddleAnimation from '@/components/GriddleAnimation.vue';
 </script>
 
 <style scoped>
-.home {
+.home-landing {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  background: var(--color-content-background);
+  color: var(--color-text-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+.home-landing__background {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.home-landing__content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: clamp(var(--spacing-xl), 6vw, 90px) var(--spacing-lg);
+}
+
+.home-landing__hero {
+  width: 100%;
+  max-width: 860px;
   text-align: center;
-  margin-top: var(--spacing-2xl);
-  padding: var(--spacing-xl);
-  color: var(--color-text-primary);
-  background-color: var(--color-content-background);
 }
 
-h1 {
-  font-size: var(--font-size-2xl);
-  color: var(--color-text-primary);
+.home-landing__title {
+  font-size: clamp(2.25rem, 6vw, 3.5rem);
   font-weight: var(--font-weight-bold);
-  margin-bottom: var(--spacing-lg);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--spacing-md);
 }
 
-p {
-  font-size: var(--font-size-lg);
-  margin: var(--spacing-lg) 0;
+.home-landing__subtitle {
+  font-size: clamp(1.05rem, 2.2vw, 1.25rem);
   color: var(--color-content-default);
+  margin: 0 auto;
+  max-width: 56ch;
 }
 
-a {
-  display: block;
-  margin: var(--spacing-md);
-  text-decoration: none;
-  color: var(--primary-color);
+.home-landing__beta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.home-landing__beta-text {
+  color: var(--color-content-high);
   font-size: var(--font-size-base);
+}
+
+.home-landing__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: 12px 18px;
+  border-radius: var(--radius-full);
+  background: var(--primary-color);
+  color: var(--color-light-100);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  box-shadow: var(--shadow-md);
+  transition:
+    transform var(--duration-fast) var(--easing-smooth),
+    box-shadow var(--duration-fast) var(--easing-smooth),
+    filter var(--duration-fast) var(--easing-smooth);
+}
+
+.home-landing__cta:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+  filter: brightness(1.02);
+}
+
+.home-landing__cta:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-md);
+}
+
+.home-landing__footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  color: var(--color-content-low);
+}
+
+.home-landing__footer-link {
+  color: var(--color-content-low);
+  text-decoration: none;
   transition: color var(--duration-fast) var(--easing-smooth);
 }
 
-a:hover {
-  text-decoration: underline;
+.home-landing__footer-link:hover {
   color: var(--color-content-high);
+}
+
+.home-landing__footer-sep {
+  color: var(--color-content-low);
 }
 </style>

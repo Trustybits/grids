@@ -1,21 +1,19 @@
 <template>
-  <div v-if="show" class="modal-overlay" @click="handleClose">
-    <div class="modal-content" @click.stop>
-      <h3>Add Link Tile</h3>
-      <input
-        ref="linkInput"
-        v-model="link"
-        type="url"
-        placeholder="Enter URL (e.g., https://example.com)..."
-        class="link-input"
-        @keyup.enter="handleAdd"
-        @keyup.esc="handleClose"
-      />
-      <div class="modal-actions">
-        <button @click="handleAdd" class="add-button" :disabled="!link.trim()">Add Link</button>
+  <teleport to="body" v-if="show">
+    <div class="modal-overlay" @click="handleClose">
+      <div class="modal-content" @click.stop>
+        <input
+          ref="linkInput"
+          v-model="link"
+          type="url"
+          placeholder="Type or paste a link..."
+          class="link-input"
+          @keyup.enter="handleAdd"
+          @keyup.esc="handleClose"
+        />
       </div>
     </div>
-  </div>
+  </teleport>
 </template>
 
 <script setup>
@@ -59,14 +57,14 @@ const handleAdd = () => {
   left: 0;
   right: 0;
   bottom: 0;
+  height: 100%;
   background-color: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.2s ease-out;
-  width: fit-content;
+  animation: fadeIn 0.3s ease-out;
 }
 
 @keyframes fadeIn {
@@ -79,13 +77,17 @@ const handleAdd = () => {
 }
 
 .modal-content {
+  display: flex;
+  flex-direction: row;
   position: relative;
+  top: 540px;
   z-index: 1001;
   background-color: var(--color-tile-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-xl);
-  width: 90%;
+  padding: var(--spacing-xs);
+  width: fit-content;
+  min-width: 360px;
   max-width: 750px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: slideUpSpring 0.4s var(--easing-spring);
@@ -111,7 +113,7 @@ const handleAdd = () => {
 
 .link-input {
   width: 100%;
-  padding: var(--spacing-md);
+  padding: var(--spacing-sm);
   font-size: var(--font-size-md);
   font-family: var(--font-family-base);
   color: var(--color-text-primary);
@@ -120,7 +122,6 @@ const handleAdd = () => {
   border-radius: var(--radius-md);
   outline: none;
   transition: all var(--duration-fast) var(--easing-smooth);
-  margin-bottom: var(--spacing-lg);
 }
 
 .link-input:focus {

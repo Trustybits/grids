@@ -11,7 +11,7 @@
     :vertical-compact="layoutStore.verticalCompact"
     :prevent-collision="false"
     :restore-on-drag="true"
-    :use-css-transforms="true"
+    :use-css-transforms="false"
     :margin="[margin, margin]"
     :style="{ width: `${gridWidth}px` }"
   >
@@ -96,8 +96,9 @@ export default {
 .vue-grid-layout {
   background-color: #ffffff00;
   position: relative;
-  left: 50vw;
-  transform: translate(-50%, 0);
+  left: auto;
+  transform: none;
+  margin: 0 auto;
 }
 
 /* Visual styling handled by custom.scss globally */

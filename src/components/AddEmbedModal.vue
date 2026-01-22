@@ -1,18 +1,20 @@
 <template>
-  <teleport to="body" v-if="show">
-    <div class="modal-overlay" @click="handleClose">
-      <div class="modal-content" @click.stop>
-        <input
-          ref="embedInput"
-          v-model="embedUrl"
-          type="url"
-          placeholder="Enter embed URL (e.g., YouTube, Spotify, etc.)..."
-          class="embed-input"
-          @keyup.enter="handleAdd"
-          @keyup.esc="handleClose"
-        />
+  <teleport to="body">
+    <transition name="modal">
+      <div v-if="show" class="modal-overlay" @click="handleClose">
+        <div class="modal-content" @click.stop>
+          <input
+            ref="embedInput"
+            v-model="embedUrl"
+            type="url"
+            placeholder="Enter embed URL (e.g., YouTube, Spotify, etc.)..."
+            class="embed-input"
+            @keyup.enter="handleAdd"
+            @keyup.esc="handleClose"
+          />
+        </div>
       </div>
-    </div>
+    </transition>
   </teleport>
 </template>
 
@@ -64,7 +66,6 @@ const handleAdd = () => {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.3s ease-out;
 }
 
 @keyframes fadeIn {
@@ -90,7 +91,22 @@ const handleAdd = () => {
   min-width: 360px;
   max-width: 750px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: slideUpSpring 0.4s var(--easing-spring);
+}
+
+.modal-enter-active {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.modal-leave-active {
+  animation: fadeOut 0.2s ease-in;
+}
+
+.modal-enter-active .modal-content {
+  animation: slideUpSpring 0.3s var(--easing-spring);
+}
+
+.modal-leave-active .modal-content {
+  animation: slideDownFade 0.2s ease-in;
 }
 
 @keyframes slideUpSpring {
@@ -101,6 +117,26 @@ const handleAdd = () => {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideDownFade {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
   }
 }
 

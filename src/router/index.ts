@@ -3,6 +3,8 @@ import HomePage from '@/components/HomePage.vue';
 import GridPage from '@/components/GridPage.vue';
 import AuthPage from '@/components/AuthPage.vue';
 import DashboardPage from '@/components/DashboardPage.vue';
+ import PrivacyPage from '@/components/PrivacyPage.vue';
+ import TermsPage from '@/components/TermsPage.vue';
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import posthog from 'posthog-js';
 
@@ -20,6 +22,16 @@ const routes = [
     path: '/grid/:id', 
     component: GridPage, 
     meta: { requiresAuth: false } 
+  },
+  {
+    path: '/privacy',
+    component: PrivacyPage,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/terms',
+    component: TermsPage,
+    meta: { requiresAuth: false },
   },
 ];
 

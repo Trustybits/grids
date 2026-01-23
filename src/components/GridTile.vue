@@ -191,7 +191,12 @@ import { GridItem } from "vue3-grid-layout";
 import { type Tile } from "@/types/Tile";
 import { useLayoutStore } from "@/stores/layout";
 import TileCaption from "./TileCaption.vue";
-import { getContentComponent, getOptionComponent, createTileContent } from "@/utils/TileUtils";
+import {
+  getContentComponent,
+  getOptionComponent,
+  createTileContent,
+  createTileContentFromEmbedUrl,
+} from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
 import { getAuth } from "firebase/auth";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -223,6 +228,7 @@ export default defineComponent({
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).
     provide("gridTileH", computed(() => props.tile.h));
+    provide("gridTileW", computed(() => props.tile.w));
 
     const isMoving = ref(false);
     const currentComponent = ref<any>(null);
@@ -403,8 +409,8 @@ export default defineComponent({
         case "embed": {
           const url = prompt("Please enter an embed URL");
           if (!url) return;
-          const embedContent = createTileContent(ContentType.EMBED, { src: url });
-          layoutStore.setTileContent(props.tile.i, embedContent);
+          const content = createTileContentFromEmbedUrl(url);
+          layoutStore.setTileContent(props.tile.i, content);
           break;
         }
       }
@@ -521,6 +527,10 @@ export default defineComponent({
   overflow: hidden; /* Clip content to border-radius */
   isolation: isolate; /* Force clipping context */
   transform: translateZ(0); /* Fix for Safari border-radius clipping */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
+  transform: translateZ(0);
+  will-change: transform;
   
   /* Border Overlay */
   &::after {

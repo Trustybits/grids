@@ -1,56 +1,74 @@
 <template>
-  <div class="auth-page">
-    <div class="auth-background" aria-hidden="true"></div>
-
-    <div class="auth-container">
-      <div class="auth-header">
-        <h1 class="auth-title">Welcome to Grids</h1>
-        <p class="auth-subtitle">Sign in with Google or continue with your email.</p>
-      </div>
-
-      <button @click="handleGoogleAuth" class="google-btn" :disabled="isBusy">
-        <i class="fab fa-google"></i>
-        Continue with Google
-      </button>
-
-      <div class="or-block">
-        <hr class="solidDivider" />
-        <p>OR</p>
-        <hr class="solidDivider" />
-      </div>
-
-      <div class="email-row">
-        <input
-          v-model="email"
-          inputmode="email"
-          autocomplete="email"
-          placeholder="you@domain.com"
-          :disabled="isBusy || isCompletingLink"
-          @keydown.enter.prevent="handleEmailContinue"
-        />
-        <button
-          class="primary-btn"
-          @click="handleEmailContinue"
-          :disabled="isBusy || isCompletingLink || !isEmailValid"
-        >
-          Continue
-        </button>
-      </div>
-
-      <p v-if="statusText" class="status" :class="{ error: statusTone === 'error' }">
-        {{ statusText }}
-      </p>
-
-      <p class="fineprint">
-        By continuing, you agree to receive a sign-in link at your email.
-      </p>
-
-      <p class="legal-links">
-        <router-link to="/terms">Terms</router-link>
-        <span class="legal-links__separator">·</span>
-        <router-link to="/privacy">Privacy</router-link>
-      </p>
+  <div class="auth-landing">
+    <div class="auth-landing__background" aria-hidden="true">
+      <GriddleAnimation />
     </div>
+
+    <main class="auth-landing__content">
+      <div class="auth-container">
+        <div class="auth-header">
+          <h1 class="auth-title">Welcome to Grids</h1>
+          <p class="auth-subtitle">Sign in with Google or continue with your email.</p>
+        </div>
+
+        <button @click="handleGoogleAuth" class="google-btn" :disabled="isBusy">
+          <i class="fab fa-google"></i>
+          Continue with Google
+        </button>
+
+        <div class="or-block">
+          <hr class="solidDivider" />
+          <p>OR</p>
+          <hr class="solidDivider" />
+        </div>
+
+        <div class="email-row">
+          <input
+            v-model="email"
+            inputmode="email"
+            autocomplete="off"
+            name="grids-email"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            data-lpignore="true"
+            data-1p-ignore="true"
+            data-bwignore="true"
+            data-form-type="other"
+            placeholder="Email address"
+            :disabled="isBusy || isCompletingLink"
+            @keydown.enter.prevent="isEmailValid && handleEmailContinue()"
+          />
+          <button
+            class="email-continue-btn"
+            :class="{ 'email-continue-btn--visible': isEmailValid }"
+            type="button"
+            aria-label="Continue"
+            :aria-hidden="!isEmailValid"
+            :tabindex="isEmailValid ? 0 : -1"
+            @click="handleEmailContinue"
+            :disabled="isBusy || isCompletingLink"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M13.5 5.5a1 1 0 0 1 1.4 0l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 1 1-1.4-1.4l4.3-4.3H4a1 1 0 1 1 0-2h13.8l-4.3-4.3a1 1 0 0 1 0-1.4Z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <p v-if="statusText" class="status" :class="{ error: statusTone === 'error' }">
+          {{ statusText }}
+        </p>
+      </div>
+    </main>
+
+    <footer class="auth-landing__footer">
+      <router-link class="auth-landing__footer-link" to="/privacy">Privacy</router-link>
+      <span class="auth-landing__footer-sep">·</span>
+      <router-link class="auth-landing__footer-link" to="/terms">Terms</router-link>
+    </footer>
   </div>
 </template>
 
@@ -58,6 +76,7 @@
 import { computed, ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { auth } from '../firebase';
+import GriddleAnimation from '@/components/GriddleAnimation.vue';
 import {
   signInWithPopup,
   GoogleAuthProvider,
@@ -150,7 +169,7 @@ const handleGoogleAuth = async () => {
 
 const handleEmailContinue = async () => {
   const trimmedEmail = email.value.trim();
-  if (!trimmedEmail) return;
+  if (!trimmedEmail || !isEmailValid.value) return;
 
   try {
     isBusy.value = true;
@@ -179,45 +198,48 @@ const handleEmailContinue = async () => {
 </script>
 
 <style scoped>
-.auth-page {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  background-color: var(--color-content-background);
+.auth-landing {
+  min-height: 100vh;
   position: relative;
   overflow: hidden;
+  background: var(--color-content-background);
+  color: var(--color-text-primary);
+  display: flex;
+  flex-direction: column;
 }
 
-.auth-background {
+.auth-landing__background {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(800px circle at 20% 20%, rgba(86, 61, 255, 0.28), transparent 60%),
-    radial-gradient(900px circle at 80% 30%, rgba(0, 209, 255, 0.22), transparent 55%),
-    radial-gradient(900px circle at 60% 85%, rgba(255, 0, 128, 0.16), transparent 60%),
-    radial-gradient(1100px circle at 40% 75%, rgba(0, 255, 149, 0.10), transparent 55%);
-  filter: blur(10px);
-  transform: scale(1.05);
-  animation: floatBackground 14s ease-in-out infinite;
   pointer-events: none;
+  z-index: 0;
 }
 
-@keyframes floatBackground {
-  0% {
-    transform: scale(1.05) translate3d(0, 0, 0);
-  }
-  50% {
-    transform: scale(1.1) translate3d(0, -10px, 0);
-  }
-  100% {
-    transform: scale(1.05) translate3d(0, 0, 0);
-  }
+.auth-landing__background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgba(0, 0, 0, 1) 0%,
+      rgba(0, 0, 0, 0.96) 89%,
+      rgba(0, 0, 0, 0.55) 100%
+    );
+}
+
+.auth-landing__content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: clamp(var(--spacing-xl), 6vw, 90px) var(--spacing-lg);
 }
 
 .auth-container {
   position: relative;
-  z-index: 1;
   padding: clamp(20px, 4vw, var(--spacing-xl));
   border-radius: var(--radius-lg);
   text-align: left;
@@ -294,7 +316,6 @@ button:hover {
   justify-content: center;
   background: var(--color-content-background);
   color: var(--color-text-primary);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
 }
 
 .google-btn i {
@@ -313,17 +334,63 @@ button:hover {
 }
 
 .email-row {
-  display: grid;
+  display: flex;
   grid-template-columns: 1fr auto;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
   align-items: center;
+
+  .input {
+    flex: 1;
+    width: 100%;
+  }
 }
 
-.primary-btn {
-  width: auto;
-  min-width: 120px;
+.email-continue-btn {
+  width: 0px;
   height: 40px;
-  margin: 0;
+  padding: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  box-sizing: border-box;
+  line-height: 0;
+  opacity: 0;
+  transform: translateX(-6px) scale(0.96);
+  pointer-events: none;
+  transition:
+    transform var(--duration-fast) var(--easing-smooth),
+    background-color var(--duration-fast) var(--easing-smooth),
+    border-color var(--duration-fast) var(--easing-smooth),
+    opacity 160ms var(--easing-smooth);
+}
+
+.email-continue-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.email-continue-btn--visible {
+  display: inline-flex;
+  width: 40px;
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  pointer-events: auto;
+}
+
+.email-continue-btn:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-tile-background) 35%, transparent);
+  border-color: var(--color-content-high);
+}
+
+.email-continue-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .status {
@@ -342,9 +409,55 @@ button:hover {
   color: var(--color-content-default);
 }
 
+.legal-links {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-content-default);
+}
+
+.legal-links a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.legal-links a:hover {
+  color: var(--color-content-high);
+  text-decoration: underline;
+}
+
+.legal-links__separator {
+  margin: 0 8px;
+  opacity: 0.7;
+}
+
 .solidDivider {
   border: 1px solid var(--color-tile-stroke);
   border-radius: 1px;
   width: 100%;
+}
+
+.auth-landing__footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  color: var(--color-content-low);
+}
+
+.auth-landing__footer-link {
+  color: var(--color-content-low);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--easing-smooth);
+}
+
+.auth-landing__footer-link:hover {
+  color: var(--color-content-high);
+}
+
+.auth-landing__footer-sep {
+  color: var(--color-content-low);
 }
 </style>

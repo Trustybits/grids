@@ -3,11 +3,11 @@
   <grid-layout
     v-else
     class="grid-container"
-    :layout="layoutStore.currentLayout?.tiles || []"
-    :col-num="colNum"
+    :layout="displayLayout"
+    :col-num="responsiveColNum"
     :row-height="rowHeight"
-    :is-draggable="layoutStore.isOwner"
-    :is-resizable="layoutStore.isOwner"
+    :is-draggable="isEditable"
+    :is-resizable="isEditable"
     :vertical-compact="layoutStore.verticalCompact"
     :prevent-collision="false"
     :restore-on-drag="true"
@@ -15,21 +15,18 @@
     :margin="[margin, margin]"
     :style="{ width: `${gridWidth}px` }"
   >
-    <grid-tile
-      v-for="tile in layoutStore.currentLayout?.tiles || []"
-      :key="tile.i"
-      :tile="tile"
-    />
+    <grid-tile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
   </grid-layout>
 </template>
 
 <script lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
 import GridTile from "./GridTile.vue";
 import { useLayoutStore } from "@/stores/layout";
+import { type Tile } from "@/types/Tile";
 
 export default {
   components: {
@@ -47,18 +44,146 @@ export default {
     const layoutStore = useLayoutStore();
     const route = useRoute(); // Access route parameters
     const margin = 48;
+    const viewportWidth = ref(
+      typeof window !== "undefined" ? window.innerWidth : 0
+    );
 
-    const colNum = computed(() => {
-      return layoutStore.currentLayout?.colNum || 10;
+    const onResize = () => {
+      viewportWidth.value = window.innerWidth;
+    };
+
+    const baseColNum = computed(() => {
+      return layoutStore.currentLayout?.colNum ?? 12;
+    });
+
+    const hasOverlap = (
+      placed: Tile[],
+      x: number,
+      y: number,
+      w: number,
+      h: number
+    ) => {
+      return placed.some((tile) => {
+        return !(
+          x + w <= tile.x ||
+          x >= tile.x + tile.w ||
+          y + h <= tile.y ||
+          y >= tile.y + tile.h
+        );
+      });
+    };
+
+    const findFirstAvailableSpot = (
+      placed: Tile[],
+      width: number,
+      height: number,
+      columns: number,
+      startY = 0
+    ) => {
+      let y = Math.max(0, startY);
+      while (true) {
+        for (let x = 0; x <= columns - width; x += 1) {
+          if (!hasOverlap(placed, x, y, width, height)) {
+            return { x, y };
+          }
+        }
+        y += 1;
+      }
+    };
+
+    const scaleTileToFit = (tile: Tile, columns: number) => {
+      if (tile.w <= columns) {
+        return { ...tile };
+      }
+
+      const scale = columns / tile.w;
+      return {
+        ...tile,
+        w: columns,
+        h: Math.max(1, Math.round(tile.h * scale)),
+      };
+    };
+
+    const packTiles = (tiles: Tile[], columns: number) => {
+      const ordered = [...tiles].sort((a, b) => {
+        if (a.y !== b.y) return a.y - b.y;
+        if (a.x !== b.x) return a.x - b.x;
+        return String(a.i).localeCompare(String(b.i));
+      });
+      const placed: Tile[] = [];
+
+      ordered.forEach((tile) => {
+        const withinBounds = tile.x >= 0 && tile.x + tile.w <= columns;
+        const canKeep =
+          withinBounds &&
+          !hasOverlap(placed, tile.x, tile.y, tile.w, tile.h);
+
+        if (canKeep) {
+          placed.push({ ...tile });
+          return;
+        }
+
+        const startY = withinBounds ? tile.y : tile.y + 1;
+        const spot = findFirstAvailableSpot(
+          placed,
+          tile.w,
+          tile.h,
+          columns,
+          startY
+        );
+        placed.push({ ...tile, x: spot.x, y: spot.y });
+      });
+
+      const placedById = new Map(placed.map((tile) => [tile.i, tile]));
+      return tiles.map((tile) => placedById.get(tile.i) ?? tile);
+    };
+
+    const responsiveColNum = computed(() => {
+      const candidates = [12, 8, 4].filter(
+        (columns) => columns <= baseColNum.value
+      );
+      const fits = (columns: number) => {
+        return (
+          columns * props.rowHeight + (columns + 1) * margin <=
+          viewportWidth.value
+        );
+      };
+
+      return candidates.find(fits) ?? Math.min(4, baseColNum.value);
+    });
+
+    const displayLayout = computed(() => {
+      const tiles = layoutStore.currentLayout?.tiles ?? [];
+      if (responsiveColNum.value === baseColNum.value) {
+        return tiles;
+      }
+
+      const resizedTiles = tiles.map((tile) =>
+        scaleTileToFit(tile, responsiveColNum.value)
+      );
+
+      return packTiles(resizedTiles, responsiveColNum.value);
+    });
+
+    const isEditable = computed(() => {
+      return (
+        layoutStore.isOwner &&
+        responsiveColNum.value === baseColNum.value
+      );
     });
 
     const gridWidth = computed(() => {
-      return colNum.value * props.rowHeight + (colNum.value + 1) * margin;
+      return (
+        responsiveColNum.value * props.rowHeight +
+        (responsiveColNum.value + 1) * margin
+      );
     });
 
 
     // Load layout using ID from the route
     onMounted(() => {
+      onResize();
+      window.addEventListener("resize", onResize);
       const layoutId = route.params.id;
       if (layoutId) {
         layoutStore.loadLayout(layoutId as string);
@@ -67,11 +192,17 @@ export default {
       }
     });
 
+    onUnmounted(() => {
+      window.removeEventListener("resize", onResize);
+    });
+
     return {
       layoutStore,
       gridWidth,
       margin,
-      colNum,
+      displayLayout,
+      responsiveColNum,
+      isEditable,
     };
   },
 

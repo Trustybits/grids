@@ -80,8 +80,8 @@ const handleAdd = () => {
 .modal-content {
   display: flex;
   flex-direction: row;
-  position: relative;
-  top: 540px;
+  position: absolute;
+  bottom: 100px;
   z-index: 1001;
   background-color: var(--color-tile-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);

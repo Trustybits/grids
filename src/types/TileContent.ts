@@ -39,6 +39,10 @@ export interface LinkContent extends TileContent {
   metaDescription?: string;
   metaImageUrl?: string;
   metaSiteName?: string;
+  customTitle?: string;
+  customDescription?: string;
+  customSubtitle?: string;
+  linkBackgroundEnabled?: boolean;
 }
 
 export interface EmbedContent extends TileContent {

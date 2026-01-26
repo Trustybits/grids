@@ -177,7 +177,12 @@
           </svg>
         </button>
 
-        <button class="toolbar-btn" title="More" @click.stop="onToolbarAction('menu')">
+        <button
+          ref="toolbarMoreRef"
+          class="toolbar-btn"
+          title="More"
+          @click.stop="onToolbarAction('menu')"
+        >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="6" cy="12" r="1.25" fill="currentColor" />
             <circle cx="12" cy="12" r="1.25" fill="currentColor" />
@@ -185,6 +190,31 @@
           </svg>
         </button>
       </div>
+
+      <teleport to="body">
+        <div
+          v-if="layoutStore.isOwner && isLinkContent && showToolbarMenu"
+          ref="toolbarMenuRef"
+          class="tile-toolbar-menu"
+          :style="toolbarMenuStyle"
+          @mousedown.stop
+        >
+          <button type="button" class="tile-toolbar-menu-item" @click.stop="handleToolbarUpload">
+            Upload image
+          </button>
+          <button type="button" class="tile-toolbar-menu-item" @click.stop="handleToolbarUseUrl">
+            Use image URL
+          </button>
+          <button
+            v-if="hasCustomLinkImage"
+            type="button"
+            class="tile-toolbar-menu-item tile-toolbar-menu-item--danger"
+            @click.stop="handleToolbarRemove"
+          >
+            Remove image
+          </button>
+        </div>
+      </teleport>
     </div>
   </grid-item>
 </template>
@@ -198,7 +228,9 @@ import {
   watch,
   computed,
   provide,
+  nextTick,
 } from "vue";
+
 import { GridItem } from "vue3-grid-layout";
 import { type Tile } from "@/types/Tile";
 import { useLayoutStore } from "@/stores/layout";
@@ -248,6 +280,10 @@ export default defineComponent({
     const childComponent = ref<any>(null);
     const isEditing = ref(false);
     const gridTileRef = ref<HTMLElement | null>(null);
+    const toolbarMenuRef = ref<HTMLDivElement | null>(null);
+    const toolbarMoreRef = ref<HTMLButtonElement | null>(null);
+    const showToolbarMenu = ref(false);
+    const toolbarMenuPosition = ref({ x: 0, y: 0 });
 
     const showCaption = computed(() => {
       // Hide caption for Link, Text, Embed, and Suggestion tiles as requested
@@ -260,6 +296,10 @@ export default defineComponent({
       if (!isLinkContent.value) return true;
       const content = props.tile.content as LinkContent;
       return content.linkBackgroundEnabled !== false;
+    });
+    const hasCustomLinkImage = computed(() => {
+      if (!isLinkContent.value) return false;
+      return !!(props.tile.content as LinkContent).customImageUrl;
     });
 
     const clickStart = ref<number | null>(null);
@@ -282,6 +322,79 @@ export default defineComponent({
       if (event.button === 0) {
         clickStart.value = Date.now();
       }
+    };
+
+    const clampMenuToViewport = (x: number, y: number, menuWidth: number, menuHeight: number) => {
+      const padding = 8;
+      const maxX = window.innerWidth - menuWidth - padding;
+      const maxY = window.innerHeight - menuHeight - padding;
+      return {
+        x: Math.max(padding, Math.min(x, maxX)),
+        y: Math.max(padding, Math.min(y, maxY)),
+      };
+    };
+
+    const toolbarMenuStyle = computed(() => ({
+      top: `${toolbarMenuPosition.value.y}px`,
+      left: `${toolbarMenuPosition.value.x}px`,
+    }));
+
+    const positionToolbarMenu = () => {
+      const button = toolbarMoreRef.value;
+      if (!button) return;
+      const rect = button.getBoundingClientRect();
+      const fallbackWidth = 190;
+      const fallbackHeight = hasCustomLinkImage.value ? 112 : 76;
+      const fallbackX = rect.right - fallbackWidth;
+      let fallbackY = rect.top - fallbackHeight - 8;
+      if (fallbackY < 8) {
+        fallbackY = rect.bottom + 8;
+      }
+      toolbarMenuPosition.value = clampMenuToViewport(
+        fallbackX,
+        fallbackY,
+        fallbackWidth,
+        fallbackHeight
+      );
+
+      nextTick(() => {
+        const menu = toolbarMenuRef.value;
+        if (!menu) return;
+        const { width, height } = menu.getBoundingClientRect();
+        const nextX = rect.right - width;
+        let nextY = rect.top - height - 8;
+        if (nextY < 8) {
+          nextY = rect.bottom + 8;
+        }
+        toolbarMenuPosition.value = clampMenuToViewport(nextX, nextY, width, height);
+      });
+    };
+
+    const closeToolbarMenu = () => {
+      showToolbarMenu.value = false;
+    };
+
+    const handleToolbarUpload = () => {
+      closeToolbarMenu();
+      childComponent.value?.openCustomImagePicker?.();
+    };
+
+    const handleToolbarUseUrl = () => {
+      closeToolbarMenu();
+      childComponent.value?.openUrlInput?.();
+    };
+
+    const handleToolbarRemove = () => {
+      closeToolbarMenu();
+      childComponent.value?.removeCustomImage?.();
+    };
+
+    const handleToolbarMenuClickOutside = (event: MouseEvent) => {
+      if (!showToolbarMenu.value) return;
+      const target = event.target as Node;
+      if (toolbarMenuRef.value?.contains(target)) return;
+      if (toolbarMoreRef.value?.contains(target)) return;
+      closeToolbarMenu();
     };
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -379,6 +492,14 @@ export default defineComponent({
     };
 
     const onToolbarAction = (action: string) => {
+      if (action === "menu") {
+        if (!isLinkContent.value) return;
+        showToolbarMenu.value = !showToolbarMenu.value;
+        if (showToolbarMenu.value) {
+          positionToolbarMenu();
+        }
+        return;
+      }
       void action;
     };
 
@@ -504,10 +625,14 @@ export default defineComponent({
 
     onMounted(() => {
       loadComponent();
+      document.addEventListener("click", handleToolbarMenuClickOutside);
+      document.addEventListener("contextmenu", handleToolbarMenuClickOutside);
     });
 
     onUnmounted(() => {
       removeClickListener(); // Cleanup on unmount
+      document.removeEventListener("click", handleToolbarMenuClickOutside);
+      document.removeEventListener("contextmenu", handleToolbarMenuClickOutside);
     });
 
     return {
@@ -534,6 +659,14 @@ export default defineComponent({
       onColorClick,
       isLinkContent,
       linkBackgroundEnabled,
+      hasCustomLinkImage,
+      toolbarMenuRef,
+      toolbarMoreRef,
+      showToolbarMenu,
+      toolbarMenuStyle,
+      handleToolbarUpload,
+      handleToolbarUseUrl,
+      handleToolbarRemove,
 
       isSuggestion,
       suggestionAction,
@@ -700,6 +833,43 @@ export default defineComponent({
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: 12px;
   padding: 4px;
+}
+
+.tile-toolbar-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 180px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-tile-hover);
+}
+
+.tile-toolbar-menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.tile-toolbar-menu-item:hover {
+  background: var(--color-content-low);
+}
+
+.tile-toolbar-menu-item--danger {
+  color: #ff3737;
 }
 
 /* Customizable Header Styles */

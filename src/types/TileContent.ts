@@ -43,6 +43,7 @@ export interface LinkContent extends TileContent {
   customDescription?: string;
   customSubtitle?: string;
   linkBackgroundEnabled?: boolean;
+  customImageUrl?: string;
 }
 
 export interface EmbedContent extends TileContent {

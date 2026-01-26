@@ -15,7 +15,8 @@
   >
     <div
       class="tile-wrapper"
-      :data-border="borderEnabled ? 'on' : 'off'"
+      :data-border="borderVisible ? 'on' : 'off'"
+      :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
       :data-suggestion="isSuggestion ? 'true' : 'false'"
       ref="gridTileRef"
       @mousedown="startClick"
@@ -159,7 +160,18 @@
           </svg>
         </button>
 
-        <button class="toolbar-btn" title="Tile color" @click.stop="onToolbarAction('color')">
+        <button
+          class="toolbar-btn"
+          :class="{ 'is-active': isLinkContent && linkBackgroundEnabled }"
+          :title="
+            isLinkContent
+              ? linkBackgroundEnabled
+                ? 'Hide background image'
+                : 'Show background image'
+              : 'Tile color'
+          "
+          @click.stop="onColorClick"
+        >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="4" y="4" width="16" height="16" rx="2" fill="var(--color-figma-purple)" />
           </svg>
@@ -197,7 +209,7 @@ import {
   createTileContent,
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
-import { ContentType } from "@/types/TileContent";
+import { ContentType, type LinkContent } from "@/types/TileContent";
 import { getAuth } from "firebase/auth";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
@@ -241,6 +253,13 @@ export default defineComponent({
       // Hide caption for Link, Text, Embed, and Suggestion tiles as requested
       const hiddenTypes = [ContentType.LINK, ContentType.TEXT, ContentType.EMBED, ContentType.SUGGESTION];
       return !hiddenTypes.includes(props.tile.content.type);
+    });
+
+    const isLinkContent = computed(() => props.tile.content.type === ContentType.LINK);
+    const linkBackgroundEnabled = computed(() => {
+      if (!isLinkContent.value) return true;
+      const content = props.tile.content as LinkContent;
+      return content.linkBackgroundEnabled !== false;
     });
 
     const clickStart = ref<number | null>(null);
@@ -348,12 +367,27 @@ export default defineComponent({
       return props.tile.borderEnabled !== false;
     });
 
+    const borderVisible = computed(() => {
+      if (!isLinkContent.value) {
+        return borderEnabled.value;
+      }
+      return linkBackgroundEnabled.value ? borderEnabled.value : true;
+    });
+
     const toggleBorder = () => {
       layoutStore.toggleTileBorder(props.tile.i);
     };
 
     const onToolbarAction = (action: string) => {
       void action;
+    };
+
+    const onColorClick = () => {
+      if (isLinkContent.value) {
+        layoutStore.toggleLinkBackground(props.tile.i);
+        return;
+      }
+      onToolbarAction("color");
     };
 
     const onResized = () => {
@@ -494,8 +528,12 @@ export default defineComponent({
       showCaption,
       isPresetActive,
       borderEnabled,
+      borderVisible,
       toggleBorder,
       onToolbarAction,
+      onColorClick,
+      isLinkContent,
+      linkBackgroundEnabled,
 
       isSuggestion,
       suggestionAction,

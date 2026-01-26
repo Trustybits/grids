@@ -6,16 +6,27 @@
       'is-tall-1-wide': isTallOneWide,
       'is-editing': isEditing,
       'is-owner': layoutStore.isOwner,
+      'is-drag-over': isDragOver,
     }"
     :style="{ '--link-title-lines': String(titleLineClamp) }"
+    ref="linkTileRef"
+    @contextmenu="onContextMenu"
+    @dragenter.prevent="onDragEnter"
+    @dragover.prevent="onDragOver"
+    @dragleave="onDragLeave"
+    @drop.prevent="onDrop"
   >
-    <div v-if="content.metaImageUrl" class="tile-background" aria-hidden="true">
+    <div v-if="backgroundImageUrl" class="tile-background" aria-hidden="true">
       <img
         class="tile-background-image"
-        :src="content.metaImageUrl"
+        :src="backgroundImageUrl"
         :alt="content.metaTitle || content.domain"
       />
       <div class="tile-background-overlay"></div>
+    </div>
+
+    <div v-if="isDragOver" class="link-image-drop-overlay" aria-hidden="true">
+      Drop image to upload
     </div>
 
     <div class="tile-foreground">
@@ -119,13 +130,89 @@
         </template>
       </div>
     </div>
+
+    <input
+      v-if="layoutStore.isOwner"
+      ref="customImageInput"
+      class="link-image-input"
+      type="file"
+      accept="image/*"
+      @change.stop="onCustomImageSelected"
+    />
+
+    <div
+      v-if="layoutStore.isOwner && showUrlInput"
+      class="link-url-input"
+      @mousedown.stop
+    >
+      <span class="link-url-label">Image URL</span>
+      <input
+        v-model="draftImageUrl"
+        class="link-url-field"
+        type="url"
+        placeholder="https://example.com/image.jpg"
+        aria-label="Image URL"
+        @keydown.enter.prevent="applyImageUrl"
+        @keydown.escape.stop.prevent="cancelUrlInput"
+      />
+      <p v-if="urlError" class="link-url-error">{{ urlError }}</p>
+      <div class="link-url-actions">
+        <button type="button" class="link-url-btn" @click.stop="applyImageUrl">Save</button>
+        <button
+          type="button"
+          class="link-url-btn link-url-btn--ghost"
+          @click.stop="cancelUrlInput"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <teleport to="body">
+      <div
+        v-if="layoutStore.isOwner && showContextMenu"
+        ref="contextMenuRef"
+        class="link-context-menu"
+        :style="contextMenuStyle"
+        @mousedown.stop
+      >
+        <button type="button" class="link-context-menu-item" @click.stop="handleContextUpload">
+          Upload image
+        </button>
+        <button type="button" class="link-context-menu-item" @click.stop="handleContextUseUrl">
+          Use image URL
+        </button>
+        <button
+          v-if="content.customImageUrl"
+          type="button"
+          class="link-context-menu-item link-context-menu-item--danger"
+          @click.stop="handleContextRemove"
+        >
+          Remove image
+        </button>
+      </div>
+    </teleport>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, inject, computed, ref, type ComputedRef } from "vue";
+import {
+  defineComponent,
+  inject,
+  computed,
+  ref,
+  type ComputedRef,
+  onMounted,
+  onUnmounted,
+  nextTick,
+} from "vue";
+
 import { type LinkContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
+import { isDirectImageUrl } from "@/utils/TileUtils";
+
+import { getAuth } from "firebase/auth";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export default defineComponent({
   props: {
@@ -148,6 +235,17 @@ export default defineComponent({
     const draftTitle = ref("");
     const draftDescription = ref("");
     const draftSubtitle = ref("");
+    const customImageInput = ref<HTMLInputElement | null>(null);
+    const linkTileRef = ref<HTMLElement | null>(null);
+    const contextMenuRef = ref<HTMLDivElement | null>(null);
+    const showContextMenu = ref(false);
+    const contextMenuPosition = ref({ x: 0, y: 0 });
+    const isDragOver = ref(false);
+    const showUrlInput = ref(false);
+    const draftImageUrl = ref("");
+    const urlError = ref("");
+    const auth = getAuth();
+    const storage = getStorage();
 
     const formatLink = (link: string) => {
       if (!link) return '@handle or address';
@@ -177,6 +275,14 @@ export default defineComponent({
     const displaySubtitle = computed(
       () => props.content.customSubtitle?.trim() || defaultSubtitle.value
     );
+    const backgroundImageUrl = computed(
+      () => props.content.customImageUrl || props.content.metaImageUrl || ""
+    );
+
+    const contextMenuStyle = computed(() => ({
+      top: `${contextMenuPosition.value.y}px`,
+      left: `${contextMenuPosition.value.x}px`,
+    }));
 
     const syncDrafts = () => {
       draftTitle.value = displayTitle.value;
@@ -197,6 +303,213 @@ export default defineComponent({
 
       layoutStore.saveLayout();
     };
+
+    const closeContextMenu = () => {
+      showContextMenu.value = false;
+    };
+
+    const openUrlInput = () => {
+      if (!layoutStore.isOwner) return;
+      draftImageUrl.value = props.content.customImageUrl || "";
+      urlError.value = "";
+      showUrlInput.value = true;
+      closeContextMenu();
+    };
+
+    const cancelUrlInput = () => {
+      showUrlInput.value = false;
+      urlError.value = "";
+    };
+
+    const normalizeImageUrl = (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed) return "";
+      const normalized = trimmed.startsWith("http://") || trimmed.startsWith("https://")
+        ? trimmed
+        : `https://${trimmed}`;
+      try {
+        new URL(normalized);
+        return normalized;
+      } catch {
+        return "";
+      }
+    };
+
+    const applyImageUrl = () => {
+      if (!layoutStore.isOwner) return;
+      const normalized = normalizeImageUrl(draftImageUrl.value);
+      if (!normalized) {
+        urlError.value = "Enter a valid URL.";
+        return;
+      }
+      if (!isDirectImageUrl(normalized)) {
+        urlError.value = "Only direct image URLs are supported (png, jpg, gif, webp, svg).";
+        return;
+      }
+
+      props.content.customImageUrl = normalized;
+      layoutStore.saveLayout();
+      showUrlInput.value = false;
+      urlError.value = "";
+      closeContextMenu();
+    };
+
+    const openCustomImagePicker = () => {
+      if (!layoutStore.isOwner) return;
+      customImageInput.value?.click();
+    };
+
+    const removeCustomImage = () => {
+      if (!layoutStore.isOwner) return;
+      props.content.customImageUrl = undefined;
+      layoutStore.saveLayout();
+      closeContextMenu();
+      showUrlInput.value = false;
+    };
+
+    const uploadCustomImage = async (file: File) => {
+      if (!layoutStore.isOwner) return;
+
+      if (!file.type.startsWith("image/")) {
+        alert("Unsupported file type. Please upload an image.");
+        return;
+      }
+
+      const maxSize = 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        alert("File is too large! Maximum size: 10MB");
+        return;
+      }
+
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          alert("You must be logged in to upload.");
+          return;
+        }
+
+        const filePath = `users/${currentUser.uid}/images/${Date.now()}_${file.name}`;
+
+        const fileRef = storageRef(storage, filePath);
+
+        await uploadBytes(fileRef, file);
+        const url = await getDownloadURL(fileRef);
+
+        props.content.customImageUrl = url;
+        layoutStore.saveLayout();
+      } catch (error) {
+        console.error("Link tile image upload failed:", error);
+        alert("Failed to upload image. Please try again.");
+      }
+    };
+
+    const onCustomImageSelected = async (event: Event) => {
+      if (!layoutStore.isOwner) return;
+      const file = (event.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      await uploadCustomImage(file);
+      if (customImageInput.value) customImageInput.value.value = "";
+    };
+
+    const onDragEnter = (event: DragEvent) => {
+      if (!layoutStore.isOwner) return;
+      if (!event.dataTransfer?.types.includes("Files")) return;
+      isDragOver.value = true;
+    };
+
+    const onDragOver = (event: DragEvent) => {
+      if (!layoutStore.isOwner) return;
+      if (!event.dataTransfer?.types.includes("Files")) return;
+      event.dataTransfer.dropEffect = "copy";
+    };
+
+    const onDragLeave = (event: DragEvent) => {
+      if (!layoutStore.isOwner) return;
+      const container = linkTileRef.value;
+      if (!container) {
+        isDragOver.value = false;
+        return;
+      }
+      const rect = container.getBoundingClientRect();
+      const { clientX, clientY } = event;
+      if (clientX <= rect.left || clientX >= rect.right || clientY <= rect.top || clientY >= rect.bottom) {
+        isDragOver.value = false;
+      }
+    };
+
+    const onDrop = async (event: DragEvent) => {
+      if (!layoutStore.isOwner) return;
+      isDragOver.value = false;
+      const file = event.dataTransfer?.files?.[0];
+      if (!file) return;
+      await uploadCustomImage(file);
+    };
+
+    const clampContextMenuPosition = (x: number, y: number, menuWidth: number, menuHeight: number) => {
+      const padding = 8;
+      const maxX = window.innerWidth - menuWidth - padding;
+      const maxY = window.innerHeight - menuHeight - padding;
+      return {
+        x: Math.max(padding, Math.min(x, maxX)),
+        y: Math.max(padding, Math.min(y, maxY)),
+      };
+    };
+
+    const onContextMenu = (event: MouseEvent) => {
+      if (!layoutStore.isOwner) return;
+      event.preventDefault();
+      event.stopPropagation();
+
+      const nextX = event.clientX;
+      const nextY = event.clientY;
+      const fallbackWidth = 180;
+      const fallbackHeight = props.content.customImageUrl ? 88 : 48;
+
+      contextMenuPosition.value = clampContextMenuPosition(
+        nextX,
+        nextY,
+        fallbackWidth,
+        fallbackHeight
+      );
+      showContextMenu.value = true;
+
+      nextTick(() => {
+        const menu = contextMenuRef.value;
+        if (!menu) return;
+        const { width, height } = menu.getBoundingClientRect();
+        contextMenuPosition.value = clampContextMenuPosition(nextX, nextY, width, height);
+      });
+    };
+
+    const handleContextUpload = () => {
+      closeContextMenu();
+      openCustomImagePicker();
+    };
+
+    const handleContextUseUrl = () => {
+      openUrlInput();
+    };
+
+    const handleContextRemove = () => {
+      closeContextMenu();
+      removeCustomImage();
+    };
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (!showContextMenu.value) return;
+      if (contextMenuRef.value?.contains(event.target as Node)) return;
+      showContextMenu.value = false;
+    };
+
+    onMounted(() => {
+      document.addEventListener("click", handleDocumentClick);
+      document.addEventListener("contextmenu", handleDocumentClick);
+    });
+
+    onUnmounted(() => {
+      document.removeEventListener("click", handleDocumentClick);
+      document.removeEventListener("contextmenu", handleDocumentClick);
+    });
 
     const markTextIntent = () => {
       if (!layoutStore.isOwner || isEditing.value) return;
@@ -248,9 +561,33 @@ export default defineComponent({
       displayTitle,
       displayDescription,
       displaySubtitle,
+      backgroundImageUrl,
+      contextMenuStyle,
       draftTitle,
       draftDescription,
       draftSubtitle,
+      customImageInput,
+      linkTileRef,
+      contextMenuRef,
+      showContextMenu,
+      isDragOver,
+      showUrlInput,
+      draftImageUrl,
+      urlError,
+      openCustomImagePicker,
+      openUrlInput,
+      cancelUrlInput,
+      applyImageUrl,
+      removeCustomImage,
+      onCustomImageSelected,
+      onDragEnter,
+      onDragOver,
+      onDragLeave,
+      onDrop,
+      onContextMenu,
+      handleContextUpload,
+      handleContextUseUrl,
+      handleContextRemove,
     }
   },
 });
@@ -296,12 +633,6 @@ export default defineComponent({
 .tile-background-overlay {
   position: absolute;
   inset: 0;
-  /*
-    Keeps link tile text readable on top of busy images.
-    Two layers:
-    - bottom-up fade into the theme's content background
-    - subtle overall wash (matches the Figma example's white @ 34%)
-  */
   background-image:
     linear-gradient(
       180deg,
@@ -310,7 +641,7 @@ export default defineComponent({
       var(--color-tile-background) 100%
     ),
     linear-gradient(90deg, color-mix(in srgb, var(--color-tile-background) 34%, transparent) 0%, color-mix(in srgb, var(--color-tile-background) 34%, transparent) 100%);
-    transform: translateZ(0);
+  transform: translateZ(0);
 }
 
 .tile-foreground {
@@ -439,14 +770,11 @@ export default defineComponent({
 
 .tile-input {
   width: 100%;
-  /* border-radius: var(--radius-sm); */
   border: 0px solid transparent;
-  /* border: 1px solid color-mix(in srgb, var(--color-text-primary) 18%, transparent); */
   background: color-mix(in srgb, var(--color-tile-background) 84%, transparent);
   color: var(--color-text-primary);
   field-sizing: content;
   padding: 0;
-  /* font-family: "Inter", sans-serif; */
   line-height: inherit;
   resize: none;
 }
@@ -457,8 +785,6 @@ export default defineComponent({
   padding: 0;
   field-sizing: content;
   font-family: "Inter", sans-serif;
-  /* border-color: color-mix(in srgb, var(--color-text-primary) 40%, transparent); */
-  /* box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 25%, transparent); */
 }
 
 .tile-input--title {
@@ -484,5 +810,64 @@ export default defineComponent({
   line-height: 16px;
   font-family: "Inter", sans-serif;
   color: var(--color-content-high);
+}
+
+.link-image-input {
+  display: none;
+}
+
+.link-image-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--color-tile-background) 70%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--color-text-primary) 35%, transparent);
+  border-radius: var(--tile-border-radius);
+  pointer-events: none;
+}
+
+.link-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 160px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-tile-hover);
+}
+
+.link-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.link-context-menu-item:hover {
+  background: var(--color-content-low);
+}
+
+.link-context-menu-item--danger {
+  color: #ff3737;
 }
 </style>

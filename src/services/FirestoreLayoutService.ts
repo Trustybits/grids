@@ -3,6 +3,30 @@ import { type LayoutService } from "./LayoutService";
 import { db } from "@/firebase";
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> => {
+  if (!value || typeof value !== "object") return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+};
+
+const sanitizeFirestoreValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((item) => {
+      const sanitized = sanitizeFirestoreValue(item);
+      return sanitized === undefined ? null : sanitized;
+    });
+  }
+
+  if (isPlainObject(value)) {
+    const entries = Object.entries(value)
+      .map(([key, val]) => [key, sanitizeFirestoreValue(val)] as const)
+      .filter(([, val]) => val !== undefined);
+    return Object.fromEntries(entries);
+  }
+
+  return value;
+};
+
 export class FirestoreLayoutService implements LayoutService {
   // Fetch a layout by ID
   async fetchLayout(id: string): Promise<Layout> {
@@ -41,7 +65,7 @@ export class FirestoreLayoutService implements LayoutService {
     try {
       console.log(layout);
       const docRef = doc(db, "layouts", layout.id);
-      await setDoc(docRef, {
+      const payload = sanitizeFirestoreValue({
         userId: layout.userId,
         name: layout.name,
         colNum: layout.colNum,
@@ -52,7 +76,8 @@ export class FirestoreLayoutService implements LayoutService {
         createdAt: layout.createdAt ?? serverTimestamp(),
         updatedAt: serverTimestamp(),
         lastOpenedAt: layout.lastOpenedAt ?? serverTimestamp(),
-      }, { merge: true });
+      }) as Record<string, unknown>;
+      await setDoc(docRef, payload, { merge: true });
     } catch (error) {
       console.error(`Error saving layout with ID ${layout.id}:`, error);
       throw error;
@@ -63,7 +88,7 @@ export class FirestoreLayoutService implements LayoutService {
   async updateLayout(layout: Layout): Promise<void> {
     try {
       const docRef = doc(db, "layouts", layout.id);
-      await updateDoc(docRef, {
+      const payload = sanitizeFirestoreValue({
         name: layout.name,
         colNum: layout.colNum,
         verticalCompact: layout.verticalCompact,
@@ -71,7 +96,8 @@ export class FirestoreLayoutService implements LayoutService {
         backgroundImageSrc: layout.backgroundImageSrc,
         backgroundEmbed: layout.backgroundEmbed,
         updatedAt: serverTimestamp(),
-      });
+      }) as Record<string, unknown>;
+      await updateDoc(docRef, payload);
     } catch (error) {
       console.error(`Error updating layout with ID ${layout.id}:`, error);
       throw error;

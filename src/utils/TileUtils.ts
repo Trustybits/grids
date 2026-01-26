@@ -194,6 +194,7 @@ export function createTileContent(
           ...input,
           type,
           ...linkData,
+          linkBackgroundEnabled: input.linkBackgroundEnabled ?? true,
         } as LinkContent;
       }
 

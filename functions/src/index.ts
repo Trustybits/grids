@@ -298,7 +298,7 @@ export const onNewUserSignup = functions
     
     if (!webhookUrl) {
       logger.error("AUTOMATION_WEBHOOK_URL secret is not configured");
-      return;
+      return null; // ✅ Add explicit return
     }
 
     // Prepare user data payload for the webhook
@@ -322,38 +322,31 @@ export const onNewUserSignup = functions
     };
 
     try {
-      // Send webhook to automation service
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Grids-Firebase-Functions/1.0",
-        },
-        body: JSON.stringify(payload),
-      });
+  // Send webhook to automation service
+  const response = await fetch(webhookUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": "Grids-Firebase-Functions/1.0",
+    },
+    body: JSON.stringify(payload),
+  });
 
-      if (!response.ok) {
-        logger.error("Webhook request failed", {
-          status: response.status,
-          statusText: response.statusText,
-          webhookUrl,
-        });
-        return;
-      }
-
-      const responseData = await response.text();
-      logger.info("Webhook sent successfully", {
-        uid: user.uid,
-        status: response.status,
-        response: responseData.slice(0, 500), // Log first 500 chars
-      });
-    } catch (error) {
-      logger.error("Failed to send webhook", {
-        error: String(error),
-        uid: user.uid,
-        webhookUrl,
-      });
-    }
+  // ✅ Just log the status, don't read the body
+  logger.info("Webhook sent successfully", {
+    uid: user.uid,
+    status: response.status,
+    ok: response.ok,
+  });
+  
+  return null;
+} catch (error) {
+  logger.error("Failed to send webhook", {
+    error: String(error),
+    uid: user.uid,
+  });
+  return null;
+}
   });
 
 // export const helloWorld = onRequest((request, response) => {

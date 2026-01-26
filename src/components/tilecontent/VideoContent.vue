@@ -22,12 +22,19 @@
         @click="togglePlayPause"
       ></video>
       
-      <!-- Custom Video Controls -->
-      <div class="custom-controls" v-if="!isEditing">
-        <button class="control-btn play-pause" @click.stop="togglePlayPause">
-          <span v-if="isPlaying">⏸</span>
-          <span v-else>▶</span>
+      <!-- Center Play Button -->
+      <div class="center-controls" v-if="!isEditing">
+        <button class="center-play-btn" @click.stop="togglePlayPause">
+          <i v-if="isPlaying" class="fas fa-pause"></i>
+          <i v-else class="fas fa-play"></i>
         </button>
+      </div>
+      
+      <!-- Bottom Control Bar -->
+      <div class="bottom-controls" v-if="!isEditing">
+        <div class="time-bar">
+          <span class="time-display">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
+        </div>
         
         <div class="progress-container" @click="seek">
           <div class="progress-bar">
@@ -35,28 +42,32 @@
           </div>
         </div>
         
-        <span class="time-display">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
-        
-        <button class="control-btn volume" @click.stop="toggleMute">
-          <span v-if="isMuted || volume === 0">🔇</span>
-          <span v-else-if="volume < 0.5">🔉</span>
-          <span v-else>🔊</span>
-        </button>
-        
-        <input 
-          type="range" 
-          class="volume-slider" 
-          min="0" 
-          max="1" 
-          step="0.01" 
-          v-model.number="volume"
-          @input="updateVolume"
-        />
-        
-        <button class="control-btn fullscreen" @click.stop="toggleFullscreen">
-          <span v-if="isFullscreen">⛶</span>
-          <span v-else>⛶</span>
-        </button>
+        <div class="control-row">
+          <div class="right-controls">
+            <div class="volume-control">
+              <input 
+                type="range" 
+                class="volume-slider" 
+                min="0" 
+                max="1" 
+                step="0.01" 
+                v-model.number="volume"
+                @input="updateVolume"
+                orient="vertical"
+              />
+              <button class="control-btn volume" @click.stop="toggleMute">
+                <i v-if="isMuted || volume === 0" class="fas fa-volume-mute"></i>
+                <i v-else-if="volume < 0.5" class="fas fa-volume-down"></i>
+                <i v-else class="fas fa-volume-up"></i>
+              </button>
+            </div>
+            
+            <button class="control-btn fullscreen" @click.stop="toggleFullscreen">
+              <i v-if="isFullscreen" class="fas fa-compress"></i>
+              <i v-else class="fas fa-expand"></i>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -370,52 +381,76 @@ export default defineComponent({
   cursor: pointer;
 }
 
-/* Custom Video Controls */
-.custom-controls {
+/* Center Play Button */
+.center-controls {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.center-play-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  pointer-events: all;
+  user-select: none;
+  opacity: 0;
+}
+
+.center-play-btn i {
+  font-size: 80px;
+}
+
+.video-wrapper:hover .center-play-btn {
+  opacity: 1;
+}
+
+.center-play-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+  transform: scale(1.1);
+}
+
+.center-play-btn:active {
+  transform: scale(0.95);
+}
+
+/* Bottom Control Bar */
+.bottom-controls {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  padding: 12px 16px;
   opacity: 0;
   transition: opacity 0.3s ease;
   z-index: 10;
 }
 
-.video-wrapper:hover .custom-controls {
+.video-wrapper:hover .bottom-controls {
   opacity: 1;
 }
 
-.control-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px 8px;
+.time-bar {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease;
-  user-select: none;
-}
-
-.control-btn:hover {
-  transform: scale(1.1);
-}
-
-.control-btn:active {
-  transform: scale(0.95);
+  justify-content: flex-end;
+  margin-bottom: 4px;
 }
 
 .progress-container {
-  flex: 1;
+  width: 100%;
   cursor: pointer;
   padding: 8px 0;
+  margin-bottom: 8px;
 }
 
 .progress-bar {
@@ -434,6 +469,14 @@ export default defineComponent({
   transition: width 0.1s linear;
 }
 
+.control-row {
+  display: flex;
+  margin: 4px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
 .time-display {
   color: white;
   font-size: 13px;
@@ -442,10 +485,63 @@ export default defineComponent({
   user-select: none;
 }
 
+.right-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+  user-select: none;
+}
+
+.control-btn i {
+  font-size: 18px;
+}
+
+.control-btn:hover {
+  transform: scale(1.1);
+}
+
+.control-btn:active {
+  transform: scale(0.95);
+}
+
+/* Volume Control */
+.volume-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .volume-slider {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) rotate(-90deg);
+  transform-origin: center;
   width: 80px;
+  height: 5px;
   cursor: pointer;
   accent-color: white;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  margin-bottom: 35px;
+}
+
+.volume-control:hover .volume-slider {
+  opacity: 1;
+  pointer-events: all;
 }
 
 .volume-slider::-webkit-slider-thumb {

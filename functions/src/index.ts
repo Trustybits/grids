@@ -16,6 +16,8 @@ import * as logger from "firebase-functions/logger";
 import * as cheerio from "cheerio";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import * as functions from "firebase-functions/v1";
+import { defineSecret } from "firebase-functions/params";
 
 function isPrivateOrLocalhost(hostname: string): boolean {
   const lower = hostname.toLowerCase();
@@ -271,6 +273,88 @@ export const getLinkPreview = onCall(async (data, context) => {
     clearTimeout(timeout);
   }
 });
+
+// Define secret for webhook URL (set via: firebase functions:secrets:set AUTOMATION_WEBHOOK_URL)
+const automationWebhookUrl = defineSecret("AUTOMATION_WEBHOOK_URL");
+
+/**
+ * Firebase function that triggers when a new user signs up.
+ * Sends user data to the configured automation webhook for processing.
+ */
+export const onNewUserSignup = functions
+  .runWith({
+    secrets: [automationWebhookUrl],
+  })
+  .auth.user()
+  .onCreate(async (user) => {
+    logger.info("New user signup detected", {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+    });
+
+    // Get the webhook URL from secrets
+    const webhookUrl = automationWebhookUrl.value();
+    
+    if (!webhookUrl) {
+      logger.error("AUTOMATION_WEBHOOK_URL secret is not configured");
+      return;
+    }
+
+    // Prepare user data payload for the webhook
+    const payload = {
+      event: "user.created",
+      timestamp: new Date().toISOString(),
+      user: {
+        uid: user.uid,
+        email: user.email || null,
+        displayName: user.displayName || null,
+        photoURL: user.photoURL || null,
+        emailVerified: user.emailVerified,
+        createdAt: user.metadata.creationTime,
+        providerData: user.providerData.map((provider: any) => ({
+          providerId: provider.providerId,
+          uid: provider.uid,
+          email: provider.email,
+          displayName: provider.displayName,
+        })),
+      },
+    };
+
+    try {
+      // Send webhook to automation service
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Grids-Firebase-Functions/1.0",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        logger.error("Webhook request failed", {
+          status: response.status,
+          statusText: response.statusText,
+          webhookUrl,
+        });
+        return;
+      }
+
+      const responseData = await response.text();
+      logger.info("Webhook sent successfully", {
+        uid: user.uid,
+        status: response.status,
+        response: responseData.slice(0, 500), // Log first 500 chars
+      });
+    } catch (error) {
+      logger.error("Failed to send webhook", {
+        error: String(error),
+        uid: user.uid,
+        webhookUrl,
+      });
+    }
+  });
 
 // export const helloWorld = onRequest((request, response) => {
 //   logger.info("Hello logs!", {structuredData: true});

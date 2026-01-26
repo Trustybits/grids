@@ -439,6 +439,16 @@ export const useLayoutStore = defineStore("layout", {
       }
     },
 
+    toggleTilePinned(id: string) {
+      if (!this.currentLayout) return;
+
+      const tile = this.currentLayout.tiles.find((tile) => tile.i === id);
+      if (tile) {
+        tile.pinned = tile.pinned !== true;
+        this.updateLayout();
+      }
+    },
+
     toggleLinkBackground(id: string) {
       if (!this.currentLayout) return;
 

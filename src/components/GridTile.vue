@@ -1,5 +1,7 @@
 <template>
   <grid-item
+    class="grid-tile"
+    :class="{ 'grid-tile--pinned': isPinned }"
     :i="tile.i"
     :x="tile.x"
     :y="tile.y"
@@ -8,7 +10,8 @@
     :style="tileStyle"
     :maxW="10"
     :maxH="10"
-    :isDraggable="layoutStore.isOwner && !isEditing && !isSuggestion"
+    :isDraggable="canDragResize"
+    :isResizable="canDragResize"
     @move="onMove"
     @moved="onMoved"
     @resized="onResized"
@@ -76,6 +79,7 @@
           class="toolbar-btn"
           :class="{ 'is-active': isPresetActive(5, 1) }"
           title="Resize to 5x1"
+          :disabled="isPinned"
           @click.stop="resize(5, 1)"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -85,8 +89,26 @@
 
         <button
           class="toolbar-btn"
+          :class="{ 'is-active': isPinned }"
+          :title="isPinned ? 'Unpin tile' : 'Pin tile'"
+          @click.stop="togglePinned"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M8 3H16L15 9L18 12V14H6V12L9 9L8 3Z"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linejoin="round"
+            />
+            <path d="M12 14V21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+        </button>
+
+        <button
+          class="toolbar-btn"
           :class="{ 'is-active': isPresetActive(2, 2) }"
           title="Resize to 2x2"
+          :disabled="isPinned"
           @click.stop="resize(2, 2)"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -98,6 +120,7 @@
           class="toolbar-btn"
           :class="{ 'is-active': isPresetActive(3, 2) }"
           title="Resize to 3x2"
+          :disabled="isPinned"
           @click.stop="resize(3, 2)"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -109,6 +132,7 @@
           class="toolbar-btn"
           :class="{ 'is-active': isPresetActive(2, 4) }"
           title="Resize to 2x4"
+          :disabled="isPinned"
           @click.stop="resize(2, 4)"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -266,6 +290,10 @@ export default defineComponent({
     const CLICK_THRESHOLD = 150;
 
     const isSuggestion = computed(() => props.tile.content.type === ContentType.SUGGESTION);
+    const isPinned = computed(() => props.tile.pinned === true);
+    const canDragResize = computed(
+      () => layoutStore.isOwner && !isEditing.value && !isSuggestion.value && !isPinned.value
+    );
     const suggestionAction = computed(() => (props.tile.content as any)?.action ?? "text");
     const suggestionLabel = computed(() => (props.tile.content as any)?.label ?? "");
 
@@ -353,6 +381,7 @@ export default defineComponent({
     };
 
     const resize = (w: number, h: number) => {
+      if (isPinned.value) return;
       layoutStore.resizeTile(props.tile.i, w, h);
       if (childComponent.value?.onResize) {
         childComponent.value.onResize();
@@ -376,6 +405,10 @@ export default defineComponent({
 
     const toggleBorder = () => {
       layoutStore.toggleTileBorder(props.tile.i);
+    };
+
+    const togglePinned = () => {
+      layoutStore.toggleTilePinned(props.tile.i);
     };
 
     const onToolbarAction = (action: string) => {
@@ -498,7 +531,7 @@ export default defineComponent({
 
     const tileStyle = computed(() => {
       return {
-        zIndex: isEditing.value ? 1 : 0,
+        zIndex: isPinned.value ? "var(--z-sticky)" : isEditing.value ? 1 : 0,
       };
     });
 
@@ -530,10 +563,13 @@ export default defineComponent({
       borderEnabled,
       borderVisible,
       toggleBorder,
+      togglePinned,
       onToolbarAction,
       onColorClick,
       isLinkContent,
       linkBackgroundEnabled,
+      isPinned,
+      canDragResize,
 
       isSuggestion,
       suggestionAction,
@@ -550,6 +586,11 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   position: relative;
+}
+
+.grid-tile--pinned {
+  position: sticky !important;
+  top: 0;
 }
 
 /* Card Body Styles - Visual Frame */
@@ -743,6 +784,11 @@ export default defineComponent({
     color: var(--color-tile-background);
     border-radius: var(--radius-sm);
     transform: none;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 }
 

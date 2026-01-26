@@ -152,6 +152,7 @@ export function createTile(
     y,
     w,
     h,
+    pinned: false,
     borderEnabled: true,
     content: createTileContent(type, contentData),
     caption,

@@ -6,6 +6,7 @@ export interface Tile {
   y: number;
   w: number;
   h: number;
+  pinned?: boolean;
   borderEnabled?: boolean;
   caption: string;
   content: TileContent;

@@ -1,20 +1,25 @@
 <template>
-  <grid-item
-    :i="tile.i"
-    :x="tile.x"
-    :y="tile.y"
-    :w="tile.w"
-    :h="tile.h"
-    :style="tileStyle"
-    :maxW="10"
-    :maxH="10"
-    :isDraggable="layoutStore.isOwner && !isEditing && !isSuggestion"
-    @move="onMove"
-    @moved="onMoved"
-    @resized="onResized"
-  >
+  <!-- Crop Mode Overlay - blurs everything outside the tile -->
+  <div v-if="isEditing && isCroppable" class="crop-mode-overlay" @click.stop="toggleCropMode"></div>
+  
+  <div class="grid-item-container" :class="{ 'crop-mode-elevated': isEditing && isCroppable }">
+    <grid-item
+      :i="tile.i"
+      :x="tile.x"
+      :y="tile.y"
+      :w="tile.w"
+      :h="tile.h"
+      :style="tileStyle"
+      :maxW="10"
+      :maxH="10"
+      :isDraggable="layoutStore.isOwner && !isEditing && !isSuggestion"
+      @move="onMove"
+      @moved="onMoved"
+      @resized="onResized"
+    >
     <div
       class="tile-wrapper"
+      :class="{ 'crop-mode-active': isEditing && isCroppable }"
       :data-border="borderEnabled ? 'on' : 'off'"
       :data-suggestion="isSuggestion ? 'true' : 'false'"
       ref="gridTileRef"
@@ -185,19 +190,33 @@
           </svg>
         </button>
       </div>
+      
+      <!-- Crop Mode Zoom Controls - below toolbar -->
+      <div v-if="isEditing && isCroppable" class="crop-zoom-controls" @mousedown.stop>
+        <input 
+          type="range" 
+          min="1" 
+          max="3" 
+          step="0.1" 
+          :value="childComponent?.zoom || 1"
+          @input="updateChildZoom($event)"
+        />
+        <span>{{ Math.round((childComponent?.zoom || 1) * 100) }}%</span>
+      </div>
     </div>
-  </grid-item>
+    </grid-item>
+  </div>
 </template>
 
 <script lang="ts">
 import {
   defineComponent,
   onMounted,
-  ref,
   onUnmounted,
-  watch,
+  ref,
   computed,
   provide,
+  watch,
 } from "vue";
 import { GridItem } from "vue3-grid-layout";
 import { type Tile } from "@/types/Tile";
@@ -489,6 +508,32 @@ export default defineComponent({
     const toggleCropMode = () => {
       if (childComponent.value?.toggleEditMode) {
         childComponent.value.toggleEditMode();
+        // Sync the editing state
+        if (childComponent.value.isEditing !== undefined) {
+          isEditing.value = childComponent.value.isEditing;
+        }
+      }
+    };
+
+    // Watch for changes in child editing state
+    watch(() => childComponent.value, (newChild) => {
+      if (newChild && newChild.isEditing !== undefined) {
+        const stopWatch = watch(() => newChild.isEditing, (editing) => {
+          isEditing.value = editing;
+        });
+        onUnmounted(stopWatch);
+      }
+    });
+
+    // Update zoom in child component
+    const updateChildZoom = (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      const newZoom = parseFloat(target.value);
+      if (childComponent.value && childComponent.value.zoom !== undefined) {
+        childComponent.value.zoom = newZoom;
+        if (childComponent.value.updateZoom) {
+          childComponent.value.updateZoom();
+        }
       }
     };
 
@@ -528,16 +573,52 @@ export default defineComponent({
       onMediaSelected,
       isCroppable,
       toggleCropMode,
+      updateChildZoom,
     };
   },
 });
 </script>
 
 <style scoped lang="scss">
+/* Grid Item Container - wraps grid-item */
+.grid-item-container {
+  position: relative;
+  
+  &.crop-mode-elevated {
+    position: relative;
+    z-index: 1000;
+    isolation: isolate;
+  }
+}
+
+/* Crop Mode Overlay - blurs background */
+.crop-mode-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px) brightness(0.6);
+  z-index: 999;
+  cursor: pointer;
+}
+
 .tile-wrapper {
   width: 100%;
   height: 100%;
   position: relative;
+  
+  &.crop-mode-active {
+    position: relative;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border: 3px solid rgba(255, 255, 255, 0.9);
+      border-radius: calc(var(--tile-border-radius) + 3px);
+      pointer-events: none;
+      z-index: 10;
+    }
+  }
 }
 
 /* Card Body Styles - Visual Frame */
@@ -550,13 +631,18 @@ export default defineComponent({
   border-radius: var(--tile-border-radius);
   backdrop-filter: blur(20px);
   box-sizing: border-box;
-  overflow: hidden; /* Clip content to border-radius */
-  isolation: isolate; /* Force clipping context */
-  transform: translateZ(0); /* Fix for Safari border-radius clipping */
+  overflow: hidden;
+  isolation: isolate;
+  transform: translateZ(0);
   -webkit-mask-image: -webkit-radial-gradient(white, black);
   mask-image: radial-gradient(white, black);
-  transform: translateZ(0);
   will-change: transform;
+  
+  .crop-mode-active & {
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
   
   /* Border Overlay */
   &::after {
@@ -668,6 +754,7 @@ export default defineComponent({
   position: absolute;
   bottom: 4px;
   left: 50%;
+  z-index: 100;
   display: flex;
   flex-direction: row;
   justify-content: center;
@@ -771,13 +858,15 @@ export default defineComponent({
   display: flex;
 }
 
-.tile-wrapper:hover .btn-close {
+.tile-wrapper:hover .btn-close,
+.tile-wrapper.crop-mode-active .btn-close {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
 }
 
-.tile-wrapper:hover .tile-toolbar {
+.tile-wrapper:hover .tile-toolbar,
+.tile-wrapper.crop-mode-active .tile-toolbar {
   opacity: 1;
   transform: translate(-50%, 100%) scale(1);
   pointer-events: auto;
@@ -828,5 +917,61 @@ export default defineComponent({
 
 .tile-wrapper[data-suggestion='true']:hover .suggestion-label {
   opacity: 1;
+}
+
+/* Crop Mode Zoom Controls */
+.crop-zoom-controls {
+  position: absolute;
+  bottom: -81px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-tile-background);
+  border: 2px solid var(--color-tile-stroke);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 8px 12px;
+  display: flex;
+  width: auto;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 99;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+
+  input[type="range"] {
+    width: 150px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--color-content-low);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    
+    &::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--color-text-primary);
+      cursor: pointer;
+    }
+    
+    &::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--color-text-primary);
+      cursor: pointer;
+      border: none;
+    }
+  }
+
+  span {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    text-align: center;
+  }
 }
 </style>

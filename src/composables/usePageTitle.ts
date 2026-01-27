@@ -16,19 +16,22 @@ export function usePageTitle(
 ) {
   const isDev = import.meta.env.MODE === 'development';
   const devPrefix = isDev ? 'DEV ' : '';
-  
+  let lastTitleSetByThisComposable: string | null = null;
   const updateTitle = (title?: string) => {
-    if (title) {
-      document.title = `${devPrefix}Grids ${separator} ${title}`;
-    } else {
+    const nextTitle = title
+      ? `${devPrefix}Grids ${separator} ${title}`
+      : `${devPrefix}Grids`;
+    lastTitleSetByThisComposable = nextTitle;
+    document.title = nextTitle;
+  };
+  watch(titleRef, updateTitle, { immediate: true });
+  onUnmounted(() => {
+    // Avoid overwriting the next route's title if it already updated it.
+    if (
+      lastTitleSetByThisComposable &&
+      document.title === lastTitleSetByThisComposable
+    ) {
       document.title = `${devPrefix}Grids`;
     }
-  };
-
-  watch(titleRef, updateTitle, { immediate: true });
-
-  // Cleanup: restore default title when component unmounts
-  onUnmounted(() => {
-    document.title = `${devPrefix}Grids`;
   });
 }

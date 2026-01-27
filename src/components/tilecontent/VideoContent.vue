@@ -124,6 +124,15 @@ export default defineComponent({
     const videoElement = ref<HTMLVideoElement | null>(null);
     const videoOverflowElement = ref<HTMLVideoElement | null>(null);
     
+    // Track dimensions for future features
+    const videoDimensions = ref({ width: 0, height: 0, aspectRatio: 0 });
+    const tileDimensions = computed(() => {
+      if (!videoWrapper.value) return { width: 0, height: 0, aspectRatio: 0 };
+      const width = videoWrapper.value.clientWidth;
+      const height = videoWrapper.value.clientHeight;
+      return { width, height, aspectRatio: width / height };
+    });
+    
     // Video control state
     const isPlaying = ref(false);
     const currentTime = ref(0);
@@ -154,15 +163,37 @@ export default defineComponent({
 
     const constrainOffset = () => {
       const wrapper = videoWrapper.value;
-      if (!wrapper) return;
+      if (!wrapper || !isEditing.value) return;
 
       const containerWidth = wrapper.clientWidth;
       const containerHeight = wrapper.clientHeight;
-      const videoWidth = containerWidth * zoom.value;
-      const videoHeight = containerHeight * zoom.value;
+      
+      // Calculate actual rendered dimensions based on aspect ratio comparison
+      let renderedWidth: number;
+      let renderedHeight: number;
+      
+      if (videoDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
+        if (videoDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
+          // Video is wider - constrained by height
+          renderedHeight = containerHeight;
+          renderedWidth = renderedHeight * videoDimensions.value.aspectRatio;
+        } else {
+          // Video is taller - constrained by width
+          renderedWidth = containerWidth;
+          renderedHeight = renderedWidth / videoDimensions.value.aspectRatio;
+        }
+      } else {
+        // Fallback to cover behavior
+        renderedWidth = containerWidth;
+        renderedHeight = containerHeight;
+      }
+      
+      // Apply zoom
+      const scaledWidth = renderedWidth * zoom.value;
+      const scaledHeight = renderedHeight * zoom.value;
 
-      const maxX = Math.max(0, (videoWidth - containerWidth) / 2);
-      const maxY = Math.max(0, (videoHeight - containerHeight) / 2);
+      const maxX = Math.max(0, (scaledWidth - containerWidth) / 2);
+      const maxY = Math.max(0, (scaledHeight - containerHeight) / 2);
 
       offsetX.value = Math.min(maxX, Math.max(-maxX, offsetX.value));
       offsetY.value = Math.min(maxY, Math.max(-maxY, offsetY.value));
@@ -200,12 +231,44 @@ export default defineComponent({
       constrainOffset();
     };
 
-    const videoStyle = computed(() => ({
-      transform: `translate(${offsetX.value}px, ${offsetY.value}px) scale(${zoom.value})`,
-      width: "100%",
-      height: "100%",
-      cursor: isEditing.value ? "grab" : "default",
-    }));
+    const videoStyle = computed(() => {
+      const cursor = isEditing.value ? "grab" : "default";
+      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px) scale(${zoom.value})`;
+      
+      // Always use calculated sizing based on aspect ratios to preserve crop
+      if (videoDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
+        if (videoDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
+          // Video is wider - constrain by height
+          return { transform: baseTransform, cursor, width: 'auto', height: '100%' };
+        } else {
+          // Video is taller - constrain by width
+          return { transform: baseTransform, cursor, width: '100%', height: 'auto' };
+        }
+      }
+      
+      // Fallback if dimensions not loaded yet
+      return { transform: baseTransform, cursor, width: '100%', height: '100%' };
+    });
+    
+    // Overflow layer sizing - ensures full video visible based on aspect ratios
+    const overflowStyle = computed(() => {
+      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px) scale(${zoom.value})`;
+      const cursor = isEditing.value ? "grab" : "default";
+      
+      // Compare aspect ratios to determine which dimension to constrain
+      if (videoDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
+        if (videoDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
+          // Video is wider - constrain by height, let width extend
+          return { transform: baseTransform, cursor, width: 'auto', height: '100%' };
+        } else {
+          // Video is taller - constrain by width, let height extend
+          return { transform: baseTransform, cursor, width: '100%', height: 'auto' };
+        }
+      }
+      
+      // Fallback to cover behavior
+      return { transform: baseTransform, cursor, width: '100%', height: '100%' };
+    });
     
     // Video control methods
     const togglePlayPause = () => {
@@ -224,6 +287,13 @@ export default defineComponent({
       if (videoElement.value) {
         duration.value = videoElement.value.duration;
         volume.value = videoElement.value.volume;
+        
+        // Track video dimensions
+        videoDimensions.value = {
+          width: videoElement.value.videoWidth,
+          height: videoElement.value.videoHeight,
+          aspectRatio: videoElement.value.videoWidth / videoElement.value.videoHeight,
+        };
       }
     };
     
@@ -309,6 +379,7 @@ export default defineComponent({
       dragVideo,
       handleWheel,
       videoStyle,
+      overflowStyle,
       videoWrapper,
       videoElement,
       videoOverflowElement,
@@ -330,6 +401,8 @@ export default defineComponent({
       toggleMute,
       toggleFullscreen,
       formatTime,
+      videoDimensions,
+      tileDimensions,
     };
   },
 });
@@ -354,17 +427,14 @@ export default defineComponent({
 
 .video {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 50%;
+  left: 50%;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: var(--radius-lg);
-  max-width: none;
-  max-height: none;
+  border-radius: var(--tile-border-radius);
   user-select: none;
   transform-origin: center;
-  transition: transform 0.1s ease-out;
 }
 
 /* Overflow layer - dimmed, shown only in crop mode */
@@ -378,7 +448,7 @@ export default defineComponent({
   position: absolute;
   inset: 0;
   overflow: hidden;
-  border-radius: var(--radius-lg);
+  border-radius: var(--tile-border-radius);
   z-index: 2;
 }
 

@@ -1,22 +1,36 @@
 <template>
   <div class="video-container" ref="videoWrapper">
     <div v-if="!content.src" class="spinner"></div>
-    <div v-else class="video-wrapper">
+    <div v-else class="video-wrapper" :class="{ 'crop-active': isEditing }">
+      <!-- Dimmed overflow layer - full video at reduced opacity -->
       <video
-        ref="videoElement"
+        v-if="isEditing"
+        ref="videoOverflowElement"
         :src="content.src"
-        class="video"
+        class="video video-overflow"
         :style="videoStyle"
         draggable="false"
-        @mousedown="startDragging"
-        @mouseup="stopDragging"
-        @mouseleave="stopDragging"
-        @mousemove="dragVideo"
-        @wheel.prevent="handleWheel"
-        @loadedmetadata="onVideoLoaded"
-        @timeupdate="onTimeUpdate"
-        @click="togglePlayPause"
+        muted
       ></video>
+      
+      <!-- Main layer - full opacity, clipped to tile boundaries -->
+      <div class="video-clip-container">
+        <video
+          ref="videoElement"
+          :src="content.src"
+          class="video video-main"
+          :style="videoStyle"
+          draggable="false"
+          @mousedown="startDragging"
+          @mouseup="stopDragging"
+          @mouseleave="stopDragging"
+          @mousemove="dragVideo"
+          @wheel.prevent="handleWheel"
+          @loadedmetadata="onVideoLoaded"
+          @timeupdate="onTimeUpdate"
+          @click="togglePlayPause"
+        ></video>
+      </div>
       
       <!-- Center Play Button -->
       <div class="center-controls" v-if="!isEditing">
@@ -86,7 +100,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed } from "vue";
+import { defineComponent, ref, computed, watch } from "vue";
 import { type VideoContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 
@@ -108,6 +122,7 @@ export default defineComponent({
 
     const videoWrapper = ref<HTMLDivElement | null>(null);
     const videoElement = ref<HTMLVideoElement | null>(null);
+    const videoOverflowElement = ref<HTMLVideoElement | null>(null);
     
     // Video control state
     const isPlaying = ref(false);
@@ -272,6 +287,19 @@ export default defineComponent({
       return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
+    // Sync overflow video with main video
+    watch([currentTime, isPlaying], () => {
+      if (videoOverflowElement.value && videoElement.value) {
+        videoOverflowElement.value.currentTime = videoElement.value.currentTime;
+        
+        if (isPlaying.value && videoOverflowElement.value.paused) {
+          videoOverflowElement.value.play().catch(() => {});
+        } else if (!isPlaying.value && !videoOverflowElement.value.paused) {
+          videoOverflowElement.value.pause();
+        }
+      }
+    });
+
     return {
       layoutStore,
       isEditing,
@@ -283,6 +311,7 @@ export default defineComponent({
       videoStyle,
       videoWrapper,
       videoElement,
+      videoOverflowElement,
       zoom,
       updateZoom,
       // Video controls
@@ -336,6 +365,21 @@ export default defineComponent({
   user-select: none;
   transform-origin: center;
   transition: transform 0.1s ease-out;
+}
+
+/* Overflow layer - dimmed, shown only in crop mode */
+.video-overflow {
+  opacity: 0.4;
+  z-index: 0;
+}
+
+/* Clipping container - constrains main video to tile boundaries */
+.video-clip-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  z-index: 2;
 }
 
 /* Center Play Button */

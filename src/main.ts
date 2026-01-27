@@ -9,6 +9,7 @@ import posthog from 'posthog-js';
 
 import '@fortawesome/fontawesome-free/css/all.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 import './styles/tokens.scss';
 import './styles/themes.scss';

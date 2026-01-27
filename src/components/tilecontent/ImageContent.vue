@@ -1,19 +1,32 @@
 <template>
   <div class="image-container" ref="imageWrapper">
     <div v-if="!content.src" class="spinner"></div>
-    <div v-else class="image-wrapper">
+    <div v-else class="image-wrapper" :class="{ 'crop-active': isEditing }">
+      <!-- Dimmed overflow layer - full image at reduced opacity -->
       <img
+        v-if="isEditing"
         :src="content.src"
         alt="Image"
-        class="image"
+        class="image image-overflow"
         :style="imageStyle"
         draggable="false"
-        @mousedown="startDragging"
-        @mouseup="stopDragging"
-        @mouseleave="stopDragging"
-        @mousemove="dragImage"
-        @wheel.prevent="handleWheel"
       />
+      
+      <!-- Main layer - full opacity, clipped to tile boundaries -->
+      <div class="image-clip-container">
+        <img
+          :src="content.src"
+          alt="Image"
+          class="image image-main"
+          :style="imageStyle"
+          draggable="false"
+          @mousedown="startDragging"
+          @mouseup="stopDragging"
+          @mouseleave="stopDragging"
+          @mousemove="dragImage"
+          @wheel.prevent="handleWheel"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -162,5 +175,20 @@ export default defineComponent({
   user-select: none;
   transform-origin: center;
   transition: transform 0.1s ease-out;
+}
+
+/* Overflow layer - dimmed, shown only in crop mode */
+.image-overflow {
+  opacity: 0.4;
+  z-index: 0;
+}
+
+/* Clipping container - constrains main image to tile boundaries */
+.image-clip-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  z-index: 1;
 }
 </style>

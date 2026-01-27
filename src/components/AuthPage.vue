@@ -77,6 +77,7 @@ import { computed, ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { auth } from '../firebase';
 import GriddleAnimation from '@/components/GriddleAnimation.vue';
+import { usePageTitle } from '@/composables/usePageTitle';
 import {
   signInWithPopup,
   GoogleAuthProvider,
@@ -88,6 +89,10 @@ import {
 const email = ref('');
 const router = useRouter();
 const route = useRoute();
+
+// Set page title
+const pageTitle = ref('Sign In');
+usePageTitle(pageTitle);
 
 const isBusy = ref(false);
 const isCompletingLink = ref(false);

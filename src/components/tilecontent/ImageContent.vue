@@ -28,15 +28,6 @@
       draggable="false"
     />
 
-    <!-- Edit Mode Button -->
-    <button 
-      v-if="layoutStore.isOwner"
-      class="edit-button hover-display" 
-      :style="{ display: isEditing ? 'flex' : '' }"
-      @click="toggleEditMode"
-    >
-      {{ isEditing ? 'Done' : 'Edit' }}
-    </button>
   </div>
 </template>
 
@@ -233,16 +224,5 @@ export default defineComponent({
   border-radius: 4px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
   z-index: 1000;
-}
-
-.edit-button {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  background: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
 }
 </style>

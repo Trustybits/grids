@@ -286,8 +286,14 @@ export default defineComponent({
     const toolbarMenuPosition = ref({ x: 0, y: 0 });
 
     const showCaption = computed(() => {
-      // Hide caption for Link, Text, Embed, and Suggestion tiles as requested
-      const hiddenTypes = [ContentType.LINK, ContentType.TEXT, ContentType.EMBED, ContentType.SUGGESTION];
+      // Hide caption for Link, Text, Embed, Map, and Suggestion tiles as requested
+      const hiddenTypes = [
+        ContentType.LINK,
+        ContentType.TEXT,
+        ContentType.EMBED,
+        ContentType.MAP,
+        ContentType.SUGGESTION,
+      ];
       return !hiddenTypes.includes(props.tile.content.type);
     });
 

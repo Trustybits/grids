@@ -23,6 +23,9 @@
       <button class="btn btn-secondary" @click="addEmbedElement">
         <EmbedIcon />
       </button>
+      <button class="btn btn-secondary" @click="addMapElement">
+        <MapIcon />
+      </button>
       <!-- <button class="btn btn-secondary" @click="addLinkElement">➕</button> -->
 
       <input
@@ -44,6 +47,11 @@
       :show="showEmbedModal"
       @close="closeEmbedModal"
       @add="handleAddEmbed"
+    />
+    <AddMapModal
+      :show="showMapModal"
+      @close="closeMapModal"
+      @add="handleAddMap"
     />
   </div>
 </template>
@@ -67,19 +75,23 @@ import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
+import AddMapModal from "./AddMapModal.vue";
 import TextIcon from "./icons/TextIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
+import MapIcon from "./icons/MapIcon.vue";
 
 export default {
   components: {
     AddLinkModal,
     AddEmbedModal,
+    AddMapModal,
     TextIcon,
     ImageIcon,
     LinkIcon,
     EmbedIcon,
+    MapIcon,
   },
   setup() {
     const themeStore = useThemeStore();
@@ -92,6 +104,7 @@ export default {
 
     const showLinkModal = ref(false);
     const showEmbedModal = ref(false);
+    const showMapModal = ref(false);
 
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
@@ -197,6 +210,22 @@ export default {
       layoutStore.addTile(content);
     };
 
+    const addMapElement = () => {
+      showMapModal.value = true;
+    };
+
+    const closeMapModal = () => {
+      showMapModal.value = false;
+    };
+
+    const handleAddMap = (query: string) => {
+      closeMapModal();
+      const content = createTileContent(ContentType.MAP, {
+        searchQuery: query || undefined,
+      });
+      layoutStore.addTile(content);
+    };
+
     const addOtherElement = () => {
       let link = prompt(
         "More tile types coming soon! Any others you might be expecting to see?"
@@ -224,14 +253,18 @@ export default {
       addFile,
       addLinkElement,
       addEmbedElement,
+      addMapElement,
       updateMetaData,
       isDarkMode,
       showLinkModal,
       showEmbedModal,
+      showMapModal,
       closeLinkModal,
       closeEmbedModal,
+      closeMapModal,
       handleAddLink,
       handleAddEmbed,
+      handleAddMap,
     };
   },
 };

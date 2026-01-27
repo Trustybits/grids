@@ -4,6 +4,7 @@ export enum ContentType {
   VIDEO = "video",
   LINK = "link",
   EMBED = "embed",
+  MAP = "map",
   SUGGESTION = "suggestion", // internal-only tile type
 }
 
@@ -57,6 +58,33 @@ export interface VideoContent extends TileContent {
   zoom: number;
   offsetX: number;
   offsetY: number;
+}
+
+export type MapStyleMode =
+  | "auto"
+  | "light"
+  | "dark"
+  | "dawn"
+  | "day"
+  | "dusk"
+  | "night"
+  | "satellite";
+
+export interface MapContent extends TileContent {
+  type: ContentType.MAP;
+  provider: "mapbox";
+  center: {
+    lat: number;
+    lng: number;
+  };
+  zoom: number;
+  bearing: number;
+  pitch: number;
+  style: MapStyleMode;
+  show3d: boolean;
+  showClouds: boolean;
+  showPlanes: boolean;
+  searchQuery?: string;
 }
 
 export type SuggestionAction = "text" | "media" | "link" | "embed";

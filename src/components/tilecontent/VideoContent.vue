@@ -1,22 +1,21 @@
 <template>
-  <!-- Zoom Slider -->
-  <div v-if="layoutStore.isOwner && isEditing" class="zoom-slider">
-    <input type="range" min="1" max="2" step="0.1" v-model.number="content.zoom" @input="saveLayout" />
-  </div>
-
-  <div class="video-container" :class="{ editing: isEditing }" ref="videoWrapper">
+  <!-- Crop Mode Overlay -->
+  <div v-if="isEditing" class="crop-overlay" @click.stop="toggleEditMode"></div>
+  
+  <div class="video-container" :class="{ 'crop-mode': isEditing }" ref="videoWrapper">
     <div v-if="!content.src" class="spinner"></div>
-    <div v-else class="video-wrapper" ref="videoWrapper">
+    <div v-else class="video-wrapper">
       <video
         ref="videoElement"
         :src="content.src"
-        class="video contained-video"
+        class="video"
         :style="videoStyle"
         draggable="false"
         @mousedown="startDragging"
         @mouseup="stopDragging"
         @mouseleave="stopDragging"
         @mousemove="dragVideo"
+        @wheel.prevent="handleWheel"
         @loadedmetadata="onVideoLoaded"
         @timeupdate="onTimeUpdate"
         @click="togglePlayPause"
@@ -87,14 +86,20 @@
       </div>
     </div>
     
-    <video
-      v-if="isEditing"
-      :src="content.src"
-      class="video full-video"
-      :style="videoStyle"
-      draggable="false"
-    ></video>
-
+    <!-- Crop Mode Controls -->
+    <div v-if="isEditing" class="crop-controls" @mousedown.stop>
+      <div class="crop-controls-content">
+        <input 
+          type="range" 
+          min="1" 
+          max="3" 
+          step="0.1" 
+          v-model.number="zoom"
+          @input="updateZoom"
+        />
+        <span>{{ Math.round(zoom * 100) }}%</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -115,7 +120,9 @@ export default defineComponent({
     const isEditing = ref(false);
     const isDragging = ref(false);
     const dragStart = ref({ x: 0, y: 0 });
-    const offset = ref({ x: props.content.offsetX || 0, y: props.content.offsetY || 0 });
+    const offsetX = ref(props.content.offsetX || 0);
+    const offsetY = ref(props.content.offsetY || 0);
+    const zoom = ref(props.content.zoom || 1);
 
     const videoWrapper = ref<HTMLDivElement | null>(null);
     const videoElement = ref<HTMLVideoElement | null>(null);
@@ -129,87 +136,75 @@ export default defineComponent({
     const isFullscreen = ref(false);
     const progressPercent = ref(0);
 
-    // Toggle edit mode
+    // Toggle crop mode
     const toggleEditMode = () => {
-      if (!layoutStore.isOwner) {
-        return;
-      }
+      if (!layoutStore.isOwner) return;
 
       isEditing.value = !isEditing.value;
 
+      // Save when exiting crop mode
       if (!isEditing.value) {
-        props.content.offsetX = offset.value.x;
-        props.content.offsetY = offset.value.y;
+        props.content.offsetX = offsetX.value;
+        props.content.offsetY = offsetY.value;
+        props.content.zoom = zoom.value;
         layoutStore.saveLayout();
       }
     };
 
-    // Save layout on zoom change
-    const saveLayout = () => {
+    const updateZoom = () => {
+      constrainOffset();
+    };
+
+    const constrainOffset = () => {
       const wrapper = videoWrapper.value;
       if (!wrapper) return;
 
       const containerWidth = wrapper.clientWidth;
       const containerHeight = wrapper.clientHeight;
-      const zoomFactor = props.content.zoom || 1;
-      const videoWidth = containerWidth * zoomFactor;
-      const videoHeight = containerHeight * zoomFactor;
+      const videoWidth = containerWidth * zoom.value;
+      const videoHeight = containerHeight * zoom.value;
 
-      // Calculate bounds for dragging
-      const minX = Math.min(0, containerWidth - videoWidth);
-      const maxX = 0;
-      const minY = Math.min(0, containerHeight - videoHeight);
-      const maxY = 0;
+      const maxX = Math.max(0, (videoWidth - containerWidth) / 2);
+      const maxY = Math.max(0, (videoHeight - containerHeight) / 2);
 
-      offset.value.x = Math.min(maxX, Math.max(minX, offset.value.x) / 1.4);
-      offset.value.y = Math.min(maxY, Math.max(minY, offset.value.y) / 1.4);
-
-      props.content.offsetX = offset.value.x;
-      props.content.offsetY = offset.value.y;
+      offsetX.value = Math.min(maxX, Math.max(-maxX, offsetX.value));
+      offsetY.value = Math.min(maxY, Math.max(-maxY, offsetY.value));
     };
 
-    // Start dragging
     const startDragging = (event: MouseEvent) => {
       if (!isEditing.value) return;
       isDragging.value = true;
       dragStart.value = { x: event.clientX, y: event.clientY };
     };
 
-    // Stop dragging
     const stopDragging = () => {
       isDragging.value = false;
     };
 
-    // Drag the video
     const dragVideo = (event: MouseEvent) => {
       if (!isDragging.value || !isEditing.value) return;
 
       const deltaX = event.clientX - dragStart.value.x;
       const deltaY = event.clientY - dragStart.value.y;
 
-      const wrapper = videoWrapper.value;
-      if (!wrapper) return;
+      offsetX.value += deltaX;
+      offsetY.value += deltaY;
 
-      const containerWidth = wrapper.clientWidth;
-      const containerHeight = wrapper.clientHeight;
-      const zoomFactor = props.content.zoom || 1;
-      const videoWidth = containerWidth * zoomFactor;
-      const videoHeight = containerHeight * zoomFactor;
-
-      const minX = Math.min(0, containerWidth - videoWidth) / 2;
-      const maxX = 0 - minX;
-      const minY = Math.min(0, containerHeight - videoHeight) / 2;
-      const maxY = 0 - minY;
-
-      offset.value.x = Math.min(maxX, Math.max(minX, offset.value.x + deltaX));
-      offset.value.y = Math.min(maxY, Math.max(minY, offset.value.y + deltaY));
-
+      constrainOffset();
+      
       dragStart.value = { x: event.clientX, y: event.clientY };
     };
 
-    // Computed style for the video
+    const handleWheel = (event: WheelEvent) => {
+      if (!isEditing.value) return;
+      
+      const delta = -event.deltaY * 0.001;
+      zoom.value = Math.min(3, Math.max(1, zoom.value + delta));
+      constrainOffset();
+    };
+
     const videoStyle = computed(() => ({
-      transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${props.content.zoom || 1})`,
+      transform: `translate(${offsetX.value}px, ${offsetY.value}px) scale(${zoom.value})`,
       width: "100%",
       height: "100%",
       cursor: isEditing.value ? "grab" : "default",
@@ -302,10 +297,12 @@ export default defineComponent({
       startDragging,
       stopDragging,
       dragVideo,
-      saveLayout,
+      handleWheel,
       videoStyle,
       videoWrapper,
       videoElement,
+      zoom,
+      updateZoom,
       // Video controls
       isPlaying,
       currentTime,
@@ -328,6 +325,15 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
+.crop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 998;
+  cursor: pointer;
+}
+
 .video-container {
   width: 100%;
   height: 100%;
@@ -335,16 +341,15 @@ export default defineComponent({
   justify-content: center;
   align-items: center;
   position: relative;
-}
-
-.full-video {
-  z-index: -1; 
-  filter: brightness(50%);
-  pointer-events: none;
-}
-
-.contained-video {
-  z-index: 0;
+  
+  &.crop-mode {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    width: auto;
+    height: auto;
+    overflow: visible;
+  }
 }
 
 .video-wrapper {
@@ -353,28 +358,37 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   overflow: hidden;
+  
+  .crop-mode & {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0;
+  }
 }
 
 .video {
   position: absolute;
   top: 0;
   left: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   max-width: none;
   max-height: none;
   user-select: none;
-}
-
-.zoom-slider {
-  position: absolute;
-  top: -40px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
+  transform-origin: center;
+  transition: transform 0.1s ease-out;
+  
+  .crop-mode & {
+    position: relative;
+    width: auto;
+    height: 80vh;
+    max-width: 90vw;
+    object-fit: contain;
+  }
 }
 
 /* Center Play Button */
@@ -592,5 +606,92 @@ export default defineComponent({
   background: white;
   cursor: pointer;
   border: none;
+}
+
+/* Crop Mode Controls */
+.crop-controls {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: var(--color-tile-background);
+  border: 2px solid var(--color-tile-stroke);
+  border-radius: 12px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.crop-controls-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+  label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+  
+  input[type="range"] {
+    width: 200px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--color-content-low);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    
+    &::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-text-primary);
+      cursor: pointer;
+    }
+    
+    &::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-text-primary);
+      cursor: pointer;
+      border: none;
+    }
+  }
+  
+  span {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+}
+
+.crop-done-btn {
+  background: var(--color-text-primary);
+  color: var(--color-tile-background);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  
+  &:hover {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
 }
 </style>

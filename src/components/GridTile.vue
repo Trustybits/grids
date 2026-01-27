@@ -1,8 +1,13 @@
 <template>
   <!-- Crop Mode Overlay - blurs everything outside the tile -->
-  <div v-if="isEditing && isCroppable" class="crop-mode-overlay" @click.stop="toggleCropMode"></div>
+  <div 
+    v-if="(isEditing || isExitingCropMode) && isCroppable" 
+    class="crop-mode-overlay" 
+    :class="{ 'exiting': isExitingCropMode }"
+    @click.stop="toggleCropMode"
+  ></div>
   
-  <div class="grid-item-container" :class="{ 'crop-mode-elevated': isEditing && isCroppable }">
+  <div class="grid-item-container" :class="{ 'crop-mode-elevated': (isEditing || isExitingCropMode) && isCroppable }">
     <grid-item
       :i="tile.i"
       :x="tile.x"
@@ -19,7 +24,10 @@
     >
     <div
       class="tile-wrapper"
-      :class="{ 'crop-mode-active': isEditing && isCroppable }"
+      :class="{ 
+        'crop-mode-active': isEditing && isCroppable,
+        'crop-mode-exiting': isExitingCropMode && isCroppable
+      }"
       :data-border="borderEnabled ? 'on' : 'off'"
       :data-suggestion="isSuggestion ? 'true' : 'false'"
       ref="gridTileRef"
@@ -192,7 +200,12 @@
       </div>
       
       <!-- Crop Mode Zoom Controls - below toolbar -->
-      <div v-if="isEditing && isCroppable" class="crop-zoom-controls" @mousedown.stop>
+      <div 
+        v-if="(isEditing || isExitingCropMode) && isCroppable" 
+        class="crop-zoom-controls"
+        :class="{ 'exiting': isExitingCropMode }"
+        @mousedown.stop
+      >
         <input 
           type="range" 
           min="1" 
@@ -266,6 +279,7 @@ export default defineComponent({
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
     const isEditing = ref(false);
+    const isExitingCropMode = ref(false);
     const gridTileRef = ref<HTMLElement | null>(null);
 
     const showCaption = computed(() => {
@@ -506,9 +520,23 @@ export default defineComponent({
 
     // Toggle crop/zoom mode for image/video tiles
     const toggleCropMode = () => {
-      if (childComponent.value?.toggleEditMode) {
+      if (!childComponent.value?.toggleEditMode) return;
+      
+      // If currently editing, trigger exit animations first
+      if (isEditing.value) {
+        isExitingCropMode.value = true;
+        
+        // Wait for exit animations to complete (400ms + 50ms buffer)
+        setTimeout(() => {
+          childComponent.value?.toggleEditMode();
+          if (childComponent.value?.isEditing !== undefined) {
+            isEditing.value = childComponent.value.isEditing;
+          }
+          isExitingCropMode.value = false;
+        }, 450);
+      } else {
+        // Entering crop mode - no delay needed
         childComponent.value.toggleEditMode();
-        // Sync the editing state
         if (childComponent.value.isEditing !== undefined) {
           isEditing.value = childComponent.value.isEditing;
         }
@@ -574,6 +602,7 @@ export default defineComponent({
       isCroppable,
       toggleCropMode,
       updateChildZoom,
+      isExitingCropMode,
     };
   },
 });
@@ -599,6 +628,22 @@ export default defineComponent({
   backdrop-filter: blur(12px) brightness(0.6);
   z-index: 999;
   cursor: pointer;
+  animation: cropOverlayFadeIn var(--duration-slow) var(--easing-ease-out);
+  
+  &.exiting {
+    animation: cropOverlayFadeOut var(--duration-slow) var(--easing-ease-in) forwards;
+  }
+}
+
+@keyframes cropOverlayFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px) brightness(1);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(12px) brightness(0.6);
+  }
 }
 
 .tile-wrapper {
@@ -617,6 +662,22 @@ export default defineComponent({
       border-radius: calc(var(--tile-border-radius) + 3px);
       pointer-events: none;
       z-index: 10;
+      animation: cropOutlineFadeIn var(--duration-normal) var(--easing-ease-out);
+    }
+  }
+  
+  &.crop-mode-exiting {
+    position: relative;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border: 3px solid rgba(255, 255, 255, 0.9);
+      border-radius: calc(var(--tile-border-radius) + 3px);
+      pointer-events: none;
+      z-index: 10;
+      animation: cropOutlineFadeOut var(--duration-normal) var(--easing-ease-in) forwards;
     }
   }
 }
@@ -642,6 +703,14 @@ export default defineComponent({
     overflow: visible;
     -webkit-mask-image: none;
     mask-image: none;
+    animation: cropBorderExpand var(--duration-slow) var(--easing-smooth);
+  }
+  
+  .crop-mode-exiting & {
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+    animation: cropBorderContract var(--duration-slow) var(--easing-smooth) forwards;
   }
   
   /* Border Overlay */
@@ -858,15 +927,23 @@ export default defineComponent({
   display: flex;
 }
 
-.tile-wrapper:hover .btn-close,
-.tile-wrapper.crop-mode-active .btn-close {
+.tile-wrapper:hover .btn-close {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
 }
 
+/* Hide close button during crop mode */
+.tile-wrapper.crop-mode-active .btn-close,
+.tile-wrapper.crop-mode-exiting .btn-close {
+  opacity: 0;
+  transform: scale(0);
+  pointer-events: none;
+}
+
 .tile-wrapper:hover .tile-toolbar,
-.tile-wrapper.crop-mode-active .tile-toolbar {
+.tile-wrapper.crop-mode-active .tile-toolbar,
+.tile-wrapper.crop-mode-exiting .tile-toolbar {
   opacity: 1;
   transform: translate(-50%, 100%) scale(1);
   pointer-events: auto;
@@ -937,6 +1014,11 @@ export default defineComponent({
   gap: 12px;
   z-index: 99;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  animation: cropControlsSlideDown var(--duration-normal) var(--easing-spring);
+  
+  &.exiting {
+    animation: cropControlsSlideUp var(--duration-normal) var(--easing-ease-in) forwards;
+  }
 
   input[type="range"] {
     width: 150px;
@@ -972,6 +1054,80 @@ export default defineComponent({
     font-weight: 600;
     color: var(--color-text-primary);
     text-align: center;
+  }
+}
+
+@keyframes cropControlsSlideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes cropBorderExpand {
+  from {
+    clip-path: inset(0 0 0 0 round var(--tile-border-radius));
+  }
+  to {
+    clip-path: inset(-50% -50% -50% -50% round var(--tile-border-radius));
+  }
+}
+
+@keyframes cropOutlineFadeIn {
+  from {
+    opacity: 0;
+    border-color: rgba(255, 255, 255, 0);
+  }
+  to {
+    opacity: 1;
+    border-color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+/* Exit Animations - Reverse of Entry */
+@keyframes cropOverlayFadeOut {
+  from {
+    opacity: 1;
+    backdrop-filter: blur(12px) brightness(0.6);
+  }
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0px) brightness(1);
+  }
+}
+
+@keyframes cropControlsSlideUp {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+}
+
+@keyframes cropBorderContract {
+  from {
+    clip-path: inset(-50% -50% -50% -50% round var(--tile-border-radius));
+  }
+  to {
+    clip-path: inset(0 0 0 0 round var(--tile-border-radius));
+  }
+}
+
+@keyframes cropOutlineFadeOut {
+  from {
+    opacity: 1;
+    border-color: rgba(255, 255, 255, 0.9);
+  }
+  to {
+    opacity: 0;
+    border-color: rgba(255, 255, 255, 0);
   }
 }
 </style>

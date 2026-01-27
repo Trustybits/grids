@@ -8,6 +8,7 @@ import {
   type VideoContent,
   type EmbedContent,
   type SuggestionContent,
+  type MapContent,
 } from "@/types/TileContent";
 import { defineAsyncComponent, markRaw } from "vue";
 
@@ -161,7 +162,7 @@ export function createTile(
 export function createTileContent(
   type: ContentType,
   data: Partial<
-    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent | SuggestionContent
+    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent | SuggestionContent | MapContent
   > = {}
 ): TileContent {
   switch (type) {
@@ -223,6 +224,21 @@ export function createTileContent(
         label: (data as Partial<SuggestionContent>).label,
       } as SuggestionContent;
 
+    case ContentType.MAP:
+      return {
+        type,
+        provider: "mapbox",
+        center: (data as Partial<MapContent>).center || { lat: 0, lng: 0 },
+        zoom: (data as Partial<MapContent>).zoom ?? 9,
+        bearing: (data as Partial<MapContent>).bearing ?? 0,
+        pitch: (data as Partial<MapContent>).pitch ?? 0,
+        style: (data as Partial<MapContent>).style || "auto",
+        show3d: (data as Partial<MapContent>).show3d ?? false,
+        showClouds: (data as Partial<MapContent>).showClouds ?? false,
+        showPlanes: (data as Partial<MapContent>).showPlanes ?? false,
+        searchQuery: (data as Partial<MapContent>).searchQuery,
+      } as MapContent;
+
     default:
       throw new Error(`Unsupported content type: ${type}`);
   }
@@ -267,6 +283,13 @@ export function validateTileContent(content: TileContent): boolean {
       return !!embed.src && embed.src.startsWith("http");
     case ContentType.SUGGESTION:
       return true; // internal placeholder is always valid
+    case ContentType.MAP:
+      const map = content as MapContent;
+      return (
+        map.provider === "mapbox" &&
+        Number.isFinite(map.center?.lat) &&
+        Number.isFinite(map.center?.lng)
+      );
     default:
       return false;
   }
@@ -306,6 +329,12 @@ export function getContentComponent(content: TileContent): any {
       );
     case ContentType.SUGGESTION:
       return null; // rendered inline in GridTile
+    case ContentType.MAP:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/MapContent.vue")
+        )
+      );
     default:
       throw new Error(`Unsupported content type: ${content.type}`);
   }

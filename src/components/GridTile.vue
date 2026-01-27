@@ -159,6 +159,18 @@
           </svg>
         </button>
 
+        <button
+          v-if="isCroppable"
+          class="toolbar-btn"
+          :class="{ 'is-active': isEditing }"
+          title="Crop / Zoom"
+          @click.stop="toggleCropMode"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 3v4H3v2h4v8a2 2 0 0 0 2 2h8v4h2v-4h4v-2h-4V9a2 2 0 0 0-2-2H9V3H7zm2 6h8v8H9V9z" fill="currentColor"/>
+          </svg>
+        </button>
+
         <button class="toolbar-btn" title="Tile color" @click.stop="onToolbarAction('color')">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="4" y="4" width="16" height="16" rx="2" fill="var(--color-figma-purple)" />
@@ -468,6 +480,18 @@ export default defineComponent({
       };
     });
 
+    // Check if tile supports crop/zoom (IMAGE or VIDEO)
+    const isCroppable = computed(() => {
+      return props.tile.content.type === ContentType.IMAGE || props.tile.content.type === ContentType.VIDEO;
+    });
+
+    // Toggle crop/zoom mode for image/video tiles
+    const toggleCropMode = () => {
+      if (childComponent.value?.toggleEditMode) {
+        childComponent.value.toggleEditMode();
+      }
+    };
+
     onMounted(() => {
       loadComponent();
     });
@@ -502,6 +526,8 @@ export default defineComponent({
       suggestionLabel,
       mediaInput,
       onMediaSelected,
+      isCroppable,
+      toggleCropMode,
     };
   },
 });

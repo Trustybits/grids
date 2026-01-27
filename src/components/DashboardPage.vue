@@ -50,10 +50,15 @@
 import { onMounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLayoutStore } from '@/stores/layout';
+import { usePageTitle } from '@/composables/usePageTitle';
 import CreateGridModal from './CreateGridModal.vue';
 
 const layoutStore = useLayoutStore();
 const router = useRouter();
+
+// Set page title
+const pageTitle = ref('Dashboard');
+usePageTitle(pageTitle);
 
 const layouts = computed(() => layoutStore.layouts);
 const isLoading = computed(() => layoutStore.isLoading);

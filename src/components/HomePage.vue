@@ -39,7 +39,13 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import GriddleAnimation from '@/components/GriddleAnimation.vue';
+import { usePageTitle } from '@/composables/usePageTitle';
+
+// Set base page title (no suffix for home page)
+const pageTitle = ref(undefined);
+usePageTitle(pageTitle);
 </script>
 
 <style scoped>

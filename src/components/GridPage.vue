@@ -58,6 +58,7 @@ import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
 import GridMenu from "@/components/GridMenu.vue";
 import { useLayoutStore } from "@/stores/layout";
+import { usePageTitle } from "@/composables/usePageTitle";
 
 export default defineComponent({
   components: {
@@ -98,6 +99,10 @@ export default defineComponent({
         zIndex: -1,
       };
     });
+
+    // Dynamic page title with grid name
+    const gridName = computed(() => layoutStore.currentLayout?.name);
+    usePageTitle(gridName, '|');
 
     const addBackgroundImage = async (event: Event) => {
       if (!layoutStore.isOwner) return;

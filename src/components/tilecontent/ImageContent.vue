@@ -1,42 +1,35 @@
 <template>
-  <!-- Zoom Slider -->
-  <div v-if="layoutStore.isOwner && isEditing" class="zoom-slider">
-    <input type="range" min="1" max="2" step="0.1" v-model.number="content.zoom" @input="saveLayout" />
-  </div>
-  <div class="image-container" :class="{ editing: isEditing }" ref="imageWrapper">
+  <div class="image-container" ref="imageWrapper">
     <div v-if="!content.src" class="spinner"></div>
-    <div v-else class="image-wrapper" ref="imageWrapper">
+    <div v-else class="image-wrapper" :class="{ 'crop-active': isEditing }">
+      <!-- Dimmed overflow layer - full image at reduced opacity -->
       <img
+        v-if="isEditing"
         :src="content.src"
-        alt="Contained Image"
-        class="image contained-image"
+        alt="Image"
+        class="image image-overflow"
         :style="imageStyle"
         draggable="false"
-        @mousedown="startDragging"
-        @mouseup="stopDragging"
-        @mouseleave="stopDragging"
-        @mousemove="dragImage"
       />
+      
+      <!-- Main layer - full opacity, clipped to tile boundaries -->
+      <div class="image-clip-container">
+        <img
+          ref="imageElement"
+          :src="content.src"
+          alt="Image"
+          class="image image-main"
+          :style="imageStyle"
+          draggable="false"
+          @mousedown="startDragging"
+          @mouseup="stopDragging"
+          @mouseleave="stopDragging"
+          @mousemove="dragImage"
+          @wheel.prevent="handleWheel"
+          @load="onImageLoad"
+        />
+      </div>
     </div>
-    
-    <img
-      v-if="isEditing"
-      :src="content.src"
-      alt="Darkened Image"
-      class="image full-image"
-      :style="imageStyle"
-      draggable="false"
-    />
-
-    <!-- Edit Mode Button -->
-    <button 
-      v-if="layoutStore.isOwner"
-      class="edit-button hover-display" 
-      :style="{ display: isEditing ? 'flex' : '' }"
-      @click="toggleEditMode"
-    >
-      {{ isEditing ? 'Done' : 'Edit' }}
-    </button>
   </div>
 </template>
 
@@ -58,116 +51,162 @@ export default defineComponent({
     const isEditing = ref(false);
     const isDragging = ref(false);
     const dragStart = ref({ x: 0, y: 0 });
-    const offset = ref({ x: props.content.offsetX || 0, y: props.content.offsetY || 0 });
-
+    const offsetX = ref(props.content.offsetX || 0);
+    const offsetY = ref(props.content.offsetY || 0);
+    const zoom = ref(props.content.zoom || 1);
     const imageWrapper = ref<HTMLDivElement | null>(null);
+    const imageElement = ref<HTMLImageElement | null>(null);
+    
+    // Track dimensions for future features
+    const imageDimensions = ref({ width: 0, height: 0, aspectRatio: 0 });
+    const tileDimensions = computed(() => {
+      if (!imageWrapper.value) return { width: 0, height: 0, aspectRatio: 0 };
+      const width = imageWrapper.value.clientWidth;
+      const height = imageWrapper.value.clientHeight;
+      return { width, height, aspectRatio: width / height };
+    });
 
-    // Toggle edit mode
+    // Toggle crop mode
     const toggleEditMode = () => {
-      if (!layoutStore.isOwner) {
-        return;
-      }
+      if (!layoutStore.isOwner) return;
 
       isEditing.value = !isEditing.value;
 
-      // Save layout when leaving edit mode
+      // Save when exiting crop mode
       if (!isEditing.value) {
-        props.content.offsetX = offset.value.x;
-        props.content.offsetY = offset.value.y;
+        props.content.offsetX = offsetX.value;
+        props.content.offsetY = offsetY.value;
+        props.content.zoom = zoom.value;
         layoutStore.saveLayout();
       }
     };
 
-    // Save layout on slider change
-    const saveLayout = () => {
-      const wrapper = imageWrapper.value;
-      if (!wrapper) return;
+    const updateZoom = () => {
+      // Constrain offsets when zoom changes
+      constrainOffset();
+    };
 
-      // Container dimensions
+    const constrainOffset = () => {
+      const wrapper = imageWrapper.value;
+      if (!wrapper || !isEditing.value) return;
+
       const containerWidth = wrapper.clientWidth;
       const containerHeight = wrapper.clientHeight;
+      
+      // Calculate actual rendered dimensions based on aspect ratio comparison
+      let renderedWidth: number;
+      let renderedHeight: number;
+      
+      if (imageDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
+        if (imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
+          // Image is wider - constrained by height
+          renderedHeight = containerHeight;
+          renderedWidth = renderedHeight * imageDimensions.value.aspectRatio;
+        } else {
+          // Image is taller - constrained by width
+          renderedWidth = containerWidth;
+          renderedHeight = renderedWidth / imageDimensions.value.aspectRatio;
+        }
+      } else {
+        // Fallback to cover behavior
+        renderedWidth = containerWidth;
+        renderedHeight = containerHeight;
+      }
+      
+      // Apply zoom
+      const scaledWidth = renderedWidth * zoom.value;
+      const scaledHeight = renderedHeight * zoom.value;
 
-      // Zoomed image dimensions
-      const zoomFactor = props.content.zoom || 1;
-      const imageWidth = containerWidth * zoomFactor;
-      const imageHeight = containerHeight * zoomFactor;
+      // Max offset is half the difference between scaled image and container
+      const maxX = Math.max(0, (scaledWidth - containerWidth) / 2);
+      const maxY = Math.max(0, (scaledHeight - containerHeight) / 2);
 
-      // Calculate bounds for dragging
-      const minX = Math.min(0, containerWidth - imageWidth); // Left limit
-      const maxX = 0; // Right limit (cannot move past the container)
-      const minY = Math.min(0, containerHeight - imageHeight); // Top limit
-      const maxY = 0; // Bottom limit (cannot move past the container)
-
-      // Apply constraints to offsets
-      offset.value.x = Math.min(maxX, Math.max(minX, offset.value.x) / 1.4);
-      offset.value.y = Math.min(maxY, Math.max(minY, offset.value.y) / 1.4);
-
-      // Save updated layout
-      props.content.offsetX = offset.value.x;
-      props.content.offsetY = offset.value.y;
+      offsetX.value = Math.min(maxX, Math.max(-maxX, offsetX.value));
+      offsetY.value = Math.min(maxY, Math.max(-maxY, offsetY.value));
     };
 
 
-    // Start dragging
     const startDragging = (event: MouseEvent) => {
       if (!isEditing.value) return;
       isDragging.value = true;
       dragStart.value = { x: event.clientX, y: event.clientY };
     };
 
-    // Stop dragging
     const stopDragging = () => {
       isDragging.value = false;
     };
 
-    // Drag the image
     const dragImage = (event: MouseEvent) => {
       if (!isDragging.value || !isEditing.value) return;
 
       const deltaX = event.clientX - dragStart.value.x;
       const deltaY = event.clientY - dragStart.value.y;
 
-      const wrapper = imageWrapper.value;
-      if (!wrapper) return;
+      offsetX.value += deltaX;
+      offsetY.value += deltaY;
 
-      // Container dimensions
-      const containerWidth = wrapper.clientWidth;
-      const containerHeight = wrapper.clientHeight;
-
-      // Zoomed image dimensions
-      const zoomFactor = props.content.zoom || 1;
-      const imageWidth = containerWidth * zoomFactor;
-      const imageHeight = containerHeight * zoomFactor;
-
-      // Calculate bounds for dragging
-      const minX = Math.min(0, containerWidth - imageWidth) / 2; // Left limit
-      const maxX = 0 - minX; // Right limit (cannot move past the container)
-      const minY = Math.min(0, containerHeight - imageHeight) / 2; // Top limit
-      const maxY = 0 - minY; // Bottom limit (cannot move past the container)
-
-      // Apply constraints to offsets
-      offset.value.x = Math.min(maxX, Math.max(minX, offset.value.x + deltaX));
-      offset.value.y = Math.min(maxY, Math.max(minY, offset.value.y + deltaY));
+      constrainOffset();
       
-      // Update the drag start position
       dragStart.value = { x: event.clientX, y: event.clientY };
     };
 
-    const onExitClick = () => {
-      if (!layoutStore.isOwner) {
-        return;
-      }
-      isEditing.value = false;
-      layoutStore.saveLayout();
-    }
+    const handleWheel = (event: WheelEvent) => {
+      if (!isEditing.value) return;
+      
+      const delta = -event.deltaY * 0.001;
+      zoom.value = Math.min(3, Math.max(1, zoom.value + delta));
+      constrainOffset();
+    };
 
-    // Computed style for the image
-    const imageStyle = computed(() => ({
-      transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${props.content.zoom || 1})`,
-      width: "100%",
-      height: "100%",
-      cursor: isEditing.value ? "grab" : "default",
-    }));
+    const imageStyle = computed(() => {
+      const cursor = isEditing.value ? (isDragging.value ? 'grabbing' : 'grab') : 'default';
+      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px) scale(${zoom.value})`;
+      
+      // Always use calculated sizing based on aspect ratios to preserve crop
+      if (imageDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
+        if (imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
+          // Image is wider - constrain by height
+          return { transform: baseTransform, cursor, width: 'auto', height: '100%' };
+        } else {
+          // Image is taller - constrain by width
+          return { transform: baseTransform, cursor, width: '100%', height: 'auto' };
+        }
+      }
+      
+      // Fallback if dimensions not loaded yet
+      return { transform: baseTransform, cursor, width: '100%', height: '100%' };
+    });
+    
+    // Overflow layer sizing - ensures full image visible based on aspect ratios
+    const overflowStyle = computed(() => {
+      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px) scale(${zoom.value})`;
+      const cursor = isEditing.value ? (isDragging.value ? 'grabbing' : 'grab') : 'default';
+      
+      // Compare aspect ratios to determine which dimension to constrain
+      if (imageDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
+        if (imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
+          // Image is wider - constrain by height, let width extend
+          return { transform: baseTransform, cursor, width: 'auto', height: '100%' };
+        } else {
+          // Image is taller - constrain by width, let height extend  
+          return { transform: baseTransform, cursor, width: '100%', height: 'auto' };
+        }
+      }
+      
+      // Fallback to cover behavior
+      return { transform: baseTransform, cursor, width: '100%', height: '100%' };
+    });
+
+    // Track image dimensions when loaded
+    const onImageLoad = () => {
+      if (imageElement.value) {
+        imageDimensions.value = {
+          width: imageElement.value.naturalWidth,
+          height: imageElement.value.naturalHeight,
+          aspectRatio: imageElement.value.naturalWidth / imageElement.value.naturalHeight,
+        };
+      }
+    };
 
     return {
       layoutStore,
@@ -176,10 +215,16 @@ export default defineComponent({
       startDragging,
       stopDragging,
       dragImage,
-      saveLayout,
+      handleWheel,
       imageStyle,
+      overflowStyle,
       imageWrapper,
-      onExitClick,
+      imageElement,
+      zoom,
+      updateZoom,
+      onImageLoad,
+      imageDimensions,
+      tileDimensions,
     };
   },
 });
@@ -193,56 +238,38 @@ export default defineComponent({
   justify-content: center;
   align-items: center;
   position: relative;
-  overflow: hidden;
-}
-
-.full-image {
-  z-index: -1; 
-  filter: brightness(50%);
-  pointer-events: none;
-}
-
-.contained-image {
-  z-index: 0;
 }
 
 .image-wrapper {
   position: relative;
   width: 100%;
   height: 100%;
-  overflow: hidden;
 }
 
 .image {
   position: absolute;
-  top: 0;
-  left: 0;
-  object-fit: cover;
-  max-width: none;
-  max-height: none;
-  user-select: none;
-}
-
-.zoom-slider {
-  position: absolute;
-  top: -40px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  background: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--tile-border-radius);
+  user-select: none;
+  transform-origin: center;
 }
 
-.edit-button {
+/* Overflow layer - dimmed, shown only in crop mode */
+.image-overflow {
+  opacity: 0.4;
+  z-index: 0;
+}
+
+/* Clipping container - constrains main image to tile boundaries */
+.image-clip-container {
   position: absolute;
-  bottom: 10px;
-  right: 10px;
-  background: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--tile-border-radius);
+  z-index: 1;
 }
 </style>

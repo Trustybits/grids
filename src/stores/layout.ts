@@ -439,6 +439,18 @@ export const useLayoutStore = defineStore("layout", {
       }
     },
 
+    toggleLinkBackground(id: string) {
+      if (!this.currentLayout) return;
+
+      const tile = this.currentLayout.tiles.find((tile) => tile.i === id);
+      if (!tile || tile.content.type !== ContentType.LINK) return;
+
+      const linkContent = tile.content as any;
+      const nextValue = linkContent.linkBackgroundEnabled === false;
+      linkContent.linkBackgroundEnabled = nextValue;
+      this.updateLayout();
+    },
+
     // Adjust tile's x value to ensure it doesn't extend past colNum
     adjustTilePosition(tile: { x: number; w: number }) {
       if (!this.currentLayout) {

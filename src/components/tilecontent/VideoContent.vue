@@ -1,8 +1,5 @@
 <template>
-  <!-- Crop Mode Overlay -->
-  <div v-if="isEditing" class="crop-overlay" @click.stop="toggleEditMode"></div>
-  
-  <div class="video-container" :class="{ 'crop-mode': isEditing }" ref="videoWrapper">
+  <div class="video-container" ref="videoWrapper">
     <div v-if="!content.src" class="spinner"></div>
     <div v-else class="video-wrapper">
       <video
@@ -83,21 +80,6 @@
             </button>
           </div>
         </div>
-      </div>
-    </div>
-    
-    <!-- Crop Mode Controls -->
-    <div v-if="isEditing" class="crop-controls" @mousedown.stop>
-      <div class="crop-controls-content">
-        <input 
-          type="range" 
-          min="1" 
-          max="3" 
-          step="0.1" 
-          v-model.number="zoom"
-          @input="updateZoom"
-        />
-        <span>{{ Math.round(zoom * 100) }}%</span>
       </div>
     </div>
   </div>
@@ -325,15 +307,6 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
-.crop-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-  z-index: 998;
-  cursor: pointer;
-}
-
 .video-container {
   width: 100%;
   height: 100%;
@@ -341,15 +314,6 @@ export default defineComponent({
   justify-content: center;
   align-items: center;
   position: relative;
-  
-  &.crop-mode {
-    position: fixed;
-    inset: 0;
-    z-index: 999;
-    width: auto;
-    height: auto;
-    overflow: visible;
-  }
 }
 
 .video-wrapper {
@@ -357,16 +321,6 @@ export default defineComponent({
   position: relative;
   width: 100%;
   height: 100%;
-  overflow: hidden;
-  
-  .crop-mode & {
-    width: 100vw;
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0;
-  }
 }
 
 .video {
@@ -376,19 +330,12 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: var(--radius-lg);
   max-width: none;
   max-height: none;
   user-select: none;
   transform-origin: center;
   transition: transform 0.1s ease-out;
-  
-  .crop-mode & {
-    position: relative;
-    width: auto;
-    height: 80vh;
-    max-width: 90vw;
-    object-fit: contain;
-  }
 }
 
 /* Center Play Button */
@@ -606,92 +553,5 @@ export default defineComponent({
   background: white;
   cursor: pointer;
   border: none;
-}
-
-/* Crop Mode Controls */
-.crop-controls {
-  position: fixed;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  background: var(--color-tile-background);
-  border: 2px solid var(--color-tile-stroke);
-  border-radius: 12px;
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
-
-.crop-controls-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  
-  label {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--color-text-primary);
-    margin: 0;
-  }
-  
-  input[type="range"] {
-    width: 200px;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--color-content-low);
-    outline: none;
-    -webkit-appearance: none;
-    appearance: none;
-    
-    &::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: var(--color-text-primary);
-      cursor: pointer;
-    }
-    
-    &::-moz-range-thumb {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: var(--color-text-primary);
-      cursor: pointer;
-      border: none;
-    }
-  }
-  
-  span {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--color-text-primary);
-  }
-}
-
-.crop-done-btn {
-  background: var(--color-text-primary);
-  color: var(--color-tile-background);
-  border: none;
-  border-radius: 8px;
-  padding: 8px 24px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-  
-  &:hover {
-    transform: scale(1.05);
-    opacity: 0.9;
-  }
-  
-  &:active {
-    transform: scale(0.98);
-  }
 }
 </style>

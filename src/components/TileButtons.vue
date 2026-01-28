@@ -256,7 +256,7 @@ export default {
   gap: 4px;
 
   position: relative;
-  top: -32px;
+  top: -8px;
   background-color: var(--color-tile-background);
   border-radius: var(--radius-md);
   border: var(--tile-border-width) solid var(--color-tile-stroke);

@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "presence": {
+      "$gridId": {
+        "$userId": {
+          ".read": true,
+          ".write": "$userId === auth.uid"
+        }
+      }
+    }
+  }
+}

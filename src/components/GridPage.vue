@@ -41,6 +41,10 @@
     @embed-background="embedBackground"
     @confirm-delete="confirmDelete"
   />
+
+  <!-- Multiplayer Presence System -->
+  <MultiplayerCursors :other-users="otherUsers" />
+  <PresenceIndicator :active-users="activeUsers" :other-users="otherUsers" />
 </template>
 
 <script lang="ts">
@@ -57,13 +61,18 @@ import {
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
 import GridMenu from "@/components/GridMenu.vue";
+import MultiplayerCursors from "@/components/MultiplayerCursors.vue";
+import PresenceIndicator from "@/components/PresenceIndicator.vue";
 import { useLayoutStore } from "@/stores/layout";
+import { usePresence } from "@/composables/usePresence";
 
 export default defineComponent({
   components: {
     Grid,
     GridButtons,
     GridMenu,
+    MultiplayerCursors,
+    PresenceIndicator,
   },
   setup() {
     const layoutStore = useLayoutStore();
@@ -73,6 +82,9 @@ export default defineComponent({
     const imageInput = ref<HTMLInputElement | null>(null);
     const route = useRoute();
     const router = useRouter();
+
+    // Initialize multiplayer presence with RTDB
+    const { activeUsers, otherUsers } = usePresence(route.params.id as string);
 
     const isOwner = computed(() => {
       return layoutStore.isOwner;
@@ -170,6 +182,8 @@ export default defineComponent({
       imageInput,
       auth,
       isOwner,
+      activeUsers,
+      otherUsers,
     };
   },
 });

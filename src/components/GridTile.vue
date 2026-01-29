@@ -40,7 +40,7 @@
         <template v-if="!isSuggestion">
           <component
             :is="currentComponent"
-            :content="tile.content"
+            v-bind="contentProps"
             ref="childComponent"
           />
         </template>
@@ -329,10 +329,17 @@ export default defineComponent({
     const toolbarMoreRef = ref<HTMLButtonElement | null>(null);
     const showToolbarMenu = ref(false);
     const toolbarMenuPosition = ref({ x: 0, y: 0 });
+    let stopChildEditingWatch: (() => void) | null = null;
 
     const showCaption = computed(() => {
-      // Hide caption for Link, Text, Embed, and Suggestion tiles as requested
-      const hiddenTypes = [ContentType.LINK, ContentType.TEXT, ContentType.EMBED, ContentType.SUGGESTION];
+      // Hide caption for Link, Text, Chat, Embed, and Suggestion tiles as requested
+      const hiddenTypes = [
+        ContentType.LINK,
+        ContentType.TEXT,
+        ContentType.CHAT,
+        ContentType.EMBED,
+        ContentType.SUGGESTION,
+      ];
       return !hiddenTypes.includes(props.tile.content.type);
     });
 
@@ -351,6 +358,15 @@ export default defineComponent({
     const CLICK_THRESHOLD = 150;
 
     const isSuggestion = computed(() => props.tile.content.type === ContentType.SUGGESTION);
+    const contentProps = computed(() => {
+      if (props.tile.content.type === ContentType.CHAT) {
+        return {
+          content: props.tile.content,
+          tileId: props.tile.i,
+        };
+      }
+      return { content: props.tile.content };
+    });
     const suggestionAction = computed(() => (props.tile.content as any)?.action ?? "text");
     const suggestionLabel = computed(() => (props.tile.content as any)?.label ?? "");
 
@@ -700,11 +716,15 @@ export default defineComponent({
 
     // Watch for changes in child editing state
     watch(() => childComponent.value, (newChild) => {
+      if (stopChildEditingWatch) {
+        stopChildEditingWatch();
+        stopChildEditingWatch = null;
+      }
+
       if (newChild && newChild.isEditing !== undefined) {
-        const stopWatch = watch(() => newChild.isEditing, (editing) => {
+        stopChildEditingWatch = watch(() => newChild.isEditing, (editing) => {
           isEditing.value = editing;
         });
-        onUnmounted(stopWatch);
       }
     });
 
@@ -727,6 +747,8 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
+      stopChildEditingWatch?.();
+      stopChildEditingWatch = null;
       removeClickListener(); // Cleanup on unmount
       document.removeEventListener("click", handleToolbarMenuClickOutside);
       document.removeEventListener("contextmenu", handleToolbarMenuClickOutside);
@@ -734,6 +756,7 @@ export default defineComponent({
 
     return {
       currentComponent,
+      contentProps,
       headerComponent,
       resize,
       removeElement,

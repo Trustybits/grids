@@ -33,3 +33,8 @@ coverage
 
 .env
 .env.local
+src/components/FluidTextCard/CreateFluidTextCardModal.svelte
+src/components/FluidTextCard/EditingFluidTextCard.svelte
+src/components/FluidTextCard/FluidTextCard.svelte
+src/components/FluidTextCard/FluidTextCardSettings.svelte
+src/components/FluidTextCard/index.ts

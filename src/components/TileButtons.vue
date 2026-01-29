@@ -11,6 +11,10 @@
         <TextIcon />
       </button>
 
+      <button class="btn btn-secondary" @click="addChatElement">
+        <ChatIcon />
+      </button>
+
       <button class="btn btn-secondary" @click="selectFile">
         <ImageIcon />
       </button>
@@ -68,6 +72,7 @@ import { computed } from "vue";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
 import TextIcon from "./icons/TextIcon.vue";
+import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
@@ -77,6 +82,7 @@ export default {
     AddLinkModal,
     AddEmbedModal,
     TextIcon,
+    ChatIcon,
     ImageIcon,
     LinkIcon,
     EmbedIcon,
@@ -96,6 +102,11 @@ export default {
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
       layoutStore.addTile(textContent);
+    };
+
+    const addChatElement = () => {
+      const chatContent = createTileContent(ContentType.CHAT, {});
+      layoutStore.addTile(chatContent);
     };
 
     const selectFile = () => {
@@ -220,6 +231,7 @@ export default {
       imageInput,
       layoutStore,
       addTextElement,
+      addChatElement,
       selectFile,
       addFile,
       addLinkElement,

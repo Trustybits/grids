@@ -3,6 +3,7 @@ import {
   ContentType,
   type TileContent,
   type TextContent,
+  type ChatContent,
   type ImageContent,
   type LinkContent,
   type VideoContent,
@@ -161,7 +162,7 @@ export function createTile(
 export function createTileContent(
   type: ContentType,
   data: Partial<
-    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent | SuggestionContent
+    TextContent | ChatContent | ImageContent | LinkContent | VideoContent | EmbedContent | SuggestionContent
   > = {}
 ): TileContent {
   switch (type) {
@@ -176,6 +177,12 @@ export function createTileContent(
         textType: (data as Partial<TextContent>).textType || "",
         color: (data as Partial<TextContent>).color || "#ffffff",
       } as TextContent;
+
+    case ContentType.CHAT:
+      return {
+        type,
+        messages: (data as Partial<ChatContent>).messages || [],
+      } as ChatContent;
 
     case ContentType.IMAGE:
       return {
@@ -247,6 +254,8 @@ export function validateTileContent(content: TileContent): boolean {
   switch (content.type) {
     case ContentType.TEXT:
       return (content as TextContent).text.trim().length > 0;
+    case ContentType.CHAT:
+      return true;
     case ContentType.IMAGE:
       const image = content as ImageContent;
       return (
@@ -278,6 +287,12 @@ export function getContentComponent(content: TileContent): any {
       return markRaw(
         defineAsyncComponent(
           () => import("@/components/tilecontent/TextContent.vue")
+        )
+      );
+    case ContentType.CHAT:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/ChatContent.vue")
         )
       );
     case ContentType.IMAGE:

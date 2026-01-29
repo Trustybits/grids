@@ -11,6 +11,10 @@
         <TextIcon />
       </button>
 
+      <button class="btn btn-secondary" @click="addProfileElement">
+        <ProfileIcon />
+      </button>
+
       <button class="btn btn-secondary" @click="selectFile">
         <ImageIcon />
       </button>
@@ -71,6 +75,7 @@ import TextIcon from "./icons/TextIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
+import ProfileIcon from "./icons/ProfileIcon.vue";
 
 export default {
   components: {
@@ -80,6 +85,7 @@ export default {
     ImageIcon,
     LinkIcon,
     EmbedIcon,
+    ProfileIcon,
   },
   setup() {
     const themeStore = useThemeStore();
@@ -96,6 +102,11 @@ export default {
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
       layoutStore.addTile(textContent);
+    };
+
+    const addProfileElement = () => {
+      const profileContent = createTileContent(ContentType.PROFILE, {});
+      layoutStore.addTile(profileContent);
     };
 
     const selectFile = () => {
@@ -220,6 +231,7 @@ export default {
       imageInput,
       layoutStore,
       addTextElement,
+      addProfileElement,
       selectFile,
       addFile,
       addLinkElement,

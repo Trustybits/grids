@@ -4,7 +4,7 @@ export enum ContentType {
   VIDEO = "video",
   LINK = "link",
   EMBED = "embed",
-  CLICKER = "clicker",
+  CAMPFIRE = "campfire",
   SUGGESTION = "suggestion", // internal-only tile type
 }
 
@@ -69,8 +69,8 @@ export interface SuggestionContent extends TileContent {
   label?: string;
 }
 
-export interface ClickerContent extends TileContent {
-  type: ContentType.CLICKER;
+export interface CampfireContent extends TileContent {
+  type: ContentType.CAMPFIRE;
   count: number;
   highScore: number;
 }

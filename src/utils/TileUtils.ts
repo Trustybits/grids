@@ -7,6 +7,7 @@ import {
   type LinkContent,
   type VideoContent,
   type EmbedContent,
+  type RPGContent,
   type SuggestionContent,
 } from "@/types/TileContent";
 import { defineAsyncComponent, markRaw } from "vue";
@@ -161,7 +162,7 @@ export function createTile(
 export function createTileContent(
   type: ContentType,
   data: Partial<
-    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent | SuggestionContent
+    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent | RPGContent | SuggestionContent
   > = {}
 ): TileContent {
   switch (type) {
@@ -215,6 +216,18 @@ export function createTileContent(
         src: normalizeEmbedSrc((data as Partial<EmbedContent>).src || ""),
       } as EmbedContent;
 
+    case ContentType.RPG:
+      return {
+        type,
+        playerX: (data as Partial<RPGContent>).playerX ?? 1,
+        playerY: (data as Partial<RPGContent>).playerY ?? 1,
+        playerHealth: (data as Partial<RPGContent>).playerHealth ?? 100,
+        enemyX: (data as Partial<RPGContent>).enemyX ?? 8,
+        enemyY: (data as Partial<RPGContent>).enemyY ?? 8,
+        enemyHealth: (data as Partial<RPGContent>).enemyHealth ?? 50,
+        gameState: (data as Partial<RPGContent>).gameState ?? 'playing',
+      } as RPGContent;
+
     case ContentType.SUGGESTION:
       return {
         type,
@@ -265,6 +278,8 @@ export function validateTileContent(content: TileContent): boolean {
     case ContentType.EMBED:
       const embed = content as EmbedContent;
       return !!embed.src && embed.src.startsWith("http");
+    case ContentType.RPG:
+      return true; // RPG game tile is always valid
     case ContentType.SUGGESTION:
       return true; // internal placeholder is always valid
     default:
@@ -302,6 +317,12 @@ export function getContentComponent(content: TileContent): any {
       return markRaw(
         defineAsyncComponent(
           () => import("@/components/tilecontent/EmbedContent.vue")
+        )
+      );
+    case ContentType.RPG:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/RPGContent.vue")
         )
       );
     case ContentType.SUGGESTION:

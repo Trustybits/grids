@@ -23,8 +23,8 @@
       <button class="btn btn-secondary" @click="addEmbedElement">
         <EmbedIcon />
       </button>
-      <button class="btn btn-secondary" @click="addClickerElement">
-        <ClickerIcon />
+      <button class="btn btn-secondary" @click="addCampfireElement">
+        <CampfireIcon />
       </button>
       <!-- <button class="btn btn-secondary" @click="addLinkElement">➕</button> -->
 
@@ -74,7 +74,7 @@ import TextIcon from "./icons/TextIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
-import ClickerIcon from "./icons/ClickerIcon.vue";
+import CampfireIcon from "./icons/CampfireIcon.vue";
 
 export default {
   components: {
@@ -84,7 +84,7 @@ export default {
     ImageIcon,
     LinkIcon,
     EmbedIcon,
-    ClickerIcon,
+    CampfireIcon,
   },
   setup() {
     const themeStore = useThemeStore();
@@ -108,9 +108,9 @@ export default {
       layoutStore.addTile(chatContent);
     };
 
-    const addClickerElement = () => {
-      const clickerContent = createTileContent(ContentType.CLICKER, {});
-      layoutStore.addTile(clickerContent);
+    const addCampfireElement = () => {
+      const campfireContent = createTileContent(ContentType.CAMPFIRE, {});
+      layoutStore.addTile(campfireContent);
     };
 
     const selectFile = () => {
@@ -236,7 +236,7 @@ export default {
       layoutStore,
       addTextElement,
       addChatElement,
-      addClickerElement,
+      addCampfireElement,
       selectFile,
       addFile,
       addLinkElement,

@@ -8,7 +8,7 @@ import {
   type VideoContent,
   type EmbedContent,
   type SuggestionContent,
-  type ClickerContent,
+  type CampfireContent,
 } from "@/types/TileContent";
 import { defineAsyncComponent, markRaw } from "vue";
 
@@ -162,7 +162,7 @@ export function createTile(
 export function createTileContent(
   type: ContentType,
   data: Partial<
-    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent | SuggestionContent | ClickerContent
+    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent | SuggestionContent | CampfireContent
   > = {}
 ): TileContent {
   switch (type) {
@@ -224,12 +224,12 @@ export function createTileContent(
         label: (data as Partial<SuggestionContent>).label,
       } as SuggestionContent;
 
-    case ContentType.CLICKER:
+    case ContentType.CAMPFIRE:
       return {
         type,
-        count: (data as Partial<ClickerContent>).count || 0,
-        highScore: (data as Partial<ClickerContent>).highScore || 0,
-      } as ClickerContent;
+        count: (data as Partial<CampfireContent>).count || 0,
+        highScore: (data as Partial<CampfireContent>).highScore || 0,
+      } as CampfireContent;
 
     default:
       throw new Error(`Unsupported content type: ${type}`);
@@ -275,8 +275,8 @@ export function validateTileContent(content: TileContent): boolean {
       return !!embed.src && embed.src.startsWith("http");
     case ContentType.SUGGESTION:
       return true; // internal placeholder is always valid
-    case ContentType.CLICKER:
-      return true; // clicker game is always valid
+    case ContentType.CAMPFIRE:
+      return true; // campfire game is always valid
     default:
       return false;
   }
@@ -316,10 +316,10 @@ export function getContentComponent(content: TileContent): any {
       );
     case ContentType.SUGGESTION:
       return null; // rendered inline in GridTile
-    case ContentType.CLICKER:
+    case ContentType.CAMPFIRE:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/ClickerContent.vue")
+          () => import("@/components/tilecontent/CampfireContent.vue")
         )
       );
     default:

@@ -23,6 +23,9 @@
       <button class="btn btn-secondary" @click="addEmbedElement">
         <EmbedIcon />
       </button>
+      <button class="btn btn-secondary" @click="addClickerElement">
+        <ClickerIcon />
+      </button>
       <!-- <button class="btn btn-secondary" @click="addLinkElement">➕</button> -->
 
       <input
@@ -71,6 +74,7 @@ import TextIcon from "./icons/TextIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
+import ClickerIcon from "./icons/ClickerIcon.vue";
 
 export default {
   components: {
@@ -80,6 +84,7 @@ export default {
     ImageIcon,
     LinkIcon,
     EmbedIcon,
+    ClickerIcon,
   },
   setup() {
     const themeStore = useThemeStore();
@@ -96,6 +101,16 @@ export default {
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
       layoutStore.addTile(textContent);
+    };
+
+    const addChatElement = () => {
+      const chatContent = createTileContent(ContentType.CHAT, {});
+      layoutStore.addTile(chatContent);
+    };
+
+    const addClickerElement = () => {
+      const clickerContent = createTileContent(ContentType.CLICKER, {});
+      layoutStore.addTile(clickerContent);
     };
 
     const selectFile = () => {
@@ -220,6 +235,8 @@ export default {
       imageInput,
       layoutStore,
       addTextElement,
+      addChatElement,
+      addClickerElement,
       selectFile,
       addFile,
       addLinkElement,

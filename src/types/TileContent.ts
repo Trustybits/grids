@@ -65,9 +65,27 @@ export interface RPGContent extends TileContent {
   playerX: number;
   playerY: number;
   playerHealth: number;
-  enemyX: number;
-  enemyY: number;
-  enemyHealth: number;
+  playerMaxHealth: number;
+  playerAttack: number;
+  enemies: Array<{
+    id: string;
+    x: number;
+    y: number;
+    health: number;
+    maxHealth: number;
+    attack: number;
+    type: 'goblin' | 'troll' | 'dragon';
+  }>;
+  items: Array<{
+    id: string;
+    x: number;
+    y: number;
+    type: 'health' | 'strength' | 'shield';
+    collected: boolean;
+  }>;
+  walls: Array<[number, number]>;
+  score: number;
+  wave: number;
   gameState: 'playing' | 'won' | 'lost';
 }
 

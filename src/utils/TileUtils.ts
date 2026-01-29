@@ -222,9 +222,13 @@ export function createTileContent(
         playerX: (data as Partial<RPGContent>).playerX ?? 1,
         playerY: (data as Partial<RPGContent>).playerY ?? 1,
         playerHealth: (data as Partial<RPGContent>).playerHealth ?? 100,
-        enemyX: (data as Partial<RPGContent>).enemyX ?? 8,
-        enemyY: (data as Partial<RPGContent>).enemyY ?? 8,
-        enemyHealth: (data as Partial<RPGContent>).enemyHealth ?? 50,
+        playerMaxHealth: (data as Partial<RPGContent>).playerMaxHealth ?? 100,
+        playerAttack: (data as Partial<RPGContent>).playerAttack ?? 15,
+        enemies: (data as Partial<RPGContent>).enemies ?? [],
+        items: (data as Partial<RPGContent>).items ?? [],
+        walls: (data as Partial<RPGContent>).walls ?? [],
+        score: (data as Partial<RPGContent>).score ?? 0,
+        wave: (data as Partial<RPGContent>).wave ?? 1,
         gameState: (data as Partial<RPGContent>).gameState ?? 'playing',
       } as RPGContent;
 

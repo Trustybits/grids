@@ -5,6 +5,7 @@ export enum ContentType {
   LINK = "link",
   EMBED = "embed",
   SUGGESTION = "suggestion", // internal-only tile type
+  PROFILE = "profile",
 }
 
 export interface TileContent {
@@ -59,7 +60,19 @@ export interface VideoContent extends TileContent {
   offsetY: number;
 }
 
-export type SuggestionAction = "text" | "media" | "link" | "embed";
+export type AvatarShape = "circle" | "square" | "hex";
+
+export interface ProfileBioContent extends TileContent {
+  type: ContentType.PROFILE;
+  name: string;
+  title: string;
+  bio: string;
+  avatarSrc: string;
+  avatarShape: AvatarShape;
+  avatarRadius: number;
+}
+
+export type SuggestionAction = "text" | "media" | "link" | "embed" | "profile";
 
 export interface SuggestionContent extends TileContent {
   type: ContentType.SUGGESTION;

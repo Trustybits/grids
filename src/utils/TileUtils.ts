@@ -8,6 +8,7 @@ import {
   type VideoContent,
   type EmbedContent,
   type SuggestionContent,
+  type ProfileBioContent,
 } from "@/types/TileContent";
 import { defineAsyncComponent, markRaw } from "vue";
 
@@ -17,6 +18,18 @@ function ensureUrlHasProtocol(url: string): string {
   return url.startsWith("http://") || url.startsWith("https://")
     ? url
     : `https://${url}`;
+}
+
+function makeDefaultDoc(text: string): string {
+  return JSON.stringify({
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [{ type: "text", text }],
+      },
+    ],
+  });
 }
 
 export function isDirectImageUrl(src: string): boolean {
@@ -161,7 +174,13 @@ export function createTile(
 export function createTileContent(
   type: ContentType,
   data: Partial<
-    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent | SuggestionContent
+    | TextContent
+    | ImageContent
+    | LinkContent
+    | VideoContent
+    | EmbedContent
+    | SuggestionContent
+    | ProfileBioContent
   > = {}
 ): TileContent {
   switch (type) {
@@ -223,6 +242,22 @@ export function createTileContent(
         label: (data as Partial<SuggestionContent>).label,
       } as SuggestionContent;
 
+    case ContentType.PROFILE:
+      return {
+        type,
+        name:
+          (data as Partial<ProfileBioContent>).name || makeDefaultDoc("Your name"),
+        title:
+          (data as Partial<ProfileBioContent>).title ||
+          makeDefaultDoc("Add your title"),
+        bio:
+          (data as Partial<ProfileBioContent>).bio ||
+          makeDefaultDoc("Tell us about yourself..."),
+        avatarSrc: (data as Partial<ProfileBioContent>).avatarSrc || "",
+        avatarShape: (data as Partial<ProfileBioContent>).avatarShape || "circle",
+        avatarRadius: (data as Partial<ProfileBioContent>).avatarRadius ?? 12,
+      } as ProfileBioContent;
+
     default:
       throw new Error(`Unsupported content type: ${type}`);
   }
@@ -267,6 +302,8 @@ export function validateTileContent(content: TileContent): boolean {
       return !!embed.src && embed.src.startsWith("http");
     case ContentType.SUGGESTION:
       return true; // internal placeholder is always valid
+    case ContentType.PROFILE:
+      return true;
     default:
       return false;
   }
@@ -306,6 +343,12 @@ export function getContentComponent(content: TileContent): any {
       );
     case ContentType.SUGGESTION:
       return null; // rendered inline in GridTile
+    case ContentType.PROFILE:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/ProfileBioContent.vue")
+        )
+      );
     default:
       throw new Error(`Unsupported content type: ${content.type}`);
   }

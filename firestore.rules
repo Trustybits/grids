@@ -8,5 +8,20 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
+
+    match /userGameData/{userId} {
+      // Anyone can read game data (needed for leaderboard)
+      allow read: if true;
+
+      // Users can create their own game data document
+      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // Users can update their own game data document
+      // Also allow updates from authenticated users (for clicking on other people's grids)
+      allow update: if request.auth != null;
+
+      // Users can delete their own game data document
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
   }
 }

@@ -4,6 +4,7 @@ export enum ContentType {
   VIDEO = "video",
   LINK = "link",
   EMBED = "embed",
+  RPG = "rpg",
   SUGGESTION = "suggestion", // internal-only tile type
 }
 
@@ -57,6 +58,17 @@ export interface VideoContent extends TileContent {
   zoom: number;
   offsetX: number;
   offsetY: number;
+}
+
+export interface RPGContent extends TileContent {
+  type: ContentType.RPG;
+  playerX: number;
+  playerY: number;
+  playerHealth: number;
+  enemyX: number;
+  enemyY: number;
+  enemyHealth: number;
+  gameState: 'playing' | 'won' | 'lost';
 }
 
 export type SuggestionAction = "text" | "media" | "link" | "embed";

@@ -8,6 +8,7 @@ import {
   type VideoContent,
   type EmbedContent,
   type SuggestionContent,
+  type ClickerContent,
 } from "@/types/TileContent";
 import { defineAsyncComponent, markRaw } from "vue";
 
@@ -161,7 +162,7 @@ export function createTile(
 export function createTileContent(
   type: ContentType,
   data: Partial<
-    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent | SuggestionContent
+    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent | SuggestionContent | ClickerContent
   > = {}
 ): TileContent {
   switch (type) {
@@ -223,6 +224,13 @@ export function createTileContent(
         label: (data as Partial<SuggestionContent>).label,
       } as SuggestionContent;
 
+    case ContentType.CLICKER:
+      return {
+        type,
+        count: (data as Partial<ClickerContent>).count || 0,
+        highScore: (data as Partial<ClickerContent>).highScore || 0,
+      } as ClickerContent;
+
     default:
       throw new Error(`Unsupported content type: ${type}`);
   }
@@ -267,6 +275,8 @@ export function validateTileContent(content: TileContent): boolean {
       return !!embed.src && embed.src.startsWith("http");
     case ContentType.SUGGESTION:
       return true; // internal placeholder is always valid
+    case ContentType.CLICKER:
+      return true; // clicker game is always valid
     default:
       return false;
   }
@@ -306,6 +316,12 @@ export function getContentComponent(content: TileContent): any {
       );
     case ContentType.SUGGESTION:
       return null; // rendered inline in GridTile
+    case ContentType.CLICKER:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/ClickerContent.vue")
+        )
+      );
     default:
       throw new Error(`Unsupported content type: ${content.type}`);
   }

@@ -10,6 +10,7 @@ import {
 } from "@/types/FirestoreMappers";
 import { auth, db } from "@/firebase";
 import { createTile } from "@/utils/TileUtils";
+import { useToastStore } from "@/stores/toast";
 
 const layoutService = getLayoutService();
 
@@ -237,7 +238,18 @@ export const useLayoutStore = defineStore("layout", {
     addTile(content: TileContent): string | null {
       if (!this.currentLayout) return null;
 
-      // TODO: Validate content before creating tile
+      // Validate: Only one clicker tile per grid
+      if (content.type === ContentType.CLICKER) {
+        const hasClickerTile = this.currentLayout.tiles.some(
+          (tile) => tile.content.type === ContentType.CLICKER
+        );
+        if (hasClickerTile) {
+          // Use toast to notify user
+          const toastStore = useToastStore();
+          toastStore.addToast('Only one click counter allowed per grid', 'error');
+          return null;
+        }
+      }
 
       // Find the first available 2x2 spot (left-to-right, top-to-bottom)
       const position = this.findFirstAvailableSpot(2, 2);

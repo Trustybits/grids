@@ -1,7 +1,7 @@
 <template>
   <div class="clicker-container">
     <div class="clicker-content">
-      <div class="count-display">{{ content.count }}</div>
+      <div class="count-display">{{ ownerGameData?.totalClicks || 0 }}</div>
       
       <button 
         class="click-button" 
@@ -13,30 +13,65 @@
       </button>
       
       <div class="footer">
-        <div class="high-score">
-          Best: {{ content.highScore }}
+        <div class="player-info">
+          <div class="player-name">{{ ownerGameData?.displayName || 'Loading...' }}</div>
         </div>
         
-        <button v-if="content.count > 0" class="reset-button" @click="resetCount">
-          Start Fresh
+        <button class="leaderboard-icon-button" @click="toggleLeaderboard" :title="showLeaderboard ? 'Close leaderboard' : 'Show leaderboard'">
+          <LeaderboardIcon :size="18" />
         </button>
       </div>
-      
     </div>
+
+    <!-- Leaderboard Drawer -->
+    <transition name="drawer">
+      <div v-if="showLeaderboard" class="leaderboard-drawer">
+        <div class="leaderboard-header">
+          <span>Top Players</span>
+          <button class="drawer-close" @click="toggleLeaderboard">
+            <LeaderboardIcon :size="18" />
+          </button>
+        </div>
+        <div class="leaderboard-list">
+          <div 
+            v-for="entry in leaderboard" 
+            :key="entry.userId"
+            class="leaderboard-entry"
+            :class="{ 'is-current-owner': entry.userId === ownerId }"
+          >
+            <span class="rank">#{{ entry.rank }}</span>
+            <span class="name">{{ entry.displayName }}</span>
+            <span class="score">{{ entry.totalClicks.toLocaleString() }}</span>
+          </div>
+          <div v-if="leaderboard.length === 0" class="leaderboard-empty">
+            No scores yet. Start clicking!
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onUnmounted } from "vue";
+import { defineComponent, ref, onMounted, onUnmounted, computed } from "vue";
 import { type ClickerContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import ClickerIcon from "@/components/icons/ClickerIcon.vue";
 import FireIcon from "@/components/icons/FireIcon.vue";
+import LeaderboardIcon from "@/components/icons/LeaderboardIcon.vue";
+import type { UserGameData, LeaderboardEntry } from "@/types/GameData";
+import {
+  getOrCreateUserGameData,
+  incrementUserClicks,
+  subscribeToUserGameData,
+  subscribeToLeaderboard,
+} from "@/services/GameDataService";
 
 export default defineComponent({
   components: {
     ClickerIcon,
     FireIcon,
+    LeaderboardIcon,
   },
   props: {
     content: {
@@ -49,14 +84,21 @@ export default defineComponent({
     const isOnFire = ref(false);
     const lastClickTime = ref(0);
     const clickStreak = ref(0);
+    const showLeaderboard = ref(false);
+    const ownerGameData = ref<UserGameData | null>(null);
+    const leaderboard = ref<LeaderboardEntry[]>([]);
+    
     let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
+    let unsubscribeOwnerData: (() => void) | null = null;
+    let unsubscribeLeaderboard: (() => void) | null = null;
 
-    const handleClick = () => {
-      props.content.count++;
+    const ownerId = computed(() => layoutStore.currentLayout?.userId || '');
+
+    const handleClick = async () => {
+      if (!ownerId.value) return;
       
-      if (props.content.count > props.content.highScore) {
-        props.content.highScore = props.content.count;
-      }
+      // Increment the grid owner's score (not the clicker's score)
+      await incrementUserClicks(ownerId.value, 1);
       
       // Check click speed (clicks within 500ms = fast clicking)
       const now = Date.now();
@@ -86,27 +128,52 @@ export default defineComponent({
         isOnFire.value = false;
         clickStreak.value = 0;
       }, 800);
-      
-      layoutStore.saveLayout();
     };
 
-    const resetCount = () => {
-      props.content.count = 0;
-      isOnFire.value = false;
-      clickStreak.value = 0;
-      layoutStore.saveLayout();
+    const toggleLeaderboard = () => {
+      showLeaderboard.value = !showLeaderboard.value;
     };
+
+    onMounted(async () => {
+      if (!ownerId.value) {
+        console.error('No owner ID found for clicker tile');
+        return;
+      }
+
+      // Initialize owner's game data if it doesn't exist
+      await getOrCreateUserGameData(ownerId.value);
+
+      // Subscribe to real-time updates for owner's game data
+      unsubscribeOwnerData = subscribeToUserGameData(ownerId.value, (data) => {
+        ownerGameData.value = data;
+      });
+
+      // Subscribe to leaderboard updates
+      unsubscribeLeaderboard = subscribeToLeaderboard(20, (data) => {
+        leaderboard.value = data;
+      });
+    });
 
     onUnmounted(() => {
       if (cooldownTimer) {
         clearTimeout(cooldownTimer);
       }
+      if (unsubscribeOwnerData) {
+        unsubscribeOwnerData();
+      }
+      if (unsubscribeLeaderboard) {
+        unsubscribeLeaderboard();
+      }
     });
 
     return {
       handleClick,
-      resetCount,
+      toggleLeaderboard,
       isOnFire,
+      showLeaderboard,
+      ownerGameData,
+      leaderboard,
+      ownerId,
     };
   },
 });
@@ -114,12 +181,14 @@ export default defineComponent({
 
 <style scoped lang="scss">
 .clicker-container {
+  position: relative;
   width: 100%;
   height: 100%;
   padding: var(--spacing-md);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .clicker-content {
@@ -181,32 +250,188 @@ export default defineComponent({
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--spacing-md);
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  width: 100%;
 }
 
-.high-score {
+.player-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.player-name {
   font-size: 12px;
-  font-weight: 500;
-  color: var(--color-content-default);
-  text-align: center;
+  font-weight: 600;
+  color: var(--color-text-primary);
   user-select: none;
 }
 
-.reset-button {
-  padding: var(--spacing-xs) var(--spacing-sm);
+.leaderboard-icon-button {
+  padding: var(--spacing-xs);
   background: transparent;
   color: var(--color-content-low);
   border: 1px solid var(--color-content-low);
   border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   
   &:hover {
     color: var(--color-text-primary);
     border-color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.05);
   }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+// Drawer styles
+.leaderboard-drawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-tile-background);
+  backdrop-filter: blur(10px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-md);
+}
+
+.leaderboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-content-low);
+}
+
+.drawer-close {
+  padding: var(--spacing-xs);
+  background: transparent;
+  color: var(--color-content-low);
+  border: 1px solid var(--color-content-low);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+.leaderboard-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-content-low);
+    border-radius: 3px;
+  }
+}
+
+.leaderboard-entry {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: var(--spacing-sm);
+  align-items: center;
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  transition: background 0.2s ease;
+  background: rgba(0, 0, 0, 0.2);
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  &.is-current-owner {
+    background: rgba(255, 255, 255, 0.1);
+    font-weight: 600;
+    border: 1px solid var(--color-content-low);
+  }
+}
+
+.leaderboard-entry .rank {
+  color: var(--color-content-default);
+  font-weight: 700;
+  text-align: right;
+  font-size: 14px;
+}
+
+.leaderboard-entry .name {
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-entry .score {
+  color: var(--color-text-primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-empty {
+  text-align: center;
+  color: var(--color-content-low);
+  font-size: 13px;
+  padding: var(--spacing-xl);
+}
+
+// Drawer slide-up animation
+.drawer-enter-active,
+.drawer-leave-active {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+
+.drawer-enter-from {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+.drawer-enter-to {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.drawer-leave-from {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.drawer-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
 }
 </style>

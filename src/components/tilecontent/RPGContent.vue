@@ -1,6 +1,18 @@
 <template>
   <div class="rpg-container" tabindex="0" @keydown="handleKeyDown" ref="gameContainer">
     <div class="rpg-game">
+      <!-- Score & Wave Display -->
+      <div class="rpg-header">
+        <div class="score-display">
+          <span class="label">Score:</span>
+          <span class="value">{{ content.score }}</span>
+        </div>
+        <div class="wave-display">
+          <span class="label">Wave:</span>
+          <span class="value">{{ content.wave }}</span>
+        </div>
+      </div>
+
       <!-- Game Grid -->
       <div class="rpg-grid">
         <div 
@@ -15,7 +27,8 @@
             :class="getCellClass(x, y)"
           >
             <span v-if="isPlayer(x, y)" class="player">🧙</span>
-            <span v-else-if="isEnemy(x, y) && content.enemyHealth > 0" class="enemy">👹</span>
+            <span v-else-if="getEnemyAt(x, y)" class="enemy" :class="`enemy-${getEnemyAt(x, y)!.type}`">{{ getEnemyEmoji(getEnemyAt(x, y)!.type) }}</span>
+            <span v-else-if="getItemAt(x, y) && !getItemAt(x, y)!.collected" class="item" :class="`item-${getItemAt(x, y)!.type}`">{{ getItemEmoji(getItemAt(x, y)!.type) }}</span>
             <span v-else-if="isWall(x, y)" class="wall"></span>
           </div>
         </div>
@@ -24,72 +37,76 @@
       <!-- Stats Panel -->
       <div class="rpg-stats">
         <div class="stat-bar">
-          <span class="stat-label">HP:</span>
+          <span class="stat-label">❤️ HP:</span>
           <div class="health-bar">
             <div 
               class="health-fill player-health" 
-              :style="{ width: `${content.playerHealth}%` }"
+              :style="{ width: `${(content.playerHealth / content.playerMaxHealth) * 100}%` }"
             ></div>
           </div>
-          <span class="stat-value">{{ content.playerHealth }}</span>
+          <span class="stat-value">{{ content.playerHealth }}/{{ content.playerMaxHealth }}</span>
         </div>
         
-        <div v-if="content.enemyHealth > 0" class="stat-bar">
-          <span class="stat-label">Enemy:</span>
-          <div class="health-bar">
-            <div 
-              class="health-fill enemy-health" 
-              :style="{ width: `${content.enemyHealth * 2}%` }"
-            ></div>
-          </div>
-          <span class="stat-value">{{ content.enemyHealth }}</span>
+        <div class="stat-bar">
+          <span class="stat-label">⚔️ ATK:</span>
+          <div class="attack-value">{{ content.playerAttack }}</div>
+        </div>
+
+        <div class="stat-bar">
+          <span class="stat-label">👹 Enemies:</span>
+          <div class="enemy-count">{{ aliveEnemies.length }}</div>
         </div>
       </div>
 
       <!-- Game Messages -->
       <div v-if="content.gameState === 'won'" class="game-message win">
         <div class="message-content">
-          <div class="message-title">🎉 Victory!</div>
-          <button @click="resetGame" class="reset-btn">Play Again</button>
+          <div class="message-title">🎉 Wave {{ content.wave }} Complete!</div>
+          <div class="message-score">Score: {{ content.score }}</div>
+          <button @click="nextWave" class="reset-btn">Next Wave</button>
+          <button @click="resetGame" class="reset-btn secondary">New Game</button>
         </div>
       </div>
       
       <div v-else-if="content.gameState === 'lost'" class="game-message lose">
         <div class="message-content">
           <div class="message-title">💀 Defeated</div>
+          <div class="message-score">Final Score: {{ content.score }}</div>
+          <div class="message-wave">Reached Wave {{ content.wave }}</div>
           <button @click="resetGame" class="reset-btn">Try Again</button>
         </div>
       </div>
 
       <!-- Instructions -->
       <div v-if="content.gameState === 'playing'" class="rpg-instructions">
-        Use arrow keys or WASD to move. Get close to attack!
+        WASD/Arrows to move • Touch enemies to attack • Collect items!
       </div>
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, onUnmounted } from "vue";
+import { defineComponent, ref, onMounted, onUnmounted, computed } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import type { RPGContent } from "@/types/TileContent";
 
 const MAP_WIDTH = 10;
 const MAP_HEIGHT = 10;
 
-// Simple wall layout
-const WALLS = [
-  [0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0], [9, 0],
-  [0, 1], [9, 1],
-  [0, 2], [3, 2], [6, 2], [9, 2],
-  [0, 3], [9, 3],
-  [0, 4], [4, 4], [5, 4], [9, 4],
-  [0, 5], [9, 5],
-  [0, 6], [3, 6], [6, 6], [9, 6],
-  [0, 7], [9, 7],
-  [0, 8], [9, 8],
-  [0, 9], [1, 9], [2, 9], [3, 9], [4, 9], [5, 9], [6, 9], [7, 9], [8, 9], [9, 9],
-];
+type EnemyType = 'goblin' | 'troll' | 'dragon';
+type ItemType = 'health' | 'strength' | 'shield';
+
+const ENEMY_STATS = {
+  goblin: { maxHealth: 30, attack: 8, emoji: '👺', points: 10 },
+  troll: { maxHealth: 60, attack: 12, emoji: '👹', points: 25 },
+  dragon: { maxHealth: 100, attack: 20, emoji: '🐉', points: 50 },
+};
+
+const ITEM_EFFECTS = {
+  health: { emoji: '❤️', effect: 'heal', value: 30 },
+  strength: { emoji: '⚔️', effect: 'attack', value: 5 },
+  shield: { emoji: '🛡️', effect: 'maxHealth', value: 20 },
+};
 
 export default defineComponent({
   props: {
@@ -101,23 +118,152 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
     const gameContainer = ref<HTMLDivElement | null>(null);
+    const enemyMoveInterval = ref<number | null>(null);
+
+    // Initialize game if needed
+    const initializeGame = () => {
+      if (props.content.walls.length === 0) {
+        generateMap();
+        spawnPlayer();
+        spawnEnemies(props.content.wave);
+        spawnItems(3);
+      }
+    };
+
+    // Generate procedural map
+    const generateMap = () => {
+      const walls: Array<[number, number]> = [];
+      
+      // Outer walls
+      for (let x = 0; x < MAP_WIDTH; x++) {
+        walls.push([x, 0]);
+        walls.push([x, MAP_HEIGHT - 1]);
+      }
+      for (let y = 1; y < MAP_HEIGHT - 1; y++) {
+        walls.push([0, y]);
+        walls.push([MAP_WIDTH - 1, y]);
+      }
+      
+      // Random interior obstacles (3-6 walls)
+      const numObstacles = Math.floor(Math.random() * 4) + 3;
+      for (let i = 0; i < numObstacles; i++) {
+        const x = Math.floor(Math.random() * (MAP_WIDTH - 4)) + 2;
+        const y = Math.floor(Math.random() * (MAP_HEIGHT - 4)) + 2;
+        if (!walls.some(([wx, wy]) => wx === x && wy === y)) {
+          walls.push([x, y]);
+          // Occasionally add adjacent wall
+          if (Math.random() > 0.5) {
+            const dx = Math.random() > 0.5 ? 1 : -1;
+            walls.push([x + dx, y]);
+          }
+        }
+      }
+      
+      props.content.walls = walls;
+    };
+
+    const isPositionValid = (x: number, y: number): boolean => {
+      if (x < 1 || x >= MAP_WIDTH - 1 || y < 1 || y >= MAP_HEIGHT - 1) return false;
+      if (isWall(x, y)) return false;
+      if (props.content.playerX === x && props.content.playerY === y) return false;
+      if (props.content.enemies.some(e => e.x === x && e.y === y)) return false;
+      return true;
+    };
+
+    const findRandomPosition = (): [number, number] => {
+      let attempts = 0;
+      while (attempts < 50) {
+        const x = Math.floor(Math.random() * (MAP_WIDTH - 2)) + 1;
+        const y = Math.floor(Math.random() * (MAP_HEIGHT - 2)) + 1;
+        if (isPositionValid(x, y)) return [x, y];
+        attempts++;
+      }
+      return [1, 1];
+    };
+
+    const spawnPlayer = () => {
+      const [x, y] = findRandomPosition();
+      props.content.playerX = x;
+      props.content.playerY = y;
+    };
+
+    const spawnEnemies = (wave: number) => {
+      const baseCount = Math.min(2 + Math.floor(wave / 2), 6);
+      const enemies: RPGContent['enemies'] = [];
+      
+      for (let i = 0; i < baseCount; i++) {
+        const [x, y] = findRandomPosition();
+        const types: EnemyType[] = ['goblin', 'goblin', 'troll'];
+        if (wave >= 3) types.push('dragon');
+        const type = types[Math.floor(Math.random() * types.length)];
+        const stats = ENEMY_STATS[type];
+        const waveMultiplier = 1 + (wave - 1) * 0.2;
+        
+        enemies.push({
+          id: `enemy-${Date.now()}-${i}`,
+          x,
+          y,
+          type,
+          health: Math.floor(stats.maxHealth * waveMultiplier),
+          maxHealth: Math.floor(stats.maxHealth * waveMultiplier),
+          attack: Math.floor(stats.attack * waveMultiplier),
+        });
+      }
+      
+      props.content.enemies = enemies;
+    };
+
+    const spawnItems = (count: number) => {
+      const items: RPGContent['items'] = [];
+      const types: ItemType[] = ['health', 'strength', 'shield'];
+      
+      for (let i = 0; i < count; i++) {
+        const [x, y] = findRandomPosition();
+        items.push({
+          id: `item-${Date.now()}-${i}`,
+          x,
+          y,
+          type: types[Math.floor(Math.random() * types.length)],
+          collected: false,
+        });
+      }
+      
+      props.content.items = items;
+    };
 
     const isWall = (x: number, y: number): boolean => {
-      return WALLS.some(([wx, wy]) => wx === x && wy === y);
+      return props.content.walls.some(([wx, wy]) => wx === x && wy === y);
     };
 
     const isPlayer = (x: number, y: number): boolean => {
       return props.content.playerX === x && props.content.playerY === y;
     };
 
-    const isEnemy = (x: number, y: number): boolean => {
-      return props.content.enemyX === x && props.content.enemyY === y;
+    const getEnemyAt = (x: number, y: number) => {
+      return props.content.enemies.find(e => e.x === x && e.y === y && e.health > 0);
     };
+
+    const getItemAt = (x: number, y: number) => {
+      return props.content.items.find(i => i.x === x && i.y === y);
+    };
+
+    const getEnemyEmoji = (type: EnemyType): string => {
+      return ENEMY_STATS[type].emoji;
+    };
+
+    const getItemEmoji = (type: ItemType): string => {
+      return ITEM_EFFECTS[type].emoji;
+    };
+
+    const aliveEnemies = computed(() => {
+      return props.content.enemies.filter(e => e.health > 0);
+    });
 
     const getCellClass = (x: number, y: number): string => {
       if (isWall(x, y)) return 'has-wall';
       if (isPlayer(x, y)) return 'has-player';
-      if (isEnemy(x, y) && props.content.enemyHealth > 0) return 'has-enemy';
+      if (getEnemyAt(x, y)) return 'has-enemy';
+      if (getItemAt(x, y) && !getItemAt(x, y)!.collected) return 'has-item';
       return '';
     };
 
@@ -127,27 +273,60 @@ export default defineComponent({
       return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
     };
 
-    const combat = () => {
-      if (props.content.enemyHealth <= 0) return;
+    const collectItem = (item: RPGContent['items'][0]) => {
+      item.collected = true;
+      const effect = ITEM_EFFECTS[item.type];
+      
+      switch (effect.effect) {
+        case 'heal':
+          props.content.playerHealth = Math.min(
+            props.content.playerMaxHealth,
+            props.content.playerHealth + effect.value
+          );
+          break;
+        case 'attack':
+          props.content.playerAttack += effect.value;
+          break;
+        case 'maxHealth':
+          props.content.playerMaxHealth += effect.value;
+          props.content.playerHealth += effect.value;
+          break;
+      }
+      
+      layoutStore.saveLayout();
+    };
+
+    const combat = (enemy: RPGContent['enemies'][0]) => {
+      if (enemy.health <= 0) return;
 
       // Player attacks enemy
-      const playerDamage = Math.floor(Math.random() * 15) + 10;
-      props.content.enemyHealth = Math.max(0, props.content.enemyHealth - playerDamage);
+      const variance = Math.floor(Math.random() * 6) - 3;
+      const playerDamage = Math.max(1, props.content.playerAttack + variance);
+      enemy.health = Math.max(0, enemy.health - playerDamage);
 
       // Check if enemy is defeated
-      if (props.content.enemyHealth <= 0) {
-        props.content.gameState = 'won';
+      if (enemy.health <= 0) {
+        const points = ENEMY_STATS[enemy.type].points;
+        props.content.score += points;
+        
+        // Check if all enemies defeated
+        if (aliveEnemies.value.length === 0) {
+          props.content.gameState = 'won';
+        }
+        
         layoutStore.saveLayout();
         return;
       }
 
       // Enemy counterattacks
-      const enemyDamage = Math.floor(Math.random() * 10) + 5;
+      const enemyVariance = Math.floor(Math.random() * 4) - 2;
+      const enemyDamage = Math.max(1, enemy.attack + enemyVariance);
       props.content.playerHealth = Math.max(0, props.content.playerHealth - enemyDamage);
 
       // Check if player is defeated
       if (props.content.playerHealth <= 0) {
         props.content.gameState = 'lost';
+        stopEnemyAI();
       }
 
       layoutStore.saveLayout();
@@ -159,26 +338,85 @@ export default defineComponent({
       const newX = props.content.playerX + dx;
       const newY = props.content.playerY + dy;
 
-      // Check bounds
+      // Check bounds and walls
       if (newX < 0 || newX >= MAP_WIDTH || newY < 0 || newY >= MAP_HEIGHT) return;
-
-      // Check walls
       if (isWall(newX, newY)) return;
 
-      // Check if moving onto enemy
-      if (newX === props.content.enemyX && newY === props.content.enemyY && props.content.enemyHealth > 0) {
-        return; // Can't move onto enemy
+      // Check if moving onto enemy - attack instead
+      const enemy = getEnemyAt(newX, newY);
+      if (enemy) {
+        combat(enemy);
+        return;
       }
 
       // Move player
       props.content.playerX = newX;
       props.content.playerY = newY;
 
-      // Check if adjacent to enemy for combat
-      if (isAdjacent(newX, newY, props.content.enemyX, props.content.enemyY) && props.content.enemyHealth > 0) {
-        combat();
+      // Check for item collection
+      const item = getItemAt(newX, newY);
+      if (item && !item.collected) {
+        collectItem(item);
       } else {
         layoutStore.saveLayout();
+      }
+    };
+
+    const moveEnemies = () => {
+      if (props.content.gameState !== 'playing') return;
+      
+      props.content.enemies.forEach(enemy => {
+        if (enemy.health <= 0) return;
+        
+        // 50% chance to move each turn
+        if (Math.random() > 0.5) return;
+        
+        const dx = props.content.playerX - enemy.x;
+        const dy = props.content.playerY - enemy.y;
+        const distance = Math.abs(dx) + Math.abs(dy);
+        
+        // Only move if player is within range (6 tiles)
+        if (distance > 6) return;
+        
+        // Move toward player
+        let moveX = 0;
+        let moveY = 0;
+        
+        if (Math.abs(dx) > Math.abs(dy)) {
+          moveX = dx > 0 ? 1 : -1;
+        } else {
+          moveY = dy > 0 ? 1 : -1;
+        }
+        
+        const newX = enemy.x + moveX;
+        const newY = enemy.y + moveY;
+        
+        // Check if valid move
+        if (isWall(newX, newY)) return;
+        if (props.content.enemies.some(e => e.x === newX && e.y === newY && e.id !== enemy.id)) return;
+        
+        // Check if attacking player
+        if (newX === props.content.playerX && newY === props.content.playerY) {
+          combat(enemy);
+          return;
+        }
+        
+        enemy.x = newX;
+        enemy.y = newY;
+      });
+      
+      layoutStore.saveLayout();
+    };
+
+    const startEnemyAI = () => {
+      stopEnemyAI();
+      enemyMoveInterval.value = window.setInterval(moveEnemies, 800);
+    };
+
+    const stopEnemyAI = () => {
+      if (enemyMoveInterval.value) {
+        clearInterval(enemyMoveInterval.value);
+        enemyMoveInterval.value = null;
       }
     };
 
@@ -210,23 +448,56 @@ export default defineComponent({
       }
     };
 
+    const nextWave = () => {
+      props.content.wave += 1;
+      props.content.gameState = 'playing';
+      
+      // Heal player partially
+      props.content.playerHealth = Math.min(
+        props.content.playerMaxHealth,
+        props.content.playerHealth + 30
+      );
+      
+      // Generate new map and spawn entities
+      generateMap();
+      spawnPlayer();
+      spawnEnemies(props.content.wave);
+      spawnItems(Math.min(3 + Math.floor(props.content.wave / 2), 6));
+      
+      layoutStore.saveLayout();
+      startEnemyAI();
+      gameContainer.value?.focus();
+    };
+
     const resetGame = () => {
       props.content.playerX = 1;
       props.content.playerY = 1;
       props.content.playerHealth = 100;
-      props.content.enemyX = 8;
-      props.content.enemyY = 8;
-      props.content.enemyHealth = 50;
+      props.content.playerMaxHealth = 100;
+      props.content.playerAttack = 15;
+      props.content.enemies = [];
+      props.content.items = [];
+      props.content.walls = [];
+      props.content.score = 0;
+      props.content.wave = 1;
       props.content.gameState = 'playing';
-      layoutStore.saveLayout();
       
-      // Refocus on game
+      initializeGame();
+      layoutStore.saveLayout();
+      startEnemyAI();
       gameContainer.value?.focus();
     };
 
     onMounted(() => {
-      // Auto-focus the game container so keyboard works immediately
+      initializeGame();
+      if (props.content.gameState === 'playing') {
+        startEnemyAI();
+      }
       gameContainer.value?.focus();
+    });
+
+    onUnmounted(() => {
+      stopEnemyAI();
     });
 
     return {
@@ -237,8 +508,13 @@ export default defineComponent({
       getCellClass,
       isWall,
       isPlayer,
-      isEnemy,
+      getEnemyAt,
+      getItemAt,
+      getEnemyEmoji,
+      getItemEmoji,
+      aliveEnemies,
       resetGame,
+      nextWave,
     };
   },
 });
@@ -261,8 +537,33 @@ export default defineComponent({
   max-width: 400px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   position: relative;
+}
+
+.rpg-header {
+  display: flex;
+  justify-content: space-between;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.score-display, .wave-display {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.score-display .label, .wave-display .label {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.score-display .value, .wave-display .value {
+  color: #fbbf24;
+  font-weight: 700;
 }
 
 .rpg-grid {
@@ -305,6 +606,10 @@ export default defineComponent({
   background: rgba(200, 50, 50, 0.4);
 }
 
+.rpg-cell.has-item {
+  background: rgba(255, 215, 0, 0.3);
+}
+
 .wall {
   display: block;
   width: 100%;
@@ -313,8 +618,52 @@ export default defineComponent({
   border-radius: 2px;
 }
 
-.player, .enemy {
+.player {
   animation: bounce 0.5s ease-in-out infinite alternate;
+  filter: drop-shadow(0 2px 4px rgba(79, 70, 229, 0.6));
+}
+
+.enemy {
+  animation: bounce 0.6s ease-in-out infinite alternate;
+}
+
+.enemy-goblin {
+  filter: drop-shadow(0 2px 4px rgba(239, 68, 68, 0.5));
+}
+
+.enemy-troll {
+  filter: drop-shadow(0 2px 4px rgba(220, 38, 38, 0.6));
+  font-size: 22px;
+}
+
+.enemy-dragon {
+  filter: drop-shadow(0 2px 4px rgba(239, 68, 68, 0.8));
+  font-size: 24px;
+  animation: dragonFloat 1s ease-in-out infinite alternate;
+}
+
+@keyframes dragonFloat {
+  from {
+    transform: translateY(-3px);
+  }
+  to {
+    transform: translateY(1px);
+  }
+}
+
+.item {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
 }
 
 @keyframes bounce {
@@ -329,7 +678,7 @@ export default defineComponent({
 .rpg-stats {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   background: rgba(0, 0, 0, 0.4);
   padding: 8px;
   border-radius: 6px;
@@ -342,10 +691,19 @@ export default defineComponent({
 }
 
 .stat-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: #fff;
-  min-width: 50px;
+  min-width: 60px;
+}
+
+.attack-value, .enemy-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fbbf24;
+  padding: 2px 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
 }
 
 .health-bar {
@@ -416,6 +774,19 @@ export default defineComponent({
   color: #fff;
 }
 
+.message-score {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fbbf24;
+  margin-top: 4px;
+}
+
+.message-wave {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+}
+
 .win .message-title {
   color: #4ade80;
 }
@@ -434,11 +805,20 @@ export default defineComponent({
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  margin: 4px;
+}
+
+.reset-btn.secondary {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
 }
 
 .reset-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.reset-btn.secondary:hover {
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.4);
 }
 
 .reset-btn:active {
@@ -447,8 +827,9 @@ export default defineComponent({
 
 .rpg-instructions {
   text-align: center;
-  font-size: 11px;
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.6);
   padding: 4px;
+  line-height: 1.4;
 }
 </style>

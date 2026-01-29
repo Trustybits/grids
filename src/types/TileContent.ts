@@ -1,5 +1,6 @@
 export enum ContentType {
   TEXT = "text",
+  CHAT = "chat",
   IMAGE = "image",
   VIDEO = "video",
   LINK = "link",
@@ -20,6 +21,18 @@ export interface TextContent extends TileContent {
   isItalic: boolean;
   textType: string;
   color: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  text: string;
+  createdAt: number;
+  authorId?: string;
+}
+
+export interface ChatContent extends TileContent {
+  type: ContentType.CHAT;
+  messages: ChatMessage[];
 }
 
 export interface ImageContent extends TileContent {

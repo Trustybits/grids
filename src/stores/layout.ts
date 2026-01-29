@@ -239,16 +239,20 @@ export const useLayoutStore = defineStore("layout", {
 
       // TODO: Validate content before creating tile
 
-      // Find the first available 2x2 spot (left-to-right, top-to-bottom)
-      const position = this.findFirstAvailableSpot(2, 2);
+      const isProfile = content.type === ContentType.PROFILE;
+      const tileWidth = isProfile ? 4 : 2;
+      const tileHeight = isProfile ? 4 : 2;
+
+      // Find the first available spot (left-to-right, top-to-bottom)
+      const position = this.findFirstAvailableSpot(tileWidth, tileHeight);
       // Create the new tile at the found position
       const newTile = createTile(
         content.type,
         uuidv4(),
         position.x,
         position.y,
-        2,
-        2,
+        tileWidth,
+        tileHeight,
         content,
         ""
       );
@@ -266,6 +270,11 @@ export const useLayoutStore = defineStore("layout", {
       if (!tile) return;
 
       tile.content = content as any;
+      if (content.type === ContentType.PROFILE) {
+        tile.w = 4;
+        tile.h = 4;
+        this.adjustTilePosition(tile);
+      }
       this.updateLayout();
     },
 
@@ -273,8 +282,7 @@ export const useLayoutStore = defineStore("layout", {
       if (!this.currentLayout) return;
       if (this.currentLayout.tiles.length !== 0) return;
 
-      const colNum = this.currentLayout.colNum || 12;
-      const startX = Math.max(0, Math.floor((colNum - 4) / 2));
+      const startX = 0;
 
       const suggestions = [
         createTile(
@@ -284,13 +292,23 @@ export const useLayoutStore = defineStore("layout", {
           0,
           2,
           2,
-          { action: "text", label: "Add Text" },
+          { action: "profile", label: "Add Profile" },
           ""
         ),
         createTile(
           ContentType.SUGGESTION,
           uuidv4(),
           startX + 2,
+          0,
+          2,
+          2,
+          { action: "text", label: "Add Text" },
+          ""
+        ),
+        createTile(
+          ContentType.SUGGESTION,
+          uuidv4(),
+          startX + 4,
           0,
           2,
           2,
@@ -422,6 +440,13 @@ export const useLayoutStore = defineStore("layout", {
 
       const tile = this.currentLayout.tiles.find((tile) => tile.i === id);
       if (tile) {
+        if (tile.content.type === ContentType.PROFILE) {
+          tile.w = 4;
+          tile.h = 4;
+          this.adjustTilePosition(tile);
+          this.updateLayout();
+          return;
+        }
         tile.w = w;
         tile.h = h;
         this.adjustTilePosition(tile);

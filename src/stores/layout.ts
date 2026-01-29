@@ -238,15 +238,15 @@ export const useLayoutStore = defineStore("layout", {
     addTile(content: TileContent): string | null {
       if (!this.currentLayout) return null;
 
-      // Validate: Only one clicker tile per grid
-      if (content.type === ContentType.CLICKER) {
-        const hasClickerTile = this.currentLayout.tiles.some(
-          (tile) => tile.content.type === ContentType.CLICKER
+      // Validate: Only one campfire tile per grid
+      if (content.type === ContentType.CAMPFIRE) {
+        const hasCampfireTile = this.currentLayout.tiles.some(
+          (tile) => tile.content.type === ContentType.CAMPFIRE
         );
-        if (hasClickerTile) {
+        if (hasCampfireTile) {
           // Use toast to notify user
           const toastStore = useToastStore();
-          toastStore.addToast('Only one click counter allowed per grid', 'error');
+          toastStore.addToast('Only one campfire allowed per grid', 'error');
           return null;
         }
       }

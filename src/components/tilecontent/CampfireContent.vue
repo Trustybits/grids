@@ -1,7 +1,7 @@
 <template>
   <div class="campfire-container">
-    <div class="campfire-content">
-      <div class="flame-count">{{ ownerGameData?.totalClicks || 0 }}</div>
+    <div class="campfire-content" :class="layoutClass">
+      <div v-if="showCount" class="flame-count">{{ ownerGameData?.totalClicks || 0 }}</div>
       
       <button 
         class="campfire-button" 
@@ -9,12 +9,12 @@
         @click="handleClick"
         :title="'Keep the fire burning!'"
       >
-        <FireLargeIcon v-if="fireIntensity === 'blazing'" :size="64" />
-        <FireMediumIcon v-else-if="fireIntensity === 'burning'" :size="48" />
-        <FireSmallIcon v-else :size="32" />
+        <FireLargeIcon v-if="fireIntensity === 'blazing'" :size="fireIconSize" />
+        <FireMediumIcon v-else-if="fireIntensity === 'burning'" :size="fireIconSize" />
+        <FireSmallIcon v-else :size="fireIconSize" />
       </button>
       
-      <div class="footer">
+      <div v-if="showFooter" class="footer">
         <div class="player-info">
           <div class="player-name">{{ ownerGameData?.displayName || 'Loading...' }}</div>
         </div>
@@ -55,7 +55,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, onUnmounted, computed } from "vue";
+import { defineComponent, ref, onMounted, onUnmounted, computed, inject, type ComputedRef } from "vue";
 import { type CampfireContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import FireSmallIcon from "@/components/icons/FireSmallIcon.vue";
@@ -91,6 +91,45 @@ export default defineComponent({
     const showLeaderboard = ref(false);
     const ownerGameData = ref<UserGameData | null>(null);
     const leaderboard = ref<LeaderboardEntry[]>([]);
+    
+    // Inject tile dimensions from GridTile (these are ComputedRefs)
+    const tileWidth = inject<ComputedRef<number>>('gridTileW', computed(() => 2));
+    const tileHeight = inject<ComputedRef<number>>('gridTileH', computed(() => 2));
+    
+    // Determine layout based on tile dimensions
+    const layoutClass = computed(() => {
+      const w = tileWidth.value;
+      const h = tileHeight.value;
+      if (w === 1 && h === 1) return 'layout-1x1';
+      if (w === 1 && h === 2) return 'layout-1x2';
+      if (w === 2 && h === 1) return 'layout-2x1';
+      return 'layout-default';
+    });
+    
+    // Show count only for non-1x1 tiles
+    const showCount = computed(() => {
+      const w = tileWidth.value;
+      const h = tileHeight.value;
+      return !(w === 1 && h === 1);
+    });
+    
+    // Show footer only for default layout (2x2 or larger)
+    const showFooter = computed(() => {
+      const w = tileWidth.value;
+      const h = tileHeight.value;
+      return !(w === 1 || h === 1);
+    });
+    
+    // Dynamic fire icon size based on layout
+    const fireIconSize = computed(() => {
+      const w = tileWidth.value;
+      const h = tileHeight.value;
+      if (w === 1 && h === 1) return 40;
+      if (w === 1 || h === 1) return 48;
+      if (fireIntensity.value === 'blazing') return 64;
+      if (fireIntensity.value === 'burning') return 48;
+      return 32;
+    });
     
     let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
     let unsubscribeOwnerData: (() => void) | null = null;
@@ -198,6 +237,10 @@ export default defineComponent({
       ownerGameData,
       leaderboard,
       ownerId,
+      layoutClass,
+      showCount,
+      showFooter,
+      fireIconSize,
     };
   },
 });
@@ -225,6 +268,49 @@ export default defineComponent({
   gap: var(--spacing-xs);
   width: 100%;
   height: 100%;
+  
+  // 1x1 layout - only fire button, centered
+  &.layout-1x1 {
+    justify-content: center;
+    padding: 0;
+    
+    .campfire-button {
+      width: 56px;
+      height: 56px;
+    }
+  }
+  
+  // 1x2 layout - vertical: count top, button bottom
+  &.layout-1x2 {
+    flex-direction: column;
+    justify-content: space-evenly;
+    padding: var(--spacing-xs) 0;
+    
+    .flame-count {
+      font-size: 32px;
+    }
+    
+    .campfire-button {
+      width: 64px;
+      height: 64px;
+    }
+  }
+  
+  // 2x1 layout - horizontal: count left, button right
+  &.layout-2x1 {
+    flex-direction: row;
+    justify-content: space-evenly;
+    padding: 0 var(--spacing-xs);
+    
+    .flame-count {
+      font-size: 32px;
+    }
+    
+    .campfire-button {
+      width: 64px;
+      height: 64px;
+    }
+  }
 }
 
 .flame-count {
@@ -266,13 +352,13 @@ export default defineComponent({
   &.fire-burning {
     color: #ff6b35;
     animation: flickerBurning 1.2s ease-in-out infinite;
-    filter: drop-shadow(0 0 8px rgba(255, 107, 53, 0.5));
+    filter: drop-shadow(0 0 8px rgba(255, 107, 53, 0.6));
   }
   
   &.fire-blazing {
     color: #ff4500;
     animation: flickerBlazing 0.8s ease-in-out infinite;
-    filter: drop-shadow(0 0 16px rgba(255, 107, 53, 0.8)) drop-shadow(0 0 24px rgba(247, 147, 30, 0.6));
+    filter: drop-shadow(0 0 16px rgba(255, 107, 53, 0.95)) drop-shadow(0 0 24px rgba(247, 147, 30, 0.75));
   }
 }
 
@@ -432,10 +518,10 @@ export default defineComponent({
 }
 
 .leaderboard-entry {
-  display: grid;
+  display: flex;
   grid-template-columns: 40px 1fr auto;
   gap: var(--spacing-sm);
-  align-items: center;
+  justify-content: space-between;
   padding: var(--spacing-sm);
   border-radius: var(--radius-sm);
   font-size: 13px;
@@ -456,8 +542,9 @@ export default defineComponent({
 .leaderboard-entry .rank {
   color: var(--color-content-default);
   font-weight: 700;
-  text-align: right;
+  text-align: left;
   font-size: 14px;
+  width: fit-content;
 }
 
 .leaderboard-entry .name {
@@ -471,6 +558,8 @@ export default defineComponent({
   color: #ff6b35;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  width: fit-content;
+  white-space: nowrap;
 }
 
 .leaderboard-empty {

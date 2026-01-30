@@ -11,6 +11,10 @@ service cloud.firestore {
         && layoutDoc(layoutId).data.userId == request.auth.uid;
     }
 
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     match /layouts/{layoutId} {
       allow read: if true;
 

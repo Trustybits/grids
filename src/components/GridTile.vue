@@ -332,7 +332,7 @@ export default defineComponent({
     let stopChildEditingWatch: (() => void) | null = null;
 
     const showCaption = computed(() => {
-      // Hide caption for Link, Text, Chat, Embed, Campfire, RPG, and Suggestion tiles as requested
+      // Hide caption for Link, Text, Chat, Embed, Map, Campfire, RPG, and Suggestion tiles as requested
       const hiddenTypes = [
         ContentType.LINK,
         ContentType.TEXT,
@@ -340,6 +340,7 @@ export default defineComponent({
         ContentType.EMBED,
         ContentType.CAMPFIRE,
         ContentType.RPG,
+        ContentType.MAP,
         ContentType.SUGGESTION,
       ];
       return !hiddenTypes.includes(props.tile.content.type);

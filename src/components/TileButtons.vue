@@ -26,6 +26,9 @@
       <button class="btn btn-secondary" @click="addCampfireElement">
         <CampfireIcon />
       </button>
+      <button class="btn btn-secondary" @click="addRPGElement">
+        <RPGIcon />
+      </button>
       <!-- <button class="btn btn-secondary" @click="addLinkElement">➕</button> -->
 
       <input
@@ -75,6 +78,7 @@ import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import CampfireIcon from "./icons/CampfireIcon.vue";
+import RPGIcon from "./icons/RPGIcon.vue";
 
 export default {
   components: {
@@ -85,6 +89,7 @@ export default {
     LinkIcon,
     EmbedIcon,
     CampfireIcon,
+    RPGIcon,
   },
   setup() {
     const themeStore = useThemeStore();
@@ -212,6 +217,11 @@ export default {
       layoutStore.addTile(content);
     };
 
+    const addRPGElement = () => {
+      const rpgContent = createTileContent(ContentType.RPG, {});
+      layoutStore.addTile(rpgContent);
+    };
+
     const addOtherElement = () => {
       let link = prompt(
         "More tile types coming soon! Any others you might be expecting to see?"
@@ -241,6 +251,7 @@ export default {
       addFile,
       addLinkElement,
       addEmbedElement,
+      addRPGElement,
       updateMetaData,
       isDarkMode,
       showLinkModal,

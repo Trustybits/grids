@@ -11,6 +11,10 @@
         <TextIcon />
       </button>
 
+      <button class="btn btn-secondary" @click="addProfileElement">
+        <ProfileIcon />
+      </button>
+
       <button class="btn btn-secondary" @click="addChatElement">
         <ChatIcon />
       </button>
@@ -91,6 +95,7 @@ import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
+import ProfileIcon from "./icons/ProfileIcon.vue";
 import MapIcon from "./icons/MapIcon.vue";
 import CampfireIcon from "./icons/CampfireIcon.vue";
 import RPGIcon from "./icons/RPGIcon.vue";
@@ -105,6 +110,7 @@ export default {
     ImageIcon,
     LinkIcon,
     EmbedIcon,
+    ProfileIcon,
     MapIcon,
     CampfireIcon,
     RPGIcon,
@@ -125,6 +131,11 @@ export default {
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
       layoutStore.addTile(textContent);
+    };
+
+    const addProfileElement = () => {
+      const profileContent = createTileContent(ContentType.PROFILE, {});
+      layoutStore.addTile(profileContent);
     };
 
     const addChatElement = () => {
@@ -280,6 +291,7 @@ export default {
       imageInput,
       layoutStore,
       addTextElement,
+      addProfileElement,
       addChatElement,
       addCampfireElement,
       selectFile,

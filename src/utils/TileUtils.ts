@@ -3,11 +3,14 @@ import {
   ContentType,
   type TileContent,
   type TextContent,
+  type ChatContent,
   type ImageContent,
   type LinkContent,
   type VideoContent,
   type EmbedContent,
+  type RPGContent,
   type SuggestionContent,
+  type CampfireContent,
 } from "@/types/TileContent";
 import { defineAsyncComponent, markRaw } from "vue";
 
@@ -161,7 +164,7 @@ export function createTile(
 export function createTileContent(
   type: ContentType,
   data: Partial<
-    TextContent | ImageContent | LinkContent | VideoContent | EmbedContent | SuggestionContent
+    TextContent | ChatContent | ImageContent | LinkContent | VideoContent | EmbedContent | RPGContent | SuggestionContent | CampfireContent
   > = {}
 ): TileContent {
   switch (type) {
@@ -176,6 +179,12 @@ export function createTileContent(
         textType: (data as Partial<TextContent>).textType || "",
         color: (data as Partial<TextContent>).color || "#ffffff",
       } as TextContent;
+
+    case ContentType.CHAT:
+      return {
+        type,
+        messages: (data as Partial<ChatContent>).messages || [],
+      } as ChatContent;
 
     case ContentType.IMAGE:
       return {
@@ -215,6 +224,22 @@ export function createTileContent(
         src: normalizeEmbedSrc((data as Partial<EmbedContent>).src || ""),
       } as EmbedContent;
 
+    case ContentType.RPG:
+      return {
+        type,
+        playerX: (data as Partial<RPGContent>).playerX ?? 1,
+        playerY: (data as Partial<RPGContent>).playerY ?? 1,
+        playerHealth: (data as Partial<RPGContent>).playerHealth ?? 100,
+        playerMaxHealth: (data as Partial<RPGContent>).playerMaxHealth ?? 100,
+        playerAttack: (data as Partial<RPGContent>).playerAttack ?? 15,
+        enemies: (data as Partial<RPGContent>).enemies ?? [],
+        items: (data as Partial<RPGContent>).items ?? [],
+        walls: (data as Partial<RPGContent>).walls ?? [],
+        score: (data as Partial<RPGContent>).score ?? 0,
+        wave: (data as Partial<RPGContent>).wave ?? 1,
+        gameState: (data as Partial<RPGContent>).gameState ?? 'playing',
+      } as RPGContent;
+
     case ContentType.SUGGESTION:
       return {
         type,
@@ -222,6 +247,13 @@ export function createTileContent(
         icon: (data as Partial<SuggestionContent>).icon,
         label: (data as Partial<SuggestionContent>).label,
       } as SuggestionContent;
+
+    case ContentType.CAMPFIRE:
+      return {
+        type,
+        count: (data as Partial<CampfireContent>).count || 0,
+        highScore: (data as Partial<CampfireContent>).highScore || 0,
+      } as CampfireContent;
 
     default:
       throw new Error(`Unsupported content type: ${type}`);
@@ -247,6 +279,8 @@ export function validateTileContent(content: TileContent): boolean {
   switch (content.type) {
     case ContentType.TEXT:
       return (content as TextContent).text.trim().length > 0;
+    case ContentType.CHAT:
+      return true;
     case ContentType.IMAGE:
       const image = content as ImageContent;
       return (
@@ -265,8 +299,12 @@ export function validateTileContent(content: TileContent): boolean {
     case ContentType.EMBED:
       const embed = content as EmbedContent;
       return !!embed.src && embed.src.startsWith("http");
+    case ContentType.RPG:
+      return true; // RPG game tile is always valid
     case ContentType.SUGGESTION:
       return true; // internal placeholder is always valid
+    case ContentType.CAMPFIRE:
+      return true; // campfire game is always valid
     default:
       return false;
   }
@@ -278,6 +316,12 @@ export function getContentComponent(content: TileContent): any {
       return markRaw(
         defineAsyncComponent(
           () => import("@/components/tilecontent/TextContent.vue")
+        )
+      );
+    case ContentType.CHAT:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/ChatContent.vue")
         )
       );
     case ContentType.IMAGE:
@@ -304,8 +348,20 @@ export function getContentComponent(content: TileContent): any {
           () => import("@/components/tilecontent/EmbedContent.vue")
         )
       );
+    case ContentType.RPG:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/RPGContent.vue")
+        )
+      );
     case ContentType.SUGGESTION:
       return null; // rendered inline in GridTile
+    case ContentType.CAMPFIRE:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/CampfireContent.vue")
+        )
+      );
     default:
       throw new Error(`Unsupported content type: ${content.type}`);
   }

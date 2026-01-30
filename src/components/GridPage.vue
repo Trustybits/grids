@@ -35,12 +35,14 @@
     </div>
   </div>
 
+  <ShareButton />
   <GridMenu
     v-if="layoutStore.isOwner"
     @select-image="selectImage"
     @embed-background="embedBackground"
     @confirm-delete="confirmDelete"
   />
+  <Divider />
 </template>
 
 <script lang="ts">
@@ -57,6 +59,7 @@ import {
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
 import GridMenu from "@/components/GridMenu.vue";
+import ShareButton from "@/components/ShareButton.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
 
@@ -65,6 +68,7 @@ export default defineComponent({
     Grid,
     GridButtons,
     GridMenu,
+    ShareButton,
   },
   setup() {
     const layoutStore = useLayoutStore();

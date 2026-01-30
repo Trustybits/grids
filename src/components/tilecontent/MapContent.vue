@@ -83,7 +83,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from "vue";
 import mapboxgl from "mapbox-gl";
-import planeIcon from "@/svgs/icons/airplane2.svg";
+import planeIcon from "@/svgs/icons/airplane.svg";
 import { useLayoutStore } from "@/stores/layout";
 import { useThemeStore } from "@/stores/theme";
 import { type MapContent, type MapStyleMode } from "@/types/TileContent";

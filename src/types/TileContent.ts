@@ -5,6 +5,7 @@ export enum ContentType {
   LINK = "link",
   EMBED = "embed",
   CAMPFIRE = "campfire",
+  RPG = "rpg",
   SUGGESTION = "suggestion", // internal-only tile type
 }
 
@@ -58,6 +59,35 @@ export interface VideoContent extends TileContent {
   zoom: number;
   offsetX: number;
   offsetY: number;
+}
+
+export interface RPGContent extends TileContent {
+  type: ContentType.RPG;
+  playerX: number;
+  playerY: number;
+  playerHealth: number;
+  playerMaxHealth: number;
+  playerAttack: number;
+  enemies: Array<{
+    id: string;
+    x: number;
+    y: number;
+    health: number;
+    maxHealth: number;
+    attack: number;
+    type: 'goblin' | 'troll' | 'dragon';
+  }>;
+  items: Array<{
+    id: string;
+    x: number;
+    y: number;
+    type: 'health' | 'strength' | 'shield';
+    collected: boolean;
+  }>;
+  walls: Array<[number, number]>;
+  score: number;
+  wave: number;
+  gameState: 'playing' | 'won' | 'lost';
 }
 
 export type SuggestionAction = "text" | "media" | "link" | "embed";

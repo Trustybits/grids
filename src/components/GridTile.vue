@@ -18,6 +18,7 @@
       :maxW="10"
       :maxH="10"
       :isDraggable="layoutStore.isOwner && !isEditing && !isSuggestion"
+      :isResizable="isTileResizable"
       @move="onMove"
       @moved="onMoved"
       @resized="onResized"
@@ -51,6 +52,7 @@
               <ImageIcon v-else-if="suggestionAction === 'media'" :size="48" />
               <LinkIcon v-else-if="suggestionAction === 'link'" :size="48" />
               <EmbedIcon v-else-if="suggestionAction === 'embed'" :size="48" />
+              <ProfileIcon v-else-if="suggestionAction === 'profile'" :size="48" />
             </div>
             <span class="suggestion-label">{{ suggestionLabel }}</span>
           </div>
@@ -85,51 +87,53 @@
       <TileCaption v-if="showCaption && (layoutStore.isOwner || tile.caption)" :tile="tile" />
 
       <div v-if="layoutStore.isOwner && !isSuggestion" class="tile-toolbar" @mousedown.stop>
-        <button
-          class="toolbar-btn"
-          :class="{ 'is-active': isPresetActive(5, 1) }"
-          title="Resize to 5x1"
-          @click.stop="resize(5, 1)"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="3" y="10" width="18" height="4" rx="1.5" stroke="currentColor" stroke-width="1.5" />
-          </svg>
-        </button>
+        <template v-if="!isProfileTile">
+          <button
+            class="toolbar-btn"
+            :class="{ 'is-active': isPresetActive(5, 1) }"
+            title="Resize to 5x1"
+            @click.stop="resize(5, 1)"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="10" width="18" height="4" rx="1.5" stroke="currentColor" stroke-width="1.5" />
+            </svg>
+          </button>
 
-        <button
-          class="toolbar-btn"
-          :class="{ 'is-active': isPresetActive(2, 2) }"
-          title="Resize to 2x2"
-          @click.stop="resize(2, 2)"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="6" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5" />
-          </svg>
-        </button>
+          <button
+            class="toolbar-btn"
+            :class="{ 'is-active': isPresetActive(2, 2) }"
+            title="Resize to 2x2"
+            @click.stop="resize(2, 2)"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="6" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5" />
+            </svg>
+          </button>
 
-        <button
-          class="toolbar-btn"
-          :class="{ 'is-active': isPresetActive(3, 2) }"
-          title="Resize to 3x2"
-          @click.stop="resize(3, 2)"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="7" width="16" height="10" rx="2" stroke="currentColor" stroke-width="1.5" />
-          </svg>
-        </button>
+          <button
+            class="toolbar-btn"
+            :class="{ 'is-active': isPresetActive(3, 2) }"
+            title="Resize to 3x2"
+            @click.stop="resize(3, 2)"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="7" width="16" height="10" rx="2" stroke="currentColor" stroke-width="1.5" />
+            </svg>
+          </button>
 
-        <button
-          class="toolbar-btn"
-          :class="{ 'is-active': isPresetActive(2, 4) }"
-          title="Resize to 2x4"
-          @click.stop="resize(2, 4)"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="8" y="4" width="8" height="16" rx="2" stroke="currentColor" stroke-width="1.5" />
-          </svg>
-        </button>
+          <button
+            class="toolbar-btn"
+            :class="{ 'is-active': isPresetActive(2, 4) }"
+            title="Resize to 2x4"
+            @click.stop="resize(2, 4)"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="8" y="4" width="8" height="16" rx="2" stroke="currentColor" stroke-width="1.5" />
+            </svg>
+          </button>
 
-        <div class="toolbar-divider"></div>
+          <div class="toolbar-divider"></div>
+        </template>
 
         <button
           class="toolbar-btn toolbar-btn--border"
@@ -294,6 +298,7 @@ import TextIcon from "./icons/TextIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
+import ProfileIcon from "./icons/ProfileIcon.vue";
 
 export default defineComponent({
   components: {
@@ -303,6 +308,7 @@ export default defineComponent({
     ImageIcon,
     LinkIcon,
     EmbedIcon,
+    ProfileIcon,
   },
   props: {
     tile: {
@@ -342,6 +348,7 @@ export default defineComponent({
         ContentType.RPG,
         ContentType.MAP,
         ContentType.SUGGESTION,
+        ContentType.PROFILE,
       ];
       return !hiddenTypes.includes(props.tile.content.type);
     });
@@ -372,6 +379,14 @@ export default defineComponent({
     });
     const suggestionAction = computed(() => (props.tile.content as any)?.action ?? "text");
     const suggestionLabel = computed(() => (props.tile.content as any)?.label ?? "");
+
+    const isProfileTile = computed(() => props.tile.content.type === ContentType.PROFILE);
+    const isTileResizable = computed(() => {
+      if (!layoutStore.isOwner || isSuggestion.value || isProfileTile.value) {
+        return false;
+      }
+      return !isEditing.value;
+    });
 
     const mediaInput = ref<HTMLInputElement | null>(null);
     const auth = getAuth();
@@ -593,13 +608,24 @@ export default defineComponent({
 
     const onSuggestionShortClick = () => {
       if (!layoutStore.isOwner) return;
-      const action = (props.tile.content as any)?.action as "text" | "media" | "link" | "embed";
+      const action = (props.tile.content as any)?.action as
+        | "text"
+        | "media"
+        | "link"
+        | "embed"
+        | "profile";
       switch (action) {
+        case "profile": {
+          const content = createTileContent(ContentType.PROFILE, {});
+          layoutStore.setTileContent(props.tile.i, content);
+          break;
+        }
         case "text": {
           const content = createTileContent(ContentType.TEXT, {});
           layoutStore.setTileContent(props.tile.i, content);
           break;
         }
+
         case "media": {
           mediaInput.value?.click();
           break;
@@ -816,6 +842,9 @@ export default defineComponent({
       isSuggestion,
       suggestionAction,
       suggestionLabel,
+      isProfileTile,
+      isTileResizable,
+
       mediaInput,
       onMediaSelected,
       isCroppable,

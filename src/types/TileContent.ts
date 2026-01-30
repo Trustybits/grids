@@ -5,10 +5,12 @@ export enum ContentType {
   VIDEO = "video",
   LINK = "link",
   EMBED = "embed",
+  MAP = "map",
   CAMPFIRE = "campfire",
   CLICKER = "clicker",
   RPG = "rpg",
   SUGGESTION = "suggestion", // internal-only tile type
+  PROFILE = "profile",
 }
 
 export interface TileContent {
@@ -75,6 +77,33 @@ export interface VideoContent extends TileContent {
   offsetY: number;
 }
 
+export type MapStyleMode =
+  | "auto"
+  | "light"
+  | "dark"
+  | "dawn"
+  | "day"
+  | "dusk"
+  | "night"
+  | "satellite";
+
+export interface MapContent extends TileContent {
+  type: ContentType.MAP;
+  provider: "mapbox";
+  center: {
+    lat: number;
+    lng: number;
+  };
+  zoom: number;
+  bearing: number;
+  pitch: number;
+  style: MapStyleMode;
+  show3d: boolean;
+  showClouds: boolean;
+  showPlanes: boolean;
+  searchQuery?: string;
+}
+
 export interface RPGContent extends TileContent {
   type: ContentType.RPG;
   playerX: number;
@@ -104,7 +133,75 @@ export interface RPGContent extends TileContent {
   gameState: 'playing' | 'won' | 'lost';
 }
 
-export type SuggestionAction = "text" | "media" | "link" | "embed";
+export type MapStyleMode =
+  | "auto"
+  | "light"
+  | "dark"
+  | "dawn"
+  | "day"
+  | "dusk"
+  | "night"
+  | "satellite";
+
+export interface MapContent extends TileContent {
+  type: ContentType.MAP;
+  provider: "mapbox";
+  center: {
+    lat: number;
+    lng: number;
+  };
+  zoom: number;
+  bearing: number;
+  pitch: number;
+  style: MapStyleMode;
+  show3d: boolean;
+  showClouds: boolean;
+  showPlanes: boolean;
+  searchQuery?: string;
+}
+
+export interface RPGContent extends TileContent {
+  type: ContentType.RPG;
+  playerX: number;
+  playerY: number;
+  playerHealth: number;
+  playerMaxHealth: number;
+  playerAttack: number;
+  enemies: Array<{
+    id: string;
+    x: number;
+    y: number;
+    health: number;
+    maxHealth: number;
+    attack: number;
+    type: 'goblin' | 'troll' | 'dragon';
+  }>;
+  items: Array<{
+    id: string;
+    x: number;
+    y: number;
+    type: 'health' | 'strength' | 'shield';
+    collected: boolean;
+  }>;
+  walls: Array<[number, number]>;
+  score: number;
+  wave: number;
+  gameState: 'playing' | 'won' | 'lost';
+}
+
+export type AvatarShape = "circle" | "square" | "hex";
+
+export interface ProfileBioContent extends TileContent {
+  type: ContentType.PROFILE;
+  name: string;
+  title: string;
+  bio: string;
+  avatarSrc: string;
+  avatarShape: AvatarShape;
+  avatarRadius: number;
+}
+
+export type SuggestionAction = "text" | "media" | "link" | "embed" | "profile";
 
 export interface SuggestionContent extends TileContent {
   type: ContentType.SUGGESTION;

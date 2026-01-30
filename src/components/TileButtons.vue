@@ -11,6 +11,10 @@
         <TextIcon />
       </button>
 
+      <button class="btn btn-secondary" @click="addProfileElement">
+        <ProfileIcon />
+      </button>
+
       <button class="btn btn-secondary" @click="addChatElement">
         <ChatIcon />
       </button>
@@ -27,12 +31,15 @@
       <button class="btn btn-secondary" @click="addEmbedElement">
         <EmbedIcon />
       </button>
+      <button class="btn btn-secondary" @click="addMapElement">
+        <MapIcon />
+      </button>
       <button class="btn btn-secondary" @click="addCampfireElement">
         <CampfireIcon />
       </button>
-      <button class="btn btn-secondary" @click="addRPGElement">
+      <!-- <button class="btn btn-secondary" @click="addRPGElement">
         <RPGIcon />
-      </button>
+      </button> -->
       <!-- <button class="btn btn-secondary" @click="addLinkElement">➕</button> -->
 
       <input
@@ -54,6 +61,11 @@
       :show="showEmbedModal"
       @close="closeEmbedModal"
       @add="handleAddEmbed"
+    />
+    <AddMapModal
+      :show="showMapModal"
+      @close="closeMapModal"
+      @add="handleAddMap"
     />
   </div>
 </template>
@@ -77,11 +89,14 @@ import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
+import AddMapModal from "./AddMapModal.vue";
 import TextIcon from "./icons/TextIcon.vue";
 import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
+import ProfileIcon from "./icons/ProfileIcon.vue";
+import MapIcon from "./icons/MapIcon.vue";
 import CampfireIcon from "./icons/CampfireIcon.vue";
 import RPGIcon from "./icons/RPGIcon.vue";
 
@@ -89,11 +104,14 @@ export default {
   components: {
     AddLinkModal,
     AddEmbedModal,
+    AddMapModal,
     TextIcon,
     ChatIcon,
     ImageIcon,
     LinkIcon,
     EmbedIcon,
+    ProfileIcon,
+    MapIcon,
     CampfireIcon,
     RPGIcon,
   },
@@ -108,10 +126,16 @@ export default {
 
     const showLinkModal = ref(false);
     const showEmbedModal = ref(false);
+    const showMapModal = ref(false);
 
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
       layoutStore.addTile(textContent);
+    };
+
+    const addProfileElement = () => {
+      const profileContent = createTileContent(ContentType.PROFILE, {});
+      layoutStore.addTile(profileContent);
     };
 
     const addChatElement = () => {
@@ -223,6 +247,22 @@ export default {
       layoutStore.addTile(content);
     };
 
+    const addMapElement = () => {
+      showMapModal.value = true;
+    };
+
+    const closeMapModal = () => {
+      showMapModal.value = false;
+    };
+
+    const handleAddMap = (query: string) => {
+      closeMapModal();
+      const content = createTileContent(ContentType.MAP, {
+        searchQuery: query || undefined,
+      });
+      layoutStore.addTile(content);
+    };
+
     const addRPGElement = () => {
       const rpgContent = createTileContent(ContentType.RPG, {});
       layoutStore.addTile(rpgContent);
@@ -251,21 +291,26 @@ export default {
       imageInput,
       layoutStore,
       addTextElement,
+      addProfileElement,
       addChatElement,
       addCampfireElement,
       selectFile,
       addFile,
       addLinkElement,
       addEmbedElement,
+      addMapElement,
       addRPGElement,
       updateMetaData,
       isDarkMode,
       showLinkModal,
       showEmbedModal,
+      showMapModal,
       closeLinkModal,
       closeEmbedModal,
+      closeMapModal,
       handleAddLink,
       handleAddEmbed,
+      handleAddMap,
     };
   },
 };

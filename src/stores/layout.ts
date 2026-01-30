@@ -10,6 +10,7 @@ import {
 } from "@/types/FirestoreMappers";
 import { auth, db } from "@/firebase";
 import { createTile } from "@/utils/TileUtils";
+import { useToastStore } from "@/stores/toast";
 
 const layoutService = getLayoutService();
 
@@ -237,7 +238,18 @@ export const useLayoutStore = defineStore("layout", {
     addTile(content: TileContent): string | null {
       if (!this.currentLayout) return null;
 
-      // TODO: Validate content before creating tile
+      // Validate: Only one campfire tile per grid
+      if (content.type === ContentType.CAMPFIRE) {
+        const hasCampfireTile = this.currentLayout.tiles.some(
+          (tile) => tile.content.type === ContentType.CAMPFIRE
+        );
+        if (hasCampfireTile) {
+          // Use toast to notify user
+          const toastStore = useToastStore();
+          toastStore.addToast('Only one campfire allowed per grid', 'error');
+          return null;
+        }
+      }
 
       // Find the first available 2x2 spot (left-to-right, top-to-bottom)
       const position = this.findFirstAvailableSpot(2, 2);

@@ -49,7 +49,7 @@
           />
         </template>
 
-        <div v-if="!isTallOneWide" class="tile-link-indicator" aria-hidden="true">
+        <div v-if="!isTallOneWide && !isOneByOne" class="tile-link-indicator" aria-hidden="true">
           <svg
             class="tile-link-indicator-icon"
             width="24"
@@ -102,7 +102,7 @@
         </svg>
       </div>
 
-      <div v-if="!isWideOneHigh && !isTallOneWide" class="tile-text" @mousedown="markTextIntent">
+      <div v-if="!isWideOneHigh && !isTallOneWide && !isOneByOne" class="tile-text" @mousedown="markTextIntent">
         <template v-if="isEditing">
           <textarea
             v-model="draftTitle"
@@ -226,6 +226,7 @@ export default defineComponent({
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
 
+    const isOneByOne = computed(() => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1); 
     const isWideOneHigh = computed(() => (gridTileW?.value ?? 0) > 1 && (gridTileH?.value ?? 0) === 1);
     const isTallOneWide = computed(() => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) > 1);
     const titleLineClamp = computed(() => ((gridTileH?.value ?? 0) < 3 ? 2 : 3));
@@ -556,6 +557,7 @@ export default defineComponent({
       isEditing,
       markTextIntent,
       titleLineClamp,
+      isOneByOne,
       isWideOneHigh,
       isTallOneWide,
       displayTitle,

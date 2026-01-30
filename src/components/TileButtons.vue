@@ -11,6 +11,10 @@
         <TextIcon />
       </button>
 
+      <button class="btn btn-secondary" @click="addChatElement">
+        <ChatIcon />
+      </button>
+
       <button class="btn btn-secondary" @click="selectFile">
         <ImageIcon />
       </button>
@@ -22,6 +26,12 @@
       <button class="btn btn-secondary" @click="addLinkElement">📌</button> -->
       <button class="btn btn-secondary" @click="addEmbedElement">
         <EmbedIcon />
+      </button>
+      <button class="btn btn-secondary" @click="addCampfireElement">
+        <CampfireIcon />
+      </button>
+      <button class="btn btn-secondary" @click="addRPGElement">
+        <RPGIcon />
       </button>
       <!-- <button class="btn btn-secondary" @click="addLinkElement">➕</button> -->
 
@@ -68,18 +78,24 @@ import { computed } from "vue";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
 import TextIcon from "./icons/TextIcon.vue";
+import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
+import CampfireIcon from "./icons/CampfireIcon.vue";
+import RPGIcon from "./icons/RPGIcon.vue";
 
 export default {
   components: {
     AddLinkModal,
     AddEmbedModal,
     TextIcon,
+    ChatIcon,
     ImageIcon,
     LinkIcon,
     EmbedIcon,
+    CampfireIcon,
+    RPGIcon,
   },
   setup() {
     const themeStore = useThemeStore();
@@ -96,6 +112,16 @@ export default {
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
       layoutStore.addTile(textContent);
+    };
+
+    const addChatElement = () => {
+      const chatContent = createTileContent(ContentType.CHAT, {});
+      layoutStore.addTile(chatContent);
+    };
+
+    const addCampfireElement = () => {
+      const campfireContent = createTileContent(ContentType.CAMPFIRE, {});
+      layoutStore.addTile(campfireContent);
     };
 
     const selectFile = () => {
@@ -197,6 +223,11 @@ export default {
       layoutStore.addTile(content);
     };
 
+    const addRPGElement = () => {
+      const rpgContent = createTileContent(ContentType.RPG, {});
+      layoutStore.addTile(rpgContent);
+    };
+
     const addOtherElement = () => {
       let link = prompt(
         "More tile types coming soon! Any others you might be expecting to see?"
@@ -220,10 +251,13 @@ export default {
       imageInput,
       layoutStore,
       addTextElement,
+      addChatElement,
+      addCampfireElement,
       selectFile,
       addFile,
       addLinkElement,
       addEmbedElement,
+      addRPGElement,
       updateMetaData,
       isDarkMode,
       showLinkModal,
@@ -256,7 +290,7 @@ export default {
   gap: 4px;
 
   position: relative;
-  top: -32px;
+  top: -8px;
   background-color: var(--color-tile-background);
   border-radius: var(--radius-md);
   border: var(--tile-border-width) solid var(--color-tile-stroke);

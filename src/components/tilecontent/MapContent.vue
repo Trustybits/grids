@@ -395,7 +395,9 @@ export default defineComponent({
       await handleGeocode(query);
     };
 
-    const enable3d = (map: mapboxgl.Map) => {
+    const enable3d = () => {
+      const map = mapInstance.value;
+      if (!map) return;
       if (!map.getSource("mapbox-dem")) {
         map.addSource("mapbox-dem", {
           type: "raster-dem",
@@ -423,7 +425,9 @@ export default defineComponent({
       }
     };
 
-    const disable3d = (map: mapboxgl.Map) => {
+    const disable3d = () => {
+      const map = mapInstance.value;
+      if (!map) return;
       if (map.getLayer("3d-buildings")) {
         map.removeLayer("3d-buildings");
       }
@@ -442,10 +446,10 @@ export default defineComponent({
       if (!map) return;
       const apply = () => {
         if (enabled) {
-          enable3d(map);
+          enable3d();
           map.easeTo({ pitch: 25, duration: 500 });
         } else {
-          disable3d(map);
+          disable3d();
           map.easeTo({ pitch: 0, duration: 500 });
         }
       };

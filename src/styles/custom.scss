@@ -61,6 +61,12 @@
   // All visual styling is handled by .card-body inside
   background: transparent;
   
+  // Prevent text selection during drag operations
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  
   // Hide the default resize handle from vue3-grid-layout
   .vue-resizable-handle {
     // display: none !important;

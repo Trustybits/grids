@@ -31,16 +31,35 @@ import LayoutTitleEditor from './components/LayoutTitleEditor.vue';
 import ThemeToggle from './components/ThemeToggle.vue';
 import ToastContainer from './components/ToastContainer.vue';
 import { useLayoutStore } from '@/stores/layout';
-import { auth } from '@/firebase';
+import { auth, db } from '@/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+
 const route = useRoute();
 const layoutStore = useLayoutStore();
 
 const user = ref<User | null>(null);
+const previousUser = ref<User | null>(null);
+const isInitialLoad = ref(true);
 
 onMounted(() => {
-  onAuthStateChanged(auth, (currentUser) => {
+  onAuthStateChanged(auth, async (currentUser) => {
+    // Track login for existing users (not new signups on page load)
+    if (currentUser && !isInitialLoad.value && !previousUser.value) {
+      // User just logged in - update lastLogin in Firestore
+      try {
+        await setDoc(doc(db, 'users', currentUser.uid), {
+          email: currentUser.email,
+          lastLogin: serverTimestamp(),
+        }, { merge: true });
+      } catch (err) {
+        console.error('Failed to update lastLogin:', err);
+      }
+    }
+    
+    previousUser.value = user.value;
     user.value = currentUser;
+    isInitialLoad.value = false;
   });
 });
 
@@ -76,7 +95,6 @@ const showTopBar = computed(() => {
 }
 
 .main-content.has-left-nav {
-  // Space for left nav bar
 }
 
 .section {

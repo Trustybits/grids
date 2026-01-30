@@ -10,6 +10,8 @@ import {
   type EmbedContent,
   type RPGContent,
   type SuggestionContent,
+  type ProfileBioContent,
+  type MapContent,
   type CampfireContent,
   type ClickerContent,
 } from "@/types/TileContent";
@@ -21,6 +23,18 @@ function ensureUrlHasProtocol(url: string): string {
   return url.startsWith("http://") || url.startsWith("https://")
     ? url
     : `https://${url}`;
+}
+
+function makeDefaultDoc(text: string): string {
+  return JSON.stringify({
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [{ type: "text", text }],
+      },
+    ],
+  });
 }
 
 export function isDirectImageUrl(src: string): boolean {
@@ -165,7 +179,18 @@ export function createTile(
 export function createTileContent(
   type: ContentType,
   data: Partial<
-    TextContent | ChatContent | ImageContent | LinkContent | VideoContent | EmbedContent | RPGContent | SuggestionContent | CampfireContent | ClickerContent
+    | TextContent
+    | ChatContent 
+    | ImageContent
+    | LinkContent
+    | VideoContent
+    | EmbedContent
+    | RPGContent 
+    | SuggestionContent 
+    | MapContent 
+    | CampfireContent 
+    | ClickerContent
+    | ProfileBioContent
   > = {}
 ): TileContent {
   switch (type) {
@@ -249,6 +274,37 @@ export function createTileContent(
         label: (data as Partial<SuggestionContent>).label,
       } as SuggestionContent;
 
+    case ContentType.PROFILE:
+      return {
+        type,
+        name:
+          (data as Partial<ProfileBioContent>).name || makeDefaultDoc("Your name"),
+        title:
+          (data as Partial<ProfileBioContent>).title ||
+          makeDefaultDoc("Add your title"),
+        bio:
+          (data as Partial<ProfileBioContent>).bio ||
+          makeDefaultDoc("Tell us about yourself..."),
+        avatarSrc: (data as Partial<ProfileBioContent>).avatarSrc || "",
+        avatarShape: (data as Partial<ProfileBioContent>).avatarShape || "circle",
+        avatarRadius: (data as Partial<ProfileBioContent>).avatarRadius ?? 12,
+      } as ProfileBioContent;
+
+    case ContentType.MAP:
+      return {
+        type,
+        provider: "mapbox",
+        center: (data as Partial<MapContent>).center || { lat: 0, lng: 0 },
+        zoom: (data as Partial<MapContent>).zoom ?? 9,
+        bearing: (data as Partial<MapContent>).bearing ?? 0,
+        pitch: (data as Partial<MapContent>).pitch ?? 0,
+        style: (data as Partial<MapContent>).style || "auto",
+        show3d: (data as Partial<MapContent>).show3d ?? false,
+        showClouds: (data as Partial<MapContent>).showClouds ?? false,
+        showPlanes: (data as Partial<MapContent>).showPlanes ?? false,
+        searchQuery: (data as Partial<MapContent>).searchQuery,
+      } as MapContent;
+
     case ContentType.CAMPFIRE:
       return {
         type,
@@ -309,6 +365,15 @@ export function validateTileContent(content: TileContent): boolean {
       return true; // RPG game tile is always valid
     case ContentType.SUGGESTION:
       return true; // internal placeholder is always valid
+    case ContentType.PROFILE:
+      return true;
+    case ContentType.MAP:
+      const map = content as MapContent;
+      return (
+        map.provider === "mapbox" &&
+        Number.isFinite(map.center?.lat) &&
+        Number.isFinite(map.center?.lng)
+      );
     case ContentType.CAMPFIRE:
       return true; // campfire game is always valid
     case ContentType.CLICKER:
@@ -364,6 +429,18 @@ export function getContentComponent(content: TileContent): any {
       );
     case ContentType.SUGGESTION:
       return null; // rendered inline in GridTile
+    case ContentType.PROFILE:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/ProfileBioContent.vue")
+        )
+      );
+    case ContentType.MAP:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/MapContent.vue")
+        )
+      );
     case ContentType.CAMPFIRE:
       return markRaw(
         defineAsyncComponent(

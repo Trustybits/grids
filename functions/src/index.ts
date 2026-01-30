@@ -274,8 +274,9 @@ export const getLinkPreview = onCall(async (data, context) => {
   }
 });
 
-// Define secret for Discord webhook URL (set via: firebase functions:secrets:set DISCORD_WEBHOOK_URL)
-const discordWebhookUrl = defineSecret("DISCORD_WEBHOOK_URL");
+// Define secrets for Discord webhook URLs
+const discordNewUsersWebhookUrl = defineSecret("DISCORD_NEW_USERS_WEBHOOK_URL");
+const discordUserActivityWebhookUrl = defineSecret("DISCORD_USER_ACTIVITY_WEBHOOK_URL");
 
 /**
  * Firebase function that triggers when a new user signs up.
@@ -283,7 +284,7 @@ const discordWebhookUrl = defineSecret("DISCORD_WEBHOOK_URL");
  */
 export const onNewUserSignup = functions
   .runWith({
-    secrets: [discordWebhookUrl],
+    secrets: [discordNewUsersWebhookUrl],
   })
   .auth.user()
   .onCreate(async (user) => {
@@ -294,10 +295,10 @@ export const onNewUserSignup = functions
     });
 
     // Get the Discord webhook URL from secrets
-    const webhookUrl = discordWebhookUrl.value();
+    const webhookUrl = discordNewUsersWebhookUrl.value();
     
     if (!webhookUrl) {
-      logger.error("DISCORD_WEBHOOK_URL secret is not configured");
+      logger.error("DISCORD_NEW_USERS_WEBHOOK_URL secret is not configured");
       return null;
     }
 
@@ -329,11 +330,6 @@ export const onNewUserSignup = functions
             {
               name: "Sign-in Method",
               value: signInMethod,
-              inline: true,
-            },
-            {
-              name: "Email Verified",
-              value: user.emailVerified ? "Yes" : "No",
               inline: true,
             },
             {
@@ -391,7 +387,193 @@ export const onNewUserSignup = functions
     }
   });
 
-// export const helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+/**
+ * Firebase function that triggers when a user logs in.
+ * Detects login by monitoring updates to the lastLogin field in Firestore users collection.
+ */
+export const onUserLogin = functions
+  .runWith({
+    secrets: [discordUserActivityWebhookUrl],
+  })
+  .firestore.document("users/{userId}")
+  .onUpdate(async (change, context) => {
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
+    const userId = context.params.userId;
+
+    // Only trigger if lastLogin field was updated
+    if (!afterData.lastLogin || beforeData.lastLogin === afterData.lastLogin) {
+      return null;
+    }
+
+    logger.info("User login event detected", {
+      userId,
+      email: afterData.email,
+    });
+
+    // Get the Discord webhook URL from secrets
+    const webhookUrl = discordUserActivityWebhookUrl.value();
+    
+    if (!webhookUrl) {
+      logger.error("DISCORD_USER_ACTIVITY_WEBHOOK_URL secret is not configured");
+      return null;
+    }
+
+    // Build Discord embed payload
+    const discordPayload = {
+      embeds: [
+        {
+          title: "🔐 User Logged In",
+          color: 3447003, // Blue color
+          fields: [
+            {
+              name: "Email",
+              value: afterData.email || "Not available",
+              inline: true,
+            },
+            {
+              name: "User ID",
+              value: userId,
+              inline: true,
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          footer: {
+            text: "Grids User Activity",
+          },
+        },
+      ],
+    };
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(discordPayload),
+      });
+
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        logger.error("Discord webhook returned error status", {
+          userId,
+          status: response.status,
+          statusText: response.statusText,
+          responseBody: responseText,
+        });
+      } else {
+        logger.info("Discord login notification sent successfully", {
+          userId,
+          status: response.status,
+        });
+      }
+      
+      return null;
+    } catch (error) {
+      logger.error("Failed to send Discord webhook", {
+        error: String(error),
+        userId,
+      });
+      return null;
+    }
+  });
+
+/**
+ * Firebase function that triggers when a new grid/layout is created.
+ * Sends a notification to the user-activity Discord channel.
+ */
+export const onGridCreated = functions
+  .runWith({
+    secrets: [discordUserActivityWebhookUrl],
+  })
+  .firestore.document("layouts/{layoutId}")
+  .onCreate(async (snapshot, context) => {
+    const layoutData = snapshot.data();
+    const layoutId = context.params.layoutId;
+
+    logger.info("New grid created", {
+      layoutId,
+      userId: layoutData.userId,
+      name: layoutData.name,
+    });
+
+    // Get the Discord webhook URL from secrets
+    const webhookUrl = discordUserActivityWebhookUrl.value();
+    
+    if (!webhookUrl) {
+      logger.error("DISCORD_USER_ACTIVITY_WEBHOOK_URL secret is not configured");
+      return null;
+    }
+
+    // Build Discord embed payload
+    const discordPayload = {
+      embeds: [
+        {
+          title: "📊 New Grid Created",
+          color: 3066993, // Green color
+          fields: [
+            {
+              name: "Grid Name",
+              value: layoutData.name || "Untitled",
+              inline: true,
+            },
+            {
+              name: "Grid ID",
+              value: layoutId,
+              inline: true,
+            },
+            {
+              name: "Grid Link",
+              value: `https://grids.so/grid/${layoutId}`,
+              inline: true,
+            },
+            {
+              name: "User ID",
+              value: layoutData.userId || "Unknown",
+              inline: false,
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          footer: {
+            text: "Grids Activity",
+          },
+        },
+      ],
+    };
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(discordPayload),
+      });
+
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        logger.error("Discord webhook returned error status", {
+          layoutId,
+          status: response.status,
+          statusText: response.statusText,
+          responseBody: responseText,
+        });
+      } else {
+        logger.info("Discord grid creation notification sent successfully", {
+          layoutId,
+          status: response.status,
+        });
+      }
+      
+      return null;
+    } catch (error) {
+      logger.error("Failed to send Discord webhook", {
+        error: String(error),
+        layoutId,
+      });
+      return null;
+    }
+  });

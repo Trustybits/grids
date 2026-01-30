@@ -133,62 +133,6 @@ export interface RPGContent extends TileContent {
   gameState: 'playing' | 'won' | 'lost';
 }
 
-export type MapStyleMode =
-  | "auto"
-  | "light"
-  | "dark"
-  | "dawn"
-  | "day"
-  | "dusk"
-  | "night"
-  | "satellite";
-
-export interface MapContent extends TileContent {
-  type: ContentType.MAP;
-  provider: "mapbox";
-  center: {
-    lat: number;
-    lng: number;
-  };
-  zoom: number;
-  bearing: number;
-  pitch: number;
-  style: MapStyleMode;
-  show3d: boolean;
-  showClouds: boolean;
-  showPlanes: boolean;
-  searchQuery?: string;
-}
-
-export interface RPGContent extends TileContent {
-  type: ContentType.RPG;
-  playerX: number;
-  playerY: number;
-  playerHealth: number;
-  playerMaxHealth: number;
-  playerAttack: number;
-  enemies: Array<{
-    id: string;
-    x: number;
-    y: number;
-    health: number;
-    maxHealth: number;
-    attack: number;
-    type: 'goblin' | 'troll' | 'dragon';
-  }>;
-  items: Array<{
-    id: string;
-    x: number;
-    y: number;
-    type: 'health' | 'strength' | 'shield';
-    collected: boolean;
-  }>;
-  walls: Array<[number, number]>;
-  score: number;
-  wave: number;
-  gameState: 'playing' | 'won' | 'lost';
-}
-
 export type AvatarShape = "circle" | "square" | "hex";
 
 export interface ProfileBioContent extends TileContent {

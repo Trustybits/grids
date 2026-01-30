@@ -23,6 +23,7 @@
     "@tiptap/vue-3": "^2.10.3",
     "bootstrap": "^5.3.3",
     "firebase": "^11.1.0",
+    "mapbox-gl": "^3.4.0",
     "pinia": "^2.2.8",
     "posthog-js": "^1.331.0",
     "sass": "^1.81.0",

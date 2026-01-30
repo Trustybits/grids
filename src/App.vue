@@ -76,7 +76,7 @@ const showTopBar = computed(() => {
 }
 
 .main-content.has-left-nav {
-  padding-left: 20px; // Space for left nav bar
+  // Space for left nav bar
 }
 
 .section {

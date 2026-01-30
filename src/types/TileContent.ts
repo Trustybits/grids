@@ -1,9 +1,12 @@
 export enum ContentType {
   TEXT = "text",
+  CHAT = "chat",
   IMAGE = "image",
   VIDEO = "video",
   LINK = "link",
   EMBED = "embed",
+  CAMPFIRE = "campfire",
+  RPG = "rpg",
   SUGGESTION = "suggestion", // internal-only tile type
 }
 
@@ -20,6 +23,18 @@ export interface TextContent extends TileContent {
   isItalic: boolean;
   textType: string;
   color: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  text: string;
+  createdAt: number;
+  authorId?: string;
+}
+
+export interface ChatContent extends TileContent {
+  type: ContentType.CHAT;
+  messages: ChatMessage[];
 }
 
 export interface ImageContent extends TileContent {
@@ -59,6 +74,35 @@ export interface VideoContent extends TileContent {
   offsetY: number;
 }
 
+export interface RPGContent extends TileContent {
+  type: ContentType.RPG;
+  playerX: number;
+  playerY: number;
+  playerHealth: number;
+  playerMaxHealth: number;
+  playerAttack: number;
+  enemies: Array<{
+    id: string;
+    x: number;
+    y: number;
+    health: number;
+    maxHealth: number;
+    attack: number;
+    type: 'goblin' | 'troll' | 'dragon';
+  }>;
+  items: Array<{
+    id: string;
+    x: number;
+    y: number;
+    type: 'health' | 'strength' | 'shield';
+    collected: boolean;
+  }>;
+  walls: Array<[number, number]>;
+  score: number;
+  wave: number;
+  gameState: 'playing' | 'won' | 'lost';
+}
+
 export type SuggestionAction = "text" | "media" | "link" | "embed";
 
 export interface SuggestionContent extends TileContent {
@@ -66,4 +110,10 @@ export interface SuggestionContent extends TileContent {
   action: SuggestionAction;
   icon?: string;
   label?: string;
+}
+
+export interface CampfireContent extends TileContent {
+  type: ContentType.CAMPFIRE;
+  count: number;
+  highScore: number;
 }

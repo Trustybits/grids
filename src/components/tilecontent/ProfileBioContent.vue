@@ -139,7 +139,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, nextTick, onMounted, type PropType } from "vue";
+import { defineComponent, ref, computed, watch, nextTick, onMounted, type PropType, type Ref, type ComputedRef } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
 import type { Editor, Extension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -182,7 +182,39 @@ export default defineComponent({
       required: true,
     },
   },
-  setup(props) {
+  setup(props): {
+    layoutStore: ReturnType<typeof useLayoutStore>;
+    profileRoot: Ref<HTMLDivElement | null>;
+    avatarRef: Ref<HTMLDivElement | null>;
+    avatarInput: Ref<HTMLInputElement | null>;
+    avatarShape: ComputedRef<AvatarShape>;
+    avatarRadius: Ref<number>;
+    avatarSrc: ComputedRef<string>;
+    avatarMediaStyle: ComputedRef<{ clipPath: string } | { borderRadius: string }>;
+    clipPathId: string;
+    hexPath: ComputedRef<string>;
+    showUrlInput: Ref<boolean>;
+    draftAvatarUrl: Ref<string>;
+    urlError: Ref<string>;
+    isEditing: Ref<boolean>;
+    activeEditor: Ref<Editor | null>;
+    nameEditor: ReturnType<typeof useEditor>;
+    titleEditor: ReturnType<typeof useEditor>;
+    bioEditor: ReturnType<typeof useEditor>;
+    onShortClick: () => void;
+    onExitClick: () => void;
+    onResize: () => void;
+    openCustomImagePicker: () => void;
+    openUrlInput: () => void;
+    cancelUrlInput: () => void;
+    applyAvatarUrl: () => void;
+    removeCustomImage: () => void;
+    onAvatarSelected: (event: Event) => Promise<void>;
+    onAvatarClick: () => void;
+    setAvatarShape: (shape: AvatarShape) => void;
+    onRadiusInput: (event: Event) => void;
+    onRadiusCommit: () => void;
+  } {
     const layoutStore = useLayoutStore();
     const auth = getAuth();
     const storage = getStorage();

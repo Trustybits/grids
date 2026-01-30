@@ -1,7 +1,7 @@
 <template>
   <p v-if="layoutStore.isLoading">Loading layout...</p>
   <grid-layout
-    v-else
+    v-else-if="displayLayout.length"
     class="grid-container"
     :layout="displayLayout"
     :col-num="responsiveColNum"
@@ -17,6 +17,7 @@
   >
     <grid-tile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
   </grid-layout>
+  <p v-else>No tiles yet.</p>
 </template>
 
 <script lang="ts">

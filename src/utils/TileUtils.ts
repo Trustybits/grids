@@ -10,6 +10,7 @@ import {
   type EmbedContent,
   type RPGContent,
   type SuggestionContent,
+  type ProfileBioContent,
   type MapContent,
   type CampfireContent,
 } from "@/types/TileContent";
@@ -21,6 +22,18 @@ function ensureUrlHasProtocol(url: string): string {
   return url.startsWith("http://") || url.startsWith("https://")
     ? url
     : `https://${url}`;
+}
+
+function makeDefaultDoc(text: string): string {
+  return JSON.stringify({
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [{ type: "text", text }],
+      },
+    ],
+  });
 }
 
 export function isDirectImageUrl(src: string): boolean {
@@ -165,7 +178,15 @@ export function createTile(
 export function createTileContent(
   type: ContentType,
   data: Partial<
-    TextContent | ChatContent | ImageContent | LinkContent | VideoContent | EmbedContent | RPGContent | SuggestionContent | MapContent | CampfireContent
+    | TextContent
+    | ChatContent 
+    | ImageContent
+    | LinkContent
+    | VideoContent
+    | EmbedContent
+    | RPGContent 
+    | SuggestionContent | MapContent | CampfireContent
+    | ProfileBioContent
   > = {}
 ): TileContent {
   switch (type) {
@@ -249,6 +270,22 @@ export function createTileContent(
         label: (data as Partial<SuggestionContent>).label,
       } as SuggestionContent;
 
+    case ContentType.PROFILE:
+      return {
+        type,
+        name:
+          (data as Partial<ProfileBioContent>).name || makeDefaultDoc("Your name"),
+        title:
+          (data as Partial<ProfileBioContent>).title ||
+          makeDefaultDoc("Add your title"),
+        bio:
+          (data as Partial<ProfileBioContent>).bio ||
+          makeDefaultDoc("Tell us about yourself..."),
+        avatarSrc: (data as Partial<ProfileBioContent>).avatarSrc || "",
+        avatarShape: (data as Partial<ProfileBioContent>).avatarShape || "circle",
+        avatarRadius: (data as Partial<ProfileBioContent>).avatarRadius ?? 12,
+      } as ProfileBioContent;
+
     case ContentType.MAP:
       return {
         type,
@@ -319,6 +356,8 @@ export function validateTileContent(content: TileContent): boolean {
       return true; // RPG game tile is always valid
     case ContentType.SUGGESTION:
       return true; // internal placeholder is always valid
+    case ContentType.PROFILE:
+      return true;
     case ContentType.MAP:
       const map = content as MapContent;
       return (
@@ -379,6 +418,12 @@ export function getContentComponent(content: TileContent): any {
       );
     case ContentType.SUGGESTION:
       return null; // rendered inline in GridTile
+    case ContentType.PROFILE:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/ProfileBioContent.vue")
+        )
+      );
     case ContentType.MAP:
       return markRaw(
         defineAsyncComponent(

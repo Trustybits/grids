@@ -6,6 +6,7 @@ export enum ContentType {
   LINK = "link",
   EMBED = "embed",
   CAMPFIRE = "campfire",
+  CLICKER = "clicker",
   RPG = "rpg",
   SUGGESTION = "suggestion", // internal-only tile type
 }
@@ -116,4 +117,8 @@ export interface CampfireContent extends TileContent {
   type: ContentType.CAMPFIRE;
   count: number;
   highScore: number;
+}
+
+export interface ClickerContent extends TileContent {
+  type: ContentType.CLICKER;
 }

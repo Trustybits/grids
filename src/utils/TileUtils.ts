@@ -11,6 +11,7 @@ import {
   type RPGContent,
   type SuggestionContent,
   type CampfireContent,
+  type ClickerContent,
 } from "@/types/TileContent";
 import { defineAsyncComponent, markRaw } from "vue";
 
@@ -164,7 +165,7 @@ export function createTile(
 export function createTileContent(
   type: ContentType,
   data: Partial<
-    TextContent | ChatContent | ImageContent | LinkContent | VideoContent | EmbedContent | RPGContent | SuggestionContent | CampfireContent
+    TextContent | ChatContent | ImageContent | LinkContent | VideoContent | EmbedContent | RPGContent | SuggestionContent | CampfireContent | ClickerContent
   > = {}
 ): TileContent {
   switch (type) {
@@ -255,6 +256,11 @@ export function createTileContent(
         highScore: (data as Partial<CampfireContent>).highScore || 0,
       } as CampfireContent;
 
+    case ContentType.CLICKER:
+      return {
+        type,
+      } as ClickerContent;
+
     default:
       throw new Error(`Unsupported content type: ${type}`);
   }
@@ -305,6 +311,8 @@ export function validateTileContent(content: TileContent): boolean {
       return true; // internal placeholder is always valid
     case ContentType.CAMPFIRE:
       return true; // campfire game is always valid
+    case ContentType.CLICKER:
+      return true; // clicker game is always valid
     default:
       return false;
   }
@@ -360,6 +368,12 @@ export function getContentComponent(content: TileContent): any {
       return markRaw(
         defineAsyncComponent(
           () => import("@/components/tilecontent/CampfireContent.vue")
+        )
+      );
+    case ContentType.CLICKER:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/ClickerContent.vue")
         )
       );
     default:

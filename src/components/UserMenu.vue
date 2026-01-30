@@ -12,6 +12,9 @@
         </svg>
       </div>
       <div class="user-menu-dropdown" v-if="showUserMenu">
+        <div class="user-email">
+          {{ user.email }}
+        </div>
         <button @click="logout" class="user-menu-item">
           Logout
         </button>
@@ -122,9 +125,20 @@ export default defineComponent({
     border: var(--tile-border-width) solid var(--color-tile-stroke);
     border-radius: var(--radius-md);
     padding: var(--spacing-xs);
-    min-width: 120px;
+    min-width: 180px;
     box-shadow: var(--shadow-lg);
     z-index: 100;
+  }
+
+  .user-email {
+    padding: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    text-align: right;
+    color: var(--color-content-low);
+    border-bottom: 1px solid var(--color-base-34);
+    margin-bottom: var(--spacing-xs);
+    word-break: break-all;
+    white-space: nowrap;
   }
 
   .user-menu-item {

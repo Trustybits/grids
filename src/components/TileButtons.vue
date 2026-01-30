@@ -11,6 +11,10 @@
         <TextIcon />
       </button>
 
+      <button class="btn btn-secondary" @click="addChatElement">
+        <ChatIcon />
+      </button>
+
       <button class="btn btn-secondary" @click="selectFile">
         <ImageIcon />
       </button>
@@ -74,6 +78,7 @@ import { computed } from "vue";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
 import TextIcon from "./icons/TextIcon.vue";
+import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
@@ -85,6 +90,7 @@ export default {
     AddLinkModal,
     AddEmbedModal,
     TextIcon,
+    ChatIcon,
     ImageIcon,
     LinkIcon,
     EmbedIcon,
@@ -284,7 +290,7 @@ export default {
   gap: 4px;
 
   position: relative;
-  top: -32px;
+  top: -8px;
   background-color: var(--color-tile-background);
   border-radius: var(--radius-md);
   border: var(--tile-border-width) solid var(--color-tile-stroke);

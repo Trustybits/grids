@@ -2,11 +2,34 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function layoutDoc(layoutId) {
+      return get(/databases/$(database)/documents/layouts/$(layoutId));
+    }
+
+    function isLayoutOwner(layoutId) {
+      return request.auth != null
+        && layoutDoc(layoutId).data.userId == request.auth.uid;
+    }
+
     match /layouts/{layoutId} {
       allow read: if true;
 
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow update, delete: if isLayoutOwner(layoutId);
+
+      match /tiles/{tileId}/messages/{messageId} {
+        allow read: if true;
+
+        allow create: if exists(/databases/$(database)/documents/layouts/$(layoutId))
+          && request.resource.data.keys().hasOnly(["text", "createdAt", "authorId"])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.createdAt != null
+          && (!("authorId" in request.resource.data) || request.resource.data.authorId is string);
+
+        allow update, delete: if isLayoutOwner(layoutId);
+      }
     }
 
     match /userGameData/{userId} {

@@ -14,7 +14,10 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      'mapbox-gl/dist/mapbox-gl.css': fileURLToPath(
+        new URL('./node_modules/mapbox-gl/dist/mapbox-gl.css', import.meta.url)
+      ),
     },
   },
   build: {

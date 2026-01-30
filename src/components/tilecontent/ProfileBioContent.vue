@@ -139,9 +139,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, nextTick, onMounted, type PropType, type Ref, type ComputedRef } from "vue";
+import { defineComponent, ref, computed, watch, nextTick, onMounted, type PropType } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
-import type { Editor, Extension } from "@tiptap/core";
+import type { AnyExtension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
 import FontFamily from "@tiptap/extension-font-family";
@@ -161,7 +161,7 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 
-const editorExtensions: Extension[] = [
+const editorExtensions: AnyExtension[] = [
   StarterKit,
   TextStyle,
   Color,
@@ -182,45 +182,13 @@ export default defineComponent({
       required: true,
     },
   },
-  setup(props): {
-    layoutStore: ReturnType<typeof useLayoutStore>;
-    profileRoot: Ref<HTMLDivElement | null>;
-    avatarRef: Ref<HTMLDivElement | null>;
-    avatarInput: Ref<HTMLInputElement | null>;
-    avatarShape: ComputedRef<AvatarShape>;
-    avatarRadius: Ref<number>;
-    avatarSrc: ComputedRef<string>;
-    avatarMediaStyle: ComputedRef<{ clipPath: string } | { borderRadius: string }>;
-    clipPathId: string;
-    hexPath: ComputedRef<string>;
-    showUrlInput: Ref<boolean>;
-    draftAvatarUrl: Ref<string>;
-    urlError: Ref<string>;
-    isEditing: Ref<boolean>;
-    activeEditor: Ref<Editor | null>;
-    nameEditor: ReturnType<typeof useEditor>;
-    titleEditor: ReturnType<typeof useEditor>;
-    bioEditor: ReturnType<typeof useEditor>;
-    onShortClick: () => void;
-    onExitClick: () => void;
-    onResize: () => void;
-    openCustomImagePicker: () => void;
-    openUrlInput: () => void;
-    cancelUrlInput: () => void;
-    applyAvatarUrl: () => void;
-    removeCustomImage: () => void;
-    onAvatarSelected: (event: Event) => Promise<void>;
-    onAvatarClick: () => void;
-    setAvatarShape: (shape: AvatarShape) => void;
-    onRadiusInput: (event: Event) => void;
-    onRadiusCommit: () => void;
-  } {
+  setup(props) {
     const layoutStore = useLayoutStore();
     const auth = getAuth();
     const storage = getStorage();
 
     const isEditing = ref(false);
-    const activeEditor = ref<Editor | null>(null);
+    const activeEditor = ref<any>(null);
     const avatarInput = ref<HTMLInputElement | null>(null);
     const avatarRef = ref<HTMLDivElement | null>(null);
     const profileRoot = ref<HTMLDivElement | null>(null);
@@ -272,7 +240,7 @@ export default defineComponent({
     const avatarShape = computed(() => props.content.avatarShape || "circle");
     const avatarSrc = computed(() => props.content.avatarSrc || "");
 
-    const serializeEditor = (editor: Editor) => {
+    const serializeEditor = (editor: any) => {
       let output = JSON.stringify(editor.getJSON());
       output = output.replace(/^"(.*)"$/, "$1");
       return output;
@@ -290,8 +258,8 @@ export default defineComponent({
       [() => layoutStore.isOwner, () => isEditing.value],
       ([isOwner, editing]) => {
         const editors = [nameEditor.value, titleEditor.value, bioEditor.value].filter(
-          (editor): editor is Editor => !!editor
-        );
+          (editor) => editor != null
+        ) as any[];
         if (!editors.length) return;
 
         const shouldBeEditable = isOwner && editing;

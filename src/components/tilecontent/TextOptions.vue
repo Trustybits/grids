@@ -81,7 +81,6 @@
 <script lang="ts">
 import { defineComponent, onMounted, ref, watchEffect } from "vue";
 import type { PropType } from "vue";
-import { Editor } from "@tiptap/core";
 
 const showListOptions = ref(false);
 
@@ -104,7 +103,7 @@ onMounted(() => {
 export default defineComponent({
   props: {
     editor: {
-      type: Object as PropType<Editor>,
+      type: Object as PropType<any>,
       required: true,
     },
   },
@@ -296,6 +295,7 @@ button.active {
 .colorSelector {
   // border-radius: 16px;
   -webkit-appearance: none;
+  appearance: none;
   // -moz-appearance: none;
   // appearance: none;
   width: 32px;

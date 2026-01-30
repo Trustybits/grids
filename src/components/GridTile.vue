@@ -366,6 +366,11 @@ export default defineComponent({
     const startClick = (event: MouseEvent) => {
       if (event.button === 0) {
         clickStart.value = Date.now();
+        // Prevent text selection during potential drag operations
+        // Only prevent if we're the owner and not in edit mode
+        if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
+          event.preventDefault();
+        }
       }
     };
 
@@ -720,16 +725,33 @@ export default defineComponent({
       }
     };
 
+    const handleDragStart = (event: Event) => {
+      // Prevent default browser drag behavior which interferes with vue-grid-layout
+      if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
+        event.preventDefault();
+      }
+    };
+
     onMounted(() => {
       loadComponent();
       document.addEventListener("click", handleToolbarMenuClickOutside);
       document.addEventListener("contextmenu", handleToolbarMenuClickOutside);
+      
+      // Add dragstart prevention to the grid tile element
+      if (gridTileRef.value) {
+        gridTileRef.value.addEventListener("dragstart", handleDragStart);
+      }
     });
 
     onUnmounted(() => {
       removeClickListener(); // Cleanup on unmount
       document.removeEventListener("click", handleToolbarMenuClickOutside);
       document.removeEventListener("contextmenu", handleToolbarMenuClickOutside);
+      
+      // Remove dragstart listener
+      if (gridTileRef.value) {
+        gridTileRef.value.removeEventListener("dragstart", handleDragStart);
+      }
     });
 
     return {

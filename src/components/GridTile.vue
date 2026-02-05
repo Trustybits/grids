@@ -1447,8 +1447,14 @@ export default defineComponent({
   }
 }
 
-/* Show resize indicator on tile hover */
+/* Show resize indicator when hovering the tile */
 .tile-wrapper:hover .resize-indicator {
+  opacity: 1;
+}
+
+/* Also show nubbin when hovering the resize handle (extended hit area) */
+/* This keeps the nubbin visible even when cursor moves into the resize zone beyond the tile */
+.grid-item-container:has(.vue-resizable-handle:hover) .resize-indicator {
   opacity: 1;
 }
 
@@ -1456,10 +1462,10 @@ export default defineComponent({
 /* The library uses .vue-resizable-handle class for the resize handle */
 :deep(.vue-resizable-handle) {
   /* Increase the hit area from default small corner to a larger area */
-  width: 24px !important;
-  height: 24px !important;
-  bottom: 0 !important;
-  right: 0 !important;
+  width: 48px !important;
+  height: 48px !important;
+  bottom: -8px !important;
+  right: -8px !important;
   
   /* Make the handle itself invisible but keep the hit area */
   background-image: none !important;

@@ -153,7 +153,12 @@ export default {
     };
 
     const addFile = async (event: Event) => {
-      const file = (event.target as HTMLInputElement).files?.[0];
+      const input = event.target as HTMLInputElement;
+      const file = input.files?.[0];
+      
+      // Reset input immediately so the same file can be selected again
+      input.value = "";
+      
       if (!file) return;
 
       const isImage = file.type.startsWith("image/");

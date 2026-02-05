@@ -672,7 +672,7 @@ export default defineComponent({
 
       const isImage = file.type.startsWith("image/");
       const isVideo = file.type.startsWith("video/");
-      const maxSize = isImage ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
+      const maxSize = isImage ? 10 * 1024 * 1024 : 500 * 1024 * 1024;
 
       if (!isImage && !isVideo) {
         alert("Unsupported file type. Please upload an image or video.");
@@ -680,7 +680,7 @@ export default defineComponent({
       }
 
       if (file.size > maxSize) {
-        alert(`File is too large! Maximum size: ${isImage ? "10MB" : "50MB"}`);
+        alert(`File is too large! Maximum size: ${isImage ? "10MB" : "500MB"}`);
         return;
       }
 
@@ -700,9 +700,11 @@ export default defineComponent({
         const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
         const content = createTileContent(contentType, { src: url });
         layoutStore.setTileContent(props.tile.i, content);
-      } catch (error) {
+      } catch (error: any) {
         console.error("File upload failed:", error);
-        alert("Failed to upload file. Please try again.");
+        // Show more specific error message to help with debugging
+        const errorMessage = error?.message || error?.code || "Unknown error";
+        alert(`Failed to upload file: ${errorMessage}\n\nCheck console for details.`);
       } finally {
         if (mediaInput.value) mediaInput.value.value = "";
       }

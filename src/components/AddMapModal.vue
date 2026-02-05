@@ -7,16 +7,12 @@
             ref="mapInput"
             v-model="query"
             type="text"
-            placeholder="Search for a location (optional)"
+            placeholder="Enter a location (optional)"
             class="map-input"
             @keyup.enter="handleAdd"
             @keyup.esc="handleClose"
           />
           <p class="map-hint">Leave blank to use your current location.</p>
-          <div class="modal-actions">
-            <button type="button" class="cancel-button" @click="handleClose">Cancel</button>
-            <button type="button" class="add-button" @click="handleAdd">Add map</button>
-          </div>
         </div>
       </div>
     </transition>
@@ -87,13 +83,13 @@ const handleAdd = () => {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
-  position: relative;
-  top: 540px;
+  position: absolute;
+  bottom: 100px;
   z-index: 1001;
   background-color: var(--color-tile-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-sm);
+  padding: var(--spacing-xs);
   width: fit-content;
   min-width: 360px;
   max-width: 750px;
@@ -174,6 +170,8 @@ const handleAdd = () => {
   margin: 0;
   font-size: 12px;
   color: var(--color-content-default);
+  width: 100%;
+  text-align: center;
 }
 
 .modal-actions {

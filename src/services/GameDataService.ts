@@ -18,6 +18,7 @@ import type { UserGameData, LeaderboardEntry } from "@/types/GameData";
 import { generateSeededDisplayName } from "@/utils/NameGenerator";
 
 const GAME_DATA_COLLECTION = "userGameData";
+const DAILY_CLICK_CAP = 100; // Maximum clicks a user can make per day
 
 /**
  * Get or create game data for a user
@@ -35,6 +36,10 @@ export async function getOrCreateUserGameData(userId: string): Promise<UserGameD
       totalClicks: data.totalClicks || 0,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
+      dailyClicks: data.dailyClicks || 0,
+      lastClickDate: data.lastClickDate || getTodayDateString(),
+      passiveBoost: data.passiveBoost || 0,
+      totalPassiveClicks: data.totalPassiveClicks || 0,
     };
   } else {
     // Create new game data with random display name
@@ -53,6 +58,10 @@ export async function getOrCreateUserGameData(userId: string): Promise<UserGameD
       totalClicks: 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      dailyClicks: 0,
+      lastClickDate: getTodayDateString(),
+      passiveBoost: 0,
+      totalPassiveClicks: 0,
     });
 
     return newGameData;
@@ -60,10 +69,50 @@ export async function getOrCreateUserGameData(userId: string): Promise<UserGameD
 }
 
 /**
- * Increment the total clicks for a user
- * Uses Firestore's atomic increment to handle concurrent clicks safely
+ * Helper function to get today's date as YYYY-MM-DD string
  */
-export async function incrementUserClicks(userId: string, amount: number = 1): Promise<void> {
+function getTodayDateString(): string {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+}
+
+/**
+ * Check if a user has reached their daily click cap
+ * Returns an object with canClick boolean and remaining clicks
+ */
+export async function checkDailyClickLimit(userId: string): Promise<{ canClick: boolean; remaining: number; dailyClicks: number }> {
+  const docRef = doc(db, GAME_DATA_COLLECTION, userId);
+  const docSnap = await getDoc(docRef);
+  
+  if (!docSnap.exists()) {
+    return { canClick: true, remaining: DAILY_CLICK_CAP, dailyClicks: 0 };
+  }
+  
+  const data = docSnap.data();
+  const today = getTodayDateString();
+  const lastClickDate = data.lastClickDate || '';
+  
+  // Reset daily clicks if it's a new day
+  if (lastClickDate !== today) {
+    return { canClick: true, remaining: DAILY_CLICK_CAP, dailyClicks: 0 };
+  }
+  
+  const dailyClicks = data.dailyClicks || 0;
+  const remaining = Math.max(0, DAILY_CLICK_CAP - dailyClicks);
+  
+  return {
+    canClick: dailyClicks < DAILY_CLICK_CAP,
+    remaining,
+    dailyClicks,
+  };
+}
+
+/**
+ * Increment the total clicks for a user with daily cap enforcement
+ * Uses Firestore's atomic increment to handle concurrent clicks safely
+ * Returns true if click was successful, false if daily cap reached
+ */
+export async function incrementUserClicks(userId: string, amount: number = 1): Promise<boolean> {
   const docRef = doc(db, GAME_DATA_COLLECTION, userId);
   
   // First ensure the document exists
@@ -72,11 +121,33 @@ export async function incrementUserClicks(userId: string, amount: number = 1): P
     await getOrCreateUserGameData(userId);
   }
   
-  // Atomically increment the clicks
-  await updateDoc(docRef, {
+  // Check daily limit
+  const limitCheck = await checkDailyClickLimit(userId);
+  if (!limitCheck.canClick) {
+    return false; // Daily cap reached
+  }
+  
+  const today = getTodayDateString();
+  const data = docSnap.exists() ? docSnap.data() : null;
+  const lastClickDate = data?.lastClickDate || '';
+  
+  // Prepare update object
+  const updateData: any = {
     totalClicks: increment(amount),
     updatedAt: serverTimestamp(),
-  });
+    lastClickDate: today,
+  };
+  
+  // Reset daily clicks if it's a new day, otherwise increment
+  if (lastClickDate !== today) {
+    updateData.dailyClicks = amount;
+  } else {
+    updateData.dailyClicks = increment(amount);
+  }
+  
+  // Atomically increment the clicks
+  await updateDoc(docRef, updateData);
+  return true;
 }
 
 /**
@@ -97,6 +168,10 @@ export function subscribeToUserGameData(
         totalClicks: data.totalClicks || 0,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),
+        dailyClicks: data.dailyClicks || 0,
+        lastClickDate: data.lastClickDate || getTodayDateString(),
+        passiveBoost: data.passiveBoost || 0,
+        totalPassiveClicks: data.totalPassiveClicks || 0,
       });
     }
   });
@@ -167,4 +242,69 @@ export async function updateDisplayName(userId: string, displayName: string): Pr
     displayName,
     updatedAt: serverTimestamp(),
   });
+}
+
+/**
+ * Increase a user's passive boost multiplier
+ * This is like a prestige system - users can increase their passive generation
+ */
+export async function increasePassiveBoost(userId: string, boostAmount: number): Promise<void> {
+  const docRef = doc(db, GAME_DATA_COLLECTION, userId);
+  await updateDoc(docRef, {
+    passiveBoost: increment(boostAmount),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Add passive clicks to a user's total
+ * This is called when passive clicks are generated (e.g., from offline time or periodic generation)
+ */
+export async function addPassiveClicks(userId: string, amount: number): Promise<void> {
+  const docRef = doc(db, GAME_DATA_COLLECTION, userId);
+  await updateDoc(docRef, {
+    totalClicks: increment(amount),
+    totalPassiveClicks: increment(amount),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Get the daily click cap constant
+ */
+export function getDailyClickCap(): number {
+  return DAILY_CLICK_CAP;
+}
+
+/**
+ * Claim passive clicks earned since last visit
+ * This should be called when a user visits their campfire
+ * Returns the number of passive clicks claimed
+ */
+export async function claimPassiveClicks(userId: string): Promise<number> {
+  const docRef = doc(db, GAME_DATA_COLLECTION, userId);
+  const docSnap = await getDoc(docRef);
+  
+  if (!docSnap.exists()) {
+    return 0;
+  }
+  
+  const data = docSnap.data();
+  const totalClicks = data.totalClicks || 0;
+  const lastUpdate = data.updatedAt?.toDate() || new Date();
+  
+  // Calculate passive clicks using the calculator
+  const { calculatePassiveClicks } = await import('@/utils/PassiveBoostCalculator');
+  const passiveClicks = calculatePassiveClicks(totalClicks, lastUpdate);
+  
+  if (passiveClicks > 0) {
+    // Add passive clicks to user's total
+    await updateDoc(docRef, {
+      totalClicks: increment(passiveClicks),
+      totalPassiveClicks: increment(passiveClicks),
+      updatedAt: serverTimestamp(),
+    });
+  }
+  
+  return passiveClicks;
 }

@@ -667,7 +667,12 @@ export default defineComponent({
     };
 
     const onMediaSelected = async (event: Event) => {
-      const file = (event.target as HTMLInputElement).files?.[0];
+      const input = event.target as HTMLInputElement;
+      const file = input.files?.[0];
+      
+      // Reset input immediately so the same file can be selected again
+      input.value = "";
+      
       if (!file) return;
 
       const isImage = file.type.startsWith("image/");
@@ -705,8 +710,6 @@ export default defineComponent({
         // Show more specific error message to help with debugging
         const errorMessage = error?.message || error?.code || "Unknown error";
         alert(`Failed to upload file: ${errorMessage}\n\nCheck console for details.`);
-      } finally {
-        if (mediaInput.value) mediaInput.value.value = "";
       }
     };
 

@@ -86,6 +86,9 @@
 
       <TileCaption v-if="showCaption && (layoutStore.isOwner || tile.caption)" :tile="tile" />
 
+      <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
+      <div v-if="isTileResizable" class="resize-indicator"></div>
+
       <div v-if="layoutStore.isOwner && !isSuggestion" class="tile-toolbar" @mousedown.stop>
         <template v-if="!isProfileTile">
           <button
@@ -1414,5 +1417,55 @@ export default defineComponent({
     opacity: 0;
     border-color: rgba(255, 255, 255, 0);
   }
+}
+
+/* Resize indicator nubbin - appears in bottom-right corner on hover */
+.resize-indicator {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 16px;
+  height: 16px;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing-ease-out);
+  
+  /* Create the nubbin shape using a pseudo-element */
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 0 20px 20px;
+    border-color: transparent transparent var(--color-content-default) transparent;
+    opacity: 0.3;
+    border-radius: 0 0 calc(var(--tile-border-radius) - 2px) 0;
+  }
+}
+
+/* Show resize indicator on tile hover */
+.tile-wrapper:hover .resize-indicator {
+  opacity: 1;
+}
+
+/* Increase the resize handle hit area for vue3-grid-layout */
+/* The library uses .vue-resizable-handle class for the resize handle */
+:deep(.vue-resizable-handle) {
+  /* Increase the hit area from default small corner to a larger area */
+  width: 24px !important;
+  height: 24px !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  
+  /* Make the handle itself invisible but keep the hit area */
+  background-image: none !important;
+  background-color: transparent !important;
+  
+  /* Ensure it's above other content but below toolbar */
+  z-index: 4 !important;
 }
 </style>

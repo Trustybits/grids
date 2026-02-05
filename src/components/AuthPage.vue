@@ -78,6 +78,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { auth } from '../firebase';
 import GriddleAnimation from '@/components/GriddleAnimation.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
+import { useLayoutStore } from '@/stores/layout';
 import {
   signInWithPopup,
   GoogleAuthProvider,
@@ -89,6 +90,7 @@ import {
 const email = ref('');
 const router = useRouter();
 const route = useRoute();
+const layoutStore = useLayoutStore();
 
 // Set page title
 const pageTitle = ref('Sign In');
@@ -106,11 +108,35 @@ const isEmailValid = computed(() => {
   return /\S+@\S+\.[\S]+/.test(email.value.trim());
 });
 
-const getPostAuthRedirect = () => {
+// Check if user is new (has no grids) and create a default grid for them
+// Returns the redirect path - either to a new grid or dashboard
+const getPostAuthRedirect = async (): Promise<string> => {
   const redirect = route.query.redirect;
-  return typeof redirect === 'string' && redirect.length > 0
-    ? redirect
-    : '/dashboard';
+  
+  // If there's an explicit redirect query param, honor it
+  if (typeof redirect === 'string' && redirect.length > 0) {
+    return redirect;
+  }
+  
+  try {
+    // Fetch user's existing grids to determine if they're a new user
+    await layoutStore.fetchLayouts();
+    
+    // If user has no grids, they're a new user - create a default grid for them
+    if (layoutStore.layouts.length === 0) {
+      const newGridId = await layoutStore.createLayout('My First Grid');
+      if (newGridId) {
+        return `/grid/${newGridId}`;
+      }
+    }
+    
+    // Existing user with grids - send to dashboard
+    return '/dashboard';
+  } catch (error) {
+    console.error('Error checking user grids:', error);
+    // On error, default to dashboard
+    return '/dashboard';
+  }
 };
 
 onMounted(() => {
@@ -146,7 +172,8 @@ const maybeCompleteEmailLinkSignIn = async () => {
 
     await signInWithEmailLink(auth, resolvedEmail, window.location.href);
     window.localStorage.removeItem(AUTH_EMAIL_STORAGE_KEY);
-    await router.replace(getPostAuthRedirect());
+    const redirectPath = await getPostAuthRedirect();
+    await router.replace(redirectPath);
   } catch (error: any) {
     console.error('Email link sign-in error:', error?.message);
     statusTone.value = 'error';
@@ -162,7 +189,8 @@ const handleGoogleAuth = async () => {
     isBusy.value = true;
     statusText.value = null;
     await signInWithPopup(auth, provider);
-    await router.replace(getPostAuthRedirect());
+    const redirectPath = await getPostAuthRedirect();
+    await router.replace(redirectPath);
   } catch (error: any) {
     console.error('Google Auth error:', error?.message);
     statusTone.value = 'error';

@@ -275,9 +275,12 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   gap: 10px;
-  justify-content: flex-end;
   min-height: 0;
   overflow-y: auto;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   padding-right: 4px;
 }
 

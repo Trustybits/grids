@@ -5,14 +5,42 @@
       
       <button 
         class="campfire-button" 
-        :class="fireIntensityClass"
+        :class="[fireIntensityClass, { 'disabled': dailyCapReached }]"
         @click="handleClick"
-        :title="'Keep the fire burning!'"
+        :title="buttonTitle"
+        :disabled="dailyCapReached"
       >
         <FireLargeIcon v-if="fireIntensity === 'blazing'" :size="fireIconSize" />
         <FireMediumIcon v-else-if="fireIntensity === 'burning'" :size="fireIconSize" />
         <FireSmallIcon v-else :size="fireIconSize" />
       </button>
+      
+      <!-- Daily click progress indicator -->
+      <div v-if="showDailyProgress" class="daily-progress">
+        <span class="progress-text">{{ dailyClicksRemaining }}/{{ dailyClickCap }} today</span>
+      </div>
+      
+      <!-- Boost tier indicator -->
+      <div v-if="showBoostInfo && currentBoostTier" class="boost-info">
+        <span class="boost-tier">{{ currentBoostTier.name }}</span>
+        <span class="boost-rate" v-if="currentBoostTier.dailyPassiveClicks > 0">
+          +{{ currentBoostTier.dailyPassiveClicks }}/day
+        </span>
+      </div>
+      
+      <!-- Cap reached message -->
+      <transition name="fade">
+        <div v-if="showCapMessage" class="cap-message">
+          Daily limit reached! Come back tomorrow 🔥
+        </div>
+      </transition>
+      
+      <!-- Passive clicks claimed message -->
+      <transition name="fade">
+        <div v-if="showPassiveMessage" class="passive-message">
+          +{{ passiveClicksClaimed }} passive clicks earned! 🌟
+        </div>
+      </transition>
       
       <div v-if="showFooter" class="footer">
         <div class="player-info">
@@ -68,7 +96,11 @@ import {
   incrementUserClicks,
   subscribeToUserGameData,
   subscribeToLeaderboard,
+  checkDailyClickLimit,
+  getDailyClickCap,
+  claimPassiveClicks,
 } from "@/services/GameDataService";
+import { getCurrentBoostTier, getNextBoostTier, type BoostMilestone } from "@/utils/PassiveBoostCalculator";
 
 export default defineComponent({
   components: {
@@ -91,6 +123,14 @@ export default defineComponent({
     const showLeaderboard = ref(false);
     const ownerGameData = ref<UserGameData | null>(null);
     const leaderboard = ref<LeaderboardEntry[]>([]);
+    const dailyClicksRemaining = ref(100);
+    const dailyCapReached = ref(false);
+    const showCapMessage = ref(false);
+    const dailyClickCap = getDailyClickCap();
+    const currentBoostTier = ref<BoostMilestone | null>(null);
+    const nextBoostTier = ref<BoostMilestone | null>(null);
+    const passiveClicksClaimed = ref(0);
+    const showPassiveMessage = ref(false);
     
     // Inject tile dimensions from GridTile (these are ComputedRefs)
     const tileWidth = inject<ComputedRef<number>>('gridTileW', computed(() => 2));
@@ -120,6 +160,28 @@ export default defineComponent({
       return !(w === 1 || h === 1);
     });
     
+    // Show daily progress for larger tiles
+    const showDailyProgress = computed(() => {
+      const w = tileWidth.value;
+      const h = tileHeight.value;
+      return !(w === 1 && h === 1);
+    });
+    
+    // Show boost info for larger tiles
+    const showBoostInfo = computed(() => {
+      const w = tileWidth.value;
+      const h = tileHeight.value;
+      return !(w === 1 && h === 1) && currentBoostTier.value !== null;
+    });
+    
+    // Dynamic button title based on cap status
+    const buttonTitle = computed(() => {
+      if (dailyCapReached.value) {
+        return 'Daily limit reached! Come back tomorrow';
+      }
+      return `Keep the fire burning! (${dailyClicksRemaining.value} clicks left today)`;
+    });
+    
     // Dynamic fire icon size based on layout
     const fireIconSize = computed(() => {
       const w = tileWidth.value;
@@ -142,10 +204,35 @@ export default defineComponent({
     });
 
     const handleClick = async () => {
-      if (!ownerId.value) return;
+      if (!ownerId.value || dailyCapReached.value) return;
       
       // Increment the grid owner's score (not the clicker's score)
-      await incrementUserClicks(ownerId.value, 1);
+      const success = await incrementUserClicks(ownerId.value, 1);
+      
+      // Check if daily cap was reached
+      if (!success) {
+        dailyCapReached.value = true;
+        dailyClicksRemaining.value = 0;
+        showCapMessage.value = true;
+        setTimeout(() => {
+          showCapMessage.value = false;
+        }, 3000);
+        return;
+      }
+      
+      // Update remaining clicks
+      if (dailyClicksRemaining.value > 0) {
+        dailyClicksRemaining.value--;
+      }
+      
+      // Check if we just hit the cap
+      if (dailyClicksRemaining.value === 0) {
+        dailyCapReached.value = true;
+        showCapMessage.value = true;
+        setTimeout(() => {
+          showCapMessage.value = false;
+        }, 3000);
+      }
       
       // Check click speed to determine fire intensity
       const now = Date.now();
@@ -203,11 +290,39 @@ export default defineComponent({
       }
 
       // Initialize owner's game data if it doesn't exist
-      await getOrCreateUserGameData(ownerId.value);
+      const gameData = await getOrCreateUserGameData(ownerId.value);
+      
+      // Claim any passive clicks earned since last visit
+      const passiveClaimed = await claimPassiveClicks(ownerId.value);
+      if (passiveClaimed > 0) {
+        passiveClicksClaimed.value = passiveClaimed;
+        showPassiveMessage.value = true;
+        setTimeout(() => {
+          showPassiveMessage.value = false;
+        }, 4000);
+      }
+      
+      // Update boost tier based on current total clicks
+      currentBoostTier.value = getCurrentBoostTier(gameData.totalClicks);
+      nextBoostTier.value = getNextBoostTier(gameData.totalClicks);
 
+      // Check daily click limit
+      const limitCheck = await checkDailyClickLimit(ownerId.value);
+      dailyClicksRemaining.value = limitCheck.remaining;
+      dailyCapReached.value = !limitCheck.canClick;
+      
       // Subscribe to real-time updates for owner's game data
       unsubscribeOwnerData = subscribeToUserGameData(ownerId.value, (data) => {
         ownerGameData.value = data;
+        // Update daily clicks tracking when data changes
+        if (data.dailyClicks !== undefined) {
+          const remaining = Math.max(0, dailyClickCap - (data.dailyClicks || 0));
+          dailyClicksRemaining.value = remaining;
+          dailyCapReached.value = remaining === 0;
+        }
+        // Update boost tier when total clicks change
+        currentBoostTier.value = getCurrentBoostTier(data.totalClicks);
+        nextBoostTier.value = getNextBoostTier(data.totalClicks);
       });
 
       // Subscribe to leaderboard updates
@@ -241,6 +356,17 @@ export default defineComponent({
       showCount,
       showFooter,
       fireIconSize,
+      dailyClicksRemaining,
+      dailyCapReached,
+      showCapMessage,
+      showDailyProgress,
+      buttonTitle,
+      dailyClickCap,
+      currentBoostTier,
+      nextBoostTier,
+      showBoostInfo,
+      passiveClicksClaimed,
+      showPassiveMessage,
     };
   },
 });
@@ -359,6 +485,20 @@ export default defineComponent({
     color: #ff4500;
     animation: flickerBlazing 0.8s ease-in-out infinite;
     filter: drop-shadow(0 0 16px rgba(255, 107, 53, 0.95)) drop-shadow(0 0 24px rgba(247, 147, 30, 0.75));
+  }
+  
+  &.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.8);
+    
+    &:hover {
+      filter: grayscale(0.8);
+    }
+    
+    &:active {
+      transform: none;
+    }
   }
 }
 
@@ -592,6 +732,95 @@ export default defineComponent({
 
 .drawer-leave-to {
   transform: translateY(100%);
+  opacity: 0;
+}
+
+// Daily progress indicator
+.daily-progress {
+  font-size: 11px;
+  color: var(--color-content-default);
+  user-select: none;
+  text-align: center;
+  padding: 2px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+  
+  .progress-text {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// Boost tier indicator
+.boost-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  user-select: none;
+  padding: 4px 8px;
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: var(--radius-sm);
+  
+  .boost-tier {
+    font-weight: 700;
+    color: #ffd700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .boost-rate {
+    font-size: 9px;
+    color: var(--color-content-default);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// Cap reached message
+.cap-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 107, 53, 0.95);
+  color: white;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 20;
+  pointer-events: none;
+}
+
+// Passive clicks claimed message
+.passive-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 215, 0, 0.95);
+  color: #1a1a1a;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 20;
+  pointer-events: none;
+}
+
+// Fade animation for cap message
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
 }
 </style>

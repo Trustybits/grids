@@ -26,6 +26,7 @@ export interface TextContent extends TileContent {
   isItalic: boolean;
   textType: string;
   color: string;
+  textLink?: string;
 }
 
 export interface ChatMessage {

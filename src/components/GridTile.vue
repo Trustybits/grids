@@ -267,7 +267,7 @@
           :style="toolbarMenuStyle"
           @mousedown.stop
         >
-          <button type="button" class="tile-toolbar-menu-item" @click.stop="">
+          <button type="button" class="tile-toolbar-menu-item" @click.stop="handleToolbarUseUrl">
             <LinkIcon />
           </button>
         </div>
@@ -1115,7 +1115,7 @@ export default defineComponent({
 .tile-toolbar-menu {
   position: fixed;
   z-index: 1200;
-  min-width: 60px;
+  min-width: 50px;
   padding: 4px;
   display: flex;
   flex-direction: column;

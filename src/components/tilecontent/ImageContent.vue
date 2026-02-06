@@ -1,7 +1,15 @@
 <template>
   <div class="image-container" ref="imageWrapper">
     <div v-if="!content.src" class="spinner"></div>
-    <div v-else class="image-wrapper" :class="{ 'crop-active': isEditing }">
+    <div 
+      v-else 
+      class="image-wrapper" 
+      :class="{ 'crop-active': isEditing }"
+      @mousedown="startDragging"
+      @mouseup="stopDragging"
+      @mouseleave="stopDragging"
+      @mousemove="dragImage"
+    >
       <!-- Dimmed overflow layer - full image at reduced opacity -->
       <img
         v-if="isEditing"
@@ -21,11 +29,6 @@
           class="image image-main"
           :style="imageStyle"
           draggable="false"
-          @mousedown="startDragging"
-          @mouseup="stopDragging"
-          @mouseleave="stopDragging"
-          @mousemove="dragImage"
-          @wheel.prevent="handleWheel"
           @load="onImageLoad"
         />
       </div>
@@ -53,7 +56,6 @@ export default defineComponent({
     const dragStart = ref({ x: 0, y: 0 });
     const offsetX = ref(props.content.offsetX || 0);
     const offsetY = ref(props.content.offsetY || 0);
-    const zoom = ref(props.content.zoom || 1);
     const imageWrapper = ref<HTMLDivElement | null>(null);
     const imageElement = ref<HTMLImageElement | null>(null);
     
@@ -72,18 +74,19 @@ export default defineComponent({
 
       isEditing.value = !isEditing.value;
 
+      // Prevent horizontal scrolling when in crop mode
+      if (isEditing.value) {
+        document.body.style.overflowX = 'hidden';
+      } else {
+        document.body.style.overflowX = '';
+      }
+
       // Save when exiting crop mode
       if (!isEditing.value) {
         props.content.offsetX = offsetX.value;
         props.content.offsetY = offsetY.value;
-        props.content.zoom = zoom.value;
         layoutStore.saveLayout();
       }
-    };
-
-    const updateZoom = () => {
-      // Constrain offsets when zoom changes
-      constrainOffset();
     };
 
     const constrainOffset = () => {
@@ -113,13 +116,9 @@ export default defineComponent({
         renderedHeight = containerHeight;
       }
       
-      // Apply zoom
-      const scaledWidth = renderedWidth * zoom.value;
-      const scaledHeight = renderedHeight * zoom.value;
-
-      // Max offset is half the difference between scaled image and container
-      const maxX = Math.max(0, (scaledWidth - containerWidth) / 2);
-      const maxY = Math.max(0, (scaledHeight - containerHeight) / 2);
+      // Max offset is half the difference between rendered image and container
+      const maxX = Math.max(0, (renderedWidth - containerWidth) / 2);
+      const maxY = Math.max(0, (renderedHeight - containerHeight) / 2);
 
       offsetX.value = Math.min(maxX, Math.max(-maxX, offsetX.value));
       offsetY.value = Math.min(maxY, Math.max(-maxY, offsetY.value));
@@ -150,17 +149,9 @@ export default defineComponent({
       dragStart.value = { x: event.clientX, y: event.clientY };
     };
 
-    const handleWheel = (event: WheelEvent) => {
-      if (!isEditing.value) return;
-      
-      const delta = -event.deltaY * 0.001;
-      zoom.value = Math.min(3, Math.max(1, zoom.value + delta));
-      constrainOffset();
-    };
-
     const imageStyle = computed(() => {
       const cursor = isEditing.value ? (isDragging.value ? 'grabbing' : 'grab') : 'default';
-      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px) scale(${zoom.value})`;
+      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
       
       // Always use calculated sizing based on aspect ratios to preserve crop
       if (imageDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
@@ -179,7 +170,7 @@ export default defineComponent({
     
     // Overflow layer sizing - ensures full image visible based on aspect ratios
     const overflowStyle = computed(() => {
-      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px) scale(${zoom.value})`;
+      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
       const cursor = isEditing.value ? (isDragging.value ? 'grabbing' : 'grab') : 'default';
       
       // Compare aspect ratios to determine which dimension to constrain
@@ -215,13 +206,10 @@ export default defineComponent({
       startDragging,
       stopDragging,
       dragImage,
-      handleWheel,
       imageStyle,
       overflowStyle,
       imageWrapper,
       imageElement,
-      zoom,
-      updateZoom,
       onImageLoad,
       imageDimensions,
       tileDimensions,

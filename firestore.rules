@@ -12,7 +12,18 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow user to create/update their own document
+      // storageUsed field can only be updated by Cloud Functions (server-side)
+      allow create: if request.auth != null 
+                    && request.auth.uid == userId
+                    && (!('storageUsed' in request.resource.data) || request.resource.data.storageUsed == 0);
+      
+      allow update: if request.auth != null 
+                    && request.auth.uid == userId
+                    && (!('storageUsed' in request.resource.data) 
+                        || request.resource.data.storageUsed == resource.data.storageUsed);
     }
 
     match /layouts/{layoutId} {

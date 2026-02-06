@@ -180,34 +180,6 @@ export async function incrementUserClicks(userId: string, amount: number = 1): P
     console.error('Error incrementing user clicks:', error);
     return false;
   }
-  
-  // Check daily limit
-  const limitCheck = await checkDailyClickLimit(userId);
-  if (!limitCheck.canClick) {
-    return false; // Daily cap reached
-  }
-  
-  const today = getTodayDateString();
-  const data = docSnap.exists() ? docSnap.data() : null;
-  const lastClickDate = data?.lastClickDate || '';
-  
-  // Prepare update object
-  const updateData: any = {
-    totalClicks: increment(amount),
-    updatedAt: serverTimestamp(),
-    lastClickDate: today,
-  };
-  
-  // Reset daily clicks if it's a new day, otherwise increment
-  if (lastClickDate !== today) {
-    updateData.dailyClicks = amount;
-  } else {
-    updateData.dailyClicks = increment(amount);
-  }
-  
-  // Atomically increment the clicks
-  await updateDoc(docRef, updateData);
-  return true;
 }
 
 /**

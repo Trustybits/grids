@@ -11,7 +11,7 @@
     :vertical-compact="layoutStore.verticalCompact"
     :prevent-collision="false"
     :restore-on-drag="true"
-    :use-css-transforms="false"
+    :use-css-transforms="true"
     :margin="[margin, margin]"
     :style="{ width: `${gridWidth}px` }"
   >
@@ -236,14 +236,24 @@ export default {
 /* Visual styling handled by custom.scss globally */
 /* Grid only handles animation behavior */
 .vue-grid-item {
-  :not(&.resizing) {
-    transition-property: transform, width, height !important;
-    transition-timing-function: cubic-bezier(
-      0.68,
-      -0.55,
-      0.27,
-      1.55
-    ) !important;
+  /* Smooth snap-back animation when tile is released after dragging */
+  &:not(.resizing):not(.vue-draggable-dragging) {
+    transition: transform var(--duration-slow) var(--easing-spring),
+                width var(--duration-slow) var(--easing-spring),
+                height var(--duration-slow) var(--easing-spring) !important;
+  }
+  
+  /* Dragging state handled in custom.scss with !important to override inline styles */
+  &.vue-draggable-dragging {
+    transition: none !important;
+    z-index: var(--z-grid-dragging) !important;
+    cursor: grabbing !important;
+  }
+  
+  /* Disable transitions while resizing for immediate feedback */
+  &.resizing {
+    transition: none !important;
+    opacity: 0.85 !important;
   }
 }
 
@@ -291,5 +301,33 @@ export default {
 
 .suggestion-grid-tile:hover .suggestion-label {
   opacity: 0.9;
+}
+</style>
+
+<style>
+/* Global styles for vue3-grid-layout placeholder - must be unscoped to work */
+.vue-grid-placeholder {
+  /* Remove all transitions and animations to prevent flickering */
+  transition: none !important;
+  animation: none !important;
+  
+  /* Make placeholder clearly visible */
+  opacity: 0.3 !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  /* border: 2px dashed rgba(255, 255, 255, 0.4) !important; */
+  border-radius: var(--tile-border-radius) !important;
+  
+  /* Force it to always be visible */
+  display: block !important;
+  visibility: visible !important;
+  
+  /* Prevent it from collapsing */
+  min-width: 20px !important;
+  min-height: 20px !important;
+  
+  /* Ensure proper positioning */
+  position: absolute !important;
+  z-index: -1 !important;
+  pointer-events: none !important;
 }
 </style>

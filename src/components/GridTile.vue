@@ -30,7 +30,8 @@
       class="tile-wrapper"
       :class="{ 
         'crop-mode-active': isEditing && isCroppable,
-        'crop-mode-exiting': isExitingCropMode && isCroppable
+        'crop-mode-exiting': isExitingCropMode && isCroppable,
+        'is-dragging': isDragging
       }"
       :data-border="borderVisible ? 'on' : 'off'"
       :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
@@ -314,6 +315,7 @@ export default defineComponent({
     provide("gridTileW", computed(() => props.tile.w));
 
     const isMoving = ref(false);
+    const isDragging = ref(false);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -389,9 +391,10 @@ export default defineComponent({
     const startClick = (event: MouseEvent) => {
       if (event.button === 0) {
         clickStart.value = Date.now();
-        // Prevent text selection during potential drag operations
-        // Only prevent if we're the owner and not in edit mode
+        // Set dragging state immediately when user grabs the tile
+        // This triggers the scale animation right away
         if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
+          isDragging.value = true;
           event.preventDefault();
         }
       }
@@ -494,6 +497,10 @@ export default defineComponent({
         return;
       }
 
+      // Clear dragging state when user releases the mouse
+      // This ensures the tile scales back down even if dragged to original position
+      isDragging.value = false;
+
       const clickDuration = Date.now() - (clickStart.value || 0);
 
       if (clickDuration < CLICK_THRESHOLD && !isMoving.value) {
@@ -529,11 +536,15 @@ export default defineComponent({
 
     const onMove = () => {
       isMoving.value = true;
+      // isDragging is now set in startClick, but keep this as a safety backup
+      isDragging.value = true;
       setTimeout(() => (isMoving.value = false), 300);
     };
 
     const onMoved = () => {
       // Called when drag operation completes - save the final positions
+      // isDragging is now cleared in endClick, but keep this as a safety backup
+      isDragging.value = false;
       if (!layoutStore.isOwner) return;
       layoutStore.updateLayout();
     };
@@ -812,6 +823,7 @@ export default defineComponent({
       gridTileRef,
       layoutStore,
       isEditing,
+      isDragging,
       onMoved,
       onResize,
       onResized,
@@ -887,10 +899,33 @@ export default defineComponent({
   }
 }
 
+/* Tile entrance animation when created */
+@keyframes tileEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.75);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .tile-wrapper {
   width: 100%;
   height: 100%;
   position: relative;
+  
+  /* Animate tiles when they first appear */
+  animation: tileEnter var(--duration-normal) var(--easing-spring);
+  
+  /* Scale effect while dragging - applied to child element to avoid conflict with grid-item's inline transform */
+  &.is-dragging {
+    transform: scale(1.05);
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.25));
+    transition: transform var(--duration-normal) var(--easing-ease-out),
+                filter var(--duration-normal) var(--easing-ease-out);
+  }
   
   &.crop-mode-active {
     position: relative;

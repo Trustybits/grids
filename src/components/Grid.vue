@@ -243,11 +243,10 @@ export default {
                 height var(--duration-slow) var(--easing-spring) !important;
   }
   
-  /* Disable transitions while actively dragging for immediate feedback */
+  /* Dragging state handled in custom.scss with !important to override inline styles */
   &.vue-draggable-dragging {
     transition: none !important;
     z-index: var(--z-grid-dragging) !important;
-    opacity: 0.9 !important;
     cursor: grabbing !important;
   }
   

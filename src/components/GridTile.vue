@@ -17,7 +17,7 @@
       :style="tileStyle"
       :maxW="10"
       :maxH="10"
-      :isDraggable="layoutStore.isOwner && !isEditing && !isSuggestion"
+      :isDraggable="layoutStore.isOwner && !isEditing"
       :isResizable="isTileResizable"
       @move="onMove"
       @moved="onMoved"
@@ -68,7 +68,7 @@
       </div>
 
       <!-- UI Layer -->
-      <div v-if="layoutStore.isOwner && headerComponent && !isSuggestion" class="header-options">
+      <div v-if="layoutStore.isOwner && headerComponent" class="header-options">
         <component :is="headerComponent" :content="tile.content" />
       </div>
 

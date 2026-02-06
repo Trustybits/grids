@@ -3,7 +3,7 @@ import { type Layout } from "@/types/Layout";
 import { getLayoutService } from "@/services/LayoutServiceFactory"; // Factory to switch services dynamically
 import { ContentType, type TileContent } from "@/types/TileContent";
 import { v4 as uuidv4 } from "uuid";
-import { collection, addDoc, query, where, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
   mapFirestoreToLayout,
   createDefaultLayout,
@@ -11,8 +11,167 @@ import {
 import { auth, db } from "@/firebase";
 import { createTile } from "@/utils/TileUtils";
 import { useToastStore } from "@/stores/toast";
+import heroGif from "@/assets/images/hero.gif";
 
 const layoutService = getLayoutService();
+const createTextDoc = (lines: string[]) => {
+  const parseInlineMarkdown = (text: string) => {
+    const nodes: Array<{ type: string; text?: string; marks?: Array<{ type: string }> }> = [];
+    const regex = /(\*|_)([^*_]+?)\1/;
+    let remaining = text;
+
+    while (remaining.length > 0) {
+      const match = regex.exec(remaining);
+      if (!match) {
+        if (remaining) {
+          nodes.push({ type: "text", text: remaining });
+        }
+        break;
+      }
+
+      const [fullMatch, , italicText] = match;
+      const matchIndex = match.index;
+      if (matchIndex > 0) {
+        nodes.push({ type: "text", text: remaining.slice(0, matchIndex) });
+      }
+      nodes.push({ type: "text", text: italicText, marks: [{ type: "italic" }] });
+      remaining = remaining.slice(matchIndex + fullMatch.length);
+    }
+
+    return nodes;
+  };
+
+  const content = lines.flatMap((line) => {
+    if (line.trim() === "") {
+      return [
+        {
+          type: "paragraph",
+          content: [{ type: "hardBreak" }],
+        },
+      ];
+    }
+
+    const headingMatch = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const text = headingMatch[2];
+      return [
+        {
+          type: "heading",
+          attrs: { level },
+          content: text ? [{ type: "text", text }] : [],
+        },
+      ];
+    }
+
+    if (line.trim() === "---") {
+      return [
+        {
+          type: "horizontalRule",
+        },
+      ];
+    }
+
+    const parts = line.split("\n");
+    const paragraphContent = parts.flatMap((part, index) => {
+      const nodes = parseInlineMarkdown(part);
+      if (index < parts.length - 1) {
+        nodes.push({ type: "hardBreak" });
+      }
+      return nodes;
+    });
+
+    return [
+      {
+        type: "paragraph",
+        content: paragraphContent,
+      },
+    ];
+  });
+
+  return JSON.stringify({
+    type: "doc",
+    content,
+  });
+};
+
+const createStarterTiles = () => {
+  const startX = 0;
+
+  return [
+    createTile(
+      ContentType.SUGGESTION,
+      uuidv4(),
+      startX,
+      6,
+      4,
+      4,
+      { action: "profile", label: "Add Profile" },
+      ""
+    ),
+    createTile(
+      ContentType.IMAGE,
+      uuidv4(),
+      startX + 4,
+      0,
+      5,
+      5,
+      { src: heroGif },
+      ""
+    ),
+    {
+      ...createTile(
+        ContentType.TEXT,
+        uuidv4(),
+        startX + 9,
+        0,
+        2,
+        3,
+        {
+          text: createTextDoc([
+            "# 👋",
+            "#### Welcome to grids.so",
+            "Hope you enjoy your stay.\n\n",
+            "---",
+            "*you can find more tile types below.*👇",
+          ]),
+        },
+        ""
+      ),
+      borderEnabled: false,
+    },
+    createTile(
+      ContentType.EMBED,
+      uuidv4(),
+      startX + 9,
+      2,
+      3,
+      2,
+      { src: "https://www.youtube.com/embed/7ccH8u8fj8Y?si=hnB1rbMIsMCWpPO8" },
+      ""
+    ),
+    createTile(
+      ContentType.CHAT,
+      uuidv4(),
+      startX + 4,
+      5,
+      3,
+      4,
+      {},
+      ""
+    ),
+    createTile(
+      ContentType.SUGGESTION,
+      uuidv4(),
+      startX + 7,
+      5,
+      2,
+      2,
+      { action: "link", label: "Add Link" },
+      ""
+    ),
+  ];
+};
 
 export const useLayoutStore = defineStore("layout", {
   state: () => ({
@@ -78,18 +237,16 @@ export const useLayoutStore = defineStore("layout", {
 
       try {
         const newLayout = createDefaultLayout(userId, name);
-        console.log("newLayout", newLayout);
-        const docRef = await addDoc(collection(db, "layouts"), {
-          ...newLayout,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          lastOpenedAt: serverTimestamp(),
-        });
+        newLayout.tiles = createStarterTiles();
+        const docRef = doc(collection(db, "layouts"));
+        newLayout.id = docRef.id;
+
+        await layoutService.saveLayout(newLayout);
 
         // Add the new layout to the state
-        this.layouts.push({ ...newLayout, id: docRef.id });
+        this.layouts.push({ ...newLayout });
 
-        return docRef.id;
+        return newLayout.id;
       } catch (err) {
         this.error = "Failed to create layout.";
         console.error(err);
@@ -293,63 +450,7 @@ export const useLayoutStore = defineStore("layout", {
     ensureSuggestionTiles() {
       if (!this.currentLayout) return;
       if (this.currentLayout.tiles.length !== 0) return;
-
-      const startX = 0;
-
-      const suggestions = [
-        createTile(
-          ContentType.SUGGESTION,
-          uuidv4(),
-          startX,
-          0,
-          2,
-          2,
-          { action: "profile", label: "Add Profile" },
-          ""
-        ),
-        createTile(
-          ContentType.SUGGESTION,
-          uuidv4(),
-          startX + 2,
-          0,
-          2,
-          2,
-          { action: "text", label: "Add Text" },
-          ""
-        ),
-        createTile(
-          ContentType.SUGGESTION,
-          uuidv4(),
-          startX + 4,
-          0,
-          2,
-          2,
-          { action: "media", label: "Add Photo/Video" },
-          ""
-        ),
-        createTile(
-          ContentType.SUGGESTION,
-          uuidv4(),
-          startX,
-          2,
-          2,
-          2,
-          { action: "link", label: "Add Link" },
-          ""
-        ),
-        createTile(
-          ContentType.SUGGESTION,
-          uuidv4(),
-          startX + 2,
-          2,
-          2,
-          2,
-          { action: "embed", label: "Add Embed" },
-          ""
-        ),
-      ];
-
-      this.currentLayout.tiles = suggestions;
+      this.currentLayout.tiles = createStarterTiles();
       this.updateLayout();
     },
 

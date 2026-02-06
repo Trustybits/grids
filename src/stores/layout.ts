@@ -23,6 +23,7 @@ export const useLayoutStore = defineStore("layout", {
     showMetaData: false,
     isOwner: false,
     recentLayoutIds: [] as string[],
+    activeMenuTileId: null as string | null,
   }),
 
   getters: {
@@ -32,6 +33,14 @@ export const useLayoutStore = defineStore("layout", {
   },
 
   actions: {
+    setActiveMenuTile(tileId: string) {
+      this.activeMenuTileId = tileId;
+    },
+
+    closeAllMenus() {
+      this.activeMenuTileId = null;
+    },
+
     async fetchLayouts() {
       this.isLoading = true;
       this.error = null;

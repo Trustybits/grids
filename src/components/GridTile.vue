@@ -86,7 +86,7 @@
 
       <TileCaption v-if="showCaption && (layoutStore.isOwner || tile.caption)" :tile="tile" />
 
-      <div v-if="layoutStore.isOwner && !isSuggestion" class="tile-toolbar" @mousedown.stop>
+      <div v-if="layoutStore.isOwner && !isSuggestion" class="tile-toolbar" :class="{ 'tile-toolbar-force-show': showToolbarMenu }" @mousedown.stop>
         <template v-if="!isProfileTile">
           <button
             class="toolbar-btn"
@@ -229,7 +229,7 @@
         <input 
           type="range" 
           min="1" 
-          max="3" 
+          max="3"
           step="0.1" 
           :value="childComponent?.zoom || 1"
           @input="updateChildZoom($event)"
@@ -258,6 +258,17 @@
             @click.stop="handleToolbarRemove"
           >
             Remove image
+          </button>
+        </div>
+        <div
+          v-if="layoutStore.isOwner && isTextContent && showToolbarMenu"
+          ref="toolbarMenuRef"
+          class='tile-toolbar-menu'
+          :style="toolbarMenuStyle"
+          @mousedown.stop
+        >
+          <button type="button" class="tile-toolbar-menu-item" @click.stop="">
+            <LinkIcon />
           </button>
         </div>
       </teleport>
@@ -333,7 +344,7 @@ export default defineComponent({
     const gridTileRef = ref<HTMLElement | null>(null);
     const toolbarMenuRef = ref<HTMLDivElement | null>(null);
     const toolbarMoreRef = ref<HTMLButtonElement | null>(null);
-    const showToolbarMenu = ref(false);
+    const showToolbarMenu = computed(() => layoutStore?.activeMenuTileId === props.tile.i);
     const toolbarMenuPosition = ref({ x: 0, y: 0 });
     let stopChildEditingWatch: (() => void) | null = null;
 
@@ -354,6 +365,7 @@ export default defineComponent({
     });
 
     const isLinkContent = computed(() => props.tile.content.type === ContentType.LINK);
+    const isTextContent = computed(() => props.tile.content.type === ContentType.TEXT);
     const linkBackgroundEnabled = computed(() => {
       if (!isLinkContent.value) return true;
       const content = props.tile.content as LinkContent;
@@ -430,7 +442,7 @@ export default defineComponent({
       const fallbackWidth = 190;
       const fallbackHeight = hasCustomLinkImage.value ? 112 : 76;
       const fallbackX = rect.right - fallbackWidth;
-      let fallbackY = rect.top - fallbackHeight - 8;
+      let fallbackY = rect.bottom + 8;
       if (fallbackY < 8) {
         fallbackY = rect.bottom + 8;
       }
@@ -446,7 +458,7 @@ export default defineComponent({
         if (!menu) return;
         const { width, height } = menu.getBoundingClientRect();
         const nextX = rect.right - width;
-        let nextY = rect.top - height - 8;
+        let nextY = rect.bottom + 8;
         if (nextY < 8) {
           nextY = rect.bottom + 8;
         }
@@ -455,7 +467,7 @@ export default defineComponent({
     };
 
     const closeToolbarMenu = () => {
-      showToolbarMenu.value = false;
+      layoutStore.closeAllMenus();
     };
 
     const handleToolbarUpload = () => {
@@ -577,8 +589,13 @@ export default defineComponent({
 
     const onToolbarAction = (action: string) => {
       if (action === "menu") {
-        if (!isLinkContent.value) return;
-        showToolbarMenu.value = !showToolbarMenu.value;
+        if (!isLinkContent.value && !isTextContent.value) return;
+        if (showToolbarMenu.value) {
+          layoutStore.closeAllMenus();
+        } else {
+          layoutStore.setActiveMenuTile(props.tile.i);
+        }
+
         if (showToolbarMenu.value) {
           positionToolbarMenu();
         }
@@ -829,6 +846,7 @@ export default defineComponent({
       onToolbarAction,
       onColorClick,
       isLinkContent,
+      isTextContent,
       linkBackgroundEnabled,
       hasCustomLinkImage,
       toolbarMenuRef,
@@ -1097,7 +1115,7 @@ export default defineComponent({
 .tile-toolbar-menu {
   position: fixed;
   z-index: 1200;
-  min-width: 180px;
+  min-width: 60px;
   padding: 4px;
   display: flex;
   flex-direction: column;
@@ -1229,6 +1247,12 @@ export default defineComponent({
 .tile-wrapper:hover .tile-toolbar,
 .tile-wrapper.crop-mode-active .tile-toolbar,
 .tile-wrapper.crop-mode-exiting .tile-toolbar {
+  opacity: 1;
+  transform: translate(-50%, 100%) scale(1);
+  pointer-events: auto;
+}
+
+.tile-toolbar-force-show {
   opacity: 1;
   transform: translate(-50%, 100%) scale(1);
   pointer-events: auto;

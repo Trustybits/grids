@@ -15,6 +15,8 @@
       :w="tile.w"
       :h="tile.h"
       :style="tileStyle"
+      :minW="1"
+      :minH="1"
       :maxW="10"
       :maxH="10"
       :isDraggable="layoutStore.isOwner && !isEditing && !isSuggestion"
@@ -600,11 +602,18 @@ export default defineComponent({
     };
 
     const onResize = (i: string, newH: number, newW: number, newHPx: number, newWPx: number) => {
-      // Called during resize operation - update tile dimensions in real-time
+      // Called during resize operation - snap to whole grid units for clean resizing
       const tile = layoutStore.currentLayout?.tiles.find((t) => t.i === i);
       if (tile) {
-        tile.h = newH;
-        tile.w = newW;
+        // Round to nearest whole number to snap to grid units
+        const roundedH = Math.round(newH);
+        const roundedW = Math.round(newW);
+        
+        // Only update if the rounded values have changed to avoid unnecessary updates
+        if (tile.h !== roundedH || tile.w !== roundedW) {
+          tile.h = roundedH;
+          tile.w = roundedW;
+        }
       }
     };
 
@@ -1501,30 +1510,48 @@ export default defineComponent({
 /* Smooth animations for tile resizing */
 /* Animate the actual tile (grid-item) during and after resize */
 :deep(.vue-grid-item) {
-  transition: width var(--duration-normal) var(--easing-smooth),
-              height var(--duration-normal) var(--easing-smooth),
-              transform var(--duration-normal) var(--easing-smooth) !important;
-  
-  /* Disable transitions while actively resizing for immediate feedback */
+  /* Disable transitions during resize for immediate snapping feedback */
   &.resizing {
     transition: none !important;
+    /* Keep tile visible and stable during resize */
+    opacity: 0.6 !important;
   }
   
   /* Smooth animation when resize completes */
   &:not(.resizing) {
-    transition: width var(--duration-normal) var(--easing-smooth),
-                height var(--duration-normal) var(--easing-smooth),
-                transform var(--duration-normal) var(--easing-smooth) !important;
+    transition: width var(--duration-slow) var(--easing-spring),
+                height var(--duration-slow) var(--easing-spring),
+                transform var(--duration-slow) var(--easing-spring),
+                opacity var(--duration-fast) var(--easing-ease-out) !important;
+    opacity: 1 !important;
   }
 }
 
-/* Animate the placeholder/silhouette that shows where the tile will land */
+/* Placeholder/silhouette that shows where the tile will land during resize */
 :deep(.vue-grid-placeholder) {
-  transition: width var(--duration-fast) var(--easing-smooth),
-              height var(--duration-fast) var(--easing-smooth),
-              transform var(--duration-fast) var(--easing-smooth) !important;
-  opacity: 0.15 !important;
+  /* Remove transitions to prevent flickering - placeholder should update instantly */
+  transition: none !important;
+  animation: none !important;
+  
+  /* Ensure placeholder is always visible and stable */
+  opacity: 0.3 !important;
   background: var(--color-text-primary) !important;
   border-radius: var(--tile-border-radius) !important;
+  border: 2px dashed var(--color-text-primary) !important;
+  
+  /* Force the placeholder to always render and prevent any hiding */
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+  
+  /* Ensure it's positioned correctly and prevent any transforms that might hide it */
+  position: absolute !important;
+  z-index: 1 !important;
+  
+  /* Prevent the library from hiding it */
+  width: auto !important;
+  height: auto !important;
+  min-width: 10px !important;
+  min-height: 10px !important;
 }
 </style>

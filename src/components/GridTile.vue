@@ -225,23 +225,6 @@
           </svg>
         </button>
       </div>
-      <!-- Crop Mode Zoom Controls - below toolbar -->
-      <div 
-        v-if="(isEditing || isExitingCropMode) && isCroppable" 
-        class="crop-zoom-controls"
-        :class="{ 'exiting': isExitingCropMode }"
-        @mousedown.stop
-      >
-        <input 
-          type="range" 
-          min="1" 
-          max="3" 
-          step="0.1" 
-          :value="childComponent?.zoom || 1"
-          @input="updateChildZoom($event)"
-        />
-        <span>{{ Math.round((childComponent?.zoom || 1) * 100) }}%</span>
-      </div>
 
       <teleport to="body">
         <div
@@ -784,18 +767,6 @@ export default defineComponent({
       }
     });
 
-    // Update zoom in child component
-    const updateChildZoom = (event: Event) => {
-      const target = event.target as HTMLInputElement;
-      const newZoom = parseFloat(target.value);
-      if (childComponent.value && childComponent.value.zoom !== undefined) {
-        childComponent.value.zoom = newZoom;
-        if (childComponent.value.updateZoom) {
-          childComponent.value.updateZoom();
-        }
-      }
-    };
-
     const handleDragStart = (event: Event) => {
       // Prevent default browser drag behavior which interferes with vue-grid-layout
       if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
@@ -872,7 +843,6 @@ export default defineComponent({
       onMediaSelected,
       isCroppable,
       toggleCropMode,
-      updateChildZoom,
       isExitingCropMode,
     };
   },
@@ -1302,78 +1272,6 @@ export default defineComponent({
 
 .tile-wrapper[data-suggestion='true']:hover .suggestion-label {
   opacity: 1;
-}
-
-/* Crop Mode Zoom Controls */
-.crop-zoom-controls {
-  position: absolute;
-  bottom: -81px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--color-tile-background);
-  border: 2px solid var(--color-tile-stroke);
-  border-top: none;
-  border-radius: 0 0 8px 8px;
-  padding: 8px 12px;
-  display: flex;
-  width: auto;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  z-index: 99;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  animation: cropControlsSlideDown var(--duration-normal) var(--easing-spring);
-  
-  &.exiting {
-    animation: cropControlsSlideUp var(--duration-normal) var(--easing-ease-in) forwards;
-  }
-
-  input[type="range"] {
-    width: 150px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--color-content-low);
-    outline: none;
-    -webkit-appearance: none;
-    appearance: none;
-    
-    &::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--color-text-primary);
-      cursor: pointer;
-    }
-    
-    &::-moz-range-thumb {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--color-text-primary);
-      cursor: pointer;
-      border: none;
-    }
-  }
-
-  span {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--color-text-primary);
-    text-align: center;
-  }
-}
-
-@keyframes cropControlsSlideDown {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
 }
 
 @keyframes cropBorderExpand {

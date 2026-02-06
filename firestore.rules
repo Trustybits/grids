@@ -37,17 +37,34 @@ service cloud.firestore {
     }
 
     match /userGameData/{userId} {
-      // Anyone can read game data (needed for leaderboard)
+      function isNewDay() {
+        let today = '' + request.time.year() + '-' + request.time.month() + '-' + request.time.day();
+        return resource.data.get('lastClickDate', '') != today;
+      }
+      
+      function clickIncrement() {
+        return request.resource.data.totalClicks - resource.data.totalClicks;
+      }
+      
+      function newDailyTotal() {
+        return isNewDay() ? clickIncrement() : resource.data.get('dailyClicks', 0) + clickIncrement();
+      }
+      
+      function isValidClick() {
+        return request.auth != null
+          && clickIncrement() > 0 && clickIncrement() <= 10
+          && newDailyTotal() <= 100
+          && request.resource.data.updatedAt == request.time;
+      }
+      
+      function isValidPassive() {
+        return request.auth != null && request.auth.uid == userId
+          && clickIncrement() == (request.resource.data.get('totalPassiveClicks', 0) - resource.data.get('totalPassiveClicks', 0));
+      }
+
       allow read: if true;
-
-      // Users can create their own game data document
       allow create: if request.auth != null && request.auth.uid == userId;
-
-      // Users can update their own game data document
-      // Also allow updates from authenticated users (for clicking on other people's grids)
-      allow update: if request.auth != null;
-
-      // Users can delete their own game data document
+      allow update: if isValidClick() || isValidPassive();
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
   }

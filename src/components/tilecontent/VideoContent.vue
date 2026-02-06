@@ -1,7 +1,15 @@
 <template>
   <div class="video-container" ref="videoWrapper">
     <div v-if="!content.src" class="spinner"></div>
-    <div v-else class="video-wrapper" :class="{ 'crop-active': isEditing }">
+    <div 
+      v-else 
+      class="video-wrapper" 
+      :class="{ 'crop-active': isEditing }"
+      @mousedown="startDragging"
+      @mouseup="stopDragging"
+      @mouseleave="stopDragging"
+      @mousemove="dragVideo"
+    >
       <!-- Dimmed overflow layer - full video at reduced opacity -->
       <video
         v-if="isEditing"
@@ -21,11 +29,6 @@
           class="video video-main"
           :style="videoStyle"
           draggable="false"
-          @mousedown="startDragging"
-          @mouseup="stopDragging"
-          @mouseleave="stopDragging"
-          @mousemove="dragVideo"
-          @wheel.prevent="handleWheel"
           @loadedmetadata="onVideoLoaded"
           @timeupdate="onTimeUpdate"
           @click="togglePlayPause"
@@ -118,7 +121,6 @@ export default defineComponent({
     const dragStart = ref({ x: 0, y: 0 });
     const offsetX = ref(props.content.offsetX || 0);
     const offsetY = ref(props.content.offsetY || 0);
-    const zoom = ref(props.content.zoom || 1);
 
     const videoWrapper = ref<HTMLDivElement | null>(null);
     const videoElement = ref<HTMLVideoElement | null>(null);
@@ -148,17 +150,19 @@ export default defineComponent({
 
       isEditing.value = !isEditing.value;
 
+      // Prevent horizontal scrolling when in crop mode
+      if (isEditing.value) {
+        document.body.style.overflowX = 'hidden';
+      } else {
+        document.body.style.overflowX = '';
+      }
+
       // Save when exiting crop mode
       if (!isEditing.value) {
         props.content.offsetX = offsetX.value;
         props.content.offsetY = offsetY.value;
-        props.content.zoom = zoom.value;
         layoutStore.saveLayout();
       }
-    };
-
-    const updateZoom = () => {
-      constrainOffset();
     };
 
     const constrainOffset = () => {
@@ -188,12 +192,9 @@ export default defineComponent({
         renderedHeight = containerHeight;
       }
       
-      // Apply zoom
-      const scaledWidth = renderedWidth * zoom.value;
-      const scaledHeight = renderedHeight * zoom.value;
-
-      const maxX = Math.max(0, (scaledWidth - containerWidth) / 2);
-      const maxY = Math.max(0, (scaledHeight - containerHeight) / 2);
+      // Max offset is half the difference between rendered video and container
+      const maxX = Math.max(0, (renderedWidth - containerWidth) / 2);
+      const maxY = Math.max(0, (renderedHeight - containerHeight) / 2);
 
       offsetX.value = Math.min(maxX, Math.max(-maxX, offsetX.value));
       offsetY.value = Math.min(maxY, Math.max(-maxY, offsetY.value));
@@ -223,17 +224,9 @@ export default defineComponent({
       dragStart.value = { x: event.clientX, y: event.clientY };
     };
 
-    const handleWheel = (event: WheelEvent) => {
-      if (!isEditing.value) return;
-      
-      const delta = -event.deltaY * 0.001;
-      zoom.value = Math.min(3, Math.max(1, zoom.value + delta));
-      constrainOffset();
-    };
-
     const videoStyle = computed(() => {
       const cursor = isEditing.value ? "grab" : "default";
-      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px) scale(${zoom.value})`;
+      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
       
       // Always use calculated sizing based on aspect ratios to preserve crop
       if (videoDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
@@ -252,7 +245,7 @@ export default defineComponent({
     
     // Overflow layer sizing - ensures full video visible based on aspect ratios
     const overflowStyle = computed(() => {
-      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px) scale(${zoom.value})`;
+      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
       const cursor = isEditing.value ? "grab" : "default";
       
       // Compare aspect ratios to determine which dimension to constrain
@@ -377,14 +370,11 @@ export default defineComponent({
       startDragging,
       stopDragging,
       dragVideo,
-      handleWheel,
       videoStyle,
       overflowStyle,
       videoWrapper,
       videoElement,
       videoOverflowElement,
-      zoom,
-      updateZoom,
       // Video controls
       isPlaying,
       currentTime,

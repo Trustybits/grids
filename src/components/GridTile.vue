@@ -1473,5 +1473,17 @@ export default defineComponent({
   
   /* Ensure it's above other content but below toolbar */
   z-index: 4 !important;
+  
+  /* Cursor customization - use diagonal double arrow for bottom-right resize */
+  /* Options: nwse-resize (diagonal \), nesw-resize (diagonal /), 
+     nw-resize, ne-resize, sw-resize, se-resize (directional arrows) */
+  cursor: nwse-resize !important;
+  
+  /* Scale up cursor when actively resizing (clicking and holding) */
+  &:active {
+    cursor: nwse-resize !important;
+    /* Use a larger cursor size - browsers support cursor scaling via image */
+    // cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'%3E%3Cpath fill='white' stroke='black' stroke-width='1' d='M22 2L2 22M22 2v6M22 2h-6M2 22v-6M2 22h6'/%3E%3C/svg%3E") 16 16, nwse-resize !important;
+  }
 }
 </style>

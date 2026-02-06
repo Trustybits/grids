@@ -293,3 +293,31 @@ export default {
   opacity: 0.9;
 }
 </style>
+
+<style>
+/* Global styles for vue3-grid-layout placeholder - must be unscoped to work */
+.vue-grid-placeholder {
+  /* Remove all transitions and animations to prevent flickering */
+  transition: none !important;
+  animation: none !important;
+  
+  /* Make placeholder clearly visible */
+  opacity: 0.3 !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  /* border: 2px dashed rgba(255, 255, 255, 0.4) !important; */
+  border-radius: var(--tile-border-radius) !important;
+  
+  /* Force it to always be visible */
+  display: block !important;
+  visibility: visible !important;
+  
+  /* Prevent it from collapsing */
+  min-width: 20px !important;
+  min-height: 20px !important;
+  
+  /* Ensure proper positioning */
+  position: absolute !important;
+  z-index: -1 !important;
+  pointer-events: none !important;
+}
+</style>

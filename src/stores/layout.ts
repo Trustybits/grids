@@ -130,7 +130,7 @@ const createStarterTiles = () => {
         {
           text: createTextDoc([
             "# 👋",
-            "#### Welcome to grids.so",
+            "#### Welcome to grids.so!",
             "Enjoy your new home.\n\n",
             "---",
             "*you can find more tile types below.*👇",

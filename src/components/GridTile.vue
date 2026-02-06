@@ -31,7 +31,8 @@
       :class="{ 
         'crop-mode-active': isEditing && isCroppable,
         'crop-mode-exiting': isExitingCropMode && isCroppable,
-        'is-dragging': isDragging
+        'is-dragging': isDragging,
+        'is-exiting': isExiting
       }"
       :data-border="borderVisible ? 'on' : 'off'"
       :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
@@ -316,6 +317,7 @@ export default defineComponent({
 
     const isMoving = ref(false);
     const isDragging = ref(false);
+    const isExiting = ref(false);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -725,7 +727,13 @@ export default defineComponent({
     };
 
     const removeElement = () => {
-      layoutStore.removeTile(props.tile.i);
+      // Trigger exit animation
+      isExiting.value = true;
+      
+      // Wait for animation to complete before actually removing the tile
+      setTimeout(() => {
+        layoutStore.removeTile(props.tile.i);
+      }, 250); // var(--duration-normal) = 250ms
     };
 
     const tileStyle = computed(() => {
@@ -824,6 +832,7 @@ export default defineComponent({
       layoutStore,
       isEditing,
       isDragging,
+      isExiting,
       onMoved,
       onResize,
       onResized,
@@ -911,6 +920,14 @@ export default defineComponent({
   }
 }
 
+/* Tile exit animation when deleted */
+@keyframes tileExit {
+  to {
+    opacity: 0;
+    transform: scale(0.75);
+  }
+}
+
 .tile-wrapper {
   width: 100%;
   height: 100%;
@@ -925,6 +942,12 @@ export default defineComponent({
     filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.25));
     transition: transform var(--duration-normal) var(--easing-ease-out),
                 filter var(--duration-normal) var(--easing-ease-out);
+  }
+  
+  /* Exit animation when tile is being deleted */
+  &.is-exiting {
+    animation: tileExit var(--duration-normal) var(--easing-ease-in) forwards;
+    pointer-events: none;
   }
   
   &.crop-mode-active {
@@ -1246,9 +1269,10 @@ export default defineComponent({
   pointer-events: auto;
 }
 
-/* Hide close button during crop mode */
+/* Hide close button during crop mode and when exiting */
 .tile-wrapper.crop-mode-active .btn-close,
-.tile-wrapper.crop-mode-exiting .btn-close {
+.tile-wrapper.crop-mode-exiting .btn-close,
+.tile-wrapper.is-exiting .btn-close {
   opacity: 0;
   transform: scale(0);
   pointer-events: none;
@@ -1260,6 +1284,13 @@ export default defineComponent({
   opacity: 1;
   transform: translate(-50%, 100%) scale(1);
   pointer-events: auto;
+}
+
+/* Hide toolbar when tile is exiting */
+.tile-wrapper.is-exiting .tile-toolbar {
+  opacity: 0;
+  transform: translate(-50%, calc(100% + 10px)) scale(0.9);
+  pointer-events: none;
 }
 
 /* Suggestion tile specific styling */

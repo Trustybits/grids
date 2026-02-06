@@ -11,7 +11,7 @@
     :vertical-compact="layoutStore.verticalCompact"
     :prevent-collision="false"
     :restore-on-drag="true"
-    :use-css-transforms="false"
+    :use-css-transforms="true"
     :margin="[margin, margin]"
     :style="{ width: `${gridWidth}px` }"
   >
@@ -236,14 +236,25 @@ export default {
 /* Visual styling handled by custom.scss globally */
 /* Grid only handles animation behavior */
 .vue-grid-item {
-  :not(&.resizing) {
-    transition-property: transform, width, height !important;
-    transition-timing-function: cubic-bezier(
-      0.68,
-      -0.55,
-      0.27,
-      1.55
-    ) !important;
+  /* Smooth snap-back animation when tile is released after dragging */
+  &:not(.resizing):not(.vue-draggable-dragging) {
+    transition: transform var(--duration-slow) var(--easing-spring),
+                width var(--duration-slow) var(--easing-spring),
+                height var(--duration-slow) var(--easing-spring) !important;
+  }
+  
+  /* Disable transitions while actively dragging for immediate feedback */
+  &.vue-draggable-dragging {
+    transition: none !important;
+    z-index: var(--z-grid-dragging) !important;
+    opacity: 0.9 !important;
+    cursor: grabbing !important;
+  }
+  
+  /* Disable transitions while resizing for immediate feedback */
+  &.resizing {
+    transition: none !important;
+    opacity: 0.85 !important;
   }
 }
 

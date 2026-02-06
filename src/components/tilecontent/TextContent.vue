@@ -3,19 +3,82 @@
   <div 
     class="text-container" 
     ref="textContentDiv"
+    @click="handleClick"
   >
     <div 
       class="text-content" 
-      :class="{ 'not-editing': !isEditing, 'overflowing': isTextOverflowing, 'can-edit': layoutStore.isOwner }"
+      :class="{ 
+        'not-editing': !isEditing, 
+        'overflowing': isTextOverflowing, 
+        'can-edit': layoutStore.isOwner, 
+        'is-wide-1-high': isWideOneHigh,
+        'is-tall-1-wide': isTallOneWide, 
+      }"
       :spellcheck="layoutStore.isOwner && isEditing"
     >
       <EditorContent :editor="editor" />
+      <div v-if="!isTallOneWide && !isOneByOne && textLinkExists" class="tile-link-indicator" aria-hidden="true" @click="handleOwnerClick">
+          <svg
+            class="tile-link-indicator-icon"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M7 17L17 7"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M10 7H17V14"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </div>
+        <div v-if="isTallOneWide && textLinkExists" class="tile-link-indicator tile-link-indicator--bottom" aria-hidden="true" @click="handleOwnerClick">
+        <svg
+          class="tile-link-indicator-icon"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M7 17L17 7"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M10 7H17V14"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
     </div>
+    
   </div>
+  <AddLinkModal 
+    :show="showLinkModal"
+    @close="closeLinkModal"
+    @add="handleAddLink"
+  />
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, watch } from "vue";
+import { defineComponent, ref, onMounted, watch, inject, computed, type ComputedRef } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
@@ -26,15 +89,19 @@ import { FontSize } from "../tiptap/FontSize";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { useLayoutStore } from "@/stores/layout";
+import AddLinkModal from "../AddLinkModal.vue";
+import type { TextContent } from "@/types/TileContent";
+import { useToastStore } from "@/stores/toast";
 
 export default defineComponent({
   components: {
     EditorContent,
     TextOptions,
+    AddLinkModal,
   },
   props: {
     content: {
-      type: Object,
+      type: Object as () => TextContent,
       required: true,
     },
   },
@@ -44,6 +111,18 @@ export default defineComponent({
     const isTextOverflowing = ref(false);
     const isEditing = ref(false);
     const textContentDiv = ref<HTMLDivElement | null>(null);
+
+    const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
+    const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
+    const isTallOneWide = computed(() => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) > 1);
+    const isWideOneHigh = computed(() => (gridTileW?.value ?? 0) > 1 && (gridTileH?.value ?? 0) === 1);
+    const isOneByOne = computed(() => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1);
+
+    const textLink = props.content?.textLink;
+    const textLinkExists = textLink ? true : false;
+    
+    const showLinkModal = ref<boolean>(false);
+    const toastStore = useToastStore();
 
     const editor = useEditor({
       editable: false,
@@ -129,14 +208,76 @@ export default defineComponent({
       checkOverflow();
     });
 
+    const openUrlInput = () => {
+      if (!layoutStore.isOwner) return;
+      showLinkModal.value = true;
+    }
+
+    const closeLinkModal = () => {
+      showLinkModal.value = false;
+    }
+
+    const normalizeUrl = (link: string): string => {
+      const trimmed = link.trim();
+      if (!trimmed) return "";
+      const normalized = trimmed.startsWith('http://') || trimmed.startsWith('https://') ? trimmed : `https://${trimmed}`;
+      try {
+        new URL(normalized);
+        return normalized;
+      } catch (error) {
+        return "";
+      }
+    }
+
+    const handleAddLink = (link: string) => {
+      if (!layoutStore.isOwner) return;
+      const normalized = normalizeUrl(link);
+      if (!normalized) {
+        toastStore.addToast('Invalid URL format', 'error');
+        return;
+      }
+      props.content.textLink = normalized;
+      layoutStore.saveLayout();
+      showLinkModal.value = false;
+    }
+
+    const handleClick = (event: MouseEvent) => {
+      if (!textLinkExists) return;
+
+      if (!layoutStore.isOwner) {
+        window.open(textLink, "_blank", "noopener,noreferrer");
+        return;
+      }
+    }
+
+    const handleOwnerClick = () => {
+      // this doesn't work at all
+      if (!textLinkExists) return;
+
+      if (layoutStore.isOwner) {
+        window.open(textLink, "_blank", "noopener,noreferrer");
+        return;
+      }
+    }
+
     return {
       layoutStore,
       editor,
       isTextOverflowing,
       isEditing,
       textContentDiv,
+      showLinkModal,
+      isTallOneWide,
+      isOneByOne,
+      isWideOneHigh,
+      textLinkExists,
       onShortClick,
       onExitClick,
+      openUrlInput,
+      closeLinkModal,
+      handleAddLink,
+      handleClick,
+      handleOwnerClick,
     };
   },
 });
@@ -160,6 +301,7 @@ export default defineComponent({
   margin: 0;
   line-height: 1.3;
   transition: background-color 0.3s ease;
+  position:relative;
 
   &::-webkit-scrollbar {
     display: none;
@@ -225,4 +367,37 @@ export default defineComponent({
   min-width: 1px;
   display: inline-block;
 }
+
+.text-content.is-wide-1-high .tile-link-indicator {
+  margin-left: auto;
+}
+
+.text-content.is-tall-1-wide .tile-link-indicator--bottom {
+  margin-top: auto;
+  align-self: flex-end;
+  width: 100%;
+}
+
+.tile-link-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  color: var(--color-text-primary);
+  opacity: 0.21;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--easing-ease-in-out);
+}
+
+.link-tile-content:hover .tile-link-indicator {
+  opacity: 1;
+}
+
+.tile-link-indicator-icon {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 </style>

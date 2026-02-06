@@ -15,19 +15,24 @@
       :w="tile.w"
       :h="tile.h"
       :style="tileStyle"
+      :minW="1"
+      :minH="1"
       :maxW="10"
       :maxH="10"
-      :isDraggable="layoutStore.isOwner && !isEditing && !isSuggestion"
+      :isDraggable="layoutStore.isOwner && !isEditing"
       :isResizable="isTileResizable"
       @move="onMove"
       @moved="onMoved"
+      @resize="onResize"
       @resized="onResized"
     >
     <div
       class="tile-wrapper"
       :class="{ 
         'crop-mode-active': isEditing && isCroppable,
-        'crop-mode-exiting': isExitingCropMode && isCroppable
+        'crop-mode-exiting': isExitingCropMode && isCroppable,
+        'is-dragging': isDragging,
+        'is-exiting': isExiting
       }"
       :data-border="borderVisible ? 'on' : 'off'"
       :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
@@ -68,7 +73,7 @@
       </div>
 
       <!-- UI Layer -->
-      <div v-if="layoutStore.isOwner && headerComponent && !isSuggestion" class="header-options">
+      <div v-if="layoutStore.isOwner && headerComponent" class="header-options">
         <component :is="headerComponent" :content="tile.content" />
       </div>
 
@@ -86,7 +91,13 @@
 
       <TileCaption v-if="showCaption && (layoutStore.isOwner || tile.caption)" :tile="tile" />
 
-      <div v-if="layoutStore.isOwner && !isSuggestion" class="tile-toolbar" @mousedown.stop>
+      <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
+      <div v-if="isTileResizable" class="resize-indicator"></div>
+
+      <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
+      <div v-if="isTileResizable" class="resize-indicator"></div>
+
+      <div v-if="layoutStore.isOwner && !isSuggestion" class="tile-toolbar" :class="{ 'tile-toolbar-force-show': showToolbarMenu }" @mousedown.stop>
         <template v-if="!isProfileTile">
           <button
             class="toolbar-btn"
@@ -219,23 +230,6 @@
           </svg>
         </button>
       </div>
-      <!-- Crop Mode Zoom Controls - below toolbar -->
-      <div 
-        v-if="(isEditing || isExitingCropMode) && isCroppable" 
-        class="crop-zoom-controls"
-        :class="{ 'exiting': isExitingCropMode }"
-        @mousedown.stop
-      >
-        <input 
-          type="range" 
-          min="1" 
-          max="3" 
-          step="0.1" 
-          :value="childComponent?.zoom || 1"
-          @input="updateChildZoom($event)"
-        />
-        <span>{{ Math.round((childComponent?.zoom || 1) * 100) }}%</span>
-      </div>
 
       <teleport to="body">
         <div
@@ -258,6 +252,17 @@
             @click.stop="handleToolbarRemove"
           >
             Remove image
+          </button>
+        </div>
+        <div
+          v-if="layoutStore.isOwner && isTextContent && showToolbarMenu"
+          ref="toolbarMenuRef"
+          class='tile-toolbar-menu'
+          :style="toolbarMenuStyle"
+          @mousedown.stop
+        >
+          <button type="button" class="tile-toolbar-menu-item" @click.stop="handleToolbarUseUrl">
+            <LinkIcon />
           </button>
         </div>
       </teleport>
@@ -325,6 +330,8 @@ export default defineComponent({
     provide("gridTileW", computed(() => props.tile.w));
 
     const isMoving = ref(false);
+    const isDragging = ref(false);
+    const isExiting = ref(false);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -333,7 +340,7 @@ export default defineComponent({
     const gridTileRef = ref<HTMLElement | null>(null);
     const toolbarMenuRef = ref<HTMLDivElement | null>(null);
     const toolbarMoreRef = ref<HTMLButtonElement | null>(null);
-    const showToolbarMenu = ref(false);
+    const showToolbarMenu = computed(() => layoutStore?.activeMenuTileId === props.tile.i);
     const toolbarMenuPosition = ref({ x: 0, y: 0 });
     let stopChildEditingWatch: (() => void) | null = null;
 
@@ -354,6 +361,7 @@ export default defineComponent({
     });
 
     const isLinkContent = computed(() => props.tile.content.type === ContentType.LINK);
+    const isTextContent = computed(() => props.tile.content.type === ContentType.TEXT);
     const linkBackgroundEnabled = computed(() => {
       if (!isLinkContent.value) return true;
       const content = props.tile.content as LinkContent;
@@ -400,9 +408,10 @@ export default defineComponent({
     const startClick = (event: MouseEvent) => {
       if (event.button === 0) {
         clickStart.value = Date.now();
-        // Prevent text selection during potential drag operations
-        // Only prevent if we're the owner and not in edit mode
+        // Set dragging state immediately when user grabs the tile
+        // This triggers the scale animation right away
         if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
+          isDragging.value = true;
           event.preventDefault();
         }
       }
@@ -430,7 +439,7 @@ export default defineComponent({
       const fallbackWidth = 190;
       const fallbackHeight = hasCustomLinkImage.value ? 112 : 76;
       const fallbackX = rect.right - fallbackWidth;
-      let fallbackY = rect.top - fallbackHeight - 8;
+      let fallbackY = rect.bottom + 8;
       if (fallbackY < 8) {
         fallbackY = rect.bottom + 8;
       }
@@ -446,7 +455,7 @@ export default defineComponent({
         if (!menu) return;
         const { width, height } = menu.getBoundingClientRect();
         const nextX = rect.right - width;
-        let nextY = rect.top - height - 8;
+        let nextY = rect.bottom + 8;
         if (nextY < 8) {
           nextY = rect.bottom + 8;
         }
@@ -455,7 +464,7 @@ export default defineComponent({
     };
 
     const closeToolbarMenu = () => {
-      showToolbarMenu.value = false;
+      layoutStore.closeAllMenus();
     };
 
     const handleToolbarUpload = () => {
@@ -505,6 +514,10 @@ export default defineComponent({
         return;
       }
 
+      // Clear dragging state when user releases the mouse
+      // This ensures the tile scales back down even if dragged to original position
+      isDragging.value = false;
+
       const clickDuration = Date.now() - (clickStart.value || 0);
 
       if (clickDuration < CLICK_THRESHOLD && !isMoving.value) {
@@ -540,11 +553,15 @@ export default defineComponent({
 
     const onMove = () => {
       isMoving.value = true;
+      // isDragging is now set in startClick, but keep this as a safety backup
+      isDragging.value = true;
       setTimeout(() => (isMoving.value = false), 300);
     };
 
     const onMoved = () => {
       // Called when drag operation completes - save the final positions
+      // isDragging is now cleared in endClick, but keep this as a safety backup
+      isDragging.value = false;
       if (!layoutStore.isOwner) return;
       layoutStore.updateLayout();
     };
@@ -577,8 +594,13 @@ export default defineComponent({
 
     const onToolbarAction = (action: string) => {
       if (action === "menu") {
-        if (!isLinkContent.value) return;
-        showToolbarMenu.value = !showToolbarMenu.value;
+        if (!isLinkContent.value && !isTextContent.value) return;
+        if (showToolbarMenu.value) {
+          layoutStore.closeAllMenus();
+        } else {
+          layoutStore.setActiveMenuTile(props.tile.i);
+        }
+
         if (showToolbarMenu.value) {
           positionToolbarMenu();
         }
@@ -593,6 +615,22 @@ export default defineComponent({
         return;
       }
       onToolbarAction("color");
+    };
+
+    const onResize = (i: string, newH: number, newW: number, newHPx: number, newWPx: number) => {
+      // Called during resize operation - snap to whole grid units for clean resizing
+      const tile = layoutStore.currentLayout?.tiles.find((t) => t.i === i);
+      if (tile) {
+        // Round to nearest whole number to snap to grid units
+        const roundedH = Math.round(newH);
+        const roundedW = Math.round(newW);
+        
+        // Only update if the rounded values have changed to avoid unnecessary updates
+        if (tile.h !== roundedH || tile.w !== roundedW) {
+          tile.h = roundedH;
+          tile.w = roundedW;
+        }
+      }
     };
 
     const onResized = () => {
@@ -667,12 +705,17 @@ export default defineComponent({
     };
 
     const onMediaSelected = async (event: Event) => {
-      const file = (event.target as HTMLInputElement).files?.[0];
+      const input = event.target as HTMLInputElement;
+      const file = input.files?.[0];
+      
+      // Reset input immediately so the same file can be selected again
+      input.value = "";
+      
       if (!file) return;
 
       const isImage = file.type.startsWith("image/");
       const isVideo = file.type.startsWith("video/");
-      const maxSize = isImage ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
+      const maxSize = isImage ? 10 * 1024 * 1024 : 500 * 1024 * 1024;
 
       if (!isImage && !isVideo) {
         alert("Unsupported file type. Please upload an image or video.");
@@ -680,7 +723,7 @@ export default defineComponent({
       }
 
       if (file.size > maxSize) {
-        alert(`File is too large! Maximum size: ${isImage ? "10MB" : "50MB"}`);
+        alert(`File is too large! Maximum size: ${isImage ? "10MB" : "500MB"}`);
         return;
       }
 
@@ -700,16 +743,22 @@ export default defineComponent({
         const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
         const content = createTileContent(contentType, { src: url });
         layoutStore.setTileContent(props.tile.i, content);
-      } catch (error) {
+      } catch (error: any) {
         console.error("File upload failed:", error);
-        alert("Failed to upload file. Please try again.");
-      } finally {
-        if (mediaInput.value) mediaInput.value.value = "";
+        // Show more specific error message to help with debugging
+        const errorMessage = error?.message || error?.code || "Unknown error";
+        alert(`Failed to upload file: ${errorMessage}\n\nCheck console for details.`);
       }
     };
 
     const removeElement = () => {
-      layoutStore.removeTile(props.tile.i);
+      // Trigger exit animation
+      isExiting.value = true;
+      
+      // Wait for animation to complete before actually removing the tile
+      setTimeout(() => {
+        layoutStore.removeTile(props.tile.i);
+      }, 250); // var(--duration-normal) = 250ms
     };
 
     const tileStyle = computed(() => {
@@ -762,18 +811,6 @@ export default defineComponent({
       }
     });
 
-    // Update zoom in child component
-    const updateChildZoom = (event: Event) => {
-      const target = event.target as HTMLInputElement;
-      const newZoom = parseFloat(target.value);
-      if (childComponent.value && childComponent.value.zoom !== undefined) {
-        childComponent.value.zoom = newZoom;
-        if (childComponent.value.updateZoom) {
-          childComponent.value.updateZoom();
-        }
-      }
-    };
-
     const handleDragStart = (event: Event) => {
       // Prevent default browser drag behavior which interferes with vue-grid-layout
       if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
@@ -819,7 +856,10 @@ export default defineComponent({
       gridTileRef,
       layoutStore,
       isEditing,
+      isDragging,
+      isExiting,
       onMoved,
+      onResize,
       onResized,
       showCaption,
       isPresetActive,
@@ -829,6 +869,7 @@ export default defineComponent({
       onToolbarAction,
       onColorClick,
       isLinkContent,
+      isTextContent,
       linkBackgroundEnabled,
       hasCustomLinkImage,
       toolbarMenuRef,
@@ -849,7 +890,6 @@ export default defineComponent({
       onMediaSelected,
       isCroppable,
       toggleCropMode,
-      updateChildZoom,
       isExitingCropMode,
     };
   },
@@ -894,10 +934,47 @@ export default defineComponent({
   }
 }
 
+/* Tile entrance animation when created */
+@keyframes tileEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.75);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Tile exit animation when deleted */
+@keyframes tileExit {
+  to {
+    opacity: 0;
+    transform: scale(0.75);
+  }
+}
+
 .tile-wrapper {
   width: 100%;
   height: 100%;
   position: relative;
+  
+  /* Animate tiles when they first appear */
+  animation: tileEnter var(--duration-normal) var(--easing-spring);
+  
+  /* Scale effect while dragging - applied to child element to avoid conflict with grid-item's inline transform */
+  &.is-dragging {
+    transform: scale(1.05);
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.25));
+    transition: transform var(--duration-normal) var(--easing-ease-out),
+                filter var(--duration-normal) var(--easing-ease-out);
+  }
+  
+  /* Exit animation when tile is being deleted */
+  &.is-exiting {
+    animation: tileExit var(--duration-normal) var(--easing-ease-in) forwards;
+    pointer-events: none;
+  }
   
   &.crop-mode-active {
     position: relative;
@@ -1097,7 +1174,7 @@ export default defineComponent({
 .tile-toolbar-menu {
   position: fixed;
   z-index: 1200;
-  min-width: 180px;
+  min-width: 50px;
   padding: 4px;
   display: flex;
   flex-direction: column;
@@ -1218,9 +1295,10 @@ export default defineComponent({
   pointer-events: auto;
 }
 
-/* Hide close button during crop mode */
+/* Hide close button during crop mode and when exiting */
 .tile-wrapper.crop-mode-active .btn-close,
-.tile-wrapper.crop-mode-exiting .btn-close {
+.tile-wrapper.crop-mode-exiting .btn-close,
+.tile-wrapper.is-exiting .btn-close {
   opacity: 0;
   transform: scale(0);
   pointer-events: none;
@@ -1232,6 +1310,19 @@ export default defineComponent({
   opacity: 1;
   transform: translate(-50%, 100%) scale(1);
   pointer-events: auto;
+}
+
+.tile-toolbar-force-show {
+  opacity: 1;
+  transform: translate(-50%, 100%) scale(1);
+  pointer-events: auto;
+}
+
+/* Hide toolbar when tile is exiting */
+.tile-wrapper.is-exiting .tile-toolbar {
+  opacity: 0;
+  transform: translate(-50%, calc(100% + 10px)) scale(0.9);
+  pointer-events: none;
 }
 
 /* Suggestion tile specific styling */
@@ -1279,78 +1370,6 @@ export default defineComponent({
 
 .tile-wrapper[data-suggestion='true']:hover .suggestion-label {
   opacity: 1;
-}
-
-/* Crop Mode Zoom Controls */
-.crop-zoom-controls {
-  position: absolute;
-  bottom: -81px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--color-tile-background);
-  border: 2px solid var(--color-tile-stroke);
-  border-top: none;
-  border-radius: 0 0 8px 8px;
-  padding: 8px 12px;
-  display: flex;
-  width: auto;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  z-index: 99;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  animation: cropControlsSlideDown var(--duration-normal) var(--easing-spring);
-  
-  &.exiting {
-    animation: cropControlsSlideUp var(--duration-normal) var(--easing-ease-in) forwards;
-  }
-
-  input[type="range"] {
-    width: 150px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--color-content-low);
-    outline: none;
-    -webkit-appearance: none;
-    appearance: none;
-    
-    &::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--color-text-primary);
-      cursor: pointer;
-    }
-    
-    &::-moz-range-thumb {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--color-text-primary);
-      cursor: pointer;
-      border: none;
-    }
-  }
-
-  span {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--color-text-primary);
-    text-align: center;
-  }
-}
-
-@keyframes cropControlsSlideDown {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
 }
 
 @keyframes cropBorderExpand {
@@ -1414,5 +1433,121 @@ export default defineComponent({
     opacity: 0;
     border-color: rgba(255, 255, 255, 0);
   }
+}
+
+/* Resize indicator nubbin - appears in bottom-right corner on hover */
+.resize-indicator {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 16px;
+  height: 16px;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing-ease-out);
+  
+  /* Create the nubbin shape using a pseudo-element */
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 0 20px 20px;
+    border-color: transparent transparent var(--color-content-default) transparent;
+    opacity: 0.3;
+    border-radius: 0 0 calc(var(--tile-border-radius) - 2px) 0;
+  }
+}
+
+/* Show resize indicator when hovering the tile */
+.tile-wrapper:hover .resize-indicator {
+  opacity: 1;
+}
+
+/* Also show nubbin when hovering the resize handle (extended hit area) */
+/* This keeps the nubbin visible even when cursor moves into the resize zone beyond the tile */
+.grid-item-container:has(.vue-resizable-handle:hover) .resize-indicator {
+  opacity: 1;
+}
+
+/* Increase the resize handle hit area for vue3-grid-layout */
+/* The library uses .vue-resizable-handle class for the resize handle */
+:deep(.vue-resizable-handle) {
+  /* Increase the hit area from default small corner to a larger area */
+  width: 48px !important;
+  height: 48px !important;
+  bottom: -8px !important;
+  right: -8px !important;
+  
+  /* Make the handle itself invisible but keep the hit area */
+  background-image: none !important;
+  background-color: transparent !important;
+  
+  /* Ensure it's above other content but below toolbar */
+  z-index: 4 !important;
+  
+  /* Cursor customization - use diagonal double arrow for bottom-right resize */
+  /* Options: nwse-resize (diagonal \), nesw-resize (diagonal /), 
+     nw-resize, ne-resize, sw-resize, se-resize (directional arrows) */
+  cursor: nwse-resize !important;
+  
+  /* Scale up cursor when actively resizing (clicking and holding) */
+  &:active {
+    cursor: nwse-resize !important;
+    /* Use a larger cursor size - browsers support cursor scaling via image */
+    // cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'%3E%3Cpath fill='white' stroke='black' stroke-width='1' d='M22 2L2 22M22 2v6M22 2h-6M2 22v-6M2 22h6'/%3E%3C/svg%3E") 16 16, nwse-resize !important;
+  }
+}
+
+/* Smooth animations for tile resizing */
+/* Animate the actual tile (grid-item) during and after resize */
+:deep(.vue-grid-item) {
+  /* Disable transitions during resize for immediate snapping feedback */
+  &.resizing {
+    transition: none !important;
+    /* Keep tile visible and stable during resize */
+    opacity: 0.6 !important;
+  }
+  
+  /* Smooth animation when resize completes */
+  &:not(.resizing) {
+    transition: width var(--duration-slow) var(--easing-spring),
+                height var(--duration-slow) var(--easing-spring),
+                transform var(--duration-slow) var(--easing-spring),
+                opacity var(--duration-fast) var(--easing-ease-out) !important;
+    opacity: 1 !important;
+  }
+}
+
+/* Placeholder/silhouette that shows where the tile will land during resize */
+:deep(.vue-grid-placeholder) {
+  /* Remove transitions to prevent flickering - placeholder should update instantly */
+  transition: none !important;
+  animation: none !important;
+  
+  /* Ensure placeholder is always visible and stable */
+  opacity: 0.3 !important;
+  background: var(--color-text-primary) !important;
+  border-radius: var(--tile-border-radius) !important;
+  border: 2px dashed var(--color-text-primary) !important;
+  
+  /* Force the placeholder to always render and prevent any hiding */
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+  
+  /* Ensure it's positioned correctly and prevent any transforms that might hide it */
+  position: absolute !important;
+  z-index: 1 !important;
+  
+  /* Prevent the library from hiding it */
+  width: auto !important;
+  height: auto !important;
+  min-width: 10px !important;
+  min-height: 10px !important;
 }
 </style>

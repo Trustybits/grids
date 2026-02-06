@@ -267,12 +267,20 @@ export function createTileContent(
       } as RPGContent;
 
     case ContentType.SUGGESTION:
-      return {
-        type,
-        action: (data as Partial<SuggestionContent>).action || "text",
-        icon: (data as Partial<SuggestionContent>).icon,
-        label: (data as Partial<SuggestionContent>).label,
-      } as SuggestionContent;
+      {
+        const suggestion = data as Partial<SuggestionContent>;
+        const payload: SuggestionContent = {
+          type,
+          action: suggestion.action || "text",
+        };
+        if (typeof suggestion.icon === "string") {
+          payload.icon = suggestion.icon;
+        }
+        if (typeof suggestion.label === "string") {
+          payload.label = suggestion.label;
+        }
+        return payload;
+      }
 
     case ContentType.PROFILE:
       return {

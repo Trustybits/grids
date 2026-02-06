@@ -13,6 +13,7 @@ import {
   serverTimestamp,
   Timestamp,
   increment,
+  runTransaction,
 } from "firebase/firestore";
 import type { UserGameData, LeaderboardEntry } from "@/types/GameData";
 import { generateSeededDisplayName } from "@/utils/NameGenerator";
@@ -115,10 +116,69 @@ export async function checkDailyClickLimit(userId: string): Promise<{ canClick: 
 export async function incrementUserClicks(userId: string, amount: number = 1): Promise<boolean> {
   const docRef = doc(db, GAME_DATA_COLLECTION, userId);
   
-  // First ensure the document exists
-  const docSnap = await getDoc(docRef);
-  if (!docSnap.exists()) {
-    await getOrCreateUserGameData(userId);
+  try {
+    // Use a transaction to atomically read, check, and update
+    const result = await runTransaction(db, async (transaction) => {
+      const docSnap = await transaction.get(docRef);
+      
+      // If document doesn't exist, create it first (outside transaction)
+      if (!docSnap.exists()) {
+        throw new Error('DOCUMENT_NOT_FOUND');
+      }
+      
+      const data = docSnap.data();
+      const today = getTodayDateString();
+      const lastClickDate = data.lastClickDate || '';
+      const currentDailyClicks = data.dailyClicks || 0;
+      
+      // Check if it's a new day
+      const isNewDay = lastClickDate !== today;
+      
+      // Calculate what the new daily clicks would be
+      const newDailyClicks = isNewDay ? amount : currentDailyClicks + amount;
+      
+      // Check daily limit (client-side check for better UX, server rules enforce it)
+      if (!isNewDay && newDailyClicks > DAILY_CLICK_CAP) {
+        return false; // Daily cap reached
+      }
+      
+      // Prepare update object
+      const updateData: any = {
+        totalClicks: increment(amount),
+        updatedAt: serverTimestamp(),
+        lastClickDate: today,
+      };
+      
+      // Reset daily clicks if it's a new day, otherwise increment
+      if (isNewDay) {
+        updateData.dailyClicks = amount;
+      } else {
+        updateData.dailyClicks = increment(amount);
+      }
+      
+      // Atomically update the document
+      transaction.update(docRef, updateData);
+      return true;
+    });
+    
+    return result;
+  } catch (error: any) {
+    // If document doesn't exist, create it and retry
+    if (error.message === 'DOCUMENT_NOT_FOUND') {
+      await getOrCreateUserGameData(userId);
+      // Retry the increment
+      return incrementUserClicks(userId, amount);
+    }
+    
+    // If permission denied, likely hit the daily cap via security rules
+    if (error.code === 'permission-denied') {
+      console.warn('Click rejected by security rules - likely daily cap reached');
+      return false;
+    }
+    
+    // Log other errors but don't crash
+    console.error('Error incrementing user clicks:', error);
+    return false;
   }
   
   // Check daily limit

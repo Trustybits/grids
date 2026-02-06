@@ -2,13 +2,38 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+    // Helper function to check file size limit (500 MB = 524,288,000 bytes)
+    function isFileSizeValid() {
+      return request.resource.size <= 524288000;
+    }
+
+    // Helper function to check if user has storage quota available (5 GB = 5,368,709,120 bytes)
+    function hasStorageQuota(userId) {
+      // Check if user document exists, if not assume 0 usage (will be created by Cloud Function)
+      let userDocPath = /databases/(default)/documents/users/$(userId);
+      let currentUsage = firestore.exists(userDocPath) 
+        ? (firestore.get(userDocPath).data.keys().hasAny(['storageUsed']) 
+            ? firestore.get(userDocPath).data.storageUsed 
+            : 0)
+        : 0;
+      
+      let newUsage = currentUsage + request.resource.size;
+      return newUsage <= 5368709120;
+    }
+
     match /users/{userId}/images/{imageId} {
       // Allow read if the image's metadata indicates it's published
       allow read: if resource.metadata.published == 'true' || 
                   (request.auth != null && request.auth.uid == userId);
 
-      // Allow write, update, delete only by the authenticated user who owns the layout
-      allow write, update, delete: if request.auth != null && request.auth.uid == userId;
+      // Allow write only if authenticated, owns the resource, file size is valid, and has storage quota
+      allow write: if request.auth != null 
+                   && request.auth.uid == userId
+                   && isFileSizeValid()
+                   && hasStorageQuota(userId);
+      
+      // Allow update and delete only by the authenticated user who owns the layout
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
     match /users/{userId}/link-images/{imageId} {
@@ -16,8 +41,14 @@ service firebase.storage {
       allow read: if resource.metadata.published == 'true' || 
                   (request.auth != null && request.auth.uid == userId);
 
-      // Allow write, update, delete only by the authenticated user who owns the layout
-      allow write, update, delete: if request.auth != null && request.auth.uid == userId;
+      // Allow write only if authenticated, owns the resource, file size is valid, and has storage quota
+      allow write: if request.auth != null 
+                   && request.auth.uid == userId
+                   && isFileSizeValid()
+                   && hasStorageQuota(userId);
+      
+      // Allow update and delete only by the authenticated user who owns the layout
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
     match /users/{userId}/videos/{videoId} {
@@ -25,8 +56,14 @@ service firebase.storage {
       allow read: if resource.metadata.published == 'true' || 
                   (request.auth != null && request.auth.uid == userId);
 
-      // Allow write, update, delete only by the authenticated user who owns the layout
-      allow write, update, delete: if request.auth != null && request.auth.uid == userId;
+      // Allow write only if authenticated, owns the resource, file size is valid, and has storage quota
+      allow write: if request.auth != null 
+                   && request.auth.uid == userId
+                   && isFileSizeValid()
+                   && hasStorageQuota(userId);
+      
+      // Allow update and delete only by the authenticated user who owns the layout
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
     }
   }
 }

@@ -150,6 +150,13 @@ export default defineComponent({
 
       isEditing.value = !isEditing.value;
 
+      // Prevent horizontal scrolling when in crop mode
+      if (isEditing.value) {
+        document.body.style.overflowX = 'hidden';
+      } else {
+        document.body.style.overflowX = '';
+      }
+
       // Save when exiting crop mode
       if (!isEditing.value) {
         props.content.offsetX = offsetX.value;

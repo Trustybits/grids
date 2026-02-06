@@ -1,7 +1,16 @@
 <template>
   <div class="image-container" ref="imageWrapper">
     <div v-if="!content.src" class="spinner"></div>
-    <div v-else class="image-wrapper" :class="{ 'crop-active': isEditing }">
+    <div 
+      v-else 
+      class="image-wrapper" 
+      :class="{ 'crop-active': isEditing }"
+      @mousedown="startDragging"
+      @mouseup="stopDragging"
+      @mouseleave="stopDragging"
+      @mousemove="dragImage"
+      @wheel.prevent="handleWheel"
+    >
       <!-- Dimmed overflow layer - full image at reduced opacity -->
       <img
         v-if="isEditing"
@@ -21,11 +30,6 @@
           class="image image-main"
           :style="imageStyle"
           draggable="false"
-          @mousedown="startDragging"
-          @mouseup="stopDragging"
-          @mouseleave="stopDragging"
-          @mousemove="dragImage"
-          @wheel.prevent="handleWheel"
           @load="onImageLoad"
         />
       </div>

@@ -1,7 +1,16 @@
 <template>
   <div class="video-container" ref="videoWrapper">
     <div v-if="!content.src" class="spinner"></div>
-    <div v-else class="video-wrapper" :class="{ 'crop-active': isEditing }">
+    <div 
+      v-else 
+      class="video-wrapper" 
+      :class="{ 'crop-active': isEditing }"
+      @mousedown="startDragging"
+      @mouseup="stopDragging"
+      @mouseleave="stopDragging"
+      @mousemove="dragVideo"
+      @wheel.prevent="handleWheel"
+    >
       <!-- Dimmed overflow layer - full video at reduced opacity -->
       <video
         v-if="isEditing"
@@ -21,11 +30,6 @@
           class="video video-main"
           :style="videoStyle"
           draggable="false"
-          @mousedown="startDragging"
-          @mouseup="stopDragging"
-          @mouseleave="stopDragging"
-          @mousemove="dragVideo"
-          @wheel.prevent="handleWheel"
           @loadedmetadata="onVideoLoaded"
           @timeupdate="onTimeUpdate"
           @click="togglePlayPause"

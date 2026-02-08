@@ -19,6 +19,9 @@
 
     <!-- Toast Notifications -->
     <ToastContainer />
+
+    <!-- Pixel Racers Game (Easter Egg) -->
+    <PixelRacersGame />
   </div>
 </template>
 
@@ -30,6 +33,7 @@ import UserMenu from './components/UserMenu.vue';
 import LayoutTitleEditor from './components/LayoutTitleEditor.vue';
 import ThemeToggle from './components/ThemeToggle.vue';
 import ToastContainer from './components/ToastContainer.vue';
+import PixelRacersGame from './components/PixelRacersGame.vue';
 import { useLayoutStore } from '@/stores/layout';
 import { auth, db } from '@/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
@@ -92,9 +96,6 @@ const showTopBar = computed(() => {
 
 .main-content {
   padding-left: 0;
-}
-
-.main-content.has-left-nav {
 }
 
 .section {

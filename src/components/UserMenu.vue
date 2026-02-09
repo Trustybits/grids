@@ -12,14 +12,38 @@
         </svg>
       </div>
       <div class="user-menu-dropdown" v-if="showUserMenu">
-        <div class="user-email">
-          {{ user.email }}
+        <div class="user-info-section">
+          <button @click="openSlugModal" class="info-item clickable">
+            <div class="info-content">
+              <span class="info-label">Handle</span>
+              <span class="info-value">{{ currentSlug || 'Not set' }}</span>
+            </div>
+            <svg class="edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <path d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+          </button>
+          <div class="info-item">
+            <div class="info-content">
+              <span class="info-label">Email</span>
+              <span class="info-value">{{ user.email }}</span>
+            </div>
+          </div>
         </div>
-        <button @click="logout" class="user-menu-item">
+        <div class="menu-divider"></div>
+        <button @click="logout" class="menu-action-item">
           Logout
         </button>
       </div>
     </button>
+    
+    <!-- Slug Management Modal -->
+    <SlugClaimModal
+      :is-open="showSlugModal"
+      :current-slug="currentSlug"
+      @close="closeSlugModal"
+      @success="handleSlugSuccess"
+    />
   </div>
 </template>
 
@@ -28,19 +52,41 @@ import { defineComponent, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { auth } from "@/firebase";
 import { signOut, onAuthStateChanged, type User } from "firebase/auth";
+import { getUserProfile } from "@/services/UserProfileService";
+import SlugClaimModal from "./SlugClaimModal.vue";
 
 export default defineComponent({
   name: "UserMenu",
+  components: {
+    SlugClaimModal,
+  },
   setup() {
     const router = useRouter();
     const user = ref<User | null>(null);
     const showUserMenu = ref(false);
+    const showSlugModal = ref(false);
+    const currentSlug = ref<string | undefined>(undefined);
 
     onMounted(() => {
       onAuthStateChanged(auth, (currentUser) => {
         user.value = currentUser;
+        // Load user profile to get current slug
+        if (currentUser) {
+          loadUserSlug();
+        }
       });
     });
+
+    const loadUserSlug = async () => {
+      if (user.value) {
+        try {
+          const profile = await getUserProfile(user.value.uid);
+          currentSlug.value = profile?.slug;
+        } catch (error) {
+          console.error('Error loading user slug:', error);
+        }
+      }
+    };
 
     const toggleUserMenu = () => {
       showUserMenu.value = !showUserMenu.value;
@@ -59,12 +105,46 @@ export default defineComponent({
       showUserMenu.value = false;
     };
 
+    const openSlugModal = async () => {
+      showUserMenu.value = false;
+      if (user.value) {
+        try {
+          const profile = await getUserProfile(user.value.uid);
+          currentSlug.value = profile?.slug;
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+        }
+      }
+      showSlugModal.value = true;
+    };
+
+    const closeSlugModal = () => {
+      showSlugModal.value = false;
+    };
+
+    const handleSlugSuccess = async () => {
+      // Reload profile to get updated slug
+      if (user.value) {
+        try {
+          const profile = await getUserProfile(user.value.uid);
+          currentSlug.value = profile?.slug;
+        } catch (error) {
+          console.error('Error reloading profile:', error);
+        }
+      }
+    };
+
     return {
       user,
       showUserMenu,
       toggleUserMenu,
       handleBlur,
       logout,
+      showSlugModal,
+      currentSlug,
+      openSlugModal,
+      closeSlugModal,
+      handleSlugSuccess,
     };
   },
 });
@@ -124,24 +204,90 @@ export default defineComponent({
     background: var(--color-tile-background);
     border: var(--tile-border-width) solid var(--color-tile-stroke);
     border-radius: var(--radius-md);
-    padding: var(--spacing-xs);
-    min-width: 180px;
+    padding: var(--spacing-sm);
+    min-width: 240px;
     box-shadow: var(--shadow-lg);
     z-index: 100;
   }
 
-  .user-email {
+  .user-info-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .info-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: var(--spacing-sm);
     font-size: var(--font-size-sm);
-    text-align: right;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-family: var(--font-family-base);
+    transition: background-color var(--duration-fast) var(--easing-smooth);
+    
+    &.clickable {
+      cursor: pointer;
+      
+      &:hover {
+        background-color: var(--color-base-34);
+        
+        .edit-icon {
+          opacity: 1;
+        }
+      }
+    }
+    
+    &:not(.clickable) {
+      cursor: default;
+      
+      .info-value {
+        opacity: 0.5;
+      }
+    }
+  }
+
+  .info-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex: 1;
+    min-width: 0;
+  }
+
+  .info-label {
+    font-weight: var(--font-weight-medium);
     color: var(--color-content-low);
-    border-bottom: 1px solid var(--color-base-34);
-    margin-bottom: var(--spacing-xs);
-    word-break: break-all;
+    min-width: 55px;
+    flex-shrink: 0;
+  }
+
+  .info-value {
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .user-menu-item {
+  .edit-icon {
+    color: var(--color-content-default);
+    opacity: 0.4;
+    flex-shrink: 0;
+    margin-left: var(--spacing-sm);
+    transition: opacity var(--duration-fast) var(--easing-smooth);
+  }
+
+  .menu-divider {
+    height: 1px;
+    background-color: var(--color-tile-stroke);
+    margin: var(--spacing-sm) 0;
+  }
+
+  .menu-action-item {
     width: 100%;
     padding: var(--spacing-sm);
     text-align: left;

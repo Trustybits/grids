@@ -30,7 +30,11 @@ service cloud.firestore {
 
     match /slugs/{slug} {
       // Allow public read access for slug lookups
-      // Document structure: { userId: string, createdAt: timestamp }
+      // Document structure: { 
+      //   userId: string | null (null when released),
+      //   createdAt: timestamp,
+      //   history: array of { userId: string, claimedAt: timestamp, releasedAt?: timestamp }
+      // }
       allow read: if true;
       
       // Only Cloud Functions can write to this collection

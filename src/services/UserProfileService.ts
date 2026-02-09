@@ -81,11 +81,15 @@ export async function claimSlug(slug: string): Promise<SlugClaimResponse> {
 
 /**
  * Set the default grid for a user
+ * Uses Cloud Function to sync defaultGridId to slugs collection for public access
  */
 export async function setDefaultGrid(userId: string, gridId: string | null): Promise<void> {
   try {
-    const userRef = doc(db, 'users', userId);
-    await setDoc(userRef, { defaultGridId: gridId }, { merge: true });
+    const updateGrid = httpsCallable<{ gridId: string | null }, { success: boolean }>(
+      functions,
+      'updateDefaultGrid'
+    );
+    await updateGrid({ gridId });
   } catch (error) {
     console.error('Error setting default grid:', error);
     throw error;

@@ -35,6 +35,11 @@
           </li>
         </ul>
       </div>
+
+      <div class="settings-section">
+        <h2>Profile Settings</h2>
+        <SlugSettingsPanel />
+      </div>
     </div>
 
     <!-- Create Grid Modal -->
@@ -52,6 +57,7 @@ import { useRouter } from 'vue-router';
 import { useLayoutStore } from '@/stores/layout';
 import { usePageTitle } from '@/composables/usePageTitle';
 import CreateGridModal from './CreateGridModal.vue';
+import SlugSettingsPanel from './SlugSettingsPanel.vue';
 
 const layoutStore = useLayoutStore();
 const router = useRouter();
@@ -233,5 +239,19 @@ h1 {
 .grid-link:hover .grid-arrow {
   opacity: 1;
   transform: translateX(0);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-xl);
+}
+
+.settings-section h2 {
+  font-size: var(--font-size-xl);
+  margin: 0;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
 }
 </style>

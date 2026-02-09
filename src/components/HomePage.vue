@@ -34,7 +34,7 @@
 
     <footer class="home-landing__footer">
       <a 
-        href="https://discord.gg/YOUR_DISCORD_INVITE" 
+        href="https://discord.gg/DBscN5NUN6" 
         target="_blank" 
         rel="noopener noreferrer"
         class="home-landing__discord-link"

@@ -1,7 +1,7 @@
 <template>
   <div class="discord-button">
     <a
-      href="https://discord.gg/YOUR_DISCORD_INVITE"
+      href="https://discord.gg/DBscN5NUN6"
       target="_blank"
       rel="noopener noreferrer"
       class="discord-button__btn"

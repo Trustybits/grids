@@ -12,60 +12,121 @@
           <path d="M12 8v4m0 4h.01" />
         </svg>
       </div>
-      <h1>Handle Not Found</h1>
-      <p>The handle "{{ slug }}" doesn't exist.</p>
+      <h1>{{ errorTitle }}</h1>
+      <p>{{ errorMessage }}</p>
       <router-link to="/" class="home-link">Go to Home</router-link>
+    </div>
+
+    <!-- Display the grid directly at the slug URL -->
+    <div v-else-if="gridLoaded" class="grid-container">
+      <div class="background-image-container">
+        <div :style="backgroundStyle" class="background-image-overlay"></div>
+        
+        <div class="layout-container">
+          <div v-if="layoutStore.isOwner" class="toolbar">
+            <div class="row">
+              <div class="col-md-12">
+                <grid-buttons />
+              </div>
+            </div>
+          </div>
+          <grid :row-height="75" />
+        </div>
+      </div>
+
+      <ShareButton />
+      <GridMenu
+        v-if="layoutStore.isOwner"
+        @select-image="() => {}"
+        @embed-background="() => {}"
+        @confirm-delete="() => {}"
+      />
+      <Divider />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { getUserIdBySlug, getUserProfile } from '@/services/UserProfileService';
+import { ref, onMounted, computed } from 'vue';
+import { useRoute } from 'vue-router';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/firebase';
+import { useLayoutStore } from '@/stores/layout';
+import Grid from '@/components/Grid.vue';
+import GridButtons from '@/components/TileButtons.vue';
+import GridMenu from '@/components/GridMenu.vue';
+import ShareButton from '@/components/ShareButton.vue';
+import Divider from '@/components/Divider.vue';
 
 const route = useRoute();
-const router = useRouter();
+const layoutStore = useLayoutStore();
 const isLoading = ref(true);
 const error = ref(false);
+const errorTitle = ref('Handle Not Found');
+const errorMessage = ref('');
 const slug = ref('');
+const gridLoaded = ref(false);
+
+const backgroundStyle = computed(() => {
+  return {
+    backgroundImage: `url(${layoutStore.currentLayout?.backgroundImageSrc})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    backgroundAttachment: 'fixed',
+    position: 'fixed' as const,
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: -1,
+  };
+});
 
 /**
- * Resolve slug to user and redirect to their default grid
+ * Resolve slug to user's default grid and load it directly
  */
 const resolveSlug = async () => {
   slug.value = route.params.slug as string;
   
   if (!slug.value) {
     error.value = true;
+    errorMessage.value = 'No handle provided.';
     isLoading.value = false;
     return;
   }
 
   try {
-    // Get user ID from slug
-    const userId = await getUserIdBySlug(slug.value);
+    // Get slug document from public slugs collection
+    const slugRef = doc(db, 'slugs', slug.value.toLowerCase());
+    const slugSnap = await getDoc(slugRef);
     
-    if (!userId) {
+    if (!slugSnap.exists() || !slugSnap.data()?.userId) {
       error.value = true;
+      errorMessage.value = `The handle "@${slug.value}" doesn't exist or is not currently in use.`;
       isLoading.value = false;
       return;
     }
 
-    // Get user's default grid
-    const profile = await getUserProfile(userId);
+    const slugData = slugSnap.data();
     
-    if (profile?.defaultGridId) {
-      // Redirect to their default grid
-      await router.replace(`/grid/${profile.defaultGridId}`);
-    } else {
-      // User has a slug but no default grid set
+    // Check if user has set a default grid (stored in slugs collection for public access)
+    if (!slugData.defaultGridId) {
       error.value = true;
+      errorTitle.value = 'No Default Grid';
+      errorMessage.value = `@${slug.value} hasn't set a default grid yet.`;
       isLoading.value = false;
+      return;
     }
+
+    // Load the grid directly using the layout store
+    await layoutStore.loadLayout(slugData.defaultGridId);
+    gridLoaded.value = true;
+    isLoading.value = false;
   } catch (err) {
     console.error('Error resolving slug:', err);
     error.value = true;
+    errorMessage.value = 'An error occurred while loading this handle.';
     isLoading.value = false;
   }
 };
@@ -78,11 +139,46 @@ onMounted(() => {
 <style scoped>
 .slug-page {
   min-height: 100vh;
+  background-color: var(--color-content-background);
+}
+
+.slug-page:has(.loading-state),
+.slug-page:has(.error-state) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--color-content-background);
   padding: var(--spacing-lg);
+}
+
+.grid-container {
+  width: 100%;
+  height: 100%;
+}
+
+.background-image-container {
+  width: 100%;
+  height: 100%;
+}
+
+.background-image-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+}
+
+.layout-container {
+  padding-top: 2rem;
+}
+
+.toolbar {
+  position: fixed;
+  z-index: var(--z-dropdown);
+  bottom: 0rem;
+  left: 50vw;
+  transform: translate(-50%, -10%);
 }
 
 .loading-state,

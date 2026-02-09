@@ -793,20 +793,41 @@ export const claimSlug = onCall(async (data, context) => {
         return { success: true, message: "Slug is already yours." };
       }
 
-      // If user had a previous slug, remove it from slugs collection
+      // If user had a previous slug, update its history to mark it as released
       if (userDoc.exists && userDoc.data()?.slug) {
         const oldSlug = userDoc.data()!.slug;
         if (oldSlug !== slug) {
           const oldSlugRef = db.collection("slugs").doc(oldSlug);
-          transaction.delete(oldSlugRef);
+          const oldSlugDoc = await transaction.get(oldSlugRef);
+          
+          if (oldSlugDoc.exists) {
+            // Add current ownership to history before releasing
+            transaction.update(oldSlugRef, {
+              userId: null, // Mark as available
+              history: admin.firestore.FieldValue.arrayUnion({
+                userId,
+                claimedAt: oldSlugDoc.data()?.createdAt || admin.firestore.FieldValue.serverTimestamp(),
+                releasedAt: admin.firestore.FieldValue.serverTimestamp(),
+              }),
+            });
+          }
         }
       }
 
-      // Create the slug document in slugs collection
+      // Get user's default grid to store in slug document for public access
+      const defaultGridId = userDoc.exists ? userDoc.data()?.defaultGridId || null : null;
+
+      // Create or update the slug document with history tracking
+      const now = admin.firestore.FieldValue.serverTimestamp();
       transaction.set(slugRef, {
         userId,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+        defaultGridId, // Store for public access
+        createdAt: now,
+        history: admin.firestore.FieldValue.arrayUnion({
+          userId,
+          claimedAt: now,
+        }),
+      }, { merge: true });
 
       // Update or create the user document with the new slug
       if (userDoc.exists) {
@@ -830,6 +851,57 @@ export const claimSlug = onCall(async (data, context) => {
       slug,
     });
     throw new HttpsError("internal", "Failed to claim slug. Please try again.");
+  }
+});
+
+/**
+ * Cloud Function to update the default grid for a user's slug.
+ * This syncs the defaultGridId to the slugs collection for public access.
+ */
+export const updateDefaultGrid = onCall(async (data, context) => {
+  // Ensure user is authenticated
+  if (!context.auth) {
+    throw new HttpsError("unauthenticated", "You must be signed in to update your default grid.");
+  }
+
+  const userId = context.auth.uid;
+  const gridId = (data as { gridId?: string | null } | undefined)?.gridId || null;
+
+  const db = admin.firestore();
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      const userRef = db.collection("users").doc(userId);
+      const userDoc = await transaction.get(userRef);
+
+      if (!userDoc.exists) {
+        throw new HttpsError("not-found", "User profile not found.");
+      }
+
+      const userSlug = userDoc.data()?.slug;
+
+      // Update user's default grid
+      transaction.update(userRef, { defaultGridId: gridId });
+
+      // If user has a slug, update the slugs collection too for public access
+      if (userSlug) {
+        const slugRef = db.collection("slugs").doc(userSlug);
+        transaction.update(slugRef, { defaultGridId: gridId });
+      }
+    });
+
+    logger.info("Default grid updated successfully", { userId, gridId });
+    return { success: true };
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    logger.error("Failed to update default grid", {
+      error: String(error),
+      userId,
+      gridId,
+    });
+    throw new HttpsError("internal", "Failed to update default grid. Please try again.");
   }
 });
 

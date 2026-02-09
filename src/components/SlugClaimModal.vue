@@ -29,10 +29,11 @@
             <span class="slug-prefix">grids.so/</span>
             <input
               id="slug-input"
+              ref="inputElement"
               v-model="slugInput"
               type="text"
               placeholder="your-handle"
-              :disabled="isChecking || isClaiming"
+              :disabled="isClaiming"
               @input="handleSlugInput"
               @keydown.enter="handleClaim"
               maxlength="30"
@@ -102,27 +103,38 @@ const isClaiming = ref(false);
 const validationMessage = ref('');
 const validationClass = ref<'success' | 'error' | 'info'>('info');
 const checkTimeout = ref<number | null>(null);
+const checkAbortController = ref<AbortController | null>(null);
+const inputElement = ref<HTMLInputElement | null>(null);
 
 const hasExistingSlug = computed(() => !!props.currentSlug);
 
 const canClaim = computed(() => {
   return slugInput.value.length >= 3 && 
          validationClass.value === 'success' && 
-         !isChecking.value && 
          !isClaiming.value;
 });
 
 /**
- * Handle slug input with debounced validation
+ * Handle slug input changes with validation
  */
-const handleSlugInput = () => {
-  // Clear previous timeout
+const handleSlugInput = (event: Event) => {
+  const value = (event.target as HTMLInputElement).value.toLowerCase();
+  slugInput.value = value;
+
+  // Cancel any pending check timeout
   if (checkTimeout.value) {
     clearTimeout(checkTimeout.value);
+    checkTimeout.value = null;
   }
 
-  const value = slugInput.value.toLowerCase().trim();
-  slugInput.value = value;
+  // Cancel any ongoing availability check
+  if (checkAbortController.value) {
+    checkAbortController.value.abort();
+    checkAbortController.value = null;
+  }
+
+  // Reset checking state immediately so input stays enabled
+  isChecking.value = false;
 
   // Reset validation state
   validationMessage.value = '';
@@ -153,10 +165,10 @@ const handleSlugInput = () => {
     return;
   }
 
-  // Debounce server-side availability check
+  // Debounce server-side availability check (increased to 800ms for better typing experience)
   checkTimeout.value = window.setTimeout(() => {
     checkAvailability(value);
-  }, 500);
+  }, 800);
 };
 
 /**
@@ -165,6 +177,10 @@ const handleSlugInput = () => {
 const checkAvailability = async (slug: string) => {
   if (!slug || slug.length < 3) return;
 
+  // Create new abort controller for this check
+  checkAbortController.value = new AbortController();
+  const currentController = checkAbortController.value;
+
   isChecking.value = true;
   validationMessage.value = 'Checking availability...';
   validationClass.value = 'info';
@@ -172,18 +188,33 @@ const checkAvailability = async (slug: string) => {
   try {
     const result = await checkSlugAvailability(slug);
     
-    if (result.available) {
-      validationMessage.value = result.message;
-      validationClass.value = 'success';
-    } else {
-      validationMessage.value = result.message;
-      validationClass.value = 'error';
+    // Only update UI if this check wasn't aborted
+    if (currentController === checkAbortController.value) {
+      if (result.available) {
+        validationMessage.value = result.message;
+        validationClass.value = 'success';
+      } else {
+        validationMessage.value = result.message;
+        validationClass.value = 'error';
+      }
     }
   } catch (error: any) {
-    validationMessage.value = error.message || 'Failed to check availability';
-    validationClass.value = 'error';
+    // Only show error if this check wasn't aborted
+    if (currentController === checkAbortController.value) {
+      validationMessage.value = error.message || 'Failed to check availability';
+      validationClass.value = 'error';
+    }
   } finally {
-    isChecking.value = false;
+    // Only clear checking state if this check wasn't aborted
+    if (currentController === checkAbortController.value) {
+      isChecking.value = false;
+      checkAbortController.value = null;
+      
+      // Refocus the input to maintain typing context
+      if (inputElement.value) {
+        inputElement.value.focus();
+      }
+    }
   }
 };
 
@@ -194,23 +225,27 @@ const handleClaim = async () => {
   if (!canClaim.value) return;
 
   isClaiming.value = true;
+  const claimedSlug = slugInput.value;
   
   try {
-    const result = await claimSlug(slugInput.value);
+    const result = await claimSlug(claimedSlug);
     
     if (result.success) {
-      emit('success', slugInput.value);
+      // Close modal immediately for responsive feel
+      emit('close');
+      
+      // Emit success event after closing (parent handles the rest)
+      emit('success', claimedSlug);
       if (props.onSuccess) {
-        props.onSuccess(slugInput.value);
+        props.onSuccess(claimedSlug);
       }
-      handleClose();
     }
   } catch (error: any) {
     validationMessage.value = error.message || 'Failed to claim handle';
     validationClass.value = 'error';
-  } finally {
     isClaiming.value = false;
   }
+  // Don't reset isClaiming on success - modal is closing anyway
 };
 
 /**

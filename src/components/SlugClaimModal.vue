@@ -269,11 +269,18 @@ watch(() => props.currentSlug, (newSlug) => {
   }
 });
 
-// Trigger initial check if there's a current slug
+// Reset modal state and trigger initial check when opened
 watch(() => props.isOpen, (isOpen) => {
-  if (isOpen && props.currentSlug) {
-    slugInput.value = props.currentSlug;
-    checkAvailability(props.currentSlug);
+  if (isOpen) {
+    // Reset state to prevent stuck claiming state
+    isClaiming.value = false;
+    validationMessage.value = '';
+    validationClass.value = 'info';
+    
+    if (props.currentSlug) {
+      slugInput.value = props.currentSlug;
+      checkAvailability(props.currentSlug);
+    }
   }
 });
 </script>

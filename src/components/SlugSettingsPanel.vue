@@ -56,6 +56,13 @@
       @close="closeSlugModal"
       @success="handleSlugSuccess"
     />
+
+    <SuccessToast
+      :show="showSuccessToast"
+      :message="successMessage"
+      :duration="3000"
+      @close="showSuccessToast = false"
+    />
   </div>
 </template>
 
@@ -65,6 +72,7 @@ import { auth } from '@/firebase';
 import { getUserProfile, setDefaultGrid } from '@/services/UserProfileService';
 import { useLayoutStore } from '@/stores/layout';
 import SlugClaimModal from './SlugClaimModal.vue';
+import SuccessToast from './SuccessToast.vue';
 
 const layoutStore = useLayoutStore();
 const isSlugModalOpen = ref(false);
@@ -72,6 +80,8 @@ const userSlug = ref<string | undefined>(undefined);
 const selectedGridId = ref<string | null>(null);
 const isSavingGrid = ref(false);
 const saveSuccess = ref(false);
+const showSuccessToast = ref(false);
+const successMessage = ref('');
 
 const layouts = computed(() => layoutStore.layouts);
 
@@ -137,8 +147,16 @@ const closeSlugModal = () => {
 /**
  * Handle successful slug claim/update
  */
-const handleSlugSuccess = (newSlug: string) => {
-  userSlug.value = newSlug;
+const handleSlugSuccess = async (newSlug: string) => {
+  // Close the modal
+  isSlugModalOpen.value = false;
+  
+  // Reload profile to get fresh data
+  await loadUserProfile();
+  
+  // Show success confirmation toast
+  successMessage.value = `Handle updated to @${newSlug}`;
+  showSuccessToast.value = true;
 };
 
 onMounted(() => {

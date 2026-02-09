@@ -72,10 +72,7 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .user-menu {
-  position: fixed;
-  bottom: var(--spacing-md);
-  left: var(--spacing-md);
-  z-index: var(--z-fixed);
+  position: relative;
 }
 
 .user-menu-button {

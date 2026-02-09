@@ -27,10 +27,22 @@
         <router-link class="home-landing__cta" to="/login">
           Join the Beta
         </router-link>
+
+
       </div>
     </main>
 
     <footer class="home-landing__footer">
+      <a 
+        href="https://discord.gg/YOUR_DISCORD_INVITE" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        class="home-landing__discord-link"
+      >
+        <DiscordIcon />
+        <span>Join our Discord</span>
+      </a>
+      <span class="home-landing__footer-sep">·</span>
       <router-link class="home-landing__footer-link" to="/privacy">Privacy</router-link>
       <span class="home-landing__footer-sep">·</span>
       <router-link class="home-landing__footer-link" to="/terms">Terms</router-link>
@@ -41,6 +53,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import GriddleAnimation from '@/components/GriddleAnimation.vue';
+import DiscordIcon from '@/components/icons/DiscordIcon.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
 
 // Set base page title (no suffix for home page)
@@ -161,6 +174,39 @@ usePageTitle(pageTitle);
 .home-landing__cta:active {
   transform: translateY(0);
   box-shadow: var(--shadow-md);
+}
+
+.home-landing__discord-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  /* padding: 10px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); */
+  color: var(--color-content-high);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-base);
+  text-decoration: none;
+  transition:
+    transform var(--duration-fast) var(--easing-smooth),
+    border-color var(--duration-fast) var(--easing-smooth),
+    color var(--duration-fast) var(--easing-smooth);
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    color: #5865F2;
+    border-color: #5865F2;
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
 }
 
 .home-landing__footer {

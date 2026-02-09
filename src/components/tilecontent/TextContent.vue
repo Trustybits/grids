@@ -118,8 +118,8 @@ export default defineComponent({
     const isWideOneHigh = computed(() => (gridTileW?.value ?? 0) > 1 && (gridTileH?.value ?? 0) === 1);
     const isOneByOne = computed(() => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1);
 
-    const textLink = props.content?.textLink;
-    const textLinkExists = textLink ? true : false;
+    const textLink = computed(() => props.content?.textLink);
+    const textLinkExists = computed(() => !!props.content?.textLink);
     
     const showLinkModal = ref<boolean>(false);
     const toastStore = useToastStore();
@@ -245,19 +245,15 @@ export default defineComponent({
       if (!textLinkExists) return;
 
       if (!layoutStore.isOwner) {
-        window.open(textLink, "_blank", "noopener,noreferrer");
+        window.open(textLink.value, "_blank", "noopener,noreferrer");
         return;
       }
     }
 
     const handleOwnerClick = () => {
-      // this doesn't work at all
       if (!textLinkExists) return;
-
-      if (layoutStore.isOwner) {
-        window.open(textLink, "_blank", "noopener,noreferrer");
-        return;
-      }
+      
+      window.open(textLink.value, "_blank", "noopener,noreferrer");
     }
 
     return {
@@ -386,12 +382,16 @@ export default defineComponent({
   height: 24px;
   color: var(--color-text-primary);
   opacity: 0.21;
-  pointer-events: none;
   transition: opacity var(--duration-fast) var(--easing-ease-in-out);
+  z-index: 1200;
 }
 
-.link-tile-content:hover .tile-link-indicator {
+.text-content:hover .tile-link-indicator {
   opacity: 1;
+}
+
+.tile-link-indicator:hover {
+  cursor: pointer;
 }
 
 .tile-link-indicator-icon {

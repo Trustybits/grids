@@ -217,7 +217,9 @@
           </svg>
         </button>
 
+        <!-- this is the menu button, currently not showing for text content -->
         <button
+          v-if="!isTextContent"
           ref="toolbarMoreRef"
           class="toolbar-btn"
           title="More"
@@ -228,6 +230,16 @@
             <circle cx="12" cy="12" r="1.25" fill="currentColor" />
             <circle cx="18" cy="12" r="1.25" fill="currentColor" />
           </svg>
+        </button>
+
+        <!-- if it is a text tile, show this button instead of the menu button: adding a link -->
+        <button
+          v-if="isTextContent"
+          type="button"
+          class="toolbar-btn"
+          @click.stop="handleToolbarUseUrl"
+        >
+          <LinkIcon />
         </button>
       </div>
 
@@ -254,7 +266,8 @@
             Remove image
           </button>
         </div>
-        <div
+        <!-- this is the link button that will show up in the menu -->
+        <!-- <div
           v-if="layoutStore.isOwner && isTextContent && showToolbarMenu"
           ref="toolbarMenuRef"
           class='tile-toolbar-menu'
@@ -264,7 +277,7 @@
           <button type="button" class="tile-toolbar-menu-item" @click.stop="handleToolbarUseUrl">
             <LinkIcon />
           </button>
-        </div>
+        </div> -->
       </teleport>
     
     </div>

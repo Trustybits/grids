@@ -785,12 +785,17 @@ export const claimSlug = onCall(async (data, context) => {
       // Check if slug is already taken
       if (slugDoc.exists) {
         const existingUserId = slugDoc.data()?.userId;
-        // If the slug belongs to a different user, it's taken
-        if (existingUserId !== userId) {
-          throw new HttpsError("already-exists", "This slug is already taken.");
+        
+        // If userId is null or undefined, the slug was released and is available
+        if (existingUserId !== null && existingUserId !== undefined) {
+          // If the slug belongs to a different user, it's taken
+          if (existingUserId !== userId) {
+            throw new HttpsError("already-exists", "This slug is already taken.");
+          }
+          // If it's the same user, they're updating to the same slug (no-op)
+          return { success: true, message: "Slug is already yours." };
         }
-        // If it's the same user, they're updating to the same slug (no-op)
-        return { success: true, message: "Slug is already yours." };
+        // If userId is null, fall through to claim the released slug
       }
 
       // If user had a previous slug, update its history to mark it as released
@@ -801,13 +806,17 @@ export const claimSlug = onCall(async (data, context) => {
           const oldSlugDoc = await transaction.get(oldSlugRef);
           
           if (oldSlugDoc.exists) {
+            const oldSlugData = oldSlugDoc.data();
             // Add current ownership to history before releasing
+            // Use the existing createdAt timestamp if available, otherwise use current time
+            const claimedAt = oldSlugData?.createdAt || new Date();
+            
             transaction.update(oldSlugRef, {
               userId: null, // Mark as available
               history: admin.firestore.FieldValue.arrayUnion({
                 userId,
-                claimedAt: oldSlugDoc.data()?.createdAt || admin.firestore.FieldValue.serverTimestamp(),
-                releasedAt: admin.firestore.FieldValue.serverTimestamp(),
+                claimedAt,
+                releasedAt: new Date(), // Cannot use FieldValue.serverTimestamp() inside arrays
               }),
             });
           }
@@ -818,14 +827,14 @@ export const claimSlug = onCall(async (data, context) => {
       const defaultGridId = userDoc.exists ? userDoc.data()?.defaultGridId || null : null;
 
       // Create or update the slug document with history tracking
-      const now = admin.firestore.FieldValue.serverTimestamp();
+      const now = new Date();
       transaction.set(slugRef, {
         userId,
         defaultGridId, // Store for public access
-        createdAt: now,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(), // Can use FieldValue at top level
         history: admin.firestore.FieldValue.arrayUnion({
           userId,
-          claimedAt: now,
+          claimedAt: now, // Cannot use FieldValue.serverTimestamp() inside arrays
         }),
       }, { merge: true });
 
@@ -949,6 +958,16 @@ export const checkSlugAvailability = onCall(async (data, context) => {
     
     if (slugDoc.exists) {
       const existingUserId = slugDoc.data()?.userId;
+      
+      // If userId is null, the slug was released and is available
+      if (existingUserId === null || existingUserId === undefined) {
+        return {
+          available: true,
+          reason: "available",
+          message: "This slug is available!",
+        };
+      }
+      
       // Check if it's the current user's slug
       if (existingUserId === context.auth.uid) {
         return {
@@ -957,6 +976,8 @@ export const checkSlugAvailability = onCall(async (data, context) => {
           message: "This is your current slug.",
         };
       }
+      
+      // Slug is taken by another user
       return {
         available: false,
         reason: "taken",

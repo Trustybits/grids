@@ -12,10 +12,12 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
+      // Only allow users to read their own document
       allow read: if request.auth != null && request.auth.uid == userId;
       
       // Allow user to create/update their own document
       // storageUsed field can only be updated by Cloud Functions (server-side)
+      // slug field must match format requirements and is validated by Cloud Function
       allow create: if request.auth != null 
                     && request.auth.uid == userId
                     && (!('storageUsed' in request.resource.data) || request.resource.data.storageUsed == 0);
@@ -24,6 +26,15 @@ service cloud.firestore {
                     && request.auth.uid == userId
                     && (!('storageUsed' in request.resource.data) 
                         || request.resource.data.storageUsed == resource.data.storageUsed);
+    }
+
+    match /slugs/{slug} {
+      // Allow public read access for slug lookups
+      // Document structure: { userId: string, createdAt: timestamp }
+      allow read: if true;
+      
+      // Only Cloud Functions can write to this collection
+      allow write: if false;
     }
 
     match /layouts/{layoutId} {

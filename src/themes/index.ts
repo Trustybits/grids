@@ -119,6 +119,35 @@ export const themes: ThemeRegistry = {
       figmaGreen: rawColors.figmaGreen,
     },
   },
+  
+  bento: {
+    id: 'bento',
+    name: 'Bento',
+    colors: {
+      contentBackground: '#faf8f3',
+      tileBackground: 'rgba(255, 255, 255, 0.85)',
+      tileStroke: 'rgba(0, 0, 0, 0.06)',
+      textPrimary: '#2d2d2d',
+      contentHigh: 'rgba(45, 45, 45, 0.95)',
+      contentDefault: 'rgba(45, 45, 45, 0.65)',
+      contentLow: 'rgba(45, 45, 45, 0.35)',
+      
+      // Softened brand colors for Bento aesthetic
+      substackPrimary: '#ff9775',
+      instagramYellow: '#ffd95f',
+      instagramOrange: '#ffb366',
+      instagramRed: '#ff669f',
+      instagramPink: '#e26fdb',
+      instagramPurple: '#9f7aff',
+      youtubeMagenta: '#ff7ab5',
+      youtubeRed: '#ff667a',
+      figmaPurple: '#a77fff',
+      figmaRed: '#ff7070',
+      figmaOrange: '#ff9770',
+      figmaBlue: '#66c7ff',
+      figmaGreen: '#6fdb9f',
+    },
+  },
 };
 
 export const getTheme = (id: string): Theme => {

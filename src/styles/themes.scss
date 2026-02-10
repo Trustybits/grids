@@ -74,6 +74,91 @@ body.theme-dark,
   --tile-color: #574d5731;
 }
 
+/* Bento Theme - Soft, gradient-heavy, rounded aesthetic */
+body.theme-bento,
+:root.theme-bento {
+  /* Core colors inspired by Bento's soft, warm palette */
+  --color-content-background: linear-gradient(135deg, #faf8f3 0%, #f5f1e8 50%, #fff9f0 100%);
+  --color-tile-background: rgba(255, 255, 255, 0.85);
+  --color-tile-stroke: rgba(0, 0, 0, 0.06);
+  --color-text-primary: #2d2d2d;
+  --color-content-high: rgba(45, 45, 45, 0.95);
+  --color-content-default: rgba(45, 45, 45, 0.65);
+  --color-content-low: rgba(45, 45, 45, 0.35);
+
+  /* Base color system */
+  --color-base-100: #2d2d2d;
+  --color-base-76: rgba(45, 45, 45, 0.76);
+  --color-base-55: rgba(45, 45, 45, 0.55);
+  --color-base-34: rgba(45, 45, 45, 0.34);
+  --color-base-8: rgba(45, 45, 45, 0.08);
+  --color-base-0: rgba(45, 45, 45, 0);
+  
+  /* Bento's signature soft pastel accent colors */
+  --color-bento-peach: #ffb5a7;
+  --color-bento-mint: #b5e7d3;
+  --color-bento-lavender: #d4c5f9;
+  --color-bento-butter: #ffe4b5;
+  --color-bento-sky: #b8d8ff;
+  --color-bento-coral: #ffcdb8;
+  
+  /* Brand colors with Bento-style softness */
+  --color-substack: #ff9775;
+  --color-instagram-yellow: #ffd95f;
+  --color-instagram-orange: #ffb366;
+  --color-instagram-red: #ff669f;
+  --color-instagram-pink: #e26fdb;
+  --color-instagram-purple: #9f7aff;
+  --color-youtube-magenta: #ff7ab5;
+  --color-youtube-red: #ff667a;
+  --color-figma-purple: #a77fff;
+  --color-figma-red: #ff7070;
+  --color-figma-orange: #ff9770;
+  --color-figma-blue: #66c7ff;
+  --color-figma-green: #6fdb9f;
+  
+  /* Theme-specific colors */
+  --primary-color: #ffb5a7;
+  --secondary-color: rgba(255, 181, 167, 0.2);
+  --destructive-color: #ff6b6b;
+  --text-color: #2d2d2d;
+  --tile-color: rgba(255, 255, 255, 0.85);
+  
+  /* Bento-style elevated shadows */
+  --shadow-tile: 0 4px 16px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02);
+  --shadow-tile-hover: 0 8px 24px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+  
+  /* Enhanced border radius for Bento's soft, rounded aesthetic */
+  --tile-border-radius: 24px;
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-xl: 32px;
+  
+  /* Softer, more organic borders */
+  --tile-border-width: 1.5px;
+}
+
+/* Apply gradient background for Bento theme */
+body.theme-bento {
+  background: linear-gradient(135deg, #faf8f3 0%, #f5f1e8 50%, #fff9f0 100%);
+  background-attachment: fixed;
+  color: var(--color-text-primary);
+  transition: background-color var(--transition-normal), color var(--transition-normal);
+}
+
+/* Enhanced tile styling for Bento theme */
+body.theme-bento .card-body {
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--shadow-tile);
+  transition: all var(--duration-normal) var(--easing-smooth);
+}
+
+body.theme-bento .tile-wrapper:hover .card-body {
+  box-shadow: var(--shadow-tile-hover);
+  transform: translateY(-2px);
+}
+
 body {
   background-color: var(--color-content-background);
   color: var(--color-text-primary);

@@ -2,11 +2,12 @@
   <button
     type="button"
     class="theme-toggle"
-    :class="{ 'is-dark': isDarkMode }"
-    :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'"
-    @click="toggleTheme"
+    :class="themeClass"
+    :title="`Current theme: ${currentThemeName}. Click to change theme.`"
+    @click="cycleTheme"
   >
     <span class="theme-toggle-icon" aria-hidden="true">
+      <!-- Sun icon for Light theme -->
       <svg
         class="icon-sun"
         viewBox="0 0 24 24"
@@ -24,6 +25,7 @@
         <path d="M6.3 17.7L4.9 19.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
       </svg>
 
+      <!-- Moon icon for Dark theme -->
       <svg
         class="icon-moon"
         viewBox="0 0 24 24"
@@ -37,6 +39,19 @@
           stroke-linejoin="round"
         />
       </svg>
+
+      <!-- Bento icon for Bento theme - minimalist grid layout -->
+      <svg
+        class="icon-bento"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect x="4" y="4" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.5" />
+        <rect x="13" y="4" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.5" />
+        <rect x="4" y="13" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.5" />
+        <rect x="13" y="13" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.5" />
+      </svg>
     </span>
   </button>
 </template>
@@ -49,15 +64,26 @@ export default {
   setup() {
     const themeStore = useThemeStore();
 
-    const isDarkMode = computed(() => themeStore.isDarkMode);
+    const currentThemeId = computed(() => themeStore.currentThemeId);
+    const currentThemeName = computed(() => themeStore.currentTheme.name);
+    
+    const themeClass = computed(() => {
+      return `is-${currentThemeId.value}`;
+    });
 
-    const toggleTheme = () => {
-      themeStore.toggleDarkMode();
+    const cycleTheme = () => {
+      // Cycle through: light -> bento -> dark -> light
+      const themeOrder = ['light', 'bento', 'dark'];
+      const currentIndex = themeOrder.indexOf(currentThemeId.value);
+      const nextIndex = (currentIndex + 1) % themeOrder.length;
+      themeStore.setTheme(themeOrder[nextIndex]);
     };
 
     return {
-      isDarkMode,
-      toggleTheme,
+      currentThemeId,
+      currentThemeName,
+      themeClass,
+      cycleTheme,
     };
   },
 }
@@ -110,23 +136,43 @@ export default {
     transform-origin: 50% 50%;
   }
 
-  .theme-toggle .icon-sun {
+  /* Light theme - show sun */
+  .theme-toggle.is-light .icon-sun {
     opacity: 1;
     transform: rotate(0deg) scale(1);
   }
 
-  .theme-toggle .icon-moon {
+  .theme-toggle.is-light .icon-moon,
+  .theme-toggle.is-light .icon-bento {
     opacity: 0;
     transform: rotate(-90deg) scale(0.75);
   }
 
-  .theme-toggle.is-dark .icon-sun {
+  /* Dark theme - show moon */
+  .theme-toggle.is-dark .icon-moon {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+
+  .theme-toggle.is-dark .icon-sun,
+  .theme-toggle.is-dark .icon-bento {
     opacity: 0;
     transform: rotate(90deg) scale(0.75);
   }
 
-  .theme-toggle.is-dark .icon-moon {
+  /* Bento theme - show bento grid icon */
+  .theme-toggle.is-bento .icon-bento {
     opacity: 1;
     transform: rotate(0deg) scale(1);
+  }
+
+  .theme-toggle.is-bento .icon-sun {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.75);
+  }
+
+  .theme-toggle.is-bento .icon-moon {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.75);
   }
 </style>

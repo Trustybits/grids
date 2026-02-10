@@ -93,7 +93,23 @@ function parseYouTubeUrl(url: string): { type: 'video' | 'playlist' | 'channel' 
       return null;
     }
     
-    // Video: youtube.com/watch?v=ID
+    // Shorts: youtube.com/shorts/ID (check first as it's most specific)
+    const shortsMatch = urlObj.pathname.match(/^\/shorts\/([a-zA-Z0-9_-]+)/);
+    if (shortsMatch) {
+      return { type: 'short', id: shortsMatch[1] };
+    }
+    
+    // Playlist: Check for list parameter in any watch or playlist URL
+    // This handles both youtube.com/playlist?list=ID and youtube.com/watch?v=ID&list=ID
+    if (urlObj.searchParams.has('list')) {
+      const listId = urlObj.searchParams.get('list')!;
+      // Ignore auto-generated "My Mix" playlists (they start with RD)
+      if (!listId.startsWith('RD')) {
+        return { type: 'playlist', id: listId };
+      }
+    }
+    
+    // Video: youtube.com/watch?v=ID (only if no valid playlist was found)
     if (urlObj.pathname === '/watch' && urlObj.searchParams.has('v')) {
       return { type: 'video', id: urlObj.searchParams.get('v')! };
     }
@@ -102,17 +118,6 @@ function parseYouTubeUrl(url: string): { type: 'video' | 'playlist' | 'channel' 
     if (hostname.includes('youtu.be')) {
       const id = urlObj.pathname.slice(1).split('?')[0];
       if (id) return { type: 'video', id };
-    }
-    
-    // Shorts: youtube.com/shorts/ID
-    const shortsMatch = urlObj.pathname.match(/^\/shorts\/([a-zA-Z0-9_-]+)/);
-    if (shortsMatch) {
-      return { type: 'short', id: shortsMatch[1] };
-    }
-    
-    // Playlist: youtube.com/playlist?list=ID
-    if (urlObj.pathname === '/playlist' && urlObj.searchParams.has('list')) {
-      return { type: 'playlist', id: urlObj.searchParams.get('list')! };
     }
     
     // Channel: youtube.com/@username

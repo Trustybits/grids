@@ -7,16 +7,13 @@
     ></div>
 
     <div v-if="showClouds" class="map-overlay map-clouds" aria-hidden="true">
-      <div class="map-cloud layer-a"></div>
-      <div class="map-cloud layer-b"></div>
-      <div class="map-cloud layer-c"></div>
+      <img class="map-cloud map-cloud--shadow" :src="cloudShadow" alt="" />
+      <img class="map-cloud map-cloud--main" :src="cloudImage" alt="" />
     </div>
 
     <div v-if="showPlanes" class="map-overlay map-plane" aria-hidden="true">
-      <div class="plane-group">
-        <span class="plane-trail"></span>
-        <img class="plane-icon" :src="planeIcon" alt="" />
-      </div>
+      <img class="plane-shadow" :src="planeShadow" alt="" />
+      <img class="plane-icon" :src="planeIcon" alt="" />
     </div>
 
     <div v-if="!hasToken" class="map-empty-state">
@@ -43,6 +40,7 @@
         <label class="map-select">
           <span>Style</span>
           <select v-model="styleMode">
+            <option value="default">Default</option>
             <option value="auto">System</option>
             <option value="light">Light</option>
             <option value="dark">Dark</option>
@@ -83,7 +81,10 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from "vue";
 import mapboxgl from "mapbox-gl";
-import planeIcon from "@/svgs/icons/airplane.svg";
+import cloudImage from "@/assets/images/cloud.png";
+import cloudShadow from "@/assets/images/cloud_shadow.png";
+import planeIcon from "@/assets/images/plane.png";
+import planeShadow from "@/assets/images/planeshadow.png";
 import { useLayoutStore } from "@/stores/layout";
 import { useThemeStore } from "@/stores/theme";
 import { type MapContent, type MapStyleMode } from "@/types/TileContent";
@@ -105,7 +106,12 @@ type MapStylePreset = {
   };
 };
 
+const DEFAULT_STYLE_URL = "mapbox://styles/trustybits/cmlfi9mdh001t01qv29zg4wqn";
+
 const MAP_STYLE_PRESETS: Record<Exclude<MapStyleMode, "auto">, MapStylePreset> = {
+  default: {
+    style: DEFAULT_STYLE_URL,
+  },
   light: {
     style: "mapbox://styles/mapbox/light-v11",
     light: {
@@ -231,6 +237,7 @@ export default defineComponent({
     const themeStore = useThemeStore();
     const mapContainer = ref<HTMLDivElement | null>(null);
     const mapInstance = ref<mapboxgl.Map | null>(null);
+    const markerInstance = ref<mapboxgl.Marker | null>(null);
     const isEditing = ref(false);
     const searchInput = ref(props.content.searchQuery || "");
     const statusMessage = ref<string | null>(null);
@@ -238,7 +245,7 @@ export default defineComponent({
     const hasToken = computed(() => !!token);
 
     const styleMode = computed<MapStyleMode>({
-      get: () => props.content.style || "auto",
+      get: () => props.content.style || "default",
       set: (value) => {
         props.content.style = value;
         layoutStore.saveLayout();
@@ -273,6 +280,63 @@ export default defineComponent({
     });
 
     const resolvedStyle = computed(() => resolveStyle(styleMode.value, themeStore.isDarkMode));
+
+    const buildMarkerElement = () => {
+      const element = document.createElement("div");
+      element.className = "marker";
+      element.setAttribute("aria-label", "Map marker");
+
+      const wrap = document.createElement("div");
+      wrap.className = "relative h-full w-full marker__wrap";
+
+      const pulse = document.createElement("div");
+      pulse.className =
+        "absolute left-1/2 top-1/2 rounded-full bg-[#679BFF] opacity-20 s-3 styles_marker-pulse__BxsPp marker__pulse";
+
+      const body = document.createElement("div");
+      body.className =
+        "relative flex h-full w-full items-center justify-center rounded-full bg-white styles_marker__Mzm27 marker__body";
+
+      const inner = document.createElement("div");
+      inner.className = "absolute inset-[3px] rounded-full bg-[#679BFF] marker__inner";
+
+      const border = document.createElement("div");
+      border.className = "absolute inset-[3px] rounded-full styles_marker-border__fxi6v marker__border";
+
+      const core = document.createElement("div");
+      core.className = "absolute inset-[5px] rounded-full bg-[#679BFF] marker__core";
+
+      body.appendChild(inner);
+      body.appendChild(border);
+      body.appendChild(core);
+      wrap.appendChild(pulse);
+      wrap.appendChild(body);
+      element.appendChild(wrap);
+      return element;
+    };
+
+    const updateMarker = (markerData?: { lat: number; lng: number }) => {
+      const map = mapInstance.value;
+      if (!map || !markerData) return;
+      if (!markerInstance.value) {
+        const marker = new (mapboxgl as any).Marker({
+          element: buildMarkerElement(),
+          anchor: "center",
+        }) as mapboxgl.Marker;
+        markerInstance.value = marker
+          .setLngLat([markerData.lng, markerData.lat])
+          .addTo(map as any);
+      } else {
+        markerInstance.value.setLngLat([markerData.lng, markerData.lat]);
+      }
+    };
+
+    const setMarker = (marker: { lat: number; lng: number }) => {
+      if (!layoutStore.isOwner) return;
+      props.content.marker = marker;
+      saveLayout();
+      updateMarker(marker);
+    };
 
     const saveLayout = () => {
       layoutStore.saveLayout();
@@ -353,6 +417,7 @@ export default defineComponent({
         }
         statusMessage.value = null;
         const [lng, lat] = match.center as [number, number];
+        setMarker({ lat, lng });
         flyToLocation({ lat, lng }, clamp(props.content.zoom ?? 9, 9, 14));
       } catch (error) {
         console.error("Mapbox search failed:", error);
@@ -370,13 +435,12 @@ export default defineComponent({
       navigator.geolocation.getCurrentPosition(
         (position) => {
           statusMessage.value = null;
-          flyToLocation(
-            {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            },
-            clamp(props.content.zoom ?? 9, 10, 14)
-          );
+          const marker = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setMarker(marker);
+          flyToLocation(marker, clamp(props.content.zoom ?? 9, 10, 14));
         },
         () => {
           statusMessage.value = "Unable to get location.";
@@ -533,6 +597,16 @@ export default defineComponent({
       }
     );
 
+    watch(
+      () => props.content.marker,
+      (value) => {
+        if (value) {
+          updateMarker(value);
+        }
+      },
+      { deep: true }
+    );
+
     onMounted(() => {
       if (!mapContainer.value || !token) return;
       mapboxgl.accessToken = token;
@@ -561,6 +635,10 @@ export default defineComponent({
 
       applyActivePreset();
 
+      if (props.content.marker) {
+        updateMarker(props.content.marker);
+      }
+
       const hasSavedCenter =
         props.content.center &&
         (props.content.center.lat !== 0 || props.content.center.lng !== 0);
@@ -579,12 +657,16 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
+      markerInstance.value?.remove();
       mapInstance.value?.remove();
     });
 
     return {
       layoutStore,
+      cloudShadow,
+      cloudImage,
       planeIcon,
+      planeShadow,
       mapContainer,
       isEditing,
       isInteractive,
@@ -632,75 +714,61 @@ export default defineComponent({
 }
 
 .map-clouds {
-  opacity: 0.5;
-  mix-blend-mode: screen;
-  filter: blur(6px);
+  width: 100%;
+  height: 100%;
+  /* overflow: hidden; */
 }
 
 .map-cloud {
   position: absolute;
-  inset: -25%;
-  background-image:
-    radial-gradient(circle at 18% 40%, rgba(255, 255, 255, 0.65) 0 22%, transparent 44%),
-    radial-gradient(circle at 38% 30%, rgba(255, 255, 255, 0.55) 0 18%, transparent 40%),
-    radial-gradient(circle at 58% 45%, rgba(255, 255, 255, 0.6) 0 20%, transparent 42%),
-    radial-gradient(circle at 78% 30%, rgba(255, 255, 255, 0.5) 0 18%, transparent 38%),
-    radial-gradient(circle at 90% 50%, rgba(255, 255, 255, 0.45) 0 16%, transparent 36%);
-  background-size: 320px 200px;
-  background-repeat: repeat;
+  left: 0;
+  top: 0;
+  width: 1000px;
+  height: auto;
   will-change: transform;
 }
 
-.map-cloud.layer-a {
-  top: -35%;
-  opacity: 0.45;
-  animation: cloudDriftSlow 140s linear infinite;
+.map-cloud--main {
+  opacity: 0.9;
+  animation: cloudDrift 80s linear infinite;
 }
 
-.map-cloud.layer-b {
-  top: -15%;
-  opacity: 0.35;
-  filter: blur(10px);
-  animation: cloudDriftMid 110s linear infinite;
-}
-
-.map-cloud.layer-c {
-  top: 5%;
-  opacity: 0.25;
-  filter: blur(14px);
-  animation: cloudDriftFast 90s linear infinite;
+.map-cloud--shadow {
+  opacity: 0.6;
+  filter: blur(4px) brightness(0.01);
+  animation: cloudShadowDrift 80s linear infinite;
 }
 
 .map-plane {
-  color: rgba(255, 255, 255, 0.85);
-  overflow: hidden;
-}
-
-.plane-group {
   position: absolute;
-  left: -30%;
-  top: 35%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  animation: planePath 28s linear infinite;
-  will-change: transform, opacity;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
+  /* overflow: hidden; */
 }
 
-.plane-trail {
-  width: 140px;
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.6));
-  filter: blur(1px);
-  opacity: 0.7;
+.plane-icon,
+.plane-shadow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  /*height: 24px; */
+  transform-origin: center;
+  /* will-change: transform, opacity; */
 }
 
 .plane-icon {
-  width: 40px;
-  height: 40px;
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.25));
-  transform: rotate(0deg);
+  filter: drop-shadow(0 3px 6px rgba(15, 45, 90, 0.35));
+  animation: planeFly 28s linear infinite;
+}
+
+.plane-shadow {
+  /* opacity: 0.45; */
+  /* filter: blur(3px) brightness(0.15); */
+  animation: planeShadowFly 28s linear infinite;
 }
 
 .map-empty-state {
@@ -852,47 +920,147 @@ export default defineComponent({
   opacity: 1;
 }
 
-@keyframes cloudDriftSlow {
-  from {
-    transform: translateX(-8%);
-  }
-  to {
-    transform: translateX(8%);
-  }
+.map-tile :deep(.marker) {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  pointer-events: auto;
 }
 
-@keyframes cloudDriftMid {
-  from {
-    transform: translateX(-12%);
-  }
-  to {
-    transform: translateX(12%);
-  }
+.map-tile :deep(.marker__wrap) {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
-@keyframes cloudDriftFast {
-  from {
-    transform: translateX(-18%);
-  }
-  to {
-    transform: translateX(18%);
-  }
+.map-tile :deep(.marker__pulse) {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #679bff;
+  opacity: 0.2;
+  transform: translate(-50%, -50%);
+  animation: markerPulse 2.6s ease-out infinite;
 }
 
-@keyframes planePath {
+.map-tile :deep(.marker__body) {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 14px rgba(20, 45, 110, 0.25);
+}
+
+.map-tile :deep(.marker__inner) {
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  background: #679bff;
+  opacity: 0.55;
+}
+
+.map-tile :deep(.marker__border) {
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(103, 155, 255, 0.6);
+}
+
+.map-tile :deep(.marker__core) {
+  position: absolute;
+  inset: 5px;
+  border-radius: 999px;
+  background: #679bff;
+}
+
+@keyframes cloudDrift {
   0% {
-    transform: translate3d(-35%, 8%, 0) rotate(2deg);
-    opacity: 0;
-  }
-  12% {
-    opacity: 1;
-  }
-  55% {
-    transform: translate3d(45vw, -6%, 0) rotate(-2deg);
+    transform: translate(-1295.098px, -250.375px) rotate(120deg);
   }
   100% {
-    transform: translate3d(120vw, 10%, 0) rotate(4deg);
+    transform: translate(1077.3733px, -124.672px) rotate(120deg);
+  }
+}
+
+@keyframes cloudShadowDrift {
+  0% {
+    transform: translate(-1285.098px, -200.375px) rotate(120deg);
+  }
+  100% {
+    transform: translate(1067.3733px, 76.67151px) rotate(120deg);
+  }
+}
+
+@keyframes markerPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0.8;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.6);
     opacity: 0;
+  }
+}
+
+@keyframes planeFly {
+  0% {
+    transform: translate(360px, -180px) rotate(221.775deg);
+    opacity: 1;
+  }
+  15% {
+    opacity: 1;
+  }
+  45% {
+    transform: translate(333.658px, -113.246px) rotate(221.775deg);
+    opacity: 1;
+  }
+  70% {
+    transform: translate(189.426px, 48.2095px) rotate(221.775deg);
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-40px, 270px) rotate(221.775deg);
+    opacity: 1;
+  }
+}
+
+@keyframes planeShadowFly {
+  0% {
+    transform: translate(350px, -100px) rotate(221.775deg);
+    opacity: 1;
+  }
+  15% {
+    opacity: 1;
+  }
+  45% {
+    transform: translate(323.658px, -33.2458px) rotate(221.775deg);
+    opacity: 1;
+  }
+  70% {
+    transform: translate(179.426px, 128.21px) rotate(221.775deg);
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-30px, 350px) rotate(221.775deg);
+    opacity: 1;
   }
 }
 </style>

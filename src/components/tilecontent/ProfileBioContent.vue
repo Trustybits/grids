@@ -153,13 +153,7 @@ import TextOptions from "./TextOptions.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { type ProfileBioContent, type AvatarShape } from "@/types/TileContent";
 import { isDirectImageUrl } from "@/utils/TileUtils";
-import { getAuth } from "firebase/auth";
-import {
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from "firebase/storage";
+import { useFileUpload } from "@/composables/useFileUpload";
 
 const editorExtensions: AnyExtension[] = [
   StarterKit,
@@ -184,8 +178,7 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
-    const auth = getAuth();
-    const storage = getStorage();
+    const { uploadFileToUrl } = useFileUpload();
 
     const isEditing = ref(false);
     const activeEditor = ref<any>(null);
@@ -422,34 +415,17 @@ export default defineComponent({
       if (!layoutStore.isOwner) return;
 
       if (!file.type.startsWith("image/")) {
-        alert("Unsupported file type. Please upload an image.");
-        return;
-      }
-
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        alert("File is too large! Maximum size: 10MB");
+        alert("Please upload an image file.");
         return;
       }
 
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          alert("You must be logged in to upload.");
-          return;
-        }
-
-        const filePath = `users/${currentUser.uid}/images/${Date.now()}_${file.name}`;
-        const fileRef = storageRef(storage, filePath);
-
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
-
+        const url = await uploadFileToUrl(file, { fileType: "image" });
         props.content.avatarSrc = url;
         layoutStore.saveLayout();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Avatar upload failed:", error);
-        alert("Failed to upload image. Please try again.");
+        alert(error.message || "Failed to upload image. Please try again.");
       }
     };
 

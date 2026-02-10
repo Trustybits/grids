@@ -97,7 +97,7 @@
       <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
       <div v-if="isTileResizable" class="resize-indicator"></div>
 
-      <div v-if="layoutStore.isOwner && !isSuggestion" class="tile-toolbar" :class="{ 'tile-toolbar-force-show': showToolbarMenu }" @mousedown.stop>
+      <div v-if="layoutStore.isOwner && !isSuggestion" class="tile-toolbar" :class="{ 'tile-toolbar-force-show': showToolbarMenu || showColorPicker }" @mousedown.stop>
         <template v-if="!isProfileTile">
           <button
             class="toolbar-btn"
@@ -202,7 +202,8 @@
 
         <button
           class="toolbar-btn"
-          :class="{ 'is-active': isLinkContent && linkBackgroundEnabled }"
+          ref="colorPickerButtonRef"
+          :class="{ 'is-active': (isLinkContent && linkBackgroundEnabled) || showColorPicker }"
           :title="
             isLinkContent
               ? linkBackgroundEnabled
@@ -279,6 +280,17 @@
           </button>
         </div> -->
       </teleport>
+
+      <teleport to="body">
+        <div
+          v-if="layoutStore.isOwner && isTextContent && showColorPicker"
+          ref="colorPickerRef"
+          class="color-picker-menu"
+          :style="colorPickerStyle"
+        >
+          <div> doe this show up?</div>
+        </div>
+      </teleport>
     
     </div>
     </grid-item>
@@ -353,7 +365,11 @@ export default defineComponent({
     const gridTileRef = ref<HTMLElement | null>(null);
     const toolbarMenuRef = ref<HTMLDivElement | null>(null);
     const toolbarMoreRef = ref<HTMLButtonElement | null>(null);
+    const colorPickerRef = ref<HTMLDivElement | null>(null);
+    const colorPickerButtonRef = ref<HTMLButtonElement | null>(null);
     const showToolbarMenu = computed(() => layoutStore?.activeMenuTileId === props.tile.i);
+    const showColorPicker = computed(() => layoutStore?.activeColorMenuTileId === props.tile.i);
+    const colorPickerPosition = ref({ x: 0, y: 0 });
     const toolbarMenuPosition = ref({ x: 0, y: 0 });
     let stopChildEditingWatch: (() => void) | null = null;
 
@@ -440,6 +456,11 @@ export default defineComponent({
       };
     };
 
+    const colorPickerStyle = computed(() => ({
+      top: `${colorPickerPosition.value.y}px`,
+      left: `${colorPickerPosition.value.x}px`,
+    }));
+
     const toolbarMenuStyle = computed(() => ({
       top: `${toolbarMenuPosition.value.y}px`,
       left: `${toolbarMenuPosition.value.x}px`,
@@ -476,6 +497,38 @@ export default defineComponent({
       });
     };
 
+    const positionColorPickerMenu = () => {
+      const button = colorPickerButtonRef.value;
+      if (!button) return;
+      const rect = button.getBoundingClientRect();
+      const fallbackWidth = 200;
+      const fallbackHeight = 250;
+      const fallbackX = rect.left + (rect.width / 2) - (fallbackWidth / 2);
+      const fallbackY = rect.bottom + 8;
+
+      colorPickerPosition.value = clampMenuToViewport(
+        fallbackX,
+        fallbackY,
+        fallbackWidth,
+        fallbackHeight
+      );
+
+      nextTick(() => {
+        const menu = colorPickerRef.value;
+        if (!menu) return;
+        const { width, height } = menu.getBoundingClientRect();
+        const nextX = rect.left + (rect.width / 2) - (width / 2);
+        const nextY = rect.bottom + 8;
+
+        colorPickerPosition.value = clampMenuToViewport(
+          nextX,
+          nextY,
+          width,
+          height
+        );
+      });
+    };
+
     const closeToolbarMenu = () => {
       layoutStore.closeAllMenus();
     };
@@ -496,10 +549,11 @@ export default defineComponent({
     };
 
     const handleToolbarMenuClickOutside = (event: MouseEvent) => {
-      if (!showToolbarMenu.value) return;
+      if (!showToolbarMenu.value && !showColorPicker.value) return;
       const target = event.target as Node;
       if (toolbarMenuRef.value?.contains(target)) return;
       if (toolbarMoreRef.value?.contains(target)) return;
+      if (colorPickerRef.value?.contains(target)) return;
       closeToolbarMenu();
     };
 
@@ -616,6 +670,22 @@ export default defineComponent({
 
         if (showToolbarMenu.value) {
           positionToolbarMenu();
+        }
+        return;
+      }
+
+      // this needs to open the color menu and keep the toolbar menu open as well
+      if (action === "color") {
+        if (!isTextContent.value) return;
+        if (showColorPicker.value) {
+          layoutStore.closeAllMenus();
+        } else {
+          layoutStore.setActiveColorMenuTileId(props.tile.i);
+        }
+
+        if (showColorPicker.value) {
+          // add a parameter here that can position the color menu? Or do a different function entirely
+          positionColorPickerMenu();
         }
         return;
       }
@@ -888,7 +958,11 @@ export default defineComponent({
       toolbarMenuRef,
       toolbarMoreRef,
       showToolbarMenu,
+      showColorPicker,
+      colorPickerRef,
+      colorPickerButtonRef,
       toolbarMenuStyle,
+      colorPickerStyle,
       handleToolbarUpload,
       handleToolbarUseUrl,
       handleToolbarRemove,
@@ -1182,6 +1256,20 @@ export default defineComponent({
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: 12px;
   padding: 4px;
+}
+
+.color-picker-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 200px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-tile-hover);
 }
 
 .tile-toolbar-menu {

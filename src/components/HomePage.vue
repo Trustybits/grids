@@ -27,6 +27,10 @@
         <router-link class="home-landing__cta" to="/login">
           Join the Beta
         </router-link>
+
+        <router-link class="home-landing__cta--ghost" to="/login">
+          Log in
+        </router-link>
       </div>
     </main>
 
@@ -161,6 +165,17 @@ usePageTitle(pageTitle);
 .home-landing__cta:active {
   transform: translateY(0);
   box-shadow: var(--shadow-md);
+}
+
+.home-landing__cta--ghost {
+  box-shadow: none;
+  color: var(--color-content-high);
+  background: transparent;
+  text-decoration: none;
+}
+
+.home-landing__cta--ghost:hover {
+  text-decoration: underline;
 }
 
 .home-landing__footer {

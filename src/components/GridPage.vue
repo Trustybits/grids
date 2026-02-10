@@ -124,7 +124,7 @@ export default defineComponent({
       if (!file) return;
 
       try {
-        const url = await uploadFileToUrl(file, { fileType: "image" });
+        const url = await uploadFileToUrl(file, { fileType: "images" });
         layoutStore.addBackgroundImage(url, false);
       } catch (error: any) {
         console.error("Failed to upload image:", error);
@@ -213,35 +213,40 @@ export default defineComponent({
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  background: color-mix(in srgb, var(--color-content-background) 50%, transparent);
+  backdrop-filter: blur(8px);
   z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--duration-fast) var(--easing-ease-out);
   
   .drag-message {
-    background: var(--bs-body-bg);
-    border: 2px dashed var(--bs-primary);
-    border-radius: 1rem;
-    padding: 3rem 4rem;
+    background: var(--color-tile-background);
+    border: var(--tile-border-width) solid var(--color-tile-stroke);
+    border-style: dashed;
+    border-radius: var(--tile-border-radius);
+    padding: 2rem 3rem;
     text-align: center;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-tile-hover);
     
     svg {
-      color: var(--bs-primary);
-      margin-bottom: 1rem;
-      animation: bounce 1s ease-in-out infinite;
+      color: var(--color-text-primary);
+      margin-bottom: 0.75rem;
+      opacity: 0.7;
+      width: 48px;
+      height: 48px;
+      animation: bounce 2s ease-in-out infinite;
     }
     
     p {
       margin: 0;
-      font-size: 1.5rem;
+      font-size: 1rem;
       font-weight: 600;
-      color: var(--bs-body-color);
+      color: var(--color-text-primary);
+      opacity: 0.8;
     }
   }
 }
@@ -251,7 +256,7 @@ export default defineComponent({
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-8px);
   }
 }
 </style>

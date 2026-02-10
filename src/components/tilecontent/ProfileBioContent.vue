@@ -420,7 +420,7 @@ export default defineComponent({
       }
 
       try {
-        const url = await uploadFileToUrl(file, { fileType: "image" });
+        const url = await uploadFileToUrl(file, { fileType: "images" });
         props.content.avatarSrc = url;
         layoutStore.saveLayout();
       } catch (error: any) {

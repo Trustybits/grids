@@ -27,6 +27,9 @@
         <router-link class="home-landing__cta" to="/login">
           Join the Beta
         </router-link>
+        <router-link class="home-landing__login-link" to="/login">
+          Login to Grids
+        </router-link>
       </div>
     </main>
 
@@ -149,11 +152,13 @@ usePageTitle(pageTitle);
   transition:
     transform var(--duration-fast) var(--easing-smooth),
     box-shadow var(--duration-fast) var(--easing-smooth),
-    filter var(--duration-fast) var(--easing-smooth);
+    filter var(--duration-fast) var(--easing-smooth),
+    background-color var(--duration-normal) var(--easing-smooth);
 }
 
 .home-landing__cta:hover {
-  transform: translateY(-1px);
+  /* transform: translateY(-1px); */
+  background-color: var(--color-base-34);
   box-shadow: var(--shadow-lg);
   filter: brightness(1.02);
 }
@@ -161,6 +166,17 @@ usePageTitle(pageTitle);
 .home-landing__cta:active {
   transform: translateY(0);
   box-shadow: var(--shadow-md);
+}
+
+.home-landing__login-link {
+  color: var(--color-content-low);
+  text-decoration: underline;
+  font-size: var(--font-size-sm);
+  transition: color var(--duration-fast) var(--easing-smooth);
+}
+
+.home-landing__login-link:hover {
+  color: var(--color-content-high);
 }
 
 .home-landing__footer {

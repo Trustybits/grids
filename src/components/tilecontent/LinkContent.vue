@@ -374,7 +374,7 @@ export default defineComponent({
       }
 
       try {
-        const url = await uploadFileToUrl(file, { fileType: "image" });
+        const url = await uploadFileToUrl(file, { fileType: "images" });
         props.content.customImageUrl = url;
         layoutStore.saveLayout();
       } catch (error: any) {

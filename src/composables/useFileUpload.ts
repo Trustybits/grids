@@ -4,7 +4,7 @@ import { ContentType } from "@/types/TileContent";
 import { createTileContent } from "@/utils/TileUtils";
 import type { TileContent } from "@/types/TileContent";
 
-export type FileType = "image" | "video";
+export type FileType = "images" | "videos";
 
 export interface UploadOptions {
   /**
@@ -48,7 +48,7 @@ export function useFileUpload() {
       throw new Error("You must be logged in to upload.");
     }
 
-    // Determine storage path based on file type
+    // Determine storage path based on file type (must match Firebase Storage rules)
     const fileType = options.fileType ?? (isImage ? "images" : "videos");
     const filePath = `users/${currentUser.uid}/${fileType}/${Date.now()}_${file.name}`;
     const fileRef = storageRef(storage, filePath);

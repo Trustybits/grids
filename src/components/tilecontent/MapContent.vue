@@ -1,5 +1,5 @@
 <template>
-  <div class="map-tile" :class="{ 'is-editing': isEditing }">
+  <div ref="mapTile" class="map-tile" :class="{ 'is-editing': isEditing }">
     <div
       ref="mapContainer"
       class="map-canvas"
@@ -224,6 +224,10 @@ const resolvePreset = (mode: MapStyleMode, isDarkMode: boolean) => {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const randomBetween = (min: number, max: number) => Math.random() * (max - min) + min;
+const formatPx = (value: number) => `${value.toFixed(3)}px`;
+const formatDeg = (value: number) => `${value.toFixed(3)}deg`;
+const formatSec = (value: number) => `${value.toFixed(2)}s`;
 
 export default defineComponent({
   props: {
@@ -235,6 +239,7 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
     const themeStore = useThemeStore();
+    const mapTile = ref<HTMLDivElement | null>(null);
     const mapContainer = ref<HTMLDivElement | null>(null);
     const mapInstance = ref<mapboxgl.Map | null>(null);
     const markerInstance = ref<mapboxgl.Marker | null>(null);
@@ -280,6 +285,100 @@ export default defineComponent({
     });
 
     const resolvedStyle = computed(() => resolveStyle(styleMode.value, themeStore.isDarkMode));
+
+    const seedAnimationVars = () => {
+      const element = mapTile.value;
+      if (!element) return;
+      const setVar = (name: string, value: string) => {
+        element.style.setProperty(name, value);
+      };
+
+      const { width, height } = element.getBoundingClientRect();
+      const safeWidth = width || 800;
+      const safeHeight = height || 600;
+      const centerX = safeWidth / 2;
+      const centerY = safeHeight / 2;
+      const halfDiag = Math.hypot(safeWidth, safeHeight) / 2;
+
+      const buildLine = (buffer: number, angleDeg = randomBetween(0, 360)) => {
+        const radians = (angleDeg * Math.PI) / 180;
+        const dx = Math.cos(radians);
+        const dy = Math.sin(radians);
+        const distance = halfDiag + buffer;
+
+        return {
+          angleDeg,
+          dx,
+          dy,
+          start: {
+            x: centerX - dx * distance,
+            y: centerY - dy * distance,
+          },
+          end: {
+            x: centerX + dx * distance,
+            y: centerY + dy * distance,
+          },
+        };
+      };
+
+      const planeDuration = randomBetween(24, 34);
+      const planeDelay = randomBetween(-8, 0);
+      const planePath = buildLine(220);
+      const planeRotation = (planePath.angleDeg + 90) % 360;
+      const planeShadowOffset = { x: -12, y: 80 };
+
+      setVar("--plane-duration", formatSec(planeDuration));
+      setVar("--plane-delay", formatSec(planeDelay));
+      setVar("--plane-rotate", formatDeg(planeRotation));
+      setVar("--plane-start-x", formatPx(planePath.start.x));
+      setVar("--plane-start-y", formatPx(planePath.start.y));
+      setVar("--plane-end-x", formatPx(planePath.end.x));
+      setVar("--plane-end-y", formatPx(planePath.end.y));
+
+      setVar("--plane-shadow-duration", formatSec(planeDuration));
+      setVar("--plane-shadow-delay", formatSec(planeDelay));
+      setVar("--plane-shadow-rotate", formatDeg(planeRotation));
+      setVar("--plane-shadow-start-x", formatPx(planePath.start.x + planeShadowOffset.x));
+      setVar("--plane-shadow-start-y", formatPx(planePath.start.y + planeShadowOffset.y));
+      setVar("--plane-shadow-end-x", formatPx(planePath.end.x + planeShadowOffset.x));
+      setVar("--plane-shadow-end-y", formatPx(planePath.end.y + planeShadowOffset.y));
+
+      const cloudDuration = randomBetween(70, 95);
+      const cloudDelay = randomBetween(-20, 0);
+      const cloudPath = buildLine(1000);
+      const perp = { x: -cloudPath.dy, y: cloudPath.dx };
+      const wander = randomBetween(-160, 160);
+      const drift = randomBetween(-120, 120);
+      const cloudMid = {
+        x: (cloudPath.start.x + cloudPath.end.x) / 2 + perp.x * wander + cloudPath.dx * drift,
+        y: (cloudPath.start.y + cloudPath.end.y) / 2 + perp.y * wander + cloudPath.dy * drift,
+      };
+      const cloudRotation = randomBetween(112, 128);
+      const cloudShadowOffset = {
+        x: planeShadowOffset.x * 1.6,
+        y: planeShadowOffset.y * 1.6,
+      };
+
+      setVar("--cloud-duration", formatSec(cloudDuration));
+      setVar("--cloud-delay", formatSec(cloudDelay));
+      setVar("--cloud-rotate", formatDeg(cloudRotation));
+      setVar("--cloud-start-x", formatPx(cloudPath.start.x));
+      setVar("--cloud-start-y", formatPx(cloudPath.start.y));
+      setVar("--cloud-mid-x", formatPx(cloudMid.x));
+      setVar("--cloud-mid-y", formatPx(cloudMid.y));
+      setVar("--cloud-end-x", formatPx(cloudPath.end.x));
+      setVar("--cloud-end-y", formatPx(cloudPath.end.y));
+
+      setVar("--cloud-shadow-duration", formatSec(cloudDuration));
+      setVar("--cloud-shadow-delay", formatSec(cloudDelay));
+      setVar("--cloud-shadow-rotate", formatDeg(cloudRotation));
+      setVar("--cloud-shadow-start-x", formatPx(cloudPath.start.x + cloudShadowOffset.x));
+      setVar("--cloud-shadow-start-y", formatPx(cloudPath.start.y + cloudShadowOffset.y));
+      setVar("--cloud-shadow-mid-x", formatPx(cloudMid.x + cloudShadowOffset.x));
+      setVar("--cloud-shadow-mid-y", formatPx(cloudMid.y + cloudShadowOffset.y));
+      setVar("--cloud-shadow-end-x", formatPx(cloudPath.end.x + cloudShadowOffset.x));
+      setVar("--cloud-shadow-end-y", formatPx(cloudPath.end.y + cloudShadowOffset.y));
+    };
 
     const buildMarkerElement = () => {
       const element = document.createElement("div");
@@ -608,6 +707,7 @@ export default defineComponent({
     );
 
     onMounted(() => {
+      seedAnimationVars();
       if (!mapContainer.value || !token) return;
       mapboxgl.accessToken = token;
 
@@ -667,6 +767,7 @@ export default defineComponent({
       cloudImage,
       planeIcon,
       planeShadow,
+      mapTile,
       mapContainer,
       isEditing,
       isInteractive,
@@ -730,13 +831,15 @@ export default defineComponent({
 
 .map-cloud--main {
   opacity: 0.9;
-  animation: cloudDrift 80s linear infinite;
+  animation: cloudDrift var(--cloud-duration, 80s) linear infinite;
+  animation-delay: var(--cloud-delay, 0s);
 }
 
 .map-cloud--shadow {
   opacity: 0.6;
   filter: blur(4px) brightness(0.01);
-  animation: cloudShadowDrift 80s linear infinite;
+  animation: cloudShadowDrift var(--cloud-shadow-duration, 80s) linear infinite;
+  animation-delay: var(--cloud-shadow-delay, 0s);
 }
 
 .map-plane {
@@ -762,13 +865,15 @@ export default defineComponent({
 
 .plane-icon {
   filter: drop-shadow(0 3px 6px rgba(15, 45, 90, 0.35));
-  animation: planeFly 28s linear infinite;
+  animation: planeFly var(--plane-duration, 28s) linear infinite;
+  animation-delay: var(--plane-delay, 0s);
 }
 
 .plane-shadow {
   /* opacity: 0.45; */
   /* filter: blur(3px) brightness(0.15); */
-  animation: planeShadowFly 28s linear infinite;
+  animation: planeShadowFly var(--plane-shadow-duration, 28s) linear infinite;
+  animation-delay: var(--plane-shadow-delay, 0s);
 }
 
 .map-empty-state {
@@ -983,19 +1088,49 @@ export default defineComponent({
 
 @keyframes cloudDrift {
   0% {
-    transform: translate(-1295.098px, -250.375px) rotate(120deg);
+    transform: translate(
+        var(--cloud-start-x, -1295.098px),
+        var(--cloud-start-y, -250.375px)
+      )
+      rotate(var(--cloud-rotate, 120deg));
+  }
+  50% {
+    transform: translate(
+        var(--cloud-mid-x, -200px),
+        var(--cloud-mid-y, -120px)
+      )
+      rotate(var(--cloud-rotate, 120deg));
   }
   100% {
-    transform: translate(1077.3733px, -124.672px) rotate(120deg);
+    transform: translate(
+        var(--cloud-end-x, 1077.3733px),
+        var(--cloud-end-y, -124.672px)
+      )
+      rotate(var(--cloud-rotate, 120deg));
   }
 }
 
 @keyframes cloudShadowDrift {
   0% {
-    transform: translate(-1285.098px, -200.375px) rotate(120deg);
+    transform: translate(
+        var(--cloud-shadow-start-x, -1285.098px),
+        var(--cloud-shadow-start-y, -200.375px)
+      )
+      rotate(var(--cloud-shadow-rotate, 120deg));
+  }
+  50% {
+    transform: translate(
+        var(--cloud-shadow-mid-x, -180px),
+        var(--cloud-shadow-mid-y, -80px)
+      )
+      rotate(var(--cloud-shadow-rotate, 120deg));
   }
   100% {
-    transform: translate(1067.3733px, 76.67151px) rotate(120deg);
+    transform: translate(
+        var(--cloud-shadow-end-x, 1067.3733px),
+        var(--cloud-shadow-end-y, 76.67151px)
+      )
+      rotate(var(--cloud-shadow-rotate, 120deg));
   }
 }
 
@@ -1016,50 +1151,35 @@ export default defineComponent({
 
 @keyframes planeFly {
   0% {
-    transform: translate(360px, -180px) rotate(221.775deg);
-    opacity: 1;
-  }
-  15% {
-    opacity: 1;
-  }
-  45% {
-    transform: translate(333.658px, -113.246px) rotate(221.775deg);
-    opacity: 1;
-  }
-  70% {
-    transform: translate(189.426px, 48.2095px) rotate(221.775deg);
-    opacity: 1;
-  }
-  90% {
+    transform: translate(
+        var(--plane-start-x, 360px),
+        var(--plane-start-y, -180px)
+      )
+      rotate(var(--plane-rotate, 221.775deg));
     opacity: 1;
   }
   100% {
-    transform: translate(-40px, 270px) rotate(221.775deg);
+    transform: translate(var(--plane-end-x, -40px), var(--plane-end-y, 270px))
+      rotate(var(--plane-rotate, 221.775deg));
     opacity: 1;
   }
 }
 
 @keyframes planeShadowFly {
   0% {
-    transform: translate(350px, -100px) rotate(221.775deg);
-    opacity: 1;
-  }
-  15% {
-    opacity: 1;
-  }
-  45% {
-    transform: translate(323.658px, -33.2458px) rotate(221.775deg);
-    opacity: 1;
-  }
-  70% {
-    transform: translate(179.426px, 128.21px) rotate(221.775deg);
-    opacity: 1;
-  }
-  90% {
+    transform: translate(
+        var(--plane-shadow-start-x, 350px),
+        var(--plane-shadow-start-y, -100px)
+      )
+      rotate(var(--plane-shadow-rotate, 221.775deg));
     opacity: 1;
   }
   100% {
-    transform: translate(-30px, 350px) rotate(221.775deg);
+    transform: translate(
+        var(--plane-shadow-end-x, -30px),
+        var(--plane-shadow-end-y, 350px)
+      )
+      rotate(var(--plane-shadow-rotate, 221.775deg));
     opacity: 1;
   }
 }

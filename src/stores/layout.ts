@@ -183,6 +183,7 @@ export const useLayoutStore = defineStore("layout", {
     isOwner: false,
     recentLayoutIds: [] as string[],
     activeMenuTileId: null as string | null,
+    activeColorMenuTileId: null as string | null,
   }),
 
   getters: {
@@ -193,11 +194,18 @@ export const useLayoutStore = defineStore("layout", {
 
   actions: {
     setActiveMenuTile(tileId: string) {
+      this.activeColorMenuTileId = null;
       this.activeMenuTileId = tileId;
+    },
+
+    setActiveColorMenuTileId(tileId: string) {
+      this.activeMenuTileId = null;
+      this.activeColorMenuTileId = tileId;
     },
 
     closeAllMenus() {
       this.activeMenuTileId = null;
+      this.activeColorMenuTileId = null;
     },
 
     async fetchLayouts() {

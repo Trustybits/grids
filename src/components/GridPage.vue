@@ -54,20 +54,11 @@
     @embed-background="embedBackground"
     @confirm-delete="confirmDelete"
   />
-  <Divider />
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { getAuth } from "firebase/auth";
-import {
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from "firebase/storage";
-
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
 import GridMenu from "@/components/GridMenu.vue";
@@ -76,6 +67,7 @@ import Divider from "@/components/Divider.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
+import { useFileUpload } from "@/composables/useFileUpload";
 
 export default defineComponent({
   components: {
@@ -88,8 +80,6 @@ export default defineComponent({
   setup() {
     const layoutStore = useLayoutStore();
     const rowHeight = 75;
-    const auth = getAuth();
-    const storage = getStorage();
     const imageInput = ref<HTMLInputElement | null>(null);
     const layoutContainer = ref<HTMLElement | null>(null);
     const route = useRoute();
@@ -97,6 +87,7 @@ export default defineComponent({
 
     // Setup drag and drop + paste functionality
     const { isDraggingOver } = useDragAndPaste(layoutContainer);
+    const { uploadFileToUrl } = useFileUpload();
 
     const isOwner = computed(() => {
       return layoutStore.isOwner;
@@ -133,20 +124,11 @@ export default defineComponent({
       if (!file) return;
 
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          alert("You must be logged in to upload an image.");
-          return;
-        }
-
-        const filePath = `users/${currentUser.uid}/images/${Date.now()}_${file.name}`;
-        const fileRef = storageRef(storage, filePath);
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
+        const url = await uploadFileToUrl(file, { fileType: "image" });
         layoutStore.addBackgroundImage(url, false);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to upload image:", error);
-        alert("Failed to upload image. Please try again.");
+        alert(error.message || "Failed to upload image. Please try again.");
       }
     };
 
@@ -198,7 +180,6 @@ export default defineComponent({
       imageInput,
       layoutContainer,
       isDraggingOver,
-      auth,
       isOwner,
     };
   },

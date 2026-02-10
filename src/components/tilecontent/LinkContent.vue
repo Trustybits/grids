@@ -210,9 +210,7 @@ import {
 import { type LinkContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { isDirectImageUrl } from "@/utils/TileUtils";
-
-import { getAuth } from "firebase/auth";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { useFileUpload } from "@/composables/useFileUpload";
 
 export default defineComponent({
   props: {
@@ -245,8 +243,7 @@ export default defineComponent({
     const showUrlInput = ref(false);
     const draftImageUrl = ref("");
     const urlError = ref("");
-    const auth = getAuth();
-    const storage = getStorage();
+    const { uploadFileToUrl } = useFileUpload();
 
     const formatLink = (link: string) => {
       if (!link) return '@handle or address';
@@ -376,31 +373,13 @@ export default defineComponent({
         return;
       }
 
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        alert("File is too large! Maximum size: 10MB");
-        return;
-      }
-
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          alert("You must be logged in to upload.");
-          return;
-        }
-
-        const filePath = `users/${currentUser.uid}/images/${Date.now()}_${file.name}`;
-
-        const fileRef = storageRef(storage, filePath);
-
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
-
+        const url = await uploadFileToUrl(file, { fileType: "image" });
         props.content.customImageUrl = url;
         layoutStore.saveLayout();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Link tile image upload failed:", error);
-        alert("Failed to upload image. Please try again.");
+        alert(error.message || "Failed to upload image. Please try again.");
       }
     };
 

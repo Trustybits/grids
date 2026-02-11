@@ -27,6 +27,27 @@ const sanitizeFirestoreValue = (value: unknown): unknown => {
   return value;
 };
 
+/**
+ * Safety net: strip any remaining blob: URLs before persisting to Firestore.
+ * Normally the layout store substitutes resolved Firebase URLs before calling
+ * the service, but this catches any edge cases where a blob URL slips through.
+ */
+const stripBlobUrls = (tiles: unknown[]): unknown[] => {
+  return tiles.map((tile) => {
+    if (!isPlainObject(tile)) return tile;
+    const content = tile.content;
+    if (!isPlainObject(content)) return tile;
+    const src = content.src;
+    if (typeof src === "string" && src.startsWith("blob:")) {
+      return {
+        ...tile,
+        content: { ...content, src: "" },
+      };
+    }
+    return tile;
+  });
+};
+
 export class FirestoreLayoutService implements LayoutService {
   // Fetch a layout by ID
   async fetchLayout(id: string): Promise<Layout> {
@@ -70,7 +91,8 @@ export class FirestoreLayoutService implements LayoutService {
         name: layout.name,
         colNum: layout.colNum,
         verticalCompact: layout.verticalCompact,
-        tiles: layout.tiles,
+        // Safety net: strip any blob: URLs that weren't already resolved
+        tiles: stripBlobUrls(layout.tiles as unknown[]),
         backgroundImageSrc: layout.backgroundImageSrc,
         backgroundEmbed: layout.backgroundEmbed,
         createdAt: layout.createdAt ?? serverTimestamp(),
@@ -92,7 +114,8 @@ export class FirestoreLayoutService implements LayoutService {
         name: layout.name,
         colNum: layout.colNum,
         verticalCompact: layout.verticalCompact,
-        tiles: layout.tiles,
+        // Safety net: strip any blob: URLs that weren't already resolved
+        tiles: stripBlobUrls(layout.tiles as unknown[]),
         backgroundImageSrc: layout.backgroundImageSrc,
         backgroundEmbed: layout.backgroundEmbed,
         updatedAt: serverTimestamp(),

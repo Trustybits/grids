@@ -183,6 +183,13 @@ export const useLayoutStore = defineStore("layout", {
     isOwner: false,
     recentLayoutIds: [] as string[],
     activeMenuTileId: null as string | null,
+    // Tracks tiles that are currently uploading media in the background.
+    // Key = tile ID, value = upload progress (0–1) or -1 for indeterminate.
+    uploadingTiles: {} as Record<string, number>,
+    // Maps tile ID → permanent Firebase URL for tiles still displaying a blob: preview.
+    // Used by the Firestore persistence layer to write the real URL instead of the blob.
+    // The blob URL stays as the in-memory src so the <img>/<video> element never reloads.
+    resolvedUrls: {} as Record<string, string>,
   }),
 
   getters: {
@@ -198,6 +205,32 @@ export const useLayoutStore = defineStore("layout", {
 
     closeAllMenus() {
       this.activeMenuTileId = null;
+    },
+
+    // Mark a tile as currently uploading (progress: 0–1, or -1 for indeterminate)
+    setTileUploading(tileId: string, progress: number) {
+      this.uploadingTiles[tileId] = progress;
+    },
+
+    // Clear the uploading state for a tile once upload completes or fails
+    clearTileUploading(tileId: string) {
+      delete this.uploadingTiles[tileId];
+    },
+
+    // Store the permanent Firebase URL for a tile that is still showing a blob preview.
+    // This URL is used only for Firestore persistence — the displayed src is unchanged.
+    setResolvedUrl(tileId: string, url: string) {
+      this.resolvedUrls[tileId] = url;
+    },
+
+    // Retrieve the resolved Firebase URL for a tile, if one exists
+    getResolvedUrl(tileId: string): string | undefined {
+      return this.resolvedUrls[tileId];
+    },
+
+    // Clean up resolved URL entry (e.g. when tile is removed)
+    clearResolvedUrl(tileId: string) {
+      delete this.resolvedUrls[tileId];
     },
 
     async fetchLayouts() {
@@ -381,7 +414,10 @@ export const useLayoutStore = defineStore("layout", {
       document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/`;
     },
 
-    // Save the current layout
+    // Save the current layout.
+    // Before persisting, any blob: URLs used for optimistic previews are replaced
+    // with their resolved Firebase URLs (if the upload has completed). This keeps
+    // the in-memory tile src unchanged so the <img>/<video> element never reloads.
     async saveLayout() {
       if (!this.currentLayout) {
         console.warn("No layout to save.");
@@ -393,7 +429,20 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        await layoutService.saveLayout(this.currentLayout);
+        // Build a shallow copy with blob URLs swapped for resolved Firebase URLs
+        const resolvedTiles = this.currentLayout.tiles.map((tile) => {
+          const src = (tile.content as any)?.src;
+          if (typeof src === "string" && src.startsWith("blob:")) {
+            const realUrl = this.resolvedUrls[tile.i];
+            if (realUrl) {
+              return { ...tile, content: { ...tile.content, src: realUrl } };
+            }
+          }
+          return tile;
+        });
+
+        const layoutToSave = { ...this.currentLayout, tiles: resolvedTiles } as Layout;
+        await layoutService.saveLayout(layoutToSave);
       } catch (err) {
         this.error = "Failed to save layout.";
         console.error(err);
@@ -546,12 +595,25 @@ export const useLayoutStore = defineStore("layout", {
     //   }
     // },
 
-    // Remove an tile
+    // Remove a tile (also cleans up any optimistic upload state)
     removeTile(id: string) {
       if (!this.currentLayout) return;
 
+      // If the tile was using a blob URL for optimistic preview, revoke it
+      const tile = this.currentLayout.tiles.find((t) => t.i === id);
+      if (tile) {
+        const src = (tile.content as any)?.src;
+        if (typeof src === "string" && src.startsWith("blob:")) {
+          URL.revokeObjectURL(src);
+        }
+      }
+
+      // Clean up any upload tracking state for this tile
+      delete this.uploadingTiles[id];
+      delete this.resolvedUrls[id];
+
       this.currentLayout.tiles = this.currentLayout.tiles.filter(
-        (tile) => tile.i !== id
+        (t) => t.i !== id
       );
       this.saveLayout(); // Persist changes
     },

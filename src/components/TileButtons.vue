@@ -81,7 +81,7 @@ import { functions } from "@/firebase";
 import {
   getStorage,
   ref as storageRef,
-  uploadBytes,
+  uploadBytesResumable,
   getDownloadURL,
 } from "firebase/storage";
 
@@ -175,30 +175,60 @@ export default {
         return;
       }
 
-      try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          alert("You must be logged in to upload.");
-          return;
-        }
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        alert("You must be logged in to upload.");
+        return;
+      }
 
-        // Determine storage path based on file type
+      // --- Optimistic loading ---
+      // Create a local blob URL so the tile appears instantly with a real preview,
+      // then upload to Firebase in the background and swap the URL when done.
+      const blobUrl = URL.createObjectURL(file);
+      const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
+      const content = createTileContent(contentType, { src: blobUrl });
+      const tileId = layoutStore.addTile(content);
+
+      if (!tileId) {
+        URL.revokeObjectURL(blobUrl);
+        return;
+      }
+
+      // Mark tile as uploading so content components can show a progress indicator
+      layoutStore.setTileUploading(tileId, 0);
+
+      try {
         const filePath = `users/${currentUser.uid}/${
           isImage ? "images" : "videos"
         }/${Date.now()}_${file.name}`;
         const fileRef = storageRef(storage, filePath);
 
-        await uploadBytes(fileRef, file);
+        // Use resumable upload to track progress
+        const uploadTask = uploadBytesResumable(fileRef, file);
+
+        uploadTask.on("state_changed", (snapshot) => {
+          const progress = snapshot.bytesTransferred / snapshot.totalBytes;
+          layoutStore.setTileUploading(tileId, progress);
+        });
+
+        // Wait for upload to finish
+        await uploadTask;
         const url = await getDownloadURL(fileRef);
 
-        const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-        const contentData = { src: url };
-
-        const content = createTileContent(contentType, contentData);
-        layoutStore.addTile(content);
+        // Don't swap the in-memory src — that would force the <img>/<video> to reload
+        // and cause a visible flash (and interrupt video playback). Instead, store the
+        // permanent Firebase URL separately so the Firestore persistence layer can use it.
+        layoutStore.setResolvedUrl(tileId, url);
+        layoutStore.clearTileUploading(tileId);
+        // Trigger a save so Firestore gets the real URL (stripBlobUrls will substitute it)
+        layoutStore.updateLayout();
       } catch (error: any) {
         console.error("File upload failed:", error);
-        // Show more specific error message to help with debugging
+        layoutStore.clearTileUploading(tileId);
+        URL.revokeObjectURL(blobUrl);
+
+        // Remove the optimistic tile on failure and notify the user
+        layoutStore.removeTile(tileId);
         const errorMessage = error?.message || error?.code || "Unknown error";
         alert(`Failed to upload file: ${errorMessage}\n\nCheck console for details.`);
       }

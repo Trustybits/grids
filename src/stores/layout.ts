@@ -190,6 +190,7 @@ export const useLayoutStore = defineStore("layout", {
     // Used by the Firestore persistence layer to write the real URL instead of the blob.
     // The blob URL stays as the in-memory src so the <img>/<video> element never reloads.
     resolvedUrls: {} as Record<string, string>,
+    activeColorMenuTileId: null as string | null,
   }),
 
   getters: {
@@ -200,11 +201,44 @@ export const useLayoutStore = defineStore("layout", {
 
   actions: {
     setActiveMenuTile(tileId: string) {
+      this.activeColorMenuTileId = null;
       this.activeMenuTileId = tileId;
+    },
+
+    setActiveColorMenuTileId(tileId: string) {
+      this.activeMenuTileId = null;
+      this.activeColorMenuTileId = tileId;
     },
 
     closeAllMenus() {
       this.activeMenuTileId = null;
+      this.activeColorMenuTileId = null;
+    },
+
+    // Mark a tile as currently uploading (progress: 0–1, or -1 for indeterminate)
+    setTileUploading(tileId: string, progress: number) {
+      this.uploadingTiles[tileId] = progress;
+    },
+
+    // Clear the uploading state for a tile once upload completes or fails
+    clearTileUploading(tileId: string) {
+      delete this.uploadingTiles[tileId];
+    },
+
+    // Store the permanent Firebase URL for a tile that is still showing a blob preview.
+    // This URL is used only for Firestore persistence — the displayed src is unchanged.
+    setResolvedUrl(tileId: string, url: string) {
+      this.resolvedUrls[tileId] = url;
+    },
+
+    // Retrieve the resolved Firebase URL for a tile, if one exists
+    getResolvedUrl(tileId: string): string | undefined {
+      return this.resolvedUrls[tileId];
+    },
+
+    // Clean up resolved URL entry (e.g. when tile is removed)
+    clearResolvedUrl(tileId: string) {
+      delete this.resolvedUrls[tileId];
     },
 
     // Mark a tile as currently uploading (progress: 0–1, or -1 for indeterminate)

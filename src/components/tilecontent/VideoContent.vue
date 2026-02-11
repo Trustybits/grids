@@ -9,7 +9,7 @@
     <div 
       v-else 
       class="video-wrapper" 
-      :class="{ 'crop-active': isEditing }"
+      :class="{ 'crop-active': isEditing, 'is-narrow': isNarrow, 'is-tiny': isTiny }"
       @mousedown="startDragging"
       @mouseup="stopDragging"
       @mouseleave="stopDragging"
@@ -49,11 +49,11 @@
           <svg v-if="videoEnded" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
           </svg>
-          <svg v-else-if="playbackMode === 'playing' && isPlaying" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+          <svg v-else-if="!isPlaying && playbackMode === 'playing'" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z"/>
           </svg>
           <svg v-else viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 5v14l11-7z"/>
+            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
           </svg>
         </button>
       </div>
@@ -68,8 +68,8 @@
       <!-- Bottom Control Bar -->
       <div class="bottom-controls" v-if="!isEditing">
         <div class="controls-row">
-          <!-- Mute/Unmute -->
-          <div class="volume-control">
+          <!-- Mute/Unmute (hidden in 1x1) -->
+          <div v-if="!isTiny" class="volume-control">
             <button class="control-btn mute-btn" @click.stop="toggleMute">
               <svg v-if="isMuted || volume === 0" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
@@ -98,8 +98,8 @@
             </div>
           </div>
 
-          <!-- Time display — hidden when volume slider is showing -->
-          <div class="time-display">
+          <!-- Time display — hidden when volume slider is showing, hidden in 1x1 -->
+          <div v-if="!isTiny" class="time-display">
             <span class="time-current">{{ formatTime(currentTime) }}</span>
             <span class="time-sep">/</span>
             <span class="time-total">{{ formatTime(duration) }}</span>
@@ -115,7 +115,7 @@
             </svg>
           </button>
         </div>
-        <div class="progress-container" @click="seek">
+        <div v-if="!isTiny" class="progress-container" @click="seek">
           <div class="progress-bar">
             <div class="progress-filled" :style="{ width: progressPercent + '%' }"></div>
           </div>
@@ -145,10 +145,17 @@ export default defineComponent({
     const layoutStore = useLayoutStore();
     const videoFocus = useVideoFocus();
 
-    // Injected tile position from GridTile
+    // Injected tile position and size from GridTile
     const tileId = inject<string>("tileId", "");
     const tileX = inject<ComputedRef<number>>("tileX", computed(() => 0));
     const tileY = inject<ComputedRef<number>>("tileY", computed(() => 0));
+    const gridTileW = inject<ComputedRef<number>>("gridTileW", computed(() => 2));
+    const gridTileH = inject<ComputedRef<number>>("gridTileH", computed(() => 2));
+
+    // Tile is 1 column wide — use stacked/narrow layout
+    const isNarrow = computed(() => gridTileW.value === 1);
+    // Tile is 1x1 — minimal controls only (pause + fullscreen)
+    const isTiny = computed(() => gridTileW.value === 1 && gridTileH.value === 1);
 
 
     // Upload progress tracking — injected tile ID lets us look up our upload state
@@ -355,8 +362,9 @@ export default defineComponent({
           isPlaying.value = true;
         }
       } else {
-        // Preview or idle → enter playing mode
-        enterPlayingMode();
+        // Preview or idle → pause (default action is pause)
+        pauseVideo();
+        playbackMode.value = 'playing';
       }
     };
 
@@ -566,6 +574,9 @@ export default defineComponent({
       videoWrapper,
       videoElement,
       videoOverflowElement,
+      // Tile size
+      isNarrow,
+      isTiny,
       // Video controls
       isPlaying,
       currentTime,
@@ -699,6 +710,18 @@ export default defineComponent({
   height: 80px;
 }
 
+/* Smaller center button for narrow tiles */
+.is-narrow .center-play-btn svg {
+  width: 48px;
+  height: 48px;
+}
+
+/* Even smaller for tiny tiles */
+.is-tiny .center-play-btn svg {
+  width: 36px;
+  height: 36px;
+}
+
 /* Replay icon stays visible without hover */
 .center-play-btn.show-replay {
   opacity: 1;
@@ -736,6 +759,13 @@ export default defineComponent({
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: none;
+}
+
+/* Narrow (1xN): stack controls vertically */
+.is-narrow .controls-row {
+  flex-direction: column;
+  gap: 0;
+  padding: 2px 4px;
 }
 
 .video-wrapper:hover .controls-row {
@@ -806,11 +836,36 @@ export default defineComponent({
   margin: 0 1px;
 }
 
-/* Hide time when volume slider is visible */
+/* Hide time when volume slider is visible (wide tiles) */
 .volume-control:hover ~ .time-display,
 .volume-control:focus-within ~ .time-display {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Narrow (1xN): stack time vertically, wrap current+sep on one line, total below */
+.is-narrow .time-display {
+  flex-wrap: wrap;
+  justify-content: center;
+  min-width: unset;
+  max-width: unset;
+  gap: 0;
+  font-size: 11px;
+}
+
+/* In narrow mode, when volume is hovered: hide current time + separator completely (no space) */
+.is-narrow .volume-control:hover ~ .time-display .time-current,
+.is-narrow .volume-control:hover ~ .time-display .time-sep,
+.is-narrow .volume-control:focus-within ~ .time-display .time-current,
+.is-narrow .volume-control:focus-within ~ .time-display .time-sep {
+  display: none;
+}
+
+/* In narrow mode, don't hide the entire time-display — only current+sep */
+.is-narrow .volume-control:hover ~ .time-display,
+.is-narrow .volume-control:focus-within ~ .time-display {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .control-btn {
@@ -833,6 +888,12 @@ export default defineComponent({
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
+/* Larger control icons for narrow tiles */
+.is-narrow .control-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
 .control-btn:hover {
   transform: scale(1.1);
 }
@@ -848,6 +909,11 @@ export default defineComponent({
   flex-shrink: 0;
 }
 
+/* Narrow: stack volume control vertically so slider appears below mute icon */
+.is-narrow .volume-control {
+  flex-direction: column;
+}
+
 .volume-slider-container {
   overflow: hidden;
   max-width: 0;
@@ -857,9 +923,24 @@ export default defineComponent({
   align-items: center;
 }
 
+/* Narrow: slider expands vertically (max-height instead of max-width) */
+.is-narrow .volume-slider-container {
+  max-width: unset;
+  max-height: 0;
+  width: 100%;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+
 .volume-control:hover .volume-slider-container,
 .volume-control:focus-within .volume-slider-container {
   max-width: 73px;
+  opacity: 1;
+}
+
+.is-narrow .volume-control:hover .volume-slider-container,
+.is-narrow .volume-control:focus-within .volume-slider-container {
+  max-width: unset;
+  max-height: 40px;
   opacity: 1;
 }
 
@@ -874,6 +955,12 @@ export default defineComponent({
   appearance: none;
   margin: 0;
   padding: 0;
+}
+
+.is-narrow .volume-slider {
+  min-width: unset;
+  max-width: unset;
+  width: 100%;
 }
 
 .volume-slider::-webkit-slider-runnable-track {

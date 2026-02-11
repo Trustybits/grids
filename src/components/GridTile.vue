@@ -136,6 +136,7 @@ import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileIcon from "./icons/ProfileIcon.vue";
 import TileToolbar from "./TileToolbar.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
+import ColorPicker from "./ColorPicker.vue";
 
 export default defineComponent({
   components: {
@@ -147,6 +148,7 @@ export default defineComponent({
     LinkIcon,
     EmbedIcon,
     ProfileIcon,
+    ColorPicker,
   },
   props: {
     tile: {
@@ -258,8 +260,8 @@ export default defineComponent({
         if (isSuggestion.value) {
           onSuggestionShortClick();
         } else {
-          if (currentComponent.value?.onShortClick) {
-            currentComponent.value.onShortClick();
+          if (childComponent.value?.onShortClick) {
+            childComponent.value.onShortClick(event);
           }
           if (childComponent.value?.onExitClick) {
             addClickListener();

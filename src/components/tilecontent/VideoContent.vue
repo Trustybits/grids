@@ -58,47 +58,55 @@
         </button>
       </div>
       
-      <!-- Bottom Control Bar — sits below the caption at tile bottom edge -->
+      <!-- Bottom Control Bar -->
       <div class="bottom-controls" v-if="!isEditing">
         <div class="controls-row">
-          <div class="controls-right">
-            <div class="volume-control">
-              <div class="volume-slider-container">
-                <input 
-                  type="range" 
-                  class="volume-slider" 
-                  min="0" 
-                  max="1" 
-                  step="0.01" 
-                  :value="volume"
-                  @input="onVolumeInput"
-                  @mousedown.stop
-                  @pointerdown.stop
-                />
-              </div>
-              <button class="control-btn volume" @click.stop="toggleMute">
-                <svg v-if="isMuted || volume === 0" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
-                </svg>
-                <svg v-else-if="volume < 0.1" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M7 9v6h4l5 5V4l-5 5H7z"/>
-                </svg>
-                <svg v-else viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                </svg>
-              </button>
-            </div>
-            
-            <button class="control-btn fullscreen" @click.stop="toggleFullscreen">
-              <svg v-if="isFullscreen" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+          <!-- Mute/Unmute -->
+          <div class="volume-control">
+            <button class="control-btn mute-btn" @click.stop="toggleMute">
+              <svg v-if="isMuted || volume === 0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+              </svg>
+              <svg v-else-if="volume < 0.1" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M7 9v6h4l5 5V4l-5 5H7z"/>
               </svg>
               <svg v-else viewBox="0 0 24 24" fill="currentColor">
-                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
               </svg>
             </button>
-            <span class="time-display">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
+
+            <!-- Volume slider — shown on mute hover, replaces time -->
+            <div class="volume-slider-container">
+              <input 
+                type="range" 
+                class="volume-slider" 
+                min="0" 
+                max="1" 
+                step="0.01" 
+                :value="volume"
+                @input="onVolumeInput"
+                @mousedown.stop
+                @pointerdown.stop
+              />
+            </div>
           </div>
+
+          <!-- Time display — hidden when volume slider is showing -->
+          <div class="time-display">
+            <span class="time-current">{{ formatTime(currentTime) }}</span>
+            <span class="time-sep">/</span>
+            <span class="time-total">{{ formatTime(duration) }}</span>
+          </div>
+
+          <!-- Fullscreen -->
+          <button class="control-btn fullscreen" @click.stop="toggleFullscreen">
+            <svg v-if="isFullscreen" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+            </svg>
+          </button>
         </div>
         <div class="progress-container" @click="seek">
           <div class="progress-bar">
@@ -655,7 +663,7 @@ export default defineComponent({
   transform: scale(0.95);
 }
 
-/* Bottom Control Bar — compact strip at tile bottom edge, below caption */
+/* Bottom Control Bar */
 .bottom-controls {
   position: absolute;
   bottom: 0;
@@ -668,8 +676,9 @@ export default defineComponent({
 .controls-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 2px 8px;
+  justify-content: center;
+  gap: 2px;
+  padding: 2px 6px;
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: none;
@@ -678,12 +687,6 @@ export default defineComponent({
 .video-wrapper:hover .controls-row {
   opacity: 1;
   pointer-events: all;
-}
-
-.controls-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .progress-container {
@@ -720,13 +723,40 @@ export default defineComponent({
   transition: width 0.1s linear;
 }
 
+/* Time display — fills middle, hidden when volume slider is open */
 .time-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 59px;
+  max-width: 73px;
+  flex: 1 1 auto;
   color: white;
   font-size: 11px;
   font-family: monospace;
   white-space: nowrap;
   user-select: none;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  transition: opacity 0.2s ease;
+}
+
+.time-current,
+.time-sep,
+.time-total {
+  line-height: 1;
+}
+
+.time-sep {
+  opacity: 0.6;
+  margin: 0 1px;
+}
+
+/* Hide time when volume slider is visible */
+.volume-control:hover ~ .time-display,
+.volume-control:focus-within ~ .time-display {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .control-btn {
@@ -740,6 +770,7 @@ export default defineComponent({
   justify-content: center;
   transition: transform 0.2s ease;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .control-btn svg {
@@ -756,45 +787,34 @@ export default defineComponent({
   transform: scale(0.95);
 }
 
-/* Volume Control */
+/* Volume Control — mute btn + inline horizontal slider */
 .volume-control {
-  position: relative;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .volume-slider-container {
-  position: absolute;
-  bottom: calc(100% + 4px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 0;
-  width: 36px;
-  height: 100px;
+  overflow: hidden;
+  max-width: 0;
   opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
+  transition: max-width 0.25s ease, opacity 0.2s ease;
   display: flex;
   align-items: center;
-  justify-content: center;
 }
 
 .volume-control:hover .volume-slider-container,
-.volume-slider-container:hover {
+.volume-control:focus-within .volume-slider-container {
+  max-width: 73px;
   opacity: 1;
-  pointer-events: all;
 }
 
 .volume-slider {
-  writing-mode: vertical-lr;
-  direction: rtl;
-  width: 20px;
-  height: 80px;
+  width: 100%;
+  min-width: 59px;
+  max-width: 73px;
+  height: 16px;
   cursor: pointer;
-  accent-color: var(--color-text-primary);
   background: transparent;
   -webkit-appearance: none;
   appearance: none;
@@ -803,8 +823,8 @@ export default defineComponent({
 }
 
 .volume-slider::-webkit-slider-runnable-track {
-  width: 4px;
-  height: 100%;
+  width: 100%;
+  height: 3px;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 2px;
 }
@@ -812,25 +832,25 @@ export default defineComponent({
 .volume-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--color-text-primary);
+  width: 10px;
+  height: 10px;
+  border-radius: 4px;
+  background: white;
   cursor: pointer;
-  margin-left: -5px;
+  margin-top: -3.5px;
 }
 
 .volume-slider::-moz-range-track {
-  width: 4px;
-  height: 100%;
+  width: 100%;
+  height: 3px;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 2px;
 }
 
 .volume-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 4px;
   background: white;
   cursor: pointer;
   border: none;

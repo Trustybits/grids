@@ -90,7 +90,7 @@
       ></button>
 
       <TileCaption v-if="showCaption && (layoutStore.isOwner || tile.caption)" :tile="tile" />
-
+      
       <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
       <div v-if="isTileResizable" class="resize-indicator"></div>
 
@@ -127,8 +127,6 @@ import {
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 import { ContentType, type LinkContent } from "@/types/TileContent";
-import { getAuth } from "firebase/auth";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import TextIcon from "./icons/TextIcon.vue";
@@ -137,6 +135,7 @@ import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileIcon from "./icons/ProfileIcon.vue";
 import TileToolbar from "./TileToolbar.vue";
+import { useFileUpload } from "@/composables/useFileUpload";
 
 export default defineComponent({
   components: {
@@ -157,6 +156,7 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
+    const { uploadFileOptimisticForTile } = useFileUpload();
 
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).
@@ -225,8 +225,6 @@ export default defineComponent({
     });
 
     const mediaInput = ref<HTMLInputElement | null>(null);
-    const auth = getAuth();
-    const storage = getStorage();
 
     const loadComponent = async () => {
       currentComponent.value = await getContentComponent(props.tile.content);
@@ -251,7 +249,7 @@ export default defineComponent({
       }
 
       // Clear dragging state when user releases the mouse
-      // This ensures the tile scales back down even if dragged to original position
+      // This triggers the scale animation right away
       isDragging.value = false;
 
       const clickDuration = Date.now() - (clickStart.value || 0);
@@ -382,42 +380,11 @@ export default defineComponent({
       input.value = "";
       
       if (!file) return;
-
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
-      const maxSize = isImage ? 10 * 1024 * 1024 : 500 * 1024 * 1024;
-
-      if (!isImage && !isVideo) {
-        alert("Unsupported file type. Please upload an image or video.");
-        return;
-      }
-
-      if (file.size > maxSize) {
-        alert(`File is too large! Maximum size: ${isImage ? "10MB" : "500MB"}`);
-        return;
-      }
-
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          alert("You must be logged in to upload.");
-          return;
-        }
-
-        const filePath = `users/${currentUser.uid}/${isImage ? "images" : "videos"}/${Date.now()}_${file.name}`;
-        const fileRef = storageRef(storage, filePath);
-
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
-
-        const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-        const content = createTileContent(contentType, { src: url });
-        layoutStore.setTileContent(props.tile.i, content);
+        await uploadFileOptimisticForTile(file, props.tile.i);
       } catch (error: any) {
-        console.error("File upload failed:", error);
-        // Show more specific error message to help with debugging
         const errorMessage = error?.message || error?.code || "Unknown error";
-        alert(`Failed to upload file: ${errorMessage}\n\nCheck console for details.`);
+        alert(`Failed to upload file: ${errorMessage}`);
       }
     };
 

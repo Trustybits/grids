@@ -356,7 +356,7 @@ export function validateTileContent(content: TileContent): boolean {
       const image = content as ImageContent;
       return (
         !!image.src &&
-        (image.src.startsWith("http") || image.src.startsWith("data:"))
+        (image.src.startsWith("http") || image.src.startsWith("data:") || image.src.startsWith("blob:"))
       );
     case ContentType.LINK:
       const link = content as LinkContent;
@@ -365,7 +365,7 @@ export function validateTileContent(content: TileContent): boolean {
       const video = content as VideoContent;
       return (
         !!video.src &&
-        (video.src.startsWith("http") || video.src.startsWith("data:"))
+        (video.src.startsWith("http") || video.src.startsWith("data:") || video.src.startsWith("blob:"))
       );
     case ContentType.EMBED:
       const embed = content as EmbedContent;

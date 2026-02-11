@@ -3,7 +3,6 @@
   <div 
     class="text-container" 
     ref="textContentDiv"
-    @click="handleClick"
   >
     <div 
       class="text-content" 
@@ -185,15 +184,22 @@ export default defineComponent({
 
     const onShortClick = () => {
       if (!layoutStore.isOwner) {
+        if (textLinkExists) {
+          window.open(textLink.value, "_blank", "noopener,noreferrer");
+        }
+        return;
+      } 
+      if (!editor?.value) return;
+ 
+      if (!isEditing.value) {
+        isEditing.value = true;
         return;
       }
-
-      if (editor?.value && !isEditing.value) {
-        isEditing.value = true;
-      } else if (!editor.value?.isFocused) {
-        // editor?.value?.commands.focus('end');
+ 
+      if (!editor.value.isFocused) {
+        editor.value.commands.focus('end');
       }
-    }
+    };
 
     const onExitClick = () => {
       if (editor?.value?.view?.dom) {
@@ -241,15 +247,6 @@ export default defineComponent({
       showLinkModal.value = false;
     }
 
-    const handleClick = (event: MouseEvent) => {
-      if (!textLinkExists) return;
-
-      if (!layoutStore.isOwner) {
-        window.open(textLink.value, "_blank", "noopener,noreferrer");
-        return;
-      }
-    }
-
     const handleOwnerClick = () => {
       if (!textLinkExists) return;
       
@@ -272,7 +269,6 @@ export default defineComponent({
       openUrlInput,
       closeLinkModal,
       handleAddLink,
-      handleClick,
       handleOwnerClick,
     };
   },
@@ -376,13 +372,14 @@ export default defineComponent({
 
 .tile-link-indicator {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 9px;
+  right: 9px;
   width: 24px;
   height: 24px;
   color: var(--color-text-primary);
   opacity: 0.21;
   transition: opacity var(--duration-fast) var(--easing-ease-in-out);
+  pointer-events: auto;
   z-index: 1200;
 }
 

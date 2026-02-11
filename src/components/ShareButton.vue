@@ -37,10 +37,7 @@ const handleShare = async () => {
 
 <style lang="scss" scoped>
 .share-button {
-  position: fixed;
-  bottom: calc(var(--spacing-md) + 96px);
-  left: var(--spacing-md);
-  z-index: var(--z-fixed);
+  position: relative;
 }
 
 .share-button__btn {

@@ -79,6 +79,7 @@ export interface VideoContent extends TileContent {
 }
 
 export type MapStyleMode =
+  | "default"
   | "auto"
   | "light"
   | "dark"
@@ -103,6 +104,10 @@ export interface MapContent extends TileContent {
   showClouds: boolean;
   showPlanes: boolean;
   searchQuery?: string;
+  marker?: {
+    lat: number;
+    lng: number;
+  };
 }
 
 export interface RPGContent extends TileContent {

@@ -94,9 +94,6 @@
       <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
       <div v-if="isTileResizable" class="resize-indicator"></div>
 
-      <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
-      <div v-if="isTileResizable" class="resize-indicator"></div>
-
       <div v-if="layoutStore.isOwner && !isSuggestion" class="tile-toolbar" :class="{ 'tile-toolbar-force-show': showToolbarMenu }" @mousedown.stop>
         <template v-if="!isProfileTile">
           <button
@@ -295,8 +292,6 @@ import {
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 import { ContentType, type LinkContent } from "@/types/TileContent";
-import { getAuth } from "firebase/auth";
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import TextIcon from "./icons/TextIcon.vue";
@@ -304,6 +299,7 @@ import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileIcon from "./icons/ProfileIcon.vue";
+import { useFileUpload } from "@/composables/useFileUpload";
 
 export default defineComponent({
   components: {
@@ -323,6 +319,7 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
+    const { uploadFileOptimisticForTile } = useFileUpload();
 
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).
@@ -399,8 +396,6 @@ export default defineComponent({
     });
 
     const mediaInput = ref<HTMLInputElement | null>(null);
-    const auth = getAuth();
-    const storage = getStorage();
 
     const loadComponent = async () => {
       currentComponent.value = await getContentComponent(props.tile.content);
@@ -517,7 +512,7 @@ export default defineComponent({
       }
 
       // Clear dragging state when user releases the mouse
-      // This ensures the tile scales back down even if dragged to original position
+      // This triggers the scale animation right away
       isDragging.value = false;
 
       const clickDuration = Date.now() - (clickStart.value || 0);
@@ -714,72 +709,11 @@ export default defineComponent({
       input.value = "";
       
       if (!file) return;
-
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
-      const maxSize = isImage ? 10 * 1024 * 1024 : 500 * 1024 * 1024;
-
-      if (!isImage && !isVideo) {
-        alert("Unsupported file type. Please upload an image or video.");
-        return;
-      }
-
-      if (file.size > maxSize) {
-        alert(`File is too large! Maximum size: ${isImage ? "10MB" : "500MB"}`);
-        return;
-      }
-
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        alert("You must be logged in to upload.");
-        return;
-      }
-
-      // --- Optimistic loading ---
-      // Immediately show the local file in the tile while uploading in the background.
-      const blobUrl = URL.createObjectURL(file);
-      const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-      const content = createTileContent(contentType, { src: blobUrl });
-      const tileId = props.tile.i;
-      layoutStore.setTileContent(tileId, content);
-      layoutStore.setTileUploading(tileId, 0);
-
       try {
-        const filePath = `users/${currentUser.uid}/${isImage ? "images" : "videos"}/${Date.now()}_${file.name}`;
-        const fileRef = storageRef(storage, filePath);
-
-        // Use resumable upload to track progress
-        const uploadTask = uploadBytesResumable(fileRef, file);
-
-        uploadTask.on("state_changed", (snapshot) => {
-          const progress = snapshot.bytesTransferred / snapshot.totalBytes;
-          layoutStore.setTileUploading(tileId, progress);
-        });
-
-        await uploadTask;
-        const url = await getDownloadURL(fileRef);
-
-        // Don't swap the in-memory src — that would force the <img>/<video> to reload
-        // and cause a visible flash (and interrupt video playback). Instead, store the
-        // permanent Firebase URL separately so the Firestore persistence layer can use it.
-        layoutStore.setResolvedUrl(tileId, url);
-        layoutStore.clearTileUploading(tileId);
-        // Trigger a save so Firestore gets the real URL (stripBlobUrls will substitute it)
-        layoutStore.updateLayout();
+        await uploadFileOptimisticForTile(file, props.tile.i);
       } catch (error: any) {
-        console.error("File upload failed:", error);
-        layoutStore.clearTileUploading(tileId);
-        URL.revokeObjectURL(blobUrl);
-
-        // Revert to suggestion tile on failure
-        const revertContent = createTileContent(ContentType.SUGGESTION, {
-          action: "media",
-          label: "Add Media",
-        });
-        layoutStore.setTileContent(tileId, revertContent);
-
         const errorMessage = error?.message || error?.code || "Unknown error";
-        alert(`Failed to upload file: ${errorMessage}\n\nCheck console for details.`);
+        alert(`Failed to upload file: ${errorMessage}`);
       }
     };
 

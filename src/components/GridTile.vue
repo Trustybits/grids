@@ -188,11 +188,13 @@ export default defineComponent({
         ContentType.EMBED,
         ContentType.CAMPFIRE,
         ContentType.RPG,
-        ContentType.MAP,
         ContentType.SUGGESTION,
         ContentType.PROFILE,
       ];
-      return !hiddenTypes.includes(props.tile.content.type);
+      if (hiddenTypes.includes(props.tile.content.type)) return false;
+      // Hide caption on 1-wide tiles (too narrow)
+      if (props.tile.w === 1) return false;
+      return true;
     });
 
     const isLinkContent = computed(() => props.tile.content.type === ContentType.LINK);

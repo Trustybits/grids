@@ -259,8 +259,8 @@ export default defineComponent({
         if (isSuggestion.value) {
           onSuggestionShortClick();
         } else {
-          if (currentComponent.value?.onShortClick) {
-            currentComponent.value.onShortClick();
+          if (childComponent.value?.onShortClick) {
+            childComponent.value.onShortClick(event);
           }
           if (childComponent.value?.onExitClick) {
             addClickListener();

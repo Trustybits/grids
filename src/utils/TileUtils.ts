@@ -306,11 +306,12 @@ export function createTileContent(
         zoom: (data as Partial<MapContent>).zoom ?? 9,
         bearing: (data as Partial<MapContent>).bearing ?? 0,
         pitch: (data as Partial<MapContent>).pitch ?? 0,
-        style: (data as Partial<MapContent>).style || "auto",
+        style: (data as Partial<MapContent>).style || "default",
         show3d: (data as Partial<MapContent>).show3d ?? false,
         showClouds: (data as Partial<MapContent>).showClouds ?? false,
         showPlanes: (data as Partial<MapContent>).showPlanes ?? false,
         searchQuery: (data as Partial<MapContent>).searchQuery,
+        marker: (data as Partial<MapContent>).marker,
       } as MapContent;
 
     case ContentType.CAMPFIRE:

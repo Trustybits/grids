@@ -37,7 +37,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed } from "vue";
+import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { type ImageContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 
@@ -61,12 +61,19 @@ export default defineComponent({
     
     // Track dimensions for future features
     const imageDimensions = ref({ width: 0, height: 0, aspectRatio: 0 });
-    const tileDimensions = computed(() => {
-      if (!imageWrapper.value) return { width: 0, height: 0, aspectRatio: 0 };
+    const tileDimensions = ref({ width: 0, height: 0, aspectRatio: 0 });
+    const resizeObserver = ref<ResizeObserver | null>(null);
+
+    const updateTileDimensions = () => {
+      if (!imageWrapper.value) return;
       const width = imageWrapper.value.clientWidth;
       const height = imageWrapper.value.clientHeight;
-      return { width, height, aspectRatio: width / height };
-    });
+      tileDimensions.value = {
+        width,
+        height,
+        aspectRatio: width && height ? width / height : 0,
+      };
+    };
 
     // Toggle crop mode
     const toggleEditMode = () => {
@@ -89,9 +96,9 @@ export default defineComponent({
       }
     };
 
-    const constrainOffset = () => {
+    const constrainOffset = (force = false) => {
       const wrapper = imageWrapper.value;
-      if (!wrapper || !isEditing.value) return;
+      if (!wrapper || (!isEditing.value && !force)) return;
 
       const containerWidth = wrapper.clientWidth;
       const containerHeight = wrapper.clientHeight;
@@ -152,39 +159,14 @@ export default defineComponent({
     const imageStyle = computed(() => {
       const cursor = isEditing.value ? (isDragging.value ? 'grabbing' : 'grab') : 'default';
       const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
-      
-      // Always use calculated sizing based on aspect ratios to preserve crop
+
       if (imageDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
         if (imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
-          // Image is wider - constrain by height
           return { transform: baseTransform, cursor, width: 'auto', height: '100%' };
-        } else {
-          // Image is taller - constrain by width
-          return { transform: baseTransform, cursor, width: '100%', height: 'auto' };
         }
+        return { transform: baseTransform, cursor, width: '100%', height: 'auto' };
       }
-      
-      // Fallback if dimensions not loaded yet
-      return { transform: baseTransform, cursor, width: '100%', height: '100%' };
-    });
-    
-    // Overflow layer sizing - ensures full image visible based on aspect ratios
-    const overflowStyle = computed(() => {
-      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
-      const cursor = isEditing.value ? (isDragging.value ? 'grabbing' : 'grab') : 'default';
-      
-      // Compare aspect ratios to determine which dimension to constrain
-      if (imageDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
-        if (imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
-          // Image is wider - constrain by height, let width extend
-          return { transform: baseTransform, cursor, width: 'auto', height: '100%' };
-        } else {
-          // Image is taller - constrain by width, let height extend  
-          return { transform: baseTransform, cursor, width: '100%', height: 'auto' };
-        }
-      }
-      
-      // Fallback to cover behavior
+
       return { transform: baseTransform, cursor, width: '100%', height: '100%' };
     });
 
@@ -199,6 +181,26 @@ export default defineComponent({
       }
     };
 
+    onMounted(() => {
+      updateTileDimensions();
+
+      if (imageWrapper.value && typeof ResizeObserver !== "undefined") {
+        resizeObserver.value = new ResizeObserver(() => {
+          updateTileDimensions();
+          constrainOffset(true);
+        });
+        resizeObserver.value.observe(imageWrapper.value);
+      }
+    });
+
+    onUnmounted(() => {
+      resizeObserver.value?.disconnect();
+    });
+
+    watch(imageDimensions, () => {
+      constrainOffset(true);
+    });
+
     return {
       layoutStore,
       isEditing,
@@ -207,7 +209,6 @@ export default defineComponent({
       stopDragging,
       dragImage,
       imageStyle,
-      overflowStyle,
       imageWrapper,
       imageElement,
       onImageLoad,

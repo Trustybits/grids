@@ -51,6 +51,9 @@
               label="Metadata" 
               v-model="layoutStore.showMetaData"
             />
+            <MenuItem @click="launchPixelRacers">
+              🏍️ Pixel Racers
+            </MenuItem>
           </Accordion>
         </MenuSection>
       </div>
@@ -63,6 +66,7 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import { getAuth } from "firebase/auth";
 import { useLayoutStore } from "@/stores/layout";
 import { useToastStore } from "@/stores/toast";
+import { usePixelRacersStore } from "@/stores/pixelRacers";
 import MenuItem from "./MenuItem.vue";
 import Toggle from "./Toggle.vue";
 import Accordion from "./Accordion.vue";
@@ -75,6 +79,7 @@ const emit = defineEmits<{
 
 const layoutStore = useLayoutStore();
 const toastStore = useToastStore();
+const gameStore = usePixelRacersStore();
 const auth = getAuth();
 const showMenu = ref(false);
 const menuRef = ref<HTMLElement | null>(null);
@@ -123,14 +128,17 @@ const shareGrid = async () => {
   }
   showMenu.value = false;
 };
+
+// Launch the Pixel Racers game
+const launchPixelRacers = () => {
+  gameStore.startGame();
+  showMenu.value = false;
+};
 </script>
 
 <style lang="scss" scoped>
 .grid-menu {
-  position: fixed;
-  bottom: calc(var(--spacing-md) + 48px);
-  left: var(--spacing-md);
-  z-index: var(--z-fixed);
+  position: relative;
 }
 
 .grid-menu-button {

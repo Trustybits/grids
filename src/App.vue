@@ -3,9 +3,6 @@
     <!-- Left Navigation Bar -->
     <LeftNavBar v-if="isAuthenticated" />
 
-    <!-- User Menu at Bottom Left -->
-    <UserMenu v-if="isAuthenticated" />
-
     <!-- Top Bar for Layout Title Editor and Theme Toggle -->
     <div class="top-bar" v-if="showTopBar">
       <LayoutTitleEditor v-if="showTitleEditor" />
@@ -19,6 +16,9 @@
 
     <!-- Toast Notifications -->
     <ToastContainer />
+
+    <!-- Pixel Racers Game (Easter Egg) -->
+    <PixelRacersGame />
   </div>
 </template>
 
@@ -26,10 +26,10 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import LeftNavBar from './components/LeftNavBar.vue';
-import UserMenu from './components/UserMenu.vue';
 import LayoutTitleEditor from './components/LayoutTitleEditor.vue';
 import ThemeToggle from './components/ThemeToggle.vue';
 import ToastContainer from './components/ToastContainer.vue';
+import PixelRacersGame from './components/PixelRacersGame.vue';
 import { useLayoutStore } from '@/stores/layout';
 import { auth, db } from '@/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
@@ -92,9 +92,6 @@ const showTopBar = computed(() => {
 
 .main-content {
   padding-left: 0;
-}
-
-.main-content.has-left-nav {
 }
 
 .section {

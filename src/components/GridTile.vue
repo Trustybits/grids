@@ -90,182 +90,15 @@
       ></button>
 
       <TileCaption v-if="showCaption && (layoutStore.isOwner || tile.caption)" :tile="tile" />
-
+      
       <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
       <div v-if="isTileResizable" class="resize-indicator"></div>
 
-      <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
-      <div v-if="isTileResizable" class="resize-indicator"></div>
-
-      <div v-if="layoutStore.isOwner && !isSuggestion" class="tile-toolbar" :class="{ 'tile-toolbar-force-show': showToolbarMenu }" @mousedown.stop>
-        <template v-if="!isProfileTile">
-          <button
-            class="toolbar-btn"
-            :class="{ 'is-active': isPresetActive(5, 1) }"
-            title="Resize to 5x1"
-            @click.stop="resize(5, 1)"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="10" width="18" height="4" rx="1.5" stroke="currentColor" stroke-width="1.5" />
-            </svg>
-          </button>
-
-          <button
-            class="toolbar-btn"
-            :class="{ 'is-active': isPresetActive(2, 2) }"
-            title="Resize to 2x2"
-            @click.stop="resize(2, 2)"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="6" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5" />
-            </svg>
-          </button>
-
-          <button
-            class="toolbar-btn"
-            :class="{ 'is-active': isPresetActive(3, 2) }"
-            title="Resize to 3x2"
-            @click.stop="resize(3, 2)"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="4" y="7" width="16" height="10" rx="2" stroke="currentColor" stroke-width="1.5" />
-            </svg>
-          </button>
-
-          <button
-            class="toolbar-btn"
-            :class="{ 'is-active': isPresetActive(2, 4) }"
-            title="Resize to 2x4"
-            @click.stop="resize(2, 4)"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="8" y="4" width="8" height="16" rx="2" stroke="currentColor" stroke-width="1.5" />
-            </svg>
-          </button>
-
-          <div class="toolbar-divider"></div>
-        </template>
-
-        <button
-          class="toolbar-btn toolbar-btn--border"
-          :class="{ 'is-active': borderEnabled }"
-          :title="borderEnabled ? 'Hide border' : 'Show border'"
-          @click.stop="toggleBorder"
-        >
-          <svg
-            class="toolbar-icon-border"
-            width="28"
-            height="28"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <rect
-              x="4"
-              y="4"
-              width="16"
-              height="16"
-              rx="3"
-              stroke="currentColor"
-              stroke-width="1.5"
-            />
-            <rect
-              x="7"
-              y="7"
-              width="10"
-              height="10"
-              rx="2"
-              stroke="currentColor"
-              stroke-width="1.5"
-            />
-            <path
-              class="border-slash"
-              d="M7 17L17 7"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            />
-          </svg>
-        </button>
-
-        <button
-          v-if="isCroppable"
-          class="toolbar-btn"
-          :class="{ 'is-active': isEditing }"
-          title="Crop / Zoom"
-          @click.stop="toggleCropMode"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M7 3v4H3v2h4v8a2 2 0 0 0 2 2h8v4h2v-4h4v-2h-4V9a2 2 0 0 0-2-2H9V3H7zm2 6h8v8H9V9z" fill="currentColor"/>
-          </svg>
-        </button>
-
-        <button
-          class="toolbar-btn"
-          :class="{ 'is-active': isLinkContent && linkBackgroundEnabled }"
-          :title="
-            isLinkContent
-              ? linkBackgroundEnabled
-                ? 'Hide background image'
-                : 'Show background image'
-              : 'Tile color'
-          "
-          @click.stop="onColorClick"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="4" width="16" height="16" rx="2" fill="var(--color-figma-purple)" />
-          </svg>
-        </button>
-
-        <button
-          ref="toolbarMoreRef"
-          class="toolbar-btn"
-          title="More"
-          @click.stop="onToolbarAction('menu')"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="6" cy="12" r="1.25" fill="currentColor" />
-            <circle cx="12" cy="12" r="1.25" fill="currentColor" />
-            <circle cx="18" cy="12" r="1.25" fill="currentColor" />
-          </svg>
-        </button>
-      </div>
-
-      <teleport to="body">
-        <div
-          v-if="layoutStore.isOwner && isLinkContent && showToolbarMenu"
-          ref="toolbarMenuRef"
-          class="tile-toolbar-menu"
-          :style="toolbarMenuStyle"
-          @mousedown.stop
-        >
-          <button type="button" class="tile-toolbar-menu-item" @click.stop="handleToolbarUpload">
-            Upload image
-          </button>
-          <button type="button" class="tile-toolbar-menu-item" @click.stop="handleToolbarUseUrl">
-            Use image URL
-          </button>
-          <button
-            v-if="hasCustomLinkImage"
-            type="button"
-            class="tile-toolbar-menu-item tile-toolbar-menu-item--danger"
-            @click.stop="handleToolbarRemove"
-          >
-            Remove image
-          </button>
-        </div>
-        <div
-          v-if="layoutStore.isOwner && isTextContent && showToolbarMenu"
-          ref="toolbarMenuRef"
-          class='tile-toolbar-menu'
-          :style="toolbarMenuStyle"
-          @mousedown.stop
-        >
-          <button type="button" class="tile-toolbar-menu-item" @click.stop="handleToolbarUseUrl">
-            <LinkIcon />
-          </button>
-        </div>
-      </teleport>
+      <TileToolbar
+        v-if="layoutStore.isOwner && !isSuggestion"
+        :tile="tile"
+        :toolbarRefs="toolbarRefs"
+      />
     
     </div>
     </grid-item>
@@ -280,7 +113,6 @@ import {
   ref,
   computed,
   provide,
-  nextTick,
   watch,
 } from "vue";
 
@@ -295,8 +127,6 @@ import {
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 import { ContentType, type LinkContent } from "@/types/TileContent";
-import { getAuth } from "firebase/auth";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import TextIcon from "./icons/TextIcon.vue";
@@ -304,16 +134,21 @@ import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileIcon from "./icons/ProfileIcon.vue";
+import TileToolbar from "./TileToolbar.vue";
+import { useFileUpload } from "@/composables/useFileUpload";
+import ColorPicker from "./ColorPicker.vue";
 
 export default defineComponent({
   components: {
     GridItem,
     TileCaption,
+    TileToolbar,
     TextIcon,
     ImageIcon,
     LinkIcon,
     EmbedIcon,
     ProfileIcon,
+    ColorPicker,
   },
   props: {
     tile: {
@@ -323,11 +158,15 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
+    const { uploadFileOptimisticForTile } = useFileUpload();
 
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).
     provide("gridTileH", computed(() => props.tile.h));
     provide("gridTileW", computed(() => props.tile.w));
+    provide("tileId", props.tile.i);
+    provide("tileX", computed(() => props.tile.x));
+    provide("tileY", computed(() => props.tile.y));
 
     const isMoving = ref(false);
     const isDragging = ref(false);
@@ -335,13 +174,9 @@ export default defineComponent({
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
+    const gridTileRef = ref<HTMLElement | null>(null);
     const isEditing = ref(false);
     const isExitingCropMode = ref(false);
-    const gridTileRef = ref<HTMLElement | null>(null);
-    const toolbarMenuRef = ref<HTMLDivElement | null>(null);
-    const toolbarMoreRef = ref<HTMLButtonElement | null>(null);
-    const showToolbarMenu = computed(() => layoutStore?.activeMenuTileId === props.tile.i);
-    const toolbarMenuPosition = ref({ x: 0, y: 0 });
     let stopChildEditingWatch: (() => void) | null = null;
 
     const showCaption = computed(() => {
@@ -353,23 +188,20 @@ export default defineComponent({
         ContentType.EMBED,
         ContentType.CAMPFIRE,
         ContentType.RPG,
-        ContentType.MAP,
         ContentType.SUGGESTION,
         ContentType.PROFILE,
       ];
-      return !hiddenTypes.includes(props.tile.content.type);
+      if (hiddenTypes.includes(props.tile.content.type)) return false;
+      // Hide caption on 1-wide tiles (too narrow)
+      if (props.tile.w === 1) return false;
+      return true;
     });
 
     const isLinkContent = computed(() => props.tile.content.type === ContentType.LINK);
-    const isTextContent = computed(() => props.tile.content.type === ContentType.TEXT);
     const linkBackgroundEnabled = computed(() => {
       if (!isLinkContent.value) return true;
       const content = props.tile.content as LinkContent;
       return content.linkBackgroundEnabled !== false;
-    });
-    const hasCustomLinkImage = computed(() => {
-      if (!isLinkContent.value) return false;
-      return !!(props.tile.content as LinkContent).customImageUrl;
     });
 
     const clickStart = ref<number | null>(null);
@@ -397,8 +229,6 @@ export default defineComponent({
     });
 
     const mediaInput = ref<HTMLInputElement | null>(null);
-    const auth = getAuth();
-    const storage = getStorage();
 
     const loadComponent = async () => {
       currentComponent.value = await getContentComponent(props.tile.content);
@@ -417,105 +247,13 @@ export default defineComponent({
       }
     };
 
-    const clampMenuToViewport = (x: number, y: number, menuWidth: number, menuHeight: number) => {
-      const padding = 8;
-      const maxX = window.innerWidth - menuWidth - padding;
-      const maxY = window.innerHeight - menuHeight - padding;
-      return {
-        x: Math.max(padding, Math.min(x, maxX)),
-        y: Math.max(padding, Math.min(y, maxY)),
-      };
-    };
-
-    const toolbarMenuStyle = computed(() => ({
-      top: `${toolbarMenuPosition.value.y}px`,
-      left: `${toolbarMenuPosition.value.x}px`,
-    }));
-
-    const positionToolbarMenu = () => {
-      const button = toolbarMoreRef.value;
-      if (!button) return;
-      const rect = button.getBoundingClientRect();
-      const fallbackWidth = 190;
-      const fallbackHeight = hasCustomLinkImage.value ? 112 : 76;
-      const fallbackX = rect.right - fallbackWidth;
-      let fallbackY = rect.bottom + 8;
-      if (fallbackY < 8) {
-        fallbackY = rect.bottom + 8;
-      }
-      toolbarMenuPosition.value = clampMenuToViewport(
-        fallbackX,
-        fallbackY,
-        fallbackWidth,
-        fallbackHeight
-      );
-
-      nextTick(() => {
-        const menu = toolbarMenuRef.value;
-        if (!menu) return;
-        const { width, height } = menu.getBoundingClientRect();
-        const nextX = rect.right - width;
-        let nextY = rect.bottom + 8;
-        if (nextY < 8) {
-          nextY = rect.bottom + 8;
-        }
-        toolbarMenuPosition.value = clampMenuToViewport(nextX, nextY, width, height);
-      });
-    };
-
-    const closeToolbarMenu = () => {
-      layoutStore.closeAllMenus();
-    };
-
-    const handleToolbarUpload = () => {
-      closeToolbarMenu();
-      childComponent.value?.openCustomImagePicker?.();
-    };
-
-    const handleToolbarUseUrl = () => {
-      closeToolbarMenu();
-      childComponent.value?.openUrlInput?.();
-    };
-
-    const handleToolbarRemove = () => {
-      closeToolbarMenu();
-      childComponent.value?.removeCustomImage?.();
-    };
-
-    const handleToolbarMenuClickOutside = (event: MouseEvent) => {
-      if (!showToolbarMenu.value) return;
-      const target = event.target as Node;
-      if (toolbarMenuRef.value?.contains(target)) return;
-      if (toolbarMoreRef.value?.contains(target)) return;
-      closeToolbarMenu();
-    };
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        gridTileRef.value &&
-        !gridTileRef.value.contains(event.target as Node) &&
-        childComponent.value?.onExitClick
-      ) {
-        childComponent.value.onExitClick();
-        removeClickListener();
-      }
-    };
-
-    const addClickListener = () => {
-      document.addEventListener("click", handleClickOutside);
-    };
-
-    const removeClickListener = () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-
     const endClick = (event: MouseEvent) => {
       if (event.button !== 0) {
         return;
       }
 
       // Clear dragging state when user releases the mouse
-      // This ensures the tile scales back down even if dragged to original position
+      // This triggers the scale animation right away
       isDragging.value = false;
 
       const clickDuration = Date.now() - (clickStart.value || 0);
@@ -525,7 +263,7 @@ export default defineComponent({
           onSuggestionShortClick();
         } else {
           if (childComponent.value?.onShortClick) {
-            childComponent.value.onShortClick();
+            childComponent.value.onShortClick(event);
           }
           if (childComponent.value?.onExitClick) {
             addClickListener();
@@ -535,21 +273,6 @@ export default defineComponent({
 
       clickStart.value = null;
     };
-
-    watch(
-      () => childComponent.value?.isEditing,
-      (newVal) => {
-        isEditing.value = newVal;
-      }
-    );
-
-    // Watch for content type changes (e.g., suggestion -> text/image/link)
-    watch(
-      () => props.tile.content.type,
-      () => {
-        loadComponent();
-      }
-    );
 
     const onMove = () => {
       isMoving.value = true;
@@ -564,57 +287,6 @@ export default defineComponent({
       isDragging.value = false;
       if (!layoutStore.isOwner) return;
       layoutStore.updateLayout();
-    };
-
-    const resize = (w: number, h: number) => {
-      layoutStore.resizeTile(props.tile.i, w, h);
-      if (childComponent.value?.onResize) {
-        childComponent.value.onResize();
-      }
-    };
-
-    const isPresetActive = (w: number, h: number) => {
-      return props.tile.w === w && props.tile.h === h;
-    };
-
-    const borderEnabled = computed(() => {
-      return props.tile.borderEnabled !== false;
-    });
-
-    const borderVisible = computed(() => {
-      if (!isLinkContent.value) {
-        return borderEnabled.value;
-      }
-      return linkBackgroundEnabled.value ? borderEnabled.value : true;
-    });
-
-    const toggleBorder = () => {
-      layoutStore.toggleTileBorder(props.tile.i);
-    };
-
-    const onToolbarAction = (action: string) => {
-      if (action === "menu") {
-        if (!isLinkContent.value && !isTextContent.value) return;
-        if (showToolbarMenu.value) {
-          layoutStore.closeAllMenus();
-        } else {
-          layoutStore.setActiveMenuTile(props.tile.i);
-        }
-
-        if (showToolbarMenu.value) {
-          positionToolbarMenu();
-        }
-        return;
-      }
-      void action;
-    };
-
-    const onColorClick = () => {
-      if (isLinkContent.value) {
-        layoutStore.toggleLinkBackground(props.tile.i);
-        return;
-      }
-      onToolbarAction("color");
     };
 
     const onResize = (i: string, newH: number, newW: number, newHPx: number, newWPx: number) => {
@@ -712,42 +384,11 @@ export default defineComponent({
       input.value = "";
       
       if (!file) return;
-
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
-      const maxSize = isImage ? 10 * 1024 * 1024 : 500 * 1024 * 1024;
-
-      if (!isImage && !isVideo) {
-        alert("Unsupported file type. Please upload an image or video.");
-        return;
-      }
-
-      if (file.size > maxSize) {
-        alert(`File is too large! Maximum size: ${isImage ? "10MB" : "500MB"}`);
-        return;
-      }
-
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          alert("You must be logged in to upload.");
-          return;
-        }
-
-        const filePath = `users/${currentUser.uid}/${isImage ? "images" : "videos"}/${Date.now()}_${file.name}`;
-        const fileRef = storageRef(storage, filePath);
-
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
-
-        const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-        const content = createTileContent(contentType, { src: url });
-        layoutStore.setTileContent(props.tile.i, content);
+        await uploadFileOptimisticForTile(file, props.tile.i);
       } catch (error: any) {
-        console.error("File upload failed:", error);
-        // Show more specific error message to help with debugging
         const errorMessage = error?.message || error?.code || "Unknown error";
-        alert(`Failed to upload file: ${errorMessage}\n\nCheck console for details.`);
+        alert(`Failed to upload file: ${errorMessage}`);
       }
     };
 
@@ -818,10 +459,40 @@ export default defineComponent({
       }
     };
 
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        gridTileRef.value &&
+        !gridTileRef.value.contains(event.target as Node) &&
+        childComponent.value?.onExitClick
+      ) {
+        childComponent.value.onExitClick();
+        removeClickListener();
+      }
+    };
+
+    const addClickListener = () => {
+      document.addEventListener("click", handleClickOutside);
+    };
+
+    const removeClickListener = () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+
+    const borderEnabled = computed(() => {
+      return props.tile.borderEnabled !== false;
+    });
+
+    const borderVisible = computed(() => {
+      if (!isLinkContent.value) {
+        return borderEnabled.value;
+      }
+      return linkBackgroundEnabled.value ? borderEnabled.value : true;
+    });
+
+    const toolbarRefs = { childComponent, isEditing, isExitingCropMode };
+
     onMounted(() => {
       loadComponent();
-      document.addEventListener("click", handleToolbarMenuClickOutside);
-      document.addEventListener("contextmenu", handleToolbarMenuClickOutside);
       
       // Add dragstart prevention to the grid tile element
       if (gridTileRef.value) {
@@ -832,9 +503,7 @@ export default defineComponent({
     onUnmounted(() => {
       stopChildEditingWatch?.();
       stopChildEditingWatch = null;
-      removeClickListener(); // Cleanup on unmount
-      document.removeEventListener("click", handleToolbarMenuClickOutside);
-      document.removeEventListener("contextmenu", handleToolbarMenuClickOutside);
+      removeClickListener();
       
       // Remove dragstart listener
       if (gridTileRef.value) {
@@ -846,13 +515,12 @@ export default defineComponent({
       currentComponent,
       contentProps,
       headerComponent,
-      resize,
+      childComponent,
       removeElement,
       tileStyle,
       onMove,
       startClick,
       endClick,
-      childComponent,
       gridTileRef,
       layoutStore,
       isEditing,
@@ -862,28 +530,12 @@ export default defineComponent({
       onResize,
       onResized,
       showCaption,
-      isPresetActive,
-      borderEnabled,
       borderVisible,
-      toggleBorder,
-      onToolbarAction,
-      onColorClick,
-      isLinkContent,
-      isTextContent,
       linkBackgroundEnabled,
-      hasCustomLinkImage,
-      toolbarMenuRef,
-      toolbarMoreRef,
-      showToolbarMenu,
-      toolbarMenuStyle,
-      handleToolbarUpload,
-      handleToolbarUseUrl,
-      handleToolbarRemove,
 
       isSuggestion,
       suggestionAction,
       suggestionLabel,
-      isProfileTile,
       isTileResizable,
 
       mediaInput,
@@ -891,6 +543,7 @@ export default defineComponent({
       isCroppable,
       toggleCropMode,
       isExitingCropMode,
+      toolbarRefs,
     };
   },
 });
@@ -1143,71 +796,6 @@ export default defineComponent({
   }
 }
 
-/* Tile Toolbar (formerly resize options) */
-.tile-toolbar {
-  position: absolute;
-  bottom: 4px;
-  left: 50%;
-  z-index: 100;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-  flex-wrap: nowrap;
-  
-  /* Hidden by default with smooth animation properties */
-  opacity: 0;
-  transform: translate(-50%, calc(100% + 10px)) scale(0.9);
-  pointer-events: none;
-  transition: opacity var(--duration-fast) var(--easing-ease-out),
-              transform var(--duration-normal) var(--easing-spring);
-  
-  /* Toolbar styling matching close button */
-  background-color: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: 12px;
-  padding: 4px;
-}
-
-.tile-toolbar-menu {
-  position: fixed;
-  z-index: 1200;
-  min-width: 50px;
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-tile-hover);
-}
-
-.tile-toolbar-menu-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 8px 10px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  text-align: left;
-  font-size: 12px;
-  line-height: 1;
-}
-
-.tile-toolbar-menu-item:hover {
-  background: var(--color-content-low);
-}
-
-.tile-toolbar-menu-item--danger {
-  color: #ff3737;
-}
-
 /* Customizable Header Styles */
 .header-options {
   display: none;
@@ -1217,66 +805,16 @@ export default defineComponent({
   transform: translate(-50%, -100%);
 }
 
-.tile-toolbar .toolbar-btn {
-  background-color: transparent;
-  color: var(--color-text-primary);
-  border: none;
-  border-radius: var(--radius-sm);
-  height: 36px;
-  width: 36px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--easing-ease-in-out),
-              transform var(--duration-fast) var(--easing-ease-out),
-              color var(--duration-fast) var(--easing-ease-in-out);
-
-  svg {
-    width: 28px;
-    height: 28px;
-    display: block;
-  }
-
-  &:hover {
-    background-color: var(--color-content-low);
-    transform: scale(1.05);
-  }
-
-  &.is-active {
-    background-color: var(--color-text-primary);
-    color: var(--color-tile-background);
-    border-radius: var(--radius-sm);
-    transform: none;
-  }
-}
-
+/* Border-off state for toolbar border toggle icon (reaches into TileToolbar child) */
 .tile-wrapper[data-border='off'] {
-  .tile-toolbar .toolbar-btn--border {
+  :deep(.toolbar-btn--border) {
     color: var(--color-content-default);
   }
 
-  .tile-toolbar .toolbar-btn--border .toolbar-icon-border .border-slash {
+  :deep(.toolbar-btn--border .toolbar-icon-border .border-slash) {
     stroke-dashoffset: 0;
     opacity: 1;
   }
-}
-
-.tile-toolbar .toolbar-btn--border .toolbar-icon-border .border-slash {
-  stroke-dasharray: 18;
-  stroke-dashoffset: 18;
-  opacity: 0;
-  transition: stroke-dashoffset var(--duration-normal) var(--easing-spring),
-    opacity var(--duration-fast) var(--easing-ease-in-out);
-}
-
-.tile-toolbar .toolbar-divider {
-  width: 1px;
-  height: 24px;
-  margin: 2px;
-  background-color: var(--color-tile-stroke);
-  border-radius: 20px;
 }
 
 :deep(.hover-display) {
@@ -1295,6 +833,11 @@ export default defineComponent({
   pointer-events: auto;
 }
 
+/* Non-owner caption: hide on tile hover */
+.tile-wrapper:hover :deep(.viewer-caption) {
+  display: none;
+}
+
 /* Hide close button during crop mode and when exiting */
 .tile-wrapper.crop-mode-active .btn-close,
 .tile-wrapper.crop-mode-exiting .btn-close,
@@ -1304,22 +847,25 @@ export default defineComponent({
   pointer-events: none;
 }
 
-.tile-wrapper:hover .tile-toolbar,
-.tile-wrapper.crop-mode-active .tile-toolbar,
-.tile-wrapper.crop-mode-exiting .tile-toolbar {
+/* Show toolbar on tile hover and during crop mode (reaches into TileToolbar child) */
+.tile-wrapper:hover :deep(.tile-toolbar),
+.tile-wrapper.crop-mode-active :deep(.tile-toolbar),
+.tile-wrapper.crop-mode-exiting :deep(.tile-toolbar) {
   opacity: 1;
   transform: translate(-50%, 100%) scale(1);
   pointer-events: auto;
 }
 
-.tile-toolbar-force-show {
-  opacity: 1;
-  transform: translate(-50%, 100%) scale(1);
+/* Show search panel when toolbar is visible */
+.tile-wrapper:hover :deep(.toolbar-search-panel),
+.tile-wrapper.crop-mode-active :deep(.toolbar-search-panel),
+.tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel) {
   pointer-events: auto;
 }
 
 /* Hide toolbar when tile is exiting */
-.tile-wrapper.is-exiting .tile-toolbar {
+.tile-wrapper.is-exiting :deep(.tile-toolbar),
+.tile-wrapper.is-exiting :deep(.toolbar-search-panel) {
   opacity: 0;
   transform: translate(-50%, calc(100% + 10px)) scale(0.9);
   pointer-events: none;

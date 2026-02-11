@@ -1,5 +1,5 @@
 <template>
-  <div class="map-tile" :class="{ 'is-editing': isEditing }">
+  <div ref="mapTile" class="map-tile">
     <div
       ref="mapContainer"
       class="map-canvas"
@@ -7,83 +7,40 @@
     ></div>
 
     <div v-if="showClouds" class="map-overlay map-clouds" aria-hidden="true">
-      <div class="map-cloud layer-a"></div>
-      <div class="map-cloud layer-b"></div>
-      <div class="map-cloud layer-c"></div>
+      <img class="map-cloud map-cloud--shadow" :src="cloudShadow" alt="" />
+      <img class="map-cloud map-cloud--main" :src="cloudImage" alt="" />
     </div>
 
     <div v-if="showPlanes" class="map-overlay map-plane" aria-hidden="true">
-      <div class="plane-group">
-        <span class="plane-trail"></span>
-        <img class="plane-icon" :src="planeIcon" alt="" />
-      </div>
+      <img class="plane-shadow" :src="planeShadow" alt="" />
+      <img class="plane-icon" :src="planeIcon" alt="" />
     </div>
 
     <div v-if="!hasToken" class="map-empty-state">
       Add <strong>VITE_MAPBOX_TOKEN</strong> to enable maps.
     </div>
 
-    <div v-if="layoutStore.isOwner && isEditing" class="map-toolbar" @mousedown.stop>
-      <form class="map-search" @submit.prevent="handleSearch">
-        <input
-          v-model="searchInput"
-          class="map-input"
-          type="text"
-          placeholder="Search for a location"
-        />
-        <button class="map-btn" type="submit">Search</button>
-        <button class="map-btn map-btn--ghost" type="button" @click="useMyLocation">
-          My location
-        </button>
-      </form>
-
-      <div v-if="statusMessage" class="map-status">{{ statusMessage }}</div>
-
-      <div class="map-options">
-        <label class="map-select">
-          <span>Style</span>
-          <select v-model="styleMode">
-            <option value="auto">System</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-            <option value="dawn">Dawn</option>
-            <option value="day">Day</option>
-            <option value="dusk">Dusk</option>
-            <option value="night">Night</option>
-            <option value="satellite">Satellite</option>
-          </select>
-        </label>
-        <label class="map-toggle">
-          <input type="checkbox" v-model="show3d" />
-          3D
-        </label>
-        <label class="map-toggle">
-          <input type="checkbox" v-model="showClouds" />
-          Clouds
-        </label>
-        <label class="map-toggle">
-          <input type="checkbox" v-model="showPlanes" />
-          Planes
-        </label>
-      </div>
-    </div>
-
-    <button
-      v-if="layoutStore.isOwner"
-      class="map-edit-btn hover-display"
-      :class="{ 'is-active': isEditing }"
-      :style="{ display: isEditing ? 'flex' : '' }"
-      @click.stop="toggleEditMode"
-    >
-      {{ isEditing ? "Done" : "Edit" }}
-    </button>
+    <div v-if="statusMessage" class="map-status">{{ statusMessage }}</div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from "vue";
+import {
+  defineComponent,
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+  inject,
+  nextTick,
+  type ComputedRef,
+} from "vue";
 import mapboxgl from "mapbox-gl";
-import planeIcon from "@/svgs/icons/airplane.svg";
+import cloudImage from "@/assets/images/cloud.png";
+import cloudShadow from "@/assets/images/cloud_shadow.png";
+import planeIcon from "@/assets/images/plane.png";
+import planeShadow from "@/assets/images/planeshadow.png";
 import { useLayoutStore } from "@/stores/layout";
 import { useThemeStore } from "@/stores/theme";
 import { type MapContent, type MapStyleMode } from "@/types/TileContent";
@@ -105,7 +62,12 @@ type MapStylePreset = {
   };
 };
 
+const DEFAULT_STYLE_URL = "mapbox://styles/trustybits/cmlfi9mdh001t01qv29zg4wqn";
+
 const MAP_STYLE_PRESETS: Record<Exclude<MapStyleMode, "auto">, MapStylePreset> = {
+  default: {
+    style: DEFAULT_STYLE_URL,
+  },
   light: {
     style: "mapbox://styles/mapbox/light-v11",
     light: {
@@ -218,6 +180,10 @@ const resolvePreset = (mode: MapStyleMode, isDarkMode: boolean) => {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const randomBetween = (min: number, max: number) => Math.random() * (max - min) + min;
+const formatPx = (value: number) => `${value.toFixed(3)}px`;
+const formatDeg = (value: number) => `${value.toFixed(3)}deg`;
+const formatSec = (value: number) => `${value.toFixed(2)}s`;
 
 export default defineComponent({
   props: {
@@ -229,21 +195,47 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
     const themeStore = useThemeStore();
+    const mapTile = ref<HTMLDivElement | null>(null);
     const mapContainer = ref<HTMLDivElement | null>(null);
     const mapInstance = ref<mapboxgl.Map | null>(null);
+    const markerInstance = ref<mapboxgl.Marker | null>(null);
     const isEditing = ref(false);
+    const showSearch = ref(false);
     const searchInput = ref(props.content.searchQuery || "");
+    const searchInputRef = ref<HTMLInputElement | null>(null);
     const statusMessage = ref<string | null>(null);
+    let resizeObserver: ResizeObserver | null = null;
     const token = import.meta.env.VITE_MAPBOX_TOKEN;
     const hasToken = computed(() => !!token);
+    const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
+    const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
+    const gridTileId = inject<ComputedRef<string> | null>("gridTileId", null);
 
     const styleMode = computed<MapStyleMode>({
-      get: () => props.content.style || "auto",
+      get: () => props.content.style || "default",
       set: (value) => {
         props.content.style = value;
         layoutStore.saveLayout();
       },
     });
+
+    const resolvedTileId = computed(() =>
+      gridTileId?.value ??
+        layoutStore.currentLayout?.tiles.find((tile) => tile.content === props.content)?.i ??
+        null
+    );
+
+    const tileWidth = computed(() =>
+      gridTileW?.value ??
+        layoutStore.currentLayout?.tiles.find((tile) => tile.i === resolvedTileId.value)?.w ??
+        0
+    );
+
+    const tileHeight = computed(() =>
+      gridTileH?.value ??
+        layoutStore.currentLayout?.tiles.find((tile) => tile.i === resolvedTileId.value)?.h ??
+        0
+    );
 
     const isInteractive = computed(() => !layoutStore.isOwner || isEditing.value);
 
@@ -273,6 +265,159 @@ export default defineComponent({
     });
 
     const resolvedStyle = computed(() => resolveStyle(styleMode.value, themeStore.isDarkMode));
+
+    const isDefaultStyle = computed(() => styleMode.value === "default");
+
+    const seedAnimationVars = () => {
+      const element = mapTile.value;
+      if (!element) return;
+      const setVar = (name: string, value: string) => {
+        element.style.setProperty(name, value);
+      };
+
+      const { width, height } = element.getBoundingClientRect();
+      const safeWidth = width || 800;
+      const safeHeight = height || 600;
+      const centerX = safeWidth / 2;
+      const centerY = safeHeight / 2;
+      const halfDiag = Math.hypot(safeWidth, safeHeight) / 2;
+
+      const buildLine = (buffer: number, angleDeg = randomBetween(0, 360)) => {
+        const radians = (angleDeg * Math.PI) / 180;
+        const dx = Math.cos(radians);
+        const dy = Math.sin(radians);
+        const distance = halfDiag + buffer;
+
+        return {
+          angleDeg,
+          dx,
+          dy,
+          start: {
+            x: centerX - dx * distance,
+            y: centerY - dy * distance,
+          },
+          end: {
+            x: centerX + dx * distance,
+            y: centerY + dy * distance,
+          },
+        };
+      };
+
+      const planeDuration = randomBetween(24, 34);
+      const planeDelay = randomBetween(-8, 0);
+      const planePath = buildLine(220);
+      const planeRotation = (planePath.angleDeg + 90) % 360;
+      const planeShadowOffset = { x: -12, y: 80 };
+
+      setVar("--plane-duration", formatSec(planeDuration));
+      setVar("--plane-delay", formatSec(planeDelay));
+      setVar("--plane-rotate", formatDeg(planeRotation));
+      setVar("--plane-start-x", formatPx(planePath.start.x));
+      setVar("--plane-start-y", formatPx(planePath.start.y));
+      setVar("--plane-end-x", formatPx(planePath.end.x));
+      setVar("--plane-end-y", formatPx(planePath.end.y));
+
+      setVar("--plane-shadow-duration", formatSec(planeDuration));
+      setVar("--plane-shadow-delay", formatSec(planeDelay));
+      setVar("--plane-shadow-rotate", formatDeg(planeRotation));
+      setVar("--plane-shadow-start-x", formatPx(planePath.start.x + planeShadowOffset.x));
+      setVar("--plane-shadow-start-y", formatPx(planePath.start.y + planeShadowOffset.y));
+      setVar("--plane-shadow-end-x", formatPx(planePath.end.x + planeShadowOffset.x));
+      setVar("--plane-shadow-end-y", formatPx(planePath.end.y + planeShadowOffset.y));
+
+      const cloudDuration = randomBetween(70, 95);
+      const cloudDelay = randomBetween(-20, 0);
+      const cloudPath = buildLine(1000);
+      const perp = { x: -cloudPath.dy, y: cloudPath.dx };
+      const wander = randomBetween(-160, 160);
+      const drift = randomBetween(-120, 120);
+      const cloudMid = {
+        x: (cloudPath.start.x + cloudPath.end.x) / 2 + perp.x * wander + cloudPath.dx * drift,
+        y: (cloudPath.start.y + cloudPath.end.y) / 2 + perp.y * wander + cloudPath.dy * drift,
+      };
+      const cloudRotation = randomBetween(112, 128);
+      const cloudShadowOffset = {
+        x: planeShadowOffset.x * 1.6,
+        y: planeShadowOffset.y * 1.6,
+      };
+
+      setVar("--cloud-duration", formatSec(cloudDuration));
+      setVar("--cloud-delay", formatSec(cloudDelay));
+      setVar("--cloud-rotate", formatDeg(cloudRotation));
+      setVar("--cloud-start-x", formatPx(cloudPath.start.x));
+      setVar("--cloud-start-y", formatPx(cloudPath.start.y));
+      setVar("--cloud-mid-x", formatPx(cloudMid.x));
+      setVar("--cloud-mid-y", formatPx(cloudMid.y));
+      setVar("--cloud-end-x", formatPx(cloudPath.end.x));
+      setVar("--cloud-end-y", formatPx(cloudPath.end.y));
+
+      setVar("--cloud-shadow-duration", formatSec(cloudDuration));
+      setVar("--cloud-shadow-delay", formatSec(cloudDelay));
+      setVar("--cloud-shadow-rotate", formatDeg(cloudRotation));
+      setVar("--cloud-shadow-start-x", formatPx(cloudPath.start.x + cloudShadowOffset.x));
+      setVar("--cloud-shadow-start-y", formatPx(cloudPath.start.y + cloudShadowOffset.y));
+      setVar("--cloud-shadow-mid-x", formatPx(cloudMid.x + cloudShadowOffset.x));
+      setVar("--cloud-shadow-mid-y", formatPx(cloudMid.y + cloudShadowOffset.y));
+      setVar("--cloud-shadow-end-x", formatPx(cloudPath.end.x + cloudShadowOffset.x));
+      setVar("--cloud-shadow-end-y", formatPx(cloudPath.end.y + cloudShadowOffset.y));
+    };
+
+    const buildMarkerElement = () => {
+      const element = document.createElement("div");
+      element.className = "marker";
+      element.setAttribute("aria-label", "Map marker");
+
+      const wrap = document.createElement("div");
+      wrap.className = "relative h-full w-full marker__wrap";
+
+      const pulse = document.createElement("div");
+      pulse.className =
+        "absolute left-1/2 top-1/2 rounded-full bg-[#679BFF] opacity-20 s-3 styles_marker-pulse__BxsPp marker__pulse";
+
+      const body = document.createElement("div");
+      body.className =
+        "relative flex h-full w-full items-center justify-center rounded-full bg-white styles_marker__Mzm27 marker__body";
+
+      const inner = document.createElement("div");
+      inner.className = "absolute inset-[3px] rounded-full bg-[#679BFF] marker__inner";
+
+      const border = document.createElement("div");
+      border.className = "absolute inset-[3px] rounded-full styles_marker-border__fxi6v marker__border";
+
+      const core = document.createElement("div");
+      core.className = "absolute inset-[5px] rounded-full bg-[#679BFF] marker__core";
+
+      body.appendChild(inner);
+      body.appendChild(border);
+      body.appendChild(core);
+      wrap.appendChild(pulse);
+      wrap.appendChild(body);
+      element.appendChild(wrap);
+      return element;
+    };
+
+    const updateMarker = (markerData?: { lat: number; lng: number }) => {
+      const map = mapInstance.value;
+      if (!map || !markerData) return;
+      if (!markerInstance.value) {
+        const marker = new (mapboxgl as any).Marker({
+          element: buildMarkerElement(),
+          anchor: "center",
+        }) as mapboxgl.Marker;
+        markerInstance.value = marker
+          .setLngLat([markerData.lng, markerData.lat])
+          .addTo(map as any);
+      } else {
+        markerInstance.value.setLngLat([markerData.lng, markerData.lat]);
+      }
+    };
+
+    const setMarker = (marker: { lat: number; lng: number }) => {
+      if (!layoutStore.isOwner) return;
+      props.content.marker = marker;
+      saveLayout();
+      updateMarker(marker);
+    };
 
     const saveLayout = () => {
       layoutStore.saveLayout();
@@ -353,6 +498,7 @@ export default defineComponent({
         }
         statusMessage.value = null;
         const [lng, lat] = match.center as [number, number];
+        setMarker({ lat, lng });
         flyToLocation({ lat, lng }, clamp(props.content.zoom ?? 9, 9, 14));
       } catch (error) {
         console.error("Mapbox search failed:", error);
@@ -370,13 +516,12 @@ export default defineComponent({
       navigator.geolocation.getCurrentPosition(
         (position) => {
           statusMessage.value = null;
-          flyToLocation(
-            {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            },
-            clamp(props.content.zoom ?? 9, 10, 14)
-          );
+          const marker = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setMarker(marker);
+          flyToLocation(marker, clamp(props.content.zoom ?? 9, 10, 14));
         },
         () => {
           statusMessage.value = "Unable to get location.";
@@ -393,6 +538,40 @@ export default defineComponent({
         return;
       }
       await handleGeocode(query);
+    };
+
+    const isPresetActive = (w: number, h: number) => {
+      return tileWidth.value === w && tileHeight.value === h;
+    };
+
+    const resizeMapTile = (w: number, h: number) => {
+      const tileId = resolvedTileId.value;
+      if (!tileId) return;
+      layoutStore.resizeTile(tileId, w, h);
+      nextTick(() => {
+        mapInstance.value?.resize();
+      });
+    };
+
+    const toggleDefaultStyle = () => {
+      styleMode.value = isDefaultStyle.value ? "auto" : "default";
+    };
+
+    const toggleClouds = () => {
+      showClouds.value = !showClouds.value;
+    };
+
+    const togglePlanes = () => {
+      showPlanes.value = !showPlanes.value;
+    };
+
+    const toggleSearch = () => {
+      showSearch.value = !showSearch.value;
+      if (showSearch.value) {
+        nextTick(() => {
+          searchInputRef.value?.focus();
+        });
+      }
     };
 
     const enable3d = () => {
@@ -495,8 +674,7 @@ export default defineComponent({
     };
 
     const onShortClick = () => {
-      if (!layoutStore.isOwner || isEditing.value) return;
-      toggleEditMode();
+      // No-op: map is always interactive, no edit mode toggle needed
     };
 
     const onExitClick = () => {
@@ -533,7 +711,18 @@ export default defineComponent({
       }
     );
 
+    watch(
+      () => props.content.marker,
+      (value) => {
+        if (value) {
+          updateMarker(value);
+        }
+      },
+      { deep: true }
+    );
+
     onMounted(() => {
+      seedAnimationVars();
       if (!mapContainer.value || !token) return;
       mapboxgl.accessToken = token;
 
@@ -559,7 +748,21 @@ export default defineComponent({
       mapInstance.value = map;
       setMapInteractivity(isInteractive.value);
 
+      // Watch for container size changes (e.g. grid resize transitions)
+      // so the map re-renders to fill the new dimensions without black bars.
+      if (mapContainer.value) {
+        const ro = new ResizeObserver(() => {
+          map.resize();
+        });
+        ro.observe(mapContainer.value);
+        resizeObserver = ro;
+      }
+
       applyActivePreset();
+
+      if (props.content.marker) {
+        updateMarker(props.content.marker);
+      }
 
       const hasSavedCenter =
         props.content.center &&
@@ -579,21 +782,37 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
+      resizeObserver?.disconnect();
+      resizeObserver = null;
+      markerInstance.value?.remove();
       mapInstance.value?.remove();
     });
 
     return {
       layoutStore,
+      cloudShadow,
+      cloudImage,
       planeIcon,
+      planeShadow,
+      mapTile,
       mapContainer,
       isEditing,
       isInteractive,
+      isPresetActive,
+      resizeMapTile,
+      isDefaultStyle,
+      toggleDefaultStyle,
       searchInput,
+      searchInputRef,
       statusMessage,
       styleMode,
       show3d,
       showClouds,
       showPlanes,
+      showSearch,
+      toggleClouds,
+      togglePlanes,
+      toggleSearch,
       handleSearch,
       useMyLocation,
       toggleEditMode,
@@ -632,75 +851,65 @@ export default defineComponent({
 }
 
 .map-clouds {
-  opacity: 0.5;
-  mix-blend-mode: screen;
-  filter: blur(6px);
+  width: 100%;
+  height: 100%;
+  /* overflow: hidden; */
 }
 
 .map-cloud {
   position: absolute;
-  inset: -25%;
-  background-image:
-    radial-gradient(circle at 18% 40%, rgba(255, 255, 255, 0.65) 0 22%, transparent 44%),
-    radial-gradient(circle at 38% 30%, rgba(255, 255, 255, 0.55) 0 18%, transparent 40%),
-    radial-gradient(circle at 58% 45%, rgba(255, 255, 255, 0.6) 0 20%, transparent 42%),
-    radial-gradient(circle at 78% 30%, rgba(255, 255, 255, 0.5) 0 18%, transparent 38%),
-    radial-gradient(circle at 90% 50%, rgba(255, 255, 255, 0.45) 0 16%, transparent 36%);
-  background-size: 320px 200px;
-  background-repeat: repeat;
+  left: 0;
+  top: 0;
+  width: 1000px;
+  height: auto;
   will-change: transform;
 }
 
-.map-cloud.layer-a {
-  top: -35%;
-  opacity: 0.45;
-  animation: cloudDriftSlow 140s linear infinite;
+.map-cloud--main {
+  opacity: 0.9;
+  animation: cloudDrift var(--cloud-duration, 80s) linear infinite;
+  animation-delay: var(--cloud-delay, 0s);
 }
 
-.map-cloud.layer-b {
-  top: -15%;
-  opacity: 0.35;
-  filter: blur(10px);
-  animation: cloudDriftMid 110s linear infinite;
-}
-
-.map-cloud.layer-c {
-  top: 5%;
-  opacity: 0.25;
-  filter: blur(14px);
-  animation: cloudDriftFast 90s linear infinite;
+.map-cloud--shadow {
+  opacity: 0.6;
+  filter: blur(4px) brightness(0.01);
+  animation: cloudShadowDrift var(--cloud-shadow-duration, 80s) linear infinite;
+  animation-delay: var(--cloud-shadow-delay, 0s);
 }
 
 .map-plane {
-  color: rgba(255, 255, 255, 0.85);
-  overflow: hidden;
-}
-
-.plane-group {
   position: absolute;
-  left: -30%;
-  top: 35%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  animation: planePath 28s linear infinite;
-  will-change: transform, opacity;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
+  /* overflow: hidden; */
 }
 
-.plane-trail {
-  width: 140px;
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.6));
-  filter: blur(1px);
-  opacity: 0.7;
+.plane-icon,
+.plane-shadow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  /*height: 24px; */
+  transform-origin: center;
+  /* will-change: transform, opacity; */
 }
 
 .plane-icon {
-  width: 40px;
-  height: 40px;
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.25));
-  transform: rotate(0deg);
+  filter: drop-shadow(0 3px 6px rgba(15, 45, 90, 0.35));
+  animation: planeFly var(--plane-duration, 28s) linear infinite;
+  animation-delay: var(--plane-delay, 0s);
+}
+
+.plane-shadow {
+  /* opacity: 0.45; */
+  /* filter: blur(3px) brightness(0.15); */
+  animation: planeShadowFly var(--plane-shadow-duration, 28s) linear infinite;
+  animation-delay: var(--plane-shadow-delay, 0s);
 }
 
 .map-empty-state {
@@ -719,115 +928,16 @@ export default defineComponent({
   z-index: 1;
 }
 
-.map-toolbar {
+.map-status {
   position: absolute;
   bottom: 10px;
-  left: 10px;
-  right: 10px;
-  top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  background: color-mix(in srgb, var(--color-tile-background) 88%, transparent);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-md);
-  z-index: 2;
-  backdrop-filter: blur(12px);
-}
-
-.map-search {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.map-input {
-  flex: 1 1 220px;
-  min-width: 160px;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  background: var(--color-content-background);
-  color: var(--color-text-primary);
-  font-size: 12px;
-}
-
-.map-input:focus {
-  outline: none;
-  border-color: var(--color-content-default);
-}
-
-.map-btn {
-  border: none;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--color-content-high);
-  color: var(--color-text-primary);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.map-btn--ghost {
-  background: color-mix(in srgb, var(--color-tile-background) 70%, transparent);
-}
-
-.map-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-  font-size: 12px;
-  color: var(--color-text-primary);
-}
-
-.map-select {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.map-select select {
-  background: var(--color-content-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  padding: 4px 6px;
-  font-size: 12px;
-}
-
-.map-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.map-toggle input {
-  accent-color: var(--color-figma-blue);
-}
-
-.map-status {
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 11px;
   color: var(--color-content-default);
-}
-
-.map-edit-btn {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  background: color-mix(in srgb, var(--color-tile-background) 80%, transparent);
-  color: var(--color-text-primary);
-  font-size: 12px;
-  cursor: pointer;
+  text-align: center;
   z-index: 2;
-}
-
-.map-edit-btn.is-active {
-  background: var(--color-text-primary);
-  color: var(--color-tile-background);
+  pointer-events: none;
 }
 
 .map-tile :deep(.mapboxgl-ctrl-top-right) {
@@ -836,8 +946,7 @@ export default defineComponent({
   transition: opacity 0.2s ease;
 }
 
-.map-tile:hover :deep(.mapboxgl-ctrl-top-right),
-.map-tile.is-editing :deep(.mapboxgl-ctrl-top-right) {
+.map-tile:hover :deep(.mapboxgl-ctrl-top-right) {
   opacity: 1;
   pointer-events: auto;
 }
@@ -847,52 +956,166 @@ export default defineComponent({
   transition: opacity 0.2s ease;
 }
 
-.map-tile:hover :deep(.mapboxgl-ctrl-bottom-right),
-.map-tile.is-editing :deep(.mapboxgl-ctrl-bottom-right) {
+.map-tile:hover :deep(.mapboxgl-ctrl-bottom-right) {
   opacity: 1;
 }
 
-@keyframes cloudDriftSlow {
-  from {
-    transform: translateX(-8%);
-  }
-  to {
-    transform: translateX(8%);
-  }
+.map-tile :deep(.marker) {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  pointer-events: auto;
 }
 
-@keyframes cloudDriftMid {
-  from {
-    transform: translateX(-12%);
-  }
-  to {
-    transform: translateX(12%);
-  }
+.map-tile :deep(.marker__wrap) {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
-@keyframes cloudDriftFast {
-  from {
-    transform: translateX(-18%);
-  }
-  to {
-    transform: translateX(18%);
-  }
+.map-tile :deep(.marker__pulse) {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #679bff;
+  opacity: 0.2;
+  transform: translate(-50%, -50%);
+  animation: markerPulse 2.6s ease-out infinite;
 }
 
-@keyframes planePath {
+.map-tile :deep(.marker__body) {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 14px rgba(20, 45, 110, 0.25);
+}
+
+.map-tile :deep(.marker__inner) {
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  background: #679bff;
+  opacity: 0.55;
+}
+
+.map-tile :deep(.marker__border) {
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(103, 155, 255, 0.6);
+}
+
+.map-tile :deep(.marker__core) {
+  position: absolute;
+  inset: 5px;
+  border-radius: 999px;
+  background: #679bff;
+}
+
+@keyframes cloudDrift {
   0% {
-    transform: translate3d(-35%, 8%, 0) rotate(2deg);
-    opacity: 0;
+    transform: translate(
+        var(--cloud-start-x, -1295.098px),
+        var(--cloud-start-y, -250.375px)
+      )
+      rotate(var(--cloud-rotate, 120deg));
   }
-  12% {
-    opacity: 1;
-  }
-  55% {
-    transform: translate3d(45vw, -6%, 0) rotate(-2deg);
+  50% {
+    transform: translate(
+        var(--cloud-mid-x, -200px),
+        var(--cloud-mid-y, -120px)
+      )
+      rotate(var(--cloud-rotate, 120deg));
   }
   100% {
-    transform: translate3d(120vw, 10%, 0) rotate(4deg);
+    transform: translate(
+        var(--cloud-end-x, 1077.3733px),
+        var(--cloud-end-y, -124.672px)
+      )
+      rotate(var(--cloud-rotate, 120deg));
+  }
+}
+
+@keyframes cloudShadowDrift {
+  0% {
+    transform: translate(
+        var(--cloud-shadow-start-x, -1285.098px),
+        var(--cloud-shadow-start-y, -200.375px)
+      )
+      rotate(var(--cloud-shadow-rotate, 120deg));
+  }
+  50% {
+    transform: translate(
+        var(--cloud-shadow-mid-x, -180px),
+        var(--cloud-shadow-mid-y, -80px)
+      )
+      rotate(var(--cloud-shadow-rotate, 120deg));
+  }
+  100% {
+    transform: translate(
+        var(--cloud-shadow-end-x, 1067.3733px),
+        var(--cloud-shadow-end-y, 76.67151px)
+      )
+      rotate(var(--cloud-shadow-rotate, 120deg));
+  }
+}
+
+@keyframes markerPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0.8;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.6);
     opacity: 0;
+  }
+}
+
+@keyframes planeFly {
+  0% {
+    transform: translate(
+        var(--plane-start-x, 360px),
+        var(--plane-start-y, -180px)
+      )
+      rotate(var(--plane-rotate, 221.775deg));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--plane-end-x, -40px), var(--plane-end-y, 270px))
+      rotate(var(--plane-rotate, 221.775deg));
+    opacity: 1;
+  }
+}
+
+@keyframes planeShadowFly {
+  0% {
+    transform: translate(
+        var(--plane-shadow-start-x, 350px),
+        var(--plane-shadow-start-y, -100px)
+      )
+      rotate(var(--plane-shadow-rotate, 221.775deg));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(
+        var(--plane-shadow-end-x, -30px),
+        var(--plane-shadow-end-y, 350px)
+      )
+      rotate(var(--plane-shadow-rotate, 221.775deg));
+    opacity: 1;
   }
 }
 </style>

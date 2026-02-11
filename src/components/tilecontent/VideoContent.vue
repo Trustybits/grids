@@ -1,5 +1,10 @@
 <template>
-  <div class="video-container" ref="videoWrapper">
+  <div
+    class="video-container"
+    ref="videoWrapper"
+    @mouseenter="onTileMouseEnter"
+    @mouseleave="onTileMouseLeave"
+  >
     <div v-if="!content.src" class="spinner"></div>
     <div 
       v-else 
@@ -29,16 +34,22 @@
           class="video video-main"
           :style="videoStyle"
           draggable="false"
+          muted
+          playsinline
           @loadedmetadata="onVideoLoaded"
           @timeupdate="onTimeUpdate"
-          @click="togglePlayPause"
+          @ended="onVideoEnded"
+          @click="onVideoClick"
         ></video>
       </div>
       
-      <!-- Center Play Button -->
+      <!-- Center Play / Replay Button -->
       <div class="center-controls" v-if="!isEditing">
-        <button class="center-play-btn" @click.stop="togglePlayPause">
-          <svg v-if="isPlaying" viewBox="0 0 24 24" fill="currentColor">
+        <button class="center-play-btn" :class="{ 'show-replay': videoEnded }" @click.stop="onVideoClick">
+          <svg v-if="videoEnded" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+          </svg>
+          <svg v-else-if="playbackMode === 'playing' && isPlaying" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
           </svg>
           <svg v-else viewBox="0 0 24 24" fill="currentColor">
@@ -47,20 +58,10 @@
         </button>
       </div>
       
-      <!-- Bottom Control Bar -->
+      <!-- Bottom Control Bar — sits below the caption at tile bottom edge -->
       <div class="bottom-controls" v-if="!isEditing">
-        <div class="time-bar">
-          <span class="time-display">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
-        </div>
-        
-        <div class="progress-container" @click="seek">
-          <div class="progress-bar">
-            <div class="progress-filled" :style="{ width: progressPercent + '%' }"></div>
-          </div>
-        </div>
-        
-        <div class="control-row">
-          <div class="right-controls">
+        <div class="controls-row">
+          <div class="controls-right">
             <div class="volume-control">
               <div class="volume-slider-container">
                 <input 
@@ -69,9 +70,10 @@
                   min="0" 
                   max="1" 
                   step="0.01" 
-                  v-model.number="volume"
-                  @input="updateVolume"
-                  orient="vertical"
+                  :value="volume"
+                  @input="onVolumeInput"
+                  @mousedown.stop
+                  @pointerdown.stop
                 />
               </div>
               <button class="control-btn volume" @click.stop="toggleMute">
@@ -95,6 +97,12 @@
                 <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
               </svg>
             </button>
+            <span class="time-display">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
+          </div>
+        </div>
+        <div class="progress-container" @click="seek">
+          <div class="progress-bar">
+            <div class="progress-filled" :style="{ width: progressPercent + '%' }"></div>
           </div>
         </div>
       </div>
@@ -103,9 +111,13 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { defineComponent, ref, computed, onMounted, onUnmounted, watch, inject, type ComputedRef } from "vue";
 import { type VideoContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
+import { useVideoFocus } from "@/composables/useVideoFocus";
+
+const PREVIEW_DURATION = 15;
+const DEFAULT_VOLUME = 0.15;
 
 export default defineComponent({
   props: {
@@ -116,6 +128,13 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
+    const videoFocus = useVideoFocus();
+
+    // Injected tile position from GridTile
+    const tileId = inject<string>("tileId", "");
+    const tileX = inject<ComputedRef<number>>("tileX", computed(() => 0));
+    const tileY = inject<ComputedRef<number>>("tileY", computed(() => 0));
+
     const isEditing = ref(false);
     const isDragging = ref(false);
     const dragStart = ref({ x: 0, y: 0 });
@@ -146,10 +165,13 @@ export default defineComponent({
     const isPlaying = ref(false);
     const currentTime = ref(0);
     const duration = ref(0);
-    const volume = ref(1);
-    const isMuted = ref(false);
+    const volume = ref(DEFAULT_VOLUME);
+    const isMuted = ref(true);
     const isFullscreen = ref(false);
     const progressPercent = ref(0);
+    const playbackMode = ref<'idle' | 'preview' | 'playing'>('idle');
+    const savedVolume = ref(DEFAULT_VOLUME);
+    const videoEnded = ref(false);
 
     // Toggle crop mode
     const toggleEditMode = () => {
@@ -244,24 +266,115 @@ export default defineComponent({
 
       return { transform: baseTransform, cursor, width: '100%', height: '100%' };
     });
-    
-    // Video control methods
-    const togglePlayPause = () => {
-      if (!videoElement.value) return;
-      
-      if (isPlaying.value) {
-        videoElement.value.pause();
-        isPlaying.value = false;
-      } else {
-        videoElement.value.play();
+
+    // ── Playback helpers ──
+
+    const startPreview = () => {
+      const vid = videoElement.value;
+      if (!vid) return;
+      playbackMode.value = 'preview';
+      vid.muted = true;
+      isMuted.value = true;
+      vid.currentTime = 0;
+      vid.play().catch(() => {});
+      isPlaying.value = true;
+    };
+
+    const enterPlayingMode = () => {
+      const vid = videoElement.value;
+      if (!vid) return;
+      playbackMode.value = 'playing';
+      // Unmute and set to default volume
+      vid.muted = false;
+      vid.volume = savedVolume.value;
+      volume.value = savedVolume.value;
+      isMuted.value = false;
+      // Continue from current position (don't restart)
+      if (vid.paused) {
+        vid.play().catch(() => {});
+      }
+      isPlaying.value = true;
+    };
+
+    const pauseVideo = () => {
+      const vid = videoElement.value;
+      if (!vid) return;
+      vid.pause();
+      isPlaying.value = false;
+    };
+
+    const onVideoClick = () => {
+      if (isEditing.value) return;
+      const vid = videoElement.value;
+      if (!vid) return;
+
+      // Replay from start
+      if (videoEnded.value) {
+        videoEnded.value = false;
+        vid.currentTime = 0;
+        vid.play().catch(() => {});
         isPlaying.value = true;
+        return;
+      }
+
+      if (playbackMode.value === 'playing') {
+        // Normal toggle play/pause
+        if (isPlaying.value) {
+          pauseVideo();
+        } else {
+          vid.play().catch(() => {});
+          isPlaying.value = true;
+        }
+      } else {
+        // Preview or idle → enter playing mode
+        enterPlayingMode();
       }
     };
+
+    // ── Focus handling (hover + scroll) ──
+
+    const onTileMouseEnter = () => {
+      if (tileId) videoFocus.setHovered(tileId);
+    };
+
+    const onTileMouseLeave = () => {
+      videoFocus.setHovered(null);
+    };
+
+    // Watch the shared activeVideoId to start/stop preview
+    watch(
+      () => videoFocus.activeVideoId.value,
+      (newActiveId) => {
+        const isActive = newActiveId === tileId;
+
+        if (isActive) {
+          // Gained focus
+          if (playbackMode.value === 'playing') {
+            // Resume user-initiated playback from where we paused
+            const vid = videoElement.value;
+            if (vid && vid.paused) {
+              vid.play().catch(() => {});
+              isPlaying.value = true;
+            }
+          } else {
+            // Start or restart preview
+            startPreview();
+          }
+        } else {
+          // Lost focus — pause regardless of mode
+          if (isPlaying.value) {
+            pauseVideo();
+          }
+        }
+      }
+    );
     
     const onVideoLoaded = () => {
       if (videoElement.value) {
         duration.value = videoElement.value.duration;
-        volume.value = videoElement.value.volume;
+        // Keep video muted on load
+        videoElement.value.muted = true;
+        videoElement.value.volume = DEFAULT_VOLUME;
         
         // Track video dimensions
         videoDimensions.value = {
@@ -282,10 +395,21 @@ export default defineComponent({
         });
         resizeObserver.value.observe(videoWrapper.value);
       }
+
+      // Register with the video focus system
+      if (tileId && videoWrapper.value) {
+        videoFocus.register(tileId, tileX.value, tileY.value, videoWrapper.value);
+      }
     });
 
     onUnmounted(() => {
       resizeObserver.value?.disconnect();
+      if (tileId) videoFocus.unregister(tileId);
+    });
+
+    // Keep focus system in sync if tile is repositioned
+    watch([tileX, tileY], ([x, y]) => {
+      if (tileId) videoFocus.updatePosition(tileId, x, y);
     });
 
     watch(videoDimensions, () => {
@@ -293,12 +417,33 @@ export default defineComponent({
     });
     
     const onTimeUpdate = () => {
-      if (videoElement.value) {
-        currentTime.value = videoElement.value.currentTime;
-        progressPercent.value = (currentTime.value / duration.value) * 100;
+      if (!videoElement.value) return;
+      currentTime.value = videoElement.value.currentTime;
+      progressPercent.value = duration.value > 0
+        ? (currentTime.value / duration.value) * 100
+        : 0;
+
+      // Preview loop: for videos longer than the preview window, loop back at PREVIEW_DURATION
+      if (playbackMode.value === 'preview' && duration.value > PREVIEW_DURATION && currentTime.value >= PREVIEW_DURATION) {
+        videoElement.value.currentTime = 0;
       }
     };
     
+    const onVideoEnded = () => {
+      if (playbackMode.value === 'preview') {
+        // Short videos (< PREVIEW_DURATION) reach their natural end – loop in preview mode
+        const vid = videoElement.value;
+        if (vid) {
+          vid.currentTime = 0;
+          vid.play().catch(() => {});
+        }
+      } else if (playbackMode.value === 'playing') {
+        // User-initiated playback finished — show replay icon
+        isPlaying.value = false;
+        videoEnded.value = true;
+      }
+    };
+
     const seek = (event: MouseEvent) => {
       if (!videoElement.value) return;
       
@@ -309,12 +454,22 @@ export default defineComponent({
       
       videoElement.value.currentTime = newTime;
       currentTime.value = newTime;
+
+      // Seeking implies user intent — enter playing mode
+      if (playbackMode.value !== 'playing') {
+        enterPlayingMode();
+      }
     };
     
-    const updateVolume = () => {
+    const onVolumeInput = (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      const val = parseFloat(target.value);
+      volume.value = val;
+      savedVolume.value = val > 0 ? val : DEFAULT_VOLUME;
       if (videoElement.value) {
-        videoElement.value.volume = volume.value;
-        isMuted.value = volume.value === 0;
+        videoElement.value.volume = val;
+        videoElement.value.muted = val === 0;
+        isMuted.value = val === 0;
       }
     };
     
@@ -322,10 +477,14 @@ export default defineComponent({
       if (!videoElement.value) return;
       
       if (isMuted.value) {
-        videoElement.value.volume = volume.value > 0 ? volume.value : 0.5;
-        volume.value = videoElement.value.volume;
+        const vol = savedVolume.value > 0 ? savedVolume.value : DEFAULT_VOLUME;
+        videoElement.value.muted = false;
+        videoElement.value.volume = vol;
+        volume.value = vol;
         isMuted.value = false;
       } else {
+        savedVolume.value = volume.value > 0 ? volume.value : DEFAULT_VOLUME;
+        videoElement.value.muted = true;
         videoElement.value.volume = 0;
         isMuted.value = true;
       }
@@ -384,14 +543,19 @@ export default defineComponent({
       isMuted,
       isFullscreen,
       progressPercent,
-      togglePlayPause,
+      playbackMode,
+      videoEnded,
+      onVideoClick,
       onVideoLoaded,
+      onVideoEnded,
       onTimeUpdate,
       seek,
-      updateVolume,
+      onVolumeInput,
       toggleMute,
       toggleFullscreen,
       formatTime,
+      onTileMouseEnter,
+      onTileMouseLeave,
       videoDimensions,
       tileDimensions,
     };
@@ -473,6 +637,11 @@ export default defineComponent({
   height: 80px;
 }
 
+/* Replay icon stays visible without hover */
+.center-play-btn.show-replay {
+  opacity: 1;
+}
+
 .video-wrapper:hover .center-play-btn {
   opacity: 1;
 }
@@ -486,72 +655,78 @@ export default defineComponent({
   transform: scale(0.95);
 }
 
-/* Bottom Control Bar */
+/* Bottom Control Bar — compact strip at tile bottom edge, below caption */
 .bottom-controls {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
-  padding: 12px 16px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 2px 8px;
   opacity: 0;
   transition: opacity 0.3s ease;
-  z-index: 10;
+  pointer-events: none;
 }
 
-.video-wrapper:hover .bottom-controls {
+.video-wrapper:hover .controls-row {
   opacity: 1;
+  pointer-events: all;
 }
 
-.time-bar {
+.controls-right {
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: 4px;
+  align-items: center;
+  gap: 4px;
 }
 
 .progress-container {
   width: 100%;
   cursor: pointer;
-  padding: 8px 0;
-  margin-bottom: 8px;
+  padding: 4px 0 0;
+  pointer-events: all;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.video-wrapper:hover .progress-container {
+  opacity: 1;
 }
 
 .progress-bar {
   width: 100%;
-  height: 5px;
+  height: 3px;
   background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
+  border-radius: 2px;
   overflow: hidden;
   position: relative;
+  transition: height 0.15s ease;
+}
+
+.video-wrapper:hover .progress-bar {
+  height: 5px;
 }
 
 .progress-filled {
   height: 100%;
   background: white;
-  border-radius: 3px;
+  border-radius: 2px;
   transition: width 0.1s linear;
-}
-
-.control-row {
-  display: flex;
-  margin: 4px;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
 }
 
 .time-display {
   color: white;
-  font-size: 13px;
+  font-size: 11px;
   font-family: monospace;
   white-space: nowrap;
   user-select: none;
-}
-
-.right-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 .control-btn {
@@ -559,7 +734,7 @@ export default defineComponent({
   border: none;
   color: white;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 2px 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -568,8 +743,9 @@ export default defineComponent({
 }
 
 .control-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
 .control-btn:hover {
@@ -589,19 +765,18 @@ export default defineComponent({
 
 .volume-slider-container {
   position: absolute;
-  bottom: calc(100% - 8px);
+  bottom: calc(100% + 4px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--color-tile-background);
-  border: 2px solid var(--color-tile-stroke);
+  background: transparent;
+  border: none;
   border-radius: 8px;
-  padding: 4px 8px;
-  width: 24px;
+  padding: 12px 0;
+  width: 36px;
   height: 100px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
-  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -614,12 +789,12 @@ export default defineComponent({
 }
 
 .volume-slider {
-  width: 80px;
-  height: 20px;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 20px;
+  height: 80px;
   cursor: pointer;
   accent-color: var(--color-text-primary);
-  transform: rotate(-90deg);
-  transform-origin: center;
   background: transparent;
   -webkit-appearance: none;
   appearance: none;
@@ -627,9 +802,9 @@ export default defineComponent({
   padding: 0;
 }
 
-.volume-slider::-webkit-slider-track {
-  width: 100%;
-  height: 4px;
+.volume-slider::-webkit-slider-runnable-track {
+  width: 4px;
+  height: 100%;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 2px;
 }
@@ -642,11 +817,12 @@ export default defineComponent({
   border-radius: 50%;
   background: var(--color-text-primary);
   cursor: pointer;
+  margin-left: -5px;
 }
 
 .volume-slider::-moz-range-track {
-  width: 100%;
-  height: 4px;
+  width: 4px;
+  height: 100%;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 2px;
 }

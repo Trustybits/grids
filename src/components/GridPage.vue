@@ -23,7 +23,19 @@
       embedded background
     </iframe>
 
-    <div class="layout-container">
+    <div class="layout-container" ref="layoutContainer" :class="{ 'drag-over': isDraggingOver }">
+      <!-- Drag overlay indicator -->
+      <div v-if="isDraggingOver && layoutStore.isOwner" class="drag-overlay">
+        <div class="drag-message">
+          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <p>Drop to add to grid</p>
+        </div>
+      </div>
+      
       <div v-if="layoutStore.isOwner" class="toolbar">
         <div class="row">
           <div class="col-md-12">
@@ -42,26 +54,20 @@
     @embed-background="embedBackground"
     @confirm-delete="confirmDelete"
   />
-  <Divider />
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { getAuth } from "firebase/auth";
-import {
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from "firebase/storage";
-
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
 import GridMenu from "@/components/GridMenu.vue";
 import ShareButton from "@/components/ShareButton.vue";
+import Divider from "@/components/Divider.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
+import { useDragAndPaste } from "@/composables/useDragAndPaste";
+import { useFileUpload } from "@/composables/useFileUpload";
 
 export default defineComponent({
   components: {
@@ -69,15 +75,19 @@ export default defineComponent({
     GridButtons,
     GridMenu,
     ShareButton,
+    Divider,
   },
   setup() {
     const layoutStore = useLayoutStore();
     const rowHeight = 75;
-    const auth = getAuth();
-    const storage = getStorage();
     const imageInput = ref<HTMLInputElement | null>(null);
+    const layoutContainer = ref<HTMLElement | null>(null);
     const route = useRoute();
     const router = useRouter();
+
+    // Setup drag and drop + paste functionality
+    const { isDraggingOver } = useDragAndPaste(layoutContainer);
+    const { uploadFileToUrl } = useFileUpload();
 
     const isOwner = computed(() => {
       return layoutStore.isOwner;
@@ -114,20 +124,11 @@ export default defineComponent({
       if (!file) return;
 
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          alert("You must be logged in to upload an image.");
-          return;
-        }
-
-        const filePath = `users/${currentUser.uid}/images/${Date.now()}_${file.name}`;
-        const fileRef = storageRef(storage, filePath);
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
+        const url = await uploadFileToUrl(file, { fileType: "images" });
         layoutStore.addBackgroundImage(url, false);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to upload image:", error);
-        alert("Failed to upload image. Please try again.");
+        alert(error.message || "Failed to upload image. Please try again.");
       }
     };
 
@@ -177,7 +178,8 @@ export default defineComponent({
       embedBackground,
       confirmDelete,
       imageInput,
-      auth,
+      layoutContainer,
+      isDraggingOver,
       isOwner,
     };
   },
@@ -195,5 +197,66 @@ export default defineComponent({
 
 .layout-container {
   padding-top: 2rem;
+  position: relative;
+  
+  &.drag-over {
+    .drag-overlay {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+}
+
+.drag-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--color-content-background) 50%, transparent);
+  backdrop-filter: blur(8px);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--easing-ease-out);
+  
+  .drag-message {
+    background: var(--color-tile-background);
+    border: var(--tile-border-width) solid var(--color-tile-stroke);
+    border-style: dashed;
+    border-radius: var(--tile-border-radius);
+    padding: 2rem 3rem;
+    text-align: center;
+    box-shadow: var(--shadow-tile-hover);
+    
+    svg {
+      color: var(--color-text-primary);
+      margin-bottom: 0.75rem;
+      opacity: 0.7;
+      width: 48px;
+      height: 48px;
+      animation: bounce 2s ease-in-out infinite;
+    }
+    
+    p {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      opacity: 0.8;
+    }
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 </style>

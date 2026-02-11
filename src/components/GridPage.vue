@@ -60,6 +60,7 @@ import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
 import GridMenu from "@/components/GridMenu.vue";
 import ShareButton from "@/components/ShareButton.vue";
+import Divider from "@/components/Divider.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
 
@@ -69,6 +70,7 @@ export default defineComponent({
     GridButtons,
     GridMenu,
     ShareButton,
+    Divider,
   },
   setup() {
     const layoutStore = useLayoutStore();

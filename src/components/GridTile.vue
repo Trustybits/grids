@@ -162,6 +162,9 @@ export default defineComponent({
     // This is used for responsive content rendering (e.g. title line clamping).
     provide("gridTileH", computed(() => props.tile.h));
     provide("gridTileW", computed(() => props.tile.w));
+    provide("tileId", props.tile.i);
+    provide("tileX", computed(() => props.tile.x));
+    provide("tileY", computed(() => props.tile.y));
 
     const isMoving = ref(false);
     const isDragging = ref(false);
@@ -857,6 +860,11 @@ export default defineComponent({
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
+}
+
+/* Non-owner caption: hide on tile hover */
+.tile-wrapper:hover :deep(.viewer-caption) {
+  display: none;
 }
 
 /* Hide close button during crop mode and when exiting */

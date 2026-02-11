@@ -1,5 +1,5 @@
 <template>
-  <div ref="mapTile" class="map-tile" :class="{ 'is-editing': isEditing }">
+  <div ref="mapTile" class="map-tile">
     <div
       ref="mapContainer"
       class="map-canvas"
@@ -20,110 +20,7 @@
       Add <strong>VITE_MAPBOX_TOKEN</strong> to enable maps.
     </div>
 
-    <div v-if="layoutStore.isOwner && isEditing" class="map-toolbar" @mousedown.stop>
-      <div class="map-toolbar-actions">
-        <button
-          class="map-toolbar-btn"
-          :class="{ 'is-active': isPresetActive(4, 4) }"
-          title="4x4 tile size"
-          type="button"
-          @click.stop="resizeMapTile(4, 4)"
-        >
-          <img :src="size4x4Icon" alt="" />
-        </button>
-        <button
-          class="map-toolbar-btn"
-          :class="{ 'is-active': isPresetActive(2, 4) }"
-          title="2x4 tile size"
-          type="button"
-          @click.stop="resizeMapTile(2, 4)"
-        >
-          <img :src="size2x4Icon" alt="" />
-        </button>
-        <button
-          class="map-toolbar-btn"
-          :class="{ 'is-active': isPresetActive(4, 2) }"
-          title="4x2 tile size"
-          type="button"
-          @click.stop="resizeMapTile(4, 2)"
-        >
-          <img :src="size4x2Icon" alt="" />
-        </button>
-        <div class="map-toolbar-divider" aria-hidden="true"></div>
-        <button
-          class="map-toolbar-btn"
-          :class="{ 'is-active': isDefaultStyle }"
-          title="default map style"
-          type="button"
-          @click.stop="toggleDefaultStyle"
-        >
-          <img :src="defaultStyleIcon" alt="" />
-        </button>
-        <div class="map-toolbar-divider" aria-hidden="true"></div>
-        <button
-          class="map-toolbar-btn"
-          :class="{ 'is-active': showClouds }"
-          title="toggle clouds"
-          type="button"
-          @click.stop="toggleClouds"
-        >
-          <img :src="cloudsIcon" alt="" />
-        </button>
-        <button
-          class="map-toolbar-btn"
-          :class="{ 'is-active': showPlanes }"
-          title="toggle plane"
-          type="button"
-          @click.stop="togglePlanes"
-        >
-          <img :src="planeSvgIcon" alt="" />
-        </button>
-        <div class="map-toolbar-divider" aria-hidden="true"></div>
-        <button
-          class="map-toolbar-btn"
-          :class="{ 'is-active': showSearch }"
-          title="open search"
-          type="button"
-          @click.stop="toggleSearch"
-        >
-          <img :src="mapSearchIcon" alt="" />
-        </button>
-      </div>
-
-      <form v-if="showSearch" class="map-search-bar" @submit.prevent="handleSearch">
-        <button
-          class="map-search-btn"
-          title="my location"
-          type="button"
-          @click.stop="useMyLocation"
-        >
-          <img :src="locateIcon" alt="" />
-        </button>
-        <div class="map-search-divider" aria-hidden="true"></div>
-        <input
-          ref="searchInputRef"
-          v-model="searchInput"
-          class="map-search-input"
-          type="text"
-          placeholder="address or zip"
-        />
-        <button class="map-search-btn map-search-btn--submit" title="search map" type="submit">
-          <img :src="searchIcon" alt="" />
-        </button>
-      </form>
-
-      <div v-if="statusMessage" class="map-status">{{ statusMessage }}</div>
-    </div>
-
-    <button
-      v-if="layoutStore.isOwner"
-      class="map-edit-btn hover-display"
-      :class="{ 'is-active': isEditing }"
-      :style="{ display: isEditing ? 'flex' : '' }"
-      @click.stop="toggleEditMode"
-    >
-      {{ isEditing ? "Done" : "Edit" }}
-    </button>
+    <div v-if="statusMessage" class="map-status">{{ statusMessage }}</div>
   </div>
 </template>
 
@@ -144,15 +41,6 @@ import cloudImage from "@/assets/images/cloud.png";
 import cloudShadow from "@/assets/images/cloud_shadow.png";
 import planeIcon from "@/assets/images/plane.png";
 import planeShadow from "@/assets/images/planeshadow.png";
-import size4x4Icon from "@/svgs/icons/4x4.svg";
-import size2x4Icon from "@/svgs/icons/2x4.svg";
-import size4x2Icon from "@/svgs/icons/4x2.svg";
-import defaultStyleIcon from "@/svgs/icons/Default.svg";
-import cloudsIcon from "@/svgs/icons/Clouds.svg";
-import planeSvgIcon from "@/svgs/icons/plane.svg";
-import mapSearchIcon from "@/svgs/icons/MapSearch.svg";
-import locateIcon from "@/svgs/icons/locate-fixed.svg";
-import searchIcon from "@/svgs/icons/search.svg";
 import { useLayoutStore } from "@/stores/layout";
 import { useThemeStore } from "@/stores/theme";
 import { type MapContent, type MapStyleMode } from "@/types/TileContent";
@@ -316,6 +204,7 @@ export default defineComponent({
     const searchInput = ref(props.content.searchQuery || "");
     const searchInputRef = ref<HTMLInputElement | null>(null);
     const statusMessage = ref<string | null>(null);
+    let resizeObserver: ResizeObserver | null = null;
     const token = import.meta.env.VITE_MAPBOX_TOKEN;
     const hasToken = computed(() => !!token);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
@@ -785,8 +674,7 @@ export default defineComponent({
     };
 
     const onShortClick = () => {
-      if (!layoutStore.isOwner || isEditing.value) return;
-      toggleEditMode();
+      // No-op: map is always interactive, no edit mode toggle needed
     };
 
     const onExitClick = () => {
@@ -860,6 +748,16 @@ export default defineComponent({
       mapInstance.value = map;
       setMapInteractivity(isInteractive.value);
 
+      // Watch for container size changes (e.g. grid resize transitions)
+      // so the map re-renders to fill the new dimensions without black bars.
+      if (mapContainer.value) {
+        const ro = new ResizeObserver(() => {
+          map.resize();
+        });
+        ro.observe(mapContainer.value);
+        resizeObserver = ro;
+      }
+
       applyActivePreset();
 
       if (props.content.marker) {
@@ -884,6 +782,8 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
+      resizeObserver?.disconnect();
+      resizeObserver = null;
       markerInstance.value?.remove();
       mapInstance.value?.remove();
     });
@@ -894,15 +794,6 @@ export default defineComponent({
       cloudImage,
       planeIcon,
       planeShadow,
-      size4x4Icon,
-      size2x4Icon,
-      size4x2Icon,
-      defaultStyleIcon,
-      cloudsIcon,
-      planeSvgIcon,
-      mapSearchIcon,
-      locateIcon,
-      searchIcon,
       mapTile,
       mapContainer,
       isEditing,
@@ -1037,148 +928,16 @@ export default defineComponent({
   z-index: 1;
 }
 
-.map-toolbar {
+.map-status {
   position: absolute;
-  bottom: 12px;
+  bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  z-index: 2;
-  pointer-events: auto;
-  max-width: calc(100% - 20px);
-}
-
-.map-toolbar-actions,
-.map-search-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: color-mix(in srgb, #000 72%, var(--color-tile-background));
-  border: 1px solid color-mix(in srgb, var(--color-content-low) 70%, transparent);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
-}
-
-.map-toolbar-actions {
-  gap: 6px;
-}
-
-.map-toolbar-btn {
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: 12px;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.map-toolbar-btn img {
-  width: 20px;
-  height: 20px;
-}
-
-.map-toolbar-btn:hover {
-  background: color-mix(in srgb, var(--color-content-high) 18%, transparent);
-}
-
-.map-toolbar-btn.is-active {
-  background: color-mix(in srgb, var(--color-content-high) 26%, transparent);
-}
-
-.map-toolbar-divider {
-  width: 1px;
-  height: 22px;
-  background: color-mix(in srgb, var(--color-content-low) 70%, transparent);
-  margin: 0 2px;
-}
-
-.map-search-bar {
-  width: min(380px, 100%);
-  padding: 6px 10px;
-  gap: 8px;
-}
-
-.map-search-btn {
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: 12px;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.map-search-btn img {
-  width: 18px;
-  height: 18px;
-}
-
-.map-search-btn--submit {
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-content-high) 20%, transparent);
-}
-
-.map-search-divider {
-  width: 1px;
-  height: 24px;
-  background: color-mix(in srgb, var(--color-content-low) 70%, transparent);
-}
-
-.map-search-input {
-  flex: 1;
-  min-width: 140px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-primary);
-  font-size: 13px;
-  letter-spacing: 0.01em;
-}
-
-.map-search-input:focus {
-  outline: none;
-}
-
-.map-search-input::placeholder {
-  color: var(--color-content-low);
-}
-
-.map-status {
   font-size: 11px;
   color: var(--color-content-default);
   text-align: center;
-}
-
-.map-edit-btn {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  background: color-mix(in srgb, var(--color-tile-background) 80%, transparent);
-  color: var(--color-text-primary);
-  font-size: 12px;
-  cursor: pointer;
   z-index: 2;
-}
-
-.map-edit-btn.is-active {
-  background: var(--color-text-primary);
-  color: var(--color-tile-background);
+  pointer-events: none;
 }
 
 .map-tile :deep(.mapboxgl-ctrl-top-right) {
@@ -1187,8 +946,7 @@ export default defineComponent({
   transition: opacity 0.2s ease;
 }
 
-.map-tile:hover :deep(.mapboxgl-ctrl-top-right),
-.map-tile.is-editing :deep(.mapboxgl-ctrl-top-right) {
+.map-tile:hover :deep(.mapboxgl-ctrl-top-right) {
   opacity: 1;
   pointer-events: auto;
 }
@@ -1198,8 +956,7 @@ export default defineComponent({
   transition: opacity 0.2s ease;
 }
 
-.map-tile:hover :deep(.mapboxgl-ctrl-bottom-right),
-.map-tile.is-editing :deep(.mapboxgl-ctrl-bottom-right) {
+.map-tile:hover :deep(.mapboxgl-ctrl-bottom-right) {
   opacity: 1;
 }
 

@@ -183,6 +183,14 @@ export const useLayoutStore = defineStore("layout", {
     isOwner: false,
     recentLayoutIds: [] as string[],
     activeMenuTileId: null as string | null,
+    // Tracks tiles that are currently uploading media in the background.
+    // Key = tile ID, value = upload progress (0–1) or -1 for indeterminate.
+    uploadingTiles: {} as Record<string, number>,
+    // Maps tile ID → permanent Firebase URL for tiles still displaying a blob: preview.
+    // Used by the Firestore persistence layer to write the real URL instead of the blob.
+    // The blob URL stays as the in-memory src so the <img>/<video> element never reloads.
+    resolvedUrls: {} as Record<string, string>,
+    activeColorMenuTileId: null as string | null,
   }),
 
   getters: {
@@ -193,13 +201,46 @@ export const useLayoutStore = defineStore("layout", {
 
   actions: {
     setActiveMenuTile(tileId: string) {
+      this.activeColorMenuTileId = null;
       this.activeMenuTileId = tileId;
+    },
+
+    setActiveColorMenuTileId(tileId: string) {
+      this.activeMenuTileId = null;
+      this.activeColorMenuTileId = tileId;
     },
 
     closeAllMenus() {
       this.activeMenuTileId = null;
+      this.activeColorMenuTileId = null;
     },
 
+    // Mark a tile as currently uploading (progress: 0–1, or -1 for indeterminate)
+    setTileUploading(tileId: string, progress: number) {
+      this.uploadingTiles[tileId] = progress;
+    },
+
+    // Clear the uploading state for a tile once upload completes or fails
+    clearTileUploading(tileId: string) {
+      delete this.uploadingTiles[tileId];
+    },
+
+    // Store the permanent Firebase URL for a tile that is still showing a blob preview.
+    // This URL is used only for Firestore persistence — the displayed src is unchanged.
+    setResolvedUrl(tileId: string, url: string) {
+      this.resolvedUrls[tileId] = url;
+    },
+
+    // Retrieve the resolved Firebase URL for a tile, if one exists
+    getResolvedUrl(tileId: string): string | undefined {
+      return this.resolvedUrls[tileId];
+    },
+
+    // Clean up resolved URL entry (e.g. when tile is removed)
+    clearResolvedUrl(tileId: string) {
+      delete this.resolvedUrls[tileId];
+    },
+    
     async fetchLayouts() {
       this.isLoading = true;
       this.error = null;
@@ -381,7 +422,10 @@ export const useLayoutStore = defineStore("layout", {
       document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/`;
     },
 
-    // Save the current layout
+    // Save the current layout.
+    // Before persisting, any blob: URLs used for optimistic previews are replaced
+    // with their resolved Firebase URLs (if the upload has completed). This keeps
+    // the in-memory tile src unchanged so the <img>/<video> element never reloads.
     async saveLayout() {
       if (!this.currentLayout) {
         console.warn("No layout to save.");
@@ -393,7 +437,20 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        await layoutService.saveLayout(this.currentLayout);
+        // Build a shallow copy with blob URLs swapped for resolved Firebase URLs
+        const resolvedTiles = this.currentLayout.tiles.map((tile) => {
+          const src = (tile.content as any)?.src;
+          if (typeof src === "string" && src.startsWith("blob:")) {
+            const realUrl = this.resolvedUrls[tile.i];
+            if (realUrl) {
+              return { ...tile, content: { ...tile.content, src: realUrl } };
+            }
+          }
+          return tile;
+        });
+
+        const layoutToSave = { ...this.currentLayout, tiles: resolvedTiles } as Layout;
+        await layoutService.saveLayout(layoutToSave);
       } catch (err) {
         this.error = "Failed to save layout.";
         console.error(err);
@@ -421,9 +478,32 @@ export const useLayoutStore = defineStore("layout", {
       const tileWidth = isProfile ? 4 : 2;
       const tileHeight = isProfile ? 4 : 2;
 
-      // Find the first available spot (left-to-right, top-to-bottom)
-      const position = this.findFirstAvailableSpot(tileWidth, tileHeight);
-      // Create the new tile at the found position
+      // --- Viewport-based tile placement ---
+      // New tiles must appear where the user is looking. If the user has scrolled
+      // down the grid, we force-place the tile at the viewport center row. When
+      // that row is occupied, pushTilesForNewItem resolves all collisions in the
+      // reactive data *before* Vue renders — so existing tiles slide out of the
+      // way in the same frame and the user never sees an overlap.
+      //
+      // When the user is at the top of the grid (viewportY === 0) we fall back to
+      // the traditional gap-search so new tiles fill from the top naturally.
+      const viewportY = this.getViewportGridY();
+      let position: { x: number; y: number };
+
+      if (viewportY > 0) {
+        // Force-place at the viewport row. Try to find an open X column at
+        // that exact row first for a cleaner result; otherwise default to x=0.
+        position = this.findBestXAtRow(tileWidth, tileHeight, viewportY);
+      } else {
+        // At the top of the grid — use traditional gap search
+        position = this.findFirstAvailableSpot(tileWidth, tileHeight);
+      }
+
+      // Push existing tiles out of the way BEFORE adding the new tile.
+      // This modifies tile Y positions in the reactive data so Vue never
+      // renders an intermediate frame with overlapping tiles.
+      this.pushTilesForNewItem(position.x, position.y, tileWidth, tileHeight);
+
       const newTile = createTile(
         content.type,
         uuidv4(),
@@ -497,20 +577,154 @@ export const useLayoutStore = defineStore("layout", {
       }, 0);
     },
 
-    // Find the first available spot for a tile of given width and height
-    // Scans left-to-right, top-to-bottom
-    findFirstAvailableSpot(width: number, height: number): { x: number; y: number } {
+    /**
+     * Convert the viewport center to a grid Y coordinate.
+     * Uses the grid element's bounding rect and the known row-height + margin
+     * constants to determine which grid row is at the center of the screen.
+     * Returns 0 if the grid element can't be found (safe fallback to old behaviour).
+     */
+    getViewportGridY(): number {
+      const ROW_HEIGHT = 75;
+      const MARGIN = 48;
+      const CELL_HEIGHT = ROW_HEIGHT + MARGIN; // 123px per grid unit
+
+      const gridEl = document.querySelector<HTMLElement>(".vue-grid-layout");
+      if (!gridEl) return 0;
+
+      // getBoundingClientRect().top is viewport-relative, so it already
+      // accounts for how far the user has scrolled.
+      const gridRect = gridEl.getBoundingClientRect();
+      const viewportCenterY = window.innerHeight / 2;
+      const pixelsIntoGrid = viewportCenterY - gridRect.top;
+
+      // Convert pixel offset into grid row units (first row starts at MARGIN px)
+      const gridY = Math.floor((pixelsIntoGrid - MARGIN) / CELL_HEIGHT);
+      return Math.max(0, gridY);
+    },
+
+    /**
+     * Push existing tiles out of the way to make room for a new tile at the
+     * given position. Modifies tile Y positions in-place so that by the time
+     * Vue re-renders, the layout is already collision-free — no overlap flash.
+     *
+     * Algorithm:
+     *  1. Push every tile that overlaps the new tile's footprint directly
+     *     below it (tile.y = newY + newH).
+     *  2. Cascade: sort all tiles top-to-bottom and resolve any secondary
+     *     overlaps the same way. Repeat until the layout is stable.
+     */
+    pushTilesForNewItem(
+      newX: number,
+      newY: number,
+      newW: number,
+      newH: number,
+    ): void {
+      if (!this.currentLayout) return;
+
+      const tiles = this.currentLayout.tiles;
+
+      // Rectangle overlap test (strict — adjacent edges don't count)
+      const overlaps = (
+        ax: number, ay: number, aw: number, ah: number,
+        bx: number, by: number, bw: number, bh: number,
+      ): boolean => ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+
+      // First pass: push tiles that directly collide with the new tile
+      for (const tile of tiles) {
+        if (overlaps(newX, newY, newW, newH, tile.x, tile.y, tile.w, tile.h)) {
+          tile.y = newY + newH;
+        }
+      }
+
+      // Cascade: repeatedly resolve tile-on-tile overlaps until stable.
+      // Processing top-to-bottom ensures each tile is only pushed once per pass.
+      let settled = false;
+      let iterations = 0;
+      while (!settled && iterations < 50) {
+        settled = true;
+        iterations++;
+
+        const sorted = [...tiles].sort((a, b) => a.y - b.y);
+        for (let i = 0; i < sorted.length; i++) {
+          for (let j = i + 1; j < sorted.length; j++) {
+            const a = sorted[i];
+            const b = sorted[j];
+            if (overlaps(a.x, a.y, a.w, a.h, b.x, b.y, b.w, b.h)) {
+              b.y = a.y + a.h;
+              settled = false;
+            }
+          }
+        }
+      }
+    },
+
+    /**
+     * Find the best X position at a specific row for a tile of the given size.
+     * Used for viewport-based placement: the Y is already decided (viewport center),
+     * so we just need the cleanest X column.
+     *
+     * Scans left-to-right for a non-overlapping column. If the row is fully
+     * occupied, returns x=0 anyway — pushTilesForNewItem will clear the space.
+     */
+    findBestXAtRow(
+      width: number,
+      height: number,
+      targetY: number,
+    ): { x: number; y: number } {
+      if (!this.currentLayout) {
+        return { x: 0, y: targetY };
+      }
+
+      const colNum = this.currentLayout.colNum || 12;
+
+      const hasOverlap = (x: number, y: number): boolean => {
+        return this.currentLayout!.tiles.some(tile => {
+          return !(
+            x + width <= tile.x ||
+            x >= tile.x + tile.w ||
+            y + height <= tile.y ||
+            y >= tile.y + tile.h
+          );
+        });
+      };
+
+      // Try to find a clean (non-overlapping) column at the target row
+      for (let x = 0; x <= colNum - width; x++) {
+        if (!hasOverlap(x, targetY)) {
+          return { x, y: targetY };
+        }
+      }
+
+      // Row is fully occupied — place at x=0 and let the grid engine
+      // push existing tiles out of the way via collision resolution
+      return { x: 0, y: targetY };
+    },
+
+    /**
+     * Find the first available spot for a tile of the given size.
+     *
+     * When startY > 0 (viewport-based positioning), we first scan downward
+     * from startY. If no gap is found within the existing tile bounds, the
+     * tile is placed at the bottom of the grid — still near the viewport.
+     * This ensures new tiles always appear close to where the user is looking.
+     */
+    findFirstAvailableSpot(
+      width: number,
+      height: number,
+      startY = 0,
+    ): { x: number; y: number } {
       if (!this.currentLayout) {
         return { x: 0, y: 0 };
       }
 
       const colNum = this.currentLayout.colNum || 12;
-      const maxY = this.calculateLowestPoint() + height; // Search up to current bottom + new tile height
+      const lowestPoint = this.calculateLowestPoint();
+      // Search up to the current bottom + one new tile height
+      const maxY = lowestPoint + height;
 
       // Helper function to check if a position overlaps with any existing tile
       const hasOverlap = (x: number, y: number): boolean => {
         return this.currentLayout!.tiles.some(tile => {
-          // Check if rectangles overlap
           return !(
             x + width <= tile.x ||  // new tile is to the left
             x >= tile.x + tile.w || // new tile is to the right
@@ -520,8 +734,8 @@ export const useLayoutStore = defineStore("layout", {
         });
       };
 
-      // Scan top-to-bottom, left-to-right
-      for (let y = 0; y <= maxY; y++) {
+      // Scan downward from startY — tiles appear where the user is looking
+      for (let y = Math.max(0, startY); y <= maxY; y++) {
         for (let x = 0; x <= colNum - width; x++) {
           if (!hasOverlap(x, y)) {
             return { x, y };
@@ -530,7 +744,7 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       // If no spot found, fall back to bottom of grid
-      return { x: 0, y: this.calculateLowestPoint() };
+      return { x: 0, y: lowestPoint };
     },
 
     // updateTile(id: string, newContent: TileContent) {
@@ -546,12 +760,25 @@ export const useLayoutStore = defineStore("layout", {
     //   }
     // },
 
-    // Remove an tile
+    // Remove a tile (also cleans up any optimistic upload state)
     removeTile(id: string) {
       if (!this.currentLayout) return;
 
+      // If the tile was using a blob URL for optimistic preview, revoke it
+      const tile = this.currentLayout.tiles.find((t) => t.i === id);
+      if (tile) {
+        const src = (tile.content as any)?.src;
+        if (typeof src === "string" && src.startsWith("blob:")) {
+          URL.revokeObjectURL(src);
+        }
+      }
+
+      // Clean up any upload tracking state for this tile
+      delete this.uploadingTiles[id];
+      delete this.resolvedUrls[id];
+
       this.currentLayout.tiles = this.currentLayout.tiles.filter(
-        (tile) => tile.i !== id
+        (t) => t.i !== id
       );
       this.saveLayout(); // Persist changes
     },

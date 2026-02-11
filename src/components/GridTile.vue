@@ -296,7 +296,7 @@ import {
 } from "@/utils/TileUtils";
 import { ContentType, type LinkContent } from "@/types/TileContent";
 import { getAuth } from "firebase/auth";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import TextIcon from "./icons/TextIcon.vue";
@@ -328,6 +328,8 @@ export default defineComponent({
     // This is used for responsive content rendering (e.g. title line clamping).
     provide("gridTileH", computed(() => props.tile.h));
     provide("gridTileW", computed(() => props.tile.w));
+    // Expose tile ID so content components can look up their upload status
+    provide("gridTileId", computed(() => props.tile.i));
 
     const isMoving = ref(false);
     const isDragging = ref(false);
@@ -727,25 +729,55 @@ export default defineComponent({
         return;
       }
 
-      try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          alert("You must be logged in to upload.");
-          return;
-        }
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        alert("You must be logged in to upload.");
+        return;
+      }
 
+      // --- Optimistic loading ---
+      // Immediately show the local file in the tile while uploading in the background.
+      const blobUrl = URL.createObjectURL(file);
+      const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
+      const content = createTileContent(contentType, { src: blobUrl });
+      const tileId = props.tile.i;
+      layoutStore.setTileContent(tileId, content);
+      layoutStore.setTileUploading(tileId, 0);
+
+      try {
         const filePath = `users/${currentUser.uid}/${isImage ? "images" : "videos"}/${Date.now()}_${file.name}`;
         const fileRef = storageRef(storage, filePath);
 
-        await uploadBytes(fileRef, file);
+        // Use resumable upload to track progress
+        const uploadTask = uploadBytesResumable(fileRef, file);
+
+        uploadTask.on("state_changed", (snapshot) => {
+          const progress = snapshot.bytesTransferred / snapshot.totalBytes;
+          layoutStore.setTileUploading(tileId, progress);
+        });
+
+        await uploadTask;
         const url = await getDownloadURL(fileRef);
 
-        const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-        const content = createTileContent(contentType, { src: url });
-        layoutStore.setTileContent(props.tile.i, content);
+        // Don't swap the in-memory src — that would force the <img>/<video> to reload
+        // and cause a visible flash (and interrupt video playback). Instead, store the
+        // permanent Firebase URL separately so the Firestore persistence layer can use it.
+        layoutStore.setResolvedUrl(tileId, url);
+        layoutStore.clearTileUploading(tileId);
+        // Trigger a save so Firestore gets the real URL (stripBlobUrls will substitute it)
+        layoutStore.updateLayout();
       } catch (error: any) {
         console.error("File upload failed:", error);
-        // Show more specific error message to help with debugging
+        layoutStore.clearTileUploading(tileId);
+        URL.revokeObjectURL(blobUrl);
+
+        // Revert to suggestion tile on failure
+        const revertContent = createTileContent(ContentType.SUGGESTION, {
+          action: "media",
+          label: "Add Media",
+        });
+        layoutStore.setTileContent(tileId, revertContent);
+
         const errorMessage = error?.message || error?.code || "Unknown error";
         alert(`Failed to upload file: ${errorMessage}\n\nCheck console for details.`);
       }

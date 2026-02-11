@@ -166,11 +166,13 @@ usePageTitle(pageTitle);
   transition:
     transform var(--duration-fast) var(--easing-smooth),
     box-shadow var(--duration-fast) var(--easing-smooth),
-    filter var(--duration-fast) var(--easing-smooth);
+    filter var(--duration-fast) var(--easing-smooth),
+    background-color var(--duration-normal) var(--easing-smooth);
 }
 
 .home-landing__cta:hover {
-  transform: translateY(-1px);
+  /* transform: translateY(-1px); */
+  background-color: var(--color-base-34);
   box-shadow: var(--shadow-lg);
   filter: brightness(1.02);
 }

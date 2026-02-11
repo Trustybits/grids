@@ -288,7 +288,10 @@
           class="color-picker-menu"
           :style="colorPickerStyle"
         >
-          <div> doe this show up?</div>
+          <ColorPicker 
+            v-model:background="backgroundColor"
+            v-model:hasBeenSet="colorManuallySelected"
+          />
         </div>
       </teleport>
     
@@ -329,6 +332,7 @@ import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileIcon from "./icons/ProfileIcon.vue";
+import ColorPicker from "./ColorPicker.vue";
 
 export default defineComponent({
   components: {
@@ -339,6 +343,7 @@ export default defineComponent({
     LinkIcon,
     EmbedIcon,
     ProfileIcon,
+    ColorPicker,
   },
   props: {
     tile: {
@@ -371,6 +376,8 @@ export default defineComponent({
     const showColorPicker = computed(() => layoutStore?.activeColorMenuTileId === props.tile.i);
     const colorPickerPosition = ref({ x: 0, y: 0 });
     const toolbarMenuPosition = ref({ x: 0, y: 0 });
+    const backgroundColor = ref("#000000");
+    const colorManuallySelected = ref(false);
     let stopChildEditingWatch: (() => void) | null = null;
 
     const showCaption = computed(() => {
@@ -963,6 +970,8 @@ export default defineComponent({
       colorPickerButtonRef,
       toolbarMenuStyle,
       colorPickerStyle,
+      backgroundColor,
+      colorManuallySelected,
       handleToolbarUpload,
       handleToolbarUseUrl,
       handleToolbarRemove,

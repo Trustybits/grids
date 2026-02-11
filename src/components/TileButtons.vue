@@ -75,16 +75,9 @@ import { ref } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import { ContentType } from "@/types/TileContent";
 import { createTileContent, createTileContentFromEmbedUrl } from "@/utils/TileUtils";
-import { getAuth } from "firebase/auth";
+import { useFileUpload } from "@/composables/useFileUpload";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
-import {
-  getStorage,
-  ref as storageRef,
-  uploadBytesResumable,
-  getDownloadURL,
-} from "firebase/storage";
-
 import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
 import AddLinkModal from "./AddLinkModal.vue";
@@ -121,8 +114,7 @@ export default {
 
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);
-    const auth = getAuth();
-    const storage = getStorage();
+    const { uploadFileOptimistic } = useFileUpload();
 
     const showLinkModal = ref(false);
     const showEmbedModal = ref(false);
@@ -160,77 +152,11 @@ export default {
       input.value = "";
       
       if (!file) return;
-
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
-      const maxSize = isImage ? 10 * 1024 * 1024 : 500 * 1024 * 1024; // 10MB for images, 500MB for videos
-
-      if (!isImage && !isVideo) {
-        alert("Unsupported file type. Please upload an image or video.");
-        return;
-      }
-
-      if (file.size > maxSize) {
-        alert(`File is too large! Maximum size: ${isImage ? "10MB" : "500MB"}`);
-        return;
-      }
-
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        alert("You must be logged in to upload.");
-        return;
-      }
-
-      // --- Optimistic loading ---
-      // Create a local blob URL so the tile appears instantly with a real preview,
-      // then upload to Firebase in the background and swap the URL when done.
-      const blobUrl = URL.createObjectURL(file);
-      const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-      const content = createTileContent(contentType, { src: blobUrl });
-      const tileId = layoutStore.addTile(content);
-
-      if (!tileId) {
-        URL.revokeObjectURL(blobUrl);
-        return;
-      }
-
-      // Mark tile as uploading so content components can show a progress indicator
-      layoutStore.setTileUploading(tileId, 0);
-
       try {
-        const filePath = `users/${currentUser.uid}/${
-          isImage ? "images" : "videos"
-        }/${Date.now()}_${file.name}`;
-        const fileRef = storageRef(storage, filePath);
-
-        // Use resumable upload to track progress
-        const uploadTask = uploadBytesResumable(fileRef, file);
-
-        uploadTask.on("state_changed", (snapshot) => {
-          const progress = snapshot.bytesTransferred / snapshot.totalBytes;
-          layoutStore.setTileUploading(tileId, progress);
-        });
-
-        // Wait for upload to finish
-        await uploadTask;
-        const url = await getDownloadURL(fileRef);
-
-        // Don't swap the in-memory src — that would force the <img>/<video> to reload
-        // and cause a visible flash (and interrupt video playback). Instead, store the
-        // permanent Firebase URL separately so the Firestore persistence layer can use it.
-        layoutStore.setResolvedUrl(tileId, url);
-        layoutStore.clearTileUploading(tileId);
-        // Trigger a save so Firestore gets the real URL (stripBlobUrls will substitute it)
-        layoutStore.updateLayout();
+        await uploadFileOptimistic(file);
       } catch (error: any) {
-        console.error("File upload failed:", error);
-        layoutStore.clearTileUploading(tileId);
-        URL.revokeObjectURL(blobUrl);
-
-        // Remove the optimistic tile on failure and notify the user
-        layoutStore.removeTile(tileId);
         const errorMessage = error?.message || error?.code || "Unknown error";
-        alert(`Failed to upload file: ${errorMessage}\n\nCheck console for details.`);
+        alert(`Failed to upload file: ${errorMessage}`);
       }
     };
 

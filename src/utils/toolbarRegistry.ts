@@ -1,0 +1,238 @@
+import { markRaw } from 'vue'
+import { ContentType, type LinkContent } from '@/types/TileContent'
+import type { ToolbarItem, ToolbarContext } from '@/types/TileToolbar'
+
+import ResizeWideIcon from '@/components/icons/toolbar/ResizeWideIcon.vue'
+import ResizeSquareIcon from '@/components/icons/toolbar/ResizeSquareIcon.vue'
+import ResizeLandscapeIcon from '@/components/icons/toolbar/ResizeLandscapeIcon.vue'
+import ResizePortraitIcon from '@/components/icons/toolbar/ResizePortraitIcon.vue'
+import Resize4x4Icon from '@/components/icons/toolbar/Resize4x4Icon.vue'
+import Resize2x4Icon from '@/components/icons/toolbar/Resize2x4Icon.vue'
+import Resize4x2Icon from '@/components/icons/toolbar/Resize4x2Icon.vue'
+import BorderToggleIcon from '@/components/icons/toolbar/BorderToggleIcon.vue'
+import CropIcon from '@/components/icons/toolbar/CropIcon.vue'
+import ColorIcon from '@/components/icons/toolbar/ColorIcon.vue'
+import MoreDotsIcon from '@/components/icons/toolbar/MoreDotsIcon.vue'
+import PlaneIcon from '@/components/icons/toolbar/PlaneIcon.vue'
+import DefaultMapIcon from '@/components/icons/toolbar/DefaultMapIcon.vue'
+import CloudsIcon from '@/components/icons/toolbar/CloudsIcon.vue'
+import MapSearchIcon from '@/components/icons/toolbar/MapSearchIcon.vue'
+import MapPanIcon from '@/components/icons/toolbar/MapPanIcon.vue'
+import LinkIcon from '@/components/icons/LinkIcon.vue'
+
+// ── Shared reusable toolbar items ──────────────────────────────────
+
+function makeResizeItem(
+  id: string,
+  w: number,
+  h: number,
+  icon: any,
+  title: string
+): ToolbarItem {
+  return {
+    id,
+    icon: markRaw(icon),
+    title,
+    group: 'resize',
+    action: (ctx) => {
+      ctx.layoutStore.resizeTile(ctx.tile.i, w, h)
+      ctx.childComponent.value?.onResize?.()
+    },
+    isActive: (ctx) => ctx.tile.w === w && ctx.tile.h === h,
+  }
+}
+
+export const RESIZE_5x1 = makeResizeItem('resize-5x1', 5, 1, ResizeWideIcon, 'Resize to 5x1')
+export const RESIZE_2x2 = makeResizeItem('resize-2x2', 2, 2, ResizeSquareIcon, 'Resize to 2x2')
+export const RESIZE_3x2 = makeResizeItem('resize-3x2', 3, 2, ResizeLandscapeIcon, 'Resize to 3x2')
+export const RESIZE_2x4 = makeResizeItem('resize-2x4', 2, 4, ResizePortraitIcon, 'Resize to 2x4')
+export const RESIZE_1x1 = makeResizeItem('resize-1x1', 1, 1, ResizeWideIcon, 'Resize to 1x1')
+export const RESIZE_4x4 = makeResizeItem('resize-4x4', 4, 4, Resize4x4Icon, 'Resize to 4x4')
+export const RESIZE_4x2 = makeResizeItem('resize-4x2', 4, 2, Resize4x2Icon, 'Resize to 4x2')
+export const RESIZE_8x1 = makeResizeItem('resize-8x1', 8, 1, ResizePortraitIcon, 'Resize to 8x1')
+
+
+export const RESIZE_PRESETS: ToolbarItem[] = [RESIZE_5x1, RESIZE_2x2, RESIZE_3x2, RESIZE_2x4]
+
+export const BORDER_TOGGLE: ToolbarItem = {
+  id: 'border-toggle',
+  icon: markRaw(BorderToggleIcon),
+  title: (ctx) => (ctx.tile.borderEnabled !== false ? 'Hide border' : 'Show border'),
+  group: 'appearance',
+  cssClass: 'toolbar-btn--border',
+  action: (ctx) => ctx.layoutStore.toggleTileBorder(ctx.tile.i),
+  isActive: (ctx) => ctx.tile.borderEnabled !== false,
+}
+
+export const CROP_BUTTON: ToolbarItem = {
+  id: 'crop',
+  icon: markRaw(CropIcon),
+  title: 'Crop / Zoom',
+  group: 'appearance',
+  action: (ctx) => {
+    if (!ctx.childComponent.value?.toggleEditMode) return
+
+    if (ctx.isEditing.value) {
+      ctx.isExitingCropMode.value = true
+      setTimeout(() => {
+        ctx.childComponent.value?.toggleEditMode()
+        if (ctx.childComponent.value?.isEditing !== undefined) {
+          ctx.isEditing.value = ctx.childComponent.value.isEditing
+        }
+        ctx.isExitingCropMode.value = false
+      }, 450)
+    } else {
+      ctx.childComponent.value.toggleEditMode()
+      if (ctx.childComponent.value?.isEditing !== undefined) {
+        ctx.isEditing.value = ctx.childComponent.value.isEditing
+      }
+    }
+  },
+  isActive: (ctx) => ctx.isEditing.value,
+}
+
+export const COLOR_BUTTON: ToolbarItem = {
+  id: 'color',
+  icon: markRaw(ColorIcon),
+  title: 'Tile color',
+  group: 'appearance',
+  action: (_ctx) => {
+    // Default color action — placeholder for future color picker
+  },
+}
+
+// ── Map-specific toolbar items ───────────────────────────────────
+
+export const MAP_PAN: ToolbarItem = {
+  id: 'map-pan',
+  icon: markRaw(MapPanIcon),
+  title: 'Pan / Zoom',
+  group: 'map-style',
+  action: (ctx) => {
+    if (!ctx.childComponent.value?.toggleEditMode) return
+    ctx.childComponent.value.toggleEditMode()
+    if (ctx.childComponent.value?.isEditing !== undefined) {
+      ctx.isEditing.value = ctx.childComponent.value.isEditing
+    }
+  },
+  isActive: (ctx) => ctx.isEditing.value,
+}
+
+export const MAP_PLANE: ToolbarItem = {
+  id: 'map-plane',
+  icon: markRaw(PlaneIcon),
+  title: 'Toggle plane',
+  group: 'map-style',
+  action: (ctx) => ctx.childComponent.value?.togglePlanes?.(),
+  isActive: (ctx) => !!ctx.childComponent.value?.showPlanes,
+}
+
+export const MAP_SEARCH: ToolbarItem = {
+  id: 'map-search',
+  icon: markRaw(MapSearchIcon),
+  title: 'Search',
+  group: 'map-style',
+  panelId: 'search',
+  action: () => {
+    // Panel open/close is handled by TileToolbar via the panelId presence
+  },
+}
+
+export const MAP_DEFAULT: ToolbarItem = {
+  id: 'map-default',
+  icon: markRaw(DefaultMapIcon),
+  title: 'Default view',
+  group: 'map-style',
+  action: (ctx) => ctx.childComponent.value?.toggleDefaultStyle?.(),
+  isActive: (ctx) => !!ctx.childComponent.value?.isDefaultStyle,
+}
+
+export const MAP_CLOUDS: ToolbarItem = {
+  id: 'map-clouds',
+  icon: markRaw(CloudsIcon),
+  title: 'Toggle clouds',
+  group: 'map-style',
+  action: (ctx) => ctx.childComponent.value?.toggleClouds?.(),
+  isActive: (ctx) => !!ctx.childComponent.value?.showClouds,
+}
+
+export const LINK_BG_TOGGLE: ToolbarItem = {
+  id: 'link-bg-toggle',
+  icon: markRaw(ColorIcon),
+  title: (ctx) => {
+    const content = ctx.tile.content as LinkContent
+    return content.linkBackgroundEnabled !== false
+      ? 'Hide background image'
+      : 'Show background image'
+  },
+  group: 'appearance',
+  action: (ctx) => ctx.layoutStore.toggleLinkBackground(ctx.tile.i),
+  isActive: (ctx) => (ctx.tile.content as LinkContent).linkBackgroundEnabled !== false,
+}
+
+export const LINK_MORE_MENU: ToolbarItem = {
+  id: 'more-menu',
+  icon: markRaw(MoreDotsIcon),
+  title: 'More',
+  group: 'actions',
+  action: () => {
+    // Menu open/close is handled by TileToolbar via the menuItems presence
+  },
+  menuItems: [
+    {
+      id: 'upload-image',
+      label: 'Upload image',
+      action: (ctx) => ctx.childComponent.value?.openCustomImagePicker?.(),
+    },
+    {
+      id: 'use-url',
+      label: 'Use image URL',
+      action: (ctx) => ctx.childComponent.value?.openUrlInput?.(),
+    },
+    {
+      id: 'remove-image',
+      label: 'Remove image',
+      danger: true,
+      action: (ctx) => ctx.childComponent.value?.removeCustomImage?.(),
+      visible: (ctx) => !!(ctx.tile.content as LinkContent).customImageUrl,
+    },
+  ],
+}
+
+export const TEXT_MORE_MENU: ToolbarItem = {
+  id: 'more-menu',
+  icon: markRaw(MoreDotsIcon),
+  title: 'More',
+  group: 'actions',
+  action: () => {},
+  menuItems: [
+    {
+      id: 'text-link',
+      icon: markRaw(LinkIcon),
+      action: (ctx) => ctx.childComponent.value?.openUrlInput?.(),
+    },
+  ],
+}
+
+// ── Registry ───────────────────────────────────────────────────────
+
+const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
+  [ContentType.IMAGE]:    [...RESIZE_PRESETS, BORDER_TOGGLE, CROP_BUTTON, COLOR_BUTTON],
+  [ContentType.VIDEO]:    [...RESIZE_PRESETS, BORDER_TOGGLE, CROP_BUTTON, COLOR_BUTTON],
+  [ContentType.LINK]:     [...RESIZE_PRESETS, BORDER_TOGGLE, LINK_BG_TOGGLE, LINK_MORE_MENU],
+  [ContentType.TEXT]:     [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON, TEXT_MORE_MENU],
+  [ContentType.EMBED]:    [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.MAP]:      [RESIZE_4x4, RESIZE_2x4, RESIZE_4x2, MAP_PAN, MAP_DEFAULT, MAP_CLOUDS, MAP_PLANE, MAP_SEARCH],
+  [ContentType.CHAT]:     [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.CAMPFIRE]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.RPG]:      [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.CLICKER]:  [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.PROFILE]:  [BORDER_TOGGLE, COLOR_BUTTON],
+}
+
+// Default fallback for any tile type not explicitly configured
+const DEFAULT_ITEMS: ToolbarItem[] = [BORDER_TOGGLE, COLOR_BUTTON]
+
+export function getToolbarItems(type: ContentType): ToolbarItem[] {
+  return registry[type] ?? DEFAULT_ITEMS
+}

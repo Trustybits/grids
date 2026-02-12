@@ -5,7 +5,9 @@ import AuthPage from '@/components/AuthPage.vue';
 import DashboardPage from '@/components/DashboardPage.vue';
  import PrivacyPage from '@/components/PrivacyPage.vue';
  import TermsPage from '@/components/TermsPage.vue';
+import UserSlugPage from '@/components/UserSlugPage.vue';
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getUserProfile } from '@/services/UserProfileService';
 import posthog from 'posthog-js';
 
 // Define routes
@@ -16,7 +18,7 @@ const routes = [
   {
     path: '/dashboard',
     component: DashboardPage,
-    meta: { requiresAuth: true } // Protect this route
+    meta: { requiresAuth: true }
   },
   { 
     path: '/grid/:id', 
@@ -33,6 +35,11 @@ const routes = [
     component: TermsPage,
     meta: { requiresAuth: false },
   },
+  {
+    path: '/:slug',
+    component: UserSlugPage,
+    meta: { requiresAuth: false }
+  },
 ];
 
 // Create router
@@ -43,55 +50,73 @@ const router = createRouter({
 
 // Navigation Guard for Auth Protection
 let isAuthChecked = false;
+let authCheckPromise: Promise<any> | null = null;
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const auth = getAuth();
 
-  const resolveNavigation = (user: unknown) => {
-    // Firebase restores auth state asynchronously on page load. Use the first
-    // onAuthStateChanged callback to make an accurate decision for the landing route.
-    if (to.path === '/') {
-      if (user) {
+  // Wait for initial auth check to complete
+  if (!isAuthChecked) {
+    if (!authCheckPromise) {
+      authCheckPromise = new Promise((resolve) => {
+        onAuthStateChanged(auth, (user) => {
+          isAuthChecked = true;
+          resolve(user);
+        });
+      });
+    }
+    await authCheckPromise;
+  }
+
+  const user = auth.currentUser;
+
+  // Handle root path
+  if (to.path === '/') {
+    if (user) {
+      next('/dashboard');
+      return;
+    }
+    next();
+    return;
+  }
+
+  // If already authenticated, redirect from login to app
+  if (to.path === '/login' && user) {
+    const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : null;
+    next(redirect && redirect.length > 0 ? redirect : '/dashboard');
+    return;
+  }
+
+  // Require auth for protected routes
+  if (to.meta.requiresAuth && !user) {
+    next({
+      path: '/login',
+      query: {
+        redirect: to.fullPath,
+      },
+    });
+    return;
+  }
+
+  // Check if authenticated user has claimed a slug (required for all users)
+  // Allow them to access dashboard where they can claim it via settings
+  if (user && to.meta.requiresAuth && to.path !== '/login' && to.path !== '/dashboard') {
+    try {
+      const userId = (user as any).uid;
+      const profile = await getUserProfile(userId);
+      
+      // If user doesn't have a slug, redirect to dashboard where they can claim it
+      if (!profile?.slug) {
         next('/dashboard');
         return;
       }
-
-      next();
-      return;
+    } catch (error) {
+      console.error('Error checking user slug:', error);
+      // On error, allow navigation to continue
     }
-
-    // If already authenticated, keep /login as a transient entry point and redirect into the app.
-    if (to.path === '/login' && user) {
-      const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : null;
-      next(redirect && redirect.length > 0 ? redirect : '/dashboard');
-      return;
-    }
-
-    if (to.meta.requiresAuth && !user) {
-      next({
-        path: '/login',
-        query: {
-          redirect: to.fullPath,
-        },
-      }); // Redirect to login if not authenticated
-      return;
-    }
-
-    next();
-  };
-
-  if (!isAuthChecked) {
-    // Wait for Firebase Auth to initialize
-    onAuthStateChanged(auth, (user) => {
-      isAuthChecked = true;
-
-      resolveNavigation(user);
-    });
-  } else {
-    const user = auth.currentUser;
-
-    resolveNavigation(user);
   }
+
+  next();
 });
 
 // Track page views with PostHog

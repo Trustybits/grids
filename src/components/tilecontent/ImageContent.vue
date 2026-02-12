@@ -32,14 +32,22 @@
           @load="onImageLoad"
         />
       </div>
+
+      <!-- Upload progress overlay - shown while file is uploading to Firebase -->
+      <div v-if="isUploading" class="upload-overlay">
+        <div class="upload-progress-track">
+          <div class="upload-progress-fill" :style="{ width: `${uploadPercent}%` }"></div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed } from "vue";
+import { defineComponent, ref, computed, onMounted, onUnmounted, watch, inject } from "vue";
 import { type ImageContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
+import type { ComputedRef } from "vue";
 
 export default defineComponent({
   props: {
@@ -51,6 +59,19 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
 
+    // Upload progress tracking — injected tile ID lets us look up our upload state
+    const tileId = inject<ComputedRef<string>>("gridTileId");
+    const isUploading = computed(() => {
+      const id = tileId?.value;
+      return id != null && id in layoutStore.uploadingTiles;
+    });
+    const uploadPercent = computed(() => {
+      const id = tileId?.value;
+      if (!id) return 0;
+      const progress = layoutStore.uploadingTiles[id] ?? 0;
+      return Math.round(progress * 100);
+    });
+
     const isEditing = ref(false);
     const isDragging = ref(false);
     const dragStart = ref({ x: 0, y: 0 });
@@ -61,12 +82,19 @@ export default defineComponent({
     
     // Track dimensions for future features
     const imageDimensions = ref({ width: 0, height: 0, aspectRatio: 0 });
-    const tileDimensions = computed(() => {
-      if (!imageWrapper.value) return { width: 0, height: 0, aspectRatio: 0 };
+    const tileDimensions = ref({ width: 0, height: 0, aspectRatio: 0 });
+    const resizeObserver = ref<ResizeObserver | null>(null);
+
+    const updateTileDimensions = () => {
+      if (!imageWrapper.value) return;
       const width = imageWrapper.value.clientWidth;
       const height = imageWrapper.value.clientHeight;
-      return { width, height, aspectRatio: width / height };
-    });
+      tileDimensions.value = {
+        width,
+        height,
+        aspectRatio: width && height ? width / height : 0,
+      };
+    };
 
     // Toggle crop mode
     const toggleEditMode = () => {
@@ -89,9 +117,9 @@ export default defineComponent({
       }
     };
 
-    const constrainOffset = () => {
+    const constrainOffset = (force = false) => {
       const wrapper = imageWrapper.value;
-      if (!wrapper || !isEditing.value) return;
+      if (!wrapper || (!isEditing.value && !force)) return;
 
       const containerWidth = wrapper.clientWidth;
       const containerHeight = wrapper.clientHeight;
@@ -152,39 +180,14 @@ export default defineComponent({
     const imageStyle = computed(() => {
       const cursor = isEditing.value ? (isDragging.value ? 'grabbing' : 'grab') : 'default';
       const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
-      
-      // Always use calculated sizing based on aspect ratios to preserve crop
+
       if (imageDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
         if (imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
-          // Image is wider - constrain by height
           return { transform: baseTransform, cursor, width: 'auto', height: '100%' };
-        } else {
-          // Image is taller - constrain by width
-          return { transform: baseTransform, cursor, width: '100%', height: 'auto' };
         }
+        return { transform: baseTransform, cursor, width: '100%', height: 'auto' };
       }
-      
-      // Fallback if dimensions not loaded yet
-      return { transform: baseTransform, cursor, width: '100%', height: '100%' };
-    });
-    
-    // Overflow layer sizing - ensures full image visible based on aspect ratios
-    const overflowStyle = computed(() => {
-      const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
-      const cursor = isEditing.value ? (isDragging.value ? 'grabbing' : 'grab') : 'default';
-      
-      // Compare aspect ratios to determine which dimension to constrain
-      if (imageDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
-        if (imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
-          // Image is wider - constrain by height, let width extend
-          return { transform: baseTransform, cursor, width: 'auto', height: '100%' };
-        } else {
-          // Image is taller - constrain by width, let height extend  
-          return { transform: baseTransform, cursor, width: '100%', height: 'auto' };
-        }
-      }
-      
-      // Fallback to cover behavior
+
       return { transform: baseTransform, cursor, width: '100%', height: '100%' };
     });
 
@@ -199,15 +202,36 @@ export default defineComponent({
       }
     };
 
+    onMounted(() => {
+      updateTileDimensions();
+
+      if (imageWrapper.value && typeof ResizeObserver !== "undefined") {
+        resizeObserver.value = new ResizeObserver(() => {
+          updateTileDimensions();
+          constrainOffset(true);
+        });
+        resizeObserver.value.observe(imageWrapper.value);
+      }
+    });
+
+    onUnmounted(() => {
+      resizeObserver.value?.disconnect();
+    });
+
+    watch(imageDimensions, () => {
+      constrainOffset(true);
+    });
+
     return {
       layoutStore,
       isEditing,
+      isUploading,
+      uploadPercent,
       toggleEditMode,
       startDragging,
       stopDragging,
       dragImage,
       imageStyle,
-      overflowStyle,
       imageWrapper,
       imageElement,
       onImageLoad,
@@ -259,5 +283,36 @@ export default defineComponent({
   overflow: hidden;
   border-radius: var(--tile-border-radius);
   z-index: 1;
+}
+
+/* Upload progress overlay — sits on top of the image preview during background upload */
+.upload-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px;
+  pointer-events: none;
+  /* Subtle darkening so the progress bar is visible over any image */
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.35) 0%, transparent 40%);
+  border-radius: var(--tile-border-radius);
+}
+
+.upload-progress-track {
+  width: 100%;
+  max-width: 200px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 2px;
+  transition: width 0.2s ease-out;
 }
 </style>

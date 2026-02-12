@@ -202,12 +202,7 @@ export default defineComponent({
     };
 
     const onExitClick = () => {
-      if (editor?.value?.view?.dom) {
-        editor.value.commands.focus('start');
-      }
-      setTimeout(() => {
-        isEditing.value = false;
-      }, 50);
+      isEditing.value = false;
     }
 
     onMounted(() => {
@@ -305,7 +300,8 @@ export default defineComponent({
 }
 
 .not-editing.can-edit:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--color-editable-hover);
+  cursor: text;
 }
 
 .overflowing::after {

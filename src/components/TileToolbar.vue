@@ -29,7 +29,7 @@
   <div
     v-if="panelOpen && activePanelId === 'search'"
     ref="searchPanelRef"
-    class="toolbar-search-panel"
+    class="toolbar-search-panel glass"
     @mousedown.stop
   >
     <button
@@ -424,13 +424,8 @@ export default defineComponent({
   /* Positioned above the toolbar */
   transform: translate(-50%, calc(-4px));
 
-  background: color-mix(in srgb, var(--color-tile-background) 55%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-tile-stroke) 50%, transparent);
   border-radius: 12px;
   padding: 4px;
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), inset 0 0.5px 0 rgba(255, 255, 255, 0.12);
 
   animation: searchPanelSlideIn var(--duration-normal) var(--easing-spring);
 }

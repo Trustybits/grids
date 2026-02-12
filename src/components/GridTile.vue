@@ -242,7 +242,11 @@ export default defineComponent({
         // This triggers the scale animation right away
         if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
           isDragging.value = true;
-          event.preventDefault();
+          // Only preventDefault when the child doesn't handle short clicks
+          // (e.g. text tiles need the default focus behavior on mousedown)
+          if (!childComponent.value?.onShortClick) {
+            event.preventDefault();
+          }
         }
       }
     };
@@ -611,6 +615,12 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  border-radius: var(--tile-border-radius);
+  /* turn off shadow when border is off */
+  &[data-border='off'] {
+    box-shadow: none;
+  }
   
   /* Animate tiles when they first appear */
   animation: tileEnter var(--duration-normal) var(--easing-spring);
@@ -1024,8 +1034,8 @@ export default defineComponent({
 /* The library uses .vue-resizable-handle class for the resize handle */
 :deep(.vue-resizable-handle) {
   /* Increase the hit area from default small corner to a larger area */
-  width: 48px !important;
-  height: 48px !important;
+  width: 32px !important;
+  height: 32px !important;
   bottom: -8px !important;
   right: -8px !important;
   

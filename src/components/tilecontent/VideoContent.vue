@@ -9,7 +9,7 @@
     <div 
       v-else 
       class="video-wrapper" 
-      :class="{ 'crop-active': isEditing, 'is-narrow': isNarrow, 'is-tiny': isTiny }"
+      :class="{ 'crop-active': isEditing, 'is-narrow': isNarrow, 'is-medium': isMedium, 'is-tiny': isTiny }"
       @mousedown="startDragging"
       @mouseup="stopDragging"
       @mouseleave="stopDragging"
@@ -69,7 +69,7 @@
       <div class="bottom-controls" v-if="!isEditing">
         <div class="controls-row">
           <!-- Mute/Unmute (hidden in 1x1) -->
-          <div v-if="!isTiny" class="volume-control">
+          <div v-if="!isTiny" class="volume-control" @mouseleave="onVolumeMouseLeave">
             <button class="control-btn mute-btn" @click.stop="toggleMute">
               <svg v-if="isMuted || volume === 0" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
@@ -131,7 +131,7 @@ import { type VideoContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { useVideoFocus } from "@/composables/useVideoFocus";
 
-const PREVIEW_DURATION = 15;
+const PREVIEW_DURATION = 3;
 const DEFAULT_VOLUME = 0.15;
 
 export default defineComponent({
@@ -154,6 +154,8 @@ export default defineComponent({
 
     // Tile is 1 column wide — use stacked/narrow layout
     const isNarrow = computed(() => gridTileW.value === 1);
+    // Tile is 2 columns wide — time hides fully on volume hover
+    const isMedium = computed(() => gridTileW.value === 2);
     // Tile is 1x1 — minimal controls only (pause + fullscreen)
     const isTiny = computed(() => gridTileW.value === 1 && gridTileH.value === 1);
 
@@ -510,6 +512,13 @@ export default defineComponent({
       }
     };
     
+    const onVolumeMouseLeave = () => {
+      // Blur the slider so :focus-within no longer keeps it visible
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    };
+
     const toggleMute = () => {
       if (!videoElement.value) return;
       
@@ -576,6 +585,7 @@ export default defineComponent({
       videoOverflowElement,
       // Tile size
       isNarrow,
+      isMedium,
       isTiny,
       // Video controls
       isPlaying,
@@ -593,6 +603,7 @@ export default defineComponent({
       onTimeUpdate,
       seek,
       onVolumeInput,
+      onVolumeMouseLeave,
       toggleMute,
       toggleFullscreen,
       formatTime,
@@ -722,6 +733,12 @@ export default defineComponent({
   height: 36px;
 }
 
+/* Narrow (1xN): hide center button when volume control is hovered */
+.is-narrow:has(.volume-control:hover) .center-play-btn {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
 /* Replay icon stays visible without hover */
 .center-play-btn.show-replay {
   opacity: 1;
@@ -753,7 +770,7 @@ export default defineComponent({
 .controls-row {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 2px;
   padding: 2px 6px;
   opacity: 0;
@@ -761,9 +778,10 @@ export default defineComponent({
   pointer-events: none;
 }
 
-/* Narrow (1xN): stack controls vertically */
+/* Narrow (1xN): stack controls vertically, centered */
 .is-narrow .controls-row {
   flex-direction: column;
+  justify-content: center;
   gap: 0;
   padding: 2px 4px;
 }
@@ -836,12 +854,6 @@ export default defineComponent({
   margin: 0 1px;
 }
 
-/* Hide time when volume slider is visible (wide tiles) */
-.volume-control:hover ~ .time-display,
-.volume-control:focus-within ~ .time-display {
-  opacity: 0;
-  pointer-events: none;
-}
 
 /* Narrow (1xN): stack time vertically, wrap current+sep on one line, total below */
 .is-narrow .time-display {

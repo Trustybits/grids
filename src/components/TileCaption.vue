@@ -1,6 +1,6 @@
 <template>
   <div
-    class="tile-caption"
+    class="tile-caption glass"
     :class="captionClasses"
     :style="captionStyle"
     @click="startEditing"
@@ -80,6 +80,7 @@ export default {
     };
 
     const saveCaption = () => {
+      if (!editing.value) return;
       if (!layoutStore.isOwner) {
         editing.value = false;
         return;
@@ -105,8 +106,7 @@ export default {
 
 <style scoped>
 .tile-caption {
-  background-color: var(--color-tile-background);
-  color: var(--color-content-low);
+  color: var(--color-content-high);
   cursor: pointer;
   display: none;
   position: absolute;
@@ -118,7 +118,6 @@ export default {
   left: 13px;
   bottom: 13px;
   border-radius: var(--radius-md);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
 }
 
 /* Non-owner: visible by default, hides on parent hover (hide rule in GridTile.vue) */
@@ -127,9 +126,8 @@ export default {
 }
 
 .tile-caption:hover {
-  background-color: var(--color-tile-background);
   color: var(--color-text-primary);
-  transition: color 0.5s ease-out, background-color 0.5s ease-out;
+  transition: color 0.5s ease-out;
 }
 
 p {
@@ -146,7 +144,8 @@ p {
   padding: 5px 13px;
   border: none;
   outline: none;
-  min-width: 120px;
+  margin: 0;
+  min-width: 80px;
   min-height: 1.4em;
   white-space: pre-wrap;
   cursor: text;

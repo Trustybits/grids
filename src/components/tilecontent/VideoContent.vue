@@ -67,9 +67,9 @@
 
       <!-- Bottom Control Bar -->
       <div class="bottom-controls" v-if="!isEditing">
-        <div class="controls-row" :class="{ 'volume-hovered': volumeHovered }">
+        <div class="controls-row">
           <!-- Mute/Unmute (hidden in 1x1) -->
-          <div v-if="!isTiny" class="volume-control" @mouseenter="onVolumeMouseEnter" @mouseleave="onVolumeMouseLeave">
+          <div v-if="!isTiny" class="volume-control" @mouseleave="onVolumeMouseLeave">
             <button class="control-btn mute-btn" @click.stop="toggleMute">
               <svg v-if="isMuted || volume === 0" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
@@ -512,14 +512,7 @@ export default defineComponent({
       }
     };
     
-    const volumeHovered = ref(false);
-
-    const onVolumeMouseEnter = () => {
-      volumeHovered.value = true;
-    };
-
     const onVolumeMouseLeave = () => {
-      volumeHovered.value = false;
       // Blur the slider so :focus-within no longer keeps it visible
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -610,8 +603,6 @@ export default defineComponent({
       onTimeUpdate,
       seek,
       onVolumeInput,
-      volumeHovered,
-      onVolumeMouseEnter,
       onVolumeMouseLeave,
       toggleMute,
       toggleFullscreen,
@@ -857,16 +848,6 @@ export default defineComponent({
   margin: 0 1px;
 }
 
-/* Medium (2xN): collapse ALL time text on volume hover (no space, instant) */
-.is-medium .volume-hovered .time-display,
-.is-medium .volume-control:focus-within ~ .time-display {
-  visibility: hidden;
-  max-width: 0;
-  min-width: 0;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
-}
 
 /* Narrow (1xN): stack time vertically, wrap current+sep on one line, total below */
 .is-narrow .time-display {
@@ -879,15 +860,15 @@ export default defineComponent({
 }
 
 /* In narrow mode, when volume is hovered: hide current time + separator completely (no space) */
-.is-narrow .volume-hovered .time-display .time-current,
-.is-narrow .volume-hovered .time-display .time-sep,
+.is-narrow .volume-control:hover ~ .time-display .time-current,
+.is-narrow .volume-control:hover ~ .time-display .time-sep,
 .is-narrow .volume-control:focus-within ~ .time-display .time-current,
 .is-narrow .volume-control:focus-within ~ .time-display .time-sep {
   display: none;
 }
 
 /* In narrow mode, don't hide the entire time-display — only current+sep */
-.is-narrow .volume-hovered .time-display,
+.is-narrow .volume-control:hover ~ .time-display,
 .is-narrow .volume-control:focus-within ~ .time-display {
   opacity: 1;
   pointer-events: auto;
@@ -956,13 +937,13 @@ export default defineComponent({
   transition: max-height 0.25s ease, opacity 0.2s ease;
 }
 
-.volume-hovered .volume-slider-container,
+.volume-control:hover .volume-slider-container,
 .volume-control:focus-within .volume-slider-container {
   max-width: 73px;
   opacity: 1;
 }
 
-.is-narrow .volume-hovered .volume-slider-container,
+.is-narrow .volume-control:hover .volume-slider-container,
 .is-narrow .volume-control:focus-within .volume-slider-container {
   max-width: unset;
   max-height: 40px;

@@ -308,8 +308,8 @@ export function createTileContent(
         pitch: (data as Partial<MapContent>).pitch ?? 0,
         style: (data as Partial<MapContent>).style || "default",
         show3d: (data as Partial<MapContent>).show3d ?? false,
-        showClouds: (data as Partial<MapContent>).showClouds ?? false,
-        showPlanes: (data as Partial<MapContent>).showPlanes ?? false,
+        showClouds: (data as Partial<MapContent>).showClouds ?? true,
+        showPlanes: (data as Partial<MapContent>).showPlanes ?? true,
         searchQuery: (data as Partial<MapContent>).searchQuery,
         marker: (data as Partial<MapContent>).marker,
       } as MapContent;

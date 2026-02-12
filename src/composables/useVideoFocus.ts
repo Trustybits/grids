@@ -8,7 +8,7 @@ interface VideoTileEntry {
   isVisible: boolean;
 }
 
-const ROTATION_INTERVAL = 15; // seconds – matches preview duration
+const ROTATION_INTERVAL = 3; // seconds per video in the round-robin
 
 // ── Singleton state shared across all callers ──
 const videoTiles = new Map<string, VideoTileEntry>();
@@ -16,7 +16,7 @@ const activeVideoId = ref<string | null>(null);
 const hoveredVideoId = ref<string | null>(null);
 let observer: IntersectionObserver | null = null;
 
-// ── Round-robin rotation for same-row videos ──
+// ── Round-robin rotation across ALL visible videos ──
 let rotationTimer: ReturnType<typeof setTimeout> | null = null;
 let rotationGroup: string[] = [];
 let rotationIndex = 0;
@@ -55,7 +55,7 @@ function pickActive() {
     }
   }
 
-  // Among visible tiles, pick earliest in reading order (top→bottom, left→right)
+  // Collect all visible videos, sorted by grid position (top→bottom, left→right)
   const visible = Array.from(videoTiles.values()).filter((e) => e.isVisible);
   if (visible.length === 0) {
     clearRotation();
@@ -65,29 +65,31 @@ function pickActive() {
   }
 
   visible.sort((a, b) => (a.y !== b.y ? a.y - b.y : a.x - b.x));
+  const newIds = visible.map((v) => v.id);
 
-  // Group by the top-most y row
-  const topY = visible[0].y;
-  const sameRow = visible.filter((v) => v.y === topY);
-
-  if (sameRow.length === 1) {
+  // Single visible video — no rotation needed
+  if (newIds.length === 1) {
     clearRotation();
-    rotationGroup = [];
-    activeVideoId.value = sameRow[0].id;
+    rotationGroup = newIds;
+    rotationIndex = 0;
+    activeVideoId.value = newIds[0];
     return;
   }
 
-  // Multiple videos at the same row – set up round-robin
-  const newIds = sameRow.map((v) => v.id);
+  // Multiple visible videos — round-robin through all of them
   const groupChanged =
     newIds.length !== rotationGroup.length ||
     newIds.some((id, i) => id !== rotationGroup[i]);
 
   if (groupChanged) {
+    // Try to keep the current active video if it's still in the new group
+    const currentId = activeVideoId.value;
+    const currentIdx = currentId ? newIds.indexOf(currentId) : -1;
+
     clearRotation();
     rotationGroup = newIds;
-    rotationIndex = 0;
-    activeVideoId.value = rotationGroup[0];
+    rotationIndex = currentIdx >= 0 ? currentIdx : 0;
+    activeVideoId.value = rotationGroup[rotationIndex];
     scheduleNextRotation();
   }
   // If group hasn't changed, keep current rotation running

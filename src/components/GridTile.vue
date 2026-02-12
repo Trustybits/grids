@@ -617,6 +617,10 @@ export default defineComponent({
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   border-radius: var(--tile-border-radius);
+  /* turn off shadow when border is off */
+  &[data-border='off'] {
+    box-shadow: none;
+  }
   
   /* Animate tiles when they first appear */
   animation: tileEnter var(--duration-normal) var(--easing-spring);

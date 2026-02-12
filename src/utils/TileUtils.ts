@@ -387,11 +387,12 @@ export function createTileContent(
         zoom: (data as Partial<MapContent>).zoom ?? 9,
         bearing: (data as Partial<MapContent>).bearing ?? 0,
         pitch: (data as Partial<MapContent>).pitch ?? 0,
-        style: (data as Partial<MapContent>).style || "auto",
+        style: (data as Partial<MapContent>).style || "default",
         show3d: (data as Partial<MapContent>).show3d ?? false,
-        showClouds: (data as Partial<MapContent>).showClouds ?? false,
-        showPlanes: (data as Partial<MapContent>).showPlanes ?? false,
+        showClouds: (data as Partial<MapContent>).showClouds ?? true,
+        showPlanes: (data as Partial<MapContent>).showPlanes ?? true,
         searchQuery: (data as Partial<MapContent>).searchQuery,
+        marker: (data as Partial<MapContent>).marker,
       } as MapContent;
 
     case ContentType.CAMPFIRE:
@@ -460,7 +461,7 @@ export function validateTileContent(content: TileContent): boolean {
       const image = content as ImageContent;
       return (
         !!image.src &&
-        (image.src.startsWith("http") || image.src.startsWith("data:"))
+        (image.src.startsWith("http") || image.src.startsWith("data:") || image.src.startsWith("blob:"))
       );
     case ContentType.LINK:
       const link = content as LinkContent;
@@ -469,7 +470,7 @@ export function validateTileContent(content: TileContent): boolean {
       const video = content as VideoContent;
       return (
         !!video.src &&
-        (video.src.startsWith("http") || video.src.startsWith("data:"))
+        (video.src.startsWith("http") || video.src.startsWith("data:") || video.src.startsWith("blob:"))
       );
     case ContentType.EMBED:
       const embed = content as EmbedContent;

@@ -96,8 +96,9 @@ export const COLOR_BUTTON: ToolbarItem = {
   icon: markRaw(ColorIcon),
   title: 'Tile color',
   group: 'appearance',
+  panelId: 'colorSelect',
   action: (_ctx) => {
-    // Default color action — placeholder for future color picker
+    // Menu open/close handled by tile toolbar via panelId
   },
 }
 

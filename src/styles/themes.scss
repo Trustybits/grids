@@ -29,6 +29,8 @@ body.theme-light,
   --color-figma-blue: #00b6ff;
   --color-figma-green: #24cb71;
   
+  --color-editable-hover: rgba(0, 0, 0, 0.03);
+
   --primary-color: #009688;
   --secondary-color: #bfc2c462;
   --destructive-color: #e91e63;
@@ -67,6 +69,8 @@ body.theme-dark,
   --color-figma-blue: #00b6ff;
   --color-figma-green: #24cb71;
   
+  --color-editable-hover: rgba(255, 255, 255, 0.05);
+
   --primary-color: #9e4db6;
   --secondary-color: #312a354b;
   --destructive-color: #ec407a;

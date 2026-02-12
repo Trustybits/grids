@@ -298,10 +298,7 @@ export default defineComponent({
     const onExitClick = () => {
       if (!layoutStore.isOwner) return;
       if (!isEditing.value) return;
-      activeEditor.value?.commands.focus("start");
-      setTimeout(() => {
-        isEditing.value = false;
-      }, 50);
+      isEditing.value = false;
     };
 
     const updateAvatarSize = () => {
@@ -616,7 +613,8 @@ export default defineComponent({
 }
 
 .profile-editor.can-edit:hover {
-  background-color: var(--color-base-8);
+  background-color: var(--color-editable-hover);
+  cursor: text;
 }
 
 .profile-name :deep(.ProseMirror) {

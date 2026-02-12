@@ -107,7 +107,7 @@ export default {
 <style scoped>
 .tile-caption {
   color: var(--color-content-high);
-  cursor: pointer;
+  cursor: text;
   display: none;
   position: absolute;
   white-space: nowrap;

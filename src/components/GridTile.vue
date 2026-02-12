@@ -242,7 +242,11 @@ export default defineComponent({
         // This triggers the scale animation right away
         if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
           isDragging.value = true;
-          event.preventDefault();
+          // Only preventDefault when the child doesn't handle short clicks
+          // (e.g. text tiles need the default focus behavior on mousedown)
+          if (!childComponent.value?.onShortClick) {
+            event.preventDefault();
+          }
         }
       }
     };

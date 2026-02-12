@@ -169,13 +169,20 @@ export interface ClickerContent extends TileContent {
 // YouTube content types: video, playlist, channel, short
 export type YouTubeType = 'video' | 'playlist' | 'channel' | 'short';
 
+// Single thumbnail entry returned by the YouTube Data API
+export interface YouTubeThumbnailEntry {
+  url: string;
+  width?: number;
+  height?: number;
+}
+
 // Thumbnail sizes available from YouTube API
 export interface YouTubeThumbnails {
-  default?: string;   // 120x90
-  medium?: string;    // 320x180
-  high?: string;      // 480x360
-  standard?: string;  // 640x480
-  maxres?: string;    // 1280x720
+  default?: YouTubeThumbnailEntry;   // 120x90
+  medium?: YouTubeThumbnailEntry;    // 320x180
+  high?: YouTubeThumbnailEntry;      // 480x360
+  standard?: YouTubeThumbnailEntry;  // 640x480
+  maxres?: YouTubeThumbnailEntry;    // 1280x720
 }
 
 // Individual video data for playlists

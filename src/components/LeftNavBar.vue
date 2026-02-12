@@ -158,7 +158,8 @@ export default defineComponent({
 <style lang="scss" scoped>
 .left-nav-bar {
   position: fixed;
-  justify-items: end;
+  display: flex;
+  justify-content: end;
   top: 50%;
   padding: 16px 0;
   transform: translateY(-50%);

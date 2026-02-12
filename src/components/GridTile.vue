@@ -1034,8 +1034,8 @@ export default defineComponent({
 /* The library uses .vue-resizable-handle class for the resize handle */
 :deep(.vue-resizable-handle) {
   /* Increase the hit area from default small corner to a larger area */
-  width: 48px !important;
-  height: 48px !important;
+  width: 32px !important;
+  height: 32px !important;
   bottom: -8px !important;
   right: -8px !important;
   

@@ -733,6 +733,12 @@ export default defineComponent({
   height: 36px;
 }
 
+/* Narrow (1xN): hide center button when volume control is hovered */
+.is-narrow:has(.volume-control:hover) .center-play-btn {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
 /* Replay icon stays visible without hover */
 .center-play-btn.show-replay {
   opacity: 1;

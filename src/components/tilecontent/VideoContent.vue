@@ -131,7 +131,7 @@ import { type VideoContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { useVideoFocus } from "@/composables/useVideoFocus";
 
-const PREVIEW_DURATION = 15;
+const PREVIEW_DURATION = 3;
 const DEFAULT_VOLUME = 0.15;
 
 export default defineComponent({

@@ -3,9 +3,6 @@
     <!-- Left Navigation Bar -->
     <LeftNavBar v-if="isAuthenticated" />
 
-    <!-- User Menu at Bottom Left -->
-    <UserMenu v-if="isAuthenticated" />
-
     <!-- Top Bar for Layout Title Editor and Theme Toggle -->
     <div class="top-bar" v-if="showTopBar">
       <LayoutTitleEditor v-if="showTitleEditor" />
@@ -29,7 +26,6 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import LeftNavBar from './components/LeftNavBar.vue';
-import UserMenu from './components/UserMenu.vue';
 import LayoutTitleEditor from './components/LayoutTitleEditor.vue';
 import ThemeToggle from './components/ThemeToggle.vue';
 import ToastContainer from './components/ToastContainer.vue';

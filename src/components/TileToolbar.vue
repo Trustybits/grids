@@ -65,12 +65,16 @@
 
   <!-- Color Picker Panel -->
   <teleport to="body">
-    <ColorPicker
+    <div
       v-if="panelOpen && activePanelId === 'colorSelect'"
-      :tile="tile"
-      :childComponent="childComponent"
-      :buttonEl="panelAnchorRef"
-    />
+      ref="colorPickerRef"
+    >
+      <ColorPicker
+        :tile="tile"
+        :childComponent="childComponent"
+        :buttonEl="panelAnchorRef"
+      />
+    </div>
   </teleport>
 
   <teleport to="body">
@@ -147,18 +151,23 @@ export default defineComponent({
     const menuPosition = ref({ x: 0, y: 0 });
 
     // Panel state (e.g. search bar)
-    const panelOpen = ref(false);
+    // const panelOpen = ref(false);
     const activePanelId = ref<string | null>(null);
     const panelAnchorRef = ref<HTMLButtonElement | null>(null);
     const searchPanelRef = ref<HTMLDivElement | null>(null);
     const searchInputRef = ref<HTMLInputElement | null>(null);
     const searchQuery = ref("");
 
+    const colorPickerRef = ref<HTMLDivElement | null>(null);
     const childComponent = props.toolbarRefs.childComponent;
 
     const menuOpen = computed(
       () => layoutStore?.activeMenuTileId === props.tile.i,
     );
+
+    const panelOpen = computed(
+      () => layoutStore?.activePanelId === props.tile.i,
+    )
 
     const ctx = computed<ToolbarContext>(() => ({
       tile: props.tile,
@@ -239,8 +248,9 @@ export default defineComponent({
     };
 
     const closePanel = () => {
-      panelOpen.value = false;
+      // panelOpen.value = false;
       activePanelId.value = null;
+      layoutStore.closeAllMenus();
     };
 
     const onItemClick = (item: ToolbarItem) => {
@@ -249,8 +259,10 @@ export default defineComponent({
         if (panelOpen.value && activePanelId.value === item.panelId) {
           closePanel();
         } else {
+          console.log("should be opening")
           closeMenu();
-          panelOpen.value = true;
+          // panelOpen.value = true;
+          layoutStore.setActivePanelId(props.tile.i);
           activePanelId.value = item.panelId;
           nextTick(() => {
             searchInputRef.value?.focus();
@@ -305,6 +317,7 @@ export default defineComponent({
       if (panelOpen.value) {
         if (searchPanelRef.value?.contains(target)) return;
         if (panelAnchorRef.value?.contains(target)) return;
+        if (colorPickerRef.value?.contains(target)) return;
         closePanel();
       }
     };
@@ -349,6 +362,7 @@ export default defineComponent({
       searchPanelRef,
       searchInputRef,
       searchQuery,
+      colorPickerRef,
       childComponent,
       onLocateClick,
       onSearchSubmit,

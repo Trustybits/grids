@@ -8,9 +8,17 @@
       <button
         class="color-box"
         :style="`background: var(${color})`"
+        :title="generateColorTooltip(color)"
         @click="onColorClick($event, color)"
       ></button>
     </template>
+    <button
+      class="color-box no-fill"
+      :title="generateColorTooltip('--color-content-background')"
+      @click="onColorClick($event, '--color-content-background')"
+    >
+      <NoFillIcon :size="26" />
+    </button>
     <div class="hex-panel">
       <div
         :class="{
@@ -47,10 +55,12 @@ import { type Tile } from "@/types/Tile";
 import { useLayoutStore } from "@/stores/layout";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
 import { useToastStore } from "@/stores/toast";
+import NoFillIcon from "./icons/NoFillIcon.vue";
 
 export default defineComponent({
   components: {
     CheckIcon,
+    NoFillIcon,
   },
   props: {
     tile: {
@@ -85,7 +95,6 @@ export default defineComponent({
       "--color-light-100",
       "--color-dark-0",
       "--color-tile-background",
-      "--color-content-background",
     ]);
 
     const verifyValidColor = (color: string): boolean => {
@@ -180,6 +189,27 @@ export default defineComponent({
       });
     });
 
+    const generateColorTooltip = (rawColorStr: string): string => {
+      const standardColors: string[] = ["red", "orange", "yellow", "green", "cyan", "blue", "purple", "pink"];
+      const colorType = rawColorStr.replace("--color-", "");
+      if (standardColors.filter((elem) => elem === colorType).length > 0) {
+        return colorType;
+      }
+
+      switch (colorType) {
+        case "light-100":
+          return "light";
+        case "dark-0":
+          return "dark";
+        case "tile-background":
+          return "default";
+        case "content-background":
+          return "no fill";
+        default:
+          return "";
+      }
+    }
+
     return {
       colors,
       pos,
@@ -187,6 +217,7 @@ export default defineComponent({
       hexInputRef,
       onColorClick,
       onHexSubmit,
+      generateColorTooltip,
     };
   },
 });
@@ -226,6 +257,19 @@ export default defineComponent({
   cursor: pointer;
   min-width: 0;
   appearance: none;
+}
+
+.color-box.no-fill {
+  background: transparent;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.color-box.no-fill svg {
+  display: block;
 }
 
 .hex-panel {

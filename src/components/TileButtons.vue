@@ -122,7 +122,11 @@ export default {
 
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
-      layoutStore.addTile(textContent);
+      const tileId = layoutStore.addTile(textContent);
+      // Auto-focus the new text tile so the user can start typing immediately
+      if (tileId) {
+        layoutStore.pendingFocusTileId = tileId;
+      }
     };
 
     const addProfileElement = () => {

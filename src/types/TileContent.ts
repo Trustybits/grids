@@ -27,6 +27,7 @@ export interface TextContent extends TileContent {
   textType: string;
   color: string;
   textLink?: string;
+  backgroundColor?: string;
 }
 
 export interface ChatMessage {

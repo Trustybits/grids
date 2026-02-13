@@ -440,19 +440,50 @@ export const getYouTubeMetadata = functions
         }
 
         case "channel": {
-          // For channel handles (@username) or custom URLs, we need to search first
+          // For channel handles (@username) or custom URLs, we need to resolve to a channel ID first
           let channelId = youtubeId;
           
-          // If it starts with @ or doesn't look like a channel ID, search for it
-          if (youtubeId.startsWith("@") || !youtubeId.startsWith("UC")) {
-            const searchQuery = youtubeId.startsWith("@") ? youtubeId.slice(1) : youtubeId;
-            const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(searchQuery)}&maxResults=1&key=${apiKey}`;
-            const searchResponse = await fetch(searchUrl);
-            
-            if (searchResponse.ok) {
-              const searchData = await searchResponse.json();
-              if (searchData.items && searchData.items.length > 0) {
-                channelId = searchData.items[0].snippet.channelId;
+          // If it doesn't look like a channel ID (UC...), resolve it
+          if (!youtubeId.startsWith("UC")) {
+            let resolved = false;
+
+            // Try the forHandle parameter first (for @username handles)
+            // The youtubeId may or may not have the @ prefix
+            const handle = youtubeId.startsWith("@") ? youtubeId : `@${youtubeId}`;
+            const handleUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet&forHandle=${encodeURIComponent(handle)}&key=${apiKey}`;
+            const handleResponse = await fetch(handleUrl);
+            if (handleResponse.ok) {
+              const handleData = await handleResponse.json();
+              if (handleData.items && handleData.items.length > 0) {
+                channelId = handleData.items[0].id;
+                resolved = true;
+              }
+            }
+
+            // Fall back to forUsername (for /user/ style URLs)
+            if (!resolved) {
+              const username = youtubeId.startsWith("@") ? youtubeId.slice(1) : youtubeId;
+              const userUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet&forUsername=${encodeURIComponent(username)}&key=${apiKey}`;
+              const userResponse = await fetch(userUrl);
+              if (userResponse.ok) {
+                const userData = await userResponse.json();
+                if (userData.items && userData.items.length > 0) {
+                  channelId = userData.items[0].id;
+                  resolved = true;
+                }
+              }
+            }
+
+            // Last resort: search API
+            if (!resolved) {
+              const searchQuery = youtubeId.startsWith("@") ? youtubeId.slice(1) : youtubeId;
+              const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(searchQuery)}&maxResults=1&key=${apiKey}`;
+              const searchResponse = await fetch(searchUrl);
+              if (searchResponse.ok) {
+                const searchData = await searchResponse.json();
+                if (searchData.items && searchData.items.length > 0) {
+                  channelId = searchData.items[0].snippet.channelId;
+                }
               }
             }
           }

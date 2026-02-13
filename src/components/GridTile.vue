@@ -165,6 +165,7 @@ export default defineComponent({
     // This is used for responsive content rendering (e.g. title line clamping).
     provide("gridTileH", computed(() => props.tile.h));
     provide("gridTileW", computed(() => props.tile.w));
+    /*provide("tileId", computed(() => props.tile.i));*/
     provide("tileId", props.tile.i);
     provide("tileX", computed(() => props.tile.x));
     provide("tileY", computed(() => props.tile.y));
@@ -181,7 +182,7 @@ export default defineComponent({
     let stopChildEditingWatch: (() => void) | null = null;
 
     const showCaption = computed(() => {
-      // Hide caption for Link, Text, Chat, Embed, Map, Campfire, RPG, and Suggestion tiles as requested
+      // Hide caption for Link, Text, Chat, Embed, Map, Campfire, RPG, YouTube, and Suggestion tiles as requested
       const hiddenTypes = [
         ContentType.LINK,
         ContentType.TEXT,
@@ -191,6 +192,7 @@ export default defineComponent({
         ContentType.RPG,
         ContentType.SUGGESTION,
         ContentType.PROFILE,
+        ContentType.YOUTUBE,
       ];
       if (hiddenTypes.includes(props.tile.content.type)) return false;
       // Hide caption on 1-wide tiles (too narrow)

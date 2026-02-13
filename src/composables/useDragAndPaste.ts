@@ -1,7 +1,7 @@
 import { ref, onMounted, onUnmounted, type Ref } from "vue";
 import { useFileUpload } from "./useFileUpload";
 import { useLayoutStore } from "@/stores/layout";
-import { createTileContent, isDirectImageUrl, isDirectVideoUrl } from "@/utils/TileUtils";
+import { createTileContent, createTileContentFromEmbedUrl, isDirectImageUrl, isDirectVideoUrl } from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
@@ -183,37 +183,37 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   const handleUrlPaste = async (url: string) => {
     const formattedUrl = url.startsWith("http") ? url : `https://${url}`;
     
-    // Check if it's a direct image or video URL
-    if (isDirectImageUrl(formattedUrl)) {
-      const content = createTileContent(ContentType.IMAGE, { src: formattedUrl });
-      layoutStore.addTile(content);
-    } else if (isDirectVideoUrl(formattedUrl)) {
-      const content = createTileContent(ContentType.VIDEO, { src: formattedUrl });
-      layoutStore.addTile(content);
-    } else {
-      // Create a link tile and fetch metadata
-      const linkContent = createTileContent(ContentType.LINK, { link: formattedUrl });
-      const tileId = layoutStore.addTile(linkContent);
+    // Check if this URL should be a special content type (YouTube, image, video, etc.)
+    const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
+    if (detectedContent.type === ContentType.YOUTUBE ||
+        detectedContent.type === ContentType.IMAGE ||
+        detectedContent.type === ContentType.VIDEO) {
+      layoutStore.addTile(detectedContent);
+      return;
+    }
 
-      if (tileId) {
-        // Fetch link preview in background
-        try {
-          const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-          const result = await getLinkPreview({ url: formattedUrl });
-          const data = result.data as any;
+    // Otherwise, create a link tile and fetch metadata
+    const linkContent = createTileContent(ContentType.LINK, { link: formattedUrl });
+    const tileId = layoutStore.addTile(linkContent);
 
-          layoutStore.patchTileContent(tileId, {
-            link: data?.url,
-            domain: data?.domain,
-            faviconUrl: data?.faviconUrl,
-            metaTitle: data?.title,
-            metaDescription: data?.description,
-            metaImageUrl: data?.imageUrl,
-            metaSiteName: data?.siteName,
-          });
-        } catch (error) {
-          console.error("Failed to fetch link preview:", error);
-        }
+    if (tileId) {
+      // Fetch link preview in background
+      try {
+        const getLinkPreview = httpsCallable(functions, "getLinkPreview");
+        const result = await getLinkPreview({ url: formattedUrl });
+        const data = result.data as any;
+
+        layoutStore.patchTileContent(tileId, {
+          link: data?.url,
+          domain: data?.domain,
+          faviconUrl: data?.faviconUrl,
+          metaTitle: data?.title,
+          metaDescription: data?.description,
+          metaImageUrl: data?.imageUrl,
+          metaSiteName: data?.siteName,
+        });
+      } catch (error) {
+        console.error("Failed to fetch link preview:", error);
       }
     }
   };
@@ -221,37 +221,37 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   const handleUrlDrop = async (url: string) => {
     const formattedUrl = url.startsWith("http") ? url : `https://${url}`;
     
-    // Check if it's a direct image or video URL
-    if (isDirectImageUrl(formattedUrl)) {
-      const content = createTileContent(ContentType.IMAGE, { src: formattedUrl });
-      layoutStore.addTile(content);
-    } else if (isDirectVideoUrl(formattedUrl)) {
-      const content = createTileContent(ContentType.VIDEO, { src: formattedUrl });
-      layoutStore.addTile(content);
-    } else {
-      // Create a link tile and fetch metadata
-      const linkContent = createTileContent(ContentType.LINK, { link: formattedUrl });
-      const tileId = layoutStore.addTile(linkContent);
+    // Check if this URL should be a special content type (YouTube, image, video, etc.)
+    const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
+    if (detectedContent.type === ContentType.YOUTUBE ||
+        detectedContent.type === ContentType.IMAGE ||
+        detectedContent.type === ContentType.VIDEO) {
+      layoutStore.addTile(detectedContent);
+      return;
+    }
 
-      if (tileId) {
-        // Fetch link preview in background
-        try {
-          const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-          const result = await getLinkPreview({ url: formattedUrl });
-          const data = result.data as any;
+    // Otherwise, create a link tile and fetch metadata
+    const linkContent = createTileContent(ContentType.LINK, { link: formattedUrl });
+    const tileId = layoutStore.addTile(linkContent);
 
-          layoutStore.patchTileContent(tileId, {
-            link: data?.url,
-            domain: data?.domain,
-            faviconUrl: data?.faviconUrl,
-            metaTitle: data?.title,
-            metaDescription: data?.description,
-            metaImageUrl: data?.imageUrl,
-            metaSiteName: data?.siteName,
-          });
-        } catch (error) {
-          console.error("Failed to fetch link preview:", error);
-        }
+    if (tileId) {
+      // Fetch link preview in background
+      try {
+        const getLinkPreview = httpsCallable(functions, "getLinkPreview");
+        const result = await getLinkPreview({ url: formattedUrl });
+        const data = result.data as any;
+
+        layoutStore.patchTileContent(tileId, {
+          link: data?.url,
+          domain: data?.domain,
+          faviconUrl: data?.faviconUrl,
+          metaTitle: data?.title,
+          metaDescription: data?.description,
+          metaImageUrl: data?.imageUrl,
+          metaSiteName: data?.siteName,
+        });
+      } catch (error) {
+        console.error("Failed to fetch link preview:", error);
       }
     }
   };

@@ -11,6 +11,7 @@ export enum ContentType {
   RPG = "rpg",
   SUGGESTION = "suggestion", // internal-only tile type
   PROFILE = "profile",
+  YOUTUBE = "youtube",
 }
 
 export interface TileContent {
@@ -169,4 +170,76 @@ export interface CampfireContent extends TileContent {
 
 export interface ClickerContent extends TileContent {
   type: ContentType.CLICKER;
+}
+
+// YouTube content types: video, playlist, channel, short
+export type YouTubeType = 'video' | 'playlist' | 'channel' | 'short';
+
+// Single thumbnail entry returned by the YouTube Data API
+export interface YouTubeThumbnailEntry {
+  url: string;
+  width?: number;
+  height?: number;
+}
+
+// Thumbnail sizes available from YouTube API
+export interface YouTubeThumbnails {
+  default?: YouTubeThumbnailEntry;   // 120x90
+  medium?: YouTubeThumbnailEntry;    // 320x180
+  high?: YouTubeThumbnailEntry;      // 480x360
+  standard?: YouTubeThumbnailEntry;  // 640x480
+  maxres?: YouTubeThumbnailEntry;    // 1280x720
+}
+
+// Individual video data for playlists
+export interface YouTubePlaylistItem {
+  videoId: string;
+  title: string;
+  thumbnails: YouTubeThumbnails;
+  channelTitle: string;
+  duration?: string;
+  position: number;
+}
+
+// Channel data
+export interface YouTubeChannelData {
+  channelId: string;
+  title: string;
+  description: string;
+  customUrl?: string;
+  thumbnails: YouTubeThumbnails;
+  subscriberCount?: string;
+  videoCount?: string;
+  viewCount?: string;
+}
+
+export interface YouTubeContent extends TileContent {
+  type: ContentType.YOUTUBE;
+  youtubeUrl: string;
+  youtubeType: YouTubeType;
+  youtubeId: string;
+  
+  // Common metadata
+  title?: string;
+  description?: string;
+  thumbnails?: YouTubeThumbnails;
+  publishedAt?: string;
+  
+  // Video-specific metadata
+  channelTitle?: string;
+  channelId?: string;
+  channelThumbnail?: string;
+  duration?: string;        // ISO 8601 duration format (PT1H2M10S)
+  viewCount?: string;
+  likeCount?: string;
+  commentCount?: string;
+  categoryId?: string;
+  
+  // Playlist-specific metadata
+  itemCount?: number;
+  playlistItems?: YouTubePlaylistItem[];
+  
+  // Channel-specific metadata
+  channelData?: YouTubeChannelData;
+  recentVideos?: YouTubePlaylistItem[];
 }

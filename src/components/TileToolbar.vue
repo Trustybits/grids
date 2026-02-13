@@ -8,16 +8,22 @@
     <template v-for="(item, idx) in visibleItems" :key="item.id">
       <div v-if="shouldShowDivider(idx)" class="toolbar-divider"></div>
       <button
-        :ref="(el) => {
-          if (item.menuItems) menuAnchorRef = el as HTMLButtonElement
-          if (item.panelId) panelAnchorRef = el as HTMLButtonElement
-        }"
+        :ref="
+          (el) => {
+            if (item.menuItems) menuAnchorRef = el as HTMLButtonElement;
+            if (item.panelId) panelAnchorRef = el as HTMLButtonElement;
+          }
+        "
         class="toolbar-btn"
         :class="[
           item.cssClass,
-          { 'is-active': item.isActive?.(ctx) || (item.panelId && panelOpen && activePanelId === item.panelId) }
+          {
+            'is-active':
+              item.isActive?.(ctx) ||
+              (item.panelId && panelOpen && activePanelId === item.panelId),
+          },
         ]"
-        :title="resolveTitle(item)"
+        :data-tooltip="resolveTitle(item)"
         @click.stop="onItemClick(item)"
       >
         <component :is="item.icon" />
@@ -34,7 +40,7 @@
   >
     <button
       class="search-panel-btn"
-      title="My location"
+      data-tooltip="My location"
       @click.stop="onLocateClick"
     >
       <LocateFixedIcon />
@@ -50,12 +56,26 @@
     />
     <button
       class="search-panel-btn"
-      title="Search map"
+      data-tooltip="Search map"
       @click.stop="onSearchSubmit"
     >
       <SearchIcon />
     </button>
   </div>
+
+  <!-- Color Picker Panel -->
+  <teleport to="body">
+    <div
+      v-if="panelOpen && activePanelId === 'colorSelect'"
+      ref="colorPickerRef"
+    >
+      <ColorPicker
+        :tile="tile"
+        :childComponent="childComponent"
+        :buttonEl="panelAnchorRef"
+      />
+    </div>
+  </teleport>
 
   <teleport to="body">
     <div
@@ -90,22 +110,24 @@ import {
   onUnmounted,
   watch,
   type PropType,
-} from 'vue'
-import type { Tile } from '@/types/Tile'
+} from "vue";
+import type { Tile } from "@/types/Tile";
 import type {
   ToolbarItem,
   ToolbarMenuItem,
   ToolbarContext,
-} from '@/types/TileToolbar'
-import { getToolbarItems } from '@/utils/toolbarRegistry'
-import { useLayoutStore } from '@/stores/layout'
-import LocateFixedIcon from './icons/toolbar/LocateFixedIcon.vue'
-import SearchIcon from './icons/toolbar/SearchIcon.vue'
+} from "@/types/TileToolbar";
+import { getToolbarItems } from "@/utils/toolbarRegistry";
+import { useLayoutStore } from "@/stores/layout";
+import LocateFixedIcon from "./icons/toolbar/LocateFixedIcon.vue";
+import SearchIcon from "./icons/toolbar/SearchIcon.vue";
+import ColorPicker from "./ColorPicker.vue";
 
 export default defineComponent({
   components: {
     LocateFixedIcon,
     SearchIcon,
+    ColorPicker,
   },
   props: {
     tile: {
@@ -113,26 +135,38 @@ export default defineComponent({
       required: true,
     },
     toolbarRefs: {
-      type: Object as PropType<{ childComponent: any; isEditing: any; isExitingCropMode: any }>,
+      type: Object as PropType<{
+        childComponent: any;
+        isEditing: any;
+        isExitingCropMode: any;
+      }>,
       required: true,
     },
   },
   setup(props) {
-    const layoutStore = useLayoutStore()
+    const layoutStore = useLayoutStore();
 
-    const menuAnchorRef = ref<HTMLButtonElement | null>(null)
-    const menuRef = ref<HTMLDivElement | null>(null)
-    const menuPosition = ref({ x: 0, y: 0 })
+    const menuAnchorRef = ref<HTMLButtonElement | null>(null);
+    const menuRef = ref<HTMLDivElement | null>(null);
+    const menuPosition = ref({ x: 0, y: 0 });
 
     // Panel state (e.g. search bar)
-    const panelOpen = ref(false)
-    const activePanelId = ref<string | null>(null)
-    const panelAnchorRef = ref<HTMLButtonElement | null>(null)
-    const searchPanelRef = ref<HTMLDivElement | null>(null)
-    const searchInputRef = ref<HTMLInputElement | null>(null)
-    const searchQuery = ref('')
+    const activePanelId = ref<string | null>(null);
+    const panelAnchorRef = ref<HTMLButtonElement | null>(null);
+    const searchPanelRef = ref<HTMLDivElement | null>(null);
+    const searchInputRef = ref<HTMLInputElement | null>(null);
+    const searchQuery = ref("");
 
-    const menuOpen = computed(() => layoutStore?.activeMenuTileId === props.tile.i)
+    const colorPickerRef = ref<HTMLDivElement | null>(null);
+    const childComponent = props.toolbarRefs.childComponent;
+
+    const menuOpen = computed(
+      () => layoutStore?.activeMenuTileId === props.tile.i,
+    );
+
+    const panelOpen = computed(
+      () => layoutStore?.activePanelTileId === props.tile.i,
+    );
 
     const ctx = computed<ToolbarContext>(() => ({
       tile: props.tile,
@@ -140,158 +174,187 @@ export default defineComponent({
       layoutStore,
       isEditing: props.toolbarRefs.isEditing,
       isExitingCropMode: props.toolbarRefs.isExitingCropMode,
-    }))
+    }));
 
-    const items = computed(() => getToolbarItems(props.tile.content.type))
+    const items = computed(() => getToolbarItems(props.tile.content.type));
 
     const visibleItems = computed(() =>
-      items.value.filter((item) => item.visible?.(ctx.value) ?? true)
-    )
+      items.value.filter((item) => item.visible?.(ctx.value) ?? true),
+    );
 
     const activeMenuItems = computed<ToolbarMenuItem[]>(() => {
-      const menuItem = items.value.find((i) => i.menuItems)
-      return menuItem?.menuItems ?? []
-    })
+      const menuItem = items.value.find((i) => i.menuItems);
+      return menuItem?.menuItems ?? [];
+    });
 
     const visibleMenuItems = computed(() =>
-      activeMenuItems.value.filter((mi) => mi.visible?.(ctx.value) ?? true)
-    )
+      activeMenuItems.value.filter((mi) => mi.visible?.(ctx.value) ?? true),
+    );
 
     const resolveTitle = (item: ToolbarItem): string => {
-      return typeof item.title === 'function' ? item.title(ctx.value) : item.title
-    }
+      return typeof item.title === "function"
+        ? item.title(ctx.value)
+        : item.title;
+    };
 
     const shouldShowDivider = (idx: number): boolean => {
-      if (idx === 0) return false
-      const prev = visibleItems.value[idx - 1]
-      const curr = visibleItems.value[idx]
-      return !!prev.group && !!curr.group && prev.group !== curr.group
-    }
+      if (idx === 0) return false;
+      const prev = visibleItems.value[idx - 1];
+      const curr = visibleItems.value[idx];
+      return !!prev.group && !!curr.group && prev.group !== curr.group;
+    };
 
     const clampToViewport = (x: number, y: number, w: number, h: number) => {
-      const pad = 8
+      const pad = 8;
       return {
         x: Math.max(pad, Math.min(x, window.innerWidth - w - pad)),
         y: Math.max(pad, Math.min(y, window.innerHeight - h - pad)),
-      }
-    }
+      };
+    };
 
     const positionMenu = () => {
-      const btn = menuAnchorRef.value
-      if (!btn) return
-      const rect = btn.getBoundingClientRect()
-      const fallbackW = 190
-      const fallbackH = 112
-      const fallbackX = rect.right - fallbackW
-      const fallbackY = rect.bottom + 8
-      menuPosition.value = clampToViewport(fallbackX, fallbackY, fallbackW, fallbackH)
+      const btn = menuAnchorRef.value;
+      if (!btn) return;
+      const rect = btn.getBoundingClientRect();
+      const fallbackW = 190;
+      const fallbackH = 112;
+      const fallbackX = rect.right - fallbackW;
+      const fallbackY = rect.bottom + 8;
+      menuPosition.value = clampToViewport(
+        fallbackX,
+        fallbackY,
+        fallbackW,
+        fallbackH,
+      );
 
       nextTick(() => {
-        const menu = menuRef.value
-        if (!menu) return
-        const { width, height } = menu.getBoundingClientRect()
-        const nextX = rect.right - width
-        const nextY = rect.bottom + 8
-        menuPosition.value = clampToViewport(nextX, nextY, width, height)
-      })
-    }
+        const menu = menuRef.value;
+        if (!menu) return;
+        const { width, height } = menu.getBoundingClientRect();
+        const nextX = rect.right - width;
+        const nextY = rect.bottom + 8;
+        menuPosition.value = clampToViewport(nextX, nextY, width, height);
+      });
+    };
 
     const menuStyle = computed(() => ({
       top: `${menuPosition.value.y}px`,
       left: `${menuPosition.value.x}px`,
-    }))
+    }));
 
     const closeMenu = () => {
-      layoutStore.closeAllMenus()
-    }
+      layoutStore.closeAllMenus();
+    };
 
     const closePanel = () => {
-      panelOpen.value = false
-      activePanelId.value = null
-    }
+      activePanelId.value = null;
+      closeMenu();
+    };
 
     const onItemClick = (item: ToolbarItem) => {
       // Handle panel items (e.g. search)
       if (item.panelId) {
         if (panelOpen.value && activePanelId.value === item.panelId) {
-          closePanel()
+          closePanel();
         } else {
-          closeMenu()
-          panelOpen.value = true
-          activePanelId.value = item.panelId
-          nextTick(() => {
-            searchInputRef.value?.focus()
-          })
+          closeMenu();
+          layoutStore.setActivePanelTileId(props.tile.i);
+          activePanelId.value = item.panelId;
+          if (item.panelId === "search")
+            nextTick(() => {
+              searchInputRef.value?.focus();
+            });
         }
-        return
+        return;
       }
 
       // Handle menu items
       if (item.menuItems) {
         if (menuOpen.value) {
-          closeMenu()
+          closeMenu();
         } else {
-          closePanel()
-          layoutStore.setActiveMenuTile(props.tile.i)
-          nextTick(positionMenu)
+          closePanel();
+          layoutStore.setActiveMenuTile(props.tile.i);
+          nextTick(positionMenu);
         }
-        return
+        return;
       }
 
-      item.action(ctx.value)
-    }
+      item.action(ctx.value);
+    };
 
     const onMenuItemClick = (mi: ToolbarMenuItem) => {
-      closeMenu()
-      mi.action(ctx.value)
-    }
+      closeMenu();
+      mi.action(ctx.value);
+    };
 
     const onLocateClick = () => {
-      props.toolbarRefs.childComponent?.value?.useMyLocation?.()
-    }
+      props.toolbarRefs.childComponent?.value?.useMyLocation?.();
+    };
 
     const onSearchSubmit = () => {
-      const query = searchQuery.value.trim()
-      const child = props.toolbarRefs.childComponent?.value
-      if (!child) return
-      child.searchInput = query
-      child.handleSearch?.()
-    }
+      const query = searchQuery.value.trim();
+      const child = props.toolbarRefs.childComponent?.value;
+      if (!child) return;
+      child.searchInput = query;
+      child.handleSearch?.();
+    };
 
     const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node
+      const target = event.target as Node;
 
       // Close menu if open
       if (menuOpen.value) {
-        if (menuRef.value?.contains(target)) return
-        if (menuAnchorRef.value?.contains(target)) return
-        closeMenu()
+        if (menuRef.value?.contains(target)) return;
+        if (menuAnchorRef.value?.contains(target)) return;
+        closeMenu();
       }
 
       // Close panel if open
       if (panelOpen.value) {
-        if (searchPanelRef.value?.contains(target)) return
-        if (panelAnchorRef.value?.contains(target)) return
-        closePanel()
+        if (searchPanelRef.value?.contains(target)) return;
+        if (panelAnchorRef.value?.contains(target)) return;
+        if (colorPickerRef.value?.contains(target)) return;
+        closePanel();
       }
-    }
+    };
+
+    let rafId: number | null = null;
+
+    const schedulePositionMenu = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        positionMenu();
+      });
+    };
 
     // Reposition the menu when it opens
-    watch(menuOpen, (open) => {
-      if (open) {
-        nextTick(positionMenu)
-      }
-    })
+    watch(menuOpen, (open, _prev, onCleanup) => {
+      if (!open) return;
+      
+      nextTick(positionMenu);
+
+      window.addEventListener("resize", schedulePositionMenu);
+      window.addEventListener("scroll", schedulePositionMenu, { capture: true, passive: true });
+
+      onCleanup(() => {
+        if (rafId != null) cancelAnimationFrame(rafId);
+        rafId = null;
+        window.removeEventListener("resize", schedulePositionMenu);
+        window.removeEventListener("scroll", schedulePositionMenu, { capture: true });
+      });
+    });
 
     onMounted(() => {
-      document.addEventListener('click', handleClickOutside)
-      document.addEventListener('contextmenu', handleClickOutside)
-    })
+      document.addEventListener("click", handleClickOutside);
+      document.addEventListener("contextmenu", handleClickOutside);
+    });
 
     onUnmounted(() => {
-      document.removeEventListener('click', handleClickOutside)
-      document.removeEventListener('contextmenu', handleClickOutside)
-    })
+      document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("contextmenu", handleClickOutside);
+    });
 
     return {
       items,
@@ -316,11 +379,13 @@ export default defineComponent({
       searchPanelRef,
       searchInputRef,
       searchQuery,
+      colorPickerRef,
+      childComponent,
       onLocateClick,
       onSearchSubmit,
-    }
+    };
   },
-})
+});
 </script>
 
 <style scoped lang="scss">
@@ -337,14 +402,15 @@ export default defineComponent({
   gap: 4px;
   white-space: nowrap;
   flex-wrap: nowrap;
-  
+
   /* Hidden by default with smooth animation properties */
   opacity: 0;
   transform: translate(-50%, calc(100% + 10px)) scale(0.9);
   pointer-events: none;
-  transition: opacity var(--duration-fast) var(--easing-ease-out),
-              transform var(--duration-normal) var(--easing-spring);
-  
+  transition:
+    opacity var(--duration-fast) var(--easing-ease-out),
+    transform var(--duration-normal) var(--easing-spring);
+
   /* Toolbar styling matching close button */
   background-color: var(--color-tile-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
@@ -370,9 +436,10 @@ export default defineComponent({
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--easing-ease-in-out),
-              transform var(--duration-fast) var(--easing-ease-out),
-              color var(--duration-fast) var(--easing-ease-in-out);
+  transition:
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    transform var(--duration-fast) var(--easing-ease-out),
+    color var(--duration-fast) var(--easing-ease-in-out);
 
   :deep(svg) {
     width: 28px;
@@ -393,11 +460,42 @@ export default defineComponent({
   }
 }
 
+/* Tooltip via data-tooltip attribute */
+.toolbar-btn[data-tooltip] {
+  position: relative;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    white-space: nowrap;
+    font-size: 11px;
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-text-primary);
+    color: var(--color-tile-background);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--easing-ease-out),
+                transform var(--duration-fast) var(--easing-ease-out);
+    z-index: var(--z-tooltip);
+  }
+
+  &:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
 .toolbar-btn--border :deep(.border-slash) {
   stroke-dasharray: 18;
   stroke-dashoffset: 18;
   opacity: 0;
-  transition: stroke-dashoffset var(--duration-normal) var(--easing-spring),
+  transition:
+    stroke-dashoffset var(--duration-normal) var(--easing-spring),
     opacity var(--duration-fast) var(--easing-ease-in-out);
 }
 
@@ -454,9 +552,10 @@ export default defineComponent({
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background-color var(--duration-fast) var(--easing-ease-in-out),
-              transform var(--duration-fast) var(--easing-ease-out),
-              color var(--duration-fast) var(--easing-ease-in-out);
+  transition:
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    transform var(--duration-fast) var(--easing-ease-out),
+    color var(--duration-fast) var(--easing-ease-in-out);
 
   :deep(svg) {
     width: 22px;
@@ -467,6 +566,36 @@ export default defineComponent({
   &:hover {
     background-color: var(--color-content-low);
     transform: scale(1.05);
+  }
+}
+
+/* Tooltip for search panel buttons */
+.search-panel-btn[data-tooltip] {
+  position: relative;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    white-space: nowrap;
+    font-size: 11px;
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-text-primary);
+    color: var(--color-tile-background);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--easing-ease-out),
+                transform var(--duration-fast) var(--easing-ease-out);
+    z-index: var(--z-tooltip);
+  }
+
+  &:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
   }
 }
 

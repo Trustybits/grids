@@ -1,8 +1,14 @@
 <template>
+  <!-- @pointerdown.stop and @mousedown.stop prevent these events from
+       reaching the tile-wrapper's startClick handler and interact.js's drag
+       initiator (which uses pointerdown), so interacting with the caption
+       never triggers the tile drag animation or grid drag. -->
   <div
     class="tile-caption glass"
     :class="captionClasses"
     :style="captionStyle"
+    @pointerdown.stop
+    @mousedown.stop
     @click="startEditing"
   >
     <p
@@ -60,6 +66,11 @@ export default {
 
     const startEditing = () => {
       if (!layoutStore.isOwner) {
+        return;
+      }
+      // If already editing, let the native click handle cursor placement
+      // inside the contenteditable — don't reset text or force caret to end.
+      if (editing.value) {
         return;
       }
       editing.value = true;

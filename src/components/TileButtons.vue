@@ -7,34 +7,34 @@
 
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
-      <button class="btn btn-secondary" @click="addTextElement">
+      <button class="btn btn-secondary" data-tooltip="Text" @click="addTextElement">
         <TextIcon />
       </button>
 
-      <button class="btn btn-secondary" @click="addProfileElement">
+      <button class="btn btn-secondary" data-tooltip="Profile" @click="addProfileElement">
         <ProfileIcon />
       </button>
 
-      <button class="btn btn-secondary" @click="addChatElement">
+      <button class="btn btn-secondary" data-tooltip="Chat" @click="addChatElement">
         <ChatIcon />
       </button>
 
-      <button class="btn btn-secondary" @click="selectFile">
+      <button class="btn btn-secondary" data-tooltip="Image / Video" @click="selectFile">
         <ImageIcon />
       </button>
-      <button class="btn btn-secondary" @click="addLinkElement">
+      <button class="btn btn-secondary" data-tooltip="Link" @click="addLinkElement">
         <LinkIcon />
       </button>
       <!-- <button class="btn btn-secondary" @click="addLinkElement">📽</button>
       <button class="btn btn-secondary" @click="addLinkElement">🎵</button>
       <button class="btn btn-secondary" @click="addLinkElement">📌</button> -->
-      <button class="btn btn-secondary" @click="addEmbedElement">
+      <button class="btn btn-secondary" data-tooltip="Embed" @click="addEmbedElement">
         <EmbedIcon />
       </button>
-      <button class="btn btn-secondary" @click="addMapElement">
+      <button class="btn btn-secondary" data-tooltip="Map" @click="addMapElement">
         <MapIcon />
       </button>
-      <button class="btn btn-secondary" @click="addCampfireElement">
+      <button class="btn btn-secondary" data-tooltip="Campfire" @click="addCampfireElement">
         <CampfireIcon />
       </button>
       <!-- <button class="btn btn-secondary" @click="addRPGElement">
@@ -122,7 +122,11 @@ export default {
 
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
-      layoutStore.addTile(textContent);
+      const tileId = layoutStore.addTile(textContent);
+      // Auto-focus the new text tile so the user can start typing immediately
+      if (tileId) {
+        layoutStore.pendingFocusTileId = tileId;
+      }
     };
 
     const addProfileElement = () => {
@@ -170,6 +174,20 @@ export default {
 
     const handleAddLink = (link: string) => {
       closeLinkModal();
+      
+      // Check if this URL should be a special content type (YouTube, image, video, etc.)
+      // instead of a generic link tile
+      const detectedContent = createTileContentFromEmbedUrl(link);
+      
+      // If it's detected as YouTube, image, or video, use that specialized type
+      if (detectedContent.type === ContentType.YOUTUBE || 
+          detectedContent.type === ContentType.IMAGE ||
+          detectedContent.type === ContentType.VIDEO) {
+        layoutStore.addTile(detectedContent);
+        return;
+      }
+      
+      // Otherwise, create a link tile with preview
       const linkContent = createTileContent(ContentType.LINK, { link });
       const tileId = layoutStore.addTile(linkContent);
 
@@ -337,6 +355,36 @@ export default {
     background-color: var(--color-base-55);
     color: var(--color-text-primary);
   }
+}
+
+/* Tooltip via data-tooltip attribute */
+.toolbarAlpha button[data-tooltip] {
+  position: relative;
+}
+
+.toolbarAlpha button[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.9);
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-text-primary);
+  color: var(--color-tile-background);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing-ease-out),
+              transform var(--duration-fast) var(--easing-ease-out);
+  z-index: var(--z-tooltip);
+}
+
+.toolbarAlpha button[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
 }
 
 .toolbarAlpha button svg {

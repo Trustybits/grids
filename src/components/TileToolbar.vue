@@ -151,7 +151,6 @@ export default defineComponent({
     const menuPosition = ref({ x: 0, y: 0 });
 
     // Panel state (e.g. search bar)
-    // const panelOpen = ref(false);
     const activePanelId = ref<string | null>(null);
     const panelAnchorRef = ref<HTMLButtonElement | null>(null);
     const searchPanelRef = ref<HTMLDivElement | null>(null);
@@ -166,7 +165,7 @@ export default defineComponent({
     );
 
     const panelOpen = computed(
-      () => layoutStore?.activePanelId === props.tile.i,
+      () => layoutStore?.activePanelTileId === props.tile.i,
     )
 
     const ctx = computed<ToolbarContext>(() => ({
@@ -248,9 +247,8 @@ export default defineComponent({
     };
 
     const closePanel = () => {
-      // panelOpen.value = false;
       activePanelId.value = null;
-      layoutStore.closeAllMenus();
+      closeMenu();
     };
 
     const onItemClick = (item: ToolbarItem) => {
@@ -259,11 +257,10 @@ export default defineComponent({
         if (panelOpen.value && activePanelId.value === item.panelId) {
           closePanel();
         } else {
-          console.log("should be opening")
           closeMenu();
-          // panelOpen.value = true;
-          layoutStore.setActivePanelId(props.tile.i);
+          layoutStore.setActivePanelTileId(props.tile.i);
           activePanelId.value = item.panelId;
+          if (item.panelId === "search")
           nextTick(() => {
             searchInputRef.value?.focus();
           });

@@ -62,14 +62,26 @@ export default defineComponent({
       pos.value = { top: r.bottom + 8, left: r.left + r.width / 2 };
     };
 
+    let rafId: number | null = null;
+
+    const scheduleUpdatePos = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        updatePos();
+      });
+    }
+
     onMounted(updatePos);
     watch(() => props.buttonEl, updatePos);
-    window.addEventListener("resize", updatePos);
-    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", scheduleUpdatePos);
+    window.addEventListener("scroll", scheduleUpdatePos, { capture: true, passive: true });
 
     onUnmounted(() => {
-      window.removeEventListener("resize", updatePos);
-      window.removeEventListener("scroll", updatePos, true);
+      if (rafId != null) cancelAnimationFrame(rafId);
+      rafId = null;
+      window.removeEventListener("resize", scheduleUpdatePos);
+      window.removeEventListener("scroll", scheduleUpdatePos, { capture: true });
     });
 
     return {

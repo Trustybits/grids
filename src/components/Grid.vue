@@ -311,23 +311,23 @@ export default {
   transition: none !important;
   animation: none !important;
   
-  /* Make placeholder clearly visible */
-  opacity: 0.3 !important;
+  /* Visual styling */
   background: rgba(255, 255, 255, 0.15) !important;
-  /* border: 2px dashed rgba(255, 255, 255, 0.4) !important; */
   border-radius: var(--tile-border-radius) !important;
   
-  /* Force it to always be visible */
-  display: block !important;
-  visibility: visible !important;
+  /* Hidden by default — prevents the phantom circle on page load and
+     the stale placeholder lingering at the wrong position after drop. */
+  display: none !important;
   
-  /* Prevent it from collapsing */
-  min-width: 20px !important;
-  min-height: 20px !important;
-  
-  /* Ensure proper positioning */
   position: absolute !important;
   z-index: -1 !important;
   pointer-events: none !important;
+}
+
+/* Only show the placeholder while a tile is actively being dragged.
+   :has(.vue-draggable-dragging) matches when any child grid-item is mid-drag. */
+.vue-grid-layout:has(.vue-draggable-dragging) .vue-grid-placeholder {
+  display: block !important;
+  opacity: 0.3 !important;
 }
 </style>

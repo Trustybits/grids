@@ -5,7 +5,11 @@
     @mousedown.stop
   >
     <template v-for="color in colors" :key="`color-${color}`">
-      <button class="color-box" :style="`background: var(${color})`"></button>
+      <button
+        class="color-box"
+        :style="`background: var(${color})`"
+        @click="onColorClick($event, color)"
+      ></button>
     </template>
     <div class="hex-input">hex input</div>
   </div>
@@ -47,9 +51,13 @@ export default defineComponent({
       "--color-light-100",
       "--color-dark-0",
       "--color-tile-background",
-      "--color-content-background"
+      "--color-content-background",
     ]);
 
+    const onColorClick = (event: MouseEvent, color: string) => {
+      event.preventDefault();
+      props.childComponent?.handleBackgroundColorChange(color);
+    }
     // for color-content-background, draw button as a "no fill" somehow
 
     const pos = ref({ top: 0, left: 0 });
@@ -70,23 +78,29 @@ export default defineComponent({
         rafId = null;
         updatePos();
       });
-    }
+    };
 
     onMounted(updatePos);
     watch(() => props.buttonEl, updatePos);
     window.addEventListener("resize", scheduleUpdatePos);
-    window.addEventListener("scroll", scheduleUpdatePos, { capture: true, passive: true });
+    window.addEventListener("scroll", scheduleUpdatePos, {
+      capture: true,
+      passive: true,
+    });
 
     onUnmounted(() => {
       if (rafId != null) cancelAnimationFrame(rafId);
       rafId = null;
       window.removeEventListener("resize", scheduleUpdatePos);
-      window.removeEventListener("scroll", scheduleUpdatePos, { capture: true });
+      window.removeEventListener("scroll", scheduleUpdatePos, {
+        capture: true,
+      });
     });
 
     return {
       colors,
       pos,
+      onColorClick,
     };
   },
 });
@@ -125,7 +139,7 @@ export default defineComponent({
   height: 28px;
   margin: 2px;
   padding: 0;
-  
+
   border-radius: 6px;
   /* background: var(--swatch, #ff4d4f); */
   border: 1px solid var(--color-tile-stroke);

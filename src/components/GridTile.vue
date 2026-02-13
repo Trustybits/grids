@@ -21,6 +21,7 @@
       :maxH="10"
       :isDraggable="layoutStore.isOwner && !isEditing"
       :isResizable="isTileResizable"
+      dragIgnoreFrom="a, button, .tile-caption"
       @move="onMove"
       @moved="onMoved"
       @resize="onResize"
@@ -164,6 +165,7 @@ export default defineComponent({
     // This is used for responsive content rendering (e.g. title line clamping).
     provide("gridTileH", computed(() => props.tile.h));
     provide("gridTileW", computed(() => props.tile.w));
+    /*provide("tileId", computed(() => props.tile.i));*/
     provide("tileId", props.tile.i);
     provide("tileX", computed(() => props.tile.x));
     provide("tileY", computed(() => props.tile.y));
@@ -180,7 +182,7 @@ export default defineComponent({
     let stopChildEditingWatch: (() => void) | null = null;
 
     const showCaption = computed(() => {
-      // Hide caption for Link, Text, Chat, Embed, Map, Campfire, RPG, and Suggestion tiles as requested
+      // Hide caption for Link, Text, Chat, Embed, Map, Campfire, RPG, YouTube, and Suggestion tiles as requested
       const hiddenTypes = [
         ContentType.LINK,
         ContentType.TEXT,
@@ -190,6 +192,7 @@ export default defineComponent({
         ContentType.RPG,
         ContentType.SUGGESTION,
         ContentType.PROFILE,
+        ContentType.YOUTUBE,
       ];
       if (hiddenTypes.includes(props.tile.content.type)) return false;
       // Hide caption on 1-wide tiles (too narrow)
@@ -337,6 +340,8 @@ export default defineComponent({
         case "text": {
           const content = createTileContent(ContentType.TEXT, {});
           layoutStore.setTileContent(props.tile.i, content);
+          // Auto-focus the new text tile so the user can start typing immediately
+          layoutStore.pendingFocusTileId = props.tile.i;
           break;
         }
 
@@ -848,10 +853,11 @@ export default defineComponent({
   display: none;
 }
 
-/* Hide close button during crop mode and when exiting */
+/* Hide close button during crop mode, exiting, and while dragging */
 .tile-wrapper.crop-mode-active .btn-close,
 .tile-wrapper.crop-mode-exiting .btn-close,
-.tile-wrapper.is-exiting .btn-close {
+.tile-wrapper.is-exiting .btn-close,
+.tile-wrapper.is-dragging .btn-close {
   opacity: 0;
   transform: scale(0);
   pointer-events: none;
@@ -873,9 +879,11 @@ export default defineComponent({
   pointer-events: auto;
 }
 
-/* Hide toolbar when tile is exiting */
+/* Hide toolbar when tile is exiting or being dragged */
 .tile-wrapper.is-exiting :deep(.tile-toolbar),
-.tile-wrapper.is-exiting :deep(.toolbar-search-panel) {
+.tile-wrapper.is-exiting :deep(.toolbar-search-panel),
+.tile-wrapper.is-dragging :deep(.tile-toolbar),
+.tile-wrapper.is-dragging :deep(.toolbar-search-panel) {
   opacity: 0;
   transform: translate(-50%, calc(100% + 10px)) scale(0.9);
   pointer-events: none;
@@ -1066,11 +1074,19 @@ export default defineComponent({
   &.resizing {
     transition: none !important;
     /* Keep tile visible and stable during resize */
-    opacity: 0.6 !important;
+    opacity: 1 !important;
   }
   
-  /* Smooth animation when resize completes */
-  &:not(.resizing) {
+  /* Light, fast spring during drag — keeps a hint of fluidity without
+     the heavy 400ms spring that causes perceptible cursor lag. */
+  &.vue-draggable-dragging {
+    transition: transform 80ms ease-out !important;
+    // transition: transform 80ms var(--easing-spring) !important;
+    opacity: 1 !important;
+  }
+
+  /* Full spring animation when resize/drag completes and tiles settle */
+  &:not(.resizing):not(.vue-draggable-dragging) {
     transition: width var(--duration-slow) var(--easing-spring),
                 height var(--duration-slow) var(--easing-spring),
                 transform var(--duration-slow) var(--easing-spring),
@@ -1079,31 +1095,6 @@ export default defineComponent({
   }
 }
 
-/* Placeholder/silhouette that shows where the tile will land during resize */
-:deep(.vue-grid-placeholder) {
-  /* Remove transitions to prevent flickering - placeholder should update instantly */
-  transition: none !important;
-  animation: none !important;
-  
-  /* Ensure placeholder is always visible and stable */
-  opacity: 0.3 !important;
-  background: var(--color-text-primary) !important;
-  border-radius: var(--tile-border-radius) !important;
-  border: 2px dashed var(--color-text-primary) !important;
-  
-  /* Force the placeholder to always render and prevent any hiding */
-  display: block !important;
-  visibility: visible !important;
-  pointer-events: none !important;
-  
-  /* Ensure it's positioned correctly and prevent any transforms that might hide it */
-  position: absolute !important;
-  z-index: 1 !important;
-  
-  /* Prevent the library from hiding it */
-  width: auto !important;
-  height: auto !important;
-  min-width: 10px !important;
-  min-height: 10px !important;
-}
+/* Placeholder styling is handled globally in Grid.vue's unscoped <style> block
+   so it can properly hide/show based on drag state via :has(.vue-draggable-dragging). */
 </style>

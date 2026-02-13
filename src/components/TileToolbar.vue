@@ -17,7 +17,7 @@
           item.cssClass,
           { 'is-active': item.isActive?.(ctx) || (item.panelId && panelOpen && activePanelId === item.panelId) }
         ]"
-        :title="resolveTitle(item)"
+        :data-tooltip="resolveTitle(item)"
         @click.stop="onItemClick(item)"
       >
         <component :is="item.icon" />
@@ -34,7 +34,7 @@
   >
     <button
       class="search-panel-btn"
-      title="My location"
+      data-tooltip="My location"
       @click.stop="onLocateClick"
     >
       <LocateFixedIcon />
@@ -50,7 +50,7 @@
     />
     <button
       class="search-panel-btn"
-      title="Search map"
+      data-tooltip="Search map"
       @click.stop="onSearchSubmit"
     >
       <SearchIcon />
@@ -393,6 +393,36 @@ export default defineComponent({
   }
 }
 
+/* Tooltip via data-tooltip attribute */
+.toolbar-btn[data-tooltip] {
+  position: relative;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    white-space: nowrap;
+    font-size: 11px;
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-text-primary);
+    color: var(--color-tile-background);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--easing-ease-out),
+                transform var(--duration-fast) var(--easing-ease-out);
+    z-index: var(--z-tooltip);
+  }
+
+  &:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
 .toolbar-btn--border :deep(.border-slash) {
   stroke-dasharray: 18;
   stroke-dashoffset: 18;
@@ -467,6 +497,36 @@ export default defineComponent({
   &:hover {
     background-color: var(--color-content-low);
     transform: scale(1.05);
+  }
+}
+
+/* Tooltip for search panel buttons */
+.search-panel-btn[data-tooltip] {
+  position: relative;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    white-space: nowrap;
+    font-size: 11px;
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-text-primary);
+    color: var(--color-tile-background);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--easing-ease-out),
+                transform var(--duration-fast) var(--easing-ease-out);
+    z-index: var(--z-tooltip);
+  }
+
+  &:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
   }
 }
 

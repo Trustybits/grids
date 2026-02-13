@@ -166,7 +166,7 @@ export default defineComponent({
 
     const panelOpen = computed(
       () => layoutStore?.activePanelTileId === props.tile.i,
-    )
+    );
 
     const ctx = computed<ToolbarContext>(() => ({
       tile: props.tile,
@@ -261,9 +261,9 @@ export default defineComponent({
           layoutStore.setActivePanelTileId(props.tile.i);
           activePanelId.value = item.panelId;
           if (item.panelId === "search")
-          nextTick(() => {
-            searchInputRef.value?.focus();
-          });
+            nextTick(() => {
+              searchInputRef.value?.focus();
+            });
         }
         return;
       }
@@ -319,11 +319,31 @@ export default defineComponent({
       }
     };
 
+    let rafId: number | null = null;
+
+    const schedulePositionMenu = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        positionMenu();
+      });
+    };
+
     // Reposition the menu when it opens
-    watch(menuOpen, (open) => {
-      if (open) {
-        nextTick(positionMenu);
-      }
+    watch(menuOpen, (open, _prev, onCleanup) => {
+      if (!open) return;
+      
+      nextTick(positionMenu);
+
+      window.addEventListener("resize", schedulePositionMenu);
+      window.addEventListener("scroll", schedulePositionMenu, { capture: true, passive: true });
+
+      onCleanup(() => {
+        if (rafId != null) cancelAnimationFrame(rafId);
+        rafId = null;
+        window.removeEventListener("resize", schedulePositionMenu);
+        window.removeEventListener("scroll", schedulePositionMenu, { capture: true });
+      });
     });
 
     onMounted(() => {

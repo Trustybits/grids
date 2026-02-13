@@ -1,47 +1,59 @@
 <template>
-  <TextOptions v-if="layoutStore.isOwner && editor" v-show="isEditing" :editor="editor" />
-  <div 
-    class="text-container" 
-    ref="textContentDiv"
-  >
-    <div 
-      class="text-content" 
-      :class="{ 
-        'not-editing': !isEditing, 
-        'overflowing': isTextOverflowing, 
-        'can-edit': layoutStore.isOwner, 
+  <TextOptions
+    v-if="layoutStore.isOwner && editor"
+    v-show="isEditing"
+    :editor="editor"
+  />
+  <div class="text-container" ref="textContentDiv">
+    <div
+      class="text-content"
+      :class="{
+        'not-editing': !isEditing,
+        overflowing: isTextOverflowing,
+        'can-edit': layoutStore.isOwner,
         'is-wide-1-high': isWideOneHigh,
-        'is-tall-1-wide': isTallOneWide, 
+        'is-tall-1-wide': isTallOneWide,
       }"
+      :style="{ '--tile-bg': backgroundColor, color: textColor }"
       :spellcheck="layoutStore.isOwner && isEditing"
     >
       <EditorContent :editor="editor" />
-      <div v-if="!isTallOneWide && !isOneByOne && textLinkExists" class="tile-link-indicator" aria-hidden="true" @click="handleOwnerClick">
-          <svg
-            class="tile-link-indicator-icon"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M7 17L17 7"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M10 7H17V14"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </div>
-        <div v-if="isTallOneWide && textLinkExists" class="tile-link-indicator tile-link-indicator--bottom" aria-hidden="true" @click="handleOwnerClick">
+      <div
+        v-if="!isTallOneWide && !isOneByOne && textLinkExists"
+        class="tile-link-indicator"
+        aria-hidden="true"
+        @click="handleOwnerClick"
+      >
+        <svg
+          class="tile-link-indicator-icon"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M7 17L17 7"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M10 7H17V14"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div
+        v-if="isTallOneWide && textLinkExists"
+        class="tile-link-indicator tile-link-indicator--bottom"
+        aria-hidden="true"
+        @click="handleOwnerClick"
+      >
         <svg
           class="tile-link-indicator-icon"
           width="24"
@@ -67,9 +79,8 @@
         </svg>
       </div>
     </div>
-    
   </div>
-  <AddLinkModal 
+  <AddLinkModal
     :show="showLinkModal"
     @close="closeLinkModal"
     @add="handleAddLink"
@@ -77,7 +88,15 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, watch, inject, computed, type ComputedRef } from "vue";
+import {
+  defineComponent,
+  ref,
+  onMounted,
+  watch,
+  inject,
+  computed,
+  type ComputedRef,
+} from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
@@ -91,6 +110,7 @@ import { useLayoutStore } from "@/stores/layout";
 import AddLinkModal from "../AddLinkModal.vue";
 import type { TextContent } from "@/types/TileContent";
 import { useToastStore } from "@/stores/toast";
+import { useThemeStore } from "@/stores/theme";
 
 export default defineComponent({
   components: {
@@ -106,6 +126,7 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
+    const themeStore = useThemeStore();
 
     const isTextOverflowing = ref(false);
     const isEditing = ref(false);
@@ -113,13 +134,29 @@ export default defineComponent({
 
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
-    const isTallOneWide = computed(() => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) > 1);
-    const isWideOneHigh = computed(() => (gridTileW?.value ?? 0) > 1 && (gridTileH?.value ?? 0) === 1);
-    const isOneByOne = computed(() => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1);
+    const isTallOneWide = computed(
+      () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) > 1,
+    );
+    const isWideOneHigh = computed(
+      () => (gridTileW?.value ?? 0) > 1 && (gridTileH?.value ?? 0) === 1,
+    );
+    const isOneByOne = computed(
+      () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1,
+    );
+
+    const DEFAULT_COLOR = "var(--color-tile-background)";
+
+    const backgroundColor = computed(() => {
+      if (props.content?.backgroundColor) {
+        return props.content?.backgroundColor;
+      } else {
+        return DEFAULT_COLOR;
+      }
+    });
 
     const textLink = computed(() => props.content?.textLink);
     const textLinkExists = computed(() => !!props.content?.textLink);
-    
+
     const showLinkModal = ref<boolean>(false);
     const toastStore = useToastStore();
 
@@ -134,11 +171,57 @@ export default defineComponent({
         TaskList,
         TaskItem,
       ],
-      content: props.content.text ? JSON.parse(props.content.text) : '',
+      content: props.content.text ? JSON.parse(props.content.text) : "",
       onUpdate({ editor }) {
         // props.content.text = editor.getHTML();
         checkOverflow();
       },
+    });
+
+    const colorHexMap: Record<string, string> = {
+      "var(--color-red)": "#FFAFA3",
+      "var(-color-orange)": "#FFD3A8",
+      "var(--color-yellow)": "#FFE299",
+      "var(--color-green)": "#B3EFBD",
+      "var(--color-cyan)": "#B3F4EF",
+      "var(--color-blue)": "#A8DAFF",
+      "var(--color-purple)": "#D3BDFF",
+      "var(--color-pink)": "#FFA8DB",
+      "var(--color-light-100)": "#FEFDEC",
+      "var(--color-dark-0)": "#33312C",
+      "var(--color-tile-background)": "#000000",
+      "var(--color-content-background)": "#10100E",
+    }
+
+    const getLuminance = (hex: string): number => {
+      const c = hex.replace("#", "");
+      const r = parseInt(c.substring(0, 2), 16);
+      const g = parseInt(c.substring(2, 4), 16);
+      const b = parseInt(c.substring(4, 6), 16);
+      return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    }
+
+    const textColor = computed(() => {
+      const bg = backgroundColor.value;
+      let hex: string | undefined;
+
+      if (bg === "var(--color-orange)") {
+        // override what the luminance says, orange needs a black text color
+        return "#000000";
+      }
+
+      if (bg.startsWith("#")) {
+        hex = bg;
+      } else if (bg === "var(--color-tile-background)") {
+        hex = themeStore.isDarkMode ? "#000000" : "#FFFEF5";
+      } else if (bg === "var(--color-content-background)") {
+        hex = themeStore.isDarkMode ? "#10100E" : "#FFFEF5";
+      } else {
+        hex = colorHexMap[bg];
+      }
+      
+      if (!hex) return "";
+      return getLuminance(hex) > 0.5 ? "#000000" : "#FFFFFF";
     });
 
     const checkOverflow = () => {
@@ -151,7 +234,7 @@ export default defineComponent({
       const isOverflowing = container.clientHeight < editorDom.clientHeight + 5;
 
       isTextOverflowing.value = isOverflowing;
-    };  
+    };
 
     watch(
       [() => layoutStore.isOwner, () => isEditing.value],
@@ -162,7 +245,7 @@ export default defineComponent({
         editor.value.setEditable(shouldBeEditable);
 
         if (shouldBeEditable) {
-          editor.value.commands.focus('end');
+          editor.value.commands.focus("end");
           return;
         }
 
@@ -179,7 +262,7 @@ export default defineComponent({
         output = output.replace(/^"(.*)"$/, "$1");
         props.content.text = output;
         layoutStore.saveLayout();
-      }
+      },
     );
 
     const onShortClick = () => {
@@ -188,22 +271,31 @@ export default defineComponent({
           window.open(textLink.value, "_blank", "noopener,noreferrer");
         }
         return;
-      } 
+      }
       if (!editor?.value) return;
- 
+
       if (!isEditing.value) {
         isEditing.value = true;
         return;
       }
- 
+
       if (!editor.value.isFocused) {
-        editor.value.commands.focus('end');
+        editor.value.commands.focus("end");
       }
     };
 
     const onExitClick = () => {
       isEditing.value = false;
     }
+
+      // if (editor?.value?.view?.dom) {
+      //   editor.value.commands.focus("start");
+      // }
+      // setTimeout(() => {
+      //   isEditing.value = false;
+      // }, 50);
+    // };
+
 
     // Inject the tile ID provided by GridTile so we can check if this tile
     // should auto-focus on mount (e.g. after paste or toolbar "add text").
@@ -227,41 +319,51 @@ export default defineComponent({
     const openUrlInput = () => {
       if (!layoutStore.isOwner) return;
       showLinkModal.value = true;
-    }
+    };
 
     const closeLinkModal = () => {
       showLinkModal.value = false;
-    }
+    };
 
     const normalizeUrl = (link: string): string => {
       const trimmed = link.trim();
       if (!trimmed) return "";
-      const normalized = trimmed.startsWith('http://') || trimmed.startsWith('https://') ? trimmed : `https://${trimmed}`;
+      const normalized =
+        trimmed.startsWith("http://") || trimmed.startsWith("https://")
+          ? trimmed
+          : `https://${trimmed}`;
       try {
         new URL(normalized);
         return normalized;
       } catch (error) {
         return "";
       }
-    }
+    };
 
     const handleAddLink = (link: string) => {
       if (!layoutStore.isOwner) return;
       const normalized = normalizeUrl(link);
       if (!normalized) {
-        toastStore.addToast('Invalid URL format', 'error');
+        toastStore.addToast("Invalid URL format", "error");
         return;
       }
       props.content.textLink = normalized;
       layoutStore.saveLayout();
       showLinkModal.value = false;
-    }
+    };
 
     const handleOwnerClick = () => {
       if (!textLinkExists) return;
-      
+
       window.open(textLink.value, "_blank", "noopener,noreferrer");
-    }
+    };
+
+    const handleBackgroundColorChange = (color: string) => {
+      if (!layoutStore.isOwner) return;
+
+      props.content.backgroundColor = color;
+      layoutStore.saveLayout();
+    };
 
     return {
       layoutStore,
@@ -274,12 +376,15 @@ export default defineComponent({
       isOneByOne,
       isWideOneHigh,
       textLinkExists,
+      backgroundColor,
+      textColor,
       onShortClick,
       onExitClick,
       openUrlInput,
       closeLinkModal,
       handleAddLink,
       handleOwnerClick,
+      handleBackgroundColorChange,
     };
   },
 });
@@ -290,11 +395,12 @@ export default defineComponent({
   height: 100%;
   padding: var(--spacing-sm);
   display: flex;
-  font-family: 'Inter';
+  font-family: "Inter";
 }
 
 .text-content {
-  background-color: rgba(255, 255, 255, 0.1);
+  /* background-color: rgba(255, 255, 255, 0.1); */
+  background-color: var(--tile-bg) !important;
   padding: var(--spacing-md);
   width: 100%;
   scroll-behavior: smooth;
@@ -303,7 +409,7 @@ export default defineComponent({
   margin: 0;
   line-height: 1.3;
   transition: background-color 0.3s ease;
-  position:relative;
+  position: relative;
 
   &::-webkit-scrollbar {
     display: none;
@@ -315,8 +421,13 @@ export default defineComponent({
 }
 
 .not-editing.can-edit:hover {
-  background-color: var(--color-editable-hover);
+  /* background-color: var(--color-editable-hover); */
   cursor: text;
+  background-color: color-mix(
+    in srgb,
+    var(--tile-bg) 85%,
+    white 15%
+  ) !important;
 }
 
 .overflowing::after {
@@ -407,5 +518,4 @@ export default defineComponent({
   height: 100%;
   display: block;
 }
-
 </style>

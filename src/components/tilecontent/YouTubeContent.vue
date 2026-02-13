@@ -83,31 +83,24 @@
 
     <!-- Channel -->
     <div v-else-if="isChannel" class="yt-channel">
-      <!-- Header row: info left, avatar right -->
-      <div class="yt-channel-header">
-        <div class="yt-channel-info">
-          <p v-if="layout.showTitle" class="yt-title">{{ channelName }}</p>
-          <button v-if="layout.showChannel" class="yt-subscribe-btn" @click="openYouTube">
-            Subscribe<span v-if="content.channelData?.subscriberCount"> · {{ formatNumber(content.channelData.subscriberCount) }}</span>
-          </button>
-          <div v-if="layout.showStats" class="yt-stats">
-            <span v-if="content.channelData?.videoCount">
-              {{ formatNumber(content.channelData.videoCount) }} videos
-            </span>
-          </div>
-        </div>
-        <div class="yt-channel-hero" @click="openYouTube">
-          <img v-if="channelAvatar" :src="channelAvatar" :alt="channelName" class="yt-channel-avatar-lg" />
-        </div>
+      <!-- Top bar: subscribe button (top-right, logo is already absolute) -->
+      <div class="yt-channel-topbar">
+        <button v-if="layout.showChannel" class="yt-subscribe-btn" @click="openYouTube">
+          Subscribe<span v-if="content.channelData?.subscriberCount">&nbsp; {{ formatNumber(content.channelData.subscriberCount) }}</span>
+        </button>
       </div>
-      <p v-if="layout.showDescription && content.channelData?.description" class="yt-description">
-        {{ truncateDescription(content.channelData.description, 100) }}
-      </p>
+      <!-- Channel name + video count -->
+      <div class="yt-channel-meta">
+        <p v-if="layout.showTitle" class="yt-title">{{ channelName }}</p>
+        <span v-if="layout.showChannel && content.channelData?.videoCount" class="yt-channel-video-count">
+          {{ formatNumber(content.channelData.videoCount) }} videos
+        </span>
+      </div>
+      <!-- Recent videos grid (thumbnail-only, no titles) -->
       <div
         v-if="layout.tier !== 'mini' && layout.tier !== 'compact' && content.recentVideos?.length"
         class="yt-recent-videos"
       >
-        <h4 class="yt-section-title">Recent uploads</h4>
         <div class="yt-video-grid">
           <div
             v-for="video in displayRecentVideos"
@@ -118,7 +111,6 @@
             <div class="yt-video-thumb">
               <img :src="video.thumbnails?.medium?.url || video.thumbnails?.default?.url" :alt="video.title" />
             </div>
-            <p class="yt-video-title">{{ video.title }}</p>
           </div>
         </div>
       </div>
@@ -127,7 +119,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, inject, onMounted, type ComputedRef } from "vue";
+import { defineComponent, ref, computed, inject, onMounted } from "vue";
 import { type YouTubeContent } from "@/types/TileContent";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
@@ -144,7 +136,7 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
     const layout = useTileLayout();
-    const tileId = inject<ComputedRef<string> | null>("tileId", null);
+    const tileId = inject<string | null>("tileId", null);
 
     const isLoading = ref(false);
     const hasError = ref(false);
@@ -294,9 +286,9 @@ export default defineComponent({
         console.log("YouTube metadata received:", data);
         
         // Update tile content with fetched metadata
-        if (tileId?.value) {
-          console.log("Patching tile content for tile:", tileId.value);
-          layoutStore.patchTileContent(tileId.value, data);
+        if (tileId) {
+          console.log("Patching tile content for tile:", tileId);
+          layoutStore.patchTileContent(tileId, data);
         } else {
           console.warn("No tileId available to patch content");
         }
@@ -582,24 +574,16 @@ export default defineComponent({
 .yt-channel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   height: 100%;
   padding: var(--tile-padding, 21.5px);
 }
 
-.yt-channel-header {
+.yt-channel-topbar {
   display: flex;
+  justify-content: flex-end;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.yt-channel-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  min-height: 32px;
 }
 
 .yt-subscribe-btn {
@@ -616,7 +600,6 @@ export default defineComponent({
   cursor: pointer;
   transition: background 0.2s, transform 0.15s;
   white-space: nowrap;
-  align-self: flex-start;
 
   &:hover {
     background: #cc0000;
@@ -624,16 +607,15 @@ export default defineComponent({
   }
 }
 
-.yt-channel-hero {
-  flex-shrink: 0;
-  cursor: pointer;
+.yt-channel-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.yt-channel-avatar-lg {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  object-fit: cover;
+.yt-channel-video-count {
+  font-size: 12px;
+  color: var(--color-content-high);
 }
 
 /* ─── Recent videos (channel) ─────────────────────────── */
@@ -643,19 +625,13 @@ export default defineComponent({
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-.yt-section-title {
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0;
+  margin-top: 8px;
 }
 
 .yt-video-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
   overflow: hidden;
 }
 
@@ -664,36 +640,22 @@ export default defineComponent({
   transition: transform 0.15s;
 
   &:hover {
-    transform: translateY(-2px);
+    transform: scale(1.03);
   }
 }
 
 .yt-video-thumb {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
   background: var(--color-content-low);
-  margin-bottom: 4px;
 
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
-}
-
-.yt-video-title {
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.3;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
 /* ─── Tier: mini (1×1) ────────────────────────────────── */
@@ -723,25 +685,15 @@ export default defineComponent({
       );
   }
 
-  /* Channel: just show centered avatar */
+  /* Channel: hide everything, just show centered logo */
   .yt-channel {
     padding: 0;
-    align-items: center;
-    justify-content: center;
   }
 
-  .yt-channel-header {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .yt-channel-info {
+  .yt-channel-topbar,
+  .yt-channel-meta,
+  .yt-recent-videos {
     display: none;
-  }
-
-  .yt-channel-avatar-lg {
-    width: 44px;
-    height: 44px;
   }
 }
 
@@ -756,17 +708,16 @@ export default defineComponent({
   }
 
   .yt-channel {
-    gap: 6px;
-  }
-
-  .yt-channel-avatar-lg {
-    width: 44px;
-    height: 44px;
+    gap: 4px;
   }
 
   .yt-subscribe-btn {
     font-size: 11px;
     padding: 4px 10px;
+  }
+
+  .yt-recent-videos {
+    display: none;
   }
 }
 
@@ -793,9 +744,19 @@ export default defineComponent({
     height: 22px;
   }
 
-  .yt-channel-avatar-lg {
-    width: 64px;
-    height: 64px;
+  .yt-channel .yt-title {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .yt-subscribe-btn {
+    font-size: 13px;
+    padding: 8px 16px;
+    border-radius: 20px;
+  }
+
+  .yt-channel-video-count {
+    font-size: 13px;
   }
 }
 
@@ -816,17 +777,27 @@ export default defineComponent({
     font-weight: 500;
   }
 
-  .yt-channel-avatar-lg {
-    width: 80px;
-    height: 80px;
-  }
-
   .yt-fg {
     gap: 4px;
   }
 
-  .yt-channel {
-    gap: 12px;
+  .yt-channel .yt-title {
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .yt-subscribe-btn {
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 22px;
+  }
+
+  .yt-channel-video-count {
+    font-size: 14px;
+  }
+
+  .yt-video-thumb {
+    border-radius: 14px;
   }
 }
 </style>

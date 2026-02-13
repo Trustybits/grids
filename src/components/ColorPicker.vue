@@ -1,5 +1,6 @@
 <template>
   <div
+    ref="panelRef"
     class="color-picker-panel"
     :style="{ top: `${pos.top}px`, left: `${pos.left}px` }"
     @mousedown.stop
@@ -79,9 +80,12 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
     const toastStore = useToastStore();
+    const panelRef = ref<HTMLElement | null>(null);
 
     const hexInput = ref("");
     const hexInputRef = ref<HTMLInputElement | null>(null);
+    const pos = ref({ top: 0, left: 0 });
+
 
     const colors = ref<string[]>([
       "--color-red",
@@ -148,14 +152,34 @@ export default defineComponent({
     };
     // for color-content-background, draw button as a "no fill" somehow
 
-    const pos = ref({ top: 0, left: 0 });
 
     const updatePos = () => {
       const el = props.buttonEl;
       if (!el) return;
 
       const r = el.getBoundingClientRect();
-      pos.value = { top: r.bottom + 8, left: r.left + r.width / 2 };
+
+      const panelW = panelRef.value?.offsetWidth ?? 210;
+      const panelH = panelRef.value?.offsetHeight ?? 130;
+      const gap = 8;
+
+      let top = r.bottom + gap;
+      let left = r.left + r.width / 2;
+
+      if (top + panelH > window.innerHeight) {
+        top = r.top - gap - panelH;
+      }
+
+      const halfW = panelW / 2;
+      const margin = 8;
+
+      if (left - halfW < margin) {
+        left = halfW + margin;
+      } else if (left + halfW > window.innerWidth - margin) {
+        left = window.innerWidth - margin - halfW;
+      }
+
+      pos.value = { top, left };
     };
 
     let rafId: number | null = null;
@@ -218,6 +242,7 @@ export default defineComponent({
       onColorClick,
       onHexSubmit,
       generateColorTooltip,
+      panelRef,
     };
   },
 });

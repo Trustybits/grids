@@ -121,7 +121,7 @@ function parseYouTubeUrl(url: string): { type: 'video' | 'playlist' | 'channel' 
     }
     
     // Channel: youtube.com/@username
-    const atMatch = urlObj.pathname.match(/^\/@([a-zA-Z0-9_-]+)/);
+    const atMatch = urlObj.pathname.match(/^\/@([a-zA-Z0-9._-]+)/);
     if (atMatch) {
       return { type: 'channel', id: atMatch[1] };
     }
@@ -133,7 +133,7 @@ function parseYouTubeUrl(url: string): { type: 'video' | 'playlist' | 'channel' 
     }
     
     // Channel: youtube.com/c/username or youtube.com/user/username
-    const customMatch = urlObj.pathname.match(/^\/(c|user)\/([a-zA-Z0-9_-]+)/);
+    const customMatch = urlObj.pathname.match(/^\/(c|user)\/([a-zA-Z0-9._-]+)/);
     if (customMatch) {
       return { type: 'channel', id: customMatch[2] };
     }

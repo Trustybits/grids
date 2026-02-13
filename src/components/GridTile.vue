@@ -21,6 +21,7 @@
       :maxH="10"
       :isDraggable="layoutStore.isOwner && !isEditing"
       :isResizable="isTileResizable"
+      dragIgnoreFrom="a, button, .tile-caption"
       @move="onMove"
       @moved="onMoved"
       @resize="onResize"
@@ -850,10 +851,11 @@ export default defineComponent({
   display: none;
 }
 
-/* Hide close button during crop mode and when exiting */
+/* Hide close button during crop mode, exiting, and while dragging */
 .tile-wrapper.crop-mode-active .btn-close,
 .tile-wrapper.crop-mode-exiting .btn-close,
-.tile-wrapper.is-exiting .btn-close {
+.tile-wrapper.is-exiting .btn-close,
+.tile-wrapper.is-dragging .btn-close {
   opacity: 0;
   transform: scale(0);
   pointer-events: none;
@@ -875,9 +877,11 @@ export default defineComponent({
   pointer-events: auto;
 }
 
-/* Hide toolbar when tile is exiting */
+/* Hide toolbar when tile is exiting or being dragged */
 .tile-wrapper.is-exiting :deep(.tile-toolbar),
-.tile-wrapper.is-exiting :deep(.toolbar-search-panel) {
+.tile-wrapper.is-exiting :deep(.toolbar-search-panel),
+.tile-wrapper.is-dragging :deep(.tile-toolbar),
+.tile-wrapper.is-dragging :deep(.toolbar-search-panel) {
   opacity: 0;
   transform: translate(-50%, calc(100% + 10px)) scale(0.9);
   pointer-events: none;

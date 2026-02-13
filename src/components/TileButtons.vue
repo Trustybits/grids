@@ -174,6 +174,20 @@ export default {
 
     const handleAddLink = (link: string) => {
       closeLinkModal();
+      
+      // Check if this URL should be a special content type (YouTube, image, video, etc.)
+      // instead of a generic link tile
+      const detectedContent = createTileContentFromEmbedUrl(link);
+      
+      // If it's detected as YouTube, image, or video, use that specialized type
+      if (detectedContent.type === ContentType.YOUTUBE || 
+          detectedContent.type === ContentType.IMAGE ||
+          detectedContent.type === ContentType.VIDEO) {
+        layoutStore.addTile(detectedContent);
+        return;
+      }
+      
+      // Otherwise, create a link tile with preview
       const linkContent = createTileContent(ContentType.LINK, { link });
       const tileId = layoutStore.addTile(linkContent);
 

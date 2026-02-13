@@ -291,27 +291,8 @@ export default defineComponent({
       window.open(textLink.value, "_blank", "noopener,noreferrer");
     };
 
-    const normalizeColor = (color: string): string => {
-      const c = color.trim();
-      if (c.startsWith("--")) return `var(${c})`;
-      return c;
-    }
-
-    const verifyValidColor = (color: string): boolean => {
-      if (color.startsWith("var")) {
-        // preset variable value
-        return true;
-      }
-
-      return /^#[0-9a-fA-F]{6}$/.test(color);
-    };
-
     const handleBackgroundColorChange = (color: string) => {
       if (!layoutStore.isOwner) return;
-
-      color = normalizeColor(color);
-
-      if (!verifyValidColor(color)) return;
 
       props.content.backgroundColor = color;
       layoutStore.saveLayout();

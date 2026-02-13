@@ -183,6 +183,7 @@ export const useLayoutStore = defineStore("layout", {
     isOwner: false,
     recentLayoutIds: [] as string[],
     activeMenuTileId: null as string | null,
+    activePanelTileId: null as string | null,
     // Tracks tiles that are currently uploading media in the background.
     // Key = tile ID, value = upload progress (0–1) or -1 for indeterminate.
     uploadingTiles: {} as Record<string, number>,
@@ -190,7 +191,6 @@ export const useLayoutStore = defineStore("layout", {
     // Used by the Firestore persistence layer to write the real URL instead of the blob.
     // The blob URL stays as the in-memory src so the <img>/<video> element never reloads.
     resolvedUrls: {} as Record<string, string>,
-    activeColorMenuTileId: null as string | null,
     // When set, the TextContent component for this tile will auto-enter
     // edit mode on mount and place the cursor at the end. Cleared by the
     // component once it consumes the focus request.
@@ -205,18 +205,18 @@ export const useLayoutStore = defineStore("layout", {
 
   actions: {
     setActiveMenuTile(tileId: string) {
-      this.activeColorMenuTileId = null;
+      this.activePanelTileId = null;
       this.activeMenuTileId = tileId;
     },
 
-    setActiveColorMenuTileId(tileId: string) {
+    setActivePanelTileId(tileId: string) {
       this.activeMenuTileId = null;
-      this.activeColorMenuTileId = tileId;
+      this.activePanelTileId = tileId;
     },
 
     closeAllMenus() {
       this.activeMenuTileId = null;
-      this.activeColorMenuTileId = null;
+      this.activePanelTileId = null;
     },
 
     // Mark a tile as currently uploading (progress: 0–1, or -1 for indeterminate)

@@ -196,6 +196,7 @@ export default defineComponent({
 
 .layout-container {
   padding-top: 2rem;
+  padding-bottom: var(--spacing-4xl);
   position: relative;
   
   &.drag-over {

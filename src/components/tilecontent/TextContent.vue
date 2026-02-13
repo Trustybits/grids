@@ -14,7 +14,7 @@
         'is-wide-1-high': isWideOneHigh,
         'is-tall-1-wide': isTallOneWide,
       }"
-      :style="{ '--tile-bg': backgroundColor }"
+      :style="{ '--tile-bg': backgroundColor, color: textColor }"
       :spellcheck="layoutStore.isOwner && isEditing"
     >
       <EditorContent :editor="editor" />
@@ -110,6 +110,7 @@ import { useLayoutStore } from "@/stores/layout";
 import AddLinkModal from "../AddLinkModal.vue";
 import type { TextContent } from "@/types/TileContent";
 import { useToastStore } from "@/stores/toast";
+import { useThemeStore } from "@/stores/theme";
 
 export default defineComponent({
   components: {
@@ -125,6 +126,7 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
+    const themeStore = useThemeStore();
 
     const isTextOverflowing = ref(false);
     const isEditing = ref(false);
@@ -174,6 +176,52 @@ export default defineComponent({
         // props.content.text = editor.getHTML();
         checkOverflow();
       },
+    });
+
+    const colorHexMap: Record<string, string> = {
+      "var(--color-red)": "#FFAFA3",
+      "var(-color-orange)": "#FFD3A8",
+      "var(--color-yellow)": "#FFE299",
+      "var(--color-green)": "#B3EFBD",
+      "var(--color-cyan)": "#B3F4EF",
+      "var(--color-blue)": "#A8DAFF",
+      "var(--color-purple)": "#D3BDFF",
+      "var(--color-pink)": "#FFA8DB",
+      "var(--color-light-100)": "#FEFDEC",
+      "var(--color-dark-0)": "#33312C",
+      "var(--color-tile-background)": "#000000",
+      "var(--color-content-background)": "#10100E",
+    }
+
+    const getLuminance = (hex: string): number => {
+      const c = hex.replace("#", "");
+      const r = parseInt(c.substring(0, 2), 16);
+      const g = parseInt(c.substring(2, 4), 16);
+      const b = parseInt(c.substring(4, 6), 16);
+      return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    }
+
+    const textColor = computed(() => {
+      const bg = backgroundColor.value;
+      let hex: string | undefined;
+
+      if (bg === "var(--color-orange)") {
+        // override what the luminance says, orange needs a black text color
+        return "#000000";
+      }
+
+      if (bg.startsWith("#")) {
+        hex = bg;
+      } else if (bg === "var(--color-tile-background)") {
+        hex = themeStore.isDarkMode ? "#000000" : "#FFFEF5";
+      } else if (bg === "var(--color-content-background)") {
+        hex = themeStore.isDarkMode ? "#10100E" : "#FFFEF5";
+      } else {
+        hex = colorHexMap[bg];
+      }
+      
+      if (!hex) return "";
+      return getLuminance(hex) > 0.5 ? "#000000" : "#FFFFFF";
     });
 
     const checkOverflow = () => {
@@ -310,6 +358,7 @@ export default defineComponent({
       isWideOneHigh,
       textLinkExists,
       backgroundColor,
+      textColor,
       onShortClick,
       onExitClick,
       openUrlInput,

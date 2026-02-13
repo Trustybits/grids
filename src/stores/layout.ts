@@ -191,6 +191,10 @@ export const useLayoutStore = defineStore("layout", {
     // The blob URL stays as the in-memory src so the <img>/<video> element never reloads.
     resolvedUrls: {} as Record<string, string>,
     activeColorMenuTileId: null as string | null,
+    // When set, the TextContent component for this tile will auto-enter
+    // edit mode on mount and place the cursor at the end. Cleared by the
+    // component once it consumes the focus request.
+    pendingFocusTileId: null as string | null,
   }),
 
   getters: {

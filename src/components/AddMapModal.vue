@@ -3,15 +3,32 @@
     <transition name="modal">
       <div v-if="show" class="modal-overlay" @click="handleClose">
         <div class="modal-content" @click.stop>
-          <input
-            ref="mapInput"
-            v-model="query"
-            type="text"
-            placeholder="Enter a location (optional)"
-            class="map-input"
-            @keyup.enter="handleAdd"
-            @keyup.esc="handleClose"
-          />
+          <div class="input-row">
+            <input
+              ref="mapInput"
+              v-model="query"
+              type="text"
+              placeholder="Enter a location (optional)"
+              class="map-input"
+              @keyup.enter="handleAdd"
+              @keyup.esc="handleClose"
+            />
+            <!-- Submit button — always visible since blank is valid (uses current location) -->
+            <transition name="slide-btn">
+              <button
+                v-if="show"
+                class="submit-btn"
+                @click="handleAdd"
+                title="Add map (Enter)"
+              >
+                <!-- Corner-down-left icon (return/enter symbol) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 10 4 15 9 20"></polyline>
+                  <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
+                </svg>
+              </button>
+            </transition>
+          </div>
           <p class="map-hint">Leave blank to use your current location.</p>
         </div>
       </div>
@@ -156,6 +173,12 @@ const handleAdd = () => {
   transition: all var(--duration-fast) var(--easing-smooth);
 }
 
+.input-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
 .map-input:focus {
   border-color: var(--color-content-default);
   background-color: var(--color-tile-background);
@@ -164,6 +187,41 @@ const handleAdd = () => {
 .map-input::placeholder {
   color: var(--color-content-default);
   opacity: 0.6;
+}
+
+/* Slide-in animation for the submit button */
+.slide-btn-enter-active {
+  transition: transform 0.2s var(--easing-smooth), opacity 0.2s var(--easing-smooth);
+}
+.slide-btn-leave-active {
+  transition: transform 0.15s var(--easing-smooth), opacity 0.15s var(--easing-smooth);
+}
+.slide-btn-enter-from {
+  opacity: 0;
+  transform: translateX(8px);
+}
+.slide-btn-leave-to {
+  opacity: 0;
+  transform: translateX(8px);
+}
+
+.submit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: color var(--duration-fast) var(--easing-smooth),
+              background-color var(--duration-fast) var(--easing-smooth);
+  flex-shrink: 0;
+}
+
+.submit-btn:hover {
+  background-color: var(--color-content-background);
 }
 
 .map-hint {

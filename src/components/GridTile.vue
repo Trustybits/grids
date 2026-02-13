@@ -337,6 +337,8 @@ export default defineComponent({
         case "text": {
           const content = createTileContent(ContentType.TEXT, {});
           layoutStore.setTileContent(props.tile.i, content);
+          // Auto-focus the new text tile so the user can start typing immediately
+          layoutStore.pendingFocusTileId = props.tile.i;
           break;
         }
 

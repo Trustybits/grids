@@ -205,8 +205,23 @@ export default defineComponent({
       isEditing.value = false;
     }
 
+    // Inject the tile ID provided by GridTile so we can check if this tile
+    // should auto-focus on mount (e.g. after paste or toolbar "add text").
+    const tileId = inject<string | null>("tileId", null);
+
     onMounted(() => {
       checkOverflow();
+
+      // If this tile was just created and flagged for auto-focus, enter
+      // edit mode immediately so the user can start typing right away.
+      if (
+        tileId &&
+        layoutStore.isOwner &&
+        layoutStore.pendingFocusTileId === tileId
+      ) {
+        layoutStore.pendingFocusTileId = null;
+        isEditing.value = true;
+      }
     });
 
     const openUrlInput = () => {

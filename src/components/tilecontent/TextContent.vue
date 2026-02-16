@@ -285,16 +285,35 @@ export default defineComponent({
     };
 
     const onExitClick = () => {
-      if (editor?.value?.view?.dom) {
-        editor.value.commands.focus("start");
-      }
-      setTimeout(() => {
-        isEditing.value = false;
-      }, 50);
-    };
+      isEditing.value = false;
+    }
+
+      // if (editor?.value?.view?.dom) {
+      //   editor.value.commands.focus("start");
+      // }
+      // setTimeout(() => {
+      //   isEditing.value = false;
+      // }, 50);
+    // };
+
+
+    // Inject the tile ID provided by GridTile so we can check if this tile
+    // should auto-focus on mount (e.g. after paste or toolbar "add text").
+    const tileId = inject<string | null>("tileId", null);
 
     onMounted(() => {
       checkOverflow();
+
+      // If this tile was just created and flagged for auto-focus, enter
+      // edit mode immediately so the user can start typing right away.
+      if (
+        tileId &&
+        layoutStore.isOwner &&
+        layoutStore.pendingFocusTileId === tileId
+      ) {
+        layoutStore.pendingFocusTileId = null;
+        isEditing.value = true;
+      }
     });
 
     const openUrlInput = () => {
@@ -402,7 +421,8 @@ export default defineComponent({
 }
 
 .not-editing.can-edit:hover {
-  /* background-color: rgba(255, 255, 255, 0.1); */
+  /* background-color: var(--color-editable-hover); */
+  cursor: text;
   background-color: color-mix(
     in srgb,
     var(--tile-bg) 85%,

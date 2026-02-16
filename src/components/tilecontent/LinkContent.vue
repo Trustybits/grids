@@ -36,11 +36,12 @@
         </div>
 
         <template v-if="isWideOneHigh">
-          <p v-if="!isEditing" class="tile-title tile-title--wide" @mousedown="markTextIntent">
+          <p v-if="!isEditing" class="tile-title tile-title--wide" @mousedown.stop @click="startEditing">
             {{ displayTitle }}
           </p>
           <input
             v-else
+            ref="titleInputRef"
             v-model="draftTitle"
             class="tile-input tile-input--title tile-input--wide"
             type="text"
@@ -102,9 +103,10 @@
         </svg>
       </div>
 
-      <div v-if="!isWideOneHigh && !isTallOneWide && !isOneByOne" class="tile-text" @mousedown="markTextIntent">
+      <div v-if="!isWideOneHigh && !isTallOneWide && !isOneByOne" class="tile-text" @mousedown.stop @click="startEditing">
         <template v-if="isEditing">
           <textarea
+            ref="titleInputRef"
             v-model="draftTitle"
             class="tile-input tile-input--title"
             :rows="titleLineClamp"
@@ -210,9 +212,7 @@ import {
 import { type LinkContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { isDirectImageUrl } from "@/utils/TileUtils";
-
-import { getAuth } from "firebase/auth";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { useFileUpload } from "@/composables/useFileUpload";
 
 export default defineComponent({
   props: {
@@ -232,7 +232,7 @@ export default defineComponent({
     const titleLineClamp = computed(() => ((gridTileH?.value ?? 0) < 3 ? 2 : 3));
 
     const isEditing = ref(false);
-    const wantsEdit = ref(false);
+    const titleInputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
     const draftTitle = ref("");
     const draftDescription = ref("");
     const draftSubtitle = ref("");
@@ -245,8 +245,7 @@ export default defineComponent({
     const showUrlInput = ref(false);
     const draftImageUrl = ref("");
     const urlError = ref("");
-    const auth = getAuth();
-    const storage = getStorage();
+    const { uploadFileToUrl } = useFileUpload();
 
     const formatLink = (link: string) => {
       if (!link) return '@handle or address';
@@ -376,31 +375,13 @@ export default defineComponent({
         return;
       }
 
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        alert("File is too large! Maximum size: 10MB");
-        return;
-      }
-
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          alert("You must be logged in to upload.");
-          return;
-        }
-
-        const filePath = `users/${currentUser.uid}/images/${Date.now()}_${file.name}`;
-
-        const fileRef = storageRef(storage, filePath);
-
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
-
+        const url = await uploadFileToUrl(file, { fileType: "images" });
         props.content.customImageUrl = url;
         layoutStore.saveLayout();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Link tile image upload failed:", error);
-        alert("Failed to upload image. Please try again.");
+        alert(error.message || "Failed to upload image. Please try again.");
       }
     };
 
@@ -510,43 +491,56 @@ export default defineComponent({
     onUnmounted(() => {
       document.removeEventListener("click", handleDocumentClick);
       document.removeEventListener("contextmenu", handleDocumentClick);
+      removeExitClickHandler();
     });
 
-    const markTextIntent = () => {
-      if (!layoutStore.isOwner || isEditing.value) return;
-      wantsEdit.value = true;
+    let exitClickHandler: ((event: MouseEvent) => void) | null = null;
+
+    const removeExitClickHandler = () => {
+      if (exitClickHandler) {
+        document.removeEventListener('click', exitClickHandler);
+        exitClickHandler = null;
+      }
     };
 
-    const onShortClick = () => {
-      if (isEditing.value) {
-        wantsEdit.value = false;
-        return;
-      }
+    const startEditing = () => {
+      if (!layoutStore.isOwner || isEditing.value) return;
+      isEditing.value = true;
+      syncDrafts();
+      nextTick(() => {
+        setTimeout(() => {
+          titleInputRef.value?.focus();
+          // Register exit listener since @mousedown.stop bypasses GridTile's addClickListener
+          exitClickHandler = (event: MouseEvent) => {
+            if (linkTileRef.value && !linkTileRef.value.contains(event.target as Node)) {
+              isEditing.value = false;
+              saveEdits();
+              removeExitClickHandler();
+            }
+          };
+          document.addEventListener('click', exitClickHandler);
+        }, 0);
+      });
+    };
 
-      if (layoutStore.isOwner && wantsEdit.value) {
-        isEditing.value = true;
-        wantsEdit.value = false;
-        syncDrafts();
-        return;
-      }
-
-      wantsEdit.value = false;
-
+    const openLink = () => {
       const url = props.content.link.startsWith("http")
         ? props.content.link
         : `https://${props.content.link}`;
       window.open(url, "_blank");
     };
 
+    const onShortClick = () => {
+      if (isEditing.value) return;
+      openLink();
+    };
+
     const onExitClick = () => {
       if (!layoutStore.isOwner) return;
-      if (!isEditing.value) {
-        wantsEdit.value = false;
-        return;
-      }
+      if (!isEditing.value) return;
       isEditing.value = false;
-      wantsEdit.value = false;
       saveEdits();
+      removeExitClickHandler();
     };
 
     return {
@@ -555,7 +549,8 @@ export default defineComponent({
       onShortClick,
       onExitClick,
       isEditing,
-      markTextIntent,
+      startEditing,
+      titleInputRef,
       titleLineClamp,
       isOneByOne,
       isWideOneHigh,
@@ -756,6 +751,7 @@ export default defineComponent({
   -webkit-box-orient: vertical;
   line-clamp: 2;
   -webkit-line-clamp: 2;
+  font-family: "Inter", sans-serif;
 }
 
 .tile-subtitle {
@@ -768,6 +764,13 @@ export default defineComponent({
 .link-tile-content.is-owner .tile-text,
 .link-tile-content.is-owner .tile-title--wide {
   cursor: text;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.3s ease;
+}
+
+.link-tile-content.is-owner:not(.is-editing) .tile-text:hover,
+.link-tile-content.is-owner:not(.is-editing) .tile-title--wide:hover {
+  background-color: var(--color-editable-hover);
 }
 
 .tile-input {
@@ -805,6 +808,7 @@ export default defineComponent({
   font-size: 12px;
   line-height: 16px;
   color: var(--color-content-high);
+  font-family: "Inter", sans-serif;
 }
 
 .tile-input--subtitle {

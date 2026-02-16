@@ -12,6 +12,23 @@
             @keyup.enter="handleAdd"
             @keyup.esc="handleClose"
           />
+          <!-- Submit button — slides in once the user types, disabled until valid URL -->
+          <transition name="slide-btn">
+            <button
+              v-if="embedUrl.trim()"
+              class="submit-btn"
+              :class="{ 'is-disabled': !isValidUrl }"
+              :disabled="!isValidUrl"
+              @click="handleAdd"
+              :title="isValidUrl ? 'Add embed (Enter)' : 'Enter a valid URL'"
+            >
+              <!-- Corner-down-left icon (return/enter symbol) -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 10 4 15 9 20"></polyline>
+                <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
+              </svg>
+            </button>
+          </transition>
         </div>
       </div>
     </transition>
@@ -19,7 +36,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 
 const props = defineProps({
   show: {
@@ -45,10 +62,28 @@ const handleClose = () => {
   emit('close');
 };
 
+/** Check whether the current input looks like a valid URL. */
+const isValidUrl = computed(() => {
+  const text = embedUrl.value.trim();
+  if (!text) return false;
+  try {
+    if (text.startsWith('http://') || text.startsWith('https://')) {
+      new URL(text);
+      return true;
+    }
+    if (text.includes('.')) {
+      new URL(`https://${text}`);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+});
+
 const handleAdd = () => {
-  const url = embedUrl.value.trim();
-  if (!url) return;
-  emit('add', url);
+  if (!isValidUrl.value) return;
+  emit('add', embedUrl.value.trim());
 };
 </script>
 
@@ -168,6 +203,47 @@ const handleAdd = () => {
 .embed-input::placeholder {
   color: var(--color-content-default);
   opacity: 0.6;
+}
+
+/* Slide-in animation for the submit button */
+.slide-btn-enter-active {
+  transition: transform 0.2s var(--easing-smooth), opacity 0.2s var(--easing-smooth);
+}
+.slide-btn-leave-active {
+  transition: transform 0.15s var(--easing-smooth), opacity 0.15s var(--easing-smooth);
+}
+.slide-btn-enter-from {
+  opacity: 0;
+  transform: translateX(8px);
+}
+.slide-btn-leave-to {
+  opacity: 0;
+  transform: translateX(8px);
+}
+
+.submit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: color var(--duration-fast) var(--easing-smooth),
+              background-color var(--duration-fast) var(--easing-smooth);
+  flex-shrink: 0;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background-color: var(--color-content-background);
+}
+
+.submit-btn.is-disabled {
+  color: var(--color-content-default);
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .modal-actions {

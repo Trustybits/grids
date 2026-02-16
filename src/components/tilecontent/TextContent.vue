@@ -180,7 +180,7 @@ export default defineComponent({
 
     const colorHexMap: Record<string, string> = {
       "var(--color-red)": "#FFAFA3",
-      "var(-color-orange)": "#FFD3A8",
+      "var(--color-orange)": "#FFD3A8",
       "var(--color-yellow)": "#FFE299",
       "var(--color-green)": "#B3EFBD",
       "var(--color-cyan)": "#B3F4EF",
@@ -204,11 +204,6 @@ export default defineComponent({
     const textColor = computed(() => {
       const bg = backgroundColor.value;
       let hex: string | undefined;
-
-      if (bg === "var(--color-orange)") {
-        // override what the luminance says, orange needs a black text color
-        return "#000000";
-      }
 
       if (bg.startsWith("#")) {
         hex = bg;

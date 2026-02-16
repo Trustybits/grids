@@ -209,6 +209,14 @@ body.theme-dark {
   }
 }
 
+.glass {
+  background: color-mix(in srgb, var(--color-tile-background) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-tile-stroke) 50%, transparent);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), inset 0 0.5px 0 rgba(255, 255, 255, 0.12);
+}
+
 button {
   padding: 0.5rem 1rem;
   border: none;

@@ -7,34 +7,34 @@
 
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
-      <button class="btn btn-secondary" @click="addTextElement">
+      <button class="btn btn-secondary" data-tooltip="Text" @click="addTextElement">
         <TextIcon />
       </button>
 
-      <button class="btn btn-secondary" @click="addProfileElement">
+      <button class="btn btn-secondary" data-tooltip="Profile" @click="addProfileElement">
         <ProfileIcon />
       </button>
 
-      <button class="btn btn-secondary" @click="addChatElement">
+      <button class="btn btn-secondary" data-tooltip="Chat" @click="addChatElement">
         <ChatIcon />
       </button>
 
-      <button class="btn btn-secondary" @click="selectFile">
+      <button class="btn btn-secondary" data-tooltip="Image / Video" @click="selectFile">
         <ImageIcon />
       </button>
-      <button class="btn btn-secondary" @click="addLinkElement">
+      <button class="btn btn-secondary" data-tooltip="Link" @click="addLinkElement">
         <LinkIcon />
       </button>
       <!-- <button class="btn btn-secondary" @click="addLinkElement">📽</button>
       <button class="btn btn-secondary" @click="addLinkElement">🎵</button>
       <button class="btn btn-secondary" @click="addLinkElement">📌</button> -->
-      <button class="btn btn-secondary" @click="addEmbedElement">
+      <button class="btn btn-secondary" data-tooltip="Embed" @click="addEmbedElement">
         <EmbedIcon />
       </button>
-      <button class="btn btn-secondary" @click="addMapElement">
+      <button class="btn btn-secondary" data-tooltip="Map" @click="addMapElement">
         <MapIcon />
       </button>
-      <button class="btn btn-secondary" @click="addCampfireElement">
+      <button class="btn btn-secondary" data-tooltip="Campfire" @click="addCampfireElement">
         <CampfireIcon />
       </button>
       <!-- <button class="btn btn-secondary" @click="addRPGElement">
@@ -75,16 +75,9 @@ import { ref } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import { ContentType } from "@/types/TileContent";
 import { createTileContent, createTileContentFromEmbedUrl } from "@/utils/TileUtils";
-import { getAuth } from "firebase/auth";
+import { useFileUpload } from "@/composables/useFileUpload";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
-import {
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from "firebase/storage";
-
 import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
 import AddLinkModal from "./AddLinkModal.vue";
@@ -121,8 +114,7 @@ export default {
 
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);
-    const auth = getAuth();
-    const storage = getStorage();
+    const { uploadFileOptimistic } = useFileUpload();
 
     const showLinkModal = ref(false);
     const showEmbedModal = ref(false);
@@ -130,7 +122,11 @@ export default {
 
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
-      layoutStore.addTile(textContent);
+      const tileId = layoutStore.addTile(textContent);
+      // Auto-focus the new text tile so the user can start typing immediately
+      if (tileId) {
+        layoutStore.pendingFocusTileId = tileId;
+      }
     };
 
     const addProfileElement = () => {
@@ -160,47 +156,11 @@ export default {
       input.value = "";
       
       if (!file) return;
-
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
-      const maxSize = isImage ? 10 * 1024 * 1024 : 500 * 1024 * 1024; // 10MB for images, 500MB for videos
-
-      if (!isImage && !isVideo) {
-        alert("Unsupported file type. Please upload an image or video.");
-        return;
-      }
-
-      if (file.size > maxSize) {
-        alert(`File is too large! Maximum size: ${isImage ? "10MB" : "500MB"}`);
-        return;
-      }
-
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          alert("You must be logged in to upload.");
-          return;
-        }
-
-        // Determine storage path based on file type
-        const filePath = `users/${currentUser.uid}/${
-          isImage ? "images" : "videos"
-        }/${Date.now()}_${file.name}`;
-        const fileRef = storageRef(storage, filePath);
-
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
-
-        const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-        const contentData = { src: url };
-
-        const content = createTileContent(contentType, contentData);
-        layoutStore.addTile(content);
+        await uploadFileOptimistic(file);
       } catch (error: any) {
-        console.error("File upload failed:", error);
-        // Show more specific error message to help with debugging
         const errorMessage = error?.message || error?.code || "Unknown error";
-        alert(`Failed to upload file: ${errorMessage}\n\nCheck console for details.`);
+        alert(`Failed to upload file: ${errorMessage}`);
       }
     };
 
@@ -214,6 +174,20 @@ export default {
 
     const handleAddLink = (link: string) => {
       closeLinkModal();
+      
+      // Check if this URL should be a special content type (YouTube, image, video, etc.)
+      // instead of a generic link tile
+      const detectedContent = createTileContentFromEmbedUrl(link);
+      
+      // If it's detected as YouTube, image, or video, use that specialized type
+      if (detectedContent.type === ContentType.YOUTUBE || 
+          detectedContent.type === ContentType.IMAGE ||
+          detectedContent.type === ContentType.VIDEO) {
+        layoutStore.addTile(detectedContent);
+        return;
+      }
+      
+      // Otherwise, create a link tile with preview
       const linkContent = createTileContent(ContentType.LINK, { link });
       const tileId = layoutStore.addTile(linkContent);
 
@@ -381,6 +355,36 @@ export default {
     background-color: var(--color-base-55);
     color: var(--color-text-primary);
   }
+}
+
+/* Tooltip via data-tooltip attribute */
+.toolbarAlpha button[data-tooltip] {
+  position: relative;
+}
+
+.toolbarAlpha button[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.9);
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-text-primary);
+  color: var(--color-tile-background);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing-ease-out),
+              transform var(--duration-fast) var(--easing-ease-out);
+  z-index: var(--z-tooltip);
+}
+
+.toolbarAlpha button[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
 }
 
 .toolbarAlpha button svg {

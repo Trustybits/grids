@@ -282,6 +282,288 @@ export const getLinkPreview = onCall(async (data, context) => {
 const discordNewUsersWebhookUrl = defineSecret("DISCORD_NEW_USERS_WEBHOOK_URL");
 const discordUserActivityWebhookUrl = defineSecret("DISCORD_USER_ACTIVITY_WEBHOOK_URL");
 
+// Define secret for YouTube API key
+const youtubeApiKey = defineSecret("YOUTUBE_API_KEY");
+
+/**
+ * Cloud Function to fetch YouTube metadata for videos, playlists, channels, and shorts.
+ * Uses YouTube Data API v3 to retrieve public metadata.
+ */
+export const getYouTubeMetadata = functions
+  .runWith({
+    secrets: [youtubeApiKey],
+  })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new HttpsError("unauthenticated", "You must be signed in to fetch YouTube metadata.");
+    }
+
+    const { youtubeType, youtubeId } = data as { youtubeType?: string; youtubeId?: string };
+
+    if (!youtubeType || !youtubeId) {
+      throw new HttpsError("invalid-argument", "Missing youtubeType or youtubeId.");
+    }
+
+    const validTypes = ["video", "playlist", "channel", "short"];
+    if (!validTypes.includes(youtubeType)) {
+      throw new HttpsError("invalid-argument", `Invalid youtubeType: ${youtubeType}`);
+    }
+
+    try {
+      const apiKey = youtubeApiKey.value();
+
+      if (!apiKey) {
+        logger.error("YouTube API key not configured");
+        throw new HttpsError("failed-precondition", "YouTube API not configured.");
+      }
+
+      // Shorts are just videos with a different URL format
+      const effectiveType = youtubeType === "short" ? "video" : youtubeType;
+
+      logger.info("Fetching YouTube metadata", {
+        youtubeType,
+        youtubeId,
+        effectiveType,
+      });
+
+      // Fetch metadata based on type
+      switch (effectiveType) {
+        case "video": {
+          // Fetch video details
+          const videoUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${youtubeId}&key=${apiKey}`;
+          const videoResponse = await fetch(videoUrl);
+
+          if (!videoResponse.ok) {
+            logger.error("YouTube API error for video", {
+              status: videoResponse.status,
+              youtubeId,
+            });
+            throw new HttpsError("not-found", "YouTube video not found.");
+          }
+
+          const videoData = await videoResponse.json();
+          
+          if (!videoData.items || videoData.items.length === 0) {
+            throw new HttpsError("not-found", "YouTube video not found.");
+          }
+
+          const video = videoData.items[0];
+          const snippet = video.snippet;
+          const statistics = video.statistics;
+          const contentDetails = video.contentDetails;
+
+          // Fetch channel thumbnail
+          let channelThumbnail = "";
+          if (snippet.channelId) {
+            const channelUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${snippet.channelId}&key=${apiKey}`;
+            const channelResponse = await fetch(channelUrl);
+            if (channelResponse.ok) {
+              const channelData = await channelResponse.json();
+              if (channelData.items && channelData.items.length > 0) {
+                channelThumbnail = channelData.items[0].snippet.thumbnails?.default?.url || "";
+              }
+            }
+          }
+
+          const result = {
+            title: snippet.title,
+            description: snippet.description,
+            thumbnails: snippet.thumbnails,
+            publishedAt: snippet.publishedAt,
+            channelTitle: snippet.channelTitle,
+            channelId: snippet.channelId,
+            channelThumbnail,
+            duration: contentDetails.duration,
+            viewCount: statistics.viewCount,
+            likeCount: statistics.likeCount,
+            commentCount: statistics.commentCount,
+            categoryId: snippet.categoryId,
+          };
+
+          logger.info("Video metadata fetched successfully", {
+            title: result.title,
+            channelTitle: result.channelTitle,
+          });
+
+          return result;
+        }
+
+        case "playlist": {
+          // Fetch playlist details
+          const playlistUrl = `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&id=${youtubeId}&key=${apiKey}`;
+          const playlistResponse = await fetch(playlistUrl);
+
+          if (!playlistResponse.ok) {
+            logger.error("YouTube API error for playlist", {
+              status: playlistResponse.status,
+              youtubeId,
+            });
+            throw new HttpsError("not-found", "YouTube playlist not found.");
+          }
+
+          const playlistData = await playlistResponse.json();
+          
+          if (!playlistData.items || playlistData.items.length === 0) {
+            throw new HttpsError("not-found", "YouTube playlist not found.");
+          }
+
+          const playlist = playlistData.items[0];
+          const snippet = playlist.snippet;
+          const contentDetails = playlist.contentDetails;
+
+          // Fetch playlist items (first 20 videos)
+          const itemsUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${youtubeId}&maxResults=20&key=${apiKey}`;
+          const itemsResponse = await fetch(itemsUrl);
+          
+          let playlistItems = [];
+          if (itemsResponse.ok) {
+            const itemsData = await itemsResponse.json();
+            playlistItems = itemsData.items?.map((item: any, index: number) => ({
+              videoId: item.snippet.resourceId.videoId,
+              title: item.snippet.title,
+              thumbnails: item.snippet.thumbnails,
+              channelTitle: item.snippet.channelTitle,
+              position: index,
+            })) || [];
+          }
+
+          return {
+            title: snippet.title,
+            description: snippet.description,
+            thumbnails: snippet.thumbnails,
+            publishedAt: snippet.publishedAt,
+            channelTitle: snippet.channelTitle,
+            channelId: snippet.channelId,
+            itemCount: contentDetails.itemCount,
+            playlistItems,
+          };
+        }
+
+        case "channel": {
+          // For channel handles (@username) or custom URLs, we need to resolve to a channel ID first
+          let channelId = youtubeId;
+          
+          // If it doesn't look like a channel ID (UC...), resolve it
+          if (!youtubeId.startsWith("UC")) {
+            let resolved = false;
+
+            // Try the forHandle parameter first (for @username handles)
+            // The youtubeId may or may not have the @ prefix
+            const handle = youtubeId.startsWith("@") ? youtubeId : `@${youtubeId}`;
+            const handleUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet&forHandle=${encodeURIComponent(handle)}&key=${apiKey}`;
+            const handleResponse = await fetch(handleUrl);
+            if (handleResponse.ok) {
+              const handleData = await handleResponse.json();
+              if (handleData.items && handleData.items.length > 0) {
+                channelId = handleData.items[0].id;
+                resolved = true;
+              }
+            }
+
+            // Fall back to forUsername (for /user/ style URLs)
+            if (!resolved) {
+              const username = youtubeId.startsWith("@") ? youtubeId.slice(1) : youtubeId;
+              const userUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet&forUsername=${encodeURIComponent(username)}&key=${apiKey}`;
+              const userResponse = await fetch(userUrl);
+              if (userResponse.ok) {
+                const userData = await userResponse.json();
+                if (userData.items && userData.items.length > 0) {
+                  channelId = userData.items[0].id;
+                  resolved = true;
+                }
+              }
+            }
+
+            // Last resort: search API
+            if (!resolved) {
+              const searchQuery = youtubeId.startsWith("@") ? youtubeId.slice(1) : youtubeId;
+              const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(searchQuery)}&maxResults=1&key=${apiKey}`;
+              const searchResponse = await fetch(searchUrl);
+              if (searchResponse.ok) {
+                const searchData = await searchResponse.json();
+                if (searchData.items && searchData.items.length > 0) {
+                  channelId = searchData.items[0].snippet.channelId;
+                }
+              }
+            }
+          }
+
+          // Fetch channel details
+          const channelUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&id=${channelId}&key=${apiKey}`;
+          const channelResponse = await fetch(channelUrl);
+
+          if (!channelResponse.ok) {
+            logger.error("YouTube API error for channel", {
+              status: channelResponse.status,
+              youtubeId,
+            });
+            throw new HttpsError("not-found", "YouTube channel not found.");
+          }
+
+          const channelData = await channelResponse.json();
+          
+          if (!channelData.items || channelData.items.length === 0) {
+            throw new HttpsError("not-found", "YouTube channel not found.");
+          }
+
+          const channel = channelData.items[0];
+          const snippet = channel.snippet;
+          const statistics = channel.statistics;
+          const contentDetails = channel.contentDetails;
+
+          // Fetch recent videos from the channel's uploads playlist
+          let recentVideos = [];
+          if (contentDetails.relatedPlaylists?.uploads) {
+            const uploadsPlaylistId = contentDetails.relatedPlaylists.uploads;
+            const uploadsUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=12&key=${apiKey}`;
+            const uploadsResponse = await fetch(uploadsUrl);
+            
+            if (uploadsResponse.ok) {
+              const uploadsData = await uploadsResponse.json();
+              recentVideos = uploadsData.items?.map((item: any, index: number) => ({
+                videoId: item.snippet.resourceId.videoId,
+                title: item.snippet.title,
+                thumbnails: item.snippet.thumbnails,
+                channelTitle: snippet.title,
+                position: index,
+              })) || [];
+            }
+          }
+
+          return {
+            channelData: {
+              channelId: channel.id,
+              title: snippet.title,
+              description: snippet.description,
+              customUrl: snippet.customUrl,
+              thumbnails: snippet.thumbnails,
+              subscriberCount: statistics.subscriberCount,
+              videoCount: statistics.videoCount,
+              viewCount: statistics.viewCount,
+            },
+            title: snippet.title,
+            description: snippet.description,
+            thumbnails: snippet.thumbnails,
+            recentVideos,
+          };
+        }
+
+        default:
+          throw new HttpsError("invalid-argument", "Unsupported YouTube content type.");
+      }
+    } catch (error: any) {
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      logger.error("Failed to fetch YouTube metadata", {
+        error: String(error),
+        youtubeType,
+        youtubeId,
+      });
+      throw new HttpsError("internal", "Failed to fetch YouTube metadata.");
+    }
+  });
+
 /**
  * Firebase function that triggers when a new user signs up.
  * Sends a formatted notification to Discord via webhook.
@@ -713,5 +995,288 @@ export const onFileDeleted = functions.storage.object().onDelete(async (object) 
       fileSize,
     });
     return null;
+  }
+});
+
+/**
+ * Validates slug format: lowercase alphanumeric and hyphens only, 3-30 characters
+ */
+function isValidSlugFormat(slug: string): boolean {
+  if (!slug || typeof slug !== "string") return false;
+  if (slug.length < 3 || slug.length > 30) return false;
+  
+  // Must be lowercase alphanumeric and hyphens only
+  // Cannot start or end with a hyphen
+  const slugRegex = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+  return slugRegex.test(slug);
+}
+
+/**
+ * Reserved slugs that cannot be claimed by users
+ */
+const RESERVED_SLUGS = [
+  "login", "signup", "dashboard", "grid", "privacy", "terms",
+  "admin", "api", "app", "about", "contact", "help", "support",
+  "settings", "profile", "account", "user", "users", "grids",
+  "home", "index", "www", "mail", "ftp", "localhost", "test",
+];
+
+/**
+ * Cloud Function to claim or update a user's slug.
+ * Enforces uniqueness and format validation.
+ */
+export const claimSlug = onCall(async (data, context) => {
+  // Ensure user is authenticated
+  if (!context.auth) {
+    throw new HttpsError("unauthenticated", "You must be signed in to claim a slug.");
+  }
+
+  const userId = context.auth.uid;
+  const requestedSlug = (data as { slug?: string } | undefined)?.slug;
+
+  if (!requestedSlug || typeof requestedSlug !== "string") {
+    throw new HttpsError("invalid-argument", "Slug is required.");
+  }
+
+  // Normalize to lowercase
+  const slug = requestedSlug.toLowerCase().trim();
+
+  // Validate slug format
+  if (!isValidSlugFormat(slug)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Slug must be 3-30 characters, lowercase letters, numbers, and hyphens only. Cannot start or end with a hyphen."
+    );
+  }
+
+  // Check if slug is reserved
+  if (RESERVED_SLUGS.includes(slug)) {
+    throw new HttpsError("invalid-argument", "This slug is reserved and cannot be used.");
+  }
+
+  const db = admin.firestore();
+
+  try {
+    // Use a transaction to ensure atomicity and prevent race conditions
+    const result = await db.runTransaction(async (transaction) => {
+      const userRef = db.collection("users").doc(userId);
+      const userDoc = await transaction.get(userRef);
+      const slugRef = db.collection("slugs").doc(slug);
+      const slugDoc = await transaction.get(slugRef);
+
+      // Check if slug is already taken
+      if (slugDoc.exists) {
+        const existingUserId = slugDoc.data()?.userId;
+        
+        // If userId is null or undefined, the slug was released and is available
+        if (existingUserId !== null && existingUserId !== undefined) {
+          // If the slug belongs to a different user, it's taken
+          if (existingUserId !== userId) {
+            throw new HttpsError("already-exists", "This slug is already taken.");
+          }
+          // If it's the same user, they're updating to the same slug (no-op)
+          return { success: true, message: "Slug is already yours." };
+        }
+        // If userId is null, fall through to claim the released slug
+      }
+
+      // If user had a previous slug, update its history to mark it as released
+      if (userDoc.exists && userDoc.data()?.slug) {
+        const oldSlug = userDoc.data()!.slug;
+        if (oldSlug !== slug) {
+          const oldSlugRef = db.collection("slugs").doc(oldSlug);
+          const oldSlugDoc = await transaction.get(oldSlugRef);
+          
+          if (oldSlugDoc.exists) {
+            const oldSlugData = oldSlugDoc.data();
+            // Add current ownership to history before releasing
+            // Use the existing createdAt timestamp if available, otherwise use current time
+            const claimedAt = oldSlugData?.createdAt || new Date();
+            
+            transaction.update(oldSlugRef, {
+              userId: null, // Mark as available
+              history: admin.firestore.FieldValue.arrayUnion({
+                userId,
+                claimedAt,
+                releasedAt: new Date(), // Cannot use FieldValue.serverTimestamp() inside arrays
+              }),
+            });
+          }
+        }
+      }
+
+      // Get user's default grid to store in slug document for public access
+      const defaultGridId = userDoc.exists ? userDoc.data()?.defaultGridId || null : null;
+
+      // Create or update the slug document with history tracking
+      const now = new Date();
+      transaction.set(slugRef, {
+        userId,
+        defaultGridId, // Store for public access
+        createdAt: admin.firestore.FieldValue.serverTimestamp(), // Can use FieldValue at top level
+        history: admin.firestore.FieldValue.arrayUnion({
+          userId,
+          claimedAt: now, // Cannot use FieldValue.serverTimestamp() inside arrays
+        }),
+      }, { merge: true });
+
+      // Update or create the user document with the new slug
+      if (userDoc.exists) {
+        transaction.update(userRef, { slug });
+      } else {
+        transaction.set(userRef, { slug }, { merge: true });
+      }
+
+      logger.info("Slug claimed successfully", { userId, slug });
+      return { success: true, message: "Slug claimed successfully." };
+    });
+
+    return result;
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    logger.error("Failed to claim slug", {
+      error: String(error),
+      userId,
+      slug,
+    });
+    throw new HttpsError("internal", "Failed to claim slug. Please try again.");
+  }
+});
+
+/**
+ * Cloud Function to update the default grid for a user's slug.
+ * This syncs the defaultGridId to the slugs collection for public access.
+ */
+export const updateDefaultGrid = onCall(async (data, context) => {
+  // Ensure user is authenticated
+  if (!context.auth) {
+    throw new HttpsError("unauthenticated", "You must be signed in to update your default grid.");
+  }
+
+  const userId = context.auth.uid;
+  const gridId = (data as { gridId?: string | null } | undefined)?.gridId || null;
+
+  const db = admin.firestore();
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      const userRef = db.collection("users").doc(userId);
+      const userDoc = await transaction.get(userRef);
+
+      if (!userDoc.exists) {
+        throw new HttpsError("not-found", "User profile not found.");
+      }
+
+      const userSlug = userDoc.data()?.slug;
+
+      // Update user's default grid
+      transaction.update(userRef, { defaultGridId: gridId });
+
+      // If user has a slug, update the slugs collection too for public access
+      if (userSlug) {
+        const slugRef = db.collection("slugs").doc(userSlug);
+        transaction.update(slugRef, { defaultGridId: gridId });
+      }
+    });
+
+    logger.info("Default grid updated successfully", { userId, gridId });
+    return { success: true };
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    logger.error("Failed to update default grid", {
+      error: String(error),
+      userId,
+      gridId,
+    });
+    throw new HttpsError("internal", "Failed to update default grid. Please try again.");
+  }
+});
+
+/**
+ * Cloud Function to check if a slug is available.
+ * Returns availability status without claiming it.
+ */
+export const checkSlugAvailability = onCall(async (data, context) => {
+  // Authentication not strictly required for checking, but we'll require it
+  if (!context.auth) {
+    throw new HttpsError("unauthenticated", "You must be signed in to check slug availability.");
+  }
+
+  const requestedSlug = (data as { slug?: string } | undefined)?.slug;
+
+  if (!requestedSlug || typeof requestedSlug !== "string") {
+    throw new HttpsError("invalid-argument", "Slug is required.");
+  }
+
+  const slug = requestedSlug.toLowerCase().trim();
+
+  // Validate slug format
+  if (!isValidSlugFormat(slug)) {
+    return {
+      available: false,
+      reason: "invalid-format",
+      message: "Slug must be 3-30 characters, lowercase letters, numbers, and hyphens only.",
+    };
+  }
+
+  // Check if slug is reserved
+  if (RESERVED_SLUGS.includes(slug)) {
+    return {
+      available: false,
+      reason: "reserved",
+      message: "This slug is reserved.",
+    };
+  }
+
+  const db = admin.firestore();
+
+  try {
+    const slugRef = db.collection("slugs").doc(slug);
+    const slugDoc = await slugRef.get();
+    
+    if (slugDoc.exists) {
+      const existingUserId = slugDoc.data()?.userId;
+      
+      // If userId is null, the slug was released and is available
+      if (existingUserId === null || existingUserId === undefined) {
+        return {
+          available: true,
+          reason: "available",
+          message: "This slug is available!",
+        };
+      }
+      
+      // Check if it's the current user's slug
+      if (existingUserId === context.auth.uid) {
+        return {
+          available: true,
+          reason: "own-slug",
+          message: "This is your current slug.",
+        };
+      }
+      
+      // Slug is taken by another user
+      return {
+        available: false,
+        reason: "taken",
+        message: "This slug is already taken.",
+      };
+    }
+
+    return {
+      available: true,
+      reason: "available",
+      message: "This slug is available!",
+    };
+  } catch (error) {
+    logger.error("Failed to check slug availability", {
+      error: String(error),
+      slug,
+    });
+    throw new HttpsError("internal", "Failed to check slug availability.");
   }
 });

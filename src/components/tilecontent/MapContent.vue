@@ -249,7 +249,7 @@ export default defineComponent({
     });
 
     const showClouds = computed({
-      get: () => props.content.showClouds ?? false,
+      get: () => props.content.showClouds ?? true,
       set: (value: boolean) => {
         props.content.showClouds = value;
         layoutStore.saveLayout();
@@ -257,7 +257,7 @@ export default defineComponent({
     });
 
     const showPlanes = computed({
-      get: () => props.content.showPlanes ?? false,
+      get: () => props.content.showPlanes ?? true,
       set: (value: boolean) => {
         props.content.showPlanes = value;
         layoutStore.saveLayout();

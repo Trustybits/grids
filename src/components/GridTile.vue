@@ -21,6 +21,7 @@
       :maxH="10"
       :isDraggable="layoutStore.isOwner && !isEditing"
       :isResizable="isTileResizable"
+      dragIgnoreFrom="a, button, .tile-caption"
       @move="onMove"
       @moved="onMoved"
       @resize="onResize"
@@ -90,7 +91,7 @@
       ></button>
 
       <TileCaption v-if="showCaption && (layoutStore.isOwner || tile.caption)" :tile="tile" />
-
+      
       <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
       <div v-if="isTileResizable" class="resize-indicator"></div>
 
@@ -127,8 +128,6 @@ import {
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 import { ContentType, type LinkContent } from "@/types/TileContent";
-import { getAuth } from "firebase/auth";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import TextIcon from "./icons/TextIcon.vue";
@@ -137,6 +136,7 @@ import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileIcon from "./icons/ProfileIcon.vue";
 import TileToolbar from "./TileToolbar.vue";
+import { useFileUpload } from "@/composables/useFileUpload";
 import ColorPicker from "./ColorPicker.vue";
 
 export default defineComponent({
@@ -159,11 +159,16 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
+    const { uploadFileOptimisticForTile } = useFileUpload();
 
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).
     provide("gridTileH", computed(() => props.tile.h));
     provide("gridTileW", computed(() => props.tile.w));
+    /*provide("tileId", computed(() => props.tile.i));*/
+    provide("tileId", props.tile.i);
+    provide("tileX", computed(() => props.tile.x));
+    provide("tileY", computed(() => props.tile.y));
 
     const isMoving = ref(false);
     const isDragging = ref(false);
@@ -177,7 +182,7 @@ export default defineComponent({
     let stopChildEditingWatch: (() => void) | null = null;
 
     const showCaption = computed(() => {
-      // Hide caption for Link, Text, Chat, Embed, Map, Campfire, RPG, and Suggestion tiles as requested
+      // Hide caption for Link, Text, Chat, Embed, Map, Campfire, RPG, YouTube, and Suggestion tiles as requested
       const hiddenTypes = [
         ContentType.LINK,
         ContentType.TEXT,
@@ -185,11 +190,14 @@ export default defineComponent({
         ContentType.EMBED,
         ContentType.CAMPFIRE,
         ContentType.RPG,
-        ContentType.MAP,
         ContentType.SUGGESTION,
         ContentType.PROFILE,
+        ContentType.YOUTUBE,
       ];
-      return !hiddenTypes.includes(props.tile.content.type);
+      if (hiddenTypes.includes(props.tile.content.type)) return false;
+      // Hide caption on 1-wide tiles (too narrow)
+      if (props.tile.w === 1) return false;
+      return true;
     });
 
     const isLinkContent = computed(() => props.tile.content.type === ContentType.LINK);
@@ -224,8 +232,6 @@ export default defineComponent({
     });
 
     const mediaInput = ref<HTMLInputElement | null>(null);
-    const auth = getAuth();
-    const storage = getStorage();
 
     const loadComponent = async () => {
       currentComponent.value = await getContentComponent(props.tile.content);
@@ -239,7 +245,11 @@ export default defineComponent({
         // This triggers the scale animation right away
         if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
           isDragging.value = true;
-          event.preventDefault();
+          // Only preventDefault when the child doesn't handle short clicks
+          // (e.g. text tiles need the default focus behavior on mousedown)
+          if (!childComponent.value?.onShortClick) {
+            event.preventDefault();
+          }
         }
       }
     };
@@ -250,7 +260,7 @@ export default defineComponent({
       }
 
       // Clear dragging state when user releases the mouse
-      // This ensures the tile scales back down even if dragged to original position
+      // This triggers the scale animation right away
       isDragging.value = false;
 
       const clickDuration = Date.now() - (clickStart.value || 0);
@@ -330,6 +340,8 @@ export default defineComponent({
         case "text": {
           const content = createTileContent(ContentType.TEXT, {});
           layoutStore.setTileContent(props.tile.i, content);
+          // Auto-focus the new text tile so the user can start typing immediately
+          layoutStore.pendingFocusTileId = props.tile.i;
           break;
         }
 
@@ -381,42 +393,11 @@ export default defineComponent({
       input.value = "";
       
       if (!file) return;
-
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
-      const maxSize = isImage ? 10 * 1024 * 1024 : 500 * 1024 * 1024;
-
-      if (!isImage && !isVideo) {
-        alert("Unsupported file type. Please upload an image or video.");
-        return;
-      }
-
-      if (file.size > maxSize) {
-        alert(`File is too large! Maximum size: ${isImage ? "10MB" : "500MB"}`);
-        return;
-      }
-
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          alert("You must be logged in to upload.");
-          return;
-        }
-
-        const filePath = `users/${currentUser.uid}/${isImage ? "images" : "videos"}/${Date.now()}_${file.name}`;
-        const fileRef = storageRef(storage, filePath);
-
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
-
-        const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-        const content = createTileContent(contentType, { src: url });
-        layoutStore.setTileContent(props.tile.i, content);
+        await uploadFileOptimisticForTile(file, props.tile.i);
       } catch (error: any) {
-        console.error("File upload failed:", error);
-        // Show more specific error message to help with debugging
         const errorMessage = error?.message || error?.code || "Unknown error";
-        alert(`Failed to upload file: ${errorMessage}\n\nCheck console for details.`);
+        alert(`Failed to upload file: ${errorMessage}`);
       }
     };
 
@@ -639,6 +620,12 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  border-radius: var(--tile-border-radius);
+  /* turn off shadow when border is off */
+  &[data-border='off'] {
+    box-shadow: none;
+  }
   
   /* Animate tiles when they first appear */
   animation: tileEnter var(--duration-normal) var(--easing-spring);
@@ -861,10 +848,16 @@ export default defineComponent({
   pointer-events: auto;
 }
 
-/* Hide close button during crop mode and when exiting */
+/* Non-owner caption: hide on tile hover */
+.tile-wrapper:hover :deep(.viewer-caption) {
+  display: none;
+}
+
+/* Hide close button during crop mode, exiting, and while dragging */
 .tile-wrapper.crop-mode-active .btn-close,
 .tile-wrapper.crop-mode-exiting .btn-close,
-.tile-wrapper.is-exiting .btn-close {
+.tile-wrapper.is-exiting .btn-close,
+.tile-wrapper.is-dragging .btn-close {
   opacity: 0;
   transform: scale(0);
   pointer-events: none;
@@ -886,9 +879,11 @@ export default defineComponent({
   pointer-events: auto;
 }
 
-/* Hide toolbar when tile is exiting */
+/* Hide toolbar when tile is exiting or being dragged */
 .tile-wrapper.is-exiting :deep(.tile-toolbar),
-.tile-wrapper.is-exiting :deep(.toolbar-search-panel) {
+.tile-wrapper.is-exiting :deep(.toolbar-search-panel),
+.tile-wrapper.is-dragging :deep(.tile-toolbar),
+.tile-wrapper.is-dragging :deep(.toolbar-search-panel) {
   opacity: 0;
   transform: translate(-50%, calc(100% + 10px)) scale(0.9);
   pointer-events: none;
@@ -1047,8 +1042,8 @@ export default defineComponent({
 /* The library uses .vue-resizable-handle class for the resize handle */
 :deep(.vue-resizable-handle) {
   /* Increase the hit area from default small corner to a larger area */
-  width: 48px !important;
-  height: 48px !important;
+  width: 32px !important;
+  height: 32px !important;
   bottom: -8px !important;
   right: -8px !important;
   
@@ -1079,11 +1074,19 @@ export default defineComponent({
   &.resizing {
     transition: none !important;
     /* Keep tile visible and stable during resize */
-    opacity: 0.6 !important;
+    opacity: 1 !important;
   }
   
-  /* Smooth animation when resize completes */
-  &:not(.resizing) {
+  /* Light, fast spring during drag — keeps a hint of fluidity without
+     the heavy 400ms spring that causes perceptible cursor lag. */
+  &.vue-draggable-dragging {
+    transition: transform 80ms ease-out !important;
+    // transition: transform 80ms var(--easing-spring) !important;
+    opacity: 1 !important;
+  }
+
+  /* Full spring animation when resize/drag completes and tiles settle */
+  &:not(.resizing):not(.vue-draggable-dragging) {
     transition: width var(--duration-slow) var(--easing-spring),
                 height var(--duration-slow) var(--easing-spring),
                 transform var(--duration-slow) var(--easing-spring),
@@ -1092,31 +1095,6 @@ export default defineComponent({
   }
 }
 
-/* Placeholder/silhouette that shows where the tile will land during resize */
-:deep(.vue-grid-placeholder) {
-  /* Remove transitions to prevent flickering - placeholder should update instantly */
-  transition: none !important;
-  animation: none !important;
-  
-  /* Ensure placeholder is always visible and stable */
-  opacity: 0.3 !important;
-  background: var(--color-text-primary) !important;
-  border-radius: var(--tile-border-radius) !important;
-  border: 2px dashed var(--color-text-primary) !important;
-  
-  /* Force the placeholder to always render and prevent any hiding */
-  display: block !important;
-  visibility: visible !important;
-  pointer-events: none !important;
-  
-  /* Ensure it's positioned correctly and prevent any transforms that might hide it */
-  position: absolute !important;
-  z-index: 1 !important;
-  
-  /* Prevent the library from hiding it */
-  width: auto !important;
-  height: auto !important;
-  min-width: 10px !important;
-  min-height: 10px !important;
-}
+/* Placeholder styling is handled globally in Grid.vue's unscoped <style> block
+   so it can properly hide/show based on drag state via :has(.vue-draggable-dragging). */
 </style>

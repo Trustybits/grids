@@ -69,6 +69,12 @@
       <span class="auth-landing__footer-sep">·</span>
       <router-link class="auth-landing__footer-link" to="/terms">Terms</router-link>
     </footer>
+
+    <SlugClaimModal
+      :is-open="showSlugModal"
+      @close="handleSlugModalClose"
+      @success="handleSlugClaimed"
+    />
   </div>
 </template>
 
@@ -77,8 +83,10 @@ import { computed, ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { auth } from '../firebase';
 import GriddleAnimation from '@/components/GriddleAnimation.vue';
+import SlugClaimModal from '@/components/SlugClaimModal.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useLayoutStore } from '@/stores/layout';
+import { getUserProfile } from '@/services/UserProfileService';
 import {
   signInWithPopup,
   GoogleAuthProvider,
@@ -100,6 +108,8 @@ const isBusy = ref(false);
 const isCompletingLink = ref(false);
 const statusText = ref<string | null>(null);
 const statusTone = ref<'info' | 'error'>('info');
+const showSlugModal = ref(false);
+const pendingRedirect = ref<string | null>(null);
 
 const AUTH_EMAIL_STORAGE_KEY = 'grids.auth.emailForSignIn';
 
@@ -108,9 +118,11 @@ const isEmailValid = computed(() => {
   return /\S+@\S+\.[\S]+/.test(email.value.trim());
 });
 
-// Check if user is new (has no grids) and create a default grid for them
-// Returns the redirect path - either to a new grid or dashboard
-const getPostAuthRedirect = async (): Promise<string> => {
+/**
+ * Check if user is new and needs to claim a slug
+ * Returns the redirect path or null if slug modal should be shown
+ */
+const getPostAuthRedirect = async (): Promise<string | null> => {
   const redirect = route.query.redirect;
   
   // If there's an explicit redirect query param, honor it
@@ -119,11 +131,31 @@ const getPostAuthRedirect = async (): Promise<string> => {
   }
   
   try {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return '/dashboard';
+
+    // Check if user has a slug
+    const profile = await getUserProfile(userId);
+    const hasSlug = !!profile?.slug;
+
     // Fetch user's existing grids to determine if they're a new user
     await layoutStore.fetchLayouts();
+    const isNewUser = layoutStore.layouts.length === 0;
     
-    // If user has no grids, they're a new user - create a default grid for them
-    if (layoutStore.layouts.length === 0) {
+    // If new user without slug, show slug modal first
+    if (isNewUser && !hasSlug) {
+      // Create default grid for them
+      const newGridId = await layoutStore.createLayout('My First Grid');
+      const targetPath = newGridId ? `/grid/${newGridId}` : '/dashboard';
+      
+      // Store the redirect path and show slug modal
+      pendingRedirect.value = targetPath;
+      showSlugModal.value = true;
+      return null; // Don't redirect yet
+    }
+    
+    // If user has no grids but has a slug (edge case), create a grid
+    if (isNewUser) {
       const newGridId = await layoutStore.createLayout('My First Grid');
       if (newGridId) {
         return `/grid/${newGridId}`;
@@ -134,7 +166,6 @@ const getPostAuthRedirect = async (): Promise<string> => {
     return '/dashboard';
   } catch (error) {
     console.error('Error checking user grids:', error);
-    // On error, default to dashboard
     return '/dashboard';
   }
 };
@@ -173,7 +204,9 @@ const maybeCompleteEmailLinkSignIn = async () => {
     await signInWithEmailLink(auth, resolvedEmail, window.location.href);
     window.localStorage.removeItem(AUTH_EMAIL_STORAGE_KEY);
     const redirectPath = await getPostAuthRedirect();
-    await router.replace(redirectPath);
+    if (redirectPath) {
+      await router.replace(redirectPath);
+    }
   } catch (error: any) {
     console.error('Email link sign-in error:', error?.message);
     statusTone.value = 'error';
@@ -190,7 +223,9 @@ const handleGoogleAuth = async () => {
     statusText.value = null;
     await signInWithPopup(auth, provider);
     const redirectPath = await getPostAuthRedirect();
-    await router.replace(redirectPath);
+    if (redirectPath) {
+      await router.replace(redirectPath);
+    }
   } catch (error: any) {
     console.error('Google Auth error:', error?.message);
     statusTone.value = 'error';
@@ -226,6 +261,25 @@ const handleEmailContinue = async () => {
     statusText.value = error?.message ?? 'Could not send sign-in link.';
   } finally {
     isBusy.value = false;
+  }
+};
+
+/**
+ * Handle slug modal close - should not happen for new users since it's required
+ */
+const handleSlugModalClose = () => {
+  showSlugModal.value = false;
+  // Don't redirect on close - only on success
+};
+
+/**
+ * Handle successful slug claim - redirect to pending destination
+ */
+const handleSlugClaimed = () => {
+  showSlugModal.value = false;
+  if (pendingRedirect.value) {
+    router.replace(pendingRedirect.value);
+    pendingRedirect.value = null;
   }
 };
 </script>

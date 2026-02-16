@@ -138,10 +138,7 @@ const launchPixelRacers = () => {
 
 <style lang="scss" scoped>
 .grid-menu {
-  position: fixed;
-  bottom: calc(var(--spacing-md) + 48px);
-  left: var(--spacing-md);
-  z-index: var(--z-fixed);
+  position: relative;
 }
 
 .grid-menu-button {

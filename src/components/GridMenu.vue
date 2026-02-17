@@ -36,6 +36,27 @@
           />
         </MenuSection>
 
+        <!-- Breakpoint Layout -->
+        <MenuSection v-if="isOwner && layoutStore.activeBreakpoint !== 'lg'">
+          <div class="breakpoint-section">
+            <span class="breakpoint-label">
+              {{ layoutStore.activeBreakpoint === 'sm' ? 'Mobile' : 'Tablet' }} Layout
+            </span>
+            <MenuItem v-if="!hasOverride" @click="saveBreakpoint">
+              Save {{ layoutStore.activeBreakpoint === 'sm' ? 'Mobile' : 'Tablet' }} Layout
+            </MenuItem>
+            <template v-else>
+              <MenuItem @click="saveBreakpoint">
+                Update Layout
+              </MenuItem>
+              <MenuItem danger @click="resetBreakpoint">
+                Reset to Auto
+              </MenuItem>
+            </template>
+          </div>
+        </MenuSection>
+        <Divider v-if="isOwner && layoutStore.activeBreakpoint !== 'lg'" />
+
         <!-- Owner Actions -->
         <MenuSection v-if="isOwner">
           <MenuItem danger @click="confirmDelete">
@@ -112,6 +133,39 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
 });
+
+const hasOverride = computed(() => {
+  return layoutStore.hasBreakpointOverride(layoutStore.activeBreakpoint);
+});
+
+const saveBreakpoint = () => {
+  const bp = layoutStore.activeBreakpoint;
+  if (bp === 'lg') return;
+
+  // Use the display positions published by Grid.vue — these reflect the
+  // actual rendered positions at the current breakpoint (auto-repacked or
+  // previously saved overrides after user edits).
+  const positions = layoutStore.displayPositions;
+  if (!positions.length) return;
+
+  layoutStore.saveBreakpointPositions(bp, positions);
+  toastStore.addToast(
+    `${bp === 'sm' ? 'Mobile' : 'Tablet'} layout saved`,
+    'success'
+  );
+  showMenu.value = false;
+};
+
+const resetBreakpoint = () => {
+  const bp = layoutStore.activeBreakpoint;
+  if (bp === 'lg') return;
+  layoutStore.resetBreakpoint(bp);
+  toastStore.addToast(
+    `${bp === 'sm' ? 'Mobile' : 'Tablet'} layout reset to auto`,
+    'success'
+  );
+  showMenu.value = false;
+};
 
 const confirmDelete = () => {
   emit("confirm-delete");
@@ -232,5 +286,18 @@ const launchPixelRacers = () => {
     margin-top: var(--spacing-xs);
     color: var(--color-content-low);
   }
+}
+
+.breakpoint-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.breakpoint-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-content-low);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-weight: 500;
 }
 </style>

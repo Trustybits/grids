@@ -914,15 +914,44 @@ export const onGridCreated = functions
           status: response.status,
         });
       }
-      
-      return null;
     } catch (error) {
       logger.error("Failed to send Discord webhook", {
         error: String(error),
         layoutId,
       });
-      return null;
     }
+
+    // Auto-assign this grid as the user's default if they don't have one set yet
+    const userId = layoutData.userId;
+    if (userId) {
+      try {
+        const db = admin.firestore();
+        await db.runTransaction(async (transaction) => {
+          const userRef = db.collection("users").doc(userId);
+          const userDoc = await transaction.get(userRef);
+
+          if (!userDoc.exists || !userDoc.data()?.defaultGridId) {
+            transaction.set(userRef, { defaultGridId: layoutId }, { merge: true });
+
+            const userSlug = userDoc.exists ? userDoc.data()?.slug : null;
+            if (userSlug) {
+              const slugRef = db.collection("slugs").doc(userSlug);
+              transaction.update(slugRef, { defaultGridId: layoutId });
+            }
+
+            logger.info("Auto-assigned default grid for user", { userId, layoutId });
+          }
+        });
+      } catch (error) {
+        logger.error("Failed to auto-assign default grid", {
+          error: String(error),
+          userId,
+          layoutId,
+        });
+      }
+    }
+
+    return null;
   });
 
 /**

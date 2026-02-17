@@ -289,6 +289,7 @@ const discordUserActivityWebhookUrl = defineSecret("DISCORD_USER_ACTIVITY_WEBHOO
 const DEV_TEAM_USER_IDS: string[] = [
   // Add Firebase UIDs here, e.g.:
   // "abc123uid",
+  "F4vIerh5rzgEGrlWKugF17lSoeq2"
 ];
 
 const DEV_TEAM_EMAIL_PATTERNS: string[] = [
@@ -296,6 +297,8 @@ const DEV_TEAM_EMAIL_PATTERNS: string[] = [
   // "@yourcompany.com",
   // "+test",
   // "dev+",
+  "@trustybits.com",
+  "@grids.so",
 ];
 
 /**

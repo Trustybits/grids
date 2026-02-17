@@ -292,7 +292,11 @@ export default defineComponent({
       // isDragging is now cleared in endClick, but keep this as a safety backup
       isDragging.value = false;
       if (!layoutStore.isOwner) return;
-      layoutStore.updateLayout();
+      if (layoutStore.activeBreakpoint !== 'lg') {
+        layoutStore.updateBreakpointOverride();
+      } else {
+        layoutStore.updateLayout();
+      }
     };
 
     const onResize = (i: string, newH: number, newW: number, newHPx: number, newWPx: number) => {
@@ -318,7 +322,11 @@ export default defineComponent({
       }
       // Save the layout with the new size
       if (layoutStore.isOwner) {
-        layoutStore.updateLayout();
+        if (layoutStore.activeBreakpoint !== 'lg') {
+          layoutStore.updateBreakpointOverride();
+        } else {
+          layoutStore.updateLayout();
+        }
       }
     };
 

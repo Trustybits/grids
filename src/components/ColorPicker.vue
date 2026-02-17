@@ -9,13 +9,13 @@
       <button
         class="color-box"
         :style="`background: var(${color})`"
-        :title="generateColorTooltip(color)"
+        :data-tooltip="generateColorTooltip(color)"
         @click="onColorClick($event, color)"
       ></button>
     </template>
     <button
       class="color-box no-fill"
-      :title="generateColorTooltip('--color-content-background')"
+      :data-tooltip="generateColorTooltip('--color-content-background')"
       @click="onColorClick($event, '--color-content-background')"
     >
       <NoFillIcon :size="26" />
@@ -364,6 +364,36 @@ export default defineComponent({
   &:hover {
     background-color: var(--color-content-low);
     transform: scale(1.05);
+  }
+}
+
+/* Tooltip via data-tooltip attribute */
+.color-box[data-tooltip] {
+  position: relative;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    white-space: nowrap;
+    font-size: 11px;
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-text-primary);
+    color: var(--color-tile-background);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--easing-ease-out),
+                transform var(--duration-fast) var(--easing-ease-out);
+    z-index: var(--z-tooltip);
+  }
+
+  &:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
   }
 }
 

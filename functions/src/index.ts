@@ -923,6 +923,126 @@ export const onGridCreated = functions
   });
 
 /**
+ * Firebase function that triggers when a grid/layout is updated.
+ * Only fires when the updatedAt field changes to avoid spurious triggers.
+ * Sends a notification to the user-activity Discord channel.
+ */
+export const onGridUpdated = functions
+  .runWith({
+    secrets: [discordUserActivityWebhookUrl],
+  })
+  .firestore.document("layouts/{layoutId}")
+  .onUpdate(async (change, context) => {
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
+    const layoutId = context.params.layoutId;
+
+    // Only trigger when updatedAt actually changed
+    const beforeUpdatedAt = beforeData.updatedAt?.toMillis?.() ?? beforeData.updatedAt;
+    const afterUpdatedAt = afterData.updatedAt?.toMillis?.() ?? afterData.updatedAt;
+    if (!afterUpdatedAt || beforeUpdatedAt === afterUpdatedAt) {
+      return null;
+    }
+
+    logger.info("Grid updated", {
+      layoutId,
+      userId: afterData.userId,
+      name: afterData.name,
+    });
+
+    // Skip dev team members — look up email from users collection
+    let ownerEmail: string | undefined;
+    try {
+      const userDoc = await admin.firestore().collection("users").doc(afterData.userId).get();
+      ownerEmail = userDoc.data()?.email;
+    } catch {
+      // Non-fatal — proceed without email check
+    }
+    if (isDevTeamMember(afterData.userId, ownerEmail)) {
+      logger.info("Skipping Discord notification for dev team member", { userId: afterData.userId });
+      return null;
+    }
+
+    // Get the Discord webhook URL from secrets
+    const webhookUrl = discordUserActivityWebhookUrl.value();
+
+    if (!webhookUrl) {
+      logger.error("DISCORD_USER_ACTIVITY_WEBHOOK_URL secret is not configured");
+      return null;
+    }
+
+    // Build Discord embed payload
+    const discordPayload = {
+      embeds: [
+        {
+          title: "✏️ Grid Updated",
+          color: 16776960, // Yellow color
+          fields: [
+            {
+              name: "Grid Name",
+              value: afterData.name || "Untitled",
+              inline: true,
+            },
+            {
+              name: "Grid ID",
+              value: layoutId,
+              inline: true,
+            },
+            {
+              name: "Grid Link",
+              value: `https://grids.so/grid/${layoutId}`,
+              inline: true,
+            },
+            {
+              name: "User ID",
+              value: afterData.userId || "Unknown",
+              inline: false,
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          footer: {
+            text: "Grids Activity",
+          },
+        },
+      ],
+    };
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(discordPayload),
+      });
+
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        logger.error("Discord webhook returned error status", {
+          layoutId,
+          status: response.status,
+          statusText: response.statusText,
+          responseBody: responseText,
+        });
+      } else {
+        logger.info("Discord grid update notification sent successfully", {
+          layoutId,
+          status: response.status,
+        });
+      }
+
+      return null;
+    } catch (error) {
+      logger.error("Failed to send Discord webhook", {
+        error: String(error),
+        layoutId,
+      });
+      return null;
+    }
+  });
+
+/**
  * Firebase function that triggers when a grid/layout is deleted.
  * Sends a notification to the user-activity Discord channel.
  */

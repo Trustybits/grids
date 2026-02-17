@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { type Layout } from "@/types/Layout";
 import { getLayoutService } from "@/services/LayoutServiceFactory"; // Factory to switch services dynamically
 import { ContentType, type TileContent } from "@/types/TileContent";
+import type { Breakpoint, TilePosition } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
 import { collection, query, where, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
@@ -195,6 +196,14 @@ export const useLayoutStore = defineStore("layout", {
     // edit mode on mount and place the cursor at the end. Cleared by the
     // component once it consumes the focus request.
     pendingFocusTileId: null as string | null,
+    activeBreakpoint: 'lg' as Breakpoint,
+    // When true, Grid.vue should skip the next displayLayout rebuild triggered by
+    // overrides changing (because the change came from a drag/resize and positions
+    // are already correct in the stable ref).
+    skipOverrideRebuild: false,
+    // Snapshot of tile positions as currently rendered by Grid.vue's displayLayout.
+    // Updated by Grid.vue so that GridMenu can read accurate positions for breakpoint saves.
+    displayPositions: [] as Array<{ i: string; x: number; y: number; w: number; h: number }>,
   }),
 
   getters: {
@@ -781,6 +790,14 @@ export const useLayoutStore = defineStore("layout", {
       delete this.uploadingTiles[id];
       delete this.resolvedUrls[id];
 
+      // Clean up stale breakpoint override entries for this tile
+      if (this.currentLayout.overrides) {
+        for (const bp of Object.keys(this.currentLayout.overrides) as Breakpoint[]) {
+          const posMap = this.currentLayout.overrides[bp];
+          if (posMap) delete posMap[id];
+        }
+      }
+
       this.currentLayout.tiles = this.currentLayout.tiles.filter(
         (t) => t.i !== id
       );
@@ -858,6 +875,71 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       this.saveLayout(); // Persist changes
+    },
+
+    // ── Breakpoint overrides ──────────────────────────────────
+
+    setActiveBreakpoint(bp: Breakpoint) {
+      this.activeBreakpoint = bp;
+    },
+
+    setDisplayPositions(positions: Array<{ i: string; x: number; y: number; w: number; h: number }>) {
+      this.displayPositions = positions;
+    },
+
+    getBreakpointPositions(bp: Breakpoint): Record<string, TilePosition> | undefined {
+      if (!this.currentLayout) return undefined;
+      return this.currentLayout.overrides?.[bp];
+    },
+
+    hasBreakpointOverride(bp: Breakpoint): boolean {
+      const positions = this.getBreakpointPositions(bp);
+      return !!positions && Object.keys(positions).length > 0;
+    },
+
+    // Called by GridTile on every move/resize at a non-lg breakpoint.
+    // Snapshots ALL current display positions into the overrides so that
+    // neighboring tiles shifted by the grid library are also captured.
+    updateBreakpointOverride() {
+      const bp = this.activeBreakpoint;
+      if (!this.currentLayout || bp === 'lg') return;
+
+      if (!this.currentLayout.overrides) {
+        this.currentLayout.overrides = {};
+      }
+
+      // Snapshot every tile's current rendered position
+      const positions: Record<string, TilePosition> = {};
+      for (const pos of this.displayPositions) {
+        positions[pos.i] = { x: pos.x, y: pos.y, w: pos.w, h: pos.h };
+      }
+      this.currentLayout.overrides[bp] = positions;
+      // Tell Grid.vue not to rebuild displayLayout — positions are already correct
+      this.skipOverrideRebuild = true;
+      this.updateLayout();
+    },
+
+    saveBreakpointPositions(bp: Breakpoint, tiles: Array<{ i: string; x: number; y: number; w: number; h: number }>) {
+      if (!this.currentLayout || bp === 'lg') return;
+
+      const positions: Record<string, TilePosition> = {};
+      for (const tile of tiles) {
+        positions[tile.i] = { x: tile.x, y: tile.y, w: tile.w, h: tile.h };
+      }
+
+      if (!this.currentLayout.overrides) {
+        this.currentLayout.overrides = {};
+      }
+      this.currentLayout.overrides[bp] = positions;
+      this.saveLayout();
+    },
+
+    resetBreakpoint(bp: Breakpoint) {
+      if (!this.currentLayout || bp === 'lg') return;
+      if (this.currentLayout.overrides) {
+        delete this.currentLayout.overrides[bp];
+      }
+      this.saveLayout();
     },
 
     async deleteLayout(id: string) {

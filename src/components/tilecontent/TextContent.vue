@@ -14,7 +14,7 @@
         'is-wide-1-high': isWideOneHigh,
         'is-tall-1-wide': isTallOneWide,
       }"
-      :style="{ '--tile-bg': backgroundColor, color: textColor }"
+      :style="{ color: textColor }"
       :spellcheck="layoutStore.isOwner && isEditing"
     >
       <EditorContent :editor="editor" />
@@ -118,13 +118,14 @@ export default defineComponent({
     TextOptions,
     AddLinkModal,
   },
+  emits: ["background-color-change"],
   props: {
     content: {
       type: Object as () => TextContent,
       required: true,
     },
   },
-  setup(props) {
+  setup(props, { emit }) {
     const layoutStore = useLayoutStore();
     const themeStore = useThemeStore();
 
@@ -191,7 +192,7 @@ export default defineComponent({
       "var(--color-dark-0)": "#33312C",
       "var(--color-tile-background)": "#000000",
       "var(--color-content-background)": "#10100E",
-    }
+    };
 
     const getLuminance = (hex: string): number => {
       const c = hex.replace("#", "");
@@ -199,7 +200,7 @@ export default defineComponent({
       const g = parseInt(c.substring(2, 4), 16);
       const b = parseInt(c.substring(4, 6), 16);
       return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    }
+    };
 
     const textColor = computed(() => {
       const bg = backgroundColor.value;
@@ -214,7 +215,7 @@ export default defineComponent({
       } else {
         hex = colorHexMap[bg];
       }
-      
+
       if (!hex) return "";
       return getLuminance(hex) > 0.5 ? "#000000" : "#FFFFFF";
     });
@@ -281,16 +282,7 @@ export default defineComponent({
 
     const onExitClick = () => {
       isEditing.value = false;
-    }
-
-      // if (editor?.value?.view?.dom) {
-      //   editor.value.commands.focus("start");
-      // }
-      // setTimeout(() => {
-      //   isEditing.value = false;
-      // }, 50);
-    // };
-
+    };
 
     // Inject the tile ID provided by GridTile so we can check if this tile
     // should auto-focus on mount (e.g. after paste or toolbar "add text").
@@ -360,6 +352,10 @@ export default defineComponent({
       layoutStore.saveLayout();
     };
 
+    watch(backgroundColor, (color) => emit("background-color-change", color), {
+      immediate: true,
+    });
+
     return {
       layoutStore,
       editor,
@@ -394,8 +390,6 @@ export default defineComponent({
 }
 
 .text-content {
-  /* background-color: rgba(255, 255, 255, 0.1); */
-  background-color: var(--tile-bg) !important;
   padding: var(--spacing-md);
   width: 100%;
   scroll-behavior: smooth;
@@ -418,11 +412,6 @@ export default defineComponent({
 .not-editing.can-edit:hover {
   /* background-color: var(--color-editable-hover); */
   cursor: text;
-  background-color: color-mix(
-    in srgb,
-    var(--tile-bg) 85%,
-    white 15%
-  ) !important;
 }
 
 .overflowing::after {

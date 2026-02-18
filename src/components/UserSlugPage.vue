@@ -39,7 +39,11 @@
               </div>
             </div>
           </div>
-          <grid :row-height="75" />
+          <phone-preview-overlay :mode="layoutStore.previewMode" :url="pageUrl">
+            <template #default="{ containerWidth }">
+              <grid :row-height="75" :container-width="containerWidth" />
+            </template>
+          </phone-preview-overlay>
         </div>
       </div>
 
@@ -66,6 +70,7 @@ import GridButtons from '@/components/TileButtons.vue';
 import GridMenu from '@/components/GridMenu.vue';
 import ShareButton from '@/components/ShareButton.vue';
 import Divider from '@/components/Divider.vue';
+import PhonePreviewOverlay from '@/components/PhonePreviewOverlay.vue';
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
@@ -75,6 +80,8 @@ const errorTitle = ref('Handle Not Found');
 const errorMessage = ref('');
 const slug = ref('');
 const gridLoaded = ref(false);
+
+const pageUrl = computed(() => window.location.href);
 
 const backgroundStyle = computed(() => {
   return {

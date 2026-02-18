@@ -23,7 +23,11 @@
       embedded background
     </iframe>
 
-    <div class="layout-container" ref="layoutContainer" :class="{ 'drag-over': isDraggingOver }">
+    <div
+      class="layout-container"
+      ref="layoutContainer"
+      :class="{ 'drag-over': isDraggingOver, [`preview-mode--${layoutStore.previewMode}`]: true }"
+    >
       <!-- Drag overlay indicator -->
       <div v-if="isDraggingOver && layoutStore.isOwner" class="drag-overlay">
         <div class="drag-message">
@@ -35,7 +39,7 @@
           <p>Drop to add to grid</p>
         </div>
       </div>
-      
+
       <div v-if="layoutStore.isOwner" class="toolbar">
         <div class="row">
           <div class="col-md-12">
@@ -43,7 +47,12 @@
           </div>
         </div>
       </div>
-      <grid :row-height="rowHeight" />
+
+      <phone-preview-overlay :mode="layoutStore.previewMode" :url="pageUrl">
+        <template #default="{ containerWidth }">
+          <grid :row-height="rowHeight" :container-width="containerWidth" />
+        </template>
+      </phone-preview-overlay>
     </div>
   </div>
 
@@ -63,6 +72,7 @@ import { useRouter, useRoute } from "vue-router";
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
 import BottomLeftButtons from "@/components/BottomLeftButtons.vue";
+import PhonePreviewOverlay from "@/components/PhonePreviewOverlay.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
@@ -74,6 +84,7 @@ export default defineComponent({
     Grid,
     GridButtons,
     BottomLeftButtons,
+    PhonePreviewOverlay,
   },
   setup() {
     const layoutStore = useLayoutStore();
@@ -90,6 +101,8 @@ export default defineComponent({
     const isOwner = computed(() => {
       return layoutStore.isOwner;
     });
+
+    const pageUrl = computed(() => window.location.href);
 
     const selectImage = () => {
       if (!layoutStore.isOwner) return;
@@ -180,6 +193,7 @@ export default defineComponent({
       isDraggingOver,
       isOwner,
       auth,
+      pageUrl,
     };
   },
 });
@@ -198,12 +212,22 @@ export default defineComponent({
   padding-top: var(--spacing-2xl);
   padding-bottom: var(--spacing-4xl);
   position: relative;
-  
+
   &.drag-over {
     .drag-overlay {
       opacity: 1;
       pointer-events: auto;
     }
+  }
+
+  /* In phone/tablet preview, center the frame and add breathing room */
+  &.preview-mode--mobile,
+  &.preview-mode--tablet {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: calc(var(--spacing-2xl) + 60px);
+    padding-bottom: var(--spacing-4xl);
   }
 }
 

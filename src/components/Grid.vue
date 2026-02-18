@@ -5,7 +5,7 @@
     class="grid-container"
     :layout="displayLayout"
     :col-num="responsiveColNum"
-    :row-height="rowHeight"
+    :row-height="effectiveRowHeight"
     :is-draggable="isEditable"
     :is-resizable="isEditable"
     :vertical-compact="layoutStore.verticalCompact"
@@ -40,11 +40,14 @@ export default {
       type: Number,
       default: 75,
     },
+    containerWidth: {
+      type: Number,
+      default: 0,
+    },
   },
   setup(props) {
     const layoutStore = useLayoutStore();
     const route = useRoute(); // Access route parameters
-    const margin = 48;
     const viewportWidth = ref(
       typeof window !== "undefined" ? window.innerWidth : 0
     );
@@ -52,6 +55,22 @@ export default {
     const onResize = () => {
       viewportWidth.value = window.innerWidth;
     };
+
+    // Margin between tiles. Tightened in preview frames.
+    // Mobile (sm, 4-col) → 24px, Tablet (md, 8-col) → 32px, Desktop → 48px
+    const margin = computed(() => {
+      if (props.containerWidth <= 0) return 48;
+      const mode = layoutStore.previewMode;
+      if (mode === 'mobile') return 16;
+      if (mode === 'tablet') return 32;
+      return 48;
+    });
+
+    // Effective width used for layout calculations.
+    // When containerWidth is provided (e.g. phone preview), use that instead.
+    const effectiveWidth = computed(() =>
+      props.containerWidth > 0 ? props.containerWidth : viewportWidth.value
+    );
 
     const baseColNum = computed(() => {
       return layoutStore.currentLayout?.colNum ?? 12;
@@ -139,18 +158,23 @@ export default {
       return tiles.map((tile) => placedById.get(tile.i) ?? tile);
     };
 
-    const responsiveColNum = computed(() => {
-      const candidates = [12, 8, 4].filter(
-        (columns) => columns <= baseColNum.value
-      );
-      const fits = (columns: number) => {
-        return (
-          columns * props.rowHeight + (columns + 1) * margin <=
-          viewportWidth.value
-        );
-      };
+    const naturalColNum = computed(() => {
+      const w = effectiveWidth.value;
+      // Explicit pixel thresholds:
+      //   ≥ 1280px → 12-col (desktop, tiles at native size)
+      //   800–1279px → 8-col (tablet, tiles scale to fit)
+      //   < 800px  → 4-col (mobile, tiles scale to fit)
+      if (baseColNum.value >= 12 && w >= 1560) return 12;
+      if (baseColNum.value >= 8  && w >= 800)  return Math.min(8, baseColNum.value);
+      return Math.min(4, baseColNum.value);
+    });
 
-      return candidates.find(fits) ?? Math.min(4, baseColNum.value);
+    // When previewMode is set by the toolbar toggle, override the natural column count.
+    const responsiveColNum = computed(() => {
+      const mode = layoutStore.previewMode;
+      if (mode === 'mobile') return Math.min(4, baseColNum.value);
+      if (mode === 'tablet') return Math.min(8, baseColNum.value);
+      return naturalColNum.value;
     });
 
     const colNumToBreakpoint = (cols: number): Breakpoint => {
@@ -249,11 +273,29 @@ export default {
       return true;
     });
 
+    // At mobile (4 cols) and tablet (8 cols) breakpoints, derive rowHeight from
+    // the available pixel width so tiles scale uniformly in both dimensions
+    // (square units), capped at the original rowHeight. Desktop is unchanged.
+    const effectiveRowHeight = computed(() => {
+      if (responsiveColNum.value <= 8) {
+        const cols = responsiveColNum.value;
+        const m = margin.value;
+        const totalWidth = props.containerWidth > 0
+          ? props.containerWidth
+          : effectiveWidth.value;
+        // cell width = (totalWidth - (cols+1)*margin) / cols
+        const cellWidth = (totalWidth - (cols + 1) * m) / cols;
+        return Math.max(1, Math.min(props.rowHeight, Math.round(cellWidth)));
+      }
+      return props.rowHeight;
+    });
+
     const gridWidth = computed(() => {
-      return (
-        responsiveColNum.value * props.rowHeight +
-        (responsiveColNum.value + 1) * margin
-      );
+      // In preview mode use the container width directly so vue3-grid-layout
+      // fills it exactly.
+      if (props.containerWidth > 0) return props.containerWidth;
+      return responsiveColNum.value * effectiveRowHeight.value +
+        (responsiveColNum.value + 1) * margin.value;
     });
 
 
@@ -281,6 +323,7 @@ export default {
       responsiveColNum,
       activeBreakpoint,
       isEditable,
+      effectiveRowHeight,
     };
   },
 

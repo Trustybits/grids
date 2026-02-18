@@ -51,6 +51,36 @@
       />
     </div>
 
+    <!-- Breakpoint preview toggle -->
+    <div class="toolbar-divider" />
+    <div class="breakpoint-toggle">
+      <div class="breakpoint-slider" :style="sliderStyle" />
+      <button
+        class="bp-btn"
+        :class="{ active: layoutStore.previewMode === 'mobile' }"
+        data-tooltip="Mobile"
+        @click="setPreviewMode('mobile')"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+      </button>
+      <button
+        class="bp-btn"
+        :class="{ active: layoutStore.previewMode === 'tablet' }"
+        data-tooltip="Tablet"
+        @click="setPreviewMode('tablet')"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+      </button>
+      <button
+        class="bp-btn"
+        :class="{ active: layoutStore.previewMode === 'desktop' }"
+        data-tooltip="Desktop"
+        @click="setPreviewMode('desktop')"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      </button>
+    </div>
+
     <!-- Modals -->
     <AddLinkModal
       :show="showLinkModal"
@@ -71,7 +101,7 @@
 </template>
 
 <script lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import { ContentType } from "@/types/TileContent";
 import { createTileContent, createTileContentFromEmbedUrl } from "@/utils/TileUtils";
@@ -79,7 +109,6 @@ import { useFileUpload } from "@/composables/useFileUpload";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import { useThemeStore } from "@/stores/theme";
-import { computed } from "vue";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
 import AddMapModal from "./AddMapModal.vue";
@@ -268,6 +297,15 @@ export default {
       );
     };
 
+    const setPreviewMode = (mode: 'desktop' | 'tablet' | 'mobile') => {
+      layoutStore.previewMode = mode;
+    };
+
+    const sliderStyle = computed(() => {
+      const index = { mobile: 0, tablet: 1, desktop: 2 }[layoutStore.previewMode];
+      return { transform: `translateX(${index * 100}%)` };
+    });
+
     return {
       imageInput,
       layoutStore,
@@ -292,6 +330,8 @@ export default {
       handleAddLink,
       handleAddEmbed,
       handleAddMap,
+      setPreviewMode,
+      sliderStyle,
     };
   },
 };
@@ -392,6 +432,98 @@ export default {
   height: 28px;
   display: block;
   flex: 0 0 auto;
+}
+
+/* ── Breakpoint toggle ───────────────────────────────────── */
+.toolbar-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--color-tile-stroke);
+  flex-shrink: 0;
+}
+
+.breakpoint-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 0;
+  backdrop-filter: blur(20px);
+}
+
+.breakpoint-slider {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+  height: calc(100% - 6px);
+  background: var(--color-base-55);
+  border-radius: calc(var(--radius-sm) - 2px);
+  transition: transform var(--duration-normal, 200ms) var(--easing-smooth, cubic-bezier(0.4, 0, 0.2, 1));
+  pointer-events: none;
+}
+
+.bp-btn {
+  position: relative;
+  z-index: 1;
+  height: 34px;
+  width: 40px;
+  border: none;
+  background: transparent;
+  border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-content-low);
+  transition: color var(--duration-fast) var(--easing-ease-out);
+
+  svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+  }
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  &.active {
+    color: var(--color-text-primary);
+  }
+}
+
+/* Tooltip reuse for bp-btn */
+.bp-btn[data-tooltip] {
+  position: relative;
+}
+
+.bp-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.9);
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-text-primary);
+  color: var(--color-tile-background);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing-ease-out),
+              transform var(--duration-fast) var(--easing-ease-out);
+  z-index: var(--z-tooltip);
+}
+
+.bp-btn[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
 }
 
 .devToolbar {

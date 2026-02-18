@@ -197,6 +197,10 @@ export const useLayoutStore = defineStore("layout", {
     // component once it consumes the focus request.
     pendingFocusTileId: null as string | null,
     activeBreakpoint: 'lg' as Breakpoint,
+    // Preview mode set by the breakpoint toggle in TileButtons.
+    // 'desktop' = normal full-width view, 'tablet' = md breakpoint preview,
+    // 'mobile' = sm breakpoint preview with phone frame overlay.
+    previewMode: 'desktop' as 'desktop' | 'tablet' | 'mobile',
     // When true, Grid.vue should skip the next displayLayout rebuild triggered by
     // overrides changing (because the change came from a drag/resize and positions
     // are already correct in the stable ref).

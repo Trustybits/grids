@@ -39,6 +39,7 @@
           'crop-mode-exiting': isExitingCropMode && isCroppable,
           'is-dragging': isDragging,
           'is-exiting': isExiting,
+          'is-preview': isPreview,
         }"
         :data-border="borderVisible ? 'on' : 'off'"
         :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
@@ -46,6 +47,9 @@
         ref="gridTileRef"
         @mousedown="startClick"
         @mouseup="endClick"
+        @touchstart.passive="onTouchStart"
+        @touchend.passive="onTouchEnd"
+        @touchmove.passive="onTouchMove"
       >
         <!-- Visual Frame with Overflow Hidden -->
         <div
@@ -255,6 +259,37 @@ export default defineComponent({
 
     const clickStart = ref<number | null>(null);
     const CLICK_THRESHOLD = 150;
+    const LONG_PRESS_DURATION = 500;
+
+    // Preview mode: long-press shows toolbar, short tap navigates
+    const isPreview = computed(() => layoutStore.previewMode !== 'desktop');
+    const longPressTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+    const longPressTriggered = ref(false);
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (!isPreview.value || !layoutStore.isOwner) return;
+      longPressTriggered.value = false;
+      longPressTimer.value = setTimeout(() => {
+        longPressTriggered.value = true;
+        // Show the toolbar by setting this tile as the active menu tile
+        layoutStore.setActiveMenuTile(props.tile.i);
+      }, LONG_PRESS_DURATION);
+    };
+
+    const onTouchEnd = (event: TouchEvent) => {
+      if (!isPreview.value) return;
+      if (longPressTimer.value) {
+        clearTimeout(longPressTimer.value);
+        longPressTimer.value = null;
+      }
+    };
+
+    const onTouchMove = () => {
+      if (longPressTimer.value) {
+        clearTimeout(longPressTimer.value);
+        longPressTimer.value = null;
+      }
+    };
 
     const isSuggestion = computed(
       () => props.tile.content.type === ContentType.SUGGESTION,
@@ -634,6 +669,10 @@ export default defineComponent({
       toggleCropMode,
       isExitingCropMode,
       toolbarRefs,
+      isPreview,
+      onTouchStart,
+      onTouchEnd,
+      onTouchMove,
     };
   },
 });
@@ -643,6 +682,12 @@ export default defineComponent({
 /* Grid Item Container - wraps grid-item */
 .grid-item-container {
   position: relative;
+
+  /* Raise stacking context on hover so the toolbar (which overflows the tile
+     bottom edge) renders above all sibling grid-item-containers. */
+  &:hover {
+    z-index: 10;
+  }
 
   &.crop-mode-elevated {
     position: relative;
@@ -960,7 +1005,7 @@ export default defineComponent({
 }
 
 /* Show toolbar on tile hover and during crop mode (reaches into TileToolbar child) */
-.tile-wrapper:hover :deep(.tile-toolbar),
+.tile-wrapper:not(.is-preview):hover :deep(.tile-toolbar),
 .tile-wrapper.crop-mode-active :deep(.tile-toolbar),
 .tile-wrapper.crop-mode-exiting :deep(.tile-toolbar) {
   opacity: 1;
@@ -969,10 +1014,39 @@ export default defineComponent({
 }
 
 /* Show search panel when toolbar is visible */
-.tile-wrapper:hover :deep(.toolbar-search-panel),
+.tile-wrapper:not(.is-preview):hover :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-active :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel) {
   pointer-events: auto;
+}
+
+/* ── Preview mode: suppress all hover effects ──────────────
+   In mobile/tablet preview the grid simulates a touch device.
+   Hover states are disabled; the toolbar is revealed only via
+   long-press (handled in JS above). */
+.tile-wrapper.is-preview:hover .btn-close,
+.tile-wrapper.is-preview:hover .header-options,
+.tile-wrapper.is-preview:hover :deep(.hover-display) {
+  opacity: 0;
+  transform: scale(0.2);
+  pointer-events: none;
+  display: none;
+}
+
+.tile-wrapper.is-preview:hover .card-body {
+  box-shadow: none;
+  background-color: var(--tile-bg) !important;
+}
+
+.tile-wrapper.is-preview:hover :deep(.tile-toolbar) {
+  opacity: 0;
+  transform: translate(-50%, calc(100% + 10px)) scale(0.9);
+  pointer-events: none;
+}
+
+/* Cursor: use default (simulates touch, no pointer cursor) */
+.tile-wrapper.is-preview {
+  cursor: default;
 }
 
 /* Hide toolbar when tile is exiting or being dragged */

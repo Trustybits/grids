@@ -19,6 +19,8 @@ import CloudsIcon from '@/components/icons/toolbar/CloudsIcon.vue'
 import MapSearchIcon from '@/components/icons/toolbar/MapSearchIcon.vue'
 import MapPanIcon from '@/components/icons/toolbar/MapPanIcon.vue'
 import LinkIcon from '@/components/icons/LinkIcon.vue'
+import BoldIcon from '@/components/icons/toolbar/BoldIcon.vue'
+import ItalicIcon from '@/components/icons/toolbar/ItalicIcon.vue'
 
 // ── Shared reusable toolbar items ──────────────────────────────────
 
@@ -206,7 +208,20 @@ export const TEXT_MORE_MENU: ToolbarItem = {
   title: 'More',
   group: 'actions',
   action: () => {},
+  menuItemsLayoutDirection: "horizontal",
   menuItems: [
+    {
+      id: 'bold-toggle',
+      icon: markRaw(BoldIcon),
+      isActive: (ctx) => !!ctx.childComponent.value?.isBoldActive,
+      action: (ctx) => ctx.childComponent.value?.toggleBold?.(),
+    },
+    {
+      id: 'italic-toggle',
+      icon: markRaw(ItalicIcon),
+      isActive: (ctx) => !!ctx.childComponent.value?.isItalicActive,
+      action: (ctx) => ctx.childComponent.value?.toggleItalic?.(),
+    },
     {
       id: 'text-link',
       icon: markRaw(LinkIcon),

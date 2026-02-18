@@ -156,6 +156,8 @@ export default defineComponent({
 
     const textLink = computed(() => props.content?.textLink);
     const textLinkExists = computed(() => !!props.content?.textLink);
+    const isBoldActive = ref(false);
+    const isItalicActive = ref(false);
 
     const showLinkModal = ref<boolean>(false);
     const toastStore = useToastStore();
@@ -191,7 +193,7 @@ export default defineComponent({
       "var(--color-dark-0)": "#33312C",
       "var(--color-tile-background)": "#000000",
       "var(--color-content-background)": "#10100E",
-    }
+    };
 
     const getLuminance = (hex: string): number => {
       const c = hex.replace("#", "");
@@ -199,7 +201,7 @@ export default defineComponent({
       const g = parseInt(c.substring(2, 4), 16);
       const b = parseInt(c.substring(4, 6), 16);
       return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    }
+    };
 
     const textColor = computed(() => {
       const bg = backgroundColor.value;
@@ -214,7 +216,7 @@ export default defineComponent({
       } else {
         hex = colorHexMap[bg];
       }
-      
+
       if (!hex) return "";
       return getLuminance(hex) > 0.5 ? "#000000" : "#FFFFFF";
     });
@@ -281,16 +283,15 @@ export default defineComponent({
 
     const onExitClick = () => {
       isEditing.value = false;
-    }
+    };
 
-      // if (editor?.value?.view?.dom) {
-      //   editor.value.commands.focus("start");
-      // }
-      // setTimeout(() => {
-      //   isEditing.value = false;
-      // }, 50);
+    // if (editor?.value?.view?.dom) {
+    //   editor.value.commands.focus("start");
+    // }
+    // setTimeout(() => {
+    //   isEditing.value = false;
+    // }, 50);
     // };
-
 
     // Inject the tile ID provided by GridTile so we can check if this tile
     // should auto-focus on mount (e.g. after paste or toolbar "add text").
@@ -360,6 +361,39 @@ export default defineComponent({
       layoutStore.saveLayout();
     };
 
+    const syncMarkState = () => {
+      const e = editor.value;
+      if (!e) return;
+      isBoldActive.value = e.isActive("bold");
+      isItalicActive.value = e.isActive("italic");
+    };
+
+    watch(
+      editor,
+      (e, _prev, onCleanup) => {
+        if (!e) return;
+        syncMarkState();
+        e.on("selectionUpdate", syncMarkState);
+        e.on("transaction", syncMarkState);
+
+        onCleanup(() => {
+          e.off("selectionUpdate", syncMarkState);
+          e.off("transaction", syncMarkState);
+        });
+      },
+      { immediate: true },
+    );
+
+    const toggleItalic = () => {
+      if (!editor.value) return;
+      editor.value.chain().focus().toggleItalic().run();
+    };
+
+    const toggleBold = () => {
+      if (!editor.value) return;
+      editor.value.chain().focus().toggleBold().run();
+    };
+
     return {
       layoutStore,
       editor,
@@ -380,6 +414,10 @@ export default defineComponent({
       handleAddLink,
       handleOwnerClick,
       handleBackgroundColorChange,
+      toggleItalic,
+      toggleBold,
+      isBoldActive,
+      isItalicActive,
     };
   },
 });
@@ -475,6 +513,20 @@ export default defineComponent({
   min-height: 1em;
   min-width: 1px;
   display: inline-block;
+}
+
+:deep(.ProseMirror strong) {
+  font-weight: 700;
+}
+
+:deep(.ProseMirror em) {
+  font-style: italic;
+}
+
+:deep(.ProseMirror strong em),
+:deep(.ProseMirror em strong) {
+  font-weight: 700;
+  font-style: italic;
 }
 
 .text-content.is-wide-1-high .tile-link-indicator {

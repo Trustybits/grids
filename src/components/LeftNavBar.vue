@@ -167,11 +167,15 @@ export default defineComponent({
   /* Slightly wider to increase hover hitbox; inner bar stays narrow */
   width: 20px;
   transition: width var(--duration-normal) var(--easing-ease-in-out),
-    opacity var(--duration-normal) var(--easing-ease-in-out);
+    height var(--duration-normal) var(--easing-ease-in-out),
+    padding var(--duration-normal) var(--easing-ease-in-out),
+    opacity var(--duration-slow) var(--easing-ease-in-out),
+    all var(--duration-normal) var(--easing-ease-in-out);
 
   &.is-expanded {
-    width: 40px;
-    left: 8px;
+    width: 48px;
+    left: 14px;
+    transition: all var(--duration-normal) var(--easing-ease-in-out);
   }
 
   .nav-bar-container {
@@ -182,7 +186,7 @@ export default defineComponent({
     gap: var(--spacing-sm);
     background: var(--color-base-34);
     border: 1.4px solid var(--color-tile-stroke);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     padding: var(--spacing-sm);
     width: 6px; /* visible bar width in collapsed state */
     min-height: fit-content;
@@ -191,6 +195,7 @@ export default defineComponent({
 
   &.is-expanded .nav-bar-container {
     width: 100%;
+    transition: all var(--duration-normal) var(--easing-ease-in-out);
   }
 
   .nav-button {

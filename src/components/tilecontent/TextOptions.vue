@@ -6,10 +6,10 @@
       v-model="currentFontFamily"
       @change="changeFont"
     >
-      <option value="Arial">Arial</option>
+      <option value="Inter">Inter</option>
       <option value="Times New Roman">Times New</option>
-      <option value="Courier New">Courier New</option>
-      <option value="Verdana">Verdana</option>
+      <option value="Geist Mono">Geist Mono</option>
+      <option value="Lobster">Lobster</option>
     </select>
 
     <!-- Font Size Selection -->

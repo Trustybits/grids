@@ -82,14 +82,19 @@
       v-if="menuOpen && activeMenuItems.length"
       ref="menuRef"
       class="tile-toolbar-menu"
-      :style="menuStyle"
+      :style="[menuStyle, { 'flex-direction': menuItemLayoutDirection }]"
       @mousedown.stop
+      @dragstart.prevent
     >
       <template v-for="mi in visibleMenuItems" :key="mi.id">
         <button
           type="button"
           class="tile-toolbar-menu-item"
-          :class="{ 'tile-toolbar-menu-item--danger': mi.danger }"
+          :class="[
+            { 'tile-toolbar-menu-item--danger': mi.danger },
+            { 'is-active': mi.isActive?.(ctx) },
+          ]"
+          @mousedown.prevent
           @click.stop="onMenuItemClick(mi)"
         >
           <component v-if="mi.icon" :is="mi.icon" />
@@ -122,6 +127,7 @@ import { useLayoutStore } from "@/stores/layout";
 import LocateFixedIcon from "./icons/toolbar/LocateFixedIcon.vue";
 import SearchIcon from "./icons/toolbar/SearchIcon.vue";
 import ColorPicker from "./ColorPicker.vue";
+import { ContentType } from "@/types/TileContent";
 
 export default defineComponent({
   components: {
@@ -181,6 +187,14 @@ export default defineComponent({
     const visibleItems = computed(() =>
       items.value.filter((item) => item.visible?.(ctx.value) ?? true),
     );
+
+    const menuItemLayoutDirection = computed(() => {
+      const menuItem = items.value.find((i) => i.menuItems);
+      if (menuItem?.menuItemsLayoutDirection === "horizontal") {
+        return "row";
+      }
+      return "column";
+    });
 
     const activeMenuItems = computed<ToolbarMenuItem[]>(() => {
       const menuItem = items.value.find((i) => i.menuItems);
@@ -284,7 +298,9 @@ export default defineComponent({
     };
 
     const onMenuItemClick = (mi: ToolbarMenuItem) => {
-      closeMenu();
+      if (mi.id === "text-link") {
+        closeMenu();
+      }
       mi.action(ctx.value);
     };
 
@@ -332,17 +348,22 @@ export default defineComponent({
     // Reposition the menu when it opens
     watch(menuOpen, (open, _prev, onCleanup) => {
       if (!open) return;
-      
+
       nextTick(positionMenu);
 
       window.addEventListener("resize", schedulePositionMenu);
-      window.addEventListener("scroll", schedulePositionMenu, { capture: true, passive: true });
+      window.addEventListener("scroll", schedulePositionMenu, {
+        capture: true,
+        passive: true,
+      });
 
       onCleanup(() => {
         if (rafId != null) cancelAnimationFrame(rafId);
         rafId = null;
         window.removeEventListener("resize", schedulePositionMenu);
-        window.removeEventListener("scroll", schedulePositionMenu, { capture: true });
+        window.removeEventListener("scroll", schedulePositionMenu, {
+          capture: true,
+        });
       });
     });
 
@@ -367,6 +388,7 @@ export default defineComponent({
       menuRef,
       menuStyle,
       menuPosition,
+      menuItemLayoutDirection,
       resolveTitle,
       shouldShowDivider,
       onItemClick,
@@ -479,8 +501,9 @@ export default defineComponent({
     color: var(--color-tile-background);
     pointer-events: none;
     opacity: 0;
-    transition: opacity var(--duration-fast) var(--easing-ease-out),
-                transform var(--duration-fast) var(--easing-ease-out);
+    transition:
+      opacity var(--duration-fast) var(--easing-ease-out),
+      transform var(--duration-fast) var(--easing-ease-out);
     z-index: var(--z-tooltip);
   }
 
@@ -588,8 +611,9 @@ export default defineComponent({
     color: var(--color-tile-background);
     pointer-events: none;
     opacity: 0;
-    transition: opacity var(--duration-fast) var(--easing-ease-out),
-                transform var(--duration-fast) var(--easing-ease-out);
+    transition:
+      opacity var(--duration-fast) var(--easing-ease-out),
+      transform var(--duration-fast) var(--easing-ease-out);
     z-index: var(--z-tooltip);
   }
 
@@ -635,7 +659,7 @@ export default defineComponent({
   min-width: 50px;
   padding: 4px;
   display: flex;
-  flex-direction: column;
+  // flex-direction: column;
   gap: 2px;
   background: var(--color-tile-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
@@ -664,5 +688,12 @@ export default defineComponent({
 
 .tile-toolbar-menu-item--danger {
   color: #ff3737;
+}
+
+.is-active {
+  background-color: var(--color-text-primary);
+  color: var(--color-tile-background);
+  border-radius: var(--radius-sm);
+  transform: none;
 }
 </style>

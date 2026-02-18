@@ -1,31 +1,23 @@
 <template>
   <div class="preview-wrapper" :class="`preview-wrapper--${mode}`">
-    <!-- Phone frame (mobile only, desktop browsers only) -->
-    <div v-if="mode === 'mobile' && !isRealDevice" class="phone-frame">
-      <div class="phone-screen">
-        <div class="phone-screen-inner">
-          <slot :container-width="PHONE_SCREEN_WIDTH" />
-        </div>
+    <!--
+      Single always-mounted content area.
+      CSS classes drive the phone/tablet visual appearance.
+      The phone image is an absolutely-positioned pointer-events:none overlay
+      so the Grid inside the slot is never unmounted on mode change.
+    -->
+    <div class="content-outer" :class="`content-outer--${mode}`">
+      <div class="content-inner" :class="`content-inner--${mode}`">
+        <slot :container-width="effectiveContainerWidth" />
       </div>
-      <img class="phone-image" src="@/assets/images/mobile.png" alt="Phone frame" />
+      <img
+        v-if="mode === 'mobile' && !isRealDevice"
+        class="phone-image-overlay"
+        src="@/assets/images/mobile.png"
+        alt=""
+        aria-hidden="true"
+      />
     </div>
-
-    <!-- Pass-through on real mobile devices -->
-    <template v-else-if="mode === 'mobile' && isRealDevice">
-      <slot :container-width="0" />
-    </template>
-
-    <!-- Tablet frame (desktop browsers only) -->
-    <div v-else-if="mode === 'tablet' && !isRealDevice" class="tablet-frame">
-      <div class="tablet-screen">
-        <slot :container-width="TABLET_SCREEN_WIDTH" />
-      </div>
-    </div>
-
-    <!-- Pass-through on real tablet devices or desktop mode -->
-    <template v-else>
-      <slot :container-width="0" />
-    </template>
 
     <!-- QR code below phone frame (desktop browsers only) -->
     <div v-if="mode === 'mobile' && !isRealDevice && qrDataUrl" class="qr-section">
@@ -36,7 +28,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, watch } from 'vue';
+import { defineComponent, ref, computed, watch } from 'vue';
 import QRCode from 'qrcode';
 import { useDeviceType } from '@/composables/useDeviceType';
 
@@ -83,7 +75,13 @@ export default defineComponent({
       if (mode === 'mobile') generateQr(props.url);
     });
 
-    return { qrDataUrl, PHONE_SCREEN_WIDTH, TABLET_SCREEN_WIDTH, isRealDevice };
+    const effectiveContainerWidth = computed(() => {
+      if (props.mode === 'mobile') return isRealDevice ? 0 : PHONE_SCREEN_WIDTH;
+      if (props.mode === 'tablet') return isRealDevice ? 0 : TABLET_SCREEN_WIDTH;
+      return 0;
+    });
+
+    return { qrDataUrl, PHONE_SCREEN_WIDTH, TABLET_SCREEN_WIDTH, isRealDevice, effectiveContainerWidth };
   },
 });
 </script>
@@ -95,70 +93,72 @@ export default defineComponent({
   align-items: center;
 }
 
-/* ── Phone frame ─────────────────────────────────────────── */
-.phone-frame {
-  position: relative;
-  width: 320px;
-  flex-shrink: 0;
+/* ── Content outer wrapper ───────────────────────────────── */
+.content-outer {
+  &--mobile {
+    /* Size matches the phone image natural dimensions (494×1070) at 320px wide */
+    position: relative;
+    width: 320px;
+    aspect-ratio: 494 / 1070;
+    flex-shrink: 0;
+  }
+
+  &--tablet {
+    width: 810px;
+    border: 12px solid color-mix(in srgb, var(--color-tile-stroke) 34%, transparent);
+    border-radius: 48px;
+    overflow: hidden;
+    background: var(--color-content-background);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+  }
+
+  /* Desktop / real device: no special chrome */
+  &--desktop {
+    width: 100%;
+  }
 }
 
-.phone-image {
+/* ── Content inner (scrollable area) ────────────────────── */
+.content-inner {
+  &--mobile {
+    /* Positioned to match the transparent screen area of mobile.png.
+       The image is 494×1070px. Insets as percentages:
+         top/bottom: 14/1070 ≈ 1.3%  → use 1.8% for bezel safety
+         left/right: 14/494  ≈ 2.8%  → use 3.2% for bezel safety */
+    position: absolute;
+    top: 1.8%;
+    left: 3.2%;
+    right: 3.2%;
+    bottom: 1.8%;
+    border-radius: 36px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 1;
+    background: var(--color-content-background);
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-tile-stroke) transparent;
+  }
+
+  &--tablet {
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 1080px;
+  }
+
+}
+
+/* ── Phone image overlay ─────────────────────────────────── */
+/* Sits on top of the content (z-index 2) but passes all pointer events through */
+.phone-image-overlay {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
   pointer-events: none;
   user-select: none;
-  /* Sits on top of the screen content */
-  position: relative;
   z-index: 2;
-}
-
-.phone-screen {
-  /* Positioned to match the transparent screen area of mobile.png.
-     The image is 494×1070px. Screen starts ~14px from top, ~14px from sides,
-     ~14px from bottom. As percentages of 494w × 1070h:
-       top:    14/1070 ≈ 1.3%
-       left:   14/494  ≈ 2.8%
-       right:  14/494  ≈ 2.8%
-       bottom: 14/1070 ≈ 1.3%
-     We add a bit of extra padding to stay inside the bezel. */
-  position: absolute;
-  top: 1.8%;
-  left: 3.2%;
-  right: 3.2%;
-  bottom: 1.8%;
-  border-radius: 36px;
-  overflow: hidden;
-  z-index: 1;
-  background: var(--color-content-background);
-}
-
-.phone-screen-inner {
-  width: 100%;
-  height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  /* Thin scrollbar so it doesn't look out of place inside the phone */
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-tile-stroke) transparent;
-}
-
-/* ── Tablet frame ────────────────────────────────────────── */
-.tablet-frame {
-  width: 810px;
-  border: 12px solid color-mix(in srgb, var(--color-tile-stroke) 34%, transparent);
-  border-radius: 48px;
-  /* overflow:hidden clips tiles that would bleed outside the frame while scrolling */
-  overflow: hidden;
-  background: var(--color-content-background);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
-}
-
-.tablet-screen {
-  width: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  max-height: 1080px;
 }
 
 /* ── QR section ──────────────────────────────────────────── */

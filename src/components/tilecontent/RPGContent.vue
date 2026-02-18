@@ -357,8 +357,6 @@ export default defineComponent({
       const item = getItemAt(newX, newY);
       if (item && !item.collected) {
         collectItem(item);
-      } else {
-        layoutStore.saveLayout();
       }
     };
 
@@ -404,8 +402,6 @@ export default defineComponent({
         enemy.x = newX;
         enemy.y = newY;
       });
-      
-      layoutStore.saveLayout();
     };
 
     const startEnemyAI = () => {

@@ -174,6 +174,11 @@ const createStarterTiles = () => {
   ];
 };
 
+let _saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let _saveMaxWaitTimer: ReturnType<typeof setTimeout> | null = null;
+const SAVE_DEBOUNCE_MS = 800;
+const SAVE_MAX_WAIT_MS = 2000;
+
 export const useLayoutStore = defineStore("layout", {
   state: () => ({
     layouts: [] as Array<Layout>,
@@ -443,7 +448,11 @@ export const useLayoutStore = defineStore("layout", {
     // Before persisting, any blob: URLs used for optimistic previews are replaced
     // with their resolved Firebase URLs (if the upload has completed). This keeps
     // the in-memory tile src unchanged so the <img>/<video> element never reloads.
-    async saveLayout() {
+    //
+    // Calls are debounced (800 ms quiet window, 2 s max-wait) so that rapid
+    // sequences — typing, RPG game ticks, map pan/zoom — coalesce into a single
+    // Firestore write instead of flooding the write queue.
+    saveLayout() {
       if (!this.currentLayout) {
         console.warn("No layout to save.");
         return;
@@ -453,24 +462,39 @@ export const useLayoutStore = defineStore("layout", {
         return;
       }
 
-      try {
-        // Build a shallow copy with blob URLs swapped for resolved Firebase URLs
-        const resolvedTiles = this.currentLayout.tiles.map((tile) => {
-          const src = (tile.content as any)?.src;
-          if (typeof src === "string" && src.startsWith("blob:")) {
-            const realUrl = this.resolvedUrls[tile.i];
-            if (realUrl) {
-              return { ...tile, content: { ...tile.content, src: realUrl } };
-            }
-          }
-          return tile;
-        });
+      const executeSave = async () => {
+        if (_saveDebounceTimer) { clearTimeout(_saveDebounceTimer); _saveDebounceTimer = null; }
+        if (_saveMaxWaitTimer) { clearTimeout(_saveMaxWaitTimer); _saveMaxWaitTimer = null; }
 
-        const layoutToSave = { ...this.currentLayout, tiles: resolvedTiles } as Layout;
-        await layoutService.saveLayout(layoutToSave);
-      } catch (err) {
-        this.error = "Failed to save layout.";
-        console.error(err);
+        if (!this.currentLayout) return;
+        try {
+          // Build a shallow copy with blob URLs swapped for resolved Firebase URLs
+          const resolvedTiles = this.currentLayout.tiles.map((tile) => {
+            const src = (tile.content as any)?.src;
+            if (typeof src === "string" && src.startsWith("blob:")) {
+              const realUrl = this.resolvedUrls[tile.i];
+              if (realUrl) {
+                return { ...tile, content: { ...tile.content, src: realUrl } };
+              }
+            }
+            return tile;
+          });
+
+          const layoutToSave = { ...this.currentLayout, tiles: resolvedTiles } as Layout;
+          await layoutService.saveLayout(layoutToSave);
+        } catch (err) {
+          this.error = "Failed to save layout.";
+          console.error(err);
+        }
+      };
+
+      // Reset the debounce window on every call
+      if (_saveDebounceTimer) clearTimeout(_saveDebounceTimer);
+      _saveDebounceTimer = setTimeout(executeSave, SAVE_DEBOUNCE_MS);
+
+      // Guarantee at least one write per MAX_WAIT even during continuous activity
+      if (!_saveMaxWaitTimer) {
+        _saveMaxWaitTimer = setTimeout(executeSave, SAVE_MAX_WAIT_MS);
       }
     },
 

@@ -54,6 +54,9 @@
             '--tile-bg': !!contentBackgroundColor
               ? contentBackgroundColor
               : 'var(--color-tile-background)',
+            '--tile-text-color': !!contentTextColor
+              ? contentTextColor
+              : 'var(--color-text-primary)',
           }"
         >
           <template v-if="!isSuggestion">
@@ -62,6 +65,7 @@
               v-bind="contentProps"
               ref="childComponent"
               @background-color-change="onContentBackgroundColorChange"
+              @text-color-change="onContentTextColorChange"
             />
           </template>
           <template v-else>
@@ -220,9 +224,14 @@ export default defineComponent({
     const isExitingCropMode = ref(false);
     let stopChildEditingWatch: (() => void) | null = null;
     const contentBackgroundColor = ref<string | null>(null);
+    const contentTextColor = ref<string | null>(null);
 
     const onContentBackgroundColorChange = (color: string) => {
       contentBackgroundColor.value = color;
+    };
+
+    const onContentTextColorChange = (color: string) => {
+      contentTextColor.value = color;
     };
 
     const showCaption = computed(() => {
@@ -613,7 +622,9 @@ export default defineComponent({
       borderVisible,
       linkBackgroundEnabled,
       contentBackgroundColor,
+      contentTextColor,
       onContentBackgroundColorChange,
+      onContentTextColorChange,
 
       isSuggestion,
       suggestionAction,
@@ -810,7 +821,11 @@ export default defineComponent({
   /* Only apply hover effect via :hover pseudo-class */
   .tile-wrapper:hover & {
     box-shadow: var(--shadow-tile-hover);
-    background-color: color-mix(in srgb, var(--tile-bg) 85%, var(--color-text-primary) 15%);
+    background-color: color-mix(
+      in srgb,
+      var(--tile-bg) 85%,
+      var(--tile-text-color) 15%
+    );
   }
 }
 
@@ -822,7 +837,11 @@ export default defineComponent({
 
 .tile-wrapper[data-border="off"]:hover {
   .card-body {
-    background-color: color-mix(in srgb, var(--tile-bg) 85%, var(--color-text-primary) 15%);
+    background-color: color-mix(
+      in srgb,
+      var(--tile-bg) 85%,
+      var(--tile-text-color) 15%
+    );
   }
 }
 

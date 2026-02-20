@@ -1697,6 +1697,65 @@ export const notionOAuthExchange = functions
   });
 
 /**
+ * Lists all Notion databases the user has shared with this integration.
+ * Called after OAuth to let the owner pick a database without pasting an ID.
+ */
+export const listNotionDatabases = functions
+  .runWith({ secrets: [notionClientId, notionClientSecret] })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new HttpsError("unauthenticated", "You must be signed in.");
+    }
+
+    const { layoutId, tileId } = data as { layoutId?: string; tileId?: string };
+    if (!layoutId || !tileId) {
+      throw new HttpsError("invalid-argument", "Missing layoutId or tileId.");
+    }
+
+    const db = admin.firestore();
+    const tokenDoc = await db
+      .collection("layouts").doc(layoutId)
+      .collection("notionTokens").doc(tileId)
+      .get();
+
+    if (!tokenDoc.exists) {
+      throw new HttpsError("not-found", "Notion integration not connected for this tile.");
+    }
+
+    const accessToken = tokenDoc.data()?.accessToken as string;
+
+    // Use Notion's search endpoint to find all databases the integration can access
+    const searchRes = await fetch("https://api.notion.com/v1/search", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
+      },
+      body: JSON.stringify({
+        filter: { value: "database", property: "object" },
+        page_size: 50,
+      }),
+    });
+
+    if (!searchRes.ok) {
+      const body = await searchRes.text();
+      logger.error("Notion database list failed", { status: searchRes.status, body });
+      throw new HttpsError("internal", "Failed to list Notion databases.");
+    }
+
+    const searchData = await searchRes.json() as { results: any[] };
+
+    const databases = searchData.results.map((db: any) => ({
+      id: db.id,
+      // Notion database titles are rich text arrays
+      title: (db.title as any[])?.map((t: any) => t.plain_text || "").join("") || "Untitled",
+    }));
+
+    return { databases };
+  });
+
+/**
  * Fetches pages from the connected Notion database and maps them to
  * RoadmapItem objects using the owner-configured status mapping.
  *
@@ -1711,13 +1770,16 @@ export const fetchNotionRoadmap = functions
       throw new HttpsError("unauthenticated", "You must be signed in.");
     }
 
-    const { layoutId, tileId, statusPropertyName, upvotePropertyName, statusMapping } = data as {
+    const { layoutId, tileId, statusPropertyName, upvotePropertyName, statusMapping, databaseIdOverride } = data as {
       layoutId?: string;
       tileId?: string;
       statusPropertyName?: string;
       upvotePropertyName?: string;
       // Maps Notion select option names → "backlog" | "in_progress" | "done"
       statusMapping?: Record<string, string>;
+      // Optional: pass the database ID directly so the client doesn't need to
+      // wait for patchTileContent to persist to Firestore before calling this function.
+      databaseIdOverride?: string;
     };
 
     if (!layoutId || !tileId) {
@@ -1747,42 +1809,62 @@ export const fetchNotionRoadmap = functions
 
     const tiles: any[] = layoutDoc.data()?.tiles || [];
     const tile = tiles.find((t: any) => t.i === tileId);
-    if (!tile || !tile.content?.notionDatabaseId) {
+
+    // Prefer the client-supplied override (used when selectDatabase hasn't persisted yet)
+    const databaseId = databaseIdOverride || tile?.content?.notionDatabaseId as string | undefined;
+    if (!databaseId || databaseId === "pending") {
       throw new HttpsError("not-found", "Roadmap tile or database ID not configured.");
     }
-
-    const databaseId = tile.content.notionDatabaseId as string;
     const effectiveStatusProp = statusPropertyName || tile.content.statusPropertyName || "";
     const effectiveUpvoteProp = upvotePropertyName || tile.content.upvotePropertyName || "";
     const effectiveMapping: Record<string, string> = statusMapping || tile.content.statusMapping || {};
 
-    // Query the Notion database for all pages
-    const queryRes = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
-      method: "POST",
+    // Fetch the database schema and all pages in parallel (schema fetch is independent)
+    const schemaFetchPromise = fetch(`https://api.notion.com/v1/databases/${databaseId}`, {
       headers: {
         "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
         "Notion-Version": "2022-06-28",
       },
-      body: JSON.stringify({
-        page_size: 100,
-        // Sort by upvote count descending if the property is configured
-        sorts: effectiveUpvoteProp
-          ? [{ property: effectiveUpvoteProp, direction: "descending" }]
-          : [],
-      }),
     });
 
-    if (!queryRes.ok) {
-      const body = await queryRes.text();
-      logger.error("Notion database query failed", { status: queryRes.status, body, databaseId });
-      throw new HttpsError("internal", "Failed to query Notion database.");
+    // Paginate through all Notion results — the API caps each response at 100 rows.
+    // We keep fetching until has_more is false.
+    const sorts = effectiveUpvoteProp
+      ? [{ property: effectiveUpvoteProp, direction: "descending" }]
+      : [];
+
+    const allPages: any[] = [];
+    let startCursor: string | undefined;
+    let hasMore = true;
+
+    while (hasMore) {
+      const body: Record<string, any> = { page_size: 100, sorts };
+      if (startCursor) body.start_cursor = startCursor;
+
+      const queryRes = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "Notion-Version": "2022-06-28",
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!queryRes.ok) {
+        const errBody = await queryRes.text();
+        logger.error("Notion database query failed", { status: queryRes.status, body: errBody, databaseId });
+        throw new HttpsError("internal", "Failed to query Notion database.");
+      }
+
+      const queryData = await queryRes.json() as { results: any[]; has_more: boolean; next_cursor: string | null };
+      allPages.push(...queryData.results);
+      hasMore = queryData.has_more;
+      startCursor = queryData.next_cursor ?? undefined;
     }
 
-    const queryData = await queryRes.json() as { results: any[] };
-
     // Map Notion pages to RoadmapItem shape
-    const items = queryData.results.map((page: any) => {
+    const items = allPages.map((page: any) => {
       const props = page.properties || {};
 
       // Extract title from the first title-type property
@@ -1826,16 +1908,10 @@ export const fetchNotionRoadmap = functions
       };
     });
 
-    // Also fetch the database schema so the owner can see available property names
-    // for the setup UI (status property picker, upvote property picker)
+    // Resolve the schema fetch that was started in parallel with the page queries
     let propertyOptions: { name: string; type: string; selectOptions?: string[] }[] = [];
     try {
-      const dbRes = await fetch(`https://api.notion.com/v1/databases/${databaseId}`, {
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Notion-Version": "2022-06-28",
-        },
-      });
+      const dbRes = await schemaFetchPromise;
       if (dbRes.ok) {
         const dbData = await dbRes.json() as { properties: Record<string, any> };
         propertyOptions = Object.entries(dbData.properties).map(([name, prop]) => ({

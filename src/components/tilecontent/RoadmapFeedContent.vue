@@ -129,13 +129,26 @@
               <p class="roadmap-card-title">{{ item.title }}</p>
               <p v-if="item.description" class="roadmap-card-desc">{{ item.description }}</p>
               <div class="roadmap-card-footer">
-                <!-- Upvote button: disabled for unauthenticated visitors, toggles on click -->
+                <!-- Signed-in users get a real upvote toggle button -->
                 <button
+                  v-if="currentUser"
                   class="roadmap-upvote-btn"
-                  :class="{ 'is-voted': myVotedPageId === item.notionPageId, 'is-pending': pendingVoteId === item.notionPageId }"
-                  :disabled="!canVote || pendingVoteId === item.notionPageId"
-                  :title="canVote ? (myVotedPageId === item.notionPageId ? 'Remove upvote' : 'Upvote') : 'Sign in to upvote'"
+                  :class="{ 'is-voted': myVotedPageIds.has(item.notionPageId), 'is-pending': pendingVoteId === item.notionPageId }"
+                  :disabled="pendingVoteId === item.notionPageId"
+                  :title="myVotedPageIds.has(item.notionPageId) ? 'Remove upvote' : 'Upvote'"
                   @click.stop="toggleUpvote(item)"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 15l-6-6-6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span class="roadmap-upvote-count">{{ optimisticCount(item) }}</span>
+                </button>
+                <!-- Unauthenticated visitors see the count + a sign-in nudge -->
+                <button
+                  v-else
+                  class="roadmap-upvote-btn roadmap-upvote-btn--guest"
+                  title="Sign in to upvote"
+                  @click.stop="goToLogin"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                     <path d="M18 15l-6-6-6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -154,9 +167,10 @@
 
 <script lang="ts">
 import { computed, defineComponent, inject, onMounted, onUnmounted, ref, watch } from "vue";
-import { getAuth } from "firebase/auth";
-import { doc, onSnapshot, type Unsubscribe } from "firebase/firestore";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { collection, onSnapshot, query, where, type Unsubscribe } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
+import { useRouter } from "vue-router";
 import { db, functions } from "@/firebase";
 import { useLayoutStore } from "@/stores/layout";
 import type { RoadmapFeedContent, RoadmapItem, RoadmapStatus } from "@/types/TileContent";
@@ -248,9 +262,11 @@ export default defineComponent({
     });
 
     // ── Upvote state ─────────────────────────────────────────────────
-    // The Notion page ID this user has upvoted in this tile (null = no active vote)
-    const myVotedPageId = ref<string | null>(null);
-    // While a vote is in-flight, we disable the button to prevent double-clicks
+    // Set of all Notion page IDs this user has upvoted in this tile.
+    // A user can upvote multiple items, so we track the full set rather than
+    // a single ID. Populated by the Firestore listener below.
+    const myVotedPageIds = ref<Set<string>>(new Set());
+    // While a vote is in-flight, we disable that specific button to prevent double-clicks
     const pendingVoteId = ref<string | null>(null);
     // Applied locally before the server responds so the count feels instant
     const optimisticDelta = ref<{ pageId: string; delta: number } | null>(null);
@@ -259,18 +275,35 @@ export default defineComponent({
     // Only signed-in users may vote; unauthenticated visitors see the count but can't click
     const canVote = computed(() => !!currentUser.value && isConnected.value);
 
+    const router = useRouter();
+    // Navigates unauthenticated visitors to the login page
+    const goToLogin = () => router.push("/login");
+
     // ── Firestore upvote listener ────────────────────────────────────
-    // Watches layouts/{layoutId}/tiles/{tileId}/upvotes/{userId} so that
-    // myVotedPageId stays in sync across tabs without a full page refresh.
+    // Watches the upvotes subcollection filtered to the current user's docs.
+    // Each doc is keyed by "{userId}_{notionPageId}" so a user can vote on
+    // multiple items independently. The Set may have 0..N entries.
     let unsubscribeUpvotes: Unsubscribe | null = null;
+    // Holds the Firebase Auth state listener so we can detach it on unmount
+    let unsubscribeAuthListener: (() => void) | null = null;
 
     const subscribeToMyUpvote = () => {
       if (unsubscribeUpvotes) { unsubscribeUpvotes(); unsubscribeUpvotes = null; }
       const uid = currentUser.value?.uid;
       if (!uid || !layoutId.value || !tileId) return;
-      const upvoteDocRef = doc(db, "layouts", layoutId.value, "tiles", tileId, "upvotes", uid);
-      unsubscribeUpvotes = onSnapshot(upvoteDocRef, (snap) => {
-        myVotedPageId.value = snap.exists() ? (snap.data()?.notionPageId ?? null) : null;
+      // Query all upvote docs belonging to this user. Each doc is keyed by
+      // "{userId}_{notionPageId}" and contains a userId field for filtering.
+      const upvotesRef = collection(db, "layouts", layoutId.value, "tiles", tileId, "upvotes");
+      const myVotesQuery = query(upvotesRef, where("userId", "==", uid));
+      unsubscribeUpvotes = onSnapshot(myVotesQuery, (snap) => {
+        // Don't overwrite the optimistic state while a vote is in-flight —
+        // the next snapshot after pendingVoteId clears will sync the real value.
+        if (pendingVoteId.value) return;
+        const voted = new Set<string>();
+        snap.forEach((d) => {
+          if (d.data()?.notionPageId) voted.add(d.data().notionPageId as string);
+        });
+        myVotedPageIds.value = voted;
       });
     };
 
@@ -376,19 +409,29 @@ export default defineComponent({
     const toggleUpvote = async (item: RoadmapItem) => {
       if (!canVote.value || pendingVoteId.value) return;
 
-      const isCurrentlyVoted = myVotedPageId.value === item.notionPageId;
+      const isCurrentlyVoted = myVotedPageIds.value.has(item.notionPageId);
       const delta = isCurrentlyVoted ? -1 : 1;
 
-      // Apply optimistic update immediately so the button flips without waiting
+      // Apply optimistic update immediately so the button and count flip without waiting
       pendingVoteId.value = item.notionPageId;
       optimisticDelta.value = { pageId: item.notionPageId, delta };
 
+      // Optimistically update the local voted set so the button highlight is instant
+      const nextVoted = new Set(myVotedPageIds.value);
+      if (isCurrentlyVoted) nextVoted.delete(item.notionPageId);
+      else nextVoted.add(item.notionPageId);
+      myVotedPageIds.value = nextVoted;
+
       try {
-        const result = await upvoteRoadmapItemFn({
+        await upvoteRoadmapItemFn({
           layoutId: layoutId.value,
           tileId,
           notionPageId: item.notionPageId,
         });
+
+        // Clear the optimistic delta BEFORE committing the new count to items so
+        // optimisticCount() doesn't double-apply the delta on top of the committed value.
+        optimisticDelta.value = null;
 
         // Commit the count change to the local items array and persist to cache
         const idx = items.value.findIndex((i) => i.notionPageId === item.notionPageId);
@@ -396,12 +439,15 @@ export default defineComponent({
           items.value[idx] = { ...items.value[idx], upvoteCount: Math.max(0, items.value[idx].upvoteCount + delta) };
           layoutStore.patchTileContent(tileId, { cachedItems: items.value });
         }
-
-        // myVotedPageId is kept in sync by the Firestore listener, but we also
-        // update it here so the button state flips immediately on this tab.
-        myVotedPageId.value = result.data.isNowUpvoted ? item.notionPageId : null;
+        // The Firestore listener will also sync myVotedPageIds from the server,
+        // but the optimistic update above already reflects the correct state.
       } catch (err: any) {
         console.error("Upvote failed:", err?.message);
+        // Roll back the optimistic voted-set update on failure
+        myVotedPageIds.value = new Set(myVotedPageIds.value.has(item.notionPageId)
+          ? [...myVotedPageIds.value].filter((id) => id !== item.notionPageId)
+          : [...myVotedPageIds.value, item.notionPageId]
+        );
       } finally {
         pendingVoteId.value = null;
         optimisticDelta.value = null;
@@ -507,7 +553,15 @@ export default defineComponent({
 
     // ── Lifecycle ────────────────────────────────────────────────────
     onMounted(() => {
-      subscribeToMyUpvote();
+      // Use onAuthStateChanged rather than checking auth.currentUser directly.
+      // On page reload, auth.currentUser is null at mount time — Firebase restores
+      // the session asynchronously. This listener fires once with the restored user
+      // (or null if signed out), and again on any subsequent sign-in/sign-out,
+      // so it covers all cases. Cleaned up in onUnmounted.
+      unsubscribeAuthListener = onAuthStateChanged(auth, () => {
+        subscribeToMyUpvote();
+      });
+
       if (props.content.notionDatabaseId === "pending") {
         // Page reloaded while in pending state — reload the database picker
         setupPhase.value = "picking";
@@ -518,9 +572,6 @@ export default defineComponent({
       }
     });
 
-    // Re-subscribe to upvotes if the user signs in or out while the tile is mounted
-    watch(currentUser, () => subscribeToMyUpvote());
-
     // Keep draft fields in sync if content is updated externally (e.g. another browser tab)
     watch(() => props.content.notionDatabaseId, (val) => { draftDatabaseId.value = val === "pending" ? "" : val; });
     watch(() => props.content.statusPropertyName, (val) => { draftStatusProp.value = val; });
@@ -529,6 +580,7 @@ export default defineComponent({
 
     onUnmounted(() => {
       if (unsubscribeUpvotes) { unsubscribeUpvotes(); unsubscribeUpvotes = null; }
+      if (unsubscribeAuthListener) { unsubscribeAuthListener(); unsubscribeAuthListener = null; }
     });
 
     return {
@@ -537,7 +589,7 @@ export default defineComponent({
       showSettings, draftDatabaseId, draftStatusProp, draftUpvoteProp, draftStatusMapping,
       statusProperties, numberProperties, currentStatusOptions,
       availableDatabases, isLoadingDatabases, selectDatabase,
-      myVotedPageId, pendingVoteId, canVote,
+      myVotedPageIds, pendingVoteId, canVote, currentUser, goToLogin,
       optimisticCount, relativeTime,
       refresh, toggleUpvote, startOAuth, reconnect,
       saveDatabaseId, saveStatusProp, saveUpvoteProp, setStatusMapping, saveAllSettings,
@@ -918,6 +970,17 @@ export default defineComponent({
 .roadmap-upvote-btn.is-pending {
   opacity: 0.5;
   cursor: wait;
+}
+
+/* Guest (unauthenticated) state — dashed border signals "you could vote if signed in" */
+.roadmap-upvote-btn--guest {
+  border-style: dashed;
+  opacity: 0.45;
+  cursor: pointer;
+}
+.roadmap-upvote-btn--guest:hover {
+  opacity: 0.85;
+  border-color: color-mix(in srgb, var(--color-text-primary) 40%, transparent);
 }
 
 .roadmap-upvote-count {

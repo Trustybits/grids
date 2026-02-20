@@ -2,7 +2,8 @@
   <div class="roadmap-feed" :class="{ 'is-setup': !isConnected, 'is-owner': isOwner }">
 
     <!-- ── Disconnected / Setup state ─────────────────────────────── -->
-    <template v-if="!isConnected">
+    <!-- Only show the connect prompt when truly disconnected (not mid-setup) -->
+    <template v-if="!isConnected && setupPhase === 'idle'">
       <div class="roadmap-empty">
         <div class="roadmap-empty-icon" aria-hidden="true">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -22,7 +23,7 @@
       </div>
     </template>
 
-    <!-- ── Connected state ────────────────────────────────────────── -->
+    <!-- ── Connected state (includes picking/configuring phases) ──── -->
     <template v-else>
       <!-- Header: title + refresh + settings gear (owner only) -->
       <div class="roadmap-header" @mousedown.stop>
@@ -45,12 +46,29 @@
         </div>
       </div>
 
-      <!-- Settings panel (owner only) — configure database, property mappings -->
-      <div v-if="showSettings && isOwner" class="roadmap-settings" @mousedown.stop>
-        <p class="roadmap-settings-title">Database settings</p>
+      <!-- Database picker — shown right after OAuth until a database is selected -->
+      <div v-if="setupPhase === 'picking' && isOwner" class="roadmap-settings" @mousedown.stop>
+        <p class="roadmap-settings-title">Choose a database</p>
+        <p class="roadmap-settings-hint">Select the Notion database you want to display as your roadmap.</p>
+        <div v-if="isLoadingDatabases" class="roadmap-settings-loading">Loading databases…</div>
+        <div v-else-if="availableDatabases.length === 0" class="roadmap-settings-hint">
+          No databases found. Make sure you shared at least one database with the integration in Notion.
+        </div>
+        <div v-else class="roadmap-db-list">
+          <button
+            v-for="db in availableDatabases"
+            :key="db.id"
+            class="roadmap-db-item"
+            @click.stop="selectDatabase(db.id)"
+          >{{ db.title || 'Untitled' }}</button>
+        </div>
+        <button class="roadmap-settings-disconnect-btn" style="margin-top:12px" @click.stop="reconnect">Reconnect Notion</button>
+      </div>
 
-        <label class="roadmap-settings-label">Notion Database ID</label>
-        <input v-model="draftDatabaseId" class="roadmap-settings-input" placeholder="Paste Notion database ID" @blur="saveDatabaseId" />
+      <!-- Settings panel (owner only) — configure property mappings -->
+      <!-- Shown when gear icon is toggled OR immediately after database selection -->
+      <div v-if="(showSettings || setupPhase === 'configuring') && isOwner" class="roadmap-settings" @mousedown.stop>
+        <p class="roadmap-settings-title">Database settings</p>
 
         <label class="roadmap-settings-label">Status property</label>
         <select v-model="draftStatusProp" class="roadmap-settings-select" @change="saveStatusProp">
@@ -143,6 +161,12 @@ import { db, functions } from "@/firebase";
 import { useLayoutStore } from "@/stores/layout";
 import type { RoadmapFeedContent, RoadmapItem, RoadmapStatus } from "@/types/TileContent";
 
+// Shape returned by the listNotionDatabases Cloud Function
+interface NotionDatabase {
+  id: string;
+  title: string;
+}
+
 // Shape returned by the fetchNotionRoadmap Cloud Function
 interface FetchRoadmapResult {
   items: RoadmapItem[];
@@ -173,10 +197,23 @@ export default defineComponent({
     const layoutId = computed(() => layoutStore.currentLayout?.id ?? "");
 
     // ── Connection state ─────────────────────────────────────────────
-    // A tile is "connected" once the owner has set a notionDatabaseId
-    const isConnected = computed(() => !!props.content.notionDatabaseId);
+    // A tile is "connected" once the owner has set a real notionDatabaseId
+    const isConnected = computed(() => !!props.content.notionDatabaseId && props.content.notionDatabaseId !== "pending");
+    // Local phase ref so UI transitions happen synchronously without waiting
+    // for the Firestore-backed prop to update after patchTileContent.
+    // 'picking'     = OAuth done, showing database list
+    // 'configuring' = DB selected, showing property mapping settings
+    // 'idle'        = normal connected view
+    const setupPhase = ref<"idle" | "picking" | "configuring">(
+      props.content.notionDatabaseId === "pending" ? "picking" : "idle"
+    );
     const isConnecting = ref(false);
     const connectError = ref("");
+
+    // ── Database picker ──────────────────────────────────────────────
+    const availableDatabases = ref<NotionDatabase[]>([]);
+    const isLoadingDatabases = ref(false);
+    const listDatabasesFn = httpsCallable<unknown, { databases: NotionDatabase[] }>(functions, "listNotionDatabases");
 
     // ── Feed data ────────────────────────────────────────────────────
     const isLoading = ref(false);
@@ -188,6 +225,7 @@ export default defineComponent({
     const propertyOptions = ref<{ name: string; type: string; selectOptions?: string[] }[]>([]);
 
     // ── Settings panel state ─────────────────────────────────────────
+    // showSettings controls the gear-icon settings panel for already-connected tiles
     const showSettings = ref(false);
     // Draft copies so the owner can edit without immediately mutating the tile content.
     // "pending" is a sentinel meaning the token is stored but no DB ID has been entered yet.
@@ -274,6 +312,42 @@ export default defineComponent({
     // ── Cloud Function callers ───────────────────────────────────────
     const fetchRoadmapFn = httpsCallable<unknown, FetchRoadmapResult>(functions, "fetchNotionRoadmap");
     const upvoteRoadmapItemFn = httpsCallable<unknown, UpvoteResult>(functions, "upvoteRoadmapItem");
+
+    // ── Database picker helpers ──────────────────────────────────────
+    const loadDatabases = async () => {
+      if (!layoutId.value || !tileId) return;
+      isLoadingDatabases.value = true;
+      try {
+        const result = await listDatabasesFn({ layoutId: layoutId.value, tileId });
+        availableDatabases.value = result.data.databases;
+      } catch (err: any) {
+        connectError.value = err?.message || "Failed to load databases.";
+      } finally {
+        isLoadingDatabases.value = false;
+      }
+    };
+
+    const selectDatabase = async (databaseId: string) => {
+      // Immediately transition to configuring phase so the picker closes and
+      // settings panel opens — don't wait for the Firestore-backed prop to update.
+      layoutStore.patchTileContent(tileId, { notionDatabaseId: databaseId });
+      setupPhase.value = "configuring";
+      isLoading.value = true;
+      fetchError.value = "";
+      try {
+        const result = await fetchRoadmapFn({ layoutId: layoutId.value, tileId, databaseIdOverride: databaseId });
+        items.value = result.data.items;
+        propertyOptions.value = result.data.propertyOptions;
+        layoutStore.patchTileContent(tileId, {
+          cachedItems: result.data.items,
+          lastSyncedAt: Date.now(),
+        });
+      } catch (err: any) {
+        fetchError.value = err?.message || "Failed to load roadmap.";
+      } finally {
+        isLoading.value = false;
+      }
+    };
 
     // ── Fetch / refresh ──────────────────────────────────────────────
     const refresh = async () => {
@@ -377,8 +451,9 @@ export default defineComponent({
         // panel becomes visible. The owner will replace "pending" with the real
         // Notion database ID in the settings panel.
         layoutStore.patchTileContent(tileId, { notionDatabaseId: "pending" });
-        // Don't refresh yet — the owner needs to enter the database ID in settings first
-        showSettings.value = true;
+        // Immediately show the database picker and start loading the list
+        setupPhase.value = "picking";
+        loadDatabases();
       };
 
       const pollResult = setInterval(() => {
@@ -406,6 +481,7 @@ export default defineComponent({
       // Clear the database ID so the tile reverts to disconnected state, then re-trigger OAuth
       layoutStore.patchTileContent(tileId, { notionDatabaseId: "", cachedItems: undefined, lastSyncedAt: undefined });
       showSettings.value = false;
+      setupPhase.value = "idle";
       startOAuth();
     };
 
@@ -425,14 +501,21 @@ export default defineComponent({
       saveDatabaseId(); saveStatusProp(); saveUpvoteProp();
       layoutStore.patchTileContent(tileId, { statusMapping: { ...draftStatusMapping.value } });
       showSettings.value = false;
+      setupPhase.value = "idle";
       refresh();
     };
 
     // ── Lifecycle ────────────────────────────────────────────────────
     onMounted(() => {
       subscribeToMyUpvote();
-      // Auto-refresh on mount if already connected; cached items render immediately
-      if (isConnected.value) refresh();
+      if (props.content.notionDatabaseId === "pending") {
+        // Page reloaded while in pending state — reload the database picker
+        setupPhase.value = "picking";
+        loadDatabases();
+      } else if (isConnected.value) {
+        // Already fully connected — fetch fresh data and property options
+        refresh();
+      }
     });
 
     // Re-subscribe to upvotes if the user signs in or out while the tile is mounted
@@ -449,10 +532,11 @@ export default defineComponent({
     });
 
     return {
-      isOwner, isConnected, isConnecting, connectError,
+      isOwner, isConnected, setupPhase, isConnecting, connectError,
       isLoading, fetchError, hasItems, columns,
       showSettings, draftDatabaseId, draftStatusProp, draftUpvoteProp, draftStatusMapping,
       statusProperties, numberProperties, currentStatusOptions,
+      availableDatabases, isLoadingDatabases, selectDatabase,
       myVotedPageId, pendingVoteId, canVote,
       optimisticCount, relativeTime,
       refresh, toggleUpvote, startOAuth, reconnect,
@@ -613,6 +697,41 @@ export default defineComponent({
   transition: opacity var(--duration-fast) var(--easing-ease-in-out);
 }
 .roadmap-settings-save-btn:hover { opacity: 0.85; }
+
+/* ── Database picker ─────────────────────────────────────────────── */
+.roadmap-settings-hint {
+  font-size: 11px;
+  opacity: 0.55;
+  color: var(--color-text-primary);
+  margin: 0;
+  line-height: 1.5;
+}
+.roadmap-settings-loading {
+  font-size: 12px;
+  opacity: 0.5;
+  color: var(--color-text-primary);
+  padding: 8px 0;
+}
+.roadmap-db-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+.roadmap-db-item {
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 15%, transparent);
+  background: color-mix(in srgb, var(--color-tile-background) 90%, var(--color-text-primary) 10%);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--easing-ease-in-out);
+}
+.roadmap-db-item:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
 
 .roadmap-settings-disconnect-btn {
   padding: 5px 10px;

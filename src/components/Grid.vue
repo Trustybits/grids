@@ -403,4 +403,12 @@ export default {
   display: block !important;
   opacity: 0.3 !important;
 }
+
+/* Allow native vertical scroll when touch starts on a grid item.
+   vue3-grid-layout sets touch-action: none on items, which blocks scroll.
+   Restoring pan-y lets the browser handle vertical swipe-to-scroll normally.
+   When a tile is actively being dragged we override back to none so drag works. */
+.vue-grid-item:not(.vue-draggable-dragging) {
+  touch-action: pan-y !important;
+}
 </style>

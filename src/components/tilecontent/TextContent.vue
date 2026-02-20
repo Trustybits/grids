@@ -14,7 +14,11 @@
         'is-wide-1-high': isWideOneHigh,
         'is-tall-1-wide': isTallOneWide,
       }"
-      :style="{ '--tile-bg': backgroundColor, color: textColor }"
+      :style="{
+        '--tile-bg': backgroundColor,
+        color: textColor,
+        textAlign: textAlign,
+      }"
       :spellcheck="layoutStore.isOwner && isEditing"
     >
       <EditorContent :editor="editor" />
@@ -221,6 +225,8 @@ export default defineComponent({
       return getLuminance(hex) > 0.5 ? "#000000" : "#FFFFFF";
     });
 
+    const textAlign = computed(() => props.content?.textAlign ?? "left");
+
     const checkOverflow = () => {
       if (!editor || !editor.value?.view) return;
 
@@ -361,6 +367,12 @@ export default defineComponent({
       layoutStore.saveLayout();
     };
 
+    const handleTextAlignChange = (align: "left" | "center" | "right") => {
+      if (!layoutStore.isOwner) return;
+      props.content.textAlign = align;
+      layoutStore.saveLayout();
+    };
+
     const syncMarkState = () => {
       const e = editor.value;
       if (!e) return;
@@ -407,6 +419,7 @@ export default defineComponent({
       textLinkExists,
       backgroundColor,
       textColor,
+      textAlign,
       onShortClick,
       onExitClick,
       openUrlInput,
@@ -414,6 +427,7 @@ export default defineComponent({
       handleAddLink,
       handleOwnerClick,
       handleBackgroundColorChange,
+      handleTextAlignChange,
       toggleItalic,
       toggleBold,
       isBoldActive,

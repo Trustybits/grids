@@ -77,6 +77,20 @@
     </div>
   </teleport>
 
+  <!-- Text Align Panel -->
+  <teleport to="body">
+    <div
+      v-if="panelOpen && activePanelId === 'textAlign'"
+      ref="textAlignPanelRef"
+    >
+      <TextAlignPanel
+        :tile="tile"
+        :childComponent="childComponent"
+        :buttonEl="panelAnchorRef"
+      />
+    </div>
+  </teleport>
+
   <teleport to="body">
     <div
       v-if="menuOpen && activeMenuItems.length"
@@ -127,13 +141,14 @@ import { useLayoutStore } from "@/stores/layout";
 import LocateFixedIcon from "./icons/toolbar/LocateFixedIcon.vue";
 import SearchIcon from "./icons/toolbar/SearchIcon.vue";
 import ColorPicker from "./ColorPicker.vue";
-import { ContentType } from "@/types/TileContent";
+import TextAlignPanel from "./TextAlignPanel.vue";
 
 export default defineComponent({
   components: {
     LocateFixedIcon,
     SearchIcon,
     ColorPicker,
+    TextAlignPanel,
   },
   props: {
     tile: {
@@ -164,6 +179,7 @@ export default defineComponent({
     const searchQuery = ref("");
 
     const colorPickerRef = ref<HTMLDivElement | null>(null);
+    const textAlignPanelRef = ref<HTMLDivElement | null>(null);
     const childComponent = props.toolbarRefs.childComponent;
 
     const menuOpen = computed(
@@ -331,6 +347,7 @@ export default defineComponent({
         if (searchPanelRef.value?.contains(target)) return;
         if (panelAnchorRef.value?.contains(target)) return;
         if (colorPickerRef.value?.contains(target)) return;
+        if (textAlignPanelRef.value?.contains(target)) return;
         closePanel();
       }
     };
@@ -402,6 +419,7 @@ export default defineComponent({
       searchInputRef,
       searchQuery,
       colorPickerRef,
+      textAlignPanelRef,
       childComponent,
       onLocateClick,
       onSearchSubmit,

@@ -12,6 +12,7 @@ export enum ContentType {
   SUGGESTION = "suggestion", // internal-only tile type
   PROFILE = "profile",
   YOUTUBE = "youtube",
+  ROADMAP_FEED = "roadmap_feed",
 }
 
 export interface TileContent {
@@ -242,4 +243,39 @@ export interface YouTubeContent extends TileContent {
   // Channel-specific metadata
   channelData?: YouTubeChannelData;
   recentVideos?: YouTubePlaylistItem[];
+}
+
+// ── Roadmap Feed (Notion integration) ──────────────────────────────
+
+// The three canonical status buckets items are mapped into for display.
+// Notion select values are mapped to these by the owner during setup.
+export type RoadmapStatus = "backlog" | "in_progress" | "done";
+
+// A single roadmap item as returned by the fetchNotionRoadmap Cloud Function.
+// This is the shape stored in the tile's local cache (refreshed on mount).
+export interface RoadmapItem {
+  notionPageId: string;
+  title: string;
+  status: RoadmapStatus;
+  description?: string;   // plain-text excerpt from the page body, if available
+  upvoteCount: number;    // value of the upvote number property on the Notion page
+}
+
+export interface RoadmapFeedContent extends TileContent {
+  type: ContentType.ROADMAP_FEED;
+  // Notion database ID the owner has connected this tile to.
+  // Empty string means the tile is not yet connected.
+  notionDatabaseId: string;
+  // Name of the Notion select/status property used to derive RoadmapStatus.
+  statusPropertyName: string;
+  // Name of the Notion number property where upvote counts are written back.
+  upvotePropertyName: string;
+  // Maps raw Notion select option names → RoadmapStatus buckets.
+  // e.g. { "In Review": "in_progress", "Shipped": "done" }
+  statusMapping: Record<string, RoadmapStatus>;
+  // Cached items from the last successful Notion fetch, stored so the tile
+  // can render immediately on load without waiting for a network round-trip.
+  cachedItems?: RoadmapItem[];
+  // Unix ms timestamp of the last successful sync from Notion.
+  lastSyncedAt?: number;
 }

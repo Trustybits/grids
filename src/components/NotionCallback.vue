@@ -37,9 +37,11 @@ import { useRoute } from "vue-router";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 
-// Module-level flag: ensures the OAuth exchange runs at most once per page load,
-// even if Vue mounts the component twice (e.g. HMR double-mount in dev mode).
-let exchangeAttempted = false;
+// Module-level set: tracks which OAuth state values have already been exchanged.
+// Using the state string (not a boolean) means a fresh OAuth attempt with a new
+// state (new tileId/layoutId combo) is always allowed, while dev-mode double-mounts
+// for the same state are still deduplicated.
+const exchangedStates = new Set<string>();
 
 export default defineComponent({
   name: "NotionCallback",
@@ -53,13 +55,17 @@ export default defineComponent({
     const closeWindow = () => window.close();
 
     onMounted(async () => {
-      // Bail out immediately if we already ran the exchange (double-mount guard)
-      if (exchangeAttempted) return;
-      exchangeAttempted = true;
       // Extract the authorization code and state from the query string.
       // Notion appends ?code=...&state=... to the redirect URI.
       const code = route.query.code as string | undefined;
       const stateRaw = route.query.state as string | undefined;
+
+      // Deduplicate: bail if this exact state has already been exchanged.
+      // Using the state string (rather than a boolean) means a fresh OAuth
+      // attempt with a new state is always allowed; only dev-mode double-mounts
+      // of the same request are skipped.
+      if (stateRaw && exchangedStates.has(stateRaw)) return;
+      if (stateRaw) exchangedStates.add(stateRaw);
       const notionError = route.query.error as string | undefined;
 
       // If Notion returned an error (e.g. user denied access), relay it back

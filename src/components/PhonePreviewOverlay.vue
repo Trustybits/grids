@@ -8,7 +8,13 @@
     -->
     <div class="content-outer" :class="`content-outer--${mode}`">
       <div class="content-inner" :class="`content-inner--${mode}`">
-        <slot :container-width="effectiveContainerWidth" />
+        <!-- In mobile mode, content-render applies the scale transform so the
+             grid renders at a real phone width (390px) and is scaled down to
+             fit the 300px visible phone screen — text, icons, and padding all
+             shrink proportionally. -->
+        <div class="content-render" :class="`content-render--${mode}`">
+          <slot :container-width="effectiveContainerWidth" />
+        </div>
       </div>
       <img
         v-if="mode === 'mobile' && !isRealDevice"
@@ -32,10 +38,11 @@ import { defineComponent, ref, computed, watch } from 'vue';
 import QRCode from 'qrcode';
 import { useDeviceType } from '@/composables/useDeviceType';
 
-// Phone frame is 320px wide. The screen area (transparent region) is inset
-// ~10px on each side from the frame edge.
-const PHONE_FRAME_WIDTH = 320;
-const PHONE_SCREEN_WIDTH = PHONE_FRAME_WIDTH - 20; // 300px usable
+// Phone frame image is 320px wide. The visible screen area inside the bezel is ~300px.
+// We render the grid at PHONE_RENDER_WIDTH (a real iPhone CSS width) then CSS-scale
+// it down to PHONE_SCREEN_WIDTH so that text, icons, and padding all shrink together.
+const PHONE_SCREEN_WIDTH = 300;  // visible screen area (px)
+const PHONE_RENDER_WIDTH = 390;  // grid renders at this width  (standard iPhone)
 const TABLET_SCREEN_WIDTH = 786;
 
 export default defineComponent({
@@ -76,7 +83,7 @@ export default defineComponent({
     });
 
     const effectiveContainerWidth = computed(() => {
-      if (props.mode === 'mobile') return isRealDevice ? 0 : PHONE_SCREEN_WIDTH;
+      if (props.mode === 'mobile') return isRealDevice ? 0 : PHONE_RENDER_WIDTH;
       if (props.mode === 'tablet') return isRealDevice ? 0 : TABLET_SCREEN_WIDTH;
       return 0;
     });
@@ -101,6 +108,7 @@ export default defineComponent({
     width: 320px;
     aspect-ratio: 494 / 1070;
     flex-shrink: 0;
+    overflow: hidden;
   }
 
   &--tablet {
@@ -118,7 +126,7 @@ export default defineComponent({
   }
 }
 
-/* ── Content inner (scrollable area) ────────────────────── */
+/* ── Content inner — clip boundary ──────────────────────── */
 .content-inner {
   &--mobile {
     /* Positioned to match the transparent screen area of mobile.png.
@@ -129,14 +137,11 @@ export default defineComponent({
     top: 1.8%;
     left: 3.2%;
     right: 3.2%;
-    bottom: 1.8%;
-    border-radius: 36px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    bottom: 0.5%;
+    border-radius: 45px;
+    overflow: hidden;
     z-index: 1;
     background: var(--color-content-background);
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-tile-stroke) transparent;
   }
 
   &--tablet {
@@ -146,6 +151,24 @@ export default defineComponent({
     max-height: 1080px;
   }
 
+}
+
+/* ── Content render — scale transform ───────────────────── */
+/* Renders at real phone width then scales down so everything
+   (text, icons, padding) shrinks proportionally.            */
+.content-render {
+  &--mobile {
+    // Render at iPhone width (390px), scale to phone screen width (300px)
+    // scale = 300 / 390 ≈ 0.769
+    width: 390px;
+    transform: scale(0.769);
+    transform-origin: top left;
+  }
+
+  &--tablet,
+  &--desktop {
+    width: 100%;
+  }
 }
 
 /* ── Phone image overlay ─────────────────────────────────── */

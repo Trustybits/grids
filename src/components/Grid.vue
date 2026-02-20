@@ -2,6 +2,7 @@
   <p v-if="layoutStore.isLoading">Loading layout...</p>
   <grid-layout
     v-else-if="displayLayout.length"
+    :key="gridLayoutKey"
     class="grid-container"
     :layout="displayLayout"
     :col-num="responsiveColNum"
@@ -298,6 +299,14 @@ export default {
         (responsiveColNum.value + 1) * margin.value;
     });
 
+    // Keying vue3-grid-layout to the effective container width forces a clean
+    // reinit whenever the preview mode changes (desktop ↔ mobile ↔ tablet).
+    // This prevents the stale-width flash without remounting the Grid component
+    // itself (which would re-trigger the element-resize-detector error).
+    const gridLayoutKey = computed(() =>
+      props.containerWidth > 0 ? `preview-${props.containerWidth}` : 'desktop'
+    );
+
 
     // Load layout using ID from the route
     onMounted(() => {
@@ -318,6 +327,7 @@ export default {
     return {
       layoutStore,
       gridWidth,
+      gridLayoutKey,
       margin,
       displayLayout,
       responsiveColNum,

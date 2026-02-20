@@ -61,7 +61,7 @@
         data-tooltip="Mobile"
         @click="setPreviewMode('mobile')"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
       </button>
       <button
         class="bp-btn"
@@ -448,7 +448,7 @@ export default {
   align-items: center;
   background: var(--color-tile-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: 3px;
   gap: 0;
   backdrop-filter: blur(20px);
@@ -456,12 +456,12 @@ export default {
 
 .breakpoint-slider {
   position: absolute;
-  top: 3px;
-  left: 3px;
-  width: calc((100% - 6px) / 3);
-  height: calc(100% - 6px);
+  top: 0px;
+  left: 0px;
+  width: calc((100% - 0px) / 3);
+  height: calc(100% - 0px);
   background: var(--color-base-55);
-  border-radius: calc(var(--radius-sm) - 2px);
+  border-radius: calc(var(--radius-md) - 2px);
   transition: transform var(--duration-normal, 200ms) var(--easing-smooth, cubic-bezier(0.4, 0, 0.2, 1));
   pointer-events: none;
 }
@@ -469,11 +469,11 @@ export default {
 .bp-btn {
   position: relative;
   z-index: 1;
-  height: 34px;
-  width: 40px;
+  height: 48px;
+  width: 48px;
   border: none;
   background: transparent;
-  border-radius: calc(var(--radius-sm) - 2px);
+  border-radius: calc(var(--radius-md) - 2px);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -482,8 +482,8 @@ export default {
   transition: color var(--duration-fast) var(--easing-ease-out);
 
   svg {
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
     display: block;
   }
 

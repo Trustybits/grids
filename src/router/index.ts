@@ -6,6 +6,7 @@ import DashboardPage from '@/components/DashboardPage.vue';
  import PrivacyPage from '@/components/PrivacyPage.vue';
  import TermsPage from '@/components/TermsPage.vue';
 import UserSlugPage from '@/components/UserSlugPage.vue';
+import NotionCallback from '@/components/NotionCallback.vue';
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { getUserProfile } from '@/services/UserProfileService';
 import posthog from 'posthog-js';
@@ -33,6 +34,12 @@ const routes = [
   {
     path: '/terms',
     component: TermsPage,
+    meta: { requiresAuth: false },
+  },
+  {
+    // Handles the Notion OAuth redirect — must be before /:slug to avoid being caught by it
+    path: '/notion-callback',
+    component: NotionCallback,
     meta: { requiresAuth: false },
   },
   {

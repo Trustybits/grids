@@ -1765,10 +1765,9 @@ export const listNotionDatabases = functions
  */
 export const fetchNotionRoadmap = functions
   .runWith({ secrets: [notionClientId, notionClientSecret] })
-  .https.onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new HttpsError("unauthenticated", "You must be signed in.");
-    }
+  .https.onCall(async (data, _context) => {
+    // No auth required — roadmap data is public (visible to anyone who can view the grid).
+    // The Notion access token is read server-side from Firestore and never returned to the client.
 
     const { layoutId, tileId, statusPropertyName, upvotePropertyName, statusMapping, databaseIdOverride } = data as {
       layoutId?: string;
@@ -1967,12 +1966,15 @@ export const upvoteRoadmapItem = functions
     const db = admin.firestore();
     const userId = context.auth.uid;
 
-    // The upvote document is keyed by userId so each user gets exactly one vote per item.
-    // We store the notionPageId inside the doc to identify which item was voted on.
+    // One doc per user per item, keyed by "{userId}_{notionPageId}".
+    // This allows a user to upvote multiple items independently.
+    // The userId prefix lets the client query all of a user's votes with a
+    // where("userId", "==", uid) filter without needing a collection-group index.
+    const docId = `${userId}_${notionPageId}`;
     const upvoteRef = db
       .collection("layouts").doc(layoutId)
       .collection("tiles").doc(tileId)
-      .collection("upvotes").doc(userId);
+      .collection("upvotes").doc(docId);
 
     // Retrieve the Notion access token for this tile
     const tokenDoc = await db
@@ -1990,21 +1992,18 @@ export const upvoteRoadmapItem = functions
     const { isNowUpvoted, newCount } = await db.runTransaction(async (transaction) => {
       const upvoteDoc = await transaction.get(upvoteRef);
 
-      // Check if this user has already upvoted this specific item
-      const alreadyVotedForThisItem =
-        upvoteDoc.exists && upvoteDoc.data()?.notionPageId === notionPageId;
-
-      if (alreadyVotedForThisItem) {
-        // Toggle off — remove the upvote
+      if (upvoteDoc.exists) {
+        // Toggle off — remove this item's upvote (other items unaffected)
         transaction.delete(upvoteRef);
-        return { isNowUpvoted: false, newCount: -1 }; // -1 signals "decrement"
+        return { isNowUpvoted: false, newCount: -1 };
       } else {
-        // Toggle on — record the upvote (overwrites any previous vote for a different item)
+        // Toggle on — record the upvote for this specific item
         transaction.set(upvoteRef, {
+          userId,
           notionPageId,
           votedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        return { isNowUpvoted: true, newCount: 1 }; // 1 signals "increment"
+        return { isNowUpvoted: true, newCount: 1 };
       }
     });
 

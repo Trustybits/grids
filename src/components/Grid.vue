@@ -268,7 +268,9 @@ export default {
       return viewportWidth.value / gridWidth.value;
     });
 
-    const gridLayoutRef = ref<HTMLElement | null>(null);
+    // grid-layout is a Vue component, so its ref may be a component instance (with $el)
+    // rather than a plain HTMLElement. We use a loose type to accommodate both cases.
+    const gridLayoutRef = ref<{ $el: HTMLElement } | HTMLElement | null>(null);
     const scaleWrapperRef = ref<HTMLElement | null>(null);
     const naturalGridHeight = ref(0);
 
@@ -279,7 +281,10 @@ export default {
         resizeObserver.disconnect();
         resizeObserver = null;
       }
-      const el = gridLayoutRef.value?.$el ?? gridLayoutRef.value;
+      // If the ref is a Vue component instance, access its root DOM element via $el;
+      // otherwise it's already a plain HTMLElement (e.g. in test environments).
+      const raw = gridLayoutRef.value;
+      const el = raw && '$el' in raw ? raw.$el : raw;
       if (!el) return;
       resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {

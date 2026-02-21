@@ -86,7 +86,6 @@ export default defineComponent({
     const hexInputRef = ref<HTMLInputElement | null>(null);
     const pos = ref({ top: 0, left: 0 });
 
-
     const colors = ref<string[]>([
       "--color-red",
       "--color-orange",
@@ -152,7 +151,6 @@ export default defineComponent({
     };
     // for color-content-background, draw button as a "no fill" somehow
 
-
     const updatePos = () => {
       const el = props.buttonEl;
       if (!el) return;
@@ -214,7 +212,16 @@ export default defineComponent({
     });
 
     const generateColorTooltip = (rawColorStr: string): string => {
-      const standardColors: string[] = ["red", "orange", "yellow", "green", "cyan", "blue", "purple", "pink"];
+      const standardColors: string[] = [
+        "red",
+        "orange",
+        "yellow",
+        "green",
+        "cyan",
+        "blue",
+        "purple",
+        "pink",
+      ];
       const colorType = rawColorStr.replace("--color-", "");
       if (standardColors.filter((elem) => elem === colorType).length > 0) {
         return colorType;
@@ -232,7 +239,7 @@ export default defineComponent({
         default:
           return "";
       }
-    }
+    };
 
     return {
       colors,
@@ -386,8 +393,9 @@ export default defineComponent({
     color: var(--color-tile-background);
     pointer-events: none;
     opacity: 0;
-    transition: opacity var(--duration-fast) var(--easing-ease-out),
-                transform var(--duration-fast) var(--easing-ease-out);
+    transition:
+      opacity var(--duration-fast) var(--easing-ease-out),
+      transform var(--duration-fast) var(--easing-ease-out);
     z-index: var(--z-tooltip);
   }
 

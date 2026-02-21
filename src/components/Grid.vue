@@ -1,27 +1,34 @@
 <template>
   <p v-if="layoutStore.isLoading">Loading layout...</p>
-  <grid-layout
+  <div
     v-else-if="displayLayout.length"
-    class="grid-container"
-    :layout="displayLayout"
-    :col-num="responsiveColNum"
-    :row-height="rowHeight"
-    :is-draggable="isEditable"
-    :is-resizable="isEditable"
-    :vertical-compact="layoutStore.verticalCompact"
-    :prevent-collision="false"
-    :restore-on-drag="true"
-    :use-css-transforms="true"
-    :margin="[margin, margin]"
-    :style="{ width: `${gridWidth}px` }"
+    ref="scaleWrapperRef"
+    class="grid-scale-wrapper"
+    :style="scaleWrapperStyle"
   >
-    <grid-tile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
-  </grid-layout>
+    <grid-layout
+      ref="gridLayoutRef"
+      class="grid-container"
+      :layout="displayLayout"
+      :col-num="responsiveColNum"
+      :row-height="rowHeight"
+      :is-draggable="isEditable"
+      :is-resizable="isEditable"
+      :vertical-compact="layoutStore.verticalCompact"
+      :prevent-collision="false"
+      :restore-on-drag="true"
+      :use-css-transforms="true"
+      :margin="[margin, margin]"
+      :style="gridInnerStyle"
+    >
+      <grid-tile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
+    </grid-layout>
+  </div>
   <p v-else>No tiles yet.</p>
 </template>
 
 <script lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, nextTick, watch } from "vue";
 import { useRoute } from "vue-router";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
@@ -256,6 +263,56 @@ export default {
       );
     });
 
+    const mobileScale = computed(() => {
+      if (viewportWidth.value >= gridWidth.value) return 1;
+      return viewportWidth.value / gridWidth.value;
+    });
+
+    const gridLayoutRef = ref<HTMLElement | null>(null);
+    const scaleWrapperRef = ref<HTMLElement | null>(null);
+    const naturalGridHeight = ref(0);
+
+    let resizeObserver: ResizeObserver | null = null;
+
+    const observeGridHeight = () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+      }
+      const el = gridLayoutRef.value?.$el ?? gridLayoutRef.value;
+      if (!el) return;
+      resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          naturalGridHeight.value = entry.contentRect.height;
+        }
+      });
+      resizeObserver.observe(el);
+      naturalGridHeight.value = el.getBoundingClientRect().height;
+    };
+
+    const scaleWrapperStyle = computed(() => {
+      const scale = mobileScale.value;
+      if (scale >= 1) return {};
+      const scaledHeight = naturalGridHeight.value > 0
+        ? naturalGridHeight.value * scale
+        : undefined;
+      return {
+        width: `${viewportWidth.value}px`,
+        overflow: 'hidden',
+        ...(scaledHeight !== undefined ? { height: `${scaledHeight}px` } : {}),
+      };
+    });
+
+    const gridInnerStyle = computed(() => {
+      const scale = mobileScale.value;
+      const base = { width: `${gridWidth.value}px` };
+      if (scale >= 1) return base;
+      return {
+        ...base,
+        transformOrigin: 'top left',
+        transform: `scale(${scale})`,
+      };
+    });
 
     // Load layout using ID from the route
     onMounted(() => {
@@ -267,10 +324,19 @@ export default {
       } else {
         console.error("Layout ID is missing in the route.");
       }
+      nextTick(() => observeGridHeight());
+    });
+
+    watch(displayLayout, () => {
+      nextTick(() => observeGridHeight());
     });
 
     onUnmounted(() => {
       window.removeEventListener("resize", onResize);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+      }
     });
 
     return {
@@ -281,6 +347,10 @@ export default {
       responsiveColNum,
       activeBreakpoint,
       isEditable,
+      scaleWrapperStyle,
+      gridInnerStyle,
+      gridLayoutRef,
+      scaleWrapperRef,
     };
   },
 
@@ -302,11 +372,14 @@ export default {
 </script>
 
 <style scoped>
+.grid-scale-wrapper {
+  overflow: hidden;
+}
+
 .vue-grid-layout {
   background-color: #ffffff00;
   position: relative;
   left: auto;
-  transform: none;
   margin: 0 auto;
 }
 
@@ -406,5 +479,13 @@ export default {
 .vue-grid-layout:has(.vue-draggable-dragging) .vue-grid-placeholder {
   display: block !important;
   opacity: 0.3 !important;
+}
+
+/* Allow native vertical scroll when touch starts on a grid item.
+   vue3-grid-layout sets touch-action: none on items, which blocks scroll.
+   Restoring pan-y lets the browser handle vertical swipe-to-scroll normally.
+   When a tile is actively being dragged we override back to none so drag works. */
+.vue-grid-item:not(.vue-draggable-dragging) {
+  touch-action: pan-y !important;
 }
 </style>

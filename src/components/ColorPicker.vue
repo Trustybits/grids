@@ -9,13 +9,13 @@
       <button
         class="color-box"
         :style="`background: var(${color})`"
-        :title="generateColorTooltip(color)"
+        :data-tooltip="generateColorTooltip(color)"
         @click="onColorClick($event, color)"
       ></button>
     </template>
     <button
       class="color-box no-fill"
-      :title="generateColorTooltip('--color-content-background')"
+      :data-tooltip="generateColorTooltip('--color-content-background')"
       @click="onColorClick($event, '--color-content-background')"
     >
       <NoFillIcon :size="26" />
@@ -86,7 +86,6 @@ export default defineComponent({
     const hexInputRef = ref<HTMLInputElement | null>(null);
     const pos = ref({ top: 0, left: 0 });
 
-
     const colors = ref<string[]>([
       "--color-red",
       "--color-orange",
@@ -152,7 +151,6 @@ export default defineComponent({
     };
     // for color-content-background, draw button as a "no fill" somehow
 
-
     const updatePos = () => {
       const el = props.buttonEl;
       if (!el) return;
@@ -214,7 +212,16 @@ export default defineComponent({
     });
 
     const generateColorTooltip = (rawColorStr: string): string => {
-      const standardColors: string[] = ["red", "orange", "yellow", "green", "cyan", "blue", "purple", "pink"];
+      const standardColors: string[] = [
+        "red",
+        "orange",
+        "yellow",
+        "green",
+        "cyan",
+        "blue",
+        "purple",
+        "pink",
+      ];
       const colorType = rawColorStr.replace("--color-", "");
       if (standardColors.filter((elem) => elem === colorType).length > 0) {
         return colorType;
@@ -232,7 +239,7 @@ export default defineComponent({
         default:
           return "";
       }
-    }
+    };
 
     return {
       colors,
@@ -364,6 +371,37 @@ export default defineComponent({
   &:hover {
     background-color: var(--color-content-low);
     transform: scale(1.05);
+  }
+}
+
+/* Tooltip via data-tooltip attribute */
+.color-box[data-tooltip] {
+  position: relative;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    white-space: nowrap;
+    font-size: 11px;
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-text-primary);
+    color: var(--color-tile-background);
+    pointer-events: none;
+    opacity: 0;
+    transition:
+      opacity var(--duration-fast) var(--easing-ease-out),
+      transform var(--duration-fast) var(--easing-ease-out);
+    z-index: var(--z-tooltip);
+  }
+
+  &:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
   }
 }
 

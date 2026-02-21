@@ -1,13 +1,18 @@
 <template>
   <!-- Crop Mode Overlay - blurs everything outside the tile -->
-  <div 
-    v-if="(isEditing || isExitingCropMode) && isCroppable" 
-    class="crop-mode-overlay" 
-    :class="{ 'exiting': isExitingCropMode }"
+  <div
+    v-if="(isEditing || isExitingCropMode) && isCroppable"
+    class="crop-mode-overlay"
+    :class="{ exiting: isExitingCropMode }"
     @click.stop="toggleCropMode"
   ></div>
-  
-  <div class="grid-item-container" :class="{ 'crop-mode-elevated': (isEditing || isExitingCropMode) && isCroppable }">
+
+  <div
+    class="grid-item-container"
+    :class="{
+      'crop-mode-elevated': (isEditing || isExitingCropMode) && isCroppable,
+    }"
+  >
     <grid-item
       :i="tile.i"
       :x="tile.x"
@@ -19,7 +24,7 @@
       :minH="1"
       :maxW="10"
       :maxH="10"
-      :isDraggable="layoutStore.isOwner && !isEditing"
+      :isDraggable="isTileDraggable"
       :isResizable="isTileResizable"
       dragIgnoreFrom="a, button, .tile-caption"
       @move="onMove"
@@ -27,81 +32,108 @@
       @resize="onResize"
       @resized="onResized"
     >
-    <div
-      class="tile-wrapper"
-      :class="{ 
-        'crop-mode-active': isEditing && isCroppable,
-        'crop-mode-exiting': isExitingCropMode && isCroppable,
-        'is-dragging': isDragging,
-        'is-exiting': isExiting
-      }"
-      :data-border="borderVisible ? 'on' : 'off'"
-      :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
-      :data-suggestion="isSuggestion ? 'true' : 'false'"
-      ref="gridTileRef"
-      @mousedown="startClick"
-      @mouseup="endClick"
-    >
-      <!-- Visual Frame with Overflow Hidden -->
-      <div class="card-body">
-        <template v-if="!isSuggestion">
-          <component
-            :is="currentComponent"
-            v-bind="contentProps"
-            ref="childComponent"
-          />
-        </template>
-        <template v-else>
-          <div class="suggestion-cta">
-            <div class="suggestion-icon">
-              <TextIcon v-if="suggestionAction === 'text'" :size="48" />
-              <ImageIcon v-else-if="suggestionAction === 'media'" :size="48" />
-              <LinkIcon v-else-if="suggestionAction === 'link'" :size="48" />
-              <EmbedIcon v-else-if="suggestionAction === 'embed'" :size="48" />
-              <ProfileIcon v-else-if="suggestionAction === 'profile'" :size="48" />
+      <div
+        class="tile-wrapper"
+        :class="{
+          'crop-mode-active': isEditing && isCroppable,
+          'crop-mode-exiting': isExitingCropMode && isCroppable,
+          'is-dragging': isDragging,
+          'is-exiting': isExiting,
+          'is-activated': isActivated,
+        }"
+        :data-border="borderVisible ? 'on' : 'off'"
+        :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
+        :data-suggestion="isSuggestion ? 'true' : 'false'"
+        ref="gridTileRef"
+        @mousedown="startClick"
+        @mouseup="endClick"
+      >
+        <!-- Visual Frame with Overflow Hidden -->
+        <div
+          class="card-body"
+          :style="{
+            '--tile-bg': !!contentBackgroundColor
+              ? contentBackgroundColor
+              : 'var(--color-tile-background)',
+            '--tile-text-color': !!contentTextColor
+              ? contentTextColor
+              : 'var(--color-text-primary)',
+          }"
+        >
+          <template v-if="!isSuggestion">
+            <component
+              :is="currentComponent"
+              v-bind="contentProps"
+              ref="childComponent"
+              @background-color-change="onContentBackgroundColorChange"
+              @text-color-change="onContentTextColorChange"
+            />
+          </template>
+          <template v-else>
+            <div class="suggestion-cta">
+              <div class="suggestion-icon">
+                <TextIcon v-if="suggestionAction === 'text'" :size="48" />
+                <ImageIcon
+                  v-else-if="suggestionAction === 'media'"
+                  :size="48"
+                />
+                <LinkIcon v-else-if="suggestionAction === 'link'" :size="48" />
+                <EmbedIcon
+                  v-else-if="suggestionAction === 'embed'"
+                  :size="48"
+                />
+                <ProfileIcon
+                  v-else-if="suggestionAction === 'profile'"
+                  :size="48"
+                />
+              </div>
+              <span class="suggestion-label">{{ suggestionLabel }}</span>
             </div>
-            <span class="suggestion-label">{{ suggestionLabel }}</span>
-          </div>
-          <input
-            v-if="layoutStore.isOwner"
-            type="file"
-            ref="mediaInput"
-            style="display: none"
-            accept="image/*,video/*"
-            @change.stop="onMediaSelected"
-          />
-        </template>
+            <input
+              v-if="layoutStore.isOwner"
+              type="file"
+              ref="mediaInput"
+              style="display: none"
+              accept="image/*,video/*"
+              @change.stop="onMediaSelected"
+            />
+          </template>
+        </div>
+
+        <!-- UI Layer -->
+        <div
+          v-if="layoutStore.isOwner && headerComponent"
+          class="header-options"
+        >
+          <component :is="headerComponent" :content="tile.content" />
+        </div>
+
+        <p v-if="layoutStore.showMetaData" class="meta-data">
+          {{ `x: ${tile.x}, y: ${tile.y} w: ${tile.w} h: ${tile.h}` }}
+        </p>
+
+        <button
+          v-if="layoutStore.isOwner"
+          class="btn btn-sm btn-danger btn-close"
+          @mousedown.stop
+          @mouseup.stop
+          @click.stop="removeElement"
+        ></button>
+
+        <TileCaption
+          v-if="showCaption && (layoutStore.isOwner || tile.caption)"
+          :tile="tile"
+        />
+
+        <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
+        <div v-if="isTileResizable" class="resize-indicator"></div>
+
+        <TileToolbar
+          v-if="layoutStore.isOwner && !isSuggestion"
+          :tile="tile"
+          :toolbarRefs="toolbarRefs"
+        />
       </div>
-
-      <!-- UI Layer -->
-      <div v-if="layoutStore.isOwner && headerComponent" class="header-options">
-        <component :is="headerComponent" :content="tile.content" />
-      </div>
-
-      <p v-if="layoutStore.showMetaData" class="meta-data">
-        {{ `x: ${tile.x}, y: ${tile.y} w: ${tile.w} h: ${tile.h}` }}
-      </p>
-
-      <button
-        v-if="layoutStore.isOwner"
-        class="btn btn-sm btn-danger btn-close"
-        @mousedown.stop
-        @mouseup.stop
-        @click.stop="removeElement"
-      ></button>
-
-      <TileCaption v-if="showCaption && (layoutStore.isOwner || tile.caption)" :tile="tile" />
-      
-      <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
-      <div v-if="isTileResizable" class="resize-indicator"></div>
-
-      <TileToolbar
-        v-if="layoutStore.isOwner && !isSuggestion"
-        :tile="tile"
-        :toolbarRefs="toolbarRefs"
-      />
-    
-    </div>
     </grid-item>
   </div>
 </template>
@@ -163,16 +195,31 @@ export default defineComponent({
 
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).
-    provide("gridTileH", computed(() => props.tile.h));
-    provide("gridTileW", computed(() => props.tile.w));
+    provide(
+      "gridTileH",
+      computed(() => props.tile.h),
+    );
+    provide(
+      "gridTileW",
+      computed(() => props.tile.w),
+    );
     /*provide("tileId", computed(() => props.tile.i));*/
     provide("tileId", props.tile.i);
-    provide("tileX", computed(() => props.tile.x));
-    provide("tileY", computed(() => props.tile.y));
+    provide(
+      "tileX",
+      computed(() => props.tile.x),
+    );
+    provide(
+      "tileY",
+      computed(() => props.tile.y),
+    );
+
+    const isTouchDevice = () => window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 
     const isMoving = ref(false);
     const isDragging = ref(false);
     const isExiting = ref(false);
+    const isActivated = ref(false);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -180,6 +227,16 @@ export default defineComponent({
     const isEditing = ref(false);
     const isExitingCropMode = ref(false);
     let stopChildEditingWatch: (() => void) | null = null;
+    const contentBackgroundColor = ref<string | null>(null);
+    const contentTextColor = ref<string | null>(null);
+
+    const onContentBackgroundColorChange = (color: string) => {
+      contentBackgroundColor.value = color;
+    };
+
+    const onContentTextColorChange = (color: string) => {
+      contentTextColor.value = color;
+    };
 
     const showCaption = computed(() => {
       // Hide caption for Link, Text, Chat, Embed, Map, Campfire, RPG, YouTube, and Suggestion tiles as requested
@@ -200,7 +257,9 @@ export default defineComponent({
       return true;
     });
 
-    const isLinkContent = computed(() => props.tile.content.type === ContentType.LINK);
+    const isLinkContent = computed(
+      () => props.tile.content.type === ContentType.LINK,
+    );
     const linkBackgroundEnabled = computed(() => {
       if (!isLinkContent.value) return true;
       const content = props.tile.content as LinkContent;
@@ -210,7 +269,9 @@ export default defineComponent({
     const clickStart = ref<number | null>(null);
     const CLICK_THRESHOLD = 150;
 
-    const isSuggestion = computed(() => props.tile.content.type === ContentType.SUGGESTION);
+    const isSuggestion = computed(
+      () => props.tile.content.type === ContentType.SUGGESTION,
+    );
     const contentProps = computed(() => {
       if (props.tile.content.type === ContentType.CHAT) {
         return {
@@ -220,14 +281,27 @@ export default defineComponent({
       }
       return { content: props.tile.content };
     });
-    const suggestionAction = computed(() => (props.tile.content as any)?.action ?? "text");
-    const suggestionLabel = computed(() => (props.tile.content as any)?.label ?? "");
+    const suggestionAction = computed(
+      () => (props.tile.content as any)?.action ?? "text",
+    );
+    const suggestionLabel = computed(
+      () => (props.tile.content as any)?.label ?? "",
+    );
 
-    const isProfileTile = computed(() => props.tile.content.type === ContentType.PROFILE);
+    const isProfileTile = computed(
+      () => props.tile.content.type === ContentType.PROFILE,
+    );
+    const isTileDraggable = computed(() => {
+      if (!layoutStore.isOwner || isEditing.value) return false;
+      if (isTouchDevice()) return isActivated.value;
+      return true;
+    });
+
     const isTileResizable = computed(() => {
       if (!layoutStore.isOwner || isSuggestion.value || isProfileTile.value) {
         return false;
       }
+      if (isTouchDevice()) return isActivated.value && !isEditing.value;
       return !isEditing.value;
     });
 
@@ -293,17 +367,27 @@ export default defineComponent({
       // isDragging is now cleared in endClick, but keep this as a safety backup
       isDragging.value = false;
       if (!layoutStore.isOwner) return;
-      layoutStore.updateLayout();
+      if (layoutStore.activeBreakpoint !== 'lg') {
+        layoutStore.updateBreakpointOverride();
+      } else {
+        layoutStore.updateLayout();
+      }
     };
 
-    const onResize = (i: string, newH: number, newW: number, newHPx: number, newWPx: number) => {
+    const onResize = (
+      i: string,
+      newH: number,
+      newW: number,
+      newHPx: number,
+      newWPx: number,
+    ) => {
       // Called during resize operation - snap to whole grid units for clean resizing
       const tile = layoutStore.currentLayout?.tiles.find((t) => t.i === i);
       if (tile) {
         // Round to nearest whole number to snap to grid units
         const roundedH = Math.round(newH);
         const roundedW = Math.round(newW);
-        
+
         // Only update if the rounded values have changed to avoid unnecessary updates
         if (tile.h !== roundedH || tile.w !== roundedW) {
           tile.h = roundedH;
@@ -319,7 +403,11 @@ export default defineComponent({
       }
       // Save the layout with the new size
       if (layoutStore.isOwner) {
-        layoutStore.updateLayout();
+        if (layoutStore.activeBreakpoint !== 'lg') {
+          layoutStore.updateBreakpointOverride();
+        } else {
+          layoutStore.updateLayout();
+        }
       }
     };
 
@@ -357,7 +445,9 @@ export default defineComponent({
           (async () => {
             try {
               const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-              const result = await getLinkPreview({ url: (linkContent as any).link });
+              const result = await getLinkPreview({
+                url: (linkContent as any).link,
+              });
               const data = result.data as any;
 
               layoutStore.patchTileContent(props.tile.i, {
@@ -388,10 +478,10 @@ export default defineComponent({
     const onMediaSelected = async (event: Event) => {
       const input = event.target as HTMLInputElement;
       const file = input.files?.[0];
-      
+
       // Reset input immediately so the same file can be selected again
       input.value = "";
-      
+
       if (!file) return;
       try {
         await uploadFileOptimisticForTile(file, props.tile.i);
@@ -404,7 +494,7 @@ export default defineComponent({
     const removeElement = () => {
       // Trigger exit animation
       isExiting.value = true;
-      
+
       // Wait for animation to complete before actually removing the tile
       setTimeout(() => {
         layoutStore.removeTile(props.tile.i);
@@ -419,17 +509,20 @@ export default defineComponent({
 
     // Check if tile supports crop/zoom (IMAGE or VIDEO)
     const isCroppable = computed(() => {
-      return props.tile.content.type === ContentType.IMAGE || props.tile.content.type === ContentType.VIDEO;
+      return (
+        props.tile.content.type === ContentType.IMAGE ||
+        props.tile.content.type === ContentType.VIDEO
+      );
     });
 
     // Toggle crop/zoom mode for image/video tiles
     const toggleCropMode = () => {
       if (!childComponent.value?.toggleEditMode) return;
-      
+
       // If currently editing, trigger exit animations first
       if (isEditing.value) {
         isExitingCropMode.value = true;
-        
+
         // Wait for exit animations to complete (400ms + 50ms buffer)
         setTimeout(() => {
           childComponent.value?.toggleEditMode();
@@ -448,18 +541,85 @@ export default defineComponent({
     };
 
     // Watch for changes in child editing state
-    watch(() => childComponent.value, (newChild) => {
-      if (stopChildEditingWatch) {
-        stopChildEditingWatch();
-        stopChildEditingWatch = null;
+    watch(
+      () => childComponent.value,
+      (newChild) => {
+        if (stopChildEditingWatch) {
+          stopChildEditingWatch();
+          stopChildEditingWatch = null;
+        }
+
+        if (newChild && newChild.isEditing !== undefined) {
+          stopChildEditingWatch = watch(
+            () => newChild.isEditing,
+            (editing) => {
+              isEditing.value = editing;
+            },
+          );
+        }
+      },
+    );
+
+    const deactivateTile = () => {
+      isActivated.value = false;
+    };
+
+    const handleTouchOutside = (event: TouchEvent) => {
+      if (
+        gridTileRef.value &&
+        !gridTileRef.value.contains(event.target as Node)
+      ) {
+        deactivateTile();
+        document.removeEventListener('touchstart', handleTouchOutside);
+      }
+    };
+
+    let touchWasActivating = false;
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (!isTouchDevice()) return;
+
+      if (!isActivated.value) {
+        // First touch: activate the tile, allow scroll to continue
+        isActivated.value = true;
+        touchWasActivating = true;
+        clickStart.value = Date.now();
+        document.addEventListener('touchstart', handleTouchOutside, { passive: true });
+        // Do NOT preventDefault — let the browser scroll naturally
+      } else {
+        // Subsequent touch: tile already activated, treat as interaction
+        touchWasActivating = false;
+        clickStart.value = Date.now();
+        event.preventDefault();
+      }
+    };
+
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (!isTouchDevice()) return;
+      if (!isActivated.value) return;
+
+      // Skip interaction on the tap that just activated the tile
+      if (touchWasActivating) {
+        touchWasActivating = false;
+        return;
       }
 
-      if (newChild && newChild.isEditing !== undefined) {
-        stopChildEditingWatch = watch(() => newChild.isEditing, (editing) => {
-          isEditing.value = editing;
-        });
+      const touchDuration = Date.now() - (clickStart.value || Date.now());
+
+      // Only fire short-click if it was a quick tap (not a scroll)
+      if (touchDuration < CLICK_THRESHOLD) {
+        if (isSuggestion.value) {
+          onSuggestionShortClick();
+        } else {
+          if (childComponent.value?.onShortClick) {
+            childComponent.value.onShortClick(event as unknown as MouseEvent);
+          }
+          if (childComponent.value?.onExitClick) {
+            addClickListener();
+          }
+        }
       }
-    });
+    };
 
     const handleDragStart = (event: Event) => {
       // Prevent default browser drag behavior which interferes with vue-grid-layout
@@ -502,10 +662,12 @@ export default defineComponent({
 
     onMounted(() => {
       loadComponent();
-      
-      // Add dragstart prevention to the grid tile element
+
       if (gridTileRef.value) {
         gridTileRef.value.addEventListener("dragstart", handleDragStart);
+        // Use non-passive touchstart so we can conditionally preventDefault on second tap
+        gridTileRef.value.addEventListener("touchstart", handleTouchStart, { passive: false });
+        gridTileRef.value.addEventListener("touchend", handleTouchEnd, { passive: true });
       }
     });
 
@@ -513,10 +675,12 @@ export default defineComponent({
       stopChildEditingWatch?.();
       stopChildEditingWatch = null;
       removeClickListener();
-      
-      // Remove dragstart listener
+      document.removeEventListener('touchstart', handleTouchOutside);
+
       if (gridTileRef.value) {
         gridTileRef.value.removeEventListener("dragstart", handleDragStart);
+        gridTileRef.value.removeEventListener("touchstart", handleTouchStart);
+        gridTileRef.value.removeEventListener("touchend", handleTouchEnd);
       }
     });
 
@@ -535,16 +699,22 @@ export default defineComponent({
       isEditing,
       isDragging,
       isExiting,
+      isActivated,
       onMoved,
       onResize,
       onResized,
       showCaption,
       borderVisible,
       linkBackgroundEnabled,
+      contentBackgroundColor,
+      contentTextColor,
+      onContentBackgroundColorChange,
+      onContentTextColorChange,
 
       isSuggestion,
       suggestionAction,
       suggestionLabel,
+      isTileDraggable,
       isTileResizable,
 
       mediaInput,
@@ -562,7 +732,7 @@ export default defineComponent({
 /* Grid Item Container - wraps grid-item */
 .grid-item-container {
   position: relative;
-  
+
   &.crop-mode-elevated {
     position: relative;
     z-index: 1000;
@@ -579,9 +749,10 @@ export default defineComponent({
   z-index: 999;
   cursor: pointer;
   animation: cropOverlayFadeIn var(--duration-slow) var(--easing-ease-out);
-  
+
   &.exiting {
-    animation: cropOverlayFadeOut var(--duration-slow) var(--easing-ease-in) forwards;
+    animation: cropOverlayFadeOut var(--duration-slow) var(--easing-ease-in)
+      forwards;
   }
 }
 
@@ -623,32 +794,33 @@ export default defineComponent({
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   border-radius: var(--tile-border-radius);
   /* turn off shadow when border is off */
-  &[data-border='off'] {
+  &[data-border="off"] {
     box-shadow: none;
   }
-  
+
   /* Animate tiles when they first appear */
   animation: tileEnter var(--duration-normal) var(--easing-spring);
-  
+
   /* Scale effect while dragging - applied to child element to avoid conflict with grid-item's inline transform */
   &.is-dragging {
     transform: scale(1.05);
     filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.25));
-    transition: transform var(--duration-normal) var(--easing-ease-out),
-                filter var(--duration-normal) var(--easing-ease-out);
+    transition:
+      transform var(--duration-normal) var(--easing-ease-out),
+      filter var(--duration-normal) var(--easing-ease-out);
   }
-  
+
   /* Exit animation when tile is being deleted */
   &.is-exiting {
     animation: tileExit var(--duration-normal) var(--easing-ease-in) forwards;
     pointer-events: none;
   }
-  
+
   &.crop-mode-active {
     position: relative;
-    
+
     &::before {
-      content: '';
+      content: "";
       position: absolute;
       inset: -3px;
       border: 3px solid rgba(255, 255, 255, 0.9);
@@ -658,19 +830,20 @@ export default defineComponent({
       animation: cropOutlineFadeIn var(--duration-normal) var(--easing-ease-out);
     }
   }
-  
+
   &.crop-mode-exiting {
     position: relative;
-    
+
     &::before {
-      content: '';
+      content: "";
       position: absolute;
       inset: -3px;
       border: 3px solid rgba(255, 255, 255, 0.9);
       border-radius: calc(var(--tile-border-radius) + 3px);
       pointer-events: none;
       z-index: 10;
-      animation: cropOutlineFadeOut var(--duration-normal) var(--easing-ease-in) forwards;
+      animation: cropOutlineFadeOut var(--duration-normal) var(--easing-ease-in)
+        forwards;
     }
   }
 }
@@ -680,7 +853,8 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   position: relative;
-  background-color: var(--color-tile-background);
+  // this one is doing that weird border portion
+  background-color: var(--tile-bg);
   /* Border handled by pseudo-element to allow content to clip UNDER the border */
   border-radius: var(--tile-border-radius);
   backdrop-filter: blur(20px);
@@ -691,26 +865,28 @@ export default defineComponent({
   -webkit-mask-image: -webkit-radial-gradient(white, black);
   mask-image: radial-gradient(white, black);
   will-change: transform;
-  
+
   .crop-mode-active & {
     overflow: visible;
     -webkit-mask-image: none;
     mask-image: none;
     animation: cropBorderExpand var(--duration-slow) var(--easing-smooth);
   }
-  
+
   .crop-mode-exiting & {
     overflow: visible;
     -webkit-mask-image: none;
     mask-image: none;
-    animation: cropBorderContract var(--duration-slow) var(--easing-smooth) forwards;
+    animation: cropBorderContract var(--duration-slow) var(--easing-smooth)
+      forwards;
   }
-  
+
   /* Border Overlay */
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
+    // note to self: this is doing the real border
     border: var(--tile-border-width) solid var(--color-tile-stroke);
     border-radius: inherit;
     pointer-events: none;
@@ -720,23 +896,38 @@ export default defineComponent({
     transition: opacity var(--duration-fast) var(--easing-ease-in-out);
   }
 
-  .tile-wrapper[data-border='off'] &::after {
+  .tile-wrapper[data-border="off"] &::after {
     opacity: 0;
   }
-  
+
   /* Padding controlled by individual tile components */
   /* This allows different tile types to use different padding amounts */
-  
+
   /* Remove transition that causes drag lag */
   /* Only apply hover effect via :hover pseudo-class */
   .tile-wrapper:hover & {
     box-shadow: var(--shadow-tile-hover);
+    background-color: color-mix(
+      in srgb,
+      var(--tile-bg) 85%,
+      var(--tile-text-color) 15%
+    );
   }
 }
 
-.tile-wrapper[data-border='off'] {
+.tile-wrapper[data-border="off"] {
   .card-body {
-    background-color: var(--color-content-background);
+    background-color: var(--tile-bg);
+  }
+}
+
+.tile-wrapper[data-border="off"]:hover {
+  .card-body {
+    background-color: color-mix(
+      in srgb,
+      var(--tile-bg) 85%,
+      var(--tile-text-color) 15%
+    );
   }
 }
 
@@ -761,40 +952,42 @@ export default defineComponent({
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   /* Hidden by default with smooth animation properties using tokens */
   opacity: 0;
   transform: scale(0.2);
   pointer-events: none;
-  transition: transform var(--duration-normal) var(--easing-spring), 
-              // opacity var(--duration-fast) var(--easing-ease-out), 
-              background-color var(--duration-fast) var(--easing-ease-in-out), 
-              color var(--duration-fast) var(--easing-ease-in-out), 
-              border-color var(--duration-fast) var(--easing-ease-in-out);
-  
+  transition:
+    transform var(--duration-normal) var(--easing-spring),
+    // opacity var(--duration-fast) var(--easing-ease-out),
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    color var(--duration-fast) var(--easing-ease-in-out),
+    border-color var(--duration-fast) var(--easing-ease-in-out);
+
   /* Default state - solid colors */
   background-color: var(--color-tile-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
-  
+
   /* Override Bootstrap btn-close filter to use our color token */
   filter: none;
   background-image: none;
-  
+
   /* X icon styling - uses pseudo-element for proper color control */
   &::before,
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     width: 12px;
     height: 2px;
     background-color: var(--color-text-primary);
-    transition: background-color var(--duration-normal) var(--easing-ease-in-out);
+    transition: background-color var(--duration-normal)
+      var(--easing-ease-in-out);
   }
-  
+
   &::before {
     transform: rotate(45deg);
   }
-  
+
   &::after {
     transform: rotate(-45deg);
   }
@@ -803,7 +996,7 @@ export default defineComponent({
   &:hover {
     background-color: #ff3737;
     border-color: #ff3737;
-    
+
     &::before,
     &::after {
       background-color: #ffffff;
@@ -821,7 +1014,7 @@ export default defineComponent({
 }
 
 /* Border-off state for toolbar border toggle icon (reaches into TileToolbar child) */
-.tile-wrapper[data-border='off'] {
+.tile-wrapper[data-border="off"] {
   :deep(.toolbar-btn--border) {
     color: var(--color-content-default);
   }
@@ -838,18 +1031,22 @@ export default defineComponent({
 
 /* Show elements on tile hover with smooth animations */
 .tile-wrapper:hover .header-options,
-.tile-wrapper:hover :deep(.hover-display) {
+.tile-wrapper:hover :deep(.hover-display),
+.tile-wrapper.is-activated .header-options,
+.tile-wrapper.is-activated :deep(.hover-display) {
   display: flex;
 }
 
-.tile-wrapper:hover .btn-close {
+.tile-wrapper:hover .btn-close,
+.tile-wrapper.is-activated .btn-close {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
 }
 
-/* Non-owner caption: hide on tile hover */
-.tile-wrapper:hover :deep(.viewer-caption) {
+/* Non-owner caption: hide on tile hover or activation */
+.tile-wrapper:hover :deep(.viewer-caption),
+.tile-wrapper.is-activated :deep(.viewer-caption) {
   display: none;
 }
 
@@ -857,14 +1054,16 @@ export default defineComponent({
 .tile-wrapper.crop-mode-active .btn-close,
 .tile-wrapper.crop-mode-exiting .btn-close,
 .tile-wrapper.is-exiting .btn-close,
-.tile-wrapper.is-dragging .btn-close {
+.tile-wrapper.is-dragging .btn-close,
+.tile-wrapper.is-activated.is-dragging .btn-close {
   opacity: 0;
   transform: scale(0);
   pointer-events: none;
 }
 
-/* Show toolbar on tile hover and during crop mode (reaches into TileToolbar child) */
+/* Show toolbar on tile hover, activation, and during crop mode (reaches into TileToolbar child) */
 .tile-wrapper:hover :deep(.tile-toolbar),
+.tile-wrapper.is-activated :deep(.tile-toolbar),
 .tile-wrapper.crop-mode-active :deep(.tile-toolbar),
 .tile-wrapper.crop-mode-exiting :deep(.tile-toolbar) {
   opacity: 1;
@@ -874,6 +1073,7 @@ export default defineComponent({
 
 /* Show search panel when toolbar is visible */
 .tile-wrapper:hover :deep(.toolbar-search-panel),
+.tile-wrapper.is-activated :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-active :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel) {
   pointer-events: auto;
@@ -890,12 +1090,12 @@ export default defineComponent({
 }
 
 /* Suggestion tile specific styling */
-.tile-wrapper[data-suggestion='true'] .card-body {
+.tile-wrapper[data-suggestion="true"] .card-body {
   border: 2px dashed var(--color-tile-stroke);
   background: rgba(255, 255, 255, 0.02);
 }
 
-.tile-wrapper[data-suggestion='true'] .card-body::after {
+.tile-wrapper[data-suggestion="true"] .card-body::after {
   opacity: 0;
 }
 
@@ -919,7 +1119,7 @@ export default defineComponent({
   color: var(--color-text-primary);
 }
 
-.tile-wrapper[data-suggestion='true']:hover .suggestion-icon {
+.tile-wrapper[data-suggestion="true"]:hover .suggestion-icon {
   opacity: 1;
   transform: scale(1.05);
 }
@@ -932,7 +1132,7 @@ export default defineComponent({
   transition: opacity 0.3s ease;
 }
 
-.tile-wrapper[data-suggestion='true']:hover .suggestion-label {
+.tile-wrapper[data-suggestion="true"]:hover .suggestion-label {
   opacity: 1;
 }
 
@@ -1010,10 +1210,10 @@ export default defineComponent({
   pointer-events: none;
   opacity: 0;
   transition: opacity var(--duration-fast) var(--easing-ease-out);
-  
+
   /* Create the nubbin shape using a pseudo-element */
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     bottom: 0;
     right: 0;
@@ -1021,7 +1221,8 @@ export default defineComponent({
     height: 0;
     border-style: solid;
     border-width: 0 0 20px 20px;
-    border-color: transparent transparent var(--color-content-default) transparent;
+    border-color: transparent transparent var(--color-content-default)
+      transparent;
     opacity: 0.3;
     border-radius: 0 0 calc(var(--tile-border-radius) - 2px) 0;
   }
@@ -1046,19 +1247,19 @@ export default defineComponent({
   height: 32px !important;
   bottom: -8px !important;
   right: -8px !important;
-  
+
   /* Make the handle itself invisible but keep the hit area */
   background-image: none !important;
   background-color: transparent !important;
-  
+
   /* Ensure it's above other content but below toolbar */
   z-index: 4 !important;
-  
+
   /* Cursor customization - use diagonal double arrow for bottom-right resize */
   /* Options: nwse-resize (diagonal \), nesw-resize (diagonal /), 
      nw-resize, ne-resize, sw-resize, se-resize (directional arrows) */
   cursor: nwse-resize !important;
-  
+
   /* Scale up cursor when actively resizing (clicking and holding) */
   &:active {
     cursor: nwse-resize !important;
@@ -1076,7 +1277,7 @@ export default defineComponent({
     /* Keep tile visible and stable during resize */
     opacity: 1 !important;
   }
-  
+
   /* Light, fast spring during drag — keeps a hint of fluidity without
      the heavy 400ms spring that causes perceptible cursor lag. */
   &.vue-draggable-dragging {
@@ -1087,10 +1288,11 @@ export default defineComponent({
 
   /* Full spring animation when resize/drag completes and tiles settle */
   &:not(.resizing):not(.vue-draggable-dragging) {
-    transition: width var(--duration-slow) var(--easing-spring),
-                height var(--duration-slow) var(--easing-spring),
-                transform var(--duration-slow) var(--easing-spring),
-                opacity var(--duration-fast) var(--easing-ease-out) !important;
+    transition:
+      width var(--duration-slow) var(--easing-spring),
+      height var(--duration-slow) var(--easing-spring),
+      transform var(--duration-slow) var(--easing-spring),
+      opacity var(--duration-fast) var(--easing-ease-out) !important;
     opacity: 1 !important;
   }
 }

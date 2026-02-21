@@ -1,33 +1,40 @@
 <template>
   <p v-if="layoutStore.isLoading">Loading layout...</p>
-  <grid-layout
+  <div
     v-else-if="displayLayout.length"
-    class="grid-container"
-    :layout="displayLayout"
-    :col-num="responsiveColNum"
-    :row-height="rowHeight"
-    :is-draggable="isEditable"
-    :is-resizable="isEditable"
-    :vertical-compact="layoutStore.verticalCompact"
-    :prevent-collision="false"
-    :restore-on-drag="true"
-    :use-css-transforms="true"
-    :margin="[margin, margin]"
-    :style="{ width: `${gridWidth}px` }"
+    ref="scaleWrapperRef"
+    class="grid-scale-wrapper"
+    :style="scaleWrapperStyle"
   >
-    <grid-tile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
-  </grid-layout>
+    <grid-layout
+      ref="gridLayoutRef"
+      class="grid-container"
+      :layout="displayLayout"
+      :col-num="responsiveColNum"
+      :row-height="rowHeight"
+      :is-draggable="isEditable"
+      :is-resizable="isEditable"
+      :vertical-compact="layoutStore.verticalCompact"
+      :prevent-collision="false"
+      :restore-on-drag="true"
+      :use-css-transforms="true"
+      :margin="[margin, margin]"
+      :style="gridInnerStyle"
+    >
+      <grid-tile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
+    </grid-layout>
+  </div>
   <p v-else>No tiles yet.</p>
 </template>
 
 <script lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, nextTick, watch } from "vue";
 import { useRoute } from "vue-router";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
 import GridTile from "./GridTile.vue";
 import { useLayoutStore } from "@/stores/layout";
-import { type Tile } from "@/types/Tile";
+import { type Tile, type Breakpoint } from "@/types/Tile";
 
 export default {
   components: {
@@ -153,24 +160,100 @@ export default {
       return candidates.find(fits) ?? Math.min(4, baseColNum.value);
     });
 
-    const displayLayout = computed(() => {
+    const colNumToBreakpoint = (cols: number): Breakpoint => {
+      if (cols <= 4) return 'sm';
+      if (cols <= 8) return 'md';
+      return 'lg';
+    };
+
+    const activeBreakpoint = computed<Breakpoint>(() => {
+      return colNumToBreakpoint(responsiveColNum.value);
+    });
+
+    // Keep the store in sync so other components can read the active breakpoint
+    watch(activeBreakpoint, (bp) => {
+      layoutStore.setActiveBreakpoint(bp);
+    }, { immediate: true });
+
+    // Stable ref that vue3-grid-layout can mutate in-place.
+    // At lg we hand it the store's own reactive array (mutations persist naturally).
+    // At smaller breakpoints we build a one-time array and only rebuild when the
+    // underlying data (tile list, breakpoint, or overrides) actually changes.
+    const displayLayout = ref<Tile[]>([]);
+
+    const buildBreakpointLayout = (): Tile[] => {
       const tiles = layoutStore.currentLayout?.tiles ?? [];
-      if (responsiveColNum.value === baseColNum.value) {
+      const bp = activeBreakpoint.value;
+      const cols = responsiveColNum.value;
+
+      if (bp === 'lg') {
         return tiles;
       }
 
+      const overrides = layoutStore.getBreakpointPositions(bp);
+      if (overrides && Object.keys(overrides).length > 0) {
+        const customized: Tile[] = [];
+        const unplaced: Tile[] = [];
+
+        for (const tile of tiles) {
+          const pos = overrides[tile.i];
+          if (pos) {
+            customized.push({ ...tile, ...pos });
+          } else {
+            unplaced.push(scaleTileToFit(tile, cols));
+          }
+        }
+
+        const finalLayout = [...customized];
+        for (const tile of unplaced) {
+          const spot = findFirstAvailableSpot(finalLayout, tile.w, tile.h, cols);
+          finalLayout.push({ ...tile, x: spot.x, y: spot.y });
+        }
+
+        return finalLayout;
+      }
+
+      // No saved overrides — auto-repack (current behavior)
       const resizedTiles = tiles.map((tile) =>
-        scaleTileToFit(tile, responsiveColNum.value)
+        scaleTileToFit(tile, cols)
       );
 
-      return packTiles(resizedTiles, responsiveColNum.value);
-    });
+      return packTiles(resizedTiles, cols);
+    };
+
+    // Rebuild when breakpoint, tile count, or overrides change.
+    // Using a deep-ish watch key so we don't rebuild on every in-place mutation.
+    watch(
+      [
+        activeBreakpoint,
+        () => layoutStore.currentLayout?.tiles?.length,
+        () => layoutStore.currentLayout?.tiles?.map((t) => t.i).join(','),
+        () => JSON.stringify(layoutStore.currentLayout?.overrides),
+      ],
+      () => {
+        if (layoutStore.skipOverrideRebuild) {
+          layoutStore.skipOverrideRebuild = false;
+          return;
+        }
+        displayLayout.value = buildBreakpointLayout();
+      },
+      { immediate: true }
+    );
+
+    // Publish rendered tile positions so GridMenu and updateBreakpointOverride
+    // can snapshot them. Deep watch is needed because vue3-grid-layout mutates
+    // tile x/y/w/h in-place during drag/resize.
+    watch(displayLayout, (tiles) => {
+      layoutStore.setDisplayPositions(
+        tiles.map((t) => ({ i: t.i, x: t.x, y: t.y, w: t.w, h: t.h }))
+      );
+    }, { immediate: true, deep: true });
 
     const isEditable = computed(() => {
-      return (
-        layoutStore.isOwner &&
-        responsiveColNum.value === baseColNum.value
-      );
+      if (!layoutStore.isOwner) return false;
+      // Owners can always edit — at non-lg breakpoints, dragging/resizing will
+      // auto-create overrides via updateBreakpointOverride.
+      return true;
     });
 
     const gridWidth = computed(() => {
@@ -180,6 +263,56 @@ export default {
       );
     });
 
+    const mobileScale = computed(() => {
+      if (viewportWidth.value >= gridWidth.value) return 1;
+      return viewportWidth.value / gridWidth.value;
+    });
+
+    const gridLayoutRef = ref<HTMLElement | null>(null);
+    const scaleWrapperRef = ref<HTMLElement | null>(null);
+    const naturalGridHeight = ref(0);
+
+    let resizeObserver: ResizeObserver | null = null;
+
+    const observeGridHeight = () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+      }
+      const el = gridLayoutRef.value?.$el ?? gridLayoutRef.value;
+      if (!el) return;
+      resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          naturalGridHeight.value = entry.contentRect.height;
+        }
+      });
+      resizeObserver.observe(el);
+      naturalGridHeight.value = el.getBoundingClientRect().height;
+    };
+
+    const scaleWrapperStyle = computed(() => {
+      const scale = mobileScale.value;
+      if (scale >= 1) return {};
+      const scaledHeight = naturalGridHeight.value > 0
+        ? naturalGridHeight.value * scale
+        : undefined;
+      return {
+        width: `${viewportWidth.value}px`,
+        overflow: 'hidden',
+        ...(scaledHeight !== undefined ? { height: `${scaledHeight}px` } : {}),
+      };
+    });
+
+    const gridInnerStyle = computed(() => {
+      const scale = mobileScale.value;
+      const base = { width: `${gridWidth.value}px` };
+      if (scale >= 1) return base;
+      return {
+        ...base,
+        transformOrigin: 'top left',
+        transform: `scale(${scale})`,
+      };
+    });
 
     // Load layout using ID from the route
     onMounted(() => {
@@ -191,10 +324,19 @@ export default {
       } else {
         console.error("Layout ID is missing in the route.");
       }
+      nextTick(() => observeGridHeight());
+    });
+
+    watch(displayLayout, () => {
+      nextTick(() => observeGridHeight());
     });
 
     onUnmounted(() => {
       window.removeEventListener("resize", onResize);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+      }
     });
 
     return {
@@ -203,7 +345,12 @@ export default {
       margin,
       displayLayout,
       responsiveColNum,
+      activeBreakpoint,
       isEditable,
+      scaleWrapperStyle,
+      gridInnerStyle,
+      gridLayoutRef,
+      scaleWrapperRef,
     };
   },
 
@@ -225,11 +372,14 @@ export default {
 </script>
 
 <style scoped>
+.grid-scale-wrapper {
+  overflow: hidden;
+}
+
 .vue-grid-layout {
   background-color: #ffffff00;
   position: relative;
   left: auto;
-  transform: none;
   margin: 0 auto;
 }
 
@@ -329,5 +479,13 @@ export default {
 .vue-grid-layout:has(.vue-draggable-dragging) .vue-grid-placeholder {
   display: block !important;
   opacity: 0.3 !important;
+}
+
+/* Allow native vertical scroll when touch starts on a grid item.
+   vue3-grid-layout sets touch-action: none on items, which blocks scroll.
+   Restoring pan-y lets the browser handle vertical swipe-to-scroll normally.
+   When a tile is actively being dragged we override back to none so drag works. */
+.vue-grid-item:not(.vue-draggable-dragging) {
+  touch-action: pan-y !important;
 }
 </style>

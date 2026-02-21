@@ -282,6 +282,42 @@ export const getLinkPreview = onCall(async (data, context) => {
 const discordNewUsersWebhookUrl = defineSecret("DISCORD_NEW_USERS_WEBHOOK_URL");
 const discordUserActivityWebhookUrl = defineSecret("DISCORD_USER_ACTIVITY_WEBHOOK_URL");
 
+// ---------------------------------------------------------------------------
+// Dev team filter — update these lists to suppress notifications for internal
+// accounts. Email patterns are matched as case-insensitive substrings.
+// ---------------------------------------------------------------------------
+const DEV_TEAM_USER_IDS: string[] = [
+  // Add Firebase UIDs here, e.g.:
+  // "abc123uid",
+  "REMOVED_FIREBASE_UID"
+];
+
+const DEV_TEAM_EMAIL_PATTERNS: string[] = [
+  // Add email substrings/domains here, e.g.:
+  // "@yourcompany.com",
+  // "+test",
+  // "dev+",
+  "@trustybits.com",
+  "@grids.so",
+];
+
+/**
+ * Returns true if the given uid or email belongs to a dev team member
+ * and should be excluded from Discord notifications.
+ */
+function isDevTeamMember(uid?: string, email?: string): boolean {
+  if (uid && DEV_TEAM_USER_IDS.includes(uid)) {
+    return true;
+  }
+  if (email) {
+    const lower = email.toLowerCase();
+    if (DEV_TEAM_EMAIL_PATTERNS.some((pattern) => lower.includes(pattern.toLowerCase()))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Define secret for YouTube API key
 const youtubeApiKey = defineSecret("YOUTUBE_API_KEY");
 
@@ -580,6 +616,12 @@ export const onNewUserSignup = functions
       displayName: user.displayName,
     });
 
+    // Skip dev team members
+    if (isDevTeamMember(user.uid, user.email ?? undefined)) {
+      logger.info("Skipping Discord notification for dev team member", { uid: user.uid });
+      return null;
+    }
+
     // Get the Discord webhook URL from secrets
     const webhookUrl = discordNewUsersWebhookUrl.value();
     
@@ -697,6 +739,12 @@ export const onUserLogin = functions
       email: afterData.email,
     });
 
+    // Skip dev team members
+    if (isDevTeamMember(userId, afterData.email)) {
+      logger.info("Skipping Discord notification for dev team member", { userId });
+      return null;
+    }
+
     // Get the Discord webhook URL from secrets
     const webhookUrl = discordUserActivityWebhookUrl.value();
     
@@ -785,6 +833,19 @@ export const onGridCreated = functions
       name: layoutData.name,
     });
 
+    // Skip dev team members — look up email from users collection
+    let ownerEmail: string | undefined;
+    try {
+      const userDoc = await admin.firestore().collection("users").doc(layoutData.userId).get();
+      ownerEmail = userDoc.data()?.email;
+    } catch {
+      // Non-fatal — proceed without email check
+    }
+    if (isDevTeamMember(layoutData.userId, ownerEmail)) {
+      logger.info("Skipping Discord notification for dev team member", { userId: layoutData.userId });
+      return null;
+    }
+
     // Get the Discord webhook URL from secrets
     const webhookUrl = discordUserActivityWebhookUrl.value();
     
@@ -853,7 +914,262 @@ export const onGridCreated = functions
           status: response.status,
         });
       }
-      
+    } catch (error) {
+      logger.error("Failed to send Discord webhook", {
+        error: String(error),
+        layoutId,
+      });
+    }
+
+    // Auto-assign this grid as the user's default if they don't have one set yet
+    const userId = layoutData.userId;
+    if (userId) {
+      try {
+        const db = admin.firestore();
+        await db.runTransaction(async (transaction) => {
+          const userRef = db.collection("users").doc(userId);
+          const userDoc = await transaction.get(userRef);
+
+          if (!userDoc.exists || !userDoc.data()?.defaultGridId) {
+            transaction.set(userRef, { defaultGridId: layoutId }, { merge: true });
+
+            const userSlug = userDoc.exists ? userDoc.data()?.slug : null;
+            if (userSlug) {
+              const slugRef = db.collection("slugs").doc(userSlug);
+              transaction.update(slugRef, { defaultGridId: layoutId });
+            }
+
+            logger.info("Auto-assigned default grid for user", { userId, layoutId });
+          }
+        });
+      } catch (error) {
+        logger.error("Failed to auto-assign default grid", {
+          error: String(error),
+          userId,
+          layoutId,
+        });
+      }
+    }
+
+    return null;
+  });
+
+/**
+ * Firebase function that triggers when a grid/layout is updated.
+ * Only fires when the updatedAt field changes to avoid spurious triggers.
+ * Sends a notification to the user-activity Discord channel.
+ */
+export const onGridUpdated = functions
+  .runWith({
+    secrets: [discordUserActivityWebhookUrl],
+  })
+  .firestore.document("layouts/{layoutId}")
+  .onUpdate(async (change, context) => {
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
+    const layoutId = context.params.layoutId;
+
+    // Only trigger when updatedAt actually changed
+    const beforeUpdatedAt = beforeData.updatedAt?.toMillis?.() ?? beforeData.updatedAt;
+    const afterUpdatedAt = afterData.updatedAt?.toMillis?.() ?? afterData.updatedAt;
+    if (!afterUpdatedAt || beforeUpdatedAt === afterUpdatedAt) {
+      return null;
+    }
+
+    logger.info("Grid updated", {
+      layoutId,
+      userId: afterData.userId,
+      name: afterData.name,
+    });
+
+    // Skip dev team members — look up email from users collection
+    let ownerEmail: string | undefined;
+    try {
+      const userDoc = await admin.firestore().collection("users").doc(afterData.userId).get();
+      ownerEmail = userDoc.data()?.email;
+    } catch {
+      // Non-fatal — proceed without email check
+    }
+    if (isDevTeamMember(afterData.userId, ownerEmail)) {
+      logger.info("Skipping Discord notification for dev team member", { userId: afterData.userId });
+      return null;
+    }
+
+    // Get the Discord webhook URL from secrets
+    const webhookUrl = discordUserActivityWebhookUrl.value();
+
+    if (!webhookUrl) {
+      logger.error("DISCORD_USER_ACTIVITY_WEBHOOK_URL secret is not configured");
+      return null;
+    }
+
+    // Build Discord embed payload
+    const discordPayload = {
+      embeds: [
+        {
+          title: "✏️ Grid Updated",
+          color: 16776960, // Yellow color
+          fields: [
+            {
+              name: "Grid Name",
+              value: afterData.name || "Untitled",
+              inline: true,
+            },
+            {
+              name: "Grid ID",
+              value: layoutId,
+              inline: true,
+            },
+            {
+              name: "Grid Link",
+              value: `https://grids.so/grid/${layoutId}`,
+              inline: true,
+            },
+            {
+              name: "User ID",
+              value: afterData.userId || "Unknown",
+              inline: false,
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          footer: {
+            text: "Grids Activity",
+          },
+        },
+      ],
+    };
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(discordPayload),
+      });
+
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        logger.error("Discord webhook returned error status", {
+          layoutId,
+          status: response.status,
+          statusText: response.statusText,
+          responseBody: responseText,
+        });
+      } else {
+        logger.info("Discord grid update notification sent successfully", {
+          layoutId,
+          status: response.status,
+        });
+      }
+
+      return null;
+    } catch (error) {
+      logger.error("Failed to send Discord webhook", {
+        error: String(error),
+        layoutId,
+      });
+      return null;
+    }
+  });
+
+/**
+ * Firebase function that triggers when a grid/layout is deleted.
+ * Sends a notification to the user-activity Discord channel.
+ */
+export const onGridDeleted = functions
+  .runWith({
+    secrets: [discordUserActivityWebhookUrl],
+  })
+  .firestore.document("layouts/{layoutId}")
+  .onDelete(async (snapshot, context) => {
+    const layoutData = snapshot.data();
+    const layoutId = context.params.layoutId;
+
+    logger.info("Grid deleted", {
+      layoutId,
+      userId: layoutData.userId,
+      name: layoutData.name,
+    });
+
+    // Skip dev team members — look up email from users collection
+    let ownerEmail: string | undefined;
+    try {
+      const userDoc = await admin.firestore().collection("users").doc(layoutData.userId).get();
+      ownerEmail = userDoc.data()?.email;
+    } catch {
+      // Non-fatal — proceed without email check
+    }
+    if (isDevTeamMember(layoutData.userId, ownerEmail)) {
+      logger.info("Skipping Discord notification for dev team member", { userId: layoutData.userId });
+      return null;
+    }
+
+    // Get the Discord webhook URL from secrets
+    const webhookUrl = discordUserActivityWebhookUrl.value();
+
+    if (!webhookUrl) {
+      logger.error("DISCORD_USER_ACTIVITY_WEBHOOK_URL secret is not configured");
+      return null;
+    }
+
+    // Build Discord embed payload
+    const discordPayload = {
+      embeds: [
+        {
+          title: "🗑️ Grid Deleted",
+          color: 15158332, // Red color
+          fields: [
+            {
+              name: "Grid Name",
+              value: layoutData.name || "Untitled",
+              inline: true,
+            },
+            {
+              name: "Grid ID",
+              value: layoutId,
+              inline: true,
+            },
+            {
+              name: "User ID",
+              value: layoutData.userId || "Unknown",
+              inline: false,
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          footer: {
+            text: "Grids Activity",
+          },
+        },
+      ],
+    };
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(discordPayload),
+      });
+
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        logger.error("Discord webhook returned error status", {
+          layoutId,
+          status: response.status,
+          statusText: response.statusText,
+          responseBody: responseText,
+        });
+      } else {
+        logger.info("Discord grid deletion notification sent successfully", {
+          layoutId,
+          status: response.status,
+        });
+      }
+
       return null;
     } catch (error) {
       logger.error("Failed to send Discord webhook", {

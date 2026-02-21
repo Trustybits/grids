@@ -151,6 +151,7 @@ export interface ProfileBioContent extends TileContent {
   avatarSrc: string;
   avatarShape: AvatarShape;
   avatarRadius: number;
+  backgroundColor?: string;
 }
 
 export type SuggestionAction = "text" | "media" | "link" | "embed" | "profile";

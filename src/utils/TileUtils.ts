@@ -1,3 +1,4 @@
+import { useThemeStore } from "@/stores/theme";
 import { type Tile } from "@/types/Tile";
 import {
   ContentType,
@@ -50,13 +51,15 @@ export function isDirectImageUrl(src: string): boolean {
     return /\.(png|jpe?g|gif|webp|bmp|svg)$/.test(pathname);
   } catch {
     const lower = formatted.toLowerCase();
-    return lower.includes(".png") ||
+    return (
+      lower.includes(".png") ||
       lower.includes(".jpg") ||
       lower.includes(".jpeg") ||
       lower.includes(".gif") ||
       lower.includes(".webp") ||
       lower.includes(".bmp") ||
-      lower.includes(".svg");
+      lower.includes(".svg")
+    );
   }
 }
 
@@ -72,7 +75,11 @@ export function isDirectVideoUrl(src: string): boolean {
     return /\.(mp4|webm|mov)$/.test(pathname);
   } catch {
     const lower = formatted.toLowerCase();
-    return lower.includes(".mp4") || lower.includes(".webm") || lower.includes(".mov");
+    return (
+      lower.includes(".mp4") ||
+      lower.includes(".webm") ||
+      lower.includes(".mov")
+    );
   }
 }
 
@@ -83,61 +90,63 @@ export function isDirectVideoUrl(src: string): boolean {
 // - Playlists: youtube.com/playlist?list=ID
 // - Channels: youtube.com/@username, youtube.com/channel/ID, youtube.com/c/username
 // Note: YouTube Posts (community posts) are not supported as they require different API access
-function parseYouTubeUrl(url: string): { type: 'video' | 'playlist' | 'channel' | 'short'; id: string } | null {
+function parseYouTubeUrl(
+  url: string,
+): { type: "video" | "playlist" | "channel" | "short"; id: string } | null {
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
-    
+
     // Check if it's a YouTube domain
-    if (!hostname.includes('youtube.com') && !hostname.includes('youtu.be')) {
+    if (!hostname.includes("youtube.com") && !hostname.includes("youtu.be")) {
       return null;
     }
-    
+
     // Shorts: youtube.com/shorts/ID (check first as it's most specific)
     const shortsMatch = urlObj.pathname.match(/^\/shorts\/([a-zA-Z0-9_-]+)/);
     if (shortsMatch) {
-      return { type: 'short', id: shortsMatch[1] };
+      return { type: "short", id: shortsMatch[1] };
     }
-    
+
     // Playlist: Check for list parameter in any watch or playlist URL
     // This handles both youtube.com/playlist?list=ID and youtube.com/watch?v=ID&list=ID
-    if (urlObj.searchParams.has('list')) {
-      const listId = urlObj.searchParams.get('list')!;
+    if (urlObj.searchParams.has("list")) {
+      const listId = urlObj.searchParams.get("list")!;
       // Ignore auto-generated "My Mix" playlists (they start with RD)
-      if (!listId.startsWith('RD')) {
-        return { type: 'playlist', id: listId };
+      if (!listId.startsWith("RD")) {
+        return { type: "playlist", id: listId };
       }
     }
-    
+
     // Video: youtube.com/watch?v=ID (only if no valid playlist was found)
-    if (urlObj.pathname === '/watch' && urlObj.searchParams.has('v')) {
-      return { type: 'video', id: urlObj.searchParams.get('v')! };
+    if (urlObj.pathname === "/watch" && urlObj.searchParams.has("v")) {
+      return { type: "video", id: urlObj.searchParams.get("v")! };
     }
-    
+
     // Video: youtu.be/ID
-    if (hostname.includes('youtu.be')) {
-      const id = urlObj.pathname.slice(1).split('?')[0];
-      if (id) return { type: 'video', id };
+    if (hostname.includes("youtu.be")) {
+      const id = urlObj.pathname.slice(1).split("?")[0];
+      if (id) return { type: "video", id };
     }
-    
+
     // Channel: youtube.com/@username
     const atMatch = urlObj.pathname.match(/^\/@([a-zA-Z0-9._-]+)/);
     if (atMatch) {
-      return { type: 'channel', id: atMatch[1] };
+      return { type: "channel", id: atMatch[1] };
     }
-    
+
     // Channel: youtube.com/channel/ID
     const channelMatch = urlObj.pathname.match(/^\/channel\/([a-zA-Z0-9_-]+)/);
     if (channelMatch) {
-      return { type: 'channel', id: channelMatch[1] };
+      return { type: "channel", id: channelMatch[1] };
     }
-    
+
     // Channel: youtube.com/c/username or youtube.com/user/username
     const customMatch = urlObj.pathname.match(/^\/(c|user)\/([a-zA-Z0-9._-]+)/);
     if (customMatch) {
-      return { type: 'channel', id: customMatch[2] };
+      return { type: "channel", id: customMatch[2] };
     }
-    
+
     return null;
   } catch {
     return null;
@@ -146,7 +155,7 @@ function parseYouTubeUrl(url: string): { type: 'video' | 'playlist' | 'channel' 
 
 export function createTileContentFromEmbedUrl(src: string): TileContent {
   const formatted = ensureUrlHasProtocol((src || "").trim());
-  
+
   // Check for YouTube URLs first
   const youtubeData = parseYouTubeUrl(formatted);
   if (youtubeData) {
@@ -156,7 +165,7 @@ export function createTileContentFromEmbedUrl(src: string): TileContent {
       youtubeId: youtubeData.id,
     } as Partial<YouTubeContent>);
   }
-  
+
   if (isDirectImageUrl(formatted)) {
     return createTileContent(ContentType.IMAGE, { src: formatted });
   }
@@ -242,7 +251,7 @@ export function createTile(
   w: number,
   h: number,
   contentData: Partial<any> = {},
-  caption: string
+  caption: string,
 ): Tile {
   return {
     i,
@@ -260,19 +269,19 @@ export function createTileContent(
   type: ContentType,
   data: Partial<
     | TextContent
-    | ChatContent 
+    | ChatContent
     | ImageContent
     | LinkContent
     | VideoContent
     | EmbedContent
-    | RPGContent 
-    | SuggestionContent 
-    | MapContent 
-    | CampfireContent 
+    | RPGContent
+    | SuggestionContent
+    | MapContent
+    | CampfireContent
     | ClickerContent
     | ProfileBioContent
     | YouTubeContent
-  > = {}
+  > = {},
 ): TileContent {
   switch (type) {
     case ContentType.TEXT:
@@ -302,17 +311,16 @@ export function createTileContent(
         offsetY: 0,
       } as ImageContent;
 
-    case ContentType.LINK:
-      {
-        const input = data as Partial<LinkContent>;
-        const linkData = getLinkData(input.link || "");
-        return {
-          ...input,
-          type,
-          ...linkData,
-          linkBackgroundEnabled: input.linkBackgroundEnabled ?? true,
-        } as LinkContent;
-      }
+    case ContentType.LINK: {
+      const input = data as Partial<LinkContent>;
+      const linkData = getLinkData(input.link || "");
+      return {
+        ...input,
+        type,
+        ...linkData,
+        linkBackgroundEnabled: input.linkBackgroundEnabled ?? true,
+      } as LinkContent;
+    }
 
     case ContentType.VIDEO:
       return {
@@ -344,30 +352,30 @@ export function createTileContent(
         walls: (data as Partial<RPGContent>).walls ?? [],
         score: (data as Partial<RPGContent>).score ?? 0,
         wave: (data as Partial<RPGContent>).wave ?? 1,
-        gameState: (data as Partial<RPGContent>).gameState ?? 'playing',
+        gameState: (data as Partial<RPGContent>).gameState ?? "playing",
       } as RPGContent;
 
-    case ContentType.SUGGESTION:
-      {
-        const suggestion = data as Partial<SuggestionContent>;
-        const payload: SuggestionContent = {
-          type,
-          action: suggestion.action || "text",
-        };
-        if (typeof suggestion.icon === "string") {
-          payload.icon = suggestion.icon;
-        }
-        if (typeof suggestion.label === "string") {
-          payload.label = suggestion.label;
-        }
-        return payload;
+    case ContentType.SUGGESTION: {
+      const suggestion = data as Partial<SuggestionContent>;
+      const payload: SuggestionContent = {
+        type,
+        action: suggestion.action || "text",
+      };
+      if (typeof suggestion.icon === "string") {
+        payload.icon = suggestion.icon;
       }
+      if (typeof suggestion.label === "string") {
+        payload.label = suggestion.label;
+      }
+      return payload;
+    }
 
     case ContentType.PROFILE:
       return {
         type,
         name:
-          (data as Partial<ProfileBioContent>).name || makeDefaultDoc("Your name"),
+          (data as Partial<ProfileBioContent>).name ||
+          makeDefaultDoc("Your name"),
         title:
           (data as Partial<ProfileBioContent>).title ||
           makeDefaultDoc("Add your title"),
@@ -375,7 +383,8 @@ export function createTileContent(
           (data as Partial<ProfileBioContent>).bio ||
           makeDefaultDoc("Tell us about yourself..."),
         avatarSrc: (data as Partial<ProfileBioContent>).avatarSrc || "",
-        avatarShape: (data as Partial<ProfileBioContent>).avatarShape || "circle",
+        avatarShape:
+          (data as Partial<ProfileBioContent>).avatarShape || "circle",
         avatarRadius: (data as Partial<ProfileBioContent>).avatarRadius ?? 12,
       } as ProfileBioContent;
 
@@ -461,7 +470,9 @@ export function validateTileContent(content: TileContent): boolean {
       const image = content as ImageContent;
       return (
         !!image.src &&
-        (image.src.startsWith("http") || image.src.startsWith("data:") || image.src.startsWith("blob:"))
+        (image.src.startsWith("http") ||
+          image.src.startsWith("data:") ||
+          image.src.startsWith("blob:"))
       );
     case ContentType.LINK:
       const link = content as LinkContent;
@@ -470,7 +481,9 @@ export function validateTileContent(content: TileContent): boolean {
       const video = content as VideoContent;
       return (
         !!video.src &&
-        (video.src.startsWith("http") || video.src.startsWith("data:") || video.src.startsWith("blob:"))
+        (video.src.startsWith("http") ||
+          video.src.startsWith("data:") ||
+          video.src.startsWith("blob:"))
       );
     case ContentType.EMBED:
       const embed = content as EmbedContent;
@@ -505,76 +518,76 @@ export function getContentComponent(content: TileContent): any {
     case ContentType.TEXT:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/TextContent.vue")
-        )
+          () => import("@/components/tilecontent/TextContent.vue"),
+        ),
       );
     case ContentType.CHAT:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/ChatContent.vue")
-        )
+          () => import("@/components/tilecontent/ChatContent.vue"),
+        ),
       );
     case ContentType.IMAGE:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/ImageContent.vue")
-        )
+          () => import("@/components/tilecontent/ImageContent.vue"),
+        ),
       );
     case ContentType.LINK:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/LinkContent.vue")
-        )
+          () => import("@/components/tilecontent/LinkContent.vue"),
+        ),
       );
     case ContentType.VIDEO:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/VideoContent.vue")
-        )
+          () => import("@/components/tilecontent/VideoContent.vue"),
+        ),
       );
     case ContentType.EMBED:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/EmbedContent.vue")
-        )
+          () => import("@/components/tilecontent/EmbedContent.vue"),
+        ),
       );
     case ContentType.RPG:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/RPGContent.vue")
-        )
+          () => import("@/components/tilecontent/RPGContent.vue"),
+        ),
       );
     case ContentType.SUGGESTION:
       return null; // rendered inline in GridTile
     case ContentType.PROFILE:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/ProfileBioContent.vue")
-        )
+          () => import("@/components/tilecontent/ProfileBioContent.vue"),
+        ),
       );
     case ContentType.MAP:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/MapContent.vue")
-        )
+          () => import("@/components/tilecontent/MapContent.vue"),
+        ),
       );
     case ContentType.CAMPFIRE:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/CampfireContent.vue")
-        )
+          () => import("@/components/tilecontent/CampfireContent.vue"),
+        ),
       );
     case ContentType.CLICKER:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/ClickerContent.vue")
-        )
+          () => import("@/components/tilecontent/ClickerContent.vue"),
+        ),
       );
     case ContentType.YOUTUBE:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/YouTubeContent.vue")
-        )
+          () => import("@/components/tilecontent/YouTubeContent.vue"),
+        ),
       );
     default:
       throw new Error(`Unsupported content type: ${content.type}`);
@@ -586,4 +599,53 @@ export function getOptionComponent(content: TileContent): any | null {
     default:
       return null; // If no options are available
   }
+}
+
+export function computeTextColor(backgroundColor: string): string {
+  const themeStore = useThemeStore();
+  const colorHexMap: Record<string, string> = {
+    "var(--color-red)": "#FFAFA3",
+    "var(--color-orange)": "#FFD3A8",
+    "var(--color-yellow)": "#FFE299",
+    "var(--color-green)": "#B3EFBD",
+    "var(--color-cyan)": "#B3F4EF",
+    "var(--color-blue)": "#A8DAFF",
+    "var(--color-purple)": "#D3BDFF",
+    "var(--color-pink)": "#FFA8DB",
+    "var(--color-light-100)": "#FEFDEC",
+    "var(--color-dark-0)": "#33312C",
+    "var(--color-tile-background)": "#000000",
+    "var(--color-content-background)": "#10100E",
+  };
+
+  const bg = backgroundColor;
+  let hex: string | undefined;
+
+  if (bg.startsWith("#")) {
+    hex = bg;
+  } else if (bg === "var(--color-tile-background)") {
+    hex = themeStore.isDarkMode ? "#000000" : "#FFFEF5";
+  } else if (bg === "var(--color-content-background)") {
+    hex = themeStore.isDarkMode ? "#10100E" : "#FFFEF5";
+  } else {
+    hex = colorHexMap[bg];
+  }
+
+  if (!hex) return "";
+  return getLuminance(hex) > 0.5 ? "#000000" : "#FFFFFF";
+}
+
+const getLuminance = (hex: string): number => {
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+};
+
+export function resolveBackgroundColor(
+  backgroundColor?: string,
+  fallback: string = "var(--color-tile-background)",
+): string {
+  return backgroundColor ?? fallback;
 }

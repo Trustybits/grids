@@ -24,7 +24,7 @@
       :minH="1"
       :maxW="10"
       :maxH="10"
-      :isDraggable="layoutStore.isOwner && !isEditing"
+      :isDraggable="isTileDraggable"
       :isResizable="isTileResizable"
       dragIgnoreFrom="a, button, .tile-caption"
       @move="onMove"
@@ -39,6 +39,7 @@
           'crop-mode-exiting': isExitingCropMode && isCroppable,
           'is-dragging': isDragging,
           'is-exiting': isExiting,
+          'is-activated': isActivated,
         }"
         :data-border="borderVisible ? 'on' : 'off'"
         :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
@@ -54,6 +55,9 @@
             '--tile-bg': !!contentBackgroundColor
               ? contentBackgroundColor
               : 'var(--color-tile-background)',
+            '--tile-text-color': !!contentTextColor
+              ? contentTextColor
+              : 'var(--color-text-primary)',
           }"
         >
           <template v-if="!isSuggestion">
@@ -62,6 +66,7 @@
               v-bind="contentProps"
               ref="childComponent"
               @background-color-change="onContentBackgroundColorChange"
+              @text-color-change="onContentTextColorChange"
             />
           </template>
           <template v-else>
@@ -209,9 +214,12 @@ export default defineComponent({
       computed(() => props.tile.y),
     );
 
+    const isTouchDevice = () => window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+
     const isMoving = ref(false);
     const isDragging = ref(false);
     const isExiting = ref(false);
+    const isActivated = ref(false);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -220,9 +228,14 @@ export default defineComponent({
     const isExitingCropMode = ref(false);
     let stopChildEditingWatch: (() => void) | null = null;
     const contentBackgroundColor = ref<string | null>(null);
+    const contentTextColor = ref<string | null>(null);
 
     const onContentBackgroundColorChange = (color: string) => {
       contentBackgroundColor.value = color;
+    };
+
+    const onContentTextColorChange = (color: string) => {
+      contentTextColor.value = color;
     };
 
     const showCaption = computed(() => {
@@ -278,10 +291,17 @@ export default defineComponent({
     const isProfileTile = computed(
       () => props.tile.content.type === ContentType.PROFILE,
     );
+    const isTileDraggable = computed(() => {
+      if (!layoutStore.isOwner || isEditing.value) return false;
+      if (isTouchDevice()) return isActivated.value;
+      return true;
+    });
+
     const isTileResizable = computed(() => {
       if (!layoutStore.isOwner || isSuggestion.value || isProfileTile.value) {
         return false;
       }
+      if (isTouchDevice()) return isActivated.value && !isEditing.value;
       return !isEditing.value;
     });
 
@@ -540,6 +560,67 @@ export default defineComponent({
       },
     );
 
+    const deactivateTile = () => {
+      isActivated.value = false;
+    };
+
+    const handleTouchOutside = (event: TouchEvent) => {
+      if (
+        gridTileRef.value &&
+        !gridTileRef.value.contains(event.target as Node)
+      ) {
+        deactivateTile();
+        document.removeEventListener('touchstart', handleTouchOutside);
+      }
+    };
+
+    let touchWasActivating = false;
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (!isTouchDevice()) return;
+
+      if (!isActivated.value) {
+        // First touch: activate the tile, allow scroll to continue
+        isActivated.value = true;
+        touchWasActivating = true;
+        clickStart.value = Date.now();
+        document.addEventListener('touchstart', handleTouchOutside, { passive: true });
+        // Do NOT preventDefault — let the browser scroll naturally
+      } else {
+        // Subsequent touch: tile already activated, treat as interaction
+        touchWasActivating = false;
+        clickStart.value = Date.now();
+        event.preventDefault();
+      }
+    };
+
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (!isTouchDevice()) return;
+      if (!isActivated.value) return;
+
+      // Skip interaction on the tap that just activated the tile
+      if (touchWasActivating) {
+        touchWasActivating = false;
+        return;
+      }
+
+      const touchDuration = Date.now() - (clickStart.value || Date.now());
+
+      // Only fire short-click if it was a quick tap (not a scroll)
+      if (touchDuration < CLICK_THRESHOLD) {
+        if (isSuggestion.value) {
+          onSuggestionShortClick();
+        } else {
+          if (childComponent.value?.onShortClick) {
+            childComponent.value.onShortClick(event as unknown as MouseEvent);
+          }
+          if (childComponent.value?.onExitClick) {
+            addClickListener();
+          }
+        }
+      }
+    };
+
     const handleDragStart = (event: Event) => {
       // Prevent default browser drag behavior which interferes with vue-grid-layout
       if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
@@ -582,9 +663,11 @@ export default defineComponent({
     onMounted(() => {
       loadComponent();
 
-      // Add dragstart prevention to the grid tile element
       if (gridTileRef.value) {
         gridTileRef.value.addEventListener("dragstart", handleDragStart);
+        // Use non-passive touchstart so we can conditionally preventDefault on second tap
+        gridTileRef.value.addEventListener("touchstart", handleTouchStart, { passive: false });
+        gridTileRef.value.addEventListener("touchend", handleTouchEnd, { passive: true });
       }
     });
 
@@ -592,10 +675,12 @@ export default defineComponent({
       stopChildEditingWatch?.();
       stopChildEditingWatch = null;
       removeClickListener();
+      document.removeEventListener('touchstart', handleTouchOutside);
 
-      // Remove dragstart listener
       if (gridTileRef.value) {
         gridTileRef.value.removeEventListener("dragstart", handleDragStart);
+        gridTileRef.value.removeEventListener("touchstart", handleTouchStart);
+        gridTileRef.value.removeEventListener("touchend", handleTouchEnd);
       }
     });
 
@@ -614,6 +699,7 @@ export default defineComponent({
       isEditing,
       isDragging,
       isExiting,
+      isActivated,
       onMoved,
       onResize,
       onResized,
@@ -621,11 +707,14 @@ export default defineComponent({
       borderVisible,
       linkBackgroundEnabled,
       contentBackgroundColor,
+      contentTextColor,
       onContentBackgroundColorChange,
+      onContentTextColorChange,
 
       isSuggestion,
       suggestionAction,
       suggestionLabel,
+      isTileDraggable,
       isTileResizable,
 
       mediaInput,
@@ -818,7 +907,11 @@ export default defineComponent({
   /* Only apply hover effect via :hover pseudo-class */
   .tile-wrapper:hover & {
     box-shadow: var(--shadow-tile-hover);
-    background-color: color-mix(in srgb, var(--tile-bg) 85%, var(--color-text-primary) 15%);
+    background-color: color-mix(
+      in srgb,
+      var(--tile-bg) 85%,
+      var(--tile-text-color) 15%
+    );
   }
 }
 
@@ -830,7 +923,11 @@ export default defineComponent({
 
 .tile-wrapper[data-border="off"]:hover {
   .card-body {
-    background-color: color-mix(in srgb, var(--tile-bg) 85%, var(--color-text-primary) 15%);
+    background-color: color-mix(
+      in srgb,
+      var(--tile-bg) 85%,
+      var(--tile-text-color) 15%
+    );
   }
 }
 
@@ -934,18 +1031,22 @@ export default defineComponent({
 
 /* Show elements on tile hover with smooth animations */
 .tile-wrapper:hover .header-options,
-.tile-wrapper:hover :deep(.hover-display) {
+.tile-wrapper:hover :deep(.hover-display),
+.tile-wrapper.is-activated .header-options,
+.tile-wrapper.is-activated :deep(.hover-display) {
   display: flex;
 }
 
-.tile-wrapper:hover .btn-close {
+.tile-wrapper:hover .btn-close,
+.tile-wrapper.is-activated .btn-close {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
 }
 
-/* Non-owner caption: hide on tile hover */
-.tile-wrapper:hover :deep(.viewer-caption) {
+/* Non-owner caption: hide on tile hover or activation */
+.tile-wrapper:hover :deep(.viewer-caption),
+.tile-wrapper.is-activated :deep(.viewer-caption) {
   display: none;
 }
 
@@ -953,14 +1054,16 @@ export default defineComponent({
 .tile-wrapper.crop-mode-active .btn-close,
 .tile-wrapper.crop-mode-exiting .btn-close,
 .tile-wrapper.is-exiting .btn-close,
-.tile-wrapper.is-dragging .btn-close {
+.tile-wrapper.is-dragging .btn-close,
+.tile-wrapper.is-activated.is-dragging .btn-close {
   opacity: 0;
   transform: scale(0);
   pointer-events: none;
 }
 
-/* Show toolbar on tile hover and during crop mode (reaches into TileToolbar child) */
+/* Show toolbar on tile hover, activation, and during crop mode (reaches into TileToolbar child) */
 .tile-wrapper:hover :deep(.tile-toolbar),
+.tile-wrapper.is-activated :deep(.tile-toolbar),
 .tile-wrapper.crop-mode-active :deep(.tile-toolbar),
 .tile-wrapper.crop-mode-exiting :deep(.tile-toolbar) {
   opacity: 1;
@@ -970,6 +1073,7 @@ export default defineComponent({
 
 /* Show search panel when toolbar is visible */
 .tile-wrapper:hover :deep(.toolbar-search-panel),
+.tile-wrapper.is-activated :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-active :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel) {
   pointer-events: auto;

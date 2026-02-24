@@ -407,7 +407,7 @@ h1 {
 .default-grid-button.is-default {
   color: #22c55e;
   opacity: 1;
-  background-color: rgba(34, 197, 94, 0.1);
+  /* background-color: rgba(34, 197, 94, 0.1); */
   /* border-color: rgba(34, 197, 94, 0.3);
   box-shadow: 0 0 12px rgba(34, 197, 94, 0.4); */
 }

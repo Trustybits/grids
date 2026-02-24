@@ -20,7 +20,7 @@
         :data-tooltip="resolveTitle(item)"
         @click.stop="onItemClick($event, item)"
       >
-        <component :is="item.icon" />
+        <component :is="resolveIcon(item)" />
       </button>
     </template>
   </div>
@@ -125,6 +125,7 @@ import {
   type PropType,
 } from "vue";
 import type { Tile } from "@/types/Tile";
+import type { TextContent } from "@/types/TileContent";
 import type {
   ToolbarItem,
   ToolbarMenuItem,
@@ -134,6 +135,9 @@ import { getToolbarItems } from "@/utils/toolbarRegistry";
 import { useLayoutStore } from "@/stores/layout";
 import LocateFixedIcon from "./icons/toolbar/LocateFixedIcon.vue";
 import SearchIcon from "./icons/toolbar/SearchIcon.vue";
+import AlignLeftIcon from "./icons/toolbar/AlignLeftIcon.vue";
+import AlignCenterIcon from "./icons/toolbar/AlignCenterIcon.vue";
+import AlignRightIcon from "./icons/toolbar/AlignRightIcon.vue";
 import ColorPicker from "./ColorPicker.vue";
 import TextAlignPanel from "./TextAlignPanel.vue";
 
@@ -183,7 +187,7 @@ export default defineComponent({
     const panelOpen = computed(
       () => activePanelId.value !== null && isActiveTile.value,
     );
-    
+
     const menuOpen = computed(
       () => activePanelId.value === null && isActiveTile.value,
     );
@@ -223,6 +227,17 @@ export default defineComponent({
       return typeof item.title === "function"
         ? item.title(ctx.value)
         : item.title;
+    };
+
+    const resolveIcon = (item: ToolbarItem) => {
+      if (item.id !== "text-align") return item.icon;
+
+      const content = props.tile.content as TextContent;
+      const align = content?.textAlign ?? "left";
+
+      if (align === "center") return AlignCenterIcon;
+      if (align === "right") return AlignRightIcon;
+      return AlignLeftIcon;
     };
 
     const shouldShowDivider = (idx: number): boolean => {
@@ -288,7 +303,7 @@ export default defineComponent({
           nextTick(() => {
             searchInputRef.value?.focus();
           });
-        
+
         return;
       }
 
@@ -397,6 +412,7 @@ export default defineComponent({
       menuPosition,
       menuItemLayoutDirection,
       resolveTitle,
+      resolveIcon,
       shouldShowDivider,
       onItemClick,
       onMenuItemClick,

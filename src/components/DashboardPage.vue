@@ -330,7 +330,6 @@ h1 {
 .grid-link:hover {
   background-color: var(--color-base-8);
   border-color: var(--color-content-default);
-  transform: translateX(4px);
 }
 
 .grid-icon {

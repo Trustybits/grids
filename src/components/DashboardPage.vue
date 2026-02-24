@@ -28,6 +28,9 @@
                 </svg>
               </div>
               <span class="grid-name">{{ layout.name }}</span>
+              <svg class="grid-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
               <div class="grid-actions">
               <button 
                 @click.prevent="toggleDefaultGrid(layout.id)"
@@ -62,9 +65,6 @@
                 </svg>
               </button>
             </div>
-              <svg class="grid-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
             </router-link>
           </li>
         </ul>
@@ -316,9 +316,9 @@ h1 {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
-  padding: var(--spacing-lg);
+  padding: var(--spacing-md);
   background-color: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  /* border: var(--tile-border-width) solid var(--color-tile-stroke); */
   border-radius: var(--radius-md);
   text-decoration: none;
   color: var(--color-text-primary);
@@ -328,7 +328,7 @@ h1 {
 }
 
 .grid-link:hover {
-  background-color: var(--color-base-8);
+  background-color: var(--color-base-34);
   border-color: var(--color-content-default);
 }
 
@@ -338,10 +338,10 @@ h1 {
   justify-content: center;
   width: 40px;
   height: 40px;
-  background-color: var(--color-content-background);
+  /* background-color: var(--color-content-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-sm);
-  color: var(--color-content-default);
+  border-radius: var(--radius-sm); */
+  color: var(--color-content-low);
   flex-shrink: 0;
   transition: all var(--duration-fast) var(--easing-smooth);
 }
@@ -400,7 +400,7 @@ h1 {
 
 .default-grid-button:hover {
   opacity: 0.7;
-  background-color: var(--color-base-55);
+  color: var(--color-text-primary);
 }
 
 .default-grid-button.is-default {
@@ -425,7 +425,6 @@ h1 {
 
 .rename-button:hover {
   opacity: 0.7;
-  background-color: var(--color-base-55);
   color: var(--color-text-primary);
 }
 
@@ -438,7 +437,6 @@ h1 {
 
 .delete-button:hover {
   opacity: 1;
-  background-color: rgba(239, 68, 68, 0.1);
   color: #ef4444;
 }
 </style>

@@ -129,6 +129,9 @@ const handleCreateGrid = async (name) => {
   try {
     const newLayoutId = await layoutStore.createLayout(name);
     if (newLayoutId) {
+      if (!defaultGridId.value) {
+        defaultGridId.value = newLayoutId;
+      }
       closeModal();
       router.push(`/grid/${newLayoutId}`);
     }

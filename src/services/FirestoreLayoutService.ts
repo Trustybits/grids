@@ -71,6 +71,7 @@ export class FirestoreLayoutService implements LayoutService {
         tiles: data.tiles || [],
         backgroundImageSrc: data.backgroundImageSrc || "",
         backgroundEmbed: data.backgroundEmbed || false,
+        overrides: data.overrides && typeof data.overrides === 'object' ? data.overrides : undefined,
         createdAt: data.createdAt ?? null,
         updatedAt: data.updatedAt ?? null,
         lastOpenedAt: data.lastOpenedAt ?? null,
@@ -95,6 +96,7 @@ export class FirestoreLayoutService implements LayoutService {
         tiles: stripBlobUrls(layout.tiles as unknown[]),
         backgroundImageSrc: layout.backgroundImageSrc,
         backgroundEmbed: layout.backgroundEmbed,
+        overrides: layout.overrides ?? {},
         createdAt: layout.createdAt ?? serverTimestamp(),
         updatedAt: serverTimestamp(),
         lastOpenedAt: layout.lastOpenedAt ?? serverTimestamp(),
@@ -118,6 +120,7 @@ export class FirestoreLayoutService implements LayoutService {
         tiles: stripBlobUrls(layout.tiles as unknown[]),
         backgroundImageSrc: layout.backgroundImageSrc,
         backgroundEmbed: layout.backgroundEmbed,
+        overrides: layout.overrides ?? {},
         updatedAt: serverTimestamp(),
       }) as Record<string, unknown>;
       await updateDoc(docRef, payload);

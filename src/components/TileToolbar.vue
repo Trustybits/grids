@@ -8,12 +8,6 @@
     <template v-for="(item, idx) in visibleItems" :key="item.id">
       <div v-if="shouldShowDivider(idx)" class="toolbar-divider"></div>
       <button
-        :ref="
-          (el) => {
-            if (item.menuItems) menuAnchorRef = el as HTMLButtonElement;
-            if (item.panelId) panelAnchorRef = el as HTMLButtonElement;
-          }
-        "
         class="toolbar-btn"
         :class="[
           item.cssClass,
@@ -24,7 +18,7 @@
           },
         ]"
         :data-tooltip="resolveTitle(item)"
-        @click.stop="onItemClick(item)"
+        @click.stop="onItemClick($event, item)"
       >
         <component :is="item.icon" />
       </button>
@@ -172,7 +166,6 @@ export default defineComponent({
     const menuPosition = ref({ x: 0, y: 0 });
 
     // Panel state (e.g. search bar)
-    const activePanelId = ref<string | null>(null);
     const panelAnchorRef = ref<HTMLButtonElement | null>(null);
     const searchPanelRef = ref<HTMLDivElement | null>(null);
     const searchInputRef = ref<HTMLInputElement | null>(null);
@@ -182,12 +175,17 @@ export default defineComponent({
     const textAlignPanelRef = ref<HTMLDivElement | null>(null);
     const childComponent = props.toolbarRefs.childComponent;
 
-    const menuOpen = computed(
-      () => layoutStore?.activeMenuTileId === props.tile.i,
+    const isActiveTile = computed(
+      () => layoutStore?.activeTileId === props.tile.i,
     );
+    const activePanelId = computed(() => layoutStore?.activePanelId);
 
     const panelOpen = computed(
-      () => layoutStore?.activePanelTileId === props.tile.i,
+      () => activePanelId.value !== null && isActiveTile.value,
+    );
+    
+    const menuOpen = computed(
+      () => activePanelId.value === null && isActiveTile.value,
     );
 
     const ctx = computed<ToolbarContext>(() => ({
@@ -273,40 +271,31 @@ export default defineComponent({
     }));
 
     const closeMenu = () => {
-      layoutStore.closeAllMenus();
+      layoutStore.closeMenus();
     };
 
-    const closePanel = () => {
-      activePanelId.value = null;
-      closeMenu();
-    };
-
-    const onItemClick = (item: ToolbarItem) => {
+    const onItemClick = (event: MouseEvent, item: ToolbarItem) => {
       // Handle panel items (e.g. search)
+      const button = event.currentTarget as HTMLButtonElement | null;
+      if (!button) return;
+
+      if (item.panelId) panelAnchorRef.value = button;
+      if (item.menuItems) menuAnchorRef.value = button;
+
       if (item.panelId) {
-        if (panelOpen.value && activePanelId.value === item.panelId) {
-          closePanel();
-        } else {
-          closeMenu();
-          layoutStore.setActivePanelTileId(props.tile.i);
-          activePanelId.value = item.panelId;
-          if (item.panelId === "search")
-            nextTick(() => {
-              searchInputRef.value?.focus();
-            });
-        }
+        layoutStore.togglePanelActive(props.tile.i, item.panelId);
+        if (item.panelId === "search")
+          nextTick(() => {
+            searchInputRef.value?.focus();
+          });
+        
         return;
       }
 
       // Handle menu items
       if (item.menuItems) {
-        if (menuOpen.value) {
-          closeMenu();
-        } else {
-          closePanel();
-          layoutStore.setActiveMenuTile(props.tile.i);
-          nextTick(positionMenu);
-        }
+        layoutStore.toggleMenuActive(props.tile.i);
+        nextTick(positionMenu);
         return;
       }
 
@@ -348,7 +337,7 @@ export default defineComponent({
         if (panelAnchorRef.value?.contains(target)) return;
         if (colorPickerRef.value?.contains(target)) return;
         if (textAlignPanelRef.value?.contains(target)) return;
-        closePanel();
+        closeMenu();
       }
     };
 
@@ -400,6 +389,7 @@ export default defineComponent({
       visibleMenuItems,
       activeMenuItems,
       ctx,
+      isActiveTile,
       menuOpen,
       menuAnchorRef,
       menuRef,

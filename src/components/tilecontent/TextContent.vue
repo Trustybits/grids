@@ -152,6 +152,7 @@ export default defineComponent({
     const textLinkExists = computed(() => !!props.content?.textLink);
     const isBoldActive = ref(false);
     const isItalicActive = ref(false);
+    const textAlign = computed(() => props.content?.textAlign);
 
     const showLinkModal = ref<boolean>(false);
     const toastStore = useToastStore();
@@ -173,7 +174,6 @@ export default defineComponent({
         checkOverflow();
       },
     });
-
 
     const checkOverflow = () => {
       if (!editor || !editor.value?.view) return;
@@ -360,7 +360,6 @@ export default defineComponent({
       if (!editor.value) return;
       editor.value.chain().focus().toggleBold().run();
     };
-
 
     return {
       layoutStore,

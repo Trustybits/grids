@@ -115,6 +115,7 @@ import AddLinkModal from "../AddLinkModal.vue";
 import type { TextContent } from "@/types/TileContent";
 import { useToastStore } from "@/stores/toast";
 import { computeTextColor, resolveBackgroundColor } from "@/utils/TileUtils";
+import ColorIcon from "../icons/toolbar/ColorIcon.vue";
 
 export default defineComponent({
   components: {
@@ -152,7 +153,7 @@ export default defineComponent({
     const textLinkExists = computed(() => !!props.content?.textLink);
     const isBoldActive = ref(false);
     const isItalicActive = ref(false);
-    const textAlign = computed(() => props.content?.textAlign);
+    const textAlign = computed(() => props.content?.textAlign ?? "left");
 
     const showLinkModal = ref<boolean>(false);
     const toastStore = useToastStore();
@@ -312,7 +313,9 @@ export default defineComponent({
       if (!layoutStore.isOwner) return;
 
       props.content.backgroundColor = color;
-      layoutStore.saveLayout();
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { backgroundColor: color });
+      }
     };
     watch(backgroundColor, (color) => emit("background-color-change", color), {
       immediate: true,
@@ -325,7 +328,9 @@ export default defineComponent({
     const handleTextAlignChange = (align: "left" | "center" | "right") => {
       if (!layoutStore.isOwner) return;
       props.content.textAlign = align;
-      layoutStore.saveLayout();
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { textAlign: align });
+      }
     };
 
     const syncMarkState = () => {

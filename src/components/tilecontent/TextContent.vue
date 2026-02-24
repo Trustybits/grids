@@ -114,7 +114,7 @@ import { useLayoutStore } from "@/stores/layout";
 import AddLinkModal from "../AddLinkModal.vue";
 import type { TextContent } from "@/types/TileContent";
 import { useToastStore } from "@/stores/toast";
-import { useThemeStore } from "@/stores/theme";
+import { computeTextColor, resolveBackgroundColor } from "@/utils/TileUtils";
 
 export default defineComponent({
   components: {
@@ -122,15 +122,15 @@ export default defineComponent({
     TextOptions,
     AddLinkModal,
   },
+  emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
       type: Object as () => TextContent,
       required: true,
     },
   },
-  setup(props) {
+  setup(props, { emit }) {
     const layoutStore = useLayoutStore();
-    const themeStore = useThemeStore();
 
     const isTextOverflowing = ref(false);
     const isEditing = ref(false);
@@ -147,16 +147,6 @@ export default defineComponent({
     const isOneByOne = computed(
       () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1,
     );
-
-    const DEFAULT_COLOR = "var(--color-tile-background)";
-
-    const backgroundColor = computed(() => {
-      if (props.content?.backgroundColor) {
-        return props.content?.backgroundColor;
-      } else {
-        return DEFAULT_COLOR;
-      }
-    });
 
     const textLink = computed(() => props.content?.textLink);
     const textLinkExists = computed(() => !!props.content?.textLink);
@@ -184,48 +174,6 @@ export default defineComponent({
       },
     });
 
-    const colorHexMap: Record<string, string> = {
-      "var(--color-red)": "#FFAFA3",
-      "var(--color-orange)": "#FFD3A8",
-      "var(--color-yellow)": "#FFE299",
-      "var(--color-green)": "#B3EFBD",
-      "var(--color-cyan)": "#B3F4EF",
-      "var(--color-blue)": "#A8DAFF",
-      "var(--color-purple)": "#D3BDFF",
-      "var(--color-pink)": "#FFA8DB",
-      "var(--color-light-100)": "#FEFDEC",
-      "var(--color-dark-0)": "#33312C",
-      "var(--color-tile-background)": "#000000",
-      "var(--color-content-background)": "#10100E",
-    };
-
-    const getLuminance = (hex: string): number => {
-      const c = hex.replace("#", "");
-      const r = parseInt(c.substring(0, 2), 16);
-      const g = parseInt(c.substring(2, 4), 16);
-      const b = parseInt(c.substring(4, 6), 16);
-      return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    };
-
-    const textColor = computed(() => {
-      const bg = backgroundColor.value;
-      let hex: string | undefined;
-
-      if (bg.startsWith("#")) {
-        hex = bg;
-      } else if (bg === "var(--color-tile-background)") {
-        hex = themeStore.isDarkMode ? "#000000" : "#FFFEF5";
-      } else if (bg === "var(--color-content-background)") {
-        hex = themeStore.isDarkMode ? "#10100E" : "#FFFEF5";
-      } else {
-        hex = colorHexMap[bg];
-      }
-
-      if (!hex) return "";
-      return getLuminance(hex) > 0.5 ? "#000000" : "#FFFFFF";
-    });
-
-    const textAlign = computed(() => props.content?.textAlign ?? "left");
 
     const checkOverflow = () => {
       if (!editor || !editor.value?.view) return;
@@ -291,14 +239,6 @@ export default defineComponent({
       isEditing.value = false;
     };
 
-    // if (editor?.value?.view?.dom) {
-    //   editor.value.commands.focus("start");
-    // }
-    // setTimeout(() => {
-    //   isEditing.value = false;
-    // }, 50);
-    // };
-
     // Inject the tile ID provided by GridTile so we can check if this tile
     // should auto-focus on mount (e.g. after paste or toolbar "add text").
     const tileId = inject<string | null>("tileId", null);
@@ -360,12 +300,27 @@ export default defineComponent({
       window.open(textLink.value, "_blank", "noopener,noreferrer");
     };
 
+    const backgroundColor = computed(() => {
+      return resolveBackgroundColor(props.content?.backgroundColor);
+    });
+
+    const textColor = computed(() => {
+      return computeTextColor(backgroundColor.value);
+    });
+
     const handleBackgroundColorChange = (color: string) => {
       if (!layoutStore.isOwner) return;
 
       props.content.backgroundColor = color;
       layoutStore.saveLayout();
     };
+    watch(backgroundColor, (color) => emit("background-color-change", color), {
+      immediate: true,
+    });
+
+    watch(textColor, (color) => emit("text-color-change", color), {
+      immediate: true,
+    });
 
     const handleTextAlignChange = (align: "left" | "center" | "right") => {
       if (!layoutStore.isOwner) return;
@@ -405,6 +360,7 @@ export default defineComponent({
       if (!editor.value) return;
       editor.value.chain().focus().toggleBold().run();
     };
+
 
     return {
       layoutStore,
@@ -446,8 +402,6 @@ export default defineComponent({
 }
 
 .text-content {
-  /* background-color: rgba(255, 255, 255, 0.1); */
-  background-color: var(--tile-bg) !important;
   padding: var(--spacing-md);
   width: 100%;
   scroll-behavior: smooth;
@@ -470,11 +424,6 @@ export default defineComponent({
 .not-editing.can-edit:hover {
   /* background-color: var(--color-editable-hover); */
   cursor: text;
-  background-color: color-mix(
-    in srgb,
-    var(--tile-bg) 85%,
-    white 15%
-  ) !important;
 }
 
 .overflowing::after {

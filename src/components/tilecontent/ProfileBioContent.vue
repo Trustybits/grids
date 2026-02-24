@@ -8,7 +8,12 @@
     <div class="profile-header">
       <div class="profile-avatar-row">
         <div class="avatar" ref="avatarRef" @click="onAvatarClick">
-          <svg v-if="avatarShape === 'hex'" class="avatar-clip-defs" width="0" height="0">
+          <svg
+            v-if="avatarShape === 'hex'"
+            class="avatar-clip-defs"
+            width="0"
+            height="0"
+          >
             <defs>
               <clipPath :id="clipPathId" clipPathUnits="objectBoundingBox">
                 <path :d="hexPath" />
@@ -16,7 +21,12 @@
             </defs>
           </svg>
           <div class="avatar-media" :style="avatarMediaStyle">
-            <img v-if="avatarSrc" :src="avatarSrc" alt="Avatar" class="avatar-image" />
+            <img
+              v-if="avatarSrc"
+              :src="avatarSrc"
+              alt="Avatar"
+              class="avatar-image"
+            />
             <div v-else class="avatar-placeholder">Add photo</div>
           </div>
         </div>
@@ -27,10 +37,18 @@
           @mousedown.stop
         >
           <div class="control-row">
-            <button type="button" class="control-btn" @click.stop="openCustomImagePicker">
+            <button
+              type="button"
+              class="control-btn"
+              @click.stop="openCustomImagePicker"
+            >
               Upload
             </button>
-            <button type="button" class="control-btn" @click.stop="openUrlInput">
+            <button
+              type="button"
+              class="control-btn"
+              @click.stop="openUrlInput"
+            >
               Use URL
             </button>
             <button
@@ -44,9 +62,19 @@
           </div>
 
           <div v-if="showUrlInput" class="control-url">
-            <input v-model="draftAvatarUrl" type="text" placeholder="https://..." />
+            <input
+              v-model="draftAvatarUrl"
+              type="text"
+              placeholder="https://..."
+            />
             <div class="control-row">
-              <button type="button" class="control-btn" @click.stop="applyAvatarUrl">Apply</button>
+              <button
+                type="button"
+                class="control-btn"
+                @click.stop="applyAvatarUrl"
+              >
+                Apply
+              </button>
               <button
                 type="button"
                 class="control-btn control-btn--ghost"
@@ -101,7 +129,7 @@
         </div>
       </div>
 
-      <div class="profile-meta">
+      <div class="profile-meta" :style="{ '--tile-text-color': textColor }">
         <div
           class="profile-name profile-editor"
           :class="{ 'can-edit': layoutStore.isOwner }"
@@ -123,10 +151,10 @@
       class="profile-bio-text profile-editor"
       :class="{ 'can-edit': layoutStore.isOwner }"
       :spellcheck="layoutStore.isOwner && isEditing"
+      :style="{ '--tile-text-color': textColor }"
     >
       <EditorContent :editor="bioEditor" />
     </div>
-
 
     <input
       ref="avatarInput"
@@ -139,7 +167,15 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, nextTick, onMounted, type PropType } from "vue";
+import {
+  defineComponent,
+  ref,
+  computed,
+  watch,
+  nextTick,
+  onMounted,
+  type PropType,
+} from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
 import type { AnyExtension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -152,7 +188,11 @@ import TaskItem from "@tiptap/extension-task-item";
 import TextOptions from "./TextOptions.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { type ProfileBioContent, type AvatarShape } from "@/types/TileContent";
-import { isDirectImageUrl } from "@/utils/TileUtils";
+import {
+  computeTextColor,
+  isDirectImageUrl,
+  resolveBackgroundColor,
+} from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 
 const editorExtensions: AnyExtension[] = [
@@ -170,14 +210,16 @@ export default defineComponent({
     EditorContent,
     TextOptions,
   },
+  emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
       type: Object as PropType<ProfileBioContent>,
       required: true,
     },
   },
-  setup(props) {
+  setup(props, { emit }) {
     const layoutStore = useLayoutStore();
+
     const { uploadFileToUrl } = useFileUpload();
 
     const isEditing = ref(false);
@@ -250,9 +292,11 @@ export default defineComponent({
     watch(
       [() => layoutStore.isOwner, () => isEditing.value],
       ([isOwner, editing]) => {
-        const editors = [nameEditor.value, titleEditor.value, bioEditor.value].filter(
-          (editor) => editor != null
-        ) as any[];
+        const editors = [
+          nameEditor.value,
+          titleEditor.value,
+          bioEditor.value,
+        ].filter((editor) => editor != null) as any[];
         if (!editors.length) return;
 
         const shouldBeEditable = isOwner && editing;
@@ -282,7 +326,7 @@ export default defineComponent({
         }
 
         persistContent();
-      }
+      },
     );
 
     const onShortClick = () => {
@@ -290,7 +334,8 @@ export default defineComponent({
       if (!isEditing.value) {
         isEditing.value = true;
         if (!activeEditor.value) {
-          activeEditor.value = nameEditor.value || titleEditor.value || bioEditor.value || null;
+          activeEditor.value =
+            nameEditor.value || titleEditor.value || bioEditor.value || null;
         }
       }
     };
@@ -323,7 +368,7 @@ export default defineComponent({
         if (typeof value === "number") {
           avatarRadius.value = value;
         }
-      }
+      },
     );
 
     const setAvatarShape = (shape: AvatarShape) => {
@@ -391,7 +436,8 @@ export default defineComponent({
         return;
       }
       if (!isDirectImageUrl(normalized)) {
-        urlError.value = "Only direct image URLs are supported (png, jpg, gif, webp, svg).";
+        urlError.value =
+          "Only direct image URLs are supported (png, jpg, gif, webp, svg).";
         return;
       }
 
@@ -435,7 +481,7 @@ export default defineComponent({
     };
 
     const generateRoundedHexagonPath = (size: number, radius: number) => {
-      const hPadding = (.97 - Math.sqrt(3) / 2) / 2;
+      const hPadding = (0.97 - Math.sqrt(3) / 2) / 2;
       const vPadding = -0.02;
       const xMin = hPadding;
       const xMax = 1 - hPadding;
@@ -487,15 +533,38 @@ export default defineComponent({
     };
 
     const hexPath = computed(() =>
-      generateRoundedHexagonPath(avatarSize.value, avatarRadius.value)
+      generateRoundedHexagonPath(avatarSize.value, avatarRadius.value),
     );
 
     const avatarMediaStyle = computed(() => {
       if (avatarShape.value === "hex") {
         return { clipPath: `url(#${clipPathId})` };
       }
-      const radius = avatarShape.value === "circle" ? "50%" : `${avatarRadius.value}px`;
+      const radius =
+        avatarShape.value === "circle" ? "50%" : `${avatarRadius.value}px`;
       return { borderRadius: radius };
+    });
+
+    const backgroundColor = computed(() => {
+      return resolveBackgroundColor(props.content?.backgroundColor);
+    });
+
+    const textColor = computed(() => {
+      return computeTextColor(backgroundColor.value);
+    });
+
+    const handleBackgroundColorChange = (color: string) => {
+      if (!layoutStore.isOwner) return;
+      props.content.backgroundColor = color;
+      layoutStore.saveLayout();
+    };
+
+    watch(backgroundColor, (color) => emit("background-color-change", color), {
+      immediate: true,
+    });
+
+    watch(textColor, (color) => emit("text-color-change", color), {
+      immediate: true,
     });
 
     return {
@@ -517,6 +586,8 @@ export default defineComponent({
       nameEditor,
       titleEditor,
       bioEditor,
+      backgroundColor,
+      textColor,
       onShortClick,
       onExitClick,
       onResize,
@@ -530,6 +601,7 @@ export default defineComponent({
       setAvatarShape,
       onRadiusInput,
       onRadiusCommit,
+      handleBackgroundColorChange,
     };
   },
 });
@@ -613,7 +685,7 @@ export default defineComponent({
 }
 
 .profile-editor.can-edit:hover {
-  background-color: var(--color-editable-hover);
+  background-color: color-mix(in srgb, var(--tile-text-color) 5%, var(--color-editable-hover) 95%);
   cursor: text;
 }
 
@@ -622,7 +694,7 @@ export default defineComponent({
   font-weight: 700;
   line-height: 1.1;
   font-family: inherit;
-  color: var(--color-text-primary);
+  color: var(--tile-text-color);
 }
 
 .profile-title :deep(.ProseMirror) {
@@ -630,9 +702,14 @@ export default defineComponent({
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--color-content-default);
+  color: color-mix(
+    in srgb,
+    var(--tile-text-color) 40%,
+    var(--color-content-default) 60%
+  );
   line-height: 1.3;
-  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+  font-family:
+    "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
   text-shadow: 0 0 34px rgba(51, 49, 44, 0.55);
 }
@@ -648,7 +725,11 @@ export default defineComponent({
   line-height: 1.3;
   font-weight: 400;
   font-family: inherit;
-  color: var(--color-content-high);
+  color: color-mix(
+    in srgb,
+    var(--color-content-high) 30%,
+    var(--tile-text-color) 70%
+  );
 }
 
 .profile-bio :deep(.ProseMirror p) {

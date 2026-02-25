@@ -689,6 +689,7 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       const colNum = this.currentLayout.colNum || 12;
+      const centerX = Math.floor((colNum - width) / 2);
 
       const hasOverlap = (x: number, y: number): boolean => {
         return this.currentLayout!.tiles.some(tile => {
@@ -701,16 +702,22 @@ export const useLayoutStore = defineStore("layout", {
         });
       };
 
-      // Try to find a clean (non-overlapping) column at the target row
-      for (let x = 0; x <= colNum - width; x++) {
-        if (!hasOverlap(x, targetY)) {
-          return { x, y: targetY };
+      // Try to find a clean (non-overlapping) column at the target row,
+      // scanning outward from the horizontal center.
+      for (let offset = 0; offset <= centerX; offset++) {
+        const left = centerX - offset;
+        const right = centerX + offset;
+        if (left >= 0 && left <= colNum - width && !hasOverlap(left, targetY)) {
+          return { x: left, y: targetY };
+        }
+        if (right !== left && right >= 0 && right <= colNum - width && !hasOverlap(right, targetY)) {
+          return { x: right, y: targetY };
         }
       }
 
-      // Row is fully occupied — place at x=0 and let the grid engine
+      // Row is fully occupied — place at center and let the grid engine
       // push existing tiles out of the way via collision resolution
-      return { x: 0, y: targetY };
+      return { x: centerX, y: targetY };
     },
 
     /**

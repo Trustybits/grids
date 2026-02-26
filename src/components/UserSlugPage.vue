@@ -58,6 +58,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
+import { usePageTitle } from '@/composables/usePageTitle';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { useLayoutStore } from '@/stores/layout';
@@ -75,6 +76,9 @@ const errorTitle = ref('Handle Not Found');
 const errorMessage = ref('');
 const slug = ref('');
 const gridLoaded = ref(false);
+
+const pageTitle = computed(() => slug.value ? `@${slug.value}` : undefined);
+usePageTitle(pageTitle, '—');
 
 const backgroundStyle = computed(() => {
   return {

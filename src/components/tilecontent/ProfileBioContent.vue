@@ -174,6 +174,7 @@ import {
   watch,
   nextTick,
   onMounted,
+  onUnmounted,
   type PropType,
 } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
@@ -194,6 +195,9 @@ import {
   resolveBackgroundColor,
 } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
+import { getAuth } from "firebase/auth";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { db } from "@/firebase";
 
 const editorExtensions: AnyExtension[] = [
   StarterKit,
@@ -220,7 +224,8 @@ export default defineComponent({
   setup(props, { emit }) {
     const layoutStore = useLayoutStore();
 
-    const { uploadFileToUrl } = useFileUpload();
+    const { uploadFileToUrl, uploadExternalImageToStorage } = useFileUpload();
+    const auth = getAuth();
 
     const isEditing = ref(false);
     const activeEditor = ref<any>(null);
@@ -273,7 +278,38 @@ export default defineComponent({
     });
 
     const avatarShape = computed(() => props.content.avatarShape || "circle");
-    const avatarSrc = computed(() => props.content.avatarSrc || "");
+
+    const avatarSrc = ref("");
+    let unsubscribePhoto: (() => void) | null = null;
+
+    const subscribeToProfilePhoto = () => {
+      if (unsubscribePhoto) {
+        unsubscribePhoto();
+        unsubscribePhoto = null;
+      }
+      const uid = layoutStore.currentLayout?.userId ?? auth.currentUser?.uid;
+      if (!uid) return;
+      // publicProfiles is readable by anyone — no auth required
+      unsubscribePhoto = onSnapshot(doc(db, "publicProfiles", uid), (snap) => {
+        avatarSrc.value = snap.data()?.profilePhotoUrl ?? "";
+      });
+    };
+
+    onMounted(() => {
+      subscribeToProfilePhoto();
+    });
+
+    onUnmounted(() => {
+      if (unsubscribePhoto) unsubscribePhoto();
+    });
+
+    const saveProfilePhoto = async (url: string) => {
+      avatarSrc.value = url;
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+      // Write only to publicProfiles (single source of truth, publicly readable)
+      await setDoc(doc(db, "publicProfiles", uid), { profilePhotoUrl: url }, { merge: true });
+    };
 
     const serializeEditor = (editor: any) => {
       let output = JSON.stringify(editor.getJSON());
@@ -418,7 +454,7 @@ export default defineComponent({
 
     const openUrlInput = () => {
       if (!layoutStore.isOwner) return;
-      draftAvatarUrl.value = props.content.avatarSrc || "";
+      draftAvatarUrl.value = avatarSrc.value || "";
       urlError.value = "";
       showUrlInput.value = true;
     };
@@ -428,7 +464,7 @@ export default defineComponent({
       urlError.value = "";
     };
 
-    const applyAvatarUrl = () => {
+    const applyAvatarUrl = async () => {
       if (!layoutStore.isOwner) return;
       const normalized = normalizeImageUrl(draftAvatarUrl.value);
       if (!normalized) {
@@ -441,17 +477,22 @@ export default defineComponent({
         return;
       }
 
-      props.content.avatarSrc = normalized;
-      layoutStore.saveLayout();
-      showUrlInput.value = false;
       urlError.value = "";
+      showUrlInput.value = false;
+      try {
+        const ownedUrl = await uploadExternalImageToStorage(normalized, "images");
+        await saveProfilePhoto(ownedUrl);
+      } catch (err: any) {
+        console.error("Failed to import external image:", err);
+        urlError.value = "Could not import image. Try uploading the file directly.";
+        showUrlInput.value = true;
+      }
     };
 
-    const removeCustomImage = () => {
+    const removeCustomImage = async () => {
       if (!layoutStore.isOwner) return;
-      props.content.avatarSrc = "";
-      layoutStore.saveLayout();
       showUrlInput.value = false;
+      await saveProfilePhoto("");
     };
 
     const uploadAvatarImage = async (file: File) => {
@@ -464,8 +505,7 @@ export default defineComponent({
 
       try {
         const url = await uploadFileToUrl(file, { fileType: "images" });
-        props.content.avatarSrc = url;
-        layoutStore.saveLayout();
+        await saveProfilePhoto(url);
       } catch (error: any) {
         console.error("Avatar upload failed:", error);
         alert(error.message || "Failed to upload image. Please try again.");

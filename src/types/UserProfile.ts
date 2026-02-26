@@ -8,6 +8,7 @@ export interface UserProfile {
   lastLogin?: Date;
   storageUsed?: number;
   recentLayoutIds?: string[];
+  profilePhotoUrl?: string;
 }
 
 /**

@@ -148,7 +148,6 @@ export interface ProfileBioContent extends TileContent {
   name: string;
   title: string;
   bio: string;
-  avatarSrc: string;
   avatarShape: AvatarShape;
   avatarRadius: number;
   backgroundColor?: string;

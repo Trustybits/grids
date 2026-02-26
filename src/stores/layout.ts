@@ -958,6 +958,29 @@ export const useLayoutStore = defineStore("layout", {
         this.error = "Failed to delete layout.";
         console.error(err);
       }
-    },    
+    },
+
+    // Rename a layout by updating its name
+    async renameLayout(id: string, newName: string) {
+      try {
+        const layout = this.layouts.find((l) => l.id === id);
+        if (!layout) {
+          throw new Error("Layout not found");
+        }
+
+        // Update the layout name
+        layout.name = newName;
+        await layoutService.updateLayout(layout);
+
+        // Update current layout if it's the one being renamed
+        if (this.currentLayout?.id === id) {
+          this.currentLayout.name = newName;
+        }
+      } catch (err) {
+        this.error = "Failed to rename layout.";
+        console.error(err);
+        throw err;
+      }
+    },
   },
 });

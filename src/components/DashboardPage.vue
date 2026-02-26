@@ -27,10 +27,12 @@
                   <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
                 </svg>
               </div>
-              <span class="grid-name">{{ layout.name }}</span>
-              <svg class="grid-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+              <span class="grid-name">{{ layout.name }}
+                <svg class="grid-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+
               <div class="grid-actions">
               <button 
                 @click.prevent="toggleDefaultGrid(layout.id)"
@@ -299,7 +301,7 @@ h1 {
 .grid-list {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
   list-style: none;
   padding: 0;
   margin: 0;
@@ -328,7 +330,7 @@ h1 {
 }
 
 .grid-link:hover {
-  background-color: var(--color-base-34);
+  background-color: var(--color-content-background);
   border-color: var(--color-content-default);
 }
 
@@ -360,6 +362,7 @@ h1 {
 }
 
 .grid-arrow {
+  margin-left: var(--spacing-sm);
   color: var(--color-content-default);
   opacity: 0;
   transform: translateX(-4px);
@@ -369,7 +372,6 @@ h1 {
 
 .grid-link:hover .grid-arrow {
   opacity: 1;
-  transform: translateX(0);
 }
 
 .grid-actions {

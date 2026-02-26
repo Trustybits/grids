@@ -4,12 +4,15 @@
     v-show="isEditing"
     :editor="editor"
   />
-  <div class="text-container" ref="textContentDiv">
+  <div
+    class="text-container"
+    ref="textContentDiv"
+    :class="{ overflowing: shouldShowOverflow }"
+  >
     <div
       class="text-content"
       :class="{
         'not-editing': !isEditing,
-        overflowing: isTextOverflowing,
         'can-edit': layoutStore.isOwner,
         'is-wide-1-high': isWideOneHigh,
         'is-tall-1-wide': isTallOneWide,
@@ -100,6 +103,8 @@ import {
   inject,
   computed,
   type ComputedRef,
+  nextTick,
+  onUnmounted,
 } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
 import StarterKit from "@tiptap/starter-kit";
@@ -134,6 +139,8 @@ export default defineComponent({
     const layoutStore = useLayoutStore();
 
     const isTextOverflowing = ref(false);
+    const isScrolledToBottom = ref(false);
+    const editorDomRef = ref<HTMLElement | null>(null);
     const isEditing = ref(false);
     const textContentDiv = ref<HTMLDivElement | null>(null);
 
@@ -170,6 +177,20 @@ export default defineComponent({
         TaskItem,
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",
+      onCreate({ editor }) {
+        nextTick(() => {
+          checkOverflow();
+
+          const container = textContentDiv.value;
+          if (container) {
+            const scrollableElement = container.querySelector(".text-content") as HTMLElement;
+            if (scrollableElement) {
+              editorDomRef.value = scrollableElement;
+              scrollableElement.addEventListener("scroll", handleScroll);
+            }
+          }
+        });
+      },
       onUpdate({ editor }) {
         // props.content.text = editor.getHTML();
         checkOverflow();
@@ -186,7 +207,32 @@ export default defineComponent({
       const isOverflowing = container.clientHeight < editorDom.clientHeight + 5;
 
       isTextOverflowing.value = isOverflowing;
+
+      checkScrollPosition();
     };
+
+    const checkScrollPosition = () => {
+      const container = textContentDiv.value;
+      if (!container) return;
+
+      const scrollableElement = container.querySelector(".text-content") as HTMLElement;
+      if (!scrollableElement) return;
+
+      const threshold = 5;
+      const isAtBottom =
+        scrollableElement.scrollTop + scrollableElement.clientHeight >=
+        scrollableElement.scrollHeight - threshold;
+
+      isScrolledToBottom.value = isAtBottom;
+    };
+
+    const handleScroll = () => {
+      checkScrollPosition();
+    };
+
+    const shouldShowOverflow = computed(
+      () => isTextOverflowing.value && !isScrolledToBottom.value,
+    );
 
     watch(
       [() => layoutStore.isOwner, () => isEditing.value],
@@ -245,8 +291,6 @@ export default defineComponent({
     const tileId = inject<string | null>("tileId", null);
 
     onMounted(() => {
-      checkOverflow();
-
       // If this tile was just created and flagged for auto-focus, enter
       // edit mode immediately so the user can start typing right away.
       if (
@@ -256,6 +300,13 @@ export default defineComponent({
       ) {
         layoutStore.pendingFocusTileId = null;
         isEditing.value = true;
+      }
+    });
+
+    onUnmounted(() => {
+      if (editorDomRef.value) {
+        editorDomRef.value.removeEventListener("scroll", handleScroll);
+        editorDomRef.value = null;
       }
     });
 
@@ -317,6 +368,7 @@ export default defineComponent({
         layoutStore.patchTileContent(tileId, { backgroundColor: color });
       }
     };
+
     watch(backgroundColor, (color) => emit("background-color-change", color), {
       immediate: true,
     });
@@ -369,7 +421,7 @@ export default defineComponent({
     return {
       layoutStore,
       editor,
-      isTextOverflowing,
+      shouldShowOverflow,
       isEditing,
       textContentDiv,
       showLinkModal,
@@ -433,8 +485,8 @@ export default defineComponent({
 .overflowing::after {
   content: "...";
   position: absolute;
-  right: 8px;
-  bottom: 8px;
+  right: 18px;
+  bottom: 12px;
   color: inherit;
 }
 

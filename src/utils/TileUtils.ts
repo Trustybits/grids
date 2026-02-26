@@ -440,6 +440,7 @@ export function createTileContent(
         statusPropertyName: (data as Partial<RoadmapFeedContent>).statusPropertyName || "",
         upvotePropertyName: (data as Partial<RoadmapFeedContent>).upvotePropertyName || "",
         statusMapping: (data as Partial<RoadmapFeedContent>).statusMapping || {},
+        queryFilters: (data as Partial<RoadmapFeedContent>).queryFilters,
         cachedItems: (data as Partial<RoadmapFeedContent>).cachedItems,
         lastSyncedAt: (data as Partial<RoadmapFeedContent>).lastSyncedAt,
       } as RoadmapFeedContent;

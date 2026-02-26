@@ -196,7 +196,7 @@ import {
 } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { getAuth } from "firebase/auth";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "@/firebase";
 
 const editorExtensions: AnyExtension[] = [
@@ -287,10 +287,10 @@ export default defineComponent({
         unsubscribePhoto();
         unsubscribePhoto = null;
       }
-      const uid = auth.currentUser?.uid ?? layoutStore.currentLayout?.userId;
+      const uid = layoutStore.currentLayout?.userId ?? auth.currentUser?.uid;
       if (!uid) return;
-      const userRef = doc(db, "users", uid);
-      unsubscribePhoto = onSnapshot(userRef, (snap) => {
+      // publicProfiles is readable by anyone — no auth required
+      unsubscribePhoto = onSnapshot(doc(db, "publicProfiles", uid), (snap) => {
         avatarSrc.value = snap.data()?.profilePhotoUrl ?? "";
       });
     };
@@ -307,8 +307,8 @@ export default defineComponent({
       avatarSrc.value = url;
       const uid = auth.currentUser?.uid;
       if (!uid) return;
-      const userRef = doc(db, "users", uid);
-      await updateDoc(userRef, { profilePhotoUrl: url });
+      // Write only to publicProfiles (single source of truth, publicly readable)
+      await setDoc(doc(db, "publicProfiles", uid), { profilePhotoUrl: url }, { merge: true });
     };
 
     const serializeEditor = (editor: any) => {

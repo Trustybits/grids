@@ -564,7 +564,7 @@ export default defineComponent({
   right: 9px;
   width: 24px;
   height: 24px;
-  color: var(--color-text-primary);
+  color: inherit;
   opacity: 0.21;
   transition: opacity var(--duration-fast) var(--easing-ease-in-out);
   pointer-events: auto;

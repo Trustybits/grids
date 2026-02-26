@@ -319,8 +319,8 @@ h1 {
   align-items: center;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
-  background-color: var(--color-tile-background);
-  /* border: var(--tile-border-width) solid var(--color-tile-stroke); */
+  background-color: var(--color-content-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: var(--radius-md);
   text-decoration: none;
   color: var(--color-text-primary);
@@ -330,8 +330,9 @@ h1 {
 }
 
 .grid-link:hover {
-  background-color: var(--color-content-background);
-  border-color: var(--color-content-default);
+  background-color: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  /* border-color: var(--color-content-default); */
 }
 
 .grid-icon {
@@ -372,6 +373,7 @@ h1 {
 
 .grid-link:hover .grid-arrow {
   opacity: 1;
+  transform: translateX(0);
 }
 
 .grid-actions {

@@ -1769,7 +1769,7 @@ export const fetchNotionRoadmap = functions
     // No auth required — roadmap data is public (visible to anyone who can view the grid).
     // The Notion access token is read server-side from Firestore and never returned to the client.
 
-    const { layoutId, tileId, statusPropertyName, upvotePropertyName, statusMapping, databaseIdOverride } = data as {
+    const { layoutId, tileId, statusPropertyName, upvotePropertyName, statusMapping, databaseIdOverride, queryFilters } = data as {
       layoutId?: string;
       tileId?: string;
       statusPropertyName?: string;
@@ -1779,6 +1779,9 @@ export const fetchNotionRoadmap = functions
       // Optional: pass the database ID directly so the client doesn't need to
       // wait for patchTileContent to persist to Firestore before calling this function.
       databaseIdOverride?: string;
+      // Owner-configured filters applied when querying Notion.
+      // Each filter maps to a Notion API filter condition.
+      queryFilters?: Array<{ propertyName: string; type: string; value: boolean | string | string[] }>;
     };
 
     if (!layoutId || !tileId) {
@@ -1817,6 +1820,39 @@ export const fetchNotionRoadmap = functions
     const effectiveStatusProp = statusPropertyName || tile.content.statusPropertyName || "";
     const effectiveUpvoteProp = upvotePropertyName || tile.content.upvotePropertyName || "";
     const effectiveMapping: Record<string, string> = statusMapping || tile.content.statusMapping || {};
+    // Owner-configured query filters — applied as Notion API filter conditions
+    const effectiveQueryFilters: Array<{ propertyName: string; type: string; value: boolean | string | string[] }> =
+      queryFilters || (tile.content.queryFilters as Array<{ propertyName: string; type: string; value: boolean | string | string[] }> | undefined) || [];
+
+    // Build the Notion API `filter` object from effectiveQueryFilters.
+    // All conditions are ANDed together using a compound `and` filter.
+    // multi_select uses OR logic: item must have at least one of the selected tags.
+    const buildNotionFilter = (): Record<string, any> | undefined => {
+      if (effectiveQueryFilters.length === 0) return undefined;
+      const conditions: Record<string, any>[] = [];
+      for (const qf of effectiveQueryFilters) {
+        if (qf.type === "checkbox") {
+          conditions.push({ property: qf.propertyName, checkbox: { equals: qf.value as boolean } });
+        } else if (qf.type === "select") {
+          conditions.push({ property: qf.propertyName, select: { equals: qf.value as string } });
+        } else if (qf.type === "status") {
+          conditions.push({ property: qf.propertyName, status: { equals: qf.value as string } });
+        } else if (qf.type === "multi_select") {
+          const values = Array.isArray(qf.value) ? qf.value as string[] : [qf.value as string];
+          if (values.length === 0) continue;
+          if (values.length === 1) {
+            conditions.push({ property: qf.propertyName, multi_select: { contains: values[0] } });
+          } else {
+            // OR: at least one tag must match — expressed as a nested `or` compound
+            conditions.push({ or: values.map((v) => ({ property: qf.propertyName, multi_select: { contains: v } })) });
+          }
+        }
+      }
+      if (conditions.length === 0) return undefined;
+      if (conditions.length === 1) return conditions[0];
+      return { and: conditions };
+    };
+    const notionFilter = buildNotionFilter();
 
     // Fetch the database schema and all pages in parallel (schema fetch is independent)
     const schemaFetchPromise = fetch(`https://api.notion.com/v1/databases/${databaseId}`, {
@@ -1839,6 +1875,7 @@ export const fetchNotionRoadmap = functions
     while (hasMore) {
       const body: Record<string, any> = { page_size: 100, sorts };
       if (startCursor) body.start_cursor = startCursor;
+      if (notionFilter) body.filter = notionFilter;
 
       const queryRes = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
         method: "POST",
@@ -1921,6 +1958,8 @@ export const fetchNotionRoadmap = functions
               ? (prop.select?.options || []).map((o: any) => o.name as string)
               : prop.type === "status"
               ? (prop.status?.options || []).map((o: any) => o.name as string)
+              : prop.type === "multi_select"
+              ? (prop.multi_select?.options || []).map((o: any) => o.name as string)
               : undefined,
         }));
       }

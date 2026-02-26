@@ -251,6 +251,20 @@ export interface YouTubeContent extends TileContent {
 // Notion select values are mapped to these by the owner during setup.
 export type RoadmapStatus = "backlog" | "in_progress" | "done";
 
+// Property types that can be used as query filters when fetching from Notion.
+export type RoadmapFilterableType = "checkbox" | "select" | "multi_select" | "status";
+
+// A single owner-configured filter applied when querying the Notion database.
+// These are sent to the Cloud Function and translated into Notion API filter conditions.
+export interface RoadmapQueryFilter {
+  propertyName: string;
+  type: RoadmapFilterableType;
+  // checkbox: true | false
+  // select / status: a single option name string
+  // multi_select: array of option name strings (OR logic — item must have ANY of these)
+  value: boolean | string | string[];
+}
+
 // A single roadmap item as returned by the fetchNotionRoadmap Cloud Function.
 // This is the shape stored in the tile's local cache (refreshed on mount).
 export interface RoadmapItem {
@@ -273,6 +287,9 @@ export interface RoadmapFeedContent extends TileContent {
   // Maps raw Notion select option names → RoadmapStatus buckets.
   // e.g. { "In Review": "in_progress", "Shipped": "done" }
   statusMapping: Record<string, RoadmapStatus>;
+  // Owner-configured filters applied server-side when querying Notion.
+  // Only items matching all filters are fetched and shown on the roadmap.
+  queryFilters?: RoadmapQueryFilter[];
   // Cached items from the last successful Notion fetch, stored so the tile
   // can render immediately on load without waiting for a network round-trip.
   cachedItems?: RoadmapItem[];

@@ -101,6 +101,76 @@
           <option v-for="p in numberProperties" :key="p.name" :value="p.name">{{ p.name }}</option>
         </select>
 
+        <!-- Query filters: owner narrows which Notion items are shown on the roadmap -->
+        <template v-if="filterableProperties.length">
+          <label class="roadmap-settings-label">Filters</label>
+          <p class="roadmap-settings-hint">Only items matching all active filters will be shown.</p>
+          <div class="roadmap-query-filters">
+            <div
+              v-for="filter in draftQueryFilters"
+              :key="filter.propertyName"
+              class="roadmap-qf-row"
+            >
+              <span class="roadmap-qf-name">{{ filter.propertyName }}</span>
+              <!-- Checkbox filter value -->
+              <template v-if="filter.type === 'checkbox'">
+                <select
+                  :value="String(filter.value)"
+                  class="roadmap-settings-select roadmap-settings-select--sm"
+                  @change="(e) => setQueryFilterValue(filter.propertyName, (e.target as HTMLSelectElement).value === 'true')"
+                >
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </template>
+              <!-- Select / status filter value -->
+              <template v-else-if="filter.type === 'select' || filter.type === 'status'">
+                <select
+                  :value="String(filter.value)"
+                  class="roadmap-settings-select roadmap-settings-select--sm"
+                  @change="(e) => setQueryFilterValue(filter.propertyName, (e.target as HTMLSelectElement).value)"
+                >
+                  <option v-for="opt in getPropertyOptions(filter.propertyName)" :key="opt" :value="opt">{{ opt }}</option>
+                </select>
+              </template>
+              <!-- Multi-select filter values -->
+              <template v-else-if="filter.type === 'multi_select'">
+                <div class="roadmap-qf-multiopts">
+                  <label
+                    v-for="opt in getPropertyOptions(filter.propertyName)"
+                    :key="opt"
+                    class="roadmap-qf-opt"
+                    :class="{ 'is-active': Array.isArray(filter.value) && filter.value.includes(opt) }"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="Array.isArray(filter.value) && filter.value.includes(opt)"
+                      @change="toggleMultiSelectFilterValue(filter.propertyName, opt)"
+                    />
+                    {{ opt }}
+                  </label>
+                </div>
+              </template>
+              <button class="roadmap-qf-remove" title="Remove filter" @click.stop="removeQueryFilter(filter.propertyName)">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <!-- Add a new filter row -->
+            <div v-if="availableFilterProperties.length" class="roadmap-qf-add-row">
+              <select
+                v-model="newFilterPropName"
+                class="roadmap-settings-select"
+              >
+                <option value="">— add filter —</option>
+                <option v-for="p in availableFilterProperties" :key="p.name" :value="p.name">{{ p.name }} ({{ p.type.replace('_',' ') }})</option>
+              </select>
+              <button class="roadmap-qf-add-btn" :disabled="!newFilterPropName" @click.stop="addQueryFilter">Add</button>
+            </div>
+          </div>
+        </template>
+
         <button class="roadmap-settings-save-btn" @click.stop="saveAllSettings">Save &amp; Refresh</button>
         <button class="roadmap-settings-disconnect-btn" @click.stop="reconnect">Reconnect Notion</button>
       </div>
@@ -117,7 +187,7 @@
       </div>
 
       <!-- Kanban columns: Backlog / In Progress / Done -->
-      <div v-else class="roadmap-columns" @mousedown.stop>
+      <div v-if="!isLoading && !fetchError" class="roadmap-columns" @mousedown.stop>
         <div v-for="col in columns" :key="col.key" class="roadmap-column">
           <div class="roadmap-column-header">
             <span class="roadmap-column-dot" :class="`roadmap-column-dot--${col.key}`"></span>
@@ -173,7 +243,7 @@ import { httpsCallable } from "firebase/functions";
 import { useRouter } from "vue-router";
 import { db, functions } from "@/firebase";
 import { useLayoutStore } from "@/stores/layout";
-import type { RoadmapFeedContent, RoadmapItem, RoadmapStatus } from "@/types/TileContent";
+import type { RoadmapFeedContent, RoadmapFilterableType, RoadmapItem, RoadmapQueryFilter, RoadmapStatus } from "@/types/TileContent";
 
 // Shape returned by the listNotionDatabases Cloud Function
 interface NotionDatabase {
@@ -247,6 +317,12 @@ export default defineComponent({
     const draftStatusProp = ref(props.content.statusPropertyName);
     const draftUpvoteProp = ref(props.content.upvotePropertyName);
     const draftStatusMapping = ref<Record<string, string>>({ ...props.content.statusMapping });
+    // Draft query filters — a working copy of the saved queryFilters the owner can edit
+    const draftQueryFilters = ref<RoadmapQueryFilter[]>(
+      (props.content.queryFilters ?? []).map((f) => ({ ...f, value: Array.isArray(f.value) ? [...f.value as string[]] : f.value }))
+    );
+    // The property name selected in the "add filter" dropdown
+    const newFilterPropName = ref("");
 
     // Filtered property lists for the settings dropdowns
     const statusProperties = computed(() =>
@@ -260,6 +336,55 @@ export default defineComponent({
       const prop = propertyOptions.value.find((p) => p.name === draftStatusProp.value);
       return prop?.selectOptions ?? [];
     });
+    // Properties eligible to be query filters (checkbox, select, multi_select, status)
+    const filterableProperties = computed(() =>
+      propertyOptions.value.filter((p) =>
+        p.type === "checkbox" || p.type === "select" || p.type === "multi_select" || p.type === "status"
+      )
+    );
+    // Properties not yet added as a filter (shown in the "add filter" dropdown)
+    const availableFilterProperties = computed(() => {
+      const active = new Set(draftQueryFilters.value.map((f) => f.propertyName));
+      return filterableProperties.value.filter((p) => !active.has(p.name));
+    });
+    // Returns the select/status/multi_select option list for a given property name
+    const getPropertyOptions = (propName: string): string[] =>
+      propertyOptions.value.find((p) => p.name === propName)?.selectOptions ?? [];
+
+    // Add a new filter row for the selected property
+    const addQueryFilter = () => {
+      const name = newFilterPropName.value;
+      if (!name) return;
+      const prop = propertyOptions.value.find((p) => p.name === name);
+      if (!prop) return;
+      const type = prop.type as RoadmapFilterableType;
+      let defaultValue: boolean | string | string[];
+      if (type === "checkbox") defaultValue = true;
+      else if (type === "multi_select") defaultValue = [];
+      else defaultValue = prop.selectOptions?.[0] ?? "";
+      draftQueryFilters.value = [...draftQueryFilters.value, { propertyName: name, type, value: defaultValue }];
+      newFilterPropName.value = "";
+    };
+
+    const removeQueryFilter = (propName: string) => {
+      draftQueryFilters.value = draftQueryFilters.value.filter((f) => f.propertyName !== propName);
+    };
+
+    const setQueryFilterValue = (propName: string, val: boolean | string) => {
+      draftQueryFilters.value = draftQueryFilters.value.map((f) =>
+        f.propertyName === propName ? { ...f, value: val } : f
+      );
+    };
+
+    const toggleMultiSelectFilterValue = (propName: string, opt: string) => {
+      draftQueryFilters.value = draftQueryFilters.value.map((f) => {
+        if (f.propertyName !== propName) return f;
+        const current = Array.isArray(f.value) ? [...f.value as string[]] : [];
+        const idx = current.indexOf(opt);
+        if (idx === -1) current.push(opt); else current.splice(idx, 1);
+        return { ...f, value: current };
+      });
+    };
 
     // ── Upvote state ─────────────────────────────────────────────────
     // Set of all Notion page IDs this user has upvoted in this tile.
@@ -545,7 +670,10 @@ export default defineComponent({
     };
     const saveAllSettings = () => {
       saveDatabaseId(); saveStatusProp(); saveUpvoteProp();
-      layoutStore.patchTileContent(tileId, { statusMapping: { ...draftStatusMapping.value } });
+      layoutStore.patchTileContent(tileId, {
+        statusMapping: { ...draftStatusMapping.value },
+        queryFilters: draftQueryFilters.value.length > 0 ? draftQueryFilters.value : undefined,
+      });
       showSettings.value = false;
       setupPhase.value = "idle";
       refresh();
@@ -577,6 +705,9 @@ export default defineComponent({
     watch(() => props.content.statusPropertyName, (val) => { draftStatusProp.value = val; });
     watch(() => props.content.upvotePropertyName, (val) => { draftUpvoteProp.value = val; });
     watch(() => props.content.statusMapping, (val) => { draftStatusMapping.value = { ...val }; });
+    watch(() => props.content.queryFilters, (val) => {
+      draftQueryFilters.value = (val ?? []).map((f) => ({ ...f, value: Array.isArray(f.value) ? [...f.value as string[]] : f.value }));
+    });
 
     onUnmounted(() => {
       if (unsubscribeUpvotes) { unsubscribeUpvotes(); unsubscribeUpvotes = null; }
@@ -588,6 +719,10 @@ export default defineComponent({
       isLoading, fetchError, hasItems, columns,
       showSettings, draftDatabaseId, draftStatusProp, draftUpvoteProp, draftStatusMapping,
       statusProperties, numberProperties, currentStatusOptions,
+      filterableProperties, availableFilterProperties,
+      draftQueryFilters, newFilterPropName,
+      addQueryFilter, removeQueryFilter, setQueryFilterValue, toggleMultiSelectFilterValue,
+      getPropertyOptions,
       availableDatabases, isLoadingDatabases, selectDatabase,
       myVotedPageIds, pendingVoteId, canVote, currentUser, goToLogin,
       optimisticCount, relativeTime,
@@ -798,6 +933,96 @@ export default defineComponent({
   transition: opacity var(--duration-fast) var(--easing-ease-in-out);
 }
 .roadmap-settings-disconnect-btn:hover { opacity: 1; }
+
+/* ── Query filter rows (settings panel) ────────────────────────── */
+.roadmap-query-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.roadmap-qf-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.roadmap-qf-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.roadmap-qf-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 18%, transparent);
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  opacity: 0.4;
+  flex-shrink: 0;
+  transition: opacity var(--duration-fast) var(--easing-ease-in-out);
+}
+.roadmap-qf-remove:hover { opacity: 1; }
+.roadmap-qf-multiopts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+.roadmap-qf-opt {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 18%, transparent);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition:
+    opacity var(--duration-fast) var(--easing-ease-in-out),
+    background var(--duration-fast) var(--easing-ease-in-out),
+    border-color var(--duration-fast) var(--easing-ease-in-out);
+}
+.roadmap-qf-opt:hover { opacity: 1; }
+.roadmap-qf-opt.is-active {
+  opacity: 1;
+  background: var(--color-blue);
+  border-color: var(--color-blue);
+  color: #1a1a2e;
+}
+.roadmap-qf-opt input[type="checkbox"] { display: none; }
+.roadmap-qf-add-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+.roadmap-qf-add-btn {
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--color-text-primary);
+  color: var(--color-tile-background);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity var(--duration-fast) var(--easing-ease-in-out);
+}
+.roadmap-qf-add-btn:hover { opacity: 0.85; }
+.roadmap-qf-add-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ── Loading skeleton ───────────────────────────────────────────── */
 .roadmap-loading { display: flex; gap: var(--spacing-sm); flex: 1; }

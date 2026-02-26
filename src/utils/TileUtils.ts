@@ -382,7 +382,6 @@ export function createTileContent(
         bio:
           (data as Partial<ProfileBioContent>).bio ||
           makeDefaultDoc("Tell us about yourself..."),
-        avatarSrc: (data as Partial<ProfileBioContent>).avatarSrc || "",
         avatarShape:
           (data as Partial<ProfileBioContent>).avatarShape || "circle",
         avatarRadius: (data as Partial<ProfileBioContent>).avatarRadius ?? 12,

@@ -60,8 +60,7 @@ import GriddleAnimation from '@/components/GriddleAnimation.vue';
 import DiscordIcon from '@/components/icons/DiscordIcon.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
 
-// Set base page title (no suffix for home page)
-const pageTitle = ref(undefined);
+const pageTitle = ref('Home');
 usePageTitle(pageTitle);
 </script>
 

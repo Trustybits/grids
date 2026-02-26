@@ -1824,6 +1824,9 @@ export const fetchNotionRoadmap = functions
     const effectiveQueryFilters: Array<{ propertyName: string; type: string; value: boolean | string | string[] }> =
       queryFilters || (tile.content.queryFilters as Array<{ propertyName: string; type: string; value: boolean | string | string[] }> | undefined) || [];
 
+    logger.info("[fetchNotionRoadmap] Received queryFilters from client:", { queryFilters });
+    logger.info("[fetchNotionRoadmap] Effective queryFilters after fallback:", { effectiveQueryFilters });
+
     // Build the Notion API `filter` object from effectiveQueryFilters.
     // All conditions are ANDed together using a compound `and` filter.
     // multi_select uses OR logic: item must have at least one of the selected tags.
@@ -1853,6 +1856,7 @@ export const fetchNotionRoadmap = functions
       return { and: conditions };
     };
     const notionFilter = buildNotionFilter();
+    logger.info("[fetchNotionRoadmap] Built Notion filter:", { notionFilter: JSON.stringify(notionFilter) });
 
     // Fetch the database schema and all pages in parallel (schema fetch is independent)
     const schemaFetchPromise = fetch(`https://api.notion.com/v1/databases/${databaseId}`, {

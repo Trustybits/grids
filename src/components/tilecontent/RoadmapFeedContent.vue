@@ -30,7 +30,8 @@
         <span class="roadmap-title">Roadmap</span>
         <div class="roadmap-header-actions">
           <span v-if="content.lastSyncedAt" class="roadmap-synced-at">Updated {{ relativeTime(content.lastSyncedAt) }}</span>
-          <button class="roadmap-icon-btn" title="Refresh from Notion" @click.stop="refresh" :disabled="isLoading">
+          <!-- Refresh button visible only to layout owner -->
+          <button v-if="isOwner" class="roadmap-icon-btn" title="Refresh from Notion" @click.stop="() => refresh()" :disabled="isLoading">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" :class="{ 'is-spinning': isLoading }">
               <path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               <path d="M23 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -177,13 +178,14 @@
 
       <!-- Loading skeleton shown on first load before any cached items exist -->
       <div v-if="isLoading && !hasItems" class="roadmap-loading">
+        <div class="roadmap-loading-text">{{ loadingText }}</div>
         <div v-for="i in 3" :key="i" class="roadmap-skeleton-card"></div>
       </div>
 
       <!-- Error state -->
       <div v-else-if="fetchError" class="roadmap-fetch-error">
         <p>{{ fetchError }}</p>
-        <button class="roadmap-icon-btn" @click.stop="refresh">Retry</button>
+        <button class="roadmap-icon-btn" @click.stop="() => refresh()">Retry</button>
       </div>
 
       <!-- Kanban columns: Backlog / In Progress / Done -->
@@ -305,6 +307,16 @@ export default defineComponent({
     // Start from cached items so the tile renders immediately on load
     const items = ref<RoadmapItem[]>(props.content.cachedItems ?? []);
     const hasItems = computed(() => items.value.length > 0);
+    // Cycling flavor text for the loading skeleton
+    const loadingMessages = [
+      "Loading your roadmap...",
+      "Syncing with Notion...",
+      "Fetching the latest updates...",
+      "Building your grid...",
+      "Almost there...",
+    ];
+    const loadingText = ref(loadingMessages[0]);
+    let loadingTextInterval: ReturnType<typeof setInterval> | null = null;
     // Property options from the Notion DB schema — used to populate settings dropdowns
     const propertyOptions = ref<{ name: string; type: string; selectOptions?: string[] }[]>([]);
 
@@ -411,6 +423,8 @@ export default defineComponent({
     let unsubscribeUpvotes: Unsubscribe | null = null;
     // Holds the Firebase Auth state listener so we can detach it on unmount
     let unsubscribeAuthListener: (() => void) | null = null;
+    // Auto-refresh interval ID — syncs from Notion every 5 minutes in the background
+    let autoRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
     const subscribeToMyUpvote = () => {
       if (unsubscribeUpvotes) { unsubscribeUpvotes(); unsubscribeUpvotes = null; }
@@ -493,7 +507,12 @@ export default defineComponent({
       isLoading.value = true;
       fetchError.value = "";
       try {
-        const result = await fetchRoadmapFn({ layoutId: layoutId.value, tileId, databaseIdOverride: databaseId });
+        const result = await fetchRoadmapFn({
+          layoutId: layoutId.value,
+          tileId,
+          databaseIdOverride: databaseId,
+          queryFilters: props.content.queryFilters,
+        });
         items.value = result.data.items;
         propertyOptions.value = result.data.propertyOptions;
         layoutStore.patchTileContent(tileId, {
@@ -508,13 +527,29 @@ export default defineComponent({
     };
 
     // ── Fetch / refresh ──────────────────────────────────────────────
-    const refresh = async () => {
+    // Refresh with optional silent mode — when silent=true, errors are logged but not shown,
+    // and the loading spinner is suppressed so the UI doesn't flicker during background syncs.
+    const refresh = async (silent = false) => {
       // Skip if not connected or if the database ID is still the post-OAuth sentinel
       if (!layoutId.value || !tileId || !isConnected.value || props.content.notionDatabaseId === "pending") return;
-      isLoading.value = true;
-      fetchError.value = "";
+      if (!silent) {
+        isLoading.value = true;
+        fetchError.value = "";
+        // Start cycling through loading messages every 2 seconds
+        let msgIndex = 0;
+        loadingText.value = loadingMessages[msgIndex];
+        loadingTextInterval = setInterval(() => {
+          msgIndex = (msgIndex + 1) % loadingMessages.length;
+          loadingText.value = loadingMessages[msgIndex];
+        }, 2000);
+      }
       try {
-        const result = await fetchRoadmapFn({ layoutId: layoutId.value, tileId });
+        console.log("[RoadmapFeed] Calling fetchNotionRoadmap with queryFilters:", props.content.queryFilters);
+        const result = await fetchRoadmapFn({
+          layoutId: layoutId.value,
+          tileId,
+          queryFilters: props.content.queryFilters,
+        });
         items.value = result.data.items;
         propertyOptions.value = result.data.propertyOptions;
         // Persist refreshed items + timestamp into tile content so the next page load
@@ -524,9 +559,16 @@ export default defineComponent({
           lastSyncedAt: Date.now(),
         });
       } catch (err: any) {
-        fetchError.value = err?.message || "Failed to load roadmap.";
+        if (!silent) {
+          fetchError.value = err?.message || "Failed to load roadmap.";
+        } else {
+          console.warn("[RoadmapFeed] Silent refresh failed:", err);
+        }
       } finally {
-        isLoading.value = false;
+        if (!silent) {
+          isLoading.value = false;
+          if (loadingTextInterval) { clearInterval(loadingTextInterval); loadingTextInterval = null; }
+        }
       }
     };
 
@@ -684,19 +726,34 @@ export default defineComponent({
       // Use onAuthStateChanged rather than checking auth.currentUser directly.
       // On page reload, auth.currentUser is null at mount time — Firebase restores
       // the session asynchronously. This listener fires once with the restored user
-      // (or null if signed out), and again on any subsequent sign-in/sign-out,
-      // so it covers all cases. Cleaned up in onUnmounted.
+      // (or null if not signed in), then again whenever sign-in/sign-out occurs.
       unsubscribeAuthListener = onAuthStateChanged(auth, () => {
         subscribeToMyUpvote();
       });
+
+      // Auto-refresh from Notion every 5 minutes in the background (silent mode)
+      // so public viewers always see fresh data without manual refresh.
+      if (isConnected.value && props.content.notionDatabaseId && props.content.notionDatabaseId !== "pending") {
+        autoRefreshInterval = setInterval(() => {
+          refresh(true); // silent=true → no loading spinner, errors logged to console
+        }, 5 * 60 * 1000); // 5 minutes
+      }
 
       if (props.content.notionDatabaseId === "pending") {
         // Page reloaded while in pending state — reload the database picker
         setupPhase.value = "picking";
         loadDatabases();
       } else if (isConnected.value) {
-        // Already fully connected — fetch fresh data and property options
-        refresh();
+        // Only fetch if cache is stale (> 5 minutes old) or missing.
+        // This prevents unnecessary loading states when cached data is fresh.
+        const cacheAge = props.content.lastSyncedAt ? Date.now() - props.content.lastSyncedAt : Infinity;
+        const CACHE_FRESHNESS_MS = 5 * 60 * 1000; // 5 minutes
+        if (cacheAge > CACHE_FRESHNESS_MS) {
+          refresh();
+        } else {
+          // Cache is fresh — use it and schedule a silent background refresh
+          setTimeout(() => refresh(true), CACHE_FRESHNESS_MS - cacheAge);
+        }
       }
     });
 
@@ -712,11 +769,13 @@ export default defineComponent({
     onUnmounted(() => {
       if (unsubscribeUpvotes) { unsubscribeUpvotes(); unsubscribeUpvotes = null; }
       if (unsubscribeAuthListener) { unsubscribeAuthListener(); unsubscribeAuthListener = null; }
+      if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
+      if (loadingTextInterval) { clearInterval(loadingTextInterval); loadingTextInterval = null; }
     });
 
     return {
       isOwner, isConnected, setupPhase, isConnecting, connectError,
-      isLoading, fetchError, hasItems, columns,
+      isLoading, fetchError, hasItems, columns, loadingText,
       showSettings, draftDatabaseId, draftStatusProp, draftUpvoteProp, draftStatusMapping,
       statusProperties, numberProperties, currentStatusOptions,
       filterableProperties, availableFilterProperties,
@@ -804,13 +863,17 @@ export default defineComponent({
   height: 26px;
   border-radius: var(--radius-sm);
   border: none;
-  background: transparent;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   color: var(--color-text-primary);
   cursor: pointer;
-  opacity: 0.5;
-  transition: opacity var(--duration-fast) var(--easing-ease-in-out);
+  opacity: 0.7;
+  transition: opacity var(--duration-fast) var(--easing-ease-in-out),
+    background var(--duration-fast) var(--easing-ease-in-out);
 }
-.roadmap-icon-btn:hover { opacity: 1; }
+.roadmap-icon-btn:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
 .roadmap-icon-btn:disabled { opacity: 0.25; cursor: not-allowed; }
 
 /* Spin animation for the refresh icon while loading */
@@ -1025,9 +1088,30 @@ export default defineComponent({
 .roadmap-qf-add-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ── Loading skeleton ───────────────────────────────────────────── */
-.roadmap-loading { display: flex; gap: var(--spacing-sm); flex: 1; }
+.roadmap-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+}
+.roadmap-loading-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  opacity: 0.6;
+  margin-bottom: var(--spacing-xs);
+  animation: fadeIn 0.4s ease-in-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 0.6; transform: translateY(0); }
+}
 .roadmap-skeleton-card {
   flex: 1;
+  width: 100%;
+  max-width: 200px;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   animation: pulse 1.4s ease-in-out infinite;

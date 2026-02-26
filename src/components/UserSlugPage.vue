@@ -84,18 +84,18 @@ usePageTitle(pageTitle, '—');
 const profilePhotoUrl = ref<string | null>(null);
 useDynamicFavicon(profilePhotoUrl);
 
-let unsubscribeProfilePhoto: (() => void) | null = null;
+let unsubscribePublicProfile: (() => void) | null = null;
 
-const subscribeToProfilePhoto = (userId: string) => {
-  if (unsubscribeProfilePhoto) unsubscribeProfilePhoto();
-  const userRef = doc(db, 'users', userId);
-  unsubscribeProfilePhoto = onSnapshot(userRef, (snap) => {
+const subscribeToPublicProfile = (userId: string) => {
+  if (unsubscribePublicProfile) unsubscribePublicProfile();
+  // publicProfiles is readable by anyone — no auth required
+  unsubscribePublicProfile = onSnapshot(doc(db, 'publicProfiles', userId), (snap) => {
     profilePhotoUrl.value = snap.data()?.profilePhotoUrl || null;
   });
 };
 
 onUnmounted(() => {
-  if (unsubscribeProfilePhoto) unsubscribeProfilePhoto();
+  if (unsubscribePublicProfile) unsubscribePublicProfile();
 });
 
 const backgroundStyle = computed(() => {
@@ -141,8 +141,8 @@ const resolveSlug = async () => {
 
     const slugData = slugSnap.data();
 
-    // Subscribe to the slug owner's profile photo for the dynamic favicon
-    subscribeToProfilePhoto(slugData.userId);
+    // Subscribe to the public profile for live favicon updates
+    subscribeToPublicProfile(slugData.userId);
     
     // Check if user has set a default grid (stored in slugs collection for public access)
     if (!slugData.defaultGridId) {

@@ -976,10 +976,28 @@ export const onGridUpdated = functions
       return null;
     }
 
-    logger.info("Grid updated", {
+    // Check for meaningful changes (name, tiles, or privacy settings)
+    const nameChanged = beforeData.name !== afterData.name;
+    const tilesChanged = JSON.stringify(beforeData.tiles || []) !== JSON.stringify(afterData.tiles || []);
+    const privacyChanged = beforeData.isPublic !== afterData.isPublic;
+    
+    const hasMeaningfulChanges = nameChanged || tilesChanged || privacyChanged;
+    
+    if (!hasMeaningfulChanges) {
+      logger.info("Grid updated but no meaningful changes detected, skipping notification", {
+        layoutId,
+        userId: afterData.userId,
+      });
+      return null;
+    }
+
+    logger.info("Grid updated with meaningful changes", {
       layoutId,
       userId: afterData.userId,
       name: afterData.name,
+      nameChanged,
+      tilesChanged,
+      privacyChanged,
     });
 
     // Skip dev team members — look up email from users collection
@@ -993,6 +1011,29 @@ export const onGridUpdated = functions
     if (isDevTeamMember(afterData.userId, ownerEmail)) {
       logger.info("Skipping Discord notification for dev team member", { userId: afterData.userId });
       return null;
+    }
+
+    // 10-minute debounce: Check if we've notified this user recently
+    const DEBOUNCE_MS = 10 * 60 * 1000; // 10 minutes
+    const db = admin.firestore();
+    const notificationTrackingRef = db.collection("notification_tracking").doc(`grid_update_${afterData.userId}`);
+    
+    try {
+      const trackingDoc = await notificationTrackingRef.get();
+      const lastNotifiedAt = trackingDoc.data()?.lastNotifiedAt?.toMillis?.();
+      
+      if (lastNotifiedAt && (Date.now() - lastNotifiedAt < DEBOUNCE_MS)) {
+        logger.info("Skipping notification due to 10-minute debounce", {
+          userId: afterData.userId,
+          layoutId,
+          lastNotifiedAt: new Date(lastNotifiedAt).toISOString(),
+        });
+        return null;
+      }
+    } catch (error) {
+      logger.warn("Failed to check notification tracking, proceeding with notification", {
+        error: String(error),
+      });
     }
 
     // Get the Discord webhook URL from secrets
@@ -1062,6 +1103,19 @@ export const onGridUpdated = functions
           layoutId,
           status: response.status,
         });
+        
+        // Update notification tracking timestamp for debounce
+        try {
+          await notificationTrackingRef.set({
+            lastNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+            userId: afterData.userId,
+            layoutId,
+          });
+        } catch (error) {
+          logger.warn("Failed to update notification tracking", {
+            error: String(error),
+          });
+        }
       }
 
       return null;

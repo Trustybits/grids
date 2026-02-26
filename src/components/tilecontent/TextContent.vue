@@ -219,7 +219,7 @@ export default defineComponent({
 
     const onShortClick = () => {
       if (!layoutStore.isOwner) {
-        if (textLinkExists) {
+        if (textLinkExists.value) {
           window.open(textLink.value, "_blank", "noopener,noreferrer");
         }
         return;
@@ -296,7 +296,7 @@ export default defineComponent({
     };
 
     const handleOwnerClick = () => {
-      if (!textLinkExists) return;
+      if (!textLinkExists.value) return;
 
       window.open(textLink.value, "_blank", "noopener,noreferrer");
     };

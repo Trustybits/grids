@@ -439,13 +439,10 @@ export default defineComponent({
         // the next snapshot after pendingVoteId clears will sync the real value.
         if (pendingVoteId.value) return;
         const voted = new Set<string>();
-        console.log("[RoadmapFeed] Upvote snapshot received, doc count:", snap.size);
         snap.forEach((d) => {
           const data = d.data();
-          console.log("[RoadmapFeed] Upvote doc:", d.id, "data:", data);
           if (data?.notionPageId) voted.add(data.notionPageId as string);
         });
-        console.log("[RoadmapFeed] Final voted set:", Array.from(voted));
         myVotedPageIds.value = voted;
       });
     };
@@ -548,7 +545,6 @@ export default defineComponent({
         }, 2000);
       }
       try {
-        console.log("[RoadmapFeed] Calling fetchNotionRoadmap with queryFilters:", props.content.queryFilters);
         const result = await fetchRoadmapFn({
           layoutId: layoutId.value,
           tileId,
@@ -582,8 +578,6 @@ export default defineComponent({
 
       const isCurrentlyVoted = myVotedPageIds.value.has(item.notionPageId);
       const delta = isCurrentlyVoted ? -1 : 1;
-      console.log("[RoadmapFeed] toggleUpvote called for:", item.notionPageId, "isCurrentlyVoted:", isCurrentlyVoted, "delta:", delta);
-      console.log("[RoadmapFeed] Current myVotedPageIds:", Array.from(myVotedPageIds.value));
 
       // Apply optimistic update immediately so the button and count flip without waiting
       pendingVoteId.value = item.notionPageId;
@@ -594,15 +588,23 @@ export default defineComponent({
       if (isCurrentlyVoted) nextVoted.delete(item.notionPageId);
       else nextVoted.add(item.notionPageId);
       myVotedPageIds.value = nextVoted;
-      console.log("[RoadmapFeed] Optimistic myVotedPageIds:", Array.from(myVotedPageIds.value));
+
+      // Safeguard: force-clear pendingVoteId after 10 seconds to prevent stuck state
+      const timeoutId = setTimeout(() => {
+        if (pendingVoteId.value === item.notionPageId) {
+          console.warn("[RoadmapFeed] Vote timeout — clearing pendingVoteId");
+          pendingVoteId.value = null;
+          optimisticDelta.value = null;
+        }
+      }, 10000);
 
       try {
-        console.log("[RoadmapFeed] Calling upvoteRoadmapItem CF with:", { layoutId: layoutId.value, tileId, notionPageId: item.notionPageId });
         await upvoteRoadmapItemFn({
           layoutId: layoutId.value,
           tileId,
           notionPageId: item.notionPageId,
         });
+        clearTimeout(timeoutId);
 
         // Clear the optimistic delta BEFORE committing the new count to items so
         // optimisticCount() doesn't double-apply the delta on top of the committed value.
@@ -624,8 +626,8 @@ export default defineComponent({
           : [...myVotedPageIds.value, item.notionPageId]
         );
       } finally {
+        clearTimeout(timeoutId);
         pendingVoteId.value = null;
-        optimisticDelta.value = null;
       }
     };
 

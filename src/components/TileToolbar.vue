@@ -96,6 +96,7 @@
     >
       <template v-for="mi in visibleMenuItems" :key="mi.id">
         <button
+          v-if="mi.id !== 'font-size'"
           type="button"
           class="tile-toolbar-menu-item"
           :class="[
@@ -108,6 +109,16 @@
           <component v-if="mi.icon" :is="mi.icon" />
           <template v-if="mi.label">{{ mi.label }}</template>
         </button>
+        <div
+          v-if="mi.id === 'font-size'"
+          class="tile-toolbar-menu-item"
+          style="display: flex; flex: 1; align-self: stretch; padding: 0"
+        >
+          <FontSizeSelector
+            :childComponent="childComponent"
+            style="flex: 1; align-self: stretch"
+          />
+        </div>
       </template>
     </div>
   </teleport>
@@ -140,12 +151,14 @@ import AlignCenterIcon from "./icons/toolbar/AlignCenterIcon.vue";
 import AlignRightIcon from "./icons/toolbar/AlignRightIcon.vue";
 import ColorPicker from "./ColorPicker.vue";
 import TextAlignPanel from "./TextAlignPanel.vue";
+import FontSizeSelector from "./FontSizeSelector.vue";
 
 export default defineComponent({
   components: {
     LocateFixedIcon,
     SearchIcon,
     ColorPicker,
+    FontSizeSelector,
     TextAlignPanel,
   },
   props: {

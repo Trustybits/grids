@@ -16,6 +16,8 @@ export interface ToolbarMenuItem {
   action: (ctx: ToolbarContext) => void
   isActive?: (cts: ToolbarContext) => boolean
   visible?: (ctx: ToolbarContext) => boolean
+  getProps?: (ctx: ToolbarContext) => any;
+  panelId?: string;
   danger?: boolean
 }
 

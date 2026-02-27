@@ -29,6 +29,8 @@
           type="button"
           class="font-select-title"
           :class="{ 'is-current': size === currentFontSize }"
+          @mousedown.prevent
+          @pointerdown.prevent
           @click.stop="handleFontSizeSelect(size)"
         >
           {{ size }}
@@ -49,6 +51,7 @@ import {
   watch,
 } from "vue";
 import Chevron from "./icons/Chevron.vue";
+import { useLayoutStore } from "@/stores/layout";
 
 const FONT_SIZES = ["Small", "Medium", "Large", "Larger"] as const;
 type FontSizeOption = (typeof FONT_SIZES)[number];
@@ -71,6 +74,7 @@ export default defineComponent({
     },
   },
   setup(props) {
+    const layoutStore = useLayoutStore();
     const isActive = ref(false);
     const fontSelectButtonRef = ref<HTMLButtonElement | null>(null);
     const fontSelectMenuRef = ref<HTMLDivElement | null>(null);
@@ -110,9 +114,9 @@ export default defineComponent({
     };
 
     const handleFontSizeSelect = (size: FontSizeOption) => {
-      // Stub: wire this to editor font-size update when command API is ready.
-      void size;
+      props.childComponent?.handleFontSizeChange(size);
       isActive.value = false;
+      layoutStore.closeMenus();
     };
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -141,16 +145,15 @@ export default defineComponent({
       nextTick(positionMenu);
 
       window.addEventListener("resize", schedulePositionMenu);
-      (window.addEventListener("scroll", schedulePositionMenu),
-        {
-          capture: true,
-          passive: true,
-        });
+      window.addEventListener("scroll", schedulePositionMenu, {
+        capture: true,
+        passive: true,
+      });
 
       onCleanup(() => {
         if (rafId != null) cancelAnimationFrame(rafId);
         rafId = null;
-        window.removeEventListener("reseize", schedulePositionMenu);
+        window.removeEventListener("resize", schedulePositionMenu);
         window.removeEventListener("scroll", schedulePositionMenu, {
           capture: true,
         });

@@ -439,9 +439,13 @@ export default defineComponent({
         // the next snapshot after pendingVoteId clears will sync the real value.
         if (pendingVoteId.value) return;
         const voted = new Set<string>();
+        console.log("[RoadmapFeed] Upvote snapshot received, doc count:", snap.size);
         snap.forEach((d) => {
-          if (d.data()?.notionPageId) voted.add(d.data().notionPageId as string);
+          const data = d.data();
+          console.log("[RoadmapFeed] Upvote doc:", d.id, "data:", data);
+          if (data?.notionPageId) voted.add(data.notionPageId as string);
         });
+        console.log("[RoadmapFeed] Final voted set:", Array.from(voted));
         myVotedPageIds.value = voted;
       });
     };
@@ -578,6 +582,8 @@ export default defineComponent({
 
       const isCurrentlyVoted = myVotedPageIds.value.has(item.notionPageId);
       const delta = isCurrentlyVoted ? -1 : 1;
+      console.log("[RoadmapFeed] toggleUpvote called for:", item.notionPageId, "isCurrentlyVoted:", isCurrentlyVoted, "delta:", delta);
+      console.log("[RoadmapFeed] Current myVotedPageIds:", Array.from(myVotedPageIds.value));
 
       // Apply optimistic update immediately so the button and count flip without waiting
       pendingVoteId.value = item.notionPageId;
@@ -588,8 +594,10 @@ export default defineComponent({
       if (isCurrentlyVoted) nextVoted.delete(item.notionPageId);
       else nextVoted.add(item.notionPageId);
       myVotedPageIds.value = nextVoted;
+      console.log("[RoadmapFeed] Optimistic myVotedPageIds:", Array.from(myVotedPageIds.value));
 
       try {
+        console.log("[RoadmapFeed] Calling upvoteRoadmapItem CF with:", { layoutId: layoutId.value, tileId, notionPageId: item.notionPageId });
         await upvoteRoadmapItemFn({
           layoutId: layoutId.value,
           tileId,

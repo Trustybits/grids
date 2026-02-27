@@ -9,6 +9,7 @@
     <grid-layout
       ref="gridLayoutRef"
       class="grid-container"
+      :key="`grid-${margin}-${rowHeight}`"
       :layout="displayLayout"
       :col-num="responsiveColNum"
       :row-height="rowHeight"
@@ -51,7 +52,24 @@ export default {
   setup(props) {
     const layoutStore = useLayoutStore();
     const route = useRoute(); // Access route parameters
-    const margin = 48;
+    
+    // Dynamic margin and rowHeight based on tileSizeGapBalance slider
+    // balance = 0: gap = 48px, tile = 75px (max gap, min tile)
+    // balance = 1: gap = 8px, tile = 115px (min gap, max tile)
+    // The grid layout calculates column width as: (containerWidth - (colNum + 1) * margin) / colNum
+    // For square tiles, we want rowHeight = columnWidth, which means:
+    // rowHeight = (gridWidth - (colNum + 1) * margin) / colNum
+    // Solving for gridWidth: gridWidth = colNum * rowHeight + (colNum + 1) * margin
+    const margin = computed(() => {
+      const balance = layoutStore.tileSizeGapBalance;
+      return 48 - (balance * 40); // 48px at 0, 8px at 1
+    });
+    
+    const rowHeight = computed(() => {
+      const balance = layoutStore.tileSizeGapBalance;
+      return 75 + (balance * 40); // 75px at 0, 115px at 1
+    });
+    
     const viewportWidth = ref(
       typeof window !== "undefined" ? window.innerWidth : 0
     );
@@ -152,7 +170,7 @@ export default {
       );
       const fits = (columns: number) => {
         return (
-          columns * props.rowHeight + (columns + 1) * margin <=
+          columns * rowHeight.value + (columns + 1) * margin.value <=
           viewportWidth.value
         );
       };
@@ -221,7 +239,7 @@ export default {
       return packTiles(resizedTiles, cols);
     };
 
-    // Rebuild when breakpoint, tile count, or overrides change.
+    // Rebuild when breakpoint, tile count, overrides, or tile sizing changes.
     // Using a deep-ish watch key so we don't rebuild on every in-place mutation.
     watch(
       [
@@ -229,6 +247,8 @@ export default {
         () => layoutStore.currentLayout?.tiles?.length,
         () => layoutStore.currentLayout?.tiles?.map((t) => t.i).join(','),
         () => JSON.stringify(layoutStore.currentLayout?.overrides),
+        margin,
+        rowHeight,
       ],
       () => {
         if (layoutStore.skipOverrideRebuild) {
@@ -258,8 +278,8 @@ export default {
 
     const gridWidth = computed(() => {
       return (
-        responsiveColNum.value * props.rowHeight +
-        (responsiveColNum.value + 1) * margin
+        responsiveColNum.value * rowHeight.value +
+        (responsiveColNum.value + 1) * margin.value
       );
     });
 
@@ -348,6 +368,7 @@ export default {
       layoutStore,
       gridWidth,
       margin,
+      rowHeight,
       displayLayout,
       responsiveColNum,
       activeBreakpoint,

@@ -204,6 +204,11 @@ export const useLayoutStore = defineStore("layout", {
     // Snapshot of tile positions as currently rendered by Grid.vue's displayLayout.
     // Updated by Grid.vue so that GridMenu can read accurate positions for breakpoint saves.
     displayPositions: [] as Array<{ i: string; x: number; y: number; w: number; h: number }>,
+    // Experimental: Balance between tile size and gap spacing.
+    // 0 = max gap (48px), min tile size (75px for 1x1)
+    // 1 = min gap (8px), max tile size (115px for 1x1)
+    // Default 0.5 gives the original 48px gap and 75px tile size
+    tileSizeGapBalance: 0.5 as number,
   }),
 
   getters: {

@@ -34,6 +34,15 @@
             label="Gravity" 
             v-model="layoutStore.verticalCompact"
           />
+          <Slider
+            label="Tile Size vs Gap"
+            left-label="More Gap"
+            right-label="Larger Tiles"
+            v-model="layoutStore.tileSizeGapBalance"
+            :min="0"
+            :max="1"
+            :step="0.01"
+          />
         </MenuSection>
 
         <!-- Breakpoint Layout -->
@@ -93,6 +102,7 @@ import Toggle from "./Toggle.vue";
 import Accordion from "./Accordion.vue";
 import MenuSection from "./MenuSection.vue";
 import Divider from "./Divider.vue";
+import Slider from "./Slider.vue";
 
 const emit = defineEmits<{
   "confirm-delete": [];

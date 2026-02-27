@@ -23,21 +23,31 @@
           '--grow-origin': growOrigin,
         }"
       >
-        <div
+        <button
           v-for="size in fontSizes"
           :key="size"
+          type="button"
           class="font-select-title"
           :class="{ 'is-current': size === currentFontSize }"
+          @click.stop="handleFontSizeSelect(size)"
         >
           {{ size }}
-        </div>
+        </button>
       </div>
     </transition>
   </teleport>
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, nextTick, ref } from "vue";
+import {
+  computed,
+  defineComponent,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+} from "vue";
 import Chevron from "./icons/Chevron.vue";
 
 const FONT_SIZES = ["Small", "Medium", "Large", "Larger"] as const;
@@ -84,7 +94,7 @@ export default defineComponent({
         fontSelectMenuRef.value?.firstElementChild?.clientHeight ?? 36;
 
       const top = rect.top - selectedIndex.value * rowHeight;
-      const left = rect.left;
+      const left = rect.left - 5;
 
       pos.value = { top, left, width: rect.width };
     };
@@ -99,6 +109,64 @@ export default defineComponent({
       nextTick(() => positionMenu());
     };
 
+    const handleFontSizeSelect = (size: FontSizeOption) => {
+      // Stub: wire this to editor font-size update when command API is ready.
+      void size;
+      isActive.value = false;
+    };
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      if (fontSelectMenuRef.value?.contains(target)) {
+        return;
+      }
+
+      isActive.value = false;
+    };
+
+    let rafId: number | null = null;
+
+    const schedulePositionMenu = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        positionMenu();
+      });
+    };
+
+    watch(isActive, (open, _prev, onCleanup) => {
+      if (!open) return;
+
+      nextTick(positionMenu);
+
+      window.addEventListener("resize", schedulePositionMenu);
+      (window.addEventListener("scroll", schedulePositionMenu),
+        {
+          capture: true,
+          passive: true,
+        });
+
+      onCleanup(() => {
+        if (rafId != null) cancelAnimationFrame(rafId);
+        rafId = null;
+        window.removeEventListener("reseize", schedulePositionMenu);
+        window.removeEventListener("scroll", schedulePositionMenu, {
+          capture: true,
+        });
+      });
+    });
+
+    onMounted(() => {
+      document.addEventListener("click", handleClickOutside);
+      document.addEventListener("contextmenu", handleClickOutside);
+    });
+
+    onUnmounted(() => {
+      document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("contextmenu", handleClickOutside);
+    });
+
     return {
       isActive,
       fontSizes: FONT_SIZES,
@@ -108,6 +176,7 @@ export default defineComponent({
       currentFontSize,
       growOrigin,
       handleFontClick,
+      handleFontSizeSelect,
     };
   },
 });
@@ -120,10 +189,22 @@ export default defineComponent({
   align-items: stretch;
   min-height: 38px;
   padding: 8px 12px;
-  border: 1px solid var(--color-content-subtle);
+  /* border: var(--tile-border-width) solid var(--color-tile-stroke); */
   border-radius: var(--radius-sm);
-  background: var(--color-content-inverse-soft);
+  background: var(--color-tile-background);
   cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    transform var(--duration-fast) var(--easing-ease-out);
+}
+
+.font-select-wrapper:hover {
+  background: var(--color-content-low);
+}
+
+.font-select-wrapper:active {
+  background: color-mix(in srgb, var(--color-content-low) 80%, black 20%);
+  transform: scale(0.985);
 }
 
 .font-select-box {
@@ -140,7 +221,7 @@ export default defineComponent({
 .font-select-menu {
   position: fixed;
   z-index: 3000;
-  border: 1px solid var(--color-content-subtle);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
   background: var(--color-tile-background);
   border-radius: var(--radius-md);
   font-size: var(--font-size-md);
@@ -151,11 +232,29 @@ export default defineComponent({
 
 .font-select-title {
   display: flex;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
   align-items: center;
   min-height: 36px;
   font-weight: var(--font-weight-semibold);
   padding: 0 12px;
   white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    transform var(--duration-fast) var(--easing-ease-out);
+}
+
+.font-select-title:hover {
+  background: var(--color-content-low);
+}
+
+.font-select-title:active {
+  transform: scale(0.985);
+  background: color-mix(in srgb, var(--color-content-low) 75%, black 25%);
 }
 
 .font-select-title.is-current {

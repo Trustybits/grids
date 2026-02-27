@@ -104,7 +104,7 @@
             { 'is-active': mi.isActive?.(ctx) },
           ]"
           @mousedown.prevent
-          @click.stop="onMenuItemClick(mi)"
+          @click="onMenuItemClick(mi)"
         >
           <component v-if="mi.icon" :is="mi.icon" />
           <template v-if="mi.label">{{ mi.label }}</template>

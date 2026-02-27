@@ -62,7 +62,7 @@ export default defineComponent({
     // Upload progress tracking — injected tile ID lets us look up our upload state
     const tileId = inject<string>("tileId", "");
     const isUploading = computed(() => {
-      return tileId != null && tileId in layoutStore.uploadingTiles;
+      return tileId != null && tileId !== "" && tileId in layoutStore.uploadingTiles;
     });
     const uploadPercent = computed(() => {
       if (!tileId) return 0;
@@ -75,13 +75,6 @@ export default defineComponent({
     const dragStart = ref({ x: 0, y: 0 });
     const offsetX = ref(props.content.offsetX || 0);
     const offsetY = ref(props.content.offsetY || 0);
-    
-    // Debug: Log initial offset values from props
-    console.log('[ImageContent] Initial offsets from props:', {
-      offsetX: props.content.offsetX,
-      offsetY: props.content.offsetY,
-      tileId
-    });
     const imageWrapper = ref<HTMLDivElement | null>(null);
     const imageElement = ref<HTMLImageElement | null>(null);
     
@@ -117,12 +110,7 @@ export default defineComponent({
       // Save when exiting crop mode
       if (!isEditing.value) {
         // Use patchTileContent to properly persist the offset changes to Firestore
-        if (tileId) {
-          console.log('[ImageContent] Saving crop offsets:', {
-            tileId,
-            offsetX: offsetX.value,
-            offsetY: offsetY.value
-          });
+        if (tileId && tileId !== "") {
           layoutStore.patchTileContent(tileId, {
             offsetX: offsetX.value,
             offsetY: offsetY.value,

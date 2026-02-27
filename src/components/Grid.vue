@@ -9,7 +9,6 @@
     <grid-layout
       ref="gridLayoutRef"
       class="grid-container"
-      :key="`grid-${margin}-${rowHeight}`"
       :layout="displayLayout"
       :col-num="responsiveColNum"
       :row-height="rowHeight"
@@ -239,16 +238,16 @@ export default {
       return packTiles(resizedTiles, cols);
     };
 
-    // Rebuild when breakpoint, tile count, overrides, or tile sizing changes.
+    // Rebuild when breakpoint, tile count, or overrides change.
     // Using a deep-ish watch key so we don't rebuild on every in-place mutation.
+    // Note: margin and rowHeight changes don't need to rebuild the layout array,
+    // as the grid-layout component reacts to those prop changes automatically.
     watch(
       [
         activeBreakpoint,
         () => layoutStore.currentLayout?.tiles?.length,
         () => layoutStore.currentLayout?.tiles?.map((t) => t.i).join(','),
         () => JSON.stringify(layoutStore.currentLayout?.overrides),
-        margin,
-        rowHeight,
       ],
       () => {
         if (layoutStore.skipOverrideRebuild) {

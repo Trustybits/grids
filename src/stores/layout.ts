@@ -464,10 +464,9 @@ export const useLayoutStore = defineStore("layout", {
 
         const layoutToSave = { ...this.currentLayout, tiles: resolvedTiles } as Layout;
         await layoutService.saveLayout(layoutToSave);
-        console.log('[saveLayout] Layout saved successfully');
       } catch (err) {
         this.error = "Failed to save layout.";
-        console.error('[saveLayout] Error saving layout:', err);
+        console.error(err);
       }
     },
 
@@ -557,22 +556,16 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
-    patchTileContent(id: string, patch: Partial<any>) {
+    patchTileContent(id: string, patch: Partial<TileContent>) {
       if (!this.currentLayout) return;
 
       const tile = this.currentLayout.tiles.find((t) => t.i === id);
       if (!tile) return;
 
-      // Debug: Log what we're patching
-      console.log('[patchTileContent] Tile ID:', id, 'Patch:', patch, 'Before:', tile.content);
-
       tile.content = {
         ...(tile.content as any),
         ...(patch as any),
       };
-
-      // Debug: Log the result
-      console.log('[patchTileContent] After:', tile.content);
 
       this.updateLayout();
     },

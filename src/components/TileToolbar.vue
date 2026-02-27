@@ -59,68 +59,68 @@
 
   <!-- Color Picker Panel -->
   <teleport to="body">
-    <div
-      v-if="panelOpen && activePanelId === 'colorSelect'"
-      ref="colorPickerRef"
-    >
+    <transition name="panel">
       <ColorPicker
+        v-if="panelOpen && activePanelId === 'colorSelect'"
+        ref="colorPickerRef"
         :tile="tile"
         :childComponent="childComponent"
         :buttonEl="panelAnchorRef"
       />
-    </div>
+    </transition>
   </teleport>
 
   <!-- Text Align Panel -->
   <teleport to="body">
-    <div
-      v-if="panelOpen && activePanelId === 'textAlign'"
-      ref="textAlignPanelRef"
-    >
+    <transition name="panel">
       <TextAlignPanel
+        v-if="panelOpen && activePanelId === 'textAlign'"
+        ref="textAlignPanelRef"
         :tile="tile"
         :childComponent="childComponent"
         :buttonEl="panelAnchorRef"
       />
-    </div>
+    </transition>
   </teleport>
 
   <teleport to="body">
-    <div
-      v-if="menuOpen && activeMenuItems.length"
-      ref="menuRef"
-      class="tile-toolbar-menu"
-      :style="[menuStyle, { 'flex-direction': menuItemLayoutDirection }]"
-      @mousedown.stop
-      @dragstart.prevent
-    >
-      <template v-for="mi in visibleMenuItems" :key="mi.id">
-        <button
-          v-if="mi.id !== 'font-size'"
-          type="button"
-          class="tile-toolbar-menu-item"
-          :class="[
-            { 'tile-toolbar-menu-item--danger': mi.danger },
-            { 'is-active': mi.isActive?.(ctx) },
-          ]"
-          @mousedown.prevent
-          @click="onMenuItemClick(mi)"
-        >
-          <component v-if="mi.icon" :is="mi.icon" />
-          <template v-if="mi.label">{{ mi.label }}</template>
-        </button>
-        <div
-          v-if="mi.id === 'font-size'"
-          class="tile-toolbar-menu-item"
-          style="display: flex; flex: 1; align-self: stretch; padding: 0"
-        >
-          <FontSizeSelector
-            :childComponent="childComponent"
-            style="flex: 1; align-self: stretch"
-          />
-        </div>
-      </template>
-    </div>
+    <transition name="tile-toolbar-menu">
+      <div
+        v-if="menuOpen && activeMenuItems.length"
+        ref="menuRef"
+        class="tile-toolbar-menu"
+        :style="[menuStyle, { 'flex-direction': menuItemLayoutDirection }]"
+        @mousedown.stop
+        @dragstart.prevent
+      >
+        <template v-for="mi in visibleMenuItems" :key="mi.id">
+          <button
+            v-if="mi.id !== 'font-size'"
+            type="button"
+            class="tile-toolbar-menu-item"
+            :class="[
+              { 'tile-toolbar-menu-item--danger': mi.danger },
+              { 'is-active': mi.isActive?.(ctx) },
+            ]"
+            @mousedown.prevent
+            @click="onMenuItemClick(mi)"
+          >
+            <component v-if="mi.icon" :is="mi.icon" />
+            <template v-if="mi.label">{{ mi.label }}</template>
+          </button>
+          <div
+            v-if="mi.id === 'font-size'"
+            class="tile-toolbar-menu-item"
+            style="display: flex; flex: 1; align-self: stretch; padding: 0"
+          >
+            <FontSizeSelector
+              :childComponent="childComponent"
+              style="flex: 1; align-self: stretch"
+            />
+          </div>
+        </template>
+      </div>
+    </transition>
   </teleport>
 </template>
 
@@ -188,8 +188,8 @@ export default defineComponent({
     const searchInputRef = ref<HTMLInputElement | null>(null);
     const searchQuery = ref("");
 
-    const colorPickerRef = ref<HTMLDivElement | null>(null);
-    const textAlignPanelRef = ref<HTMLDivElement | null>(null);
+    const colorPickerRef = ref<{ $el?: HTMLElement } | null>(null);
+    const textAlignPanelRef = ref<{ $el?: HTMLElement } | null>(null);
     const childComponent = props.toolbarRefs.childComponent;
 
     const isActiveTile = computed(
@@ -286,7 +286,10 @@ export default defineComponent({
       nextTick(() => {
         const menu = menuRef.value;
         if (!menu) return;
-        const { width, height } = menu.getBoundingClientRect();
+        // Use layout dimensions (not transformed visual bounds) so
+        // scale/translate entrance animations don't skew initial positioning.
+        const width = menu.offsetWidth;
+        const height = menu.offsetHeight;
         const nextX = rect.right - width;
         const nextY = rect.bottom + 8;
         menuPosition.value = clampToViewport(nextX, nextY, width, height);
@@ -351,6 +354,8 @@ export default defineComponent({
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
+      const colorPickerEl = colorPickerRef.value?.$el;
+      const textAlignPanelEl = textAlignPanelRef.value?.$el;
 
       // Close menu if open
       if (menuOpen.value) {
@@ -363,8 +368,8 @@ export default defineComponent({
       if (panelOpen.value) {
         if (searchPanelRef.value?.contains(target)) return;
         if (panelAnchorRef.value?.contains(target)) return;
-        if (colorPickerRef.value?.contains(target)) return;
-        if (textAlignPanelRef.value?.contains(target)) return;
+        if (colorPickerEl?.contains(target)) return;
+        if (textAlignPanelEl?.contains(target)) return;
         closeMenu();
       }
     };
@@ -704,6 +709,14 @@ export default defineComponent({
   box-shadow: var(--shadow-tile-hover);
 }
 
+.tile-toolbar-menu-enter-active {
+  animation: tileToolbarMenuSlideIn var(--duration-normal) var(--easing-spring);
+}
+
+.tile-toolbar-menu-leave-active {
+  animation: tileToolbarMenuSlideOut var(--duration-normal) var(--easing-spring);
+}
+
 .tile-toolbar-menu-item {
   display: flex;
   align-items: center;
@@ -732,5 +745,57 @@ export default defineComponent({
   color: var(--color-tile-background);
   border-radius: var(--radius-sm);
   transform: none;
+}
+
+.panel-enter-active {
+  animation: panelSlideIn var(--duration-normal) var(--easing-spring);
+}
+
+.panel-leave-active {
+  animation: panelSlideOut var(--duration-normal) var(--easing-spring);
+}
+
+@keyframes tileToolbarMenuSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tileToolbarMenuSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes panelSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@keyframes panelSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(0.95);
+  }
 }
 </style>

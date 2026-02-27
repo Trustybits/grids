@@ -33,7 +33,14 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, onMounted, onUnmounted, ref, watch } from "vue";
+import {
+  computed,
+  defineComponent,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+} from "vue";
 import type { Tile } from "@/types/Tile";
 import type { TextContent } from "@/types/TileContent";
 import AlignLeftIcon from "./icons/toolbar/AlignLeftIcon.vue";
@@ -154,7 +161,7 @@ export default defineComponent({
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: 12px;
   padding: 4px;
-  animation: textAlignPanelSlideIn var(--duration-normal) var(--easing-spring);
+  /* animation: textAlignPanelSlideIn var(--duration-normal) var(--easing-spring); */
 }
 
 .text-align-option {
@@ -222,16 +229,5 @@ export default defineComponent({
 
 .align-right {
   justify-items: end;
-}
-
-@keyframes textAlignPanelSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-8px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(1);
-  }
 }
 </style>

@@ -665,12 +665,12 @@ export default defineComponent({
   inset: 0;
   z-index: 3;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: center;
-  padding: 12px;
+  padding: 0px;
   pointer-events: none;
   /* Subtle darkening so the progress bar is visible over any video */
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.35) 0%, transparent 40%);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0%, transparent 40%);
   border-radius: var(--tile-border-radius);
 }
 

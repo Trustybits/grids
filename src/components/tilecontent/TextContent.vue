@@ -422,6 +422,30 @@ export default defineComponent({
       editor.value.chain().focus().toggleBold().run();
     };
 
+    const getCurrentFontSize = () => {
+      let fontSize = editor.value?.getAttributes("textStyle")?.fontSize;
+      //  <option value="12px">Small</option>
+      // <option value="14px">Medium</option>
+      // <option value="20px">Large</option>
+      // <option value="26px">Larger</option>
+      
+      if (!fontSize) {
+        return "Medium";
+      }
+
+      if (fontSize === "12px") {
+        return "Small";
+      } else if (fontSize === "14px") {
+        return "Medium";
+      } else if (fontSize === "20px") {
+        return "Large";
+      } else if (fontSize === "26px") {
+        return "Larger"
+      }
+
+      return fontSize;
+    }
+
     return {
       layoutStore,
       editor,
@@ -449,6 +473,7 @@ export default defineComponent({
       isBoldActive,
       isItalicActive,
       isOwner,
+      getCurrentFontSize,
     };
   },
 });

@@ -187,7 +187,9 @@ export default defineComponent({
 
           const container = textContentDiv.value;
           if (container) {
-            const scrollableElement = container.querySelector(".text-content") as HTMLElement;
+            const scrollableElement = container.querySelector(
+              ".text-content",
+            ) as HTMLElement;
             if (scrollableElement) {
               editorDomRef.value = scrollableElement;
               scrollableElement.addEventListener("scroll", handleScroll);
@@ -219,7 +221,9 @@ export default defineComponent({
       const container = textContentDiv.value;
       if (!container) return;
 
-      const scrollableElement = container.querySelector(".text-content") as HTMLElement;
+      const scrollableElement = container.querySelector(
+        ".text-content",
+      ) as HTMLElement;
       if (!scrollableElement) return;
 
       const threshold = 5;
@@ -258,12 +262,8 @@ export default defineComponent({
           isEditing.value = false;
           return;
         }
-
         // Owner is leaving edit mode: persist changes.
-        let output = JSON.stringify(editor.value.getJSON());
-        output = output.replace(/^"(.*)"$/, "$1");
-        props.content.text = output;
-        layoutStore.saveLayout();
+        persistEditorText();
       },
     );
 
@@ -389,6 +389,25 @@ export default defineComponent({
       }
     };
 
+    const persistEditorText = () => {
+      if (!editor.value || !layoutStore.isOwner) return;
+
+      const output = JSON.stringify(editor.value.getJSON());
+
+      if (tileId && layoutStore.currentLayout) {
+        const tile = layoutStore.currentLayout.tiles.find(
+          (t) => t.i === tileId,
+        );
+        if (tile && (tile.content as TextContent).type === "text") {
+          (tile.content as TextContent).text = output;
+        }
+      } else {
+        props.content.text = output;
+      }
+
+      layoutStore.saveLayout();
+    };
+
     const syncMarkState = () => {
       const e = editor.value;
       if (!e) return;
@@ -422,13 +441,40 @@ export default defineComponent({
       editor.value.chain().focus().toggleBold().run();
     };
 
+    const handleFontSizeChange = (size: string) => {
+      if (!editor.value) return;
+
+      let fontSizePx = "14px";
+      const normalizedSize = size.trim().toLowerCase();
+
+      if (normalizedSize === "small") {
+        fontSizePx = "12px";
+      } else if (normalizedSize === "medium") {
+        fontSizePx = "14px";
+      } else if (normalizedSize === "large") {
+        fontSizePx = "20px";
+      } else if (normalizedSize === "larger") {
+        fontSizePx = "26px";
+      }
+
+      editor.value
+        .chain()
+        .focus(undefined, { scrollIntoView: false })
+        .setFontSize(fontSizePx)
+        .run();
+
+      // Avoid persisting on every size click while editing; the edit-exit flow
+      // already persists the full JSON and this avoids layout-save side effects
+      // that can move the viewport.
+    };
+
     const getCurrentFontSize = () => {
       let fontSize = editor.value?.getAttributes("textStyle")?.fontSize;
       //  <option value="12px">Small</option>
       // <option value="14px">Medium</option>
       // <option value="20px">Large</option>
       // <option value="26px">Larger</option>
-      
+
       if (!fontSize) {
         return "Medium";
       }
@@ -440,11 +486,11 @@ export default defineComponent({
       } else if (fontSize === "20px") {
         return "Large";
       } else if (fontSize === "26px") {
-        return "Larger"
+        return "Larger";
       }
 
       return fontSize;
-    }
+    };
 
     return {
       layoutStore,
@@ -474,6 +520,7 @@ export default defineComponent({
       isItalicActive,
       isOwner,
       getCurrentFontSize,
+      handleFontSizeChange,
     };
   },
 });

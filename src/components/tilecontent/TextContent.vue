@@ -16,6 +16,8 @@
         'can-edit': layoutStore.isOwner,
         'is-wide-1-high': isWideOneHigh,
         'is-tall-1-wide': isTallOneWide,
+        'owner-view': layoutStore.isOwner,
+        'viewer-view': !layoutStore.isOwner,
       }"
       :style="{
         '--tile-bg': backgroundColor,
@@ -137,6 +139,8 @@ export default defineComponent({
   },
   setup(props, { emit }) {
     const layoutStore = useLayoutStore();
+
+    const isOwner = ref(layoutStore?.isOwner);
 
     const isTextOverflowing = ref(false);
     const isScrolledToBottom = ref(false);
@@ -444,6 +448,7 @@ export default defineComponent({
       toggleBold,
       isBoldActive,
       isItalicActive,
+      isOwner,
     };
   },
 });
@@ -571,7 +576,11 @@ export default defineComponent({
   z-index: 1200;
 }
 
-.text-content:hover .tile-link-indicator {
+.text-content.viewer-view:hover .tile-link-indicator {
+  opacity: 1;
+}
+
+.text-content.owner-view .tile-link-indicator:hover {
   opacity: 1;
 }
 

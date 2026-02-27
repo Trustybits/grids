@@ -178,6 +178,13 @@ export default defineComponent({
     const dragStart = ref({ x: 0, y: 0 });
     const offsetX = ref(props.content.offsetX || 0);
     const offsetY = ref(props.content.offsetY || 0);
+    
+    // Debug: Log initial offset values from props
+    console.log('[VideoContent] Initial offsets from props:', {
+      offsetX: props.content.offsetX,
+      offsetY: props.content.offsetY,
+      tileId
+    });
 
     const videoWrapper = ref<HTMLDivElement | null>(null);
     const videoElement = ref<HTMLVideoElement | null>(null);
@@ -226,15 +233,29 @@ export default defineComponent({
 
       // Save when exiting crop mode
       if (!isEditing.value) {
-        props.content.offsetX = offsetX.value;
-        props.content.offsetY = offsetY.value;
-        layoutStore.saveLayout();
+        // Use patchTileContent to properly persist the offset changes to Firestore
+        if (tileId) {
+          console.log('[VideoContent] Saving crop offsets:', {
+            tileId,
+            offsetX: offsetX.value,
+            offsetY: offsetY.value
+          });
+          layoutStore.patchTileContent(tileId, {
+            offsetX: offsetX.value,
+            offsetY: offsetY.value,
+          });
+        }
       }
     };
 
     const constrainOffset = (force = false) => {
       const wrapper = videoWrapper.value;
       if (!wrapper || (!isEditing.value && !force)) return;
+
+      // Don't constrain until video dimensions are loaded - prevents resetting saved offsets to 0
+      if (videoDimensions.value.aspectRatio === 0 || tileDimensions.value.aspectRatio === 0) {
+        return;
+      }
 
       const containerWidth = wrapper.clientWidth;
       const containerHeight = wrapper.clientHeight;
@@ -243,20 +264,14 @@ export default defineComponent({
       let renderedWidth: number;
       let renderedHeight: number;
       
-      if (videoDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
-        if (videoDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
-          // Video is wider - constrained by height
-          renderedHeight = containerHeight;
-          renderedWidth = renderedHeight * videoDimensions.value.aspectRatio;
-        } else {
-          // Video is taller - constrained by width
-          renderedWidth = containerWidth;
-          renderedHeight = renderedWidth / videoDimensions.value.aspectRatio;
-        }
-      } else {
-        // Fallback to cover behavior
-        renderedWidth = containerWidth;
+      if (videoDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
+        // Video is wider - constrained by height
         renderedHeight = containerHeight;
+        renderedWidth = renderedHeight * videoDimensions.value.aspectRatio;
+      } else {
+        // Video is taller - constrained by width
+        renderedWidth = containerWidth;
+        renderedHeight = renderedWidth / videoDimensions.value.aspectRatio;
       }
       
       // Max offset is half the difference between rendered video and container

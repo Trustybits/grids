@@ -799,7 +799,8 @@ export default defineComponent({
   }
 
   /* Animate tiles when they first appear */
-  animation: tileEnter var(--duration-normal) var(--easing-spring);
+  /* Disabled to prevent animation flash during grid size adjustments */
+  /* animation: tileEnter var(--duration-normal) var(--easing-spring); */
 
   /* Scale effect while dragging - applied to child element to avoid conflict with grid-item's inline transform */
   &.is-dragging {

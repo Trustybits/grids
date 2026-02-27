@@ -9,6 +9,7 @@
     <grid-layout
       ref="gridLayoutRef"
       class="grid-container"
+      :key="`grid-${Math.round(margin / 5) * 5}-${Math.round(rowHeight / 5) * 5}`"
       :layout="displayLayout"
       :col-num="responsiveColNum"
       :row-height="rowHeight"

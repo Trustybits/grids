@@ -282,11 +282,6 @@ export const TEXT_MORE_MENU: ToolbarItem = {
       action: (_ctx) => {},
     },
     {
-      id: 'font-size',
-      panelId: "font-select",
-      action: (_ctx) => {},
-    },
-    {
       id: "bold-toggle",
       icon: markRaw(BoldIcon),
       isActive: (ctx) => !!ctx.childComponent.value?.isBoldActive,

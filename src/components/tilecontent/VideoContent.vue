@@ -159,17 +159,13 @@ export default defineComponent({
     // Tile is 1x1 — minimal controls only (pause + fullscreen)
     const isTiny = computed(() => gridTileW.value === 1 && gridTileH.value === 1);
 
-
     // Upload progress tracking — injected tile ID lets us look up our upload state
-    const gridTileId = inject<ComputedRef<string>>("gridTileId");
     const isUploading = computed(() => {
-      const id = gridTileId?.value;
-      return id != null && id in layoutStore.uploadingTiles;
+      return tileId != null && tileId !== "" && tileId in layoutStore.uploadingTiles;
     });
     const uploadPercent = computed(() => {
-      const id = gridTileId?.value;
-      if (!id) return 0;
-      const progress = layoutStore.uploadingTiles[id] ?? 0;
+      if (!tileId) return 0;
+      const progress = layoutStore.uploadingTiles[tileId] ?? 0;
       return Math.round(progress * 100);
     });
 
@@ -178,13 +174,6 @@ export default defineComponent({
     const dragStart = ref({ x: 0, y: 0 });
     const offsetX = ref(props.content.offsetX || 0);
     const offsetY = ref(props.content.offsetY || 0);
-    
-    // Debug: Log initial offset values from props
-    console.log('[VideoContent] Initial offsets from props:', {
-      offsetX: props.content.offsetX,
-      offsetY: props.content.offsetY,
-      tileId
-    });
 
     const videoWrapper = ref<HTMLDivElement | null>(null);
     const videoElement = ref<HTMLVideoElement | null>(null);
@@ -234,12 +223,7 @@ export default defineComponent({
       // Save when exiting crop mode
       if (!isEditing.value) {
         // Use patchTileContent to properly persist the offset changes to Firestore
-        if (tileId) {
-          console.log('[VideoContent] Saving crop offsets:', {
-            tileId,
-            offsetX: offsetX.value,
-            offsetY: offsetY.value
-          });
+        if (tileId && tileId !== "") {
           layoutStore.patchTileContent(tileId, {
             offsetX: offsetX.value,
             offsetY: offsetY.value,

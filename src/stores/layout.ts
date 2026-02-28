@@ -359,6 +359,18 @@ export const useLayoutStore = defineStore("layout", {
 
       try {
         this.currentLayout = await layoutService.fetchLayout(id);
+        
+        // Log profile tiles after loading from Firestore
+        const loadedProfileTiles = this.currentLayout?.tiles?.filter(t => t.content?.type === 'profile') || [];
+        console.log('loadLayout - profile tiles loaded from Firestore:', 
+          loadedProfileTiles.map(t => ({
+            id: t.i,
+            type: t.content?.type,
+            profilePhotoUrl: (t.content as any)?.profilePhotoUrl,
+            hasPhotoUrl: !!(t.content as any)?.profilePhotoUrl
+          }))
+        );
+        
         this.isOwner = !!(
           auth.currentUser?.uid &&
           this.currentLayout?.userId &&
@@ -484,7 +496,18 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        // Build a shallow copy with blob URLs swapped for resolved Firebase URLs
+        const profileTiles = this.currentLayout.tiles.filter(t => t.content?.type === 'profile');
+        console.log('saveLayout - profile tiles before copy:', 
+          profileTiles.map(t => ({
+            id: t.i,
+            type: t.content?.type,
+            profilePhotoUrl: (t.content as any)?.profilePhotoUrl,
+            hasPhotoUrl: !!(t.content as any)?.profilePhotoUrl
+          }))
+        );
+        
+        // Build a deep copy with blob URLs swapped for resolved Firebase URLs
+        // and ensure all content mutations are preserved
         const resolvedTiles = this.currentLayout.tiles.map((tile) => {
           const src = (tile.content as any)?.src;
           if (typeof src === "string" && src.startsWith("blob:")) {
@@ -493,11 +516,24 @@ export const useLayoutStore = defineStore("layout", {
               return { ...tile, content: { ...tile.content, src: realUrl } };
             }
           }
-          return tile;
+          // Create a deep copy of the tile to preserve all content mutations
+          return { ...tile, content: { ...tile.content } };
         });
+
+        const resolvedProfileTiles = resolvedTiles.filter(t => t.content?.type === 'profile');
+        console.log('saveLayout - profile tiles after copy:', 
+          resolvedProfileTiles.map(t => ({
+            id: t.i,
+            type: t.content?.type,
+            profilePhotoUrl: (t.content as any)?.profilePhotoUrl,
+            hasPhotoUrl: !!(t.content as any)?.profilePhotoUrl
+          }))
+        );
 
         const layoutToSave = { ...this.currentLayout, tiles: resolvedTiles } as Layout;
         await layoutService.saveLayout(layoutToSave);
+        
+        console.log('saveLayout - saved to Firestore');
       } catch (err) {
         this.error = "Failed to save layout.";
         console.error(err);

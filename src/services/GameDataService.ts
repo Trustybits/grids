@@ -191,22 +191,28 @@ export function subscribeToUserGameData(
 ): () => void {
   const docRef = doc(db, GAME_DATA_COLLECTION, userId);
   
-  return onSnapshot(docRef, (docSnap) => {
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      callback({
-        userId,
-        displayName: data.displayName,
-        totalClicks: data.totalClicks || 0,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
-        dailyClicks: data.dailyClicks || 0,
-        lastClickDate: data.lastClickDate || getTodayDateString(),
-        passiveBoost: data.passiveBoost || 0,
-        totalPassiveClicks: data.totalPassiveClicks || 0,
-      });
+  return onSnapshot(
+    docRef,
+    (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        callback({
+          userId,
+          displayName: data.displayName,
+          totalClicks: data.totalClicks || 0,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+          dailyClicks: data.dailyClicks || 0,
+          lastClickDate: data.lastClickDate || getTodayDateString(),
+          passiveBoost: data.passiveBoost || 0,
+          totalPassiveClicks: data.totalPassiveClicks || 0,
+        });
+      }
+    },
+    (error) => {
+      console.warn("Error subscribing to user game data:", error);
     }
-  });
+  );
 }
 
 /**
@@ -249,20 +255,27 @@ export function subscribeToLeaderboard(
     limit(topN)
   );
 
-  return onSnapshot(q, (querySnapshot) => {
-    const leaderboard: LeaderboardEntry[] = [];
-    let rank = 1;
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      leaderboard.push({
-        userId: doc.id,
-        displayName: data.displayName,
-        totalClicks: data.totalClicks || 0,
-        rank: rank++,
+  return onSnapshot(
+    q,
+    (querySnapshot) => {
+      const leaderboard: LeaderboardEntry[] = [];
+      let rank = 1;
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        leaderboard.push({
+          userId: doc.id,
+          displayName: data.displayName,
+          totalClicks: data.totalClicks || 0,
+          rank: rank++,
+        });
       });
-    });
-    callback(leaderboard);
-  });
+      callback(leaderboard);
+    },
+    (error) => {
+      console.warn("Error subscribing to leaderboard:", error);
+      callback([]);
+    }
+  );
 }
 
 /**

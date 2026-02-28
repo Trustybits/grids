@@ -190,8 +190,6 @@ import {
 } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { getAuth } from "firebase/auth";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { db } from "@/firebase";
 
 const editorExtensions: AnyExtension[] = [
   StarterKit,
@@ -272,36 +270,15 @@ export default defineComponent({
 
     const avatarShape = computed(() => props.content.avatarShape || "circle");
 
-    const avatarSrc = ref("");
-    let unsubscribePhoto: (() => void) | null = null;
-
-    const subscribeToProfilePhoto = () => {
-      if (unsubscribePhoto) {
-        unsubscribePhoto();
-        unsubscribePhoto = null;
-      }
-      const uid = layoutStore.currentLayout?.userId ?? auth.currentUser?.uid;
-      if (!uid) return;
-      // publicProfiles is readable by anyone — no auth required
-      unsubscribePhoto = onSnapshot(doc(db, "publicProfiles", uid), (snap) => {
-        avatarSrc.value = snap.data()?.profilePhotoUrl ?? "";
-      });
-    };
-
-    onMounted(() => {
-      subscribeToProfilePhoto();
-    });
-
-    onUnmounted(() => {
-      if (unsubscribePhoto) unsubscribePhoto();
-    });
+    // Profile photo URL is now stored directly in tile content
+    // Use a computed property to reactively read from props.content
+    const avatarSrc = computed(() => props.content.profilePhotoUrl ?? "");
 
     const saveProfilePhoto = async (url: string) => {
-      avatarSrc.value = url;
-      const uid = auth.currentUser?.uid;
-      if (!uid) return;
-      // Write only to publicProfiles (single source of truth, publicly readable)
-      await setDoc(doc(db, "publicProfiles", uid), { profilePhotoUrl: url }, { merge: true });
+      // Save photo URL directly to tile content
+      props.content.profilePhotoUrl = url;
+      // Persist to Firestore via layout store
+      layoutStore.saveLayout();
     };
 
     const serializeEditor = (editor: any) => {

@@ -56,11 +56,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useDynamicFavicon } from '@/composables/useDynamicFavicon';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { useLayoutStore } from '@/stores/layout';
 import Grid from '@/components/Grid.vue';
@@ -81,22 +81,22 @@ const gridLoaded = ref(false);
 const pageTitle = computed(() => slug.value ? `@${slug.value}` : undefined);
 usePageTitle(pageTitle, '—');
 
-const profilePhotoUrl = ref<string | null>(null);
-useDynamicFavicon(profilePhotoUrl);
-
-let unsubscribePublicProfile: (() => void) | null = null;
-
-const subscribeToPublicProfile = (userId: string) => {
-  if (unsubscribePublicProfile) unsubscribePublicProfile();
-  // publicProfiles is readable by anyone — no auth required
-  unsubscribePublicProfile = onSnapshot(doc(db, 'publicProfiles', userId), (snap) => {
-    profilePhotoUrl.value = snap.data()?.profilePhotoUrl || null;
-  });
-};
-
-onUnmounted(() => {
-  if (unsubscribePublicProfile) unsubscribePublicProfile();
+// Find the first profile tile in the current layout and use its photo as the favicon
+// This makes the favicon specific to each grid page rather than global per user
+const profilePhotoUrl = computed(() => {
+  const tiles = layoutStore.currentLayout?.tiles;
+  if (!tiles) return null;
+  
+  // Find the first profile/bio tile
+  const profileTile = tiles.find(tile => tile.content?.type === 'profile');
+  if (!profileTile?.content) return null;
+  
+  // Type assertion since we know it's a profile tile
+  const profileContent = profileTile.content as any;
+  return profileContent.profilePhotoUrl || null;
 });
+
+useDynamicFavicon(profilePhotoUrl);
 
 const backgroundStyle = computed(() => {
   return {
@@ -140,9 +140,6 @@ const resolveSlug = async () => {
     }
 
     const slugData = slugSnap.data();
-
-    // Subscribe to the public profile for live favicon updates
-    subscribeToPublicProfile(slugData.userId);
     
     // Check if user has set a default grid (stored in slugs collection for public access)
     if (!slugData.defaultGridId) {

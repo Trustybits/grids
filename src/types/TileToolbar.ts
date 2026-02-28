@@ -14,7 +14,10 @@ export interface ToolbarMenuItem {
   label?: string
   icon?: Component
   action: (ctx: ToolbarContext) => void
+  isActive?: (cts: ToolbarContext) => boolean
   visible?: (ctx: ToolbarContext) => boolean
+  getProps?: (ctx: ToolbarContext) => any;
+  panelId?: string;
   danger?: boolean
 }
 
@@ -29,4 +32,5 @@ export interface ToolbarItem {
   group?: 'resize' | 'appearance' | 'actions' | 'map-style'
   menuItems?: ToolbarMenuItem[]
   panelId?: string
+  menuItemsLayoutDirection?: 'horizontal' | 'vertical'
 }

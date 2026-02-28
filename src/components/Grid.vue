@@ -223,6 +223,7 @@ export default {
 
     // Rebuild when breakpoint, tile count, or overrides change.
     // Using a deep-ish watch key so we don't rebuild on every in-place mutation.
+    // Note: verticalCompact is NOT watched here - gravity changes are handled separately
     watch(
       [
         activeBreakpoint,
@@ -334,6 +335,34 @@ export default {
 
     watch(displayLayout, () => {
       nextTick(() => observeGridHeight());
+    });
+
+    // When gravity is toggled on, compact tiles and save positions to store
+    watch(() => layoutStore.verticalCompact, (isCompact, wasCompact) => {
+      if (!layoutStore.currentLayout || !layoutStore.isOwner) return;
+      if (activeBreakpoint.value !== 'lg') return;
+      
+      // Only act when gravity is turned ON (false -> true)
+      if (isCompact && !wasCompact) {
+        const tiles = layoutStore.currentLayout.tiles;
+        const compacted = packTiles([...tiles], responsiveColNum.value);
+        
+        // Update each tile's position in the store's tiles array
+        compacted.forEach((compactedTile) => {
+          const storeTile = tiles.find(t => t.i === compactedTile.i);
+          if (storeTile) {
+            storeTile.x = compactedTile.x;
+            storeTile.y = compactedTile.y;
+          }
+        });
+        
+        // Force displayLayout to update by creating a new array reference
+        // This triggers the animation while maintaining the store connection
+        displayLayout.value = [...tiles];
+        
+        // Save to database
+        layoutStore.updateLayout();
+      }
     });
 
     onUnmounted(() => {

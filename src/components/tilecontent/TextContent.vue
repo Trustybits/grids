@@ -1,9 +1,4 @@
 <template>
-  <TextOptions
-    v-if="layoutStore.isOwner && editor"
-    v-show="isEditing"
-    :editor="editor"
-  />
   <div
     class="text-container"
     ref="textContentDiv"
@@ -111,7 +106,6 @@ import {
 import { useEditor, EditorContent } from "@tiptap/vue-3";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
-import TextOptions from "./TextOptions.vue";
 import FontFamily from "@tiptap/extension-font-family";
 import Color from "@tiptap/extension-color";
 import { FontSize } from "../tiptap/FontSize";
@@ -127,7 +121,6 @@ import ColorIcon from "../icons/toolbar/ColorIcon.vue";
 export default defineComponent({
   components: {
     EditorContent,
-    TextOptions,
     AddLinkModal,
   },
   emits: ["background-color-change", "text-color-change"],

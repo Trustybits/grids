@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { type Layout } from "@/types/Layout";
 import { getLayoutService } from "@/services/LayoutServiceFactory"; // Factory to switch services dynamically
-import { ContentType, type TileContent } from "@/types/TileContent";
+import { ContentType, type TileContent, type AnyTileContent } from "@/types/TileContent";
 import type { Breakpoint, TilePosition } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
 import { collection, query, where, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
@@ -590,7 +590,7 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
-    patchTileContent(id: string, patch: Partial<TileContent>) {
+    patchTileContent(id: string, patch: Partial<AnyTileContent>) {
       if (!this.currentLayout) return;
 
       const tile = this.currentLayout.tiles.find((t) => t.i === id);

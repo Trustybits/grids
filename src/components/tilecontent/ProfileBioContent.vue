@@ -270,15 +270,62 @@ export default defineComponent({
 
     const avatarShape = computed(() => props.content.avatarShape || "circle");
 
-    // Profile photo URL is now stored directly in tile content
-    // Use a computed property to reactively read from props.content
-    const avatarSrc = computed(() => props.content.profilePhotoUrl ?? "");
+    // Profile photo URL is stored in tile content
+    // Read from the store's tile content so it updates reactively when we upload/delete
+    const avatarSrc = computed(() => {
+      const currentTile = layoutStore.currentLayout?.tiles.find(
+        tile => {
+          if (tile.content?.type !== 'profile') return false;
+          const tileContent = tile.content as any;
+          const propsContent = props.content as any;
+          // Match by comparing unique properties (name, title, bio)
+          return tileContent.name === propsContent.name &&
+                 tileContent.title === propsContent.title &&
+                 tileContent.bio === propsContent.bio;
+        }
+      );
+      return (currentTile?.content as any)?.profilePhotoUrl ?? "";
+    });
 
     const saveProfilePhoto = async (url: string) => {
-      // Save photo URL directly to tile content
-      props.content.profilePhotoUrl = url;
+      // Find which tile this component is rendering by comparing content properties
+      // We can't use reference equality because props.content may be a different object
+      const currentTile = layoutStore.currentLayout?.tiles.find(
+        tile => {
+          if (tile.content?.type !== 'profile') return false;
+          const tileContent = tile.content as any;
+          const propsContent = props.content as any;
+          // Match by comparing unique properties (name, title, bio)
+          return tileContent.name === propsContent.name &&
+                 tileContent.title === propsContent.title &&
+                 tileContent.bio === propsContent.bio;
+        }
+      );
+      
+      console.log('saveProfilePhoto called:', {
+        url,
+        tileId: currentTile?.i,
+        foundTile: !!currentTile,
+        contentType: props.content.type,
+      });
+      
+      if (!currentTile) {
+        console.error('Could not find tile in store!');
+        return;
+      }
+      
+      // Mutate the store's content reference directly, not props.content
+      (currentTile.content as any).profilePhotoUrl = url;
+      
+      console.log('saveProfilePhoto - after mutation:', {
+        profilePhotoUrl: (currentTile.content as any).profilePhotoUrl,
+        tileId: currentTile.i,
+      });
+      
       // Persist to Firestore via layout store
-      layoutStore.saveLayout();
+      await layoutStore.saveLayout();
+      
+      console.log('saveProfilePhoto - layout saved');
     };
 
     const serializeEditor = (editor: any) => {

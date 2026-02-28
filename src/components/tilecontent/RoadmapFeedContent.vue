@@ -328,7 +328,7 @@ export default defineComponent({
     const draftDatabaseId = ref(props.content.notionDatabaseId === "pending" ? "" : props.content.notionDatabaseId);
     const draftStatusProp = ref(props.content.statusPropertyName);
     const draftUpvoteProp = ref(props.content.upvotePropertyName);
-    const draftStatusMapping = ref<Record<string, string>>({ ...props.content.statusMapping });
+    const draftStatusMapping = ref<Record<string, RoadmapStatus>>({ ...props.content.statusMapping });
     // Draft query filters — a working copy of the saved queryFilters the owner can edit
     const draftQueryFilters = ref<RoadmapQueryFilter[]>(
       (props.content.queryFilters ?? []).map((f) => ({ ...f, value: Array.isArray(f.value) ? [...f.value as string[]] : f.value }))
@@ -717,7 +717,7 @@ export default defineComponent({
     const saveStatusProp = () => layoutStore.patchTileContent(tileId, { statusPropertyName: draftStatusProp.value });
     const saveUpvoteProp = () => layoutStore.patchTileContent(tileId, { upvotePropertyName: draftUpvoteProp.value });
     const setStatusMapping = (notionOption: string, bucket: string) => {
-      draftStatusMapping.value = { ...draftStatusMapping.value, [notionOption]: bucket };
+      draftStatusMapping.value = { ...draftStatusMapping.value, [notionOption]: bucket as RoadmapStatus };
       layoutStore.patchTileContent(tileId, { statusMapping: { ...draftStatusMapping.value } });
     };
     const saveAllSettings = () => {

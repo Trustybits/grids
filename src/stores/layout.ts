@@ -556,7 +556,7 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
-    patchTileContent(id: string, patch: Partial<any>) {
+    patchTileContent(id: string, patch: Partial<TileContent>) {
       if (!this.currentLayout) return;
 
       const tile = this.currentLayout.tiles.find((t) => t.i === id);

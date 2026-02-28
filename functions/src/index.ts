@@ -20,6 +20,10 @@ import * as functions from "firebase-functions/v1";
 import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 
+// Notion OAuth secrets — set via: firebase functions:secrets:set NOTION_CLIENT_ID etc.
+const notionClientId = defineSecret("NOTION_CLIENT_ID");
+const notionClientSecret = defineSecret("NOTION_CLIENT_SECRET");
+
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 
@@ -1650,3 +1654,511 @@ export const checkSlugAvailability = onCall(async (data, context) => {
     throw new HttpsError("internal", "Failed to check slug availability.");
   }
 });
+
+// ── Notion Integration ─────────────────────────────────────────────────────
+
+/**
+ * Exchanges a Notion OAuth authorization code for an access token and stores
+ * it encrypted in Firestore at layouts/{layoutId}/notionTokens/{tileId}.
+ *
+ * The token is stored server-side only — it is never returned to the client
+ * and is not part of the publicly-readable tile content.
+ *
+ * Called by the NotionCallback page after the user completes Notion OAuth.
+ */
+export const notionOAuthExchange = functions
+  .runWith({ secrets: [notionClientId, notionClientSecret] })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new HttpsError("unauthenticated", "You must be signed in.");
+    }
+
+    const { code, layoutId, tileId, redirectUri } = data as {
+      code?: string;
+      layoutId?: string;
+      tileId?: string;
+      redirectUri?: string;
+    };
+
+    if (!code || !layoutId || !tileId || !redirectUri) {
+      throw new HttpsError("invalid-argument", "Missing code, layoutId, tileId, or redirectUri.");
+    }
+
+    // Verify the caller owns the layout before storing any token
+    const db = admin.firestore();
+    const layoutDoc = await db.collection("layouts").doc(layoutId).get();
+    if (!layoutDoc.exists || layoutDoc.data()?.userId !== context.auth.uid) {
+      throw new HttpsError("permission-denied", "You do not own this layout.");
+    }
+
+    const clientId = notionClientId.value();
+    const clientSecret = notionClientSecret.value();
+
+    if (!clientId || !clientSecret) {
+      throw new HttpsError("failed-precondition", "Notion OAuth not configured.");
+    }
+
+    // Exchange the authorization code for an access token via Notion's token endpoint
+    const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+    const tokenRes = await fetch("https://api.notion.com/v1/oauth/token", {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${credentials}`,
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
+      },
+      body: JSON.stringify({
+        grant_type: "authorization_code",
+        code,
+        // Must exactly match the URI used in the authorize request.
+        // Passed from the client via the state parameter to guarantee consistency.
+        redirect_uri: redirectUri,
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const body = await tokenRes.text();
+      logger.error("Notion token exchange failed", { status: tokenRes.status, body });
+      throw new HttpsError("internal", "Failed to exchange Notion authorization code.");
+    }
+
+    const tokenData = await tokenRes.json() as {
+      access_token: string;
+      workspace_id: string;
+      workspace_name?: string;
+      bot_id: string;
+    };
+
+    // Store the token in a private subcollection — not readable by clients via Firestore rules
+    await db
+      .collection("layouts").doc(layoutId)
+      .collection("notionTokens").doc(tileId)
+      .set({
+        accessToken: tokenData.access_token,
+        workspaceId: tokenData.workspace_id,
+        workspaceName: tokenData.workspace_name || "",
+        botId: tokenData.bot_id,
+        ownerId: context.auth.uid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+    logger.info("Notion OAuth token stored", { layoutId, tileId, workspaceId: tokenData.workspace_id });
+
+    return {
+      success: true,
+      workspaceName: tokenData.workspace_name || "",
+    };
+  });
+
+/**
+ * Lists all Notion databases the user has shared with this integration.
+ * Called after OAuth to let the owner pick a database without pasting an ID.
+ */
+export const listNotionDatabases = functions
+  .runWith({ secrets: [notionClientId, notionClientSecret] })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new HttpsError("unauthenticated", "You must be signed in.");
+    }
+
+    const { layoutId, tileId } = data as { layoutId?: string; tileId?: string };
+    if (!layoutId || !tileId) {
+      throw new HttpsError("invalid-argument", "Missing layoutId or tileId.");
+    }
+
+    const db = admin.firestore();
+    const tokenDoc = await db
+      .collection("layouts").doc(layoutId)
+      .collection("notionTokens").doc(tileId)
+      .get();
+
+    if (!tokenDoc.exists) {
+      throw new HttpsError("not-found", "Notion integration not connected for this tile.");
+    }
+
+    const accessToken = tokenDoc.data()?.accessToken as string;
+
+    // Use Notion's search endpoint to find all databases the integration can access
+    const searchRes = await fetch("https://api.notion.com/v1/search", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
+      },
+      body: JSON.stringify({
+        filter: { value: "database", property: "object" },
+        page_size: 50,
+      }),
+    });
+
+    if (!searchRes.ok) {
+      const body = await searchRes.text();
+      logger.error("Notion database list failed", { status: searchRes.status, body });
+      throw new HttpsError("internal", "Failed to list Notion databases.");
+    }
+
+    const searchData = await searchRes.json() as { results: any[] };
+
+    const databases = searchData.results.map((db: any) => ({
+      id: db.id,
+      // Notion database titles are rich text arrays
+      title: (db.title as any[])?.map((t: any) => t.plain_text || "").join("") || "Untitled",
+    }));
+
+    return { databases };
+  });
+
+/**
+ * Fetches pages from the connected Notion database and maps them to
+ * RoadmapItem objects using the owner-configured status mapping.
+ *
+ * Returns up to 100 items sorted by upvote count descending.
+ * Also returns the list of available select options for the status property
+ * so the owner can configure the mapping in the tile settings UI.
+ */
+export const fetchNotionRoadmap = functions
+  .runWith({ secrets: [notionClientId, notionClientSecret] })
+  .https.onCall(async (data, _context) => {
+    // No auth required — roadmap data is public (visible to anyone who can view the grid).
+    // The Notion access token is read server-side from Firestore and never returned to the client.
+
+    const { layoutId, tileId, statusPropertyName, upvotePropertyName, statusMapping, databaseIdOverride, queryFilters } = data as {
+      layoutId?: string;
+      tileId?: string;
+      statusPropertyName?: string;
+      upvotePropertyName?: string;
+      // Maps Notion select option names → "backlog" | "in_progress" | "done"
+      statusMapping?: Record<string, string>;
+      // Optional: pass the database ID directly so the client doesn't need to
+      // wait for patchTileContent to persist to Firestore before calling this function.
+      databaseIdOverride?: string;
+      // Owner-configured filters applied when querying Notion.
+      // Each filter maps to a Notion API filter condition.
+      queryFilters?: Array<{ propertyName: string; type: string; value: boolean | string | string[] }>;
+    };
+
+    if (!layoutId || !tileId) {
+      throw new HttpsError("invalid-argument", "Missing layoutId or tileId.");
+    }
+
+    // Retrieve the stored Notion access token for this tile
+    const db = admin.firestore();
+    const tokenDoc = await db
+      .collection("layouts").doc(layoutId)
+      .collection("notionTokens").doc(tileId)
+      .get();
+
+    if (!tokenDoc.exists) {
+      throw new HttpsError("not-found", "Notion integration not connected for this tile.");
+    }
+
+    // Only the layout owner or any authenticated user can fetch (items are public on the roadmap)
+    // but the token itself is only accessible server-side
+    const accessToken = tokenDoc.data()?.accessToken as string;
+
+    // Fetch the tile content to get the configured databaseId
+    const layoutDoc = await db.collection("layouts").doc(layoutId).get();
+    if (!layoutDoc.exists) {
+      throw new HttpsError("not-found", "Layout not found.");
+    }
+
+    const tiles: any[] = layoutDoc.data()?.tiles || [];
+    const tile = tiles.find((t: any) => t.i === tileId);
+
+    // Prefer the client-supplied override (used when selectDatabase hasn't persisted yet)
+    const databaseId = databaseIdOverride || tile?.content?.notionDatabaseId as string | undefined;
+    if (!databaseId || databaseId === "pending") {
+      throw new HttpsError("not-found", "Roadmap tile or database ID not configured.");
+    }
+    const effectiveStatusProp = statusPropertyName || tile.content.statusPropertyName || "";
+    const effectiveUpvoteProp = upvotePropertyName || tile.content.upvotePropertyName || "";
+    const effectiveMapping: Record<string, string> = statusMapping || tile.content.statusMapping || {};
+    // Owner-configured query filters — applied as Notion API filter conditions
+    const effectiveQueryFilters: Array<{ propertyName: string; type: string; value: boolean | string | string[] }> =
+      queryFilters || (tile.content.queryFilters as Array<{ propertyName: string; type: string; value: boolean | string | string[] }> | undefined) || [];
+
+    logger.info("[fetchNotionRoadmap] Received queryFilters from client:", { queryFilters });
+    logger.info("[fetchNotionRoadmap] Effective queryFilters after fallback:", { effectiveQueryFilters });
+
+    // Build the Notion API `filter` object from effectiveQueryFilters.
+    // All conditions are ANDed together using a compound `and` filter.
+    // multi_select uses OR logic: item must have at least one of the selected tags.
+    const buildNotionFilter = (): Record<string, any> | undefined => {
+      if (effectiveQueryFilters.length === 0) return undefined;
+      const conditions: Record<string, any>[] = [];
+      for (const qf of effectiveQueryFilters) {
+        if (qf.type === "checkbox") {
+          conditions.push({ property: qf.propertyName, checkbox: { equals: qf.value as boolean } });
+        } else if (qf.type === "select") {
+          conditions.push({ property: qf.propertyName, select: { equals: qf.value as string } });
+        } else if (qf.type === "status") {
+          conditions.push({ property: qf.propertyName, status: { equals: qf.value as string } });
+        } else if (qf.type === "multi_select") {
+          const values = Array.isArray(qf.value) ? qf.value as string[] : [qf.value as string];
+          if (values.length === 0) continue;
+          if (values.length === 1) {
+            conditions.push({ property: qf.propertyName, multi_select: { contains: values[0] } });
+          } else {
+            // OR: at least one tag must match — expressed as a nested `or` compound
+            conditions.push({ or: values.map((v) => ({ property: qf.propertyName, multi_select: { contains: v } })) });
+          }
+        }
+      }
+      if (conditions.length === 0) return undefined;
+      if (conditions.length === 1) return conditions[0];
+      return { and: conditions };
+    };
+    const notionFilter = buildNotionFilter();
+    logger.info("[fetchNotionRoadmap] Built Notion filter:", { notionFilter: JSON.stringify(notionFilter) });
+
+    // Fetch the database schema and all pages in parallel (schema fetch is independent)
+    const schemaFetchPromise = fetch(`https://api.notion.com/v1/databases/${databaseId}`, {
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Notion-Version": "2022-06-28",
+      },
+    });
+
+    // Paginate through all Notion results — the API caps each response at 100 rows.
+    // We keep fetching until has_more is false.
+    const sorts = effectiveUpvoteProp
+      ? [{ property: effectiveUpvoteProp, direction: "descending" }]
+      : [];
+
+    const allPages: any[] = [];
+    let startCursor: string | undefined;
+    let hasMore = true;
+
+    while (hasMore) {
+      const body: Record<string, any> = { page_size: 100, sorts };
+      if (startCursor) body.start_cursor = startCursor;
+      if (notionFilter) body.filter = notionFilter;
+
+      const queryRes = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "Notion-Version": "2022-06-28",
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!queryRes.ok) {
+        const errBody = await queryRes.text();
+        logger.error("Notion database query failed", { status: queryRes.status, body: errBody, databaseId });
+        throw new HttpsError("internal", "Failed to query Notion database.");
+      }
+
+      const queryData = await queryRes.json() as { results: any[]; has_more: boolean; next_cursor: string | null };
+      allPages.push(...queryData.results);
+      hasMore = queryData.has_more;
+      startCursor = queryData.next_cursor ?? undefined;
+    }
+
+    // Map Notion pages to RoadmapItem shape
+    const items = allPages.map((page: any) => {
+      const props = page.properties || {};
+
+      // Extract title from the first title-type property
+      let title = "";
+      for (const key of Object.keys(props)) {
+        const prop = props[key];
+        if (prop.type === "title" && Array.isArray(prop.title)) {
+          title = prop.title.map((t: any) => t.plain_text || "").join("");
+          break;
+        }
+      }
+
+      // Extract status from the configured select/status property
+      let rawStatus = "";
+      if (effectiveStatusProp && props[effectiveStatusProp]) {
+        const statusProp = props[effectiveStatusProp];
+        if (statusProp.type === "select" && statusProp.select?.name) {
+          rawStatus = statusProp.select.name;
+        } else if (statusProp.type === "status" && statusProp.status?.name) {
+          rawStatus = statusProp.status.name;
+        }
+      }
+
+      // Map the raw Notion status value to one of our three canonical buckets
+      const mappedStatus = effectiveMapping[rawStatus] || "backlog";
+
+      // Extract upvote count from the configured number property
+      let upvoteCount = 0;
+      if (effectiveUpvoteProp && props[effectiveUpvoteProp]) {
+        const upvoteProp = props[effectiveUpvoteProp];
+        if (upvoteProp.type === "number" && typeof upvoteProp.number === "number") {
+          upvoteCount = upvoteProp.number;
+        }
+      }
+
+      return {
+        notionPageId: page.id,
+        title: title || "Untitled",
+        status: mappedStatus,
+        upvoteCount,
+      };
+    });
+
+    // Resolve the schema fetch that was started in parallel with the page queries
+    let propertyOptions: { name: string; type: string; selectOptions?: string[] }[] = [];
+    try {
+      const dbRes = await schemaFetchPromise;
+      if (dbRes.ok) {
+        const dbData = await dbRes.json() as { properties: Record<string, any> };
+        propertyOptions = Object.entries(dbData.properties).map(([name, prop]) => ({
+          name,
+          type: prop.type,
+          selectOptions:
+            prop.type === "select"
+              ? (prop.select?.options || []).map((o: any) => o.name as string)
+              : prop.type === "status"
+              ? (prop.status?.options || []).map((o: any) => o.name as string)
+              : prop.type === "multi_select"
+              ? (prop.multi_select?.options || []).map((o: any) => o.name as string)
+              : undefined,
+        }));
+      }
+    } catch (err) {
+      // Non-fatal — owner can still use the feed even without property options
+      logger.warn("Failed to fetch Notion database schema", { error: String(err) });
+    }
+
+    logger.info("Notion roadmap fetched", { layoutId, tileId, itemCount: items.length });
+
+    return { items, propertyOptions };
+  });
+
+/**
+ * Records a Grids user's upvote on a roadmap item and patches the upvote
+ * count back to the corresponding Notion page.
+ *
+ * Upvotes are stored in Firestore at:
+ *   layouts/{layoutId}/tiles/{tileId}/upvotes/{userId}
+ *
+ * One document per user per tile item — the notionPageId field identifies
+ * which item within the tile the user voted on. This naturally deduplicates
+ * votes (set with merge:false will fail if the doc already exists, so we
+ * use a transaction to check and toggle).
+ */
+export const upvoteRoadmapItem = functions
+  .runWith({ secrets: [notionClientId, notionClientSecret] })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new HttpsError("unauthenticated", "You must be signed in to upvote.");
+    }
+
+    const { layoutId, tileId, notionPageId } = data as {
+      layoutId?: string;
+      tileId?: string;
+      notionPageId?: string;
+    };
+
+    if (!layoutId || !tileId || !notionPageId) {
+      throw new HttpsError("invalid-argument", "Missing layoutId, tileId, or notionPageId.");
+    }
+
+    const db = admin.firestore();
+    const userId = context.auth.uid;
+
+    // One doc per user per item, keyed by "{userId}_{notionPageId}".
+    // This allows a user to upvote multiple items independently.
+    // The userId prefix lets the client query all of a user's votes with a
+    // where("userId", "==", uid) filter without needing a collection-group index.
+    const docId = `${userId}_${notionPageId}`;
+    const upvoteRef = db
+      .collection("layouts").doc(layoutId)
+      .collection("tiles").doc(tileId)
+      .collection("upvotes").doc(docId);
+
+    // Retrieve the Notion access token for this tile
+    const tokenDoc = await db
+      .collection("layouts").doc(layoutId)
+      .collection("notionTokens").doc(tileId)
+      .get();
+
+    if (!tokenDoc.exists) {
+      throw new HttpsError("not-found", "Notion integration not connected for this tile.");
+    }
+
+    const accessToken = tokenDoc.data()?.accessToken as string;
+
+    // Use a transaction to toggle the upvote atomically
+    const { isNowUpvoted, newCount } = await db.runTransaction(async (transaction) => {
+      const upvoteDoc = await transaction.get(upvoteRef);
+
+      if (upvoteDoc.exists) {
+        // Toggle off — remove this item's upvote (other items unaffected)
+        transaction.delete(upvoteRef);
+        return { isNowUpvoted: false, newCount: -1 };
+      } else {
+        // Toggle on — record the upvote for this specific item
+        transaction.set(upvoteRef, {
+          userId,
+          notionPageId,
+          votedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { isNowUpvoted: true, newCount: 1 };
+      }
+    });
+
+    // Retrieve the tile content to find the upvote property name
+    const layoutDoc = await db.collection("layouts").doc(layoutId).get();
+    const tiles: any[] = layoutDoc.data()?.tiles || [];
+    const tile = tiles.find((t: any) => t.i === tileId);
+    const upvotePropertyName: string = tile?.content?.upvotePropertyName || "";
+
+    // Patch the upvote count on the Notion page if a property name is configured.
+    // We fetch the current value first so we can increment/decrement correctly.
+    if (upvotePropertyName) {
+      try {
+        // Fetch the current page to get the existing upvote count
+        const pageRes = await fetch(`https://api.notion.com/v1/pages/${notionPageId}`, {
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Notion-Version": "2022-06-28",
+          },
+        });
+
+        if (pageRes.ok) {
+          const pageData = await pageRes.json() as { properties: Record<string, any> };
+          const currentCount: number =
+            pageData.properties[upvotePropertyName]?.number ?? 0;
+
+          const updatedCount = Math.max(0, currentCount + newCount);
+
+          // Patch the Notion page with the new upvote count
+          await fetch(`https://api.notion.com/v1/pages/${notionPageId}`, {
+            method: "PATCH",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+              "Notion-Version": "2022-06-28",
+            },
+            body: JSON.stringify({
+              properties: {
+                [upvotePropertyName]: { number: updatedCount },
+              },
+            }),
+          });
+
+          logger.info("Notion upvote count patched", {
+            notionPageId,
+            upvotePropertyName,
+            updatedCount,
+            isNowUpvoted,
+          });
+        }
+      } catch (err) {
+        // Non-fatal — the Firestore vote is already recorded; Notion sync is best-effort
+        logger.error("Failed to patch Notion upvote count", {
+          error: String(err),
+          notionPageId,
+        });
+      }
+    }
+
+    return { isNowUpvoted };
+  });

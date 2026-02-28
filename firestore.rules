@@ -68,6 +68,29 @@ service cloud.firestore {
 
         allow update, delete: if isLayoutOwner(layoutId);
       }
+
+      // Upvotes for roadmap feed tiles.
+      // Each document is keyed by "{userId}_{notionPageId}" so users can vote on multiple items.
+      // The document contains { userId: string, notionPageId: string, votedAt: timestamp }.
+      // Writes are handled exclusively by the upvoteRoadmapItem Cloud Function (admin SDK),
+      // so client-side create/update/delete are all denied here — only reads are public.
+      match /tiles/{tileId}/upvotes/{docId} {
+        // Public read for individual docs and collection queries (e.g., where("userId", "==", uid))
+        // so users can see their own votes and all visitors can see vote counts.
+        allow read: if true;
+        // Alternative: restrict to owner + voter: allow read: if isLayoutOwner(layoutId) || request.auth.uid == resource.data.userId;
+
+        // All writes go through the Cloud Function (admin SDK bypasses these rules).
+        // Deny direct client writes to prevent vote manipulation.
+        allow write: if false;
+      }
+
+      // notionTokens subcollection stores Notion OAuth access tokens server-side.
+      // It must never be readable or writable by clients — only the Cloud Functions
+      // (admin SDK) may access it.
+      match /notionTokens/{tileId} {
+        allow read, write: if false;
+      }
     }
 
     match /userGameData/{userId} {

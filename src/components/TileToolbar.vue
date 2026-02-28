@@ -8,12 +8,6 @@
     <template v-for="(item, idx) in visibleItems" :key="item.id">
       <div v-if="shouldShowDivider(idx)" class="toolbar-divider"></div>
       <button
-        :ref="
-          (el) => {
-            if (item.menuItems) menuAnchorRef = el as HTMLButtonElement;
-            if (item.panelId) panelAnchorRef = el as HTMLButtonElement;
-          }
-        "
         class="toolbar-btn"
         :class="[
           item.cssClass,
@@ -24,9 +18,9 @@
           },
         ]"
         :data-tooltip="resolveTitle(item)"
-        @click.stop="onItemClick(item)"
+        @click.stop="onItemClick($event, item)"
       >
-        <component :is="item.icon" />
+        <component :is="resolveIcon(item)" />
       </button>
     </template>
   </div>
@@ -65,38 +59,68 @@
 
   <!-- Color Picker Panel -->
   <teleport to="body">
-    <div
-      v-if="panelOpen && activePanelId === 'colorSelect'"
-      ref="colorPickerRef"
-    >
+    <transition name="panel">
       <ColorPicker
+        v-if="panelOpen && activePanelId === 'colorSelect'"
+        ref="colorPickerRef"
         :tile="tile"
         :childComponent="childComponent"
         :buttonEl="panelAnchorRef"
       />
-    </div>
+    </transition>
+  </teleport>
+
+  <!-- Text Align Panel -->
+  <teleport to="body">
+    <transition name="panel">
+      <TextAlignPanel
+        v-if="panelOpen && activePanelId === 'textAlign'"
+        ref="textAlignPanelRef"
+        :tile="tile"
+        :childComponent="childComponent"
+        :buttonEl="panelAnchorRef"
+      />
+    </transition>
   </teleport>
 
   <teleport to="body">
-    <div
-      v-if="menuOpen && activeMenuItems.length"
-      ref="menuRef"
-      class="tile-toolbar-menu"
-      :style="menuStyle"
-      @mousedown.stop
-    >
-      <template v-for="mi in visibleMenuItems" :key="mi.id">
-        <button
-          type="button"
-          class="tile-toolbar-menu-item"
-          :class="{ 'tile-toolbar-menu-item--danger': mi.danger }"
-          @click.stop="onMenuItemClick(mi)"
-        >
-          <component v-if="mi.icon" :is="mi.icon" />
-          <template v-if="mi.label">{{ mi.label }}</template>
-        </button>
-      </template>
-    </div>
+    <transition name="tile-toolbar-menu">
+      <div
+        v-if="menuOpen && activeMenuItems.length"
+        ref="menuRef"
+        class="tile-toolbar-menu"
+        :style="[menuStyle, { 'flex-direction': menuItemLayoutDirection }]"
+        @mousedown.stop
+        @dragstart.prevent
+      >
+        <template v-for="mi in visibleMenuItems" :key="mi.id">
+          <button
+            v-if="mi.id !== 'font-size'"
+            type="button"
+            class="tile-toolbar-menu-item"
+            :class="[
+              { 'tile-toolbar-menu-item--danger': mi.danger },
+              { 'is-active': mi.isActive?.(ctx) },
+            ]"
+            @mousedown.prevent
+            @click="onMenuItemClick(mi)"
+          >
+            <component v-if="mi.icon" :is="mi.icon" />
+            <template v-if="mi.label">{{ mi.label }}</template>
+          </button>
+          <div
+            v-if="mi.id === 'font-size'"
+            class="tile-toolbar-menu-item"
+            style="display: flex; flex: 1; align-self: stretch; padding: 0"
+          >
+            <FontSizeSelector
+              :childComponent="childComponent"
+              style="flex: 1; align-self: stretch"
+            />
+          </div>
+        </template>
+      </div>
+    </transition>
   </teleport>
 </template>
 
@@ -112,6 +136,7 @@ import {
   type PropType,
 } from "vue";
 import type { Tile } from "@/types/Tile";
+import type { TextContent } from "@/types/TileContent";
 import type {
   ToolbarItem,
   ToolbarMenuItem,
@@ -121,13 +146,20 @@ import { getToolbarItems } from "@/utils/toolbarRegistry";
 import { useLayoutStore } from "@/stores/layout";
 import LocateFixedIcon from "./icons/toolbar/LocateFixedIcon.vue";
 import SearchIcon from "./icons/toolbar/SearchIcon.vue";
+import AlignLeftIcon from "./icons/toolbar/AlignLeftIcon.vue";
+import AlignCenterIcon from "./icons/toolbar/AlignCenterIcon.vue";
+import AlignRightIcon from "./icons/toolbar/AlignRightIcon.vue";
 import ColorPicker from "./ColorPicker.vue";
+import TextAlignPanel from "./TextAlignPanel.vue";
+import FontSizeSelector from "./FontSizeSelector.vue";
 
 export default defineComponent({
   components: {
     LocateFixedIcon,
     SearchIcon,
     ColorPicker,
+    FontSizeSelector,
+    TextAlignPanel,
   },
   props: {
     tile: {
@@ -151,21 +183,26 @@ export default defineComponent({
     const menuPosition = ref({ x: 0, y: 0 });
 
     // Panel state (e.g. search bar)
-    const activePanelId = ref<string | null>(null);
     const panelAnchorRef = ref<HTMLButtonElement | null>(null);
     const searchPanelRef = ref<HTMLDivElement | null>(null);
     const searchInputRef = ref<HTMLInputElement | null>(null);
     const searchQuery = ref("");
 
-    const colorPickerRef = ref<HTMLDivElement | null>(null);
+    const colorPickerRef = ref<{ $el?: HTMLElement } | null>(null);
+    const textAlignPanelRef = ref<{ $el?: HTMLElement } | null>(null);
     const childComponent = props.toolbarRefs.childComponent;
 
-    const menuOpen = computed(
-      () => layoutStore?.activeMenuTileId === props.tile.i,
+    const isActiveTile = computed(
+      () => layoutStore?.activeTileId === props.tile.i,
     );
+    const activePanelId = computed(() => layoutStore?.activePanelId);
 
     const panelOpen = computed(
-      () => layoutStore?.activePanelTileId === props.tile.i,
+      () => activePanelId.value !== null && isActiveTile.value,
+    );
+
+    const menuOpen = computed(
+      () => activePanelId.value === null && isActiveTile.value,
     );
 
     const ctx = computed<ToolbarContext>(() => ({
@@ -182,6 +219,14 @@ export default defineComponent({
       items.value.filter((item) => item.visible?.(ctx.value) ?? true),
     );
 
+    const menuItemLayoutDirection = computed(() => {
+      const menuItem = items.value.find((i) => i.menuItems);
+      if (menuItem?.menuItemsLayoutDirection === "horizontal") {
+        return "row";
+      }
+      return "column";
+    });
+
     const activeMenuItems = computed<ToolbarMenuItem[]>(() => {
       const menuItem = items.value.find((i) => i.menuItems);
       return menuItem?.menuItems ?? [];
@@ -195,6 +240,17 @@ export default defineComponent({
       return typeof item.title === "function"
         ? item.title(ctx.value)
         : item.title;
+    };
+
+    const resolveIcon = (item: ToolbarItem) => {
+      if (item.id !== "text-align") return item.icon;
+
+      const content = props.tile.content as TextContent;
+      const align = content?.textAlign ?? "left";
+
+      if (align === "center") return AlignCenterIcon;
+      if (align === "right") return AlignRightIcon;
+      return AlignLeftIcon;
     };
 
     const shouldShowDivider = (idx: number): boolean => {
@@ -230,7 +286,10 @@ export default defineComponent({
       nextTick(() => {
         const menu = menuRef.value;
         if (!menu) return;
-        const { width, height } = menu.getBoundingClientRect();
+        // Use layout dimensions (not transformed visual bounds) so
+        // scale/translate entrance animations don't skew initial positioning.
+        const width = menu.offsetWidth;
+        const height = menu.offsetHeight;
         const nextX = rect.right - width;
         const nextY = rect.bottom + 8;
         menuPosition.value = clampToViewport(nextX, nextY, width, height);
@@ -243,40 +302,31 @@ export default defineComponent({
     }));
 
     const closeMenu = () => {
-      layoutStore.closeAllMenus();
+      layoutStore.closeMenus();
     };
 
-    const closePanel = () => {
-      activePanelId.value = null;
-      closeMenu();
-    };
-
-    const onItemClick = (item: ToolbarItem) => {
+    const onItemClick = (event: MouseEvent, item: ToolbarItem) => {
       // Handle panel items (e.g. search)
+      const button = event.currentTarget as HTMLButtonElement | null;
+      if (!button) return;
+
+      if (item.panelId) panelAnchorRef.value = button;
+      if (item.menuItems) menuAnchorRef.value = button;
+
       if (item.panelId) {
-        if (panelOpen.value && activePanelId.value === item.panelId) {
-          closePanel();
-        } else {
-          closeMenu();
-          layoutStore.setActivePanelTileId(props.tile.i);
-          activePanelId.value = item.panelId;
-          if (item.panelId === "search")
-            nextTick(() => {
-              searchInputRef.value?.focus();
-            });
-        }
+        layoutStore.togglePanelActive(props.tile.i, item.panelId);
+        if (item.panelId === "search")
+          nextTick(() => {
+            searchInputRef.value?.focus();
+          });
+
         return;
       }
 
       // Handle menu items
       if (item.menuItems) {
-        if (menuOpen.value) {
-          closeMenu();
-        } else {
-          closePanel();
-          layoutStore.setActiveMenuTile(props.tile.i);
-          nextTick(positionMenu);
-        }
+        layoutStore.toggleMenuActive(props.tile.i);
+        nextTick(positionMenu);
         return;
       }
 
@@ -284,7 +334,9 @@ export default defineComponent({
     };
 
     const onMenuItemClick = (mi: ToolbarMenuItem) => {
-      closeMenu();
+      if (mi.id === "text-link") {
+        closeMenu();
+      }
       mi.action(ctx.value);
     };
 
@@ -302,6 +354,8 @@ export default defineComponent({
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
+      const colorPickerEl = colorPickerRef.value?.$el;
+      const textAlignPanelEl = textAlignPanelRef.value?.$el;
 
       // Close menu if open
       if (menuOpen.value) {
@@ -314,8 +368,9 @@ export default defineComponent({
       if (panelOpen.value) {
         if (searchPanelRef.value?.contains(target)) return;
         if (panelAnchorRef.value?.contains(target)) return;
-        if (colorPickerRef.value?.contains(target)) return;
-        closePanel();
+        if (colorPickerEl?.contains(target)) return;
+        if (textAlignPanelEl?.contains(target)) return;
+        closeMenu();
       }
     };
 
@@ -332,17 +387,22 @@ export default defineComponent({
     // Reposition the menu when it opens
     watch(menuOpen, (open, _prev, onCleanup) => {
       if (!open) return;
-      
+
       nextTick(positionMenu);
 
       window.addEventListener("resize", schedulePositionMenu);
-      window.addEventListener("scroll", schedulePositionMenu, { capture: true, passive: true });
+      window.addEventListener("scroll", schedulePositionMenu, {
+        capture: true,
+        passive: true,
+      });
 
       onCleanup(() => {
         if (rafId != null) cancelAnimationFrame(rafId);
         rafId = null;
         window.removeEventListener("resize", schedulePositionMenu);
-        window.removeEventListener("scroll", schedulePositionMenu, { capture: true });
+        window.removeEventListener("scroll", schedulePositionMenu, {
+          capture: true,
+        });
       });
     });
 
@@ -362,12 +422,15 @@ export default defineComponent({
       visibleMenuItems,
       activeMenuItems,
       ctx,
+      isActiveTile,
       menuOpen,
       menuAnchorRef,
       menuRef,
       menuStyle,
       menuPosition,
+      menuItemLayoutDirection,
       resolveTitle,
+      resolveIcon,
       shouldShowDivider,
       onItemClick,
       onMenuItemClick,
@@ -380,6 +443,7 @@ export default defineComponent({
       searchInputRef,
       searchQuery,
       colorPickerRef,
+      textAlignPanelRef,
       childComponent,
       onLocateClick,
       onSearchSubmit,
@@ -479,8 +543,9 @@ export default defineComponent({
     color: var(--color-tile-background);
     pointer-events: none;
     opacity: 0;
-    transition: opacity var(--duration-fast) var(--easing-ease-out),
-                transform var(--duration-fast) var(--easing-ease-out);
+    transition:
+      opacity var(--duration-fast) var(--easing-ease-out),
+      transform var(--duration-fast) var(--easing-ease-out);
     z-index: var(--z-tooltip);
   }
 
@@ -588,8 +653,9 @@ export default defineComponent({
     color: var(--color-tile-background);
     pointer-events: none;
     opacity: 0;
-    transition: opacity var(--duration-fast) var(--easing-ease-out),
-                transform var(--duration-fast) var(--easing-ease-out);
+    transition:
+      opacity var(--duration-fast) var(--easing-ease-out),
+      transform var(--duration-fast) var(--easing-ease-out);
     z-index: var(--z-tooltip);
   }
 
@@ -635,12 +701,20 @@ export default defineComponent({
   min-width: 50px;
   padding: 4px;
   display: flex;
-  flex-direction: column;
+  // flex-direction: column;
   gap: 2px;
   background: var(--color-tile-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-tile-hover);
+}
+
+.tile-toolbar-menu-enter-active {
+  animation: tileToolbarMenuSlideIn var(--duration-normal) var(--easing-spring);
+}
+
+.tile-toolbar-menu-leave-active {
+  animation: tileToolbarMenuSlideOut var(--duration-normal) var(--easing-spring);
 }
 
 .tile-toolbar-menu-item {
@@ -664,5 +738,64 @@ export default defineComponent({
 
 .tile-toolbar-menu-item--danger {
   color: #ff3737;
+}
+
+.is-active {
+  background-color: var(--color-text-primary);
+  color: var(--color-tile-background);
+  border-radius: var(--radius-sm);
+  transform: none;
+}
+
+.panel-enter-active {
+  animation: panelSlideIn var(--duration-normal) var(--easing-spring);
+}
+
+.panel-leave-active {
+  animation: panelSlideOut var(--duration-normal) var(--easing-spring);
+}
+
+@keyframes tileToolbarMenuSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tileToolbarMenuSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes panelSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@keyframes panelSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(0.95);
+  }
 }
 </style>

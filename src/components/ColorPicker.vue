@@ -271,8 +271,6 @@ export default defineComponent({
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: 12px;
   padding: 4px;
-
-  animation: colorPickerSlideIn var(--duration-normal) var(--easing-spring);
 }
 
 .color-box {
@@ -402,17 +400,6 @@ export default defineComponent({
   &:hover::after {
     opacity: 1;
     transform: translateX(-50%) scale(1);
-  }
-}
-
-@keyframes colorPickerSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-8px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(1);
   }
 }
 </style>

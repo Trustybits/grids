@@ -12,6 +12,7 @@ export enum ContentType {
   SUGGESTION = "suggestion", // internal-only tile type
   PROFILE = "profile",
   YOUTUBE = "youtube",
+  ROADMAP_FEED = "roadmap_feed",
 }
 
 export interface TileContent {
@@ -27,6 +28,7 @@ export interface TextContent extends TileContent {
   isItalic: boolean;
   textType: string;
   color: string;
+  textAlign?: "left" | "center" | "right";
   textLink?: string;
   backgroundColor?: string;
 }
@@ -126,19 +128,19 @@ export interface RPGContent extends TileContent {
     health: number;
     maxHealth: number;
     attack: number;
-    type: 'goblin' | 'troll' | 'dragon';
+    type: "goblin" | "troll" | "dragon";
   }>;
   items: Array<{
     id: string;
     x: number;
     y: number;
-    type: 'health' | 'strength' | 'shield';
+    type: "health" | "strength" | "shield";
     collected: boolean;
   }>;
   walls: Array<[number, number]>;
   score: number;
   wave: number;
-  gameState: 'playing' | 'won' | 'lost';
+  gameState: "playing" | "won" | "lost";
 }
 
 export type AvatarShape = "circle" | "square" | "hex";
@@ -148,7 +150,6 @@ export interface ProfileBioContent extends TileContent {
   name: string;
   title: string;
   bio: string;
-  avatarSrc: string;
   avatarShape: AvatarShape;
   avatarRadius: number;
   backgroundColor?: string;
@@ -174,7 +175,7 @@ export interface ClickerContent extends TileContent {
 }
 
 // YouTube content types: video, playlist, channel, short
-export type YouTubeType = 'video' | 'playlist' | 'channel' | 'short';
+export type YouTubeType = "video" | "playlist" | "channel" | "short";
 
 // Single thumbnail entry returned by the YouTube Data API
 export interface YouTubeThumbnailEntry {
@@ -185,11 +186,11 @@ export interface YouTubeThumbnailEntry {
 
 // Thumbnail sizes available from YouTube API
 export interface YouTubeThumbnails {
-  default?: YouTubeThumbnailEntry;   // 120x90
-  medium?: YouTubeThumbnailEntry;    // 320x180
-  high?: YouTubeThumbnailEntry;      // 480x360
-  standard?: YouTubeThumbnailEntry;  // 640x480
-  maxres?: YouTubeThumbnailEntry;    // 1280x720
+  default?: YouTubeThumbnailEntry; // 120x90
+  medium?: YouTubeThumbnailEntry; // 320x180
+  high?: YouTubeThumbnailEntry; // 480x360
+  standard?: YouTubeThumbnailEntry; // 640x480
+  maxres?: YouTubeThumbnailEntry; // 1280x720
 }
 
 // Individual video data for playlists
@@ -219,28 +220,80 @@ export interface YouTubeContent extends TileContent {
   youtubeUrl: string;
   youtubeType: YouTubeType;
   youtubeId: string;
-  
+
   // Common metadata
   title?: string;
   description?: string;
   thumbnails?: YouTubeThumbnails;
   publishedAt?: string;
-  
+
   // Video-specific metadata
   channelTitle?: string;
   channelId?: string;
   channelThumbnail?: string;
-  duration?: string;        // ISO 8601 duration format (PT1H2M10S)
+  duration?: string; // ISO 8601 duration format (PT1H2M10S)
   viewCount?: string;
   likeCount?: string;
   commentCount?: string;
   categoryId?: string;
-  
+
   // Playlist-specific metadata
   itemCount?: number;
   playlistItems?: YouTubePlaylistItem[];
-  
+
   // Channel-specific metadata
   channelData?: YouTubeChannelData;
   recentVideos?: YouTubePlaylistItem[];
+}
+
+// ── Roadmap Feed (Notion integration) ──────────────────────────────
+
+// The three canonical status buckets items are mapped into for display.
+// Notion select values are mapped to these by the owner during setup.
+export type RoadmapStatus = "backlog" | "in_progress" | "done";
+
+// Property types that can be used as query filters when fetching from Notion.
+export type RoadmapFilterableType = "checkbox" | "select" | "multi_select" | "status";
+
+// A single owner-configured filter applied when querying the Notion database.
+// These are sent to the Cloud Function and translated into Notion API filter conditions.
+export interface RoadmapQueryFilter {
+  propertyName: string;
+  type: RoadmapFilterableType;
+  // checkbox: true | false
+  // select / status: a single option name string
+  // multi_select: array of option name strings (OR logic — item must have ANY of these)
+  value: boolean | string | string[];
+}
+
+// A single roadmap item as returned by the fetchNotionRoadmap Cloud Function.
+// This is the shape stored in the tile's local cache (refreshed on mount).
+export interface RoadmapItem {
+  notionPageId: string;
+  title: string;
+  status: RoadmapStatus;
+  description?: string;   // plain-text excerpt from the page body, if available
+  upvoteCount: number;    // value of the upvote number property on the Notion page
+}
+
+export interface RoadmapFeedContent extends TileContent {
+  type: ContentType.ROADMAP_FEED;
+  // Notion database ID the owner has connected this tile to.
+  // Empty string means the tile is not yet connected.
+  notionDatabaseId: string;
+  // Name of the Notion select/status property used to derive RoadmapStatus.
+  statusPropertyName: string;
+  // Name of the Notion number property where upvote counts are written back.
+  upvotePropertyName: string;
+  // Maps raw Notion select option names → RoadmapStatus buckets.
+  // e.g. { "In Review": "in_progress", "Shipped": "done" }
+  statusMapping: Record<string, RoadmapStatus>;
+  // Owner-configured filters applied server-side when querying Notion.
+  // Only items matching all filters are fetched and shown on the roadmap.
+  queryFilters?: RoadmapQueryFilter[];
+  // Cached items from the last successful Notion fetch, stored so the tile
+  // can render immediately on load without waiting for a network round-trip.
+  cachedItems?: RoadmapItem[];
+  // Unix ms timestamp of the last successful sync from Notion.
+  lastSyncedAt?: number;
 }

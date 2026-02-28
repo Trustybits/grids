@@ -1,20 +1,24 @@
 <template>
-  <TextOptions
-    v-if="layoutStore.isOwner && editor"
-    v-show="isEditing"
-    :editor="editor"
-  />
-  <div class="text-container" ref="textContentDiv">
+  <div
+    class="text-container"
+    ref="textContentDiv"
+    :class="{ overflowing: shouldShowOverflow }"
+  >
     <div
       class="text-content"
       :class="{
         'not-editing': !isEditing,
-        overflowing: isTextOverflowing,
         'can-edit': layoutStore.isOwner,
         'is-wide-1-high': isWideOneHigh,
         'is-tall-1-wide': isTallOneWide,
+        'owner-view': layoutStore.isOwner,
+        'viewer-view': !layoutStore.isOwner,
       }"
-      :style="{ color: textColor }"
+      :style="{
+        '--tile-bg': backgroundColor,
+        color: textColor,
+        textAlign: textAlign,
+      }"
       :spellcheck="layoutStore.isOwner && isEditing"
     >
       <EditorContent :editor="editor" />
@@ -96,11 +100,12 @@ import {
   inject,
   computed,
   type ComputedRef,
+  nextTick,
+  onUnmounted,
 } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
-import TextOptions from "./TextOptions.vue";
 import FontFamily from "@tiptap/extension-font-family";
 import Color from "@tiptap/extension-color";
 import { FontSize } from "../tiptap/FontSize";
@@ -111,11 +116,11 @@ import AddLinkModal from "../AddLinkModal.vue";
 import type { TextContent } from "@/types/TileContent";
 import { useToastStore } from "@/stores/toast";
 import { computeTextColor, resolveBackgroundColor } from "@/utils/TileUtils";
+import ColorIcon from "../icons/toolbar/ColorIcon.vue";
 
 export default defineComponent({
   components: {
     EditorContent,
-    TextOptions,
     AddLinkModal,
   },
   emits: ["background-color-change", "text-color-change"],
@@ -128,7 +133,11 @@ export default defineComponent({
   setup(props, { emit }) {
     const layoutStore = useLayoutStore();
 
+    const isOwner = ref(layoutStore?.isOwner);
+
     const isTextOverflowing = ref(false);
+    const isScrolledToBottom = ref(false);
+    const editorDomRef = ref<HTMLElement | null>(null);
     const isEditing = ref(false);
     const textContentDiv = ref<HTMLDivElement | null>(null);
 
@@ -146,6 +155,9 @@ export default defineComponent({
 
     const textLink = computed(() => props.content?.textLink);
     const textLinkExists = computed(() => !!props.content?.textLink);
+    const isBoldActive = ref(false);
+    const isItalicActive = ref(false);
+    const textAlign = computed(() => props.content?.textAlign ?? "left");
 
     const showLinkModal = ref<boolean>(false);
     const toastStore = useToastStore();
@@ -162,6 +174,22 @@ export default defineComponent({
         TaskItem,
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",
+      onCreate({ editor }) {
+        nextTick(() => {
+          checkOverflow();
+
+          const container = textContentDiv.value;
+          if (container) {
+            const scrollableElement = container.querySelector(
+              ".text-content",
+            ) as HTMLElement;
+            if (scrollableElement) {
+              editorDomRef.value = scrollableElement;
+              scrollableElement.addEventListener("scroll", handleScroll);
+            }
+          }
+        });
+      },
       onUpdate({ editor }) {
         // props.content.text = editor.getHTML();
         checkOverflow();
@@ -178,7 +206,34 @@ export default defineComponent({
       const isOverflowing = container.clientHeight < editorDom.clientHeight + 5;
 
       isTextOverflowing.value = isOverflowing;
+
+      checkScrollPosition();
     };
+
+    const checkScrollPosition = () => {
+      const container = textContentDiv.value;
+      if (!container) return;
+
+      const scrollableElement = container.querySelector(
+        ".text-content",
+      ) as HTMLElement;
+      if (!scrollableElement) return;
+
+      const threshold = 5;
+      const isAtBottom =
+        scrollableElement.scrollTop + scrollableElement.clientHeight >=
+        scrollableElement.scrollHeight - threshold;
+
+      isScrolledToBottom.value = isAtBottom;
+    };
+
+    const handleScroll = () => {
+      checkScrollPosition();
+    };
+
+    const shouldShowOverflow = computed(
+      () => isTextOverflowing.value && !isScrolledToBottom.value,
+    );
 
     watch(
       [() => layoutStore.isOwner, () => isEditing.value],
@@ -200,18 +255,14 @@ export default defineComponent({
           isEditing.value = false;
           return;
         }
-
         // Owner is leaving edit mode: persist changes.
-        let output = JSON.stringify(editor.value.getJSON());
-        output = output.replace(/^"(.*)"$/, "$1");
-        props.content.text = output;
-        layoutStore.saveLayout();
+        persistEditorText();
       },
     );
 
     const onShortClick = () => {
       if (!layoutStore.isOwner) {
-        if (textLinkExists) {
+        if (textLinkExists.value) {
           window.open(textLink.value, "_blank", "noopener,noreferrer");
         }
         return;
@@ -237,8 +288,6 @@ export default defineComponent({
     const tileId = inject<string | null>("tileId", null);
 
     onMounted(() => {
-      checkOverflow();
-
       // If this tile was just created and flagged for auto-focus, enter
       // edit mode immediately so the user can start typing right away.
       if (
@@ -248,6 +297,13 @@ export default defineComponent({
       ) {
         layoutStore.pendingFocusTileId = null;
         isEditing.value = true;
+      }
+    });
+
+    onUnmounted(() => {
+      if (editorDomRef.value) {
+        editorDomRef.value.removeEventListener("scroll", handleScroll);
+        editorDomRef.value = null;
       }
     });
 
@@ -288,7 +344,7 @@ export default defineComponent({
     };
 
     const handleOwnerClick = () => {
-      if (!textLinkExists) return;
+      if (!textLinkExists.value) return;
 
       window.open(textLink.value, "_blank", "noopener,noreferrer");
     };
@@ -305,7 +361,9 @@ export default defineComponent({
       if (!layoutStore.isOwner) return;
 
       props.content.backgroundColor = color;
-      layoutStore.saveLayout();
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { backgroundColor: color });
+      }
     };
 
     watch(backgroundColor, (color) => emit("background-color-change", color), {
@@ -316,10 +374,121 @@ export default defineComponent({
       immediate: true,
     });
 
+    const handleTextAlignChange = (align: "left" | "center" | "right") => {
+      if (!layoutStore.isOwner) return;
+      props.content.textAlign = align;
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { textAlign: align });
+      }
+    };
+
+    const persistEditorText = () => {
+      if (!editor.value || !layoutStore.isOwner) return;
+
+      const output = JSON.stringify(editor.value.getJSON());
+
+      if (tileId && layoutStore.currentLayout) {
+        const tile = layoutStore.currentLayout.tiles.find(
+          (t) => t.i === tileId,
+        );
+        if (tile && (tile.content as TextContent).type === "text") {
+          (tile.content as TextContent).text = output;
+        }
+      } else {
+        props.content.text = output;
+      }
+
+      layoutStore.saveLayout();
+    };
+
+    const syncMarkState = () => {
+      const e = editor.value;
+      if (!e) return;
+      isBoldActive.value = e.isActive("bold");
+      isItalicActive.value = e.isActive("italic");
+    };
+
+    watch(
+      editor,
+      (e, _prev, onCleanup) => {
+        if (!e) return;
+        syncMarkState();
+        e.on("selectionUpdate", syncMarkState);
+        e.on("transaction", syncMarkState);
+
+        onCleanup(() => {
+          e.off("selectionUpdate", syncMarkState);
+          e.off("transaction", syncMarkState);
+        });
+      },
+      { immediate: true },
+    );
+
+    const toggleItalic = () => {
+      if (!editor.value) return;
+      editor.value.chain().focus().toggleItalic().run();
+    };
+
+    const toggleBold = () => {
+      if (!editor.value) return;
+      editor.value.chain().focus().toggleBold().run();
+    };
+
+    const handleFontSizeChange = (size: string) => {
+      if (!editor.value) return;
+
+      let fontSizePx = "14px";
+      const normalizedSize = size.trim().toLowerCase();
+
+      if (normalizedSize === "small") {
+        fontSizePx = "12px";
+      } else if (normalizedSize === "medium") {
+        fontSizePx = "14px";
+      } else if (normalizedSize === "large") {
+        fontSizePx = "20px";
+      } else if (normalizedSize === "larger") {
+        fontSizePx = "26px";
+      }
+
+      editor.value
+        .chain()
+        .focus(undefined, { scrollIntoView: false })
+        .setFontSize(fontSizePx)
+        .run();
+
+      // Avoid persisting on every size click while editing; the edit-exit flow
+      // already persists the full JSON and this avoids layout-save side effects
+      // that can move the viewport.
+    };
+
+    const getCurrentFontSize = () => {
+      let fontSize = editor.value?.getAttributes("textStyle")?.fontSize;
+      //  <option value="12px">Small</option>
+      // <option value="14px">Medium</option>
+      // <option value="20px">Large</option>
+      // <option value="26px">Larger</option>
+
+      if (!fontSize) {
+        return "Medium";
+      }
+
+      if (fontSize === "12px") {
+        return "Small";
+      } else if (fontSize === "14px") {
+        return "Medium";
+      } else if (fontSize === "20px") {
+        return "Large";
+      } else if (fontSize === "26px") {
+        return "Larger";
+      }
+
+      return fontSize;
+    };
+
     return {
       layoutStore,
       editor,
-      isTextOverflowing,
+      shouldShowOverflow,
       isEditing,
       textContentDiv,
       showLinkModal,
@@ -329,6 +498,7 @@ export default defineComponent({
       textLinkExists,
       backgroundColor,
       textColor,
+      textAlign,
       onShortClick,
       onExitClick,
       openUrlInput,
@@ -336,6 +506,14 @@ export default defineComponent({
       handleAddLink,
       handleOwnerClick,
       handleBackgroundColorChange,
+      handleTextAlignChange,
+      toggleItalic,
+      toggleBold,
+      isBoldActive,
+      isItalicActive,
+      isOwner,
+      getCurrentFontSize,
+      handleFontSizeChange,
     };
   },
 });
@@ -377,8 +555,8 @@ export default defineComponent({
 .overflowing::after {
   content: "...";
   position: absolute;
-  right: 8px;
-  bottom: 8px;
+  right: 18px;
+  bottom: 12px;
   color: inherit;
 }
 
@@ -426,6 +604,20 @@ export default defineComponent({
   display: inline-block;
 }
 
+:deep(.ProseMirror strong) {
+  font-weight: 700;
+}
+
+:deep(.ProseMirror em) {
+  font-style: italic;
+}
+
+:deep(.ProseMirror strong em),
+:deep(.ProseMirror em strong) {
+  font-weight: 700;
+  font-style: italic;
+}
+
 .text-content.is-wide-1-high .tile-link-indicator {
   margin-left: auto;
 }
@@ -442,14 +634,18 @@ export default defineComponent({
   right: 9px;
   width: 24px;
   height: 24px;
-  color: var(--color-text-primary);
+  color: inherit;
   opacity: 0.21;
   transition: opacity var(--duration-fast) var(--easing-ease-in-out);
   pointer-events: auto;
   z-index: 1200;
 }
 
-.text-content:hover .tile-link-indicator {
+.text-content.viewer-view:hover .tile-link-indicator {
+  opacity: 1;
+}
+
+.text-content.owner-view .tile-link-indicator:hover {
   opacity: 1;
 }
 

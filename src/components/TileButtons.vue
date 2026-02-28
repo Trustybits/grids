@@ -23,7 +23,7 @@
         <ImageIcon />
       </button>
       <button class="btn btn-secondary" data-tooltip="Link" @click="addLinkElement">
-        <LinkIcon />
+        <LinkTileIcon />
       </button>
       <button class="btn btn-secondary" data-tooltip="Embed" @click="addEmbedElement">
         <EmbedIcon />
@@ -90,7 +90,7 @@ import AddMapModal from "./AddMapModal.vue";
 import TextIcon from "./icons/TextIcon.vue";
 import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
-import LinkIcon from "./icons/LinkIcon.vue";
+import LinkTileIcon from "./icons/LinkTileIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileIcon from "./icons/ProfileIcon.vue";
 import MapIcon from "./icons/MapIcon.vue";
@@ -105,7 +105,7 @@ export default {
     TextIcon,
     ChatIcon,
     ImageIcon,
-    LinkIcon,
+    LinkTileIcon,
     EmbedIcon,
     ProfileIcon,
     MapIcon,

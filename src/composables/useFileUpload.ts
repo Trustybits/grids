@@ -203,10 +203,43 @@ export function useFileUpload() {
     }
   };
 
+  /**
+   * Fetch an external image URL, upload it to Firebase Storage, and return our permanent URL.
+   * Use this when a user provides a remote image URL so we own a copy and avoid external dependency.
+   */
+  const uploadExternalImageToStorage = async (
+    externalUrl: string,
+    pathPrefix = "images"
+  ): Promise<string> => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error("You must be logged in to upload.");
+    }
+
+    const response = await fetch(externalUrl);
+    if (!response.ok) {
+      throw new Error("Failed to fetch image from the provided URL.");
+    }
+
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    if (!contentType.startsWith("image/")) {
+      throw new Error("The URL does not point to a valid image.");
+    }
+
+    const blob = await response.blob();
+    const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
+    const filePath = `users/${currentUser.uid}/${pathPrefix}/${Date.now()}_external.${ext}`;
+    const fileRef = storageRef(storage, filePath);
+
+    await uploadBytes(fileRef, blob, { contentType });
+    return await getDownloadURL(fileRef);
+  };
+
   return {
     uploadFile,
     uploadFileToUrl,
     uploadFileOptimistic,
     uploadFileOptimisticForTile,
+    uploadExternalImageToStorage,
   };
 }

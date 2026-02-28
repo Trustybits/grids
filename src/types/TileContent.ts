@@ -297,3 +297,22 @@ export interface RoadmapFeedContent extends TileContent {
   // Unix ms timestamp of the last successful sync from Notion.
   lastSyncedAt?: number;
 }
+
+// Union type of all possible TileContent types.
+// This allows Partial<AnyTileContent> to include properties from all content types,
+// which is necessary for patchTileContent to work with any content property.
+export type AnyTileContent =
+  | TextContent
+  | ChatContent
+  | ImageContent
+  | LinkContent
+  | EmbedContent
+  | VideoContent
+  | MapContent
+  | RPGContent
+  | ProfileBioContent
+  | SuggestionContent
+  | CampfireContent
+  | ClickerContent
+  | YouTubeContent
+  | RoadmapFeedContent;

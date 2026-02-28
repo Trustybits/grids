@@ -183,8 +183,8 @@ export const useLayoutStore = defineStore("layout", {
     showMetaData: false,
     isOwner: false,
     recentLayoutIds: [] as string[],
-    activeMenuTileId: null as string | null,
-    activePanelTileId: null as string | null,
+    activeTileId: null as string | null,
+    activePanelId: null as string | null,
     // Tracks tiles that are currently uploading media in the background.
     // Key = tile ID, value = upload progress (0–1) or -1 for indeterminate.
     uploadingTiles: {} as Record<string, number>,
@@ -213,19 +213,53 @@ export const useLayoutStore = defineStore("layout", {
   },
 
   actions: {
-    setActiveMenuTile(tileId: string) {
-      this.activePanelTileId = null;
-      this.activeMenuTileId = tileId;
+    setMenuActive(tileId: string) {
+      this.activeTileId = tileId;
+      this.activePanelId = null;
     },
 
-    setActivePanelTileId(tileId: string) {
-      this.activeMenuTileId = null;
-      this.activePanelTileId = tileId;
+    setPanelActive(tileId: string, panelId: string) {
+      this.activeTileId = tileId;
+      this.activePanelId = panelId;
     },
 
-    closeAllMenus() {
-      this.activeMenuTileId = null;
-      this.activePanelTileId = null;
+    // toggles the menu open and closed, and only allows 1 tile to have a menu open at a time
+    toggleMenuActive(tileId: string) {
+      if (!!this.activePanelId) {
+        this.activePanelId = null;
+        if (this.activeTileId === tileId) {
+          return;
+        }
+      }
+
+      if (this.activeTileId !== tileId) {
+        this.activeTileId = tileId;
+        return;
+      }
+
+      this.activeTileId = null;
+    },
+
+    // toggles the panels open and closed, only allows 1 tile to have a panel open at a time
+    togglePanelActive(tileId: string, panelId: string) {
+      if (this.activeTileId !== tileId) {
+        this.activeTileId = tileId;
+        this.activePanelId = panelId;
+        return;
+      }
+
+      if (this.activePanelId !== panelId) {
+        this.activePanelId = panelId;
+        return;
+      }
+
+      this.activeTileId = null;
+      this.activePanelId = null;
+    },
+
+    closeMenus() {
+      this.activeTileId = null;
+      this.activePanelId = null;
     },
 
     // Mark a tile as currently uploading (progress: 0–1, or -1 for indeterminate)

@@ -1,9 +1,4 @@
 <template>
-  <TextOptions
-    v-if="layoutStore.isOwner && activeEditor"
-    v-show="isEditing"
-    :editor="activeEditor"
-  />
   <div class="profile-bio" ref="profileRoot">
     <div class="profile-header">
       <div class="profile-avatar-row">
@@ -186,7 +181,6 @@ import Color from "@tiptap/extension-color";
 import { FontSize } from "../tiptap/FontSize";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import TextOptions from "./TextOptions.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { type ProfileBioContent, type AvatarShape } from "@/types/TileContent";
 import {
@@ -212,7 +206,6 @@ const editorExtensions: AnyExtension[] = [
 export default defineComponent({
   components: {
     EditorContent,
-    TextOptions,
   },
   emits: ["background-color-change", "text-color-change"],
   props: {

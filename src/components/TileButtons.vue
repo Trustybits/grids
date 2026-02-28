@@ -25,9 +25,6 @@
       <button class="btn btn-secondary" data-tooltip="Link" @click="addLinkElement">
         <LinkIcon />
       </button>
-      <!-- <button class="btn btn-secondary" @click="addLinkElement">📽</button>
-      <button class="btn btn-secondary" @click="addLinkElement">🎵</button>
-      <button class="btn btn-secondary" @click="addLinkElement">📌</button> -->
       <button class="btn btn-secondary" data-tooltip="Embed" @click="addEmbedElement">
         <EmbedIcon />
       </button>
@@ -37,6 +34,13 @@
       <button class="btn btn-secondary" data-tooltip="Campfire" @click="addCampfireElement">
         <CampfireIcon />
       </button>
+      <!-- <button class="btn btn-secondary" data-tooltip="Roadmap" @click="addRoadmapFeedElement">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9 12h6M9 16h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button> -->
       <!-- <button class="btn btn-secondary" @click="addRPGElement">
         <RPGIcon />
       </button> -->
@@ -249,6 +253,12 @@ export default {
       layoutStore.addTile(rpgContent);
     };
 
+    const addRoadmapFeedElement = () => {
+      // Creates a disconnected roadmap tile; the owner connects Notion from inside the tile
+      const roadmapContent = createTileContent(ContentType.ROADMAP_FEED, {});
+      layoutStore.addTile(roadmapContent);
+    };
+
     const addOtherElement = () => {
       let link = prompt(
         "More tile types coming soon! Any others you might be expecting to see?"
@@ -281,6 +291,7 @@ export default {
       addEmbedElement,
       addMapElement,
       addRPGElement,
+      addRoadmapFeedElement,
       updateMetaData,
       isDarkMode,
       showLinkModal,

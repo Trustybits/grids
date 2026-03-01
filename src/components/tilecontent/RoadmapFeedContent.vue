@@ -434,17 +434,24 @@ export default defineComponent({
       // "{userId}_{notionPageId}" and contains a userId field for filtering.
       const upvotesRef = collection(db, "layouts", layoutId.value, "tiles", tileId, "upvotes");
       const myVotesQuery = query(upvotesRef, where("userId", "==", uid));
-      unsubscribeUpvotes = onSnapshot(myVotesQuery, (snap) => {
-        // Don't overwrite the optimistic state while a vote is in-flight —
-        // the next snapshot after pendingVoteId clears will sync the real value.
-        if (pendingVoteId.value) return;
-        const voted = new Set<string>();
-        snap.forEach((d) => {
-          const data = d.data();
-          if (data?.notionPageId) voted.add(data.notionPageId as string);
-        });
-        myVotedPageIds.value = voted;
-      });
+      unsubscribeUpvotes = onSnapshot(
+        myVotesQuery,
+        (snap) => {
+          // Don't overwrite the optimistic state while a vote is in-flight —
+          // the next snapshot after pendingVoteId clears will sync the real value.
+          if (pendingVoteId.value) return;
+          const voted = new Set<string>();
+          snap.forEach((d) => {
+            const data = d.data();
+            if (data?.notionPageId) voted.add(data.notionPageId as string);
+          });
+          myVotedPageIds.value = voted;
+        },
+        (error) => {
+          console.warn("Error subscribing to upvotes:", error);
+          myVotedPageIds.value = new Set();
+        }
+      );
     };
 
     // ── Kanban columns ───────────────────────────────────────────────

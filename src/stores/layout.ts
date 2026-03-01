@@ -195,6 +195,9 @@ export const useLayoutStore = defineStore("layout", {
     // edit mode on mount and place the cursor at the end. Cleared by the
     // component once it consumes the focus request.
     pendingFocusTileId: null as string | null,
+    // Mobile: the tile currently "activated" by tap for editing/resizing.
+    // When set, the mobile toolbar is shown and interaction is enabled for this tile.
+    activeTileId: null as string | null,
   }),
 
   getters: {
@@ -217,6 +220,16 @@ export const useLayoutStore = defineStore("layout", {
     closeAllMenus() {
       this.activeMenuTileId = null;
       this.activePanelTileId = null;
+    },
+
+    // Mobile: activate a tile for editing/resizing
+    setActiveTile(tileId: string) {
+      this.activeTileId = tileId;
+    },
+
+    // Mobile: deactivate the current tile
+    clearActiveTile() {
+      this.activeTileId = null;
     },
 
     // Mark a tile as currently uploading (progress: 0–1, or -1 for indeterminate)

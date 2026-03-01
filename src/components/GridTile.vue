@@ -24,8 +24,9 @@
       :minH="1"
       :maxW="10"
       :maxH="10"
-      :isDraggable="isTileDraggable"
-      :isResizable="isTileResizable"
+      :isDraggable="mobileDraggable"
+      :isResizable="mobileResizable"
+      :data-mobile-active="isMobileActive ? 'true' : undefined"
       dragIgnoreFrom="a, button, .tile-caption"
       @move="onMove"
       @moved="onMoved"
@@ -39,7 +40,7 @@
           'crop-mode-exiting': isExitingCropMode && isCroppable,
           'is-dragging': isDragging,
           'is-exiting': isExiting,
-          'is-activated': isActivated,
+          'is-mobile-active': isMobileActive,
         }"
         :data-border="borderVisible ? 'on' : 'off'"
         :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
@@ -47,6 +48,8 @@
         ref="gridTileRef"
         @mousedown="startClick"
         @mouseup="endClick"
+        @touchstart.passive="onTouchStart"
+        @touchend="onTouchEnd"
       >
         <!-- Visual Frame with Overflow Hidden -->
         <div
@@ -129,13 +132,18 @@
         <div v-if="isTileResizable" class="resize-indicator"></div>
 
         <TileToolbar
-          v-if="layoutStore.isOwner && !isSuggestion"
+          v-if="layoutStore.isOwner && !isSuggestion && !isMobile"
           :tile="tile"
           :toolbarRefs="toolbarRefs"
         />
       </div>
     </grid-item>
   </div>
+
+  <MobileTileToolbar
+    v-if="isMobileActive && layoutStore.isOwner && !isSuggestion"
+    :tile="tile"
+  />
 </template>
 
 <script lang="ts">
@@ -168,7 +176,9 @@ import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileIcon from "./icons/ProfileIcon.vue";
 import TileToolbar from "./TileToolbar.vue";
+import MobileTileToolbar from "./MobileTileToolbar.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
+import { useMobile } from "@/composables/useMobile";
 import ColorPicker from "./ColorPicker.vue";
 
 export default defineComponent({
@@ -176,6 +186,7 @@ export default defineComponent({
     GridItem,
     TileCaption,
     TileToolbar,
+    MobileTileToolbar,
     TextIcon,
     ImageIcon,
     LinkIcon,
@@ -192,6 +203,7 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
     const { uploadFileOptimisticForTile } = useFileUpload();
+    const { isMobile } = useMobile();
 
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).
@@ -214,12 +226,9 @@ export default defineComponent({
       computed(() => props.tile.y),
     );
 
-    const isTouchDevice = () => window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-
     const isMoving = ref(false);
     const isDragging = ref(false);
     const isExiting = ref(false);
-    const isActivated = ref(false);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -291,19 +300,65 @@ export default defineComponent({
     const isProfileTile = computed(
       () => props.tile.content.type === ContentType.PROFILE,
     );
-    const isTileDraggable = computed(() => {
-      if (!layoutStore.isOwner || isEditing.value) return false;
-      if (isTouchDevice()) return isActivated.value;
-      return true;
-    });
-
     const isTileResizable = computed(() => {
       if (!layoutStore.isOwner || isSuggestion.value || isProfileTile.value) {
         return false;
       }
-      if (isTouchDevice()) return isActivated.value && !isEditing.value;
       return !isEditing.value;
     });
+
+    // --- Mobile tap-to-activate ---
+    const isMobileActive = computed(
+      () => isMobile.value && layoutStore.activeTileId === props.tile.i,
+    );
+
+    const mobileDraggable = computed(() => {
+      if (!layoutStore.isOwner) return false;
+      if (isEditing.value) return false;
+      // On mobile, drag is only allowed when the tile is activated
+      // (the CSS scale transform is removed during activation so coords are 1:1)
+      if (isMobile.value) return isMobileActive.value;
+      return true;
+    });
+
+    const mobileResizable = computed(() => {
+      if (!layoutStore.isOwner || isSuggestion.value || isProfileTile.value)
+        return false;
+      if (isEditing.value) return false;
+      // On mobile, resize via toolbar presets only
+      if (isMobile.value) return false;
+      return true;
+    });
+
+    // Track touch start position to distinguish tap from swipe
+    let touchStartX = 0;
+    let touchStartY = 0;
+    const TOUCH_TAP_THRESHOLD = 10; // px — movement beyond this is a swipe
+
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+    };
+
+    const onTouchEnd = (event: TouchEvent) => {
+      if (!isMobile.value || !layoutStore.isOwner) return;
+
+      const touch = event.changedTouches[0];
+      const dx = Math.abs(touch.clientX - touchStartX);
+      const dy = Math.abs(touch.clientY - touchStartY);
+
+      // Only activate on a genuine tap (minimal movement)
+      if (dx < TOUCH_TAP_THRESHOLD && dy < TOUCH_TAP_THRESHOLD) {
+        if (!isMobileActive.value) {
+          // First tap — activate the tile, prevent the tap from doing anything else
+          event.preventDefault();
+          event.stopPropagation();
+          layoutStore.setActiveTile(props.tile.i);
+        }
+        // If already active, let taps pass through normally (e.g. link clicks)
+      }
+    };
 
     const mediaInput = ref<HTMLInputElement | null>(null);
 
@@ -317,7 +372,13 @@ export default defineComponent({
         clickStart.value = Date.now();
         // Set dragging state immediately when user grabs the tile
         // This triggers the scale animation right away
-        if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
+        // On mobile, only allow drag when the tile is already activated
+        if (
+          layoutStore.isOwner &&
+          !isEditing.value &&
+          !isSuggestion.value &&
+          (!isMobile.value || isMobileActive.value)
+        ) {
           isDragging.value = true;
           // Only preventDefault when the child doesn't handle short clicks
           // (e.g. text tiles need the default focus behavior on mousedown)
@@ -552,67 +613,6 @@ export default defineComponent({
       },
     );
 
-    const deactivateTile = () => {
-      isActivated.value = false;
-    };
-
-    const handleTouchOutside = (event: TouchEvent) => {
-      if (
-        gridTileRef.value &&
-        !gridTileRef.value.contains(event.target as Node)
-      ) {
-        deactivateTile();
-        document.removeEventListener('touchstart', handleTouchOutside);
-      }
-    };
-
-    let touchWasActivating = false;
-
-    const handleTouchStart = (event: TouchEvent) => {
-      if (!isTouchDevice()) return;
-
-      if (!isActivated.value) {
-        // First touch: activate the tile, allow scroll to continue
-        isActivated.value = true;
-        touchWasActivating = true;
-        clickStart.value = Date.now();
-        document.addEventListener('touchstart', handleTouchOutside, { passive: true });
-        // Do NOT preventDefault — let the browser scroll naturally
-      } else {
-        // Subsequent touch: tile already activated, treat as interaction
-        touchWasActivating = false;
-        clickStart.value = Date.now();
-        event.preventDefault();
-      }
-    };
-
-    const handleTouchEnd = (event: TouchEvent) => {
-      if (!isTouchDevice()) return;
-      if (!isActivated.value) return;
-
-      // Skip interaction on the tap that just activated the tile
-      if (touchWasActivating) {
-        touchWasActivating = false;
-        return;
-      }
-
-      const touchDuration = Date.now() - (clickStart.value || Date.now());
-
-      // Only fire short-click if it was a quick tap (not a scroll)
-      if (touchDuration < CLICK_THRESHOLD) {
-        if (isSuggestion.value) {
-          onSuggestionShortClick();
-        } else {
-          if (childComponent.value?.onShortClick) {
-            childComponent.value.onShortClick(event as unknown as MouseEvent);
-          }
-          if (childComponent.value?.onExitClick) {
-            addClickListener();
-          }
-        }
-      }
-    };
-
     const handleDragStart = (event: Event) => {
       // Prevent default browser drag behavior which interferes with vue-grid-layout
       if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
@@ -655,11 +655,9 @@ export default defineComponent({
     onMounted(() => {
       loadComponent();
 
+      // Add dragstart prevention to the grid tile element
       if (gridTileRef.value) {
         gridTileRef.value.addEventListener("dragstart", handleDragStart);
-        // Use non-passive touchstart so we can conditionally preventDefault on second tap
-        gridTileRef.value.addEventListener("touchstart", handleTouchStart, { passive: false });
-        gridTileRef.value.addEventListener("touchend", handleTouchEnd, { passive: true });
       }
     });
 
@@ -667,12 +665,10 @@ export default defineComponent({
       stopChildEditingWatch?.();
       stopChildEditingWatch = null;
       removeClickListener();
-      document.removeEventListener('touchstart', handleTouchOutside);
 
+      // Remove dragstart listener
       if (gridTileRef.value) {
         gridTileRef.value.removeEventListener("dragstart", handleDragStart);
-        gridTileRef.value.removeEventListener("touchstart", handleTouchStart);
-        gridTileRef.value.removeEventListener("touchend", handleTouchEnd);
       }
     });
 
@@ -691,7 +687,6 @@ export default defineComponent({
       isEditing,
       isDragging,
       isExiting,
-      isActivated,
       onMoved,
       onResize,
       onResized,
@@ -706,8 +701,13 @@ export default defineComponent({
       isSuggestion,
       suggestionAction,
       suggestionLabel,
-      isTileDraggable,
       isTileResizable,
+      isMobile,
+      isMobileActive,
+      mobileDraggable,
+      mobileResizable,
+      onTouchStart,
+      onTouchEnd,
 
       mediaInput,
       onMediaSelected,
@@ -806,6 +806,21 @@ export default defineComponent({
   &.is-exiting {
     animation: tileExit var(--duration-normal) var(--easing-ease-in) forwards;
     pointer-events: none;
+  }
+
+  /* Mobile active state - subtle highlight when tile is tap-activated */
+  &.is-mobile-active {
+    &::before {
+      content: "";
+      position: absolute;
+      inset: -3px;
+      border: 2px solid var(--color-text-primary);
+      border-radius: calc(var(--tile-border-radius) + 3px);
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0.5;
+      animation: cropOutlineFadeIn var(--duration-normal) var(--easing-ease-out);
+    }
   }
 
   &.crop-mode-active {
@@ -1023,22 +1038,18 @@ export default defineComponent({
 
 /* Show elements on tile hover with smooth animations */
 .tile-wrapper:hover .header-options,
-.tile-wrapper:hover :deep(.hover-display),
-.tile-wrapper.is-activated .header-options,
-.tile-wrapper.is-activated :deep(.hover-display) {
+.tile-wrapper:hover :deep(.hover-display) {
   display: flex;
 }
 
-.tile-wrapper:hover .btn-close,
-.tile-wrapper.is-activated .btn-close {
+.tile-wrapper:hover .btn-close {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
 }
 
-/* Non-owner caption: hide on tile hover or activation */
-.tile-wrapper:hover :deep(.viewer-caption),
-.tile-wrapper.is-activated :deep(.viewer-caption) {
+/* Non-owner caption: hide on tile hover */
+.tile-wrapper:hover :deep(.viewer-caption) {
   display: none;
 }
 
@@ -1046,16 +1057,14 @@ export default defineComponent({
 .tile-wrapper.crop-mode-active .btn-close,
 .tile-wrapper.crop-mode-exiting .btn-close,
 .tile-wrapper.is-exiting .btn-close,
-.tile-wrapper.is-dragging .btn-close,
-.tile-wrapper.is-activated.is-dragging .btn-close {
+.tile-wrapper.is-dragging .btn-close {
   opacity: 0;
   transform: scale(0);
   pointer-events: none;
 }
 
-/* Show toolbar on tile hover, activation, and during crop mode (reaches into TileToolbar child) */
+/* Show toolbar on tile hover and during crop mode (reaches into TileToolbar child) */
 .tile-wrapper:hover :deep(.tile-toolbar),
-.tile-wrapper.is-activated :deep(.tile-toolbar),
 .tile-wrapper.crop-mode-active :deep(.tile-toolbar),
 .tile-wrapper.crop-mode-exiting :deep(.tile-toolbar) {
   opacity: 1;
@@ -1065,7 +1074,6 @@ export default defineComponent({
 
 /* Show search panel when toolbar is visible */
 .tile-wrapper:hover :deep(.toolbar-search-panel),
-.tile-wrapper.is-activated :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-active :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel) {
   pointer-events: auto;

@@ -36,7 +36,7 @@
         </div>
       </div>
       
-      <div v-if="layoutStore.isOwner" class="toolbar">
+      <div v-if="layoutStore.isOwner && !layoutStore.activeTileId" class="toolbar">
         <div class="row">
           <div class="col-md-12">
             <grid-buttons />
@@ -48,6 +48,7 @@
   </div>
 
   <BottomLeftButtons
+    v-if="!layoutStore.activeTileId"
     :show-grid-menu="layoutStore.isOwner"
     :show-share-button="true"
     :show-user-menu="!!auth.currentUser"
@@ -58,7 +59,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, watch } from "vue";
+import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
@@ -149,13 +150,33 @@ export default defineComponent({
       router.push("/dashboard");
     };
 
+    // Deactivate mobile-active tile when tapping outside of any tile
+    const handleGlobalTouchEnd = (event: TouchEvent) => {
+      if (!layoutStore.activeTileId) return;
+      const target = event.target as HTMLElement;
+      // If the tap landed inside a tile-wrapper or the mobile toolbar, keep it active
+      if (
+        target.closest('.tile-wrapper') ||
+        target.closest('.mobile-tile-toolbar')
+      ) {
+        return;
+      }
+      layoutStore.clearActiveTile();
+    };
+
     onMounted(() => {
+      document.addEventListener('touchend', handleGlobalTouchEnd, { passive: true });
+
       const layoutId = route.params.id;
       if (layoutId) {
         layoutStore.loadLayout(layoutId as string);
       } else {
         console.error("Layout ID is missing in the route.");
       }
+    });
+
+    onUnmounted(() => {
+      document.removeEventListener('touchend', handleGlobalTouchEnd);
     });
 
     watch(

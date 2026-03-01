@@ -173,7 +173,11 @@ export default {
       return packTiles(resizedTiles, responsiveColNum.value);
     });
 
+    const hasActiveTile = computed(() => !!layoutStore.activeTileId);
+
     const isEditable = computed(() => {
+      // Allow editing when a tile is mobile-activated, even at reduced columns
+      if (hasActiveTile.value && layoutStore.isOwner) return true;
       return (
         layoutStore.isOwner &&
         responsiveColNum.value === baseColNum.value
@@ -217,6 +221,15 @@ export default {
     const scaleWrapperStyle = computed(() => {
       const scale = mobileScale.value;
       if (scale >= 1) return {};
+      // When a tile is mobile-activated, remove the scale clipping so the
+      // grid renders at natural size and interactjs coordinates are 1:1.
+      if (hasActiveTile.value) {
+        return {
+          width: '100%',
+          overflowX: 'auto' as const,
+          overflowY: 'visible' as const,
+        };
+      }
       const scaledHeight = naturalGridHeight.value > 0
         ? naturalGridHeight.value * scale
         : undefined;
@@ -230,6 +243,8 @@ export default {
     const gridInnerStyle = computed(() => {
       const scale = mobileScale.value;
       const base = { width: `${gridWidth.value}px` };
+      // When a tile is mobile-activated, skip the scale transform entirely
+      if (hasActiveTile.value) return base;
       if (scale >= 1) return base;
       return {
         ...base,
@@ -402,13 +417,5 @@ export default {
 .vue-grid-layout:has(.vue-draggable-dragging) .vue-grid-placeholder {
   display: block !important;
   opacity: 0.3 !important;
-}
-
-/* Allow native vertical scroll when touch starts on a grid item.
-   vue3-grid-layout sets touch-action: none on items, which blocks scroll.
-   Restoring pan-y lets the browser handle vertical swipe-to-scroll normally.
-   When a tile is actively being dragged we override back to none so drag works. */
-.vue-grid-item:not(.vue-draggable-dragging) {
-  touch-action: pan-y !important;
 }
 </style>

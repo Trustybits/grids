@@ -100,6 +100,37 @@ body.theme-dark {
 
   .vue-grid-layout .vue-grid-item {
     @include grid-tile(null);
+
+    // Override vue3-grid-layout's touch-action:none on touch devices so that
+    // swipes on tiles pass through to the browser for page scrolling.
+    // pointer:coarse targets touch input; on non-touch desktops the
+    // library's touch-action:none is harmless and left unchanged.
+    @media (pointer: coarse) {
+      touch-action: auto !important;
+      -ms-touch-action: auto !important;
+    }
+
+    // When a tile is activated on mobile for drag, restore touch-action:none
+    // so interactjs can properly capture and track touch drag events.
+    &[data-mobile-active="true"] {
+      touch-action: none !important;
+      -ms-touch-action: none !important;
+    }
+
+    // Ensure inner scrollable content (chat, text, etc.) can be
+    // touch-scrolled even when the grid-item's touch-action is
+    // overridden by interactjs. Any element with overflow-y scrolling
+    // needs its own touch-action declaration.
+    @media (pointer: coarse) {
+      [style*="overflow"],
+      .chat-messages,
+      .tiptap,
+      .campfire-messages {
+        touch-action: pan-y !important;
+        -ms-touch-action: pan-y !important;
+        -webkit-overflow-scrolling: touch;
+      }
+    }
   }
 
   .vue-grid-layout .vue-draggable-dragging {

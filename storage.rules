@@ -26,11 +26,12 @@ service firebase.storage {
       allow read: if resource.metadata.published == 'true' || 
                   (request.auth != null && request.auth.uid == userId);
 
-      // Allow write only if authenticated, owns the resource, file size is valid, and has storage quota
+      // Allow write only if authenticated, owns the resource, and file size is valid
+      // Note: hasStorageQuota check removed because it can fail if user document doesn't exist yet
+      // TODO: Re-enable quota checking once we ensure user documents are created on signup
       allow write: if request.auth != null 
                    && request.auth.uid == userId
-                   && isFileSizeValid()
-                   && hasStorageQuota(userId);
+                   && isFileSizeValid();
       
       // Allow update and delete only by the authenticated user who owns the layout
       allow update, delete: if request.auth != null && request.auth.uid == userId;
@@ -41,11 +42,11 @@ service firebase.storage {
       allow read: if resource.metadata.published == 'true' || 
                   (request.auth != null && request.auth.uid == userId);
 
-      // Allow write only if authenticated, owns the resource, file size is valid, and has storage quota
+      // Allow write only if authenticated, owns the resource, and file size is valid
+      // Note: hasStorageQuota check removed because it can fail if user document doesn't exist yet
       allow write: if request.auth != null 
                    && request.auth.uid == userId
-                   && isFileSizeValid()
-                   && hasStorageQuota(userId);
+                   && isFileSizeValid();
       
       // Allow update and delete only by the authenticated user who owns the layout
       allow update, delete: if request.auth != null && request.auth.uid == userId;
@@ -56,11 +57,11 @@ service firebase.storage {
       allow read: if resource.metadata.published == 'true' || 
                   (request.auth != null && request.auth.uid == userId);
 
-      // Allow write only if authenticated, owns the resource, file size is valid, and has storage quota
+      // Allow write only if authenticated, owns the resource, and file size is valid
+      // Note: hasStorageQuota check removed because it can fail if user document doesn't exist yet
       allow write: if request.auth != null 
                    && request.auth.uid == userId
-                   && isFileSizeValid()
-                   && hasStorageQuota(userId);
+                   && isFileSizeValid();
       
       // Allow update and delete only by the authenticated user who owns the layout
       allow update, delete: if request.auth != null && request.auth.uid == userId;

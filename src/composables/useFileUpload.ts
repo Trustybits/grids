@@ -66,13 +66,6 @@ export function useFileUpload() {
     const filePath = `users/${currentUser.uid}/${fileType}/${Date.now()}_${file.name}`;
     const fileRef = storageRef(storage, filePath);
 
-    console.log('uploadFileToUrl - Starting upload:', {
-      filePath,
-      fileSize: file.size,
-      fileType: file.type,
-      userId: currentUser.uid
-    });
-
     // Set metadata with published flag to satisfy storage security rules
     const metadata = {
       customMetadata: {
@@ -82,9 +75,7 @@ export function useFileUpload() {
 
     try {
       await uploadBytes(fileRef, file, metadata);
-      console.log('uploadFileToUrl - Upload successful');
       const url = await getDownloadURL(fileRef);
-      console.log('uploadFileToUrl - Got download URL:', url);
       return url;
     } catch (error: any) {
       console.error('uploadFileToUrl - Upload failed:', {

@@ -66,8 +66,26 @@ export function useFileUpload() {
     const filePath = `users/${currentUser.uid}/${fileType}/${Date.now()}_${file.name}`;
     const fileRef = storageRef(storage, filePath);
 
-    await uploadBytes(fileRef, file);
-    return await getDownloadURL(fileRef);
+    // Set metadata with published flag to satisfy storage security rules
+    const metadata = {
+      customMetadata: {
+        published: 'true'
+      }
+    };
+
+    try {
+      await uploadBytes(fileRef, file, metadata);
+      const url = await getDownloadURL(fileRef);
+      return url;
+    } catch (error: any) {
+      console.error('uploadFileToUrl - Upload failed:', {
+        error,
+        code: error.code,
+        message: error.message,
+        serverResponse: error.serverResponse
+      });
+      throw error;
+    }
   };
 
   /**
@@ -124,8 +142,15 @@ export function useFileUpload() {
       const filePath = `users/${currentUser.uid}/${fileType}/${Date.now()}_${file.name}`;
       const fileRef = storageRef(storage, filePath);
 
+      // Set metadata with published flag to satisfy storage security rules
+      const metadata = {
+        customMetadata: {
+          published: 'true'
+        }
+      };
+
       // Resumable upload to track progress
-      const uploadTask = uploadBytesResumable(fileRef, file);
+      const uploadTask = uploadBytesResumable(fileRef, file, metadata);
       uploadTask.on("state_changed", (snapshot) => {
         layoutStore.setTileUploading(tileId, snapshot.bytesTransferred / snapshot.totalBytes);
       });

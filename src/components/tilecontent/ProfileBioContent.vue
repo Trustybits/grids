@@ -190,8 +190,6 @@ import {
 } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { getAuth } from "firebase/auth";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { db } from "@/firebase";
 
 const editorExtensions: AnyExtension[] = [
   StarterKit,
@@ -272,36 +270,48 @@ export default defineComponent({
 
     const avatarShape = computed(() => props.content.avatarShape || "circle");
 
-    const avatarSrc = ref("");
-    let unsubscribePhoto: (() => void) | null = null;
-
-    const subscribeToProfilePhoto = () => {
-      if (unsubscribePhoto) {
-        unsubscribePhoto();
-        unsubscribePhoto = null;
-      }
-      const uid = layoutStore.currentLayout?.userId ?? auth.currentUser?.uid;
-      if (!uid) return;
-      // publicProfiles is readable by anyone — no auth required
-      unsubscribePhoto = onSnapshot(doc(db, "publicProfiles", uid), (snap) => {
-        avatarSrc.value = snap.data()?.profilePhotoUrl ?? "";
-      });
-    };
-
-    onMounted(() => {
-      subscribeToProfilePhoto();
-    });
-
-    onUnmounted(() => {
-      if (unsubscribePhoto) unsubscribePhoto();
+    // Profile photo URL is stored in tile content
+    // Read from the store's tile content so it updates reactively when we upload/delete
+    const avatarSrc = computed(() => {
+      const currentTile = layoutStore.currentLayout?.tiles.find(
+        tile => {
+          if (tile.content?.type !== 'profile') return false;
+          const tileContent = tile.content as any;
+          const propsContent = props.content as any;
+          // Match by comparing unique properties (name, title, bio)
+          return tileContent.name === propsContent.name &&
+                 tileContent.title === propsContent.title &&
+                 tileContent.bio === propsContent.bio;
+        }
+      );
+      return (currentTile?.content as any)?.profilePhotoUrl ?? "";
     });
 
     const saveProfilePhoto = async (url: string) => {
-      avatarSrc.value = url;
-      const uid = auth.currentUser?.uid;
-      if (!uid) return;
-      // Write only to publicProfiles (single source of truth, publicly readable)
-      await setDoc(doc(db, "publicProfiles", uid), { profilePhotoUrl: url }, { merge: true });
+      // Find which tile this component is rendering by comparing content properties
+      // We can't use reference equality because props.content may be a different object
+      const currentTile = layoutStore.currentLayout?.tiles.find(
+        tile => {
+          if (tile.content?.type !== 'profile') return false;
+          const tileContent = tile.content as any;
+          const propsContent = props.content as any;
+          // Match by comparing unique properties (name, title, bio)
+          return tileContent.name === propsContent.name &&
+                 tileContent.title === propsContent.title &&
+                 tileContent.bio === propsContent.bio;
+        }
+      );
+      
+      if (!currentTile) {
+        console.error('Could not find tile in store for profile photo save');
+        return;
+      }
+      
+      // Mutate the store's content reference directly, not props.content
+      (currentTile.content as any).profilePhotoUrl = url;
+      
+      // Persist to Firestore via layout store
+      await layoutStore.saveLayout();
     };
 
     const serializeEditor = (editor: any) => {

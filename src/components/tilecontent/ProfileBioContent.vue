@@ -302,30 +302,16 @@ export default defineComponent({
         }
       );
       
-      console.log('saveProfilePhoto called:', {
-        url,
-        tileId: currentTile?.i,
-        foundTile: !!currentTile,
-        contentType: props.content.type,
-      });
-      
       if (!currentTile) {
-        console.error('Could not find tile in store!');
+        console.error('Could not find tile in store for profile photo save');
         return;
       }
       
       // Mutate the store's content reference directly, not props.content
       (currentTile.content as any).profilePhotoUrl = url;
       
-      console.log('saveProfilePhoto - after mutation:', {
-        profilePhotoUrl: (currentTile.content as any).profilePhotoUrl,
-        tileId: currentTile.i,
-      });
-      
       // Persist to Firestore via layout store
       await layoutStore.saveLayout();
-      
-      console.log('saveProfilePhoto - layout saved');
     };
 
     const serializeEditor = (editor: any) => {

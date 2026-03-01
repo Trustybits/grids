@@ -553,7 +553,7 @@ export default defineComponent({
 }
 
 .overflowing::after {
-  content: "...";
+  /* content: "..."; */
   position: absolute;
   right: 18px;
   bottom: 12px;

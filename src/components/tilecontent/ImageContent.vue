@@ -60,15 +60,13 @@ export default defineComponent({
     const layoutStore = useLayoutStore();
 
     // Upload progress tracking — injected tile ID lets us look up our upload state
-    const tileId = inject<ComputedRef<string>>("gridTileId");
+    const tileId = inject<string>("tileId", "");
     const isUploading = computed(() => {
-      const id = tileId?.value;
-      return id != null && id in layoutStore.uploadingTiles;
+      return tileId != null && tileId !== "" && tileId in layoutStore.uploadingTiles;
     });
     const uploadPercent = computed(() => {
-      const id = tileId?.value;
-      if (!id) return 0;
-      const progress = layoutStore.uploadingTiles[id] ?? 0;
+      if (!tileId) return 0;
+      const progress = layoutStore.uploadingTiles[tileId] ?? 0;
       return Math.round(progress * 100);
     });
 
@@ -111,15 +109,24 @@ export default defineComponent({
 
       // Save when exiting crop mode
       if (!isEditing.value) {
-        props.content.offsetX = offsetX.value;
-        props.content.offsetY = offsetY.value;
-        layoutStore.saveLayout();
+        // Use patchTileContent to properly persist the offset changes to Firestore
+        if (tileId && tileId !== "") {
+          layoutStore.patchTileContent(tileId, {
+            offsetX: offsetX.value,
+            offsetY: offsetY.value,
+          });
+        }
       }
     };
 
     const constrainOffset = (force = false) => {
       const wrapper = imageWrapper.value;
       if (!wrapper || (!isEditing.value && !force)) return;
+
+      // Don't constrain until image dimensions are loaded - prevents resetting saved offsets to 0
+      if (imageDimensions.value.aspectRatio === 0 || tileDimensions.value.aspectRatio === 0) {
+        return;
+      }
 
       const containerWidth = wrapper.clientWidth;
       const containerHeight = wrapper.clientHeight;
@@ -128,20 +135,14 @@ export default defineComponent({
       let renderedWidth: number;
       let renderedHeight: number;
       
-      if (imageDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
-        if (imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
-          // Image is wider - constrained by height
-          renderedHeight = containerHeight;
-          renderedWidth = renderedHeight * imageDimensions.value.aspectRatio;
-        } else {
-          // Image is taller - constrained by width
-          renderedWidth = containerWidth;
-          renderedHeight = renderedWidth / imageDimensions.value.aspectRatio;
-        }
-      } else {
-        // Fallback to cover behavior
-        renderedWidth = containerWidth;
+      if (imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
+        // Image is wider - constrained by height
         renderedHeight = containerHeight;
+        renderedWidth = renderedHeight * imageDimensions.value.aspectRatio;
+      } else {
+        // Image is taller - constrained by width
+        renderedWidth = containerWidth;
+        renderedHeight = renderedWidth / imageDimensions.value.aspectRatio;
       }
       
       // Max offset is half the difference between rendered image and container
@@ -291,12 +292,12 @@ export default defineComponent({
   inset: 0;
   z-index: 3;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: center;
-  padding: 12px;
+  padding: 0px;
   pointer-events: none;
   /* Subtle darkening so the progress bar is visible over any image */
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.35) 0%, transparent 40%);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0%, transparent 40%);
   border-radius: var(--tile-border-radius);
 }
 

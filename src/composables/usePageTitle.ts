@@ -1,14 +1,14 @@
 import { watch, onUnmounted } from 'vue';
 import type { Ref } from 'vue';
 
-export type TitleSeparator = '-' | '|';
+export type TitleSeparator = '-' | '|' | '—';
 
 /**
  * Composable for managing dynamic page titles
  * Format: [DEV] Grids <separator> Page Name
  * 
  * @param titleRef - Reactive reference to the page/grid title
- * @param separator - Either '-' for regular pages or '|' for specific grids
+ * @param separator - '-' for regular pages, '|' for owned grids, '—' for slug/handle pages
  */
 export function usePageTitle(
   titleRef: Ref<string | undefined>,

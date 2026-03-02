@@ -629,9 +629,9 @@ export default defineComponent({
 }
 
 .tile-link-indicator {
-  position: absolute;
-  top: 9px;
-  right: 9px;
+  position: fixed;
+  top: 21px;
+  right: 21px;
   width: 24px;
   height: 24px;
   color: inherit;

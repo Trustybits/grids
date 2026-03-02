@@ -169,6 +169,7 @@ import {
   watch,
   nextTick,
   onMounted,
+  onUnmounted,
   type PropType,
 } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
@@ -188,6 +189,7 @@ import {
   resolveBackgroundColor,
 } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
+import { getAuth } from "firebase/auth";
 
 const editorExtensions: AnyExtension[] = [
   StarterKit,
@@ -213,7 +215,8 @@ export default defineComponent({
   setup(props, { emit }) {
     const layoutStore = useLayoutStore();
 
-    const { uploadFileToUrl } = useFileUpload();
+    const { uploadFileToUrl, uploadExternalImageToStorage } = useFileUpload();
+    const auth = getAuth();
 
     const isEditing = ref(false);
     const activeEditor = ref<any>(null);
@@ -266,7 +269,50 @@ export default defineComponent({
     });
 
     const avatarShape = computed(() => props.content.avatarShape || "circle");
-    const avatarSrc = computed(() => props.content.avatarSrc || "");
+
+    // Profile photo URL is stored in tile content
+    // Read from the store's tile content so it updates reactively when we upload/delete
+    const avatarSrc = computed(() => {
+      const currentTile = layoutStore.currentLayout?.tiles.find(
+        tile => {
+          if (tile.content?.type !== 'profile') return false;
+          const tileContent = tile.content as any;
+          const propsContent = props.content as any;
+          // Match by comparing unique properties (name, title, bio)
+          return tileContent.name === propsContent.name &&
+                 tileContent.title === propsContent.title &&
+                 tileContent.bio === propsContent.bio;
+        }
+      );
+      return (currentTile?.content as any)?.profilePhotoUrl ?? "";
+    });
+
+    const saveProfilePhoto = async (url: string) => {
+      // Find which tile this component is rendering by comparing content properties
+      // We can't use reference equality because props.content may be a different object
+      const currentTile = layoutStore.currentLayout?.tiles.find(
+        tile => {
+          if (tile.content?.type !== 'profile') return false;
+          const tileContent = tile.content as any;
+          const propsContent = props.content as any;
+          // Match by comparing unique properties (name, title, bio)
+          return tileContent.name === propsContent.name &&
+                 tileContent.title === propsContent.title &&
+                 tileContent.bio === propsContent.bio;
+        }
+      );
+      
+      if (!currentTile) {
+        console.error('Could not find tile in store for profile photo save');
+        return;
+      }
+      
+      // Mutate the store's content reference directly, not props.content
+      (currentTile.content as any).profilePhotoUrl = url;
+      
+      // Persist to Firestore via layout store
+      await layoutStore.saveLayout();
+    };
 
     const serializeEditor = (editor: any) => {
       let output = JSON.stringify(editor.getJSON());
@@ -411,7 +457,7 @@ export default defineComponent({
 
     const openUrlInput = () => {
       if (!layoutStore.isOwner) return;
-      draftAvatarUrl.value = props.content.avatarSrc || "";
+      draftAvatarUrl.value = avatarSrc.value || "";
       urlError.value = "";
       showUrlInput.value = true;
     };
@@ -421,7 +467,7 @@ export default defineComponent({
       urlError.value = "";
     };
 
-    const applyAvatarUrl = () => {
+    const applyAvatarUrl = async () => {
       if (!layoutStore.isOwner) return;
       const normalized = normalizeImageUrl(draftAvatarUrl.value);
       if (!normalized) {
@@ -434,17 +480,22 @@ export default defineComponent({
         return;
       }
 
-      props.content.avatarSrc = normalized;
-      layoutStore.saveLayout();
-      showUrlInput.value = false;
       urlError.value = "";
+      showUrlInput.value = false;
+      try {
+        const ownedUrl = await uploadExternalImageToStorage(normalized, "images");
+        await saveProfilePhoto(ownedUrl);
+      } catch (err: any) {
+        console.error("Failed to import external image:", err);
+        urlError.value = "Could not import image. Try uploading the file directly.";
+        showUrlInput.value = true;
+      }
     };
 
-    const removeCustomImage = () => {
+    const removeCustomImage = async () => {
       if (!layoutStore.isOwner) return;
-      props.content.avatarSrc = "";
-      layoutStore.saveLayout();
       showUrlInput.value = false;
+      await saveProfilePhoto("");
     };
 
     const uploadAvatarImage = async (file: File) => {
@@ -457,8 +508,7 @@ export default defineComponent({
 
       try {
         const url = await uploadFileToUrl(file, { fileType: "images" });
-        props.content.avatarSrc = url;
-        layoutStore.saveLayout();
+        await saveProfilePhoto(url);
       } catch (error: any) {
         console.error("Avatar upload failed:", error);
         alert(error.message || "Failed to upload image. Please try again.");

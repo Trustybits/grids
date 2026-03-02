@@ -67,13 +67,14 @@ export default defineComponent({
   components: {
     Chevron,
   },
+  emits: ["open-intent"],
   props: {
     childComponent: {
       type: Object as () => any,
       required: true,
     },
   },
-  setup(props) {
+  setup(props, { emit }) {
     const layoutStore = useLayoutStore();
     const isActive = ref(false);
     const fontSelectButtonRef = ref<HTMLButtonElement | null>(null);
@@ -109,6 +110,7 @@ export default defineComponent({
         return;
       }
 
+      emit("open-intent", "size");
       isActive.value = true;
       nextTick(() => positionMenu());
     };
@@ -186,30 +188,6 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.font-select-wrapper {
-  display: flex;
-  flex: 1;
-  align-items: stretch;
-  min-height: 38px;
-  padding: 8px 12px;
-  /* border: var(--tile-border-width) solid var(--color-tile-stroke); */
-  border-radius: var(--radius-sm);
-  background: var(--color-tile-background);
-  cursor: pointer;
-  transition:
-    background-color var(--duration-fast) var(--easing-ease-in-out),
-    transform var(--duration-fast) var(--easing-ease-out);
-}
-
-.font-select-wrapper:hover {
-  background: var(--color-content-low);
-}
-
-.font-select-wrapper:active {
-  background: color-mix(in srgb, var(--color-content-low) 80%, black 20%);
-  transform: scale(0.985);
-}
-
 .font-select-box {
   display: flex;
   flex: 1;
@@ -219,18 +197,6 @@ export default defineComponent({
   align-items: center;
   font-size: var(--font-size-md);
   margin-right: -6px;
-}
-
-.font-select-menu {
-  position: fixed;
-  z-index: 3000;
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  background: var(--color-tile-background);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-md);
-  overflow: hidden;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
-  transform-origin: center var(--grow-origin, 50%);
 }
 
 .font-select-title {
@@ -268,11 +234,6 @@ export default defineComponent({
   font-weight: var(--font-weight-semibold);
 }
 
-.chevron {
-  color: var(--color-content-default);
-  margin-left: 4px;
-}
-
 .font-menu-enter-active,
 .font-menu-leave-active {
   transition:
@@ -290,5 +251,48 @@ export default defineComponent({
 .font-menu-leave-from {
   opacity: 1;
   transform: scaleY(1);
+}
+</style>
+
+<style lang="scss">
+.font-select-wrapper {
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+  min-height: 38px;
+  padding: 8px 12px;
+  /* border: var(--tile-border-width) solid var(--color-tile-stroke); */
+  border-radius: var(--radius-sm);
+  background: var(--color-tile-background);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    transform var(--duration-fast) var(--easing-ease-out);
+}
+
+.font-select-wrapper:hover {
+  background: var(--color-content-low);
+}
+
+.font-select-wrapper:active {
+  background: color-mix(in srgb, var(--color-content-low) 80%, black 20%);
+  transform: scale(0.985);
+}
+
+.chevron {
+  color: var(--color-content-default);
+  margin-left: 4px;
+}
+
+.font-select-menu {
+  position: fixed;
+  z-index: 3000;
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  background: var(--color-tile-background);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+  transform-origin: center var(--grow-origin, 50%);
 }
 </style>

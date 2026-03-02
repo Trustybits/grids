@@ -455,18 +455,10 @@ export default defineComponent({
         .focus(undefined, { scrollIntoView: false })
         .setFontSize(fontSizePx)
         .run();
-
-      // Avoid persisting on every size click while editing; the edit-exit flow
-      // already persists the full JSON and this avoids layout-save side effects
-      // that can move the viewport.
     };
 
     const getCurrentFontSize = () => {
       let fontSize = editor.value?.getAttributes("textStyle")?.fontSize;
-      //  <option value="12px">Small</option>
-      // <option value="14px">Medium</option>
-      // <option value="20px">Large</option>
-      // <option value="26px">Larger</option>
 
       if (!fontSize) {
         return "Medium";
@@ -484,6 +476,17 @@ export default defineComponent({
 
       return fontSize;
     };
+    
+    const handleFontChange = (font: string) => {
+      if (!editor.value) return;
+
+      editor.value.chain().focus(undefined, { scrollIntoView: false }).setFontFamily(font).run();
+    }
+
+    const getCurrentFont = () => {
+      const fontFamily = editor.value?.getAttributes("textStyle")?.fontFamily;
+      return fontFamily || "Inter";
+    }
 
     return {
       layoutStore,
@@ -514,6 +517,8 @@ export default defineComponent({
       isOwner,
       getCurrentFontSize,
       handleFontSizeChange,
+      handleFontChange,
+      getCurrentFont,
     };
   },
 });

@@ -1,7 +1,7 @@
 <template>
   <div
     class="font-select-wrapper"
-    @click.stop.prevent="handleFontClick"
+    @click.stop.prevent="handleClick"
     ref="fontSelectButtonRef"
   >
     <FontStyleIcon />
@@ -32,7 +32,7 @@
           :class="{ 'is-current': font === currentFont }"
           @mousedown.prevent
           @pointerdown.prevent
-          @click.stop="handleFontSelect(font)"
+          @click.stop="handleButtonClick(font)"
         >
           {{ font }}
         </button>
@@ -42,18 +42,10 @@
 </template>
 
 <script lang="ts">
-import {
-  computed,
-  defineComponent,
-  nextTick,
-  onMounted,
-  onUnmounted,
-  ref,
-  watch,
-} from "vue";
+import { computed, defineComponent, ref } from "vue";
 import FontStyleIcon from "./icons/toolbar/FontStyleIcon.vue";
 import Chevron from "./icons/Chevron.vue";
-import { useLayoutStore } from "@/stores/layout";
+import { useFloatingSelector } from "@/composables/useFloatingSelector";
 
 export default defineComponent({
   components: { FontStyleIcon, Chevron },
@@ -65,7 +57,6 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const layoutStore = useLayoutStore();
     const isActive = ref(false);
     const fontSelectButtonRef = ref<HTMLButtonElement | null>(null);
     const fontSelectorMenuRef = ref<HTMLDivElement | null>(null);
@@ -82,29 +73,10 @@ export default defineComponent({
       "Lobster",
     ]);
 
-    const handleFontClick = () => {
-      if (isActive.value) {
-        isActive.value = false;
-        return;
-      }
-
-      emit("open-intent", "family");
-      isActive.value = true;
-      nextTick(() => positionMenu());
-    };
-
-    const handleFontSelect = (font: string) => {
-      props.childComponent?.handleFontChange(font);
-      isActive.value = false;
-      layoutStore.closeMenus();
-    };
-
     const positionMenu = () => {
       const btn = fontSelectButtonRef.value;
       if (!btn) return;
       const rect = btn.getBoundingClientRect();
-      const rowHeight =
-        fontSelectorMenuRef.value?.firstElementChild?.clientHeight ?? 36;
 
       const top = rect.bottom + 8;
       const left = rect.left - 5;
@@ -112,61 +84,20 @@ export default defineComponent({
       pos.value = { top, left };
     };
 
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-
-      if (fontSelectorMenuRef.value?.contains(target)) {
-        return;
-      }
-
-      isActive.value = false;
-    };
-
-    let rafId: number | null = null;
-
-    const schedulePositionMenu = () => {
-      if (rafId != null) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-        positionMenu();
-      });
-    };
-
-    watch(isActive, (open, _prev, onCleanup) => {
-      nextTick(positionMenu);
-
-      window.addEventListener("resize", schedulePositionMenu);
-      window.addEventListener("scroll", schedulePositionMenu, {
-        capture: true,
-        passive: true,
-      });
-
-      onCleanup(() => {
-        if (rafId != null) cancelAnimationFrame(rafId);
-        rafId = null;
-        window.removeEventListener("resize", schedulePositionMenu);
-        window.removeEventListener("scroll", schedulePositionMenu, {
-          capture: true,
-        });
-      });
-    });
-
-    onMounted(() => {
-      document.addEventListener("click", handleClickOutside);
-      document.addEventListener("contextmenu", handleClickOutside);
-    });
-
-    onUnmounted(() => {
-      document.removeEventListener("click", handleClickOutside);
-      document.removeEventListener("contextmenu", handleClickOutside);
+    const { handleClick, handleButtonClick } = useFloatingSelector({
+      isActive,
+      menuRef: fontSelectorMenuRef,
+      positionMenu,
+      buttonAction: props.childComponent?.handleFontChange,
+      emitter: () => emit("open-intent", "family"),
     });
 
     return {
-      handleFontClick,
-      handleFontSelect,
+      handleClick,
+      handleButtonClick,
       currentFont,
       fontSelectButtonRef,
-      fontSelectMenuRef: fontSelectorMenuRef,
+      fontSelectorMenuRef,
       pos,
       // growOrigin,
       isActive,

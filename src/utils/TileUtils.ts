@@ -16,6 +16,7 @@ import {
   type CampfireContent,
   type ClickerContent,
   type YouTubeContent,
+  type RoadmapFeedContent,
 } from "@/types/TileContent";
 import { defineAsyncComponent, markRaw } from "vue";
 
@@ -281,6 +282,7 @@ export function createTileContent(
     | ClickerContent
     | ProfileBioContent
     | YouTubeContent
+    | RoadmapFeedContent
   > = {},
 ): TileContent {
   switch (type) {
@@ -382,7 +384,6 @@ export function createTileContent(
         bio:
           (data as Partial<ProfileBioContent>).bio ||
           makeDefaultDoc("Tell us about yourself..."),
-        avatarSrc: (data as Partial<ProfileBioContent>).avatarSrc || "",
         avatarShape:
           (data as Partial<ProfileBioContent>).avatarShape || "circle",
         avatarRadius: (data as Partial<ProfileBioContent>).avatarRadius ?? 12,
@@ -439,6 +440,18 @@ export function createTileContent(
         channelData: (data as Partial<YouTubeContent>).channelData,
         recentVideos: (data as Partial<YouTubeContent>).recentVideos,
       } as YouTubeContent;
+
+    case ContentType.ROADMAP_FEED:
+      return {
+        type,
+        notionDatabaseId: (data as Partial<RoadmapFeedContent>).notionDatabaseId || "",
+        statusPropertyName: (data as Partial<RoadmapFeedContent>).statusPropertyName || "",
+        upvotePropertyName: (data as Partial<RoadmapFeedContent>).upvotePropertyName || "",
+        statusMapping: (data as Partial<RoadmapFeedContent>).statusMapping || {},
+        queryFilters: (data as Partial<RoadmapFeedContent>).queryFilters,
+        cachedItems: (data as Partial<RoadmapFeedContent>).cachedItems,
+        lastSyncedAt: (data as Partial<RoadmapFeedContent>).lastSyncedAt,
+      } as RoadmapFeedContent;
 
     default:
       throw new Error(`Unsupported content type: ${type}`);
@@ -588,6 +601,18 @@ export function getContentComponent(content: TileContent): any {
         defineAsyncComponent(
           () => import("@/components/tilecontent/YouTubeContent.vue"),
         ),
+      );
+    case ContentType.ROADMAP_FEED:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/RoadmapFeedContent.vue")
+        )
+      );
+    case ContentType.ROADMAP_FEED:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/RoadmapFeedContent.vue")
+        )
       );
     default:
       throw new Error(`Unsupported content type: ${content.type}`);

@@ -3,7 +3,6 @@
     <button
       type="button"
       class="grid-menu-button"
-      :title="showMenu ? 'Close menu' : 'Open menu'"
       @click.stop="toggleMenu"
     >
       <div class="grid-menu-icon">
@@ -32,7 +31,8 @@
         <MenuSection>
           <Toggle 
             label="Gravity" 
-            v-model="layoutStore.verticalCompact"
+            v-model="verticalCompact"
+            tooltip="When enabled, tiles automatically move up to fill empty space"
           />
         </MenuSection>
 
@@ -113,6 +113,12 @@ const isOwner = computed(() => {
 
 const gridPageId = computed(() => {
   return layoutStore.currentLayout?.id || '';
+});
+
+// Computed property with setter to handle gravity toggle
+const verticalCompact = computed({
+  get: () => layoutStore.verticalCompact,
+  set: (value: boolean) => layoutStore.setVerticalCompact(value)
 });
 
 const toggleMenu = () => {

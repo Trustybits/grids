@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { type Layout } from "@/types/Layout";
 import { getLayoutService } from "@/services/LayoutServiceFactory"; // Factory to switch services dynamically
-import { ContentType, type TileContent } from "@/types/TileContent";
+import { ContentType, type TileContent, type AnyTileContent } from "@/types/TileContent";
 import type { Breakpoint, TilePosition } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
 import { collection, query, where, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
@@ -484,7 +484,8 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        // Build a shallow copy with blob URLs swapped for resolved Firebase URLs
+        // Build a deep copy with blob URLs swapped for resolved Firebase URLs
+        // and ensure all content mutations are preserved
         const resolvedTiles = this.currentLayout.tiles.map((tile) => {
           const src = (tile.content as any)?.src;
           if (typeof src === "string" && src.startsWith("blob:")) {
@@ -493,7 +494,8 @@ export const useLayoutStore = defineStore("layout", {
               return { ...tile, content: { ...tile.content, src: realUrl } };
             }
           }
-          return tile;
+          // Create a deep copy of the tile to preserve all content mutations
+          return { ...tile, content: { ...tile.content } };
         });
 
         const layoutToSave = { ...this.currentLayout, tiles: resolvedTiles } as Layout;
@@ -590,7 +592,7 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
-    patchTileContent(id: string, patch: Partial<any>) {
+    patchTileContent(id: string, patch: Partial<AnyTileContent>) {
       if (!this.currentLayout) return;
 
       const tile = this.currentLayout.tiles.find((t) => t.i === id);
@@ -992,6 +994,29 @@ export const useLayoutStore = defineStore("layout", {
         this.error = "Failed to delete layout.";
         console.error(err);
       }
-    },    
+    },
+
+    // Rename a layout by updating its name
+    async renameLayout(id: string, newName: string) {
+      try {
+        const layout = this.layouts.find((l) => l.id === id);
+        if (!layout) {
+          throw new Error("Layout not found");
+        }
+
+        // Update the layout name
+        layout.name = newName;
+        await layoutService.updateLayout(layout);
+
+        // Update current layout if it's the one being renamed
+        if (this.currentLayout?.id === id) {
+          this.currentLayout.name = newName;
+        }
+      } catch (err) {
+        this.error = "Failed to rename layout.";
+        console.error(err);
+        throw err;
+      }
+    },
   },
 });

@@ -128,7 +128,7 @@ export default defineComponent({
     const isOwner = computed(() => layoutStore.isOwner);
     const canSend = computed(() => !!layoutId.value && !!props.tileId);
     const composerPlaceholder = computed(() =>
-      isOwner.value ? "Write a message..." : "Message the owner..."
+      isOwner.value ? "Write a message.." : "Message the owner.."
     );
 
     const isOwnerMessage = (message: ChatMessage) => {
@@ -355,24 +355,24 @@ export default defineComponent({
 .chat-tile {
   height: 100%;
   width: 100%;
-  padding: var(--tile-padding);
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
 }
 
 .chat-messages {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  gap: var(--spacing-sm);
   min-height: 0;
   overflow-y: auto;
   scroll-behavior: smooth;
   overscroll-behavior: contain;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
-  padding-right: 4px;
   position: relative;
 }
 
@@ -456,10 +456,8 @@ export default defineComponent({
 
 .chat-composer {
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
 .chat-input {
@@ -489,25 +487,27 @@ export default defineComponent({
 
 .chat-send {
   border: none;
-  border-radius: 12px;
-  padding: 6px;
+  border-radius: 50%;
+  padding: var(--spacing-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-text-primary);
-  color: var(--color-tile-background);
+  background-color: var(--color-content-low);
+  color: var(--color-text-primary);
   cursor: pointer;
   transition: opacity var(--duration-fast) var(--easing-ease-in-out),
     transform var(--duration-fast) var(--easing-ease-out);
 }
 
 .chat-send:hover {
-  transform: translateY(-1px);
+  /* transform: translateY(-1px); */
+  background-color: var(--color-content-default);
 }
 
 .chat-send:disabled {
+  background-color: transparent;
   cursor: not-allowed;
-  opacity: 0.4;
+  opacity: 0.3;
   transform: none;
 }
 
@@ -547,8 +547,8 @@ export default defineComponent({
   border-radius: 50%;
   border: none;
   padding: 4px;
-  background: var(--color-content-low);
-  color: var(--color-tile-background);
+  background: var(--color-base-34);
+  color: var(--color-text-primary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -561,7 +561,7 @@ export default defineComponent({
 }
 
 .scroll-to-bottom:hover {
-  background: var(--color-text-primary);
+  background: var(--color-content-default);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   transform: translateX(-50%) translateY(-2px);
 }

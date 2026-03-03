@@ -128,6 +128,7 @@ export default defineComponent({
   align-items: center;
   font-size: var(--font-size-md);
   margin-right: -6px;
+  min-width: 85px;
 }
 
 .font-select-title {
@@ -152,6 +153,11 @@ export default defineComponent({
   background: var(--color-content-low);
 }
 
+.chevron {
+  color: var(--color-content-default);
+  margin-left: 4px;
+}
+
 .font-select-title:active {
   transform: scale(0.985);
   background: color-mix(in srgb, var(--color-content-low) 75%, black 25%);
@@ -163,6 +169,7 @@ export default defineComponent({
 
 .font-title {
   font-weight: var(--font-weight-semibold);
+  min-width: 55px;
 }
 
 .font-menu-enter-active,
@@ -208,11 +215,6 @@ export default defineComponent({
 .font-select-wrapper:active {
   background: color-mix(in srgb, var(--color-content-low) 80%, black 20%);
   transform: scale(0.985);
-}
-
-.chevron {
-  color: var(--color-content-default);
-  margin-left: 4px;
 }
 
 .font-select-menu {

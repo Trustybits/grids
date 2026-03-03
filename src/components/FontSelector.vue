@@ -7,13 +7,13 @@
     <FontStyleIcon />
     <Chevron
       :size="24"
-      class="chevron chevron-adjust"
+      class="chevron"
       :class="isActive ? 'rotate-chevron' : ''"
     />
   </div>
 
   <teleport to="body">
-    <transition name="font-menu">
+    <transition name="font-panel">
       <div
         v-if="isActive"
         ref="fontSelectorMenuRef"
@@ -130,6 +130,11 @@ export default defineComponent({
   background: var(--color-content-low);
 }
 
+.font-select-button:active {
+  background: color-mix(in srgb, var(--color-content-low) 80%, black 20%);
+  transform: scale(0.985);
+}
+
 .font-select-button.is-current {
   background: color-mix(in srgb, var(--color-content-default) 50%, transparent);
 }
@@ -137,12 +142,40 @@ export default defineComponent({
 .chevron {
   color: var(--color-content-default);
   margin-left: 4px;
+  margin-right: -8px;
   transition: transform 0.05s var(--easing-ease-in-out);
   &.rotate-chevron {
     transform: rotate(180deg);
   }
 }
-.chevron-adjust {
-  margin-right: -8px;
+
+.font-panel-enter-active {
+  animation: fontPanelSlideIn var(--duration-normal) var(--easing-spring);
+}
+
+.font-panel-leave-active {
+  animation: fontPanelSlideOut var(--duration-normal) var(--easing-spring);
+}
+
+@keyframes fontPanelSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fontPanelSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
 }
 </style>

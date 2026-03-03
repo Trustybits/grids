@@ -3,6 +3,8 @@
     <div class="chat-messages" ref="messagesContainer" @mousedown.stop @scroll="handleScroll">
       <!-- Fade indicator at top when there's more content above -->
       <div v-if="showTopFade" class="top-fade-indicator"></div>
+      <!-- Spacer to push messages to bottom when there are few messages -->
+      <div class="messages-spacer"></div>
       <div v-if="!sortedMessages.length" class="chat-empty">
         <p class="chat-empty-title">Start the conversation</p>
         <p class="chat-empty-subtitle">Send a message below.</p>
@@ -365,10 +367,11 @@ export default defineComponent({
   flex: 1;
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-radius: 0 0 0 0;
   gap: var(--spacing-sm);
   min-height: 0;
   overflow-y: auto;
+  overflow-anchor: none;
   scroll-behavior: smooth;
   overscroll-behavior: contain;
   touch-action: pan-y;
@@ -380,13 +383,20 @@ export default defineComponent({
   display: none;
 }
 
+/* Spacer to push messages to bottom when there are few messages */
+.messages-spacer {
+  flex: 1;
+  min-height: 0;
+}
+
 /* Top fade indicator to show there's more content above */
 .top-fade-indicator {
   position: sticky;
   top: 0;
   left: 0;
   right: 0;
-  height: 40px;
+  height: 48px;
+  flex-shrink: 0;
   background: linear-gradient(to bottom, 
     var(--color-tile-background) 0%, 
     var(--color-tile-background) 20%,
@@ -495,6 +505,8 @@ export default defineComponent({
   background-color: var(--color-content-low);
   color: var(--color-text-primary);
   cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
   transition: opacity var(--duration-fast) var(--easing-ease-in-out),
     transform var(--duration-fast) var(--easing-ease-out);
 }

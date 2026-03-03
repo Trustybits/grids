@@ -186,8 +186,13 @@ export default {
       const bp = activeBreakpoint.value;
       const cols = responsiveColNum.value;
 
+      // Filter out suggestion tiles for non-owners
+      const visibleTiles = layoutStore.isOwner 
+        ? tiles 
+        : tiles.filter(tile => tile.content.type !== 'suggestion');
+
       if (bp === 'lg') {
-        return tiles;
+        return visibleTiles;
       }
 
       const overrides = layoutStore.getBreakpointPositions(bp);
@@ -195,7 +200,7 @@ export default {
         const customized: Tile[] = [];
         const unplaced: Tile[] = [];
 
-        for (const tile of tiles) {
+        for (const tile of visibleTiles) {
           const pos = overrides[tile.i];
           if (pos) {
             customized.push({ ...tile, ...pos });
@@ -214,7 +219,7 @@ export default {
       }
 
       // No saved overrides — auto-repack (current behavior)
-      const resizedTiles = tiles.map((tile) =>
+      const resizedTiles = visibleTiles.map((tile) =>
         scaleTileToFit(tile, cols)
       );
 

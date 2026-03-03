@@ -16,6 +16,7 @@
       }"
       :style="{
         '--tile-bg': backgroundColor,
+        '--tile-text-color': textColor,
         color: textColor,
         textAlign: textAlign,
       }"
@@ -117,6 +118,7 @@ import type { TextContent } from "@/types/TileContent";
 import { useToastStore } from "@/stores/toast";
 import { computeTextColor, resolveBackgroundColor } from "@/utils/TileUtils";
 import ColorIcon from "../icons/toolbar/ColorIcon.vue";
+import { useColorPicker } from "@/composables/useColorPicker";
 
 export default defineComponent({
   components: {
@@ -374,6 +376,9 @@ export default defineComponent({
       immediate: true,
     });
 
+    // const { backgroundColor, textColor, handleBackgroundColorChange } =
+    //   useColorPicker(tileId, emit);
+
     const handleTextAlignChange = (align: "left" | "center" | "right") => {
       if (!layoutStore.isOwner) return;
       props.content.textAlign = align;
@@ -476,17 +481,21 @@ export default defineComponent({
 
       return fontSize;
     };
-    
+
     const handleFontChange = (font: string) => {
       if (!editor.value) return;
 
-      editor.value.chain().focus(undefined, { scrollIntoView: false }).setFontFamily(font).run();
-    }
+      editor.value
+        .chain()
+        .focus(undefined, { scrollIntoView: false })
+        .setFontFamily(font)
+        .run();
+    };
 
     const getCurrentFont = () => {
       const fontFamily = editor.value?.getAttributes("textStyle")?.fontFamily;
       return fontFamily || "Inter";
-    }
+    };
 
     return {
       layoutStore,
@@ -542,6 +551,7 @@ export default defineComponent({
   line-height: 1.3;
   transition: background-color 0.3s ease;
   position: relative;
+  color: var(--tile-text-color);
 
   &::-webkit-scrollbar {
     display: none;
@@ -553,7 +563,11 @@ export default defineComponent({
 }
 
 .not-editing.can-edit:hover {
-  /* background-color: var(--color-editable-hover); */
+  background-color: color-mix(
+    in srgb,
+    var(--tile-bg) 85%,
+    var(--tile-text-color) 15%
+  );
   cursor: text;
 }
 

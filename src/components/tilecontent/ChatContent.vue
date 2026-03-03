@@ -55,7 +55,7 @@
         type="submit"
         :disabled="!canSend || !draftMessage.trim()"
       >
-        Send
+        <SendIcon />
       </button>
     </form>
   </div>
@@ -72,6 +72,7 @@ import {
   ref,
   watch,
 } from "vue";
+import SendIcon from "@/components/icons/SendIcon.vue";
 import { getAuth } from "firebase/auth";
 import {
   addDoc,
@@ -87,6 +88,9 @@ import { useLayoutStore } from "@/stores/layout";
 import type { ChatContent, ChatMessage } from "@/types/TileContent";
 
 export default defineComponent({
+  components: {
+    SendIcon,
+  },
   props: {
     content: {
       type: Object as () => ChatContent,
@@ -486,9 +490,10 @@ export default defineComponent({
 .chat-send {
   border: none;
   border-radius: 12px;
-  padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--color-text-primary);
   color: var(--color-tile-background);
   cursor: pointer;
@@ -568,19 +573,16 @@ export default defineComponent({
 /* Scroll button transitions */
 .scroll-button-enter-active,
 .scroll-button-leave-active {
-  transition: opacity var(--duration-normal) var(--easing-ease-in-out),
-    transform var(--duration-normal) var(--easing-ease-out);
+  transition: opacity var(--duration-normal) var(--easing-ease-in-out);
 }
 
 .scroll-button-enter-from,
 .scroll-button-leave-to {
   opacity: 0;
-  transform: translateY(10px) scale(0.9);
 }
 
 .scroll-button-enter-to,
 .scroll-button-leave-from {
   opacity: 1;
-  transform: translateY(0) scale(1);
 }
 </style>

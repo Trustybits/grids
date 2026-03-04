@@ -116,8 +116,6 @@ import { useLayoutStore } from "@/stores/layout";
 import AddLinkModal from "../AddLinkModal.vue";
 import type { TextContent } from "@/types/TileContent";
 import { useToastStore } from "@/stores/toast";
-import { computeTextColor, resolveBackgroundColor } from "@/utils/TileUtils";
-import ColorIcon from "../icons/toolbar/ColorIcon.vue";
 import { useColorPicker } from "@/composables/useColorPicker";
 
 export default defineComponent({
@@ -351,33 +349,8 @@ export default defineComponent({
       window.open(textLink.value, "_blank", "noopener,noreferrer");
     };
 
-    const backgroundColor = computed(() => {
-      return resolveBackgroundColor(props.content?.backgroundColor);
-    });
-
-    const textColor = computed(() => {
-      return computeTextColor(backgroundColor.value);
-    });
-
-    const handleBackgroundColorChange = (color: string) => {
-      if (!layoutStore.isOwner) return;
-
-      props.content.backgroundColor = color;
-      if (tileId) {
-        layoutStore.patchTileContent(tileId, { backgroundColor: color });
-      }
-    };
-
-    watch(backgroundColor, (color) => emit("background-color-change", color), {
-      immediate: true,
-    });
-
-    watch(textColor, (color) => emit("text-color-change", color), {
-      immediate: true,
-    });
-
-    // const { backgroundColor, textColor, handleBackgroundColorChange } =
-    //   useColorPicker(tileId, emit);
+    const { backgroundColor, textColor, handleBackgroundColorChange } =
+      useColorPicker(tileId, props.content, emit);
 
     const handleTextAlignChange = (align: "left" | "center" | "right") => {
       if (!layoutStore.isOwner) return;

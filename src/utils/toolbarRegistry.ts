@@ -18,6 +18,7 @@ import DefaultMapIcon from "@/components/icons/toolbar/DefaultMapIcon.vue";
 import CloudsIcon from "@/components/icons/toolbar/CloudsIcon.vue";
 import MapSearchIcon from "@/components/icons/toolbar/MapSearchIcon.vue";
 import MapPanIcon from "@/components/icons/toolbar/MapPanIcon.vue";
+import LocateFixedIcon from "@/components/icons/toolbar/LocateFixedIcon.vue";
 import LinkIcon from "@/components/icons/LinkIcon.vue";
 import BoldIcon from "@/components/icons/toolbar/BoldIcon.vue";
 import ItalicIcon from "@/components/icons/toolbar/ItalicIcon.vue";
@@ -207,6 +208,15 @@ export const MAP_SEARCH: ToolbarItem = {
   },
 };
 
+// Flies the camera back to the saved marker (or center) location.
+export const MAP_RECENTER: ToolbarItem = {
+  id: "map-recenter",
+  icon: markRaw(LocateFixedIcon),
+  title: "Re-center on location",
+  group: "map-style",
+  action: (ctx) => ctx.childComponent.value?.recenterOnMarker?.(),
+};
+
 export const MAP_DEFAULT: ToolbarItem = {
   id: "map-default",
   icon: markRaw(DefaultMapIcon),
@@ -343,6 +353,7 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     MAP_DEFAULT,
     MAP_PAN,
     MAP_SEARCH,
+    MAP_RECENTER,
   ],
   [ContentType.CHAT]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
   [ContentType.CAMPFIRE]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],

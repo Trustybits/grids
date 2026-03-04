@@ -484,10 +484,13 @@ export default defineComponent({
           // Reveal the map now that it's positioned correctly.
           mapReady.value = true;
         } else {
-          map.easeTo({
+          // Use Mapbox's flyTo for a cinematic arc animation between locations.
+          map.flyTo({
             center: [center.lng, center.lat],
             zoom: targetZoom,
-            duration: 800,
+            speed: 1.2,
+            curve: 1.42,
+            essential: true,
           });
         }
       }
@@ -716,6 +719,8 @@ export default defineComponent({
       if (!target || (target.lat === 0 && target.lng === 0)) return;
       const map = mapInstance.value;
       if (!map) return;
+      // Use easeTo for a smooth pan back to the marker — flyTo's arc
+      // animation is reserved for search-driven location changes.
       map.easeTo({
         center: [target.lng, target.lat],
         zoom: props.content.zoom ?? 9,
@@ -773,6 +778,9 @@ export default defineComponent({
         bearing: props.content.bearing ?? 0,
         pitch: props.content.pitch ?? 0,
         attributionControl: false,
+        // Keep the last rendered frame in the WebGL buffer so the canvas
+        // never flashes black when the tile container is being resized.
+        preserveDrawingBuffer: true,
       });
 
       map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
@@ -789,9 +797,20 @@ export default defineComponent({
 
       // Watch for container size changes (e.g. grid resize transitions)
       // so the map re-renders to fill the new dimensions without black bars.
+      // The resize call is debounced because during animated CSS transitions
+      // (the spring settle after a tile resize) the observer fires on every
+      // frame.  Each map.resize() sets the canvas width/height attributes
+      // which clears the WebGL drawing buffer, producing a black flash.
+      // By waiting until the container stops changing size we call resize()
+      // only once after the animation finishes — preserveDrawingBuffer keeps
+      // the last good frame visible in the meantime.
       if (mapContainer.value) {
+        let resizeTimer: ReturnType<typeof setTimeout> | null = null;
         const ro = new ResizeObserver(() => {
-          map.resize();
+          if (resizeTimer) clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(() => {
+            map.resize();
+          }, 0);
         });
         ro.observe(mapContainer.value);
         resizeObserver = ro;

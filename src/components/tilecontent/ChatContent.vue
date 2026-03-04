@@ -398,8 +398,12 @@ export default defineComponent({
   height: 48px;
   flex-shrink: 0;
   background: linear-gradient(to bottom, 
-    var(--color-tile-background) 0%, 
-    var(--color-tile-background) 20%,
+    var(--color-tile-background) 0%,
+    color-mix(
+      in srgb,
+      var(--color-tile-background) 50%,
+      transparent
+    ) 50%,
     transparent 100%);
   pointer-events: none;
   z-index: 5;
@@ -528,7 +532,7 @@ export default defineComponent({
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 16px 0 12px;
+  margin: 4px 0;
   text-align: center;
 }
 

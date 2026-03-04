@@ -121,25 +121,28 @@ export default {
       const placed: Tile[] = [];
 
       ordered.forEach((tile) => {
-        const withinBounds = tile.x >= 0 && tile.x + tile.w <= columns;
+        // Scale down tiles that are too wide for the grid
+        const scaledTile = tile.w > columns ? scaleTileToFit(tile, columns) : tile;
+        
+        const withinBounds = scaledTile.x >= 0 && scaledTile.x + scaledTile.w <= columns;
         const canKeep =
           withinBounds &&
-          !hasOverlap(placed, tile.x, tile.y, tile.w, tile.h);
+          !hasOverlap(placed, scaledTile.x, scaledTile.y, scaledTile.w, scaledTile.h);
 
         if (canKeep) {
-          placed.push({ ...tile });
+          placed.push({ ...scaledTile });
           return;
         }
 
-        const startY = withinBounds ? tile.y : tile.y + 1;
+        const startY = withinBounds ? scaledTile.y : 0;
         const spot = findFirstAvailableSpot(
           placed,
-          tile.w,
-          tile.h,
+          scaledTile.w,
+          scaledTile.h,
           columns,
           startY
         );
-        placed.push({ ...tile, x: spot.x, y: spot.y });
+        placed.push({ ...scaledTile, x: spot.x, y: spot.y });
       });
 
       const placedById = new Map(placed.map((tile) => [tile.i, tile]));
@@ -187,6 +190,16 @@ export default {
       const cols = responsiveColNum.value;
 
       if (bp === 'lg') {
+        // Validate that all tiles fit within bounds and don't have invalid positions
+        const needsRepacking = tiles.some(tile => 
+          tile.w > cols || tile.x < 0 || tile.x + tile.w > cols
+        );
+        
+        if (needsRepacking) {
+          // Repack tiles to fix any out-of-bounds issues
+          return packTiles(tiles, cols);
+        }
+        
         return tiles;
       }
 

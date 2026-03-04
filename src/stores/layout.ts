@@ -484,7 +484,8 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        // Build a shallow copy with blob URLs swapped for resolved Firebase URLs
+        // Build a deep copy with blob URLs swapped for resolved Firebase URLs
+        // and ensure all content mutations are preserved
         const resolvedTiles = this.currentLayout.tiles.map((tile) => {
           const src = (tile.content as any)?.src;
           if (typeof src === "string" && src.startsWith("blob:")) {
@@ -493,7 +494,8 @@ export const useLayoutStore = defineStore("layout", {
               return { ...tile, content: { ...tile.content, src: realUrl } };
             }
           }
-          return tile;
+          // Create a deep copy of the tile to preserve all content mutations
+          return { ...tile, content: { ...tile.content } };
         });
 
         const layoutToSave = { ...this.currentLayout, tiles: resolvedTiles } as Layout;

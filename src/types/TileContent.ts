@@ -152,6 +152,7 @@ export interface ProfileBioContent extends TileContent {
   bio: string;
   avatarShape: AvatarShape;
   avatarRadius: number;
+  profilePhotoUrl?: string; // URL of the uploaded profile photo
   backgroundColor?: string;
 }
 

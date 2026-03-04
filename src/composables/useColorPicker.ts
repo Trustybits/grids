@@ -1,7 +1,7 @@
 import { useLayoutStore } from "@/stores/layout";
 import { useThemeStore } from "@/stores/theme";
 import type { ProfileBioContent, TextContent } from "@/types/TileContent";
-import { computed, watch, ref, type ComputedRef } from "vue";
+import { computed, watch, type ComputedRef } from "vue";
 
 export interface ColorPickerValues {
   backgroundColor: ComputedRef<string>;
@@ -53,22 +53,22 @@ export const useColorPicker = (
   };
 };
 
-const computeTextColor = (backgroundColor: string): string => {
-  const colorHexMap: Record<string, string> = {
-    "var(--color-red)": "#FFAFA3",
-    "var(--color-orange)": "#FFD3A8",
-    "var(--color-yellow)": "#FFE299",
-    "var(--color-green)": "#B3EFBD",
-    "var(--color-cyan)": "#B3F4EF",
-    "var(--color-blue)": "#A8DAFF",
-    "var(--color-purple)": "#D3BDFF",
-    "var(--color-pink)": "#FFA8DB",
-    "var(--color-light-100)": "#FEFDEC",
-    "var(--color-dark-0)": "#33312C",
-    "var(--color-tile-background)": "#000000",
-    "var(--color-content-background)": "#10100E",
-  };
+const colors: Record<string, string> = {
+  "var(--color-red)": "#FFAFA3",
+  "var(--color-orange)": "#FFD3A8",
+  "var(--color-yellow)": "#FFE299",
+  "var(--color-green)": "#B3EFBD",
+  "var(--color-cyan)": "#B3F4EF",
+  "var(--color-blue)": "#A8DAFF",
+  "var(--color-purple)": "#D3BDFF",
+  "var(--color-pink)": "#FFA8DB",
+  "var(--color-light-100)": "#FEFDEC",
+  "var(--color-dark-0)": "#33312C",
+  "var(--color-tile-background)": "#000000",
+  "var(--color-content-background)": "#10100E",
+};
 
+const computeTextColor = (backgroundColor: string): string => {
   const bg = backgroundColor;
   let hex: string | undefined;
 
@@ -79,7 +79,7 @@ const computeTextColor = (backgroundColor: string): string => {
   } else if (bg === "var(--color-content-background)") {
     hex = themeStore.isDarkMode ? "#10100E" : "#FFFEF5";
   } else {
-    hex = colorHexMap[bg];
+    hex = colors[bg];
   }
 
   if (!hex) return "";

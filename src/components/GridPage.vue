@@ -65,6 +65,7 @@ import GridButtons from "@/components/TileButtons.vue";
 import BottomLeftButtons from "@/components/BottomLeftButtons.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
+import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { auth } from "@/firebase";
@@ -115,6 +116,20 @@ export default defineComponent({
     // Dynamic page title with grid name
     const gridName = computed(() => layoutStore.currentLayout?.name);
     usePageTitle(gridName, '|');
+
+    // Dynamic favicon from first profile tile's photo
+    const profilePhotoUrl = computed(() => {
+      const tiles = layoutStore.currentLayout?.tiles;
+      if (!tiles) return null;
+      
+      const profileTile = tiles.find(tile => tile.content?.type === 'profile');
+      if (!profileTile?.content) return null;
+      
+      const profileContent = profileTile.content as any;
+      return profileContent.profilePhotoUrl || null;
+    });
+    
+    useDynamicFavicon(profilePhotoUrl);
 
     const addBackgroundImage = async (event: Event) => {
       if (!layoutStore.isOwner) return;

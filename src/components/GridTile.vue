@@ -54,7 +54,7 @@
           :style="{
             '--tile-bg': !!contentBackgroundColor
               ? contentBackgroundColor
-              : 'var(--color-content-background)',
+              : 'var(--color-tile-background)',
             '--tile-text-color': !!contentTextColor
               ? contentTextColor
               : 'var(--color-text-primary)',

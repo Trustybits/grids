@@ -905,11 +905,44 @@ export default defineComponent({
   border-radius: var(--tile-border-radius);
 }
 
+// Overdraw buffer: render the map canvas slightly larger than the tile on
+// every side so pre-rendered map is already available beyond the visible
+// edges.  The parent .map-tile clips with overflow:hidden.  During resize
+// transitions this buffer hides the black fringe that would otherwise
+// appear before map.resize() fires.
+$overdraw: 40px;
+
 .map-canvas {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: -$overdraw;
+  left: -$overdraw;
+  width: calc(100% + #{$overdraw * 2});
+  height: calc(100% + #{$overdraw * 2});
   pointer-events: none;
 }
+
+// Shift Mapbox's built-in UI controls inward so they stay within the
+// visible tile bounds despite the canvas being oversized by $overdraw.
+.map-canvas :deep(.mapboxgl-ctrl-top-right) {
+  top: $overdraw;
+  right: $overdraw;
+}
+.map-canvas :deep(.mapboxgl-ctrl-bottom-right) {
+  bottom: $overdraw;
+  right: $overdraw;
+}
+.map-canvas :deep(.mapboxgl-ctrl-top-left) {
+  top: $overdraw;
+  left: $overdraw;
+}
+.map-canvas :deep(.mapboxgl-ctrl-bottom-left) {
+  bottom: $overdraw;
+  left: $overdraw;
+}
+
+// Mapbox markers use transform:translate for positioning — the overdraw
+// offset is already baked into the map's coordinate → pixel projection,
+// so no additional CSS correction is needed for markers.
 
 .map-canvas.is-hidden {
   visibility: hidden;

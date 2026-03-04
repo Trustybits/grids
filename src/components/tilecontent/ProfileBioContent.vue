@@ -169,8 +169,8 @@ import {
   watch,
   nextTick,
   onMounted,
-  onUnmounted,
   type PropType,
+  inject,
 } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
 import type { AnyExtension } from "@tiptap/core";
@@ -184,14 +184,11 @@ import TaskItem from "@tiptap/extension-task-item";
 import { useLayoutStore } from "@/stores/layout";
 import { type ProfileBioContent, type AvatarShape } from "@/types/TileContent";
 import {
-  computeTextColor,
   isDirectImageUrl,
-  resolveBackgroundColor,
 } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { getAuth } from "firebase/auth";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { db } from "@/firebase";
+import { useColorPicker } from "@/composables/useColorPicker";
 
 const editorExtensions: AnyExtension[] = [
   StarterKit,
@@ -272,36 +269,48 @@ export default defineComponent({
 
     const avatarShape = computed(() => props.content.avatarShape || "circle");
 
-    const avatarSrc = ref("");
-    let unsubscribePhoto: (() => void) | null = null;
-
-    const subscribeToProfilePhoto = () => {
-      if (unsubscribePhoto) {
-        unsubscribePhoto();
-        unsubscribePhoto = null;
-      }
-      const uid = layoutStore.currentLayout?.userId ?? auth.currentUser?.uid;
-      if (!uid) return;
-      // publicProfiles is readable by anyone — no auth required
-      unsubscribePhoto = onSnapshot(doc(db, "publicProfiles", uid), (snap) => {
-        avatarSrc.value = snap.data()?.profilePhotoUrl ?? "";
+    // Profile photo URL is stored in tile content
+    // Read from the store's tile content so it updates reactively when we upload/delete
+    const avatarSrc = computed(() => {
+      const currentTile = layoutStore.currentLayout?.tiles.find((tile) => {
+        if (tile.content?.type !== "profile") return false;
+        const tileContent = tile.content as any;
+        const propsContent = props.content as any;
+        // Match by comparing unique properties (name, title, bio)
+        return (
+          tileContent.name === propsContent.name &&
+          tileContent.title === propsContent.title &&
+          tileContent.bio === propsContent.bio
+        );
       });
-    };
-
-    onMounted(() => {
-      subscribeToProfilePhoto();
-    });
-
-    onUnmounted(() => {
-      if (unsubscribePhoto) unsubscribePhoto();
+      return (currentTile?.content as any)?.profilePhotoUrl ?? "";
     });
 
     const saveProfilePhoto = async (url: string) => {
-      avatarSrc.value = url;
-      const uid = auth.currentUser?.uid;
-      if (!uid) return;
-      // Write only to publicProfiles (single source of truth, publicly readable)
-      await setDoc(doc(db, "publicProfiles", uid), { profilePhotoUrl: url }, { merge: true });
+      // Find which tile this component is rendering by comparing content properties
+      // We can't use reference equality because props.content may be a different object
+      const currentTile = layoutStore.currentLayout?.tiles.find((tile) => {
+        if (tile.content?.type !== "profile") return false;
+        const tileContent = tile.content as any;
+        const propsContent = props.content as any;
+        // Match by comparing unique properties (name, title, bio)
+        return (
+          tileContent.name === propsContent.name &&
+          tileContent.title === propsContent.title &&
+          tileContent.bio === propsContent.bio
+        );
+      });
+
+      if (!currentTile) {
+        console.error("Could not find tile in store for profile photo save");
+        return;
+      }
+
+      // Mutate the store's content reference directly, not props.content
+      (currentTile.content as any).profilePhotoUrl = url;
+
+      // Persist to Firestore via layout store
+      await layoutStore.saveLayout();
     };
 
     const serializeEditor = (editor: any) => {
@@ -473,11 +482,15 @@ export default defineComponent({
       urlError.value = "";
       showUrlInput.value = false;
       try {
-        const ownedUrl = await uploadExternalImageToStorage(normalized, "images");
+        const ownedUrl = await uploadExternalImageToStorage(
+          normalized,
+          "images",
+        );
         await saveProfilePhoto(ownedUrl);
       } catch (err: any) {
         console.error("Failed to import external image:", err);
-        urlError.value = "Could not import image. Try uploading the file directly.";
+        urlError.value =
+          "Could not import image. Try uploading the file directly.";
         showUrlInput.value = true;
       }
     };
@@ -578,27 +591,10 @@ export default defineComponent({
       return { borderRadius: radius };
     });
 
-    const backgroundColor = computed(() => {
-      return resolveBackgroundColor(props.content?.backgroundColor);
-    });
+    const tileId = inject<string | null>("tileId", null);
 
-    const textColor = computed(() => {
-      return computeTextColor(backgroundColor.value);
-    });
-
-    const handleBackgroundColorChange = (color: string) => {
-      if (!layoutStore.isOwner) return;
-      props.content.backgroundColor = color;
-      layoutStore.saveLayout();
-    };
-
-    watch(backgroundColor, (color) => emit("background-color-change", color), {
-      immediate: true,
-    });
-
-    watch(textColor, (color) => emit("text-color-change", color), {
-      immediate: true,
-    });
+    const { backgroundColor, textColor, handleBackgroundColorChange } =
+      useColorPicker(tileId, props.content, emit);
 
     return {
       layoutStore,
@@ -718,7 +714,11 @@ export default defineComponent({
 }
 
 .profile-editor.can-edit:hover {
-  background-color: color-mix(in srgb, var(--tile-text-color) 5%, var(--color-editable-hover) 95%);
+  background-color: color-mix(
+    in srgb,
+    var(--tile-text-color) 5%,
+    var(--color-editable-hover) 95%
+  );
   cursor: text;
 }
 

@@ -37,7 +37,7 @@
       data-tooltip="My location"
       @click.stop="onLocateClick"
     >
-      <LocateFixedIcon />
+      <CurrentLocationIcon />
     </button>
     <div class="search-panel-divider"></div>
     <input
@@ -159,6 +159,7 @@ import type {
 import { getToolbarItems } from "@/utils/toolbarRegistry";
 import { useLayoutStore } from "@/stores/layout";
 import LocateFixedIcon from "./icons/toolbar/LocateFixedIcon.vue";
+import CurrentLocationIcon from "./icons/toolbar/CurrentLocationIcon.vue";
 import SearchIcon from "./icons/toolbar/SearchIcon.vue";
 import AlignLeftIcon from "./icons/toolbar/AlignLeftIcon.vue";
 import AlignCenterIcon from "./icons/toolbar/AlignCenterIcon.vue";
@@ -171,6 +172,7 @@ import FontSelector from "./FontSelector.vue";
 export default defineComponent({
   components: {
     LocateFixedIcon,
+    CurrentLocationIcon,
     SearchIcon,
     ColorPicker,
     FontSizeSelector,

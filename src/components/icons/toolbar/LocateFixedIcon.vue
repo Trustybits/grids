@@ -1,5 +1,10 @@
 <template>
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M2 12H5M5 12C5 15.866 8.13401 19 12 19M5 12C5 8.13401 8.13401 5 12 5M19 12H22M19 12C19 15.866 15.866 19 12 19M19 12C19 8.13401 15.866 5 12 5M12 2V5M12 19V22M15 12C15 13.6569 13.6569 15 12 15C10.3431 15 9 13.6569 9 12C9 10.3431 10.3431 9 12 9C13.6569 9 15 10.3431 15 12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M20 12C20 16.4183 16.4183 20 12 20C7.58172 20 4 16.4183 4 12C4 7.58172 7.58172 4 12 4C16.4183 4 20 7.58172 20 12Z" stroke="white" stroke-width="1.5"/>
+    <path d="M15 12C15 13.6569 13.6569 15 12 15C10.3431 15 9 13.6569 9 12C9 10.3431 10.3431 9 12 9C13.6569 9 15 10.3431 15 12Z" stroke="white" stroke-width="1.5"/>
+    <path d="M2 12H4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M20 12H22" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M12 4V2" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M12 22V20" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
   </svg>
 </template>

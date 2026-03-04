@@ -22,6 +22,7 @@ import LinkIcon from "@/components/icons/LinkIcon.vue";
 import BoldIcon from "@/components/icons/toolbar/BoldIcon.vue";
 import ItalicIcon from "@/components/icons/toolbar/ItalicIcon.vue";
 import TextAlignIcon from "@/components/icons/toolbar/TextAlignIcon.vue";
+import FontStyleIcon from "@/components/icons/toolbar/FontStyleIcon.vue";
 
 // ── Shared reusable toolbar items ──────────────────────────────────
 
@@ -276,6 +277,11 @@ export const TEXT_MORE_MENU: ToolbarItem = {
   action: () => {},
   menuItemsLayoutDirection: "horizontal",
   menuItems: [
+    {
+      id: 'font-family',
+      panelId: "font-family",
+      action: (_ctx) => {},
+    },
     {
       id: 'font-size',
       panelId: "font-select",

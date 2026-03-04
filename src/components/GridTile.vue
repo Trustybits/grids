@@ -907,27 +907,12 @@ export default defineComponent({
   /* Only apply hover effect via :hover pseudo-class */
   .tile-wrapper:hover & {
     box-shadow: var(--shadow-tile-hover);
-    background-color: color-mix(
-      in srgb,
-      var(--tile-bg) 85%,
-      var(--tile-text-color) 15%
-    );
   }
 }
 
 .tile-wrapper[data-border="off"] {
   .card-body {
     background-color: var(--tile-bg);
-  }
-}
-
-.tile-wrapper[data-border="off"]:hover {
-  .card-body {
-    background-color: color-mix(
-      in srgb,
-      var(--tile-bg) 85%,
-      var(--tile-text-color) 15%
-    );
   }
 }
 

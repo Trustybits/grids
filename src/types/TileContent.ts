@@ -43,6 +43,7 @@ export interface ChatMessage {
 export interface ChatContent extends TileContent {
   type: ContentType.CHAT;
   messages: ChatMessage[];
+  backgroundColor?: string;
 }
 
 export interface ImageContent extends TileContent {

@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-tile">
+  <div class="chat-tile" :style="chatStyles">
     <div class="chat-messages" ref="messagesContainer" @mousedown.stop>
       <div v-if="!sortedMessages.length" class="chat-empty">
         <p class="chat-empty-title">Start the conversation</p>
@@ -9,7 +9,10 @@
         v-for="message in sortedMessages"
         :key="message.id"
         class="chat-message"
-        :class="{ 'is-owner': isOwnerMessage(message), 'is-other': !isOwnerMessage(message) }"
+        :class="{
+          'is-owner': isOwnerMessage(message),
+          'is-other': !isOwnerMessage(message),
+        }"
       >
         <div class="chat-bubble">
           {{ message.text }}
@@ -44,6 +47,7 @@
 import {
   computed,
   defineComponent,
+  inject,
   nextTick,
   onMounted,
   onUnmounted,
@@ -63,6 +67,7 @@ import {
 import { db } from "@/firebase";
 import { useLayoutStore } from "@/stores/layout";
 import type { ChatContent, ChatMessage } from "@/types/TileContent";
+import { useColorPicker } from "@/composables/useColorPicker";
 
 export default defineComponent({
   props: {
@@ -75,7 +80,7 @@ export default defineComponent({
       required: true,
     },
   },
-  setup(props) {
+  setup(props, { emit }) {
     const layoutStore = useLayoutStore();
     const auth = getAuth();
 
@@ -88,18 +93,25 @@ export default defineComponent({
     const layoutId = computed(() => layoutStore.currentLayout?.id ?? "");
     const messagesCollection = computed<CollectionReference | null>(() => {
       if (!layoutId.value || !props.tileId) return null;
-      return collection(db, "layouts", layoutId.value, "tiles", props.tileId, "messages");
+      return collection(
+        db,
+        "layouts",
+        layoutId.value,
+        "tiles",
+        props.tileId,
+        "messages",
+      );
     });
 
     const sortedMessages = computed(() =>
-      [...messages.value].sort((a, b) => a.createdAt - b.createdAt)
+      [...messages.value].sort((a, b) => a.createdAt - b.createdAt),
     );
 
     const ownerId = computed(() => layoutStore.currentLayout?.userId || "");
     const isOwner = computed(() => layoutStore.isOwner);
     const canSend = computed(() => !!layoutId.value && !!props.tileId);
     const composerPlaceholder = computed(() =>
-      isOwner.value ? "Write a message..." : "Message the owner..."
+      isOwner.value ? "Write a message..." : "Message the owner...",
     );
 
     const isOwnerMessage = (message: ChatMessage) => {
@@ -151,14 +163,15 @@ export default defineComponent({
                 id: doc.id,
                 text,
                 createdAt: normalizeCreatedAt(data.createdAt),
-                authorId: typeof data.authorId === "string" ? data.authorId : undefined,
+                authorId:
+                  typeof data.authorId === "string" ? data.authorId : undefined,
               } as ChatMessage;
             })
             .filter((message): message is ChatMessage => !!message);
         },
         (error) => {
           console.error("Failed to subscribe to chat messages:", error);
-        }
+        },
       );
     };
 
@@ -226,12 +239,16 @@ export default defineComponent({
       async () => {
         await nextTick();
         scrollToBottom("smooth");
-      }
+      },
     );
 
-    watch(messagesCollection, (collectionRef) => {
-      subscribeToMessages(collectionRef);
-    }, { immediate: true });
+    watch(
+      messagesCollection,
+      (collectionRef) => {
+        subscribeToMessages(collectionRef);
+      },
+      { immediate: true },
+    );
 
     onUnmounted(() => {
       if (unsubscribe) {
@@ -239,6 +256,17 @@ export default defineComponent({
         unsubscribe = null;
       }
     });
+
+    const tileId = inject<string | null>("tileId", null);
+
+    const { backgroundColor, textColor, handleBackgroundColorChange } =
+      useColorPicker(tileId, props.content, emit);
+
+    const chatStyles = computed(() => ({
+      "--tile-bg": backgroundColor.value,
+      "--chat-text": textColor.value,
+      "--opposite-chat-text": textColor.value === "#000000" ? "#FFFFFF" : "#000000",
+    }));
 
     return {
       draftMessage,
@@ -255,6 +283,10 @@ export default defineComponent({
       onShortClick,
       onExitClick,
       onResize,
+      chatStyles,
+      backgroundColor,
+      textColor,
+      handleBackgroundColorChange,
     };
   },
 });
@@ -262,12 +294,16 @@ export default defineComponent({
 
 <style scoped>
 .chat-tile {
+  --tile-bg: var(--color-tile-background);
+  --chat-text: var(--color-text-primary);
   height: 100%;
   width: 100%;
   padding: var(--tile-padding);
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+  background-color: var(--tile-bg);
+  color: var(--chat-text);
 }
 
 .chat-messages {
@@ -293,18 +329,18 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: var(--color-content-default);
+  color: color-mix(in srgb, var(--chat-text) 66%, var(--tile-bg));
 }
 
 .chat-empty-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--chat-text);
 }
 
 .chat-empty-subtitle {
   font-size: 12px;
-  color: var(--color-content-default);
+  color: color-mix(in srgb, var(--chat-text) 60%, var(--tile-bg));
 }
 
 .chat-message {
@@ -328,22 +364,22 @@ export default defineComponent({
   border-radius: 16px;
   font-size: 13px;
   line-height: 1.4;
-  background: color-mix(in srgb, var(--color-text-primary) 10%, var(--color-tile-background));
-  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--chat-text) 10%, var(--tile-bg));
+  color: var(--chat-text);
   word-break: break-word;
   white-space: pre-wrap;
 }
 
 .chat-message.is-owner .chat-bubble {
-  background: color-mix(in srgb, var(--color-tile-background) 92%, var(--color-text-primary) 8%);
-  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--tile-bg) 92%, var(--chat-text) 8%);
+  color: var(--chat-text);
   border-bottom-left-radius: 6px;
 }
 
 .chat-message.is-other .chat-bubble {
   border-bottom-right-radius: 6px;
-  background-color: var(--color-text-primary);
-  color: var(--color-tile-background)
+  background-color: var(--chat-text);
+  color: var(--opposite-chat-text);
 }
 
 .chat-composer {
@@ -351,7 +387,7 @@ export default defineComponent({
   align-items: flex-end;
   gap: 8px;
   padding-top: 8px;
-  border-top: 1px solid color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--chat-text) 12%, transparent);
 }
 
 .chat-input {
@@ -360,9 +396,9 @@ export default defineComponent({
   max-height: 120px;
   resize: none;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-  background: color-mix(in srgb, var(--color-tile-background) 92%, var(--color-text-primary) 8%);
-  color: var(--color-text-primary);
+  border: 1px solid color-mix(in srgb, var(--chat-text) 12%, transparent);
+  background: color-mix(in srgb, var(--tile-bg) 92%, var(--chat-text) 8%);
+  color: var(--chat-text);
   padding: 8px 10px;
   font-size: 13px;
   line-height: 1.3;
@@ -371,7 +407,7 @@ export default defineComponent({
 
 .chat-input:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+  border-color: color-mix(in srgb, var(--chat-text) 30%, transparent);
 }
 
 .chat-input:disabled {
@@ -385,10 +421,11 @@ export default defineComponent({
   padding: 8px 14px;
   font-size: 12px;
   font-weight: 600;
-  background: var(--color-text-primary);
-  color: var(--color-tile-background);
+  background: var(--chat-text);
+  color: var(--opposite-chat-text);
   cursor: pointer;
-  transition: opacity var(--duration-fast) var(--easing-ease-in-out),
+  transition:
+    opacity var(--duration-fast) var(--easing-ease-in-out),
     transform var(--duration-fast) var(--easing-ease-out);
 }
 

@@ -1,6 +1,6 @@
 import { useLayoutStore } from "@/stores/layout";
 import { useThemeStore } from "@/stores/theme";
-import type { ProfileBioContent, TextContent } from "@/types/TileContent";
+import type { ChatContent, ProfileBioContent, TextContent } from "@/types/TileContent";
 import { computed, watch, type ComputedRef } from "vue";
 
 export interface ColorPickerValues {
@@ -13,7 +13,7 @@ const themeStore = useThemeStore();
 
 export const useColorPicker = (
   tileId: string | null,
-  content: TextContent | ProfileBioContent,
+  content: TextContent | ProfileBioContent | ChatContent,
   emit: (type: any, value: string) => void,
 ): ColorPickerValues => {
   const layoutStore = useLayoutStore();

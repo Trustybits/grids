@@ -1,34 +1,40 @@
 <template>
+  <!-- 
+    Global bottom-left button bar. Always visible, pinned to viewport corner.
+    Visibility rules:
+      - Share + Discord: always shown for everyone
+      - UserMenu: shown for any authenticated user
+      - GridMenu: shown only when viewing a grid the current user owns
+  -->
   <div class="bottom-left-buttons">
     <DiscordButton />
-    <ShareButton v-if="showShareButton" />
-    <GridMenu
-      v-if="showGridMenu"
-      @select-image="$emit('select-image')"
-      @embed-background="$emit('embed-background')"
-      @confirm-delete="$emit('confirm-delete')"
-    />
-    <UserMenu v-if="showUserMenu" />
+    <ShareButton />
+    <GridMenu v-if="isOwner" />
+    <UserMenu v-if="isAuthenticated" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed, ref, onMounted } from 'vue';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/firebase';
+import { useLayoutStore } from '@/stores/layout';
 import DiscordButton from './DiscordButton.vue';
 import GridMenu from './GridMenu.vue';
 import ShareButton from './ShareButton.vue';
 import UserMenu from './UserMenu.vue';
 
-defineProps<{
-  showGridMenu?: boolean;
-  showShareButton?: boolean;
-  showUserMenu?: boolean;
-}>();
+const layoutStore = useLayoutStore();
+const isAuthenticated = ref(false);
 
-defineEmits<{
-  'select-image': [];
-  'embed-background': [];
-  'confirm-delete': [];
-}>();
+onMounted(() => {
+  onAuthStateChanged(auth, (user) => {
+    isAuthenticated.value = !!user;
+  });
+});
+
+// GridMenu shows when the logged-in user owns the currently loaded grid
+const isOwner = computed(() => layoutStore.isOwner);
 </script>
 
 <style lang="scss" scoped>

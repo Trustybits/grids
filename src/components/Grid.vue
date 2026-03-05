@@ -53,7 +53,7 @@ export default {
     const route = useRoute(); // Access route parameters
     const margin = 48;
     const viewportWidth = ref(
-      typeof window !== "undefined" ? window.innerWidth : 0
+      typeof window !== "undefined" ? window.innerWidth : 0,
     );
 
     const onResize = () => {
@@ -69,7 +69,7 @@ export default {
       x: number,
       y: number,
       w: number,
-      h: number
+      h: number,
     ) => {
       return placed.some((tile) => {
         return !(
@@ -86,7 +86,7 @@ export default {
       width: number,
       height: number,
       columns: number,
-      startY = 0
+      startY = 0,
     ) => {
       let y = Math.max(0, startY);
       while (true) {
@@ -140,7 +140,7 @@ export default {
           scaledTile.w,
           scaledTile.h,
           columns,
-          startY
+          startY,
         );
         placed.push({ ...scaledTile, x: spot.x, y: spot.y });
       });
@@ -151,7 +151,7 @@ export default {
 
     const responsiveColNum = computed(() => {
       const candidates = [12, 8, 4].filter(
-        (columns) => columns <= baseColNum.value
+        (columns) => columns <= baseColNum.value,
       );
       const fits = (columns: number) => {
         return (
@@ -164,9 +164,9 @@ export default {
     });
 
     const colNumToBreakpoint = (cols: number): Breakpoint => {
-      if (cols <= 4) return 'sm';
-      if (cols <= 8) return 'md';
-      return 'lg';
+      if (cols <= 4) return "sm";
+      if (cols <= 8) return "md";
+      return "lg";
     };
 
     const activeBreakpoint = computed<Breakpoint>(() => {
@@ -174,9 +174,13 @@ export default {
     });
 
     // Keep the store in sync so other components can read the active breakpoint
-    watch(activeBreakpoint, (bp) => {
-      layoutStore.setActiveBreakpoint(bp);
-    }, { immediate: true });
+    watch(
+      activeBreakpoint,
+      (bp) => {
+        layoutStore.setActiveBreakpoint(bp);
+      },
+      { immediate: true },
+    );
 
     // Stable ref that vue3-grid-layout can mutate in-place.
     // At lg we hand it the store's own reactive array (mutations persist naturally).
@@ -219,7 +223,12 @@ export default {
 
         const finalLayout = [...customized];
         for (const tile of unplaced) {
-          const spot = findFirstAvailableSpot(finalLayout, tile.w, tile.h, cols);
+          const spot = findFirstAvailableSpot(
+            finalLayout,
+            tile.w,
+            tile.h,
+            cols,
+          );
           finalLayout.push({ ...tile, x: spot.x, y: spot.y });
         }
 
@@ -227,9 +236,7 @@ export default {
       }
 
       // No saved overrides — auto-repack (current behavior)
-      const resizedTiles = tiles.map((tile) =>
-        scaleTileToFit(tile, cols)
-      );
+      const resizedTiles = tiles.map((tile) => scaleTileToFit(tile, cols));
 
       return packTiles(resizedTiles, cols);
     };
@@ -241,7 +248,11 @@ export default {
       [
         activeBreakpoint,
         () => layoutStore.currentLayout?.tiles?.length,
-        () => layoutStore.currentLayout?.tiles?.map((t) => t.i).join(','),
+        () => layoutStore.currentLayout?.tiles?.map((t) => t.i).join(","),
+        () =>
+          layoutStore.currentLayout?.tiles
+            ?.map((t) => `${t.i}:${t.borderEnabled !== false}`)
+            .join(","),
         () => JSON.stringify(layoutStore.currentLayout?.overrides),
       ],
       () => {
@@ -251,17 +262,21 @@ export default {
         }
         displayLayout.value = buildBreakpointLayout();
       },
-      { immediate: true }
+      { immediate: true },
     );
 
     // Publish rendered tile positions so GridMenu and updateBreakpointOverride
     // can snapshot them. Deep watch is needed because vue3-grid-layout mutates
     // tile x/y/w/h in-place during drag/resize.
-    watch(displayLayout, (tiles) => {
-      layoutStore.setDisplayPositions(
-        tiles.map((t) => ({ i: t.i, x: t.x, y: t.y, w: t.w, h: t.h }))
-      );
-    }, { immediate: true, deep: true });
+    watch(
+      displayLayout,
+      (tiles) => {
+        layoutStore.setDisplayPositions(
+          tiles.map((t) => ({ i: t.i, x: t.x, y: t.y, w: t.w, h: t.h })),
+        );
+      },
+      { immediate: true, deep: true },
+    );
 
     const isEditable = computed(() => {
       if (!layoutStore.isOwner) return false;
@@ -298,7 +313,7 @@ export default {
       // If the ref is a Vue component instance, access its root DOM element via $el;
       // otherwise it's already a plain HTMLElement (e.g. in test environments).
       const raw = gridLayoutRef.value;
-      const el = raw && '$el' in raw ? raw.$el : raw;
+      const el = raw && "$el" in raw ? raw.$el : raw;
       if (!el) return;
       resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {
@@ -312,12 +327,13 @@ export default {
     const scaleWrapperStyle = computed(() => {
       const scale = mobileScale.value;
       if (scale >= 1) return {};
-      const scaledHeight = naturalGridHeight.value > 0
-        ? naturalGridHeight.value * scale
-        : undefined;
+      const scaledHeight =
+        naturalGridHeight.value > 0
+          ? naturalGridHeight.value * scale
+          : undefined;
       return {
         width: `${viewportWidth.value}px`,
-        overflow: 'hidden',
+        overflow: "hidden",
         ...(scaledHeight !== undefined ? { height: `${scaledHeight}px` } : {}),
       };
     });
@@ -328,7 +344,7 @@ export default {
       if (scale >= 1) return base;
       return {
         ...base,
-        transformOrigin: 'top left',
+        transformOrigin: "top left",
         transform: `scale(${scale})`,
       };
     });
@@ -351,32 +367,35 @@ export default {
     });
 
     // When gravity is toggled on, compact tiles and save positions to store
-    watch(() => layoutStore.verticalCompact, (isCompact, wasCompact) => {
-      if (!layoutStore.currentLayout || !layoutStore.isOwner) return;
-      if (activeBreakpoint.value !== 'lg') return;
-      
-      // Only act when gravity is turned ON (false -> true)
-      if (isCompact && !wasCompact) {
-        const tiles = layoutStore.currentLayout.tiles;
-        const compacted = packTiles([...tiles], responsiveColNum.value);
-        
-        // Update each tile's position in the store's tiles array
-        compacted.forEach((compactedTile) => {
-          const storeTile = tiles.find(t => t.i === compactedTile.i);
-          if (storeTile) {
-            storeTile.x = compactedTile.x;
-            storeTile.y = compactedTile.y;
-          }
-        });
-        
-        // Force displayLayout to update by creating a new array reference
-        // This triggers the animation while maintaining the store connection
-        displayLayout.value = [...tiles];
-        
-        // Save to database
-        layoutStore.updateLayout();
-      }
-    });
+    watch(
+      () => layoutStore.verticalCompact,
+      (isCompact, wasCompact) => {
+        if (!layoutStore.currentLayout || !layoutStore.isOwner) return;
+        if (activeBreakpoint.value !== "lg") return;
+
+        // Only act when gravity is turned ON (false -> true)
+        if (isCompact && !wasCompact) {
+          const tiles = layoutStore.currentLayout.tiles;
+          const compacted = packTiles([...tiles], responsiveColNum.value);
+
+          // Update each tile's position in the store's tiles array
+          compacted.forEach((compactedTile) => {
+            const storeTile = tiles.find((t) => t.i === compactedTile.i);
+            if (storeTile) {
+              storeTile.x = compactedTile.x;
+              storeTile.y = compactedTile.y;
+            }
+          });
+
+          // Force displayLayout to update by creating a new array reference
+          // This triggers the animation while maintaining the store connection
+          displayLayout.value = [...tiles];
+
+          // Save to database
+          layoutStore.updateLayout();
+        }
+      },
+    );
 
     onUnmounted(() => {
       window.removeEventListener("resize", onResize);
@@ -435,18 +454,19 @@ export default {
 .vue-grid-item {
   /* Smooth snap-back animation when tile is released after dragging */
   &:not(.resizing):not(.vue-draggable-dragging) {
-    transition: transform var(--duration-slow) var(--easing-spring),
-                width var(--duration-slow) var(--easing-spring),
-                height var(--duration-slow) var(--easing-spring) !important;
+    transition:
+      transform var(--duration-slow) var(--easing-spring),
+      width var(--duration-slow) var(--easing-spring),
+      height var(--duration-slow) var(--easing-spring) !important;
   }
-  
+
   /* Dragging state handled in custom.scss with !important to override inline styles */
   &.vue-draggable-dragging {
     transition: none !important;
     z-index: var(--z-grid-dragging) !important;
     cursor: grabbing !important;
   }
-  
+
   /* Disable transitions while resizing for immediate feedback */
   &.resizing {
     transition: none !important;
@@ -460,7 +480,7 @@ export default {
   box-shadow: none !important;
   cursor: pointer;
   transition: all 0.3s ease;
-  
+
   &:hover {
     background: rgba(255, 255, 255, 0.08) !important;
     border-color: rgba(255, 255, 255, 0.5) !important;
@@ -507,15 +527,15 @@ export default {
   /* Remove all transitions and animations to prevent flickering */
   transition: none !important;
   animation: none !important;
-  
+
   /* Visual styling */
   background: rgba(255, 255, 255, 0.15) !important;
   border-radius: var(--tile-border-radius) !important;
-  
+
   /* Hidden by default — prevents the phantom circle on page load and
      the stale placeholder lingering at the wrong position after drop. */
   display: none !important;
-  
+
   position: absolute !important;
   z-index: -1 !important;
   pointer-events: none !important;

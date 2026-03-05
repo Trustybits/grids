@@ -45,6 +45,8 @@
         :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
         :data-suggestion="isSuggestion ? 'true' : 'false'"
         ref="gridTileRef"
+        @mouseenter="isHovered = true"
+        @mouseleave="isHovered = false"
         @mousedown="startClick"
         @mouseup="endClick"
       >
@@ -214,12 +216,14 @@ export default defineComponent({
       computed(() => props.tile.y),
     );
 
-    const isTouchDevice = () => window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    const isTouchDevice = () =>
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 
     const isMoving = ref(false);
     const isDragging = ref(false);
     const isExiting = ref(false);
     const isActivated = ref(false);
+    const isHovered = ref(false);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -367,7 +371,7 @@ export default defineComponent({
       // isDragging is now cleared in endClick, but keep this as a safety backup
       isDragging.value = false;
       if (!layoutStore.isOwner) return;
-      if (layoutStore.activeBreakpoint !== 'lg') {
+      if (layoutStore.activeBreakpoint !== "lg") {
         layoutStore.updateBreakpointOverride();
       } else {
         layoutStore.updateLayout();
@@ -403,7 +407,7 @@ export default defineComponent({
       }
       // Save the layout with the new size
       if (layoutStore.isOwner) {
-        if (layoutStore.activeBreakpoint !== 'lg') {
+        if (layoutStore.activeBreakpoint !== "lg") {
           layoutStore.updateBreakpointOverride();
         } else {
           layoutStore.updateLayout();
@@ -502,8 +506,13 @@ export default defineComponent({
     };
 
     const tileStyle = computed(() => {
+      const isToolbarActive =
+        isHovered.value ||
+        isActivated.value ||
+        layoutStore.activeTileId === props.tile.i;
+
       return {
-        zIndex: isEditing.value ? 1 : 0,
+        zIndex: isEditing.value || isToolbarActive ? 10 : 0,
       };
     });
 
@@ -570,7 +579,7 @@ export default defineComponent({
         !gridTileRef.value.contains(event.target as Node)
       ) {
         deactivateTile();
-        document.removeEventListener('touchstart', handleTouchOutside);
+        document.removeEventListener("touchstart", handleTouchOutside);
       }
     };
 
@@ -584,7 +593,9 @@ export default defineComponent({
         isActivated.value = true;
         touchWasActivating = true;
         clickStart.value = Date.now();
-        document.addEventListener('touchstart', handleTouchOutside, { passive: true });
+        document.addEventListener("touchstart", handleTouchOutside, {
+          passive: true,
+        });
         // Do NOT preventDefault — let the browser scroll naturally
       } else {
         // Subsequent touch: tile already activated, treat as interaction
@@ -666,8 +677,12 @@ export default defineComponent({
       if (gridTileRef.value) {
         gridTileRef.value.addEventListener("dragstart", handleDragStart);
         // Use non-passive touchstart so we can conditionally preventDefault on second tap
-        gridTileRef.value.addEventListener("touchstart", handleTouchStart, { passive: false });
-        gridTileRef.value.addEventListener("touchend", handleTouchEnd, { passive: true });
+        gridTileRef.value.addEventListener("touchstart", handleTouchStart, {
+          passive: false,
+        });
+        gridTileRef.value.addEventListener("touchend", handleTouchEnd, {
+          passive: true,
+        });
       }
     });
 
@@ -675,7 +690,7 @@ export default defineComponent({
       stopChildEditingWatch?.();
       stopChildEditingWatch = null;
       removeClickListener();
-      document.removeEventListener('touchstart', handleTouchOutside);
+      document.removeEventListener("touchstart", handleTouchOutside);
 
       if (gridTileRef.value) {
         gridTileRef.value.removeEventListener("dragstart", handleDragStart);
@@ -700,6 +715,7 @@ export default defineComponent({
       isDragging,
       isExiting,
       isActivated,
+      isHovered,
       onMoved,
       onResize,
       onResized,

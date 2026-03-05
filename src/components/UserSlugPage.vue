@@ -43,14 +43,6 @@
         </div>
       </div>
 
-      <ShareButton />
-      <GridMenu
-        v-if="layoutStore.isOwner"
-        @select-image="() => {}"
-        @embed-background="() => {}"
-        @confirm-delete="() => {}"
-      />
-      <Divider />
     </div>
   </div>
 </template>
@@ -65,9 +57,6 @@ import { db } from '@/firebase';
 import { useLayoutStore } from '@/stores/layout';
 import Grid from '@/components/Grid.vue';
 import GridButtons from '@/components/TileButtons.vue';
-import GridMenu from '@/components/GridMenu.vue';
-import ShareButton from '@/components/ShareButton.vue';
-import Divider from '@/components/Divider.vue';
 
 const route = useRoute();
 const layoutStore = useLayoutStore();

@@ -75,6 +75,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
+import { useRouter } from "vue-router";
 import { getAuth } from "firebase/auth";
 import { useLayoutStore } from "@/stores/layout";
 import { useToastStore } from "@/stores/toast";
@@ -86,10 +87,7 @@ import MenuSection from "./MenuSection.vue";
 import Divider from "./Divider.vue";
 import GridMenuIcon from "./icons/GridMenuIcon.vue";
 
-const emit = defineEmits<{
-  "confirm-delete": [];
-}>();
-
+const router = useRouter();
 const layoutStore = useLayoutStore();
 const toastStore = useToastStore();
 const gameStore = usePixelRacersStore();
@@ -165,9 +163,16 @@ const resetBreakpoint = () => {
   showMenu.value = false;
 };
 
-const confirmDelete = () => {
-  emit("confirm-delete");
+// Handle grid deletion directly — no need to bubble up through parent components
+const confirmDelete = async () => {
+  if (!layoutStore.isOwner || !layoutStore.currentLayout) return;
+
+  const confirmed = confirm("Are you sure you want to delete this layout?");
+  if (!confirmed) return;
+
+  await layoutStore.deleteLayout(layoutStore.currentLayout.id);
   showMenu.value = false;
+  router.push("/dashboard");
 };
 
 const shareGrid = async () => {

@@ -339,7 +339,11 @@ export default defineComponent({
         return;
       }
       props.content.textLink = normalized;
-      layoutStore.saveLayout();
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { textLink: normalized });
+      } else {
+        layoutStore.saveLayout();
+      }
       showLinkModal.value = false;
     };
 

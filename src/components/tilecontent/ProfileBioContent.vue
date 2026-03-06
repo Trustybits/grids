@@ -925,8 +925,8 @@ export default defineComponent({
 :deep(.tiptap p.is-editor-empty:first-child::before) {
   content: attr(data-placeholder);
   float: left;
-  color: var(--color-content-default);
-  opacity: 0.5;
+  color: var(--tile-text-color, var(--color-content-default));
+  opacity: 0.4;
   pointer-events: none;
   height: 0;
 }

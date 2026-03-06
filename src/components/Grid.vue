@@ -254,6 +254,29 @@ export default {
       { immediate: true }
     );
 
+    // At non-lg breakpoints, buildBreakpointLayout returns copied tile objects.
+    // When setTileContent mutates a store tile, the copy in displayLayout is stale.
+    // This watcher detects content-type changes on store tiles and syncs the
+    // corresponding displayLayout copy in-place so GridTile sees the update
+    // without a full remount of all tiles.
+    watch(
+      () => layoutStore.currentLayout?.tiles?.map((t) => t.content.type).join(','),
+      () => {
+        const storeTiles = layoutStore.currentLayout?.tiles;
+        if (!storeTiles) return;
+        for (const storeTile of storeTiles) {
+          const displayTile = displayLayout.value.find((t) => t.i === storeTile.i);
+          if (displayTile && displayTile.content !== storeTile.content) {
+            displayTile.content = storeTile.content;
+            displayTile.w = storeTile.w;
+            displayTile.h = storeTile.h;
+            displayTile.x = storeTile.x;
+            displayTile.y = storeTile.y;
+          }
+        }
+      },
+    );
+
     // Publish rendered tile positions so GridMenu and updateBreakpointOverride
     // can snapshot them. Deep watch is needed because vue3-grid-layout mutates
     // tile x/y/w/h in-place during drag/resize.

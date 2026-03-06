@@ -393,7 +393,7 @@ export function createTileContent(
       return {
         type,
         provider: "mapbox",
-        center: (data as Partial<MapContent>).center || { lat: 0, lng: 0 },
+        center: (data as Partial<MapContent>).center || { lat: 1.3521, lng: 103.8198 },
         zoom: (data as Partial<MapContent>).zoom ?? 9,
         bearing: (data as Partial<MapContent>).bearing ?? 0,
         pitch: (data as Partial<MapContent>).pitch ?? 0,

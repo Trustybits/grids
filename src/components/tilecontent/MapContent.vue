@@ -179,6 +179,10 @@ const resolvePreset = (mode: MapStyleMode, isDarkMode: boolean) => {
   return MAP_STYLE_PRESETS[mode];
 };
 
+// Singapore — used as the visible default before a search/geolocation resolves,
+// and as the permanent fallback when both fail.
+const SINGAPORE = { lat: 1.3521, lng: 103.8198 };
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const randomBetween = (min: number, max: number) => Math.random() * (max - min) + min;
 const formatPx = (value: number) => `${value.toFixed(3)}px`;
@@ -205,13 +209,9 @@ export default defineComponent({
     const searchInputRef = ref<HTMLInputElement | null>(null);
     const statusMessage = ref<string | null>(null);
     let resizeObserver: ResizeObserver | null = null;
-    // Tracks whether the map is still performing its first positioning.
-    // When true, flyToLocation uses jumpTo (instant) instead of easeTo
-    // so the user never sees the default [0,0] ocean view.
-    let isInitialLoad = true;
-    // Controls map canvas visibility — hidden until the first real center
-    // is applied so the user never sees a flash of the [0,0] ocean.
-    const mapReady = ref(false);
+    // The map always starts visible (centered on Singapore or a saved
+    // location), so no hiding is needed.
+    const mapReady = ref(true);
     const token = import.meta.env.VITE_MAPBOX_TOKEN;
     const hasToken = computed(() => !!token);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
@@ -451,9 +451,6 @@ export default defineComponent({
     };
 
     const syncContentFromMap = () => {
-      // Don't persist the default [0,0] center during initial load;
-      // we only want to save once a real position has been established.
-      if (isInitialLoad) return;
       if (!layoutStore.isOwner) return;
       const map = mapInstance.value;
       if (!map) return;
@@ -477,19 +474,11 @@ export default defineComponent({
         saveLayout();
       }
       if (map) {
-        if (isInitialLoad) {
-          // Snap instantly on first positioning so the user never sees [0,0].
-          map.jumpTo({ center: [center.lng, center.lat], zoom: targetZoom });
-          isInitialLoad = false;
-          // Reveal the map now that it's positioned correctly.
-          mapReady.value = true;
-        } else {
-          map.easeTo({
-            center: [center.lng, center.lat],
-            zoom: targetZoom,
-            duration: 800,
-          });
-        }
+        map.easeTo({
+          center: [center.lng, center.lat],
+          zoom: targetZoom,
+          duration: 800,
+        });
       }
     };
 
@@ -506,14 +495,12 @@ export default defineComponent({
         const response = await fetch(url);
         if (!response.ok) {
           statusMessage.value = "Search failed.";
-          if (isInitialLoad) { isInitialLoad = false; mapReady.value = true; }
           return;
         }
         const data = await response.json();
         const match = data.features?.[0];
         if (!match?.center) {
           statusMessage.value = "No results found.";
-          if (isInitialLoad) { isInitialLoad = false; mapReady.value = true; }
           return;
         }
         statusMessage.value = null;
@@ -523,7 +510,6 @@ export default defineComponent({
       } catch (error) {
         console.error("Mapbox search failed:", error);
         statusMessage.value = "Search failed.";
-        if (isInitialLoad) { isInitialLoad = false; mapReady.value = true; }
       }
     };
 
@@ -531,8 +517,6 @@ export default defineComponent({
       if (!layoutStore.isOwner) return;
       if (!navigator.geolocation) {
         statusMessage.value = "Geolocation not supported.";
-        // Reveal the map even without a location so the tile isn't blank.
-        if (isInitialLoad) { isInitialLoad = false; mapReady.value = true; }
         return;
       }
       statusMessage.value = "Locating...";
@@ -548,8 +532,6 @@ export default defineComponent({
         },
         () => {
           statusMessage.value = "Unable to get location.";
-          // Reveal the map even on failure so the tile isn't permanently blank.
-          if (isInitialLoad) { isInitialLoad = false; mapReady.value = true; }
         }
       );
     };
@@ -768,7 +750,7 @@ export default defineComponent({
       const map = new mapboxgl.Map({
         container: mapContainer.value,
         style: resolvedStyle.value,
-        center: [props.content.center?.lng ?? 0, props.content.center?.lat ?? 0],
+        center: [props.content.center?.lng ?? SINGAPORE.lng, props.content.center?.lat ?? SINGAPORE.lat],
         zoom: props.content.zoom ?? 9,
         bearing: props.content.bearing ?? 0,
         pitch: props.content.pitch ?? 0,
@@ -803,27 +785,17 @@ export default defineComponent({
         updateMarker(props.content.marker);
       }
 
-      const hasSavedCenter =
-        props.content.center &&
-        (props.content.center.lat !== 0 || props.content.center.lng !== 0);
-
-      if (hasSavedCenter) {
-        // Map was constructed with valid coordinates — it's already positioned.
-        isInitialLoad = false;
-        mapReady.value = true;
-      }
-
+      // The map is always visible from the start (centered on Singapore or
+      // a previously saved location). If the owner provided a search query,
+      // geocode it and animate to the result. If the query was left blank,
+      // try the browser's geolocation and animate there instead. On any
+      // failure the map simply stays where it is (Singapore fallback).
       if (layoutStore.isOwner) {
-        if (props.content.searchQuery && !hasSavedCenter) {
+        if (props.content.searchQuery) {
           handleGeocode(props.content.searchQuery);
-        } else if (!hasSavedCenter) {
+        } else {
           useMyLocation();
         }
-      } else if (!hasSavedCenter) {
-        // Non-owner viewing a map that was never positioned — just reveal it
-        // at whatever center it has rather than leaving it invisible.
-        isInitialLoad = false;
-        mapReady.value = true;
       }
 
       if (show3d.value) {

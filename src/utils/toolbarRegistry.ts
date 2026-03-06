@@ -208,13 +208,13 @@ export const MAP_SEARCH: ToolbarItem = {
   },
 };
 
-// Flies the camera back to the saved marker (or center) location.
+// Uses the browser's geolocation to fly the map to the user's current location.
 export const MAP_RECENTER: ToolbarItem = {
   id: "map-recenter",
   icon: markRaw(LocateFixedIcon),
-  title: "Re-center on location",
+  title: "My location",
   group: "map-style",
-  action: (ctx) => ctx.childComponent.value?.recenterOnMarker?.(),
+  action: (ctx) => ctx.childComponent.value?.useMyLocation?.(),
 };
 
 export const MAP_DEFAULT: ToolbarItem = {

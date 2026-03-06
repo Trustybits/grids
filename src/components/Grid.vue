@@ -528,6 +528,14 @@ export default {
   opacity: 0.3 !important;
 }
 
+/* Elevate the grid-item-container when its child grid-item is being dragged,
+   so the dragged tile renders above all sibling tile containers.
+   Without this, the z-index on .vue-draggable-dragging is trapped inside its
+   parent container and can't rise above other tiles' containers. */
+.grid-item-container:has(.vue-draggable-dragging) {
+  z-index: var(--z-grid-dragging) !important;
+}
+
 /* Allow native vertical scroll when touch starts on a grid item.
    vue3-grid-layout sets touch-action: none on items, which blocks scroll.
    Restoring pan-y lets the browser handle vertical swipe-to-scroll normally.

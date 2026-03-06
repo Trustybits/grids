@@ -47,14 +47,6 @@
     </div>
   </div>
 
-  <BottomLeftButtons
-    :show-grid-menu="layoutStore.isOwner"
-    :show-share-button="true"
-    :show-user-menu="!!auth.currentUser"
-    @select-image="selectImage"
-    @embed-background="embedBackground"
-    @confirm-delete="confirmDelete"
-  />
 </template>
 
 <script lang="ts">
@@ -62,19 +54,16 @@ import { defineComponent, ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
-import BottomLeftButtons from "@/components/BottomLeftButtons.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
-import { auth } from "@/firebase";
 
 export default defineComponent({
   components: {
     Grid,
     GridButtons,
-    BottomLeftButtons,
   },
   setup() {
     const layoutStore = useLayoutStore();
@@ -194,7 +183,6 @@ export default defineComponent({
       layoutContainer,
       isDraggingOver,
       isOwner,
-      auth,
     };
   },
 });

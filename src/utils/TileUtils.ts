@@ -387,6 +387,8 @@ export function createTileContent(
         avatarShape:
           (data as Partial<ProfileBioContent>).avatarShape || "circle",
         avatarRadius: (data as Partial<ProfileBioContent>).avatarRadius ?? 12,
+        // Preserve profile photo URL when creating from existing data
+        profilePhotoUrl: (data as Partial<ProfileBioContent>).profilePhotoUrl ?? "",
       } as ProfileBioContent;
 
     case ContentType.MAP:

@@ -901,6 +901,22 @@ export const useLayoutStore = defineStore("layout", {
         return;
       }
 
+      // At the lg (default) breakpoint, displayLayout may have been rebuilt as
+      // detached copies (e.g. after repacking out-of-bounds tiles). vue3-grid-layout
+      // mutates those copies in-place during drag/resize, so the store's canonical
+      // tiles can become stale. Sync the rendered positions back before saving.
+      if (this.activeBreakpoint === 'lg' && this.currentLayout && this.displayPositions.length) {
+        for (const pos of this.displayPositions) {
+          const tile = this.currentLayout.tiles.find((t) => t.i === pos.i);
+          if (tile) {
+            tile.x = pos.x;
+            tile.y = pos.y;
+            tile.w = pos.w;
+            tile.h = pos.h;
+          }
+        }
+      }
+
       const gridElement =
         document.querySelector<HTMLElement>(".vue-grid-layout");
       if (gridElement) {

@@ -122,12 +122,20 @@ export default {
 
       ordered.forEach((tile) => {
         // Scale down tiles that are too wide for the grid
-        const scaledTile = tile.w > columns ? scaleTileToFit(tile, columns) : tile;
-        
-        const withinBounds = scaledTile.x >= 0 && scaledTile.x + scaledTile.w <= columns;
+        const scaledTile =
+          tile.w > columns ? scaleTileToFit(tile, columns) : tile;
+
+        const withinBounds =
+          scaledTile.x >= 0 && scaledTile.x + scaledTile.w <= columns;
         const canKeep =
           withinBounds &&
-          !hasOverlap(placed, scaledTile.x, scaledTile.y, scaledTile.w, scaledTile.h);
+          !hasOverlap(
+            placed,
+            scaledTile.x,
+            scaledTile.y,
+            scaledTile.w,
+            scaledTile.h,
+          );
 
         if (canKeep) {
           placed.push({ ...scaledTile });
@@ -193,18 +201,18 @@ export default {
       const bp = activeBreakpoint.value;
       const cols = responsiveColNum.value;
 
-      if (bp === 'lg') {
+      if (bp === "lg") {
         // Validate that all tiles fit within bounds and don't have invalid positions
-        const needsRepacking = tiles.some(tile => 
-          tile.w > cols || tile.x < 0 || tile.x + tile.w > cols
+        const needsRepacking = tiles.some(
+          (tile) => tile.w > cols || tile.x < 0 || tile.x + tile.w > cols,
         );
-        
+
         if (needsRepacking) {
           // Repack tiles to fix any out-of-bounds issues
           return packTiles(tiles, cols);
         }
-        
-        return tiles;
+
+        return [...tiles];
       }
 
       const overrides = layoutStore.getBreakpointPositions(bp);
@@ -249,6 +257,10 @@ export default {
         activeBreakpoint,
         () => layoutStore.currentLayout?.tiles?.length,
         () => layoutStore.currentLayout?.tiles?.map((t) => t.i).join(","),
+        () =>
+          layoutStore.currentLayout?.tiles
+            ?.map((t) => `${t.i}:${t.w}x${t.h}`)
+            .join(","),
         () =>
           layoutStore.currentLayout?.tiles
             ?.map((t) => `${t.i}:${t.borderEnabled !== false}`)

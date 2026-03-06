@@ -1,11 +1,12 @@
 import { markRaw } from "vue";
 import { ContentType, type LinkContent } from "@/types/TileContent";
-import type { ToolbarItem, ToolbarContext } from "@/types/TileToolbar";
+import type { ToolbarItem } from "@/types/TileToolbar";
 
 import ResizeWideIcon from "@/components/icons/toolbar/ResizeWideIcon.vue";
 import ResizeSquareIcon from "@/components/icons/toolbar/ResizeSquareIcon.vue";
 import ResizeLandscapeIcon from "@/components/icons/toolbar/ResizeLandscapeIcon.vue";
 import ResizePortraitIcon from "@/components/icons/toolbar/ResizePortraitIcon.vue";
+import Resize1x1Icon from "@/components/icons/toolbar/Resize1x1Icon.vue";
 import Resize4x4Icon from "@/components/icons/toolbar/Resize4x4Icon.vue";
 import Resize2x4Icon from "@/components/icons/toolbar/Resize2x4Icon.vue";
 import Resize4x2Icon from "@/components/icons/toolbar/Resize4x2Icon.vue";
@@ -23,7 +24,6 @@ import LinkIcon from "@/components/icons/LinkIcon.vue";
 import BoldIcon from "@/components/icons/toolbar/BoldIcon.vue";
 import ItalicIcon from "@/components/icons/toolbar/ItalicIcon.vue";
 import TextAlignIcon from "@/components/icons/toolbar/TextAlignIcon.vue";
-import FontStyleIcon from "@/components/icons/toolbar/FontStyleIcon.vue";
 
 // ── Shared reusable toolbar items ──────────────────────────────────
 
@@ -61,6 +61,13 @@ export const RESIZE_2x2 = makeResizeItem(
   ResizeSquareIcon,
   "Resize to 2x2",
 );
+export const RESIZE_3x1 = makeResizeItem(
+  "resize-3x1",
+  3,
+  1,
+  ResizeWideIcon,
+  "Resize to 3x1"
+)
 export const RESIZE_3x2 = makeResizeItem(
   "resize-3x2",
   3,
@@ -79,7 +86,7 @@ export const RESIZE_1x1 = makeResizeItem(
   "resize-1x1",
   1,
   1,
-  ResizeWideIcon,
+  Resize1x1Icon,
   "Resize to 1x1",
 );
 export const RESIZE_4x4 = makeResizeItem(
@@ -105,10 +112,10 @@ export const RESIZE_8x1 = makeResizeItem(
 );
 
 export const RESIZE_PRESETS: ToolbarItem[] = [
-  RESIZE_5x1,
+  RESIZE_1x1,
+  RESIZE_3x1,
+  RESIZE_4x4,
   RESIZE_2x2,
-  RESIZE_3x2,
-  RESIZE_2x4,
 ];
 
 export const BORDER_TOGGLE: ToolbarItem = {
@@ -355,7 +362,7 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     MAP_SEARCH,
     MAP_RECENTER,
   ],
-  [ContentType.CHAT]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.CHAT]: [RESIZE_3x2, RESIZE_4x2, RESIZE_4x4, BORDER_TOGGLE, COLOR_BUTTON],
   [ContentType.CAMPFIRE]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
   [ContentType.RPG]:      [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
   [ContentType.CLICKER]:  [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],

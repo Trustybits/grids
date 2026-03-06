@@ -162,6 +162,17 @@ export default defineComponent({
     const showLinkModal = ref<boolean>(false);
     const toastStore = useToastStore();
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const DEBOUNCE_MS = 1500;
+
+    const schedulePersist = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        persistEditorText();
+        debounceTimer = null;
+      }, DEBOUNCE_MS);
+    };
+
     const editor = useEditor({
       editable: false,
       extensions: [
@@ -193,6 +204,9 @@ export default defineComponent({
       onUpdate({ editor }) {
         // props.content.text = editor.getHTML();
         checkOverflow();
+        if (isEditing.value) {
+          schedulePersist();
+        }
       },
     });
 
@@ -255,7 +269,11 @@ export default defineComponent({
           isEditing.value = false;
           return;
         }
-        // Owner is leaving edit mode: persist changes.
+        // Owner is leaving edit mode: flush any pending debounce and persist.
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+          debounceTimer = null;
+        }
         persistEditorText();
       },
     );
@@ -301,6 +319,11 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        persistEditorText();
+        debounceTimer = null;
+      }
       if (editorDomRef.value) {
         editorDomRef.value.removeEventListener("scroll", handleScroll);
         editorDomRef.value = null;

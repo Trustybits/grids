@@ -319,12 +319,9 @@ export default defineComponent({
     const startClick = (event: MouseEvent) => {
       if (event.button === 0) {
         clickStart.value = Date.now();
-        // Set dragging state immediately when user grabs the tile
-        // This triggers the scale animation right away
+        // Only preventDefault when the child doesn't handle short clicks
+        // (e.g. text tiles need the default focus behavior on mousedown)
         if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
-          isDragging.value = true;
-          // Only preventDefault when the child doesn't handle short clicks
-          // (e.g. text tiles need the default focus behavior on mousedown)
           if (!childComponent.value?.onShortClick) {
             event.preventDefault();
           }
@@ -337,8 +334,6 @@ export default defineComponent({
         return;
       }
 
-      // Clear dragging state when user releases the mouse
-      // This triggers the scale animation right away
       isDragging.value = false;
 
       const clickDuration = Date.now() - (clickStart.value || 0);
@@ -361,14 +356,12 @@ export default defineComponent({
 
     const onMove = () => {
       isMoving.value = true;
-      // isDragging is now set in startClick, but keep this as a safety backup
       isDragging.value = true;
       setTimeout(() => (isMoving.value = false), 300);
     };
 
     const onMoved = () => {
       // Called when drag operation completes - save the final positions
-      // isDragging is now cleared in endClick, but keep this as a safety backup
       isDragging.value = false;
       if (!layoutStore.isOwner) return;
       if (layoutStore.activeBreakpoint !== "lg") {

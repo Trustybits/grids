@@ -382,6 +382,12 @@ export default defineComponent({
       newWPx: number,
     ) => {
       // Called during resize operation - snap to whole grid units for clean resizing
+      // Only mutate the store's canonical tiles at the lg (default) breakpoint.
+      // At smaller breakpoints the displayLayout contains detached copies;
+      // vue3-grid-layout will mutate those in-place and the override system
+      // snapshots them via displayPositions when the resize finishes.
+      if (layoutStore.activeBreakpoint !== 'lg') return;
+
       const tile = layoutStore.currentLayout?.tiles.find((t) => t.i === i);
       if (tile) {
         // Round to nearest whole number to snap to grid units

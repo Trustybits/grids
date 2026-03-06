@@ -130,6 +130,7 @@
           :class="{ 'can-edit': layoutStore.isOwner }"
           :spellcheck="layoutStore.isOwner && isEditing"
           @mousedown="focusEditor(nameEditor, $event)"
+          @click="catchEditorClick(nameEditor)"
         >
           <EditorContent :editor="nameEditor" />
         </div>
@@ -138,6 +139,7 @@
           :class="{ 'can-edit': layoutStore.isOwner }"
           :spellcheck="layoutStore.isOwner && isEditing"
           @mousedown="focusEditor(titleEditor, $event)"
+          @click="catchEditorClick(titleEditor)"
         >
           <EditorContent :editor="titleEditor" />
         </div>
@@ -150,6 +152,7 @@
       :spellcheck="layoutStore.isOwner && isEditing"
       :style="{ '--tile-text-color': textColor }"
       @mousedown="focusEditor(bioEditor, $event)"
+      @click="catchEditorClick(bioEditor)"
     >
       <EditorContent :editor="bioEditor" />
     </div>
@@ -401,7 +404,7 @@ export default defineComponent({
       },
     );
 
-    const focusEditor = (editorRef: any, event: MouseEvent) => {
+    const focusEditor = (editorRef: any, _event: MouseEvent) => {
       if (!layoutStore.isOwner) return;
       const ed = editorRef?.value ?? editorRef;
       if (!ed) return;
@@ -409,12 +412,19 @@ export default defineComponent({
       if (!isEditing.value) {
         // Store which editor was clicked so the isEditing watch focuses it.
         pendingFocusEditor.value = ed;
-        return;
       }
+      // When already editing, let ProseMirror handle mousedown naturally
+      // so clicks on text place the cursor at the correct position.
+    };
 
-      // Already editing — focus clicked editor at cursor position.
+    const catchEditorClick = (editorRef: any) => {
+      if (!layoutStore.isOwner || !isEditing.value) return;
+      const ed = editorRef?.value ?? editorRef;
+      if (!ed) return;
+
+      // If ProseMirror couldn't place a cursor (click was on empty space),
+      // the editor will have lost focus. Re-focus at the end of the text.
       if (!ed.isFocused) {
-        event.preventDefault();
         ed.commands.focus("end");
       }
     };
@@ -682,6 +692,7 @@ export default defineComponent({
       onRadiusCommit,
       handleBackgroundColorChange,
       focusEditor,
+      catchEditorClick,
     };
   },
 });

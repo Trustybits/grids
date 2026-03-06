@@ -1,10 +1,24 @@
 import { defineStore } from "pinia";
 import { type Layout } from "@/types/Layout";
 import { getLayoutService } from "@/services/LayoutServiceFactory"; // Factory to switch services dynamically
-import { ContentType, type TileContent, type AnyTileContent } from "@/types/TileContent";
+import {
+  ContentType,
+  type TileContent,
+  type AnyTileContent,
+} from "@/types/TileContent";
 import type { Breakpoint, TilePosition } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
-import { collection, query, where, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import {
   mapFirestoreToLayout,
   createDefaultLayout,
@@ -17,7 +31,11 @@ import heroGif from "@/assets/images/hero.gif";
 const layoutService = getLayoutService();
 const createTextDoc = (lines: string[]) => {
   const parseInlineMarkdown = (text: string) => {
-    const nodes: Array<{ type: string; text?: string; marks?: Array<{ type: string }> }> = [];
+    const nodes: Array<{
+      type: string;
+      text?: string;
+      marks?: Array<{ type: string }>;
+    }> = [];
     const regex = /(\*|_)([^*_]+?)\1/;
     let remaining = text;
 
@@ -35,7 +53,11 @@ const createTextDoc = (lines: string[]) => {
       if (matchIndex > 0) {
         nodes.push({ type: "text", text: remaining.slice(0, matchIndex) });
       }
-      nodes.push({ type: "text", text: italicText, marks: [{ type: "italic" }] });
+      nodes.push({
+        type: "text",
+        text: italicText,
+        marks: [{ type: "italic" }],
+      });
       remaining = remaining.slice(matchIndex + fullMatch.length);
     }
 
@@ -108,7 +130,7 @@ const createStarterTiles = () => {
       4,
       4,
       { action: "profile", label: "Add Profile" },
-      ""
+      "",
     ),
     createTile(
       ContentType.IMAGE,
@@ -118,7 +140,7 @@ const createStarterTiles = () => {
       5,
       5,
       { src: heroGif },
-      ""
+      "",
     ),
     {
       ...createTile(
@@ -137,7 +159,7 @@ const createStarterTiles = () => {
             "*you can find more tile types below.*👇",
           ]),
         },
-        ""
+        "",
       ),
       borderEnabled: false,
     },
@@ -149,18 +171,9 @@ const createStarterTiles = () => {
       3,
       2,
       { src: "https://www.youtube.com/embed/7ccH8u8fj8Y?si=hnB1rbMIsMCWpPO8" },
-      ""
+      "",
     ),
-    createTile(
-      ContentType.CHAT,
-      uuidv4(),
-      startX + 4,
-      5,
-      3,
-      4,
-      {},
-      ""
-    ),
+    createTile(ContentType.CHAT, uuidv4(), startX + 4, 5, 3, 4, {}, ""),
     createTile(
       ContentType.SUGGESTION,
       uuidv4(),
@@ -169,7 +182,7 @@ const createStarterTiles = () => {
       2,
       2,
       { action: "link", label: "Add Link" },
-      ""
+      "",
     ),
   ];
 };
@@ -196,14 +209,20 @@ export const useLayoutStore = defineStore("layout", {
     // edit mode on mount and place the cursor at the end. Cleared by the
     // component once it consumes the focus request.
     pendingFocusTileId: null as string | null,
-    activeBreakpoint: 'lg' as Breakpoint,
+    activeBreakpoint: "lg" as Breakpoint,
     // When true, Grid.vue should skip the next displayLayout rebuild triggered by
     // overrides changing (because the change came from a drag/resize and positions
     // are already correct in the stable ref).
     skipOverrideRebuild: false,
     // Snapshot of tile positions as currently rendered by Grid.vue's displayLayout.
     // Updated by Grid.vue so that GridMenu can read accurate positions for breakpoint saves.
-    displayPositions: [] as Array<{ i: string; x: number; y: number; w: number; h: number }>,
+    displayPositions: [] as Array<{
+      i: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }>,
   }),
 
   getters: {
@@ -287,7 +306,7 @@ export const useLayoutStore = defineStore("layout", {
     clearResolvedUrl(tileId: string) {
       delete this.resolvedUrls[tileId];
     },
-    
+
     async fetchLayouts() {
       this.isLoading = true;
       this.error = null;
@@ -303,12 +322,12 @@ export const useLayoutStore = defineStore("layout", {
       try {
         const layoutsQuery = query(
           collection(db, "layouts"),
-          where("userId", "==", userId)
+          where("userId", "==", userId),
         );
         const querySnapshot = await getDocs(layoutsQuery);
 
         this.layouts = querySnapshot.docs.map((doc) =>
-          mapFirestoreToLayout(doc)
+          mapFirestoreToLayout(doc),
         );
         await this.loadRecents();
         console.log("layouts", this.layouts);
@@ -429,7 +448,7 @@ export const useLayoutStore = defineStore("layout", {
         await setDoc(
           userRef,
           { recentLayoutIds: this.recentLayoutIds.slice(0, 3) },
-          { merge: true }
+          { merge: true },
         );
       } catch (err) {
         console.error("Failed to save recent layouts:", err);
@@ -444,7 +463,7 @@ export const useLayoutStore = defineStore("layout", {
     // Toggle the vertical compact (gravity) setting
     toggleVerticalCompact() {
       if (!this.currentLayout) return;
-      
+
       this.currentLayout.verticalCompact = !this.currentLayout.verticalCompact;
       this.updateLayout();
     },
@@ -452,7 +471,7 @@ export const useLayoutStore = defineStore("layout", {
     // Set the vertical compact (gravity) setting
     setVerticalCompact(value: boolean) {
       if (!this.currentLayout) return;
-      
+
       this.currentLayout.verticalCompact = value;
       this.updateLayout();
     },
@@ -498,7 +517,10 @@ export const useLayoutStore = defineStore("layout", {
           return { ...tile, content: { ...tile.content } };
         });
 
-        const layoutToSave = { ...this.currentLayout, tiles: resolvedTiles } as Layout;
+        const layoutToSave = {
+          ...this.currentLayout,
+          tiles: resolvedTiles,
+        } as Layout;
         await layoutService.saveLayout(layoutToSave);
       } catch (err) {
         this.error = "Failed to save layout.";
@@ -513,12 +535,12 @@ export const useLayoutStore = defineStore("layout", {
       // Validate: Only one campfire tile per grid
       if (content.type === ContentType.CAMPFIRE) {
         const hasCampfireTile = this.currentLayout.tiles.some(
-          (tile) => tile.content.type === ContentType.CAMPFIRE
+          (tile) => tile.content.type === ContentType.CAMPFIRE,
         );
         if (hasCampfireTile) {
           // Use toast to notify user
           const toastStore = useToastStore();
-          toastStore.addToast('Only one campfire allowed per grid', 'error');
+          toastStore.addToast("Only one campfire allowed per grid", "error");
           return null;
         }
       }
@@ -561,7 +583,7 @@ export const useLayoutStore = defineStore("layout", {
         tileWidth,
         tileHeight,
         content,
-        ""
+        "",
       );
 
       this.currentLayout.tiles.push(newTile);
@@ -674,9 +696,16 @@ export const useLayoutStore = defineStore("layout", {
 
       // Rectangle overlap test (strict — adjacent edges don't count)
       const overlaps = (
-        ax: number, ay: number, aw: number, ah: number,
-        bx: number, by: number, bw: number, bh: number,
-      ): boolean => ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+        ax: number,
+        ay: number,
+        aw: number,
+        ah: number,
+        bx: number,
+        by: number,
+        bw: number,
+        bh: number,
+      ): boolean =>
+        ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 
       // First pass: push tiles that directly collide with the new tile
       for (const tile of tiles) {
@@ -727,7 +756,7 @@ export const useLayoutStore = defineStore("layout", {
       const colNum = this.currentLayout.colNum || 12;
 
       const hasOverlap = (x: number, y: number): boolean => {
-        return this.currentLayout!.tiles.some(tile => {
+        return this.currentLayout!.tiles.some((tile) => {
           return !(
             x + width <= tile.x ||
             x >= tile.x + tile.w ||
@@ -773,12 +802,12 @@ export const useLayoutStore = defineStore("layout", {
 
       // Helper function to check if a position overlaps with any existing tile
       const hasOverlap = (x: number, y: number): boolean => {
-        return this.currentLayout!.tiles.some(tile => {
+        return this.currentLayout!.tiles.some((tile) => {
           return !(
-            x + width <= tile.x ||  // new tile is to the left
+            x + width <= tile.x || // new tile is to the left
             x >= tile.x + tile.w || // new tile is to the right
             y + height <= tile.y || // new tile is above
-            y >= tile.y + tile.h    // new tile is below
+            y >= tile.y + tile.h // new tile is below
           );
         });
       };
@@ -828,36 +857,83 @@ export const useLayoutStore = defineStore("layout", {
 
       // Clean up stale breakpoint override entries for this tile
       if (this.currentLayout.overrides) {
-        for (const bp of Object.keys(this.currentLayout.overrides) as Breakpoint[]) {
+        for (const bp of Object.keys(
+          this.currentLayout.overrides,
+        ) as Breakpoint[]) {
           const posMap = this.currentLayout.overrides[bp];
           if (posMap) delete posMap[id];
         }
       }
 
       this.currentLayout.tiles = this.currentLayout.tiles.filter(
-        (t) => t.i !== id
+        (t) => t.i !== id,
       );
       this.saveLayout(); // Persist changes
     },
 
-    // Resize an tile
+    // Resize a tile.
+    // At non-lg breakpoints the displayed dimensions come from overrides,
+    // so we update those instead of only touching the base tile.
     resizeTile(id: string, w: number, h: number) {
       if (!this.currentLayout) return;
 
       const tile = this.currentLayout.tiles.find((tile) => tile.i === id);
-      if (tile) {
-        if (tile.content.type === ContentType.PROFILE) {
-          tile.w = 4;
-          tile.h = 4;
-          this.adjustTilePosition(tile);
-          this.updateLayout();
-          return;
-        }
+      if (!tile) return;
+
+      if (tile.content.type === ContentType.PROFILE) {
+        tile.w = 4;
+        tile.h = 4;
+        this.adjustTilePosition(tile);
+        this.updateLayout();
+        return;
+      }
+
+      const bp = this.activeBreakpoint;
+
+      if (bp === "lg") {
+        // Desktop: update the base tile directly (existing behaviour)
         tile.w = w;
         tile.h = h;
         this.adjustTilePosition(tile);
         this.updateLayout();
+        return;
       }
+
+      // ── Non-lg breakpoint ──────────────────────────────────────
+      // Only update the override for this breakpoint — leave the base
+      // tile (lg) dimensions untouched so other breakpoints are unaffected.
+      const bpCols = bp === "sm" ? 4 : 8;
+      const clampedW = Math.min(w, bpCols);
+
+      // Build / update the override for this breakpoint
+      if (!this.currentLayout.overrides) {
+        this.currentLayout.overrides = {};
+      }
+      if (!this.currentLayout.overrides[bp]) {
+        // Seed overrides from the current display positions so we don't
+        // lose the positions of every other tile.
+        const positions: Record<string, TilePosition> = {};
+        for (const pos of this.displayPositions) {
+          positions[pos.i] = { x: pos.x, y: pos.y, w: pos.w, h: pos.h };
+        }
+        this.currentLayout.overrides[bp] = positions;
+      }
+
+      const overrides = this.currentLayout.overrides[bp]!;
+      const existing = overrides[id];
+      const curX = existing?.x ?? tile.x;
+
+      // Ensure the tile doesn't overflow the column count after resize
+      const clampedX = Math.min(curX, bpCols - clampedW);
+
+      overrides[id] = {
+        x: Math.max(0, clampedX),
+        y: existing?.y ?? tile.y,
+        w: clampedW,
+        h,
+      };
+
+      this.updateLayout();
     },
 
     toggleTileBorder(id: string) {
@@ -919,11 +995,21 @@ export const useLayoutStore = defineStore("layout", {
       this.activeBreakpoint = bp;
     },
 
-    setDisplayPositions(positions: Array<{ i: string; x: number; y: number; w: number; h: number }>) {
+    setDisplayPositions(
+      positions: Array<{
+        i: string;
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+      }>,
+    ) {
       this.displayPositions = positions;
     },
 
-    getBreakpointPositions(bp: Breakpoint): Record<string, TilePosition> | undefined {
+    getBreakpointPositions(
+      bp: Breakpoint,
+    ): Record<string, TilePosition> | undefined {
       if (!this.currentLayout) return undefined;
       return this.currentLayout.overrides?.[bp];
     },
@@ -938,7 +1024,7 @@ export const useLayoutStore = defineStore("layout", {
     // neighboring tiles shifted by the grid library are also captured.
     updateBreakpointOverride() {
       const bp = this.activeBreakpoint;
-      if (!this.currentLayout || bp === 'lg') return;
+      if (!this.currentLayout || bp === "lg") return;
 
       if (!this.currentLayout.overrides) {
         this.currentLayout.overrides = {};
@@ -955,8 +1041,11 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
-    saveBreakpointPositions(bp: Breakpoint, tiles: Array<{ i: string; x: number; y: number; w: number; h: number }>) {
-      if (!this.currentLayout || bp === 'lg') return;
+    saveBreakpointPositions(
+      bp: Breakpoint,
+      tiles: Array<{ i: string; x: number; y: number; w: number; h: number }>,
+    ) {
+      if (!this.currentLayout || bp === "lg") return;
 
       const positions: Record<string, TilePosition> = {};
       for (const tile of tiles) {
@@ -971,7 +1060,7 @@ export const useLayoutStore = defineStore("layout", {
     },
 
     resetBreakpoint(bp: Breakpoint) {
-      if (!this.currentLayout || bp === 'lg') return;
+      if (!this.currentLayout || bp === "lg") return;
       if (this.currentLayout.overrides) {
         delete this.currentLayout.overrides[bp];
       }
@@ -986,7 +1075,7 @@ export const useLayoutStore = defineStore("layout", {
       try {
         await layoutService.deleteLayout(id);
         this.layouts = this.layouts.filter((layout) => layout.id !== id);
-    
+
         if (this.currentLayout?.id === id) {
           this.currentLayout = null;
         }

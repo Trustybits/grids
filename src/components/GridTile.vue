@@ -317,7 +317,7 @@ export default defineComponent({
         clickStart.value = Date.now();
         // Set dragging state immediately when user grabs the tile
         // This triggers the scale animation right away
-        if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
+        if (layoutStore.isOwner && !isEditing.value) {
           isDragging.value = true;
           // Only preventDefault when the child doesn't handle short clicks
           // (e.g. text tiles need the default focus behavior on mousedown)
@@ -623,7 +623,7 @@ export default defineComponent({
 
     const handleDragStart = (event: Event) => {
       // Prevent default browser drag behavior which interferes with vue-grid-layout
-      if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
+      if (layoutStore.isOwner && !isEditing.value) {
         event.preventDefault();
       }
     };
@@ -659,6 +659,16 @@ export default defineComponent({
     });
 
     const toolbarRefs = { childComponent, isEditing, isExitingCropMode };
+
+    // Re-load the dynamic component whenever the content type changes
+    // (e.g. suggestion -> profile). Without this, currentComponent stays
+    // null after the tile type switches away from SUGGESTION.
+    watch(
+      () => props.tile.content.type,
+      () => {
+        loadComponent();
+      },
+    );
 
     onMounted(() => {
       loadComponent();

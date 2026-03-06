@@ -375,15 +375,9 @@ export function createTileContent(
     case ContentType.PROFILE:
       return {
         type,
-        name:
-          (data as Partial<ProfileBioContent>).name ||
-          makeDefaultDoc("Your name"),
-        title:
-          (data as Partial<ProfileBioContent>).title ||
-          makeDefaultDoc("Add your title"),
-        bio:
-          (data as Partial<ProfileBioContent>).bio ||
-          makeDefaultDoc("Tell us about yourself..."),
+        name: (data as Partial<ProfileBioContent>).name || "",
+        title: (data as Partial<ProfileBioContent>).title || "",
+        bio: (data as Partial<ProfileBioContent>).bio || "",
         avatarShape:
           (data as Partial<ProfileBioContent>).avatarShape || "circle",
         avatarRadius: (data as Partial<ProfileBioContent>).avatarRadius ?? 12,
@@ -444,10 +438,14 @@ export function createTileContent(
     case ContentType.ROADMAP_FEED:
       return {
         type,
-        notionDatabaseId: (data as Partial<RoadmapFeedContent>).notionDatabaseId || "",
-        statusPropertyName: (data as Partial<RoadmapFeedContent>).statusPropertyName || "",
-        upvotePropertyName: (data as Partial<RoadmapFeedContent>).upvotePropertyName || "",
-        statusMapping: (data as Partial<RoadmapFeedContent>).statusMapping || {},
+        notionDatabaseId:
+          (data as Partial<RoadmapFeedContent>).notionDatabaseId || "",
+        statusPropertyName:
+          (data as Partial<RoadmapFeedContent>).statusPropertyName || "",
+        upvotePropertyName:
+          (data as Partial<RoadmapFeedContent>).upvotePropertyName || "",
+        statusMapping:
+          (data as Partial<RoadmapFeedContent>).statusMapping || {},
         queryFilters: (data as Partial<RoadmapFeedContent>).queryFilters,
         cachedItems: (data as Partial<RoadmapFeedContent>).cachedItems,
         lastSyncedAt: (data as Partial<RoadmapFeedContent>).lastSyncedAt,
@@ -605,14 +603,14 @@ export function getContentComponent(content: TileContent): any {
     case ContentType.ROADMAP_FEED:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/RoadmapFeedContent.vue")
-        )
+          () => import("@/components/tilecontent/RoadmapFeedContent.vue"),
+        ),
       );
     case ContentType.ROADMAP_FEED:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/RoadmapFeedContent.vue")
-        )
+          () => import("@/components/tilecontent/RoadmapFeedContent.vue"),
+        ),
       );
     default:
       throw new Error(`Unsupported content type: ${content.type}`);

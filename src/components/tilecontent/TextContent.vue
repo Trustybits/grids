@@ -117,6 +117,7 @@ import AddLinkModal from "../AddLinkModal.vue";
 import type { TextContent } from "@/types/TileContent";
 import { useToastStore } from "@/stores/toast";
 import { useColorPicker } from "@/composables/useColorPicker";
+import { useEditorAutosave } from "@/composables/useEditorAutosave";
 
 export default defineComponent({
   components: {
@@ -162,16 +163,9 @@ export default defineComponent({
     const showLinkModal = ref<boolean>(false);
     const toastStore = useToastStore();
 
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    const DEBOUNCE_MS = 1500;
-
-    const schedulePersist = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        persistEditorText();
-        debounceTimer = null;
-      }, DEBOUNCE_MS);
-    };
+    const { schedulePersist, flushPersist } = useEditorAutosave(() =>
+      persistEditorText(),
+    );
 
     const editor = useEditor({
       editable: false,
@@ -270,11 +264,7 @@ export default defineComponent({
           return;
         }
         // Owner is leaving edit mode: flush any pending debounce and persist.
-        if (debounceTimer) {
-          clearTimeout(debounceTimer);
-          debounceTimer = null;
-        }
-        persistEditorText();
+        flushPersist();
       },
     );
 
@@ -319,11 +309,6 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        persistEditorText();
-        debounceTimer = null;
-      }
       if (editorDomRef.value) {
         editorDomRef.value.removeEventListener("scroll", handleScroll);
         editorDomRef.value = null;

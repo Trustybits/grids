@@ -484,18 +484,22 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        // Build a deep copy with blob URLs swapped for resolved Firebase URLs
-        // and ensure all content mutations are preserved
-        const resolvedTiles = this.currentLayout.tiles.map((tile) => {
+        // Deep-clone tiles to strip Pinia reactive proxies before sending to
+        // Firestore.  A shallow spread loses nested objects (e.g. map center /
+        // marker) that are still wrapped in Vue's reactivity layer.
+        // After cloning, swap any blob: preview URLs with their resolved
+        // Firebase URLs so we never persist temporary blob references.
+        const resolvedTiles = (
+          JSON.parse(JSON.stringify(this.currentLayout.tiles)) as typeof this.currentLayout.tiles
+        ).map((tile) => {
           const src = (tile.content as any)?.src;
           if (typeof src === "string" && src.startsWith("blob:")) {
             const realUrl = this.resolvedUrls[tile.i];
             if (realUrl) {
-              return { ...tile, content: { ...tile.content, src: realUrl } };
+              (tile.content as any).src = realUrl;
             }
           }
-          // Create a deep copy of the tile to preserve all content mutations
-          return { ...tile, content: { ...tile.content } };
+          return tile;
         });
 
         const layoutToSave = { ...this.currentLayout, tiles: resolvedTiles } as Layout;

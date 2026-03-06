@@ -12,7 +12,7 @@
       </button>
 
       <button class="btn btn-secondary" data-tooltip="Profile" @click="addProfileElement">
-        <ProfileIcon />
+        <ProfileTileIcon />
       </button>
 
       <button class="btn btn-secondary" data-tooltip="Chat" @click="addChatElement">
@@ -92,7 +92,7 @@ import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkTileIcon from "./icons/LinkTileIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
-import ProfileIcon from "./icons/ProfileIcon.vue";
+import ProfileTileIcon from "./icons/ProfileTileIcon.vue";
 import MapIcon from "./icons/MapIcon.vue";
 import CampfireIcon from "./icons/CampfireIcon.vue";
 import RPGIcon from "./icons/RPGIcon.vue";
@@ -107,7 +107,7 @@ export default {
     ImageIcon,
     LinkTileIcon,
     EmbedIcon,
-    ProfileIcon,
+    ProfileTileIcon,
     MapIcon,
     CampfireIcon,
     RPGIcon,

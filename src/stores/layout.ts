@@ -998,6 +998,16 @@ export const useLayoutStore = defineStore("layout", {
       this.saveLayout();
     },
 
+    // Reset grid-viewing state when navigating away from a grid page.
+    // Prevents stale isOwner / currentLayout from leaking into non-grid routes.
+    clearCurrentLayout() {
+      this.currentLayout = null;
+      this.isOwner = false;
+      this.displayPositions = [];
+      this.activeTileId = null;
+      this.activePanelId = null;
+    },
+
     async deleteLayout(id: string) {
       if (!this.isOwner) {
         return;

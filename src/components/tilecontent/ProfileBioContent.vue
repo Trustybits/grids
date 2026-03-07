@@ -224,6 +224,7 @@ export default defineComponent({
   },
   setup(props, { emit }) {
     const layoutStore = useLayoutStore();
+    const tileId = inject<string | null>("tileId", null);
 
     const { uploadFileToUrl, uploadExternalImageToStorage } = useFileUpload();
     const auth = getAuth();
@@ -294,45 +295,30 @@ export default defineComponent({
 
     const avatarShape = computed(() => props.content.avatarShape || "circle");
 
-    // Profile photo URL is stored in tile content
-    // Read from the store's tile content so it updates reactively when we upload/delete
+    // Profile photo URL is stored in tile content.
+    // Look up by the injected tile ID — this is stable and unique, unlike
+    // content-field matching which breaks when multiple profile tiles share
+    // the same default text or when text fields are edited mid-session.
     const avatarSrc = computed(() => {
-      const currentTile = layoutStore.currentLayout?.tiles.find((tile) => {
-        if (tile.content?.type !== "profile") return false;
-        const tileContent = tile.content as any;
-        const propsContent = props.content as any;
-        // Match by comparing unique properties (name, title, bio)
-        return (
-          tileContent.name === propsContent.name &&
-          tileContent.title === propsContent.title &&
-          tileContent.bio === propsContent.bio
-        );
-      });
-      return (currentTile?.content as any)?.profilePhotoUrl ?? "";
+      if (!tileId) return "";
+      const tile = layoutStore.currentLayout?.tiles.find(t => t.i === tileId);
+      return (tile?.content as any)?.profilePhotoUrl ?? "";
     });
 
     const saveProfilePhoto = async (url: string) => {
-      // Find which tile this component is rendering by comparing content properties
-      // We can't use reference equality because props.content may be a different object
-      const currentTile = layoutStore.currentLayout?.tiles.find((tile) => {
-        if (tile.content?.type !== "profile") return false;
-        const tileContent = tile.content as any;
-        const propsContent = props.content as any;
-        // Match by comparing unique properties (name, title, bio)
-        return (
-          tileContent.name === propsContent.name &&
-          tileContent.title === propsContent.title &&
-          tileContent.bio === propsContent.bio
-        );
-      });
+      if (!tileId) {
+        console.error("No tileId injected — cannot save profile photo");
+        return;
+      }
 
-      if (!currentTile) {
-        console.error("Could not find tile in store for profile photo save");
+      const tile = layoutStore.currentLayout?.tiles.find(t => t.i === tileId);
+      if (!tile) {
+        console.error(`Could not find tile ${tileId} in store for profile photo save`);
         return;
       }
 
       // Mutate the store's content reference directly, not props.content
-      (currentTile.content as any).profilePhotoUrl = url;
+      (tile.content as any).profilePhotoUrl = url;
 
       // Persist to Firestore via layout store
       await layoutStore.saveLayout();

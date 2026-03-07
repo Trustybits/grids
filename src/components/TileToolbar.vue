@@ -37,7 +37,7 @@
       data-tooltip="My location"
       @click.stop="onLocateClick"
     >
-      <LocateFixedIcon />
+      <CurrentLocationIcon />
     </button>
     <div class="search-panel-divider"></div>
     <input
@@ -95,7 +95,7 @@
       >
         <template v-for="mi in visibleMenuItems" :key="mi.id">
           <button
-            v-if="mi.id !== 'font-size'"
+            v-if="mi.id !== 'font-size' && mi.id !== 'font-family'"
             type="button"
             class="tile-toolbar-menu-item"
             :class="[
@@ -114,7 +114,21 @@
             style="display: flex; flex: 1; align-self: stretch; padding: 0"
           >
             <FontSizeSelector
+              ref="fontSizeSelectorRef"
               :childComponent="childComponent"
+              @open-intent="onFontSelectorIntent"
+              style="flex: 1; align-self: stretch"
+            />
+          </div>
+          <div
+            v-if="mi.id === 'font-family'"
+            class="tile-toolbar-menu-item"
+            style="display: flex; flex: 1; align-self: stretch; padding: 0"
+          >
+            <FontSelector
+              ref="fontSelectorRef"
+              :childComponent="childComponent"
+              @open-intent="onFontSelectorIntent"
               style="flex: 1; align-self: stretch"
             />
           </div>
@@ -145,6 +159,7 @@ import type {
 import { getToolbarItems } from "@/utils/toolbarRegistry";
 import { useLayoutStore } from "@/stores/layout";
 import LocateFixedIcon from "./icons/toolbar/LocateFixedIcon.vue";
+import CurrentLocationIcon from "./icons/toolbar/CurrentLocationIcon.vue";
 import SearchIcon from "./icons/toolbar/SearchIcon.vue";
 import AlignLeftIcon from "./icons/toolbar/AlignLeftIcon.vue";
 import AlignCenterIcon from "./icons/toolbar/AlignCenterIcon.vue";
@@ -152,13 +167,16 @@ import AlignRightIcon from "./icons/toolbar/AlignRightIcon.vue";
 import ColorPicker from "./ColorPicker.vue";
 import TextAlignPanel from "./TextAlignPanel.vue";
 import FontSizeSelector from "./FontSizeSelector.vue";
+import FontSelector from "./FontSelector.vue";
 
 export default defineComponent({
   components: {
     LocateFixedIcon,
+    CurrentLocationIcon,
     SearchIcon,
     ColorPicker,
     FontSizeSelector,
+    FontSelector,
     TextAlignPanel,
   },
   props: {
@@ -190,6 +208,8 @@ export default defineComponent({
 
     const colorPickerRef = ref<{ $el?: HTMLElement } | null>(null);
     const textAlignPanelRef = ref<{ $el?: HTMLElement } | null>(null);
+    const fontSizeSelectorRef = ref<any>(null);
+    const fontSelectorRef = ref<any>(null);
     const childComponent = props.toolbarRefs.childComponent;
 
     const isActiveTile = computed(
@@ -340,6 +360,30 @@ export default defineComponent({
       mi.action(ctx.value);
     };
 
+    const resolveSelectorRef = (selectorRef: { value: any }) => {
+      const refValue = selectorRef.value;
+      if (Array.isArray(refValue)) {
+        return refValue[0] ?? null;
+      }
+      return refValue;
+    };
+
+    const onFontSelectorIntent = (selector: "size" | "family") => {
+      const sizeSelector = resolveSelectorRef(fontSizeSelectorRef);
+      const familySelector = resolveSelectorRef(fontSelectorRef);
+
+      if (selector === "size") {
+        if (familySelector?.isActive) {
+          familySelector.isActive = false;
+        }
+        return;
+      }
+
+      if (sizeSelector?.isActive) {
+        sizeSelector.isActive = false;
+      }
+    };
+
     const onLocateClick = () => {
       props.toolbarRefs.childComponent?.value?.useMyLocation?.();
     };
@@ -444,9 +488,12 @@ export default defineComponent({
       searchQuery,
       colorPickerRef,
       textAlignPanelRef,
+      fontSizeSelectorRef,
+      fontSelectorRef,
       childComponent,
       onLocateClick,
       onSearchSubmit,
+      onFontSelectorIntent,
     };
   },
 });
@@ -458,7 +505,7 @@ export default defineComponent({
   position: absolute;
   bottom: 4px;
   left: 50%;
-  z-index: 100;
+  z-index: 10000;
   display: flex;
   flex-direction: row;
   justify-content: center;

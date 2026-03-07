@@ -45,6 +45,8 @@
         :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
         :data-suggestion="isSuggestion ? 'true' : 'false'"
         ref="gridTileRef"
+        @mouseenter="isHovered = true"
+        @mouseleave="isHovered = false"
         @mousedown="startClick"
         @mouseup="endClick"
       >
@@ -214,12 +216,14 @@ export default defineComponent({
       computed(() => props.tile.y),
     );
 
-    const isTouchDevice = () => window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    const isTouchDevice = () =>
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 
     const isMoving = ref(false);
     const isDragging = ref(false);
     const isExiting = ref(false);
     const isActivated = ref(false);
+    const isHovered = ref(false);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -315,12 +319,9 @@ export default defineComponent({
     const startClick = (event: MouseEvent) => {
       if (event.button === 0) {
         clickStart.value = Date.now();
-        // Set dragging state immediately when user grabs the tile
-        // This triggers the scale animation right away
+        // Only preventDefault when the child doesn't handle short clicks
+        // (e.g. text tiles need the default focus behavior on mousedown)
         if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
-          isDragging.value = true;
-          // Only preventDefault when the child doesn't handle short clicks
-          // (e.g. text tiles need the default focus behavior on mousedown)
           if (!childComponent.value?.onShortClick) {
             event.preventDefault();
           }
@@ -333,8 +334,6 @@ export default defineComponent({
         return;
       }
 
-      // Clear dragging state when user releases the mouse
-      // This triggers the scale animation right away
       isDragging.value = false;
 
       const clickDuration = Date.now() - (clickStart.value || 0);
@@ -357,17 +356,15 @@ export default defineComponent({
 
     const onMove = () => {
       isMoving.value = true;
-      // isDragging is now set in startClick, but keep this as a safety backup
       isDragging.value = true;
       setTimeout(() => (isMoving.value = false), 300);
     };
 
     const onMoved = () => {
       // Called when drag operation completes - save the final positions
-      // isDragging is now cleared in endClick, but keep this as a safety backup
       isDragging.value = false;
       if (!layoutStore.isOwner) return;
-      if (layoutStore.activeBreakpoint !== 'lg') {
+      if (layoutStore.activeBreakpoint !== "lg") {
         layoutStore.updateBreakpointOverride();
       } else {
         layoutStore.updateLayout();
@@ -382,6 +379,12 @@ export default defineComponent({
       newWPx: number,
     ) => {
       // Called during resize operation - snap to whole grid units for clean resizing
+      // Only mutate the store's canonical tiles at the lg (default) breakpoint.
+      // At smaller breakpoints the displayLayout contains detached copies;
+      // vue3-grid-layout will mutate those in-place and the override system
+      // snapshots them via displayPositions when the resize finishes.
+      if (layoutStore.activeBreakpoint !== 'lg') return;
+
       const tile = layoutStore.currentLayout?.tiles.find((t) => t.i === i);
       if (tile) {
         // Round to nearest whole number to snap to grid units
@@ -403,7 +406,7 @@ export default defineComponent({
       }
       // Save the layout with the new size
       if (layoutStore.isOwner) {
-        if (layoutStore.activeBreakpoint !== 'lg') {
+        if (layoutStore.activeBreakpoint !== "lg") {
           layoutStore.updateBreakpointOverride();
         } else {
           layoutStore.updateLayout();
@@ -502,8 +505,13 @@ export default defineComponent({
     };
 
     const tileStyle = computed(() => {
+      const isToolbarActive =
+        isHovered.value ||
+        isActivated.value ||
+        layoutStore.activeTileId === props.tile.i;
+
       return {
-        zIndex: isEditing.value ? 1 : 0,
+        zIndex: isEditing.value || isToolbarActive ? 10 : 0,
       };
     });
 
@@ -570,7 +578,7 @@ export default defineComponent({
         !gridTileRef.value.contains(event.target as Node)
       ) {
         deactivateTile();
-        document.removeEventListener('touchstart', handleTouchOutside);
+        document.removeEventListener("touchstart", handleTouchOutside);
       }
     };
 
@@ -584,7 +592,9 @@ export default defineComponent({
         isActivated.value = true;
         touchWasActivating = true;
         clickStart.value = Date.now();
-        document.addEventListener('touchstart', handleTouchOutside, { passive: true });
+        document.addEventListener("touchstart", handleTouchOutside, {
+          passive: true,
+        });
         // Do NOT preventDefault — let the browser scroll naturally
       } else {
         // Subsequent touch: tile already activated, treat as interaction
@@ -623,7 +633,7 @@ export default defineComponent({
 
     const handleDragStart = (event: Event) => {
       // Prevent default browser drag behavior which interferes with vue-grid-layout
-      if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
+      if (layoutStore.isOwner && !isEditing.value) {
         event.preventDefault();
       }
     };
@@ -660,14 +670,28 @@ export default defineComponent({
 
     const toolbarRefs = { childComponent, isEditing, isExitingCropMode };
 
+    // Re-load the dynamic component whenever the content type changes
+    // (e.g. suggestion -> profile). Without this, currentComponent stays
+    // null after the tile type switches away from SUGGESTION.
+    watch(
+      () => props.tile.content.type,
+      () => {
+        loadComponent();
+      },
+    );
+
     onMounted(() => {
       loadComponent();
 
       if (gridTileRef.value) {
         gridTileRef.value.addEventListener("dragstart", handleDragStart);
         // Use non-passive touchstart so we can conditionally preventDefault on second tap
-        gridTileRef.value.addEventListener("touchstart", handleTouchStart, { passive: false });
-        gridTileRef.value.addEventListener("touchend", handleTouchEnd, { passive: true });
+        gridTileRef.value.addEventListener("touchstart", handleTouchStart, {
+          passive: false,
+        });
+        gridTileRef.value.addEventListener("touchend", handleTouchEnd, {
+          passive: true,
+        });
       }
     });
 
@@ -675,7 +699,7 @@ export default defineComponent({
       stopChildEditingWatch?.();
       stopChildEditingWatch = null;
       removeClickListener();
-      document.removeEventListener('touchstart', handleTouchOutside);
+      document.removeEventListener("touchstart", handleTouchOutside);
 
       if (gridTileRef.value) {
         gridTileRef.value.removeEventListener("dragstart", handleDragStart);
@@ -700,6 +724,7 @@ export default defineComponent({
       isDragging,
       isExiting,
       isActivated,
+      isHovered,
       onMoved,
       onResize,
       onResized,
@@ -907,27 +932,12 @@ export default defineComponent({
   /* Only apply hover effect via :hover pseudo-class */
   .tile-wrapper:hover & {
     box-shadow: var(--shadow-tile-hover);
-    background-color: color-mix(
-      in srgb,
-      var(--tile-bg) 85%,
-      var(--tile-text-color) 15%
-    );
   }
 }
 
 .tile-wrapper[data-border="off"] {
   .card-body {
     background-color: var(--tile-bg);
-  }
-}
-
-.tile-wrapper[data-border="off"]:hover {
-  .card-body {
-    background-color: color-mix(
-      in srgb,
-      var(--tile-bg) 85%,
-      var(--tile-text-color) 15%
-    );
   }
 }
 

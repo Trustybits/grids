@@ -1,21 +1,44 @@
 <template>
   <div class="chat-tile">
-    <div class="chat-messages" ref="messagesContainer" @mousedown.stop>
+    <div class="chat-messages" ref="messagesContainer" @mousedown.stop @scroll="handleScroll">
+      <!-- Fade indicator at top when there's more content above -->
+      <div v-if="showTopFade" class="top-fade-indicator"></div>
+      <!-- Spacer to push messages to bottom when there are few messages -->
+      <div class="messages-spacer"></div>
       <div v-if="!sortedMessages.length" class="chat-empty">
         <p class="chat-empty-title">Start the conversation</p>
         <p class="chat-empty-subtitle">Send a message below.</p>
       </div>
-      <div
-        v-for="message in sortedMessages"
-        :key="message.id"
-        class="chat-message"
-        :class="{ 'is-owner': isOwnerMessage(message), 'is-other': !isOwnerMessage(message) }"
-      >
-        <div class="chat-bubble">
-          {{ message.text }}
+      <template v-for="(message, index) in sortedMessages" :key="message.id">
+        <!-- Date separator: show when date changes from previous message -->
+        <div v-if="shouldShowDateSeparator(message, index)" class="date-separator">
+          <span class="date-separator-text">{{ formatDateSeparator(message.createdAt) }}</span>
         </div>
-      </div>
+        <div
+          class="chat-message"
+          :class="{ 'is-owner': isOwnerMessage(message), 'is-other': !isOwnerMessage(message) }"
+        >
+          <div class="chat-bubble">
+            {{ message.text }}
+          </div>
+        </div>
+      </template>
     </div>
+
+    <!-- Scroll to bottom button: appears when user has scrolled up -->
+    <transition name="scroll-button">
+      <button
+        v-if="showScrollButton"
+        class="scroll-to-bottom"
+        @click="scrollToBottom('smooth')"
+        @mousedown.stop
+        title="Jump to latest messages"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 4L12 20M12 20L6 14M12 20L18 14" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </transition>
 
     <form class="chat-composer" @submit.prevent="sendMessage" @mousedown.stop>
       <textarea
@@ -34,7 +57,7 @@
         type="submit"
         :disabled="!canSend || !draftMessage.trim()"
       >
-        Send
+        <SendIcon />
       </button>
     </form>
   </div>
@@ -45,11 +68,13 @@ import {
   computed,
   defineComponent,
   nextTick,
+  onBeforeUnmount,
   onMounted,
   onUnmounted,
   ref,
   watch,
 } from "vue";
+import SendIcon from "@/components/icons/SendIcon.vue";
 import { getAuth } from "firebase/auth";
 import {
   addDoc,
@@ -65,6 +90,9 @@ import { useLayoutStore } from "@/stores/layout";
 import type { ChatContent, ChatMessage } from "@/types/TileContent";
 
 export default defineComponent({
+  components: {
+    SendIcon,
+  },
   props: {
     content: {
       type: Object as () => ChatContent,
@@ -84,6 +112,9 @@ export default defineComponent({
     const inputRef = ref<HTMLTextAreaElement | null>(null);
     const messagesContainer = ref<HTMLDivElement | null>(null);
     const messages = ref<ChatMessage[]>([]);
+    const showScrollButton = ref(false);
+    const userHasScrolled = ref(false);
+    const showTopFade = ref(false);
 
     const layoutId = computed(() => layoutStore.currentLayout?.id ?? "");
     const messagesCollection = computed<CollectionReference | null>(() => {
@@ -99,13 +130,62 @@ export default defineComponent({
     const isOwner = computed(() => layoutStore.isOwner);
     const canSend = computed(() => !!layoutId.value && !!props.tileId);
     const composerPlaceholder = computed(() =>
-      isOwner.value ? "Write a message..." : "Message the owner..."
+      isOwner.value ? "Write a message.." : "Message the owner.."
     );
 
     const isOwnerMessage = (message: ChatMessage) => {
       if (!ownerId.value) return false;
       if (!message.authorId) return true;
       return message.authorId === ownerId.value;
+    };
+
+    // Check if we should show a date separator before this message
+    const shouldShowDateSeparator = (message: ChatMessage, index: number) => {
+      if (index === 0) return true; // Always show date for first message
+      const prevMessage = sortedMessages.value[index - 1];
+      if (!prevMessage) return true;
+      
+      // Compare dates (ignoring time)
+      const currentDate = new Date(message.createdAt).toDateString();
+      const prevDate = new Date(prevMessage.createdAt).toDateString();
+      return currentDate !== prevDate;
+    };
+
+    // Format date separator text
+    const formatDateSeparator = (timestamp: number) => {
+      const date = new Date(timestamp);
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const dateString = date.toDateString();
+      const todayString = today.toDateString();
+      const yesterdayString = yesterday.toDateString();
+
+      if (dateString === todayString) return "Today";
+      if (dateString === yesterdayString) return "Yesterday";
+      
+      // Format as "Mon, Jan 15" for other dates
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    };
+
+    // Handle scroll events to show/hide scroll-to-bottom button and top fade
+    const handleScroll = () => {
+      const container = messagesContainer.value;
+      if (!container) return;
+
+      userHasScrolled.value = true;
+      
+      // Check if user is near the bottom (within 100px)
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+      showScrollButton.value = !isNearBottom;
+      
+      // Show top fade indicator if user has scrolled down from the top (more than 20px)
+      showTopFade.value = container.scrollTop > 20;
     };
 
     const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
@@ -115,6 +195,10 @@ export default defineComponent({
         top: container.scrollHeight,
         behavior,
       });
+      // Hide scroll button after scrolling to bottom
+      if (behavior === "smooth") {
+        showScrollButton.value = false;
+      }
     };
 
     const normalizeCreatedAt = (value: unknown) => {
@@ -223,9 +307,12 @@ export default defineComponent({
 
     watch(
       () => messages.value.length,
-      async () => {
+      async (newLength, oldLength) => {
         await nextTick();
-        scrollToBottom("smooth");
+        // Only auto-scroll if user hasn't manually scrolled up, or if it's the initial load
+        if (!userHasScrolled.value || oldLength === 0) {
+          scrollToBottom("smooth");
+        }
       }
     );
 
@@ -255,6 +342,12 @@ export default defineComponent({
       onShortClick,
       onExitClick,
       onResize,
+      showScrollButton,
+      showTopFade,
+      handleScroll,
+      scrollToBottom,
+      shouldShowDateSeparator,
+      formatDateSeparator,
     };
   },
 });
@@ -264,28 +357,57 @@ export default defineComponent({
 .chat-tile {
   height: 100%;
   width: 100%;
-  padding: var(--tile-padding);
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
 }
 
 .chat-messages {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  border-radius: 0 0 0 0;
+  gap: var(--spacing-sm);
   min-height: 0;
   overflow-y: auto;
+  overflow-anchor: none;
   scroll-behavior: smooth;
   overscroll-behavior: contain;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
-  padding-right: 4px;
+  position: relative;
 }
 
 .chat-messages::-webkit-scrollbar {
   display: none;
+}
+
+/* Spacer to push messages to bottom when there are few messages */
+.messages-spacer {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Top fade indicator to show there's more content above */
+.top-fade-indicator {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  flex-shrink: 0;
+  background: linear-gradient(to bottom, 
+    var(--color-tile-background) 0%,
+    color-mix(
+      in srgb,
+      var(--color-tile-background) 50%,
+      transparent
+    ) 50%,
+    transparent 100%);
+  pointer-events: none;
+  z-index: 5;
+  margin-bottom: -40px;
 }
 
 .chat-empty {
@@ -348,10 +470,8 @@ export default defineComponent({
 
 .chat-composer {
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
 .chat-input {
@@ -381,24 +501,104 @@ export default defineComponent({
 
 .chat-send {
   border: none;
-  border-radius: 12px;
-  padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  background: var(--color-text-primary);
-  color: var(--color-tile-background);
+  border-radius: 50%;
+  padding: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-content-low);
+  color: var(--color-text-primary);
   cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
   transition: opacity var(--duration-fast) var(--easing-ease-in-out),
     transform var(--duration-fast) var(--easing-ease-out);
 }
 
 .chat-send:hover {
-  transform: translateY(-1px);
+  /* transform: translateY(-1px); */
+  background-color: var(--color-content-default);
 }
 
 .chat-send:disabled {
+  background-color: transparent;
   cursor: not-allowed;
-  opacity: 0.4;
+  opacity: 0.3;
   transform: none;
+}
+
+/* Date separator */
+.date-separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+  text-align: center;
+}
+
+.date-separator::before,
+.date-separator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
+}
+
+.date-separator-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--color-text-primary) 50%, transparent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* Scroll to bottom button */
+.scroll-to-bottom {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  padding: 4px;
+  background: var(--color-base-34);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--duration-fast) var(--easing-ease-out),
+    background var(--duration-fast) var(--easing-ease-out),
+    box-shadow var(--duration-fast) var(--easing-ease-out);
+  z-index: 10;
+  transform: translateX(-50%);
+}
+
+.scroll-to-bottom:hover {
+  background: var(--color-content-default);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.scroll-to-bottom:active {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Scroll button transitions */
+.scroll-button-enter-active,
+.scroll-button-leave-active {
+  transition: opacity var(--duration-normal) var(--easing-ease-in-out);
+}
+
+.scroll-button-enter-from,
+.scroll-button-leave-to {
+  opacity: 0;
+}
+
+.scroll-button-enter-to,
+.scroll-button-leave-from {
+  opacity: 1;
 }
 </style>

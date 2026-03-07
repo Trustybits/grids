@@ -239,8 +239,6 @@ export default defineComponent({
 
     const clipPathId = `avatar-clip-${Math.random().toString(36).slice(2, 9)}`;
 
-    const tileId = inject<string | null>("tileId", null);
-
     const avatarRadius = ref(props.content.avatarRadius ?? 12);
     const showUrlInput = ref(false);
     const draftAvatarUrl = ref("");

@@ -699,6 +699,17 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
+@keyframes profile-tile-settle {
+  0% {
+    background-color: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+}
+
 .profile-bio {
   height: 100%;
   padding: var(--spacing-lg);
@@ -707,6 +718,7 @@ export default defineComponent({
   align-items: flex-start;
   gap: var(--spacing-md);
   overflow: hidden;
+  animation: profile-tile-settle 0.9s var(--easing-ease-in-out) forwards;
 }
 
 .profile-header {

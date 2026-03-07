@@ -129,6 +129,8 @@
           class="profile-name profile-editor"
           :class="{ 'can-edit': layoutStore.isOwner }"
           :spellcheck="layoutStore.isOwner && isEditing"
+          @mousedown="focusEditor(nameEditor, $event)"
+          @click="catchEditorClick(nameEditor)"
         >
           <EditorContent :editor="nameEditor" />
         </div>
@@ -136,6 +138,8 @@
           class="profile-title profile-editor"
           :class="{ 'can-edit': layoutStore.isOwner }"
           :spellcheck="layoutStore.isOwner && isEditing"
+          @mousedown="focusEditor(titleEditor, $event)"
+          @click="catchEditorClick(titleEditor)"
         >
           <EditorContent :editor="titleEditor" />
         </div>
@@ -147,6 +151,8 @@
       :class="{ 'can-edit': layoutStore.isOwner }"
       :spellcheck="layoutStore.isOwner && isEditing"
       :style="{ '--tile-text-color': textColor }"
+      @mousedown="focusEditor(bioEditor, $event)"
+      @click="catchEditorClick(bioEditor)"
     >
       <EditorContent :editor="bioEditor" />
     </div>
@@ -169,8 +175,8 @@ import {
   watch,
   nextTick,
   onMounted,
-  onUnmounted,
   type PropType,
+  inject,
 } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
 import type { AnyExtension } from "@tiptap/core";
@@ -183,15 +189,14 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { useLayoutStore } from "@/stores/layout";
 import { type ProfileBioContent, type AvatarShape } from "@/types/TileContent";
-import {
-  computeTextColor,
-  isDirectImageUrl,
-  resolveBackgroundColor,
-} from "@/utils/TileUtils";
+import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { getAuth } from "firebase/auth";
+import { useColorPicker } from "@/composables/useColorPicker";
+import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import Placeholder from "@tiptap/extension-placeholder";
 
-const editorExtensions: AnyExtension[] = [
+const baseExtensions: AnyExtension[] = [
   StarterKit,
   TextStyle,
   Color,
@@ -199,6 +204,11 @@ const editorExtensions: AnyExtension[] = [
   FontSize,
   TaskList,
   TaskItem,
+];
+
+const makeExtensions = (placeholder: string): AnyExtension[] => [
+  ...baseExtensions,
+  Placeholder.configure({ placeholder, showOnlyWhenEditable: false }),
 ];
 
 export default defineComponent({
@@ -214,12 +224,14 @@ export default defineComponent({
   },
   setup(props, { emit }) {
     const layoutStore = useLayoutStore();
+    const tileId = inject<string | null>("tileId", null);
 
     const { uploadFileToUrl, uploadExternalImageToStorage } = useFileUpload();
     const auth = getAuth();
 
     const isEditing = ref(false);
     const activeEditor = ref<any>(null);
+    const pendingFocusEditor = ref<any>(null);
     const avatarInput = ref<HTMLInputElement | null>(null);
     const avatarRef = ref<HTMLDivElement | null>(null);
     const profileRoot = ref<HTMLDivElement | null>(null);
@@ -241,75 +253,71 @@ export default defineComponent({
       }
     };
 
+    const { schedulePersist, flushPersist } = useEditorAutosave(() =>
+      persistContent(),
+    );
+
+    const onEditorUpdate = () => {
+      if (isEditing.value) schedulePersist();
+    };
+
     const nameEditor = useEditor({
       editable: false,
-      extensions: editorExtensions,
+      extensions: makeExtensions("Your name"),
       content: parseContent(props.content.name),
       onFocus: ({ editor }) => {
         activeEditor.value = editor;
       },
+      onUpdate: onEditorUpdate,
     });
 
     const titleEditor = useEditor({
       editable: false,
-      extensions: editorExtensions,
+      extensions: makeExtensions("Add your title"),
       content: parseContent(props.content.title),
       onFocus: ({ editor }) => {
         activeEditor.value = editor;
       },
+      onUpdate: onEditorUpdate,
     });
 
     const bioEditor = useEditor({
       editable: false,
-      extensions: editorExtensions,
+      extensions: makeExtensions("Tell us about yourself..."),
       content: parseContent(props.content.bio),
       onFocus: ({ editor }) => {
         activeEditor.value = editor;
       },
+      onUpdate: onEditorUpdate,
     });
 
     const avatarShape = computed(() => props.content.avatarShape || "circle");
 
-    // Profile photo URL is stored in tile content
-    // Read from the store's tile content so it updates reactively when we upload/delete
+    // Profile photo URL is stored in tile content.
+    // Look up by the injected tile ID — this is stable and unique, unlike
+    // content-field matching which breaks when multiple profile tiles share
+    // the same default text or when text fields are edited mid-session.
     const avatarSrc = computed(() => {
-      const currentTile = layoutStore.currentLayout?.tiles.find(
-        tile => {
-          if (tile.content?.type !== 'profile') return false;
-          const tileContent = tile.content as any;
-          const propsContent = props.content as any;
-          // Match by comparing unique properties (name, title, bio)
-          return tileContent.name === propsContent.name &&
-                 tileContent.title === propsContent.title &&
-                 tileContent.bio === propsContent.bio;
-        }
-      );
-      return (currentTile?.content as any)?.profilePhotoUrl ?? "";
+      if (!tileId) return "";
+      const tile = layoutStore.currentLayout?.tiles.find(t => t.i === tileId);
+      return (tile?.content as any)?.profilePhotoUrl ?? "";
     });
 
     const saveProfilePhoto = async (url: string) => {
-      // Find which tile this component is rendering by comparing content properties
-      // We can't use reference equality because props.content may be a different object
-      const currentTile = layoutStore.currentLayout?.tiles.find(
-        tile => {
-          if (tile.content?.type !== 'profile') return false;
-          const tileContent = tile.content as any;
-          const propsContent = props.content as any;
-          // Match by comparing unique properties (name, title, bio)
-          return tileContent.name === propsContent.name &&
-                 tileContent.title === propsContent.title &&
-                 tileContent.bio === propsContent.bio;
-        }
-      );
-      
-      if (!currentTile) {
-        console.error('Could not find tile in store for profile photo save');
+      if (!tileId) {
+        console.error("No tileId injected — cannot save profile photo");
         return;
       }
-      
+
+      const tile = layoutStore.currentLayout?.tiles.find(t => t.i === tileId);
+      if (!tile) {
+        console.error(`Could not find tile ${tileId} in store for profile photo save`);
+        return;
+      }
+
       // Mutate the store's content reference directly, not props.content
-      (currentTile.content as any).profilePhotoUrl = url;
-      
+      (tile.content as any).profilePhotoUrl = url;
+
       // Persist to Firestore via layout store
       await layoutStore.saveLayout();
     };
@@ -322,10 +330,20 @@ export default defineComponent({
 
     const persistContent = () => {
       if (!nameEditor.value || !titleEditor.value || !bioEditor.value) return;
-      props.content.name = serializeEditor(nameEditor.value);
-      props.content.title = serializeEditor(titleEditor.value);
-      props.content.bio = serializeEditor(bioEditor.value);
-      layoutStore.saveLayout();
+      if (!layoutStore.isOwner) return;
+
+      const name = serializeEditor(nameEditor.value);
+      const title = serializeEditor(titleEditor.value);
+      const bio = serializeEditor(bioEditor.value);
+
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { name, title, bio });
+      } else {
+        props.content.name = name;
+        props.content.title = title;
+        props.content.bio = bio;
+        layoutStore.saveLayout();
+      }
     };
 
     watch(
@@ -346,10 +364,12 @@ export default defineComponent({
         if (shouldBeEditable) {
           nextTick(() => {
             const target =
+              pendingFocusEditor.value ||
               activeEditor.value ||
               nameEditor.value ||
               titleEditor.value ||
               bioEditor.value;
+            pendingFocusEditor.value = null;
             target?.commands.focus("end");
           });
           return;
@@ -364,9 +384,34 @@ export default defineComponent({
           return;
         }
 
-        persistContent();
+        flushPersist();
       },
     );
+
+    const focusEditor = (editorRef: any, _event: MouseEvent) => {
+      if (!layoutStore.isOwner) return;
+      const ed = editorRef?.value ?? editorRef;
+      if (!ed) return;
+
+      if (!isEditing.value) {
+        // Store which editor was clicked so the isEditing watch focuses it.
+        pendingFocusEditor.value = ed;
+      }
+      // When already editing, let ProseMirror handle mousedown naturally
+      // so clicks on text place the cursor at the correct position.
+    };
+
+    const catchEditorClick = (editorRef: any) => {
+      if (!layoutStore.isOwner || !isEditing.value) return;
+      const ed = editorRef?.value ?? editorRef;
+      if (!ed) return;
+
+      // If ProseMirror couldn't place a cursor (click was on empty space),
+      // the editor will have lost focus. Re-focus at the end of the text.
+      if (!ed.isFocused) {
+        ed.commands.focus("end");
+      }
+    };
 
     const onShortClick = () => {
       if (!layoutStore.isOwner) return;
@@ -483,11 +528,15 @@ export default defineComponent({
       urlError.value = "";
       showUrlInput.value = false;
       try {
-        const ownedUrl = await uploadExternalImageToStorage(normalized, "images");
+        const ownedUrl = await uploadExternalImageToStorage(
+          normalized,
+          "images",
+        );
         await saveProfilePhoto(ownedUrl);
       } catch (err: any) {
         console.error("Failed to import external image:", err);
-        urlError.value = "Could not import image. Try uploading the file directly.";
+        urlError.value =
+          "Could not import image. Try uploading the file directly.";
         showUrlInput.value = true;
       }
     };
@@ -588,27 +637,8 @@ export default defineComponent({
       return { borderRadius: radius };
     });
 
-    const backgroundColor = computed(() => {
-      return resolveBackgroundColor(props.content?.backgroundColor);
-    });
-
-    const textColor = computed(() => {
-      return computeTextColor(backgroundColor.value);
-    });
-
-    const handleBackgroundColorChange = (color: string) => {
-      if (!layoutStore.isOwner) return;
-      props.content.backgroundColor = color;
-      layoutStore.saveLayout();
-    };
-
-    watch(backgroundColor, (color) => emit("background-color-change", color), {
-      immediate: true,
-    });
-
-    watch(textColor, (color) => emit("text-color-change", color), {
-      immediate: true,
-    });
+    const { backgroundColor, textColor, handleBackgroundColorChange } =
+      useColorPicker(tileId, props.content, emit);
 
     return {
       layoutStore,
@@ -645,12 +675,25 @@ export default defineComponent({
       onRadiusInput,
       onRadiusCommit,
       handleBackgroundColorChange,
+      focusEditor,
+      catchEditorClick,
     };
   },
 });
 </script>
 
 <style scoped lang="scss">
+@keyframes profile-tile-settle {
+  0% {
+    background-color: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+}
+
 .profile-bio {
   height: 100%;
   padding: var(--spacing-lg);
@@ -659,6 +702,7 @@ export default defineComponent({
   align-items: flex-start;
   gap: var(--spacing-md);
   overflow: hidden;
+  animation: profile-tile-settle 0.9s var(--easing-ease-in-out) forwards;
 }
 
 .profile-header {
@@ -722,13 +766,17 @@ export default defineComponent({
 }
 
 .profile-editor {
-  padding: 2px 0;
+  padding: 6px 8px;
   border-radius: var(--radius-sm);
   transition: background-color var(--transition-normal);
 }
 
 .profile-editor.can-edit:hover {
-  background-color: color-mix(in srgb, var(--tile-text-color) 5%, var(--color-editable-hover) 95%);
+  background-color: color-mix(
+    in srgb,
+    var(--tile-text-color) 5%,
+    var(--color-editable-hover) 95%
+  );
   cursor: text;
 }
 
@@ -868,5 +916,14 @@ export default defineComponent({
 .control-segment button.active {
   background: var(--color-text-primary);
   color: var(--color-content-background);
+}
+
+:deep(.tiptap p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--tile-text-color, var(--color-content-default));
+  opacity: 0.4;
+  pointer-events: none;
+  height: 0;
 }
 </style>

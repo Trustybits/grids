@@ -1,7 +1,7 @@
 <template>
   <div
     class="font-select-wrapper"
-    @click.stop.prevent="handleFontClick"
+    @click.stop.prevent="handleClick"
     ref="fontSelectButtonRef"
   >
     <div class="font-select-box">
@@ -31,7 +31,7 @@
           :class="{ 'is-current': size === currentFontSize }"
           @mousedown.prevent
           @pointerdown.prevent
-          @click.stop="handleFontSizeSelect(size)"
+          @click.stop="handleButtonClick(size)"
         >
           {{ size }}
         </button>
@@ -41,17 +41,9 @@
 </template>
 
 <script lang="ts">
-import {
-  computed,
-  defineComponent,
-  nextTick,
-  onMounted,
-  onUnmounted,
-  ref,
-  watch,
-} from "vue";
+import { computed, defineComponent, ref } from "vue";
 import Chevron from "./icons/Chevron.vue";
-import { useLayoutStore } from "@/stores/layout";
+import { useFloatingSelector } from "@/composables/useFloatingSelector";
 
 const FONT_SIZES = ["Small", "Medium", "Large", "Larger"] as const;
 type FontSizeOption = (typeof FONT_SIZES)[number];
@@ -67,14 +59,14 @@ export default defineComponent({
   components: {
     Chevron,
   },
+  emits: ["open-intent"],
   props: {
     childComponent: {
       type: Object as () => any,
       required: true,
     },
   },
-  setup(props) {
-    const layoutStore = useLayoutStore();
+  setup(props, { emit }) {
     const isActive = ref(false);
     const fontSelectButtonRef = ref<HTMLButtonElement | null>(null);
     const fontSelectMenuRef = ref<HTMLDivElement | null>(null);
@@ -103,71 +95,12 @@ export default defineComponent({
       pos.value = { top, left, width: rect.width };
     };
 
-    const handleFontClick = () => {
-      if (isActive.value) {
-        isActive.value = false;
-        return;
-      }
-
-      isActive.value = true;
-      nextTick(() => positionMenu());
-    };
-
-    const handleFontSizeSelect = (size: FontSizeOption) => {
-      props.childComponent?.handleFontSizeChange(size);
-      isActive.value = false;
-      layoutStore.closeMenus();
-    };
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-
-      if (fontSelectMenuRef.value?.contains(target)) {
-        return;
-      }
-
-      isActive.value = false;
-    };
-
-    let rafId: number | null = null;
-
-    const schedulePositionMenu = () => {
-      if (rafId != null) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-        positionMenu();
-      });
-    };
-
-    watch(isActive, (open, _prev, onCleanup) => {
-      if (!open) return;
-
-      nextTick(positionMenu);
-
-      window.addEventListener("resize", schedulePositionMenu);
-      window.addEventListener("scroll", schedulePositionMenu, {
-        capture: true,
-        passive: true,
-      });
-
-      onCleanup(() => {
-        if (rafId != null) cancelAnimationFrame(rafId);
-        rafId = null;
-        window.removeEventListener("resize", schedulePositionMenu);
-        window.removeEventListener("scroll", schedulePositionMenu, {
-          capture: true,
-        });
-      });
-    });
-
-    onMounted(() => {
-      document.addEventListener("click", handleClickOutside);
-      document.addEventListener("contextmenu", handleClickOutside);
-    });
-
-    onUnmounted(() => {
-      document.removeEventListener("click", handleClickOutside);
-      document.removeEventListener("contextmenu", handleClickOutside);
+    const { handleClick, handleButtonClick } = useFloatingSelector({
+      isActive,
+      menuRef: fontSelectMenuRef,
+      positionMenu,
+      buttonAction: props.childComponent?.handleFontSizeChange,
+      emitter: () => emit("open-intent", "size"),
     });
 
     return {
@@ -178,38 +111,14 @@ export default defineComponent({
       pos,
       currentFontSize,
       growOrigin,
-      handleFontClick,
-      handleFontSizeSelect,
+      handleClick,
+      handleButtonClick,
     };
   },
 });
 </script>
 
 <style scoped>
-.font-select-wrapper {
-  display: flex;
-  flex: 1;
-  align-items: stretch;
-  min-height: 38px;
-  padding: 8px 12px;
-  /* border: var(--tile-border-width) solid var(--color-tile-stroke); */
-  border-radius: var(--radius-sm);
-  background: var(--color-tile-background);
-  cursor: pointer;
-  transition:
-    background-color var(--duration-fast) var(--easing-ease-in-out),
-    transform var(--duration-fast) var(--easing-ease-out);
-}
-
-.font-select-wrapper:hover {
-  background: var(--color-content-low);
-}
-
-.font-select-wrapper:active {
-  background: color-mix(in srgb, var(--color-content-low) 80%, black 20%);
-  transform: scale(0.985);
-}
-
 .font-select-box {
   display: flex;
   flex: 1;
@@ -219,18 +128,7 @@ export default defineComponent({
   align-items: center;
   font-size: var(--font-size-md);
   margin-right: -6px;
-}
-
-.font-select-menu {
-  position: fixed;
-  z-index: 3000;
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  background: var(--color-tile-background);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-md);
-  overflow: hidden;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
-  transform-origin: center var(--grow-origin, 50%);
+  min-width: 85px;
 }
 
 .font-select-title {
@@ -255,6 +153,11 @@ export default defineComponent({
   background: var(--color-content-low);
 }
 
+.chevron {
+  color: var(--color-content-default);
+  margin-left: 4px;
+}
+
 .font-select-title:active {
   transform: scale(0.985);
   background: color-mix(in srgb, var(--color-content-low) 75%, black 25%);
@@ -266,11 +169,7 @@ export default defineComponent({
 
 .font-title {
   font-weight: var(--font-weight-semibold);
-}
-
-.chevron {
-  color: var(--color-content-default);
-  margin-left: 4px;
+  min-width: 55px;
 }
 
 .font-menu-enter-active,
@@ -290,5 +189,43 @@ export default defineComponent({
 .font-menu-leave-from {
   opacity: 1;
   transform: scaleY(1);
+}
+</style>
+
+<style lang="scss">
+.font-select-wrapper {
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+  min-height: 38px;
+  padding: 8px 12px;
+  /* border: var(--tile-border-width) solid var(--color-tile-stroke); */
+  border-radius: var(--radius-sm);
+  background: var(--color-tile-background);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    transform var(--duration-fast) var(--easing-ease-out);
+}
+
+.font-select-wrapper:hover {
+  background: var(--color-content-low);
+}
+
+.font-select-wrapper:active {
+  background: color-mix(in srgb, var(--color-content-low) 80%, black 20%);
+  transform: scale(0.985);
+}
+
+.font-select-menu {
+  position: fixed;
+  z-index: 3000;
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  background: var(--color-tile-background);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+  transform-origin: center var(--grow-origin, 50%);
 }
 </style>

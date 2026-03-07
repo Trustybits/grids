@@ -16,6 +16,7 @@
       }"
       :style="{
         '--tile-bg': backgroundColor,
+        '--tile-text-color': textColor,
         color: textColor,
         textAlign: textAlign,
       }"
@@ -115,8 +116,8 @@ import { useLayoutStore } from "@/stores/layout";
 import AddLinkModal from "../AddLinkModal.vue";
 import type { TextContent } from "@/types/TileContent";
 import { useToastStore } from "@/stores/toast";
-import { computeTextColor, resolveBackgroundColor } from "@/utils/TileUtils";
-import ColorIcon from "../icons/toolbar/ColorIcon.vue";
+import { useColorPicker } from "@/composables/useColorPicker";
+import { useEditorAutosave } from "@/composables/useEditorAutosave";
 
 export default defineComponent({
   components: {
@@ -162,6 +163,10 @@ export default defineComponent({
     const showLinkModal = ref<boolean>(false);
     const toastStore = useToastStore();
 
+    const { schedulePersist, flushPersist } = useEditorAutosave(() =>
+      persistEditorText(),
+    );
+
     const editor = useEditor({
       editable: false,
       extensions: [
@@ -193,6 +198,9 @@ export default defineComponent({
       onUpdate({ editor }) {
         // props.content.text = editor.getHTML();
         checkOverflow();
+        if (isEditing.value) {
+          schedulePersist();
+        }
       },
     });
 
@@ -255,8 +263,8 @@ export default defineComponent({
           isEditing.value = false;
           return;
         }
-        // Owner is leaving edit mode: persist changes.
-        persistEditorText();
+        // Owner is leaving edit mode: flush any pending debounce and persist.
+        flushPersist();
       },
     );
 
@@ -339,7 +347,11 @@ export default defineComponent({
         return;
       }
       props.content.textLink = normalized;
-      layoutStore.saveLayout();
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { textLink: normalized });
+      } else {
+        layoutStore.saveLayout();
+      }
       showLinkModal.value = false;
     };
 
@@ -349,30 +361,8 @@ export default defineComponent({
       window.open(textLink.value, "_blank", "noopener,noreferrer");
     };
 
-    const backgroundColor = computed(() => {
-      return resolveBackgroundColor(props.content?.backgroundColor);
-    });
-
-    const textColor = computed(() => {
-      return computeTextColor(backgroundColor.value);
-    });
-
-    const handleBackgroundColorChange = (color: string) => {
-      if (!layoutStore.isOwner) return;
-
-      props.content.backgroundColor = color;
-      if (tileId) {
-        layoutStore.patchTileContent(tileId, { backgroundColor: color });
-      }
-    };
-
-    watch(backgroundColor, (color) => emit("background-color-change", color), {
-      immediate: true,
-    });
-
-    watch(textColor, (color) => emit("text-color-change", color), {
-      immediate: true,
-    });
+    const { backgroundColor, textColor, handleBackgroundColorChange } =
+      useColorPicker(tileId, props.content, emit);
 
     const handleTextAlignChange = (align: "left" | "center" | "right") => {
       if (!layoutStore.isOwner) return;
@@ -455,18 +445,10 @@ export default defineComponent({
         .focus(undefined, { scrollIntoView: false })
         .setFontSize(fontSizePx)
         .run();
-
-      // Avoid persisting on every size click while editing; the edit-exit flow
-      // already persists the full JSON and this avoids layout-save side effects
-      // that can move the viewport.
     };
 
     const getCurrentFontSize = () => {
       let fontSize = editor.value?.getAttributes("textStyle")?.fontSize;
-      //  <option value="12px">Small</option>
-      // <option value="14px">Medium</option>
-      // <option value="20px">Large</option>
-      // <option value="26px">Larger</option>
 
       if (!fontSize) {
         return "Medium";
@@ -483,6 +465,21 @@ export default defineComponent({
       }
 
       return fontSize;
+    };
+
+    const handleFontChange = (font: string) => {
+      if (!editor.value) return;
+
+      editor.value
+        .chain()
+        .focus(undefined, { scrollIntoView: false })
+        .setFontFamily(font)
+        .run();
+    };
+
+    const getCurrentFont = () => {
+      const fontFamily = editor.value?.getAttributes("textStyle")?.fontFamily;
+      return fontFamily || "Inter";
     };
 
     return {
@@ -514,6 +511,8 @@ export default defineComponent({
       isOwner,
       getCurrentFontSize,
       handleFontSizeChange,
+      handleFontChange,
+      getCurrentFont,
     };
   },
 });
@@ -537,6 +536,7 @@ export default defineComponent({
   line-height: 1.3;
   transition: background-color 0.3s ease;
   position: relative;
+  color: var(--tile-text-color);
 
   &::-webkit-scrollbar {
     display: none;
@@ -548,12 +548,16 @@ export default defineComponent({
 }
 
 .not-editing.can-edit:hover {
-  /* background-color: var(--color-editable-hover); */
+  background-color: color-mix(
+    in srgb,
+    var(--tile-bg) 85%,
+    var(--tile-text-color) 15%
+  );
   cursor: text;
 }
 
 .overflowing::after {
-  content: "...";
+  /* content: "..."; */
   position: absolute;
   right: 18px;
   bottom: 12px;

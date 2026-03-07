@@ -129,6 +129,8 @@
           class="profile-name profile-editor"
           :class="{ 'can-edit': layoutStore.isOwner }"
           :spellcheck="layoutStore.isOwner && isEditing"
+          @mousedown="focusEditor(nameEditor, $event)"
+          @click="catchEditorClick(nameEditor)"
         >
           <EditorContent :editor="nameEditor" />
         </div>
@@ -136,6 +138,8 @@
           class="profile-title profile-editor"
           :class="{ 'can-edit': layoutStore.isOwner }"
           :spellcheck="layoutStore.isOwner && isEditing"
+          @mousedown="focusEditor(titleEditor, $event)"
+          @click="catchEditorClick(titleEditor)"
         >
           <EditorContent :editor="titleEditor" />
         </div>
@@ -147,6 +151,8 @@
       :class="{ 'can-edit': layoutStore.isOwner }"
       :spellcheck="layoutStore.isOwner && isEditing"
       :style="{ '--tile-text-color': textColor }"
+      @mousedown="focusEditor(bioEditor, $event)"
+      @click="catchEditorClick(bioEditor)"
     >
       <EditorContent :editor="bioEditor" />
     </div>
@@ -183,14 +189,14 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { useLayoutStore } from "@/stores/layout";
 import { type ProfileBioContent, type AvatarShape } from "@/types/TileContent";
-import {
-  isDirectImageUrl,
-} from "@/utils/TileUtils";
+import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { getAuth } from "firebase/auth";
 import { useColorPicker } from "@/composables/useColorPicker";
+import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import Placeholder from "@tiptap/extension-placeholder";
 
-const editorExtensions: AnyExtension[] = [
+const baseExtensions: AnyExtension[] = [
   StarterKit,
   TextStyle,
   Color,
@@ -198,6 +204,11 @@ const editorExtensions: AnyExtension[] = [
   FontSize,
   TaskList,
   TaskItem,
+];
+
+const makeExtensions = (placeholder: string): AnyExtension[] => [
+  ...baseExtensions,
+  Placeholder.configure({ placeholder, showOnlyWhenEditable: false }),
 ];
 
 export default defineComponent({
@@ -219,12 +230,15 @@ export default defineComponent({
 
     const isEditing = ref(false);
     const activeEditor = ref<any>(null);
+    const pendingFocusEditor = ref<any>(null);
     const avatarInput = ref<HTMLInputElement | null>(null);
     const avatarRef = ref<HTMLDivElement | null>(null);
     const profileRoot = ref<HTMLDivElement | null>(null);
     const avatarSize = ref(152);
 
     const clipPathId = `avatar-clip-${Math.random().toString(36).slice(2, 9)}`;
+
+    const tileId = inject<string | null>("tileId", null);
 
     const avatarRadius = ref(props.content.avatarRadius ?? 12);
     const showUrlInput = ref(false);
@@ -240,31 +254,42 @@ export default defineComponent({
       }
     };
 
+    const { schedulePersist, flushPersist } = useEditorAutosave(() =>
+      persistContent(),
+    );
+
+    const onEditorUpdate = () => {
+      if (isEditing.value) schedulePersist();
+    };
+
     const nameEditor = useEditor({
       editable: false,
-      extensions: editorExtensions,
+      extensions: makeExtensions("Your name"),
       content: parseContent(props.content.name),
       onFocus: ({ editor }) => {
         activeEditor.value = editor;
       },
+      onUpdate: onEditorUpdate,
     });
 
     const titleEditor = useEditor({
       editable: false,
-      extensions: editorExtensions,
+      extensions: makeExtensions("Add your title"),
       content: parseContent(props.content.title),
       onFocus: ({ editor }) => {
         activeEditor.value = editor;
       },
+      onUpdate: onEditorUpdate,
     });
 
     const bioEditor = useEditor({
       editable: false,
-      extensions: editorExtensions,
+      extensions: makeExtensions("Tell us about yourself..."),
       content: parseContent(props.content.bio),
       onFocus: ({ editor }) => {
         activeEditor.value = editor;
       },
+      onUpdate: onEditorUpdate,
     });
 
     const avatarShape = computed(() => props.content.avatarShape || "circle");
@@ -321,10 +346,20 @@ export default defineComponent({
 
     const persistContent = () => {
       if (!nameEditor.value || !titleEditor.value || !bioEditor.value) return;
-      props.content.name = serializeEditor(nameEditor.value);
-      props.content.title = serializeEditor(titleEditor.value);
-      props.content.bio = serializeEditor(bioEditor.value);
-      layoutStore.saveLayout();
+      if (!layoutStore.isOwner) return;
+
+      const name = serializeEditor(nameEditor.value);
+      const title = serializeEditor(titleEditor.value);
+      const bio = serializeEditor(bioEditor.value);
+
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { name, title, bio });
+      } else {
+        props.content.name = name;
+        props.content.title = title;
+        props.content.bio = bio;
+        layoutStore.saveLayout();
+      }
     };
 
     watch(
@@ -345,10 +380,12 @@ export default defineComponent({
         if (shouldBeEditable) {
           nextTick(() => {
             const target =
+              pendingFocusEditor.value ||
               activeEditor.value ||
               nameEditor.value ||
               titleEditor.value ||
               bioEditor.value;
+            pendingFocusEditor.value = null;
             target?.commands.focus("end");
           });
           return;
@@ -363,9 +400,34 @@ export default defineComponent({
           return;
         }
 
-        persistContent();
+        flushPersist();
       },
     );
+
+    const focusEditor = (editorRef: any, _event: MouseEvent) => {
+      if (!layoutStore.isOwner) return;
+      const ed = editorRef?.value ?? editorRef;
+      if (!ed) return;
+
+      if (!isEditing.value) {
+        // Store which editor was clicked so the isEditing watch focuses it.
+        pendingFocusEditor.value = ed;
+      }
+      // When already editing, let ProseMirror handle mousedown naturally
+      // so clicks on text place the cursor at the correct position.
+    };
+
+    const catchEditorClick = (editorRef: any) => {
+      if (!layoutStore.isOwner || !isEditing.value) return;
+      const ed = editorRef?.value ?? editorRef;
+      if (!ed) return;
+
+      // If ProseMirror couldn't place a cursor (click was on empty space),
+      // the editor will have lost focus. Re-focus at the end of the text.
+      if (!ed.isFocused) {
+        ed.commands.focus("end");
+      }
+    };
 
     const onShortClick = () => {
       if (!layoutStore.isOwner) return;
@@ -591,8 +653,6 @@ export default defineComponent({
       return { borderRadius: radius };
     });
 
-    const tileId = inject<string | null>("tileId", null);
-
     const { backgroundColor, textColor, handleBackgroundColorChange } =
       useColorPicker(tileId, props.content, emit);
 
@@ -631,6 +691,8 @@ export default defineComponent({
       onRadiusInput,
       onRadiusCommit,
       handleBackgroundColorChange,
+      focusEditor,
+      catchEditorClick,
     };
   },
 });
@@ -708,7 +770,7 @@ export default defineComponent({
 }
 
 .profile-editor {
-  padding: 2px 0;
+  padding: 6px 8px;
   border-radius: var(--radius-sm);
   transition: background-color var(--transition-normal);
 }
@@ -858,5 +920,14 @@ export default defineComponent({
 .control-segment button.active {
   background: var(--color-text-primary);
   color: var(--color-content-background);
+}
+
+:deep(.tiptap p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--tile-text-color, var(--color-content-default));
+  opacity: 0.4;
+  pointer-events: none;
+  height: 0;
 }
 </style>

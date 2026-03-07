@@ -97,6 +97,12 @@ export default {
         return;
       }
       const text = editableCaptionElement.value?.innerText.trim() ?? '';
+      // Update the store's canonical tile so the caption persists to Firestore
+      const storeTile = layoutStore.currentLayout?.tiles?.find(t => t.i === props.tile.i);
+      if (storeTile) {
+        storeTile.caption = text;
+      }
+      // Also update the display copy so the UI reflects immediately
       props.tile.caption = text;
       layoutStore.updateLayout();
       editing.value = false;

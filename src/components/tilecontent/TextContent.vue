@@ -117,6 +117,7 @@ import AddLinkModal from "../AddLinkModal.vue";
 import type { TextContent } from "@/types/TileContent";
 import { useToastStore } from "@/stores/toast";
 import { useColorPicker } from "@/composables/useColorPicker";
+import { useEditorAutosave } from "@/composables/useEditorAutosave";
 
 export default defineComponent({
   components: {
@@ -162,6 +163,10 @@ export default defineComponent({
     const showLinkModal = ref<boolean>(false);
     const toastStore = useToastStore();
 
+    const { schedulePersist, flushPersist } = useEditorAutosave(() =>
+      persistEditorText(),
+    );
+
     const editor = useEditor({
       editable: false,
       extensions: [
@@ -193,6 +198,9 @@ export default defineComponent({
       onUpdate({ editor }) {
         // props.content.text = editor.getHTML();
         checkOverflow();
+        if (isEditing.value) {
+          schedulePersist();
+        }
       },
     });
 
@@ -255,8 +263,8 @@ export default defineComponent({
           isEditing.value = false;
           return;
         }
-        // Owner is leaving edit mode: persist changes.
-        persistEditorText();
+        // Owner is leaving edit mode: flush any pending debounce and persist.
+        flushPersist();
       },
     );
 
@@ -339,7 +347,11 @@ export default defineComponent({
         return;
       }
       props.content.textLink = normalized;
-      layoutStore.saveLayout();
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { textLink: normalized });
+      } else {
+        layoutStore.saveLayout();
+      }
       showLinkModal.value = false;
     };
 

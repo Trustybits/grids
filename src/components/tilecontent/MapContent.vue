@@ -3,7 +3,7 @@
     <div
       ref="mapContainer"
       class="map-canvas"
-      :class="{ 'is-interactive': isInteractive }"
+      :class="{ 'is-interactive': isInteractive, 'is-hidden': !mapReady }"
     ></div>
 
     <div v-if="showClouds" class="map-overlay map-clouds" aria-hidden="true">
@@ -205,6 +205,13 @@ export default defineComponent({
     const searchInputRef = ref<HTMLInputElement | null>(null);
     const statusMessage = ref<string | null>(null);
     let resizeObserver: ResizeObserver | null = null;
+    // Tracks whether the map is still performing its first positioning.
+    // When true, flyToLocation uses jumpTo (instant) instead of easeTo
+    // so the user never sees the default [0,0] ocean view.
+    let isInitialLoad = true;
+    // Controls map canvas visibility — hidden until the first real center
+    // is applied so the user never sees a flash of the [0,0] ocean.
+    const mapReady = ref(false);
     const token = import.meta.env.VITE_MAPBOX_TOKEN;
     const hasToken = computed(() => !!token);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
@@ -444,6 +451,9 @@ export default defineComponent({
     };
 
     const syncContentFromMap = () => {
+      // Don't persist the default [0,0] center during initial load;
+      // we only want to save once a real position has been established.
+      if (isInitialLoad) return;
       if (!layoutStore.isOwner) return;
       const map = mapInstance.value;
       if (!map) return;
@@ -467,11 +477,22 @@ export default defineComponent({
         saveLayout();
       }
       if (map) {
-        map.easeTo({
-          center: [center.lng, center.lat],
-          zoom: targetZoom,
-          duration: 800,
-        });
+        if (isInitialLoad) {
+          // Snap instantly on first positioning so the user never sees [0,0].
+          map.jumpTo({ center: [center.lng, center.lat], zoom: targetZoom });
+          isInitialLoad = false;
+          // Reveal the map now that it's positioned correctly.
+          mapReady.value = true;
+        } else {
+          // Use Mapbox's flyTo for a cinematic arc animation between locations.
+          map.flyTo({
+            center: [center.lng, center.lat],
+            zoom: targetZoom,
+            speed: 1.2,
+            curve: 1.42,
+            essential: true,
+          });
+        }
       }
     };
 
@@ -488,12 +509,14 @@ export default defineComponent({
         const response = await fetch(url);
         if (!response.ok) {
           statusMessage.value = "Search failed.";
+          if (isInitialLoad) { isInitialLoad = false; mapReady.value = true; }
           return;
         }
         const data = await response.json();
         const match = data.features?.[0];
         if (!match?.center) {
           statusMessage.value = "No results found.";
+          if (isInitialLoad) { isInitialLoad = false; mapReady.value = true; }
           return;
         }
         statusMessage.value = null;
@@ -503,6 +526,7 @@ export default defineComponent({
       } catch (error) {
         console.error("Mapbox search failed:", error);
         statusMessage.value = "Search failed.";
+        if (isInitialLoad) { isInitialLoad = false; mapReady.value = true; }
       }
     };
 
@@ -510,6 +534,8 @@ export default defineComponent({
       if (!layoutStore.isOwner) return;
       if (!navigator.geolocation) {
         statusMessage.value = "Geolocation not supported.";
+        // Reveal the map even without a location so the tile isn't blank.
+        if (isInitialLoad) { isInitialLoad = false; mapReady.value = true; }
         return;
       }
       statusMessage.value = "Locating...";
@@ -525,6 +551,8 @@ export default defineComponent({
         },
         () => {
           statusMessage.value = "Unable to get location.";
+          // Reveal the map even on failure so the tile isn't permanently blank.
+          if (isInitialLoad) { isInitialLoad = false; mapReady.value = true; }
         }
       );
     };
@@ -684,6 +712,22 @@ export default defineComponent({
       saveLayout();
     };
 
+    // Re-centers the map viewport on the marker (if set), falling back
+    // to the saved center. Exposed to the toolbar as a "recenter" action.
+    const recenterOnMarker = () => {
+      const target = props.content.marker ?? props.content.center;
+      if (!target || (target.lat === 0 && target.lng === 0)) return;
+      const map = mapInstance.value;
+      if (!map) return;
+      // Use easeTo for a smooth pan back to the marker — flyTo's arc
+      // animation is reserved for search-driven location changes.
+      map.easeTo({
+        center: [target.lng, target.lat],
+        zoom: props.content.zoom ?? 9,
+        duration: 800,
+      });
+    };
+
     const onResize = () => {
       mapInstance.value?.resize();
     };
@@ -734,6 +778,9 @@ export default defineComponent({
         bearing: props.content.bearing ?? 0,
         pitch: props.content.pitch ?? 0,
         attributionControl: false,
+        // Keep the last rendered frame in the WebGL buffer so the canvas
+        // never flashes black when the tile container is being resized.
+        preserveDrawingBuffer: true,
       });
 
       map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
@@ -750,9 +797,20 @@ export default defineComponent({
 
       // Watch for container size changes (e.g. grid resize transitions)
       // so the map re-renders to fill the new dimensions without black bars.
+      // The resize call is debounced because during animated CSS transitions
+      // (the spring settle after a tile resize) the observer fires on every
+      // frame.  Each map.resize() sets the canvas width/height attributes
+      // which clears the WebGL drawing buffer, producing a black flash.
+      // By waiting until the container stops changing size we call resize()
+      // only once after the animation finishes — preserveDrawingBuffer keeps
+      // the last good frame visible in the meantime.
       if (mapContainer.value) {
+        let resizeTimer: ReturnType<typeof setTimeout> | null = null;
         const ro = new ResizeObserver(() => {
-          map.resize();
+          if (resizeTimer) clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(() => {
+            map.resize();
+          }, 0);
         });
         ro.observe(mapContainer.value);
         resizeObserver = ro;
@@ -768,12 +826,23 @@ export default defineComponent({
         props.content.center &&
         (props.content.center.lat !== 0 || props.content.center.lng !== 0);
 
+      if (hasSavedCenter) {
+        // Map was constructed with valid coordinates — it's already positioned.
+        isInitialLoad = false;
+        mapReady.value = true;
+      }
+
       if (layoutStore.isOwner) {
         if (props.content.searchQuery && !hasSavedCenter) {
           handleGeocode(props.content.searchQuery);
         } else if (!hasSavedCenter) {
           useMyLocation();
         }
+      } else if (!hasSavedCenter) {
+        // Non-owner viewing a map that was never positioned — just reveal it
+        // at whatever center it has rather than leaving it invisible.
+        isInitialLoad = false;
+        mapReady.value = true;
       }
 
       if (show3d.value) {
@@ -820,6 +889,8 @@ export default defineComponent({
       onExitClick,
       onResize,
       hasToken,
+      mapReady,
+      recenterOnMarker,
     };
   },
 });
@@ -834,10 +905,47 @@ export default defineComponent({
   border-radius: var(--tile-border-radius);
 }
 
+// Overdraw buffer: render the map canvas slightly larger than the tile on
+// every side so pre-rendered map is already available beyond the visible
+// edges.  The parent .map-tile clips with overflow:hidden.  During resize
+// transitions this buffer hides the black fringe that would otherwise
+// appear before map.resize() fires.
+$overdraw: 40px;
+
 .map-canvas {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: -$overdraw;
+  left: -$overdraw;
+  width: calc(100% + #{$overdraw * 2});
+  height: calc(100% + #{$overdraw * 2});
   pointer-events: none;
+}
+
+// Shift Mapbox's built-in UI controls inward so they stay within the
+// visible tile bounds despite the canvas being oversized by $overdraw.
+.map-canvas :deep(.mapboxgl-ctrl-top-right) {
+  top: $overdraw;
+  right: $overdraw;
+}
+.map-canvas :deep(.mapboxgl-ctrl-bottom-right) {
+  bottom: $overdraw;
+  right: $overdraw;
+}
+.map-canvas :deep(.mapboxgl-ctrl-top-left) {
+  top: $overdraw;
+  left: $overdraw;
+}
+.map-canvas :deep(.mapboxgl-ctrl-bottom-left) {
+  bottom: $overdraw;
+  left: $overdraw;
+}
+
+// Mapbox markers use transform:translate for positioning — the overdraw
+// offset is already baked into the map's coordinate → pixel projection,
+// so no additional CSS correction is needed for markers.
+
+.map-canvas.is-hidden {
+  visibility: hidden;
 }
 
 .map-canvas.is-interactive {

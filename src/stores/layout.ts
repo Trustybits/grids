@@ -888,6 +888,8 @@ export const useLayoutStore = defineStore("layout", {
         tile.w = 4;
         tile.h = 4;
         this.adjustTilePosition(tile);
+        const dpProf = this.displayPositions.find((p) => p.i === id);
+        if (dpProf) { dpProf.w = tile.w; dpProf.h = tile.h; dpProf.x = tile.x; }
         this.updateLayout();
         return;
       }
@@ -899,6 +901,10 @@ export const useLayoutStore = defineStore("layout", {
         tile.w = w;
         tile.h = h;
         this.adjustTilePosition(tile);
+        // Keep displayPositions in sync so updateLayout's sync-back
+        // doesn't revert the programmatic resize.
+        const dp = this.displayPositions.find((p) => p.i === id);
+        if (dp) { dp.w = w; dp.h = h; dp.x = tile.x; }
         this.updateLayout();
         return;
       }

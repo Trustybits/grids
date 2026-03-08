@@ -403,6 +403,12 @@ export default {
   height: 28px;
   display: block;
   flex: 0 0 auto;
+  color: var(--color-text-primary);
+  opacity: 0.55;
+}
+
+.toolbarAlpha button:hover svg {
+  opacity: 1;
 }
 
 .devToolbar {

@@ -94,7 +94,8 @@
           <div v-show="showVolume" class="vol-slider-vertical" @mouseenter="onVolumeEnter" @mouseleave="onVolumeLeave">
             <input type="range" class="volume-slider volume-slider--vertical" min="0" max="1" step="0.02"
               :value="isMuted ? 0 : volume" :style="{ '--fill': `${(isMuted ? 0 : volume) * 100}%` }"
-              aria-label="Volume" @input="onVolumeInput" />
+              aria-label="Volume" @input="onVolumeInput"
+              @pointerdown.stop @mousedown.stop @touchstart.stop />
           </div>
           <button class="icon-btn" :aria-label="isMuted ? 'Unmute' : 'Mute'" @click="toggleMute">
             <svg v-if="volumeIcon === 'mute'" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -181,7 +182,8 @@
           <div v-show="showVolume" class="vol-slider-vertical" @mouseenter="onVolumeEnter" @mouseleave="onVolumeLeave">
             <input type="range" class="volume-slider volume-slider--vertical" min="0" max="1" step="0.02"
               :value="isMuted ? 0 : volume" :style="{ '--fill': `${(isMuted ? 0 : volume) * 100}%` }"
-              aria-label="Volume" @input="onVolumeInput" />
+              aria-label="Volume" @input="onVolumeInput"
+              @pointerdown.stop @mousedown.stop @touchstart.stop />
           </div>
           <button class="icon-btn" :aria-label="isMuted ? 'Unmute' : 'Mute'" @click="toggleMute">
             <svg v-if="volumeIcon === 'mute'" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -288,7 +290,8 @@
             <div class="vol-slider-wrap" :class="{ 'vol-slider-wrap--expanded': showVolume }" @mouseenter="onVolumeEnter" @mouseleave="onVolumeLeave">
               <input type="range" class="volume-slider" min="0" max="1" step="0.02"
                 :value="isMuted ? 0 : volume" :style="{ '--fill': `${(isMuted ? 0 : volume) * 100}%` }"
-                aria-label="Volume" @input="onVolumeInput" />
+                aria-label="Volume" @input="onVolumeInput"
+                @pointerdown.stop @mousedown.stop @touchstart.stop />
             </div>
             <div class="tag-clip">
               <span class="tag">PREVIEW</span>
@@ -601,15 +604,17 @@ export default defineComponent({
     }
 
     function drawWave() {
-      if (!analyser || !canvasEl.value) return;
-      const canvas = canvasEl.value;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+      if (!analyser) return;
+      if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
       function draw() {
         animFrameId = requestAnimationFrame(draw);
+        const canvas = canvasEl.value;
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
         analyser!.getByteFrequencyData(dataArray);
-        ctx!.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         const bars = getLogBars(dataArray);
         const slotW = canvas.width / NUM_BARS;
         const barW = 1;
@@ -619,8 +624,8 @@ export default defineComponent({
           const barH = Math.max(v * canvas.height * 1.5, 2);
           const x = i * slotW + (slotW - barW) / 2;
           const t = centerY - barH / 2;
-          ctx!.fillStyle = makeBarGradient(ctx!, t, barH);
-          ctx!.fillRect(x, t, barW, barH);
+          ctx.fillStyle = makeBarGradient(ctx, t, barH);
+          ctx.fillRect(x, t, barW, barH);
         }
       }
       draw();
@@ -1052,7 +1057,6 @@ export default defineComponent({
   align-items: center;
   width: 66px;
   flex-shrink: 0;
-  overflow: hidden;
 }
 
 .vol-slider-wrap {
@@ -1061,7 +1065,7 @@ export default defineComponent({
   width: 0;
   min-width: 0;
   flex-shrink: 0;
-  overflow: hidden;
+  overflow: visible;
   transition: width 0.25s ease;
 }
 

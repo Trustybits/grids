@@ -725,7 +725,7 @@ export default defineComponent({
 .tile-link-indicator {
   width: 24px;
   height: 24px;
-  color: var(--color-text-primary);
+  color: var(--tile-text-color);
   opacity: 0.21;
   pointer-events: none;
   transition: opacity var(--duration-fast) var(--easing-ease-in-out);
@@ -748,7 +748,7 @@ export default defineComponent({
 }
 
 .tile-title {
-  color: var(--color-text-primary);
+  color: var(--tile-text-color);
   font-size: 16px;
   font-weight: 600;
   line-height: 1.25;
@@ -771,7 +771,7 @@ export default defineComponent({
 }
 
 .tile-description {
-  color: var(--color-content-high);
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
   font-size: 12px;
   line-height: 16px;
   margin: 0;
@@ -785,7 +785,7 @@ export default defineComponent({
 }
 
 .tile-subtitle {
-  color: var(--color-content-high);
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
   font-size: 12px;
   line-height: 16px;
   margin: 0;
@@ -807,7 +807,7 @@ export default defineComponent({
   width: 100%;
   border: 0px solid transparent;
   background: color-mix(in srgb, var(--color-tile-background) 84%, transparent);
-  color: var(--color-text-primary);
+  color: var(--tile-text-color);
   field-sizing: content;
   padding: 0;
   line-height: inherit;
@@ -837,7 +837,7 @@ export default defineComponent({
 .tile-input--description {
   font-size: 12px;
   line-height: 16px;
-  color: var(--color-content-high);
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
   font-family: "Inter", sans-serif;
 }
 
@@ -845,7 +845,7 @@ export default defineComponent({
   font-size: 12px;
   line-height: 16px;
   font-family: "Inter", sans-serif;
-  color: var(--color-content-high);
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
 }
 
 .link-image-input {

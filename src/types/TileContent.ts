@@ -51,6 +51,7 @@ export interface ImageContent extends TileContent {
   zoom: number;
   offsetX: number;
   offsetY: number;
+  backgroundColor?: string;
 }
 
 export interface LinkContent extends TileContent {
@@ -67,6 +68,7 @@ export interface LinkContent extends TileContent {
   customSubtitle?: string;
   linkBackgroundEnabled?: boolean;
   customImageUrl?: string;
+  backgroundColor?: string;
 }
 
 export interface EmbedContent extends TileContent {
@@ -80,6 +82,7 @@ export interface VideoContent extends TileContent {
   zoom: number;
   offsetX: number;
   offsetY: number;
+  backgroundColor?: string;
 }
 
 export type MapStyleMode =

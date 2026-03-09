@@ -41,6 +41,12 @@
           @ended="onVideoEnded"
           @click="onVideoClick"
         ></video>
+        <div
+          v-if="overlayColor"
+          class="video-color-overlay"
+          :style="{ backgroundColor: overlayColor }"
+          aria-hidden="true"
+        />
       </div>
       
       <!-- Center Play / Replay Button -->
@@ -130,18 +136,20 @@ import { defineComponent, ref, computed, onMounted, onUnmounted, watch, inject, 
 import { type VideoContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { useVideoFocus } from "@/composables/useVideoFocus";
+import { useColorPicker } from "@/composables/useColorPicker";
 
 const PREVIEW_DURATION = 3;
 const DEFAULT_VOLUME = 0.15;
 
 export default defineComponent({
+  emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
       type: Object as () => VideoContent,
       required: true,
     },
   },
-  setup(props) {
+  setup(props, { emit }) {
     const layoutStore = useLayoutStore();
     const videoFocus = useVideoFocus();
 
@@ -569,6 +577,13 @@ export default defineComponent({
       }
     });
 
+    const { overlayColor, handleBackgroundColorChange } = useColorPicker(
+      tileId,
+      props.content,
+      emit,
+      "overlay",
+    );
+
     return {
       layoutStore,
       isEditing,
@@ -582,6 +597,8 @@ export default defineComponent({
       videoWrapper,
       videoElement,
       videoOverflowElement,
+      overlayColor,
+      handleBackgroundColorChange,
       // Tile size
       isNarrow,
       isMedium,
@@ -657,6 +674,15 @@ export default defineComponent({
   overflow: hidden;
   border-radius: var(--tile-border-radius);
   z-index: 2;
+}
+
+/* Color blend overlay - applied on top of video when a chromatic color is selected */
+.video-color-overlay {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: color;
+  pointer-events: none;
+  border-radius: var(--tile-border-radius);
 }
 
 /* Upload progress overlay — sits on top of the video preview during background upload */

@@ -20,10 +20,28 @@
       <button @click="fetchMetadata" class="retry-btn">Retry</button>
     </div>
 
+    <!-- Persistent audio + waveform canvas — never destroyed across layout changes -->
+    <audio
+      ref="audioEl"
+      :src="content.previewUrl"
+      crossorigin="anonymous"
+      @ended="onEnded"
+      @error="onAudioError"
+      @timeupdate="onTimeUpdate"
+      @loadedmetadata="onLoadedMetadata"
+    />
+    <div
+      ref="canvasWrapEl"
+      class="canvas-wrap canvas-wrap--hoisted"
+      v-show="showWaveform"
+    >
+      <canvas ref="canvasEl" class="wave-canvas" />
+    </div>
+
     <!-- ══════════════════════════════════════════════════════════
          1×1 layout: just the platform logo
          ══════════════════════════════════════════════════════════ -->
-    <template v-else-if="effectiveTileSize === '1x1'">
+    <template v-if="!isLoading && !hasError && effectiveTileSize === '1x1'">
       <div class="header-row">
         <a :href="content.trackUrl" target="_blank" rel="noopener" class="platform-logo platform-logo--fill" :title="platformTitle">
           <!-- Spotify logo -->
@@ -63,16 +81,6 @@
           </a>
         </div>
       </div>
-
-      <audio
-        ref="audioEl"
-        :src="content.previewUrl"
-        crossorigin="anonymous"
-        @ended="onEnded"
-        @error="onAudioError"
-        @timeupdate="onTimeUpdate"
-        @loadedmetadata="onLoadedMetadata"
-      />
 
       <div class="controls-bar controls-bar--2x2">
         <button
@@ -144,24 +152,6 @@
         </div>
       </div>
 
-      <audio
-        ref="audioEl"
-        :src="content.previewUrl"
-        crossorigin="anonymous"
-        @ended="onEnded"
-        @error="onAudioError"
-        @timeupdate="onTimeUpdate"
-        @loadedmetadata="onLoadedMetadata"
-      />
-
-      <div
-        v-if="show2xNExtras"
-        ref="canvasWrapEl"
-        class="canvas-wrap"
-      >
-        <canvas ref="canvasEl" class="wave-canvas" />
-      </div>
-
       <div class="controls-bar controls-bar--2x2">
         <button
           class="play-btn play-btn--small"
@@ -220,7 +210,6 @@
             <div class="cover-art" :style="{ opacity: (vinylPhase === 'toss-cover' || vinylPhase === 'slide-back' || vinylPhase === 'spinning' || vinylPhase === 'spinning-paused') ? 0 : 1, transition: 'opacity 0.15s' }">
               <img :src="content.albumArt" :alt="content.trackName" />
             </div>
-            <canvas ref="noteCanvasEl" class="note-canvas" />
           </div>
           <div class="metadata">
             <h1 class="track-name">
@@ -239,24 +228,6 @@
             <path d="M23.994 6.124a9.23 9.23 0 0 0-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 0 0-1.877-.726 10.496 10.496 0 0 0-1.564-.15c-.073-.005-.146-.01-.22-.015H5.988c-.076.005-.152.01-.228.015-.5.032-1 .1-1.492.198-1.283.3-2.326 1.017-3.093 2.1A5.005 5.005 0 0 0 .5 4.07a9.23 9.23 0 0 0-.165 1.833c-.006.073-.01.147-.015.22v11.693c.005.076.01.152.015.228.032.5.1 1 .198 1.492.3 1.283 1.017 2.326 2.1 3.093.554.394 1.17.66 1.833.83.652.167 1.32.24 1.993.265.18.007.36.013.54.015h11.693c.076-.002.152-.008.228-.015.5-.032 1-.1 1.492-.198 1.283-.3 2.326-1.017 3.093-2.1.394-.554.66-1.17.83-1.833.167-.652.24-1.32.265-1.993.006-.073.01-.147.015-.22V6.344c-.005-.076-.01-.152-.015-.22zM17.52 17.9c0 .254-.065.404-.247.49-.03.015-.135.037-.198.037-.107 0-.216-.035-.352-.106a8.586 8.586 0 0 1-.905-.554 8.94 8.94 0 0 1-1.474-1.333 7.396 7.396 0 0 1-1.073-1.636 5.347 5.347 0 0 1-.4-1.136c-.07-.342-.1-.575-.1-.872v-5.04c0-.323.055-.6.19-.83a.72.72 0 0 1 .325-.29c.102-.05.23-.088.413-.12a6.274 6.274 0 0 1 .867-.083c.212-.007.382.005.57.052.155.04.275.113.37.222.1.112.16.244.19.405.023.127.032.247.032.38v4.31c0 .34.07.687.21 1.023.158.38.39.72.677 1.012.35.36.71.578 1.033.718.248.107.336.167.48.256.077.047.135.113.16.2.024.066.032.14.032.224v2.47zm-2.4-8.054c0 .287-.095.473-.262.578a1.08 1.08 0 0 1-.322.144l-.058.012c-.193.036-.392.057-.65.057a2.98 2.98 0 0 1-.452-.038 1.108 1.108 0 0 1-.415-.16.56.56 0 0 1-.203-.255c-.045-.114-.068-.247-.068-.402V5.59c0-.27.036-.493.118-.667.082-.175.206-.31.38-.404.144-.08.313-.138.508-.175.236-.046.485-.07.747-.07.142 0 .28.008.415.024.185.022.33.072.438.155a.55.55 0 0 1 .195.29c.03.098.046.216.046.355v4.75z"/>
           </svg>
         </a>
-      </div>
-
-      <audio
-        ref="audioEl"
-        :src="content.previewUrl"
-        crossorigin="anonymous"
-        @ended="onEnded"
-        @error="onAudioError"
-        @timeupdate="onTimeUpdate"
-        @loadedmetadata="onLoadedMetadata"
-      />
-
-      <div
-        v-if="!compact4x4"
-        ref="canvasWrapEl"
-        class="canvas-wrap"
-      >
-        <canvas ref="canvasEl" class="wave-canvas" />
       </div>
 
       <div class="controls-bar">
@@ -401,6 +372,12 @@ export default defineComponent({
       if (vinylPhase.value === "spinning-paused") return ARM_REST_DEG;
       const progress = duration.value > 0 ? currentTime.value / duration.value : 0;
       return ARM_START_DEG + (ARM_END_DEG - ARM_START_DEG) * progress;
+    });
+
+    const showWaveform = computed(() => {
+      if (effectiveTileSize.value === "4x4") return !compact4x4.value;
+      if (effectiveTileSize.value === "2xN") return show2xNExtras.value;
+      return false;
     });
 
     const volumeIcon = computed(() => {
@@ -766,15 +743,6 @@ export default defineComponent({
       }
     }
 
-    watch(effectiveTileSize, () => {
-      nextTick(() => {
-        if (audioEl.value) {
-          audioEl.value.volume = isMuted.value ? 0 : volume.value;
-        }
-        setupCanvasObserver();
-      });
-    });
-
     onMounted(() => {
       fetchMetadata();
       nextTick(() => {
@@ -797,6 +765,7 @@ export default defineComponent({
       effectiveTileSize,
       show2xNExtras,
       compact4x4,
+      showWaveform,
       bgBase,
       bgTinted,
       txtSubdued,
@@ -986,6 +955,10 @@ export default defineComponent({
   min-width: 1px;
   width: 100%;
   overflow: hidden;
+}
+
+.canvas-wrap--hoisted {
+  order: 3;
 }
 
 .wave-canvas {

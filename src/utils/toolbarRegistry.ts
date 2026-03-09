@@ -343,6 +343,7 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     ...RESIZE_PRESETS,
     BORDER_TOGGLE,
     LINK_BG_TOGGLE,
+    COLOR_BUTTON,
     LINK_MORE_MENU,
   ],
   [ContentType.TEXT]: [

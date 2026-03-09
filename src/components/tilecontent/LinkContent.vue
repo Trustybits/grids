@@ -22,6 +22,12 @@
         :src="backgroundImageUrl"
         :alt="content.metaTitle || content.domain"
       />
+      <div
+        v-if="overlayColor"
+        class="link-color-overlay"
+        :style="{ backgroundColor: overlayColor }"
+        aria-hidden="true"
+      />
       <div class="tile-background-overlay"></div>
     </div>
 
@@ -213,16 +219,19 @@ import { type LinkContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
+import { useColorPicker } from "@/composables/useColorPicker";
 
 export default defineComponent({
+  emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
       type: Object as () => LinkContent,
       required: true,
     },
   },
-  setup(props) {
+  setup(props, { emit }) {
     const layoutStore = useLayoutStore();
+    const tileId = inject<string | null>("tileId", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
 
@@ -543,8 +552,17 @@ export default defineComponent({
       removeExitClickHandler();
     };
 
+    const { overlayColor, handleBackgroundColorChange } = useColorPicker(
+      tileId,
+      props.content,
+      emit,
+      "overlay",
+    );
+
     return {
       layoutStore,
+      overlayColor,
+      handleBackgroundColorChange,
       formatLink,
       onShortClick,
       onExitClick,
@@ -625,6 +643,13 @@ export default defineComponent({
   display: block;
   object-fit: cover;
   transform: translateZ(0);
+}
+
+.link-color-overlay {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: color;
+  pointer-events: none;
 }
 
 .tile-background-overlay {

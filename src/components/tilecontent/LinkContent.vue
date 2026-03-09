@@ -22,6 +22,12 @@
         :src="backgroundImageUrl"
         :alt="content.metaTitle || content.domain"
       />
+      <div
+        v-if="overlayColor"
+        class="link-color-overlay"
+        :style="{ backgroundColor: overlayColor }"
+        aria-hidden="true"
+      />
       <div class="tile-background-overlay"></div>
     </div>
 
@@ -213,16 +219,19 @@ import { type LinkContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
+import { useColorPicker } from "@/composables/useColorPicker";
 
 export default defineComponent({
+  emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
       type: Object as () => LinkContent,
       required: true,
     },
   },
-  setup(props) {
+  setup(props, { emit }) {
     const layoutStore = useLayoutStore();
+    const tileId = inject<string | null>("tileId", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
 
@@ -543,8 +552,28 @@ export default defineComponent({
       removeExitClickHandler();
     };
 
+    const LINK_RESET_COLORS = new Set([
+      "var(--color-tile-background)",
+      "var(--color-content-background)",
+    ]);
+
+    const linkOverlayColor = computed((): string | null => {
+      const color = props.content.backgroundColor;
+      if (!color || LINK_RESET_COLORS.has(color)) return null;
+      return color;
+    });
+
+    const { overlayColor, handleBackgroundColorChange } = useColorPicker(
+      tileId,
+      props.content,
+      emit,
+      "background",
+    );
+
     return {
       layoutStore,
+      overlayColor: linkOverlayColor,
+      handleBackgroundColorChange,
       formatLink,
       onShortClick,
       onExitClick,
@@ -627,17 +656,29 @@ export default defineComponent({
   transform: translateZ(0);
 }
 
+.link-color-overlay {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: color;
+  pointer-events: none;
+}
+
 .tile-background-overlay {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(
+    linear-gradient(180deg, transparent 50%, 
+      color-mix(in srgb, var(--tile-bg) 45%, transparent) 80%, var(--tile-bg) 120%), 
+    linear-gradient(90deg, 
+      color-mix(in srgb, var(--tile-bg) 0%, transparent) 0%, 
+      color-mix(in srgb, var(--tile-bg) 20%, transparent) 100%);
+    /* linear-gradient(
       180deg,
       transparent 21%,
       color-mix(in srgb, var(--color-tile-background) 76%, transparent) 76%,
       var(--color-tile-background) 100%
     ),
-    linear-gradient(90deg, color-mix(in srgb, var(--color-tile-background) 34%, transparent) 0%, color-mix(in srgb, var(--color-tile-background) 34%, transparent) 100%);
+    linear-gradient(90deg, color-mix(in srgb, var(--color-tile-background) 34%, transparent) 0%, color-mix(in srgb, var(--color-tile-background) 34%, transparent) 100%); */
   transform: translateZ(0);
 }
 
@@ -695,7 +736,7 @@ export default defineComponent({
 .tile-link-indicator {
   width: 24px;
   height: 24px;
-  color: var(--color-text-primary);
+  color: var(--tile-text-color);
   opacity: 0.21;
   pointer-events: none;
   transition: opacity var(--duration-fast) var(--easing-ease-in-out);
@@ -718,7 +759,7 @@ export default defineComponent({
 }
 
 .tile-title {
-  color: var(--color-text-primary);
+  color: var(--tile-text-color);
   font-size: 16px;
   font-weight: 600;
   line-height: 1.25;
@@ -741,7 +782,7 @@ export default defineComponent({
 }
 
 .tile-description {
-  color: var(--color-content-high);
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
   font-size: 12px;
   line-height: 16px;
   margin: 0;
@@ -755,7 +796,7 @@ export default defineComponent({
 }
 
 .tile-subtitle {
-  color: var(--color-content-high);
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
   font-size: 12px;
   line-height: 16px;
   margin: 0;
@@ -777,7 +818,7 @@ export default defineComponent({
   width: 100%;
   border: 0px solid transparent;
   background: color-mix(in srgb, var(--color-tile-background) 84%, transparent);
-  color: var(--color-text-primary);
+  color: var(--tile-text-color);
   field-sizing: content;
   padding: 0;
   line-height: inherit;
@@ -807,7 +848,7 @@ export default defineComponent({
 .tile-input--description {
   font-size: 12px;
   line-height: 16px;
-  color: var(--color-content-high);
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
   font-family: "Inter", sans-serif;
 }
 
@@ -815,7 +856,7 @@ export default defineComponent({
   font-size: 12px;
   line-height: 16px;
   font-family: "Inter", sans-serif;
-  color: var(--color-content-high);
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
 }
 
 .link-image-input {

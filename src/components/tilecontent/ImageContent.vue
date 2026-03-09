@@ -31,6 +31,12 @@
           draggable="false"
           @load="onImageLoad"
         />
+        <div
+          v-if="overlayColor"
+          class="image-color-overlay"
+          :style="{ backgroundColor: overlayColor }"
+          aria-hidden="true"
+        />
       </div>
 
       <!-- Upload progress overlay - shown while file is uploading to Firebase -->
@@ -47,16 +53,18 @@
 import { defineComponent, ref, computed, onMounted, onUnmounted, watch, inject } from "vue";
 import { type ImageContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
+import { useColorPicker } from "@/composables/useColorPicker";
 import type { ComputedRef } from "vue";
 
 export default defineComponent({
+  emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
       type: Object as () => ImageContent,
       required: true,
     },
   },
-  setup(props) {
+  setup(props, { emit }) {
     const layoutStore = useLayoutStore();
 
     // Upload progress tracking — injected tile ID lets us look up our upload state
@@ -223,6 +231,13 @@ export default defineComponent({
       constrainOffset(true);
     });
 
+    const { overlayColor, handleBackgroundColorChange } = useColorPicker(
+      tileId,
+      props.content,
+      emit,
+      "overlay",
+    );
+
     return {
       layoutStore,
       isEditing,
@@ -238,6 +253,8 @@ export default defineComponent({
       onImageLoad,
       imageDimensions,
       tileDimensions,
+      overlayColor,
+      handleBackgroundColorChange,
     };
   },
 });
@@ -284,6 +301,15 @@ export default defineComponent({
   overflow: hidden;
   border-radius: var(--tile-border-radius);
   z-index: 1;
+}
+
+/* Color blend overlay - applied on top of image when a chromatic color is selected */
+.image-color-overlay {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: color;
+  pointer-events: none;
+  border-radius: var(--tile-border-radius);
 }
 
 /* Upload progress overlay — sits on top of the image preview during background upload */

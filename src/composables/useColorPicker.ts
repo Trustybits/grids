@@ -39,7 +39,6 @@ export const useColorPicker = (
   const backgroundColorRef = computed(() => content?.backgroundColor);
 
   const overlayColor = computed((): string | null => {
-    if (mode !== "overlay") return null;
     const color = backgroundColorRef.value;
     if (!color || isStructuralColor(color)) return null;
     return color;

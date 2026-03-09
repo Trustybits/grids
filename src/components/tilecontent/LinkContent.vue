@@ -556,7 +556,7 @@ export default defineComponent({
       tileId,
       props.content,
       emit,
-      "overlay",
+      "background",
     );
 
     return {
@@ -656,13 +656,18 @@ export default defineComponent({
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(
+    linear-gradient(180deg, transparent 50%, 
+      color-mix(in srgb, var(--color-tile-background) 10%, transparent) 70%, var(--color-tile-background) 120%), 
+    linear-gradient(90deg, 
+      color-mix(in srgb, var(--color-tile-background) 0%, transparent) 0%, 
+      color-mix(in srgb, var(--color-tile-background) 20%, transparent) 100%);
+    /* linear-gradient(
       180deg,
       transparent 21%,
       color-mix(in srgb, var(--color-tile-background) 76%, transparent) 76%,
       var(--color-tile-background) 100%
     ),
-    linear-gradient(90deg, color-mix(in srgb, var(--color-tile-background) 34%, transparent) 0%, color-mix(in srgb, var(--color-tile-background) 34%, transparent) 100%);
+    linear-gradient(90deg, color-mix(in srgb, var(--color-tile-background) 34%, transparent) 0%, color-mix(in srgb, var(--color-tile-background) 34%, transparent) 100%); */
   transform: translateZ(0);
 }
 

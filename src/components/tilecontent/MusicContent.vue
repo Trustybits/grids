@@ -210,6 +210,7 @@
             <div class="cover-art" :style="{ opacity: (vinylPhase === 'toss-cover' || vinylPhase === 'slide-back' || vinylPhase === 'spinning' || vinylPhase === 'spinning-paused') ? 0 : 1, transition: 'opacity 0.15s' }">
               <img :src="content.albumArt" :alt="content.trackName" />
             </div>
+            <canvas ref="noteCanvasEl" class="note-canvas" />
           </div>
           <div class="metadata">
             <h1 class="track-name">
@@ -958,7 +959,7 @@ export default defineComponent({
 }
 
 .canvas-wrap--hoisted {
-  order: 3;
+  order: 1;
 }
 
 .wave-canvas {
@@ -998,6 +999,7 @@ export default defineComponent({
 .play-btn--small:hover { color: white; }
 
 .controls-bar {
+  order: 2;
   display: flex;
   gap: 11px;
   align-items: center;
@@ -1028,7 +1030,7 @@ export default defineComponent({
 .slider-tag-slot {
   display: flex;
   align-items: center;
-  width: 66px;
+  width: 63px;
   flex-shrink: 0;
 }
 
@@ -1381,6 +1383,7 @@ export default defineComponent({
 .platform-logo--corner:hover { opacity: 1; }
 
 .controls-bar--2x2 {
+  order: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;

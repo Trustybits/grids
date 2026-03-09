@@ -657,10 +657,10 @@ export default defineComponent({
   inset: 0;
   background-image:
     linear-gradient(180deg, transparent 50%, 
-      color-mix(in srgb, var(--color-tile-background) 10%, transparent) 70%, var(--color-tile-background) 120%), 
+      color-mix(in srgb, var(--tile-bg) 45%, transparent) 80%, var(--tile-bg) 120%), 
     linear-gradient(90deg, 
-      color-mix(in srgb, var(--color-tile-background) 0%, transparent) 0%, 
-      color-mix(in srgb, var(--color-tile-background) 20%, transparent) 100%);
+      color-mix(in srgb, var(--tile-bg) 0%, transparent) 0%, 
+      color-mix(in srgb, var(--tile-bg) 20%, transparent) 100%);
     /* linear-gradient(
       180deg,
       transparent 21%,

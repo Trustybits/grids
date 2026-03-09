@@ -552,6 +552,17 @@ export default defineComponent({
       removeExitClickHandler();
     };
 
+    const LINK_RESET_COLORS = new Set([
+      "var(--color-tile-background)",
+      "var(--color-content-background)",
+    ]);
+
+    const linkOverlayColor = computed((): string | null => {
+      const color = props.content.backgroundColor;
+      if (!color || LINK_RESET_COLORS.has(color)) return null;
+      return color;
+    });
+
     const { overlayColor, handleBackgroundColorChange } = useColorPicker(
       tileId,
       props.content,
@@ -561,7 +572,7 @@ export default defineComponent({
 
     return {
       layoutStore,
-      overlayColor,
+      overlayColor: linkOverlayColor,
       handleBackgroundColorChange,
       formatLink,
       onShortClick,

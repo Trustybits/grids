@@ -1,26 +1,56 @@
 import { useLayoutStore } from "@/stores/layout";
 import { useThemeStore } from "@/stores/theme";
-import type { ProfileBioContent, TextContent } from "@/types/TileContent";
+import type { ProfileBioContent, TextContent, ImageContent, VideoContent, LinkContent } from "@/types/TileContent";
 import { computed, watch, type ComputedRef } from "vue";
+
+type ColorPickerContent =
+  | TextContent
+  | ProfileBioContent
+  | ImageContent
+  | VideoContent
+  | LinkContent;
 
 export interface ColorPickerValues {
   backgroundColor: ComputedRef<string>;
   textColor: ComputedRef<string>;
+  overlayColor: ComputedRef<string | null>;
   handleBackgroundColorChange: (color: string) => void;
 }
 
 const themeStore = useThemeStore();
 
+const STRUCTURAL_COLORS = new Set([
+  "var(--color-tile-background)",
+  "var(--color-light-100)",
+  "var(--color-dark-0)",
+  "var(--color-content-background)",
+]);
+
+const isStructuralColor = (color: string): boolean =>
+  STRUCTURAL_COLORS.has(color);
+
 export const useColorPicker = (
   tileId: string | null,
-  content: TextContent | ProfileBioContent,
+  content: ColorPickerContent,
   emit: (type: any, value: string) => void,
+  mode: "background" | "overlay" = "background",
 ): ColorPickerValues => {
   const layoutStore = useLayoutStore();
   const backgroundColorRef = computed(() => content?.backgroundColor);
 
+  const overlayColor = computed((): string | null => {
+    if (mode !== "overlay") return null;
+    const color = backgroundColorRef.value;
+    if (!color || isStructuralColor(color)) return null;
+    return color;
+  });
+
   const backgroundColor = computed(() => {
-    return resolveBackgroundColor(backgroundColorRef.value);
+    const color = backgroundColorRef.value;
+    if (mode === "overlay" && color && !isStructuralColor(color)) {
+      return resolveBackgroundColor(undefined);
+    }
+    return resolveBackgroundColor(color);
   });
 
   const textColor = computed(() => {
@@ -49,6 +79,7 @@ export const useColorPicker = (
   return {
     backgroundColor,
     textColor,
+    overlayColor,
     handleBackgroundColorChange,
   };
 };

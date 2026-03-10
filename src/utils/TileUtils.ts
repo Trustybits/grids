@@ -17,6 +17,8 @@ import {
   type ClickerContent,
   type YouTubeContent,
   type RoadmapFeedContent,
+  type MusicContent,
+  type MusicPlatform,
 } from "@/types/TileContent";
 import { defineAsyncComponent, markRaw } from "vue";
 
@@ -154,8 +156,79 @@ function parseYouTubeUrl(
   }
 }
 
+// Parse Spotify and Apple Music URLs to extract platform and track ID
+// Supports formats:
+// - Spotify: open.spotify.com/track/ID, open.spotify.com/embed/track/ID
+// - Apple Music: music.apple.com/.../song/.../ID, music.apple.com/.../album/...?i=ID,
+//   embed.music.apple.com/.../song/ID
+function parseMusicUrl(
+  url: string,
+): { platform: MusicPlatform; trackId: string; trackType: 'track' | 'album' } | null {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+
+    // Spotify: open.spotify.com/track/<id>, /album/<id>, /embed/track/<id>, /embed/album/<id>
+    if (hostname === "open.spotify.com" || hostname === "spotify.com") {
+      const trackMatch = urlObj.pathname.match(
+        /(?:\/embed)?\/track\/([A-Za-z0-9]+)/,
+      );
+      if (trackMatch) {
+        return { platform: "spotify", trackId: trackMatch[1], trackType: 'track' };
+      }
+      const albumMatch = urlObj.pathname.match(
+        /(?:\/embed)?\/album\/([A-Za-z0-9]+)/,
+      );
+      if (albumMatch) {
+        return { platform: "spotify", trackId: albumMatch[1], trackType: 'album' };
+      }
+    }
+
+    // Apple Music: music.apple.com/xx/song/slug/ID
+    if (
+      hostname === "music.apple.com" ||
+      hostname === "embed.music.apple.com"
+    ) {
+      // /us/song/song-name/1234567890
+      const songMatch = urlObj.pathname.match(/\/song\/[^/]+\/(\d+)/);
+      if (songMatch) {
+        return { platform: "apple", trackId: songMatch[1], trackType: 'track' };
+      }
+      // /us/song/1234567890 (short form on embed URLs)
+      const shortSongMatch = urlObj.pathname.match(/\/song\/(\d+)/);
+      if (shortSongMatch) {
+        return { platform: "apple", trackId: shortSongMatch[1], trackType: 'track' };
+      }
+      // /us/album/album-name/123?i=456 (track within album)
+      const albumTrackId = urlObj.searchParams.get("i");
+      if (albumTrackId && /^\d+$/.test(albumTrackId)) {
+        return { platform: "apple", trackId: albumTrackId, trackType: 'track' };
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// Extract a URL from pasted <iframe> HTML markup
+function extractUrlFromIframe(html: string): string | null {
+  const srcMatch = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+  return srcMatch ? srcMatch[1] : null;
+}
+
 export function createTileContentFromEmbedUrl(src: string): TileContent {
-  const formatted = ensureUrlHasProtocol((src || "").trim());
+  const trimmed = (src || "").trim();
+
+  // Check for pasted <iframe> HTML — extract the src URL
+  let urlToCheck = trimmed;
+  if (trimmed.includes("<iframe")) {
+    const extracted = extractUrlFromIframe(trimmed);
+    if (extracted) urlToCheck = extracted;
+  }
+
+  const formatted = ensureUrlHasProtocol(urlToCheck);
 
   // Check for YouTube URLs first
   const youtubeData = parseYouTubeUrl(formatted);
@@ -165,6 +238,16 @@ export function createTileContentFromEmbedUrl(src: string): TileContent {
       youtubeType: youtubeData.type,
       youtubeId: youtubeData.id,
     } as Partial<YouTubeContent>);
+  }
+
+  // Check for Spotify / Apple Music URLs
+  const musicData = parseMusicUrl(formatted);
+  if (musicData) {
+    return createTileContent(ContentType.MUSIC, {
+      platform: musicData.platform,
+      trackId: musicData.trackId,
+      trackType: musicData.trackType,
+    } as Partial<MusicContent>);
   }
 
   if (isDirectImageUrl(formatted)) {
@@ -283,6 +366,7 @@ export function createTileContent(
     | ProfileBioContent
     | YouTubeContent
     | RoadmapFeedContent
+    | MusicContent
   > = {},
 ): TileContent {
   switch (type) {
@@ -453,6 +537,22 @@ export function createTileContent(
         lastSyncedAt: (data as Partial<RoadmapFeedContent>).lastSyncedAt,
       } as RoadmapFeedContent;
 
+    case ContentType.MUSIC:
+      return {
+        type,
+        platform: (data as Partial<MusicContent>).platform || "spotify",
+        trackId: (data as Partial<MusicContent>).trackId || "",
+        trackName: (data as Partial<MusicContent>).trackName || "",
+        artistName: (data as Partial<MusicContent>).artistName || "",
+        albumArt: (data as Partial<MusicContent>).albumArt || "",
+        previewUrl: (data as Partial<MusicContent>).previewUrl || "",
+        trackUrl: (data as Partial<MusicContent>).trackUrl || "",
+        artistUrl: (data as Partial<MusicContent>).artistUrl || "",
+        backgroundColor: (data as Partial<MusicContent>).backgroundColor || "",
+        backgroundTinted: (data as Partial<MusicContent>).backgroundTinted || "",
+        textSubdued: (data as Partial<MusicContent>).textSubdued || "",
+      } as MusicContent;
+
     default:
       throw new Error(`Unsupported content type: ${type}`);
   }
@@ -521,6 +621,11 @@ export function validateTileContent(content: TileContent): boolean {
     case ContentType.YOUTUBE:
       const youtube = content as YouTubeContent;
       return !!youtube.youtubeUrl && !!youtube.youtubeId;
+    case ContentType.MUSIC:
+      const music = content as MusicContent;
+      return !!music.trackId && !!music.platform;
+    case ContentType.ROADMAP_FEED:
+      return true;
     default:
       return false;
   }
@@ -608,10 +713,10 @@ export function getContentComponent(content: TileContent): any {
           () => import("@/components/tilecontent/RoadmapFeedContent.vue"),
         ),
       );
-    case ContentType.ROADMAP_FEED:
+    case ContentType.MUSIC:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/RoadmapFeedContent.vue"),
+          () => import("@/components/tilecontent/MusicContent.vue"),
         ),
       );
     default:

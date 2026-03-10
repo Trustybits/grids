@@ -266,6 +266,13 @@ export default {
             ?.map((t) => `${t.i}:${t.borderEnabled !== false}`)
             .join(","),
         () => JSON.stringify(layoutStore.currentLayout?.overrides),
+        () =>
+          layoutStore.currentLayout?.tiles
+            ?.map((t) => {
+              const c = t.content as any;
+              return `${t.i}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${c.thumbnails?.default?.url ?? ""}`;
+            })
+            .join("|"),
       ],
       () => {
         if (layoutStore.skipOverrideRebuild) {
@@ -295,6 +302,26 @@ export default {
             displayTile.h = storeTile.h;
             displayTile.x = storeTile.x;
             displayTile.y = storeTile.y;
+          }
+        }
+      },
+    );
+
+    // Sync async-fetched content fields (e.g. music trackName/albumArt, YouTube title/thumbnails)
+    // to displayLayout copies at non-lg breakpoints. patchTileContent mutates these fields
+    // without changing content.type, so the watcher above doesn't catch them.
+    watch(
+      () => layoutStore.currentLayout?.tiles?.map((t) => {
+        const c = t.content as any;
+        return `${t.i}:${c.trackName ?? ''}:${c.albumArt ?? ''}:${c.title ?? ''}:${c.thumbnails?.default?.url ?? ''}`;
+      }).join('|'),
+      () => {
+        const storeTiles = layoutStore.currentLayout?.tiles;
+        if (!storeTiles) return;
+        for (const storeTile of storeTiles) {
+          const displayTile = displayLayout.value.find((t) => t.i === storeTile.i);
+          if (displayTile && displayTile.content !== storeTile.content) {
+            displayTile.content = storeTile.content;
           }
         }
       },

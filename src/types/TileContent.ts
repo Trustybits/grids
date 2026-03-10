@@ -13,6 +13,7 @@ export enum ContentType {
   PROFILE = "profile",
   YOUTUBE = "youtube",
   ROADMAP_FEED = "roadmap_feed",
+  MUSIC = "music",
 }
 
 export interface TileContent {
@@ -250,6 +251,26 @@ export interface YouTubeContent extends TileContent {
   recentVideos?: YouTubePlaylistItem[];
 }
 
+// ── Music (Spotify / Apple Music) ───────────────────────────────────
+
+export type MusicPlatform = "spotify" | "apple";
+
+export interface MusicContent extends TileContent {
+  type: ContentType.MUSIC;
+  platform: MusicPlatform;
+  trackId: string;
+  trackType?: 'track' | 'album';
+  trackName: string;
+  artistName: string;
+  albumArt: string;
+  previewUrl: string;
+  trackUrl: string;
+  artistUrl: string;
+  backgroundColor: string;
+  backgroundTinted: string;
+  textSubdued: string;
+}
+
 // ── Roadmap Feed (Notion integration) ──────────────────────────────
 
 // The three canonical status buckets items are mapped into for display.
@@ -319,4 +340,5 @@ export type AnyTileContent =
   | CampfireContent
   | ClickerContent
   | YouTubeContent
-  | RoadmapFeedContent;
+  | RoadmapFeedContent
+  | MusicContent;

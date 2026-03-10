@@ -26,7 +26,7 @@
       :maxH="10"
       :isDraggable="isTileDraggable"
       :isResizable="isTileResizable"
-      dragIgnoreFrom="a, button, .tile-caption"
+      dragIgnoreFrom="a, button, input, .tile-caption"
       @move="onMove"
       @moved="onMoved"
       @resize="onResize"
@@ -254,6 +254,7 @@ export default defineComponent({
         ContentType.SUGGESTION,
         ContentType.PROFILE,
         ContentType.YOUTUBE,
+        ContentType.MUSIC,
       ];
       if (hiddenTypes.includes(props.tile.content.type)) return false;
       // Hide caption on 1-wide tiles (too narrow)

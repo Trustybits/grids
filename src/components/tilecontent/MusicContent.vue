@@ -9,13 +9,11 @@
       backgroundImage: `linear-gradient(138deg, ${bgBase} 4%, ${bgTinted} 95%)`,
     }"
   >
-    <!-- Loading state -->
-    <div v-if="isLoading" class="music-loading">
-      <div class="music-spinner"></div>
-    </div>
+    <!-- Loading skeleton overlay (does not block layout rendering) -->
+    <div v-if="isLoading" class="music-loading-overlay"></div>
 
     <!-- Error state -->
-    <div v-else-if="hasError" class="music-error">
+    <div v-if="hasError" class="music-error">
       <p>Failed to load track</p>
       <button @click="fetchMetadata" class="retry-btn">Retry</button>
     </div>
@@ -41,7 +39,7 @@
     <!-- ══════════════════════════════════════════════════════════
          1×1 layout: just the platform logo
          ══════════════════════════════════════════════════════════ -->
-    <template v-if="!isLoading && !hasError && effectiveTileSize === '1x1'">
+    <template v-if="!hasError && effectiveTileSize === '1x1'">
       <div class="header-row">
         <a :href="content.trackUrl" target="_blank" rel="noopener" class="platform-logo platform-logo--fill" :title="platformTitle">
           <!-- Spotify logo -->
@@ -59,7 +57,7 @@
     <!-- ══════════════════════════════════════════════════════════
          2×2 layout: vinyl centered + play/mute at bottom
          ══════════════════════════════════════════════════════════ -->
-    <template v-else-if="effectiveTileSize === '2x2'">
+    <template v-else-if="!hasError && effectiveTileSize === '2x2'">
       <div class="header-row header-row--2x2">
         <div class="turntable-arm" :style="{ transform: `rotate(${armRotation}deg)` }">
           <img src="/assets/music/turntableArm.png" alt="" />
@@ -121,7 +119,7 @@
     <!-- ══════════════════════════════════════════════════════════
          2×N layout: vertical vinyl player (height-adaptive)
          ══════════════════════════════════════════════════════════ -->
-    <template v-else-if="effectiveTileSize === '2xN'">
+    <template v-else-if="!hasError && effectiveTileSize === '2xN'">
       <div class="header-row header-row--2x2">
         <div class="turntable-arm" :style="{ transform: `rotate(${armRotation}deg)` }">
           <img src="/assets/music/turntableArm.png" alt="" />
@@ -191,7 +189,7 @@
     <!-- ══════════════════════════════════════════════════════════
          4×4 layout: full player (header + waveform + controls)
          ══════════════════════════════════════════════════════════ -->
-    <template v-else>
+    <template v-else-if="!hasError">
       <div class="header-row">
         <div class="header-content">
           <div class="vinyl-overlay">
@@ -704,6 +702,7 @@ export default defineComponent({
         const result = await getMusicTrackMetadata({
           platform: props.content.platform,
           trackId: props.content.trackId,
+          trackType: props.content.trackType ?? "track",
         });
 
         const data = result.data as any;
@@ -743,6 +742,12 @@ export default defineComponent({
         }
       }
     }
+
+    watch(() => props.content.albumArt, (newVal) => {
+      if (newVal && !isPlaying.value) {
+        nextTick(() => drawIdle());
+      }
+    });
 
     onMounted(() => {
       fetchMetadata();
@@ -820,20 +825,13 @@ export default defineComponent({
   overflow: hidden;
 }
 
-.music-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-}
-
-.music-spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.music-loading-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, 0.25);
+  z-index: 2;
+  pointer-events: none;
 }
 
 @keyframes spin {

@@ -67,7 +67,12 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
       if (text && text.trim()) {
         const trimmedText = text.trim();
         
-        if (isUrl(trimmedText)) {
+        if (trimmedText.startsWith('<iframe') || trimmedText.startsWith('<IFRAME')) {
+          // Paste is an iframe embed code — route through embed URL handler
+          event.preventDefault();
+          const embedContent = createTileContentFromEmbedUrl(trimmedText);
+          layoutStore.addTile(embedContent);
+        } else if (isUrl(trimmedText)) {
           // Paste is a URL — create a link tile
           event.preventDefault();
           await handleUrlPaste(trimmedText);
@@ -183,9 +188,10 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   const handleUrlPaste = async (url: string) => {
     const formattedUrl = url.startsWith("http") ? url : `https://${url}`;
     
-    // Check if this URL should be a special content type (YouTube, image, video, etc.)
+    // Check if this URL should be a special content type (YouTube, music, image, video, etc.)
     const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
     if (detectedContent.type === ContentType.YOUTUBE ||
+        detectedContent.type === ContentType.MUSIC ||
         detectedContent.type === ContentType.IMAGE ||
         detectedContent.type === ContentType.VIDEO) {
       layoutStore.addTile(detectedContent);
@@ -221,9 +227,10 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   const handleUrlDrop = async (url: string) => {
     const formattedUrl = url.startsWith("http") ? url : `https://${url}`;
     
-    // Check if this URL should be a special content type (YouTube, image, video, etc.)
+    // Check if this URL should be a special content type (YouTube, music, image, video, etc.)
     const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
     if (detectedContent.type === ContentType.YOUTUBE ||
+        detectedContent.type === ContentType.MUSIC ||
         detectedContent.type === ContentType.IMAGE ||
         detectedContent.type === ContentType.VIDEO) {
       layoutStore.addTile(detectedContent);

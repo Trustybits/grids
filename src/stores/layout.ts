@@ -1104,7 +1104,9 @@ export const useLayoutStore = defineStore("layout", {
     },
 
     async deleteLayout(id: string) {
-      if (!this.isOwner) {
+      const userId = auth.currentUser?.uid;
+      const layout = this.layouts.find((l) => l.id === id);
+      if (!userId || !layout || layout.userId !== userId) {
         return;
       }
 

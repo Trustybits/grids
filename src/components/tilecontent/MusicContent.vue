@@ -1356,7 +1356,7 @@ export default defineComponent({
   min-height: 115px;
   align-items: center;
   justify-content: center;
-  padding: 12px 14px 0 14px;
+  padding: 0px 14px 0 14px;
   position: relative;
 }
 
@@ -1387,13 +1387,16 @@ export default defineComponent({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
+  width: 162px;
   z-index: 10;
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
 }
 
 /* ── 2×N tile ─────────────────────────────────────────────── */
 .tile-2xN {
-  padding: 16px;
+  padding: 16px 16px 56px 16px;
   border-radius: 20px;
   gap: 16px;
   min-height: unset;

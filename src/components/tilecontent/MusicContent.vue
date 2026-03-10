@@ -1,12 +1,14 @@
 <template>
   <div
     class="music-player"
-    :class="[`tile-${effectiveTileSize}`, { 'tile-4x4--compact': compact4x4, 'music-player--intro': showIntro }]"
+    :class="[`tile-${effectiveTileSize}`, `platform-${content.platform}`, { 'tile-4x4--compact': compact4x4, 'music-player--intro': showIntro }]"
     :style="{
       '--bg-base': bgBase,
       '--bg-tinted': bgTinted,
       '--text-subdued': txtSubdued,
-      backgroundImage: `linear-gradient(138deg, ${bgBase} 4%, ${bgTinted} 95%)`,
+      backgroundImage: content.platform === 'apple'
+        ? `linear-gradient(137.7deg, ${bgBase} 3.86%, ${bgTinted} 95.07%)`
+        : `linear-gradient(138deg, ${bgBase} 4%, ${bgTinted} 95%)`,
     }"
   >
     <!-- Intro animation overlay: grows in, pulses icon, flies icon to corner on load complete -->
@@ -358,13 +360,13 @@ export default defineComponent({
     });
 
     const bgBase = computed(() =>
-      props.content.platform === "apple" ? "#B5B5B5" : props.content.backgroundColor || "rgba(30, 30, 30, 1)"
+      props.content.platform === "apple" ? "#FFFFFF" : props.content.backgroundColor || "rgba(30, 30, 30, 1)"
     );
     const bgTinted = computed(() =>
-      props.content.platform === "apple" ? "#6C6C6C" : props.content.backgroundTinted || "rgba(50, 50, 50, 1)"
+      props.content.platform === "apple" ? "#D7D7D7" : props.content.backgroundTinted || "rgba(50, 50, 50, 1)"
     );
-    const txtSubdued = computed(() => 
-      props.content.platform === "apple" ? "#EEEEEE" : props.content.textSubdued || "rgba(180, 180, 180, 1)"
+    const txtSubdued = computed(() =>
+      props.content.platform === "apple" ? "rgba(0,0,0,0.85)" : props.content.textSubdued || "rgba(180, 180, 180, 1)"
     );
     const platformTitle = computed(() =>
       props.content.platform === "spotify" ? "Play on Spotify" : "Play on Apple Music"
@@ -1566,4 +1568,30 @@ export default defineComponent({
 .tile-4x4--compact .controls-bar {
   flex-shrink: 0;
 }
+
+/* ── Apple Music light theme overrides ───────────────────── */
+.platform-apple .track-name a { color: black; }
+.platform-apple .artist-name { color: black; }
+.platform-apple .artist-name a { color: black; }
+.platform-apple .track-bar { background: rgba(0, 0, 0, 0.21); }
+.platform-apple .tag {
+  background-color: #5b5b5b;
+  color: white;
+}
+
+.platform-apple .play-btn:hover { color: #000000; }
+.platform-apple .play-btn--small:hover { color: #000000; }
+.platform-apple .icon-btn:hover { color: #000000; }
+.platform-apple .retry-btn:hover { background: rgba(0, 0, 0, 0.1); }
+
+.platform-apple .volume-slider {
+  background: linear-gradient(to right, rgba(0,0,0,0.85) var(--fill, 100%), rgba(0, 0, 0, 0.21) var(--fill, 100%));
+}
+.platform-apple .volume-slider::-webkit-slider-thumb { background: rgba(0,0,0,0.85); }
+.platform-apple .volume-slider::-moz-range-thumb { background: rgba(0,0,0,0.85); }
+
+.platform-apple .volume-slider--vertical {
+  background: linear-gradient(to top, rgba(0,0,0,0.85) var(--fill, 100%), rgba(0, 0, 0, 0.21) var(--fill, 100%));
+}
+.platform-apple .volume-slider--vertical::-webkit-slider-thumb { background: rgba(0,0,0,0.85); }
 </style>

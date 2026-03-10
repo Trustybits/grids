@@ -256,6 +256,7 @@ export interface MusicContent extends TileContent {
   type: ContentType.MUSIC;
   platform: MusicPlatform;
   trackId: string;
+  trackType?: 'track' | 'album';
   trackName: string;
   artistName: string;
   albumArt: string;

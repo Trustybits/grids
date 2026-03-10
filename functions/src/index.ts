@@ -1731,7 +1731,7 @@ export const getMusicTrackMetadata = functions.https.onCall(async (data, context
     throw new HttpsError("unauthenticated", "You must be signed in to fetch music metadata.");
   }
 
-  const { platform, trackId } = data as { platform?: string; trackId?: string };
+  const { platform, trackId, trackType } = data as { platform?: string; trackId?: string; trackType?: string };
 
   if (!platform || !trackId) {
     throw new HttpsError("invalid-argument", "Missing platform or trackId.");
@@ -1744,7 +1744,11 @@ export const getMusicTrackMetadata = functions.https.onCall(async (data, context
   try {
     if (platform === "spotify") {
       // ── Spotify ──────────────────────────────────────────────────────
-      const embedUrl = `https://open.spotify.com/embed/track/${trackId}`;
+      // For album IDs, fetch the album embed and extract the first track entity
+      const isAlbum = trackType === "album";
+      const embedUrl = isAlbum
+        ? `https://open.spotify.com/embed/album/${trackId}`
+        : `https://open.spotify.com/embed/track/${trackId}`;
       const body = await fetchText(embedUrl);
 
       const scriptMatch = body.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
@@ -1753,21 +1757,29 @@ export const getMusicTrackMetadata = functions.https.onCall(async (data, context
       }
 
       const nextData = JSON.parse(scriptMatch[1]);
-      const entity = nextData?.props?.pageProps?.state?.data?.entity;
-      if (!entity) {
-        throw new HttpsError("not-found", "Track entity not found in Spotify data.");
+      const pageEntity = nextData?.props?.pageProps?.state?.data?.entity;
+      if (!pageEntity) {
+        throw new HttpsError("not-found", "Entity not found in Spotify data.");
       }
 
-      const vi = entity.visualIdentity || {};
-      const artists = entity.artists || [];
+      // For albums, use the first track as the representative entity
+      const entity = isAlbum
+        ? (pageEntity.tracks?.items?.[0] ?? pageEntity)
+        : pageEntity;
+
+      const vi = pageEntity.visualIdentity || {};
+      const artists = entity.artists || pageEntity.artists || [];
       const artistId = artists[0]?.uri?.split(":").pop() || "";
+      const trackEntityId = entity.id || entity.uri?.split(":").pop() || trackId;
 
       return {
-        trackName: entity.name || "",
+        trackName: entity.name || pageEntity.name || "",
         artistName: artists.map((a: any) => a.name).join(", ") || "",
         albumArt: vi.image?.[0]?.url ?? "",
-        previewUrl: entity.audioPreview?.url ?? "",
-        trackUrl: `https://open.spotify.com/track/${entity.id || trackId}`,
+        previewUrl: entity.audioPreview?.url ?? pageEntity.audioPreview?.url ?? "",
+        trackUrl: isAlbum
+          ? `https://open.spotify.com/album/${trackId}`
+          : `https://open.spotify.com/track/${trackEntityId}`,
         artistUrl: artistId ? `https://open.spotify.com/artist/${artistId}` : "",
         backgroundColor: vi.backgroundBase ? toRgba(vi.backgroundBase) : "rgba(30, 30, 30, 1)",
         backgroundTinted: vi.backgroundTintedBase ? toRgba(vi.backgroundTintedBase) : "rgba(50, 50, 50, 1)",

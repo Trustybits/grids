@@ -1,7 +1,7 @@
 <template>
   <div
     class="music-player"
-    :class="[`tile-${effectiveTileSize}`, { 'tile-4x4--compact': compact4x4 }]"
+    :class="[`tile-${effectiveTileSize}`, { 'tile-4x4--compact': compact4x4, 'music-player--intro': showIntro }]"
     :style="{
       '--bg-base': bgBase,
       '--bg-tinted': bgTinted,
@@ -9,8 +9,19 @@
       backgroundImage: `linear-gradient(138deg, ${bgBase} 4%, ${bgTinted} 95%)`,
     }"
   >
-    <!-- Loading skeleton overlay (does not block layout rendering) -->
-    <div v-if="isLoading" class="music-loading-overlay"></div>
+    <!-- Intro animation overlay: grows in, pulses icon, flies icon to corner on load complete -->
+    <div v-if="showIntro" class="music-intro" :class="{ 'music-intro--done': loadingDone }" :style="{ '--intro-brand': introBrandColor }">
+      <div class="music-intro-icon" :class="{ 'music-intro-icon--fly': loadingDone }">
+        <!-- Spotify -->
+        <svg v-if="content.platform === 'spotify'" viewBox="0 0 24 24" fill="white" width="100%" height="100%">
+          <path d="M12.438 1.009C6.368.769 1.251 5.494 1.008 11.565c-.24 6.07 4.485 11.186 10.556 11.426 6.07.242 11.185-4.484 11.427-10.554S18.507 1.251 12.438 1.009m4.644 16.114a.657.657 0 0 1-.897.246 13.2 13.2 0 0 0-4.71-1.602 13.2 13.2 0 0 0-4.968.242.658.658 0 0 1-.31-1.278 14.5 14.5 0 0 1 5.46-.265c1.837.257 3.579.851 5.177 1.76.315.178.425.58.246.896zm1.445-2.887a.853.853 0 0 1-1.158.344 16.2 16.2 0 0 0-5.475-1.797 16.2 16.2 0 0 0-5.758.219.855.855 0 0 1-1.018-.65.85.85 0 0 1 .65-1.018 17.9 17.9 0 0 1 6.362-.241 17.9 17.9 0 0 1 6.049 1.985c.415.224.57.743.344 1.158zm1.602-3.255a1.05 1.05 0 0 1-1.418.448 19.7 19.7 0 0 0-6.341-2.025 19.6 19.6 0 0 0-6.655.199 1.05 1.05 0 1 1-.417-2.06 21.7 21.7 0 0 1 7.364-.22 21.7 21.7 0 0 1 7.019 2.24c.515.268.715.903.448 1.418" />
+        </svg>
+        <!-- Apple Music -->
+        <svg v-else viewBox="0 0 24 24" fill="white" width="100%" height="100%">
+          <path d="M23.994 6.124a9.23 9.23 0 0 0-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 0 0-1.877-.726 10.496 10.496 0 0 0-1.564-.15c-.073-.005-.146-.01-.22-.015H5.988c-.076.005-.152.01-.228.015-.5.032-1 .1-1.492.198-1.283.3-2.326 1.017-3.093 2.1A5.005 5.005 0 0 0 .5 4.07a9.23 9.23 0 0 0-.165 1.833c-.006.073-.01.147-.015.22v11.693c.005.076.01.152.015.228.032.5.1 1 .198 1.492.3 1.283 1.017 2.326 2.1 3.093.554.394 1.17.66 1.833.83.652.167 1.32.24 1.993.265.18.007.36.013.54.015h11.693c.076-.002.152-.008.228-.015.5-.032 1-.1 1.492-.198 1.283-.3 2.326-1.017 3.093-2.1.394-.554.66-1.17.83-1.833.167-.652.24-1.32.265-1.993.006-.073.01-.147.015-.22V6.344c-.005-.076-.01-.152-.015-.22zM17.52 17.9c0 .254-.065.404-.247.49-.03.015-.135.037-.198.037-.107 0-.216-.035-.352-.106a8.586 8.586 0 0 1-.905-.554 8.94 8.94 0 0 1-1.474-1.333 7.396 7.396 0 0 1-1.073-1.636 5.347 5.347 0 0 1-.4-1.136c-.07-.342-.1-.575-.1-.872v-5.04c0-.323.055-.6.19-.83a.72.72 0 0 1 .325-.29c.102-.05.23-.088.413-.12a6.274 6.274 0 0 1 .867-.083c.212-.007.382.005.57.052.155.04.275.113.37.222.1.112.16.244.19.405.023.127.032.247.032.38v4.31c0 .34.07.687.21 1.023.158.38.39.72.677 1.012.35.36.71.578 1.033.718.248.107.336.167.48.256.077.047.135.113.16.2.024.066.032.14.032.224v2.47zm-2.4-8.054c0 .287-.095.473-.262.578a1.08 1.08 0 0 1-.322.144l-.058.012c-.193.036-.392.057-.65.057a2.98 2.98 0 0 1-.452-.038 1.108 1.108 0 0 1-.415-.16.56.56 0 0 1-.203-.255c-.045-.114-.068-.247-.068-.402V5.59c0-.27.036-.493.118-.667.082-.175.206-.31.38-.404.144-.08.313-.138.508-.175.236-.046.485-.07.747-.07.142 0 .28.008.415.024.185.022.33.072.438.155a.55.55 0 0 1 .195.29c.03.098.046.216.046.355v4.75z"/>
+        </svg>
+      </div>
+    </div>
 
     <!-- Error state -->
     <div v-if="hasError" class="music-error">
@@ -41,7 +52,7 @@
          ══════════════════════════════════════════════════════════ -->
     <template v-if="!hasError && effectiveTileSize === '1x1'">
       <div class="header-row">
-        <a :href="content.trackUrl" target="_blank" rel="noopener" class="platform-logo platform-logo--fill" :title="platformTitle">
+        <a v-show="!showIntro" :href="content.trackUrl" target="_blank" rel="noopener" class="platform-logo platform-logo--fill" :title="platformTitle">
           <!-- Spotify logo -->
           <svg v-if="content.platform === 'spotify'" viewBox="0 0 24 24" fill="white" width="100%" height="100%">
             <path d="M12.438 1.009C6.368.769 1.251 5.494 1.008 11.565c-.24 6.07 4.485 11.186 10.556 11.426 6.07.242 11.185-4.484 11.427-10.554S18.507 1.251 12.438 1.009m4.644 16.114a.657.657 0 0 1-.897.246 13.2 13.2 0 0 0-4.71-1.602 13.2 13.2 0 0 0-4.968.242.658.658 0 0 1-.31-1.278 14.5 14.5 0 0 1 5.46-.265c1.837.257 3.579.851 5.177 1.76.315.178.425.58.246.896zm1.445-2.887a.853.853 0 0 1-1.158.344 16.2 16.2 0 0 0-5.475-1.797 16.2 16.2 0 0 0-5.758.219.855.855 0 0 1-1.018-.65.85.85 0 0 1 .65-1.018 17.9 17.9 0 0 1 6.362-.241 17.9 17.9 0 0 1 6.049 1.985c.415.224.57.743.344 1.158zm1.602-3.255a1.05 1.05 0 0 1-1.418.448 19.7 19.7 0 0 0-6.341-2.025 19.6 19.6 0 0 0-6.655.199 1.05 1.05 0 1 1-.417-2.06 21.7 21.7 0 0 1 7.364-.22 21.7 21.7 0 0 1 7.019 2.24c.515.268.715.903.448 1.418" />
@@ -131,7 +142,7 @@
             <img class="record-shimmer" :class="vinylPhase" src="/assets/music/vinylHighlightShimmer.png" alt="" />
           </div>
           <canvas ref="noteCanvasEl" class="note-canvas" />
-          <a :href="content.trackUrl" target="_blank" rel="noopener" class="platform-logo platform-logo--corner" :title="platformTitle">
+          <a v-show="!showIntro" :href="content.trackUrl" target="_blank" rel="noopener" class="platform-logo platform-logo--corner" :title="platformTitle">
             <svg v-if="content.platform === 'spotify'" viewBox="0 0 24 24" width="24" height="24" fill="white">
               <path d="M12.438 1.009C6.368.769 1.251 5.494 1.008 11.565c-.24 6.07 4.485 11.186 10.556 11.426 6.07.242 11.185-4.484 11.427-10.554S18.507 1.251 12.438 1.009m4.644 16.114a.657.657 0 0 1-.897.246 13.2 13.2 0 0 0-4.71-1.602 13.2 13.2 0 0 0-4.968.242.658.658 0 0 1-.31-1.278 14.5 14.5 0 0 1 5.46-.265c1.837.257 3.579.851 5.177 1.76.315.178.425.58.246.896zm1.445-2.887a.853.853 0 0 1-1.158.344 16.2 16.2 0 0 0-5.475-1.797 16.2 16.2 0 0 0-5.758.219.855.855 0 0 1-1.018-.65.85.85 0 0 1 .65-1.018 17.9 17.9 0 0 1 6.362-.241 17.9 17.9 0 0 1 6.049 1.985c.415.224.57.743.344 1.158zm1.602-3.255a1.05 1.05 0 0 1-1.418.448 19.7 19.7 0 0 0-6.341-2.025 19.6 19.6 0 0 0-6.655.199 1.05 1.05 0 1 1-.417-2.06 21.7 21.7 0 0 1 7.364-.22 21.7 21.7 0 0 1 7.019 2.24c.515.268.715.903.448 1.418" />
             </svg>
@@ -219,7 +230,7 @@
             </p>
           </div>
         </div>
-        <a :href="content.trackUrl" target="_blank" rel="noopener" class="platform-logo" :title="platformTitle">
+        <a v-show="!showIntro" :href="content.trackUrl" target="_blank" rel="noopener" class="platform-logo" :title="platformTitle">
           <svg v-if="content.platform === 'spotify'" viewBox="0 0 24 24" width="24" height="24" fill="white">
             <path d="M12.438 1.009C6.368.769 1.251 5.494 1.008 11.565c-.24 6.07 4.485 11.186 10.556 11.426 6.07.242 11.185-4.484 11.427-10.554S18.507 1.251 12.438 1.009m4.644 16.114a.657.657 0 0 1-.897.246 13.2 13.2 0 0 0-4.71-1.602 13.2 13.2 0 0 0-4.968.242.658.658 0 0 1-.31-1.278 14.5 14.5 0 0 1 5.46-.265c1.837.257 3.579.851 5.177 1.76.315.178.425.58.246.896zm1.445-2.887a.853.853 0 0 1-1.158.344 16.2 16.2 0 0 0-5.475-1.797 16.2 16.2 0 0 0-5.758.219.855.855 0 0 1-1.018-.65.85.85 0 0 1 .65-1.018 17.9 17.9 0 0 1 6.362-.241 17.9 17.9 0 0 1 6.049 1.985c.415.224.57.743.344 1.158zm1.602-3.255a1.05 1.05 0 0 1-1.418.448 19.7 19.7 0 0 0-6.341-2.025 19.6 19.6 0 0 0-6.655.199 1.05 1.05 0 1 1-.417-2.06 21.7 21.7 0 0 1 7.364-.22 21.7 21.7 0 0 1 7.019 2.24c.515.268.715.903.448 1.418" />
           </svg>
@@ -304,6 +315,9 @@ export default defineComponent({
 
     const isLoading = ref(false);
     const hasError = ref(false);
+    const showIntro = ref(true);
+    const loadingDone = ref(false);
+    let introTimer: ReturnType<typeof setTimeout> | null = null;
 
     const w = computed(() => gridTileW?.value ?? 2);
     const h = computed(() => gridTileH?.value ?? 2);
@@ -338,6 +352,9 @@ export default defineComponent({
     const txtSubdued = computed(() => props.content.textSubdued || "rgba(180, 180, 180, 1)");
     const platformTitle = computed(() =>
       props.content.platform === "spotify" ? "Play on Spotify" : "Play on Apple Music"
+    );
+    const introBrandColor = computed(() =>
+      props.content.platform === "spotify" ? "#1DB954" : "#F5F5F7"
     );
 
     const ARM_REST_DEG = 0;
@@ -692,7 +709,10 @@ export default defineComponent({
     }
 
     const fetchMetadata = async () => {
-      if (props.content.trackName) return;
+      if (props.content.trackName) {
+        showIntro.value = false;
+        return;
+      }
 
       isLoading.value = true;
       hasError.value = false;
@@ -710,9 +730,13 @@ export default defineComponent({
         if (tileId) {
           layoutStore.patchTileContent(tileId, data);
         }
+        // Trigger fly-to-corner animation, then hide overlay
+        loadingDone.value = true;
+        introTimer = setTimeout(() => { showIntro.value = false; }, 1200);
       } catch (error) {
         console.error("Failed to fetch music track metadata:", error);
         hasError.value = true;
+        showIntro.value = false;
       } finally {
         isLoading.value = false;
       }
@@ -763,11 +787,15 @@ export default defineComponent({
       stopNotes();
       if (vinylPhaseTimer) clearTimeout(vinylPhaseTimer);
       if (hideVolumeTimer) clearTimeout(hideVolumeTimer);
+      if (introTimer) clearTimeout(introTimer);
     });
 
     return {
       isLoading,
       hasError,
+      showIntro,
+      loadingDone,
+      introBrandColor,
       effectiveTileSize,
       show2xNExtras,
       compact4x4,
@@ -825,13 +853,84 @@ export default defineComponent({
   overflow: hidden;
 }
 
-.music-loading-overlay {
+/* Hide all tile content while intro overlay is active — prevents bleed-through */
+.music-player--intro > *:not(.music-intro) {
+  visibility: hidden;
+}
+
+/* ── Intro animation overlay ──────────────────────────────── */
+.music-intro {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgba(0, 0, 0, 0.25);
-  z-index: 2;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--intro-brand, #F5F5F7);
+  /* Fade in only — no scale, so it always covers the full tile */
+  animation: music-intro-fadein 0.3s ease both;
+  transition: opacity 0.55s ease;
   pointer-events: none;
+}
+
+.music-intro--done {
+  opacity: 0;
+}
+
+@keyframes music-intro-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Icon wrapper: anchored top-left at center of the overlay.
+   Uses individual CSS translate + scale so they can be independently
+   animated/transitioned without conflicting. */
+.music-intro-icon {
+  position: absolute;
+  /* Anchor point at tile center */
+  top: 50%;
+  left: 50%;
+  width: 48px;
+  height: 48px;
+  /* Shift back by half own size so visual center is at anchor */
+  margin-top: -24px;
+  margin-left: -24px;
+  transform-origin: center center;
+  /* Grow in, then pulse scale only */
+  animation: music-icon-grow 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+             music-icon-pulse 2.4s 0.5s ease-in-out infinite;
+  /* Fly transition acts on top/left/width/height only */
+  transition:
+    top    0.6s cubic-bezier(0.4, 0, 0.2, 1),
+    left   0.6s cubic-bezier(0.4, 0, 0.2, 1),
+    margin 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+    width  0.6s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Fly state: move anchor to top-right corner position.
+   Icon shrinks to 24px. margin offsets update to -12px for new size. */
+.music-intro-icon--fly {
+  animation: none;
+  scale: 1;
+  top: 18px;
+  left: calc(100% - 18px);
+  margin-top: 1px;
+  margin-left: -25px;
+  width: 24px;
+  height: 24px;
+}
+
+@keyframes music-icon-grow {
+  from { scale: 0; }
+  to   { scale: 1; }
+}
+
+/* Gentle pulse via individual scale property — doesn't affect translate */
+@keyframes music-icon-pulse {
+  0%, 100% { scale: 1; }
+  50%       { scale: 1.10; }
 }
 
 @keyframes spin {

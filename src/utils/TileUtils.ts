@@ -163,18 +163,24 @@ function parseYouTubeUrl(
 //   embed.music.apple.com/.../song/ID
 function parseMusicUrl(
   url: string,
-): { platform: MusicPlatform; trackId: string } | null {
+): { platform: MusicPlatform; trackId: string; trackType: 'track' | 'album' } | null {
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
 
-    // Spotify: open.spotify.com/track/<id> or open.spotify.com/embed/track/<id>
+    // Spotify: open.spotify.com/track/<id>, /album/<id>, /embed/track/<id>, /embed/album/<id>
     if (hostname === "open.spotify.com" || hostname === "spotify.com") {
       const trackMatch = urlObj.pathname.match(
         /(?:\/embed)?\/track\/([A-Za-z0-9]+)/,
       );
       if (trackMatch) {
-        return { platform: "spotify", trackId: trackMatch[1] };
+        return { platform: "spotify", trackId: trackMatch[1], trackType: 'track' };
+      }
+      const albumMatch = urlObj.pathname.match(
+        /(?:\/embed)?\/album\/([A-Za-z0-9]+)/,
+      );
+      if (albumMatch) {
+        return { platform: "spotify", trackId: albumMatch[1], trackType: 'album' };
       }
     }
 
@@ -186,17 +192,17 @@ function parseMusicUrl(
       // /us/song/song-name/1234567890
       const songMatch = urlObj.pathname.match(/\/song\/[^/]+\/(\d+)/);
       if (songMatch) {
-        return { platform: "apple", trackId: songMatch[1] };
+        return { platform: "apple", trackId: songMatch[1], trackType: 'track' };
       }
       // /us/song/1234567890 (short form on embed URLs)
       const shortSongMatch = urlObj.pathname.match(/\/song\/(\d+)/);
       if (shortSongMatch) {
-        return { platform: "apple", trackId: shortSongMatch[1] };
+        return { platform: "apple", trackId: shortSongMatch[1], trackType: 'track' };
       }
       // /us/album/album-name/123?i=456 (track within album)
       const albumTrackId = urlObj.searchParams.get("i");
       if (albumTrackId && /^\d+$/.test(albumTrackId)) {
-        return { platform: "apple", trackId: albumTrackId };
+        return { platform: "apple", trackId: albumTrackId, trackType: 'track' };
       }
     }
 
@@ -240,6 +246,7 @@ export function createTileContentFromEmbedUrl(src: string): TileContent {
     return createTileContent(ContentType.MUSIC, {
       platform: musicData.platform,
       trackId: musicData.trackId,
+      trackType: musicData.trackType,
     } as Partial<MusicContent>);
   }
 

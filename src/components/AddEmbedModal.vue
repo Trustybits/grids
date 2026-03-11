@@ -6,8 +6,8 @@
           <input
             ref="embedInput"
             v-model="embedUrl"
-            type="url"
-            placeholder="Enter embed URL (e.g., YouTube, Spotify, etc.)..."
+            type="text"
+            placeholder="Paste a URL or embed code (YouTube, Spotify, Apple Music...)"
             class="embed-input"
             @keyup.enter="handleAdd"
             @keyup.esc="handleClose"
@@ -62,10 +62,19 @@ const handleClose = () => {
   emit('close');
 };
 
-/** Check whether the current input looks like a valid URL. */
+function extractIframeSrc(text) {
+  const m = text.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+  return m ? m[1] : null;
+}
+
 const isValidUrl = computed(() => {
   const text = embedUrl.value.trim();
   if (!text) return false;
+
+  if (text.startsWith('<iframe') || text.startsWith('<IFRAME')) {
+    return !!extractIframeSrc(text);
+  }
+
   try {
     if (text.startsWith('http://') || text.startsWith('https://')) {
       new URL(text);

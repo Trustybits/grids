@@ -66,8 +66,8 @@ export const RESIZE_3x1 = makeResizeItem(
   3,
   1,
   ResizeWideIcon,
-  "Resize to 3x1"
-)
+  "Resize to 3x1",
+);
 export const RESIZE_3x2 = makeResizeItem(
   "resize-3x2",
   3,
@@ -295,30 +295,35 @@ export const TEXT_MORE_MENU: ToolbarItem = {
   menuItemsLayoutDirection: "horizontal",
   menuItems: [
     {
-      id: 'font-family',
+      id: "font-family",
       panelId: "font-family",
+      tooltip: "Change Font",
       action: (_ctx) => {},
     },
     {
-      id: 'font-size',
+      id: "font-size",
       panelId: "font-select",
+      tooltip: "Change Font Size",
       action: (_ctx) => {},
     },
     {
       id: "bold-toggle",
       icon: markRaw(BoldIcon),
+      tooltip: "Bold",
       isActive: (ctx) => !!ctx.childComponent.value?.isBoldActive,
       action: (ctx) => ctx.childComponent.value?.toggleBold?.(),
     },
     {
       id: "italic-toggle",
       icon: markRaw(ItalicIcon),
+      tooltip: "Italic",
       isActive: (ctx) => !!ctx.childComponent.value?.isItalicActive,
       action: (ctx) => ctx.childComponent.value?.toggleItalic?.(),
     },
     {
       id: "text-link",
       icon: markRaw(LinkIcon),
+      tooltip: "Add a Link",
       action: (ctx) => ctx.childComponent.value?.openUrlInput?.(),
     },
   ],
@@ -362,14 +367,20 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     MAP_SEARCH,
     MAP_RECENTER,
   ],
-  [ContentType.CHAT]: [RESIZE_3x2, RESIZE_4x2, RESIZE_4x4, BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.CHAT]: [
+    RESIZE_3x2,
+    RESIZE_4x2,
+    RESIZE_4x4,
+    BORDER_TOGGLE,
+    COLOR_BUTTON,
+  ],
   [ContentType.CAMPFIRE]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
-  [ContentType.RPG]:      [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
-  [ContentType.CLICKER]:  [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
-  [ContentType.PROFILE]:      [BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.RPG]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.CLICKER]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.PROFILE]: [BORDER_TOGGLE, COLOR_BUTTON],
   // Roadmap feed uses standard resize/appearance options; settings are managed inside the tile itself
   [ContentType.ROADMAP_FEED]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
-}
+};
 
 // Default fallback for any tile type not explicitly configured
 const DEFAULT_ITEMS: ToolbarItem[] = [BORDER_TOGGLE, COLOR_BUTTON];

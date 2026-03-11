@@ -1432,22 +1432,18 @@ export default defineComponent({
 
 /* ── 1×1 tile ─────────────────────────────────────────────── */
 .tile-1x1 {
-  padding: 16px;
+  padding: 12px;
   border-radius: 20px;
   gap: 24px;
   min-height: unset;
 }
 
 .platform-logo--fill {
-  flex: 1 0 0;
-  aspect-ratio: 1;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: static;
   opacity: 0.9;
   transition: opacity 0.15s;
+  width: 100%;
+  height: 42px;
 }
 
 .platform-logo--fill:hover { opacity: 1; }
@@ -1568,6 +1564,7 @@ export default defineComponent({
 .tile-4x4--compact .header-row {
   flex: 1 1 0;
   min-height: 0;
+  align-items: normal;
 }
 
 .tile-4x4--compact .header-content {
@@ -1589,7 +1586,7 @@ export default defineComponent({
 .tile-4x4--compact .metadata {
   min-width: 0;
   flex: 1 1 0;
-  align-self: center;
+  align-self: end;
 }
 
 .tile-4x4--compact .controls-bar {

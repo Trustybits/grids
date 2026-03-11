@@ -255,17 +255,11 @@ export const getLinkPreview = onCall(async (data, context) => {
 
     const ogSiteName = $("meta[property='og:site_name']").attr("content");
 
-    const iconHref = pickFirst(
-      $("link[rel='icon']").attr("href"),
-      $("link[rel='shortcut icon']").attr("href"),
-      $("link[rel='apple-touch-icon']").attr("href")
-    );
-
     const title = pickFirst(ogTitle, twTitle, docTitle);
     const description = pickFirst(ogDesc, twDesc, metaDesc);
     const imageUrl = pickFirst(ogImageSecure, ogImageUrl, ogImage, twImage, twImageSrc);
 
-    const faviconUrl = resolveUrl(iconHref, finalUrl) ?? googleFaviconUrl(finalUrl);
+    const faviconUrl = googleFaviconUrl(finalUrl);
     const resolvedImageUrl = resolveUrl(imageUrl, finalUrl);
 
     return {

@@ -102,6 +102,7 @@
               { 'tile-toolbar-menu-item--danger': mi.danger },
               { 'is-active': mi.isActive?.(ctx) },
             ]"
+            :data-tooltip="mi.tooltip"
             @mousedown.prevent
             @click="onMenuItemClick(mi)"
           >
@@ -111,6 +112,7 @@
           <div
             v-if="mi.id === 'font-size'"
             class="tile-toolbar-menu-item"
+            :data-tooltip="mi.tooltip"
             style="display: flex; flex: 1; align-self: stretch; padding: 0"
           >
             <FontSizeSelector
@@ -123,6 +125,7 @@
           <div
             v-if="mi.id === 'font-family'"
             class="tile-toolbar-menu-item"
+            :data-tooltip="mi.tooltip"
             style="display: flex; flex: 1; align-self: stretch; padding: 0"
           >
             <FontSelector
@@ -571,37 +574,6 @@ export default defineComponent({
   }
 }
 
-/* Tooltip via data-tooltip attribute */
-.toolbar-btn[data-tooltip] {
-  position: relative;
-
-  &::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%) scale(0.9);
-    white-space: nowrap;
-    font-size: 11px;
-    line-height: 1;
-    padding: 5px 8px;
-    border-radius: var(--radius-sm);
-    background-color: var(--color-text-primary);
-    color: var(--color-tile-background);
-    pointer-events: none;
-    opacity: 0;
-    transition:
-      opacity var(--duration-fast) var(--easing-ease-out),
-      transform var(--duration-fast) var(--easing-ease-out);
-    z-index: var(--z-tooltip);
-  }
-
-  &:hover::after {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
-  }
-}
-
 .toolbar-btn--border :deep(.border-slash) {
   stroke-dasharray: 18;
   stroke-dashoffset: 18;
@@ -678,37 +650,6 @@ export default defineComponent({
   &:hover {
     background-color: var(--color-content-low);
     transform: scale(1.05);
-  }
-}
-
-/* Tooltip for search panel buttons */
-.search-panel-btn[data-tooltip] {
-  position: relative;
-
-  &::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%) scale(0.9);
-    white-space: nowrap;
-    font-size: 11px;
-    line-height: 1;
-    padding: 5px 8px;
-    border-radius: var(--radius-sm);
-    background-color: var(--color-text-primary);
-    color: var(--color-tile-background);
-    pointer-events: none;
-    opacity: 0;
-    transition:
-      opacity var(--duration-fast) var(--easing-ease-out),
-      transform var(--duration-fast) var(--easing-ease-out);
-    z-index: var(--z-tooltip);
-  }
-
-  &:hover::after {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
   }
 }
 
@@ -792,6 +733,37 @@ export default defineComponent({
   color: var(--color-tile-background);
   border-radius: var(--radius-sm);
   transform: none;
+}
+
+/* Tooltip via data-tooltip attribute (shared across toolbar, search panel, and menu items) */
+[data-tooltip] {
+  position: relative;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    white-space: nowrap;
+    font-size: 11px;
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-text-primary);
+    color: var(--color-tile-background);
+    pointer-events: none;
+    opacity: 0;
+    transition:
+      opacity var(--duration-fast) var(--easing-ease-out),
+      transform var(--duration-fast) var(--easing-ease-out);
+    z-index: var(--z-tooltip);
+  }
+
+  &:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
 }
 
 .panel-enter-active {

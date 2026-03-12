@@ -211,6 +211,14 @@ export const getLinkPreview = onCall(async (data, context) => {
       };
     }
 
+    // Use the final URL after any redirects as the base for resolving relative URLs
+    let finalUrl: URL;
+    try {
+      finalUrl = new URL(res.url);
+    } catch {
+      finalUrl = normalized;
+    }
+
     const contentType = res.headers.get("content-type") || "";
     if (!contentType.toLowerCase().includes("text/html")) {
       logger.debug("Link preview response was not HTML", {
@@ -218,13 +226,13 @@ export const getLinkPreview = onCall(async (data, context) => {
         contentType,
       });
       return {
-        url: normalized.toString(),
-        domain: normalized.hostname,
+        url: finalUrl.toString(),
+        domain: finalUrl.hostname,
         siteName: undefined,
         title: undefined,
         description: undefined,
         imageUrl: undefined,
-        faviconUrl: googleFaviconUrl(normalized),
+        faviconUrl: googleFaviconUrl(finalUrl),
       };
     }
 
@@ -247,22 +255,16 @@ export const getLinkPreview = onCall(async (data, context) => {
 
     const ogSiteName = $("meta[property='og:site_name']").attr("content");
 
-    const iconHref = pickFirst(
-      $("link[rel='icon']").attr("href"),
-      $("link[rel='shortcut icon']").attr("href"),
-      $("link[rel='apple-touch-icon']").attr("href")
-    );
-
     const title = pickFirst(ogTitle, twTitle, docTitle);
     const description = pickFirst(ogDesc, twDesc, metaDesc);
     const imageUrl = pickFirst(ogImageSecure, ogImageUrl, ogImage, twImage, twImageSrc);
 
-    const faviconUrl = resolveUrl(iconHref, normalized);
-    const resolvedImageUrl = resolveUrl(imageUrl, normalized);
+    const faviconUrl = googleFaviconUrl(finalUrl);
+    const resolvedImageUrl = resolveUrl(imageUrl, finalUrl);
 
     return {
-      url: normalized.toString(),
-      domain: normalized.hostname,
+      url: finalUrl.toString(),
+      domain: finalUrl.hostname,
       siteName: ogSiteName?.trim() || undefined,
       title,
       description,

@@ -5,7 +5,7 @@
 
     <!-- Top Bar for Layout Title Editor and Theme Toggle -->
     <div class="top-bar" v-if="showTopBar">
-      <LayoutTitleEditor v-if="showTitleEditor" />
+      <LayoutTitleEditor v-if="showTitleEditor" :is-authenticated="isAuthenticated" />
       <ThemeToggle />
     </div>
 
@@ -69,8 +69,12 @@ onMounted(() => {
 
 const isAuthenticated = computed(() => !!user.value);
 
+const isOnGridPage = computed(() =>
+  route.path.startsWith("/grid") || !!layoutStore.currentLayout
+);
+
 const showTitleEditor = computed(() => {
-  return layoutStore.isOwner && route.path.startsWith("/grid");
+  return isOnGridPage.value;
 });
 
 const showTopBar = computed(() => {
@@ -88,9 +92,9 @@ const showTopBar = computed(() => {
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-md) var(--spacing-lg);
-  z-index: var(--z-base);
+  z-index: var(--z-topbar);
   // backdrop-filter: blur(20px);
-  // background-color: var(--color-content-background);
+  background-color: var(--color-content-background);
   // opacity: 0.95;
 }
 

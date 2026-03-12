@@ -632,6 +632,12 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
+    setGridTheme(themeId: string) {
+      if (!this.currentLayout) return;
+      this.currentLayout.themeId = themeId;
+      this.updateLayout();
+    },
+
     addBackgroundImage(url: string, embed: boolean) {
       if (!this.currentLayout) return;
 

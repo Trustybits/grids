@@ -23,6 +23,9 @@
       embedded background
     </iframe>
 
+    <!-- Grid theme toggle for owner -->
+    <ThemeToggle v-if="layoutStore.isOwner" class="grid-theme-toggle" />
+
     <div class="layout-container" ref="layoutContainer" :class="{ 'drag-over': isDraggingOver }">
       <!-- Drag overlay indicator -->
       <div v-if="isDraggingOver && layoutStore.isOwner" class="drag-overlay">
@@ -50,7 +53,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, watch } from "vue";
+import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
@@ -59,14 +62,18 @@ import { usePageTitle } from "@/composables/usePageTitle";
 import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
+import { useThemeStore } from "@/stores/theme";
+import ThemeToggle from "@/components/ThemeToggle.vue";
 
 export default defineComponent({
   components: {
     Grid,
     GridButtons,
+    ThemeToggle,
   },
   setup() {
     const layoutStore = useLayoutStore();
+    const themeStore = useThemeStore();
     const rowHeight = 75;
     const imageInput = ref<HTMLInputElement | null>(null);
     const layoutContainer = ref<HTMLElement | null>(null);
@@ -162,6 +169,14 @@ export default defineComponent({
       }
     });
 
+    // Apply the grid's saved theme when the layout finishes loading
+    watch(
+      () => layoutStore.currentLayout?.themeId,
+      (themeId) => {
+        themeStore.applyGridTheme(themeId);
+      },
+    );
+
     watch(
       () => route.params.id,
       (newId) => {
@@ -170,6 +185,11 @@ export default defineComponent({
         }
       }
     );
+
+    // Restore dark mode when leaving the grid page
+    onUnmounted(() => {
+      themeStore.resetToAppDefault();
+    });
 
     return {
       layoutStore,
@@ -252,6 +272,13 @@ export default defineComponent({
       opacity: 0.8;
     }
   }
+}
+
+.grid-theme-toggle {
+  position: fixed;
+  top: var(--spacing-md);
+  right: var(--spacing-lg);
+  z-index: var(--z-base);
 }
 
 @keyframes bounce {

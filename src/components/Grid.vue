@@ -193,17 +193,31 @@ export default {
       return "lg";
     };
 
-    const activeBreakpoint = computed<Breakpoint>(() => {
-      // Forced breakpoint takes priority over viewport detection
-      if (layoutStore.forcedBreakpoint) return layoutStore.forcedBreakpoint;
+    // The breakpoint the viewport naturally supports (ignoring any forced override).
+    // Used to determine whether a forced breakpoint requires scaling / view-only mode.
+    const viewportBreakpoint = computed<Breakpoint>(() => {
       return colNumToBreakpoint(viewportColNum.value);
     });
 
-    // Keep the store in sync so other components can read the active breakpoint
+    const activeBreakpoint = computed<Breakpoint>(() => {
+      // Forced breakpoint takes priority over viewport detection
+      if (layoutStore.forcedBreakpoint) return layoutStore.forcedBreakpoint;
+      return viewportBreakpoint.value;
+    });
+
+    // Numeric rank for comparing breakpoint "size": sm=0, md=1, lg=2
+    const breakpointRank = (bp: Breakpoint): number => {
+      if (bp === 'sm') return 0;
+      if (bp === 'md') return 1;
+      return 2;
+    };
+
+    // Keep the store in sync so other components can read both breakpoints
     watch(
-      activeBreakpoint,
-      (bp) => {
-        layoutStore.setActiveBreakpoint(bp);
+      [activeBreakpoint, viewportBreakpoint],
+      ([active, viewport]) => {
+        layoutStore.setActiveBreakpoint(active);
+        layoutStore.setViewportBreakpoint(viewport);
       },
       { immediate: true },
     );
@@ -360,8 +374,13 @@ export default {
 
     const isEditable = computed(() => {
       if (!layoutStore.isOwner) return false;
-      // Owners can always edit — at non-lg breakpoints, dragging/resizing will
-      // auto-create overrides via updateBreakpointOverride.
+      // If the forced breakpoint is larger than what the viewport naturally supports,
+      // the grid is being scaled down to fit — drag/resize won't work properly,
+      // so we lock editing.
+      const forced = layoutStore.forcedBreakpoint;
+      if (forced && breakpointRank(forced) > breakpointRank(viewportBreakpoint.value)) {
+        return false;
+      }
       return true;
     });
 

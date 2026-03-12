@@ -9,6 +9,10 @@
     - "floating"    (Option B) — fixed pill near the top of the viewport
     - "toolbar-row" (Option D) — second row stacked below the tile-add toolbar
   
+  Breakpoints smaller than or equal to the viewport are fully editable.
+  Breakpoints larger than the viewport are available as view-only previews,
+  shown with a dimmed "eye" indicator to communicate that editing is locked.
+  
   Clicking the currently-active breakpoint resets to auto (viewport-based).
   A small dot indicator shows when a saved override exists for that breakpoint.
 -->
@@ -24,14 +28,26 @@
       :class="{
         'bp-btn--active': isActive(bp.key),
         'bp-btn--forced': layoutStore.forcedBreakpoint === bp.key,
+        'bp-btn--view-only': isLargerThanViewport(bp.key),
       }"
-      :data-tooltip="bp.tooltip"
+      :data-tooltip="tooltipFor(bp)"
       @click="toggle(bp.key)"
     >
       <component :is="bp.icon" />
+      <!-- Eye badge when this breakpoint is larger than viewport (view-only) -->
+      <span
+        v-if="isLargerThanViewport(bp.key)"
+        class="bp-view-only-badge"
+        title="View only — larger than your screen"
+      >
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </span>
       <!-- Dot indicator when a saved override exists for this breakpoint -->
       <span
-        v-if="bp.key !== 'lg' && hasOverride(bp.key)"
+        v-else-if="bp.key !== 'lg' && hasOverride(bp.key)"
         class="bp-override-dot"
         :title="`Saved ${bp.label} override`"
       />
@@ -40,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, markRaw } from "vue";
+import { markRaw } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import type { Breakpoint } from "@/types/Tile";
 import DeviceDesktopIcon from "./icons/DeviceDesktopIcon.vue";
@@ -59,12 +75,32 @@ defineProps<{
 
 const layoutStore = useLayoutStore();
 
+// Numeric rank for comparing breakpoint "size": sm=0, md=1, lg=2
+const breakpointRank = (bp: Breakpoint): number => {
+  if (bp === "sm") return 0;
+  if (bp === "md") return 1;
+  return 2;
+};
+
 // Breakpoint definitions in the order they should render (desktop → mobile)
 const breakpoints = [
   { key: "lg" as Breakpoint, label: "Desktop", tooltip: "Desktop (12 col)", icon: markRaw(DeviceDesktopIcon) },
   { key: "md" as Breakpoint, label: "Tablet",  tooltip: "Tablet (8 col)",   icon: markRaw(DeviceTabletIcon) },
   { key: "sm" as Breakpoint, label: "Mobile",  tooltip: "Mobile (4 col)",   icon: markRaw(DeviceMobileIcon) },
 ];
+
+/** Whether this breakpoint requires a larger screen than the current viewport */
+const isLargerThanViewport = (bp: Breakpoint): boolean => {
+  return breakpointRank(bp) > breakpointRank(layoutStore.viewportBreakpoint);
+};
+
+/** Build context-aware tooltip: appends "(view only)" for upscaled breakpoints */
+const tooltipFor = (bp: { key: Breakpoint; tooltip: string }): string => {
+  if (isLargerThanViewport(bp.key)) {
+    return `${bp.tooltip} — view only`;
+  }
+  return bp.tooltip;
+};
 
 /**
  * A breakpoint button is "active" if either:
@@ -85,7 +121,8 @@ const hasOverride = (bp: Breakpoint): boolean => {
 
 /**
  * Toggle a breakpoint: if it's already forced, clear back to auto;
- * otherwise force to this breakpoint.
+ * otherwise force to this breakpoint. Larger-than-viewport breakpoints
+ * are still selectable but will render in view-only mode.
  */
 const toggle = (bp: Breakpoint) => {
   if (layoutStore.forcedBreakpoint === bp) {
@@ -148,6 +185,22 @@ const toggle = (bp: Breakpoint) => {
       color: var(--color-text-primary);
     }
   }
+
+  /* Breakpoint larger than the viewport — dimmed to signal view-only */
+  &.bp-btn--view-only {
+    svg {
+      opacity: 0.3;
+    }
+
+    &:hover svg {
+      opacity: 0.6;
+    }
+
+    /* When forced AND view-only, keep the forced bg but soften the icon */
+    &.bp-btn--forced svg {
+      opacity: 0.7;
+    }
+  }
 }
 
 /* Tooltip (same pattern as .toolbarAlpha buttons) */
@@ -178,6 +231,26 @@ const toggle = (bp: Breakpoint) => {
   &:hover::after {
     opacity: 1;
     transform: translateX(-50%) scale(1);
+  }
+}
+
+/* View-only eye badge — shown on breakpoints larger than the viewport */
+.bp-view-only-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0.5;
+
+  svg {
+    /* Override the parent .bp-btn svg sizing */
+    width: 10px !important;
+    height: 10px !important;
+    opacity: 1 !important;
+    color: var(--color-content-default);
   }
 }
 

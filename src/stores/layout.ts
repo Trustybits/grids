@@ -210,6 +210,9 @@ export const useLayoutStore = defineStore("layout", {
     // component once it consumes the focus request.
     pendingFocusTileId: null as string | null,
     activeBreakpoint: "lg" as Breakpoint,
+    // When non-null, Grid.vue uses this breakpoint instead of the viewport-derived one.
+    // Lets owners preview/edit at any breakpoint without resizing the browser window.
+    forcedBreakpoint: null as Breakpoint | null,
     // When true, Grid.vue should skip the next displayLayout rebuild triggered by
     // overrides changing (because the change came from a drag/resize and positions
     // are already correct in the stable ref).
@@ -1021,6 +1024,12 @@ export const useLayoutStore = defineStore("layout", {
       this.activeBreakpoint = bp;
     },
 
+    // Force the grid to render at a specific breakpoint regardless of viewport width.
+    // Pass null to return to automatic viewport-based detection.
+    setForcedBreakpoint(bp: Breakpoint | null) {
+      this.forcedBreakpoint = bp;
+    },
+
     setDisplayPositions(
       positions: Array<{
         i: string;
@@ -1101,6 +1110,7 @@ export const useLayoutStore = defineStore("layout", {
       this.displayPositions = [];
       this.activeTileId = null;
       this.activePanelId = null;
+      this.forcedBreakpoint = null;
     },
 
     async deleteLayout(id: string) {

@@ -21,6 +21,11 @@
         <!-- Settings -->
         <MenuSection>
           <Toggle 
+            label="Dark Mode" 
+            v-model="isDarkMode"
+            tooltip="Toggle between dark and light theme for this grid"
+          />
+          <Toggle 
             label="Gravity" 
             v-model="verticalCompact"
             tooltip="When enabled, tiles automatically move up to fill empty space"
@@ -78,6 +83,7 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { getAuth } from "firebase/auth";
 import { useLayoutStore } from "@/stores/layout";
+import { useThemeStore } from "@/stores/theme";
 import { useToastStore } from "@/stores/toast";
 import { usePixelRacersStore } from "@/stores/pixelRacers";
 import MenuItem from "./MenuItem.vue";
@@ -89,6 +95,7 @@ import GridMenuIcon from "./icons/GridMenuIcon.vue";
 
 const router = useRouter();
 const layoutStore = useLayoutStore();
+const themeStore = useThemeStore();
 const toastStore = useToastStore();
 const gameStore = usePixelRacersStore();
 const auth = getAuth();
@@ -109,6 +116,16 @@ const gridPageId = computed(() => {
 const verticalCompact = computed({
   get: () => layoutStore.verticalCompact,
   set: (value: boolean) => layoutStore.setVerticalCompact(value)
+});
+
+// Computed property with setter to handle dark mode toggle for the grid
+const isDarkMode = computed({
+  get: () => themeStore.isDarkMode,
+  set: (value: boolean) => {
+    const newThemeId = value ? 'dark' : 'light';
+    themeStore.setTheme(newThemeId);
+    layoutStore.setGridTheme(newThemeId);
+  }
 });
 
 const toggleMenu = () => {

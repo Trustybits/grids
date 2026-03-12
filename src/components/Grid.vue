@@ -157,7 +157,15 @@ export default {
       return tiles.map((tile) => placedById.get(tile.i) ?? tile);
     };
 
-    const responsiveColNum = computed(() => {
+    // Map breakpoint names to their column counts
+    const breakpointToColNum = (bp: Breakpoint): number => {
+      if (bp === 'sm') return Math.min(4, baseColNum.value);
+      if (bp === 'md') return Math.min(8, baseColNum.value);
+      return Math.min(12, baseColNum.value);
+    };
+
+    // Viewport-derived column count (used when no forced breakpoint is active)
+    const viewportColNum = computed(() => {
       const candidates = [12, 8, 4].filter(
         (columns) => columns <= baseColNum.value,
       );
@@ -171,6 +179,14 @@ export default {
       return candidates.find(fits) ?? Math.min(4, baseColNum.value);
     });
 
+    // When forcedBreakpoint is set by the owner, use its column count;
+    // otherwise fall back to the viewport-derived value.
+    const responsiveColNum = computed(() => {
+      const forced = layoutStore.forcedBreakpoint;
+      if (forced) return breakpointToColNum(forced);
+      return viewportColNum.value;
+    });
+
     const colNumToBreakpoint = (cols: number): Breakpoint => {
       if (cols <= 4) return "sm";
       if (cols <= 8) return "md";
@@ -178,7 +194,9 @@ export default {
     };
 
     const activeBreakpoint = computed<Breakpoint>(() => {
-      return colNumToBreakpoint(responsiveColNum.value);
+      // Forced breakpoint takes priority over viewport detection
+      if (layoutStore.forcedBreakpoint) return layoutStore.forcedBreakpoint;
+      return colNumToBreakpoint(viewportColNum.value);
     });
 
     // Keep the store in sync so other components can read the active breakpoint

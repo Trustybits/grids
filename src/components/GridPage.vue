@@ -35,13 +35,39 @@
           <p>Drop to add to grid</p>
         </div>
       </div>
+
+      <!--
+        Option B: Floating breakpoint switcher at top of viewport.
+        Renders independently of the toolbar, so it works even when
+        the toolbar is scrolled off-screen.
+      -->
+      <BreakpointSwitcher
+        v-if="layoutStore.isOwner && switcherVariant === 'floating'"
+        variant="floating"
+      />
       
       <div v-if="layoutStore.isOwner" class="toolbar">
         <div class="row">
           <div class="col-md-12">
-            <grid-buttons />
+            <!--
+              Option A: Inline — switcher sits inside the toolbar row,
+              right next to the tile-add buttons.
+            -->
+            <div v-if="switcherVariant === 'inline'" class="toolbar-with-switcher">
+              <grid-buttons />
+              <BreakpointSwitcher variant="inline" />
+            </div>
+            <grid-buttons v-else />
           </div>
         </div>
+        <!--
+          Option D: Toolbar-row — switcher is a second row stacked
+          below the tile-add toolbar, same styling family.
+        -->
+        <BreakpointSwitcher
+          v-if="switcherVariant === 'toolbar-row'"
+          variant="toolbar-row"
+        />
       </div>
       <grid :row-height="rowHeight" />
     </div>
@@ -54,16 +80,26 @@ import { defineComponent, ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
+import BreakpointSwitcher from "@/components/BreakpointSwitcher.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
 
+// ── Breakpoint switcher placement ────────────────────────────────
+// Change this value to flip between the three UI placements:
+//   "inline"      → Option A: sits inside the tile-add toolbar row
+//   "floating"    → Option B: fixed pill near the top of the viewport
+//   "toolbar-row" → Option D: second row stacked below the toolbar
+type SwitcherVariant = "inline" | "floating" | "toolbar-row";
+const SWITCHER_VARIANT = "floating" as SwitcherVariant;
+
 export default defineComponent({
   components: {
     Grid,
     GridButtons,
+    BreakpointSwitcher,
   },
   setup() {
     const layoutStore = useLayoutStore();
@@ -171,6 +207,9 @@ export default defineComponent({
       }
     );
 
+    // Expose the switcher variant so the template can gate rendering
+    const switcherVariant = SWITCHER_VARIANT;
+
     return {
       layoutStore,
       rowHeight,
@@ -183,6 +222,7 @@ export default defineComponent({
       layoutContainer,
       isDraggingOver,
       isOwner,
+      switcherVariant,
     };
   },
 });
@@ -195,6 +235,17 @@ export default defineComponent({
   bottom: 0rem;
   left: 50vw;
   transform: translate(-50%, -10%);
+  /* Stack toolbar rows vertically when Option D is active */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Option A: inline — wraps tile buttons + breakpoint switcher in one row */
+.toolbar-with-switcher {
+  display: flex;
+  align-items: center;
 }
 
 .layout-container {

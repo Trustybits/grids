@@ -236,6 +236,32 @@ export const useLayoutStore = defineStore("layout", {
     verticalCompact(): boolean {
       return this.currentLayout?.verticalCompact ?? true;
     },
+
+    /**
+     * Whether the current user can edit the grid right now.
+     * Returns false when:
+     *   - The user is not the owner, OR
+     *   - The user is forcing a breakpoint larger than what the viewport
+     *     naturally supports (view-only preview mode).
+     *
+     * Components should use `canEdit` instead of `isOwner` for any gate
+     * that controls grid manipulation (drag, resize, content editing, etc.).
+     * Use `isOwner` only for UI elements that should remain visible to the
+     * owner even during a view-only preview (e.g. breakpoint switcher,
+     * bottom-left buttons, GridMenu).
+     */
+    canEdit(): boolean {
+      if (!this.isOwner) return false;
+
+      const forced = this.forcedBreakpoint;
+      if (forced) {
+        const rank = (bp: Breakpoint): number =>
+          bp === "sm" ? 0 : bp === "md" ? 1 : 2;
+        if (rank(forced) > rank(this.viewportBreakpoint)) return false;
+      }
+
+      return true;
+    },
   },
 
   actions: {

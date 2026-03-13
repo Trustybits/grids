@@ -46,7 +46,7 @@ export default {
     const editableCaptionElement = ref(null);
 
     const captionClasses = computed(() => {
-      if (layoutStore.isOwner) {
+      if (layoutStore.canEdit) {
         return 'hover-display';
       }
       // Non-owner: show if caption exists, hide on hover
@@ -58,14 +58,14 @@ export default {
       // For non-owners, the .viewer-caption class handles display
       // and must not be overridden by an inline style (so the
       // hide-on-hover rule in GridTile.vue can take effect).
-      if (layoutStore.isOwner && (editing.value || props.tile.caption)) {
+      if (layoutStore.canEdit && (editing.value || props.tile.caption)) {
         return { display: 'flex' };
       }
       return {};
     });
 
     const startEditing = () => {
-      if (!layoutStore.isOwner) {
+      if (!layoutStore.canEdit) {
         return;
       }
       // If already editing, let the native click handle cursor placement
@@ -92,7 +92,7 @@ export default {
 
     const saveCaption = () => {
       if (!editing.value) return;
-      if (!layoutStore.isOwner) {
+      if (!layoutStore.canEdit) {
         editing.value = false;
         return;
       }

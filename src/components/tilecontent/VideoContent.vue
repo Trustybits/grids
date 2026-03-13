@@ -89,6 +89,16 @@
         </div>
       </div>
 
+      <!-- Link indicator -->
+      <div
+        v-if="textLinkExists"
+        class="tile-link-indicator"
+        aria-hidden="true"
+        @click.stop="handleFollowLink"
+      >
+        <LinkIndicatorIcon class="tile-link-indicator-icon" />
+      </div>
+
       <!-- Bottom Control Bar -->
       <div class="bottom-controls" v-if="!isEditing">
         <div class="controls-row">
@@ -194,6 +204,7 @@ import { useVideoFocus } from "@/composables/useVideoFocus";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";
 import AddLinkModal from "../AddLinkModal.vue";
+import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 
 const PREVIEW_DURATION = 3;
 const DEFAULT_VOLUME = 0.15;
@@ -201,6 +212,7 @@ const DEFAULT_VOLUME = 0.15;
 export default defineComponent({
   components: {
     AddLinkModal,
+    LinkIndicatorIcon,
   },
   emits: ["background-color-change", "text-color-change"],
   props: {
@@ -1166,5 +1178,33 @@ export default defineComponent({
   background: white;
   cursor: pointer;
   border: none;
+}
+
+/* Link indicator */
+.tile-link-indicator {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  color: white;
+  opacity: 0.21;
+  transition: opacity var(--duration-fast) var(--easing-ease-in-out);
+  pointer-events: auto;
+  z-index: 11;
+}
+
+.video-wrapper .tile-link-indicator:hover {
+  opacity: 1;
+}
+
+.tile-link-indicator:hover {
+  cursor: pointer;
+}
+
+.tile-link-indicator-icon {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 </style>

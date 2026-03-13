@@ -4,7 +4,11 @@
     <div
       v-else
       class="image-wrapper"
-      :class="{ 'crop-active': isEditing }"
+      :class="{
+        'crop-active': isEditing,
+        'owner-view': layoutStore.isOwner,
+        'viewer-view': !layoutStore.isOwner,
+      }"
       @mousedown="startDragging"
       @mouseup="stopDragging"
       @mouseleave="stopDragging"
@@ -48,6 +52,16 @@
           ></div>
         </div>
       </div>
+
+      <!-- Link indicator -->
+      <div
+        v-if="textLinkExists"
+        class="tile-link-indicator"
+        aria-hidden="true"
+        @click.stop="handleFollowLink"
+      >
+        <LinkIndicatorIcon class="tile-link-indicator-icon" />
+      </div>
     </div>
   </div>
   <AddLinkModal
@@ -72,11 +86,13 @@ import { useLayoutStore } from "@/stores/layout";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";
 import AddLinkModal from "../AddLinkModal.vue";
+import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import type { ComputedRef } from "vue";
 
 export default defineComponent({
   components: {
     AddLinkModal,
+    LinkIndicatorIcon,
   },
   emits: ["background-color-change", "text-color-change"],
   props: {
@@ -300,6 +316,12 @@ export default defineComponent({
       clearLink,
     } = useTileLink(tileId || null, props.content);
 
+    const onShortClick = () => {
+      if (!layoutStore.isOwner && textLinkExists.value) {
+        handleFollowLink();
+      }
+    };
+
     return {
       layoutStore,
       isEditing,
@@ -324,6 +346,7 @@ export default defineComponent({
       handleAddLink,
       handleFollowLink,
       clearLink,
+      onShortClick,
     };
   },
 });
@@ -414,5 +437,37 @@ export default defineComponent({
   background: rgba(255, 255, 255, 0.9);
   border-radius: 2px;
   transition: width 0.2s ease-out;
+}
+
+/* Link indicator */
+.tile-link-indicator {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  color: white;
+  opacity: 0.21;
+  transition: opacity var(--duration-fast) var(--easing-ease-in-out);
+  pointer-events: auto;
+  z-index: 4;
+}
+
+.image-wrapper.viewer-view:hover .tile-link-indicator {
+  opacity: 1;
+}
+
+.image-wrapper.owner-view .tile-link-indicator:hover {
+  opacity: 1;
+}
+
+.tile-link-indicator:hover {
+  cursor: pointer;
+}
+
+.tile-link-indicator-icon {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 </style>

@@ -23,7 +23,17 @@
               :title="isValidUrl ? 'Add link (Enter)' : 'Enter a valid URL'"
             >
               <!-- Corner-down-left icon (return/enter symbol) -->
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <polyline points="9 10 4 15 9 20"></polyline>
                 <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
               </svg>
@@ -36,30 +46,35 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick } from "vue";
 
 const props = defineProps({
   show: {
     type: Boolean,
-    required: true
-  }
+    required: true,
+  },
 });
 
-const emit = defineEmits(['close', 'add']);
+const emit = defineEmits(["close", "add"]);
 
-const link = ref('');
+const link = ref("");
 const linkInput = ref(null);
 
-watch(() => props.show, async (newValue) => {
-  if (newValue) {
-    link.value = '';
-    await nextTick();
-    linkInput.value?.focus();
-  }
-});
+watch(
+  () => props.show,
+  async (newValue) => {
+    if (newValue) {
+      link.value = "";
+      await nextTick();
+      // Teleported elements inside a <transition> may not be focusable
+      // immediately after nextTick; a short delay ensures the DOM is ready.
+      setTimeout(() => linkInput.value?.focus(), 50);
+    }
+  },
+);
 
 const handleClose = () => {
-  emit('close');
+  emit("close");
 };
 
 /** Check whether the current input looks like a valid URL. */
@@ -67,12 +82,12 @@ const isValidUrl = computed(() => {
   const text = link.value.trim();
   if (!text) return false;
   try {
-    if (text.startsWith('http://') || text.startsWith('https://')) {
+    if (text.startsWith("http://") || text.startsWith("https://")) {
       new URL(text);
       return true;
     }
     // Bare domain — must contain a dot
-    if (text.includes('.')) {
+    if (text.includes(".")) {
       new URL(`https://${text}`);
       return true;
     }
@@ -84,7 +99,7 @@ const isValidUrl = computed(() => {
 
 const handleAdd = () => {
   if (!isValidUrl.value) return;
-  emit('add', link.value.trim());
+  emit("add", link.value.trim());
 };
 </script>
 
@@ -208,10 +223,14 @@ const handleAdd = () => {
 
 /* Slide-in animation for the submit button */
 .slide-btn-enter-active {
-  transition: transform 0.2s var(--easing-smooth), opacity 0.2s var(--easing-smooth);
+  transition:
+    transform 0.2s var(--easing-smooth),
+    opacity 0.2s var(--easing-smooth);
 }
 .slide-btn-leave-active {
-  transition: transform 0.15s var(--easing-smooth), opacity 0.15s var(--easing-smooth);
+  transition:
+    transform 0.15s var(--easing-smooth),
+    opacity 0.15s var(--easing-smooth);
 }
 .slide-btn-enter-from {
   opacity: 0;
@@ -232,8 +251,9 @@ const handleAdd = () => {
   color: var(--color-text-primary);
   cursor: pointer;
   border-radius: var(--radius-md);
-  transition: color var(--duration-fast) var(--easing-smooth),
-              background-color var(--duration-fast) var(--easing-smooth);
+  transition:
+    color var(--duration-fast) var(--easing-smooth),
+    background-color var(--duration-fast) var(--easing-smooth);
   flex-shrink: 0;
 }
 

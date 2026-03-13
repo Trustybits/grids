@@ -34,4 +34,5 @@ export interface ToolbarItem {
   menuItems?: ToolbarMenuItem[];
   panelId?: string;
   menuItemsLayoutDirection?: "horizontal" | "vertical";
+  danger?: boolean;
 }

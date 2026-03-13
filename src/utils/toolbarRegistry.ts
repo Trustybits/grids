@@ -1,8 +1,10 @@
 import { markRaw } from "vue";
 import {
   ContentType,
+  type ImageContent,
   type LinkContent,
   type TextContent,
+  type VideoContent,
 } from "@/types/TileContent";
 import type { ToolbarItem } from "@/types/TileToolbar";
 
@@ -263,12 +265,21 @@ export const LINK_BG_TOGGLE: ToolbarItem = {
 };
 
 export const ADD_LINK: ToolbarItem = {
-  id: "add-link-button",
+  id: "add-link",
   icon: markRaw(LinkIcon),
-  title: "Add a Link",
+  title: "Add a link",
   group: "appearance",
-  action: (ctx) => {},
-  isActive: (ctx) => false,
+  action: (ctx) => ctx.childComponent.value?.openUrlInput?.(),
+};
+
+export const CLEAR_LINK: ToolbarItem = {
+  id: "clear-link",
+  icon: markRaw(ClearLinkIcon),
+  title: "Remove link",
+  group: "appearance",
+  danger: true,
+  action: (ctx) => ctx.childComponent.value?.clearLink?.(),
+  visible: (ctx) => !!(ctx.tile.content as any)?.textLink,
 };
 
 export const LINK_MORE_MENU: ToolbarItem = {
@@ -360,6 +371,7 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     CROP_BUTTON,
     COLOR_BUTTON,
     ADD_LINK,
+    CLEAR_LINK,
   ],
   [ContentType.VIDEO]: [
     ...RESIZE_PRESETS,
@@ -367,6 +379,7 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     CROP_BUTTON,
     COLOR_BUTTON,
     ADD_LINK,
+    CLEAR_LINK,
   ],
   [ContentType.LINK]: [
     ...RESIZE_PRESETS,

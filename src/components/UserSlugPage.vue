@@ -40,7 +40,11 @@
             variant="floating"
           />
 
-          <div v-if="layoutStore.isOwner" class="toolbar">
+          <!--
+            Toolbar area: tile-add buttons hidden during view-only preview
+            (canEdit), breakpoint switcher stays visible for owners (isOwner).
+          -->
+          <div v-if="layoutStore.canEdit" class="toolbar">
             <div class="row">
               <div class="col-md-12">
                 <!-- Option A: Inline — sits inside the toolbar row -->
@@ -56,6 +60,19 @@
               v-if="switcherVariant === 'toolbar-row'"
               variant="toolbar-row"
             />
+          </div>
+          <!--
+            View-only fallback: show just the switcher so owner can switch back.
+          -->
+          <div v-else-if="layoutStore.isOwner && switcherVariant === 'inline'" class="toolbar">
+            <div class="row">
+              <div class="col-md-12">
+                <BreakpointSwitcher variant="inline" />
+              </div>
+            </div>
+          </div>
+          <div v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'" class="toolbar">
+            <BreakpointSwitcher variant="toolbar-row" />
           </div>
           <!-- Warning banner when previewing a breakpoint larger than the viewport -->
           <ViewportWarning type="breakpoint-preview" />

@@ -8,11 +8,11 @@
       class="text-content"
       :class="{
         'not-editing': !isEditing,
-        'can-edit': layoutStore.isOwner,
+        'can-edit': layoutStore.canEdit,
         'is-wide-1-high': isWideOneHigh,
         'is-tall-1-wide': isTallOneWide,
-        'owner-view': layoutStore.isOwner,
-        'viewer-view': !layoutStore.isOwner,
+        'owner-view': layoutStore.canEdit,
+        'viewer-view': !layoutStore.canEdit,
       }"
       :style="{
         '--tile-bg': backgroundColor,
@@ -20,7 +20,7 @@
         color: textColor,
         textAlign: textAlign,
       }"
-      :spellcheck="layoutStore.isOwner && isEditing"
+      :spellcheck="layoutStore.canEdit && isEditing"
     >
       <EditorContent :editor="editor" />
       <div
@@ -134,7 +134,9 @@ export default defineComponent({
   setup(props, { emit }) {
     const layoutStore = useLayoutStore();
 
-    const isOwner = ref(layoutStore?.isOwner);
+    // Reactive ref so the template updates when canEdit changes
+    // (e.g. owner toggles a larger-than-viewport breakpoint preview).
+    const isOwner = computed(() => layoutStore.canEdit);
 
     const isTextOverflowing = ref(false);
     const isScrolledToBottom = ref(false);
@@ -244,7 +246,7 @@ export default defineComponent({
     );
 
     watch(
-      [() => layoutStore.isOwner, () => isEditing.value],
+      [() => layoutStore.canEdit, () => isEditing.value],
       ([isOwner, editing]) => {
         if (!editor?.value) return;
 
@@ -269,7 +271,7 @@ export default defineComponent({
     );
 
     const onShortClick = () => {
-      if (!layoutStore.isOwner) {
+      if (!layoutStore.canEdit) {
         if (textLinkExists.value) {
           window.open(textLink.value, "_blank", "noopener,noreferrer");
         }
@@ -300,7 +302,7 @@ export default defineComponent({
       // edit mode immediately so the user can start typing right away.
       if (
         tileId &&
-        layoutStore.isOwner &&
+        layoutStore.canEdit &&
         layoutStore.pendingFocusTileId === tileId
       ) {
         layoutStore.pendingFocusTileId = null;
@@ -316,7 +318,7 @@ export default defineComponent({
     });
 
     const openUrlInput = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       showLinkModal.value = true;
     };
 
@@ -340,7 +342,7 @@ export default defineComponent({
     };
 
     const handleAddLink = (link: string) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const normalized = normalizeUrl(link);
       if (!normalized) {
         toastStore.addToast("Invalid URL format", "error");
@@ -365,7 +367,7 @@ export default defineComponent({
       useColorPicker(tileId, props.content, emit);
 
     const handleTextAlignChange = (align: "left" | "center" | "right") => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       props.content.textAlign = align;
       if (tileId) {
         layoutStore.patchTileContent(tileId, { textAlign: align });
@@ -373,7 +375,7 @@ export default defineComponent({
     };
 
     const persistEditorText = () => {
-      if (!editor.value || !layoutStore.isOwner) return;
+      if (!editor.value || !layoutStore.canEdit) return;
 
       const output = JSON.stringify(editor.value.getJSON());
 

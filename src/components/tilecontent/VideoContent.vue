@@ -217,7 +217,7 @@ export default defineComponent({
 
     // Toggle crop mode
     const toggleEditMode = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
 
       isEditing.value = !isEditing.value;
 

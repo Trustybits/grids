@@ -92,7 +92,7 @@
               <span class="suggestion-label">{{ suggestionLabel }}</span>
             </div>
             <input
-              v-if="layoutStore.isOwner"
+              v-if="layoutStore.canEdit"
               type="file"
               ref="mediaInput"
               style="display: none"
@@ -104,7 +104,7 @@
 
         <!-- UI Layer -->
         <div
-          v-if="layoutStore.isOwner && headerComponent"
+          v-if="layoutStore.canEdit && headerComponent"
           class="header-options"
         >
           <component :is="headerComponent" :content="tile.content" />
@@ -115,7 +115,7 @@
         </p>
 
         <button
-          v-if="layoutStore.isOwner"
+          v-if="layoutStore.canEdit"
           class="btn btn-sm btn-danger btn-close"
           @mousedown.stop
           @mouseup.stop
@@ -123,7 +123,7 @@
         ></button>
 
         <TileCaption
-          v-if="showCaption && (layoutStore.isOwner || tile.caption)"
+          v-if="showCaption && (layoutStore.canEdit || tile.caption)"
           :tile="tile"
         />
 
@@ -131,7 +131,7 @@
         <div v-if="isTileResizable" class="resize-indicator"></div>
 
         <TileToolbar
-          v-if="layoutStore.isOwner && !isSuggestion"
+          v-if="layoutStore.canEdit && !isSuggestion"
           :tile="tile"
           :toolbarRefs="toolbarRefs"
         />
@@ -297,13 +297,13 @@ export default defineComponent({
       () => props.tile.content.type === ContentType.PROFILE,
     );
     const isTileDraggable = computed(() => {
-      if (!layoutStore.isOwner || isEditing.value) return false;
+      if (!layoutStore.canEdit || isEditing.value) return false;
       if (isTouchDevice()) return isActivated.value;
       return true;
     });
 
     const isTileResizable = computed(() => {
-      if (!layoutStore.isOwner || isSuggestion.value || isProfileTile.value) {
+      if (!layoutStore.canEdit || isSuggestion.value || isProfileTile.value) {
         return false;
       }
       if (isTouchDevice()) return isActivated.value && !isEditing.value;
@@ -322,7 +322,7 @@ export default defineComponent({
         clickStart.value = Date.now();
         // Only preventDefault when the child doesn't handle short clicks
         // (e.g. text tiles need the default focus behavior on mousedown)
-        if (layoutStore.isOwner && !isEditing.value && !isSuggestion.value) {
+        if (layoutStore.canEdit && !isEditing.value && !isSuggestion.value) {
           if (!childComponent.value?.onShortClick) {
             event.preventDefault();
           }
@@ -364,7 +364,7 @@ export default defineComponent({
     const onMoved = () => {
       // Called when drag operation completes - save the final positions
       isDragging.value = false;
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       if (layoutStore.activeBreakpoint !== "lg") {
         layoutStore.updateBreakpointOverride();
       } else {
@@ -406,7 +406,7 @@ export default defineComponent({
         childComponent.value.onResize();
       }
       // Save the layout with the new size
-      if (layoutStore.isOwner) {
+      if (layoutStore.canEdit) {
         if (layoutStore.activeBreakpoint !== "lg") {
           layoutStore.updateBreakpointOverride();
         } else {
@@ -416,7 +416,7 @@ export default defineComponent({
     };
 
     const onSuggestionShortClick = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const action = (props.tile.content as any)?.action as
         | "text"
         | "media"
@@ -634,7 +634,7 @@ export default defineComponent({
 
     const handleDragStart = (event: Event) => {
       // Prevent default browser drag behavior which interferes with vue-grid-layout
-      if (layoutStore.isOwner && !isEditing.value) {
+      if (layoutStore.canEdit && !isEditing.value) {
         event.preventDefault();
       }
     };

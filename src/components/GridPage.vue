@@ -3,7 +3,7 @@
     <div :style="backgroundStyle" class="background-image-overlay"></div>
 
     <input
-      v-if="layoutStore.isOwner"
+      v-if="layoutStore.canEdit"
       type="file"
       ref="imageInput"
       style="display: none"
@@ -25,7 +25,7 @@
 
     <div class="layout-container" ref="layoutContainer" :class="{ 'drag-over': isDraggingOver }">
       <!-- Drag overlay indicator -->
-      <div v-if="isDraggingOver && layoutStore.isOwner" class="drag-overlay">
+      <div v-if="isDraggingOver && layoutStore.canEdit" class="drag-overlay">
         <div class="drag-message">
           <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -46,7 +46,12 @@
         variant="floating"
       />
       
-      <div v-if="layoutStore.isOwner" class="toolbar">
+      <!--
+        Toolbar area: tile-add buttons are hidden during view-only preview
+        (canEdit), but the breakpoint switcher stays visible for owners
+        (isOwner) so they can switch back.
+      -->
+      <div v-if="layoutStore.canEdit" class="toolbar">
         <div class="row">
           <div class="col-md-12">
             <!--
@@ -68,6 +73,20 @@
           v-if="switcherVariant === 'toolbar-row'"
           variant="toolbar-row"
         />
+      </div>
+      <!--
+        When the toolbar is hidden (view-only preview), still show the
+        inline/toolbar-row switcher so the owner can switch back.
+      -->
+      <div v-else-if="layoutStore.isOwner && switcherVariant === 'inline'" class="toolbar">
+        <div class="row">
+          <div class="col-md-12">
+            <BreakpointSwitcher variant="inline" />
+          </div>
+        </div>
+      </div>
+      <div v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'" class="toolbar">
+        <BreakpointSwitcher variant="toolbar-row" />
       </div>
       <!-- Warning banner when previewing a breakpoint larger than the viewport -->
       <ViewportWarning type="breakpoint-preview" />
@@ -123,7 +142,7 @@ export default defineComponent({
     });
 
     const selectImage = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       imageInput.value?.click();
     };
 
@@ -162,7 +181,7 @@ export default defineComponent({
     useDynamicFavicon(profilePhotoUrl);
 
     const addBackgroundImage = async (event: Event) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
 
@@ -176,7 +195,7 @@ export default defineComponent({
     };
 
     const embedBackground = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const link = prompt("Please enter an embed URL");
       if (link) {
         layoutStore.addBackgroundImage(link, true);
@@ -184,7 +203,7 @@ export default defineComponent({
     };
 
     const confirmDelete = async () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       if (!layoutStore.currentLayout) return;
 
       const confirmed = confirm("Are you sure you want to delete this layout?");

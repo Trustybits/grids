@@ -2,7 +2,7 @@
   <div class="layout-title">
     <h2
       class="editable-text"
-      :contenteditable="layoutStore.isOwner"
+      :contenteditable="layoutStore.canEdit"
       spellcheck="false"
       @blur="saveName"
       @keydown.enter.prevent="blurOnEnter"
@@ -27,7 +27,7 @@ watch(
 );
 
 const saveName = (event) => {
-  if (!layoutStore.isOwner) {
+  if (!layoutStore.canEdit) {
     return;
   }
   const newName = event.target.innerText.trim();
@@ -39,7 +39,7 @@ const saveName = (event) => {
 };
 
 const blurOnEnter = (event) => {
-  if (!layoutStore.isOwner) {
+  if (!layoutStore.canEdit) {
     return;
   }
   event.target.blur();

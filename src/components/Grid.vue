@@ -205,13 +205,6 @@ export default {
       return viewportBreakpoint.value;
     });
 
-    // Numeric rank for comparing breakpoint "size": sm=0, md=1, lg=2
-    const breakpointRank = (bp: Breakpoint): number => {
-      if (bp === 'sm') return 0;
-      if (bp === 'md') return 1;
-      return 2;
-    };
-
     // Keep the store in sync so other components can read both breakpoints
     watch(
       [activeBreakpoint, viewportBreakpoint],
@@ -372,17 +365,9 @@ export default {
       { immediate: true, deep: true },
     );
 
-    const isEditable = computed(() => {
-      if (!layoutStore.isOwner) return false;
-      // If the forced breakpoint is larger than what the viewport naturally supports,
-      // the grid is being scaled down to fit — drag/resize won't work properly,
-      // so we lock editing.
-      const forced = layoutStore.forcedBreakpoint;
-      if (forced && breakpointRank(forced) > breakpointRank(viewportBreakpoint.value)) {
-        return false;
-      }
-      return true;
-    });
+    // Delegates to layoutStore.canEdit — the single source of truth for
+    // whether grid manipulation (drag/resize) is allowed right now.
+    const isEditable = computed(() => layoutStore.canEdit);
 
     const gridWidth = computed(() => {
       return (
@@ -469,7 +454,7 @@ export default {
     watch(
       () => layoutStore.verticalCompact,
       (isCompact, wasCompact) => {
-        if (!layoutStore.currentLayout || !layoutStore.isOwner) return;
+        if (!layoutStore.currentLayout || !layoutStore.canEdit) return;
         if (activeBreakpoint.value !== "lg") return;
 
         // Only act when gravity is turned ON (false -> true)

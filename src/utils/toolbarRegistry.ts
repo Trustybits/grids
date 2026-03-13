@@ -1,12 +1,10 @@
 import { markRaw } from "vue";
 import {
   ContentType,
-  type ImageContent,
   type LinkContent,
   type TextContent,
-  type VideoContent,
 } from "@/types/TileContent";
-import type { ToolbarItem } from "@/types/TileToolbar";
+import type { ToolbarItem, ToolbarContext } from "@/types/TileToolbar";
 
 import ResizeWideIcon from "@/components/icons/toolbar/ResizeWideIcon.vue";
 import ResizeSquareIcon from "@/components/icons/toolbar/ResizeSquareIcon.vue";
@@ -264,22 +262,30 @@ export const LINK_BG_TOGGLE: ToolbarItem = {
     (ctx.tile.content as LinkContent).linkBackgroundEnabled !== false,
 };
 
-export const ADD_LINK: ToolbarItem = {
-  id: "add-link",
-  icon: markRaw(LinkIcon),
-  title: "Add a link",
-  group: "appearance",
-  action: (ctx) => ctx.childComponent.value?.openUrlInput?.(),
-};
+const _linkIcon = markRaw(LinkIcon);
+const _clearLinkIcon = markRaw(ClearLinkIcon);
 
-export const CLEAR_LINK: ToolbarItem = {
-  id: "clear-link",
-  icon: markRaw(ClearLinkIcon),
-  title: "Remove link",
+const hasTextLink = (ctx: ToolbarContext) =>
+  !!(ctx.tile.content as any)?.textLink;
+
+export const TILE_LINK: ToolbarItem = {
+  id: "tile-link",
+  icon: (ctx: ToolbarContext) =>
+    hasTextLink(ctx) ? _clearLinkIcon : _linkIcon,
+  title: (ctx: ToolbarContext) => {
+    if (!hasTextLink(ctx)) return "Add a link";
+    const url = (ctx.tile.content as any).textLink as string;
+    return `Remove link to ${url}`;
+  },
   group: "appearance",
-  danger: true,
-  action: (ctx) => ctx.childComponent.value?.clearLink?.(),
-  visible: (ctx) => !!(ctx.tile.content as any)?.textLink,
+  danger: (ctx: ToolbarContext) => hasTextLink(ctx),
+  action: (ctx: ToolbarContext) => {
+    if (hasTextLink(ctx)) {
+      ctx.childComponent.value?.clearLink?.();
+    } else {
+      ctx.childComponent.value?.openUrlInput?.();
+    }
+  },
 };
 
 export const LINK_MORE_MENU: ToolbarItem = {
@@ -346,18 +352,22 @@ export const TEXT_MORE_MENU: ToolbarItem = {
       action: (ctx) => ctx.childComponent.value?.toggleItalic?.(),
     },
     {
-      id: "text-link",
-      icon: markRaw(LinkIcon),
-      tooltip: "Add a Link",
-      action: (ctx) => ctx.childComponent.value?.openUrlInput?.(),
-    },
-    {
-      id: "clear-link",
-      icon: markRaw(ClearLinkIcon),
-      tooltip: "Remove link",
-      danger: true,
-      action: (ctx) => ctx.childComponent.value?.clearLink?.(),
-      visible: (ctx) => !!(ctx.tile.content as TextContent).textLink,
+      id: "tile-link",
+      icon: (ctx: ToolbarContext) =>
+        hasTextLink(ctx) ? _clearLinkIcon : _linkIcon,
+      tooltip: (ctx: ToolbarContext) => {
+        if (!hasTextLink(ctx)) return "Add a Link";
+        const url = (ctx.tile.content as TextContent).textLink as string;
+        return `Remove link to ${url}`;
+      },
+      danger: (ctx: ToolbarContext) => hasTextLink(ctx),
+      action: (ctx: ToolbarContext) => {
+        if (hasTextLink(ctx)) {
+          ctx.childComponent.value?.clearLink?.();
+        } else {
+          ctx.childComponent.value?.openUrlInput?.();
+        }
+      },
     },
   ],
 };
@@ -370,16 +380,14 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     BORDER_TOGGLE,
     CROP_BUTTON,
     COLOR_BUTTON,
-    ADD_LINK,
-    CLEAR_LINK,
+    TILE_LINK,
   ],
   [ContentType.VIDEO]: [
     ...RESIZE_PRESETS,
     BORDER_TOGGLE,
     CROP_BUTTON,
     COLOR_BUTTON,
-    ADD_LINK,
-    CLEAR_LINK,
+    TILE_LINK,
   ],
   [ContentType.LINK]: [
     ...RESIZE_PRESETS,

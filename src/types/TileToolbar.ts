@@ -11,20 +11,20 @@ export interface ToolbarContext {
 
 export interface ToolbarMenuItem {
   id: string;
-  label?: string;
-  icon?: Component;
-  tooltip?: string;
+  label?: string | ((ctx: ToolbarContext) => string);
+  icon?: Component | ((ctx: ToolbarContext) => Component);
+  tooltip?: string | ((ctx: ToolbarContext) => string);
   action: (ctx: ToolbarContext) => void;
   isActive?: (cts: ToolbarContext) => boolean;
   visible?: (ctx: ToolbarContext) => boolean;
   getProps?: (ctx: ToolbarContext) => any;
   panelId?: string;
-  danger?: boolean;
+  danger?: boolean | ((ctx: ToolbarContext) => boolean);
 }
 
 export interface ToolbarItem {
   id: string;
-  icon: Component;
+  icon: Component | ((ctx: ToolbarContext) => Component);
   title: string | ((ctx: ToolbarContext) => string);
   action: (ctx: ToolbarContext) => void;
   isActive?: (ctx: ToolbarContext) => boolean;
@@ -34,5 +34,5 @@ export interface ToolbarItem {
   menuItems?: ToolbarMenuItem[];
   panelId?: string;
   menuItemsLayoutDirection?: "horizontal" | "vertical";
-  danger?: boolean;
+  danger?: boolean | ((ctx: ToolbarContext) => boolean);
 }

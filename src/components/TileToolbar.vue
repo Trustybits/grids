@@ -17,7 +17,7 @@
               item.isActive?.(ctx) ||
               (item.panelId && panelOpen && activePanelId === item.panelId),
           },
-          { 'toolbar-btn--danger': item.danger }
+          { 'toolbar-btn--danger': resolveDanger(item) },
         ]"
         :data-tooltip="resolveTitle(item)"
         @click.stop="onItemClick($event, item)"
@@ -102,15 +102,15 @@
             type="button"
             class="tile-toolbar-menu-item"
             :class="[
-              { 'tile-toolbar-menu-item--danger': mi.danger },
+              { 'tile-toolbar-menu-item--danger': resolveMenuDanger(mi) },
               { 'is-active': mi.isActive?.(ctx) },
             ]"
-            :data-tooltip="mi.tooltip"
+            :data-tooltip="resolveMenuTooltip(mi)"
             @mousedown.prevent
             @click="onMenuItemClick(mi)"
           >
-            <component v-if="mi.icon" :is="mi.icon" />
-            <template v-if="mi.label">{{ mi.label }}</template>
+            <component v-if="mi.icon" :is="resolveMenuIcon(mi)" />
+            <template v-if="mi.label">{{ resolveMenuLabel(mi) }}</template>
           </button>
           <div
             v-if="mi.id === 'font-size'"
@@ -154,6 +154,7 @@ import {
   onUnmounted,
   watch,
   type PropType,
+  type Component,
 } from "vue";
 import type { Tile } from "@/types/Tile";
 import type { TextContent } from "@/types/TileContent";
@@ -270,14 +271,47 @@ export default defineComponent({
     };
 
     const resolveIcon = (item: ToolbarItem) => {
-      if (item.id !== "text-align") return item.icon;
+      // Special case for text-align icon
+      if (item.id === "text-align") {
+        const content = props.tile.content as TextContent;
+        const align = content?.textAlign ?? "left";
+        if (align === "center") return AlignCenterIcon;
+        if (align === "right") return AlignRightIcon;
+        return AlignLeftIcon;
+      }
+      if (typeof item.icon === "function") {
+        return (item.icon as (ctx: ToolbarContext) => Component)(ctx.value);
+      }
+      return item.icon;
+    };
 
-      const content = props.tile.content as TextContent;
-      const align = content?.textAlign ?? "left";
+    const resolveDanger = (item: ToolbarItem): boolean => {
+      return typeof item.danger === "function"
+        ? item.danger(ctx.value)
+        : !!item.danger;
+    };
 
-      if (align === "center") return AlignCenterIcon;
-      if (align === "right") return AlignRightIcon;
-      return AlignLeftIcon;
+    const resolveMenuIcon = (mi: ToolbarMenuItem) => {
+      if (typeof mi.icon === "function") {
+        return (mi.icon as (ctx: ToolbarContext) => Component)(ctx.value);
+      }
+      return mi.icon;
+    };
+
+    const resolveMenuTooltip = (mi: ToolbarMenuItem): string | undefined => {
+      return typeof mi.tooltip === "function"
+        ? mi.tooltip(ctx.value)
+        : mi.tooltip;
+    };
+
+    const resolveMenuLabel = (mi: ToolbarMenuItem): string | undefined => {
+      return typeof mi.label === "function" ? mi.label(ctx.value) : mi.label;
+    };
+
+    const resolveMenuDanger = (mi: ToolbarMenuItem): boolean => {
+      return typeof mi.danger === "function"
+        ? mi.danger(ctx.value)
+        : !!mi.danger;
     };
 
     const shouldShowDivider = (idx: number): boolean => {
@@ -371,7 +405,7 @@ export default defineComponent({
     };
 
     const onMenuItemClick = (mi: ToolbarMenuItem) => {
-      if (mi.id === "text-link") {
+      if (mi.id === "tile-link" && !(ctx.value.tile.content as any)?.textLink) {
         closeMenu();
       }
       mi.action(ctx.value);
@@ -493,6 +527,11 @@ export default defineComponent({
       menuItemLayoutDirection,
       resolveTitle,
       resolveIcon,
+      resolveDanger,
+      resolveMenuIcon,
+      resolveMenuTooltip,
+      resolveMenuLabel,
+      resolveMenuDanger,
       shouldShowDivider,
       onItemClick,
       onMenuItemClick,

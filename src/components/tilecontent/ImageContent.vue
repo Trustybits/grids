@@ -442,8 +442,8 @@ export default defineComponent({
 /* Link indicator */
 .tile-link-indicator {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 20px;
+  right: 20px;
   width: 24px;
   height: 24px;
   color: white;

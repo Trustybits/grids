@@ -91,7 +91,7 @@
 
       <!-- Link indicator -->
       <div
-        v-if="textLinkExists"
+        v-if="textLinkExists && !isFullscreen"
         class="tile-link-indicator"
         aria-hidden="true"
         @click.stop="handleFollowLink"
@@ -1183,8 +1183,8 @@ export default defineComponent({
 /* Link indicator */
 .tile-link-indicator {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 20px;
+  right: 20px;
   width: 24px;
   height: 24px;
   color: white;

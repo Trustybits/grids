@@ -6,19 +6,19 @@
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
-    <!-- Tablet body -->
+    <!-- Tablet body — landscape orientation -->
     <rect
-      x="5"
-      y="2"
-      width="14"
-      height="20"
+      x="2"
+      y="5"
+      width="20"
+      height="14"
       rx="2"
       stroke="currentColor"
       stroke-width="1.5"
     />
-    <!-- Home indicator -->
+    <!-- Home indicator (bottom, matching mobile style) -->
     <path
-      d="M10 18h4"
+      d="M10 15h4"
       stroke="currentColor"
       stroke-width="1.5"
       stroke-linecap="round"

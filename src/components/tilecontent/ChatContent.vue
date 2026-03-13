@@ -1,6 +1,11 @@
 <template>
   <div class="chat-tile">
-    <div class="chat-messages" ref="messagesContainer" @mousedown.stop @scroll="handleScroll">
+    <div
+      class="chat-messages"
+      ref="messagesContainer"
+      @mousedown="onContainerMousedown"
+      @scroll="handleScroll"
+    >
       <!-- Fade indicator at top when there's more content above -->
       <div v-if="showTopFade" class="top-fade-indicator"></div>
       <!-- Spacer to push messages to bottom when there are few messages -->
@@ -11,12 +16,20 @@
       </div>
       <template v-for="(message, index) in sortedMessages" :key="message.id">
         <!-- Date separator: show when date changes from previous message -->
-        <div v-if="shouldShowDateSeparator(message, index)" class="date-separator">
-          <span class="date-separator-text">{{ formatDateSeparator(message.createdAt) }}</span>
+        <div
+          v-if="shouldShowDateSeparator(message, index)"
+          class="date-separator"
+        >
+          <span class="date-separator-text">{{
+            formatDateSeparator(message.createdAt)
+          }}</span>
         </div>
         <div
           class="chat-message"
-          :class="{ 'is-owner': isOwnerMessage(message), 'is-other': !isOwnerMessage(message) }"
+          :class="{
+            'is-owner': isOwnerMessage(message),
+            'is-other': !isOwnerMessage(message),
+          }"
         >
           <div class="chat-bubble">
             {{ message.text }}
@@ -34,13 +47,29 @@
         @mousedown.stop
         title="Jump to latest messages"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 4L12 20M12 20L6 14M12 20L18 14" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M12 4L12 20M12 20L6 14M12 20L18 14"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </svg>
       </button>
     </transition>
 
-    <form class="chat-composer" @submit.prevent="sendMessage" @mousedown.stop>
+    <form
+      class="chat-composer"
+      @submit.prevent="sendMessage"
+      @mousedown="onContainerMousedown"
+    >
       <textarea
         ref="inputRef"
         v-model="draftMessage"
@@ -119,18 +148,25 @@ export default defineComponent({
     const layoutId = computed(() => layoutStore.currentLayout?.id ?? "");
     const messagesCollection = computed<CollectionReference | null>(() => {
       if (!layoutId.value || !props.tileId) return null;
-      return collection(db, "layouts", layoutId.value, "tiles", props.tileId, "messages");
+      return collection(
+        db,
+        "layouts",
+        layoutId.value,
+        "tiles",
+        props.tileId,
+        "messages",
+      );
     });
 
     const sortedMessages = computed(() =>
-      [...messages.value].sort((a, b) => a.createdAt - b.createdAt)
+      [...messages.value].sort((a, b) => a.createdAt - b.createdAt),
     );
 
     const ownerId = computed(() => layoutStore.currentLayout?.userId || "");
     const isOwner = computed(() => layoutStore.isOwner);
     const canSend = computed(() => !!layoutId.value && !!props.tileId);
     const composerPlaceholder = computed(() =>
-      isOwner.value ? "Write a message.." : "Message the owner.."
+      isOwner.value ? "Write a message.." : "Message the owner..",
     );
 
     const isOwnerMessage = (message: ChatMessage) => {
@@ -144,7 +180,7 @@ export default defineComponent({
       if (index === 0) return true; // Always show date for first message
       const prevMessage = sortedMessages.value[index - 1];
       if (!prevMessage) return true;
-      
+
       // Compare dates (ignoring time)
       const currentDate = new Date(message.createdAt).toDateString();
       const prevDate = new Date(prevMessage.createdAt).toDateString();
@@ -164,12 +200,12 @@ export default defineComponent({
 
       if (dateString === todayString) return "Today";
       if (dateString === yesterdayString) return "Yesterday";
-      
+
       // Format as "Mon, Jan 15" for other dates
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
+      return date.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
       });
     };
 
@@ -179,11 +215,13 @@ export default defineComponent({
       if (!container) return;
 
       userHasScrolled.value = true;
-      
+
       // Check if user is near the bottom (within 100px)
-      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+      const isNearBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight <
+        100;
       showScrollButton.value = !isNearBottom;
-      
+
       // Show top fade indicator if user has scrolled down from the top (more than 20px)
       showTopFade.value = container.scrollTop > 20;
     };
@@ -235,14 +273,15 @@ export default defineComponent({
                 id: doc.id,
                 text,
                 createdAt: normalizeCreatedAt(data.createdAt),
-                authorId: typeof data.authorId === "string" ? data.authorId : undefined,
+                authorId:
+                  typeof data.authorId === "string" ? data.authorId : undefined,
               } as ChatMessage;
             })
             .filter((message): message is ChatMessage => !!message);
         },
         (error) => {
           console.error("Failed to subscribe to chat messages:", error);
-        }
+        },
       );
     };
 
@@ -286,15 +325,30 @@ export default defineComponent({
       isEditing.value = nextValue;
     };
 
-    const onShortClick = () => {
+    const onShortClick = (event?: MouseEvent) => {
       if (!canSend.value) return;
-      isEditing.value = true;
-      nextTick(() => inputRef.value?.focus());
+      // Only focus the input if the click landed on the textarea itself
+      if (
+        event &&
+        inputRef.value &&
+        inputRef.value.contains(event.target as Node)
+      ) {
+        isEditing.value = true;
+        nextTick(() => inputRef.value?.focus());
+      }
     };
 
     const onExitClick = () => {
       isEditing.value = false;
       inputRef.value?.blur();
+    };
+
+    const onContainerMousedown = (event: MouseEvent) => {
+      // Only stop propagation when the chat input is focused (editing mode).
+      // Otherwise let the event bubble so GridTile can detect long-press.
+      if (isEditing.value) {
+        event.stopPropagation();
+      }
     };
 
     const onResize = () => {
@@ -313,12 +367,16 @@ export default defineComponent({
         if (!userHasScrolled.value || oldLength === 0) {
           scrollToBottom("smooth");
         }
-      }
+      },
     );
 
-    watch(messagesCollection, (collectionRef) => {
-      subscribeToMessages(collectionRef);
-    }, { immediate: true });
+    watch(
+      messagesCollection,
+      (collectionRef) => {
+        subscribeToMessages(collectionRef);
+      },
+      { immediate: true },
+    );
 
     onUnmounted(() => {
       if (unsubscribe) {
@@ -342,6 +400,7 @@ export default defineComponent({
       onShortClick,
       onExitClick,
       onResize,
+      onContainerMousedown,
       showScrollButton,
       showTopFade,
       handleScroll,
@@ -397,14 +456,12 @@ export default defineComponent({
   right: 0;
   height: 48px;
   flex-shrink: 0;
-  background: linear-gradient(to bottom, 
+  background: linear-gradient(
+    to bottom,
     var(--color-tile-background) 0%,
-    color-mix(
-      in srgb,
-      var(--color-tile-background) 50%,
-      transparent
-    ) 50%,
-    transparent 100%);
+    color-mix(in srgb, var(--color-tile-background) 50%, transparent) 50%,
+    transparent 100%
+  );
   pointer-events: none;
   z-index: 5;
   margin-bottom: -40px;
@@ -450,14 +507,22 @@ export default defineComponent({
   border-radius: 16px;
   font-size: 13px;
   line-height: 1.4;
-  background: color-mix(in srgb, var(--color-text-primary) 10%, var(--color-tile-background));
+  background: color-mix(
+    in srgb,
+    var(--color-text-primary) 10%,
+    var(--color-tile-background)
+  );
   color: var(--color-text-primary);
   word-break: break-word;
   white-space: pre-wrap;
 }
 
 .chat-message.is-owner .chat-bubble {
-  background: color-mix(in srgb, var(--color-tile-background) 92%, var(--color-text-primary) 8%);
+  background: color-mix(
+    in srgb,
+    var(--color-tile-background) 92%,
+    var(--color-text-primary) 8%
+  );
   color: var(--color-text-primary);
   border-bottom-left-radius: 6px;
 }
@@ -465,7 +530,7 @@ export default defineComponent({
 .chat-message.is-other .chat-bubble {
   border-bottom-right-radius: 6px;
   background-color: var(--color-text-primary);
-  color: var(--color-tile-background)
+  color: var(--color-tile-background);
 }
 
 .chat-composer {
@@ -480,8 +545,13 @@ export default defineComponent({
   max-height: 120px;
   resize: none;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-  background: color-mix(in srgb, var(--color-tile-background) 92%, var(--color-text-primary) 8%);
+  border: 1px solid
+    color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--color-tile-background) 92%,
+    var(--color-text-primary) 8%
+  );
   color: var(--color-text-primary);
   padding: 8px 10px;
   font-size: 13px;
@@ -511,7 +581,8 @@ export default defineComponent({
   cursor: pointer;
   pointer-events: auto;
   touch-action: manipulation;
-  transition: opacity var(--duration-fast) var(--easing-ease-in-out),
+  transition:
+    opacity var(--duration-fast) var(--easing-ease-in-out),
     transform var(--duration-fast) var(--easing-ease-out);
 }
 
@@ -538,7 +609,7 @@ export default defineComponent({
 
 .date-separator::before,
 .date-separator::after {
-  content: '';
+  content: "";
   flex: 1;
   height: 1px;
   background: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
@@ -569,7 +640,8 @@ export default defineComponent({
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform var(--duration-fast) var(--easing-ease-out),
+  transition:
+    transform var(--duration-fast) var(--easing-ease-out),
     background var(--duration-fast) var(--easing-ease-out),
     box-shadow var(--duration-fast) var(--easing-ease-out);
   z-index: 10;

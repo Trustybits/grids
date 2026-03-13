@@ -14,6 +14,7 @@ export interface TileLinkValues {
   closeLinkModal: () => void;
   handleAddLink: (link: string) => void;
   handleFollowLink: () => void;
+  clearLink: () => void;
 }
 
 export const useTileLink = (
@@ -72,6 +73,16 @@ export const useTileLink = (
     window.open(textLink.value, "_blank", "noopener,noreferrer");
   };
 
+  const clearLink = () => {
+    if (!layoutStore.isOwner) return;
+    content.textLink = undefined;
+    if (tileId) {
+      layoutStore.patchTileContent(tileId, { textLink: "" });
+    } else {
+      layoutStore.saveLayout();
+    }
+  };
+
   return {
     showLinkModal,
     textLink,
@@ -80,5 +91,6 @@ export const useTileLink = (
     closeLinkModal,
     handleAddLink,
     handleFollowLink,
+    clearLink,
   };
 };

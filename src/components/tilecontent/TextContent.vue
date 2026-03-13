@@ -275,6 +275,7 @@ export default defineComponent({
       closeLinkModal,
       handleAddLink,
       handleFollowLink,
+      clearLink,
     } = useTileLink(tileId, props.content);
 
     const { backgroundColor, textColor, handleBackgroundColorChange } =
@@ -418,6 +419,7 @@ export default defineComponent({
       closeLinkModal,
       handleAddLink,
       handleFollowLink,
+      clearLink,
       handleBackgroundColorChange,
       handleTextAlignChange,
       toggleItalic,

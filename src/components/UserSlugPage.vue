@@ -74,9 +74,6 @@
           <div v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'" class="toolbar">
             <BreakpointSwitcher variant="toolbar-row" />
           </div>
-          <!-- Warning banner when previewing a breakpoint larger than the viewport -->
-          <ViewportWarning type="breakpoint-preview" />
-
           <grid :row-height="75" />
         </div>
       </div>
@@ -96,7 +93,6 @@ import { useLayoutStore } from '@/stores/layout';
 import Grid from '@/components/Grid.vue';
 import GridButtons from '@/components/TileButtons.vue';
 import BreakpointSwitcher from '@/components/BreakpointSwitcher.vue';
-import ViewportWarning from '@/components/ViewportWarning.vue';
 
 // ── Breakpoint switcher placement (mirrors GridPage.vue) ─────
 // Change this value to flip between the three UI placements:

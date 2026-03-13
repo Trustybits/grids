@@ -280,7 +280,8 @@ const toggle = (bp: Breakpoint) => {
 
 .breakpoint-switcher--floating {
   position: fixed;
-  top: var(--spacing-lg);
+  /* Offset below the ViewportWarning banner when it's visible */
+  top: calc(var(--viewport-warning-height, 0px) + var(--spacing-lg));
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--z-dropdown);

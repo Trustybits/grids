@@ -3,21 +3,7 @@ import { themes, getTheme } from '@/themes';
 import type { Theme } from '@/types/theme';
 
 function getDefaultThemeId(): string {
-  const stored = localStorage.getItem('themeId');
-  if (stored && themes[stored]) {
-    return stored;
-  }
-  
-  const legacyDarkMode = localStorage.getItem('darkMode');
-  if (legacyDarkMode !== null) {
-    return legacyDarkMode === 'true' ? 'dark' : 'light';
-  }
-  
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
-  }
-  
-  return 'light';
+  return 'dark';
 }
 
 export const useThemeStore = defineStore('theme', {
@@ -37,18 +23,25 @@ export const useThemeStore = defineStore('theme', {
   actions: {
     setTheme(themeId: string) {
       if (!themes[themeId]) {
-        console.warn(`Theme "${themeId}" not found, falling back to light`);
-        themeId = 'light';
+        console.warn(`Theme "${themeId}" not found, falling back to dark`);
+        themeId = 'dark';
       }
       
       this.currentThemeId = themeId;
-      localStorage.setItem('themeId', themeId);
       this.applyTheme();
     },
     
     toggleDarkMode() {
       const newThemeId = this.currentThemeId === 'dark' ? 'light' : 'dark';
       this.setTheme(newThemeId);
+    },
+    
+    applyGridTheme(themeId?: string) {
+      this.setTheme(themeId || 'dark');
+    },
+    
+    resetToAppDefault() {
+      this.setTheme('dark');
     },
     
     applyTheme() {
@@ -70,11 +63,5 @@ export const useThemeStore = defineStore('theme', {
       this.applyTheme();
     },
     
-    getEffectiveTheme(scopeThemeId?: string): Theme {
-      if (scopeThemeId && themes[scopeThemeId]) {
-        return themes[scopeThemeId];
-      }
-      return this.currentTheme;
-    },
   },
 });

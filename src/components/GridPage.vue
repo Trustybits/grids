@@ -50,7 +50,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, watch } from "vue";
+import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
@@ -59,6 +59,7 @@ import { usePageTitle } from "@/composables/usePageTitle";
 import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
+import { useThemeStore } from "@/stores/theme";
 
 export default defineComponent({
   components: {
@@ -67,6 +68,7 @@ export default defineComponent({
   },
   setup() {
     const layoutStore = useLayoutStore();
+    const themeStore = useThemeStore();
     const rowHeight = 75;
     const imageInput = ref<HTMLInputElement | null>(null);
     const layoutContainer = ref<HTMLElement | null>(null);
@@ -162,6 +164,14 @@ export default defineComponent({
       }
     });
 
+    // Apply the grid's saved theme when the layout finishes loading
+    watch(
+      () => layoutStore.currentLayout?.themeId,
+      (themeId) => {
+        themeStore.applyGridTheme(themeId);
+      },
+    );
+
     watch(
       () => route.params.id,
       (newId) => {
@@ -170,6 +180,11 @@ export default defineComponent({
         }
       }
     );
+
+    // Restore dark mode when leaving the grid page
+    onUnmounted(() => {
+      themeStore.resetToAppDefault();
+    });
 
     return {
       layoutStore,

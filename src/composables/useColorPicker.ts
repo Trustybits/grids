@@ -57,7 +57,7 @@ export const useColorPicker = (
   });
 
   const handleBackgroundColorChange = (color: string) => {
-    if (!layoutStore.isOwner) return;
+    if (!layoutStore.canEdit) return;
 
     content.backgroundColor = color;
     if (tileId) {

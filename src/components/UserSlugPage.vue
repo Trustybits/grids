@@ -48,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useDynamicFavicon } from '@/composables/useDynamicFavicon';
@@ -57,9 +57,11 @@ import { db } from '@/firebase';
 import { useLayoutStore } from '@/stores/layout';
 import Grid from '@/components/Grid.vue';
 import GridButtons from '@/components/TileButtons.vue';
+import { useThemeStore } from '@/stores/theme';
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
+const themeStore = useThemeStore();
 const isLoading = ref(true);
 const error = ref(false);
 const errorTitle = ref('Handle Not Found');
@@ -151,8 +153,21 @@ const resolveSlug = async () => {
   }
 };
 
+// Apply the grid's saved theme when the layout finishes loading
+watch(
+  () => layoutStore.currentLayout?.themeId,
+  (themeId) => {
+    themeStore.applyGridTheme(themeId);
+  },
+);
+
 onMounted(() => {
   resolveSlug();
+});
+
+// Restore dark mode when leaving the slug page
+onUnmounted(() => {
+  themeStore.resetToAppDefault();
 });
 </script>
 

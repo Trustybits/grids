@@ -43,16 +43,20 @@
 
 <script>
 import { useThemeStore } from '@/stores/theme';
+import { useLayoutStore } from '@/stores/layout';
 import { computed } from 'vue';
 
 export default {
   setup() {
     const themeStore = useThemeStore();
+    const layoutStore = useLayoutStore();
 
     const isDarkMode = computed(() => themeStore.isDarkMode);
 
     const toggleTheme = () => {
-      themeStore.toggleDarkMode();
+      const newThemeId = themeStore.currentThemeId === 'dark' ? 'light' : 'dark';
+      themeStore.setTheme(newThemeId);
+      layoutStore.setGridTheme(newThemeId);
     };
 
     return {

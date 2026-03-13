@@ -311,28 +311,33 @@ export const TEXT_MORE_MENU: ToolbarItem = {
     {
       id: "font-family",
       panelId: "font-family",
+      tooltip: "Change Font",
       action: (_ctx) => {},
     },
     {
       id: "font-size",
       panelId: "font-select",
+      tooltip: "Change Font Size",
       action: (_ctx) => {},
     },
     {
       id: "bold-toggle",
       icon: markRaw(BoldIcon),
+      tooltip: "Bold",
       isActive: (ctx) => !!ctx.childComponent.value?.isBoldActive,
       action: (ctx) => ctx.childComponent.value?.toggleBold?.(),
     },
     {
       id: "italic-toggle",
       icon: markRaw(ItalicIcon),
+      tooltip: "Italic",
       isActive: (ctx) => !!ctx.childComponent.value?.isItalicActive,
       action: (ctx) => ctx.childComponent.value?.toggleItalic?.(),
     },
     {
       id: "text-link",
       icon: markRaw(LinkIcon),
+      tooltip: "Add a Link",
       action: (ctx) => ctx.childComponent.value?.openUrlInput?.(),
     },
     {

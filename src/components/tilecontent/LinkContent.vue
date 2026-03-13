@@ -5,7 +5,7 @@
       'is-wide-1-high': isWideOneHigh,
       'is-tall-1-wide': isTallOneWide,
       'is-editing': isEditing,
-      'is-owner': layoutStore.isOwner,
+      'is-owner': layoutStore.canEdit,
       'is-drag-over': isDragOver,
     }"
     :style="{ '--link-title-lines': String(titleLineClamp) }"
@@ -140,7 +140,7 @@
     </div>
 
     <input
-      v-if="layoutStore.isOwner"
+      v-if="layoutStore.canEdit"
       ref="customImageInput"
       class="link-image-input"
       type="file"
@@ -149,7 +149,7 @@
     />
 
     <div
-      v-if="layoutStore.isOwner && showUrlInput"
+      v-if="layoutStore.canEdit && showUrlInput"
       class="link-url-input"
       @mousedown.stop
     >
@@ -178,7 +178,7 @@
 
     <teleport to="body">
       <div
-        v-if="layoutStore.isOwner && showContextMenu"
+        v-if="layoutStore.canEdit && showContextMenu"
         ref="contextMenuRef"
         class="link-context-menu"
         :style="contextMenuStyle"
@@ -300,7 +300,7 @@ export default defineComponent({
     };
 
     const saveEdits = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
 
       const nextTitle = draftTitle.value.trim();
       const nextDescription = draftDescription.value.trim();
@@ -318,7 +318,7 @@ export default defineComponent({
     };
 
     const openUrlInput = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       draftImageUrl.value = props.content.customImageUrl || "";
       urlError.value = "";
       showUrlInput.value = true;
@@ -345,7 +345,7 @@ export default defineComponent({
     };
 
     const applyImageUrl = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const normalized = normalizeImageUrl(draftImageUrl.value);
       if (!normalized) {
         urlError.value = "Enter a valid URL.";
@@ -364,12 +364,12 @@ export default defineComponent({
     };
 
     const openCustomImagePicker = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       customImageInput.value?.click();
     };
 
     const removeCustomImage = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       props.content.customImageUrl = undefined;
       layoutStore.saveLayout();
       closeContextMenu();
@@ -377,7 +377,7 @@ export default defineComponent({
     };
 
     const uploadCustomImage = async (file: File) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
 
       if (!file.type.startsWith("image/")) {
         alert("Unsupported file type. Please upload an image.");
@@ -395,7 +395,7 @@ export default defineComponent({
     };
 
     const onCustomImageSelected = async (event: Event) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
       await uploadCustomImage(file);
@@ -403,19 +403,19 @@ export default defineComponent({
     };
 
     const onDragEnter = (event: DragEvent) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       if (!event.dataTransfer?.types.includes("Files")) return;
       isDragOver.value = true;
     };
 
     const onDragOver = (event: DragEvent) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       if (!event.dataTransfer?.types.includes("Files")) return;
       event.dataTransfer.dropEffect = "copy";
     };
 
     const onDragLeave = (event: DragEvent) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const container = linkTileRef.value;
       if (!container) {
         isDragOver.value = false;
@@ -429,7 +429,7 @@ export default defineComponent({
     };
 
     const onDrop = async (event: DragEvent) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       isDragOver.value = false;
       const file = event.dataTransfer?.files?.[0];
       if (!file) return;
@@ -447,7 +447,7 @@ export default defineComponent({
     };
 
     const onContextMenu = (event: MouseEvent) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       event.preventDefault();
       event.stopPropagation();
 
@@ -513,7 +513,7 @@ export default defineComponent({
     };
 
     const startEditing = () => {
-      if (!layoutStore.isOwner || isEditing.value) return;
+      if (!layoutStore.canEdit || isEditing.value) return;
       isEditing.value = true;
       syncDrafts();
       nextTick(() => {
@@ -545,7 +545,7 @@ export default defineComponent({
     };
 
     const onExitClick = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       if (!isEditing.value) return;
       isEditing.value = false;
       saveEdits();

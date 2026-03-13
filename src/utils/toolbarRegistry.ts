@@ -343,6 +343,7 @@ export const TEXT_MORE_MENU: ToolbarItem = {
     {
       id: "clear-link",
       icon: markRaw(ClearLinkIcon),
+      tooltip: "Remove link",
       danger: true,
       action: (ctx) => ctx.childComponent.value?.clearLink?.(),
       visible: (ctx) => !!(ctx.tile.content as TextContent).textLink,

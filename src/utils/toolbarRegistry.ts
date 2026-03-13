@@ -257,6 +257,15 @@ export const LINK_BG_TOGGLE: ToolbarItem = {
     (ctx.tile.content as LinkContent).linkBackgroundEnabled !== false,
 };
 
+export const ADD_LINK: ToolbarItem = {
+  id: "add-link-button",
+  icon: markRaw(LinkIcon),
+  title: "Add a Link",
+  group: "appearance",
+  action: (ctx) => {},
+  isActive: (ctx) => false,
+}
+
 export const LINK_MORE_MENU: ToolbarItem = {
   id: "more-menu",
   icon: markRaw(MoreDotsIcon),
@@ -332,12 +341,14 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     BORDER_TOGGLE,
     CROP_BUTTON,
     COLOR_BUTTON,
+    ADD_LINK,
   ],
   [ContentType.VIDEO]: [
     ...RESIZE_PRESETS,
     BORDER_TOGGLE,
     CROP_BUTTON,
     COLOR_BUTTON,
+    ADD_LINK,
   ],
   [ContentType.LINK]: [
     ...RESIZE_PRESETS,

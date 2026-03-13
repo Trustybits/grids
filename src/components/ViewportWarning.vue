@@ -19,6 +19,7 @@
   <Transition name="viewport-warning">
     <div
       v-if="warning && !dismissed"
+      ref="bannerRef"
       class="viewport-warning"
       :class="[`viewport-warning--${warning.severity}`]"
     >
@@ -82,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import type { Breakpoint } from "@/types/Tile";
 
@@ -155,30 +156,75 @@ watch(
     dismissed.value = false;
   },
 );
+
+// ── Banner height → CSS custom property ────────────────────────
+// The TopBar and floating BreakpointSwitcher use `position: fixed; top: 0`,
+// so they'd overlap this banner. We set --viewport-warning-height on <html>
+// whenever the banner is visible, and those fixed elements read it via
+// `top: var(--viewport-warning-height, 0px)`.
+const bannerRef = ref<HTMLElement | null>(null);
+
+const updateBannerHeight = () => {
+  nextTick(() => {
+    const isVisible = warning.value && !dismissed.value;
+    if (isVisible && bannerRef.value) {
+      const h = bannerRef.value.getBoundingClientRect().height;
+      document.documentElement.style.setProperty(
+        "--viewport-warning-height",
+        `${h}px`,
+      );
+    } else {
+      document.documentElement.style.setProperty(
+        "--viewport-warning-height",
+        "0px",
+      );
+    }
+  });
+};
+
+watch([warning, dismissed], updateBannerHeight, { immediate: true });
+
+onMounted(updateBannerHeight);
+
+onUnmounted(() => {
+  document.documentElement.style.setProperty(
+    "--viewport-warning-height",
+    "0px",
+  );
+});
 </script>
 
 <style lang="scss" scoped>
 .viewport-warning {
+  /* Sticky at the very top of the page, above all other elements.
+     Sits in normal document flow so it pushes content (TopBar, grid, etc.)
+     below it when visible. z-index must beat the fixed TopBar. */
+  position: sticky;
+  top: 0;
+  z-index: calc(var(--z-base, 1) + 10);
+
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--spacing-sm);
   padding: 8px 14px;
-  border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   line-height: 1.4;
   backdrop-filter: blur(20px);
 
+  /* No border-radius — full-width edge-to-edge banner */
+
   /* Info severity — view-only preview */
   &--info {
-    background-color: color-mix(in srgb, var(--color-figma-purple, #a259ff) 12%, var(--color-tile-background));
-    border: 1px solid color-mix(in srgb, var(--color-figma-purple, #a259ff) 30%, transparent);
+    background-color: color-mix(in srgb, var(--color-figma-purple, #a259ff) 18%, var(--color-tile-background));
+    border-bottom: 1px solid color-mix(in srgb, var(--color-figma-purple, #a259ff) 30%, transparent);
     color: var(--color-text-primary);
   }
 
   /* Caution severity — potential issues (e.g. viewport too small for intended display) */
   &--caution {
-    background-color: color-mix(in srgb, var(--color-figma-yellow, #f5a623) 12%, var(--color-tile-background));
-    border: 1px solid color-mix(in srgb, var(--color-figma-yellow, #f5a623) 30%, transparent);
+    background-color: color-mix(in srgb, var(--color-figma-yellow, #f5a623) 18%, var(--color-tile-background));
+    border-bottom: 1px solid color-mix(in srgb, var(--color-figma-yellow, #f5a623) 30%, transparent);
     color: var(--color-text-primary);
   }
 }
@@ -198,7 +244,8 @@ watch(
 }
 
 .viewport-warning__message {
-  flex: 1;
+  /* Don't flex-grow — let justify-content: center on the parent handle centering */
+  flex-shrink: 1;
 }
 
 .viewport-warning__close {

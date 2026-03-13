@@ -88,9 +88,6 @@
       <div v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'" class="toolbar">
         <BreakpointSwitcher variant="toolbar-row" />
       </div>
-      <!-- Warning banner when previewing a breakpoint larger than the viewport -->
-      <ViewportWarning type="breakpoint-preview" />
-
       <grid :row-height="rowHeight" />
     </div>
   </div>
@@ -103,7 +100,6 @@ import { useRouter, useRoute } from "vue-router";
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
 import BreakpointSwitcher from "@/components/BreakpointSwitcher.vue";
-import ViewportWarning from "@/components/ViewportWarning.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
@@ -123,7 +119,6 @@ export default defineComponent({
     Grid,
     GridButtons,
     BreakpointSwitcher,
-    ViewportWarning,
   },
   setup() {
     const layoutStore = useLayoutStore();

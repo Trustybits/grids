@@ -1,6 +1,7 @@
 <template>
   <div
     v-if="items.length"
+    ref="toolbarRef"
     class="tile-toolbar"
     :class="{ 'tile-toolbar-force-show': menuOpen || panelOpen }"
     @mousedown.stop
@@ -91,6 +92,7 @@
         class="tile-toolbar-menu"
         :style="[menuStyle, { 'flex-direction': menuItemLayoutDirection }]"
         @mousedown.stop
+        @click.stop
         @dragstart.prevent
       >
         <template v-for="mi in visibleMenuItems" :key="mi.id">
@@ -199,6 +201,7 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
 
+    const toolbarRef = ref<HTMLDivElement | null>(null);
     const menuAnchorRef = ref<HTMLButtonElement | null>(null);
     const menuRef = ref<HTMLDivElement | null>(null);
     const menuPosition = ref({ x: 0, y: 0 });
@@ -311,11 +314,21 @@ export default defineComponent({
         if (!menu) return;
         // Use layout dimensions (not transformed visual bounds) so
         // scale/translate entrance animations don't skew initial positioning.
-        const width = menu.offsetWidth;
+        const menuWidth = menu.offsetWidth;
         const height = menu.offsetHeight;
-        const nextX = rect.right - width;
+        const toolbar = toolbarRef.value;
+        const toolbarRect = toolbar?.getBoundingClientRect();
+
+        let nextX: number;
+        if (toolbarRect && menuWidth > toolbarRect.width) {
+          // Menu is wider than toolbar – center it under the toolbar
+          nextX = toolbarRect.left + toolbarRect.width / 2 - menuWidth / 2;
+        } else {
+          // Menu fits within toolbar width – align right edge to button
+          nextX = rect.right - menuWidth;
+        }
         const nextY = rect.bottom + 8;
-        menuPosition.value = clampToViewport(nextX, nextY, width, height);
+        menuPosition.value = clampToViewport(nextX, nextY, menuWidth, height);
       });
     };
 
@@ -472,6 +485,7 @@ export default defineComponent({
       isActiveTile,
       menuOpen,
       menuAnchorRef,
+      toolbarRef,
       menuRef,
       menuStyle,
       menuPosition,

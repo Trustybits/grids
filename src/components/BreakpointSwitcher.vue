@@ -33,21 +33,26 @@
       :data-tooltip="tooltipFor(bp)"
       @click="toggle(bp.key)"
     >
-      <component :is="bp.icon" />
-      <!-- Eye badge when this breakpoint is larger than viewport (view-only) -->
+      <!-- Device icon — fades out on hover when this is a view-only breakpoint -->
+      <span class="bp-icon bp-icon--device">
+        <component :is="bp.icon" />
+      </span>
+      <!-- Full-size eye icon — fades in on hover for view-only breakpoints.
+           Always rendered in the DOM for smooth transitions, but invisible
+           (opacity 0) unless hovered on a view-only button. -->
       <span
         v-if="isLargerThanViewport(bp.key)"
-        class="bp-view-only-badge"
-        title="View only — larger than your screen"
+        class="bp-icon bp-icon--eye"
+        aria-hidden="true"
       >
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
           <circle cx="12" cy="12" r="3" />
         </svg>
       </span>
       <!-- Dot indicator when a saved override exists for this breakpoint -->
       <span
-        v-else-if="bp.key !== 'lg' && hasOverride(bp.key)"
+        v-if="!isLargerThanViewport(bp.key) && bp.key !== 'lg' && hasOverride(bp.key)"
         class="bp-override-dot"
         :title="`Saved ${bp.label} override`"
       />
@@ -158,49 +163,81 @@ const toggle = (bp: Breakpoint) => {
   line-height: 0;
   transition: all var(--duration-fast) var(--easing-smooth);
 
-  svg {
-    width: 20px;
-    height: 20px;
-    opacity: 0.55;
-    transition: opacity var(--duration-fast) var(--easing-smooth);
-  }
-
   &:hover {
     background-color: var(--color-base-55);
-    svg {
+    /* Purple tint on hover for all buttons, matching nav bar style */
+    .bp-icon--device svg {
       opacity: 1;
+      color: var(--color-figma-purple, #a259ff);
     }
   }
 
   /* Active breakpoint (auto-detected or forced) */
-  &.bp-btn--active svg {
+  &.bp-btn--active .bp-icon--device svg {
     opacity: 0.85;
   }
 
   /* Explicitly forced breakpoint — stronger highlight */
   &.bp-btn--forced {
     background-color: var(--color-base-34);
-    svg {
+    .bp-icon--device svg {
       opacity: 1;
       color: var(--color-text-primary);
     }
   }
 
-  /* Breakpoint larger than the viewport — dimmed to signal view-only */
+  /* ── View-only breakpoints ──────────────────────────────────── */
+  /* Device icon is dimmed; on hover it fades out and the full-size
+     eye icon fades in with a purple tint (matching nav bar hover). */
   &.bp-btn--view-only {
-    svg {
+    .bp-icon--device svg {
       opacity: 0.3;
     }
 
-    &:hover svg {
-      opacity: 0.6;
+    &:hover {
+      /* Cross-fade: device out, eye in */
+      .bp-icon--device svg {
+        opacity: 0;
+      }
+      .bp-icon--eye svg {
+        opacity: 1;
+      }
     }
 
-    /* When forced AND view-only, keep the forced bg but soften the icon */
-    &.bp-btn--forced svg {
-      opacity: 0.7;
+    /* When forced AND view-only, keep the forced bg but soften the device icon;
+       the eye icon is still revealed on hover. */
+    &.bp-btn--forced .bp-icon--device svg {
+      opacity: 0.5;
     }
   }
+}
+
+/* ── Icon wrapper — device & eye are stacked in the same space ── */
+.bp-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+
+  svg {
+    width: 20px;
+    height: 20px;
+    transition:
+      opacity var(--duration-normal, 0.2s) var(--easing-smooth),
+      color var(--duration-normal, 0.2s) var(--easing-smooth);
+  }
+}
+
+.bp-icon--device svg {
+  opacity: 0.55;
+}
+
+/* Eye icon: hidden by default, purple-tinted, fades in on hover */
+.bp-icon--eye svg {
+  opacity: 0;
+  color: var(--color-figma-purple, #a259ff);
 }
 
 /* Tooltip (same pattern as .toolbarAlpha buttons) */
@@ -231,26 +268,6 @@ const toggle = (bp: Breakpoint) => {
   &:hover::after {
     opacity: 1;
     transform: translateX(-50%) scale(1);
-  }
-}
-
-/* View-only eye badge — shown on breakpoints larger than the viewport */
-.bp-view-only-badge {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  opacity: 0.5;
-
-  svg {
-    /* Override the parent .bp-btn svg sizing */
-    width: 10px !important;
-    height: 10px !important;
-    opacity: 1 !important;
-    color: var(--color-content-default);
   }
 }
 

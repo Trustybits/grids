@@ -17,6 +17,7 @@
               item.isActive?.(ctx) ||
               (item.panelId && panelOpen && activePanelId === item.panelId),
           },
+          { 'toolbar-btn--danger': item.danger }
         ]"
         :data-tooltip="resolveTitle(item)"
         @click.stop="onItemClick($event, item)"
@@ -595,6 +596,10 @@ export default defineComponent({
   transition:
     stroke-dashoffset var(--duration-normal) var(--easing-spring),
     opacity var(--duration-fast) var(--easing-ease-in-out);
+}
+
+.toolbar-btn--danger {
+  color: #ff3737;
 }
 
 .toolbar-divider {

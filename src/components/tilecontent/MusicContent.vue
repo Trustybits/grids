@@ -448,7 +448,7 @@ export default defineComponent({
       return "high";
     });
 
-    const NOTE_GLYPHS = ["♩", "♪", "♫", "♬", "𝅘𝅥𝅮"];
+    const NOTE_GLYPHS = ["♩", "♪", "♫", "♬", "♭"];
     let noteParticles: any[] = [];
 
     function getNoteCanvasDims() {

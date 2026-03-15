@@ -1,6 +1,10 @@
 import { markRaw } from "vue";
-import { ContentType, type LinkContent } from "@/types/TileContent";
-import type { ToolbarItem } from "@/types/TileToolbar";
+import {
+  ContentType,
+  type LinkContent,
+  type TextContent,
+} from "@/types/TileContent";
+import type { ToolbarItem, ToolbarContext } from "@/types/TileToolbar";
 
 import ResizeWideIcon from "@/components/icons/toolbar/ResizeWideIcon.vue";
 import ResizeSquareIcon from "@/components/icons/toolbar/ResizeSquareIcon.vue";
@@ -24,6 +28,7 @@ import LinkIcon from "@/components/icons/LinkIcon.vue";
 import BoldIcon from "@/components/icons/toolbar/BoldIcon.vue";
 import ItalicIcon from "@/components/icons/toolbar/ItalicIcon.vue";
 import TextAlignIcon from "@/components/icons/toolbar/TextAlignIcon.vue";
+import ClearLinkIcon from "@/components/icons/ClearLinkIcon.vue";
 
 // ── Shared reusable toolbar items ──────────────────────────────────
 
@@ -73,8 +78,8 @@ export const RESIZE_3x1 = makeResizeItem(
   3,
   1,
   ResizeWideIcon,
-  "Resize to 3x1"
-)
+  "Resize to 3x1",
+);
 export const RESIZE_3x2 = makeResizeItem(
   "resize-3x2",
   3,
@@ -264,6 +269,32 @@ export const LINK_BG_TOGGLE: ToolbarItem = {
     (ctx.tile.content as LinkContent).linkBackgroundEnabled !== false,
 };
 
+const _linkIcon = markRaw(LinkIcon);
+const _clearLinkIcon = markRaw(ClearLinkIcon);
+
+const hasTextLink = (ctx: ToolbarContext) =>
+  !!(ctx.tile.content as any)?.textLink;
+
+export const TILE_LINK: ToolbarItem = {
+  id: "tile-link",
+  icon: (ctx: ToolbarContext) =>
+    hasTextLink(ctx) ? _clearLinkIcon : _linkIcon,
+  title: (ctx: ToolbarContext) => {
+    if (!hasTextLink(ctx)) return "Add a link";
+    const url = (ctx.tile.content as any).textLink as string;
+    return `Remove link to ${url}`;
+  },
+  group: "appearance",
+  danger: (ctx: ToolbarContext) => hasTextLink(ctx),
+  action: (ctx: ToolbarContext) => {
+    if (hasTextLink(ctx)) {
+      ctx.childComponent.value?.clearLink?.();
+    } else {
+      ctx.childComponent.value?.openUrlInput?.();
+    }
+  },
+};
+
 export const LINK_MORE_MENU: ToolbarItem = {
   id: "more-menu",
   icon: markRaw(MoreDotsIcon),
@@ -302,31 +333,48 @@ export const TEXT_MORE_MENU: ToolbarItem = {
   menuItemsLayoutDirection: "horizontal",
   menuItems: [
     {
-      id: 'font-family',
+      id: "font-family",
       panelId: "font-family",
+      tooltip: "Change Font",
       action: (_ctx) => {},
     },
     {
-      id: 'font-size',
+      id: "font-size",
       panelId: "font-select",
+      tooltip: "Change Font Size",
       action: (_ctx) => {},
     },
     {
       id: "bold-toggle",
       icon: markRaw(BoldIcon),
+      tooltip: "Bold",
       isActive: (ctx) => !!ctx.childComponent.value?.isBoldActive,
       action: (ctx) => ctx.childComponent.value?.toggleBold?.(),
     },
     {
       id: "italic-toggle",
       icon: markRaw(ItalicIcon),
+      tooltip: "Italic",
       isActive: (ctx) => !!ctx.childComponent.value?.isItalicActive,
       action: (ctx) => ctx.childComponent.value?.toggleItalic?.(),
     },
     {
-      id: "text-link",
-      icon: markRaw(LinkIcon),
-      action: (ctx) => ctx.childComponent.value?.openUrlInput?.(),
+      id: "tile-link",
+      icon: (ctx: ToolbarContext) =>
+        hasTextLink(ctx) ? _clearLinkIcon : _linkIcon,
+      tooltip: (ctx: ToolbarContext) => {
+        if (!hasTextLink(ctx)) return "Add a Link";
+        const url = (ctx.tile.content as TextContent).textLink as string;
+        return `Remove link to ${url}`;
+      },
+      danger: (ctx: ToolbarContext) => hasTextLink(ctx),
+      action: (ctx: ToolbarContext) => {
+        if (hasTextLink(ctx)) {
+          ctx.childComponent.value?.clearLink?.();
+        } else {
+          ctx.childComponent.value?.openUrlInput?.();
+        }
+      },
     },
   ],
 };
@@ -339,12 +387,14 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     BORDER_TOGGLE,
     CROP_BUTTON,
     COLOR_BUTTON,
+    TILE_LINK,
   ],
   [ContentType.VIDEO]: [
     ...RESIZE_PRESETS,
     BORDER_TOGGLE,
     CROP_BUTTON,
     COLOR_BUTTON,
+    TILE_LINK,
   ],
   [ContentType.LINK]: [
     ...RESIZE_PRESETS,
@@ -376,12 +426,18 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     MAP_SEARCH,
     MAP_RECENTER,
   ],
-  [ContentType.CHAT]: [RESIZE_3x2, RESIZE_4x2, RESIZE_4x4, BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.CHAT]: [
+    RESIZE_3x2,
+    RESIZE_4x2,
+    RESIZE_4x4,
+    BORDER_TOGGLE,
+    COLOR_BUTTON,
+  ],
   [ContentType.CAMPFIRE]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
   [ContentType.PROFILE]:  [BORDER_TOGGLE, COLOR_BUTTON],
   // Roadmap feed uses standard resize/appearance options; settings are managed inside the tile itself
   [ContentType.ROADMAP_FEED]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
-}
+};
 
 // Default fallback for any tile type not explicitly configured
 const DEFAULT_ITEMS: ToolbarItem[] = [...RESIZE_PRESETS];

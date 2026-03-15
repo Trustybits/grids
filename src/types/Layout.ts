@@ -9,6 +9,7 @@ export interface Layout {
   verticalCompact: boolean;
   backgroundImageSrc: string;
   backgroundEmbed: boolean;
+  themeId?: string;
   tiles: Tile[];
   overrides?: Partial<Record<Breakpoint, Record<string, TilePosition>>>;
   createdAt?: any;

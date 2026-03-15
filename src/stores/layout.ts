@@ -531,7 +531,9 @@ export const useLayoutStore = defineStore("layout", {
         return;
       }
 
-      if (!this.isOwner) {
+      // Block saves when the user isn't allowed to edit — covers both
+      // non-owners and owners in view-only breakpoint preview mode.
+      if (!this.canEdit) {
         return;
       }
 
@@ -1016,7 +1018,8 @@ export const useLayoutStore = defineStore("layout", {
 
     // Update the entire layout
     updateLayout() {
-      if (!this.isOwner) {
+      // Block updates when the user can't edit (non-owner or view-only preview).
+      if (!this.canEdit) {
         return;
       }
 

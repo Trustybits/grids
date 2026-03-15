@@ -27,61 +27,17 @@
         v-if="!isTallOneWide && !isOneByOne && textLinkExists"
         class="tile-link-indicator"
         aria-hidden="true"
-        @click="handleOwnerClick"
+        @click="handleFollowLink"
       >
-        <svg
-          class="tile-link-indicator-icon"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M7 17L17 7"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M10 7H17V14"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <LinkIndicatorIcon class="tile-link-indicator-icon" />
       </div>
       <div
         v-if="isTallOneWide && textLinkExists"
         class="tile-link-indicator tile-link-indicator--bottom"
         aria-hidden="true"
-        @click="handleOwnerClick"
+        @click="handleFollowLink"
       >
-        <svg
-          class="tile-link-indicator-icon"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M7 17L17 7"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M10 7H17V14"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <LinkIndicatorIcon class="tile-link-indicator-icon" />
       </div>
     </div>
   </div>
@@ -114,8 +70,9 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { useLayoutStore } from "@/stores/layout";
 import AddLinkModal from "../AddLinkModal.vue";
+import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import type { TextContent } from "@/types/TileContent";
-import { useToastStore } from "@/stores/toast";
+import { useTileLink } from "@/composables/useTileLink";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
 
@@ -123,6 +80,7 @@ export default defineComponent({
   components: {
     EditorContent,
     AddLinkModal,
+    LinkIndicatorIcon,
   },
   emits: ["background-color-change", "text-color-change"],
   props: {
@@ -156,14 +114,9 @@ export default defineComponent({
       () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1,
     );
 
-    const textLink = computed(() => props.content?.textLink);
-    const textLinkExists = computed(() => !!props.content?.textLink);
     const isBoldActive = ref(false);
     const isItalicActive = ref(false);
     const textAlign = computed(() => props.content?.textAlign ?? "left");
-
-    const showLinkModal = ref<boolean>(false);
-    const toastStore = useToastStore();
 
     const { schedulePersist, flushPersist } = useEditorAutosave(() =>
       persistEditorText(),
@@ -273,7 +226,7 @@ export default defineComponent({
     const onShortClick = () => {
       if (!layoutStore.canEdit) {
         if (textLinkExists.value) {
-          window.open(textLink.value, "_blank", "noopener,noreferrer");
+          handleFollowLink();
         }
         return;
       }
@@ -317,51 +270,15 @@ export default defineComponent({
       }
     });
 
-    const openUrlInput = () => {
-      if (!layoutStore.canEdit) return;
-      showLinkModal.value = true;
-    };
-
-    const closeLinkModal = () => {
-      showLinkModal.value = false;
-    };
-
-    const normalizeUrl = (link: string): string => {
-      const trimmed = link.trim();
-      if (!trimmed) return "";
-      const normalized =
-        trimmed.startsWith("http://") || trimmed.startsWith("https://")
-          ? trimmed
-          : `https://${trimmed}`;
-      try {
-        new URL(normalized);
-        return normalized;
-      } catch (error) {
-        return "";
-      }
-    };
-
-    const handleAddLink = (link: string) => {
-      if (!layoutStore.canEdit) return;
-      const normalized = normalizeUrl(link);
-      if (!normalized) {
-        toastStore.addToast("Invalid URL format", "error");
-        return;
-      }
-      props.content.textLink = normalized;
-      if (tileId) {
-        layoutStore.patchTileContent(tileId, { textLink: normalized });
-      } else {
-        layoutStore.saveLayout();
-      }
-      showLinkModal.value = false;
-    };
-
-    const handleOwnerClick = () => {
-      if (!textLinkExists.value) return;
-
-      window.open(textLink.value, "_blank", "noopener,noreferrer");
-    };
+    const {
+      showLinkModal,
+      textLinkExists,
+      openUrlInput,
+      closeLinkModal,
+      handleAddLink,
+      handleFollowLink,
+      clearLink,
+    } = useTileLink(tileId, props.content);
 
     const { backgroundColor, textColor, handleBackgroundColorChange } =
       useColorPicker(tileId, props.content, emit);
@@ -503,7 +420,8 @@ export default defineComponent({
       openUrlInput,
       closeLinkModal,
       handleAddLink,
-      handleOwnerClick,
+      handleFollowLink,
+      clearLink,
       handleBackgroundColorChange,
       handleTextAlignChange,
       toggleItalic,

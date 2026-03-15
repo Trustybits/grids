@@ -273,6 +273,7 @@ export default defineComponent({
 
     const clickStart = ref<number | null>(null);
     const CLICK_THRESHOLD = 150;
+    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 
     const isSuggestion = computed(
       () => props.tile.content.type === ContentType.SUGGESTION,
@@ -327,6 +328,14 @@ export default defineComponent({
             event.preventDefault();
           }
         }
+        // Start long-press timer: activate isDragging after threshold
+        if (layoutStore.isOwner && !isEditing.value) {
+          if (longPressTimer) clearTimeout(longPressTimer);
+          longPressTimer = setTimeout(() => {
+            isDragging.value = true;
+            longPressTimer = null;
+          }, CLICK_THRESHOLD);
+        }
       }
     };
 
@@ -335,6 +344,11 @@ export default defineComponent({
         return;
       }
 
+      // Cancel long-press timer if still pending
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
       isDragging.value = false;
 
       const clickDuration = Date.now() - (clickStart.value || 0);
@@ -384,7 +398,7 @@ export default defineComponent({
       // At smaller breakpoints the displayLayout contains detached copies;
       // vue3-grid-layout will mutate those in-place and the override system
       // snapshots them via displayPositions when the resize finishes.
-      if (layoutStore.activeBreakpoint !== 'lg') return;
+      if (layoutStore.activeBreakpoint !== "lg") return;
 
       const tile = layoutStore.currentLayout?.tiles.find((t) => t.i === i);
       if (tile) {
@@ -697,6 +711,10 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
       stopChildEditingWatch?.();
       stopChildEditingWatch = null;
       removeClickListener();

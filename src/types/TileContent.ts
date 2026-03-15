@@ -53,6 +53,7 @@ export interface ImageContent extends TileContent {
   offsetX: number;
   offsetY: number;
   backgroundColor?: string;
+  textLink?: string;
 }
 
 export interface LinkContent extends TileContent {
@@ -84,6 +85,7 @@ export interface VideoContent extends TileContent {
   offsetX: number;
   offsetY: number;
   backgroundColor?: string;
+  textLink?: string;
 }
 
 export type MapStyleMode =
@@ -259,7 +261,7 @@ export interface MusicContent extends TileContent {
   type: ContentType.MUSIC;
   platform: MusicPlatform;
   trackId: string;
-  trackType?: 'track' | 'album';
+  trackType?: "track" | "album";
   trackName: string;
   artistName: string;
   albumArt: string;
@@ -278,7 +280,11 @@ export interface MusicContent extends TileContent {
 export type RoadmapStatus = "backlog" | "in_progress" | "done";
 
 // Property types that can be used as query filters when fetching from Notion.
-export type RoadmapFilterableType = "checkbox" | "select" | "multi_select" | "status";
+export type RoadmapFilterableType =
+  | "checkbox"
+  | "select"
+  | "multi_select"
+  | "status";
 
 // A single owner-configured filter applied when querying the Notion database.
 // These are sent to the Cloud Function and translated into Notion API filter conditions.
@@ -297,8 +303,8 @@ export interface RoadmapItem {
   notionPageId: string;
   title: string;
   status: RoadmapStatus;
-  description?: string;   // plain-text excerpt from the page body, if available
-  upvoteCount: number;    // value of the upvote number property on the Notion page
+  description?: string; // plain-text excerpt from the page body, if available
+  upvoteCount: number; // value of the upvote number property on the Notion page
 }
 
 export interface RoadmapFeedContent extends TileContent {

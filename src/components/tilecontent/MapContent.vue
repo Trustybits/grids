@@ -244,7 +244,7 @@ export default defineComponent({
         0
     );
 
-    const isInteractive = computed(() => !layoutStore.isOwner || isEditing.value);
+    const isInteractive = computed(() => !layoutStore.canEdit || isEditing.value);
 
     const show3d = computed({
       get: () => props.content.show3d ?? false,
@@ -420,7 +420,7 @@ export default defineComponent({
     };
 
     const setMarker = (marker: { lat: number; lng: number }) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       props.content.marker = marker;
       saveLayout();
       updateMarker(marker);
@@ -454,7 +454,7 @@ export default defineComponent({
       // Don't persist the default [0,0] center during initial load;
       // we only want to save once a real position has been established.
       if (isInitialLoad) return;
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const map = mapInstance.value;
       if (!map) return;
       const center = map.getCenter();
@@ -471,7 +471,7 @@ export default defineComponent({
     const flyToLocation = (center: { lat: number; lng: number }, zoom?: number) => {
       const map = mapInstance.value;
       const targetZoom = zoom ?? props.content.zoom ?? 9;
-      if (layoutStore.isOwner) {
+      if (layoutStore.canEdit) {
         props.content.center = center;
         props.content.zoom = targetZoom;
         saveLayout();
@@ -531,7 +531,7 @@ export default defineComponent({
     };
 
     const useMyLocation = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       if (!navigator.geolocation) {
         statusMessage.value = "Geolocation not supported.";
         // Reveal the map even without a location so the tile isn't blank.
@@ -692,7 +692,7 @@ export default defineComponent({
     };
 
     const toggleEditMode = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       isEditing.value = !isEditing.value;
       if (isEditing.value) {
         mapInstance.value?.resize();
@@ -706,7 +706,7 @@ export default defineComponent({
     };
 
     const onExitClick = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       if (!isEditing.value) return;
       isEditing.value = false;
       saveLayout();
@@ -832,7 +832,7 @@ export default defineComponent({
         mapReady.value = true;
       }
 
-      if (layoutStore.isOwner) {
+      if (layoutStore.canEdit) {
         if (props.content.searchQuery && !hasSavedCenter) {
           handleGeocode(props.content.searchQuery);
         } else if (!hasSavedCenter) {

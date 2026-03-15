@@ -1,6 +1,7 @@
 <template>
   <div
     v-if="items.length"
+    ref="toolbarRef"
     class="tile-toolbar"
     :class="{ 'tile-toolbar-force-show': menuOpen || panelOpen }"
     @mousedown.stop
@@ -16,6 +17,7 @@
               item.isActive?.(ctx) ||
               (item.panelId && panelOpen && activePanelId === item.panelId),
           },
+          { 'toolbar-btn--danger': resolveDanger(item) },
         ]"
         :data-tooltip="resolveTitle(item)"
         @click.stop="onItemClick($event, item)"
@@ -91,6 +93,7 @@
         class="tile-toolbar-menu"
         :style="[menuStyle, { 'flex-direction': menuItemLayoutDirection }]"
         @mousedown.stop
+        @click.stop
         @dragstart.prevent
       >
         <template v-for="mi in visibleMenuItems" :key="mi.id">
@@ -99,18 +102,20 @@
             type="button"
             class="tile-toolbar-menu-item"
             :class="[
-              { 'tile-toolbar-menu-item--danger': mi.danger },
+              { 'tile-toolbar-menu-item--danger': resolveMenuDanger(mi) },
               { 'is-active': mi.isActive?.(ctx) },
             ]"
+            :data-tooltip="resolveMenuTooltip(mi)"
             @mousedown.prevent
             @click="onMenuItemClick(mi)"
           >
-            <component v-if="mi.icon" :is="mi.icon" />
-            <template v-if="mi.label">{{ mi.label }}</template>
+            <component v-if="mi.icon" :is="resolveMenuIcon(mi)" />
+            <template v-if="mi.label">{{ resolveMenuLabel(mi) }}</template>
           </button>
           <div
             v-if="mi.id === 'font-size'"
             class="tile-toolbar-menu-item"
+            :data-tooltip="mi.tooltip"
             style="display: flex; flex: 1; align-self: stretch; padding: 0"
           >
             <FontSizeSelector
@@ -123,6 +128,7 @@
           <div
             v-if="mi.id === 'font-family'"
             class="tile-toolbar-menu-item"
+            :data-tooltip="mi.tooltip"
             style="display: flex; flex: 1; align-self: stretch; padding: 0"
           >
             <FontSelector
@@ -148,6 +154,7 @@ import {
   onUnmounted,
   watch,
   type PropType,
+  type Component,
 } from "vue";
 import type { Tile } from "@/types/Tile";
 import type { TextContent } from "@/types/TileContent";
@@ -196,6 +203,7 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
 
+    const toolbarRef = ref<HTMLDivElement | null>(null);
     const menuAnchorRef = ref<HTMLButtonElement | null>(null);
     const menuRef = ref<HTMLDivElement | null>(null);
     const menuPosition = ref({ x: 0, y: 0 });
@@ -263,14 +271,47 @@ export default defineComponent({
     };
 
     const resolveIcon = (item: ToolbarItem) => {
-      if (item.id !== "text-align") return item.icon;
+      // Special case for text-align icon
+      if (item.id === "text-align") {
+        const content = props.tile.content as TextContent;
+        const align = content?.textAlign ?? "left";
+        if (align === "center") return AlignCenterIcon;
+        if (align === "right") return AlignRightIcon;
+        return AlignLeftIcon;
+      }
+      if (typeof item.icon === "function") {
+        return (item.icon as (ctx: ToolbarContext) => Component)(ctx.value);
+      }
+      return item.icon;
+    };
 
-      const content = props.tile.content as TextContent;
-      const align = content?.textAlign ?? "left";
+    const resolveDanger = (item: ToolbarItem): boolean => {
+      return typeof item.danger === "function"
+        ? item.danger(ctx.value)
+        : !!item.danger;
+    };
 
-      if (align === "center") return AlignCenterIcon;
-      if (align === "right") return AlignRightIcon;
-      return AlignLeftIcon;
+    const resolveMenuIcon = (mi: ToolbarMenuItem) => {
+      if (typeof mi.icon === "function") {
+        return (mi.icon as (ctx: ToolbarContext) => Component)(ctx.value);
+      }
+      return mi.icon;
+    };
+
+    const resolveMenuTooltip = (mi: ToolbarMenuItem): string | undefined => {
+      return typeof mi.tooltip === "function"
+        ? mi.tooltip(ctx.value)
+        : mi.tooltip;
+    };
+
+    const resolveMenuLabel = (mi: ToolbarMenuItem): string | undefined => {
+      return typeof mi.label === "function" ? mi.label(ctx.value) : mi.label;
+    };
+
+    const resolveMenuDanger = (mi: ToolbarMenuItem): boolean => {
+      return typeof mi.danger === "function"
+        ? mi.danger(ctx.value)
+        : !!mi.danger;
     };
 
     const shouldShowDivider = (idx: number): boolean => {
@@ -308,11 +349,21 @@ export default defineComponent({
         if (!menu) return;
         // Use layout dimensions (not transformed visual bounds) so
         // scale/translate entrance animations don't skew initial positioning.
-        const width = menu.offsetWidth;
+        const menuWidth = menu.offsetWidth;
         const height = menu.offsetHeight;
-        const nextX = rect.right - width;
+        const toolbar = toolbarRef.value;
+        const toolbarRect = toolbar?.getBoundingClientRect();
+
+        let nextX: number;
+        if (toolbarRect && menuWidth > toolbarRect.width) {
+          // Menu is wider than toolbar – center it under the toolbar
+          nextX = toolbarRect.left + toolbarRect.width / 2 - menuWidth / 2;
+        } else {
+          // Menu fits within toolbar width – align right edge to button
+          nextX = rect.right - menuWidth;
+        }
         const nextY = rect.bottom + 8;
-        menuPosition.value = clampToViewport(nextX, nextY, width, height);
+        menuPosition.value = clampToViewport(nextX, nextY, menuWidth, height);
       });
     };
 
@@ -354,7 +405,7 @@ export default defineComponent({
     };
 
     const onMenuItemClick = (mi: ToolbarMenuItem) => {
-      if (mi.id === "text-link") {
+      if (mi.id === "tile-link" && !(ctx.value.tile.content as any)?.textLink) {
         closeMenu();
       }
       mi.action(ctx.value);
@@ -469,12 +520,18 @@ export default defineComponent({
       isActiveTile,
       menuOpen,
       menuAnchorRef,
+      toolbarRef,
       menuRef,
       menuStyle,
       menuPosition,
       menuItemLayoutDirection,
       resolveTitle,
       resolveIcon,
+      resolveDanger,
+      resolveMenuIcon,
+      resolveMenuTooltip,
+      resolveMenuLabel,
+      resolveMenuDanger,
       shouldShowDivider,
       onItemClick,
       onMenuItemClick,
@@ -571,37 +628,6 @@ export default defineComponent({
   }
 }
 
-/* Tooltip via data-tooltip attribute */
-.toolbar-btn[data-tooltip] {
-  position: relative;
-
-  &::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%) scale(0.9);
-    white-space: nowrap;
-    font-size: 11px;
-    line-height: 1;
-    padding: 5px 8px;
-    border-radius: var(--radius-sm);
-    background-color: var(--color-text-primary);
-    color: var(--color-tile-background);
-    pointer-events: none;
-    opacity: 0;
-    transition:
-      opacity var(--duration-fast) var(--easing-ease-out),
-      transform var(--duration-fast) var(--easing-ease-out);
-    z-index: var(--z-tooltip);
-  }
-
-  &:hover::after {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
-  }
-}
-
 .toolbar-btn--border :deep(.border-slash) {
   stroke-dasharray: 18;
   stroke-dashoffset: 18;
@@ -609,6 +635,10 @@ export default defineComponent({
   transition:
     stroke-dashoffset var(--duration-normal) var(--easing-spring),
     opacity var(--duration-fast) var(--easing-ease-in-out);
+}
+
+.toolbar-btn--danger {
+  color: #ff3737;
 }
 
 .toolbar-divider {
@@ -678,37 +708,6 @@ export default defineComponent({
   &:hover {
     background-color: var(--color-content-low);
     transform: scale(1.05);
-  }
-}
-
-/* Tooltip for search panel buttons */
-.search-panel-btn[data-tooltip] {
-  position: relative;
-
-  &::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%) scale(0.9);
-    white-space: nowrap;
-    font-size: 11px;
-    line-height: 1;
-    padding: 5px 8px;
-    border-radius: var(--radius-sm);
-    background-color: var(--color-text-primary);
-    color: var(--color-tile-background);
-    pointer-events: none;
-    opacity: 0;
-    transition:
-      opacity var(--duration-fast) var(--easing-ease-out),
-      transform var(--duration-fast) var(--easing-ease-out);
-    z-index: var(--z-tooltip);
-  }
-
-  &:hover::after {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
   }
 }
 
@@ -792,6 +791,37 @@ export default defineComponent({
   color: var(--color-tile-background);
   border-radius: var(--radius-sm);
   transform: none;
+}
+
+/* Tooltip via data-tooltip attribute (shared across toolbar, search panel, and menu items) */
+[data-tooltip] {
+  position: relative;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    white-space: nowrap;
+    font-size: 11px;
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-text-primary);
+    color: var(--color-tile-background);
+    pointer-events: none;
+    opacity: 0;
+    transition:
+      opacity var(--duration-fast) var(--easing-ease-out),
+      transform var(--duration-fast) var(--easing-ease-out);
+    z-index: var(--z-tooltip);
+  }
+
+  &:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
 }
 
 .panel-enter-active {

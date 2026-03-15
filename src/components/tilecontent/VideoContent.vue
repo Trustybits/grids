@@ -6,10 +6,15 @@
     @mouseleave="onTileMouseLeave"
   >
     <div v-if="!content.src" class="spinner"></div>
-    <div 
-      v-else 
-      class="video-wrapper" 
-      :class="{ 'crop-active': isEditing, 'is-narrow': isNarrow, 'is-medium': isMedium, 'is-tiny': isTiny }"
+    <div
+      v-else
+      class="video-wrapper"
+      :class="{
+        'crop-active': isEditing,
+        'is-narrow': isNarrow,
+        'is-medium': isMedium,
+        'is-tiny': isTiny,
+      }"
       @mousedown="startDragging"
       @mouseup="stopDragging"
       @mouseleave="stopDragging"
@@ -25,7 +30,7 @@
         draggable="false"
         muted
       ></video>
-      
+
       <!-- Main layer - full opacity, clipped to tile boundaries -->
       <div class="video-clip-container">
         <video
@@ -48,54 +53,93 @@
           aria-hidden="true"
         />
       </div>
-      
+
       <!-- Center Play / Replay Button -->
       <div class="center-controls" v-if="!isEditing">
-        <button class="center-play-btn" :class="{ 'show-replay': videoEnded }" @click.stop="onVideoClick">
+        <button
+          class="center-play-btn"
+          :class="{ 'show-replay': videoEnded }"
+          @click.stop="onVideoClick"
+        >
           <svg v-if="videoEnded" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+            <path
+              d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"
+            />
           </svg>
-          <svg v-else-if="!isPlaying && playbackMode === 'playing'" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 5v14l11-7z"/>
+          <svg
+            v-else-if="!isPlaying && playbackMode === 'playing'"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d="M8 5v14l11-7z" />
           </svg>
           <svg v-else viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
           </svg>
         </button>
       </div>
-      
+
       <!-- Upload progress overlay - shown while file is uploading to Firebase -->
       <div v-if="isUploading" class="upload-overlay">
         <div class="upload-progress-track">
-          <div class="upload-progress-fill" :style="{ width: `${uploadPercent}%` }"></div>
+          <div
+            class="upload-progress-fill"
+            :style="{ width: `${uploadPercent}%` }"
+          ></div>
         </div>
+      </div>
+
+      <!-- Link indicator -->
+      <div
+        v-if="textLinkExists && !isFullscreen"
+        class="tile-link-indicator"
+        aria-hidden="true"
+        @click.stop="handleFollowLink"
+      >
+        <LinkIndicatorIcon class="tile-link-indicator-icon" />
       </div>
 
       <!-- Bottom Control Bar -->
       <div class="bottom-controls" v-if="!isEditing">
         <div class="controls-row">
           <!-- Mute/Unmute (hidden in 1x1) -->
-          <div v-if="!isTiny" class="volume-control" @mouseleave="onVolumeMouseLeave">
+          <div
+            v-if="!isTiny"
+            class="volume-control"
+            @mouseleave="onVolumeMouseLeave"
+          >
             <button class="control-btn mute-btn" @click.stop="toggleMute">
-              <svg v-if="isMuted || volume === 0" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+              <svg
+                v-if="isMuted || volume === 0"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"
+                />
               </svg>
-              <svg v-else-if="volume < 0.1" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M7 9v6h4l5 5V4l-5 5H7z"/>
+              <svg
+                v-else-if="volume < 0.1"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M7 9v6h4l5 5V4l-5 5H7z" />
               </svg>
               <svg v-else viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                <path
+                  d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
+                />
               </svg>
             </button>
 
             <!-- Volume slider — shown on mute hover, replaces time -->
             <div class="volume-slider-container">
-              <input 
-                type="range" 
-                class="volume-slider" 
-                min="0" 
-                max="1" 
-                step="0.01" 
+              <input
+                type="range"
+                class="volume-slider"
+                min="0"
+                max="1"
+                step="0.01"
                 :value="volume"
                 @input="onVolumeInput"
                 @mousedown.stop
@@ -114,34 +158,62 @@
           <!-- Fullscreen -->
           <button class="control-btn fullscreen" @click.stop="toggleFullscreen">
             <svg v-if="isFullscreen" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+              <path
+                d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"
+              />
             </svg>
             <svg v-else viewBox="0 0 24 24" fill="currentColor">
-              <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+              <path
+                d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+              />
             </svg>
           </button>
         </div>
         <div v-if="!isTiny" class="progress-container" @click="seek">
           <div class="progress-bar">
-            <div class="progress-filled" :style="{ width: progressPercent + '%' }"></div>
+            <div
+              class="progress-filled"
+              :style="{ width: progressPercent + '%' }"
+            ></div>
           </div>
         </div>
       </div>
     </div>
   </div>
+  <AddLinkModal
+    :show="showLinkModal"
+    @close="closeLinkModal"
+    @add="handleAddLink"
+  />
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, onUnmounted, watch, inject, type ComputedRef } from "vue";
+import {
+  defineComponent,
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+  inject,
+  type ComputedRef,
+} from "vue";
 import { type VideoContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { useVideoFocus } from "@/composables/useVideoFocus";
 import { useColorPicker } from "@/composables/useColorPicker";
+import { useTileLink } from "@/composables/useTileLink";
+import AddLinkModal from "../AddLinkModal.vue";
+import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 
 const PREVIEW_DURATION = 3;
 const DEFAULT_VOLUME = 0.15;
 
 export default defineComponent({
+  components: {
+    AddLinkModal,
+    LinkIndicatorIcon,
+  },
   emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
@@ -155,21 +227,37 @@ export default defineComponent({
 
     // Injected tile position and size from GridTile
     const tileId = inject<string>("tileId", "");
-    const tileX = inject<ComputedRef<number>>("tileX", computed(() => 0));
-    const tileY = inject<ComputedRef<number>>("tileY", computed(() => 0));
-    const gridTileW = inject<ComputedRef<number>>("gridTileW", computed(() => 2));
-    const gridTileH = inject<ComputedRef<number>>("gridTileH", computed(() => 2));
+    const tileX = inject<ComputedRef<number>>(
+      "tileX",
+      computed(() => 0),
+    );
+    const tileY = inject<ComputedRef<number>>(
+      "tileY",
+      computed(() => 0),
+    );
+    const gridTileW = inject<ComputedRef<number>>(
+      "gridTileW",
+      computed(() => 2),
+    );
+    const gridTileH = inject<ComputedRef<number>>(
+      "gridTileH",
+      computed(() => 2),
+    );
 
     // Tile is 1 column wide — use stacked/narrow layout
     const isNarrow = computed(() => gridTileW.value === 1);
     // Tile is 2 columns wide — time hides fully on volume hover
     const isMedium = computed(() => gridTileW.value === 2);
     // Tile is 1x1 — minimal controls only (pause + fullscreen)
-    const isTiny = computed(() => gridTileW.value === 1 && gridTileH.value === 1);
+    const isTiny = computed(
+      () => gridTileW.value === 1 && gridTileH.value === 1,
+    );
 
     // Upload progress tracking — injected tile ID lets us look up our upload state
     const isUploading = computed(() => {
-      return tileId != null && tileId !== "" && tileId in layoutStore.uploadingTiles;
+      return (
+        tileId != null && tileId !== "" && tileId in layoutStore.uploadingTiles
+      );
     });
     const uploadPercent = computed(() => {
       if (!tileId) return 0;
@@ -186,7 +274,7 @@ export default defineComponent({
     const videoWrapper = ref<HTMLDivElement | null>(null);
     const videoElement = ref<HTMLVideoElement | null>(null);
     const videoOverflowElement = ref<HTMLVideoElement | null>(null);
-    
+
     // Track dimensions for future features
     const videoDimensions = ref({ width: 0, height: 0, aspectRatio: 0 });
     const tileDimensions = ref({ width: 0, height: 0, aspectRatio: 0 });
@@ -202,7 +290,7 @@ export default defineComponent({
         aspectRatio: width && height ? width / height : 0,
       };
     };
-    
+
     // Video control state
     const isPlaying = ref(false);
     const currentTime = ref(0);
@@ -211,21 +299,21 @@ export default defineComponent({
     const isMuted = ref(true);
     const isFullscreen = ref(false);
     const progressPercent = ref(0);
-    const playbackMode = ref<'idle' | 'preview' | 'playing'>('idle');
+    const playbackMode = ref<"idle" | "preview" | "playing">("idle");
     const savedVolume = ref(DEFAULT_VOLUME);
     const videoEnded = ref(false);
 
     // Toggle crop mode
     const toggleEditMode = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
 
       isEditing.value = !isEditing.value;
 
       // Prevent horizontal scrolling when in crop mode
       if (isEditing.value) {
-        document.body.style.overflowX = 'hidden';
+        document.body.style.overflowX = "hidden";
       } else {
-        document.body.style.overflowX = '';
+        document.body.style.overflowX = "";
       }
 
       // Save when exiting crop mode
@@ -245,18 +333,23 @@ export default defineComponent({
       if (!wrapper || (!isEditing.value && !force)) return;
 
       // Don't constrain until video dimensions are loaded - prevents resetting saved offsets to 0
-      if (videoDimensions.value.aspectRatio === 0 || tileDimensions.value.aspectRatio === 0) {
+      if (
+        videoDimensions.value.aspectRatio === 0 ||
+        tileDimensions.value.aspectRatio === 0
+      ) {
         return;
       }
 
       const containerWidth = wrapper.clientWidth;
       const containerHeight = wrapper.clientHeight;
-      
+
       // Calculate actual rendered dimensions based on aspect ratio comparison
       let renderedWidth: number;
       let renderedHeight: number;
-      
-      if (videoDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
+
+      if (
+        videoDimensions.value.aspectRatio > tileDimensions.value.aspectRatio
+      ) {
         // Video is wider - constrained by height
         renderedHeight = containerHeight;
         renderedWidth = renderedHeight * videoDimensions.value.aspectRatio;
@@ -265,7 +358,7 @@ export default defineComponent({
         renderedWidth = containerWidth;
         renderedHeight = renderedWidth / videoDimensions.value.aspectRatio;
       }
-      
+
       // Max offset is half the difference between rendered video and container
       const maxX = Math.max(0, (renderedWidth - containerWidth) / 2);
       const maxY = Math.max(0, (renderedHeight - containerHeight) / 2);
@@ -294,7 +387,7 @@ export default defineComponent({
       offsetY.value += deltaY;
 
       constrainOffset();
-      
+
       dragStart.value = { x: event.clientX, y: event.clientY };
     };
 
@@ -302,14 +395,34 @@ export default defineComponent({
       const cursor = isEditing.value ? "grab" : "default";
       const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
 
-      if (videoDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
-        if (videoDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
-          return { transform: baseTransform, cursor, width: 'auto', height: '100%' };
+      if (
+        videoDimensions.value.aspectRatio > 0 &&
+        tileDimensions.value.aspectRatio > 0
+      ) {
+        if (
+          videoDimensions.value.aspectRatio > tileDimensions.value.aspectRatio
+        ) {
+          return {
+            transform: baseTransform,
+            cursor,
+            width: "auto",
+            height: "100%",
+          };
         }
-        return { transform: baseTransform, cursor, width: '100%', height: 'auto' };
+        return {
+          transform: baseTransform,
+          cursor,
+          width: "100%",
+          height: "auto",
+        };
       }
 
-      return { transform: baseTransform, cursor, width: '100%', height: '100%' };
+      return {
+        transform: baseTransform,
+        cursor,
+        width: "100%",
+        height: "100%",
+      };
     });
 
     // ── Playback helpers ──
@@ -317,7 +430,7 @@ export default defineComponent({
     const startPreview = () => {
       const vid = videoElement.value;
       if (!vid) return;
-      playbackMode.value = 'preview';
+      playbackMode.value = "preview";
       vid.muted = true;
       isMuted.value = true;
       vid.currentTime = 0;
@@ -328,7 +441,7 @@ export default defineComponent({
     const enterPlayingMode = () => {
       const vid = videoElement.value;
       if (!vid) return;
-      playbackMode.value = 'playing';
+      playbackMode.value = "playing";
       // Unmute and set to default volume
       vid.muted = false;
       vid.volume = savedVolume.value;
@@ -362,7 +475,7 @@ export default defineComponent({
         return;
       }
 
-      if (playbackMode.value === 'playing') {
+      if (playbackMode.value === "playing") {
         // Normal toggle play/pause
         if (isPlaying.value) {
           pauseVideo();
@@ -373,7 +486,7 @@ export default defineComponent({
       } else {
         // Preview or idle → pause (default action is pause)
         pauseVideo();
-        playbackMode.value = 'playing';
+        playbackMode.value = "playing";
       }
     };
 
@@ -395,7 +508,7 @@ export default defineComponent({
 
         if (isActive) {
           // Gained focus
-          if (playbackMode.value === 'playing') {
+          if (playbackMode.value === "playing") {
             // Resume user-initiated playback from where we paused
             const vid = videoElement.value;
             if (vid && vid.paused) {
@@ -412,21 +525,22 @@ export default defineComponent({
             pauseVideo();
           }
         }
-      }
+      },
     );
-    
+
     const onVideoLoaded = () => {
       if (videoElement.value) {
         duration.value = videoElement.value.duration;
         // Keep video muted on load
         videoElement.value.muted = true;
         videoElement.value.volume = DEFAULT_VOLUME;
-        
+
         // Track video dimensions
         videoDimensions.value = {
           width: videoElement.value.videoWidth,
           height: videoElement.value.videoHeight,
-          aspectRatio: videoElement.value.videoWidth / videoElement.value.videoHeight,
+          aspectRatio:
+            videoElement.value.videoWidth / videoElement.value.videoHeight,
         };
       }
     };
@@ -444,7 +558,12 @@ export default defineComponent({
 
       // Register with the video focus system
       if (tileId && videoWrapper.value) {
-        videoFocus.register(tileId, tileX.value, tileY.value, videoWrapper.value);
+        videoFocus.register(
+          tileId,
+          tileX.value,
+          tileY.value,
+          videoWrapper.value,
+        );
       }
     });
 
@@ -461,29 +580,32 @@ export default defineComponent({
     watch(videoDimensions, () => {
       constrainOffset(true);
     });
-    
+
     const onTimeUpdate = () => {
       if (!videoElement.value) return;
       currentTime.value = videoElement.value.currentTime;
-      progressPercent.value = duration.value > 0
-        ? (currentTime.value / duration.value) * 100
-        : 0;
+      progressPercent.value =
+        duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0;
 
       // Preview loop: for videos longer than the preview window, loop back at PREVIEW_DURATION
-      if (playbackMode.value === 'preview' && duration.value > PREVIEW_DURATION && currentTime.value >= PREVIEW_DURATION) {
+      if (
+        playbackMode.value === "preview" &&
+        duration.value > PREVIEW_DURATION &&
+        currentTime.value >= PREVIEW_DURATION
+      ) {
         videoElement.value.currentTime = 0;
       }
     };
-    
+
     const onVideoEnded = () => {
-      if (playbackMode.value === 'preview') {
+      if (playbackMode.value === "preview") {
         // Short videos (< PREVIEW_DURATION) reach their natural end – loop in preview mode
         const vid = videoElement.value;
         if (vid) {
           vid.currentTime = 0;
           vid.play().catch(() => {});
         }
-      } else if (playbackMode.value === 'playing') {
+      } else if (playbackMode.value === "playing") {
         // User-initiated playback finished — show replay icon
         isPlaying.value = false;
         videoEnded.value = true;
@@ -492,21 +614,21 @@ export default defineComponent({
 
     const seek = (event: MouseEvent) => {
       if (!videoElement.value) return;
-      
+
       const progressBar = event.currentTarget as HTMLElement;
       const rect = progressBar.getBoundingClientRect();
       const percent = (event.clientX - rect.left) / rect.width;
       const newTime = percent * duration.value;
-      
+
       videoElement.value.currentTime = newTime;
       currentTime.value = newTime;
 
       // Seeking implies user intent — enter playing mode
-      if (playbackMode.value !== 'playing') {
+      if (playbackMode.value !== "playing") {
         enterPlayingMode();
       }
     };
-    
+
     const onVolumeInput = (event: Event) => {
       const target = event.target as HTMLInputElement;
       const val = parseFloat(target.value);
@@ -518,7 +640,7 @@ export default defineComponent({
         isMuted.value = val === 0;
       }
     };
-    
+
     const onVolumeMouseLeave = () => {
       // Blur the slider so :focus-within no longer keeps it visible
       if (document.activeElement instanceof HTMLElement) {
@@ -528,7 +650,7 @@ export default defineComponent({
 
     const toggleMute = () => {
       if (!videoElement.value) return;
-      
+
       if (isMuted.value) {
         const vol = savedVolume.value > 0 ? savedVolume.value : DEFAULT_VOLUME;
         videoElement.value.muted = false;
@@ -542,11 +664,11 @@ export default defineComponent({
         isMuted.value = true;
       }
     };
-    
+
     const toggleFullscreen = () => {
       const container = videoWrapper.value;
       if (!container) return;
-      
+
       if (!document.fullscreenElement) {
         container.requestFullscreen();
         isFullscreen.value = true;
@@ -555,20 +677,20 @@ export default defineComponent({
         isFullscreen.value = false;
       }
     };
-    
+
     const formatTime = (seconds: number): string => {
-      if (isNaN(seconds)) return '0:00';
-      
+      if (isNaN(seconds)) return "0:00";
+
       const mins = Math.floor(seconds / 60);
       const secs = Math.floor(seconds % 60);
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
+      return `${mins}:${secs.toString().padStart(2, "0")}`;
     };
 
     // Sync overflow video with main video
     watch([currentTime, isPlaying], () => {
       if (videoOverflowElement.value && videoElement.value) {
         videoOverflowElement.value.currentTime = videoElement.value.currentTime;
-        
+
         if (isPlaying.value && videoOverflowElement.value.paused) {
           videoOverflowElement.value.play().catch(() => {});
         } else if (!isPlaying.value && !videoOverflowElement.value.paused) {
@@ -583,6 +705,16 @@ export default defineComponent({
       emit,
       "overlay",
     );
+
+    const {
+      showLinkModal,
+      textLinkExists,
+      openUrlInput,
+      closeLinkModal,
+      handleAddLink,
+      handleFollowLink,
+      clearLink,
+    } = useTileLink(tileId || null, props.content);
 
     return {
       layoutStore,
@@ -627,6 +759,13 @@ export default defineComponent({
       onTileMouseLeave,
       videoDimensions,
       tileDimensions,
+      showLinkModal,
+      textLinkExists,
+      openUrlInput,
+      closeLinkModal,
+      handleAddLink,
+      handleFollowLink,
+      clearLink,
     };
   },
 });
@@ -696,7 +835,11 @@ export default defineComponent({
   padding: 0px;
   pointer-events: none;
   /* Subtle darkening so the progress bar is visible over any video */
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0%, transparent 40%);
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.35) 0%,
+    transparent 40%
+  );
   border-radius: var(--tile-border-radius);
 }
 
@@ -879,7 +1022,6 @@ export default defineComponent({
   margin: 0 1px;
 }
 
-
 /* Narrow (1xN): stack time vertically, wrap current+sep on one line, total below */
 .is-narrow .time-display {
   flex-wrap: wrap;
@@ -955,7 +1097,9 @@ export default defineComponent({
   overflow: hidden;
   max-width: 0;
   opacity: 0;
-  transition: max-width 0.25s ease, opacity 0.2s ease;
+  transition:
+    max-width 0.25s ease,
+    opacity 0.2s ease;
   display: flex;
   align-items: center;
 }
@@ -965,7 +1109,9 @@ export default defineComponent({
   max-width: unset;
   max-height: 0;
   width: 100%;
-  transition: max-height 0.25s ease, opacity 0.2s ease;
+  transition:
+    max-height 0.25s ease,
+    opacity 0.2s ease;
 }
 
 .volume-control:hover .volume-slider-container,
@@ -1032,5 +1178,33 @@ export default defineComponent({
   background: white;
   cursor: pointer;
   border: none;
+}
+
+/* Link indicator */
+.tile-link-indicator {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 24px;
+  height: 24px;
+  color: white;
+  opacity: 0.21;
+  transition: opacity var(--duration-fast) var(--easing-ease-in-out);
+  pointer-events: auto;
+  z-index: 11;
+}
+
+.video-wrapper .tile-link-indicator:hover {
+  opacity: 1;
+}
+
+.tile-link-indicator:hover {
+  cursor: pointer;
+}
+
+.tile-link-indicator-icon {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 </style>

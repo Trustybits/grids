@@ -1,10 +1,14 @@
 <template>
   <div class="image-container" ref="imageWrapper">
     <div v-if="!content.src" class="spinner"></div>
-    <div 
-      v-else 
-      class="image-wrapper" 
-      :class="{ 'crop-active': isEditing }"
+    <div
+      v-else
+      class="image-wrapper"
+      :class="{
+        'crop-active': isEditing,
+        'owner-view': layoutStore.isOwner,
+        'viewer-view': !layoutStore.isOwner,
+      }"
       @mousedown="startDragging"
       @mouseup="stopDragging"
       @mouseleave="stopDragging"
@@ -19,7 +23,7 @@
         :style="imageStyle"
         draggable="false"
       />
-      
+
       <!-- Main layer - full opacity, clipped to tile boundaries -->
       <div class="image-clip-container">
         <img
@@ -42,21 +46,54 @@
       <!-- Upload progress overlay - shown while file is uploading to Firebase -->
       <div v-if="isUploading" class="upload-overlay">
         <div class="upload-progress-track">
-          <div class="upload-progress-fill" :style="{ width: `${uploadPercent}%` }"></div>
+          <div
+            class="upload-progress-fill"
+            :style="{ width: `${uploadPercent}%` }"
+          ></div>
         </div>
+      </div>
+
+      <!-- Link indicator -->
+      <div
+        v-if="textLinkExists"
+        class="tile-link-indicator"
+        aria-hidden="true"
+        @click.stop="handleFollowLink"
+      >
+        <LinkIndicatorIcon class="tile-link-indicator-icon" />
       </div>
     </div>
   </div>
+  <AddLinkModal
+    :show="showLinkModal"
+    @close="closeLinkModal"
+    @add="handleAddLink"
+  />
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, onUnmounted, watch, inject } from "vue";
+import {
+  defineComponent,
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+  inject,
+} from "vue";
 import { type ImageContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { useColorPicker } from "@/composables/useColorPicker";
+import { useTileLink } from "@/composables/useTileLink";
+import AddLinkModal from "../AddLinkModal.vue";
+import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import type { ComputedRef } from "vue";
 
 export default defineComponent({
+  components: {
+    AddLinkModal,
+    LinkIndicatorIcon,
+  },
   emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
@@ -70,7 +107,9 @@ export default defineComponent({
     // Upload progress tracking — injected tile ID lets us look up our upload state
     const tileId = inject<string>("tileId", "");
     const isUploading = computed(() => {
-      return tileId != null && tileId !== "" && tileId in layoutStore.uploadingTiles;
+      return (
+        tileId != null && tileId !== "" && tileId in layoutStore.uploadingTiles
+      );
     });
     const uploadPercent = computed(() => {
       if (!tileId) return 0;
@@ -85,7 +124,7 @@ export default defineComponent({
     const offsetY = ref(props.content.offsetY || 0);
     const imageWrapper = ref<HTMLDivElement | null>(null);
     const imageElement = ref<HTMLImageElement | null>(null);
-    
+
     // Track dimensions for future features
     const imageDimensions = ref({ width: 0, height: 0, aspectRatio: 0 });
     const tileDimensions = ref({ width: 0, height: 0, aspectRatio: 0 });
@@ -104,15 +143,15 @@ export default defineComponent({
 
     // Toggle crop mode
     const toggleEditMode = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
 
       isEditing.value = !isEditing.value;
 
       // Prevent horizontal scrolling when in crop mode
       if (isEditing.value) {
-        document.body.style.overflowX = 'hidden';
+        document.body.style.overflowX = "hidden";
       } else {
-        document.body.style.overflowX = '';
+        document.body.style.overflowX = "";
       }
 
       // Save when exiting crop mode
@@ -132,18 +171,23 @@ export default defineComponent({
       if (!wrapper || (!isEditing.value && !force)) return;
 
       // Don't constrain until image dimensions are loaded - prevents resetting saved offsets to 0
-      if (imageDimensions.value.aspectRatio === 0 || tileDimensions.value.aspectRatio === 0) {
+      if (
+        imageDimensions.value.aspectRatio === 0 ||
+        tileDimensions.value.aspectRatio === 0
+      ) {
         return;
       }
 
       const containerWidth = wrapper.clientWidth;
       const containerHeight = wrapper.clientHeight;
-      
+
       // Calculate actual rendered dimensions based on aspect ratio comparison
       let renderedWidth: number;
       let renderedHeight: number;
-      
-      if (imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
+
+      if (
+        imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio
+      ) {
         // Image is wider - constrained by height
         renderedHeight = containerHeight;
         renderedWidth = renderedHeight * imageDimensions.value.aspectRatio;
@@ -152,7 +196,7 @@ export default defineComponent({
         renderedWidth = containerWidth;
         renderedHeight = renderedWidth / imageDimensions.value.aspectRatio;
       }
-      
+
       // Max offset is half the difference between rendered image and container
       const maxX = Math.max(0, (renderedWidth - containerWidth) / 2);
       const maxY = Math.max(0, (renderedHeight - containerHeight) / 2);
@@ -160,7 +204,6 @@ export default defineComponent({
       offsetX.value = Math.min(maxX, Math.max(-maxX, offsetX.value));
       offsetY.value = Math.min(maxY, Math.max(-maxY, offsetY.value));
     };
-
 
     const startDragging = (event: MouseEvent) => {
       if (!isEditing.value) return;
@@ -182,22 +225,46 @@ export default defineComponent({
       offsetY.value += deltaY;
 
       constrainOffset();
-      
+
       dragStart.value = { x: event.clientX, y: event.clientY };
     };
 
     const imageStyle = computed(() => {
-      const cursor = isEditing.value ? (isDragging.value ? 'grabbing' : 'grab') : 'default';
+      const cursor = isEditing.value
+        ? isDragging.value
+          ? "grabbing"
+          : "grab"
+        : "default";
       const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
 
-      if (imageDimensions.value.aspectRatio > 0 && tileDimensions.value.aspectRatio > 0) {
-        if (imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio) {
-          return { transform: baseTransform, cursor, width: 'auto', height: '100%' };
+      if (
+        imageDimensions.value.aspectRatio > 0 &&
+        tileDimensions.value.aspectRatio > 0
+      ) {
+        if (
+          imageDimensions.value.aspectRatio > tileDimensions.value.aspectRatio
+        ) {
+          return {
+            transform: baseTransform,
+            cursor,
+            width: "auto",
+            height: "100%",
+          };
         }
-        return { transform: baseTransform, cursor, width: '100%', height: 'auto' };
+        return {
+          transform: baseTransform,
+          cursor,
+          width: "100%",
+          height: "auto",
+        };
       }
 
-      return { transform: baseTransform, cursor, width: '100%', height: '100%' };
+      return {
+        transform: baseTransform,
+        cursor,
+        width: "100%",
+        height: "100%",
+      };
     });
 
     // Track image dimensions when loaded
@@ -206,7 +273,8 @@ export default defineComponent({
         imageDimensions.value = {
           width: imageElement.value.naturalWidth,
           height: imageElement.value.naturalHeight,
-          aspectRatio: imageElement.value.naturalWidth / imageElement.value.naturalHeight,
+          aspectRatio:
+            imageElement.value.naturalWidth / imageElement.value.naturalHeight,
         };
       }
     };
@@ -238,6 +306,22 @@ export default defineComponent({
       "overlay",
     );
 
+    const {
+      showLinkModal,
+      textLinkExists,
+      openUrlInput,
+      closeLinkModal,
+      handleAddLink,
+      handleFollowLink,
+      clearLink,
+    } = useTileLink(tileId || null, props.content);
+
+    const onShortClick = () => {
+      if (!layoutStore.isOwner && textLinkExists.value) {
+        handleFollowLink();
+      }
+    };
+
     return {
       layoutStore,
       isEditing,
@@ -255,6 +339,14 @@ export default defineComponent({
       tileDimensions,
       overlayColor,
       handleBackgroundColorChange,
+      showLinkModal,
+      textLinkExists,
+      openUrlInput,
+      closeLinkModal,
+      handleAddLink,
+      handleFollowLink,
+      clearLink,
+      onShortClick,
     };
   },
 });
@@ -323,7 +415,11 @@ export default defineComponent({
   padding: 0px;
   pointer-events: none;
   /* Subtle darkening so the progress bar is visible over any image */
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0%, transparent 40%);
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.35) 0%,
+    transparent 40%
+  );
   border-radius: var(--tile-border-radius);
 }
 
@@ -341,5 +437,37 @@ export default defineComponent({
   background: rgba(255, 255, 255, 0.9);
   border-radius: 2px;
   transition: width 0.2s ease-out;
+}
+
+/* Link indicator */
+.tile-link-indicator {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 24px;
+  height: 24px;
+  color: white;
+  opacity: 0.21;
+  transition: opacity var(--duration-fast) var(--easing-ease-in-out);
+  pointer-events: auto;
+  z-index: 4;
+}
+
+.image-wrapper.viewer-view:hover .tile-link-indicator {
+  opacity: 1;
+}
+
+.image-wrapper.owner-view .tile-link-indicator:hover {
+  opacity: 1;
+}
+
+.tile-link-indicator:hover {
+  cursor: pointer;
+}
+
+.tile-link-indicator-icon {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 </style>

@@ -279,7 +279,7 @@ export default defineComponent({
     // tileId is injected by GridTile so we can scope Firestore paths to this tile instance
     const tileId = inject<string>("tileId", "");
 
-    const isOwner = computed(() => layoutStore.isOwner);
+    const isOwner = computed(() => layoutStore.canEdit);
     const layoutId = computed(() => layoutStore.currentLayout?.id ?? "");
 
     // ── Connection state ─────────────────────────────────────────────

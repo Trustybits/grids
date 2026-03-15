@@ -297,11 +297,14 @@ const toggle = (bp: Breakpoint) => {
 
 .breakpoint-switcher--floating {
   position: fixed;
-  /* Offset below the ViewportWarning banner when it's visible */
-  top: calc(var(--viewport-warning-height, 0px) + var(--spacing-lg));
+  /* Offset below both the ViewportWarning banner and the TopBar.
+     --viewport-warning-height is set dynamically by ViewportWarning.vue.
+     --topbar-height is set dynamically by App.vue when the TopBar is visible. */
+  top: calc(var(--viewport-warning-height, 0px) + var(--spacing-md));
   left: 50%;
   transform: translateX(-50%);
-  z-index: var(--z-dropdown);
+  /* Must sit above the TopBar (--z-topbar: 2000) so it's never obscured */
+  z-index: calc(var(--z-topbar) + 1);
   padding: 6px;
   background-color: var(--color-tile-background);
   border-radius: var(--radius-md);

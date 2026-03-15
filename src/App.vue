@@ -9,7 +9,7 @@
     <LeftNavBar v-if="isAuthenticated" />
 
     <!-- Top Bar for Layout Title Editor -->
-    <div class="top-bar" v-if="showTopBar">
+    <div ref="topBarRef" class="top-bar" v-if="showTopBar">
       <LayoutTitleEditor v-if="showTitleEditor" />
     </div>
 
@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import LeftNavBar from './components/LeftNavBar.vue';
 import BottomLeftButtons from './components/BottomLeftButtons.vue';
@@ -83,6 +83,30 @@ const showTitleEditor = computed(() => {
 
 const showTopBar = computed(() => {
   return showTitleEditor.value;
+});
+
+// ── TopBar height → CSS custom property ──────────────────────────
+// The floating BreakpointSwitcher reads --topbar-height to position
+// itself below the TopBar without overlapping.
+const topBarRef = ref<HTMLElement | null>(null);
+
+const updateTopBarHeight = () => {
+  nextTick(() => {
+    if (showTopBar.value && topBarRef.value) {
+      const h = topBarRef.value.getBoundingClientRect().height;
+      document.documentElement.style.setProperty('--topbar-height', `${h}px`);
+    } else {
+      document.documentElement.style.setProperty('--topbar-height', '0px');
+    }
+  });
+};
+
+watch(showTopBar, updateTopBarHeight, { immediate: true });
+
+onMounted(updateTopBarHeight);
+
+onUnmounted(() => {
+  document.documentElement.style.setProperty('--topbar-height', '0px');
 });
 </script>
 

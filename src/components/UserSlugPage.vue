@@ -83,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useDynamicFavicon } from '@/composables/useDynamicFavicon';
@@ -100,10 +100,12 @@ import BreakpointSwitcher from '@/components/BreakpointSwitcher.vue';
 //   "floating"    → Option B: fixed pill near the top of the viewport
 //   "toolbar-row" → Option D: second row stacked below the toolbar
 type SwitcherVariant = 'inline' | 'floating' | 'toolbar-row';
-const switcherVariant = 'inline' as SwitcherVariant;
+const switcherVariant = 'floating' as SwitcherVariant;
+import { useThemeStore } from '@/stores/theme';
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
+const themeStore = useThemeStore();
 const isLoading = ref(true);
 const error = ref(false);
 const errorTitle = ref('Handle Not Found');
@@ -195,8 +197,21 @@ const resolveSlug = async () => {
   }
 };
 
+// Apply the grid's saved theme when the layout finishes loading
+watch(
+  () => layoutStore.currentLayout?.themeId,
+  (themeId) => {
+    themeStore.applyGridTheme(themeId);
+  },
+);
+
 onMounted(() => {
   resolveSlug();
+});
+
+// Restore dark mode when leaving the slug page
+onUnmounted(() => {
+  themeStore.resetToAppDefault();
 });
 </script>
 

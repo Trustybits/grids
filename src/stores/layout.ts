@@ -210,6 +210,13 @@ export const useLayoutStore = defineStore("layout", {
     // component once it consumes the focus request.
     pendingFocusTileId: null as string | null,
     activeBreakpoint: "lg" as Breakpoint,
+    // The breakpoint the viewport naturally supports based on window width,
+    // independent of any forced override. Used by BreakpointSwitcher to know
+    // which breakpoints are "native" vs require scaling (view-only).
+    viewportBreakpoint: "lg" as Breakpoint,
+    // When non-null, Grid.vue uses this breakpoint instead of the viewport-derived one.
+    // Lets owners preview/edit at any breakpoint without resizing the browser window.
+    forcedBreakpoint: null as Breakpoint | null,
     // When true, Grid.vue should skip the next displayLayout rebuild triggered by
     // overrides changing (because the change came from a drag/resize and positions
     // are already correct in the stable ref).
@@ -228,6 +235,32 @@ export const useLayoutStore = defineStore("layout", {
   getters: {
     verticalCompact(): boolean {
       return this.currentLayout?.verticalCompact ?? true;
+    },
+
+    /**
+     * Whether the current user can edit the grid right now.
+     * Returns false when:
+     *   - The user is not the owner, OR
+     *   - The user is forcing a breakpoint larger than what the viewport
+     *     naturally supports (view-only preview mode).
+     *
+     * Components should use `canEdit` instead of `isOwner` for any gate
+     * that controls grid manipulation (drag, resize, content editing, etc.).
+     * Use `isOwner` only for UI elements that should remain visible to the
+     * owner even during a view-only preview (e.g. breakpoint switcher,
+     * bottom-left buttons, GridMenu).
+     */
+    canEdit(): boolean {
+      if (!this.isOwner) return false;
+
+      const forced = this.forcedBreakpoint;
+      if (forced) {
+        const rank = (bp: Breakpoint): number =>
+          bp === "sm" ? 0 : bp === "md" ? 1 : 2;
+        if (rank(forced) > rank(this.viewportBreakpoint)) return false;
+      }
+
+      return true;
     },
   },
 
@@ -498,7 +531,9 @@ export const useLayoutStore = defineStore("layout", {
         return;
       }
 
-      if (!this.isOwner) {
+      // Block saves when the user isn't allowed to edit — covers both
+      // non-owners and owners in view-only breakpoint preview mode.
+      if (!this.canEdit) {
         return;
       }
 
@@ -989,7 +1024,8 @@ export const useLayoutStore = defineStore("layout", {
 
     // Update the entire layout
     updateLayout() {
-      if (!this.isOwner) {
+      // Block updates when the user can't edit (non-owner or view-only preview).
+      if (!this.canEdit) {
         return;
       }
 
@@ -1025,6 +1061,18 @@ export const useLayoutStore = defineStore("layout", {
 
     setActiveBreakpoint(bp: Breakpoint) {
       this.activeBreakpoint = bp;
+    },
+
+    // Update the viewport-derived breakpoint (what the window naturally supports).
+    // Called by Grid.vue whenever the window resizes.
+    setViewportBreakpoint(bp: Breakpoint) {
+      this.viewportBreakpoint = bp;
+    },
+
+    // Force the grid to render at a specific breakpoint regardless of viewport width.
+    // Pass null to return to automatic viewport-based detection.
+    setForcedBreakpoint(bp: Breakpoint | null) {
+      this.forcedBreakpoint = bp;
     },
 
     setDisplayPositions(
@@ -1107,6 +1155,8 @@ export const useLayoutStore = defineStore("layout", {
       this.displayPositions = [];
       this.activeTileId = null;
       this.activePanelId = null;
+      this.forcedBreakpoint = null;
+      this.viewportBreakpoint = "lg";
     },
 
     async deleteLayout(id: string) {

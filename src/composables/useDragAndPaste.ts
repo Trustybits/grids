@@ -14,7 +14,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
 
   const handlePaste = async (event: ClipboardEvent) => {
     // Only handle paste if user is owner and we're on the grid page
-    if (!layoutStore.isOwner) return;
+    if (!layoutStore.canEdit) return;
 
     // Don't intercept paste events targeting text inputs, textareas,
     // contenteditable elements, or elements inside modals — let the
@@ -104,7 +104,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     isDraggingOver.value = false;
     dragCounter = 0;
 
-    if (!layoutStore.isOwner) return;
+    if (!layoutStore.canEdit) return;
 
     const files = event.dataTransfer?.files;
     const urlData = event.dataTransfer?.getData("text/uri-list") || event.dataTransfer?.getData("text/plain");
@@ -132,7 +132,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   };
 
   const handleDragOver = (event: DragEvent) => {
-    if (!layoutStore.isOwner) return;
+    if (!layoutStore.canEdit) return;
     event.preventDefault();
     if (event.dataTransfer) {
       event.dataTransfer.dropEffect = "copy";
@@ -140,14 +140,14 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   };
 
   const handleDragEnter = (event: DragEvent) => {
-    if (!layoutStore.isOwner) return;
+    if (!layoutStore.canEdit) return;
     event.preventDefault();
     dragCounter++;
     isDraggingOver.value = true;
   };
 
   const handleDragLeave = (event: DragEvent) => {
-    if (!layoutStore.isOwner) return;
+    if (!layoutStore.canEdit) return;
     event.preventDefault();
     dragCounter--;
     if (dragCounter === 0) {

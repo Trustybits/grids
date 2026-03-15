@@ -8,10 +8,9 @@
     <!-- Left Navigation Bar -->
     <LeftNavBar v-if="isAuthenticated" />
 
-    <!-- Top Bar for Layout Title Editor and Theme Toggle -->
+    <!-- Top Bar for Layout Title Editor -->
     <div class="top-bar" v-if="showTopBar">
       <LayoutTitleEditor v-if="showTitleEditor" />
-      <ThemeToggle />
     </div>
 
     <!-- Main Content Area -->
@@ -36,7 +35,6 @@ import { useRoute } from 'vue-router';
 import LeftNavBar from './components/LeftNavBar.vue';
 import BottomLeftButtons from './components/BottomLeftButtons.vue';
 import LayoutTitleEditor from './components/LayoutTitleEditor.vue';
-import ThemeToggle from './components/ThemeToggle.vue';
 import ToastContainer from './components/ToastContainer.vue';
 import PixelRacersGame from './components/PixelRacersGame.vue';
 import ViewportWarning from './components/ViewportWarning.vue';

@@ -3,7 +3,7 @@
     <div :style="backgroundStyle" class="background-image-overlay"></div>
 
     <input
-      v-if="layoutStore.isOwner"
+      v-if="layoutStore.canEdit"
       type="file"
       ref="imageInput"
       style="display: none"
@@ -25,7 +25,7 @@
 
     <div class="layout-container" ref="layoutContainer" :class="{ 'drag-over': isDraggingOver }">
       <!-- Drag overlay indicator -->
-      <div v-if="isDraggingOver && layoutStore.isOwner" class="drag-overlay">
+      <div v-if="isDraggingOver && layoutStore.canEdit" class="drag-overlay">
         <div class="drag-message">
           <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -35,13 +35,58 @@
           <p>Drop to add to grid</p>
         </div>
       </div>
+
+      <!--
+        Option B: Floating breakpoint switcher at top of viewport.
+        Renders independently of the toolbar, so it works even when
+        the toolbar is scrolled off-screen.
+      -->
+      <BreakpointSwitcher
+        v-if="layoutStore.isOwner && switcherVariant === 'floating'"
+        variant="floating"
+      />
       
-      <div v-if="layoutStore.isOwner" class="toolbar">
+      <!--
+        Toolbar area: tile-add buttons are hidden during view-only preview
+        (canEdit), but the breakpoint switcher stays visible for owners
+        (isOwner) so they can switch back.
+      -->
+      <div v-if="layoutStore.canEdit" class="toolbar">
         <div class="row">
           <div class="col-md-12">
-            <grid-buttons />
+            <!--
+              Option A: Inline — switcher sits inside the toolbar row,
+              right next to the tile-add buttons.
+            -->
+            <div v-if="switcherVariant === 'inline'" class="toolbar-with-switcher">
+              <grid-buttons />
+              <BreakpointSwitcher variant="inline" />
+            </div>
+            <grid-buttons v-else />
           </div>
         </div>
+        <!--
+          Option D: Toolbar-row — switcher is a second row stacked
+          below the tile-add toolbar, same styling family.
+        -->
+        <BreakpointSwitcher
+          v-if="switcherVariant === 'toolbar-row'"
+          variant="toolbar-row"
+        />
+      </div>
+      <!--
+        When the toolbar is hidden (view-only preview), still show the
+        inline/toolbar-row switcher so the owner can switch back.
+      -->
+      <div v-else-if="layoutStore.isOwner && switcherVariant === 'inline'" class="toolbar">
+        <div class="row">
+          <div class="col-md-12">
+            <BreakpointSwitcher variant="inline" />
+          </div>
+        </div>
+      </div>
+      <div v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'" class="toolbar">
+        <BreakpointSwitcher variant="toolbar-row" />
       </div>
       <grid :row-height="rowHeight" />
     </div>
@@ -50,23 +95,35 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, watch } from "vue";
+import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
+import BreakpointSwitcher from "@/components/BreakpointSwitcher.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
+import { useThemeStore } from "@/stores/theme";
+
+// ── Breakpoint switcher placement ────────────────────────────────
+// Change this value to flip between the three UI placements:
+//   "inline"      → Option A: sits inside the tile-add toolbar row
+//   "floating"    → Option B: fixed pill near the top of the viewport
+//   "toolbar-row" → Option D: second row stacked below the toolbar
+type SwitcherVariant = "inline" | "floating" | "toolbar-row";
+const SWITCHER_VARIANT = "floating" as SwitcherVariant;
 
 export default defineComponent({
   components: {
     Grid,
     GridButtons,
+    BreakpointSwitcher,
   },
   setup() {
     const layoutStore = useLayoutStore();
+    const themeStore = useThemeStore();
     const rowHeight = 75;
     const imageInput = ref<HTMLInputElement | null>(null);
     const layoutContainer = ref<HTMLElement | null>(null);
@@ -82,7 +139,7 @@ export default defineComponent({
     });
 
     const selectImage = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       imageInput.value?.click();
     };
 
@@ -121,7 +178,7 @@ export default defineComponent({
     useDynamicFavicon(profilePhotoUrl);
 
     const addBackgroundImage = async (event: Event) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
 
@@ -135,7 +192,7 @@ export default defineComponent({
     };
 
     const embedBackground = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const link = prompt("Please enter an embed URL");
       if (link) {
         layoutStore.addBackgroundImage(link, true);
@@ -143,7 +200,7 @@ export default defineComponent({
     };
 
     const confirmDelete = async () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       if (!layoutStore.currentLayout) return;
 
       const confirmed = confirm("Are you sure you want to delete this layout?");
@@ -162,6 +219,14 @@ export default defineComponent({
       }
     });
 
+    // Apply the grid's saved theme when the layout finishes loading
+    watch(
+      () => layoutStore.currentLayout?.themeId,
+      (themeId) => {
+        themeStore.applyGridTheme(themeId);
+      },
+    );
+
     watch(
       () => route.params.id,
       (newId) => {
@@ -170,6 +235,13 @@ export default defineComponent({
         }
       }
     );
+
+    // Expose the switcher variant so the template can gate rendering
+    const switcherVariant = SWITCHER_VARIANT;
+    // Restore dark mode when leaving the grid page
+    onUnmounted(() => {
+      themeStore.resetToAppDefault();
+    });
 
     return {
       layoutStore,
@@ -183,6 +255,7 @@ export default defineComponent({
       layoutContainer,
       isDraggingOver,
       isOwner,
+      switcherVariant,
     };
   },
 });
@@ -195,6 +268,17 @@ export default defineComponent({
   bottom: 0rem;
   left: 50vw;
   transform: translate(-50%, -10%);
+  /* Stack toolbar rows vertically when Option D is active */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Option A: inline — wraps tile buttons + breakpoint switcher in one row */
+.toolbar-with-switcher {
+  display: flex;
+  align-items: center;
 }
 
 .layout-container {

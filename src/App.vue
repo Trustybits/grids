@@ -1,12 +1,16 @@
 <template>
   <div id="app">
+    <!-- Global viewport warning banner — sits above everything including the TopBar.
+         Uses sticky positioning so it stays visible on scroll and pushes all
+         app content (TopBar, main area, etc.) below it. -->
+    <ViewportWarning type="breakpoint-preview" :dismissible="false" />
+
     <!-- Left Navigation Bar -->
     <LeftNavBar v-if="isAuthenticated" />
 
-    <!-- Top Bar for Layout Title Editor and Theme Toggle -->
+    <!-- Top Bar for Layout Title Editor -->
     <div class="top-bar" v-if="showTopBar">
-      <LayoutTitleEditor v-if="showTitleEditor" :is-authenticated="isAuthenticated" />
-      <ThemeToggle />
+      <LayoutTitleEditor v-if="showTitleEditor" />
     </div>
 
     <!-- Main Content Area -->
@@ -31,9 +35,9 @@ import { useRoute } from 'vue-router';
 import LeftNavBar from './components/LeftNavBar.vue';
 import BottomLeftButtons from './components/BottomLeftButtons.vue';
 import LayoutTitleEditor from './components/LayoutTitleEditor.vue';
-import ThemeToggle from './components/ThemeToggle.vue';
 import ToastContainer from './components/ToastContainer.vue';
 import PixelRacersGame from './components/PixelRacersGame.vue';
+import ViewportWarning from './components/ViewportWarning.vue';
 import { useLayoutStore } from '@/stores/layout';
 import { auth, db } from '@/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
@@ -85,7 +89,9 @@ const showTopBar = computed(() => {
 <style lang="scss">
 .top-bar {
   position: fixed;
-  top: 0;
+  /* Offset below the ViewportWarning banner when it's visible.
+     --viewport-warning-height is set dynamically by ViewportWarning.vue. */
+  top: var(--viewport-warning-height, 0px);
   left: 0;
   right: 0;
   display: flex;

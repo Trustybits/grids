@@ -131,19 +131,38 @@ const loadUserProfile = async () => {
   }
 };
 
-// Toggle default grid
+// Toggle default grid (optimistic — UI updates instantly, rolls back on failure)
+const pendingDefaultGrid = ref(false);
 const toggleDefaultGrid = async (gridId) => {
   const auth = getAuth();
   const user = auth.currentUser;
-  if (!user) return;
+  if (!user || pendingDefaultGrid.value) return;
+
+  // Compute the new value and stash the previous one for rollback
+  const previousDefaultId = defaultGridId.value;
+  const newDefaultId = defaultGridId.value === gridId ? null : gridId;
+
+  // Optimistically apply the change immediately
+  defaultGridId.value = newDefaultId;
+  pendingDefaultGrid.value = true;
+
+  // Safeguard: force-clear pending state after 10 seconds to prevent stuck UI
+  const timeoutId = setTimeout(() => {
+    if (pendingDefaultGrid.value) {
+      console.warn('[DashboardPage] setDefaultGrid timeout — clearing pending state');
+      pendingDefaultGrid.value = false;
+    }
+  }, 10000);
 
   try {
-    // If clicking the current default, unset it; otherwise set the new one
-    const newDefaultId = defaultGridId.value === gridId ? null : gridId;
     await setDefaultGrid(user.uid, newDefaultId);
-    defaultGridId.value = newDefaultId;
   } catch (error) {
     console.error('Error setting default grid:', error);
+    // Roll back to previous state on failure
+    defaultGridId.value = previousDefaultId;
+  } finally {
+    clearTimeout(timeoutId);
+    pendingDefaultGrid.value = false;
   }
 };
 

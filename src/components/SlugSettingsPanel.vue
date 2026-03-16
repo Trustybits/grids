@@ -104,18 +104,29 @@ const loadUserProfile = async () => {
 };
 
 /**
- * Handle default grid selection change
+ * Handle default grid selection change (optimistic — UI updates instantly, rolls back on failure)
  */
 const handleDefaultGridChange = async () => {
   const userId = auth.currentUser?.uid;
-  if (!userId) return;
+  if (!userId || isSavingGrid.value) return;
 
+  // Stash previous value for rollback
+  const previousGridId = selectedGridId.value;
+
+  // Optimistically show success immediately
+  saveSuccess.value = true;
   isSavingGrid.value = true;
-  saveSuccess.value = false;
+
+  // Safeguard: force-clear pending state after 10 seconds to prevent stuck UI
+  const timeoutId = setTimeout(() => {
+    if (isSavingGrid.value) {
+      console.warn('[SlugSettingsPanel] setDefaultGrid timeout — clearing pending state');
+      isSavingGrid.value = false;
+    }
+  }, 10000);
 
   try {
     await setDefaultGrid(userId, selectedGridId.value);
-    saveSuccess.value = true;
     
     // Clear success message after 2 seconds
     setTimeout(() => {
@@ -123,9 +134,11 @@ const handleDefaultGridChange = async () => {
     }, 2000);
   } catch (error) {
     console.error('Failed to set default grid:', error);
-    // Revert selection on error
-    await loadUserProfile();
+    // Roll back to previous selection on failure
+    selectedGridId.value = previousGridId;
+    saveSuccess.value = false;
   } finally {
+    clearTimeout(timeoutId);
     isSavingGrid.value = false;
   }
 };

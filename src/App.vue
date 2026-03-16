@@ -1,12 +1,16 @@
 <template>
   <div id="app">
+    <!-- Global viewport warning banner — sits above everything including the TopBar.
+         Uses sticky positioning so it stays visible on scroll and pushes all
+         app content (TopBar, main area, etc.) below it. -->
+    <ViewportWarning type="breakpoint-preview" :dismissible="false" />
+
     <!-- Left Navigation Bar -->
     <LeftNavBar v-if="isAuthenticated" />
 
-    <!-- Top Bar for Layout Title Editor and Theme Toggle -->
-    <div class="top-bar" v-if="showTopBar">
+    <!-- Top Bar for Layout Title Editor -->
+    <div ref="topBarRef" class="top-bar" v-if="showTopBar">
       <LayoutTitleEditor v-if="showTitleEditor" />
-      <ThemeToggle />
     </div>
 
     <!-- Main Content Area -->
@@ -26,14 +30,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import LeftNavBar from './components/LeftNavBar.vue';
 import BottomLeftButtons from './components/BottomLeftButtons.vue';
 import LayoutTitleEditor from './components/LayoutTitleEditor.vue';
-import ThemeToggle from './components/ThemeToggle.vue';
 import ToastContainer from './components/ToastContainer.vue';
 import PixelRacersGame from './components/PixelRacersGame.vue';
+import ViewportWarning from './components/ViewportWarning.vue';
 import { useLayoutStore } from '@/stores/layout';
 import { auth, db } from '@/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
@@ -69,28 +73,58 @@ onMounted(() => {
 
 const isAuthenticated = computed(() => !!user.value);
 
+const isOnGridPage = computed(() =>
+  route.path.startsWith("/grid") || !!layoutStore.currentLayout
+);
+
 const showTitleEditor = computed(() => {
-  return layoutStore.isOwner && route.path.startsWith("/grid");
+  return isOnGridPage.value;
 });
 
 const showTopBar = computed(() => {
   return showTitleEditor.value;
+});
+
+// ── TopBar height → CSS custom property ──────────────────────────
+// The floating BreakpointSwitcher reads --topbar-height to position
+// itself below the TopBar without overlapping.
+const topBarRef = ref<HTMLElement | null>(null);
+
+const updateTopBarHeight = () => {
+  nextTick(() => {
+    if (showTopBar.value && topBarRef.value) {
+      const h = topBarRef.value.getBoundingClientRect().height;
+      document.documentElement.style.setProperty('--topbar-height', `${h}px`);
+    } else {
+      document.documentElement.style.setProperty('--topbar-height', '0px');
+    }
+  });
+};
+
+watch(showTopBar, updateTopBarHeight, { immediate: true });
+
+onMounted(updateTopBarHeight);
+
+onUnmounted(() => {
+  document.documentElement.style.setProperty('--topbar-height', '0px');
 });
 </script>
 
 <style lang="scss">
 .top-bar {
   position: fixed;
-  top: 0;
+  /* Offset below the ViewportWarning banner when it's visible.
+     --viewport-warning-height is set dynamically by ViewportWarning.vue. */
+  top: var(--viewport-warning-height, 0px);
   left: 0;
   right: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-md) var(--spacing-lg);
-  z-index: var(--z-base);
+  z-index: var(--z-topbar);
   // backdrop-filter: blur(20px);
-  // background-color: var(--color-content-background);
+  background-color: var(--color-content-background);
   // opacity: 0.95;
 }
 

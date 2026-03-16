@@ -10,7 +10,7 @@
 
     <!-- Top Bar for Layout Title Editor -->
     <div ref="topBarRef" class="top-bar" v-if="showTopBar">
-      <LayoutTitleEditor v-if="showTitleEditor" />
+      <LayoutTitleEditor v-if="showTitleEditor" :isAuthenticated="isAuthenticated" />
     </div>
 
     <!-- Main Content Area -->

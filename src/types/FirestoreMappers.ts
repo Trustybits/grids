@@ -13,6 +13,7 @@ export function mapFirestoreToLayout(doc: any): Layout {
     tiles: Array.isArray(data.tiles) ? data.tiles : [], // Validate tiles is an array
     backgroundImageSrc: data.backgroundImageSrc || "",
     backgroundEmbed: !!data.backgroundEmbed,
+    themeId: data.themeId || undefined,
     overrides: data.overrides && typeof data.overrides === 'object' ? data.overrides : undefined,
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,

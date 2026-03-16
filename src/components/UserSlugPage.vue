@@ -32,12 +32,47 @@
         <div :style="backgroundStyle" class="background-image-overlay"></div>
         
         <div class="layout-container">
-          <div v-if="layoutStore.isOwner" class="toolbar">
+          <!--
+            Option B: Floating breakpoint switcher at top of viewport.
+          -->
+          <BreakpointSwitcher
+            v-if="layoutStore.isOwner && switcherVariant === 'floating'"
+            variant="floating"
+          />
+
+          <!--
+            Toolbar area: tile-add buttons hidden during view-only preview
+            (canEdit), breakpoint switcher stays visible for owners (isOwner).
+          -->
+          <div v-if="layoutStore.canEdit" class="toolbar">
             <div class="row">
               <div class="col-md-12">
-                <grid-buttons />
+                <!-- Option A: Inline — sits inside the toolbar row -->
+                <div v-if="switcherVariant === 'inline'" class="toolbar-with-switcher">
+                  <grid-buttons />
+                  <BreakpointSwitcher variant="inline" />
+                </div>
+                <grid-buttons v-else />
               </div>
             </div>
+            <!-- Option D: Toolbar-row — second row below the toolbar -->
+            <BreakpointSwitcher
+              v-if="switcherVariant === 'toolbar-row'"
+              variant="toolbar-row"
+            />
+          </div>
+          <!--
+            View-only fallback: show just the switcher so owner can switch back.
+          -->
+          <div v-else-if="layoutStore.isOwner && switcherVariant === 'inline'" class="toolbar">
+            <div class="row">
+              <div class="col-md-12">
+                <BreakpointSwitcher variant="inline" />
+              </div>
+            </div>
+          </div>
+          <div v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'" class="toolbar">
+            <BreakpointSwitcher variant="toolbar-row" />
           </div>
           <grid :row-height="75" />
         </div>
@@ -48,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useDynamicFavicon } from '@/composables/useDynamicFavicon';
@@ -57,9 +92,20 @@ import { db } from '@/firebase';
 import { useLayoutStore } from '@/stores/layout';
 import Grid from '@/components/Grid.vue';
 import GridButtons from '@/components/TileButtons.vue';
+import BreakpointSwitcher from '@/components/BreakpointSwitcher.vue';
+
+// ── Breakpoint switcher placement (mirrors GridPage.vue) ─────
+// Change this value to flip between the three UI placements:
+//   "inline"      → Option A: sits inside the tile-add toolbar row
+//   "floating"    → Option B: fixed pill near the top of the viewport
+//   "toolbar-row" → Option D: second row stacked below the toolbar
+type SwitcherVariant = 'inline' | 'floating' | 'toolbar-row';
+const switcherVariant = 'floating' as SwitcherVariant;
+import { useThemeStore } from '@/stores/theme';
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
+const themeStore = useThemeStore();
 const isLoading = ref(true);
 const error = ref(false);
 const errorTitle = ref('Handle Not Found');
@@ -151,8 +197,21 @@ const resolveSlug = async () => {
   }
 };
 
+// Apply the grid's saved theme when the layout finishes loading
+watch(
+  () => layoutStore.currentLayout?.themeId,
+  (themeId) => {
+    themeStore.applyGridTheme(themeId);
+  },
+);
+
 onMounted(() => {
   resolveSlug();
+});
+
+// Restore dark mode when leaving the slug page
+onUnmounted(() => {
+  themeStore.resetToAppDefault();
 });
 </script>
 
@@ -199,6 +258,16 @@ onMounted(() => {
   bottom: 0rem;
   left: 50vw;
   transform: translate(-50%, -10%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Option A: inline — wraps tile buttons + breakpoint switcher in one row */
+.toolbar-with-switcher {
+  display: flex;
+  align-items: center;
 }
 
 .loading-state,

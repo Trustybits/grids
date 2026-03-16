@@ -27,7 +27,7 @@
         </div>
 
         <div
-          v-if="layoutStore.isOwner && isEditing"
+          v-if="layoutStore.canEdit && isEditing"
           class="profile-controls"
           @mousedown.stop
         >
@@ -127,8 +127,8 @@
       <div class="profile-meta" :style="{ '--tile-text-color': textColor }">
         <div
           class="profile-name profile-editor"
-          :class="{ 'can-edit': layoutStore.isOwner }"
-          :spellcheck="layoutStore.isOwner && isEditing"
+          :class="{ 'can-edit': layoutStore.canEdit }"
+          :spellcheck="layoutStore.canEdit && isEditing"
           @mousedown="focusEditor(nameEditor, $event)"
           @click="catchEditorClick(nameEditor)"
         >
@@ -136,8 +136,8 @@
         </div>
         <div
           class="profile-title profile-editor"
-          :class="{ 'can-edit': layoutStore.isOwner }"
-          :spellcheck="layoutStore.isOwner && isEditing"
+          :class="{ 'can-edit': layoutStore.canEdit }"
+          :spellcheck="layoutStore.canEdit && isEditing"
           @mousedown="focusEditor(titleEditor, $event)"
           @click="catchEditorClick(titleEditor)"
         >
@@ -148,8 +148,8 @@
 
     <div
       class="profile-bio-text profile-editor"
-      :class="{ 'can-edit': layoutStore.isOwner }"
-      :spellcheck="layoutStore.isOwner && isEditing"
+      :class="{ 'can-edit': layoutStore.canEdit }"
+      :spellcheck="layoutStore.canEdit && isEditing"
       :style="{ '--tile-text-color': textColor }"
       @mousedown="focusEditor(bioEditor, $event)"
       @click="catchEditorClick(bioEditor)"
@@ -330,7 +330,7 @@ export default defineComponent({
 
     const persistContent = () => {
       if (!nameEditor.value || !titleEditor.value || !bioEditor.value) return;
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
 
       const name = serializeEditor(nameEditor.value);
       const title = serializeEditor(titleEditor.value);
@@ -347,7 +347,7 @@ export default defineComponent({
     };
 
     watch(
-      [() => layoutStore.isOwner, () => isEditing.value],
+      [() => layoutStore.canEdit, () => isEditing.value],
       ([isOwner, editing]) => {
         const editors = [
           nameEditor.value,
@@ -389,7 +389,7 @@ export default defineComponent({
     );
 
     const focusEditor = (editorRef: any, _event: MouseEvent) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const ed = editorRef?.value ?? editorRef;
       if (!ed) return;
 
@@ -402,7 +402,7 @@ export default defineComponent({
     };
 
     const catchEditorClick = (editorRef: any) => {
-      if (!layoutStore.isOwner || !isEditing.value) return;
+      if (!layoutStore.canEdit || !isEditing.value) return;
       const ed = editorRef?.value ?? editorRef;
       if (!ed) return;
 
@@ -414,7 +414,7 @@ export default defineComponent({
     };
 
     const onShortClick = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       if (!isEditing.value) {
         isEditing.value = true;
         if (!activeEditor.value) {
@@ -425,7 +425,7 @@ export default defineComponent({
     };
 
     const onExitClick = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       if (!isEditing.value) return;
       isEditing.value = false;
     };
@@ -456,7 +456,7 @@ export default defineComponent({
     );
 
     const setAvatarShape = (shape: AvatarShape) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       props.content.avatarShape = shape;
       layoutStore.saveLayout();
     };
@@ -467,7 +467,7 @@ export default defineComponent({
     };
 
     const onRadiusCommit = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       props.content.avatarRadius = avatarRadius.value;
       layoutStore.saveLayout();
     };
@@ -488,12 +488,12 @@ export default defineComponent({
     };
 
     const openCustomImagePicker = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       avatarInput.value?.click();
     };
 
     const onAvatarClick = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       if (!isEditing.value) {
         isEditing.value = true;
       }
@@ -501,7 +501,7 @@ export default defineComponent({
     };
 
     const openUrlInput = () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       draftAvatarUrl.value = avatarSrc.value || "";
       urlError.value = "";
       showUrlInput.value = true;
@@ -513,7 +513,7 @@ export default defineComponent({
     };
 
     const applyAvatarUrl = async () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const normalized = normalizeImageUrl(draftAvatarUrl.value);
       if (!normalized) {
         urlError.value = "Enter a valid URL.";
@@ -542,13 +542,13 @@ export default defineComponent({
     };
 
     const removeCustomImage = async () => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       showUrlInput.value = false;
       await saveProfilePhoto("");
     };
 
     const uploadAvatarImage = async (file: File) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
 
       if (!file.type.startsWith("image/")) {
         alert("Please upload an image file.");
@@ -565,7 +565,7 @@ export default defineComponent({
     };
 
     const onAvatarSelected = async (event: Event) => {
-      if (!layoutStore.isOwner) return;
+      if (!layoutStore.canEdit) return;
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
       await uploadAvatarImage(file);

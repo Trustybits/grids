@@ -71,6 +71,7 @@ export class FirestoreLayoutService implements LayoutService {
         tiles: data.tiles || [],
         backgroundImageSrc: data.backgroundImageSrc || "",
         backgroundEmbed: data.backgroundEmbed || false,
+        themeId: data.themeId || undefined,
         overrides: data.overrides && typeof data.overrides === 'object' ? data.overrides : undefined,
         createdAt: data.createdAt ?? null,
         updatedAt: data.updatedAt ?? null,
@@ -96,6 +97,7 @@ export class FirestoreLayoutService implements LayoutService {
         tiles: stripBlobUrls(layout.tiles as unknown[]),
         backgroundImageSrc: layout.backgroundImageSrc,
         backgroundEmbed: layout.backgroundEmbed,
+        themeId: layout.themeId ?? 'dark',
         overrides: layout.overrides ?? {},
         createdAt: layout.createdAt ?? serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -120,6 +122,7 @@ export class FirestoreLayoutService implements LayoutService {
         tiles: stripBlobUrls(layout.tiles as unknown[]),
         backgroundImageSrc: layout.backgroundImageSrc,
         backgroundEmbed: layout.backgroundEmbed,
+        themeId: layout.themeId ?? 'dark',
         overrides: layout.overrides ?? {},
         updatedAt: serverTimestamp(),
       }) as Record<string, unknown>;

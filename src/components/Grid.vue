@@ -157,7 +157,15 @@ export default {
       return tiles.map((tile) => placedById.get(tile.i) ?? tile);
     };
 
-    const responsiveColNum = computed(() => {
+    // Map breakpoint names to their column counts
+    const breakpointToColNum = (bp: Breakpoint): number => {
+      if (bp === 'sm') return Math.min(4, baseColNum.value);
+      if (bp === 'md') return Math.min(8, baseColNum.value);
+      return Math.min(12, baseColNum.value);
+    };
+
+    // Viewport-derived column count (used when no forced breakpoint is active)
+    const viewportColNum = computed(() => {
       const candidates = [12, 8, 4].filter(
         (columns) => columns <= baseColNum.value,
       );
@@ -171,21 +179,38 @@ export default {
       return candidates.find(fits) ?? Math.min(4, baseColNum.value);
     });
 
+    // When forcedBreakpoint is set by the owner, use its column count;
+    // otherwise fall back to the viewport-derived value.
+    const responsiveColNum = computed(() => {
+      const forced = layoutStore.forcedBreakpoint;
+      if (forced) return breakpointToColNum(forced);
+      return viewportColNum.value;
+    });
+
     const colNumToBreakpoint = (cols: number): Breakpoint => {
       if (cols <= 4) return "sm";
       if (cols <= 8) return "md";
       return "lg";
     };
 
-    const activeBreakpoint = computed<Breakpoint>(() => {
-      return colNumToBreakpoint(responsiveColNum.value);
+    // The breakpoint the viewport naturally supports (ignoring any forced override).
+    // Used to determine whether a forced breakpoint requires scaling / view-only mode.
+    const viewportBreakpoint = computed<Breakpoint>(() => {
+      return colNumToBreakpoint(viewportColNum.value);
     });
 
-    // Keep the store in sync so other components can read the active breakpoint
+    const activeBreakpoint = computed<Breakpoint>(() => {
+      // Forced breakpoint takes priority over viewport detection
+      if (layoutStore.forcedBreakpoint) return layoutStore.forcedBreakpoint;
+      return viewportBreakpoint.value;
+    });
+
+    // Keep the store in sync so other components can read both breakpoints
     watch(
-      activeBreakpoint,
-      (bp) => {
-        layoutStore.setActiveBreakpoint(bp);
+      [activeBreakpoint, viewportBreakpoint],
+      ([active, viewport]) => {
+        layoutStore.setActiveBreakpoint(active);
+        layoutStore.setViewportBreakpoint(viewport);
       },
       { immediate: true },
     );
@@ -340,12 +365,9 @@ export default {
       { immediate: true, deep: true },
     );
 
-    const isEditable = computed(() => {
-      if (!layoutStore.isOwner) return false;
-      // Owners can always edit — at non-lg breakpoints, dragging/resizing will
-      // auto-create overrides via updateBreakpointOverride.
-      return true;
-    });
+    // Delegates to layoutStore.canEdit — the single source of truth for
+    // whether grid manipulation (drag/resize) is allowed right now.
+    const isEditable = computed(() => layoutStore.canEdit);
 
     const gridWidth = computed(() => {
       return (
@@ -432,7 +454,7 @@ export default {
     watch(
       () => layoutStore.verticalCompact,
       (isCompact, wasCompact) => {
-        if (!layoutStore.currentLayout || !layoutStore.isOwner) return;
+        if (!layoutStore.currentLayout || !layoutStore.canEdit) return;
         if (activeBreakpoint.value !== "lg") return;
 
         // Only act when gravity is turned ON (false -> true)

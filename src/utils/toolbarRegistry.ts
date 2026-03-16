@@ -66,6 +66,13 @@ export const RESIZE_2x2 = makeResizeItem(
   ResizeSquareIcon,
   "Resize to 2x2",
 );
+export const RESIZE_2x3 = makeResizeItem(
+  "resize-2x3",
+  2,
+  3,
+  Resize2x4Icon,
+  "Resize to 2x3",
+);
 export const RESIZE_3x1 = makeResizeItem(
   "resize-3x1",
   3,
@@ -402,7 +409,14 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     TEXT_ALIGN_BUTTON,
     TEXT_MORE_MENU,
   ],
-  [ContentType.EMBED]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.MUSIC]: [
+    RESIZE_1x1,    
+    RESIZE_2x3,
+    RESIZE_2x2,
+    RESIZE_4x2,
+    RESIZE_4x4,
+  ],
+  [ContentType.EMBED]: [...RESIZE_PRESETS, BORDER_TOGGLE],
   [ContentType.MAP]: [
     RESIZE_4x4,
     RESIZE_2x4,
@@ -420,15 +434,13 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     COLOR_BUTTON,
   ],
   [ContentType.CAMPFIRE]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
-  [ContentType.RPG]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
-  [ContentType.CLICKER]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
-  [ContentType.PROFILE]: [BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.PROFILE]:  [BORDER_TOGGLE, COLOR_BUTTON],
   // Roadmap feed uses standard resize/appearance options; settings are managed inside the tile itself
   [ContentType.ROADMAP_FEED]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
 };
 
 // Default fallback for any tile type not explicitly configured
-const DEFAULT_ITEMS: ToolbarItem[] = [BORDER_TOGGLE, COLOR_BUTTON];
+const DEFAULT_ITEMS: ToolbarItem[] = [...RESIZE_PRESETS];
 
 export function getToolbarItems(type: ContentType): ToolbarItem[] {
   return registry[type] ?? DEFAULT_ITEMS;

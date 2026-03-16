@@ -569,6 +569,10 @@ export default defineComponent({
   opacity: 1;
 }
 
+.text-content.viewer-view:hover {
+  cursor: pointer;
+}
+
 .text-content.owner-view .tile-link-indicator:hover {
   opacity: 1;
 }

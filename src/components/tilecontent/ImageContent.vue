@@ -55,7 +55,7 @@
 
       <!-- Link indicator -->
       <div
-        v-if="textLinkExists"
+        v-if="tileLinkExists"
         class="tile-link-indicator"
         aria-hidden="true"
         @click.stop="handleFollowLink"
@@ -308,7 +308,7 @@ export default defineComponent({
 
     const {
       showLinkModal,
-      textLinkExists,
+      tileLinkExists,
       openUrlInput,
       closeLinkModal,
       handleAddLink,
@@ -317,7 +317,7 @@ export default defineComponent({
     } = useTileLink(tileId || null, props.content);
 
     const onShortClick = () => {
-      if (!layoutStore.isOwner && textLinkExists.value) {
+      if (!layoutStore.isOwner && tileLinkExists.value) {
         handleFollowLink();
       }
     };
@@ -340,7 +340,7 @@ export default defineComponent({
       overlayColor,
       handleBackgroundColorChange,
       showLinkModal,
-      textLinkExists,
+      tileLinkExists,
       openUrlInput,
       closeLinkModal,
       handleAddLink,

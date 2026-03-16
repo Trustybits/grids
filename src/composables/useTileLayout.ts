@@ -45,7 +45,7 @@ export interface TileLayoutConfig {
   thumbnailQuality: "default" | "medium" | "high";
 }
 
-function resolveTier(w: number, h: number): LayoutTier {
+export function resolveTier(w: number, h: number): LayoutTier {
   const area = w * h;
   if (area <= 1) return "mini";
   if (area <= 4) return "compact";
@@ -53,12 +53,12 @@ function resolveTier(w: number, h: number): LayoutTier {
   return "large";
 }
 
-function resolveOrientation(w: number, h: number): TileOrientation {
+export function resolveOrientation(w: number, h: number): TileOrientation {
   if (w === h) return "square";
   return w > h ? "landscape" : "portrait";
 }
 
-function resolveLayout(w: number, h: number): TileLayoutConfig {
+export function resolveLayout(w: number, h: number): TileLayoutConfig {
   const tier = resolveTier(w, h);
   const orientation = resolveOrientation(w, h);
 

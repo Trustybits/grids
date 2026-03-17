@@ -6,7 +6,7 @@
       data-tooltip="Delete"
       @click="onDelete"
     >
-      <TrashIcon />
+      <CloseIcon />
     </button>
 
     <!-- Quick Actions Group -->
@@ -65,10 +65,11 @@ import {
 import { useLayoutStore } from "@/stores/layout";
 import { useToastStore } from "@/stores/toast";
 import TrashIcon from "./icons/toolbar/TrashIcon.vue";
-import ArrowUpRightIcon from "./icons/toolbar/ArrowUpRightIcon.vue";
-import DuplicateIcon from "./icons/toolbar/DuplicateIcon.vue";
-import ClipboardIcon from "./icons/toolbar/ClipboardIcon.vue";
-import DownloadCloudIcon from "./icons/toolbar/DownloadCloudIcon.vue";
+import ArrowUpRightIcon from "./icons/actionbar/ArrowUpRightIcon.vue";
+import DuplicateIcon from "./icons/actionbar/DuplicateIcon.vue";
+import ClipboardIcon from "./icons/actionbar/ClipboardIcon.vue";
+import DownloadCloudIcon from "./icons/actionbar/DownloadCloudIcon.vue";
+import CloseIcon from "./icons/actionbar/CloseIcon.vue";
 
 export default defineComponent({
   components: {
@@ -77,6 +78,7 @@ export default defineComponent({
     DuplicateIcon,
     ClipboardIcon,
     DownloadCloudIcon,
+    CloseIcon,
   },
   props: {
     tile: {
@@ -265,21 +267,18 @@ function extractPlainText(node: any): string {
 <style scoped lang="scss">
 .tile-actions {
   position: absolute;
-  top: -20px;
+  top: -12px;
   right: -12px;
   z-index: 11;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  transform: translateX(100%);
 
   /* Hidden by default */
   opacity: 0;
   pointer-events: none;
-  transition:
-    opacity var(--duration-fast) var(--easing-ease-out),
-    transform var(--duration-normal) var(--easing-spring);
+  transition: opacity var(--duration-fast) var(--easing-ease-out);
 }
 
 .tile-actions-group {
@@ -297,8 +296,8 @@ function extractPlainText(node: any): string {
   padding: 4px;
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: 8px;
-  background-color: var(--color-tile-background);
-  color: var(--color-text-primary);
+  background-color: var(--color-actionbar-background);
+  color: var(--color-content-high);
   cursor: pointer;
   transition:
     background-color var(--duration-fast) var(--easing-ease-in-out),
@@ -312,21 +311,23 @@ function extractPlainText(node: any): string {
   }
 
   &:hover {
-    background-color: var(--color-content-low);
-    transform: scale(1.1);
+    background-color: var(--color-actionbar-background);
+    color: var(--color-figma-purple);
+    //transform: scale(1.1);
   }
 }
 
 .tile-action-btn--delete {
   :deep(svg) {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
+    color: var(--color-content-full);
   }
 
   &:hover {
     background-color: #ff3737;
     border-color: #ff3737;
-    color: #ffffff;
+    color: var(--color-light-100);
   }
 }
 </style>

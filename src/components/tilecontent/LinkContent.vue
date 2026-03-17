@@ -42,7 +42,12 @@
         </div>
 
         <template v-if="isWideOneHigh">
-          <p v-if="!isEditing" class="tile-title tile-title--wide" @mousedown.stop @click="startEditing">
+          <p
+            v-if="!isEditing"
+            class="tile-title tile-title--wide"
+            @mousedown.stop
+            @click="startEditing"
+          >
             {{ displayTitle }}
           </p>
           <input
@@ -56,60 +61,29 @@
           />
         </template>
 
-        <div v-if="!isTallOneWide && !isOneByOne" class="tile-link-indicator" aria-hidden="true">
-          <svg
-            class="tile-link-indicator-icon"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M7 17L17 7"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M10 7H17V14"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+        <div
+          v-if="!isTallOneWide && !isOneByOne"
+          class="tile-link-indicator"
+          aria-hidden="true"
+        >
+          <LinkIndicatorIcon class="tile-link-indicator-icon"/>
         </div>
       </div>
 
-      <div v-if="isTallOneWide" class="tile-link-indicator tile-link-indicator--bottom" aria-hidden="true">
-        <svg
-          class="tile-link-indicator-icon"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M7 17L17 7"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M10 7H17V14"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+      <div
+        v-if="isTallOneWide"
+        class="tile-link-indicator tile-link-indicator--bottom"
+        aria-hidden="true"
+      >
+        <LinkIndicatorIcon class="tile-link-indicator-icon" />
       </div>
 
-      <div v-if="!isWideOneHigh && !isTallOneWide && !isOneByOne" class="tile-text" @mousedown.stop @click="startEditing">
+      <div
+        v-if="!isWideOneHigh && !isTallOneWide && !isOneByOne"
+        class="tile-text"
+        @mousedown.stop
+        @click="startEditing"
+      >
         <template v-if="isEditing">
           <textarea
             ref="titleInputRef"
@@ -133,7 +107,9 @@
         </template>
         <template v-else>
           <p class="tile-title">{{ displayTitle }}</p>
-          <p v-if="displayDescription" class="tile-description">{{ displayDescription }}</p>
+          <p v-if="displayDescription" class="tile-description">
+            {{ displayDescription }}
+          </p>
           <p class="tile-subtitle">{{ displaySubtitle }}</p>
         </template>
       </div>
@@ -165,7 +141,9 @@
       />
       <p v-if="urlError" class="link-url-error">{{ urlError }}</p>
       <div class="link-url-actions">
-        <button type="button" class="link-url-btn" @click.stop="applyImageUrl">Save</button>
+        <button type="button" class="link-url-btn" @click.stop="applyImageUrl">
+          Save
+        </button>
         <button
           type="button"
           class="link-url-btn link-url-btn--ghost"
@@ -184,10 +162,18 @@
         :style="contextMenuStyle"
         @mousedown.stop
       >
-        <button type="button" class="link-context-menu-item" @click.stop="handleContextUpload">
+        <button
+          type="button"
+          class="link-context-menu-item"
+          @click.stop="handleContextUpload"
+        >
           Upload image
         </button>
-        <button type="button" class="link-context-menu-item" @click.stop="handleContextUseUrl">
+        <button
+          type="button"
+          class="link-context-menu-item"
+          @click.stop="handleContextUseUrl"
+        >
           Use image URL
         </button>
         <button
@@ -220,9 +206,13 @@ import { useLayoutStore } from "@/stores/layout";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";
+import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 
 export default defineComponent({
   emits: ["background-color-change", "text-color-change"],
+  components: {
+    LinkIndicatorIcon
+  },
   props: {
     content: {
       type: Object as () => LinkContent,
@@ -235,13 +225,23 @@ export default defineComponent({
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
 
-    const isOneByOne = computed(() => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1); 
-    const isWideOneHigh = computed(() => (gridTileW?.value ?? 0) > 1 && (gridTileH?.value ?? 0) === 1);
-    const isTallOneWide = computed(() => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) > 1);
-    const titleLineClamp = computed(() => ((gridTileH?.value ?? 0) < 3 ? 2 : 3));
+    const isOneByOne = computed(
+      () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1,
+    );
+    const isWideOneHigh = computed(
+      () => (gridTileW?.value ?? 0) > 1 && (gridTileH?.value ?? 0) === 1,
+    );
+    const isTallOneWide = computed(
+      () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) > 1,
+    );
+    const titleLineClamp = computed(() =>
+      (gridTileH?.value ?? 0) < 3 ? 2 : 3,
+    );
 
     const isEditing = ref(false);
-    const titleInputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
+    const titleInputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(
+      null,
+    );
     const draftTitle = ref("");
     const draftDescription = ref("");
     const draftSubtitle = ref("");
@@ -257,35 +257,43 @@ export default defineComponent({
     const { uploadFileToUrl } = useFileUpload();
 
     const formatLink = (link: string) => {
-      if (!link) return '@handle or address';
-      
-      if (link.startsWith('http://') || link.startsWith('https://')) {
+      if (!link) return "@handle or address";
+
+      if (link.startsWith("http://") || link.startsWith("https://")) {
         try {
           const url = new URL(link);
-          return `@${url.hostname.replace('www.', '')}`;
+          return `@${url.hostname.replace("www.", "")}`;
         } catch {
           return `@${link}`;
         }
       }
-      
-      return link.startsWith('@') ? link : `@${link}`;
+
+      return link.startsWith("@") ? link : `@${link}`;
     };
 
     const defaultTitle = computed(
-      () => props.content.metaTitle || props.content.metaSiteName || props.content.domain || "Link"
+      () =>
+        props.content.metaTitle ||
+        props.content.metaSiteName ||
+        props.content.domain ||
+        "Link",
     );
-    const defaultDescription = computed(() => props.content.metaDescription || "");
+    const defaultDescription = computed(
+      () => props.content.metaDescription || "",
+    );
     const defaultSubtitle = computed(() => formatLink(props.content.link));
 
-    const displayTitle = computed(() => props.content.customTitle?.trim() || defaultTitle.value);
+    const displayTitle = computed(
+      () => props.content.customTitle?.trim() || defaultTitle.value,
+    );
     const displayDescription = computed(
-      () => props.content.customDescription?.trim() || defaultDescription.value
+      () => props.content.customDescription?.trim() || defaultDescription.value,
     );
     const displaySubtitle = computed(
-      () => props.content.customSubtitle?.trim() || defaultSubtitle.value
+      () => props.content.customSubtitle?.trim() || defaultSubtitle.value,
     );
     const backgroundImageUrl = computed(
-      () => props.content.customImageUrl || props.content.metaImageUrl || ""
+      () => props.content.customImageUrl || props.content.metaImageUrl || "",
     );
 
     const contextMenuStyle = computed(() => ({
@@ -333,9 +341,10 @@ export default defineComponent({
     const normalizeImageUrl = (value: string) => {
       const trimmed = value.trim();
       if (!trimmed) return "";
-      const normalized = trimmed.startsWith("http://") || trimmed.startsWith("https://")
-        ? trimmed
-        : `https://${trimmed}`;
+      const normalized =
+        trimmed.startsWith("http://") || trimmed.startsWith("https://")
+          ? trimmed
+          : `https://${trimmed}`;
       try {
         new URL(normalized);
         return normalized;
@@ -352,7 +361,8 @@ export default defineComponent({
         return;
       }
       if (!isDirectImageUrl(normalized)) {
-        urlError.value = "Only direct image URLs are supported (png, jpg, gif, webp, svg).";
+        urlError.value =
+          "Only direct image URLs are supported (png, jpg, gif, webp, svg).";
         return;
       }
 
@@ -423,7 +433,12 @@ export default defineComponent({
       }
       const rect = container.getBoundingClientRect();
       const { clientX, clientY } = event;
-      if (clientX <= rect.left || clientX >= rect.right || clientY <= rect.top || clientY >= rect.bottom) {
+      if (
+        clientX <= rect.left ||
+        clientX >= rect.right ||
+        clientY <= rect.top ||
+        clientY >= rect.bottom
+      ) {
         isDragOver.value = false;
       }
     };
@@ -436,7 +451,12 @@ export default defineComponent({
       await uploadCustomImage(file);
     };
 
-    const clampContextMenuPosition = (x: number, y: number, menuWidth: number, menuHeight: number) => {
+    const clampContextMenuPosition = (
+      x: number,
+      y: number,
+      menuWidth: number,
+      menuHeight: number,
+    ) => {
       const padding = 8;
       const maxX = window.innerWidth - menuWidth - padding;
       const maxY = window.innerHeight - menuHeight - padding;
@@ -460,7 +480,7 @@ export default defineComponent({
         nextX,
         nextY,
         fallbackWidth,
-        fallbackHeight
+        fallbackHeight,
       );
       showContextMenu.value = true;
 
@@ -468,7 +488,12 @@ export default defineComponent({
         const menu = contextMenuRef.value;
         if (!menu) return;
         const { width, height } = menu.getBoundingClientRect();
-        contextMenuPosition.value = clampContextMenuPosition(nextX, nextY, width, height);
+        contextMenuPosition.value = clampContextMenuPosition(
+          nextX,
+          nextY,
+          width,
+          height,
+        );
       });
     };
 
@@ -507,7 +532,7 @@ export default defineComponent({
 
     const removeExitClickHandler = () => {
       if (exitClickHandler) {
-        document.removeEventListener('click', exitClickHandler);
+        document.removeEventListener("click", exitClickHandler);
         exitClickHandler = null;
       }
     };
@@ -521,13 +546,16 @@ export default defineComponent({
           titleInputRef.value?.focus();
           // Register exit listener since @mousedown.stop bypasses GridTile's addClickListener
           exitClickHandler = (event: MouseEvent) => {
-            if (linkTileRef.value && !linkTileRef.value.contains(event.target as Node)) {
+            if (
+              linkTileRef.value &&
+              !linkTileRef.value.contains(event.target as Node)
+            ) {
               isEditing.value = false;
               saveEdits();
               removeExitClickHandler();
             }
           };
-          document.addEventListener('click', exitClickHandler);
+          document.addEventListener("click", exitClickHandler);
         }, 0);
       });
     };
@@ -614,7 +642,7 @@ export default defineComponent({
       handleContextUpload,
       handleContextUseUrl,
       handleContextRemove,
-    }
+    };
   },
 });
 </script>
@@ -642,7 +670,7 @@ export default defineComponent({
   pointer-events: none;
 }
 
-.tile-wrapper[data-link-background='off'] .tile-background {
+.tile-wrapper[data-link-background="off"] .tile-background {
   display: none;
 }
 
@@ -667,12 +695,18 @@ export default defineComponent({
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(180deg, transparent 50%, 
-      color-mix(in srgb, var(--tile-bg) 45%, transparent) 80%, var(--tile-bg) 120%), 
-    linear-gradient(90deg, 
-      color-mix(in srgb, var(--tile-bg) 0%, transparent) 0%, 
-      color-mix(in srgb, var(--tile-bg) 20%, transparent) 100%);
-    /* linear-gradient(
+    linear-gradient(
+      180deg,
+      transparent 50%,
+      color-mix(in srgb, var(--tile-bg) 45%, transparent) 80%,
+      var(--tile-bg) 120%
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--tile-bg) 0%, transparent) 0%,
+      color-mix(in srgb, var(--tile-bg) 20%, transparent) 100%
+    );
+  /* linear-gradient(
       180deg,
       transparent 21%,
       color-mix(in srgb, var(--color-tile-background) 76%, transparent) 76%,
@@ -875,7 +909,8 @@ export default defineComponent({
   font-size: 12px;
   font-weight: 600;
   background: color-mix(in srgb, var(--color-tile-background) 70%, transparent);
-  border: 1px dashed color-mix(in srgb, var(--color-text-primary) 35%, transparent);
+  border: 1px dashed
+    color-mix(in srgb, var(--color-text-primary) 35%, transparent);
   border-radius: var(--tile-border-radius);
   pointer-events: none;
 }

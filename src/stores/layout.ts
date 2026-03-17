@@ -6,7 +6,7 @@ import {
   type TileContent,
   type AnyTileContent,
 } from "@/types/TileContent";
-import type { Breakpoint, TilePosition } from "@/types/Tile";
+import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
 import {
   collection,
@@ -882,6 +882,38 @@ export const useLayoutStore = defineStore("layout", {
     //     console.warn(`Tile with ID ${id} not found.`);
     //   }
     // },
+
+    // Duplicate a tile — deep-copies content, preserves size, places nearby
+    duplicateTile(id: string): string | null {
+      if (!this.currentLayout) return null;
+
+      const source = this.currentLayout.tiles.find((t) => t.i === id);
+      if (!source) return null;
+
+      const w = source.w;
+      const h = source.h;
+
+      // Place the duplicate just below the source tile
+      const targetY = source.y + source.h;
+      const position = this.findBestXAtRow(w, h, targetY);
+      this.pushTilesForNewItem(position.x, position.y, w, h);
+
+      const newTile: Tile = {
+        i: uuidv4(),
+        x: position.x,
+        y: position.y,
+        w,
+        h,
+        borderEnabled: source.borderEnabled,
+        caption: source.caption,
+        content: JSON.parse(JSON.stringify(source.content)),
+      };
+
+      this.currentLayout.tiles.push(newTile);
+      this.updateLayout();
+
+      return newTile.i;
+    },
 
     // Remove a tile (also cleans up any optimistic upload state)
     removeTile(id: string) {

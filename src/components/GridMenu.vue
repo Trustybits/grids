@@ -55,6 +55,9 @@
 
         <!-- Owner Actions -->
         <MenuSection v-if="isOwner">
+          <MenuItem @click="duplicateGrid">
+            Duplicate Grid
+          </MenuItem>
           <MenuItem danger @click="confirmDelete">
             Delete Grid
           </MenuItem>
@@ -178,6 +181,17 @@ const resetBreakpoint = () => {
     'success'
   );
   showMenu.value = false;
+};
+
+// Duplicate the current grid and navigate to the new copy
+const duplicateGrid = async () => {
+  if (!layoutStore.currentLayout) return;
+
+  const newId = await layoutStore.duplicateLayout(layoutStore.currentLayout);
+  showMenu.value = false;
+  if (newId) {
+    router.push(`/grid/${newId}`);
+  }
 };
 
 // Handle grid deletion directly — no need to bubble up through parent components

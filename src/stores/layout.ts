@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { type Layout } from "@/types/Layout";
+import { type Layout, type CopyDepth } from "@/types/Layout";
 import { getLayoutService } from "@/services/LayoutServiceFactory"; // Factory to switch services dynamically
 import {
   ContentType,
@@ -24,7 +24,7 @@ import {
   createDefaultLayout,
 } from "@/types/FirestoreMappers";
 import { auth, db } from "@/firebase";
-import { createTile } from "@/utils/TileUtils";
+import { createTile, createTileContent } from "@/utils/TileUtils";
 import { useToastStore } from "@/stores/toast";
 import heroGif from "@/assets/images/hero.gif";
 
@@ -398,6 +398,97 @@ export const useLayoutStore = defineStore("layout", {
         return newLayout.id;
       } catch (err) {
         this.error = "Failed to create layout.";
+        console.error(err);
+        return null;
+      }
+    },
+
+    // Duplicate an existing grid, creating a new layout owned by the current user.
+    // Accepts any Layout object — not just the user's own — so this same logic can
+    // power a future template gallery or cloning another user's published grid.
+    //
+    // copyDepth controls what gets carried over:
+    //   'full'      → all tile content (media URLs shared by reference, chat cleared)
+    //   'structure' → tile type/size/position only, content reset to defaults
+    async duplicateLayout(
+      sourceLayout: Layout,
+      copyDepth: CopyDepth = 'full',
+    ): Promise<string | null> {
+      const userId = auth.currentUser?.uid;
+      if (!userId) {
+        this.error = "User not authenticated";
+        return null;
+      }
+
+      try {
+        // Deep-clone tiles so mutations don't affect the source layout.
+        // Each tile gets a fresh UUID to avoid ID collisions.
+        const clonedTiles = (
+          JSON.parse(JSON.stringify(sourceLayout.tiles)) as typeof sourceLayout.tiles
+        ).map((tile) => {
+          const oldId = tile.i;
+          tile.i = uuidv4();
+
+          if (copyDepth === 'structure') {
+            // Structure-only: keep tile type and dimensions, reset content to defaults
+            tile.content = createTileContent(tile.content.type);
+          } else {
+            // Full copy: preserve content, but clear ephemeral/user-generated data
+            if (tile.content.type === ContentType.CHAT) {
+              (tile.content as any).messages = [];
+            }
+          }
+
+          return { tile, oldId };
+        });
+
+        // Rebuild breakpoint overrides with the new tile IDs so saved
+        // mobile/tablet layouts carry over correctly.
+        let newOverrides: Layout['overrides'];
+        if (sourceLayout.overrides) {
+          newOverrides = {} as NonNullable<Layout['overrides']>;
+          // Build a mapping from old tile ID → new tile ID
+          const idMap: Record<string, string> = {};
+          for (const { tile, oldId } of clonedTiles) {
+            idMap[oldId] = tile.i;
+          }
+          for (const [bp, positions] of Object.entries(sourceLayout.overrides)) {
+            if (!positions) continue;
+            const remapped: Record<string, TilePosition> = {};
+            for (const [oldTileId, pos] of Object.entries(positions)) {
+              const newTileId = idMap[oldTileId];
+              if (newTileId && pos) {
+                remapped[newTileId] = { ...pos };
+              }
+            }
+            (newOverrides as any)[bp] = remapped;
+          }
+        }
+
+        const newLayout: Layout = {
+          id: "", // Firestore will assign the real ID below
+          userId,
+          name: `Copy of ${sourceLayout.name || "Untitled"}`,
+          colNum: sourceLayout.colNum,
+          verticalCompact: sourceLayout.verticalCompact,
+          tiles: clonedTiles.map(({ tile }) => tile),
+          backgroundImageSrc: sourceLayout.backgroundImageSrc || "",
+          backgroundEmbed: sourceLayout.backgroundEmbed || false,
+          themeId: sourceLayout.themeId,
+          overrides: newOverrides,
+        };
+
+        const docRef = doc(collection(db, "layouts"));
+        newLayout.id = docRef.id;
+
+        await layoutService.saveLayout(newLayout);
+
+        // Add to local state so the dashboard list updates immediately
+        this.layouts.push({ ...newLayout });
+
+        return newLayout.id;
+      } catch (err) {
+        this.error = "Failed to duplicate layout.";
         console.error(err);
         return null;
       }

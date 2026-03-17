@@ -30,6 +30,33 @@
             </div>
           </div>
         </div>
+        <div v-if="currentSlug" class="menu-divider"></div>
+        <div v-if="currentSlug" class="default-grid-section">
+          <div class="info-item">
+            <div class="info-content">
+              <span class="info-label">Grid</span>
+              <select
+                v-model="selectedGridId"
+                @change="handleDefaultGridChange"
+                :disabled="pendingDefaultGrid"
+                class="grid-select"
+                @mousedown.stop
+                @click.stop
+              >
+                <option :value="null">No default grid</option>
+                <option
+                  v-for="layout in layouts"
+                  :key="layout.id"
+                  :value="layout.id"
+                >
+                  {{ layout.name || 'Untitled Grid' }}
+                </option>
+              </select>
+            </div>
+            <span v-if="gridSaveSuccess" class="grid-save-success">&#10003;</span>
+          </div>
+          <p class="grid-hint">Shown at grids.so/{{ currentSlug }}</p>
+        </div>
         <div class="menu-divider"></div>
         <button @click="logout" class="menu-action-item">
           Logout
@@ -48,11 +75,12 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted } from "vue";
+import { defineComponent, ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { auth } from "@/firebase";
 import { signOut, onAuthStateChanged, type User } from "firebase/auth";
-import { getUserProfile } from "@/services/UserProfileService";
+import { getUserProfile, setDefaultGrid } from "@/services/UserProfileService";
+import { useLayoutStore } from "@/stores/layout";
 import SlugClaimModal from "./SlugClaimModal.vue";
 
 export default defineComponent({
@@ -62,29 +90,65 @@ export default defineComponent({
   },
   setup() {
     const router = useRouter();
+    const layoutStore = useLayoutStore();
     const user = ref<User | null>(null);
     const showUserMenu = ref(false);
     const showSlugModal = ref(false);
     const currentSlug = ref<string | undefined>(undefined);
+    const selectedGridId = ref<string | null>(null);
+    const pendingDefaultGrid = ref(false);
+    const gridSaveSuccess = ref(false);
+
+    const layouts = computed(() => layoutStore.layouts);
 
     onMounted(() => {
       onAuthStateChanged(auth, (currentUser) => {
         user.value = currentUser;
-        // Load user profile to get current slug
+        // Load user profile to get current slug and default grid
         if (currentUser) {
-          loadUserSlug();
+          loadUserProfile();
+          layoutStore.fetchLayouts();
         }
       });
     });
 
-    const loadUserSlug = async () => {
+    const loadUserProfile = async () => {
       if (user.value) {
         try {
           const profile = await getUserProfile(user.value.uid);
           currentSlug.value = profile?.slug;
+          selectedGridId.value = profile?.defaultGridId || null;
         } catch (error) {
-          console.error('Error loading user slug:', error);
+          console.error('Error loading user profile:', error);
         }
+      }
+    };
+
+    // Optimistic default grid change — UI updates instantly, rolls back on failure
+    const handleDefaultGridChange = async () => {
+      if (!user.value || pendingDefaultGrid.value) return;
+
+      const previousGridId = selectedGridId.value;
+      pendingDefaultGrid.value = true;
+      gridSaveSuccess.value = true;
+
+      const timeoutId = setTimeout(() => {
+        if (pendingDefaultGrid.value) {
+          console.warn('[UserMenu] setDefaultGrid timeout — clearing pending state');
+          pendingDefaultGrid.value = false;
+        }
+      }, 10000);
+
+      try {
+        await setDefaultGrid(user.value.uid, selectedGridId.value);
+        setTimeout(() => { gridSaveSuccess.value = false; }, 2000);
+      } catch (error) {
+        console.error('Error setting default grid:', error);
+        selectedGridId.value = previousGridId;
+        gridSaveSuccess.value = false;
+      } finally {
+        clearTimeout(timeoutId);
+        pendingDefaultGrid.value = false;
       }
     };
 
@@ -111,6 +175,7 @@ export default defineComponent({
         try {
           const profile = await getUserProfile(user.value.uid);
           currentSlug.value = profile?.slug;
+          selectedGridId.value = profile?.defaultGridId || null;
         } catch (error) {
           console.error('Error loading user profile:', error);
         }
@@ -128,6 +193,7 @@ export default defineComponent({
         try {
           const profile = await getUserProfile(user.value.uid);
           currentSlug.value = profile?.slug;
+          selectedGridId.value = profile?.defaultGridId || null;
         } catch (error) {
           console.error('Error reloading profile:', error);
         }
@@ -145,6 +211,11 @@ export default defineComponent({
       openSlugModal,
       closeSlugModal,
       handleSlugSuccess,
+      layouts,
+      selectedGridId,
+      pendingDefaultGrid,
+      gridSaveSuccess,
+      handleDefaultGridChange,
     };
   },
 });
@@ -276,6 +347,49 @@ export default defineComponent({
     flex-shrink: 0;
     margin-left: var(--spacing-sm);
     transition: opacity var(--duration-fast) var(--easing-smooth);
+  }
+
+  .default-grid-section {
+    padding: 0 var(--spacing-sm);
+  }
+
+  .grid-select {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 6px;
+    background-color: var(--color-content-background);
+    color: var(--color-text-primary);
+    border: var(--tile-border-width) solid var(--color-tile-stroke);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-family-base);
+    cursor: pointer;
+    transition: border-color var(--duration-fast) var(--easing-smooth);
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-content-high);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .grid-save-success {
+    font-size: 13px;
+    color: #4ade80;
+    font-weight: 600;
+    flex-shrink: 0;
+    margin-left: var(--spacing-xs);
+  }
+
+  .grid-hint {
+    margin: 2px 0 4px 0;
+    font-size: 11px;
+    color: var(--color-content-low);
+    opacity: 0.7;
   }
 
   .menu-divider {

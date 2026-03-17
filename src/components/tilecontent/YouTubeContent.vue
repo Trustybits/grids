@@ -96,12 +96,21 @@
           {{ formatNumber(content.channelData.videoCount) }} videos
         </span>
       </div>
-      <!-- Recent videos grid (thumbnail-only, no titles) -->
+      <!-- Recent videos: carousel or grid based on useCarouselView -->
       <div
         v-if="layout.tier !== 'mini' && layout.tier !== 'compact' && content.recentVideos?.length"
         class="yt-recent-videos"
       >
-        <div class="yt-video-grid">
+        <!-- Carousel view -->
+        <MediaCarousel
+          v-if="useCarouselView"
+          :items="carouselItems"
+          :interval="5000"
+          :showDots="true"
+          class="yt-carousel"
+        />
+        <!-- Grid view (original) -->
+        <div v-else class="yt-video-grid">
           <div
             v-for="video in displayRecentVideos"
             :key="video.videoId"
@@ -125,8 +134,12 @@ import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import { useLayoutStore } from "@/stores/layout";
 import { useTileLayout } from "@/composables/useTileLayout";
+import MediaCarousel, { type MediaCarouselItem } from "@/components/MediaCarousel.vue";
 
 export default defineComponent({
+  components: {
+    MediaCarousel,
+  },
   props: {
     content: {
       type: Object as () => YouTubeContent,
@@ -248,6 +261,24 @@ export default defineComponent({
       return props.content.recentVideos.slice(0, maxVideos);
     });
 
+    // Carousel view toggle — use carousel for channel tiles by default
+    const useCarouselView = computed(() => {
+      return isChannel.value && (props.content as any).useCarousel !== false;
+    });
+
+    // Convert recent videos to MediaCarouselItem format
+    const carouselItems = computed<MediaCarouselItem[]>(() => {
+      if (!props.content.recentVideos) return [];
+      return props.content.recentVideos.map((video) => ({
+        id: video.videoId,
+        src: video.thumbnails?.high?.url || video.thumbnails?.medium?.url || video.thumbnails?.default?.url || "",
+        type: "image" as const,
+        alt: video.title,
+        label: video.title,
+        onClick: () => openVideo(video.videoId),
+      }));
+    });
+
     // Open YouTube link
     const openYouTube = () => {
       window.open(props.content.youtubeUrl, "_blank");
@@ -323,6 +354,8 @@ export default defineComponent({
       truncateDescription,
       displayPlaylistItems,
       displayRecentVideos,
+      useCarouselView,
+      carouselItems,
       openYouTube,
       openVideo,
       fetchMetadata,
@@ -626,6 +659,12 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   margin-top: 8px;
+}
+
+.yt-carousel {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
 }
 
 .yt-video-grid {

@@ -45,6 +45,16 @@
                 </svg>
               </button>
               <button 
+                @click.prevent="duplicateGrid(layout)"
+                class="action-button duplicate-button"
+                title="Duplicate grid"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <button 
                 @click.prevent="openRenameModal(layout)"
                 class="action-button rename-button"
                 title="Rename grid"
@@ -197,6 +207,19 @@ const handleRenameGrid = async (newName) => {
   } catch (error) {
     console.error('Error renaming grid:', error);
     alert('Failed to rename grid. Please try again.');
+  }
+};
+
+// Duplicate a grid and navigate to the new copy
+const duplicateGrid = async (layout) => {
+  try {
+    const newId = await layoutStore.duplicateLayout(layout);
+    if (newId) {
+      router.push(`/grid/${newId}`);
+    }
+  } catch (error) {
+    console.error('Error duplicating grid:', error);
+    alert('Failed to duplicate grid. Please try again.');
   }
 };
 
@@ -419,6 +442,18 @@ h1 {
   background-color: rgba(34, 197, 94, 0.15);
   box-shadow: 0 0 16px rgba(34, 197, 94, 0.5);
 } */
+
+/* Duplicate button styling */
+.duplicate-button {
+  color: var(--color-content-default);
+  border: none;
+  opacity: 0.4;
+}
+
+.duplicate-button:hover {
+  opacity: 0.7;
+  color: var(--color-text-primary);
+}
 
 /* Rename button styling */
 .rename-button {

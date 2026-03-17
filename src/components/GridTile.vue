@@ -122,6 +122,12 @@
           @click.stop="removeElement"
         ></button>
 
+        <TileActions
+          v-if="layoutStore.canEdit && !isSuggestion"
+          :tile="tile"
+          @delete="removeElement"
+        />
+
         <TileCaption
           v-if="showCaption && (layoutStore.canEdit || tile.caption)"
           :tile="tile"
@@ -170,6 +176,7 @@ import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileIcon from "./icons/ProfileIcon.vue";
 import TileToolbar from "./TileToolbar.vue";
+import TileActions from "./TileActions.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 import ColorPicker from "./ColorPicker.vue";
 
@@ -178,6 +185,7 @@ export default defineComponent({
     GridItem,
     TileCaption,
     TileToolbar,
+    TileActions,
     TextIcon,
     ImageIcon,
     LinkIcon,
@@ -1087,6 +1095,23 @@ export default defineComponent({
 .tile-wrapper.is-activated.is-dragging .btn-close {
   opacity: 0;
   transform: scale(0);
+  pointer-events: none;
+}
+
+/* Show tile actions on hover and activation */
+.tile-wrapper:hover :deep(.tile-actions),
+.tile-wrapper.is-activated :deep(.tile-actions) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Hide tile actions during crop mode, exiting, and while dragging */
+.tile-wrapper.crop-mode-active :deep(.tile-actions),
+.tile-wrapper.crop-mode-exiting :deep(.tile-actions),
+.tile-wrapper.is-exiting :deep(.tile-actions),
+.tile-wrapper.is-dragging :deep(.tile-actions),
+.tile-wrapper.is-activated.is-dragging :deep(.tile-actions) {
+  opacity: 0;
   pointer-events: none;
 }
 

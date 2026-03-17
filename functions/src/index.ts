@@ -24,6 +24,10 @@ import * as admin from "firebase-admin";
 const notionClientId = defineSecret("NOTION_CLIENT_ID");
 const notionClientSecret = defineSecret("NOTION_CLIENT_SECRET");
 
+// FlightAware AeroAPI key — set via: firebase functions:secrets:set FLIGHTAWARE_API_KEY
+// Obtain from https://www.flightaware.com/commercial/aeroapi/
+const flightAwareApiKey = defineSecret("FLIGHTAWARE_API_KEY");
+
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 
@@ -2347,4 +2351,242 @@ export const upvoteRoadmapItem = functions
     }
 
     return { isNowUpvoted };
+  });
+
+// ── FlightAware AeroAPI Integration ─────────────────────────────────────────
+
+/**
+ * Derive a human-readable flight status string from AeroAPI response flags.
+ * AeroAPI doesn't return a single "status" field — instead it provides boolean
+ * flags (cancelled, diverted) and nullable timestamps that indicate progress.
+ */
+function deriveFlightStatus(flight: any): string {
+  if (flight.cancelled) return "Cancelled";
+  if (flight.diverted) return "Diverted";
+  if (flight.actual_in) return "Arrived";
+  if (flight.actual_off || flight.actual_out) return "En Route";
+  if (flight.scheduled_out || flight.scheduled_off) return "Scheduled";
+  return "Unknown";
+}
+
+/**
+ * Compute progress percentage for an in-flight aircraft.
+ * Uses scheduled departure and estimated/scheduled arrival to derive a 0-100 value.
+ */
+function computeProgress(flight: any): number | undefined {
+  const depTime = flight.actual_out || flight.actual_off || flight.scheduled_out || flight.scheduled_off;
+  const arrTime = flight.estimated_in || flight.scheduled_in;
+  if (!depTime || !arrTime) return undefined;
+
+  const dep = new Date(depTime).getTime();
+  const arr = new Date(arrTime).getTime();
+  const now = Date.now();
+  const total = arr - dep;
+  if (total <= 0) return undefined;
+  const elapsed = now - dep;
+  return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+}
+
+/**
+ * Compute duration in seconds between two ISO 8601 timestamps.
+ */
+function durationSeconds(start: string | null, end: string | null): number | undefined {
+  if (!start || !end) return undefined;
+  const diff = new Date(end).getTime() - new Date(start).getTime();
+  return diff > 0 ? Math.round(diff / 1000) : undefined;
+}
+
+/**
+ * Cloud Function to fetch flight data from FlightAware AeroAPI v4.
+ *
+ * Accepts a flight identifier (ICAO or IATA callsign, e.g. "DAL173" or "DL173")
+ * and returns structured flight data including origin/destination, times, status,
+ * gate info, aircraft type, and progress.
+ *
+ * Requires the FLIGHTAWARE_API_KEY secret to be set:
+ *   firebase functions:secrets:set FLIGHTAWARE_API_KEY
+ */
+export const getFlightData = functions
+  .runWith({ secrets: [flightAwareApiKey] })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new HttpsError("unauthenticated", "You must be signed in to fetch flight data.");
+    }
+
+    const { flightIdent } = data as { flightIdent?: string };
+    if (!flightIdent || typeof flightIdent !== "string") {
+      throw new HttpsError("invalid-argument", "Missing or invalid flightIdent.");
+    }
+
+    // Sanitize: only allow alphanumeric characters for the flight identifier
+    const sanitized = flightIdent.replace(/[^A-Za-z0-9]/g, "");
+    if (!sanitized || sanitized.length > 12) {
+      throw new HttpsError("invalid-argument", "Invalid flight identifier format.");
+    }
+
+    const apiKey = flightAwareApiKey.value();
+    if (!apiKey) {
+      throw new HttpsError(
+        "failed-precondition",
+        "FlightAware API key is not configured. Set it with: firebase functions:secrets:set FLIGHTAWARE_API_KEY"
+      );
+    }
+
+    try {
+      // AeroAPI v4 endpoint: GET /flights/{ident}
+      // Returns an array of flights matching the ident (past, current, future).
+      // We pick the most relevant one (in progress > nearest future > most recent past).
+      const aeroRes = await fetch(
+        `https://aeroapi.flightaware.com/aeroapi/flights/${encodeURIComponent(sanitized)}`,
+        {
+          headers: {
+            "x-apikey": apiKey,
+            "Accept": "application/json",
+          },
+        }
+      );
+
+      if (!aeroRes.ok) {
+        const errBody = await aeroRes.text();
+        logger.error("AeroAPI request failed", {
+          status: aeroRes.status,
+          body: errBody,
+          flightIdent: sanitized,
+        });
+        if (aeroRes.status === 401) {
+          throw new HttpsError("permission-denied", "FlightAware API key is invalid or expired.");
+        }
+        if (aeroRes.status === 404) {
+          throw new HttpsError("not-found", `Flight "${sanitized}" not found on FlightAware.`);
+        }
+        throw new HttpsError("internal", "Failed to fetch flight data from FlightAware.");
+      }
+
+      const aeroData = await aeroRes.json() as { flights?: any[] };
+      const flights = aeroData.flights || [];
+
+      if (flights.length === 0) {
+        throw new HttpsError("not-found", `No flights found for "${sanitized}".`);
+      }
+
+      // Pick the best flight: prefer in-progress, then nearest future, then most recent past.
+      const now = Date.now();
+      let best = flights[0];
+      for (const f of flights) {
+        const status = deriveFlightStatus(f);
+        const bestStatus = deriveFlightStatus(best);
+
+        // Prefer "En Route" over everything
+        if (status === "En Route" && bestStatus !== "En Route") {
+          best = f;
+          continue;
+        }
+        // Among scheduled flights, prefer the nearest in the future
+        if (status === "Scheduled" && bestStatus !== "En Route") {
+          const fDep = new Date(f.scheduled_out || f.scheduled_off || 0).getTime();
+          const bDep = new Date(best.scheduled_out || best.scheduled_off || 0).getTime();
+          if (fDep > now && (bDep <= now || fDep < bDep)) {
+            best = f;
+          }
+        }
+      }
+
+      const flight = best;
+      const status = deriveFlightStatus(flight);
+      const origin = flight.origin || {};
+      const destination = flight.destination || {};
+
+      // Compute scheduled duration from gate-to-gate times
+      const scheduledDuration = durationSeconds(
+        flight.scheduled_out || flight.scheduled_off,
+        flight.scheduled_in || flight.scheduled_on
+      );
+
+      // Compute actual duration so far (or total if arrived)
+      const actualStart = flight.actual_out || flight.actual_off;
+      const actualEnd = flight.actual_in || flight.actual_on;
+      const actualDuration = actualEnd
+        ? durationSeconds(actualStart, actualEnd)
+        : actualStart
+          ? Math.round((Date.now() - new Date(actualStart).getTime()) / 1000)
+          : undefined;
+
+      // Departure delay = difference between actual and scheduled departure
+      const depDelay = durationSeconds(
+        flight.scheduled_out || flight.scheduled_off,
+        flight.actual_out || flight.actual_off
+      );
+
+      // Arrival delay = difference between actual/estimated and scheduled arrival
+      const arrDelay = durationSeconds(
+        flight.scheduled_in || flight.scheduled_on,
+        flight.actual_in || flight.estimated_in || flight.actual_on || flight.estimated_on
+      );
+
+      const result = {
+        // Core
+        status,
+        airlineName: flight.operator || flight.ident_prefix || "",
+        flightNumber: flight.ident_iata || flight.ident || sanitized,
+        aircraftType: flight.aircraft_type || "",
+        registration: flight.registration || "",
+
+        // Origin
+        originCode: origin.code_iata || origin.code || "",
+        originCity: origin.city || "",
+        originName: origin.name || "",
+        originTimezone: origin.timezone || "",
+
+        // Destination
+        destinationCode: destination.code_iata || destination.code || "",
+        destinationCity: destination.city || "",
+        destinationName: destination.name || "",
+        destinationTimezone: destination.timezone || "",
+
+        // Times (ISO 8601)
+        scheduledDeparture: flight.scheduled_out || flight.scheduled_off || null,
+        actualDeparture: flight.actual_out || flight.actual_off || null,
+        scheduledArrival: flight.scheduled_in || flight.scheduled_on || null,
+        actualArrival: flight.actual_in || flight.actual_on || null,
+        estimatedArrival: flight.estimated_in || flight.estimated_on || null,
+
+        // Progress & performance
+        progressPercent: status === "En Route" ? computeProgress(flight) : status === "Arrived" ? 100 : 0,
+        durationScheduled: scheduledDuration,
+        durationActual: actualDuration,
+        altitude: flight.last_position?.altitude ?? undefined,
+        groundspeed: flight.last_position?.groundspeed ?? undefined,
+        heading: flight.last_position?.heading ?? undefined,
+
+        // Delays
+        departureDelay: depDelay,
+        arrivalDelay: arrDelay,
+
+        // Gate / terminal
+        originGate: flight.gate_origin || null,
+        originTerminal: flight.terminal_origin || null,
+        destinationGate: flight.gate_destination || null,
+        destinationTerminal: flight.terminal_destination || null,
+
+        // Route
+        route: flight.route || null,
+        distance: flight.filed_ete ? undefined : (flight.route_distance || undefined),
+      };
+
+      logger.info("Flight data fetched successfully", {
+        flightIdent: sanitized,
+        status,
+        origin: result.originCode,
+        destination: result.destinationCode,
+      });
+
+      return result;
+    } catch (error: any) {
+      if (error instanceof HttpsError) throw error;
+      logger.error("Failed to fetch flight data", {
+        error: String(error),
+        flightIdent: sanitized,
+      });
+      throw new HttpsError("internal", "Failed to fetch flight data.");
+    }
   });

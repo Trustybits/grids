@@ -14,6 +14,7 @@ export enum ContentType {
   YOUTUBE = "youtube",
   ROADMAP_FEED = "roadmap_feed",
   MUSIC = "music",
+  FLIGHT = "flight",
 }
 
 export interface TileContent {
@@ -329,6 +330,77 @@ export interface RoadmapFeedContent extends TileContent {
   lastSyncedAt?: number;
 }
 
+// ── Flight Tracking (FlightAware) ────────────────────────────────────
+
+// Status of the flight as reported by FlightAware AeroAPI.
+export type FlightStatus =
+  | "Scheduled"
+  | "En Route"
+  | "Arrived"
+  | "Cancelled"
+  | "Diverted"
+  | "Unknown";
+
+export interface FlightContent extends TileContent {
+  type: ContentType.FLIGHT;
+  // The original FlightAware URL the user pasted.
+  flightAwareUrl: string;
+  // ICAO or IATA flight identifier, e.g. "DAL173" or "DL173".
+  flightIdent: string;
+
+  // ── Core flight info ─────────────────────────────────────────────
+  status?: FlightStatus;
+  airlineName?: string;
+  airlineLogo?: string; // URL to airline logo if available
+  flightNumber?: string; // e.g. "DL 173"
+  aircraftType?: string; // e.g. "Airbus A330-900"
+  registration?: string; // e.g. "N412DZ"
+
+  // ── Origin ───────────────────────────────────────────────────────
+  originCode?: string; // IATA code, e.g. "SLC"
+  originCity?: string; // e.g. "Salt Lake City, UT"
+  originName?: string; // e.g. "Salt Lake City Intl"
+  originTimezone?: string; // e.g. "America/Denver"
+
+  // ── Destination ──────────────────────────────────────────────────
+  destinationCode?: string;
+  destinationCity?: string;
+  destinationName?: string;
+  destinationTimezone?: string;
+
+  // ── Times (ISO 8601 strings) ─────────────────────────────────────
+  scheduledDeparture?: string;
+  actualDeparture?: string;
+  scheduledArrival?: string;
+  actualArrival?: string;
+  estimatedArrival?: string;
+
+  // ── Progress & performance ───────────────────────────────────────
+  progressPercent?: number; // 0-100, derived from elapsed / total time
+  durationScheduled?: number; // seconds
+  durationActual?: number; // seconds (so far or total)
+  altitude?: number; // feet
+  groundspeed?: number; // knots
+  heading?: number; // degrees
+
+  // ── Delay info ───────────────────────────────────────────────────
+  departureDelay?: number; // seconds (positive = late)
+  arrivalDelay?: number; // seconds
+
+  // ── Gate / terminal info ─────────────────────────────────────────
+  originGate?: string;
+  originTerminal?: string;
+  destinationGate?: string;
+  destinationTerminal?: string;
+
+  // ── Route ────────────────────────────────────────────────────────
+  route?: string; // filed route string
+  distance?: number; // filed distance in miles
+
+  // ── Cache control ────────────────────────────────────────────────
+  lastFetchedAt?: number; // Unix ms timestamp of last successful API fetch
+}
+
 // Union type of all possible TileContent types.
 // This allows Partial<AnyTileContent> to include properties from all content types,
 // which is necessary for patchTileContent to work with any content property.
@@ -347,4 +419,5 @@ export type AnyTileContent =
   | ClickerContent
   | YouTubeContent
   | RoadmapFeedContent
-  | MusicContent;
+  | MusicContent
+  | FlightContent;

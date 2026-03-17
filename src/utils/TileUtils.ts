@@ -19,6 +19,7 @@ import {
   type RoadmapFeedContent,
   type MusicContent,
   type MusicPlatform,
+  type FlightContent,
 } from "@/types/TileContent";
 import { defineAsyncComponent, markRaw } from "vue";
 
@@ -156,6 +157,30 @@ function parseYouTubeUrl(
   }
 }
 
+// Parse FlightAware URLs to extract the flight identifier.
+// Supports formats:
+// - flightaware.com/live/flight/DAL173
+// - flightaware.com/live/flight/DAL173/history/...
+// - flightaware.com/live/flight/DL173
+function parseFlightAwareUrl(url: string): { flightIdent: string } | null {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+
+    if (!hostname.includes("flightaware.com")) return null;
+
+    // Match /live/flight/<IDENT> (IDENT is the ICAO or IATA callsign)
+    const match = urlObj.pathname.match(/^\/live\/flight\/([A-Za-z0-9]+)/);
+    if (match) {
+      return { flightIdent: match[1] };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // Parse Spotify and Apple Music URLs to extract platform and track ID
 // Supports formats:
 // - Spotify: open.spotify.com/track/ID, open.spotify.com/embed/track/ID
@@ -229,6 +254,15 @@ export function createTileContentFromEmbedUrl(src: string): TileContent {
   }
 
   const formatted = ensureUrlHasProtocol(urlToCheck);
+
+  // Check for FlightAware URLs first (before YouTube etc.)
+  const flightData = parseFlightAwareUrl(formatted);
+  if (flightData) {
+    return createTileContent(ContentType.FLIGHT, {
+      flightAwareUrl: formatted,
+      flightIdent: flightData.flightIdent,
+    } as Partial<FlightContent>);
+  }
 
   // Check for YouTube URLs first
   const youtubeData = parseYouTubeUrl(formatted);
@@ -553,6 +587,47 @@ export function createTileContent(
         textSubdued: (data as Partial<MusicContent>).textSubdued || "",
       } as MusicContent;
 
+    case ContentType.FLIGHT:
+      return {
+        type,
+        flightAwareUrl: (data as Partial<FlightContent>).flightAwareUrl || "",
+        flightIdent: (data as Partial<FlightContent>).flightIdent || "",
+        status: (data as Partial<FlightContent>).status,
+        airlineName: (data as Partial<FlightContent>).airlineName,
+        airlineLogo: (data as Partial<FlightContent>).airlineLogo,
+        flightNumber: (data as Partial<FlightContent>).flightNumber,
+        aircraftType: (data as Partial<FlightContent>).aircraftType,
+        registration: (data as Partial<FlightContent>).registration,
+        originCode: (data as Partial<FlightContent>).originCode,
+        originCity: (data as Partial<FlightContent>).originCity,
+        originName: (data as Partial<FlightContent>).originName,
+        originTimezone: (data as Partial<FlightContent>).originTimezone,
+        destinationCode: (data as Partial<FlightContent>).destinationCode,
+        destinationCity: (data as Partial<FlightContent>).destinationCity,
+        destinationName: (data as Partial<FlightContent>).destinationName,
+        destinationTimezone: (data as Partial<FlightContent>).destinationTimezone,
+        scheduledDeparture: (data as Partial<FlightContent>).scheduledDeparture,
+        actualDeparture: (data as Partial<FlightContent>).actualDeparture,
+        scheduledArrival: (data as Partial<FlightContent>).scheduledArrival,
+        actualArrival: (data as Partial<FlightContent>).actualArrival,
+        estimatedArrival: (data as Partial<FlightContent>).estimatedArrival,
+        progressPercent: (data as Partial<FlightContent>).progressPercent,
+        durationScheduled: (data as Partial<FlightContent>).durationScheduled,
+        durationActual: (data as Partial<FlightContent>).durationActual,
+        altitude: (data as Partial<FlightContent>).altitude,
+        groundspeed: (data as Partial<FlightContent>).groundspeed,
+        heading: (data as Partial<FlightContent>).heading,
+        departureDelay: (data as Partial<FlightContent>).departureDelay,
+        arrivalDelay: (data as Partial<FlightContent>).arrivalDelay,
+        originGate: (data as Partial<FlightContent>).originGate,
+        originTerminal: (data as Partial<FlightContent>).originTerminal,
+        destinationGate: (data as Partial<FlightContent>).destinationGate,
+        destinationTerminal: (data as Partial<FlightContent>).destinationTerminal,
+        route: (data as Partial<FlightContent>).route,
+        distance: (data as Partial<FlightContent>).distance,
+        lastFetchedAt: (data as Partial<FlightContent>).lastFetchedAt,
+      } as FlightContent;
+
     default:
       throw new Error(`Unsupported content type: ${type}`);
   }
@@ -626,6 +701,9 @@ export function validateTileContent(content: TileContent): boolean {
       return !!music.trackId && !!music.platform;
     case ContentType.ROADMAP_FEED:
       return true;
+    case ContentType.FLIGHT:
+      const flight = content as FlightContent;
+      return !!flight.flightIdent;
     default:
       return false;
   }
@@ -717,6 +795,12 @@ export function getContentComponent(content: TileContent): any {
       return markRaw(
         defineAsyncComponent(
           () => import("@/components/tilecontent/MusicContent.vue"),
+        ),
+      );
+    case ContentType.FLIGHT:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/FlightContent.vue"),
         ),
       );
     default:

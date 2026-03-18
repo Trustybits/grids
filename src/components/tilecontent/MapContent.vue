@@ -209,6 +209,15 @@ export default defineComponent({
     // When true, flyToLocation uses jumpTo (instant) instead of easeTo
     // so the user never sees the default [0,0] ocean view.
     let isInitialLoad = true;
+    // Suppresses syncContentFromMap during programmatic moves (flyTo,
+    // easeTo, recenter) so the moveend handler doesn't overwrite the
+    // position that the programmatic caller already persisted.
+    let isProgrammaticMove = false;
+    // Debounce timer for syncContentFromMap — collapses rapid-fire
+    // moveend events (inertial scrolling, resize adjustments) into a
+    // single Firestore write after the map settles.
+    let syncTimer: ReturnType<typeof setTimeout> | null = null;
+    const SYNC_DEBOUNCE_MS = 300;
     // Controls map canvas visibility — hidden until the first real center
     // is applied so the user never sees a flash of the [0,0] ocean.
     const mapReady = ref(false);
@@ -216,21 +225,31 @@ export default defineComponent({
     const hasToken = computed(() => !!token);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
-    const gridTileId = inject<ComputedRef<string> | null>("gridTileId", null);
-
-    const styleMode = computed<MapStyleMode>({
-      get: () => props.content.style || "default",
-      set: (value) => {
-        props.content.style = value;
-        layoutStore.saveLayout();
-      },
-    });
+    // GridTile provides "tileId" as a raw string (not a ComputedRef).
+    const injectedTileId = inject<string | null>("tileId", null);
 
     const resolvedTileId = computed(() =>
-      gridTileId?.value ??
+      injectedTileId ??
         layoutStore.currentLayout?.tiles.find((tile) => tile.content === props.content)?.i ??
         null
     );
+
+    // vue3-grid-layout deep-clones every layout item (JSON.parse/stringify),
+    // so props.content is a COPY — mutations to it never reach the store's
+    // canonical tile.  storeContent resolves to the store tile's content so
+    // all writes persist correctly across layout rebuilds.
+    const storeContent = computed(() => {
+      const tile = layoutStore.currentLayout?.tiles.find((t) => t.i === resolvedTileId.value);
+      return (tile?.content as MapContent | undefined) ?? props.content;
+    });
+
+    const styleMode = computed<MapStyleMode>({
+      get: () => storeContent.value.style || "default",
+      set: (value) => {
+        storeContent.value.style = value;
+        layoutStore.saveLayout();
+      },
+    });
 
     const tileWidth = computed(() =>
       gridTileW?.value ??
@@ -247,26 +266,26 @@ export default defineComponent({
     const isInteractive = computed(() => !layoutStore.canEdit || isEditing.value);
 
     const show3d = computed({
-      get: () => props.content.show3d ?? false,
+      get: () => storeContent.value.show3d ?? false,
       set: (value: boolean) => {
-        props.content.show3d = value;
+        storeContent.value.show3d = value;
         layoutStore.saveLayout();
         apply3d(value);
       },
     });
 
     const showClouds = computed({
-      get: () => props.content.showClouds ?? true,
+      get: () => storeContent.value.showClouds ?? true,
       set: (value: boolean) => {
-        props.content.showClouds = value;
+        storeContent.value.showClouds = value;
         layoutStore.saveLayout();
       },
     });
 
     const showPlanes = computed({
-      get: () => props.content.showPlanes ?? true,
+      get: () => storeContent.value.showPlanes ?? true,
       set: (value: boolean) => {
-        props.content.showPlanes = value;
+        storeContent.value.showPlanes = value;
         layoutStore.saveLayout();
       },
     });
@@ -421,7 +440,7 @@ export default defineComponent({
 
     const setMarker = (marker: { lat: number; lng: number }) => {
       if (!layoutStore.canEdit) return;
-      props.content.marker = marker;
+      storeContent.value.marker = marker;
       saveLayout();
       updateMarker(marker);
     };
@@ -455,27 +474,38 @@ export default defineComponent({
       // we only want to save once a real position has been established.
       if (isInitialLoad) return;
       if (!layoutStore.canEdit) return;
-      const map = mapInstance.value;
-      if (!map) return;
-      const center = map.getCenter();
-      props.content.center = {
-        lat: Number(center.lat.toFixed(6)),
-        lng: Number(center.lng.toFixed(6)),
-      };
-      props.content.zoom = Number(map.getZoom().toFixed(2));
-      props.content.bearing = Number(map.getBearing().toFixed(2));
-      props.content.pitch = Number(map.getPitch().toFixed(2));
-      saveLayout();
+      // Skip intermediate moveend events fired during programmatic
+      // animations (flyTo, easeTo, recenter).  Each caller sets
+      // isProgrammaticMove = true before starting and registers a
+      // map.once("moveend") that clears the flag and calls
+      // syncContentFromMap() explicitly, so the final resting state
+      // is always captured.
+      if (isProgrammaticMove) return;
+      // Debounce: Mapbox fires moveend repeatedly during inertial
+      // deceleration and after resize-triggered viewport adjustments.
+      // Collapsing them into one write ensures only the final resting
+      // position is persisted.
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => {
+        syncTimer = null;
+        const map = mapInstance.value;
+        if (!map) return;
+        const sc = storeContent.value;
+        const center = map.getCenter();
+        sc.center = {
+          lat: Number(center.lat.toFixed(6)),
+          lng: Number(center.lng.toFixed(6)),
+        };
+        sc.zoom = Number(map.getZoom().toFixed(2));
+        sc.bearing = Number(map.getBearing().toFixed(2));
+        sc.pitch = Number(map.getPitch().toFixed(2));
+        saveLayout();
+      }, SYNC_DEBOUNCE_MS);
     };
 
     const flyToLocation = (center: { lat: number; lng: number }, zoom?: number) => {
       const map = mapInstance.value;
-      const targetZoom = zoom ?? props.content.zoom ?? 9;
-      if (layoutStore.canEdit) {
-        props.content.center = center;
-        props.content.zoom = targetZoom;
-        saveLayout();
-      }
+      const targetZoom = zoom ?? storeContent.value.zoom ?? 9;
       if (map) {
         if (isInitialLoad) {
           // Snap instantly on first positioning so the user never sees [0,0].
@@ -483,7 +513,21 @@ export default defineComponent({
           isInitialLoad = false;
           // Reveal the map now that it's positioned correctly.
           mapReady.value = true;
+          // jumpTo doesn't fire moveend, so persist immediately.
+          if (layoutStore.canEdit) {
+            storeContent.value.center = center;
+            storeContent.value.zoom = targetZoom;
+            saveLayout();
+          }
         } else {
+          // Suppress intermediate moveend events during the animation.
+          // When the animation finishes, clear the flag and let
+          // syncContentFromMap capture the final resting state.
+          isProgrammaticMove = true;
+          map.once("moveend", () => {
+            isProgrammaticMove = false;
+            syncContentFromMap();
+          });
           // Use Mapbox's flyTo for a cinematic arc animation between locations.
           map.flyTo({
             center: [center.lng, center.lat],
@@ -559,7 +603,7 @@ export default defineComponent({
 
     const handleSearch = async () => {
       const query = searchInput.value.trim();
-      props.content.searchQuery = query || undefined;
+      storeContent.value.searchQuery = query || undefined;
       saveLayout();
       if (!query) {
         useMyLocation();
@@ -654,11 +698,24 @@ export default defineComponent({
       const apply = () => {
         if (enabled) {
           enable3d();
-          map.easeTo({ pitch: 25, duration: 500 });
         } else {
           disable3d();
-          map.easeTo({ pitch: 0, duration: 500 });
         }
+        const targetPitch = enabled ? 25 : 0;
+        const currentPitch = Math.round(map.getPitch());
+        // If the pitch already matches the target, easeTo is a no-op and
+        // Mapbox won't fire moveend — so skip the programmatic-move guard
+        // to avoid permanently blocking syncContentFromMap.
+        if (currentPitch === targetPitch) {
+          syncContentFromMap();
+          return;
+        }
+        isProgrammaticMove = true;
+        map.once("moveend", () => {
+          isProgrammaticMove = false;
+          syncContentFromMap();
+        });
+        map.easeTo({ pitch: targetPitch, duration: 500 });
       };
       if (map.isStyleLoaded()) {
         apply();
@@ -715,15 +772,23 @@ export default defineComponent({
     // Re-centers the map viewport on the marker (if set), falling back
     // to the saved center. Exposed to the toolbar as a "recenter" action.
     const recenterOnMarker = () => {
-      const target = props.content.marker ?? props.content.center;
+      const sc = storeContent.value;
+      const target = sc.marker ?? sc.center;
       if (!target || (target.lat === 0 && target.lng === 0)) return;
       const map = mapInstance.value;
       if (!map) return;
+      // Suppress intermediate moveend events during the animation.
+      // When complete, sync the final position to Firestore.
+      isProgrammaticMove = true;
+      map.once("moveend", () => {
+        isProgrammaticMove = false;
+        syncContentFromMap();
+      });
       // Use easeTo for a smooth pan back to the marker — flyTo's arc
       // animation is reserved for search-driven location changes.
       map.easeTo({
         center: [target.lng, target.lat],
-        zoom: props.content.zoom ?? 9,
+        zoom: sc.zoom ?? 9,
         duration: 800,
       });
     };
@@ -851,6 +916,25 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
+      // Flush any pending debounced save so the last position isn't lost.
+      if (syncTimer) {
+        clearTimeout(syncTimer);
+        syncTimer = null;
+        // Perform the save inline since the component is tearing down.
+        const map = mapInstance.value;
+        if (map && !isInitialLoad && layoutStore.canEdit) {
+          const sc = storeContent.value;
+          const center = map.getCenter();
+          sc.center = {
+            lat: Number(center.lat.toFixed(6)),
+            lng: Number(center.lng.toFixed(6)),
+          };
+          sc.zoom = Number(map.getZoom().toFixed(2));
+          sc.bearing = Number(map.getBearing().toFixed(2));
+          sc.pitch = Number(map.getPitch().toFixed(2));
+          saveLayout();
+        }
+      }
       resizeObserver?.disconnect();
       resizeObserver = null;
       markerInstance.value?.remove();

@@ -890,16 +890,23 @@ export const useLayoutStore = defineStore("layout", {
       const source = this.currentLayout.tiles.find((t) => t.i === id);
       if (!source) return null;
 
-      const w = source.w;
-      const h = source.h;
+      // Use the currently displayed size (which may come from breakpoint
+      // overrides) so the duplicate matches what the user actually sees.
+      const bp = this.activeBreakpoint;
+      const bpOverride = this.currentLayout.overrides?.[bp]?.[id];
+      const w = bpOverride?.w ?? source.w;
+      const h = bpOverride?.h ?? source.h;
 
       // Place the duplicate just below the source tile
-      const targetY = source.y + source.h;
+      const sourceY = bpOverride?.y ?? source.y;
+      const targetY = sourceY + h;
       const position = this.findBestXAtRow(w, h, targetY);
       this.pushTilesForNewItem(position.x, position.y, w, h);
 
+      const newId = uuidv4();
+
       const newTile: Tile = {
-        i: uuidv4(),
+        i: newId,
         x: position.x,
         y: position.y,
         w,
@@ -910,9 +917,26 @@ export const useLayoutStore = defineStore("layout", {
       };
 
       this.currentLayout.tiles.push(newTile);
+
+      // Copy breakpoint overrides from the source tile to the duplicate
+      if (this.currentLayout.overrides) {
+        for (const overrideBp of Object.keys(
+          this.currentLayout.overrides,
+        ) as Breakpoint[]) {
+          const posMap = this.currentLayout.overrides[overrideBp];
+          if (posMap?.[id]) {
+            posMap[newId] = {
+              ...posMap[id],
+              x: position.x,
+              y: position.y,
+            };
+          }
+        }
+      }
+
       this.updateLayout();
 
-      return newTile.i;
+      return newId;
     },
 
     // Remove a tile (also cleans up any optimistic upload state)

@@ -42,16 +42,8 @@
         </div>
 
         <template v-if="isWideOneHigh">
-          <p
-            v-if="!isEditing"
-            class="tile-title tile-title--wide"
-            @mousedown.stop
-            @click="startEditing"
-          >
-            {{ displayTitle }}
-          </p>
           <input
-            v-else
+            v-if="isEditing"
             ref="titleInputRef"
             v-model="draftTitle"
             class="tile-input tile-input--title tile-input--wide"
@@ -59,6 +51,9 @@
             placeholder="Add a title"
             @keydown.enter.prevent
           />
+          <p v-else-if="displayTitle" class="tile-title tile-title--wide" @mousedown.stop @click="startEditing">
+            {{ displayTitle }}
+          </p>
         </template>
 
         <div
@@ -106,11 +101,9 @@
           />
         </template>
         <template v-else>
-          <p class="tile-title">{{ displayTitle }}</p>
-          <p v-if="displayDescription" class="tile-description">
-            {{ displayDescription }}
-          </p>
-          <p class="tile-subtitle">{{ displaySubtitle }}</p>
+          <p v-if="displayTitle" class="tile-title">{{ displayTitle }}</p>
+          <p v-if="displayDescription" class="tile-description">{{ displayDescription }}</p>
+          <p v-if="displaySubtitle" class="tile-subtitle">{{ displaySubtitle }}</p>
         </template>
       </div>
     </div>
@@ -283,14 +276,14 @@ export default defineComponent({
     );
     const defaultSubtitle = computed(() => formatLink(props.content.link));
 
-    const displayTitle = computed(
-      () => props.content.customTitle?.trim() || defaultTitle.value,
+    const displayTitle = computed(() =>
+      props.content.customTitle !== undefined ? props.content.customTitle : defaultTitle.value
     );
-    const displayDescription = computed(
-      () => props.content.customDescription?.trim() || defaultDescription.value,
+    const displayDescription = computed(() =>
+      props.content.customDescription !== undefined ? props.content.customDescription : defaultDescription.value
     );
-    const displaySubtitle = computed(
-      () => props.content.customSubtitle?.trim() || defaultSubtitle.value,
+    const displaySubtitle = computed(() =>
+      props.content.customSubtitle !== undefined ? props.content.customSubtitle : defaultSubtitle.value
     );
     const backgroundImageUrl = computed(
       () => props.content.customImageUrl || props.content.metaImageUrl || "",
@@ -302,9 +295,9 @@ export default defineComponent({
     }));
 
     const syncDrafts = () => {
-      draftTitle.value = displayTitle.value;
-      draftDescription.value = displayDescription.value;
-      draftSubtitle.value = displaySubtitle.value;
+      draftTitle.value = props.content.customTitle !== undefined ? props.content.customTitle : defaultTitle.value;
+      draftDescription.value = props.content.customDescription !== undefined ? props.content.customDescription : defaultDescription.value;
+      draftSubtitle.value = props.content.customSubtitle !== undefined ? props.content.customSubtitle : defaultSubtitle.value;
     };
 
     const saveEdits = () => {
@@ -314,9 +307,9 @@ export default defineComponent({
       const nextDescription = draftDescription.value.trim();
       const nextSubtitle = draftSubtitle.value.trim();
 
-      props.content.customTitle = nextTitle || undefined;
-      props.content.customDescription = nextDescription || undefined;
-      props.content.customSubtitle = nextSubtitle || undefined;
+      props.content.customTitle = nextTitle;
+      props.content.customDescription = nextDescription;
+      props.content.customSubtitle = nextSubtitle;
 
       layoutStore.saveLayout();
     };

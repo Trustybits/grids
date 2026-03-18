@@ -34,7 +34,7 @@
             v-if="isOwner"
             label="Allow Public Template" 
             v-model="duplicatable"
-            tooltip="When enabled, anyone can duplicate this grid as a template"
+            tooltip="When enabled, anyone can duplicate this grid's structure as a template"
           />
         </MenuSection>
 

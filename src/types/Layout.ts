@@ -17,6 +17,8 @@ export interface Layout {
   themeId?: string;
   tiles: Tile[];
   overrides?: Partial<Record<Breakpoint, Record<string, TilePosition>>>;
+  // When true, non-owners can duplicate this grid as a template.
+  duplicatable?: boolean;
   createdAt?: any;
   updatedAt?: any;
   lastOpenedAt?: any;

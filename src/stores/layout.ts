@@ -764,6 +764,13 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
+    // Toggle whether non-owners can duplicate this grid as a template
+    setDuplicatable(value: boolean) {
+      if (!this.currentLayout) return;
+      this.currentLayout.duplicatable = value;
+      this.updateLayout();
+    },
+
     addBackgroundImage(url: string, embed: boolean) {
       if (!this.currentLayout) return;
 

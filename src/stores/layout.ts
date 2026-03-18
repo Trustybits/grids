@@ -5,6 +5,7 @@ import {
   ContentType,
   type TileContent,
   type AnyTileContent,
+  type SuggestionAction,
 } from "@/types/TileContent";
 import type { Breakpoint, TilePosition } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
@@ -27,6 +28,33 @@ import { auth, db } from "@/firebase";
 import { createTile, createTileContent } from "@/utils/TileUtils";
 import { useToastStore } from "@/stores/toast";
 import heroGif from "@/assets/images/hero.gif";
+
+// Maps a real tile content type to the best-matching suggestion action so that
+// structure-only copies produce useful placeholder tiles instead of empty
+// typed tiles the user can't do anything with.
+const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
+  switch (type) {
+    case ContentType.TEXT:
+    case ContentType.CHAT:
+    case ContentType.CAMPFIRE:
+      return "text";
+    case ContentType.IMAGE:
+    case ContentType.VIDEO:
+      return "media";
+    case ContentType.LINK:
+      return "link";
+    case ContentType.EMBED:
+    case ContentType.YOUTUBE:
+    case ContentType.MUSIC:
+    case ContentType.MAP:
+    case ContentType.ROADMAP_FEED:
+      return "embed";
+    case ContentType.PROFILE:
+      return "profile";
+    default:
+      return "text";
+  }
+};
 
 const layoutService = getLayoutService();
 const createTextDoc = (lines: string[]) => {
@@ -430,8 +458,12 @@ export const useLayoutStore = defineStore("layout", {
           tile.i = uuidv4();
 
           if (copyDepth === 'structure') {
-            // Structure-only: keep tile type and dimensions, reset content to defaults
-            tile.content = createTileContent(tile.content.type);
+            // Structure-only: replace each tile with a SUGGESTION placeholder whose
+            // action hint matches the original content type. This gives the new owner
+            // useful "Add Media" / "Add Text" / etc. prompts instead of empty typed
+            // tiles they can't do anything with.
+            const action = contentTypeToSuggestionAction(tile.content.type);
+            tile.content = createTileContent(ContentType.SUGGESTION, { action });
           } else {
             // Full copy: preserve content, but clear ephemeral/user-generated data
             if (tile.content.type === ContentType.CHAT) {

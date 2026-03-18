@@ -57,7 +57,7 @@
                   </svg>
                 </button>
                 <button
-                  @click.prevent="toggleSplitMenu(layout.id)"
+                  @click.prevent.stop="toggleSplitMenu(layout.id)"
                   class="action-button duplicate-button split-chevron"
                   title="More duplicate options"
                 >
@@ -68,10 +68,10 @@
                 <!-- Dropdown for structure-only option -->
                 <div v-if="splitMenuOpenFor === layout.id" class="split-dropdown">
                   <button
-                    @click.prevent="duplicateGrid(layout, 'structure')"
+                    @click.prevent.stop="duplicateGrid(layout, 'structure')"
                     class="split-dropdown-item"
                   >
-                    Structure Only
+                    Duplicate Structure Only
                   </button>
                 </div>
               </div>

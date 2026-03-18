@@ -15,6 +15,7 @@ export function mapFirestoreToLayout(doc: any): Layout {
     backgroundEmbed: !!data.backgroundEmbed,
     themeId: data.themeId || undefined,
     overrides: data.overrides && typeof data.overrides === 'object' ? data.overrides : undefined,
+    duplicatable: !!data.duplicatable,
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,
     lastOpenedAt: data.lastOpenedAt ?? null,
@@ -36,5 +37,6 @@ export function createDefaultLayout(userId: string, name: string): Layout {
     tiles: [], // Start with no tiles
     backgroundImageSrc: "",
     backgroundEmbed: false,
+    duplicatable: false,
   };
 }

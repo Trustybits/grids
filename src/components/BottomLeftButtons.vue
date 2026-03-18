@@ -4,12 +4,14 @@
     Visibility rules:
       - Discord: always shown for everyone
       - Share: shown only on grid pages (both /grid/:id and /:slug)
+      - UseTemplate: shown on grid pages for non-owners when the grid allows duplication
       - UserMenu: shown for any authenticated user
       - GridMenu: shown only when viewing a grid the current user owns
   -->
   <div class="bottom-left-buttons">
     <DiscordButton />
     <ShareButton v-if="isOnGridPage" />
+    <UseTemplateButton v-if="isOnGridPage && !isOwner && isDuplicatable" />
     <GridMenu v-if="isOnGridPage && isOwner" />
     <UserMenu v-if="isAuthenticated" />
   </div>
@@ -24,6 +26,7 @@ import { useLayoutStore } from '@/stores/layout';
 import DiscordButton from './DiscordButton.vue';
 import GridMenu from './GridMenu.vue';
 import ShareButton from './ShareButton.vue';
+import UseTemplateButton from './UseTemplateButton.vue';
 import UserMenu from './UserMenu.vue';
 
 const route = useRoute();
@@ -69,6 +72,9 @@ watch(
 
 // GridMenu shows when the logged-in user owns the currently loaded grid
 const isOwner = computed(() => layoutStore.isOwner);
+
+// UseTemplateButton shows when the grid owner has opted in to public duplication
+const isDuplicatable = computed(() => layoutStore.currentLayout?.duplicatable ?? false);
 </script>
 
 <style lang="scss" scoped>

@@ -80,40 +80,77 @@
 
       <div
         v-if="!isWideOneHigh && !isTallOneWide && !isOneByOne"
-        class="tile-text"
+        ref="textWrapperRef"
+        class="tile-text-wrapper"
+        :class="{
+          'is-hovered': textWrapperHovered && !isEditing && layoutStore.canEdit,
+          'is-editing': isEditing,
+          'has-no-text': !hasAnyText && !isEditing,
+        }"
+        @mouseenter="textWrapperHovered = true"
+        @mouseleave="textWrapperHovered = false"
         @mousedown.stop
-        @click="startEditing"
+        @click="onTextWrapperClick"
       >
-        <template v-if="isEditing">
-          <textarea
-            ref="titleInputRef"
-            v-model="draftTitle"
-            class="tile-input tile-input--title"
-            :rows="titleLineClamp"
-            placeholder="Add a title"
-          ></textarea>
-          <textarea
-            v-model="draftDescription"
-            class="tile-input tile-input--description"
-            rows="2"
-            placeholder="Add a description"
-          ></textarea>
-          <input
-            v-model="draftSubtitle"
-            class="tile-input tile-input--subtitle"
-            type="text"
-            placeholder="Add a subtitle"
-          />
-        </template>
-        <template v-else>
-          <p v-if="displayTitle" class="tile-title">{{ displayTitle }}</p>
-          <p v-if="displayDescription" class="tile-description">
-            {{ displayDescription }}
-          </p>
-          <p v-if="displaySubtitle" class="tile-subtitle">
-            {{ displaySubtitle }}
-          </p>
-        </template>
+        <textarea
+          ref="titleInputRef"
+          v-model="draftTitle"
+          class="tile-input tile-input--title"
+          :class="{
+            'input-hovered': isEditing && hoveredField === 'title',
+            'input-display': !isEditing,
+            'input-empty': !draftTitle && !isEditing,
+            'input-placeholder-only':
+              !hasAnyText && !isEditing && layoutStore.canEdit,
+          }"
+          rows="1"
+          :tabindex="isEditing ? 0 : -1"
+          :readonly="!isEditing"
+          :placeholder="
+            isEditing
+              ? 'Add a title'
+              : !hasAnyText && textWrapperHovered && layoutStore.canEdit
+                ? 'Add a title'
+                : ''
+          "
+          @mouseenter="hoveredField = 'title'"
+          @mouseleave="hoveredField = null"
+          @input="onTitleInput"
+        ></textarea>
+        <textarea
+          ref="descInputRef"
+          v-model="draftDescription"
+          class="tile-input tile-input--description"
+          :class="{
+            'input-hovered': isEditing && hoveredField === 'description',
+            'input-display': !isEditing,
+            'input-collapsed': !draftDescription && !isEditing,
+          }"
+          rows="1"
+          :tabindex="isEditing ? 0 : -1"
+          :readonly="!isEditing"
+          :placeholder="isEditing ? 'Add a description' : ''"
+          @mouseenter="hoveredField = 'description'"
+          @mouseleave="hoveredField = null"
+          @input="onDescriptionInput"
+        ></textarea>
+        <input
+          ref="subtitleInputRef"
+          v-model="draftSubtitle"
+          class="tile-input tile-input--subtitle"
+          :class="{
+            'input-hovered': isEditing && hoveredField === 'subtitle',
+            'input-display': !isEditing,
+            'input-collapsed': !draftSubtitle && !isEditing,
+          }"
+          type="text"
+          :tabindex="isEditing ? 0 : -1"
+          :readonly="!isEditing"
+          :placeholder="isEditing ? 'Add a subtitle' : ''"
+          @mouseenter="hoveredField = 'subtitle'"
+          @mouseleave="hoveredField = null"
+          @input="onSubtitleInput"
+        />
       </div>
     </div>
 
@@ -246,6 +283,15 @@ export default defineComponent({
     const titleInputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(
       null,
     );
+    const descInputRef = ref<HTMLTextAreaElement | null>(null);
+    const subtitleInputRef = ref<HTMLInputElement | null>(null);
+    const textWrapperRef = ref<HTMLElement | null>(null);
+    const textWrapperHovered = ref(false);
+    const hoveredField = ref<"title" | "description" | "subtitle" | null>(null);
+    const clickedField = ref<"title" | "description" | "subtitle" | null>(null);
+    const userEditedTitle = ref(false);
+    const userEditedDescription = ref(false);
+    const userEditedSubtitle = ref(false);
     const draftTitle = ref("");
     const draftDescription = ref("");
     const draftSubtitle = ref("");
@@ -302,6 +348,15 @@ export default defineComponent({
         ? props.content.customSubtitle
         : defaultSubtitle.value,
     );
+
+    const hasAnyText = computed(
+      () =>
+        !!(
+          displayTitle.value ||
+          displayDescription.value ||
+          displaySubtitle.value
+        ),
+    );
     const backgroundImageUrl = computed(
       () => props.content.customImageUrl || props.content.metaImageUrl || "",
     );
@@ -326,36 +381,68 @@ export default defineComponent({
           : defaultSubtitle.value;
     };
 
-    watch([draftTitle, draftDescription, draftSubtitle], (_new, _old, onCleanup) => {
-      if (isEditing.value) {
-        schedulePersist();
-      }
+    watch(
+      [draftTitle, draftDescription, draftSubtitle],
+      (_new, _old, onCleanup) => {
+        if (isEditing.value) {
+          schedulePersist();
+        }
 
-      onCleanup(() => {
-        flushPersist();
-      });
-    })
+        onCleanup(() => {
+          flushPersist();
+        });
+      },
+    );
 
     const { schedulePersist, flushPersist } = useEditorAutosave(() =>
       saveEdits(),
     );
 
+    const autoResizeTextarea = (el: HTMLTextAreaElement | null) => {
+      if (!el) return;
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    };
+
+    const autoResizeAll = () => {
+      autoResizeTextarea(titleInputRef.value as HTMLTextAreaElement | null);
+      autoResizeTextarea(descInputRef.value as HTMLTextAreaElement | null);
+    };
+
+    const onTitleInput = () => {
+      userEditedTitle.value = true;
+      autoResizeTextarea(titleInputRef.value as HTMLTextAreaElement | null);
+    };
+    const onDescriptionInput = () => {
+      userEditedDescription.value = true;
+      autoResizeTextarea(descInputRef.value as HTMLTextAreaElement | null);
+    };
+    const onSubtitleInput = () => {
+      userEditedSubtitle.value = true;
+    };
+
     const saveEdits = () => {
       if (!layoutStore.canEdit) return;
 
-      const nextTitle = draftTitle.value.trim();
-      const nextDescription = draftDescription.value.trim();
-      const nextSubtitle = draftSubtitle.value.trim();
+      const updatedFields: Record<string, string> = {};
 
-      props.content.customTitle = nextTitle;
-      props.content.customDescription = nextDescription;
-      props.content.customSubtitle = nextSubtitle;
+      if (userEditedTitle.value) {
+        const nextTitle = draftTitle.value.trim();
+        props.content.customTitle = nextTitle;
+        updatedFields.customTitle = nextTitle;
+      }
+      if (userEditedDescription.value) {
+        const nextDescription = draftDescription.value.trim();
+        props.content.customDescription = nextDescription;
+        updatedFields.customDescription = nextDescription;
+      }
+      if (userEditedSubtitle.value) {
+        const nextSubtitle = draftSubtitle.value.trim();
+        props.content.customSubtitle = nextSubtitle;
+        updatedFields.customSubtitle = nextSubtitle;
+      }
 
-      const updatedFields = {
-        customTitle: nextTitle,
-        customDescription: nextDescription,
-        customSubtitle: nextSubtitle,
-      };
+      if (Object.keys(updatedFields).length === 0) return;
 
       if (tileId) {
         layoutStore.patchTileContent(tileId, updatedFields);
@@ -561,9 +648,31 @@ export default defineComponent({
     };
 
     onMounted(() => {
+      syncDrafts();
+      nextTick(() => autoResizeAll());
       document.addEventListener("click", handleDocumentClick);
       document.addEventListener("contextmenu", handleDocumentClick);
     });
+
+    // Keep drafts in sync with content prop changes when not editing
+    watch(
+      () => [
+        props.content.customTitle,
+        props.content.customDescription,
+        props.content.customSubtitle,
+        props.content.metaTitle,
+        props.content.metaDescription,
+        props.content.metaSiteName,
+        props.content.domain,
+        props.content.link,
+      ],
+      () => {
+        if (!isEditing.value) {
+          syncDrafts();
+          nextTick(() => autoResizeAll());
+        }
+      },
+    );
 
     onUnmounted(() => {
       document.removeEventListener("click", handleDocumentClick);
@@ -580,20 +689,74 @@ export default defineComponent({
       }
     };
 
+    const onTextWrapperClick = (event: MouseEvent) => {
+      if (!layoutStore.canEdit) return;
+      if (isEditing.value) return;
+
+      // Determine which field was clicked based on the textarea target
+      const target = event.target as HTMLElement;
+      if (target === descInputRef.value) {
+        clickedField.value = "description";
+      } else if (target === subtitleInputRef.value) {
+        clickedField.value = "subtitle";
+      } else {
+        clickedField.value = "title";
+      }
+
+      startEditing();
+    };
+
+    const lockScrollDuring = (fn: () => void) => {
+      const scrollEl = document.scrollingElement || document.documentElement;
+      const scrollTop = scrollEl.scrollTop;
+      fn();
+      // Restore scroll position on next frames to counteract any layout shift
+      requestAnimationFrame(() => {
+        scrollEl.scrollTop = scrollTop;
+        requestAnimationFrame(() => {
+          scrollEl.scrollTop = scrollTop;
+        });
+      });
+    };
+
     const startEditing = () => {
       if (!layoutStore.canEdit || isEditing.value) return;
-      isEditing.value = true;
-      syncDrafts();
+
+      userEditedTitle.value = false;
+      userEditedDescription.value = false;
+      userEditedSubtitle.value = false;
+
+      lockScrollDuring(() => {
+        isEditing.value = true;
+      });
+
       nextTick(() => {
+        autoResizeAll();
         setTimeout(() => {
-          titleInputRef.value?.focus();
+          // Focus the field that was clicked
+          if (clickedField.value === "description" && descInputRef.value) {
+            descInputRef.value.focus({ preventScroll: true });
+          } else if (
+            clickedField.value === "subtitle" &&
+            subtitleInputRef.value
+          ) {
+            subtitleInputRef.value.focus({ preventScroll: true });
+          } else {
+            titleInputRef.value?.focus({ preventScroll: true });
+          }
+          clickedField.value = null;
+
           // Register exit listener since @mousedown.stop bypasses GridTile's addClickListener
           exitClickHandler = (event: MouseEvent) => {
             if (
-              linkTileRef.value &&
-              !linkTileRef.value.contains(event.target as Node)
+              textWrapperRef.value &&
+              !textWrapperRef.value.contains(event.target as Node)
             ) {
-              isEditing.value = false;
+              lockScrollDuring(() => {
+                isEditing.value = false;
+                syncDrafts();
+              });
+              nextTick(() => autoResizeAll());
               flushPersist();
               removeExitClickHandler();
             }
@@ -618,7 +781,10 @@ export default defineComponent({
     const onExitClick = () => {
       if (!layoutStore.canEdit) return;
       if (!isEditing.value) return;
-      isEditing.value = false;
+      lockScrollDuring(() => {
+        isEditing.value = false;
+        syncDrafts();
+      });
       flushPersist();
       removeExitClickHandler();
     };
@@ -650,7 +816,17 @@ export default defineComponent({
       onExitClick,
       isEditing,
       startEditing,
+      onTextWrapperClick,
       titleInputRef,
+      descInputRef,
+      subtitleInputRef,
+      textWrapperRef,
+      textWrapperHovered,
+      hoveredField,
+      hasAnyText,
+      onTitleInput,
+      onDescriptionInput,
+      onSubtitleInput,
       titleLineClamp,
       isOneByOne,
       isWideOneHigh,
@@ -829,12 +1005,6 @@ export default defineComponent({
   display: block;
 }
 
-.tile-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 .tile-title {
   color: var(--tile-text-color);
   font-size: 16px;
@@ -879,35 +1049,126 @@ export default defineComponent({
   margin: 0;
 }
 
-.link-tile-content.is-owner .tile-text,
 .link-tile-content.is-owner .tile-title--wide {
   cursor: text;
   border-radius: var(--radius-sm);
   transition: background-color 0.3s ease;
 }
 
-.link-tile-content.is-owner:not(.is-editing) .tile-text:hover,
 .link-tile-content.is-owner:not(.is-editing) .tile-title--wide:hover {
   background-color: var(--color-editable-hover);
 }
 
+/* Wrapper div around the three text fields */
+.tile-text-wrapper {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  padding: 2px 0;
+  margin: -2px -6px;
+  overflow: hidden;
+  transition:
+    border-color 0.3s ease,
+    background-color 0.3s ease;
+  cursor: default;
+}
+
+.link-tile-content.is-owner .tile-text-wrapper {
+  cursor: text;
+}
+
+/* Hover state: border lights up */
+.tile-text-wrapper.is-hovered {
+  border-color: color-mix(in srgb, var(--tile-text-color) 25%, transparent);
+}
+
+/* Editing state: gray background + muted border */
+.tile-text-wrapper.is-editing {
+  background-color: color-mix(in srgb, var(--tile-text-color) 10%, transparent);
+  border-color: color-mix(in srgb, var(--tile-text-color) 15%, transparent);
+}
+
+/* In editing state, all inputs are visible and interactive */
+.tile-text-wrapper.is-editing .tile-input {
+  max-height: 200px;
+  opacity: 1;
+  pointer-events: auto;
+  cursor: text;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
 .tile-input {
   width: 100%;
-  border: 0px solid transparent;
-  background: color-mix(in srgb, var(--color-tile-background) 84%, transparent);
+  border: none;
+  background: transparent;
   color: var(--tile-text-color);
-  field-sizing: content;
-  padding: 0;
+  padding: 1px 6px;
   line-height: inherit;
   resize: none;
+  overflow: hidden;
+  border-radius: 0;
+  transition:
+    background-color 0.15s ease,
+    max-height 0.4s ease,
+    padding 0.4s ease,
+    margin-top 0.4s ease,
+    opacity 0.3s ease;
 }
 
 .tile-input:focus {
   outline: none;
-  border: 0px solid transparent;
-  padding: 0;
-  field-sizing: content;
   font-family: "Inter", sans-serif;
+}
+
+/* Display mode: look like plain text, not interactive */
+.tile-input.input-display {
+  pointer-events: none;
+  cursor: default;
+  background: transparent;
+}
+
+/* Collapsed: empty fields hidden when not editing */
+.tile-input.input-collapsed {
+  max-height: 0 !important;
+  height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  overflow: hidden;
+  opacity: 0;
+}
+
+/* Empty title in display mode — hide it unless it has placeholder-only role */
+.tile-input.input-empty {
+  max-height: 0 !important;
+  height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  overflow: hidden;
+  opacity: 0;
+}
+
+/* Placeholder-only: show the title textarea with muted placeholder text */
+.tile-input.input-placeholder-only {
+  max-height: 40px;
+  height: auto;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.tile-input.input-placeholder-only::placeholder {
+  color: transparent;
+  transition: color 0.2s ease;
+}
+
+.tile-text-wrapper.is-hovered .tile-input.input-placeholder-only::placeholder {
+  color: color-mix(in srgb, var(--tile-text-color) 55%, transparent);
+}
+
+/* Hover highlight in edit mode: background fill, not border */
+.tile-input.input-hovered {
+  background-color: color-mix(in srgb, var(--tile-text-color) 7%, transparent);
 }
 
 .tile-input--title {

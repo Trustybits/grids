@@ -51,7 +51,12 @@
             placeholder="Add a title"
             @keydown.enter.prevent
           />
-          <p v-else-if="displayTitle" class="tile-title tile-title--wide" @mousedown.stop @click="startEditing">
+          <p
+            v-else-if="displayTitle"
+            class="tile-title tile-title--wide"
+            @mousedown.stop
+            @click="startEditing"
+          >
             {{ displayTitle }}
           </p>
         </template>
@@ -61,7 +66,7 @@
           class="tile-link-indicator"
           aria-hidden="true"
         >
-          <LinkIndicatorIcon class="tile-link-indicator-icon"/>
+          <LinkIndicatorIcon class="tile-link-indicator-icon" />
         </div>
       </div>
 
@@ -102,8 +107,12 @@
         </template>
         <template v-else>
           <p v-if="displayTitle" class="tile-title">{{ displayTitle }}</p>
-          <p v-if="displayDescription" class="tile-description">{{ displayDescription }}</p>
-          <p v-if="displaySubtitle" class="tile-subtitle">{{ displaySubtitle }}</p>
+          <p v-if="displayDescription" class="tile-description">
+            {{ displayDescription }}
+          </p>
+          <p v-if="displaySubtitle" class="tile-subtitle">
+            {{ displaySubtitle }}
+          </p>
         </template>
       </div>
     </div>
@@ -192,6 +201,7 @@ import {
   onMounted,
   onUnmounted,
   nextTick,
+  watch,
 } from "vue";
 
 import { type LinkContent } from "@/types/TileContent";
@@ -200,11 +210,12 @@ import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
+import { useEditorAutosave } from "@/composables/useEditorAutosave";
 
 export default defineComponent({
   emits: ["background-color-change", "text-color-change"],
   components: {
-    LinkIndicatorIcon
+    LinkIndicatorIcon,
   },
   props: {
     content: {
@@ -277,13 +288,19 @@ export default defineComponent({
     const defaultSubtitle = computed(() => formatLink(props.content.link));
 
     const displayTitle = computed(() =>
-      props.content.customTitle !== undefined ? props.content.customTitle : defaultTitle.value
+      props.content.customTitle !== undefined
+        ? props.content.customTitle
+        : defaultTitle.value,
     );
     const displayDescription = computed(() =>
-      props.content.customDescription !== undefined ? props.content.customDescription : defaultDescription.value
+      props.content.customDescription !== undefined
+        ? props.content.customDescription
+        : defaultDescription.value,
     );
     const displaySubtitle = computed(() =>
-      props.content.customSubtitle !== undefined ? props.content.customSubtitle : defaultSubtitle.value
+      props.content.customSubtitle !== undefined
+        ? props.content.customSubtitle
+        : defaultSubtitle.value,
     );
     const backgroundImageUrl = computed(
       () => props.content.customImageUrl || props.content.metaImageUrl || "",
@@ -295,10 +312,33 @@ export default defineComponent({
     }));
 
     const syncDrafts = () => {
-      draftTitle.value = props.content.customTitle !== undefined ? props.content.customTitle : defaultTitle.value;
-      draftDescription.value = props.content.customDescription !== undefined ? props.content.customDescription : defaultDescription.value;
-      draftSubtitle.value = props.content.customSubtitle !== undefined ? props.content.customSubtitle : defaultSubtitle.value;
+      draftTitle.value =
+        props.content.customTitle !== undefined
+          ? props.content.customTitle
+          : defaultTitle.value;
+      draftDescription.value =
+        props.content.customDescription !== undefined
+          ? props.content.customDescription
+          : defaultDescription.value;
+      draftSubtitle.value =
+        props.content.customSubtitle !== undefined
+          ? props.content.customSubtitle
+          : defaultSubtitle.value;
     };
+
+    watch([draftTitle, draftDescription, draftSubtitle], (_new, _old, onCleanup) => {
+      if (isEditing.value) {
+        schedulePersist();
+      }
+
+      onCleanup(() => {
+        flushPersist();
+      });
+    })
+
+    const { schedulePersist, flushPersist } = useEditorAutosave(() =>
+      saveEdits(),
+    );
 
     const saveEdits = () => {
       if (!layoutStore.canEdit) return;
@@ -311,7 +351,17 @@ export default defineComponent({
       props.content.customDescription = nextDescription;
       props.content.customSubtitle = nextSubtitle;
 
-      layoutStore.saveLayout();
+      const updatedFields = {
+        customTitle: nextTitle,
+        customDescription: nextDescription,
+        customSubtitle: nextSubtitle,
+      };
+
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, updatedFields);
+      } else {
+        layoutStore.saveLayout();
+      }
     };
 
     const closeContextMenu = () => {
@@ -544,7 +594,7 @@ export default defineComponent({
               !linkTileRef.value.contains(event.target as Node)
             ) {
               isEditing.value = false;
-              saveEdits();
+              flushPersist();
               removeExitClickHandler();
             }
           };
@@ -569,7 +619,7 @@ export default defineComponent({
       if (!layoutStore.canEdit) return;
       if (!isEditing.value) return;
       isEditing.value = false;
-      saveEdits();
+      flushPersist();
       removeExitClickHandler();
     };
 

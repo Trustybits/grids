@@ -44,16 +44,37 @@
                   <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="currentColor" stroke-width="1.5"/>
                 </svg>
               </button>
-              <button 
-                @click.prevent="duplicateGrid(layout)"
-                class="action-button duplicate-button"
-                title="Duplicate grid"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
+              <!-- Split button: main click = full duplicate, chevron = structure only -->
+              <div class="split-button" @click.prevent>
+                <button 
+                  @click.prevent="duplicateGrid(layout, 'full')"
+                  class="action-button duplicate-button split-main"
+                  title="Duplicate grid (full copy)"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <button
+                  @click.prevent="toggleSplitMenu(layout.id)"
+                  class="action-button duplicate-button split-chevron"
+                  title="More duplicate options"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <!-- Dropdown for structure-only option -->
+                <div v-if="splitMenuOpenFor === layout.id" class="split-dropdown">
+                  <button
+                    @click.prevent="duplicateGrid(layout, 'structure')"
+                    class="split-dropdown-item"
+                  >
+                    Structure Only
+                  </button>
+                </div>
+              </div>
               <button 
                 @click.prevent="openRenameModal(layout)"
                 class="action-button rename-button"
@@ -101,7 +122,7 @@
 </template>
 
 <script setup>
-import { onMounted, computed, ref } from 'vue';
+import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLayoutStore } from '@/stores/layout';
 import { usePageTitle } from '@/composables/usePageTitle';
@@ -210,10 +231,24 @@ const handleRenameGrid = async (newName) => {
   }
 };
 
-// Duplicate a grid and navigate to the new copy
-const duplicateGrid = async (layout) => {
+// Split-button dropdown state: tracks which grid card's dropdown is open
+const splitMenuOpenFor = ref(null);
+
+const toggleSplitMenu = (layoutId) => {
+  splitMenuOpenFor.value = splitMenuOpenFor.value === layoutId ? null : layoutId;
+};
+
+// Close split menu when clicking anywhere outside
+const closeSplitMenu = () => { splitMenuOpenFor.value = null; };
+onMounted(() => document.addEventListener('click', closeSplitMenu));
+onUnmounted(() => document.removeEventListener('click', closeSplitMenu));
+
+// Duplicate a grid and navigate to the new copy.
+// copyDepth controls how much tile content is carried over.
+const duplicateGrid = async (layout, copyDepth = 'full') => {
+  splitMenuOpenFor.value = null;
   try {
-    const newId = await layoutStore.duplicateLayout(layout);
+    const newId = await layoutStore.duplicateLayout(layout, copyDepth);
     if (newId) {
       router.push(`/grid/${newId}`);
     }
@@ -443,7 +478,15 @@ h1 {
   box-shadow: 0 0 16px rgba(34, 197, 94, 0.5);
 } */
 
-/* Duplicate button styling */
+/* Split button container for duplicate actions */
+.split-button {
+  position: relative;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+/* Duplicate button styling (shared by both halves of the split button) */
 .duplicate-button {
   color: var(--color-content-default);
   border: none;
@@ -453,6 +496,56 @@ h1 {
 .duplicate-button:hover {
   opacity: 0.7;
   color: var(--color-text-primary);
+}
+
+/* Main (left) half of the split button — standard icon area */
+.split-main {
+  padding-right: 2px;
+}
+
+/* Chevron (right) half — smaller hit area */
+.split-chevron {
+  padding: 0 2px;
+  margin-left: -8px;
+  width: 14px !important;
+  min-width: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Dropdown that appears below the split button */
+.split-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+  min-width: 140px;
+  padding: 4px;
+}
+
+.split-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-base);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--color-base-34);
+  }
 }
 
 /* Rename button styling */

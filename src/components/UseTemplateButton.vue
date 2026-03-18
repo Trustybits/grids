@@ -46,7 +46,8 @@ const handleUseTemplate = async () => {
 
   if (!layoutStore.currentLayout) return;
 
-  const newId = await layoutStore.duplicateLayout(layoutStore.currentLayout, 'full');
+  // Public template copies only clone layout structure, not content
+  const newId = await layoutStore.duplicateLayout(layoutStore.currentLayout, 'structure');
   if (newId) {
     toastStore.addToast('Grid duplicated as a new template!', 'success');
     router.push(`/grid/${newId}`);

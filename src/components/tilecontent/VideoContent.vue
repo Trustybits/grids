@@ -91,7 +91,7 @@
 
       <!-- Link indicator -->
       <div
-        v-if="textLinkExists && !isFullscreen"
+        v-if="tileLinkExists && !isFullscreen"
         class="tile-link-indicator"
         aria-hidden="true"
         @click.stop="handleFollowLink"
@@ -708,7 +708,7 @@ export default defineComponent({
 
     const {
       showLinkModal,
-      textLinkExists,
+      tileLinkExists,
       openUrlInput,
       closeLinkModal,
       handleAddLink,
@@ -760,7 +760,7 @@ export default defineComponent({
       videoDimensions,
       tileDimensions,
       showLinkModal,
-      textLinkExists,
+      tileLinkExists,
       openUrlInput,
       closeLinkModal,
       handleAddLink,

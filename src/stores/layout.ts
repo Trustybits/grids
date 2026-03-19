@@ -57,6 +57,21 @@ const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
 };
 
 const layoutService = getLayoutService();
+
+// ── Save serialization ────────────────────────────────────────────────
+// Multiple callers (map moveend, style toggle, addTile, etc.) can invoke
+// saveLayout() in rapid succession.  Each call snapshots the reactive
+// layout and writes to Firestore.  Without serialization, an earlier
+// snapshot can land *after* a later one (async race), reverting changes.
+//
+// Solution: only one Firestore write may be in-flight at a time.  If a
+// new save is requested while one is running, we set a flag.  When the
+// in-flight write finishes, we re-snapshot the (now-latest) layout and
+// write again — guaranteeing the final persisted state matches the
+// current in-memory state.
+let _saveInFlight = false;
+let _saveQueued = false;
+
 const createTextDoc = (lines: string[]) => {
   const parseInlineMarkdown = (text: string) => {
     const nodes: Array<{
@@ -660,6 +675,18 @@ export const useLayoutStore = defineStore("layout", {
         return;
       }
 
+      // ── Serialization gate ──────────────────────────────────────
+      // If a Firestore write is already in progress, just mark that
+      // another save is needed.  The in-flight writer will re-snapshot
+      // the latest state when it finishes, so the final persisted
+      // document always reflects the most recent in-memory layout.
+      if (_saveInFlight) {
+        _saveQueued = true;
+        return;
+      }
+
+      _saveInFlight = true;
+
       try {
         // Deep-clone tiles to strip Pinia reactive proxies before sending to
         // Firestore.  A shallow spread loses nested objects (e.g. map center /
@@ -687,6 +714,15 @@ export const useLayoutStore = defineStore("layout", {
       } catch (err) {
         this.error = "Failed to save layout.";
         console.error(err);
+      } finally {
+        _saveInFlight = false;
+
+        // If another save was requested while we were writing,
+        // flush it now with the latest in-memory state.
+        if (_saveQueued) {
+          _saveQueued = false;
+          this.saveLayout();
+        }
       }
     },
 

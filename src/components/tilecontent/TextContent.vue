@@ -24,7 +24,7 @@
     >
       <EditorContent :editor="editor" />
       <div
-        v-if="!isTallOneWide && !isOneByOne && textLinkExists"
+        v-if="!isTallOneWide && !isOneByOne && tileLinkExists"
         class="tile-link-indicator"
         aria-hidden="true"
         @click="handleFollowLink"
@@ -32,7 +32,7 @@
         <LinkIndicatorIcon class="tile-link-indicator-icon" />
       </div>
       <div
-        v-if="isTallOneWide && textLinkExists"
+        v-if="isTallOneWide && tileLinkExists"
         class="tile-link-indicator tile-link-indicator--bottom"
         aria-hidden="true"
         @click="handleFollowLink"
@@ -225,7 +225,7 @@ export default defineComponent({
 
     const onShortClick = () => {
       if (!layoutStore.canEdit) {
-        if (textLinkExists.value) {
+        if (tileLinkExists.value) {
           handleFollowLink();
         }
         return;
@@ -272,7 +272,7 @@ export default defineComponent({
 
     const {
       showLinkModal,
-      textLinkExists,
+      tileLinkExists,
       openUrlInput,
       closeLinkModal,
       handleAddLink,
@@ -411,7 +411,7 @@ export default defineComponent({
       isTallOneWide,
       isOneByOne,
       isWideOneHigh,
-      textLinkExists,
+      tileLinkExists,
       backgroundColor,
       textColor,
       textAlign,
@@ -567,6 +567,10 @@ export default defineComponent({
 
 .text-content.viewer-view:hover .tile-link-indicator {
   opacity: 1;
+}
+
+.text-content.viewer-view:hover {
+  cursor: pointer;
 }
 
 .text-content.owner-view .tile-link-indicator:hover {

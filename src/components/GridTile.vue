@@ -114,13 +114,11 @@
           {{ `x: ${tile.x}, y: ${tile.y} w: ${tile.w} h: ${tile.h}` }}
         </p>
 
-        <button
-          v-if="layoutStore.canEdit"
-          class="btn btn-sm btn-danger btn-close"
-          @mousedown.stop
-          @mouseup.stop
-          @click.stop="removeElement"
-        ></button>
+        <TileActions
+          v-if="layoutStore.canEdit && !isSuggestion"
+          :tile="tile"
+          @delete="removeElement"
+        />
 
         <TileActions
           v-if="layoutStore.canEdit && !isSuggestion"
@@ -975,71 +973,6 @@ export default defineComponent({
   top: 10px;
 }
 
-/* Remove Button */
-.btn-close {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  z-index: 1;
-  cursor: pointer;
-  border-radius: 100%;
-  padding: 3px;
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  /* Hidden by default with smooth animation properties using tokens */
-  opacity: 0;
-  transform: scale(0.2);
-  pointer-events: none;
-  transition:
-    transform var(--duration-normal) var(--easing-spring),
-    // opacity var(--duration-fast) var(--easing-ease-out),
-    background-color var(--duration-fast) var(--easing-ease-in-out),
-    color var(--duration-fast) var(--easing-ease-in-out),
-    border-color var(--duration-fast) var(--easing-ease-in-out);
-
-  /* Default state - solid colors */
-  background-color: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-
-  /* Override Bootstrap btn-close filter to use our color token */
-  filter: none;
-  background-image: none;
-
-  /* X icon styling - uses pseudo-element for proper color control */
-  &::before,
-  &::after {
-    content: "";
-    position: absolute;
-    width: 12px;
-    height: 2px;
-    background-color: var(--color-text-primary);
-    transition: background-color var(--duration-normal)
-      var(--easing-ease-in-out);
-  }
-
-  &::before {
-    transform: rotate(45deg);
-  }
-
-  &::after {
-    transform: rotate(-45deg);
-  }
-
-  /* Button hover state - turns red */
-  &:hover {
-    background-color: #ff3737;
-    border-color: #ff3737;
-
-    &::before,
-    &::after {
-      background-color: #ffffff;
-    }
-  }
-}
 
 /* Customizable Header Styles */
 .header-options {
@@ -1074,12 +1007,6 @@ export default defineComponent({
   display: flex;
 }
 
-.tile-wrapper:hover .btn-close,
-.tile-wrapper.is-activated .btn-close {
-  opacity: 1;
-  transform: scale(1);
-  pointer-events: auto;
-}
 
 /* Non-owner caption: hide on tile hover or activation */
 .tile-wrapper:hover :deep(.viewer-caption),
@@ -1087,14 +1014,21 @@ export default defineComponent({
   display: none;
 }
 
-/* Hide close button during crop mode, exiting, and while dragging */
-.tile-wrapper.crop-mode-active .btn-close,
-.tile-wrapper.crop-mode-exiting .btn-close,
-.tile-wrapper.is-exiting .btn-close,
-.tile-wrapper.is-dragging .btn-close,
-.tile-wrapper.is-activated.is-dragging .btn-close {
+
+/* Show tile actions on hover and activation */
+.tile-wrapper:hover :deep(.tile-actions),
+.tile-wrapper.is-activated :deep(.tile-actions) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Hide tile actions during crop mode, exiting, and while dragging */
+.tile-wrapper.crop-mode-active :deep(.tile-actions),
+.tile-wrapper.crop-mode-exiting :deep(.tile-actions),
+.tile-wrapper.is-exiting :deep(.tile-actions),
+.tile-wrapper.is-dragging :deep(.tile-actions),
+.tile-wrapper.is-activated.is-dragging :deep(.tile-actions) {
   opacity: 0;
-  transform: scale(0);
   pointer-events: none;
 }
 

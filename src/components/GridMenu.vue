@@ -30,6 +30,12 @@
             v-model="verticalCompact"
             tooltip="When enabled, tiles automatically move up to fill empty space"
           />
+          <Toggle 
+            v-if="isOwner"
+            label="Allow Public Template" 
+            v-model="duplicatable"
+            tooltip="When enabled, anyone can duplicate this grid's structure as a template"
+          />
         </MenuSection>
 
         <!-- Breakpoint Layout -->
@@ -55,6 +61,28 @@
 
         <!-- Owner Actions -->
         <MenuSection v-if="isOwner">
+          <!--
+            Ghost split button: main area triggers a full duplicate,
+            chevron reveals a "Structure Only" alternative.
+          -->
+          <div class="ghost-split-button">
+            <button class="ghost-split-main" @click="duplicateGrid('full')">
+              Duplicate Grid
+            </button>
+            <button
+              class="ghost-split-chevron"
+              @click.stop="showDuplicateDropdown = !showDuplicateDropdown"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <div v-if="showDuplicateDropdown" class="ghost-split-dropdown">
+              <button class="ghost-split-dropdown-item" @click="duplicateGrid('structure')">
+                Structure Only
+              </button>
+            </div>
+          </div>
           <MenuItem danger @click="confirmDelete">
             Delete Grid
           </MenuItem>
@@ -83,6 +111,7 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { getAuth } from "firebase/auth";
 import { useLayoutStore } from "@/stores/layout";
+import type { CopyDepth } from "@/types/Layout";
 import { useThemeStore } from "@/stores/theme";
 import { useToastStore } from "@/stores/toast";
 import { usePixelRacersStore } from "@/stores/pixelRacers";
@@ -100,6 +129,7 @@ const toastStore = useToastStore();
 const gameStore = usePixelRacersStore();
 const auth = getAuth();
 const showMenu = ref(false);
+const showDuplicateDropdown = ref(false);
 const menuRef = ref<HTMLElement | null>(null);
 
 const isOwner = computed(() => {
@@ -178,6 +208,25 @@ const resetBreakpoint = () => {
     'success'
   );
   showMenu.value = false;
+};
+
+// Computed property with setter to handle the public duplication toggle
+const duplicatable = computed({
+  get: () => layoutStore.currentLayout?.duplicatable ?? false,
+  set: (value: boolean) => layoutStore.setDuplicatable(value)
+});
+
+// Duplicate the current grid and navigate to the new copy.
+// copyDepth controls how much tile content is carried over.
+const duplicateGrid = async (copyDepth: CopyDepth = 'full') => {
+  if (!layoutStore.currentLayout) return;
+
+  const newId = await layoutStore.duplicateLayout(layoutStore.currentLayout, copyDepth);
+  showDuplicateDropdown.value = false;
+  showMenu.value = false;
+  if (newId) {
+    router.push(`/grid/${newId}`);
+  }
 };
 
 // Handle grid deletion directly — no need to bubble up through parent components
@@ -319,5 +368,91 @@ const launchPixelRacers = () => {
   color: var(--color-content-low);
   padding: var(--spacing-xs) var(--spacing-sm);
   font-weight: 500;
+}
+
+/* ── Ghost split button ─────────────────────────────────────────────
+   A borderless split button that blends into the menu. The main area
+   acts like a regular MenuItem; the chevron reveals alternatives.    */
+.ghost-split-button {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.ghost-split-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm);
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  min-height: 40px;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  transition: background-color var(--duration-fast) var(--easing-smooth);
+
+  &:hover {
+    background-color: var(--color-base-34);
+  }
+}
+
+.ghost-split-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--color-tile-stroke);
+  color: var(--color-content-low);
+  cursor: pointer;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  transition: background-color var(--duration-fast) var(--easing-smooth),
+              color var(--duration-fast) var(--easing-smooth);
+
+  &:hover {
+    background-color: var(--color-base-34);
+    color: var(--color-text-primary);
+  }
+}
+
+.ghost-split-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+  min-width: 140px;
+  padding: 4px;
+}
+
+.ghost-split-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-base);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--color-base-34);
+  }
 }
 </style>

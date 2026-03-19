@@ -3,13 +3,13 @@ import { useLayoutStore } from "@/stores/layout";
 import { useToastStore } from "@/stores/toast";
 
 interface LinkableContent {
-  textLink?: string;
+  tileLink?: string;
 }
 
 export interface TileLinkValues {
   showLinkModal: Ref<boolean>;
-  textLink: Ref<string | undefined>;
-  textLinkExists: Ref<boolean>;
+  tileLink: Ref<string | undefined>;
+  tileLinkExists: Ref<boolean>;
   openUrlInput: () => void;
   closeLinkModal: () => void;
   handleAddLink: (link: string) => void;
@@ -25,8 +25,8 @@ export const useTileLink = (
   const toastStore = useToastStore();
   const showLinkModal = ref(false);
 
-  const textLink = computed(() => content?.textLink);
-  const textLinkExists = computed(() => !!content?.textLink);
+  const tileLink = computed(() => content?.tileLink);
+  const tileLinkExists = computed(() => !!content?.tileLink);
 
   const openUrlInput = () => {
     if (!layoutStore.isOwner) return;
@@ -59,9 +59,9 @@ export const useTileLink = (
       toastStore.addToast("Invalid URL format", "error");
       return;
     }
-    content.textLink = normalized;
+    content.tileLink = normalized;
     if (tileId) {
-      layoutStore.patchTileContent(tileId, { textLink: normalized });
+      layoutStore.patchTileContent(tileId, { tileLink: normalized });
     } else {
       layoutStore.saveLayout();
     }
@@ -69,15 +69,15 @@ export const useTileLink = (
   };
 
   const handleFollowLink = () => {
-    if (!textLinkExists.value) return;
-    window.open(textLink.value, "_blank", "noopener,noreferrer");
+    if (!tileLinkExists.value) return;
+    window.open(tileLink.value, "_blank", "noopener,noreferrer");
   };
 
   const clearLink = () => {
     if (!layoutStore.isOwner) return;
-    content.textLink = undefined;
+    content.tileLink = undefined;
     if (tileId) {
-      layoutStore.patchTileContent(tileId, { textLink: "" });
+      layoutStore.patchTileContent(tileId, { tileLink: "" });
     } else {
       layoutStore.saveLayout();
     }
@@ -85,8 +85,8 @@ export const useTileLink = (
 
   return {
     showLinkModal,
-    textLink,
-    textLinkExists,
+    tileLink,
+    tileLinkExists,
     openUrlInput,
     closeLinkModal,
     handleAddLink,

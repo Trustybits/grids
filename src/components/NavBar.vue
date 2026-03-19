@@ -1,7 +1,7 @@
 <template>
   <nav class="navbar navbar-expand-lg bkg-neutral txt-primary">
     <div class="container-fluid container">
-      <LayoutTitleEditor v-if="showTitleEditor" />
+      <LayoutTitleEditor v-if="showTitleEditor" :isAuthenticated="!!user" />
       <h2 v-else>Grid</h2>
 
       <div class="nav-links">

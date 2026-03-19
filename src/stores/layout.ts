@@ -6,7 +6,7 @@ import {
   type TileContent,
   type AnyTileContent,
 } from "@/types/TileContent";
-import type { Breakpoint, TilePosition } from "@/types/Tile";
+import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
 import {
   collection,
@@ -882,6 +882,62 @@ export const useLayoutStore = defineStore("layout", {
     //     console.warn(`Tile with ID ${id} not found.`);
     //   }
     // },
+
+    // Duplicate a tile — deep-copies content, preserves size, places nearby
+    duplicateTile(id: string): string | null {
+      if (!this.currentLayout) return null;
+
+      const source = this.currentLayout.tiles.find((t) => t.i === id);
+      if (!source) return null;
+
+      // Use the currently displayed size (which may come from breakpoint
+      // overrides) so the duplicate matches what the user actually sees.
+      const bp = this.activeBreakpoint;
+      const bpOverride = this.currentLayout.overrides?.[bp]?.[id];
+      const w = bpOverride?.w ?? source.w;
+      const h = bpOverride?.h ?? source.h;
+
+      // Place the duplicate just below the source tile
+      const sourceY = bpOverride?.y ?? source.y;
+      const targetY = sourceY + h;
+      const position = this.findBestXAtRow(w, h, targetY);
+      this.pushTilesForNewItem(position.x, position.y, w, h);
+
+      const newId = uuidv4();
+
+      const newTile: Tile = {
+        i: newId,
+        x: position.x,
+        y: position.y,
+        w,
+        h,
+        borderEnabled: source.borderEnabled,
+        caption: source.caption,
+        content: JSON.parse(JSON.stringify(source.content)),
+      };
+
+      this.currentLayout.tiles.push(newTile);
+
+      // Copy breakpoint overrides from the source tile to the duplicate
+      if (this.currentLayout.overrides) {
+        for (const overrideBp of Object.keys(
+          this.currentLayout.overrides,
+        ) as Breakpoint[]) {
+          const posMap = this.currentLayout.overrides[overrideBp];
+          if (posMap?.[id]) {
+            posMap[newId] = {
+              ...posMap[id],
+              x: position.x,
+              y: position.y,
+            };
+          }
+        }
+      }
+
+      this.updateLayout();
+
+      return newId;
+    },
 
     // Remove a tile (also cleans up any optimistic upload state)
     removeTile(id: string) {

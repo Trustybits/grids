@@ -401,11 +401,16 @@ export default defineComponent({
         return;
       }
 
+      if (item.id === "tile-link" && !(ctx.value.tile.content as any)?.tileLink) {
+        closeMenu();
+      }
+
+
       item.action(ctx.value);
     };
 
     const onMenuItemClick = (mi: ToolbarMenuItem) => {
-      if (mi.id === "tile-link" && !(ctx.value.tile.content as any)?.textLink) {
+      if (mi.id === "tile-link" && !(ctx.value.tile.content as any)?.tileLink) {
         closeMenu();
       }
       mi.action(ctx.value);

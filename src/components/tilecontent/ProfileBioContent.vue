@@ -10,7 +10,7 @@
             height="0"
           >
             <defs>
-              <clipPath :id="clipPathId" clipPathUnits="objectBoundingBox">
+              <clipPath :id="clipPathId" clipPathUnits="userSpaceOnUse">
                 <path :d="hexPath" />
               </clipPath>
             </defs>
@@ -572,26 +572,31 @@ export default defineComponent({
       if (avatarInput.value) avatarInput.value.value = "";
     };
 
+    const hexBleed = computed(() => {
+      // How many px the hex top/bottom extend beyond the square container
+      const w = avatarSize.value;
+      const fullHeight = w * 2 / Math.sqrt(3); // regular hex height
+      return (fullHeight - w) / 2;
+    });
+
     const generateRoundedHexagonPath = (size: number, radius: number) => {
-      const hPadding = (0.97 - Math.sqrt(3) / 2) / 2;
-      const vPadding = -0.02;
-      const xMin = hPadding;
-      const xMax = 1 - hPadding;
-      const yMin = vPadding;
-      const yMax = 1 - vPadding;
-      const yScale = yMax - yMin;
+      // Regular flat-top hexagon in pixel coords (userSpaceOnUse).
+      // Width = size, height = size * 2/√3 ≈ size * 1.1547.
+      // Centered vertically on the avatar-media element which is offset
+      // upward by hexBleed so that the hex is visually centered in .avatar.
+      const w = size;
+      const h = w / Math.sqrt(3); // half-height in px
+      const cy = w / 2 + hexBleed.value; // center Y inside the taller media box
       const points = [
-        { x: 0.5, y: yMin },
-        { x: xMax, y: yMin + 0.25 * yScale },
-        { x: xMax, y: yMin + 0.75 * yScale },
-        { x: 0.5, y: yMax },
-        { x: xMin, y: yMin + 0.75 * yScale },
-        { x: xMin, y: yMin + 0.25 * yScale },
+        { x: w / 2, y: cy - h },
+        { x: w,     y: cy - h / 2 },
+        { x: w,     y: cy + h / 2 },
+        { x: w / 2, y: cy + h },
+        { x: 0,     y: cy + h / 2 },
+        { x: 0,     y: cy - h / 2 },
       ];
 
-      const normalizedRadius = radius / size;
-
-      if (normalizedRadius === 0) {
+      if (radius === 0) {
         return `M ${points[0].x} ${points[0].y} ${points
           .slice(1)
           .map((point) => `L ${point.x} ${point.y}`)
@@ -612,7 +617,7 @@ export default defineComponent({
         const dy2 = next.y - current.y;
         const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
 
-        const offset = Math.min(normalizedRadius, len1 / 2, len2 / 2);
+        const offset = Math.min(radius, len1 / 2, len2 / 2);
         const x1 = current.x - (dx1 / len1) * offset;
         const y1 = current.y - (dy1 / len1) * offset;
         const x2 = current.x + (dx2 / len2) * offset;
@@ -630,7 +635,12 @@ export default defineComponent({
 
     const avatarMediaStyle = computed(() => {
       if (avatarShape.value === "hex") {
-        return { clipPath: `url(#${clipPathId})` };
+        const bleed = hexBleed.value;
+        return {
+          clipPath: `url(#${clipPathId})`,
+          top: `${-bleed}px`,
+          height: `calc(100% + ${bleed * 2}px)`,
+        };
       }
       const radius =
         avatarShape.value === "circle" ? "50%" : `${avatarRadius.value}px`;
@@ -715,7 +725,7 @@ export default defineComponent({
 
 .profile-avatar-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--spacing-lg);
   width: 100%;
 }

@@ -120,6 +120,12 @@
           @delete="removeElement"
         />
 
+        <TileActions
+          v-if="layoutStore.canEdit && !isSuggestion"
+          :tile="tile"
+          @delete="removeElement"
+        />
+
         <TileCaption
           v-if="showCaption && (layoutStore.canEdit || tile.caption)"
           :tile="tile"
@@ -1008,6 +1014,23 @@ export default defineComponent({
   display: none;
 }
 
+
+/* Show tile actions on hover and activation */
+.tile-wrapper:hover :deep(.tile-actions),
+.tile-wrapper.is-activated :deep(.tile-actions) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Hide tile actions during crop mode, exiting, and while dragging */
+.tile-wrapper.crop-mode-active :deep(.tile-actions),
+.tile-wrapper.crop-mode-exiting :deep(.tile-actions),
+.tile-wrapper.is-exiting :deep(.tile-actions),
+.tile-wrapper.is-dragging :deep(.tile-actions),
+.tile-wrapper.is-activated.is-dragging :deep(.tile-actions) {
+  opacity: 0;
+  pointer-events: none;
+}
 
 /* Show tile actions on hover and activation */
 .tile-wrapper:hover :deep(.tile-actions),

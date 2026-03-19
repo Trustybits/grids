@@ -30,7 +30,7 @@ export interface TextContent extends TileContent {
   textType: string;
   color: string;
   textAlign?: "left" | "center" | "right";
-  textLink?: string;
+  tileLink?: string;
   backgroundColor?: string;
 }
 
@@ -53,7 +53,7 @@ export interface ImageContent extends TileContent {
   offsetX: number;
   offsetY: number;
   backgroundColor?: string;
-  textLink?: string;
+  tileLink?: string;
 }
 
 export interface LinkContent extends TileContent {
@@ -85,7 +85,7 @@ export interface VideoContent extends TileContent {
   offsetX: number;
   offsetY: number;
   backgroundColor?: string;
-  textLink?: string;
+  tileLink?: string;
 }
 
 export type MapStyleMode =

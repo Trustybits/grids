@@ -8,6 +8,7 @@
         'crop-active': isEditing,
         'owner-view': layoutStore.isOwner,
         'viewer-view': !layoutStore.isOwner,
+        'has-link': tileLinkExists,
       }"
       @mousedown="startDragging"
       @mouseup="stopDragging"
@@ -55,7 +56,7 @@
 
       <!-- Link indicator -->
       <div
-        v-if="textLinkExists"
+        v-if="tileLinkExists"
         class="tile-link-indicator"
         aria-hidden="true"
         @click.stop="handleFollowLink"
@@ -234,7 +235,9 @@ export default defineComponent({
         ? isDragging.value
           ? "grabbing"
           : "grab"
-        : "default";
+        : !layoutStore.isOwner && tileLinkExists.value
+          ? "pointer"
+          : "default";
       const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
 
       if (
@@ -308,7 +311,7 @@ export default defineComponent({
 
     const {
       showLinkModal,
-      textLinkExists,
+      tileLinkExists,
       openUrlInput,
       closeLinkModal,
       handleAddLink,
@@ -317,7 +320,7 @@ export default defineComponent({
     } = useTileLink(tileId || null, props.content);
 
     const onShortClick = () => {
-      if (!layoutStore.isOwner && textLinkExists.value) {
+      if (!layoutStore.isOwner && tileLinkExists.value) {
         handleFollowLink();
       }
     };
@@ -340,7 +343,7 @@ export default defineComponent({
       overlayColor,
       handleBackgroundColorChange,
       showLinkModal,
-      textLinkExists,
+      tileLinkExists,
       openUrlInput,
       closeLinkModal,
       handleAddLink,
@@ -453,8 +456,12 @@ export default defineComponent({
   z-index: 4;
 }
 
-.image-wrapper.viewer-view:hover .tile-link-indicator {
+.image-wrapper.viewer-view.has-link:hover .tile-link-indicator {
   opacity: 1;
+}
+
+.image-wrapper.viewer-view.has-link:hover {
+  cursor: pointer !important;
 }
 
 .image-wrapper.owner-view .tile-link-indicator:hover {

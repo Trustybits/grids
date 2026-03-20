@@ -557,6 +557,8 @@ export default defineComponent({
     // Compute geometry for a regular N-gon oriented with a vertex at top.
     // The polygon is sized so min(bboxWidth, bboxHeight) = avatarSize,
     // ensuring all shapes are at least 152×152. The larger dimension overflows.
+    // The polygon's BOUNDING BOX is centered within the container so that
+    // overflow is distributed equally on all sides.
     const polyGeometry = computed(() => {
       const n = avatarSides.value;
       const size = avatarSize.value;
@@ -577,6 +579,10 @@ export default defineComponent({
       const unitW = maxX - minX;
       const unitH = maxY - minY;
 
+      // Center of the bounding box in unit space (relative to circumcenter)
+      const unitBboxCenterX = (minX + maxX) / 2;
+      const unitBboxCenterY = (minY + maxY) / 2;
+
       // Scale R so that min(bboxW, bboxH) = size
       const R = size / Math.min(unitW, unitH);
       const bboxW = unitW * R;
@@ -586,7 +592,12 @@ export default defineComponent({
       const bleedX = Math.max(0, (bboxW - size) / 2);
       const bleedY = Math.max(0, (bboxH - size) / 2);
 
-      return { R, bboxW, bboxH, bleedX, bleedY };
+      // Offset from circumcenter to bounding-box center (in px).
+      // For odd-sided polygons this is non-zero vertically.
+      const bboxOffsetX = unitBboxCenterX * R;
+      const bboxOffsetY = unitBboxCenterY * R;
+
+      return { R, bboxW, bboxH, bleedX, bleedY, bboxOffsetX, bboxOffsetY };
     });
 
     // --- Radius drag handle ---
@@ -636,10 +647,10 @@ export default defineComponent({
     // We pick the vertex closest to bottom-left for the radius handle.
     const polyHandleVertex = computed(() => {
       const n = avatarSides.value;
-      const { R, bleedX, bleedY } = polyGeometry.value;
+      const { R, bleedX, bleedY, bboxOffsetX, bboxOffsetY } = polyGeometry.value;
       const size = avatarSize.value;
-      const cx = size / 2 + bleedX;
-      const cy = size / 2 + bleedY;
+      const cx = size / 2 + bleedX - bboxOffsetX;
+      const cy = size / 2 + bleedY - bboxOffsetY;
       const angleOffset = -Math.PI / 2;
 
       const vertices: { x: number; y: number }[] = [];
@@ -921,12 +932,16 @@ export default defineComponent({
       radius: number,
     ) => {
       const n = Math.max(3, Math.min(8, Math.round(sides)));
-      const { R, bleedX, bleedY } = polyGeometry.value;
+      const { R, bleedX, bleedY, bboxOffsetX, bboxOffsetY } = polyGeometry.value;
       const size = avatarSize.value;
 
-      // Center of the polygon inside the expanded media box
-      const cx = size / 2 + bleedX;
-      const cy = size / 2 + bleedY;
+      // The media box is (size + 2*bleedX) × (size + 2*bleedY).
+      // We want the polygon's BOUNDING BOX centered in the media box.
+      // The media-box center is at (size/2 + bleedX, size/2 + bleedY).
+      // The bbox center = circumcenter + bboxOffset, so:
+      // circumcenter = media-box center - bboxOffset
+      const cx = size / 2 + bleedX - bboxOffsetX;
+      const cy = size / 2 + bleedY - bboxOffsetY;
 
       const angleOffset = -Math.PI / 2;
       const vertices: { x: number; y: number }[] = [];

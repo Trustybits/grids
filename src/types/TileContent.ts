@@ -158,6 +158,7 @@ export interface ProfileBioContent extends TileContent {
   bio: string;
   avatarShape: AvatarShape;
   avatarRadius: number;
+  avatarSides?: number; // polygon side count (3–8), default 6
   profilePhotoUrl?: string; // URL of the uploaded profile photo
   backgroundColor?: string;
 }

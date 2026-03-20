@@ -326,15 +326,80 @@ export default defineComponent({
           : defaultSubtitle.value;
     };
 
-    watch([draftTitle, draftDescription, draftSubtitle], (_new, _old, onCleanup) => {
-      if (isEditing.value) {
-        schedulePersist();
-      }
+    // Track whether the user has ever manually edited each field
+    const userEditedTitle = ref(props.content.customTitle !== undefined);
+    const userEditedDescription = ref(
+      props.content.customDescription !== undefined,
+    );
+    const userEditedSubtitle = ref(props.content.customSubtitle !== undefined);
 
-      onCleanup(() => {
-        flushPersist();
-      });
-    })
+    watch(
+      [draftTitle, draftDescription, draftSubtitle],
+      (_new, _old, onCleanup) => {
+        if (isEditing.value) {
+          // Mark fields as user-edited once the user starts typing
+          userEditedTitle.value = true;
+          userEditedDescription.value = true;
+          userEditedSubtitle.value = true;
+          schedulePersist();
+        }
+
+        onCleanup(() => {
+          if (isEditing.value) {
+            flushPersist();
+          }
+        });
+      },
+    );
+
+    // When metadata arrives from getLinkPreview and the user hasn't manually
+    // edited a field yet, bake the metadata into the custom fields so it's
+    // persisted in the DB and survives future loads.
+    watch(
+      () => ({
+        metaTitle: props.content.metaTitle,
+        metaDescription: props.content.metaDescription,
+        metaSiteName: props.content.metaSiteName,
+        link: props.content.link,
+      }),
+      (newMeta) => {
+        if (!tileId || !layoutStore.canEdit) return;
+        // Only run when not editing — this handles the async metadata fetch
+        if (isEditing.value) return;
+
+        const patch: Record<string, string> = {};
+
+        if (!userEditedTitle.value) {
+          const title = newMeta.metaTitle || newMeta.metaSiteName || "";
+          if (title) {
+            patch.customTitle = title;
+            userEditedTitle.value = true;
+          }
+        }
+
+        if (!userEditedDescription.value) {
+          const desc = newMeta.metaDescription || "";
+          if (desc) {
+            patch.customDescription = desc;
+            userEditedDescription.value = true;
+          }
+        }
+
+        if (!userEditedSubtitle.value) {
+          const sub = formatLink(newMeta.link);
+          if (sub) {
+            patch.customSubtitle = sub;
+            userEditedSubtitle.value = true;
+          }
+        }
+
+        if (Object.keys(patch).length > 0) {
+          // Write metadata into custom fields on the content object
+          Object.assign(props.content, patch);
+          layoutStore.patchTileContent(tileId, patch);
+        }
+      },
+    );
 
     const { schedulePersist, flushPersist } = useEditorAutosave(() =>
       saveEdits(),

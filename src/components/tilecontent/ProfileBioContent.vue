@@ -11,7 +11,7 @@
           >
             <defs>
               <clipPath :id="clipPathId" clipPathUnits="userSpaceOnUse">
-                <path :d="hexPath" />
+                <path class="polygon-clip-path" :d="polygonPath" />
               </clipPath>
             </defs>
           </svg>
@@ -45,6 +45,37 @@
             class="radius-value-label"
             :style="radiusLabelStyle"
           >{{ avatarRadius }}</span>
+
+          <!-- Corners-count slider — centered below avatar -->
+          <div
+            v-if="avatarShape === 'hex' && layoutStore.canEdit && isEditing"
+            class="sides-slider"
+            @mouseenter="sidesSliderHovered = true"
+            @mouseleave="sidesSliderHovered = false"
+          >
+            <span
+              class="sides-label sides-label--min"
+              :class="{ visible: sidesSliderHovered || isDraggingSides }"
+            >3</span>
+            <div
+              class="sides-track-container"
+              ref="sidesTrackRef"
+            >
+              <div
+                class="sides-track"
+                :class="{ visible: sidesSliderHovered || isDraggingSides }"
+              ></div>
+              <div
+                class="sides-knob"
+                :style="sidesKnobStyle"
+                @pointerdown.stop.prevent="onSidesKnobDown"
+              ></div>
+            </div>
+            <span
+              class="sides-label sides-label--max"
+              :class="{ visible: sidesSliderHovered || isDraggingSides }"
+            >8</span>
+          </div>
         </div>
       </div>
 
@@ -271,6 +302,7 @@ export default defineComponent({
     const clipPathId = `avatar-clip-${Math.random().toString(36).slice(2, 9)}`;
 
     const avatarRadius = ref(props.content.avatarRadius ?? 12);
+    const avatarSides = ref(props.content.avatarSides ?? 6);
     const showUrlInput = ref(false);
     const draftAvatarUrl = ref("");
     const urlError = ref("");
@@ -491,6 +523,15 @@ export default defineComponent({
       },
     );
 
+    watch(
+      () => props.content.avatarSides,
+      (value) => {
+        if (typeof value === "number") {
+          avatarSides.value = value;
+        }
+      },
+    );
+
     const setAvatarShape = (shape: AvatarShape) => {
       if (!layoutStore.canEdit) return;
       props.content.avatarShape = shape;
@@ -498,6 +539,9 @@ export default defineComponent({
     };
 
     const isDraggingRadius = ref(false);
+    const isDraggingSides = ref(false);
+    const sidesSliderHovered = ref(false);
+    const sidesTrackRef = ref<HTMLDivElement | null>(null);
 
     const onRadiusInput = (event: Event) => {
       const target = event.target as HTMLInputElement;
@@ -510,11 +554,39 @@ export default defineComponent({
       layoutStore.saveLayout();
     };
 
-    const hexBleed = computed(() => {
-      // How many px the hex top/bottom extend beyond the square container
-      const w = avatarSize.value;
-      const fullHeight = w * 2 / Math.sqrt(3); // regular hex height
-      return (fullHeight - w) / 2;
+    // Compute geometry for a regular N-gon oriented with a vertex at top.
+    // The polygon is sized so min(bboxWidth, bboxHeight) = avatarSize,
+    // ensuring all shapes are at least 152×152. The larger dimension overflows.
+    const polyGeometry = computed(() => {
+      const n = avatarSides.value;
+      const size = avatarSize.value;
+      const angleOffset = -Math.PI / 2;
+
+      // Compute bounding box of a unit-circumradius N-gon (R=1)
+      let minX = Infinity, maxX = -Infinity;
+      let minY = Infinity, maxY = -Infinity;
+      for (let i = 0; i < n; i++) {
+        const angle = angleOffset + (2 * Math.PI * i) / n;
+        const x = Math.cos(angle);
+        const y = Math.sin(angle);
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+      }
+      const unitW = maxX - minX;
+      const unitH = maxY - minY;
+
+      // Scale R so that min(bboxW, bboxH) = size
+      const R = size / Math.min(unitW, unitH);
+      const bboxW = unitW * R;
+      const bboxH = unitH * R;
+
+      // Overflow beyond the 152px container on each side
+      const bleedX = Math.max(0, (bboxW - size) / 2);
+      const bleedY = Math.max(0, (bboxH - size) / 2);
+
+      return { R, bboxW, bboxH, bleedX, bleedY };
     });
 
     // --- Radius drag handle ---
@@ -560,22 +632,51 @@ export default defineComponent({
       document.addEventListener("pointerup", onUp);
     };
 
+    // Helper: get the bottom-left-ish vertex of the current polygon.
+    // We pick the vertex closest to bottom-left for the radius handle.
+    const polyHandleVertex = computed(() => {
+      const n = avatarSides.value;
+      const { R, bleedX, bleedY } = polyGeometry.value;
+      const size = avatarSize.value;
+      const cx = size / 2 + bleedX;
+      const cy = size / 2 + bleedY;
+      const angleOffset = -Math.PI / 2;
+
+      const vertices: { x: number; y: number }[] = [];
+      for (let i = 0; i < n; i++) {
+        const angle = angleOffset + (2 * Math.PI * i) / n;
+        vertices.push({ x: cx + R * Math.cos(angle), y: cy + R * Math.sin(angle) });
+      }
+
+      // Pick the vertex with the smallest x among those in the bottom half,
+      // i.e. closest to bottom-left.
+      let bestIdx = 0;
+      let bestScore = Infinity;
+      for (let i = 0; i < n; i++) {
+        const v = vertices[i];
+        if (v.y >= cy) {
+          const score = v.x - v.y; // lower-left has small x, large y → smallest score
+          if (score < bestScore) {
+            bestScore = score;
+            bestIdx = i;
+          }
+        }
+      }
+
+      const corner = vertices[bestIdx];
+      const prev = vertices[(bestIdx - 1 + n) % n];
+      const next = vertices[(bestIdx + 1) % n];
+      return { corner, prev, next };
+    });
+
     // Compute the position and arc path for the radius handle.
-    // The handle is an arc segment drawn at the bottom-left hex corner,
-    // matching the current corner radius.
     const radiusHandleStyle = computed(() => {
-      const w = avatarSize.value;
-      const h = w / Math.sqrt(3);
-      const cy = w / 2 + hexBleed.value;
-      // Bottom-left corner of hex: point index 4 = { x: 0, y: cy + h/2 }
-      const cornerX = 0;
-      const cornerY = cy + h / 2;
-      // The handle SVG is positioned around this corner
-      const pad = 20; // extra space around the arc
+      const { corner } = polyHandleVertex.value;
+      const pad = 20;
       return {
         position: "absolute" as const,
-        left: `-26px`,
-        top: `102px`,
+        left: `${corner.x - pad - polyGeometry.value.bleedX}px`,
+        top: `${corner.y - pad - polyGeometry.value.bleedY}px`,
         width: `${pad * 2 + avatarRadius.value}px`,
         height: `${pad * 2 + avatarRadius.value}px`,
         overflow: "visible",
@@ -586,34 +687,20 @@ export default defineComponent({
     });
 
     const radiusHandlePath = computed(() => {
-      const w = avatarSize.value;
-      const h = w / Math.sqrt(3);
-      const cy = w / 2 + hexBleed.value;
+      const { corner, prev, next } = polyHandleVertex.value;
       const r = avatarRadius.value;
 
-      // Bottom-left corner: vertex 4 = (0, cy + h/2)
-      // Prev vertex 3 = (w/2, cy + h), Next vertex 5 = (0, cy - h/2)
-      const corner = { x: 0, y: cy + h / 2 };
-      const prev = { x: w / 2, y: cy + h };
-      const next = { x: 0, y: cy - h / 2 };
-
-      // Direction from corner toward prev
       const dx1 = prev.x - corner.x;
       const dy1 = prev.y - corner.y;
       const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
 
-      // Direction from corner toward next
       const dx2 = next.x - corner.x;
       const dy2 = next.y - corner.y;
       const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
 
       const offset = Math.min(r, len1 / 2, len2 / 2);
-      if (offset < 1) {
-        // Too small to draw
-        return "";
-      }
+      if (offset < 1) return "";
 
-      // Points where the arc starts and ends (on the hex edges)
       const arcStart = {
         x: corner.x + (dx1 / len1) * offset,
         y: corner.y + (dy1 / len1) * offset,
@@ -623,7 +710,6 @@ export default defineComponent({
         y: corner.y + (dy2 / len2) * offset,
       };
 
-      // Offset into the SVG's local coordinate space
       const pad = 20;
       const lx = (x: number) => x - (corner.x - pad);
       const ly = (y: number) => y - (corner.y - pad);
@@ -632,14 +718,11 @@ export default defineComponent({
     });
 
     const radiusLabelStyle = computed(() => {
-      const w = avatarSize.value;
-      const h = w / Math.sqrt(3);
-      const cy = w / 2 + hexBleed.value;
-      // Position the label to the left of the bottom-left corner
+      const { corner } = polyHandleVertex.value;
       return {
         position: "absolute" as const,
-        left: `-24px`,
-        top: `${cy + h / 2 - 6}px`,
+        left: `${corner.x - polyGeometry.value.bleedX - 24}px`,
+        top: `${corner.y - polyGeometry.value.bleedY - 6}px`,
         fontSize: "12px",
         fontWeight: "700",
         color: "white",
@@ -647,6 +730,56 @@ export default defineComponent({
         whiteSpace: "nowrap" as const,
       };
     });
+
+    // --- Sides slider (corners count) ---
+    // The knob position maps avatarSides (3–8) to a 0–1 fraction on the track.
+    const SIDES_MIN = 3;
+    const SIDES_MAX = 8;
+
+    const sidesKnobStyle = computed(() => {
+      const fraction =
+        (avatarSides.value - SIDES_MIN) / (SIDES_MAX - SIDES_MIN);
+      return {
+        left: `${fraction * 100}%`,
+      };
+    });
+
+    const onSidesKnobDown = (e: PointerEvent) => {
+      if (!layoutStore.canEdit) return;
+      isDraggingSides.value = true;
+
+      const track = sidesTrackRef.value;
+      if (!track) return;
+
+      const updateSidesFromPointer = (clientX: number) => {
+        const rect = track.getBoundingClientRect();
+        const fraction = Math.max(
+          0,
+          Math.min(1, (clientX - rect.left) / rect.width),
+        );
+        const raw = SIDES_MIN + fraction * (SIDES_MAX - SIDES_MIN);
+        avatarSides.value = Math.round(raw);
+      };
+
+      updateSidesFromPointer(e.clientX);
+
+      const onMove = (me: PointerEvent) => {
+        updateSidesFromPointer(me.clientX);
+      };
+
+      const onUp = () => {
+        isDraggingSides.value = false;
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+        if (layoutStore.canEdit) {
+          props.content.avatarSides = avatarSides.value;
+          layoutStore.saveLayout();
+        }
+      };
+
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    };
 
     const normalizeImageUrl = (value: string) => {
       const trimmed = value.trim();
@@ -778,35 +911,59 @@ export default defineComponent({
       if (avatarInput.value) avatarInput.value.value = "";
     };
 
-    const generateRoundedHexagonPath = (size: number, radius: number) => {
-      // Regular flat-top hexagon in pixel coords (userSpaceOnUse).
-      // Width = size, height = size * 2/√3 ≈ size * 1.1547.
-      // Centered vertically on the avatar-media element which is offset
-      // upward by hexBleed so that the hex is visually centered in .avatar.
-      const w = size;
-      const h = w / Math.sqrt(3); // half-height in px
-      const cy = w / 2 + hexBleed.value; // center Y inside the taller media box
-      const points = [
-        { x: w / 2, y: cy - h },
-        { x: w,     y: cy - h / 2 },
-        { x: w,     y: cy + h / 2 },
-        { x: w / 2, y: cy + h },
-        { x: 0,     y: cy + h / 2 },
-        { x: 0,     y: cy - h / 2 },
-      ];
+    // Always emit exactly FIXED_SEGMENTS segments so that CSS `d` transition
+    // can interpolate smoothly between any two side counts (3–8).
+    // Each segment = L … Q … — same command structure regardless of N.
+    const FIXED_SEGMENTS = 24; // LCM-friendly count; enough for smooth curves
 
-      if (radius === 0) {
-        return `M ${points[0].x} ${points[0].y} ${points
-          .slice(1)
-          .map((point) => `L ${point.x} ${point.y}`)
-          .join(" ")} Z`;
+    const generateRoundedPolygonPath = (
+      sides: number,
+      radius: number,
+    ) => {
+      const n = Math.max(3, Math.min(8, Math.round(sides)));
+      const { R, bleedX, bleedY } = polyGeometry.value;
+      const size = avatarSize.value;
+
+      // Center of the polygon inside the expanded media box
+      const cx = size / 2 + bleedX;
+      const cy = size / 2 + bleedY;
+
+      const angleOffset = -Math.PI / 2;
+      const vertices: { x: number; y: number }[] = [];
+      for (let i = 0; i < n; i++) {
+        const angle = angleOffset + (2 * Math.PI * i) / n;
+        vertices.push({
+          x: cx + R * Math.cos(angle),
+          y: cy + R * Math.sin(angle),
+        });
       }
 
+      // Upsample to FIXED_SEGMENTS points by distributing extras along edges.
+      // This ensures every path has exactly the same number of L/Q commands.
+      const points: { x: number; y: number }[] = [];
+      const perEdge = Math.floor(FIXED_SEGMENTS / n);
+      let remainder = FIXED_SEGMENTS - perEdge * n;
+      for (let i = 0; i < n; i++) {
+        const a = vertices[i];
+        const b = vertices[(i + 1) % n];
+        const segs = perEdge + (remainder > 0 ? 1 : 0);
+        if (remainder > 0) remainder--;
+        for (let j = 0; j < segs; j++) {
+          const t = j / segs;
+          points.push({
+            x: a.x + (b.x - a.x) * t,
+            y: a.y + (b.y - a.y) * t,
+          });
+        }
+      }
+
+      // Build path with rounded corners at every point
       let path = "";
-      for (let i = 0; i < points.length; i += 1) {
+      const len = points.length;
+      for (let i = 0; i < len; i++) {
         const current = points[i];
-        const next = points[(i + 1) % points.length];
-        const prev = points[(i - 1 + points.length) % points.length];
+        const next = points[(i + 1) % len];
+        const prev = points[(i - 1 + len) % len];
 
         const dx1 = current.x - prev.x;
         const dy1 = current.y - prev.y;
@@ -815,6 +972,13 @@ export default defineComponent({
         const dx2 = next.x - current.x;
         const dy2 = next.y - current.y;
         const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+        if (len1 === 0 || len2 === 0) {
+          if (i === 0) path += `M ${current.x} ${current.y} `;
+          else path += `L ${current.x} ${current.y} `;
+          path += `Q ${current.x} ${current.y} ${current.x} ${current.y} `;
+          continue;
+        }
 
         const offset = Math.min(radius, len1 / 2, len2 / 2);
         const x1 = current.x - (dx1 / len1) * offset;
@@ -828,17 +992,22 @@ export default defineComponent({
       return `${path}Z`;
     };
 
-    const hexPath = computed(() =>
-      generateRoundedHexagonPath(avatarSize.value * 0.98, avatarRadius.value),
+    const polygonPath = computed(() =>
+      generateRoundedPolygonPath(
+        avatarSides.value,
+        avatarRadius.value,
+      ),
     );
 
     const avatarMediaStyle = computed(() => {
       if (avatarShape.value === "hex") {
-        const bleed = hexBleed.value;
+        const { bleedX, bleedY } = polyGeometry.value;
         return {
           clipPath: `url(#${clipPathId})`,
-          top: `${-bleed}px`,
-          height: `calc(100% + ${bleed * 2}px)`,
+          top: `${-bleedY}px`,
+          left: `${-bleedX}px`,
+          width: `calc(100% + ${bleedX * 2}px)`,
+          height: `calc(100% + ${bleedY * 2}px)`,
         };
       }
       const radius =
@@ -857,10 +1026,11 @@ export default defineComponent({
       popoverRef,
       avatarShape,
       avatarRadius,
+      avatarSides,
       avatarSrc,
       avatarMediaStyle,
       clipPathId,
-      hexPath,
+      polygonPath,
       showControls,
       popoverStyle,
       showUrlInput,
@@ -891,6 +1061,11 @@ export default defineComponent({
       radiusHandleStyle,
       radiusHandlePath,
       radiusLabelStyle,
+      isDraggingSides,
+      sidesSliderHovered,
+      sidesTrackRef,
+      sidesKnobStyle,
+      onSidesKnobDown,
       handleBackgroundColorChange,
       focusEditor,
       catchEditorClick,
@@ -946,6 +1121,10 @@ export default defineComponent({
   overflow: visible;
 }
 
+.polygon-clip-path {
+  transition: d 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .radius-handle {
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
   transition: opacity 0.15s ease;
@@ -954,6 +1133,70 @@ export default defineComponent({
 .radius-value-label {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   user-select: none;
+}
+
+.sides-slider {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.sides-label {
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+  color: transparent;
+  transition: color 0.15s ease;
+  user-select: none;
+  pointer-events: none;
+}
+
+.sides-label.visible {
+  color: white;
+}
+
+.sides-track-container {
+  position: relative;
+  width: 30px;
+  height: 10px;
+}
+
+.sides-track {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0);
+  transition: background 0.15s ease;
+}
+
+.sides-track.visible {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.sides-knob {
+  position: absolute;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 100px;
+  background: var(--grids-light_100, #fefef5);
+  transform: translateX(-50%);
+  cursor: grab;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.sides-knob:active {
+  cursor: grabbing;
 }
 
 .avatar-media {
@@ -968,6 +1211,10 @@ export default defineComponent({
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  transition: top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .avatar-image {

@@ -86,88 +86,51 @@
         :class="{
           'is-hovered': isDetailsHovered && !isEditing,
           'is-editing': isEditing,
-          'is-closing': isClosing,
         }"
         @mouseenter="isDetailsHovered = true"
         @mouseleave="isDetailsHovered = false"
         @mousedown.stop
         @click.stop="onDetailsClick"
       >
-        <div
+        <input
+          ref="titleInputRef"
+          v-model="draftTitle"
           class="tile-field tile-field--title"
           :class="{
-            'is-visible': isEditing || isClosing || !!displayTitle,
-            'is-closing': isClosing && !displayTitle,
-            'no-animate': !!displayTitle,
+            'is-visible': isEditing || !!displayTitle,
+            'has-content': !!displayTitle,
           }"
-        >
-          <p
-            class="tile-title"
-            :class="{
-              'is-sizing-ref': isEditing && !isClosing && !!displayTitle,
-            }"
-          >
-            {{ displayTitle }}
-          </p>
-          <textarea
-            v-if="isEditing"
-            ref="titleInputRef"
-            v-model="draftTitle"
-            class="tile-input tile-input--title"
-            :rows="titleLineClamp"
-            placeholder="Add a title"
-          ></textarea>
-        </div>
-        <div
+          type="text"
+          :readonly="!isEditing"
+          :tabindex="isEditing ? 0 : -1"
+          placeholder="Add a title"
+        />
+        <input
+          ref="descriptionInputRef"
+          v-model="draftDescription"
           class="tile-field tile-field--description"
           :class="{
-            'is-visible': isEditing || isClosing || !!displayDescription,
-            'is-closing': isClosing && !displayDescription,
-            'no-animate': !!displayDescription,
+            'is-visible': isEditing || !!displayDescription,
+            'has-content': !!displayDescription,
           }"
-        >
-          <p
-            class="tile-description"
-            :class="{
-              'is-sizing-ref': isEditing && !isClosing && !!displayDescription,
-            }"
-          >
-            {{ displayDescription }}
-          </p>
-          <textarea
-            v-if="isEditing"
-            ref="descriptionInputRef"
-            v-model="draftDescription"
-            class="tile-input tile-input--description"
-            rows="2"
-            placeholder="Add a description"
-          ></textarea>
-        </div>
-        <div
+          type="text"
+          :readonly="!isEditing"
+          :tabindex="isEditing ? 0 : -1"
+          placeholder="Add a description"
+        />
+        <input
+          ref="subtitleInputRef"
+          v-model="draftSubtitle"
           class="tile-field tile-field--subtitle"
           :class="{
-            'is-visible': isEditing || isClosing || !!displaySubtitle,
-            'is-closing': isClosing && !displaySubtitle,
-            'no-animate': !!displaySubtitle,
+            'is-visible': isEditing || !!displaySubtitle,
+            'has-content': !!displaySubtitle,
           }"
-        >
-          <p
-            class="tile-subtitle"
-            :class="{
-              'is-sizing-ref': isEditing && !isClosing && !!displaySubtitle,
-            }"
-          >
-            {{ displaySubtitle }}
-          </p>
-          <input
-            v-if="isEditing"
-            ref="subtitleInputRef"
-            v-model="draftSubtitle"
-            class="tile-input tile-input--subtitle"
-            type="text"
-            placeholder="Add a subtitle"
-          />
-        </div>
+          type="text"
+          :readonly="!isEditing"
+          :tabindex="isEditing ? 0 : -1"
+          placeholder="Add a subtitle"
+        />
       </div>
     </div>
 
@@ -297,12 +260,9 @@ export default defineComponent({
     );
 
     const isEditing = ref(false);
-    const isClosing = ref(false);
     const isDetailsHovered = ref(false);
-    const titleInputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(
-      null,
-    );
-    const descriptionInputRef = ref<HTMLTextAreaElement | null>(null);
+    const titleInputRef = ref<HTMLInputElement | null>(null);
+    const descriptionInputRef = ref<HTMLInputElement | null>(null);
     const subtitleInputRef = ref<HTMLInputElement | null>(null);
     const detailsRef = ref<HTMLElement | null>(null);
     const draftTitle = ref("");
@@ -371,19 +331,20 @@ export default defineComponent({
     }));
 
     const syncDrafts = () => {
-      draftTitle.value =
-        props.content.customTitle !== undefined
-          ? props.content.customTitle
-          : defaultTitle.value;
-      draftDescription.value =
-        props.content.customDescription !== undefined
-          ? props.content.customDescription
-          : defaultDescription.value;
-      draftSubtitle.value =
-        props.content.customSubtitle !== undefined
-          ? props.content.customSubtitle
-          : defaultSubtitle.value;
+      draftTitle.value = displayTitle.value;
+      draftDescription.value = displayDescription.value;
+      draftSubtitle.value = displaySubtitle.value;
     };
+
+    // Keep drafts in sync with display values when not editing
+    // so readonly inputs always show the correct text
+    watch(
+      [displayTitle, displayDescription, displaySubtitle],
+      () => {
+        if (!isEditing.value) syncDrafts();
+      },
+      { immediate: true },
+    );
 
     // Track whether the user has ever manually edited each field
     const userEditedTitle = ref(props.content.customTitle !== undefined);
@@ -734,26 +695,16 @@ export default defineComponent({
     };
 
     const stopEditing = () => {
-      if (!isEditing.value || isClosing.value) return;
-      isClosing.value = true;
+      if (!isEditing.value) return;
       flushPersist();
       removeExitClickHandler();
-      // Wait for the CSS close transition before fully removing editing state
-      setTimeout(() => {
-        isEditing.value = false;
-        isClosing.value = false;
-      }, 300);
+      isEditing.value = false;
+      // Re-sync drafts so readonly inputs reflect saved values
+      nextTick(() => syncDrafts());
     };
 
     const onDetailsClick = (event: MouseEvent) => {
-      // If editing, close when clicking inside tile-details but outside an input/textarea
-      if (isEditing.value) {
-        // const target = event.target as HTMLElement;
-        // if (!target.closest("input, textarea")) {
-        //   stopEditing();
-        // }
-        return;
-      }
+      if (isEditing.value) return;
       if (!layoutStore.canEdit) return;
 
       // Determine which field is closest to the click position
@@ -801,7 +752,7 @@ export default defineComponent({
     };
 
     const onTileClick = (event: MouseEvent) => {
-      if (isEditing.value && !isClosing.value) {
+      if (isEditing.value) {
         const target = event.target as HTMLElement;
         if (!target.closest("input, textarea")) {
           stopEditing();
@@ -847,7 +798,6 @@ export default defineComponent({
       onShortClick,
       onExitClick,
       isEditing,
-      isClosing,
       isDetailsHovered,
       detailsRef,
       descriptionInputRef,
@@ -1056,116 +1006,78 @@ export default defineComponent({
 }
 
 .tile-details.is-editing {
-  background-color: rgba(255, 255, 255, 0.12);
+  background-color: rgba(255, 255, 255, 0.08);
   border-color: transparent;
 }
 
-.tile-details.is-closing {
-  background-color: transparent;
-  border-color: transparent;
-}
+/* ── Unified field (<input> serving as both display & edit) ── */
 
 .tile-field {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--tile-text-color);
+  font-family: "Inter", sans-serif;
+  cursor: inherit;
+  white-space: nowrap;
   overflow: hidden;
-  max-height: 0;
-  opacity: 0;
-  transition:
-    max-height 0.3s ease,
-    opacity 0.3s ease,
-    background-color 0.15s ease;
+  text-overflow: ellipsis;
   border-radius: 4px;
-  /* padding: 2px 4px; */
-  padding: 4px;
-  margin: -2px;
+
+  /* Collapsed state: zero space */
+  max-height: 0;
+  padding: 0 4px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    max-height 0.3s ease,
+    padding 0.3s ease,
+    margin 0.3s ease,
+    opacity 0.25s ease,
+    background-color 0.15s ease;
 }
 
+.tile-field:focus {
+  outline: none;
+}
+
+/* Expanded state: visible with natural height */
 .tile-field.is-visible {
-  max-height: 120px;
+  max-height: 40px;
+  padding: 6px 4px;
   opacity: 1;
+  pointer-events: auto;
   transition:
-    max-height 0.5s ease,
+    max-height 0.35s ease,
+    padding 0.35s ease,
+    margin 0.35s ease,
     opacity 0.3s ease,
     background-color 0.15s ease;
 }
 
-/* Empty fields closing: animate back to collapsed */
-.tile-field.is-closing {
-  max-height: 0;
-  opacity: 0;
-  transition:
-    max-height 0.3s ease,
-    opacity 0.2s ease,
-    background-color 0.15s ease;
+/* When readonly (not editing), hide placeholder text */
+.tile-field[readonly]::placeholder {
+  color: transparent;
 }
 
-.tile-field--subtitle.is-visible {
-  /* margin-top: -8px !important; */
-  margin-top: -4px;
-  /* padding-bottom: 4px; */
-  /* max-height: 20px; */
+/* When not editing and field has content, show as plain text (no cursor) */
+.tile-field.has-content:not(:focus) {
+  cursor: inherit;
 }
 
-.tile-field--description.is-visible {
-  margin-top: -4px;
-  margin-bottom: -4px;
-  max-height: 40px;
-}
-
-.tile-field--title.is-visible {
-  margin-bottom: 0px;
-  min-height: 30px;
-  max-height: 32px;
-}
-
-/* .tile-input--subtitle {
-  margin-top: -4px;
-}
-
-.tile-input--description {
-  margin-top: -4px;
-  margin-bottom: -4px;
-}
-
-.tile-input--title {
-  margin-bottom: -4px;
-} */
-
-/* Fields that already had content skip the expand/contract animation */
-.tile-field.no-animate {
-  transition: background-color 0.15s ease;
-  max-height: none;
-  opacity: 1;
-  overflow: visible;
-  display: grid;
-}
-
-.tile-field.no-animate > * {
-  grid-area: 1 / 1;
-}
-
-/* Sizing reference: invisible but still determines container height */
-.is-sizing-ref {
-  visibility: hidden;
-  pointer-events: none;
-}
-
-/* Fade out inputs during close so removal from DOM is seamless */
-.tile-details.is-closing .tile-input {
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  pointer-events: none;
-}
-
-/* Individual field hover darkening when editing */
+/* Individual field hover highlight when editing */
 .tile-details.is-editing .tile-field:hover {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-.tile-field > .tile-title,
-.tile-field > .tile-description,
-.tile-field > .tile-subtitle,
-.tile-field > .tile-input {
-  padding: 2px;
+/* ── Title field ── */
+
+.tile-field--title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .tile-title {
@@ -1176,10 +1088,6 @@ export default defineComponent({
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  line-clamp: var(--link-title-lines);
-  -webkit-line-clamp: var(--link-title-lines);
 }
 
 .tile-title--wide {
@@ -1187,29 +1095,6 @@ export default defineComponent({
   flex: 1;
   min-width: 0;
   white-space: nowrap;
-  line-clamp: unset;
-  -webkit-line-clamp: unset;
-}
-
-.tile-description {
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
-  font-size: 12px;
-  line-height: 16px;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  font-family: "Inter", sans-serif;
-}
-
-.tile-subtitle {
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
-  font-size: 12px;
-  line-height: 16px;
-  margin: 0;
 }
 
 .link-tile-content.is-owner .tile-title--wide {
@@ -1222,50 +1107,47 @@ export default defineComponent({
   background-color: var(--color-editable-hover);
 }
 
+/* ── Description field ── */
+
+.tile-field--description {
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+}
+
+/* ── Subtitle field ── */
+
+.tile-field--subtitle {
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+}
+
+/* ── Wide variant (1-high header input) ── */
+
 .tile-input {
   width: 100%;
   border: none;
   background: transparent;
   color: var(--tile-text-color);
   field-sizing: content;
-  line-height: inherit;
   resize: none;
+  font-family: "Inter", sans-serif;
 }
 
 .tile-input:focus {
   outline: none;
-  border: none;
-  field-sizing: content;
-  font-family: "Inter", sans-serif;
 }
 
 .tile-input--title {
   font-size: 16px;
   font-weight: 600;
   line-height: 1.25;
-  font-family: "Inter", sans-serif;
-  margin: 0;
   min-height: 1.25em;
 }
 
 .tile-input--wide {
   min-width: 0;
-}
-
-.tile-input--description {
-  font-size: 12px;
-  line-height: 16px;
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
-  font-family: "Inter", sans-serif;
-  min-height: 32px;
-}
-
-.tile-input--subtitle {
-  font-size: 12px;
-  line-height: 16px;
-  font-family: "Inter", sans-serif;
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
-  min-height: 16px;
 }
 
 .link-image-input {

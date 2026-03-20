@@ -10,6 +10,7 @@
     }"
     :style="{ '--link-title-lines': String(titleLineClamp) }"
     ref="linkTileRef"
+    @click="onTileClick"
     @contextmenu="onContextMenu"
     @dragenter.prevent="onDragEnter"
     @dragover.prevent="onDragOver"
@@ -38,15 +39,23 @@
     <div class="tile-foreground">
       <div class="tile-header">
         <div class="tile-logo">
-          <img :src="content.faviconUrl" :alt="content.domain" />
+          <img
+            v-if="!!content.faviconUrl"
+            :src="content.faviconUrl"
+            :alt="content.domain"
+          />
+          <button
+            v-if="layoutStore.canEdit && !!content.faviconUrl"
+            class="tile-logo-close"
+            @mousedown.stop
+            @mouseup.stop
+            @click.stop="handleRemoveFavicon"
+          ></button>
         </div>
 
         <template v-if="isWideOneHigh">
-          <p v-if="!isEditing" class="tile-title tile-title--wide" @mousedown.stop @click="startEditing">
-            {{ displayTitle }}
-          </p>
           <input
-            v-else
+            v-if="isEditing"
             ref="titleInputRef"
             v-model="draftTitle"
             class="tile-input tile-input--title tile-input--wide"
@@ -54,88 +63,109 @@
             placeholder="Add a title"
             @keydown.enter.prevent
           />
+          <p
+            v-else-if="displayTitle"
+            class="tile-title tile-title--wide"
+            @mousedown.stop
+            @click="() => startEditing()"
+          >
+            {{ displayTitle }}
+          </p>
         </template>
 
-        <div v-if="!isTallOneWide && !isOneByOne" class="tile-link-indicator" aria-hidden="true">
-          <svg
-            class="tile-link-indicator-icon"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M7 17L17 7"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M10 7H17V14"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+        <div
+          v-if="!isTallOneWide && !isOneByOne"
+          class="tile-link-indicator"
+          aria-hidden="true"
+        >
+          <LinkIndicatorIcon class="tile-link-indicator-icon" />
         </div>
       </div>
 
-      <div v-if="isTallOneWide" class="tile-link-indicator tile-link-indicator--bottom" aria-hidden="true">
-        <svg
-          class="tile-link-indicator-icon"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M7 17L17 7"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M10 7H17V14"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+      <div
+        v-if="isTallOneWide"
+        class="tile-link-indicator tile-link-indicator--bottom"
+        aria-hidden="true"
+      >
+        <LinkIndicatorIcon class="tile-link-indicator-icon" />
       </div>
 
-      <div v-if="!isWideOneHigh && !isTallOneWide && !isOneByOne" class="tile-text" @mousedown.stop @click="startEditing">
-        <template v-if="isEditing">
+      <div
+        v-if="!isWideOneHigh && !isTallOneWide && !isOneByOne"
+        ref="detailsRef"
+        class="tile-details"
+        :class="{
+          'is-hovered': isDetailsHovered && !isEditing,
+          'is-editing': isEditing,
+          'additional-top-padding': !displayTitle,
+        }"
+        @mouseenter="isDetailsHovered = true"
+        @mouseleave="isDetailsHovered = false"
+        @mousedown.stop
+        @click.stop="onDetailsClick"
+      >
+        <div
+          v-if="
+            !displayTitle &&
+            !displayDescription &&
+            !displaySubtitle &&
+            !isEditing &&
+            isDetailsHovered
+          "
+          class="tile-details-placeholder"
+        >
+          Add a title
+        </div>
+        <div
+          class="tile-field-wrap tile-field-wrap--title"
+          :class="{
+            'is-visible': isEditing || !!displayTitle,
+            'has-overflow': !isEditing,
+          }"
+        >
           <textarea
             ref="titleInputRef"
             v-model="draftTitle"
-            class="tile-input tile-input--title"
-            :rows="titleLineClamp"
+            class="tile-field tile-field--title"
+            :readonly="!isEditing"
+            :tabindex="isEditing ? 0 : -1"
             placeholder="Add a title"
+            rows="1"
           ></textarea>
+        </div>
+        <div
+          class="tile-field-wrap tile-field-wrap--description"
+          :class="{
+            'is-visible': isEditing || !!displayDescription,
+            'has-overflow': !isEditing,
+          }"
+        >
           <textarea
+            ref="descriptionInputRef"
             v-model="draftDescription"
-            class="tile-input tile-input--description"
-            rows="2"
+            class="tile-field tile-field--description"
+            :readonly="!isEditing"
+            :tabindex="isEditing ? 0 : -1"
             placeholder="Add a description"
+            rows="1"
           ></textarea>
+        </div>
+        <div
+          class="tile-field-wrap tile-field-wrap--subtitle"
+          :class="{
+            'is-visible': isEditing || !!displaySubtitle,
+          }"
+        >
           <input
+            ref="subtitleInputRef"
             v-model="draftSubtitle"
-            class="tile-input tile-input--subtitle"
+            class="tile-field tile-field--subtitle"
             type="text"
+            :readonly="!isEditing"
+            :tabindex="isEditing ? 0 : -1"
             placeholder="Add a subtitle"
           />
-        </template>
-        <template v-else>
-          <p class="tile-title">{{ displayTitle }}</p>
-          <p v-if="displayDescription" class="tile-description">{{ displayDescription }}</p>
-          <p class="tile-subtitle">{{ displaySubtitle }}</p>
-        </template>
+        </div>
       </div>
     </div>
 
@@ -165,7 +195,9 @@
       />
       <p v-if="urlError" class="link-url-error">{{ urlError }}</p>
       <div class="link-url-actions">
-        <button type="button" class="link-url-btn" @click.stop="applyImageUrl">Save</button>
+        <button type="button" class="link-url-btn" @click.stop="applyImageUrl">
+          Save
+        </button>
         <button
           type="button"
           class="link-url-btn link-url-btn--ghost"
@@ -184,10 +216,18 @@
         :style="contextMenuStyle"
         @mousedown.stop
       >
-        <button type="button" class="link-context-menu-item" @click.stop="handleContextUpload">
+        <button
+          type="button"
+          class="link-context-menu-item"
+          @click.stop="handleContextUpload"
+        >
           Upload image
         </button>
-        <button type="button" class="link-context-menu-item" @click.stop="handleContextUseUrl">
+        <button
+          type="button"
+          class="link-context-menu-item"
+          @click.stop="handleContextUseUrl"
+        >
           Use image URL
         </button>
         <button
@@ -213,6 +253,7 @@ import {
   onMounted,
   onUnmounted,
   nextTick,
+  watch,
 } from "vue";
 
 import { type LinkContent } from "@/types/TileContent";
@@ -220,9 +261,14 @@ import { useLayoutStore } from "@/stores/layout";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";
+import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
+import { useEditorAutosave } from "@/composables/useEditorAutosave";
 
 export default defineComponent({
   emits: ["background-color-change", "text-color-change"],
+  components: {
+    LinkIndicatorIcon,
+  },
   props: {
     content: {
       type: Object as () => LinkContent,
@@ -235,13 +281,25 @@ export default defineComponent({
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
 
-    const isOneByOne = computed(() => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1); 
-    const isWideOneHigh = computed(() => (gridTileW?.value ?? 0) > 1 && (gridTileH?.value ?? 0) === 1);
-    const isTallOneWide = computed(() => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) > 1);
-    const titleLineClamp = computed(() => ((gridTileH?.value ?? 0) < 3 ? 2 : 3));
+    const isOneByOne = computed(
+      () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1,
+    );
+    const isWideOneHigh = computed(
+      () => (gridTileW?.value ?? 0) > 1 && (gridTileH?.value ?? 0) === 1,
+    );
+    const isTallOneWide = computed(
+      () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) > 1,
+    );
+    const titleLineClamp = computed(() =>
+      (gridTileH?.value ?? 0) < 3 ? 2 : 3,
+    );
 
     const isEditing = ref(false);
-    const titleInputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
+    const isDetailsHovered = ref(false);
+    const titleInputRef = ref<HTMLTextAreaElement | null>(null);
+    const descriptionInputRef = ref<HTMLTextAreaElement | null>(null);
+    const subtitleInputRef = ref<HTMLInputElement | null>(null);
+    const detailsRef = ref<HTMLElement | null>(null);
     const draftTitle = ref("");
     const draftDescription = ref("");
     const draftSubtitle = ref("");
@@ -257,35 +315,49 @@ export default defineComponent({
     const { uploadFileToUrl } = useFileUpload();
 
     const formatLink = (link: string) => {
-      if (!link) return '@handle or address';
-      
-      if (link.startsWith('http://') || link.startsWith('https://')) {
+      if (!link) return "@handle or address";
+
+      if (link.startsWith("http://") || link.startsWith("https://")) {
         try {
           const url = new URL(link);
-          return `@${url.hostname.replace('www.', '')}`;
+          return `@${url.hostname.replace("www.", "")}`;
         } catch {
           return `@${link}`;
         }
       }
-      
-      return link.startsWith('@') ? link : `@${link}`;
+
+      return link.startsWith("@") ? link : `@${link}`;
     };
 
     const defaultTitle = computed(
-      () => props.content.metaTitle || props.content.metaSiteName || props.content.domain || "Link"
+      () =>
+        props.content.metaTitle ||
+        props.content.metaSiteName ||
+        props.content.domain ||
+        "Link",
     );
-    const defaultDescription = computed(() => props.content.metaDescription || "");
+    const defaultDescription = computed(
+      () => props.content.metaDescription || "",
+    );
     const defaultSubtitle = computed(() => formatLink(props.content.link));
 
-    const displayTitle = computed(() => props.content.customTitle?.trim() || defaultTitle.value);
-    const displayDescription = computed(
-      () => props.content.customDescription?.trim() || defaultDescription.value
+    const displayTitle = computed(() =>
+      props.content.customTitle !== undefined
+        ? props.content.customTitle
+        : defaultTitle.value,
     );
-    const displaySubtitle = computed(
-      () => props.content.customSubtitle?.trim() || defaultSubtitle.value
+    const displayDescription = computed(() =>
+      props.content.customDescription !== undefined
+        ? props.content.customDescription
+        : defaultDescription.value,
+    );
+    const displaySubtitle = computed(() =>
+      props.content.customSubtitle !== undefined
+        ? props.content.customSubtitle
+        : defaultSubtitle.value,
     );
     const backgroundImageUrl = computed(
-      () => props.content.customImageUrl || props.content.metaImageUrl || ""
+      () => props.content.customImageUrl || props.content.metaImageUrl || "",
     );
 
     const contextMenuStyle = computed(() => ({
@@ -299,6 +371,86 @@ export default defineComponent({
       draftSubtitle.value = displaySubtitle.value;
     };
 
+    // Keep drafts in sync with display values when not editing
+    // so readonly inputs always show the correct text
+    watch(
+      [displayTitle, displayDescription, displaySubtitle],
+      () => {
+        if (!isEditing.value) syncDrafts();
+      },
+      { immediate: true },
+    );
+
+    // Track whether the user has ever manually edited each field
+    const userEditedTitle = ref(props.content.customTitle !== undefined);
+    const userEditedDescription = ref(
+      props.content.customDescription !== undefined,
+    );
+    const userEditedSubtitle = ref(props.content.customSubtitle !== undefined);
+
+    watch([draftTitle, draftDescription, draftSubtitle], () => {
+      if (isEditing.value) {
+        // Mark fields as user-edited once the user starts typing
+        userEditedTitle.value = true;
+        userEditedDescription.value = true;
+        userEditedSubtitle.value = true;
+        schedulePersist();
+      }
+    });
+
+    // When metadata arrives from getLinkPreview and the user hasn't manually
+    // edited a field yet, bake the metadata into the custom fields so it's
+    // persisted in the DB and survives future loads.
+    watch(
+      () => ({
+        metaTitle: props.content.metaTitle,
+        metaDescription: props.content.metaDescription,
+        metaSiteName: props.content.metaSiteName,
+        link: props.content.link,
+      }),
+      (newMeta) => {
+        if (!tileId || !layoutStore.canEdit) return;
+        // Only run when not editing — this handles the async metadata fetch
+        if (isEditing.value) return;
+
+        const patch: Record<string, string> = {};
+
+        if (!userEditedTitle.value) {
+          const title = newMeta.metaTitle || newMeta.metaSiteName || "";
+          if (title) {
+            patch.customTitle = title;
+            userEditedTitle.value = true;
+          }
+        }
+
+        if (!userEditedDescription.value) {
+          const desc = newMeta.metaDescription || "";
+          if (desc) {
+            patch.customDescription = desc;
+            userEditedDescription.value = true;
+          }
+        }
+
+        if (!userEditedSubtitle.value) {
+          const sub = formatLink(newMeta.link);
+          if (sub) {
+            patch.customSubtitle = sub;
+            userEditedSubtitle.value = true;
+          }
+        }
+
+        if (Object.keys(patch).length > 0) {
+          // Write metadata into custom fields on the content object
+          Object.assign(props.content, patch);
+          layoutStore.patchTileContent(tileId, patch);
+        }
+      },
+    );
+
+    const { schedulePersist, flushPersist } = useEditorAutosave(() =>
+      saveEdits(),
+    );
+
     const saveEdits = () => {
       if (!layoutStore.canEdit) return;
 
@@ -306,11 +458,21 @@ export default defineComponent({
       const nextDescription = draftDescription.value.trim();
       const nextSubtitle = draftSubtitle.value.trim();
 
-      props.content.customTitle = nextTitle || undefined;
-      props.content.customDescription = nextDescription || undefined;
-      props.content.customSubtitle = nextSubtitle || undefined;
+      props.content.customTitle = nextTitle;
+      props.content.customDescription = nextDescription;
+      props.content.customSubtitle = nextSubtitle;
 
-      layoutStore.saveLayout();
+      const updatedFields = {
+        customTitle: nextTitle,
+        customDescription: nextDescription,
+        customSubtitle: nextSubtitle,
+      };
+
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, updatedFields);
+      } else {
+        layoutStore.saveLayout();
+      }
     };
 
     const closeContextMenu = () => {
@@ -333,9 +495,10 @@ export default defineComponent({
     const normalizeImageUrl = (value: string) => {
       const trimmed = value.trim();
       if (!trimmed) return "";
-      const normalized = trimmed.startsWith("http://") || trimmed.startsWith("https://")
-        ? trimmed
-        : `https://${trimmed}`;
+      const normalized =
+        trimmed.startsWith("http://") || trimmed.startsWith("https://")
+          ? trimmed
+          : `https://${trimmed}`;
       try {
         new URL(normalized);
         return normalized;
@@ -352,7 +515,8 @@ export default defineComponent({
         return;
       }
       if (!isDirectImageUrl(normalized)) {
-        urlError.value = "Only direct image URLs are supported (png, jpg, gif, webp, svg).";
+        urlError.value =
+          "Only direct image URLs are supported (png, jpg, gif, webp, svg).";
         return;
       }
 
@@ -423,7 +587,12 @@ export default defineComponent({
       }
       const rect = container.getBoundingClientRect();
       const { clientX, clientY } = event;
-      if (clientX <= rect.left || clientX >= rect.right || clientY <= rect.top || clientY >= rect.bottom) {
+      if (
+        clientX <= rect.left ||
+        clientX >= rect.right ||
+        clientY <= rect.top ||
+        clientY >= rect.bottom
+      ) {
         isDragOver.value = false;
       }
     };
@@ -436,7 +605,12 @@ export default defineComponent({
       await uploadCustomImage(file);
     };
 
-    const clampContextMenuPosition = (x: number, y: number, menuWidth: number, menuHeight: number) => {
+    const clampContextMenuPosition = (
+      x: number,
+      y: number,
+      menuWidth: number,
+      menuHeight: number,
+    ) => {
       const padding = 8;
       const maxX = window.innerWidth - menuWidth - padding;
       const maxY = window.innerHeight - menuHeight - padding;
@@ -460,7 +634,7 @@ export default defineComponent({
         nextX,
         nextY,
         fallbackWidth,
-        fallbackHeight
+        fallbackHeight,
       );
       showContextMenu.value = true;
 
@@ -468,7 +642,12 @@ export default defineComponent({
         const menu = contextMenuRef.value;
         if (!menu) return;
         const { width, height } = menu.getBoundingClientRect();
-        contextMenuPosition.value = clampContextMenuPosition(nextX, nextY, width, height);
+        contextMenuPosition.value = clampContextMenuPosition(
+          nextX,
+          nextY,
+          width,
+          height,
+        );
       });
     };
 
@@ -507,29 +686,98 @@ export default defineComponent({
 
     const removeExitClickHandler = () => {
       if (exitClickHandler) {
-        document.removeEventListener('click', exitClickHandler);
+        document.removeEventListener("click", exitClickHandler);
         exitClickHandler = null;
       }
     };
 
-    const startEditing = () => {
+    const startEditing = (
+      focusTarget?: "title" | "description" | "subtitle",
+    ) => {
       if (!layoutStore.canEdit || isEditing.value) return;
       isEditing.value = true;
       syncDrafts();
       nextTick(() => {
         setTimeout(() => {
-          titleInputRef.value?.focus();
+          const targetRef =
+            focusTarget === "subtitle"
+              ? subtitleInputRef
+              : focusTarget === "description"
+                ? descriptionInputRef
+                : titleInputRef;
+          targetRef.value?.focus();
           // Register exit listener since @mousedown.stop bypasses GridTile's addClickListener
           exitClickHandler = (event: MouseEvent) => {
-            if (linkTileRef.value && !linkTileRef.value.contains(event.target as Node)) {
-              isEditing.value = false;
-              saveEdits();
-              removeExitClickHandler();
+            if (
+              linkTileRef.value &&
+              !linkTileRef.value.contains(event.target as Node)
+            ) {
+              stopEditing();
             }
           };
-          document.addEventListener('click', exitClickHandler);
+          document.addEventListener("click", exitClickHandler);
         }, 0);
       });
+    };
+
+    const stopEditing = () => {
+      if (!isEditing.value) return;
+      flushPersist();
+      removeExitClickHandler();
+      isEditing.value = false;
+      // Re-sync drafts so readonly inputs reflect saved values
+      nextTick(() => syncDrafts());
+    };
+
+    const onDetailsClick = (event: MouseEvent) => {
+      if (isEditing.value) return;
+      if (!layoutStore.canEdit) return;
+
+      // Determine which field is closest to the click position
+      const el = detailsRef.value;
+      if (!el) {
+        startEditing();
+        return;
+      }
+
+      const fields = [
+        { name: "title" as const, el: el.querySelector(".tile-field--title") },
+        {
+          name: "description" as const,
+          el: el.querySelector(".tile-field--description"),
+        },
+        {
+          name: "subtitle" as const,
+          el: el.querySelector(".tile-field--subtitle"),
+        },
+      ];
+
+      // When all fields are empty, default to title
+      if (
+        !displayTitle.value &&
+        !displayDescription.value &&
+        !displaySubtitle.value
+      ) {
+        startEditing("title");
+        return;
+      }
+
+      const clickY = event.clientY;
+      let closest: "title" | "description" | "subtitle" = "title";
+      let minDist = Infinity;
+
+      for (const f of fields) {
+        if (!f.el) continue;
+        const rect = f.el.getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+        const dist = Math.abs(clickY - centerY);
+        if (dist < minDist) {
+          minDist = dist;
+          closest = f.name;
+        }
+      }
+
+      startEditing(closest);
     };
 
     const openLink = () => {
@@ -537,6 +785,15 @@ export default defineComponent({
         ? props.content.link
         : `https://${props.content.link}`;
       window.open(url, "_blank");
+    };
+
+    const onTileClick = (event: MouseEvent) => {
+      if (isEditing.value) {
+        const target = event.target as HTMLElement;
+        if (!target.closest("input, textarea")) {
+          stopEditing();
+        }
+      }
     };
 
     const onShortClick = () => {
@@ -547,9 +804,7 @@ export default defineComponent({
     const onExitClick = () => {
       if (!layoutStore.canEdit) return;
       if (!isEditing.value) return;
-      isEditing.value = false;
-      saveEdits();
-      removeExitClickHandler();
+      stopEditing();
     };
 
     const LINK_RESET_COLORS = new Set([
@@ -570,15 +825,31 @@ export default defineComponent({
       "background",
     );
 
+    const handleRemoveFavicon = () => {
+      props.content.faviconUrl = undefined;
+
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { faviconUrl: undefined });
+      } else {
+        layoutStore.saveLayout();
+      }
+    };
+
     return {
       layoutStore,
       overlayColor: linkOverlayColor,
       handleBackgroundColorChange,
       formatLink,
+      onTileClick,
       onShortClick,
       onExitClick,
       isEditing,
+      isDetailsHovered,
+      detailsRef,
+      descriptionInputRef,
+      subtitleInputRef,
       startEditing,
+      onDetailsClick,
       titleInputRef,
       titleLineClamp,
       isOneByOne,
@@ -614,7 +885,8 @@ export default defineComponent({
       handleContextUpload,
       handleContextUseUrl,
       handleContextRemove,
-    }
+      handleRemoveFavicon,
+    };
   },
 });
 </script>
@@ -642,7 +914,7 @@ export default defineComponent({
   pointer-events: none;
 }
 
-.tile-wrapper[data-link-background='off'] .tile-background {
+.tile-wrapper[data-link-background="off"] .tile-background {
   display: none;
 }
 
@@ -667,12 +939,18 @@ export default defineComponent({
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(180deg, transparent 50%, 
-      color-mix(in srgb, var(--tile-bg) 45%, transparent) 80%, var(--tile-bg) 120%), 
-    linear-gradient(90deg, 
-      color-mix(in srgb, var(--tile-bg) 0%, transparent) 0%, 
-      color-mix(in srgb, var(--tile-bg) 20%, transparent) 100%);
-    /* linear-gradient(
+    linear-gradient(
+      180deg,
+      transparent 50%,
+      color-mix(in srgb, var(--tile-bg) 45%, transparent) 80%,
+      var(--tile-bg) 120%
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--tile-bg) 0%, transparent) 0%,
+      color-mix(in srgb, var(--tile-bg) 20%, transparent) 100%
+    );
+  /* linear-gradient(
       180deg,
       transparent 21%,
       color-mix(in srgb, var(--color-tile-background) 76%, transparent) 76%,
@@ -720,6 +998,7 @@ export default defineComponent({
 }
 
 .tile-logo {
+  position: relative;
   width: 32px;
   height: 32px;
   overflow: hidden;
@@ -731,6 +1010,43 @@ export default defineComponent({
   height: 100%;
   display: block;
   object-fit: contain;
+}
+
+.tile-logo-close {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing-ease-in-out);
+}
+
+.tile-logo-close::before,
+.tile-logo-close::after {
+  content: "";
+  position: absolute;
+  width: 2px;
+  height: 14px;
+  background: #fff;
+  border-radius: 1px;
+}
+
+.tile-logo-close::before {
+  transform: rotate(45deg);
+}
+
+.tile-logo-close::after {
+  transform: rotate(-45deg);
+}
+
+.tile-logo:hover .tile-logo-close {
+  opacity: 1;
 }
 
 .tile-link-indicator {
@@ -752,12 +1068,173 @@ export default defineComponent({
   display: block;
 }
 
-.tile-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.tile-details-placeholder {
+  color: var(--tile-text-color);
+  opacity: 0.5;
+  padding: 6px 6px;
+  margin-top: -4px;
+  transition: opacity 0.2s ease;
 }
 
+.tile-details {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+  padding: 2px;
+  margin-left: -8px;
+  margin-bottom: -4px;
+  overflow: hidden;
+}
+
+.link-tile-content.is-owner .tile-details {
+  cursor: text;
+}
+
+.tile-details.is-hovered {
+  background-color: color-mix(
+    in srgb,
+    transparent 45%,
+    color-mix(in srgb, var(--tile-bg) 82%, var(--tile-text-color) 3%) 65%
+  );
+}
+
+.tile-details.is-editing {
+  background-color: var(--tile-bg);
+  border-color: transparent;
+}
+
+.tile-details.additional-top-padding {
+  padding-top: 4px;
+}
+
+/* ── Field wrapper (handles collapse / expand / overflow mask) ── */
+
+.tile-field-wrap {
+  overflow: hidden;
+  border-radius: 4px;
+
+  /* Stretch to full width of tile-details (cancel parent padding) */
+  margin-left: -2px;
+  margin-right: -2px;
+
+  /* Collapsed: zero space */
+  max-height: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    max-height 0.3s ease,
+    padding 0.3s ease,
+    opacity 0.25s ease,
+    background-color 0.15s ease;
+}
+
+.tile-field-wrap.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transition:
+    max-height 0.35s ease,
+    padding 0.35s ease,
+    opacity 0.3s ease,
+    background-color 0.15s ease;
+}
+
+.tile-field-wrap--title {
+  margin-top: -2px;
+}
+
+.tile-field-wrap--subtitle {
+  margin-bottom: -2px;
+}
+
+/* Remove mask when content fits (small enough text won't trigger it visually) */
+.tile-details.is-editing .tile-field-wrap {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* Individual field hover highlight when editing */
+.tile-details.is-editing .tile-field-wrap:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--color-input-edit) 97%,
+    var(--tile-text-color) 3%
+  );
+}
+
+/* ── Inner field (textarea / input) ── */
+
+.tile-field {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--tile-text-color);
+  font-family: "Inter", sans-serif;
+  cursor: inherit;
+  resize: none;
+  field-sizing: content;
+  padding: 8px 8px;
+  margin: -8px -8px;
+}
+
+.tile-field:focus {
+  outline: none;
+}
+
+/* .tile-field:focus .tile-field-wrap {
+  background-color: var(--color-input-edit);
+} */
+
+/* When readonly, hide placeholder text */
+.tile-field[readonly]::placeholder {
+  color: transparent;
+}
+
+.tile-field::placeholder {
+  color: color-mix(in srgb, var(--tile-text-color) 55%, transparent 45%);
+}
+
+.tile-input::placeholder {
+  color: color-mix(in srgb, var(--color-content-low) 55%, transparent 45%);
+}
+
+/* ── Title wrapper ── */
+
+.tile-field-wrap--title {
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+.tile-field-wrap--title.is-visible {
+  max-height: 48px;
+  padding: 6px 6px;
+}
+
+.tile-details.is-editing .tile-field-wrap--title.is-visible {
+  max-height: 48px;
+  overflow-y: auto;
+  scrollbar-color: var(--color-input-edit) transparent;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scroll-behavior: smooth;
+}
+
+/* ── Title field ── */
+
+.tile-field--title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+/* Wide variant (separate <p> in header) */
 .tile-title {
   color: var(--tile-text-color);
   font-size: 16px;
@@ -766,10 +1243,6 @@ export default defineComponent({
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  line-clamp: var(--link-title-lines);
-  -webkit-line-clamp: var(--link-title-lines);
 }
 
 .tile-title--wide {
@@ -777,86 +1250,95 @@ export default defineComponent({
   flex: 1;
   min-width: 0;
   white-space: nowrap;
-  line-clamp: unset;
-  -webkit-line-clamp: unset;
 }
 
-.tile-description {
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
-  font-size: 12px;
-  line-height: 16px;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  font-family: "Inter", sans-serif;
-}
-
-.tile-subtitle {
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
-  font-size: 12px;
-  line-height: 16px;
-  margin: 0;
-}
-
-.link-tile-content.is-owner .tile-text,
 .link-tile-content.is-owner .tile-title--wide {
   cursor: text;
   border-radius: var(--radius-sm);
   transition: background-color 0.3s ease;
 }
 
-.link-tile-content.is-owner:not(.is-editing) .tile-text:hover,
 .link-tile-content.is-owner:not(.is-editing) .tile-title--wide:hover {
   background-color: var(--color-editable-hover);
 }
 
+/* ── Description wrapper ── */
+
+.tile-field-wrap--description {
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+.tile-field-wrap--description.is-visible {
+  max-height: 40px;
+  padding: 6px 6px;
+}
+
+.tile-details.is-editing .tile-field-wrap--description.is-visible {
+  max-height: 40px;
+  overflow-y: scroll;
+  scrollbar-color: var(--color-input-edit) transparent;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scroll-behavior: smooth;
+}
+
+/* ── Description field ── */
+
+.tile-field--description {
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+}
+
+/* ── Subtitle wrapper ── */
+
+.tile-field-wrap--subtitle {
+  flex-shrink: 0;
+}
+
+.tile-field-wrap--subtitle.is-visible {
+  max-height: 32px;
+  padding: 4px 6px;
+}
+
+/* ── Subtitle field ── */
+
+.tile-field--subtitle {
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Wide variant (1-high header input) ── */
+
 .tile-input {
   width: 100%;
-  border: 0px solid transparent;
-  background: color-mix(in srgb, var(--color-tile-background) 84%, transparent);
+  border: none;
+  background: transparent;
   color: var(--tile-text-color);
   field-sizing: content;
-  padding: 0;
-  line-height: inherit;
   resize: none;
+  font-family: "Inter", sans-serif;
 }
 
 .tile-input:focus {
   outline: none;
-  border: 0px solid transparent;
-  padding: 0;
-  field-sizing: content;
-  font-family: "Inter", sans-serif;
 }
 
 .tile-input--title {
   font-size: 16px;
   font-weight: 600;
   line-height: 1.25;
-  font-family: "Inter", sans-serif;
-  margin: 0;
+  min-height: 1.25em;
 }
 
 .tile-input--wide {
   min-width: 0;
-}
-
-.tile-input--description {
-  font-size: 12px;
-  line-height: 16px;
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
-  font-family: "Inter", sans-serif;
-}
-
-.tile-input--subtitle {
-  font-size: 12px;
-  line-height: 16px;
-  font-family: "Inter", sans-serif;
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
 }
 
 .link-image-input {
@@ -875,7 +1357,8 @@ export default defineComponent({
   font-size: 12px;
   font-weight: 600;
   background: color-mix(in srgb, var(--color-tile-background) 70%, transparent);
-  border: 1px dashed color-mix(in srgb, var(--color-text-primary) 35%, transparent);
+  border: 1px dashed
+    color-mix(in srgb, var(--color-text-primary) 35%, transparent);
   border-radius: var(--tile-border-radius);
   pointer-events: none;
 }

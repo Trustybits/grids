@@ -25,19 +25,28 @@
             <div v-else class="avatar-placeholder">Add photo</div>
           </div>
 
-          <!-- Radius drag handle — bottom-left hex corner -->
+          <!-- Radius drag handle — overlaid on the media box coordinate space -->
           <svg
             v-if="avatarShape === 'hex' && layoutStore.canEdit && isEditing"
             class="radius-handle"
-            :style="radiusHandleStyle"
-            @pointerdown.stop.prevent="onRadiusHandleDown"
+            :style="radiusHandleOverlayStyle"
           >
+            <path
+              :d="radiusHandlePath"
+              fill="none"
+              stroke="transparent"
+              :stroke-width="12"
+              stroke-linecap="round"
+              style="pointer-events: stroke; cursor: grab;"
+              @pointerdown.stop.prevent="onRadiusHandleDown"
+            />
             <path
               :d="radiusHandlePath"
               fill="none"
               stroke="white"
               :stroke-width="2"
               stroke-linecap="round"
+              style="pointer-events: none;"
             />
           </svg>
           <span
@@ -680,19 +689,19 @@ export default defineComponent({
       return { corner, prev, next };
     });
 
-    // Compute the position and arc path for the radius handle.
-    const radiusHandleStyle = computed(() => {
-      const { corner } = polyHandleVertex.value;
-      const pad = 20;
+    // The radius handle SVG overlays the same area as the media box,
+    // using the same coordinate space as the clip-path polygon.
+    // This avoids complex local-coordinate transforms.
+    const radiusHandleOverlayStyle = computed(() => {
+      const { bleedX, bleedY, bboxW, bboxH } = polyGeometry.value;
       return {
         position: "absolute" as const,
-        left: `${corner.x - pad - polyGeometry.value.bleedX}px`,
-        top: `${corner.y - pad - polyGeometry.value.bleedY}px`,
-        width: `${pad * 2 + avatarRadius.value}px`,
-        height: `${pad * 2 + avatarRadius.value}px`,
+        left: `${-bleedX}px`,
+        top: `${-bleedY}px`,
+        width: `${bboxW}px`,
+        height: `${bboxH}px`,
         overflow: "visible",
-        pointerEvents: "auto" as const,
-        cursor: "grab",
+        pointerEvents: "none" as const,
         zIndex: 10,
       };
     });
@@ -721,19 +730,17 @@ export default defineComponent({
         y: corner.y + (dy2 / len2) * offset,
       };
 
-      const pad = 20;
-      const lx = (x: number) => x - (corner.x - pad);
-      const ly = (y: number) => y - (corner.y - pad);
-
-      return `M ${lx(arcStart.x)} ${ly(arcStart.y)} Q ${lx(corner.x)} ${ly(corner.y)} ${lx(arcEnd.x)} ${ly(arcEnd.y)}`;
+      // Coordinates are directly in media-box space — no transform needed
+      return `M ${arcStart.x} ${arcStart.y} Q ${corner.x} ${corner.y} ${arcEnd.x} ${arcEnd.y}`;
     });
 
     const radiusLabelStyle = computed(() => {
       const { corner } = polyHandleVertex.value;
+      const { bleedX, bleedY } = polyGeometry.value;
       return {
         position: "absolute" as const,
-        left: `${corner.x - polyGeometry.value.bleedX - 24}px`,
-        top: `${corner.y - polyGeometry.value.bleedY - 6}px`,
+        left: `${corner.x - bleedX - 24}px`,
+        top: `${corner.y - bleedY - 6}px`,
         fontSize: "12px",
         fontWeight: "700",
         color: "white",
@@ -955,7 +962,9 @@ export default defineComponent({
 
       // Upsample to FIXED_SEGMENTS points by distributing extras along edges.
       // This ensures every path has exactly the same number of L/Q commands.
-      const points: { x: number; y: number }[] = [];
+      // Track which points are actual polygon vertices (get rounding) vs
+      // intermediate edge points (pass through with zero rounding).
+      const points: { x: number; y: number; isVertex: boolean }[] = [];
       const perEdge = Math.floor(FIXED_SEGMENTS / n);
       let remainder = FIXED_SEGMENTS - perEdge * n;
       for (let i = 0; i < n; i++) {
@@ -968,11 +977,22 @@ export default defineComponent({
           points.push({
             x: a.x + (b.x - a.x) * t,
             y: a.y + (b.y - a.y) * t,
+            isVertex: j === 0, // first point of each edge = actual vertex
           });
         }
       }
 
-      // Build path with rounded corners at every point
+      // Compute the max rounding offset from the actual edge length
+      // (distance between consecutive real vertices), not the short
+      // upsampled segments.
+      const edgeLen = Math.sqrt(
+        (vertices[1].x - vertices[0].x) ** 2 +
+        (vertices[1].y - vertices[0].y) ** 2,
+      );
+      const maxOffset = edgeLen / 2;
+
+      // Build path with rounded corners only at real vertices;
+      // intermediate upsampled points get degenerate Q (no rounding).
       let path = "";
       const len = points.length;
       for (let i = 0; i < len; i++) {
@@ -995,14 +1015,25 @@ export default defineComponent({
           continue;
         }
 
-        const offset = Math.min(radius, len1 / 2, len2 / 2);
-        const x1 = current.x - (dx1 / len1) * offset;
-        const y1 = current.y - (dy1 / len1) * offset;
-        const x2 = current.x + (dx2 / len2) * offset;
-        const y2 = current.y + (dy2 / len2) * offset;
+        // Only apply rounding at actual polygon vertices
+        const offset = current.isVertex
+          ? Math.min(radius, maxOffset)
+          : 0;
 
-        path += i === 0 ? `M ${x1} ${y1} ` : `L ${x1} ${y1} `;
-        path += `Q ${current.x} ${current.y} ${x2} ${y2} `;
+        if (offset < 0.1) {
+          // No rounding — degenerate Q through the point
+          if (i === 0) path += `M ${current.x} ${current.y} `;
+          else path += `L ${current.x} ${current.y} `;
+          path += `Q ${current.x} ${current.y} ${current.x} ${current.y} `;
+        } else {
+          const x1 = current.x - (dx1 / len1) * offset;
+          const y1 = current.y - (dy1 / len1) * offset;
+          const x2 = current.x + (dx2 / len2) * offset;
+          const y2 = current.y + (dy2 / len2) * offset;
+
+          path += i === 0 ? `M ${x1} ${y1} ` : `L ${x1} ${y1} `;
+          path += `Q ${current.x} ${current.y} ${x2} ${y2} `;
+        }
       }
       return `${path}Z`;
     };
@@ -1073,7 +1104,7 @@ export default defineComponent({
       onRadiusCommit,
       isDraggingRadius,
       onRadiusHandleDown,
-      radiusHandleStyle,
+      radiusHandleOverlayStyle,
       radiusHandlePath,
       radiusLabelStyle,
       isDraggingSides,

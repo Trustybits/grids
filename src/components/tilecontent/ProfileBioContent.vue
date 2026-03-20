@@ -24,6 +24,27 @@
             />
             <div v-else class="avatar-placeholder">Add photo</div>
           </div>
+
+          <!-- Radius drag handle — bottom-left hex corner -->
+          <svg
+            v-if="avatarShape === 'hex' && layoutStore.canEdit && isEditing"
+            class="radius-handle"
+            :style="radiusHandleStyle"
+            @pointerdown.stop.prevent="onRadiusHandleDown"
+          >
+            <path
+              :d="radiusHandlePath"
+              fill="none"
+              stroke="white"
+              :stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span
+            v-if="isDraggingRadius"
+            class="radius-value-label"
+            :style="radiusLabelStyle"
+          >{{ avatarRadius }}</span>
         </div>
       </div>
 
@@ -155,7 +176,7 @@
           </div>
         </div>
 
-        <div v-if="avatarShape !== 'circle'" class="control-row">
+        <div v-if="avatarShape === 'square'" class="control-row">
           <label class="control-label">Radius</label>
           <input
             type="range"
@@ -476,6 +497,8 @@ export default defineComponent({
       layoutStore.saveLayout();
     };
 
+    const isDraggingRadius = ref(false);
+
     const onRadiusInput = (event: Event) => {
       const target = event.target as HTMLInputElement;
       avatarRadius.value = Number(target.value);
@@ -486,6 +509,144 @@ export default defineComponent({
       props.content.avatarRadius = avatarRadius.value;
       layoutStore.saveLayout();
     };
+
+    const hexBleed = computed(() => {
+      // How many px the hex top/bottom extend beyond the square container
+      const w = avatarSize.value;
+      const fullHeight = w * 2 / Math.sqrt(3); // regular hex height
+      return (fullHeight - w) / 2;
+    });
+
+    // --- Radius drag handle ---
+    // The handle sits on the bottom-left hex corner. Dragging toward the
+    // center of the avatar increases radius; dragging away decreases it.
+    // We track the distance from the pointer to the hex center and map
+    // that to a radius value.
+
+    const onRadiusHandleDown = (e: PointerEvent) => {
+      if (!layoutStore.canEdit) return;
+      isDraggingRadius.value = true;
+
+      const startRadius = avatarRadius.value;
+      const startY = e.clientY;
+      const startX = e.clientX;
+
+      // Bottom-left corner direction: toward center is up-right,
+      // away from center is down-left. We use a combined diagonal axis.
+      const onMove = (me: PointerEvent) => {
+        // Positive delta = dragged up-right (toward center) = increase radius
+        const dx = me.clientX - startX;
+        const dy = -(me.clientY - startY); // invert Y so up = positive
+        const diag = (dx + dy) / 2; // average of both axes
+        const sensitivity = 0.5;
+        const newRadius = Math.round(
+          Math.max(0, Math.min(40, startRadius + diag * sensitivity)),
+        );
+        avatarRadius.value = newRadius;
+      };
+
+      const onUp = () => {
+        isDraggingRadius.value = false;
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+        // Commit the final value
+        if (layoutStore.canEdit) {
+          props.content.avatarRadius = avatarRadius.value;
+          layoutStore.saveLayout();
+        }
+      };
+
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    };
+
+    // Compute the position and arc path for the radius handle.
+    // The handle is an arc segment drawn at the bottom-left hex corner,
+    // matching the current corner radius.
+    const radiusHandleStyle = computed(() => {
+      const w = avatarSize.value;
+      const h = w / Math.sqrt(3);
+      const cy = w / 2 + hexBleed.value;
+      // Bottom-left corner of hex: point index 4 = { x: 0, y: cy + h/2 }
+      const cornerX = 0;
+      const cornerY = cy + h / 2;
+      // The handle SVG is positioned around this corner
+      const pad = 20; // extra space around the arc
+      return {
+        position: "absolute" as const,
+        left: `${cornerX - pad}px`,
+        top: `${cornerY - pad}px`,
+        width: `${pad * 2 + avatarRadius.value}px`,
+        height: `${pad * 2 + avatarRadius.value}px`,
+        overflow: "visible",
+        pointerEvents: "auto" as const,
+        cursor: "grab",
+        zIndex: 10,
+      };
+    });
+
+    const radiusHandlePath = computed(() => {
+      const w = avatarSize.value;
+      const h = w / Math.sqrt(3);
+      const cy = w / 2 + hexBleed.value;
+      const r = avatarRadius.value;
+
+      // Bottom-left corner: vertex 4 = (0, cy + h/2)
+      // Prev vertex 3 = (w/2, cy + h), Next vertex 5 = (0, cy - h/2)
+      const corner = { x: 0, y: cy + h / 2 };
+      const prev = { x: w / 2, y: cy + h };
+      const next = { x: 0, y: cy - h / 2 };
+
+      // Direction from corner toward prev
+      const dx1 = prev.x - corner.x;
+      const dy1 = prev.y - corner.y;
+      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+
+      // Direction from corner toward next
+      const dx2 = next.x - corner.x;
+      const dy2 = next.y - corner.y;
+      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+      const offset = Math.min(r, len1 / 2, len2 / 2);
+      if (offset < 1) {
+        // Too small to draw
+        return "";
+      }
+
+      // Points where the arc starts and ends (on the hex edges)
+      const arcStart = {
+        x: corner.x + (dx1 / len1) * offset,
+        y: corner.y + (dy1 / len1) * offset,
+      };
+      const arcEnd = {
+        x: corner.x + (dx2 / len2) * offset,
+        y: corner.y + (dy2 / len2) * offset,
+      };
+
+      // Offset into the SVG's local coordinate space
+      const pad = 20;
+      const lx = (x: number) => x - (corner.x - pad);
+      const ly = (y: number) => y - (corner.y - pad);
+
+      return `M ${lx(arcStart.x)} ${ly(arcStart.y)} Q ${lx(corner.x)} ${ly(corner.y)} ${lx(arcEnd.x)} ${ly(arcEnd.y)}`;
+    });
+
+    const radiusLabelStyle = computed(() => {
+      const w = avatarSize.value;
+      const h = w / Math.sqrt(3);
+      const cy = w / 2 + hexBleed.value;
+      // Position the label to the left of the bottom-left corner
+      return {
+        position: "absolute" as const,
+        left: `-24px`,
+        top: `${cy + h / 2 - 6}px`,
+        fontSize: "12px",
+        fontWeight: "700",
+        color: "white",
+        pointerEvents: "none" as const,
+        whiteSpace: "nowrap" as const,
+      };
+    });
 
     const normalizeImageUrl = (value: string) => {
       const trimmed = value.trim();
@@ -617,13 +778,6 @@ export default defineComponent({
       if (avatarInput.value) avatarInput.value.value = "";
     };
 
-    const hexBleed = computed(() => {
-      // How many px the hex top/bottom extend beyond the square container
-      const w = avatarSize.value;
-      const fullHeight = w * 2 / Math.sqrt(3); // regular hex height
-      return (fullHeight - w) / 2;
-    });
-
     const generateRoundedHexagonPath = (size: number, radius: number) => {
       // Regular flat-top hexagon in pixel coords (userSpaceOnUse).
       // Width = size, height = size * 2/√3 ≈ size * 1.1547.
@@ -732,6 +886,11 @@ export default defineComponent({
       setAvatarShape,
       onRadiusInput,
       onRadiusCommit,
+      isDraggingRadius,
+      onRadiusHandleDown,
+      radiusHandleStyle,
+      radiusHandlePath,
+      radiusLabelStyle,
       handleBackgroundColorChange,
       focusEditor,
       catchEditorClick,
@@ -785,6 +944,16 @@ export default defineComponent({
   cursor: pointer;
   position: relative;
   overflow: visible;
+}
+
+.radius-handle {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+  transition: opacity 0.15s ease;
+}
+
+.radius-value-label {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  user-select: none;
 }
 
 .avatar-media {

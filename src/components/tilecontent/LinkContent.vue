@@ -1018,7 +1018,7 @@ export default defineComponent({
 }
 
 .tile-details.is-editing {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--tile-bg);
   border-color: transparent;
 }
 
@@ -1076,7 +1076,7 @@ export default defineComponent({
 
 /* Individual field hover highlight when editing */
 .tile-details.is-editing .tile-field-wrap:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: color-mix(in srgb, var(--color-input-edit) 97%, var(--tile-text-color) 3%);
 }
 
 /* ── Inner field (textarea / input) ── */
@@ -1091,13 +1091,18 @@ export default defineComponent({
   cursor: inherit;
   resize: none;
   field-sizing: content;
-  padding: 0;
-  margin: 0;
+  padding: 8px 8px;
+  margin: -8px -8px;
 }
 
 .tile-field:focus {
   outline: none;
+  /* background-color: var(--color-input-edit); */
 }
+
+/* .tile-field:focus .tile-field-wrap {
+  background-color: var(--color-input-edit);
+} */
 
 /* When readonly, hide placeholder text */
 .tile-field[readonly]::placeholder {

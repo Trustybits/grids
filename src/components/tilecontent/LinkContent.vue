@@ -752,6 +752,16 @@ export default defineComponent({
         },
       ];
 
+      // When all fields are empty, default to title
+      if (
+        !displayTitle.value &&
+        !displayDescription.value &&
+        !displaySubtitle.value
+      ) {
+        startEditing("title");
+        return;
+      }
+
       const clickY = event.clientY;
       let closest: "title" | "description" | "subtitle" = "title";
       let minDist = Infinity;
@@ -1086,7 +1096,11 @@ export default defineComponent({
 }
 
 .tile-details.is-hovered {
-  border-color: rgba(255, 255, 255, 0.13);
+  background-color: color-mix(
+    in srgb,
+    transparent 45%,
+    color-mix(in srgb, var(--tile-bg) 82%, var(--tile-text-color) 3%) 65%
+  );
 }
 
 .tile-details.is-editing {
@@ -1138,12 +1152,6 @@ export default defineComponent({
   margin-bottom: -2px;
 }
 
-/* Readonly overflow: gradient fade at bottom to indicate more text */
-.tile-field-wrap.has-overflow {
-  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-}
-
 /* Remove mask when content fits (small enough text won't trigger it visually) */
 .tile-details.is-editing .tile-field-wrap {
   -webkit-mask-image: none;
@@ -1177,7 +1185,6 @@ export default defineComponent({
 
 .tile-field:focus {
   outline: none;
-  /* background-color: var(--color-input-edit); */
 }
 
 /* .tile-field:focus .tile-field-wrap {
@@ -1202,7 +1209,13 @@ export default defineComponent({
 }
 
 .tile-details.is-editing .tile-field-wrap--title.is-visible {
-  max-height: 120px;
+  max-height: 48px;
+  overflow-y: scroll;
+  scrollbar-color: var(--color-input-edit) transparent;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scroll-behavior: smooth;
 }
 
 /* ── Title field ── */
@@ -1254,7 +1267,13 @@ export default defineComponent({
 }
 
 .tile-details.is-editing .tile-field-wrap--description.is-visible {
-  max-height: 120px;
+  max-height: 40px;
+  overflow-y: scroll;
+  scrollbar-color: var(--color-input-edit) transparent;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scroll-behavior: smooth;
 }
 
 /* ── Description field ── */

@@ -10,6 +10,7 @@
     }"
     :style="{ '--link-title-lines': String(titleLineClamp) }"
     ref="linkTileRef"
+    @click="onTileClick"
     @contextmenu="onContextMenu"
     @dragenter.prevent="onDragEnter"
     @dragover.prevent="onDragOver"
@@ -85,25 +86,26 @@
         :class="{
           'is-hovered': isDetailsHovered && !isEditing,
           'is-editing': isEditing,
-          // 'has-title': !!displayTitle,
-          // 'has-description': !!displayDescription,
-          // 'has-subtitle': !!displaySubtitle,
+          'is-closing': isClosing,
         }"
         @mouseenter="isDetailsHovered = true"
         @mouseleave="isDetailsHovered = false"
         @mousedown.stop
-        @click="onDetailsClick"
+        @click.stop="onDetailsClick"
       >
         <div
           class="tile-field tile-field--title"
           :class="{
-            'is-visible': isEditing || !!displayTitle,
+            'is-visible': isEditing || isClosing || !!displayTitle,
+            'is-closing': isClosing && !displayTitle,
             'no-animate': !!displayTitle,
           }"
         >
           <p
             class="tile-title"
-            :class="{ 'is-sizing-ref': isEditing && !!displayTitle }"
+            :class="{
+              'is-sizing-ref': isEditing && !isClosing && !!displayTitle,
+            }"
           >
             {{ displayTitle }}
           </p>
@@ -119,13 +121,16 @@
         <div
           class="tile-field tile-field--description"
           :class="{
-            'is-visible': isEditing || !!displayDescription,
+            'is-visible': isEditing || isClosing || !!displayDescription,
+            'is-closing': isClosing && !displayDescription,
             'no-animate': !!displayDescription,
           }"
         >
           <p
             class="tile-description"
-            :class="{ 'is-sizing-ref': isEditing && !!displayDescription }"
+            :class="{
+              'is-sizing-ref': isEditing && !isClosing && !!displayDescription,
+            }"
           >
             {{ displayDescription }}
           </p>
@@ -141,13 +146,16 @@
         <div
           class="tile-field tile-field--subtitle"
           :class="{
-            'is-visible': isEditing || !!displaySubtitle,
+            'is-visible': isEditing || isClosing || !!displaySubtitle,
+            'is-closing': isClosing && !displaySubtitle,
             'no-animate': !!displaySubtitle,
           }"
         >
           <p
             class="tile-subtitle"
-            :class="{ 'is-sizing-ref': isEditing && !!displaySubtitle }"
+            :class="{
+              'is-sizing-ref': isEditing && !isClosing && !!displaySubtitle,
+            }"
           >
             {{ displaySubtitle }}
           </p>
@@ -289,6 +297,7 @@ export default defineComponent({
     );
 
     const isEditing = ref(false);
+    const isClosing = ref(false);
     const isDetailsHovered = ref(false);
     const titleInputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(
       null,
@@ -716,9 +725,7 @@ export default defineComponent({
               linkTileRef.value &&
               !linkTileRef.value.contains(event.target as Node)
             ) {
-              isEditing.value = false;
-              flushPersist();
-              removeExitClickHandler();
+              stopEditing();
             }
           };
           document.addEventListener("click", exitClickHandler);
@@ -726,8 +733,27 @@ export default defineComponent({
       });
     };
 
+    const stopEditing = () => {
+      if (!isEditing.value || isClosing.value) return;
+      isClosing.value = true;
+      flushPersist();
+      removeExitClickHandler();
+      // Wait for the CSS close transition before fully removing editing state
+      setTimeout(() => {
+        isEditing.value = false;
+        isClosing.value = false;
+      }, 300);
+    };
+
     const onDetailsClick = (event: MouseEvent) => {
-      if (isEditing.value) return;
+      // If editing, close when clicking inside tile-details but outside an input/textarea
+      if (isEditing.value) {
+        // const target = event.target as HTMLElement;
+        // if (!target.closest("input, textarea")) {
+        //   stopEditing();
+        // }
+        return;
+      }
       if (!layoutStore.canEdit) return;
 
       // Determine which field is closest to the click position
@@ -774,6 +800,15 @@ export default defineComponent({
       window.open(url, "_blank");
     };
 
+    const onTileClick = (event: MouseEvent) => {
+      if (isEditing.value && !isClosing.value) {
+        const target = event.target as HTMLElement;
+        if (!target.closest("input, textarea")) {
+          stopEditing();
+        }
+      }
+    };
+
     const onShortClick = () => {
       if (isEditing.value) return;
       openLink();
@@ -782,9 +817,7 @@ export default defineComponent({
     const onExitClick = () => {
       if (!layoutStore.canEdit) return;
       if (!isEditing.value) return;
-      isEditing.value = false;
-      flushPersist();
-      removeExitClickHandler();
+      stopEditing();
     };
 
     const LINK_RESET_COLORS = new Set([
@@ -810,9 +843,11 @@ export default defineComponent({
       overlayColor: linkOverlayColor,
       handleBackgroundColorChange,
       formatLink,
+      onTileClick,
       onShortClick,
       onExitClick,
       isEditing,
+      isClosing,
       isDetailsHovered,
       detailsRef,
       descriptionInputRef,
@@ -1025,12 +1060,17 @@ export default defineComponent({
   border-color: transparent;
 }
 
+.tile-details.is-closing {
+  background-color: transparent;
+  border-color: transparent;
+}
+
 .tile-field {
   overflow: hidden;
   max-height: 0;
   opacity: 0;
   transition:
-    max-height 1s ease,
+    max-height 0.3s ease,
     opacity 0.3s ease,
     background-color 0.15s ease;
   border-radius: 4px;
@@ -1040,29 +1080,45 @@ export default defineComponent({
 }
 
 .tile-field.is-visible {
-  max-height: 200px;
+  max-height: 120px;
   opacity: 1;
+  transition:
+    max-height 0.5s ease,
+    opacity 0.3s ease,
+    background-color 0.15s ease;
 }
 
-.tile-field--subtitle {
+/* Empty fields closing: animate back to collapsed */
+.tile-field.is-closing {
+  max-height: 0;
+  opacity: 0;
+  transition:
+    max-height 0.3s ease,
+    opacity 0.2s ease,
+    background-color 0.15s ease;
+}
+
+.tile-field--subtitle.is-visible {
   /* margin-top: -8px !important; */
   margin-top: -4px;
   /* padding-bottom: 4px; */
+  /* max-height: 20px; */
 }
 
-.tile-field--description {
+.tile-field--description.is-visible {
   margin-top: -4px;
   margin-bottom: -4px;
+  max-height: 40px;
 }
 
-.tile-field--title {
-  margin-bottom: -4px;
+.tile-field--title.is-visible {
+  margin-bottom: 0px;
+  min-height: 30px;
+  max-height: 32px;
 }
 
-.tile-input--subtitle {
-  /* margin-top: -8px !important; */
+/* .tile-input--subtitle {
   margin-top: -4px;
-  /* padding-bottom: 4px; */
 }
 
 .tile-input--description {
@@ -1072,7 +1128,7 @@ export default defineComponent({
 
 .tile-input--title {
   margin-bottom: -4px;
-}
+} */
 
 /* Fields that already had content skip the expand/contract animation */
 .tile-field.no-animate {
@@ -1090,6 +1146,13 @@ export default defineComponent({
 /* Sizing reference: invisible but still determines container height */
 .is-sizing-ref {
   visibility: hidden;
+  pointer-events: none;
+}
+
+/* Fade out inputs during close so removal from DOM is seamless */
+.tile-details.is-closing .tile-input {
+  opacity: 0;
+  transition: opacity 0.2s ease;
   pointer-events: none;
 }
 
@@ -1182,6 +1245,7 @@ export default defineComponent({
   line-height: 1.25;
   font-family: "Inter", sans-serif;
   margin: 0;
+  min-height: 1.25em;
 }
 
 .tile-input--wide {
@@ -1193,6 +1257,7 @@ export default defineComponent({
   line-height: 16px;
   color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
   font-family: "Inter", sans-serif;
+  min-height: 32px;
 }
 
 .tile-input--subtitle {
@@ -1200,6 +1265,7 @@ export default defineComponent({
   line-height: 16px;
   font-family: "Inter", sans-serif;
   color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+  min-height: 16px;
 }
 
 .link-image-input {

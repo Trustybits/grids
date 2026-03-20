@@ -1006,6 +1006,7 @@ export default defineComponent({
   padding: 2px;
   margin-left: -8px;
   margin-bottom: -4px;
+  overflow: hidden;
 }
 
 .link-tile-content.is-owner .tile-details {
@@ -1027,6 +1028,10 @@ export default defineComponent({
   overflow: hidden;
   border-radius: 4px;
 
+  /* Stretch to full width of tile-details (cancel parent padding) */
+  margin-left: -2px;
+  margin-right: -2px;
+
   /* Collapsed: zero space */
   max-height: 0;
   padding: 0;
@@ -1047,6 +1052,14 @@ export default defineComponent({
     padding 0.35s ease,
     opacity 0.3s ease,
     background-color 0.15s ease;
+}
+
+.tile-field-wrap--title {
+  margin-top: -2px;
+}
+
+.tile-field-wrap--subtitle{
+  margin-bottom: -2px;
 }
 
 /* Readonly overflow: gradient fade at bottom to indicate more text */
@@ -1093,9 +1106,14 @@ export default defineComponent({
 
 /* ── Title wrapper ── */
 
+.tile-field-wrap--title {
+  flex-shrink: 1;
+  min-height: 0;
+}
+
 .tile-field-wrap--title.is-visible {
   max-height: 48px;
-  padding: 6px 4px;
+  padding: 6px 6px;
 }
 
 .tile-details.is-editing .tile-field-wrap--title.is-visible {
@@ -1140,9 +1158,14 @@ export default defineComponent({
 
 /* ── Description wrapper ── */
 
+.tile-field-wrap--description {
+  flex-shrink: 1;
+  min-height: 0;
+}
+
 .tile-field-wrap--description.is-visible {
   max-height: 40px;
-  padding: 4px 4px;
+  padding: 4px 6px;
 }
 
 .tile-details.is-editing .tile-field-wrap--description.is-visible {
@@ -1159,9 +1182,13 @@ export default defineComponent({
 
 /* ── Subtitle wrapper ── */
 
+.tile-field-wrap--subtitle {
+  flex-shrink: 0;
+}
+
 .tile-field-wrap--subtitle.is-visible {
   max-height: 32px;
-  padding: 4px 4px;
+  padding: 4px 6px;
 }
 
 /* ── Subtitle field ── */

@@ -55,7 +55,7 @@
             v-else-if="displayTitle"
             class="tile-title tile-title--wide"
             @mousedown.stop
-            @click="startEditing"
+            @click="() => startEditing()"
           >
             {{ displayTitle }}
           </p>
@@ -80,40 +80,86 @@
 
       <div
         v-if="!isWideOneHigh && !isTallOneWide && !isOneByOne"
-        class="tile-text"
+        ref="detailsRef"
+        class="tile-details"
+        :class="{
+          'is-hovered': isDetailsHovered && !isEditing,
+          'is-editing': isEditing,
+          // 'has-title': !!displayTitle,
+          // 'has-description': !!displayDescription,
+          // 'has-subtitle': !!displaySubtitle,
+        }"
+        @mouseenter="isDetailsHovered = true"
+        @mouseleave="isDetailsHovered = false"
         @mousedown.stop
-        @click="startEditing"
+        @click="onDetailsClick"
       >
-        <template v-if="isEditing">
+        <div
+          class="tile-field tile-field--title"
+          :class="{
+            'is-visible': isEditing || !!displayTitle,
+            'no-animate': !!displayTitle,
+          }"
+        >
+          <p
+            class="tile-title"
+            :class="{ 'is-sizing-ref': isEditing && !!displayTitle }"
+          >
+            {{ displayTitle }}
+          </p>
           <textarea
+            v-if="isEditing"
             ref="titleInputRef"
             v-model="draftTitle"
             class="tile-input tile-input--title"
             :rows="titleLineClamp"
             placeholder="Add a title"
           ></textarea>
+        </div>
+        <div
+          class="tile-field tile-field--description"
+          :class="{
+            'is-visible': isEditing || !!displayDescription,
+            'no-animate': !!displayDescription,
+          }"
+        >
+          <p
+            class="tile-description"
+            :class="{ 'is-sizing-ref': isEditing && !!displayDescription }"
+          >
+            {{ displayDescription }}
+          </p>
           <textarea
+            v-if="isEditing"
+            ref="descriptionInputRef"
             v-model="draftDescription"
             class="tile-input tile-input--description"
             rows="2"
             placeholder="Add a description"
           ></textarea>
+        </div>
+        <div
+          class="tile-field tile-field--subtitle"
+          :class="{
+            'is-visible': isEditing || !!displaySubtitle,
+            'no-animate': !!displaySubtitle,
+          }"
+        >
+          <p
+            class="tile-subtitle"
+            :class="{ 'is-sizing-ref': isEditing && !!displaySubtitle }"
+          >
+            {{ displaySubtitle }}
+          </p>
           <input
+            v-if="isEditing"
+            ref="subtitleInputRef"
             v-model="draftSubtitle"
             class="tile-input tile-input--subtitle"
             type="text"
             placeholder="Add a subtitle"
           />
-        </template>
-        <template v-else>
-          <p v-if="displayTitle" class="tile-title">{{ displayTitle }}</p>
-          <p v-if="displayDescription" class="tile-description">
-            {{ displayDescription }}
-          </p>
-          <p v-if="displaySubtitle" class="tile-subtitle">
-            {{ displaySubtitle }}
-          </p>
-        </template>
+        </div>
       </div>
     </div>
 
@@ -243,9 +289,13 @@ export default defineComponent({
     );
 
     const isEditing = ref(false);
+    const isDetailsHovered = ref(false);
     const titleInputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(
       null,
     );
+    const descriptionInputRef = ref<HTMLTextAreaElement | null>(null);
+    const subtitleInputRef = ref<HTMLInputElement | null>(null);
+    const detailsRef = ref<HTMLElement | null>(null);
     const draftTitle = ref("");
     const draftDescription = ref("");
     const draftSubtitle = ref("");
@@ -645,13 +695,21 @@ export default defineComponent({
       }
     };
 
-    const startEditing = () => {
+    const startEditing = (
+      focusTarget?: "title" | "description" | "subtitle",
+    ) => {
       if (!layoutStore.canEdit || isEditing.value) return;
       isEditing.value = true;
       syncDrafts();
       nextTick(() => {
         setTimeout(() => {
-          titleInputRef.value?.focus();
+          const targetRef =
+            focusTarget === "subtitle"
+              ? subtitleInputRef
+              : focusTarget === "description"
+                ? descriptionInputRef
+                : titleInputRef;
+          targetRef.value?.focus();
           // Register exit listener since @mousedown.stop bypasses GridTile's addClickListener
           exitClickHandler = (event: MouseEvent) => {
             if (
@@ -666,6 +724,47 @@ export default defineComponent({
           document.addEventListener("click", exitClickHandler);
         }, 0);
       });
+    };
+
+    const onDetailsClick = (event: MouseEvent) => {
+      if (isEditing.value) return;
+      if (!layoutStore.canEdit) return;
+
+      // Determine which field is closest to the click position
+      const el = detailsRef.value;
+      if (!el) {
+        startEditing();
+        return;
+      }
+
+      const fields = [
+        { name: "title" as const, el: el.querySelector(".tile-field--title") },
+        {
+          name: "description" as const,
+          el: el.querySelector(".tile-field--description"),
+        },
+        {
+          name: "subtitle" as const,
+          el: el.querySelector(".tile-field--subtitle"),
+        },
+      ];
+
+      const clickY = event.clientY;
+      let closest: "title" | "description" | "subtitle" = "title";
+      let minDist = Infinity;
+
+      for (const f of fields) {
+        if (!f.el) continue;
+        const rect = f.el.getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+        const dist = Math.abs(clickY - centerY);
+        if (dist < minDist) {
+          minDist = dist;
+          closest = f.name;
+        }
+      }
+
+      startEditing(closest);
     };
 
     const openLink = () => {
@@ -714,7 +813,12 @@ export default defineComponent({
       onShortClick,
       onExitClick,
       isEditing,
+      isDetailsHovered,
+      detailsRef,
+      descriptionInputRef,
+      subtitleInputRef,
       startEditing,
+      onDetailsClick,
       titleInputRef,
       titleLineClamp,
       isOneByOne,
@@ -894,10 +998,111 @@ export default defineComponent({
   display: block;
 }
 
-.tile-text {
+.tile-details {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+  padding: 2px;
+  margin-left: -8px;
+  margin-bottom: -4px;
+}
+
+.link-tile-content.is-owner .tile-details {
+  cursor: text;
+}
+
+.tile-details.is-hovered {
+  border-color: rgba(255, 255, 255, 0.13);
+}
+
+.tile-details.is-editing {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: transparent;
+}
+
+.tile-field {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition:
+    max-height 1s ease,
+    opacity 0.3s ease,
+    background-color 0.15s ease;
+  border-radius: 4px;
+  /* padding: 2px 4px; */
+  padding: 4px;
+  margin: -2px;
+}
+
+.tile-field.is-visible {
+  max-height: 200px;
+  opacity: 1;
+}
+
+.tile-field--subtitle {
+  /* margin-top: -8px !important; */
+  margin-top: -4px;
+  /* padding-bottom: 4px; */
+}
+
+.tile-field--description {
+  margin-top: -4px;
+  margin-bottom: -4px;
+}
+
+.tile-field--title {
+  margin-bottom: -4px;
+}
+
+.tile-input--subtitle {
+  /* margin-top: -8px !important; */
+  margin-top: -4px;
+  /* padding-bottom: 4px; */
+}
+
+.tile-input--description {
+  margin-top: -4px;
+  margin-bottom: -4px;
+}
+
+.tile-input--title {
+  margin-bottom: -4px;
+}
+
+/* Fields that already had content skip the expand/contract animation */
+.tile-field.no-animate {
+  transition: background-color 0.15s ease;
+  max-height: none;
+  opacity: 1;
+  overflow: visible;
+  display: grid;
+}
+
+.tile-field.no-animate > * {
+  grid-area: 1 / 1;
+}
+
+/* Sizing reference: invisible but still determines container height */
+.is-sizing-ref {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Individual field hover darkening when editing */
+.tile-details.is-editing .tile-field:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tile-field > .tile-title,
+.tile-field > .tile-description,
+.tile-field > .tile-subtitle,
+.tile-field > .tile-input {
+  padding: 2px;
 }
 
 .tile-title {
@@ -944,33 +1149,29 @@ export default defineComponent({
   margin: 0;
 }
 
-.link-tile-content.is-owner .tile-text,
 .link-tile-content.is-owner .tile-title--wide {
   cursor: text;
   border-radius: var(--radius-sm);
   transition: background-color 0.3s ease;
 }
 
-.link-tile-content.is-owner:not(.is-editing) .tile-text:hover,
 .link-tile-content.is-owner:not(.is-editing) .tile-title--wide:hover {
   background-color: var(--color-editable-hover);
 }
 
 .tile-input {
   width: 100%;
-  border: 0px solid transparent;
-  background: color-mix(in srgb, var(--color-tile-background) 84%, transparent);
+  border: none;
+  background: transparent;
   color: var(--tile-text-color);
   field-sizing: content;
-  padding: 0;
   line-height: inherit;
   resize: none;
 }
 
 .tile-input:focus {
   outline: none;
-  border: 0px solid transparent;
-  padding: 0;
+  border: none;
   field-sizing: content;
   font-family: "Inter", sans-serif;
 }

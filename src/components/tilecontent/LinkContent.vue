@@ -1196,6 +1196,14 @@ export default defineComponent({
   color: transparent;
 }
 
+.tile-field::placeholder {
+  color: color-mix(in srgb, var(--tile-text-color) 55%, transparent 45%);
+}
+
+.tile-input::placeholder {
+  color: color-mix(in srgb, var(--color-content-low) 55%, transparent 45%);
+}
+
 /* ── Title wrapper ── */
 
 .tile-field-wrap--title {
@@ -1210,7 +1218,7 @@ export default defineComponent({
 
 .tile-details.is-editing .tile-field-wrap--title.is-visible {
   max-height: 48px;
-  overflow-y: scroll;
+  overflow-y: auto;
   scrollbar-color: var(--color-input-edit) transparent;
   scrollbar-width: thin;
   overscroll-behavior: contain;
@@ -1263,7 +1271,7 @@ export default defineComponent({
 
 .tile-field-wrap--description.is-visible {
   max-height: 40px;
-  padding: 4px 6px;
+  padding: 6px 6px;
 }
 
 .tile-details.is-editing .tile-field-wrap--description.is-visible {

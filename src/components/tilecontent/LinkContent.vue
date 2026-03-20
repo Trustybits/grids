@@ -92,45 +92,56 @@
         @mousedown.stop
         @click.stop="onDetailsClick"
       >
-        <input
-          ref="titleInputRef"
-          v-model="draftTitle"
-          class="tile-field tile-field--title"
+        <div
+          class="tile-field-wrap tile-field-wrap--title"
           :class="{
             'is-visible': isEditing || !!displayTitle,
-            'has-content': !!displayTitle,
+            'has-overflow': !isEditing,
           }"
-          type="text"
-          :readonly="!isEditing"
-          :tabindex="isEditing ? 0 : -1"
-          placeholder="Add a title"
-        />
-        <input
-          ref="descriptionInputRef"
-          v-model="draftDescription"
-          class="tile-field tile-field--description"
+        >
+          <textarea
+            ref="titleInputRef"
+            v-model="draftTitle"
+            class="tile-field tile-field--title"
+            :readonly="!isEditing"
+            :tabindex="isEditing ? 0 : -1"
+            placeholder="Add a title"
+            rows="1"
+          ></textarea>
+        </div>
+        <div
+          class="tile-field-wrap tile-field-wrap--description"
           :class="{
             'is-visible': isEditing || !!displayDescription,
-            'has-content': !!displayDescription,
+            'has-overflow': !isEditing,
           }"
-          type="text"
-          :readonly="!isEditing"
-          :tabindex="isEditing ? 0 : -1"
-          placeholder="Add a description"
-        />
-        <input
-          ref="subtitleInputRef"
-          v-model="draftSubtitle"
-          class="tile-field tile-field--subtitle"
+        >
+          <textarea
+            ref="descriptionInputRef"
+            v-model="draftDescription"
+            class="tile-field tile-field--description"
+            :readonly="!isEditing"
+            :tabindex="isEditing ? 0 : -1"
+            placeholder="Add a description"
+            rows="1"
+          ></textarea>
+        </div>
+        <div
+          class="tile-field-wrap tile-field-wrap--subtitle"
           :class="{
             'is-visible': isEditing || !!displaySubtitle,
-            'has-content': !!displaySubtitle,
           }"
-          type="text"
-          :readonly="!isEditing"
-          :tabindex="isEditing ? 0 : -1"
-          placeholder="Add a subtitle"
-        />
+        >
+          <input
+            ref="subtitleInputRef"
+            v-model="draftSubtitle"
+            class="tile-field tile-field--subtitle"
+            type="text"
+            :readonly="!isEditing"
+            :tabindex="isEditing ? 0 : -1"
+            placeholder="Add a subtitle"
+          />
+        </div>
       </div>
     </div>
 
@@ -261,8 +272,8 @@ export default defineComponent({
 
     const isEditing = ref(false);
     const isDetailsHovered = ref(false);
-    const titleInputRef = ref<HTMLInputElement | null>(null);
-    const descriptionInputRef = ref<HTMLInputElement | null>(null);
+    const titleInputRef = ref<HTMLTextAreaElement | null>(null);
+    const descriptionInputRef = ref<HTMLTextAreaElement | null>(null);
     const subtitleInputRef = ref<HTMLInputElement | null>(null);
     const detailsRef = ref<HTMLElement | null>(null);
     const draftTitle = ref("");
@@ -1010,7 +1021,52 @@ export default defineComponent({
   border-color: transparent;
 }
 
-/* ── Unified field (<input> serving as both display & edit) ── */
+/* ── Field wrapper (handles collapse / expand / overflow mask) ── */
+
+.tile-field-wrap {
+  overflow: hidden;
+  border-radius: 4px;
+
+  /* Collapsed: zero space */
+  max-height: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    max-height 0.3s ease,
+    padding 0.3s ease,
+    opacity 0.25s ease,
+    background-color 0.15s ease;
+}
+
+.tile-field-wrap.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transition:
+    max-height 0.35s ease,
+    padding 0.35s ease,
+    opacity 0.3s ease,
+    background-color 0.15s ease;
+}
+
+/* Readonly overflow: gradient fade at bottom to indicate more text */
+.tile-field-wrap.has-overflow {
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+/* Remove mask when content fits (small enough text won't trigger it visually) */
+.tile-details.is-editing .tile-field-wrap {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* Individual field hover highlight when editing */
+.tile-details.is-editing .tile-field-wrap:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Inner field (textarea / input) ── */
 
 .tile-field {
   display: block;
@@ -1020,56 +1076,30 @@ export default defineComponent({
   color: var(--tile-text-color);
   font-family: "Inter", sans-serif;
   cursor: inherit;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  border-radius: 4px;
-
-  /* Collapsed state: zero space */
-  max-height: 0;
-  padding: 0 4px;
+  resize: none;
+  field-sizing: content;
+  padding: 0;
   margin: 0;
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    max-height 0.3s ease,
-    padding 0.3s ease,
-    margin 0.3s ease,
-    opacity 0.25s ease,
-    background-color 0.15s ease;
 }
 
 .tile-field:focus {
   outline: none;
 }
 
-/* Expanded state: visible with natural height */
-.tile-field.is-visible {
-  max-height: 40px;
-  padding: 6px 4px;
-  opacity: 1;
-  pointer-events: auto;
-  transition:
-    max-height 0.35s ease,
-    padding 0.35s ease,
-    margin 0.35s ease,
-    opacity 0.3s ease,
-    background-color 0.15s ease;
-}
-
-/* When readonly (not editing), hide placeholder text */
+/* When readonly, hide placeholder text */
 .tile-field[readonly]::placeholder {
   color: transparent;
 }
 
-/* When not editing and field has content, show as plain text (no cursor) */
-.tile-field.has-content:not(:focus) {
-  cursor: inherit;
+/* ── Title wrapper ── */
+
+.tile-field-wrap--title.is-visible {
+  max-height: 48px;
+  padding: 6px 4px;
 }
 
-/* Individual field hover highlight when editing */
-.tile-details.is-editing .tile-field:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+.tile-details.is-editing .tile-field-wrap--title.is-visible {
+  max-height: 120px;
 }
 
 /* ── Title field ── */
@@ -1080,6 +1110,7 @@ export default defineComponent({
   line-height: 1.25;
 }
 
+/* Wide variant (separate <p> in header) */
 .tile-title {
   color: var(--tile-text-color);
   font-size: 16px;
@@ -1107,6 +1138,17 @@ export default defineComponent({
   background-color: var(--color-editable-hover);
 }
 
+/* ── Description wrapper ── */
+
+.tile-field-wrap--description.is-visible {
+  max-height: 40px;
+  padding: 4px 4px;
+}
+
+.tile-details.is-editing .tile-field-wrap--description.is-visible {
+  max-height: 120px;
+}
+
 /* ── Description field ── */
 
 .tile-field--description {
@@ -1115,12 +1157,22 @@ export default defineComponent({
   color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
 }
 
+/* ── Subtitle wrapper ── */
+
+.tile-field-wrap--subtitle.is-visible {
+  max-height: 32px;
+  padding: 4px 4px;
+}
+
 /* ── Subtitle field ── */
 
 .tile-field--subtitle {
   font-size: 12px;
   line-height: 16px;
   color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Wide variant (1-high header input) ── */

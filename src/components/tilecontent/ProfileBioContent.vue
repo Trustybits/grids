@@ -25,103 +25,6 @@
             <div v-else class="avatar-placeholder">Add photo</div>
           </div>
         </div>
-
-        <div
-          v-if="layoutStore.canEdit && isEditing"
-          class="profile-controls"
-          @mousedown.stop
-        >
-          <div class="control-row">
-            <button
-              type="button"
-              class="control-btn"
-              @click.stop="openCustomImagePicker"
-            >
-              Upload
-            </button>
-            <button
-              type="button"
-              class="control-btn"
-              @click.stop="openUrlInput"
-            >
-              Use URL
-            </button>
-            <button
-              v-if="avatarSrc"
-              type="button"
-              class="control-btn control-btn--danger"
-              @click.stop="removeCustomImage"
-            >
-              Remove
-            </button>
-          </div>
-
-          <div v-if="showUrlInput" class="control-url">
-            <input
-              v-model="draftAvatarUrl"
-              type="text"
-              placeholder="https://..."
-            />
-            <div class="control-row">
-              <button
-                type="button"
-                class="control-btn"
-                @click.stop="applyAvatarUrl"
-              >
-                Apply
-              </button>
-              <button
-                type="button"
-                class="control-btn control-btn--ghost"
-                @click.stop="cancelUrlInput"
-              >
-                Cancel
-              </button>
-            </div>
-            <div v-if="urlError" class="control-error">{{ urlError }}</div>
-          </div>
-
-          <div class="control-row">
-            <label class="control-label">Shape</label>
-            <div class="control-segment">
-              <button
-                type="button"
-                :class="{ active: avatarShape === 'circle' }"
-                @click.stop="setAvatarShape('circle')"
-              >
-                Circle
-              </button>
-              <button
-                type="button"
-                :class="{ active: avatarShape === 'square' }"
-                @click.stop="setAvatarShape('square')"
-              >
-                Square
-              </button>
-              <button
-                type="button"
-                :class="{ active: avatarShape === 'hex' }"
-                @click.stop="setAvatarShape('hex')"
-              >
-                Hex
-              </button>
-            </div>
-          </div>
-
-          <div v-if="avatarShape !== 'circle'" class="control-row">
-            <label class="control-label">Radius</label>
-            <input
-              type="range"
-              min="0"
-              max="40"
-              step="1"
-              :value="avatarRadius"
-              @input="onRadiusInput"
-              @change="onRadiusCommit"
-            />
-            <span class="control-value">{{ avatarRadius }}px</span>
-          </div>
-        </div>
       </div>
 
       <div class="profile-meta" :style="{ '--tile-text-color': textColor }">
@@ -165,6 +68,109 @@
       @change.stop="onAvatarSelected"
     />
   </div>
+
+  <Teleport to="body">
+    <transition name="profile-popover">
+      <div
+        v-if="showControls"
+        class="profile-controls-popover"
+        :style="popoverStyle"
+        ref="popoverRef"
+        @mousedown.stop
+      >
+        <div class="control-row">
+          <button
+            type="button"
+            class="control-btn"
+            @click.stop="openCustomImagePicker"
+          >
+            Upload
+          </button>
+          <button
+            type="button"
+            class="control-btn"
+            @click.stop="openUrlInput"
+          >
+            Use URL
+          </button>
+          <button
+            v-if="avatarSrc"
+            type="button"
+            class="control-btn control-btn--danger"
+            @click.stop="removeCustomImage"
+          >
+            Remove
+          </button>
+        </div>
+
+        <div v-if="showUrlInput" class="control-url">
+          <input
+            v-model="draftAvatarUrl"
+            type="text"
+            placeholder="https://..."
+          />
+          <div class="control-row">
+            <button
+              type="button"
+              class="control-btn"
+              @click.stop="applyAvatarUrl"
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              class="control-btn control-btn--ghost"
+              @click.stop="cancelUrlInput"
+            >
+              Cancel
+            </button>
+          </div>
+          <div v-if="urlError" class="control-error">{{ urlError }}</div>
+        </div>
+
+        <div class="control-row">
+          <label class="control-label">Shape</label>
+          <div class="control-segment">
+            <button
+              type="button"
+              :class="{ active: avatarShape === 'circle' }"
+              @click.stop="setAvatarShape('circle')"
+            >
+              Circle
+            </button>
+            <button
+              type="button"
+              :class="{ active: avatarShape === 'square' }"
+              @click.stop="setAvatarShape('square')"
+            >
+              Square
+            </button>
+            <button
+              type="button"
+              :class="{ active: avatarShape === 'hex' }"
+              @click.stop="setAvatarShape('hex')"
+            >
+              Hex
+            </button>
+          </div>
+        </div>
+
+        <div v-if="avatarShape !== 'circle'" class="control-row">
+          <label class="control-label">Radius</label>
+          <input
+            type="range"
+            min="0"
+            max="40"
+            step="1"
+            :value="avatarRadius"
+            @input="onRadiusInput"
+            @change="onRadiusCommit"
+          />
+          <span class="control-value">{{ avatarRadius }}px</span>
+        </div>
+      </div>
+    </transition>
+  </Teleport>
 </template>
 
 <script lang="ts">
@@ -175,6 +181,7 @@ import {
   watch,
   nextTick,
   onMounted,
+  onBeforeUnmount,
   type PropType,
   inject,
 } from "vue";
@@ -235,7 +242,10 @@ export default defineComponent({
     const avatarInput = ref<HTMLInputElement | null>(null);
     const avatarRef = ref<HTMLDivElement | null>(null);
     const profileRoot = ref<HTMLDivElement | null>(null);
+    const popoverRef = ref<HTMLDivElement | null>(null);
     const avatarSize = ref(152);
+    const showControls = ref(false);
+    const popoverPos = ref({ top: 0, left: 0 });
 
     const clipPathId = `avatar-clip-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -444,6 +454,11 @@ export default defineComponent({
 
     onMounted(() => {
       updateAvatarSize();
+      document.addEventListener("mousedown", onClickOutside);
+    });
+
+    onBeforeUnmount(() => {
+      document.removeEventListener("mousedown", onClickOutside);
     });
 
     watch(
@@ -492,13 +507,43 @@ export default defineComponent({
       avatarInput.value?.click();
     };
 
+    const updatePopoverPos = () => {
+      if (!avatarRef.value) return;
+      const rect = avatarRef.value.getBoundingClientRect();
+      popoverPos.value = {
+        top: rect.top,
+        left: rect.right + 8,
+      };
+    };
+
+    const onClickOutside = (e: MouseEvent) => {
+      if (!showControls.value) return;
+      const target = e.target as Node;
+      if (popoverRef.value?.contains(target)) return;
+      if (avatarRef.value?.contains(target)) return;
+      showControls.value = false;
+      showUrlInput.value = false;
+    };
+
     const onAvatarClick = () => {
       if (!layoutStore.canEdit) return;
       if (!isEditing.value) {
         isEditing.value = true;
       }
-      openCustomImagePicker();
+      if (showControls.value) {
+        showControls.value = false;
+        showUrlInput.value = false;
+        return;
+      }
+      updatePopoverPos();
+      showControls.value = true;
     };
+
+    const popoverStyle = computed(() => ({
+      position: "fixed" as const,
+      top: `${popoverPos.value.top}px`,
+      left: `${popoverPos.value.left}px`,
+    }));
 
     const openUrlInput = () => {
       if (!layoutStore.canEdit) return;
@@ -655,12 +700,15 @@ export default defineComponent({
       profileRoot,
       avatarRef,
       avatarInput,
+      popoverRef,
       avatarShape,
       avatarRadius,
       avatarSrc,
       avatarMediaStyle,
       clipPathId,
       hexPath,
+      showControls,
+      popoverStyle,
       showUrlInput,
       draftAvatarUrl,
       urlError,
@@ -777,6 +825,7 @@ export default defineComponent({
 
 .profile-editor {
   padding: 6px 8px;
+  margin: -6px -8px;
   border-radius: var(--radius-sm);
   transition: background-color var(--transition-normal);
 }
@@ -841,35 +890,61 @@ export default defineComponent({
   outline: none;
 }
 
-.profile-controls {
-  margin-left: auto;
+:deep(.tiptap p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--tile-text-color, var(--color-content-default));
+  opacity: 0.4;
+  pointer-events: none;
+  height: 0;
+}
+</style>
+
+<style lang="scss">
+/* Unscoped styles for the teleported popover */
+.profile-controls-popover {
+  z-index: 1200;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm);
+  padding: var(--spacing-md);
   border-radius: var(--radius-md);
   background: var(--color-base-8);
   border: 1px solid var(--color-base-34);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(16px);
+  min-width: 200px;
 }
 
-.control-row {
+.profile-popover-enter-active,
+.profile-popover-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.profile-popover-enter-from,
+.profile-popover-leave-to {
+  opacity: 0;
+  transform: translateX(-4px);
+}
+
+.profile-controls-popover .control-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.control-label {
+.profile-controls-popover .control-label {
   font-size: 12px;
   color: var(--color-content-default);
 }
 
-.control-value {
+.profile-controls-popover .control-value {
   font-size: 12px;
   color: var(--color-content-default);
 }
 
-.control-btn {
+.profile-controls-popover .control-btn {
   border: none;
   background: var(--color-base-34);
   color: var(--color-text-primary);
@@ -879,23 +954,23 @@ export default defineComponent({
   cursor: pointer;
 }
 
-.control-btn--ghost {
+.profile-controls-popover .control-btn--ghost {
   background: transparent;
   border: 1px solid var(--color-base-34);
 }
 
-.control-btn--danger {
+.profile-controls-popover .control-btn--danger {
   background: var(--color-figma-red);
   color: #fff;
 }
 
-.control-url {
+.profile-controls-popover .control-url {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.control-url input {
+.profile-controls-popover .control-url input {
   border: 1px solid var(--color-base-34);
   border-radius: var(--radius-sm);
   padding: 6px 8px;
@@ -903,17 +978,17 @@ export default defineComponent({
   color: var(--color-text-primary);
 }
 
-.control-error {
+.profile-controls-popover .control-error {
   font-size: 11px;
   color: var(--color-figma-red);
 }
 
-.control-segment {
+.profile-controls-popover .control-segment {
   display: flex;
   gap: 6px;
 }
 
-.control-segment button {
+.profile-controls-popover .control-segment button {
   border: 1px solid var(--color-base-34);
   background: transparent;
   color: var(--color-text-primary);
@@ -923,17 +998,8 @@ export default defineComponent({
   cursor: pointer;
 }
 
-.control-segment button.active {
+.profile-controls-popover .control-segment button.active {
   background: var(--color-text-primary);
   color: var(--color-content-background);
-}
-
-:deep(.tiptap p.is-editor-empty:first-child::before) {
-  content: attr(data-placeholder);
-  float: left;
-  color: var(--tile-text-color, var(--color-content-default));
-  opacity: 0.4;
-  pointer-events: none;
-  height: 0;
 }
 </style>

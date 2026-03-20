@@ -39,7 +39,18 @@
     <div class="tile-foreground">
       <div class="tile-header">
         <div class="tile-logo">
-          <img :src="content.faviconUrl" :alt="content.domain" />
+          <img
+            v-if="!!content.faviconUrl"
+            :src="content.faviconUrl"
+            :alt="content.domain"
+          />
+          <button
+            v-if="layoutStore.canEdit && !!content.faviconUrl"
+            class="tile-logo-close"
+            @mousedown.stop
+            @mouseup.stop
+            @click.stop="handleRemoveFavicon"
+          ></button>
         </div>
 
         <template v-if="isWideOneHigh">
@@ -813,6 +824,16 @@ export default defineComponent({
       "background",
     );
 
+    const handleRemoveFavicon = () => {
+      props.content.faviconUrl = undefined;
+
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { faviconUrl: undefined });
+      } else {
+        layoutStore.saveLayout();
+      }
+    };
+
     return {
       layoutStore,
       overlayColor: linkOverlayColor,
@@ -863,6 +884,7 @@ export default defineComponent({
       handleContextUpload,
       handleContextUseUrl,
       handleContextRemove,
+      handleRemoveFavicon,
     };
   },
 });
@@ -975,6 +997,7 @@ export default defineComponent({
 }
 
 .tile-logo {
+  position: relative;
   width: 32px;
   height: 32px;
   overflow: hidden;
@@ -986,6 +1009,43 @@ export default defineComponent({
   height: 100%;
   display: block;
   object-fit: contain;
+}
+
+.tile-logo-close {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing-ease-in-out);
+}
+
+.tile-logo-close::before,
+.tile-logo-close::after {
+  content: "";
+  position: absolute;
+  width: 2px;
+  height: 14px;
+  background: #fff;
+  border-radius: 1px;
+}
+
+.tile-logo-close::before {
+  transform: rotate(45deg);
+}
+
+.tile-logo-close::after {
+  transform: rotate(-45deg);
+}
+
+.tile-logo:hover .tile-logo-close {
+  opacity: 1;
 }
 
 .tile-link-indicator {

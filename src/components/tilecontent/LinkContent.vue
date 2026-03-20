@@ -388,24 +388,15 @@ export default defineComponent({
     );
     const userEditedSubtitle = ref(props.content.customSubtitle !== undefined);
 
-    watch(
-      [draftTitle, draftDescription, draftSubtitle],
-      (_new, _old, onCleanup) => {
-        if (isEditing.value) {
-          // Mark fields as user-edited once the user starts typing
-          userEditedTitle.value = true;
-          userEditedDescription.value = true;
-          userEditedSubtitle.value = true;
-          schedulePersist();
-        }
-
-        onCleanup(() => {
-          if (isEditing.value) {
-            flushPersist();
-          }
-        });
-      },
-    );
+    watch([draftTitle, draftDescription, draftSubtitle], () => {
+      if (isEditing.value) {
+        // Mark fields as user-edited once the user starts typing
+        userEditedTitle.value = true;
+        userEditedDescription.value = true;
+        userEditedSubtitle.value = true;
+        schedulePersist();
+      }
+    });
 
     // When metadata arrives from getLinkPreview and the user hasn't manually
     // edited a field yet, bake the metadata into the custom fields so it's

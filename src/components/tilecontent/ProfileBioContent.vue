@@ -737,10 +737,21 @@ export default defineComponent({
     const radiusLabelStyle = computed(() => {
       const { corner } = polyHandleVertex.value;
       const { bleedX, bleedY } = polyGeometry.value;
+      const size = avatarSize.value;
+      // Position the label slightly inward from the corner vertex
+      // toward the polygon center so it doesn't clip outside the tile.
+      const cx = size / 2;
+      const cy = size / 2;
+      const cornerInAvatar = { x: corner.x - bleedX, y: corner.y - bleedY };
+      // Unit vector from corner toward center
+      const dx = cx - cornerInAvatar.x;
+      const dy = cy - cornerInAvatar.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const nudge = 0; // px inward from corner
       return {
         position: "absolute" as const,
-        left: `${corner.x - bleedX - 24}px`,
-        top: `${corner.y - bleedY - 6}px`,
+        left: `${cornerInAvatar.x + (dx / dist) * nudge - 8}px`,
+        top: `${cornerInAvatar.y + (dy / dist) * nudge - 8}px`,
         fontSize: "12px",
         fontWeight: "700",
         color: "white",

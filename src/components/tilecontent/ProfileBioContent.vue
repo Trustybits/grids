@@ -574,8 +574,8 @@ export default defineComponent({
       const pad = 20; // extra space around the arc
       return {
         position: "absolute" as const,
-        left: `${cornerX - pad}px`,
-        top: `${cornerY - pad}px`,
+        left: `-26px`,
+        top: `102px`,
         width: `${pad * 2 + avatarRadius.value}px`,
         height: `${pad * 2 + avatarRadius.value}px`,
         overflow: "visible",
@@ -829,7 +829,7 @@ export default defineComponent({
     };
 
     const hexPath = computed(() =>
-      generateRoundedHexagonPath(avatarSize.value, avatarRadius.value),
+      generateRoundedHexagonPath(avatarSize.value * 0.98, avatarRadius.value),
     );
 
     const avatarMediaStyle = computed(() => {

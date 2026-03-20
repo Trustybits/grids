@@ -86,12 +86,25 @@
         :class="{
           'is-hovered': isDetailsHovered && !isEditing,
           'is-editing': isEditing,
+          'additional-top-padding': !displayTitle,
         }"
         @mouseenter="isDetailsHovered = true"
         @mouseleave="isDetailsHovered = false"
         @mousedown.stop
         @click.stop="onDetailsClick"
       >
+        <div
+          v-if="
+            !displayTitle &&
+            !displayDescription &&
+            !displaySubtitle &&
+            !isEditing &&
+            isDetailsHovered
+          "
+          class="tile-details-placeholder"
+        >
+          Add a title
+        </div>
         <div
           class="tile-field-wrap tile-field-wrap--title"
           :class="{
@@ -994,6 +1007,14 @@ export default defineComponent({
   display: block;
 }
 
+.tile-details-placeholder {
+  color: var(--tile-text-color);
+  opacity: 0.5;
+  padding: 6px 6px;
+  margin-top: -4px;
+  transition: opacity 0.2s ease;
+}
+
 .tile-details {
   display: flex;
   flex-direction: column;
@@ -1020,6 +1041,10 @@ export default defineComponent({
 .tile-details.is-editing {
   background-color: var(--tile-bg);
   border-color: transparent;
+}
+
+.tile-details.additional-top-padding {
+  padding-top: 4px;
 }
 
 /* ── Field wrapper (handles collapse / expand / overflow mask) ── */
@@ -1058,7 +1083,7 @@ export default defineComponent({
   margin-top: -2px;
 }
 
-.tile-field-wrap--subtitle{
+.tile-field-wrap--subtitle {
   margin-bottom: -2px;
 }
 
@@ -1076,7 +1101,11 @@ export default defineComponent({
 
 /* Individual field hover highlight when editing */
 .tile-details.is-editing .tile-field-wrap:hover {
-  background-color: color-mix(in srgb, var(--color-input-edit) 97%, var(--tile-text-color) 3%);
+  background-color: color-mix(
+    in srgb,
+    var(--color-input-edit) 97%,
+    var(--tile-text-color) 3%
+  );
 }
 
 /* ── Inner field (textarea / input) ── */

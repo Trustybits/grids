@@ -735,23 +735,47 @@ export default defineComponent({
     });
 
     const radiusLabelStyle = computed(() => {
-      const { corner } = polyHandleVertex.value;
+      const { corner, prev, next } = polyHandleVertex.value;
       const { bleedX, bleedY } = polyGeometry.value;
+      const r = avatarRadius.value;
+
+      // Compute the same arc geometry as radiusHandlePath
+      const dx1 = prev.x - corner.x;
+      const dy1 = prev.y - corner.y;
+      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+      const dx2 = next.x - corner.x;
+      const dy2 = next.y - corner.y;
+      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+      const offset = Math.min(r, len1 / 2, len2 / 2);
+
+      // Midpoint of the quadratic Bézier arc at t=0.5:
+      // B(0.5) = 0.25*P0 + 0.5*P1 + 0.25*P2
+      const arcStart = {
+        x: corner.x + (dx1 / len1) * offset,
+        y: corner.y + (dy1 / len1) * offset,
+      };
+      const arcEnd = {
+        x: corner.x + (dx2 / len2) * offset,
+        y: corner.y + (dy2 / len2) * offset,
+      };
+      const arcMidX = 0.25 * arcStart.x + 0.5 * corner.x + 0.25 * arcEnd.x;
+      const arcMidY = 0.25 * arcStart.y + 0.5 * corner.y + 0.25 * arcEnd.y;
+
+      // Push the label outward from the arc midpoint, away from center
       const size = avatarSize.value;
-      // Position the label slightly inward from the corner vertex
-      // toward the polygon center so it doesn't clip outside the tile.
-      const cx = size / 2;
-      const cy = size / 2;
-      const cornerInAvatar = { x: corner.x - bleedX, y: corner.y - bleedY };
-      // Unit vector from corner toward center
-      const dx = cx - cornerInAvatar.x;
-      const dy = cy - cornerInAvatar.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const nudge = 0; // px inward from corner
+      const centerX = size / 2 + bleedX;
+      const centerY = size / 2 + bleedY;
+      const awayX = arcMidX - centerX;
+      const awayY = arcMidY - centerY;
+      const awayDist = Math.sqrt(awayX * awayX + awayY * awayY) || 1;
+      const labelDist = 14; // px outward from arc midpoint
+      const labelX = arcMidX + (awayX / awayDist) * labelDist - bleedX;
+      const labelY = arcMidY + (awayY / awayDist) * labelDist - bleedY;
+
       return {
         position: "absolute" as const,
-        left: `${cornerInAvatar.x + (dx / dist) * nudge - 8}px`,
-        top: `${cornerInAvatar.y + (dy / dist) * nudge - 8}px`,
+        left: `${labelX - 8}px`,
+        top: `${labelY - 8}px`,
         fontSize: "12px",
         fontWeight: "700",
         color: "white",
@@ -975,7 +999,9 @@ export default defineComponent({
       // This ensures every path has exactly the same number of L/Q commands.
       // Track which points are actual polygon vertices (get rounding) vs
       // intermediate edge points (pass through with zero rounding).
-      const points: { x: number; y: number; isVertex: boolean }[] = [];
+      // For vertex points, store the vertex index so we can look up the
+      // correct edge direction vectors from the original vertices array.
+      const points: { x: number; y: number; isVertex: boolean; vertexIdx: number }[] = [];
       const perEdge = Math.floor(FIXED_SEGMENTS / n);
       let remainder = FIXED_SEGMENTS - perEdge * n;
       for (let i = 0; i < n; i++) {
@@ -988,14 +1014,13 @@ export default defineComponent({
           points.push({
             x: a.x + (b.x - a.x) * t,
             y: a.y + (b.y - a.y) * t,
-            isVertex: j === 0, // first point of each edge = actual vertex
+            isVertex: j === 0,
+            vertexIdx: i,
           });
         }
       }
 
       // Compute the max rounding offset from the actual edge length
-      // (distance between consecutive real vertices), not the short
-      // upsampled segments.
       const edgeLen = Math.sqrt(
         (vertices[1].x - vertices[0].x) ** 2 +
         (vertices[1].y - vertices[0].y) ** 2,
@@ -1005,45 +1030,47 @@ export default defineComponent({
       // Build path with rounded corners only at real vertices;
       // intermediate upsampled points get degenerate Q (no rounding).
       let path = "";
-      const len = points.length;
-      for (let i = 0; i < len; i++) {
+      const pLen = points.length;
+      for (let i = 0; i < pLen; i++) {
         const current = points[i];
-        const next = points[(i + 1) % len];
-        const prev = points[(i - 1 + len) % len];
+        const next = points[(i + 1) % pLen];
+        const prev = points[(i - 1 + pLen) % pLen];
 
-        const dx1 = current.x - prev.x;
-        const dy1 = current.y - prev.y;
-        const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+        if (current.isVertex) {
+          // Use direction vectors from the actual polygon vertices
+          // so the offset scales correctly along the real edges.
+          const vi = current.vertexIdx;
+          const vPrev = vertices[(vi - 1 + n) % n];
+          const vNext = vertices[(vi + 1) % n];
 
-        const dx2 = next.x - current.x;
-        const dy2 = next.y - current.y;
-        const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+          const edx1 = vPrev.x - current.x;
+          const edy1 = vPrev.y - current.y;
+          const elen1 = Math.sqrt(edx1 * edx1 + edy1 * edy1);
 
-        if (len1 === 0 || len2 === 0) {
-          if (i === 0) path += `M ${current.x} ${current.y} `;
-          else path += `L ${current.x} ${current.y} `;
-          path += `Q ${current.x} ${current.y} ${current.x} ${current.y} `;
-          continue;
-        }
+          const edx2 = vNext.x - current.x;
+          const edy2 = vNext.y - current.y;
+          const elen2 = Math.sqrt(edx2 * edx2 + edy2 * edy2);
 
-        // Only apply rounding at actual polygon vertices
-        const offset = current.isVertex
-          ? Math.min(radius, maxOffset)
-          : 0;
+          const offset = Math.min(radius, maxOffset);
 
-        if (offset < 0.1) {
-          // No rounding — degenerate Q through the point
-          if (i === 0) path += `M ${current.x} ${current.y} `;
-          else path += `L ${current.x} ${current.y} `;
-          path += `Q ${current.x} ${current.y} ${current.x} ${current.y} `;
+          if (offset < 0.1 || elen1 === 0 || elen2 === 0) {
+            if (i === 0) path += `M ${current.x} ${current.y} `;
+            else path += `L ${current.x} ${current.y} `;
+            path += `Q ${current.x} ${current.y} ${current.x} ${current.y} `;
+          } else {
+            const x1 = current.x + (edx1 / elen1) * offset;
+            const y1 = current.y + (edy1 / elen1) * offset;
+            const x2 = current.x + (edx2 / elen2) * offset;
+            const y2 = current.y + (edy2 / elen2) * offset;
+
+            path += i === 0 ? `M ${x1} ${y1} ` : `L ${x1} ${y1} `;
+            path += `Q ${current.x} ${current.y} ${x2} ${y2} `;
+          }
         } else {
-          const x1 = current.x - (dx1 / len1) * offset;
-          const y1 = current.y - (dy1 / len1) * offset;
-          const x2 = current.x + (dx2 / len2) * offset;
-          const y2 = current.y + (dy2 / len2) * offset;
-
-          path += i === 0 ? `M ${x1} ${y1} ` : `L ${x1} ${y1} `;
-          path += `Q ${current.x} ${current.y} ${x2} ${y2} `;
+          // Intermediate upsampled point — degenerate Q (no rounding)
+          if (i === 0) path += `M ${current.x} ${current.y} `;
+          else path += `L ${current.x} ${current.y} `;
+          path += `Q ${current.x} ${current.y} ${current.x} ${current.y} `;
         }
       }
       return `${path}Z`;

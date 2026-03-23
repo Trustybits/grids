@@ -149,7 +149,7 @@ export interface RPGContent extends TileContent {
   gameState: "playing" | "won" | "lost";
 }
 
-export type AvatarShape = "circle" | "square" | "hex";
+export type AvatarShape = "circle" | "square" | "polygon";
 
 export interface ProfileBioContent extends TileContent {
   type: ContentType.PROFILE;

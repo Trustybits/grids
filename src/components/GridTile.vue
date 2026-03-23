@@ -907,7 +907,6 @@ export default defineComponent({
   background-color: var(--tile-bg);
   /* Border handled by pseudo-element to allow content to clip UNDER the border */
   border-radius: var(--tile-border-radius);
-  backdrop-filter: blur(20px);
   box-sizing: border-box;
   overflow: hidden;
   isolation: isolate;

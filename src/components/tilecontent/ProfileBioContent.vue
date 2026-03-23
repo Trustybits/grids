@@ -2,7 +2,7 @@
   <div class="profile-bio" ref="profileRoot">
     <div class="profile-header">
       <div class="profile-avatar-row">
-        <div class="avatar" ref="avatarRef" @click="onAvatarClick">
+        <div class="avatar" ref="avatarRef" @click="onAvatarClick" :class="{ 'is-dragging-radius': isDraggingRadius }">
           <svg
             v-if="avatarShape === 'polygon'"
             class="avatar-clip-defs"
@@ -650,19 +650,30 @@ export default defineComponent({
       isDraggingRadius.value = true;
 
       const startRadius = avatarRadius.value;
-      const startY = e.clientY;
       const startX = e.clientX;
+      const startY = e.clientY;
 
-      // Bottom-left corner direction: toward center is up-right,
-      // away from center is down-left. We use a combined diagonal axis.
+      // Get the inward direction (toward avatar center) at drag start so we
+      // can project mouse movement onto it. This makes the drag feel natural:
+      // moving the mouse toward the center increases radius, away decreases.
+      // Note: computeArcMidpoint works in DOM/SVG coordinates (Y increases
+      // downward), which matches clientX/clientY — no axis flip needed.
+      const { inwardX, inwardY } = computeArcMidpoint();
+      const screenInX = inwardX;
+      const screenInY = inwardY;
+
+      // Sensitivity: radius units per pixel of mouse movement along the
+      // inward axis.  Higher = less mouse travel needed.
+      // At 1.5, ~27px of diagonal drag covers the full 0–40 range.
+      const DRAG_SENSITIVITY = 1.5; // ← adjust drag speed here
+
       const onMove = (me: PointerEvent) => {
-        // Positive delta = dragged up-right (toward center) = increase radius
         const dx = me.clientX - startX;
-        const dy = -(me.clientY - startY); // invert Y so up = positive
-        const diag = (dx + dy) / 2; // average of both axes
-        const sensitivity = 0.5;
+        const dy = me.clientY - startY;
+        // Project mouse delta onto the inward direction vector
+        const projected = dx * screenInX + dy * screenInY;
         const newRadius = Math.round(
-          Math.max(0, Math.min(40, startRadius + diag * sensitivity)),
+          Math.max(0, Math.min(40, startRadius + projected * DRAG_SENSITIVITY)),
         );
         avatarRadius.value = newRadius;
       };
@@ -856,7 +867,7 @@ export default defineComponent({
         fontSize: "12px",
         fontWeight: "700",
         textAlign: "center" as const,
-        color: "var(--color-content-full)",
+        color: "var(--tile-text-color)",
         pointerEvents: "none" as const,
         whiteSpace: "nowrap" as const,
       };
@@ -1321,6 +1332,16 @@ export default defineComponent({
   transition: d 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Kill transitions while dragging the radius knob so the clip path
+   and border-radius update instantly in sync with the knob position */
+.avatar.is-dragging-radius .polygon-clip-path {
+  transition: none;
+}
+
+.avatar.is-dragging-radius .avatar-media {
+  transition: none !important;
+}
+
 .radius-knob {
   width: 10px;
   height: 10px;
@@ -1345,6 +1366,7 @@ export default defineComponent({
 
 .radius-value-label {
   user-select: none;
+  color: var(--tile-text-color);
 }
 
 .sides-slider {
@@ -1371,7 +1393,7 @@ export default defineComponent({
 }
 
 .sides-label.visible {
-  color: var(--color-content-default);
+  color: var(--tile-text-color);
 }
 
 .sides-track-container {
@@ -1387,12 +1409,12 @@ export default defineComponent({
   width: 100%;
   height: 4px;
   border-radius: 4px;
-  background: var(--color-tile-stroke);
+  background: color-mix(in srgb, var(--tile-text-color) 13%, transparent 15%);
   transition: background 0.15s ease;
 }
 
 .sides-track.visible {
-  background: var(--color-tile-stroke);
+  background: color-mix(in srgb, var(--tile-text-color) 13%, transparent 15%);
 }
 
 .sides-knob {
@@ -1401,7 +1423,7 @@ export default defineComponent({
   width: 10px;
   height: 10px;
   border-radius: 100px;
-  background: var(--color-knob);
+  background: var(--tile-text-color);
   transform: translateX(-50%);
   cursor: grab;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
@@ -1495,7 +1517,11 @@ export default defineComponent({
 .profile-bio-text {
   flex: 1;
   min-height: 0;
-  width: 100%;
+  align-self: stretch;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  scrollbar-color: var(--color-border) transparent;
+  //scrollbar-width: thin;
 }
 
 .profile-bio-text :deep(.ProseMirror) {

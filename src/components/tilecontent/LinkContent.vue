@@ -1289,7 +1289,8 @@ export default defineComponent({
 .tile-field--description {
   font-size: 12px;
   line-height: 16px;
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+  /* color: color-mix(in srgb, var(--tile-text-color) 65%, transparent); */
+  color: var(--tile-text-color);
 }
 
 /* ── Subtitle wrapper ── */
@@ -1308,7 +1309,8 @@ export default defineComponent({
 .tile-field--subtitle {
   font-size: 12px;
   line-height: 16px;
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+  /* color: color-mix(in srgb, var(--tile-text-color) 65%, transparent); */
+  color: var(--tile-text-color);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

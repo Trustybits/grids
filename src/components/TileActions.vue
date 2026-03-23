@@ -105,11 +105,11 @@ export default defineComponent({
         case ContentType.EMBED:
           return (c as EmbedContent).src || null;
         case ContentType.IMAGE:
-          return (c as ImageContent).textLink || null;
+          return (c as ImageContent).tileLink || null;
         case ContentType.VIDEO:
-          return (c as VideoContent).textLink || null;
+          return (c as VideoContent).tileLink || null;
         case ContentType.TEXT:
-          return (c as TextContent).textLink || null;
+          return (c as TextContent).tileLink || null;
         default:
           return null;
       }

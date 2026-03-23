@@ -785,15 +785,20 @@ export default defineComponent({
       }
 
       const labelDist = 14;
-      const labelX = arcMidX + outX * labelDist - bleedX;
-      const labelY = arcMidY + outY * labelDist - bleedY;
+      const labelW = 20; // fixed width — fits up to 2-digit values
+      const labelH = 14; // approx line-height for 12px bold
+      // Point the right edge of the label at the outward position
+      const anchorX = arcMidX + outX * labelDist - bleedX;
+      const anchorY = arcMidY + outY * labelDist - bleedY;
 
       return {
         position: "absolute" as const,
-        left: `${labelX - 8}px`,
-        top: `${labelY - 8}px`,
+        left: `${anchorX - labelW}px`,
+        top: `${anchorY - labelH / 2}px`,
+        width: `${labelW}px`,
         fontSize: "12px",
         fontWeight: "700",
+        textAlign: "right" as const,
         color: "var(--color-content-full)",
         pointerEvents: "none" as const,
         whiteSpace: "nowrap" as const,
@@ -801,31 +806,58 @@ export default defineComponent({
     });
 
     // --- Radius knob position ---
-    // The knob sits on the bottom-left polygon/square corner, 8px inset from the edge.
-    // For polygon, it uses the radiusHandleVertex corner.
-    // For square, it's simply at (8, size - 8 - 10) in the avatar coordinate space.
+    // The knob sits ON the arc midpoint of the rounded corner, tracking as
+    // the radius value changes. Uses the same bisector geometry as the label.
     const radiusKnobPositionStyle = computed(() => {
-      const size = avatarSize.value;
-      if (avatarShape.value === 'square') {
-        return {
-          position: 'absolute' as const,
-          left: '8px',
-          bottom: '0px',
-          zIndex: 10,
-        };
-      }
-      // Polygon: position at the bottom-left-ish vertex, offset 8px inward
-      const { corner } = radiusHandleVertex.value;
-      const isSquare = false;
+      const { corner, prev, next } = radiusHandleVertex.value;
+      const isSquare = avatarShape.value === 'square';
       const bleedX = isSquare ? 0 : polyGeometry.value.bleedX;
       const bleedY = isSquare ? 0 : polyGeometry.value.bleedY;
-      // Convert from media-box coordinates to avatar container coordinates
-      const x = corner.x - bleedX - 5; // center the 10px knob
-      const y = corner.y - bleedY - 5;
+      const r = avatarRadius.value;
+      const size = avatarSize.value;
+
+      const dx1 = prev.x - corner.x;
+      const dy1 = prev.y - corner.y;
+      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+      const dx2 = next.x - corner.x;
+      const dy2 = next.y - corner.y;
+      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+      const offset = Math.min(r, len1 / 2, len2 / 2);
+
+      const arcStart = {
+        x: corner.x + (dx1 / len1) * offset,
+        y: corner.y + (dy1 / len1) * offset,
+      };
+      const arcEnd = {
+        x: corner.x + (dx2 / len2) * offset,
+        y: corner.y + (dy2 / len2) * offset,
+      };
+
+      let arcMidX: number;
+      let arcMidY: number;
+
+      if (isSquare) {
+        const ccX = corner.x + (dx1 / len1) * offset + (dx2 / len2) * offset;
+        const ccY = corner.y + (dy1 / len1) * offset + (dy2 / len2) * offset;
+        const toCX = corner.x - ccX;
+        const toCY = corner.y - ccY;
+        const toCLen = Math.sqrt(toCX * toCX + toCY * toCY) || 1;
+        arcMidX = ccX + (toCX / toCLen) * offset;
+        arcMidY = ccY + (toCY / toCLen) * offset;
+      } else {
+        arcMidX = 0.25 * arcStart.x + 0.5 * corner.x + 0.25 * arcEnd.x;
+        arcMidY = 0.25 * arcStart.y + 0.5 * corner.y + 0.25 * arcEnd.y;
+      }
+
+      // Convert from media-box coordinates to avatar container coordinates,
+      // then center the 10px knob on the arc midpoint.
+      const x = arcMidX - bleedX - 5;
+      const y = arcMidY - bleedY - 5;
+
       return {
         position: 'absolute' as const,
-        left: `${Math.max(0, x)}px`,
-        top: `${Math.max(0, y)}px`,
+        left: `${x}px`,
+        top: `${y}px`,
         zIndex: 10,
       };
     });
@@ -1284,11 +1316,7 @@ export default defineComponent({
 }
 
 .radius-value-label {
-  //text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   user-select: none;
-  color: var(--color-content-high);
-  text-align: end;
-  width: 10px;
 }
 
 .sides-slider {

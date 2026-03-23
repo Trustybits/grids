@@ -728,7 +728,42 @@ export default defineComponent({
       return { corner, prev, next };
     });
 
-    const radiusLabelStyle = computed(() => {
+    // ─── Arc-midpoint helper ───────────────────────────────────────────
+    //
+    // Both the radius knob and the radius label need the same geometric
+    // point: the *midpoint of the rounded corner arc*. This helper
+    // computes that point plus a unit vector pointing INWARD (toward
+    // the avatar center), which callers use to offset the knob/label.
+    //
+    // Geometry overview (same for square & polygon):
+    //
+    //   1. `corner` is the raw vertex of the polygon/square in media-box
+    //      coordinates (for polygon, this includes bleed padding).
+    //
+    //   2. `prev` and `next` are the neighbouring vertices.
+    //
+    //   3. `offset = min(radius, halfEdge1, halfEdge2)` — how far from
+    //      the corner the arc starts/ends along each edge.
+    //
+    //   4. `arcStart` / `arcEnd` are the two points on the edges where
+    //      the rounding arc begins and ends.
+    //
+    //   5. For **square**: the arc is a true circular arc. We find the
+    //      circle center (`cc`) inset from the corner along both edges
+    //      by `offset`, then project from `cc` toward the corner to
+    //      land on the circle ⇒ `arcMid`.
+    //
+    //   6. For **polygon**: the arc is a quadratic Bézier with control
+    //      point at `corner`. The midpoint B(0.5) = 0.25·P0 + 0.5·P1
+    //      + 0.25·P2.
+    //
+    //   7. `inwardX/Y` is the unit vector from `arcMid` pointing toward
+    //      the avatar center. Multiply by a positive px value to move
+    //      *toward* center; negative to move *away*.
+    //
+    // Returns: { arcMidX, arcMidY, inwardX, inwardY } in media-box coords.
+    //
+    const computeArcMidpoint = () => {
       const { corner, prev, next } = radiusHandleVertex.value;
       const isSquare = avatarShape.value === 'square';
       const bleedX = isSquare ? 0 : polyGeometry.value.bleedX;
@@ -736,14 +771,19 @@ export default defineComponent({
       const r = avatarRadius.value;
       const size = avatarSize.value;
 
+      // Step 1 — edge vectors from corner to neighbours
       const dx1 = prev.x - corner.x;
       const dy1 = prev.y - corner.y;
       const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
       const dx2 = next.x - corner.x;
       const dy2 = next.y - corner.y;
       const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+      // Step 2 — how far the rounding extends along each edge
+      //          (clamped so arcs of adjacent corners don't overlap)
       const offset = Math.min(r, len1 / 2, len2 / 2);
 
+      // Step 3 — arc start/end points on the two edges
       const arcStart = {
         x: corner.x + (dx1 / len1) * offset,
         y: corner.y + (dy1 / len1) * offset,
@@ -753,106 +793,94 @@ export default defineComponent({
         y: corner.y + (dy2 / len2) * offset,
       };
 
+      // Step 4 — arc midpoint
       let arcMidX: number;
       let arcMidY: number;
-      let outX: number;
-      let outY: number;
 
       if (isSquare) {
-        // Border-radius circle center, inset from corner along each edge
+        // Circle center: corner + offset along edge1 + offset along edge2
         const ccX = corner.x + (dx1 / len1) * offset + (dx2 / len2) * offset;
         const ccY = corner.y + (dy1 / len1) * offset + (dy2 / len2) * offset;
+        // Direction from cc toward the corner (outward)
         const toCX = corner.x - ccX;
         const toCY = corner.y - ccY;
         const toCLen = Math.sqrt(toCX * toCX + toCY * toCY) || 1;
-        // Arc midpoint on the circle, toward the corner (dark ear area)
+        // Project from cc toward corner by `offset` to land on the arc
         arcMidX = ccX + (toCX / toCLen) * offset;
         arcMidY = ccY + (toCY / toCLen) * offset;
-        // Push toward corner so label sits in the dark ear outside the arc
-        outX = toCX / toCLen;
-        outY = toCY / toCLen;
       } else {
-        // Polygon: Bézier midpoint B(0.5) = 0.25*P0 + 0.5*P1 + 0.25*P2
+        // Quadratic Bézier midpoint: B(0.5) = 0.25·start + 0.5·corner + 0.25·end
         arcMidX = 0.25 * arcStart.x + 0.5 * corner.x + 0.25 * arcEnd.x;
         arcMidY = 0.25 * arcStart.y + 0.5 * corner.y + 0.25 * arcEnd.y;
-        const centerX = size / 2 + bleedX;
-        const centerY = size / 2 + bleedY;
-        const awayX = arcMidX - centerX;
-        const awayY = arcMidY - centerY;
-        const awayDist = Math.sqrt(awayX * awayX + awayY * awayY) || 1;
-        outX = awayX / awayDist;
-        outY = awayY / awayDist;
       }
 
-      const labelDist = 14;
-      const labelW = 20; // fixed width — fits up to 2-digit values
-      const labelH = 14; // approx line-height for 12px bold
-      // Point the right edge of the label at the outward position
-      const anchorX = arcMidX + outX * labelDist - bleedX;
-      const anchorY = arcMidY + outY * labelDist - bleedY;
+      // Step 5 — inward unit vector (arcMid → avatar center)
+      //          Avatar center in media-box coords = (size/2 + bleedX, size/2 + bleedY)
+      const centerX = size / 2 + bleedX;
+      const centerY = size / 2 + bleedY;
+      const towardCX = centerX - arcMidX;
+      const towardCY = centerY - arcMidY;
+      const towardLen = Math.sqrt(towardCX * towardCX + towardCY * towardCY) || 1;
+      const inwardX = towardCX / towardLen;
+      const inwardY = towardCY / towardLen;
+
+      return { arcMidX, arcMidY, inwardX, inwardY, bleedX, bleedY };
+    };
+
+    // ─── Radius label position ──────────────────────────────────────────
+    //
+    // The label sits INWARD from the arc midpoint (toward avatar center).
+    //
+    // Tunables (change these to adjust placement):
+    //   LABEL_INWARD_PX  — how far toward center from the arc midpoint
+    //   LABEL_W          — fixed width of the label box (right-aligned text)
+    //   LABEL_H          — approximate rendered height of the label text
+    //
+    const LABEL_INWARD_PX = -10;  // ← adjust to move label closer/further from corner
+    const LABEL_W = 20;          // fixed width — fits up to 2-digit values
+    const LABEL_H = 14;          // approx line-height for 12px bold
+
+    const radiusLabelStyle = computed(() => {
+      const { arcMidX, arcMidY, inwardX, inwardY, bleedX, bleedY } = computeArcMidpoint();
+
+      // Offset the anchor inward from the arc midpoint
+      const anchorX = arcMidX + inwardX * LABEL_INWARD_PX - bleedX;
+      const anchorY = arcMidY + inwardY * LABEL_INWARD_PX - bleedY;
 
       return {
         position: "absolute" as const,
-        left: `${anchorX - labelW}px`,
-        top: `${anchorY - labelH / 2}px`,
-        width: `${labelW}px`,
+        // Right-align: the right edge of the box sits at anchorX
+        left: `${anchorX - LABEL_W / 2}px`,
+        top: `${anchorY - LABEL_H / 2}px`,
+        width: `${LABEL_W}px`,
         fontSize: "12px",
         fontWeight: "700",
-        textAlign: "right" as const,
+        textAlign: "center" as const,
         color: "var(--color-content-full)",
         pointerEvents: "none" as const,
         whiteSpace: "nowrap" as const,
       };
     });
 
-    // --- Radius knob position ---
-    // The knob sits ON the arc midpoint of the rounded corner, tracking as
-    // the radius value changes. Uses the same bisector geometry as the label.
+    // ─── Radius knob position ───────────────────────────────────────────
+    //
+    // The knob sits on the arc midpoint, pushed INWARD toward the avatar
+    // center so it doesn't overlap the visible edge of the rounded corner.
+    //
+    // Tunables:
+    //   KNOB_INWARD_PX — how far toward center from the arc midpoint
+    //   KNOB_SIZE      — knob element width/height (for centering)
+    //
+    const KNOB_INWARD_PX = 12;  // ← adjust to move knob closer/further from corner
+    const KNOB_SIZE = 10;
+
     const radiusKnobPositionStyle = computed(() => {
-      const { corner, prev, next } = radiusHandleVertex.value;
-      const isSquare = avatarShape.value === 'square';
-      const bleedX = isSquare ? 0 : polyGeometry.value.bleedX;
-      const bleedY = isSquare ? 0 : polyGeometry.value.bleedY;
-      const r = avatarRadius.value;
-      const size = avatarSize.value;
+      const { arcMidX, arcMidY, inwardX, inwardY, bleedX, bleedY } = computeArcMidpoint();
 
-      const dx1 = prev.x - corner.x;
-      const dy1 = prev.y - corner.y;
-      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
-      const dx2 = next.x - corner.x;
-      const dy2 = next.y - corner.y;
-      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-      const offset = Math.min(r, len1 / 2, len2 / 2);
-
-      const arcStart = {
-        x: corner.x + (dx1 / len1) * offset,
-        y: corner.y + (dy1 / len1) * offset,
-      };
-      const arcEnd = {
-        x: corner.x + (dx2 / len2) * offset,
-        y: corner.y + (dy2 / len2) * offset,
-      };
-
-      let arcMidX: number;
-      let arcMidY: number;
-
-      if (isSquare) {
-        const ccX = corner.x + (dx1 / len1) * offset + (dx2 / len2) * offset;
-        const ccY = corner.y + (dy1 / len1) * offset + (dy2 / len2) * offset;
-        const toCX = corner.x - ccX;
-        const toCY = corner.y - ccY;
-        const toCLen = Math.sqrt(toCX * toCX + toCY * toCY) || 1;
-        arcMidX = ccX + (toCX / toCLen) * offset;
-        arcMidY = ccY + (toCY / toCLen) * offset;
-      } else {
-        arcMidX = 0.25 * arcStart.x + 0.5 * corner.x + 0.25 * arcEnd.x;
-        arcMidY = 0.25 * arcStart.y + 0.5 * corner.y + 0.25 * arcEnd.y;
-      }
-
-      // Convert from media-box coordinates to avatar container coordinates,
-      // then center the 10px knob on the arc midpoint.
-      const x = arcMidX - bleedX - 5;
-      const y = arcMidY - bleedY - 5;
+      // Offset inward from the arc midpoint, then convert to avatar-container
+      // coords by subtracting bleed, and center the knob element.
+      const x = arcMidX + inwardX * KNOB_INWARD_PX - bleedX - KNOB_SIZE / 2;
+      const y = arcMidY + inwardY * KNOB_INWARD_PX - bleedY - KNOB_SIZE / 2;
 
       return {
         position: 'absolute' as const,
@@ -1541,7 +1569,7 @@ export default defineComponent({
 .quick-action-menu {
   position: relative;
   display: flex;
-  gap: 2px;
+  gap: 0px;                /* no real gap — sub-actions handles its own spacing */
   align-items: flex-start;
   height: 32px;
 }
@@ -1608,8 +1636,20 @@ export default defineComponent({
   display: flex;
   gap: 2px;
   align-items: center;
-  padding-left: 2px;
+  margin-left: 4px;       /* visual gap between trigger button & sub-actions */
   height: 32px;
+  position: relative;
+}
+
+/* Invisible bridge that covers the margin gap so the mouse
+   doesn't lose hover when crossing from trigger → sub-actions */
+.sub-actions::before {
+  content: "";
+  position: absolute;
+  right: 100%;            /* extends leftward from the sub-actions box */
+  top: 0;
+  width: 8px;             /* wider than margin-left to be forgiving */
+  height: 100%;
 }
 
 .sub-action-fade-enter-active,

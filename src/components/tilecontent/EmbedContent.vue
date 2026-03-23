@@ -1,6 +1,19 @@
 <template>
   <div class="embed-wrapper">
-    <img v-if="isDirectImage" class="embed-media" :src="content.src" alt="Embedded image" />
+    <!-- GIF loop-limited canvas: renders GIF frames and freezes after
+         the allowed number of loops to save CPU/GPU resources. -->
+    <canvas
+      v-if="isDirectImage && gifLoopActive"
+      ref="gifCanvasRef"
+      class="embed-media"
+      alt="Embedded image"
+    />
+    <img
+      v-else-if="isDirectImage"
+      class="embed-media"
+      :src="content.src"
+      alt="Embedded image"
+    />
 
     <video v-else-if="isDirectVideo" class="embed-media" :src="content.src" controls />
 
@@ -20,8 +33,9 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent } from "vue";
+import { computed, defineComponent, onMounted } from "vue";
 import { type EmbedContent } from "@/types/TileContent";
+import { useGifLoopLimit } from "@/composables/useGifLoopLimit";
 
 export default defineComponent({
   props: {
@@ -31,6 +45,18 @@ export default defineComponent({
     },
   },
   setup(props) {
+    // ── GIF loop limiting ──────────────────────────────────────────────
+    const embedSrc = computed(() => props.content.src || "");
+    const {
+      canvasRef: gifCanvasRef,
+      isActive: gifLoopActive,
+      start: startGifPlayback,
+    } = useGifLoopLimit(embedSrc, 5);
+
+    onMounted(() => {
+      startGifPlayback();
+    });
+
     const isDirectImage = computed(() => {
       const src = props.content.src;
       if (!src) return false;
@@ -82,6 +108,8 @@ export default defineComponent({
     return {
       isDirectImage,
       isDirectVideo,
+      gifCanvasRef,
+      gifLoopActive,
     };
   },
 });

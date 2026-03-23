@@ -27,7 +27,17 @@
 
       <!-- Main layer - full opacity, clipped to tile boundaries -->
       <div class="image-clip-container">
+        <!-- GIF loop-limited canvas: shown when ImageDecoder is available and
+             the src is a GIF. Renders frames to a canvas that freezes after
+             the allowed number of loops to save CPU/GPU. -->
+        <canvas
+          v-if="gifLoopActive"
+          ref="gifCanvasRef"
+          class="image image-main"
+          :style="imageStyle"
+        />
         <img
+          v-else
           ref="imageElement"
           :src="content.src"
           alt="Image"
@@ -86,6 +96,7 @@ import { type ImageContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";
+import { useGifLoopLimit } from "@/composables/useGifLoopLimit";
 import AddLinkModal from "../AddLinkModal.vue";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import type { ComputedRef } from "vue";
@@ -125,6 +136,18 @@ export default defineComponent({
     const offsetY = ref(props.content.offsetY || 0);
     const imageWrapper = ref<HTMLDivElement | null>(null);
     const imageElement = ref<HTMLImageElement | null>(null);
+
+    // ── GIF loop limiting ──────────────────────────────────────────────
+    // Limits animated GIFs to a fixed number of loops (default 3) by
+    // rendering frames onto a canvas via ImageDecoder, then freezing.
+    // Falls back to a normal <img> in browsers without ImageDecoder.
+    const gifSrc = computed(() => props.content.src || "");
+    const {
+      canvasRef: gifCanvasRef,
+      isActive: gifLoopActive,
+      frozen: gifFrozen,
+      start: startGifPlayback,
+    } = useGifLoopLimit(gifSrc, 5);
 
     // Track dimensions for future features
     const imageDimensions = ref({ width: 0, height: 0, aspectRatio: 0 });
@@ -292,6 +315,9 @@ export default defineComponent({
         });
         resizeObserver.value.observe(imageWrapper.value);
       }
+
+      // Kick off canvas-based GIF playback (no-ops for non-GIFs or unsupported browsers).
+      startGifPlayback();
     });
 
     onUnmounted(() => {
@@ -338,6 +364,9 @@ export default defineComponent({
       imageWrapper,
       imageElement,
       onImageLoad,
+      gifCanvasRef,
+      gifLoopActive,
+      gifFrozen,
       imageDimensions,
       tileDimensions,
       overlayColor,

@@ -1,5 +1,5 @@
 <template>
-  <div ref="mapTile" class="map-tile">
+  <div ref="mapTile" class="map-tile" :class="{ 'animations-paused': !isInViewport }">
     <div
       ref="mapContainer"
       class="map-canvas"
@@ -197,6 +197,11 @@ export default defineComponent({
     const themeStore = useThemeStore();
     const mapTile = ref<HTMLDivElement | null>(null);
     const mapContainer = ref<HTMLDivElement | null>(null);
+
+    // Tracks whether the tile is visible in the viewport so we can pause
+    // expensive CSS animations (clouds, planes) when off-screen.
+    const isInViewport = ref(true);
+    let visibilityObserver: IntersectionObserver | null = null;
     const mapInstance = ref<mapboxgl.Map | null>(null);
     const markerInstance = ref<mapboxgl.Marker | null>(null);
     const isEditing = ref(false);
@@ -832,6 +837,20 @@ export default defineComponent({
 
     onMounted(() => {
       seedAnimationVars();
+
+      // Observe tile visibility so we can pause animations when off-screen.
+      // A small rootMargin keeps animations running slightly beyond the
+      // viewport edges to avoid visible pop-in on fast scrolls.
+      if (mapTile.value) {
+        visibilityObserver = new IntersectionObserver(
+          ([entry]) => {
+            isInViewport.value = entry.isIntersecting;
+          },
+          { rootMargin: "100px" },
+        );
+        visibilityObserver.observe(mapTile.value);
+      }
+
       if (!mapContainer.value || !token) return;
       mapboxgl.accessToken = token;
 
@@ -916,6 +935,9 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
+      visibilityObserver?.disconnect();
+      visibilityObserver = null;
+
       // Flush any pending debounced save so the last position isn't lost.
       if (syncTimer) {
         clearTimeout(syncTimer);
@@ -949,6 +971,7 @@ export default defineComponent({
       planeShadow,
       mapTile,
       mapContainer,
+      isInViewport,
       isEditing,
       isInteractive,
       isPresetActive,
@@ -987,6 +1010,22 @@ export default defineComponent({
   height: 100%;
   overflow: hidden;
   border-radius: var(--tile-border-radius);
+}
+
+// Pause all looping animations (clouds, planes, marker pulse) when the
+// tile scrolls out of the viewport.  This eliminates GPU compositing work
+// for off-screen map tiles — especially impactful when many maps exist.
+.map-tile.animations-paused {
+  .map-cloud,
+  .plane-icon,
+  .plane-shadow {
+    animation-play-state: paused;
+    will-change: auto;    // release GPU layer while off-screen
+  }
+
+  :deep(.marker__pulse) {
+    animation-play-state: paused;
+  }
 }
 
 // Overdraw buffer: render the map canvas slightly larger than the tile on

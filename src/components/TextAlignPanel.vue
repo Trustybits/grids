@@ -8,8 +8,7 @@
     <button
       class="text-align-option"
       :class="{ 'is-active': activeAlign === 'left' }"
-      data-tooltip="Align Left"
-      title="Align left"
+      data-tooltip="Align left"
       @click.stop="onAlignClick('left')"
     >
       <AlignLeftIcon />
@@ -17,8 +16,7 @@
     <button
       class="text-align-option"
       :class="{ 'is-active': activeAlign === 'center' }"
-      data-tooltip="Align Center"
-      title="Align Center"
+      data-tooltip="Align center"
       @click.stop="onAlignClick('center')"
     >
       <AlignCenterIcon />
@@ -26,8 +24,7 @@
     <button
       class="text-align-option"
       :class="{ 'is-active': activeAlign === 'right' }"
-      data-tooltip="Align Right"
-      title="Align right"
+      data-tooltip="Align right"
       @click.stop="onAlignClick('right')"
     >
       <AlignRightIcon />

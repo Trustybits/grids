@@ -171,35 +171,51 @@
 
       <div class="profile-meta" :style="{ '--tile-text-color': textColor }">
         <div
-          class="profile-name profile-editor"
-          :class="{ 'can-edit': layoutStore.canEdit }"
-          :spellcheck="layoutStore.canEdit && isEditing"
-          @mousedown="focusEditor(nameEditor, $event)"
-          @click="catchEditorClick(nameEditor)"
+          class="profile-collapse"
+          :class="{ 'profile-collapse--hidden': !isEditing && isNameEmpty }"
         >
-          <EditorContent :editor="nameEditor" />
+          <div
+            class="profile-name profile-editor"
+            :class="{ 'can-edit': layoutStore.canEdit }"
+            :spellcheck="layoutStore.canEdit && isEditing"
+            @mousedown="focusEditor(nameEditor, $event)"
+            @click="catchEditorClick(nameEditor)"
+          >
+            <EditorContent :editor="nameEditor" />
+          </div>
         </div>
         <div
-          class="profile-title profile-editor"
-          :class="{ 'can-edit': layoutStore.canEdit }"
-          :spellcheck="layoutStore.canEdit && isEditing"
-          @mousedown="focusEditor(titleEditor, $event)"
-          @click="catchEditorClick(titleEditor)"
+          class="profile-collapse"
+          :class="{ 'profile-collapse--hidden': !isEditing && isTitleEmpty }"
         >
-          <EditorContent :editor="titleEditor" />
+          <div
+            class="profile-title profile-editor"
+            :class="{ 'can-edit': layoutStore.canEdit }"
+            :spellcheck="layoutStore.canEdit && isEditing"
+            @mousedown="focusEditor(titleEditor, $event)"
+            @click="catchEditorClick(titleEditor)"
+          >
+            <EditorContent :editor="titleEditor" />
+          </div>
         </div>
       </div>
     </div>
 
     <div
-      class="profile-bio-text profile-editor"
-      :class="{ 'can-edit': layoutStore.canEdit }"
-      :spellcheck="layoutStore.canEdit && isEditing"
-      :style="{ '--tile-text-color': textColor }"
-      @mousedown="focusEditor(bioEditor, $event)"
-      @click="catchEditorClick(bioEditor)"
+      class="profile-collapse"
+      :class="{ 'profile-collapse--hidden': !isEditing && isBioEmpty }"
+      :style="{ flex: isEditing || !isBioEmpty ? '1' : '0', minHeight: 0 }"
     >
-      <EditorContent :editor="bioEditor" />
+      <div
+        class="profile-bio-text profile-editor"
+        :class="{ 'can-edit': layoutStore.canEdit }"
+        :spellcheck="layoutStore.canEdit && isEditing"
+        :style="{ '--tile-text-color': textColor }"
+        @mousedown="focusEditor(bioEditor, $event)"
+        @click="catchEditorClick(bioEditor)"
+      >
+        <EditorContent :editor="bioEditor" />
+      </div>
     </div>
 
     <input
@@ -392,6 +408,10 @@ export default defineComponent({
       },
       onUpdate: onEditorUpdate,
     });
+
+    const isNameEmpty = computed(() => nameEditor.value?.isEmpty ?? true);
+    const isTitleEmpty = computed(() => titleEditor.value?.isEmpty ?? true);
+    const isBioEmpty = computed(() => bioEditor.value?.isEmpty ?? true);
 
     const avatarShape = computed(() => props.content.avatarShape || "circle");
 
@@ -1242,6 +1262,9 @@ export default defineComponent({
       draftAvatarUrl,
       urlError,
       isEditing,
+      isNameEmpty,
+      isTitleEmpty,
+      isBioEmpty,
       activeEditor,
       nameEditor,
       titleEditor,
@@ -1445,10 +1468,12 @@ export default defineComponent({
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  //border-radius: 50%;
   transition: top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
     left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
     width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
     height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  //border-radius: calc(var(--tile-border-radius) - 16px);
 }
 
 .avatar-image {
@@ -1462,6 +1487,13 @@ export default defineComponent({
   color: var(--color-content-default);
   text-align: center;
   padding: 6px;
+  border-radius: 50%; //calc(var(--tile-border-radius) - 16px);
+  border: 2px dashed var(--color-tile-stroke);
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  display: flex;
 }
 
 .profile-meta {
@@ -1469,8 +1501,34 @@ export default defineComponent({
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.profile-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.3s var(--easing-ease-in-out),
+    opacity 0.3s var(--easing-ease-in-out),
+    flex 0.3s var(--easing-ease-in-out);
+  opacity: 1;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   gap: 2px;
   width: 100%;
+  //height: 100%;
+}
+
+.profile-collapse > * {
+  overflow: hidden;
+}
+
+.profile-collapse--hidden {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .profile-editor {

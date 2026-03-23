@@ -25,30 +25,14 @@
             <div v-else class="avatar-placeholder">Add photo</div>
           </div>
 
-          <!-- Radius drag handle — overlaid on the media box coordinate space -->
-          <svg
+          <!-- Radius knob — 10×10px circle, 8px inset from bottom-left corner -->
+          <div
             v-if="(avatarShape === 'polygon' || avatarShape === 'square') && layoutStore.canEdit && isEditing"
-            class="radius-handle"
-            :style="radiusHandleOverlayStyle"
-          >
-            <path
-              :d="radiusHandlePath"
-              fill="none"
-              stroke="transparent"
-              :stroke-width="12"
-              stroke-linecap="round"
-              style="pointer-events: stroke; cursor: grab;"
-              @pointerdown.stop.prevent="onRadiusHandleDown"
-            />
-            <path
-              :d="radiusHandlePath"
-              fill="none"
-              stroke="white"
-              :stroke-width="2"
-              stroke-linecap="round"
-              style="pointer-events: none;"
-            />
-          </svg>
+            class="radius-knob"
+            :class="{ 'radius-knob--active': isDraggingRadius }"
+            :style="radiusKnobPositionStyle"
+            @pointerdown.stop.prevent="onRadiusHandleDown"
+          ></div>
           <span
             v-if="isDraggingRadius"
             class="radius-value-label"
@@ -84,6 +68,103 @@
               class="sides-label sides-label--max"
               :class="{ visible: sidesSliderHovered || isDraggingSides }"
             >8</span>
+          </div>
+
+          <!-- Avatar Action Bar — positioned on the avatar itself -->
+          <div
+            v-if="layoutStore.canEdit && isEditing"
+            class="avatar-action-bar"
+            :class="{ 'avatar-action-bar--dimmed': isDraggingRadius }"
+            @mousedown.stop
+            @click.stop
+          >
+            <!-- Delete / Remove Image -->
+            <button
+              v-if="avatarSrc"
+              class="avatar-action-btn avatar-action-btn--delete"
+              @click.stop="removeCustomImage"
+            >
+              <CloseIcon />
+            </button>
+
+            <!-- Quick Actions Group -->
+            <div class="avatar-quick-actions">
+              <!-- Shape Selector quickActionMenu -->
+              <div
+                class="quick-action-menu"
+                @mouseenter="hoveredQuickAction = 'shape'"
+                @mouseleave="hoveredQuickAction = null"
+              >
+                <button
+                  class="avatar-action-btn avatar-action-btn--active"
+                  @click.stop
+                >
+                  <ShapeCircleIcon v-if="avatarShape === 'circle'" />
+                  <ShapeSquareIcon v-else-if="avatarShape === 'square'" />
+                  <ShapePolygonIcon v-else />
+                </button>
+                <!-- Sub-actions: shape options (horizontal flyout) -->
+                <transition name="sub-action-fade">
+                  <div v-if="hoveredQuickAction === 'shape'" class="sub-actions">
+                    <button
+                      class="avatar-action-btn"
+                      :class="{ 'avatar-action-btn--active': avatarShape === 'circle' }"
+                      @click.stop="setAvatarShape('circle')"
+                    >
+                      <ShapeCircleIcon />
+                    </button>
+                    <button
+                      class="avatar-action-btn"
+                      :class="{ 'avatar-action-btn--active': avatarShape === 'square' }"
+                      @click.stop="setAvatarShape('square')"
+                    >
+                      <ShapeSquareIcon />
+                    </button>
+                    <button
+                      class="avatar-action-btn"
+                      :class="{ 'avatar-action-btn--active': avatarShape === 'polygon' }"
+                      @click.stop="setAvatarShape('polygon')"
+                    >
+                      <ShapePolygonIcon />
+                    </button>
+                  </div>
+                </transition>
+              </div>
+
+              <!-- Avatar Method quickActionMenu -->
+              <div
+                class="quick-action-menu"
+                @mouseenter="hoveredQuickAction = 'avatar'"
+                @mouseleave="hoveredQuickAction = null"
+              >
+                <button
+                  class="avatar-action-btn avatar-action-btn--active"
+                  @click.stop="onLastAvatarMethod"
+                >
+                  <UploadMediaIcon v-if="lastAvatarMethod === 'upload'" />
+                  <UrlSourceIcon v-else />
+                </button>
+                <!-- Sub-actions: avatar source options (horizontal flyout) -->
+                <transition name="sub-action-fade">
+                  <div v-if="hoveredQuickAction === 'avatar'" class="sub-actions">
+                    <button
+                      class="avatar-action-btn"
+                      :class="{ 'avatar-action-btn--active': lastAvatarMethod === 'url' }"
+                      @click.stop="openUrlInput"
+                    >
+                      <UrlSourceIcon />
+                    </button>
+                    <button
+                      class="avatar-action-btn"
+                      :class="{ 'avatar-action-btn--active': lastAvatarMethod === 'upload' }"
+                      @click.stop="openCustomImagePicker"
+                    >
+                      <UploadMediaIcon />
+                    </button>
+                  </div>
+                </transition>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -130,41 +211,17 @@
     />
   </div>
 
+  <!-- URL Input overlay (shown when user picks "Use URL") -->
   <Teleport to="body">
     <transition name="profile-popover">
       <div
-        v-if="showControls"
+        v-if="showUrlInput"
         class="profile-controls-popover"
         :style="popoverStyle"
         ref="popoverRef"
         @mousedown.stop
       >
-        <div class="control-row">
-          <button
-            type="button"
-            class="control-btn"
-            @click.stop="openCustomImagePicker"
-          >
-            Upload
-          </button>
-          <button
-            type="button"
-            class="control-btn"
-            @click.stop="openUrlInput"
-          >
-            Use URL
-          </button>
-          <button
-            v-if="avatarSrc"
-            type="button"
-            class="control-btn control-btn--danger"
-            @click.stop="removeCustomImage"
-          >
-            Remove
-          </button>
-        </div>
-
-        <div v-if="showUrlInput" class="control-url">
+        <div class="control-url">
           <input
             v-model="draftAvatarUrl"
             type="text"
@@ -188,34 +245,6 @@
           </div>
           <div v-if="urlError" class="control-error">{{ urlError }}</div>
         </div>
-
-        <div class="control-row">
-          <label class="control-label">Shape</label>
-          <div class="control-segment">
-            <button
-              type="button"
-              :class="{ active: avatarShape === 'circle' }"
-              @click.stop="setAvatarShape('circle')"
-            >
-              Circle
-            </button>
-            <button
-              type="button"
-              :class="{ active: avatarShape === 'square' }"
-              @click.stop="setAvatarShape('square')"
-            >
-              Square
-            </button>
-            <button
-              type="button"
-              :class="{ active: avatarShape === 'polygon' }"
-              @click.stop="setAvatarShape('polygon')"
-            >
-              Polygon
-            </button>
-          </div>
-        </div>
-
       </div>
     </transition>
   </Teleport>
@@ -250,6 +279,12 @@ import { getAuth } from "firebase/auth";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
 import Placeholder from "@tiptap/extension-placeholder";
+import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
+import ShapeCircleIcon from "@/components/icons/actionbar/ShapeCircleIcon.vue";
+import ShapeSquareIcon from "@/components/icons/actionbar/ShapeSquareIcon.vue";
+import ShapePolygonIcon from "@/components/icons/actionbar/ShapePolygonIcon.vue";
+import UploadMediaIcon from "@/components/icons/actionbar/UploadMediaIcon.vue";
+import UrlSourceIcon from "@/components/icons/actionbar/UrlSourceIcon.vue";
 
 const baseExtensions: AnyExtension[] = [
   StarterKit,
@@ -269,6 +304,12 @@ const makeExtensions = (placeholder: string): AnyExtension[] => [
 export default defineComponent({
   components: {
     EditorContent,
+    CloseIcon,
+    ShapeCircleIcon,
+    ShapeSquareIcon,
+    ShapePolygonIcon,
+    UploadMediaIcon,
+    UrlSourceIcon,
   },
   emits: ["background-color-change", "text-color-change"],
   props: {
@@ -294,6 +335,8 @@ export default defineComponent({
     const avatarSize = ref(152);
     const showControls = ref(false);
     const popoverPos = ref({ top: 0, left: 0 });
+    const hoveredQuickAction = ref<'shape' | 'avatar' | null>(null);
+    const lastAvatarMethod = ref<'upload' | 'url'>('upload');
 
     const clipPathId = `avatar-clip-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -685,67 +728,6 @@ export default defineComponent({
       return { corner, prev, next };
     });
 
-    // The radius handle SVG overlays the coordinate space where the
-    // corner lives. For polygon: the media box (with bleed). For square: the avatar.
-    const radiusHandleOverlayStyle = computed(() => {
-      const size = avatarSize.value;
-      if (avatarShape.value === 'square') {
-        return {
-          position: "absolute" as const,
-          left: "0px",
-          top: "0px",
-          width: `${size}px`,
-          height: `${size}px`,
-          overflow: "visible",
-          pointerEvents: "none" as const,
-          zIndex: 10,
-        };
-      }
-      const { bleedX, bleedY, bboxW, bboxH } = polyGeometry.value;
-      return {
-        position: "absolute" as const,
-        left: `${-bleedX}px`,
-        top: `${-bleedY}px`,
-        width: `${bboxW}px`,
-        height: `${bboxH}px`,
-        overflow: "visible",
-        pointerEvents: "none" as const,
-        zIndex: 10,
-      };
-    });
-
-    const radiusHandlePath = computed(() => {
-      const { corner, prev, next } = radiusHandleVertex.value;
-      const r = avatarRadius.value;
-
-      const dx1 = prev.x - corner.x;
-      const dy1 = prev.y - corner.y;
-      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
-
-      const dx2 = next.x - corner.x;
-      const dy2 = next.y - corner.y;
-      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-
-      const offset = Math.min(r, len1 / 2, len2 / 2);
-      if (offset < 1) return "";
-
-      const arcStart = {
-        x: corner.x + (dx1 / len1) * offset,
-        y: corner.y + (dy1 / len1) * offset,
-      };
-      const arcEnd = {
-        x: corner.x + (dx2 / len2) * offset,
-        y: corner.y + (dy2 / len2) * offset,
-      };
-
-      // For square, use a circular arc (A) to exactly match CSS border-radius.
-      // For polygon, keep quadratic Bézier (Q) which matches the polygon path rounding.
-      if (avatarShape.value === 'square') {
-        return `M ${arcStart.x} ${arcStart.y} A ${offset} ${offset} 0 0 0 ${arcEnd.x} ${arcEnd.y}`;
-      }
-      return `M ${arcStart.x} ${arcStart.y} Q ${corner.x} ${corner.y} ${arcEnd.x} ${arcEnd.y}`;
-    });
-
     const radiusLabelStyle = computed(() => {
       const { corner, prev, next } = radiusHandleVertex.value;
       const isSquare = avatarShape.value === 'square';
@@ -818,6 +800,36 @@ export default defineComponent({
       };
     });
 
+    // --- Radius knob position ---
+    // The knob sits on the bottom-left polygon/square corner, 8px inset from the edge.
+    // For polygon, it uses the radiusHandleVertex corner.
+    // For square, it's simply at (8, size - 8 - 10) in the avatar coordinate space.
+    const radiusKnobPositionStyle = computed(() => {
+      const size = avatarSize.value;
+      if (avatarShape.value === 'square') {
+        return {
+          position: 'absolute' as const,
+          left: '8px',
+          bottom: '0px',
+          zIndex: 10,
+        };
+      }
+      // Polygon: position at the bottom-left-ish vertex, offset 8px inward
+      const { corner } = radiusHandleVertex.value;
+      const isSquare = false;
+      const bleedX = isSquare ? 0 : polyGeometry.value.bleedX;
+      const bleedY = isSquare ? 0 : polyGeometry.value.bleedY;
+      // Convert from media-box coordinates to avatar container coordinates
+      const x = corner.x - bleedX - 5; // center the 10px knob
+      const y = corner.y - bleedY - 5;
+      return {
+        position: 'absolute' as const,
+        left: `${Math.max(0, x)}px`,
+        top: `${Math.max(0, y)}px`,
+        zIndex: 10,
+      };
+    });
+
     // --- Sides slider (corners count) ---
     // The knob position maps avatarSides (3–8) to a 0–1 fraction on the track.
     const SIDES_MIN = 3;
@@ -885,7 +897,17 @@ export default defineComponent({
 
     const openCustomImagePicker = () => {
       if (!layoutStore.canEdit) return;
+      lastAvatarMethod.value = 'upload';
       avatarInput.value?.click();
+    };
+
+    const onLastAvatarMethod = () => {
+      if (!layoutStore.canEdit) return;
+      if (lastAvatarMethod.value === 'upload') {
+        openCustomImagePicker();
+      } else {
+        openUrlInput();
+      }
     };
 
     const updatePopoverPos = () => {
@@ -898,11 +920,10 @@ export default defineComponent({
     };
 
     const onClickOutside = (e: MouseEvent) => {
-      if (!showControls.value) return;
+      if (!showUrlInput.value) return;
       const target = e.target as Node;
       if (popoverRef.value?.contains(target)) return;
       if (avatarRef.value?.contains(target)) return;
-      showControls.value = false;
       showUrlInput.value = false;
     };
 
@@ -911,13 +932,6 @@ export default defineComponent({
       if (!isEditing.value) {
         isEditing.value = true;
       }
-      if (showControls.value) {
-        showControls.value = false;
-        showUrlInput.value = false;
-        return;
-      }
-      updatePopoverPos();
-      showControls.value = true;
     };
 
     const popoverStyle = computed(() => ({
@@ -928,8 +942,10 @@ export default defineComponent({
 
     const openUrlInput = () => {
       if (!layoutStore.canEdit) return;
+      lastAvatarMethod.value = 'url';
       draftAvatarUrl.value = avatarSrc.value || "";
       urlError.value = "";
+      updatePopoverPos();
       showUrlInput.value = true;
     };
 
@@ -1176,8 +1192,7 @@ export default defineComponent({
       onRadiusCommit,
       isDraggingRadius,
       onRadiusHandleDown,
-      radiusHandleOverlayStyle,
-      radiusHandlePath,
+      radiusKnobPositionStyle,
       radiusLabelStyle,
       isDraggingSides,
       sidesSliderHovered,
@@ -1187,6 +1202,9 @@ export default defineComponent({
       handleBackgroundColorChange,
       focusEditor,
       catchEditorClick,
+      hoveredQuickAction,
+      lastAvatarMethod,
+      onLastAvatarMethod,
     };
   },
 });
@@ -1243,16 +1261,34 @@ export default defineComponent({
   transition: d 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.radius-handle {
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
-  transition: opacity 0.15s ease;
-  color: var(--color-content-high);
+.radius-knob {
+  width: 10px;
+  height: 10px;
+  border-radius: 100px;
+  background: var(--color-knob);
+  border: 0.2px solid rgba(0, 0, 0, 0.21);
+  box-shadow:
+    0 0 12px 0 rgba(0, 0, 0, 0.25),
+    0 4px 4px 0 rgba(0, 0, 0, 0.25),
+    0 0 4px 0 rgba(0, 0, 0, 0.25),
+    0 0 8px 0 rgba(0, 0, 0, 0.25);
+  cursor: grab;
+  pointer-events: auto;
+  transition: border-color var(--duration-fast) var(--easing-ease-in-out);
+}
+
+.radius-knob:active,
+.radius-knob--active {
+  cursor: grabbing;
+  border: 1px solid var(--color-figma-purple);
 }
 
 .radius-value-label {
   //text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   user-select: none;
-  color: var(--color-content-high)
+  color: var(--color-content-high);
+  text-align: end;
+  width: 10px;
 }
 
 .sides-slider {
@@ -1309,7 +1345,7 @@ export default defineComponent({
   width: 10px;
   height: 10px;
   border-radius: 100px;
-  background: var(--color-content-high);
+  background: var(--color-knob);
   transform: translateX(-50%);
   cursor: grab;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
@@ -1434,6 +1470,129 @@ export default defineComponent({
   pointer-events: none;
   height: 0;
 }
+
+/* ── Avatar Action Bar ── */
+.avatar-action-bar {
+  position: absolute;
+  top: -16px;
+  right: -16px;
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  width: 32px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--easing-ease-out);
+}
+
+.avatar-action-bar--dimmed {
+  opacity: 0.34;
+}
+
+.avatar:hover .avatar-action-bar,
+.avatar-action-bar:hover {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.avatar-action-bar--dimmed,
+.avatar:hover .avatar-action-bar--dimmed {
+  opacity: 0.34;
+  pointer-events: auto;
+}
+
+.avatar-quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.quick-action-menu {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  align-items: flex-start;
+  height: 32px;
+}
+
+/* ── quickAction_Button base ── */
+.avatar-action-btn {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border: 1px solid var(--color-tile-stroke);
+  border-radius: 8px;
+  background-color: var(--color-actionbar-background);
+  color: var(--color-content-high);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    border-color var(--duration-fast) var(--easing-ease-in-out),
+    color var(--duration-fast) var(--easing-ease-in-out);
+
+  :deep(svg) {
+    width: 16px;
+    height: 16px;
+    display: block;
+    flex-shrink: 0;
+  }
+}
+
+/* Active/selected state — white bg & border (Variant4 in Figma) */
+.avatar-action-btn--active {
+  background-color: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+  color: var(--color-content-background);
+}
+
+/* Hover on default buttons */
+.avatar-action-btn:not(.avatar-action-btn--active):not(.avatar-action-btn--delete):hover {
+  background-color: color-mix(in srgb, var(--color-actionbar-background) 85%, var(--color-text-primary) 15%);
+}
+
+/* Delete / Remove Image button */
+.avatar-action-btn--delete {
+  padding: 4px;
+  border-color: var(--color-tile-stroke);
+  background-color: var(--color-actionbar-background);
+
+  :deep(svg) {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    background-color: var(--color-figma-red);
+    border-color: var(--color-figma-red);
+    color: var(--color-light-100);
+  }
+}
+
+/* ── Sub-actions horizontal flyout ── */
+.sub-actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  padding-left: 2px;
+  height: 32px;
+}
+
+.sub-action-fade-enter-active,
+.sub-action-fade-leave-active {
+  transition: opacity var(--duration-fast) var(--easing-ease-out);
+}
+
+.sub-action-fade-enter-from,
+.sub-action-fade-leave-to {
+  opacity: 0;
+}
 </style>
 
 <style lang="scss">
@@ -1470,16 +1629,6 @@ export default defineComponent({
   gap: 8px;
 }
 
-.profile-controls-popover .control-label {
-  font-size: 12px;
-  color: var(--color-content-default);
-}
-
-.profile-controls-popover .control-value {
-  font-size: 12px;
-  color: var(--color-content-default);
-}
-
 .profile-controls-popover .control-btn {
   border: none;
   background: var(--color-base-34);
@@ -1493,11 +1642,6 @@ export default defineComponent({
 .profile-controls-popover .control-btn--ghost {
   background: transparent;
   border: 1px solid var(--color-base-34);
-}
-
-.profile-controls-popover .control-btn--danger {
-  background: var(--color-figma-red);
-  color: #fff;
 }
 
 .profile-controls-popover .control-url {
@@ -1519,23 +1663,4 @@ export default defineComponent({
   color: var(--color-figma-red);
 }
 
-.profile-controls-popover .control-segment {
-  display: flex;
-  gap: 6px;
-}
-
-.profile-controls-popover .control-segment button {
-  border: 1px solid var(--color-base-34);
-  background: transparent;
-  color: var(--color-text-primary);
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.profile-controls-popover .control-segment button.active {
-  background: var(--color-text-primary);
-  color: var(--color-content-background);
-}
 </style>

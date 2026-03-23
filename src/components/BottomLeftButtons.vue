@@ -15,6 +15,7 @@
       v-if="isOnGridPage && !isOwner && isDuplicatable"
       data-tooltip="Use this Grid as a Template"
     />
+    <!-- tooltips for GridMenu and UserMenu are contained in the components themselves -->
     <GridMenu v-if="isOnGridPage && isOwner" />
     <UserMenu v-if="isAuthenticated" />
   </div>

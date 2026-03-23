@@ -752,8 +752,8 @@ export default defineComponent({
       const bleedX = isSquare ? 0 : polyGeometry.value.bleedX;
       const bleedY = isSquare ? 0 : polyGeometry.value.bleedY;
       const r = avatarRadius.value;
+      const size = avatarSize.value;
 
-      // Compute the same arc geometry as radiusHandlePath
       const dx1 = prev.x - corner.x;
       const dy1 = prev.y - corner.y;
       const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
@@ -771,30 +771,26 @@ export default defineComponent({
         y: corner.y + (dy2 / len2) * offset,
       };
 
-      const size = avatarSize.value;
-
       let arcMidX: number;
       let arcMidY: number;
-      // Unit vector from corner outward (away from avatar center), used
-      // to push the label past the arc.
       let outX: number;
       let outY: number;
 
       if (isSquare) {
-        // Circle center is inset from the corner by offset along each edge
+        // Border-radius circle center, inset from corner along each edge
         const ccX = corner.x + (dx1 / len1) * offset + (dx2 / len2) * offset;
         const ccY = corner.y + (dy1 / len1) * offset + (dy2 / len2) * offset;
-        // Direction from circle center toward corner
         const toCX = corner.x - ccX;
         const toCY = corner.y - ccY;
         const toCLen = Math.sqrt(toCX * toCX + toCY * toCY) || 1;
-        // Arc midpoint = circle center + radius toward corner
+        // Arc midpoint on the circle, toward the corner (dark ear area)
         arcMidX = ccX + (toCX / toCLen) * offset;
         arcMidY = ccY + (toCY / toCLen) * offset;
+        // Push toward corner so label sits in the dark ear outside the arc
         outX = toCX / toCLen;
         outY = toCY / toCLen;
       } else {
-        // Quadratic Bézier midpoint: B(0.5) = 0.25*P0 + 0.5*P1 + 0.25*P2
+        // Polygon: Bézier midpoint B(0.5) = 0.25*P0 + 0.5*P1 + 0.25*P2
         arcMidX = 0.25 * arcStart.x + 0.5 * corner.x + 0.25 * arcEnd.x;
         arcMidY = 0.25 * arcStart.y + 0.5 * corner.y + 0.25 * arcEnd.y;
         const centerX = size / 2 + bleedX;
@@ -806,7 +802,6 @@ export default defineComponent({
         outY = awayY / awayDist;
       }
 
-      // Push the label a fixed distance outward from the arc midpoint
       const labelDist = 14;
       const labelX = arcMidX + outX * labelDist - bleedX;
       const labelY = arcMidY + outY * labelDist - bleedY;
@@ -817,7 +812,7 @@ export default defineComponent({
         top: `${labelY - 8}px`,
         fontSize: "12px",
         fontWeight: "700",
-        color: "white",
+        color: "var(--color-content-full)",
         pointerEvents: "none" as const,
         whiteSpace: "nowrap" as const,
       };
@@ -1251,11 +1246,13 @@ export default defineComponent({
 .radius-handle {
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
   transition: opacity 0.15s ease;
+  color: var(--color-content-high);
 }
 
 .radius-value-label {
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  //text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   user-select: none;
+  color: var(--color-content-high)
 }
 
 .sides-slider {
@@ -1282,7 +1279,7 @@ export default defineComponent({
 }
 
 .sides-label.visible {
-  color: white;
+  color: var(--color-content-default);
 }
 
 .sides-track-container {
@@ -1298,12 +1295,12 @@ export default defineComponent({
   width: 100%;
   height: 4px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0);
+  background: var(--color-tile-stroke);
   transition: background 0.15s ease;
 }
 
 .sides-track.visible {
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--color-tile-stroke);
 }
 
 .sides-knob {
@@ -1312,7 +1309,7 @@ export default defineComponent({
   width: 10px;
   height: 10px;
   border-radius: 100px;
-  background: var(--grids-light_100, #fefef5);
+  background: var(--color-content-high);
   transform: translateX(-50%);
   cursor: grab;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);

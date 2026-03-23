@@ -4,7 +4,7 @@
       <div class="profile-avatar-row">
         <div class="avatar" ref="avatarRef" @click="onAvatarClick">
           <svg
-            v-if="avatarShape === 'hex'"
+            v-if="avatarShape === 'polygon'"
             class="avatar-clip-defs"
             width="0"
             height="0"
@@ -27,7 +27,7 @@
 
           <!-- Radius drag handle — overlaid on the media box coordinate space -->
           <svg
-            v-if="avatarShape === 'hex' && layoutStore.canEdit && isEditing"
+            v-if="(avatarShape === 'polygon' || avatarShape === 'square') && layoutStore.canEdit && isEditing"
             class="radius-handle"
             :style="radiusHandleOverlayStyle"
           >
@@ -57,7 +57,7 @@
 
           <!-- Corners-count slider — centered below avatar -->
           <div
-            v-if="avatarShape === 'hex' && layoutStore.canEdit && isEditing"
+            v-if="avatarShape === 'polygon' && layoutStore.canEdit && isEditing"
             class="sides-slider"
             @mouseenter="sidesSliderHovered = true"
             @mouseleave="sidesSliderHovered = false"
@@ -208,27 +208,14 @@
             </button>
             <button
               type="button"
-              :class="{ active: avatarShape === 'hex' }"
-              @click.stop="setAvatarShape('hex')"
+              :class="{ active: avatarShape === 'polygon' }"
+              @click.stop="setAvatarShape('polygon')"
             >
-              Hex
+              Polygon
             </button>
           </div>
         </div>
 
-        <div v-if="avatarShape === 'square'" class="control-row">
-          <label class="control-label">Radius</label>
-          <input
-            type="range"
-            min="0"
-            max="40"
-            step="1"
-            :value="avatarRadius"
-            @input="onRadiusInput"
-            @change="onRadiusCommit"
-          />
-          <span class="control-value">{{ avatarRadius }}px</span>
-        </div>
       </div>
     </transition>
   </Teleport>
@@ -610,9 +597,9 @@ export default defineComponent({
     });
 
     // --- Radius drag handle ---
-    // The handle sits on the bottom-left hex corner. Dragging toward the
+    // The handle sits on the bottom-left polygon corner. Dragging toward the
     // center of the avatar increases radius; dragging away decreases it.
-    // We track the distance from the pointer to the hex center and map
+    // We track the distance from the pointer to the polygon center and map
     // that to a radius value.
 
     const onRadiusHandleDown = (e: PointerEvent) => {
@@ -652,12 +639,23 @@ export default defineComponent({
       document.addEventListener("pointerup", onUp);
     };
 
-    // Helper: get the bottom-left-ish vertex of the current polygon.
-    // We pick the vertex closest to bottom-left for the radius handle.
-    const polyHandleVertex = computed(() => {
+    // Get the corner + adjacent edge directions for the radius handle.
+    // Works for both 'square' (bottom-left corner) and 'polygon' (polygon vertex).
+    const radiusHandleVertex = computed(() => {
+      const size = avatarSize.value;
+
+      if (avatarShape.value === 'square') {
+        // Bottom-left corner of the 152×152 square
+        return {
+          corner: { x: 0, y: size },
+          prev: { x: 0, y: 0 },       // left edge going up
+          next: { x: size, y: size },   // bottom edge going right
+        };
+      }
+
+      // Polygon (polygon) mode — pick the bottom-left-ish vertex
       const n = avatarSides.value;
       const { R, bleedX, bleedY, bboxOffsetX, bboxOffsetY } = polyGeometry.value;
-      const size = avatarSize.value;
       const cx = size / 2 + bleedX - bboxOffsetX;
       const cy = size / 2 + bleedY - bboxOffsetY;
       const angleOffset = -Math.PI / 2;
@@ -668,14 +666,12 @@ export default defineComponent({
         vertices.push({ x: cx + R * Math.cos(angle), y: cy + R * Math.sin(angle) });
       }
 
-      // Pick the vertex with the smallest x among those in the bottom half,
-      // i.e. closest to bottom-left.
       let bestIdx = 0;
       let bestScore = Infinity;
       for (let i = 0; i < n; i++) {
         const v = vertices[i];
         if (v.y >= cy) {
-          const score = v.x - v.y; // lower-left has small x, large y → smallest score
+          const score = v.x - v.y;
           if (score < bestScore) {
             bestScore = score;
             bestIdx = i;
@@ -689,10 +685,22 @@ export default defineComponent({
       return { corner, prev, next };
     });
 
-    // The radius handle SVG overlays the same area as the media box,
-    // using the same coordinate space as the clip-path polygon.
-    // This avoids complex local-coordinate transforms.
+    // The radius handle SVG overlays the coordinate space where the
+    // corner lives. For polygon: the media box (with bleed). For square: the avatar.
     const radiusHandleOverlayStyle = computed(() => {
+      const size = avatarSize.value;
+      if (avatarShape.value === 'square') {
+        return {
+          position: "absolute" as const,
+          left: "0px",
+          top: "0px",
+          width: `${size}px`,
+          height: `${size}px`,
+          overflow: "visible",
+          pointerEvents: "none" as const,
+          zIndex: 10,
+        };
+      }
       const { bleedX, bleedY, bboxW, bboxH } = polyGeometry.value;
       return {
         position: "absolute" as const,
@@ -707,7 +715,7 @@ export default defineComponent({
     });
 
     const radiusHandlePath = computed(() => {
-      const { corner, prev, next } = polyHandleVertex.value;
+      const { corner, prev, next } = radiusHandleVertex.value;
       const r = avatarRadius.value;
 
       const dx1 = prev.x - corner.x;
@@ -730,13 +738,19 @@ export default defineComponent({
         y: corner.y + (dy2 / len2) * offset,
       };
 
-      // Coordinates are directly in media-box space — no transform needed
+      // For square, use a circular arc (A) to exactly match CSS border-radius.
+      // For polygon, keep quadratic Bézier (Q) which matches the polygon path rounding.
+      if (avatarShape.value === 'square') {
+        return `M ${arcStart.x} ${arcStart.y} A ${offset} ${offset} 0 0 0 ${arcEnd.x} ${arcEnd.y}`;
+      }
       return `M ${arcStart.x} ${arcStart.y} Q ${corner.x} ${corner.y} ${arcEnd.x} ${arcEnd.y}`;
     });
 
     const radiusLabelStyle = computed(() => {
-      const { corner, prev, next } = polyHandleVertex.value;
-      const { bleedX, bleedY } = polyGeometry.value;
+      const { corner, prev, next } = radiusHandleVertex.value;
+      const isSquare = avatarShape.value === 'square';
+      const bleedX = isSquare ? 0 : polyGeometry.value.bleedX;
+      const bleedY = isSquare ? 0 : polyGeometry.value.bleedY;
       const r = avatarRadius.value;
 
       // Compute the same arc geometry as radiusHandlePath
@@ -748,8 +762,6 @@ export default defineComponent({
       const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
       const offset = Math.min(r, len1 / 2, len2 / 2);
 
-      // Midpoint of the quadratic Bézier arc at t=0.5:
-      // B(0.5) = 0.25*P0 + 0.5*P1 + 0.25*P2
       const arcStart = {
         x: corner.x + (dx1 / len1) * offset,
         y: corner.y + (dy1 / len1) * offset,
@@ -758,19 +770,46 @@ export default defineComponent({
         x: corner.x + (dx2 / len2) * offset,
         y: corner.y + (dy2 / len2) * offset,
       };
-      const arcMidX = 0.25 * arcStart.x + 0.5 * corner.x + 0.25 * arcEnd.x;
-      const arcMidY = 0.25 * arcStart.y + 0.5 * corner.y + 0.25 * arcEnd.y;
 
-      // Push the label outward from the arc midpoint, away from center
       const size = avatarSize.value;
-      const centerX = size / 2 + bleedX;
-      const centerY = size / 2 + bleedY;
-      const awayX = arcMidX - centerX;
-      const awayY = arcMidY - centerY;
-      const awayDist = Math.sqrt(awayX * awayX + awayY * awayY) || 1;
-      const labelDist = 14; // px outward from arc midpoint
-      const labelX = arcMidX + (awayX / awayDist) * labelDist - bleedX;
-      const labelY = arcMidY + (awayY / awayDist) * labelDist - bleedY;
+
+      let arcMidX: number;
+      let arcMidY: number;
+      // Unit vector from corner outward (away from avatar center), used
+      // to push the label past the arc.
+      let outX: number;
+      let outY: number;
+
+      if (isSquare) {
+        // Circle center is inset from the corner by offset along each edge
+        const ccX = corner.x + (dx1 / len1) * offset + (dx2 / len2) * offset;
+        const ccY = corner.y + (dy1 / len1) * offset + (dy2 / len2) * offset;
+        // Direction from circle center toward corner
+        const toCX = corner.x - ccX;
+        const toCY = corner.y - ccY;
+        const toCLen = Math.sqrt(toCX * toCX + toCY * toCY) || 1;
+        // Arc midpoint = circle center + radius toward corner
+        arcMidX = ccX + (toCX / toCLen) * offset;
+        arcMidY = ccY + (toCY / toCLen) * offset;
+        outX = toCX / toCLen;
+        outY = toCY / toCLen;
+      } else {
+        // Quadratic Bézier midpoint: B(0.5) = 0.25*P0 + 0.5*P1 + 0.25*P2
+        arcMidX = 0.25 * arcStart.x + 0.5 * corner.x + 0.25 * arcEnd.x;
+        arcMidY = 0.25 * arcStart.y + 0.5 * corner.y + 0.25 * arcEnd.y;
+        const centerX = size / 2 + bleedX;
+        const centerY = size / 2 + bleedY;
+        const awayX = arcMidX - centerX;
+        const awayY = arcMidY - centerY;
+        const awayDist = Math.sqrt(awayX * awayX + awayY * awayY) || 1;
+        outX = awayX / awayDist;
+        outY = awayY / awayDist;
+      }
+
+      // Push the label a fixed distance outward from the arc midpoint
+      const labelDist = 14;
+      const labelX = arcMidX + outX * labelDist - bleedX;
+      const labelY = arcMidY + outY * labelDist - bleedY;
 
       return {
         position: "absolute" as const,
@@ -1084,7 +1123,7 @@ export default defineComponent({
     );
 
     const avatarMediaStyle = computed(() => {
-      if (avatarShape.value === "hex") {
+      if (avatarShape.value === "polygon") {
         const { bleedX, bleedY } = polyGeometry.value;
         return {
           clipPath: `url(#${clipPathId})`,

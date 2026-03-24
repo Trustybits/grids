@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-bio" ref="profileRoot">
+  <div class="profile-bio" ref="profileRoot" @mouseenter="isHovered = true" @mouseleave="isHovered = false">
     <div class="profile-header">
       <div class="profile-avatar-row">
         <div class="avatar" ref="avatarRef" @click="onAvatarClick" :class="{ 'is-dragging-radius': isDraggingRadius }">
@@ -60,7 +60,7 @@
 
           <!-- Radius knob — 10×10px circle, 8px inset from bottom-left corner -->
           <div
-            v-if="(avatarShape === 'polygon' || avatarShape === 'square') && avatarSrc && layoutStore.canEdit && isEditing"
+            v-if="(avatarShape === 'polygon' || avatarShape === 'square') && avatarSrc && layoutStore.canEdit && (isEditing || isHovered)"
             class="radius-knob"
             :class="{ 'radius-knob--active': isDraggingRadius }"
             :style="radiusKnobPositionStyle"
@@ -74,7 +74,7 @@
 
           <!-- Corners-count slider — centered below avatar -->
           <div
-            v-if="avatarShape === 'polygon' && avatarSrc && layoutStore.canEdit && isEditing"
+            v-if="avatarShape === 'polygon' && avatarSrc && layoutStore.canEdit && (isEditing || isHovered)"
             class="sides-slider"
             @mouseenter="sidesSliderHovered = true"
             @mouseleave="sidesSliderHovered = false"
@@ -106,7 +106,7 @@
 
           <!-- Avatar Action Bar — positioned on the avatar itself -->
           <div
-            v-if="avatarSrc && layoutStore.canEdit && isEditing"
+            v-if="avatarSrc && layoutStore.canEdit && (isEditing || isHovered)"
             class="avatar-action-bar"
             :class="{ 'avatar-action-bar--dimmed': isDraggingRadius }"
             @mousedown.stop
@@ -388,6 +388,7 @@ export default defineComponent({
     const isUploadingAvatar = ref(false);
     const uploadPercent = ref(0);
 
+    const isHovered = ref(false);
     const isEditing = ref(false);
     const activeEditor = ref<any>(null);
     const pendingFocusEditor = ref<any>(null);
@@ -1350,6 +1351,7 @@ export default defineComponent({
       showUrlInput,
       draftAvatarUrl,
       urlError,
+      isHovered,
       isEditing,
       isNameEmpty,
       isTitleEmpty,

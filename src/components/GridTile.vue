@@ -120,12 +120,6 @@
           @delete="removeElement"
         />
 
-        <TileActions
-          v-if="layoutStore.canEdit && !isSuggestion"
-          :tile="tile"
-          @delete="removeElement"
-        />
-
         <TileCaption
           v-if="showCaption && (layoutStore.canEdit || tile.caption)"
           :tile="tile"
@@ -973,7 +967,6 @@ export default defineComponent({
   top: 10px;
 }
 
-
 /* Customizable Header Styles */
 .header-options {
   display: none;
@@ -1007,13 +1000,11 @@ export default defineComponent({
   display: flex;
 }
 
-
 /* Non-owner caption: hide on tile hover or activation */
 .tile-wrapper:hover :deep(.viewer-caption),
 .tile-wrapper.is-activated :deep(.viewer-caption) {
   display: none;
 }
-
 
 /* Show tile actions on hover and activation */
 .tile-wrapper:hover :deep(.tile-actions),

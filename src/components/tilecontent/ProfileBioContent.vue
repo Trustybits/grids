@@ -27,7 +27,7 @@
 
           <!-- Radius knob — 10×10px circle, 8px inset from bottom-left corner -->
           <div
-            v-if="(avatarShape === 'polygon' || avatarShape === 'square') && layoutStore.canEdit && isEditing"
+            v-if="(avatarShape === 'polygon' || avatarShape === 'square') && avatarSrc && layoutStore.canEdit && isEditing"
             class="radius-knob"
             :class="{ 'radius-knob--active': isDraggingRadius }"
             :style="radiusKnobPositionStyle"
@@ -41,7 +41,7 @@
 
           <!-- Corners-count slider — centered below avatar -->
           <div
-            v-if="avatarShape === 'polygon' && layoutStore.canEdit && isEditing"
+            v-if="avatarShape === 'polygon' && avatarSrc && layoutStore.canEdit && isEditing"
             class="sides-slider"
             @mouseenter="sidesSliderHovered = true"
             @mouseleave="sidesSliderHovered = false"
@@ -91,6 +91,7 @@
             <div class="avatar-quick-actions">
               <!-- Shape Selector quickActionMenu -->
               <div
+                v-if="avatarSrc"
                 class="quick-action-menu"
                 @mouseenter="hoveredQuickAction = 'shape'"
                 @mouseleave="hoveredQuickAction = null"
@@ -172,7 +173,7 @@
       <div class="profile-meta" :style="{ '--tile-text-color': textColor }">
         <div
           class="profile-collapse"
-          :class="{ 'profile-collapse--hidden': !isEditing && isNameEmpty }"
+          :class="{ 'profile-collapse--hidden': !isEditing && isNameEmpty && !allEmpty }"
         >
           <div
             class="profile-name profile-editor"
@@ -186,7 +187,7 @@
         </div>
         <div
           class="profile-collapse"
-          :class="{ 'profile-collapse--hidden': !isEditing && isTitleEmpty }"
+          :class="{ 'profile-collapse--hidden': !isEditing && isTitleEmpty && !allEmpty }"
         >
           <div
             class="profile-title profile-editor"
@@ -203,8 +204,8 @@
 
     <div
       class="profile-collapse"
-      :class="{ 'profile-collapse--hidden': !isEditing && isBioEmpty }"
-      :style="{ flex: isEditing || !isBioEmpty ? '1' : '0', minHeight: 0 }"
+      :class="{ 'profile-collapse--hidden': !isEditing && isBioEmpty && !allEmpty }"
+      :style="{ flex: isEditing || !isBioEmpty || allEmpty ? '1' : '0', minHeight: 0 }"
     >
       <div
         class="profile-bio-text profile-editor"
@@ -412,8 +413,9 @@ export default defineComponent({
     const isNameEmpty = computed(() => nameEditor.value?.isEmpty ?? true);
     const isTitleEmpty = computed(() => titleEditor.value?.isEmpty ?? true);
     const isBioEmpty = computed(() => bioEditor.value?.isEmpty ?? true);
+    const allEmpty = computed(() => isNameEmpty.value && isTitleEmpty.value && isBioEmpty.value);
 
-    const avatarShape = computed(() => props.content.avatarShape || "circle");
+    const avatarShape = computed(() => props.content.avatarShape || "square");
 
     // Profile photo URL is stored in tile content.
     // Look up by the injected tile ID — this is stable and unique, unlike
@@ -1265,6 +1267,7 @@ export default defineComponent({
       isNameEmpty,
       isTitleEmpty,
       isBioEmpty,
+      allEmpty,
       activeEditor,
       nameEditor,
       titleEditor,
@@ -1324,6 +1327,7 @@ export default defineComponent({
   align-items: flex-start;
   gap: var(--spacing-md);
   overflow: hidden;
+  border-radius: var(--tile-border-radius);
   animation: profile-tile-settle 0.9s var(--easing-ease-in-out) forwards;
 }
 
@@ -1487,7 +1491,7 @@ export default defineComponent({
   color: var(--color-content-default);
   text-align: center;
   padding: 6px;
-  border-radius: 50%; //calc(var(--tile-border-radius) - 16px);
+  border-radius: calc(var(--tile-border-radius) - 16px);
   border: 2px dashed var(--color-tile-stroke);
   width: 100%;
   height: 100%;

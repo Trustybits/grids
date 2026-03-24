@@ -19,6 +19,9 @@ export interface Layout {
   overrides?: Partial<Record<Breakpoint, Record<string, TilePosition>>>;
   // When true, non-owners can duplicate this grid as a template.
   duplicatable?: boolean;
+  // When true, tiles use a backdrop-filter glass blur effect.
+  // Defaults to true for backward compatibility with existing grids.
+  glassEffect?: boolean;
   createdAt?: any;
   updatedAt?: any;
   lastOpenedAt?: any;

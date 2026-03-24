@@ -839,6 +839,13 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
+    // Toggle the glass (backdrop-filter blur) effect on tile cards
+    setGlassEffect(value: boolean) {
+      if (!this.currentLayout) return;
+      this.currentLayout.glassEffect = value;
+      this.updateLayout();
+    },
+
     addBackgroundImage(url: string, embed: boolean) {
       if (!this.currentLayout) return;
 

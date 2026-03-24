@@ -16,6 +16,7 @@ export function mapFirestoreToLayout(doc: any): Layout {
     themeId: data.themeId || undefined,
     overrides: data.overrides && typeof data.overrides === 'object' ? data.overrides : undefined,
     duplicatable: !!data.duplicatable,
+    glassEffect: data.glassEffect ?? true,
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,
     lastOpenedAt: data.lastOpenedAt ?? null,
@@ -38,5 +39,6 @@ export function createDefaultLayout(userId: string, name: string): Layout {
     backgroundImageSrc: "",
     backgroundEmbed: false,
     duplicatable: false,
+    glassEffect: true,
   };
 }

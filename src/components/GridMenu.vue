@@ -31,6 +31,11 @@
             tooltip="When enabled, tiles automatically move up to fill empty space"
           />
           <Toggle 
+            label="Glass Effect" 
+            v-model="glassEffect"
+            tooltip="When enabled, tiles use a frosted glass blur effect"
+          />
+          <Toggle 
             v-if="isOwner"
             label="Allow Public Template" 
             v-model="duplicatable"
@@ -209,6 +214,12 @@ const resetBreakpoint = () => {
   );
   showMenu.value = false;
 };
+
+// Computed property with setter to handle the glass effect toggle
+const glassEffect = computed({
+  get: () => layoutStore.currentLayout?.glassEffect ?? true,
+  set: (value: boolean) => layoutStore.setGlassEffect(value)
+});
 
 // Computed property with setter to handle the public duplication toggle
 const duplicatable = computed({

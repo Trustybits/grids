@@ -53,6 +53,7 @@
         <!-- Visual Frame with Overflow Hidden -->
         <div
           class="card-body"
+          :class="{ 'glass-active': layoutStore.currentLayout?.glassEffect !== false }"
           :style="{
             '--tile-bg': !!contentBackgroundColor
               ? contentBackgroundColor
@@ -914,6 +915,13 @@ export default defineComponent({
   -webkit-mask-image: -webkit-radial-gradient(white, black);
   mask-image: radial-gradient(white, black);
   will-change: transform;
+
+  // Frosted-glass blur — only applied when the user has the "Glass Effect"
+  // setting enabled in the Grid Menu.  Controlled via .glass-active class
+  // so the expensive backdrop-filter can be toggled off for performance.
+  &.glass-active {
+    backdrop-filter: blur(20px);
+  }
 
   .crop-mode-active & {
     overflow: visible;

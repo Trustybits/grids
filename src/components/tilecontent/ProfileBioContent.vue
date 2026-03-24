@@ -22,7 +22,30 @@
               alt="Avatar"
               class="avatar-image"
             />
-            <div v-else class="avatar-placeholder">Add photo</div>
+            <div
+              v-else
+              class="avatar-placeholder"
+              @mouseenter="placeholderHovered = true"
+              @mouseleave="placeholderHovered = false"
+            >
+              <span class="avatar-placeholder-label">Add photo</span>
+              <div class="avatar-placeholder-buttons">
+                <button
+                  class="placeholder-btn"
+                  :class="{ 'placeholder-btn--default': placeholderHovered }"
+                  @click.stop="openCustomImagePicker"
+                >
+                  <UploadMediaIcon />
+                </button>
+                <button
+                  class="placeholder-btn"
+                  :class="{ 'placeholder-btn--default': placeholderHovered }"
+                  @click.stop="openUrlInput"
+                >
+                  <UrlSourceIcon />
+                </button>
+              </div>
+            </div>
 
             <!-- Upload progress overlay -->
             <div v-if="isUploadingAvatar" class="avatar-upload-overlay">
@@ -82,7 +105,7 @@
 
           <!-- Avatar Action Bar — positioned on the avatar itself -->
           <div
-            v-if="layoutStore.canEdit && isEditing"
+            v-if="avatarSrc && layoutStore.canEdit && isEditing"
             class="avatar-action-bar"
             :class="{ 'avatar-action-bar--dimmed': isDraggingRadius }"
             @mousedown.stop
@@ -144,6 +167,7 @@
 
               <!-- Avatar Method quickActionMenu -->
               <div
+                v-if="avatarSrc"
                 class="quick-action-menu"
                 @mouseenter="hoveredQuickAction = 'avatar'"
                 @mouseleave="hoveredQuickAction = null"
@@ -372,6 +396,7 @@ export default defineComponent({
     const popoverRef = ref<HTMLDivElement | null>(null);
     const avatarSize = ref(152);
     const showControls = ref(false);
+    const placeholderHovered = ref(false);
     const popoverPos = ref({ top: 0, left: 0 });
     const hoveredQuickAction = ref<'shape' | 'avatar' | null>(null);
     const lastAvatarMethod = ref<'upload' | 'url'>('upload');
@@ -1319,6 +1344,7 @@ export default defineComponent({
       clipPathId,
       polygonPath,
       showControls,
+      placeholderHovered,
       popoverStyle,
       showUrlInput,
       draftAvatarUrl,
@@ -1578,17 +1604,57 @@ export default defineComponent({
 }
 
 .avatar-placeholder {
-  font-size: 11px;
-  color: var(--color-content-default);
-  text-align: center;
-  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 16px;
   border-radius: calc(var(--tile-border-radius) - 16px);
   border: 2px dashed var(--color-tile-stroke);
   width: 100%;
   height: 100%;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.avatar-placeholder-label {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-content-low);
+  white-space: nowrap;
+}
+
+.avatar-placeholder-buttons {
   display: flex;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.placeholder-btn {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-content-low);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.placeholder-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+.placeholder-btn--default {
+  color: var(--color-content-default);
+}
+
+.placeholder-btn--default:hover {
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .profile-meta {

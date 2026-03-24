@@ -310,7 +310,7 @@ export default defineComponent({
     });
 
     const isTileResizable = computed(() => {
-      if (!layoutStore.canEdit || isSuggestion.value || isProfileTile.value) {
+      if (!layoutStore.canEdit || isSuggestion.value) {
         return false;
       }
       if (isTouchDevice()) return isActivated.value && !isEditing.value;

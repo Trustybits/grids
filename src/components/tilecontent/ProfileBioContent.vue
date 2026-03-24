@@ -93,6 +93,7 @@
               ></div>
               <div
                 class="sides-knob"
+                :class="{ 'sides-knob--active': isDraggingSides }"
                 :style="sidesKnobStyle"
                 @pointerdown.stop.prevent="onSidesKnobDown"
               ></div>
@@ -1304,7 +1305,7 @@ export default defineComponent({
 
     const polygonPath = computed(() =>
       generateRoundedPolygonPath(
-        avatarSides.value,
+        avatarSides.value * 0.98,
         avatarRadius.value,
       ),
     );
@@ -1456,6 +1457,7 @@ export default defineComponent({
 }
 
 .radius-knob {
+  position: absolute;
   width: 10px;
   height: 10px;
   border-radius: 100px;
@@ -1468,13 +1470,34 @@ export default defineComponent({
     0 0 8px 0 rgba(0, 0, 0, 0.25);
   cursor: grab;
   pointer-events: auto;
-  transition: border-color var(--duration-fast) var(--easing-ease-in-out);
+  transition:
+    border-color var(--duration-fast) var(--easing-ease-in-out),
+    transform var(--transition-slow);
 }
 
-.radius-knob:active,
-.radius-knob--active {
+.radius-knob::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+.radius-knob:hover {
+  transform: scale(1.4);
+}
+
+.radius-knob--active,
+.radius-knob--active:hover {
   cursor: grabbing;
   border: 1px solid var(--color-figma-purple);
+  transform: scale(2.0);
+  transition:
+    border-color var(--duration-fast) var(--easing-ease-in-out),
+    transform 1.2s var(--easing-spring);
 }
 
 .radius-value-label {
@@ -1484,12 +1507,12 @@ export default defineComponent({
 
 .sides-slider {
   position: absolute;
-  bottom: -18px;
+  bottom: -22px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 12px;
   z-index: 10;
   pointer-events: auto;
 }
@@ -1511,7 +1534,7 @@ export default defineComponent({
 
 .sides-track-container {
   position: relative;
-  width: 30px;
+  width: 100px;
   height: 10px;
 }
 
@@ -1537,13 +1560,32 @@ export default defineComponent({
   height: 10px;
   border-radius: 100px;
   background: var(--tile-text-color);
-  transform: translateX(-50%);
+  transform: translateX(-50%) scale(1);
   cursor: grab;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: transform var(--transition-slow);
 }
 
-.sides-knob:active {
+.sides-knob::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+.sides-knob:hover {
+  transform: translateX(-50%) scale(1.4);
+}
+
+.sides-knob--active,
+.sides-knob--active:hover {
   cursor: grabbing;
+  transform: translateX(-50%) scale(2.0);
+  transition: transform 1.2s var(--easing-spring);
 }
 
 .avatar-media {

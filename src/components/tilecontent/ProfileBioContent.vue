@@ -23,6 +23,16 @@
               class="avatar-image"
             />
             <div v-else class="avatar-placeholder">Add photo</div>
+
+            <!-- Upload progress overlay -->
+            <div v-if="isUploadingAvatar" class="avatar-upload-overlay">
+              <div class="avatar-upload-track">
+                <div
+                  class="avatar-upload-fill"
+                  :style="{ width: `${uploadPercent}%` }"
+                ></div>
+              </div>
+            </div>
           </div>
 
           <!-- Radius knob — 10×10px circle, 8px inset from bottom-left corner -->
@@ -139,7 +149,8 @@
                 @mouseleave="hoveredQuickAction = null"
               >
                 <button
-                  class="avatar-action-btn avatar-action-btn--active"
+                  class="avatar-action-btn"
+                  :class="{ 'avatar-action-btn--active': avatarSrc }"
                   @click.stop="onLastAvatarMethod"
                 >
                   <UploadMediaIcon v-if="lastAvatarMethod === 'upload'" />
@@ -293,6 +304,12 @@ import { type ProfileBioContent, type AvatarShape } from "@/types/TileContent";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { getAuth } from "firebase/auth";
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytesResumable,
+  getDownloadURL,
+} from "firebase/storage";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -341,6 +358,10 @@ export default defineComponent({
 
     const { uploadFileToUrl, uploadExternalImageToStorage } = useFileUpload();
     const auth = getAuth();
+    const storage = getStorage();
+
+    const isUploadingAvatar = ref(false);
+    const uploadPercent = ref(0);
 
     const isEditing = ref(false);
     const activeEditor = ref<any>(null);
@@ -1090,12 +1111,49 @@ export default defineComponent({
         return;
       }
 
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        alert("You must be logged in to upload.");
+        return;
+      }
+
+      // Remember previous photo in case we need to revert on failure
+      const previousUrl = avatarSrc.value;
+
+      // Optimistic: show local blob preview immediately
+      const blobUrl = URL.createObjectURL(file);
+      await saveProfilePhoto(blobUrl);
+
+      isUploadingAvatar.value = true;
+      uploadPercent.value = 0;
+
       try {
-        const url = await uploadFileToUrl(file, { fileType: "images" });
-        await saveProfilePhoto(url);
+        const filePath = `users/${currentUser.uid}/images/${Date.now()}_${file.name}`;
+        const fileRef = storageRef(storage, filePath);
+        const metadata = { customMetadata: { published: "true" } };
+
+        const uploadTask = uploadBytesResumable(fileRef, file, metadata);
+        uploadTask.on("state_changed", (snapshot) => {
+          uploadPercent.value = Math.round(
+            (snapshot.bytesTransferred / snapshot.totalBytes) * 100,
+          );
+        });
+
+        await uploadTask;
+        const permanentUrl = await getDownloadURL(fileRef);
+
+        // Swap blob URL for permanent Firebase URL
+        URL.revokeObjectURL(blobUrl);
+        await saveProfilePhoto(permanentUrl);
       } catch (error: any) {
         console.error("Avatar upload failed:", error);
+        URL.revokeObjectURL(blobUrl);
+        // Revert to previous photo
+        await saveProfilePhoto(previousUrl);
         alert(error.message || "Failed to upload image. Please try again.");
+      } finally {
+        isUploadingAvatar.value = false;
+        uploadPercent.value = 0;
       }
     };
 
@@ -1256,6 +1314,8 @@ export default defineComponent({
       avatarSides,
       avatarSrc,
       avatarMediaStyle,
+      isUploadingAvatar,
+      uploadPercent,
       clipPathId,
       polygonPath,
       showControls,
@@ -1484,6 +1544,37 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.avatar-upload-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 8px;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.35) 0%,
+    transparent 40%
+  );
+}
+
+.avatar-upload-track {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.avatar-upload-fill {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 2px;
+  transition: width 0.2s ease-out;
 }
 
 .avatar-placeholder {

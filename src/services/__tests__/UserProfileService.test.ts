@@ -209,12 +209,13 @@ describe('setDefaultGrid', () => {
 
 describe('updateUserProfile', () => {
   it('calls setDoc with merge: true for partial updates', async () => {
+    vi.mocked(firestore.doc).mockReturnValueOnce("dummy-ref")
     vi.mocked(firestore.setDoc).mockResolvedValueOnce(undefined)
 
     await updateUserProfile('uid-abc', { email: 'new@example.com' })
 
     expect(firestore.setDoc).toHaveBeenCalledWith(
-      expect.anything(),
+      "dummy-ref",
       { email: 'new@example.com' },
       { merge: true }
     )

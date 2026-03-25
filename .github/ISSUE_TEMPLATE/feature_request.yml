@@ -1,0 +1,71 @@
+name: Feature Request
+description: Suggest a new tile type, widget, or product improvement
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting, check if there's already an open request for this. If so, upvote it and add a comment rather than opening a duplicate.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - New tile type
+        - New widget
+        - Template / theme
+        - Editor UX improvement
+        - Marketplace feature
+        - Analytics / insights
+        - Performance
+        - Developer / API
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the problem or limitation you're running into. Good feature requests start with a problem, not a solution.
+      placeholder: "I want to embed my Twitch stream but there's no dedicated Twitch tile — the generic embed doesn't auto-detect the channel name or show viewer count..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: What would the ideal implementation look like?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Have you tried any workarounds? Are there other ways to solve this?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: tier
+    attributes:
+      label: Which tier should this be available on?
+      options:
+        - Free / everyone
+        - Community (signed-in users)
+        - Pro (paid)
+        - Not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Would you like to build this?
+      options:
+        - label: Yes, I'd like to implement this myself (I'll comment when I start so we can discuss the approach)
+        - label: I can help test it
+        - label: I'm just requesting it

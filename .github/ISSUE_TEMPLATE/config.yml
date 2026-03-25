@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discord Community
+    url: https://discord.gg/your-invite
+    about: Ask questions, share your grid, or discuss ideas with the community
+  - name: GitHub Discussions
+    url: https://github.com/trustybits/grids/discussions
+    about: Longer-form discussion about features and direction

@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-bio" ref="profileRoot" @mouseenter="isHovered = true" @mouseleave="isHovered = false">
+  <div class="profile-bio" ref="profileRoot" :class="{ 'layout-horizontal': useHorizontalLayout }" @mouseenter="isHovered = true" @mouseleave="isHovered = false">
     <div class="profile-header">
       <div class="profile-avatar-row">
         <div class="avatar" ref="avatarRef" @click="onAvatarClick" :class="{ 'is-dragging-radius': isDraggingRadius }">
@@ -313,6 +313,7 @@ import {
   onMounted,
   onBeforeUnmount,
   type PropType,
+  type ComputedRef,
   inject,
 } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
@@ -380,6 +381,14 @@ export default defineComponent({
   setup(props, { emit }) {
     const layoutStore = useLayoutStore();
     const tileId = inject<string | null>("tileId", null);
+    const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
+    const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
+
+    const useHorizontalLayout = computed(() => {
+      const w = gridTileW?.value ?? 4;
+      const h = gridTileH?.value ?? 4;
+      return h <= 2 && w >= 3;
+    });
 
     const { uploadFileToUrl, uploadExternalImageToStorage } = useFileUpload();
     const auth = getAuth();
@@ -613,6 +622,10 @@ export default defineComponent({
     const onResize = () => {
       nextTick(() => updateAvatarSize());
     };
+
+    watch(useHorizontalLayout, () => {
+      nextTick(() => updateAvatarSize());
+    });
 
     onMounted(() => {
       updateAvatarSize();
@@ -1391,6 +1404,7 @@ export default defineComponent({
       hoveredQuickAction,
       lastAvatarMethod,
       onLastAvatarMethod,
+      useHorizontalLayout,
     };
   },
 });
@@ -1442,6 +1456,62 @@ export default defineComponent({
   cursor: pointer;
   position: relative;
   overflow: visible;
+  transition: width var(--duration-slow) var(--easing-smooth),
+    height var(--duration-slow) var(--easing-smooth);
+}
+
+/* ── Horizontal Layout (Nx2 tiles) ─────────────────────────────────
+   When the tile is short and wide (h ≤ 2, w ≥ 3), switch to a
+   side-by-side layout: avatar left, name/title/bio stacked right.
+   Uses display:contents on .profile-header so its children become
+   direct grid participants without restructuring the DOM. */
+
+.profile-bio.layout-horizontal {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--spacing-lg) var(--spacing-lg);
+  align-items: start;
+}
+
+.layout-horizontal .profile-header {
+  display: contents;
+}
+
+.layout-horizontal .profile-avatar-row {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: center;
+  width: auto;
+}
+
+.layout-horizontal .avatar {
+  min-width: 32px;
+  min-height: 32px;
+  max-width: 152px;
+  max-height: 152px;
+}
+
+.layout-horizontal .profile-meta {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+}
+
+.layout-horizontal > .profile-collapse {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+.layout-horizontal .profile-name :deep(.ProseMirror) {
+  font-size: 30px;
+}
+
+.layout-horizontal .profile-bio-text :deep(.ProseMirror) {
+  font-size: 14px;
 }
 
 .polygon-clip-path {

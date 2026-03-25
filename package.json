@@ -8,7 +8,11 @@
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
-    "type-check": "vue-tsc --build --force"
+    "type-check": "vue-tsc --build --force",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.7.2",
@@ -41,11 +45,17 @@
     "@types/node": "^22.9.0",
     "@vitejs/plugin-vue": "^5.1.4",
     "@vitejs/plugin-vue-jsx": "^4.0.1",
+    "@vitest/coverage-v8": "^2.1.0",
+    "@vitest/ui": "^2.1.0",
+    "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.5.1",
+    "jsdom": "^25.0.1",
     "npm-run-all2": "^7.0.1",
+    "pinia": "^2.2.8",
     "typescript": "^5.9.3",
     "vite": "^5.4.10",
     "vite-plugin-vue-devtools": "^7.5.4",
+    "vitest": "^2.1.0",
     "vue-tsc": "^2.1.10"
   }
 }

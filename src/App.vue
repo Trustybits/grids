@@ -39,6 +39,7 @@ import ToastContainer from './components/ToastContainer.vue';
 import PixelRacersGame from './components/PixelRacersGame.vue';
 import ViewportWarning from './components/ViewportWarning.vue';
 import { useLayoutStore } from '@/stores/layout';
+import { initSubscription } from '@/composables/useSubscription';
 import { auth, db } from '@/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -51,6 +52,8 @@ const previousUser = ref<User | null>(null);
 const isInitialLoad = ref(true);
 
 onMounted(() => {
+  initSubscription();
+
   onAuthStateChanged(auth, async (currentUser) => {
     // Track login for existing users (not new signups on page load)
     if (currentUser && !isInitialLoad.value && !previousUser.value) {

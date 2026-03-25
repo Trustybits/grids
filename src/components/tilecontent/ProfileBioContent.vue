@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-bio" ref="profileRoot" :class="{ 'layout-horizontal': useHorizontalLayout }" @mouseenter="isHovered = true" @mouseleave="isHovered = false">
+  <div class="profile-bio" ref="profileRoot" :class="layoutClasses" @mouseenter="isHovered = true" @mouseleave="isHovered = false">
     <div class="profile-header">
       <div class="profile-avatar-row">
         <div class="avatar" ref="avatarRef" @click="onAvatarClick" :class="{ 'is-dragging-radius': isDraggingRadius }">
@@ -384,10 +384,24 @@ export default defineComponent({
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
 
-    const useHorizontalLayout = computed(() => {
+    const layoutMode = computed((): string => {
       const w = gridTileW?.value ?? 4;
       const h = gridTileH?.value ?? 4;
-      return h <= 2 && w >= 3;
+      if (w <= 1 && h <= 1) return 'mini';
+      if (w === 1) return 'narrow';
+      if (h === 1) return 'banner';
+      if (h <= 2 && w >= 3) return 'horizontal';
+      return 'default';
+    });
+
+    const layoutClasses = computed(() => {
+      const h = gridTileH?.value ?? 4;
+      const classes: Record<string, boolean> = {};
+      classes[`layout-${layoutMode.value}`] = true;
+      if (layoutMode.value === 'narrow' && h < 3) {
+        classes['narrow-short'] = true;
+      }
+      return classes;
     });
 
     const { uploadFileToUrl, uploadExternalImageToStorage } = useFileUpload();
@@ -623,7 +637,7 @@ export default defineComponent({
       nextTick(() => updateAvatarSize());
     };
 
-    watch(useHorizontalLayout, () => {
+    watch(layoutMode, () => {
       nextTick(() => updateAvatarSize());
     });
 
@@ -1404,7 +1418,7 @@ export default defineComponent({
       hoveredQuickAction,
       lastAvatarMethod,
       onLastAvatarMethod,
-      useHorizontalLayout,
+      layoutClasses,
     };
   },
 });
@@ -1512,6 +1526,139 @@ export default defineComponent({
 
 .layout-horizontal .profile-bio-text :deep(.ProseMirror) {
   font-size: 14px;
+}
+
+/* ── Mini (1×1) ────────────────────────────────────────────────────
+   Avatar only, centered, everything else hidden. */
+
+.profile-bio.layout-mini {
+  padding: var(--spacing-sm);
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.layout-mini .profile-header {
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  flex: 0 0 auto;
+}
+
+.layout-mini .profile-avatar-row {
+  justify-content: center;
+  width: auto;
+}
+
+.layout-mini .avatar {
+  width: 40px;
+  height: 40px;
+}
+
+.layout-mini .profile-meta {
+  display: none;
+}
+
+.layout-mini > .profile-collapse {
+  display: none;
+}
+
+/* ── Narrow (1×N) ──────────────────────────────────────────────────
+   Vertical stack, compact padding, small centered avatar,
+   name below. Title shown when h ≥ 3, bio always hidden. */
+
+.profile-bio.layout-narrow {
+  padding: var(--spacing-sm);
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.layout-narrow > .profile-collapse {
+  display: none;
+}
+
+.narrow-short .profile-meta > .profile-collapse:last-child {
+  display: none;
+}
+
+.layout-narrow .profile-header {
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.layout-narrow .profile-avatar-row {
+  justify-content: center;
+  width: auto;
+}
+
+.layout-narrow .avatar {
+  width: 48px;
+  height: 48px;
+}
+
+.layout-narrow .profile-meta {
+  align-items: center;
+  width: 100%;
+}
+
+.layout-narrow .profile-name :deep(.ProseMirror) {
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.layout-narrow .profile-title :deep(.ProseMirror) {
+  font-size: 9px;
+  text-align: center;
+  letter-spacing: 0.08em;
+}
+
+/* ── Banner (N×1) ──────────────────────────────────────────────────
+   Horizontal row: small avatar left, name right.
+   Title and bio hidden. */
+
+.profile-bio.layout-banner {
+  padding: var(--spacing-sm);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: 1fr;
+  gap: 0 var(--spacing-sm);
+  align-items: center;
+}
+
+.layout-banner .profile-header {
+  display: contents;
+}
+
+.layout-banner > .profile-collapse {
+  display: none;
+}
+
+.layout-banner .profile-meta > .profile-collapse:last-child {
+  display: none;
+}
+
+.layout-banner .profile-avatar-row {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+  width: auto;
+}
+
+.layout-banner .avatar {
+  width: 48px;
+  height: 48px;
+}
+
+.layout-banner .profile-meta {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+}
+
+.layout-banner .profile-name :deep(.ProseMirror) {
+  font-size: 18px;
+  line-height: 1.1;
 }
 
 .polygon-clip-path {

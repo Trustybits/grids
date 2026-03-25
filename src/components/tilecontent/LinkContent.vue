@@ -1079,7 +1079,7 @@ export default defineComponent({
 .tile-details {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  width: calc(100% + 16px);
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   transition:

@@ -1219,7 +1219,7 @@ export default defineComponent({
 .tile-details.is-editing .tile-field-wrap--title.is-visible {
   max-height: 48px;
   overflow-y: auto;
-  scrollbar-color: var(--color-input-edit) transparent;
+  scrollbar-color: var(--color-border) transparent;
   scrollbar-width: thin;
   overscroll-behavior: contain;
   touch-action: pan-y;
@@ -1277,7 +1277,7 @@ export default defineComponent({
 .tile-details.is-editing .tile-field-wrap--description.is-visible {
   max-height: 40px;
   overflow-y: scroll;
-  scrollbar-color: var(--color-input-edit) transparent;
+  scrollbar-color: var(--color-border) transparent;
   scrollbar-width: thin;
   overscroll-behavior: contain;
   touch-action: pan-y;

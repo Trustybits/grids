@@ -149,7 +149,7 @@ export interface RPGContent extends TileContent {
   gameState: "playing" | "won" | "lost";
 }
 
-export type AvatarShape = "circle" | "square" | "hex";
+export type AvatarShape = "circle" | "square" | "polygon";
 
 export interface ProfileBioContent extends TileContent {
   type: ContentType.PROFILE;
@@ -158,6 +158,7 @@ export interface ProfileBioContent extends TileContent {
   bio: string;
   avatarShape: AvatarShape;
   avatarRadius: number;
+  avatarSides?: number; // polygon side count (3–8), default 6
   profilePhotoUrl?: string; // URL of the uploaded profile photo
   backgroundColor?: string;
 }

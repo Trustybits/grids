@@ -4,7 +4,7 @@
       <div class="profile-avatar-row">
         <div class="avatar" ref="avatarRef" @click="onAvatarClick" :class="{ 'is-dragging-radius': isDraggingRadius }">
           <svg
-            v-if="avatarShape === 'polygon'"
+            v-if="effectiveAvatarShape === 'polygon'"
             class="avatar-clip-defs"
             width="0"
             height="0"
@@ -29,7 +29,7 @@
               @mouseleave="placeholderHovered = false"
             >
               <span class="avatar-placeholder-label">Add photo</span>
-              <div class="avatar-placeholder-buttons">
+              <div v-if="!isCompactProfileLayout" class="avatar-placeholder-buttons">
                 <button
                   class="placeholder-btn"
                   :class="{ 'placeholder-btn--default': placeholderHovered }"
@@ -60,7 +60,7 @@
 
           <!-- Radius knob — 10×10px circle, 8px inset from bottom-left corner -->
           <div
-            v-if="(avatarShape === 'polygon' || avatarShape === 'square') && avatarSrc && layoutStore.canEdit && (isEditing || isHovered)"
+            v-if="!isCompactProfileLayout && (effectiveAvatarShape === 'polygon' || effectiveAvatarShape === 'square') && avatarSrc && layoutStore.canEdit && (isEditing || isHovered)"
             class="radius-knob"
             :class="{ 'radius-knob--active': isDraggingRadius }"
             :style="radiusKnobPositionStyle"
@@ -74,7 +74,7 @@
 
           <!-- Corners-count slider — centered below avatar -->
           <div
-            v-if="avatarShape === 'polygon' && avatarSrc && layoutStore.canEdit && (isEditing || isHovered)"
+            v-if="!isCompactProfileLayout && effectiveAvatarShape === 'polygon' && avatarSrc && layoutStore.canEdit && (isEditing || isHovered)"
             class="sides-slider"
             @mouseenter="sidesSliderHovered = true"
             @mouseleave="sidesSliderHovered = false"
@@ -106,7 +106,7 @@
 
           <!-- Avatar Action Bar — positioned on the avatar itself -->
           <div
-            v-if="avatarSrc && layoutStore.canEdit && (isEditing || isHovered)"
+            v-if="!isCompactProfileLayout && avatarSrc && layoutStore.canEdit && (isEditing || isHovered)"
             class="avatar-action-bar"
             :class="{ 'avatar-action-bar--dimmed': isDraggingRadius }"
             @mousedown.stop
@@ -134,8 +134,8 @@
                   class="avatar-action-btn avatar-action-btn--active"
                   @click.stop
                 >
-                  <ShapeCircleIcon v-if="avatarShape === 'circle'" />
-                  <ShapeSquareIcon v-else-if="avatarShape === 'square'" />
+                  <ShapeCircleIcon v-if="effectiveAvatarShape === 'circle'" />
+                  <ShapeSquareIcon v-else-if="effectiveAvatarShape === 'square'" />
                   <ShapePolygonIcon v-else />
                 </button>
                 <!-- Sub-actions: shape options (horizontal flyout) -->
@@ -143,21 +143,21 @@
                   <div v-if="hoveredQuickAction === 'shape'" class="sub-actions">
                     <button
                       class="avatar-action-btn"
-                      :class="{ 'avatar-action-btn--active': avatarShape === 'circle' }"
+                      :class="{ 'avatar-action-btn--active': effectiveAvatarShape === 'circle' }"
                       @click.stop="setAvatarShape('circle')"
                     >
                       <ShapeCircleIcon />
                     </button>
                     <button
                       class="avatar-action-btn"
-                      :class="{ 'avatar-action-btn--active': avatarShape === 'square' }"
+                      :class="{ 'avatar-action-btn--active': effectiveAvatarShape === 'square' }"
                       @click.stop="setAvatarShape('square')"
                     >
                       <ShapeSquareIcon />
                     </button>
                     <button
                       class="avatar-action-btn"
-                      :class="{ 'avatar-action-btn--active': avatarShape === 'polygon' }"
+                      :class="{ 'avatar-action-btn--active': effectiveAvatarShape === 'polygon' }"
                       @click.stop="setAvatarShape('polygon')"
                     >
                       <ShapePolygonIcon />
@@ -487,6 +487,15 @@ export default defineComponent({
     const allEmpty = computed(() => isNameEmpty.value && isTitleEmpty.value && isBioEmpty.value);
 
     const avatarShape = computed(() => props.content.avatarShape || "square");
+    const isCompactProfileLayout = computed(
+      () =>
+        layoutMode.value === "mini" ||
+        layoutMode.value === "narrow" ||
+        layoutMode.value === "banner",
+    );
+    const effectiveAvatarShape = computed<AvatarShape>(() =>
+      isCompactProfileLayout.value ? "square" : avatarShape.value,
+    );
 
     // Profile photo URL is stored in tile content.
     // Look up by the injected tile ID — this is stable and unique, unlike
@@ -1064,13 +1073,13 @@ export default defineComponent({
     };
 
     const openCustomImagePicker = () => {
-      if (!layoutStore.canEdit) return;
+      if (!layoutStore.canEdit || isCompactProfileLayout.value) return;
       lastAvatarMethod.value = 'upload';
       avatarInput.value?.click();
     };
 
     const onLastAvatarMethod = () => {
-      if (!layoutStore.canEdit) return;
+      if (!layoutStore.canEdit || isCompactProfileLayout.value) return;
       if (lastAvatarMethod.value === 'upload') {
         openCustomImagePicker();
       } else {
@@ -1096,7 +1105,7 @@ export default defineComponent({
     };
 
     const onAvatarClick = () => {
-      if (!layoutStore.canEdit) return;
+      if (!layoutStore.canEdit || isCompactProfileLayout.value) return;
       if (!isEditing.value) {
         isEditing.value = true;
       }
@@ -1109,7 +1118,7 @@ export default defineComponent({
     }));
 
     const openUrlInput = () => {
-      if (!layoutStore.canEdit) return;
+      if (!layoutStore.canEdit || isCompactProfileLayout.value) return;
       lastAvatarMethod.value = 'url';
       draftAvatarUrl.value = avatarSrc.value || "";
       urlError.value = "";
@@ -1152,7 +1161,7 @@ export default defineComponent({
     };
 
     const removeCustomImage = async () => {
-      if (!layoutStore.canEdit) return;
+      if (!layoutStore.canEdit || isCompactProfileLayout.value) return;
       showUrlInput.value = false;
       await saveProfilePhoto("");
     };
@@ -1339,7 +1348,7 @@ export default defineComponent({
     );
 
     const avatarMediaStyle = computed(() => {
-      if (avatarShape.value === "polygon") {
+      if (effectiveAvatarShape.value === "polygon") {
         const { bleedX, bleedY } = polyGeometry.value;
         return {
           clipPath: `url(#${clipPathId})`,
@@ -1349,8 +1358,11 @@ export default defineComponent({
           height: `calc(100% + ${bleedY * 2}px)`,
         };
       }
-      const radius =
-        avatarShape.value === "circle" ? "50%" : `${avatarRadius.value}px`;
+      const radius = isCompactProfileLayout.value
+        ? "0px"
+        : effectiveAvatarShape.value === "circle"
+          ? "50%"
+          : `${avatarRadius.value}px`;
       return { borderRadius: radius };
     });
 
@@ -1364,6 +1376,8 @@ export default defineComponent({
       avatarInput,
       popoverRef,
       avatarShape,
+      effectiveAvatarShape,
+      isCompactProfileLayout,
       avatarRadius,
       avatarSides,
       avatarSrc,

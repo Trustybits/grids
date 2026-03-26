@@ -86,7 +86,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
             type: "doc",
             content: [{ type: "paragraph", content: [{ type: "text", text: trimmedText }] }],
           };
-          const textContent = createTileContent(ContentType.TEXT, {
+          const textContent = createTileContent(ContentType.SMART_TEXT, {
             text: JSON.stringify(tiptapDoc),
           });
           const tileId = layoutStore.addTile(textContent);

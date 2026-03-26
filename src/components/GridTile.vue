@@ -253,6 +253,7 @@ export default defineComponent({
       const hiddenTypes = [
         ContentType.LINK,
         ContentType.TEXT,
+        ContentType.SMART_TEXT,
         ContentType.CHAT,
         ContentType.EMBED,
         ContentType.CAMPFIRE,

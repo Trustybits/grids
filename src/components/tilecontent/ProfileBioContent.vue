@@ -1744,7 +1744,7 @@ export default defineComponent({
 
 .sides-slider {
   position: absolute;
-  bottom: -22px;
+  bottom: -20px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;

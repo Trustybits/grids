@@ -398,7 +398,7 @@ export default defineComponent({
       const h = gridTileH?.value ?? 4;
       const classes: Record<string, boolean> = {};
       classes[`layout-${layoutMode.value}`] = true;
-      if (layoutMode.value === 'narrow' && h < 3) {
+      if (layoutMode.value === 'narrow' && h < 2) {
         classes['narrow-short'] = true;
       }
       return classes;
@@ -1551,8 +1551,8 @@ export default defineComponent({
 }
 
 .layout-mini .avatar {
-  width: 40px;
-  height: 40px;
+  width: 75px;
+  height: 75px;
 }
 
 .layout-mini .profile-meta {
@@ -1565,12 +1565,12 @@ export default defineComponent({
 
 /* ── Narrow (1×N) ──────────────────────────────────────────────────
    Vertical stack, compact padding, small centered avatar,
-   name below. Title shown when h ≥ 3, bio always hidden. */
+   name below. Title shown when h ≥ 2, bio always hidden. */
 
 .profile-bio.layout-narrow {
-  padding: var(--spacing-sm);
+  padding: 0 var(--spacing-sm);
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
 }
 
 .layout-narrow > .profile-collapse {
@@ -1583,7 +1583,7 @@ export default defineComponent({
 
 .layout-narrow .profile-header {
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
 }
 
 .layout-narrow .profile-avatar-row {
@@ -1592,8 +1592,8 @@ export default defineComponent({
 }
 
 .layout-narrow .avatar {
-  width: 48px;
-  height: 48px;
+  width: 75px;
+  height: 75px;
 }
 
 .layout-narrow .profile-meta {
@@ -1602,13 +1602,13 @@ export default defineComponent({
 }
 
 .layout-narrow .profile-name :deep(.ProseMirror) {
-  font-size: 14px;
+  font-size: 16px;
   text-align: center;
   line-height: 1.2;
 }
 
 .layout-narrow .profile-title :deep(.ProseMirror) {
-  font-size: 9px;
+  font-size: 10px;
   text-align: center;
   letter-spacing: 0.08em;
 }
@@ -1618,11 +1618,11 @@ export default defineComponent({
    Title and bio hidden. */
 
 .profile-bio.layout-banner {
-  padding: var(--spacing-sm);
+  padding: 0 var(--spacing-sm) 0 0;
   display: grid;
   grid-template-columns: auto 1fr;
   grid-template-rows: 1fr;
-  gap: 0 var(--spacing-sm);
+  gap: 0 var(--spacing-md);
   align-items: center;
 }
 
@@ -1634,10 +1634,6 @@ export default defineComponent({
   display: none;
 }
 
-.layout-banner .profile-meta > .profile-collapse:last-child {
-  display: none;
-}
-
 .layout-banner .profile-avatar-row {
   grid-column: 1;
   grid-row: 1;
@@ -1646,19 +1642,27 @@ export default defineComponent({
 }
 
 .layout-banner .avatar {
-  width: 48px;
-  height: 48px;
+  width: 75px;
+  height: 75px;
 }
 
 .layout-banner .profile-meta {
   grid-column: 2;
   grid-row: 1;
   align-self: center;
+  min-width: 0;
+  gap: 2px;
 }
 
 .layout-banner .profile-name :deep(.ProseMirror) {
-  font-size: 18px;
+  font-size: 26px;
   line-height: 1.1;
+}
+
+.layout-banner .profile-title :deep(.ProseMirror) {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
 }
 
 .polygon-clip-path {

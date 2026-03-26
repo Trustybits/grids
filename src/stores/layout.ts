@@ -1147,16 +1147,6 @@ export const useLayoutStore = defineStore("layout", {
       const tile = this.currentLayout.tiles.find((tile) => tile.i === id);
       if (!tile) return;
 
-      if (tile.content.type === ContentType.PROFILE) {
-        tile.w = 4;
-        tile.h = 4;
-        this.adjustTilePosition(tile);
-        const dpProf = this.displayPositions.find((p) => p.i === id);
-        if (dpProf) { dpProf.w = tile.w; dpProf.h = tile.h; dpProf.x = tile.x; }
-        this.updateLayout();
-        return;
-      }
-
       const bp = this.activeBreakpoint;
 
       if (bp === "lg") {

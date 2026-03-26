@@ -7,7 +7,7 @@
 
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
-      <button class="btn btn-secondary" data-tooltip="Text" @click="addTextElement">
+      <button class="btn btn-secondary" data-tooltip="SmartText" @click="addSmartTextElement">
         <TextIcon />
       </button>
 
@@ -124,8 +124,8 @@ export default {
     const showEmbedModal = ref(false);
     const showMapModal = ref(false);
 
-    const addTextElement = () => {
-      const textContent = createTileContent(ContentType.TEXT, {});
+    const addSmartTextElement = () => {
+      const textContent = createTileContent(ContentType.SMART_TEXT, {});
       const tileId = layoutStore.addTile(textContent);
       // Auto-focus the new text tile so the user can start typing immediately
       if (tileId) {
@@ -281,7 +281,7 @@ export default {
     return {
       imageInput,
       layoutStore,
-      addTextElement,
+      addSmartTextElement,
       addProfileElement,
       addChatElement,
       addCampfireElement,

@@ -1,5 +1,11 @@
 <template>
-  <div class="tile-actions" @mousedown.stop @click.stop>
+  <div
+    class="tile-actions"
+    @mousedown.stop
+    @click.stop
+    @mouseenter="hoveredToolbarZone = 'actions'"
+    @mouseleave="hoveredToolbarZone = null"
+  >
     <!-- Delete Tile -->
     <button
       class="tile-action-btn tile-action-btn--delete"
@@ -50,7 +56,13 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, type PropType } from "vue";
+import {
+  defineComponent,
+  computed,
+  inject,
+  type PropType,
+  type Ref,
+} from "vue";
 import type { Tile } from "@/types/Tile";
 import {
   ContentType,
@@ -89,6 +101,7 @@ export default defineComponent({
   emits: ["delete"],
   setup(props, { emit }) {
     const layoutStore = useLayoutStore();
+    const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
     const toastStore = useToastStore();
 
     // --- Computed: which actions are available per tile type ---
@@ -134,9 +147,7 @@ export default defineComponent({
 
     const hasDownload = computed(() => {
       const c = props.tile.content;
-      return (
-        c.type === ContentType.IMAGE || c.type === ContentType.VIDEO
-      );
+      return c.type === ContentType.IMAGE || c.type === ContentType.VIDEO;
     });
 
     // --- Actions ---
@@ -234,6 +245,7 @@ export default defineComponent({
       onDuplicate,
       onCopyToClipboard,
       onDownload,
+      hoveredToolbarZone,
     };
   },
 });

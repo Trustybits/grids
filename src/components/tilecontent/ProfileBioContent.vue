@@ -4,7 +4,7 @@
     ref="profileRoot"
     :class="layoutClasses"
     @mouseenter="isHovered = true"
-    @mouseleave="isHovered = false"
+    @mouseleave="if (!hoveredQuickAction) isHovered = false;"
   >
     <div class="profile-header">
       <div class="profile-avatar-row">
@@ -142,6 +142,7 @@
             class="avatar-action-bar"
             :class="{
               'avatar-action-bar--dimmed': isDraggingRadius,
+              'avatar-action-bar--flyout-open': hoveredQuickAction !== null,
               'avatar-action-bar--zone-dimmed':
                 hoveredToolbarZone && hoveredToolbarZone !== 'avatar',
             }"
@@ -165,10 +166,14 @@
               <div
                 v-if="avatarSrc"
                 class="quick-action-menu"
-                @mouseenter="hoveredQuickAction = 'shape'"
-                @mouseleave="hoveredQuickAction = null"
+                @mouseenter="
+                  cancelQuickActionClose();
+                  hoveredQuickAction = 'shape';
+                "
+                @mouseleave="scheduleQuickActionClose()"
               >
                 <button
+                  ref="shapeTriggerRef"
                   class="avatar-action-btn avatar-action-btn--active"
                   @click.stop
                 >
@@ -178,54 +183,20 @@
                   />
                   <ShapePolygonIcon v-else />
                 </button>
-                <!-- Sub-actions: shape options (horizontal flyout) -->
-                <transition name="sub-action-fade">
-                  <div
-                    v-if="hoveredQuickAction === 'shape'"
-                    class="sub-actions"
-                  >
-                    <button
-                      class="avatar-action-btn"
-                      :class="{
-                        'avatar-action-btn--active':
-                          effectiveAvatarShape === 'circle',
-                      }"
-                      @click.stop="setAvatarShape('circle')"
-                    >
-                      <ShapeCircleIcon />
-                    </button>
-                    <button
-                      class="avatar-action-btn"
-                      :class="{
-                        'avatar-action-btn--active':
-                          effectiveAvatarShape === 'square',
-                      }"
-                      @click.stop="setAvatarShape('square')"
-                    >
-                      <ShapeSquareIcon />
-                    </button>
-                    <button
-                      class="avatar-action-btn"
-                      :class="{
-                        'avatar-action-btn--active':
-                          effectiveAvatarShape === 'polygon',
-                      }"
-                      @click.stop="setAvatarShape('polygon')"
-                    >
-                      <ShapePolygonIcon />
-                    </button>
-                  </div>
-                </transition>
               </div>
 
               <!-- Avatar Method quickActionMenu -->
               <div
                 v-if="avatarSrc"
                 class="quick-action-menu"
-                @mouseenter="hoveredQuickAction = 'avatar'"
-                @mouseleave="hoveredQuickAction = null"
+                @mouseenter="
+                  cancelQuickActionClose();
+                  hoveredQuickAction = 'avatar';
+                "
+                @mouseleave="scheduleQuickActionClose()"
               >
                 <button
+                  ref="avatarTriggerRef"
                   class="avatar-action-btn"
                   :class="{ 'avatar-action-btn--active': avatarSrc }"
                   @click.stop="onLastAvatarMethod"
@@ -233,33 +204,6 @@
                   <UploadMediaIcon v-if="lastAvatarMethod === 'upload'" />
                   <UrlSourceIcon v-else />
                 </button>
-                <!-- Sub-actions: avatar source options (horizontal flyout) -->
-                <transition name="sub-action-fade">
-                  <div
-                    v-if="hoveredQuickAction === 'avatar'"
-                    class="sub-actions"
-                  >
-                    <button
-                      class="avatar-action-btn"
-                      :class="{
-                        'avatar-action-btn--active': lastAvatarMethod === 'url',
-                      }"
-                      @click.stop="openUrlInput"
-                    >
-                      <UrlSourceIcon />
-                    </button>
-                    <button
-                      class="avatar-action-btn"
-                      :class="{
-                        'avatar-action-btn--active':
-                          lastAvatarMethod === 'upload',
-                      }"
-                      @click.stop="openCustomImagePicker"
-                    >
-                      <UploadMediaIcon />
-                    </button>
-                  </div>
-                </transition>
               </div>
             </div>
           </div>
@@ -369,6 +313,85 @@
         </div>
       </div>
     </transition>
+  </Teleport>
+
+  <!-- Teleported shape flyout -->
+  <Teleport to="body">
+    <div
+      v-show="hoveredQuickAction === 'shape'"
+      class="sub-actions-flyout"
+      :style="shapeFlyoutStyle"
+      @mouseenter="
+        cancelQuickActionClose();
+        hoveredQuickAction = 'shape';
+      "
+      @mouseleave="scheduleQuickActionClose()"
+      @mousedown.stop
+      @click.stop
+    >
+      <button
+        class="avatar-action-btn"
+        :class="{
+          'avatar-action-btn--active': effectiveAvatarShape === 'circle',
+        }"
+        @click.stop="setAvatarShape('circle')"
+      >
+        <ShapeCircleIcon />
+      </button>
+      <button
+        class="avatar-action-btn"
+        :class="{
+          'avatar-action-btn--active': effectiveAvatarShape === 'square',
+        }"
+        @click.stop="setAvatarShape('square')"
+      >
+        <ShapeSquareIcon />
+      </button>
+      <button
+        class="avatar-action-btn"
+        :class="{
+          'avatar-action-btn--active': effectiveAvatarShape === 'polygon',
+        }"
+        @click.stop="setAvatarShape('polygon')"
+      >
+        <ShapePolygonIcon />
+      </button>
+    </div>
+  </Teleport>
+
+  <!-- Teleported avatar method flyout -->
+  <Teleport to="body">
+    <div
+      v-show="hoveredQuickAction === 'avatar'"
+      class="sub-actions-flyout"
+      :style="avatarFlyoutStyle"
+      @mouseenter="
+        cancelQuickActionClose();
+        hoveredQuickAction = 'avatar';
+      "
+      @mouseleave="scheduleQuickActionClose()"
+      @mousedown.stop
+      @click.stop
+    >
+      <button
+        class="avatar-action-btn"
+        :class="{
+          'avatar-action-btn--active': lastAvatarMethod === 'url',
+        }"
+        @click.stop="openUrlInput"
+      >
+        <UrlSourceIcon />
+      </button>
+      <button
+        class="avatar-action-btn"
+        :class="{
+          'avatar-action-btn--active': lastAvatarMethod === 'upload',
+        }"
+        @click.stop="openCustomImagePicker"
+      >
+        <UploadMediaIcon />
+      </button>
+    </div>
   </Teleport>
 </template>
 
@@ -496,6 +519,28 @@ export default defineComponent({
     const popoverPos = ref({ top: 0, left: 0 });
     const hoveredQuickAction = ref<"shape" | "avatar" | null>(null);
     const lastAvatarMethod = ref<"upload" | "url">("upload");
+    const shapeTriggerRef = ref<HTMLElement | null>(null);
+    const avatarTriggerRef = ref<HTMLElement | null>(null);
+    let quickActionCloseTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleQuickActionClose = () => {
+      quickActionCloseTimer = setTimeout(() => {
+        hoveredQuickAction.value = null;
+        // If the mouse already left the tile while the flyout was open,
+        // isHovered was kept true to preserve the action bar. Clear it now
+        // unless the pointer is actually still inside the tile.
+        if (profileRoot.value && !profileRoot.value.matches(":hover")) {
+          isHovered.value = false;
+        }
+      }, 60);
+    };
+
+    const cancelQuickActionClose = () => {
+      if (quickActionCloseTimer) {
+        clearTimeout(quickActionCloseTimer);
+        quickActionCloseTimer = null;
+      }
+    };
 
     const clipPathId = `avatar-clip-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -732,6 +777,7 @@ export default defineComponent({
 
     onBeforeUnmount(() => {
       document.removeEventListener("mousedown", onClickOutside);
+      cancelQuickActionClose();
     });
 
     watch(
@@ -1453,6 +1499,33 @@ export default defineComponent({
     const { backgroundColor, textColor, handleBackgroundColorChange } =
       useColorPicker(tileId, props.content, emit);
 
+    const getFlyoutStyle = (triggerRef: Ref<HTMLElement | null>) => {
+      const el = triggerRef.value;
+      if (!el)
+        return {
+          position: "fixed" as const,
+          top: "0px",
+          left: "0px",
+          visibility: "hidden" as const,
+        };
+      const rect = el.getBoundingClientRect();
+      return {
+        position: "fixed" as const,
+        top: `${rect.top}px`,
+        left: `${rect.right + 4}px`,
+      };
+    };
+
+    const shapeFlyoutStyle = computed(() => {
+      // Touch hoveredQuickAction so we recalculate position when flyout opens
+      void hoveredQuickAction.value;
+      return getFlyoutStyle(shapeTriggerRef);
+    });
+    const avatarFlyoutStyle = computed(() => {
+      void hoveredQuickAction.value;
+      return getFlyoutStyle(avatarTriggerRef);
+    });
+
     return {
       layoutStore,
       profileRoot,
@@ -1518,6 +1591,12 @@ export default defineComponent({
       onLastAvatarMethod,
       layoutClasses,
       hoveredToolbarZone,
+      shapeTriggerRef,
+      avatarTriggerRef,
+      shapeFlyoutStyle,
+      avatarFlyoutStyle,
+      scheduleQuickActionClose,
+      cancelQuickActionClose,
     };
   },
 });
@@ -2158,7 +2237,8 @@ export default defineComponent({
 }
 
 .avatar:hover .avatar-action-bar,
-.avatar-action-bar:hover {
+.avatar-action-bar:hover,
+.avatar-action-bar--flyout-open {
   opacity: 1;
   pointer-events: auto;
 }
@@ -2172,6 +2252,13 @@ export default defineComponent({
 .avatar-action-bar--zone-dimmed {
   opacity: 0.15;
   pointer-events: none;
+}
+
+/* When a flyout is open, force action bar visible even over dimmed/zone-dimmed */
+.avatar-action-bar--flyout-open.avatar-action-bar--dimmed,
+.avatar-action-bar--flyout-open.avatar-action-bar--zone-dimmed {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .avatar-quick-actions {
@@ -2251,37 +2338,6 @@ export default defineComponent({
     color: var(--color-light-100);
   }
 }
-
-/* ── Sub-actions horizontal flyout ── */
-.sub-actions {
-  display: flex;
-  gap: 2px;
-  align-items: center;
-  margin-left: 4px; /* visual gap between trigger button & sub-actions */
-  height: 32px;
-  position: relative;
-}
-
-/* Invisible bridge that covers the margin gap so the mouse
-   doesn't lose hover when crossing from trigger → sub-actions */
-.sub-actions::before {
-  content: "";
-  position: absolute;
-  right: 100%; /* extends leftward from the sub-actions box */
-  top: 0;
-  width: 8px; /* wider than margin-left to be forgiving */
-  height: 100%;
-}
-
-.sub-action-fade-enter-active,
-.sub-action-fade-leave-active {
-  transition: opacity var(--duration-fast) var(--easing-ease-out);
-}
-
-.sub-action-fade-enter-from,
-.sub-action-fade-leave-to {
-  opacity: 0;
-}
 </style>
 
 <style lang="scss">
@@ -2352,5 +2408,66 @@ export default defineComponent({
 .profile-controls-popover .control-error {
   font-size: 11px;
   color: var(--color-figma-red);
+}
+
+/* ── Teleported sub-actions flyout ── */
+.sub-actions-flyout {
+  z-index: 1200;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  height: 32px;
+  pointer-events: auto;
+
+  /* Invisible bridge covering the gap between trigger and flyout so
+     the mouse doesn't lose hover when crossing */
+  &::before {
+    content: "";
+    position: absolute;
+    right: 100%;
+    top: 0;
+    width: 12px;
+    height: 100%;
+  }
+}
+
+.sub-actions-flyout .avatar-action-btn {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border: 1px solid var(--color-tile-stroke);
+  border-radius: 8px;
+  background-color: var(--color-actionbar-background);
+  color: var(--color-content-high);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    border-color var(--duration-fast) var(--easing-ease-in-out),
+    color var(--duration-fast) var(--easing-ease-in-out);
+
+  svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+    flex-shrink: 0;
+  }
+}
+
+.sub-actions-flyout .avatar-action-btn--active {
+  background-color: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+  color: var(--color-content-background);
+}
+
+.sub-actions-flyout .avatar-action-btn:not(.avatar-action-btn--active):hover {
+  background-color: color-mix(
+    in srgb,
+    var(--color-actionbar-background) 85%,
+    var(--color-text-primary) 15%
+  );
 }
 </style>

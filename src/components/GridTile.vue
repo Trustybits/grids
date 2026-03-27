@@ -120,12 +120,6 @@
           @delete="removeElement"
         />
 
-        <TileActions
-          v-if="layoutStore.canEdit && !isSuggestion"
-          :tile="tile"
-          @delete="removeElement"
-        />
-
         <TileCaption
           v-if="showCaption && (layoutStore.canEdit || tile.caption)"
           :tile="tile"

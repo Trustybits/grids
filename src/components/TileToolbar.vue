@@ -5,6 +5,8 @@
     class="tile-toolbar"
     :class="{ 'tile-toolbar-force-show': menuOpen || panelOpen }"
     @mousedown.stop
+    @mouseenter="hoveredToolbarZone = 'toolbar'"
+    @mouseleave="hoveredToolbarZone = null"
   >
     <template v-for="(item, idx) in visibleItems" :key="item.id">
       <div v-if="shouldShowDivider(idx)" class="toolbar-divider"></div>
@@ -153,7 +155,9 @@ import {
   onMounted,
   onUnmounted,
   watch,
+  inject,
   type PropType,
+  type Ref,
   type Component,
 } from "vue";
 import type { Tile } from "@/types/Tile";
@@ -202,6 +206,7 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
+    const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
 
     const toolbarRef = ref<HTMLDivElement | null>(null);
     const menuAnchorRef = ref<HTMLButtonElement | null>(null);
@@ -401,10 +406,12 @@ export default defineComponent({
         return;
       }
 
-      if (item.id === "tile-link" && !(ctx.value.tile.content as any)?.tileLink) {
+      if (
+        item.id === "tile-link" &&
+        !(ctx.value.tile.content as any)?.tileLink
+      ) {
         closeMenu();
       }
-
 
       item.action(ctx.value);
     };
@@ -556,6 +563,7 @@ export default defineComponent({
       onLocateClick,
       onSearchSubmit,
       onFontSelectorIntent,
+      hoveredToolbarZone,
     };
   },
 });

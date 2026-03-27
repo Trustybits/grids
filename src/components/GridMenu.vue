@@ -94,7 +94,15 @@
           <Accordion title="Debug" class="debug-accordion">
             <Toggle 
               label="Metadata" 
-              v-model="layoutStore.showMetaData"
+              :modelValue="layoutStore.showMetaData"
+              @update:modelValue="layoutStore.setShowMetaData"
+              tooltip="Show compact metadata on each tile"
+            />
+            <Toggle 
+              label="Verbose Metadata" 
+              :modelValue="layoutStore.showMetaDataVerbose"
+              @update:modelValue="layoutStore.setShowMetaDataVerbose"
+              tooltip="Show extended debug metadata details"
             />
             <MenuItem @click="launchPixelRacers">
               🏍️ Pixel Racers

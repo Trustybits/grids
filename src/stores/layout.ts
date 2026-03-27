@@ -237,6 +237,7 @@ export const useLayoutStore = defineStore("layout", {
     isLoading: false,
     error: null as string | null,
     showMetaData: false,
+    showMetaDataVerbose: false,
     isOwner: false,
     recentLayoutIds: [] as string[],
     activeTileId: null as string | null,
@@ -629,6 +630,18 @@ export const useLayoutStore = defineStore("layout", {
     checkShowMetaDataCookie() {
       const cookieValue = this.getCookieValue("showMetaData");
       this.showMetaData = cookieValue === "true";
+      const verboseCookieValue = this.getCookieValue("showMetaDataVerbose");
+      this.showMetaDataVerbose = verboseCookieValue === "true";
+    },
+
+    setShowMetaData(value: boolean) {
+      this.showMetaData = value;
+      this.setCookieValue("showMetaData", value.toString());
+    },
+
+    setShowMetaDataVerbose(value: boolean) {
+      this.showMetaDataVerbose = value;
+      this.setCookieValue("showMetaDataVerbose", value.toString());
     },
 
     // Toggle the vertical compact (gravity) setting

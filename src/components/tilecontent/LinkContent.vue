@@ -705,7 +705,7 @@ export default defineComponent({
               : focusTarget === "description"
                 ? descriptionInputRef
                 : titleInputRef;
-          targetRef.value?.focus();
+          targetRef.value?.focus({ preventScroll: true });
           // Register exit listener since @mousedown.stop bypasses GridTile's addClickListener
           exitClickHandler = (event: MouseEvent) => {
             if (
@@ -722,11 +722,18 @@ export default defineComponent({
 
     const stopEditing = () => {
       if (!isEditing.value) return;
+      // Capture scroll position before the layout shift caused by
+      // exiting edit mode (collapsing field wrappers, toggling
+      // readonly, etc.) so the browser doesn't jump the viewport.
+      const scrollY = window.scrollY;
       flushPersist();
       removeExitClickHandler();
       isEditing.value = false;
       // Re-sync drafts so readonly inputs reflect saved values
-      nextTick(() => syncDrafts());
+      nextTick(() => {
+        syncDrafts();
+        window.scrollTo({ top: scrollY, behavior: "instant" });
+      });
     };
 
     const onDetailsClick = (event: MouseEvent) => {

@@ -44,6 +44,7 @@
         :data-border="borderVisible ? 'on' : 'off'"
         :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
         :data-suggestion="isSuggestion ? 'true' : 'false'"
+        :data-active-zone="hoveredToolbarZone || ''"
         ref="gridTileRef"
         @mouseenter="isHovered = true"
         @mouseleave="isHovered = false"
@@ -224,6 +225,8 @@ export default defineComponent({
     const isExiting = ref(false);
     const isActivated = ref(false);
     const isHovered = ref(false);
+    const hoveredToolbarZone = ref<string | null>(null);
+    provide("hoveredToolbarZone", hoveredToolbarZone);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -744,6 +747,7 @@ export default defineComponent({
       isExiting,
       isActivated,
       isHovered,
+      hoveredToolbarZone,
       onMoved,
       onResize,
       onResized,
@@ -967,7 +971,6 @@ export default defineComponent({
   top: 10px;
 }
 
-
 /* Customizable Header Styles */
 .header-options {
   display: none;
@@ -1001,13 +1004,11 @@ export default defineComponent({
   display: flex;
 }
 
-
 /* Non-owner caption: hide on tile hover or activation */
 .tile-wrapper:hover :deep(.viewer-caption),
 .tile-wrapper.is-activated :deep(.viewer-caption) {
   display: none;
 }
-
 
 /* Show tile actions on hover and activation */
 .tile-wrapper:hover :deep(.tile-actions),
@@ -1059,6 +1060,23 @@ export default defineComponent({
 .tile-wrapper.crop-mode-active :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel) {
   pointer-events: auto;
+}
+
+/* Dim sibling toolbars when one specific zone is hovered */
+.tile-wrapper[data-active-zone="actions"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="actions"].is-activated :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="avatar"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="avatar"].is-activated :deep(.tile-toolbar) {
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.tile-wrapper[data-active-zone="toolbar"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="toolbar"].is-activated :deep(.tile-actions),
+.tile-wrapper[data-active-zone="avatar"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="avatar"].is-activated :deep(.tile-actions) {
+  opacity: 0.15;
+  pointer-events: none;
 }
 
 /* Hide toolbar when tile is exiting or being dragged */

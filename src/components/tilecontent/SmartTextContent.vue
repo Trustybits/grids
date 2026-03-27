@@ -24,27 +24,6 @@
     >
       <EditorContent :editor="editor" />
       <div
-        v-if="showSlashMenu && filteredSlashCommands.length > 0"
-        class="slash-menu"
-        :style="{
-          top: `${slashMenuPosition.top}px`,
-          left: `${slashMenuPosition.left}px`,
-        }"
-      >
-        <button
-          v-for="(item, idx) in filteredSlashCommands"
-          :key="item.id"
-          type="button"
-          class="slash-menu-item"
-          :class="{ active: idx === selectedSlashIndex }"
-          @mousedown.prevent
-          @click="executeSlashByIndex(idx)"
-        >
-          <span class="slash-menu-label">{{ item.label }}</span>
-          <span class="slash-menu-hint">{{ item.hint }}</span>
-        </button>
-      </div>
-      <div
         v-if="!isTallOneWide && !isOneByOne && tileLinkExists"
         class="tile-link-indicator"
         aria-hidden="true"
@@ -68,6 +47,29 @@
       />
     </div>
   </div>
+  <Teleport to="body">
+    <div
+      v-if="showSlashMenu && filteredSlashCommands.length > 0"
+      class="slash-menu"
+      :style="{
+        top: `${slashMenuPosition.top}px`,
+        left: `${slashMenuPosition.left}px`,
+      }"
+    >
+      <button
+        v-for="(item, idx) in filteredSlashCommands"
+        :key="item.id"
+        type="button"
+        class="slash-menu-item"
+        :class="{ active: idx === selectedSlashIndex }"
+        @mousedown.stop.prevent
+        @click.stop.prevent="executeSlashByIndex(idx)"
+      >
+        <span class="slash-menu-label">{{ item.label }}</span>
+        <span class="slash-menu-hint">{{ item.hint }}</span>
+      </button>
+    </div>
+  </Teleport>
   <AddLinkModal
     :show="showLinkModal"
     @close="closeLinkModal"
@@ -93,7 +95,7 @@ import TextStyle from "@tiptap/extension-text-style";
 import FontFamily from "@tiptap/extension-font-family";
 import Color from "@tiptap/extension-color";
 import Link from "@tiptap/extension-link";
-import Image from "@tiptap/extension-image";
+import ImageExt from "@tiptap/extension-image";
 import { FontSize } from "../tiptap/FontSize";
 import { SmartButton } from "../tiptap/SmartButton";
 import TaskList from "@tiptap/extension-task-list";
@@ -259,16 +261,23 @@ export default defineComponent({
         label: "Image",
         hint: "/image",
         keywords: ["image", "photo", "upload"],
-        run: async (editor) => {
-          const file = await pickImageFile();
-          if (!file) return;
-          const url = await uploadFileToUrl(file, { fileType: "images" });
-          editor
-            .chain()
-            .focus()
-            .setImage({ src: url, alt: file.name || "image" })
-            .insertContent({ type: "paragraph" })
-            .run();
+        run: (editor) => {
+          setTimeout(async () => {
+            try {
+              const file = await pickImageFile();
+              if (!file) return;
+              const url = await uploadFileToUrl(file, { fileType: "images" });
+              editor
+                .chain()
+                .focus()
+                .setImage({ src: url, alt: file.name || "image" })
+                .insertContent({ type: "paragraph" })
+                .run();
+              schedulePersist();
+            } catch (err) {
+              console.error("[SmartText] /image failed:", err);
+            }
+          }, 0);
         },
       },
       {
@@ -277,20 +286,23 @@ export default defineComponent({
         hint: "/link",
         keywords: ["link", "url"],
         run: (editor) => {
-          const rawUrl = window.prompt("Enter URL");
-          if (!rawUrl) return;
-          const href = normalizeHttpUrl(rawUrl);
-          if (!href) return;
-          const label = window.prompt("Link text", href) || href;
-          editor
-            .chain()
-            .focus()
-            .insertContent({
-              type: "text",
-              text: label,
-              marks: [{ type: "link", attrs: { href } }],
-            })
-            .run();
+          setTimeout(() => {
+            const rawUrl = window.prompt("Enter URL");
+            if (!rawUrl) return;
+            const href = normalizeHttpUrl(rawUrl);
+            if (!href) return;
+            const label = window.prompt("Link text", href) || href;
+            editor
+              .chain()
+              .focus()
+              .insertContent({
+                type: "text",
+                text: label,
+                marks: [{ type: "link", attrs: { href } }],
+              })
+              .run();
+            schedulePersist();
+          }, 0);
         },
       },
       {
@@ -299,20 +311,23 @@ export default defineComponent({
         hint: "/button",
         keywords: ["button", "cta", "link"],
         run: (editor) => {
-          const rawUrl = window.prompt("Enter button URL");
-          if (!rawUrl) return;
-          const href = normalizeHttpUrl(rawUrl);
-          if (!href) return;
-          const label = window.prompt("Button label", "Button") || "Button";
-          editor
-            .chain()
-            .focus()
-            .insertContent({
-              type: "smartButton",
-              attrs: { href, label },
-            })
-            .insertContent({ type: "paragraph" })
-            .run();
+          setTimeout(() => {
+            const rawUrl = window.prompt("Enter button URL");
+            if (!rawUrl) return;
+            const href = normalizeHttpUrl(rawUrl);
+            if (!href) return;
+            const label = window.prompt("Button label", "Button") || "Button";
+            editor
+              .chain()
+              .focus()
+              .insertContent({
+                type: "smartButton",
+                attrs: { href, label },
+              })
+              .insertContent({ type: "paragraph" })
+              .run();
+            schedulePersist();
+          }, 0);
         },
       },
     ];
@@ -336,6 +351,11 @@ export default defineComponent({
     const updateSlashState = () => {
       const e = editor.value;
       if (!e || !isEditing.value || !layoutStore.canEdit) {
+        console.log("[SmartText] slash: skip – no editor / not editing / cant edit", {
+          hasEditor: !!e,
+          isEditing: isEditing.value,
+          canEdit: layoutStore.canEdit,
+        });
         hideSlashMenu();
         return;
       }
@@ -349,36 +369,47 @@ export default defineComponent({
 
       const parentOffset = $from.parentOffset;
       const parentStart = from - parentOffset;
-      const textBeforeCursor = $from.parent.textBetween(
-        0,
-        parentOffset,
-        "\0",
-        "\0",
-      );
+      const textBeforeCursor = $from.parent.textBetween(0, parentOffset, "\0", "\0");
 
-      if (!textBeforeCursor.startsWith("/")) {
+      console.log("[SmartText] slash: text before cursor:", JSON.stringify(textBeforeCursor));
+
+      const lastSlash = textBeforeCursor.lastIndexOf("/");
+      if (lastSlash === -1) {
         hideSlashMenu();
         return;
       }
 
-      const query = textBeforeCursor.slice(1);
+      if (lastSlash > 0 && !/\s/.test(textBeforeCursor[lastSlash - 1] || "")) {
+        console.log("[SmartText] slash: slash not at word boundary, hiding");
+        hideSlashMenu();
+        return;
+      }
+
+      const query = textBeforeCursor.slice(lastSlash + 1);
       if (query.includes(" ")) {
         hideSlashMenu();
         return;
       }
 
       const coords = view.coordsAtPos(from);
-      const containerRect = textContentDiv.value?.getBoundingClientRect();
-      const left = containerRect
-        ? coords.left - containerRect.left + 8
-        : coords.left;
-      const top = containerRect ? coords.bottom - containerRect.top + 8 : coords.bottom;
+      let left = coords.left;
+      let top = coords.bottom + 8;
 
-      slashFrom.value = parentStart;
+      const padding = 8;
+      const approxWidth = 300;
+      const approxHeight = 260;
+      const maxLeft = Math.max(padding, window.innerWidth - approxWidth - padding);
+      const maxTop = Math.max(padding, window.innerHeight - approxHeight - padding);
+      left = Math.min(Math.max(padding, left), maxLeft);
+      top = Math.min(Math.max(padding, top), maxTop);
+
+      slashFrom.value = parentStart + lastSlash;
       slashTo.value = from;
       slashQuery.value = query;
       slashMenuPosition.value = { top, left };
       showSlashMenu.value = true;
+
+      console.log("[SmartText] slash: SHOWING menu, query:", JSON.stringify(query), "items:", filteredSlashCommands.value.length);
 
       const maxIndex = Math.max(0, filteredSlashCommands.value.length - 1);
       if (selectedSlashIndex.value > maxIndex) {
@@ -387,12 +418,15 @@ export default defineComponent({
     };
 
     const executeSlashCommand = async (command: SlashCommand) => {
+      console.log("[SmartText] executing slash command:", command.id);
       const e = editor.value;
       if (!e) return;
-      if (slashFrom.value !== null && slashTo.value !== null) {
-        e.chain().focus().deleteRange({ from: slashFrom.value, to: slashTo.value }).run();
-      }
+      const from = slashFrom.value;
+      const to = slashTo.value;
       hideSlashMenu();
+      if (from !== null && to !== null) {
+        e.chain().focus().deleteRange({ from, to }).run();
+      }
       await command.run(e);
       schedulePersist();
     };
@@ -418,10 +452,11 @@ export default defineComponent({
           autolink: true,
           openOnClick: true,
         }),
-        Image,
+        ImageExt,
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",
       onCreate() {
+        console.log("[SmartText] editor created");
         nextTick(() => {
           checkOverflow();
           const container = textContentDiv.value;
@@ -437,6 +472,7 @@ export default defineComponent({
         });
       },
       onUpdate() {
+        console.log("[SmartText] onUpdate fired, isEditing:", isEditing.value);
         checkOverflow();
         if (isEditing.value) {
           schedulePersist();
@@ -481,10 +517,8 @@ export default defineComponent({
 
     const checkOverflow = () => {
       if (!editor || !editor.value?.view) return;
-
       const container = textContentDiv.value;
       if (!container) return;
-
       const editorDom = editor.value.view.dom as HTMLElement;
       const isOverflowing = container.clientHeight < editorDom.clientHeight + 5;
       isTextOverflowing.value = isOverflowing;
@@ -516,6 +550,7 @@ export default defineComponent({
     watch(
       [() => layoutStore.canEdit, () => isEditing.value],
       ([canEdit, editing]) => {
+        console.log("[SmartText] edit state changed:", { canEdit, editing });
         if (!editor?.value) return;
         const shouldBeEditable = canEdit && editing;
         editor.value.setEditable(shouldBeEditable);
@@ -534,6 +569,7 @@ export default defineComponent({
     );
 
     const onShortClick = () => {
+      console.log("[SmartText] onShortClick, canEdit:", layoutStore.canEdit, "isEditing:", isEditing.value);
       if (!layoutStore.canEdit) {
         if (tileLinkExists.value) handleFollowLink();
         return;
@@ -733,6 +769,7 @@ export default defineComponent({
 .text-content {
   padding: var(--spacing-md);
   width: 100%;
+  height: 100%;
   scroll-behavior: smooth;
   border-radius: var(--radius-lg);
   overflow: auto;
@@ -745,76 +782,6 @@ export default defineComponent({
   &::-webkit-scrollbar {
     display: none;
   }
-}
-
-.slash-menu {
-  position: absolute;
-  z-index: 1300;
-  display: flex;
-  flex-direction: column;
-  min-width: 220px;
-  max-width: 300px;
-  max-height: 240px;
-  overflow: auto;
-  padding: 4px;
-  border-radius: var(--radius-md);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  background: var(--color-tile-background);
-  box-shadow: var(--shadow-soft-md);
-}
-
-.slash-menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  border: none;
-  background: transparent;
-  color: var(--color-text-primary);
-  border-radius: var(--radius-sm);
-  padding: 8px;
-  text-align: left;
-}
-
-.slash-menu-item:hover,
-.slash-menu-item.active {
-  background: var(--color-base-55);
-}
-
-.slash-menu-label {
-  font-size: 13px;
-}
-
-.slash-menu-hint {
-  font-size: 11px;
-  opacity: 0.7;
-}
-
-.smart-button {
-  display: inline-block;
-  appearance: none;
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-full);
-  padding: 10px 14px;
-  background: color-mix(
-    in srgb,
-    var(--tile-bg) 15%,
-    var(--tile-text-color) 10%
-  );
-  color: inherit;
-  text-decoration: none;
-  font-weight: 600;
-  cursor: pointer;
-  user-select: none;
-}
-
-.smart-button:hover {
-  background: color-mix(
-    in srgb,
-    var(--tile-bg) 25%,
-    var(--tile-text-color) 15%
-  );
 }
 
 .not-editing {
@@ -830,8 +797,40 @@ export default defineComponent({
   cursor: text;
 }
 
-::deep(.ProseMirror:focus-visible) {
-  outline: transparent !important;
+.overflowing::after {
+  position: absolute;
+  right: 18px;
+  bottom: 12px;
+  color: inherit;
+}
+
+/* ── ProseMirror / TipTap reset ──
+   Use :deep() (single colon) for Vue 3 scoped deep selectors.
+   ::deep() (double colon) is INVALID and silently ignored. */
+
+:deep(.ProseMirror:focus-visible) {
+  outline: none !important;
+}
+
+:deep(.ProseMirror) {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  min-height: 100%;
+}
+
+:deep(.tiptap) {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+:deep(blockquote) {
+  border-left: 2px solid color-mix(in srgb, var(--tile-text-color) 35%, transparent);
+  margin: 0;
+  padding-left: 10px;
+  opacity: 0.95;
 }
 
 .text-content ::selection {
@@ -839,49 +838,55 @@ export default defineComponent({
   color: inherit;
 }
 
-::deep(ul[data-type="taskList"]) {
+:deep(ul[data-type="taskList"]) {
   padding: 0;
   margin: 0;
   list-style-type: none;
 }
 
-::deep(ul[data-type="taskList"] li) {
+:deep(ul[data-type="taskList"] li) {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-::deep(ul[data-type="taskList"] li label) {
+:deep(ul[data-type="taskList"] li label) {
   display: inline-flex;
   align-items: center;
 }
 
-::deep(ul[data-type="taskList"] li input[type="checkbox"]) {
+:deep(ul[data-type="taskList"] li input[type="checkbox"]) {
   margin: 0;
 }
 
-::deep(ul[data-type="taskList"] li div) {
+:deep(ul[data-type="taskList"] li div) {
   min-height: 1em;
   min-width: 1px;
   display: inline-block;
 }
 
-::deep(ul[data-type="taskList"] li p) {
+:deep(ul[data-type="taskList"] li p) {
   margin: 0;
   min-height: 1em;
   min-width: 1px;
   display: inline-block;
 }
 
-::deep(.ProseMirror strong) {
+:deep(.ProseMirror strong) {
   font-weight: 700;
 }
 
-::deep(.ProseMirror em) {
+:deep(.ProseMirror em) {
   font-style: italic;
 }
 
-::deep(.ProseMirror img) {
+:deep(.ProseMirror strong em),
+:deep(.ProseMirror em strong) {
+  font-weight: 700;
+  font-style: italic;
+}
+
+:deep(.ProseMirror img) {
   max-width: 100%;
   border-radius: var(--radius-sm);
   height: auto;
@@ -930,5 +935,72 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   display: block;
+}
+</style>
+
+<!-- Unscoped styles for the Teleported slash menu + SmartButton (rendered inside ProseMirror) -->
+<style>
+.slash-menu {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  max-width: 300px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  background: var(--color-tile-background);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.slash-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.slash-menu-item:hover,
+.slash-menu-item.active {
+  background: var(--color-base-55);
+}
+
+.slash-menu-label {
+  font-size: 13px;
+}
+
+.slash-menu-hint {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+a[data-smart-button="true"].smart-button {
+  display: inline-block;
+  appearance: none;
+  border: 1px solid var(--color-tile-stroke);
+  border-radius: 9999px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+a[data-smart-button="true"].smart-button:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 </style>

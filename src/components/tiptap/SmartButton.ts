@@ -1,12 +1,14 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 
 /**
- * SmartText "button" block.
+ * SmartText inline button.
  * Rendered as a styled anchor that behaves like a button.
+ * Inline so it can be inserted at any cursor position via /button.
  */
 export const SmartButton = Node.create({
   name: "smartButton",
-  group: "block",
+  group: "inline",
+  inline: true,
   atom: true,
   selectable: true,
   draggable: false,

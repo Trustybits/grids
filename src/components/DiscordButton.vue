@@ -5,7 +5,6 @@
       target="_blank"
       rel="noopener noreferrer"
       class="discord-button__btn"
-      title="Join our Discord"
     >
       <div class="discord-icon">
         <DiscordIcon />

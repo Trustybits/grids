@@ -7,6 +7,10 @@
 
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
+      <button class="btn btn-secondary" data-tooltip="Text (Legacy)" @click="addTextElement">
+        <TextIcon />
+      </button>
+
       <button class="btn btn-secondary" data-tooltip="SmartText" @click="addSmartTextElement">
         <TextIcon />
       </button>
@@ -124,10 +128,18 @@ export default {
     const showEmbedModal = ref(false);
     const showMapModal = ref(false);
 
+    const addTextElement = () => {
+      const textContent = createTileContent(ContentType.TEXT, {});
+      const tileId = layoutStore.addTile(textContent);
+      // Auto-focus the new text tile so the user can start typing immediately
+      if (tileId) {
+        layoutStore.pendingFocusTileId = tileId;
+      }
+    };
+
     const addSmartTextElement = () => {
       const textContent = createTileContent(ContentType.SMART_TEXT, {});
       const tileId = layoutStore.addTile(textContent);
-      // Auto-focus the new text tile so the user can start typing immediately
       if (tileId) {
         layoutStore.pendingFocusTileId = tileId;
       }
@@ -281,6 +293,7 @@ export default {
     return {
       imageInput,
       layoutStore,
+      addTextElement,
       addSmartTextElement,
       addProfileElement,
       addChatElement,

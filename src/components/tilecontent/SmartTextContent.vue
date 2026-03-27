@@ -95,7 +95,7 @@ import TextStyle from "@tiptap/extension-text-style";
 import FontFamily from "@tiptap/extension-font-family";
 import Color from "@tiptap/extension-color";
 import Link from "@tiptap/extension-link";
-import ImageExt from "@tiptap/extension-image";
+import { ResizableImage } from "../tiptap/ResizableImage";
 import { FontSize } from "../tiptap/FontSize";
 import { SmartButton } from "../tiptap/SmartButton";
 import TaskList from "@tiptap/extension-task-list";
@@ -482,7 +482,7 @@ export default defineComponent({
           autolink: true,
           openOnClick: true,
         }),
-        ImageExt.configure({ inline: true }),
+        ResizableImage.configure({ inline: true }),
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",
       onCreate() {
@@ -917,10 +917,8 @@ export default defineComponent({
   font-style: italic;
 }
 
-:deep(.ProseMirror img) {
+:deep(.ProseMirror .image-node-view) {
   max-width: 100%;
-  border-radius: var(--radius-sm);
-  height: auto;
 }
 
 .text-content.is-wide-1-high .tile-link-indicator {

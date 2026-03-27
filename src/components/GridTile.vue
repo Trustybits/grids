@@ -1047,6 +1047,15 @@ export default defineComponent({
   max-width: calc(100% - 20px);
   color: var(--color-text-primary);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  padding: 8px 8px 16px 8px;
+  border-radius: 16px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-tile-background) 88%, transparent) 0%,
+    color-mix(in srgb, var(--color-tile-background) 72%, transparent) 55%,
+    transparent 100%
+  );
+  backdrop-filter: blur(1.5px);
 }
 
 .meta-data__compact,

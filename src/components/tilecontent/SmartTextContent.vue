@@ -109,12 +109,15 @@ import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
 import { useFileUpload } from "@/composables/useFileUpload";
 
+type SlashRange = { from: number; to: number };
+
 type SlashCommand = {
   id: string;
   label: string;
   hint: string;
   keywords: string[];
-  run: (editor: Editor) => void | Promise<void>;
+  handlesDelete?: boolean;
+  run: (editor: Editor, slashRange?: SlashRange) => void | Promise<void>;
 };
 
 export default defineComponent({
@@ -147,6 +150,7 @@ export default defineComponent({
     const slashMenuPosition = ref({ top: 0, left: 0 });
     const slashFrom = ref<number | null>(null);
     const slashTo = ref<number | null>(null);
+    const slashCommandActive = ref(false);
 
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
@@ -181,13 +185,23 @@ export default defineComponent({
       if (!imageInput.value) return null;
       return new Promise((resolve) => {
         const input = imageInput.value!;
+        const cleanup = () => {
+          input.removeEventListener("change", onChange);
+          input.removeEventListener("cancel", onCancel);
+        };
         const onChange = () => {
           const file = input.files?.[0] ?? null;
           input.value = "";
-          input.removeEventListener("change", onChange);
+          cleanup();
           resolve(file);
         };
+        const onCancel = () => {
+          input.value = "";
+          cleanup();
+          resolve(null);
+        };
         input.addEventListener("change", onChange, { once: true });
+        input.addEventListener("cancel", onCancel, { once: true });
         input.click();
       });
     };
@@ -261,23 +275,25 @@ export default defineComponent({
         label: "Image",
         hint: "/image",
         keywords: ["image", "photo", "upload"],
-        run: (editor) => {
-          setTimeout(async () => {
-            try {
-              const file = await pickImageFile();
-              if (!file) return;
-              const url = await uploadFileToUrl(file, { fileType: "images" });
-              editor
-                .chain()
-                .focus()
-                .setImage({ src: url, alt: file.name || "image" })
-                .insertContent({ type: "paragraph" })
-                .run();
-              schedulePersist();
-            } catch (err) {
-              console.error("[SmartText] /image failed:", err);
+        handlesDelete: true,
+        run: async (editor, slashRange) => {
+          try {
+            const file = await pickImageFile();
+            if (!file) {
+              if (slashRange) editor.chain().focus().deleteRange(slashRange).run();
+              return;
             }
-          }, 0);
+            const url = await uploadFileToUrl(file, { fileType: "images" });
+            const chain = editor.chain().focus();
+            if (slashRange) chain.deleteRange(slashRange);
+            chain
+              .setImage({ src: url, alt: file.name || "image" })
+              .splitBlock()
+              .run();
+            schedulePersist();
+          } catch (err) {
+            console.error("[SmartText] /image failed:", err);
+          }
         },
       },
       {
@@ -285,24 +301,29 @@ export default defineComponent({
         label: "Link",
         hint: "/link",
         keywords: ["link", "url"],
-        run: (editor) => {
-          setTimeout(() => {
-            const rawUrl = window.prompt("Enter URL");
-            if (!rawUrl) return;
-            const href = normalizeHttpUrl(rawUrl);
-            if (!href) return;
-            const label = window.prompt("Link text", href) || href;
-            editor
-              .chain()
-              .focus()
-              .insertContent({
-                type: "text",
-                text: label,
-                marks: [{ type: "link", attrs: { href } }],
-              })
-              .run();
-            schedulePersist();
-          }, 0);
+        handlesDelete: true,
+        run: (editor, slashRange) => {
+          const rawUrl = window.prompt("Enter URL");
+          if (!rawUrl) {
+            if (slashRange) editor.chain().focus().deleteRange(slashRange).run();
+            return;
+          }
+          const href = normalizeHttpUrl(rawUrl);
+          if (!href) {
+            if (slashRange) editor.chain().focus().deleteRange(slashRange).run();
+            return;
+          }
+          const label = window.prompt("Link text", href) || href;
+          const chain = editor.chain().focus();
+          if (slashRange) chain.deleteRange(slashRange);
+          chain
+            .insertContent({
+              type: "text",
+              text: label,
+              marks: [{ type: "link", attrs: { href } }],
+            })
+            .run();
+          schedulePersist();
         },
       },
       {
@@ -310,24 +331,26 @@ export default defineComponent({
         label: "Button link",
         hint: "/button",
         keywords: ["button", "cta", "link"],
-        run: (editor) => {
-          setTimeout(() => {
-            const rawUrl = window.prompt("Enter button URL");
-            if (!rawUrl) return;
-            const href = normalizeHttpUrl(rawUrl);
-            if (!href) return;
-            const label = window.prompt("Button label", "Button") || "Button";
-            editor
-              .chain()
-              .focus()
-              .insertContent({
-                type: "smartButton",
-                attrs: { href, label },
-              })
-              .insertContent({ type: "paragraph" })
-              .run();
-            schedulePersist();
-          }, 0);
+        handlesDelete: true,
+        run: (editor, slashRange) => {
+          const rawUrl = window.prompt("Enter button URL");
+          if (!rawUrl) {
+            if (slashRange) editor.chain().focus().deleteRange(slashRange).run();
+            return;
+          }
+          const href = normalizeHttpUrl(rawUrl);
+          if (!href) {
+            if (slashRange) editor.chain().focus().deleteRange(slashRange).run();
+            return;
+          }
+          const label = window.prompt("Button label", "Button") || "Button";
+          const chain = editor.chain().focus();
+          if (slashRange) chain.deleteRange(slashRange);
+          chain
+            .insertContent({ type: "smartButton", attrs: { href, label } })
+            .splitBlock()
+            .run();
+          schedulePersist();
         },
       },
     ];
@@ -424,10 +447,17 @@ export default defineComponent({
       const from = slashFrom.value;
       const to = slashTo.value;
       hideSlashMenu();
-      if (from !== null && to !== null) {
-        e.chain().focus().deleteRange({ from, to }).run();
+      slashCommandActive.value = true;
+      const slashRange =
+        from !== null && to !== null ? { from, to } : undefined;
+      if (!command.handlesDelete && slashRange) {
+        e.chain().focus().deleteRange(slashRange).run();
       }
-      await command.run(e);
+      try {
+        await command.run(e, slashRange);
+      } finally {
+        slashCommandActive.value = false;
+      }
       schedulePersist();
     };
 
@@ -452,7 +482,7 @@ export default defineComponent({
           autolink: true,
           openOnClick: true,
         }),
-        ImageExt,
+        ImageExt.configure({ inline: true }),
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",
       onCreate() {
@@ -585,6 +615,7 @@ export default defineComponent({
     };
 
     const onExitClick = () => {
+      if (slashCommandActive.value) return;
       isEditing.value = false;
       hideSlashMenu();
     };

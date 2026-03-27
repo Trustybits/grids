@@ -14,29 +14,29 @@ service cloud.firestore {
     match /users/{userId} {
       // Only allow users to read their own document
       allow read: if request.auth != null && request.auth.uid == userId;
-      
+
       // Allow user to create/update their own document
       // storageUsed field can only be updated by Cloud Functions (server-side)
       // slug field must match format requirements and is validated by Cloud Function
-      allow create: if request.auth != null 
+      allow create: if request.auth != null
                     && request.auth.uid == userId
                     && (!('storageUsed' in request.resource.data) || request.resource.data.storageUsed == 0);
-      
-      allow update: if request.auth != null 
+
+      allow update: if request.auth != null
                     && request.auth.uid == userId
-                    && (!('storageUsed' in request.resource.data) 
+                    && (!('storageUsed' in request.resource.data)
                         || request.resource.data.storageUsed == resource.data.storageUsed);
     }
 
     match /slugs/{slug} {
       // Allow public read access for slug lookups
-      // Document structure: { 
+      // Document structure: {
       //   userId: string | null (null when released),
       //   createdAt: timestamp,
       //   history: array of { userId: string, claimedAt: timestamp, releasedAt?: timestamp }
       // }
       allow read: if true;
-      
+
       // Only Cloud Functions can write to this collection
       allow write: if false;
     }
@@ -70,24 +70,12 @@ service cloud.firestore {
       }
 
       // Upvotes for roadmap feed tiles.
-      // Each document is keyed by "{userId}_{notionPageId}" so users can vote on multiple items.
-      // The document contains { userId: string, notionPageId: string, votedAt: timestamp }.
-      // Writes are handled exclusively by the upvoteRoadmapItem Cloud Function (admin SDK),
-      // so client-side create/update/delete are all denied here — only reads are public.
       match /tiles/{tileId}/upvotes/{docId} {
-        // Public read for individual docs and collection queries (e.g., where("userId", "==", uid))
-        // so users can see their own votes and all visitors can see vote counts.
         allow read: if true;
-        // Alternative: restrict to owner + voter: allow read: if isLayoutOwner(layoutId) || request.auth.uid == resource.data.userId;
-
-        // All writes go through the Cloud Function (admin SDK bypasses these rules).
-        // Deny direct client writes to prevent vote manipulation.
         allow write: if false;
       }
 
-      // notionTokens subcollection stores Notion OAuth access tokens server-side.
-      // It must never be readable or writable by clients — only the Cloud Functions
-      // (admin SDK) may access it.
+      // notionTokens subcollection — Cloud Functions only.
       match /notionTokens/{tileId} {
         allow read, write: if false;
       }
@@ -98,22 +86,22 @@ service cloud.firestore {
         let today = '' + request.time.year() + '-' + request.time.month() + '-' + request.time.day();
         return resource.data.get('lastClickDate', '') != today;
       }
-      
+
       function clickIncrement() {
         return request.resource.data.totalClicks - resource.data.totalClicks;
       }
-      
+
       function newDailyTotal() {
         return isNewDay() ? clickIncrement() : resource.data.get('dailyClicks', 0) + clickIncrement();
       }
-      
+
       function isValidClick() {
         return request.auth != null
           && clickIncrement() > 0 && clickIncrement() <= 10
           && newDailyTotal() <= 100
           && request.resource.data.updatedAt == request.time;
       }
-      
+
       function isValidPassive() {
         return request.auth != null && request.auth.uid == userId
           && clickIncrement() == (request.resource.data.get('totalPassiveClicks', 0) - resource.data.get('totalPassiveClicks', 0));
@@ -123,6 +111,52 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if isValidClick() || isValidPassive();
       allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Stripe / firestore-stripe-payments Extension ───────────────────────
+    //
+    // The Extension writes subscription, payment, and customer data into this
+    // collection via the Firebase Admin SDK (bypasses these rules).
+    //
+    // Clients may:
+    //   - Read their own customer/subscription/payment data
+    //   - Write checkout_sessions (to trigger a new Stripe Checkout session)
+    //
+    // Clients may NOT write to subscriptions or payments — those are Extension-only.
+
+    match /customers/{uid} {
+      // Only the owner can read their own customer record
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // checkout_sessions: client writes to trigger a checkout, reads to get the URL
+      match /checkout_sessions/{id} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // subscriptions: written by the Extension only — clients read-only
+      match /subscriptions/{id} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+
+      // payments: written by the Extension only — clients read-only
+      match /payments/{id} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+    }
+
+    // Products and prices are synced from Stripe by the Extension.
+    // Public read so the pricing page can display current prices.
+    // Writes are Extension-only.
+    match /products/{id} {
+      allow read: if true;
+      allow write: if false;
+
+      match /prices/{priceId} {
+        allow read: if true;
+        allow write: if false;
+      }
     }
   }
 }

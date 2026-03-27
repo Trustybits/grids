@@ -3,8 +3,9 @@ import HomePage from '@/components/HomePage.vue';
 import GridPage from '@/components/GridPage.vue';
 import AuthPage from '@/components/AuthPage.vue';
 import DashboardPage from '@/components/DashboardPage.vue';
- import PrivacyPage from '@/components/PrivacyPage.vue';
- import TermsPage from '@/components/TermsPage.vue';
+import PrivacyPage from '@/components/PrivacyPage.vue';
+import TermsPage from '@/components/TermsPage.vue';
+import PricingPage from '@/components/PricingPage.vue';
 import UserSlugPage from '@/components/UserSlugPage.vue';
 import NotionCallback from '@/components/NotionCallback.vue';
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -34,6 +35,11 @@ const routes = [
   {
     path: '/terms',
     component: TermsPage,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/pricing',
+    component: PricingPage,
     meta: { requiresAuth: false },
   },
   {

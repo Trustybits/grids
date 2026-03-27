@@ -1066,7 +1066,11 @@ export default defineComponent({
 .tile-wrapper[data-active-zone="actions"]:hover :deep(.tile-toolbar),
 .tile-wrapper[data-active-zone="actions"].is-activated :deep(.tile-toolbar),
 .tile-wrapper[data-active-zone="avatar"]:hover :deep(.tile-toolbar),
-.tile-wrapper[data-active-zone="avatar"].is-activated :deep(.tile-toolbar) {
+.tile-wrapper[data-active-zone="avatar"].is-activated :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="radius"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="radius"].is-activated :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="sides"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="sides"].is-activated :deep(.tile-toolbar) {
   opacity: 0.15;
   pointer-events: none;
 }
@@ -1074,7 +1078,11 @@ export default defineComponent({
 .tile-wrapper[data-active-zone="toolbar"]:hover :deep(.tile-actions),
 .tile-wrapper[data-active-zone="toolbar"].is-activated :deep(.tile-actions),
 .tile-wrapper[data-active-zone="avatar"]:hover :deep(.tile-actions),
-.tile-wrapper[data-active-zone="avatar"].is-activated :deep(.tile-actions) {
+.tile-wrapper[data-active-zone="avatar"].is-activated :deep(.tile-actions),
+.tile-wrapper[data-active-zone="radius"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="radius"].is-activated :deep(.tile-actions),
+.tile-wrapper[data-active-zone="sides"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="sides"].is-activated :deep(.tile-actions) {
   opacity: 0.15;
   pointer-events: none;
 }

@@ -1,11 +1,11 @@
 <template>
-  <div class="grid-menu" ref="menuRef">
+  <div class="grid-menu" ref="menuRef" :data-tooltip="showMenu ? null : 'Grid Menu'" >
     <button
       type="button"
       class="grid-menu-button"
       @click.stop="toggleMenu"
     >
-      <div class="grid-menu-icon">
+      <div class="grid-menu-icon" >
         <GridMenuIcon />
       </div>
 

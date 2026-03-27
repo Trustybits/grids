@@ -159,8 +159,8 @@ export default {
 
     // Map breakpoint names to their column counts
     const breakpointToColNum = (bp: Breakpoint): number => {
-      if (bp === 'sm') return Math.min(4, baseColNum.value);
-      if (bp === 'md') return Math.min(8, baseColNum.value);
+      if (bp === "sm") return Math.min(4, baseColNum.value);
+      if (bp === "md") return Math.min(8, baseColNum.value);
       return Math.min(12, baseColNum.value);
     };
 
@@ -315,12 +315,15 @@ export default {
     // corresponding displayLayout copy in-place so GridTile sees the update
     // without a full remount of all tiles.
     watch(
-      () => layoutStore.currentLayout?.tiles?.map((t) => t.content.type).join(','),
+      () =>
+        layoutStore.currentLayout?.tiles?.map((t) => t.content.type).join(","),
       () => {
         const storeTiles = layoutStore.currentLayout?.tiles;
         if (!storeTiles) return;
         for (const storeTile of storeTiles) {
-          const displayTile = displayLayout.value.find((t) => t.i === storeTile.i);
+          const displayTile = displayLayout.value.find(
+            (t) => t.i === storeTile.i,
+          );
           if (displayTile && displayTile.content !== storeTile.content) {
             displayTile.content = storeTile.content;
             displayTile.w = storeTile.w;
@@ -332,19 +335,25 @@ export default {
       },
     );
 
-    // Sync async-fetched content fields (e.g. music trackName/albumArt, YouTube title/thumbnails)
-    // to displayLayout copies at non-lg breakpoints. patchTileContent mutates these fields
-    // without changing content.type, so the watcher above doesn't catch them.
+    // Sync async-fetched content fields (e.g. music trackName/albumArt, YouTube title/thumbnails,
+    // link metaTitle/metaDescription/metaImageUrl) to displayLayout copies at non-lg breakpoints.
+    // patchTileContent replaces these fields without changing content.type, so the type watcher
+    // above doesn't catch them.
     watch(
-      () => layoutStore.currentLayout?.tiles?.map((t) => {
-        const c = t.content as any;
-        return `${t.i}:${c.trackName ?? ''}:${c.albumArt ?? ''}:${c.title ?? ''}:${c.thumbnails?.default?.url ?? ''}`;
-      }).join('|'),
+      () =>
+        layoutStore.currentLayout?.tiles
+          ?.map((t) => {
+            const c = t.content as any;
+            return `${t.i}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${c.thumbnails?.default?.url ?? ""}:${c.metaTitle ?? ""}:${c.metaDescription ?? ""}:${c.metaImageUrl ?? ""}:${c.metaSiteName ?? ""}:${c.faviconUrl ?? ""}:${c.domain ?? ""}`;
+          })
+          .join("|"),
       () => {
         const storeTiles = layoutStore.currentLayout?.tiles;
         if (!storeTiles) return;
         for (const storeTile of storeTiles) {
-          const displayTile = displayLayout.value.find((t) => t.i === storeTile.i);
+          const displayTile = displayLayout.value.find(
+            (t) => t.i === storeTile.i,
+          );
           if (displayTile && displayTile.content !== storeTile.content) {
             displayTile.content = storeTile.content;
           }

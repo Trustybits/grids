@@ -268,7 +268,7 @@ function extractPlainText(node: any): string {
 .tile-actions {
   position: absolute;
   top: -12px;
-  right: -12px;
+  right: -16px;
   z-index: 11;
   display: flex;
   flex-direction: column;

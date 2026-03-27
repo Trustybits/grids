@@ -1,8 +1,19 @@
 <template>
-  <div class="profile-bio" ref="profileRoot" :class="layoutClasses" @mouseenter="isHovered = true" @mouseleave="isHovered = false">
+  <div
+    class="profile-bio"
+    ref="profileRoot"
+    :class="layoutClasses"
+    @mouseenter="isHovered = true"
+    @mouseleave="isHovered = false"
+  >
     <div class="profile-header">
       <div class="profile-avatar-row">
-        <div class="avatar" ref="avatarRef" @click="onAvatarClick" :class="{ 'is-dragging-radius': isDraggingRadius }">
+        <div
+          class="avatar"
+          ref="avatarRef"
+          @click="onAvatarClick"
+          :class="{ 'is-dragging-radius': isDraggingRadius }"
+        >
           <svg
             v-if="effectiveAvatarShape === 'polygon'"
             class="avatar-clip-defs"
@@ -29,7 +40,10 @@
               @mouseleave="placeholderHovered = false"
             >
               <span class="avatar-placeholder-label">Add photo</span>
-              <div v-if="!isCompactProfileLayout" class="avatar-placeholder-buttons">
+              <div
+                v-if="!isCompactProfileLayout"
+                class="avatar-placeholder-buttons"
+              >
                 <button
                   class="placeholder-btn"
                   :class="{ 'placeholder-btn--default': placeholderHovered }"
@@ -60,7 +74,14 @@
 
           <!-- Radius knob — 10×10px circle, 8px inset from bottom-left corner -->
           <div
-            v-if="!isCompactProfileLayout && (effectiveAvatarShape === 'polygon' || effectiveAvatarShape === 'square') && avatarSrc && layoutStore.canEdit && (isEditing || isHovered)"
+            v-if="
+              !isCompactProfileLayout &&
+              (effectiveAvatarShape === 'polygon' ||
+                effectiveAvatarShape === 'square') &&
+              avatarSrc &&
+              layoutStore.canEdit &&
+              (isEditing || isHovered)
+            "
             class="radius-knob"
             :class="{ 'radius-knob--active': isDraggingRadius }"
             :style="radiusKnobPositionStyle"
@@ -70,11 +91,18 @@
             v-if="isDraggingRadius"
             class="radius-value-label"
             :style="radiusLabelStyle"
-          >{{ avatarRadius }}</span>
+            >{{ avatarRadius }}</span
+          >
 
           <!-- Corners-count slider — centered below avatar -->
           <div
-            v-if="!isCompactProfileLayout && effectiveAvatarShape === 'polygon' && avatarSrc && layoutStore.canEdit && (isEditing || isHovered)"
+            v-if="
+              !isCompactProfileLayout &&
+              effectiveAvatarShape === 'polygon' &&
+              avatarSrc &&
+              layoutStore.canEdit &&
+              (isEditing || isHovered)
+            "
             class="sides-slider"
             @mouseenter="sidesSliderHovered = true"
             @mouseleave="sidesSliderHovered = false"
@@ -82,11 +110,9 @@
             <span
               class="sides-label sides-label--min"
               :class="{ visible: sidesSliderHovered || isDraggingSides }"
-            >3</span>
-            <div
-              class="sides-track-container"
-              ref="sidesTrackRef"
+              >3</span
             >
+            <div class="sides-track-container" ref="sidesTrackRef">
               <div
                 class="sides-track"
                 :class="{ visible: sidesSliderHovered || isDraggingSides }"
@@ -101,16 +127,28 @@
             <span
               class="sides-label sides-label--max"
               :class="{ visible: sidesSliderHovered || isDraggingSides }"
-            >8</span>
+              >8</span
+            >
           </div>
 
           <!-- Avatar Action Bar — positioned on the avatar itself -->
           <div
-            v-if="!isCompactProfileLayout && avatarSrc && layoutStore.canEdit && (isEditing || isHovered)"
+            v-if="
+              !isCompactProfileLayout &&
+              avatarSrc &&
+              layoutStore.canEdit &&
+              (isEditing || isHovered)
+            "
             class="avatar-action-bar"
-            :class="{ 'avatar-action-bar--dimmed': isDraggingRadius }"
+            :class="{
+              'avatar-action-bar--dimmed': isDraggingRadius,
+              'avatar-action-bar--zone-dimmed':
+                hoveredToolbarZone && hoveredToolbarZone !== 'avatar',
+            }"
             @mousedown.stop
             @click.stop
+            @mouseenter="hoveredToolbarZone = 'avatar'"
+            @mouseleave="hoveredToolbarZone = null"
           >
             <!-- Delete / Remove Image -->
             <button
@@ -135,29 +173,43 @@
                   @click.stop
                 >
                   <ShapeCircleIcon v-if="effectiveAvatarShape === 'circle'" />
-                  <ShapeSquareIcon v-else-if="effectiveAvatarShape === 'square'" />
+                  <ShapeSquareIcon
+                    v-else-if="effectiveAvatarShape === 'square'"
+                  />
                   <ShapePolygonIcon v-else />
                 </button>
                 <!-- Sub-actions: shape options (horizontal flyout) -->
                 <transition name="sub-action-fade">
-                  <div v-if="hoveredQuickAction === 'shape'" class="sub-actions">
+                  <div
+                    v-if="hoveredQuickAction === 'shape'"
+                    class="sub-actions"
+                  >
                     <button
                       class="avatar-action-btn"
-                      :class="{ 'avatar-action-btn--active': effectiveAvatarShape === 'circle' }"
+                      :class="{
+                        'avatar-action-btn--active':
+                          effectiveAvatarShape === 'circle',
+                      }"
                       @click.stop="setAvatarShape('circle')"
                     >
                       <ShapeCircleIcon />
                     </button>
                     <button
                       class="avatar-action-btn"
-                      :class="{ 'avatar-action-btn--active': effectiveAvatarShape === 'square' }"
+                      :class="{
+                        'avatar-action-btn--active':
+                          effectiveAvatarShape === 'square',
+                      }"
                       @click.stop="setAvatarShape('square')"
                     >
                       <ShapeSquareIcon />
                     </button>
                     <button
                       class="avatar-action-btn"
-                      :class="{ 'avatar-action-btn--active': effectiveAvatarShape === 'polygon' }"
+                      :class="{
+                        'avatar-action-btn--active':
+                          effectiveAvatarShape === 'polygon',
+                      }"
                       @click.stop="setAvatarShape('polygon')"
                     >
                       <ShapePolygonIcon />
@@ -183,17 +235,25 @@
                 </button>
                 <!-- Sub-actions: avatar source options (horizontal flyout) -->
                 <transition name="sub-action-fade">
-                  <div v-if="hoveredQuickAction === 'avatar'" class="sub-actions">
+                  <div
+                    v-if="hoveredQuickAction === 'avatar'"
+                    class="sub-actions"
+                  >
                     <button
                       class="avatar-action-btn"
-                      :class="{ 'avatar-action-btn--active': lastAvatarMethod === 'url' }"
+                      :class="{
+                        'avatar-action-btn--active': lastAvatarMethod === 'url',
+                      }"
                       @click.stop="openUrlInput"
                     >
                       <UrlSourceIcon />
                     </button>
                     <button
                       class="avatar-action-btn"
-                      :class="{ 'avatar-action-btn--active': lastAvatarMethod === 'upload' }"
+                      :class="{
+                        'avatar-action-btn--active':
+                          lastAvatarMethod === 'upload',
+                      }"
                       @click.stop="openCustomImagePicker"
                     >
                       <UploadMediaIcon />
@@ -209,7 +269,9 @@
       <div class="profile-meta" :style="{ '--tile-text-color': textColor }">
         <div
           class="profile-collapse"
-          :class="{ 'profile-collapse--hidden': !isEditing && isNameEmpty && !allEmpty }"
+          :class="{
+            'profile-collapse--hidden': !isEditing && isNameEmpty && !allEmpty,
+          }"
         >
           <div
             class="profile-name profile-editor"
@@ -223,7 +285,9 @@
         </div>
         <div
           class="profile-collapse"
-          :class="{ 'profile-collapse--hidden': !isEditing && isTitleEmpty && !allEmpty }"
+          :class="{
+            'profile-collapse--hidden': !isEditing && isTitleEmpty && !allEmpty,
+          }"
         >
           <div
             class="profile-title profile-editor"
@@ -240,8 +304,13 @@
 
     <div
       class="profile-collapse"
-      :class="{ 'profile-collapse--hidden': !isEditing && isBioEmpty && !allEmpty }"
-      :style="{ flex: isEditing || !isBioEmpty || allEmpty ? '1' : '0', minHeight: 0 }"
+      :class="{
+        'profile-collapse--hidden': !isEditing && isBioEmpty && !allEmpty,
+      }"
+      :style="{
+        flex: isEditing || !isBioEmpty || allEmpty ? '1' : '0',
+        minHeight: 0,
+      }"
     >
       <div
         class="profile-bio-text profile-editor"
@@ -314,6 +383,7 @@ import {
   onBeforeUnmount,
   type PropType,
   type ComputedRef,
+  type Ref,
   inject,
 } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
@@ -383,23 +453,24 @@ export default defineComponent({
     const tileId = inject<string | null>("tileId", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
+    const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
 
     const layoutMode = computed((): string => {
       const w = gridTileW?.value ?? 4;
       const h = gridTileH?.value ?? 4;
-      if (w <= 1 && h <= 1) return 'mini';
-      if (w === 1) return 'narrow';
-      if (h === 1) return 'banner';
-      if (h <= 2 && w >= 3) return 'horizontal';
-      return 'default';
+      if (w <= 1 && h <= 1) return "mini";
+      if (w === 1) return "narrow";
+      if (h === 1) return "banner";
+      if (h <= 2 && w >= 3) return "horizontal";
+      return "default";
     });
 
     const layoutClasses = computed(() => {
       const h = gridTileH?.value ?? 4;
       const classes: Record<string, boolean> = {};
       classes[`layout-${layoutMode.value}`] = true;
-      if (layoutMode.value === 'narrow' && h < 2) {
-        classes['narrow-short'] = true;
+      if (layoutMode.value === "narrow" && h < 2) {
+        classes["narrow-short"] = true;
       }
       return classes;
     });
@@ -423,8 +494,8 @@ export default defineComponent({
     const showControls = ref(false);
     const placeholderHovered = ref(false);
     const popoverPos = ref({ top: 0, left: 0 });
-    const hoveredQuickAction = ref<'shape' | 'avatar' | null>(null);
-    const lastAvatarMethod = ref<'upload' | 'url'>('upload');
+    const hoveredQuickAction = ref<"shape" | "avatar" | null>(null);
+    const lastAvatarMethod = ref<"upload" | "url">("upload");
 
     const clipPathId = `avatar-clip-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -484,7 +555,9 @@ export default defineComponent({
     const isNameEmpty = computed(() => nameEditor.value?.isEmpty ?? true);
     const isTitleEmpty = computed(() => titleEditor.value?.isEmpty ?? true);
     const isBioEmpty = computed(() => bioEditor.value?.isEmpty ?? true);
-    const allEmpty = computed(() => isNameEmpty.value && isTitleEmpty.value && isBioEmpty.value);
+    const allEmpty = computed(
+      () => isNameEmpty.value && isTitleEmpty.value && isBioEmpty.value,
+    );
 
     const avatarShape = computed(() => props.content.avatarShape || "square");
     const isCompactProfileLayout = computed(
@@ -503,7 +576,7 @@ export default defineComponent({
     // the same default text or when text fields are edited mid-session.
     const avatarSrc = computed(() => {
       if (!tileId) return "";
-      const tile = layoutStore.currentLayout?.tiles.find(t => t.i === tileId);
+      const tile = layoutStore.currentLayout?.tiles.find((t) => t.i === tileId);
       return (tile?.content as any)?.profilePhotoUrl ?? "";
     });
 
@@ -513,9 +586,11 @@ export default defineComponent({
         return;
       }
 
-      const tile = layoutStore.currentLayout?.tiles.find(t => t.i === tileId);
+      const tile = layoutStore.currentLayout?.tiles.find((t) => t.i === tileId);
       if (!tile) {
-        console.error(`Could not find tile ${tileId} in store for profile photo save`);
+        console.error(
+          `Could not find tile ${tileId} in store for profile photo save`,
+        );
         return;
       }
 
@@ -710,8 +785,10 @@ export default defineComponent({
       const angleOffset = -Math.PI / 2;
 
       // Compute bounding box of a unit-circumradius N-gon (R=1)
-      let minX = Infinity, maxX = -Infinity;
-      let minY = Infinity, maxY = -Infinity;
+      let minX = Infinity,
+        maxX = -Infinity;
+      let minY = Infinity,
+        maxY = -Infinity;
       for (let i = 0; i < n; i++) {
         const angle = angleOffset + (2 * Math.PI * i) / n;
         const x = Math.cos(angle);
@@ -804,18 +881,19 @@ export default defineComponent({
     const radiusHandleVertex = computed(() => {
       const size = avatarSize.value;
 
-      if (avatarShape.value === 'square') {
+      if (avatarShape.value === "square") {
         // Bottom-left corner of the 152×152 square
         return {
           corner: { x: 0, y: size },
-          prev: { x: 0, y: 0 },       // left edge going up
-          next: { x: size, y: size },   // bottom edge going right
+          prev: { x: 0, y: 0 }, // left edge going up
+          next: { x: size, y: size }, // bottom edge going right
         };
       }
 
       // Polygon (polygon) mode — pick the bottom-left-ish vertex
       const n = avatarSides.value;
-      const { R, bleedX, bleedY, bboxOffsetX, bboxOffsetY } = polyGeometry.value;
+      const { R, bleedX, bleedY, bboxOffsetX, bboxOffsetY } =
+        polyGeometry.value;
       const cx = size / 2 + bleedX - bboxOffsetX;
       const cy = size / 2 + bleedY - bboxOffsetY;
       const angleOffset = -Math.PI / 2;
@@ -823,7 +901,10 @@ export default defineComponent({
       const vertices: { x: number; y: number }[] = [];
       for (let i = 0; i < n; i++) {
         const angle = angleOffset + (2 * Math.PI * i) / n;
-        vertices.push({ x: cx + R * Math.cos(angle), y: cy + R * Math.sin(angle) });
+        vertices.push({
+          x: cx + R * Math.cos(angle),
+          y: cy + R * Math.sin(angle),
+        });
       }
 
       let bestIdx = 0;
@@ -882,7 +963,7 @@ export default defineComponent({
     //
     const computeArcMidpoint = () => {
       const { corner, prev, next } = radiusHandleVertex.value;
-      const isSquare = avatarShape.value === 'square';
+      const isSquare = avatarShape.value === "square";
       const bleedX = isSquare ? 0 : polyGeometry.value.bleedX;
       const bleedY = isSquare ? 0 : polyGeometry.value.bleedY;
       const r = avatarRadius.value;
@@ -937,7 +1018,8 @@ export default defineComponent({
       const centerY = size / 2 + bleedY;
       const towardCX = centerX - arcMidX;
       const towardCY = centerY - arcMidY;
-      const towardLen = Math.sqrt(towardCX * towardCX + towardCY * towardCY) || 1;
+      const towardLen =
+        Math.sqrt(towardCX * towardCX + towardCY * towardCY) || 1;
       const inwardX = towardCX / towardLen;
       const inwardY = towardCY / towardLen;
 
@@ -953,12 +1035,13 @@ export default defineComponent({
     //   LABEL_W          — fixed width of the label box (right-aligned text)
     //   LABEL_H          — approximate rendered height of the label text
     //
-    const LABEL_INWARD_PX = -10;  // ← adjust to move label closer/further from corner
-    const LABEL_W = 20;          // fixed width — fits up to 2-digit values
-    const LABEL_H = 14;          // approx line-height for 12px bold
+    const LABEL_INWARD_PX = -10; // ← adjust to move label closer/further from corner
+    const LABEL_W = 20; // fixed width — fits up to 2-digit values
+    const LABEL_H = 14; // approx line-height for 12px bold
 
     const radiusLabelStyle = computed(() => {
-      const { arcMidX, arcMidY, inwardX, inwardY, bleedX, bleedY } = computeArcMidpoint();
+      const { arcMidX, arcMidY, inwardX, inwardY, bleedX, bleedY } =
+        computeArcMidpoint();
 
       // Offset the anchor inward from the arc midpoint
       const anchorX = arcMidX + inwardX * LABEL_INWARD_PX - bleedX;
@@ -988,11 +1071,12 @@ export default defineComponent({
     //   KNOB_INWARD_PX — how far toward center from the arc midpoint
     //   KNOB_SIZE      — knob element width/height (for centering)
     //
-    const KNOB_INWARD_PX = 12;  // ← adjust to move knob closer/further from corner
+    const KNOB_INWARD_PX = 12; // ← adjust to move knob closer/further from corner
     const KNOB_SIZE = 10;
 
     const radiusKnobPositionStyle = computed(() => {
-      const { arcMidX, arcMidY, inwardX, inwardY, bleedX, bleedY } = computeArcMidpoint();
+      const { arcMidX, arcMidY, inwardX, inwardY, bleedX, bleedY } =
+        computeArcMidpoint();
 
       // Offset inward from the arc midpoint, then convert to avatar-container
       // coords by subtracting bleed, and center the knob element.
@@ -1000,7 +1084,7 @@ export default defineComponent({
       const y = arcMidY + inwardY * KNOB_INWARD_PX - bleedY - KNOB_SIZE / 2;
 
       return {
-        position: 'absolute' as const,
+        position: "absolute" as const,
         left: `${x}px`,
         top: `${y}px`,
         zIndex: 10,
@@ -1074,13 +1158,13 @@ export default defineComponent({
 
     const openCustomImagePicker = () => {
       if (!layoutStore.canEdit || isCompactProfileLayout.value) return;
-      lastAvatarMethod.value = 'upload';
+      lastAvatarMethod.value = "upload";
       avatarInput.value?.click();
     };
 
     const onLastAvatarMethod = () => {
       if (!layoutStore.canEdit || isCompactProfileLayout.value) return;
-      if (lastAvatarMethod.value === 'upload') {
+      if (lastAvatarMethod.value === "upload") {
         openCustomImagePicker();
       } else {
         openUrlInput();
@@ -1119,7 +1203,7 @@ export default defineComponent({
 
     const openUrlInput = () => {
       if (!layoutStore.canEdit || isCompactProfileLayout.value) return;
-      lastAvatarMethod.value = 'url';
+      lastAvatarMethod.value = "url";
       draftAvatarUrl.value = avatarSrc.value || "";
       urlError.value = "";
       updatePopoverPos();
@@ -1233,12 +1317,10 @@ export default defineComponent({
     // Each segment = L … Q … — same command structure regardless of N.
     const FIXED_SEGMENTS = 24; // LCM-friendly count; enough for smooth curves
 
-    const generateRoundedPolygonPath = (
-      sides: number,
-      radius: number,
-    ) => {
+    const generateRoundedPolygonPath = (sides: number, radius: number) => {
       const n = Math.max(3, Math.min(8, Math.round(sides)));
-      const { R, bleedX, bleedY, bboxOffsetX, bboxOffsetY } = polyGeometry.value;
+      const { R, bleedX, bleedY, bboxOffsetX, bboxOffsetY } =
+        polyGeometry.value;
       const size = avatarSize.value;
 
       // The media box is (size + 2*bleedX) × (size + 2*bleedY).
@@ -1265,7 +1347,12 @@ export default defineComponent({
       // intermediate edge points (pass through with zero rounding).
       // For vertex points, store the vertex index so we can look up the
       // correct edge direction vectors from the original vertices array.
-      const points: { x: number; y: number; isVertex: boolean; vertexIdx: number }[] = [];
+      const points: {
+        x: number;
+        y: number;
+        isVertex: boolean;
+        vertexIdx: number;
+      }[] = [];
       const perEdge = Math.floor(FIXED_SEGMENTS / n);
       let remainder = FIXED_SEGMENTS - perEdge * n;
       for (let i = 0; i < n; i++) {
@@ -1287,7 +1374,7 @@ export default defineComponent({
       // Compute the max rounding offset from the actual edge length
       const edgeLen = Math.sqrt(
         (vertices[1].x - vertices[0].x) ** 2 +
-        (vertices[1].y - vertices[0].y) ** 2,
+          (vertices[1].y - vertices[0].y) ** 2,
       );
       const maxOffset = edgeLen / 2;
 
@@ -1341,10 +1428,7 @@ export default defineComponent({
     };
 
     const polygonPath = computed(() =>
-      generateRoundedPolygonPath(
-        avatarSides.value * 0.98,
-        avatarRadius.value,
-      ),
+      generateRoundedPolygonPath(avatarSides.value * 0.98, avatarRadius.value),
     );
 
     const avatarMediaStyle = computed(() => {
@@ -1433,6 +1517,7 @@ export default defineComponent({
       lastAvatarMethod,
       onLastAvatarMethod,
       layoutClasses,
+      hoveredToolbarZone,
     };
   },
 });
@@ -1484,7 +1569,8 @@ export default defineComponent({
   cursor: pointer;
   position: relative;
   overflow: visible;
-  transition: width var(--duration-slow) var(--easing-smooth),
+  transition:
+    width var(--duration-slow) var(--easing-smooth),
     height var(--duration-slow) var(--easing-smooth);
 }
 
@@ -1731,7 +1817,7 @@ export default defineComponent({
 .radius-knob--active:hover {
   cursor: grabbing;
   border: 1px solid var(--color-figma-purple);
-  transform: scale(2.0);
+  transform: scale(2);
   transition:
     border-color var(--duration-fast) var(--easing-ease-in-out),
     transform 1.2s var(--easing-spring);
@@ -1821,7 +1907,7 @@ export default defineComponent({
 .sides-knob--active,
 .sides-knob--active:hover {
   cursor: grabbing;
-  transform: translateX(-50%) scale(2.0);
+  transform: translateX(-50%) scale(2);
   transition: transform 1.2s var(--easing-spring);
 }
 
@@ -1838,7 +1924,8 @@ export default defineComponent({
   justify-content: center;
   box-sizing: border-box;
   //border-radius: 50%;
-  transition: top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+  transition:
+    top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
     left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
     width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
     height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1860,11 +1947,7 @@ export default defineComponent({
   justify-content: center;
   padding: 8px;
   pointer-events: none;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.35) 0%,
-    transparent 40%
-  );
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.35) 0%, transparent 40%);
 }
 
 .avatar-upload-track {
@@ -1919,7 +2002,9 @@ export default defineComponent({
   background: transparent;
   color: var(--color-content-low);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .placeholder-btn svg {
@@ -1948,7 +2033,8 @@ export default defineComponent({
 .profile-collapse {
   display: grid;
   grid-template-rows: 1fr;
-  transition: grid-template-rows 0.3s var(--easing-ease-in-out),
+  transition:
+    grid-template-rows 0.3s var(--easing-ease-in-out),
     opacity 0.3s var(--easing-ease-in-out),
     flex 0.3s var(--easing-ease-in-out);
   opacity: 1;
@@ -2083,6 +2169,11 @@ export default defineComponent({
   pointer-events: auto;
 }
 
+.avatar-action-bar--zone-dimmed {
+  opacity: 0.15;
+  pointer-events: none;
+}
+
 .avatar-quick-actions {
   display: flex;
   flex-direction: column;
@@ -2093,7 +2184,7 @@ export default defineComponent({
 .quick-action-menu {
   position: relative;
   display: flex;
-  gap: 0px;                /* no real gap — sub-actions handles its own spacing */
+  gap: 0px; /* no real gap — sub-actions handles its own spacing */
   align-items: flex-start;
   height: 32px;
 }
@@ -2133,8 +2224,14 @@ export default defineComponent({
 }
 
 /* Hover on default buttons */
-.avatar-action-btn:not(.avatar-action-btn--active):not(.avatar-action-btn--delete):hover {
-  background-color: color-mix(in srgb, var(--color-actionbar-background) 85%, var(--color-text-primary) 15%);
+.avatar-action-btn:not(.avatar-action-btn--active):not(
+    .avatar-action-btn--delete
+  ):hover {
+  background-color: color-mix(
+    in srgb,
+    var(--color-actionbar-background) 85%,
+    var(--color-text-primary) 15%
+  );
 }
 
 /* Delete / Remove Image button */
@@ -2160,7 +2257,7 @@ export default defineComponent({
   display: flex;
   gap: 2px;
   align-items: center;
-  margin-left: 4px;       /* visual gap between trigger button & sub-actions */
+  margin-left: 4px; /* visual gap between trigger button & sub-actions */
   height: 32px;
   position: relative;
 }
@@ -2170,9 +2267,9 @@ export default defineComponent({
 .sub-actions::before {
   content: "";
   position: absolute;
-  right: 100%;            /* extends leftward from the sub-actions box */
+  right: 100%; /* extends leftward from the sub-actions box */
   top: 0;
-  width: 8px;             /* wider than margin-left to be forgiving */
+  width: 8px; /* wider than margin-left to be forgiving */
   height: 100%;
 }
 
@@ -2205,7 +2302,9 @@ export default defineComponent({
 
 .profile-popover-enter-active,
 .profile-popover-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .profile-popover-enter-from,
@@ -2254,5 +2353,4 @@ export default defineComponent({
   font-size: 11px;
   color: var(--color-figma-red);
 }
-
 </style>

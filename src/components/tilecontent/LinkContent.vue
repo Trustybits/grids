@@ -1079,7 +1079,7 @@ export default defineComponent({
 .tile-details {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  width: calc(100% + 16px);
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   transition:
@@ -1219,7 +1219,7 @@ export default defineComponent({
 .tile-details.is-editing .tile-field-wrap--title.is-visible {
   max-height: 48px;
   overflow-y: auto;
-  scrollbar-color: var(--color-input-edit) transparent;
+  scrollbar-color: var(--color-border) transparent;
   scrollbar-width: thin;
   overscroll-behavior: contain;
   touch-action: pan-y;
@@ -1277,7 +1277,7 @@ export default defineComponent({
 .tile-details.is-editing .tile-field-wrap--description.is-visible {
   max-height: 40px;
   overflow-y: scroll;
-  scrollbar-color: var(--color-input-edit) transparent;
+  scrollbar-color: var(--color-border) transparent;
   scrollbar-width: thin;
   overscroll-behavior: contain;
   touch-action: pan-y;
@@ -1289,7 +1289,8 @@ export default defineComponent({
 .tile-field--description {
   font-size: 12px;
   line-height: 16px;
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+  /* color: color-mix(in srgb, var(--tile-text-color) 65%, transparent); */
+  color: var(--tile-text-color);
 }
 
 /* ── Subtitle wrapper ── */
@@ -1308,7 +1309,8 @@ export default defineComponent({
 .tile-field--subtitle {
   font-size: 12px;
   line-height: 16px;
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+  /* color: color-mix(in srgb, var(--tile-text-color) 65%, transparent); */
+  color: var(--tile-text-color);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

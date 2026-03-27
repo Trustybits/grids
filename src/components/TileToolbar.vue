@@ -5,6 +5,8 @@
     class="tile-toolbar"
     :class="{ 'tile-toolbar-force-show': menuOpen || panelOpen }"
     @mousedown.stop
+    @mouseenter="hoveredToolbarZone = 'toolbar'"
+    @mouseleave="hoveredToolbarZone = null"
   >
     <template v-for="(item, idx) in visibleItems" :key="item.id">
       <div v-if="shouldShowDivider(idx)" class="toolbar-divider"></div>
@@ -153,7 +155,9 @@ import {
   onMounted,
   onUnmounted,
   watch,
+  inject,
   type PropType,
+  type Ref,
   type Component,
 } from "vue";
 import type { Tile } from "@/types/Tile";
@@ -202,6 +206,7 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
+    const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
 
     const toolbarRef = ref<HTMLDivElement | null>(null);
     const menuAnchorRef = ref<HTMLButtonElement | null>(null);
@@ -401,10 +406,12 @@ export default defineComponent({
         return;
       }
 
-      if (item.id === "tile-link" && !(ctx.value.tile.content as any)?.tileLink) {
+      if (
+        item.id === "tile-link" &&
+        !(ctx.value.tile.content as any)?.tileLink
+      ) {
         closeMenu();
       }
-
 
       item.action(ctx.value);
     };
@@ -556,6 +563,7 @@ export default defineComponent({
       onLocateClick,
       onSearchSubmit,
       onFontSelectorIntent,
+      hoveredToolbarZone,
     };
   },
 });
@@ -796,37 +804,6 @@ export default defineComponent({
   color: var(--color-tile-background);
   border-radius: var(--radius-sm);
   transform: none;
-}
-
-/* Tooltip via data-tooltip attribute (shared across toolbar, search panel, and menu items) */
-[data-tooltip] {
-  position: relative;
-
-  &::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%) scale(0.9);
-    white-space: nowrap;
-    font-size: 11px;
-    line-height: 1;
-    padding: 5px 8px;
-    border-radius: var(--radius-sm);
-    background-color: var(--color-text-primary);
-    color: var(--color-tile-background);
-    pointer-events: none;
-    opacity: 0;
-    transition:
-      opacity var(--duration-fast) var(--easing-ease-out),
-      transform var(--duration-fast) var(--easing-ease-out);
-    z-index: var(--z-tooltip);
-  }
-
-  &:hover::after {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
-  }
 }
 
 .panel-enter-active {

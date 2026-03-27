@@ -114,17 +114,15 @@
           {{ `x: ${tile.x}, y: ${tile.y} w: ${tile.w} h: ${tile.h}` }}
         </p>
 
-        <TileActions
+        <div
           v-if="layoutStore.canEdit && !isSuggestion"
-          :tile="tile"
-          @delete="removeElement"
-        />
-
-        <TileActions
-          v-if="layoutStore.canEdit && !isSuggestion"
-          :tile="tile"
-          @delete="removeElement"
-        />
+          class="tile-actions-layer"
+          :class="{ 'z-priority': hoveredLayer === 'actions' }"
+          @mouseenter="hoveredLayer = 'actions'"
+          @mouseleave="hoveredLayer = null"
+        >
+          <TileActions :tile="tile" @delete="removeElement" />
+        </div>
 
         <TileCaption
           v-if="showCaption && (layoutStore.canEdit || tile.caption)"
@@ -134,11 +132,15 @@
         <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
         <div v-if="isTileResizable" class="resize-indicator"></div>
 
-        <TileToolbar
+        <div
           v-if="layoutStore.canEdit && !isSuggestion"
-          :tile="tile"
-          :toolbarRefs="toolbarRefs"
-        />
+          class="tile-toolbar-layer"
+          :class="{ 'z-priority': hoveredLayer !== 'actions' }"
+          @mouseenter="hoveredLayer = 'toolbar'"
+          @mouseleave="hoveredLayer = null"
+        >
+          <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
+        </div>
       </div>
     </grid-item>
   </div>
@@ -230,6 +232,7 @@ export default defineComponent({
     const isExiting = ref(false);
     const isActivated = ref(false);
     const isHovered = ref(false);
+    const hoveredLayer = ref<"actions" | "toolbar" | null>(null);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -773,6 +776,7 @@ export default defineComponent({
       toggleCropMode,
       isExitingCropMode,
       toolbarRefs,
+      hoveredLayer,
     };
   },
 });
@@ -973,7 +977,6 @@ export default defineComponent({
   top: 10px;
 }
 
-
 /* Customizable Header Styles */
 .header-options {
   display: none;
@@ -1007,14 +1010,12 @@ export default defineComponent({
   display: flex;
 }
 
-
 /* Non-owner caption: hide on tile hover or activation */
 .tile-wrapper:hover :deep(.viewer-caption),
 .tile-wrapper.is-activated :deep(.viewer-caption) {
   display: none;
 }
 
-
 /* Show tile actions on hover and activation */
 .tile-wrapper:hover :deep(.tile-actions),
 .tile-wrapper.is-activated :deep(.tile-actions) {
@@ -1032,21 +1033,33 @@ export default defineComponent({
   pointer-events: none;
 }
 
-/* Show tile actions on hover and activation */
-.tile-wrapper:hover :deep(.tile-actions),
-.tile-wrapper.is-activated :deep(.tile-actions) {
-  opacity: 1;
-  pointer-events: auto;
+/* Hover-priority layering wrappers */
+.tile-actions-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 11;
+
+  &.z-priority {
+    z-index: 10001;
+  }
 }
 
-/* Hide tile actions during crop mode, exiting, and while dragging */
-.tile-wrapper.crop-mode-active :deep(.tile-actions),
-.tile-wrapper.crop-mode-exiting :deep(.tile-actions),
-.tile-wrapper.is-exiting :deep(.tile-actions),
-.tile-wrapper.is-dragging :deep(.tile-actions),
-.tile-wrapper.is-activated.is-dragging :deep(.tile-actions) {
-  opacity: 0;
+.tile-toolbar-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   pointer-events: none;
+  z-index: 10000;
+
+  &:not(.z-priority) {
+    z-index: 9;
+  }
 }
 
 /* Show toolbar on tile hover, activation, and during crop mode (reaches into TileToolbar child) */

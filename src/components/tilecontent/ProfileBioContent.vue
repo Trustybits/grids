@@ -144,7 +144,8 @@
               'avatar-action-bar--dimmed': isDraggingRadius,
               'avatar-action-bar--flyout-open': hoveredQuickAction !== null,
               'avatar-action-bar--zone-dimmed':
-                hoveredToolbarZone && hoveredToolbarZone !== 'avatar',
+                hoveredToolbarZone === 'radius' ||
+                hoveredToolbarZone === 'sides',
             }"
             @mousedown.stop
             @click.stop
@@ -1499,6 +1500,16 @@ export default defineComponent({
     const { backgroundColor, textColor, handleBackgroundColorChange } =
       useColorPicker(tileId, props.content, emit);
 
+    watch(isDraggingRadius, (dragging) => {
+      if (!hoveredToolbarZone) return;
+      hoveredToolbarZone.value = dragging ? "radius" : null;
+    });
+
+    watch(isDraggingSides, (dragging) => {
+      if (!hoveredToolbarZone) return;
+      hoveredToolbarZone.value = dragging ? "sides" : null;
+    });
+
     const getFlyoutStyle = (triggerRef: Ref<HTMLElement | null>) => {
       const el = triggerRef.value;
       if (!el)
@@ -2249,7 +2260,9 @@ export default defineComponent({
   pointer-events: auto;
 }
 
-.avatar-action-bar--zone-dimmed {
+.avatar-action-bar--zone-dimmed,
+.avatar:hover .avatar-action-bar--zone-dimmed,
+.avatar-action-bar--zone-dimmed.avatar-action-bar--dimmed {
   opacity: 0.15;
   pointer-events: none;
 }

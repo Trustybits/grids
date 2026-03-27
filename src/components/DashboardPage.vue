@@ -36,6 +36,7 @@
               <div class="grid-actions">
               <button 
                 @click.prevent="toggleDefaultGrid(layout.id)"
+                data-tooltip="Set as default grid"
                 :class="['action-button', 'default-grid-button', { 'is-default': layout.id === defaultGridId }]"
                 :title="layout.id === defaultGridId ? 'Default grid - this is what shows at your public homepage' : 'Set as default grid'"
               >
@@ -48,6 +49,7 @@
               <div class="split-button" @click.prevent>
                 <button 
                   @click.prevent="duplicateGrid(layout, 'full')"
+                  data-tooltip="Duplicate grid"
                   class="action-button duplicate-button split-main"
                   title="Duplicate grid (full copy)"
                 >
@@ -78,6 +80,7 @@
               <button 
                 @click.prevent="openRenameModal(layout)"
                 class="action-button rename-button"
+                data-tooltip="Rename grid"
                 title="Rename grid"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -87,6 +90,7 @@
               </button>
               <button 
                 @click.prevent="confirmDeleteGrid(layout)"
+                data-tooltip="Delete grid"
                 class="action-button delete-button"
                 title="Delete grid"
               >

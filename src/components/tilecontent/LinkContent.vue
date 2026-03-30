@@ -1217,7 +1217,7 @@ export default defineComponent({
 }
 
 .tile-details.is-editing .tile-field-wrap--title.is-visible {
-  max-height: 48px;
+  max-height: 52px;
   overflow-y: auto;
   scrollbar-color: var(--color-border) transparent;
   scrollbar-width: thin;
@@ -1232,6 +1232,9 @@ export default defineComponent({
   font-size: 16px;
   font-weight: 600;
   line-height: 1.25;
+  padding: 0;
+  margin: 0;
+  border: none;
 }
 
 /* Wide variant (separate <p> in header) */
@@ -1275,7 +1278,7 @@ export default defineComponent({
 }
 
 .tile-details.is-editing .tile-field-wrap--description.is-visible {
-  max-height: 40px;
+  max-height: 44px;
   overflow-y: scroll;
   scrollbar-color: var(--color-border) transparent;
   scrollbar-width: thin;
@@ -1289,8 +1292,10 @@ export default defineComponent({
 .tile-field--description {
   font-size: 12px;
   line-height: 16px;
-  /* color: color-mix(in srgb, var(--tile-text-color) 65%, transparent); */
   color: var(--tile-text-color);
+  padding: 0;
+  margin: 0;
+  border: none;
 }
 
 /* ── Subtitle wrapper ── */

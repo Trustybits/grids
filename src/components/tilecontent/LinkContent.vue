@@ -1217,7 +1217,7 @@ export default defineComponent({
 }
 
 .tile-details.is-editing .tile-field-wrap--title.is-visible {
-  max-height: 52px;
+  max-height: none;
   overflow-y: auto;
 }
 
@@ -1273,8 +1273,8 @@ export default defineComponent({
 }
 
 .tile-details.is-editing .tile-field-wrap--description.is-visible {
-  max-height: 44px;
-  overflow-y: scroll;
+  max-height: none;
+  overflow-y: auto;
 }
 
 /* ── Description field ── */

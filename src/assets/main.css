@@ -34,8 +34,7 @@ a,
 .scrollable-thin {
   scrollbar-color: var(--color-border) transparent;
   scrollbar-width: thin;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
+  /* touch-action: pan-y; */
   scroll-behavior: smooth;
 }
 

@@ -472,6 +472,7 @@ export default defineComponent({
 
 .text-content.is-overflowing {
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-gutter: stable;
   scrollbar-color: transparent transparent;
 }

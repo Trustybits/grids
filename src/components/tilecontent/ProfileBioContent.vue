@@ -2193,6 +2193,7 @@ export default defineComponent({
   min-height: 0;
   align-self: stretch;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .profile-bio-text :deep(.ProseMirror) {

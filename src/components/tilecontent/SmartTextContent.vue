@@ -100,6 +100,10 @@ import { FontSize } from "../tiptap/FontSize";
 import { SmartButton } from "../tiptap/SmartButton";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import Table from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableHeader from "@tiptap/extension-table-header";
+import TableCell from "@tiptap/extension-table-cell";
 import { useLayoutStore } from "@/stores/layout";
 import AddLinkModal from "../AddLinkModal.vue";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
@@ -353,6 +357,20 @@ export default defineComponent({
           schedulePersist();
         },
       },
+      {
+        id: "table",
+        label: "Table",
+        hint: "/table",
+        keywords: ["table", "grid", "spreadsheet"],
+        run: (editor) => {
+          editor
+            .chain()
+            .focus()
+            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+            .run();
+          schedulePersist();
+        },
+      },
     ];
 
     const filteredSlashCommands = computed(() => {
@@ -483,6 +501,10 @@ export default defineComponent({
           openOnClick: true,
         }),
         ResizableImage.configure({ inline: true }),
+        Table.configure({ resizable: false }),
+        TableRow,
+        TableHeader,
+        TableCell,
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",
       onCreate() {
@@ -1031,5 +1053,57 @@ a[data-smart-button="true"].smart-button {
 
 a[data-smart-button="true"].smart-button:hover {
   background: rgba(255, 255, 255, 0.14);
+}
+
+/* ── Table styles ── */
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  table-layout: fixed;
+  overflow: hidden;
+}
+
+.ProseMirror th,
+.ProseMirror td {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px 12px;
+  vertical-align: top;
+  position: relative;
+  min-width: 60px;
+  text-align: left;
+}
+
+.ProseMirror th {
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 600;
+}
+
+.ProseMirror td {
+  background: transparent;
+}
+
+.ProseMirror th > p,
+.ProseMirror td > p {
+  margin: 0;
+}
+
+.ProseMirror .selectedCell {
+  background: rgba(100, 150, 255, 0.12);
+}
+
+.ProseMirror .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: -2px;
+  width: 4px;
+  background: rgba(100, 150, 255, 0.5);
+  pointer-events: none;
+}
+
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+  margin: 8px 0;
 }
 </style>

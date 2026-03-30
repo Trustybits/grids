@@ -98,6 +98,7 @@ import Link from "@tiptap/extension-link";
 import { ResizableImage } from "../tiptap/ResizableImage";
 import { FontSize } from "../tiptap/FontSize";
 import { SmartButton } from "../tiptap/SmartButton";
+import { DragHandle } from "../tiptap/DragHandle";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Table from "@tiptap/extension-table";
@@ -505,6 +506,7 @@ export default defineComponent({
         TableRow,
         TableHeader,
         TableCell,
+        DragHandle.configure({ isEditing }),
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",
       onCreate() {
@@ -871,6 +873,11 @@ export default defineComponent({
   box-shadow: none !important;
   background: transparent !important;
   min-height: 100%;
+  transition: padding-left 0.15s ease;
+}
+
+:deep(.ProseMirror.has-drag-handles) {
+  padding-left: 28px;
 }
 
 :deep(.tiptap) {
@@ -1105,5 +1112,45 @@ a[data-smart-button="true"].smart-button:hover {
 .ProseMirror .tableWrapper {
   overflow-x: auto;
   margin: 8px 0;
+}
+
+/* ── Drag handle ── */
+.drag-handle {
+  position: absolute;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.2);
+  cursor: grab;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+  z-index: 5;
+  user-select: none;
+}
+
+.drag-handle.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drag-handle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-handle-dragging {
+  opacity: 0.4;
 }
 </style>

@@ -117,7 +117,7 @@
           Add a title
         </div>
         <div
-          class="tile-field-wrap tile-field-wrap--title"
+          class="tile-field-wrap tile-field-wrap--title scrollable-thin"
           :class="{
             'is-visible': isEditing || !!displayTitle,
             'has-overflow': !isEditing,
@@ -134,7 +134,7 @@
           ></textarea>
         </div>
         <div
-          class="tile-field-wrap tile-field-wrap--description"
+          class="tile-field-wrap tile-field-wrap--description scrollable-thin"
           :class="{
             'is-visible': isEditing || !!displayDescription,
             'has-overflow': !isEditing,
@@ -1219,11 +1219,6 @@ export default defineComponent({
 .tile-details.is-editing .tile-field-wrap--title.is-visible {
   max-height: 52px;
   overflow-y: auto;
-  scrollbar-color: var(--color-border) transparent;
-  scrollbar-width: thin;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
-  scroll-behavior: smooth;
 }
 
 /* ── Title field ── */
@@ -1280,11 +1275,6 @@ export default defineComponent({
 .tile-details.is-editing .tile-field-wrap--description.is-visible {
   max-height: 44px;
   overflow-y: scroll;
-  scrollbar-color: var(--color-border) transparent;
-  scrollbar-width: thin;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
-  scroll-behavior: smooth;
 }
 
 /* ── Description field ── */

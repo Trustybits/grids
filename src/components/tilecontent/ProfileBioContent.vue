@@ -258,7 +258,7 @@
       }"
     >
       <div
-        class="profile-bio-text profile-editor"
+        class="profile-bio-text profile-editor scrollable-thin"
         :class="{ 'can-edit': layoutStore.canEdit }"
         :spellcheck="layoutStore.canEdit && isEditing"
         :style="{ '--tile-text-color': textColor }"
@@ -2193,9 +2193,6 @@ export default defineComponent({
   min-height: 0;
   align-self: stretch;
   overflow-y: auto;
-  scroll-behavior: smooth;
-  scrollbar-color: var(--color-border) transparent;
-  //scrollbar-width: thin;
 }
 
 .profile-bio-text :deep(.ProseMirror) {

@@ -1,4 +1,4 @@
-@import './base.css';
+@import "./base.css";
 
 #app {
   font-weight: normal;
@@ -28,6 +28,15 @@ a,
     /* display: grid; */
     /* grid-template-columns: 1fr 1fr; */
   }
+}
+
+/* Thin styled scrollbar utility */
+.scrollable-thin {
+  scrollbar-color: var(--color-border) transparent;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scroll-behavior: smooth;
 }
 
 /* Global tooltip styling via data-tooltip attribute */

@@ -30,7 +30,7 @@ export interface TextContent extends TileContent {
   textType: string;
   color: string;
   textAlign?: "left" | "center" | "right";
-  textLink?: string;
+  tileLink?: string;
   backgroundColor?: string;
 }
 
@@ -53,7 +53,7 @@ export interface ImageContent extends TileContent {
   offsetX: number;
   offsetY: number;
   backgroundColor?: string;
-  textLink?: string;
+  tileLink?: string;
 }
 
 export interface LinkContent extends TileContent {
@@ -85,7 +85,7 @@ export interface VideoContent extends TileContent {
   offsetX: number;
   offsetY: number;
   backgroundColor?: string;
-  textLink?: string;
+  tileLink?: string;
 }
 
 export type MapStyleMode =
@@ -149,7 +149,7 @@ export interface RPGContent extends TileContent {
   gameState: "playing" | "won" | "lost";
 }
 
-export type AvatarShape = "circle" | "square" | "hex";
+export type AvatarShape = "circle" | "square" | "polygon";
 
 export interface ProfileBioContent extends TileContent {
   type: ContentType.PROFILE;
@@ -158,6 +158,7 @@ export interface ProfileBioContent extends TileContent {
   bio: string;
   avatarShape: AvatarShape;
   avatarRadius: number;
+  avatarSides?: number; // polygon side count (3–8), default 6
   profilePhotoUrl?: string; // URL of the uploaded profile photo
   backgroundColor?: string;
 }

@@ -1,11 +1,11 @@
 <template>
-  <div class="user-menu" v-if="user">
+  <div class="user-menu" v-if="user" :data-tooltip="showUserMenu ? null : 'User Menu'" >
     <button
       class="user-menu-button"
       @click="toggleUserMenu"
       @blur="handleBlur"
     >
-      <div class="user-icon">
+      <div class="user-icon" >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/>
           <path d="M6 21C6 17.134 8.68629 14 12 14C15.3137 14 18 17.134 18 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>

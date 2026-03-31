@@ -272,22 +272,22 @@ export const LINK_BG_TOGGLE: ToolbarItem = {
 const _linkIcon = markRaw(LinkIcon);
 const _clearLinkIcon = markRaw(ClearLinkIcon);
 
-const hasTextLink = (ctx: ToolbarContext) =>
-  !!(ctx.tile.content as any)?.textLink;
+const hasTileLink = (ctx: ToolbarContext) =>
+  !!(ctx.tile.content as any)?.tileLink;
 
 export const TILE_LINK: ToolbarItem = {
   id: "tile-link",
   icon: (ctx: ToolbarContext) =>
-    hasTextLink(ctx) ? _clearLinkIcon : _linkIcon,
+    hasTileLink(ctx) ? _clearLinkIcon : _linkIcon,
   title: (ctx: ToolbarContext) => {
-    if (!hasTextLink(ctx)) return "Add a link";
-    const url = (ctx.tile.content as any).textLink as string;
+    if (!hasTileLink(ctx)) return "Add a link";
+    const url = (ctx.tile.content as any).tileLink as string;
     return `Remove link to ${url}`;
   },
   group: "appearance",
-  danger: (ctx: ToolbarContext) => hasTextLink(ctx),
+  danger: (ctx: ToolbarContext) => hasTileLink(ctx),
   action: (ctx: ToolbarContext) => {
-    if (hasTextLink(ctx)) {
+    if (hasTileLink(ctx)) {
       ctx.childComponent.value?.clearLink?.();
     } else {
       ctx.childComponent.value?.openUrlInput?.();
@@ -361,15 +361,15 @@ export const TEXT_MORE_MENU: ToolbarItem = {
     {
       id: "tile-link",
       icon: (ctx: ToolbarContext) =>
-        hasTextLink(ctx) ? _clearLinkIcon : _linkIcon,
+        hasTileLink(ctx) ? _clearLinkIcon : _linkIcon,
       tooltip: (ctx: ToolbarContext) => {
-        if (!hasTextLink(ctx)) return "Add a Link";
-        const url = (ctx.tile.content as TextContent).textLink as string;
+        if (!hasTileLink(ctx)) return "Add a Link";
+        const url = (ctx.tile.content as TextContent).tileLink as string;
         return `Remove link to ${url}`;
       },
-      danger: (ctx: ToolbarContext) => hasTextLink(ctx),
+      danger: (ctx: ToolbarContext) => hasTileLink(ctx),
       action: (ctx: ToolbarContext) => {
-        if (hasTextLink(ctx)) {
+        if (hasTileLink(ctx)) {
           ctx.childComponent.value?.clearLink?.();
         } else {
           ctx.childComponent.value?.openUrlInput?.();
@@ -410,7 +410,7 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     TEXT_MORE_MENU,
   ],
   [ContentType.MUSIC]: [
-    RESIZE_1x1,    
+    RESIZE_1x1,
     RESIZE_2x3,
     RESIZE_2x2,
     RESIZE_4x2,
@@ -434,7 +434,7 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     COLOR_BUTTON,
   ],
   [ContentType.CAMPFIRE]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
-  [ContentType.PROFILE]:  [BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.PROFILE]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
   // Roadmap feed uses standard resize/appearance options; settings are managed inside the tile itself
   [ContentType.ROADMAP_FEED]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
 };

@@ -1,12 +1,13 @@
 import { defineStore } from "pinia";
-import { type Layout } from "@/types/Layout";
+import { type Layout, type CopyDepth } from "@/types/Layout";
 import { getLayoutService } from "@/services/LayoutServiceFactory"; // Factory to switch services dynamically
 import {
   ContentType,
   type TileContent,
   type AnyTileContent,
+  type SuggestionAction,
 } from "@/types/TileContent";
-import type { Breakpoint, TilePosition } from "@/types/Tile";
+import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
 import {
   collection,
@@ -24,11 +25,53 @@ import {
   createDefaultLayout,
 } from "@/types/FirestoreMappers";
 import { auth, db } from "@/firebase";
-import { createTile } from "@/utils/TileUtils";
+import { createTile, createTileContent } from "@/utils/TileUtils";
 import { useToastStore } from "@/stores/toast";
 import heroGif from "@/assets/images/hero.gif";
 
+// Maps a real tile content type to the best-matching suggestion action so that
+// structure-only copies produce useful placeholder tiles instead of empty
+// typed tiles the user can't do anything with.
+const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
+  switch (type) {
+    case ContentType.TEXT:
+    case ContentType.CHAT:
+    case ContentType.CAMPFIRE:
+      return "text";
+    case ContentType.IMAGE:
+    case ContentType.VIDEO:
+      return "media";
+    case ContentType.LINK:
+      return "link";
+    case ContentType.EMBED:
+    case ContentType.YOUTUBE:
+    case ContentType.MUSIC:
+    case ContentType.MAP:
+    case ContentType.ROADMAP_FEED:
+      return "embed";
+    case ContentType.PROFILE:
+      return "profile";
+    default:
+      return "text";
+  }
+};
+
 const layoutService = getLayoutService();
+
+// ── Save serialization ────────────────────────────────────────────────
+// Multiple callers (map moveend, style toggle, addTile, etc.) can invoke
+// saveLayout() in rapid succession.  Each call snapshots the reactive
+// layout and writes to Firestore.  Without serialization, an earlier
+// snapshot can land *after* a later one (async race), reverting changes.
+//
+// Solution: only one Firestore write may be in-flight at a time.  If a
+// new save is requested while one is running, we set a flag.  When the
+// in-flight write finishes, we re-snapshot the (now-latest) layout and
+// write again — guaranteeing the final persisted state matches the
+// current in-memory state.
+let _saveInFlight = false;
+let _saveQueued = false;
+
 const createTextDoc = (lines: string[]) => {
   const parseInlineMarkdown = (text: string) => {
     const nodes: Array<{
@@ -403,6 +446,101 @@ export const useLayoutStore = defineStore("layout", {
       }
     },
 
+    // Duplicate an existing grid, creating a new layout owned by the current user.
+    // Accepts any Layout object — not just the user's own — so this same logic can
+    // power a future template gallery or cloning another user's published grid.
+    //
+    // copyDepth controls what gets carried over:
+    //   'full'      → all tile content (media URLs shared by reference, chat cleared)
+    //   'structure' → tile type/size/position only, content reset to defaults
+    async duplicateLayout(
+      sourceLayout: Layout,
+      copyDepth: CopyDepth = 'full',
+    ): Promise<string | null> {
+      const userId = auth.currentUser?.uid;
+      if (!userId) {
+        this.error = "User not authenticated";
+        return null;
+      }
+
+      try {
+        // Deep-clone tiles so mutations don't affect the source layout.
+        // Each tile gets a fresh UUID to avoid ID collisions.
+        const clonedTiles = (
+          JSON.parse(JSON.stringify(sourceLayout.tiles)) as typeof sourceLayout.tiles
+        ).map((tile) => {
+          const oldId = tile.i;
+          tile.i = uuidv4();
+
+          if (copyDepth === 'structure') {
+            // Structure-only: replace each tile with a SUGGESTION placeholder whose
+            // action hint matches the original content type. This gives the new owner
+            // useful "Add Media" / "Add Text" / etc. prompts instead of empty typed
+            // tiles they can't do anything with.
+            const action = contentTypeToSuggestionAction(tile.content.type);
+            tile.content = createTileContent(ContentType.SUGGESTION, { action });
+          } else {
+            // Full copy: preserve content, but clear ephemeral/user-generated data
+            if (tile.content.type === ContentType.CHAT) {
+              (tile.content as any).messages = [];
+            }
+          }
+
+          return { tile, oldId };
+        });
+
+        // Rebuild breakpoint overrides with the new tile IDs so saved
+        // mobile/tablet layouts carry over correctly.
+        let newOverrides: Layout['overrides'];
+        if (sourceLayout.overrides) {
+          newOverrides = {} as NonNullable<Layout['overrides']>;
+          // Build a mapping from old tile ID → new tile ID
+          const idMap: Record<string, string> = {};
+          for (const { tile, oldId } of clonedTiles) {
+            idMap[oldId] = tile.i;
+          }
+          for (const [bp, positions] of Object.entries(sourceLayout.overrides)) {
+            if (!positions) continue;
+            const remapped: Record<string, TilePosition> = {};
+            for (const [oldTileId, pos] of Object.entries(positions)) {
+              const newTileId = idMap[oldTileId];
+              if (newTileId && pos) {
+                remapped[newTileId] = { ...pos };
+              }
+            }
+            (newOverrides as any)[bp] = remapped;
+          }
+        }
+
+        const newLayout: Layout = {
+          id: "", // Firestore will assign the real ID below
+          userId,
+          name: `Copy of ${sourceLayout.name || "Untitled"}`,
+          colNum: sourceLayout.colNum,
+          verticalCompact: sourceLayout.verticalCompact,
+          tiles: clonedTiles.map(({ tile }) => tile),
+          backgroundImageSrc: sourceLayout.backgroundImageSrc || "",
+          backgroundEmbed: sourceLayout.backgroundEmbed || false,
+          themeId: sourceLayout.themeId,
+          overrides: newOverrides,
+        };
+
+        const docRef = doc(collection(db, "layouts"));
+        newLayout.id = docRef.id;
+
+        await layoutService.saveLayout(newLayout);
+
+        // Add to local state so the dashboard list updates immediately
+        this.layouts.push({ ...newLayout });
+
+        return newLayout.id;
+      } catch (err) {
+        this.error = "Failed to duplicate layout.";
+        console.error(err);
+        return null;
+      }
+    },
+
     // Load a layout by ID
     async loadLayout(id: string) {
       this.isLoading = true;
@@ -537,6 +675,18 @@ export const useLayoutStore = defineStore("layout", {
         return;
       }
 
+      // ── Serialization gate ──────────────────────────────────────
+      // If a Firestore write is already in progress, just mark that
+      // another save is needed.  The in-flight writer will re-snapshot
+      // the latest state when it finishes, so the final persisted
+      // document always reflects the most recent in-memory layout.
+      if (_saveInFlight) {
+        _saveQueued = true;
+        return;
+      }
+
+      _saveInFlight = true;
+
       try {
         // Deep-clone tiles to strip Pinia reactive proxies before sending to
         // Firestore.  A shallow spread loses nested objects (e.g. map center /
@@ -564,6 +714,15 @@ export const useLayoutStore = defineStore("layout", {
       } catch (err) {
         this.error = "Failed to save layout.";
         console.error(err);
+      } finally {
+        _saveInFlight = false;
+
+        // If another save was requested while we were writing,
+        // flush it now with the latest in-memory state.
+        if (_saveQueued) {
+          _saveQueued = false;
+          this.saveLayout();
+        }
       }
     },
 
@@ -670,6 +829,13 @@ export const useLayoutStore = defineStore("layout", {
     setGridTheme(themeId: string) {
       if (!this.currentLayout) return;
       this.currentLayout.themeId = themeId;
+      this.updateLayout();
+    },
+
+    // Toggle whether non-owners can duplicate this grid as a template
+    setDuplicatable(value: boolean) {
+      if (!this.currentLayout) return;
+      this.currentLayout.duplicatable = value;
       this.updateLayout();
     },
 
@@ -883,6 +1049,62 @@ export const useLayoutStore = defineStore("layout", {
     //   }
     // },
 
+    // Duplicate a tile — deep-copies content, preserves size, places nearby
+    duplicateTile(id: string): string | null {
+      if (!this.currentLayout) return null;
+
+      const source = this.currentLayout.tiles.find((t) => t.i === id);
+      if (!source) return null;
+
+      // Use the currently displayed size (which may come from breakpoint
+      // overrides) so the duplicate matches what the user actually sees.
+      const bp = this.activeBreakpoint;
+      const bpOverride = this.currentLayout.overrides?.[bp]?.[id];
+      const w = bpOverride?.w ?? source.w;
+      const h = bpOverride?.h ?? source.h;
+
+      // Place the duplicate just below the source tile
+      const sourceY = bpOverride?.y ?? source.y;
+      const targetY = sourceY + h;
+      const position = this.findBestXAtRow(w, h, targetY);
+      this.pushTilesForNewItem(position.x, position.y, w, h);
+
+      const newId = uuidv4();
+
+      const newTile: Tile = {
+        i: newId,
+        x: position.x,
+        y: position.y,
+        w,
+        h,
+        borderEnabled: source.borderEnabled,
+        caption: source.caption,
+        content: JSON.parse(JSON.stringify(source.content)),
+      };
+
+      this.currentLayout.tiles.push(newTile);
+
+      // Copy breakpoint overrides from the source tile to the duplicate
+      if (this.currentLayout.overrides) {
+        for (const overrideBp of Object.keys(
+          this.currentLayout.overrides,
+        ) as Breakpoint[]) {
+          const posMap = this.currentLayout.overrides[overrideBp];
+          if (posMap?.[id]) {
+            posMap[newId] = {
+              ...posMap[id],
+              x: position.x,
+              y: position.y,
+            };
+          }
+        }
+      }
+
+      this.updateLayout();
+
+      return newId;
+    },
+
     // Remove a tile (also cleans up any optimistic upload state)
     removeTile(id: string) {
       if (!this.currentLayout) return;
@@ -924,16 +1146,6 @@ export const useLayoutStore = defineStore("layout", {
 
       const tile = this.currentLayout.tiles.find((tile) => tile.i === id);
       if (!tile) return;
-
-      if (tile.content.type === ContentType.PROFILE) {
-        tile.w = 4;
-        tile.h = 4;
-        this.adjustTilePosition(tile);
-        const dpProf = this.displayPositions.find((p) => p.i === id);
-        if (dpProf) { dpProf.w = tile.w; dpProf.h = tile.h; dpProf.x = tile.x; }
-        this.updateLayout();
-        return;
-      }
 
       const bp = this.activeBreakpoint;
 

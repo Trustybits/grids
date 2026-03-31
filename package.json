@@ -1,6 +1,6 @@
 {
   "name": "grids",
-  "version": "0.9.2",
+  "version": "0.12.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,13 @@
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
-    "type-check": "vue-tsc --build --force"
+    "type-check": "vue-tsc --build --force",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.7.2",
@@ -41,11 +47,20 @@
     "@types/node": "^22.9.0",
     "@vitejs/plugin-vue": "^5.1.4",
     "@vitejs/plugin-vue-jsx": "^4.0.1",
+    "@vitest/coverage-v8": "^2.1.0",
+    "@vitest/ui": "^2.1.0",
+    "@vue/eslint-config-typescript": "^14.1.0",
+    "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.5.1",
+    "eslint": "^9.14.0",
+    "eslint-plugin-vue": "^9.30.0",
+    "jsdom": "^25.0.1",
     "npm-run-all2": "^7.0.1",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.14.0",
     "vite": "^5.4.10",
     "vite-plugin-vue-devtools": "^7.5.4",
+    "vitest": "^2.1.0",
     "vue-tsc": "^2.1.10"
   }
 }

@@ -969,6 +969,7 @@ export default defineComponent({
   gap: var(--spacing-md);
   width: 100%;
   height: 100%;
+  min-height: 0;
 }
 
 .tile-header {
@@ -1089,6 +1090,8 @@ export default defineComponent({
   margin-left: -8px;
   margin-bottom: -4px;
   overflow: hidden;
+  min-height: 0;
+  margin-top: auto;
 }
 
 .link-tile-content.is-owner .tile-details {
@@ -1207,13 +1210,15 @@ export default defineComponent({
 /* ── Title wrapper ── */
 
 .tile-field-wrap--title {
-  flex-shrink: 1;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
 .tile-field-wrap--title.is-visible {
-  max-height: 48px;
-  padding: 6px 6px;
+  max-height: none;
+  min-height: 28px;
+  padding: 4px 6px;
+  padding-top: 6px;
 }
 
 .tile-details.is-editing .tile-field-wrap--title.is-visible {
@@ -1264,13 +1269,14 @@ export default defineComponent({
 /* ── Description wrapper ── */
 
 .tile-field-wrap--description {
-  flex-shrink: 1;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
 .tile-field-wrap--description.is-visible {
-  max-height: 40px;
-  padding: 6px 6px;
+  max-height: none;
+  min-height: 28px;
+  padding: 4px 6px;
 }
 
 .tile-details.is-editing .tile-field-wrap--description.is-visible {
@@ -1293,11 +1299,13 @@ export default defineComponent({
 /* ── Subtitle wrapper ── */
 
 .tile-field-wrap--subtitle {
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  min-height: 0;
 }
 
 .tile-field-wrap--subtitle.is-visible {
   max-height: 32px;
+  min-height: 24px;
   padding: 4px 6px;
 }
 

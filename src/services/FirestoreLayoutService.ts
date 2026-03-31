@@ -73,6 +73,7 @@ export class FirestoreLayoutService implements LayoutService {
         backgroundEmbed: data.backgroundEmbed || false,
         themeId: data.themeId || undefined,
         overrides: data.overrides && typeof data.overrides === 'object' ? data.overrides : undefined,
+        duplicatable: !!data.duplicatable,
         createdAt: data.createdAt ?? null,
         updatedAt: data.updatedAt ?? null,
         lastOpenedAt: data.lastOpenedAt ?? null,
@@ -99,6 +100,7 @@ export class FirestoreLayoutService implements LayoutService {
         backgroundEmbed: layout.backgroundEmbed,
         themeId: layout.themeId ?? 'dark',
         overrides: layout.overrides ?? {},
+        duplicatable: layout.duplicatable ?? false,
         createdAt: layout.createdAt ?? serverTimestamp(),
         updatedAt: serverTimestamp(),
         lastOpenedAt: layout.lastOpenedAt ?? serverTimestamp(),
@@ -124,6 +126,7 @@ export class FirestoreLayoutService implements LayoutService {
         backgroundEmbed: layout.backgroundEmbed,
         themeId: layout.themeId ?? 'dark',
         overrides: layout.overrides ?? {},
+        duplicatable: layout.duplicatable ?? false,
         updatedAt: serverTimestamp(),
       }) as Record<string, unknown>;
       await updateDoc(docRef, payload);

@@ -44,6 +44,7 @@
         :data-border="borderVisible ? 'on' : 'off'"
         :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
         :data-suggestion="isSuggestion ? 'true' : 'false'"
+        :data-active-zone="hoveredToolbarZone || ''"
         ref="gridTileRef"
         @mouseenter="isHovered = true"
         @mouseleave="isHovered = false"
@@ -114,13 +115,15 @@
           {{ `x: ${tile.x}, y: ${tile.y} w: ${tile.w} h: ${tile.h}` }}
         </p>
 
-        <button
-          v-if="layoutStore.canEdit"
-          class="btn btn-sm btn-danger btn-close"
-          @mousedown.stop
-          @mouseup.stop
-          @click.stop="removeElement"
-        ></button>
+        <div
+          v-if="layoutStore.canEdit && !isSuggestion"
+          class="tile-actions-layer"
+          :class="{ 'z-priority': hoveredLayer === 'actions' }"
+          @mouseenter="hoveredLayer = 'actions'"
+          @mouseleave="hoveredLayer = null"
+        >
+          <TileActions :tile="tile" @delete="removeElement" />
+        </div>
 
         <TileCaption
           v-if="showCaption && (layoutStore.canEdit || tile.caption)"
@@ -130,11 +133,15 @@
         <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
         <div v-if="isTileResizable" class="resize-indicator"></div>
 
-        <TileToolbar
+        <div
           v-if="layoutStore.canEdit && !isSuggestion"
-          :tile="tile"
-          :toolbarRefs="toolbarRefs"
-        />
+          class="tile-toolbar-layer"
+          :class="{ 'z-priority': hoveredLayer !== 'actions' }"
+          @mouseenter="hoveredLayer = 'toolbar'"
+          @mouseleave="hoveredLayer = null"
+        >
+          <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
+        </div>
       </div>
     </grid-item>
   </div>
@@ -170,6 +177,7 @@ import LinkIcon from "./icons/LinkIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileIcon from "./icons/ProfileIcon.vue";
 import TileToolbar from "./TileToolbar.vue";
+import TileActions from "./TileActions.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 import ColorPicker from "./ColorPicker.vue";
 
@@ -178,6 +186,7 @@ export default defineComponent({
     GridItem,
     TileCaption,
     TileToolbar,
+    TileActions,
     TextIcon,
     ImageIcon,
     LinkIcon,
@@ -224,6 +233,9 @@ export default defineComponent({
     const isExiting = ref(false);
     const isActivated = ref(false);
     const isHovered = ref(false);
+    const hoveredToolbarZone = ref<string | null>(null);
+    provide("hoveredToolbarZone", hoveredToolbarZone);
+    const hoveredLayer = ref<"actions" | "toolbar" | null>(null);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -304,7 +316,7 @@ export default defineComponent({
     });
 
     const isTileResizable = computed(() => {
-      if (!layoutStore.canEdit || isSuggestion.value || isProfileTile.value) {
+      if (!layoutStore.canEdit || isSuggestion.value) {
         return false;
       }
       if (isTouchDevice()) return isActivated.value && !isEditing.value;
@@ -744,6 +756,7 @@ export default defineComponent({
       isExiting,
       isActivated,
       isHovered,
+      hoveredToolbarZone,
       onMoved,
       onResize,
       onResized,
@@ -767,6 +780,7 @@ export default defineComponent({
       toggleCropMode,
       isExitingCropMode,
       toolbarRefs,
+      hoveredLayer,
     };
   },
 });
@@ -967,72 +981,6 @@ export default defineComponent({
   top: 10px;
 }
 
-/* Remove Button */
-.btn-close {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  z-index: 1;
-  cursor: pointer;
-  border-radius: 100%;
-  padding: 3px;
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  /* Hidden by default with smooth animation properties using tokens */
-  opacity: 0;
-  transform: scale(0.2);
-  pointer-events: none;
-  transition:
-    transform var(--duration-normal) var(--easing-spring),
-    // opacity var(--duration-fast) var(--easing-ease-out),
-    background-color var(--duration-fast) var(--easing-ease-in-out),
-    color var(--duration-fast) var(--easing-ease-in-out),
-    border-color var(--duration-fast) var(--easing-ease-in-out);
-
-  /* Default state - solid colors */
-  background-color: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-
-  /* Override Bootstrap btn-close filter to use our color token */
-  filter: none;
-  background-image: none;
-
-  /* X icon styling - uses pseudo-element for proper color control */
-  &::before,
-  &::after {
-    content: "";
-    position: absolute;
-    width: 12px;
-    height: 2px;
-    background-color: var(--color-text-primary);
-    transition: background-color var(--duration-normal)
-      var(--easing-ease-in-out);
-  }
-
-  &::before {
-    transform: rotate(45deg);
-  }
-
-  &::after {
-    transform: rotate(-45deg);
-  }
-
-  /* Button hover state - turns red */
-  &:hover {
-    background-color: #ff3737;
-    border-color: #ff3737;
-
-    &::before,
-    &::after {
-      background-color: #ffffff;
-    }
-  }
-}
-
 /* Customizable Header Styles */
 .header-options {
   display: none;
@@ -1066,28 +1014,56 @@ export default defineComponent({
   display: flex;
 }
 
-.tile-wrapper:hover .btn-close,
-.tile-wrapper.is-activated .btn-close {
-  opacity: 1;
-  transform: scale(1);
-  pointer-events: auto;
-}
-
 /* Non-owner caption: hide on tile hover or activation */
 .tile-wrapper:hover :deep(.viewer-caption),
 .tile-wrapper.is-activated :deep(.viewer-caption) {
   display: none;
 }
 
-/* Hide close button during crop mode, exiting, and while dragging */
-.tile-wrapper.crop-mode-active .btn-close,
-.tile-wrapper.crop-mode-exiting .btn-close,
-.tile-wrapper.is-exiting .btn-close,
-.tile-wrapper.is-dragging .btn-close,
-.tile-wrapper.is-activated.is-dragging .btn-close {
+/* Show tile actions on hover and activation */
+.tile-wrapper:hover :deep(.tile-actions),
+.tile-wrapper.is-activated :deep(.tile-actions) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Hide tile actions during crop mode, exiting, and while dragging */
+.tile-wrapper.crop-mode-active :deep(.tile-actions),
+.tile-wrapper.crop-mode-exiting :deep(.tile-actions),
+.tile-wrapper.is-exiting :deep(.tile-actions),
+.tile-wrapper.is-dragging :deep(.tile-actions),
+.tile-wrapper.is-activated.is-dragging :deep(.tile-actions) {
   opacity: 0;
-  transform: scale(0);
   pointer-events: none;
+}
+
+/* Hover-priority layering wrappers */
+.tile-actions-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 11;
+
+  &.z-priority {
+    z-index: 10001;
+  }
+}
+
+.tile-toolbar-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 10000;
+
+  &:not(.z-priority) {
+    z-index: 9;
+  }
 }
 
 /* Show toolbar on tile hover, activation, and during crop mode (reaches into TileToolbar child) */
@@ -1106,6 +1082,31 @@ export default defineComponent({
 .tile-wrapper.crop-mode-active :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel) {
   pointer-events: auto;
+}
+
+/* Dim sibling toolbars when one specific zone is hovered */
+.tile-wrapper[data-active-zone="actions"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="actions"].is-activated :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="avatar"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="avatar"].is-activated :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="radius"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="radius"].is-activated :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="sides"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="sides"].is-activated :deep(.tile-toolbar) {
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.tile-wrapper[data-active-zone="toolbar"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="toolbar"].is-activated :deep(.tile-actions),
+.tile-wrapper[data-active-zone="avatar"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="avatar"].is-activated :deep(.tile-actions),
+.tile-wrapper[data-active-zone="radius"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="radius"].is-activated :deep(.tile-actions),
+.tile-wrapper[data-active-zone="sides"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="sides"].is-activated :deep(.tile-actions) {
+  opacity: 0.15;
+  pointer-events: none;
 }
 
 /* Hide toolbar when tile is exiting or being dragged */

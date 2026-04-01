@@ -231,7 +231,7 @@
           Use image URL
         </button>
         <button
-          v-if="content.customImageUrl"
+          v-if="content.customImageUrl || content.metaImageUrl"
           type="button"
           class="link-context-menu-item link-context-menu-item--danger"
           @click.stop="handleContextRemove"
@@ -532,10 +532,25 @@ export default defineComponent({
       customImageInput.value?.click();
     };
 
-    const removeCustomImage = () => {
+    const removeImage = () => {
       if (!layoutStore.canEdit) return;
-      props.content.customImageUrl = undefined;
-      layoutStore.saveLayout();
+
+      let changes = {};
+
+      if (props.content.customImageUrl !== undefined) {
+        props.content.customImageUrl = undefined;
+        changes = { customImageUrl: undefined };
+      } else {
+        props.content.metaImageUrl = undefined;
+        changes = { metaImageUrl: undefined };
+      }
+
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, changes);
+      } else {
+        layoutStore.saveLayout();
+      }
+
       closeContextMenu();
       showUrlInput.value = false;
     };
@@ -551,7 +566,11 @@ export default defineComponent({
       try {
         const url = await uploadFileToUrl(file, { fileType: "images" });
         props.content.customImageUrl = url;
-        layoutStore.saveLayout();
+        if (tileId) {
+          layoutStore.patchTileContent(tileId, { customImageUrl: url });
+        } else {
+          layoutStore.saveLayout();
+        }
       } catch (error: any) {
         console.error("Link tile image upload failed:", error);
         alert(error.message || "Failed to upload image. Please try again.");
@@ -662,7 +681,7 @@ export default defineComponent({
 
     const handleContextRemove = () => {
       closeContextMenu();
-      removeCustomImage();
+      removeImage();
     };
 
     const handleDocumentClick = (event: MouseEvent) => {
@@ -875,7 +894,7 @@ export default defineComponent({
       openUrlInput,
       cancelUrlInput,
       applyImageUrl,
-      removeCustomImage,
+      removeImage,
       onCustomImageSelected,
       onDragEnter,
       onDragOver,
@@ -1346,6 +1365,20 @@ export default defineComponent({
 
 .tile-input--wide {
   min-width: 0;
+}
+
+.link-url-input {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: var(--color-tile-background);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .link-image-input {

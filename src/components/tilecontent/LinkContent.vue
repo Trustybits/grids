@@ -178,36 +178,6 @@
       @change.stop="onCustomImageSelected"
     />
 
-    <div
-      v-if="layoutStore.canEdit && showUrlInput"
-      class="link-url-input"
-      @mousedown.stop
-    >
-      <span class="link-url-label">Image URL</span>
-      <input
-        v-model="draftImageUrl"
-        class="link-url-field"
-        type="url"
-        placeholder="https://example.com/image.jpg"
-        aria-label="Image URL"
-        @keydown.enter.prevent="applyImageUrl"
-        @keydown.escape.stop.prevent="cancelUrlInput"
-      />
-      <p v-if="urlError" class="link-url-error">{{ urlError }}</p>
-      <div class="link-url-actions">
-        <button type="button" class="link-url-btn" @click.stop="applyImageUrl">
-          Save
-        </button>
-        <button
-          type="button"
-          class="link-url-btn link-url-btn--ghost"
-          @click.stop="cancelUrlInput"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-
     <teleport to="body">
       <div
         v-if="layoutStore.canEdit && showContextMenu"
@@ -258,7 +228,6 @@ import {
 
 import { type LinkContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
-import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
@@ -309,9 +278,6 @@ export default defineComponent({
     const showContextMenu = ref(false);
     const contextMenuPosition = ref({ x: 0, y: 0 });
     const isDragOver = ref(false);
-    const showUrlInput = ref(false);
-    const draftImageUrl = ref("");
-    const urlError = ref("");
     const { uploadFileToUrl } = useFileUpload();
 
     const formatLink = (link: string) => {
@@ -479,52 +445,14 @@ export default defineComponent({
       showContextMenu.value = false;
     };
 
-    const openUrlInput = () => {
+    const applyImageUrlFromToolbar = (normalizedUrl: string) => {
       if (!layoutStore.canEdit) return;
-      draftImageUrl.value = props.content.customImageUrl || "";
-      urlError.value = "";
-      showUrlInput.value = true;
-      closeContextMenu();
-    };
-
-    const cancelUrlInput = () => {
-      showUrlInput.value = false;
-      urlError.value = "";
-    };
-
-    const normalizeImageUrl = (value: string) => {
-      const trimmed = value.trim();
-      if (!trimmed) return "";
-      const normalized =
-        trimmed.startsWith("http://") || trimmed.startsWith("https://")
-          ? trimmed
-          : `https://${trimmed}`;
-      try {
-        new URL(normalized);
-        return normalized;
-      } catch {
-        return "";
+      props.content.customImageUrl = normalizedUrl;
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { customImageUrl: normalizedUrl });
+      } else {
+        layoutStore.saveLayout();
       }
-    };
-
-    const applyImageUrl = () => {
-      if (!layoutStore.canEdit) return;
-      const normalized = normalizeImageUrl(draftImageUrl.value);
-      if (!normalized) {
-        urlError.value = "Enter a valid URL.";
-        return;
-      }
-      if (!isDirectImageUrl(normalized)) {
-        urlError.value =
-          "Only direct image URLs are supported (png, jpg, gif, webp, svg).";
-        return;
-      }
-
-      props.content.customImageUrl = normalized;
-      layoutStore.saveLayout();
-      showUrlInput.value = false;
-      urlError.value = "";
-      closeContextMenu();
     };
 
     const openCustomImagePicker = () => {
@@ -552,7 +480,6 @@ export default defineComponent({
       }
 
       closeContextMenu();
-      showUrlInput.value = false;
     };
 
     const uploadCustomImage = async (file: File) => {
@@ -676,7 +603,10 @@ export default defineComponent({
     };
 
     const handleContextUseUrl = () => {
-      openUrlInput();
+      closeContextMenu();
+      if (tileId) {
+        layoutStore.setPanelActive(tileId, "imageUrl");
+      }
     };
 
     const handleContextRemove = () => {
@@ -887,13 +817,8 @@ export default defineComponent({
       contextMenuRef,
       showContextMenu,
       isDragOver,
-      showUrlInput,
-      draftImageUrl,
-      urlError,
       openCustomImagePicker,
-      openUrlInput,
-      cancelUrlInput,
-      applyImageUrl,
+      applyImageUrlFromToolbar,
       removeImage,
       onCustomImageSelected,
       onDragEnter,
@@ -1365,20 +1290,6 @@ export default defineComponent({
 
 .tile-input--wide {
   min-width: 0;
-}
-
-.link-url-input {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  background: var(--color-tile-background);
-  border-radius: var(--radius-sm);
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .link-image-input {

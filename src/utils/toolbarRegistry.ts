@@ -312,7 +312,9 @@ export const LINK_MORE_MENU: ToolbarItem = {
     {
       id: "use-url",
       label: "Use image URL",
-      action: (ctx) => ctx.childComponent.value?.openUrlInput?.(),
+      action: (ctx) => {
+        ctx.layoutStore.setPanelActive(ctx.tile.i, "imageUrl");
+      },
     },
     {
       id: "remove-image",

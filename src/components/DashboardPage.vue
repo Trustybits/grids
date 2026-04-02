@@ -13,9 +13,7 @@
           You have no grids. Create one to get started!
         </div>
         <ul v-else class="grid-list">
-          <li v-if="starredLayouts.length" class="grid-section-intro">
-            <h3 class="grid-section-title">Starred</h3>
-          </li>
+
           <DashboardGridCard
             v-for="layout in starredLayouts"
             :key="layout.id"

@@ -39,18 +39,28 @@
     <div class="tile-foreground">
       <div class="tile-header">
         <div class="tile-logo">
-          <img
-            v-if="!!content.faviconUrl"
-            :src="content.faviconUrl"
-            :alt="content.domain"
-          />
-          <button
-            v-if="layoutStore.canEdit && !!content.faviconUrl"
-            class="tile-logo-close"
-            @mousedown.stop
-            @mouseup.stop
-            @click.stop="handleRemoveFavicon"
-          ></button>
+          <div
+            v-if="isTelLink || isMailtoLink"
+            class="tile-logo-contact"
+            aria-hidden="true"
+          >
+            <PhoneIcon v-if="isTelLink" class="tile-logo-contact-icon" />
+            <EmailIcon v-else class="tile-logo-contact-icon" />
+          </div>
+          <template v-else>
+            <img
+              v-if="!!content.faviconUrl"
+              :src="content.faviconUrl"
+              :alt="content.domain"
+            />
+            <button
+              v-if="layoutStore.canEdit && !!content.faviconUrl"
+              class="tile-logo-close"
+              @mousedown.stop
+              @mouseup.stop
+              @click.stop="handleRemoveFavicon"
+            ></button>
+          </template>
         </div>
 
         <template v-if="isWideOneHigh">
@@ -262,12 +272,16 @@ import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
+import EmailIcon from "../icons/EmailIcon.vue";
+import PhoneIcon from "../icons/PhoneIcon.vue";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
 
 export default defineComponent({
   emits: ["background-color-change", "text-color-change"],
   components: {
     LinkIndicatorIcon,
+    EmailIcon,
+    PhoneIcon,
   },
   props: {
     content: {
@@ -317,6 +331,22 @@ export default defineComponent({
     const formatLink = (link: string) => {
       if (!link) return "@handle or address";
 
+      if (/^mailto:/i.test(link)) {
+        try {
+          const u = new URL(link);
+          const addr = decodeURIComponent(
+            (u.pathname || "").replace(/^\/+/, ""),
+          );
+          return addr || link;
+        } catch {
+          return link;
+        }
+      }
+
+      if (/^tel:/i.test(link)) {
+        return link.replace(/^tel:/i, "").trim() || link;
+      }
+
       if (link.startsWith("http://") || link.startsWith("https://")) {
         try {
           const url = new URL(link);
@@ -329,13 +359,18 @@ export default defineComponent({
       return link.startsWith("@") ? link : `@${link}`;
     };
 
-    const defaultTitle = computed(
-      () =>
-        props.content.metaTitle ||
-        props.content.metaSiteName ||
-        props.content.domain ||
-        "Link",
-    );
+    const rawLink = computed(() => (props.content.link || "").trim());
+    const isTelLink = computed(() => /^tel:/i.test(rawLink.value));
+    const isMailtoLink = computed(() => /^mailto:/i.test(rawLink.value));
+
+    const defaultTitle = computed(() => {
+      if (props.content.metaTitle) return props.content.metaTitle;
+      if (props.content.metaSiteName) return props.content.metaSiteName;
+      if (isTelLink.value) return "Phone";
+      if (isMailtoLink.value) return "Email";
+      if (props.content.domain) return props.content.domain;
+      return "Link";
+    });
     const defaultDescription = computed(
       () => props.content.metaDescription || "",
     );
@@ -781,9 +816,12 @@ export default defineComponent({
     };
 
     const openLink = () => {
-      const url = props.content.link.startsWith("http")
-        ? props.content.link
-        : `https://${props.content.link}`;
+      const url =
+        isTelLink.value || isMailtoLink.value
+          ? rawLink.value
+          : rawLink.value.startsWith("http")
+            ? rawLink.value
+            : `https://${rawLink.value}`;
       window.open(url, "_blank");
     };
 
@@ -840,6 +878,8 @@ export default defineComponent({
       overlayColor: linkOverlayColor,
       handleBackgroundColorChange,
       formatLink,
+      isTelLink,
+      isMailtoLink,
       onTileClick,
       onShortClick,
       onExitClick,
@@ -1010,6 +1050,22 @@ export default defineComponent({
   height: 100%;
   display: block;
   object-fit: contain;
+}
+
+.tile-logo-contact {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tile-text-color);
+  opacity: 0.85;
+}
+
+.tile-logo-contact-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 .tile-logo-close {

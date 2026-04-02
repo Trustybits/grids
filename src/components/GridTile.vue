@@ -474,9 +474,12 @@ export default defineComponent({
           layoutStore.setTileContent(props.tile.i, linkContent);
           (async () => {
             try {
+              const url = ((linkContent as any).link || "").trim();
+              if (/^(mailto|tel):/i.test(url)) return;
+
               const getLinkPreview = httpsCallable(functions, "getLinkPreview");
               const result = await getLinkPreview({
-                url: (linkContent as any).link,
+                url,
               });
               const data = result.data as any;
 

@@ -1,14 +1,21 @@
 <template>
   <li class="grid-card">
     <router-link :to="`/grid/${layout.id}`" class="grid-link">
-      <div class="grid-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5" />
-          <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5" />
-          <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5" />
-          <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5" />
+      <button
+        type="button"
+        @click.stop.prevent="$emit('toggle-star', layout.id)"
+        data-tooltip="Favorite grid"
+        class="star-lead"
+        :class="{ 'is-starred': isStarred }"
+        :title="isStarred ? 'Remove from favorites' : 'Add to favorites'"
+      >
+        <svg v-if="isStarred" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
         </svg>
-      </div>
+        <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
       <span class="grid-name">{{ layout.name }}
         <svg class="grid-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -16,19 +23,6 @@
       </span>
 
       <div class="grid-actions">
-        <button
-          @click.prevent="$emit('toggle-star', layout.id)"
-          data-tooltip="Favorite grid"
-          :class="['action-button', 'star-button', { 'is-starred': isStarred }]"
-          :title="isStarred ? 'Remove from favorites' : 'Add to favorites'"
-        >
-          <svg v-if="isStarred" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-            <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
-          </svg>
-          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </button>
         <button
           @click.prevent="$emit('toggle-default', layout.id)"
           data-tooltip="Set as default grid"
@@ -145,21 +139,38 @@ defineEmits([
   border: var(--tile-border-width) solid var(--color-tile-stroke);
 }
 
-.grid-icon {
+.star-lead {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 40px;
   height: 40px;
-  color: var(--color-content-low);
   flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-content-low);
+  cursor: pointer;
   transition: all var(--duration-fast) var(--easing-smooth);
 }
 
-.grid-link:hover .grid-icon {
+.star-lead.is-starred {
+  color: #eab308;
+}
+
+.grid-link:hover .star-lead:not(.is-starred) {
   background-color: var(--color-base-8);
-  border-color: var(--color-content-default);
   color: var(--color-text-primary);
+}
+
+.star-lead:not(.is-starred):hover {
+  color: #ca8a04;
+}
+
+.star-lead.is-starred:hover {
+  color: #facc15;
 }
 
 .grid-name {
@@ -201,22 +212,6 @@ defineEmits([
   cursor: pointer;
   transition: all var(--duration-fast) var(--easing-smooth);
   padding: 0;
-}
-
-.star-button {
-  color: var(--color-content-default);
-  border: none;
-  opacity: 0.4;
-}
-
-.star-button:hover {
-  opacity: 0.85;
-  color: #eab308;
-}
-
-.star-button.is-starred {
-  color: #eab308;
-  opacity: 1;
 }
 
 .default-grid-button {

@@ -8,6 +8,8 @@ export interface UserProfile {
   lastLogin?: Date;
   storageUsed?: number;
   recentLayoutIds?: string[];
+  /** Dashboard favorites; order is preserved in the Starred section */
+  starredLayoutIds?: string[];
   profilePhotoUrl?: string;
 }
 

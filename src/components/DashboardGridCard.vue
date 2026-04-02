@@ -125,7 +125,7 @@ defineEmits([
   gap: var(--spacing-md);
   padding: var(--spacing-md);
   background-color: var(--color-content-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  /* border: var(--tile-border-width) solid var(--color-tile-stroke); */
   border-radius: var(--radius-md);
   text-decoration: none;
   color: var(--color-text-primary);
@@ -136,7 +136,7 @@ defineEmits([
 
 .grid-link:hover {
   background-color: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  /* border: var(--tile-border-width) solid var(--color-tile-stroke); */
 }
 
 .star-lead {

@@ -75,7 +75,7 @@ import { getUserProfile, setDefaultGrid, updateUserProfile } from '@/services/Us
 import { getAuth } from 'firebase/auth';
 import CreateGridModal from './CreateGridModal.vue';
 import RenameGridModal from './RenameGridModal.vue';
-import DashboardGridCard from './DashboardGridCard.vue';
+import DashboardGridCard from './dashboard/DashboardGridCard.vue';
 
 const layoutStore = useLayoutStore();
 const router = useRouter();

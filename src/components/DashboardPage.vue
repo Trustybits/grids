@@ -13,9 +13,7 @@
           You have no grids. Create one to get started!
         </div>
         <ul v-else class="grid-list">
-          <li v-if="starredLayouts.length" class="grid-section-intro">
-            <h3 class="grid-section-title">Starred</h3>
-          </li>
+
           <DashboardGridCard
             v-for="layout in starredLayouts"
             :key="layout.id"
@@ -23,12 +21,18 @@
             :is-default-grid="layout.id === defaultGridId"
             :is-starred="true"
             :split-menu-open="splitMenuOpenFor === layout.id"
+            :draggable="true"
+            :is-drag-over="dragOverStarId === layout.id"
             @toggle-star="toggleStarGrid"
             @toggle-default="toggleDefaultGrid"
             @duplicate="duplicateGrid"
             @toggle-split-menu="toggleSplitMenu"
             @rename="openRenameModal"
             @delete="confirmDeleteGrid"
+            @dragstart="onStarDragStart"
+            @dragover="onStarDragOver"
+            @drop="onStarDrop"
+            @dragend="onStarDragEnd"
           />
           <li
             v-if="starredLayouts.length && unstarredLayouts.length"
@@ -75,9 +79,10 @@ import { useLayoutStore } from '@/stores/layout';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { getUserProfile, setDefaultGrid, updateUserProfile } from '@/services/UserProfileService';
 import { getAuth } from 'firebase/auth';
+import { firestoreValueToMillis } from '@/utils/firestoreTime';
 import CreateGridModal from './CreateGridModal.vue';
 import RenameGridModal from './RenameGridModal.vue';
-import DashboardGridCard from './DashboardGridCard.vue';
+import DashboardGridCard from './dashboard/DashboardGridCard.vue';
 
 const layoutStore = useLayoutStore();
 const router = useRouter();
@@ -93,6 +98,10 @@ const showRenameModal = ref(false);
 const gridToRename = ref(null);
 const defaultGridId = ref(null);
 const starredLayoutIds = ref([]);
+const draggedStarId = ref(null);
+const dragOverStarId = ref(null);
+const draggedStarInitialOrder = ref(null);
+const starDragCommitted = ref(false);
 
 const starredSet = computed(() => new Set(starredLayoutIds.value));
 
@@ -110,7 +119,19 @@ const starredLayouts = computed(() => {
 });
 
 const unstarredLayouts = computed(() =>
-  layouts.value.filter((l) => !starredSet.value.has(l.id)),
+  [...layouts.value]
+    .filter((l) => !starredSet.value.has(l.id))
+    .sort((a, b) => {
+      const aScore =
+        firestoreValueToMillis(a.updatedAt) ||
+        firestoreValueToMillis(a.createdAt) ||
+        0;
+      const bScore =
+        firestoreValueToMillis(b.updatedAt) ||
+        firestoreValueToMillis(b.createdAt) ||
+        0;
+      return bScore - aScore;
+    }),
 );
 
 const loadUserProfile = async () => {
@@ -164,6 +185,74 @@ const toggleStarGrid = async (gridId) => {
     console.error('Error updating starred grids:', error);
     starredLayoutIds.value = prev;
   }
+};
+
+const saveStarredOrder = async (next, previous) => {
+  const user = getAuth().currentUser;
+  if (!user) {
+    starredLayoutIds.value = previous;
+    return;
+  }
+  starredLayoutIds.value = next;
+  try {
+    await updateUserProfile(user.uid, { starredLayoutIds: next });
+  } catch (error) {
+    console.error('Error updating starred grid order:', error);
+    starredLayoutIds.value = previous;
+  }
+};
+
+const areSameOrder = (a, b) =>
+  a.length === b.length && a.every((id, idx) => id === b[idx]);
+
+const onStarDragStart = (event, layoutId) => {
+  draggedStarId.value = layoutId;
+  draggedStarInitialOrder.value = [...starredLayoutIds.value];
+  starDragCommitted.value = false;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', layoutId);
+  }
+};
+
+const onStarDragOver = (event, layoutId) => {
+  if (!draggedStarId.value || draggedStarId.value === layoutId) return;
+  event.preventDefault();
+  dragOverStarId.value = layoutId;
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  const current = [...starredLayoutIds.value];
+  const fromIndex = current.indexOf(draggedStarId.value);
+  const toIndex = current.indexOf(layoutId);
+  if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+
+  current.splice(fromIndex, 1);
+  current.splice(toIndex, 0, draggedStarId.value);
+  starredLayoutIds.value = current;
+};
+
+const onStarDrop = async (event) => {
+  event.preventDefault();
+  dragOverStarId.value = null;
+  starDragCommitted.value = true;
+
+  const previous = draggedStarInitialOrder.value || [...starredLayoutIds.value];
+  const next = [...starredLayoutIds.value];
+  if (!areSameOrder(next, previous)) {
+    await saveStarredOrder(next, previous);
+  }
+};
+
+const onStarDragEnd = async () => {
+  if (!starDragCommitted.value && draggedStarInitialOrder.value) {
+    starredLayoutIds.value = [...draggedStarInitialOrder.value];
+  }
+  draggedStarId.value = null;
+  dragOverStarId.value = null;
+  draggedStarInitialOrder.value = null;
+  starDragCommitted.value = false;
 };
 
 const splitMenuOpenFor = ref(null);

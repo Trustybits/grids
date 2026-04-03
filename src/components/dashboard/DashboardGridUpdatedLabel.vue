@@ -1,5 +1,5 @@
 <template>
-  <span class="grid-updated" :title="title">{{ label }}</span>
+  <span class="grid-updated" :data-tooltip="title">{{ label }}</span>
 </template>
 
 <script setup lang="ts">

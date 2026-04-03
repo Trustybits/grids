@@ -2,9 +2,8 @@
   <div class="grid-actions">
     <button
       @click.prevent="$emit('toggle-default', layout.id)"
-      data-tooltip="Set as default grid"
+      :data-tooltip="isDefaultGrid ? 'Default grid' : 'Set as default grid'"
       :class="['action-button', 'default-grid-button', { 'is-default': isDefaultGrid }]"
-      :title="isDefaultGrid ? 'Default grid - this is what shows at your public homepage' : 'Set as default grid'"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" />
@@ -16,7 +15,6 @@
         @click.prevent="$emit('duplicate', layout, 'full')"
         data-tooltip="Duplicate grid"
         class="action-button duplicate-button split-main"
-        title="Duplicate grid (full copy)"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -26,7 +24,7 @@
       <button
         @click.prevent.stop="$emit('toggle-split-menu', layout.id)"
         class="action-button duplicate-button split-chevron"
-        title="More duplicate options"
+        data-tooltip="More duplicate options"
       >
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -45,7 +43,6 @@
       @click.prevent="$emit('rename', layout)"
       class="action-button rename-button"
       data-tooltip="Rename grid"
-      title="Rename grid"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -56,7 +53,6 @@
       @click.prevent="$emit('delete', layout)"
       data-tooltip="Delete grid"
       class="action-button delete-button"
-      title="Delete grid"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M3 6h18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />

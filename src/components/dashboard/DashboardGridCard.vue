@@ -1,5 +1,13 @@
 <template>
-  <li class="grid-card">
+  <li
+    class="grid-card"
+    :class="{ 'is-drag-over': isDragOver }"
+    :draggable="draggable"
+    @dragstart="$emit('dragstart', $event, layout.id)"
+    @dragover="$emit('dragover', $event, layout.id)"
+    @drop="$emit('drop', $event, layout.id)"
+    @dragend="$emit('dragend', $event, layout.id)"
+  >
     <router-link :to="`/grid/${layout.id}`" class="grid-link">
       <DashboardGridStarButton
         :grid-id="layout.id"
@@ -38,6 +46,8 @@ defineProps({
   isDefaultGrid: { type: Boolean, default: false },
   isStarred: { type: Boolean, default: false },
   splitMenuOpen: { type: Boolean, default: false },
+  draggable: { type: Boolean, default: false },
+  isDragOver: { type: Boolean, default: false },
 });
 
 defineEmits([
@@ -47,6 +57,10 @@ defineEmits([
   'toggle-split-menu',
   'rename',
   'delete',
+  'dragstart',
+  'dragover',
+  'drop',
+  'dragend',
 ]);
 </script>
 
@@ -101,5 +115,10 @@ defineEmits([
 .grid-link:hover .grid-arrow {
   opacity: 1;
   transform: translateX(0);
+}
+
+.grid-card.is-drag-over .grid-link {
+  outline: 1px dashed var(--color-content-default);
+  outline-offset: 2px;
 }
 </style>

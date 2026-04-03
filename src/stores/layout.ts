@@ -20,10 +20,8 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import {
-  mapFirestoreToLayout,
-  createDefaultLayout,
-} from "@/types/FirestoreMappers";
+import { mapFirestoreToLayout } from "@/dao/firestore/FirestoreUtils";
+import { createDefaultLayout } from "@/utils/LayoutUtils";
 import { auth, db } from "@/firebase";
 import { createTile, createTileContent } from "@/utils/TileUtils";
 import { useToastStore } from "@/stores/toast";
@@ -456,7 +454,7 @@ export const useLayoutStore = defineStore("layout", {
     //   'structure' → tile type/size/position only, content reset to defaults
     async duplicateLayout(
       sourceLayout: Layout,
-      copyDepth: CopyDepth = 'full',
+      copyDepth: CopyDepth = "full",
     ): Promise<string | null> {
       const userId = auth.currentUser?.uid;
       if (!userId) {
@@ -468,18 +466,22 @@ export const useLayoutStore = defineStore("layout", {
         // Deep-clone tiles so mutations don't affect the source layout.
         // Each tile gets a fresh UUID to avoid ID collisions.
         const clonedTiles = (
-          JSON.parse(JSON.stringify(sourceLayout.tiles)) as typeof sourceLayout.tiles
+          JSON.parse(
+            JSON.stringify(sourceLayout.tiles),
+          ) as typeof sourceLayout.tiles
         ).map((tile) => {
           const oldId = tile.i;
           tile.i = uuidv4();
 
-          if (copyDepth === 'structure') {
+          if (copyDepth === "structure") {
             // Structure-only: replace each tile with a SUGGESTION placeholder whose
             // action hint matches the original content type. This gives the new owner
             // useful "Add Media" / "Add Text" / etc. prompts instead of empty typed
             // tiles they can't do anything with.
             const action = contentTypeToSuggestionAction(tile.content.type);
-            tile.content = createTileContent(ContentType.SUGGESTION, { action });
+            tile.content = createTileContent(ContentType.SUGGESTION, {
+              action,
+            });
           } else {
             // Full copy: preserve content, but clear ephemeral/user-generated data
             if (tile.content.type === ContentType.CHAT) {
@@ -492,15 +494,17 @@ export const useLayoutStore = defineStore("layout", {
 
         // Rebuild breakpoint overrides with the new tile IDs so saved
         // mobile/tablet layouts carry over correctly.
-        let newOverrides: Layout['overrides'];
+        let newOverrides: Layout["overrides"];
         if (sourceLayout.overrides) {
-          newOverrides = {} as NonNullable<Layout['overrides']>;
+          newOverrides = {} as NonNullable<Layout["overrides"]>;
           // Build a mapping from old tile ID → new tile ID
           const idMap: Record<string, string> = {};
           for (const { tile, oldId } of clonedTiles) {
             idMap[oldId] = tile.i;
           }
-          for (const [bp, positions] of Object.entries(sourceLayout.overrides)) {
+          for (const [bp, positions] of Object.entries(
+            sourceLayout.overrides,
+          )) {
             if (!positions) continue;
             const remapped: Record<string, TilePosition> = {};
             for (const [oldTileId, pos] of Object.entries(positions)) {
@@ -707,7 +711,9 @@ export const useLayoutStore = defineStore("layout", {
         // After cloning, swap any blob: preview URLs with their resolved
         // Firebase URLs so we never persist temporary blob references.
         const resolvedTiles = (
-          JSON.parse(JSON.stringify(this.currentLayout.tiles)) as typeof this.currentLayout.tiles
+          JSON.parse(
+            JSON.stringify(this.currentLayout.tiles),
+          ) as typeof this.currentLayout.tiles
         ).map((tile) => {
           const src = (tile.content as any)?.src;
           if (typeof src === "string" && src.startsWith("blob:")) {
@@ -1170,7 +1176,11 @@ export const useLayoutStore = defineStore("layout", {
         // Keep displayPositions in sync so updateLayout's sync-back
         // doesn't revert the programmatic resize.
         const dp = this.displayPositions.find((p) => p.i === id);
-        if (dp) { dp.w = w; dp.h = h; dp.x = tile.x; }
+        if (dp) {
+          dp.w = w;
+          dp.h = h;
+          dp.x = tile.x;
+        }
         this.updateLayout();
         return;
       }
@@ -1258,7 +1268,11 @@ export const useLayoutStore = defineStore("layout", {
       // detached copies (e.g. after repacking out-of-bounds tiles). vue3-grid-layout
       // mutates those copies in-place during drag/resize, so the store's canonical
       // tiles can become stale. Sync the rendered positions back before saving.
-      if (this.activeBreakpoint === 'lg' && this.currentLayout && this.displayPositions.length) {
+      if (
+        this.activeBreakpoint === "lg" &&
+        this.currentLayout &&
+        this.displayPositions.length
+      ) {
         for (const pos of this.displayPositions) {
           const tile = this.currentLayout.tiles.find((t) => t.i === pos.i);
           if (tile) {

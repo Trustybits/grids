@@ -13,114 +13,61 @@
           You have no grids. Create one to get started!
         </div>
         <ul v-else class="grid-list">
-          <li
-            v-for="layout in layouts"
-            :key="layout.id"
-            class="grid-card"
-          >
-            <router-link :to="`/grid/${layout.id}`" class="grid-link">
-              <div class="grid-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                  <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                  <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                  <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                </svg>
-              </div>
-              <span class="grid-name">{{ layout.name }}
-                <svg class="grid-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </span>
 
-              <div class="grid-actions">
-              <button 
-                @click.prevent="toggleDefaultGrid(layout.id)"
-                data-tooltip="Set as default grid"
-                :class="['action-button', 'default-grid-button', { 'is-default': layout.id === defaultGridId }]"
-                :title="layout.id === defaultGridId ? 'Default grid - this is what shows at your public homepage' : 'Set as default grid'"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
-                  <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="currentColor" stroke-width="1.5"/>
-                </svg>
-              </button>
-              <!-- Split button: main click = full duplicate, chevron = structure only -->
-              <div class="split-button" @click.prevent>
-                <button 
-                  @click.prevent="duplicateGrid(layout, 'full')"
-                  data-tooltip="Duplicate grid"
-                  class="action-button duplicate-button split-main"
-                  title="Duplicate grid (full copy)"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </button>
-                <button
-                  @click.prevent.stop="toggleSplitMenu(layout.id)"
-                  class="action-button duplicate-button split-chevron"
-                  title="More duplicate options"
-                >
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </button>
-                <!-- Dropdown for structure-only option -->
-                <div v-if="splitMenuOpenFor === layout.id" class="split-dropdown">
-                  <button
-                    @click.prevent.stop="duplicateGrid(layout, 'structure')"
-                    class="split-dropdown-item"
-                  >
-                    Duplicate Structure Only
-                  </button>
-                </div>
-              </div>
-              <button 
-                @click.prevent="openRenameModal(layout)"
-                class="action-button rename-button"
-                data-tooltip="Rename grid"
-                title="Rename grid"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-              <button 
-                @click.prevent="confirmDeleteGrid(layout)"
-                data-tooltip="Delete grid"
-                class="action-button delete-button"
-                title="Delete grid"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M3 6h18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M10 11v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M14 11v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-            </div>
-            </router-link>
-          </li>
+          <DashboardGridCard
+            v-for="layout in starredLayouts"
+            :key="layout.id"
+            :layout="layout"
+            :is-default-grid="layout.id === defaultGridId"
+            :is-starred="true"
+            :split-menu-open="splitMenuOpenFor === layout.id"
+            :draggable="true"
+            :is-drag-over="dragOverStarId === layout.id"
+            @toggle-star="toggleStarGrid"
+            @toggle-default="toggleDefaultGrid"
+            @duplicate="duplicateGrid"
+            @toggle-split-menu="toggleSplitMenu"
+            @rename="openRenameModal"
+            @delete="confirmDeleteGrid"
+            @dragstart="onStarDragStart"
+            @dragover="onStarDragOver"
+            @drop="onStarDrop"
+            @dragend="onStarDragEnd"
+          />
+          <li
+            v-if="starredLayouts.length && unstarredLayouts.length"
+            class="grid-list-divider"
+            aria-hidden="true"
+          />
+          <DashboardGridCard
+            v-for="layout in unstarredLayouts"
+            :key="layout.id"
+            :layout="layout"
+            :is-default-grid="layout.id === defaultGridId"
+            :is-starred="false"
+            :split-menu-open="splitMenuOpenFor === layout.id"
+            @toggle-star="toggleStarGrid"
+            @toggle-default="toggleDefaultGrid"
+            @duplicate="duplicateGrid"
+            @toggle-split-menu="toggleSplitMenu"
+            @rename="openRenameModal"
+            @delete="confirmDeleteGrid"
+          />
         </ul>
       </div>
     </div>
 
-    <!-- Create Grid Modal -->
-    <CreateGridModal 
-      :show="showCreateModal" 
-      @close="closeModal" 
-      @create="handleCreateGrid" 
+    <CreateGridModal
+      :show="showCreateModal"
+      @close="closeModal"
+      @create="handleCreateGrid"
     />
 
-    <!-- Rename Grid Modal -->
-    <RenameGridModal 
-      :show="showRenameModal" 
+    <RenameGridModal
+      :show="showRenameModal"
       :current-name="gridToRename?.name || ''"
-      @close="closeRenameModal" 
-      @rename="handleRenameGrid" 
+      @close="closeRenameModal"
+      @rename="handleRenameGrid"
     />
   </div>
 </template>
@@ -130,15 +77,16 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLayoutStore } from '@/stores/layout';
 import { usePageTitle } from '@/composables/usePageTitle';
-import { getUserProfile, setDefaultGrid } from '@/services/UserProfileService';
+import { getUserProfile, setDefaultGrid, updateUserProfile } from '@/services/UserProfileService';
 import { getAuth } from 'firebase/auth';
+import { firestoreValueToMillis } from '@/utils/firestoreTime';
 import CreateGridModal from './CreateGridModal.vue';
 import RenameGridModal from './RenameGridModal.vue';
+import DashboardGridCard from './dashboard/DashboardGridCard.vue';
 
 const layoutStore = useLayoutStore();
 const router = useRouter();
 
-// Set page title
 const pageTitle = ref('Dashboard');
 usePageTitle(pageTitle);
 
@@ -149,8 +97,43 @@ const showCreateModal = ref(false);
 const showRenameModal = ref(false);
 const gridToRename = ref(null);
 const defaultGridId = ref(null);
+const starredLayoutIds = ref([]);
+const draggedStarId = ref(null);
+const dragOverStarId = ref(null);
+const draggedStarInitialOrder = ref(null);
+const starDragCommitted = ref(false);
 
-// Load user profile to get default grid
+const starredSet = computed(() => new Set(starredLayoutIds.value));
+
+const layoutById = computed(() => {
+  const m = new Map();
+  for (const l of layouts.value) {
+    m.set(l.id, l);
+  }
+  return m;
+});
+
+const starredLayouts = computed(() => {
+  const map = layoutById.value;
+  return starredLayoutIds.value.map((id) => map.get(id)).filter(Boolean);
+});
+
+const unstarredLayouts = computed(() =>
+  [...layouts.value]
+    .filter((l) => !starredSet.value.has(l.id))
+    .sort((a, b) => {
+      const aScore =
+        firestoreValueToMillis(a.updatedAt) ||
+        firestoreValueToMillis(a.createdAt) ||
+        0;
+      const bScore =
+        firestoreValueToMillis(b.updatedAt) ||
+        firestoreValueToMillis(b.createdAt) ||
+        0;
+      return bScore - aScore;
+    }),
+);
+
 const loadUserProfile = async () => {
   const auth = getAuth();
   const user = auth.currentUser;
@@ -159,6 +142,10 @@ const loadUserProfile = async () => {
       const profile = await getUserProfile(user.uid);
       if (profile) {
         defaultGridId.value = profile.defaultGridId || null;
+        const raw = profile.starredLayoutIds;
+        starredLayoutIds.value = Array.isArray(raw)
+          ? raw.filter((id) => typeof id === 'string')
+          : [];
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -166,14 +153,12 @@ const loadUserProfile = async () => {
   }
 };
 
-// Toggle default grid
 const toggleDefaultGrid = async (gridId) => {
   const auth = getAuth();
   const user = auth.currentUser;
   if (!user) return;
 
   try {
-    // If clicking the current default, unset it; otherwise set the new one
     const newDefaultId = defaultGridId.value === gridId ? null : gridId;
     await setDefaultGrid(user.uid, newDefaultId);
     defaultGridId.value = newDefaultId;
@@ -182,9 +167,112 @@ const toggleDefaultGrid = async (gridId) => {
   }
 };
 
+const toggleStarGrid = async (gridId) => {
+  const user = getAuth().currentUser;
+  if (!user) return;
+
+  const prev = [...starredLayoutIds.value];
+  const idx = prev.indexOf(gridId);
+  const next =
+    idx !== -1
+      ? prev.filter((id) => id !== gridId)
+      : [...prev, gridId];
+
+  starredLayoutIds.value = next;
+  try {
+    await updateUserProfile(user.uid, { starredLayoutIds: next });
+  } catch (error) {
+    console.error('Error updating starred grids:', error);
+    starredLayoutIds.value = prev;
+  }
+};
+
+const saveStarredOrder = async (next, previous) => {
+  const user = getAuth().currentUser;
+  if (!user) {
+    starredLayoutIds.value = previous;
+    return;
+  }
+  starredLayoutIds.value = next;
+  try {
+    await updateUserProfile(user.uid, { starredLayoutIds: next });
+  } catch (error) {
+    console.error('Error updating starred grid order:', error);
+    starredLayoutIds.value = previous;
+  }
+};
+
+const areSameOrder = (a, b) =>
+  a.length === b.length && a.every((id, idx) => id === b[idx]);
+
+const onStarDragStart = (event, layoutId) => {
+  draggedStarId.value = layoutId;
+  draggedStarInitialOrder.value = [...starredLayoutIds.value];
+  starDragCommitted.value = false;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', layoutId);
+  }
+};
+
+const onStarDragOver = (event, layoutId) => {
+  if (!draggedStarId.value || draggedStarId.value === layoutId) return;
+  event.preventDefault();
+  dragOverStarId.value = layoutId;
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  const current = [...starredLayoutIds.value];
+  const fromIndex = current.indexOf(draggedStarId.value);
+  const toIndex = current.indexOf(layoutId);
+  if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+
+  current.splice(fromIndex, 1);
+  current.splice(toIndex, 0, draggedStarId.value);
+  starredLayoutIds.value = current;
+};
+
+const onStarDrop = async (event) => {
+  event.preventDefault();
+  dragOverStarId.value = null;
+  starDragCommitted.value = true;
+
+  const previous = draggedStarInitialOrder.value || [...starredLayoutIds.value];
+  const next = [...starredLayoutIds.value];
+  if (!areSameOrder(next, previous)) {
+    await saveStarredOrder(next, previous);
+  }
+};
+
+const onStarDragEnd = async () => {
+  if (!starDragCommitted.value && draggedStarInitialOrder.value) {
+    starredLayoutIds.value = [...draggedStarInitialOrder.value];
+  }
+  draggedStarId.value = null;
+  dragOverStarId.value = null;
+  draggedStarInitialOrder.value = null;
+  starDragCommitted.value = false;
+};
+
+const splitMenuOpenFor = ref(null);
+
+const toggleSplitMenu = (layoutId) => {
+  splitMenuOpenFor.value = splitMenuOpenFor.value === layoutId ? null : layoutId;
+};
+
+const closeSplitMenu = () => {
+  splitMenuOpenFor.value = null;
+};
+
 onMounted(() => {
   layoutStore.fetchLayouts();
   loadUserProfile();
+  document.addEventListener('click', closeSplitMenu);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeSplitMenu);
 });
 
 const promptAndCreateLayout = () => {
@@ -210,22 +298,19 @@ const handleCreateGrid = async (name) => {
   }
 };
 
-// Open rename modal for a specific grid
 const openRenameModal = (layout) => {
   gridToRename.value = layout;
   showRenameModal.value = true;
 };
 
-// Close rename modal
 const closeRenameModal = () => {
   showRenameModal.value = false;
   gridToRename.value = null;
 };
 
-// Handle renaming a grid
 const handleRenameGrid = async (newName) => {
   if (!gridToRename.value) return;
-  
+
   try {
     await layoutStore.renameLayout(gridToRename.value.id, newName);
     closeRenameModal();
@@ -235,20 +320,6 @@ const handleRenameGrid = async (newName) => {
   }
 };
 
-// Split-button dropdown state: tracks which grid card's dropdown is open
-const splitMenuOpenFor = ref(null);
-
-const toggleSplitMenu = (layoutId) => {
-  splitMenuOpenFor.value = splitMenuOpenFor.value === layoutId ? null : layoutId;
-};
-
-// Close split menu when clicking anywhere outside
-const closeSplitMenu = () => { splitMenuOpenFor.value = null; };
-onMounted(() => document.addEventListener('click', closeSplitMenu));
-onUnmounted(() => document.removeEventListener('click', closeSplitMenu));
-
-// Duplicate a grid and navigate to the new copy.
-// copyDepth controls how much tile content is carried over.
 const duplicateGrid = async (layout, copyDepth = 'full') => {
   splitMenuOpenFor.value = null;
   try {
@@ -262,15 +333,27 @@ const duplicateGrid = async (layout, copyDepth = 'full') => {
   }
 };
 
-// Confirm and delete a grid
+const persistStarredAfterDelete = async (deletedId) => {
+  const user = getAuth().currentUser;
+  if (!user) return;
+  const next = starredLayoutIds.value.filter((id) => id !== deletedId);
+  if (next.length === starredLayoutIds.value.length) return;
+  starredLayoutIds.value = next;
+  try {
+    await updateUserProfile(user.uid, { starredLayoutIds: next });
+  } catch (error) {
+    console.error('Error updating starred grids after delete:', error);
+  }
+};
+
 const confirmDeleteGrid = async (layout) => {
   const confirmed = confirm(`Are you sure you want to delete "${layout.name}"? This action cannot be undone.`);
   if (!confirmed) return;
 
   try {
     await layoutStore.deleteLayout(layout.id);
-    
-    // If the deleted grid was the default, clear the default
+    await persistStarredAfterDelete(layout.id);
+
     if (defaultGridId.value === layout.id) {
       const auth = getAuth();
       const user = auth.currentUser;
@@ -284,7 +367,6 @@ const confirmDeleteGrid = async (layout) => {
     alert('Failed to delete grid. Please try again.');
   }
 };
-
 </script>
 
 <style scoped>
@@ -369,210 +451,31 @@ h1 {
   margin: 0;
 }
 
-.grid-card {
+.grid-section-intro {
   list-style: none;
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.grid-link {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md);
-  background-color: var(--color-content-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-md);
-  text-decoration: none;
-  color: var(--color-text-primary);
-  transition: all var(--duration-normal) var(--easing-smooth);
-  cursor: pointer;
-  flex: 1;
-}
-
-.grid-link:hover {
-  background-color: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  /* border-color: var(--color-content-default); */
-}
-
-.grid-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  /* background-color: var(--color-content-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-sm); */
-  color: var(--color-content-low);
-  flex-shrink: 0;
-  transition: all var(--duration-fast) var(--easing-smooth);
-}
-
-.grid-link:hover .grid-icon {
-  background-color: var(--color-base-8);
-  border-color: var(--color-content-default);
-  color: var(--color-text-primary);
-}
-
-.grid-name {
-  flex: 1;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-}
-
-.grid-arrow {
-  margin-left: var(--spacing-sm);
-  color: var(--color-content-default);
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: all var(--duration-fast) var(--easing-smooth);
-  flex-shrink: 0;
-}
-
-.grid-link:hover .grid-arrow {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.grid-actions {
-  display: flex;
-  gap: var(--spacing-xs);
-  flex-shrink: 0;
-}
-
-.action-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background-color: transparent;
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--easing-smooth);
+  margin: var(--spacing-md) 0 var(--spacing-xs);
   padding: 0;
 }
 
-.default-grid-button {
-  color: var(--color-content-default);
-  border: none;
-  opacity: 0.4;
+.grid-section-intro:first-child {
+  margin-top: 0;
 }
 
-.default-grid-button:hover {
-  opacity: 0.7;
-  color: var(--color-text-primary);
-}
-
-.default-grid-button.is-default {
-  color: #22c55e;
-  opacity: 1;
-  /* background-color: rgba(34, 197, 94, 0.1); */
-  /* border-color: rgba(34, 197, 94, 0.3);
-  box-shadow: 0 0 12px rgba(34, 197, 94, 0.4); */
-}
-
-/* .default-grid-button.is-default:hover {
-  background-color: rgba(34, 197, 94, 0.15);
-  box-shadow: 0 0 16px rgba(34, 197, 94, 0.5);
-} */
-
-/* Split button container for duplicate actions */
-.split-button {
-  position: relative;
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-}
-
-/* Duplicate button styling (shared by both halves of the split button) */
-.duplicate-button {
-  color: var(--color-content-default);
-  border: none;
-  opacity: 0.4;
-}
-
-.duplicate-button:hover {
-  opacity: 0.7;
-  color: var(--color-text-primary);
-}
-
-/* Main (left) half of the split button — standard icon area */
-.split-main {
-  padding-right: 2px;
-}
-
-/* Chevron (right) half — smaller hit area */
-.split-chevron {
-  padding: 0 2px;
-  margin-left: -8px;
-  width: 14px !important;
-  min-width: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Dropdown that appears below the split button */
-.split-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
-  background: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-lg);
-  z-index: 10;
-  min-width: 140px;
-  padding: 4px;
-}
-
-.split-dropdown-item {
-  display: block;
-  width: 100%;
-  padding: 6px 10px;
-  text-align: left;
-  background: none;
-  border: none;
-  color: var(--color-text-primary);
+.grid-section-title {
   font-size: var(--font-size-sm);
-  font-family: var(--font-family-base);
-  border-radius: var(--radius-xs);
-  cursor: pointer;
-  white-space: nowrap;
-
-  &:hover {
-    background: var(--color-base-34);
-  }
-}
-
-/* Rename button styling */
-.rename-button {
+  font-weight: var(--font-weight-semibold);
   color: var(--color-content-default);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.grid-list-divider {
+  list-style: none;
+  margin: var(--spacing-lg) 0;
+  padding: 0;
+  min-height: 1px;
+  background: var(--color-tile-stroke);
   border: none;
-  opacity: 0.4;
-}
-
-.rename-button:hover {
-  opacity: 0.7;
-  color: var(--color-text-primary);
-}
-
-/* Delete button styling */
-.delete-button {
-  color: var(--color-content-default);
-  border: none;
-  opacity: 0.4;
-}
-
-.delete-button:hover {
-  opacity: 1;
-  color: #ef4444;
 }
 </style>

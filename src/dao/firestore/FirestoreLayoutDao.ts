@@ -1,7 +1,14 @@
+import type { Firestore } from "firebase/firestore";
 import type { Layout } from "@/types/Layout";
 import type { LayoutDao } from "../interfaces/LayoutDao";
 
 export class FirestoreLayoutDao implements LayoutDao {
+  private db: Firestore;
+
+  public constructor(db: Firestore) {
+    this.db = db;
+  }
+
   public getById(_id: string): Promise<Layout | null> {
     throw new Error("FirestoreLayoutDao.getById not implemented");
   }

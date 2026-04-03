@@ -1,6 +1,13 @@
+import type { Firestore } from "firebase/firestore";
 import type { UserGameDataDao } from "../interfaces/UserGameDataDao";
 
 export class FirestoreUserGameDataDao implements UserGameDataDao {
+  private db: Firestore;
+
+  public constructor(db: Firestore) {
+    this.db = db;
+  }
+
   public getById(_userId: string): Promise<Record<string, unknown> | null> {
     throw new Error("FirestoreUserGameDataDao.getById not implemented");
   }

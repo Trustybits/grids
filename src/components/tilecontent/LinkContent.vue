@@ -127,7 +127,7 @@
           Add a title
         </div>
         <div
-          class="tile-field-wrap tile-field-wrap--title"
+          class="tile-field-wrap tile-field-wrap--title scrollable-thin"
           :class="{
             'is-visible': isEditing || !!displayTitle,
             'has-overflow': !isEditing,
@@ -144,7 +144,7 @@
           ></textarea>
         </div>
         <div
-          class="tile-field-wrap tile-field-wrap--description"
+          class="tile-field-wrap tile-field-wrap--description scrollable-thin"
           :class="{
             'is-visible': isEditing || !!displayDescription,
             'has-overflow': !isEditing,
@@ -188,36 +188,6 @@
       @change.stop="onCustomImageSelected"
     />
 
-    <div
-      v-if="layoutStore.canEdit && showUrlInput"
-      class="link-url-input"
-      @mousedown.stop
-    >
-      <span class="link-url-label">Image URL</span>
-      <input
-        v-model="draftImageUrl"
-        class="link-url-field"
-        type="url"
-        placeholder="https://example.com/image.jpg"
-        aria-label="Image URL"
-        @keydown.enter.prevent="applyImageUrl"
-        @keydown.escape.stop.prevent="cancelUrlInput"
-      />
-      <p v-if="urlError" class="link-url-error">{{ urlError }}</p>
-      <div class="link-url-actions">
-        <button type="button" class="link-url-btn" @click.stop="applyImageUrl">
-          Save
-        </button>
-        <button
-          type="button"
-          class="link-url-btn link-url-btn--ghost"
-          @click.stop="cancelUrlInput"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-
     <teleport to="body">
       <div
         v-if="layoutStore.canEdit && showContextMenu"
@@ -241,7 +211,7 @@
           Use image URL
         </button>
         <button
-          v-if="content.customImageUrl"
+          v-if="content.customImageUrl || content.metaImageUrl"
           type="button"
           class="link-context-menu-item link-context-menu-item--danger"
           @click.stop="handleContextRemove"
@@ -268,7 +238,6 @@ import {
 
 import { type LinkContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
-import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
@@ -323,9 +292,6 @@ export default defineComponent({
     const showContextMenu = ref(false);
     const contextMenuPosition = ref({ x: 0, y: 0 });
     const isDragOver = ref(false);
-    const showUrlInput = ref(false);
-    const draftImageUrl = ref("");
-    const urlError = ref("");
     const { uploadFileToUrl } = useFileUpload();
 
     const formatLink = (link: string) => {
@@ -514,52 +480,14 @@ export default defineComponent({
       showContextMenu.value = false;
     };
 
-    const openUrlInput = () => {
+    const applyImageUrlFromToolbar = (normalizedUrl: string) => {
       if (!layoutStore.canEdit) return;
-      draftImageUrl.value = props.content.customImageUrl || "";
-      urlError.value = "";
-      showUrlInput.value = true;
-      closeContextMenu();
-    };
-
-    const cancelUrlInput = () => {
-      showUrlInput.value = false;
-      urlError.value = "";
-    };
-
-    const normalizeImageUrl = (value: string) => {
-      const trimmed = value.trim();
-      if (!trimmed) return "";
-      const normalized =
-        trimmed.startsWith("http://") || trimmed.startsWith("https://")
-          ? trimmed
-          : `https://${trimmed}`;
-      try {
-        new URL(normalized);
-        return normalized;
-      } catch {
-        return "";
+      props.content.customImageUrl = normalizedUrl;
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { customImageUrl: normalizedUrl });
+      } else {
+        layoutStore.saveLayout();
       }
-    };
-
-    const applyImageUrl = () => {
-      if (!layoutStore.canEdit) return;
-      const normalized = normalizeImageUrl(draftImageUrl.value);
-      if (!normalized) {
-        urlError.value = "Enter a valid URL.";
-        return;
-      }
-      if (!isDirectImageUrl(normalized)) {
-        urlError.value =
-          "Only direct image URLs are supported (png, jpg, gif, webp, svg).";
-        return;
-      }
-
-      props.content.customImageUrl = normalized;
-      layoutStore.saveLayout();
-      showUrlInput.value = false;
-      urlError.value = "";
-      closeContextMenu();
     };
 
     const openCustomImagePicker = () => {
@@ -567,12 +495,26 @@ export default defineComponent({
       customImageInput.value?.click();
     };
 
-    const removeCustomImage = () => {
+    const removeImage = () => {
       if (!layoutStore.canEdit) return;
-      props.content.customImageUrl = undefined;
-      layoutStore.saveLayout();
+
+      let changes = {};
+
+      if (props.content.customImageUrl !== undefined) {
+        props.content.customImageUrl = undefined;
+        changes = { customImageUrl: undefined };
+      } else {
+        props.content.metaImageUrl = undefined;
+        changes = { metaImageUrl: undefined };
+      }
+
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, changes);
+      } else {
+        layoutStore.saveLayout();
+      }
+
       closeContextMenu();
-      showUrlInput.value = false;
     };
 
     const uploadCustomImage = async (file: File) => {
@@ -586,7 +528,11 @@ export default defineComponent({
       try {
         const url = await uploadFileToUrl(file, { fileType: "images" });
         props.content.customImageUrl = url;
-        layoutStore.saveLayout();
+        if (tileId) {
+          layoutStore.patchTileContent(tileId, { customImageUrl: url });
+        } else {
+          layoutStore.saveLayout();
+        }
       } catch (error: any) {
         console.error("Link tile image upload failed:", error);
         alert(error.message || "Failed to upload image. Please try again.");
@@ -692,12 +638,15 @@ export default defineComponent({
     };
 
     const handleContextUseUrl = () => {
-      openUrlInput();
+      closeContextMenu();
+      if (tileId) {
+        layoutStore.setPanelActive(tileId, "imageUrl");
+      }
     };
 
     const handleContextRemove = () => {
       closeContextMenu();
-      removeCustomImage();
+      removeImage();
     };
 
     const handleDocumentClick = (event: MouseEvent) => {
@@ -908,14 +857,9 @@ export default defineComponent({
       contextMenuRef,
       showContextMenu,
       isDragOver,
-      showUrlInput,
-      draftImageUrl,
-      urlError,
       openCustomImagePicker,
-      openUrlInput,
-      cancelUrlInput,
-      applyImageUrl,
-      removeCustomImage,
+      applyImageUrlFromToolbar,
+      removeImage,
       onCustomImageSelected,
       onDragEnter,
       onDragOver,
@@ -1009,6 +953,7 @@ export default defineComponent({
   gap: var(--spacing-md);
   width: 100%;
   height: 100%;
+  min-height: 0;
 }
 
 .tile-header {
@@ -1145,6 +1090,8 @@ export default defineComponent({
   margin-left: -8px;
   margin-bottom: -4px;
   overflow: hidden;
+  min-height: 0;
+  margin-top: auto;
 }
 
 .link-tile-content.is-owner .tile-details {
@@ -1263,23 +1210,21 @@ export default defineComponent({
 /* ── Title wrapper ── */
 
 .tile-field-wrap--title {
-  flex-shrink: 1;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
 .tile-field-wrap--title.is-visible {
-  max-height: 48px;
-  padding: 6px 6px;
+  max-height: none;
+  min-height: 28px;
+  padding: 4px 6px;
+  padding-top: 6px;
 }
 
 .tile-details.is-editing .tile-field-wrap--title.is-visible {
-  max-height: 48px;
+  max-height: none;
   overflow-y: auto;
-  scrollbar-color: var(--color-border) transparent;
-  scrollbar-width: thin;
   overscroll-behavior: contain;
-  touch-action: pan-y;
-  scroll-behavior: smooth;
 }
 
 /* ── Title field ── */
@@ -1288,6 +1233,9 @@ export default defineComponent({
   font-size: 16px;
   font-weight: 600;
   line-height: 1.25;
+  padding: 0;
+  margin: 0;
+  border: none;
 }
 
 /* Wide variant (separate <p> in header) */
@@ -1321,23 +1269,20 @@ export default defineComponent({
 /* ── Description wrapper ── */
 
 .tile-field-wrap--description {
-  flex-shrink: 1;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
 .tile-field-wrap--description.is-visible {
-  max-height: 40px;
-  padding: 6px 6px;
+  max-height: none;
+  min-height: 28px;
+  padding: 4px 6px;
 }
 
 .tile-details.is-editing .tile-field-wrap--description.is-visible {
-  max-height: 40px;
-  overflow-y: scroll;
-  scrollbar-color: var(--color-border) transparent;
-  scrollbar-width: thin;
+  max-height: none;
+  overflow-y: auto;
   overscroll-behavior: contain;
-  touch-action: pan-y;
-  scroll-behavior: smooth;
 }
 
 /* ── Description field ── */
@@ -1345,18 +1290,22 @@ export default defineComponent({
 .tile-field--description {
   font-size: 12px;
   line-height: 16px;
-  /* color: color-mix(in srgb, var(--tile-text-color) 65%, transparent); */
   color: var(--tile-text-color);
+  padding: 0;
+  margin: 0;
+  border: none;
 }
 
 /* ── Subtitle wrapper ── */
 
 .tile-field-wrap--subtitle {
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  min-height: 0;
 }
 
 .tile-field-wrap--subtitle.is-visible {
   max-height: 32px;
+  min-height: 24px;
   padding: 4px 6px;
 }
 

@@ -1175,11 +1175,15 @@ export default defineComponent({
   pointer-events: auto;
 }
 
-/* Show search panel when toolbar is visible */
+/* Show search panel and image URL panel when toolbar is visible */
 .tile-wrapper:hover :deep(.toolbar-search-panel),
 .tile-wrapper.is-activated :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-active :deep(.toolbar-search-panel),
-.tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel) {
+.tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel),
+.tile-wrapper:hover :deep(.toolbar-image-url-panel),
+.tile-wrapper.is-activated :deep(.toolbar-image-url-panel),
+.tile-wrapper.crop-mode-active :deep(.toolbar-image-url-panel),
+.tile-wrapper.crop-mode-exiting :deep(.toolbar-image-url-panel) {
   pointer-events: auto;
 }
 
@@ -1211,8 +1215,10 @@ export default defineComponent({
 /* Hide toolbar when tile is exiting or being dragged */
 .tile-wrapper.is-exiting :deep(.tile-toolbar),
 .tile-wrapper.is-exiting :deep(.toolbar-search-panel),
+.tile-wrapper.is-exiting :deep(.toolbar-image-url-panel),
 .tile-wrapper.is-dragging :deep(.tile-toolbar),
-.tile-wrapper.is-dragging :deep(.toolbar-search-panel) {
+.tile-wrapper.is-dragging :deep(.toolbar-search-panel),
+.tile-wrapper.is-dragging :deep(.toolbar-image-url-panel) {
   opacity: 0;
   transform: translate(-50%, calc(100% + 10px)) scale(0.9);
   pointer-events: none;

@@ -111,9 +111,17 @@
           <component :is="headerComponent" :content="tile.content" />
         </div>
 
-        <p v-if="layoutStore.showMetaData" class="meta-data">
-          {{ `x: ${tile.x}, y: ${tile.y} w: ${tile.w} h: ${tile.h}` }}
-        </p>
+        <div v-if="layoutStore.showMetaData" class="meta-data">
+          <p class="meta-data__compact">{{ compactMetadata }}</p>
+          <p
+            v-if="layoutStore.showMetaDataVerbose"
+            class="meta-data__verbose"
+            v-for="line in verboseMetadataLines"
+            :key="line"
+          >
+            {{ line }}
+          </p>
+        </div>
 
         <div
           v-if="layoutStore.canEdit && !isSuggestion"
@@ -474,9 +482,12 @@ export default defineComponent({
           layoutStore.setTileContent(props.tile.i, linkContent);
           (async () => {
             try {
+              const url = ((linkContent as any).link || "").trim();
+              if (/^(mailto|tel):/i.test(url)) return;
+
               const getLinkPreview = httpsCallable(functions, "getLinkPreview");
               const result = await getLinkPreview({
-                url: (linkContent as any).link,
+                url,
               });
               const data = result.data as any;
 
@@ -695,6 +706,67 @@ export default defineComponent({
       return linkBackgroundEnabled.value ? borderEnabled.value : true;
     });
 
+    const compactMetadata = computed(() => {
+      return [
+        `type: ${props.tile.content.type}`,
+        `x: ${props.tile.x}`,
+        `y: ${props.tile.y}`,
+        `w: ${props.tile.w}`,
+        `h: ${props.tile.h}`,
+        `id: ${props.tile.i}`,
+      ].join(" | ");
+    });
+
+    const typeSpecificMeta = computed(() => {
+      const content = props.tile.content as any;
+      switch (props.tile.content.type) {
+        case ContentType.TEXT: {
+          const rawText = typeof content.text === "string" ? content.text : "";
+          return `textChars: ${rawText.length}`;
+        }
+        case ContentType.IMAGE:
+        case ContentType.VIDEO: {
+          const hasSrc =
+            typeof content.src === "string" && content.src.trim().length > 0;
+          return `hasMediaSrc: ${hasSrc ? "yes" : "no"} | zoom: ${content.zoom ?? "n/a"}`;
+        }
+        case ContentType.LINK: {
+          const rawLink = typeof content.link === "string" ? content.link : "";
+          let domain = "n/a";
+          if (rawLink) {
+            try {
+              domain = new URL(rawLink).hostname || "n/a";
+            } catch {
+              domain = "invalid";
+            }
+          }
+          return `urlSet: ${rawLink ? "yes" : "no"} | domain: ${domain}`;
+        }
+        case ContentType.SUGGESTION:
+          return `suggestionAction: ${content.action ?? "n/a"} | label: ${content.label ?? "n/a"}`;
+        case ContentType.MAP:
+          return `zoom: ${content.zoom ?? "n/a"} | marker: ${content.marker ? "yes" : "no"}`;
+        case ContentType.CHAT:
+          return `messages: ${Array.isArray(content.messages) ? content.messages.length : 0}`;
+        default:
+          return "typeSpecific: n/a";
+      }
+    });
+
+    const verboseMetadataLines = computed(() => {
+      const caption = props.tile.caption?.trim();
+      const cookieValue = layoutStore.getCookieValue("showMetaData");
+      const verboseCookieValue = layoutStore.getCookieValue("showMetaDataVerbose");
+      return [
+        `caption: ${caption ? caption.slice(0, 40) : "n/a"}`,
+        `borderEnabled: ${borderEnabled.value ? "true" : "false"} | draggable: ${isTileDraggable.value ? "true" : "false"} | resizable: ${isTileResizable.value ? "true" : "false"}`,
+        `breakpoint: ${layoutStore.activeBreakpoint} | canEdit: ${layoutStore.canEdit ? "true" : "false"} | isOwner: ${layoutStore.isOwner ? "true" : "false"}`,
+        `displaySource: ${layoutStore.activeBreakpoint === "lg" ? "tileBase" : "breakpointOverrideOrDisplay"}`,
+        `cookie(meta): ${cookieValue ?? "unset"} | cookie(verbose): ${verboseCookieValue ?? "unset"}`,
+        typeSpecificMeta.value,
+      ];
+    });
+
     const toolbarRefs = { childComponent, isEditing, isExitingCropMode };
 
     // Re-load the dynamic component whenever the content type changes
@@ -763,6 +835,8 @@ export default defineComponent({
       showCaption,
       borderVisible,
       linkBackgroundEnabled,
+      compactMetadata,
+      verboseMetadataLines,
       contentBackgroundColor,
       contentTextColor,
       onContentBackgroundColorChange,
@@ -979,6 +1053,31 @@ export default defineComponent({
   font-size: 10px;
   left: 10px;
   top: 10px;
+  z-index: 6;
+  pointer-events: none;
+  max-width: calc(100% - 20px);
+  color: var(--color-text-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  padding: 8px 8px 16px 8px;
+  border-radius: 16px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-tile-background) 88%, transparent) 0%,
+    color-mix(in srgb, var(--color-tile-background) 72%, transparent) 55%,
+    transparent 100%
+  );
+  backdrop-filter: blur(1.5px);
+}
+
+.meta-data__compact,
+.meta-data__verbose {
+  margin: 0;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.meta-data__verbose {
+  opacity: 0.9;
 }
 
 /* Customizable Header Styles */
@@ -1076,11 +1175,15 @@ export default defineComponent({
   pointer-events: auto;
 }
 
-/* Show search panel when toolbar is visible */
+/* Show search panel and image URL panel when toolbar is visible */
 .tile-wrapper:hover :deep(.toolbar-search-panel),
 .tile-wrapper.is-activated :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-active :deep(.toolbar-search-panel),
-.tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel) {
+.tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel),
+.tile-wrapper:hover :deep(.toolbar-image-url-panel),
+.tile-wrapper.is-activated :deep(.toolbar-image-url-panel),
+.tile-wrapper.crop-mode-active :deep(.toolbar-image-url-panel),
+.tile-wrapper.crop-mode-exiting :deep(.toolbar-image-url-panel) {
   pointer-events: auto;
 }
 
@@ -1112,8 +1215,10 @@ export default defineComponent({
 /* Hide toolbar when tile is exiting or being dragged */
 .tile-wrapper.is-exiting :deep(.tile-toolbar),
 .tile-wrapper.is-exiting :deep(.toolbar-search-panel),
+.tile-wrapper.is-exiting :deep(.toolbar-image-url-panel),
 .tile-wrapper.is-dragging :deep(.tile-toolbar),
-.tile-wrapper.is-dragging :deep(.toolbar-search-panel) {
+.tile-wrapper.is-dragging :deep(.toolbar-search-panel),
+.tile-wrapper.is-dragging :deep(.toolbar-image-url-panel) {
   opacity: 0;
   transform: translate(-50%, calc(100% + 10px)) scale(0.9);
   pointer-events: none;

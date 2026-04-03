@@ -1,6 +1,13 @@
+import type { Firestore } from "firebase/firestore";
 import type { ChatDao } from "../interfaces/ChatDao";
 
 export class FirestoreChatDao implements ChatDao {
+  private db: Firestore;
+
+  public constructor(db: Firestore) {
+    this.db = db;
+  }
+
   public subscribeToMessages(
     _layoutId: string,
     _tileId: string,

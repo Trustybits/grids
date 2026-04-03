@@ -179,9 +179,14 @@ export default {
     const handleAddLink = (link: string) => {
       closeLinkModal();
       
+      const trimmed = (link || "").trim();
+      const isNonWebLink = /^(mailto|tel):/i.test(trimmed);
+
       // Check if this URL should be a special content type (YouTube, image, video, etc.)
       // instead of a generic link tile
-      const detectedContent = createTileContentFromEmbedUrl(link);
+      const detectedContent = isNonWebLink
+        ? createTileContent(ContentType.LINK, { link: trimmed })
+        : createTileContentFromEmbedUrl(trimmed);
       
       // If it's detected as YouTube, image, or video, use that specialized type
       if (detectedContent.type === ContentType.YOUTUBE || 
@@ -192,14 +197,17 @@ export default {
       }
       
       // Otherwise, create a link tile with preview
-      const linkContent = createTileContent(ContentType.LINK, { link });
+      const linkContent = createTileContent(ContentType.LINK, { link: trimmed });
       const tileId = layoutStore.addTile(linkContent);
 
       if (tileId) {
         (async () => {
           try {
+            const url = ((linkContent as any).link || "").trim();
+            if (/^(mailto|tel):/i.test(url)) return;
+
             const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-            const result = await getLinkPreview({ url: (linkContent as any).link });
+            const result = await getLinkPreview({ url });
             const data = result.data as any;
 
             layoutStore.patchTileContent(tileId, {

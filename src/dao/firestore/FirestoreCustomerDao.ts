@@ -1,6 +1,13 @@
+import type { Firestore } from "firebase/firestore";
 import type { CustomerDao } from "../interfaces/CustomerDao";
 
 export class FirestoreCustomerDao implements CustomerDao {
+  private db: Firestore;
+
+  public constructor(db: Firestore) {
+    this.db = db;
+  }
+
   public createCheckoutSession(
     _userId: string,
     _config: Record<string, unknown>,

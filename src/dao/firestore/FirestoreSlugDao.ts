@@ -1,6 +1,13 @@
+import type { Firestore } from "firebase/firestore";
 import type { SlugDao } from "../interfaces/SlugDao";
 
 export class FirestoreSlugDao implements SlugDao {
+  private db: Firestore;
+
+  public constructor(db: Firestore) {
+    this.db = db;
+  }
+
   public getBySlug(_slug: string): Promise<Record<string, unknown> | null> {
     throw new Error("FirestoreSlugDao.getBySlug not implemented");
   }

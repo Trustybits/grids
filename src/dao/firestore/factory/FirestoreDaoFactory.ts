@@ -1,3 +1,4 @@
+import { db } from "@/firebase";
 import type { ChatDao } from "@/dao/interfaces/ChatDao";
 import type { CustomerDao } from "@/dao/interfaces/CustomerDao";
 import type { DaoFactory } from "@/dao/interfaces/factory/DaoFactory";
@@ -14,7 +15,7 @@ import { FirestoreUpvoteDao } from "../FirestoreUpvoteDao";
 import { FirestoreUserDao } from "../FirestoreUserDao";
 import { FirestoreUserGameDataDao } from "../FirestoreUserGameDataDao";
 
-class FirestoreDaoFactory implements DaoFactory {
+export class FirestoreDaoFactory implements DaoFactory {
   private chatDao: ChatDao;
   private customerDao: CustomerDao;
   private layoutDao: LayoutDao;
@@ -22,17 +23,17 @@ class FirestoreDaoFactory implements DaoFactory {
   private upvoteDao: UpvoteDao;
   private userDao: UserDao;
   private userGameDataDao: UserGameDataDao;
-  
+
   public constructor() {
-    this.chatDao = new FirestoreChatDao();
-    this.customerDao = new FirestoreCustomerDao();
-    this.layoutDao = new FirestoreLayoutDao();
-    this.slugDao = new FirestoreSlugDao();
-    this.upvoteDao = new FirestoreUpvoteDao();
-    this.userDao = new FirestoreUserDao();
-    this.userGameDataDao = new FirestoreUserGameDataDao();
+    this.chatDao = new FirestoreChatDao(db);
+    this.customerDao = new FirestoreCustomerDao(db);
+    this.layoutDao = new FirestoreLayoutDao(db);
+    this.slugDao = new FirestoreSlugDao(db);
+    this.upvoteDao = new FirestoreUpvoteDao(db);
+    this.userDao = new FirestoreUserDao(db);
+    this.userGameDataDao = new FirestoreUserGameDataDao(db);
   }
-  
+
   public getLayoutDao(): LayoutDao {
     return this.layoutDao;
   }

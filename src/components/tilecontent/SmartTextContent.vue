@@ -70,6 +70,114 @@
       </button>
     </div>
   </Teleport>
+  <Teleport to="body">
+    <div
+      v-if="showTableToolbar"
+      class="table-toolbar"
+      :style="{
+        top: `${tableToolbarPosition.top}px`,
+        left: `${tableToolbarPosition.left}px`,
+      }"
+    >
+      <div class="table-toolbar-group">
+        <button
+          type="button"
+          class="table-toolbar-btn"
+          title="Add column before"
+          @mousedown.prevent
+          @click="tableCmd((e) => e.chain().focus().addColumnBefore().run())"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="2" width="14" height="12" rx="1.5" />
+            <line x1="6" y1="2" x2="6" y2="14" />
+            <line x1="2" y1="5.5" x2="4" y2="5.5" /><line x1="3" y1="4.5" x2="3" y2="6.5" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="table-toolbar-btn"
+          title="Add column after"
+          @mousedown.prevent
+          @click="tableCmd((e) => e.chain().focus().addColumnAfter().run())"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="2" width="14" height="12" rx="1.5" />
+            <line x1="10" y1="2" x2="10" y2="14" />
+            <line x1="12" y1="5.5" x2="14" y2="5.5" /><line x1="13" y1="4.5" x2="13" y2="6.5" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="table-toolbar-btn table-toolbar-btn--danger"
+          title="Delete column"
+          @mousedown.prevent
+          @click="tableCmd((e) => e.chain().focus().deleteColumn().run())"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="2" width="14" height="12" rx="1.5" />
+            <line x1="6" y1="2" x2="6" y2="14" />
+            <line x1="2" y1="5" x2="4.5" y2="7" /><line x1="4.5" y1="5" x2="2" y2="7" />
+          </svg>
+        </button>
+      </div>
+      <span class="table-toolbar-sep" />
+      <div class="table-toolbar-group">
+        <button
+          type="button"
+          class="table-toolbar-btn"
+          title="Add row above"
+          @mousedown.prevent
+          @click="tableCmd((e) => e.chain().focus().addRowBefore().run())"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="2" width="14" height="12" rx="1.5" />
+            <line x1="1" y1="7" x2="15" y2="7" />
+            <line x1="5.5" y1="3" x2="5.5" y2="5" /><line x1="4.5" y1="4" x2="6.5" y2="4" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="table-toolbar-btn"
+          title="Add row below"
+          @mousedown.prevent
+          @click="tableCmd((e) => e.chain().focus().addRowAfter().run())"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="2" width="14" height="12" rx="1.5" />
+            <line x1="1" y1="9" x2="15" y2="9" />
+            <line x1="5.5" y1="11" x2="5.5" y2="13" /><line x1="4.5" y1="12" x2="6.5" y2="12" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="table-toolbar-btn table-toolbar-btn--danger"
+          title="Delete row"
+          @mousedown.prevent
+          @click="tableCmd((e) => e.chain().focus().deleteRow().run())"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="2" width="14" height="12" rx="1.5" />
+            <line x1="1" y1="7" x2="15" y2="7" />
+            <line x1="4" y1="3.5" x2="6.5" y2="5.5" /><line x1="6.5" y1="3.5" x2="4" y2="5.5" />
+          </svg>
+        </button>
+      </div>
+      <span class="table-toolbar-sep" />
+      <button
+        type="button"
+        class="table-toolbar-btn table-toolbar-btn--danger"
+        title="Delete table"
+        @mousedown.prevent
+        @click="tableCmd((e) => e.chain().focus().deleteTable().run()); showTableToolbar = false"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M3 4h10l-.75 9.25a1 1 0 01-1 .75H4.75a1 1 0 01-1-.75L3 4z" />
+          <line x1="1.5" y1="4" x2="14.5" y2="4" />
+          <line x1="6" y1="2" x2="10" y2="2" />
+        </svg>
+      </button>
+    </div>
+  </Teleport>
   <AddLinkModal
     :show="showLinkModal"
     @close="closeLinkModal"
@@ -156,6 +264,8 @@ export default defineComponent({
     const slashFrom = ref<number | null>(null);
     const slashTo = ref<number | null>(null);
     const slashCommandActive = ref(false);
+    const showTableToolbar = ref(false);
+    const tableToolbarPosition = ref({ top: 0, left: 0 });
 
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
@@ -486,6 +596,58 @@ export default defineComponent({
       await executeSlashCommand(command);
     };
 
+    const updateTableToolbarState = () => {
+      const e = editor.value;
+      if (!e || !isEditing.value) {
+        showTableToolbar.value = false;
+        return;
+      }
+      if (!e.isActive("table")) {
+        showTableToolbar.value = false;
+        return;
+      }
+      const { $from } = e.state.selection;
+      let depth = $from.depth;
+      while (depth > 0) {
+        if ($from.node(depth).type.name === "table") break;
+        depth--;
+      }
+      if (depth === 0) {
+        showTableToolbar.value = false;
+        return;
+      }
+      const tablePos = $from.before(depth);
+      const tableDom = e.view.nodeDOM(tablePos);
+      if (!tableDom || !(tableDom instanceof HTMLElement)) {
+        showTableToolbar.value = false;
+        return;
+      }
+      const tableEl =
+        tableDom.tagName === "TABLE"
+          ? tableDom
+          : tableDom.querySelector("table");
+      if (!tableEl) {
+        showTableToolbar.value = false;
+        return;
+      }
+      const rect = tableEl.getBoundingClientRect();
+      const toolbarH = 36;
+      const pad = 8;
+      let top = rect.top - toolbarH - 4;
+      let left = rect.left;
+      if (top < pad) top = rect.bottom + 4;
+      left = Math.max(pad, Math.min(left, window.innerWidth - 360 - pad));
+      tableToolbarPosition.value = { top, left };
+      showTableToolbar.value = true;
+    };
+
+    const tableCmd = (fn: (e: Editor) => boolean) => {
+      const e = editor.value;
+      if (!e) return;
+      fn(e);
+      schedulePersist();
+    };
+
     const editor = useEditor({
       editable: false,
       extensions: [
@@ -502,7 +664,7 @@ export default defineComponent({
           openOnClick: true,
         }),
         ResizableImage.configure({ inline: true }),
-        Table.configure({ resizable: false }),
+        Table.configure({ resizable: true, cellMinWidth: 40 }),
         TableRow,
         TableHeader,
         TableCell,
@@ -535,6 +697,7 @@ export default defineComponent({
       },
       onSelectionUpdate() {
         updateSlashState();
+        updateTableToolbarState();
       },
       editorProps: {
         handleKeyDown(_view, event) {
@@ -614,6 +777,7 @@ export default defineComponent({
         }
         editor.value.commands.blur();
         hideSlashMenu();
+        showTableToolbar.value = false;
         if (!canEdit) {
           isEditing.value = false;
           return;
@@ -808,6 +972,9 @@ export default defineComponent({
       selectedSlashIndex,
       slashMenuPosition,
       executeSlashByIndex,
+      showTableToolbar,
+      tableToolbarPosition,
+      tableCmd,
     };
   },
 });
@@ -1068,7 +1235,7 @@ a[data-smart-button="true"].smart-button:hover {
   width: 100%;
   margin: 8px 0;
   table-layout: fixed;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .ProseMirror th,
@@ -1077,7 +1244,7 @@ a[data-smart-button="true"].smart-button:hover {
   padding: 8px 12px;
   vertical-align: top;
   position: relative;
-  min-width: 60px;
+  min-width: 40px;
   text-align: left;
 }
 
@@ -1109,9 +1276,64 @@ a[data-smart-button="true"].smart-button:hover {
   pointer-events: none;
 }
 
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
 .ProseMirror .tableWrapper {
   overflow-x: auto;
   margin: 8px 0;
+}
+
+/* ── Table toolbar ── */
+.table-toolbar {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-tile-stroke, rgba(255, 255, 255, 0.1));
+  background: var(--color-tile-background, #1e1e1e);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+.table-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.table-toolbar-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 2px;
+}
+
+.table-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.table-toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.table-toolbar-btn--danger:hover {
+  background: rgba(255, 80, 80, 0.15);
+  color: #ff6b6b;
 }
 
 /* ── Drag handle ── */

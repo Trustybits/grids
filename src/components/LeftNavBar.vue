@@ -59,6 +59,7 @@ import { auth } from "@/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useLayoutStore } from "@/stores/layout";
 import type { Layout } from "@/types/Layout";
+import { firestoreValueToMillis } from "@/utils/firestoreTime";
 
 export default defineComponent({
   name: "LeftNavBar",
@@ -90,22 +91,12 @@ export default defineComponent({
     };
 
     const recentGrids = computed<Layout[]>(() => {
-      const toMillis = (v: any): number => {
-        if (!v) return 0;
-        try {
-          if (typeof v.toDate === 'function') return v.toDate().getTime();
-        } catch {}
-        if (v instanceof Date) return v.getTime();
-        if (typeof v === 'number') return v;
-        return 0;
-      };
-
       const scored = (layoutStore.layouts || []).map((l) => ({
         l,
         s:
-          toMillis(l.lastOpenedAt) ||
-          toMillis(l.updatedAt) ||
-          toMillis(l.createdAt) ||
+          firestoreValueToMillis(l.lastOpenedAt) ||
+          firestoreValueToMillis(l.updatedAt) ||
+          firestoreValueToMillis(l.createdAt) ||
           0,
       }));
 

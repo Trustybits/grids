@@ -191,9 +191,14 @@ export default {
     const handleAddLink = (link: string) => {
       closeLinkModal();
       
+      const trimmed = (link || "").trim();
+      const isNonWebLink = /^(mailto|tel):/i.test(trimmed);
+
       // Check if this URL should be a special content type (YouTube, image, video, etc.)
       // instead of a generic link tile
-      const detectedContent = createTileContentFromEmbedUrl(link);
+      const detectedContent = isNonWebLink
+        ? createTileContent(ContentType.LINK, { link: trimmed })
+        : createTileContentFromEmbedUrl(trimmed);
       
       // If it's detected as YouTube, image, or video, use that specialized type
       if (detectedContent.type === ContentType.YOUTUBE || 
@@ -204,14 +209,17 @@ export default {
       }
       
       // Otherwise, create a link tile with preview
-      const linkContent = createTileContent(ContentType.LINK, { link });
+      const linkContent = createTileContent(ContentType.LINK, { link: trimmed });
       const tileId = layoutStore.addTile(linkContent);
 
       if (tileId) {
         (async () => {
           try {
+            const url = ((linkContent as any).link || "").trim();
+            if (/^(mailto|tel):/i.test(url)) return;
+
             const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-            const result = await getLinkPreview({ url: (linkContent as any).link });
+            const result = await getLinkPreview({ url });
             const data = result.data as any;
 
             layoutStore.patchTileContent(tileId, {
@@ -379,36 +387,6 @@ export default {
     background-color: var(--color-base-55);
     color: var(--color-text-primary);
   }
-}
-
-/* Tooltip via data-tooltip attribute */
-.toolbarAlpha button[data-tooltip] {
-  position: relative;
-}
-
-.toolbarAlpha button[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%) scale(0.9);
-  white-space: nowrap;
-  font-size: 11px;
-  line-height: 1;
-  padding: 5px 8px;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-text-primary);
-  color: var(--color-tile-background);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity var(--duration-fast) var(--easing-ease-out),
-              transform var(--duration-fast) var(--easing-ease-out);
-  z-index: var(--z-tooltip);
-}
-
-.toolbarAlpha button[data-tooltip]:hover::after {
-  opacity: 1;
-  transform: translateX(-50%) scale(1);
 }
 
 .toolbarAlpha button svg {

@@ -477,8 +477,9 @@ export function createTileContent(
         title: (data as Partial<ProfileBioContent>).title || "",
         bio: (data as Partial<ProfileBioContent>).bio || "",
         avatarShape:
-          (data as Partial<ProfileBioContent>).avatarShape || "circle",
+          (data as Partial<ProfileBioContent>).avatarShape || "square",
         avatarRadius: (data as Partial<ProfileBioContent>).avatarRadius ?? 12,
+        avatarSides: (data as Partial<ProfileBioContent>).avatarSides ?? 6,
         // Preserve profile photo URL when creating from existing data
         profilePhotoUrl: (data as Partial<ProfileBioContent>).profilePhotoUrl ?? "",
       } as ProfileBioContent;
@@ -574,12 +575,20 @@ export function createTileContent(
 
 function getLinkData(url: string) {
   try {
-    const formattedUrl = url.startsWith("http") ? url : `https://${url}`;
+    const trimmed = (url || "").trim();
+    if (!trimmed) return {};
+
+    // Preserve non-web schemes as-is (e.g. mailto:, tel:)
+    if (/^(mailto|tel):/i.test(trimmed)) {
+      return { link: trimmed };
+    }
+
+    const formattedUrl = trimmed.startsWith("http") ? trimmed : `https://${trimmed}`;
     const parsedUrl = new URL(formattedUrl);
 
-    let domain = parsedUrl.hostname;
-    let faviconUrl = `https://s2.googleusercontent.com/s2/favicons?sz=64&domain_url=${parsedUrl.origin}`;
-    let link = formattedUrl;
+    const domain = parsedUrl.hostname;
+    const faviconUrl = `https://s2.googleusercontent.com/s2/favicons?sz=64&domain_url=${parsedUrl.origin}`;
+    const link = formattedUrl;
 
     return { domain, faviconUrl, link };
   } catch (error) {
@@ -605,7 +614,12 @@ export function validateTileContent(content: TileContent): boolean {
       );
     case ContentType.LINK:
       const link = content as LinkContent;
-      return !!link.link && link.link.startsWith("http");
+      return (
+        !!link.link &&
+        (link.link.startsWith("http") ||
+          /^mailto:/i.test(link.link) ||
+          /^tel:/i.test(link.link))
+      );
     case ContentType.VIDEO:
       const video = content as VideoContent;
       return (

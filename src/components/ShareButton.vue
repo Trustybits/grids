@@ -3,7 +3,6 @@
     <button
       type="button"
       class="share-button__btn"
-      title="Share Grid"
       @click="handleShare"
     >
       <div class="share-icon">

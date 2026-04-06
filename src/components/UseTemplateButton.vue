@@ -8,7 +8,6 @@
     <button
       type="button"
       class="use-template-button__btn"
-      title="Use this grid as a template"
       @click="handleUseTemplate"
     >
       <div class="use-template-icon">

@@ -44,6 +44,7 @@
         :data-border="borderVisible ? 'on' : 'off'"
         :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
         :data-suggestion="isSuggestion ? 'true' : 'false'"
+        :data-active-zone="hoveredToolbarZone || ''"
         ref="gridTileRef"
         @mouseenter="isHovered = true"
         @mouseleave="isHovered = false"
@@ -110,21 +111,27 @@
           <component :is="headerComponent" :content="tile.content" />
         </div>
 
-        <p v-if="layoutStore.showMetaData" class="meta-data">
-          {{ `x: ${tile.x}, y: ${tile.y} w: ${tile.w} h: ${tile.h}` }}
-        </p>
+        <div v-if="layoutStore.showMetaData" class="meta-data">
+          <p class="meta-data__compact">{{ compactMetadata }}</p>
+          <p
+            v-if="layoutStore.showMetaDataVerbose"
+            class="meta-data__verbose"
+            v-for="line in verboseMetadataLines"
+            :key="line"
+          >
+            {{ line }}
+          </p>
+        </div>
 
-        <TileActions
+        <div
           v-if="layoutStore.canEdit && !isSuggestion"
-          :tile="tile"
-          @delete="removeElement"
-        />
-
-        <TileActions
-          v-if="layoutStore.canEdit && !isSuggestion"
-          :tile="tile"
-          @delete="removeElement"
-        />
+          class="tile-actions-layer"
+          :class="{ 'z-priority': hoveredLayer === 'actions' }"
+          @mouseenter="hoveredLayer = 'actions'"
+          @mouseleave="hoveredLayer = null"
+        >
+          <TileActions :tile="tile" @delete="removeElement" />
+        </div>
 
         <TileCaption
           v-if="showCaption && (layoutStore.canEdit || tile.caption)"
@@ -134,11 +141,15 @@
         <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
         <div v-if="isTileResizable" class="resize-indicator"></div>
 
-        <TileToolbar
+        <div
           v-if="layoutStore.canEdit && !isSuggestion"
-          :tile="tile"
-          :toolbarRefs="toolbarRefs"
-        />
+          class="tile-toolbar-layer"
+          :class="{ 'z-priority': hoveredLayer !== 'actions' }"
+          @mouseenter="hoveredLayer = 'toolbar'"
+          @mouseleave="hoveredLayer = null"
+        >
+          <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
+        </div>
       </div>
     </grid-item>
   </div>
@@ -230,6 +241,9 @@ export default defineComponent({
     const isExiting = ref(false);
     const isActivated = ref(false);
     const isHovered = ref(false);
+    const hoveredToolbarZone = ref<string | null>(null);
+    provide("hoveredToolbarZone", hoveredToolbarZone);
+    const hoveredLayer = ref<"actions" | "toolbar" | null>(null);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -311,7 +325,7 @@ export default defineComponent({
     });
 
     const isTileResizable = computed(() => {
-      if (!layoutStore.canEdit || isSuggestion.value || isProfileTile.value) {
+      if (!layoutStore.canEdit || isSuggestion.value) {
         return false;
       }
       if (isTouchDevice()) return isActivated.value && !isEditing.value;
@@ -469,9 +483,12 @@ export default defineComponent({
           layoutStore.setTileContent(props.tile.i, linkContent);
           (async () => {
             try {
+              const url = ((linkContent as any).link || "").trim();
+              if (/^(mailto|tel):/i.test(url)) return;
+
               const getLinkPreview = httpsCallable(functions, "getLinkPreview");
               const result = await getLinkPreview({
-                url: (linkContent as any).link,
+                url,
               });
               const data = result.data as any;
 
@@ -690,6 +707,67 @@ export default defineComponent({
       return linkBackgroundEnabled.value ? borderEnabled.value : true;
     });
 
+    const compactMetadata = computed(() => {
+      return [
+        `type: ${props.tile.content.type}`,
+        `x: ${props.tile.x}`,
+        `y: ${props.tile.y}`,
+        `w: ${props.tile.w}`,
+        `h: ${props.tile.h}`,
+        `id: ${props.tile.i}`,
+      ].join(" | ");
+    });
+
+    const typeSpecificMeta = computed(() => {
+      const content = props.tile.content as any;
+      switch (props.tile.content.type) {
+        case ContentType.TEXT: {
+          const rawText = typeof content.text === "string" ? content.text : "";
+          return `textChars: ${rawText.length}`;
+        }
+        case ContentType.IMAGE:
+        case ContentType.VIDEO: {
+          const hasSrc =
+            typeof content.src === "string" && content.src.trim().length > 0;
+          return `hasMediaSrc: ${hasSrc ? "yes" : "no"} | zoom: ${content.zoom ?? "n/a"}`;
+        }
+        case ContentType.LINK: {
+          const rawLink = typeof content.link === "string" ? content.link : "";
+          let domain = "n/a";
+          if (rawLink) {
+            try {
+              domain = new URL(rawLink).hostname || "n/a";
+            } catch {
+              domain = "invalid";
+            }
+          }
+          return `urlSet: ${rawLink ? "yes" : "no"} | domain: ${domain}`;
+        }
+        case ContentType.SUGGESTION:
+          return `suggestionAction: ${content.action ?? "n/a"} | label: ${content.label ?? "n/a"}`;
+        case ContentType.MAP:
+          return `zoom: ${content.zoom ?? "n/a"} | marker: ${content.marker ? "yes" : "no"}`;
+        case ContentType.CHAT:
+          return `messages: ${Array.isArray(content.messages) ? content.messages.length : 0}`;
+        default:
+          return "typeSpecific: n/a";
+      }
+    });
+
+    const verboseMetadataLines = computed(() => {
+      const caption = props.tile.caption?.trim();
+      const cookieValue = layoutStore.getCookieValue("showMetaData");
+      const verboseCookieValue = layoutStore.getCookieValue("showMetaDataVerbose");
+      return [
+        `caption: ${caption ? caption.slice(0, 40) : "n/a"}`,
+        `borderEnabled: ${borderEnabled.value ? "true" : "false"} | draggable: ${isTileDraggable.value ? "true" : "false"} | resizable: ${isTileResizable.value ? "true" : "false"}`,
+        `breakpoint: ${layoutStore.activeBreakpoint} | canEdit: ${layoutStore.canEdit ? "true" : "false"} | isOwner: ${layoutStore.isOwner ? "true" : "false"}`,
+        `displaySource: ${layoutStore.activeBreakpoint === "lg" ? "tileBase" : "breakpointOverrideOrDisplay"}`,
+        `cookie(meta): ${cookieValue ?? "unset"} | cookie(verbose): ${verboseCookieValue ?? "unset"}`,
+        typeSpecificMeta.value,
+      ];
+    });
+
     const toolbarRefs = { childComponent, isEditing, isExitingCropMode };
 
     // Re-load the dynamic component whenever the content type changes
@@ -751,12 +829,15 @@ export default defineComponent({
       isExiting,
       isActivated,
       isHovered,
+      hoveredToolbarZone,
       onMoved,
       onResize,
       onResized,
       showCaption,
       borderVisible,
       linkBackgroundEnabled,
+      compactMetadata,
+      verboseMetadataLines,
       contentBackgroundColor,
       contentTextColor,
       onContentBackgroundColorChange,
@@ -774,6 +855,7 @@ export default defineComponent({
       toggleCropMode,
       isExitingCropMode,
       toolbarRefs,
+      hoveredLayer,
     };
   },
 });
@@ -972,8 +1054,32 @@ export default defineComponent({
   font-size: 10px;
   left: 10px;
   top: 10px;
+  z-index: 6;
+  pointer-events: none;
+  max-width: calc(100% - 20px);
+  color: var(--color-text-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  padding: 8px 8px 16px 8px;
+  border-radius: 16px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-tile-background) 88%, transparent) 0%,
+    color-mix(in srgb, var(--color-tile-background) 72%, transparent) 55%,
+    transparent 100%
+  );
+  backdrop-filter: blur(1.5px);
 }
 
+.meta-data__compact,
+.meta-data__verbose {
+  margin: 0;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.meta-data__verbose {
+  opacity: 0.9;
+}
 
 /* Customizable Header Styles */
 .header-options {
@@ -1008,14 +1114,12 @@ export default defineComponent({
   display: flex;
 }
 
-
 /* Non-owner caption: hide on tile hover or activation */
 .tile-wrapper:hover :deep(.viewer-caption),
 .tile-wrapper.is-activated :deep(.viewer-caption) {
   display: none;
 }
 
-
 /* Show tile actions on hover and activation */
 .tile-wrapper:hover :deep(.tile-actions),
 .tile-wrapper.is-activated :deep(.tile-actions) {
@@ -1033,21 +1137,33 @@ export default defineComponent({
   pointer-events: none;
 }
 
-/* Show tile actions on hover and activation */
-.tile-wrapper:hover :deep(.tile-actions),
-.tile-wrapper.is-activated :deep(.tile-actions) {
-  opacity: 1;
-  pointer-events: auto;
+/* Hover-priority layering wrappers */
+.tile-actions-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 11;
+
+  &.z-priority {
+    z-index: 10001;
+  }
 }
 
-/* Hide tile actions during crop mode, exiting, and while dragging */
-.tile-wrapper.crop-mode-active :deep(.tile-actions),
-.tile-wrapper.crop-mode-exiting :deep(.tile-actions),
-.tile-wrapper.is-exiting :deep(.tile-actions),
-.tile-wrapper.is-dragging :deep(.tile-actions),
-.tile-wrapper.is-activated.is-dragging :deep(.tile-actions) {
-  opacity: 0;
+.tile-toolbar-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   pointer-events: none;
+  z-index: 10000;
+
+  &:not(.z-priority) {
+    z-index: 9;
+  }
 }
 
 /* Show toolbar on tile hover, activation, and during crop mode (reaches into TileToolbar child) */
@@ -1060,19 +1176,50 @@ export default defineComponent({
   pointer-events: auto;
 }
 
-/* Show search panel when toolbar is visible */
+/* Show search panel and image URL panel when toolbar is visible */
 .tile-wrapper:hover :deep(.toolbar-search-panel),
 .tile-wrapper.is-activated :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-active :deep(.toolbar-search-panel),
-.tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel) {
+.tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel),
+.tile-wrapper:hover :deep(.toolbar-image-url-panel),
+.tile-wrapper.is-activated :deep(.toolbar-image-url-panel),
+.tile-wrapper.crop-mode-active :deep(.toolbar-image-url-panel),
+.tile-wrapper.crop-mode-exiting :deep(.toolbar-image-url-panel) {
   pointer-events: auto;
+}
+
+/* Dim sibling toolbars when one specific zone is hovered */
+.tile-wrapper[data-active-zone="actions"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="actions"].is-activated :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="avatar"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="avatar"].is-activated :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="radius"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="radius"].is-activated :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="sides"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="sides"].is-activated :deep(.tile-toolbar) {
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.tile-wrapper[data-active-zone="toolbar"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="toolbar"].is-activated :deep(.tile-actions),
+.tile-wrapper[data-active-zone="avatar"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="avatar"].is-activated :deep(.tile-actions),
+.tile-wrapper[data-active-zone="radius"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="radius"].is-activated :deep(.tile-actions),
+.tile-wrapper[data-active-zone="sides"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="sides"].is-activated :deep(.tile-actions) {
+  opacity: 0.15;
+  pointer-events: none;
 }
 
 /* Hide toolbar when tile is exiting or being dragged */
 .tile-wrapper.is-exiting :deep(.tile-toolbar),
 .tile-wrapper.is-exiting :deep(.toolbar-search-panel),
+.tile-wrapper.is-exiting :deep(.toolbar-image-url-panel),
 .tile-wrapper.is-dragging :deep(.tile-toolbar),
-.tile-wrapper.is-dragging :deep(.toolbar-search-panel) {
+.tile-wrapper.is-dragging :deep(.toolbar-search-panel),
+.tile-wrapper.is-dragging :deep(.toolbar-image-url-panel) {
   opacity: 0;
   transform: translate(-50%, calc(100% + 10px)) scale(0.9);
   pointer-events: none;

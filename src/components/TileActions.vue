@@ -15,8 +15,8 @@
       <CloseIcon />
     </button>
 
-    <!-- Quick Actions Group -->
-    <div class="tile-actions-group">
+    <!-- Quick Actions Group (hidden for suggestion placeholders — delete only) -->
+    <div v-if="!isSuggestionTile" class="tile-actions-group">
       <button
         v-if="hasLink"
         class="tile-action-btn"
@@ -103,6 +103,10 @@ export default defineComponent({
     const layoutStore = useLayoutStore();
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
     const toastStore = useToastStore();
+
+    const isSuggestionTile = computed(
+      () => props.tile.content.type === ContentType.SUGGESTION,
+    );
 
     // --- Computed: which actions are available per tile type ---
 
@@ -237,6 +241,7 @@ export default defineComponent({
     };
 
     return {
+      isSuggestionTile,
       hasLink,
       hasCopyable,
       hasDownload,

@@ -124,7 +124,7 @@
         </div>
 
         <div
-          v-if="layoutStore.canEdit && !isSuggestion"
+          v-if="layoutStore.canEdit"
           class="tile-actions-layer"
           :class="{ 'z-priority': hoveredLayer === 'actions' }"
           @mouseenter="hoveredLayer = 'actions'"

@@ -78,104 +78,79 @@
         top: `${tableToolbarPosition.top}px`,
         left: `${tableToolbarPosition.left}px`,
       }"
+      @mousedown.prevent
     >
       <div class="table-toolbar-group">
+        <span class="table-toolbar-group-label">Col</span>
         <button
           type="button"
           class="table-toolbar-btn"
-          title="Add column before"
-          @mousedown.prevent
+          title="Insert column before"
           @click="tableCmd((e) => e.chain().focus().addColumnBefore().run())"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="1" y="2" width="14" height="12" rx="1.5" />
-            <line x1="6" y1="2" x2="6" y2="14" />
-            <line x1="2" y1="5.5" x2="4" y2="5.5" /><line x1="3" y1="4.5" x2="3" y2="6.5" />
-          </svg>
-        </button>
+        >+ Left</button>
         <button
           type="button"
           class="table-toolbar-btn"
-          title="Add column after"
-          @mousedown.prevent
+          title="Insert column after"
           @click="tableCmd((e) => e.chain().focus().addColumnAfter().run())"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="1" y="2" width="14" height="12" rx="1.5" />
-            <line x1="10" y1="2" x2="10" y2="14" />
-            <line x1="12" y1="5.5" x2="14" y2="5.5" /><line x1="13" y1="4.5" x2="13" y2="6.5" />
-          </svg>
-        </button>
+        >+ Right</button>
         <button
           type="button"
           class="table-toolbar-btn table-toolbar-btn--danger"
           title="Delete column"
-          @mousedown.prevent
           @click="tableCmd((e) => e.chain().focus().deleteColumn().run())"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="1" y="2" width="14" height="12" rx="1.5" />
-            <line x1="6" y1="2" x2="6" y2="14" />
-            <line x1="2" y1="5" x2="4.5" y2="7" /><line x1="4.5" y1="5" x2="2" y2="7" />
-          </svg>
-        </button>
+        >&times;</button>
+      </div>
+      <span class="table-toolbar-sep" />
+      <div class="table-toolbar-group">
+        <span class="table-toolbar-group-label">Row</span>
+        <button
+          type="button"
+          class="table-toolbar-btn"
+          title="Insert row above"
+          @click="tableCmd((e) => e.chain().focus().addRowBefore().run())"
+        >+ Above</button>
+        <button
+          type="button"
+          class="table-toolbar-btn"
+          title="Insert row below"
+          @click="tableCmd((e) => e.chain().focus().addRowAfter().run())"
+        >+ Below</button>
+        <button
+          type="button"
+          class="table-toolbar-btn table-toolbar-btn--danger"
+          title="Delete row"
+          @click="tableCmd((e) => e.chain().focus().deleteRow().run())"
+        >&times;</button>
       </div>
       <span class="table-toolbar-sep" />
       <div class="table-toolbar-group">
         <button
           type="button"
           class="table-toolbar-btn"
-          title="Add row above"
-          @mousedown.prevent
-          @click="tableCmd((e) => e.chain().focus().addRowBefore().run())"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="1" y="2" width="14" height="12" rx="1.5" />
-            <line x1="1" y1="7" x2="15" y2="7" />
-            <line x1="5.5" y1="3" x2="5.5" y2="5" /><line x1="4.5" y1="4" x2="6.5" y2="4" />
-          </svg>
-        </button>
+          title="Merge or split selected cells"
+          @click="tableCmd((e) => e.chain().focus().mergeOrSplit().run())"
+        >Merge / Split</button>
         <button
           type="button"
           class="table-toolbar-btn"
-          title="Add row below"
-          @mousedown.prevent
-          @click="tableCmd((e) => e.chain().focus().addRowAfter().run())"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="1" y="2" width="14" height="12" rx="1.5" />
-            <line x1="1" y1="9" x2="15" y2="9" />
-            <line x1="5.5" y1="11" x2="5.5" y2="13" /><line x1="4.5" y1="12" x2="6.5" y2="12" />
-          </svg>
-        </button>
+          title="Toggle header row"
+          @click="tableCmd((e) => e.chain().focus().toggleHeaderRow().run())"
+        >H-Row</button>
         <button
           type="button"
-          class="table-toolbar-btn table-toolbar-btn--danger"
-          title="Delete row"
-          @mousedown.prevent
-          @click="tableCmd((e) => e.chain().focus().deleteRow().run())"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="1" y="2" width="14" height="12" rx="1.5" />
-            <line x1="1" y1="7" x2="15" y2="7" />
-            <line x1="4" y1="3.5" x2="6.5" y2="5.5" /><line x1="6.5" y1="3.5" x2="4" y2="5.5" />
-          </svg>
-        </button>
+          class="table-toolbar-btn"
+          title="Toggle header column"
+          @click="tableCmd((e) => e.chain().focus().toggleHeaderColumn().run())"
+        >H-Col</button>
       </div>
       <span class="table-toolbar-sep" />
       <button
         type="button"
-        class="table-toolbar-btn table-toolbar-btn--danger"
-        title="Delete table"
-        @mousedown.prevent
+        class="table-toolbar-btn table-toolbar-btn--danger table-toolbar-btn--delete"
+        title="Delete entire table"
         @click="tableCmd((e) => e.chain().focus().deleteTable().run()); showTableToolbar = false"
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M3 4h10l-.75 9.25a1 1 0 01-1 .75H4.75a1 1 0 01-1-.75L3 4z" />
-          <line x1="1.5" y1="4" x2="14.5" y2="4" />
-          <line x1="6" y1="2" x2="10" y2="2" />
-        </svg>
-      </button>
+      >Delete Table</button>
     </div>
   </Teleport>
   <AddLinkModal
@@ -636,7 +611,7 @@ export default defineComponent({
       let top = rect.top - toolbarH - 4;
       let left = rect.left;
       if (top < pad) top = rect.bottom + 4;
-      left = Math.max(pad, Math.min(left, window.innerWidth - 360 - pad));
+      left = Math.max(pad, Math.min(left, window.innerWidth - 640 - pad));
       tableToolbarPosition.value = { top, left };
       showTableToolbar.value = true;
     };
@@ -649,7 +624,7 @@ export default defineComponent({
     };
 
     const editor = useEditor({
-      editable: false,
+      editable: true,
       extensions: [
         StarterKit,
         TextStyle,
@@ -664,14 +639,15 @@ export default defineComponent({
           openOnClick: true,
         }),
         ResizableImage.configure({ inline: true }),
-        Table.configure({ resizable: true, cellMinWidth: 40 }),
+        Table.configure({ resizable: true, cellMinWidth: 40, allowTableNodeSelection: true }),
         TableRow,
         TableHeader,
         TableCell,
         DragHandle.configure({ isEditing }),
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",
-      onCreate() {
+      onCreate({ editor: createdEditor }) {
+        createdEditor.setEditable(false);
         console.log("[SmartText] editor created");
         nextTick(() => {
           checkOverflow();
@@ -1233,23 +1209,24 @@ a[data-smart-button="true"].smart-button:hover {
 .ProseMirror table {
   border-collapse: collapse;
   width: 100%;
-  margin: 8px 0;
+  margin: 0;
   table-layout: fixed;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .ProseMirror th,
 .ProseMirror td {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 6px 8px;
   vertical-align: top;
   position: relative;
-  min-width: 40px;
+  min-width: 1em;
+  box-sizing: border-box;
   text-align: left;
 }
 
 .ProseMirror th {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
   font-weight: 600;
 }
 
@@ -1263,7 +1240,7 @@ a[data-smart-button="true"].smart-button:hover {
 }
 
 .ProseMirror .selectedCell {
-  background: rgba(100, 150, 255, 0.12);
+  background: rgba(100, 150, 255, 0.15);
 }
 
 .ProseMirror .column-resize-handle {
@@ -1272,12 +1249,13 @@ a[data-smart-button="true"].smart-button:hover {
   right: -2px;
   bottom: -2px;
   width: 4px;
-  background: rgba(100, 150, 255, 0.5);
+  background: rgba(100, 160, 255, 0.6);
   pointer-events: none;
+  z-index: 20;
 }
 
 .ProseMirror.resize-cursor {
-  cursor: col-resize;
+  cursor: col-resize !important;
 }
 
 .ProseMirror .tableWrapper {
@@ -1291,12 +1269,14 @@ a[data-smart-button="true"].smart-button:hover {
   z-index: 9999;
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 4px;
+  gap: 3px;
+  padding: 4px 6px;
   border-radius: var(--radius-md, 8px);
-  border: 1px solid var(--color-tile-stroke, rgba(255, 255, 255, 0.1));
+  border: 1px solid var(--color-tile-stroke, rgba(255, 255, 255, 0.12));
   background: var(--color-tile-background, #1e1e1e);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  flex-wrap: wrap;
+  max-width: 640px;
 }
 
 .table-toolbar-group {
@@ -1305,35 +1285,58 @@ a[data-smart-button="true"].smart-button:hover {
   gap: 2px;
 }
 
+.table-toolbar-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 0 4px 0 2px;
+  user-select: none;
+}
+
 .table-toolbar-sep {
   width: 1px;
-  height: 18px;
+  height: 20px;
   background: rgba(255, 255, 255, 0.1);
-  margin: 0 2px;
+  margin: 0 3px;
+  flex-shrink: 0;
 }
 
 .table-toolbar-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
   height: 28px;
+  padding: 0 8px;
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.78);
   cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  white-space: nowrap;
   transition: background 0.12s ease, color 0.12s ease;
 }
 
 .table-toolbar-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.95);
+  color: #fff;
+}
+
+.table-toolbar-btn--danger {
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .table-toolbar-btn--danger:hover {
-  background: rgba(255, 80, 80, 0.15);
+  background: rgba(255, 80, 80, 0.18);
   color: #ff6b6b;
+}
+
+.table-toolbar-btn--delete {
+  font-weight: 500;
 }
 
 /* ── Drag handle ── */

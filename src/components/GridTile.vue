@@ -549,7 +549,10 @@ export default defineComponent({
         layoutStore.activeTileId === props.tile.i;
 
       return {
-        zIndex: isEditing.value || isToolbarActive ? 10 : 0,
+        zIndex:
+          isEditing.value || isToolbarActive
+            ? "var(--z-grid-tile-elevated)"
+            : 0,
       };
     });
 

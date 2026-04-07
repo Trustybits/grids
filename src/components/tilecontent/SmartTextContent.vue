@@ -1019,9 +1019,9 @@ export default defineComponent({
   transition: padding-left 0.15s ease;
 }
 
-:deep(.ProseMirror.has-drag-handles) {
+/*:deep(.ProseMirror.has-drag-handles) {
   padding-left: 28px;
-}
+}*/
 
 :deep(.tiptap) {
   outline: none !important;
@@ -1342,7 +1342,7 @@ a[data-smart-button="true"].smart-button:hover {
 /* ── Drag handle ── */
 .drag-handle {
   position: absolute;
-  left: 4px;
+  left: -20px;
   width: 20px;
   height: 20px;
   display: flex;

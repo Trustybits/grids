@@ -196,6 +196,17 @@ import { useTileLink } from "@/composables/useTileLink";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
 import { useFileUpload } from "@/composables/useFileUpload";
+import {
+  normalizeHttpUrl,
+  fontSizeLabelToPx,
+  pxToFontSizeLabel,
+  getDefaultFont,
+  filterSlashCommands,
+  SLASH_COMMAND_DEFS,
+  isTallOneWide as isTallOneWideFn,
+  isWideOneHigh as isWideOneHighFn,
+  isOneByOne as isOneByOneFn,
+} from "@/utils/smartTextHelpers";
 
 type SlashRange = { from: number; to: number };
 
@@ -244,14 +255,14 @@ export default defineComponent({
 
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
-    const isTallOneWide = computed(
-      () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) > 1,
+    const isTallOneWide = computed(() =>
+      isTallOneWideFn({ width: gridTileW?.value ?? 0, height: gridTileH?.value ?? 0 }),
     );
-    const isWideOneHigh = computed(
-      () => (gridTileW?.value ?? 0) > 1 && (gridTileH?.value ?? 0) === 1,
+    const isWideOneHigh = computed(() =>
+      isWideOneHighFn({ width: gridTileW?.value ?? 0, height: gridTileH?.value ?? 0 }),
     );
-    const isOneByOne = computed(
-      () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1,
+    const isOneByOne = computed(() =>
+      isOneByOneFn({ width: gridTileW?.value ?? 0, height: gridTileH?.value ?? 0 }),
     );
 
     const isBoldActive = ref(false);
@@ -261,15 +272,6 @@ export default defineComponent({
     const { schedulePersist, flushPersist } = useEditorAutosave(() =>
       persistEditorText(),
     );
-
-    const normalizeHttpUrl = (input: string): string => {
-      const trimmed = input.trim();
-      if (!trimmed) return "";
-      if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-        return trimmed;
-      }
-      return `https://${trimmed}`;
-    };
 
     const pickImageFile = async (): Promise<File | null> => {
       if (!imageInput.value) return null;
@@ -459,13 +461,9 @@ export default defineComponent({
       },
     ];
 
-    const filteredSlashCommands = computed(() => {
-      const q = slashQuery.value.trim().toLowerCase();
-      if (!q) return slashCommands;
-      return slashCommands.filter((item) =>
-        item.keywords.some((k) => k.includes(q)),
-      );
-    });
+    const filteredSlashCommands = computed(() =>
+      filterSlashCommands(slashCommands, slashQuery.value),
+    );
 
     const hideSlashMenu = () => {
       showSlashMenu.value = false;
@@ -478,11 +476,6 @@ export default defineComponent({
     const updateSlashState = () => {
       const e = editor.value;
       if (!e || !isEditing.value || !layoutStore.canEdit) {
-        console.log("[SmartText] slash: skip – no editor / not editing / cant edit", {
-          hasEditor: !!e,
-          isEditing: isEditing.value,
-          canEdit: layoutStore.canEdit,
-        });
         hideSlashMenu();
         return;
       }
@@ -498,8 +491,6 @@ export default defineComponent({
       const parentStart = from - parentOffset;
       const textBeforeCursor = $from.parent.textBetween(0, parentOffset, "\0", "\0");
 
-      console.log("[SmartText] slash: text before cursor:", JSON.stringify(textBeforeCursor));
-
       const lastSlash = textBeforeCursor.lastIndexOf("/");
       if (lastSlash === -1) {
         hideSlashMenu();
@@ -507,7 +498,6 @@ export default defineComponent({
       }
 
       if (lastSlash > 0 && !/\s/.test(textBeforeCursor[lastSlash - 1] || "")) {
-        console.log("[SmartText] slash: slash not at word boundary, hiding");
         hideSlashMenu();
         return;
       }
@@ -536,8 +526,6 @@ export default defineComponent({
       slashMenuPosition.value = { top, left };
       showSlashMenu.value = true;
 
-      console.log("[SmartText] slash: SHOWING menu, query:", JSON.stringify(query), "items:", filteredSlashCommands.value.length);
-
       const maxIndex = Math.max(0, filteredSlashCommands.value.length - 1);
       if (selectedSlashIndex.value > maxIndex) {
         selectedSlashIndex.value = 0;
@@ -545,7 +533,6 @@ export default defineComponent({
     };
 
     const executeSlashCommand = async (command: SlashCommand) => {
-      console.log("[SmartText] executing slash command:", command.id);
       const e = editor.value;
       if (!e) return;
       const from = slashFrom.value;
@@ -648,7 +635,6 @@ export default defineComponent({
       content: props.content.text ? JSON.parse(props.content.text) : "",
       onCreate({ editor: createdEditor }) {
         createdEditor.setEditable(false);
-        console.log("[SmartText] editor created");
         nextTick(() => {
           checkOverflow();
           const container = textContentDiv.value;
@@ -664,7 +650,6 @@ export default defineComponent({
         });
       },
       onUpdate() {
-        console.log("[SmartText] onUpdate fired, isEditing:", isEditing.value);
         checkOverflow();
         if (isEditing.value) {
           schedulePersist();
@@ -743,7 +728,6 @@ export default defineComponent({
     watch(
       [() => layoutStore.canEdit, () => isEditing.value],
       ([canEdit, editing]) => {
-        console.log("[SmartText] edit state changed:", { canEdit, editing });
         if (!editor?.value) return;
         const shouldBeEditable = canEdit && editing;
         editor.value.setEditable(shouldBeEditable);
@@ -763,7 +747,6 @@ export default defineComponent({
     );
 
     const onShortClick = () => {
-      console.log("[SmartText] onShortClick, canEdit:", layoutStore.canEdit, "isEditing:", isEditing.value);
       if (!layoutStore.canEdit) {
         if (tileLinkExists.value) handleFollowLink();
         return;
@@ -873,27 +856,15 @@ export default defineComponent({
 
     const handleFontSizeChange = (size: string) => {
       if (!editor.value) return;
-      let fontSizePx = "14px";
-      const normalizedSize = size.trim().toLowerCase();
-      if (normalizedSize === "small") fontSizePx = "12px";
-      else if (normalizedSize === "medium") fontSizePx = "14px";
-      else if (normalizedSize === "large") fontSizePx = "20px";
-      else if (normalizedSize === "larger") fontSizePx = "26px";
       editor.value
         .chain()
         .focus(undefined, { scrollIntoView: false })
-        .setFontSize(fontSizePx)
+        .setFontSize(fontSizeLabelToPx(size))
         .run();
     };
 
     const getCurrentFontSize = () => {
-      const fontSize = editor.value?.getAttributes("textStyle")?.fontSize;
-      if (!fontSize) return "Medium";
-      if (fontSize === "12px") return "Small";
-      if (fontSize === "14px") return "Medium";
-      if (fontSize === "20px") return "Large";
-      if (fontSize === "26px") return "Larger";
-      return fontSize;
+      return pxToFontSizeLabel(editor.value?.getAttributes("textStyle")?.fontSize);
     };
 
     const handleFontChange = (font: string) => {
@@ -906,8 +877,7 @@ export default defineComponent({
     };
 
     const getCurrentFont = () => {
-      const fontFamily = editor.value?.getAttributes("textStyle")?.fontFamily;
-      return fontFamily || "Inter";
+      return getDefaultFont(editor.value?.getAttributes("textStyle")?.fontFamily);
     };
 
     return {

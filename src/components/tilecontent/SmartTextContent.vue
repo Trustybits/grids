@@ -50,6 +50,7 @@
   <Teleport to="body">
     <div
       v-if="showSlashMenu && filteredSlashCommands.length > 0"
+      ref="slashMenuRef"
       class="slash-menu"
       :style="{
         top: `${slashMenuPosition.top}px`,
@@ -59,6 +60,7 @@
       <button
         v-for="(item, idx) in filteredSlashCommands"
         :key="item.id"
+        :ref="(el) => { if (el) slashMenuItemRefs[idx] = el as HTMLElement }"
         type="button"
         class="slash-menu-item"
         :class="{ active: idx === selectedSlashIndex }"
@@ -246,6 +248,8 @@ export default defineComponent({
     const showSlashMenu = ref(false);
     const slashQuery = ref("");
     const selectedSlashIndex = ref(0);
+    const slashMenuRef = ref<HTMLElement | null>(null);
+    const slashMenuItemRefs = ref<Record<number, HTMLElement>>({});
     const slashMenuPosition = ref({ top: 0, left: 0 });
     const slashFrom = ref<number | null>(null);
     const slashTo = ref<number | null>(null);
@@ -465,10 +469,20 @@ export default defineComponent({
       filterSlashCommands(slashCommands, slashQuery.value),
     );
 
+    const scrollSlashItemIntoView = (idx: number) => {
+      nextTick(() => {
+        const el = slashMenuItemRefs.value[idx];
+        if (el) {
+          el.scrollIntoView({ block: "nearest" });
+        }
+      });
+    };
+
     const hideSlashMenu = () => {
       showSlashMenu.value = false;
       slashQuery.value = "";
       selectedSlashIndex.value = 0;
+      slashMenuItemRefs.value = {};
       slashFrom.value = null;
       slashTo.value = null;
     };
@@ -669,6 +683,7 @@ export default defineComponent({
             event.preventDefault();
             selectedSlashIndex.value =
               (selectedSlashIndex.value + 1) % filteredSlashCommands.value.length;
+            scrollSlashItemIntoView(selectedSlashIndex.value);
             return true;
           }
           if (event.key === "ArrowUp") {
@@ -676,6 +691,7 @@ export default defineComponent({
             selectedSlashIndex.value =
               (selectedSlashIndex.value - 1 + filteredSlashCommands.value.length) %
               filteredSlashCommands.value.length;
+            scrollSlashItemIntoView(selectedSlashIndex.value);
             return true;
           }
           if (event.key === "Enter" || event.key === "Tab") {
@@ -916,6 +932,8 @@ export default defineComponent({
       showSlashMenu,
       filteredSlashCommands,
       selectedSlashIndex,
+      slashMenuRef,
+      slashMenuItemRefs,
       slashMenuPosition,
       executeSlashByIndex,
       showTableToolbar,
@@ -1120,6 +1138,7 @@ export default defineComponent({
   max-width: 300px;
   max-height: 240px;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 4px;
   border-radius: var(--radius-md);
   border: var(--tile-border-width) solid var(--color-tile-stroke);

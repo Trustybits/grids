@@ -5,7 +5,7 @@
     :class="{ overflowing: shouldShowOverflow }"
   >
     <div
-      class="text-content"
+      class="text-content scrollable-thin"
       :class="{
         'not-editing': !isEditing,
         'can-edit': layoutStore.canEdit,
@@ -13,6 +13,7 @@
         'is-tall-1-wide': isTallOneWide,
         'owner-view': layoutStore.canEdit,
         'viewer-view': !layoutStore.canEdit,
+        'is-overflowing': isTextOverflowing,
       }"
       :style="{
         '--tile-bg': backgroundColor,
@@ -924,6 +925,7 @@ export default defineComponent({
       isBoldActive,
       isItalicActive,
       isOwner,
+      isTextOverflowing,
       getCurrentFontSize,
       handleFontSizeChange,
       handleFontChange,
@@ -956,18 +958,24 @@ export default defineComponent({
   padding: var(--spacing-md);
   width: 100%;
   height: 100%;
-  scroll-behavior: smooth;
   border-radius: var(--radius-lg);
-  overflow: auto;
+  overflow: hidden;
   margin: 0;
   line-height: 1.3;
   transition: background-color 0.3s ease;
   position: relative;
   color: var(--tile-text-color);
+}
 
-  &::-webkit-scrollbar {
-    display: none;
-  }
+.text-content.is-overflowing {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: transparent transparent;
+}
+
+.text-container:hover .text-content.is-overflowing {
+  scrollbar-color: var(--color-border) transparent;
 }
 
 .not-editing {

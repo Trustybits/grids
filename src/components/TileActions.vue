@@ -1,57 +1,63 @@
 <template>
   <div
     class="tile-actions"
+    :class="{ 'is-embed-interactive': isEmbedInteractive, 'just-exited-interactive': justExitedInteractive }"
     @mousedown.stop
     @touchstart.stop
     @click.stop
     @mouseenter="hoveredToolbarZone = 'actions'"
     @mouseleave="hoveredToolbarZone = null"
   >
-    <!-- Delete Tile -->
+    <!-- Primary button: delete normally, stop interacting when embed is active -->
     <button
-      class="tile-action-btn tile-action-btn--delete"
-      data-tooltip="Delete"
-      @click="onDelete"
+      class="tile-action-btn tile-action-btn--primary"
+      :data-tooltip="isEmbedInteractive ? 'Stop Interacting' : 'Delete'"
+      @click="isEmbedInteractive ? onStopInteracting($event) : onDelete()"
     >
-      <CloseIcon />
+      <span class="primary-icon-slot">
+        <CloseIcon class="icon-delete" />
+        <LogOutIcon class="icon-logout" />
+      </span>
     </button>
 
-    <!-- Quick Actions Group -->
-    <div class="tile-actions-group">
-      <button
-        v-if="hasLink"
-        class="tile-action-btn"
-        data-tooltip="Follow Link"
-        @click="onFollowLink"
-      >
-        <ArrowUpRightIcon />
-      </button>
+    <!-- Quick Actions Group: collapses upward when embed is interactive -->
+    <div class="tile-actions-group-collapse">
+      <div class="tile-actions-group">
+        <button
+          v-if="hasLink"
+          class="tile-action-btn"
+          data-tooltip="Follow Link"
+          @click="onFollowLink"
+        >
+          <ArrowUpRightIcon />
+        </button>
 
-      <button
-        class="tile-action-btn"
-        data-tooltip="Duplicate Tile"
-        @click="onDuplicate"
-      >
-        <DuplicateIcon />
-      </button>
+        <button
+          class="tile-action-btn"
+          data-tooltip="Duplicate Tile"
+          @click="onDuplicate"
+        >
+          <DuplicateIcon />
+        </button>
 
-      <button
-        v-if="hasCopyable"
-        class="tile-action-btn"
-        data-tooltip="Copy to Clipboard"
-        @click="onCopyToClipboard"
-      >
-        <ClipboardIcon />
-      </button>
+        <button
+          v-if="hasCopyable"
+          class="tile-action-btn"
+          data-tooltip="Copy to Clipboard"
+          @click="onCopyToClipboard"
+        >
+          <ClipboardIcon />
+        </button>
 
-      <button
-        v-if="hasDownload"
-        class="tile-action-btn"
-        data-tooltip="Download"
-        @click="onDownload"
-      >
-        <DownloadCloudIcon />
-      </button>
+        <button
+          v-if="hasDownload"
+          class="tile-action-btn"
+          data-tooltip="Download"
+          @click="onDownload"
+        >
+          <DownloadCloudIcon />
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -61,6 +67,7 @@ import {
   defineComponent,
   computed,
   inject,
+  ref,
   type PropType,
   type Ref,
 } from "vue";
@@ -68,6 +75,7 @@ import type { Tile } from "@/types/Tile";
 import {
   ContentType,
   type TextContent,
+  type SmartTextContent,
   type LinkContent,
   type ImageContent,
   type VideoContent,
@@ -83,6 +91,7 @@ import DuplicateIcon from "./icons/actionbar/DuplicateIcon.vue";
 import ClipboardIcon from "./icons/actionbar/ClipboardIcon.vue";
 import DownloadCloudIcon from "./icons/actionbar/DownloadCloudIcon.vue";
 import CloseIcon from "./icons/actionbar/CloseIcon.vue";
+import LogOutIcon from "./icons/actionbar/LogOutIcon.vue";
 
 export default defineComponent({
   components: {
@@ -92,6 +101,7 @@ export default defineComponent({
     ClipboardIcon,
     DownloadCloudIcon,
     CloseIcon,
+    LogOutIcon,
   },
   props: {
     tile: {
@@ -103,7 +113,24 @@ export default defineComponent({
   setup(props, { emit }) {
     const layoutStore = useLayoutStore();
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
+    const isEmbedInteractive = inject<Ref<boolean>>("isEmbedInteractive", ref(false));
+    const justExitedInteractive = ref(false);
     const toastStore = useToastStore();
+
+    const onStopInteracting = (event: MouseEvent) => {
+      isEmbedInteractive.value = false;
+      justExitedInteractive.value = true;
+      const origin = { x: event.clientX, y: event.clientY };
+      const onMouseMove = (e: MouseEvent) => {
+        const dx = e.clientX - origin.x;
+        const dy = e.clientY - origin.y;
+        if (dx * dx + dy * dy > 25) { // ~5px threshold
+          justExitedInteractive.value = false;
+          window.removeEventListener("mousemove", onMouseMove);
+        }
+      };
+      window.addEventListener("mousemove", onMouseMove);
+    };
 
     // --- Computed: which actions are available per tile type ---
 
@@ -124,6 +151,8 @@ export default defineComponent({
           return (c as VideoContent).tileLink || null;
         case ContentType.TEXT:
           return (c as TextContent).tileLink || null;
+        case ContentType.SMART_TEXT:
+          return (c as SmartTextContent).tileLink || null;
         default:
           return null;
       }
@@ -135,6 +164,8 @@ export default defineComponent({
       const c = props.tile.content;
       switch (c.type) {
         case ContentType.TEXT:
+          return true;
+        case ContentType.SMART_TEXT:
           return true;
         case ContentType.LINK:
         case ContentType.MUSIC:
@@ -179,6 +210,17 @@ export default defineComponent({
         case ContentType.TEXT: {
           // Extract plain text from tiptap JSON doc
           const raw = (c as TextContent).text;
+          try {
+            const doc = JSON.parse(raw);
+            text = extractPlainText(doc);
+          } catch {
+            text = raw || "";
+          }
+          break;
+        }
+        case ContentType.SMART_TEXT: {
+          // Extract plain text from tiptap JSON doc
+          const raw = (c as SmartTextContent).text;
           try {
             const doc = JSON.parse(raw);
             text = extractPlainText(doc);
@@ -247,6 +289,9 @@ export default defineComponent({
       onCopyToClipboard,
       onDownload,
       hoveredToolbarZone,
+      isEmbedInteractive,
+      justExitedInteractive,
+      onStopInteracting,
     };
   },
 });
@@ -294,6 +339,20 @@ function extractPlainText(node: any): string {
   transition: opacity var(--duration-fast) var(--easing-ease-out);
 }
 
+.tile-actions-group-collapse {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 0.2s ease,
+    transform 0.25s ease;
+}
+
+.is-embed-interactive .tile-actions-group-collapse {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+
 .tile-actions-group {
   display: flex;
   flex-direction: column;
@@ -326,11 +385,11 @@ function extractPlainText(node: any): string {
   &:hover {
     background-color: var(--color-actionbar-background);
     color: var(--color-figma-purple);
-    //transform: scale(1.1);
   }
 }
 
-.tile-action-btn--delete {
+/* Primary button: delete by default, stop-interacting when active */
+.tile-action-btn--primary {
   :deep(svg) {
     width: 20px;
     height: 20px;
@@ -341,6 +400,59 @@ function extractPlainText(node: any): string {
     background-color: #ff3737;
     border-color: #ff3737;
     color: var(--color-light-100);
+
+    :deep(svg) {
+      color: var(--color-light-100);
+    }
+  }
+}
+
+/* Prevent accidental delete immediately after exiting interactive mode */
+.just-exited-interactive .tile-action-btn--primary {
+  pointer-events: none;
+}
+
+.is-embed-interactive .tile-action-btn--primary {
+  &:hover {
+    background-color: var(--color-figma-purple, #a259ff);
+    border-color: var(--color-figma-purple, #a259ff);
+    color: var(--color-light-100);
+  }
+}
+
+/* Icon morph: cross-fade + rotate between close and logout */
+.primary-icon-slot {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.icon-delete,
+.icon-logout {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.2s ease, transform 0.25s ease;
+}
+
+.icon-delete {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+.icon-logout {
+  opacity: 0;
+  transform: rotate(-30deg) scale(0.6);
+}
+
+.is-embed-interactive {
+  .icon-delete {
+    opacity: 0;
+    transform: rotate(30deg) scale(0.6);
+  }
+
+  .icon-logout {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
   }
 }
 </style>

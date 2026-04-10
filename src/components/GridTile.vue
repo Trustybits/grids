@@ -129,6 +129,7 @@
           :class="{ 'z-priority': hoveredLayer === 'actions' }"
           @mouseenter="hoveredLayer = 'actions'"
           @mouseleave="hoveredLayer = null"
+          @touchstart="hoveredLayer = 'actions'"
         >
           <TileActions :tile="tile" @delete="removeElement" />
         </div>
@@ -147,6 +148,7 @@
           :class="{ 'z-priority': hoveredLayer !== 'actions' }"
           @mouseenter="hoveredLayer = 'toolbar'"
           @mouseleave="hoveredLayer = null"
+          @touchstart="hoveredLayer = 'toolbar'"
         >
           <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
         </div>
@@ -635,10 +637,16 @@ export default defineComponent({
         });
         // Do NOT preventDefault — let the browser scroll naturally
       } else {
-        // Subsequent touch: tile already activated, treat as interaction
         touchWasActivating = false;
         clickStart.value = Date.now();
-        event.preventDefault();
+        const target = event.target as HTMLElement;
+        if (
+          !target.closest(
+            'button, a, input, select, textarea, [role="button"]',
+          )
+        ) {
+          event.preventDefault();
+        }
       }
     };
 

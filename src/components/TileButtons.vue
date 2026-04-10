@@ -7,12 +7,12 @@
 
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
-      <button class="btn btn-secondary" data-tooltip="Text (Legacy)" @click="addTextElement">
-        <TextIcon />
+      <button class="btn btn-secondary" data-tooltip="Text" @click="addTextElement">
+        <TextLegacyIcon />
       </button>
 
-      <button class="btn btn-secondary" data-tooltip="SmartText" @click="addSmartTextElement">
-        <TextIcon />
+      <button v-if="smartTextEnabled" class="btn btn-secondary" data-tooltip="Smart Text" @click="addSmartTextElement">
+        <AppBarTextIcon />
       </button>
 
       <button class="btn btn-secondary" data-tooltip="Profile" @click="addProfileElement">
@@ -88,10 +88,12 @@ import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
+import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
 import AddMapModal from "./AddMapModal.vue";
-import TextIcon from "./icons/TextIcon.vue";
+import TextLegacyIcon from "./icons/appbar/TextLegacyIcon.vue";
+import AppBarTextIcon from "./icons/appbar/TextIcon.vue";
 import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkTileIcon from "./icons/LinkTileIcon.vue";
@@ -106,7 +108,8 @@ export default {
     AddLinkModal,
     AddEmbedModal,
     AddMapModal,
-    TextIcon,
+    TextLegacyIcon,
+    AppBarTextIcon,
     ChatIcon,
     ImageIcon,
     LinkTileIcon,
@@ -119,6 +122,9 @@ export default {
   setup() {
     const themeStore = useThemeStore();
     const isDarkMode = computed(() => themeStore.isDarkMode);
+
+    const { isEnabled } = useFeatureFlags();
+    const smartTextEnabled = computed(() => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT));
 
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);
@@ -301,6 +307,7 @@ export default {
     return {
       imageInput,
       layoutStore,
+      smartTextEnabled,
       addTextElement,
       addSmartTextElement,
       addProfileElement,

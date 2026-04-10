@@ -243,6 +243,7 @@ export default defineComponent({
     const isHovered = ref(false);
     const hoveredToolbarZone = ref<string | null>(null);
     provide("hoveredToolbarZone", hoveredToolbarZone);
+    provide("tileActivated", isActivated);
     const hoveredLayer = ref<"actions" | "toolbar" | null>(null);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
@@ -1111,6 +1112,11 @@ export default defineComponent({
 .tile-wrapper.is-activated .header-options,
 .tile-wrapper.is-activated :deep(.hover-display) {
   display: flex;
+}
+
+/* Show embed interact overlay on tile activation (touch devices) */
+.tile-wrapper.is-activated :deep(.embed-interact-overlay) {
+  opacity: 1;
 }
 
 /* Non-owner caption: hide on tile hover or activation */

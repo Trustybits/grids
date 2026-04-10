@@ -1,10 +1,18 @@
 import { useLayoutStore } from "@/stores/layout";
 import { useThemeStore } from "@/stores/theme";
-import type { ProfileBioContent, TextContent, ImageContent, VideoContent, LinkContent } from "@/types/TileContent";
+import type {
+  ProfileBioContent,
+  TextContent,
+  SmartTextContent,
+  ImageContent,
+  VideoContent,
+  LinkContent,
+} from "@/types/TileContent";
 import { computed, watch, type ComputedRef } from "vue";
 
 type ColorPickerContent =
   | TextContent
+  | SmartTextContent
   | ProfileBioContent
   | ImageContent
   | VideoContent

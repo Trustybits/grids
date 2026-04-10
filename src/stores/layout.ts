@@ -35,6 +35,7 @@ import heroGif from "@/assets/images/hero.gif";
 const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
   switch (type) {
     case ContentType.TEXT:
+    case ContentType.SMART_TEXT:
     case ContentType.CHAT:
     case ContentType.CAMPFIRE:
       return "text";

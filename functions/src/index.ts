@@ -407,7 +407,227 @@ function isJunkImage(src: string): boolean {
   );
 }
 
-export const scrapePageForGrid = onCall(async (data, context) => {
+/** Quick extension-based check for URLs pointing directly at a media file. */
+function isDirectMediaUrl(url: URL): "image" | "video" | null {
+  const path = url.pathname.toLowerCase();
+  if (/\.(png|jpe?g|gif|webp|bmp|svg)$/.test(path)) return "image";
+  if (/\.(mp4|webm|mov)$/.test(path)) return "video";
+  return null;
+}
+
+// Jina AI Reader — r.jina.ai renders any URL (including SPAs) server-side and
+// returns structured JSON with markdown content, an images dict, and a links
+// dict. Free to use without a key; an API key unlocks higher rate limits and
+// premium features.
+interface JinaReaderData {
+  title?: string;
+  description?: string;
+  url?: string;
+  content?: string;
+  images?: Record<string, string>;
+  links?: Record<string, string>;
+  metadata?: Record<string, string>;
+}
+
+interface JinaReaderResponse {
+  code?: number;
+  status?: number;
+  data?: JinaReaderData;
+}
+
+/**
+ * Fetch a URL through Jina Reader and return the parsed data object.
+ * Returns null on any non-2xx response or network error — callers should
+ * treat null as "Jina unavailable, use fallback".
+ */
+async function fetchViaJina(
+  targetUrl: URL,
+  apiKey: string | undefined,
+  signal: AbortSignal,
+): Promise<JinaReaderData | null> {
+  const jinaUrl = `https://r.jina.ai/${targetUrl.toString()}`;
+  const headers: Record<string, string> = {
+    "Accept": "application/json",
+    "X-With-Images-Summary": "true",
+    "X-With-Links-Summary": "true",
+  };
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
+  try {
+    const res = await fetch(jinaUrl, { headers, signal });
+    if (!res.ok) {
+      logger.warn("Jina Reader non-OK response", {
+        status: res.status,
+        url: targetUrl.toString(),
+      });
+      return null;
+    }
+    const json = (await res.json()) as JinaReaderResponse;
+    return json.data ?? null;
+  } catch (err: any) {
+    if (err?.name === "AbortError") throw err;
+    logger.warn("Jina Reader fetch failed", {
+      error: String(err),
+      url: targetUrl.toString(),
+    });
+    return null;
+  }
+}
+
+/**
+ * Convert a Jina Reader response into the pageMeta + ScrapedItem[] shape
+ * the frontend expects.
+ */
+function buildResultFromJina(
+  jinaData: JinaReaderData,
+  finalUrl: URL,
+): {
+  pageMeta: {
+    title?: string;
+    description?: string;
+    faviconUrl?: string;
+    ogImage?: string;
+    siteName?: string;
+    domain?: string;
+  };
+  items: ScrapedItem[];
+} {
+  const metadata = jinaData.metadata || {};
+
+  const pageTitle = pickFirst(
+    jinaData.title,
+    metadata["og:title"],
+    metadata["twitter:title"],
+  );
+  const pageDescription = pickFirst(
+    jinaData.description,
+    metadata["og:description"],
+    metadata["twitter:description"],
+    metadata["description"],
+  );
+  const heroImageRaw = pickFirst(
+    metadata["og:image:secure_url"],
+    metadata["og:image:url"],
+    metadata["og:image"],
+    metadata["twitter:image"],
+  );
+  const heroImage = resolveUrl(heroImageRaw, finalUrl);
+  const siteName = metadata["og:site_name"];
+
+  const pageMeta = {
+    title: pageTitle,
+    description: pageDescription,
+    faviconUrl: googleFaviconUrl(finalUrl),
+    ogImage: heroImage,
+    siteName: siteName?.trim() || undefined,
+    domain: finalUrl.hostname,
+  };
+
+  const items: ScrapedItem[] = [];
+  const seenUrls = new Set<string>();
+  const MAX_ITEMS = 15;
+
+  // 1. Title
+  if (pageTitle) {
+    items.push({ type: "title", text: pageTitle, priority: 100 });
+  }
+
+  // 2. Hero / OG image
+  if (heroImage) {
+    seenUrls.add(heroImage);
+    items.push({ type: "image", src: heroImage, priority: 90 });
+  }
+
+  // 3. Description
+  if (pageDescription) {
+    items.push({ type: "description", text: pageDescription, priority: 80 });
+  }
+
+  // 4. Links — Jina returns a { anchorText: url } dict which lets us use
+  //    the anchor text as metaTitle for link tiles.
+  const links = jinaData.links || {};
+  for (const [rawLabel, rawLink] of Object.entries(links)) {
+    if (items.length >= MAX_ITEMS) break;
+    if (!rawLink || typeof rawLink !== "string") continue;
+    if (
+      rawLink.startsWith("mailto:") ||
+      rawLink.startsWith("tel:") ||
+      rawLink.startsWith("javascript:")
+    ) continue;
+
+    const absUrl = resolveUrl(rawLink, finalUrl);
+    if (!absUrl) continue;
+    if (seenUrls.has(absUrl)) continue;
+
+    // Skip same-page internal nav
+    try {
+      const linkUrl = new URL(absUrl);
+      if (
+        linkUrl.hostname === finalUrl.hostname &&
+        linkUrl.pathname === finalUrl.pathname
+      ) continue;
+    } catch {
+      continue;
+    }
+
+    seenUrls.add(absUrl);
+    const cleanLabel = rawLabel.trim().slice(0, 200) || undefined;
+    const itemType = classifyUrl(absUrl);
+
+    if (itemType === "youtube") {
+      items.push({ type: "youtube", url: absUrl, priority: 60 });
+    } else if (itemType === "music") {
+      items.push({ type: "music", url: absUrl, priority: 55 });
+    } else if (itemType === "video") {
+      items.push({ type: "video", src: absUrl, priority: 50 });
+    } else if (itemType === "image") {
+      items.push({ type: "image", src: absUrl, priority: 40 });
+    } else {
+      let linkDomain: string | undefined;
+      try { linkDomain = new URL(absUrl).hostname; } catch { /* ignore */ }
+      items.push({
+        type: "link",
+        url: absUrl,
+        meta: {
+          title: cleanLabel,
+          domain: linkDomain,
+          faviconUrl: linkDomain
+            ? `https://s2.googleusercontent.com/s2/favicons?sz=64&domain_url=https://${linkDomain}`
+            : undefined,
+        },
+        priority: 30,
+      });
+    }
+  }
+
+  // 5. Images — Jina returns { altText: url } for every <img> it found.
+  const images = jinaData.images || {};
+  for (const rawSrc of Object.values(images)) {
+    if (items.length >= MAX_ITEMS) break;
+    if (!rawSrc || typeof rawSrc !== "string") continue;
+
+    const absSrc = resolveUrl(rawSrc, finalUrl);
+    if (!absSrc) continue;
+    if (seenUrls.has(absSrc)) continue;
+    if (isJunkImage(absSrc)) continue;
+
+    seenUrls.add(absSrc);
+    items.push({ type: "image", src: absSrc, priority: 35 });
+  }
+
+  items.sort((a, b) => b.priority - a.priority);
+  return { pageMeta, items: items.slice(0, MAX_ITEMS) };
+}
+
+// Jina AI Reader API key — optional. Unlocks higher rate limits and premium
+// features. If unset, Jina is called anonymously on its free tier.
+const jinaApiKey = defineSecret("JINA_API_KEY");
+
+export const scrapePageForGrid = functions
+  .runWith({ secrets: [jinaApiKey] })
+  .https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new HttpsError("unauthenticated", "You must be signed in.");
   }
@@ -452,10 +672,65 @@ export const scrapePageForGrid = onCall(async (data, context) => {
     }
   }
 
+  // Extension-based media shortcut — if the URL points directly at a media
+  // file, we don't need to scrape anything. This also avoids sending media
+  // URLs to Jina, which isn't built for them.
+  const directMedia = isDirectMediaUrl(normalized);
+  if (directMedia === "image") {
+    return {
+      pageMeta: {
+        title: undefined,
+        description: undefined,
+        faviconUrl: undefined,
+        ogImage: undefined,
+        siteName: undefined,
+        domain: normalized.hostname,
+      },
+      items: [{ type: "image" as const, src: normalized.toString(), priority: 10 }],
+    };
+  }
+  if (directMedia === "video") {
+    return {
+      pageMeta: {
+        title: undefined,
+        description: undefined,
+        faviconUrl: undefined,
+        ogImage: undefined,
+        siteName: undefined,
+        domain: normalized.hostname,
+      },
+      items: [{ type: "video" as const, src: normalized.toString(), priority: 10 }],
+    };
+  }
+
+  // Jina can take a few seconds to render SPAs, so allow a generous budget.
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
+  const timeout = setTimeout(() => controller.abort(), 25000);
 
   try {
+    // ── Primary path: Jina AI Reader ──────────────────────────────────
+    // Jina renders the page server-side (including SPAs) and returns
+    // structured JSON with title, description, images, links, and metadata.
+    const apiKey = jinaApiKey.value() || undefined;
+    const jinaData = await fetchViaJina(normalized, apiKey, controller.signal);
+
+    if (jinaData) {
+      const jinaResult = buildResultFromJina(jinaData, normalized);
+      if (jinaResult.items.length > 0) {
+        return jinaResult;
+      }
+      logger.info("Jina returned empty items, falling back to direct fetch", {
+        url: normalized.toString(),
+      });
+    } else {
+      logger.info("Jina unavailable, falling back to direct fetch", {
+        url: normalized.toString(),
+      });
+    }
+
+    // ── Fallback path: direct fetch + cheerio ─────────────────────────
+    // Used when Jina is unreachable, rate-limited, or returns no items.
+    // Works well on static sites where the HTML contains real content.
     const res = await fetch(normalized.toString(), {
       redirect: "follow",
       signal: controller.signal,

@@ -1270,15 +1270,6 @@ export const useLayoutStore = defineStore("layout", {
         }
       }
 
-      const gridElement =
-        document.querySelector<HTMLElement>(".vue-grid-layout");
-      if (gridElement) {
-        const currentWidth = parseFloat(getComputedStyle(gridElement).width);
-        if (!isNaN(currentWidth)) {
-          gridElement.style.height = `${currentWidth + 1}px`;
-        }
-      }
-
       this.saveLayout(); // Persist changes
     },
 

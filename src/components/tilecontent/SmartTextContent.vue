@@ -52,7 +52,7 @@
     <div
       v-if="showSlashMenu && filteredSlashCommands.length > 0"
       ref="slashMenuRef"
-      class="slash-menu"
+      class="slash-menu scrollable-thin"
       :style="{
         top: `${slashMenuPosition.top}px`,
         left: `${slashMenuPosition.left}px`,
@@ -523,17 +523,30 @@ export default defineComponent({
         return;
       }
 
-      const coords = view.coordsAtPos(from);
-      let left = coords.left;
-      let top = coords.bottom + 8;
+      const slashPos = parentStart + lastSlash;
+      const coords = view.coordsAtPos(slashPos);
 
+      const gap = 6;
       const padding = 8;
-      const approxWidth = 300;
-      const approxHeight = 260;
-      const maxLeft = Math.max(padding, window.innerWidth - approxWidth - padding);
-      const maxTop = Math.max(padding, window.innerHeight - approxHeight - padding);
-      left = Math.min(Math.max(padding, left), maxLeft);
-      top = Math.min(Math.max(padding, top), maxTop);
+      const menuWidth = 300;
+      const menuHeight = 240;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      const spaceBelow = vh - coords.bottom - gap;
+      const spaceAbove = coords.top - gap;
+
+      let top: number;
+      if (spaceBelow >= menuHeight || spaceBelow >= spaceAbove) {
+        top = coords.bottom + gap;
+      } else {
+        top = coords.top - gap - Math.min(menuHeight, spaceAbove);
+      }
+
+      let left = coords.left;
+
+      top = Math.max(padding, Math.min(top, vh - padding));
+      left = Math.max(padding, Math.min(left, vw - menuWidth - padding));
 
       slashFrom.value = parentStart + lastSlash;
       slashTo.value = from;
@@ -762,6 +775,17 @@ export default defineComponent({
         flushPersist();
       },
     );
+
+    watch(showSlashMenu, (open, _prev, onCleanup) => {
+      if (!open) return;
+      const reposition = () => updateSlashState();
+      window.addEventListener("scroll", reposition, { capture: true, passive: true });
+      window.addEventListener("resize", reposition, { passive: true });
+      onCleanup(() => {
+        window.removeEventListener("scroll", reposition, { capture: true } as EventListenerOptions);
+        window.removeEventListener("resize", reposition);
+      });
+    });
 
     const onShortClick = () => {
       if (!layoutStore.canEdit) {
@@ -1145,13 +1169,19 @@ export default defineComponent({
   min-width: 220px;
   max-width: 300px;
   max-height: 240px;
-  overflow: auto;
+  overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: transparent transparent;
   padding: 4px;
   border-radius: var(--radius-md);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   background: var(--color-tile-background);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.slash-menu:hover {
+  scrollbar-color: var(--color-border) transparent;
 }
 
 .slash-menu-item {

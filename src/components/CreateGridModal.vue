@@ -2,25 +2,61 @@
   <div v-if="show" class="modal-overlay" @click="handleClose">
     <div class="modal-content" @click.stop>
       <h3>Create New Grid</h3>
+
+      <!-- Mode toggle (only shown when URL-to-Grid feature is enabled) -->
+      <div v-if="urlToGridEnabled" class="mode-toggle">
+        <button
+          :class="['mode-btn', { active: mode === 'blank' }]"
+          @click="mode = 'blank'"
+        >
+          Blank Grid
+        </button>
+        <button
+          :class="['mode-btn', { active: mode === 'url' }]"
+          @click="mode = 'url'"
+        >
+          From URL
+        </button>
+      </div>
+
+      <!-- URL input (only in URL mode) -->
       <input
-        ref="gridNameInput"
-        v-model="gridName"
-        type="text"
-        placeholder="Enter grid name..."
+        v-if="mode === 'url'"
+        ref="urlInput"
+        v-model="gridUrl"
+        type="url"
+        placeholder="Paste a URL to generate from..."
         class="grid-name-input"
         @keyup.enter="handleCreate"
         @keyup.esc="handleClose"
       />
+
+      <input
+        ref="gridNameInput"
+        v-model="gridName"
+        type="text"
+        :placeholder="mode === 'url' ? 'Grid name (optional, auto-detected)' : 'Enter grid name...'"
+        class="grid-name-input"
+        @keyup.enter="handleCreate"
+        @keyup.esc="handleClose"
+      />
+
       <div class="modal-actions">
         <button @click="handleClose" class="cancel-button">Cancel</button>
-        <button @click="handleCreate" class="create-button" :disabled="!gridName.trim()">Create Grid</button>
+        <button @click="handleCreate" class="create-button" :disabled="!canCreate">
+          {{ mode === 'url' ? 'Generate Grid' : 'Create Grid' }}
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
+import { useFeatureFlags, FEATURE_FLAGS } from '@/composables/useFeatureFlags';
+
+const { isEnabled } = useFeatureFlags();
+const urlToGridEnabled = computed(() => isEnabled(FEATURE_FLAGS.BETA_URL_TO_GRID));
 
 const props = defineProps({
   show: {
@@ -29,16 +65,41 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['close', 'create']);
+const emit = defineEmits(['close', 'create', 'create-from-url']);
 
+const mode = ref('blank');
 const gridName = ref('');
+const gridUrl = ref('');
 const gridNameInput = ref(null);
+const urlInput = ref(null);
+
+const canCreate = computed(() => {
+  if (mode.value === 'url') {
+    return gridUrl.value.trim().length > 0;
+  }
+  return gridName.value.trim().length > 0;
+});
 
 watch(() => props.show, async (newValue) => {
   if (newValue) {
     gridName.value = '';
+    gridUrl.value = '';
+    mode.value = urlToGridEnabled.value ? 'url' : 'blank';
     await nextTick();
-    gridNameInput.value?.focus();
+    if (mode.value === 'url' && urlInput.value) {
+      urlInput.value.focus();
+    } else if (gridNameInput.value) {
+      gridNameInput.value.focus();
+    }
+  }
+});
+
+watch(mode, async () => {
+  await nextTick();
+  if (mode.value === 'url' && urlInput.value) {
+    urlInput.value.focus();
+  } else if (gridNameInput.value) {
+    gridNameInput.value.focus();
   }
 });
 
@@ -47,9 +108,15 @@ const handleClose = () => {
 };
 
 const handleCreate = () => {
-  const name = gridName.value.trim();
-  if (!name) return;
-  emit('create', name);
+  if (mode.value === 'url') {
+    const url = gridUrl.value.trim();
+    if (!url) return;
+    emit('create-from-url', { url, name: gridName.value.trim() });
+  } else {
+    const name = gridName.value.trim();
+    if (!name) return;
+    emit('create', name);
+  }
 };
 </script>
 
@@ -107,6 +174,37 @@ const handleCreate = () => {
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: var(--spacing-lg);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-family-base);
+  color: var(--color-content-default);
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--easing-smooth);
+}
+
+.mode-btn.active {
+  background-color: var(--color-content-high);
+  color: var(--color-text-primary);
+}
+
+.mode-btn:not(.active):hover {
+  background-color: var(--color-content-background);
 }
 
 .grid-name-input {

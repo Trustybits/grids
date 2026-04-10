@@ -61,6 +61,7 @@
       :show="showCreateModal"
       @close="closeModal"
       @create="handleCreateGrid"
+      @create-from-url="handleCreateGridFromUrl"
     />
 
     <RenameGridModal
@@ -295,6 +296,23 @@ const handleCreateGrid = async (name) => {
     }
   } catch (error) {
     console.error('Error creating layout:', error.message);
+  }
+};
+
+const handleCreateGridFromUrl = async ({ url, name }) => {
+  try {
+    const gridName = name || 'Generating...';
+    const newLayoutId = await layoutStore.createLayout(gridName);
+    if (newLayoutId) {
+      if (!defaultGridId.value) {
+        defaultGridId.value = newLayoutId;
+      }
+      layoutStore.pendingUrlGeneration = { layoutId: newLayoutId, url };
+      closeModal();
+      router.push(`/grid/${newLayoutId}`);
+    }
+  } catch (error) {
+    console.error('Error creating layout from URL:', error.message);
   }
 };
 

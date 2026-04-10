@@ -274,6 +274,9 @@ export const useLayoutStore = defineStore("layout", {
       w: number;
       h: number;
     }>,
+    // Set by DashboardPage when user creates a grid via "From URL" mode.
+    // GridPage checks this on mount and triggers the generation flow.
+    pendingUrlGeneration: null as { layoutId: string; url: string } | null,
   }),
 
   getters: {
@@ -793,6 +796,36 @@ export const useLayoutStore = defineStore("layout", {
         position.y,
         tileWidth,
         tileHeight,
+        content,
+        "",
+      );
+
+      this.currentLayout.tiles.push(newTile);
+      this.updateLayout();
+
+      return newTile.i;
+    },
+
+    // Like addTile but accepts custom width/height for generated grids.
+    addTileWithSize(content: TileContent, w: number, h: number): string | null {
+      if (!this.currentLayout) return null;
+
+      const viewportY = this.getViewportGridY();
+      let position: { x: number; y: number };
+      if (viewportY > 0) {
+        position = this.findBestXAtRow(w, h, viewportY);
+      } else {
+        position = this.findFirstAvailableSpot(w, h);
+      }
+      this.pushTilesForNewItem(position.x, position.y, w, h);
+
+      const newTile = createTile(
+        content.type,
+        uuidv4(),
+        position.x,
+        position.y,
+        w,
+        h,
         content,
         "",
       );

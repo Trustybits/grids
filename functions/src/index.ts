@@ -284,6 +284,387 @@ export const getLinkPreview = onCall(async (data, context) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// scrapePageForGrid — Deep-scrape a URL and return structured content items
+// that the frontend maps to grid tiles.
+// ---------------------------------------------------------------------------
+
+interface ScrapedItem {
+  type: "title" | "description" | "image" | "link" | "video" | "youtube" | "music" | "embed";
+  text?: string;
+  src?: string;
+  url?: string;
+  meta?: {
+    title?: string;
+    description?: string;
+    faviconUrl?: string;
+    imageUrl?: string;
+    domain?: string;
+  };
+  priority: number;
+}
+
+// Server-side URL classifiers (mirrors logic from frontend TileUtils.ts)
+
+function isDirectImageUrlServer(src: string): boolean {
+  try {
+    const url = new URL(src);
+    return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function isDirectVideoUrlServer(src: string): boolean {
+  try {
+    const url = new URL(src);
+    return /\.(mp4|webm|mov)$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function parseYouTubeUrlServer(
+  url: string,
+): { type: "video" | "playlist" | "channel" | "short"; id: string } | null {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+    if (!hostname.includes("youtube.com") && !hostname.includes("youtu.be")) {
+      return null;
+    }
+    const shortsMatch = urlObj.pathname.match(/^\/shorts\/([a-zA-Z0-9_-]+)/);
+    if (shortsMatch) return { type: "short", id: shortsMatch[1] };
+    if (urlObj.searchParams.has("list")) {
+      const listId = urlObj.searchParams.get("list")!;
+      if (!listId.startsWith("RD")) return { type: "playlist", id: listId };
+    }
+    if (urlObj.pathname === "/watch" && urlObj.searchParams.has("v")) {
+      return { type: "video", id: urlObj.searchParams.get("v")! };
+    }
+    if (hostname.includes("youtu.be")) {
+      const id = urlObj.pathname.slice(1).split("?")[0];
+      if (id) return { type: "video", id };
+    }
+    const atMatch = urlObj.pathname.match(/^\/@([a-zA-Z0-9._-]+)/);
+    if (atMatch) return { type: "channel", id: atMatch[1] };
+    const channelMatch = urlObj.pathname.match(/^\/channel\/([a-zA-Z0-9_-]+)/);
+    if (channelMatch) return { type: "channel", id: channelMatch[1] };
+    const customMatch = urlObj.pathname.match(/^\/(c|user)\/([a-zA-Z0-9._-]+)/);
+    if (customMatch) return { type: "channel", id: customMatch[2] };
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function parseMusicUrlServer(
+  url: string,
+): { platform: "spotify" | "apple"; trackId: string } | null {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+    if (hostname === "open.spotify.com" || hostname === "spotify.com") {
+      const trackMatch = urlObj.pathname.match(/(?:\/embed)?\/track\/([A-Za-z0-9]+)/);
+      if (trackMatch) return { platform: "spotify", trackId: trackMatch[1] };
+      const albumMatch = urlObj.pathname.match(/(?:\/embed)?\/album\/([A-Za-z0-9]+)/);
+      if (albumMatch) return { platform: "spotify", trackId: albumMatch[1] };
+    }
+    if (hostname === "music.apple.com" || hostname === "embed.music.apple.com") {
+      const songMatch = urlObj.pathname.match(/\/song\/[^/]+\/(\d+)/);
+      if (songMatch) return { platform: "apple", trackId: songMatch[1] };
+      const shortSongMatch = urlObj.pathname.match(/\/song\/(\d+)/);
+      if (shortSongMatch) return { platform: "apple", trackId: shortSongMatch[1] };
+      const albumTrackId = urlObj.searchParams.get("i");
+      if (albumTrackId && /^\d+$/.test(albumTrackId)) {
+        return { platform: "apple", trackId: albumTrackId };
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Classify an absolute URL into a ScrapedItem type. */
+function classifyUrl(absUrl: string): ScrapedItem["type"] {
+  if (parseYouTubeUrlServer(absUrl)) return "youtube";
+  if (parseMusicUrlServer(absUrl)) return "music";
+  if (isDirectImageUrlServer(absUrl)) return "image";
+  if (isDirectVideoUrlServer(absUrl)) return "video";
+  return "link";
+}
+
+/** Return true if the image src looks like a tiny icon, tracker, or spacer. */
+function isJunkImage(src: string): boolean {
+  const lower = src.toLowerCase();
+  return (
+    lower.includes("spacer") ||
+    lower.includes("pixel") ||
+    lower.includes("tracking") ||
+    lower.includes("1x1") ||
+    lower.startsWith("data:")
+  );
+}
+
+export const scrapePageForGrid = onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new HttpsError("unauthenticated", "You must be signed in.");
+  }
+
+  const rawUrl = (data as { url?: string } | undefined)?.url ?? "";
+  if (!rawUrl || typeof rawUrl !== "string") {
+    throw new HttpsError("invalid-argument", "Missing url.");
+  }
+  if (rawUrl.length > 2048) {
+    throw new HttpsError("invalid-argument", "URL is too long.");
+  }
+
+  let normalized: URL;
+  try {
+    const withProtocol = rawUrl.startsWith("http://") || rawUrl.startsWith("https://")
+      ? rawUrl
+      : `https://${rawUrl}`;
+    normalized = new URL(withProtocol);
+  } catch {
+    throw new HttpsError("invalid-argument", "Invalid URL.");
+  }
+
+  if (normalized.protocol !== "http:" && normalized.protocol !== "https:") {
+    throw new HttpsError("invalid-argument", "Only http/https URLs are supported.");
+  }
+
+  if (isPrivateOrLocalhost(normalized.hostname)) {
+    throw new HttpsError("permission-denied", "This hostname is not allowed.");
+  }
+
+  // DNS resolution check (same as getLinkPreview)
+  if (isIP(normalized.hostname) === 0) {
+    try {
+      const addresses = await lookup(normalized.hostname, { all: true });
+      const disallowed = addresses.filter((a) => isPrivateOrLocalhost(a.address)).map((a) => a.address);
+      if (disallowed.length > 0) {
+        throw new HttpsError("permission-denied", "This hostname resolves to a disallowed address.");
+      }
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      throw new HttpsError("unavailable", "Failed to resolve hostname.");
+    }
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const res = await fetch(normalized.toString(), {
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "accept": "text/html,application/xhtml+xml",
+        "accept-language": "en-US,en;q=0.9",
+      },
+    });
+
+    let finalUrl: URL;
+    try {
+      finalUrl = new URL(res.url);
+    } catch {
+      finalUrl = normalized;
+    }
+
+    const contentType = res.headers.get("content-type") || "";
+
+    // If the URL points directly to an image or video, return a single item
+    if (contentType.startsWith("image/")) {
+      return {
+        pageMeta: { title: undefined, description: undefined, faviconUrl: undefined, ogImage: undefined, siteName: undefined, domain: finalUrl.hostname },
+        items: [{ type: "image" as const, src: finalUrl.toString(), priority: 10 }],
+      };
+    }
+    if (contentType.startsWith("video/")) {
+      return {
+        pageMeta: { title: undefined, description: undefined, faviconUrl: undefined, ogImage: undefined, siteName: undefined, domain: finalUrl.hostname },
+        items: [{ type: "video" as const, src: finalUrl.toString(), priority: 10 }],
+      };
+    }
+
+    if (!contentType.toLowerCase().includes("text/html")) {
+      // Non-HTML, non-media: just return a link tile
+      return {
+        pageMeta: { title: undefined, description: undefined, faviconUrl: googleFaviconUrl(finalUrl), ogImage: undefined, siteName: undefined, domain: finalUrl.hostname },
+        items: [{ type: "link" as const, url: finalUrl.toString(), meta: { domain: finalUrl.hostname, faviconUrl: googleFaviconUrl(finalUrl) }, priority: 10 }],
+      };
+    }
+
+    const html = (await res.text()).slice(0, 1_500_000);
+    const $ = cheerio.load(html);
+
+    // ── Extract page metadata ─────────────────────────────────────────
+    const ogTitle = $("meta[property='og:title']").attr("content");
+    const twTitle = $("meta[name='twitter:title']").attr("content");
+    const docTitle = $("title").first().text();
+
+    const ogDesc = $("meta[property='og:description']").attr("content");
+    const twDesc = $("meta[name='twitter:description']").attr("content");
+    const metaDesc = $("meta[name='description']").attr("content");
+
+    const ogImageSecure = $("meta[property='og:image:secure_url']").attr("content");
+    const ogImageUrl = $("meta[property='og:image:url']").attr("content");
+    const ogImage = $("meta[property='og:image']").attr("content");
+    const twImage = $("meta[name='twitter:image']").attr("content");
+
+    const ogSiteName = $("meta[property='og:site_name']").attr("content");
+
+    const pageTitle = pickFirst(ogTitle, twTitle, docTitle);
+    const pageDescription = pickFirst(ogDesc, twDesc, metaDesc);
+    const heroImageRaw = pickFirst(ogImageSecure, ogImageUrl, ogImage, twImage);
+    const heroImage = resolveUrl(heroImageRaw, finalUrl);
+    const faviconUrl = googleFaviconUrl(finalUrl);
+
+    const pageMeta = {
+      title: pageTitle,
+      description: pageDescription,
+      faviconUrl,
+      ogImage: heroImage,
+      siteName: ogSiteName?.trim() || undefined,
+      domain: finalUrl.hostname,
+    };
+
+    // ── Build scraped items ───────────────────────────────────────────
+    const items: ScrapedItem[] = [];
+    const seenUrls = new Set<string>();
+
+    // 1. Page title
+    if (pageTitle) {
+      items.push({ type: "title", text: pageTitle, priority: 100 });
+    }
+
+    // 2. Hero/OG image
+    if (heroImage) {
+      seenUrls.add(heroImage);
+      items.push({ type: "image", src: heroImage, priority: 90 });
+    }
+
+    // 3. Page description
+    if (pageDescription) {
+      items.push({ type: "description", text: pageDescription, priority: 80 });
+    }
+
+    // 4. Find main content area
+    const mainContent = $("main, article, [role='main']").first();
+    const $content = mainContent.length ? mainContent : $("body");
+
+    // 5. Extract links from the content area
+    $content.find("a[href]").each((_i, el) => {
+      if (items.length >= 15) return;
+
+      const href = $(el).attr("href");
+      if (!href) return;
+
+      const absUrl = resolveUrl(href, finalUrl);
+      if (!absUrl) return;
+
+      // Skip internal navigation links (anchors, same-page)
+      try {
+        const linkUrl = new URL(absUrl);
+        if (linkUrl.hostname === finalUrl.hostname && linkUrl.pathname === finalUrl.pathname) return;
+        if (absUrl.startsWith("javascript:") || absUrl.startsWith("mailto:") || absUrl.startsWith("tel:")) return;
+      } catch {
+        return;
+      }
+
+      if (seenUrls.has(absUrl)) return;
+      seenUrls.add(absUrl);
+
+      const itemType = classifyUrl(absUrl);
+      const linkText = $(el).text().trim().slice(0, 200);
+
+      if (itemType === "image") {
+        items.push({ type: "image", src: absUrl, priority: 40 });
+      } else if (itemType === "video") {
+        items.push({ type: "video", src: absUrl, priority: 50 });
+      } else if (itemType === "youtube") {
+        items.push({ type: "youtube", url: absUrl, priority: 60 });
+      } else if (itemType === "music") {
+        items.push({ type: "music", url: absUrl, priority: 55 });
+      } else {
+        // Regular link
+        let linkDomain: string | undefined;
+        try { linkDomain = new URL(absUrl).hostname; } catch { /* ignore */ }
+        items.push({
+          type: "link",
+          url: absUrl,
+          meta: {
+            title: linkText || undefined,
+            domain: linkDomain,
+            faviconUrl: linkDomain ? `https://s2.googleusercontent.com/s2/favicons?sz=64&domain_url=https://${linkDomain}` : undefined,
+          },
+          priority: 30,
+        });
+      }
+    });
+
+    // 6. Extract prominent images from the content area
+    $content.find("img[src]").each((_i, el) => {
+      if (items.length >= 15) return;
+
+      const src = $(el).attr("src");
+      if (!src) return;
+
+      const absSrc = resolveUrl(src, finalUrl);
+      if (!absSrc) return;
+      if (seenUrls.has(absSrc)) return;
+      if (isJunkImage(absSrc)) return;
+
+      // Filter out tiny images by checking width/height attributes
+      const w = parseInt($(el).attr("width") || "0", 10);
+      const h = parseInt($(el).attr("height") || "0", 10);
+      if ((w > 0 && w < 50) || (h > 0 && h < 50)) return;
+
+      seenUrls.add(absSrc);
+      items.push({ type: "image", src: absSrc, priority: 35 });
+    });
+
+    // 7. Extract embedded iframes (YouTube, Spotify, etc.)
+    $content.find("iframe[src]").each((_i, el) => {
+      if (items.length >= 15) return;
+
+      const src = $(el).attr("src");
+      if (!src) return;
+
+      const absSrc = resolveUrl(src, finalUrl);
+      if (!absSrc) return;
+      if (seenUrls.has(absSrc)) return;
+      seenUrls.add(absSrc);
+
+      const itemType = classifyUrl(absSrc);
+      if (itemType === "youtube") {
+        items.push({ type: "youtube", url: absSrc, priority: 65 });
+      } else if (itemType === "music") {
+        items.push({ type: "music", url: absSrc, priority: 55 });
+      } else {
+        items.push({ type: "embed", url: absSrc, priority: 25 });
+      }
+    });
+
+    // Sort by priority descending, then cap
+    items.sort((a, b) => b.priority - a.priority);
+    const capped = items.slice(0, 15);
+
+    return { pageMeta, items: capped };
+  } catch (err: any) {
+    if (err?.name === "AbortError") {
+      throw new HttpsError("deadline-exceeded", "Timed out fetching URL.");
+    }
+    if (err instanceof HttpsError) throw err;
+    logger.error("scrapePageForGrid failed", { url: normalized.toString(), error: String(err) });
+    throw new HttpsError("internal", "Failed to scrape page.");
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
 // Define secrets for Discord webhook URLs
 const discordNewUsersWebhookUrl = defineSecret("DISCORD_NEW_USERS_WEBHOOK_URL");
 const discordUserActivityWebhookUrl = defineSecret("DISCORD_USER_ACTIVITY_WEBHOOK_URL");

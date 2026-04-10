@@ -24,6 +24,12 @@
     </iframe>
 
     <div class="layout-container" ref="layoutContainer" :class="{ 'drag-over': isDraggingOver }">
+      <!-- URL-to-Grid generation banner -->
+      <div v-if="isGenerating" class="generation-banner">
+        <div class="generation-spinner"></div>
+        <span>{{ generationProgress }}</span>
+      </div>
+
       <!-- Drag overlay indicator -->
       <div v-if="isDraggingOver && layoutStore.canEdit" class="drag-overlay">
         <div class="drag-message">
@@ -106,6 +112,7 @@ import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
+import { useGridGeneration } from "@/composables/useGridGeneration";
 
 // ── Breakpoint switcher placement ────────────────────────────────
 // Change this value to flip between the three UI placements:
@@ -133,6 +140,9 @@ export default defineComponent({
     // Setup drag and drop + paste functionality
     const { isDraggingOver } = useDragAndPaste(layoutContainer);
     const { uploadFileToUrl } = useFileUpload();
+
+    // URL-to-Grid generation
+    const { isGenerating, generationProgress, generateGridFromUrl } = useGridGeneration();
 
     const isOwner = computed(() => {
       return layoutStore.isOwner;
@@ -227,6 +237,20 @@ export default defineComponent({
       },
     );
 
+    // Trigger URL-to-Grid generation if pending
+    watch(
+      () => layoutStore.currentLayout?.id,
+      (layoutId) => {
+        if (
+          layoutId &&
+          layoutStore.pendingUrlGeneration &&
+          layoutStore.pendingUrlGeneration.layoutId === layoutId
+        ) {
+          generateGridFromUrl(layoutStore.pendingUrlGeneration.url);
+        }
+      },
+    );
+
     watch(
       () => route.params.id,
       (newId) => {
@@ -256,6 +280,8 @@ export default defineComponent({
       isDraggingOver,
       isOwner,
       switcherVariant,
+      isGenerating,
+      generationProgress,
     };
   },
 });
@@ -345,5 +371,42 @@ export default defineComponent({
   50% {
     transform: translateY(-8px);
   }
+}
+
+.generation-banner {
+  position: fixed;
+  top: var(--spacing-lg);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-dropdown);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background-color: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.generation-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-tile-stroke);
+  border-top-color: var(--color-content-high);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

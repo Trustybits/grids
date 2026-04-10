@@ -2,6 +2,7 @@
   <div
     class="tile-actions"
     @mousedown.stop
+    @touchstart.stop
     @click.stop
     @mouseenter="hoveredToolbarZone = 'actions'"
     @mouseleave="hoveredToolbarZone = null"

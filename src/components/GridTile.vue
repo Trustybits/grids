@@ -40,6 +40,7 @@
           'is-dragging': isDragging,
           'is-exiting': isExiting,
           'is-activated': isActivated,
+          'embed-is-interactive': isEmbedInteractive,
         }"
         :data-border="borderVisible ? 'on' : 'off'"
         :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
@@ -245,6 +246,9 @@ export default defineComponent({
     const isHovered = ref(false);
     const hoveredToolbarZone = ref<string | null>(null);
     provide("hoveredToolbarZone", hoveredToolbarZone);
+    provide("tileActivated", isActivated);
+    const isEmbedInteractive = ref(false);
+    provide("isEmbedInteractive", isEmbedInteractive);
     const hoveredLayer = ref<"actions" | "toolbar" | null>(null);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
@@ -269,6 +273,7 @@ export default defineComponent({
       const hiddenTypes = [
         ContentType.LINK,
         ContentType.TEXT,
+        ContentType.SMART_TEXT,
         ContentType.CHAT,
         ContentType.EMBED,
         ContentType.CAMPFIRE,
@@ -863,6 +868,7 @@ export default defineComponent({
       isExitingCropMode,
       toolbarRefs,
       hoveredLayer,
+      isEmbedInteractive,
     };
   },
 });
@@ -933,6 +939,7 @@ export default defineComponent({
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   border-radius: var(--tile-border-radius);
+  transition: box-shadow 0.3s ease;
   /* turn off shadow when border is off */
   &[data-border="off"] {
     box-shadow: none;
@@ -1121,6 +1128,11 @@ export default defineComponent({
   display: flex;
 }
 
+/* Show embed interact overlay on tile activation (touch devices) */
+.tile-wrapper.is-activated :deep(.embed-interact-overlay) {
+  opacity: 1;
+}
+
 /* Non-owner caption: hide on tile hover or activation */
 .tile-wrapper:hover :deep(.viewer-caption),
 .tile-wrapper.is-activated :deep(.viewer-caption) {
@@ -1142,6 +1154,17 @@ export default defineComponent({
 .tile-wrapper.is-activated.is-dragging :deep(.tile-actions) {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Keep tile actions visible while embed is interactive */
+.tile-wrapper.embed-is-interactive :deep(.tile-actions) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Glow border while embed is interactive */
+.tile-wrapper.embed-is-interactive {
+  box-shadow: 0 0 0 2px var(--color-figma-purple, #a259ff), 0 0 20px 4px rgba(162, 89, 255, 0.3);
 }
 
 /* Hover-priority layering wrappers */

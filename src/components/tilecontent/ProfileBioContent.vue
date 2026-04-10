@@ -2185,7 +2185,6 @@ export default defineComponent({
   font-family:
     "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
-  text-shadow: 0 0 34px rgba(51, 49, 44, 0.55);
 }
 
 .profile-bio-text {

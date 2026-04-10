@@ -74,6 +74,7 @@ import type { Tile } from "@/types/Tile";
 import {
   ContentType,
   type TextContent,
+  type SmartTextContent,
   type LinkContent,
   type ImageContent,
   type VideoContent,
@@ -149,6 +150,8 @@ export default defineComponent({
           return (c as VideoContent).tileLink || null;
         case ContentType.TEXT:
           return (c as TextContent).tileLink || null;
+        case ContentType.SMART_TEXT:
+          return (c as SmartTextContent).tileLink || null;
         default:
           return null;
       }
@@ -160,6 +163,8 @@ export default defineComponent({
       const c = props.tile.content;
       switch (c.type) {
         case ContentType.TEXT:
+          return true;
+        case ContentType.SMART_TEXT:
           return true;
         case ContentType.LINK:
         case ContentType.MUSIC:
@@ -204,6 +209,17 @@ export default defineComponent({
         case ContentType.TEXT: {
           // Extract plain text from tiptap JSON doc
           const raw = (c as TextContent).text;
+          try {
+            const doc = JSON.parse(raw);
+            text = extractPlainText(doc);
+          } catch {
+            text = raw || "";
+          }
+          break;
+        }
+        case ContentType.SMART_TEXT: {
+          // Extract plain text from tiptap JSON doc
+          const raw = (c as SmartTextContent).text;
           try {
             const doc = JSON.parse(raw);
             text = extractPlainText(doc);

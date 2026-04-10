@@ -244,6 +244,8 @@ export default defineComponent({
     const hoveredToolbarZone = ref<string | null>(null);
     provide("hoveredToolbarZone", hoveredToolbarZone);
     provide("tileActivated", isActivated);
+    const isEmbedInteractive = ref(false);
+    provide("isEmbedInteractive", isEmbedInteractive);
     const hoveredLayer = ref<"actions" | "toolbar" | null>(null);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);

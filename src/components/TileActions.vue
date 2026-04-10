@@ -6,52 +6,66 @@
     @mouseenter="hoveredToolbarZone = 'actions'"
     @mouseleave="hoveredToolbarZone = null"
   >
-    <!-- Delete Tile -->
-    <button
-      class="tile-action-btn tile-action-btn--delete"
-      data-tooltip="Delete"
-      @click="onDelete"
-    >
-      <CloseIcon />
-    </button>
-
-    <!-- Quick Actions Group -->
-    <div class="tile-actions-group">
+    <!-- Embed interactive mode: only show Stop Interacting button -->
+    <template v-if="isEmbedInteractive">
       <button
-        v-if="hasLink"
-        class="tile-action-btn"
-        data-tooltip="Follow Link"
-        @click="onFollowLink"
+        class="tile-action-btn tile-action-btn--stop-interacting"
+        data-tooltip="Stop Interacting"
+        @click="isEmbedInteractive = false"
       >
-        <ArrowUpRightIcon />
+        <LogOutIcon />
+      </button>
+    </template>
+
+    <!-- Normal mode -->
+    <template v-else>
+      <!-- Delete Tile -->
+      <button
+        class="tile-action-btn tile-action-btn--delete"
+        data-tooltip="Delete"
+        @click="onDelete"
+      >
+        <CloseIcon />
       </button>
 
-      <button
-        class="tile-action-btn"
-        data-tooltip="Duplicate Tile"
-        @click="onDuplicate"
-      >
-        <DuplicateIcon />
-      </button>
+      <!-- Quick Actions Group -->
+      <div class="tile-actions-group">
+        <button
+          v-if="hasLink"
+          class="tile-action-btn"
+          data-tooltip="Follow Link"
+          @click="onFollowLink"
+        >
+          <ArrowUpRightIcon />
+        </button>
 
-      <button
-        v-if="hasCopyable"
-        class="tile-action-btn"
-        data-tooltip="Copy to Clipboard"
-        @click="onCopyToClipboard"
-      >
-        <ClipboardIcon />
-      </button>
+        <button
+          class="tile-action-btn"
+          data-tooltip="Duplicate Tile"
+          @click="onDuplicate"
+        >
+          <DuplicateIcon />
+        </button>
 
-      <button
-        v-if="hasDownload"
-        class="tile-action-btn"
-        data-tooltip="Download"
-        @click="onDownload"
-      >
-        <DownloadCloudIcon />
-      </button>
-    </div>
+        <button
+          v-if="hasCopyable"
+          class="tile-action-btn"
+          data-tooltip="Copy to Clipboard"
+          @click="onCopyToClipboard"
+        >
+          <ClipboardIcon />
+        </button>
+
+        <button
+          v-if="hasDownload"
+          class="tile-action-btn"
+          data-tooltip="Download"
+          @click="onDownload"
+        >
+          <DownloadCloudIcon />
+        </button>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -60,6 +74,7 @@ import {
   defineComponent,
   computed,
   inject,
+  ref,
   type PropType,
   type Ref,
 } from "vue";
@@ -82,6 +97,7 @@ import DuplicateIcon from "./icons/actionbar/DuplicateIcon.vue";
 import ClipboardIcon from "./icons/actionbar/ClipboardIcon.vue";
 import DownloadCloudIcon from "./icons/actionbar/DownloadCloudIcon.vue";
 import CloseIcon from "./icons/actionbar/CloseIcon.vue";
+import LogOutIcon from "./icons/actionbar/LogOutIcon.vue";
 
 export default defineComponent({
   components: {
@@ -91,6 +107,7 @@ export default defineComponent({
     ClipboardIcon,
     DownloadCloudIcon,
     CloseIcon,
+    LogOutIcon,
   },
   props: {
     tile: {
@@ -102,6 +119,7 @@ export default defineComponent({
   setup(props, { emit }) {
     const layoutStore = useLayoutStore();
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
+    const isEmbedInteractive = inject<Ref<boolean>>("isEmbedInteractive", ref(false));
     const toastStore = useToastStore();
 
     // --- Computed: which actions are available per tile type ---
@@ -246,6 +264,7 @@ export default defineComponent({
       onCopyToClipboard,
       onDownload,
       hoveredToolbarZone,
+      isEmbedInteractive,
     };
   },
 });
@@ -339,6 +358,20 @@ function extractPlainText(node: any): string {
   &:hover {
     background-color: #ff3737;
     border-color: #ff3737;
+    color: var(--color-light-100);
+  }
+}
+
+.tile-action-btn--stop-interacting {
+  :deep(svg) {
+    width: 20px;
+    height: 20px;
+    color: var(--color-content-full);
+  }
+
+  &:hover {
+    background-color: var(--color-figma-purple);
+    border-color: var(--color-figma-purple);
     color: var(--color-light-100);
   }
 }

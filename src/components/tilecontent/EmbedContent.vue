@@ -34,16 +34,6 @@
         </button>
       </div>
 
-      <!-- Exit button: owner-only, shown persistently when embed IS interactive -->
-      <button
-        v-if="canEdit && isEmbedInteractive"
-        class="embed-exit-btn"
-        @mousedown.stop
-        @click.stop="isEmbedInteractive = false"
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
-        Exit
-      </button>
     </template>
   </div>
 </template>
@@ -66,7 +56,7 @@ export default defineComponent({
 
     const tileActivated = inject<Ref<boolean>>("tileActivated", ref(false));
 
-    const isEmbedInteractive = ref(false);
+    const isEmbedInteractive = inject<Ref<boolean>>("isEmbedInteractive", ref(false));
 
     const isDirectImage = computed(() => {
       const src = props.content.src;
@@ -209,38 +199,4 @@ export default defineComponent({
   }
 }
 
-/* Exit button: always visible when embed is in interactive mode */
-.embed-exit-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 5;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  pointer-events: auto;
-  opacity: 0.7;
-  transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s ease;
-  user-select: none;
-
-  &:hover {
-    opacity: 1;
-    background: rgba(0, 0, 0, 0.75);
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
-}
 </style>

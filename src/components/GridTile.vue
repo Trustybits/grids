@@ -930,6 +930,7 @@ export default defineComponent({
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   border-radius: var(--tile-border-radius);
+  transition: box-shadow 0.3s ease;
   /* turn off shadow when border is off */
   &[data-border="off"] {
     box-shadow: none;

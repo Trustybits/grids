@@ -1,34 +1,26 @@
 <template>
   <div
     class="tile-actions"
+    :class="{ 'is-embed-interactive': isEmbedInteractive }"
     @mousedown.stop
     @click.stop
     @mouseenter="hoveredToolbarZone = 'actions'"
     @mouseleave="hoveredToolbarZone = null"
   >
-    <!-- Embed interactive mode: only show Stop Interacting button -->
-    <template v-if="isEmbedInteractive">
-      <button
-        class="tile-action-btn tile-action-btn--stop-interacting"
-        data-tooltip="Stop Interacting"
-        @click="isEmbedInteractive = false"
-      >
-        <LogOutIcon />
-      </button>
-    </template>
+    <!-- Primary button: delete normally, stop interacting when embed is active -->
+    <button
+      class="tile-action-btn tile-action-btn--primary"
+      :data-tooltip="isEmbedInteractive ? 'Stop Interacting' : 'Delete'"
+      @click="isEmbedInteractive ? (isEmbedInteractive = false) : onDelete()"
+    >
+      <span class="primary-icon-slot">
+        <CloseIcon class="icon-delete" />
+        <LogOutIcon class="icon-logout" />
+      </span>
+    </button>
 
-    <!-- Normal mode -->
-    <template v-else>
-      <!-- Delete Tile -->
-      <button
-        class="tile-action-btn tile-action-btn--delete"
-        data-tooltip="Delete"
-        @click="onDelete"
-      >
-        <CloseIcon />
-      </button>
-
-      <!-- Quick Actions Group -->
+    <!-- Quick Actions Group: collapses upward when embed is interactive -->
+    <div class="tile-actions-group-collapse">
       <div class="tile-actions-group">
         <button
           v-if="hasLink"
@@ -65,7 +57,7 @@
           <DownloadCloudIcon />
         </button>
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -312,10 +304,33 @@ function extractPlainText(node: any): string {
   transition: opacity var(--duration-fast) var(--easing-ease-out);
 }
 
+/* Collapse wrapper: grid trick for smooth height animation */
+.tile-actions-group-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows 0.25s ease,
+    opacity 0.2s ease;
+}
+
+.is-embed-interactive .tile-actions-group-collapse {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
 .tile-actions-group {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow: hidden; /* required for grid-template-rows collapse */
+  min-height: 0;
+  transform: translateY(0);
+  transition: transform 0.25s ease;
+}
+
+.is-embed-interactive .tile-actions-group {
+  transform: translateY(-6px);
 }
 
 .tile-action-btn {
@@ -344,11 +359,11 @@ function extractPlainText(node: any): string {
   &:hover {
     background-color: var(--color-actionbar-background);
     color: var(--color-figma-purple);
-    //transform: scale(1.1);
   }
 }
 
-.tile-action-btn--delete {
+/* Primary button: delete by default, stop-interacting when active */
+.tile-action-btn--primary {
   :deep(svg) {
     width: 20px;
     height: 20px;
@@ -359,20 +374,54 @@ function extractPlainText(node: any): string {
     background-color: #ff3737;
     border-color: #ff3737;
     color: var(--color-light-100);
+
+    :deep(svg) {
+      color: var(--color-light-100);
+    }
   }
 }
 
-.tile-action-btn--stop-interacting {
-  :deep(svg) {
-    width: 20px;
-    height: 20px;
-    color: var(--color-content-full);
+.is-embed-interactive .tile-action-btn--primary {
+  &:hover {
+    background-color: var(--color-figma-purple, #a259ff);
+    border-color: var(--color-figma-purple, #a259ff);
+    color: var(--color-light-100);
+  }
+}
+
+/* Icon morph: cross-fade + rotate between close and logout */
+.primary-icon-slot {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.icon-delete,
+.icon-logout {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.2s ease, transform 0.25s ease;
+}
+
+.icon-delete {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+.icon-logout {
+  opacity: 0;
+  transform: rotate(-30deg) scale(0.6);
+}
+
+.is-embed-interactive {
+  .icon-delete {
+    opacity: 0;
+    transform: rotate(30deg) scale(0.6);
   }
 
-  &:hover {
-    background-color: var(--color-figma-purple);
-    border-color: var(--color-figma-purple);
-    color: var(--color-light-100);
+  .icon-logout {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
   }
 }
 </style>

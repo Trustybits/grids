@@ -206,7 +206,6 @@ import { useTileLink } from "@/composables/useTileLink";
 import AddLinkModal from "../AddLinkModal.vue";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 
-const PREVIEW_DURATION = 3;
 const DEFAULT_VOLUME = 0.15;
 
 export default defineComponent({
@@ -430,10 +429,15 @@ export default defineComponent({
     const startPreview = () => {
       const vid = videoElement.value;
       if (!vid) return;
+
+      if (playbackMode.value === "idle" || videoEnded.value) {
+        vid.currentTime = 0;
+        videoEnded.value = false;
+      }
+
       playbackMode.value = "preview";
       vid.muted = true;
       isMuted.value = true;
-      vid.currentTime = 0;
       vid.play().catch(() => {});
       isPlaying.value = true;
     };
@@ -586,27 +590,16 @@ export default defineComponent({
       currentTime.value = videoElement.value.currentTime;
       progressPercent.value =
         duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0;
-
-      // Preview loop: for videos longer than the preview window, loop back at PREVIEW_DURATION
-      if (
-        playbackMode.value === "preview" &&
-        duration.value > PREVIEW_DURATION &&
-        currentTime.value >= PREVIEW_DURATION
-      ) {
-        videoElement.value.currentTime = 0;
-      }
     };
 
     const onVideoEnded = () => {
       if (playbackMode.value === "preview") {
-        // Short videos (< PREVIEW_DURATION) reach their natural end – loop in preview mode
         const vid = videoElement.value;
         if (vid) {
           vid.currentTime = 0;
           vid.play().catch(() => {});
         }
       } else if (playbackMode.value === "playing") {
-        // User-initiated playback finished — show replay icon
         isPlaying.value = false;
         videoEnded.value = true;
       }

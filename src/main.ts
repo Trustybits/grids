@@ -7,6 +7,7 @@ import { app as firebaseApp } from "./firebase";
 import router from "./router";
 import posthog from "posthog-js";
 import { registerDaoFactory } from "@/dao/DaoFactorySingleton";
+import { registerDbUtils } from "@/dao/DbUtilsSingleton";
 
 import "@fortawesome/fontawesome-free/css/all.css";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -33,10 +34,15 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
     const { FirestoreDaoFactory } =
       await import("@/dao/firestore/factory/FirestoreDaoFactory");
     registerDaoFactory(new FirestoreDaoFactory());
+    const { FirestoreDbUtils } =
+      await import("@/dao/firestore/FirestoreDbUtils");
+    registerDbUtils(new FirestoreDbUtils());
   } else {
     const { StubbedDaoFactory } =
       await import("@/dao/stubbed/factory/StubbedDaoFactory");
     registerDaoFactory(new StubbedDaoFactory());
+    const { StubbedDbUtils } = await import("@/dao/stubbed/StubbedDbUtils");
+    registerDbUtils(new StubbedDbUtils());
   }
 
   const app = createApp(App);

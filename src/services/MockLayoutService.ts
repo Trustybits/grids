@@ -1,5 +1,5 @@
 import { type Layout } from "@/types/Layout";
-import { type LayoutService } from "./LayoutService";
+import { type ILayoutService } from "./LayoutService";
 import { ContentType } from "@/types/TileContent";
 import { createTile, createTileContent } from "@/utils/TileUtils";
 
@@ -20,7 +20,7 @@ const mockData: Layout = {
       createTileContent(ContentType.TEXT, {
         text: '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","marks":[{"type":"textStyle","attrs":{"color":"","fontFamily":"Times New Roman","fontSize":"26px"}}],"text":"Big Text"}]},{"type":"paragraph","content":[{"type":"text","marks":[{"type":"textStyle","attrs":{"color":"","fontFamily":"","fontSize":"12px"}}],"text":"Small Text"}]},{"type":"paragraph","content":[{"type":"text","marks":[{"type":"textStyle","attrs":{"color":"","fontFamily":"","fontSize":"14px"}},{"type":"bold"}],"text":"Bold Text"}]},{"type":"paragraph","content":[{"type":"text","marks":[{"type":"textStyle","attrs":{"color":"","fontFamily":"","fontSize":"14px"}},{"type":"italic"}],"text":"Italic Text"}]},{"type":"paragraph","content":[{"type":"text","marks":[{"type":"textStyle","attrs":{"color":"rgb(140, 255, 0)","fontFamily":"","fontSize":"14px"}}],"text":"Different colored text"}]},{"type":"paragraph"},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Bullet Text"}]}]}]},{"type":"orderedList","attrs":{"start":1},"content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Numbered Text"}]}]}]},{"type":"paragraph"},{"type":"taskList","content":[{"type":"taskItem","attrs":{"checked":false},"content":[{"type":"paragraph","content":[{"type":"text","text":"Unchecked"}]}]},{"type":"taskItem","attrs":{"checked":true},"content":[{"type":"paragraph","content":[{"type":"text","text":"Checked"}]},{"type":"paragraph"}]}]}]}',
       }),
-      ""
+      "",
     ),
     createTile(
       ContentType.IMAGE,
@@ -32,7 +32,7 @@ const mockData: Layout = {
       createTileContent(ContentType.IMAGE, {
         src: "https://static1.colliderimages.com/wordpress/wp-content/uploads/2022/06/Star-Wars-(1).jpg",
       }),
-      ""
+      "",
     ),
     createTile(
       ContentType.LINK,
@@ -47,14 +47,14 @@ const mockData: Layout = {
         faviconUrl:
           "https://s2.googleusercontent.com/s2/favicons?sz=64&domain_url=youtube.com",
       }),
-      ""
+      "",
     ),
   ],
   backgroundImageSrc: "",
   backgroundEmbed: false,
 };
 
-export class MockLayoutService implements LayoutService {
+export class MockLayoutService implements ILayoutService {
   async fetchLayout(id: string): Promise<Layout> {
     console.log(`Fetching layout with id: ${id}`);
     return { ...mockData };
@@ -71,4 +71,57 @@ export class MockLayoutService implements LayoutService {
   async deleteLayout(id: string): Promise<void> {
     console.log(`Deleting layout with id: ${id}`);
   }
+
+  async fetchLayoutsByUserId(_userId: string): Promise<Layout[]> {
+    return [];
+  }
+
+  generateId(): string {
+    return "mock-id";
+  }
+
+  async createLayout(
+    _userId: string,
+    _name: string,
+    _starterTiles?: Layout["tiles"],
+  ): Promise<Layout> {
+    return { ...mockData };
+  }
+
+  async duplicateLayout(
+    _userId: string,
+    _sourceLayout: Layout,
+    _clonedTiles: Layout["tiles"],
+    _newOverrides: Layout["overrides"],
+  ): Promise<Layout> {
+    return { ...mockData };
+  }
+
+  async touchLastOpenedAt(_layoutId: string): Promise<void> {}
+
+  async loadRecentLayoutIds(_userId: string): Promise<string[]> {
+    return [];
+  }
+
+  async saveRecentLayoutIds(_userId: string, _ids: string[]): Promise<void> {}
+
+  async createLayoutWithStarterTiles(
+    _userId: string,
+    _name: string,
+  ): Promise<Layout> {
+    return { ...mockData };
+  }
+
+  async cloneAndPersistLayout(
+    _userId: string,
+    _sourceLayout: Layout,
+    _copyDepth?: import("@/types/Layout").CopyDepth,
+  ): Promise<Layout> {
+    return { ...mockData };
+  }
+
+  async queueSave(
+    _layout: Layout,
+    _resolvedUrls?: Record<string, string>,
+  ): Promise<void> {}
 }

@@ -1,5 +1,14 @@
-import type { Firestore } from "firebase/firestore";
+import {
+  type Firestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  onSnapshot,
+} from "firebase/firestore";
 import type { UserDao } from "../interfaces/UserDao";
+
+const COLLECTION = "users";
 
 export class FirestoreUserDao implements UserDao {
   private db: Firestore;
@@ -8,25 +17,42 @@ export class FirestoreUserDao implements UserDao {
     this.db = db;
   }
 
-  public getById(_userId: string): Promise<Record<string, unknown> | null> {
-    throw new Error("FirestoreUserDao.getById not implemented");
+  public async getById(
+    userId: string,
+  ): Promise<Record<string, unknown> | null> {
+    const docRef = doc(this.db, COLLECTION, userId);
+    const snapshot = await getDoc(docRef);
+    if (!snapshot.exists()) return null;
+    return snapshot.data() as Record<string, unknown>;
   }
 
-  public save(_userId: string, _data: Record<string, unknown>): Promise<void> {
-    throw new Error("FirestoreUserDao.save not implemented");
-  }
-
-  public update(
-    _userId: string,
-    _data: Record<string, unknown>,
+  public async save(
+    userId: string,
+    data: Record<string, unknown>,
   ): Promise<void> {
-    throw new Error("FirestoreUserDao.update not implemented");
+    const docRef = doc(this.db, COLLECTION, userId);
+    await setDoc(docRef, data, { merge: true });
+  }
+
+  public async update(
+    userId: string,
+    data: Record<string, unknown>,
+  ): Promise<void> {
+    const docRef = doc(this.db, COLLECTION, userId);
+    await updateDoc(docRef, data);
   }
 
   public subscribe(
-    _userId: string,
-    _callback: (data: Record<string, unknown> | null) => void,
+    userId: string,
+    callback: (data: Record<string, unknown> | null) => void,
   ): () => void {
-    throw new Error("FirestoreUserDao.subscribe not implemented");
+    const docRef = doc(this.db, COLLECTION, userId);
+    return onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        callback(snapshot.data() as Record<string, unknown>);
+      } else {
+        callback(null);
+      }
+    });
   }
 }

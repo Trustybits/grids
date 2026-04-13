@@ -47,7 +47,7 @@ export const useTileLink = (
     try {
       new URL(normalized);
       return normalized;
-    } catch (error) {
+    } catch {
       return "";
     }
   };

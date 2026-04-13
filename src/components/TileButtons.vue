@@ -7,31 +7,63 @@
 
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
-      <button class="btn btn-secondary" data-tooltip="Text" @click="addTextElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Text"
+        @click="addTextElement"
+      >
         <TextIcon />
       </button>
 
-      <button class="btn btn-secondary" data-tooltip="Profile" @click="addProfileElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Profile"
+        @click="addProfileElement"
+      >
         <ProfileTileIcon />
       </button>
 
-      <button class="btn btn-secondary" data-tooltip="Chat" @click="addChatElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Chat"
+        @click="addChatElement"
+      >
         <ChatIcon />
       </button>
 
-      <button class="btn btn-secondary" data-tooltip="Image / Video" @click="selectFile">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Image / Video"
+        @click="selectFile"
+      >
         <ImageIcon />
       </button>
-      <button class="btn btn-secondary" data-tooltip="Link" @click="addLinkElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Link"
+        @click="addLinkElement"
+      >
         <LinkTileIcon />
       </button>
-      <button class="btn btn-secondary" data-tooltip="Embed" @click="addEmbedElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Embed"
+        @click="addEmbedElement"
+      >
         <EmbedIcon />
       </button>
-      <button class="btn btn-secondary" data-tooltip="Map" @click="addMapElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Map"
+        @click="addMapElement"
+      >
         <MapIcon />
       </button>
-      <button class="btn btn-secondary" data-tooltip="Campfire" @click="addCampfireElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Campfire"
+        @click="addCampfireElement"
+      >
         <CampfireIcon />
       </button>
       <!-- <button class="btn btn-secondary" data-tooltip="Roadmap" @click="addRoadmapFeedElement">
@@ -78,7 +110,10 @@
 import { ref } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import { ContentType } from "@/types/TileContent";
-import { createTileContent, createTileContentFromEmbedUrl } from "@/utils/TileUtils";
+import {
+  createTileContent,
+  createTileContentFromEmbedUrl,
+} from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
@@ -95,7 +130,6 @@ import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileTileIcon from "./icons/ProfileTileIcon.vue";
 import MapIcon from "./icons/MapIcon.vue";
 import CampfireIcon from "./icons/CampfireIcon.vue";
-import RPGIcon from "./icons/RPGIcon.vue";
 
 export default {
   components: {
@@ -110,7 +144,6 @@ export default {
     ProfileTileIcon,
     MapIcon,
     CampfireIcon,
-    RPGIcon,
   },
   setup() {
     const themeStore = useThemeStore();
@@ -155,10 +188,10 @@ export default {
     const addFile = async (event: Event) => {
       const input = event.target as HTMLInputElement;
       const file = input.files?.[0];
-      
+
       // Reset input immediately so the same file can be selected again
       input.value = "";
-      
+
       if (!file) return;
       try {
         await uploadFileOptimistic(file);
@@ -178,7 +211,7 @@ export default {
 
     const handleAddLink = (link: string) => {
       closeLinkModal();
-      
+
       const trimmed = (link || "").trim();
       const isNonWebLink = /^(mailto|tel):/i.test(trimmed);
 
@@ -187,17 +220,21 @@ export default {
       const detectedContent = isNonWebLink
         ? createTileContent(ContentType.LINK, { link: trimmed })
         : createTileContentFromEmbedUrl(trimmed);
-      
+
       // If it's detected as YouTube, image, or video, use that specialized type
-      if (detectedContent.type === ContentType.YOUTUBE || 
-          detectedContent.type === ContentType.IMAGE ||
-          detectedContent.type === ContentType.VIDEO) {
+      if (
+        detectedContent.type === ContentType.YOUTUBE ||
+        detectedContent.type === ContentType.IMAGE ||
+        detectedContent.type === ContentType.VIDEO
+      ) {
         layoutStore.addTile(detectedContent);
         return;
       }
-      
+
       // Otherwise, create a link tile with preview
-      const linkContent = createTileContent(ContentType.LINK, { link: trimmed });
+      const linkContent = createTileContent(ContentType.LINK, {
+        link: trimmed,
+      });
       const tileId = layoutStore.addTile(linkContent);
 
       if (tileId) {
@@ -267,9 +304,9 @@ export default {
       layoutStore.addTile(roadmapContent);
     };
 
-    const addOtherElement = () => {
-      let link = prompt(
-        "More tile types coming soon! Any others you might be expecting to see?"
+    const _addOtherElement = () => {
+      const link = prompt(
+        "More tile types coming soon! Any others you might be expecting to see?",
       );
       if (link) {
         const linkContent = createTileContent(ContentType.LINK, {
@@ -282,7 +319,7 @@ export default {
     const updateMetaData = () => {
       layoutStore.setCookieValue(
         "showMetaData",
-        layoutStore.showMetaData.toString()
+        layoutStore.showMetaData.toString(),
       );
     };
 

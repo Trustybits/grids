@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="link-tile-content"
@@ -224,6 +225,7 @@
 </template>
 
 <script lang="ts">
+/* eslint-disable vue/no-mutating-props */
 import {
   defineComponent,
   inject,
@@ -805,12 +807,8 @@ export default defineComponent({
       return color;
     });
 
-    const { overlayColor, handleBackgroundColorChange } = useColorPicker(
-      tileId,
-      props.content,
-      emit,
-      "background",
-    );
+    const { overlayColor: _overlayColor, handleBackgroundColorChange } =
+      useColorPicker(tileId, props.content, emit, "background");
 
     const handleRemoveFavicon = () => {
       props.content.faviconUrl = undefined;

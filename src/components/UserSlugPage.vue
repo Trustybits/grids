@@ -49,10 +49,10 @@
               <div class="col-md-12">
                 <!-- Option A: Inline — sits inside the toolbar row -->
                 <div v-if="switcherVariant === 'inline'" class="toolbar-with-switcher">
-                  <grid-buttons />
+                  <GridButtons />
                   <BreakpointSwitcher variant="inline" />
                 </div>
-                <grid-buttons v-else />
+                <GridButtons v-else />
               </div>
             </div>
             <!-- Option D: Toolbar-row — second row below the toolbar -->
@@ -74,7 +74,7 @@
           <div v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'" class="toolbar">
             <BreakpointSwitcher variant="toolbar-row" />
           </div>
-          <grid :row-height="75" />
+          <Grid :row-height="75" />
         </div>
       </div>
 

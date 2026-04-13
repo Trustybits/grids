@@ -14,9 +14,23 @@
         :is-starred="isStarred"
         @toggle-star="$emit('toggle-star', $event)"
       />
-      <span class="grid-name">{{ layout.name }}
-        <svg class="grid-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <span class="grid-name"
+        >{{ layout.name }}
+        <svg
+          class="grid-arrow"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M9 18L15 12L9 6"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </svg>
       </span>
 
@@ -36,31 +50,32 @@
   </li>
 </template>
 
-<script setup>
-import DashboardGridStarButton from './DashboardGridStarButton.vue';
-import DashboardGridUpdatedLabel from './DashboardGridUpdatedLabel.vue';
-import DashboardGridCardActions from './DashboardGridCardActions.vue';
+<script setup lang="ts">
+import DashboardGridStarButton from "./DashboardGridStarButton.vue";
+import DashboardGridUpdatedLabel from "./DashboardGridUpdatedLabel.vue";
+import DashboardGridCardActions from "./DashboardGridCardActions.vue";
+import type { Layout } from "@/types/Layout";
 
-defineProps({
-  layout: { type: Object, required: true },
-  isDefaultGrid: { type: Boolean, default: false },
-  isStarred: { type: Boolean, default: false },
-  splitMenuOpen: { type: Boolean, default: false },
-  draggable: { type: Boolean, default: false },
-  isDragOver: { type: Boolean, default: false },
-});
+defineProps<{
+  layout: Layout,
+  isDefaultGrid?: boolean,
+  isStarred?: boolean,
+  splitMenuOpen?: boolean,
+  draggable?: boolean,
+  isDragOver?: boolean,
+}>();
 
 defineEmits([
-  'toggle-star',
-  'toggle-default',
-  'duplicate',
-  'toggle-split-menu',
-  'rename',
-  'delete',
-  'dragstart',
-  'dragover',
-  'drop',
-  'dragend',
+  "toggle-star",
+  "toggle-default",
+  "duplicate",
+  "toggle-split-menu",
+  "rename",
+  "delete",
+  "dragstart",
+  "dragover",
+  "drop",
+  "dragend",
 ]);
 </script>
 

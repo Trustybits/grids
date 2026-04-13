@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <!-- @pointerdown.stop and @mousedown.stop prevent these events from
        reaching the tile-wrapper's startClick handler and interact.js's drag
@@ -11,11 +12,8 @@
     @mousedown.stop
     @click="startEditing"
   >
-    <p
-      v-if="!editing"
-      class="caption-text"
-    >
-      {{ tile.caption || '+ caption' }}
+    <p v-if="!editing" class="caption-text">
+      {{ tile.caption || "+ caption" }}
     </p>
     <p
       v-else
@@ -28,7 +26,8 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+/* eslint-disable vue/no-mutating-props */
 import { ref, computed, nextTick } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 
@@ -43,14 +42,14 @@ export default {
   setup(props) {
     const layoutStore = useLayoutStore();
     const editing = ref(false);
-    const editableCaptionElement = ref(null);
+    const editableCaptionElement = ref<HTMLParagraphElement | null>(null);
 
     const captionClasses = computed(() => {
       if (layoutStore.canEdit) {
-        return 'hover-display';
+        return "hover-display";
       }
       // Non-owner: show if caption exists, hide on hover
-      return props.tile.caption ? 'viewer-caption' : '';
+      return props.tile.caption ? "viewer-caption" : "";
     });
 
     const captionStyle = computed(() => {
@@ -59,7 +58,7 @@ export default {
       // and must not be overridden by an inline style (so the
       // hide-on-hover rule in GridTile.vue can take effect).
       if (layoutStore.canEdit && (editing.value || props.tile.caption)) {
-        return { display: 'flex' };
+        return { display: "flex" };
       }
       return {};
     });
@@ -77,7 +76,7 @@ export default {
       nextTick(() => {
         const el = editableCaptionElement.value;
         if (el) {
-          el.textContent = props.tile.caption || '';
+          el.textContent = props.tile.caption || "";
           el.focus();
           // Place caret at end
           const range = document.createRange();
@@ -96,9 +95,11 @@ export default {
         editing.value = false;
         return;
       }
-      const text = editableCaptionElement.value?.innerText.trim() ?? '';
+      const text = editableCaptionElement.value?.innerText.trim() ?? "";
       // Update the store's canonical tile so the caption persists to Firestore
-      const storeTile = layoutStore.currentLayout?.tiles?.find(t => t.i === props.tile.i);
+      const storeTile = layoutStore.currentLayout?.tiles?.find(
+        (t) => t.i === props.tile.i,
+      );
       if (storeTile) {
         storeTile.caption = text;
       }

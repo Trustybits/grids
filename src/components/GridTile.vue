@@ -13,7 +13,7 @@
       'crop-mode-elevated': (isEditing || isExitingCropMode) && isCroppable,
     }"
   >
-    <grid-item
+    <GridItem
       :i="tile.i"
       :x="tile.x"
       :y="tile.y"
@@ -113,14 +113,15 @@
 
         <div v-if="layoutStore.showMetaData" class="meta-data">
           <p class="meta-data__compact">{{ compactMetadata }}</p>
-          <p
-            v-if="layoutStore.showMetaDataVerbose"
-            class="meta-data__verbose"
-            v-for="line in verboseMetadataLines"
-            :key="line"
-          >
-            {{ line }}
-          </p>
+          <template v-if="layoutStore.showMetaDataVerbose">
+            <p
+              class="meta-data__verbose"
+              v-for="line in verboseMetadataLines"
+              :key="line"
+            >
+              {{ line }}
+            </p>
+          </template>
         </div>
 
         <div
@@ -151,7 +152,7 @@
           <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
         </div>
       </div>
-    </grid-item>
+    </GridItem>
   </div>
 </template>
 
@@ -314,7 +315,7 @@ export default defineComponent({
       () => (props.tile.content as any)?.label ?? "",
     );
 
-    const isProfileTile = computed(
+    const _isProfileTile = computed(
       () => props.tile.content.type === ContentType.PROFILE,
     );
     const isTileDraggable = computed(() => {
@@ -410,8 +411,8 @@ export default defineComponent({
       i: string,
       newH: number,
       newW: number,
-      newHPx: number,
-      newWPx: number,
+      _newHPx: number,
+      _newWPx: number,
     ) => {
       // Called during resize operation - snap to whole grid units for clean resizing
       // Only mutate the store's canonical tiles at the lg (default) breakpoint.
@@ -756,7 +757,9 @@ export default defineComponent({
     const verboseMetadataLines = computed(() => {
       const caption = props.tile.caption?.trim();
       const cookieValue = layoutStore.getCookieValue("showMetaData");
-      const verboseCookieValue = layoutStore.getCookieValue("showMetaDataVerbose");
+      const verboseCookieValue = layoutStore.getCookieValue(
+        "showMetaDataVerbose",
+      );
       return [
         `caption: ${caption ? caption.slice(0, 40) : "n/a"}`,
         `borderEnabled: ${borderEnabled.value ? "true" : "false"} | draggable: ${isTileDraggable.value ? "true" : "false"} | resizable: ${isTileResizable.value ? "true" : "false"}`,

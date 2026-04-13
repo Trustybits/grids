@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names, vue/no-unused-components -->
 <template>
   <p v-if="layoutStore.isLoading">Loading layout...</p>
   <div
@@ -6,7 +7,7 @@
     class="grid-scale-wrapper"
     :style="scaleWrapperStyle"
   >
-    <grid-layout
+    <GridLayout
       ref="gridLayoutRef"
       class="grid-container"
       :layout="displayLayout"
@@ -21,8 +22,8 @@
       :margin="[margin, margin]"
       :style="gridInnerStyle"
     >
-      <grid-tile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
-    </grid-layout>
+      <GridTile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
+    </GridLayout>
   </div>
   <p v-else>No tiles yet.</p>
 </template>
@@ -39,7 +40,7 @@ import { type Tile, type Breakpoint } from "@/types/Tile";
 export default {
   components: {
     GridLayout,
-    GridItem,
+    GridItem, // eslint-disable-line vue/no-unused-components -- used internally by vue3-grid-layout
     GridTile,
   },
   props: {

@@ -76,7 +76,6 @@ import {
 } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { useToastStore } from "@/stores/toast";
-import TrashIcon from "./icons/toolbar/TrashIcon.vue";
 import ArrowUpRightIcon from "./icons/actionbar/ArrowUpRightIcon.vue";
 import DuplicateIcon from "./icons/actionbar/DuplicateIcon.vue";
 import ClipboardIcon from "./icons/actionbar/ClipboardIcon.vue";
@@ -85,7 +84,6 @@ import CloseIcon from "./icons/actionbar/CloseIcon.vue";
 
 export default defineComponent({
   components: {
-    TrashIcon,
     ArrowUpRightIcon,
     DuplicateIcon,
     ClipboardIcon,

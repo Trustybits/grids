@@ -23,14 +23,17 @@
     <!-- Quick Actions Group: collapses upward when embed is interactive -->
     <div class="tile-actions-group-collapse">
       <div class="tile-actions-group">
-        <button
+        <a
           v-if="hasLink"
           class="tile-action-btn"
           data-tooltip="Follow Link"
-          @click="onFollowLink"
+          :href="resolvedTileUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          @click.stop
         >
           <ArrowUpRightIcon />
-        </button>
+        </a>
 
         <button
           class="tile-action-btn"
@@ -158,7 +161,14 @@ export default defineComponent({
       }
     });
 
-    const hasLink = computed(() => !!tileUrl.value);
+    const resolvedTileUrl = computed<string>(() => {
+      const url = (tileUrl.value || "").trim();
+      if (!url) return "";
+      if (/^[a-z][a-z0-9+.-]*:/i.test(url)) return url;
+      return `https://${url}`;
+    });
+
+    const hasLink = computed(() => !!resolvedTileUrl.value);
 
     const hasCopyable = computed(() => {
       const c = props.tile.content;
@@ -186,13 +196,6 @@ export default defineComponent({
 
     const onDelete = () => {
       emit("delete");
-    };
-
-    const onFollowLink = () => {
-      const url = tileUrl.value;
-      if (url) {
-        window.open(url, "_blank", "noopener,noreferrer");
-      }
     };
 
     const onDuplicate = () => {
@@ -284,7 +287,6 @@ export default defineComponent({
       hasCopyable,
       hasDownload,
       onDelete,
-      onFollowLink,
       onDuplicate,
       onCopyToClipboard,
       onDownload,
@@ -292,6 +294,7 @@ export default defineComponent({
       isEmbedInteractive,
       justExitedInteractive,
       onStopInteracting,
+      resolvedTileUrl,
     };
   },
 });

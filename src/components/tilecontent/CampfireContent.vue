@@ -1,25 +1,35 @@
 <template>
   <div class="campfire-container">
     <div class="campfire-content" :class="layoutClass">
-      <div v-if="showCount" class="flame-count">{{ ownerGameData?.totalClicks || 0 }}</div>
-      
-      <button 
-        class="campfire-button" 
-        :class="[fireIntensityClass, { 'disabled': dailyCapReached }]"
+      <div v-if="showCount" class="flame-count">
+        {{ ownerGameData?.totalClicks || 0 }}
+      </div>
+
+      <button
+        class="campfire-button"
+        :class="[fireIntensityClass, { disabled: dailyCapReached }]"
         @click="handleClick"
         :title="buttonTitle"
         :disabled="dailyCapReached"
       >
-        <FireLargeIcon v-if="fireIntensity === 'blazing'" :size="fireIconSize" />
-        <FireMediumIcon v-else-if="fireIntensity === 'burning'" :size="fireIconSize" />
+        <FireLargeIcon
+          v-if="fireIntensity === 'blazing'"
+          :size="fireIconSize"
+        />
+        <FireMediumIcon
+          v-else-if="fireIntensity === 'burning'"
+          :size="fireIconSize"
+        />
         <FireSmallIcon v-else :size="fireIconSize" />
       </button>
-      
+
       <!-- Daily click progress indicator -->
       <div v-if="showDailyProgress" class="daily-progress">
-        <span class="progress-text">{{ dailyClicksRemaining }}/{{ dailyClickCap }} today</span>
+        <span class="progress-text"
+          >{{ dailyClicksRemaining }}/{{ dailyClickCap }} today</span
+        >
       </div>
-      
+
       <!-- Boost tier indicator -->
       <div v-if="showBoostInfo && currentBoostTier" class="boost-info">
         <span class="boost-tier">{{ currentBoostTier.name }}</span>
@@ -27,27 +37,33 @@
           +{{ currentBoostTier.dailyPassiveClicks }}/day
         </span>
       </div>
-      
+
       <!-- Cap reached message -->
       <transition name="fade">
         <div v-if="showCapMessage" class="cap-message">
           Daily limit reached! Come back tomorrow 🔥
         </div>
       </transition>
-      
+
       <!-- Passive clicks claimed message -->
       <transition name="fade">
         <div v-if="showPassiveMessage" class="passive-message">
           +{{ passiveClicksClaimed }} passive clicks earned! 🌟
         </div>
       </transition>
-      
+
       <div v-if="showFooter" class="footer">
         <div class="player-info">
-          <div class="player-name">{{ ownerGameData?.displayName || 'Loading...' }}</div>
+          <div class="player-name">
+            {{ ownerGameData?.displayName || "Loading..." }}
+          </div>
         </div>
-        
-        <button class="leaderboard-icon-button" @click="toggleLeaderboard" :title="showLeaderboard ? 'Close leaderboard' : 'Show leaderboard'">
+
+        <button
+          class="leaderboard-icon-button"
+          @click="toggleLeaderboard"
+          :title="showLeaderboard ? 'Close leaderboard' : 'Show leaderboard'"
+        >
           <LeaderboardIcon :size="24" />
         </button>
       </div>
@@ -63,15 +79,17 @@
           </button>
         </div>
         <div class="leaderboard-list">
-          <div 
-            v-for="entry in leaderboard" 
+          <div
+            v-for="entry in leaderboard"
             :key="entry.userId"
             class="leaderboard-entry"
             :class="{ 'is-current-owner': entry.userId === ownerId }"
           >
             <span class="rank">#{{ entry.rank }}</span>
             <span class="name">{{ entry.displayName }}</span>
-            <span class="score">{{ entry.totalClicks.toLocaleString() }} 🔥</span>
+            <span class="score"
+              >{{ entry.totalClicks.toLocaleString() }} 🔥</span
+            >
           </div>
           <div v-if="leaderboard.length === 0" class="leaderboard-empty">
             No fires yet. Start the flame!
@@ -83,7 +101,15 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, onUnmounted, computed, inject, type ComputedRef } from "vue";
+import {
+  defineComponent,
+  ref,
+  onMounted,
+  onUnmounted,
+  computed,
+  inject,
+  type ComputedRef,
+} from "vue";
 import { type CampfireContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import FireSmallIcon from "@/components/icons/FireSmallIcon.vue";
@@ -100,7 +126,11 @@ import {
   getDailyClickCap,
   claimPassiveClicks,
 } from "@/services/GameDataService";
-import { getCurrentBoostTier, getNextBoostTier, type BoostMilestone } from "@/utils/PassiveBoostCalculator";
+import {
+  getCurrentBoostTier,
+  getNextBoostTier,
+  type BoostMilestone,
+} from "@/utils/PassiveBoostCalculator";
 
 export default defineComponent({
   components: {
@@ -115,9 +145,9 @@ export default defineComponent({
       required: true,
     },
   },
-  setup(props) {
+  setup(_props) {
     const layoutStore = useLayoutStore();
-    const fireIntensity = ref<'dying' | 'burning' | 'blazing'>('dying');
+    const fireIntensity = ref<"dying" | "burning" | "blazing">("dying");
     const lastClickTime = ref(0);
     const clickStreak = ref(0);
     const showLeaderboard = ref(false);
@@ -131,73 +161,79 @@ export default defineComponent({
     const nextBoostTier = ref<BoostMilestone | null>(null);
     const passiveClicksClaimed = ref(0);
     const showPassiveMessage = ref(false);
-    
+
     // Inject tile dimensions from GridTile (these are ComputedRefs)
-    const tileWidth = inject<ComputedRef<number>>('gridTileW', computed(() => 2));
-    const tileHeight = inject<ComputedRef<number>>('gridTileH', computed(() => 2));
-    
+    const tileWidth = inject<ComputedRef<number>>(
+      "gridTileW",
+      computed(() => 2),
+    );
+    const tileHeight = inject<ComputedRef<number>>(
+      "gridTileH",
+      computed(() => 2),
+    );
+
     // Determine layout based on tile dimensions
     const layoutClass = computed(() => {
       const w = tileWidth.value;
       const h = tileHeight.value;
-      if (w === 1 && h === 1) return 'layout-1x1';
-      if (w === 1 && h === 2) return 'layout-1x2';
-      if (w === 2 && h === 1) return 'layout-2x1';
-      return 'layout-default';
+      if (w === 1 && h === 1) return "layout-1x1";
+      if (w === 1 && h === 2) return "layout-1x2";
+      if (w === 2 && h === 1) return "layout-2x1";
+      return "layout-default";
     });
-    
+
     // Show count only for non-1x1 tiles
     const showCount = computed(() => {
       const w = tileWidth.value;
       const h = tileHeight.value;
       return !(w === 1 && h === 1);
     });
-    
+
     // Show footer only for default layout (2x2 or larger)
     const showFooter = computed(() => {
       const w = tileWidth.value;
       const h = tileHeight.value;
       return !(w === 1 || h === 1);
     });
-    
+
     // Show daily progress for larger tiles
     const showDailyProgress = computed(() => {
       const w = tileWidth.value;
       const h = tileHeight.value;
       return !(w === 1 && h === 1);
     });
-    
+
     // Show boost info for larger tiles
     const showBoostInfo = computed(() => {
       const w = tileWidth.value;
       const h = tileHeight.value;
       return !(w === 1 && h === 1) && currentBoostTier.value !== null;
     });
-    
+
     // Dynamic button title based on cap status
     const buttonTitle = computed(() => {
       if (dailyCapReached.value) {
-        return 'Daily limit reached! Come back tomorrow';
+        return "Daily limit reached! Come back tomorrow";
       }
       return `Keep the fire burning! (${dailyClicksRemaining.value} clicks left today)`;
     });
-    
+
     // Dynamic fire icon size based on layout
     const fireIconSize = computed(() => {
       const w = tileWidth.value;
       const h = tileHeight.value;
       if (w === 1 && h === 1) return 40;
       if (w === 1 || h === 1) return 48;
-      if (fireIntensity.value === 'blazing') return 64;
-      if (fireIntensity.value === 'burning') return 48;
+      if (fireIntensity.value === "blazing") return 64;
+      if (fireIntensity.value === "burning") return 48;
       return 32;
     });
-    
+
     let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
     let unsubscribeOwnerData: (() => void) | null = null;
     let unsubscribeLeaderboard: (() => void) | null = null;
 
-    const ownerId = computed(() => layoutStore.currentLayout?.userId || '');
+    const ownerId = computed(() => layoutStore.currentLayout?.userId || "");
 
     const fireIntensityClass = computed(() => {
       return `fire-${fireIntensity.value}`;
@@ -205,10 +241,10 @@ export default defineComponent({
 
     const handleClick = async () => {
       if (!ownerId.value || dailyCapReached.value) return;
-      
+
       // Increment the grid owner's score (not the clicker's score)
       const success = await incrementUserClicks(ownerId.value, 1);
-      
+
       // Check if daily cap was reached
       if (!success) {
         dailyCapReached.value = true;
@@ -219,12 +255,12 @@ export default defineComponent({
         }, 3000);
         return;
       }
-      
+
       // Update remaining clicks
       if (dailyClicksRemaining.value > 0) {
         dailyClicksRemaining.value--;
       }
-      
+
       // Check if we just hit the cap
       if (dailyClicksRemaining.value === 0) {
         dailyCapReached.value = true;
@@ -233,47 +269,47 @@ export default defineComponent({
           showCapMessage.value = false;
         }, 3000);
       }
-      
+
       // Check click speed to determine fire intensity
       const now = Date.now();
       const timeSinceLastClick = now - lastClickTime.value;
-      
+
       if (timeSinceLastClick < 300) {
         // Very fast clicking - blazing fire
         clickStreak.value++;
         if (clickStreak.value >= 5) {
-          fireIntensity.value = 'blazing';
+          fireIntensity.value = "blazing";
         } else if (clickStreak.value >= 2) {
-          fireIntensity.value = 'burning';
+          fireIntensity.value = "burning";
         }
       } else if (timeSinceLastClick < 800) {
         // Medium pace - burning fire
         clickStreak.value = Math.max(2, clickStreak.value);
-        fireIntensity.value = 'burning';
+        fireIntensity.value = "burning";
       } else {
         // Slow clicking - reset to small fire
         clickStreak.value = 0;
-        fireIntensity.value = 'dying';
+        fireIntensity.value = "dying";
       }
-      
+
       lastClickTime.value = now;
-      
+
       // Clear existing cooldown timer
       if (cooldownTimer) {
         clearTimeout(cooldownTimer);
       }
-      
+
       // Set cooldown to reduce fire intensity after 1 second of no clicks
       cooldownTimer = setTimeout(() => {
-        if (fireIntensity.value === 'blazing') {
-          fireIntensity.value = 'burning';
+        if (fireIntensity.value === "blazing") {
+          fireIntensity.value = "burning";
           // Set another timer to continue reducing
           cooldownTimer = setTimeout(() => {
-            fireIntensity.value = 'dying';
+            fireIntensity.value = "dying";
             clickStreak.value = 0;
           }, 1000);
-        } else if (fireIntensity.value === 'burning') {
-          fireIntensity.value = 'dying';
+        } else if (fireIntensity.value === "burning") {
+          fireIntensity.value = "dying";
           clickStreak.value = 0;
         }
       }, 1000);
@@ -285,13 +321,13 @@ export default defineComponent({
 
     onMounted(async () => {
       if (!ownerId.value) {
-        console.error('No owner ID found for campfire tile');
+        console.error("No owner ID found for campfire tile");
         return;
       }
 
       // Initialize owner's game data if it doesn't exist
       const gameData = await getOrCreateUserGameData(ownerId.value);
-      
+
       // Claim any passive clicks earned since last visit
       const passiveClaimed = await claimPassiveClicks(ownerId.value);
       if (passiveClaimed > 0) {
@@ -301,7 +337,7 @@ export default defineComponent({
           showPassiveMessage.value = false;
         }, 4000);
       }
-      
+
       // Update boost tier based on current total clicks
       currentBoostTier.value = getCurrentBoostTier(gameData.totalClicks);
       nextBoostTier.value = getNextBoostTier(gameData.totalClicks);
@@ -310,13 +346,16 @@ export default defineComponent({
       const limitCheck = await checkDailyClickLimit(ownerId.value);
       dailyClicksRemaining.value = limitCheck.remaining;
       dailyCapReached.value = !limitCheck.canClick;
-      
+
       // Subscribe to real-time updates for owner's game data
       unsubscribeOwnerData = subscribeToUserGameData(ownerId.value, (data) => {
         ownerGameData.value = data;
         // Update daily clicks tracking when data changes
         if (data.dailyClicks !== undefined) {
-          const remaining = Math.max(0, dailyClickCap - (data.dailyClicks || 0));
+          const remaining = Math.max(
+            0,
+            dailyClickCap - (data.dailyClicks || 0),
+          );
           dailyClicksRemaining.value = remaining;
           dailyCapReached.value = remaining === 0;
         }
@@ -394,44 +433,44 @@ export default defineComponent({
   gap: var(--spacing-xs);
   width: 100%;
   height: 100%;
-  
+
   // 1x1 layout - only fire button, centered
   &.layout-1x1 {
     justify-content: center;
     padding: 0;
-    
+
     .campfire-button {
       width: 56px;
       height: 56px;
     }
   }
-  
+
   // 1x2 layout - vertical: count top, button bottom
   &.layout-1x2 {
     flex-direction: column;
     justify-content: space-evenly;
     padding: var(--spacing-xs) 0;
-    
+
     .flame-count {
       font-size: 32px;
     }
-    
+
     .campfire-button {
       width: 64px;
       height: 64px;
     }
   }
-  
+
   // 2x1 layout - horizontal: count left, button right
   &.layout-2x1 {
     flex-direction: row;
     justify-content: space-evenly;
     padding: 0 var(--spacing-xs);
-    
+
     .flame-count {
       font-size: 32px;
     }
-    
+
     .campfire-button {
       width: 64px;
       height: 64px;
@@ -455,47 +494,50 @@ export default defineComponent({
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: transform 0.1s ease, filter 0.3s ease;
+  transition:
+    transform 0.1s ease,
+    filter 0.3s ease;
   user-select: none;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #8b8b8b;
-  
+
   &:hover {
     filter: brightness(1.1);
   }
-  
+
   &:active {
     transform: scale(0.95);
   }
-  
+
   &.fire-dying {
     color: #8b8b8b;
     animation: flickerDying 2s ease-in-out infinite;
   }
-  
+
   &.fire-burning {
     color: #ff6b35;
     animation: flickerBurning 1.2s ease-in-out infinite;
     filter: drop-shadow(0 0 8px rgba(255, 107, 53, 0.6));
   }
-  
+
   &.fire-blazing {
     color: #ff4500;
     animation: flickerBlazing 0.8s ease-in-out infinite;
-    filter: drop-shadow(0 0 16px rgba(255, 107, 53, 0.95)) drop-shadow(0 0 24px rgba(247, 147, 30, 0.75));
+    filter: drop-shadow(0 0 16px rgba(255, 107, 53, 0.95))
+      drop-shadow(0 0 24px rgba(247, 147, 30, 0.75));
   }
-  
+
   &.disabled {
     opacity: 0.4;
     cursor: not-allowed;
     filter: grayscale(0.8);
-    
+
     &:hover {
       filter: grayscale(0.8);
     }
-    
+
     &:active {
       transform: none;
     }
@@ -503,7 +545,8 @@ export default defineComponent({
 }
 
 @keyframes flickerDying {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.6;
   }
   50% {
@@ -512,7 +555,8 @@ export default defineComponent({
 }
 
 @keyframes flickerBurning {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.9;
     transform: scale(1);
   }
@@ -527,7 +571,8 @@ export default defineComponent({
 }
 
 @keyframes flickerBlazing {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1) translateY(0);
   }
@@ -578,13 +623,13 @@ export default defineComponent({
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   &:hover {
     color: var(--color-text-primary);
     border-color: var(--color-text-primary);
     background: rgba(255, 255, 255, 0.05);
   }
-  
+
   &:active {
     transform: scale(0.95);
   }
@@ -628,7 +673,7 @@ export default defineComponent({
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   &:hover {
     color: var(--color-text-primary);
     border-color: var(--color-text-primary);
@@ -642,15 +687,15 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   gap: 4px;
-  
+
   &::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   &::-webkit-scrollbar-thumb {
     background: var(--color-content-low);
     border-radius: 3px;
@@ -667,11 +712,11 @@ export default defineComponent({
   font-size: 13px;
   transition: background 0.2s ease;
   background: rgba(0, 0, 0, 0.2);
-  
+
   &:hover {
     background: rgba(255, 255, 255, 0.05);
   }
-  
+
   &.is-current-owner {
     background: rgba(255, 107, 53, 0.15);
     font-weight: 600;
@@ -712,7 +757,9 @@ export default defineComponent({
 // Drawer slide-up animation
 .drawer-enter-active,
 .drawer-leave-active {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s ease;
 }
 
 .drawer-enter-from {
@@ -744,7 +791,7 @@ export default defineComponent({
   padding: 2px 8px;
   background: rgba(0, 0, 0, 0.2);
   border-radius: var(--radius-sm);
-  
+
   .progress-text {
     font-variant-numeric: tabular-nums;
   }
@@ -762,14 +809,14 @@ export default defineComponent({
   background: rgba(255, 215, 0, 0.1);
   border: 1px solid rgba(255, 215, 0, 0.3);
   border-radius: var(--radius-sm);
-  
+
   .boost-tier {
     font-weight: 700;
     color: #ffd700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  
+
   .boost-rate {
     font-size: 9px;
     color: var(--color-content-default);

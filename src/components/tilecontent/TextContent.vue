@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="text-container"
@@ -50,6 +51,7 @@
 </template>
 
 <script lang="ts">
+/* eslint-disable vue/no-mutating-props */
 import {
   defineComponent,
   ref,
@@ -135,7 +137,7 @@ export default defineComponent({
         TaskItem,
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",
-      onCreate({ editor }) {
+      onCreate({ editor: _editor }) {
         nextTick(() => {
           checkOverflow();
 
@@ -151,7 +153,7 @@ export default defineComponent({
           }
         });
       },
-      onUpdate({ editor }) {
+      onUpdate({ editor: _editor }) {
         // props.content.text = editor.getHTML();
         checkOverflow();
         if (isEditing.value) {
@@ -378,7 +380,7 @@ export default defineComponent({
     };
 
     const getCurrentFontSize = () => {
-      let fontSize = editor.value?.getAttributes("textStyle")?.fontSize;
+      const fontSize = editor.value?.getAttributes("textStyle")?.fontSize;
 
       if (!fontSize) {
         return "Medium";

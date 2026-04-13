@@ -23,7 +23,7 @@
   </svg>
 </template>
 
-<script setup>
+<script setup lang="ts">
 defineProps({
   size: {
     type: [String, Number],

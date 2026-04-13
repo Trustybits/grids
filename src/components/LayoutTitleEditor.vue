@@ -20,22 +20,18 @@
     <router-link class="cta-btn cta-btn--ghost" to="/login">
       Login
     </router-link>
-    <router-link
-      class="cta-btn cta-btn--icon"
-      to="/explore"
-      title="Explore"
-    >
+    <router-link class="cta-btn cta-btn--icon" to="/explore" title="Explore">
       <ExploreIcon />
     </router-link>
   </div>
 </template>
 
-<script setup>
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
-import { useLayoutStore } from '@/stores/layout';
-import ExploreIcon from '@/components/icons/ExploreIcon.vue';
+<script setup lang="ts">
+import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
+import { useLayoutStore } from "@/stores/layout";
+import ExploreIcon from "@/components/icons/ExploreIcon.vue";
 
-const props = defineProps({
+defineProps({
   isAuthenticated: {
     type: Boolean,
     default: false,
@@ -43,33 +39,33 @@ const props = defineProps({
 });
 
 const layoutStore = useLayoutStore();
-const editableName = ref(layoutStore.currentLayout?.name || '');
-const ctaRef = ref(null);
+const editableName = ref(layoutStore.currentLayout?.name || "");
+const ctaRef = ref<HTMLElement | null>(null);
 
 watch(
   () => layoutStore.currentLayout?.name,
   (newVal) => {
-    editableName.value = newVal || '';
-  }
+    editableName.value = newVal || "";
+  },
 );
 
-const saveName = (event) => {
+const saveName = (event: FocusEvent) => {
   if (!layoutStore.canEdit) {
     return;
   }
-  const newName = event.target.innerText.trim();
-  if (newName !== layoutStore.currentLayout?.name) {
+  const newName = (event.target as HTMLElement).innerText.trim();
+  if (layoutStore.currentLayout && newName !== layoutStore.currentLayout.name) {
     layoutStore.currentLayout.name = newName;
     layoutStore.saveLayout();
     editableName.value = newName;
   }
 };
 
-const blurOnEnter = (event) => {
+const blurOnEnter = (event: KeyboardEvent) => {
   if (!layoutStore.canEdit) {
     return;
   }
-  event.target.blur();
+  (event.target as HTMLElement).blur();
 };
 
 // Responsive overflow: hide buttons right-to-left when they don't fit
@@ -77,19 +73,19 @@ const checkOverflow = () => {
   const el = ctaRef.value;
   if (!el) return;
 
-  const buttons = Array.from(el.querySelectorAll('.cta-btn'));
+  const buttons = Array.from(el.querySelectorAll<HTMLElement>(".cta-btn"));
   // First, show all buttons to measure
-  buttons.forEach((btn) => (btn.style.display = ''));
+  buttons.forEach((btn) => (btn.style.display = ""));
 
   // Hide from right to left (Explore first, then Login, then Claim last)
   const reversed = [...buttons].reverse();
   for (const btn of reversed) {
     if (el.scrollWidth <= el.clientWidth) break;
-    btn.style.display = 'none';
+    btn.style.display = "none";
   }
 };
 
-let resizeObserver = null;
+let resizeObserver: ResizeObserver | null = null;
 
 onMounted(() => {
   nextTick(checkOverflow);
@@ -97,12 +93,12 @@ onMounted(() => {
   if (ctaRef.value) {
     resizeObserver.observe(ctaRef.value.parentElement || ctaRef.value);
   }
-  window.addEventListener('resize', checkOverflow);
+  window.addEventListener("resize", checkOverflow);
 });
 
 onUnmounted(() => {
   resizeObserver?.disconnect();
-  window.removeEventListener('resize', checkOverflow);
+  window.removeEventListener("resize", checkOverflow);
 });
 </script>
 

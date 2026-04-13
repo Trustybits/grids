@@ -46,7 +46,7 @@
   </teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
 
 const props = defineProps({
@@ -59,7 +59,7 @@ const props = defineProps({
 const emit = defineEmits(["close", "add"]);
 
 const link = ref("");
-const linkInput = ref(null);
+const linkInput = ref<HTMLInputElement | null>(null);
 
 watch(
   () => props.show,

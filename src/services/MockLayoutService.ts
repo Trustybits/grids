@@ -20,7 +20,7 @@ const mockData: Layout = {
       createTileContent(ContentType.TEXT, {
         text: '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","marks":[{"type":"textStyle","attrs":{"color":"","fontFamily":"Times New Roman","fontSize":"26px"}}],"text":"Big Text"}]},{"type":"paragraph","content":[{"type":"text","marks":[{"type":"textStyle","attrs":{"color":"","fontFamily":"","fontSize":"12px"}}],"text":"Small Text"}]},{"type":"paragraph","content":[{"type":"text","marks":[{"type":"textStyle","attrs":{"color":"","fontFamily":"","fontSize":"14px"}},{"type":"bold"}],"text":"Bold Text"}]},{"type":"paragraph","content":[{"type":"text","marks":[{"type":"textStyle","attrs":{"color":"","fontFamily":"","fontSize":"14px"}},{"type":"italic"}],"text":"Italic Text"}]},{"type":"paragraph","content":[{"type":"text","marks":[{"type":"textStyle","attrs":{"color":"rgb(140, 255, 0)","fontFamily":"","fontSize":"14px"}}],"text":"Different colored text"}]},{"type":"paragraph"},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Bullet Text"}]}]}]},{"type":"orderedList","attrs":{"start":1},"content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Numbered Text"}]}]}]},{"type":"paragraph"},{"type":"taskList","content":[{"type":"taskItem","attrs":{"checked":false},"content":[{"type":"paragraph","content":[{"type":"text","text":"Unchecked"}]}]},{"type":"taskItem","attrs":{"checked":true},"content":[{"type":"paragraph","content":[{"type":"text","text":"Checked"}]},{"type":"paragraph"}]}]}]}',
       }),
-      ""
+      "",
     ),
     createTile(
       ContentType.IMAGE,
@@ -32,7 +32,7 @@ const mockData: Layout = {
       createTileContent(ContentType.IMAGE, {
         src: "https://static1.colliderimages.com/wordpress/wp-content/uploads/2022/06/Star-Wars-(1).jpg",
       }),
-      ""
+      "",
     ),
     createTile(
       ContentType.LINK,
@@ -47,7 +47,7 @@ const mockData: Layout = {
         faviconUrl:
           "https://s2.googleusercontent.com/s2/favicons?sz=64&domain_url=youtube.com",
       }),
-      ""
+      "",
     ),
   ],
   backgroundImageSrc: "",
@@ -60,11 +60,11 @@ export class MockLayoutService implements LayoutService {
     return { ...mockData };
   }
 
-  async saveLayout(layout: Layout): Promise<void> {
+  async saveLayout(_layout: Layout): Promise<void> {
     console.log(`Saving layout`);
   }
 
-  async updateLayout(layout: Layout): Promise<void> {
+  async updateLayout(_layout: Layout): Promise<void> {
     console.log(`Updating layout`);
   }
 

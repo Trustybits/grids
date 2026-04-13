@@ -24,7 +24,10 @@ export interface UploadOptions {
  * Validates that a file is a supported image or video and within size limits.
  * Throws a user-friendly error message on failure.
  */
-function validateFile(file: File, options: UploadOptions = {}): { isImage: boolean; isVideo: boolean } {
+function validateFile(
+  file: File,
+  options: UploadOptions = {},
+): { isImage: boolean; isVideo: boolean } {
   const isImage = file.type.startsWith("image/");
   const isVideo = file.type.startsWith("video/");
   const defaultMaxSize = isImage ? 10 * 1024 * 1024 : 500 * 1024 * 1024;
@@ -53,7 +56,7 @@ export function useFileUpload() {
    */
   const uploadFileToUrl = async (
     file: File,
-    options: UploadOptions = {}
+    options: UploadOptions = {},
   ): Promise<string> => {
     const { isImage } = validateFile(file, options);
 
@@ -69,8 +72,8 @@ export function useFileUpload() {
     // Set metadata with published flag to satisfy storage security rules
     const metadata = {
       customMetadata: {
-        published: 'true'
-      }
+        published: "true",
+      },
     };
 
     try {
@@ -78,11 +81,11 @@ export function useFileUpload() {
       const url = await getDownloadURL(fileRef);
       return url;
     } catch (error: any) {
-      console.error('uploadFileToUrl - Upload failed:', {
+      console.error("uploadFileToUrl - Upload failed:", {
         error,
         code: error.code,
         message: error.message,
-        serverResponse: error.serverResponse
+        serverResponse: error.serverResponse,
       });
       throw error;
     }
@@ -94,7 +97,7 @@ export function useFileUpload() {
    */
   const uploadFile = async (
     file: File,
-    options: UploadOptions = {}
+    options: UploadOptions = {},
   ): Promise<TileContent | null> => {
     const url = await uploadFileToUrl(file, options);
 
@@ -114,7 +117,7 @@ export function useFileUpload() {
    */
   const uploadFileOptimistic = async (
     file: File,
-    options: UploadOptions = {}
+    options: UploadOptions = {},
   ): Promise<void> => {
     const { isImage } = validateFile(file, options);
 
@@ -145,14 +148,17 @@ export function useFileUpload() {
       // Set metadata with published flag to satisfy storage security rules
       const metadata = {
         customMetadata: {
-          published: 'true'
-        }
+          published: "true",
+        },
       };
 
       // Resumable upload to track progress
       const uploadTask = uploadBytesResumable(fileRef, file, metadata);
       uploadTask.on("state_changed", (snapshot) => {
-        layoutStore.setTileUploading(tileId, snapshot.bytesTransferred / snapshot.totalBytes);
+        layoutStore.setTileUploading(
+          tileId,
+          snapshot.bytesTransferred / snapshot.totalBytes,
+        );
       });
 
       await uploadTask;
@@ -181,7 +187,7 @@ export function useFileUpload() {
   const uploadFileOptimisticForTile = async (
     file: File,
     tileId: string,
-    options: UploadOptions = {}
+    options: UploadOptions = {},
   ): Promise<void> => {
     const { isImage } = validateFile(file, options);
 
@@ -204,7 +210,10 @@ export function useFileUpload() {
 
       const uploadTask = uploadBytesResumable(fileRef, file);
       uploadTask.on("state_changed", (snapshot) => {
-        layoutStore.setTileUploading(tileId, snapshot.bytesTransferred / snapshot.totalBytes);
+        layoutStore.setTileUploading(
+          tileId,
+          snapshot.bytesTransferred / snapshot.totalBytes,
+        );
       });
 
       await uploadTask;
@@ -234,7 +243,7 @@ export function useFileUpload() {
    */
   const uploadExternalImageToStorage = async (
     externalUrl: string,
-    pathPrefix = "images"
+    pathPrefix = "images",
   ): Promise<string> => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -257,7 +266,7 @@ export function useFileUpload() {
     const fileRef = storageRef(storage, filePath);
 
     await uploadBytes(fileRef, blob, { contentType });
-    return await getDownloadURL(fileRef);
+    return getDownloadURL(fileRef);
   };
 
   return {

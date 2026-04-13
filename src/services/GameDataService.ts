@@ -11,7 +11,6 @@ import {
   getDocs,
   onSnapshot,
   serverTimestamp,
-  Timestamp,
   increment,
   runTransaction,
 } from "firebase/firestore";
@@ -25,7 +24,9 @@ const DAILY_CLICK_CAP = 100; // Maximum clicks a user can make per day
  * Get or create game data for a user
  * If the user doesn't have game data yet, creates it with a random display name
  */
-export async function getOrCreateUserGameData(userId: string): Promise<UserGameData> {
+export async function getOrCreateUserGameData(
+  userId: string,
+): Promise<UserGameData> {
   const docRef = doc(db, GAME_DATA_COLLECTION, userId);
   const docSnap = await getDoc(docRef);
 
@@ -74,33 +75,35 @@ export async function getOrCreateUserGameData(userId: string): Promise<UserGameD
  */
 function getTodayDateString(): string {
   const today = new Date();
-  return today.toISOString().split('T')[0];
+  return today.toISOString().split("T")[0];
 }
 
 /**
  * Check if a user has reached their daily click cap
  * Returns an object with canClick boolean and remaining clicks
  */
-export async function checkDailyClickLimit(userId: string): Promise<{ canClick: boolean; remaining: number; dailyClicks: number }> {
+export async function checkDailyClickLimit(
+  userId: string,
+): Promise<{ canClick: boolean; remaining: number; dailyClicks: number }> {
   const docRef = doc(db, GAME_DATA_COLLECTION, userId);
   const docSnap = await getDoc(docRef);
-  
+
   if (!docSnap.exists()) {
     return { canClick: true, remaining: DAILY_CLICK_CAP, dailyClicks: 0 };
   }
-  
+
   const data = docSnap.data();
   const today = getTodayDateString();
-  const lastClickDate = data.lastClickDate || '';
-  
+  const lastClickDate = data.lastClickDate || "";
+
   // Reset daily clicks if it's a new day
   if (lastClickDate !== today) {
     return { canClick: true, remaining: DAILY_CLICK_CAP, dailyClicks: 0 };
   }
-  
+
   const dailyClicks = data.dailyClicks || 0;
   const remaining = Math.max(0, DAILY_CLICK_CAP - dailyClicks);
-  
+
   return {
     canClick: dailyClicks < DAILY_CLICK_CAP,
     remaining,
@@ -113,71 +116,76 @@ export async function checkDailyClickLimit(userId: string): Promise<{ canClick: 
  * Uses Firestore's atomic increment to handle concurrent clicks safely
  * Returns true if click was successful, false if daily cap reached
  */
-export async function incrementUserClicks(userId: string, amount: number = 1): Promise<boolean> {
+export async function incrementUserClicks(
+  userId: string,
+  amount: number = 1,
+): Promise<boolean> {
   const docRef = doc(db, GAME_DATA_COLLECTION, userId);
-  
+
   try {
     // Use a transaction to atomically read, check, and update
     const result = await runTransaction(db, async (transaction) => {
       const docSnap = await transaction.get(docRef);
-      
+
       // If document doesn't exist, create it first (outside transaction)
       if (!docSnap.exists()) {
-        throw new Error('DOCUMENT_NOT_FOUND');
+        throw new Error("DOCUMENT_NOT_FOUND");
       }
-      
+
       const data = docSnap.data();
       const today = getTodayDateString();
-      const lastClickDate = data.lastClickDate || '';
+      const lastClickDate = data.lastClickDate || "";
       const currentDailyClicks = data.dailyClicks || 0;
-      
+
       // Check if it's a new day
       const isNewDay = lastClickDate !== today;
-      
+
       // Calculate what the new daily clicks would be
       const newDailyClicks = isNewDay ? amount : currentDailyClicks + amount;
-      
+
       // Check daily limit (client-side check for better UX, server rules enforce it)
       if (!isNewDay && newDailyClicks > DAILY_CLICK_CAP) {
         return false; // Daily cap reached
       }
-      
+
       // Prepare update object
       const updateData: any = {
         totalClicks: increment(amount),
         updatedAt: serverTimestamp(),
         lastClickDate: today,
       };
-      
+
       // Reset daily clicks if it's a new day, otherwise increment
       if (isNewDay) {
         updateData.dailyClicks = amount;
       } else {
         updateData.dailyClicks = increment(amount);
       }
-      
+
       // Atomically update the document
       transaction.update(docRef, updateData);
       return true;
     });
-    
+
     return result;
   } catch (error: any) {
     // If document doesn't exist, create it and retry
-    if (error.message === 'DOCUMENT_NOT_FOUND') {
+    if (error.message === "DOCUMENT_NOT_FOUND") {
       await getOrCreateUserGameData(userId);
       // Retry the increment
       return incrementUserClicks(userId, amount);
     }
-    
+
     // If permission denied, likely hit the daily cap via security rules
-    if (error.code === 'permission-denied') {
-      console.warn('Click rejected by security rules - likely daily cap reached');
+    if (error.code === "permission-denied") {
+      console.warn(
+        "Click rejected by security rules - likely daily cap reached",
+      );
       return false;
     }
-    
+
     // Log other errors but don't crash
-    console.error('Error incrementing user clicks:', error);
+    console.error("Error incrementing user clicks:", error);
     return false;
   }
 }
@@ -187,10 +195,10 @@ export async function incrementUserClicks(userId: string, amount: number = 1): P
  */
 export function subscribeToUserGameData(
   userId: string,
-  callback: (data: UserGameData) => void
+  callback: (data: UserGameData) => void,
 ): () => void {
   const docRef = doc(db, GAME_DATA_COLLECTION, userId);
-  
+
   return onSnapshot(
     docRef,
     (docSnap) => {
@@ -211,23 +219,25 @@ export function subscribeToUserGameData(
     },
     (error) => {
       console.warn("Error subscribing to user game data:", error);
-    }
+    },
   );
 }
 
 /**
  * Get the top N users by total clicks for the leaderboard
  */
-export async function getLeaderboard(topN: number = 10): Promise<LeaderboardEntry[]> {
+export async function getLeaderboard(
+  topN: number = 10,
+): Promise<LeaderboardEntry[]> {
   const q = query(
     collection(db, GAME_DATA_COLLECTION),
     orderBy("totalClicks", "desc"),
-    limit(topN)
+    limit(topN),
   );
 
   const querySnapshot = await getDocs(q);
   const leaderboard: LeaderboardEntry[] = [];
-  
+
   let rank = 1;
   querySnapshot.forEach((doc) => {
     const data = doc.data();
@@ -247,12 +257,12 @@ export async function getLeaderboard(topN: number = 10): Promise<LeaderboardEntr
  */
 export function subscribeToLeaderboard(
   topN: number = 10,
-  callback: (leaderboard: LeaderboardEntry[]) => void
+  callback: (leaderboard: LeaderboardEntry[]) => void,
 ): () => void {
   const q = query(
     collection(db, GAME_DATA_COLLECTION),
     orderBy("totalClicks", "desc"),
-    limit(topN)
+    limit(topN),
   );
 
   return onSnapshot(
@@ -274,14 +284,17 @@ export function subscribeToLeaderboard(
     (error) => {
       console.warn("Error subscribing to leaderboard:", error);
       callback([]);
-    }
+    },
   );
 }
 
 /**
  * Update a user's display name
  */
-export async function updateDisplayName(userId: string, displayName: string): Promise<void> {
+export async function updateDisplayName(
+  userId: string,
+  displayName: string,
+): Promise<void> {
   const docRef = doc(db, GAME_DATA_COLLECTION, userId);
   await updateDoc(docRef, {
     displayName,
@@ -293,7 +306,10 @@ export async function updateDisplayName(userId: string, displayName: string): Pr
  * Increase a user's passive boost multiplier
  * This is like a prestige system - users can increase their passive generation
  */
-export async function increasePassiveBoost(userId: string, boostAmount: number): Promise<void> {
+export async function increasePassiveBoost(
+  userId: string,
+  boostAmount: number,
+): Promise<void> {
   const docRef = doc(db, GAME_DATA_COLLECTION, userId);
   await updateDoc(docRef, {
     passiveBoost: increment(boostAmount),
@@ -305,7 +321,10 @@ export async function increasePassiveBoost(userId: string, boostAmount: number):
  * Add passive clicks to a user's total
  * This is called when passive clicks are generated (e.g., from offline time or periodic generation)
  */
-export async function addPassiveClicks(userId: string, amount: number): Promise<void> {
+export async function addPassiveClicks(
+  userId: string,
+  amount: number,
+): Promise<void> {
   const docRef = doc(db, GAME_DATA_COLLECTION, userId);
   await updateDoc(docRef, {
     totalClicks: increment(amount),
@@ -329,19 +348,20 @@ export function getDailyClickCap(): number {
 export async function claimPassiveClicks(userId: string): Promise<number> {
   const docRef = doc(db, GAME_DATA_COLLECTION, userId);
   const docSnap = await getDoc(docRef);
-  
+
   if (!docSnap.exists()) {
     return 0;
   }
-  
+
   const data = docSnap.data();
   const totalClicks = data.totalClicks || 0;
   const lastUpdate = data.updatedAt?.toDate() || new Date();
-  
+
   // Calculate passive clicks using the calculator
-  const { calculatePassiveClicks } = await import('@/utils/PassiveBoostCalculator');
+  const { calculatePassiveClicks } =
+    await import("@/utils/PassiveBoostCalculator");
   const passiveClicks = calculatePassiveClicks(totalClicks, lastUpdate);
-  
+
   if (passiveClicks > 0) {
     // Add passive clicks to user's total
     await updateDoc(docRef, {
@@ -350,6 +370,6 @@ export async function claimPassiveClicks(userId: string): Promise<number> {
       updatedAt: serverTimestamp(),
     });
   }
-  
+
   return passiveClicks;
 }

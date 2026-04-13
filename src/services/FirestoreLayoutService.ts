@@ -1,7 +1,13 @@
 import { type Layout } from "@/types/Layout";
-import { type LayoutService } from "./LayoutService";
 import { db } from "@/firebase";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   if (!value || typeof value !== "object") return false;
@@ -48,7 +54,7 @@ const stripBlobUrls = (tiles: unknown[]): unknown[] => {
   });
 };
 
-export class FirestoreLayoutService implements LayoutService {
+export class FirestoreLayoutService {
   // Fetch a layout by ID
   async fetchLayout(id: string): Promise<Layout> {
     try {
@@ -72,7 +78,10 @@ export class FirestoreLayoutService implements LayoutService {
         backgroundImageSrc: data.backgroundImageSrc || "",
         backgroundEmbed: data.backgroundEmbed || false,
         themeId: data.themeId || undefined,
-        overrides: data.overrides && typeof data.overrides === 'object' ? data.overrides : undefined,
+        overrides:
+          data.overrides && typeof data.overrides === "object"
+            ? data.overrides
+            : undefined,
         duplicatable: !!data.duplicatable,
         createdAt: data.createdAt ?? null,
         updatedAt: data.updatedAt ?? null,
@@ -98,7 +107,7 @@ export class FirestoreLayoutService implements LayoutService {
         tiles: stripBlobUrls(layout.tiles as unknown[]),
         backgroundImageSrc: layout.backgroundImageSrc,
         backgroundEmbed: layout.backgroundEmbed,
-        themeId: layout.themeId ?? 'dark',
+        themeId: layout.themeId ?? "dark",
         overrides: layout.overrides ?? {},
         duplicatable: layout.duplicatable ?? false,
         createdAt: layout.createdAt ?? serverTimestamp(),
@@ -124,7 +133,7 @@ export class FirestoreLayoutService implements LayoutService {
         tiles: stripBlobUrls(layout.tiles as unknown[]),
         backgroundImageSrc: layout.backgroundImageSrc,
         backgroundEmbed: layout.backgroundEmbed,
-        themeId: layout.themeId ?? 'dark',
+        themeId: layout.themeId ?? "dark",
         overrides: layout.overrides ?? {},
         duplicatable: layout.duplicatable ?? false,
         updatedAt: serverTimestamp(),

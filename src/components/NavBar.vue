@@ -6,8 +6,12 @@
 
       <div class="nav-links">
         <router-link to="/" class="nav-link">🏠</router-link>
-        <router-link v-if="user" to="/dashboard" class="nav-link">🍱</router-link>
-        <button v-if="user" class="nav-link logout-btn" @click="logout">🚪</button>
+        <router-link v-if="user" to="/dashboard" class="nav-link"
+          >🍱</router-link
+        >
+        <button v-if="user" class="nav-link logout-btn" @click="logout">
+          🚪
+        </button>
         <div v-else class="user-icon" @click="redirectToLogin">
           <i class="fas fa-user"></i>
         </div>
@@ -29,7 +33,7 @@ import ThemeToggle from "./ThemeToggle.vue";
 import LayoutTitleEditor from "./LayoutTitleEditor.vue";
 
 export default defineComponent({
-  name: "Navbar",
+  name: "NavBar",
   components: {
     ThemeToggle,
     LayoutTitleEditor,
@@ -42,10 +46,7 @@ export default defineComponent({
     const layoutStore = useLayoutStore();
 
     const showTitleEditor = computed(() => {
-      return (
-        layoutStore.currentLayout &&
-        route.path.startsWith("/grid")
-      );
+      return layoutStore.currentLayout && route.path.startsWith("/grid");
     });
 
     onMounted(() => {

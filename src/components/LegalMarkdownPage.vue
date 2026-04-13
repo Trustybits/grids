@@ -2,15 +2,18 @@
   <div class="legal-page">
     <div class="legal-container">
       <div v-if="isLoading" class="legal-status">Loading…</div>
-      <div v-else-if="error" class="legal-status legal-status--error">{{ error }}</div>
+      <div v-else-if="error" class="legal-status legal-status--error">
+        {{ error }}
+      </div>
+      <!-- eslint-disable-next-line vue/no-v-html -->
       <div v-else class="legal-content" v-html="html"></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { markdownToHtml } from '@/utils/markdownToHtml';
+import { onMounted, ref } from "vue";
+import { markdownToHtml } from "@/utils/markdownToHtml";
 
 const props = defineProps<{
   srcPath: string;
@@ -18,15 +21,15 @@ const props = defineProps<{
 
 const isLoading = ref(true);
 const error = ref<string | null>(null);
-const html = ref('');
+const html = ref("");
 
 onMounted(async () => {
   try {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 
     const res = await fetch(props.srcPath, {
       // Avoid surprising caching issues when iterating on content in dev.
-      cache: 'no-store',
+      cache: "no-store",
     });
 
     if (!res.ok) {
@@ -36,8 +39,8 @@ onMounted(async () => {
     const md = await res.text();
     html.value = markdownToHtml(md);
   } catch (e: any) {
-    console.error('Failed to load legal content:', e);
-    error.value = e?.message ?? 'Could not load content.';
+    console.error("Failed to load legal content:", e);
+    error.value = e?.message ?? "Could not load content.";
   } finally {
     isLoading.value = false;
   }
@@ -106,12 +109,18 @@ onMounted(async () => {
   margin: 12px 0;
   padding: 10px 12px;
   border-left: 3px solid var(--color-content-high);
-  background: color-mix(in srgb, var(--color-content-background) 85%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--color-content-background) 85%,
+    transparent
+  );
   border-radius: var(--radius-md);
 }
 
 .legal-content :deep(code) {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
   font-size: 0.95em;
   padding: 2px 6px;
   border-radius: 6px;

@@ -13,50 +13,59 @@
       />
       <div class="modal-actions">
         <button @click="handleClose" class="cancel-button">Cancel</button>
-        <button @click="handleRename" class="rename-button" :disabled="!gridName.trim()">Rename</button>
+        <button
+          @click="handleRename"
+          class="rename-button"
+          :disabled="!gridName.trim()"
+        >
+          Rename
+        </button>
       </div>
     </div>
   </div>
 </template>
 
-<script setup>
-import { ref, watch, nextTick } from 'vue';
+<script setup lang="ts">
+import { ref, watch, nextTick } from "vue";
 
 const props = defineProps({
   show: {
     type: Boolean,
-    required: true
+    required: true,
   },
   currentName: {
     type: String,
-    default: ''
-  }
+    default: "",
+  },
 });
 
-const emit = defineEmits(['close', 'rename']);
+const emit = defineEmits(["close", "rename"]);
 
-const gridName = ref('');
-const gridNameInput = ref(null);
+const gridName = ref("");
+const gridNameInput = ref<HTMLInputElement | null>(null);
 
 // When modal opens, populate with current name and focus input
-watch(() => props.show, async (newValue) => {
-  if (newValue) {
-    gridName.value = props.currentName;
-    await nextTick();
-    gridNameInput.value?.focus();
-    // Select all text for easy replacement
-    gridNameInput.value?.select();
-  }
-});
+watch(
+  () => props.show,
+  async (newValue) => {
+    if (newValue) {
+      gridName.value = props.currentName;
+      await nextTick();
+      gridNameInput.value?.focus();
+      // Select all text for easy replacement
+      gridNameInput.value?.select();
+    }
+  },
+);
 
 const handleClose = () => {
-  emit('close');
+  emit("close");
 };
 
 const handleRename = () => {
   const name = gridName.value.trim();
   if (!name) return;
-  emit('rename', name);
+  emit("rename", name);
 };
 </script>
 

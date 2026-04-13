@@ -88,7 +88,6 @@ import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";
 import AddLinkModal from "../AddLinkModal.vue";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
-import type { ComputedRef } from "vue";
 
 export default defineComponent({
   components: {

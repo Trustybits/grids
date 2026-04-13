@@ -53,7 +53,6 @@
 <script lang="ts">
 import { defineComponent, onMounted, onUnmounted, ref, watch } from "vue";
 import { type Tile } from "@/types/Tile";
-import { useLayoutStore } from "@/stores/layout";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
 import { useToastStore } from "@/stores/toast";
 import NoFillIcon from "./icons/NoFillIcon.vue";
@@ -78,7 +77,6 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const layoutStore = useLayoutStore();
     const toastStore = useToastStore();
     const panelRef = ref<HTMLElement | null>(null);
 

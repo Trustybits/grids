@@ -59,10 +59,10 @@
               right next to the tile-add buttons.
             -->
             <div v-if="switcherVariant === 'inline'" class="toolbar-with-switcher">
-              <grid-buttons />
+              <GridButtons />
               <BreakpointSwitcher variant="inline" />
             </div>
-            <grid-buttons v-else />
+            <GridButtons v-else />
           </div>
         </div>
         <!--
@@ -88,7 +88,7 @@
       <div v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'" class="toolbar">
         <BreakpointSwitcher variant="toolbar-row" />
       </div>
-      <grid :row-height="rowHeight" />
+      <Grid :row-height="rowHeight" />
     </div>
   </div>
 

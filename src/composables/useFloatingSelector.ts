@@ -1,4 +1,3 @@
-import { useLayoutStore } from "@/stores/layout";
 import { nextTick, onMounted, onUnmounted, watch, type Ref } from "vue";
 
 interface UseFloatingSelectorOptionsForElement<T extends HTMLElement> {
@@ -16,7 +15,6 @@ export const useFloatingSelector = <T extends HTMLElement>({
   buttonAction,
   emitter = () => {},
 }: UseFloatingSelectorOptionsForElement<T>) => {
-  const layoutStore = useLayoutStore();
   let rafId: number | null = null;
 
   const handleClick = () => {

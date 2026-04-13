@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="profile-bio"
@@ -397,6 +398,7 @@
 </template>
 
 <script lang="ts">
+/* eslint-disable vue/no-mutating-props */
 import {
   defineComponent,
   ref,
@@ -499,7 +501,7 @@ export default defineComponent({
       return classes;
     });
 
-    const { uploadFileToUrl, uploadExternalImageToStorage } = useFileUpload();
+    const { uploadExternalImageToStorage } = useFileUpload();
     const auth = getAuth();
     const storage = getStorage();
 
@@ -1431,8 +1433,8 @@ export default defineComponent({
       const pLen = points.length;
       for (let i = 0; i < pLen; i++) {
         const current = points[i];
-        const next = points[(i + 1) % pLen];
-        const prev = points[(i - 1 + pLen) % pLen];
+        const _next = points[(i + 1) % pLen];
+        const _prev = points[(i - 1 + pLen) % pLen];
 
         if (current.isVertex) {
           // Use direction vectors from the actual polygon vertices

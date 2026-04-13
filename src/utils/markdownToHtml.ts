@@ -46,7 +46,7 @@ const parseMarkdown = (markdown: string): string => {
 
   let html = '';
   let paragraphBuffer: string[] = [];
-  let listStack: ListType[] = [];
+  const listStack: ListType[] = [];
   let blockquoteBuffer: string[] = [];
 
   const flushParagraph = () => {

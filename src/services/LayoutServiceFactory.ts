@@ -3,10 +3,11 @@ import { MockLayoutService } from "./MockLayoutService";
 
 const useMockData = false;
 
-export const getLayoutService = (): ILayoutService => {
-  if (useMockData) {
-    return new MockLayoutService();
-  }
+let instance: ILayoutService | null = null;
 
-  return new LayoutService();
+export const getLayoutService = (): ILayoutService => {
+  if (!instance) {
+    instance = useMockData ? new MockLayoutService() : new LayoutService();
+  }
+  return instance;
 };

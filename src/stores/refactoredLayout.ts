@@ -19,7 +19,10 @@ import {
 } from "@/utils/GridPlacementUtils";
 import { useToastStore } from "@/stores/toast";
 
-const layoutService = getLayoutService();
+// Lazy accessor — don't resolve the service at module load because main.ts
+// registers the DAO factory in an async IIFE that runs AFTER static imports.
+// LayoutServiceFactory memoizes, so every call returns the same instance.
+const svc = () => getLayoutService();
 
 export const useLayoutStore = defineStore("layout", {
   state: () => ({
@@ -188,7 +191,7 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        this.layouts = await layoutService.fetchLayoutsByUserId(userId);
+        this.layouts = await svc().fetchLayoutsByUserId(userId);
         await this.loadRecents();
         console.log("layouts", this.layouts);
       } catch (err) {
@@ -212,7 +215,7 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        const newLayout = await layoutService.createLayoutWithStarterTiles(
+        const newLayout = await svc().createLayoutWithStarterTiles(
           userId,
           name,
         );
@@ -246,7 +249,7 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        const newLayout = await layoutService.cloneAndPersistLayout(
+        const newLayout = await svc().cloneAndPersistLayout(
           userId,
           sourceLayout,
           copyDepth,
@@ -270,7 +273,7 @@ export const useLayoutStore = defineStore("layout", {
       this.isOwner = false;
 
       try {
-        this.currentLayout = await layoutService.fetchLayout(id);
+        this.currentLayout = await svc().fetchLayout(id);
         const userId = getAuthProvider().getCurrentUserId();
         this.isOwner = !!(
           userId &&
@@ -284,7 +287,7 @@ export const useLayoutStore = defineStore("layout", {
           this.ensureSuggestionTiles();
         }
 
-        await layoutService.touchLastOpenedAt(id);
+        await svc().touchLastOpenedAt(id);
         // update in-memory list timestamp for immediate UI sorting
         const idx = this.layouts.findIndex((l) => l.id === id);
         if (idx !== -1) {
@@ -313,7 +316,7 @@ export const useLayoutStore = defineStore("layout", {
       const userId = getAuthProvider().getCurrentUserId();
       if (!userId) return;
       try {
-        this.recentLayoutIds = await layoutService.loadRecentLayoutIds(userId);
+        this.recentLayoutIds = await svc().loadRecentLayoutIds(userId);
       } catch (err) {
         console.error("Failed to load recent layouts:", err);
       }
@@ -323,7 +326,7 @@ export const useLayoutStore = defineStore("layout", {
       const userId = getAuthProvider().getCurrentUserId();
       if (!userId) return;
       try {
-        await layoutService.saveRecentLayoutIds(userId, this.recentLayoutIds);
+        await svc().saveRecentLayoutIds(userId, this.recentLayoutIds);
       } catch (err) {
         console.error("Failed to save recent layouts:", err);
       }
@@ -389,7 +392,7 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        await layoutService.queueSave(this.currentLayout, this.resolvedUrls);
+        await svc().queueSave(this.currentLayout, this.resolvedUrls);
       } catch (err) {
         this.error = "Failed to save layout.";
         console.error(err);
@@ -870,7 +873,7 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        await layoutService.deleteLayout(id);
+        await svc().deleteLayout(id);
         this.layouts = this.layouts.filter((layout) => layout.id !== id);
 
         if (this.currentLayout?.id === id) {
@@ -892,7 +895,7 @@ export const useLayoutStore = defineStore("layout", {
 
         // Update the layout name
         layout.name = newName;
-        await layoutService.updateLayout(layout);
+        await svc().updateLayout(layout);
 
         // Update current layout if it's the one being renamed
         if (this.currentLayout?.id === id) {

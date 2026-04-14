@@ -197,7 +197,7 @@ const createTextDoc = (lines: string[]) => {
   });
 };
 
-const createStarterTiles = (): Tile[] => {
+export const createStarterTiles = (): Tile[] => {
   const startX = 0;
 
   return [

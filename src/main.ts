@@ -8,6 +8,7 @@ import router from "./router";
 import posthog from "posthog-js";
 import { registerDaoFactory } from "@/dao/DaoFactorySingleton";
 import { registerDbUtils } from "@/dao/DbUtilsSingleton";
+import { registerAuthProvider } from "@/auth/AuthProviderSingleton";
 
 import "@fortawesome/fontawesome-free/css/all.css";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -31,18 +32,9 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
 
 (async () => {
   if (import.meta.env.VITE_USE_FIRESTORE === "true") {
-    const { FirestoreDaoFactory } =
-      await import("@/dao/firestore/factory/FirestoreDaoFactory");
-    registerDaoFactory(new FirestoreDaoFactory());
-    const { FirestoreDbUtils } =
-      await import("@/dao/firestore/FirestoreDbUtils");
-    registerDbUtils(new FirestoreDbUtils());
+    await initializeFirestore();
   } else {
-    const { StubbedDaoFactory } =
-      await import("@/dao/stubbed/factory/StubbedDaoFactory");
-    registerDaoFactory(new StubbedDaoFactory());
-    const { StubbedDbUtils } = await import("@/dao/stubbed/StubbedDbUtils");
-    registerDbUtils(new StubbedDbUtils());
+    await initializeStubs();
   }
 
   const app = createApp(App);
@@ -56,3 +48,25 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
 
   app.mount("#app");
 })();
+
+async function initializeFirestore() {
+  const { FirestoreDaoFactory } =
+    await import("@/dao/firestore/factory/FirestoreDaoFactory");
+  registerDaoFactory(new FirestoreDaoFactory());
+  const { FirestoreDbUtils } = await import("@/dao/firestore/FirestoreDbUtils");
+  registerDbUtils(new FirestoreDbUtils());
+  const { FirestoreAuthProvider } =
+    await import("@/auth/firebase/FirestoreAuthProvider");
+  registerAuthProvider(new FirestoreAuthProvider());
+}
+
+async function initializeStubs() {
+  const { StubbedDaoFactory } =
+    await import("@/dao/stubbed/factory/StubbedDaoFactory");
+  registerDaoFactory(new StubbedDaoFactory());
+  const { StubbedDbUtils } = await import("@/dao/stubbed/StubbedDbUtils");
+  registerDbUtils(new StubbedDbUtils());
+  const { StubbedAuthProvider } =
+    await import("@/auth/stubbed/StubbedAuthProvider");
+  registerAuthProvider(new StubbedAuthProvider());
+}

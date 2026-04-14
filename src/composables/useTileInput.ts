@@ -16,7 +16,7 @@ const isRichAutoDetectedContent = (content: TileContent): boolean => {
   );
 };
 
-export const useLinkEmbedTileFromUserInput = () => {
+export const useTileInput = () => {
   const layoutStore = useLayoutStore();
 
   const applyContentToTarget = (

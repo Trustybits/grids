@@ -200,7 +200,7 @@ import { useFileUpload } from "@/composables/useFileUpload";
 import ColorPicker from "./ColorPicker.vue";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
-import { useLinkEmbedTileFromUserInput } from "@/composables/useLinkEmbedTileFromUserInput";
+import { useTileInput } from "@/composables/useTileInput";
 
 export default defineComponent({
   components: {
@@ -226,7 +226,7 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
     const { uploadFileOptimisticForTile } = useFileUpload();
-    const { submitLink, submitEmbed } = useLinkEmbedTileFromUserInput();
+    const { submitLink, submitEmbed } = useTileInput();
 
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).

@@ -87,7 +87,7 @@ import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
-import { useLinkEmbedTileFromUserInput } from "@/composables/useLinkEmbedTileFromUserInput";
+import { useTileInput } from "@/composables/useTileInput";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
 import AddMapModal from "./AddMapModal.vue";
@@ -128,7 +128,7 @@ export default {
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);
     const { uploadFileOptimistic } = useFileUpload();
-    const { submitLink, submitEmbed } = useLinkEmbedTileFromUserInput();
+    const { submitLink, submitEmbed } = useTileInput();
 
     const showLinkModal = ref(false);
     const showEmbedModal = ref(false);

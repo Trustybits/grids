@@ -25,35 +25,29 @@
             <router-link class="home-landing__btn home-landing__btn--primary" to="/login">Start building free</router-link>
             <router-link class="home-landing__btn home-landing__btn--soft" to="/pricing">See plans</router-link>
           </div>
-          <p class="home-landing__meta">No code. No blank-canvas overwhelm. Build and share quickly. Keep evolving it.</p>
+          <p class="home-landing__meta">No code. No blank-canvas overwhelm. Build and share quickly. Evolve it as you grow.</p>
         </div>
+      </section>
 
-        <div class="home-landing__hero-grid" aria-hidden="true">
-          <article class="hero-tile hero-tile--wide">
-            <p class="hero-tile__label">Featured</p>
-            <h3>Launch updates</h3>
-            <p>Pin your latest post, roadmap note, or release.</p>
-          </article>
-          <article class="hero-tile">
-            <p class="hero-tile__label">Profile</p>
-            <h3>About</h3>
-            <p>Bio, socials, and quick contact links.</p>
-          </article>
-          <article class="hero-tile">
-            <p class="hero-tile__label">Link tile</p>
-            <h3>Resources</h3>
-            <p>Curate your best links with visual hierarchy.</p>
-          </article>
-          <article class="hero-tile hero-tile--accent">
-            <p class="hero-tile__label">Engagement</p>
-            <h3>Community</h3>
-            <p>Drive visitors to Discord, X, or newsletter signups.</p>
-          </article>
+      <section class="home-landing__section home-landing__section--demo">
+        <p class="home-landing__section-kicker">Product demo</p>
+        <h2 class="home-landing__section-title">From first tile to polished page in minutes</h2>
+        <p class="home-landing__section-intro">
+          Place your core message, stack your links, add media, then keep iterating as your projects evolve.
+        </p>
+        <div class="home-landing__demo-video">
+          <div class="home-landing__demo-video-inner">
+            <p class="home-landing__demo-video-label">App Walkthrough Video</p>
+            <p class="home-landing__demo-video-note">
+              Replace this block with your product demo embed (Loom, YouTube, or hosted video).
+            </p>
+          </div>
         </div>
       </section>
 
       <section class="home-landing__section">
-        <h2 class="home-landing__section-title">A page builder with structure, speed, and range</h2>
+        <p class="home-landing__section-kicker">Benefits</p>
+        <h2 class="home-landing__section-title">Structure that keeps you fast, depth that keeps you growing</h2>
         <div class="home-landing__feature-grid">
           <article class="feature-card">
             <h3>Structured freedom by design</h3>
@@ -79,7 +73,50 @@
         </div>
       </section>
 
+      <section class="home-landing__section">
+        <p class="home-landing__section-kicker">Use cases</p>
+        <h2 class="home-landing__section-title">One system, many kinds of pages</h2>
+        <div class="home-landing__use-cases">
+          <article class="use-case">
+            <h3>Link in bio</h3>
+            <p>Turn followers into deeper engagement with a clean, high-converting destination.</p>
+          </article>
+          <article class="use-case">
+            <h3>Portfolio</h3>
+            <p>Show projects, process, and contact routes without spending days on custom design.</p>
+          </article>
+          <article class="use-case">
+            <h3>Digital garden</h3>
+            <p>Publish notes, resources, and ideas in a layout that can evolve over time.</p>
+          </article>
+          <article class="use-case">
+            <h3>Product or creator hub</h3>
+            <p>Bring updates, media, social links, and community actions into one shareable page.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="home-landing__section">
+        <p class="home-landing__section-kicker">Social proof</p>
+        <h2 class="home-landing__section-title">Built for people who need to ship pages quickly</h2>
+        <div class="home-landing__proof-grid">
+          <article class="proof-card">
+            <p class="proof-card__metric">Minutes, not days</p>
+            <p>Get live fast and keep refining as your audience grows.</p>
+          </article>
+          <article class="proof-card">
+            <p class="proof-card__metric">Built for iteration</p>
+            <p>Tiles make updates painless, so your page stays current.</p>
+          </article>
+          <article class="proof-card">
+            <p class="proof-card__metric">All-in-one destination</p>
+            <p>Bring links, media, projects, and followers together in one place.</p>
+          </article>
+        </div>
+      </section>
+
       <section class="home-landing__section home-landing__section--cta">
+        <p class="home-landing__section-kicker">Pricing / CTA</p>
         <h2>Bring your links, media, projects, and audience into one grid.</h2>
         <p>Grids is built on tiles, simple building blocks that make page creation easy and fun while staying
             incredibly flexible. Create a polished link-in-bio, portfolio, digital garden, or project page
@@ -215,10 +252,10 @@ usePageTitle(pageTitle);
   z-index: 1;
   width: min(1120px, 100%);
   margin: 0 auto;
-  padding: var(--spacing-md) var(--spacing-lg) var(--spacing-3xl);
+  padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-4xl);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-3xl);
+  gap: var(--spacing-4xl);
   opacity: 0;
   transform: translateY(28px);
   animation: home-content-enter 760ms var(--easing-smooth) forwards;
@@ -226,10 +263,14 @@ usePageTitle(pageTitle);
 }
 
 .home-landing__hero {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: var(--spacing-2xl);
-  align-items: center;
+  display: flex;
+  justify-content: center;
+  text-align: center;
+  padding: var(--spacing-xl) 0 var(--spacing-lg);
+}
+
+.home-landing__hero-copy {
+  max-width: 760px;
 }
 
 .home-landing__eyebrow {
@@ -250,7 +291,9 @@ usePageTitle(pageTitle);
 
 .home-landing__subtitle {
   margin: var(--spacing-lg) 0 0;
-  max-width: 60ch;
+  max-width: 52ch;
+  margin-left: auto;
+  margin-right: auto;
   color: var(--color-content-default);
   font-size: var(--font-size-lg);
   line-height: 1.55;
@@ -260,6 +303,7 @@ usePageTitle(pageTitle);
   margin-top: var(--spacing-xl);
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--spacing-sm);
 }
 
@@ -307,28 +351,6 @@ usePageTitle(pageTitle);
   background: transparent;
 }
 
-.home-landing__hero-grid {
-  display: grid;
-  gap: var(--spacing-sm);
-  grid-template-columns: 1fr 1fr;
-}
-
-.hero-tile {
-  padding: var(--spacing-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: var(--shadow-md);
-}
-
-.hero-tile--wide {
-  grid-column: span 2;
-}
-
-.hero-tile--accent {
-  background: linear-gradient(140deg, rgba(179, 239, 189, 0.18), rgba(179, 244, 239, 0.08));
-}
-
 .hero-tile__label {
   margin: 0 0 var(--spacing-sm);
   color: var(--color-content-high);
@@ -351,12 +373,76 @@ usePageTitle(pageTitle);
 .home-landing__section {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-xl);
+  padding: var(--spacing-xl) 0;
 }
 
 .home-landing__section-title {
   margin: 0;
   font-size: clamp(1.4rem, 3vw, 2rem);
+}
+
+.home-landing__section-kicker {
+  margin: 0;
+  color: var(--color-content-high);
+  font-size: 0.76rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.home-landing__section-intro {
+  margin: 0;
+  color: var(--color-content-default);
+  max-width: 62ch;
+}
+
+.home-landing__section--demo {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-2xl);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.home-landing__demo-video {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.04);
+  padding: var(--spacing-sm);
+}
+
+.home-landing__demo-video-inner {
+  aspect-ratio: 16 / 9;
+  border-radius: calc(var(--radius-lg) - 4px);
+  border: 1px dashed rgba(255, 255, 255, 0.24);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(168, 218, 255, 0.18), transparent 48%),
+    rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xl);
+}
+
+.home-landing__demo-video-label {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.home-landing__demo-video-note {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--color-content-default);
+}
+
+.feature-card,
+.use-case,
+.proof-card {
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-lg);
 }
 
 .home-landing__feature-grid {
@@ -366,9 +452,7 @@ usePageTitle(pageTitle);
 }
 
 .feature-card {
-  padding: var(--spacing-lg);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -382,12 +466,54 @@ usePageTitle(pageTitle);
   color: var(--color-content-default);
 }
 
+.home-landing__use-cases {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-md);
+}
+
+.use-case {
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.use-case h3 {
+  margin: 0;
+}
+
+.use-case p {
+  margin: var(--spacing-sm) 0 0;
+  color: var(--color-content-default);
+}
+
+.home-landing__proof-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-md);
+}
+
+.proof-card {
+  border: 1px solid var(--color-border);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+}
+
+.proof-card__metric {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.proof-card p {
+  margin: var(--spacing-sm) 0 0;
+  color: var(--color-content-default);
+}
+
 .home-landing__section--cta {
   align-items: center;
   text-align: center;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  padding: var(--spacing-2xl);
+  padding: var(--spacing-3xl) var(--spacing-2xl);
   background:
     linear-gradient(145deg, rgba(168, 218, 255, 0.14), rgba(255, 255, 255, 0.04));
 }
@@ -494,7 +620,9 @@ usePageTitle(pageTitle);
     grid-area: actions;
   }
 
-  .home-landing__hero {
+  .home-landing__feature-grid,
+  .home-landing__use-cases,
+  .home-landing__proof-grid {
     grid-template-columns: 1fr;
   }
 
@@ -514,7 +642,16 @@ usePageTitle(pageTitle);
   }
 
   .home-landing__content {
-    gap: var(--spacing-2xl);
+    padding: var(--spacing-lg) var(--spacing-md) var(--spacing-3xl);
+    gap: var(--spacing-3xl);
+  }
+
+  .home-landing__section {
+    padding: var(--spacing-lg) 0;
+  }
+
+  .home-landing__section--demo {
+    padding: var(--spacing-lg);
   }
 
   .home-landing__section--cta {

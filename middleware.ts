@@ -3,16 +3,22 @@
  *
  * Intercepts requests from social/search crawlers and injects the correct
  * Open Graph + Twitter Card meta tags into the HTML before it's served.
- * Regular browsers pass through untouched (zero added latency).
+ * Regular browsers pass through untouched — zero added latency.
+ *
+ * og:image points at the Firebase Cloud Function (generateOgImage) which takes
+ * a Puppeteer screenshot of the actual grid page and composites a gradient +
+ * avatar + handle overlay, caching the result in Firebase Storage.
  *
  * Routes handled:
- *   /grid/:id   → fetches layout name from Firestore
- *   /:slug      → fetches user profile from Firestore
- *   static pages (/, /pricing, etc.) → injects default meta tags
+ *   /:slug      → verifies slug exists, points og:image at generateOgImage?slug=
+ *   /grid/:id   → fetches layout name, points og:image at generateOgImage?gridId=
+ *   static pages (/, /pricing, etc.) → injects hardcoded meta tags
  */
 
 const FIREBASE_PROJECT_ID = 'grids-one'
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`
+const SITE_ORIGIN = 'https://grids.so'
+const OG_FUNCTION_URL = 'https://us-central1-grids-one.cloudfunctions.net/generateOgImage'
 
 // Paths that are definitely NOT user slugs
 const RESERVED_PATHS = new Set([
@@ -26,32 +32,31 @@ const RESERVED_PATHS = new Set([
   'api',
 ])
 
-// Social/search crawlers that need pre-rendered meta tags
-const CRAWLER_UA_PATTERNS = [
+// Social/search crawlers that need server-rendered meta tags
+const CRAWLER_PATTERNS = [
   'facebookexternalhit',
-  'Facebot',
-  'Twitterbot',
-  'LinkedInBot',
-  'Slackbot',
-  'WhatsApp',
-  'TelegramBot',
-  'Discordbot',
-  'Pinterest',
-  'Googlebot',
+  'facebot',
+  'twitterbot',
+  'linkedinbot',
+  'slackbot',
+  'whatsapp',
+  'telegrambot',
+  'discordbot',
+  'pinterest',
+  'googlebot',
   'bingbot',
-  'Applebot',
+  'applebot',
   'redditbot',
-  'Iframely',
+  'iframely',
   'embedly',
   'meta-externalagent',
 ]
 
-function isCrawler(userAgent: string): boolean {
-  const ua = userAgent.toLowerCase()
-  return CRAWLER_UA_PATTERNS.some((p) => ua.includes(p.toLowerCase()))
+function isCrawler(ua: string): boolean {
+  const lower = ua.toLowerCase()
+  return CRAWLER_PATTERNS.some((p) => lower.includes(p))
 }
 
-// Parses a Firestore REST API string field value
 function firestoreStr(
   doc: Record<string, unknown>,
   field: string,
@@ -65,9 +70,10 @@ async function fetchFirestoreDoc(
   id: string,
 ): Promise<Record<string, unknown> | null> {
   try {
-    const res = await fetch(`${FIRESTORE_BASE}/${collection}/${id}`, {
-      headers: { Accept: 'application/json' },
-    })
+    const res = await fetch(
+      `${FIRESTORE_BASE}/${collection}/${encodeURIComponent(id)}`,
+      { headers: { Accept: 'application/json' } },
+    )
     if (!res.ok) return null
     return (await res.json()) as Record<string, unknown>
   } catch {
@@ -78,109 +84,87 @@ async function fetchFirestoreDoc(
 interface OgData {
   title: string
   description: string
+  /** Absolute URL of the og:image — points to the Firebase generateOgImage function */
   ogImageUrl: string
   canonicalUrl: string
 }
 
-async function resolveOgData(
-  pathname: string,
-  requestUrl: string,
-): Promise<OgData> {
-  const origin = new URL(requestUrl).origin
+async function resolveOgData(pathname: string): Promise<OgData> {
   const defaultOg: OgData = {
     title: 'Grids — Your personal grid',
     description: 'Create and share your personal grid of links, tools, and more.',
-    ogImageUrl: `${origin}/api/og?title=Your+personal+grid`,
-    canonicalUrl: `${origin}${pathname}`,
+    ogImageUrl: `${OG_FUNCTION_URL}?slug=grids`,
+    canonicalUrl: `${SITE_ORIGIN}${pathname}`,
   }
 
-  // ── /grid/:id ──────────────────────────────────────────────────────────
+  // ── /grid/:id ──────────────────────────────────────────────────────────────
   const gridMatch = pathname.match(/^\/grid\/([^/]+)$/)
   if (gridMatch) {
     const layoutId = gridMatch[1]
     const doc = await fetchFirestoreDoc('layouts', layoutId)
-    if (!doc) return defaultOg
-
-    const name = firestoreStr(doc, 'name') || 'Untitled Grid'
-    const encodedTitle = encodeURIComponent(name)
+    const name = doc ? (firestoreStr(doc, 'name') ?? 'Untitled Grid') : 'Untitled Grid'
 
     return {
       title: `${name} — Grids`,
       description: 'View this grid on Grids.',
-      ogImageUrl: `${origin}/api/og?title=${encodedTitle}`,
-      canonicalUrl: `${origin}${pathname}`,
+      ogImageUrl: `${OG_FUNCTION_URL}?gridId=${encodeURIComponent(layoutId)}`,
+      canonicalUrl: `${SITE_ORIGIN}${pathname}`,
     }
   }
 
-  // ── /:slug (user profile) ──────────────────────────────────────────────
+  // ── /:slug (user profile) ──────────────────────────────────────────────────
   const slugMatch = pathname.match(/^\/([^/]+)$/)
   if (slugMatch) {
     const slug = slugMatch[1]
     if (RESERVED_PATHS.has(slug)) return defaultOg
 
-    // Resolve slug → userId
+    // Verify the slug exists and is active
     const slugDoc = await fetchFirestoreDoc('slugs', slug.toLowerCase())
     const userId = slugDoc ? firestoreStr(slugDoc, 'userId') : null
     if (!userId) return defaultOg
 
-    // Fetch public profile for display name / photo
-    const profileDoc = await fetchFirestoreDoc('publicProfiles', userId)
-    const displayName =
-      (profileDoc ? firestoreStr(profileDoc, 'displayName') : null) || slug
-
-    const encodedTitle = encodeURIComponent(`${displayName}'s grid`)
-    const encodedUsername = encodeURIComponent(slug)
-
     return {
       title: `@${slug}'s grid — Grids`,
-      description: `Check out ${displayName}'s grid on Grids.`,
-      ogImageUrl: `${origin}/api/og?title=${encodedTitle}&username=${encodedUsername}`,
-      canonicalUrl: `${origin}${pathname}`,
+      description: `Check out @${slug}'s grid on Grids.`,
+      ogImageUrl: `${OG_FUNCTION_URL}?slug=${encodeURIComponent(slug)}`,
+      canonicalUrl: `${SITE_ORIGIN}${pathname}`,
     }
   }
 
-  // ── Static pages ───────────────────────────────────────────────────────
+  // ── Static pages ───────────────────────────────────────────────────────────
   const staticMeta: Record<string, Partial<OgData>> = {
     '/': {
       title: 'Grids — Your personal grid',
       description: 'Create and share your personal grid of links, tools, and more.',
-      ogImageUrl: `${origin}/api/og?title=Your+personal+grid`,
     },
     '/pricing': {
       title: 'Pricing — Grids',
       description: 'Simple, transparent pricing for Grids.',
-      ogImageUrl: `${origin}/api/og?title=Grids+Pricing`,
     },
     '/privacy': {
       title: 'Privacy Policy — Grids',
-      description: 'How we handle your data.',
-      ogImageUrl: `${origin}/api/og?title=Privacy+Policy`,
+      description: 'How we handle your data on Grids.',
     },
     '/terms': {
       title: 'Terms of Service — Grids',
       description: 'Terms and conditions for using Grids.',
-      ogImageUrl: `${origin}/api/og?title=Terms+of+Service`,
     },
   }
 
   const staticEntry = staticMeta[pathname]
   if (staticEntry) {
-    return {
-      ...defaultOg,
-      ...staticEntry,
-      canonicalUrl: `${origin}${pathname}`,
-    }
+    return { ...defaultOg, ...staticEntry, canonicalUrl: `${SITE_ORIGIN}${pathname}` }
   }
 
   return defaultOg
 }
 
 function buildMetaTags(og: OgData): string {
-  const escape = (s: string) => s.replace(/"/g, '&quot;').replace(/</g, '&lt;')
-  const t = escape(og.title)
-  const d = escape(og.description)
-  const img = escape(og.ogImageUrl)
-  const url = escape(og.canonicalUrl)
+  const esc = (s: string) => s.replace(/"/g, '&quot;').replace(/</g, '&lt;')
+  const t = esc(og.title)
+  const d = esc(og.description)
+  const img = esc(og.ogImageUrl)
+  const url = esc(og.canonicalUrl)
 
   return `
     <!-- Open Graph -->
@@ -192,7 +176,7 @@ function buildMetaTags(og: OgData): string {
     <meta property="og:url" content="${url}" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Grids" />
-    <!-- Twitter Card -->
+    <!-- Twitter / X Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${t}" />
     <meta name="twitter:description" content="${d}" />
@@ -209,13 +193,12 @@ export default async function middleware(request: Request): Promise<Response | u
 
   const ua = request.headers.get('user-agent') || ''
 
-  // Pass through for non-crawlers — SPA handles everything client-side
+  // Regular users get the normal SPA — no overhead
   if (!isCrawler(ua)) {
     return undefined
   }
 
-  const url = new URL(request.url)
-  const { pathname } = url
+  const { pathname } = new URL(request.url)
 
   // Never intercept API routes or static assets
   if (
@@ -226,18 +209,19 @@ export default async function middleware(request: Request): Promise<Response | u
     return undefined
   }
 
-  const og = await resolveOgData(pathname, request.url)
+  const og = await resolveOgData(pathname)
   const metaTags = buildMetaTags(og)
 
-  // Fetch the actual SPA index.html from Vercel's static file server.
-  // We pass a header so the middleware can detect the re-entrant request
-  // and skip processing, avoiding an infinite loop.
+  // Fetch the SPA's index.html from Vercel's static file server.
+  // The x-og-passthrough header causes this middleware to skip the re-entrant
+  // request so the static file is served normally and we get the raw HTML.
   const passThroughReq = new Request(request.url, {
     headers: {
       ...Object.fromEntries(request.headers.entries()),
       'x-og-passthrough': '1',
     },
   })
+
   const htmlRes = await fetch(passThroughReq)
   const html = await htmlRes.text()
 
@@ -248,13 +232,11 @@ export default async function middleware(request: Request): Promise<Response | u
     status: htmlRes.status,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'public, max-age=60, s-maxage=300',
-      'X-Robots-Tag': 'index, follow',
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600',
     },
   })
 }
 
 export const config = {
-  // Run on all non-asset paths
   matcher: ['/((?!_vercel|.*\\..*).*)'],
 }

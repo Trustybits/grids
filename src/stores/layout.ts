@@ -408,7 +408,6 @@ export const useLayoutStore = defineStore("layout", {
           mapFirestoreToLayout(doc),
         );
         await this.loadRecents();
-        console.log("layouts", this.layouts);
       } catch (err) {
         this.error = "Failed to fetch layouts.";
         console.error(err);

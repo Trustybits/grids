@@ -13,17 +13,16 @@
     <main class="home-landing__content">
       <section class="home-landing__hero">
         <div class="home-landing__hero-copy">
-          <p class="home-landing__eyebrow">A modern homepage for your internet presence</p>
-          <h1 class="home-landing__title">Build a living homepage in a beautiful grid.</h1>
+          <p class="home-landing__eyebrow">Structured freedom for your internet presence</p>
+          <h1 class="home-landing__title">Anyone can build and share a page.</h1>
           <p class="home-landing__subtitle">
-            Grids gives creators, founders, and teams a modular canvas for links, notes, profile highlights,
-            media, and updates all in one shareable layout.
+            But how fast can you make something people will remember?
           </p>
           <div class="home-landing__hero-actions">
             <router-link class="home-landing__btn home-landing__btn--primary" to="/login">Start building free</router-link>
             <router-link class="home-landing__btn home-landing__btn--soft" to="/pricing">See plans</router-link>
           </div>
-          <p class="home-landing__meta">No code required. Publish in minutes. Update anytime.</p>
+          <p class="home-landing__meta">No code. No blank-canvas overwhelm. Build and share quickly. Keep evolving it.</p>
         </div>
 
         <div class="home-landing__hero-grid" aria-hidden="true">
@@ -51,27 +50,38 @@
       </section>
 
       <section class="home-landing__section">
-        <h2 class="home-landing__section-title">Everything your SaaS-style homepage needs</h2>
+        <h2 class="home-landing__section-title">A page builder with structure, speed, and range</h2>
         <div class="home-landing__feature-grid">
           <article class="feature-card">
-            <h3>Clear value above the fold</h3>
-            <p>Present one focused message, social proof, and a direct CTA the moment someone lands.</p>
+            <h3>Structured freedom by design</h3>
+            <p>
+              Not a full freeform web design tool and that is the advantage. Tiles keep things clear and
+              coherent while still giving you room to create.
+            </p>
           </article>
           <article class="feature-card">
-            <h3>Drag-and-drop tile system</h3>
-            <p>Arrange content blocks like interface components, with layout control that still feels playful.</p>
+            <h3>Powerful tile building blocks</h3>
+            <p>
+              Mix links, media, profile content, project highlights, notes, and more in one system that feels
+              fast to use and strong enough for serious pages.
+            </p>
           </article>
           <article class="feature-card">
-            <h3>Built for iteration</h3>
-            <p>Swap tiles, change priorities, and ship updates fast as your work and audience evolve.</p>
+            <h3>Built for anyone with something to share</h3>
+            <p>
+              Bring your work, ideas, followers, and traffic into one destination, whether you are a creator,
+              founder, student, or team.
+            </p>
           </article>
         </div>
       </section>
 
       <section class="home-landing__section home-landing__section--cta">
-        <h2>Design your grid. Share your story.</h2>
-        <p>Join the beta and turn your links, projects, and updates into a homepage people remember.</p>
-        <router-link class="home-landing__btn home-landing__btn--primary" to="/login">Join the beta</router-link>
+        <h2>Bring your links, media, projects, and audience into one grid.</h2>
+        <p>Grids is built on tiles, simple building blocks that make page creation easy and fun while staying
+            incredibly flexible. Create a polished link-in-bio, portfolio, digital garden, or project page
+            without spending forever designing from scratch.</p>
+        <router-link class="home-landing__btn home-landing__btn--primary" to="/login">Start building</router-link>
       </section>
     </main>
 

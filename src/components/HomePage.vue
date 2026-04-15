@@ -3,8 +3,11 @@
     <div class="home-landing__grid-overlay" aria-hidden="true"></div>
 
     <header class="home-landing__topbar">
-      <div class="home-landing__brand">Grids</div>
-      <div class="home-landing__topbar-actions">
+      <div class="home-landing__brand home-landing__topbar-reveal">Grids</div>
+      <div class="home-landing__intro-tile" aria-hidden="true">
+        <GridMenuIcon class="home-landing__intro-logo" />
+      </div>
+      <div class="home-landing__topbar-actions home-landing__topbar-reveal">
         <router-link class="home-landing__text-link" to="/pricing">Pricing</router-link>
         <router-link class="home-landing__btn home-landing__btn--ghost" to="/login">Log in</router-link>
       </div>
@@ -106,6 +109,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import DiscordIcon from '@/components/icons/DiscordIcon.vue';
+import GridMenuIcon from '@/components/icons/GridMenuIcon.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
 
 const pageTitle = ref('Home');
@@ -138,15 +142,50 @@ usePageTitle(pageTitle);
   mask-image: radial-gradient(circle at 50% 35%, black 30%, transparent 80%);
 }
 
+.home-landing__intro-tile {
+  --intro-size: clamp(40px, 4vw, 96px);
+  --intro-center-offset: calc(50vh - 82px);
+  width: var(--intro-size);
+  height: var(--intro-size);
+  border-radius: var(--radius-sm);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(145deg, rgba(168, 218, 255, 0.2), rgba(255, 255, 255, 0.04));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-size: clamp(0.9rem, 1.5vw, 1.08rem);
+  font-weight: var(--font-weight-semibold);
+  transform: translateY(var(--intro-center-offset)) scale(0.15);
+  opacity: 0;
+  animation: intro-tile-sequence 2200ms var(--easing-smooth) forwards;
+  pointer-events: none;
+}
+
+.home-landing__intro-logo {
+  width: clamp(22px, 3vw, 28px);
+  height: clamp(22px, 3vw, 28px);
+}
+
 .home-landing__topbar {
   position: relative;
   z-index: 1;
   width: min(1120px, 100%);
   margin: 0 auto;
-  padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
-  display: flex;
-  justify-content: space-between;
+  padding: var(--spacing-lg) var(--spacing-lg);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
+}
+
+.home-landing__topbar-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  animation: home-content-enter 680ms var(--easing-smooth) forwards;
+  animation-delay: 2050ms;
 }
 
 .home-landing__brand {
@@ -159,6 +198,7 @@ usePageTitle(pageTitle);
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+  justify-self: end;
 }
 
 .home-landing__text-link {
@@ -179,6 +219,10 @@ usePageTitle(pageTitle);
   display: flex;
   flex-direction: column;
   gap: var(--spacing-3xl);
+  opacity: 0;
+  transform: translateY(28px);
+  animation: home-content-enter 760ms var(--easing-smooth) forwards;
+  animation-delay: 2140ms;
 }
 
 .home-landing__hero {
@@ -369,6 +413,10 @@ usePageTitle(pageTitle);
   justify-content: center;
   gap: var(--spacing-sm);
   color: var(--color-content-low);
+  opacity: 0;
+  transform: translateY(22px);
+  animation: home-content-enter 760ms var(--easing-smooth) forwards;
+  animation-delay: 2220ms;
 }
 
 .home-landing__discord-link {
@@ -397,7 +445,55 @@ usePageTitle(pageTitle);
   color: var(--color-content-high);
 }
 
+@keyframes intro-tile-sequence {
+  0% {
+    opacity: 0;
+    transform: translateY(var(--intro-center-offset)) scale(0.15);
+  }
+  26% {
+    opacity: 1;
+    transform: translateY(var(--intro-center-offset)) scale(2);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes home-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 980px) {
+  .home-landing__topbar {
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "intro intro"
+      "brand actions";
+    row-gap: var(--spacing-md);
+  }
+
+  .home-landing__intro-tile {
+    grid-area: intro;
+    justify-self: center;
+    --intro-center-offset: calc(50vh - 116px);
+  }
+
+  .home-landing__brand {
+    grid-area: brand;
+  }
+
+  .home-landing__topbar-actions {
+    grid-area: actions;
+  }
+
   .home-landing__hero {
     grid-template-columns: 1fr;
   }
@@ -408,12 +504,37 @@ usePageTitle(pageTitle);
 }
 
 @media (max-width: 640px) {
+  .home-landing__topbar {
+    padding-top: var(--spacing-md);
+  }
+
+  .home-landing__intro-tile {
+    --intro-size: 92px;
+    --intro-center-offset: calc(50vh - 148px);
+  }
+
   .home-landing__content {
     gap: var(--spacing-2xl);
   }
 
   .home-landing__section--cta {
     padding: var(--spacing-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-landing__topbar-reveal,
+  .home-landing__content,
+  .home-landing__footer {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  .home-landing__intro-tile {
+    opacity: 1;
+    transform: none;
+    animation: none;
   }
 }
 </style>

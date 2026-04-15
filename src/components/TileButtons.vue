@@ -8,7 +8,11 @@
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
       <button class="btn btn-secondary" data-tooltip="Text" @click="addTextElement">
-        <TextIcon />
+        <TextLegacyIcon />
+      </button>
+
+      <button v-if="smartTextEnabled" class="btn btn-secondary" data-tooltip="Smart Text" @click="addSmartTextElement">
+        <AppBarTextIcon />
       </button>
 
       <button class="btn btn-secondary" data-tooltip="Profile" @click="addProfileElement">
@@ -84,10 +88,12 @@ import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
+import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
 import AddMapModal from "./AddMapModal.vue";
-import TextIcon from "./icons/TextIcon.vue";
+import TextLegacyIcon from "./icons/appbar/TextLegacyIcon.vue";
+import AppBarTextIcon from "./icons/appbar/TextIcon.vue";
 import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkTileIcon from "./icons/LinkTileIcon.vue";
@@ -102,7 +108,8 @@ export default {
     AddLinkModal,
     AddEmbedModal,
     AddMapModal,
-    TextIcon,
+    TextLegacyIcon,
+    AppBarTextIcon,
     ChatIcon,
     ImageIcon,
     LinkTileIcon,
@@ -116,6 +123,9 @@ export default {
     const themeStore = useThemeStore();
     const isDarkMode = computed(() => themeStore.isDarkMode);
 
+    const { isEnabled } = useFeatureFlags();
+    const smartTextEnabled = computed(() => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT));
+
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);
     const { uploadFileOptimistic } = useFileUpload();
@@ -128,6 +138,14 @@ export default {
       const textContent = createTileContent(ContentType.TEXT, {});
       const tileId = layoutStore.addTile(textContent);
       // Auto-focus the new text tile so the user can start typing immediately
+      if (tileId) {
+        layoutStore.pendingFocusTileId = tileId;
+      }
+    };
+
+    const addSmartTextElement = () => {
+      const textContent = createTileContent(ContentType.SMART_TEXT, {});
+      const tileId = layoutStore.addTile(textContent);
       if (tileId) {
         layoutStore.pendingFocusTileId = tileId;
       }
@@ -289,7 +307,9 @@ export default {
     return {
       imageInput,
       layoutStore,
+      smartTextEnabled,
       addTextElement,
+      addSmartTextElement,
       addProfileElement,
       addChatElement,
       addCampfireElement,

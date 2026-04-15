@@ -31,6 +31,7 @@ export const FEATURE_FLAGS = {
   BETA_URL_TO_GRID: 'beta-url-to-grid',
 
   // ── Editor features ──────────────────────────────────────────────────────
+  EDITOR_SMART_TEXT: 'editor-smart-text',
   EDITOR_AI_SUGGESTIONS: 'editor-ai-suggestions',
   EDITOR_CUSTOM_CSS: 'editor-custom-css',
 

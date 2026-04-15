@@ -35,6 +35,7 @@ import heroGif from "@/assets/images/hero.gif";
 const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
   switch (type) {
     case ContentType.TEXT:
+    case ContentType.SMART_TEXT:
     case ContentType.CHAT:
     case ContentType.CAMPFIRE:
       return "text";
@@ -1300,15 +1301,6 @@ export const useLayoutStore = defineStore("layout", {
             tile.w = pos.w;
             tile.h = pos.h;
           }
-        }
-      }
-
-      const gridElement =
-        document.querySelector<HTMLElement>(".vue-grid-layout");
-      if (gridElement) {
-        const currentWidth = parseFloat(getComputedStyle(gridElement).width);
-        if (!isNaN(currentWidth)) {
-          gridElement.style.height = `${currentWidth + 1}px`;
         }
       }
 

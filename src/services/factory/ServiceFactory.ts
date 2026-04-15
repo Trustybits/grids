@@ -1,11 +1,19 @@
 import { LayoutService, type ILayoutService } from "../LayoutService";
+import { MockLayoutService } from "../mocks/MockLayoutService";
 import type { IServiceFactory } from "./IServiceFactory";
 
 export class ServiceFactory implements IServiceFactory {
-  private layoutService: ILayoutService;
+  private useMocks: boolean;
+  private layoutService: ILayoutService; 
 
-  public constructor() {
-    this.layoutService = new LayoutService();
+  public constructor(useMocks: boolean = false) {
+    this.useMocks = useMocks;
+
+    if (this.useMocks) {
+      this.layoutService = new MockLayoutService();
+    } else {
+      this.layoutService = new LayoutService();
+    }
   }
 
   public getLayoutService(): ILayoutService {

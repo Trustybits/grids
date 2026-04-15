@@ -5,6 +5,7 @@
     class="tile-toolbar"
     :class="{ 'tile-toolbar-force-show': menuOpen || panelOpen }"
     @mousedown.stop
+    @touchstart.stop
     @mouseenter="hoveredToolbarZone = 'toolbar'"
     @mouseleave="hoveredToolbarZone = null"
   >
@@ -35,6 +36,7 @@
     ref="searchPanelRef"
     class="toolbar-search-panel glass"
     @mousedown.stop
+    @touchstart.stop
   >
     <button
       class="search-panel-btn"
@@ -59,6 +61,37 @@
     >
       <SearchIcon />
     </button>
+  </div>
+
+  <!-- Image URL Panel -->
+  <div
+    v-if="panelOpen && activePanelId === 'imageUrl'"
+    ref="imageUrlPanelRef"
+    class="toolbar-image-url-panel"
+    @mousedown.stop
+    @touchstart.stop
+  >
+    <div class="image-url-panel-row">
+      <input
+        ref="imageUrlInputRef"
+        class="image-url-panel-input"
+        type="url"
+        placeholder="https://example.com/image.jpg"
+        aria-label="Image URL"
+        v-model="imageUrlDraft"
+        @keydown.enter.stop.prevent="onImageUrlSubmit"
+      />
+      <button
+        class="image-url-panel-btn"
+        data-tooltip="Submit"
+        @click.stop="onImageUrlSubmit"
+      >
+        <ArrowUpRightIcon />
+      </button>
+    </div>
+    <p v-if="imageUrlError" class="image-url-panel-error">
+      {{ imageUrlError }}
+    </p>
   </div>
 
   <!-- Color Picker Panel -->
@@ -95,6 +128,7 @@
         class="tile-toolbar-menu"
         :style="[menuStyle, { 'flex-direction': menuItemLayoutDirection }]"
         @mousedown.stop
+        @touchstart.stop
         @click.stop
         @dragstart.prevent
       >
@@ -169,9 +203,11 @@ import type {
 } from "@/types/TileToolbar";
 import { getToolbarItems } from "@/utils/toolbarRegistry";
 import { useLayoutStore } from "@/stores/layout";
+import { isDirectImageUrl } from "@/utils/TileUtils";
 import LocateFixedIcon from "./icons/toolbar/LocateFixedIcon.vue";
 import CurrentLocationIcon from "./icons/toolbar/CurrentLocationIcon.vue";
 import SearchIcon from "./icons/toolbar/SearchIcon.vue";
+import ArrowUpRightIcon from "./icons/toolbar/ArrowUpRightIcon.vue";
 import AlignLeftIcon from "./icons/toolbar/AlignLeftIcon.vue";
 import AlignCenterIcon from "./icons/toolbar/AlignCenterIcon.vue";
 import AlignRightIcon from "./icons/toolbar/AlignRightIcon.vue";
@@ -185,6 +221,7 @@ export default defineComponent({
     LocateFixedIcon,
     CurrentLocationIcon,
     SearchIcon,
+    ArrowUpRightIcon,
     ColorPicker,
     FontSizeSelector,
     FontSelector,
@@ -221,6 +258,12 @@ export default defineComponent({
 
     const colorPickerRef = ref<{ $el?: HTMLElement } | null>(null);
     const textAlignPanelRef = ref<{ $el?: HTMLElement } | null>(null);
+
+    // Image URL panel state
+    const imageUrlPanelRef = ref<HTMLDivElement | null>(null);
+    const imageUrlInputRef = ref<HTMLInputElement | null>(null);
+    const imageUrlDraft = ref("");
+    const imageUrlError = ref("");
     const fontSizeSelectorRef = ref<any>(null);
     const fontSelectorRef = ref<any>(null);
     const childComponent = props.toolbarRefs.childComponent;
@@ -459,6 +502,52 @@ export default defineComponent({
       child.handleSearch?.();
     };
 
+    const normalizeImageUrl = (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed) return "";
+      const normalized =
+        trimmed.startsWith("http://") || trimmed.startsWith("https://")
+          ? trimmed
+          : `https://${trimmed}`;
+      try {
+        new URL(normalized);
+        return normalized;
+      } catch {
+        return "";
+      }
+    };
+
+    const onImageUrlSubmit = () => {
+      const normalized = normalizeImageUrl(imageUrlDraft.value);
+      if (!normalized) {
+        imageUrlError.value = "Enter a valid URL.";
+        return;
+      }
+      if (!isDirectImageUrl(normalized)) {
+        imageUrlError.value =
+          "Only direct image URLs are supported (png, jpg, gif, webp, svg).";
+        return;
+      }
+
+      const child = props.toolbarRefs.childComponent?.value;
+      if (child?.applyImageUrlFromToolbar) {
+        child.applyImageUrlFromToolbar(normalized);
+      }
+      imageUrlDraft.value = "";
+      imageUrlError.value = "";
+      closeMenu();
+    };
+
+    // Pre-fill image URL draft when panel opens
+    watch(activePanelId, (id) => {
+      if (id === "imageUrl") {
+        const child = props.toolbarRefs.childComponent?.value;
+        imageUrlDraft.value = child?.content?.customImageUrl || "";
+        imageUrlError.value = "";
+        nextTick(() => imageUrlInputRef.value?.focus());
+      }
+    });
+
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       const colorPickerEl = colorPickerRef.value?.$el;
@@ -474,9 +563,11 @@ export default defineComponent({
       // Close panel if open
       if (panelOpen.value) {
         if (searchPanelRef.value?.contains(target)) return;
+        if (imageUrlPanelRef.value?.contains(target)) return;
         if (panelAnchorRef.value?.contains(target)) return;
         if (colorPickerEl?.contains(target)) return;
         if (textAlignPanelEl?.contains(target)) return;
+        imageUrlError.value = "";
         closeMenu();
       }
     };
@@ -564,6 +655,13 @@ export default defineComponent({
       onSearchSubmit,
       onFontSelectorIntent,
       hoveredToolbarZone,
+
+      // Image URL panel
+      imageUrlPanelRef,
+      imageUrlInputRef,
+      imageUrlDraft,
+      imageUrlError,
+      onImageUrlSubmit,
     };
   },
 });
@@ -749,6 +847,102 @@ export default defineComponent({
     color: var(--color-content-default);
     opacity: 0.6;
   }
+}
+
+/* Image URL Panel */
+.toolbar-image-url-panel {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  z-index: 99;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  white-space: nowrap;
+
+  transform: translate(-50%, calc(-4px));
+
+  background-color: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: 12px;
+  padding: 4px;
+
+  animation: imageUrlPanelSlideIn var(--duration-normal) var(--easing-spring);
+}
+
+@keyframes imageUrlPanelSlideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(4px)) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, calc(-4px)) scale(1);
+  }
+}
+
+.image-url-panel-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+}
+
+.image-url-panel-input {
+  flex: 1;
+  min-width: 200px;
+  height: 36px;
+  padding: 0 10px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  line-height: 36px;
+  outline: none;
+
+  &::placeholder {
+    color: var(--color-content-default);
+    opacity: 0.6;
+  }
+}
+
+.image-url-panel-btn {
+  background-color: transparent;
+  color: var(--color-text-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  height: 36px;
+  width: 36px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    transform var(--duration-fast) var(--easing-ease-out),
+    color var(--duration-fast) var(--easing-ease-in-out);
+
+  :deep(svg) {
+    width: 22px;
+    height: 22px;
+    display: block;
+  }
+
+  &:hover {
+    background-color: var(--color-content-low);
+    transform: scale(1.05);
+  }
+}
+
+.image-url-panel-error {
+  margin: 0;
+  padding: 2px 10px 4px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #ff3737;
+  white-space: normal;
 }
 </style>
 

@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { type Layout, type CopyDepth } from "@/types/Layout";
-import { getLayoutService } from "@/services/LayoutServiceFactory";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { createStarterTiles } from "@/services/LayoutService";
 import {
   ContentType,
@@ -20,9 +20,8 @@ import {
 import { useToastStore } from "@/stores/toast";
 
 // Lazy accessor — don't resolve the service at module load because main.ts
-// registers the DAO factory in an async IIFE that runs AFTER static imports.
-// LayoutServiceFactory memoizes, so every call returns the same instance.
-const svc = () => getLayoutService();
+// registers the service factory in an async IIFE that runs AFTER static imports.
+const svc = () => getServiceFactory().getLayoutService();
 
 export const useLayoutStore = defineStore("layout", {
   state: () => ({

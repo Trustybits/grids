@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { type Layout, type CopyDepth } from "@/types/Layout";
-import { getLayoutService } from "@/services/LayoutServiceFactory"; // Factory to switch services dynamically
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import {
   ContentType,
   type TileContent,
@@ -54,7 +54,7 @@ const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
   }
 };
 
-const layoutService = getLayoutService();
+const layoutService = getServiceFactory().getLayoutService();
 
 // ── Save serialization ────────────────────────────────────────────────
 // Multiple callers (map moveend, style toggle, addTile, etc.) can invoke

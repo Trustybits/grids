@@ -41,3 +41,5 @@ src/components/FluidTextCard/index.ts
 
 
 notesAndPlans
+# Local emulator env overrides
+functions/.env.local

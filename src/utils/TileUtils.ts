@@ -4,6 +4,7 @@ import {
   ContentType,
   type TileContent,
   type TextContent,
+  type SmartTextContent,
   type ChatContent,
   type ImageContent,
   type LinkContent,
@@ -353,6 +354,7 @@ export function createTileContent(
   type: ContentType,
   data: Partial<
     | TextContent
+    | SmartTextContent
     | ChatContent
     | ImageContent
     | LinkContent
@@ -381,6 +383,18 @@ export function createTileContent(
         textType: (data as Partial<TextContent>).textType || "",
         color: (data as Partial<TextContent>).color || "#ffffff",
       } as TextContent;
+
+    case ContentType.SMART_TEXT:
+      return {
+        type,
+        text: (data as Partial<SmartTextContent>).text || "",
+        font: (data as Partial<SmartTextContent>).font || "Arial",
+        fontSize: (data as Partial<SmartTextContent>).fontSize || 14,
+        isBold: (data as Partial<SmartTextContent>).isBold || false,
+        isItalic: (data as Partial<SmartTextContent>).isItalic || false,
+        textType: (data as Partial<SmartTextContent>).textType || "",
+        color: (data as Partial<SmartTextContent>).color || "#ffffff",
+      } as SmartTextContent;
 
     case ContentType.CHAT:
       return {
@@ -561,12 +575,20 @@ export function createTileContent(
 
 function getLinkData(url: string) {
   try {
-    const formattedUrl = url.startsWith("http") ? url : `https://${url}`;
+    const trimmed = (url || "").trim();
+    if (!trimmed) return {};
+
+    // Preserve non-web schemes as-is (e.g. mailto:, tel:)
+    if (/^(mailto|tel):/i.test(trimmed)) {
+      return { link: trimmed };
+    }
+
+    const formattedUrl = trimmed.startsWith("http") ? trimmed : `https://${trimmed}`;
     const parsedUrl = new URL(formattedUrl);
 
-    let domain = parsedUrl.hostname;
-    let faviconUrl = `https://s2.googleusercontent.com/s2/favicons?sz=64&domain_url=${parsedUrl.origin}`;
-    let link = formattedUrl;
+    const domain = parsedUrl.hostname;
+    const faviconUrl = `https://s2.googleusercontent.com/s2/favicons?sz=64&domain_url=${parsedUrl.origin}`;
+    const link = formattedUrl;
 
     return { domain, faviconUrl, link };
   } catch (error) {
@@ -578,6 +600,8 @@ export function validateTileContent(content: TileContent): boolean {
   switch (content.type) {
     case ContentType.TEXT:
       return (content as TextContent).text.trim().length > 0;
+    case ContentType.SMART_TEXT:
+      return (content as SmartTextContent).text.trim().length > 0;
     case ContentType.CHAT:
       return true;
     case ContentType.IMAGE:
@@ -590,7 +614,12 @@ export function validateTileContent(content: TileContent): boolean {
       );
     case ContentType.LINK:
       const link = content as LinkContent;
-      return !!link.link && link.link.startsWith("http");
+      return (
+        !!link.link &&
+        (link.link.startsWith("http") ||
+          /^mailto:/i.test(link.link) ||
+          /^tel:/i.test(link.link))
+      );
     case ContentType.VIDEO:
       const video = content as VideoContent;
       return (
@@ -638,6 +667,12 @@ export function getContentComponent(content: TileContent): any {
       return markRaw(
         defineAsyncComponent(
           () => import("@/components/tilecontent/TextContent.vue"),
+        ),
+      );
+    case ContentType.SMART_TEXT:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/SmartTextContent.vue"),
         ),
       );
     case ContentType.CHAT:

@@ -5,7 +5,7 @@
     :class="{ overflowing: shouldShowOverflow }"
   >
     <div
-      class="text-content"
+      class="text-content scrollable-thin"
       :class="{
         'not-editing': !isEditing,
         'can-edit': layoutStore.canEdit,
@@ -13,6 +13,7 @@
         'is-tall-1-wide': isTallOneWide,
         'owner-view': layoutStore.canEdit,
         'viewer-view': !layoutStore.canEdit,
+        'is-overflowing': isTextOverflowing,
       }"
       :style="{
         '--tile-bg': backgroundColor,
@@ -165,8 +166,18 @@ export default defineComponent({
       const container = textContentDiv.value;
       if (!container) return;
 
+      const scrollableElement = container.querySelector(
+        ".text-content",
+      ) as HTMLElement;
+      if (!scrollableElement) return;
+
       const editorDom = editor.value.view.dom as HTMLElement;
-      const isOverflowing = container.clientHeight < editorDom.clientHeight + 5;
+      const style = getComputedStyle(scrollableElement);
+      const paddingTop = parseFloat(style.paddingTop) || 0;
+      const paddingBottom = parseFloat(style.paddingBottom) || 0;
+      const availableHeight =
+        scrollableElement.clientHeight - paddingTop - paddingBottom;
+      const isOverflowing = editorDom.scrollHeight > availableHeight;
 
       isTextOverflowing.value = isOverflowing;
 
@@ -428,6 +439,7 @@ export default defineComponent({
       toggleBold,
       isBoldActive,
       isItalicActive,
+      isTextOverflowing,
       isOwner,
       getCurrentFontSize,
       handleFontSizeChange,
@@ -449,18 +461,24 @@ export default defineComponent({
 .text-content {
   padding: var(--spacing-md);
   width: 100%;
-  scroll-behavior: smooth;
   border-radius: var(--radius-lg);
-  overflow: auto;
+  overflow: hidden;
   margin: 0;
   line-height: 1.3;
   transition: background-color 0.3s ease;
   position: relative;
   color: var(--tile-text-color);
+}
 
-  &::-webkit-scrollbar {
-    display: none;
-  }
+.text-content.is-overflowing {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: transparent transparent;
+}
+
+.text-container:hover .text-content.is-overflowing {
+  scrollbar-color: var(--color-border) transparent;
 }
 
 .not-editing {

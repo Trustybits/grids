@@ -258,7 +258,7 @@
       }"
     >
       <div
-        class="profile-bio-text profile-editor"
+        class="profile-bio-text profile-editor scrollable-thin"
         :class="{ 'can-edit': layoutStore.canEdit }"
         :spellcheck="layoutStore.canEdit && isEditing"
         :style="{ '--tile-text-color': textColor }"
@@ -2185,7 +2185,6 @@ export default defineComponent({
   font-family:
     "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
-  text-shadow: 0 0 34px rgba(51, 49, 44, 0.55);
 }
 
 .profile-bio-text {
@@ -2193,9 +2192,13 @@ export default defineComponent({
   min-height: 0;
   align-self: stretch;
   overflow-y: auto;
-  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: transparent transparent;
+}
+
+.profile-bio:hover .profile-bio-text {
   scrollbar-color: var(--color-border) transparent;
-  //scrollbar-width: thin;
 }
 
 .profile-bio-text :deep(.ProseMirror) {

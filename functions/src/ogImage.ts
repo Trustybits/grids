@@ -101,7 +101,7 @@ async function firestoreGet(
 // Profile tile fields (name, title, bio) are stored as serialised TipTap JSON.
 // Walk the doc tree and concatenate every leaf text node.
 
-function extractTiptapText(raw: unknown): string {
+export function extractTiptapText(raw: unknown): string {
   if (typeof raw === "string") {
     try {
       return extractTiptapText(JSON.parse(raw));

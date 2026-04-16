@@ -37,7 +37,7 @@ interface RateEntry {
   blockUntil: number
 }
 
-const store = new Map<string, RateEntry>()
+export const store = new Map<string, RateEntry>()
 
 // Prune stale entries every 5 minutes to prevent unbounded memory growth
 setInterval(() => {
@@ -51,7 +51,7 @@ setInterval(() => {
 
 type Decision = 'allow' | 'throttle' | 'block'
 
-function checkRateLimit(ip: string): Decision {
+export function checkRateLimit(ip: string): Decision {
   const now   = Date.now()
   let entry   = store.get(ip)
 

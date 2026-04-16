@@ -733,6 +733,24 @@ export default defineComponent({
   transform: translateY(-50%);
 }
 
+/* For single-row tiles, align title like link tiles:
+   logo on the left, text centered vertically next to it. */
+.dim-h1:not(.tier-mini) .yt-fg {
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-right: var(--tile-padding, 21.5px);
+  padding-left: calc(
+    var(--tile-padding, 21.5px) + var(--tile-logo-size, 32px) + 10px
+  );
+}
+
+.dim-h1:not(.tier-mini) .yt-title {
+  white-space: nowrap;
+}
+
 /* ─── Tier: medium (area ≤ 9) ─────────────────────────── */
 .tier-medium {
   .yt-title {

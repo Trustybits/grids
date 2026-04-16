@@ -1,6 +1,6 @@
 import { computed, toValue, type MaybeRefOrGetter } from "vue";
 import type { Layout } from "@/types/Layout";
-import { firestoreValueToDate } from "@/utils/firestoreTime";
+import { valueToDate } from "@/utils/TimeConversion";
 import { formatRelativeSince } from "@/utils/relativeTime";
 
 type LayoutTimestamps = Pick<Layout, "updatedAt" | "createdAt">;
@@ -13,10 +13,7 @@ export function useDashboardLayoutUpdated(
 ) {
   const updatedAtDate = computed(() => {
     const layout = toValue(layoutSource);
-    return (
-      firestoreValueToDate(layout.updatedAt) ||
-      firestoreValueToDate(layout.createdAt)
-    );
+    return valueToDate(layout.updatedAt) || valueToDate(layout.createdAt);
   });
 
   const label = computed(() => {

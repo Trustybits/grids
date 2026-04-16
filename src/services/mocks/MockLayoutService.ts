@@ -1,5 +1,5 @@
 import { type Layout } from "@/types/Layout";
-import { type ILayoutService } from "../LayoutService";
+import type { ILayoutService } from "../interfaces/ILayoutService";
 import { ContentType } from "@/types/TileContent";
 import { createTile, createTileContent } from "@/utils/TileUtils";
 

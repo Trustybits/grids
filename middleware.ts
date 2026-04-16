@@ -18,7 +18,11 @@
 const FIREBASE_PROJECT_ID = 'grids-one'
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`
 const SITE_ORIGIN = 'https://grids.so'
-const OG_FUNCTION_URL = 'https://us-central1-grids-one.cloudfunctions.net/generateOgImage'
+
+// OG images are served through the Vercel proxy (api/og.ts) which applies
+// rate limiting before forwarding to the Firebase generateOgImage function.
+// Pointing crawlers at a grids.so URL also keeps the Firebase URL private.
+const OG_FUNCTION_URL = `${SITE_ORIGIN}/api/og`
 
 // Paths that are definitely NOT user slugs
 const RESERVED_PATHS = new Set([

@@ -69,12 +69,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
-import { getUserProfile, setDefaultGrid } from '@/services/UserProfileService';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { useLayoutStore } from '@/stores/layout';
 import SlugClaimModal from './SlugClaimModal.vue';
 import SuccessToast from './SuccessToast.vue';
 
 const layoutStore = useLayoutStore();
+const userService = getServiceFactory().getUserService();
 const isSlugModalOpen = ref(false);
 const userSlug = ref<string | undefined>(undefined);
 const selectedGridId = ref<string | null>(null);
@@ -93,7 +94,7 @@ const loadUserProfile = async () => {
   if (!userId) return;
 
   try {
-    const profile = await getUserProfile(userId);
+    const profile = await userService.getUserProfile(userId);
     if (profile) {
       userSlug.value = profile.slug;
       selectedGridId.value = profile.defaultGridId || null;
@@ -114,7 +115,7 @@ const handleDefaultGridChange = async () => {
   saveSuccess.value = false;
 
   try {
-    await setDefaultGrid(userId, selectedGridId.value);
+    await userService.setDefaultGrid(userId, selectedGridId.value);
     saveSuccess.value = true;
     
     // Clear success message after 2 seconds

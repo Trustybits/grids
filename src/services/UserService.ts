@@ -6,6 +6,7 @@ import type { UserDao } from "@/dao/interfaces/UserDao";
 import type {
   SlugAvailabilityResponse,
   SlugClaimResponse,
+  SlugData,
   UserProfile,
 } from "@/types/UserProfile";
 import type { IUserService } from "./interfaces/IUserService";
@@ -80,13 +81,24 @@ export class UserService implements IUserService {
   // ── Slug ────────────────────────────────────────────────────────────
 
   async getUserIdBySlug(slug: string): Promise<string | null> {
+    const data = await this.getSlugData(slug);
+    return data?.userId ?? null;
+  }
+
+  async getSlugData(slug: string): Promise<SlugData | null> {
     try {
       const data = await this.slugDao.getBySlug(slug);
       if (!data) return null;
       const userId = data.userId;
-      return typeof userId === "string" ? userId : null;
+      if (typeof userId !== "string") return null;
+      const rawGridId = data.defaultGridId;
+      const defaultGridId =
+        typeof rawGridId === "string" || rawGridId === null
+          ? rawGridId
+          : undefined;
+      return { userId, defaultGridId };
     } catch (error) {
-      console.error("Error fetching user by slug:", error);
+      console.error("Error fetching slug data:", error);
       throw error;
     }
   }

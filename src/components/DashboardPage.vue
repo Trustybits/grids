@@ -77,8 +77,10 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLayoutStore } from '@/stores/layout';
 import { usePageTitle } from '@/composables/usePageTitle';
-import { getUserProfile, setDefaultGrid, updateUserProfile } from '@/services/UserProfileService';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
+
+const userService = getServiceFactory().getUserService();
 import { firestoreValueToMillis } from '@/utils/firestoreTime';
 import CreateGridModal from './CreateGridModal.vue';
 import RenameGridModal from './RenameGridModal.vue';
@@ -138,7 +140,7 @@ const loadUserProfile = async () => {
   const userId = getAuthProvider().getCurrentUserId();
   if (userId) {
     try {
-      const profile = await getUserProfile(userId);
+      const profile = await userService.getUserProfile(userId);
       if (profile) {
         defaultGridId.value = profile.defaultGridId || null;
         const raw = profile.starredLayoutIds;
@@ -158,7 +160,7 @@ const toggleDefaultGrid = async (gridId) => {
 
   try {
     const newDefaultId = defaultGridId.value === gridId ? null : gridId;
-    await setDefaultGrid(userId, newDefaultId);
+    await userService.setDefaultGrid(userId, newDefaultId);
     defaultGridId.value = newDefaultId;
   } catch (error) {
     console.error('Error setting default grid:', error);
@@ -178,7 +180,7 @@ const toggleStarGrid = async (gridId) => {
 
   starredLayoutIds.value = next;
   try {
-    await updateUserProfile(userId, { starredLayoutIds: next });
+    await userService.updateUserProfile(userId, { starredLayoutIds: next });
   } catch (error) {
     console.error('Error updating starred grids:', error);
     starredLayoutIds.value = prev;
@@ -193,7 +195,7 @@ const saveStarredOrder = async (next, previous) => {
   }
   starredLayoutIds.value = next;
   try {
-    await updateUserProfile(userId, { starredLayoutIds: next });
+    await userService.updateUserProfile(userId, { starredLayoutIds: next });
   } catch (error) {
     console.error('Error updating starred grid order:', error);
     starredLayoutIds.value = previous;
@@ -338,7 +340,7 @@ const persistStarredAfterDelete = async (deletedId) => {
   if (next.length === starredLayoutIds.value.length) return;
   starredLayoutIds.value = next;
   try {
-    await updateUserProfile(userId, { starredLayoutIds: next });
+    await userService.updateUserProfile(userId, { starredLayoutIds: next });
   } catch (error) {
     console.error('Error updating starred grids after delete:', error);
   }
@@ -355,7 +357,7 @@ const confirmDeleteGrid = async (layout) => {
     if (defaultGridId.value === layout.id) {
       const userId = getAuthProvider().getCurrentUserId();
       if (userId) {
-        await setDefaultGrid(userId, null);
+        await userService.setDefaultGrid(userId, null);
         defaultGridId.value = null;
       }
     }

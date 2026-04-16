@@ -13,7 +13,6 @@
           You have no grids. Create one to get started!
         </div>
         <ul v-else class="grid-list">
-
           <DashboardGridCard
             v-for="layout in starredLayouts"
             :key="layout.id"
@@ -73,23 +72,23 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, computed, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { useLayoutStore } from '@/stores/layout';
-import { usePageTitle } from '@/composables/usePageTitle';
-import { getServiceFactory } from '@/services/ServiceFactorySingleton';
-import { getAuthProvider } from '@/auth/AuthProviderSingleton';
+import { onMounted, onUnmounted, computed, ref } from "vue";
+import { useRouter } from "vue-router";
+import { useLayoutStore } from "@/stores/layout";
+import { usePageTitle } from "@/composables/usePageTitle";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 
 const userService = getServiceFactory().getUserService();
-import { firestoreValueToMillis } from '@/utils/firestoreTime';
-import CreateGridModal from './CreateGridModal.vue';
-import RenameGridModal from './RenameGridModal.vue';
-import DashboardGridCard from './dashboard/DashboardGridCard.vue';
+import { valueToMillis } from "@/utils/TimeConversion";
+import CreateGridModal from "./CreateGridModal.vue";
+import RenameGridModal from "./RenameGridModal.vue";
+import DashboardGridCard from "./dashboard/DashboardGridCard.vue";
 
 const layoutStore = useLayoutStore();
 const router = useRouter();
 
-const pageTitle = ref('Dashboard');
+const pageTitle = ref("Dashboard");
 usePageTitle(pageTitle);
 
 const layouts = computed(() => layoutStore.layouts);
@@ -125,13 +124,9 @@ const unstarredLayouts = computed(() =>
     .filter((l) => !starredSet.value.has(l.id))
     .sort((a, b) => {
       const aScore =
-        firestoreValueToMillis(a.updatedAt) ||
-        firestoreValueToMillis(a.createdAt) ||
-        0;
+        valueToMillis(a.updatedAt) || valueToMillis(a.createdAt) || 0;
       const bScore =
-        firestoreValueToMillis(b.updatedAt) ||
-        firestoreValueToMillis(b.createdAt) ||
-        0;
+        valueToMillis(b.updatedAt) || valueToMillis(b.createdAt) || 0;
       return bScore - aScore;
     }),
 );
@@ -145,11 +140,11 @@ const loadUserProfile = async () => {
         defaultGridId.value = profile.defaultGridId || null;
         const raw = profile.starredLayoutIds;
         starredLayoutIds.value = Array.isArray(raw)
-          ? raw.filter((id) => typeof id === 'string')
+          ? raw.filter((id) => typeof id === "string")
           : [];
       }
     } catch (error) {
-      console.error('Error loading user profile:', error);
+      console.error("Error loading user profile:", error);
     }
   }
 };
@@ -163,7 +158,7 @@ const toggleDefaultGrid = async (gridId) => {
     await userService.setDefaultGrid(userId, newDefaultId);
     defaultGridId.value = newDefaultId;
   } catch (error) {
-    console.error('Error setting default grid:', error);
+    console.error("Error setting default grid:", error);
   }
 };
 
@@ -174,15 +169,13 @@ const toggleStarGrid = async (gridId) => {
   const prev = [...starredLayoutIds.value];
   const idx = prev.indexOf(gridId);
   const next =
-    idx !== -1
-      ? prev.filter((id) => id !== gridId)
-      : [...prev, gridId];
+    idx !== -1 ? prev.filter((id) => id !== gridId) : [...prev, gridId];
 
   starredLayoutIds.value = next;
   try {
     await userService.updateUserProfile(userId, { starredLayoutIds: next });
   } catch (error) {
-    console.error('Error updating starred grids:', error);
+    console.error("Error updating starred grids:", error);
     starredLayoutIds.value = prev;
   }
 };
@@ -197,7 +190,7 @@ const saveStarredOrder = async (next, previous) => {
   try {
     await userService.updateUserProfile(userId, { starredLayoutIds: next });
   } catch (error) {
-    console.error('Error updating starred grid order:', error);
+    console.error("Error updating starred grid order:", error);
     starredLayoutIds.value = previous;
   }
 };
@@ -210,8 +203,8 @@ const onStarDragStart = (event, layoutId) => {
   draggedStarInitialOrder.value = [...starredLayoutIds.value];
   starDragCommitted.value = false;
   if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', layoutId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", layoutId);
   }
 };
 
@@ -220,7 +213,7 @@ const onStarDragOver = (event, layoutId) => {
   event.preventDefault();
   dragOverStarId.value = layoutId;
   if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = 'move';
+    event.dataTransfer.dropEffect = "move";
   }
 
   const current = [...starredLayoutIds.value];
@@ -258,7 +251,8 @@ const onStarDragEnd = async () => {
 const splitMenuOpenFor = ref(null);
 
 const toggleSplitMenu = (layoutId) => {
-  splitMenuOpenFor.value = splitMenuOpenFor.value === layoutId ? null : layoutId;
+  splitMenuOpenFor.value =
+    splitMenuOpenFor.value === layoutId ? null : layoutId;
 };
 
 const closeSplitMenu = () => {
@@ -268,11 +262,11 @@ const closeSplitMenu = () => {
 onMounted(() => {
   layoutStore.fetchLayouts();
   loadUserProfile();
-  document.addEventListener('click', closeSplitMenu);
+  document.addEventListener("click", closeSplitMenu);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('click', closeSplitMenu);
+  document.removeEventListener("click", closeSplitMenu);
 });
 
 const promptAndCreateLayout = () => {
@@ -294,7 +288,7 @@ const handleCreateGrid = async (name) => {
       router.push(`/grid/${newLayoutId}`);
     }
   } catch (error) {
-    console.error('Error creating layout:', error.message);
+    console.error("Error creating layout:", error.message);
   }
 };
 
@@ -315,12 +309,12 @@ const handleRenameGrid = async (newName) => {
     await layoutStore.renameLayout(gridToRename.value.id, newName);
     closeRenameModal();
   } catch (error) {
-    console.error('Error renaming grid:', error);
-    alert('Failed to rename grid. Please try again.');
+    console.error("Error renaming grid:", error);
+    alert("Failed to rename grid. Please try again.");
   }
 };
 
-const duplicateGrid = async (layout, copyDepth = 'full') => {
+const duplicateGrid = async (layout, copyDepth = "full") => {
   splitMenuOpenFor.value = null;
   try {
     const newId = await layoutStore.duplicateLayout(layout, copyDepth);
@@ -328,8 +322,8 @@ const duplicateGrid = async (layout, copyDepth = 'full') => {
       router.push(`/grid/${newId}`);
     }
   } catch (error) {
-    console.error('Error duplicating grid:', error);
-    alert('Failed to duplicate grid. Please try again.');
+    console.error("Error duplicating grid:", error);
+    alert("Failed to duplicate grid. Please try again.");
   }
 };
 
@@ -342,12 +336,14 @@ const persistStarredAfterDelete = async (deletedId) => {
   try {
     await userService.updateUserProfile(userId, { starredLayoutIds: next });
   } catch (error) {
-    console.error('Error updating starred grids after delete:', error);
+    console.error("Error updating starred grids after delete:", error);
   }
 };
 
 const confirmDeleteGrid = async (layout) => {
-  const confirmed = confirm(`Are you sure you want to delete "${layout.name}"? This action cannot be undone.`);
+  const confirmed = confirm(
+    `Are you sure you want to delete "${layout.name}"? This action cannot be undone.`,
+  );
   if (!confirmed) return;
 
   try {
@@ -362,8 +358,8 @@ const confirmDeleteGrid = async (layout) => {
       }
     }
   } catch (error) {
-    console.error('Error deleting grid:', error);
-    alert('Failed to delete grid. Please try again.');
+    console.error("Error deleting grid:", error);
+    alert("Failed to delete grid. Please try again.");
   }
 };
 </script>

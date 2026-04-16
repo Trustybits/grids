@@ -196,6 +196,49 @@ function makeClipMask(
   );
 }
 
+// ─── Avatar ring (matches clip shape) ────────────────────────────────────────
+
+function makeRingSvg(
+  size: number,
+  shape: GridInfo["avatarShape"],
+  sides: number
+): Buffer {
+  const r = size / 2;
+  const sw = 2; // stroke-width
+  const inset = sw / 2;
+  const stroke = `fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="${sw}"`;
+
+  if (shape === "circle") {
+    return Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+        <circle cx="${r}" cy="${r}" r="${r - inset}" ${stroke}/>
+      </svg>`
+    );
+  }
+
+  if (shape === "polygon") {
+    const n = Math.max(3, sides);
+    const pts = Array.from({ length: n }, (_, i) => {
+      const a = (2 * Math.PI * i) / n - Math.PI / 2;
+      return `${r + (r - inset) * Math.cos(a)},${r + (r - inset) * Math.sin(a)}`;
+    }).join(" ");
+    return Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+        <polygon points="${pts}" ${stroke}/>
+      </svg>`
+    );
+  }
+
+  // square — rounded corners matching the clip mask
+  const rx = Math.round(size * 0.12);
+  return Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+      <rect x="${inset}" y="${inset}" width="${size - sw}" height="${size - sw}"
+            rx="${rx}" ry="${rx}" ${stroke}/>
+    </svg>`
+  );
+}
+
 // ─── SVG escape ───────────────────────────────────────────────────────────────
 
 function svgEsc(s: string): string {
@@ -232,7 +275,9 @@ async function handler(req: Request, res: Response): Promise<void> {
   const file = bucket.file(cachePath);
 
   // ── 1. Serve from Storage cache if available ───────────────────────────────
-  if (!refresh) {
+  // Skip cache entirely in the local emulator — no Storage credentials, always regenerate.
+  const isEmulatorEnv = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!refresh && !isEmulatorEnv) {
     const [exists] = await file.exists();
     if (exists) {
       res.redirect(302, storageUrl(cachePath));
@@ -250,9 +295,14 @@ async function handler(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  // OG dimensions and avatar layout
+  // OG output dimensions (standard 1200×630)
   const W = 1200;
   const H = 630;
+
+  // Screenshot viewport — larger to capture the full desktop tile layout.
+  // sharp will crop/resize down to W×H for the final OG image.
+  const SW = 1524;
+  const SH = 800;
   const AV = 110;
   const MARGIN = 32;
   const AV_X = MARGIN;
@@ -274,7 +324,7 @@ async function handler(req: Request, res: Response): Promise<void> {
 
     browser = await puppeteer.launch({
       args: isEmulator ? [] : chromium.args,
-      defaultViewport: { width: W, height: H, deviceScaleFactor: 1 },
+      defaultViewport: { width: SW, height: SH, deviceScaleFactor: 1 },
       executablePath,
       headless: true,
     });
@@ -299,17 +349,59 @@ async function handler(req: Request, res: Response): Promise<void> {
     // Wait for grid to fully render (v-else-if="gridLoaded" in UserSlugPage)
     await page.waitForSelector(".grid-container", { timeout: 20_000 });
 
-    // Brief pause for tile images to paint
-    await new Promise((r) => setTimeout(r, 1_200));
+    // Remove all UI chrome (nav, toolbar, buttons) directly from the DOM.
+    // CSS class-name guessing is unreliable with Vue scoped styles — DOM removal always works.
+    await page.evaluate(() => {
+      const grid = document.querySelector(".grid-container");
 
-    // Hide toolbar and scrollbars for a clean shot
-    await page.addStyleTag({
-      content: `
-        ::-webkit-scrollbar { display: none !important; }
-        body { overflow: hidden !important; }
-        .toolbar, [class*="toolbar"] { display: none !important; }
-      `,
+      // Remove any element that is NOT an ancestor or descendant of the grid
+      const toRemove: Element[] = [];
+      document.body.querySelectorAll("*").forEach((el) => {
+        if (grid && (grid.contains(el) || el.contains(grid))) return;
+        const tag = el.tagName.toLowerCase();
+        if (
+          tag === "nav" ||
+          tag === "header" ||
+          tag === "button" ||
+          tag === "aside" ||
+          (tag === "div" &&
+            Array.from(el.classList).some((c) =>
+              /toolbar|appbar|navbar|topbar|top-bar|nav-bar|action-bar|actionbar|sidebar/.test(c)
+            ))
+        ) {
+          toRemove.push(el);
+        }
+      });
+      toRemove.forEach((el) => el.remove());
+
+      // Suppress scrollbars and overflow
+      document.body.style.overflow = "hidden";
+      document.body.style.margin = "0";
     });
+
+    // Also inject scrollbar suppression via style (belt-and-suspenders)
+    await page.addStyleTag({
+      content: `::-webkit-scrollbar { display: none !important; } body { overflow: hidden !important; margin: 0 !important; }`,
+    });
+
+    // Wait for tile images and avatar to fully paint.
+    // First, wait for all <img> elements inside the grid to either load or error.
+    await page.evaluate(() =>
+      Promise.all(
+        Array.from(document.querySelectorAll(".grid-container img")).map(
+          (img) =>
+            (img as HTMLImageElement).complete
+              ? Promise.resolve()
+              : new Promise((r) => {
+                  img.addEventListener("load", r, { once: true });
+                  img.addEventListener("error", r, { once: true });
+                })
+        )
+      )
+    );
+
+    // Extra paint buffer for CSS transitions and lazy-loaded content
+    await new Promise((r) => setTimeout(r, 2_000));
 
     const screenshotBuffer = (await page.screenshot({ type: "png" })) as Buffer;
     await browser.close();
@@ -354,15 +446,10 @@ async function handler(req: Request, res: Response): Promise<void> {
 
           composites.push({ input: clippedAvatar, top: AV_Y, left: AV_X });
 
-          // Subtle ring around avatar
+          // Subtle ring — matches the avatar's clip shape (circle/polygon/square)
           const ringSize = AV + 4;
           composites.push({
-            input: Buffer.from(`
-              <svg xmlns="http://www.w3.org/2000/svg" width="${ringSize}" height="${ringSize}">
-                <circle cx="${ringSize / 2}" cy="${ringSize / 2}" r="${ringSize / 2 - 1}"
-                        fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
-              </svg>
-            `),
+            input: makeRingSvg(ringSize, info.avatarShape, info.avatarSides),
             top: AV_Y - 2,
             left: AV_X - 2,
           });
@@ -409,7 +496,18 @@ async function handler(req: Request, res: Response): Promise<void> {
       .png({ compressionLevel: 8 })
       .toBuffer();
 
-    // ── 5. Upload to Firebase Storage ─────────────────────────────────────
+    // ── 5. Upload to Firebase Storage (skipped in local emulator) ────────────
+    const isEmulatorEnv = process.env.FUNCTIONS_EMULATOR === "true";
+
+    if (isEmulatorEnv) {
+      // Local dev: stream the image directly — no Storage credentials available
+      functions.logger.info(`[og] emulator mode — streaming image directly for: ${cachePath}`);
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "no-store");
+      res.end(finalImage);
+      return;
+    }
+
     await file.save(finalImage, {
       contentType: "image/png",
       metadata: {

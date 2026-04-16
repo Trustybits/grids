@@ -2,6 +2,8 @@
   "name": "functions",
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "build": "tsc",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
@@ -16,10 +18,10 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@sparticuz/chromium-min": "^147.0.0",
+    "cheerio": "^1.0.0-rc.12",
     "firebase-admin": "^12.6.0",
     "firebase-functions": "^6.0.1",
-    "cheerio": "^1.0.0-rc.12",
-    "@sparticuz/chromium-min": "^147.0.0",
     "puppeteer-core": "^23.0.0",
     "sharp": "^0.33.5"
   },
@@ -30,7 +32,8 @@
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-import": "^2.25.4",
     "firebase-functions-test": "^3.1.0",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
   },
   "private": true
 }

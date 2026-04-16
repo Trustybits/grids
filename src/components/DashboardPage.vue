@@ -78,7 +78,7 @@ import { useRouter } from 'vue-router';
 import { useLayoutStore } from '@/stores/layout';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { getUserProfile, setDefaultGrid, updateUserProfile } from '@/services/UserProfileService';
-import { getAuth } from 'firebase/auth';
+import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import { firestoreValueToMillis } from '@/utils/firestoreTime';
 import CreateGridModal from './CreateGridModal.vue';
 import RenameGridModal from './RenameGridModal.vue';
@@ -135,11 +135,10 @@ const unstarredLayouts = computed(() =>
 );
 
 const loadUserProfile = async () => {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (user) {
+  const userId = getAuthProvider().getCurrentUserId();
+  if (userId) {
     try {
-      const profile = await getUserProfile(user.uid);
+      const profile = await getUserProfile(userId);
       if (profile) {
         defaultGridId.value = profile.defaultGridId || null;
         const raw = profile.starredLayoutIds;
@@ -154,13 +153,12 @@ const loadUserProfile = async () => {
 };
 
 const toggleDefaultGrid = async (gridId) => {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
+  const userId = getAuthProvider().getCurrentUserId();
+  if (!userId) return;
 
   try {
     const newDefaultId = defaultGridId.value === gridId ? null : gridId;
-    await setDefaultGrid(user.uid, newDefaultId);
+    await setDefaultGrid(userId, newDefaultId);
     defaultGridId.value = newDefaultId;
   } catch (error) {
     console.error('Error setting default grid:', error);
@@ -168,8 +166,8 @@ const toggleDefaultGrid = async (gridId) => {
 };
 
 const toggleStarGrid = async (gridId) => {
-  const user = getAuth().currentUser;
-  if (!user) return;
+  const userId = getAuthProvider().getCurrentUserId();
+  if (!userId) return;
 
   const prev = [...starredLayoutIds.value];
   const idx = prev.indexOf(gridId);
@@ -180,7 +178,7 @@ const toggleStarGrid = async (gridId) => {
 
   starredLayoutIds.value = next;
   try {
-    await updateUserProfile(user.uid, { starredLayoutIds: next });
+    await updateUserProfile(userId, { starredLayoutIds: next });
   } catch (error) {
     console.error('Error updating starred grids:', error);
     starredLayoutIds.value = prev;
@@ -188,14 +186,14 @@ const toggleStarGrid = async (gridId) => {
 };
 
 const saveStarredOrder = async (next, previous) => {
-  const user = getAuth().currentUser;
-  if (!user) {
+  const userId = getAuthProvider().getCurrentUserId();
+  if (!userId) {
     starredLayoutIds.value = previous;
     return;
   }
   starredLayoutIds.value = next;
   try {
-    await updateUserProfile(user.uid, { starredLayoutIds: next });
+    await updateUserProfile(userId, { starredLayoutIds: next });
   } catch (error) {
     console.error('Error updating starred grid order:', error);
     starredLayoutIds.value = previous;
@@ -334,13 +332,13 @@ const duplicateGrid = async (layout, copyDepth = 'full') => {
 };
 
 const persistStarredAfterDelete = async (deletedId) => {
-  const user = getAuth().currentUser;
-  if (!user) return;
+  const userId = getAuthProvider().getCurrentUserId();
+  if (!userId) return;
   const next = starredLayoutIds.value.filter((id) => id !== deletedId);
   if (next.length === starredLayoutIds.value.length) return;
   starredLayoutIds.value = next;
   try {
-    await updateUserProfile(user.uid, { starredLayoutIds: next });
+    await updateUserProfile(userId, { starredLayoutIds: next });
   } catch (error) {
     console.error('Error updating starred grids after delete:', error);
   }
@@ -355,10 +353,9 @@ const confirmDeleteGrid = async (layout) => {
     await persistStarredAfterDelete(layout.id);
 
     if (defaultGridId.value === layout.id) {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (user) {
-        await setDefaultGrid(user.uid, null);
+      const userId = getAuthProvider().getCurrentUserId();
+      if (userId) {
+        await setDefaultGrid(userId, null);
         defaultGridId.value = null;
       }
     }

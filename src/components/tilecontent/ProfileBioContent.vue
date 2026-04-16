@@ -423,7 +423,7 @@ import { useLayoutStore } from "@/stores/layout";
 import { type ProfileBioContent, type AvatarShape } from "@/types/TileContent";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
-import { getAuth } from "firebase/auth";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import {
   getStorage,
   ref as storageRef,
@@ -500,7 +500,6 @@ export default defineComponent({
     });
 
     const { uploadFileToUrl, uploadExternalImageToStorage } = useFileUpload();
-    const auth = getAuth();
     const storage = getStorage();
 
     const isUploadingAvatar = ref(false);
@@ -1305,8 +1304,8 @@ export default defineComponent({
         return;
       }
 
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
+      const currentUserId = getAuthProvider().getCurrentUserId();
+      if (!currentUserId) {
         alert("You must be logged in to upload.");
         return;
       }
@@ -1322,7 +1321,7 @@ export default defineComponent({
       uploadPercent.value = 0;
 
       try {
-        const filePath = `users/${currentUser.uid}/images/${Date.now()}_${file.name}`;
+        const filePath = `users/${currentUserId}/images/${Date.now()}_${file.name}`;
         const fileRef = storageRef(storage, filePath);
         const metadata = { customMetadata: { published: "true" } };
 

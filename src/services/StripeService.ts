@@ -21,7 +21,7 @@ import {
   doc,
   serverTimestamp,
 } from 'firebase/firestore'
-import { getAuth } from 'firebase/auth'
+import { getAuthProvider } from '@/auth/AuthProviderSingleton'
 import { db } from '@/firebase'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -56,10 +56,10 @@ export interface StripeCheckoutError {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function requireUser() {
-  const user = getAuth().currentUser
-  if (!user) throw new Error('Must be signed in to initiate checkout')
-  return user
+function requireUserId(): string {
+  const userId = getAuthProvider().getCurrentUserId()
+  if (!userId) throw new Error('Must be signed in to initiate checkout')
+  return userId
 }
 
 function origin(): string {
@@ -75,8 +75,8 @@ function origin(): string {
  * clear error rather than hanging forever.
  */
 async function createCheckoutSession(config: CheckoutSessionConfig): Promise<string> {
-  const user = requireUser()
-  const sessionsRef = collection(db, 'customers', user.uid, 'checkout_sessions')
+  const userId = requireUserId()
+  const sessionsRef = collection(db, 'customers', userId, 'checkout_sessions')
   const sessionDoc = await addDoc(sessionsRef, {
     ...config,
     created: serverTimestamp(),
@@ -184,7 +184,7 @@ export async function createProCheckoutSession(
  * (Billing → Customer Portal).
  */
 export async function createCustomerPortalSession(): Promise<string> {
-  const user = requireUser()
+  requireUserId()
 
   // The Extension exposes a callable function for portal sessions
   const { getFunctions, httpsCallable } = await import('firebase/functions')

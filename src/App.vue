@@ -39,19 +39,20 @@ import ToastContainer from './components/ToastContainer.vue';
 import PixelRacersGame from './components/PixelRacersGame.vue';
 import ViewportWarning from './components/ViewportWarning.vue';
 import { useLayoutStore } from '@/stores/layout';
-import { auth, db } from '@/firebase';
-import { onAuthStateChanged, type User } from 'firebase/auth';
+import { db } from '@/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { getAuthProvider } from '@/auth/AuthProviderSingleton';
+import type { AuthUser } from '@/auth/AuthProvider';
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
 
-const user = ref<User | null>(null);
-const previousUser = ref<User | null>(null);
+const user = ref<AuthUser | null>(null);
+const previousUser = ref<AuthUser | null>(null);
 const isInitialLoad = ref(true);
 
 onMounted(() => {
-  onAuthStateChanged(auth, async (currentUser) => {
+  getAuthProvider().onAuthStateChanged(async (currentUser) => {
     // Track login for existing users (not new signups on page load)
     if (currentUser && !isInitialLoad.value && !previousUser.value) {
       // User just logged in - update lastLogin in Firestore
@@ -64,7 +65,7 @@ onMounted(() => {
         console.error('Failed to update lastLogin:', err);
       }
     }
-    
+
     previousUser.value = user.value;
     user.value = currentUser;
     isInitialLoad.value = false;

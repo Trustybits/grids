@@ -239,7 +239,8 @@
 
 <script lang="ts">
 import { computed, defineComponent, inject, onMounted, onUnmounted, ref, watch } from "vue";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
+import type { AuthUser } from "@/auth/AuthProvider";
 import { collection, onSnapshot, query, where, type Unsubscribe } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useRouter } from "vue-router";
@@ -274,7 +275,7 @@ export default defineComponent({
 
   setup(props) {
     const layoutStore = useLayoutStore();
-    const auth = getAuth();
+    const authProvider = getAuthProvider();
 
     // tileId is injected by GridTile so we can scope Firestore paths to this tile instance
     const tileId = inject<string>("tileId", "");
@@ -408,7 +409,7 @@ export default defineComponent({
     // Applied locally before the server responds so the count feels instant
     const optimisticDelta = ref<{ pageId: string; delta: number } | null>(null);
 
-    const currentUser = computed(() => auth.currentUser);
+    const currentUser = ref<AuthUser | null>(authProvider.getCurrentUser());
     // Only signed-in users may vote; unauthenticated visitors see the count but can't click
     const canVote = computed(() => !!currentUser.value && isConnected.value);
 
@@ -740,11 +741,12 @@ export default defineComponent({
 
     // ── Lifecycle ────────────────────────────────────────────────────
     onMounted(() => {
-      // Use onAuthStateChanged rather than checking auth.currentUser directly.
-      // On page reload, auth.currentUser is null at mount time — Firebase restores
-      // the session asynchronously. This listener fires once with the restored user
-      // (or null if not signed in), then again whenever sign-in/sign-out occurs.
-      unsubscribeAuthListener = onAuthStateChanged(auth, () => {
+      // Subscribe to auth state rather than checking getCurrentUser() directly.
+      // On page reload the current user is null at mount time — the auth provider
+      // restores the session asynchronously. This listener fires once with the
+      // restored user (or null if not signed in), then again on sign-in/sign-out.
+      unsubscribeAuthListener = authProvider.onAuthStateChanged((user) => {
+        currentUser.value = user;
         subscribeToMyUpvote();
       });
 

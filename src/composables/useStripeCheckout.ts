@@ -17,7 +17,7 @@
 
 import { ref, readonly } from 'vue'
 import { doc, updateDoc } from 'firebase/firestore'
-import { getAuth } from 'firebase/auth'
+import { getAuthProvider } from '@/auth/AuthProviderSingleton'
 import { db } from '@/firebase'
 import {
   createSupporterCheckoutSession,
@@ -140,9 +140,9 @@ export function useStripeCheckout() {
  * since hasSupporterBadge is not a protected field (unlike storageUsed).
  */
 async function grantFreeSupporterBadge(): Promise<void> {
-  const user = getAuth().currentUser
-  if (!user) throw new Error('Must be signed in')
+  const userId = getAuthProvider().getCurrentUserId()
+  if (!userId) throw new Error('Must be signed in')
 
-  const userRef = doc(db, 'users', user.uid)
+  const userRef = doc(db, 'users', userId)
   await updateDoc(userRef, { hasSupporterBadge: true })
 }

@@ -1,14 +1,13 @@
-import { onAuthStateChanged, getAuth } from "firebase/auth";
 import { useRouter } from "vue-router";
 import { ref } from "vue";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 
 const isAuthChecked = ref(false);
 
 export function useAuthGuard() {
   const router = useRouter();
-  const auth = getAuth();
 
-  onAuthStateChanged(auth, (user) => {
+  getAuthProvider().onAuthStateChanged((user) => {
     if (user) {
       console.log("User is logged in:", user);
     } else {

@@ -81,19 +81,14 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { auth } from '../firebase';
 import GriddleAnimation from '@/components/GriddleAnimation.vue';
 import SlugClaimModal from '@/components/SlugClaimModal.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useLayoutStore } from '@/stores/layout';
 import { getUserProfile } from '@/services/UserProfileService';
-import {
-  signInWithPopup,
-  GoogleAuthProvider,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
-} from 'firebase/auth';
+import { getAuthProvider } from '@/auth/AuthProviderSingleton';
+
+const authProvider = getAuthProvider();
 
 const email = ref('');
 const router = useRouter();
@@ -131,7 +126,7 @@ const getPostAuthRedirect = async (): Promise<string | null> => {
   }
   
   try {
-    const userId = auth.currentUser?.uid;
+    const userId = authProvider.getCurrentUserId();
     if (!userId) return '/dashboard';
 
     // Check if user has a slug
@@ -186,7 +181,7 @@ onMounted(() => {
 
 const maybeCompleteEmailLinkSignIn = async () => {
   try {
-    if (!isSignInWithEmailLink(auth, window.location.href)) return;
+    if (!authProvider.isEmailSignInLink(window.location.href)) return;
 
     isCompletingLink.value = true;
     statusTone.value = 'info';
@@ -201,7 +196,7 @@ const maybeCompleteEmailLinkSignIn = async () => {
       return;
     }
 
-    await signInWithEmailLink(auth, resolvedEmail, window.location.href);
+    await authProvider.completeEmailSignIn(resolvedEmail, window.location.href);
     window.localStorage.removeItem(AUTH_EMAIL_STORAGE_KEY);
     const redirectPath = await getPostAuthRedirect();
     if (redirectPath) {
@@ -217,11 +212,10 @@ const maybeCompleteEmailLinkSignIn = async () => {
 };
 
 const handleGoogleAuth = async () => {
-  const provider = new GoogleAuthProvider();
   try {
     isBusy.value = true;
     statusText.value = null;
-    await signInWithPopup(auth, provider);
+    await authProvider.signInWithGoogle();
     const redirectPath = await getPostAuthRedirect();
     if (redirectPath) {
       await router.replace(redirectPath);
@@ -247,13 +241,7 @@ const handleEmailContinue = async () => {
     // Store email locally so we can complete sign-in after the user clicks the link.
     window.localStorage.setItem(AUTH_EMAIL_STORAGE_KEY, trimmedEmail);
 
-    const actionCodeSettings = {
-      // Must be an allowed auth domain + whitelisted redirect URL in Firebase Auth settings.
-      url: `${window.location.origin}/login`,
-      handleCodeInApp: true,
-    };
-
-    await sendSignInLinkToEmail(auth, trimmedEmail, actionCodeSettings);
+    await authProvider.sendEmailSignInLink(trimmedEmail, `${window.location.origin}/login`);
     statusText.value = `Check ${trimmedEmail} for your sign-in link.`;
   } catch (error: any) {
     console.error('Send email link error:', error?.message);

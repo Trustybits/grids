@@ -50,8 +50,8 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { auth } from "@/firebase";
-import { signOut, onAuthStateChanged, type User } from "firebase/auth";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
+import type { AuthUser } from "@/auth/AuthProvider";
 import { getUserProfile } from "@/services/UserProfileService";
 import SlugClaimModal from "./SlugClaimModal.vue";
 
@@ -62,13 +62,13 @@ export default defineComponent({
   },
   setup() {
     const router = useRouter();
-    const user = ref<User | null>(null);
+    const user = ref<AuthUser | null>(null);
     const showUserMenu = ref(false);
     const showSlugModal = ref(false);
     const currentSlug = ref<string | undefined>(undefined);
 
     onMounted(() => {
-      onAuthStateChanged(auth, (currentUser) => {
+      getAuthProvider().onAuthStateChanged((currentUser) => {
         user.value = currentUser;
         // Load user profile to get current slug
         if (currentUser) {
@@ -100,7 +100,7 @@ export default defineComponent({
     };
 
     const logout = async () => {
-      await signOut(auth);
+      await getAuthProvider().signOut();
       router.push("/login");
       showUserMenu.value = false;
     };

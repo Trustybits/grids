@@ -1,4 +1,4 @@
-import { getAuth } from "firebase/auth";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import {
   getStorage,
   ref as storageRef,
@@ -43,7 +43,7 @@ function validateFile(file: File, options: UploadOptions = {}): { isImage: boole
 }
 
 export function useFileUpload() {
-  const auth = getAuth();
+  const authProvider = getAuthProvider();
   const storage = getStorage();
   const layoutStore = useLayoutStore();
 
@@ -57,13 +57,13 @@ export function useFileUpload() {
   ): Promise<string> => {
     const { isImage } = validateFile(file, options);
 
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
+    const currentUserId = authProvider.getCurrentUserId();
+    if (!currentUserId) {
       throw new Error("You must be logged in to upload.");
     }
 
     const fileType = options.fileType ?? (isImage ? "images" : "videos");
-    const filePath = `users/${currentUser.uid}/${fileType}/${Date.now()}_${file.name}`;
+    const filePath = `users/${currentUserId}/${fileType}/${Date.now()}_${file.name}`;
     const fileRef = storageRef(storage, filePath);
 
     // Set metadata with published flag to satisfy storage security rules
@@ -118,8 +118,8 @@ export function useFileUpload() {
   ): Promise<void> => {
     const { isImage } = validateFile(file, options);
 
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
+    const currentUserId = authProvider.getCurrentUserId();
+    if (!currentUserId) {
       throw new Error("You must be logged in to upload.");
     }
 
@@ -139,7 +139,7 @@ export function useFileUpload() {
 
     try {
       const fileType = options.fileType ?? (isImage ? "images" : "videos");
-      const filePath = `users/${currentUser.uid}/${fileType}/${Date.now()}_${file.name}`;
+      const filePath = `users/${currentUserId}/${fileType}/${Date.now()}_${file.name}`;
       const fileRef = storageRef(storage, filePath);
 
       // Set metadata with published flag to satisfy storage security rules
@@ -185,8 +185,8 @@ export function useFileUpload() {
   ): Promise<void> => {
     const { isImage } = validateFile(file, options);
 
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
+    const currentUserId = authProvider.getCurrentUserId();
+    if (!currentUserId) {
       throw new Error("You must be logged in to upload.");
     }
 
@@ -199,7 +199,7 @@ export function useFileUpload() {
 
     try {
       const fileType = options.fileType ?? (isImage ? "images" : "videos");
-      const filePath = `users/${currentUser.uid}/${fileType}/${Date.now()}_${file.name}`;
+      const filePath = `users/${currentUserId}/${fileType}/${Date.now()}_${file.name}`;
       const fileRef = storageRef(storage, filePath);
 
       const uploadTask = uploadBytesResumable(fileRef, file);
@@ -236,8 +236,8 @@ export function useFileUpload() {
     externalUrl: string,
     pathPrefix = "images"
   ): Promise<string> => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
+    const currentUserId = authProvider.getCurrentUserId();
+    if (!currentUserId) {
       throw new Error("You must be logged in to upload.");
     }
 
@@ -253,7 +253,7 @@ export function useFileUpload() {
 
     const blob = await response.blob();
     const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
-    const filePath = `users/${currentUser.uid}/${pathPrefix}/${Date.now()}_external.${ext}`;
+    const filePath = `users/${currentUserId}/${pathPrefix}/${Date.now()}_external.${ext}`;
     const fileRef = storageRef(storage, filePath);
 
     await uploadBytes(fileRef, blob, { contentType });

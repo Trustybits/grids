@@ -68,7 +68,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { auth } from '@/firebase';
+import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import { getUserProfile, setDefaultGrid } from '@/services/UserProfileService';
 import { useLayoutStore } from '@/stores/layout';
 import SlugClaimModal from './SlugClaimModal.vue';
@@ -89,7 +89,7 @@ const layouts = computed(() => layoutStore.layouts);
  * Load user profile data
  */
 const loadUserProfile = async () => {
-  const userId = auth.currentUser?.uid;
+  const userId = getAuthProvider().getCurrentUserId();
   if (!userId) return;
 
   try {
@@ -107,7 +107,7 @@ const loadUserProfile = async () => {
  * Handle default grid selection change
  */
 const handleDefaultGridChange = async () => {
-  const userId = auth.currentUser?.uid;
+  const userId = getAuthProvider().getCurrentUserId();
   if (!userId) return;
 
   isSavingGrid.value = true;

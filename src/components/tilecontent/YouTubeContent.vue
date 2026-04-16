@@ -153,6 +153,11 @@ export default defineComponent({
     const thumbnailUrl = computed(() => {
       const thumbs = props.content.thumbnails;
       if (!thumbs) return "";
+      // One-row tiles stretch the thumbnail across a wide banner shape.
+      // Prefer larger sources to avoid visible blur in h=1 layouts.
+      if (layout.value.h === 1) {
+        return thumbs.high?.url || thumbs.medium?.url || thumbs.default?.url || "";
+      }
       const q = layout.value.thumbnailQuality;
       if (q === "high") return thumbs.high?.url || thumbs.medium?.url || thumbs.default?.url || "";
       if (q === "medium") return thumbs.medium?.url || thumbs.default?.url || "";
@@ -749,6 +754,15 @@ export default defineComponent({
 
 .dim-h1:not(.tier-mini) .yt-title {
   white-space: nowrap;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+/* Match link-tile favicon visual size more closely in one-line rows. */
+.dim-h1:not(.tier-mini) .yt-logo svg {
+  width: 28px;
+  height: 20px;
 }
 
 /* Channel tiles use a different DOM structure than video/playlist.

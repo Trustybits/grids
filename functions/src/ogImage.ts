@@ -99,8 +99,9 @@ interface GridInfo {
   avatarUrl: string | null;
   avatarShape: "circle" | "square" | "polygon";
   avatarSides: number;
-  displayName: string;
-  handle: string | null;
+  displayName: string;   // used in "hey, I'm [displayName]"
+  handle: string | null; // used for "grids.so/[handle]" link
+  subtitle: string | null; // role/title shown below the name
 }
 
 async function resolveGridInfo(
@@ -122,6 +123,14 @@ async function resolveGridInfo(
     );
     const content = (profileTile?.content ?? {}) as Record<string, unknown>;
 
+    // Try common field names for the job title / role subtitle
+    const subtitle =
+      (content.title as string) ||
+      (content.jobTitle as string) ||
+      (content.subtitle as string) ||
+      (content.tagline as string) ||
+      null;
+
     return {
       screenshotUrl: `${screenshotBase}/${slug}`,
       avatarUrl: (content.profilePhotoUrl as string) || null,
@@ -130,6 +139,7 @@ async function resolveGridInfo(
       avatarSides: (content.avatarSides as number) || 6,
       displayName: slug,
       handle: slug,
+      subtitle,
     };
   }
 
@@ -143,6 +153,13 @@ async function resolveGridInfo(
     );
     const content = (profileTile?.content ?? {}) as Record<string, unknown>;
 
+    const subtitle =
+      (content.title as string) ||
+      (content.jobTitle as string) ||
+      (content.subtitle as string) ||
+      (content.tagline as string) ||
+      null;
+
     return {
       screenshotUrl: `${screenshotBase}/grid/${gridId}`,
       avatarUrl: (content.profilePhotoUrl as string) || null,
@@ -151,6 +168,7 @@ async function resolveGridInfo(
       avatarSides: (content.avatarSides as number) || 6,
       displayName: (layoutDoc.name as string) || "Untitled Grid",
       handle: null,
+      subtitle,
     };
   }
 
@@ -196,48 +214,6 @@ function makeClipMask(
   );
 }
 
-// ─── Avatar ring (matches clip shape) ────────────────────────────────────────
-
-function makeRingSvg(
-  size: number,
-  shape: GridInfo["avatarShape"],
-  sides: number
-): Buffer {
-  const r = size / 2;
-  const sw = 2; // stroke-width
-  const inset = sw / 2;
-  const stroke = `fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="${sw}"`;
-
-  if (shape === "circle") {
-    return Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-        <circle cx="${r}" cy="${r}" r="${r - inset}" ${stroke}/>
-      </svg>`
-    );
-  }
-
-  if (shape === "polygon") {
-    const n = Math.max(3, sides);
-    const pts = Array.from({ length: n }, (_, i) => {
-      const a = (2 * Math.PI * i) / n - Math.PI / 2;
-      return `${r + (r - inset) * Math.cos(a)},${r + (r - inset) * Math.sin(a)}`;
-    }).join(" ");
-    return Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-        <polygon points="${pts}" ${stroke}/>
-      </svg>`
-    );
-  }
-
-  // square — rounded corners matching the clip mask
-  const rx = Math.round(size * 0.12);
-  return Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-      <rect x="${inset}" y="${inset}" width="${size - sw}" height="${size - sw}"
-            rx="${rx}" ry="${rx}" ${stroke}/>
-    </svg>`
-  );
-}
 
 // ─── SVG escape ───────────────────────────────────────────────────────────────
 
@@ -303,13 +279,23 @@ async function handler(req: Request, res: Response): Promise<void> {
   // sharp will crop/resize down to W×H for the final OG image.
   const SW = 1524;
   const SH = 800;
-  const AV = 110;
-  const MARGIN = 32;
-  const AV_X = MARGIN;
-  const AV_Y = H - AV - MARGIN;
-  const TEXT_X = AV_X + AV + 20;
-  const TEXT_Y_NAME = AV_Y + AV / 2;
-  const TEXT_Y_HANDLE = TEXT_Y_NAME + 46;
+
+  // ── Layout constants (proportionally scaled from the Figma 1524×940 frame) ──
+  const PAD_X = 64;   // left padding inside panel
+  const PAD_Y = 52;   // top padding
+
+  const AV = 130;     // avatar diameter (square bounding box)
+  const AV_X = PAD_X;
+  const AV_Y = PAD_Y;
+
+  // Text block sits below avatar
+  const TEXT_X = PAD_X;
+  const NAME_Y = AV_Y + AV + 36;  // ~218px — below avatar with gap
+
+  // Bottom link row ("grids.so/slug")
+  const LINK_Y = H - 48;          // ~582px vertical center
+  const ICON_SZ = 32;             // grids.so icon size
+  const LINK_X = PAD_X + ICON_SZ + 14; // text starts after icon + gap
 
   // ── 3. Puppeteer screenshot ────────────────────────────────────────────────
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
@@ -407,28 +393,49 @@ async function handler(req: Request, res: Response): Promise<void> {
     await browser.close();
     browser = null;
 
-    // ── 4. Composite: gradient + avatar + text ─────────────────────────────
+    // ── 4. Composite layers (Figma node 2737-15887) ────────────────────────────
     const composites: sharp.OverlayOptions[] = [];
 
-    // Bottom-to-top gradient (matches Figma)
+    // ── Layer A: left panel — solid dark base fading right into the grid ──────
+    // Matches: meta_content (#10100e bg) + gradient_background blur overlay
     composites.push({
       input: Buffer.from(`
         <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
           <defs>
-            <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="35%" stop-color="black" stop-opacity="0"/>
-              <stop offset="78%" stop-color="black" stop-opacity="0.85"/>
-              <stop offset="100%" stop-color="black" stop-opacity="1"/>
+            <linearGradient id="lp" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%"   stop-color="#10100e" stop-opacity="1"/>
+              <stop offset="38%"  stop-color="#10100e" stop-opacity="1"/>
+              <stop offset="52%"  stop-color="#10100e" stop-opacity="0.88"/>
+              <stop offset="65%"  stop-color="#10100e" stop-opacity="0.45"/>
+              <stop offset="78%"  stop-color="#10100e" stop-opacity="0.1"/>
+              <stop offset="88%"  stop-color="#10100e" stop-opacity="0"/>
             </linearGradient>
           </defs>
-          <rect width="${W}" height="${H}" fill="url(#g)"/>
+          <rect width="${W}" height="${H}" fill="url(#lp)"/>
         </svg>
       `),
       blend: "over",
     });
 
-    // Avatar image clipped to the user's chosen shape
-    let hasAvatar = false;
+    // ── Layer B: bottom gradient overlay (opacity 55%, fades to black) ────────
+    // Matches: gradient overlay div, top ~47% of canvas, fading to black
+    const gradTop = Math.round(H * 0.47);
+    composites.push({
+      input: Buffer.from(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+          <defs>
+            <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stop-color="black" stop-opacity="0"/>
+              <stop offset="100%" stop-color="black" stop-opacity="0.55"/>
+            </linearGradient>
+          </defs>
+          <rect y="${gradTop}" width="${W}" height="${H - gradTop}" fill="url(#bg)"/>
+        </svg>
+      `),
+      blend: "over",
+    });
+
+    // ── Layer C: avatar clipped to the user's shape ───────────────────────────
     if (info.avatarUrl) {
       try {
         const avatarRes = await fetch(info.avatarUrl, {
@@ -437,58 +444,79 @@ async function handler(req: Request, res: Response): Promise<void> {
         if (avatarRes.ok) {
           const avatarData = Buffer.from(await avatarRes.arrayBuffer());
           const mask = makeClipMask(AV, info.avatarShape, info.avatarSides);
-
           const clippedAvatar = await sharp(avatarData)
             .resize(AV, AV, { fit: "cover", position: "centre" })
             .composite([{ input: mask, blend: "dest-in" }])
             .png()
             .toBuffer();
-
           composites.push({ input: clippedAvatar, top: AV_Y, left: AV_X });
-
-          // Subtle ring — matches the avatar's clip shape (circle/polygon/square)
-          const ringSize = AV + 4;
-          composites.push({
-            input: makeRingSvg(ringSize, info.avatarShape, info.avatarSides),
-            top: AV_Y - 2,
-            left: AV_X - 2,
-          });
-
-          hasAvatar = true;
         }
       } catch {
         // Avatar failed — continue without it
       }
     }
 
-    // Text: display name + @handle
-    const nameSize = info.displayName.length > 16 ? 52 : 72;
-    const textX = hasAvatar ? TEXT_X : AV_X;
-    const textY = info.handle ? TEXT_Y_NAME : AV_Y + AV / 2;
+    // ── Layer D: text (greeting + subtitle + bottom link) ─────────────────────
+    // "hey, I'm [name]" greeting — scale font to fit within the panel
+    const greeting = info.handle ? `hey, I'm ${info.displayName}` : info.displayName;
+    const greetingSize = Math.min(56, Math.max(32, Math.floor(56 * 13 / greeting.length)));
+    const subSize = 19;
+    const linkSize = 20;
+
+    // Grids.so icon SVG (3×3 grid on cream background, matching Figma)
+    const iconSvg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SZ}" height="${ICON_SZ}">
+        <rect width="${ICON_SZ}" height="${ICON_SZ}" rx="${Math.round(ICON_SZ * 0.133)}" fill="#FEFDEC"/>
+        <line x1="${ICON_SZ*0.333}" y1="0" x2="${ICON_SZ*0.333}" y2="${ICON_SZ}" stroke="rgba(16,16,14,0.5)" stroke-width="1"/>
+        <line x1="${ICON_SZ*0.667}" y1="0" x2="${ICON_SZ*0.667}" y2="${ICON_SZ}" stroke="rgba(16,16,14,0.5)" stroke-width="1"/>
+        <line x1="0" y1="${ICON_SZ*0.333}" x2="${ICON_SZ}" y2="${ICON_SZ*0.333}" stroke="rgba(16,16,14,0.5)" stroke-width="1"/>
+        <line x1="0" y1="${ICON_SZ*0.667}" x2="${ICON_SZ}" y2="${ICON_SZ*0.667}" stroke="rgba(16,16,14,0.5)" stroke-width="1"/>
+      </svg>`;
 
     composites.push({
       input: Buffer.from(`
         <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+          <!-- "hey, I'm [name]" -->
           <text
-            x="${textX}" y="${textY}"
-            font-family="system-ui, -apple-system, Arial, sans-serif"
-            font-size="${nameSize}" font-weight="700"
-            fill="white" dominant-baseline="middle"
-          >${svgEsc(info.displayName)}</text>
-          ${
-            info.handle
-              ? `<text
-              x="${textX}" y="${TEXT_Y_HANDLE}"
-              font-family="system-ui, -apple-system, Arial, sans-serif"
-              font-size="26" font-weight="400"
-              fill="rgba(255,255,255,0.55)" dominant-baseline="middle"
-            >${svgEsc(`@${info.handle}`)}</text>`
-              : ""
-          }
+            x="${TEXT_X}" y="${NAME_Y}"
+            font-family="Arial, Liberation Sans, sans-serif"
+            font-size="${greetingSize}" font-weight="700"
+            fill="white" dominant-baseline="auto"
+          >${svgEsc(greeting)}</text>
+
+          ${info.subtitle ? `
+          <!-- Role / subtitle -->
+          <text
+            x="${TEXT_X}" y="${NAME_Y + greetingSize + 14}"
+            font-family="Arial, Liberation Sans, sans-serif"
+            font-size="${subSize}" font-weight="400"
+            fill="rgba(255,255,255,0.34)"
+            letter-spacing="2"
+            dominant-baseline="auto"
+          >${svgEsc(info.subtitle.toUpperCase())}</text>` : ""}
+
+          ${info.handle ? `
+          <!-- grids.so/[handle] text -->
+          <text
+            x="${LINK_X}" y="${LINK_Y}"
+            font-family="Arial, Liberation Sans, sans-serif"
+            font-size="${linkSize}" font-weight="700"
+            fill="rgba(255,255,255,0.76)"
+            dominant-baseline="middle"
+          >${svgEsc(`grids.so/${info.handle}`)}</text>` : ""}
         </svg>
       `),
       blend: "over",
     });
+
+    // ── Layer E: grids.so icon (composited separately to stay crisp) ─────────
+    if (info.handle) {
+      composites.push({
+        input: Buffer.from(iconSvg),
+        top: LINK_Y - Math.round(ICON_SZ / 2),
+        left: PAD_X,
+      });
+    }
 
     const finalImage = await sharp(screenshotBuffer)
       .resize(W, H, { fit: "cover" })

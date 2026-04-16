@@ -381,7 +381,7 @@ async function handler(req: Request, res: Response): Promise<void> {
   // whether we use the stored thumbnail or a fresh Puppeteer screenshot.
   const GRID_W = Math.round(1240 * scaleX);          // ~976
   const GRID_H = Math.round(GRID_W * SH / SW);       // ~602 — natural AR (was wrong ~513)
-  const GRID_X = Math.round(470 * scaleX);            // ~370
+  const GRID_X = Math.round(320 * scaleX);            // ~370
   const GRID_Y = 0;                                  // 48px from top (per design)
 
   // Left panel padding and avatar
@@ -536,11 +536,11 @@ async function handler(req: Request, res: Response): Promise<void> {
           <defs>
             <linearGradient id="lp" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%"   stop-color="black" stop-opacity="1"/>
-              <stop offset="20%"  stop-color="black" stop-opacity="1"/>
-              <stop offset="55%"  stop-color="black" stop-opacity="0.85"/>
-              <stop offset="62%"  stop-color="black" stop-opacity="0.4"/>
-              <stop offset="69%"  stop-color="black" stop-opacity="0.05"/>
-              <stop offset="76%"  stop-color="black" stop-opacity="0"/>
+              <stop offset="30%"  stop-color="black" stop-opacity="1"/>
+              <stop offset="50%"  stop-color="black" stop-opacity="0.85"/>
+              <stop offset="55%"  stop-color="black" stop-opacity="0.4"/>
+              <stop offset="60%"  stop-color="black" stop-opacity="0.05"/>
+              <stop offset="65%"  stop-color="black" stop-opacity="0"/>
             </linearGradient>
           </defs>
           <rect width="${W}" height="${H}" fill="url(#lp)"/>
@@ -622,7 +622,7 @@ async function handler(req: Request, res: Response): Promise<void> {
             font-family="Arial, Liberation Sans, sans-serif"
             font-size="${linkSize}" font-weight="700"
             fill="rgba(255,255,255,0.76)"
-          >${svgEsc(`grids.so/${info.handle}`)}</text>` : ""}
+          >${svgEsc(`/${info.handle}`)}</text>` : ""}
         </svg>
       `),
       blend: "over",

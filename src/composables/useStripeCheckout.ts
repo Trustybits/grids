@@ -16,9 +16,8 @@
  */
 
 import { ref, readonly } from 'vue'
-import { doc, updateDoc } from 'firebase/firestore'
 import { getAuthProvider } from '@/auth/AuthProviderSingleton'
-import { db } from '@/firebase'
+import { getServiceFactory } from '@/services/ServiceFactorySingleton'
 import {
   createSupporterCheckoutSession,
   createProCheckoutSession,
@@ -143,6 +142,5 @@ async function grantFreeSupporterBadge(): Promise<void> {
   const userId = getAuthProvider().getCurrentUserId()
   if (!userId) throw new Error('Must be signed in')
 
-  const userRef = doc(db, 'users', userId)
-  await updateDoc(userRef, { hasSupporterBadge: true })
+  await getServiceFactory().getUserService().grantSupporterBadge(userId)
 }

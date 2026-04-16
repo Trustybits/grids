@@ -1,6 +1,7 @@
 import type {
   SlugAvailabilityResponse,
   SlugClaimResponse,
+  SlugData,
   UserProfile,
 } from "@/types/UserProfile";
 
@@ -35,6 +36,13 @@ export interface IUserService {
 
   /** Resolve a public slug to its owning userId, or null if the slug is not claimed. */
   getUserIdBySlug(slug: string): Promise<string | null>;
+
+  /**
+   * Fetch the full slug record (userId + defaultGridId) for a public slug.
+   * Used by the public slug page to resolve the default grid without needing
+   * access to the owner's private user document.
+   */
+  getSlugData(slug: string): Promise<SlugData | null>;
 
   /** Check whether a slug is available. */
   checkSlugAvailability(slug: string): Promise<SlugAvailabilityResponse>;

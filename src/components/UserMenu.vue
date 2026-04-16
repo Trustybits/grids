@@ -52,7 +52,7 @@ import { defineComponent, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@/auth/AuthProvider";
-import { getUserProfile } from "@/services/UserProfileService";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import SlugClaimModal from "./SlugClaimModal.vue";
 
 export default defineComponent({
@@ -80,7 +80,7 @@ export default defineComponent({
     const loadUserSlug = async () => {
       if (user.value) {
         try {
-          const profile = await getUserProfile(user.value.uid);
+          const profile = await getServiceFactory().getUserService().getUserProfile(user.value.uid);
           currentSlug.value = profile?.slug;
         } catch (error) {
           console.error('Error loading user slug:', error);
@@ -109,7 +109,7 @@ export default defineComponent({
       showUserMenu.value = false;
       if (user.value) {
         try {
-          const profile = await getUserProfile(user.value.uid);
+          const profile = await getServiceFactory().getUserService().getUserProfile(user.value.uid);
           currentSlug.value = profile?.slug;
         } catch (error) {
           console.error('Error loading user profile:', error);
@@ -126,7 +126,7 @@ export default defineComponent({
       // Reload profile to get updated slug
       if (user.value) {
         try {
-          const profile = await getUserProfile(user.value.uid);
+          const profile = await getServiceFactory().getUserService().getUserProfile(user.value.uid);
           currentSlug.value = profile?.slug;
         } catch (error) {
           console.error('Error reloading profile:', error);

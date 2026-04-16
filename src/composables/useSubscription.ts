@@ -29,7 +29,6 @@
 
 import { computed, ref, readonly } from 'vue'
 import {
-  doc,
   onSnapshot,
   collection,
   query,
@@ -37,6 +36,7 @@ import {
   limit,
 } from 'firebase/firestore'
 import { getAuthProvider } from '@/auth/AuthProviderSingleton'
+import { getServiceFactory } from '@/services/ServiceFactorySingleton'
 import { db } from '@/firebase'
 
 // ── Tier definition ────────────────────────────────────────────────────────
@@ -171,12 +171,14 @@ export function initSubscription(): void {
       _loading.value = false
     }
 
-    _unsubUser = onSnapshot(doc(db, 'users', user.uid), (snap) => {
-      if (snap.exists()) {
-        latestBadge = snap.data()?.hasSupporterBadge ?? false
-      }
-      reconcile()
-    })
+    _unsubUser = getServiceFactory()
+      .getUserService()
+      .subscribeToUserProfile(user.uid, (profile) => {
+        if (profile) {
+          latestBadge = profile.hasSupporterBadge ?? false
+        }
+        reconcile()
+      })
 
     // ── 2. Listen to Stripe subscription (from Firebase Extension) ────────
     // The Extension writes active subscriptions to customers/{uid}/subscriptions.

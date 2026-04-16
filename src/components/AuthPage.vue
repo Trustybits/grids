@@ -85,10 +85,11 @@ import GriddleAnimation from '@/components/GriddleAnimation.vue';
 import SlugClaimModal from '@/components/SlugClaimModal.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useLayoutStore } from '@/stores/layout';
-import { getUserProfile } from '@/services/UserProfileService';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 
 const authProvider = getAuthProvider();
+const userService = getServiceFactory().getUserService();
 
 const email = ref('');
 const router = useRouter();
@@ -130,7 +131,7 @@ const getPostAuthRedirect = async (): Promise<string | null> => {
     if (!userId) return '/dashboard';
 
     // Check if user has a slug
-    const profile = await getUserProfile(userId);
+    const profile = await userService.getUserProfile(userId);
     const hasSlug = !!profile?.slug;
 
     // Fetch user's existing grids to determine if they're a new user

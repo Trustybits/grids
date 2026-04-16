@@ -92,6 +92,28 @@ async function firestoreGet(
   }
 }
 
+// ─── TipTap rich-text → plain text ───────────────────────────────────────────
+// Profile tile fields (name, title, bio) are stored as serialised TipTap JSON.
+// Walk the doc tree and concatenate every leaf text node.
+
+function extractTiptapText(raw: unknown): string {
+  if (typeof raw === "string") {
+    try {
+      return extractTiptapText(JSON.parse(raw));
+    } catch {
+      return raw.trim(); // already plain text
+    }
+  }
+  if (!raw || typeof raw !== "object") return "";
+  const node = raw as Record<string, unknown>;
+  if (typeof node.text === "string") return node.text;
+  const children = (node.content as unknown[]) ?? [];
+  return children
+    .map((c) => extractTiptapText(c))
+    .join("")
+    .trim();
+}
+
 // ─── Grid info resolution ─────────────────────────────────────────────────────
 
 interface GridInfo {
@@ -123,13 +145,11 @@ async function resolveGridInfo(
     );
     const content = (profileTile?.content ?? {}) as Record<string, unknown>;
 
-    // Try common field names for the job title / role subtitle
+    // name and title are stored as TipTap JSON — extract plain text
+    const displayName =
+      extractTiptapText(content.name) || slug;
     const subtitle =
-      (content.title as string) ||
-      (content.jobTitle as string) ||
-      (content.subtitle as string) ||
-      (content.tagline as string) ||
-      null;
+      extractTiptapText(content.title) || null;
 
     return {
       screenshotUrl: `${screenshotBase}/${slug}`,
@@ -137,7 +157,7 @@ async function resolveGridInfo(
       avatarShape:
         (content.avatarShape as GridInfo["avatarShape"]) || "circle",
       avatarSides: (content.avatarSides as number) || 6,
-      displayName: slug,
+      displayName,
       handle: slug,
       subtitle,
     };
@@ -153,12 +173,12 @@ async function resolveGridInfo(
     );
     const content = (profileTile?.content ?? {}) as Record<string, unknown>;
 
+    const displayName =
+      extractTiptapText(content.name) ||
+      (layoutDoc.name as string) ||
+      "Untitled Grid";
     const subtitle =
-      (content.title as string) ||
-      (content.jobTitle as string) ||
-      (content.subtitle as string) ||
-      (content.tagline as string) ||
-      null;
+      extractTiptapText(content.title) || null;
 
     return {
       screenshotUrl: `${screenshotBase}/grid/${gridId}`,
@@ -166,7 +186,7 @@ async function resolveGridInfo(
       avatarShape:
         (content.avatarShape as GridInfo["avatarShape"]) || "circle",
       avatarSides: (content.avatarSides as number) || 6,
-      displayName: (layoutDoc.name as string) || "Untitled Grid",
+      displayName,
       handle: null,
       subtitle,
     };
@@ -275,27 +295,38 @@ async function handler(req: Request, res: Response): Promise<void> {
   const W = 1200;
   const H = 630;
 
-  // Screenshot viewport — larger to capture the full desktop tile layout.
-  // sharp will crop/resize down to W×H for the final OG image.
+  // ── Screenshot viewport matches the Figma source frame exactly ──────────────
+  // Figma frame: 1524×940. Screenshot taken at this size, then the grid portion
+  // is resized to 1240×765 and positioned at (470, 93) within the OG canvas.
   const SW = 1524;
-  const SH = 800;
+  const SH = 940;
 
-  // ── Layout constants (proportionally scaled from the Figma 1524×940 frame) ──
-  const PAD_X = 64;   // left padding inside panel
-  const PAD_Y = 52;   // top padding
+  // ── Layout constants — all scaled from Figma (1524×940) → OG (1200×630) ────
+  const scaleX = W / 1524;   // 0.787
+  const scaleY = H / 940;    // 0.670
 
-  const AV = 130;     // avatar diameter (square bounding box)
-  const AV_X = PAD_X;
-  const AV_Y = PAD_Y;
+  // Grid screenshot: resized from SW×SH → proportional size within OG canvas
+  const GRID_W = Math.round(1240 * scaleX);  // ~976
+  const GRID_H = Math.round(765 * scaleY);   // ~513
+  const GRID_X = Math.round(470 * scaleX);   // ~370
+  const GRID_Y = Math.round(93 * scaleY);    // ~62
 
-  // Text block sits below avatar
-  const TEXT_X = PAD_X;
-  const NAME_Y = AV_Y + AV + 36;  // ~218px — below avatar with gap
+  // Left panel padding and avatar
+  const PAD_X = Math.round(96 * scaleX);     // ~76 → use 72
+  const PAD_Y = Math.round(96 * scaleY);     // ~64
+  const AV    = Math.round(198 * scaleX);    // ~156 → avatar size (square)
+  const AV_X  = PAD_X;
+  const AV_Y  = PAD_Y;
 
-  // Bottom link row ("grids.so/slug")
-  const LINK_Y = H - 48;          // ~582px vertical center
-  const ICON_SZ = 32;             // grids.so icon size
-  const LINK_X = PAD_X + ICON_SZ + 14; // text starts after icon + gap
+  // Text: sits below avatar with the same gap as Figma
+  const TEXT_X  = PAD_X;
+  const NAME_Y  = AV_Y + AV + Math.round(64 * scaleY);  // ~282
+  const SUB_Y   = NAME_Y + Math.round(76 * scaleY);      // subtitle below name
+
+  // Bottom link row
+  const LINK_Y   = H - Math.round(96 * scaleY);          // ~567 center
+  const ICON_SZ  = Math.round(48 * scaleX);              // ~38
+  const LINK_X   = PAD_X + ICON_SZ + Math.round(24 * scaleX); // text after icon
 
   // ── 3. Puppeteer screenshot ────────────────────────────────────────────────
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
@@ -389,25 +420,51 @@ async function handler(req: Request, res: Response): Promise<void> {
     // Extra paint buffer for CSS transitions and lazy-loaded content
     await new Promise((r) => setTimeout(r, 2_000));
 
-    const screenshotBuffer = (await page.screenshot({ type: "png" })) as Buffer;
+    // Transparent background so tile drop-shadows render naturally when the
+    // screenshot is composited over the dark OG canvas.
+    await page.evaluate(() => {
+      document.documentElement.style.background = "transparent";
+      document.body.style.background = "transparent";
+    });
+
+    const screenshotBuffer = (await page.screenshot({
+      type: "png",
+      omitBackground: true,
+    })) as Buffer;
     await browser.close();
     browser = null;
 
     // ── 4. Composite layers (Figma node 2737-15887) ────────────────────────────
+    //
+    // Layer order (bottom → top):
+    //   A  Dark background (#10100e canvas)
+    //   B  Grid screenshot — resized & positioned per Figma
+    //   C  Left panel gradient — solid dark left, fades right into grid
+    //   D  Bottom gradient overlay — fades bottom half to near-black
+    //   E  Avatar — clipped to user's shape
+    //   F  Text — "hey, I'm [Name]", subtitle, grids.so/handle
+    //   G  Grids app icon — fetched from grids.so/favicon.png
+
     const composites: sharp.OverlayOptions[] = [];
 
-    // ── Layer A: left panel — solid dark base fading right into the grid ──────
-    // Matches: meta_content (#10100e bg) + gradient_background blur overlay
+    // ── Layer B: grid screenshot, resized & positioned ────────────────────────
+    const gridBuf = await sharp(screenshotBuffer)
+      .resize(GRID_W, GRID_H, { fit: "fill" })
+      .toBuffer();
+    composites.push({ input: gridBuf, top: GRID_Y, left: GRID_X });
+
+    // ── Layer C: left panel — solid dark, fades right into grid ──────────────
+    // Matches Figma's meta_content (#10100e) + gradient_background (blurred fade)
     composites.push({
       input: Buffer.from(`
         <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
           <defs>
             <linearGradient id="lp" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%"   stop-color="#10100e" stop-opacity="1"/>
-              <stop offset="38%"  stop-color="#10100e" stop-opacity="1"/>
-              <stop offset="52%"  stop-color="#10100e" stop-opacity="0.88"/>
-              <stop offset="65%"  stop-color="#10100e" stop-opacity="0.45"/>
-              <stop offset="78%"  stop-color="#10100e" stop-opacity="0.1"/>
+              <stop offset="40%"  stop-color="#10100e" stop-opacity="1"/>
+              <stop offset="55%"  stop-color="#10100e" stop-opacity="0.85"/>
+              <stop offset="68%"  stop-color="#10100e" stop-opacity="0.4"/>
+              <stop offset="80%"  stop-color="#10100e" stop-opacity="0.05"/>
               <stop offset="88%"  stop-color="#10100e" stop-opacity="0"/>
             </linearGradient>
           </defs>
@@ -417,15 +474,15 @@ async function handler(req: Request, res: Response): Promise<void> {
       blend: "over",
     });
 
-    // ── Layer B: bottom gradient overlay (opacity 55%, fades to black) ────────
-    // Matches: gradient overlay div, top ~47% of canvas, fading to black
-    const gradTop = Math.round(H * 0.47);
+    // ── Layer D: bottom gradient overlay (Figma: opacity 55%, fades to black) ─
+    const gradTop = Math.round(H * (446 / 940)); // ~299px
     composites.push({
       input: Buffer.from(`
         <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
           <defs>
             <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%"   stop-color="black" stop-opacity="0"/>
+              <stop offset="83%"  stop-color="black" stop-opacity="0.55"/>
               <stop offset="100%" stop-color="black" stop-opacity="0.55"/>
             </linearGradient>
           </defs>
@@ -435,7 +492,7 @@ async function handler(req: Request, res: Response): Promise<void> {
       blend: "over",
     });
 
-    // ── Layer C: avatar clipped to the user's shape ───────────────────────────
+    // ── Layer E: avatar clipped to user's chosen shape ────────────────────────
     if (info.avatarUrl) {
       try {
         const avatarRes = await fetch(info.avatarUrl, {
@@ -456,48 +513,36 @@ async function handler(req: Request, res: Response): Promise<void> {
       }
     }
 
-    // ── Layer D: text (greeting + subtitle + bottom link) ─────────────────────
-    // "hey, I'm [name]" greeting — scale font to fit within the panel
+    // ── Layer F: text ─────────────────────────────────────────────────────────
+    // "hey, I'm [Name]" — font scales to keep it within the left panel width
     const greeting = info.handle ? `hey, I'm ${info.displayName}` : info.displayName;
-    const greetingSize = Math.min(56, Math.max(32, Math.floor(56 * 13 / greeting.length)));
-    const subSize = 19;
-    const linkSize = 20;
-
-    // Grids.so icon SVG (3×3 grid on cream background, matching Figma)
-    const iconSvg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SZ}" height="${ICON_SZ}">
-        <rect width="${ICON_SZ}" height="${ICON_SZ}" rx="${Math.round(ICON_SZ * 0.133)}" fill="#FEFDEC"/>
-        <line x1="${ICON_SZ*0.333}" y1="0" x2="${ICON_SZ*0.333}" y2="${ICON_SZ}" stroke="rgba(16,16,14,0.5)" stroke-width="1"/>
-        <line x1="${ICON_SZ*0.667}" y1="0" x2="${ICON_SZ*0.667}" y2="${ICON_SZ}" stroke="rgba(16,16,14,0.5)" stroke-width="1"/>
-        <line x1="0" y1="${ICON_SZ*0.333}" x2="${ICON_SZ}" y2="${ICON_SZ*0.333}" stroke="rgba(16,16,14,0.5)" stroke-width="1"/>
-        <line x1="0" y1="${ICON_SZ*0.667}" x2="${ICON_SZ}" y2="${ICON_SZ*0.667}" stroke="rgba(16,16,14,0.5)" stroke-width="1"/>
-      </svg>`;
+    const panelTextW = Math.round(663 * scaleX) - PAD_X; // available text width
+    const greetingSize = Math.min(
+      Math.round(76 * scaleX),  // Figma max: 76px scaled
+      Math.max(28, Math.floor(panelTextW / (greeting.length * 0.52)))
+    );
+    const subSize    = Math.round(32 * scaleX);  // ~25px
+    const linkSize   = Math.round(32 * scaleX);  // ~25px
 
     composites.push({
       input: Buffer.from(`
         <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-          <!-- "hey, I'm [name]" -->
           <text
             x="${TEXT_X}" y="${NAME_Y}"
             font-family="Arial, Liberation Sans, sans-serif"
             font-size="${greetingSize}" font-weight="700"
-            fill="white" dominant-baseline="auto"
+            fill="white"
           >${svgEsc(greeting)}</text>
 
-          ${info.subtitle ? `
-          <!-- Role / subtitle -->
-          <text
-            x="${TEXT_X}" y="${NAME_Y + greetingSize + 14}"
+          ${info.subtitle ? `<text
+            x="${TEXT_X}" y="${SUB_Y}"
             font-family="Arial, Liberation Sans, sans-serif"
-            font-size="${subSize}" font-weight="400"
+            font-size="${subSize}" font-weight="700"
             fill="rgba(255,255,255,0.34)"
-            letter-spacing="2"
-            dominant-baseline="auto"
+            letter-spacing="${Math.round(subSize * 0.1)}"
           >${svgEsc(info.subtitle.toUpperCase())}</text>` : ""}
 
-          ${info.handle ? `
-          <!-- grids.so/[handle] text -->
-          <text
+          ${info.handle ? `<text
             x="${LINK_X}" y="${LINK_Y}"
             font-family="Arial, Liberation Sans, sans-serif"
             font-size="${linkSize}" font-weight="700"
@@ -509,17 +554,32 @@ async function handler(req: Request, res: Response): Promise<void> {
       blend: "over",
     });
 
-    // ── Layer E: grids.so icon (composited separately to stay crisp) ─────────
+    // ── Layer G: Grids app icon (favicon.png) ─────────────────────────────────
     if (info.handle) {
-      composites.push({
-        input: Buffer.from(iconSvg),
-        top: LINK_Y - Math.round(ICON_SZ / 2),
-        left: PAD_X,
-      });
+      try {
+        const iconRes = await fetch("https://grids.so/favicon.png", {
+          signal: AbortSignal.timeout(5_000),
+        });
+        if (iconRes.ok) {
+          const iconBuf = await sharp(Buffer.from(await iconRes.arrayBuffer()))
+            .resize(ICON_SZ, ICON_SZ, { fit: "fill" })
+            .png()
+            .toBuffer();
+          composites.push({
+            input: iconBuf,
+            top: LINK_Y - Math.round(ICON_SZ / 2),
+            left: PAD_X,
+          });
+        }
+      } catch {
+        // Icon fetch failed — link text still shows without it
+      }
     }
 
-    const finalImage = await sharp(screenshotBuffer)
-      .resize(W, H, { fit: "cover" })
+    // ── Assemble: dark background + all layers ────────────────────────────────
+    const finalImage = await sharp({
+      create: { width: W, height: H, channels: 3, background: { r: 16, g: 16, b: 14 } },
+    })
       .composite(composites)
       .png({ compressionLevel: 8 })
       .toBuffer();

@@ -298,6 +298,30 @@ function storageUrl(path: string): string {
   return `https://firebasestorage.googleapis.com/v0/b/${BUCKET_NAME}/o/${encodeURIComponent(path)}?alt=media`;
 }
 
+// ─── Desktop thumbnail cache helper ──────────────────────────────────────────
+// Returns the stored desktop thumbnail buffer from Firebase Storage, or null if
+// it hasn't been generated yet.  Using this avoids launching Chromium for the OG
+// composite when a fresh screenshot already exists (written by generateThumbnail).
+
+async function fetchDesktopThumbnail(
+  slug: string | undefined,
+  gridId: string | undefined,
+  bucket: ReturnType<ReturnType<typeof admin.storage>["bucket"]>
+): Promise<Buffer | null> {
+  try {
+    const thumbPath = slug
+      ? `thumbnails/slug/${slug}/desktop.png`
+      : `thumbnails/grid/${gridId}/desktop.png`;
+    const thumbFile = bucket.file(thumbPath);
+    const [exists] = await thumbFile.exists();
+    if (!exists) return null;
+    const [data] = await thumbFile.download();
+    return data as Buffer;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 async function handler(req: Request, res: Response): Promise<void> {
@@ -352,11 +376,13 @@ async function handler(req: Request, res: Response): Promise<void> {
   const scaleX = W / 1524;   // 0.787
   const scaleY = H / 940;    // 0.670
 
-  // Grid screenshot: resized from SW×SH → proportional size within OG canvas
-  const GRID_W = Math.round(1240 * scaleX);  // ~976
-  const GRID_H = Math.round(765 * scaleY);   // ~513
-  const GRID_X = Math.round(470 * scaleX);   // ~370
-  const GRID_Y = Math.round(93 * scaleY);    // ~62
+  // Grid screenshot: resized from SW×SH → preserve exact viewport AR within OG canvas.
+  // GRID_H is derived from GRID_W * (SH/SW) so there is zero distortion regardless of
+  // whether we use the stored thumbnail or a fresh Puppeteer screenshot.
+  const GRID_W = Math.round(1240 * scaleX);          // ~976
+  const GRID_H = Math.round(GRID_W * SH / SW);       // ~602 — natural AR (was wrong ~513)
+  const GRID_X = Math.round(470 * scaleX);            // ~370
+  const GRID_Y = 0;                                  // 48px from top (per design)
 
   // Left panel padding and avatar
   const PAD_X = Math.round(96 * scaleX);     // ~76 → use 72
@@ -375,111 +401,112 @@ async function handler(req: Request, res: Response): Promise<void> {
   const ICON_SZ  = Math.round(48 * scaleX);              // ~38
   const LINK_X   = PAD_X + ICON_SZ + Math.round(24 * scaleX); // text after icon
 
-  // ── 3. Puppeteer screenshot ────────────────────────────────────────────────
+  // ── 3. Acquire grid screenshot ────────────────────────────────────────────
+  // Prefer the stored desktop thumbnail — it's the same 1524×940 viewport we'd
+  // screenshot anyway, so reusing it avoids launching Chromium entirely.
+  // Falls back to a live Puppeteer screenshot when no thumbnail is cached yet.
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
 
   try {
-    // In the local emulator, use a local Chrome install via PUPPETEER_EXECUTABLE_PATH.
-    // In production (Linux Cloud Functions), use the @sparticuz/chromium-min binary.
-    const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
-    const executablePath = isEmulator
-      ? (process.env.PUPPETEER_EXECUTABLE_PATH ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe")
-      : await chromium.executablePath(CHROMIUM_URL);
+    let screenshotBuffer: Buffer | null = null;
 
-    browser = await puppeteer.launch({
-      args: isEmulator ? [] : chromium.args,
-      defaultViewport: { width: SW, height: SH, deviceScaleFactor: 1 },
-      executablePath,
-      headless: true,
-    });
-
-    const page = await browser.newPage();
-
-    // Block media and fonts to speed up load
-    await page.setRequestInterception(true);
-    page.on("request", (intercepted) => {
-      if (["media", "font"].includes(intercepted.resourceType())) {
-        intercepted.abort();
-      } else {
-        intercepted.continue();
+    if (!isEmulatorEnv) {
+      screenshotBuffer = await fetchDesktopThumbnail(slug, gridId, bucket);
+      if (screenshotBuffer) {
+        functions.logger.info("[og] reusing stored desktop thumbnail — skipping Chromium");
       }
-    });
+    }
 
-    await page.goto(info.screenshotUrl, {
-      waitUntil: "domcontentloaded",
-      timeout: 25_000,
-    });
+    if (!screenshotBuffer) {
+      // No cached thumbnail — launch Puppeteer for a fresh screenshot.
+      const executablePath = isEmulatorEnv
+        ? (process.env.PUPPETEER_EXECUTABLE_PATH ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe")
+        : await chromium.executablePath(CHROMIUM_URL);
 
-    // Wait for grid to fully render (v-else-if="gridLoaded" in UserSlugPage)
-    await page.waitForSelector(".grid-container", { timeout: 20_000 });
+      browser = await puppeteer.launch({
+        args: isEmulatorEnv ? [] : chromium.args,
+        defaultViewport: { width: SW, height: SH, deviceScaleFactor: 1 },
+        executablePath,
+        headless: true,
+      });
 
-    // Remove all UI chrome via path-trimming — walk from .grid-container up to
-    // <body> and at each level remove all siblings of the current node.
-    // This reliably strips nav, toolbar, Discord/share buttons, and devtools
-    // regardless of tag name or class, because the Vue SPA nests everything
-    // inside a single #app wrapper where tag-based selectors miss <a> tags etc.
-    await page.evaluate(() => {
-      // Devtools badge first (shadow-root hosted, won't be caught by sibling walk)
-      document.querySelectorAll(
-        "#vue-devtools-anchor, #vite-plugin-vue-devtools, #__vite-plugin-vue-devtools, [id*='devtools'], [class*='devtools']"
-      ).forEach((el) => el.remove());
+      const page = await browser.newPage();
 
-      const grid = document.querySelector(".grid-container");
-      if (!grid) return;
-
-      // Walk from grid → body, pruning all siblings at each level
-      let node: Element | null = grid;
-      while (node && node !== document.body) {
-        const parent: HTMLElement | null = node.parentElement;
-        if (parent) {
-          (Array.from(parent.children) as Element[]).forEach((sibling) => {
-            if (sibling !== node) sibling.remove();
-          });
+      // Block media and fonts to speed up load
+      await page.setRequestInterception(true);
+      page.on("request", (intercepted) => {
+        if (["media", "font"].includes(intercepted.resourceType())) {
+          intercepted.abort();
+        } else {
+          intercepted.continue();
         }
-        node = parent as Element | null;
-      }
+      });
 
-      document.body.style.overflow = "hidden";
-      document.body.style.margin = "0";
-    });
+      await page.goto(info.screenshotUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 25_000,
+      });
 
-    // Also inject scrollbar suppression via style (belt-and-suspenders)
-    await page.addStyleTag({
-      content: `::-webkit-scrollbar { display: none !important; } body { overflow: hidden !important; margin: 0 !important; }`,
-    });
+      // Wait for grid to fully render (v-else-if="gridLoaded" in UserSlugPage)
+      await page.waitForSelector(".grid-container", { timeout: 20_000 });
 
-    // Wait for tile images and avatar to fully paint.
-    // First, wait for all <img> elements inside the grid to either load or error.
-    await page.evaluate(() =>
-      Promise.all(
-        Array.from(document.querySelectorAll(".grid-container img")).map(
-          (img) =>
-            (img as HTMLImageElement).complete
-              ? Promise.resolve()
-              : new Promise((r) => {
-                  img.addEventListener("load", r, { once: true });
-                  img.addEventListener("error", r, { once: true });
-                })
+      // Remove all UI chrome via path-trimming — walk from .grid-container up to
+      // <body> and at each level remove all siblings of the current node.
+      await page.evaluate(() => {
+        document.querySelectorAll(
+          "#vue-devtools-anchor, #vite-plugin-vue-devtools, #__vite-plugin-vue-devtools, [id*='devtools'], [class*='devtools']"
+        ).forEach((el) => el.remove());
+
+        const grid = document.querySelector(".grid-container");
+        if (!grid) return;
+
+        let node: Element | null = grid;
+        while (node && node !== document.body) {
+          const parent: HTMLElement | null = node.parentElement;
+          if (parent) {
+            (Array.from(parent.children) as Element[]).forEach((sibling) => {
+              if (sibling !== node) sibling.remove();
+            });
+          }
+          node = parent as Element | null;
+        }
+
+        document.body.style.overflow = "hidden";
+        document.body.style.margin = "0";
+      });
+
+      await page.addStyleTag({
+        content: `::-webkit-scrollbar { display: none !important; } body { overflow: hidden !important; margin: 0 !important; }`,
+      });
+
+      await page.evaluate(() =>
+        Promise.all(
+          Array.from(document.querySelectorAll(".grid-container img")).map(
+            (img) =>
+              (img as HTMLImageElement).complete
+                ? Promise.resolve()
+                : new Promise((r) => {
+                    img.addEventListener("load", r, { once: true });
+                    img.addEventListener("error", r, { once: true });
+                  })
+          )
         )
-      )
-    );
+      );
 
-    // Extra paint buffer for CSS transitions and lazy-loaded content
-    await new Promise((r) => setTimeout(r, 2_000));
+      await new Promise((r) => setTimeout(r, 2_000));
 
-    // Transparent background so tile drop-shadows render naturally when the
-    // screenshot is composited over the dark OG canvas.
-    await page.evaluate(() => {
-      document.documentElement.style.background = "transparent";
-      document.body.style.background = "transparent";
-    });
+      await page.evaluate(() => {
+        document.documentElement.style.background = "transparent";
+        document.body.style.background = "transparent";
+      });
 
-    const screenshotBuffer = (await page.screenshot({
-      type: "png",
-      omitBackground: true,
-    })) as Buffer;
-    await browser.close();
-    browser = null;
+      screenshotBuffer = (await page.screenshot({
+        type: "png",
+        omitBackground: true,
+      })) as Buffer;
+      await browser.close();
+      browser = null;
+    }
 
     // ── 4. Composite layers (Figma node 2737-15887) ────────────────────────────
     //
@@ -494,8 +521,9 @@ async function handler(req: Request, res: Response): Promise<void> {
 
     const composites: sharp.OverlayOptions[] = [];
 
-    // ── Layer B: grid screenshot, resized & positioned ────────────────────────
-    const gridBuf = await sharp(screenshotBuffer)
+    // ── Layer B: grid screenshot, resized to natural AR and positioned ─────────
+    // screenshotBuffer is always non-null here (set above via thumbnail or Puppeteer)
+    const gridBuf = await sharp(screenshotBuffer as Buffer)
       .resize(GRID_W, GRID_H, { fit: "fill" })
       .toBuffer();
     composites.push({ input: gridBuf, top: GRID_Y, left: GRID_X });
@@ -508,11 +536,11 @@ async function handler(req: Request, res: Response): Promise<void> {
           <defs>
             <linearGradient id="lp" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%"   stop-color="black" stop-opacity="1"/>
-              <stop offset="40%"  stop-color="black" stop-opacity="1"/>
+              <stop offset="20%"  stop-color="black" stop-opacity="1"/>
               <stop offset="55%"  stop-color="black" stop-opacity="0.85"/>
-              <stop offset="68%"  stop-color="black" stop-opacity="0.4"/>
-              <stop offset="80%"  stop-color="black" stop-opacity="0.05"/>
-              <stop offset="88%"  stop-color="black" stop-opacity="0"/>
+              <stop offset="62%"  stop-color="black" stop-opacity="0.4"/>
+              <stop offset="69%"  stop-color="black" stop-opacity="0.05"/>
+              <stop offset="76%"  stop-color="black" stop-opacity="0"/>
             </linearGradient>
           </defs>
           <rect width="${W}" height="${H}" fill="url(#lp)"/>
@@ -622,8 +650,6 @@ async function handler(req: Request, res: Response): Promise<void> {
       .toBuffer();
 
     // ── 5. Upload to Firebase Storage (skipped in local emulator) ────────────
-    const isEmulatorEnv = process.env.FUNCTIONS_EMULATOR === "true";
-
     if (isEmulatorEnv) {
       // Local dev: stream the image directly — no Storage credentials available
       functions.logger.info(`[og] emulator mode — streaming image directly for: ${cachePath}`);

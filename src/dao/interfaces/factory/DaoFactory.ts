@@ -5,6 +5,7 @@ import type { UserGameDataDao } from '../UserGameDataDao';
 import type { ChatDao } from '../ChatDao';
 import type { UpvoteDao } from '../UpvoteDao';
 import type { CustomerDao } from '../CustomerDao';
+import type { StorageDao } from '../StorageDao';
 
 export interface DaoFactory {
   getLayoutDao: () => LayoutDao;
@@ -14,4 +15,5 @@ export interface DaoFactory {
   getChatDao: () => ChatDao;
   getUpvoteDao: () => UpvoteDao;
   getCustomerDao: () => CustomerDao;
+  getStorageDao: () => StorageDao;
 }

@@ -3,6 +3,7 @@ import type { CustomerDao } from "@/dao/interfaces/CustomerDao";
 import type { DaoFactory } from "@/dao/interfaces/factory/DaoFactory";
 import type { LayoutDao } from "@/dao/interfaces/LayoutDao";
 import type { SlugDao } from "@/dao/interfaces/SlugDao";
+import type { StorageDao } from "@/dao/interfaces/StorageDao";
 import type { UpvoteDao } from "@/dao/interfaces/UpvoteDao";
 import type { UserDao } from "@/dao/interfaces/UserDao";
 import type { UserGameDataDao } from "@/dao/interfaces/UserGameDataDao";
@@ -10,6 +11,7 @@ import { StubbedChatDao } from "../StubbedChatDao";
 import { StubbedCustomerDao } from "../StubbedCustomerDao";
 import { StubbedLayoutDao } from "../StubbedLayoutDao";
 import { StubbedSlugDao } from "../StubbedSlugDao";
+import { StubbedStorageDao } from "../StubbedStorageDao";
 import { StubbedUpvoteDao } from "../StubbedUpvoteDao";
 import { StubbedUserDao } from "../StubbedUserDao";
 import { StubbedUserGameDataDao } from "../StubbedUserGameDataDao";
@@ -19,6 +21,7 @@ export class StubbedDaoFactory implements DaoFactory {
   private customerDao: CustomerDao;
   private layoutDao: LayoutDao;
   private slugDao: SlugDao;
+  private storageDao: StorageDao;
   private upvoteDao: UpvoteDao;
   private userDao: UserDao;
   private userGameDataDao: UserGameDataDao;
@@ -28,6 +31,7 @@ export class StubbedDaoFactory implements DaoFactory {
     this.customerDao = new StubbedCustomerDao();
     this.layoutDao = new StubbedLayoutDao();
     this.slugDao = new StubbedSlugDao();
+    this.storageDao = new StubbedStorageDao();
     this.upvoteDao = new StubbedUpvoteDao();
     this.userDao = new StubbedUserDao();
     this.userGameDataDao = new StubbedUserGameDataDao();
@@ -59,5 +63,9 @@ export class StubbedDaoFactory implements DaoFactory {
 
   public getCustomerDao(): CustomerDao {
     return this.customerDao;
+  }
+
+  public getStorageDao(): StorageDao {
+    return this.storageDao;
   }
 }

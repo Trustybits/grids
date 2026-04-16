@@ -1,5 +1,13 @@
-import type { Firestore } from "firebase/firestore";
+import { type Firestore, doc, getDoc } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "@/firebase";
+import type {
+  SlugAvailabilityResponse,
+  SlugClaimResponse,
+} from "@/types/UserProfile";
 import type { SlugDao } from "../interfaces/SlugDao";
+
+const COLLECTION = "slugs";
 
 export class FirestoreSlugDao implements SlugDao {
   private db: Firestore;
@@ -8,23 +16,43 @@ export class FirestoreSlugDao implements SlugDao {
     this.db = db;
   }
 
-  public getBySlug(_slug: string): Promise<Record<string, unknown> | null> {
-    throw new Error("FirestoreSlugDao.getBySlug not implemented");
+  public async getBySlug(
+    slug: string,
+  ): Promise<Record<string, unknown> | null> {
+    const docRef = doc(this.db, COLLECTION, slug.toLowerCase());
+    const snapshot = await getDoc(docRef);
+    if (!snapshot.exists()) return null;
+    return snapshot.data() as Record<string, unknown>;
   }
 
-  public checkAvailability(
-    _slug: string,
-  ): Promise<{ available: boolean; reason: string; message: string }> {
-    throw new Error("FirestoreSlugDao.checkAvailability not implemented");
+  public async checkAvailability(
+    slug: string,
+  ): Promise<SlugAvailabilityResponse> {
+    const callable = httpsCallable<{ slug: string }, SlugAvailabilityResponse>(
+      functions,
+      "checkSlugAvailability",
+    );
+    const result = await callable({ slug });
+    return result.data;
   }
 
-  public claim(_slug: string): Promise<{ success: boolean; message: string }> {
-    throw new Error("FirestoreSlugDao.claim not implemented");
+  public async claim(slug: string): Promise<SlugClaimResponse> {
+    const callable = httpsCallable<{ slug: string }, SlugClaimResponse>(
+      functions,
+      "claimSlug",
+    );
+    const result = await callable({ slug });
+    return result.data;
   }
 
-  public updateDefaultGrid(
-    _gridId: string | null,
+  public async updateDefaultGrid(
+    gridId: string | null,
   ): Promise<{ success: boolean }> {
-    throw new Error("FirestoreSlugDao.updateDefaultGrid not implemented");
+    const callable = httpsCallable<
+      { gridId: string | null },
+      { success: boolean }
+    >(functions, "updateDefaultGrid");
+    const result = await callable({ gridId });
+    return result.data;
   }
 }

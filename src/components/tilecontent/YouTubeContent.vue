@@ -751,6 +751,29 @@ export default defineComponent({
   white-space: nowrap;
 }
 
+/* Channel tiles use a different DOM structure than video/playlist.
+   For single-row height, force the same link-like alignment pattern. */
+.dim-h1:not(.tier-mini) .yt-channel {
+  justify-content: center;
+  gap: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-right: var(--tile-padding, 21.5px);
+  padding-left: calc(
+    var(--tile-padding, 21.5px) + var(--tile-logo-size, 32px) + 10px
+  );
+}
+
+.dim-h1:not(.tier-mini) .yt-channel-topbar,
+.dim-h1:not(.tier-mini) .yt-channel-video-count,
+.dim-h1:not(.tier-mini) .yt-recent-videos {
+  display: none;
+}
+
+.dim-h1:not(.tier-mini) .yt-channel-meta {
+  justify-content: center;
+}
+
 /* ─── Tier: medium (area ≤ 9) ─────────────────────────── */
 .tier-medium {
   .yt-title {

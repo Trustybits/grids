@@ -9,7 +9,7 @@ import PricingPage from '@/components/PricingPage.vue';
 import UserSlugPage from '@/components/UserSlugPage.vue';
 import NotionCallback from '@/components/NotionCallback.vue';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
-import { getUserProfile } from '@/services/UserProfileService';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import posthog from 'posthog-js';
 
 // Define routes
@@ -97,7 +97,7 @@ router.beforeEach(async (to, from, next) => {
   // Allow them to access dashboard where they can claim it via settings
   if (user && to.meta.requiresAuth && to.path !== '/login' && to.path !== '/dashboard') {
     try {
-      const profile = await getUserProfile(user.uid);
+      const profile = await getServiceFactory().getUserService().getUserProfile(user.uid);
       
       // If user doesn't have a slug, redirect to dashboard where they can claim it
       if (!profile?.slug) {

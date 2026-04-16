@@ -87,8 +87,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useDynamicFavicon } from '@/composables/useDynamicFavicon';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/firebase';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { useLayoutStore } from '@/stores/layout';
 import Grid from '@/components/Grid.vue';
 import GridButtons from '@/components/TileButtons.vue';
@@ -164,18 +163,17 @@ const resolveSlug = async () => {
 
   try {
     // Get slug document from public slugs collection
-    const slugRef = doc(db, 'slugs', slug.value.toLowerCase());
-    const slugSnap = await getDoc(slugRef);
-    
-    if (!slugSnap.exists() || !slugSnap.data()?.userId) {
+    const slugData = await getServiceFactory()
+      .getUserService()
+      .getSlugData(slug.value);
+
+    if (!slugData) {
       error.value = true;
       errorMessage.value = `The handle "@${slug.value}" doesn't exist or is not currently in use.`;
       isLoading.value = false;
       return;
     }
 
-    const slugData = slugSnap.data();
-    
     // Check if user has set a default grid (stored in slugs collection for public access)
     if (!slugData.defaultGridId) {
       error.value = true;

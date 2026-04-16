@@ -39,8 +39,7 @@ import ToastContainer from './components/ToastContainer.vue';
 import PixelRacersGame from './components/PixelRacersGame.vue';
 import ViewportWarning from './components/ViewportWarning.vue';
 import { useLayoutStore } from '@/stores/layout';
-import { db } from '@/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import type { AuthUser } from '@/auth/AuthProvider';
 
@@ -57,10 +56,10 @@ onMounted(() => {
     if (currentUser && !isInitialLoad.value && !previousUser.value) {
       // User just logged in - update lastLogin in Firestore
       try {
-        await setDoc(doc(db, 'users', currentUser.uid), {
-          email: currentUser.email,
-          lastLogin: serverTimestamp(),
-        }, { merge: true });
+        await getServiceFactory().getUserService().recordLogin(
+          currentUser.uid,
+          currentUser.email,
+        );
       } catch (err) {
         console.error('Failed to update lastLogin:', err);
       }

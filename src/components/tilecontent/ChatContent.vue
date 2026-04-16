@@ -104,7 +104,7 @@ import {
   watch,
 } from "vue";
 import SendIcon from "@/components/icons/SendIcon.vue";
-import { getAuth } from "firebase/auth";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import {
   addDoc,
   collection,
@@ -134,7 +134,7 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
-    const auth = getAuth();
+    const authProvider = getAuthProvider();
 
     const draftMessage = ref("");
     const isEditing = ref(false);
@@ -298,7 +298,7 @@ export default defineComponent({
         await addDoc(collectionRef, {
           text,
           createdAt: Date.now(),
-          authorId: auth.currentUser?.uid ?? "visitor",
+          authorId: authProvider.getCurrentUserId() ?? "visitor",
         });
       } catch (error) {
         console.error("Failed to send chat message:", error);

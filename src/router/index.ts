@@ -8,7 +8,7 @@ import TermsPage from '@/components/TermsPage.vue';
 import PricingPage from '@/components/PricingPage.vue';
 import UserSlugPage from '@/components/UserSlugPage.vue';
 import NotionCallback from '@/components/NotionCallback.vue';
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import { getUserProfile } from '@/services/UserProfileService';
 import posthog from 'posthog-js';
 
@@ -61,27 +61,9 @@ const router = createRouter({
   routes
 });
 
-// Navigation Guard for Auth Protection
-let isAuthChecked = false;
-let authCheckPromise: Promise<any> | null = null;
-
 router.beforeEach(async (to, from, next) => {
-  const auth = getAuth();
-
-  // Wait for initial auth check to complete
-  if (!isAuthChecked) {
-    if (!authCheckPromise) {
-      authCheckPromise = new Promise((resolve) => {
-        onAuthStateChanged(auth, (user) => {
-          isAuthChecked = true;
-          resolve(user);
-        });
-      });
-    }
-    await authCheckPromise;
-  }
-
-  const user = auth.currentUser;
+  const authProvider = getAuthProvider();
+  const user = await authProvider.waitForAuthReady();
 
   // Handle root path
   if (to.path === '/') {
@@ -115,8 +97,7 @@ router.beforeEach(async (to, from, next) => {
   // Allow them to access dashboard where they can claim it via settings
   if (user && to.meta.requiresAuth && to.path !== '/login' && to.path !== '/dashboard') {
     try {
-      const userId = (user as any).uid;
-      const profile = await getUserProfile(userId);
+      const profile = await getUserProfile(user.uid);
       
       // If user doesn't have a slug, redirect to dashboard where they can claim it
       if (!profile?.slug) {

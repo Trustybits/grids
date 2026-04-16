@@ -36,7 +36,7 @@ import {
   where,
   limit,
 } from 'firebase/firestore'
-import { getAuth, onAuthStateChanged } from 'firebase/auth'
+import { getAuthProvider } from '@/auth/AuthProviderSingleton'
 import { db } from '@/firebase'
 
 // ── Tier definition ────────────────────────────────────────────────────────
@@ -135,9 +135,7 @@ let _unsubStripe: (() => void) | null = null
  * collection (for Stripe Pro status).
  */
 export function initSubscription(): void {
-  const auth = getAuth()
-
-  onAuthStateChanged(auth, (user) => {
+  getAuthProvider().onAuthStateChanged((user) => {
     // Tear down previous listeners
     _unsubUser?.()
     _unsubStripe?.()

@@ -55,8 +55,8 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
-import { auth } from "@/firebase";
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
+import type { AuthUser } from "@/auth/AuthProvider";
 import { useLayoutStore } from "@/stores/layout";
 import type { Layout } from "@/types/Layout";
 import { firestoreValueToMillis } from "@/utils/firestoreTime";
@@ -66,12 +66,12 @@ export default defineComponent({
   setup() {
     const route = useRoute();
     const layoutStore = useLayoutStore();
-    const user = ref<User | null>(null);
+    const user = ref<AuthUser | null>(null);
     const isExpanded = ref(false);
     let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
 
     onMounted(() => {
-      onAuthStateChanged(auth, (currentUser) => {
+      getAuthProvider().onAuthStateChanged((currentUser) => {
         user.value = currentUser;
         if (currentUser) {
           layoutStore.fetchLayouts();

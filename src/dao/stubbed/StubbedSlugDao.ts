@@ -1,4 +1,8 @@
 import type { SlugDao } from "@/dao/interfaces/SlugDao";
+import type {
+  SlugAvailabilityResponse,
+  SlugClaimResponse,
+} from "@/types/UserProfile";
 
 export class StubbedSlugDao implements SlugDao {
   public getBySlug(_slug: string): Promise<Record<string, unknown> | null> {
@@ -7,11 +11,11 @@ export class StubbedSlugDao implements SlugDao {
 
   public checkAvailability(
     _slug: string,
-  ): Promise<{ available: boolean; reason: string; message: string }> {
+  ): Promise<SlugAvailabilityResponse> {
     throw new Error("Stubbed DAO implementation");
   }
 
-  public claim(_slug: string): Promise<{ success: boolean; message: string }> {
+  public claim(_slug: string): Promise<SlugClaimResponse> {
     throw new Error("Stubbed DAO implementation");
   }
 

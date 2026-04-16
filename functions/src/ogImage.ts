@@ -413,37 +413,32 @@ async function handler(req: Request, res: Response): Promise<void> {
     // Wait for grid to fully render (v-else-if="gridLoaded" in UserSlugPage)
     await page.waitForSelector(".grid-container", { timeout: 20_000 });
 
-    // Remove all UI chrome (nav, toolbar, buttons, devtools) directly from the DOM.
-    // CSS class-name guessing is unreliable with Vue scoped styles — DOM removal always works.
+    // Remove all UI chrome via path-trimming — walk from .grid-container up to
+    // <body> and at each level remove all siblings of the current node.
+    // This reliably strips nav, toolbar, Discord/share buttons, and devtools
+    // regardless of tag name or class, because the Vue SPA nests everything
+    // inside a single #app wrapper where tag-based selectors miss <a> tags etc.
     await page.evaluate(() => {
-      const grid = document.querySelector(".grid-container");
-
-      // Remove Vite/Vue devtools badge (it renders into a shadow root off this anchor)
+      // Devtools badge first (shadow-root hosted, won't be caught by sibling walk)
       document.querySelectorAll(
         "#vue-devtools-anchor, #vite-plugin-vue-devtools, #__vite-plugin-vue-devtools, [id*='devtools'], [class*='devtools']"
       ).forEach((el) => el.remove());
 
-      // Remove any element that is NOT an ancestor or descendant of the grid
-      const toRemove: Element[] = [];
-      document.body.querySelectorAll("*").forEach((el) => {
-        if (grid && (grid.contains(el) || el.contains(grid))) return;
-        const tag = el.tagName.toLowerCase();
-        if (
-          tag === "nav" ||
-          tag === "header" ||
-          tag === "button" ||
-          tag === "aside" ||
-          (tag === "div" &&
-            Array.from(el.classList).some((c) =>
-              /toolbar|appbar|navbar|topbar|top-bar|nav-bar|action-bar|actionbar|sidebar/.test(c)
-            ))
-        ) {
-          toRemove.push(el);
-        }
-      });
-      toRemove.forEach((el) => el.remove());
+      const grid = document.querySelector(".grid-container");
+      if (!grid) return;
 
-      // Suppress scrollbars and overflow
+      // Walk from grid → body, pruning all siblings at each level
+      let node: Element | null = grid;
+      while (node && node !== document.body) {
+        const parent: HTMLElement | null = node.parentElement;
+        if (parent) {
+          (Array.from(parent.children) as Element[]).forEach((sibling) => {
+            if (sibling !== node) sibling.remove();
+          });
+        }
+        node = parent as Element | null;
+      }
+
       document.body.style.overflow = "hidden";
       document.body.style.margin = "0";
     });

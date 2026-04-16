@@ -2350,3 +2350,4 @@ export const upvoteRoadmapItem = functions
   });
 
 export * from './ogImage';
+export * from './thumbnail';

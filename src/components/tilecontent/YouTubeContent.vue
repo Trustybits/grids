@@ -1,11 +1,13 @@
 <template>
   <div class="youtube-content" :class="['tier-' + layout.tier, 'orient-' + layout.orientation, contentTypeClass, { 'dim-w1': layout.w === 1, 'dim-h1': layout.h === 1 }]">
-    <!-- YouTube logo badge (top-left, matches link tile favicon) -->
+    <!-- YouTube favicon/logo (top-left, closer to real link-tile favicon behavior) -->
     <div class="yt-logo" aria-hidden="true">
-      <svg viewBox="0 0 28 20" fill="none">
-        <rect width="28" height="20" rx="5" fill="#FF0000"/>
-        <path d="M18.5 10L11.5 14V6L18.5 10Z" fill="white"/>
-      </svg>
+      <img
+        :src="youtubeFaviconUrl"
+        alt=""
+        loading="lazy"
+        decoding="async"
+      />
     </div>
 
     <!-- Loading state -->
@@ -148,6 +150,10 @@ export default defineComponent({
     const isChannel = computed(() => props.content.youtubeType === "channel");
 
     const contentTypeClass = computed(() => `yt-type-${props.content.youtubeType}`);
+    const youtubeFaviconUrl = computed(() => {
+      const domain = "https://www.youtube.com";
+      return `https://s2.googleusercontent.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(domain)}`;
+    });
 
     // Thumbnail selection driven by layout quality hint
     const thumbnailUrl = computed(() => {
@@ -314,6 +320,7 @@ export default defineComponent({
       isLoading,
       hasError,
       contentTypeClass,
+      youtubeFaviconUrl,
       isVideo,
       isShort,
       isPlaylist,
@@ -363,10 +370,11 @@ export default defineComponent({
   align-items: center;
   justify-content: center;
 
-  svg {
-    width: 24px;
-    height: 17px;
+  img {
+    width: 100%;
+    height: 100%;
     display: block;
+    object-fit: contain;
     filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
   }
 }
@@ -760,9 +768,9 @@ export default defineComponent({
 }
 
 /* Match link-tile favicon visual size more closely in one-line rows. */
-.dim-h1:not(.tier-mini) .yt-logo svg {
-  width: 28px;
-  height: 20px;
+.dim-h1:not(.tier-mini) .yt-logo img {
+  width: 100%;
+  height: 100%;
 }
 
 /* Channel tiles use a different DOM structure than video/playlist.

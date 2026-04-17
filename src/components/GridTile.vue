@@ -125,7 +125,7 @@
         </div>
 
         <div
-          v-if="layoutStore.canEdit && !isSuggestion"
+          v-if="layoutStore.canEdit"
           class="tile-actions-layer"
           :class="{ 'z-priority': hoveredLayer === 'actions' }"
           @mouseenter="hoveredLayer = 'actions'"
@@ -559,7 +559,10 @@ export default defineComponent({
         layoutStore.activeTileId === props.tile.i;
 
       return {
-        zIndex: isEditing.value || isToolbarActive ? 10 : 0,
+        zIndex:
+          isEditing.value || isToolbarActive
+            ? "var(--z-grid-tile-elevated)"
+            : 0,
       };
     });
 

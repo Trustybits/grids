@@ -5,6 +5,7 @@
     class="tile-toolbar"
     :class="{ 'tile-toolbar-force-show': menuOpen || panelOpen }"
     @mousedown.stop
+    @touchstart.stop
     @mouseenter="hoveredToolbarZone = 'toolbar'"
     @mouseleave="hoveredToolbarZone = null"
   >
@@ -35,6 +36,7 @@
     ref="searchPanelRef"
     class="toolbar-search-panel glass"
     @mousedown.stop
+    @touchstart.stop
   >
     <button
       class="search-panel-btn"
@@ -67,6 +69,7 @@
     ref="imageUrlPanelRef"
     class="toolbar-image-url-panel"
     @mousedown.stop
+    @touchstart.stop
   >
     <div class="image-url-panel-row">
       <input
@@ -125,6 +128,7 @@
         class="tile-toolbar-menu"
         :style="[menuStyle, { 'flex-direction': menuItemLayoutDirection }]"
         @mousedown.stop
+        @touchstart.stop
         @click.stop
         @dragstart.prevent
       >

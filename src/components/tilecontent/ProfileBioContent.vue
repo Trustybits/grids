@@ -2185,7 +2185,6 @@ export default defineComponent({
   font-family:
     "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
-  text-shadow: 0 0 34px rgba(51, 49, 44, 0.55);
 }
 
 .profile-bio-text {
@@ -2194,6 +2193,12 @@ export default defineComponent({
   align-self: stretch;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: transparent transparent;
+}
+
+.profile-bio:hover .profile-bio-text {
+  scrollbar-color: var(--color-border) transparent;
 }
 
 .profile-bio-text :deep(.ProseMirror) {

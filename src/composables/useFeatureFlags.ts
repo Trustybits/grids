@@ -30,6 +30,7 @@ export const FEATURE_FLAGS = {
   BETA_ANALYTICS_DASHBOARD: 'beta-analytics-dashboard',
 
   // ── Editor features ──────────────────────────────────────────────────────
+  EDITOR_SMART_TEXT: 'editor-smart-text',
   EDITOR_AI_SUGGESTIONS: 'editor-ai-suggestions',
   EDITOR_CUSTOM_CSS: 'editor-custom-css',
 

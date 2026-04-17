@@ -4,6 +4,7 @@
     ref="videoWrapper"
     @mouseenter="onTileMouseEnter"
     @mouseleave="onTileMouseLeave"
+    @mousemove="onTileMouseMove"
   >
     <div v-if="!content.src" class="spinner"></div>
     <div
@@ -14,6 +15,7 @@
         'is-narrow': isNarrow,
         'is-medium': isMedium,
         'is-tiny': isTiny,
+        'controls-visible': controlsVisible,
       }"
       @mousedown="startDragging"
       @mouseup="stopDragging"
@@ -206,8 +208,8 @@ import { useTileLink } from "@/composables/useTileLink";
 import AddLinkModal from "../AddLinkModal.vue";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 
-const PREVIEW_DURATION = 3;
 const DEFAULT_VOLUME = 0.15;
+const CONTROLS_HIDE_DELAY = 1000;
 
 export default defineComponent({
   components: {
@@ -302,6 +304,26 @@ export default defineComponent({
     const playbackMode = ref<"idle" | "preview" | "playing">("idle");
     const savedVolume = ref(DEFAULT_VOLUME);
     const videoEnded = ref(false);
+
+    // Controls auto-hide on mouse inactivity
+    const controlsVisible = ref(false);
+    let controlsHideTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const showControls = () => {
+      controlsVisible.value = true;
+      if (controlsHideTimer) clearTimeout(controlsHideTimer);
+      controlsHideTimer = setTimeout(() => {
+        controlsVisible.value = false;
+      }, CONTROLS_HIDE_DELAY);
+    };
+
+    const hideControls = () => {
+      controlsVisible.value = false;
+      if (controlsHideTimer) {
+        clearTimeout(controlsHideTimer);
+        controlsHideTimer = null;
+      }
+    };
 
     // Toggle crop mode
     const toggleEditMode = () => {
@@ -430,10 +452,15 @@ export default defineComponent({
     const startPreview = () => {
       const vid = videoElement.value;
       if (!vid) return;
+
+      if (playbackMode.value === "idle" || videoEnded.value) {
+        vid.currentTime = 0;
+        videoEnded.value = false;
+      }
+
       playbackMode.value = "preview";
       vid.muted = true;
       isMuted.value = true;
-      vid.currentTime = 0;
       vid.play().catch(() => {});
       isPlaying.value = true;
     };
@@ -494,10 +521,16 @@ export default defineComponent({
 
     const onTileMouseEnter = () => {
       if (tileId) videoFocus.setHovered(tileId);
+      showControls();
     };
 
     const onTileMouseLeave = () => {
       videoFocus.setHovered(null);
+      hideControls();
+    };
+
+    const onTileMouseMove = () => {
+      if (!isEditing.value) showControls();
     };
 
     // Watch the shared activeVideoId to start/stop preview
@@ -570,6 +603,7 @@ export default defineComponent({
     onUnmounted(() => {
       resizeObserver.value?.disconnect();
       if (tileId) videoFocus.unregister(tileId);
+      if (controlsHideTimer) clearTimeout(controlsHideTimer);
     });
 
     // Keep focus system in sync if tile is repositioned
@@ -586,27 +620,16 @@ export default defineComponent({
       currentTime.value = videoElement.value.currentTime;
       progressPercent.value =
         duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0;
-
-      // Preview loop: for videos longer than the preview window, loop back at PREVIEW_DURATION
-      if (
-        playbackMode.value === "preview" &&
-        duration.value > PREVIEW_DURATION &&
-        currentTime.value >= PREVIEW_DURATION
-      ) {
-        videoElement.value.currentTime = 0;
-      }
     };
 
     const onVideoEnded = () => {
       if (playbackMode.value === "preview") {
-        // Short videos (< PREVIEW_DURATION) reach their natural end – loop in preview mode
         const vid = videoElement.value;
         if (vid) {
           vid.currentTime = 0;
           vid.play().catch(() => {});
         }
       } else if (playbackMode.value === "playing") {
-        // User-initiated playback finished — show replay icon
         isPlaying.value = false;
         videoEnded.value = true;
       }
@@ -755,8 +778,10 @@ export default defineComponent({
       toggleMute,
       toggleFullscreen,
       formatTime,
+      controlsVisible,
       onTileMouseEnter,
       onTileMouseLeave,
+      onTileMouseMove,
       videoDimensions,
       tileDimensions,
       showLinkModal,
@@ -786,6 +811,11 @@ export default defineComponent({
   position: relative;
   width: 100%;
   height: 100%;
+  cursor: none;
+}
+
+.video-wrapper.controls-visible {
+  cursor: default;
 }
 
 .video {
@@ -912,7 +942,7 @@ export default defineComponent({
   opacity: 1;
 }
 
-.video-wrapper:hover .center-play-btn {
+.video-wrapper.controls-visible .center-play-btn {
   opacity: 1;
 }
 
@@ -954,7 +984,7 @@ export default defineComponent({
   padding: 2px 4px;
 }
 
-.video-wrapper:hover .controls-row {
+.video-wrapper.controls-visible .controls-row {
   opacity: 1;
   pointer-events: all;
 }
@@ -968,7 +998,7 @@ export default defineComponent({
   transition: opacity 0.3s ease;
 }
 
-.video-wrapper:hover .progress-container {
+.video-wrapper.controls-visible .progress-container {
   opacity: 1;
 }
 
@@ -982,7 +1012,7 @@ export default defineComponent({
   transition: height 0.15s ease;
 }
 
-.video-wrapper:hover .progress-bar {
+.video-wrapper.controls-visible .progress-bar {
   height: 5px;
 }
 

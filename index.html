@@ -24,11 +24,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Grids</title>
 
-    <!-- OG / Twitter Card meta tags are injected server-side by middleware.ts
-         for all crawler requests (Discord, Slack, Twitter, etc.).
-         Do NOT add static og: or twitter: tags here — they would appear before
-         the middleware-injected tags and win the "first occurrence" race,
-         causing every share to show the generic fallback title/image. -->
+    <!-- Static fallback OG / Twitter Card tags.
+         These serve non-crawler services (getLinkPreview, FigJam, etc.) that
+         fetch the page with a browser user-agent and therefore bypass the
+         middleware. For social crawlers (Discord, Slack, Twitter…) the
+         middleware.ts injects personalised tags at the TOP of <head>, so those
+         always win the "first occurrence" race.
+         og:image intentionally points at the Vercel proxy (/api/og), NOT the
+         Firebase function URL directly. -->
+    <meta name="description" content="Create and share your personal grid of links, tools, and more." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Grids" />
+    <meta property="og:title" content="Grids — Your personal grid" />
+    <meta property="og:description" content="Create and share your personal grid of links, tools, and more." />
+    <meta property="og:image" content="https://grids.so/api/og?slug=grids" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Grids — Your personal grid" />
+    <meta name="twitter:description" content="Create and share your personal grid of links, tools, and more." />
+    <meta name="twitter:image" content="https://grids.so/api/og?slug=grids" />
 
     <link href='https://fonts.googleapis.com/css?family=Inter' rel='stylesheet'>
     <link href='https://fonts.googleapis.com/css2?family=Geist+Mono&display=swap' rel='stylesheet'>

@@ -27,16 +27,22 @@
 
 import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
-import chromium from "@sparticuz/chromium-min";
-import puppeteer from "puppeteer-core";
 import type { Request, Response } from "firebase-functions/v1";
+
+// chromium and puppeteer are lazy-loaded inside captureBreakpoint.
+// Top-level imports cause the Firebase CLI's function-introspection server to
+// time out during `firebase deploy` because the modules are very slow to initialise.
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const BUCKET_NAME   = "grids-one.firebasestorage.app";
 const SITE_BASE     = "https://grids.so";
+
+// v147.0.0 has no pack assets on GitHub releases; using v143.0.4 (last confirmed stable).
+// Firebase Functions run on Linux x86_64 → use the .x64.tar variant (added in v127+).
+// Update this URL when upgrading @sparticuz/chromium-min.
 const CHROMIUM_URL  =
-  "https://github.com/Sparticuz/chromium/releases/download/v147.0.0/chromium-v147.0.0-pack.tar";
+  "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
 
 // ─── Breakpoint definitions ───────────────────────────────────────────────────
 
@@ -74,6 +80,12 @@ async function captureBreakpoint(
   const { width, height } = BREAKPOINTS[breakpoint];
 
   const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chromium: any  = (await import("@sparticuz/chromium-min")).default;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const puppeteer: any = (await import("puppeteer-core")).default;
+
   const executablePath = isEmulator
     ? (process.env.PUPPETEER_EXECUTABLE_PATH ??
        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe")
@@ -91,7 +103,8 @@ async function captureBreakpoint(
 
     // Block media and fonts for faster load
     await page.setRequestInterception(true);
-    page.on("request", (r) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    page.on("request", (r: any) => {
       if (["media", "font"].includes(r.resourceType())) r.abort();
       else r.continue();
     });
@@ -113,7 +126,7 @@ async function captureBreakpoint(
       // Devtools badge first (shadow-root hosted, won't be caught by sibling walk)
       document.querySelectorAll(
         "#vue-devtools-anchor, #vite-plugin-vue-devtools, #__vite-plugin-vue-devtools, [id*='devtools'], [class*='devtools']"
-      ).forEach((el) => el.remove());
+      ).forEach((el: Element) => el.remove());
 
       const grid = document.querySelector(".grid-container");
       if (!grid) return;
@@ -142,7 +155,7 @@ async function captureBreakpoint(
     await page.evaluate(() =>
       Promise.all(
         Array.from(document.querySelectorAll(".grid-container img")).map(
-          (img) =>
+          (img: Element) =>
             (img as HTMLImageElement).complete
               ? Promise.resolve()
               : new Promise((r) => {
@@ -221,10 +234,16 @@ async function handler(req: Request, res: Response): Promise<void> {
       const path = storagePath(slug, gridId, bp);
 
       if (!refresh && !isEmulatorEnv) {
-        const [exists] = await admin.storage().bucket(BUCKET_NAME).file(path).exists();
-        if (exists) {
-          results[bp] = storageUrl(path);
-          continue;
+        try {
+          const [exists] = await admin.storage().bucket(BUCKET_NAME).file(path).exists();
+          if (exists) {
+            results[bp] = storageUrl(path);
+            continue;
+          }
+        } catch (cacheErr) {
+          // Storage permission error — fall through and regenerate.
+          // Long-term fix: grant service account Storage Object Admin on the bucket.
+          functions.logger.warn("[thumb] cache check failed, regenerating:", cacheErr);
         }
       }
 
@@ -257,27 +276,37 @@ async function handler(req: Request, res: Response): Promise<void> {
 
   // Serve from Storage cache if available
   if (!refresh && !isEmulatorEnv) {
-    const [exists] = await admin.storage().bucket(BUCKET_NAME).file(path).exists();
-    if (exists) {
-      res.redirect(302, storageUrl(path));
-      return;
+    try {
+      const [exists] = await admin.storage().bucket(BUCKET_NAME).file(path).exists();
+      if (exists) {
+        res.redirect(302, storageUrl(path));
+        return;
+      }
+    } catch (cacheErr) {
+      // Storage permission error — fall through and regenerate.
+      functions.logger.warn("[thumb] cache check failed, regenerating:", cacheErr);
     }
   }
 
   functions.logger.info(`[thumb] capturing ${bp} for ${pageUrl}`);
 
-  const buf = await captureBreakpoint(pageUrl, bp);
+  try {
+    const buf = await captureBreakpoint(pageUrl, bp);
 
-  if (isEmulatorEnv) {
-    res.setHeader("Content-Type",  "image/png");
-    res.setHeader("Cache-Control", "no-store");
-    res.end(buf);
-    return;
+    if (isEmulatorEnv) {
+      res.setHeader("Content-Type",  "image/png");
+      res.setHeader("Cache-Control", "no-store");
+      res.end(buf);
+      return;
+    }
+
+    await uploadThumbnail(path, buf);
+    functions.logger.info(`[thumb] stored: ${path}`);
+    res.redirect(302, storageUrl(path));
+  } catch (err) {
+    functions.logger.error("[thumb] generation failed:", err);
+    res.status(500).json({ error: "Thumbnail generation failed" });
   }
-
-  await uploadThumbnail(path, buf);
-  functions.logger.info(`[thumb] stored: ${path}`);
-  res.redirect(302, storageUrl(path));
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────

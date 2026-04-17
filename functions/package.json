@@ -18,7 +18,7 @@
   },
   "main": "lib/index.js",
   "dependencies": {
-    "@sparticuz/chromium-min": "^147.0.0",
+    "@sparticuz/chromium-min": "^143.0.4",
     "cheerio": "^1.0.0-rc.12",
     "firebase-admin": "^12.6.0",
     "firebase-functions": "^6.0.1",

@@ -27,13 +27,21 @@ export interface StorageDao {
    * Upload a Blob or File to the given path in one shot and resolve to its download URL.
    * Use for small files where progress tracking is not needed.
    */
-  upload(path: string, data: Blob | File, metadata?: StorageUploadMetadata): Promise<string>;
+  upload(
+    path: string,
+    data: Blob | File,
+    metadata?: StorageUploadMetadata,
+  ): Promise<string>;
 
   /**
    * Start a resumable upload for the given path and return a task handle.
    * Use when the UI needs to display progress or when the file is large enough to benefit from resumability.
    */
-  uploadResumable(path: string, data: Blob | File, metadata?: StorageUploadMetadata): StorageUploadTask;
+  uploadResumable(
+    path: string,
+    data: Blob | File,
+    metadata?: StorageUploadMetadata,
+  ): StorageUploadTask;
 
   /**
    * Fetch the public download URL for an object that already exists at the given path.
@@ -51,5 +59,10 @@ export interface StorageDao {
    * Build the canonical storage path for a user-owned object.
    * Centralizing path construction keeps security-rule expectations consistent across callers.
    */
-  buildUserPath(userId: string, folder: string, fileName: string): string;
+  buildFilePath(
+    root: string,
+    userId: string,
+    folder: string,
+    fileName: string,
+  ): string;
 }

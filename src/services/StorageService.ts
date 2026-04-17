@@ -5,14 +5,13 @@ import type {
   StorageUploadTask,
 } from "@/dao/interfaces/StorageDao";
 import type { IStorageService } from "./interfaces/IStorageService";
+import type { UploadOptions } from "@/types/UploadFileTypes";
 
 const PUBLISHED_METADATA: StorageUploadMetadata = {
   customMetadata: { published: "true" },
 };
 
-function mergeMetadata(
-  custom?: StorageUploadMetadata,
-): StorageUploadMetadata {
+function mergeMetadata(custom?: StorageUploadMetadata): StorageUploadMetadata {
   if (!custom) return PUBLISHED_METADATA;
   return {
     ...custom,
@@ -31,13 +30,37 @@ export class StorageService implements IStorageService {
     this.storageDao = factory.getStorageDao();
   }
 
-  async upload(
-    path: string,
-    data: Blob | File,
-    metadata?: StorageUploadMetadata,
-  ): Promise<string> {
+  validateFile(
+    file: File,
+    options: UploadOptions = {},
+  ): { isImage: boolean; isVideo: boolean } {
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    const defaultMaxSize = isImage ? 10 * 1024 * 1024 : 500 * 1024 * 1024;
+    const maxSize = options.maxSize ?? defaultMaxSize;
+
+    if (!isImage && !isVideo) {
+      throw new Error(
+        "Unsupported file type. Please upload an image or video.",
+      );
+    }
+
+    if (file.size > maxSize) {
+      const sizeMB = Math.round(maxSize / 1024 / 1024);
+      throw new Error(`File is too large! Maximum size: ${sizeMB}MB`);
+    }
+
+    return { isImage, isVideo };
+  }
+
+  async upload(userId: string, file: File, options: UploadOptions = {}, metadata?: StorageUploadMetadata): Promise<string> {
+    const { isImage } = this.validateFile(file, options);
+
+    const fileType = options.fileType ?? (isImage ? "images" : "videos");
+    const filePath = this.buildFilePath("users", userId, fileType, file.name);
+
     try {
-      return await this.storageDao.upload(path, data, mergeMetadata(metadata));
+      return await this.storageDao.upload(filePath, file, mergeMetadata(metadata));
     } catch (error) {
       console.error("StorageService upload failed:", error);
       throw error;
@@ -45,15 +68,41 @@ export class StorageService implements IStorageService {
   }
 
   uploadResumable(
-    path: string,
-    data: Blob | File,
+    userId: string,
+    file: File,
+    options: UploadOptions = {},
     metadata?: StorageUploadMetadata,
   ): StorageUploadTask {
-    return this.storageDao.uploadResumable(
-      path,
-      data,
-      mergeMetadata(metadata),
-    );
+    const { isImage } = this.validateFile(file, options);
+
+    const fileType = options.fileType ?? (isImage ? "images" : "videos");
+    const filePath = this.buildFilePath("users", userId, fileType, file.name);
+
+    return this.storageDao.uploadResumable(filePath, file, mergeMetadata(metadata));
+  }
+
+  async uploadExternalImage(userId: string, externalUrl: string, folder = "images"): Promise<string> {
+    const response = await fetch(externalUrl);
+    if (!response.ok) {
+      throw new Error("Failed to fetch image from the provided URL.");
+    }
+
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    if (!contentType.startsWith("image/")) {
+      throw new Error("The URL does not point to a valid image.");
+    }
+
+    const blob = await response.blob();
+    const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
+    const fileName = `external.${ext}`;
+    const filePath = this.buildFilePath("users", userId, folder, fileName);
+
+    try {
+      return await this.storageDao.upload(filePath, blob, mergeMetadata({ contentType }));
+    } catch (error) {
+      console.error("StorageService uploadExternalImage failed:", error);
+      throw error;
+    }
   }
 
   async getDownloadUrl(path: string): Promise<string> {
@@ -74,7 +123,7 @@ export class StorageService implements IStorageService {
     }
   }
 
-  buildUserPath(userId: string, folder: string, fileName: string): string {
-    return this.storageDao.buildUserPath(userId, folder, fileName);
+  buildFilePath(root: string, userId: string, folder: string, fileName: string): string {
+    return this.storageDao.buildFilePath(root, userId, folder, fileName);
   }
 }

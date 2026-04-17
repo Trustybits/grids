@@ -1,88 +1,41 @@
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
-import {
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-  uploadBytesResumable,
-  getDownloadURL,
-} from "firebase/storage";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { ContentType } from "@/types/TileContent";
 import { createTileContent } from "@/utils/TileUtils";
 import type { TileContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
-
-export type FileType = "images" | "videos";
-
-export interface UploadOptions {
-  /** Override the file type detection */
-  fileType?: FileType;
-  /** Custom max size in bytes (overrides default) */
-  maxSize?: number;
-}
-
-/**
- * Validates that a file is a supported image or video and within size limits.
- * Throws a user-friendly error message on failure.
- */
-function validateFile(file: File, options: UploadOptions = {}): { isImage: boolean; isVideo: boolean } {
-  const isImage = file.type.startsWith("image/");
-  const isVideo = file.type.startsWith("video/");
-  const defaultMaxSize = isImage ? 10 * 1024 * 1024 : 500 * 1024 * 1024;
-  const maxSize = options.maxSize ?? defaultMaxSize;
-
-  if (!isImage && !isVideo) {
-    throw new Error("Unsupported file type. Please upload an image or video.");
-  }
-
-  if (file.size > maxSize) {
-    const sizeMB = Math.round(maxSize / 1024 / 1024);
-    throw new Error(`File is too large! Maximum size: ${sizeMB}MB`);
-  }
-
-  return { isImage, isVideo };
-}
+import type { UploadOptions } from "@/types/UploadFileTypes";
+import type {
+  StorageUploadProgress,
+  StorageUploadTask,
+} from "@/dao/interfaces/StorageDao";
 
 export function useFileUpload() {
   const authProvider = getAuthProvider();
-  const storage = getStorage();
+  const storageService = getServiceFactory().getStorageService();
   const layoutStore = useLayoutStore();
 
   /**
-   * Upload a file to Firebase Storage and return just the URL.
+   * Upload a file to storage and return just the URL.
    * Use this for cases where you need the URL directly (avatars, backgrounds, etc.).
    */
   const uploadFileToUrl = async (
     file: File,
-    options: UploadOptions = {}
+    options: UploadOptions = {},
   ): Promise<string> => {
-    const { isImage } = validateFile(file, options);
-
     const currentUserId = authProvider.getCurrentUserId();
     if (!currentUserId) {
       throw new Error("You must be logged in to upload.");
     }
 
-    const fileType = options.fileType ?? (isImage ? "images" : "videos");
-    const filePath = `users/${currentUserId}/${fileType}/${Date.now()}_${file.name}`;
-    const fileRef = storageRef(storage, filePath);
-
-    // Set metadata with published flag to satisfy storage security rules
-    const metadata = {
-      customMetadata: {
-        published: 'true'
-      }
-    };
-
     try {
-      await uploadBytes(fileRef, file, metadata);
-      const url = await getDownloadURL(fileRef);
-      return url;
+      return await storageService.upload(currentUserId, file, options);
     } catch (error: any) {
-      console.error('uploadFileToUrl - Upload failed:', {
+      console.error("uploadFileToUrl - Upload failed:", {
         error,
         code: error.code,
         message: error.message,
-        serverResponse: error.serverResponse
+        serverResponse: error.serverResponse,
       });
       throw error;
     }
@@ -94,7 +47,7 @@ export function useFileUpload() {
    */
   const uploadFile = async (
     file: File,
-    options: UploadOptions = {}
+    options: UploadOptions = {},
   ): Promise<TileContent | null> => {
     const url = await uploadFileToUrl(file, options);
 
@@ -114,9 +67,9 @@ export function useFileUpload() {
    */
   const uploadFileOptimistic = async (
     file: File,
-    options: UploadOptions = {}
+    options: UploadOptions = {},
   ): Promise<void> => {
-    const { isImage } = validateFile(file, options);
+    const { isImage } = storageService.validateFile(file, options);
 
     const currentUserId = authProvider.getCurrentUserId();
     if (!currentUserId) {
@@ -138,25 +91,21 @@ export function useFileUpload() {
     layoutStore.setTileUploading(tileId, 0);
 
     try {
-      const fileType = options.fileType ?? (isImage ? "images" : "videos");
-      const filePath = `users/${currentUserId}/${fileType}/${Date.now()}_${file.name}`;
-      const fileRef = storageRef(storage, filePath);
-
-      // Set metadata with published flag to satisfy storage security rules
-      const metadata = {
-        customMetadata: {
-          published: 'true'
-        }
-      };
-
       // Resumable upload to track progress
-      const uploadTask = uploadBytesResumable(fileRef, file, metadata);
-      uploadTask.on("state_changed", (snapshot) => {
-        layoutStore.setTileUploading(tileId, snapshot.bytesTransferred / snapshot.totalBytes);
+      const uploadTask: StorageUploadTask = storageService.uploadResumable(
+        currentUserId,
+        file,
+        options,
+      );
+
+      uploadTask.onProgress((progress: StorageUploadProgress) => {
+        layoutStore.setTileUploading(
+          tileId,
+          progress.bytesTransferred / progress.totalBytes,
+        );
       });
 
-      await uploadTask;
-      const url = await getDownloadURL(fileRef);
+      const url = await uploadTask.done();
 
       // Store the permanent URL for Firestore persistence without touching the displayed src.
       // This avoids a visible flash and keeps video playback uninterrupted.
@@ -181,9 +130,9 @@ export function useFileUpload() {
   const uploadFileOptimisticForTile = async (
     file: File,
     tileId: string,
-    options: UploadOptions = {}
+    options: UploadOptions = {},
   ): Promise<void> => {
-    const { isImage } = validateFile(file, options);
+    const { isImage } = storageService.validateFile(file, options);
 
     const currentUserId = authProvider.getCurrentUserId();
     if (!currentUserId) {
@@ -198,17 +147,20 @@ export function useFileUpload() {
     layoutStore.setTileUploading(tileId, 0);
 
     try {
-      const fileType = options.fileType ?? (isImage ? "images" : "videos");
-      const filePath = `users/${currentUserId}/${fileType}/${Date.now()}_${file.name}`;
-      const fileRef = storageRef(storage, filePath);
+      const uploadTask: StorageUploadTask = storageService.uploadResumable(
+        currentUserId,
+        file,
+        options,
+      );
 
-      const uploadTask = uploadBytesResumable(fileRef, file);
-      uploadTask.on("state_changed", (snapshot) => {
-        layoutStore.setTileUploading(tileId, snapshot.bytesTransferred / snapshot.totalBytes);
+      uploadTask.onProgress((progress: StorageUploadProgress) => {
+        layoutStore.setTileUploading(
+          tileId,
+          progress.bytesTransferred / progress.totalBytes,
+        );
       });
 
-      await uploadTask;
-      const url = await getDownloadURL(fileRef);
+      const url = await uploadTask.done();
 
       layoutStore.setResolvedUrl(tileId, url);
       layoutStore.clearTileUploading(tileId);
@@ -234,30 +186,14 @@ export function useFileUpload() {
    */
   const uploadExternalImageToStorage = async (
     externalUrl: string,
-    pathPrefix = "images"
+    folder = "images",
   ): Promise<string> => {
     const currentUserId = authProvider.getCurrentUserId();
     if (!currentUserId) {
       throw new Error("You must be logged in to upload.");
     }
 
-    const response = await fetch(externalUrl);
-    if (!response.ok) {
-      throw new Error("Failed to fetch image from the provided URL.");
-    }
-
-    const contentType = response.headers.get("content-type") || "image/jpeg";
-    if (!contentType.startsWith("image/")) {
-      throw new Error("The URL does not point to a valid image.");
-    }
-
-    const blob = await response.blob();
-    const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
-    const filePath = `users/${currentUserId}/${pathPrefix}/${Date.now()}_external.${ext}`;
-    const fileRef = storageRef(storage, filePath);
-
-    await uploadBytes(fileRef, blob, { contentType });
-    return await getDownloadURL(fileRef);
+    return await storageService.uploadExternalImage(currentUserId, externalUrl, folder);
   };
 
   return {

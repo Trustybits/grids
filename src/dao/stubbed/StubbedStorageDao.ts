@@ -29,7 +29,12 @@ export class StubbedStorageDao implements StorageDao {
     throw new Error("Stubbed DAO implementation");
   }
 
-  public buildUserPath(_userId: string, _folder: string, _fileName: string): string {
+  public buildFilePath(
+    _root: string,
+    _userId: string,
+    _folder: string,
+    _fileName: string,
+  ): string {
     throw new Error("Stubbed DAO implementation");
   }
 }

@@ -3,29 +3,50 @@ import type {
   StorageUploadTask,
 } from "@/dao/interfaces/StorageDao";
 import type { IStorageService } from "../interfaces/IStorageService";
+import type { UploadOptions } from "@/types/UploadFileTypes";
 
 export class MockStorageService implements IStorageService {
+  validateFile(
+    _file: File,
+    _options: UploadOptions,
+  ): { isImage: boolean; isVideo: boolean } {
+    throw new Error("Method not implemented.");
+  }
   upload(
-    path: string,
-    data: Blob | File,
-    metadata?: StorageUploadMetadata,
+    _userId: string,
+    _file: File,
+    _options?: UploadOptions,
+    _metadata?: StorageUploadMetadata,
   ): Promise<string> {
     throw new Error("Method not implemented.");
   }
   uploadResumable(
-    path: string,
-    data: Blob | File,
-    metadata?: StorageUploadMetadata,
+    _userId: string,
+    _file: File,
+    _options?: UploadOptions,
+    _metadata?: StorageUploadMetadata,
   ): StorageUploadTask {
     throw new Error("Method not implemented.");
   }
-  getDownloadUrl(path: string): Promise<string> {
+  uploadExternalImage(
+    _userId: string,
+    _externalUrl: string,
+    _folder?: string,
+  ): Promise<string> {
     throw new Error("Method not implemented.");
   }
-  delete(path: string): Promise<void> {
+  getDownloadUrl(_path: string): Promise<string> {
     throw new Error("Method not implemented.");
   }
-  buildUserPath(userId: string, folder: string, fileName: string): string {
+  delete(_path: string): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
+  buildFilePath(
+    _root: string,
+    _userId: string,
+    _folder: string,
+    _fileName: string,
+  ): string {
     throw new Error("Method not implemented.");
   }
 }

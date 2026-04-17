@@ -67,7 +67,12 @@ export class FirebaseStorageDao implements StorageDao {
     await deleteObject(ref);
   }
 
-  public buildUserPath(userId: string, folder: string, fileName: string): string {
-    return `users/${userId}/${folder}/${Date.now()}_${fileName}`;
+  public buildFilePath(
+    root: string,
+    userId: string,
+    folder: string,
+    fileName: string,
+  ): string {
+    return `${root}/${userId}/${folder}/${Date.now()}_${fileName}`;
   }
 }

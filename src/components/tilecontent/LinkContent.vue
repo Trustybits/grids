@@ -17,6 +17,15 @@
     @dragleave="onDragLeave"
     @drop.prevent="onDrop"
   >
+    <a
+      v-if="!layoutStore.canEdit && resolvedHref"
+      class="link-tile-anchor"
+      :href="resolvedHref"
+      target="_blank"
+      rel="noopener noreferrer"
+      :aria-label="displayTitle || displaySubtitle || 'Open link'"
+    ></a>
+
     <div v-if="backgroundImageUrl" class="tile-background" aria-hidden="true">
       <img
         class="tile-background-image"
@@ -39,18 +48,28 @@
     <div class="tile-foreground">
       <div class="tile-header">
         <div class="tile-logo">
-          <img
-            v-if="!!content.faviconUrl"
-            :src="content.faviconUrl"
-            :alt="content.domain"
-          />
-          <button
-            v-if="layoutStore.canEdit && !!content.faviconUrl"
-            class="tile-logo-close"
-            @mousedown.stop
-            @mouseup.stop
-            @click.stop="handleRemoveFavicon"
-          ></button>
+          <div
+            v-if="isTelLink || isMailtoLink"
+            class="tile-logo-contact"
+            aria-hidden="true"
+          >
+            <PhoneIcon v-if="isTelLink" class="tile-logo-contact-icon" />
+            <EmailIcon v-else class="tile-logo-contact-icon" />
+          </div>
+          <template v-else>
+            <img
+              v-if="!!content.faviconUrl"
+              :src="content.faviconUrl"
+              :alt="content.domain"
+            />
+            <button
+              v-if="layoutStore.canEdit && !!content.faviconUrl"
+              class="tile-logo-close"
+              @mousedown.stop
+              @mouseup.stop
+              @click.stop="handleRemoveFavicon"
+            ></button>
+          </template>
         </div>
 
         <template v-if="isWideOneHigh">
@@ -117,7 +136,7 @@
           Add a title
         </div>
         <div
-          class="tile-field-wrap tile-field-wrap--title"
+          class="tile-field-wrap tile-field-wrap--title scrollable-thin"
           :class="{
             'is-visible': isEditing || !!displayTitle,
             'has-overflow': !isEditing,
@@ -134,7 +153,7 @@
           ></textarea>
         </div>
         <div
-          class="tile-field-wrap tile-field-wrap--description"
+          class="tile-field-wrap tile-field-wrap--description scrollable-thin"
           :class="{
             'is-visible': isEditing || !!displayDescription,
             'has-overflow': !isEditing,
@@ -178,36 +197,6 @@
       @change.stop="onCustomImageSelected"
     />
 
-    <div
-      v-if="layoutStore.canEdit && showUrlInput"
-      class="link-url-input"
-      @mousedown.stop
-    >
-      <span class="link-url-label">Image URL</span>
-      <input
-        v-model="draftImageUrl"
-        class="link-url-field"
-        type="url"
-        placeholder="https://example.com/image.jpg"
-        aria-label="Image URL"
-        @keydown.enter.prevent="applyImageUrl"
-        @keydown.escape.stop.prevent="cancelUrlInput"
-      />
-      <p v-if="urlError" class="link-url-error">{{ urlError }}</p>
-      <div class="link-url-actions">
-        <button type="button" class="link-url-btn" @click.stop="applyImageUrl">
-          Save
-        </button>
-        <button
-          type="button"
-          class="link-url-btn link-url-btn--ghost"
-          @click.stop="cancelUrlInput"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-
     <teleport to="body">
       <div
         v-if="layoutStore.canEdit && showContextMenu"
@@ -231,7 +220,7 @@
           Use image URL
         </button>
         <button
-          v-if="content.customImageUrl"
+          v-if="content.customImageUrl || content.metaImageUrl"
           type="button"
           class="link-context-menu-item link-context-menu-item--danger"
           @click.stop="handleContextRemove"
@@ -258,16 +247,19 @@ import {
 
 import { type LinkContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
-import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
+import EmailIcon from "../icons/EmailIcon.vue";
+import PhoneIcon from "../icons/PhoneIcon.vue";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
 
 export default defineComponent({
   emits: ["background-color-change", "text-color-change"],
   components: {
     LinkIndicatorIcon,
+    EmailIcon,
+    PhoneIcon,
   },
   props: {
     content: {
@@ -309,13 +301,26 @@ export default defineComponent({
     const showContextMenu = ref(false);
     const contextMenuPosition = ref({ x: 0, y: 0 });
     const isDragOver = ref(false);
-    const showUrlInput = ref(false);
-    const draftImageUrl = ref("");
-    const urlError = ref("");
     const { uploadFileToUrl } = useFileUpload();
 
     const formatLink = (link: string) => {
       if (!link) return "@handle or address";
+
+      if (/^mailto:/i.test(link)) {
+        try {
+          const u = new URL(link);
+          const addr = decodeURIComponent(
+            (u.pathname || "").replace(/^\/+/, ""),
+          );
+          return addr || link;
+        } catch {
+          return link;
+        }
+      }
+
+      if (/^tel:/i.test(link)) {
+        return link.replace(/^tel:/i, "").trim() || link;
+      }
 
       if (link.startsWith("http://") || link.startsWith("https://")) {
         try {
@@ -329,13 +334,18 @@ export default defineComponent({
       return link.startsWith("@") ? link : `@${link}`;
     };
 
-    const defaultTitle = computed(
-      () =>
-        props.content.metaTitle ||
-        props.content.metaSiteName ||
-        props.content.domain ||
-        "Link",
-    );
+    const rawLink = computed(() => (props.content.link || "").trim());
+    const isTelLink = computed(() => /^tel:/i.test(rawLink.value));
+    const isMailtoLink = computed(() => /^mailto:/i.test(rawLink.value));
+
+    const defaultTitle = computed(() => {
+      if (props.content.metaTitle) return props.content.metaTitle;
+      if (props.content.metaSiteName) return props.content.metaSiteName;
+      if (isTelLink.value) return "Phone";
+      if (isMailtoLink.value) return "Email";
+      if (props.content.domain) return props.content.domain;
+      return "Link";
+    });
     const defaultDescription = computed(
       () => props.content.metaDescription || "",
     );
@@ -479,52 +489,14 @@ export default defineComponent({
       showContextMenu.value = false;
     };
 
-    const openUrlInput = () => {
+    const applyImageUrlFromToolbar = (normalizedUrl: string) => {
       if (!layoutStore.canEdit) return;
-      draftImageUrl.value = props.content.customImageUrl || "";
-      urlError.value = "";
-      showUrlInput.value = true;
-      closeContextMenu();
-    };
-
-    const cancelUrlInput = () => {
-      showUrlInput.value = false;
-      urlError.value = "";
-    };
-
-    const normalizeImageUrl = (value: string) => {
-      const trimmed = value.trim();
-      if (!trimmed) return "";
-      const normalized =
-        trimmed.startsWith("http://") || trimmed.startsWith("https://")
-          ? trimmed
-          : `https://${trimmed}`;
-      try {
-        new URL(normalized);
-        return normalized;
-      } catch {
-        return "";
+      props.content.customImageUrl = normalizedUrl;
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, { customImageUrl: normalizedUrl });
+      } else {
+        layoutStore.saveLayout();
       }
-    };
-
-    const applyImageUrl = () => {
-      if (!layoutStore.canEdit) return;
-      const normalized = normalizeImageUrl(draftImageUrl.value);
-      if (!normalized) {
-        urlError.value = "Enter a valid URL.";
-        return;
-      }
-      if (!isDirectImageUrl(normalized)) {
-        urlError.value =
-          "Only direct image URLs are supported (png, jpg, gif, webp, svg).";
-        return;
-      }
-
-      props.content.customImageUrl = normalized;
-      layoutStore.saveLayout();
-      showUrlInput.value = false;
-      urlError.value = "";
-      closeContextMenu();
     };
 
     const openCustomImagePicker = () => {
@@ -532,12 +504,26 @@ export default defineComponent({
       customImageInput.value?.click();
     };
 
-    const removeCustomImage = () => {
+    const removeImage = () => {
       if (!layoutStore.canEdit) return;
-      props.content.customImageUrl = undefined;
-      layoutStore.saveLayout();
+
+      let changes = {};
+
+      if (props.content.customImageUrl !== undefined) {
+        props.content.customImageUrl = undefined;
+        changes = { customImageUrl: undefined };
+      } else {
+        props.content.metaImageUrl = undefined;
+        changes = { metaImageUrl: undefined };
+      }
+
+      if (tileId) {
+        layoutStore.patchTileContent(tileId, changes);
+      } else {
+        layoutStore.saveLayout();
+      }
+
       closeContextMenu();
-      showUrlInput.value = false;
     };
 
     const uploadCustomImage = async (file: File) => {
@@ -551,7 +537,11 @@ export default defineComponent({
       try {
         const url = await uploadFileToUrl(file, { fileType: "images" });
         props.content.customImageUrl = url;
-        layoutStore.saveLayout();
+        if (tileId) {
+          layoutStore.patchTileContent(tileId, { customImageUrl: url });
+        } else {
+          layoutStore.saveLayout();
+        }
       } catch (error: any) {
         console.error("Link tile image upload failed:", error);
         alert(error.message || "Failed to upload image. Please try again.");
@@ -657,12 +647,15 @@ export default defineComponent({
     };
 
     const handleContextUseUrl = () => {
-      openUrlInput();
+      closeContextMenu();
+      if (tileId) {
+        layoutStore.setPanelActive(tileId, "imageUrl");
+      }
     };
 
     const handleContextRemove = () => {
       closeContextMenu();
-      removeCustomImage();
+      removeImage();
     };
 
     const handleDocumentClick = (event: MouseEvent) => {
@@ -780,12 +773,13 @@ export default defineComponent({
       startEditing(closest);
     };
 
-    const openLink = () => {
-      const url = props.content.link.startsWith("http")
-        ? props.content.link
-        : `https://${props.content.link}`;
-      window.open(url, "_blank");
-    };
+    const resolvedHref = computed(() => {
+      const link = rawLink.value;
+      if (!link) return "";
+      if (/^(mailto|tel):/i.test(link)) return link;
+      if (/^[a-z][a-z0-9+.-]*:/i.test(link)) return link;
+      return `https://${link}`;
+    });
 
     const onTileClick = (event: MouseEvent) => {
       if (isEditing.value) {
@@ -798,7 +792,9 @@ export default defineComponent({
 
     const onShortClick = () => {
       if (isEditing.value) return;
-      openLink();
+      // Owners use the action bar "Follow Link" control.
+      // Viewers get native anchor behavior from the full-tile anchor.
+      if (layoutStore.canEdit) return;
     };
 
     const onExitClick = () => {
@@ -840,6 +836,8 @@ export default defineComponent({
       overlayColor: linkOverlayColor,
       handleBackgroundColorChange,
       formatLink,
+      isTelLink,
+      isMailtoLink,
       onTileClick,
       onShortClick,
       onExitClick,
@@ -851,6 +849,7 @@ export default defineComponent({
       startEditing,
       onDetailsClick,
       titleInputRef,
+      resolvedHref,
       titleLineClamp,
       isOneByOne,
       isWideOneHigh,
@@ -868,14 +867,9 @@ export default defineComponent({
       contextMenuRef,
       showContextMenu,
       isDragOver,
-      showUrlInput,
-      draftImageUrl,
-      urlError,
       openCustomImagePicker,
-      openUrlInput,
-      cancelUrlInput,
-      applyImageUrl,
-      removeCustomImage,
+      applyImageUrlFromToolbar,
+      removeImage,
       onCustomImageSelected,
       onDragEnter,
       onDragOver,
@@ -905,6 +899,13 @@ export default defineComponent({
   overflow: hidden;
   isolation: isolate;
   transform: translateZ(0);
+}
+
+.link-tile-anchor {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
 }
 
 .tile-background {
@@ -969,6 +970,7 @@ export default defineComponent({
   gap: var(--spacing-md);
   width: 100%;
   height: 100%;
+  min-height: 0;
 }
 
 .tile-header {
@@ -1010,6 +1012,22 @@ export default defineComponent({
   height: 100%;
   display: block;
   object-fit: contain;
+}
+
+.tile-logo-contact {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tile-text-color);
+  opacity: 0.85;
+}
+
+.tile-logo-contact-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 .tile-logo-close {
@@ -1079,7 +1097,7 @@ export default defineComponent({
 .tile-details {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  width: calc(100% + 16px);
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   transition:
@@ -1089,6 +1107,8 @@ export default defineComponent({
   margin-left: -8px;
   margin-bottom: -4px;
   overflow: hidden;
+  min-height: 0;
+  margin-top: auto;
 }
 
 .link-tile-content.is-owner .tile-details {
@@ -1207,23 +1227,21 @@ export default defineComponent({
 /* ── Title wrapper ── */
 
 .tile-field-wrap--title {
-  flex-shrink: 1;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
 .tile-field-wrap--title.is-visible {
-  max-height: 48px;
-  padding: 6px 6px;
+  max-height: none;
+  min-height: 28px;
+  padding: 4px 6px;
+  padding-top: 6px;
 }
 
 .tile-details.is-editing .tile-field-wrap--title.is-visible {
-  max-height: 48px;
+  max-height: none;
   overflow-y: auto;
-  scrollbar-color: var(--color-input-edit) transparent;
-  scrollbar-width: thin;
   overscroll-behavior: contain;
-  touch-action: pan-y;
-  scroll-behavior: smooth;
 }
 
 /* ── Title field ── */
@@ -1232,6 +1250,9 @@ export default defineComponent({
   font-size: 16px;
   font-weight: 600;
   line-height: 1.25;
+  padding: 0;
+  margin: 0;
+  border: none;
 }
 
 /* Wide variant (separate <p> in header) */
@@ -1265,23 +1286,20 @@ export default defineComponent({
 /* ── Description wrapper ── */
 
 .tile-field-wrap--description {
-  flex-shrink: 1;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
 .tile-field-wrap--description.is-visible {
-  max-height: 40px;
-  padding: 6px 6px;
+  max-height: none;
+  min-height: 28px;
+  padding: 4px 6px;
 }
 
 .tile-details.is-editing .tile-field-wrap--description.is-visible {
-  max-height: 40px;
-  overflow-y: scroll;
-  scrollbar-color: var(--color-input-edit) transparent;
-  scrollbar-width: thin;
+  max-height: none;
+  overflow-y: auto;
   overscroll-behavior: contain;
-  touch-action: pan-y;
-  scroll-behavior: smooth;
 }
 
 /* ── Description field ── */
@@ -1289,17 +1307,22 @@ export default defineComponent({
 .tile-field--description {
   font-size: 12px;
   line-height: 16px;
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+  color: var(--tile-text-color);
+  padding: 0;
+  margin: 0;
+  border: none;
 }
 
 /* ── Subtitle wrapper ── */
 
 .tile-field-wrap--subtitle {
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  min-height: 0;
 }
 
 .tile-field-wrap--subtitle.is-visible {
   max-height: 32px;
+  min-height: 24px;
   padding: 4px 6px;
 }
 
@@ -1308,7 +1331,8 @@ export default defineComponent({
 .tile-field--subtitle {
   font-size: 12px;
   line-height: 16px;
-  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+  /* color: color-mix(in srgb, var(--tile-text-color) 65%, transparent); */
+  color: var(--tile-text-color);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

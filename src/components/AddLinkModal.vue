@@ -6,7 +6,8 @@
           <input
             ref="linkInput"
             v-model="link"
-            type="url"
+            type="text"
+            inputmode="url"
             placeholder="Type or paste a link..."
             class="link-input"
             @keyup.enter="handleAdd"
@@ -82,6 +83,13 @@ const isValidUrl = computed(() => {
   const text = link.value.trim();
   if (!text) return false;
   try {
+    // Support non-web schemes used for Link Tiles.
+    if (/^(mailto|tel):/i.test(text)) {
+      // new URL() accepts mailto:/tel: in modern browsers; still keep it guarded.
+      new URL(text);
+      return true;
+    }
+
     if (text.startsWith("http://") || text.startsWith("https://")) {
       new URL(text);
       return true;

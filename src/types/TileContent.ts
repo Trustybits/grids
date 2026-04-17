@@ -1,5 +1,6 @@
 export enum ContentType {
   TEXT = "text",
+  SMART_TEXT = "smart_text",
   CHAT = "chat",
   IMAGE = "image",
   VIDEO = "video",
@@ -22,6 +23,20 @@ export interface TileContent {
 
 export interface TextContent extends TileContent {
   type: ContentType.TEXT;
+  text: string;
+  font: string;
+  fontSize: number;
+  isBold: boolean;
+  isItalic: boolean;
+  textType: string;
+  color: string;
+  textAlign?: "left" | "center" | "right";
+  tileLink?: string;
+  backgroundColor?: string;
+}
+
+export interface SmartTextContent extends TileContent {
+  type: ContentType.SMART_TEXT;
   text: string;
   font: string;
   fontSize: number;
@@ -149,7 +164,7 @@ export interface RPGContent extends TileContent {
   gameState: "playing" | "won" | "lost";
 }
 
-export type AvatarShape = "circle" | "square" | "hex";
+export type AvatarShape = "circle" | "square" | "polygon";
 
 export interface ProfileBioContent extends TileContent {
   type: ContentType.PROFILE;
@@ -158,6 +173,7 @@ export interface ProfileBioContent extends TileContent {
   bio: string;
   avatarShape: AvatarShape;
   avatarRadius: number;
+  avatarSides?: number; // polygon side count (3–8), default 6
   profilePhotoUrl?: string; // URL of the uploaded profile photo
   backgroundColor?: string;
 }
@@ -334,6 +350,7 @@ export interface RoadmapFeedContent extends TileContent {
 // which is necessary for patchTileContent to work with any content property.
 export type AnyTileContent =
   | TextContent
+  | SmartTextContent
   | ChatContent
   | ImageContent
   | LinkContent

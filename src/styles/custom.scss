@@ -54,13 +54,16 @@
 
 @keyframes liquid-metal-shift {
   0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
+    background-position:
+      0% 50%,
+      0% 0%,
+      0 0;
   }
   100% {
-    background-position: 0% 50%;
+    background-position:
+      200% 50%,
+      100% 100%,
+      24px 24px;
   }
 }
 
@@ -232,12 +235,12 @@ body.theme-dark {
 .liquid-metal-outline {
   --liquid-metal-border-width: 1px;
   --liquid-metal-radius: inherit;
-  --liquid-metal-speed: 2400ms;
-  --liquid-metal-opacity: 0.82;
-  --liquid-metal-tone-a: rgba(250, 242, 255, 0.85);
-  --liquid-metal-tone-b: rgba(199, 169, 255, 0.72);
-  --liquid-metal-tone-c: rgba(120, 86, 196, 0.7);
-  --liquid-metal-tone-d: rgba(221, 196, 255, 0.82);
+  --liquid-metal-speed: 2200ms;
+  --liquid-metal-opacity: 0.86;
+  --liquid-metal-tone-a: rgba(255, 247, 255, 0.95);
+  --liquid-metal-tone-b: rgba(228, 197, 255, 0.82);
+  --liquid-metal-tone-c: rgba(123, 88, 203, 0.72);
+  --liquid-metal-tone-d: rgba(214, 186, 255, 0.86);
   position: relative;
   border-color: transparent !important;
   isolation: isolate;
@@ -251,17 +254,34 @@ body.theme-dark {
   padding: var(--liquid-metal-border-width);
   background:
     linear-gradient(
-      120deg,
+      110deg,
       var(--liquid-metal-tone-a),
       var(--liquid-metal-tone-b),
       var(--liquid-metal-tone-c),
       var(--liquid-metal-tone-d),
       var(--liquid-metal-tone-a)
+    ),
+    radial-gradient(
+      120% 100% at 12% 0%,
+      rgba(255, 255, 255, 0.58) 0%,
+      rgba(255, 255, 255, 0.1) 38%,
+      transparent 70%
+    ),
+    repeating-linear-gradient(
+      -35deg,
+      rgba(255, 255, 255, 0.13) 0 2px,
+      rgba(131, 97, 210, 0.08) 2px 4px,
+      rgba(255, 255, 255, 0.03) 4px 6px,
+      transparent 6px 11px
     );
-  background-size: 260% 260%;
+  background-size:
+    220% 220%,
+    170% 170%,
+    24px 24px;
   opacity: var(--liquid-metal-opacity);
-  animation: liquid-metal-shift var(--liquid-metal-speed) ease-in-out infinite;
+  animation: liquid-metal-shift var(--liquid-metal-speed) linear infinite;
   pointer-events: none;
+  filter: saturate(1.18) contrast(1.05);
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -270,6 +290,19 @@ body.theme-dark {
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   mask-composite: exclude;
+}
+
+.liquid-metal-outline::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--liquid-metal-radius);
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    inset 0 -1px 0 rgba(96, 63, 172, 0.36),
+    0 0 0 1px rgba(224, 201, 255, 0.08);
+  opacity: 0.92;
 }
 
 @media (prefers-reduced-motion: reduce) {

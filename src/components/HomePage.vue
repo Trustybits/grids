@@ -121,6 +121,7 @@
         <p>Grids is built on tiles, simple building blocks that make page creation easy and fun while staying
             incredibly flexible. Create a polished link-in-bio, portfolio, digital garden, or project page
             without spending forever designing from scratch.</p>
+        <div class="home-landing__liquid-preview liquid-metal-outline" aria-hidden="true"></div>
         <router-link class="home-landing__btn home-landing__btn--primary" to="/login">Start building</router-link>
       </section>
     </main>
@@ -413,14 +414,14 @@ usePageTitle(pageTitle);
 }
 
 .home-landing__btn.liquid-metal-outline {
-  --liquid-metal-border-width: 1px;
+  --liquid-metal-border-width: 1.25px;
   --liquid-metal-radius: var(--radius-md);
-  --liquid-metal-speed: 2800ms;
-  --liquid-metal-opacity: 0.72;
-  --liquid-metal-tone-a: rgba(247, 235, 255, 0.88);
-  --liquid-metal-tone-b: rgba(211, 182, 255, 0.72);
-  --liquid-metal-tone-c: rgba(126, 92, 201, 0.64);
-  --liquid-metal-tone-d: rgba(230, 210, 255, 0.84);
+  --liquid-metal-speed: 2600ms;
+  --liquid-metal-opacity: 0.78;
+  --liquid-metal-tone-a: rgba(251, 238, 255, 0.92);
+  --liquid-metal-tone-b: rgba(213, 186, 255, 0.76);
+  --liquid-metal-tone-c: rgba(118, 82, 193, 0.66);
+  --liquid-metal-tone-d: rgba(231, 213, 255, 0.88);
 }
 
 .hero-tile__label {
@@ -672,6 +673,22 @@ usePageTitle(pageTitle);
   margin: 0;
   color: var(--blueprint-ink-soft);
   max-width: 52ch;
+}
+
+.home-landing__liquid-preview {
+  width: min(100%, 520px);
+  height: clamp(92px, 12vw, 132px);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(250, 239, 255, 0.2), transparent 55%),
+    linear-gradient(150deg, rgba(90, 62, 148, 0.78), rgba(32, 19, 52, 0.9));
+  box-shadow:
+    0 16px 34px rgba(6, 10, 18, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --liquid-metal-border-width: 2px;
+  --liquid-metal-radius: 16px;
+  --liquid-metal-speed: 1950ms;
+  --liquid-metal-opacity: 0.9;
 }
 
 .home-landing__footer {

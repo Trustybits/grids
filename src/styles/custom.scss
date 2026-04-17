@@ -52,6 +52,18 @@
   }
 }
 
+@keyframes liquid-metal-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 @mixin grid-layout($theme) {
   background-color: transparent;
 }
@@ -215,6 +227,55 @@ body.theme-dark {
   backdrop-filter: blur(16px) saturate(1.4);
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), inset 0 0.5px 0 rgba(255, 255, 255, 0.12);
+}
+
+.liquid-metal-outline {
+  --liquid-metal-border-width: 1px;
+  --liquid-metal-radius: inherit;
+  --liquid-metal-speed: 2400ms;
+  --liquid-metal-opacity: 0.82;
+  --liquid-metal-tone-a: rgba(250, 242, 255, 0.85);
+  --liquid-metal-tone-b: rgba(199, 169, 255, 0.72);
+  --liquid-metal-tone-c: rgba(120, 86, 196, 0.7);
+  --liquid-metal-tone-d: rgba(221, 196, 255, 0.82);
+  position: relative;
+  border-color: transparent !important;
+  isolation: isolate;
+}
+
+.liquid-metal-outline::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--liquid-metal-radius);
+  padding: var(--liquid-metal-border-width);
+  background:
+    linear-gradient(
+      120deg,
+      var(--liquid-metal-tone-a),
+      var(--liquid-metal-tone-b),
+      var(--liquid-metal-tone-c),
+      var(--liquid-metal-tone-d),
+      var(--liquid-metal-tone-a)
+    );
+  background-size: 260% 260%;
+  opacity: var(--liquid-metal-opacity);
+  animation: liquid-metal-shift var(--liquid-metal-speed) ease-in-out infinite;
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-metal-outline::before {
+    animation: none;
+  }
 }
 
 button {

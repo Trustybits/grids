@@ -9,7 +9,7 @@
       </div>
       <div class="home-landing__topbar-actions home-landing__topbar-reveal">
         <router-link class="home-landing__text-link" to="/pricing">Pricing</router-link>
-        <router-link class="home-landing__btn home-landing__btn--ghost" to="/login">Log in</router-link>
+        <router-link class="home-landing__btn home-landing__btn--ghost liquid-metal-outline" to="/login">Log in</router-link>
       </div>
     </header>
 
@@ -23,7 +23,7 @@
           </p>
           <div class="home-landing__hero-actions">
             <router-link class="home-landing__btn home-landing__btn--primary" to="/login">Start building for free</router-link>
-            <router-link class="home-landing__btn home-landing__btn--soft" to="/pricing">See plans</router-link>
+            <router-link class="home-landing__btn home-landing__btn--soft liquid-metal-outline" to="/pricing">See plans</router-link>
           </div>
           <p class="home-landing__meta">No code. No blank-canvas overwhelm. Build and share quickly.</p>
         </div>
@@ -410,6 +410,17 @@ usePageTitle(pageTitle);
   border-color: var(--blueprint-dash);
   color: var(--blueprint-ink-soft);
   background: rgba(43, 26, 70, 0.46);
+}
+
+.home-landing__btn.liquid-metal-outline {
+  --liquid-metal-border-width: 1px;
+  --liquid-metal-radius: var(--radius-md);
+  --liquid-metal-speed: 2800ms;
+  --liquid-metal-opacity: 0.72;
+  --liquid-metal-tone-a: rgba(247, 235, 255, 0.88);
+  --liquid-metal-tone-b: rgba(211, 182, 255, 0.72);
+  --liquid-metal-tone-c: rgba(126, 92, 201, 0.64);
+  --liquid-metal-tone-d: rgba(230, 210, 255, 0.84);
 }
 
 .hero-tile__label {

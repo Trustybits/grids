@@ -86,7 +86,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
             type: "doc",
             content: [{ type: "paragraph", content: [{ type: "text", text: trimmedText }] }],
           };
-          const textContent = createTileContent(ContentType.TEXT, {
+          const textContent = createTileContent(ContentType.SMART_TEXT, {
             text: JSON.stringify(tiptapDoc),
           });
           const tileId = layoutStore.addTile(textContent);
@@ -99,7 +99,11 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     }
   };
 
+  const isSmartTextDrag = (event: DragEvent): boolean =>
+    !!event.dataTransfer?.types.includes("application/x-smarttext-drag");
+
   const handleDrop = async (event: DragEvent) => {
+    if (isSmartTextDrag(event)) return;
     event.preventDefault();
     isDraggingOver.value = false;
     dragCounter = 0;
@@ -132,7 +136,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   };
 
   const handleDragOver = (event: DragEvent) => {
-    if (!layoutStore.canEdit) return;
+    if (!layoutStore.canEdit || isSmartTextDrag(event)) return;
     event.preventDefault();
     if (event.dataTransfer) {
       event.dataTransfer.dropEffect = "copy";
@@ -140,14 +144,14 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   };
 
   const handleDragEnter = (event: DragEvent) => {
-    if (!layoutStore.canEdit) return;
+    if (!layoutStore.canEdit || isSmartTextDrag(event)) return;
     event.preventDefault();
     dragCounter++;
     isDraggingOver.value = true;
   };
 
   const handleDragLeave = (event: DragEvent) => {
-    if (!layoutStore.canEdit) return;
+    if (!layoutStore.canEdit || isSmartTextDrag(event)) return;
     event.preventDefault();
     dragCounter--;
     if (dragCounter === 0) {
@@ -166,6 +170,12 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     if (/\s/.test(text)) return false;
 
     try {
+      // Support non-web schemes used for Link Tiles.
+      if (/^(mailto|tel):/i.test(text)) {
+        new URL(text);
+        return true;
+      }
+
       // If it already has a scheme, validate directly
       if (text.startsWith("http://") || text.startsWith("https://")) {
         new URL(text);
@@ -186,16 +196,23 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   };
 
   const handleUrlPaste = async (url: string) => {
-    const formattedUrl = url.startsWith("http") ? url : `https://${url}`;
+    const trimmed = (url || "").trim();
+    const formattedUrl = /^(mailto|tel):/i.test(trimmed)
+      ? trimmed
+      : trimmed.startsWith("http")
+        ? trimmed
+        : `https://${trimmed}`;
     
     // Check if this URL should be a special content type (YouTube, music, image, video, etc.)
-    const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
-    if (detectedContent.type === ContentType.YOUTUBE ||
-        detectedContent.type === ContentType.MUSIC ||
-        detectedContent.type === ContentType.IMAGE ||
-        detectedContent.type === ContentType.VIDEO) {
-      layoutStore.addTile(detectedContent);
-      return;
+    if (!/^(mailto|tel):/i.test(formattedUrl)) {
+      const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
+      if (detectedContent.type === ContentType.YOUTUBE ||
+          detectedContent.type === ContentType.MUSIC ||
+          detectedContent.type === ContentType.IMAGE ||
+          detectedContent.type === ContentType.VIDEO) {
+        layoutStore.addTile(detectedContent);
+        return;
+      }
     }
 
     // Otherwise, create a link tile and fetch metadata
@@ -205,6 +222,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     if (tileId) {
       // Fetch link preview in background
       try {
+        if (/^(mailto|tel):/i.test(formattedUrl)) return;
         const getLinkPreview = httpsCallable(functions, "getLinkPreview");
         const result = await getLinkPreview({ url: formattedUrl });
         const data = result.data as any;
@@ -225,16 +243,23 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   };
 
   const handleUrlDrop = async (url: string) => {
-    const formattedUrl = url.startsWith("http") ? url : `https://${url}`;
+    const trimmed = (url || "").trim();
+    const formattedUrl = /^(mailto|tel):/i.test(trimmed)
+      ? trimmed
+      : trimmed.startsWith("http")
+        ? trimmed
+        : `https://${trimmed}`;
     
     // Check if this URL should be a special content type (YouTube, music, image, video, etc.)
-    const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
-    if (detectedContent.type === ContentType.YOUTUBE ||
-        detectedContent.type === ContentType.MUSIC ||
-        detectedContent.type === ContentType.IMAGE ||
-        detectedContent.type === ContentType.VIDEO) {
-      layoutStore.addTile(detectedContent);
-      return;
+    if (!/^(mailto|tel):/i.test(formattedUrl)) {
+      const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
+      if (detectedContent.type === ContentType.YOUTUBE ||
+          detectedContent.type === ContentType.MUSIC ||
+          detectedContent.type === ContentType.IMAGE ||
+          detectedContent.type === ContentType.VIDEO) {
+        layoutStore.addTile(detectedContent);
+        return;
+      }
     }
 
     // Otherwise, create a link tile and fetch metadata
@@ -244,6 +269,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     if (tileId) {
       // Fetch link preview in background
       try {
+        if (/^(mailto|tel):/i.test(formattedUrl)) return;
         const getLinkPreview = httpsCallable(functions, "getLinkPreview");
         const result = await getLinkPreview({ url: formattedUrl });
         const data = result.data as any;

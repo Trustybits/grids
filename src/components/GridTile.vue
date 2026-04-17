@@ -40,10 +40,12 @@
           'is-dragging': isDragging,
           'is-exiting': isExiting,
           'is-activated': isActivated,
+          'embed-is-interactive': isEmbedInteractive,
         }"
         :data-border="borderVisible ? 'on' : 'off'"
         :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
         :data-suggestion="isSuggestion ? 'true' : 'false'"
+        :data-active-zone="hoveredToolbarZone || ''"
         ref="gridTileRef"
         @mouseenter="isHovered = true"
         @mouseleave="isHovered = false"
@@ -110,21 +112,28 @@
           <component :is="headerComponent" :content="tile.content" />
         </div>
 
-        <p v-if="layoutStore.showMetaData" class="meta-data">
-          {{ `x: ${tile.x}, y: ${tile.y} w: ${tile.w} h: ${tile.h}` }}
-        </p>
+        <div v-if="layoutStore.showMetaData" class="meta-data">
+          <p class="meta-data__compact">{{ compactMetadata }}</p>
+          <p
+            v-if="layoutStore.showMetaDataVerbose"
+            class="meta-data__verbose"
+            v-for="line in verboseMetadataLines"
+            :key="line"
+          >
+            {{ line }}
+          </p>
+        </div>
 
-        <TileActions
+        <div
           v-if="layoutStore.canEdit && !isSuggestion"
-          :tile="tile"
-          @delete="removeElement"
-        />
-
-        <TileActions
-          v-if="layoutStore.canEdit && !isSuggestion"
-          :tile="tile"
-          @delete="removeElement"
-        />
+          class="tile-actions-layer"
+          :class="{ 'z-priority': hoveredLayer === 'actions' }"
+          @mouseenter="hoveredLayer = 'actions'"
+          @mouseleave="hoveredLayer = null"
+          @touchstart="hoveredLayer = 'actions'"
+        >
+          <TileActions :tile="tile" @delete="removeElement" />
+        </div>
 
         <TileCaption
           v-if="showCaption && (layoutStore.canEdit || tile.caption)"
@@ -134,14 +143,29 @@
         <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
         <div v-if="isTileResizable" class="resize-indicator"></div>
 
-        <TileToolbar
+        <div
           v-if="layoutStore.canEdit && !isSuggestion"
-          :tile="tile"
-          :toolbarRefs="toolbarRefs"
-        />
+          class="tile-toolbar-layer"
+          :class="{ 'z-priority': hoveredLayer !== 'actions' }"
+          @mouseenter="hoveredLayer = 'toolbar'"
+          @mouseleave="hoveredLayer = null"
+          @touchstart="hoveredLayer = 'toolbar'"
+        >
+          <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
+        </div>
       </div>
     </grid-item>
   </div>
+  <AddLinkModal
+    :show="showSuggestionLinkModal"
+    @close="closeSuggestionLinkModal"
+    @add="handleSuggestionAddLink"
+  />
+  <AddEmbedModal
+    :show="showSuggestionEmbedModal"
+    @close="closeSuggestionEmbedModal"
+    @add="handleSuggestionAddEmbed"
+  />
 </template>
 
 <script lang="ts">
@@ -163,11 +187,8 @@ import {
   getContentComponent,
   getOptionComponent,
   createTileContent,
-  createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 import { ContentType, type LinkContent } from "@/types/TileContent";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
 import TextIcon from "./icons/TextIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
@@ -177,6 +198,9 @@ import TileToolbar from "./TileToolbar.vue";
 import TileActions from "./TileActions.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 import ColorPicker from "./ColorPicker.vue";
+import AddLinkModal from "./AddLinkModal.vue";
+import AddEmbedModal from "./AddEmbedModal.vue";
+import { useTileInput } from "@/composables/useTileInput";
 
 export default defineComponent({
   components: {
@@ -190,6 +214,8 @@ export default defineComponent({
     EmbedIcon,
     ProfileIcon,
     ColorPicker,
+    AddLinkModal,
+    AddEmbedModal,
   },
   props: {
     tile: {
@@ -200,6 +226,7 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
     const { uploadFileOptimisticForTile } = useFileUpload();
+    const { submitLink, submitEmbed } = useTileInput();
 
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).
@@ -230,6 +257,12 @@ export default defineComponent({
     const isExiting = ref(false);
     const isActivated = ref(false);
     const isHovered = ref(false);
+    const hoveredToolbarZone = ref<string | null>(null);
+    provide("hoveredToolbarZone", hoveredToolbarZone);
+    provide("tileActivated", isActivated);
+    const isEmbedInteractive = ref(false);
+    provide("isEmbedInteractive", isEmbedInteractive);
+    const hoveredLayer = ref<"actions" | "toolbar" | null>(null);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
     const childComponent = ref<any>(null);
@@ -253,6 +286,7 @@ export default defineComponent({
       const hiddenTypes = [
         ContentType.LINK,
         ContentType.TEXT,
+        ContentType.SMART_TEXT,
         ContentType.CHAT,
         ContentType.EMBED,
         ContentType.CAMPFIRE,
@@ -310,7 +344,7 @@ export default defineComponent({
     });
 
     const isTileResizable = computed(() => {
-      if (!layoutStore.canEdit || isSuggestion.value || isProfileTile.value) {
+      if (!layoutStore.canEdit || isSuggestion.value) {
         return false;
       }
       if (isTouchDevice()) return isActivated.value && !isEditing.value;
@@ -318,6 +352,8 @@ export default defineComponent({
     });
 
     const mediaInput = ref<HTMLInputElement | null>(null);
+    const showSuggestionLinkModal = ref(false);
+    const showSuggestionEmbedModal = ref(false);
 
     const loadComponent = async () => {
       currentComponent.value = await getContentComponent(props.tile.content);
@@ -462,41 +498,32 @@ export default defineComponent({
           break;
         }
         case "link": {
-          const link = prompt("Please enter a link");
-          if (!link) return;
-          const linkContent = createTileContent(ContentType.LINK, { link });
-          layoutStore.setTileContent(props.tile.i, linkContent);
-          (async () => {
-            try {
-              const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-              const result = await getLinkPreview({
-                url: (linkContent as any).link,
-              });
-              const data = result.data as any;
-
-              layoutStore.patchTileContent(props.tile.i, {
-                link: data?.url,
-                domain: data?.domain,
-                faviconUrl: data?.faviconUrl || (linkContent as any).faviconUrl,
-                metaTitle: data?.title,
-                metaDescription: data?.description,
-                metaImageUrl: data?.imageUrl,
-                metaSiteName: data?.siteName,
-              });
-            } catch (error) {
-              console.error("Failed to fetch link preview:", error);
-            }
-          })();
+          showSuggestionLinkModal.value = true;
           break;
         }
         case "embed": {
-          const url = prompt("Please enter an embed URL");
-          if (!url) return;
-          const content = createTileContentFromEmbedUrl(url);
-          layoutStore.setTileContent(props.tile.i, content);
+          showSuggestionEmbedModal.value = true;
           break;
         }
       }
+    };
+
+    const closeSuggestionLinkModal = () => {
+      showSuggestionLinkModal.value = false;
+    };
+
+    const closeSuggestionEmbedModal = () => {
+      showSuggestionEmbedModal.value = false;
+    };
+
+    const handleSuggestionAddLink = (link: string) => {
+      closeSuggestionLinkModal();
+      void submitLink(link, { mode: "replace", tileId: props.tile.i });
+    };
+
+    const handleSuggestionAddEmbed = (url: string) => {
+      closeSuggestionEmbedModal();
+      submitEmbed(url, { mode: "replace", tileId: props.tile.i });
     };
 
     const onMediaSelected = async (event: Event) => {
@@ -618,10 +645,16 @@ export default defineComponent({
         });
         // Do NOT preventDefault — let the browser scroll naturally
       } else {
-        // Subsequent touch: tile already activated, treat as interaction
         touchWasActivating = false;
         clickStart.value = Date.now();
-        event.preventDefault();
+        const target = event.target as HTMLElement;
+        if (
+          !target.closest(
+            'button, a, input, select, textarea, [role="button"]',
+          )
+        ) {
+          event.preventDefault();
+        }
       }
     };
 
@@ -689,6 +722,67 @@ export default defineComponent({
       return linkBackgroundEnabled.value ? borderEnabled.value : true;
     });
 
+    const compactMetadata = computed(() => {
+      return [
+        `type: ${props.tile.content.type}`,
+        `x: ${props.tile.x}`,
+        `y: ${props.tile.y}`,
+        `w: ${props.tile.w}`,
+        `h: ${props.tile.h}`,
+        `id: ${props.tile.i}`,
+      ].join(" | ");
+    });
+
+    const typeSpecificMeta = computed(() => {
+      const content = props.tile.content as any;
+      switch (props.tile.content.type) {
+        case ContentType.TEXT: {
+          const rawText = typeof content.text === "string" ? content.text : "";
+          return `textChars: ${rawText.length}`;
+        }
+        case ContentType.IMAGE:
+        case ContentType.VIDEO: {
+          const hasSrc =
+            typeof content.src === "string" && content.src.trim().length > 0;
+          return `hasMediaSrc: ${hasSrc ? "yes" : "no"} | zoom: ${content.zoom ?? "n/a"}`;
+        }
+        case ContentType.LINK: {
+          const rawLink = typeof content.link === "string" ? content.link : "";
+          let domain = "n/a";
+          if (rawLink) {
+            try {
+              domain = new URL(rawLink).hostname || "n/a";
+            } catch {
+              domain = "invalid";
+            }
+          }
+          return `urlSet: ${rawLink ? "yes" : "no"} | domain: ${domain}`;
+        }
+        case ContentType.SUGGESTION:
+          return `suggestionAction: ${content.action ?? "n/a"} | label: ${content.label ?? "n/a"}`;
+        case ContentType.MAP:
+          return `zoom: ${content.zoom ?? "n/a"} | marker: ${content.marker ? "yes" : "no"}`;
+        case ContentType.CHAT:
+          return `messages: ${Array.isArray(content.messages) ? content.messages.length : 0}`;
+        default:
+          return "typeSpecific: n/a";
+      }
+    });
+
+    const verboseMetadataLines = computed(() => {
+      const caption = props.tile.caption?.trim();
+      const cookieValue = layoutStore.getCookieValue("showMetaData");
+      const verboseCookieValue = layoutStore.getCookieValue("showMetaDataVerbose");
+      return [
+        `caption: ${caption ? caption.slice(0, 40) : "n/a"}`,
+        `borderEnabled: ${borderEnabled.value ? "true" : "false"} | draggable: ${isTileDraggable.value ? "true" : "false"} | resizable: ${isTileResizable.value ? "true" : "false"}`,
+        `breakpoint: ${layoutStore.activeBreakpoint} | canEdit: ${layoutStore.canEdit ? "true" : "false"} | isOwner: ${layoutStore.isOwner ? "true" : "false"}`,
+        `displaySource: ${layoutStore.activeBreakpoint === "lg" ? "tileBase" : "breakpointOverrideOrDisplay"}`,
+        `cookie(meta): ${cookieValue ?? "unset"} | cookie(verbose): ${verboseCookieValue ?? "unset"}`,
+        typeSpecificMeta.value,
+      ];
+    });
+
     const toolbarRefs = { childComponent, isEditing, isExitingCropMode };
 
     // Re-load the dynamic component whenever the content type changes
@@ -750,12 +844,15 @@ export default defineComponent({
       isExiting,
       isActivated,
       isHovered,
+      hoveredToolbarZone,
       onMoved,
       onResize,
       onResized,
       showCaption,
       borderVisible,
       linkBackgroundEnabled,
+      compactMetadata,
+      verboseMetadataLines,
       contentBackgroundColor,
       contentTextColor,
       onContentBackgroundColorChange,
@@ -769,10 +866,18 @@ export default defineComponent({
 
       mediaInput,
       onMediaSelected,
+      showSuggestionLinkModal,
+      showSuggestionEmbedModal,
+      closeSuggestionLinkModal,
+      closeSuggestionEmbedModal,
+      handleSuggestionAddLink,
+      handleSuggestionAddEmbed,
       isCroppable,
       toggleCropMode,
       isExitingCropMode,
       toolbarRefs,
+      hoveredLayer,
+      isEmbedInteractive,
     };
   },
 });
@@ -843,6 +948,7 @@ export default defineComponent({
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   border-radius: var(--tile-border-radius);
+  transition: box-shadow 0.3s ease;
   /* turn off shadow when border is off */
   &[data-border="off"] {
     box-shadow: none;
@@ -971,8 +1077,32 @@ export default defineComponent({
   font-size: 10px;
   left: 10px;
   top: 10px;
+  z-index: 6;
+  pointer-events: none;
+  max-width: calc(100% - 20px);
+  color: var(--color-text-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  padding: 8px 8px 16px 8px;
+  border-radius: 16px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-tile-background) 88%, transparent) 0%,
+    color-mix(in srgb, var(--color-tile-background) 72%, transparent) 55%,
+    transparent 100%
+  );
+  backdrop-filter: blur(1.5px);
 }
 
+.meta-data__compact,
+.meta-data__verbose {
+  margin: 0;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.meta-data__verbose {
+  opacity: 0.9;
+}
 
 /* Customizable Header Styles */
 .header-options {
@@ -1007,6 +1137,10 @@ export default defineComponent({
   display: flex;
 }
 
+/* Show embed interact overlay on tile activation (touch devices) */
+.tile-wrapper.is-activated :deep(.embed-interact-overlay) {
+  opacity: 1;
+}
 
 /* Non-owner caption: hide on tile hover or activation */
 .tile-wrapper:hover :deep(.viewer-caption),
@@ -1014,7 +1148,6 @@ export default defineComponent({
   display: none;
 }
 
-
 /* Show tile actions on hover and activation */
 .tile-wrapper:hover :deep(.tile-actions),
 .tile-wrapper.is-activated :deep(.tile-actions) {
@@ -1032,21 +1165,44 @@ export default defineComponent({
   pointer-events: none;
 }
 
-/* Show tile actions on hover and activation */
-.tile-wrapper:hover :deep(.tile-actions),
-.tile-wrapper.is-activated :deep(.tile-actions) {
+/* Keep tile actions visible while embed is interactive */
+.tile-wrapper.embed-is-interactive :deep(.tile-actions) {
   opacity: 1;
   pointer-events: auto;
 }
 
-/* Hide tile actions during crop mode, exiting, and while dragging */
-.tile-wrapper.crop-mode-active :deep(.tile-actions),
-.tile-wrapper.crop-mode-exiting :deep(.tile-actions),
-.tile-wrapper.is-exiting :deep(.tile-actions),
-.tile-wrapper.is-dragging :deep(.tile-actions),
-.tile-wrapper.is-activated.is-dragging :deep(.tile-actions) {
-  opacity: 0;
+/* Glow border while embed is interactive */
+.tile-wrapper.embed-is-interactive {
+  box-shadow: 0 0 0 2px var(--color-figma-purple, #a259ff), 0 0 20px 4px rgba(162, 89, 255, 0.3);
+}
+
+/* Hover-priority layering wrappers */
+.tile-actions-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   pointer-events: none;
+  z-index: 11;
+
+  &.z-priority {
+    z-index: 10001;
+  }
+}
+
+.tile-toolbar-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 10000;
+
+  &:not(.z-priority) {
+    z-index: 9;
+  }
 }
 
 /* Show toolbar on tile hover, activation, and during crop mode (reaches into TileToolbar child) */
@@ -1059,19 +1215,50 @@ export default defineComponent({
   pointer-events: auto;
 }
 
-/* Show search panel when toolbar is visible */
+/* Show search panel and image URL panel when toolbar is visible */
 .tile-wrapper:hover :deep(.toolbar-search-panel),
 .tile-wrapper.is-activated :deep(.toolbar-search-panel),
 .tile-wrapper.crop-mode-active :deep(.toolbar-search-panel),
-.tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel) {
+.tile-wrapper.crop-mode-exiting :deep(.toolbar-search-panel),
+.tile-wrapper:hover :deep(.toolbar-image-url-panel),
+.tile-wrapper.is-activated :deep(.toolbar-image-url-panel),
+.tile-wrapper.crop-mode-active :deep(.toolbar-image-url-panel),
+.tile-wrapper.crop-mode-exiting :deep(.toolbar-image-url-panel) {
   pointer-events: auto;
+}
+
+/* Dim sibling toolbars when one specific zone is hovered */
+.tile-wrapper[data-active-zone="actions"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="actions"].is-activated :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="avatar"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="avatar"].is-activated :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="radius"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="radius"].is-activated :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="sides"]:hover :deep(.tile-toolbar),
+.tile-wrapper[data-active-zone="sides"].is-activated :deep(.tile-toolbar) {
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.tile-wrapper[data-active-zone="toolbar"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="toolbar"].is-activated :deep(.tile-actions),
+.tile-wrapper[data-active-zone="avatar"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="avatar"].is-activated :deep(.tile-actions),
+.tile-wrapper[data-active-zone="radius"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="radius"].is-activated :deep(.tile-actions),
+.tile-wrapper[data-active-zone="sides"]:hover :deep(.tile-actions),
+.tile-wrapper[data-active-zone="sides"].is-activated :deep(.tile-actions) {
+  opacity: 0.15;
+  pointer-events: none;
 }
 
 /* Hide toolbar when tile is exiting or being dragged */
 .tile-wrapper.is-exiting :deep(.tile-toolbar),
 .tile-wrapper.is-exiting :deep(.toolbar-search-panel),
+.tile-wrapper.is-exiting :deep(.toolbar-image-url-panel),
 .tile-wrapper.is-dragging :deep(.tile-toolbar),
-.tile-wrapper.is-dragging :deep(.toolbar-search-panel) {
+.tile-wrapper.is-dragging :deep(.toolbar-search-panel),
+.tile-wrapper.is-dragging :deep(.toolbar-image-url-panel) {
   opacity: 0;
   transform: translate(-50%, calc(100% + 10px)) scale(0.9);
   pointer-events: none;

@@ -8,7 +8,11 @@
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
       <button class="btn btn-secondary" data-tooltip="Text" @click="addTextElement">
-        <TextIcon />
+        <TextLegacyIcon />
+      </button>
+
+      <button v-if="smartTextEnabled" class="btn btn-secondary" data-tooltip="Smart Text" @click="addSmartTextElement">
+        <AppBarTextIcon />
       </button>
 
       <button class="btn btn-secondary" data-tooltip="Profile" @click="addProfileElement">
@@ -78,16 +82,17 @@
 import { ref } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import { ContentType } from "@/types/TileContent";
-import { createTileContent, createTileContentFromEmbedUrl } from "@/utils/TileUtils";
+import { createTileContent } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
 import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
+import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
+import { useTileInput } from "@/composables/useTileInput";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
 import AddMapModal from "./AddMapModal.vue";
-import TextIcon from "./icons/TextIcon.vue";
+import TextLegacyIcon from "./icons/appbar/TextLegacyIcon.vue";
+import AppBarTextIcon from "./icons/appbar/TextIcon.vue";
 import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkTileIcon from "./icons/LinkTileIcon.vue";
@@ -102,7 +107,8 @@ export default {
     AddLinkModal,
     AddEmbedModal,
     AddMapModal,
-    TextIcon,
+    TextLegacyIcon,
+    AppBarTextIcon,
     ChatIcon,
     ImageIcon,
     LinkTileIcon,
@@ -116,9 +122,13 @@ export default {
     const themeStore = useThemeStore();
     const isDarkMode = computed(() => themeStore.isDarkMode);
 
+    const { isEnabled } = useFeatureFlags();
+    const smartTextEnabled = computed(() => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT));
+
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);
     const { uploadFileOptimistic } = useFileUpload();
+    const { submitLink, submitEmbed } = useTileInput();
 
     const showLinkModal = ref(false);
     const showEmbedModal = ref(false);
@@ -128,6 +138,14 @@ export default {
       const textContent = createTileContent(ContentType.TEXT, {});
       const tileId = layoutStore.addTile(textContent);
       // Auto-focus the new text tile so the user can start typing immediately
+      if (tileId) {
+        layoutStore.pendingFocusTileId = tileId;
+      }
+    };
+
+    const addSmartTextElement = () => {
+      const textContent = createTileContent(ContentType.SMART_TEXT, {});
+      const tileId = layoutStore.addTile(textContent);
       if (tileId) {
         layoutStore.pendingFocusTileId = tileId;
       }
@@ -178,44 +196,7 @@ export default {
 
     const handleAddLink = (link: string) => {
       closeLinkModal();
-      
-      // Check if this URL should be a special content type (YouTube, image, video, etc.)
-      // instead of a generic link tile
-      const detectedContent = createTileContentFromEmbedUrl(link);
-      
-      // If it's detected as YouTube, image, or video, use that specialized type
-      if (detectedContent.type === ContentType.YOUTUBE || 
-          detectedContent.type === ContentType.IMAGE ||
-          detectedContent.type === ContentType.VIDEO) {
-        layoutStore.addTile(detectedContent);
-        return;
-      }
-      
-      // Otherwise, create a link tile with preview
-      const linkContent = createTileContent(ContentType.LINK, { link });
-      const tileId = layoutStore.addTile(linkContent);
-
-      if (tileId) {
-        (async () => {
-          try {
-            const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-            const result = await getLinkPreview({ url: (linkContent as any).link });
-            const data = result.data as any;
-
-            layoutStore.patchTileContent(tileId, {
-              link: data?.url,
-              domain: data?.domain,
-              faviconUrl: data?.faviconUrl || (linkContent as any).faviconUrl,
-              metaTitle: data?.title,
-              metaDescription: data?.description,
-              metaImageUrl: data?.imageUrl,
-              metaSiteName: data?.siteName,
-            });
-          } catch (error) {
-            console.error("Failed to fetch link preview:", error);
-          }
-        })();
-      }
+      void submitLink(link, { mode: "add" });
     };
 
     const addEmbedElement = () => {
@@ -228,8 +209,7 @@ export default {
 
     const handleAddEmbed = (link: string) => {
       closeEmbedModal();
-      const content = createTileContentFromEmbedUrl(link);
-      layoutStore.addTile(content);
+      submitEmbed(link, { mode: "add" });
     };
 
     const addMapElement = () => {
@@ -281,7 +261,9 @@ export default {
     return {
       imageInput,
       layoutStore,
+      smartTextEnabled,
       addTextElement,
+      addSmartTextElement,
       addProfileElement,
       addChatElement,
       addCampfireElement,
@@ -366,36 +348,6 @@ export default {
     background-color: var(--color-base-55);
     color: var(--color-text-primary);
   }
-}
-
-/* Tooltip via data-tooltip attribute */
-.toolbarAlpha button[data-tooltip] {
-  position: relative;
-}
-
-.toolbarAlpha button[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%) scale(0.9);
-  white-space: nowrap;
-  font-size: 11px;
-  line-height: 1;
-  padding: 5px 8px;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-text-primary);
-  color: var(--color-tile-background);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity var(--duration-fast) var(--easing-ease-out),
-              transform var(--duration-fast) var(--easing-ease-out);
-  z-index: var(--z-tooltip);
-}
-
-.toolbarAlpha button[data-tooltip]:hover::after {
-  opacity: 1;
-  transform: translateX(-50%) scale(1);
 }
 
 .toolbarAlpha button svg {

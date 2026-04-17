@@ -29,7 +29,6 @@
 
     <!-- Pricing cards -->
     <div class="pricing-grid">
-
       <!-- ── Community (free) ────────────────────────────────────────── -->
       <div class="pricing-card">
         <div class="card-header">
@@ -59,14 +58,19 @@
       </div>
 
       <!-- ── Supporter (PWYW) ───────────────────────────────────────── -->
-      <div class="pricing-card card-supporter" :class="{ 'is-current': hasSupporterBadge && tier !== 'pro' }">
+      <div
+        class="pricing-card card-supporter"
+        :class="{ 'is-current': hasSupporterBadge && tier !== 'pro' }"
+      >
         <div class="card-badge">Support the project</div>
         <div class="card-header">
           <h2>Supporter</h2>
           <div class="price">
             <span class="amount">Pay what you want</span>
           </div>
-          <p class="card-tagline">One-time. No subscription. Unlock the Supporter badge.</p>
+          <p class="card-tagline">
+            One-time. No subscription. Unlock the Supporter badge.
+          </p>
         </div>
 
         <div class="card-cta">
@@ -83,10 +87,12 @@
                   v-for="preset in pwywPresets"
                   :key="preset"
                   class="preset-btn"
-                  :class="{ active: selectedAmount === preset && !customAmountMode }"
+                  :class="{
+                    active: selectedAmount === preset && !customAmountMode,
+                  }"
                   @click="selectPreset(preset)"
                 >
-                  {{ preset === 0 ? 'Free' : `$${preset}` }}
+                  {{ preset === 0 ? "Free" : `$${preset}` }}
                 </button>
                 <button
                   class="preset-btn"
@@ -106,7 +112,7 @@
                   step="1"
                   placeholder="0"
                   class="amount-input"
-                  @focus="$event.target.select()"
+                  @focus="($event.target as HTMLInputElement)?.select()"
                 />
               </div>
             </div>
@@ -136,12 +142,21 @@
       </div>
 
       <!-- ── Pro ───────────────────────────────────────────────────── -->
-      <div class="pricing-card card-pro" :class="{ 'is-current': isProOrAbove }">
+      <div
+        class="pricing-card card-pro"
+        :class="{ 'is-current': isProOrAbove }"
+      >
         <div class="card-badge card-badge-pro">Most powerful</div>
         <div class="card-header">
           <h2>Pro</h2>
           <div class="price">
-            <span class="amount">${{ billingInterval === 'month' ? proMonthlyPrice : proAnnualMonthlyPrice }}</span>
+            <span class="amount"
+              >${{
+                billingInterval === "month"
+                  ? proMonthlyPrice
+                  : proAnnualMonthlyPrice
+              }}</span
+            >
             <span class="period">/ mo</span>
           </div>
           <p v-if="billingInterval === 'year'" class="annual-note">
@@ -162,7 +177,10 @@
             </button>
           </template>
           <template v-else-if="tier === 'free'">
-            <router-link to="/login?redirect=/pricing" class="btn btn-primary w-100">
+            <router-link
+              to="/login?redirect=/pricing"
+              class="btn btn-primary w-100"
+            >
               Sign up for Pro
             </router-link>
           </template>
@@ -192,8 +210,11 @@
 
     <!-- Feature comparison table (collapsible on mobile) -->
     <div class="comparison-section">
-      <button class="comparison-toggle" @click="showComparison = !showComparison">
-        {{ showComparison ? 'Hide' : 'See full' }} feature comparison
+      <button
+        class="comparison-toggle"
+        @click="showComparison = !showComparison"
+      >
+        {{ showComparison ? "Hide" : "See full" }} feature comparison
         <span :class="{ rotated: showComparison }">▾</span>
       </button>
 
@@ -210,9 +231,21 @@
           <tbody>
             <tr v-for="row in comparisonRows" :key="row.feature">
               <td>{{ row.feature }}</td>
-              <td><span :class="row.community ? 'check' : 'cross'">{{ row.community ? '✓' : '—' }}</span></td>
-              <td><span :class="row.supporter ? 'check' : 'cross'">{{ row.supporter ? '✓' : '—' }}</span></td>
-              <td><span :class="row.pro ? 'check' : 'cross'">{{ row.pro ? '✓' : '—' }}</span></td>
+              <td>
+                <span :class="row.community ? 'check' : 'cross'">{{
+                  row.community ? "✓" : "—"
+                }}</span>
+              </td>
+              <td>
+                <span :class="row.supporter ? 'check' : 'cross'">{{
+                  row.supporter ? "✓" : "—"
+                }}</span>
+              </td>
+              <td>
+                <span :class="row.pro ? 'check' : 'cross'">{{
+                  row.pro ? "✓" : "—"
+                }}</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -233,113 +266,138 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useSubscription } from '@/composables/useSubscription'
-import { useStripeCheckout } from '@/composables/useStripeCheckout'
+import { ref, computed } from "vue";
+import { useSubscription } from "@/composables/useSubscription";
+import { useStripeCheckout } from "@/composables/useStripeCheckout";
 
-const { tier, hasSupporterBadge, isProOrAbove } = useSubscription()
-const checkout = useStripeCheckout()
+const { tier, hasSupporterBadge, isProOrAbove } = useSubscription();
+const checkout = useStripeCheckout();
 
 // ── Billing interval toggle ────────────────────────────────────────────────
-const billingInterval = ref<'month' | 'year'>('month')
+const billingInterval = ref<"month" | "year">("month");
 
 // ── Pricing (update once you've set prices in Stripe) ─────────────────────
-const proMonthlyPrice = 8
-const proAnnualPrice = 72
-const proAnnualMonthlyPrice = computed(() => Math.round(proAnnualPrice / 12))
+const proMonthlyPrice = 8;
+const proAnnualPrice = 72;
+const proAnnualMonthlyPrice = computed(() => Math.round(proAnnualPrice / 12));
 
 // ── PWYW picker ────────────────────────────────────────────────────────────
-const pwywPresets = [0, 3, 5, 10]
-const selectedAmount = ref(5)
-const customAmountMode = ref(false)
-const customAmount = ref(5)
+const pwywPresets = [0, 3, 5, 10];
+const selectedAmount = ref(5);
+const customAmountMode = ref(false);
+const customAmount = ref(5);
 
 function selectPreset(amount: number) {
-  selectedAmount.value = amount
-  customAmountMode.value = false
+  selectedAmount.value = amount;
+  customAmountMode.value = false;
 }
 
 const effectiveAmount = computed(() =>
-  customAmountMode.value ? (customAmount.value || 0) : selectedAmount.value
-)
+  customAmountMode.value ? customAmount.value || 0 : selectedAmount.value,
+);
 
 async function handleSupporterCheckout() {
-  await checkout.checkoutSupporter(effectiveAmount.value)
+  await checkout.checkoutSupporter(effectiveAmount.value);
 }
 
 // ── Feature lists ──────────────────────────────────────────────────────────
 const communityFeatures = [
-  'Unlimited grids',
-  'All tile types (text, image, video, maps, music, YouTube, and more)',
-  'Custom slug (yourname.grids.app)',
-  'Templates library',
-  'Drag-and-drop grid editor',
-  'Mobile-responsive layouts',
-  'Basic page analytics',
-  'Notion roadmap integration',
-]
+  "Unlimited grids",
+  "All tile types (text, image, video, maps, music, YouTube, and more)",
+  "Custom slug (yourname.grids.app)",
+  "Templates library",
+  "Drag-and-drop grid editor",
+  "Mobile-responsive layouts",
+  "Basic page analytics",
+  "Notion roadmap integration",
+];
 
 const supporterFeatures = [
-  'Remove Grids branding',
-  'Supporter badge on your profile',
-  'Early access to new features',
-  'Warm fuzzy feeling',
-]
+  "Remove Grids branding",
+  "Supporter badge on your profile",
+  "Early access to new features",
+  "Warm fuzzy feeling",
+];
 
 const proFeatures = [
-  'Custom domain',
-  'Advanced analytics & export',
-  'Password-protected grids',
-  'AI content suggestions',
-  'Priority support',
-  'Everything in Supporter',
-]
+  "Custom domain",
+  "Advanced analytics & export",
+  "Password-protected grids",
+  "AI content suggestions",
+  "Priority support",
+  "Everything in Supporter",
+];
 
 // ── Comparison table ───────────────────────────────────────────────────────
-const showComparison = ref(false)
+const showComparison = ref(false);
 const comparisonRows = [
-  { feature: 'Unlimited grids', community: true, supporter: true, pro: true },
-  { feature: 'All tile types', community: true, supporter: true, pro: true },
-  { feature: 'Custom slug', community: true, supporter: true, pro: true },
-  { feature: 'Templates library', community: true, supporter: true, pro: true },
-  { feature: 'Basic analytics', community: true, supporter: true, pro: true },
-  { feature: 'Remove Grids branding', community: false, supporter: true, pro: true },
-  { feature: 'Supporter badge', community: false, supporter: true, pro: true },
-  { feature: 'Custom domain', community: false, supporter: false, pro: true },
-  { feature: 'Advanced analytics', community: false, supporter: false, pro: true },
-  { feature: 'Analytics export', community: false, supporter: false, pro: true },
-  { feature: 'Password protection', community: false, supporter: false, pro: true },
-  { feature: 'AI suggestions', community: false, supporter: false, pro: true },
-  { feature: 'Priority support', community: false, supporter: false, pro: true },
-]
+  { feature: "Unlimited grids", community: true, supporter: true, pro: true },
+  { feature: "All tile types", community: true, supporter: true, pro: true },
+  { feature: "Custom slug", community: true, supporter: true, pro: true },
+  { feature: "Templates library", community: true, supporter: true, pro: true },
+  { feature: "Basic analytics", community: true, supporter: true, pro: true },
+  {
+    feature: "Remove Grids branding",
+    community: false,
+    supporter: true,
+    pro: true,
+  },
+  { feature: "Supporter badge", community: false, supporter: true, pro: true },
+  { feature: "Custom domain", community: false, supporter: false, pro: true },
+  {
+    feature: "Advanced analytics",
+    community: false,
+    supporter: false,
+    pro: true,
+  },
+  {
+    feature: "Analytics export",
+    community: false,
+    supporter: false,
+    pro: true,
+  },
+  {
+    feature: "Password protection",
+    community: false,
+    supporter: false,
+    pro: true,
+  },
+  { feature: "AI suggestions", community: false, supporter: false, pro: true },
+  {
+    feature: "Priority support",
+    community: false,
+    supporter: false,
+    pro: true,
+  },
+];
 
 // ── FAQ ────────────────────────────────────────────────────────────────────
 const faqItems = [
   {
-    q: 'Is Grids really free?',
-    a: 'Yes — the Community tier is free forever. No credit card required, no trial period. We make money from Pro subscriptions and supporter contributions.',
+    q: "Is Grids really free?",
+    a: "Yes — the Community tier is free forever. No credit card required, no trial period. We make money from Pro subscriptions and supporter contributions.",
   },
   {
     q: 'What does "pay what you want" mean?',
-    a: 'You choose the amount, including $0. Any amount (even free) grants the Supporter badge and removes Grids branding from your published pages.',
+    a: "You choose the amount, including $0. Any amount (even free) grants the Supporter badge and removes Grids branding from your published pages.",
   },
   {
-    q: 'Can I cancel my Pro subscription?',
-    a: 'Yes, any time from your billing dashboard. You keep Pro access until the end of the billing period.',
+    q: "Can I cancel my Pro subscription?",
+    a: "Yes, any time from your billing dashboard. You keep Pro access until the end of the billing period.",
   },
   {
-    q: 'What payment methods do you accept?',
-    a: 'All major credit and debit cards via Stripe. No PayPal at this time.',
+    q: "What payment methods do you accept?",
+    a: "All major credit and debit cards via Stripe. No PayPal at this time.",
   },
   {
-    q: 'Do you offer refunds?',
-    a: 'For Pro subscriptions, we offer a full refund within 7 days of purchase if you\'re not satisfied. Supporter payments are non-refundable.',
+    q: "Do you offer refunds?",
+    a: "For Pro subscriptions, we offer a full refund within 7 days of purchase if you're not satisfied. Supporter payments are non-refundable.",
   },
   {
-    q: 'Is my billing information secure?',
-    a: 'Yes — Grids never stores your card details. All payments are processed by Stripe, which is PCI DSS Level 1 certified.',
+    q: "Is my billing information secure?",
+    a: "Yes — Grids never stores your card details. All payments are processed by Stripe, which is PCI DSS Level 1 certified.",
   },
-]
+];
 </script>
 
 <style scoped lang="scss">
@@ -390,7 +448,7 @@ const faqItems = [
 
   &.active {
     background: white;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     font-weight: 600;
   }
 }
@@ -603,8 +661,13 @@ const faqItems = [
   flex-shrink: 0;
 }
 
-.check-fire { flex-shrink: 0; }
-.check-pro { color: #6366f1; flex-shrink: 0; }
+.check-fire {
+  flex-shrink: 0;
+}
+.check-pro {
+  color: #6366f1;
+  flex-shrink: 0;
+}
 
 // ── Comparison table ───────────────────────────────────────────────────────
 .comparison-section {
@@ -626,7 +689,9 @@ const faqItems = [
 
   span {
     transition: transform 0.2s;
-    &.rotated { transform: rotate(180deg); }
+    &.rotated {
+      transform: rotate(180deg);
+    }
   }
 }
 
@@ -640,7 +705,8 @@ const faqItems = [
   font-size: 0.875rem;
   text-align: left;
 
-  th, td {
+  th,
+  td {
     padding: 0.6rem 1rem;
     border-bottom: 1px solid var(--bs-border-color, #dee2e6);
   }
@@ -655,7 +721,9 @@ const faqItems = [
   }
 }
 
-.cross { opacity: 0.3; }
+.cross {
+  opacity: 0.3;
+}
 
 // ── FAQ ────────────────────────────────────────────────────────────────────
 .faq-section {

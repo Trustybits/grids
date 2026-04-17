@@ -172,7 +172,7 @@ describe('createTileContent', () => {
     const content = createTileContent(ContentType.PROFILE) as ProfileBioContent
     expect(content.type).toBe(ContentType.PROFILE)
     expect(content.name).toBe('')
-    expect(content.avatarShape).toBe('circle')
+    expect(content.avatarShape).toBe('square')
     expect(content.avatarRadius).toBe(12)
   })
 

@@ -22,7 +22,7 @@
 
     <!-- Quick Actions Group: collapses upward when embed is interactive -->
     <div class="tile-actions-group-collapse">
-      <div class="tile-actions-group">
+      <div v-if="!isSuggestionTile" class="tile-actions-group">
         <a
           v-if="hasLink"
           class="tile-action-btn"
@@ -120,6 +120,9 @@ export default defineComponent({
     const justExitedInteractive = ref(false);
     const toastStore = useToastStore();
 
+    const isSuggestionTile = computed(
+      () => props.tile.content.type === ContentType.SUGGESTION,
+    );
     const onStopInteracting = (event: MouseEvent) => {
       isEmbedInteractive.value = false;
       justExitedInteractive.value = true;
@@ -283,6 +286,7 @@ export default defineComponent({
     };
 
     return {
+      isSuggestionTile,
       hasLink,
       hasCopyable,
       hasDownload,

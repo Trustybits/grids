@@ -105,9 +105,15 @@
   --z-modal-backdrop: 1040;
   --z-modal: 1050;
   --z-popover: 1060;
-  --z-tooltip: 1070;
   --z-topbar: 2000;
-  
+  /* Above top bar and floating controls layered just above it (e.g. BreakpointSwitcher). */
+  --z-tooltip: calc(var(--z-topbar) + 50);
+
+  /* vue-grid-item positions with transform, which traps stacking. Elevate the whole
+     tile while interactive so [data-tooltip]::after and similar UI can paint above
+     the fixed top bar (raising ::after z-index alone cannot escape that context). */
+  --z-grid-tile-elevated: calc(var(--z-topbar) + 2);
+
   --z-grid-placeholder: 2;
   --z-grid-dragging: 3;
 }

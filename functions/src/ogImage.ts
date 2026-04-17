@@ -23,10 +23,12 @@
 
 import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
-import chromium from "@sparticuz/chromium-min";
-import puppeteer from "puppeteer-core";
 import sharp from "sharp";
 import type { Request, Response } from "firebase-functions/v1";
+
+// chromium and puppeteer are lazy-loaded inside the handler.
+// Top-level imports cause the Firebase CLI's function-introspection server to
+// time out during `firebase deploy` because the modules are very slow to initialise.
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -389,7 +391,7 @@ async function handler(req: Request, res: Response): Promise<void> {
   const GRID_W = Math.round(1240 * scaleX);          // ~976
   const GRID_H = Math.round(GRID_W * SH / SW);       // ~602 — natural AR (was wrong ~513)
   const GRID_X = Math.round(320 * scaleX);            // ~370
-  const GRID_Y = 0;                                 // 48px from top (per design)
+  const GRID_Y = 2;                                // 2px from top (per design)
 
   // Left panel padding and avatar
   const PAD_X = Math.round(96 * scaleX);     // ~76 → use 72
@@ -412,7 +414,11 @@ async function handler(req: Request, res: Response): Promise<void> {
   // Prefer the stored desktop thumbnail — it's the same 1524×940 viewport we'd
   // screenshot anyway, so reusing it avoids launching Chromium entirely.
   // Falls back to a live Puppeteer screenshot when no thumbnail is cached yet.
-  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
+
+  // Lazy-load chromium + puppeteer only when we actually need them.
+  // Declared here so the catch block can close the browser on error.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let browser: any = null;
 
   try {
     let screenshotBuffer: Buffer | null = null;
@@ -425,7 +431,12 @@ async function handler(req: Request, res: Response): Promise<void> {
     }
 
     if (!screenshotBuffer) {
-      // No cached thumbnail — launch Puppeteer for a fresh screenshot.
+      // No cached thumbnail — lazy-load and launch Puppeteer for a fresh screenshot.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const chromium: any  = (await import("@sparticuz/chromium-min")).default;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const puppeteer: any = (await import("puppeteer-core")).default;
+
       const executablePath = isEmulatorEnv
         ? (process.env.PUPPETEER_EXECUTABLE_PATH ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe")
         : await chromium.executablePath(CHROMIUM_URL);
@@ -441,7 +452,8 @@ async function handler(req: Request, res: Response): Promise<void> {
 
       // Block media and fonts to speed up load
       await page.setRequestInterception(true);
-      page.on("request", (intercepted) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      page.on("request", (intercepted: any) => {
         if (["media", "font"].includes(intercepted.resourceType())) {
           intercepted.abort();
         } else {

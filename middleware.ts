@@ -229,8 +229,10 @@ export default async function middleware(request: Request): Promise<Response | u
   const htmlRes = await fetch(passThroughReq)
   const html = await htmlRes.text()
 
-  // Inject meta tags immediately before </head>
-  const injected = html.replace('</head>', `${metaTags}\n  </head>`)
+  // Inject meta tags immediately after <head> so they are the FIRST og:/twitter:
+  // tags the crawler sees. Injecting before </head> risks losing to any static
+  // fallback tags that remain in the SPA's index.html — crawlers use first-wins.
+  const injected = html.replace('<head>', `<head>${metaTags}`)
 
   return new Response(injected, {
     status: htmlRes.status,

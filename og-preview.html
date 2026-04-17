@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OG Image Preview — grids.so/matt</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a18;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+      font-family: 'Inter', sans-serif;
+    }
+    .label {
+      color: rgba(254,253,236,0.4);
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    /* The OG image — exact 1200×630 aspect ratio */
+    .og-frame {
+      width: 100%;
+      max-width: 800px;
+      aspect-ratio: 1200 / 630;
+      position: relative;
+      background: #10100E;
+      overflow: hidden;
+      border-radius: 8px;
+      box-shadow: 0 0 0 1px rgba(254,253,236,0.1), 0 24px 64px rgba(0,0,0,0.6);
+    }
+    /* Grid lines */
+    .og-frame::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(254,253,236,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(254,253,236,0.06) 1px, transparent 1px);
+      background-size: 4% 7.6%;
+    }
+    /* Radial glow */
+    .og-frame::after {
+      content: '';
+      position: absolute;
+      bottom: -19%;
+      right: -19%;
+      width: 55%;
+      height: 83%;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(254,253,236,0.07) 0%, transparent 70%);
+    }
+    .og-content {
+      position: absolute;
+      inset: 0;
+      padding: 11.4% 13.3%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .og-top { display: flex; flex-direction: column; gap: 3.2%; }
+    .og-chip {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(254,253,236,0.08);
+      border: 1px solid rgba(254,253,236,0.15);
+      border-radius: 100px;
+      padding: 1% 2.9%;
+      width: fit-content;
+    }
+    .og-chip span {
+      color: rgba(254,253,236,0.55);
+      font-size: clamp(10px, 2.2vw, 16px);
+      font-weight: 400;
+    }
+    .og-title {
+      color: #FEFDEC;
+      font-size: clamp(20px, 5.3vw, 44px);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+    .og-bottom {
+      display: flex;
+      align-items: center;
+      gap: 2%;
+    }
+    .og-icon {
+      width: clamp(16px, 2.5vw, 22px);
+      height: clamp(16px, 2.5vw, 22px);
+      background: #FEFDEC;
+      border-radius: 20%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .og-icon-inner {
+      width: 55%;
+      height: 55%;
+      background-image:
+        linear-gradient(rgba(16,16,14,0.75) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16,16,14,0.75) 1px, transparent 1px);
+      background-size: 33.3% 33.3%;
+    }
+    .og-wordmark {
+      color: #FEFDEC;
+      font-size: clamp(14px, 2.4vw, 20px);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    /* Info panel below the image */
+    .info {
+      width: 100%;
+      max-width: 800px;
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .info-box {
+      background: rgba(254,253,236,0.04);
+      border: 1px solid rgba(254,253,236,0.1);
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+    .info-box h3 {
+      color: rgba(254,253,236,0.4);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .info-box p {
+      color: rgba(254,253,236,0.75);
+      font-size: 12px;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+    .info-box code {
+      background: rgba(254,253,236,0.08);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 11px;
+      color: #FEFDEC;
+    }
+  </style>
+</head>
+<body>
+  <div class="label">OG Image Preview — 1200 × 630px — grids.so/matt</div>
+
+  <div class="og-frame">
+    <div class="og-content">
+      <div class="og-top">
+        <div class="og-chip"><span>@matt</span></div>
+        <div class="og-title">matt's grid</div>
+      </div>
+      <div class="og-bottom">
+        <div class="og-icon"><div class="og-icon-inner"></div></div>
+        <div class="og-wordmark">grids.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info">
+    <div class="info-box">
+      <h3>og:image URL generated</h3>
+      <p><code>https://us-central1-grids-one.cloudfunctions.net/generateOgImage?slug=matt</code></p>
+    </div>
+    <div class="info-box">
+      <h3>og:title injected</h3>
+      <p><code>@matt's grid — Grids</code></p>
+    </div>
+    <div class="info-box">
+      <h3>Data flow</h3>
+      <p>Crawler hits <code>/matt</code> → middleware fetches <code>slugs/matt</code> → resolves <code>userId</code> → fetches <code>publicProfiles/{userId}</code> → injects tags</p>
+    </div>
+    <div class="info-box">
+      <h3>twitter:card</h3>
+      <p><code>summary_large_image</code> — shows the full 1200×630 banner in Twitter/X, Slack, iMessage, Discord, etc.</p>
+    </div>
+  </div>
+</body>
+</html>

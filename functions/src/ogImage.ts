@@ -42,8 +42,9 @@ const SITE_BASE = "https://grids.so";
 
 // Must match the installed @sparticuz/chromium-min version.
 // Update this URL when upgrading the package.
+// Firebase Functions run on Linux x86_64 → use the .x64.tar variant (added in v127+).
 const CHROMIUM_URL =
-  "https://github.com/Sparticuz/chromium/releases/download/v147.0.0/chromium-v147.0.0-pack.tar";
+  "https://github.com/Sparticuz/chromium/releases/download/v147.0.0/chromium-v147.0.0-pack.x64.tar";
 
 // ─── Firestore REST helpers ───────────────────────────────────────────────────
 
@@ -345,10 +346,16 @@ async function handler(req: Request, res: Response): Promise<void> {
   // Skip cache entirely in the local emulator — no Storage credentials, always regenerate.
   const isEmulatorEnv = process.env.FUNCTIONS_EMULATOR === "true";
   if (!refresh && !isEmulatorEnv) {
-    const [exists] = await file.exists();
-    if (exists) {
-      res.redirect(302, storageUrl(cachePath));
-      return;
+    try {
+      const [exists] = await file.exists();
+      if (exists) {
+        res.redirect(302, storageUrl(cachePath));
+        return;
+      }
+    } catch (cacheErr) {
+      // Storage permission error or transient failure — fall through and regenerate.
+      // Long-term fix: grant the service account Storage Object Admin on the bucket.
+      functions.logger.warn("[og] cache check failed, regenerating:", cacheErr);
     }
   }
 
@@ -382,7 +389,7 @@ async function handler(req: Request, res: Response): Promise<void> {
   const GRID_W = Math.round(1240 * scaleX);          // ~976
   const GRID_H = Math.round(GRID_W * SH / SW);       // ~602 — natural AR (was wrong ~513)
   const GRID_X = Math.round(320 * scaleX);            // ~370
-  const GRID_Y = 0;                                  // 48px from top (per design)
+  const GRID_Y = 0;                                 // 48px from top (per design)
 
   // Left panel padding and avatar
   const PAD_X = Math.round(96 * scaleX);     // ~76 → use 72

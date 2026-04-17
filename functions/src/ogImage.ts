@@ -45,8 +45,10 @@ const SITE_BASE = "https://grids.so";
 // Must match the installed @sparticuz/chromium-min version.
 // Update this URL when upgrading the package.
 // Firebase Functions run on Linux x86_64 → use the .x64.tar variant (added in v127+).
+// NOTE: v147.0.0 and v147.0.0 have no pack assets on GitHub releases;
+//       using v143.0.4 (last confirmed stable release with assets).
 const CHROMIUM_URL =
-  "https://github.com/Sparticuz/chromium/releases/download/v147.0.0/chromium-v147.0.0-pack.x64.tar";
+  "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
 
 // ─── Firestore REST helpers ───────────────────────────────────────────────────
 
@@ -391,7 +393,7 @@ async function handler(req: Request, res: Response): Promise<void> {
   const GRID_W = Math.round(1240 * scaleX);          // ~976
   const GRID_H = Math.round(GRID_W * SH / SW);       // ~602 — natural AR (was wrong ~513)
   const GRID_X = Math.round(320 * scaleX);            // ~370
-  const GRID_Y = 2;                                // 2px from top (per design)
+  const GRID_Y = 2;                               // 2px from top (per design)
 
   // Left panel padding and avatar
   const PAD_X = Math.round(96 * scaleX);     // ~76 → use 72

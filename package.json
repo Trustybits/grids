@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.7.2",
+    "@sparticuz/chromium-min": "^147.0.0",
     "@tiptap/core": "^2.27.1",
     "@tiptap/extension-color": "^2.27.1",
     "@tiptap/extension-font-family": "^2.27.1",
@@ -40,7 +41,9 @@
     "mapbox-gl": "^3.4.0",
     "pinia": "^2.2.8",
     "posthog-js": "^1.331.0",
+    "puppeteer-core": "^24.41.0",
     "sass": "^1.81.0",
+    "sharp": "^0.34.5",
     "uuid": "^11.0.3",
     "vue": "^3.5.12",
     "vue-router": "^4.5.0",
@@ -50,6 +53,7 @@
   "devDependencies": {
     "@tsconfig/node22": "^22.0.0",
     "@types/node": "^22.9.0",
+    "@vercel/node": "^5.7.7",
     "@vitejs/plugin-vue": "^5.1.4",
     "@vitejs/plugin-vue-jsx": "^4.0.1",
     "@vitest/coverage-v8": "^2.1.0",

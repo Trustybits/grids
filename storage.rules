@@ -54,17 +54,24 @@ service firebase.storage {
 
     match /users/{userId}/videos/{videoId} {
       // Allow read if the video's metadata indicates it's published
-      allow read: if resource.metadata.published == 'true' || 
+      allow read: if resource.metadata.published == 'true' ||
                   (request.auth != null && request.auth.uid == userId);
 
       // Allow write only if authenticated, owns the resource, and file size is valid
       // Note: hasStorageQuota check removed because it can fail if user document doesn't exist yet
-      allow write: if request.auth != null 
+      allow write: if request.auth != null
                    && request.auth.uid == userId
                    && isFileSizeValid();
-      
+
       // Allow update and delete only by the authenticated user who owns the layout
       allow update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // OG images are generated server-side and must be publicly readable (CDN redirects)
+    // Writes are only performed by the Cloud Function via Admin SDK (bypasses these rules)
+    match /og-images/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
     }
   }
 }

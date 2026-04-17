@@ -2483,3 +2483,6 @@ export const upvoteRoadmapItem = functions
 
     return { isNowUpvoted };
   });
+
+export * from './ogImage';
+export * from './thumbnail';

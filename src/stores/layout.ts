@@ -35,6 +35,7 @@ import heroGif from "@/assets/images/hero.gif";
 const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
   switch (type) {
     case ContentType.TEXT:
+    case ContentType.SMART_TEXT:
     case ContentType.CHAT:
     case ContentType.CAMPFIRE:
       return "text";
@@ -237,6 +238,7 @@ export const useLayoutStore = defineStore("layout", {
     isLoading: false,
     error: null as string | null,
     showMetaData: false,
+    showMetaDataVerbose: false,
     isOwner: false,
     recentLayoutIds: [] as string[],
     activeTileId: null as string | null,
@@ -629,6 +631,18 @@ export const useLayoutStore = defineStore("layout", {
     checkShowMetaDataCookie() {
       const cookieValue = this.getCookieValue("showMetaData");
       this.showMetaData = cookieValue === "true";
+      const verboseCookieValue = this.getCookieValue("showMetaDataVerbose");
+      this.showMetaDataVerbose = verboseCookieValue === "true";
+    },
+
+    setShowMetaData(value: boolean) {
+      this.showMetaData = value;
+      this.setCookieValue("showMetaData", value.toString());
+    },
+
+    setShowMetaDataVerbose(value: boolean) {
+      this.showMetaDataVerbose = value;
+      this.setCookieValue("showMetaDataVerbose", value.toString());
     },
 
     // Toggle the vertical compact (gravity) setting
@@ -1147,16 +1161,6 @@ export const useLayoutStore = defineStore("layout", {
       const tile = this.currentLayout.tiles.find((tile) => tile.i === id);
       if (!tile) return;
 
-      if (tile.content.type === ContentType.PROFILE) {
-        tile.w = 4;
-        tile.h = 4;
-        this.adjustTilePosition(tile);
-        const dpProf = this.displayPositions.find((p) => p.i === id);
-        if (dpProf) { dpProf.w = tile.w; dpProf.h = tile.h; dpProf.x = tile.x; }
-        this.updateLayout();
-        return;
-      }
-
       const bp = this.activeBreakpoint;
 
       if (bp === "lg") {
@@ -1264,15 +1268,6 @@ export const useLayoutStore = defineStore("layout", {
             tile.w = pos.w;
             tile.h = pos.h;
           }
-        }
-      }
-
-      const gridElement =
-        document.querySelector<HTMLElement>(".vue-grid-layout");
-      if (gridElement) {
-        const currentWidth = parseFloat(getComputedStyle(gridElement).width);
-        if (!isNaN(currentWidth)) {
-          gridElement.style.height = `${currentWidth + 1}px`;
         }
       }
 

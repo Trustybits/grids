@@ -16,7 +16,7 @@ export default defineConfigWithVueTs(
   },
 
   // Vue 3 essential rules
-  ...pluginVue.configs['flat/vue3-essential'],
+  ...pluginVue.configs['flat/essential'],
 
   // TypeScript recommended rules
   vueTsConfigs.recommended,

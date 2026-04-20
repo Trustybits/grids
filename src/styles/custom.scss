@@ -67,6 +67,36 @@
   }
 }
 
+@mixin liquid-metal-animated-surface {
+  background:
+    linear-gradient(
+      110deg,
+      var(--liquid-metal-tone-a),
+      var(--liquid-metal-tone-b),
+      var(--liquid-metal-tone-c),
+      var(--liquid-metal-tone-d),
+      var(--liquid-metal-tone-a)
+    ),
+    radial-gradient(
+      120% 100% at 12% 0%,
+      var(--liquid-metal-bloom-inner) 0%,
+      var(--liquid-metal-bloom-mid) 38%,
+      transparent 70%
+    ),
+    repeating-linear-gradient(
+      -35deg,
+      var(--liquid-metal-grain-a) 0 2px,
+      var(--liquid-metal-grain-b) 2px 4px,
+      var(--liquid-metal-grain-c) 4px 6px,
+      transparent 6px 11px
+    );
+  background-size:
+    220% 220%,
+    170% 170%,
+    24px 24px;
+  animation: liquid-metal-shift var(--liquid-metal-speed) linear infinite;
+}
+
 @mixin grid-layout($theme) {
   background-color: transparent;
 }
@@ -232,15 +262,24 @@ body.theme-dark {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), inset 0 0.5px 0 rgba(255, 255, 255, 0.12);
 }
 
-.liquid-metal-outline {
-  --liquid-metal-border-width: 1px;
-  --liquid-metal-radius: inherit;
+.liquid-metal-outline,
+.liquid-metal-fill {
   --liquid-metal-speed: 2200ms;
   --liquid-metal-opacity: 0.86;
   --liquid-metal-tone-a: rgba(255, 247, 255, 0.95);
   --liquid-metal-tone-b: rgba(228, 197, 255, 0.82);
   --liquid-metal-tone-c: rgba(123, 88, 203, 0.72);
   --liquid-metal-tone-d: rgba(214, 186, 255, 0.86);
+  --liquid-metal-bloom-inner: rgba(255, 255, 255, 0.58);
+  --liquid-metal-bloom-mid: rgba(255, 255, 255, 0.1);
+  --liquid-metal-grain-a: rgba(255, 255, 255, 0.13);
+  --liquid-metal-grain-b: rgba(131, 97, 210, 0.08);
+  --liquid-metal-grain-c: rgba(255, 255, 255, 0.03);
+  --liquid-metal-filter: saturate(1.18) contrast(1.05);
+}
+
+.liquid-metal-outline {
+  --liquid-metal-border-width: 1px;
   position: relative;
   border-color: transparent !important;
   isolation: isolate;
@@ -250,38 +289,12 @@ body.theme-dark {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: var(--liquid-metal-radius);
+  border-radius: inherit;
   padding: var(--liquid-metal-border-width);
-  background:
-    linear-gradient(
-      110deg,
-      var(--liquid-metal-tone-a),
-      var(--liquid-metal-tone-b),
-      var(--liquid-metal-tone-c),
-      var(--liquid-metal-tone-d),
-      var(--liquid-metal-tone-a)
-    ),
-    radial-gradient(
-      120% 100% at 12% 0%,
-      rgba(255, 255, 255, 0.58) 0%,
-      rgba(255, 255, 255, 0.1) 38%,
-      transparent 70%
-    ),
-    repeating-linear-gradient(
-      -35deg,
-      rgba(255, 255, 255, 0.13) 0 2px,
-      rgba(131, 97, 210, 0.08) 2px 4px,
-      rgba(255, 255, 255, 0.03) 4px 6px,
-      transparent 6px 11px
-    );
-  background-size:
-    220% 220%,
-    170% 170%,
-    24px 24px;
+  @include liquid-metal-animated-surface;
   opacity: var(--liquid-metal-opacity);
-  animation: liquid-metal-shift var(--liquid-metal-speed) linear infinite;
   pointer-events: none;
-  filter: saturate(1.18) contrast(1.05);
+  filter: var(--liquid-metal-filter);
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -296,7 +309,7 @@ body.theme-dark {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: var(--liquid-metal-radius);
+  border-radius: inherit;
   pointer-events: none;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.36),
@@ -305,8 +318,162 @@ body.theme-dark {
   opacity: 0.92;
 }
 
+.liquid-metal-outline--chrome {
+  --liquid-metal-border-width: 1.5px;
+  --liquid-metal-speed: 2000ms;
+  --liquid-metal-opacity: 0.94;
+  --liquid-metal-tone-a: rgba(248, 250, 255, 0.98);
+  --liquid-metal-tone-b: rgba(206, 216, 232, 0.88);
+  --liquid-metal-tone-c: rgba(118, 132, 154, 0.82);
+  --liquid-metal-tone-d: rgba(232, 238, 248, 0.94);
+  --liquid-metal-bloom-inner: rgba(255, 255, 255, 0.72);
+  --liquid-metal-bloom-mid: rgba(255, 255, 255, 0.14);
+  --liquid-metal-grain-a: rgba(255, 255, 255, 0.2);
+  --liquid-metal-grain-b: rgba(160, 176, 198, 0.12);
+  --liquid-metal-grain-c: rgba(255, 255, 255, 0.05);
+  --liquid-metal-filter: saturate(1.05) contrast(1.12);
+}
+
+.liquid-metal-outline--chrome::after {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.52),
+    inset 0 -1px 0 rgba(52, 64, 82, 0.42),
+    0 0 0 1px rgba(198, 208, 224, 0.14);
+}
+
+.liquid-metal-outline--mercury {
+  --liquid-metal-border-width: 1.25px;
+  --liquid-metal-speed: 3200ms;
+  --liquid-metal-opacity: 0.72;
+  --liquid-metal-tone-a: rgba(255, 252, 255, 0.9);
+  --liquid-metal-tone-b: rgba(210, 195, 255, 0.58);
+  --liquid-metal-tone-c: rgba(88, 130, 210, 0.48);
+  --liquid-metal-tone-d: rgba(190, 225, 255, 0.55);
+  --liquid-metal-bloom-inner: rgba(255, 255, 255, 0.35);
+  --liquid-metal-bloom-mid: rgba(200, 210, 255, 0.12);
+  --liquid-metal-grain-a: rgba(255, 255, 255, 0.08);
+  --liquid-metal-grain-b: rgba(120, 160, 220, 0.06);
+  --liquid-metal-grain-c: rgba(255, 255, 255, 0.02);
+  --liquid-metal-filter: saturate(1.12) contrast(0.98);
+}
+
+.liquid-metal-outline--mercury::after {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(70, 90, 150, 0.28),
+    0 0 0 1px rgba(180, 200, 255, 0.07);
+}
+
+.liquid-metal-fill {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.liquid-metal-fill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+  @include liquid-metal-animated-surface;
+  opacity: var(--liquid-metal-opacity);
+  pointer-events: none;
+  filter: var(--liquid-metal-filter);
+}
+
+.liquid-metal-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(60, 50, 100, 0.35);
+  opacity: 0.85;
+}
+
+.liquid-metal-fill--chrome {
+  --liquid-metal-speed: 2000ms;
+  --liquid-metal-opacity: 0.92;
+  --liquid-metal-tone-a: rgba(248, 250, 255, 0.98);
+  --liquid-metal-tone-b: rgba(206, 216, 232, 0.88);
+  --liquid-metal-tone-c: rgba(118, 132, 154, 0.82);
+  --liquid-metal-tone-d: rgba(232, 238, 248, 0.94);
+  --liquid-metal-bloom-inner: rgba(255, 255, 255, 0.72);
+  --liquid-metal-bloom-mid: rgba(255, 255, 255, 0.14);
+  --liquid-metal-grain-a: rgba(255, 255, 255, 0.2);
+  --liquid-metal-grain-b: rgba(160, 176, 198, 0.12);
+  --liquid-metal-grain-c: rgba(255, 255, 255, 0.05);
+  --liquid-metal-filter: saturate(1.05) contrast(1.12);
+}
+
+.liquid-metal-fill--chrome::after {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(52, 64, 82, 0.38);
+}
+
+.liquid-metal-fill--mercury {
+  --liquid-metal-speed: 3400ms;
+  --liquid-metal-opacity: 0.78;
+  --liquid-metal-tone-a: rgba(255, 252, 255, 0.9);
+  --liquid-metal-tone-b: rgba(210, 195, 255, 0.58);
+  --liquid-metal-tone-c: rgba(88, 130, 210, 0.48);
+  --liquid-metal-tone-d: rgba(190, 225, 255, 0.55);
+  --liquid-metal-bloom-inner: rgba(255, 255, 255, 0.35);
+  --liquid-metal-bloom-mid: rgba(200, 210, 255, 0.12);
+  --liquid-metal-grain-a: rgba(255, 255, 255, 0.08);
+  --liquid-metal-grain-b: rgba(120, 160, 220, 0.06);
+  --liquid-metal-grain-c: rgba(255, 255, 255, 0.02);
+  --liquid-metal-filter: saturate(1.12) contrast(0.98);
+}
+
+.liquid-metal-fill--mercury::after {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(70, 90, 150, 0.25);
+}
+
+.liquid-metal-demo-blocks {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md, 1rem);
+  width: 100%;
+  max-width: 520px;
+  margin-inline: auto;
+}
+
+.liquid-metal-preview {
+  width: min(100%, 520px);
+  height: clamp(92px, 12vw, 132px);
+  border-radius: 16px;
+  flex-shrink: 0;
+  box-shadow:
+    0 16px 34px rgba(6, 10, 18, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.liquid-metal-preview.liquid-metal-outline {
+  --liquid-metal-border-width: 2px;
+  --liquid-metal-speed: 1950ms;
+  --liquid-metal-opacity: 0.9;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(250, 239, 255, 0.2), transparent 55%),
+    linear-gradient(150deg, rgba(90, 62, 148, 0.78), rgba(32, 19, 52, 0.9));
+}
+
+.liquid-metal-preview.liquid-metal-fill {
+  --liquid-metal-speed: 2100ms;
+  --liquid-metal-opacity: 0.88;
+  border: 1px solid rgba(224, 201, 255, 0.12);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .liquid-metal-outline::before {
+  .liquid-metal-outline::before,
+  .liquid-metal-fill::before {
     animation: none;
   }
 }

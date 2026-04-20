@@ -20,3 +20,9 @@ export interface LeaderboardEntry {
   totalClicks: number;
   rank?: number;
 }
+
+export interface DailyClickLimit {
+  canClick: boolean;
+  remaining: number;
+  dailyClicks: number;
+}

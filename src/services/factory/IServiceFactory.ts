@@ -4,6 +4,7 @@ import type { IRoadmapService } from "../interfaces/IRoadmapService";
 import type { IStorageService } from "../interfaces/IStorageService";
 import type { IUpvoteService } from "../interfaces/IUpvoteService";
 import type { IUserService } from "../interfaces/IUserService";
+import type { IGameDataService } from "../interfaces/IGameDataService";
 
 export interface IServiceFactory {
   getChatService: () => IChatService;
@@ -12,4 +13,5 @@ export interface IServiceFactory {
   getStorageService: () => IStorageService;
   getUpvoteService: () => IUpvoteService;
   getUserService: () => IUserService;
+  getGameDataService: () => IGameDataService;
 }

@@ -1,16 +1,19 @@
 import { ChatService } from "../ChatService";
+import { GameDataService } from "../GameDataService";
 import { LayoutService } from "../LayoutService";
 import { RoadmapService } from "../RoadmapService";
 import { StorageService } from "../StorageService";
 import { UpvoteService } from "../UpvoteService";
 import { UserService } from "../UserService";
 import type { IChatService } from "../interfaces/IChatService";
+import type { IGameDataService } from "../interfaces/IGameDataService";
 import type { ILayoutService } from "../interfaces/ILayoutService";
 import type { IRoadmapService } from "../interfaces/IRoadmapService";
 import type { IStorageService } from "../interfaces/IStorageService";
 import type { IUpvoteService } from "../interfaces/IUpvoteService";
 import type { IUserService } from "../interfaces/IUserService";
 import { MockChatService } from "../mocks/MockChatService";
+import { MockGameDataService } from "../mocks/MockGameDataService";
 import { MockLayoutService } from "../mocks/MockLayoutService";
 import { MockRoadmapService } from "../mocks/MockRoadmapService";
 import { MockStorageService } from "../mocks/MockStorageService";
@@ -26,6 +29,7 @@ export class ServiceFactory implements IServiceFactory {
   private storageService: IStorageService;
   private upvoteService: IUpvoteService;
   private userService: IUserService;
+  private gameDataService: IGameDataService;
 
   public constructor(useMocks: boolean = false) {
     this.useMocks = useMocks;
@@ -37,6 +41,7 @@ export class ServiceFactory implements IServiceFactory {
       this.storageService = new MockStorageService();
       this.upvoteService = new MockUpvoteService();
       this.userService = new MockUserService();
+      this.gameDataService = new MockGameDataService();
     } else {
       this.chatService = new ChatService();
       this.layoutService = new LayoutService();
@@ -44,6 +49,7 @@ export class ServiceFactory implements IServiceFactory {
       this.storageService = new StorageService();
       this.upvoteService = new UpvoteService();
       this.userService = new UserService();
+      this.gameDataService = new GameDataService();
     }
   }
 
@@ -69,5 +75,9 @@ export class ServiceFactory implements IServiceFactory {
 
   public getUserService(): IUserService {
     return this.userService;
+  }
+
+  public getGameDataService(): IGameDataService {
+    return this.gameDataService;
   }
 }

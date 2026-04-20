@@ -1,10 +1,11 @@
 import type { ChatDao } from "@/dao/interfaces/ChatDao";
+import type { ChatMessage } from "@/types/TileContent";
 
 export class StubbedChatDao implements ChatDao {
   public subscribeToMessages(
     _layoutId: string,
     _tileId: string,
-    _callback: (messages: Array<Record<string, unknown>>) => void,
+    _callback: (messages: ChatMessage[]) => void,
     _onError?: (error: Error) => void,
   ): () => void {
     throw new Error("Stubbed DAO implementation");

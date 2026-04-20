@@ -1,0 +1,33 @@
+import type { RoadmapItem, RoadmapQueryFilter } from "@/types/TileContent";
+
+export interface NotionDatabase {
+  id: string;
+  title: string;
+}
+
+export interface PropertyOption {
+  name: string;
+  type: string;
+  selectOptions?: string[];
+}
+
+export interface FetchRoadmapResult {
+  items: RoadmapItem[];
+  propertyOptions: PropertyOption[];
+}
+
+export interface RoadmapDao {
+  /** List Notion databases available to the tile's integration. */
+  listDatabases(
+    layoutId: string,
+    tileId: string,
+  ): Promise<NotionDatabase[]>;
+
+  /** Fetch roadmap items from the connected Notion database. */
+  fetchRoadmap(
+    layoutId: string,
+    tileId: string,
+    queryFilters?: RoadmapQueryFilter[],
+    databaseIdOverride?: string,
+  ): Promise<FetchRoadmapResult>;
+}

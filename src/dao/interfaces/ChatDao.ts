@@ -1,9 +1,11 @@
+import type { ChatMessage } from "@/types/TileContent";
+
 export interface ChatDao {
   /** Subscribe to real-time chat messages for a specific tile, ordered by createdAt asc. Returns an unsubscribe function. */
   subscribeToMessages(
     layoutId: string,
     tileId: string,
-    callback: (messages: Array<Record<string, unknown>>) => void,
+    callback: (messages: ChatMessage[]) => void,
     onError?: (error: Error) => void,
   ): () => void;
 

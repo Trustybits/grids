@@ -1,0 +1,21 @@
+import type { FetchRoadmapResult, NotionDatabase } from "@/dao/interfaces/RoadmapDao";
+import type { RoadmapQueryFilter } from "@/types/TileContent";
+import type { IRoadmapService } from "../interfaces/IRoadmapService";
+
+export class MockRoadmapService implements IRoadmapService {
+  listDatabases(
+    _layoutId: string,
+    _tileId: string,
+  ): Promise<NotionDatabase[]> {
+    throw new Error("Method not implemented.");
+  }
+
+  fetchRoadmap(
+    _layoutId: string,
+    _tileId: string,
+    _queryFilters?: RoadmapQueryFilter[],
+    _databaseIdOverride?: string,
+  ): Promise<FetchRoadmapResult> {
+    throw new Error("Method not implemented.");
+  }
+}

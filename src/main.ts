@@ -12,6 +12,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import './styles/tokens.scss';
+import './styles/claude-tokens.scss';
 import './styles/themes.scss';
 import './styles/custom.scss';
 

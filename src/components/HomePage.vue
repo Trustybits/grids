@@ -95,6 +95,21 @@
         </div>
       </section>
 
+      <section class="mkt__support">
+        <article class="mkt__support-card">
+          <h4>Export anything</h4>
+          <p>One click for JSON, HTML, or a static site.</p>
+        </article>
+        <article class="mkt__support-card">
+          <h4>Self-host it</h4>
+          <p>Deploy on your own domain in minutes.</p>
+        </article>
+        <article class="mkt__support-card">
+          <h4>Fork &amp; remix</h4>
+          <p>MIT-licensed. Change whatever you want.</p>
+        </article>
+      </section>
+
       <section class="mkt__cta">
         <h2>Ready to <span>show off?</span></h2>
         <p>Free to start. Your first grid takes about four minutes.</p>
@@ -244,9 +259,20 @@ const plans = [
 <style scoped>
 .mkt {
   min-height: 100vh;
-  color: #fff;
-  background: #000;
-  font-family: Inter, sans-serif;
+  color: var(--mkt-fg-1);
+  background: var(--mkt-bg-0);
+  font-family: var(--mkt-font-sans);
+  position: relative;
+}
+.mkt::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 45% 24% at 50% 14%, rgba(131, 139, 251, 0.2), transparent 70%),
+    radial-gradient(ellipse 55% 26% at 50% 96%, rgba(131, 139, 251, 0.16), transparent 72%);
+  z-index: 0;
 }
 .mkt__nav {
   position: sticky;
@@ -260,12 +286,14 @@ const plans = [
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  max-width: 1120px;
+  margin: 0 auto;
 }
 .mkt__brand {
   border: 0;
   background: transparent;
-  color: #fff;
-  font: 800 20px/1 Inter, sans-serif;
+  color: var(--mkt-fg-1);
+  font: 800 20px/1 var(--mkt-font-sans);
   letter-spacing: -0.04em;
   cursor: pointer;
 }
@@ -276,14 +304,14 @@ const plans = [
 .mkt__menu-item {
   border: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.6);
-  font: 500 14px/1 Inter, sans-serif;
+  color: var(--mkt-fg-3);
+  font: 500 14px/1 var(--mkt-font-sans);
   cursor: pointer;
   padding: 8px 12px;
   border-radius: 10px;
 }
 .mkt__menu-item.is-active {
-  color: #fff;
+  color: var(--mkt-fg-1);
 }
 .mkt__actions {
   display: flex;
@@ -291,45 +319,49 @@ const plans = [
   gap: 10px;
 }
 .mkt__text-btn {
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--mkt-fg-2);
   text-decoration: none;
-  font: 500 14px/1 Inter, sans-serif;
+  font: 500 14px/1 var(--mkt-font-sans);
 }
 .mkt__cta-btn {
-  font: 600 13px/1 Inter, sans-serif;
+  font: 600 13px/1 var(--mkt-font-sans);
   letter-spacing: -0.01em;
   padding: 9px 14px;
   border: 0;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #8dd8fc 0%, #838bfb 50%, #ef6fc4 100%);
+  border-radius: var(--mkt-radius-md);
+  background: var(--mkt-brand-gradient);
   color: #000;
   text-decoration: none;
 }
 .mkt__hero {
-  padding: 64px 40px 48px;
+  position: relative;
+  z-index: 1;
+  padding: 56px 40px 48px;
   text-align: center;
+  max-width: 1120px;
+  margin: 0 auto;
 }
 .mkt__eyebrow, .mkt__kicker {
-  font: 500 12px/1 Inter, sans-serif;
+  font: 500 12px/1 var(--mkt-font-sans);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--mkt-fg-3);
 }
 .mkt__hero-title {
-  font: 800 80px/.98 Inter, sans-serif;
+  font: 800 clamp(3rem, 7.2vw, 5rem) / .98 var(--mkt-font-sans);
   letter-spacing: -0.045em;
   margin: 18px auto 0;
   max-width: 960px;
 }
 .mkt__hero-title span, .mkt__cta h2 span, .mkt__own h2 span {
-  background: linear-gradient(135deg, #8dd8fc 0%, #838bfb 50%, #ef6fc4 100%);
+  background: var(--mkt-brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 .mkt__hero-sub {
-  font: 400 20px/1.45 Inter, sans-serif;
-  color: rgba(255, 255, 255, 0.62);
+  font: 400 20px/1.45 var(--mkt-font-sans);
+  color: color-mix(in srgb, var(--mkt-fg-2) 86%, transparent);
   max-width: 560px;
   margin: 22px auto 30px;
 }
@@ -337,35 +369,35 @@ const plans = [
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #131315;
+  background: var(--mkt-bg-2);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   padding: 5px 10px 5px 16px;
   margin-bottom: 52px;
 }
 .mkt__url-pill span {
-  color: rgba(255, 255, 255, 0.45);
-  font: 400 15px/1 "JetBrains Mono", monospace;
+  color: var(--mkt-fg-4);
+  font: 400 15px/1 var(--mkt-font-mono);
 }
 .mkt__url-pill input {
   background: transparent;
   border: 0;
   outline: 0;
-  color: #fff;
-  font: 600 15px/1 Inter, sans-serif;
+  color: var(--mkt-fg-1);
+  font: 600 15px/1 var(--mkt-font-sans);
   width: 120px;
 }
 .mkt__url-pill button {
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(135deg, #8dd8fc 0%, #838bfb 50%, #ef6fc4 100%);
+  background: var(--mkt-brand-gradient);
   padding: 11px 18px;
-  font: 600 14px/1 Inter, sans-serif;
+  font: 600 14px/1 var(--mkt-font-sans);
   color: #000;
 }
 .mkt__hero-grid {
-  max-width: 720px;
-  margin: 0 auto;
+  max-width: 610px;
+  margin: 0 auto 44px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-auto-rows: 1fr;
@@ -373,17 +405,24 @@ const plans = [
   aspect-ratio: 4 / 3;
 }
 .tile {
-  border-radius: 18px;
+  border-radius: var(--mkt-radius-lg);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  background: linear-gradient(180deg, rgba(255, 255, 255, .97), rgba(212, 220, 232, .9));
+  border: 1px solid var(--mkt-glass-tile-border);
+  background: var(--mkt-glass-tile-bg);
+  box-shadow: var(--mkt-glass-tile-shadow);
   position: relative;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tile:hover {
+  transform: translateY(-2px);
 }
 .tile::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 25% 80%, #ef4dbd, transparent 55%), radial-gradient(circle at 80% 25%, #8dd8fc, transparent 55%);
+  background:
+    radial-gradient(circle at 25% 80%, var(--mkt-brand-pink), transparent 55%),
+    radial-gradient(circle at 80% 25%, var(--mkt-brand-cyan), transparent 55%);
   filter: blur(18px);
   opacity: .9;
 }
@@ -404,7 +443,7 @@ const plans = [
 .mkt__feature {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 80px 40px;
+  padding: 72px 40px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 64px;
@@ -412,13 +451,16 @@ const plans = [
   text-align: left;
 }
 .mkt__feature--rev > :first-child { order: 2; }
-.mkt__feature h2 { font: 700 44px/1.05 Inter, sans-serif; margin: 16px 0 0; }
-.mkt__feature p { font: 400 18px/1.5 Inter, sans-serif; color: rgba(255, 255, 255, .6); max-width: 420px; }
+.mkt__feature h2 { font: 700 44px/1.05 var(--mkt-font-sans); margin: 16px 0 0; }
+.mkt__feature p { font: 400 18px/1.5 var(--mkt-font-sans); color: color-mix(in srgb, var(--mkt-fg-2) 82%, transparent); max-width: 420px; }
 .mkt__feature-demo {
   aspect-ratio: 1 / 1;
-  border-radius: 24px;
+  border-radius: var(--mkt-radius-xl);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(180deg, #0a0a0b, #000);
+  background: linear-gradient(180deg, var(--mkt-bg-1), var(--mkt-bg-0));
+  max-width: 360px;
+  justify-self: center;
+  width: 100%;
 }
 .mkt__feature-demo--theme { background: radial-gradient(ellipse at 50% 40%, rgba(131, 139, 251, .15), transparent 70%), #0a0a0b; }
 .mkt__feature-demo--share { background: radial-gradient(ellipse 50% 40% at 50% 50%, rgba(131, 139, 251, .25), transparent 70%), #0a0a0b; }
@@ -429,10 +471,12 @@ const plans = [
   display: grid;
   grid-template-columns: 1.1fr 1fr;
   gap: 56px;
+  position: relative;
+  z-index: 1;
 }
 .mkt__pill {
   display: inline-flex;
-  font: 600 11px/1 Inter, sans-serif;
+  font: 600 11px/1 var(--mkt-font-sans);
   text-transform: uppercase;
   letter-spacing: .04em;
   color: #58e0a3;
@@ -441,28 +485,55 @@ const plans = [
   background: rgba(88, 224, 163, .12);
   margin-bottom: 20px;
 }
-.mkt__own h2 { font: 700 48px/1.02 Inter, sans-serif; margin: 0; }
-.mkt__own p { color: rgba(255, 255, 255, .65); line-height: 1.55; }
+.mkt__own h2 { font: 700 48px/1.02 var(--mkt-font-sans); margin: 0; }
+.mkt__own p { color: color-mix(in srgb, var(--mkt-fg-2) 85%, transparent); line-height: 1.55; }
 .mkt__terminal {
   border: 1px solid rgba(255, 255, 255, .1);
-  border-radius: 20px;
-  background: #000;
+  border-radius: var(--mkt-radius-lg);
+  background: var(--mkt-bg-0);
   padding: 22px 24px;
-  font: 400 13px/1.9 "JetBrains Mono", monospace;
+  font: 400 13px/1.9 var(--mkt-font-mono);
+}
+.mkt__support {
+  max-width: 1120px;
+  margin: 16px auto 0;
+  padding: 0 40px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.mkt__support-card {
+  background: var(--mkt-bg-1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 20px;
+}
+.mkt__support-card h4 {
+  margin: 0;
+  font-size: 15px;
+}
+.mkt__support-card p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
 }
 .mkt__ok { color: #58e0a3; margin-top: 10px; }
 .mkt__faint { color: rgba(255, 255, 255, .35); margin-top: 14px; }
 .mkt__cta {
   text-align: center;
-  padding: 96px 40px;
+  padding: 84px 40px 92px;
+  max-width: 1120px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
 }
 .mkt__cta h2 {
-  font: 800 64px/1 Inter, sans-serif;
+  font: 800 64px/1 var(--mkt-font-sans);
   letter-spacing: -0.04em;
   margin: 0;
 }
 .mkt__cta p {
-  font: 400 19px/1.4 Inter, sans-serif;
+  font: 400 19px/1.4 var(--mkt-font-sans);
   color: rgba(255, 255, 255, .6);
   max-width: 500px;
   margin: 20px auto 30px;
@@ -473,12 +544,12 @@ const plans = [
   padding: 56px 40px 40px;
 }
 .mkt__page h1 {
-  font: 800 56px/1 Inter, sans-serif;
+  font: 800 56px/1 var(--mkt-font-sans);
   letter-spacing: -0.04em;
   margin: 14px 0 10px;
 }
 .mkt__page p {
-  font: 400 19px/1.4 Inter, sans-serif;
+  font: 400 19px/1.4 var(--mkt-font-sans);
   color: rgba(255, 255, 255, .6);
 }
 .mkt__cards {
@@ -497,7 +568,12 @@ const plans = [
   aspect-ratio: 1/1;
   border-radius: 12px;
   margin-bottom: 12px;
-  background: radial-gradient(circle at 20% 20%, #8dd8fc, #838bfb 50%, #ef6fc4);
+  background: radial-gradient(
+    circle at 20% 20%,
+    var(--mkt-brand-cyan),
+    var(--mkt-brand-indigo) 50%,
+    var(--mkt-brand-magenta)
+  );
 }
 .mkt__pricing {
   display: flex;
@@ -521,19 +597,19 @@ const plans = [
 }
 .mkt__plan header h3 { margin: 0; }
 .mkt__plan header span {
-  font: 700 10px/1 Inter, sans-serif;
+  font: 700 10px/1 var(--mkt-font-sans);
   text-transform: uppercase;
   padding: 5px 8px;
   border-radius: 6px;
   color: #000;
-  background: linear-gradient(135deg, #8dd8fc, #838bfb 50%, #ef6fc4);
+  background: var(--mkt-brand-gradient);
 }
 .mkt__plan h4 {
-  font: 800 48px/1 Inter, sans-serif;
+  font: 800 48px/1 var(--mkt-font-sans);
   margin: 18px 0 0;
 }
 .mkt__plan h4 small {
-  font: 500 16px/1 Inter, sans-serif;
+  font: 500 16px/1 var(--mkt-font-sans);
   color: rgba(255, 255, 255, .45);
 }
 .mkt__plan p {
@@ -551,7 +627,7 @@ const plans = [
 }
 .mkt__plan--featured button {
   color: #000;
-  background: linear-gradient(135deg, #8dd8fc 0%, #838bfb 50%, #ef6fc4 100%);
+  background: var(--mkt-brand-gradient);
 }
 .mkt__plan ul {
   list-style: none;
@@ -565,7 +641,7 @@ const plans = [
 }
 .mkt__plan li::before {
   content: "✓";
-  color: #838bfb;
+  color: var(--mkt-brand-indigo);
   margin-right: 10px;
 }
 .mkt__placeholder {
@@ -574,7 +650,7 @@ const plans = [
   padding-top: 120px;
 }
 .mkt__placeholder h1 {
-  font: 700 40px/1 Inter, sans-serif;
+  font: 700 40px/1 var(--mkt-font-sans);
   letter-spacing: -0.03em;
   margin: 14px 0 10px;
 }
@@ -584,7 +660,8 @@ const plans = [
 .mkt__footer {
   border-top: 1px solid rgba(255, 255, 255, .06);
   padding: 48px 40px 32px;
-  margin-top: 64px;
+  margin: 64px auto 0;
+  max-width: 1120px;
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: 40px;
@@ -595,7 +672,7 @@ const plans = [
 }
 .mkt__footer-col h4 {
   margin: 0 0 14px;
-  font: 600 12px/1 Inter, sans-serif;
+  font: 600 12px/1 var(--mkt-font-sans);
   letter-spacing: .08em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, .45);
@@ -613,6 +690,7 @@ const plans = [
   .mkt__cards { grid-template-columns: repeat(2, 1fr); }
   .mkt__pricing { flex-direction: column; }
   .mkt__footer { grid-template-columns: 1fr 1fr; }
+  .mkt__support { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
   .mkt__nav {

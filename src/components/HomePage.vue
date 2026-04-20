@@ -1,811 +1,629 @@
 <template>
-  <div class="home-landing">
-    <div class="home-landing__grid-overlay" aria-hidden="true"></div>
-
-    <header class="home-landing__topbar">
-      <div class="home-landing__brand home-landing__topbar-reveal">Grids</div>
-      <div class="home-landing__intro-tile" aria-hidden="true">
-        <GridMenuIcon class="home-landing__intro-logo" />
-      </div>
-      <div class="home-landing__topbar-actions home-landing__topbar-reveal">
-        <router-link class="home-landing__text-link" to="/pricing">Pricing</router-link>
-        <router-link class="home-landing__btn home-landing__btn--ghost" to="/login">Log in</router-link>
+  <div class="mkt">
+    <header class="mkt__nav">
+      <button class="mkt__brand" @click="nav('home')">grids</button>
+      <nav class="mkt__menu">
+        <button
+          v-for="item in navItems"
+          :key="item.id"
+          :class="['mkt__menu-item', { 'is-active': currentPage === item.id }]"
+          @click="nav(item.id)"
+        >
+          {{ item.label }}
+        </button>
+      </nav>
+      <div class="mkt__actions">
+        <router-link to="/login" class="mkt__text-btn">Sign in</router-link>
+        <router-link to="/login" class="mkt__cta-btn">Make your grid</router-link>
       </div>
     </header>
 
-    <main class="home-landing__content">
-      <section class="home-landing__hero">
-        <div class="home-landing__hero-copy">
-          <p class="home-landing__eyebrow">Create with structured freedom</p>
-          <h1 class="home-landing__title">Share your things</h1>
-          <p class="home-landing__subtitle">
-            Start a garden with all the time you'll save
+    <section v-if="currentPage === 'home'" class="mkt__hero">
+      <div class="mkt__eyebrow">Showcase simplified</div>
+      <h1 class="mkt__hero-title">
+        Your page.<br />
+        Your work. <span>Your grid.</span>
+      </h1>
+      <p class="mkt__hero-sub">
+        Drop tiles on a canvas. Rearrange until it feels right. Share one link — no building from scratch.
+      </p>
+      <div class="mkt__url-pill">
+        <span>grids.so/</span>
+        <input v-model="urlSlug" aria-label="slug input" />
+        <button>Claim url →</button>
+      </div>
+
+      <div class="mkt__hero-grid">
+        <div class="tile tile--2x2">
+          <div class="tile__meta">
+            <strong>Taylor Reid</strong>
+            <small>Designer · Lisbon</small>
+          </div>
+        </div>
+        <div class="tile"><div class="tile__meta"><small>Listening to</small><strong>In bloom</strong></div></div>
+        <div class="tile"><div class="tile__meta"><strong>Read the blog</strong><small>taylor.site</small></div></div>
+        <div class="tile tile--2x1"><div class="tile__meta"><strong>Morning in Lisbon</strong><small>Photo</small></div></div>
+        <div class="tile"><div class="tile__meta"><em>"Simple, but significant."</em></div></div>
+        <div class="tile"><div class="tile__meta"><strong>Shop the print</strong><small>$48 · prints.taylor.site</small></div></div>
+      </div>
+
+      <section class="mkt__feature">
+        <div>
+          <div class="mkt__kicker">Drag · drop · done</div>
+          <h2>A canvas that snaps.</h2>
+          <p>Tiles snap to a flexible grid. Drag one, and everything else finds its place. No layout headaches.</p>
+        </div>
+        <div class="mkt__feature-demo"></div>
+      </section>
+
+      <section class="mkt__feature mkt__feature--rev">
+        <div>
+          <div class="mkt__kicker">Make it yours</div>
+          <h2>Every tile, a statement.</h2>
+          <p>Pick a palette. Set a vibe. Tiles fill themselves with the color and shape of your work.</p>
+        </div>
+        <div class="mkt__feature-demo mkt__feature-demo--theme"></div>
+      </section>
+
+      <section class="mkt__feature">
+        <div>
+          <div class="mkt__kicker">One link, everything</div>
+          <h2>Share one url.</h2>
+          <p>Your grids.so url is the only link you'll need. Send it once — it stays in sync forever.</p>
+        </div>
+        <div class="mkt__feature-demo mkt__feature-demo--share"></div>
+      </section>
+
+      <section class="mkt__own">
+        <div>
+          <div class="mkt__pill">Open source</div>
+          <h2>Your page is <span>yours forever.</span></h2>
+          <p>
+            We watched too many favourite link-in-bio and portfolio sites quietly shut down — taking their users'
+            pages with them. We've been on the other side of that. So we open-sourced the whole thing.
           </p>
-          <div class="home-landing__hero-actions">
-            <router-link class="home-landing__btn home-landing__btn--primary" to="/login">Start building for free</router-link>
-            <router-link class="home-landing__btn home-landing__btn--soft" to="/pricing">See plans</router-link>
-          </div>
-          <p class="home-landing__meta">No code. No blank-canvas overwhelm. Build and share quickly.</p>
+          <p>
+            Export your grid any time. Self-host it. Fork it. If grids.so ever disappears, your page doesn't.
+          </p>
+        </div>
+        <div class="mkt__terminal">
+          <div>$ git clone grids-so/grids</div>
+          <div>$ cd grids && pnpm i</div>
+          <div>$ pnpm dev</div>
+          <div class="mkt__ok">✓ ready on localhost:3000</div>
+          <div class="mkt__faint"># your grid. your server. forever.</div>
         </div>
       </section>
 
-      <section class="home-landing__section home-landing__section--demo">
-        <p class="home-landing__section-kicker">Product demo</p>
-        <h2 class="home-landing__section-title">From first tile to polished page in minutes</h2>
-        <p class="home-landing__section-intro">
-          Place your core message, stack your links, add media, then keep iterating as your projects evolve.
-        </p>
-        <div class="home-landing__demo-video">
-          <div class="home-landing__demo-video-inner">
-            <p class="home-landing__demo-video-label">App Walkthrough Video</p>
-            <p class="home-landing__demo-video-note">
-              Replace this block with your product demo embed (Loom, YouTube, or hosted video).
-            </p>
-          </div>
-        </div>
+      <section class="mkt__cta">
+        <h2>Ready to <span>show off?</span></h2>
+        <p>Free to start. Your first grid takes about four minutes.</p>
+        <router-link to="/login" class="mkt__cta-btn">Make your grid →</router-link>
       </section>
+    </section>
 
-      <section class="home-landing__section">
-        <p class="home-landing__section-kicker">Benefits</p>
-        <h2 class="home-landing__section-title">Structure that keeps you fast, depth that keeps you growing</h2>
-        <div class="home-landing__feature-grid">
-          <article class="feature-card">
-            <h3>Structured freedom by design</h3>
-            <p>
-              Not a full freeform web design tool and that is the advantage. Tiles keep things clear and
-              coherent while still giving you room to create.
-            </p>
-          </article>
-          <article class="feature-card">
-            <h3>Powerful tile building blocks</h3>
-            <p>
-              Mix links, media, profile content, project highlights, notes, and more in one system that feels
-              fast to use and strong enough for serious pages.
-            </p>
-          </article>
-          <article class="feature-card">
-            <h3>Built for anyone with something to share</h3>
-            <p>
-              Bring your work, ideas, followers, and traffic into one destination, whether you are a creator,
-              founder, student, or team.
-            </p>
-          </article>
-        </div>
-      </section>
+    <section v-else-if="currentPage === 'templates'" class="mkt__page">
+      <div class="mkt__kicker">Templates</div>
+      <h1>Start with a grid that already works.</h1>
+      <p>Handmade by people whose pages you'd actually click on.</p>
+      <div class="mkt__cards">
+        <article v-for="template in templates" :key="template.name" class="mkt__card">
+          <div class="mkt__mini-grid"></div>
+          <h3>{{ template.name }}</h3>
+          <small>by {{ template.by }}</small>
+        </article>
+      </div>
+    </section>
 
-      <section class="home-landing__section">
-        <p class="home-landing__section-kicker">Use cases</p>
-        <h2 class="home-landing__section-title">One system, many kinds of pages</h2>
-        <div class="home-landing__use-cases">
-          <article class="use-case">
-            <h3>Link in bio</h3>
-            <p>Turn followers into deeper engagement with a clean, high-converting destination.</p>
-          </article>
-          <article class="use-case">
-            <h3>Portfolio</h3>
-            <p>Show projects, process, and contact routes without spending days on custom design.</p>
-          </article>
-          <article class="use-case">
-            <h3>Digital garden</h3>
-            <p>Publish notes, resources, and ideas in a layout that can evolve over time.</p>
-          </article>
-          <article class="use-case">
-            <h3>Product or creator hub</h3>
-            <p>Bring updates, media, social links, and community actions into one shareable page.</p>
-          </article>
-        </div>
-      </section>
+    <section v-else-if="currentPage === 'pricing'" class="mkt__page">
+      <div class="mkt__kicker">Pricing</div>
+      <h1>Simple, like your grid.</h1>
+      <p>Start free. Upgrade when you need more tiles — or a team.</p>
+      <div class="mkt__pricing">
+        <article
+          v-for="plan in plans"
+          :key="plan.tier"
+          :class="['mkt__plan', { 'mkt__plan--featured': plan.featured }]"
+        >
+          <header>
+            <h3>{{ plan.tier }}</h3>
+            <span v-if="plan.featured">Most picked</span>
+          </header>
+          <h4>{{ plan.price }} <small>{{ plan.cadence }}</small></h4>
+          <p>{{ plan.blurb }}</p>
+          <button>{{ plan.cta }}</button>
+          <ul>
+            <li v-for="feature in plan.features" :key="feature">{{ feature }}</li>
+          </ul>
+        </article>
+      </div>
+    </section>
 
-      <section class="home-landing__section">
-        <p class="home-landing__section-kicker">Social proof</p>
-        <h2 class="home-landing__section-title">Built for people who need to ship pages quickly</h2>
-        <div class="home-landing__proof-grid">
-          <article class="proof-card">
-            <p class="proof-card__metric">Minutes, not days</p>
-            <p>Get live fast and keep refining as your audience grows.</p>
-          </article>
-          <article class="proof-card">
-            <p class="proof-card__metric">Built for iteration</p>
-            <p>Tiles make updates painless, so your page stays current.</p>
-          </article>
-          <article class="proof-card">
-            <p class="proof-card__metric">All-in-one destination</p>
-            <p>Bring links, media, projects, and followers together in one place.</p>
-          </article>
-        </div>
-      </section>
+    <section v-else class="mkt__placeholder">
+      <div class="mkt__kicker">{{ currentPage }}</div>
+      <h1>Coming soon.</h1>
+      <p>We haven't built this page yet.</p>
+    </section>
 
-      <section class="home-landing__section home-landing__section--cta">
-        <p class="home-landing__section-kicker">Pricing / CTA</p>
-        <h2>Bring your links, media, projects, and audience into one grid.</h2>
-        <p>Grids is built on tiles, simple building blocks that make page creation easy and fun while staying
-            incredibly flexible. Create a polished link-in-bio, portfolio, digital garden, or project page
-            without spending forever designing from scratch.</p>
-        <router-link class="home-landing__btn home-landing__btn--primary" to="/login">Start building</router-link>
-      </section>
-    </main>
-
-    <footer class="home-landing__footer">
-      <a
-        href="https://discord.gg/DBscN5NUN6"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="home-landing__discord-link"
-      >
-        <DiscordIcon />
-        <span>Join Discord</span>
-      </a>
-      <span class="home-landing__footer-sep">·</span>
-      <router-link class="home-landing__footer-link" to="/privacy">Privacy</router-link>
-      <span class="home-landing__footer-sep">·</span>
-      <router-link class="home-landing__footer-link" to="/terms">Terms</router-link>
+    <footer class="mkt__footer">
+      <div>
+        <strong>grids</strong>
+        <p>Showcase simplified. Your page, your work, your links.</p>
+      </div>
+      <div class="mkt__footer-col">
+        <h4>Product</h4>
+        <a>Templates</a><a>Showcase</a><a>Pricing</a><a>What's new</a>
+      </div>
+      <div class="mkt__footer-col">
+        <h4>Company</h4>
+        <a>About</a><a>Careers</a><a>Press</a>
+      </div>
+      <div class="mkt__footer-col">
+        <h4>Connect</h4>
+        <a>Twitter</a><a>Instagram</a><a>Contact</a>
+      </div>
     </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import DiscordIcon from '@/components/icons/DiscordIcon.vue';
-import GridMenuIcon from '@/components/icons/GridMenuIcon.vue';
+import { onMounted, ref } from 'vue';
 import { usePageTitle } from '@/composables/usePageTitle';
+
+type Page = 'home' | 'templates' | 'pricing' | 'showcase' | 'blog';
 
 const pageTitle = ref('Home');
 usePageTitle(pageTitle);
+
+const navItems = [
+  { id: 'home', label: 'Home' },
+  { id: 'templates', label: 'Templates' },
+  { id: 'pricing', label: 'Pricing' },
+  { id: 'showcase', label: 'Showcase' },
+  { id: 'blog', label: 'Blog' },
+] as const;
+
+const currentPage = ref<Page>('home');
+const urlSlug = ref('taylor');
+
+const nav = (page: Page) => {
+  currentPage.value = page;
+  pageTitle.value = page[0].toUpperCase() + page.slice(1);
+  localStorage.setItem('grids-mkt-page', page);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+onMounted(() => {
+  const saved = localStorage.getItem('grids-mkt-page') as Page | null;
+  if (saved && navItems.some((item) => item.id === saved)) {
+    currentPage.value = saved;
+    pageTitle.value = saved[0].toUpperCase() + saved.slice(1);
+  }
+});
+
+const templates = [
+  { name: 'Photographer', by: 'Mira Okafor' },
+  { name: 'Writer', by: 'Sam Haines' },
+  { name: 'Musician', by: 'June' },
+  { name: 'Designer', by: 'Paulo S.' },
+  { name: 'Developer', by: 'kei.dev' },
+  { name: 'Link in bio', by: 'grids team' },
+];
+
+const plans = [
+  {
+    tier: 'Free',
+    price: '$0',
+    cadence: 'forever',
+    blurb: 'For getting started. Enough to share.',
+    features: ['1 grid', 'grids.so/you url', 'Core tile types', 'Public page'],
+    cta: 'Start for free',
+    featured: false,
+  },
+  {
+    tier: 'Pro',
+    price: '$6',
+    cadence: '/month',
+    blurb: 'For people serious about how their work lives online.',
+    features: ['Unlimited grids', 'Custom domain', 'All tile types + embeds', 'Analytics', 'No grids watermark'],
+    cta: 'Go Pro',
+    featured: true,
+  },
+  {
+    tier: 'Team',
+    price: '$18',
+    cadence: '/month',
+    blurb: 'For collaborators who share one canvas.',
+    features: ['Everything in Pro', 'Up to 10 seats', 'Shared templates', 'Priority support'],
+    cta: 'Start team',
+    featured: false,
+  },
+];
 </script>
 
 <style scoped>
-.home-landing {
-  --blueprint-ink: #f0e8ff;
-  --blueprint-ink-soft: #c6b6ea;
-  --blueprint-line: rgba(194, 166, 248, 0.2);
-  --blueprint-line-faint: rgba(206, 182, 252, 0.1);
-  --blueprint-panel: rgba(22, 14, 38, 0.58);
-  --blueprint-panel-strong: rgba(18, 11, 32, 0.76);
-  --blueprint-dash: rgba(202, 178, 249, 0.3);
-  position: relative;
+.mkt {
   min-height: 100vh;
+  color: #fff;
+  background: #000;
+  font-family: Inter, sans-serif;
+}
+.mkt__nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  color: var(--blueprint-ink);
-  background:
-    radial-gradient(circle at 18% 12%, rgba(190, 148, 255, 0.07), transparent 42%),
-    radial-gradient(circle at 82% 14%, rgba(140, 108, 221, 0.06), transparent 36%),
-    linear-gradient(180deg, #08060d 0%, #0a0711 52%, #06040b 100%);
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px 40px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
-
-.home-landing::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    repeating-linear-gradient(
-      -6deg,
-      rgba(224, 209, 255, 0.012) 0,
-      rgba(224, 209, 255, 0.012) 1px,
-      transparent 1px,
-      transparent 10px
-    );
-  opacity: 0.22;
+.mkt__brand {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font: 800 20px/1 Inter, sans-serif;
+  letter-spacing: -0.04em;
+  cursor: pointer;
 }
-
-.home-landing::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image:
-    repeating-linear-gradient(
-      to bottom,
-      transparent 0,
-      transparent 116px,
-      rgba(211, 188, 255, 0.07) 116px,
-      rgba(211, 188, 255, 0.07) 117px
-    ),
-    repeating-linear-gradient(
-      to right,
-      transparent 0,
-      transparent 192px,
-      rgba(211, 188, 255, 0.055) 192px,
-      rgba(211, 188, 255, 0.055) 193px
-    );
-  opacity: 0.14;
+.mkt__menu {
+  display: flex;
+  gap: 2px;
 }
-
-.home-landing__grid-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--blueprint-line) 42%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--blueprint-line) 42%, transparent) 1px, transparent 1px),
-    linear-gradient(to right, color-mix(in srgb, var(--blueprint-line-faint) 40%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--blueprint-line-faint) 40%, transparent) 1px, transparent 1px);
-  background-size: 40px 40px;
-  background-position:
-    0 0,
-    0 0,
-    20px 20px,
-    20px 20px;
-  mask-image: radial-gradient(circle at 50% 40%, black 40%, transparent 95%);
-  opacity: 0.38;
-}
-
-.home-landing__intro-tile {
-  --intro-size: clamp(40px, 4vw, 96px);
-  --intro-center-offset: calc(50vh - 82px);
-  width: var(--intro-size);
-  height: var(--intro-size);
+.mkt__menu-item {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font: 500 14px/1 Inter, sans-serif;
+  cursor: pointer;
+  padding: 8px 12px;
   border-radius: 10px;
-  border: 2px solid var(--blueprint-dash);
-  outline: 1px dashed rgba(212, 188, 255, 0.34);
-  outline-offset: -6px;
-  background: linear-gradient(145deg, rgba(119, 87, 181, 0.44), rgba(39, 24, 64, 0.84));
-  box-shadow: 0 16px 36px rgba(3, 12, 22, 0.52);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-sm);
-  font-size: clamp(0.9rem, 1.5vw, 1.08rem);
-  font-weight: var(--font-weight-semibold);
-  transform: translateY(var(--intro-center-offset)) scale(0.15);
-  opacity: 0;
-  animation: intro-tile-sequence 2200ms var(--easing-smooth) forwards;
-  pointer-events: none;
 }
-
-.home-landing__intro-logo {
-  width: clamp(22px, 3vw, 28px);
-  height: clamp(22px, 3vw, 28px);
-  color: #f3ecff;
+.mkt__menu-item.is-active {
+  color: #fff;
 }
-
-.home-landing__topbar {
-  position: relative;
-  z-index: 1;
-  width: min(1120px, 100%);
-  margin: 0 auto;
-  padding: var(--spacing-lg) var(--spacing-lg);
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-}
-
-.home-landing__topbar-reveal {
-  opacity: 0;
-  transform: translateY(22px);
-  animation: home-content-enter 680ms var(--easing-smooth) forwards;
-  animation-delay: 2050ms;
-}
-
-.home-landing__brand {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.home-landing__topbar-actions {
+.mkt__actions {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-  justify-self: end;
+  gap: 10px;
 }
-
-.home-landing__text-link {
-  color: var(--blueprint-ink-soft);
+.mkt__text-btn {
+  color: rgba(255, 255, 255, 0.65);
   text-decoration: none;
+  font: 500 14px/1 Inter, sans-serif;
 }
-
-.home-landing__text-link:hover {
-  color: var(--blueprint-ink);
-}
-
-.home-landing__content {
-  position: relative;
-  z-index: 1;
-  width: min(1120px, 100%);
-  margin: 0 auto;
-  padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-4xl);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-4xl);
-  opacity: 0;
-  transform: translateY(28px);
-  animation: home-content-enter 760ms var(--easing-smooth) forwards;
-  animation-delay: 2140ms;
-}
-
-.home-landing__hero {
-  display: flex;
-  justify-content: center;
-  text-align: center;
-  padding: var(--spacing-xl) 0 var(--spacing-lg);
-}
-
-.home-landing__hero-copy {
-  max-width: 760px;
-}
-
-.home-landing__eyebrow {
-  margin: 0 0 var(--spacing-sm);
-  color: var(--blueprint-ink-soft);
-  font-size: var(--font-size-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.home-landing__title {
-  margin: 0;
-  font-size: clamp(2rem, 5vw, 3.7rem);
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  font-weight: var(--font-weight-semibold);
-  text-wrap: balance;
-}
-
-.home-landing__subtitle {
-  margin: var(--spacing-lg) 0 0;
-  max-width: 52ch;
-  margin-left: auto;
-  margin-right: auto;
-  color: var(--blueprint-ink-soft);
-  font-size: var(--font-size-lg);
-  line-height: 1.55;
-}
-
-.home-landing__hero-actions {
-  margin-top: var(--spacing-xl);
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--spacing-sm);
-}
-
-.home-landing__meta {
-  margin-top: var(--spacing-md);
-  color: var(--blueprint-ink-soft);
-  font-size: var(--font-size-sm);
-}
-
-.home-landing__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 11px 16px;
-  border-radius: var(--radius-md);
-  border: 1px solid transparent;
-  font-weight: var(--font-weight-semibold);
-  text-decoration: none;
-  transition:
-    transform var(--duration-fast) var(--easing-smooth),
-    border-color var(--duration-fast) var(--easing-smooth),
-    box-shadow var(--duration-fast) var(--easing-smooth),
-    background-color var(--duration-fast) var(--easing-smooth);
-}
-
-.home-landing__btn:hover {
-  transform: translateY(-1px);
-}
-
-.home-landing__btn--primary {
-  color: #f7f2ff;
-  border-color: rgba(216, 191, 255, 0.58);
-  background: linear-gradient(145deg, rgba(133, 90, 200, 0.9), rgba(87, 57, 143, 0.86));
-  box-shadow: 0 0 0 1px rgba(214, 190, 255, 0.3) inset;
-}
-
-.home-landing__btn--soft {
-  border-color: var(--blueprint-dash);
-  color: var(--blueprint-ink);
-  background: rgba(54, 33, 83, 0.45);
-}
-
-.home-landing__btn--ghost {
-  border-color: var(--blueprint-dash);
-  color: var(--blueprint-ink-soft);
-  background: rgba(43, 26, 70, 0.46);
-}
-
-.hero-tile__label {
-  margin: 0 0 var(--spacing-sm);
-  color: var(--color-content-high);
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.hero-tile h3 {
-  margin: 0;
-  font-size: var(--font-size-lg);
-}
-
-.hero-tile p {
-  margin: var(--spacing-sm) 0 0;
-  color: var(--color-content-default);
-  font-size: var(--font-size-md);
-}
-
-.home-landing__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xl);
-  padding: var(--spacing-xl) 0;
-}
-
-.home-landing__section-title {
-  margin: 0;
-  font-size: clamp(1.4rem, 3vw, 2rem);
-}
-
-.home-landing__section-kicker {
-  margin: 0;
-  color: var(--blueprint-ink-soft);
-  font-size: 0.76rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.home-landing__section-intro {
-  margin: 0;
-  color: var(--blueprint-ink-soft);
-  max-width: 62ch;
-}
-
-.home-landing__section--demo {
-  border: 1px dashed var(--blueprint-dash);
-  border-radius: 18px;
-  padding: var(--spacing-2xl);
-  background: var(--blueprint-panel);
-  position: relative;
-}
-
-.home-landing__section--demo::before,
-.home-landing__section--demo::after {
-  content: "";
-  position: absolute;
-  inset: 14px;
-  pointer-events: none;
-  border: 1px dotted rgba(212, 188, 255, 0.14);
+.mkt__cta-btn {
+  font: 600 13px/1 Inter, sans-serif;
+  letter-spacing: -0.01em;
+  padding: 9px 14px;
+  border: 0;
   border-radius: 12px;
-}
-
-.home-landing__section--demo::after {
-  inset: 28px;
-  border-color: rgba(212, 188, 255, 0.09);
-}
-
-.home-landing__demo-video {
-  border: 1px dashed var(--blueprint-dash);
-  border-radius: 14px;
-  background: rgba(35, 23, 56, 0.6);
-  padding: var(--spacing-sm);
-}
-
-.home-landing__demo-video-inner {
-  aspect-ratio: 16 / 9;
-  border-radius: 10px;
-  border: 1px dashed rgba(212, 188, 255, 0.36);
-  background:
-    linear-gradient(to right, rgba(212, 188, 255, 0.16) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(212, 188, 255, 0.16) 1px, transparent 1px),
-    radial-gradient(circle at 50% 20%, rgba(173, 124, 248, 0.24), transparent 46%),
-    repeating-linear-gradient(
-      0deg,
-      rgba(218, 199, 255, 0.04) 0,
-      rgba(218, 199, 255, 0.04) 2px,
-      transparent 2px,
-      transparent 10px
-    ),
-    rgba(23, 13, 37, 0.52);
-  background-size: 28px 28px, 28px 28px, auto, auto, auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xl);
-}
-
-.home-landing__demo-video-label {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-}
-
-.home-landing__demo-video-note {
-  margin: 0;
-  max-width: 44ch;
-  color: var(--blueprint-ink-soft);
-}
-
-.feature-card,
-.use-case,
-.proof-card {
-  padding: var(--spacing-xl);
-  border-radius: var(--radius-lg);
-}
-
-.home-landing__feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--spacing-md);
-  position: relative;
-}
-
-.home-landing__feature-grid::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -20px;
-  border-top: 1px dashed rgba(212, 188, 255, 0.24);
-  pointer-events: none;
-}
-
-.feature-card {
-  border: 1px dashed var(--blueprint-dash);
-  background: var(--blueprint-panel);
-  position: relative;
-}
-
-.feature-card::after,
-.use-case::after,
-.proof-card::after {
-  content: "";
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 22px;
-  height: 22px;
-  border-top: 1px dotted rgba(214, 192, 255, 0.34);
-  border-right: 1px dotted rgba(214, 192, 255, 0.34);
-  pointer-events: none;
-}
-
-.feature-card h3 {
-  margin: 0;
-  font-size: var(--font-size-lg);
-}
-
-.feature-card p {
-  margin: var(--spacing-sm) 0 0;
-  color: var(--blueprint-ink-soft);
-}
-
-.home-landing__use-cases {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--spacing-md);
-  position: relative;
-}
-
-.home-landing__use-cases::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -20px;
-  border-top: 1px dashed rgba(212, 188, 255, 0.22);
-  pointer-events: none;
-}
-
-.use-case {
-  border: 1px dashed var(--blueprint-dash);
-  background: var(--blueprint-panel);
-}
-
-.use-case h3 {
-  margin: 0;
-}
-
-.use-case p {
-  margin: var(--spacing-sm) 0 0;
-  color: var(--blueprint-ink-soft);
-}
-
-.home-landing__proof-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--spacing-md);
-  position: relative;
-}
-
-.home-landing__proof-grid::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -20px;
-  border-top: 1px dashed rgba(212, 188, 255, 0.22);
-  pointer-events: none;
-}
-
-.proof-card {
-  border: 1px dashed var(--blueprint-dash);
-  background: linear-gradient(145deg, rgba(28, 66, 108, 0.62), rgba(9, 28, 52, 0.74));
-}
-
-.proof-card__metric {
-  margin: 0;
-  font-weight: var(--font-weight-semibold);
-  color: var(--blueprint-ink);
-}
-
-.proof-card p {
-  margin: var(--spacing-sm) 0 0;
-  color: var(--blueprint-ink-soft);
-}
-
-.home-landing__section--cta {
-  align-items: center;
-  text-align: center;
-  border: 1px dashed var(--blueprint-dash);
-  border-radius: 18px;
-  padding: var(--spacing-3xl) var(--spacing-2xl);
-  background: var(--blueprint-panel-strong);
-}
-
-.home-landing__section--cta h2 {
-  margin: 0;
-  font-size: clamp(1.5rem, 3.2vw, 2.2rem);
-}
-
-.home-landing__section--cta p {
-  margin: 0;
-  color: var(--blueprint-ink-soft);
-  max-width: 52ch;
-}
-
-.home-landing__footer {
-  position: relative;
-  z-index: 1;
-  margin-top: auto;
-  padding: var(--spacing-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-sm);
-  color: var(--blueprint-ink-soft);
-  opacity: 0;
-  transform: translateY(22px);
-  animation: home-content-enter 760ms var(--easing-smooth) forwards;
-  animation-delay: 2220ms;
-}
-
-.home-landing__discord-link {
-  color: var(--blueprint-ink-soft);
+  background: linear-gradient(135deg, #8dd8fc 0%, #838bfb 50%, #ef6fc4 100%);
+  color: #000;
   text-decoration: none;
+}
+.mkt__hero {
+  padding: 64px 40px 48px;
+  text-align: center;
+}
+.mkt__eyebrow, .mkt__kicker {
+  font: 500 12px/1 Inter, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+.mkt__hero-title {
+  font: 800 80px/.98 Inter, sans-serif;
+  letter-spacing: -0.045em;
+  margin: 18px auto 0;
+  max-width: 960px;
+}
+.mkt__hero-title span, .mkt__cta h2 span, .mkt__own h2 span {
+  background: linear-gradient(135deg, #8dd8fc 0%, #838bfb 50%, #ef6fc4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.mkt__hero-sub {
+  font: 400 20px/1.45 Inter, sans-serif;
+  color: rgba(255, 255, 255, 0.62);
+  max-width: 560px;
+  margin: 22px auto 30px;
+}
+.mkt__url-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  background: #131315;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 5px 10px 5px 16px;
+  margin-bottom: 52px;
 }
-
-.home-landing__discord-link:hover {
-  color: #d8beff;
+.mkt__url-pill span {
+  color: rgba(255, 255, 255, 0.45);
+  font: 400 15px/1 "JetBrains Mono", monospace;
 }
-
-.home-landing__discord-link :deep(svg) {
-  width: 18px;
-  height: 18px;
+.mkt__url-pill input {
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: #fff;
+  font: 600 15px/1 Inter, sans-serif;
+  width: 120px;
 }
-
-.home-landing__footer-link {
-  color: var(--blueprint-ink-soft);
+.mkt__url-pill button {
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #8dd8fc 0%, #838bfb 50%, #ef6fc4 100%);
+  padding: 11px 18px;
+  font: 600 14px/1 Inter, sans-serif;
+  color: #000;
+}
+.mkt__hero-grid {
+  max-width: 720px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 12px;
+  aspect-ratio: 4 / 3;
+}
+.tile {
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .97), rgba(212, 220, 232, .9));
+  position: relative;
+}
+.tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 25% 80%, #ef4dbd, transparent 55%), radial-gradient(circle at 80% 25%, #8dd8fc, transparent 55%);
+  filter: blur(18px);
+  opacity: .9;
+}
+.tile--2x2 { grid-column: span 2; grid-row: span 2; }
+.tile--2x1 { grid-column: span 2; }
+.tile__meta {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  color: #0a0a0b;
+}
+.tile__meta strong { font-size: 14px; }
+.tile__meta small { font-size: 11px; opacity: .6; }
+.tile__meta em { font: 400 14px/1.2 "Instrument Serif", serif; }
+.mkt__feature {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 80px 40px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+  text-align: left;
+}
+.mkt__feature--rev > :first-child { order: 2; }
+.mkt__feature h2 { font: 700 44px/1.05 Inter, sans-serif; margin: 16px 0 0; }
+.mkt__feature p { font: 400 18px/1.5 Inter, sans-serif; color: rgba(255, 255, 255, .6); max-width: 420px; }
+.mkt__feature-demo {
+  aspect-ratio: 1 / 1;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, #0a0a0b, #000);
+}
+.mkt__feature-demo--theme { background: radial-gradient(ellipse at 50% 40%, rgba(131, 139, 251, .15), transparent 70%), #0a0a0b; }
+.mkt__feature-demo--share { background: radial-gradient(ellipse 50% 40% at 50% 50%, rgba(131, 139, 251, .25), transparent 70%), #0a0a0b; }
+.mkt__own {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 40px 40px;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 56px;
+}
+.mkt__pill {
+  display: inline-flex;
+  font: 600 11px/1 Inter, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #58e0a3;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(88, 224, 163, .12);
+  margin-bottom: 20px;
+}
+.mkt__own h2 { font: 700 48px/1.02 Inter, sans-serif; margin: 0; }
+.mkt__own p { color: rgba(255, 255, 255, .65); line-height: 1.55; }
+.mkt__terminal {
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 20px;
+  background: #000;
+  padding: 22px 24px;
+  font: 400 13px/1.9 "JetBrains Mono", monospace;
+}
+.mkt__ok { color: #58e0a3; margin-top: 10px; }
+.mkt__faint { color: rgba(255, 255, 255, .35); margin-top: 14px; }
+.mkt__cta {
+  text-align: center;
+  padding: 96px 40px;
+}
+.mkt__cta h2 {
+  font: 800 64px/1 Inter, sans-serif;
+  letter-spacing: -0.04em;
+  margin: 0;
+}
+.mkt__cta p {
+  font: 400 19px/1.4 Inter, sans-serif;
+  color: rgba(255, 255, 255, .6);
+  max-width: 500px;
+  margin: 20px auto 30px;
+}
+.mkt__page, .mkt__placeholder {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 56px 40px 40px;
+}
+.mkt__page h1 {
+  font: 800 56px/1 Inter, sans-serif;
+  letter-spacing: -0.04em;
+  margin: 14px 0 10px;
+}
+.mkt__page p {
+  font: 400 19px/1.4 Inter, sans-serif;
+  color: rgba(255, 255, 255, .6);
+}
+.mkt__cards {
+  margin-top: 40px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.mkt__card {
+  padding: 16px;
+  border-radius: 20px;
+  background: #0a0a0b;
+  border: 1px solid rgba(255, 255, 255, .06);
+}
+.mkt__mini-grid {
+  aspect-ratio: 1/1;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  background: radial-gradient(circle at 20% 20%, #8dd8fc, #838bfb 50%, #ef6fc4);
+}
+.mkt__pricing {
+  display: flex;
+  gap: 18px;
+  margin-top: 20px;
+}
+.mkt__plan {
+  flex: 1;
+  padding: 28px;
+  border-radius: 24px;
+  background: #0a0a0b;
+  border: 1px solid rgba(255, 255, 255, .08);
+}
+.mkt__plan--featured {
+  border-color: rgba(131, 139, 251, .45);
+  background: linear-gradient(180deg, rgba(131, 139, 251, .08), rgba(239, 111, 196, .04)) #0a0a0b;
+}
+.mkt__plan header {
+  display: flex;
+  justify-content: space-between;
+}
+.mkt__plan header h3 { margin: 0; }
+.mkt__plan header span {
+  font: 700 10px/1 Inter, sans-serif;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  border-radius: 6px;
+  color: #000;
+  background: linear-gradient(135deg, #8dd8fc, #838bfb 50%, #ef6fc4);
+}
+.mkt__plan h4 {
+  font: 800 48px/1 Inter, sans-serif;
+  margin: 18px 0 0;
+}
+.mkt__plan h4 small {
+  font: 500 16px/1 Inter, sans-serif;
+  color: rgba(255, 255, 255, .45);
+}
+.mkt__plan p {
+  color: rgba(255, 255, 255, .55);
+  font-size: 14px;
+}
+.mkt__plan button {
+  width: 100%;
+  margin-top: 6px;
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 16px;
+  background: #1c1c20;
+  color: #fff;
+}
+.mkt__plan--featured button {
+  color: #000;
+  background: linear-gradient(135deg, #8dd8fc 0%, #838bfb 50%, #ef6fc4 100%);
+}
+.mkt__plan ul {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: rgba(255, 255, 255, .75);
+  font-size: 14px;
+}
+.mkt__plan li::before {
+  content: "✓";
+  color: #838bfb;
+  margin-right: 10px;
+}
+.mkt__placeholder {
+  text-align: center;
+  max-width: 720px;
+  padding-top: 120px;
+}
+.mkt__placeholder h1 {
+  font: 700 40px/1 Inter, sans-serif;
+  letter-spacing: -0.03em;
+  margin: 14px 0 10px;
+}
+.mkt__placeholder p {
+  color: rgba(255, 255, 255, .55);
+}
+.mkt__footer {
+  border-top: 1px solid rgba(255, 255, 255, .06);
+  padding: 48px 40px 32px;
+  margin-top: 64px;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 40px;
+}
+.mkt__footer p {
+  color: rgba(255, 255, 255, .5);
+  max-width: 280px;
+}
+.mkt__footer-col h4 {
+  margin: 0 0 14px;
+  font: 600 12px/1 Inter, sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .45);
+}
+.mkt__footer-col a {
+  display: block;
+  color: rgba(255, 255, 255, .75);
+  margin-bottom: 10px;
   text-decoration: none;
 }
-
-.home-landing__footer-link:hover {
-  color: var(--blueprint-ink);
+@media (max-width: 1000px) {
+  .mkt__hero-title { font-size: 56px; }
+  .mkt__feature, .mkt__own { grid-template-columns: 1fr; }
+  .mkt__feature--rev > :first-child { order: initial; }
+  .mkt__cards { grid-template-columns: repeat(2, 1fr); }
+  .mkt__pricing { flex-direction: column; }
+  .mkt__footer { grid-template-columns: 1fr 1fr; }
 }
-
-@keyframes intro-tile-sequence {
-  0% {
-    opacity: 0;
-    transform: translateY(var(--intro-center-offset)) scale(0.15);
+@media (max-width: 720px) {
+  .mkt__nav {
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 14px;
   }
-  26% {
-    opacity: 1;
-    transform: translateY(var(--intro-center-offset)) scale(2);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes home-content-enter {
-  from {
-    opacity: 0;
-    transform: translateY(22px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (max-width: 980px) {
-  .home-landing__topbar {
-    grid-template-columns: auto 1fr;
-    grid-template-areas:
-      "intro intro"
-      "brand actions";
-    row-gap: var(--spacing-md);
-  }
-
-  .home-landing__intro-tile {
-    grid-area: intro;
-    justify-self: center;
-    --intro-center-offset: calc(50vh - 116px);
-  }
-
-  .home-landing__brand {
-    grid-area: brand;
-  }
-
-  .home-landing__topbar-actions {
-    grid-area: actions;
-  }
-
-  .home-landing__feature-grid,
-  .home-landing__use-cases,
-  .home-landing__proof-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .home-landing__feature-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .home-landing__topbar {
-    padding-top: var(--spacing-md);
-  }
-
-  .home-landing__intro-tile {
-    --intro-size: 92px;
-    --intro-center-offset: calc(50vh - 148px);
-  }
-
-  .home-landing__content {
-    padding: var(--spacing-lg) var(--spacing-md) var(--spacing-3xl);
-    gap: var(--spacing-3xl);
-  }
-
-  .home-landing__section {
-    padding: var(--spacing-lg) 0;
-  }
-
-  .home-landing__section--demo {
-    padding: var(--spacing-lg);
-  }
-
-  .home-landing__section--cta {
-    padding: var(--spacing-lg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .home-landing__topbar-reveal,
-  .home-landing__content,
-  .home-landing__footer {
-    opacity: 1;
-    transform: none;
-    animation: none;
-  }
-
-  .home-landing__intro-tile {
-    opacity: 1;
-    transform: none;
-    animation: none;
-  }
+  .mkt__hero { padding: 40px 14px; }
+  .mkt__hero-title { font-size: 44px; }
+  .mkt__hero-grid { grid-template-columns: repeat(2, 1fr); aspect-ratio: auto; }
+  .mkt__feature, .mkt__page, .mkt__cta, .mkt__footer, .mkt__own { padding-left: 14px; padding-right: 14px; }
+  .mkt__cards, .mkt__footer { grid-template-columns: 1fr; }
 }
 </style>

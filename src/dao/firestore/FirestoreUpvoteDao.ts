@@ -1,30 +1,66 @@
-import type { Firestore } from "firebase/firestore";
+import {
+  type Firestore,
+  collection,
+  onSnapshot,
+  query,
+  where,
+} from "firebase/firestore";
+import type { Functions } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import type { UpvoteDao } from "../interfaces/UpvoteDao";
 
 export class FirestoreUpvoteDao implements UpvoteDao {
   private db: Firestore;
+  private functions: Functions;
 
-  public constructor(db: Firestore) {
+  public constructor(db: Firestore, functions: Functions) {
     this.db = db;
+    this.functions = functions;
   }
 
   public subscribeToUserUpvotes(
-    _layoutId: string,
-    _tileId: string,
-    _userId: string,
-    _callback: (votedPageIds: Set<string>) => void,
-    _onError?: (error: Error) => void,
+    layoutId: string,
+    tileId: string,
+    userId: string,
+    callback: (votedPageIds: Set<string>) => void,
+    onError?: (error: Error) => void,
   ): () => void {
-    throw new Error(
-      "FirestoreUpvoteDao.subscribeToUserUpvotes not implemented",
+    const upvotesRef = collection(
+      this.db,
+      "layouts",
+      layoutId,
+      "tiles",
+      tileId,
+      "upvotes",
+    );
+    const myVotesQuery = query(upvotesRef, where("userId", "==", userId));
+
+    return onSnapshot(
+      myVotesQuery,
+      (snap) => {
+        const voted = new Set<string>();
+        snap.forEach((d) => {
+          const data = d.data();
+          if (data?.notionPageId) voted.add(data.notionPageId as string);
+        });
+        callback(voted);
+      },
+      (error) => {
+        if (onError) onError(error);
+      },
     );
   }
 
-  public toggleUpvote(
-    _layoutId: string,
-    _tileId: string,
-    _notionPageId: string,
+  public async toggleUpvote(
+    layoutId: string,
+    tileId: string,
+    notionPageId: string,
   ): Promise<{ isNowUpvoted: boolean }> {
-    throw new Error("FirestoreUpvoteDao.toggleUpvote not implemented");
+    const fn = httpsCallable<unknown, { isNowUpvoted: boolean }>(
+      this.functions,
+      "upvoteRoadmapItem",
+    );
+    const result = await fn({ layoutId, tileId, notionPageId });
+    return result.data;
   }
 }

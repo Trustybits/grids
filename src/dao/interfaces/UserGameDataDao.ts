@@ -8,6 +8,9 @@ export interface UserGameDataDao {
   /** Update specific fields on a game data document. */
   update(userId: string, data: Record<string, unknown>): Promise<void>;
 
+  /** Atomically increment one or more numeric fields. Keys are field names, values are the amounts to add. */
+  incrementFields(userId: string, fields: Record<string, number>): Promise<void>;
+
   /** Atomically increment clicks within a transaction. Returns true if applied (under daily cap), false otherwise. */
   incrementClicksTransaction(userId: string, amount: number): Promise<boolean>;
 

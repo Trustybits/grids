@@ -1,17 +1,19 @@
 import type { IChatService } from "../interfaces/IChatService";
+import type { IGameDataService } from "../interfaces/IGameDataService";
 import type { ILayoutService } from "../interfaces/ILayoutService";
 import type { IRoadmapService } from "../interfaces/IRoadmapService";
 import type { IStorageService } from "../interfaces/IStorageService";
+import type { IStripeService } from "../interfaces/IStripeService";
 import type { IUpvoteService } from "../interfaces/IUpvoteService";
 import type { IUserService } from "../interfaces/IUserService";
-import type { IGameDataService } from "../interfaces/IGameDataService";
 
 export interface IServiceFactory {
   getChatService: () => IChatService;
+  getGameDataService: () => IGameDataService;
   getLayoutService: () => ILayoutService;
   getRoadmapService: () => IRoadmapService;
   getStorageService: () => IStorageService;
+  getStripeService: () => IStripeService;
   getUpvoteService: () => IUpvoteService;
   getUserService: () => IUserService;
-  getGameDataService: () => IGameDataService;
 }

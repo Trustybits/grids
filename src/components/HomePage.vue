@@ -53,7 +53,15 @@
           <h2>A canvas that snaps.</h2>
           <p>Tiles snap to a flexible grid. Drag one, and everything else finds its place. No layout headaches.</p>
         </div>
-        <div class="mkt__feature-demo"></div>
+        <div class="mkt__feature-demo mkt__feature-demo--snap">
+          <div class="mkt__mini-tiles">
+            <div class="mkt__mini-tile"></div>
+            <div class="mkt__mini-tile"></div>
+            <div class="mkt__mini-tile mkt__mini-tile--floating"></div>
+            <div class="mkt__mini-tile mkt__mini-tile--wide"></div>
+            <div class="mkt__mini-tile"></div>
+          </div>
+        </div>
       </section>
 
       <section class="mkt__feature mkt__feature--rev">
@@ -62,7 +70,19 @@
           <h2>Every tile, a statement.</h2>
           <p>Pick a palette. Set a vibe. Tiles fill themselves with the color and shape of your work.</p>
         </div>
-        <div class="mkt__feature-demo mkt__feature-demo--theme"></div>
+        <div class="mkt__feature-demo mkt__feature-demo--theme">
+          <div class="mkt__palette-row">
+            <span class="dot dot--cyan"></span>
+            <span class="dot dot--blue"></span>
+            <span class="dot dot--indigo"></span>
+            <span class="dot dot--violet"></span>
+            <span class="dot dot--magenta"></span>
+            <span class="dot dot--green"></span>
+          </div>
+          <div class="mkt__theme-card">
+            <div class="mkt__theme-card-plasma"></div>
+          </div>
+        </div>
       </section>
 
       <section class="mkt__feature">
@@ -71,7 +91,12 @@
           <h2>Share one url.</h2>
           <p>Your grids.so url is the only link you'll need. Send it once — it stays in sync forever.</p>
         </div>
-        <div class="mkt__feature-demo mkt__feature-demo--share"></div>
+        <div class="mkt__feature-demo mkt__feature-demo--share">
+          <div class="mkt__share-pill">
+            <span>grids.so/</span>
+            <strong>taylor</strong>
+          </div>
+        </div>
       </section>
 
       <section class="mkt__own">
@@ -90,9 +115,19 @@
           </p>
         </div>
         <div class="mkt__terminal">
-          <div>$ git clone grids-so/grids</div>
-          <div>$ cd grids && pnpm i</div>
-          <div>$ pnpm dev</div>
+          <div class="mkt__terminal-top">
+            <div class="mkt__terminal-dots">
+              <span class="terminal-dot terminal-dot--red"></span>
+              <span class="terminal-dot terminal-dot--yellow"></span>
+              <span class="terminal-dot terminal-dot--green"></span>
+            </div>
+            <span class="mkt__terminal-path">~/grids</span>
+          </div>
+          <div class="mkt__terminal-body">
+            <div><span class="mkt__terminal-prompt">$</span> git clone grids-so/grids</div>
+            <div><span class="mkt__terminal-prompt">$</span> cd grids && pnpm i</div>
+            <div><span class="mkt__terminal-prompt">$</span> pnpm dev</div>
+          </div>
           <div class="mkt__ok">✓ ready on localhost:3000</div>
           <div class="mkt__faint"># your grid. your server. forever.</div>
         </div>
@@ -472,9 +507,103 @@ const plans = [
   max-width: 360px;
   justify-self: center;
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
 }
-.mkt__feature-demo--theme { background: radial-gradient(ellipse at 50% 40%, rgba(131, 139, 251, .15), transparent 70%), #0a0a0b; }
+.mkt__feature-demo--snap {
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(131, 139, 251, .15), transparent 70%),
+    linear-gradient(180deg, var(--mkt-bg-1), var(--mkt-bg-0));
+}
+.mkt__feature-demo--theme {
+  background: radial-gradient(ellipse at 50% 40%, rgba(131, 139, 251, .15), transparent 70%), #0a0a0b;
+  flex-direction: column;
+  gap: 14px;
+}
 .mkt__feature-demo--share { background: radial-gradient(ellipse 50% 40% at 50% 50%, rgba(131, 139, 251, .25), transparent 70%), #0a0a0b; }
+.mkt__mini-tiles {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 72px;
+  gap: 10px;
+}
+.mkt__mini-tile {
+  border-radius: 14px;
+  border: 1px solid var(--mkt-glass-tile-border);
+  background: var(--mkt-glass-tile-bg);
+  box-shadow: var(--mkt-glass-tile-shadow);
+  position: relative;
+}
+.mkt__mini-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 30% 70%, color-mix(in srgb, var(--mkt-brand-pink) 80%, white 20%), transparent 58%),
+    radial-gradient(circle at 78% 30%, color-mix(in srgb, var(--mkt-brand-cyan) 80%, white 20%), transparent 58%);
+  filter: blur(12px);
+  opacity: .9;
+}
+.mkt__mini-tile--wide { grid-column: span 2; }
+.mkt__mini-tile--floating { transform: rotate(-4deg) translateY(4px); }
+.mkt__palette-row {
+  display: flex;
+  gap: 8px;
+}
+.dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 6px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55);
+}
+.dot--cyan { background: var(--mkt-brand-cyan); }
+.dot--blue { background: var(--mkt-brand-blue); }
+.dot--indigo { background: var(--mkt-brand-indigo); }
+.dot--violet { background: var(--mkt-brand-violet); }
+.dot--magenta { background: var(--mkt-brand-magenta); }
+.dot--green { background: #58e0a3; }
+.mkt__theme-card {
+  width: 220px;
+  height: 120px;
+  border-radius: 18px;
+  border: 1px solid var(--mkt-glass-tile-border);
+  background: var(--mkt-glass-tile-bg);
+  box-shadow: var(--mkt-glass-tile-shadow);
+  overflow: hidden;
+  position: relative;
+}
+.mkt__theme-card-plasma {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 28% 78%, var(--mkt-brand-pink), transparent 55%),
+    radial-gradient(circle at 82% 25%, var(--mkt-brand-cyan), transparent 55%);
+  filter: blur(18px);
+  opacity: .9;
+}
+.mkt__share-pill {
+  border-radius: var(--mkt-radius-pill);
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: var(--mkt-bg-2);
+  padding: 14px 22px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  box-shadow: 0 14px 36px -12px rgba(131, 139, 251, .45);
+}
+.mkt__share-pill span {
+  color: var(--mkt-fg-4);
+  font: 400 17px/1 var(--mkt-font-mono);
+}
+.mkt__share-pill strong {
+  color: var(--mkt-fg-1);
+  font: 700 20px/1 var(--mkt-font-sans);
+  letter-spacing: -0.02em;
+}
 .mkt__own {
   max-width: 1120px;
   margin: 0 auto;
@@ -505,8 +634,38 @@ const plans = [
   border: 1px solid rgba(255, 255, 255, .1);
   border-radius: var(--mkt-radius-lg);
   background: var(--mkt-bg-0);
-  padding: 22px 24px;
+  overflow: hidden;
   font: 400 13px/1.9 var(--mkt-font-mono);
+}
+.mkt__terminal-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+  background: color-mix(in srgb, var(--mkt-bg-1) 90%, black 10%);
+}
+.mkt__terminal-dots {
+  display: flex;
+  gap: 6px;
+}
+.terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.terminal-dot--red { background: #ff6b7a; }
+.terminal-dot--yellow { background: #ffc36b; }
+.terminal-dot--green { background: #58e0a3; }
+.mkt__terminal-path {
+  color: rgba(255, 255, 255, .45);
+  font-size: 12px;
+}
+.mkt__terminal-body {
+  padding: 16px 22px 0;
+}
+.mkt__terminal-prompt {
+  color: rgba(255, 255, 255, .35);
 }
 .mkt__support {
   max-width: 1120px;
@@ -531,8 +690,8 @@ const plans = [
   font-size: 13px;
   color: rgba(255, 255, 255, 0.55);
 }
-.mkt__ok { color: #58e0a3; margin-top: 10px; }
-.mkt__faint { color: rgba(255, 255, 255, .35); margin-top: 14px; }
+.mkt__ok { color: #58e0a3; margin-top: 10px; padding-left: 22px; }
+.mkt__faint { color: rgba(255, 255, 255, .35); margin-top: 14px; padding-left: 22px; padding-bottom: 20px; }
 .mkt__cta {
   text-align: center;
   padding: 84px 40px 92px;

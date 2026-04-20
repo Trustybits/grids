@@ -76,7 +76,10 @@
 
       <section class="mkt__own">
         <div>
-          <div class="mkt__pill">Open source</div>
+          <div class="mkt__pill">
+            <i class="fab fa-github" aria-hidden="true"></i>
+            <span>Open source</span>
+          </div>
           <h2>Your page is <span>yours forever.</span></h2>
           <p>
             We watched too many favourite link-in-bio and portfolio sites quietly shut down — taking their users'
@@ -452,7 +455,15 @@ const plans = [
 }
 .mkt__feature--rev > :first-child { order: 2; }
 .mkt__feature h2 { font: 700 44px/1.05 var(--mkt-font-sans); margin: 16px 0 0; }
-.mkt__feature p { font: 400 18px/1.5 var(--mkt-font-sans); color: color-mix(in srgb, var(--mkt-fg-2) 82%, transparent); max-width: 420px; }
+.mkt__feature h2 {
+  white-space: nowrap;
+}
+.mkt__feature p {
+  margin-top: 20px;
+  font: 400 18px/1.5 var(--mkt-font-sans);
+  color: color-mix(in srgb, var(--mkt-fg-2) 82%, transparent);
+  max-width: 420px;
+}
 .mkt__feature-demo {
   aspect-ratio: 1 / 1;
   border-radius: var(--mkt-radius-xl);
@@ -473,9 +484,12 @@ const plans = [
   gap: 56px;
   position: relative;
   z-index: 1;
+  text-align: left;
 }
 .mkt__pill {
   display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font: 600 11px/1 var(--mkt-font-sans);
   text-transform: uppercase;
   letter-spacing: .04em;
@@ -687,6 +701,7 @@ const plans = [
   .mkt__hero-title { font-size: 56px; }
   .mkt__feature, .mkt__own { grid-template-columns: 1fr; }
   .mkt__feature--rev > :first-child { order: initial; }
+  .mkt__feature h2 { white-space: normal; }
   .mkt__cards { grid-template-columns: repeat(2, 1fr); }
   .mkt__pricing { flex-direction: column; }
   .mkt__footer { grid-template-columns: 1fr 1fr; }

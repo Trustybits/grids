@@ -13,6 +13,10 @@ export class StubbedUserGameDataDao implements UserGameDataDao {
     throw new Error("Stubbed DAO implementation");
   }
 
+  public incrementFields(_userId: string, _fields: Record<string, number>): Promise<void> {
+    throw new Error("Stubbed DAO implementation");
+  }
+
   public incrementClicksTransaction(_userId: string, _amount: number): Promise<boolean> {
     throw new Error("Stubbed DAO implementation");
   }

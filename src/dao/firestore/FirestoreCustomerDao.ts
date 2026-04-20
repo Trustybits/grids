@@ -1,4 +1,14 @@
-import type { Firestore } from "firebase/firestore";
+import {
+  type Firestore,
+  addDoc,
+  collection,
+  doc,
+  limit,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
 import type { CustomerDao } from "../interfaces/CustomerDao";
 
 export class FirestoreCustomerDao implements CustomerDao {
@@ -8,31 +18,54 @@ export class FirestoreCustomerDao implements CustomerDao {
     this.db = db;
   }
 
-  public createCheckoutSession(
-    _userId: string,
-    _config: Record<string, unknown>,
+  public async createCheckoutSession(
+    userId: string,
+    config: Record<string, unknown>,
   ): Promise<string> {
-    throw new Error(
-      "FirestoreCustomerDao.createCheckoutSession not implemented",
+    const sessionsRef = collection(
+      this.db,
+      "customers",
+      userId,
+      "checkout_sessions",
     );
+    const sessionDoc = await addDoc(sessionsRef, {
+      ...config,
+      created: serverTimestamp(),
+    });
+    return sessionDoc.id;
   }
 
   public subscribeToCheckoutSession(
-    _userId: string,
-    _sessionId: string,
-    _callback: (data: Record<string, unknown> | null) => void,
+    userId: string,
+    sessionId: string,
+    callback: (data: Record<string, unknown> | null) => void,
   ): () => void {
-    throw new Error(
-      "FirestoreCustomerDao.subscribeToCheckoutSession not implemented",
+    const sessionDoc = doc(
+      this.db,
+      "customers",
+      userId,
+      "checkout_sessions",
+      sessionId,
     );
+    return onSnapshot(sessionDoc, (snap) => {
+      callback((snap.data() as Record<string, unknown>) ?? null);
+    });
   }
 
   public subscribeToActiveSubscriptions(
-    _userId: string,
-    _callback: (subscriptions: Array<Record<string, unknown>>) => void,
+    userId: string,
+    callback: (subscriptions: Array<Record<string, unknown>>) => void,
   ): () => void {
-    throw new Error(
-      "FirestoreCustomerDao.subscribeToActiveSubscriptions not implemented",
+    const subsQuery = query(
+      collection(this.db, "customers", userId, "subscriptions"),
+      where("status", "in", ["active", "trialing", "past_due"]),
+      limit(1),
     );
+    return onSnapshot(subsQuery, (snap) => {
+      const subscriptions = snap.docs.map(
+        (d) => d.data() as Record<string, unknown>,
+      );
+      callback(subscriptions);
+    });
   }
 }

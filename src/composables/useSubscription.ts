@@ -28,16 +28,8 @@
  */
 
 import { computed, ref, readonly } from 'vue'
-import {
-  onSnapshot,
-  collection,
-  query,
-  where,
-  limit,
-} from 'firebase/firestore'
 import { getAuthProvider } from '@/auth/AuthProviderSingleton'
 import { getServiceFactory } from '@/services/ServiceFactorySingleton'
-import { db } from '@/firebase'
 
 // ── Tier definition ────────────────────────────────────────────────────────
 
@@ -181,37 +173,29 @@ export function initSubscription(): void {
       })
 
     // ── 2. Listen to Stripe subscription (from Firebase Extension) ────────
-    // The Extension writes active subscriptions to customers/{uid}/subscriptions.
-    // We query for the most recent active/trialing subscription.
-    const subsQuery = query(
-      collection(db, 'customers', user.uid, 'subscriptions'),
-      where('status', 'in', ['active', 'trialing', 'past_due']),
-      limit(1)
-    )
+    _unsubStripe = getServiceFactory()
+      .getStripeService()
+      .subscribeToActiveSubscriptions(user.uid, (subscriptions) => {
+        if (subscriptions.length === 0) {
+          latestStripeStatus = undefined
+          latestPriceId = undefined
+          latestInterval = undefined
+          latestPeriodEnd = undefined
+        } else {
+          const sub = subscriptions[0]
+          latestStripeStatus = sub.status as SubscriptionState['stripeStatus']
 
-    _unsubStripe = onSnapshot(subsQuery, (snap) => {
-      if (snap.empty) {
-        latestStripeStatus = undefined
-        latestPriceId = undefined
-        latestInterval = undefined
-        latestPeriodEnd = undefined
-      } else {
-        const sub = snap.docs[0].data()
-        latestStripeStatus = sub.status as SubscriptionState['stripeStatus']
+          const priceRef = sub.price as { id?: string } | undefined
+          latestPriceId = priceRef?.id ?? undefined
 
-        // Price reference — Extension stores as a Firestore DocumentReference
-        const priceRef = sub.price
-        latestPriceId = priceRef?.id ?? undefined
+          const items = sub.items as Array<{ price?: { recurring?: { interval?: string } } }> | undefined
+          latestInterval = items?.[0]?.price?.recurring?.interval as 'month' | 'year' | undefined
 
-        // Extract interval from price metadata if available
-        latestInterval = sub.items?.[0]?.price?.recurring?.interval ?? undefined
-
-        // current_period_end is a Firestore Timestamp
-        const periodEnd = sub.current_period_end
-        latestPeriodEnd = periodEnd?.toDate?.()?.toISOString() ?? undefined
-      }
-      reconcile()
-    })
+          const periodEnd = sub.current_period_end as { toDate?: () => Date } | undefined
+          latestPeriodEnd = periodEnd?.toDate?.()?.toISOString() ?? undefined
+        }
+        reconcile()
+      })
   })
 }
 

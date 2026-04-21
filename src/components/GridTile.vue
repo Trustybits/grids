@@ -156,6 +156,16 @@
       </div>
     </grid-item>
   </div>
+  <AddLinkModal
+    :show="showSuggestionLinkModal"
+    @close="closeSuggestionLinkModal"
+    @add="handleSuggestionAddLink"
+  />
+  <AddEmbedModal
+    :show="showSuggestionEmbedModal"
+    @close="closeSuggestionEmbedModal"
+    @add="handleSuggestionAddEmbed"
+  />
 </template>
 
 <script lang="ts">
@@ -177,7 +187,6 @@ import {
   getContentComponent,
   getOptionComponent,
   createTileContent,
-  createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 import { ContentType, type LinkContent } from "@/types/TileContent";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
@@ -190,6 +199,9 @@ import TileToolbar from "./TileToolbar.vue";
 import TileActions from "./TileActions.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 import ColorPicker from "./ColorPicker.vue";
+import AddLinkModal from "./AddLinkModal.vue";
+import AddEmbedModal from "./AddEmbedModal.vue";
+import { useTileInput } from "@/composables/useTileInput";
 
 export default defineComponent({
   components: {
@@ -203,6 +215,8 @@ export default defineComponent({
     EmbedIcon,
     ProfileIcon,
     ColorPicker,
+    AddLinkModal,
+    AddEmbedModal,
   },
   props: {
     tile: {
@@ -213,6 +227,7 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
     const { uploadFileOptimisticForTile } = useFileUpload();
+    const { submitLink, submitEmbed } = useTileInput();
 
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).
@@ -338,6 +353,8 @@ export default defineComponent({
     });
 
     const mediaInput = ref<HTMLInputElement | null>(null);
+    const showSuggestionLinkModal = ref(false);
+    const showSuggestionEmbedModal = ref(false);
 
     const loadComponent = async () => {
       currentComponent.value = await getContentComponent(props.tile.content);
@@ -482,40 +499,32 @@ export default defineComponent({
           break;
         }
         case "link": {
-          const link = prompt("Please enter a link");
-          if (!link) return;
-          const linkContent = createTileContent(ContentType.LINK, { link });
-          layoutStore.setTileContent(props.tile.i, linkContent);
-          (async () => {
-            try {
-              const url = ((linkContent as any).link || "").trim();
-              if (/^(mailto|tel):/i.test(url)) return;
-
-              const data = await getServiceFactory().getCloudFunctionsService().callFunction("getLinkPreview", { url }) as any;
-
-              layoutStore.patchTileContent(props.tile.i, {
-                link: data?.url,
-                domain: data?.domain,
-                faviconUrl: data?.faviconUrl || (linkContent as any).faviconUrl,
-                metaTitle: data?.title,
-                metaDescription: data?.description,
-                metaImageUrl: data?.imageUrl,
-                metaSiteName: data?.siteName,
-              });
-            } catch (error) {
-              console.error("Failed to fetch link preview:", error);
-            }
-          })();
+          showSuggestionLinkModal.value = true;
           break;
         }
         case "embed": {
-          const url = prompt("Please enter an embed URL");
-          if (!url) return;
-          const content = createTileContentFromEmbedUrl(url);
-          layoutStore.setTileContent(props.tile.i, content);
+          showSuggestionEmbedModal.value = true;
           break;
         }
       }
+    };
+
+    const closeSuggestionLinkModal = () => {
+      showSuggestionLinkModal.value = false;
+    };
+
+    const closeSuggestionEmbedModal = () => {
+      showSuggestionEmbedModal.value = false;
+    };
+
+    const handleSuggestionAddLink = (link: string) => {
+      closeSuggestionLinkModal();
+      void submitLink(link, { mode: "replace", tileId: props.tile.i });
+    };
+
+    const handleSuggestionAddEmbed = (url: string) => {
+      closeSuggestionEmbedModal();
+      submitEmbed(url, { mode: "replace", tileId: props.tile.i });
     };
 
     const onMediaSelected = async (event: Event) => {
@@ -861,6 +870,12 @@ export default defineComponent({
 
       mediaInput,
       onMediaSelected,
+      showSuggestionLinkModal,
+      showSuggestionEmbedModal,
+      closeSuggestionLinkModal,
+      closeSuggestionEmbedModal,
+      handleSuggestionAddLink,
+      handleSuggestionAddEmbed,
       isCroppable,
       toggleCropMode,
       isExitingCropMode,

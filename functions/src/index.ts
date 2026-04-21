@@ -185,8 +185,11 @@ export const getLinkPreview = onCall(async (data, context) => {
       redirect: "follow",
       signal: controller.signal,
       headers: {
-        // Some sites return 403/401 to bot-like UAs; this improves compatibility.
-        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        // "facebookexternalhit" triggers Vercel middleware's isCrawler() check,
+        // which injects personalised og: tags before </head>.  Without this,
+        // grids.so pages return only the generic static fallback meta tags.
+        // The Chrome prefix keeps compatibility with sites that block pure-bot UAs.
+        "user-agent": "Mozilla/5.0 (compatible; facebookexternalhit/1.1) Chrome/120.0.0.0",
         "accept": "text/html,application/xhtml+xml",
         "accept-language": "en-US,en;q=0.9",
       },
@@ -2483,3 +2486,6 @@ export const upvoteRoadmapItem = functions
 
     return { isNowUpvoted };
   });
+
+export * from './ogImage';
+export * from './thumbnail';

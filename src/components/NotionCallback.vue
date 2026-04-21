@@ -34,8 +34,7 @@
 <script lang="ts">
 import { defineComponent, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 
 // Module-level set: tracks which OAuth state values have already been exchanged.
 // Using the state string (not a boolean) means a fresh OAuth attempt with a new
@@ -117,8 +116,7 @@ export default defineComponent({
         // Exchange the authorization code for an access token via the Cloud Function.
         // The token is stored server-side; this page never sees it.
         // redirectUri is read from state so it exactly matches what was used in the authorize step.
-        const notionOAuthExchange = httpsCallable(functions, "notionOAuthExchange");
-        await notionOAuthExchange({ code, layoutId, tileId, redirectUri });
+        await getServiceFactory().getCloudFunctionsService().callFunction("notionOAuthExchange", { code, layoutId, tileId, redirectUri });
 
         status.value = "success";
 

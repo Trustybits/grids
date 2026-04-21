@@ -1,4 +1,5 @@
 import { ChatService } from "../ChatService";
+import { CloudFunctionsService } from "../CloudFunctionsService";
 import { GameDataService } from "../GameDataService";
 import { LayoutService } from "../LayoutService";
 import { RoadmapService } from "../RoadmapService";
@@ -7,6 +8,7 @@ import { StripeService } from "../StripeService";
 import { UpvoteService } from "../UpvoteService";
 import { UserService } from "../UserService";
 import type { IChatService } from "../interfaces/IChatService";
+import type { ICloudFunctionsService } from "../interfaces/ICloudFunctionsService";
 import type { IGameDataService } from "../interfaces/IGameDataService";
 import type { ILayoutService } from "../interfaces/ILayoutService";
 import type { IRoadmapService } from "../interfaces/IRoadmapService";
@@ -15,6 +17,7 @@ import type { IStripeService } from "../interfaces/IStripeService";
 import type { IUpvoteService } from "../interfaces/IUpvoteService";
 import type { IUserService } from "../interfaces/IUserService";
 import { MockChatService } from "../mocks/MockChatService";
+import { MockCloudFunctionsService } from "../mocks/MockCloudFunctionsService";
 import { MockGameDataService } from "../mocks/MockGameDataService";
 import { MockLayoutService } from "../mocks/MockLayoutService";
 import { MockRoadmapService } from "../mocks/MockRoadmapService";
@@ -27,6 +30,7 @@ import type { IServiceFactory } from "./IServiceFactory";
 export class ServiceFactory implements IServiceFactory {
   private useMocks: boolean;
   private chatService: IChatService;
+  private cloudFunctionsService: ICloudFunctionsService;
   private gameDataService: IGameDataService;
   private layoutService: ILayoutService;
   private roadmapService: IRoadmapService;
@@ -40,6 +44,7 @@ export class ServiceFactory implements IServiceFactory {
 
     if (this.useMocks) {
       this.chatService = new MockChatService();
+      this.cloudFunctionsService = new MockCloudFunctionsService();
       this.gameDataService = new MockGameDataService();
       this.layoutService = new MockLayoutService();
       this.roadmapService = new MockRoadmapService();
@@ -49,6 +54,7 @@ export class ServiceFactory implements IServiceFactory {
       this.userService = new MockUserService();
     } else {
       this.chatService = new ChatService();
+      this.cloudFunctionsService = new CloudFunctionsService();
       this.gameDataService = new GameDataService();
       this.layoutService = new LayoutService();
       this.roadmapService = new RoadmapService();
@@ -61,6 +67,10 @@ export class ServiceFactory implements IServiceFactory {
 
   public getChatService(): IChatService {
     return this.chatService;
+  }
+
+  public getCloudFunctionsService(): ICloudFunctionsService {
+    return this.cloudFunctionsService;
   }
 
   public getGameDataService(): IGameDataService {

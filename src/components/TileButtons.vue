@@ -84,8 +84,7 @@ import { useLayoutStore } from "@/stores/layout";
 import { ContentType } from "@/types/TileContent";
 import { createTileContent, createTileContentFromEmbedUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
@@ -224,9 +223,7 @@ export default {
             const url = ((linkContent as any).link || "").trim();
             if (/^(mailto|tel):/i.test(url)) return;
 
-            const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-            const result = await getLinkPreview({ url });
-            const data = result.data as any;
+            const data = await getServiceFactory().getCloudFunctionsService().callFunction("getLinkPreview", { url }) as any;
 
             layoutStore.patchTileContent(tileId, {
               link: data?.url,

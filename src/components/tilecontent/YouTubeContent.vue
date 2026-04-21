@@ -123,8 +123,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, inject, onMounted } from "vue";
 import { type YouTubeContent } from "@/types/TileContent";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
 import { useTileLayout } from "@/composables/useTileLayout";
 
@@ -286,13 +285,10 @@ export default defineComponent({
       hasError.value = false;
       
       try {
-        const getYouTubeMetadata = httpsCallable(functions, "getYouTubeMetadata");
-        const result = await getYouTubeMetadata({
+        const data = await getServiceFactory().getCloudFunctionsService().callFunction("getYouTubeMetadata", {
           youtubeType: props.content.youtubeType,
           youtubeId: props.content.youtubeId,
-        });
-        
-        const data = result.data as any;
+        }) as any;
         
         console.log("YouTube metadata received:", data);
         

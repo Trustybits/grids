@@ -1,4 +1,5 @@
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
+import type { CloudFunctionsDao } from "@/dao/interfaces/CloudFunctionsDao";
 import type { CustomerDao } from "@/dao/interfaces/CustomerDao";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type {
@@ -10,10 +11,12 @@ const CHECKOUT_TIMEOUT_MS = 15_000;
 
 export class StripeService implements IStripeService {
   private customerDao: CustomerDao;
+  private cloudFunctionsDao: CloudFunctionsDao;
 
   constructor() {
     const factory = getDaoFactory();
     this.customerDao = factory.getCustomerDao();
+    this.cloudFunctionsDao = factory.getCloudFunctionsDao();
   }
 
   private requireUserId(): string {
@@ -124,14 +127,10 @@ export class StripeService implements IStripeService {
   async createCustomerPortalSession(): Promise<string> {
     this.requireUserId();
 
-    const { getFunctions, httpsCallable } = await import("firebase/functions");
-    const fns = getFunctions();
-    const createPortal = httpsCallable<
+    const data = await this.cloudFunctionsDao.callFunction<
       { returnUrl: string },
       { url: string }
-    >(fns, "ext-firestore-stripe-payments-createPortalLink");
-
-    const { data } = await createPortal({
+    >("ext-firestore-stripe-payments-createPortalLink", {
       returnUrl: `${this.origin()}/dashboard`,
     });
 

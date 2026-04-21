@@ -1,4 +1,5 @@
 import type { ChatDao } from '../ChatDao';
+import type { CloudFunctionsDao } from '../CloudFunctionsDao';
 import type { CustomerDao } from '../CustomerDao';
 import type { LayoutDao } from '../LayoutDao';
 import type { RoadmapDao } from '../RoadmapDao';
@@ -10,6 +11,7 @@ import type { UserGameDataDao } from '../UserGameDataDao';
 
 export interface DaoFactory {
   getChatDao: () => ChatDao;
+  getCloudFunctionsDao: () => CloudFunctionsDao;
   getCustomerDao: () => CustomerDao;
   getLayoutDao: () => LayoutDao;
   getRoadmapDao: () => RoadmapDao;

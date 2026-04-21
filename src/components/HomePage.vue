@@ -120,7 +120,7 @@
             rel="noopener noreferrer"
           >
             <i class="fab fa-github" aria-hidden="true"></i>
-            <span>View public repo</span>
+            <span>Star our public repo on GitHub<</span>
           </a>
         </div>
         <div class="mkt__terminal">

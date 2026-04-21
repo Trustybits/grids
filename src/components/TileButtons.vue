@@ -82,12 +82,13 @@
 import { ref } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import { ContentType } from "@/types/TileContent";
-import { createTileContent, createTileContentFromEmbedUrl } from "@/utils/TileUtils";
+import { createTileContent } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
+import { useTileInput } from "@/composables/useTileInput";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
 import AddMapModal from "./AddMapModal.vue";
@@ -128,6 +129,7 @@ export default {
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);
     const { uploadFileOptimistic } = useFileUpload();
+    const { submitLink, submitEmbed } = useTileInput();
 
     const showLinkModal = ref(false);
     const showEmbedModal = ref(false);
@@ -195,50 +197,7 @@ export default {
 
     const handleAddLink = (link: string) => {
       closeLinkModal();
-      
-      const trimmed = (link || "").trim();
-      const isNonWebLink = /^(mailto|tel):/i.test(trimmed);
-
-      // Check if this URL should be a special content type (YouTube, image, video, etc.)
-      // instead of a generic link tile
-      const detectedContent = isNonWebLink
-        ? createTileContent(ContentType.LINK, { link: trimmed })
-        : createTileContentFromEmbedUrl(trimmed);
-      
-      // If it's detected as YouTube, image, or video, use that specialized type
-      if (detectedContent.type === ContentType.YOUTUBE || 
-          detectedContent.type === ContentType.IMAGE ||
-          detectedContent.type === ContentType.VIDEO) {
-        layoutStore.addTile(detectedContent);
-        return;
-      }
-      
-      // Otherwise, create a link tile with preview
-      const linkContent = createTileContent(ContentType.LINK, { link: trimmed });
-      const tileId = layoutStore.addTile(linkContent);
-
-      if (tileId) {
-        (async () => {
-          try {
-            const url = ((linkContent as any).link || "").trim();
-            if (/^(mailto|tel):/i.test(url)) return;
-
-            const data = await getServiceFactory().getCloudFunctionsService().callFunction("getLinkPreview", { url }) as any;
-
-            layoutStore.patchTileContent(tileId, {
-              link: data?.url,
-              domain: data?.domain,
-              faviconUrl: data?.faviconUrl || (linkContent as any).faviconUrl,
-              metaTitle: data?.title,
-              metaDescription: data?.description,
-              metaImageUrl: data?.imageUrl,
-              metaSiteName: data?.siteName,
-            });
-          } catch (error) {
-            console.error("Failed to fetch link preview:", error);
-          }
-        })();
-      }
+      void submitLink(link, { mode: "add" });
     };
 
     const addEmbedElement = () => {
@@ -251,8 +210,7 @@ export default {
 
     const handleAddEmbed = (link: string) => {
       closeEmbedModal();
-      const content = createTileContentFromEmbedUrl(link);
-      layoutStore.addTile(content);
+      submitEmbed(link, { mode: "add" });
     };
 
     const addMapElement = () => {

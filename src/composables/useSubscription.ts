@@ -1,10 +1,10 @@
 /**
  * useSubscription — tier-based feature gating composable
  *
- * Reads subscription state from two Firestore sources:
+ * Reads subscription state from two data sources:
  *  1. users/{uid}              → hasSupporterBadge (PWYW one-time payment)
  *  2. customers/{uid}/subscriptions → Stripe subscription status (Pro tier)
- *     Written automatically by the firestore-stripe-payments Firebase Extension
+ *     Written automatically by the firestore-stripe-payments extension
  *
  * ── Tier model ──────────────────────────────────────────────────────────────
  *
@@ -28,16 +28,8 @@
  */
 
 import { computed, ref, readonly } from 'vue'
-import {
-  doc,
-  onSnapshot,
-  collection,
-  query,
-  where,
-  limit,
-} from 'firebase/firestore'
-import { getAuth, onAuthStateChanged } from 'firebase/auth'
-import { db } from '@/firebase'
+import { getAuthProvider } from '@/auth/AuthProviderSingleton'
+import { getServiceFactory } from '@/services/ServiceFactorySingleton'
 
 // ── Tier definition ────────────────────────────────────────────────────────
 
@@ -113,7 +105,7 @@ const REQUIRES_SUPPORTER: Set<GatedFeature> = new Set(['remove_branding'])
 const ACTIVE_STRIPE_STATUSES = new Set(['active', 'trialing'])
 
 // ── Module-level reactive state ────────────────────────────────────────────
-// Shared across all composable instances — only one Firestore listener runs.
+// Shared across all composable instances — only one listener runs.
 
 const _subscription = ref<SubscriptionState>({
   tier: 'free',
@@ -130,14 +122,12 @@ let _unsubStripe: (() => void) | null = null
  * Bootstrap the subscription listener. Call once in App.vue (inside onMounted
  * or at the top of <script setup>).
  *
- * Listens to Firebase Auth state changes and reactively mirrors both the
+ * Listens to auth state changes and reactively mirrors both the
  * users/{uid} doc (for hasSupporterBadge) and the customers/{uid}/subscriptions
  * collection (for Stripe Pro status).
  */
 export function initSubscription(): void {
-  const auth = getAuth()
-
-  onAuthStateChanged(auth, (user) => {
+  getAuthProvider().onAuthStateChanged((user) => {
     // Tear down previous listeners
     _unsubUser?.()
     _unsubStripe?.()
@@ -173,45 +163,39 @@ export function initSubscription(): void {
       _loading.value = false
     }
 
-    _unsubUser = onSnapshot(doc(db, 'users', user.uid), (snap) => {
-      if (snap.exists()) {
-        latestBadge = snap.data()?.hasSupporterBadge ?? false
-      }
-      reconcile()
-    })
+    _unsubUser = getServiceFactory()
+      .getUserService()
+      .subscribeToUserProfile(user.uid, (profile) => {
+        if (profile) {
+          latestBadge = profile.hasSupporterBadge ?? false
+        }
+        reconcile()
+      })
 
-    // ── 2. Listen to Stripe subscription (from Firebase Extension) ────────
-    // The Extension writes active subscriptions to customers/{uid}/subscriptions.
-    // We query for the most recent active/trialing subscription.
-    const subsQuery = query(
-      collection(db, 'customers', user.uid, 'subscriptions'),
-      where('status', 'in', ['active', 'trialing', 'past_due']),
-      limit(1)
-    )
+    // ── 2. Listen to Stripe subscription ──────────────────────────────────
+    _unsubStripe = getServiceFactory()
+      .getStripeService()
+      .subscribeToActiveSubscriptions(user.uid, (subscriptions) => {
+        if (subscriptions.length === 0) {
+          latestStripeStatus = undefined
+          latestPriceId = undefined
+          latestInterval = undefined
+          latestPeriodEnd = undefined
+        } else {
+          const sub = subscriptions[0]
+          latestStripeStatus = sub.status as SubscriptionState['stripeStatus']
 
-    _unsubStripe = onSnapshot(subsQuery, (snap) => {
-      if (snap.empty) {
-        latestStripeStatus = undefined
-        latestPriceId = undefined
-        latestInterval = undefined
-        latestPeriodEnd = undefined
-      } else {
-        const sub = snap.docs[0].data()
-        latestStripeStatus = sub.status as SubscriptionState['stripeStatus']
+          const priceRef = sub.price as { id?: string } | undefined
+          latestPriceId = priceRef?.id ?? undefined
 
-        // Price reference — Extension stores as a Firestore DocumentReference
-        const priceRef = sub.price
-        latestPriceId = priceRef?.id ?? undefined
+          const items = sub.items as Array<{ price?: { recurring?: { interval?: string } } }> | undefined
+          latestInterval = items?.[0]?.price?.recurring?.interval as 'month' | 'year' | undefined
 
-        // Extract interval from price metadata if available
-        latestInterval = sub.items?.[0]?.price?.recurring?.interval ?? undefined
-
-        // current_period_end is a Firestore Timestamp
-        const periodEnd = sub.current_period_end
-        latestPeriodEnd = periodEnd?.toDate?.()?.toISOString() ?? undefined
-      }
-      reconcile()
-    })
+          const periodEnd = sub.current_period_end as { toDate?: () => Date } | undefined
+          latestPeriodEnd = periodEnd?.toDate?.()?.toISOString() ?? undefined
+        }
+        reconcile()
+      })
   })
 }
 

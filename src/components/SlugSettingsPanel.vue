@@ -68,13 +68,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { auth } from '@/firebase';
-import { getUserProfile, setDefaultGrid } from '@/services/UserProfileService';
+import { getAuthProvider } from '@/auth/AuthProviderSingleton';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { useLayoutStore } from '@/stores/layout';
 import SlugClaimModal from './SlugClaimModal.vue';
 import SuccessToast from './SuccessToast.vue';
 
 const layoutStore = useLayoutStore();
+const userService = getServiceFactory().getUserService();
 const isSlugModalOpen = ref(false);
 const userSlug = ref<string | undefined>(undefined);
 const selectedGridId = ref<string | null>(null);
@@ -89,11 +90,11 @@ const layouts = computed(() => layoutStore.layouts);
  * Load user profile data
  */
 const loadUserProfile = async () => {
-  const userId = auth.currentUser?.uid;
+  const userId = getAuthProvider().getCurrentUserId();
   if (!userId) return;
 
   try {
-    const profile = await getUserProfile(userId);
+    const profile = await userService.getUserProfile(userId);
     if (profile) {
       userSlug.value = profile.slug;
       selectedGridId.value = profile.defaultGridId || null;
@@ -107,14 +108,14 @@ const loadUserProfile = async () => {
  * Handle default grid selection change
  */
 const handleDefaultGridChange = async () => {
-  const userId = auth.currentUser?.uid;
+  const userId = getAuthProvider().getCurrentUserId();
   if (!userId) return;
 
   isSavingGrid.value = true;
   saveSuccess.value = false;
 
   try {
-    await setDefaultGrid(userId, selectedGridId.value);
+    await userService.setDefaultGrid(userId, selectedGridId.value);
     saveSuccess.value = true;
     
     // Clear success message after 2 seconds

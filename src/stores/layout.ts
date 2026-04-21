@@ -1,235 +1,27 @@
 import { defineStore } from "pinia";
 import { type Layout, type CopyDepth } from "@/types/Layout";
-import { getLayoutService } from "@/services/LayoutServiceFactory"; // Factory to switch services dynamically
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import { createStarterTiles } from "@/services/LayoutService";
 import {
   ContentType,
   type TileContent,
   type AnyTileContent,
-  type SuggestionAction,
 } from "@/types/TileContent";
 import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
+import { createTile } from "@/utils/TileUtils";
 import {
-  collection,
-  query,
-  where,
-  getDocs,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import {
-  mapFirestoreToLayout,
-  createDefaultLayout,
-} from "@/types/FirestoreMappers";
-import { auth, db } from "@/firebase";
-import { createTile, createTileContent } from "@/utils/TileUtils";
+  adjustTilePosition,
+  findBestXAtRow,
+  findFirstAvailableSpot,
+  pushTilesForNewItem,
+} from "@/utils/GridPlacementUtils";
 import { useToastStore } from "@/stores/toast";
-import heroGif from "@/assets/images/hero.gif";
 
-// Maps a real tile content type to the best-matching suggestion action so that
-// structure-only copies produce useful placeholder tiles instead of empty
-// typed tiles the user can't do anything with.
-const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
-  switch (type) {
-    case ContentType.TEXT:
-    case ContentType.SMART_TEXT:
-    case ContentType.CHAT:
-    case ContentType.CAMPFIRE:
-      return "text";
-    case ContentType.IMAGE:
-    case ContentType.VIDEO:
-      return "media";
-    case ContentType.LINK:
-      return "link";
-    case ContentType.EMBED:
-    case ContentType.YOUTUBE:
-    case ContentType.MUSIC:
-    case ContentType.MAP:
-    case ContentType.ROADMAP_FEED:
-      return "embed";
-    case ContentType.PROFILE:
-      return "profile";
-    default:
-      return "text";
-  }
-};
-
-const layoutService = getLayoutService();
-
-// ── Save serialization ────────────────────────────────────────────────
-// Multiple callers (map moveend, style toggle, addTile, etc.) can invoke
-// saveLayout() in rapid succession.  Each call snapshots the reactive
-// layout and writes to Firestore.  Without serialization, an earlier
-// snapshot can land *after* a later one (async race), reverting changes.
-//
-// Solution: only one Firestore write may be in-flight at a time.  If a
-// new save is requested while one is running, we set a flag.  When the
-// in-flight write finishes, we re-snapshot the (now-latest) layout and
-// write again — guaranteeing the final persisted state matches the
-// current in-memory state.
-let _saveInFlight = false;
-let _saveQueued = false;
-
-const createTextDoc = (lines: string[]) => {
-  const parseInlineMarkdown = (text: string) => {
-    const nodes: Array<{
-      type: string;
-      text?: string;
-      marks?: Array<{ type: string }>;
-    }> = [];
-    const regex = /(\*|_)([^*_]+?)\1/;
-    let remaining = text;
-
-    while (remaining.length > 0) {
-      const match = regex.exec(remaining);
-      if (!match) {
-        if (remaining) {
-          nodes.push({ type: "text", text: remaining });
-        }
-        break;
-      }
-
-      const [fullMatch, , italicText] = match;
-      const matchIndex = match.index;
-      if (matchIndex > 0) {
-        nodes.push({ type: "text", text: remaining.slice(0, matchIndex) });
-      }
-      nodes.push({
-        type: "text",
-        text: italicText,
-        marks: [{ type: "italic" }],
-      });
-      remaining = remaining.slice(matchIndex + fullMatch.length);
-    }
-
-    return nodes;
-  };
-
-  const content = lines.flatMap((line) => {
-    if (line.trim() === "") {
-      return [
-        {
-          type: "paragraph",
-          content: [{ type: "hardBreak" }],
-        },
-      ];
-    }
-
-    const headingMatch = /^(#{1,6})\s+(.*)$/.exec(line);
-    if (headingMatch) {
-      const level = headingMatch[1].length;
-      const text = headingMatch[2];
-      return [
-        {
-          type: "heading",
-          attrs: { level },
-          content: text ? [{ type: "text", text }] : [],
-        },
-      ];
-    }
-
-    if (line.trim() === "---") {
-      return [
-        {
-          type: "horizontalRule",
-        },
-      ];
-    }
-
-    const parts = line.split("\n");
-    const paragraphContent = parts.flatMap((part, index) => {
-      const nodes = parseInlineMarkdown(part);
-      if (index < parts.length - 1) {
-        nodes.push({ type: "hardBreak" });
-      }
-      return nodes;
-    });
-
-    return [
-      {
-        type: "paragraph",
-        content: paragraphContent,
-      },
-    ];
-  });
-
-  return JSON.stringify({
-    type: "doc",
-    content,
-  });
-};
-
-const createStarterTiles = () => {
-  const startX = 0;
-
-  return [
-    createTile(
-      ContentType.SUGGESTION,
-      uuidv4(),
-      startX,
-      6,
-      4,
-      4,
-      { action: "profile", label: "Add Profile" },
-      "",
-    ),
-    createTile(
-      ContentType.IMAGE,
-      uuidv4(),
-      startX + 4,
-      0,
-      5,
-      5,
-      { src: heroGif },
-      "",
-    ),
-    {
-      ...createTile(
-        ContentType.TEXT,
-        uuidv4(),
-        startX + 9,
-        0,
-        2,
-        3,
-        {
-          text: createTextDoc([
-            "# 👋",
-            "#### Welcome to grids.so!",
-            "Enjoy your new home.\n\n",
-            "---",
-            "*you can find more tile types below.*👇",
-          ]),
-        },
-        "",
-      ),
-      borderEnabled: false,
-    },
-    createTile(
-      ContentType.EMBED,
-      uuidv4(),
-      startX + 9,
-      2,
-      3,
-      2,
-      { src: "https://www.youtube.com/embed/7ccH8u8fj8Y?si=hnB1rbMIsMCWpPO8" },
-      "",
-    ),
-    createTile(ContentType.CHAT, uuidv4(), startX + 4, 5, 3, 4, {}, ""),
-    createTile(
-      ContentType.SUGGESTION,
-      uuidv4(),
-      startX + 7,
-      5,
-      2,
-      2,
-      { action: "link", label: "Add Link" },
-      "",
-    ),
-  ];
-};
+// Lazy accessor — don't resolve the service at module load because main.ts
+// registers the service factory in an async IIFE that runs AFTER static imports.
+const svc = () => getServiceFactory().getLayoutService();
 
 export const useLayoutStore = defineStore("layout", {
   state: () => ({
@@ -246,8 +38,8 @@ export const useLayoutStore = defineStore("layout", {
     // Tracks tiles that are currently uploading media in the background.
     // Key = tile ID, value = upload progress (0–1) or -1 for indeterminate.
     uploadingTiles: {} as Record<string, number>,
-    // Maps tile ID → permanent Firebase URL for tiles still displaying a blob: preview.
-    // Used by the Firestore persistence layer to write the real URL instead of the blob.
+    // Maps tile ID → permanent storage URL for tiles still displaying a blob: preview.
+    // Used by the persistence layer to write the real URL instead of the blob.
     // The blob URL stays as the in-memory src so the <img>/<video> element never reloads.
     resolvedUrls: {} as Record<string, string>,
     // When set, the TextContent component for this tile will auto-enter
@@ -369,13 +161,13 @@ export const useLayoutStore = defineStore("layout", {
       delete this.uploadingTiles[tileId];
     },
 
-    // Store the permanent Firebase URL for a tile that is still showing a blob preview.
-    // This URL is used only for Firestore persistence — the displayed src is unchanged.
+    // Store the permanent storage URL for a tile that is still showing a blob preview.
+    // This URL is used only for persistence — the displayed src is unchanged.
     setResolvedUrl(tileId: string, url: string) {
       this.resolvedUrls[tileId] = url;
     },
 
-    // Retrieve the resolved Firebase URL for a tile, if one exists
+    // Retrieve the resolved storage URL for a tile, if one exists
     getResolvedUrl(tileId: string): string | undefined {
       return this.resolvedUrls[tileId];
     },
@@ -390,7 +182,7 @@ export const useLayoutStore = defineStore("layout", {
       this.error = null;
       this.layouts = [];
 
-      const userId = auth.currentUser?.uid;
+      const userId = getAuthProvider().getCurrentUserId();
       if (!userId) {
         this.error = "User not authenticated";
         this.isLoading = false;
@@ -398,15 +190,7 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        const layoutsQuery = query(
-          collection(db, "layouts"),
-          where("userId", "==", userId),
-        );
-        const querySnapshot = await getDocs(layoutsQuery);
-
-        this.layouts = querySnapshot.docs.map((doc) =>
-          mapFirestoreToLayout(doc),
-        );
+        this.layouts = await svc().fetchLayoutsByUserId(userId);
         await this.loadRecents();
         console.log("layouts", this.layouts);
       } catch (err) {
@@ -419,7 +203,7 @@ export const useLayoutStore = defineStore("layout", {
 
     // Create a new layout for the user
     async createLayout(name: string): Promise<string | null> {
-      const userId = auth.currentUser?.uid;
+      const userId = getAuthProvider().getCurrentUserId();
       if (!userId) {
         this.error = "User not authenticated";
         return null;
@@ -430,12 +214,10 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        const newLayout = createDefaultLayout(userId, name);
-        newLayout.tiles = createStarterTiles();
-        const docRef = doc(collection(db, "layouts"));
-        newLayout.id = docRef.id;
-
-        await layoutService.saveLayout(newLayout);
+        const newLayout = await svc().createLayoutWithStarterTiles(
+          userId,
+          name,
+        );
 
         // Add the new layout to the state
         this.layouts.push({ ...newLayout });
@@ -457,80 +239,20 @@ export const useLayoutStore = defineStore("layout", {
     //   'structure' → tile type/size/position only, content reset to defaults
     async duplicateLayout(
       sourceLayout: Layout,
-      copyDepth: CopyDepth = 'full',
+      copyDepth: CopyDepth = "full",
     ): Promise<string | null> {
-      const userId = auth.currentUser?.uid;
+      const userId = getAuthProvider().getCurrentUserId();
       if (!userId) {
         this.error = "User not authenticated";
         return null;
       }
 
       try {
-        // Deep-clone tiles so mutations don't affect the source layout.
-        // Each tile gets a fresh UUID to avoid ID collisions.
-        const clonedTiles = (
-          JSON.parse(JSON.stringify(sourceLayout.tiles)) as typeof sourceLayout.tiles
-        ).map((tile) => {
-          const oldId = tile.i;
-          tile.i = uuidv4();
-
-          if (copyDepth === 'structure') {
-            // Structure-only: replace each tile with a SUGGESTION placeholder whose
-            // action hint matches the original content type. This gives the new owner
-            // useful "Add Media" / "Add Text" / etc. prompts instead of empty typed
-            // tiles they can't do anything with.
-            const action = contentTypeToSuggestionAction(tile.content.type);
-            tile.content = createTileContent(ContentType.SUGGESTION, { action });
-          } else {
-            // Full copy: preserve content, but clear ephemeral/user-generated data
-            if (tile.content.type === ContentType.CHAT) {
-              (tile.content as any).messages = [];
-            }
-          }
-
-          return { tile, oldId };
-        });
-
-        // Rebuild breakpoint overrides with the new tile IDs so saved
-        // mobile/tablet layouts carry over correctly.
-        let newOverrides: Layout['overrides'];
-        if (sourceLayout.overrides) {
-          newOverrides = {} as NonNullable<Layout['overrides']>;
-          // Build a mapping from old tile ID → new tile ID
-          const idMap: Record<string, string> = {};
-          for (const { tile, oldId } of clonedTiles) {
-            idMap[oldId] = tile.i;
-          }
-          for (const [bp, positions] of Object.entries(sourceLayout.overrides)) {
-            if (!positions) continue;
-            const remapped: Record<string, TilePosition> = {};
-            for (const [oldTileId, pos] of Object.entries(positions)) {
-              const newTileId = idMap[oldTileId];
-              if (newTileId && pos) {
-                remapped[newTileId] = { ...pos };
-              }
-            }
-            (newOverrides as any)[bp] = remapped;
-          }
-        }
-
-        const newLayout: Layout = {
-          id: "", // Firestore will assign the real ID below
+        const newLayout = await svc().cloneAndPersistLayout(
           userId,
-          name: `Copy of ${sourceLayout.name || "Untitled"}`,
-          colNum: sourceLayout.colNum,
-          verticalCompact: sourceLayout.verticalCompact,
-          tiles: clonedTiles.map(({ tile }) => tile),
-          backgroundImageSrc: sourceLayout.backgroundImageSrc || "",
-          backgroundEmbed: sourceLayout.backgroundEmbed || false,
-          themeId: sourceLayout.themeId,
-          overrides: newOverrides,
-        };
-
-        const docRef = doc(collection(db, "layouts"));
-        newLayout.id = docRef.id;
-
-        await layoutService.saveLayout(newLayout);
+          sourceLayout,
+          copyDepth,
+        );
 
         // Add to local state so the dashboard list updates immediately
         this.layouts.push({ ...newLayout });
@@ -550,11 +272,12 @@ export const useLayoutStore = defineStore("layout", {
       this.isOwner = false;
 
       try {
-        this.currentLayout = await layoutService.fetchLayout(id);
+        this.currentLayout = await svc().fetchLayout(id);
+        const userId = getAuthProvider().getCurrentUserId();
         this.isOwner = !!(
-          auth.currentUser?.uid &&
+          userId &&
           this.currentLayout?.userId &&
-          auth.currentUser.uid === this.currentLayout.userId
+          userId === this.currentLayout.userId
         );
         this.checkShowMetaDataCookie();
         this.recordRecent(id);
@@ -563,12 +286,7 @@ export const useLayoutStore = defineStore("layout", {
           this.ensureSuggestionTiles();
         }
 
-        try {
-          const ref = doc(db, "layouts", id);
-          await updateDoc(ref, { lastOpenedAt: serverTimestamp() });
-        } catch (e) {
-          console.error("Failed to update lastOpenedAt:", e);
-        }
+        await svc().touchLastOpenedAt(id);
         // update in-memory list timestamp for immediate UI sorting
         const idx = this.layouts.findIndex((l) => l.id === id);
         if (idx !== -1) {
@@ -594,35 +312,20 @@ export const useLayoutStore = defineStore("layout", {
     },
 
     async loadRecents() {
-      const userId = auth.currentUser?.uid;
+      const userId = getAuthProvider().getCurrentUserId();
       if (!userId) return;
       try {
-        const userRef = doc(db, "users", userId);
-        const snap = await getDoc(userRef);
-        if (snap.exists()) {
-          const data = snap.data() as any;
-          const arr = Array.isArray(data?.recentLayoutIds)
-            ? data.recentLayoutIds.filter((x: unknown) => typeof x === "string")
-            : [];
-          this.recentLayoutIds = arr.slice(0, 3);
-        } else {
-          this.recentLayoutIds = [];
-        }
+        this.recentLayoutIds = await svc().loadRecentLayoutIds(userId);
       } catch (err) {
         console.error("Failed to load recent layouts:", err);
       }
     },
 
     async saveRecents() {
-      const userId = auth.currentUser?.uid;
+      const userId = getAuthProvider().getCurrentUserId();
       if (!userId) return;
       try {
-        const userRef = doc(db, "users", userId);
-        await setDoc(
-          userRef,
-          { recentLayoutIds: this.recentLayoutIds.slice(0, 3) },
-          { merge: true },
-        );
+        await svc().saveRecentLayoutIds(userId, this.recentLayoutIds);
       } catch (err) {
         console.error("Failed to save recent layouts:", err);
       }
@@ -674,9 +377,7 @@ export const useLayoutStore = defineStore("layout", {
     },
 
     // Save the current layout.
-    // Before persisting, any blob: URLs used for optimistic previews are replaced
-    // with their resolved Firebase URLs (if the upload has completed). This keeps
-    // the in-memory tile src unchanged so the <img>/<video> element never reloads.
+    // Delegates serialization, blob-URL resolution, and write queueing to the service.
     async saveLayout() {
       if (!this.currentLayout) {
         console.warn("No layout to save.");
@@ -689,54 +390,11 @@ export const useLayoutStore = defineStore("layout", {
         return;
       }
 
-      // ── Serialization gate ──────────────────────────────────────
-      // If a Firestore write is already in progress, just mark that
-      // another save is needed.  The in-flight writer will re-snapshot
-      // the latest state when it finishes, so the final persisted
-      // document always reflects the most recent in-memory layout.
-      if (_saveInFlight) {
-        _saveQueued = true;
-        return;
-      }
-
-      _saveInFlight = true;
-
       try {
-        // Deep-clone tiles to strip Pinia reactive proxies before sending to
-        // Firestore.  A shallow spread loses nested objects (e.g. map center /
-        // marker) that are still wrapped in Vue's reactivity layer.
-        // After cloning, swap any blob: preview URLs with their resolved
-        // Firebase URLs so we never persist temporary blob references.
-        const resolvedTiles = (
-          JSON.parse(JSON.stringify(this.currentLayout.tiles)) as typeof this.currentLayout.tiles
-        ).map((tile) => {
-          const src = (tile.content as any)?.src;
-          if (typeof src === "string" && src.startsWith("blob:")) {
-            const realUrl = this.resolvedUrls[tile.i];
-            if (realUrl) {
-              (tile.content as any).src = realUrl;
-            }
-          }
-          return tile;
-        });
-
-        const layoutToSave = {
-          ...this.currentLayout,
-          tiles: resolvedTiles,
-        } as Layout;
-        await layoutService.saveLayout(layoutToSave);
+        await svc().queueSave(this.currentLayout, this.resolvedUrls);
       } catch (err) {
         this.error = "Failed to save layout.";
         console.error(err);
-      } finally {
-        _saveInFlight = false;
-
-        // If another save was requested while we were writing,
-        // flush it now with the latest in-memory state.
-        if (_saveQueued) {
-          _saveQueued = false;
-          this.saveLayout();
-        }
       }
     },
 
@@ -761,6 +419,9 @@ export const useLayoutStore = defineStore("layout", {
       const tileWidth = isProfile ? 4 : 2;
       const tileHeight = isProfile ? 4 : 2;
 
+      const tiles = this.currentLayout.tiles;
+      const colNum = this.currentLayout.colNum || 12;
+
       // --- Viewport-based tile placement ---
       // New tiles must appear where the user is looking. If the user has scrolled
       // down the grid, we force-place the tile at the viewport center row. When
@@ -776,16 +437,22 @@ export const useLayoutStore = defineStore("layout", {
       if (viewportY > 0) {
         // Force-place at the viewport row. Try to find an open X column at
         // that exact row first for a cleaner result; otherwise default to x=0.
-        position = this.findBestXAtRow(tileWidth, tileHeight, viewportY);
+        position = findBestXAtRow(
+          tiles,
+          colNum,
+          tileWidth,
+          tileHeight,
+          viewportY,
+        );
       } else {
         // At the top of the grid — use traditional gap search
-        position = this.findFirstAvailableSpot(tileWidth, tileHeight);
+        position = findFirstAvailableSpot(tiles, colNum, tileWidth, tileHeight);
       }
 
       // Push existing tiles out of the way BEFORE adding the new tile.
       // This modifies tile Y positions in the reactive data so Vue never
       // renders an intermediate frame with overlapping tiles.
-      this.pushTilesForNewItem(position.x, position.y, tileWidth, tileHeight);
+      pushTilesForNewItem(tiles, position.x, position.y, tileWidth, tileHeight);
 
       const newTile = createTile(
         content.type,
@@ -814,7 +481,7 @@ export const useLayoutStore = defineStore("layout", {
       if (content.type === ContentType.PROFILE) {
         tile.w = 4;
         tile.h = 4;
-        this.adjustTilePosition(tile);
+        adjustTilePosition(tile, this.currentLayout.colNum);
       }
       this.updateLayout();
     },
@@ -861,18 +528,6 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
-    // Calculate the lowest point in the grid
-    calculateLowestPoint(): number {
-      if (!this.currentLayout || this.currentLayout.tiles.length === 0) {
-        return 0;
-      }
-
-      return this.currentLayout.tiles.reduce((max, tile) => {
-        const bottom = tile.y + tile.h;
-        return bottom > max ? bottom : max;
-      }, 0);
-    },
-
     /**
      * Convert the viewport center to a grid Y coordinate.
      * Uses the grid element's bounding rect and the known row-height + margin
@@ -898,177 +553,15 @@ export const useLayoutStore = defineStore("layout", {
       return Math.max(0, gridY);
     },
 
-    /**
-     * Push existing tiles out of the way to make room for a new tile at the
-     * given position. Modifies tile Y positions in-place so that by the time
-     * Vue re-renders, the layout is already collision-free — no overlap flash.
-     *
-     * Algorithm:
-     *  1. Push every tile that overlaps the new tile's footprint directly
-     *     below it (tile.y = newY + newH).
-     *  2. Cascade: sort all tiles top-to-bottom and resolve any secondary
-     *     overlaps the same way. Repeat until the layout is stable.
-     */
-    pushTilesForNewItem(
-      newX: number,
-      newY: number,
-      newW: number,
-      newH: number,
-    ): void {
-      if (!this.currentLayout) return;
-
-      const tiles = this.currentLayout.tiles;
-
-      // Rectangle overlap test (strict — adjacent edges don't count)
-      const overlaps = (
-        ax: number,
-        ay: number,
-        aw: number,
-        ah: number,
-        bx: number,
-        by: number,
-        bw: number,
-        bh: number,
-      ): boolean =>
-        ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
-
-      // First pass: push tiles that directly collide with the new tile
-      for (const tile of tiles) {
-        if (overlaps(newX, newY, newW, newH, tile.x, tile.y, tile.w, tile.h)) {
-          tile.y = newY + newH;
-        }
-      }
-
-      // Cascade: repeatedly resolve tile-on-tile overlaps until stable.
-      // Processing top-to-bottom ensures each tile is only pushed once per pass.
-      let settled = false;
-      let iterations = 0;
-      while (!settled && iterations < 50) {
-        settled = true;
-        iterations++;
-
-        const sorted = [...tiles].sort((a, b) => a.y - b.y);
-        for (let i = 0; i < sorted.length; i++) {
-          for (let j = i + 1; j < sorted.length; j++) {
-            const a = sorted[i];
-            const b = sorted[j];
-            if (overlaps(a.x, a.y, a.w, a.h, b.x, b.y, b.w, b.h)) {
-              b.y = a.y + a.h;
-              settled = false;
-            }
-          }
-        }
-      }
-    },
-
-    /**
-     * Find the best X position at a specific row for a tile of the given size.
-     * Used for viewport-based placement: the Y is already decided (viewport center),
-     * so we just need the cleanest X column.
-     *
-     * Scans left-to-right for a non-overlapping column. If the row is fully
-     * occupied, returns x=0 anyway — pushTilesForNewItem will clear the space.
-     */
-    findBestXAtRow(
-      width: number,
-      height: number,
-      targetY: number,
-    ): { x: number; y: number } {
-      if (!this.currentLayout) {
-        return { x: 0, y: targetY };
-      }
-
-      const colNum = this.currentLayout.colNum || 12;
-
-      const hasOverlap = (x: number, y: number): boolean => {
-        return this.currentLayout!.tiles.some((tile) => {
-          return !(
-            x + width <= tile.x ||
-            x >= tile.x + tile.w ||
-            y + height <= tile.y ||
-            y >= tile.y + tile.h
-          );
-        });
-      };
-
-      // Try to find a clean (non-overlapping) column at the target row
-      for (let x = 0; x <= colNum - width; x++) {
-        if (!hasOverlap(x, targetY)) {
-          return { x, y: targetY };
-        }
-      }
-
-      // Row is fully occupied — place at x=0 and let the grid engine
-      // push existing tiles out of the way via collision resolution
-      return { x: 0, y: targetY };
-    },
-
-    /**
-     * Find the first available spot for a tile of the given size.
-     *
-     * When startY > 0 (viewport-based positioning), we first scan downward
-     * from startY. If no gap is found within the existing tile bounds, the
-     * tile is placed at the bottom of the grid — still near the viewport.
-     * This ensures new tiles always appear close to where the user is looking.
-     */
-    findFirstAvailableSpot(
-      width: number,
-      height: number,
-      startY = 0,
-    ): { x: number; y: number } {
-      if (!this.currentLayout) {
-        return { x: 0, y: 0 };
-      }
-
-      const colNum = this.currentLayout.colNum || 12;
-      const lowestPoint = this.calculateLowestPoint();
-      // Search up to the current bottom + one new tile height
-      const maxY = lowestPoint + height;
-
-      // Helper function to check if a position overlaps with any existing tile
-      const hasOverlap = (x: number, y: number): boolean => {
-        return this.currentLayout!.tiles.some((tile) => {
-          return !(
-            x + width <= tile.x || // new tile is to the left
-            x >= tile.x + tile.w || // new tile is to the right
-            y + height <= tile.y || // new tile is above
-            y >= tile.y + tile.h // new tile is below
-          );
-        });
-      };
-
-      // Scan downward from startY — tiles appear where the user is looking
-      for (let y = Math.max(0, startY); y <= maxY; y++) {
-        for (let x = 0; x <= colNum - width; x++) {
-          if (!hasOverlap(x, y)) {
-            return { x, y };
-          }
-        }
-      }
-
-      // If no spot found, fall back to bottom of grid
-      return { x: 0, y: lowestPoint };
-    },
-
-    // updateTile(id: string, newContent: TileContent) {
-    //   if (!this.currentLayout) return;
-
-    //   const tileIndex = this.currentLayout.tiles.findIndex((tile) => tile.i === id);
-    //   if (tileIndex !== -1) {
-    //     const tile = this.currentLayout.tiles[tileIndex];
-    //     this.currentLayout.tiles[tileIndex] = updateTileContent(tile, newContent);
-    //     this.saveLayout(); // Persist changes
-    //   } else {
-    //     console.warn(`Tile with ID ${id} not found.`);
-    //   }
-    // },
-
     // Duplicate a tile — deep-copies content, preserves size, places nearby
     duplicateTile(id: string): string | null {
       if (!this.currentLayout) return null;
 
       const source = this.currentLayout.tiles.find((t) => t.i === id);
       if (!source) return null;
+
+      const tiles = this.currentLayout.tiles;
+      const colNum = this.currentLayout.colNum || 12;
 
       // Use the currently displayed size (which may come from breakpoint
       // overrides) so the duplicate matches what the user actually sees.
@@ -1080,8 +573,8 @@ export const useLayoutStore = defineStore("layout", {
       // Place the duplicate just below the source tile
       const sourceY = bpOverride?.y ?? source.y;
       const targetY = sourceY + h;
-      const position = this.findBestXAtRow(w, h, targetY);
-      this.pushTilesForNewItem(position.x, position.y, w, h);
+      const position = findBestXAtRow(tiles, colNum, w, h, targetY);
+      pushTilesForNewItem(tiles, position.x, position.y, w, h);
 
       const newId = uuidv4();
 
@@ -1167,11 +660,15 @@ export const useLayoutStore = defineStore("layout", {
         // Desktop: update the base tile directly (existing behaviour)
         tile.w = w;
         tile.h = h;
-        this.adjustTilePosition(tile);
+        adjustTilePosition(tile, this.currentLayout.colNum);
         // Keep displayPositions in sync so updateLayout's sync-back
         // doesn't revert the programmatic resize.
         const dp = this.displayPositions.find((p) => p.i === id);
-        if (dp) { dp.w = w; dp.h = h; dp.x = tile.x; }
+        if (dp) {
+          dp.w = w;
+          dp.h = h;
+          dp.x = tile.x;
+        }
         this.updateLayout();
         return;
       }
@@ -1235,19 +732,6 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
-    // Adjust tile's x value to ensure it doesn't extend past colNum
-    adjustTilePosition(tile: { x: number; w: number }) {
-      if (!this.currentLayout) {
-        console.warn("Cannot adjust tile position: currentLayout is null.");
-        return;
-      }
-
-      const maxX = this.currentLayout.colNum - tile.w;
-      if (tile.x > maxX) {
-        tile.x = Math.max(0, maxX); // Ensure x doesn't go negative
-      }
-    },
-
     // Update the entire layout
     updateLayout() {
       // Block updates when the user can't edit (non-owner or view-only preview).
@@ -1259,7 +743,11 @@ export const useLayoutStore = defineStore("layout", {
       // detached copies (e.g. after repacking out-of-bounds tiles). vue3-grid-layout
       // mutates those copies in-place during drag/resize, so the store's canonical
       // tiles can become stale. Sync the rendered positions back before saving.
-      if (this.activeBreakpoint === 'lg' && this.currentLayout && this.displayPositions.length) {
+      if (
+        this.activeBreakpoint === "lg" &&
+        this.currentLayout &&
+        this.displayPositions.length
+      ) {
         for (const pos of this.displayPositions) {
           const tile = this.currentLayout.tiles.find((t) => t.i === pos.i);
           if (tile) {
@@ -1377,14 +865,14 @@ export const useLayoutStore = defineStore("layout", {
     },
 
     async deleteLayout(id: string) {
-      const userId = auth.currentUser?.uid;
+      const userId = getAuthProvider().getCurrentUserId();
       const layout = this.layouts.find((l) => l.id === id);
       if (!userId || !layout || layout.userId !== userId) {
         return;
       }
 
       try {
-        await layoutService.deleteLayout(id);
+        await svc().deleteLayout(id);
         this.layouts = this.layouts.filter((layout) => layout.id !== id);
 
         if (this.currentLayout?.id === id) {
@@ -1406,7 +894,7 @@ export const useLayoutStore = defineStore("layout", {
 
         // Update the layout name
         layout.name = newName;
-        await layoutService.updateLayout(layout);
+        await svc().updateLayout(layout);
 
         // Update current layout if it's the one being renamed
         if (this.currentLayout?.id === id) {

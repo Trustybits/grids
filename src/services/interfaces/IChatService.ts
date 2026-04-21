@@ -1,0 +1,24 @@
+import type { ChatMessage } from "@/types/TileContent";
+
+export interface IChatService {
+  /**
+   * Subscribe to real-time chat messages for a tile, ordered by createdAt asc.
+   * Returns an unsubscribe function.
+   */
+  subscribeToMessages(
+    layoutId: string,
+    tileId: string,
+    callback: (messages: ChatMessage[]) => void,
+    onError?: (error: Error) => void,
+  ): () => void;
+
+  /**
+   * Send a chat message. Resolves the current user from the auth provider
+   * internally — callers only need to provide the text.
+   */
+  sendMessage(
+    layoutId: string,
+    tileId: string,
+    text: string,
+  ): Promise<void>;
+}

@@ -42,7 +42,7 @@ export function useFileUpload() {
   };
 
   /**
-   * Upload a file to Firebase Storage and return TileContent.
+   * Upload a file to storage and return TileContent.
    * Use this for creating new tiles from uploaded files (non-optimistic path).
    */
   const uploadFile = async (
@@ -60,8 +60,8 @@ export function useFileUpload() {
    * Optimistic upload for a **new** tile (toolbar button, drag-and-drop, paste).
    *
    * 1. Creates a tile immediately with a local blob URL so the user sees instant feedback.
-   * 2. Uploads the file to Firebase in the background with progress tracking.
-   * 3. On completion, stores the Firebase URL in resolvedUrls for Firestore persistence
+   * 2. Uploads the file to storage in the background with progress tracking.
+   * 3. On completion, stores the storage URL in resolvedUrls for persistence
    *    without swapping the displayed src (avoids flash / video playback interruption).
    * 4. On failure, removes the tile and alerts the user.
    */
@@ -107,7 +107,7 @@ export function useFileUpload() {
 
       const url = await uploadTask.done();
 
-      // Store the permanent URL for Firestore persistence without touching the displayed src.
+      // Store the permanent URL for persistence without touching the displayed src.
       // This avoids a visible flash and keeps video playback uninterrupted.
       layoutStore.setResolvedUrl(tileId, url);
       layoutStore.clearTileUploading(tileId);
@@ -181,7 +181,7 @@ export function useFileUpload() {
   };
 
   /**
-   * Fetch an external image URL, upload it to Firebase Storage, and return our permanent URL.
+   * Fetch an external image URL, upload it to storage, and return our permanent URL.
    * Use this when a user provides a remote image URL so we own a copy and avoid external dependency.
    */
   const uploadExternalImageToStorage = async (

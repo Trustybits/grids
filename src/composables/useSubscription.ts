@@ -1,10 +1,10 @@
 /**
  * useSubscription — tier-based feature gating composable
  *
- * Reads subscription state from two Firestore sources:
+ * Reads subscription state from two data sources:
  *  1. users/{uid}              → hasSupporterBadge (PWYW one-time payment)
  *  2. customers/{uid}/subscriptions → Stripe subscription status (Pro tier)
- *     Written automatically by the firestore-stripe-payments Firebase Extension
+ *     Written automatically by the firestore-stripe-payments extension
  *
  * ── Tier model ──────────────────────────────────────────────────────────────
  *
@@ -105,7 +105,7 @@ const REQUIRES_SUPPORTER: Set<GatedFeature> = new Set(['remove_branding'])
 const ACTIVE_STRIPE_STATUSES = new Set(['active', 'trialing'])
 
 // ── Module-level reactive state ────────────────────────────────────────────
-// Shared across all composable instances — only one Firestore listener runs.
+// Shared across all composable instances — only one listener runs.
 
 const _subscription = ref<SubscriptionState>({
   tier: 'free',
@@ -122,7 +122,7 @@ let _unsubStripe: (() => void) | null = null
  * Bootstrap the subscription listener. Call once in App.vue (inside onMounted
  * or at the top of <script setup>).
  *
- * Listens to Firebase Auth state changes and reactively mirrors both the
+ * Listens to auth state changes and reactively mirrors both the
  * users/{uid} doc (for hasSupporterBadge) and the customers/{uid}/subscriptions
  * collection (for Stripe Pro status).
  */
@@ -172,7 +172,7 @@ export function initSubscription(): void {
         reconcile()
       })
 
-    // ── 2. Listen to Stripe subscription (from Firebase Extension) ────────
+    // ── 2. Listen to Stripe subscription ──────────────────────────────────
     _unsubStripe = getServiceFactory()
       .getStripeService()
       .subscribeToActiveSubscriptions(user.uid, (subscriptions) => {

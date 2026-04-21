@@ -7,7 +7,7 @@
  *  - validateTileContent (business rules per type)
  *  - createTileContentFromEmbedUrl (YouTube, Spotify, Apple Music, image, video routing)
  *
- * TileUtils has no runtime Firebase calls so no special mocking is needed beyond
+ * TileUtils has no runtime DAO calls so no special mocking is needed beyond
  * what setup.ts already provides for the module-level store import.
  */
 

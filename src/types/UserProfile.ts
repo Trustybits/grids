@@ -1,5 +1,5 @@
 /**
- * User profile data stored in Firestore users collection
+ * User profile data stored in the users collection
  */
 export interface UserProfile {
   email?: string;

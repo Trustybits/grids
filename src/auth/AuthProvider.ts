@@ -1,6 +1,6 @@
 /**
  * Minimal domain representation of an authenticated user.
- * Keeps Firebase's `User` type out of consumer code.
+ * Keeps the auth provider's `User` type out of consumer code.
  */
 export interface AuthUser {
   uid: string;

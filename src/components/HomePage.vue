@@ -34,17 +34,17 @@
       </div>
 
       <div class="mkt__hero-grid">
-        <div class="tile tile--2x2">
+        <div class="tile tile--2x2 tile--variant-a">
           <div class="tile__meta">
             <strong>Taylor Reid</strong>
             <small>Designer · Lisbon</small>
           </div>
         </div>
-        <div class="tile"><div class="tile__meta"><small>Listening to</small><strong>In bloom</strong></div></div>
-        <div class="tile"><div class="tile__meta"><strong>Read the blog</strong><small>taylor.site</small></div></div>
-        <div class="tile tile--2x1"><div class="tile__meta"><strong>Morning in Lisbon</strong><small>Photo</small></div></div>
-        <div class="tile"><div class="tile__meta"><em>"Simple, but significant."</em></div></div>
-        <div class="tile"><div class="tile__meta"><strong>Shop the print</strong><small>$48 · prints.taylor.site</small></div></div>
+        <div class="tile tile--variant-b"><div class="tile__meta"><small>Listening to</small><strong>In bloom</strong></div></div>
+        <div class="tile tile--variant-c"><div class="tile__meta"><strong>Read the blog</strong><small>taylor.site</small></div></div>
+        <div class="tile tile--2x1 tile--variant-d"><div class="tile__meta"><strong>Morning in Lisbon</strong><small>Photo</small></div></div>
+        <div class="tile tile--variant-e"><div class="tile__meta"><em>"Simple, but significant."</em></div></div>
+        <div class="tile tile--variant-f"><div class="tile__meta"><strong>Shop the print</strong><small>$48 · prints.taylor.site</small></div></div>
       </div>
 
       <section class="mkt__feature">
@@ -55,11 +55,11 @@
         </div>
         <div class="mkt__feature-demo mkt__feature-demo--snap">
           <div class="mkt__mini-tiles">
-            <div class="mkt__mini-tile"></div>
-            <div class="mkt__mini-tile"></div>
-            <div class="mkt__mini-tile mkt__mini-tile--floating"></div>
-            <div class="mkt__mini-tile mkt__mini-tile--wide"></div>
-            <div class="mkt__mini-tile"></div>
+            <div class="mkt__mini-tile mkt__mini-tile--a"></div>
+            <div class="mkt__mini-tile mkt__mini-tile--b"></div>
+            <div class="mkt__mini-tile mkt__mini-tile--c mkt__mini-tile--floating"></div>
+            <div class="mkt__mini-tile mkt__mini-tile--d mkt__mini-tile--wide"></div>
+            <div class="mkt__mini-tile mkt__mini-tile--e"></div>
           </div>
         </div>
       </section>
@@ -113,6 +113,15 @@
           <p>
             Export your grid any time. Self-host it. Fork it. If grids.so ever disappears, your page doesn't.
           </p>
+          <a
+            class="mkt__repo-btn"
+            href="https://github.com/TrustyDev-76/grids1"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <i class="fab fa-github" aria-hidden="true"></i>
+            <span>View public repo</span>
+          </a>
         </div>
         <div class="mkt__terminal">
           <div class="mkt__terminal-top">
@@ -133,21 +142,6 @@
         </div>
       </section>
 
-      <section class="mkt__support">
-        <article class="mkt__support-card">
-          <h4>Export anything</h4>
-          <p>One click for JSON, HTML, or a static site.</p>
-        </article>
-        <article class="mkt__support-card">
-          <h4>Self-host it</h4>
-          <p>Deploy on your own domain in minutes.</p>
-        </article>
-        <article class="mkt__support-card">
-          <h4>Fork &amp; remix</h4>
-          <p>MIT-licensed. Change whatever you want.</p>
-        </article>
-      </section>
-
       <section class="mkt__cta">
         <h2>Ready to <span>show off?</span></h2>
         <p>Free to start. Your first grid takes about four minutes.</p>
@@ -164,9 +158,9 @@
           <div class="mkt__mini-grid"></div>
           <h3>{{ template.name }}</h3>
           <small>by {{ template.by }}</small>
-        </article>
-      </div>
-    </section>
+          </article>
+        </div>
+      </section>
 
     <section v-else-if="currentPage === 'pricing'" class="mkt__page">
       <div class="mkt__kicker">Pricing</div>
@@ -188,15 +182,15 @@
           <ul>
             <li v-for="feature in plan.features" :key="feature">{{ feature }}</li>
           </ul>
-        </article>
-      </div>
-    </section>
+          </article>
+        </div>
+      </section>
 
     <section v-else class="mkt__placeholder">
       <div class="mkt__kicker">{{ currentPage }}</div>
       <h1>Coming soon.</h1>
       <p>We haven't built this page yet.</p>
-    </section>
+      </section>
 
     <footer class="mkt__footer">
       <div>
@@ -296,6 +290,9 @@ const plans = [
 
 <style scoped>
 .mkt {
+  --mkt-section-max: 1120px;
+  --mkt-section-x: 40px;
+  --mkt-section-y: 92px;
   min-height: 100vh;
   color: var(--mkt-fg-1);
   background: var(--mkt-bg-0);
@@ -320,11 +317,11 @@ const plans = [
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 18px 40px;
+  padding: 18px var(--mkt-section-x);
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  max-width: 1120px;
+  max-width: var(--mkt-section-max);
   margin: 0 auto;
 }
 .mkt__brand {
@@ -374,9 +371,9 @@ const plans = [
 .mkt__hero {
   position: relative;
   z-index: 1;
-  padding: 56px 40px 48px;
+  padding: 56px var(--mkt-section-x) 40px;
   text-align: center;
-  max-width: 1120px;
+  max-width: var(--mkt-section-max);
   margin: 0 auto;
 }
 .mkt__eyebrow, .mkt__kicker {
@@ -464,6 +461,32 @@ const plans = [
   filter: blur(18px);
   opacity: .9;
 }
+.tile--variant-a::before {
+  background:
+    radial-gradient(circle at 28% 72%, color-mix(in srgb, var(--mkt-brand-pink) 85%, white 15%), transparent 56%),
+    radial-gradient(circle at 80% 28%, color-mix(in srgb, var(--mkt-brand-cyan) 85%, white 15%), transparent 56%);
+}
+.tile--variant-b::before {
+  background: radial-gradient(circle at 45% 110%, var(--mkt-brand-violet) 0%, transparent 60%);
+}
+.tile--variant-c::before {
+  background:
+    radial-gradient(circle at 70% 22%, #ffc36b, transparent 50%),
+    radial-gradient(circle at 12% 70%, var(--mkt-brand-magenta), transparent 55%);
+}
+.tile--variant-d::before {
+  background: radial-gradient(circle at 52% 52%, var(--mkt-brand-cyan), transparent 58%);
+}
+.tile--variant-e::before {
+  background:
+    radial-gradient(circle at 22% 20%, var(--mkt-brand-blue), transparent 55%),
+    radial-gradient(circle at 86% 80%, var(--mkt-brand-pink), transparent 55%);
+}
+.tile--variant-f::before {
+  background:
+    radial-gradient(circle at 36% 70%, #ffd6f0, transparent 56%),
+    radial-gradient(circle at 78% 22%, #c9dcff, transparent 56%);
+}
 .tile--2x2 { grid-column: span 2; grid-row: span 2; }
 .tile--2x1 { grid-column: span 2; }
 .tile__meta {
@@ -479,9 +502,9 @@ const plans = [
 .tile__meta small { font-size: 11px; opacity: .6; }
 .tile__meta em { font: 400 14px/1.2 "Instrument Serif", serif; }
 .mkt__feature {
-  max-width: 1120px;
+  max-width: var(--mkt-section-max);
   margin: 0 auto;
-  padding: 72px 40px;
+  padding: var(--mkt-section-y) var(--mkt-section-x);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 64px;
@@ -548,16 +571,37 @@ const plans = [
   filter: blur(12px);
   opacity: .9;
 }
+.mkt__mini-tile--a::before {
+  background:
+    radial-gradient(circle at 30% 72%, var(--mkt-brand-pink), transparent 56%),
+    radial-gradient(circle at 80% 28%, var(--mkt-brand-cyan), transparent 56%);
+}
+.mkt__mini-tile--b::before {
+  background: radial-gradient(circle at 50% 108%, var(--mkt-brand-violet) 0%, transparent 60%);
+}
+.mkt__mini-tile--c::before {
+  background:
+    radial-gradient(circle at 70% 20%, #ffc36b, transparent 50%),
+    radial-gradient(circle at 10% 70%, var(--mkt-brand-magenta), transparent 55%);
+}
+.mkt__mini-tile--d::before {
+  background: radial-gradient(circle at 50% 50%, var(--mkt-brand-cyan), transparent 60%);
+}
+.mkt__mini-tile--e::before {
+  background:
+    radial-gradient(circle at 20% 20%, var(--mkt-brand-blue), transparent 55%),
+    radial-gradient(circle at 85% 80%, var(--mkt-brand-pink), transparent 55%);
+}
 .mkt__mini-tile--wide { grid-column: span 2; }
 .mkt__mini-tile--floating { transform: rotate(-4deg) translateY(4px); }
 .mkt__palette-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 .dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55);
 }
 .dot--cyan { background: var(--mkt-brand-cyan); }
@@ -567,8 +611,8 @@ const plans = [
 .dot--magenta { background: var(--mkt-brand-magenta); }
 .dot--green { background: #58e0a3; }
 .mkt__theme-card {
-  width: 220px;
-  height: 120px;
+  width: 236px;
+  height: 132px;
   border-radius: 18px;
   border: 1px solid var(--mkt-glass-tile-border);
   background: var(--mkt-glass-tile-bg);
@@ -605,12 +649,12 @@ const plans = [
   letter-spacing: -0.02em;
 }
 .mkt__own {
-  max-width: 1120px;
+  max-width: var(--mkt-section-max);
   margin: 0 auto;
-  padding: 0 40px 40px;
+  padding: var(--mkt-section-y) var(--mkt-section-x) 12px;
   display: grid;
   grid-template-columns: 1.1fr 1fr;
-  gap: 56px;
+  gap: 64px;
   position: relative;
   z-index: 1;
   text-align: left;
@@ -630,6 +674,22 @@ const plans = [
 }
 .mkt__own h2 { font: 700 48px/1.02 var(--mkt-font-sans); margin: 0; }
 .mkt__own p { color: color-mix(in srgb, var(--mkt-fg-2) 85%, transparent); line-height: 1.55; }
+.mkt__repo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+  border-radius: var(--mkt-radius-md);
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--mkt-bg-2);
+  color: var(--mkt-fg-1);
+  text-decoration: none;
+  font: 600 13px/1 var(--mkt-font-sans);
+}
+.mkt__repo-btn:hover {
+  background: color-mix(in srgb, var(--mkt-bg-2) 75%, var(--mkt-brand-indigo) 25%);
+}
 .mkt__terminal {
   border: 1px solid rgba(255, 255, 255, .1);
   border-radius: var(--mkt-radius-lg);
@@ -667,35 +727,12 @@ const plans = [
 .mkt__terminal-prompt {
   color: rgba(255, 255, 255, .35);
 }
-.mkt__support {
-  max-width: 1120px;
-  margin: 16px auto 0;
-  padding: 0 40px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-.mkt__support-card {
-  background: var(--mkt-bg-1);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  padding: 20px;
-}
-.mkt__support-card h4 {
-  margin: 0;
-  font-size: 15px;
-}
-.mkt__support-card p {
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.55);
-}
 .mkt__ok { color: #58e0a3; margin-top: 10px; padding-left: 22px; }
 .mkt__faint { color: rgba(255, 255, 255, .35); margin-top: 14px; padding-left: 22px; padding-bottom: 20px; }
 .mkt__cta {
   text-align: center;
-  padding: 84px 40px 92px;
-  max-width: 1120px;
+  padding: calc(var(--mkt-section-y) + 8px) var(--mkt-section-x) calc(var(--mkt-section-y) + 16px);
+  max-width: var(--mkt-section-max);
   margin: 0 auto;
   position: relative;
   z-index: 1;
@@ -712,9 +749,9 @@ const plans = [
   margin: 20px auto 30px;
 }
 .mkt__page, .mkt__placeholder {
-  max-width: 1120px;
+  max-width: var(--mkt-section-max);
   margin: 0 auto;
-  padding: 56px 40px 40px;
+  padding: 56px var(--mkt-section-x) 40px;
 }
 .mkt__page h1 {
   font: 800 56px/1 var(--mkt-font-sans);
@@ -832,9 +869,9 @@ const plans = [
 }
 .mkt__footer {
   border-top: 1px solid rgba(255, 255, 255, .06);
-  padding: 48px 40px 32px;
+  padding: 52px var(--mkt-section-x) 32px;
   margin: 64px auto 0;
-  max-width: 1120px;
+  max-width: var(--mkt-section-max);
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: 40px;
@@ -857,6 +894,9 @@ const plans = [
   text-decoration: none;
 }
 @media (max-width: 1000px) {
+  .mkt {
+    --mkt-section-y: 72px;
+  }
   .mkt__hero-title { font-size: 56px; }
   .mkt__feature, .mkt__own { grid-template-columns: 1fr; }
   .mkt__feature--rev > :first-child { order: initial; }
@@ -864,9 +904,12 @@ const plans = [
   .mkt__cards { grid-template-columns: repeat(2, 1fr); }
   .mkt__pricing { flex-direction: column; }
   .mkt__footer { grid-template-columns: 1fr 1fr; }
-  .mkt__support { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
+  .mkt {
+    --mkt-section-x: 14px;
+    --mkt-section-y: 52px;
+  }
   .mkt__nav {
     flex-wrap: wrap;
     justify-content: center;

@@ -77,10 +77,10 @@ describe('getUserProfile', () => {
   })
 
   it('throws when the DAO throws an error', async () => {
-    mockUserDao.getById.mockRejectedValueOnce(new Error('Firestore unavailable'))
+    mockUserDao.getById.mockRejectedValueOnce(new Error('Database unavailable'))
 
     const service = new UserService()
-    await expect(service.getUserProfile('uid-abc')).rejects.toThrow('Firestore unavailable')
+    await expect(service.getUserProfile('uid-abc')).rejects.toThrow('Database unavailable')
   })
 })
 

@@ -637,7 +637,7 @@ export default defineComponent({
       // Mutate the store's content reference directly, not props.content
       (tile.content as any).profilePhotoUrl = url;
 
-      // Persist to Firestore via layout store
+      // Persist via layout store
       await layoutStore.saveLayout();
     };
 

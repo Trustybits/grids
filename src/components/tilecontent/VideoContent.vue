@@ -81,7 +81,7 @@
         </button>
       </div>
 
-      <!-- Upload progress overlay - shown while file is uploading to Firebase -->
+      <!-- Upload progress overlay - shown while file is uploading to storage -->
       <div v-if="isUploading" class="upload-overlay">
         <div class="upload-progress-track">
           <div
@@ -340,7 +340,7 @@ export default defineComponent({
 
       // Save when exiting crop mode
       if (!isEditing.value) {
-        // Use patchTileContent to properly persist the offset changes to Firestore
+        // Use patchTileContent to properly persist the offset changes
         if (tileId && tileId !== "") {
           layoutStore.patchTileContent(tileId, {
             offsetX: offsetX.value,

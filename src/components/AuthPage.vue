@@ -110,7 +110,7 @@ const pendingRedirect = ref<string | null>(null);
 const AUTH_EMAIL_STORAGE_KEY = 'grids.auth.emailForSignIn';
 
 const isEmailValid = computed(() => {
-  // Keep validation light; Firebase will validate server-side.
+  // Keep validation light; the server will validate server-side.
   return /\S+@\S+\.[\S]+/.test(email.value.trim());
 });
 
@@ -175,7 +175,7 @@ onMounted(() => {
 
   // Passwordless flow:
   // 1) We send a magic link to the user's email
-  // 2) When the user clicks that link, Firebase redirects back to /login with an email link
+  // 2) When the user clicks that link, the auth provider redirects back to /login with an email link
   // 3) We complete sign-in here and redirect into the app
   void maybeCompleteEmailLinkSignIn();
 });

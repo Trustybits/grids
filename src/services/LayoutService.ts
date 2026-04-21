@@ -22,7 +22,7 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
 
 /**
  * Safety net: strip any remaining blob: URLs before persisting.
- * Normally the layout store substitutes resolved Firebase URLs before calling
+ * Normally the layout store substitutes resolved storage URLs before calling
  * the service, but this catches any edge cases where a blob URL slips through.
  */
 const stripBlobUrls = (tiles: unknown[]): unknown[] => {
@@ -240,7 +240,7 @@ export class LayoutService implements ILayoutService {
     this.dbUtils = getDbUtils();
   }
 
-  // ── Core CRUD (mirrors FirestoreLayoutService) ──────────────────────
+  // ── Core CRUD ──────────────────────────────────────────────────────
 
   // Fetch a layout by Layout ID
   async fetchLayout(id: string): Promise<Layout> {
@@ -531,8 +531,8 @@ export class LayoutService implements ILayoutService {
   private _pendingSnapshot: Layout | null = null;
 
   // Deep-clone a layout and swap any blob: preview URLs with their resolved
-  // Firebase URLs so we never persist temporary blob references.
-  // Returns a plain (non-reactive) Layout safe for Firestore.
+  // Storage URLs so we never persist temporary blob references.
+  // Returns a plain (non-reactive) Layout safe for persistence.
   private createPersistableSnapshot(
     layout: Layout,
     resolvedUrls: Record<string, string> = {},
@@ -557,7 +557,7 @@ export class LayoutService implements ILayoutService {
   }
 
   // Queue a layout save. Accepts the current (potentially reactive) layout
-  // and an optional resolved-URL map for blob → Firebase URL substitution.
+  // and an optional resolved-URL map for blob → storage URL substitution.
   // The service deep-clones and sanitises the layout internally.
   // Returns immediately if a write is already in-flight; the queued snapshot
   // will be flushed when the current write completes.

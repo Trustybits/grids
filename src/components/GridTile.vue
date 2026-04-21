@@ -189,6 +189,7 @@ import {
   createTileContent,
 } from "@/utils/TileUtils";
 import { ContentType, type LinkContent } from "@/types/TileContent";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import TextIcon from "./icons/TextIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";

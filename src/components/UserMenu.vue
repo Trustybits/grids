@@ -50,9 +50,9 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { auth } from "@/firebase";
-import { signOut, onAuthStateChanged, type User } from "firebase/auth";
-import { getUserProfile } from "@/services/UserProfileService";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
+import type { AuthUser } from "@/auth/AuthProvider";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import SlugClaimModal from "./SlugClaimModal.vue";
 
 export default defineComponent({
@@ -62,13 +62,13 @@ export default defineComponent({
   },
   setup() {
     const router = useRouter();
-    const user = ref<User | null>(null);
+    const user = ref<AuthUser | null>(null);
     const showUserMenu = ref(false);
     const showSlugModal = ref(false);
     const currentSlug = ref<string | undefined>(undefined);
 
     onMounted(() => {
-      onAuthStateChanged(auth, (currentUser) => {
+      getAuthProvider().onAuthStateChanged((currentUser) => {
         user.value = currentUser;
         // Load user profile to get current slug
         if (currentUser) {
@@ -80,7 +80,7 @@ export default defineComponent({
     const loadUserSlug = async () => {
       if (user.value) {
         try {
-          const profile = await getUserProfile(user.value.uid);
+          const profile = await getServiceFactory().getUserService().getUserProfile(user.value.uid);
           currentSlug.value = profile?.slug;
         } catch (error) {
           console.error('Error loading user slug:', error);
@@ -100,7 +100,7 @@ export default defineComponent({
     };
 
     const logout = async () => {
-      await signOut(auth);
+      await getAuthProvider().signOut();
       router.push("/login");
       showUserMenu.value = false;
     };
@@ -109,7 +109,7 @@ export default defineComponent({
       showUserMenu.value = false;
       if (user.value) {
         try {
-          const profile = await getUserProfile(user.value.uid);
+          const profile = await getServiceFactory().getUserService().getUserProfile(user.value.uid);
           currentSlug.value = profile?.slug;
         } catch (error) {
           console.error('Error loading user profile:', error);
@@ -126,7 +126,7 @@ export default defineComponent({
       // Reload profile to get updated slug
       if (user.value) {
         try {
-          const profile = await getUserProfile(user.value.uid);
+          const profile = await getServiceFactory().getUserService().getUserProfile(user.value.uid);
           currentSlug.value = profile?.slug;
         } catch (error) {
           console.error('Error reloading profile:', error);

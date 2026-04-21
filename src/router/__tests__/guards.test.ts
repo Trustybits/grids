@@ -34,7 +34,7 @@ type NextFn = (location?: string | { path: string; query?: Record<string, string
 
 // ── Guard logic extracted for unit testing ─────────────────────────────────
 //
-// Rather than importing the router (which triggers Firebase init), we replicate
+// Rather than importing the router (which triggers app init), we replicate
 // the guard's decision logic here. This pattern lets us test every branch in
 // isolation and serves as living documentation of the expected auth behaviour.
 // When you modify the actual router guard, update this too.

@@ -423,13 +423,8 @@ import { useLayoutStore } from "@/stores/layout";
 import { type ProfileBioContent, type AvatarShape } from "@/types/TileContent";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
-import { getAuth } from "firebase/auth";
-import {
-  getStorage,
-  ref as storageRef,
-  uploadBytesResumable,
-  getDownloadURL,
-} from "firebase/storage";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -500,8 +495,7 @@ export default defineComponent({
     });
 
     const { uploadFileToUrl, uploadExternalImageToStorage } = useFileUpload();
-    const auth = getAuth();
-    const storage = getStorage();
+    const storageService = getServiceFactory().getStorageService();
 
     const isUploadingAvatar = ref(false);
     const uploadPercent = ref(0);
@@ -643,7 +637,7 @@ export default defineComponent({
       // Mutate the store's content reference directly, not props.content
       (tile.content as any).profilePhotoUrl = url;
 
-      // Persist to Firestore via layout store
+      // Persist via layout store
       await layoutStore.saveLayout();
     };
 
@@ -1305,16 +1299,14 @@ export default defineComponent({
         return;
       }
 
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
+      const currentUserId = getAuthProvider().getCurrentUserId();
+      if (!currentUserId) {
         alert("You must be logged in to upload.");
         return;
       }
 
-      // Remember previous photo in case we need to revert on failure
       const previousUrl = avatarSrc.value;
 
-      // Optimistic: show local blob preview immediately
       const blobUrl = URL.createObjectURL(file);
       await saveProfilePhoto(blobUrl);
 
@@ -1322,27 +1314,25 @@ export default defineComponent({
       uploadPercent.value = 0;
 
       try {
-        const filePath = `users/${currentUser.uid}/images/${Date.now()}_${file.name}`;
-        const fileRef = storageRef(storage, filePath);
-        const metadata = { customMetadata: { published: "true" } };
+        const uploadTask = storageService.uploadResumable(
+          currentUserId,
+          file,
+          { fileType: "images" },
+        );
 
-        const uploadTask = uploadBytesResumable(fileRef, file, metadata);
-        uploadTask.on("state_changed", (snapshot) => {
+        uploadTask.onProgress((progress) => {
           uploadPercent.value = Math.round(
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100,
+            (progress.bytesTransferred / progress.totalBytes) * 100,
           );
         });
 
-        await uploadTask;
-        const permanentUrl = await getDownloadURL(fileRef);
+        const permanentUrl = await uploadTask.done();
 
-        // Swap blob URL for permanent Firebase URL
         URL.revokeObjectURL(blobUrl);
         await saveProfilePhoto(permanentUrl);
       } catch (error: any) {
         console.error("Avatar upload failed:", error);
         URL.revokeObjectURL(blobUrl);
-        // Revert to previous photo
         await saveProfilePhoto(previousUrl);
         alert(error.message || "Failed to upload image. Please try again.");
       } finally {

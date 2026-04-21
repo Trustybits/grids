@@ -215,7 +215,7 @@ export default defineComponent({
     let isProgrammaticMove = false;
     // Debounce timer for syncContentFromMap — collapses rapid-fire
     // moveend events (inertial scrolling, resize adjustments) into a
-    // single Firestore write after the map settles.
+    // single write after the map settles.
     let syncTimer: ReturnType<typeof setTimeout> | null = null;
     const SYNC_DEBOUNCE_MS = 300;
     // Controls map canvas visibility — hidden until the first real center
@@ -778,7 +778,7 @@ export default defineComponent({
       const map = mapInstance.value;
       if (!map) return;
       // Suppress intermediate moveend events during the animation.
-      // When complete, sync the final position to Firestore.
+      // When complete, sync the final position to the database.
       isProgrammaticMove = true;
       map.once("moveend", () => {
         isProgrammaticMove = false;

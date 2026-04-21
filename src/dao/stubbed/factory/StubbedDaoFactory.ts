@@ -1,4 +1,5 @@
 import type { ChatDao } from "@/dao/interfaces/ChatDao";
+import type { CloudFunctionsDao } from "@/dao/interfaces/CloudFunctionsDao";
 import type { CustomerDao } from "@/dao/interfaces/CustomerDao";
 import type { DaoFactory } from "@/dao/interfaces/factory/DaoFactory";
 import type { LayoutDao } from "@/dao/interfaces/LayoutDao";
@@ -9,6 +10,7 @@ import type { UpvoteDao } from "@/dao/interfaces/UpvoteDao";
 import type { UserDao } from "@/dao/interfaces/UserDao";
 import type { UserGameDataDao } from "@/dao/interfaces/UserGameDataDao";
 import { StubbedChatDao } from "../StubbedChatDao";
+import { StubbedCloudFunctionsDao } from "../StubbedCloudFunctionsDao";
 import { StubbedCustomerDao } from "../StubbedCustomerDao";
 import { StubbedLayoutDao } from "../StubbedLayoutDao";
 import { StubbedRoadmapDao } from "../StubbedRoadmapDao";
@@ -20,6 +22,7 @@ import { StubbedUserGameDataDao } from "../StubbedUserGameDataDao";
 
 export class StubbedDaoFactory implements DaoFactory {
   private chatDao: ChatDao;
+  private cloudFunctionsDao: CloudFunctionsDao;
   private customerDao: CustomerDao;
   private layoutDao: LayoutDao;
   private roadmapDao: RoadmapDao;
@@ -31,6 +34,7 @@ export class StubbedDaoFactory implements DaoFactory {
 
   public constructor() {
     this.chatDao = new StubbedChatDao();
+    this.cloudFunctionsDao = new StubbedCloudFunctionsDao();
     this.customerDao = new StubbedCustomerDao();
     this.layoutDao = new StubbedLayoutDao();
     this.roadmapDao = new StubbedRoadmapDao();
@@ -43,6 +47,10 @@ export class StubbedDaoFactory implements DaoFactory {
 
   public getChatDao(): ChatDao {
     return this.chatDao;
+  }
+
+  public getCloudFunctionsDao(): CloudFunctionsDao {
+    return this.cloudFunctionsDao;
   }
 
   public getCustomerDao(): CustomerDao {

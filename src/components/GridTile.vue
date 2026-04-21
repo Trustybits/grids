@@ -180,8 +180,7 @@ import {
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 import { ContentType, type LinkContent } from "@/types/TileContent";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import TextIcon from "./icons/TextIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
@@ -492,11 +491,7 @@ export default defineComponent({
               const url = ((linkContent as any).link || "").trim();
               if (/^(mailto|tel):/i.test(url)) return;
 
-              const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-              const result = await getLinkPreview({
-                url,
-              });
-              const data = result.data as any;
+              const data = await getServiceFactory().getCloudFunctionsService().callFunction("getLinkPreview", { url }) as any;
 
               layoutStore.patchTileContent(props.tile.i, {
                 link: data?.url,

@@ -1,4 +1,5 @@
 import type { IChatService } from "../interfaces/IChatService";
+import type { ICloudFunctionsService } from "../interfaces/ICloudFunctionsService";
 import type { IGameDataService } from "../interfaces/IGameDataService";
 import type { ILayoutService } from "../interfaces/ILayoutService";
 import type { IRoadmapService } from "../interfaces/IRoadmapService";
@@ -9,6 +10,7 @@ import type { IUserService } from "../interfaces/IUserService";
 
 export interface IServiceFactory {
   getChatService: () => IChatService;
+  getCloudFunctionsService: () => ICloudFunctionsService;
   getGameDataService: () => IGameDataService;
   getLayoutService: () => ILayoutService;
   getRoadmapService: () => IRoadmapService;

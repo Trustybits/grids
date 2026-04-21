@@ -8,7 +8,7 @@ export function createDefaultLayout(userId: string, name: string): Layout {
   }
 
   return {
-    id: "", // Firestore will provide the ID later
+    id: "", // The DAO will provide the ID later
     userId,
     name,
     colNum: 12, // Default number of columns

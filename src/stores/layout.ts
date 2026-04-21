@@ -38,8 +38,8 @@ export const useLayoutStore = defineStore("layout", {
     // Tracks tiles that are currently uploading media in the background.
     // Key = tile ID, value = upload progress (0–1) or -1 for indeterminate.
     uploadingTiles: {} as Record<string, number>,
-    // Maps tile ID → permanent Firebase URL for tiles still displaying a blob: preview.
-    // Used by the Firestore persistence layer to write the real URL instead of the blob.
+    // Maps tile ID → permanent storage URL for tiles still displaying a blob: preview.
+    // Used by the persistence layer to write the real URL instead of the blob.
     // The blob URL stays as the in-memory src so the <img>/<video> element never reloads.
     resolvedUrls: {} as Record<string, string>,
     // When set, the TextContent component for this tile will auto-enter
@@ -161,13 +161,13 @@ export const useLayoutStore = defineStore("layout", {
       delete this.uploadingTiles[tileId];
     },
 
-    // Store the permanent Firebase URL for a tile that is still showing a blob preview.
-    // This URL is used only for Firestore persistence — the displayed src is unchanged.
+    // Store the permanent storage URL for a tile that is still showing a blob preview.
+    // This URL is used only for persistence — the displayed src is unchanged.
     setResolvedUrl(tileId: string, url: string) {
       this.resolvedUrls[tileId] = url;
     },
 
-    // Retrieve the resolved Firebase URL for a tile, if one exists
+    // Retrieve the resolved storage URL for a tile, if one exists
     getResolvedUrl(tileId: string): string | undefined {
       return this.resolvedUrls[tileId];
     },

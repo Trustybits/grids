@@ -57,7 +57,7 @@ onMounted(() => {
   getAuthProvider().onAuthStateChanged(async (currentUser) => {
     // Track login for existing users (not new signups on page load)
     if (currentUser && !isInitialLoad.value && !previousUser.value) {
-      // User just logged in - update lastLogin in Firestore
+      // User just logged in - update lastLogin
       try {
         await getServiceFactory().getUserService().recordLogin(
           currentUser.uid,

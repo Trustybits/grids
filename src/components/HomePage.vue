@@ -14,7 +14,7 @@
       </nav>
       <div class="mkt__actions">
         <router-link to="/login" class="mkt__text-btn">Sign in</router-link>
-        <router-link to="/login" class="mkt__cta-btn">Make your grid</router-link>
+        <router-link to="/login" class="mkt__cta-btn">Start your grid</router-link>
       </div>
     </header>
 
@@ -30,7 +30,7 @@
       <div class="mkt__url-pill">
         <span>grids.so/</span>
         <input v-model="urlSlug" aria-label="slug input" />
-        <button>Claim url →</button>
+        <button>Claim handle →</button>
       </div>
 
       <div class="mkt__hero-grid">
@@ -115,7 +115,7 @@
           </p>
           <a
             class="mkt__repo-btn"
-            href="https://github.com/TrustyDev-76/grids1"
+            href="https://github.com/trustybits/grids"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -388,7 +388,16 @@ const plans = [
   margin: 18px auto 0;
   max-width: 960px;
 }
-.mkt__hero-title span, .mkt__cta h2 span, .mkt__own h2 span {
+.mkt__hero-title span {
+  font: 800 clamp(3rem, 7.2vw, 5rem) / .98 var(--mkt-font-sans);
+  letter-spacing: -0.045em;
+  background: var(--mkt-brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.mkt__cta h2 span, .mkt__own h2 span {
   background: var(--mkt-brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;

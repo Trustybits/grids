@@ -91,15 +91,7 @@ import FireMediumIcon from "@/components/icons/FireMediumIcon.vue";
 import FireLargeIcon from "@/components/icons/FireLargeIcon.vue";
 import LeaderboardIcon from "@/components/icons/LeaderboardIcon.vue";
 import type { UserGameData, LeaderboardEntry } from "@/types/GameData";
-import {
-  getOrCreateUserGameData,
-  incrementUserClicks,
-  subscribeToUserGameData,
-  subscribeToLeaderboard,
-  checkDailyClickLimit,
-  getDailyClickCap,
-  claimPassiveClicks,
-} from "@/services/GameDataService";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { getCurrentBoostTier, getNextBoostTier, type BoostMilestone } from "@/utils/PassiveBoostCalculator";
 
 export default defineComponent({
@@ -117,6 +109,7 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
+    const gameDataService = getServiceFactory().getGameDataService();
     const fireIntensity = ref<'dying' | 'burning' | 'blazing'>('dying');
     const lastClickTime = ref(0);
     const clickStreak = ref(0);
@@ -126,7 +119,7 @@ export default defineComponent({
     const dailyClicksRemaining = ref(100);
     const dailyCapReached = ref(false);
     const showCapMessage = ref(false);
-    const dailyClickCap = getDailyClickCap();
+    const dailyClickCap = gameDataService.getDailyClickCap();
     const currentBoostTier = ref<BoostMilestone | null>(null);
     const nextBoostTier = ref<BoostMilestone | null>(null);
     const passiveClicksClaimed = ref(0);
@@ -207,7 +200,7 @@ export default defineComponent({
       if (!ownerId.value || dailyCapReached.value) return;
       
       // Increment the grid owner's score (not the clicker's score)
-      const success = await incrementUserClicks(ownerId.value, 1);
+      const success = await gameDataService.incrementUserClicks(ownerId.value, 1);
       
       // Check if daily cap was reached
       if (!success) {
@@ -290,10 +283,10 @@ export default defineComponent({
       }
 
       // Initialize owner's game data if it doesn't exist
-      const gameData = await getOrCreateUserGameData(ownerId.value);
+      const gameData = await gameDataService.getOrCreateUserGameData(ownerId.value);
       
       // Claim any passive clicks earned since last visit
-      const passiveClaimed = await claimPassiveClicks(ownerId.value);
+      const passiveClaimed = await gameDataService.claimPassiveClicks(ownerId.value);
       if (passiveClaimed > 0) {
         passiveClicksClaimed.value = passiveClaimed;
         showPassiveMessage.value = true;
@@ -307,12 +300,12 @@ export default defineComponent({
       nextBoostTier.value = getNextBoostTier(gameData.totalClicks);
 
       // Check daily click limit
-      const limitCheck = await checkDailyClickLimit(ownerId.value);
+      const limitCheck = await gameDataService.checkDailyClickLimit(ownerId.value);
       dailyClicksRemaining.value = limitCheck.remaining;
       dailyCapReached.value = !limitCheck.canClick;
       
       // Subscribe to real-time updates for owner's game data
-      unsubscribeOwnerData = subscribeToUserGameData(ownerId.value, (data) => {
+      unsubscribeOwnerData = gameDataService.subscribeToUserGameData(ownerId.value, (data) => {
         ownerGameData.value = data;
         // Update daily clicks tracking when data changes
         if (data.dailyClicks !== undefined) {
@@ -326,7 +319,7 @@ export default defineComponent({
       });
 
       // Subscribe to leaderboard updates
-      unsubscribeLeaderboard = subscribeToLeaderboard(20, (data) => {
+      unsubscribeLeaderboard = gameDataService.subscribeToLeaderboard(20, (data) => {
         leaderboard.value = data;
       });
     });

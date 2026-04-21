@@ -239,30 +239,13 @@
 
 <script lang="ts">
 import { computed, defineComponent, inject, onMounted, onUnmounted, ref, watch } from "vue";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { collection, onSnapshot, query, where, type Unsubscribe } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
+import type { AuthUser } from "@/auth/AuthProvider";
 import { useRouter } from "vue-router";
-import { db, functions } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
 import type { RoadmapFeedContent, RoadmapFilterableType, RoadmapItem, RoadmapQueryFilter, RoadmapStatus } from "@/types/TileContent";
-
-// Shape returned by the listNotionDatabases Cloud Function
-interface NotionDatabase {
-  id: string;
-  title: string;
-}
-
-// Shape returned by the fetchNotionRoadmap Cloud Function
-interface FetchRoadmapResult {
-  items: RoadmapItem[];
-  propertyOptions: { name: string; type: string; selectOptions?: string[] }[];
-}
-
-// Shape returned by the upvoteRoadmapItem Cloud Function
-interface UpvoteResult {
-  isNowUpvoted: boolean;
-}
+import type { NotionDatabase, PropertyOption } from "@/dao/interfaces/RoadmapDao";
 
 export default defineComponent({
   props: {
@@ -274,9 +257,11 @@ export default defineComponent({
 
   setup(props) {
     const layoutStore = useLayoutStore();
-    const auth = getAuth();
+    const authProvider = getAuthProvider();
+    const serviceFactory = getServiceFactory();
+    const roadmapService = serviceFactory.getRoadmapService();
+    const upvoteService = serviceFactory.getUpvoteService();
 
-    // tileId is injected by GridTile so we can scope Firestore paths to this tile instance
     const tileId = inject<string>("tileId", "");
 
     const isOwner = computed(() => layoutStore.canEdit);
@@ -299,7 +284,6 @@ export default defineComponent({
     // ── Database picker ──────────────────────────────────────────────
     const availableDatabases = ref<NotionDatabase[]>([]);
     const isLoadingDatabases = ref(false);
-    const listDatabasesFn = httpsCallable<unknown, { databases: NotionDatabase[] }>(functions, "listNotionDatabases");
 
     // ── Feed data ────────────────────────────────────────────────────
     const isLoading = ref(false);
@@ -317,8 +301,7 @@ export default defineComponent({
     ];
     const loadingText = ref(loadingMessages[0]);
     let loadingTextInterval: ReturnType<typeof setInterval> | null = null;
-    // Property options from the Notion DB schema — used to populate settings dropdowns
-    const propertyOptions = ref<{ name: string; type: string; selectOptions?: string[] }[]>([]);
+    const propertyOptions = ref<PropertyOption[]>([]);
 
     // ── Settings panel state ─────────────────────────────────────────
     // showSettings controls the gear-icon settings panel for already-connected tiles
@@ -408,7 +391,7 @@ export default defineComponent({
     // Applied locally before the server responds so the count feels instant
     const optimisticDelta = ref<{ pageId: string; delta: number } | null>(null);
 
-    const currentUser = computed(() => auth.currentUser);
+    const currentUser = ref<AuthUser | null>(authProvider.getCurrentUser());
     // Only signed-in users may vote; unauthenticated visitors see the count but can't click
     const canVote = computed(() => !!currentUser.value && isConnected.value);
 
@@ -416,41 +399,26 @@ export default defineComponent({
     // Navigates unauthenticated visitors to the login page
     const goToLogin = () => router.push("/login");
 
-    // ── Firestore upvote listener ────────────────────────────────────
-    // Watches the upvotes subcollection filtered to the current user's docs.
-    // Each doc is keyed by "{userId}_{notionPageId}" so a user can vote on
-    // multiple items independently. The Set may have 0..N entries.
-    let unsubscribeUpvotes: Unsubscribe | null = null;
-    // Holds the Firebase Auth state listener so we can detach it on unmount
+    let unsubscribeUpvotes: (() => void) | null = null;
     let unsubscribeAuthListener: (() => void) | null = null;
-    // Auto-refresh interval ID — syncs from Notion every 5 minutes in the background
     let autoRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
     const subscribeToMyUpvote = () => {
       if (unsubscribeUpvotes) { unsubscribeUpvotes(); unsubscribeUpvotes = null; }
       const uid = currentUser.value?.uid;
       if (!uid || !layoutId.value || !tileId) return;
-      // Query all upvote docs belonging to this user. Each doc is keyed by
-      // "{userId}_{notionPageId}" and contains a userId field for filtering.
-      const upvotesRef = collection(db, "layouts", layoutId.value, "tiles", tileId, "upvotes");
-      const myVotesQuery = query(upvotesRef, where("userId", "==", uid));
-      unsubscribeUpvotes = onSnapshot(
-        myVotesQuery,
-        (snap) => {
-          // Don't overwrite the optimistic state while a vote is in-flight —
-          // the next snapshot after pendingVoteId clears will sync the real value.
+      unsubscribeUpvotes = upvoteService.subscribeToUserUpvotes(
+        layoutId.value,
+        tileId,
+        uid,
+        (voted) => {
           if (pendingVoteId.value) return;
-          const voted = new Set<string>();
-          snap.forEach((d) => {
-            const data = d.data();
-            if (data?.notionPageId) voted.add(data.notionPageId as string);
-          });
           myVotedPageIds.value = voted;
         },
         (error) => {
           console.warn("Error subscribing to upvotes:", error);
           myVotedPageIds.value = new Set();
-        }
+        },
       );
     };
 
@@ -489,17 +457,12 @@ export default defineComponent({
       return `${Math.floor(hours / 24)}d ago`;
     };
 
-    // ── Cloud Function callers ───────────────────────────────────────
-    const fetchRoadmapFn = httpsCallable<unknown, FetchRoadmapResult>(functions, "fetchNotionRoadmap");
-    const upvoteRoadmapItemFn = httpsCallable<unknown, UpvoteResult>(functions, "upvoteRoadmapItem");
-
     // ── Database picker helpers ──────────────────────────────────────
     const loadDatabases = async () => {
       if (!layoutId.value || !tileId) return;
       isLoadingDatabases.value = true;
       try {
-        const result = await listDatabasesFn({ layoutId: layoutId.value, tileId });
-        availableDatabases.value = result.data.databases;
+        availableDatabases.value = await roadmapService.listDatabases(layoutId.value, tileId);
       } catch (err: any) {
         connectError.value = err?.message || "Failed to load databases.";
       } finally {
@@ -515,16 +478,16 @@ export default defineComponent({
       isLoading.value = true;
       fetchError.value = "";
       try {
-        const result = await fetchRoadmapFn({
-          layoutId: layoutId.value,
+        const result = await roadmapService.fetchRoadmap(
+          layoutId.value,
           tileId,
-          databaseIdOverride: databaseId,
-          queryFilters: props.content.queryFilters,
-        });
-        items.value = result.data.items;
-        propertyOptions.value = result.data.propertyOptions;
+          props.content.queryFilters,
+          databaseId,
+        );
+        items.value = result.items;
+        propertyOptions.value = result.propertyOptions;
         layoutStore.patchTileContent(tileId, {
-          cachedItems: result.data.items,
+          cachedItems: result.items,
           lastSyncedAt: Date.now(),
         });
       } catch (err: any) {
@@ -552,17 +515,15 @@ export default defineComponent({
         }, 2000);
       }
       try {
-        const result = await fetchRoadmapFn({
-          layoutId: layoutId.value,
+        const result = await roadmapService.fetchRoadmap(
+          layoutId.value,
           tileId,
-          queryFilters: props.content.queryFilters,
-        });
-        items.value = result.data.items;
-        propertyOptions.value = result.data.propertyOptions;
-        // Persist refreshed items + timestamp into tile content so the next page load
-        // can render from cache without waiting for a Notion round-trip.
+          props.content.queryFilters,
+        );
+        items.value = result.items;
+        propertyOptions.value = result.propertyOptions;
         layoutStore.patchTileContent(tileId, {
-          cachedItems: result.data.items,
+          cachedItems: result.items,
           lastSyncedAt: Date.now(),
         });
       } catch (err: any) {
@@ -606,11 +567,11 @@ export default defineComponent({
       }, 10000);
 
       try {
-        await upvoteRoadmapItemFn({
-          layoutId: layoutId.value,
+        await upvoteService.toggleUpvote(
+          layoutId.value,
           tileId,
-          notionPageId: item.notionPageId,
-        });
+          item.notionPageId,
+        );
         clearTimeout(timeoutId);
 
         // Clear the optimistic delta BEFORE committing the new count to items so
@@ -740,11 +701,12 @@ export default defineComponent({
 
     // ── Lifecycle ────────────────────────────────────────────────────
     onMounted(() => {
-      // Use onAuthStateChanged rather than checking auth.currentUser directly.
-      // On page reload, auth.currentUser is null at mount time — Firebase restores
-      // the session asynchronously. This listener fires once with the restored user
-      // (or null if not signed in), then again whenever sign-in/sign-out occurs.
-      unsubscribeAuthListener = onAuthStateChanged(auth, () => {
+      // Subscribe to auth state rather than checking getCurrentUser() directly.
+      // On page reload the current user is null at mount time — the auth provider
+      // restores the session asynchronously. This listener fires once with the
+      // restored user (or null if not signed in), then again on sign-in/sign-out.
+      unsubscribeAuthListener = authProvider.onAuthStateChanged((user) => {
+        currentUser.value = user;
         subscribeToMyUpvote();
       });
 

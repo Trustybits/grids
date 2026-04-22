@@ -1,7 +1,12 @@
 <template>
   <div class="mkt">
     <header class="mkt__nav">
-      <button class="mkt__brand" @click="nav('home')">grids</button>
+      <button class="mkt__brand" @click="nav('home')">
+        <span class="mkt__brand-mark" aria-hidden="true">
+          <GridMenuIcon />
+        </span>
+        <span>grids</span>
+      </button>
       <nav class="mkt__menu">
         <button
           v-for="item in navItems"
@@ -19,18 +24,20 @@
     </header>
 
     <section v-if="currentPage === 'home'" class="mkt__hero">
-      <div class="mkt__eyebrow">Showcase simplified</div>
-      <h1 class="mkt__hero-title">
-        Your page.<br />
-        Your work. <span>Your grid.</span>
-      </h1>
-      <p class="mkt__hero-sub">
-        Drop tiles on a canvas. Rearrange until it feels right. Share one link — no building from scratch.
-      </p>
-      <div class="mkt__url-pill">
-        <span>grids.so/</span>
-        <input v-model="urlSlug" aria-label="slug input" />
-        <button>Claim handle →</button>
+      <div class="mkt__hero-container mkt__section">
+        <div class="mkt__eyebrow">Showcase simplified</div>
+        <h1 class="mkt__hero-title">
+          Your page.<br />
+          Your work. <span>Your grid.</span>
+        </h1>
+        <p class="mkt__hero-sub">
+          Drop tiles on a canvas. Rearrange until it feels right. Share one link — no building from scratch.
+        </p>
+        <div class="mkt__url-pill">
+          <span>grids.so/</span>
+          <input v-model="urlSlug" aria-label="slug input" />
+          <button>Claim handle →</button>
+        </div>
       </div>
 
       <div class="mkt__hero-grid">
@@ -47,7 +54,7 @@
         <div class="tile tile--variant-f"><div class="tile__meta"><strong>Shop the print</strong><small>$48 · prints.taylor.site</small></div></div>
       </div>
 
-      <section class="mkt__feature">
+      <section class="mkt__section mkt__feature">
         <div>
           <div class="mkt__kicker">Drag · drop · done</div>
           <h2>A canvas that snaps.</h2>
@@ -64,7 +71,7 @@
         </div>
       </section>
 
-      <section class="mkt__feature mkt__feature--rev">
+      <section class="mkt__section mkt__feature mkt__feature--rev">
         <div>
           <div class="mkt__kicker">Make it yours</div>
           <h2>Every tile, a statement.</h2>
@@ -85,7 +92,7 @@
         </div>
       </section>
 
-      <section class="mkt__feature">
+      <section class="mkt__section mkt__feature">
         <div>
           <div class="mkt__kicker">One link, everything</div>
           <h2>Share one url.</h2>
@@ -99,7 +106,7 @@
         </div>
       </section>
 
-      <section class="mkt__own">
+      <section class="mkt__section mkt__own">
         <div>
           <div class="mkt__pill">
             <i class="fab fa-github" aria-hidden="true"></i>
@@ -108,19 +115,19 @@
           <h2>Your page is <span>yours forever.</span></h2>
           <p>
             We watched too many favourite link-in-bio and portfolio sites quietly shut down — taking their users'
-            pages with them. We've been on the other side of that. So we open-sourced the whole thing.
+            pages with them. We've felt that pain personally. So we open-sourced the whole thing.
           </p>
           <p>
             Export your grid any time. Self-host it. Fork it. If grids.so ever disappears, your page doesn't.
           </p>
           <a
             class="mkt__repo-btn"
-            href="https://github.com/trustybits/grids"
+            href="https://github.com/TrustyDev-76/grids1"
             target="_blank"
             rel="noopener noreferrer"
           >
             <i class="fab fa-github" aria-hidden="true"></i>
-            <span>Star our public repo on GitHub<</span>
+            <span>Star our public repo on GitHub</span>
           </a>
         </div>
         <div class="mkt__terminal">
@@ -142,14 +149,14 @@
         </div>
       </section>
 
-      <section class="mkt__cta">
+      <section class="mkt__section mkt__cta">
         <h2>Ready to <span>show off?</span></h2>
         <p>Free to start. Your first grid takes about four minutes.</p>
         <router-link to="/login" class="mkt__cta-btn">Make your grid →</router-link>
       </section>
     </section>
 
-    <section v-else-if="currentPage === 'templates'" class="mkt__page">
+    <section v-else-if="currentPage === 'templates'" class="mkt__section mkt__page">
       <div class="mkt__kicker">Templates</div>
       <h1>Start with a grid that already works.</h1>
       <p>Handmade by people whose pages you'd actually click on.</p>
@@ -162,7 +169,7 @@
         </div>
       </section>
 
-    <section v-else-if="currentPage === 'pricing'" class="mkt__page">
+    <section v-else-if="currentPage === 'pricing'" class="mkt__section mkt__page">
       <div class="mkt__kicker">Pricing</div>
       <h1>Simple, like your grid.</h1>
       <p>Start free. Upgrade when you need more tiles — or a team.</p>
@@ -186,7 +193,7 @@
         </div>
       </section>
 
-    <section v-else class="mkt__placeholder">
+    <section v-else class="mkt__section mkt__placeholder">
       <div class="mkt__kicker">{{ currentPage }}</div>
       <h1>Coming soon.</h1>
       <p>We haven't built this page yet.</p>
@@ -194,20 +201,27 @@
 
     <footer class="mkt__footer">
       <div>
-        <strong>grids</strong>
+        <strong class="mkt__footer-brand">
+          <span class="mkt__brand-mark" aria-hidden="true">
+            <GridMenuIcon />
+          </span>
+          <span>grids</span>
+        </strong>
         <p>Showcase simplified. Your page, your work, your links.</p>
       </div>
       <div class="mkt__footer-col">
         <h4>Product</h4>
-        <a>Templates</a><a>Showcase</a><a>Pricing</a><a>What's new</a>
+        <a href="#" @click.prevent="nav('templates')">Templates</a>
+        <a href="#" @click.prevent="nav('showcase')">Showcase</a>
+        <a href="#" @click.prevent="nav('pricing')">Pricing</a>
+        <a href="https://discord.com/channels/1452087541548191940/1464413220549955768" target="_blank" rel="noopener noreferrer">What's New</a>
       </div>
       <div class="mkt__footer-col">
         <h4>Company</h4>
-        <a>About</a><a>Careers</a><a>Press</a>
-      </div>
-      <div class="mkt__footer-col">
-        <h4>Connect</h4>
-        <a>Twitter</a><a>Instagram</a><a>Contact</a>
+        <router-link to="/privacy">Privacy Policy</router-link>
+        <router-link to="/terms">Terms</router-link>
+        <a href="mailto:support@grids.so">support@grids.so</a>
+        <a href="https://discord.gg/DBscN5NUN6" target="_blank" rel="noopener noreferrer">Discord Server</a>
       </div>
     </footer>
   </div>
@@ -216,6 +230,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { usePageTitle } from '@/composables/usePageTitle';
+import GridMenuIcon from '@/components/icons/GridMenuIcon.vue';
 
 type Page = 'home' | 'templates' | 'pricing' | 'showcase' | 'blog';
 
@@ -292,7 +307,7 @@ const plans = [
 .mkt {
   --mkt-section-max: 1120px;
   --mkt-section-x: 40px;
-  --mkt-section-y: 92px;
+  --mkt-section-y: 128px;
   min-height: 100vh;
   color: var(--mkt-fg-1);
   background: var(--mkt-bg-0);
@@ -332,6 +347,24 @@ const plans = [
   letter-spacing: -0.04em;
   cursor: pointer;
   justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.mkt__brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mkt-brand-gradient);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.mkt__brand-mark :deep(svg) {
+  width: 18px;
+  height: 18px;
+  color: #ffffff;
 }
 .mkt__menu {
   display: flex;
@@ -378,6 +411,11 @@ const plans = [
   text-align: center;
   max-width: var(--mkt-section-max);
   margin: 0 auto;
+}
+.mkt__section {
+  max-width: var(--mkt-section-max);
+  margin: 0 auto;
+  padding: var(--mkt-section-y) var(--mkt-section-x);
 }
 .mkt__eyebrow, .mkt__kicker {
   font: 500 12px/1 var(--mkt-font-sans);
@@ -514,9 +552,6 @@ const plans = [
 .tile__meta small { font-size: 11px; opacity: .6; }
 .tile__meta em { font: 400 14px/1.2 "Instrument Serif", serif; }
 .mkt__feature {
-  max-width: var(--mkt-section-max);
-  margin: 0 auto;
-  padding: var(--mkt-section-y) var(--mkt-section-x);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 64px;
@@ -663,9 +698,6 @@ const plans = [
   letter-spacing: -0.02em;
 }
 .mkt__own {
-  max-width: var(--mkt-section-max);
-  margin: 0 auto;
-  padding: var(--mkt-section-y) var(--mkt-section-x) 12px;
   display: grid;
   grid-template-columns: 1.1fr 1fr;
   gap: 64px;
@@ -745,9 +777,6 @@ const plans = [
 .mkt__faint { color: rgba(255, 255, 255, .35); margin-top: 14px; padding-left: 22px; padding-bottom: 20px; }
 .mkt__cta {
   text-align: center;
-  padding: var(--mkt-section-y) var(--mkt-section-x);
-  max-width: var(--mkt-section-max);
-  margin: 0 auto;
   position: relative;
   z-index: 1;
 }
@@ -763,9 +792,8 @@ const plans = [
   margin: 20px auto 30px;
 }
 .mkt__page, .mkt__placeholder {
-  max-width: var(--mkt-section-max);
-  margin: 0 auto;
-  padding: 56px var(--mkt-section-x) 40px;
+  padding-top: 56px;
+  padding-bottom: 40px;
 }
 .mkt__page h1 {
   font: 800 56px/1 var(--mkt-font-sans);
@@ -887,8 +915,18 @@ const plans = [
   margin: 64px auto 0;
   max-width: var(--mkt-section-max);
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr;
   gap: 40px;
+  justify-items: start;
+  text-align: left;
+}
+.mkt__footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  letter-spacing: -0.04em;
+  margin-bottom: 10px;
 }
 .mkt__footer p {
   color: rgba(255, 255, 255, .5);
@@ -906,6 +944,9 @@ const plans = [
   color: rgba(255, 255, 255, .75);
   margin-bottom: 10px;
   text-decoration: none;
+}
+.mkt__footer-col a:hover {
+  color: var(--mkt-fg-1);
 }
 @media (max-width: 1000px) {
   .mkt {

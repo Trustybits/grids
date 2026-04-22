@@ -9,7 +9,7 @@
       - GridMenu: shown only when viewing a grid the current user owns
   -->
   <div class="bottom-left-buttons">
-    <DiscordButton data-tooltip="Join our Discord" />
+    <DiscordButton v-if="showDiscordButton" data-tooltip="Join our Discord" />
     <ShareButton v-if="isOnGridPage" data-tooltip="Share" />
     <UseTemplateButton
       v-if="isOnGridPage && !isOwner && isDuplicatable"
@@ -92,6 +92,9 @@ const isOwner = computed(() => layoutStore.isOwner);
 const isDuplicatable = computed(
   () => layoutStore.currentLayout?.duplicatable ?? false,
 );
+
+// Hide Discord in bottom-left on marketing landing page.
+const showDiscordButton = computed(() => route.path !== "/");
 </script>
 
 <style lang="scss" scoped>

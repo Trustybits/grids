@@ -3,9 +3,9 @@
     <header class="mkt__nav">
       <button class="mkt__brand" @click="nav('home')">
         <span class="mkt__brand-mark" aria-hidden="true">
-          <GridMenuIcon />
+          <img src="/grids_logo.png" alt="" />
         </span>
-        <span>grids</span>
+        <span class="mkt__brand-word">grids</span>
       </button>
       <nav class="mkt__menu">
         <button
@@ -18,6 +18,16 @@
         </button>
       </nav>
       <div class="mkt__actions">
+        <a
+          href="https://discord.gg/DBscN5NUN6"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="mkt__text-btn mkt__discord-link"
+          aria-label="Join our Discord"
+          title="Join our Discord"
+        >
+          <DiscordIcon />
+        </a>
         <router-link to="/login" class="mkt__text-btn">Sign in</router-link>
         <router-link to="/login" class="mkt__cta-btn">Start your grid</router-link>
       </div>
@@ -203,15 +213,14 @@
       <div>
         <strong class="mkt__footer-brand">
           <span class="mkt__brand-mark" aria-hidden="true">
-            <GridMenuIcon />
+            <img src="/grids_logo.png" alt="" />
           </span>
-          <span>grids</span>
+          <span class="mkt__brand-word">grids</span>
         </strong>
         <p>Showcase simplified. Your page, your work, your links.</p>
       </div>
       <div class="mkt__footer-col">
         <h4>Product</h4>
-        <a href="#" @click.prevent="nav('templates')">Templates</a>
         <a href="#" @click.prevent="nav('showcase')">Showcase</a>
         <a href="#" @click.prevent="nav('pricing')">Pricing</a>
         <a href="https://discord.com/channels/1452087541548191940/1464413220549955768" target="_blank" rel="noopener noreferrer">What's New</a>
@@ -230,7 +239,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { usePageTitle } from '@/composables/usePageTitle';
-import GridMenuIcon from '@/components/icons/GridMenuIcon.vue';
+import DiscordIcon from '@/components/icons/DiscordIcon.vue';
 
 type Page = 'home' | 'templates' | 'pricing' | 'showcase' | 'blog';
 
@@ -239,10 +248,8 @@ usePageTitle(pageTitle);
 
 const navItems = [
   { id: 'home', label: 'Home' },
-  { id: 'templates', label: 'Templates' },
   { id: 'pricing', label: 'Pricing' },
   { id: 'showcase', label: 'Showcase' },
-  { id: 'blog', label: 'Blog' },
 ] as const;
 
 const currentPage = ref<Page>('home');
@@ -351,6 +358,12 @@ const plans = [
   align-items: center;
   gap: 10px;
 }
+.mkt__brand-word {
+  font-family: var(--mkt-font-brand);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
 .mkt__brand-mark {
   width: 30px;
   height: 30px;
@@ -358,13 +371,20 @@ const plans = [
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--mkt-brand-gradient);
+  /* background: var(--mkt-brand-gradient); */
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 .mkt__brand-mark :deep(svg) {
   width: 18px;
   height: 18px;
   color: #ffffff;
+}
+.mkt__brand-mark img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  display: block;
 }
 .mkt__menu {
   display: flex;
@@ -393,6 +413,20 @@ const plans = [
   color: var(--mkt-fg-2);
   text-decoration: none;
   font: 500 14px/1 var(--mkt-font-sans);
+}
+.mkt__discord-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  /* border: 1px solid rgba(255, 255, 255, 0.18); */
+  padding: 0;
+}
+.mkt__discord-link :deep(svg) {
+  width: 16px;
+  height: 16px;
 }
 .mkt__cta-btn {
   font: 600 13px/1 var(--mkt-font-sans);

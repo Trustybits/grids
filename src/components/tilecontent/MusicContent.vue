@@ -929,8 +929,7 @@ import {
   type ComputedRef,
 } from "vue";
 import { type MusicContent } from "@/types/TileContent";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
 
 export default defineComponent({
@@ -1409,17 +1408,11 @@ export default defineComponent({
       hasError.value = false;
 
       try {
-        const getMusicTrackMetadata = httpsCallable(
-          functions,
-          "getMusicTrackMetadata",
-        );
-        const result = await getMusicTrackMetadata({
+        const data = await getServiceFactory().getCloudFunctionsService().callFunction("getMusicTrackMetadata", {
           platform: props.content.platform,
           trackId: props.content.trackId,
           trackType: props.content.trackType ?? "track",
-        });
-
-        const data = result.data as any;
+        }) as any;
 
         if (tileId) {
           layoutStore.patchTileContent(tileId, data);

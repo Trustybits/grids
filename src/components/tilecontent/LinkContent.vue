@@ -18,6 +18,15 @@
     @dragleave="onDragLeave"
     @drop.prevent="onDrop"
   >
+    <a
+      v-if="!layoutStore.canEdit && resolvedHref"
+      class="link-tile-anchor"
+      :href="resolvedHref"
+      target="_blank"
+      rel="noopener noreferrer"
+      :aria-label="displayTitle || displaySubtitle || 'Open link'"
+    ></a>
+
     <div v-if="backgroundImageUrl" class="tile-background" aria-hidden="true">
       <img
         class="tile-background-image"
@@ -766,15 +775,13 @@ export default defineComponent({
       startEditing(closest);
     };
 
-    const openLink = () => {
-      const url =
-        isTelLink.value || isMailtoLink.value
-          ? rawLink.value
-          : rawLink.value.startsWith("http")
-            ? rawLink.value
-            : `https://${rawLink.value}`;
-      window.open(url, "_blank");
-    };
+    const resolvedHref = computed(() => {
+      const link = rawLink.value;
+      if (!link) return "";
+      if (/^(mailto|tel):/i.test(link)) return link;
+      if (/^[a-z][a-z0-9+.-]*:/i.test(link)) return link;
+      return `https://${link}`;
+    });
 
     const onTileClick = (event: MouseEvent) => {
       if (isEditing.value) {
@@ -787,7 +794,9 @@ export default defineComponent({
 
     const onShortClick = () => {
       if (isEditing.value) return;
-      openLink();
+      // Owners use the action bar "Follow Link" control.
+      // Viewers get native anchor behavior from the full-tile anchor.
+      if (layoutStore.canEdit) return;
     };
 
     const onExitClick = () => {
@@ -838,6 +847,7 @@ export default defineComponent({
       startEditing,
       onDetailsClick,
       titleInputRef,
+      resolvedHref,
       titleLineClamp,
       isOneByOne,
       isWideOneHigh,
@@ -887,6 +897,13 @@ export default defineComponent({
   overflow: hidden;
   isolation: isolate;
   transform: translateZ(0);
+}
+
+.link-tile-anchor {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
 }
 
 .tile-background {

@@ -413,6 +413,13 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     TEXT_ALIGN_BUTTON,
     TEXT_MORE_MENU,
   ],
+  [ContentType.SMART_TEXT]: [
+    ...RESIZE_PRESETS,
+    BORDER_TOGGLE,
+    COLOR_BUTTON,
+    TEXT_ALIGN_BUTTON,
+    TEXT_MORE_MENU,
+  ],
   [ContentType.MUSIC]: [
     RESIZE_1x1,
     RESIZE_2x3,

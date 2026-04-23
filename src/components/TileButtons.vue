@@ -7,12 +7,12 @@
 
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
-      <button
-        class="btn btn-secondary"
-        data-tooltip="Text"
-        @click="addTextElement"
-      >
-        <TextIcon />
+      <button class="btn btn-secondary" data-tooltip="Text" @click="addTextElement">
+        <TextLegacyIcon />
+      </button>
+
+      <button v-if="smartTextEnabled" class="btn btn-secondary" data-tooltip="Smart Text" @click="addSmartTextElement">
+        <AppBarTextIcon />
       </button>
 
       <button
@@ -110,19 +110,18 @@
 import { ref } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import { ContentType } from "@/types/TileContent";
-import {
-  createTileContent,
-  createTileContentFromEmbedUrl,
-} from "@/utils/TileUtils";
+import { createTileContent } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
+import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
+import { useTileInput } from "@/composables/useTileInput";
 import AddLinkModal from "./AddLinkModal.vue";
 import AddEmbedModal from "./AddEmbedModal.vue";
 import AddMapModal from "./AddMapModal.vue";
-import TextIcon from "./icons/TextIcon.vue";
+import TextLegacyIcon from "./icons/appbar/TextLegacyIcon.vue";
+import AppBarTextIcon from "./icons/appbar/TextIcon.vue";
 import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkTileIcon from "./icons/LinkTileIcon.vue";
@@ -136,7 +135,8 @@ export default {
     AddLinkModal,
     AddEmbedModal,
     AddMapModal,
-    TextIcon,
+    TextLegacyIcon,
+    AppBarTextIcon,
     ChatIcon,
     ImageIcon,
     LinkTileIcon,
@@ -149,9 +149,13 @@ export default {
     const themeStore = useThemeStore();
     const isDarkMode = computed(() => themeStore.isDarkMode);
 
+    const { isEnabled } = useFeatureFlags();
+    const smartTextEnabled = computed(() => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT));
+
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);
     const { uploadFileOptimistic } = useFileUpload();
+    const { submitLink, submitEmbed } = useTileInput();
 
     const showLinkModal = ref(false);
     const showEmbedModal = ref(false);
@@ -161,6 +165,14 @@ export default {
       const textContent = createTileContent(ContentType.TEXT, {});
       const tileId = layoutStore.addTile(textContent);
       // Auto-focus the new text tile so the user can start typing immediately
+      if (tileId) {
+        layoutStore.pendingFocusTileId = tileId;
+      }
+    };
+
+    const addSmartTextElement = () => {
+      const textContent = createTileContent(ContentType.SMART_TEXT, {});
+      const tileId = layoutStore.addTile(textContent);
       if (tileId) {
         layoutStore.pendingFocusTileId = tileId;
       }
@@ -211,56 +223,7 @@ export default {
 
     const handleAddLink = (link: string) => {
       closeLinkModal();
-
-      const trimmed = (link || "").trim();
-      const isNonWebLink = /^(mailto|tel):/i.test(trimmed);
-
-      // Check if this URL should be a special content type (YouTube, image, video, etc.)
-      // instead of a generic link tile
-      const detectedContent = isNonWebLink
-        ? createTileContent(ContentType.LINK, { link: trimmed })
-        : createTileContentFromEmbedUrl(trimmed);
-
-      // If it's detected as YouTube, image, or video, use that specialized type
-      if (
-        detectedContent.type === ContentType.YOUTUBE ||
-        detectedContent.type === ContentType.IMAGE ||
-        detectedContent.type === ContentType.VIDEO
-      ) {
-        layoutStore.addTile(detectedContent);
-        return;
-      }
-
-      // Otherwise, create a link tile with preview
-      const linkContent = createTileContent(ContentType.LINK, {
-        link: trimmed,
-      });
-      const tileId = layoutStore.addTile(linkContent);
-
-      if (tileId) {
-        (async () => {
-          try {
-            const url = ((linkContent as any).link || "").trim();
-            if (/^(mailto|tel):/i.test(url)) return;
-
-            const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-            const result = await getLinkPreview({ url });
-            const data = result.data as any;
-
-            layoutStore.patchTileContent(tileId, {
-              link: data?.url,
-              domain: data?.domain,
-              faviconUrl: data?.faviconUrl || (linkContent as any).faviconUrl,
-              metaTitle: data?.title,
-              metaDescription: data?.description,
-              metaImageUrl: data?.imageUrl,
-              metaSiteName: data?.siteName,
-            });
-          } catch (error) {
-            console.error("Failed to fetch link preview:", error);
-          }
-        })();
-      }
+      void submitLink(link, { mode: "add" });
     };
 
     const addEmbedElement = () => {
@@ -273,8 +236,7 @@ export default {
 
     const handleAddEmbed = (link: string) => {
       closeEmbedModal();
-      const content = createTileContentFromEmbedUrl(link);
-      layoutStore.addTile(content);
+      submitEmbed(link, { mode: "add" });
     };
 
     const addMapElement = () => {
@@ -326,7 +288,9 @@ export default {
     return {
       imageInput,
       layoutStore,
+      smartTextEnabled,
       addTextElement,
+      addSmartTextElement,
       addProfileElement,
       addChatElement,
       addCampfireElement,

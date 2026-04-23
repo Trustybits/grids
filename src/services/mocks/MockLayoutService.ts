@@ -1,5 +1,5 @@
 import { type Layout } from "@/types/Layout";
-import { type LayoutService } from "./LayoutService";
+import type { ILayoutService } from "../interfaces/ILayoutService";
 import { ContentType } from "@/types/TileContent";
 import { createTile, createTileContent } from "@/utils/TileUtils";
 
@@ -54,7 +54,7 @@ const mockData: Layout = {
   backgroundEmbed: false,
 };
 
-export class MockLayoutService implements LayoutService {
+export class MockLayoutService implements ILayoutService {
   async fetchLayout(id: string): Promise<Layout> {
     console.log(`Fetching layout with id: ${id}`);
     return { ...mockData };
@@ -71,4 +71,57 @@ export class MockLayoutService implements LayoutService {
   async deleteLayout(id: string): Promise<void> {
     console.log(`Deleting layout with id: ${id}`);
   }
+
+  async fetchLayoutsByUserId(_userId: string): Promise<Layout[]> {
+    return [];
+  }
+
+  generateId(): string {
+    return "mock-id";
+  }
+
+  async createLayout(
+    _userId: string,
+    _name: string,
+    _starterTiles?: Layout["tiles"],
+  ): Promise<Layout> {
+    return { ...mockData };
+  }
+
+  async duplicateLayout(
+    _userId: string,
+    _sourceLayout: Layout,
+    _clonedTiles: Layout["tiles"],
+    _newOverrides: Layout["overrides"],
+  ): Promise<Layout> {
+    return { ...mockData };
+  }
+
+  async touchLastOpenedAt(_layoutId: string): Promise<void> {}
+
+  async loadRecentLayoutIds(_userId: string): Promise<string[]> {
+    return [];
+  }
+
+  async saveRecentLayoutIds(_userId: string, _ids: string[]): Promise<void> {}
+
+  async createLayoutWithStarterTiles(
+    _userId: string,
+    _name: string,
+  ): Promise<Layout> {
+    return { ...mockData };
+  }
+
+  async cloneAndPersistLayout(
+    _userId: string,
+    _sourceLayout: Layout,
+    _copyDepth?: import("@/types/Layout").CopyDepth,
+  ): Promise<Layout> {
+    return { ...mockData };
+  }
+
+  async queueSave(
+    _layout: Layout,
+    _resolvedUrls?: Record<string, string>,
+  ): Promise<void> {}
 }

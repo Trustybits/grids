@@ -39,32 +39,48 @@ import ToastContainer from './components/ToastContainer.vue';
 import PixelRacersGame from './components/PixelRacersGame.vue';
 import ViewportWarning from './components/ViewportWarning.vue';
 import { useLayoutStore } from '@/stores/layout';
-import { auth, db } from '@/firebase';
-import { onAuthStateChanged, type User } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
+import { getAuthProvider } from '@/auth/AuthProviderSingleton';
+import type { AuthUser } from '@/auth/AuthProvider';
+import { usePostHog } from '@/composables/usePostHog';
+
+const { identify, reset: resetPostHog } = usePostHog();
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
 
-const user = ref<User | null>(null);
-const previousUser = ref<User | null>(null);
+const user = ref<AuthUser | null>(null);
+const previousUser = ref<AuthUser | null>(null);
 const isInitialLoad = ref(true);
 
 onMounted(() => {
-  onAuthStateChanged(auth, async (currentUser) => {
+  getAuthProvider().onAuthStateChanged(async (currentUser) => {
     // Track login for existing users (not new signups on page load)
     if (currentUser && !isInitialLoad.value && !previousUser.value) {
-      // User just logged in - update lastLogin in Firestore
+      // User just logged in - update lastLogin
       try {
-        await setDoc(doc(db, 'users', currentUser.uid), {
-          email: currentUser.email,
-          lastLogin: serverTimestamp(),
-        }, { merge: true });
+        await getServiceFactory().getUserService().recordLogin(
+          currentUser.uid,
+          currentUser.email,
+        );
       } catch (err) {
         console.error('Failed to update lastLogin:', err);
       }
     }
-    
+
+    // Sync identity with PostHog so person profiles get created.
+    // Runs on initial load (restored session), login, and logout.
+    if (currentUser) {
+      identify(currentUser.uid, {
+        email: currentUser.email ?? undefined,
+        name: currentUser.displayName ?? undefined,
+      });
+    } else if (previousUser.value) {
+      // Only reset if we're transitioning from signed-in to signed-out,
+      // so anonymous visitors aren't reset on every page load.
+      resetPostHog();
+    }
+
     previousUser.value = user.value;
     user.value = currentUser;
     isInitialLoad.value = false;

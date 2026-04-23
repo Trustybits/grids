@@ -3,9 +3,14 @@ import "./assets/main.css";
 import { createApp } from "vue";
 import App from "./App.vue";
 import { createPinia } from "pinia";
-import { app as _firebaseApp } from "./firebase";
+import { app as firebaseApp } from "./firebase";
 import router from "./router";
 import posthog from "posthog-js";
+import { registerDaoFactory } from "@/dao/DaoFactorySingleton";
+import { registerDbUtils } from "@/dao/DbUtilsSingleton";
+import { registerAuthProvider } from "@/auth/AuthProviderSingleton";
+import { registerServiceFactory } from "@/services/ServiceFactorySingleton";
+import { ServiceFactory } from "@/services/factory/ServiceFactory";
 
 import "@fortawesome/fontawesome-free/css/all.css";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -27,13 +32,47 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
   });
 }
 
-const app = createApp(App);
-const pinia = createPinia();
+(async () => {
+  if (import.meta.env.VITE_USE_FIRESTORE === "true") {
+    await initializeFirestore();
+  } else {
+    await initializeStubs();
+  }
 
-app.use(router);
+  // Services depend on DAO factory + DbUtils being registered first,
+  // so the service factory is registered after either init branch completes.
+  registerServiceFactory(new ServiceFactory());
 
-app.use(pinia);
+  const app = createApp(App);
+  const pinia = createPinia();
 
-useThemeStore(pinia).initializeTheme();
+  app.use(router);
 
-app.mount("#app");
+  app.use(pinia);
+
+  useThemeStore(pinia).initializeTheme();
+
+  app.mount("#app");
+})();
+
+async function initializeFirestore() {
+  const { FirestoreDaoFactory } =
+    await import("@/dao/firestore/factory/FirestoreDaoFactory");
+  registerDaoFactory(new FirestoreDaoFactory());
+  const { FirestoreDbUtils } = await import("@/dao/firestore/FirestoreDbUtils");
+  registerDbUtils(new FirestoreDbUtils());
+  const { FirestoreAuthProvider } =
+    await import("@/auth/firebase/FirestoreAuthProvider");
+  registerAuthProvider(new FirestoreAuthProvider());
+}
+
+async function initializeStubs() {
+  const { StubbedDaoFactory } =
+    await import("@/dao/stubbed/factory/StubbedDaoFactory");
+  registerDaoFactory(new StubbedDaoFactory());
+  const { StubbedDbUtils } = await import("@/dao/stubbed/StubbedDbUtils");
+  registerDbUtils(new StubbedDbUtils());
+  const { StubbedAuthProvider } =
+    await import("@/auth/stubbed/StubbedAuthProvider");
+  registerAuthProvider(new StubbedAuthProvider());
+}

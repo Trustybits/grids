@@ -496,7 +496,7 @@ export default defineComponent({
       return classes;
     });
 
-    const { uploadFileToUrl, uploadExternalImageToStorage } = useFileUpload();
+    const { uploadExternalImageToStorage } = useFileUpload();
     const storageService = getServiceFactory().getStorageService();
 
     const isUploadingAvatar = ref(false);

@@ -307,7 +307,7 @@ describe('subscribeToUserProfile', () => {
     const profile = { email: 'test@example.com', slug: 'testuser' }
     const unsubFn = vi.fn()
 
-    mockUserDao.subscribe.mockImplementation((_id: string, cb: Function) => {
+    mockUserDao.subscribe.mockImplementation((_id: string, cb: (...args: unknown[]) => void) => {
       cb(profile)
       return unsubFn
     })
@@ -322,7 +322,7 @@ describe('subscribeToUserProfile', () => {
   })
 
   it('forwards null when the document does not exist', () => {
-    mockUserDao.subscribe.mockImplementation((_id: string, cb: Function) => {
+    mockUserDao.subscribe.mockImplementation((_id: string, cb: (...args: unknown[]) => void) => {
       cb(null)
       return vi.fn()
     })

@@ -82,11 +82,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { getServiceFactory } from '@/services/ServiceFactorySingleton';
-
-const userService = getServiceFactory().getUserService();
-
 const props = defineProps<{
   isOpen: boolean;
   currentSlug?: string;
@@ -99,6 +94,10 @@ const emit = defineEmits<{
   success: [slug: string];
 }>();
 
+import { ref, computed, watch } from 'vue';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
+
+const userService = getServiceFactory().getUserService();
 const slugInput = ref(props.currentSlug || '');
 const isChecking = ref(false);
 const isClaiming = ref(false);

@@ -3,6 +3,7 @@ import {
   ContentType,
   type TileContent,
   type TextContent,
+  type SmartTextContent,
   type ChatContent,
   type ImageContent,
   type LinkContent,
@@ -366,6 +367,7 @@ export function createTileContent(
   type: ContentType,
   data: Partial<
     | TextContent
+    | SmartTextContent
     | ChatContent
     | ImageContent
     | LinkContent
@@ -394,6 +396,18 @@ export function createTileContent(
         textType: (data as Partial<TextContent>).textType || "",
         color: (data as Partial<TextContent>).color || "#ffffff",
       } as TextContent;
+
+    case ContentType.SMART_TEXT:
+      return {
+        type,
+        text: (data as Partial<SmartTextContent>).text || "",
+        font: (data as Partial<SmartTextContent>).font || "Arial",
+        fontSize: (data as Partial<SmartTextContent>).fontSize || 14,
+        isBold: (data as Partial<SmartTextContent>).isBold || false,
+        isItalic: (data as Partial<SmartTextContent>).isItalic || false,
+        textType: (data as Partial<SmartTextContent>).textType || "",
+        color: (data as Partial<SmartTextContent>).color || "#ffffff",
+      } as SmartTextContent;
 
     case ContentType.CHAT:
       return {
@@ -603,6 +617,8 @@ export function validateTileContent(content: TileContent): boolean {
   switch (content.type) {
     case ContentType.TEXT:
       return (content as TextContent).text.trim().length > 0;
+    case ContentType.SMART_TEXT:
+      return (content as SmartTextContent).text.trim().length > 0;
     case ContentType.CHAT:
       return true;
     case ContentType.IMAGE:
@@ -668,6 +684,12 @@ export function getContentComponent(content: TileContent): any {
       return markRaw(
         defineAsyncComponent(
           () => import("@/components/tilecontent/TextContent.vue"),
+        ),
+      );
+    case ContentType.SMART_TEXT:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/SmartTextContent.vue"),
         ),
       );
     case ContentType.CHAT:

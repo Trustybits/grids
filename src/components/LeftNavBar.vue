@@ -1,6 +1,6 @@
 <template>
-  <nav 
-    class="left-nav-bar" 
+  <nav
+    class="left-nav-bar"
     :class="{ 'is-expanded': isExpanded }"
     @mouseenter="handleMouseEnter"
     @mouseleave="handleMouseLeave"
@@ -14,10 +14,34 @@
         :class="{ 'is-active': isActiveRoute('/dashboard') }"
       >
         <div class="nav-button-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M4 10.5L12 4L20 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M6.5 9.5V19.5C6.5 20.0523 6.94772 20.5 7.5 20.5H16.5C17.0523 20.5 17.5 20.0523 17.5 19.5V9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M10 20.5V15.5C10 14.9477 10.4477 14.5 11 14.5H13C13.5523 14.5 14 14.9477 14 15.5V20.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M4 10.5L12 4L20 10.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M6.5 9.5V19.5C6.5 20.0523 6.94772 20.5 7.5 20.5H16.5C17.0523 20.5 17.5 20.0523 17.5 19.5V9.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M10 20.5V15.5C10 14.9477 10.4477 14.5 11 14.5H13C13.5523 14.5 14 14.9477 14 15.5V20.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
         </div>
         <span class="nav-button-label" v-show="isExpanded">Dashboard</span>
@@ -37,14 +61,54 @@
           :class="{ 'is-active': isActiveGrid(g.id) }"
         >
           <div class="nav-button-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-              <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-              <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
-              <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                x="3"
+                y="3"
+                width="7"
+                height="7"
+                rx="1"
+                stroke="currentColor"
+                stroke-width="1.5"
+              />
+              <rect
+                x="14"
+                y="3"
+                width="7"
+                height="7"
+                rx="1"
+                stroke="currentColor"
+                stroke-width="1.5"
+              />
+              <rect
+                x="3"
+                y="14"
+                width="7"
+                height="7"
+                rx="1"
+                stroke="currentColor"
+                stroke-width="1.5"
+              />
+              <rect
+                x="14"
+                y="14"
+                width="7"
+                height="7"
+                rx="1"
+                stroke="currentColor"
+                stroke-width="1.5"
+              />
             </svg>
           </div>
-          <span class="nav-button-label" v-show="isExpanded">{{ g.name || 'Grid' }}</span>
+          <span class="nav-button-label" v-show="isExpanded">{{
+            g.name || "Grid"
+          }}</span>
           <div class="active-dot" v-if="isActiveGrid(g.id)"></div>
         </router-link>
       </template>
@@ -55,23 +119,23 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
-import { auth } from "@/firebase";
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
+import type { AuthUser } from "@/auth/AuthProvider";
 import { useLayoutStore } from "@/stores/layout";
 import type { Layout } from "@/types/Layout";
-import { firestoreValueToMillis } from "@/utils/firestoreTime";
+import { valueToMillis } from "@/utils/TimeConversion";
 
 export default defineComponent({
   name: "LeftNavBar",
   setup() {
     const route = useRoute();
     const layoutStore = useLayoutStore();
-    const user = ref<User | null>(null);
+    const user = ref<AuthUser | null>(null);
     const isExpanded = ref(false);
     let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
 
     onMounted(() => {
-      onAuthStateChanged(auth, (currentUser) => {
+      getAuthProvider().onAuthStateChanged((currentUser) => {
         user.value = currentUser;
         if (currentUser) {
           layoutStore.fetchLayouts();
@@ -94,9 +158,9 @@ export default defineComponent({
       const scored = (layoutStore.layouts || []).map((l) => ({
         l,
         s:
-          firestoreValueToMillis(l.lastOpenedAt) ||
-          firestoreValueToMillis(l.updatedAt) ||
-          firestoreValueToMillis(l.createdAt) ||
+          valueToMillis(l.lastOpenedAt) ||
+          valueToMillis(l.updatedAt) ||
+          valueToMillis(l.createdAt) ||
           0,
       }));
 
@@ -157,7 +221,8 @@ export default defineComponent({
   z-index: var(--z-fixed);
   /* Slightly wider to increase hover hitbox; inner bar stays narrow */
   width: 20px;
-  transition: width var(--duration-normal) var(--easing-ease-in-out),
+  transition:
+    width var(--duration-normal) var(--easing-ease-in-out),
     opacity var(--duration-normal) var(--easing-ease-in-out);
 
   &.is-expanded {
@@ -197,7 +262,8 @@ export default defineComponent({
     cursor: pointer;
     text-decoration: none;
     color: var(--color-text-primary);
-    transition: opacity var(--duration-normal) var(--easing-ease-in-out),
+    transition:
+      opacity var(--duration-normal) var(--easing-ease-in-out),
       transform var(--duration-normal) var(--easing-ease-in-out),
       color var(--duration-fast) var(--easing-ease-in-out),
       height var(--duration-normal) var(--easing-ease-in-out),

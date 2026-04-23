@@ -25,7 +25,7 @@
 
 <script setup lang="ts">
 import { useRouter, useRoute } from "vue-router";
-import { getAuth } from "firebase/auth";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useLayoutStore } from "@/stores/layout";
 import { useToastStore } from "@/stores/toast";
 
@@ -33,12 +33,11 @@ const router = useRouter();
 const route = useRoute();
 const layoutStore = useLayoutStore();
 const toastStore = useToastStore();
-const auth = getAuth();
 
 const handleUseTemplate = async () => {
   // If the visitor isn't logged in, redirect to login with a return URL
   // so they land back here after signing in.
-  if (!auth.currentUser) {
+  if (!getAuthProvider().getCurrentUserId()) {
     router.push({ path: '/login', query: { redirect: route.fullPath } });
     return;
   }

@@ -103,17 +103,7 @@ import {
   watch,
 } from "vue";
 import SendIcon from "@/components/icons/SendIcon.vue";
-import { getAuth } from "firebase/auth";
-import {
-  addDoc,
-  collection,
-  onSnapshot,
-  orderBy,
-  query,
-  type CollectionReference,
-  type Unsubscribe,
-} from "firebase/firestore";
-import { db } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
 import type { ChatContent, ChatMessage } from "@/types/TileContent";
 
@@ -133,7 +123,7 @@ export default defineComponent({
   },
   setup(props) {
     const layoutStore = useLayoutStore();
-    const auth = getAuth();
+    const chatService = getServiceFactory().getChatService();
 
     const draftMessage = ref("");
     const isEditing = ref(false);
@@ -145,17 +135,6 @@ export default defineComponent({
     const showTopFade = ref(false);
 
     const layoutId = computed(() => layoutStore.currentLayout?.id ?? "");
-    const messagesCollection = computed<CollectionReference | null>(() => {
-      if (!layoutId.value || !props.tileId) return null;
-      return collection(
-        db,
-        "layouts",
-        layoutId.value,
-        "tiles",
-        props.tileId,
-        "messages",
-      );
-    });
 
     const sortedMessages = computed(() =>
       [...messages.value].sort((a, b) => a.createdAt - b.createdAt),
@@ -238,45 +217,24 @@ export default defineComponent({
       }
     };
 
-    const normalizeCreatedAt = (value: unknown) => {
-      if (typeof value === "number") return value;
-      if (value && typeof value === "object" && "toMillis" in value) {
-        return (value as { toMillis: () => number }).toMillis();
-      }
-      return Date.now();
-    };
+    let unsubscribe: (() => void) | null = null;
 
-    let unsubscribe: Unsubscribe | null = null;
-
-    const subscribeToMessages = (collectionRef: CollectionReference | null) => {
+    const subscribe = () => {
       if (unsubscribe) {
         unsubscribe();
         unsubscribe = null;
       }
 
-      if (!collectionRef) {
+      if (!layoutId.value || !props.tileId) {
         messages.value = [];
         return;
       }
 
-      const messagesQuery = query(collectionRef, orderBy("createdAt", "asc"));
-      unsubscribe = onSnapshot(
-        messagesQuery,
-        (snapshot) => {
-          messages.value = snapshot.docs
-            .map((doc) => {
-              const data = doc.data() as Record<string, unknown>;
-              const text = typeof data.text === "string" ? data.text : "";
-              if (!text) return null;
-              return {
-                id: doc.id,
-                text,
-                createdAt: normalizeCreatedAt(data.createdAt),
-                authorId:
-                  typeof data.authorId === "string" ? data.authorId : undefined,
-              } as ChatMessage;
-            })
-            .filter((message): message is ChatMessage => !!message);
+      unsubscribe = chatService.subscribeToMessages(
+        layoutId.value,
+        props.tileId,
+        (msgs) => {
+          messages.value = msgs;
         },
         (error) => {
           console.error("Failed to subscribe to chat messages:", error);
@@ -288,17 +246,11 @@ export default defineComponent({
       if (!canSend.value) return;
       const text = draftMessage.value.trim();
       if (!text) return;
-
-      const collectionRef = messagesCollection.value;
-      if (!collectionRef) return;
+      if (!layoutId.value || !props.tileId) return;
 
       draftMessage.value = "";
       try {
-        await addDoc(collectionRef, {
-          text,
-          createdAt: Date.now(),
-          authorId: auth.currentUser?.uid ?? "visitor",
-        });
+        await chatService.sendMessage(layoutId.value, props.tileId, text);
       } catch (error) {
         console.error("Failed to send chat message:", error);
       }
@@ -370,9 +322,9 @@ export default defineComponent({
     );
 
     watch(
-      messagesCollection,
-      (collectionRef) => {
-        subscribeToMessages(collectionRef);
+      [layoutId, () => props.tileId],
+      () => {
+        subscribe();
       },
       { immediate: true },
     );

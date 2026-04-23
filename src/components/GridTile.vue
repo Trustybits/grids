@@ -40,6 +40,7 @@
           'is-dragging': isDragging,
           'is-exiting': isExiting,
           'is-activated': isActivated,
+          'embed-is-interactive': isEmbedInteractive,
         }"
         :data-border="borderVisible ? 'on' : 'off'"
         :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
@@ -125,11 +126,12 @@
         </div>
 
         <div
-          v-if="layoutStore.canEdit && !isSuggestion"
+          v-if="layoutStore.canEdit"
           class="tile-actions-layer"
           :class="{ 'z-priority': hoveredLayer === 'actions' }"
           @mouseenter="hoveredLayer = 'actions'"
           @mouseleave="hoveredLayer = null"
+          @touchstart="hoveredLayer = 'actions'"
         >
           <TileActions :tile="tile" @delete="removeElement" />
         </div>
@@ -148,12 +150,23 @@
           :class="{ 'z-priority': hoveredLayer !== 'actions' }"
           @mouseenter="hoveredLayer = 'toolbar'"
           @mouseleave="hoveredLayer = null"
+          @touchstart="hoveredLayer = 'toolbar'"
         >
           <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
         </div>
       </div>
     </GridItem>
   </div>
+  <AddLinkModal
+    :show="showSuggestionLinkModal"
+    @close="closeSuggestionLinkModal"
+    @add="handleSuggestionAddLink"
+  />
+  <AddEmbedModal
+    :show="showSuggestionEmbedModal"
+    @close="closeSuggestionEmbedModal"
+    @add="handleSuggestionAddEmbed"
+  />
 </template>
 
 <script lang="ts">
@@ -175,11 +188,9 @@ import {
   getContentComponent,
   getOptionComponent,
   createTileContent,
-  createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 import { ContentType, type LinkContent } from "@/types/TileContent";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import TextIcon from "./icons/TextIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
@@ -189,6 +200,9 @@ import TileToolbar from "./TileToolbar.vue";
 import TileActions from "./TileActions.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 import ColorPicker from "./ColorPicker.vue";
+import AddLinkModal from "./AddLinkModal.vue";
+import AddEmbedModal from "./AddEmbedModal.vue";
+import { useTileInput } from "@/composables/useTileInput";
 
 export default defineComponent({
   components: {
@@ -202,6 +216,8 @@ export default defineComponent({
     EmbedIcon,
     ProfileIcon,
     ColorPicker,
+    AddLinkModal,
+    AddEmbedModal,
   },
   props: {
     tile: {
@@ -212,6 +228,7 @@ export default defineComponent({
   setup(props) {
     const layoutStore = useLayoutStore();
     const { uploadFileOptimisticForTile } = useFileUpload();
+    const { submitLink, submitEmbed } = useTileInput();
 
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).
@@ -244,6 +261,9 @@ export default defineComponent({
     const isHovered = ref(false);
     const hoveredToolbarZone = ref<string | null>(null);
     provide("hoveredToolbarZone", hoveredToolbarZone);
+    provide("tileActivated", isActivated);
+    const isEmbedInteractive = ref(false);
+    provide("isEmbedInteractive", isEmbedInteractive);
     const hoveredLayer = ref<"actions" | "toolbar" | null>(null);
     const currentComponent = ref<any>(null);
     const headerComponent = ref<any>(null);
@@ -268,6 +288,7 @@ export default defineComponent({
       const hiddenTypes = [
         ContentType.LINK,
         ContentType.TEXT,
+        ContentType.SMART_TEXT,
         ContentType.CHAT,
         ContentType.EMBED,
         ContentType.CAMPFIRE,
@@ -333,6 +354,8 @@ export default defineComponent({
     });
 
     const mediaInput = ref<HTMLInputElement | null>(null);
+    const showSuggestionLinkModal = ref(false);
+    const showSuggestionEmbedModal = ref(false);
 
     const loadComponent = async () => {
       currentComponent.value = await getContentComponent(props.tile.content);
@@ -477,44 +500,32 @@ export default defineComponent({
           break;
         }
         case "link": {
-          const link = prompt("Please enter a link");
-          if (!link) return;
-          const linkContent = createTileContent(ContentType.LINK, { link });
-          layoutStore.setTileContent(props.tile.i, linkContent);
-          (async () => {
-            try {
-              const url = ((linkContent as any).link || "").trim();
-              if (/^(mailto|tel):/i.test(url)) return;
-
-              const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-              const result = await getLinkPreview({
-                url,
-              });
-              const data = result.data as any;
-
-              layoutStore.patchTileContent(props.tile.i, {
-                link: data?.url,
-                domain: data?.domain,
-                faviconUrl: data?.faviconUrl || (linkContent as any).faviconUrl,
-                metaTitle: data?.title,
-                metaDescription: data?.description,
-                metaImageUrl: data?.imageUrl,
-                metaSiteName: data?.siteName,
-              });
-            } catch (error) {
-              console.error("Failed to fetch link preview:", error);
-            }
-          })();
+          showSuggestionLinkModal.value = true;
           break;
         }
         case "embed": {
-          const url = prompt("Please enter an embed URL");
-          if (!url) return;
-          const content = createTileContentFromEmbedUrl(url);
-          layoutStore.setTileContent(props.tile.i, content);
+          showSuggestionEmbedModal.value = true;
           break;
         }
       }
+    };
+
+    const closeSuggestionLinkModal = () => {
+      showSuggestionLinkModal.value = false;
+    };
+
+    const closeSuggestionEmbedModal = () => {
+      showSuggestionEmbedModal.value = false;
+    };
+
+    const handleSuggestionAddLink = (link: string) => {
+      closeSuggestionLinkModal();
+      void submitLink(link, { mode: "replace", tileId: props.tile.i });
+    };
+
+    const handleSuggestionAddEmbed = (url: string) => {
+      closeSuggestionEmbedModal();
+      submitEmbed(url, { mode: "replace", tileId: props.tile.i });
     };
 
     const onMediaSelected = async (event: Event) => {
@@ -550,7 +561,10 @@ export default defineComponent({
         layoutStore.activeTileId === props.tile.i;
 
       return {
-        zIndex: isEditing.value || isToolbarActive ? 10 : 0,
+        zIndex:
+          isEditing.value || isToolbarActive
+            ? "var(--z-grid-tile-elevated)"
+            : 0,
       };
     });
 
@@ -636,10 +650,16 @@ export default defineComponent({
         });
         // Do NOT preventDefault — let the browser scroll naturally
       } else {
-        // Subsequent touch: tile already activated, treat as interaction
         touchWasActivating = false;
         clickStart.value = Date.now();
-        event.preventDefault();
+        const target = event.target as HTMLElement;
+        if (
+          !target.closest(
+            'button, a, input, select, textarea, [role="button"]',
+          )
+        ) {
+          event.preventDefault();
+        }
       }
     };
 
@@ -853,11 +873,18 @@ export default defineComponent({
 
       mediaInput,
       onMediaSelected,
+      showSuggestionLinkModal,
+      showSuggestionEmbedModal,
+      closeSuggestionLinkModal,
+      closeSuggestionEmbedModal,
+      handleSuggestionAddLink,
+      handleSuggestionAddEmbed,
       isCroppable,
       toggleCropMode,
       isExitingCropMode,
       toolbarRefs,
       hoveredLayer,
+      isEmbedInteractive,
     };
   },
 });
@@ -928,6 +955,7 @@ export default defineComponent({
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   border-radius: var(--tile-border-radius);
+  transition: box-shadow 0.3s ease;
   /* turn off shadow when border is off */
   &[data-border="off"] {
     box-shadow: none;
@@ -1116,6 +1144,11 @@ export default defineComponent({
   display: flex;
 }
 
+/* Show embed interact overlay on tile activation (touch devices) */
+.tile-wrapper.is-activated :deep(.embed-interact-overlay) {
+  opacity: 1;
+}
+
 /* Non-owner caption: hide on tile hover or activation */
 .tile-wrapper:hover :deep(.viewer-caption),
 .tile-wrapper.is-activated :deep(.viewer-caption) {
@@ -1137,6 +1170,17 @@ export default defineComponent({
 .tile-wrapper.is-activated.is-dragging :deep(.tile-actions) {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Keep tile actions visible while embed is interactive */
+.tile-wrapper.embed-is-interactive :deep(.tile-actions) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Glow border while embed is interactive */
+.tile-wrapper.embed-is-interactive {
+  box-shadow: 0 0 0 2px var(--color-figma-purple, #a259ff), 0 0 20px 4px rgba(162, 89, 255, 0.3);
 }
 
 /* Hover-priority layering wrappers */

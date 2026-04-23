@@ -50,61 +50,19 @@
         </div>
       </div>
 
-      <div class="mkt__hero-grid">
-        <div class="tile tile--2x2 tile--variant-a tile--music-stack">
-          <div class="tile__meta tile__meta--dark">
-            <strong>Now playing</strong>
-            <small>Music tile stack</small>
-          </div>
-          <div class="tile__music-list">
-            <div class="tile__music-row tile__music-row--spotify">
-              <span class="tile__music-badge"><i class="fab fa-spotify" aria-hidden="true"></i></span>
-              <span class="tile__music-label">Spotify</span>
-            </div>
-            <div class="tile__music-row tile__music-row--apple">
-              <span class="tile__music-badge"><i class="fab fa-apple" aria-hidden="true"></i></span>
-              <span class="tile__music-label">Apple Music</span>
-            </div>
-          </div>
-        </div>
-        <div class="tile tile--variant-b tile--link">
+      <HomePageGridEmbed v-if="useLiveGridPreview" />
+      <div v-else class="mkt__hero-grid">
+        <div class="tile tile--2x2 tile--variant-a">
           <div class="tile__meta">
-            <small><i class="fas fa-link" aria-hidden="true"></i> Link tile</small>
-            <strong>portfolio.site</strong>
+            <strong>Taylor Reid</strong>
+            <small>Designer · Lisbon</small>
           </div>
         </div>
-        <div class="tile tile--variant-c tile--youtube">
-          <div class="tile__youtube-pill">
-            <i class="fab fa-youtube" aria-hidden="true"></i>
-            <span>YouTube</span>
-          </div>
-          <div class="tile__meta">
-            <small>Video tile</small>
-            <strong>Latest upload</strong>
-          </div>
-        </div>
-        <div class="tile tile--2x1 tile--variant-d tile--image">
-          <div class="tile__image-fill"></div>
-          <div class="tile__meta">
-            <small>Image tile</small>
-            <strong>Morning in Lisbon</strong>
-          </div>
-        </div>
-        <div class="tile tile--variant-e tile--text">
-          <div class="tile__text-content">
-            <em>"Simple, but significant."</em>
-          </div>
-        </div>
-        <div class="tile tile--variant-f tile--video">
-          <div class="tile__video-frame">
-            <span class="tile__video-dot"></span>
-            <span class="tile__video-bar"></span>
-          </div>
-          <div class="tile__meta">
-            <small>Video tile</small>
-            <strong>Preview clip</strong>
-          </div>
-        </div>
+        <div class="tile tile--variant-b"><div class="tile__meta"><small>Listening to</small><strong>In bloom</strong></div></div>
+        <div class="tile tile--variant-c"><div class="tile__meta"><strong>Read the blog</strong><small>taylor.site</small></div></div>
+        <div class="tile tile--2x1 tile--variant-d"><div class="tile__meta"><strong>Morning in Lisbon</strong><small>Photo</small></div></div>
+        <div class="tile tile--variant-e"><div class="tile__meta"><em>"Simple, but significant."</em></div></div>
+        <div class="tile tile--variant-f"><div class="tile__meta"><strong>Shop the print</strong><small>$48 · prints.taylor.site</small></div></div>
       </div>
 
       <section class="mkt__section mkt__feature">
@@ -283,6 +241,12 @@
 import { onMounted, ref } from 'vue';
 import { usePageTitle } from '@/composables/usePageTitle';
 import DiscordIcon from '@/components/icons/DiscordIcon.vue';
+import HomePageGridEmbed from '@/components/HomePageGridEmbed.vue';
+
+// Toggle between the real <Grid>-powered preview and the legacy CSS mock.
+// Flip to `false` to fall back to the static tile mock (useful while
+// iterating on the demo layout or if the embed regresses).
+const useLiveGridPreview = true;
 
 type Page = 'home' | 'templates' | 'pricing' | 'showcase' | 'blog';
 
@@ -628,113 +592,6 @@ const plans = [
 .tile__meta strong { font-size: 14px; }
 .tile__meta small { font-size: 11px; opacity: .6; }
 .tile__meta em { font: 400 14px/1.2 "Instrument Serif", serif; }
-.tile__meta--dark {
-  color: #0d1117;
-  z-index: 2;
-}
-.tile--music-stack {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-}
-.tile__music-list {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  right: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 2;
-}
-.tile__music-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(13, 17, 23, 0.16);
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(8px);
-}
-.tile__music-row--spotify { box-shadow: inset 0 0 0 1px rgba(29, 185, 84, 0.22); }
-.tile__music-row--apple { box-shadow: inset 0 0 0 1px rgba(20, 20, 20, 0.14); }
-.tile__music-badge {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(13, 17, 23, 0.08);
-}
-.tile__music-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #0d1117;
-}
-.tile--youtube .tile__youtube-pill {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
-  color: #d7172f;
-  font-size: 11px;
-  font-weight: 700;
-}
-.tile--image .tile__image-fill {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(115deg, rgba(96, 176, 255, 0.6), rgba(248, 118, 198, 0.45)),
-    radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.5), transparent 42%);
-  z-index: 1;
-}
-.tile--text .tile__text-content {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px;
-  z-index: 2;
-  text-align: center;
-}
-.tile--video .tile__video-frame {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
-  height: 58%;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  background: linear-gradient(160deg, rgba(14, 20, 28, 0.7), rgba(34, 18, 46, 0.55));
-  z-index: 2;
-}
-.tile__video-dot {
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  top: 8px;
-  left: 8px;
-  background: #ff5f57;
-}
-.tile__video-bar {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 8px;
-  height: 4px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.4);
-}
 .mkt__feature {
   display: grid;
   grid-template-columns: 1fr 1fr;

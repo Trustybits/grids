@@ -25,8 +25,8 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { auth } from "@/firebase";
-import { signOut, onAuthStateChanged, type User } from "firebase/auth";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
+import type { AuthUser } from "@/auth/AuthProvider";
 import { useThemeStore } from "@/stores/theme";
 import { useLayoutStore } from "@/stores/layout";
 import ThemeToggle from "./ThemeToggle.vue";
@@ -42,7 +42,7 @@ export default defineComponent({
     const themeStore = useThemeStore();
     const router = useRouter();
     const route = useRoute();
-    const user = ref<User | null>(null);
+    const user = ref<AuthUser | null>(null);
     const layoutStore = useLayoutStore();
 
     const showTitleEditor = computed(() => {
@@ -51,13 +51,13 @@ export default defineComponent({
 
     onMounted(() => {
       themeStore.initializeTheme();
-      onAuthStateChanged(auth, (currentUser) => {
+      getAuthProvider().onAuthStateChanged((currentUser) => {
         user.value = currentUser;
       });
     });
 
     const logout = async () => {
-      await signOut(auth);
+      await getAuthProvider().signOut();
       router.push("/login");
     };
 

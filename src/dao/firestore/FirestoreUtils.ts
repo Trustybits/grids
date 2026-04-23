@@ -1,5 +1,4 @@
-// src/types/FirestoreMappers.ts
-import type { Layout } from "./Layout";
+import type { Layout } from "@/types/Layout";
 
 // Mapper function to ensure Firestore data matches the Layout type
 export function mapFirestoreToLayout(doc: any): Layout {
@@ -19,24 +18,5 @@ export function mapFirestoreToLayout(doc: any): Layout {
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,
     lastOpenedAt: data.lastOpenedAt ?? null,
-  };
-}
-
-// Mapper for new layouts
-export function createDefaultLayout(userId: string, name: string): Layout {
-  if (!name) {
-    name = "";
-  }
-
-  return {
-    id: "", // Firestore will provide the ID later
-    userId,
-    name,
-    colNum: 12, // Default number of columns
-    verticalCompact: true, // Default to gravity ON
-    tiles: [], // Start with no tiles
-    backgroundImageSrc: "",
-    backgroundEmbed: false,
-    duplicatable: false,
   };
 }

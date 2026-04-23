@@ -76,13 +76,11 @@ import { onMounted, onUnmounted, computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
-import {
-  getUserProfile,
-  setDefaultGrid,
-  updateUserProfile,
-} from "@/services/UserProfileService";
-import { getAuth } from "firebase/auth";
-import { firestoreValueToMillis } from "@/utils/firestoreTime";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
+
+const userService = getServiceFactory().getUserService();
+import { valueToMillis } from "@/utils/TimeConversion";
 import type { Layout } from "@/types/Layout";
 import type { CopyDepth } from "@/types/Layout";
 import CreateGridModal from "./CreateGridModal.vue";
@@ -130,23 +128,18 @@ const unstarredLayouts = computed(() =>
     .filter((l) => !starredSet.value.has(l.id))
     .sort((a, b) => {
       const aScore =
-        firestoreValueToMillis(a.updatedAt) ||
-        firestoreValueToMillis(a.createdAt) ||
-        0;
+        valueToMillis(a.updatedAt) || valueToMillis(a.createdAt) || 0;
       const bScore =
-        firestoreValueToMillis(b.updatedAt) ||
-        firestoreValueToMillis(b.createdAt) ||
-        0;
+        valueToMillis(b.updatedAt) || valueToMillis(b.createdAt) || 0;
       return bScore - aScore;
     }),
 );
 
 const loadUserProfile = async () => {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (user) {
+  const userId = getAuthProvider().getCurrentUserId();
+  if (userId) {
     try {
-      const profile = await getUserProfile(user.uid);
+      const profile = await userService.getUserProfile(userId);
       if (profile) {
         defaultGridId.value = profile.defaultGridId || null;
         const raw = profile.starredLayoutIds;
@@ -161,13 +154,12 @@ const loadUserProfile = async () => {
 };
 
 const toggleDefaultGrid = async (gridId: string) => {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
+  const userId = getAuthProvider().getCurrentUserId();
+  if (!userId) return;
 
   try {
     const newDefaultId = defaultGridId.value === gridId ? null : gridId;
-    await setDefaultGrid(user.uid, newDefaultId);
+    await userService.setDefaultGrid(userId, newDefaultId);
     defaultGridId.value = newDefaultId;
   } catch (error) {
     console.error("Error setting default grid:", error);
@@ -175,8 +167,8 @@ const toggleDefaultGrid = async (gridId: string) => {
 };
 
 const toggleStarGrid = async (gridId: string) => {
-  const user = getAuth().currentUser;
-  if (!user) return;
+  const userId = getAuthProvider().getCurrentUserId();
+  if (!userId) return;
 
   const prev = [...starredLayoutIds.value];
   const idx = prev.indexOf(gridId);
@@ -185,7 +177,7 @@ const toggleStarGrid = async (gridId: string) => {
 
   starredLayoutIds.value = next;
   try {
-    await updateUserProfile(user.uid, { starredLayoutIds: next });
+    await userService.updateUserProfile(userId, { starredLayoutIds: next });
   } catch (error) {
     console.error("Error updating starred grids:", error);
     starredLayoutIds.value = prev;
@@ -193,14 +185,14 @@ const toggleStarGrid = async (gridId: string) => {
 };
 
 const saveStarredOrder = async (next: string[], previous: string[]) => {
-  const user = getAuth().currentUser;
-  if (!user) {
+  const userId = getAuthProvider().getCurrentUserId();
+  if (!userId) {
     starredLayoutIds.value = previous;
     return;
   }
   starredLayoutIds.value = next;
   try {
-    await updateUserProfile(user.uid, { starredLayoutIds: next });
+    await userService.updateUserProfile(userId, { starredLayoutIds: next });
   } catch (error) {
     console.error("Error updating starred grid order:", error);
     starredLayoutIds.value = previous;
@@ -340,13 +332,13 @@ const duplicateGrid = async (layout: Layout, copyDepth: CopyDepth = "full") => {
 };
 
 const persistStarredAfterDelete = async (deletedId: string) => {
-  const user = getAuth().currentUser;
-  if (!user) return;
+  const userId = getAuthProvider().getCurrentUserId();
+  if (!userId) return;
   const next = starredLayoutIds.value.filter((id) => id !== deletedId);
   if (next.length === starredLayoutIds.value.length) return;
   starredLayoutIds.value = next;
   try {
-    await updateUserProfile(user.uid, { starredLayoutIds: next });
+    await userService.updateUserProfile(userId, { starredLayoutIds: next });
   } catch (error) {
     console.error("Error updating starred grids after delete:", error);
   }
@@ -363,10 +355,9 @@ const confirmDeleteGrid = async (layout: Layout) => {
     await persistStarredAfterDelete(layout.id);
 
     if (defaultGridId.value === layout.id) {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (user) {
-        await setDefaultGrid(user.uid, null);
+      const userId = getAuthProvider().getCurrentUserId();
+      if (userId) {
+        await userService.setDefaultGrid(userId, null);
         defaultGridId.value = null;
       }
     }

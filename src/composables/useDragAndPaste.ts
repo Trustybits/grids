@@ -6,8 +6,7 @@ import {
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 
 export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   const layoutStore = useLayoutStore();
@@ -97,7 +96,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
               },
             ],
           };
-          const textContent = createTileContent(ContentType.TEXT, {
+          const textContent = createTileContent(ContentType.SMART_TEXT, {
             text: JSON.stringify(tiptapDoc),
           });
           const tileId = layoutStore.addTile(textContent);
@@ -110,7 +109,11 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     }
   };
 
+  const isSmartTextDrag = (event: DragEvent): boolean =>
+    !!event.dataTransfer?.types.includes("application/x-smarttext-drag");
+
   const handleDrop = async (event: DragEvent) => {
+    if (isSmartTextDrag(event)) return;
     event.preventDefault();
     isDraggingOver.value = false;
     dragCounter = 0;
@@ -145,7 +148,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   };
 
   const handleDragOver = (event: DragEvent) => {
-    if (!layoutStore.canEdit) return;
+    if (!layoutStore.canEdit || isSmartTextDrag(event)) return;
     event.preventDefault();
     if (event.dataTransfer) {
       event.dataTransfer.dropEffect = "copy";
@@ -153,14 +156,14 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   };
 
   const handleDragEnter = (event: DragEvent) => {
-    if (!layoutStore.canEdit) return;
+    if (!layoutStore.canEdit || isSmartTextDrag(event)) return;
     event.preventDefault();
     dragCounter++;
     isDraggingOver.value = true;
   };
 
   const handleDragLeave = (event: DragEvent) => {
-    if (!layoutStore.canEdit) return;
+    if (!layoutStore.canEdit || isSmartTextDrag(event)) return;
     event.preventDefault();
     dragCounter--;
     if (dragCounter === 0) {
@@ -236,9 +239,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
       // Fetch link preview in background
       try {
         if (/^(mailto|tel):/i.test(formattedUrl)) return;
-        const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-        const result = await getLinkPreview({ url: formattedUrl });
-        const data = result.data as any;
+        const data = await getServiceFactory().getCloudFunctionsService().callFunction("getLinkPreview", { url: formattedUrl }) as any;
 
         layoutStore.patchTileContent(tileId, {
           link: data?.url,
@@ -287,9 +288,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
       // Fetch link preview in background
       try {
         if (/^(mailto|tel):/i.test(formattedUrl)) return;
-        const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-        const result = await getLinkPreview({ url: formattedUrl });
-        const data = result.data as any;
+        const data = await getServiceFactory().getCloudFunctionsService().callFunction("getLinkPreview", { url: formattedUrl }) as any;
 
         layoutStore.patchTileContent(tileId, {
           link: data?.url,

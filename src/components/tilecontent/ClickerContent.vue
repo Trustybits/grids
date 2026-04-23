@@ -66,12 +66,7 @@ import ClickerIcon from "@/components/icons/ClickerIcon.vue";
 import FireIcon from "@/components/icons/FireIcon.vue";
 import LeaderboardIcon from "@/components/icons/LeaderboardIcon.vue";
 import type { UserGameData, LeaderboardEntry } from "@/types/GameData";
-import {
-  getOrCreateUserGameData,
-  incrementUserClicks,
-  subscribeToUserGameData,
-  subscribeToLeaderboard,
-} from "@/services/GameDataService";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 
 export default defineComponent({
   components: {
@@ -87,6 +82,7 @@ export default defineComponent({
   },
   setup(_props) {
     const layoutStore = useLayoutStore();
+    const gameDataService = getServiceFactory().getGameDataService();
     const isOnFire = ref(false);
     const lastClickTime = ref(0);
     const clickStreak = ref(0);
@@ -104,8 +100,8 @@ export default defineComponent({
       if (!ownerId.value) return;
 
       // Increment the grid owner's score (not the clicker's score)
-      await incrementUserClicks(ownerId.value, 1);
-
+      await gameDataService.incrementUserClicks(ownerId.value, 1);
+      
       // Check click speed (clicks within 500ms = fast clicking)
       const now = Date.now();
       const timeSinceLastClick = now - lastClickTime.value;
@@ -147,15 +143,15 @@ export default defineComponent({
       }
 
       // Initialize owner's game data if it doesn't exist
-      await getOrCreateUserGameData(ownerId.value);
+      await gameDataService.getOrCreateUserGameData(ownerId.value);
 
       // Subscribe to real-time updates for owner's game data
-      unsubscribeOwnerData = subscribeToUserGameData(ownerId.value, (data) => {
+      unsubscribeOwnerData = gameDataService.subscribeToUserGameData(ownerId.value, (data) => {
         ownerGameData.value = data;
       });
 
       // Subscribe to leaderboard updates
-      unsubscribeLeaderboard = subscribeToLeaderboard(20, (data) => {
+      unsubscribeLeaderboard = gameDataService.subscribeToLeaderboard(20, (data) => {
         leaderboard.value = data;
       });
     });

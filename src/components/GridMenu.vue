@@ -133,7 +133,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
-import { getAuth } from "firebase/auth";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useLayoutStore } from "@/stores/layout";
 import type { CopyDepth } from "@/types/Layout";
 import { useThemeStore } from "@/stores/theme";
@@ -151,15 +151,15 @@ const layoutStore = useLayoutStore();
 const themeStore = useThemeStore();
 const toastStore = useToastStore();
 const gameStore = usePixelRacersStore();
-const auth = getAuth();
+const authProvider = getAuthProvider();
 const showMenu = ref(false);
 const showDuplicateDropdown = ref(false);
 const menuRef = ref<HTMLElement | null>(null);
 
 const isOwner = computed(() => {
-  const user = auth.currentUser;
+  const userId = authProvider.getCurrentUserId();
   const layout = layoutStore.currentLayout;
-  return user && layout && user.uid === layout.userId;
+  return userId && layout && userId === layout.userId;
 });
 
 const gridPageId = computed(() => {

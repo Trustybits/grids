@@ -81,19 +81,15 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { auth } from '../firebase';
 import GriddleAnimation from '@/components/GriddleAnimation.vue';
 import SlugClaimModal from '@/components/SlugClaimModal.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useLayoutStore } from '@/stores/layout';
-import { getUserProfile } from '@/services/UserProfileService';
-import {
-  signInWithPopup,
-  GoogleAuthProvider,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
-} from 'firebase/auth';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
+import { getAuthProvider } from '@/auth/AuthProviderSingleton';
+
+const authProvider = getAuthProvider();
+const userService = getServiceFactory().getUserService();
 
 const email = ref('');
 const router = useRouter();
@@ -114,7 +110,7 @@ const pendingRedirect = ref<string | null>(null);
 const AUTH_EMAIL_STORAGE_KEY = 'grids.auth.emailForSignIn';
 
 const isEmailValid = computed(() => {
-  // Keep validation light; Firebase will validate server-side.
+  // Keep validation light; the server will validate server-side.
   return /\S+@\S+\.[\S]+/.test(email.value.trim());
 });
 
@@ -131,11 +127,11 @@ const getPostAuthRedirect = async (): Promise<string | null> => {
   }
   
   try {
-    const userId = auth.currentUser?.uid;
+    const userId = authProvider.getCurrentUserId();
     if (!userId) return '/dashboard';
 
     // Check if user has a slug
-    const profile = await getUserProfile(userId);
+    const profile = await userService.getUserProfile(userId);
     const hasSlug = !!profile?.slug;
 
     // Fetch user's existing grids to determine if they're a new user
@@ -179,14 +175,14 @@ onMounted(() => {
 
   // Passwordless flow:
   // 1) We send a magic link to the user's email
-  // 2) When the user clicks that link, Firebase redirects back to /login with an email link
+  // 2) When the user clicks that link, the auth provider redirects back to /login with an email link
   // 3) We complete sign-in here and redirect into the app
   void maybeCompleteEmailLinkSignIn();
 });
 
 const maybeCompleteEmailLinkSignIn = async () => {
   try {
-    if (!isSignInWithEmailLink(auth, window.location.href)) return;
+    if (!authProvider.isEmailSignInLink(window.location.href)) return;
 
     isCompletingLink.value = true;
     statusTone.value = 'info';
@@ -201,7 +197,7 @@ const maybeCompleteEmailLinkSignIn = async () => {
       return;
     }
 
-    await signInWithEmailLink(auth, resolvedEmail, window.location.href);
+    await authProvider.completeEmailSignIn(resolvedEmail, window.location.href);
     window.localStorage.removeItem(AUTH_EMAIL_STORAGE_KEY);
     const redirectPath = await getPostAuthRedirect();
     if (redirectPath) {
@@ -217,11 +213,10 @@ const maybeCompleteEmailLinkSignIn = async () => {
 };
 
 const handleGoogleAuth = async () => {
-  const provider = new GoogleAuthProvider();
   try {
     isBusy.value = true;
     statusText.value = null;
-    await signInWithPopup(auth, provider);
+    await authProvider.signInWithGoogle();
     const redirectPath = await getPostAuthRedirect();
     if (redirectPath) {
       await router.replace(redirectPath);
@@ -247,13 +242,7 @@ const handleEmailContinue = async () => {
     // Store email locally so we can complete sign-in after the user clicks the link.
     window.localStorage.setItem(AUTH_EMAIL_STORAGE_KEY, trimmedEmail);
 
-    const actionCodeSettings = {
-      // Must be an allowed auth domain + whitelisted redirect URL in Firebase Auth settings.
-      url: `${window.location.origin}/login`,
-      handleCodeInApp: true,
-    };
-
-    await sendSignInLinkToEmail(auth, trimmedEmail, actionCodeSettings);
+    await authProvider.sendEmailSignInLink(trimmedEmail, `${window.location.origin}/login`);
     statusText.value = `Check ${trimmedEmail} for your sign-in link.`;
   } catch (error: any) {
     console.error('Send email link error:', error?.message);

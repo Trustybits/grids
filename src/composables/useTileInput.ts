@@ -1,12 +1,12 @@
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
 import { ContentType, type TileContent } from "@/types/TileContent";
-import { createTileContent, createTileContentFromEmbedUrl } from "@/utils/TileUtils";
+import {
+  createTileContent,
+  createTileContentFromEmbedUrl,
+} from "@/utils/TileUtils";
 
-type TileInputTarget =
-  | { mode: "add" }
-  | { mode: "replace"; tileId: string };
+type TileInputTarget = { mode: "add" } | { mode: "replace"; tileId: string };
 
 const isRichAutoDetectedContent = (content: TileContent): boolean => {
   return (
@@ -55,9 +55,9 @@ export const useTileInput = () => {
       const url = ((linkContent as any).link || "").trim();
       if (/^(mailto|tel):/i.test(url)) return tileId;
 
-      const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-      const result = await getLinkPreview({ url });
-      const data = result.data as any;
+      const data = (await getServiceFactory()
+        .getCloudFunctionsService()
+        .callFunction("getLinkPreview", { url })) as any;
 
       layoutStore.patchTileContent(tileId, {
         link: data?.url,

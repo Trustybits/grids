@@ -27,7 +27,7 @@ export class FirebaseStorageDao implements StorageDao {
   ): Promise<string> {
     const ref = storageRef(this.storage, path);
     await uploadBytes(ref, data, metadata);
-    return await getDownloadURL(ref);
+    return getDownloadURL(ref);
   }
 
   public uploadResumable(
@@ -49,7 +49,7 @@ export class FirebaseStorageDao implements StorageDao {
       },
       async done() {
         await task;
-        return await getDownloadURL(ref);
+        return getDownloadURL(ref);
       },
       cancel() {
         task.cancel();
@@ -59,7 +59,7 @@ export class FirebaseStorageDao implements StorageDao {
 
   public async getDownloadUrl(path: string): Promise<string> {
     const ref = storageRef(this.storage, path);
-    return await getDownloadURL(ref);
+    return getDownloadURL(ref);
   }
 
   public async delete(path: string): Promise<void> {

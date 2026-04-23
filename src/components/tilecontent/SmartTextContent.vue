@@ -164,6 +164,8 @@
 </template>
 
 <script lang="ts">
+/* eslint-disable vue/no-mutating-props */
+
 import {
   defineComponent,
   ref,
@@ -205,7 +207,6 @@ import {
   pxToFontSizeLabel,
   getDefaultFont,
   filterSlashCommands,
-  SLASH_COMMAND_DEFS,
   isTallOneWide as isTallOneWideFn,
   isWideOneHigh as isWideOneHighFn,
   isOneByOne as isOneByOneFn,

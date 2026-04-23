@@ -193,7 +193,7 @@ export function useFileUpload() {
       throw new Error("You must be logged in to upload.");
     }
 
-    return await storageService.uploadExternalImage(currentUserId, externalUrl, folder);
+    return storageService.uploadExternalImage(currentUserId, externalUrl, folder);
   };
 
   return {

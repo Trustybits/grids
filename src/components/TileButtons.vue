@@ -112,7 +112,6 @@ import { useLayoutStore } from "@/stores/layout";
 import { ContentType } from "@/types/TileContent";
 import { createTileContent } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
-import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";

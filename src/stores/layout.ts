@@ -162,7 +162,7 @@ const createTextDoc = (lines: string[]) => {
   });
 };
 
-const createStarterTiles = () => {
+export const createStarterTiles = () => {
   const startX = 0;
 
   return [
@@ -583,6 +583,22 @@ export const useLayoutStore = defineStore("layout", {
       } finally {
         this.isLoading = false;
       }
+    },
+
+    // Load an in-memory demo layout without touching Firestore.
+    // Used by the marketing homepage embed so visitors can preview a real
+    // grid without incurring a network round-trip or db read.
+    //
+    // Intentionally does NOT trigger grid-theme application: page wrappers
+    // (GridPage / UserSlugPage) are the only places that watch themeId and
+    // call themeStore.applyGridTheme(). The embed component doesn't mount
+    // those wrappers, so the demo grid's theme can't leak onto the document
+    // root and repaint the surrounding landing page.
+    loadDemoLayout(layout: Layout) {
+      this.isLoading = false;
+      this.error = null;
+      this.currentLayout = layout;
+      this.isOwner = false;
     },
 
     recordRecent(id: string) {

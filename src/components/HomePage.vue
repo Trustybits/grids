@@ -50,7 +50,8 @@
         </div>
       </div>
 
-      <div class="mkt__hero-grid">
+      <HomePageGridEmbed v-if="useLiveGridPreview" />
+      <div v-else class="mkt__hero-grid">
         <div class="tile tile--2x2 tile--variant-a">
           <div class="tile__meta">
             <strong>Taylor Reid</strong>
@@ -466,6 +467,12 @@ import { usePageTitle } from '@/composables/usePageTitle';
 import { useSubscription } from '@/composables/useSubscription';
 import { useStripeCheckout } from '@/composables/useStripeCheckout';
 import DiscordIcon from '@/components/icons/DiscordIcon.vue';
+import HomePageGridEmbed from '@/components/HomePageGridEmbed.vue';
+
+// Toggle between the real <Grid>-powered preview and the legacy CSS mock.
+// Flip to `false` to fall back to the static tile mock (useful while
+// iterating on the demo layout or if the embed regresses).
+const useLiveGridPreview = true;
 
 type Page = 'home' | 'templates' | 'pricing' | 'showcase' | 'blog';
 

@@ -552,7 +552,7 @@ const proMonthlyPrice = 12;
 const proAnnualPrice = 120;
 const proAnnualMonthlyPrice = computed(() => Math.round(proAnnualPrice / 12));
 
-const pwywPresets = [1, 3, 5, 10];
+const pwywPresets = [1, 5, 20, 50];
 const selectedAmount = ref(5);
 const customAmountMode = ref(false);
 const customAmount = ref(5);
@@ -623,12 +623,18 @@ function decrementCustomAmount() {
 }
 
 const proFeatures = [
+  'Unlimited grids',
   'Custom domain',
+  'Advanced theming',
   'Higher storage and upload limits',
   'Connect 3rd party storage',
+  'Shared grid edit access',
   'Advanced analytics & export',
   'Password-protected grids',
-  'AI content suggestions',
+  'Subpages',
+  'AI grid generation',
+  'Access to Tile Studio',
+  'Realtime multiplayer collaboration',
   'Priority support',
 ];
 

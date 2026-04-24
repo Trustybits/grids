@@ -544,9 +544,9 @@ export default defineComponent({
         } else {
           layoutStore.saveLayout();
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Link tile image upload failed:", error);
-        alert(error.message || "Failed to upload image. Please try again.");
+        alert(error instanceof Error ? error.message : "Failed to upload image. Please try again.");
       }
     };
 

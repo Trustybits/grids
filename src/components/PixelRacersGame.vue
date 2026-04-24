@@ -103,10 +103,7 @@ const gameLoop = (timestamp: number) => {
   // Update game state at fixed intervals
   if (timestamp - lastUpdateTime >= UPDATE_INTERVAL) {
     if (gameStore.gameState === "playing") {
-      console.log("Updating game, alive bikes:", gameStore.aliveBikes.length);
       gameStore.updateGame();
-    } else {
-      console.log("Game state is not playing:", gameStore.gameState);
     }
     lastUpdateTime = timestamp;
   }
@@ -269,12 +266,6 @@ watch(
           // Set to 0 so first update happens immediately
           lastUpdateTime = 0;
           animationFrameId = requestAnimationFrame(gameLoop);
-          console.log(
-            "Game started, game state:",
-            gameStore.gameState,
-            "Bikes:",
-            gameStore.aliveBikes.length,
-          );
         }
       });
     } else {
@@ -297,7 +288,6 @@ onMounted(() => {
     initCanvas();
     lastUpdateTime = 0;
     animationFrameId = requestAnimationFrame(gameLoop);
-    console.log("Game already active on mount, state:", gameStore.gameState);
   }
 });
 

@@ -38,9 +38,9 @@ onMounted(async () => {
 
     const md = await res.text();
     html.value = markdownToHtml(md);
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("Failed to load legal content:", e);
-    error.value = e?.message ?? "Could not load content.";
+    error.value = e instanceof Error ? e.message : "Could not load content.";
   } finally {
     isLoading.value = false;
   }

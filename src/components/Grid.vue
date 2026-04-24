@@ -295,8 +295,9 @@ export default {
         () =>
           layoutStore.currentLayout?.tiles
             ?.map((t) => {
-              const c = t.content as any;
-              return `${t.i}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${c.thumbnails?.default?.url ?? ""}`;
+              const c = t.content as Record<string, unknown>;
+              const thumbs = c.thumbnails as Record<string, Record<string, unknown>> | undefined;
+              return `${t.i}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${thumbs?.default?.url ?? ""}`;
             })
             .join("|"),
       ],
@@ -344,8 +345,9 @@ export default {
       () =>
         layoutStore.currentLayout?.tiles
           ?.map((t) => {
-            const c = t.content as any;
-            return `${t.i}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${c.thumbnails?.default?.url ?? ""}:${c.metaTitle ?? ""}:${c.metaDescription ?? ""}:${c.metaImageUrl ?? ""}:${c.metaSiteName ?? ""}:${c.faviconUrl ?? ""}:${c.domain ?? ""}`;
+            const c = t.content as Record<string, unknown>;
+            const thumbs = c.thumbnails as Record<string, Record<string, unknown>> | undefined;
+            return `${t.i}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${thumbs?.default?.url ?? ""}:${c.metaTitle ?? ""}:${c.metaDescription ?? ""}:${c.metaImageUrl ?? ""}:${c.metaSiteName ?? ""}:${c.faviconUrl ?? ""}:${c.domain ?? ""}`;
           })
           .join("|"),
       () => {

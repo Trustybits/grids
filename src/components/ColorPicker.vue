@@ -51,8 +51,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, onUnmounted, ref, watch } from "vue";
-import { type Tile } from "@/types/Tile";
+import { defineComponent, onMounted, onUnmounted, ref, watch, type PropType } from "vue";
+import { type Tile, type TileChildComponent } from "@/types/Tile";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
 import { useToastStore } from "@/stores/toast";
 import NoFillIcon from "./icons/NoFillIcon.vue";
@@ -68,8 +68,8 @@ export default defineComponent({
       required: true,
     },
     childComponent: {
-      type: Object as () => any,
-      required: true,
+      type: Object as PropType<TileChildComponent | null>,
+      default: null,
     },
     buttonEl: {
       type: Object as () => HTMLElement | null,
@@ -104,7 +104,9 @@ export default defineComponent({
 
     const onColorClick = (event: MouseEvent, color: string) => {
       event.preventDefault();
-      props.childComponent?.handleBackgroundColorChange(`var(${color.trim()})`);
+      if (props.childComponent?.handleBackgroundColorChange !== undefined) {
+        props.childComponent?.handleBackgroundColorChange(`var(${color.trim()})`);
+      }
     };
 
     const normalizeHex = (hex: string): string => {
@@ -144,10 +146,11 @@ export default defineComponent({
         }
         return;
       }
-
-      props.childComponent?.handleBackgroundColorChange(hex);
+      
+      if (props.childComponent?.handleBackgroundColorChange !== undefined) {
+        props.childComponent?.handleBackgroundColorChange(hex);
+      }
     };
-    // for color-content-background, draw button as a "no fill" somehow
 
     const updatePos = () => {
       const el = props.buttonEl;

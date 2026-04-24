@@ -199,10 +199,10 @@ const checkAvailability = async (slug: string) => {
         validationClass.value = 'error';
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Only show error if this check wasn't aborted
     if (currentController === checkAbortController.value) {
-      validationMessage.value = error.message || 'Failed to check availability';
+      validationMessage.value = error instanceof Error ? error.message : 'Failed to check availability';
       validationClass.value = 'error';
     }
   } finally {
@@ -241,8 +241,8 @@ const handleClaim = async () => {
         props.onSuccess(claimedSlug);
       }
     }
-  } catch (error: any) {
-    validationMessage.value = error.message || 'Failed to claim handle';
+  } catch (error: unknown) {
+    validationMessage.value = error instanceof Error ? error.message : 'Failed to claim handle';
     validationClass.value = 'error';
     isClaiming.value = false;
   }

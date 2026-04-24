@@ -282,7 +282,8 @@ export default defineComponent({
     const pickImageFile = async (): Promise<File | null> => {
       if (!imageInput.value) return null;
       return new Promise((resolve) => {
-        const input = imageInput.value!;
+        const input = imageInput.value;
+        if (!input) { resolve(null); return; }
         const cleanup = () => {
           input.removeEventListener("change", onChange);
           input.removeEventListener("cancel", onCancel);

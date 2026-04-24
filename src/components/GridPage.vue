@@ -106,6 +106,7 @@ import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
+import type { ProfileBioContent } from "@/types/TileContent";
 
 // ── Breakpoint switcher placement ────────────────────────────────
 // Change this value to flip between the three UI placements:
@@ -171,7 +172,7 @@ export default defineComponent({
       const profileTile = tiles.find(tile => tile.content?.type === 'profile');
       if (!profileTile?.content) return null;
       
-      const profileContent = profileTile.content as any;
+      const profileContent = profileTile.content as ProfileBioContent;
       return profileContent.profilePhotoUrl || null;
     });
     
@@ -185,9 +186,9 @@ export default defineComponent({
       try {
         const url = await uploadFileToUrl(file, { fileType: "images" });
         layoutStore.addBackgroundImage(url, false);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Failed to upload image:", error);
-        alert(error.message || "Failed to upload image. Please try again.");
+        alert(error instanceof Error ? error.message : "Failed to upload image. Please try again.");
       }
     };
 

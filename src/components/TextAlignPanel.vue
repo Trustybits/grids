@@ -40,8 +40,9 @@ import {
   onUnmounted,
   ref,
   watch,
+  type PropType,
 } from "vue";
-import type { Tile } from "@/types/Tile";
+import type { Tile, TileChildComponent } from "@/types/Tile";
 import type { TextContent } from "@/types/TileContent";
 import AlignLeftIcon from "./icons/toolbar/AlignLeftIcon.vue";
 import AlignCenterIcon from "./icons/toolbar/AlignCenterIcon.vue";
@@ -59,8 +60,8 @@ export default defineComponent({
       required: true,
     },
     childComponent: {
-      type: Object as () => any,
-      required: true,
+      type: Object as PropType<TileChildComponent | null>,
+      default: null,
     },
     buttonEl: {
       type: Object as () => HTMLElement | null,

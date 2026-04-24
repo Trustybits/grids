@@ -75,6 +75,7 @@ onBeforeUnmount(() => {
   layoutStore.setForcedBreakpoint(prevForcedBreakpoint);
   layoutStore.currentLayout = prevLayout;
   layoutStore.isOwner = prevIsOwner;
+  layoutStore.isDemoLayout = false;
 });
 
 // Defense in depth: if anything inside the embed tries to navigate via a

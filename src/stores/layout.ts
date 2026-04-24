@@ -162,7 +162,7 @@ const createTextDoc = (lines: string[]) => {
   });
 };
 
-export const createStarterTiles = () => {
+const createStarterTiles = () => {
   const startX = 0;
 
   return [
@@ -240,6 +240,11 @@ export const useLayoutStore = defineStore("layout", {
     showMetaData: false,
     showMetaDataVerbose: false,
     isOwner: false,
+    // True when currentLayout was populated by loadDemoLayout() rather than a
+    // real Firestore-backed layout. Consumers (e.g. App.vue's top bar) use
+    // this to avoid treating the in-memory marketing demo like a real grid
+    // page — no "Claim my Grid" CTA, no title editor, no routing assumptions.
+    isDemoLayout: false,
     recentLayoutIds: [] as string[],
     activeTileId: null as string | null,
     activePanelId: null as string | null,
@@ -548,6 +553,7 @@ export const useLayoutStore = defineStore("layout", {
       this.isLoading = true;
       this.error = null;
       this.isOwner = false;
+      this.isDemoLayout = false;
 
       try {
         this.currentLayout = await layoutService.fetchLayout(id);
@@ -599,6 +605,7 @@ export const useLayoutStore = defineStore("layout", {
       this.error = null;
       this.currentLayout = layout;
       this.isOwner = false;
+      this.isDemoLayout = true;
     },
 
     recordRecent(id: string) {
@@ -1385,6 +1392,7 @@ export const useLayoutStore = defineStore("layout", {
     clearCurrentLayout() {
       this.currentLayout = null;
       this.isOwner = false;
+      this.isDemoLayout = false;
       this.displayPositions = [];
       this.activeTileId = null;
       this.activePanelId = null;

@@ -19,8 +19,9 @@ import {
   type RoadmapFeedContent,
   type MusicContent,
   type MusicPlatform,
+  type AnyTileContent,
 } from "@/types/TileContent";
-import { defineAsyncComponent, markRaw } from "vue";
+import { type Component, defineAsyncComponent, markRaw } from "vue";
 
 function ensureUrlHasProtocol(url: string): string {
   if (!url) return url;
@@ -114,16 +115,16 @@ function parseYouTubeUrl(
     // Playlist: Check for list parameter in any watch or playlist URL
     // This handles both youtube.com/playlist?list=ID and youtube.com/watch?v=ID&list=ID
     if (urlObj.searchParams.has("list")) {
-      const listId = urlObj.searchParams.get("list")!;
+      const listId = urlObj.searchParams.get("list");
       // Ignore auto-generated "My Mix" playlists (they start with RD)
-      if (!listId.startsWith("RD")) {
+      if (listId && !listId.startsWith("RD")) {
         return { type: "playlist", id: listId };
       }
     }
 
     // Video: youtube.com/watch?v=ID (only if no valid playlist was found)
     if (urlObj.pathname === "/watch" && urlObj.searchParams.has("v")) {
-      return { type: "video", id: urlObj.searchParams.get("v")! };
+      return { type: "video", id: urlObj.searchParams.get("v") ?? "" };
     }
 
     // Video: youtu.be/ID
@@ -348,7 +349,7 @@ export function createTile(
   y: number,
   w: number,
   h: number,
-  contentData: Partial<any> = {},
+  contentData: Partial<AnyTileContent> = {},
   caption: string,
 ): Tile {
   return {
@@ -365,24 +366,7 @@ export function createTile(
 
 export function createTileContent(
   type: ContentType,
-  data: Partial<
-    | TextContent
-    | SmartTextContent
-    | ChatContent
-    | ImageContent
-    | LinkContent
-    | VideoContent
-    | EmbedContent
-    | RPGContent
-    | SuggestionContent
-    | MapContent
-    | CampfireContent
-    | ClickerContent
-    | ProfileBioContent
-    | YouTubeContent
-    | RoadmapFeedContent
-    | MusicContent
-  > = {},
+  data: Partial<AnyTileContent> = {},
 ): TileContent {
   switch (type) {
     case ContentType.TEXT:
@@ -678,7 +662,7 @@ export function validateTileContent(content: TileContent): boolean {
   }
 }
 
-export function getContentComponent(content: TileContent): any {
+export function getContentComponent(content: TileContent): Component | null {
   switch (content.type) {
     case ContentType.TEXT:
       return markRaw(
@@ -777,7 +761,7 @@ export function getContentComponent(content: TileContent): any {
   }
 }
 
-export function getOptionComponent(content: TileContent): any | null {
+export function getOptionComponent(content: TileContent): null {
   switch (content.type) {
     default:
       return null; // If no options are available

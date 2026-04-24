@@ -1,10 +1,11 @@
 import type { Component, Ref } from "vue";
-import type { Tile } from "./Tile";
+import type { Tile, TileChildComponent } from "./Tile";
+import type { useLayoutStore } from "@/stores/layout";
 
 export interface ToolbarContext {
   tile: Tile;
-  childComponent: Ref<any>;
-  layoutStore: any;
+  childComponent: Ref<TileChildComponent | null>;
+  layoutStore: ReturnType<typeof useLayoutStore>;
   isEditing: Ref<boolean>;
   isExitingCropMode: Ref<boolean>;
 }
@@ -17,7 +18,7 @@ export interface ToolbarMenuItem {
   action: (ctx: ToolbarContext) => void;
   isActive?: (cts: ToolbarContext) => boolean;
   visible?: (ctx: ToolbarContext) => boolean;
-  getProps?: (ctx: ToolbarContext) => any;
+  getProps?: (ctx: ToolbarContext) => Record<string, unknown>;
   panelId?: string;
   danger?: boolean | ((ctx: ToolbarContext) => boolean);
 }

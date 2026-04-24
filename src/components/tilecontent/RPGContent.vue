@@ -287,7 +287,7 @@ export default defineComponent({
       if (isWall(x, y)) return "has-wall";
       if (isPlayer(x, y)) return "has-player";
       if (getEnemyAt(x, y)) return "has-enemy";
-      if (getItemAt(x, y) && !getItemAt(x, y)!.collected) return "has-item";
+      if (getItemAt(x, y) && !getItemAt(x, y)?.collected) return "has-item";
       return "";
     };
 

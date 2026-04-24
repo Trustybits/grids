@@ -1052,7 +1052,8 @@ export default defineComponent({
     });
 
     const NOTE_GLYPHS = ["♩", "♪", "♫", "♬", "♭"];
-    let noteParticles: any[] = [];
+    interface NoteParticle { x: number; y: number; vx: number; vy: number; size: number; alpha: number; glyph: string; rotation: number; rotSpeed: number }
+    let noteParticles: NoteParticle[] = [];
 
     function getNoteCanvasDims() {
       const canvas = noteCanvasEl.value;
@@ -1292,7 +1293,8 @@ export default defineComponent({
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
-        analyser!.getByteFrequencyData(dataArray);
+        if (!analyser) return;
+        analyser.getByteFrequencyData(dataArray);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const bars = getLogBars(dataArray);
         const slotW = canvas.width / NUM_BARS;
@@ -1412,7 +1414,7 @@ export default defineComponent({
           platform: props.content.platform,
           trackId: props.content.trackId,
           trackType: props.content.trackType ?? "track",
-        }) as any;
+        }) as Record<string, unknown>;
 
         if (tileId) {
           layoutStore.patchTileContent(tileId, data);

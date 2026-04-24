@@ -302,12 +302,18 @@ export default defineComponent({
 });
 
 // Extract plain text from a tiptap/ProseMirror JSON document
-function extractPlainText(node: any): string {
+interface ProseMirrorNode {
+  type: string;
+  text?: string;
+  content?: ProseMirrorNode[];
+}
+
+function extractPlainText(node: ProseMirrorNode | null | undefined): string {
   if (!node) return "";
   if (node.type === "text") return node.text || "";
   if (Array.isArray(node.content)) {
     return node.content
-      .map((child: any, i: number) => {
+      .map((child: ProseMirrorNode, i: number) => {
         const text = extractPlainText(child);
         // Add newline between block-level nodes
         if (

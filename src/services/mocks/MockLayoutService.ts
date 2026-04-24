@@ -56,20 +56,20 @@ const mockData: Layout = {
 
 export class MockLayoutService implements ILayoutService {
   async fetchLayout(id: string): Promise<Layout> {
-    console.log(`Fetching layout with id: ${id}`);
+    console.warn(`Fetching layout with id: ${id}`);
     return { ...mockData };
   }
 
   async saveLayout(_layout: Layout): Promise<void> {
-    console.log(`Saving layout`);
+    console.warn(`Saving layout`);
   }
 
   async updateLayout(_layout: Layout): Promise<void> {
-    console.log(`Updating layout`);
+    console.warn(`Updating layout`);
   }
 
   async deleteLayout(id: string): Promise<void> {
-    console.log(`Deleting layout with id: ${id}`);
+    console.warn(`Deleting layout with id: ${id}`);
   }
 
   async fetchLayoutsByUserId(_userId: string): Promise<Layout[]> {

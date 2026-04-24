@@ -184,7 +184,8 @@
       <h1>Simple, <span>honest pricing.</span></h1>
       <p>Grids is free to build with. Pay what you want to support the project, or go Pro for advanced features.</p>
 
-      <div class="mkt__billing-toggle" role="group" aria-label="Billing interval">
+      <!-- Temporarily disabled for now until we have pro tier ready -->
+      <!-- <div class="mkt__billing-toggle" role="group" aria-label="Billing interval">
         <button
           :class="['mkt__billing-btn', { 'is-active': billingInterval === 'month' }]"
           @click="billingInterval = 'month'"
@@ -198,7 +199,7 @@
           Annual
           <span class="mkt__save-badge">Save 25%</span>
         </button>
-      </div>
+      </div> -->
 
       <div class="mkt__pricing mkt__pricing--duo">
         <!-- Supporter (Pay what you want) -->
@@ -249,13 +250,31 @@
                 <div v-if="customAmountMode" class="mkt__pwyw-custom">
                   <span aria-hidden="true">$</span>
                   <input
-                    v-model.number="customAmount"
-                    type="number"
-                    min="1"
-                    step="1"
+                    :value="customAmount"
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
                     placeholder="1"
+                    @input="onCustomAmountInput"
+                    @blur="normalizeCustomAmount"
                     @focus="($event.target as HTMLInputElement)?.select()"
                   />
+                  <div class="mkt__stepper" aria-hidden="true">
+                    <button
+                      type="button"
+                      class="mkt__stepper-btn"
+                      @click="incrementCustomAmount"
+                    >
+                      ˄
+                    </button>
+                    <button
+                      type="button"
+                      class="mkt__stepper-btn"
+                      @click="decrementCustomAmount"
+                    >
+                      ˅
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -274,10 +293,18 @@
             </template>
           </div>
 
-          <ul>
-            <li class="mkt__plan-section">Everything in Community, plus:</li>
-            <li v-for="f in supporterFeatures" :key="f">{{ f }}</li>
-          </ul>
+          <div class="mkt__unlocks">
+            <div
+              v-for="group in supporterUnlocks"
+              :key="group.label"
+              class="mkt__unlock-group"
+            >
+              <div class="mkt__plan-section">{{ group.label }}</div>
+              <ul>
+                <li v-for="item in group.items" :key="item">{{ item }}</li>
+              </ul>
+            </div>
+          </div>
         </article>
 
         <!-- Pro -->
@@ -380,7 +407,12 @@
             </thead>
             <tbody>
               <tr v-for="row in comparisonRows" :key="row.feature">
-                <td>{{ row.feature }}</td>
+                <td>
+                  <span>{{ row.feature }}</span>
+                  <span v-if="row.comingSoon" class="mkt__coming-soon-chip">
+                    Coming soon
+                  </span>
+                </td>
                 <td :class="row.community ? 'yes' : 'no'">
                   {{ row.community ? '✓' : '—' }}
                 </td>
@@ -550,21 +582,44 @@ async function handleSupporterCheckout() {
 
 const communityFeatures = [
   'Unlimited grids',
-  'All tile types',
-  'Custom slug (yourname.grids.app)',
-  'Templates library',
   'Drag-and-drop editor',
   'Mobile-responsive layouts',
-  'Basic page analytics',
-  'Notion roadmap integration',
+  'Basic page analytics (coming soon)',
 ];
 
-const supporterFeatures = [
-  'Remove Grids branding',
-  'Supporter badge on your profile',
-  'Early access to new features',
-  'Warm fuzzy feeling',
+const supporterUnlocks = [
+  {
+    label: '$1+ unlocks',
+    items: [
+      'Supporter badge on your profile',
+      'Early access to new features',
+      'Warm fuzzy feeling of supporting an amazing open-source product',
+    ],
+  },
+  {
+    label: '$10+ unlocks',
+    items: ['Remove Grids branding'],
+  },
 ];
+
+function onCustomAmountInput(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const digitsOnly = target.value.replace(/[^\d]/g, '');
+  const parsed = Number.parseInt(digitsOnly || '1', 10);
+  customAmount.value = Number.isNaN(parsed) ? 1 : Math.max(1, parsed);
+}
+
+function normalizeCustomAmount() {
+  customAmount.value = Math.max(1, Math.floor(customAmount.value || 1));
+}
+
+function incrementCustomAmount() {
+  customAmount.value = Math.max(1, Math.floor(customAmount.value || 1)) + 1;
+}
+
+function decrementCustomAmount() {
+  customAmount.value = Math.max(1, Math.floor(customAmount.value || 1) - 1);
+}
 
 const proFeatures = [
   'Custom domain',
@@ -581,14 +636,14 @@ const comparisonRows = [
   { feature: 'Custom slug', community: true, supporter: true, pro: true },
   { feature: 'Templates library', community: true, supporter: true, pro: true },
   { feature: 'Basic analytics', community: true, supporter: true, pro: true },
-  { feature: 'Remove Grids branding', community: false, supporter: true, pro: true },
+  { feature: 'Remove Grids branding ($10+ supporter)', community: false, supporter: true, pro: true },
   { feature: 'Supporter badge', community: false, supporter: true, pro: true },
-  { feature: 'Custom domain', community: false, supporter: false, pro: true },
-  { feature: 'Advanced analytics', community: false, supporter: false, pro: true },
-  { feature: 'Analytics export', community: false, supporter: false, pro: true },
-  { feature: 'Password protection', community: false, supporter: false, pro: true },
-  { feature: 'AI suggestions', community: false, supporter: false, pro: true },
-  { feature: 'Priority support', community: false, supporter: false, pro: true },
+  { feature: 'Custom domain', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Advanced analytics', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Analytics export', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Password protection', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'AI suggestions', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Priority support', community: false, supporter: false, pro: true, comingSoon: true },
 ];
 
 const faqItems = [
@@ -598,7 +653,7 @@ const faqItems = [
   },
   {
     q: 'What does "pay what you want" mean?',
-    a: 'You choose the amount, including $0. Any amount (even free) grants the Supporter badge and removes Grids branding from your published pages.',
+    a: 'You choose your supporter amount. At $1+ you unlock the supporter perks, and at $10+ you also unlock branding removal on published pages.',
   },
   {
     q: 'Can I cancel my Pro subscription?',
@@ -1232,6 +1287,7 @@ const faqItems = [
   grid-template-columns: repeat(2, 1fr);
   gap: 20px;
   margin-top: 0;
+  padding: 96px 0 0 0;
 }
 
 .mkt__plan {
@@ -1307,6 +1363,19 @@ const faqItems = [
   margin-top: 4px;
 }
 .mkt__plan-section::before { content: none !important; }
+.mkt__unlocks {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mkt__unlock-group {
+  border-top: 1px solid rgba(255, 255, 255, .08);
+  padding-top: 12px;
+}
+.mkt__unlock-group ul {
+  margin-top: 10px;
+}
 
 /* ── Ribbons ──────────────────────────────────────────────────────────── */
 .mkt__ribbon {
@@ -1450,10 +1519,24 @@ const faqItems = [
   padding: 10px 4px;
   width: 100%;
 }
-.mkt__pwyw-custom input::-webkit-outer-spin-button,
-.mkt__pwyw-custom input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+.mkt__stepper {
+  display: inline-flex;
+  flex-direction: column;
+  margin-left: 2px;
+}
+.mkt__stepper-btn {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, .55);
+  font: 700 12px/1 var(--mkt-font-sans);
+  padding: 0;
+  width: 16px;
+  height: 12px;
+  cursor: pointer;
+  line-height: 1;
+}
+.mkt__stepper-btn:hover {
+  color: var(--mkt-fg-1);
 }
 
 /* ── Community / open source card (horizontal) ────────────────────────── */
@@ -1550,9 +1633,26 @@ const faqItems = [
   font: 700 13px/1 var(--mkt-font-sans);
   background: rgba(255, 255, 255, .02);
 }
+.mkt__comparison-table th:not(:first-child) { text-align: center; }
 .mkt__comparison-table td:not(:first-child) { text-align: center; }
 .mkt__comparison-table td.yes { color: #7cf0c0; font-weight: 700; }
 .mkt__comparison-table td.no { color: rgba(255, 255, 255, .3); }
+.mkt__comparison-table td:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mkt__coming-soon-chip {
+  font: 700 10px/1 var(--mkt-font-sans);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .75);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 999px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
 
 /* ── FAQ ──────────────────────────────────────────────────────────────── */
 .mkt__faq {

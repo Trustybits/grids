@@ -19,7 +19,7 @@
     </div>
 
     <!-- Global bottom-left buttons (Share, Discord, UserMenu, GridMenu) -->
-    <BottomLeftButtons />
+    <BottomLeftButtons v-if="!hideBottomCornerButtons" />
 
     <!-- Toast Notifications -->
     <ToastContainer />
@@ -48,6 +48,7 @@ const { identify, reset: resetPostHog } = usePostHog();
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
+const hideBottomCornerButtons = computed(() => route.path === '/pricing');
 
 const user = ref<User | null>(null);
 const previousUser = ref<User | null>(null);

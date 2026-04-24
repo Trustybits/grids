@@ -214,7 +214,7 @@
           <header>
             <h3>Supporter</h3>
           </header>
-          <h4>Pay what you want</h4>
+          <h4 class="mkt__plan-title--supporter">Pay what you want</h4>
           <p>One-time. No subscription. Unlock the Supporter badge.</p>
 
           <div class="mkt__plan-cta">
@@ -446,7 +446,7 @@
           </span>
           <span class="mkt__brand-word">grids</span>
         </strong>
-        <p>Showcase simplified. Your page, your work, your links.</p>
+        <p>Showcase simplified. Your page, your work, your success.</p>
       </div>
       <div class="mkt__footer-col">
         <h4>Product</h4>
@@ -458,7 +458,6 @@
         <h4>Company</h4>
         <router-link to="/privacy">Privacy Policy</router-link>
         <router-link to="/terms">Terms</router-link>
-        <a href="mailto:support@grids.so">support@grids.so</a>
         <a href="https://discord.gg/DBscN5NUN6" target="_blank" rel="noopener noreferrer">Discord Server</a>
       </div>
     </footer>
@@ -624,6 +623,7 @@ function decrementCustomAmount() {
 
 const proFeatures = [
   'Unlimited grids',
+  'All tile types',
   'Custom domain',
   'Advanced theming',
   'Higher storage and upload limits',
@@ -666,14 +666,20 @@ const comparisonRows = [
   { feature: 'Basic page analytics', community: true, supporter: true, pro: true, comingSoon: true },
   { feature: 'Storage and uploads', community: '—', supporter: 'Normal Limits', pro: 'Higher Limits' },
   { feature: 'Custom handle URL', community: false, supporter: true, pro: true },
+  { feature: 'Early access to new features', community: false, supporter: true, pro: true },
+  { feature: 'Warm fuzzy feeling of supporting Grids', community: false, supporter: true, pro: true },
   { feature: 'Remove Grids branding ($10+ supporter)', community: false, supporter: true, pro: true },
   { feature: 'Supporter badge', community: false, supporter: true, pro: true },
   { feature: 'Custom domain', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Advanced theming', community: false, supporter: false, pro: true, comingSoon: true },
   { feature: 'Connect 3rd party storage', community: false, supporter: false, pro: true, comingSoon: true },
-  { feature: 'Advanced analytics', community: false, supporter: false, pro: true, comingSoon: true },
-  { feature: 'Analytics export', community: false, supporter: false, pro: true, comingSoon: true },
-  { feature: 'Password protection', community: false, supporter: false, pro: true, comingSoon: true },
-  { feature: 'AI suggestions', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Shared grid edit access', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Advanced analytics & export', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Password-protected grids', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Subpages', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'AI grid generation', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Access to Tile Studio', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Realtime multiplayer collaboration', community: false, supporter: false, pro: true, comingSoon: true },
   { feature: 'Priority support', community: false, supporter: false, pro: true, comingSoon: true },
 ];
 
@@ -1346,10 +1352,14 @@ const faqItems = [
   color: var(--mkt-fg-1);
 }
 .mkt__plan h4 {
-  font: 800 44px/1 var(--mkt-font-sans);
+  font: 800 36px/1 var(--mkt-font-sans);
   letter-spacing: -0.03em;
   margin: 18px 0 0;
   color: var(--mkt-fg-1);
+}
+.mkt__plan h4.mkt__plan-title--supporter {
+  font-size: 36px;
+  line-height: 1.05;
 }
 .mkt__plan h4 small {
   font: 500 16px/1 var(--mkt-font-sans);

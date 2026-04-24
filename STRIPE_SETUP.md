@@ -152,7 +152,7 @@ All can('pro_feature') checks return true automatically
 
 ## Going live checklist
 
-- [ ] Stripe account fully verified
+- [X] Stripe account fully verified
 - [ ] Customer Portal configured with correct URLs
 - [ ] Webhook endpoint active and receiving events in Stripe Dashboard
 - [ ] Both Price IDs set in Vercel environment variables

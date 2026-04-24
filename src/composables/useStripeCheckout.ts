@@ -12,13 +12,10 @@
  *
  *   // PWYW supporter (amount in dollars)
  *   await checkoutSupporter(5)          // $5
- *   await checkoutSupporter(0)          // free — grants badge without payment
+ *   await checkoutSupporter(1)          // minimum supporter amount
  */
 
 import { ref, readonly } from 'vue'
-import { doc, updateDoc } from 'firebase/firestore'
-import { getAuth } from 'firebase/auth'
-import { db } from '@/firebase'
 import {
   createSupporterCheckoutSession,
   createProCheckoutSession,
@@ -28,8 +25,8 @@ import { usePostHog } from '@/composables/usePostHog'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-/** Stripe minimum charge in cents — amounts below this skip Stripe */
-const STRIPE_MIN_CENTS = 50
+/** Minimum supporter amount in cents ($1.00) */
+const SUPPORTER_MIN_CENTS = 100
 
 // ── Module-level state (shared across all composable instances) ────────────
 
@@ -68,8 +65,8 @@ export function useStripeCheckout() {
 
   /**
    * Handles PWYW supporter flow.
-   * - amount = 0 (or below Stripe minimum): grants badge for free via Firestore
-   * - amount > 0: redirects to Stripe Checkout
+   * - amount < $1.00: rejected (badge requires payment)
+   * - amount >= $1.00: redirects to Stripe Checkout
    *
    * @param amountDollars - Dollar amount chosen by user (e.g. 5 = $5.00)
    */
@@ -78,10 +75,10 @@ export function useStripeCheckout() {
     try {
       const amountCents = Math.round(amountDollars * 100)
 
-      // Free path — no Stripe involved
-      if (amountCents < STRIPE_MIN_CENTS) {
-        await grantFreeSupporterBadge()
-        capture('supporter_badge_granted', { amount: 0, via: 'free' })
+      if (amountCents < SUPPORTER_MIN_CENTS) {
+        const message = 'Supporter badge requires at least $1.'
+        _error.value = message
+        capture('checkout_error', { type: 'supporter', error: message })
         return
       }
 
@@ -132,17 +129,3 @@ export function useStripeCheckout() {
   }
 }
 
-// ── Free badge grant ───────────────────────────────────────────────────────
-
-/**
- * Grants the supporter badge without payment.
- * Writes directly to the user's Firestore doc — allowed by the Firestore rules
- * since hasSupporterBadge is not a protected field (unlike storageUsed).
- */
-async function grantFreeSupporterBadge(): Promise<void> {
-  const user = getAuth().currentUser
-  if (!user) throw new Error('Must be signed in')
-
-  const userRef = doc(db, 'users', user.uid)
-  await updateDoc(userRef, { hasSupporterBadge: true })
-}

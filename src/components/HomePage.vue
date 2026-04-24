@@ -237,7 +237,7 @@
                     ]"
                     @click="selectPreset(preset)"
                   >
-                    {{ preset === 0 ? 'Free' : `$${preset}` }}
+                    ${{ preset }}
                   </button>
                   <button
                     :class="['mkt__pwyw-btn', { 'is-active': customAmountMode }]"
@@ -251,9 +251,9 @@
                   <input
                     v-model.number="customAmount"
                     type="number"
-                    min="0"
+                    min="1"
                     step="1"
-                    placeholder="0"
+                    placeholder="1"
                     @focus="($event.target as HTMLInputElement)?.select()"
                   />
                 </div>
@@ -261,11 +261,11 @@
 
               <button
                 class="mkt__plan-btn mkt__plan-btn--brand"
-                :disabled="checkout.loading.value"
+                :disabled="checkout.loading.value || effectiveAmount < 1"
                 @click="handleSupporterCheckout"
               >
                 <span v-if="checkout.loading.value">Processing…</span>
-                <span v-else-if="effectiveAmount === 0">Claim free badge</span>
+                <span v-else-if="effectiveAmount < 1">Minimum $1</span>
                 <span v-else>Support for ${{ effectiveAmount }}</span>
               </button>
               <p v-if="checkout.error.value" class="mkt__plan-error">
@@ -284,7 +284,7 @@
         <article
           :class="['mkt__plan', 'mkt__plan--pro', { 'is-current': isProOrAbove }]"
         >
-          <div class="mkt__ribbon mkt__ribbon--pro">Most powerful</div>
+          <div class="mkt__ribbon mkt__ribbon--pro">Premium Features</div>
           <header>
             <h3>Pro</h3>
           </header>
@@ -302,37 +302,9 @@
           <p>For power users and professionals.</p>
 
           <div class="mkt__plan-cta">
-            <template v-if="isProOrAbove">
-              <div class="mkt__current">Your current plan</div>
-              <button
-                class="mkt__plan-btn mkt__plan-btn--ghost"
-                :disabled="checkout.loading.value"
-                @click="checkout.openCustomerPortal()"
-              >
-                Manage billing
-              </button>
-            </template>
-            <template v-else-if="tier === 'free'">
-              <router-link
-                to="/login?redirect=/pricing"
-                class="mkt__plan-btn mkt__plan-btn--brand"
-              >
-                Sign up for Pro
-              </router-link>
-            </template>
-            <template v-else>
-              <button
-                class="mkt__plan-btn mkt__plan-btn--brand"
-                :disabled="checkout.loading.value"
-                @click="checkout.checkoutPro(billingInterval)"
-              >
-                <span v-if="checkout.loading.value">Processing…</span>
-                <span v-else>Upgrade to Pro</span>
-              </button>
-              <p v-if="checkout.error.value" class="mkt__plan-error">
-                {{ checkout.error.value }}
-              </p>
-            </template>
+            <button class="mkt__plan-btn mkt__plan-btn--outline" disabled>
+              Coming Soon
+            </button>
           </div>
 
           <ul>
@@ -556,7 +528,7 @@ const proMonthlyPrice = 8;
 const proAnnualPrice = 72;
 const proAnnualMonthlyPrice = computed(() => Math.round(proAnnualPrice / 12));
 
-const pwywPresets = [0, 3, 5, 10];
+const pwywPresets = [1, 3, 5, 10];
 const selectedAmount = ref(5);
 const customAmountMode = ref(false);
 const customAmount = ref(5);
@@ -567,7 +539,9 @@ function selectPreset(amount: number) {
 }
 
 const effectiveAmount = computed(() =>
-  customAmountMode.value ? customAmount.value || 0 : selectedAmount.value,
+  customAmountMode.value
+    ? Math.max(1, Math.floor(customAmount.value || 1))
+    : selectedAmount.value,
 );
 
 async function handleSupporterCheckout() {
@@ -1349,7 +1323,11 @@ const faqItems = [
   white-space: nowrap;
 }
 .mkt__ribbon--supporter {
-  background: linear-gradient(90deg, #ffc36b, #ff8fb1);
+  color: var(--mkt-fg-1);
+  background:
+    linear-gradient(var(--mkt-bg-0), var(--mkt-bg-0)) padding-box,
+    var(--mkt-brand-gradient) border-box;
+  border: 1px solid transparent;
 }
 .mkt__ribbon--pro {
   background: var(--mkt-brand-gradient);
@@ -1421,9 +1399,16 @@ const faqItems = [
 .mkt__pwyw-btn {
   flex: 1;
   min-width: 60px;
-  border: 1px solid rgba(255, 255, 255, .1);
-  background: transparent;
-  color: var(--mkt-fg-2);
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--mkt-bg-0), var(--mkt-bg-0)) padding-box,
+    linear-gradient(
+      120deg,
+      color-mix(in srgb, #fff 22%, transparent),
+      color-mix(in srgb, #fff 8%, transparent)
+    )
+      border-box;
+  color: var(--mkt-fg-3);
   padding: 8px 10px;
   border-radius: 10px;
   font: 500 13px/1 var(--mkt-font-sans);
@@ -1431,13 +1416,16 @@ const faqItems = [
   transition: all .15s;
 }
 .mkt__pwyw-btn:hover:not(.is-active) {
-  border-color: #ff8fb1;
+  background:
+    linear-gradient(var(--mkt-bg-0), var(--mkt-bg-0)) padding-box,
+    var(--mkt-brand-gradient) border-box;
   color: var(--mkt-fg-1);
 }
 .mkt__pwyw-btn.is-active {
-  background: linear-gradient(90deg, #ffc36b, #ff8fb1);
-  border-color: transparent;
-  color: #000;
+  background:
+    linear-gradient(var(--mkt-bg-0), var(--mkt-bg-0)) padding-box,
+    var(--mkt-brand-gradient) border-box;
+  color: var(--mkt-fg-1);
   font-weight: 700;
 }
 .mkt__pwyw-custom {

@@ -34,6 +34,8 @@ coverage
 
 .env
 .env.local
+extensions/firestore-stripe-payments.env
+firestore-stripe-payments-setup.local.md
 src/components/FluidTextCard/CreateFluidTextCardModal.svelte
 src/components/FluidTextCard/EditingFluidTextCard.svelte
 src/components/FluidTextCard/FluidTextCard.svelte

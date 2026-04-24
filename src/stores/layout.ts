@@ -6,6 +6,7 @@ import {
   ContentType,
   type TileContent,
   type AnyTileContent,
+  type LinkContent,
 } from "@/types/TileContent";
 import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
@@ -192,7 +193,6 @@ export const useLayoutStore = defineStore("layout", {
       try {
         this.layouts = await svc().fetchLayoutsByUserId(userId);
         await this.loadRecents();
-        console.log("layouts", this.layouts);
       } catch (err) {
         this.error = "Failed to fetch layouts.";
         console.error(err);
@@ -477,7 +477,7 @@ export const useLayoutStore = defineStore("layout", {
       const tile = this.currentLayout.tiles.find((t) => t.i === id);
       if (!tile) return;
 
-      tile.content = content as any;
+      tile.content = content;
       if (content.type === ContentType.PROFILE) {
         tile.w = 4;
         tile.h = 4;
@@ -500,9 +500,9 @@ export const useLayoutStore = defineStore("layout", {
       if (!tile) return;
 
       tile.content = {
-        ...(tile.content as any),
-        ...(patch as any),
-      };
+        ...(tile.content as AnyTileContent),
+        ...(patch as Partial<AnyTileContent>),
+      } as TileContent;
 
       this.updateLayout();
     },
@@ -619,7 +619,7 @@ export const useLayoutStore = defineStore("layout", {
       // If the tile was using a blob URL for optimistic preview, revoke it
       const tile = this.currentLayout.tiles.find((t) => t.i === id);
       if (tile) {
-        const src = (tile.content as any)?.src;
+        const src = "src" in tile.content ? (tile.content as { src: string }).src : undefined;
         if (typeof src === "string" && src.startsWith("blob:")) {
           URL.revokeObjectURL(src);
         }
@@ -693,7 +693,8 @@ export const useLayoutStore = defineStore("layout", {
         this.currentLayout.overrides[bp] = positions;
       }
 
-      const overrides = this.currentLayout.overrides[bp]!;
+      const overrides = this.currentLayout.overrides[bp];
+      if (!overrides) return;
       const existing = overrides[id];
       const curX = existing?.x ?? tile.x;
 
@@ -726,9 +727,8 @@ export const useLayoutStore = defineStore("layout", {
       const tile = this.currentLayout.tiles.find((tile) => tile.i === id);
       if (!tile || tile.content.type !== ContentType.LINK) return;
 
-      const linkContent = tile.content as any;
-      const nextValue = linkContent.linkBackgroundEnabled === false;
-      linkContent.linkBackgroundEnabled = nextValue;
+      const linkContent = tile.content as LinkContent;
+      linkContent.linkBackgroundEnabled = linkContent.linkBackgroundEnabled === false;
       this.updateLayout();
     },
 

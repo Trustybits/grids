@@ -36,7 +36,7 @@ function makeResizeItem(
   id: string,
   w: number,
   h: number,
-  icon: any,
+  icon: object,
   title: string,
 ): ToolbarItem {
   return {
@@ -152,7 +152,9 @@ export const CROP_BUTTON: ToolbarItem = {
     if (ctx.isEditing.value) {
       ctx.isExitingCropMode.value = true;
       setTimeout(() => {
-        ctx.childComponent.value?.toggleEditMode();
+        if (ctx.childComponent.value?.toggleEditMode !== undefined) {
+          ctx.childComponent.value?.toggleEditMode();
+        }
         if (ctx.childComponent.value?.isEditing !== undefined) {
           ctx.isEditing.value = ctx.childComponent.value.isEditing;
         }
@@ -273,7 +275,7 @@ const _linkIcon = markRaw(LinkIcon);
 const _clearLinkIcon = markRaw(ClearLinkIcon);
 
 const hasTileLink = (ctx: ToolbarContext) =>
-  !!(ctx.tile.content as any)?.tileLink;
+  !!(ctx.tile.content as { tileLink?: string })?.tileLink;
 
 export const TILE_LINK: ToolbarItem = {
   id: "tile-link",
@@ -281,7 +283,7 @@ export const TILE_LINK: ToolbarItem = {
     hasTileLink(ctx) ? _clearLinkIcon : _linkIcon,
   title: (ctx: ToolbarContext) => {
     if (!hasTileLink(ctx)) return "Add a link";
-    const url = (ctx.tile.content as any).tileLink as string;
+    const url = (ctx.tile.content as { tileLink?: string }).tileLink as string;
     return `Remove link to ${url}`;
   },
   group: "appearance",

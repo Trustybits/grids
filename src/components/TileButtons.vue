@@ -206,8 +206,9 @@ export default {
       if (!file) return;
       try {
         await uploadFileOptimistic(file);
-      } catch (error: any) {
-        const errorMessage = error?.message || error?.code || "Unknown error";
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : null;
+        const errorMessage = err?.message || "Unknown error";
         alert(`Failed to upload file: ${errorMessage}`);
       }
     };

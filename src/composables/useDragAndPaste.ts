@@ -8,6 +8,16 @@ import {
 import { ContentType } from "@/types/TileContent";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 
+interface LinkPreviewResponse {
+  url?: string;
+  domain?: string;
+  faviconUrl?: string;
+  title?: string;
+  description?: string;
+  imageUrl?: string;
+  siteName?: string;
+}
+
 export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   const layoutStore = useLayoutStore();
   const { uploadFileOptimistic } = useFileUpload();
@@ -55,9 +65,10 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
 
           try {
             await uploadFileOptimistic(file);
-          } catch (error: any) {
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Failed to upload file.";
             console.error("Failed to upload file from paste:", error);
-            alert(error.message || "Failed to upload file.");
+            alert(errorMessage);
           }
         }
       }
@@ -132,9 +143,10 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
 
         try {
           await uploadFileOptimistic(file);
-        } catch (error: any) {
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Failed to upload file.";
           console.error("Failed to upload dropped file:", error);
-          alert(error.message || "Failed to upload file.");
+          alert(errorMessage);
         }
       }
     }
@@ -239,16 +251,16 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
       // Fetch link preview in background
       try {
         if (/^(mailto|tel):/i.test(formattedUrl)) return;
-        const data = await getServiceFactory().getCloudFunctionsService().callFunction("getLinkPreview", { url: formattedUrl }) as any;
+        const data = await getServiceFactory().getCloudFunctionsService().callFunction<{ url: string }, LinkPreviewResponse>("getLinkPreview", { url: formattedUrl });
 
         layoutStore.patchTileContent(tileId, {
-          link: data?.url,
-          domain: data?.domain,
-          faviconUrl: data?.faviconUrl,
-          metaTitle: data?.title,
-          metaDescription: data?.description,
-          metaImageUrl: data?.imageUrl,
-          metaSiteName: data?.siteName,
+          link: data.url,
+          domain: data.domain,
+          faviconUrl: data.faviconUrl,
+          metaTitle: data.title,
+          metaDescription: data.description,
+          metaImageUrl: data.imageUrl,
+          metaSiteName: data.siteName,
         });
       } catch (error) {
         console.error("Failed to fetch link preview:", error);
@@ -288,16 +300,16 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
       // Fetch link preview in background
       try {
         if (/^(mailto|tel):/i.test(formattedUrl)) return;
-        const data = await getServiceFactory().getCloudFunctionsService().callFunction("getLinkPreview", { url: formattedUrl }) as any;
+        const data = await getServiceFactory().getCloudFunctionsService().callFunction<{ url: string }, LinkPreviewResponse>("getLinkPreview", { url: formattedUrl });
 
         layoutStore.patchTileContent(tileId, {
-          link: data?.url,
-          domain: data?.domain,
-          faviconUrl: data?.faviconUrl,
-          metaTitle: data?.title,
-          metaDescription: data?.description,
-          metaImageUrl: data?.imageUrl,
-          metaSiteName: data?.siteName,
+          link: data.url,
+          domain: data.domain,
+          faviconUrl: data.faviconUrl,
+          metaTitle: data.title,
+          metaDescription: data.description,
+          metaImageUrl: data.imageUrl,
+          metaSiteName: data.siteName,
         });
       } catch (error) {
         console.error("Failed to fetch link preview:", error);

@@ -40,7 +40,7 @@ const isStructuralColor = (color: string): boolean =>
 export const useColorPicker = (
   tileId: string | null,
   content: ColorPickerContent,
-  emit: (type: any, value: string) => void,
+  emit: (type: "background-color-change" | "text-color-change", value: string) => void,
   mode: "background" | "overlay" = "background",
 ): ColorPickerValues => {
   const layoutStore = useLayoutStore();

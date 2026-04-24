@@ -1,6 +1,6 @@
 import { type Layout, type CopyDepth } from "@/types/Layout";
-import type { TilePosition, Tile } from "@/types/Tile";
-import { ContentType, type SuggestionAction } from "@/types/TileContent";
+import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
+import { ContentType, type AnyTileContent, type ChatContent, type SuggestionAction } from "@/types/TileContent";
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import { getDbUtils } from "@/dao/DbUtilsSingleton";
 import type { DbUtils } from "@/dao/interfaces/DbUtils";
@@ -475,7 +475,7 @@ export class LayoutService implements ILayoutService {
       } else {
         // Full copy: preserve content, but clear ephemeral/user-generated data
         if (tile.content.type === ContentType.CHAT) {
-          (tile.content as any).messages = [];
+          (tile.content as ChatContent).messages = [];
         }
       }
 
@@ -501,7 +501,7 @@ export class LayoutService implements ILayoutService {
             remapped[newTileId] = { ...pos };
           }
         }
-        (newOverrides as any)[bp] = remapped;
+        if (newOverrides) newOverrides[bp as Breakpoint] = remapped;
       }
     }
 
@@ -540,11 +540,11 @@ export class LayoutService implements ILayoutService {
     const clonedTiles = (
       JSON.parse(JSON.stringify(layout.tiles)) as typeof layout.tiles
     ).map((tile) => {
-      const src = (tile.content as any)?.src;
+      const src = (tile.content as AnyTileContent & { src?: string })?.src;
       if (typeof src === "string" && src.startsWith("blob:")) {
         const realUrl = resolvedUrls[tile.i];
         if (realUrl) {
-          (tile.content as any).src = realUrl;
+          (tile.content as { src? : string }).src = realUrl;
         }
       }
       return tile;

@@ -128,9 +128,9 @@ export default defineComponent({
 
         // Small delay so the user sees the success state before the window closes
         setTimeout(() => window.close(), 1200);
-      } catch (err: any) {
+      } catch (err: unknown) {
         status.value = "error";
-        errorMessage.value = err?.message || "Failed to connect Notion. Please try again.";
+        errorMessage.value = err instanceof Error ? err.message : "Failed to connect Notion. Please try again.";
         // Write error to localStorage so the opener can display it
         localStorage.setItem("notion-oauth-result", JSON.stringify({ error: errorMessage.value, ts: Date.now() }));
       }

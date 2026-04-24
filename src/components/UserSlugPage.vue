@@ -101,6 +101,7 @@ import BreakpointSwitcher from '@/components/BreakpointSwitcher.vue';
 type SwitcherVariant = 'inline' | 'floating' | 'toolbar-row';
 const switcherVariant = 'floating' as SwitcherVariant;
 import { useThemeStore } from '@/stores/theme';
+import type { ProfileBioContent } from '@/types/TileContent';
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
@@ -126,7 +127,7 @@ const profilePhotoUrl = computed(() => {
   if (!profileTile?.content) return null;
   
   // Type assertion since we know it's a profile tile
-  const profileContent = profileTile.content as any;
+  const profileContent = profileTile.content as ProfileBioContent;
   return profileContent.profilePhotoUrl || null;
 });
 

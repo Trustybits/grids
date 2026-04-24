@@ -15,27 +15,55 @@
         <AppBarTextIcon />
       </button>
 
-      <button class="btn btn-secondary" data-tooltip="Profile" @click="addProfileElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Profile"
+        @click="addProfileElement"
+      >
         <ProfileTileIcon />
       </button>
 
-      <button class="btn btn-secondary" data-tooltip="Chat" @click="addChatElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Chat"
+        @click="addChatElement"
+      >
         <ChatIcon />
       </button>
 
-      <button class="btn btn-secondary" data-tooltip="Image / Video" @click="selectFile">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Image / Video"
+        @click="selectFile"
+      >
         <ImageIcon />
       </button>
-      <button class="btn btn-secondary" data-tooltip="Link" @click="addLinkElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Link"
+        @click="addLinkElement"
+      >
         <LinkTileIcon />
       </button>
-      <button class="btn btn-secondary" data-tooltip="Embed" @click="addEmbedElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Embed"
+        @click="addEmbedElement"
+      >
         <EmbedIcon />
       </button>
-      <button class="btn btn-secondary" data-tooltip="Map" @click="addMapElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Map"
+        @click="addMapElement"
+      >
         <MapIcon />
       </button>
-      <button class="btn btn-secondary" data-tooltip="Campfire" @click="addCampfireElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Campfire"
+        @click="addCampfireElement"
+      >
         <CampfireIcon />
       </button>
       <!-- <button class="btn btn-secondary" data-tooltip="Roadmap" @click="addRoadmapFeedElement">
@@ -84,7 +112,6 @@ import { useLayoutStore } from "@/stores/layout";
 import { ContentType } from "@/types/TileContent";
 import { createTileContent } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
-import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
@@ -101,7 +128,6 @@ import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileTileIcon from "./icons/ProfileTileIcon.vue";
 import MapIcon from "./icons/MapIcon.vue";
 import CampfireIcon from "./icons/CampfireIcon.vue";
-import RPGIcon from "./icons/RPGIcon.vue";
 
 export default {
   components: {
@@ -117,7 +143,6 @@ export default {
     ProfileTileIcon,
     MapIcon,
     CampfireIcon,
-    RPGIcon,
   },
   setup() {
     const themeStore = useThemeStore();
@@ -174,15 +199,16 @@ export default {
     const addFile = async (event: Event) => {
       const input = event.target as HTMLInputElement;
       const file = input.files?.[0];
-      
+
       // Reset input immediately so the same file can be selected again
       input.value = "";
-      
+
       if (!file) return;
       try {
         await uploadFileOptimistic(file);
-      } catch (error: any) {
-        const errorMessage = error?.message || error?.code || "Unknown error";
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : null;
+        const errorMessage = err?.message || "Unknown error";
         alert(`Failed to upload file: ${errorMessage}`);
       }
     };
@@ -240,9 +266,9 @@ export default {
       layoutStore.addTile(roadmapContent);
     };
 
-    const addOtherElement = () => {
-      let link = prompt(
-        "More tile types coming soon! Any others you might be expecting to see?"
+    const _addOtherElement = () => {
+      const link = prompt(
+        "More tile types coming soon! Any others you might be expecting to see?",
       );
       if (link) {
         const linkContent = createTileContent(ContentType.LINK, {
@@ -255,7 +281,7 @@ export default {
     const updateMetaData = () => {
       layoutStore.setCookieValue(
         "showMetaData",
-        layoutStore.showMetaData.toString()
+        layoutStore.showMetaData.toString(),
       );
     };
 

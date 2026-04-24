@@ -23,7 +23,17 @@
               :title="isValidUrl ? 'Add embed (Enter)' : 'Enter a valid URL'"
             >
               <!-- Corner-down-left icon (return/enter symbol) -->
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <polyline points="9 10 4 15 9 20"></polyline>
                 <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
               </svg>
@@ -35,34 +45,37 @@
   </teleport>
 </template>
 
-<script setup>
-import { ref, computed, watch, nextTick } from 'vue';
+<script setup lang="ts">
+import { ref, computed, watch, nextTick } from "vue";
 
 const props = defineProps({
   show: {
     type: Boolean,
-    required: true
-  }
+    required: true,
+  },
 });
 
-const emit = defineEmits(['close', 'add']);
+const emit = defineEmits(["close", "add"]);
 
-const embedUrl = ref('');
-const embedInput = ref(null);
+const embedUrl = ref("");
+const embedInput = ref<HTMLInputElement | null>(null);
 
-watch(() => props.show, async (newValue) => {
-  if (newValue) {
-    embedUrl.value = '';
-    await nextTick();
-    embedInput.value?.focus();
-  }
-});
+watch(
+  () => props.show,
+  async (newValue) => {
+    if (newValue) {
+      embedUrl.value = "";
+      await nextTick();
+      embedInput.value?.focus();
+    }
+  },
+);
 
 const handleClose = () => {
-  emit('close');
+  emit("close");
 };
 
-function extractIframeSrc(text) {
+function extractIframeSrc(text: string) {
   const m = text.match(/<iframe[^>]+src=["']([^"']+)["']/i);
   return m ? m[1] : null;
 }
@@ -71,16 +84,16 @@ const isValidUrl = computed(() => {
   const text = embedUrl.value.trim();
   if (!text) return false;
 
-  if (text.startsWith('<iframe') || text.startsWith('<IFRAME')) {
+  if (text.startsWith("<iframe") || text.startsWith("<IFRAME")) {
     return !!extractIframeSrc(text);
   }
 
   try {
-    if (text.startsWith('http://') || text.startsWith('https://')) {
+    if (text.startsWith("http://") || text.startsWith("https://")) {
       new URL(text);
       return true;
     }
-    if (text.includes('.')) {
+    if (text.includes(".")) {
       new URL(`https://${text}`);
       return true;
     }
@@ -92,7 +105,7 @@ const isValidUrl = computed(() => {
 
 const handleAdd = () => {
   if (!isValidUrl.value) return;
-  emit('add', embedUrl.value.trim());
+  emit("add", embedUrl.value.trim());
 };
 </script>
 
@@ -216,10 +229,14 @@ const handleAdd = () => {
 
 /* Slide-in animation for the submit button */
 .slide-btn-enter-active {
-  transition: transform 0.2s var(--easing-smooth), opacity 0.2s var(--easing-smooth);
+  transition:
+    transform 0.2s var(--easing-smooth),
+    opacity 0.2s var(--easing-smooth);
 }
 .slide-btn-leave-active {
-  transition: transform 0.15s var(--easing-smooth), opacity 0.15s var(--easing-smooth);
+  transition:
+    transform 0.15s var(--easing-smooth),
+    opacity 0.15s var(--easing-smooth);
 }
 .slide-btn-enter-from {
   opacity: 0;
@@ -240,8 +257,9 @@ const handleAdd = () => {
   color: var(--color-text-primary);
   cursor: pointer;
   border-radius: var(--radius-md);
-  transition: color var(--duration-fast) var(--easing-smooth),
-              background-color var(--duration-fast) var(--easing-smooth);
+  transition:
+    color var(--duration-fast) var(--easing-smooth),
+    background-color var(--duration-fast) var(--easing-smooth);
   flex-shrink: 0;
 }
 

@@ -88,7 +88,6 @@ import {
 } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { useToastStore } from "@/stores/toast";
-import TrashIcon from "./icons/toolbar/TrashIcon.vue";
 import ArrowUpRightIcon from "./icons/actionbar/ArrowUpRightIcon.vue";
 import DuplicateIcon from "./icons/actionbar/DuplicateIcon.vue";
 import ClipboardIcon from "./icons/actionbar/ClipboardIcon.vue";
@@ -98,7 +97,6 @@ import LogOutIcon from "./icons/actionbar/LogOutIcon.vue";
 
 export default defineComponent({
   components: {
-    TrashIcon,
     ArrowUpRightIcon,
     DuplicateIcon,
     ClipboardIcon,
@@ -304,12 +302,18 @@ export default defineComponent({
 });
 
 // Extract plain text from a tiptap/ProseMirror JSON document
-function extractPlainText(node: any): string {
+interface ProseMirrorNode {
+  type: string;
+  text?: string;
+  content?: ProseMirrorNode[];
+}
+
+function extractPlainText(node: ProseMirrorNode | null | undefined): string {
   if (!node) return "";
   if (node.type === "text") return node.text || "";
   if (Array.isArray(node.content)) {
     return node.content
-      .map((child: any, i: number) => {
+      .map((child: ProseMirrorNode, i: number) => {
         const text = extractPlainText(child);
         // Add newline between block-level nodes
         if (

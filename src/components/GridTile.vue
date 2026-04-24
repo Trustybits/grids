@@ -13,7 +13,7 @@
       'crop-mode-elevated': (isEditing || isExitingCropMode) && isCroppable,
     }"
   >
-    <grid-item
+    <GridItem
       :i="tile.i"
       :x="tile.x"
       :y="tile.y"
@@ -114,14 +114,15 @@
 
         <div v-if="layoutStore.showMetaData" class="meta-data">
           <p class="meta-data__compact">{{ compactMetadata }}</p>
-          <p
-            v-if="layoutStore.showMetaDataVerbose"
-            class="meta-data__verbose"
-            v-for="line in verboseMetadataLines"
-            :key="line"
-          >
-            {{ line }}
-          </p>
+          <template v-if="layoutStore.showMetaDataVerbose">
+            <p
+              class="meta-data__verbose"
+              v-for="line in verboseMetadataLines"
+              :key="line"
+            >
+              {{ line }}
+            </p>
+          </template>
         </div>
 
         <div
@@ -154,7 +155,7 @@
           <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
         </div>
       </div>
-    </grid-item>
+    </GridItem>
   </div>
   <AddLinkModal
     :show="showSuggestionLinkModal"
@@ -177,10 +178,11 @@ import {
   computed,
   provide,
   watch,
+  type Component,
 } from "vue";
 
 import { GridItem } from "vue3-grid-layout";
-import { type Tile } from "@/types/Tile";
+import { type Tile, type TileChildComponent } from "@/types/Tile";
 import { useLayoutStore } from "@/stores/layout";
 import TileCaption from "./TileCaption.vue";
 import {
@@ -188,8 +190,8 @@ import {
   getOptionComponent,
   createTileContent,
 } from "@/utils/TileUtils";
-import { ContentType, type LinkContent } from "@/types/TileContent";
-import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import { ContentType, type LinkContent, type SuggestionContent, type AnyTileContent } from "@/types/TileContent";
+
 import TextIcon from "./icons/TextIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkIcon from "./icons/LinkIcon.vue";
@@ -264,11 +266,11 @@ export default defineComponent({
     const isEmbedInteractive = ref(false);
     provide("isEmbedInteractive", isEmbedInteractive);
     const hoveredLayer = ref<"actions" | "toolbar" | null>(null);
-    const currentComponent = ref<any>(null);
-    const headerComponent = ref<any>(null);
-    const childComponent = ref<any>(null);
+    const currentComponent = ref<Component | null>(null);
+    const headerComponent = ref<Component | null>(null);
+    const childComponent = ref<TileChildComponent | null>(null);
     const gridTileRef = ref<HTMLElement | null>(null);
-    const isEditing = ref(false);
+    const isEditing = ref<boolean>(false);
     const isExitingCropMode = ref(false);
     let stopChildEditingWatch: (() => void) | null = null;
     const contentBackgroundColor = ref<string | null>(null);
@@ -329,13 +331,13 @@ export default defineComponent({
       return { content: props.tile.content };
     });
     const suggestionAction = computed(
-      () => (props.tile.content as any)?.action ?? "text",
+      () => (props.tile.content as SuggestionContent)?.action ?? "text",
     );
     const suggestionLabel = computed(
-      () => (props.tile.content as any)?.label ?? "",
+      () => (props.tile.content as SuggestionContent)?.label ?? "",
     );
 
-    const isProfileTile = computed(
+    const _isProfileTile = computed(
       () => props.tile.content.type === ContentType.PROFILE,
     );
     const isTileDraggable = computed(() => {
@@ -433,8 +435,8 @@ export default defineComponent({
       i: string,
       newH: number,
       newW: number,
-      newHPx: number,
-      newWPx: number,
+      _newHPx: number,
+      _newWPx: number,
     ) => {
       // Called during resize operation - snap to whole grid units for clean resizing
       // Only mutate the store's canonical tiles at the lg (default) breakpoint.
@@ -474,12 +476,7 @@ export default defineComponent({
 
     const onSuggestionShortClick = () => {
       if (!layoutStore.canEdit) return;
-      const action = (props.tile.content as any)?.action as
-        | "text"
-        | "media"
-        | "link"
-        | "embed"
-        | "profile";
+      const action = (props.tile.content as SuggestionContent)?.action;
       switch (action) {
         case "profile": {
           const content = createTileContent(ContentType.PROFILE, {});
@@ -537,8 +534,9 @@ export default defineComponent({
       if (!file) return;
       try {
         await uploadFileOptimisticForTile(file, props.tile.i);
-      } catch (error: any) {
-        const errorMessage = error?.message || error?.code || "Unknown error";
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : null;
+        const errorMessage = err?.message || "Unknown error";
         alert(`Failed to upload file: ${errorMessage}`);
       }
     };
@@ -585,7 +583,9 @@ export default defineComponent({
 
         // Wait for exit animations to complete (400ms + 50ms buffer)
         setTimeout(() => {
-          childComponent.value?.toggleEditMode();
+          if (childComponent.value?.toggleEditMode !== undefined) {
+            childComponent.value.toggleEditMode();
+          }
           if (childComponent.value?.isEditing !== undefined) {
             isEditing.value = childComponent.value.isEditing;
           }
@@ -613,7 +613,7 @@ export default defineComponent({
           stopChildEditingWatch = watch(
             () => newChild.isEditing,
             (editing) => {
-              isEditing.value = editing;
+              isEditing.value = editing ?? false;
             },
           );
         }
@@ -738,7 +738,7 @@ export default defineComponent({
     });
 
     const typeSpecificMeta = computed(() => {
-      const content = props.tile.content as any;
+      const content = props.tile.content as AnyTileContent & Record<string, unknown>;
       switch (props.tile.content.type) {
         case ContentType.TEXT: {
           const rawText = typeof content.text === "string" ? content.text : "";
@@ -776,7 +776,9 @@ export default defineComponent({
     const verboseMetadataLines = computed(() => {
       const caption = props.tile.caption?.trim();
       const cookieValue = layoutStore.getCookieValue("showMetaData");
-      const verboseCookieValue = layoutStore.getCookieValue("showMetaDataVerbose");
+      const verboseCookieValue = layoutStore.getCookieValue(
+        "showMetaDataVerbose",
+      );
       return [
         `caption: ${caption ? caption.slice(0, 40) : "n/a"}`,
         `borderEnabled: ${borderEnabled.value ? "true" : "false"} | draggable: ${isTileDraggable.value ? "true" : "false"} | resizable: ${isTileResizable.value ? "true" : "false"}`,

@@ -117,13 +117,19 @@ export class GameDataService implements IGameDataService {
 
     try {
       return await dao.incrementClicksTransaction(userId, amount);
-    } catch (error: any) {
-      if (error.message === "DOCUMENT_NOT_FOUND") {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "";
+      if (errorMessage === "DOCUMENT_NOT_FOUND") {
         await this.getOrCreateUserGameData(userId);
         return this.incrementUserClicks(userId, amount);
       }
 
-      if (error.code === "permission-denied") {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "permission-denied"
+      ) {
         console.warn(
           "Click rejected by security rules - likely daily cap reached",
         );

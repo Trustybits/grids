@@ -366,22 +366,14 @@
         </ul>
 
         <div class="mkt__community-cta">
-          <template v-if="tier === 'free'">
-            <router-link to="/login" class="mkt__plan-btn mkt__plan-btn--outline">
-              Get started free
-            </router-link>
-          </template>
-          <template v-else>
-            <div class="mkt__current">Your current plan</div>
-          </template>
           <a
             class="mkt__plan-btn mkt__plan-btn--outline"
-            href="https://github.com/TrustyDev-76/grids1"
+            href="https://github.com/trustybits/grids"
             target="_blank"
             rel="noopener noreferrer"
           >
             <i class="fab fa-github" aria-hidden="true"></i>
-            <span>View on GitHub</span>
+            <span>View public repo on GitHub</span>
           </a>
         </div>
       </article>
@@ -413,14 +405,14 @@
                     Coming soon
                   </span>
                 </td>
-                <td :class="row.community ? 'yes' : 'no'">
-                  {{ row.community ? '✓' : '—' }}
+                <td :class="comparisonCellClass(row.community)">
+                  {{ comparisonCellLabel(row.community) }}
                 </td>
-                <td :class="row.supporter ? 'yes' : 'no'">
-                  {{ row.supporter ? '✓' : '—' }}
+                <td :class="comparisonCellClass(row.supporter)">
+                  {{ comparisonCellLabel(row.supporter) }}
                 </td>
-                <td :class="row.pro ? 'yes' : 'no'">
-                  {{ row.pro ? '✓' : '—' }}
+                <td :class="comparisonCellClass(row.pro)">
+                  {{ comparisonCellLabel(row.pro) }}
                 </td>
               </tr>
             </tbody>
@@ -556,8 +548,8 @@ const checkout = useStripeCheckout();
 
 const billingInterval = ref<'month' | 'year'>('month');
 
-const proMonthlyPrice = 8;
-const proAnnualPrice = 72;
+const proMonthlyPrice = 12;
+const proAnnualPrice = 120;
 const proAnnualMonthlyPrice = computed(() => Math.round(proAnnualPrice / 12));
 
 const pwywPresets = [1, 3, 5, 10];
@@ -582,12 +574,21 @@ async function handleSupporterCheckout() {
 
 const communityFeatures = [
   'Unlimited grids',
+  'Unlimited tiles',
   'Drag-and-drop editor',
   'Mobile-responsive layouts',
   'Basic page analytics (coming soon)',
 ];
 
 const supporterUnlocks = [
+  {
+    label: 'Any amount unlocks',
+    items: [
+      'Two grid pages',
+      'Unlimited tiles',
+      'Custom handle URL (grids.so/yourhandle)',
+    ],
+  },
   {
     label: '$1+ unlocks',
     items: [
@@ -623,6 +624,8 @@ function decrementCustomAmount() {
 
 const proFeatures = [
   'Custom domain',
+  'Higher storage and upload limits',
+  'Connect 3rd party storage',
   'Advanced analytics & export',
   'Password-protected grids',
   'AI content suggestions',
@@ -630,15 +633,37 @@ const proFeatures = [
 ];
 
 const showComparison = ref(false);
+type ComparisonCell = boolean | string;
+
+function comparisonCellLabel(value: ComparisonCell) {
+  if (typeof value === 'boolean') {
+    return value ? '✓' : '—';
+  }
+  return value;
+}
+
+function comparisonCellClass(value: ComparisonCell) {
+  if (typeof value === 'boolean') {
+    return value ? 'yes' : 'no';
+  }
+  if (value.trim() === '—') {
+    return 'no';
+  }
+  return 'text';
+}
+
 const comparisonRows = [
-  { feature: 'Unlimited grids', community: true, supporter: true, pro: true },
-  { feature: 'All tile types', community: true, supporter: true, pro: true },
-  { feature: 'Custom slug', community: true, supporter: true, pro: true },
-  { feature: 'Templates library', community: true, supporter: true, pro: true },
-  { feature: 'Basic analytics', community: true, supporter: true, pro: true },
+  { feature: 'Grid Pages', community: true, supporter: '2', pro: 'Unlimited' },
+  { feature: 'Unlimited tiles', community: true, supporter: true, pro: true },
+  { feature: 'Drag-and-drop editor', community: true, supporter: true, pro: true },
+  { feature: 'Mobile-responsive layouts', community: true, supporter: true, pro: true },
+  { feature: 'Basic page analytics', community: true, supporter: true, pro: true, comingSoon: true },
+  { feature: 'Storage and uploads', community: '—', supporter: 'Normal Limits', pro: 'Higher Limits' },
+  { feature: 'Custom handle URL', community: false, supporter: true, pro: true },
   { feature: 'Remove Grids branding ($10+ supporter)', community: false, supporter: true, pro: true },
   { feature: 'Supporter badge', community: false, supporter: true, pro: true },
   { feature: 'Custom domain', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Connect 3rd party storage', community: false, supporter: false, pro: true, comingSoon: true },
   { feature: 'Advanced analytics', community: false, supporter: false, pro: true, comingSoon: true },
   { feature: 'Analytics export', community: false, supporter: false, pro: true, comingSoon: true },
   { feature: 'Password protection', community: false, supporter: false, pro: true, comingSoon: true },
@@ -679,6 +704,7 @@ const faqItems = [
   --mkt-section-max: 1120px;
   --mkt-section-x: 40px;
   --mkt-section-y: 128px;
+  --mkt-font-brand: 'Oxanium', var(--mkt-font-sans);
   min-height: 100vh;
   color: var(--mkt-fg-1);
   background: var(--mkt-bg-0);
@@ -1287,7 +1313,7 @@ const faqItems = [
   grid-template-columns: repeat(2, 1fr);
   gap: 20px;
   margin-top: 0;
-  padding: 96px 0 0 0;
+  padding: 96px 96px 0 96px;
 }
 
 .mkt__plan {
@@ -1637,6 +1663,7 @@ const faqItems = [
 .mkt__comparison-table td:not(:first-child) { text-align: center; }
 .mkt__comparison-table td.yes { color: #7cf0c0; font-weight: 700; }
 .mkt__comparison-table td.no { color: rgba(255, 255, 255, .3); }
+.mkt__comparison-table td.text { color: rgba(255, 255, 255, .88); font-weight: 600; }
 .mkt__comparison-table td:first-child {
   display: flex;
   align-items: center;

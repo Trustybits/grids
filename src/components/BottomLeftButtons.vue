@@ -24,8 +24,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, watch } from "vue";
 import { useRoute } from "vue-router";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/firebase";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useLayoutStore } from "@/stores/layout";
 import DiscordButton from "./DiscordButton.vue";
 import GridMenu from "./GridMenu.vue";
@@ -38,7 +37,7 @@ const layoutStore = useLayoutStore();
 const isAuthenticated = ref(false);
 
 onMounted(() => {
-  onAuthStateChanged(auth, (user) => {
+  getAuthProvider().onAuthStateChanged((user) => {
     isAuthenticated.value = !!user;
   });
 });

@@ -1,5 +1,5 @@
 /**
- * User profile data stored in Firestore users collection
+ * User profile data stored in the users collection
  */
 export interface UserProfile {
   email?: string;
@@ -11,6 +11,17 @@ export interface UserProfile {
   /** Dashboard favorites; order is preserved in the Starred section */
   starredLayoutIds?: string[];
   profilePhotoUrl?: string;
+  /** PWYW supporter badge (set via Stripe checkout or free-badge grant) */
+  hasSupporterBadge?: boolean;
+}
+
+/**
+ * Data stored on a slug document in the public `slugs` collection.
+ * Mirrored from the user's profile for public / unauthenticated access.
+ */
+export interface SlugData {
+  userId: string;
+  defaultGridId?: string | null;
 }
 
 /**

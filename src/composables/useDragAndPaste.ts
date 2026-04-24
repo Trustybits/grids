@@ -1,10 +1,9 @@
 import { ref, onMounted, onUnmounted, type Ref } from "vue";
 import { useFileUpload } from "./useFileUpload";
 import { useLayoutStore } from "@/stores/layout";
-import { createTileContent, createTileContentFromEmbedUrl, isDirectImageUrl, isDirectVideoUrl } from "@/utils/TileUtils";
+import { createTileContent, createTileContentFromEmbedUrl } from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 
 export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   const layoutStore = useLayoutStore();
@@ -223,9 +222,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
       // Fetch link preview in background
       try {
         if (/^(mailto|tel):/i.test(formattedUrl)) return;
-        const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-        const result = await getLinkPreview({ url: formattedUrl });
-        const data = result.data as any;
+        const data = await getServiceFactory().getCloudFunctionsService().callFunction("getLinkPreview", { url: formattedUrl }) as any;
 
         layoutStore.patchTileContent(tileId, {
           link: data?.url,
@@ -249,7 +246,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
       : trimmed.startsWith("http")
         ? trimmed
         : `https://${trimmed}`;
-    
+
     // Check if this URL should be a special content type (YouTube, music, image, video, etc.)
     if (!/^(mailto|tel):/i.test(formattedUrl)) {
       const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
@@ -270,9 +267,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
       // Fetch link preview in background
       try {
         if (/^(mailto|tel):/i.test(formattedUrl)) return;
-        const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-        const result = await getLinkPreview({ url: formattedUrl });
-        const data = result.data as any;
+        const data = await getServiceFactory().getCloudFunctionsService().callFunction("getLinkPreview", { url: formattedUrl }) as any;
 
         layoutStore.patchTileContent(tileId, {
           link: data?.url,

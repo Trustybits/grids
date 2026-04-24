@@ -16,6 +16,8 @@
  */
 
 import { ref, readonly } from 'vue'
+import { getAuthProvider } from '@/auth/AuthProviderSingleton'
+import { getServiceFactory } from '@/services/ServiceFactorySingleton'
 import {
   createSupporterCheckoutSession,
   createProCheckoutSession,
@@ -33,8 +35,6 @@ const SUPPORTER_MIN_CENTS = 100
 const _loading = ref(false)
 const _error = ref<string | null>(null)
 
-// ── Composable ────────────────────────────────────────────────────────────
-
 export function useStripeCheckout() {
   const { capture } = usePostHog()
 
@@ -43,15 +43,11 @@ export function useStripeCheckout() {
     if (val) _error.value = null
   }
 
-  /**
-   * Redirects to Stripe Checkout for a Pro subscription.
-   * @param interval - 'month' or 'year'
-   */
   async function checkoutPro(interval: 'month' | 'year'): Promise<void> {
     setLoading(true)
     try {
       capture('checkout_started', { type: 'pro', interval })
-      const url = await createProCheckoutSession(interval)
+      const url = await getServiceFactory().getStripeService().createProCheckoutSession(interval)
       capture('checkout_redirecting', { type: 'pro', interval })
       window.location.assign(url)
     } catch (err: unknown) {
@@ -82,9 +78,8 @@ export function useStripeCheckout() {
         return
       }
 
-      // Paid path — Stripe Checkout
       capture('checkout_started', { type: 'supporter', amount_cents: amountCents })
-      const url = await createSupporterCheckoutSession(amountCents)
+      const url = await getServiceFactory().getStripeService().createSupporterCheckoutSession(amountCents)
       capture('checkout_redirecting', { type: 'supporter' })
       window.location.assign(url)
     } catch (err: unknown) {
@@ -96,15 +91,11 @@ export function useStripeCheckout() {
     }
   }
 
-  /**
-   * Opens the Stripe Customer Portal so the user can manage their
-   * subscription, update payment methods, or cancel.
-   */
   async function openCustomerPortal(): Promise<void> {
     setLoading(true)
     try {
       capture('customer_portal_opened')
-      const url = await createCustomerPortalSession()
+      const url = await getServiceFactory().getStripeService().createCustomerPortalSession()
       window.location.assign(url)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Could not open billing portal.'
@@ -114,7 +105,6 @@ export function useStripeCheckout() {
     }
   }
 
-  /** Clear any error state */
   function clearError() {
     _error.value = null
   }

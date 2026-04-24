@@ -25,6 +25,6 @@
     "singleProjectMode": true
   },
   "extensions": {
-    "firestore-stripe-payments": "stripe/firestore-stripe-payments@0.3.4"
+    "firestore-stripe-payments-ljn2": "stripe/firestore-stripe-payments@0.3.4"
   }
 }

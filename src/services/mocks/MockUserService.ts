@@ -7,37 +7,37 @@ import type {
 import type { IUserService } from "../interfaces/IUserService";
 
 export class MockUserService implements IUserService {
-  getUserProfile(userId: string): Promise<UserProfile | null> {
+  getUserProfile(_userId: string): Promise<UserProfile | null> {
     throw new Error("Method not implemented.");
   }
-  updateUserProfile(userId: string, data: Partial<UserProfile>): Promise<void> {
+  updateUserProfile(_userId: string, _data: Partial<UserProfile>): Promise<void> {
     throw new Error("Method not implemented.");
   }
   subscribeToUserProfile(
-    userId: string,
-    callback: (profile: UserProfile | null) => void,
+    _userId: string,
+    _callback: (profile: UserProfile | null) => void,
   ): () => void {
     throw new Error("Method not implemented.");
   }
-  recordLogin(userId: string, email: string | null): Promise<void> {
+  recordLogin(_userId: string, _email: string | null): Promise<void> {
     throw new Error("Method not implemented.");
   }
-  grantSupporterBadge(userId: string): Promise<void> {
+  grantSupporterBadge(_userId: string): Promise<void> {
     throw new Error("Method not implemented.");
   }
-  getUserIdBySlug(slug: string): Promise<string | null> {
+  getUserIdBySlug(_slug: string): Promise<string | null> {
     throw new Error("Method not implemented.");
   }
-  getSlugData(slug: string): Promise<SlugData | null> {
+  getSlugData(_slug: string): Promise<SlugData | null> {
     throw new Error("Method not implemented.");
   }
-  checkSlugAvailability(slug: string): Promise<SlugAvailabilityResponse> {
+  checkSlugAvailability(_slug: string): Promise<SlugAvailabilityResponse> {
     throw new Error("Method not implemented.");
   }
-  claimSlug(slug: string): Promise<SlugClaimResponse> {
+  claimSlug(_slug: string): Promise<SlugClaimResponse> {
     throw new Error("Method not implemented.");
   }
-  setDefaultGrid(userId: string, gridId: string | null): Promise<void> {
+  setDefaultGrid(_userId: string, _gridId: string | null): Promise<void> {
     throw new Error("Method not implemented.");
   }
 }

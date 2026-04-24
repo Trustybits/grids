@@ -42,7 +42,8 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, ref } from "vue";
+import { computed, defineComponent, ref, type PropType } from "vue";
+import type { TileChildComponent } from "@/types/Tile";
 import FontStyleIcon from "./icons/toolbar/FontStyleIcon.vue";
 import Chevron from "./icons/Chevron.vue";
 import { useFloatingSelector } from "@/composables/useFloatingSelector";
@@ -52,8 +53,8 @@ export default defineComponent({
   emits: ["open-intent"],
   props: {
     childComponent: {
-      type: Object as () => any,
-      required: true,
+      type: Object as PropType<TileChildComponent | null>,
+      default: null,
     },
   },
   setup(props, { emit }) {
@@ -88,7 +89,11 @@ export default defineComponent({
       isActive,
       menuRef: fontSelectorMenuRef,
       positionMenu,
-      buttonAction: props.childComponent?.handleFontChange,
+      buttonAction:
+        props.childComponent !== null &&
+        props.childComponent?.handleFontChange !== undefined
+          ? props.childComponent.handleFontChange
+          : () => {},
       emitter: () => emit("open-intent", "family"),
     });
 

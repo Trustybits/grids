@@ -1,4 +1,3 @@
-import { useThemeStore } from "@/stores/theme";
 import { type Tile } from "@/types/Tile";
 import {
   ContentType,
@@ -20,8 +19,9 @@ import {
   type RoadmapFeedContent,
   type MusicContent,
   type MusicPlatform,
+  type AnyTileContent,
 } from "@/types/TileContent";
-import { defineAsyncComponent, markRaw } from "vue";
+import { type Component, defineAsyncComponent, markRaw } from "vue";
 
 function ensureUrlHasProtocol(url: string): string {
   if (!url) return url;
@@ -31,7 +31,7 @@ function ensureUrlHasProtocol(url: string): string {
     : `https://${url}`;
 }
 
-function makeDefaultDoc(text: string): string {
+function _makeDefaultDoc(text: string): string {
   return JSON.stringify({
     type: "doc",
     content: [
@@ -115,16 +115,16 @@ function parseYouTubeUrl(
     // Playlist: Check for list parameter in any watch or playlist URL
     // This handles both youtube.com/playlist?list=ID and youtube.com/watch?v=ID&list=ID
     if (urlObj.searchParams.has("list")) {
-      const listId = urlObj.searchParams.get("list")!;
+      const listId = urlObj.searchParams.get("list");
       // Ignore auto-generated "My Mix" playlists (they start with RD)
-      if (!listId.startsWith("RD")) {
+      if (listId && !listId.startsWith("RD")) {
         return { type: "playlist", id: listId };
       }
     }
 
     // Video: youtube.com/watch?v=ID (only if no valid playlist was found)
     if (urlObj.pathname === "/watch" && urlObj.searchParams.has("v")) {
-      return { type: "video", id: urlObj.searchParams.get("v")! };
+      return { type: "video", id: urlObj.searchParams.get("v") ?? "" };
     }
 
     // Video: youtu.be/ID
@@ -162,9 +162,11 @@ function parseYouTubeUrl(
 // - Spotify: open.spotify.com/track/ID, open.spotify.com/embed/track/ID
 // - Apple Music: music.apple.com/.../song/.../ID, music.apple.com/.../album/...?i=ID,
 //   embed.music.apple.com/.../song/ID
-function parseMusicUrl(
-  url: string,
-): { platform: MusicPlatform; trackId: string; trackType: 'track' | 'album' } | null {
+function parseMusicUrl(url: string): {
+  platform: MusicPlatform;
+  trackId: string;
+  trackType: "track" | "album";
+} | null {
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
@@ -175,13 +177,21 @@ function parseMusicUrl(
         /(?:\/embed)?\/track\/([A-Za-z0-9]+)/,
       );
       if (trackMatch) {
-        return { platform: "spotify", trackId: trackMatch[1], trackType: 'track' };
+        return {
+          platform: "spotify",
+          trackId: trackMatch[1],
+          trackType: "track",
+        };
       }
       const albumMatch = urlObj.pathname.match(
         /(?:\/embed)?\/album\/([A-Za-z0-9]+)/,
       );
       if (albumMatch) {
-        return { platform: "spotify", trackId: albumMatch[1], trackType: 'album' };
+        return {
+          platform: "spotify",
+          trackId: albumMatch[1],
+          trackType: "album",
+        };
       }
     }
 
@@ -193,17 +203,21 @@ function parseMusicUrl(
       // /us/song/song-name/1234567890
       const songMatch = urlObj.pathname.match(/\/song\/[^/]+\/(\d+)/);
       if (songMatch) {
-        return { platform: "apple", trackId: songMatch[1], trackType: 'track' };
+        return { platform: "apple", trackId: songMatch[1], trackType: "track" };
       }
       // /us/song/1234567890 (short form on embed URLs)
       const shortSongMatch = urlObj.pathname.match(/\/song\/(\d+)/);
       if (shortSongMatch) {
-        return { platform: "apple", trackId: shortSongMatch[1], trackType: 'track' };
+        return {
+          platform: "apple",
+          trackId: shortSongMatch[1],
+          trackType: "track",
+        };
       }
       // /us/album/album-name/123?i=456 (track within album)
       const albumTrackId = urlObj.searchParams.get("i");
       if (albumTrackId && /^\d+$/.test(albumTrackId)) {
-        return { platform: "apple", trackId: albumTrackId, trackType: 'track' };
+        return { platform: "apple", trackId: albumTrackId, trackType: "track" };
       }
     }
 
@@ -335,7 +349,7 @@ export function createTile(
   y: number,
   w: number,
   h: number,
-  contentData: Partial<any> = {},
+  contentData: Partial<AnyTileContent> = {},
   caption: string,
 ): Tile {
   return {
@@ -352,24 +366,7 @@ export function createTile(
 
 export function createTileContent(
   type: ContentType,
-  data: Partial<
-    | TextContent
-    | SmartTextContent
-    | ChatContent
-    | ImageContent
-    | LinkContent
-    | VideoContent
-    | EmbedContent
-    | RPGContent
-    | SuggestionContent
-    | MapContent
-    | CampfireContent
-    | ClickerContent
-    | ProfileBioContent
-    | YouTubeContent
-    | RoadmapFeedContent
-    | MusicContent
-  > = {},
+  data: Partial<AnyTileContent> = {},
 ): TileContent {
   switch (type) {
     case ContentType.TEXT:
@@ -481,7 +478,8 @@ export function createTileContent(
         avatarRadius: (data as Partial<ProfileBioContent>).avatarRadius ?? 12,
         avatarSides: (data as Partial<ProfileBioContent>).avatarSides ?? 6,
         // Preserve profile photo URL when creating from existing data
-        profilePhotoUrl: (data as Partial<ProfileBioContent>).profilePhotoUrl ?? "",
+        profilePhotoUrl:
+          (data as Partial<ProfileBioContent>).profilePhotoUrl ?? "",
       } as ProfileBioContent;
 
     case ContentType.MAP:
@@ -564,7 +562,8 @@ export function createTileContent(
         trackUrl: (data as Partial<MusicContent>).trackUrl || "",
         artistUrl: (data as Partial<MusicContent>).artistUrl || "",
         backgroundColor: (data as Partial<MusicContent>).backgroundColor || "",
-        backgroundTinted: (data as Partial<MusicContent>).backgroundTinted || "",
+        backgroundTinted:
+          (data as Partial<MusicContent>).backgroundTinted || "",
         textSubdued: (data as Partial<MusicContent>).textSubdued || "",
       } as MusicContent;
 
@@ -583,7 +582,9 @@ function getLinkData(url: string) {
       return { link: trimmed };
     }
 
-    const formattedUrl = trimmed.startsWith("http") ? trimmed : `https://${trimmed}`;
+    const formattedUrl = trimmed.startsWith("http")
+      ? trimmed
+      : `https://${trimmed}`;
     const parsedUrl = new URL(formattedUrl);
 
     const domain = parsedUrl.hostname;
@@ -591,7 +592,7 @@ function getLinkData(url: string) {
     const link = formattedUrl;
 
     return { domain, faviconUrl, link };
-  } catch (error) {
+  } catch {
     return {};
   }
 }
@@ -661,7 +662,7 @@ export function validateTileContent(content: TileContent): boolean {
   }
 }
 
-export function getContentComponent(content: TileContent): any {
+export function getContentComponent(content: TileContent): Component | null {
   switch (content.type) {
     case ContentType.TEXT:
       return markRaw(
@@ -760,7 +761,7 @@ export function getContentComponent(content: TileContent): any {
   }
 }
 
-export function getOptionComponent(content: TileContent): any | null {
+export function getOptionComponent(content: TileContent): null {
   switch (content.type) {
     default:
       return null; // If no options are available

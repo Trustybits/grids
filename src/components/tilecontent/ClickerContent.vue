@@ -2,22 +2,28 @@
   <div class="clicker-container">
     <div class="clicker-content">
       <div class="count-display">{{ ownerGameData?.totalClicks || 0 }}</div>
-      
-      <button 
-        class="click-button" 
+
+      <button
+        class="click-button"
         :class="{ 'on-fire': isOnFire }"
         @click="handleClick"
       >
         <FireIcon v-if="isOnFire" :size="24" />
         <ClickerIcon v-else :size="24" />
       </button>
-      
+
       <div class="footer">
         <div class="player-info">
-          <div class="player-name">{{ ownerGameData?.displayName || 'Loading...' }}</div>
+          <div class="player-name">
+            {{ ownerGameData?.displayName || "Loading..." }}
+          </div>
         </div>
-        
-        <button class="leaderboard-icon-button" @click="toggleLeaderboard" :title="showLeaderboard ? 'Close leaderboard' : 'Show leaderboard'">
+
+        <button
+          class="leaderboard-icon-button"
+          @click="toggleLeaderboard"
+          :title="showLeaderboard ? 'Close leaderboard' : 'Show leaderboard'"
+        >
           <LeaderboardIcon :size="18" />
         </button>
       </div>
@@ -33,8 +39,8 @@
           </button>
         </div>
         <div class="leaderboard-list">
-          <div 
-            v-for="entry in leaderboard" 
+          <div
+            v-for="entry in leaderboard"
             :key="entry.userId"
             class="leaderboard-entry"
             :class="{ 'is-current-owner': entry.userId === ownerId }"
@@ -74,7 +80,7 @@ export default defineComponent({
       required: true,
     },
   },
-  setup(props) {
+  setup(_props) {
     const layoutStore = useLayoutStore();
     const gameDataService = getServiceFactory().getGameDataService();
     const isOnFire = ref(false);
@@ -83,26 +89,26 @@ export default defineComponent({
     const showLeaderboard = ref(false);
     const ownerGameData = ref<UserGameData | null>(null);
     const leaderboard = ref<LeaderboardEntry[]>([]);
-    
+
     let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
     let unsubscribeOwnerData: (() => void) | null = null;
     let unsubscribeLeaderboard: (() => void) | null = null;
 
-    const ownerId = computed(() => layoutStore.currentLayout?.userId || '');
+    const ownerId = computed(() => layoutStore.currentLayout?.userId || "");
 
     const handleClick = async () => {
       if (!ownerId.value) return;
-      
+
       // Increment the grid owner's score (not the clicker's score)
       await gameDataService.incrementUserClicks(ownerId.value, 1);
       
       // Check click speed (clicks within 500ms = fast clicking)
       const now = Date.now();
       const timeSinceLastClick = now - lastClickTime.value;
-      
+
       if (timeSinceLastClick < 500) {
         clickStreak.value++;
-        
+
         // Activate fire mode after 3 fast clicks
         if (clickStreak.value >= 3) {
           isOnFire.value = true;
@@ -111,14 +117,14 @@ export default defineComponent({
         clickStreak.value = 0;
         isOnFire.value = false;
       }
-      
+
       lastClickTime.value = now;
-      
+
       // Clear existing cooldown timer
       if (cooldownTimer) {
         clearTimeout(cooldownTimer);
       }
-      
+
       // Set cooldown to turn off fire mode after 800ms of no clicks
       cooldownTimer = setTimeout(() => {
         isOnFire.value = false;
@@ -132,7 +138,7 @@ export default defineComponent({
 
     onMounted(async () => {
       if (!ownerId.value) {
-        console.error('No owner ID found for clicker tile');
+        console.error("No owner ID found for clicker tile");
         return;
       }
 
@@ -213,20 +219,23 @@ export default defineComponent({
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.1s ease, background 0.3s ease, opacity 0.2s ease;
+  transition:
+    transform 0.1s ease,
+    background 0.3s ease,
+    opacity 0.2s ease;
   user-select: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   &:hover {
     opacity: 0.9;
   }
-  
+
   &:active {
     transform: scale(0.95);
   }
-  
+
   &.on-fire {
     background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
     animation: fireGlow 1.5s ease-in-out infinite;
@@ -234,11 +243,14 @@ export default defineComponent({
 }
 
 @keyframes fireGlow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 10px rgba(255, 107, 53, 0.5);
   }
   50% {
-    box-shadow: 0 0 20px rgba(255, 107, 53, 0.8), 0 0 30px rgba(247, 147, 30, 0.4);
+    box-shadow:
+      0 0 20px rgba(255, 107, 53, 0.8),
+      0 0 30px rgba(247, 147, 30, 0.4);
   }
 }
 
@@ -277,13 +289,13 @@ export default defineComponent({
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   &:hover {
     color: var(--color-text-primary);
     border-color: var(--color-text-primary);
     background: rgba(255, 255, 255, 0.05);
   }
-  
+
   &:active {
     transform: scale(0.95);
   }
@@ -327,7 +339,7 @@ export default defineComponent({
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   &:hover {
     color: var(--color-text-primary);
     border-color: var(--color-text-primary);
@@ -341,15 +353,15 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   gap: 4px;
-  
+
   &::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   &::-webkit-scrollbar-thumb {
     background: var(--color-content-low);
     border-radius: 3px;
@@ -366,11 +378,11 @@ export default defineComponent({
   font-size: 13px;
   transition: background 0.2s ease;
   background: rgba(0, 0, 0, 0.2);
-  
+
   &:hover {
     background: rgba(255, 255, 255, 0.05);
   }
-  
+
   &.is-current-owner {
     background: rgba(255, 255, 255, 0.1);
     font-weight: 600;
@@ -408,7 +420,9 @@ export default defineComponent({
 // Drawer slide-up animation
 .drawer-enter-active,
 .drawer-leave-active {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s ease;
 }
 
 .drawer-enter-from {

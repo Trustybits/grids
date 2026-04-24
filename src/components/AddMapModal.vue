@@ -22,7 +22,17 @@
                 title="Add map (Enter)"
               >
                 <!-- Corner-down-left icon (return/enter symbol) -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <polyline points="9 10 4 15 9 20"></polyline>
                   <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
                 </svg>
@@ -36,7 +46,7 @@
   </teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, nextTick } from "vue";
 
 const props = defineProps({
@@ -49,7 +59,7 @@ const props = defineProps({
 const emit = defineEmits(["close", "add"]);
 
 const query = ref("");
-const mapInput = ref(null);
+const mapInput = ref<HTMLInputElement | null>(null);
 
 watch(
   () => props.show,
@@ -59,7 +69,7 @@ watch(
       await nextTick();
       mapInput.value?.focus();
     }
-  }
+  },
 );
 
 const handleClose = () => {
@@ -191,10 +201,14 @@ const handleAdd = () => {
 
 /* Slide-in animation for the submit button */
 .slide-btn-enter-active {
-  transition: transform 0.2s var(--easing-smooth), opacity 0.2s var(--easing-smooth);
+  transition:
+    transform 0.2s var(--easing-smooth),
+    opacity 0.2s var(--easing-smooth);
 }
 .slide-btn-leave-active {
-  transition: transform 0.15s var(--easing-smooth), opacity 0.15s var(--easing-smooth);
+  transition:
+    transform 0.15s var(--easing-smooth),
+    opacity 0.15s var(--easing-smooth);
 }
 .slide-btn-enter-from {
   opacity: 0;
@@ -215,8 +229,9 @@ const handleAdd = () => {
   color: var(--color-text-primary);
   cursor: pointer;
   border-radius: var(--radius-md);
-  transition: color var(--duration-fast) var(--easing-smooth),
-              background-color var(--duration-fast) var(--easing-smooth);
+  transition:
+    color var(--duration-fast) var(--easing-smooth),
+    background-color var(--duration-fast) var(--easing-smooth);
   flex-shrink: 0;
 }
 

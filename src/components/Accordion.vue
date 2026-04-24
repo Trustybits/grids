@@ -1,23 +1,21 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <div class="accordion">
-    <button 
-      class="accordion__header"
-      @click="toggleExpanded"
-    >
+    <button class="accordion__header" @click="toggleExpanded">
       <span>{{ title }}</span>
-      <svg 
-        class="accordion-icon" 
+      <svg
+        class="accordion-icon"
         :class="{ 'accordion-icon--open': isExpanded }"
-        width="16" 
-        height="16" 
-        viewBox="0 0 24 24" 
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
         fill="none"
       >
-        <path 
-          d="M6 9L12 15L18 9" 
-          stroke="currentColor" 
-          stroke-width="2" 
-          stroke-linecap="round" 
+        <path
+          d="M6 9L12 15L18 9"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
           stroke-linejoin="round"
         />
       </svg>
@@ -31,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref } from "vue";
 
 defineProps<{
   title: string;

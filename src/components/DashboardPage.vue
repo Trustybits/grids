@@ -71,7 +71,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, onUnmounted, computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useLayoutStore } from "@/stores/layout";
@@ -81,6 +81,8 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 
 const userService = getServiceFactory().getUserService();
 import { valueToMillis } from "@/utils/TimeConversion";
+import type { Layout } from "@/types/Layout";
+import type { CopyDepth } from "@/types/Layout";
 import CreateGridModal from "./CreateGridModal.vue";
 import RenameGridModal from "./RenameGridModal.vue";
 import DashboardGridCard from "./dashboard/DashboardGridCard.vue";
@@ -96,18 +98,18 @@ const isLoading = computed(() => layoutStore.isLoading);
 
 const showCreateModal = ref(false);
 const showRenameModal = ref(false);
-const gridToRename = ref(null);
-const defaultGridId = ref(null);
-const starredLayoutIds = ref([]);
-const draggedStarId = ref(null);
-const dragOverStarId = ref(null);
-const draggedStarInitialOrder = ref(null);
+const gridToRename = ref<Layout | null>(null);
+const defaultGridId = ref<string | null>(null);
+const starredLayoutIds = ref<string[]>([]);
+const draggedStarId = ref<string | null>(null);
+const dragOverStarId = ref<string | null>(null);
+const draggedStarInitialOrder = ref<string[] | null>(null);
 const starDragCommitted = ref(false);
 
 const starredSet = computed(() => new Set(starredLayoutIds.value));
 
 const layoutById = computed(() => {
-  const m = new Map();
+  const m = new Map<string, Layout>();
   for (const l of layouts.value) {
     m.set(l.id, l);
   }
@@ -116,7 +118,9 @@ const layoutById = computed(() => {
 
 const starredLayouts = computed(() => {
   const map = layoutById.value;
-  return starredLayoutIds.value.map((id) => map.get(id)).filter(Boolean);
+  return starredLayoutIds.value
+    .map((id) => map.get(id))
+    .filter((l): l is Layout => !!l);
 });
 
 const unstarredLayouts = computed(() =>
@@ -149,7 +153,7 @@ const loadUserProfile = async () => {
   }
 };
 
-const toggleDefaultGrid = async (gridId) => {
+const toggleDefaultGrid = async (gridId: string) => {
   const userId = getAuthProvider().getCurrentUserId();
   if (!userId) return;
 
@@ -162,7 +166,7 @@ const toggleDefaultGrid = async (gridId) => {
   }
 };
 
-const toggleStarGrid = async (gridId) => {
+const toggleStarGrid = async (gridId: string) => {
   const userId = getAuthProvider().getCurrentUserId();
   if (!userId) return;
 
@@ -180,7 +184,7 @@ const toggleStarGrid = async (gridId) => {
   }
 };
 
-const saveStarredOrder = async (next, previous) => {
+const saveStarredOrder = async (next: string[], previous: string[]) => {
   const userId = getAuthProvider().getCurrentUserId();
   if (!userId) {
     starredLayoutIds.value = previous;
@@ -195,10 +199,10 @@ const saveStarredOrder = async (next, previous) => {
   }
 };
 
-const areSameOrder = (a, b) =>
+const areSameOrder = (a: string[], b: string[]) =>
   a.length === b.length && a.every((id, idx) => id === b[idx]);
 
-const onStarDragStart = (event, layoutId) => {
+const onStarDragStart = (event: DragEvent, layoutId: string) => {
   draggedStarId.value = layoutId;
   draggedStarInitialOrder.value = [...starredLayoutIds.value];
   starDragCommitted.value = false;
@@ -208,7 +212,7 @@ const onStarDragStart = (event, layoutId) => {
   }
 };
 
-const onStarDragOver = (event, layoutId) => {
+const onStarDragOver = (event: DragEvent, layoutId: string) => {
   if (!draggedStarId.value || draggedStarId.value === layoutId) return;
   event.preventDefault();
   dragOverStarId.value = layoutId;
@@ -226,7 +230,7 @@ const onStarDragOver = (event, layoutId) => {
   starredLayoutIds.value = current;
 };
 
-const onStarDrop = async (event) => {
+const onStarDrop = async (event: DragEvent) => {
   event.preventDefault();
   dragOverStarId.value = null;
   starDragCommitted.value = true;
@@ -248,9 +252,9 @@ const onStarDragEnd = async () => {
   starDragCommitted.value = false;
 };
 
-const splitMenuOpenFor = ref(null);
+const splitMenuOpenFor = ref<string | null>(null);
 
-const toggleSplitMenu = (layoutId) => {
+const toggleSplitMenu = (layoutId: string) => {
   splitMenuOpenFor.value =
     splitMenuOpenFor.value === layoutId ? null : layoutId;
 };
@@ -277,7 +281,7 @@ const closeModal = () => {
   showCreateModal.value = false;
 };
 
-const handleCreateGrid = async (name) => {
+const handleCreateGrid = async (name: string) => {
   try {
     const newLayoutId = await layoutStore.createLayout(name);
     if (newLayoutId) {
@@ -288,11 +292,11 @@ const handleCreateGrid = async (name) => {
       router.push(`/grid/${newLayoutId}`);
     }
   } catch (error) {
-    console.error("Error creating layout:", error.message);
+    console.error("Error creating layout:", error);
   }
 };
 
-const openRenameModal = (layout) => {
+const openRenameModal = (layout: Layout) => {
   gridToRename.value = layout;
   showRenameModal.value = true;
 };
@@ -302,7 +306,7 @@ const closeRenameModal = () => {
   gridToRename.value = null;
 };
 
-const handleRenameGrid = async (newName) => {
+const handleRenameGrid = async (newName: string) => {
   if (!gridToRename.value) return;
 
   try {
@@ -314,7 +318,7 @@ const handleRenameGrid = async (newName) => {
   }
 };
 
-const duplicateGrid = async (layout, copyDepth = "full") => {
+const duplicateGrid = async (layout: Layout, copyDepth: CopyDepth = "full") => {
   splitMenuOpenFor.value = null;
   try {
     const newId = await layoutStore.duplicateLayout(layout, copyDepth);
@@ -327,7 +331,7 @@ const duplicateGrid = async (layout, copyDepth = "full") => {
   }
 };
 
-const persistStarredAfterDelete = async (deletedId) => {
+const persistStarredAfterDelete = async (deletedId: string) => {
   const userId = getAuthProvider().getCurrentUserId();
   if (!userId) return;
   const next = starredLayoutIds.value.filter((id) => id !== deletedId);
@@ -340,7 +344,7 @@ const persistStarredAfterDelete = async (deletedId) => {
   }
 };
 
-const confirmDeleteGrid = async (layout) => {
+const confirmDeleteGrid = async (layout: Layout) => {
   const confirmed = confirm(
     `Are you sure you want to delete "${layout.name}"? This action cannot be undone.`,
   );

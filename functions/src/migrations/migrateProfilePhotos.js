@@ -14,6 +14,8 @@
  *   node migrateProfilePhotos.js
  */
 
+/* eslint-disable */
+
 const admin = require("firebase-admin");
 
 if (!admin.apps.length) {

@@ -9,7 +9,7 @@ export function useAuthGuard() {
 
   getAuthProvider().onAuthStateChanged((user) => {
     if (user) {
-      console.log("User is logged in:", user);
+      // user is already logged in
     } else {
       router.push("/login"); // Redirect if not authenticated
     }

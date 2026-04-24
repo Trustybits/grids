@@ -194,7 +194,7 @@ import {
   type Ref,
   type Component,
 } from "vue";
-import type { Tile } from "@/types/Tile";
+import type { Tile, TileChildComponent } from "@/types/Tile";
 import type { TextContent } from "@/types/TileContent";
 import type {
   ToolbarItem,
@@ -234,9 +234,9 @@ export default defineComponent({
     },
     toolbarRefs: {
       type: Object as PropType<{
-        childComponent: any;
-        isEditing: any;
-        isExitingCropMode: any;
+        childComponent: Ref<TileChildComponent | null>;
+        isEditing: Ref<boolean>;
+        isExitingCropMode: Ref<boolean>;
       }>,
       required: true,
     },
@@ -264,8 +264,10 @@ export default defineComponent({
     const imageUrlInputRef = ref<HTMLInputElement | null>(null);
     const imageUrlDraft = ref("");
     const imageUrlError = ref("");
-    const fontSizeSelectorRef = ref<any>(null);
-    const fontSelectorRef = ref<any>(null);
+    const fontSizeSelectorRef = ref<InstanceType<
+      typeof FontSizeSelector
+    > | null>(null);
+    const fontSelectorRef = ref<InstanceType<typeof FontSelector> | null>(null);
     const childComponent = props.toolbarRefs.childComponent;
 
     const isActiveTile = computed(
@@ -451,7 +453,7 @@ export default defineComponent({
 
       if (
         item.id === "tile-link" &&
-        !(ctx.value.tile.content as any)?.tileLink
+        !(ctx.value.tile.content as { tileLink?: string })?.tileLink
       ) {
         closeMenu();
       }
@@ -460,13 +462,16 @@ export default defineComponent({
     };
 
     const onMenuItemClick = (mi: ToolbarMenuItem) => {
-      if (mi.id === "tile-link" && !(ctx.value.tile.content as any)?.tileLink) {
+      if (
+        mi.id === "tile-link" &&
+        !(ctx.value.tile.content as { tileLink?: string })?.tileLink
+      ) {
         closeMenu();
       }
       mi.action(ctx.value);
     };
 
-    const resolveSelectorRef = (selectorRef: { value: any }) => {
+    const resolveSelectorRef = (selectorRef: { value: unknown }) => {
       const refValue = selectorRef.value;
       if (Array.isArray(refValue)) {
         return refValue[0] ?? null;
@@ -491,7 +496,11 @@ export default defineComponent({
     };
 
     const onLocateClick = () => {
-      props.toolbarRefs.childComponent?.value?.useMyLocation?.();
+      if (
+        props.toolbarRefs.childComponent?.value?.useMyLocation !== undefined
+      ) {
+        props.toolbarRefs.childComponent?.value?.useMyLocation?.();
+      }
     };
 
     const onSearchSubmit = () => {

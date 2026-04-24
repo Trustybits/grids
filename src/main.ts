@@ -3,7 +3,6 @@ import "./assets/main.css";
 import { createApp } from "vue";
 import App from "./App.vue";
 import { createPinia } from "pinia";
-import { app as firebaseApp } from "./firebase";
 import router from "./router";
 import posthog from "posthog-js";
 import { registerDaoFactory } from "@/dao/DaoFactorySingleton";

@@ -16,13 +16,7 @@
  */
 
 import { ref, readonly } from 'vue'
-import { getAuthProvider } from '@/auth/AuthProviderSingleton'
 import { getServiceFactory } from '@/services/ServiceFactorySingleton'
-import {
-  createSupporterCheckoutSession,
-  createProCheckoutSession,
-  createCustomerPortalSession,
-} from '@/services/StripeService'
 import { usePostHog } from '@/composables/usePostHog'
 
 // ── Constants ──────────────────────────────────────────────────────────────

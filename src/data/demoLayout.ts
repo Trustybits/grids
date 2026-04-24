@@ -14,7 +14,7 @@
 //     profile, text, image, music, youtube embed, and link tiles.
 
 import type { Layout } from "@/types/Layout";
-import { createDefaultLayout } from "@/types/FirestoreMappers";
+import { createDefaultLayout } from "@/utils/LayoutUtils";
 import { createTile } from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
 import { v4 as uuidv4 } from "uuid";
@@ -59,17 +59,14 @@ const textDoc = (lines: string[]): string => {
 // a real page, short enough to sit inside the hero comfortably.
 const createDemoTiles = () => [
   createTile(
-    ContentType.PROFILE,
+    ContentType.IMAGE,
     uuidv4(),
     0,
     0,
     2,
     2,
     {
-      name: "Taylor Reid",
-      title: "Designer · Lisbon",
-      bio: "Building quiet software and loud posters.",
-      avatarShape: "circle",
+      src: "https://plus.unsplash.com/premium_photo-1674917000586-b7564f21540e?q=80&w=1288&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     },
     "",
   ),
@@ -167,7 +164,7 @@ const createDemoTiles = () => [
     1,
     {
       link: "https://grids.so",
-      customTitle: "Read the blog",
+      customTitle: "Visit the Grid",
       customSubtitle: "Notes on building grids.so",
       linkBackgroundEnabled: true,
     },

@@ -42,3 +42,5 @@ src/components/FluidTextCard/index.ts
 
 
 notesAndPlans
+firestore-stripe-payments-setup.local.md
+extensions/firestore-stripe-payments*.env

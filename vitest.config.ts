@@ -12,7 +12,7 @@ export default defineConfig({
     // Run this setup file before each test suite
     setupFiles: ['./src/test/setup.ts'],
     // Where to look for tests
-    include: ['src/**/__tests__/**/*.test.ts'],
+    include: ['src/**/__tests__/**/*.test.ts', 'api/**/__tests__/**/*.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

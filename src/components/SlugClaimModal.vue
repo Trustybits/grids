@@ -83,7 +83,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { checkSlugAvailability, claimSlug } from '@/services/UserProfileService';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
+
+const userService = getServiceFactory().getUserService();
 
 const props = defineProps<{
   isOpen: boolean;
@@ -186,7 +188,7 @@ const checkAvailability = async (slug: string) => {
   validationClass.value = 'info';
 
   try {
-    const result = await checkSlugAvailability(slug);
+    const result = await userService.checkSlugAvailability(slug);
     
     // Only update UI if this check wasn't aborted
     if (currentController === checkAbortController.value) {
@@ -228,7 +230,7 @@ const handleClaim = async () => {
   const claimedSlug = slugInput.value;
   
   try {
-    const result = await claimSlug(claimedSlug);
+    const result = await userService.claimSlug(claimedSlug);
     
     if (result.success) {
       // Close modal immediately for responsive feel

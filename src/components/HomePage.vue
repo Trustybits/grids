@@ -45,7 +45,10 @@
         </p>
         <div class="mkt__url-pill">
           <span>grids.so/</span>
-          <input v-model="urlSlug" aria-label="slug input" />
+          <span class="mkt__url-pill-text" aria-label="slug input" role="textbox">
+            <span class="mkt__url-pill-text-value">{{ animatedSlug }}</span>
+            <span class="mkt__url-pill-caret" aria-hidden="true"></span>
+          </span>
           <button>Claim handle →</button>
         </div>
       </div>
@@ -470,7 +473,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useSubscription } from '@/composables/useSubscription';
@@ -498,7 +501,62 @@ const route = useRoute();
 const router = useRouter();
 
 const currentPage = ref<Page>('home');
-const urlSlug = ref('taylor');
+
+// Animated marketing pill — types/backspaces through sample handles
+const sampleSlugs = ['taylor', 'mira', 'jordan', 'kei', 'june', 'sam', 'paulo', 'liam', 'olivia', 'noah', 'mma', 'oliver', 'charlotte', 'elijah', 'amelia', 'james', 'ava', 'william', 'sophia', 'benjamin', 'isabella', 'lucas', 'mia', 'henry', 'evelyn', 'theodore', 'harper'];
+const animatedSlug = ref(sampleSlugs[0]);
+let slugTimer: ReturnType<typeof setTimeout> | null = null;
+
+const TYPE_MS = 110;
+const DELETE_MS = 55;
+const HOLD_FULL_MS = 2400;
+const HOLD_EMPTY_MS = 320;
+
+function scheduleSlug(fn: () => void, delay: number) {
+  slugTimer = setTimeout(fn, delay);
+}
+
+function startSlugAnimation() {
+  let index = 0;
+
+  const typeNext = () => {
+    index = (index + 1) % sampleSlugs.length;
+    const target = sampleSlugs[index];
+    let i = 0;
+
+    const typeChar = () => {
+      i += 1;
+      animatedSlug.value = target.slice(0, i);
+      if (i < target.length) {
+        scheduleSlug(typeChar, TYPE_MS);
+      } else {
+        scheduleSlug(deleteCurrent, HOLD_FULL_MS);
+      }
+    };
+
+    scheduleSlug(typeChar, HOLD_EMPTY_MS);
+  };
+
+  const deleteCurrent = () => {
+    const current = animatedSlug.value;
+    if (current.length === 0) {
+      typeNext();
+      return;
+    }
+    animatedSlug.value = current.slice(0, -1);
+    scheduleSlug(deleteCurrent, DELETE_MS);
+  };
+
+  scheduleSlug(deleteCurrent, HOLD_FULL_MS);
+}
+
+onMounted(() => {
+  startSlugAnimation();
+});
+
+onBeforeUnmount(() => {
+  if (slugTimer) clearTimeout(slugTimer);
+});
 
 const pageFromRoute = (path: string): Page | null => {
   if (path === '/pricing') return 'pricing';
@@ -900,7 +958,6 @@ const faqItems = [
 .mkt__url-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   background: var(--mkt-bg-2);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
@@ -917,7 +974,33 @@ const faqItems = [
   outline: 0;
   color: var(--mkt-fg-1);
   font: 600 15px/1 var(--mkt-font-sans);
+  padding-right: 10px;
   width: 120px;
+}
+.mkt__url-pill-text {
+  display: inline-flex;
+  align-items: center;
+  color: var(--mkt-fg-1);
+  font: 600 15px/1 var(--mkt-font-sans);
+  padding-right: 10px;
+  min-width: 120px;
+  white-space: pre;
+}
+.mkt__url-pill-text-value {
+  display: inline-block;
+}
+.mkt__url-pill-caret {
+  display: inline-block;
+  width: 1.5px;
+  height: 1em;
+  background: currentColor;
+  margin-left: 1px;
+  vertical-align: -0.12em;
+  animation: mkt-caret-blink 1.05s steps(1) infinite;
+}
+@keyframes mkt-caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
 }
 .mkt__url-pill button {
   border: 0;

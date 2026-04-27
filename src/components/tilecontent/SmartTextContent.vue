@@ -764,6 +764,7 @@ export default defineComponent({
         const shouldBeEditable = canEdit && editing;
         editor.value.setEditable(shouldBeEditable);
         if (shouldBeEditable) {
+          if (tileId) layoutStore.beginEditing(tileId);
           editor.value.commands.focus("end");
           return;
         }
@@ -775,6 +776,7 @@ export default defineComponent({
           return;
         }
         flushPersist();
+        layoutStore.commitEditing();
       },
     );
 

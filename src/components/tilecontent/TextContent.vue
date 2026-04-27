@@ -220,6 +220,7 @@ export default defineComponent({
         editor.value.setEditable(shouldBeEditable);
 
         if (shouldBeEditable) {
+          if (tileId) layoutStore.beginEditing(tileId);
           editor.value.commands.focus("end");
           return;
         }
@@ -233,6 +234,7 @@ export default defineComponent({
         }
         // Owner is leaving edit mode: flush any pending debounce and persist.
         flushPersist();
+        layoutStore.commitEditing();
       },
     );
 

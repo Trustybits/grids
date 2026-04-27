@@ -30,6 +30,7 @@ const svc = () => getServiceFactory().getLayoutService();
 let undoRedoManager: UndoRedoManager | null = null;
 let pendingDragSnapshot: Snapshot | null = null;
 let pendingResizeSnapshot: Snapshot | null = null;
+let editingTileId: string | null = null;
 
 export const useLayoutStore = defineStore("layout", {
   state: () => ({
@@ -247,6 +248,15 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       this.saveLayout();
+    },
+
+    beginEditing(tileId: string) {
+      this.pushUndoSnapshot("Edit tile");
+      editingTileId = tileId;
+    },
+
+    commitEditing() {
+      editingTileId = null;
     },
 
     beginMove() {
@@ -640,14 +650,13 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
-    // saveSnapshot parameter enables text fields to turn off snapshots while saving automatically, but to turn it on for the first save
-    patchTileContent(id: string, patch: Partial<AnyTileContent>, saveSnapshot: boolean = true) {
+    patchTileContent(id: string, patch: Partial<AnyTileContent>) {
       if (!this.currentLayout) return;
 
       const tile = this.currentLayout.tiles.find((t) => t.i === id);
       if (!tile) return;
 
-      if (saveSnapshot) {
+      if (editingTileId !== id) {
         this.pushUndoSnapshot("Update tile");
       }
 
@@ -1028,6 +1037,7 @@ export const useLayoutStore = defineStore("layout", {
       this.activePanelId = null;
       this.forcedBreakpoint = null;
       this.viewportBreakpoint = "lg";
+      editingTileId = null;
       undoRedoManager?.clear();
       undoRedoManager = null;
     },

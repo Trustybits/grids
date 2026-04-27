@@ -686,6 +686,7 @@ export default defineComponent({
         });
 
         if (shouldBeEditable) {
+          if (tileId) layoutStore.beginEditing(tileId);
           nextTick(() => {
             const target =
               pendingFocusEditor.value ||
@@ -709,6 +710,7 @@ export default defineComponent({
         }
 
         flushPersist();
+        layoutStore.commitEditing();
       },
     );
 

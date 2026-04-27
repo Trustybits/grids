@@ -1,86 +1,83 @@
-import type { Breakpoint, Snapshot, BreakpointStacks } from './UndoTypes';
+import type { Snapshot } from "./UndoTypes";
 
 const MAX_STACK_SIZE = 20;
-const BREAKPOINTS: Breakpoint[] = ['lg', 'md', 'sm'];
 
 export class UndoRedoManager {
-  private stacks: Record<Breakpoint, BreakpointStacks>;
+  private undoStack: Snapshot[];
+  private redoStack: Snapshot[];
   private onChanged: (() => void) | null;
 
   constructor(onChanged?: () => void) {
+    this.undoStack = [];
+    this.redoStack = [];
     this.onChanged = onChanged ?? null;
-    this.stacks = UndoRedoManager.createEmptyStacks();
   }
 
-  private static createEmptyStacks(): Record<Breakpoint, BreakpointStacks> {
-    return {
-      lg: { undoStack: [], redoStack: [] },
-      md: { undoStack: [], redoStack: [] },
-      sm: { undoStack: [], redoStack: [] },
-    };
-  }
+  pushSnapshot(snapshot: Snapshot): void {
+    if (this.isDuplicate(snapshot)) return;
 
-  pushSnapshot(breakpoint: Breakpoint, snapshot: Snapshot): void {
-    const { undoStack } = this.stacks[breakpoint];
-
-    undoStack.push(snapshot);
-    if (undoStack.length > MAX_STACK_SIZE) {
-      undoStack.shift();
+    this.undoStack.push(snapshot);
+    if (this.undoStack.length > MAX_STACK_SIZE) {
+      this.undoStack.shift();
     }
 
-    this.stacks[breakpoint].redoStack = [];
+    this.redoStack = [];
     this.onChanged?.();
   }
 
-  undo(breakpoint: Breakpoint, currentSnapshot: Snapshot): Snapshot | null {
-    const { undoStack, redoStack } = this.stacks[breakpoint];
-    const snapshot = undoStack.pop();
+  undo(currentSnapshot: Snapshot): Snapshot | null {
+    const snapshot = this.undoStack.pop();
     if (!snapshot) return null;
 
-    redoStack.push({ ...currentSnapshot, actionLabel: snapshot.actionLabel });
+    this.redoStack.push({
+      ...currentSnapshot,
+      actionLabel: snapshot.actionLabel,
+    });
     this.onChanged?.();
     return snapshot;
   }
 
-  redo(breakpoint: Breakpoint, currentSnapshot: Snapshot): Snapshot | null {
-    const { undoStack, redoStack } = this.stacks[breakpoint];
-    const snapshot = redoStack.pop();
+  redo(currentSnapshot: Snapshot): Snapshot | null {
+    const snapshot = this.redoStack.pop();
     if (!snapshot) return null;
 
-    undoStack.push({ ...currentSnapshot, actionLabel: snapshot.actionLabel });
+    this.undoStack.push({
+      ...currentSnapshot,
+      actionLabel: snapshot.actionLabel,
+    });
     this.onChanged?.();
     return snapshot;
   }
 
-  canUndo(breakpoint: Breakpoint): boolean {
-    return this.stacks[breakpoint].undoStack.length > 0;
+  canUndo(): boolean {
+    return this.undoStack.length > 0;
   }
 
-  canRedo(breakpoint: Breakpoint): boolean {
-    return this.stacks[breakpoint].redoStack.length > 0;
+  canRedo(): boolean {
+    return this.redoStack.length > 0;
   }
 
   clear(): void {
-    for (const bp of BREAKPOINTS) {
-      this.clearBreakpoint(bp);
-    }
-  }
-
-  clearBreakpoint(breakpoint: Breakpoint): void {
-    this.stacks[breakpoint].undoStack = [];
-    this.stacks[breakpoint].redoStack = [];
+    this.undoStack = [];
+    this.redoStack = [];
     this.onChanged?.();
   }
 
-  getLastActionLabel(breakpoint: Breakpoint): string | null {
-    const { undoStack } = this.stacks[breakpoint];
-    if (undoStack.length === 0) return null;
-    return undoStack[undoStack.length - 1].actionLabel;
+  getLastActionLabel(): string | null {
+    if (this.undoStack.length === 0) return null;
+    return this.undoStack[this.undoStack.length - 1].actionLabel;
   }
 
-  getNextRedoActionLabel(breakpoint: Breakpoint): string | null {
-    const { redoStack } = this.stacks[breakpoint];
-    if (redoStack.length === 0) return null;
-    return redoStack[redoStack.length - 1].actionLabel;
+  getNextRedoActionLabel(): string | null {
+    if (this.redoStack.length === 0) return null;
+    return this.redoStack[this.redoStack.length - 1].actionLabel;
+  }
+
+  private isDuplicate(snapshot: Snapshot): boolean {
+    const { actionLabel: _a, ...incomingData } = snapshot;
+    const { actionLabel: _b, ...topOfStackData } =
+      this.undoStack[this.undoStack.length - 1] ?? {};
+
+    return JSON.stringify(incomingData) === JSON.stringify(topOfStackData);
   }
 }

@@ -697,10 +697,11 @@ async function captureGridTiles(
   const imgW = meta.width ?? TILE_VIEWPORT_W;
   const imgH = meta.height ?? captureHeight;
 
-  // Read each tile's bounding box plus content metadata (type / cols / rows)
-  // exposed via data-attributes on `.tile-wrapper`. Viewport coordinates
-  // match page coordinates because we disabled scrolling and the grid fits
-  // inside the viewport.
+  // Read each tile's bounding box plus content metadata (type / cols / rows
+  // / hasContent) exposed via data-attributes on `.tile-wrapper`. We also
+  // derive a unit cell size from the smallest tile in the grid so we can
+  // estimate cols/rows for builds that haven't deployed the data-attribute
+  // changes to the frontend yet.
   interface TileMeta {
     x: number;
     y: number;
@@ -709,16 +710,31 @@ async function captureGridTiles(
     type: string;
     cols: number;
     rows: number;
+    /** true if the tile's `.card-body` contains any visible content */
+    hasContent: boolean;
   }
   const rects: Array<TileMeta | null> = await page.evaluate(() => {
-    // Scroll back to the top so getBoundingClientRect coords align with
-    // the fullPage screenshot (which starts at document 0,0).
     window.scrollTo(0, 0);
     const sx = window.scrollX || 0;
     const sy = window.scrollY || 0;
     const items = Array.from(
       document.querySelectorAll(".vue-grid-item")
     ) as HTMLElement[];
+
+    // First pass: find the smallest non-trivial tile rect. Vue3-grid-layout
+    // sizes tiles as `cols * unitW + (cols-1) * marginX` so the smallest
+    // rect should be a 1×1 tile. We use that as the cell unit when the
+    // explicit data-tile-w/h attributes are missing.
+    let unitW = Infinity;
+    let unitH = Infinity;
+    for (const item of items) {
+      const r = item.getBoundingClientRect();
+      if (r.width > 16 && r.width < unitW) unitW = r.width;
+      if (r.height > 16 && r.height < unitH) unitH = r.height;
+    }
+    if (!isFinite(unitW)) unitW = 0;
+    if (!isFinite(unitH)) unitH = 0;
+
     return items.map((item) => {
       const wrapper = item.querySelector(
         ".tile-wrapper"
@@ -728,8 +744,28 @@ async function captureGridTiles(
       if (!card) return null;
       const r = card.getBoundingClientRect();
       const type = wrapper?.dataset.tileType ?? "";
-      const cols = Number(wrapper?.dataset.tileW ?? 0) || 0;
-      const rows = Number(wrapper?.dataset.tileH ?? 0) || 0;
+
+      const colsAttr = Number(wrapper?.dataset.tileW ?? 0) || 0;
+      const rowsAttr = Number(wrapper?.dataset.tileH ?? 0) || 0;
+      // Estimate cols/rows from the rendered .vue-grid-item rect when the
+      // explicit attributes aren't deployed yet. Round to nearest int.
+      const itemRect = item.getBoundingClientRect();
+      const colsEst =
+        unitW > 0 ? Math.max(1, Math.round(itemRect.width / unitW)) : 0;
+      const rowsEst =
+        unitH > 0 ? Math.max(1, Math.round(itemRect.height / unitH)) : 0;
+      const cols = colsAttr || colsEst;
+      const rows = rowsAttr || rowsEst;
+
+      // DOM-based blank check — does the tile actually render anything?
+      // Catches dynamic components that never resolved, link previews
+      // that didn't fetch, profile/embed tiles that have no content yet.
+      const hasMedia = !!card.querySelector(
+        "img, svg, video, canvas, picture, iframe"
+      );
+      const text = (card.textContent || "").trim();
+      const hasContent = hasMedia || text.length > 0;
+
       return {
         x: r.x + sx,
         y: r.y + sy,
@@ -738,6 +774,7 @@ async function captureGridTiles(
         type,
         cols,
         rows,
+        hasContent,
       };
     });
   });
@@ -751,9 +788,23 @@ async function captureGridTiles(
     if (!r || r.w < 16 || r.h < 16) continue;
     // Drop suggestion (placeholder) tiles — they're internal-only chrome.
     if (r.type === "suggestion") continue;
+    // Drop tiles whose `.card-body` had no rendered media or text. Catches
+    // tiles whose dynamic component never mounted, link previews that
+    // failed to fetch, and profile / embed tiles with no content.
+    if (!r.hasContent) {
+      functions.logger.info(
+        `[og] tile ${i} no rendered content (type=${r.type}) — skipping`
+      );
+      continue;
+    }
     // Drop oversized tiles. Anything wider/taller than MAX_TILE_SPAN cells
     // would dominate the OG and we're going for a scattered, varied feel.
-    if (r.cols > MAX_TILE_SPAN || r.rows > MAX_TILE_SPAN) continue;
+    if (r.cols > MAX_TILE_SPAN || r.rows > MAX_TILE_SPAN) {
+      functions.logger.info(
+        `[og] tile ${i} too big (${r.cols}x${r.rows}) — skipping`
+      );
+      continue;
+    }
 
     // Clamp to the actual screenshot bounds so sharp doesn't reject the
     // extract. With fullPage:true the screenshot height matches the doc

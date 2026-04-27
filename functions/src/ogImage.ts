@@ -56,10 +56,12 @@ const OG_H = 630;
 const TILE_VIEWPORT_W = 1524;
 const TILE_VIEWPORT_H = 940;
 
-// Min/max number of tiles to scatter. The exact count is chosen by the
-// seeded PRNG so each grid gets a stable but varied composition.
-// If the grid has fewer than MIN tiles available we render whatever it
-// has — the count is clamped to `min(seededCount, availableTiles)`.
+// Min/max number of tiles to scatter. We always aim for MAX. If a grid has
+// fewer than MIN tiles eligible (after dropping >4×4 / suggestion tiles) we
+// fall back to the empty composition rather than scattering 1–7 lonely
+// tiles. Selection is diversity-aware (see `selectScatterTiles`) so the
+// first slots always go to a unique content category before any category
+// doubles up.
 const MIN_SCATTER_TILES = 8;
 const MAX_SCATTER_TILES = 20;
 
@@ -477,6 +479,55 @@ interface CapturedTile {
   width: number;
   /** natural rendered height */
   height: number;
+  /** ContentType value from the grid app (`music`, `map`, `link`, etc.) */
+  type: string;
+  /** tile column span (1-12) */
+  cols: number;
+  /** tile row span (1-10) */
+  rows: number;
+}
+
+/**
+ * Skip tiles whose footprint is larger than this in either axis. Big tiles
+ * (5×5 dashboards, hero embeds, etc.) tend to dominate the OG composition
+ * and eat the seed grid; we want a denser scatter of smaller content.
+ */
+const MAX_TILE_SPAN = 4;
+
+/**
+ * Categories the OG composition tries to include before doubling up. Order
+ * controls the priority when seats are scarce — the first category present
+ * in the grid is guaranteed a slot first, then the next, and so on.
+ */
+const PRIORITY_CATEGORIES = [
+  "music",
+  "map",
+  "visual",
+  "link",
+  "text",
+] as const;
+type Category = (typeof PRIORITY_CATEGORIES)[number] | "other";
+
+function categoryFor(type: string): Category {
+  switch (type) {
+    case "music":
+      return "music";
+    case "map":
+      return "map";
+    case "image":
+    case "video":
+    case "youtube":
+      return "visual";
+    case "link":
+    case "embed":
+      return "link";
+    case "text":
+    case "smart_text":
+    case "chat":
+      return "text";
+    default:
+      return "other";
+  }
 }
 
 async function captureGridTiles(
@@ -544,7 +595,45 @@ async function captureGridTiles(
       "::-webkit-scrollbar { display: none !important; } body { overflow: hidden !important; margin: 0 !important; }",
   });
 
-  // Wait for all tile images to finish loading.
+  // Resize the viewport to fit the entire grid BEFORE waiting on images.
+  // Two reasons:
+  //   1. Tiles below the original 940px fold have to be inside the screenshot
+  //      or sharp throws "bad extract area".
+  //   2. Tile images / dynamic components frequently use lazy loading +
+  //      IntersectionObserver. If we wait on images while the tiles are
+  //      below the fold they never start loading and we get blank rectangles.
+  const docHeight: number = await page.evaluate(() =>
+    Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight,
+      document.documentElement.offsetHeight,
+      document.body.offsetHeight
+    )
+  );
+  const captureHeight = Math.max(TILE_VIEWPORT_H, Math.ceil(docHeight) + 32);
+  await page.setViewport({
+    width: TILE_VIEWPORT_W,
+    height: captureHeight,
+    deviceScaleFactor: 1,
+  });
+
+  // Force-eager every image we know about and nudge any IntersectionObserver
+  // listeners by scrolling the document. With the viewport sized to the full
+  // grid, every tile is already in view — we just have to convince listeners
+  // that wired up before the resize that yes, the tile is visible.
+  await page.evaluate(() => {
+    document.querySelectorAll("img").forEach((img) => {
+      const el = img as HTMLImageElement;
+      el.loading = "eager";
+      // Some lazy-image libraries swap data-src → src on intersect; do it now.
+      const dataSrc = el.dataset.src;
+      if (dataSrc && !el.src) el.src = dataSrc;
+    });
+    window.dispatchEvent(new Event("resize"));
+    window.dispatchEvent(new Event("scroll"));
+  });
+
+  // Now wait for all tile images to finish loading.
   await page.evaluate(() =>
     Promise.all(
       Array.from(document.querySelectorAll(".grid-container img")).map(
@@ -567,13 +656,28 @@ async function captureGridTiles(
   });
 
   // Generous paint buffer — tile components mount asynchronously via dynamic
-  // import, and link previews fetch metadata after that. 3s is the sweet spot
-  // we use elsewhere for production grids.
-  await new Promise((r) => setTimeout(r, 3_000));
+  // import, and link previews fetch metadata after that. 4s gives slow tile
+  // types (embeds, link previews, dynamic charts) time to land.
+  await new Promise((r) => setTimeout(r, 4_000));
+
+  // Final image sweep — by now any deferred / dynamic-import tiles have
+  // mounted and inserted their own <img> elements. Wait for those too.
+  await page.evaluate(() =>
+    Promise.all(
+      Array.from(document.querySelectorAll(".grid-container img")).map(
+        (img: Element) =>
+          (img as HTMLImageElement).complete ?
+            Promise.resolve() :
+            new Promise((r) => {
+              img.addEventListener("load", r, { once: true });
+              img.addEventListener("error", r, { once: true });
+              setTimeout(r, 1_500);
+            })
+      )
+    )
+  );
 
   // Capture the full grid in one shot, then crop tiles client-side with sharp.
-  // Per-element clips were unreliable here because some tiles re-render after
-  // their dynamic component resolves, leaving the clipped region blank.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sharp: any = (await import("sharp")).default;
   const fullPng: Buffer = (await page.screenshot({
@@ -582,22 +686,58 @@ async function captureGridTiles(
     omitBackground: false,
   })) as Buffer;
 
-  // Read each tile's bounding box (viewport coordinates == page coordinates
-  // because we disabled scrolling and the grid fits inside the viewport).
-  const rects: Array<{ x: number; y: number; w: number; h: number } | null> =
-    await page.evaluate(() => {
-      const items = Array.from(
-        document.querySelectorAll(".vue-grid-item")
-      ) as HTMLElement[];
-      return items.map((item) => {
-        const card =
-          (item.querySelector(".card-body") as HTMLElement | null) ??
-          (item.querySelector(".tile-wrapper") as HTMLElement | null);
-        if (!card) return null;
-        const r = card.getBoundingClientRect();
-        return { x: r.x, y: r.y, w: r.width, h: r.height };
-      });
+  // Sharp tells us the real screenshot dimensions; we use those (not the
+  // viewport constants) when clamping each tile's extract rectangle.
+  const meta: { width?: number; height?: number } = await sharp(
+    fullPng
+  ).metadata();
+  const imgW = meta.width ?? TILE_VIEWPORT_W;
+  const imgH = meta.height ?? captureHeight;
+
+  // Read each tile's bounding box plus content metadata (type / cols / rows)
+  // exposed via data-attributes on `.tile-wrapper`. Viewport coordinates
+  // match page coordinates because we disabled scrolling and the grid fits
+  // inside the viewport.
+  interface TileMeta {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    type: string;
+    cols: number;
+    rows: number;
+  }
+  const rects: Array<TileMeta | null> = await page.evaluate(() => {
+    // Scroll back to the top so getBoundingClientRect coords align with
+    // the fullPage screenshot (which starts at document 0,0).
+    window.scrollTo(0, 0);
+    const sx = window.scrollX || 0;
+    const sy = window.scrollY || 0;
+    const items = Array.from(
+      document.querySelectorAll(".vue-grid-item")
+    ) as HTMLElement[];
+    return items.map((item) => {
+      const wrapper = item.querySelector(
+        ".tile-wrapper"
+      ) as HTMLElement | null;
+      const card =
+        (item.querySelector(".card-body") as HTMLElement | null) ?? wrapper;
+      if (!card) return null;
+      const r = card.getBoundingClientRect();
+      const type = wrapper?.dataset.tileType ?? "";
+      const cols = Number(wrapper?.dataset.tileW ?? 0) || 0;
+      const rows = Number(wrapper?.dataset.tileH ?? 0) || 0;
+      return {
+        x: r.x + sx,
+        y: r.y + sy,
+        w: r.width,
+        h: r.height,
+        type,
+        cols,
+        rows,
+      };
     });
+  });
 
   const skip = new Set(skipIndices);
   const captured: CapturedTile[] = [];
@@ -606,12 +746,20 @@ async function captureGridTiles(
     if (skip.has(i)) continue;
     const r = rects[i];
     if (!r || r.w < 16 || r.h < 16) continue;
+    // Drop suggestion (placeholder) tiles — they're internal-only chrome.
+    if (r.type === "suggestion") continue;
+    // Drop oversized tiles. Anything wider/taller than MAX_TILE_SPAN cells
+    // would dominate the OG and we're going for a scattered, varied feel.
+    if (r.cols > MAX_TILE_SPAN || r.rows > MAX_TILE_SPAN) continue;
 
-    // Clamp to viewport bounds so sharp doesn't reject the extract.
+    // Clamp to the actual screenshot bounds so sharp doesn't reject the
+    // extract. With fullPage:true the screenshot height matches the doc
+    // scrollHeight, so off-viewport tiles are included.
     const x = Math.max(0, Math.floor(r.x));
     const y = Math.max(0, Math.floor(r.y));
-    const w = Math.max(1, Math.floor(Math.min(r.w, TILE_VIEWPORT_W - x)));
-    const h = Math.max(1, Math.floor(Math.min(r.h, TILE_VIEWPORT_H - y)));
+    const w = Math.max(1, Math.floor(Math.min(r.w, imgW - x)));
+    const h = Math.max(1, Math.floor(Math.min(r.h, imgH - y)));
+    if (x >= imgW || y >= imgH) continue;
 
     try {
       const tileBuf: Buffer = await sharp(fullPng)
@@ -623,6 +771,9 @@ async function captureGridTiles(
         base64: tileBuf.toString("base64"),
         width: w,
         height: h,
+        type: r.type,
+        cols: r.cols,
+        rows: r.rows,
       });
     } catch (err) {
       functions.logger.warn(`[og] tile crop ${i} failed:`, err);
@@ -630,6 +781,61 @@ async function captureGridTiles(
   }
 
   return captured;
+}
+
+/**
+ * Pick which captured tiles to scatter. Guarantees one tile from each
+ * priority category (music, map, visual, link, text) before doubling up,
+ * up to `MAX_SCATTER_TILES`. Selection inside each phase is driven by the
+ * seeded RNG so the same grid produces the same OG.
+ */
+function selectScatterTiles(
+  pool: CapturedTile[],
+  rng: () => number,
+  max: number
+): CapturedTile[] {
+  if (pool.length === 0) return [];
+
+  // Deterministic shuffle — Fisher–Yates with the seeded RNG.
+  const shuffled = pool.slice();
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  const limit = Math.min(max, shuffled.length);
+  const groups = new Map<Category, CapturedTile[]>();
+  for (const t of shuffled) {
+    const cat = categoryFor(t.type);
+    if (!groups.has(cat)) groups.set(cat, []);
+    groups.get(cat)!.push(t);
+  }
+
+  const selected: CapturedTile[] = [];
+  const used = new Set<CapturedTile>();
+
+  // Phase 1 — guarantee 1 of each priority category that exists in the grid.
+  for (const cat of PRIORITY_CATEGORIES) {
+    if (selected.length >= limit) break;
+    const group = groups.get(cat);
+    if (group && group.length > 0) {
+      const t = group.shift()!;
+      selected.push(t);
+      used.add(t);
+    }
+  }
+
+  // Phase 2 — fill remaining slots from the shuffled pool (any category,
+  // including "other"), naturally doubling up once each priority category
+  // has at least one representative.
+  for (const t of shuffled) {
+    if (selected.length >= limit) break;
+    if (used.has(t)) continue;
+    selected.push(t);
+    used.add(t);
+  }
+
+  return selected;
 }
 
 // ─── Scatter layout: deterministic random positions + rotations ─────────────
@@ -1002,18 +1208,14 @@ async function handler(req: Request, res: Response): Promise<void> {
       );
     }
 
-    // Deterministic shuffle (no repeats) + seeded count between 4 and 20.
+    // Diversity-aware selection: prefer one of each content category
+    // (music / map / visual / link / text), then fill up to MAX. If the
+    // pool is below MIN we render the empty composition instead — a
+    // sparsely-tiled OG looks worse than a clean centered card.
     const rng = mulberry32(fnv1a(info.seed));
-    captured = captured
-      .map((c) => ({ c, k: rng() }))
-      .sort((a, b) => a.k - b.k)
-      .map((x) => x.c);
-
-    if (captured.length > 0) {
-      const targetCount =
-        MIN_SCATTER_TILES +
-        Math.floor(rng() * (MAX_SCATTER_TILES - MIN_SCATTER_TILES + 1));
-      captured = captured.slice(0, Math.min(targetCount, captured.length));
+    captured = selectScatterTiles(captured, rng, MAX_SCATTER_TILES);
+    if (captured.length < MIN_SCATTER_TILES) {
+      captured = [];
     }
 
     const placements = scatterTiles(captured, rng);

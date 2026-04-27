@@ -251,6 +251,7 @@ export const useLayoutStore = defineStore("layout", {
     },
 
     beginEditing(tileId: string) {
+      if (editingTileId) return;
       this.pushUndoSnapshot("Edit tile");
       editingTileId = tileId;
     },

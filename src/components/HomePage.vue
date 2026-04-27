@@ -110,10 +110,19 @@
           <p>Your grids.so url is the only link you'll need. Send it once — it stays in sync forever.</p>
         </div>
         <div class="mkt__feature-demo mkt__feature-demo--share">
-          <div class="mkt__share-pill">
+          <div class="mkt__og-card">
+            <div class="mkt__og-image">
+              <img src="/og-preview-placeholder.png" alt="Grid preview" />
+            </div>
+            <div class="mkt__og-meta">
+              <span class="mkt__og-site">cam's grid</span>
+              <span class="mkt__og-title">https://grids.so/cam</span>
+            </div>
+          </div>
+          <!-- <div class="mkt__share-pill">
             <span>grids.so/</span>
             <strong>taylor</strong>
-          </div>
+          </div> -->
         </div>
       </section>
 
@@ -125,7 +134,7 @@
           </div>
           <h2>Your page is <span>yours forever.</span></h2>
           <p>
-            We watched too many favourite link-in-bio and portfolio sites quietly shut down — taking their users'
+            We watched too many favorite link-in-bio and portfolio sites quietly shut down — taking their users'
             pages with them. We've felt that pain personally. So we open-sourced the whole thing.
           </p>
           <p>
@@ -1030,7 +1039,51 @@ const faqItems = [
   flex-direction: column;
   gap: 14px;
 }
-.mkt__feature-demo--share { background: radial-gradient(ellipse 50% 40% at 50% 50%, rgba(131, 139, 251, .25), transparent 70%), #0a0a0b; }
+.mkt__feature-demo--share {
+  background: radial-gradient(ellipse 50% 40% at 50% 50%, rgba(131, 139, 251, .25), transparent 70%), #0a0a0b;
+  flex-direction: column;
+  gap: 16px;
+}
+.mkt__og-card {
+  width: 280px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  background: var(--mkt-bg-2);
+  overflow: hidden;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, .5);
+}
+.mkt__og-image {
+  width: 100%;
+  aspect-ratio: 1.91 / 1;
+  background: linear-gradient(135deg, rgba(131, 139, 251, .18), rgba(236, 72, 153, .12));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.mkt__og-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.mkt__og-meta {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid rgba(255, 255, 255, .06);
+}
+.mkt__og-site {
+  font: 400 11px/1 var(--mkt-font-mono);
+  color: var(--mkt-fg-4);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.mkt__og-title {
+  font: 600 14px/1.3 var(--mkt-font-sans);
+  color: var(--mkt-fg-1);
+}
 .mkt__mini-tiles {
   width: 100%;
   aspect-ratio: 1 / 1;

@@ -38,7 +38,7 @@ const routes = [
   },
   {
     path: "/pricing",
-    component: PricingPage,
+    component: HomePage,
     meta: { requiresAuth: false },
   },
   {

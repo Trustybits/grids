@@ -19,7 +19,7 @@
     </div>
 
     <!-- Global bottom-left buttons (Share, Discord, UserMenu, GridMenu) -->
-    <BottomLeftButtons />
+    <BottomLeftButtons v-if="!hideBottomCornerButtons" />
 
     <!-- Toast Notifications -->
     <ToastContainer />
@@ -48,6 +48,7 @@ const { identify, reset: resetPostHog } = usePostHog();
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
+const hideBottomCornerButtons = computed(() => route.path === '/pricing');
 
 const user = ref<AuthUser | null>(null);
 const previousUser = ref<AuthUser | null>(null);
@@ -90,7 +91,11 @@ onMounted(() => {
 const isAuthenticated = computed(() => !!user.value);
 
 const isOnGridPage = computed(() =>
-  route.path.startsWith("/grid") || !!layoutStore.currentLayout
+  // The marketing homepage embeds a demo <Grid> that populates
+  // layoutStore.currentLayout; exclude it so the TopBar / title editor
+  // / "Claim my Grid" CTA don't show up on the landing page.
+  route.path.startsWith("/grid") ||
+  (!!layoutStore.currentLayout && !layoutStore.isDemoLayout)
 );
 
 const showTitleEditor = computed(() => {

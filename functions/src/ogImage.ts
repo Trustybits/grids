@@ -23,6 +23,9 @@
  *   ?slug=matt      generates for grids.so/matt
  *   ?gridId=abc123  generates for grids.so/grid/abc123
  *   ?refresh=1      bypasses cache and regenerates
+ *   ?seed=foo       overrides the deterministic seed (slug/gridId) so you
+ *                   can preview alternate scatter compositions for the same
+ *                   grid; also bypasses cache.
  */
 
 import * as functions from "firebase-functions/v1";
@@ -767,6 +770,24 @@ async function captureGridTiles(
         .png()
         .toBuffer();
 
+      // Drop tiles that came out as a near-uniform color. Causes:
+      //   - dynamic component never resolved before the paint buffer
+      //   - link/embed preview failed or hadn't fetched
+      //   - tile genuinely has no rendered content (missing image, etc.)
+      // Either way, scattering a flat dark rectangle in the OG looks worse
+      // than just picking a different tile from the pool.
+      const stats = await sharp(tileBuf).stats();
+      const meaningfulChannels = stats.channels.slice(0, 3); // RGB only
+      const isBlank = meaningfulChannels.every(
+        (ch: { stdev: number }) => ch.stdev < 4
+      );
+      if (isBlank) {
+        functions.logger.info(
+          `[og] tile ${i} captured blank (type=${r.type}, ${r.cols}x${r.rows}) — skipping`
+        );
+        continue;
+      }
+
       captured.push({
         base64: tileBuf.toString("base64"),
         width: w,
@@ -1125,6 +1146,9 @@ async function handler(req: Request, res: Response): Promise<void> {
   const slug = req.query.slug as string | undefined;
   const gridId = req.query.gridId as string | undefined;
   const refresh = req.query.refresh === "1";
+  // Optional override seed — useful for previewing alternate scatter
+  // compositions without changing the slug. Skips the storage cache.
+  const seedOverride = req.query.seed as string | undefined;
 
   if (!slug && !gridId) {
     res.status(400).json({ error: "Provide ?slug= or ?gridId=" });
@@ -1141,7 +1165,7 @@ async function handler(req: Request, res: Response): Promise<void> {
   // ── 1. Serve from Storage cache if available ─────────────────────────────
   // Skip cache entirely in the local emulator (no Storage credentials).
   const isEmulatorEnv = process.env.FUNCTIONS_EMULATOR === "true";
-  if (!refresh && !isEmulatorEnv) {
+  if (!refresh && !isEmulatorEnv && !seedOverride) {
     try {
       const [exists] = await file.exists();
       if (exists) {
@@ -1212,7 +1236,8 @@ async function handler(req: Request, res: Response): Promise<void> {
     // (music / map / visual / link / text), then fill up to MAX. If the
     // pool is below MIN we render the empty composition instead — a
     // sparsely-tiled OG looks worse than a clean centered card.
-    const rng = mulberry32(fnv1a(info.seed));
+    const seedString = seedOverride ?? info.seed;
+    const rng = mulberry32(fnv1a(seedString));
     captured = selectScatterTiles(captured, rng, MAX_SCATTER_TILES);
     if (captured.length < MIN_SCATTER_TILES) {
       captured = [];

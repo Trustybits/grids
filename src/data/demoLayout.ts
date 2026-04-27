@@ -4,16 +4,28 @@
 // Built fresh (not derived from createStarterTiles) so the landing page can
 // evolve independently of the "new grid" experience that live users get.
 //
+// The homepage hero scroll-jacks through three device viewports — phone,
+// tablet, desktop — so the same set of tiles needs to look great at every
+// breakpoint. We model that the way the grid does for real layouts:
+//
+//   • Base tiles use the lg (12-col, desktop) positions/sizes.
+//   • overrides.md provides an 8-col tablet layout.
+//   • overrides.sm provides a 4-col phone layout.
+//
 // Design constraints:
-//   • The embed always renders at the sm (4-column) breakpoint, so every
-//     tile is width ≤ 4.
-//   • No 4×4 or taller mega-tiles — they dominate a mobile canvas.
-//   • Sizes stay in the 1×1 / 2×2 / 4×1 / 4×2 family so tiles pack cleanly
-//     with vertical-compact gravity.
+//   • Every breakpoint is a single coherent page (not a re-flow of the next),
+//     so each layout is hand-tuned rather than auto-packed.
+//   • Sizes stay in tasteful proportions for each device:
+//       lg — wide and shallow (4 rows, plenty of room horizontally).
+//       md — squarish (6 rows).
+//       sm — tall and narrow (8 rows).
 //   • Mix of content types showcases what a real grid looks like:
-//     profile, text, image, music, youtube embed, and link tiles.
+//     profile/image, text, gif, music, youtube embed, quote, links.
+//   • Tile IDs are stable for the lifetime of the layout instance so the
+//     overrides correctly map onto the same tiles.
 
 import type { Layout } from "@/types/Layout";
+import type { Breakpoint, TilePosition } from "@/types/Tile";
 import { createDefaultLayout } from "@/utils/LayoutUtils";
 import { createTile } from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
@@ -47,20 +59,32 @@ const textDoc = (lines: string[]): string => {
   return JSON.stringify({ type: "doc", content });
 };
 
-// Tile positions (4-col grid, vertical-compact on):
+// Stable IDs for each tile — used both as the base tile.i and as the keys
+// of the breakpoint overrides. Keeping them human-readable also makes the
+// overrides table below easy to scan.
+const ID = {
+  IMAGE: "demo-image",
+  WELCOME: "demo-welcome",
+  GIF: "demo-gif",
+  MUSIC: "demo-music",
+  YT: "demo-yt",
+  QUOTE: "demo-quote",
+  LINK_STRIP: "demo-link-strip",
+  LINK_X: "demo-link-x",
+  LINK_GH: "demo-link-gh",
+  LINK_IG: "demo-link-ig",
+  LINK_DRIBBBLE: "demo-link-dribbble",
+} as const;
+
+// Desktop layout (lg, 12 columns, 4 rows tall ≈ 540px @ rowHeight 75)
 //
-//   y=0   [PROFILE 2×2]        [TEXT 2×2]
-//   y=2   [IMAGE   2×2]        [MUSIC 2×2]
-//   y=4   [YT EMBED 2×2]       [QUOTE TEXT 2×2]
-//   y=6   [──── LINK strip 4×1 ────]
-//   y=7   [L 1×1][L 1×1][L 1×1][L 1×1]
-//
-// Total height ≈ 8 rows × 75px + gutters ≈ 900px — tall enough to feel like
-// a real page, short enough to sit inside the hero comfortably.
-const createDemoTiles = () => [
+//   y=0   [IMG 2×2][TXT 2×2][GIF 2×2][MUS 2×2][YT 2×2][QTE 2×2]
+//   y=2   [────────────── LINK strip 12×1 ──────────────]
+//   y=3   [LINK 3×1 ][LINK 3×1 ][LINK 3×1 ][LINK 3×1 ]
+const createDesktopBaseTiles = () => [
   createTile(
     ContentType.IMAGE,
-    uuidv4(),
+    ID.IMAGE,
     0,
     0,
     2,
@@ -73,7 +97,7 @@ const createDemoTiles = () => [
   {
     ...createTile(
       ContentType.TEXT,
-      uuidv4(),
+      ID.WELCOME,
       2,
       0,
       2,
@@ -91,9 +115,9 @@ const createDemoTiles = () => [
   },
   createTile(
     ContentType.IMAGE,
-    uuidv4(),
+    ID.GIF,
+    4,
     0,
-    2,
     2,
     2,
     { src: heroGif },
@@ -101,9 +125,9 @@ const createDemoTiles = () => [
   ),
   createTile(
     ContentType.MUSIC,
-    uuidv4(),
-    2,
-    2,
+    ID.MUSIC,
+    6,
+    0,
     2,
     2,
     {
@@ -111,23 +135,23 @@ const createDemoTiles = () => [
       trackId: "1u8c2t2Cy7UBoG4ArRcF5g",
       trackName: "Blank Space",
       artistName: "Taylor Swift",
-      albumName: "1989 (Deluxe)",
       trackUrl: "https://open.spotify.com/track/1u8c2t2Cy7UBoG4ArRcF5g",
       artistUrl: "https://open.spotify.com/artist/06HL4z0CvFAxyc27GXpf02",
       albumArt:
         "https://image-cdn-fa.spotifycdn.com/image/ab67616d00001e029abdf14e6058bd3903686148",
       backgroundColor: "rgba(96, 81, 53, 255)",
       backgroundTinted: "rgba(62, 49, 21, 255)",
-      previewUrl: "https://p.scdn.co/mp3-preview/e5cb812c19b14f4dc4c92a4c996bb92d05e2bf39",
+      previewUrl:
+        "https://p.scdn.co/mp3-preview/e5cb812c19b14f4dc4c92a4c996bb92d05e2bf39",
       textSubdued: "rgba(220, 204, 171, 255)",
     },
     "",
   ),
   createTile(
     ContentType.EMBED,
-    uuidv4(),
+    ID.YT,
+    8,
     0,
-    4,
     2,
     2,
     { src: "https://www.youtube.com/embed/7ccH8u8fj8Y?si=hnB1rbMIsMCWpPO8" },
@@ -136,15 +160,15 @@ const createDemoTiles = () => [
   {
     ...createTile(
       ContentType.TEXT,
-      uuidv4(),
-      2,
-      4,
+      ID.QUOTE,
+      10,
+      0,
       2,
       2,
       {
         text: textDoc([
-          "## \"Simple,",
-          "## but significant.\"",
+          '## "Simple,',
+          '## but significant."',
           "",
           "— my favorite design note",
         ]),
@@ -157,10 +181,10 @@ const createDemoTiles = () => [
   },
   createTile(
     ContentType.LINK,
-    uuidv4(),
+    ID.LINK_STRIP,
     0,
-    6,
-    4,
+    2,
+    12,
     1,
     {
       link: "https://grids.so",
@@ -172,49 +196,112 @@ const createDemoTiles = () => [
   ),
   createTile(
     ContentType.LINK,
-    uuidv4(),
+    ID.LINK_X,
     0,
-    7,
-    1,
+    3,
+    3,
     1,
     { link: "https://twitter.com", customTitle: "x" },
     "",
   ),
   createTile(
     ContentType.LINK,
-    uuidv4(),
-    1,
-    7,
-    1,
+    ID.LINK_GH,
+    3,
+    3,
+    3,
     1,
     { link: "https://github.com", customTitle: "github" },
     "",
   ),
   createTile(
     ContentType.LINK,
-    uuidv4(),
-    2,
-    7,
-    1,
+    ID.LINK_IG,
+    6,
+    3,
+    3,
     1,
     { link: "https://instagram.com", customTitle: "ig" },
     "",
   ),
   createTile(
     ContentType.LINK,
-    uuidv4(),
+    ID.LINK_DRIBBBLE,
+    9,
     3,
-    7,
-    1,
+    3,
     1,
     { link: "https://dribbble.com", customTitle: "dribbble" },
     "",
   ),
 ];
 
+// Tablet layout (md, 8 columns, 6 rows tall ≈ 786px)
+//
+//   y=0   [IMG 2×2][TXT 2×2][GIF 2×2][MUS 2×2]
+//   y=2   [────── YT 4×2 ─────][──── QTE 4×2 ────]
+//   y=4   [───────── LINK strip 8×1 ─────────]
+//   y=5   [LINK 2×1 ][LINK 2×1 ][LINK 2×1 ][LINK 2×1 ]
+const tabletPositions: Record<string, TilePosition> = {
+  [ID.IMAGE]: { x: 0, y: 0, w: 2, h: 2 },
+  [ID.WELCOME]: { x: 2, y: 0, w: 2, h: 2 },
+  [ID.GIF]: { x: 4, y: 0, w: 2, h: 2 },
+  [ID.MUSIC]: { x: 6, y: 0, w: 2, h: 2 },
+  [ID.YT]: { x: 0, y: 2, w: 4, h: 2 },
+  [ID.QUOTE]: { x: 4, y: 2, w: 4, h: 2 },
+  [ID.LINK_STRIP]: { x: 0, y: 4, w: 8, h: 1 },
+  [ID.LINK_X]: { x: 0, y: 5, w: 2, h: 1 },
+  [ID.LINK_GH]: { x: 2, y: 5, w: 2, h: 1 },
+  [ID.LINK_IG]: { x: 4, y: 5, w: 2, h: 1 },
+  [ID.LINK_DRIBBBLE]: { x: 6, y: 5, w: 2, h: 1 },
+};
+
+// Phone layout (sm, 4 columns, 8 rows tall ≈ 1032px)
+//
+//   y=0   [IMG 2×2 ][TXT 2×2 ]
+//   y=2   [GIF 2×2 ][MUS 2×2 ]
+//   y=4   [YT  2×2 ][QTE 2×2 ]
+//   y=6   [───── LINK strip 4×1 ─────]
+//   y=7   [L 1×1][L 1×1][L 1×1][L 1×1]
+const phonePositions: Record<string, TilePosition> = {
+  [ID.IMAGE]: { x: 0, y: 0, w: 2, h: 2 },
+  [ID.WELCOME]: { x: 2, y: 0, w: 2, h: 2 },
+  [ID.GIF]: { x: 0, y: 2, w: 2, h: 2 },
+  [ID.MUSIC]: { x: 2, y: 2, w: 2, h: 2 },
+  [ID.YT]: { x: 0, y: 4, w: 2, h: 2 },
+  [ID.QUOTE]: { x: 2, y: 4, w: 2, h: 2 },
+  [ID.LINK_STRIP]: { x: 0, y: 6, w: 4, h: 1 },
+  [ID.LINK_X]: { x: 0, y: 7, w: 1, h: 1 },
+  [ID.LINK_GH]: { x: 1, y: 7, w: 1, h: 1 },
+  [ID.LINK_IG]: { x: 2, y: 7, w: 1, h: 1 },
+  [ID.LINK_DRIBBBLE]: { x: 3, y: 7, w: 1, h: 1 },
+};
+
+// Natural pixel dimensions of each breakpoint, given Grid.vue's defaults
+// (rowHeight = 75, margin = 48). Useful for the homepage scroll-jacker
+// when computing how much to scale the embed to fit a target frame width.
+//
+//   width  = colNum × rowHeight + (colNum + 1) × margin
+//   height = rowCount × rowHeight + (rowCount + 1) × margin
+export const DEMO_GRID_DIMENSIONS: Record<
+  Breakpoint,
+  { width: number; height: number }
+> = {
+  // 12 cols × 75 + 13 × 48 = 1524, 4 rows × 75 + 5 × 48 = 540
+  lg: { width: 1524, height: 540 },
+  // 8 cols × 75 + 9 × 48 = 1032, 6 rows × 75 + 7 × 48 = 786
+  md: { width: 1032, height: 786 },
+  // 4 cols × 75 + 5 × 48 = 540, 8 rows × 75 + 9 × 48 = 1032
+  sm: { width: 540, height: 1032 },
+};
+
 export function createDemoLayout(): Layout {
   const layout = createDefaultLayout(DEMO_USER_ID, "Demo");
   layout.id = DEMO_LAYOUT_ID;
-  layout.tiles = createDemoTiles();
+  layout.tiles = createDesktopBaseTiles();
+  layout.overrides = {
+    md: tabletPositions,
+    sm: phonePositions,
+  };
   return layout;
 }

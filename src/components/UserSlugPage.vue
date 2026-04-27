@@ -101,11 +101,13 @@ import BreakpointSwitcher from '@/components/BreakpointSwitcher.vue';
 type SwitcherVariant = 'inline' | 'floating' | 'toolbar-row';
 const switcherVariant = 'floating' as SwitcherVariant;
 import { useThemeStore } from '@/stores/theme';
+import { useUndoRedoKeys } from '@/composables/useUndoRedoKeys';
 import type { ProfileBioContent } from '@/types/TileContent';
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
 const themeStore = useThemeStore();
+useUndoRedoKeys();
 const isLoading = ref(true);
 const error = ref(false);
 const errorTitle = ref('Handle Not Found');

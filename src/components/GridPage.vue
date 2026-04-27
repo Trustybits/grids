@@ -106,6 +106,7 @@ import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
+import { useUndoRedoKeys } from "@/composables/useUndoRedoKeys";
 import type { ProfileBioContent } from "@/types/TileContent";
 
 // ── Breakpoint switcher placement ────────────────────────────────
@@ -125,6 +126,7 @@ export default defineComponent({
   setup() {
     const layoutStore = useLayoutStore();
     const themeStore = useThemeStore();
+    useUndoRedoKeys();
     const rowHeight = 75;
     const imageInput = ref<HTMLInputElement | null>(null);
     const layoutContainer = ref<HTMLElement | null>(null);

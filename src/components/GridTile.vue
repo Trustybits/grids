@@ -415,6 +415,7 @@ export default defineComponent({
     };
 
     const onMove = () => {
+      layoutStore.beginMove();
       isMoving.value = true;
       isDragging.value = true;
       setTimeout(() => (isMoving.value = false), 300);
@@ -424,11 +425,7 @@ export default defineComponent({
       // Called when drag operation completes - save the final positions
       isDragging.value = false;
       if (!layoutStore.canEdit) return;
-      if (layoutStore.activeBreakpoint !== "lg") {
-        layoutStore.updateBreakpointOverride();
-      } else {
-        layoutStore.updateLayout();
-      }
+      layoutStore.commitMove();
     };
 
     const onResize = (
@@ -438,6 +435,7 @@ export default defineComponent({
       _newHPx: number,
       _newWPx: number,
     ) => {
+      layoutStore.beginResize();
       // Called during resize operation - snap to whole grid units for clean resizing
       // Only mutate the store's canonical tiles at the lg (default) breakpoint.
       // At smaller breakpoints the displayLayout contains detached copies;
@@ -464,13 +462,8 @@ export default defineComponent({
       if (childComponent.value?.onResize) {
         childComponent.value.onResize();
       }
-      // Save the layout with the new size
       if (layoutStore.canEdit) {
-        if (layoutStore.activeBreakpoint !== "lg") {
-          layoutStore.updateBreakpointOverride();
-        } else {
-          layoutStore.updateLayout();
-        }
+        layoutStore.commitResize();
       }
     };
 

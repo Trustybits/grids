@@ -55,6 +55,16 @@
           <span class="grid-jack__notch" aria-hidden="true" />
           <span class="grid-jack__home-indicator" aria-hidden="true" />
 
+          <!--
+            Monitor stand silhouette. Sits below the device, scaled by the
+            same frame transform so it stays in proportion with the screen.
+            Only visible at the desktop breakpoint; opacity transitions in.
+          -->
+          <span class="grid-jack__stand" aria-hidden="true">
+            <span class="grid-jack__stand-neck" />
+            <span class="grid-jack__stand-base" />
+          </span>
+
           <div class="grid-jack__viewport" :style="viewportStyle">
             <div class="grid-jack__scale" :style="scaleStyle">
               <div
@@ -75,7 +85,6 @@
           :key="bp.id"
           :class="['grid-jack__chip', { 'is-active': displayBreakpoint === bp.id }]"
         >
-          <span class="grid-jack__chip-dot" />
           {{ bp.label }}
         </span>
         <span v-if="!scrollDisabled" class="grid-jack__legend-hint">
@@ -150,9 +159,18 @@ type FrameSpec = {
 
 const FRAME_SPECS: Record<Breakpoint, FrameSpec> = {
   sm: { outerWidth: 300, outerHeight: 600, paddingX: 14, paddingY: 30, borderRadius: 36 },
-  md: { outerWidth: 720, outerHeight: 600, paddingX: 22, paddingY: 32, borderRadius: 26 },
-  lg: { outerWidth: 1040, outerHeight: 600, paddingX: 18, paddingY: 22, borderRadius: 16 },
+  // Wider/shorter than sm (clearly landscape rectangle, ~1.6:1 — closer
+  // to a real iPad in landscape) so it doesn't read as "big phone".
+  md: { outerWidth: 800, outerHeight: 500, paddingX: 18, paddingY: 22, borderRadius: 22 },
+  // Wide screen + stand silhouette below for the desktop look.
+  lg: { outerWidth: 1040, outerHeight: 600, paddingX: 16, paddingY: 18, borderRadius: 12 },
 };
+
+// Logical (pre-transform-scale) height of the desktop stand silhouette
+// drawn below the device frame. The wrap reserves this much extra
+// vertical space at the lg breakpoint so the stand doesn't collide with
+// the legend chips below.
+const STAND_HEIGHT = 40;
 
 // Cap the device frame to the available width. The hero is centred inside
 // .mkt__section (max 1120px), and we want a little breathing room either
@@ -176,12 +194,17 @@ const frameFitScale = computed(() => {
 // The outer wrap takes the post-scale footprint (so the legend below sits
 // at the right vertical position even when we shrink the frame to fit).
 // The device itself is rendered at its logical size + transform: scale().
+//
+// At the lg breakpoint we reserve extra vertical space below the device
+// to host the monitor-stand silhouette without overlapping the legend.
 const deviceWrapStyle = computed(() => {
   const spec = frameSpec.value;
   const fit = frameFitScale.value;
+  const standH =
+    displayBreakpoint.value === 'lg' ? STAND_HEIGHT * fit : 0;
   return {
     width: `${spec.outerWidth * fit}px`,
-    height: `${spec.outerHeight * fit}px`,
+    height: `${spec.outerHeight * fit + standH}px`,
   };
 });
 
@@ -379,7 +402,7 @@ const interceptOutboundClick = (event: MouseEvent) => {
   justify-content: center;
   gap: 24px;
   height: calc(100vh - 88px);
-  min-height: 620px;
+  min-height: 720px;
 }
 
 .grid-jack.is-static .grid-jack__pin {
@@ -391,13 +414,13 @@ const interceptOutboundClick = (event: MouseEvent) => {
 }
 
 /*
-  Wrap whose footprint matches the visually-scaled device. Lets the legend
-  below sit immediately under the (potentially shrunk) frame on narrow
-  viewports without a big empty gap.
+  Wrap whose footprint matches the visually-scaled device (plus the lg
+  monitor stand). Aligns the device to the top so the stand silhouette
+  has guaranteed real estate below the frame at the desktop breakpoint.
 */
 .grid-jack__device-wrap {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   transition: width var(--duration-slow, 420ms) cubic-bezier(0.22, 1, 0.36, 1),
     height var(--duration-slow, 420ms) cubic-bezier(0.22, 1, 0.36, 1);
@@ -407,6 +430,11 @@ const interceptOutboundClick = (event: MouseEvent) => {
   Device frame. Uses CSS transitions to morph width/height/border-radius
   between breakpoints, while a transform: scale() fits it into whatever
   horizontal room the hero offers (computed in <script>).
+
+  transform-origin is `top center` (rather than `center center`) so the
+  device's visual top stays anchored to its layout box top — important
+  because the monitor stand below it is positioned via `top: 100%` and
+  needs predictable alignment after scaling.
 */
 .grid-jack__device {
   position: relative;
@@ -419,7 +447,7 @@ const interceptOutboundClick = (event: MouseEvent) => {
   box-shadow:
     0 30px 80px -20px rgba(0, 0, 0, 0.65),
     0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-  transform-origin: center center;
+  transform-origin: top center;
   transition:
     width var(--duration-slow, 420ms) cubic-bezier(0.22, 1, 0.36, 1),
     height var(--duration-slow, 420ms) cubic-bezier(0.22, 1, 0.36, 1),
@@ -509,6 +537,45 @@ const interceptOutboundClick = (event: MouseEvent) => {
 }
 
 /*
+  Monitor stand silhouette — only visible at the lg breakpoint.
+
+  Built from two thin lines (an upside-down T): a short vertical "neck"
+  hanging from the centre of the screen, then a wider horizontal "base"
+  beneath it. Lives inside the device frame so it inherits the same
+  transform: scale() and stays in proportion when the frame shrinks to
+  fit a narrow viewport.
+*/
+.grid-jack__stand {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.grid-jack__device--lg .grid-jack__stand {
+  opacity: 1;
+}
+
+.grid-jack__stand-neck {
+  width: 2px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.grid-jack__stand-base {
+  width: 220px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/*
   Legend strip below the frame, showing which breakpoint is active and
   hinting that scrolling does something. Active chip lights up with the
   brand gradient.
@@ -528,21 +595,12 @@ const interceptOutboundClick = (event: MouseEvent) => {
 .grid-jack__chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
   padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.02);
   color: var(--mkt-fg-3);
   transition: color 200ms ease, border-color 200ms ease, background 200ms ease;
-}
-
-.grid-jack__chip-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
-  transition: background 200ms ease, box-shadow 200ms ease;
 }
 
 .grid-jack__chip.is-active {
@@ -552,11 +610,6 @@ const interceptOutboundClick = (event: MouseEvent) => {
     linear-gradient(var(--mkt-bg-0), var(--mkt-bg-0)) padding-box,
     var(--mkt-brand-gradient) border-box;
   border: 1px solid transparent;
-}
-
-.grid-jack__chip.is-active .grid-jack__chip-dot {
-  background: var(--mkt-brand-cyan, #6cf);
-  box-shadow: 0 0 0 4px rgba(131, 139, 251, 0.18);
 }
 
 .grid-jack__legend-hint {
@@ -569,10 +622,16 @@ const interceptOutboundClick = (event: MouseEvent) => {
   vue3-grid-layout inserts its own container; make sure it doesn't pick up
   any external margins, and that the grid wrapper's internal "p: No tiles
   yet." fallback doesn't render with weird default margins.
+
+  text-align is force-reset to `left` here because the grid is embedded
+  inside .mkt__hero which sets `text-align: center`, and that cascades
+  into tile content (notably link tiles, whose titles look subtly off
+  when centred — they're left-aligned everywhere else in the app).
 */
 .home-grid-embed {
   position: relative;
   pointer-events: auto;
+  text-align: left;
 }
 
 .home-grid-embed :deep(.grid-scale-wrapper),

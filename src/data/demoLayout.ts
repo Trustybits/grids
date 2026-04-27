@@ -76,19 +76,28 @@ const ID = {
   LINK_DRIBBBLE: "demo-link-dribbble",
 } as const;
 
-// Desktop layout (lg, 12 columns, 4 rows tall ≈ 540px @ rowHeight 75)
+// Desktop layout (lg, 12 columns, 6 rows tall ≈ 786px @ rowHeight 75)
 //
-//   y=0   [IMG 2×2][TXT 2×2][GIF 2×2][MUS 2×2][YT 2×2][QTE 2×2]
-//   y=2   [────────────── LINK strip 12×1 ──────────────]
-//   y=3   [LINK 3×1 ][LINK 3×1 ][LINK 3×1 ][LINK 3×1 ]
+//   c:   0  1  2  3  4  5  6  7  8  9 10 11
+//   r=0  [   IMG 3×3   ][    WLC 5×2     ][   MUS 4×2  ]
+//   r=1  [             ][                ][            ]
+//   r=2  [             ][   GIF 4×2  ][        YT 5×3  ]
+//   r=3  [   QTE 3×2   ][            ][                ]
+//   r=4  [             ][ STRIP 4×1  ][                ]
+//   r=5  [  LK 3×1  ][  LK 3×1  ][  LK 3×1  ][  LK 3×1 ]
+//
+// Variety beats: IMG is a big 3×3 square, YT is a tall 5×3 video (the
+// "hero" of the desktop view), GIF and MUSIC are wide rectangles, QUOTE
+// tucks under the profile photo, and the four social links span 3 cols
+// each so they're full-width buttons rather than tiny icons.
 const createDesktopBaseTiles = () => [
   createTile(
     ContentType.IMAGE,
     ID.IMAGE,
     0,
     0,
-    2,
-    2,
+    3,
+    3,
     {
       src: "https://plus.unsplash.com/premium_photo-1674917000586-b7564f21540e?q=80&w=1288&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     },
@@ -98,9 +107,9 @@ const createDesktopBaseTiles = () => [
     ...createTile(
       ContentType.TEXT,
       ID.WELCOME,
-      2,
+      3,
       0,
-      2,
+      5,
       2,
       {
         text: textDoc([
@@ -116,9 +125,9 @@ const createDesktopBaseTiles = () => [
   createTile(
     ContentType.IMAGE,
     ID.GIF,
-    4,
-    0,
+    3,
     2,
+    4,
     2,
     { src: heroGif },
     "",
@@ -126,9 +135,9 @@ const createDesktopBaseTiles = () => [
   createTile(
     ContentType.MUSIC,
     ID.MUSIC,
-    6,
+    8,
     0,
-    2,
+    4,
     2,
     {
       platform: "spotify",
@@ -150,10 +159,10 @@ const createDesktopBaseTiles = () => [
   createTile(
     ContentType.EMBED,
     ID.YT,
-    8,
-    0,
+    7,
     2,
-    2,
+    5,
+    3,
     { src: "https://www.youtube.com/embed/7ccH8u8fj8Y?si=hnB1rbMIsMCWpPO8" },
     "",
   ),
@@ -161,9 +170,9 @@ const createDesktopBaseTiles = () => [
     ...createTile(
       ContentType.TEXT,
       ID.QUOTE,
-      10,
       0,
-      2,
+      3,
+      3,
       2,
       {
         text: textDoc([
@@ -182,9 +191,9 @@ const createDesktopBaseTiles = () => [
   createTile(
     ContentType.LINK,
     ID.LINK_STRIP,
-    0,
-    2,
-    12,
+    3,
+    4,
+    4,
     1,
     {
       link: "https://grids.so",
@@ -198,7 +207,7 @@ const createDesktopBaseTiles = () => [
     ContentType.LINK,
     ID.LINK_X,
     0,
-    3,
+    5,
     3,
     1,
     { link: "https://twitter.com", customTitle: "x" },
@@ -208,7 +217,7 @@ const createDesktopBaseTiles = () => [
     ContentType.LINK,
     ID.LINK_GH,
     3,
-    3,
+    5,
     3,
     1,
     { link: "https://github.com", customTitle: "github" },
@@ -218,7 +227,7 @@ const createDesktopBaseTiles = () => [
     ContentType.LINK,
     ID.LINK_IG,
     6,
-    3,
+    5,
     3,
     1,
     { link: "https://instagram.com", customTitle: "ig" },
@@ -228,7 +237,7 @@ const createDesktopBaseTiles = () => [
     ContentType.LINK,
     ID.LINK_DRIBBBLE,
     9,
-    3,
+    5,
     3,
     1,
     { link: "https://dribbble.com", customTitle: "dribbble" },
@@ -238,22 +247,29 @@ const createDesktopBaseTiles = () => [
 
 // Tablet layout (md, 8 columns, 6 rows tall ≈ 786px)
 //
-//   y=0   [IMG 2×2][TXT 2×2][GIF 2×2][MUS 2×2]
-//   y=2   [────── YT 4×2 ─────][──── QTE 4×2 ────]
-//   y=4   [───────── LINK strip 8×1 ─────────]
-//   y=5   [LINK 2×1 ][LINK 2×1 ][LINK 2×1 ][LINK 2×1 ]
+//   c:   0  1  2  3  4  5  6  7
+//   r=0  [IMG 2×2][   WLC 4×2  ][MUS 2×2]
+//   r=1  [       ][             ][       ]
+//   r=2  [    YT 4×3      ][   GIF 4×2  ]
+//   r=3  [                ][             ]
+//   r=4  [                ][   QTE 4×1  ]
+//   r=5  [   STRIP 4×1    ][LK][LK][LK][LK]
+//
+// Notably different from lg: YT is the tall portrait hero (4×3) rather
+// than a wide block, GIF sits beside it as a squarer chunk, and the four
+// social links collapse to 1×1 favicon dots after a half-width strip.
 const tabletPositions: Record<string, TilePosition> = {
   [ID.IMAGE]: { x: 0, y: 0, w: 2, h: 2 },
-  [ID.WELCOME]: { x: 2, y: 0, w: 2, h: 2 },
-  [ID.GIF]: { x: 4, y: 0, w: 2, h: 2 },
+  [ID.WELCOME]: { x: 2, y: 0, w: 4, h: 2 },
   [ID.MUSIC]: { x: 6, y: 0, w: 2, h: 2 },
-  [ID.YT]: { x: 0, y: 2, w: 4, h: 2 },
-  [ID.QUOTE]: { x: 4, y: 2, w: 4, h: 2 },
-  [ID.LINK_STRIP]: { x: 0, y: 4, w: 8, h: 1 },
-  [ID.LINK_X]: { x: 0, y: 5, w: 2, h: 1 },
-  [ID.LINK_GH]: { x: 2, y: 5, w: 2, h: 1 },
-  [ID.LINK_IG]: { x: 4, y: 5, w: 2, h: 1 },
-  [ID.LINK_DRIBBBLE]: { x: 6, y: 5, w: 2, h: 1 },
+  [ID.YT]: { x: 0, y: 2, w: 4, h: 3 },
+  [ID.GIF]: { x: 4, y: 2, w: 4, h: 2 },
+  [ID.QUOTE]: { x: 4, y: 4, w: 4, h: 1 },
+  [ID.LINK_STRIP]: { x: 0, y: 5, w: 4, h: 1 },
+  [ID.LINK_X]: { x: 4, y: 5, w: 1, h: 1 },
+  [ID.LINK_GH]: { x: 5, y: 5, w: 1, h: 1 },
+  [ID.LINK_IG]: { x: 6, y: 5, w: 1, h: 1 },
+  [ID.LINK_DRIBBBLE]: { x: 7, y: 5, w: 1, h: 1 },
 };
 
 // Phone layout (sm, 4 columns, 8 rows tall ≈ 1032px)
@@ -287,8 +303,8 @@ export const DEMO_GRID_DIMENSIONS: Record<
   Breakpoint,
   { width: number; height: number }
 > = {
-  // 12 cols × 75 + 13 × 48 = 1524, 4 rows × 75 + 5 × 48 = 540
-  lg: { width: 1524, height: 540 },
+  // 12 cols × 75 + 13 × 48 = 1524, 6 rows × 75 + 7 × 48 = 786
+  lg: { width: 1524, height: 786 },
   // 8 cols × 75 + 9 × 48 = 1032, 6 rows × 75 + 7 × 48 = 786
   md: { width: 1032, height: 786 },
   // 4 cols × 75 + 5 × 48 = 540, 8 rows × 75 + 9 × 48 = 1032

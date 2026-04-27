@@ -1,34 +1,36 @@
 /**
  * functions/src/ogImage.ts — Dynamic OG Image Generator
  *
- * Firebase Cloud Function (v1 onRequest) that:
- *   1. Checks Firebase Storage for a cached OG image
- *   2. If cached  → 302 redirects to the public Storage URL (Google CDN, ~50ms)
- *   3. If missing → Puppeteer screenshots the live grid page → sharp composites
- *      a bottom-to-top black gradient + avatar (clipped to user's shape) + handle
- *      → uploads PNG to Storage → 302 redirects to the new Storage URL
+ * Renders a 1200×630 share card matching the Figma "Grid OG Image" frames:
+ *
+ *   1. Captures individual screenshots of every public tile in the grid via
+ *      Puppeteer's per-element clip API (single browser, two phases).
+ *   2. Builds an HTML composition with proper Oxanium + Nunito Sans web fonts,
+ *      scatters the tile screenshots at deterministic random positions and
+ *      rotations, and centers the avatar + name + subtitle + /handle pill.
+ *   3. Screenshots the composition at 1200×630 → PNG.
+ *   4. Caches the result in Firebase Storage and 302-redirects clients there.
+ *
+ * Theme:
+ *   - layoutDoc.themeId === "light" → light tokens (white bg, dark text, soft shadows)
+ *   - otherwise                     → dark  tokens (#10100e bg, white text, heavy shadows)
  *
  * Storage paths:
  *   og-images/slug/{slug}.png
  *   og-images/grid/{gridId}.png
  *
  * Query params:
- *   ?slug=matt      screenshots grids.so/matt
- *   ?gridId=abc123  screenshots grids.so/grid/abc123
- *   ?refresh=1      bypasses cache and regenerates (use after a grid update)
- *
- * Function URL (once deployed):
- *   https://us-central1-grids-one.cloudfunctions.net/generateOgImage
+ *   ?slug=matt      generates for grids.so/matt
+ *   ?gridId=abc123  generates for grids.so/grid/abc123
+ *   ?refresh=1      bypasses cache and regenerates
  */
 
 import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
-import sharp from "sharp";
 import type { Request, Response } from "firebase-functions/v1";
 
-// chromium and puppeteer are lazy-loaded inside the handler.
-// Top-level imports cause the Firebase CLI's function-introspection server to
-// time out during `firebase deploy` because the modules are very slow to initialise.
+// chromium and puppeteer are lazy-loaded inside the handler so the Firebase
+// CLI's function-introspection server doesn't time out at deploy time.
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -43,14 +45,131 @@ const FIRESTORE_BASE =
 const SITE_BASE = "https://grids.so";
 
 // Must match the installed @sparticuz/chromium-min version.
-// Update this URL when upgrading the package.
-// Firebase Functions run on Linux x86_64 → use the .x64.tar variant (added in v127+).
-// NOTE: v147.0.0 and v147.0.0 have no pack assets on GitHub releases;
-//       using v143.0.4 (last confirmed stable release with assets).
 const CHROMIUM_URL =
   "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
 
-// ─── Firestore REST helpers ───────────────────────────────────────────────────
+// Output dimensions (Twitter / Slack / Discord / iMessage all expect 1200×630).
+const OG_W = 1200;
+const OG_H = 630;
+
+// Viewport used when capturing per-tile screenshots from the live grid page.
+const TILE_VIEWPORT_W = 1524;
+const TILE_VIEWPORT_H = 940;
+
+// Min/max number of tiles to scatter. The exact count is chosen by the
+// seeded PRNG so each grid gets a stable but varied composition.
+// If the grid has fewer than MIN tiles available we render whatever it
+// has — the count is clamped to `min(seededCount, availableTiles)`.
+const MIN_SCATTER_TILES = 8;
+const MAX_SCATTER_TILES = 20;
+
+// Tiles are rendered at this fraction of their on-grid pixel size so the
+// composition feels intentional and tile→tile size relationships survive.
+const TILE_SCALE = 0.6;
+
+// ─── Seed grid (12 cols × 7 rows) ────────────────────────────────────────────
+// The OG canvas is divided into a 12×7 cell grid. Columns A–D are the LEFT
+// tile section, E–H are the META section (no tiles), and I–L are the RIGHT
+// tile section. Row 4 is the META horizontal band (no tiles).
+//
+// Each tile has a deterministic anchor cell — tile N goes into SEED_POSITIONS[N-1].
+// When we render fewer than 20 tiles we still fill them in this exact order so
+// the first cells (1, 2, 3, …) are always the highest-priority anchor points.
+
+const SEED_COLS = 12;
+const SEED_ROWS = 7;
+const SEED_CELL_W = OG_W / SEED_COLS; // 100 px
+const SEED_CELL_H = OG_H / SEED_ROWS; // 90 px
+
+// [colIndex, rowIndex] — both 0-based. A=0, L=11. Row 1=0, Row 7=6.
+// Mirrors the "OG Layout Tile Seed Locations" Figma diagram.
+const SEED_POSITIONS: ReadonlyArray<readonly [number, number]> = [
+  [0, 0], //  1: A1
+  [8, 0], //  2: I1
+  [1, 4], //  3: B5
+  [8, 4], //  4: I5
+  [2, 2], //  5: C3
+  [10, 6], //  6: K7
+  [3, 6], //  7: D7
+  [11, 2], //  8: L3
+  [1, 1], //  9: B2
+  [9, 5], // 10: J6
+  [0, 5], // 11: A6
+  [3, 0], // 12: D1
+  [8, 1], // 13: I2
+  [11, 4], // 14: L5
+  [2, 5], // 15: C6
+  [10, 1], // 16: K2
+  [0, 2], // 17: A3
+  [9, 2], // 18: J3
+  [1, 6], // 19: B7
+  [8, 6], // 20: I7
+];
+
+// ─── Theme tokens ────────────────────────────────────────────────────────────
+// Mapped 1-to-1 from the Figma OG Image variables (`OG DarkShadow`, `OG Shadow`,
+// `grid_background`, `content_full`, `content_low`, `tile_background`).
+
+interface ThemeTokens {
+  gridBackground: string;
+  contentFull: string;
+  contentLow: string;
+  tileBackground: string;
+  tileShadow: string;
+  slugShadow: string;
+  avatarStroke: string;
+  avatarStrokeWidth: number;
+}
+
+const DARK_THEME: ThemeTokens = {
+  gridBackground: "#10100e",
+  contentFull: "#ffffff",
+  contentLow: "rgba(255, 255, 255, 0.34)",
+  tileBackground: "#000000",
+  tileShadow: [
+    "0 3.318px 7.238px rgba(0, 0, 0, 1)",
+    "0 13.27px 13.27px rgba(0, 0, 0, 0.89)",
+    "0 30.16px 18.10px rgba(0, 0, 0, 0.55)",
+    "0 53.69px 21.41px rgba(0, 0, 0, 0.21)",
+    "0 83.54px 23.52px rgba(0, 0, 0, 0.08)",
+  ].join(", "),
+  slugShadow: [
+    "0 0.765px 1.668px rgba(0, 0, 0, 0.10)",
+    "0 3.058px 3.058px rgba(0, 0, 0, 0.09)",
+    "0 6.951px 4.171px rgba(0, 0, 0, 0.05)",
+    "0 12.373px 4.935px rgba(0, 0, 0, 0.01)",
+  ].join(", "),
+  avatarStroke: "rgba(255, 255, 255, 0.14)",
+  avatarStrokeWidth: 4,
+};
+
+const LIGHT_THEME: ThemeTokens = {
+  gridBackground: "#ffffff",
+  contentFull: "#33312c",
+  contentLow: "rgba(51, 49, 44, 0.34)",
+  tileBackground: "#ffffff",
+  tileShadow: [
+    "0 3.318px 7.238px rgba(0, 0, 0, 0.10)",
+    "0 13.27px 13.27px rgba(0, 0, 0, 0.09)",
+    "0 30.16px 18.10px rgba(0, 0, 0, 0.05)",
+    "0 53.69px 21.41px rgba(0, 0, 0, 0.01)",
+    "0 83.54px 23.52px rgba(0, 0, 0, 0)",
+  ].join(", "),
+  slugShadow: [
+    "0 0.765px 1.668px rgba(0, 0, 0, 0.10)",
+    "0 3.058px 3.058px rgba(0, 0, 0, 0.09)",
+    "0 6.951px 4.171px rgba(0, 0, 0, 0.05)",
+    "0 12.373px 4.935px rgba(0, 0, 0, 0.01)",
+  ].join(", "),
+  avatarStroke: "rgba(51, 49, 44, 0.10)",
+  avatarStrokeWidth: 4,
+};
+
+function themeFor(themeId: string | undefined): ThemeTokens {
+  return themeId === "light" ? LIGHT_THEME : DARK_THEME;
+}
+
+// ─── Firestore REST helpers ──────────────────────────────────────────────────
 
 type FsValue =
   | { stringValue: string }
@@ -103,15 +222,14 @@ async function firestoreGet(
 }
 
 // ─── TipTap rich-text → plain text ───────────────────────────────────────────
-// Profile tile fields (name, title, bio) are stored as serialised TipTap JSON.
-// Walk the doc tree and concatenate every leaf text node.
+// Profile-tile fields (name, title) are stored as serialised TipTap JSON.
 
 export function extractTiptapText(raw: unknown): string {
   if (typeof raw === "string") {
     try {
       return extractTiptapText(JSON.parse(raw));
     } catch {
-      return raw.trim(); // already plain text
+      return raw.trim();
     }
   }
   if (!raw || typeof raw !== "object") return "";
@@ -124,16 +242,21 @@ export function extractTiptapText(raw: unknown): string {
     .trim();
 }
 
-// ─── Grid info resolution ─────────────────────────────────────────────────────
+// ─── Grid info resolution ────────────────────────────────────────────────────
 
 interface GridInfo {
   screenshotUrl: string;
+  themeId: string;
   avatarUrl: string | null;
   avatarShape: "circle" | "square" | "polygon";
   avatarSides: number;
-  displayName: string;   // shown directly as the name (no greeting prefix)
-  handle: string | null; // used for "grids.so/[handle]" link
-  subtitle: string | null; // role/title shown below the name
+  displayName: string;
+  handle: string | null;
+  subtitle: string | null;
+  /** Indices (in DOM/layout order) of tiles to skip when scattering — typically the profile tile. */
+  skipTileIndices: number[];
+  /** Stable seed for deterministic scatter (so a given grid always renders the same layout). */
+  seed: string;
 }
 
 async function resolveGridInfo(
@@ -141,74 +264,87 @@ async function resolveGridInfo(
   gridId: string | undefined,
   screenshotBase: string
 ): Promise<GridInfo | null> {
+  // Resolve which layout doc to load
+  let layoutDoc: Record<string, unknown> | null = null;
+  let resolvedHandle: string | null = null;
+  let resolvedScreenshotUrl: string;
+  let seed: string;
+
   if (slug) {
     const slugDoc = await firestoreGet("slugs", slug.toLowerCase());
     if (!slugDoc) return null;
-
     const defaultGridId = slugDoc.defaultGridId as string | undefined;
     if (!defaultGridId) return null;
-
-    const layoutDoc = await firestoreGet("layouts", defaultGridId);
-    const tiles = (layoutDoc?.tiles ?? []) as Array<Record<string, unknown>>;
-    const profileTile = tiles.find(
-      (t) => (t?.content as Record<string, unknown>)?.type === "profile"
-    );
-    const content = (profileTile?.content ?? {}) as Record<string, unknown>;
-
-    // name and title are stored as TipTap JSON — extract plain text
-    const displayName =
-      extractTiptapText(content.name) || slug;
-    const subtitle =
-      extractTiptapText(content.title) || null;
-
-    return {
-      screenshotUrl: `${screenshotBase}/${slug}`,
-      avatarUrl: (content.profilePhotoUrl as string) || null,
-      avatarShape:
-        (content.avatarShape as GridInfo["avatarShape"]) || "circle",
-      avatarSides: (content.avatarSides as number) || 6,
-      displayName,
-      handle: slug,
-      subtitle,
-    };
+    layoutDoc = await firestoreGet("layouts", defaultGridId);
+    resolvedHandle = slug;
+    resolvedScreenshotUrl = `${screenshotBase}/${slug}`;
+    seed = `slug:${slug}`;
+  } else if (gridId) {
+    layoutDoc = await firestoreGet("layouts", gridId);
+    resolvedScreenshotUrl = `${screenshotBase}/grid/${gridId}`;
+    seed = `grid:${gridId}`;
+  } else {
+    return null;
   }
+  if (!layoutDoc) return null;
 
-  if (gridId) {
-    const layoutDoc = await firestoreGet("layouts", gridId);
-    if (!layoutDoc) return null;
+  const tiles = (layoutDoc.tiles ?? []) as Array<Record<string, unknown>>;
 
-    const tiles = (layoutDoc?.tiles ?? []) as Array<Record<string, unknown>>;
-    const profileTile = tiles.find(
-      (t) => (t?.content as Record<string, unknown>)?.type === "profile"
-    );
-    const content = (profileTile?.content ?? {}) as Record<string, unknown>;
+  // Find profile tile (for avatar + name + title) and remember its index.
+  const profileIdx = tiles.findIndex(
+    (t) => (t?.content as Record<string, unknown> | undefined)?.type === "profile"
+  );
+  const profileContent =
+    profileIdx >= 0
+      ? ((tiles[profileIdx]?.content ?? {}) as Record<string, unknown>)
+      : {};
 
-    const displayName =
-      extractTiptapText(content.name) ||
-      (layoutDoc.name as string) ||
-      "Untitled Grid";
-    const subtitle =
-      extractTiptapText(content.title) || null;
+  const displayName =
+    extractTiptapText(profileContent.name) ||
+    (layoutDoc.name as string | undefined) ||
+    resolvedHandle ||
+    "Untitled Grid";
+  const subtitle = extractTiptapText(profileContent.title) || null;
 
-    return {
-      screenshotUrl: `${screenshotBase}/grid/${gridId}`,
-      avatarUrl: (content.profilePhotoUrl as string) || null,
-      avatarShape:
-        (content.avatarShape as GridInfo["avatarShape"]) || "circle",
-      avatarSides: (content.avatarSides as number) || 6,
-      displayName,
-      handle: null,
-      subtitle,
-    };
-  }
-
-  return null;
+  return {
+    screenshotUrl: resolvedScreenshotUrl,
+    themeId: (layoutDoc.themeId as string | undefined) ?? "dark",
+    avatarUrl: (profileContent.profilePhotoUrl as string) || null,
+    avatarShape:
+      (profileContent.avatarShape as GridInfo["avatarShape"]) || "circle",
+    avatarSides: (profileContent.avatarSides as number) || 6,
+    displayName,
+    handle: resolvedHandle,
+    subtitle,
+    skipTileIndices: profileIdx >= 0 ? [profileIdx] : [],
+    seed,
+  };
 }
 
-// ─── Rounded polygon SVG path ─────────────────────────────────────────────────
-// Builds a closed SVG path for a regular n-gon whose corners are rounded with
-// quadratic bézier curves.  cornerRadius is clamped so it never exceeds half
-// the edge length (which would distort the shape).
+// ─── Seeded PRNG (Mulberry32 + FNV-1a) ───────────────────────────────────────
+// Deterministic so the same grid always gets the same scatter pattern.
+
+function fnv1a(s: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    hash ^= s.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+function mulberry32(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ─── Avatar SVG (clipped + stroked to user's chosen shape) ──────────────────
 
 function roundedPolygonPath(
   cx: number,
@@ -234,100 +370,550 @@ function roundedPolygonPath(
     const len2 = Math.hypot(in2.x, in2.y);
 
     const cr = Math.min(cornerRadius, len0 / 2, len2 / 2);
-    const start = { x: p1.x + (in0.x / len0) * cr, y: p1.y + (in0.y / len0) * cr };
-    const end   = { x: p1.x + (in2.x / len2) * cr, y: p1.y + (in2.y / len2) * cr };
+    const start = {
+      x: p1.x + (in0.x / len0) * cr,
+      y: p1.y + (in0.y / len0) * cr,
+    };
+    const end = {
+      x: p1.x + (in2.x / len2) * cr,
+      y: p1.y + (in2.y / len2) * cr,
+    };
 
-    if (i === 0) {
-      d += `M ${start.x.toFixed(2)} ${start.y.toFixed(2)}`;
-    } else {
-      d += ` L ${start.x.toFixed(2)} ${start.y.toFixed(2)}`;
-    }
+    d += i === 0 ?
+      `M ${start.x.toFixed(2)} ${start.y.toFixed(2)}` :
+      ` L ${start.x.toFixed(2)} ${start.y.toFixed(2)}`;
     d += ` Q ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
   }
   d += " Z";
   return d;
 }
 
-// ─── Avatar clip mask ─────────────────────────────────────────────────────────
-
-function makeClipMask(
+function avatarSvg(
   size: number,
   shape: GridInfo["avatarShape"],
-  sides: number
-): Buffer {
+  sides: number,
+  imageHref: string,
+  theme: ThemeTokens
+): string {
+  const stroke = theme.avatarStroke;
+  const sw = theme.avatarStrokeWidth;
+  // Inset the clip path slightly so the stroke isn't clipped at the edge.
+  const inset = sw / 2;
   const r = size / 2;
 
+  let pathD: string;
   if (shape === "circle") {
-    return Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-        <circle cx="${r}" cy="${r}" r="${r}" fill="white"/>
-      </svg>`
-    );
-  }
-
-  if (shape === "polygon") {
+    // Circle approximated as a path so the same stroke pipeline works.
+    const rr = r - inset;
+    pathD =
+      `M ${r - rr} ${r}` +
+      ` A ${rr} ${rr} 0 1 0 ${r + rr} ${r}` +
+      ` A ${rr} ${rr} 0 1 0 ${r - rr} ${r} Z`;
+  } else if (shape === "polygon") {
     const n = Math.max(3, sides);
-    // Corner radius: 16px minimum (scaled to avatar size), capped at ~18% of radius
     const cornerRadius = Math.max(16, Math.round(r * 0.18));
-    const pathD = roundedPolygonPath(r, r, r, n, cornerRadius);
-    return Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-        <path d="${pathD}" fill="white"/>
-      </svg>`
-    );
+    pathD = roundedPolygonPath(r, r, r - inset, n, cornerRadius);
+  } else {
+    // square — rounded corners (~12% of size, minimum 16px).
+    const rx = Math.max(16, Math.round(size * 0.12));
+    const x0 = inset;
+    const x1 = size - inset;
+    pathD =
+      `M ${x0 + rx} ${x0}` +
+      ` L ${x1 - rx} ${x0}` +
+      ` Q ${x1} ${x0} ${x1} ${x0 + rx}` +
+      ` L ${x1} ${x1 - rx}` +
+      ` Q ${x1} ${x1} ${x1 - rx} ${x1}` +
+      ` L ${x0 + rx} ${x1}` +
+      ` Q ${x0} ${x1} ${x0} ${x1 - rx}` +
+      ` L ${x0} ${x0 + rx}` +
+      ` Q ${x0} ${x0} ${x0 + rx} ${x0} Z`;
   }
 
-  // square — rounded corners (~12% of size, minimum 16px)
-  const rx = Math.max(16, Math.round(size * 0.12));
-  return Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-      <rect width="${size}" height="${size}" rx="${rx}" ry="${rx}" fill="white"/>
-    </svg>`
-  );
+  const clipId = `avClip-${Math.floor(Math.random() * 1e9)}`;
+
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg"
+         width="${size}" height="${size}"
+         viewBox="0 0 ${size} ${size}">
+      <defs>
+        <clipPath id="${clipId}"><path d="${pathD}"/></clipPath>
+      </defs>
+      ${
+        imageHref ?
+          `<image href="${imageHref}" width="${size}" height="${size}"
+                 preserveAspectRatio="xMidYMid slice"
+                 clip-path="url(#${clipId})" />` :
+          ""
+      }
+      <path d="${pathD}" fill="none" stroke="${stroke}" stroke-width="${sw}" />
+    </svg>
+  `;
 }
 
+// ─── HTML escape ─────────────────────────────────────────────────────────────
 
-// ─── SVG escape ───────────────────────────────────────────────────────────────
-
-function svgEsc(s: string): string {
+function htmlEsc(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-// ─── Storage public URL ───────────────────────────────────────────────────────
+// ─── Storage public URL ──────────────────────────────────────────────────────
 
 function storageUrl(path: string): string {
   return `https://firebasestorage.googleapis.com/v0/b/${BUCKET_NAME}/o/${encodeURIComponent(path)}?alt=media`;
 }
 
-// ─── Desktop thumbnail cache helper ──────────────────────────────────────────
-// Returns the stored desktop thumbnail buffer from Firebase Storage, or null if
-// it hasn't been generated yet.  Using this avoids launching Chromium for the OG
-// composite when a fresh screenshot already exists (written by generateThumbnail).
+// ─── Per-tile capture from the live grid page ────────────────────────────────
 
-async function fetchDesktopThumbnail(
-  slug: string | undefined,
-  gridId: string | undefined,
-  bucket: ReturnType<ReturnType<typeof admin.storage>["bucket"]>
-): Promise<Buffer | null> {
-  try {
-    const thumbPath = slug
-      ? `thumbnails/slug/${slug}/desktop.png`
-      : `thumbnails/grid/${gridId}/desktop.png`;
-    const thumbFile = bucket.file(thumbPath);
-    const [exists] = await thumbFile.exists();
-    if (!exists) return null;
-    const [data] = await thumbFile.download();
-    return data as Buffer;
-  } catch {
-    return null;
-  }
+interface CapturedTile {
+  /** base64 PNG data (no `data:` prefix) */
+  base64: string;
+  /** natural rendered width — used to preserve aspect ratio */
+  width: number;
+  /** natural rendered height */
+  height: number;
 }
 
-// ─── Main handler ─────────────────────────────────────────────────────────────
+async function captureGridTiles(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  page: any,
+  pageUrl: string,
+  skipIndices: number[]
+): Promise<CapturedTile[]> {
+  // Allow images + fonts. Tile content (photos, link previews, etc.) is what
+  // we're capturing, so blocking those resources is the wrong move.
+  await page.setRequestInterception(true);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  page.on("request", (req: any) => {
+    if (req.resourceType() === "media") req.abort();
+    else req.continue();
+  });
+
+  // `domcontentloaded` is enough — the production app keeps long-lived
+  // connections (Firebase, analytics) so `networkidle0` never resolves.
+  // The explicit waits below (images, fonts, paint buffer) handle the
+  // real "tiles are rendered" signal.
+  await page.goto(pageUrl, {
+    waitUntil: "domcontentloaded",
+    timeout: 30_000,
+  });
+
+  await page.waitForSelector(".grid-container", { timeout: 20_000 });
+
+  // Strip UI chrome by walking from .grid-container up to <body> and removing
+  // every sibling at each level. Also remove per-tile UI overlays (toolbars,
+  // actions, captions, meta) so only the rendered tile content remains.
+  await page.evaluate(() => {
+    document
+      .querySelectorAll(
+        "#vue-devtools-anchor, #vite-plugin-vue-devtools, #__vite-plugin-vue-devtools, [id*='devtools'], [class*='devtools']"
+      )
+      .forEach((el: Element) => el.remove());
+
+    const grid = document.querySelector(".grid-container");
+    if (!grid) return;
+    let node: Element | null = grid;
+    while (node && node !== document.body) {
+      const parent: HTMLElement | null = node.parentElement;
+      if (parent) {
+        (Array.from(parent.children) as Element[]).forEach((sibling) => {
+          if (sibling !== node) sibling.remove();
+        });
+      }
+      node = parent as Element | null;
+    }
+
+    // Hide per-tile editor chrome that survived the chrome-stripping walk.
+    document
+      .querySelectorAll(
+        ".tile-actions-layer, .tile-toolbar-layer, .header-options, .meta-data, .resize-indicator, .tile-caption"
+      )
+      .forEach((el: Element) => ((el as HTMLElement).style.display = "none"));
+
+    document.body.style.overflow = "hidden";
+    document.body.style.margin = "0";
+  });
+
+  await page.addStyleTag({
+    content:
+      "::-webkit-scrollbar { display: none !important; } body { overflow: hidden !important; margin: 0 !important; }",
+  });
+
+  // Wait for all tile images to finish loading.
+  await page.evaluate(() =>
+    Promise.all(
+      Array.from(document.querySelectorAll(".grid-container img")).map(
+        (img: Element) =>
+          (img as HTMLImageElement).complete ?
+            Promise.resolve() :
+            new Promise((r) => {
+              img.addEventListener("load", r, { once: true });
+              img.addEventListener("error", r, { once: true });
+            })
+      )
+    )
+  );
+
+  // Web fonts inside tiles (text, profile, etc.) need to settle.
+  await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fonts = (document as any).fonts;
+    return fonts && fonts.ready ? fonts.ready : Promise.resolve();
+  });
+
+  // Generous paint buffer — tile components mount asynchronously via dynamic
+  // import, and link previews fetch metadata after that. 3s is the sweet spot
+  // we use elsewhere for production grids.
+  await new Promise((r) => setTimeout(r, 3_000));
+
+  // Capture the full grid in one shot, then crop tiles client-side with sharp.
+  // Per-element clips were unreliable here because some tiles re-render after
+  // their dynamic component resolves, leaving the clipped region blank.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sharp: any = (await import("sharp")).default;
+  const fullPng: Buffer = (await page.screenshot({
+    type: "png",
+    fullPage: false,
+    omitBackground: false,
+  })) as Buffer;
+
+  // Read each tile's bounding box (viewport coordinates == page coordinates
+  // because we disabled scrolling and the grid fits inside the viewport).
+  const rects: Array<{ x: number; y: number; w: number; h: number } | null> =
+    await page.evaluate(() => {
+      const items = Array.from(
+        document.querySelectorAll(".vue-grid-item")
+      ) as HTMLElement[];
+      return items.map((item) => {
+        const card =
+          (item.querySelector(".card-body") as HTMLElement | null) ??
+          (item.querySelector(".tile-wrapper") as HTMLElement | null);
+        if (!card) return null;
+        const r = card.getBoundingClientRect();
+        return { x: r.x, y: r.y, w: r.width, h: r.height };
+      });
+    });
+
+  const skip = new Set(skipIndices);
+  const captured: CapturedTile[] = [];
+
+  for (let i = 0; i < rects.length; i++) {
+    if (skip.has(i)) continue;
+    const r = rects[i];
+    if (!r || r.w < 16 || r.h < 16) continue;
+
+    // Clamp to viewport bounds so sharp doesn't reject the extract.
+    const x = Math.max(0, Math.floor(r.x));
+    const y = Math.max(0, Math.floor(r.y));
+    const w = Math.max(1, Math.floor(Math.min(r.w, TILE_VIEWPORT_W - x)));
+    const h = Math.max(1, Math.floor(Math.min(r.h, TILE_VIEWPORT_H - y)));
+
+    try {
+      const tileBuf: Buffer = await sharp(fullPng)
+        .extract({ left: x, top: y, width: w, height: h })
+        .png()
+        .toBuffer();
+
+      captured.push({
+        base64: tileBuf.toString("base64"),
+        width: w,
+        height: h,
+      });
+    } catch (err) {
+      functions.logger.warn(`[og] tile crop ${i} failed:`, err);
+    }
+  }
+
+  return captured;
+}
+
+// ─── Scatter layout: deterministic random positions + rotations ─────────────
+
+interface ScatterPlacement {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  rotation: number;
+  zIndex: number;
+}
+
+function scatterTiles(
+  tiles: CapturedTile[],
+  rng: () => number
+): ScatterPlacement[] {
+  // Each tile is anchored to a deterministic cell in the 12×7 seed grid
+  // (see SEED_POSITIONS). The cell controls which zone (LEFT/RIGHT) and
+  // approximately where in that zone the tile sits. Inside the cell we
+  // add a bit of jitter so the composition feels organic rather than
+  // pinned to a grid. Rotation is random within ±15°.
+  //
+  // Tile size is fixed at TILE_SCALE × the on-grid size so relative
+  // sizes between tiles match the source layout.
+  //
+  // The vignette layer (drawn over the tiles, under the meta block)
+  // takes care of fading any tile body that bleeds into the center.
+  const JITTER_FRACTION = 0.7; // ±35% of cell W/H around the cell center
+
+  const placements: ScatterPlacement[] = tiles.map((t, i) => {
+    const w = t.width * TILE_SCALE;
+    const h = t.height * TILE_SCALE;
+
+    const [col, row] = SEED_POSITIONS[i % SEED_POSITIONS.length];
+    const cx = (col + 0.5) * SEED_CELL_W;
+    const cy = (row + 0.5) * SEED_CELL_H;
+
+    const jitterX = (rng() - 0.5) * SEED_CELL_W * JITTER_FRACTION;
+    const jitterY = (rng() - 0.5) * SEED_CELL_H * JITTER_FRACTION;
+
+    const left = cx + jitterX - w / 2;
+    const top = cy + jitterY - h / 2;
+    const rotation = (rng() - 0.5) * 30; // ±15°
+
+    return { left, top, width: w, height: h, rotation, zIndex: 0 };
+  });
+
+  // Stack order: largest tiles at the back, smallest in front (matches the
+  // "Layer z-index" Figma diagram). Sort a side-list by area descending and
+  // assign ascending zIndex so the biggest area gets z=0 and the smallest
+  // gets the highest z.
+  const byAreaDesc = placements
+    .map((p, idx) => ({ idx, area: p.width * p.height }))
+    .sort((a, b) => b.area - a.area);
+  byAreaDesc.forEach((entry, z) => {
+    placements[entry.idx].zIndex = z;
+  });
+
+  return placements;
+}
+
+// ─── HTML composition ────────────────────────────────────────────────────────
+
+function buildOgHtml(
+  info: GridInfo,
+  tiles: CapturedTile[],
+  placements: ScatterPlacement[],
+  theme: ThemeTokens
+): string {
+  const avatarSize = 200;
+  const gridsIconDataUri = `data:image/png;base64,${GRIDS_ICON_B64}`;
+  const avatarHref = info.avatarUrl ?? "";
+
+  const avatarMarkup = avatarSvg(
+    avatarSize,
+    info.avatarShape,
+    info.avatarSides,
+    avatarHref,
+    theme
+  );
+
+  const scatterHtml = placements
+    .map((p, i) => {
+      const tile = tiles[i];
+      if (!tile) return "";
+      return `
+        <div class="scatter-tile" style="
+          left:${p.left.toFixed(2)}px;
+          top:${p.top.toFixed(2)}px;
+          width:${p.width.toFixed(2)}px;
+          height:${p.height.toFixed(2)}px;
+          transform: rotate(${p.rotation.toFixed(3)}deg);
+          z-index:${p.zIndex};
+        ">
+          <img src="data:image/png;base64,${tile.base64}" alt="" />
+        </div>
+      `;
+    })
+    .join("\n");
+
+  const slugRow = info.handle ?
+    `
+    <div class="slug-row">
+      <div class="slug-icon"><img src="${gridsIconDataUri}" alt="" /></div>
+      <div class="slug-text">/${htmlEsc(info.handle)}</div>
+    </div>` :
+    "";
+
+  const subtitleRow = info.subtitle ?
+    `<div class="subtitle">${htmlEsc(info.subtitle.toUpperCase())}</div>` :
+    "";
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@800&family=Nunito+Sans:opsz,wght@6..12,900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: ${OG_W}px;
+      height: ${OG_H}px;
+      background: ${theme.gridBackground};
+      overflow: hidden;
+      position: relative;
+      font-family: 'Nunito Sans', system-ui, sans-serif;
+    }
+
+    .scatter-tile {
+      position: absolute;
+      border-radius: 19.578px;
+      overflow: hidden;
+      background: ${theme.tileBackground};
+      box-shadow: ${theme.tileShadow};
+      transform-origin: center center;
+    }
+    .scatter-tile img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .meta {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 393.082px;
+      height: 600px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    .profile-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 35.22px;
+      width: 354.717px;
+    }
+
+    .avatar {
+      width: ${avatarSize}px;
+      height: ${avatarSize}px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .avatar svg { display: block; width: 100%; height: 100%; }
+
+    .name {
+      font-family: 'Oxanium', system-ui, sans-serif;
+      font-weight: 800;
+      font-size: 76.478px;
+      line-height: 82.516px;
+      color: ${theme.contentFull};
+      text-align: center;
+      width: 100%;
+      letter-spacing: -0.01em;
+      word-break: break-word;
+    }
+
+    .subtitle {
+      font-family: 'Nunito Sans', system-ui, sans-serif;
+      font-weight: 900;
+      font-size: 35.22px;
+      line-height: 1;
+      letter-spacing: 1.761px;
+      color: ${theme.contentLow};
+      text-align: center;
+      text-transform: uppercase;
+      margin-top: 35.22px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.10);
+    }
+
+    .slug-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 64px;
+    }
+    .slug-icon {
+      width: 32.2px;
+      height: 32.2px;
+      background: ${theme.tileBackground};
+      border-radius: 5.211px;
+      box-shadow: ${theme.slugShadow};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .slug-icon img { width: 100%; height: 100%; object-fit: cover; }
+    .slug-text {
+      font-family: 'Nunito Sans', system-ui, sans-serif;
+      font-weight: 900;
+      font-size: 35.22px;
+      line-height: 32px;
+      letter-spacing: 1.761px;
+      color: ${theme.contentFull};
+    }
+  </style>
+</head>
+<body>
+  ${scatterHtml}
+  <div class="meta">
+    <div class="profile-container">
+      <div class="avatar">${avatarMarkup}</div>
+      <div class="name">${htmlEsc(info.displayName)}</div>
+    </div>
+    ${subtitleRow}
+    ${slugRow}
+  </div>
+</body>
+</html>`;
+}
+
+// ─── OG render — screenshot the composition page ─────────────────────────────
+
+async function renderOgImage(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  page: any,
+  html: string
+): Promise<Buffer> {
+  // This page renders fonts and brand assets, so allow font/image loads.
+  // The previous request interceptor (set during tile capture) is removed
+  // by setting `setRequestInterception(false)` before calling this.
+  await page.setViewport({
+    width: OG_W,
+    height: OG_H,
+    deviceScaleFactor: 1,
+  });
+
+  await page.setContent(html, {
+    waitUntil: "networkidle0",
+    timeout: 25_000,
+  });
+
+  // Belt-and-braces: ensure web fonts are ready before we screenshot.
+  await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fonts = (document as any).fonts;
+    return fonts && fonts.ready ? fonts.ready : Promise.resolve();
+  });
+  await new Promise((r) => setTimeout(r, 300));
+
+  return (await page.screenshot({ type: "png", omitBackground: false })) as Buffer;
+}
+
+// ─── Main handler ────────────────────────────────────────────────────────────
 
 async function handler(req: Request, res: Response): Promise<void> {
   const slug = req.query.slug as string | undefined;
@@ -339,15 +925,15 @@ async function handler(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const cachePath = slug
-    ? `og-images/slug/${slug}.png`
-    : `og-images/grid/${gridId}.png`;
+  const cachePath = slug ?
+    `og-images/slug/${slug}.png` :
+    `og-images/grid/${gridId}.png`;
 
   const bucket = admin.storage().bucket(BUCKET_NAME);
   const file = bucket.file(cachePath);
 
-  // ── 1. Serve from Storage cache if available ───────────────────────────────
-  // Skip cache entirely in the local emulator — no Storage credentials, always regenerate.
+  // ── 1. Serve from Storage cache if available ─────────────────────────────
+  // Skip cache entirely in the local emulator (no Storage credentials).
   const isEmulatorEnv = process.env.FUNCTIONS_EMULATOR === "true";
   if (!refresh && !isEmulatorEnv) {
     try {
@@ -357,15 +943,15 @@ async function handler(req: Request, res: Response): Promise<void> {
         return;
       }
     } catch (cacheErr) {
-      // Storage permission error or transient failure — fall through and regenerate.
-      // Long-term fix: grant the service account Storage Object Admin on the bucket.
       functions.logger.warn("[og] cache check failed, regenerating:", cacheErr);
     }
   }
 
-  // ── 2. Resolve grid/profile data ───────────────────────────────────────────
-  const screenshotBase =
-    (process.env.OG_SCREENSHOT_BASE_URL ?? SITE_BASE).replace(/\/$/, "");
+  // ── 2. Resolve grid/profile data ──────────────────────────────────────────
+  const screenshotBase = (process.env.OG_SCREENSHOT_BASE_URL ?? SITE_BASE).replace(
+    /\/$/,
+    ""
+  );
 
   const info = await resolveGridInfo(slug, gridId, screenshotBase);
   if (!info) {
@@ -373,307 +959,79 @@ async function handler(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  // OG output dimensions (standard 1200×630)
-  const W = 1200;
-  const H = 630;
+  const theme = themeFor(info.themeId);
 
-  // ── Screenshot viewport matches the Figma source frame exactly ──────────────
-  // Figma frame: 1524×940. Screenshot taken at this size, then the grid portion
-  // is resized to 1240×765 and positioned at (470, 93) within the OG canvas.
-  const SW = 1524;
-  const SH = 940;
-
-  // ── Layout constants — all scaled from Figma (1524×940) → OG (1200×630) ────
-  const scaleX = W / 1524;   // 0.787
-  const scaleY = H / 940;    // 0.670
-
-  // Grid screenshot: resized from SW×SH → preserve exact viewport AR within OG canvas.
-  // GRID_H is derived from GRID_W * (SH/SW) so there is zero distortion regardless of
-  // whether we use the stored thumbnail or a fresh Puppeteer screenshot.
-  const GRID_W = Math.round(1240 * scaleX);          // ~976
-  const GRID_H = Math.round(GRID_W * SH / SW);       // ~602 — natural AR (was wrong ~513)
-  const GRID_X = Math.round(320 * scaleX);            // ~370
-  const GRID_Y = 2;                               // 2px from top (per design)
-
-  // Left panel padding and avatar
-  const PAD_X = Math.round(96 * scaleX);     // ~76 → use 72
-  const PAD_Y = Math.round(96 * scaleY);     // ~64
-  const AV    = Math.round(198 * scaleX);    // ~156 → avatar size (square)
-  const AV_X  = PAD_X;
-  const AV_Y  = PAD_Y;
-
-  // Text: sits below avatar — Figma gap (64px) + user-requested 64px extra offset
-  const TEXT_X  = PAD_X;
-  const NAME_Y  = AV_Y + AV + Math.round(64 * scaleY) + 64;  // avatar bottom + gap + extra
-  const SUB_Y   = NAME_Y + Math.round(76 * scaleY);           // subtitle below name
-
-  // Bottom link row
-  const LINK_Y   = H - Math.round(96 * scaleY);          // ~567 center
-  const ICON_SZ  = Math.round(48 * scaleX);              // ~38
-  const LINK_X   = PAD_X + ICON_SZ + Math.round(24 * scaleX); // text after icon
-
-  // ── 3. Acquire grid screenshot ────────────────────────────────────────────
-  // Prefer the stored desktop thumbnail — it's the same 1524×940 viewport we'd
-  // screenshot anyway, so reusing it avoids launching Chromium entirely.
-  // Falls back to a live Puppeteer screenshot when no thumbnail is cached yet.
-
-  // Lazy-load chromium + puppeteer only when we actually need them.
-  // Declared here so the catch block can close the browser on error.
+  // ── 3. Launch Chromium (one browser, two pages) ───────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let browser: any = null;
 
   try {
-    let screenshotBuffer: Buffer | null = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chromium: any = (await import("@sparticuz/chromium-min")).default;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const puppeteer: any = (await import("puppeteer-core")).default;
 
-    if (!isEmulatorEnv) {
-      screenshotBuffer = await fetchDesktopThumbnail(slug, gridId, bucket);
-      if (screenshotBuffer) {
-        functions.logger.info("[og] reusing stored desktop thumbnail — skipping Chromium");
-      }
-    }
+    const executablePath = isEmulatorEnv ?
+      process.env.PUPPETEER_EXECUTABLE_PATH ??
+        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" :
+      await chromium.executablePath(CHROMIUM_URL);
 
-    if (!screenshotBuffer) {
-      // No cached thumbnail — lazy-load and launch Puppeteer for a fresh screenshot.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const chromium: any  = (await import("@sparticuz/chromium-min")).default;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const puppeteer: any = (await import("puppeteer-core")).default;
-
-      const executablePath = isEmulatorEnv
-        ? (process.env.PUPPETEER_EXECUTABLE_PATH ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe")
-        : await chromium.executablePath(CHROMIUM_URL);
-
-      browser = await puppeteer.launch({
-        args: isEmulatorEnv ? [] : chromium.args,
-        defaultViewport: { width: SW, height: SH, deviceScaleFactor: 1 },
-        executablePath,
-        headless: true,
-      });
-
-      const page = await browser.newPage();
-
-      // Block media and fonts to speed up load
-      await page.setRequestInterception(true);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      page.on("request", (intercepted: any) => {
-        if (["media", "font"].includes(intercepted.resourceType())) {
-          intercepted.abort();
-        } else {
-          intercepted.continue();
-        }
-      });
-
-      await page.goto(info.screenshotUrl, {
-        waitUntil: "domcontentloaded",
-        timeout: 25_000,
-      });
-
-      // Wait for grid to fully render (v-else-if="gridLoaded" in UserSlugPage)
-      await page.waitForSelector(".grid-container", { timeout: 20_000 });
-
-      // Remove all UI chrome via path-trimming — walk from .grid-container up to
-      // <body> and at each level remove all siblings of the current node.
-      await page.evaluate(() => {
-        document.querySelectorAll(
-          "#vue-devtools-anchor, #vite-plugin-vue-devtools, #__vite-plugin-vue-devtools, [id*='devtools'], [class*='devtools']"
-        ).forEach((el) => el.remove());
-
-        const grid = document.querySelector(".grid-container");
-        if (!grid) return;
-
-        let node: Element | null = grid;
-        while (node && node !== document.body) {
-          const parent: HTMLElement | null = node.parentElement;
-          if (parent) {
-            (Array.from(parent.children) as Element[]).forEach((sibling) => {
-              if (sibling !== node) sibling.remove();
-            });
-          }
-          node = parent as Element | null;
-        }
-
-        document.body.style.overflow = "hidden";
-        document.body.style.margin = "0";
-      });
-
-      await page.addStyleTag({
-        content: `::-webkit-scrollbar { display: none !important; } body { overflow: hidden !important; margin: 0 !important; }`,
-      });
-
-      await page.evaluate(() =>
-        Promise.all(
-          Array.from(document.querySelectorAll(".grid-container img")).map(
-            (img) =>
-              (img as HTMLImageElement).complete
-                ? Promise.resolve()
-                : new Promise((r) => {
-                    img.addEventListener("load", r, { once: true });
-                    img.addEventListener("error", r, { once: true });
-                  })
-          )
-        )
-      );
-
-      await new Promise((r) => setTimeout(r, 2_000));
-
-      await page.evaluate(() => {
-        document.documentElement.style.background = "transparent";
-        document.body.style.background = "transparent";
-      });
-
-      screenshotBuffer = (await page.screenshot({
-        type: "png",
-        omitBackground: true,
-      })) as Buffer;
-      await browser.close();
-      browser = null;
-    }
-
-    // ── 4. Composite layers (Figma node 2737-15887) ────────────────────────────
-    //
-    // Layer order (bottom → top):
-    //   A  Dark background (#10100e canvas)
-    //   B  Grid screenshot — resized & positioned per Figma
-    //   C  Left panel gradient — solid dark left, fades right into grid
-    //   D  Bottom gradient overlay — fades bottom half to near-black
-    //   E  Avatar — clipped to user's shape
-    //   F  Text — [Name], subtitle, grids.so/handle
-    //   G  Grids brand icon — embedded base64 PNG
-
-    const composites: sharp.OverlayOptions[] = [];
-
-    // ── Layer B: grid screenshot, resized to natural AR and positioned ─────────
-    // screenshotBuffer is always non-null here (set above via thumbnail or Puppeteer)
-    const gridBuf = await sharp(screenshotBuffer as Buffer)
-      .resize(GRID_W, GRID_H, { fit: "fill" })
-      .toBuffer();
-    composites.push({ input: gridBuf, top: GRID_Y, left: GRID_X });
-
-    // ── Layer C: left panel — solid black, fades right into grid ─────────────
-    // Matches Figma meta_content (tile_background: black) + gradient fade
-    composites.push({
-      input: Buffer.from(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-          <defs>
-            <linearGradient id="lp" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%"   stop-color="black" stop-opacity="1"/>
-              <stop offset="30%"  stop-color="black" stop-opacity="1"/>
-              <stop offset="50%"  stop-color="black" stop-opacity="0.85"/>
-              <stop offset="55%"  stop-color="black" stop-opacity="0.4"/>
-              <stop offset="60%"  stop-color="black" stop-opacity="0.05"/>
-              <stop offset="65%"  stop-color="black" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-          <rect width="${W}" height="${H}" fill="url(#lp)"/>
-        </svg>
-      `),
-      blend: "over",
+    browser = await puppeteer.launch({
+      args: isEmulatorEnv ? [] : chromium.args,
+      defaultViewport: {
+        width: TILE_VIEWPORT_W,
+        height: TILE_VIEWPORT_H,
+        deviceScaleFactor: 1,
+      },
+      executablePath,
+      headless: true,
     });
 
-    // ── Layer D: bottom gradient overlay (Figma: opacity 55%, fades to black) ─
-    const gradTop = Math.round(H * (446 / 940)); // ~299px
-    composites.push({
-      input: Buffer.from(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-          <defs>
-            <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stop-color="black" stop-opacity="0"/>
-              <stop offset="83%"  stop-color="black" stop-opacity="0.55"/>
-              <stop offset="100%" stop-color="black" stop-opacity="0.55"/>
-            </linearGradient>
-          </defs>
-          <rect y="${gradTop}" width="${W}" height="${H - gradTop}" fill="url(#bg)"/>
-        </svg>
-      `),
-      blend: "over",
-    });
-
-    // ── Layer E: avatar clipped to user's chosen shape ────────────────────────
-    if (info.avatarUrl) {
-      try {
-        const avatarRes = await fetch(info.avatarUrl, {
-          signal: AbortSignal.timeout(8_000),
-        });
-        if (avatarRes.ok) {
-          const avatarData = Buffer.from(await avatarRes.arrayBuffer());
-          const mask = makeClipMask(AV, info.avatarShape, info.avatarSides);
-          const clippedAvatar = await sharp(avatarData)
-            .resize(AV, AV, { fit: "cover", position: "centre" })
-            .composite([{ input: mask, blend: "dest-in" }])
-            .png()
-            .toBuffer();
-          composites.push({ input: clippedAvatar, top: AV_Y, left: AV_X });
-        }
-      } catch {
-        // Avatar failed — continue without it
-      }
-    }
-
-    // ── Layer F: text ─────────────────────────────────────────────────────────
-    // Display name only — no "hey, I'm" prefix
-    const displayText = info.displayName;
-    const panelTextW = Math.round(663 * scaleX) - PAD_X; // available text width
-    const nameSize = Math.min(
-      Math.round(76 * scaleX),  // Figma max: 76px scaled
-      Math.max(28, Math.floor(panelTextW / (displayText.length * 0.52)))
+    // Phase A — capture per-tile screenshots from the live grid page
+    const tilePage = await browser.newPage();
+    let captured = await captureGridTiles(
+      tilePage,
+      info.screenshotUrl,
+      info.skipTileIndices
     );
-    const subSize    = Math.round(32 * scaleX);  // ~25px
-    const linkSize   = Math.round(32 * scaleX);  // ~25px
+    await tilePage.close();
 
-    composites.push({
-      input: Buffer.from(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-          <text
-            x="${TEXT_X}" y="${NAME_Y}"
-            font-family="Arial, Liberation Sans, sans-serif"
-            font-size="${nameSize}" font-weight="700"
-            fill="white"
-          >${svgEsc(displayText)}</text>
-
-          ${info.subtitle ? `<text
-            x="${TEXT_X}" y="${SUB_Y}"
-            font-family="Arial, Liberation Sans, sans-serif"
-            font-size="${subSize}" font-weight="700"
-            fill="rgba(255,255,255,0.34)"
-            letter-spacing="${Math.round(subSize * 0.1)}"
-          >${svgEsc(info.subtitle.toUpperCase())}</text>` : ""}
-
-          ${info.handle ? `<text
-            x="${LINK_X}" y="${LINK_Y + Math.round(linkSize * 0.36)}"
-            font-family="Arial, Liberation Sans, sans-serif"
-            font-size="${linkSize}" font-weight="700"
-            fill="rgba(255,255,255,0.76)"
-          >${svgEsc(`/${info.handle}`)}</text>` : ""}
-        </svg>
-      `),
-      blend: "over",
-    });
-
-    // ── Layer G: Grids brand icon (pre-rasterised, embedded as base64) ───────
-    if (info.handle) {
-      const iconBuf = await sharp(Buffer.from(GRIDS_ICON_B64, "base64"))
-        .resize(ICON_SZ, ICON_SZ, { fit: "fill" })
-        .png()
-        .toBuffer();
-      composites.push({
-        input: iconBuf,
-        top: LINK_Y - Math.round(ICON_SZ / 2),
-        left: PAD_X,
-      });
+    if (captured.length === 0) {
+      functions.logger.warn(
+        "[og] no tiles captured — rendering minimal layout"
+      );
     }
 
-    // ── Assemble: dark background + all layers ────────────────────────────────
-    const finalImage = await sharp({
-      create: { width: W, height: H, channels: 3, background: { r: 16, g: 16, b: 14 } },
-    })
-      .composite(composites)
-      .png({ compressionLevel: 8 })
-      .toBuffer();
+    // Deterministic shuffle (no repeats) + seeded count between 4 and 20.
+    const rng = mulberry32(fnv1a(info.seed));
+    captured = captured
+      .map((c) => ({ c, k: rng() }))
+      .sort((a, b) => a.k - b.k)
+      .map((x) => x.c);
 
-    // ── 5. Upload to Firebase Storage (skipped in local emulator) ────────────
+    if (captured.length > 0) {
+      const targetCount =
+        MIN_SCATTER_TILES +
+        Math.floor(rng() * (MAX_SCATTER_TILES - MIN_SCATTER_TILES + 1));
+      captured = captured.slice(0, Math.min(targetCount, captured.length));
+    }
+
+    const placements = scatterTiles(captured, rng);
+
+    // Phase B — render the OG composition HTML
+    const html = buildOgHtml(info, captured, placements, theme);
+    const composePage = await browser.newPage();
+    const finalImage = await renderOgImage(composePage, html);
+    await composePage.close();
+
+    await browser.close();
+    browser = null;
+
+    // ── 4. Upload + redirect (or stream in emulator) ────────────────────────
     if (isEmulatorEnv) {
-      // Local dev: stream the image directly — no Storage credentials available
-      functions.logger.info(`[og] emulator mode — streaming image directly for: ${cachePath}`);
+      functions.logger.info(
+        `[og] emulator — streaming image directly for: ${cachePath}`
+      );
       res.setHeader("Content-Type", "image/png");
       res.setHeader("Cache-Control", "no-store");
       res.end(finalImage);
@@ -685,12 +1043,11 @@ async function handler(req: Request, res: Response): Promise<void> {
       metadata: {
         cacheControl: "public, max-age=86400",
         generatedAt: new Date().toISOString(),
+        themeId: info.themeId,
       },
     });
 
     functions.logger.info(`[og] generated and cached: ${cachePath}`);
-
-    // ── 6. Redirect to the now-cached Storage URL ──────────────────────────
     res.redirect(302, storageUrl(cachePath));
   } catch (err) {
     if (browser) {
@@ -705,7 +1062,7 @@ async function handler(req: Request, res: Response): Promise<void> {
   }
 }
 
-// Export as a v1 onRequest function with boosted memory for Chromium
+// Export as a v1 onRequest function with boosted memory for Chromium.
 export const generateOgImage = functions
-  .runWith({ memory: "2GB", timeoutSeconds: 60 })
+  .runWith({ memory: "2GB", timeoutSeconds: 90 })
   .https.onRequest(handler);

@@ -218,14 +218,6 @@ export const useLayoutStore = defineStore("layout", {
       const current = this.captureSnapshot("");
       if (!current) return;
 
-      const temp = undoRedoManager.peekAtUndo() ?? {
-        forcedBreakpoint: current.forcedBreakpoint,
-      };
-
-      if (temp.forcedBreakpoint !== current.forcedBreakpoint) {
-        current.forcedBreakpoint = temp.forcedBreakpoint;
-      }
-
       const snapshot = undoRedoManager.undo(current);
       if (!snapshot) return;
 
@@ -236,14 +228,6 @@ export const useLayoutStore = defineStore("layout", {
       if (!undoRedoManager || !this.currentLayout) return;
       const current = this.captureSnapshot("");
       if (!current) return;
-
-      const temp = undoRedoManager.peekAtRedo() ?? {
-        forcedBreakpoint: current.forcedBreakpoint,
-      };
-
-      if (temp.forcedBreakpoint !== current.forcedBreakpoint) {
-        current.forcedBreakpoint = temp.forcedBreakpoint;
-      }
 
       const snapshot = undoRedoManager.redo(current);
       if (!snapshot) return;

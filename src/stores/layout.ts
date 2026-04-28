@@ -30,6 +30,8 @@ const svc = () => getServiceFactory().getLayoutService();
 let undoRedoManager: UndoRedoManager | null = null;
 let pendingDragSnapshot: Snapshot | null = null;
 let pendingResizeSnapshot: Snapshot | null = null;
+let lastStableSnapshot: Snapshot | null = null;
+let pendingEditSnapshot: Snapshot | null = null;
 let editingTileId: string | null = null;
 
 export const useLayoutStore = defineStore("layout", {
@@ -201,14 +203,19 @@ export const useLayoutStore = defineStore("layout", {
       };
     },
 
+    refreshStableSnapshot() {
+      lastStableSnapshot = this.captureSnapshot("");
+    },
+
     pushUndoSnapshot(actionLabel: string) {
       const snapshot = this.captureSnapshot(actionLabel);
       if (!snapshot || !undoRedoManager) return;
 
       undoRedoManager.pushSnapshot(snapshot);
+      this.refreshStableSnapshot();
     },
 
-    undo() {
+    async undo() {
       if (!undoRedoManager || !this.currentLayout) return;
       const current = this.captureSnapshot("");
       if (!current) return;
@@ -216,10 +223,10 @@ export const useLayoutStore = defineStore("layout", {
       const snapshot = undoRedoManager.undo(current);
       if (!snapshot) return;
 
-      this.applySnapshot(snapshot);
+      await this.applySnapshot(snapshot);
     },
 
-    redo() {
+    async redo() {
       if (!undoRedoManager || !this.currentLayout) return;
       const current = this.captureSnapshot("");
       if (!current) return;
@@ -227,13 +234,20 @@ export const useLayoutStore = defineStore("layout", {
       const snapshot = undoRedoManager.redo(current);
       if (!snapshot) return;
 
-      this.applySnapshot(snapshot);
+      await this.applySnapshot(snapshot);
     },
 
-    applySnapshot(snapshot: Snapshot) {
+    async applySnapshot(snapshot: Snapshot) {
       if (!this.currentLayout) return;
 
-      this.activeBreakpoint = snapshot.activeBreakpoint;
+      const breakpointChanged =
+        snapshot.activeBreakpoint !== this.activeBreakpoint;
+
+      if (breakpointChanged) {
+        this.setForcedBreakpoint(snapshot.activeBreakpoint);
+        this.setActiveBreakpoint(snapshot.activeBreakpoint);
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
 
       this.currentLayout.tiles = snapshot.tiles;
       this.currentLayout.overrides = snapshot.overrides;
@@ -248,21 +262,40 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       this.saveLayout();
+      this.refreshStableSnapshot();
+      this.undoRedoVersion++;
     },
 
     beginEditing(tileId: string) {
       if (editingTileId) return;
-      this.pushUndoSnapshot("Edit tile");
+      pendingEditSnapshot = this.captureSnapshot("Edit tile");
       editingTileId = tileId;
+      this.refreshStableSnapshot();
     },
 
     commitEditing() {
+      if (pendingEditSnapshot && undoRedoManager) {
+        const current = this.captureSnapshot("");
+        if (current) {
+          const { actionLabel: _, ...pendingData } = pendingEditSnapshot;
+          const { actionLabel: _2, ...currentData } = current;
+          if (JSON.stringify(pendingData) !== JSON.stringify(currentData)) {
+            undoRedoManager.pushSnapshot(pendingEditSnapshot);
+            this.refreshStableSnapshot();
+          }
+        }
+      }
+      pendingEditSnapshot = null;
       editingTileId = null;
     },
 
     beginMove() {
       if (!pendingDragSnapshot) {
-        pendingDragSnapshot = this.captureSnapshot("Move tile");
+        if (lastStableSnapshot) {
+          pendingDragSnapshot = { ...lastStableSnapshot, actionLabel: "Move tile" };
+        } else {
+          pendingDragSnapshot = this.captureSnapshot("Move tile");
+        }
       }
     },
 
@@ -278,11 +311,16 @@ export const useLayoutStore = defineStore("layout", {
       } else {
         this.updateLayout();
       }
+      this.refreshStableSnapshot();
     },
 
     beginResize() {
       if (!pendingResizeSnapshot) {
-        pendingResizeSnapshot = this.captureSnapshot("Resize tile");
+        if (lastStableSnapshot) {
+          pendingResizeSnapshot = { ...lastStableSnapshot, actionLabel: "Resize tile" };
+        } else {
+          pendingResizeSnapshot = this.captureSnapshot("Resize tile");
+        }
       }
     },
 
@@ -298,6 +336,7 @@ export const useLayoutStore = defineStore("layout", {
       } else {
         this.updateLayout();
       }
+      this.refreshStableSnapshot();
     },
 
     // Mark a tile as currently uploading (progress: 0–1, or -1 for indeterminate)
@@ -448,6 +487,7 @@ export const useLayoutStore = defineStore("layout", {
             lastOpenedAt: new Date(),
           } as Layout;
         }
+        this.refreshStableSnapshot();
       } catch (err) {
         this.error = "Failed to load layout.";
         console.error(err);
@@ -1039,6 +1079,8 @@ export const useLayoutStore = defineStore("layout", {
       this.forcedBreakpoint = null;
       this.viewportBreakpoint = "lg";
       editingTileId = null;
+      pendingEditSnapshot = null;
+      lastStableSnapshot = null;
       undoRedoManager?.clear();
       undoRedoManager = null;
     },

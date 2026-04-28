@@ -11,7 +11,7 @@ function isEditorOrInput(target: EventTarget | null): boolean {
 export function useUndoRedoKeys() {
   const layoutStore = useLayoutStore();
 
-  const handleKeydown = (e: KeyboardEvent) => {
+  const handleKeydown = async (e: KeyboardEvent) => {
     if (!layoutStore.canEdit) return;
     if (isEditorOrInput(e.target)) return;
 
@@ -20,10 +20,10 @@ export function useUndoRedoKeys() {
 
     if (e.key === "z" && !e.shiftKey) {
       e.preventDefault();
-      layoutStore.undo();
+      await layoutStore.undo();
     } else if ((e.key === "z" && e.shiftKey) || e.key === "y") {
       e.preventDefault();
-      layoutStore.redo();
+      await layoutStore.redo();
     }
   };
 

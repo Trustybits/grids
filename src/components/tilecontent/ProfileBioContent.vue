@@ -430,6 +430,7 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import { useEditorContentSync } from "@/composables/useEditingLifecycle";
 import Placeholder from "@tiptap/extension-placeholder";
 import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
 import ShapeCircleIcon from "@/components/icons/actionbar/ShapeCircleIcon.vue";
@@ -595,6 +596,10 @@ export default defineComponent({
       onUpdate: onEditorUpdate,
     });
 
+    useEditorContentSync(nameEditor, () => props.content.name, parseContent);
+    useEditorContentSync(titleEditor, () => props.content.title, parseContent);
+    useEditorContentSync(bioEditor, () => props.content.bio, parseContent);
+
     const isNameEmpty = computed(() => nameEditor.value?.isEmpty ?? true);
     const isTitleEmpty = computed(() => titleEditor.value?.isEmpty ?? true);
     const isBioEmpty = computed(() => bioEditor.value?.isEmpty ?? true);
@@ -686,7 +691,6 @@ export default defineComponent({
         });
 
         if (shouldBeEditable) {
-          if (tileId) layoutStore.beginEditing(tileId);
           nextTick(() => {
             const target =
               pendingFocusEditor.value ||
@@ -696,6 +700,10 @@ export default defineComponent({
               bioEditor.value;
             pendingFocusEditor.value = null;
             target?.commands.focus("end");
+            nextTick(() => {
+              flushPersist();
+              if (tileId) layoutStore.beginEditing(tileId);
+            });
           });
           return;
         }

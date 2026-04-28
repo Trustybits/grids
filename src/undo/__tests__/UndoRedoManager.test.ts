@@ -75,7 +75,7 @@ const exampleSnapshot: Snapshot = {
   themeId: "default",
   backgroundImageSrc: "",
   backgroundEmbed: false,
-  activeBreakpoint: "lg",
+  forcedBreakpoint: "lg",
   actionLabel: "Toggle gravity",
 };
 
@@ -98,7 +98,9 @@ describe("UndoRedoManager", () => {
     undoRedoManager.pushSnapshot(exampleSnapshot);
 
     expect(undoRedoManager.canUndo()).toBe(true);
-    expect(undoRedoManager.getLastActionLabel()).toBe(exampleSnapshot.actionLabel);
+    expect(undoRedoManager.getLastActionLabel()).toBe(
+      exampleSnapshot.actionLabel,
+    );
   });
 
   it("clears the undo and redo stacks", () => {
@@ -113,7 +115,10 @@ describe("UndoRedoManager", () => {
   });
 
   it("returns the snapshot to undo", () => {
-    const currentSnapshot = makeSnapshot({ verticalCompact: false, actionLabel: "dummy" });
+    const currentSnapshot = makeSnapshot({
+      verticalCompact: false,
+      actionLabel: "dummy",
+    });
 
     undoRedoManager.pushSnapshot(exampleSnapshot);
     const snapshotToApply = undoRedoManager.undo(currentSnapshot);
@@ -121,21 +126,31 @@ describe("UndoRedoManager", () => {
     expect(snapshotToApply).toBe(exampleSnapshot);
     expect(undoRedoManager.canRedo()).toBe(true);
     expect(undoRedoManager.canUndo()).toBe(false);
-    expect(undoRedoManager.getNextRedoActionLabel()).toBe(exampleSnapshot.actionLabel);
+    expect(undoRedoManager.getNextRedoActionLabel()).toBe(
+      exampleSnapshot.actionLabel,
+    );
     expect(undoRedoManager.getLastActionLabel()).toBeNull();
   });
 
   it("returns the snapshot to redo", () => {
-    const currentSnapshot = makeSnapshot({ verticalCompact: false, actionLabel: "current" });
+    const currentSnapshot = makeSnapshot({
+      verticalCompact: false,
+      actionLabel: "current",
+    });
 
     undoRedoManager.pushSnapshot(exampleSnapshot);
     undoRedoManager.undo(currentSnapshot);
     const redoSnapshotToApply = undoRedoManager.redo(exampleSnapshot);
 
-    expect(redoSnapshotToApply).toStrictEqual({ ...currentSnapshot, actionLabel: exampleSnapshot.actionLabel });
+    expect(redoSnapshotToApply).toStrictEqual({
+      ...currentSnapshot,
+      actionLabel: exampleSnapshot.actionLabel,
+    });
     expect(undoRedoManager.canUndo()).toBe(true);
     expect(undoRedoManager.canRedo()).toBe(false);
-    expect(undoRedoManager.getLastActionLabel()).toBe(exampleSnapshot.actionLabel);
+    expect(undoRedoManager.getLastActionLabel()).toBe(
+      exampleSnapshot.actionLabel,
+    );
     expect(undoRedoManager.getNextRedoActionLabel()).toBeNull();
   });
 
@@ -144,7 +159,10 @@ describe("UndoRedoManager", () => {
     const manager = new UndoRedoManager(onChanged);
 
     const snap1 = makeSnapshot({ actionLabel: "action 1" });
-    const snap2 = makeSnapshot({ verticalCompact: false, actionLabel: "action 2" });
+    const snap2 = makeSnapshot({
+      verticalCompact: false,
+      actionLabel: "action 2",
+    });
 
     manager.pushSnapshot(snap1);
     expect(onChanged).toHaveBeenCalledTimes(1);
@@ -160,10 +178,22 @@ describe("UndoRedoManager", () => {
   });
 
   it("works with multiple layers of undo", () => {
-    const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
-    const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
-    const snap3 = makeSnapshot({ themeId: "theme-3", actionLabel: "Set theme 3" });
-    const current = makeSnapshot({ themeId: "theme-4", actionLabel: "current" });
+    const snap1 = makeSnapshot({
+      themeId: "theme-1",
+      actionLabel: "Set theme 1",
+    });
+    const snap2 = makeSnapshot({
+      themeId: "theme-2",
+      actionLabel: "Set theme 2",
+    });
+    const snap3 = makeSnapshot({
+      themeId: "theme-3",
+      actionLabel: "Set theme 3",
+    });
+    const current = makeSnapshot({
+      themeId: "theme-4",
+      actionLabel: "current",
+    });
 
     undoRedoManager.pushSnapshot(snap1);
     undoRedoManager.pushSnapshot(snap2);
@@ -183,10 +213,22 @@ describe("UndoRedoManager", () => {
   });
 
   it("works with multiple layers of redo", () => {
-    const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
-    const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
-    const snap3 = makeSnapshot({ themeId: "theme-3", actionLabel: "Set theme 3" });
-    const current = makeSnapshot({ themeId: "theme-4", actionLabel: "current" });
+    const snap1 = makeSnapshot({
+      themeId: "theme-1",
+      actionLabel: "Set theme 1",
+    });
+    const snap2 = makeSnapshot({
+      themeId: "theme-2",
+      actionLabel: "Set theme 2",
+    });
+    const snap3 = makeSnapshot({
+      themeId: "theme-3",
+      actionLabel: "Set theme 3",
+    });
+    const current = makeSnapshot({
+      themeId: "theme-4",
+      actionLabel: "current",
+    });
 
     undoRedoManager.pushSnapshot(snap1);
     undoRedoManager.pushSnapshot(snap2);
@@ -215,12 +257,17 @@ describe("UndoRedoManager", () => {
 
   it("does not accept duplicate layouts", () => {
     const snap = makeSnapshot({ actionLabel: "action" });
-    const duplicateWithDifferentLabel = makeSnapshot({ actionLabel: "different label" });
+    const duplicateWithDifferentLabel = makeSnapshot({
+      actionLabel: "different label",
+    });
 
     undoRedoManager.pushSnapshot(snap);
     undoRedoManager.pushSnapshot(duplicateWithDifferentLabel);
 
-    const current = makeSnapshot({ verticalCompact: false, actionLabel: "current" });
+    const current = makeSnapshot({
+      verticalCompact: false,
+      actionLabel: "current",
+    });
     undoRedoManager.undo(current);
     expect(undoRedoManager.canUndo()).toBe(false);
   });
@@ -238,23 +285,37 @@ describe("UndoRedoManager", () => {
   });
 
   it("clears the redo stack when a new snapshot is pushed", () => {
-    const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
-    const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
-    const current = makeSnapshot({ themeId: "theme-3", actionLabel: "current" });
+    const snap1 = makeSnapshot({
+      themeId: "theme-1",
+      actionLabel: "Set theme 1",
+    });
+    const snap2 = makeSnapshot({
+      themeId: "theme-2",
+      actionLabel: "Set theme 2",
+    });
+    const current = makeSnapshot({
+      themeId: "theme-3",
+      actionLabel: "current",
+    });
 
     undoRedoManager.pushSnapshot(snap1);
     undoRedoManager.pushSnapshot(snap2);
     undoRedoManager.undo(current);
     expect(undoRedoManager.canRedo()).toBe(true);
 
-    const newSnap = makeSnapshot({ themeId: "theme-new", actionLabel: "New action" });
+    const newSnap = makeSnapshot({
+      themeId: "theme-new",
+      actionLabel: "New action",
+    });
     undoRedoManager.pushSnapshot(newSnap);
     expect(undoRedoManager.canRedo()).toBe(false);
   });
 
   it("caps the undo stack at 20 entries", () => {
     for (let i = 0; i < 25; i++) {
-      undoRedoManager.pushSnapshot(makeSnapshot({ themeId: `theme-${i}`, actionLabel: `action ${i}` }));
+      undoRedoManager.pushSnapshot(
+        makeSnapshot({ themeId: `theme-${i}`, actionLabel: `action ${i}` }),
+      );
     }
 
     let undoCount = 0;
@@ -275,7 +336,9 @@ describe("UndoRedoManager", () => {
 
     expect(() => {
       manager.pushSnapshot(snap);
-      manager.undo(makeSnapshot({ verticalCompact: false, actionLabel: "current" }));
+      manager.undo(
+        makeSnapshot({ verticalCompact: false, actionLabel: "current" }),
+      );
       manager.redo(snap);
       manager.clear();
     }).not.toThrow();
@@ -283,7 +346,10 @@ describe("UndoRedoManager", () => {
 
   it("preserves the action label from the undone snapshot on the redo entry", () => {
     const snap = makeSnapshot({ actionLabel: "Move tile" });
-    const current = makeSnapshot({ verticalCompact: false, actionLabel: "current state" });
+    const current = makeSnapshot({
+      verticalCompact: false,
+      actionLabel: "current state",
+    });
 
     undoRedoManager.pushSnapshot(snap);
     undoRedoManager.undo(current);
@@ -326,9 +392,18 @@ describe("UndoRedoManager", () => {
   });
 
   it("supports undo-redo-undo interleaving", () => {
-    const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
-    const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
-    const current = makeSnapshot({ themeId: "theme-3", actionLabel: "current" });
+    const snap1 = makeSnapshot({
+      themeId: "theme-1",
+      actionLabel: "Set theme 1",
+    });
+    const snap2 = makeSnapshot({
+      themeId: "theme-2",
+      actionLabel: "Set theme 2",
+    });
+    const current = makeSnapshot({
+      themeId: "theme-3",
+      actionLabel: "current",
+    });
 
     undoRedoManager.pushSnapshot(snap1);
     undoRedoManager.pushSnapshot(snap2);
@@ -347,7 +422,10 @@ describe("UndoRedoManager", () => {
 
   it("clear resets redo stack after undos have been performed", () => {
     const snap = makeSnapshot({ actionLabel: "action" });
-    const current = makeSnapshot({ verticalCompact: false, actionLabel: "current" });
+    const current = makeSnapshot({
+      verticalCompact: false,
+      actionLabel: "current",
+    });
 
     undoRedoManager.pushSnapshot(snap);
     undoRedoManager.undo(current);
@@ -359,9 +437,15 @@ describe("UndoRedoManager", () => {
   });
 
   it("getLastActionLabel returns the most recently pushed label", () => {
-    undoRedoManager.pushSnapshot(makeSnapshot({ themeId: "A", actionLabel: "first" }));
-    undoRedoManager.pushSnapshot(makeSnapshot({ themeId: "B", actionLabel: "second" }));
-    undoRedoManager.pushSnapshot(makeSnapshot({ themeId: "C", actionLabel: "third" }));
+    undoRedoManager.pushSnapshot(
+      makeSnapshot({ themeId: "A", actionLabel: "first" }),
+    );
+    undoRedoManager.pushSnapshot(
+      makeSnapshot({ themeId: "B", actionLabel: "second" }),
+    );
+    undoRedoManager.pushSnapshot(
+      makeSnapshot({ themeId: "C", actionLabel: "third" }),
+    );
 
     expect(undoRedoManager.getLastActionLabel()).toBe("third");
   });
@@ -378,5 +462,64 @@ describe("UndoRedoManager", () => {
     undoRedoManager.undo(makeSnapshot({ themeId: "B", actionLabel: "mid" }));
 
     expect(undoRedoManager.getNextRedoActionLabel()).toBe("first");
+  });
+
+  it("peekAtUndo returns the top of the undo stack", () => {
+    const snap1 = makeSnapshot({ themeId: "A", actionLabel: "first" });
+    const snap2 = makeSnapshot({ themeId: "B", actionLabel: "second" });
+    const current = makeSnapshot({ themeId: "C", actionLabel: "current" });
+
+    undoRedoManager.pushSnapshot(snap1);
+    undoRedoManager.pushSnapshot(snap2);
+
+    expect(undoRedoManager.peekAtUndo()?.actionLabel).toBe("second");
+    undoRedoManager.undo(current);
+    expect(undoRedoManager.peekAtUndo()?.actionLabel).toBe("first");
+  });
+
+  it("peekAtUndo returns null when the stack is empty", () => {
+    expect(undoRedoManager.peekAtUndo()).toBeNull();
+  });
+
+  it("peekAtUndo returns null after an undo", () => {
+    const snap1 = makeSnapshot({ themeId: "A", actionLabel: "first" });
+    const current = makeSnapshot({ themeId: "C", actionLabel: "current" });
+
+    undoRedoManager.pushSnapshot(snap1);
+
+    expect(undoRedoManager.peekAtUndo()?.actionLabel).toBe("first");
+    undoRedoManager.undo(current);
+    expect(undoRedoManager.peekAtUndo()).toBeNull();
+  });
+
+  it("peekAtRedo returns the top of the Redo Stack", () => {
+    const snap1 = makeSnapshot({ themeId: "A", actionLabel: "first" });
+    const snap2 = makeSnapshot({ themeId: "B", actionLabel: "second" });
+    const current = makeSnapshot({ themeId: "C", actionLabel: "current" });
+
+    undoRedoManager.pushSnapshot(snap1);
+    undoRedoManager.pushSnapshot(snap2);
+
+    const undo1 = undoRedoManager.undo(current)!;
+    const undo2 = undoRedoManager.undo(undo1)!;
+
+    expect(undoRedoManager.peekAtRedo()?.actionLabel).toBe(undo2.actionLabel);
+    undoRedoManager.redo(undo2);
+    expect(undoRedoManager.peekAtRedo()?.actionLabel).toBe(undo1.actionLabel);
+  });
+
+  it("peekAtRedo returns null when the stack is empty", () => {
+    expect(undoRedoManager.peekAtRedo()).toBeNull();
+  });
+
+  it("peekAtRedo returns null after a redo", () => {
+    const snap1 = makeSnapshot({ themeId: "A", actionLabel: "first" });
+    const current = makeSnapshot({ themeId: 'C', actionLabel: "current" });
+
+    undoRedoManager.pushSnapshot(snap1);
+    undoRedoManager.undo(current);
+    undoRedoManager.redo(snap1);
+
+    expect(undoRedoManager.peekAtRedo()).toBeNull();
   });
 });

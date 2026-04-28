@@ -129,9 +129,7 @@ export const useLayoutStore = defineStore("layout", {
 
     redoActionLabel(): string | null {
       void this.undoRedoVersion;
-      return (
-        undoRedoManager?.getNextRedoActionLabel() ?? null
-      );
+      return undoRedoManager?.getNextRedoActionLabel() ?? null;
     },
   },
 
@@ -198,7 +196,7 @@ export const useLayoutStore = defineStore("layout", {
         themeId: this.currentLayout.themeId ?? "",
         backgroundImageSrc: this.currentLayout.backgroundImageSrc,
         backgroundEmbed: this.currentLayout.backgroundEmbed,
-        activeBreakpoint: this.activeBreakpoint,
+        forcedBreakpoint: this.forcedBreakpoint ?? this.activeBreakpoint,
         actionLabel,
       };
     },
@@ -220,6 +218,14 @@ export const useLayoutStore = defineStore("layout", {
       const current = this.captureSnapshot("");
       if (!current) return;
 
+      const temp = undoRedoManager.peekAtUndo() ?? {
+        forcedBreakpoint: current.forcedBreakpoint,
+      };
+
+      if (temp.forcedBreakpoint !== current.forcedBreakpoint) {
+        current.forcedBreakpoint = temp.forcedBreakpoint;
+      }
+
       const snapshot = undoRedoManager.undo(current);
       if (!snapshot) return;
 
@@ -231,6 +237,14 @@ export const useLayoutStore = defineStore("layout", {
       const current = this.captureSnapshot("");
       if (!current) return;
 
+      const temp = undoRedoManager.peekAtRedo() ?? {
+        forcedBreakpoint: current.forcedBreakpoint,
+      };
+
+      if (temp.forcedBreakpoint !== current.forcedBreakpoint) {
+        current.forcedBreakpoint = temp.forcedBreakpoint;
+      }
+
       const snapshot = undoRedoManager.redo(current);
       if (!snapshot) return;
 
@@ -241,11 +255,11 @@ export const useLayoutStore = defineStore("layout", {
       if (!this.currentLayout) return;
 
       const breakpointChanged =
-        snapshot.activeBreakpoint !== this.activeBreakpoint;
+        this.forcedBreakpoint !== null &&
+        snapshot.forcedBreakpoint !== this.forcedBreakpoint;
 
       if (breakpointChanged) {
-        this.setForcedBreakpoint(snapshot.activeBreakpoint);
-        this.setActiveBreakpoint(snapshot.activeBreakpoint);
+        this.setForcedBreakpoint(snapshot.forcedBreakpoint);
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
@@ -292,7 +306,10 @@ export const useLayoutStore = defineStore("layout", {
     beginMove() {
       if (!pendingDragSnapshot) {
         if (lastStableSnapshot) {
-          pendingDragSnapshot = { ...lastStableSnapshot, actionLabel: "Move tile" };
+          pendingDragSnapshot = {
+            ...lastStableSnapshot,
+            actionLabel: "Move tile",
+          };
         } else {
           pendingDragSnapshot = this.captureSnapshot("Move tile");
         }
@@ -301,9 +318,7 @@ export const useLayoutStore = defineStore("layout", {
 
     commitMove() {
       if (pendingDragSnapshot && undoRedoManager) {
-        undoRedoManager.pushSnapshot(
-          pendingDragSnapshot,
-        );
+        undoRedoManager.pushSnapshot(pendingDragSnapshot);
       }
       pendingDragSnapshot = null;
       if (this.activeBreakpoint !== "lg") {
@@ -317,7 +332,10 @@ export const useLayoutStore = defineStore("layout", {
     beginResize() {
       if (!pendingResizeSnapshot) {
         if (lastStableSnapshot) {
-          pendingResizeSnapshot = { ...lastStableSnapshot, actionLabel: "Resize tile" };
+          pendingResizeSnapshot = {
+            ...lastStableSnapshot,
+            actionLabel: "Resize tile",
+          };
         } else {
           pendingResizeSnapshot = this.captureSnapshot("Resize tile");
         }
@@ -326,9 +344,7 @@ export const useLayoutStore = defineStore("layout", {
 
     commitResize() {
       if (pendingResizeSnapshot && undoRedoManager) {
-        undoRedoManager.pushSnapshot(
-          pendingResizeSnapshot,
-        );
+        undoRedoManager.pushSnapshot(pendingResizeSnapshot);
       }
       pendingResizeSnapshot = null;
       if (this.activeBreakpoint !== "lg") {
@@ -855,6 +871,7 @@ export const useLayoutStore = defineStore("layout", {
         (t) => t.i !== id,
       );
       this.saveLayout(); // Persist changes
+      this.refreshStableSnapshot();
     },
 
     // Resize a tile.
@@ -993,6 +1010,7 @@ export const useLayoutStore = defineStore("layout", {
     // Pass null to return to automatic viewport-based detection.
     setForcedBreakpoint(bp: Breakpoint | null) {
       this.forcedBreakpoint = bp;
+      this.refreshStableSnapshot();
     },
 
     setDisplayPositions(

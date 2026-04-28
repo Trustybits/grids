@@ -292,12 +292,17 @@
               </div>
 
               <button
-                class="mkt__plan-btn mkt__plan-btn--brand mkt__support-btn-disabled"
-                disabled
-                data-tooltip="We really appreciate your interest in supporting Grids. We're almost done configuring Stripe and our payments system! Come back here soon. Or better yet, join our Discord server for updates."
+                class="mkt__plan-btn mkt__plan-btn--brand"
+                :disabled="checkout.loading.value || effectiveAmount < 1"
+                @click="handleSupporterCheckout"
               >
-                Support for ${{ effectiveAmount }}
+                <span v-if="checkout.loading.value">Processing...</span>
+                <span v-else-if="effectiveAmount < 1">Minimum $1</span>
+                <span v-else>Support for ${{ effectiveAmount }}</span>
               </button>
+              <p v-if="checkout.error.value" class="mkt__plan-error">
+                {{ checkout.error.value }}
+              </p>
             </template>
           </div>
 
@@ -1608,23 +1613,11 @@ const faqItems = [
   transition: transform .15s, background .15s, border-color .15s;
 }
 .mkt__plan-btn:disabled { opacity: .6; cursor: not-allowed; }
-.mkt__support-btn-disabled:disabled { opacity: 1; }
 .mkt__plan-btn--brand {
   color: #000;
   background: var(--mkt-brand-gradient);
 }
 .mkt__plan-btn--brand:hover:not(:disabled) { transform: translateY(-1px); }
-.mkt__support-btn-disabled[data-tooltip]::after {
-  left: 50%;
-  transform: translateX(-50%) scale(0.9);
-  white-space: normal;
-  min-width: 260px;
-  max-width: 92vw;
-  text-align: center;
-}
-.mkt__support-btn-disabled[data-tooltip]:hover::after {
-  transform: translateX(-50%) scale(1);
-}
 .mkt__plan-btn--ghost {
   color: #fff;
   background: #1c1c20;

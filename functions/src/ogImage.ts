@@ -30,6 +30,8 @@
  *                   overrides tile anchor positions. Accepts letter-column +
  *                   1-based row (A1 = col 0, row 0) or numeric col-row
  *                   (0-0, 8-0). Bypasses cache.
+ *   ?minCov=0.20    override minimum tile-coverage fraction (default 0.20)
+ *   ?maxCov=0.60    override maximum tile-coverage fraction (default 0.60)
  */
 
 import * as functions from "firebase-functions/v1";
@@ -69,13 +71,16 @@ const TILE_VIEWPORT_W = 1524;
 const TILE_VIEWPORT_H = 940;
 
 // Min/max number of tiles to scatter. We always aim for MAX. If a grid has
-// fewer than MIN tiles eligible (after dropping >4×4 / suggestion tiles) we
-// fall back to the empty composition rather than scattering 1–7 lonely
-// tiles. Selection is diversity-aware (see `selectScatterTiles`) so the
-// first slots always go to a unique content category before any category
-// doubles up.
-const MIN_SCATTER_TILES = 8;
+// fewer than MIN eligible tiles we fall back to the empty composition.
+// After selection, if the combined tile area is below MIN_COVERAGE or above
+// MAX_COVERAGE (as fractions of the OG canvas area) we either render empty
+// or trim tiles down to fit.
+const MIN_SCATTER_TILES = 6;
 const MAX_SCATTER_TILES = 20;
+
+// Coverage thresholds — fractions of the OG canvas area (1200×630 = 756 000 px²).
+const MIN_COVERAGE = 0.20;
+const MAX_COVERAGE = 0.60;
 
 // Tiles are rendered at this fraction of their on-grid pixel size so the
 // composition feels intentional and tile→tile size relationships survive.
@@ -1273,10 +1278,13 @@ function buildOgHtml(
       <div class="slug-icon"><img src="${gridsIconDataUri}" alt="" /></div>
       <div class="slug-text">/${htmlEsc(info.handle)}</div>
     </div>` :
-    "";
+    `
+    <div class="slug-row">
+      <div class="slug-icon"><img src="${gridsIconDataUri}" alt="" /></div>
+    </div>`;
 
   const subtitleRow = info.subtitle ?
-    `<div class="subtitle">${htmlEsc(info.subtitle.toUpperCase())}</div>` :
+    `<div class="subtitle" id="subtitle">${htmlEsc(info.subtitle.toUpperCase())}</div>` :
     "";
 
   return `<!DOCTYPE html>
@@ -1376,8 +1384,10 @@ function buildOgHtml(
       flex-direction: column;
       align-items: center;
       padding-top: 32px;
-      width: 100%;
-      max-width: ${OG_W - VIGNETTE_INSET * 2}px;
+      width: 600px;
+      max-width: 100%;
+      padding-left: 24px;
+      padding-right: 24px;
     }
 
     .name {
@@ -1387,8 +1397,7 @@ function buildOgHtml(
       line-height: 82.516px;
       color: ${theme.contentFull};
       text-align: center;
-      width: 578px;
-      max-width: 100%;
+      width: 100%;
       letter-spacing: -0.01em;
       margin: 0;
       word-break: break-word;
@@ -1403,12 +1412,10 @@ function buildOgHtml(
       color: ${theme.contentLow};
       text-align: center;
       text-transform: uppercase;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
       text-shadow: ${theme.subtitleTextShadow};
       margin: 0;
+      max-width: 100%;
     }
 
     /* Title → slug row = 64px gap. */
@@ -1454,6 +1461,34 @@ function buildOgHtml(
       ${slugRow}
     </div>
   </div>
+  <script type="module">
+    import { prepare, layout } from 'https://esm.sh/@chenglou/pretext';
+    const el = document.getElementById('subtitle');
+    if (el) {
+      const text = el.textContent || '';
+      const container = el.parentElement;
+      const maxW = container.clientWidth;
+      const LS = 1.761;
+      let lo = 12, hi = 35.22;
+      while (hi - lo > 0.25) {
+        const mid = (lo + hi) / 2;
+        const p = prepare(text, '900 ' + mid + 'px "Nunito Sans"', { letterSpacing: LS });
+        const r = layout(p, maxW * 10, mid);
+        if (r.lineCount <= 1) {
+          const pFit = prepare(text, '900 ' + mid + 'px "Nunito Sans"', { letterSpacing: LS });
+          const rFit = layout(pFit, maxW, mid);
+          if (rFit.lineCount <= 1) lo = mid; else hi = mid;
+        } else {
+          hi = mid;
+        }
+      }
+      if (lo < 35.22) {
+        el.style.fontSize = lo.toFixed(2) + 'px';
+        el.style.letterSpacing = LS + 'px';
+      }
+    }
+    document.documentElement.dataset.subtitleReady = '1';
+  </script>
 </body>
 </html>`;
 }
@@ -1485,6 +1520,20 @@ async function renderOgImage(
     const fonts = (document as any).fonts;
     return fonts && fonts.ready ? fonts.ready : Promise.resolve();
   });
+
+  // Wait for the pretext subtitle-fitting script to finish its binary
+  // search and apply the computed font-size. The module script sets
+  // data-subtitle-ready="1" on <html> when done (or immediately if
+  // there is no subtitle).
+  try {
+    await page.waitForFunction(
+      () => document.documentElement.dataset.subtitleReady === "1",
+      { timeout: 8_000 }
+    );
+  } catch {
+    // If the CDN script fails to load, proceed with default sizing.
+  }
+
   await new Promise((r) => setTimeout(r, 300));
 
   return (await page.screenshot({ type: "png", omitBackground: false })) as Buffer;
@@ -1504,6 +1553,13 @@ async function handler(req: Request, res: Response): Promise<void> {
   //   ?positions=A1,I1,B5      letter-column + 1-based row (A=col0, L=col11)
   //   ?positions=0-0,8-0,1-4   col-row, both 0-based
   const positionsRaw = req.query.positions as string | undefined;
+  // Override coverage thresholds for testing.
+  //   ?minCov=0.15  → treat 15% as the minimum tile coverage
+  //   ?maxCov=0.50  → treat 50% as the maximum tile coverage
+  const minCovOverride = parseFloat(req.query.minCov as string);
+  const maxCovOverride = parseFloat(req.query.maxCov as string);
+  const minCov = Number.isFinite(minCovOverride) ? minCovOverride : MIN_COVERAGE;
+  const maxCov = Number.isFinite(maxCovOverride) ? maxCovOverride : MAX_COVERAGE;
 
   if (!slug && !gridId) {
     res.status(400).json({ error: "Provide ?slug= or ?gridId=" });
@@ -1520,7 +1576,9 @@ async function handler(req: Request, res: Response): Promise<void> {
   // ── 1. Serve from Storage cache if available ─────────────────────────────
   // Skip cache entirely in the local emulator (no Storage credentials).
   const isEmulatorEnv = process.env.FUNCTIONS_EMULATOR === "true";
-  if (!refresh && !isEmulatorEnv && !seedOverride && !positionsRaw) {
+  const hasOverrides = seedOverride || positionsRaw ||
+    Number.isFinite(minCovOverride) || Number.isFinite(maxCovOverride);
+  if (!refresh && !isEmulatorEnv && !hasOverrides) {
     try {
       const [exists] = await file.exists();
       if (exists) {
@@ -1588,14 +1646,51 @@ async function handler(req: Request, res: Response): Promise<void> {
     }
 
     // Diversity-aware selection: prefer one of each content category
-    // (music / map / visual / link / text), then fill up to MAX. If the
-    // pool is below MIN we render the empty composition instead — a
-    // sparsely-tiled OG looks worse than a clean centered card.
+    // (music / map / visual / link / text), then fill up to MAX. After
+    // selection we enforce two area rules:
+    //   - If total scaled tile area < 25% of OG → render empty
+    //   - If total scaled tile area > 60% of OG → trim smallest tiles
+    //     until we're under the cap (but never below MIN).
     const seedString = seedOverride ?? info.seed;
     const rng = mulberry32(fnv1a(seedString));
     captured = selectScatterTiles(captured, rng, MAX_SCATTER_TILES);
+
     if (captured.length < MIN_SCATTER_TILES) {
       captured = [];
+    }
+
+    // Coverage enforcement.
+    const OG_AREA = OG_W * OG_H;
+    if (captured.length > 0) {
+      const tileArea = (t: CapturedTile) =>
+        t.width * TILE_SCALE * (t.height * TILE_SCALE);
+
+      let totalArea = captured.reduce((s, t) => s + tileArea(t), 0);
+
+      // Over maxCov? Drop the smallest tiles (last in a descending-area
+      // sort) until we drop back under the cap — but never below MIN.
+      if (totalArea > maxCov * OG_AREA) {
+        const byArea = captured
+          .map((t, i) => ({ i, a: tileArea(t) }))
+          .sort((a, b) => b.a - a.a);
+        const keep = new Set<number>();
+        let acc = 0;
+        for (const entry of byArea) {
+          if (acc + entry.a > maxCov * OG_AREA && keep.size >= MIN_SCATTER_TILES) break;
+          keep.add(entry.i);
+          acc += entry.a;
+        }
+        captured = captured.filter((_, i) => keep.has(i));
+        totalArea = acc;
+      }
+
+      // Under minCov? Render empty — too few/tiny tiles to look good.
+      if (totalArea < minCov * OG_AREA) {
+        functions.logger.info(
+          `[og] tile coverage ${((totalArea / OG_AREA) * 100).toFixed(1)}% < ${(minCov * 100).toFixed(0)}% — rendering empty`
+        );
+        captured = [];
+      }
     }
 
     const positionsOverride = parsePositions(positionsRaw);

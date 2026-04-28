@@ -199,10 +199,11 @@ const DARK_AVATAR_SHADOW = [
 ].join(" ");
 
 const LIGHT_AVATAR_SHADOW = [
-  "drop-shadow(0 3.318px 7.238px rgba(0, 0, 0, 0.10))",
-  "drop-shadow(0 13.27px 13.27px rgba(0, 0, 0, 0.09))",
-  "drop-shadow(0 30.16px 18.10px rgba(0, 0, 0, 0.05))",
-  "drop-shadow(0 53.69px 21.41px rgba(0, 0, 0, 0.01))",
+  "drop-shadow(0 3.318px 7.238px rgba(0, 0, 0, 0.21))",
+  "drop-shadow(0 13.27px 13.27px rgba(0, 0, 0, 0.13))",
+  "drop-shadow(0 30.16px 18.10px rgba(0, 0, 0, 0.08))",
+  "drop-shadow(0 53.69px 21.41px rgba(0, 0, 0, 0.03))",
+  "drop-shadow(0 83.54px 23.52px rgba(0, 0, 0, 0))",
 ].join(" ");
 
 const DARK_THEME: ThemeTokens = {
@@ -252,7 +253,7 @@ const LIGHT_THEME: ThemeTokens = {
   avatarStrokeWidth: 4,
   avatarShadow: LIGHT_AVATAR_SHADOW,
   vignetteColor: "rgba(255, 255, 255, 1)",
-  subtitleTextShadow: "0 1px 0 rgba(0, 0, 0, 0.06)",
+  subtitleTextShadow: "0 1px 0 rgba(255, 255, 255, 0.44)",
 };
 
 function themeFor(themeId: string | undefined): ThemeTokens {
@@ -1376,18 +1377,15 @@ function buildOgHtml(
     }
     .avatar svg { display: block; width: 100%; height: 100%; }
 
-    /* Avatar → name = 32px, name → title = 0 (stacked).
-     * Total textContainer is centered, name width is 578px so long names
-     * wrap to 2 lines while shorter ones stay tight. */
     .text-container {
       display: flex;
       flex-direction: column;
       align-items: center;
       padding-top: 32px;
-      width: 600px;
+      width: 554px;
       max-width: 100%;
-      padding-left: 24px;
-      padding-right: 24px;
+      position: relative;
+      z-index: 1;
     }
 
     .name {
@@ -1397,7 +1395,7 @@ function buildOgHtml(
       line-height: 82.516px;
       color: ${theme.contentFull};
       text-align: center;
-      width: 100%;
+      width: 554px;
       letter-spacing: -0.01em;
       margin: 0;
       word-break: break-word;
@@ -1418,13 +1416,14 @@ function buildOgHtml(
       width: 100%;
     }
 
-    /* Title → slug row = 64px gap. */
     .slug-row {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
       padding-top: 64px;
+      position: relative;
+      z-index: 1;
     }
     .slug-icon {
       width: 32px;
@@ -1466,21 +1465,17 @@ function buildOgHtml(
     const el = document.getElementById('subtitle');
     if (el) {
       const text = el.textContent || '';
-      const container = el.parentElement;
-      const maxW = container.clientWidth;
+      const cs = getComputedStyle(el.parentElement);
+      const maxW = el.parentElement.clientWidth
+        - parseFloat(cs.paddingLeft)
+        - parseFloat(cs.paddingRight);
       const LS = 1.761;
       let lo = 12, hi = 35.22;
       while (hi - lo > 0.25) {
         const mid = (lo + hi) / 2;
         const p = prepare(text, '900 ' + mid + 'px "Nunito Sans"', { letterSpacing: LS });
-        const r = layout(p, maxW * 10, mid);
-        if (r.lineCount <= 1) {
-          const pFit = prepare(text, '900 ' + mid + 'px "Nunito Sans"', { letterSpacing: LS });
-          const rFit = layout(pFit, maxW, mid);
-          if (rFit.lineCount <= 1) lo = mid; else hi = mid;
-        } else {
-          hi = mid;
-        }
+        const r = layout(p, maxW, mid);
+        if (r.lineCount <= 1) lo = mid; else hi = mid;
       }
       if (lo < 35.22) {
         el.style.fontSize = lo.toFixed(2) + 'px';

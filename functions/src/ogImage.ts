@@ -55,6 +55,11 @@ const CHROMIUM_URL =
 const OG_W = 1200;
 const OG_H = 630;
 
+// The vignette + meta block live inside a 1012×630 frame centered on the
+// canvas (Figma `meta_content` frame). 94px outer gutter on each side
+// stays un-vignetted so tiles at the very edge of the OG show full-bleed.
+const VIGNETTE_INSET = (OG_W - 1012) / 2; // 94
+
 // Viewport used when capturing per-tile screenshots from the live grid page.
 const TILE_VIEWPORT_W = 1524;
 const TILE_VIEWPORT_H = 940;
@@ -124,7 +129,30 @@ interface ThemeTokens {
   slugShadow: string;
   avatarStroke: string;
   avatarStrokeWidth: number;
+  /** filter:drop-shadow() chain matching Figma's avatar_*_ogShadow */
+  avatarShadow: string;
+  /** CSS color stop used as the opaque end of the radial-gradient vignette */
+  vignetteColor: string;
+  /** `text-shadow` applied to the subtitle (CEO & FOUNDER row) */
+  subtitleTextShadow: string;
 }
+
+// Each shadow layer is replicated as both `box-shadow` (tiles) and
+// `filter: drop-shadow()` (avatar) — same offsets/blurs, different syntax.
+const DARK_AVATAR_SHADOW = [
+  "drop-shadow(0 3.318px 7.238px rgba(0, 0, 0, 1))",
+  "drop-shadow(0 13.27px 13.27px rgba(0, 0, 0, 0.89))",
+  "drop-shadow(0 30.16px 18.10px rgba(0, 0, 0, 0.55))",
+  "drop-shadow(0 53.69px 21.41px rgba(0, 0, 0, 0.21))",
+  "drop-shadow(0 83.54px 23.52px rgba(0, 0, 0, 0.08))",
+].join(" ");
+
+const LIGHT_AVATAR_SHADOW = [
+  "drop-shadow(0 3.318px 7.238px rgba(0, 0, 0, 0.10))",
+  "drop-shadow(0 13.27px 13.27px rgba(0, 0, 0, 0.09))",
+  "drop-shadow(0 30.16px 18.10px rgba(0, 0, 0, 0.05))",
+  "drop-shadow(0 53.69px 21.41px rgba(0, 0, 0, 0.01))",
+].join(" ");
 
 const DARK_THEME: ThemeTokens = {
   gridBackground: "#10100e",
@@ -146,6 +174,9 @@ const DARK_THEME: ThemeTokens = {
   ].join(", "),
   avatarStroke: "rgba(255, 255, 255, 0.14)",
   avatarStrokeWidth: 4,
+  avatarShadow: DARK_AVATAR_SHADOW,
+  vignetteColor: "rgba(16, 16, 14, 1)",
+  subtitleTextShadow: "0 1px 0 rgba(255, 255, 255, 0.44)",
 };
 
 const LIGHT_THEME: ThemeTokens = {
@@ -168,6 +199,9 @@ const LIGHT_THEME: ThemeTokens = {
   ].join(", "),
   avatarStroke: "rgba(51, 49, 44, 0.10)",
   avatarStrokeWidth: 4,
+  avatarShadow: LIGHT_AVATAR_SHADOW,
+  vignetteColor: "rgba(255, 255, 255, 1)",
+  subtitleTextShadow: "0 1px 0 rgba(0, 0, 0, 0.06)",
 };
 
 function themeFor(themeId: string | undefined): ThemeTokens {
@@ -680,28 +714,13 @@ async function captureGridTiles(
     )
   );
 
-  // Capture the full grid in one shot, then crop tiles client-side with sharp.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sharp: any = (await import("sharp")).default;
-  const fullPng: Buffer = (await page.screenshot({
-    type: "png",
-    fullPage: false,
-    omitBackground: false,
-  })) as Buffer;
-
-  // Sharp tells us the real screenshot dimensions; we use those (not the
-  // viewport constants) when clamping each tile's extract rectangle.
-  const meta: { width?: number; height?: number } = await sharp(
-    fullPng
-  ).metadata();
-  const imgW = meta.width ?? TILE_VIEWPORT_W;
-  const imgH = meta.height ?? captureHeight;
-
-  // Read each tile's bounding box plus content metadata (type / cols / rows
-  // / hasContent) exposed via data-attributes on `.tile-wrapper`. We also
-  // derive a unit cell size from the smallest tile in the grid so we can
-  // estimate cols/rows for builds that haven't deployed the data-attribute
-  // changes to the frontend yet.
+  // CRITICAL: read rects + take screenshot back-to-back inside the page
+  // context. If we screenshot first and read rects later (or vice-versa with
+  // any awaitable Node work in between), a slow tile image can finish loading
+  // between the two and shift layout. The rects then point to regions that
+  // no longer match what was screenshotted → half-rendered tiles where the
+  // extract straddles two layout positions. We do them as one evaluate +
+  // screenshot pair with no awaitable Node work in between.
   interface TileMeta {
     x: number;
     y: number;
@@ -712,6 +731,8 @@ async function captureGridTiles(
     rows: number;
     /** true if the tile's `.card-body` contains any visible content */
     hasContent: boolean;
+    /** true if every <img> inside has finished loading (naturalWidth > 0) */
+    imagesReady: boolean;
   }
   const rects: Array<TileMeta | null> = await page.evaluate(() => {
     window.scrollTo(0, 0);
@@ -735,6 +756,25 @@ async function captureGridTiles(
     if (!isFinite(unitW)) unitW = 0;
     if (!isFinite(unitH)) unitH = 0;
 
+    // Class-based type detection — catches builds that haven't yet
+    // deployed the data-tile-type attribute on .tile-wrapper. Each tile
+    // content component renders a unique outer class we can look for.
+    // Order matters: more specific classes first so e.g. an embed tile
+    // that contains an <img> is still classified as "embed", not "image".
+    const TYPE_CLASS_MAP: Array<[string, string]> = [
+      [".music-player", "music"],
+      [".map-tile", "map"],
+      [".youtube-content", "youtube"],
+      [".video-container", "video"],
+      [".link-tile-content", "link"],
+      [".embed-wrapper", "embed"],
+      [".roadmap-feed", "roadmap_feed"],
+      [".chat-tile", "chat"],
+      [".profile-bio", "profile"],
+      [".image-container", "image"],
+      [".text-container", "text"],
+    ];
+
     return items.map((item) => {
       const wrapper = item.querySelector(
         ".tile-wrapper"
@@ -743,7 +783,17 @@ async function captureGridTiles(
         (item.querySelector(".card-body") as HTMLElement | null) ?? wrapper;
       if (!card) return null;
       const r = card.getBoundingClientRect();
-      const type = wrapper?.dataset.tileType ?? "";
+
+      let type = wrapper?.dataset.tileType ?? "";
+      let typeRoot: Element | null = null;
+      for (const [sel, t] of TYPE_CLASS_MAP) {
+        const found = card.querySelector(sel);
+        if (found) {
+          typeRoot = found;
+          if (!type) type = t;
+          break;
+        }
+      }
 
       const colsAttr = Number(wrapper?.dataset.tileW ?? 0) || 0;
       const rowsAttr = Number(wrapper?.dataset.tileH ?? 0) || 0;
@@ -758,13 +808,29 @@ async function captureGridTiles(
       const rows = rowsAttr || rowsEst;
 
       // DOM-based blank check — does the tile actually render anything?
-      // Catches dynamic components that never resolved, link previews
-      // that didn't fetch, profile/embed tiles that have no content yet.
+      // Catches dynamic components that never resolved (the .card-body
+      // is still empty waiting on a dynamic import). If the content
+      // component HAS mounted (`typeRoot` is non-null) we trust it —
+      // mapbox / link previews / etc. populate their inner DOM async,
+      // and the pixel-based stdev check below is the real backstop for
+      // truly blank captures.
       const hasMedia = !!card.querySelector(
         "img, svg, video, canvas, picture, iframe"
       );
       const text = (card.textContent || "").trim();
-      const hasContent = hasMedia || text.length > 0;
+      const hasContent = !!typeRoot || hasMedia || text.length > 0;
+
+      // Per-tile image readiness — if any <img> hasn't finished decoding
+      // (naturalWidth === 0) then the screenshot will show that image as
+      // empty space inside an otherwise-laid-out tile, producing the
+      // "half rendered" look. Skip these tiles and let other capture
+      // cycles (or the next deploy) catch them.
+      const imgs = Array.from(
+        card.querySelectorAll("img")
+      ) as HTMLImageElement[];
+      const imagesReady = imgs.every(
+        (img) => img.complete && img.naturalWidth > 0
+      );
 
       return {
         x: r.x + sx,
@@ -775,9 +841,27 @@ async function captureGridTiles(
         cols,
         rows,
         hasContent,
+        imagesReady,
       };
     });
   });
+
+  // Now — with no awaits in between that could trigger lazy loaders or
+  // shift the layout — take the full screenshot. The rects above describe
+  // exactly this layout state.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sharp: any = (await import("sharp")).default;
+  const fullPng: Buffer = (await page.screenshot({
+    type: "png",
+    fullPage: false,
+    omitBackground: false,
+  })) as Buffer;
+
+  const meta: { width?: number; height?: number } = await sharp(
+    fullPng
+  ).metadata();
+  const imgW = meta.width ?? TILE_VIEWPORT_W;
+  const imgH = meta.height ?? captureHeight;
 
   const skip = new Set(skipIndices);
   const captured: CapturedTile[] = [];
@@ -794,6 +878,15 @@ async function captureGridTiles(
     if (!r.hasContent) {
       functions.logger.info(
         `[og] tile ${i} no rendered content (type=${r.type}) — skipping`
+      );
+      continue;
+    }
+    // Drop tiles that have <img> elements still decoding. Capturing them
+    // produces "half renders" where the layout shows but the image hole
+    // is blank. Better to drop and let another tile take the slot.
+    if (!r.imagesReady) {
+      functions.logger.info(
+        `[og] tile ${i} images not loaded (type=${r.type}) — skipping`
       );
       continue;
     }
@@ -1056,27 +1149,48 @@ function buildOgHtml(
       object-fit: cover;
     }
 
+    /* Vignette — radial gradient that darkens (or lightens, in light mode)
+     * the center of the OG so any tile that bleeds into the meta area
+     * fades out. Sits OVER the tiles and UNDER the meta. The frame is
+     * the inner 1012px (94px margin per side) so tiles at the very edge
+     * of the OG show through cleanly. Mapped 1:1 from the Figma SVG
+     * radialGradient transform: matrix(50.6, 0, 0, 83.581, 506, 315). */
+    .vignette {
+      position: absolute;
+      left: ${VIGNETTE_INSET}px;
+      top: 0;
+      width: ${OG_W - VIGNETTE_INSET * 2}px;
+      height: ${OG_H}px;
+      background: radial-gradient(
+        ellipse 506px 835.81px at center,
+        ${theme.vignetteColor} 41.348%,
+        transparent 100%
+      );
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    /* Meta block — 1012×630 flex container centered on the canvas, with the
+     * profile (avatar + name + title) centered and the slug row beneath.
+     * Sits above the vignette. */
     .meta {
       position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: 393.082px;
-      height: 600px;
+      left: ${VIGNETTE_INSET}px;
+      top: 0;
+      width: ${OG_W - VIGNETTE_INSET * 2}px;
+      height: ${OG_H}px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: 9999;
+      z-index: 200;
       pointer-events: none;
     }
 
-    .profile-container {
+    .profile {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 35.22px;
-      width: 354.717px;
     }
 
     .avatar {
@@ -1085,8 +1199,21 @@ function buildOgHtml(
       display: flex;
       align-items: center;
       justify-content: center;
+      filter: ${theme.avatarShadow};
     }
     .avatar svg { display: block; width: 100%; height: 100%; }
+
+    /* Avatar → name = 32px, name → title = 0 (stacked).
+     * Total textContainer is centered, name width is 578px so long names
+     * wrap to 2 lines while shorter ones stay tight. */
+    .text-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 32px;
+      width: 100%;
+      max-width: ${OG_W - VIGNETTE_INSET * 2}px;
+    }
 
     .name {
       font-family: 'Oxanium', system-ui, sans-serif;
@@ -1095,8 +1222,10 @@ function buildOgHtml(
       line-height: 82.516px;
       color: ${theme.contentFull};
       text-align: center;
-      width: 100%;
+      width: 578px;
+      max-width: 100%;
       letter-spacing: -0.01em;
+      margin: 0;
       word-break: break-word;
     }
 
@@ -1109,23 +1238,25 @@ function buildOgHtml(
       color: ${theme.contentLow};
       text-align: center;
       text-transform: uppercase;
-      margin-top: 35.22px;
       max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.10);
+      text-shadow: ${theme.subtitleTextShadow};
+      margin: 0;
     }
 
+    /* Title → slug row = 64px gap. */
     .slug-row {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 10px;
-      margin-top: 64px;
+      padding-top: 64px;
     }
     .slug-icon {
-      width: 32.2px;
-      height: 32.2px;
+      width: 32px;
+      height: 32px;
       background: ${theme.tileBackground};
       border-radius: 5.211px;
       box-shadow: ${theme.slugShadow};
@@ -1147,13 +1278,16 @@ function buildOgHtml(
 </head>
 <body>
   ${scatterHtml}
+  <div class="vignette"></div>
   <div class="meta">
-    <div class="profile-container">
+    <div class="profile">
       <div class="avatar">${avatarMarkup}</div>
-      <div class="name">${htmlEsc(info.displayName)}</div>
+      <div class="text-container">
+        <div class="name">${htmlEsc(info.displayName)}</div>
+        ${subtitleRow}
+      </div>
+      ${slugRow}
     </div>
-    ${subtitleRow}
-    ${slugRow}
   </div>
 </body>
 </html>`;

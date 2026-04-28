@@ -212,10 +212,10 @@ const DARK_THEME: ThemeTokens = {
   contentLow: "rgba(255, 255, 255, 0.21)",
   tileBackground: "#000000",
   tileShadow: [
-    "0 3.318px 7.238px rgba(0, 0, 0, 1)",
-    "0 13.27px 13.27px rgba(0, 0, 0, 0.89)",
-    "0 30.16px 18.10px rgba(0, 0, 0, 0.55)",
-    "0 53.69px 21.41px rgba(0, 0, 0, 0.21)",
+    "0 3.318px 7.238px rgba(0, 0, 0, 55)",
+    "0 13.27px 13.27px rgba(0, 0, 0, 0.34)",
+    "0 30.16px 18.10px rgba(0, 0, 0, 0.21)",
+    "0 53.69px 21.41px rgba(0, 0, 0, 0.13)",
     "0 83.54px 23.52px rgba(0, 0, 0, 0.08)",
   ].join(", "),
   slugShadow: [

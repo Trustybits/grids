@@ -627,14 +627,11 @@ async function captureGridTiles(
   pageUrl: string,
   skipIndices: number[]
 ): Promise<CapturedTile[]> {
-  // Allow images + fonts. Tile content (photos, link previews, etc.) is what
-  // we're capturing, so blocking those resources is the wrong move.
-  await page.setRequestInterception(true);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  page.on("request", (req: any) => {
-    if (req.resourceType() === "media") req.abort();
-    else req.continue();
-  });
+  // Video tiles decode from `<video src="…">`; Chromium classifies MP4/WebM as
+  // `media` requests. Blocking them produced solid black rectangles in OG
+  // captures (`imagesReady` skipped video — empty `img[]` passed vacuously).
+  //
+  // We do NOT intercept navigation here; allow network to fetch thumbnails.
 
   // `domcontentloaded` is enough — the production app keeps long-lived
   // connections (Firebase, analytics) so `networkidle0` never resolves.
@@ -739,6 +736,39 @@ async function captureGridTiles(
     )
   );
 
+  // Video tiles — wait for decoded frames (`loadeddata`). Without this OG
+  // screenshots often catch all-black rectangles while the codec is buffering.
+  const VIDEO_DECODE_WAIT_MS = 8_000;
+  await page.evaluate((timeoutMs: number) => {
+    const videos = Array.from(
+      document.querySelectorAll(".grid-container video"),
+    ) as HTMLVideoElement[];
+    return Promise.all(
+      videos.map(
+        (v) =>
+          new Promise<void>((resolve) => {
+            if (v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+              resolve();
+              return;
+            }
+            const done = () => resolve();
+            v.addEventListener("loadeddata", done, { once: true });
+            v.addEventListener("canplaythrough", done, { once: true });
+            v.addEventListener("error", done, { once: true });
+            try {
+              v.muted = true;
+              void v.play().catch(() => {});
+              v.pause();
+              v.currentTime = 0.05;
+            } catch {
+              /* ignore seek errors on empty codec */
+            }
+            setTimeout(done, timeoutMs);
+          }),
+      ),
+    );
+  }, VIDEO_DECODE_WAIT_MS);
+
   // Web fonts inside tiles (text, profile, etc.) need to settle.
   await page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -747,9 +777,9 @@ async function captureGridTiles(
   });
 
   // Generous paint buffer — tile components mount asynchronously via dynamic
-  // import, and link previews fetch metadata after that. 4s gives slow tile
-  // types (embeds, link previews, dynamic charts) time to land.
-  await new Promise((r) => setTimeout(r, 4_000));
+  // import; link previews fetch metadata after that; video decode + layout
+  // settle after loadeddata (extra headroom vs image-only grids).
+  await new Promise((r) => setTimeout(r, 6_500));
 
   // Final image sweep — by now any deferred / dynamic-import tiles have
   // mounted and inserted their own <img> elements. Wait for those too.
@@ -787,6 +817,8 @@ async function captureGridTiles(
     hasContent: boolean;
     /** true if every <img> inside has finished loading (naturalWidth > 0) */
     imagesReady: boolean;
+    /** true if every `<video>` has decoded a frame (`readyState` ≥ HAVE_CURRENT_DATA) */
+    videosReady: boolean;
   }
   const rects: Array<TileMeta | null> = await page.evaluate(() => {
     window.scrollTo(0, 0);
@@ -885,6 +917,18 @@ async function captureGridTiles(
       const imagesReady = imgs.every(
         (img) => img.complete && img.naturalWidth > 0
       );
+      const vids = Array.from(
+        card.querySelectorAll("video")
+      ) as HTMLVideoElement[];
+      /* HAVE_CURRENT_DATA = 2 — first decoded frame without waiting for full preload */
+      const videosReady =
+        vids.length === 0 ||
+        vids.every(
+          (vid) =>
+            vid.readyState >= 2 ||
+            vid.videoHeight > 0 ||
+            vid.videoWidth > 0
+        );
 
       return {
         x: r.x + sx,
@@ -896,6 +940,7 @@ async function captureGridTiles(
         rows,
         hasContent,
         imagesReady,
+        videosReady,
       };
     });
   });
@@ -941,6 +986,12 @@ async function captureGridTiles(
     if (!r.imagesReady) {
       functions.logger.info(
         `[og] tile ${i} images not loaded (type=${r.type}) — skipping`
+      );
+      continue;
+    }
+    if (!r.videosReady) {
+      functions.logger.info(
+        `[og] tile ${i} video not decoded (type=${r.type}) — skipping`
       );
       continue;
     }
@@ -1181,30 +1232,36 @@ function scatterTiles(
   const totalArea: Record<Section, number> = { left: 0, right: 0, meta: 0 };
 
   // Step 3: greedy assignment by lowest area/capacity ratio.
+  // When ratios tie (~same fill level), prefer the section with fewer tiles
+  // so left/right counts stay balanced. The global 60% cap does not allocate
+  // per-side; uneven sides came from alphabetical tie-breaking (left wins).
   for (const entry of indexed) {
-    let bestSection: Section = SECTIONS[0];
-    let bestRatio = Infinity;
-    for (const sec of SECTIONS) {
-      if (capacity[sec] === 0) continue;
-      if (buckets[sec].length >= capacity[sec]) continue;
-      const ratio = totalArea[sec] / capacity[sec];
-      if (ratio < bestRatio) {
-        bestRatio = ratio;
-        bestSection = sec;
-      }
-    }
-    // If all sections are full, wrap around to the one with lowest ratio.
-    if (buckets[bestSection].length >= capacity[bestSection]) {
-      bestRatio = Infinity;
+    type Cand = { sec: Section; ratio: number; count: number };
+
+    const collect = (overflow: boolean): Cand[] => {
+      const list: Cand[] = [];
       for (const sec of SECTIONS) {
         if (capacity[sec] === 0) continue;
-        const ratio = totalArea[sec] / capacity[sec];
-        if (ratio < bestRatio) {
-          bestRatio = ratio;
-          bestSection = sec;
-        }
+        if (!overflow && buckets[sec].length >= capacity[sec]) continue;
+        list.push({
+          sec,
+          ratio: totalArea[sec] / capacity[sec],
+          count: buckets[sec].length,
+        });
       }
-    }
+      list.sort((a, b) => {
+        const dr = a.ratio - b.ratio;
+        if (Math.abs(dr) > 1e-12) return dr;
+        const dc = a.count - b.count;
+        if (dc !== 0) return dc;
+        return SECTIONS.indexOf(a.sec) - SECTIONS.indexOf(b.sec);
+      });
+      return list;
+    };
+
+    let ordered = collect(false);
+    if (ordered.length === 0) ordered = collect(true);
+    const bestSection = ordered[0]!.sec;
     buckets[bestSection].push(entry);
     totalArea[bestSection] += entry.area;
   }

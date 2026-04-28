@@ -663,14 +663,23 @@ export default defineComponent({
       const title = serializeEditor(titleEditor.value);
       const bio = serializeEditor(bioEditor.value);
 
-      if (tileId) {
-        layoutStore.patchTileContent(tileId, { name, title, bio });
+      if (tileId && layoutStore.currentLayout) {
+        const tile = layoutStore.currentLayout.tiles.find(
+          (t) => t.i === tileId,
+        );
+        if (tile) {
+          const content = tile.content as ProfileBioContent;
+          content.name = name;
+          content.title = title;
+          content.bio = bio;
+        }
       } else {
         props.content.name = name;
         props.content.title = title;
         props.content.bio = bio;
-        layoutStore.saveLayout();
       }
+
+      layoutStore.saveLayout();
     };
 
     watch(

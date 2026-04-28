@@ -20,7 +20,6 @@ export class UndoRedoManager {
     if (this.undoStack.length > MAX_STACK_SIZE) {
       this.undoStack.shift();
     }
-    console.log(snapshot);
 
     this.redoStack = [];
     this.onChanged?.();
@@ -29,6 +28,8 @@ export class UndoRedoManager {
   undo(currentSnapshot: Snapshot): Snapshot | null {
     const snapshot = this.undoStack.pop();
     if (!snapshot) return null;
+
+    this.handleDifferingBreakpoints(currentSnapshot, snapshot);
 
     this.redoStack.push({
       ...currentSnapshot,
@@ -41,6 +42,8 @@ export class UndoRedoManager {
   redo(currentSnapshot: Snapshot): Snapshot | null {
     const snapshot = this.redoStack.pop();
     if (!snapshot) return null;
+
+    this.handleDifferingBreakpoints(currentSnapshot, snapshot);
 
     this.undoStack.push({
       ...currentSnapshot,
@@ -88,5 +91,16 @@ export class UndoRedoManager {
       this.undoStack[this.undoStack.length - 1] ?? {};
 
     return JSON.stringify(incomingData) === JSON.stringify(topOfStackData);
+  }
+
+  private handleDifferingBreakpoints(
+    currentSnapshot: Snapshot,
+    newSnapshot: Snapshot,
+  ) {
+    const newBreakpoint = newSnapshot.forcedBreakpoint ?? currentSnapshot.forcedBreakpoint;
+
+    if (newBreakpoint !== currentSnapshot.forcedBreakpoint) {
+      currentSnapshot.forcedBreakpoint = newBreakpoint;
+    }
   }
 }

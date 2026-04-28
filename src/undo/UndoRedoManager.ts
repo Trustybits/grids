@@ -20,6 +20,7 @@ export class UndoRedoManager {
     if (this.undoStack.length > MAX_STACK_SIZE) {
       this.undoStack.shift();
     }
+    console.log(snapshot);
 
     this.redoStack = [];
     this.onChanged?.();
@@ -71,6 +72,14 @@ export class UndoRedoManager {
   getNextRedoActionLabel(): string | null {
     if (this.redoStack.length === 0) return null;
     return this.redoStack[this.redoStack.length - 1].actionLabel;
+  }
+
+  peekAtUndo(): Snapshot | null {
+    return this.undoStack[this.undoStack.length - 1] ?? null;
+  }
+
+  peekAtRedo(): Snapshot | null {
+    return this.redoStack[this.redoStack.length - 1] ?? null;
   }
 
   private isDuplicate(snapshot: Snapshot): boolean {

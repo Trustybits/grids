@@ -98,26 +98,26 @@ const SEED_CELL_H = OG_H / SEED_ROWS; // 90 px
 // [colIndex, rowIndex] — both 0-based. A=0, L=11. Row 1=0, Row 7=6.
 // Mirrors the "OG Layout Tile Seed Locations" Figma diagram.
 const SEED_POSITIONS: ReadonlyArray<readonly [number, number]> = [
-  [0, 0], //  1: A1
-  [8, 0], //  2: I1
-  [1, 4], //  3: B5
-  [8, 4], //  4: I5
-  [2, 2], //  5: C3
-  [10, 6], //  6: K7
-  [3, 6], //  7: D7
-  [11, 2], //  8: L3
-  [1, 1], //  9: B2
-  [9, 5], // 10: J6
-  [0, 5], // 11: A6
-  [3, 0], // 12: D1
-  [8, 1], // 13: I2
-  [11, 4], // 14: L5
-  [2, 5], // 15: C6
+  [1, 0], //  1: A1
+  [11, 0], //  2: I1
+  [0, 5], //  3: B5
+  [11, 5], //  4: I5
+  [0, 3], //  5: C3
+  [11, 2], //  6: K7
+  [0, 1], //  7: D7
+  [10, 0], //  8: L3
+  [1, 6], //  9: B2
+  [10, 6], // 10: J6
+  [0, 2], // 11: A6
+  [11, 3], // 12: D1
+  [1, 4], // 13: I2
+  [10, 4], // 14: L5
+  [1, 2], // 15: C6
   [10, 1], // 16: K2
-  [0, 2], // 17: A3
-  [9, 2], // 18: J3
-  [1, 6], // 19: B7
-  [8, 6], // 20: I7
+  [1, 5], // 17: A3
+  [10, 5], // 18: J3
+  [0, 0], // 19: B7
+  [10, 3], // 20: I7
 ];
 
 /**
@@ -1061,14 +1061,14 @@ interface ScatterPlacement {
 }
 
 // Section boundaries (column ranges, 0-based):
-//   LEFT  = cols 0–3  (A–D)
-//   META  = cols 4–7  (E–H) — center, behind the vignette
-//   RIGHT = cols 8–11 (I–L)
+//   LEFT  = cols 0–2  (A–D)
+//   META  = cols 3–8  (E–H) — center, behind the vignette
+//   RIGHT = cols 9–11 (I–L)
 type Section = "left" | "meta" | "right";
 
 function sectionOf(col: number): Section {
-  if (col <= 3) return "left";
-  if (col >= 8) return "right";
+  if (col <= 2) return "left";
+  if (col >= 9) return "right";
   return "meta";
 }
 

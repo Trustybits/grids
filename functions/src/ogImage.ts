@@ -1415,7 +1415,7 @@ function buildOgHtml(
       white-space: nowrap;
       text-shadow: ${theme.subtitleTextShadow};
       margin: 0;
-      max-width: 100%;
+      width: 100%;
     }
 
     /* Title → slug row = 64px gap. */

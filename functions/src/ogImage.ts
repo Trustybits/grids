@@ -73,12 +73,14 @@ const TILE_VIEWPORT_H = 940;
 // Min/max number of tiles to scatter. We always aim for MAX. If a grid has
 // fewer than MIN eligible tiles we fall back to the empty composition.
 // After selection, if the combined tile area is below MIN_COVERAGE or above
-// MAX_COVERAGE (as fractions of the OG canvas area) we either render empty
+// MAX_COVERAGE (as fractions of the tile section area) we either render empty
 // or trim tiles down to fit.
 const MIN_SCATTER_TILES = 6;
 const MAX_SCATTER_TILES = 20;
 
-// Coverage thresholds — fractions of the OG canvas area (1200×630 = 756 000 px²).
+// Coverage thresholds — fractions of the tile section area (left + right thirds).
+// Each tile section is OG_W/3 × OG_H; combined = 2 × 400 × 630 = 504 000 px².
+const TILE_SECTION_AREA = 2 * (OG_W / 3) * OG_H;
 const MIN_COVERAGE = 0.20;
 const MAX_COVERAGE = 0.60;
 
@@ -103,26 +105,26 @@ const SEED_CELL_H = OG_H / SEED_ROWS; // 90 px
 // [colIndex, rowIndex] — both 0-based. A=0, L=11. Row 1=0, Row 7=6.
 // Mirrors the "OG Layout Tile Seed Locations" Figma diagram.
 const SEED_POSITIONS: ReadonlyArray<readonly [number, number]> = [
-  [1, 0], //  1: A1
-  [11, 0], //  2: I1
-  [0, 5], //  3: B5
-  [11, 5], //  4: I5
-  [0, 3], //  5: C3
-  [11, 2], //  6: K7
-  [0, 1], //  7: D7
-  [10, 0], //  8: L3
-  [1, 6], //  9: B2
-  [10, 6], // 10: J6
-  [0, 2], // 11: A6
-  [11, 3], // 12: D1
-  [1, 4], // 13: I2
-  [10, 4], // 14: L5
-  [1, 2], // 15: C6
+  [1, 0], //  1: B1
+  [11, 0], //  2: L1
+  [0, 5], //  3: A6
+  [11, 5], //  4: L6
+  [0, 3], //  5: A4
+  [11, 2], //  6: L3
+  [0, 1], //  7: A2
+  [10, 0], //  8: K1
+  [1, 6], //  9: B7
+  [10, 6], // 10: K7
+  [1, 2], // 11: A6
+  [11, 3], // 12: L4
+  [1, 4], // 13: B5
+  [10, 4], // 14: K5
+  [0, 2], // 15: C6
   [10, 1], // 16: K2
-  [1, 5], // 17: A3
-  [10, 5], // 18: J3
-  [0, 0], // 19: B7
-  [10, 3], // 20: I7
+  [1, 5], // 17: B6
+  [10, 5], // 18: K6
+  [0, 0], // 19: A1
+  [10, 3], // 20: K4
 ];
 
 /**
@@ -1642,10 +1644,11 @@ async function handler(req: Request, res: Response): Promise<void> {
 
     // Diversity-aware selection: prefer one of each content category
     // (music / map / visual / link / text), then fill up to MAX. After
-    // selection we enforce two area rules:
-    //   - If total scaled tile area < 25% of OG → render empty
-    //   - If total scaled tile area > 60% of OG → trim smallest tiles
-    //     until we're under the cap (but never below MIN).
+    // selection we enforce two area rules against the tile section area
+    // (left + right thirds = 504 000 px²):
+    //   - If total scaled tile area < 20% of tile sections → render empty
+    //   - If total scaled tile area > 60% of tile sections → trim smallest
+    //     tiles until we're under the cap (but never below MIN).
     const seedString = seedOverride ?? info.seed;
     const rng = mulberry32(fnv1a(seedString));
     captured = selectScatterTiles(captured, rng, MAX_SCATTER_TILES);
@@ -1654,8 +1657,8 @@ async function handler(req: Request, res: Response): Promise<void> {
       captured = [];
     }
 
-    // Coverage enforcement.
-    const OG_AREA = OG_W * OG_H;
+    // Coverage enforcement — measured against the tile section area
+    // (left + right thirds combined = 504 000 px²), NOT the full canvas.
     if (captured.length > 0) {
       const tileArea = (t: CapturedTile) =>
         t.width * TILE_SCALE * (t.height * TILE_SCALE);
@@ -1664,14 +1667,14 @@ async function handler(req: Request, res: Response): Promise<void> {
 
       // Over maxCov? Drop the smallest tiles (last in a descending-area
       // sort) until we drop back under the cap — but never below MIN.
-      if (totalArea > maxCov * OG_AREA) {
+      if (totalArea > maxCov * TILE_SECTION_AREA) {
         const byArea = captured
           .map((t, i) => ({ i, a: tileArea(t) }))
           .sort((a, b) => b.a - a.a);
         const keep = new Set<number>();
         let acc = 0;
         for (const entry of byArea) {
-          if (acc + entry.a > maxCov * OG_AREA && keep.size >= MIN_SCATTER_TILES) break;
+          if (acc + entry.a > maxCov * TILE_SECTION_AREA && keep.size >= MIN_SCATTER_TILES) break;
           keep.add(entry.i);
           acc += entry.a;
         }
@@ -1680,9 +1683,9 @@ async function handler(req: Request, res: Response): Promise<void> {
       }
 
       // Under minCov? Render empty — too few/tiny tiles to look good.
-      if (totalArea < minCov * OG_AREA) {
+      if (totalArea < minCov * TILE_SECTION_AREA) {
         functions.logger.info(
-          `[og] tile coverage ${((totalArea / OG_AREA) * 100).toFixed(1)}% < ${(minCov * 100).toFixed(0)}% — rendering empty`
+          `[og] tile coverage ${((totalArea / TILE_SECTION_AREA) * 100).toFixed(1)}% < ${(minCov * 100).toFixed(0)}% — rendering empty`
         );
         captured = [];
       }

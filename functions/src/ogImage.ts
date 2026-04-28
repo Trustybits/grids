@@ -209,7 +209,7 @@ const LIGHT_AVATAR_SHADOW = [
 const DARK_THEME: ThemeTokens = {
   gridBackground: "#10100e",
   contentFull: "#ffffff",
-  contentLow: "rgba(255, 255, 255, 0.34)",
+  contentLow: "rgba(255, 255, 255, 0.21)",
   tileBackground: "#000000",
   tileShadow: [
     "0 3.318px 7.238px rgba(0, 0, 0, 1)",

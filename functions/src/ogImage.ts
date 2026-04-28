@@ -26,6 +26,10 @@
  *   ?seed=foo       overrides the deterministic seed (slug/gridId) so you
  *                   can preview alternate scatter compositions for the same
  *                   grid; also bypasses cache.
+ *   ?positions=A1,I1,B5,...
+ *                   overrides tile anchor positions. Accepts letter-column +
+ *                   1-based row (A1 = col 0, row 0) or numeric col-row
+ *                   (0-0, 8-0). Bypasses cache.
  */
 
 import * as functions from "firebase-functions/v1";
@@ -115,6 +119,48 @@ const SEED_POSITIONS: ReadonlyArray<readonly [number, number]> = [
   [1, 6], // 19: B7
   [8, 6], // 20: I7
 ];
+
+/**
+ * Parse a `?positions=` query string into an array of `[col, row]` pairs.
+ *
+ * Accepts two formats (mixed freely within a single value):
+ *   Letter-based:  A1  → [0, 0],  L7  → [11, 6]   (col A-L, row 1-7)
+ *   Numeric:       0-0 → [0, 0],  11-6 → [11, 6]  (col-row, 0-based)
+ *
+ * Returns `null` when the string is empty/undefined or contains no valid
+ * entries, so the caller can fall back to the default SEED_POSITIONS.
+ */
+function parsePositions(
+  raw: string | undefined
+): ReadonlyArray<readonly [number, number]> | null {
+  if (!raw) return null;
+  const letterPattern = /^([A-L])(\d)$/i;
+  const numericPattern = /^(\d{1,2})-(\d{1,2})$/;
+  const COL_LETTERS = "ABCDEFGHIJKL";
+
+  const entries: Array<readonly [number, number]> = [];
+  for (const token of raw.split(",")) {
+    const t = token.trim();
+    const lm = letterPattern.exec(t);
+    if (lm) {
+      const col = COL_LETTERS.indexOf(lm[1].toUpperCase());
+      const row = parseInt(lm[2], 10) - 1; // 1-based → 0-based
+      if (col >= 0 && col < SEED_COLS && row >= 0 && row < SEED_ROWS) {
+        entries.push([col, row] as const);
+      }
+      continue;
+    }
+    const nm = numericPattern.exec(t);
+    if (nm) {
+      const col = parseInt(nm[1], 10);
+      const row = parseInt(nm[2], 10);
+      if (col >= 0 && col < SEED_COLS && row >= 0 && row < SEED_ROWS) {
+        entries.push([col, row] as const);
+      }
+    }
+  }
+  return entries.length > 0 ? entries : null;
+}
 
 // ─── Theme tokens ────────────────────────────────────────────────────────────
 // Mapped 1-to-1 from the Figma OG Image variables (`OG DarkShadow`, `OG Shadow`,
@@ -1003,7 +1049,7 @@ function selectScatterTiles(
   return selected;
 }
 
-// ─── Scatter layout: deterministic random positions + rotations ─────────────
+// ─── Scatter layout: area-balanced sections + deterministic jitter ───────────
 
 interface ScatterPlacement {
   left: number;
@@ -1014,53 +1060,172 @@ interface ScatterPlacement {
   zIndex: number;
 }
 
+// Section boundaries (column ranges, 0-based):
+//   LEFT  = cols 0–3  (A–D)
+//   META  = cols 4–7  (E–H) — center, behind the vignette
+//   RIGHT = cols 8–11 (I–L)
+type Section = "left" | "meta" | "right";
+
+function sectionOf(col: number): Section {
+  if (col <= 3) return "left";
+  if (col >= 8) return "right";
+  return "meta";
+}
+
+// Pre-split the default seed positions into per-section lists so the
+// balancer can assign tiles into each bucket's indices independently.
+function splitPositionsBySection(
+  positions: ReadonlyArray<readonly [number, number]>
+): Record<Section, Array<readonly [number, number]>> {
+  const out: Record<Section, Array<readonly [number, number]>> = {
+    left: [],
+    meta: [],
+    right: [],
+  };
+  for (const pos of positions) {
+    out[sectionOf(pos[0])].push(pos);
+  }
+  return out;
+}
+
+/**
+ * Area-balanced tile scatter.
+ *
+ * 1. Compute scaled width/height/area for every tile.
+ * 2. Sort tiles by area descending (big → small).
+ * 3. Greedy assignment: for each tile pick the section (left / right / meta)
+ *    whose `totalArea / sectionCapacity` ratio is currently lowest —
+ *    capacity = number of seed slots for that section.
+ * 4. Within each section, tiles (still largest-first) are mapped 1:1 to that
+ *    section's seed positions, jitter + rotation applied as usual.
+ * 5. Global z-index: largest tile area = z 0 (back), smallest = highest z.
+ *
+ * When `positionsOverride` is provided (via `?positions=`) the override
+ * positions are used directly in order (no balancing), preserving the manual
+ * layout the user specified.
+ */
 function scatterTiles(
   tiles: CapturedTile[],
-  rng: () => number
+  rng: () => number,
+  positionsOverride?: ReadonlyArray<readonly [number, number]> | null
 ): ScatterPlacement[] {
-  // Each tile is anchored to a deterministic cell in the 12×7 seed grid
-  // (see SEED_POSITIONS). The cell controls which zone (LEFT/RIGHT) and
-  // approximately where in that zone the tile sits. Inside the cell we
-  // add a bit of jitter so the composition feels organic rather than
-  // pinned to a grid. Rotation is random within ±15°.
-  //
-  // Tile size is fixed at TILE_SCALE × the on-grid size so relative
-  // sizes between tiles match the source layout.
-  //
-  // The vignette layer (drawn over the tiles, under the meta block)
-  // takes care of fading any tile body that bleeds into the center.
-  const JITTER_FRACTION = 0.7; // ±35% of cell W/H around the cell center
+  if (tiles.length === 0) return [];
 
-  const placements: ScatterPlacement[] = tiles.map((t, i) => {
+  const JITTER_FRACTION = 0.7;
+
+  // Helper: place one tile at a seed cell with jitter + rotation.
+  function place(
+    t: CapturedTile,
+    col: number,
+    row: number
+  ): ScatterPlacement {
     const w = t.width * TILE_SCALE;
     const h = t.height * TILE_SCALE;
-
-    const [col, row] = SEED_POSITIONS[i % SEED_POSITIONS.length];
     const cx = (col + 0.5) * SEED_CELL_W;
     const cy = (row + 0.5) * SEED_CELL_H;
-
     const jitterX = (rng() - 0.5) * SEED_CELL_W * JITTER_FRACTION;
     const jitterY = (rng() - 0.5) * SEED_CELL_H * JITTER_FRACTION;
+    return {
+      left: cx + jitterX - w / 2,
+      top: cy + jitterY - h / 2,
+      width: w,
+      height: h,
+      rotation: (rng() - 0.5) * 30,
+      zIndex: 0,
+    };
+  }
 
-    const left = cx + jitterX - w / 2;
-    const top = cy + jitterY - h / 2;
-    const rotation = (rng() - 0.5) * 30; // ±15°
+  // ── Manual override path — honour the exact order provided ──
+  if (positionsOverride && positionsOverride.length > 0) {
+    const placements: ScatterPlacement[] = tiles.map((t, i) => {
+      const [col, row] =
+        positionsOverride[i % positionsOverride.length];
+      return place(t, col, row);
+    });
+    assignZIndex(placements);
+    return placements;
+  }
 
-    return { left, top, width: w, height: h, rotation, zIndex: 0 };
-  });
+  // ── Auto-balance path ──
+  // Step 1+2: compute area per tile and sort descending.
+  const indexed = tiles.map((t, origIdx) => ({
+    tile: t,
+    origIdx,
+    area: t.width * TILE_SCALE * (t.height * TILE_SCALE),
+  }));
+  indexed.sort((a, b) => b.area - a.area);
 
-  // Stack order: largest tiles at the back, smallest in front (matches the
-  // "Layer z-index" Figma diagram). Sort a side-list by area descending and
-  // assign ascending zIndex so the biggest area gets z=0 and the smallest
-  // gets the highest z.
+  // Pre-split seed positions by section.
+  const sectionSlots = splitPositionsBySection(SEED_POSITIONS);
+  const SECTIONS: Section[] = ["left", "right", "meta"];
+  const capacity: Record<Section, number> = {
+    left: sectionSlots.left.length,
+    right: sectionSlots.right.length,
+    meta: sectionSlots.meta.length,
+  };
+
+  // Track running totals.
+  const buckets: Record<Section, typeof indexed> = {
+    left: [],
+    right: [],
+    meta: [],
+  };
+  const totalArea: Record<Section, number> = { left: 0, right: 0, meta: 0 };
+
+  // Step 3: greedy assignment by lowest area/capacity ratio.
+  for (const entry of indexed) {
+    let bestSection: Section = SECTIONS[0];
+    let bestRatio = Infinity;
+    for (const sec of SECTIONS) {
+      if (capacity[sec] === 0) continue;
+      if (buckets[sec].length >= capacity[sec]) continue;
+      const ratio = totalArea[sec] / capacity[sec];
+      if (ratio < bestRatio) {
+        bestRatio = ratio;
+        bestSection = sec;
+      }
+    }
+    // If all sections are full, wrap around to the one with lowest ratio.
+    if (buckets[bestSection].length >= capacity[bestSection]) {
+      bestRatio = Infinity;
+      for (const sec of SECTIONS) {
+        if (capacity[sec] === 0) continue;
+        const ratio = totalArea[sec] / capacity[sec];
+        if (ratio < bestRatio) {
+          bestRatio = ratio;
+          bestSection = sec;
+        }
+      }
+    }
+    buckets[bestSection].push(entry);
+    totalArea[bestSection] += entry.area;
+  }
+
+  // Step 4: within each section, map tiles (largest→smallest, already sorted)
+  // to that section's seed indices in order. Build the final placements array
+  // indexed by the original tile order so HTML rendering stays consistent.
+  const placements: ScatterPlacement[] = new Array(tiles.length);
+  for (const sec of SECTIONS) {
+    const slots = sectionSlots[sec];
+    for (let i = 0; i < buckets[sec].length; i++) {
+      const entry = buckets[sec][i];
+      const [col, row] = slots[i % slots.length];
+      placements[entry.origIdx] = place(entry.tile, col, row);
+    }
+  }
+
+  // Step 5: z-index — largest area at back, smallest in front.
+  assignZIndex(placements);
+  return placements;
+}
+
+function assignZIndex(placements: ScatterPlacement[]): void {
   const byAreaDesc = placements
     .map((p, idx) => ({ idx, area: p.width * p.height }))
     .sort((a, b) => b.area - a.area);
   byAreaDesc.forEach((entry, z) => {
     placements[entry.idx].zIndex = z;
   });
-
-  return placements;
 }
 
 // ─── HTML composition ────────────────────────────────────────────────────────
@@ -1334,6 +1499,11 @@ async function handler(req: Request, res: Response): Promise<void> {
   // Optional override seed — useful for previewing alternate scatter
   // compositions without changing the slug. Skips the storage cache.
   const seedOverride = req.query.seed as string | undefined;
+  // Override seed positions so you can experiment with tile anchor cells
+  // directly from the URL.  Two formats accepted:
+  //   ?positions=A1,I1,B5      letter-column + 1-based row (A=col0, L=col11)
+  //   ?positions=0-0,8-0,1-4   col-row, both 0-based
+  const positionsRaw = req.query.positions as string | undefined;
 
   if (!slug && !gridId) {
     res.status(400).json({ error: "Provide ?slug= or ?gridId=" });
@@ -1350,7 +1520,7 @@ async function handler(req: Request, res: Response): Promise<void> {
   // ── 1. Serve from Storage cache if available ─────────────────────────────
   // Skip cache entirely in the local emulator (no Storage credentials).
   const isEmulatorEnv = process.env.FUNCTIONS_EMULATOR === "true";
-  if (!refresh && !isEmulatorEnv && !seedOverride) {
+  if (!refresh && !isEmulatorEnv && !seedOverride && !positionsRaw) {
     try {
       const [exists] = await file.exists();
       if (exists) {
@@ -1428,7 +1598,8 @@ async function handler(req: Request, res: Response): Promise<void> {
       captured = [];
     }
 
-    const placements = scatterTiles(captured, rng);
+    const positionsOverride = parsePositions(positionsRaw);
+    const placements = scatterTiles(captured, rng, positionsOverride);
 
     // Phase B — render the OG composition HTML
     const html = buildOgHtml(info, captured, placements, theme);

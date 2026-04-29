@@ -514,12 +514,220 @@ describe("UndoRedoManager", () => {
 
   it("peekAtRedo returns null after a redo", () => {
     const snap1 = makeSnapshot({ themeId: "A", actionLabel: "first" });
-    const current = makeSnapshot({ themeId: 'C', actionLabel: "current" });
+    const current = makeSnapshot({ themeId: "C", actionLabel: "current" });
 
     undoRedoManager.pushSnapshot(snap1);
     undoRedoManager.undo(current);
     undoRedoManager.redo(snap1);
 
     expect(undoRedoManager.peekAtRedo()).toBeNull();
+  });
+
+  describe("replaceBlobUrl", () => {
+    function makeSnapshotWithImage(
+      tileId: string,
+      src: string,
+      actionLabel: string,
+    ): Snapshot {
+      return makeSnapshot({
+        tiles: [
+          {
+            i: tileId,
+            x: 0,
+            y: 0,
+            w: 2,
+            h: 2,
+            borderEnabled: false,
+            caption: "",
+            content: {
+              type: ContentType.IMAGE,
+              src,
+              zoom: 1,
+              offsetX: 0,
+              offsetY: 0,
+            } as ImageContent,
+          },
+        ],
+        actionLabel,
+      });
+    }
+
+    it("replaces a blob URL in the undo stack", () => {
+      const snap = makeSnapshotWithImage(
+        "tile-img",
+        "blob:http://localhost/abc",
+        "Add image",
+      );
+      undoRedoManager.pushSnapshot(snap);
+
+      undoRedoManager.replaceBlobUrl(
+        "tile-img",
+        "https://storage.example.com/photo.jpg",
+      );
+
+      const peeked = undoRedoManager.peekAtUndo()!;
+      expect((peeked.tiles[0].content as ImageContent).src).toBe(
+        "https://storage.example.com/photo.jpg",
+      );
+    });
+
+    it("replaces a blob URL in the redo stack", () => {
+      const snap = makeSnapshot({
+        verticalCompact: false,
+        actionLabel: "some action",
+      });
+      const currentWithBlob = makeSnapshotWithImage(
+        "tile-img",
+        "blob:http://localhost/abc",
+        "current",
+      );
+
+      undoRedoManager.pushSnapshot(snap);
+      undoRedoManager.undo(currentWithBlob);
+
+      undoRedoManager.replaceBlobUrl(
+        "tile-img",
+        "https://storage.example.com/photo.jpg",
+      );
+
+      const peeked = undoRedoManager.peekAtRedo()!;
+      expect((peeked.tiles[0].content as ImageContent).src).toBe(
+        "https://storage.example.com/photo.jpg",
+      );
+    });
+
+    it("replaces blob URLs in both stacks simultaneously", () => {
+      const snap1 = makeSnapshotWithImage(
+        "tile-img",
+        "blob:http://localhost/abc",
+        "First image action",
+      );
+      const snap2 = makeSnapshot({
+        verticalCompact: false,
+        actionLabel: "Second action",
+      });
+      const currentWithBlob = makeSnapshotWithImage(
+        "tile-img",
+        "blob:http://localhost/abc",
+        "current",
+      );
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+      undoRedoManager.undo(currentWithBlob);
+
+      undoRedoManager.replaceBlobUrl(
+        "tile-img",
+        "https://storage.example.com/photo.jpg",
+      );
+
+      const undoPeeked = undoRedoManager.peekAtUndo()!;
+      expect((undoPeeked.tiles[0].content as ImageContent).src).toBe(
+        "https://storage.example.com/photo.jpg",
+      );
+
+      const redoPeeked = undoRedoManager.peekAtRedo()!;
+      expect((redoPeeked.tiles[0].content as ImageContent).src).toBe(
+        "https://storage.example.com/photo.jpg",
+      );
+    });
+
+    it("does not replace a non-blob URL", () => {
+      const snap = makeSnapshotWithImage(
+        "tile-img",
+        "https://example.com/already-uploaded.jpg",
+        "Add image",
+      );
+      undoRedoManager.pushSnapshot(snap);
+
+      undoRedoManager.replaceBlobUrl(
+        "tile-img",
+        "https://storage.example.com/new.jpg",
+      );
+
+      const peeked = undoRedoManager.peekAtUndo()!;
+      expect((peeked.tiles[0].content as ImageContent).src).toBe(
+        "https://example.com/already-uploaded.jpg",
+      );
+    });
+
+    it("does not modify tiles with non-matching IDs", () => {
+      const snap = makeSnapshotWithImage(
+        "tile-img",
+        "blob:http://localhost/abc",
+        "Add image",
+      );
+      undoRedoManager.pushSnapshot(snap);
+
+      undoRedoManager.replaceBlobUrl(
+        "different-tile",
+        "https://storage.example.com/photo.jpg",
+      );
+
+      const peeked = undoRedoManager.peekAtUndo()!;
+      expect((peeked.tiles[0].content as ImageContent).src).toBe(
+        "blob:http://localhost/abc",
+      );
+    });
+
+    it("handles tiles without a src field", () => {
+      const snap = makeSnapshot({ actionLabel: "Add text tile" });
+      undoRedoManager.pushSnapshot(snap);
+
+      expect(() => {
+        undoRedoManager.replaceBlobUrl(
+          "tile-1",
+          "https://storage.example.com/photo.jpg",
+        );
+      }).not.toThrow();
+
+      const peeked = undoRedoManager.peekAtUndo()!;
+      expect(peeked.tiles[0].content).not.toHaveProperty("src");
+    });
+
+    it("does not add a src property to a matching tile that lacks one", () => {
+      const snap = makeSnapshot({
+        tiles: [
+          {
+            i: "tile-text",
+            x: 0,
+            y: 0,
+            w: 2,
+            h: 2,
+            borderEnabled: false,
+            caption: "",
+            content: {
+              type: ContentType.TEXT,
+              text: "Hello world",
+              font: "Inter",
+              fontSize: 16,
+              isBold: false,
+              isItalic: false,
+              textType: "paragraph",
+              color: "#000000",
+            } as TileContent,
+          },
+        ],
+        actionLabel: "Add text tile",
+      });
+      undoRedoManager.pushSnapshot(snap);
+
+      undoRedoManager.replaceBlobUrl(
+        "tile-text",
+        "https://storage.example.com/photo.jpg",
+      );
+
+      const peeked = undoRedoManager.peekAtUndo()!;
+      expect(peeked.tiles[0].content).not.toHaveProperty("src");
+    });
+
+    it("handles empty stacks without error", () => {
+      expect(() => {
+        undoRedoManager.replaceBlobUrl(
+          "tile-img",
+          "https://storage.example.com/photo.jpg",
+        );
+      }).not.toThrow();
+    });
   });
 });

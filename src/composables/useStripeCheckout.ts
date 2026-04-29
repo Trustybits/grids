@@ -21,8 +21,8 @@ import { usePostHog } from '@/composables/usePostHog'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-/** Minimum supporter amount in cents ($1.00) */
-const SUPPORTER_MIN_CENTS = 100
+/** Minimum Stripe charge amount in cents ($0.50 is Stripe's floor) */
+const STRIPE_MIN_CENTS = 50
 
 // ── Module-level state (shared across all composable instances) ────────────
 
@@ -55,8 +55,9 @@ export function useStripeCheckout() {
 
   /**
    * Handles PWYW supporter flow.
-   * - amount < $1.00: rejected (badge requires payment)
-   * - amount >= $1.00: redirects to Stripe Checkout
+   * - amount === 0: should be handled by the caller (navigate away, no Stripe)
+   * - amount > 0 but < Stripe minimum: rejected
+   * - amount >= Stripe minimum: redirects to Stripe Checkout
    *
    * @param amountDollars - Dollar amount chosen by user (e.g. 5 = $5.00)
    */
@@ -65,10 +66,15 @@ export function useStripeCheckout() {
     try {
       const amountCents = Math.round(amountDollars * 100)
 
-      if (amountCents < SUPPORTER_MIN_CENTS) {
-        const message = 'Supporter badge requires at least $1.'
+      if (amountCents > 0 && amountCents < STRIPE_MIN_CENTS) {
+        const message = `Minimum payment is $${(STRIPE_MIN_CENTS / 100).toFixed(2)}.`
         _error.value = message
         capture('checkout_error', { type: 'supporter', error: message })
+        return
+      }
+
+      if (amountCents === 0) {
+        _error.value = 'Use $0 flow outside of Stripe checkout.'
         return
       }
 

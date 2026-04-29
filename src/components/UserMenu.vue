@@ -31,6 +31,28 @@
           </div>
         </div>
         <div class="menu-divider"></div>
+        <div class="billing-section">
+          <span v-if="isProOrAbove" class="billing-chip billing-chip--pro">Pro Plan</span>
+          <span v-else-if="hasSupporterBadge" class="billing-chip billing-chip--supporter">Supporter</span>
+          <span v-else class="billing-label">Free Account</span>
+          <router-link
+            v-if="hasSupporterBadge || isProOrAbove"
+            to="/pricing"
+            class="billing-action"
+            @click="showUserMenu = false"
+          >
+            Manage Billing
+          </router-link>
+          <router-link
+            v-else
+            to="/pricing"
+            class="billing-action"
+            @click="showUserMenu = false"
+          >
+            Upgrade
+          </router-link>
+        </div>
+        <div class="menu-divider"></div>
         <button @click="logout" class="menu-action-item">
           Logout
         </button>
@@ -53,6 +75,7 @@ import { useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@/auth/AuthProvider";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import { useSubscription } from "@/composables/useSubscription";
 import SlugClaimModal from "./SlugClaimModal.vue";
 
 export default defineComponent({
@@ -62,6 +85,7 @@ export default defineComponent({
   },
   setup() {
     const router = useRouter();
+    const { hasSupporterBadge, isProOrAbove } = useSubscription();
     const user = ref<AuthUser | null>(null);
     const showUserMenu = ref(false);
     const showSlugModal = ref(false);
@@ -145,6 +169,8 @@ export default defineComponent({
       openSlugModal,
       closeSlugModal,
       handleSlugSuccess,
+      hasSupporterBadge,
+      isProOrAbove,
     };
   },
 });
@@ -282,6 +308,54 @@ export default defineComponent({
     height: 1px;
     background-color: var(--color-tile-stroke);
     margin: var(--spacing-sm) 0;
+  }
+
+  .billing-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: var(--spacing-sm);
+  }
+
+  .billing-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-content-low);
+  }
+
+  .billing-chip {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .billing-chip--supporter {
+    background: rgba(249, 115, 22, 0.15);
+    color: #f97316;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+  }
+
+  .billing-chip--pro {
+    background: rgba(99, 102, 241, 0.15);
+    color: #818cf8;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+  }
+
+  .billing-action {
+    font-size: var(--font-size-sm);
+    color: var(--color-figma-purple);
+    text-decoration: none;
+    font-weight: 500;
+    transition: opacity var(--duration-fast) var(--easing-smooth);
+
+    &:hover {
+      opacity: 0.75;
+    }
   }
 
   .menu-action-item {

@@ -293,11 +293,11 @@
 
               <button
                 class="mkt__plan-btn mkt__plan-btn--brand"
-                :disabled="checkout.loading.value || effectiveAmount < 1"
+                :disabled="checkout.loading.value"
                 @click="handleSupporterCheckout"
               >
                 <span v-if="checkout.loading.value">Processing...</span>
-                <span v-else-if="effectiveAmount < 1">Minimum $1</span>
+                <span v-else-if="effectiveAmount === 0">Continue for Free</span>
                 <span v-else>Support for ${{ effectiveAmount }}</span>
               </button>
               <p v-if="checkout.error.value" class="mkt__plan-error">
@@ -625,7 +625,7 @@ const proMonthlyPrice = 12;
 const proAnnualPrice = 120;
 const proAnnualMonthlyPrice = computed(() => Math.round(proAnnualPrice / 12));
 
-const pwywPresets = [1, 5, 20, 50];
+const pwywPresets = [0, 1, 5, 20, 50];
 const selectedAmount = ref(5);
 const customAmountMode = ref(false);
 const customAmount = ref(5);
@@ -637,11 +637,15 @@ function selectPreset(amount: number) {
 
 const effectiveAmount = computed(() =>
   customAmountMode.value
-    ? Math.max(1, Math.floor(customAmount.value || 1))
+    ? Math.max(0, Math.floor(customAmount.value || 0))
     : selectedAmount.value,
 );
 
 async function handleSupporterCheckout() {
+  if (effectiveAmount.value === 0) {
+    router.push('/');
+    return;
+  }
   await checkout.checkoutSupporter(effectiveAmount.value);
 }
 
@@ -679,20 +683,20 @@ const supporterUnlocks = [
 function onCustomAmountInput(event: Event) {
   const target = event.target as HTMLInputElement;
   const digitsOnly = target.value.replace(/[^\d]/g, '');
-  const parsed = Number.parseInt(digitsOnly || '1', 10);
-  customAmount.value = Number.isNaN(parsed) ? 1 : Math.max(1, parsed);
+  const parsed = Number.parseInt(digitsOnly || '0', 10);
+  customAmount.value = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
 }
 
 function normalizeCustomAmount() {
-  customAmount.value = Math.max(1, Math.floor(customAmount.value || 1));
+  customAmount.value = Math.max(0, Math.floor(customAmount.value || 0));
 }
 
 function incrementCustomAmount() {
-  customAmount.value = Math.max(1, Math.floor(customAmount.value || 1)) + 1;
+  customAmount.value = Math.max(0, Math.floor(customAmount.value || 0)) + 1;
 }
 
 function decrementCustomAmount() {
-  customAmount.value = Math.max(1, Math.floor(customAmount.value || 1) - 1);
+  customAmount.value = Math.max(0, Math.floor(customAmount.value || 0) - 1);
 }
 
 const proFeatures = [

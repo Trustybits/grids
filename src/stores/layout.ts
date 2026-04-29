@@ -34,6 +34,23 @@ let lastStableSnapshot: Snapshot | null = null;
 let pendingEditSnapshot: Snapshot | null = null;
 let editingTileId: string | null = null;
 
+function patchSnapshotBlobUrl(
+  snapshot: Snapshot | null,
+  tileId: string,
+  permanentUrl: string,
+): void {
+  if (!snapshot) return;
+  const tile = snapshot.tiles.find((t) => t.i === tileId);
+  if (
+    tile &&
+    "src" in tile.content &&
+    typeof (tile.content as { src: string }).src === "string" &&
+    (tile.content as { src: string }).src.startsWith("blob:")
+  ) {
+    (tile.content as { src: string }).src = permanentUrl;
+  }
+}
+
 export const useLayoutStore = defineStore("layout", {
   state: () => ({
     undoRedoVersion: 0,
@@ -187,8 +204,23 @@ export const useLayoutStore = defineStore("layout", {
 
     captureSnapshot(actionLabel: string): Snapshot | null {
       if (!this.currentLayout) return null;
+      const tiles: Tile[] = JSON.parse(
+        JSON.stringify(this.currentLayout.tiles),
+      );
+      for (const tile of tiles) {
+        if (
+          "src" in tile.content &&
+          typeof (tile.content as { src: string }).src === "string" &&
+          (tile.content as { src: string }).src.startsWith("blob:")
+        ) {
+          const resolved = this.resolvedUrls[tile.i];
+          if (resolved) {
+            (tile.content as { src: string }).src = resolved;
+          }
+        }
+      }
       return {
-        tiles: JSON.parse(JSON.stringify(this.currentLayout.tiles)),
+        tiles,
         overrides: JSON.parse(
           JSON.stringify(this.currentLayout.overrides ?? {}),
         ),
@@ -351,8 +383,14 @@ export const useLayoutStore = defineStore("layout", {
 
     // Store the permanent storage URL for a tile that is still showing a blob preview.
     // This URL is used only for persistence — the displayed src is unchanged.
+    // Also updates undo/redo snapshots and the lastStable and pendingEdit snapshots
     setResolvedUrl(tileId: string, url: string) {
       this.resolvedUrls[tileId] = url;
+      undoRedoManager?.replaceBlobUrl(tileId, url);
+      patchSnapshotBlobUrl(lastStableSnapshot, tileId, url);
+      patchSnapshotBlobUrl(pendingEditSnapshot, tileId, url);
+      patchSnapshotBlobUrl(pendingDragSnapshot, tileId, url);
+      patchSnapshotBlobUrl(pendingResizeSnapshot, tileId, url);
     },
 
     // Retrieve the resolved storage URL for a tile, if one exists

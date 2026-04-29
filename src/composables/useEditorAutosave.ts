@@ -24,8 +24,8 @@ export function useEditorAutosave(persist: () => void) {
     if (timer) {
       clearTimeout(timer);
       timer = null;
+      persist();
     }
-    persist();
   };
 
   onUnmounted(() => {

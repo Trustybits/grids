@@ -430,6 +430,7 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import { useEditorContentSync } from "@/composables/useEditingLifecycle";
 import Placeholder from "@tiptap/extension-placeholder";
 import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
 import ShapeCircleIcon from "@/components/icons/actionbar/ShapeCircleIcon.vue";
@@ -595,6 +596,10 @@ export default defineComponent({
       onUpdate: onEditorUpdate,
     });
 
+    useEditorContentSync(nameEditor, () => props.content.name, parseContent);
+    useEditorContentSync(titleEditor, () => props.content.title, parseContent);
+    useEditorContentSync(bioEditor, () => props.content.bio, parseContent);
+
     const isNameEmpty = computed(() => nameEditor.value?.isEmpty ?? true);
     const isTitleEmpty = computed(() => titleEditor.value?.isEmpty ?? true);
     const isBioEmpty = computed(() => bioEditor.value?.isEmpty ?? true);
@@ -658,14 +663,23 @@ export default defineComponent({
       const title = serializeEditor(titleEditor.value);
       const bio = serializeEditor(bioEditor.value);
 
-      if (tileId) {
-        layoutStore.patchTileContent(tileId, { name, title, bio });
+      if (tileId && layoutStore.currentLayout) {
+        const tile = layoutStore.currentLayout.tiles.find(
+          (t) => t.i === tileId,
+        );
+        if (tile) {
+          const content = tile.content as ProfileBioContent;
+          content.name = name;
+          content.title = title;
+          content.bio = bio;
+        }
       } else {
         props.content.name = name;
         props.content.title = title;
         props.content.bio = bio;
-        layoutStore.saveLayout();
       }
+
+      layoutStore.saveLayout();
     };
 
     watch(
@@ -695,6 +709,10 @@ export default defineComponent({
               bioEditor.value;
             pendingFocusEditor.value = null;
             target?.commands.focus("end");
+            nextTick(() => {
+              flushPersist();
+              if (tileId) layoutStore.beginEditing(tileId);
+            });
           });
           return;
         }
@@ -709,6 +727,7 @@ export default defineComponent({
         }
 
         flushPersist();
+        layoutStore.commitEditing();
       },
     );
 

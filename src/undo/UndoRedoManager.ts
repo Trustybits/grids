@@ -85,6 +85,22 @@ export class UndoRedoManager {
     return this.redoStack[this.redoStack.length - 1] ?? null;
   }
 
+  replaceBlobUrl(tileId: string, permanentUrl: string): void {
+    for (const stack of [this.undoStack, this.redoStack]) {
+      for (const snapshot of stack) {
+        const tile = snapshot.tiles.find((t) => t.i === tileId);
+        if (
+          tile &&
+          "src" in tile.content &&
+          typeof (tile.content as { src: string }).src === "string" &&
+          (tile.content as { src: string }).src.startsWith("blob:")
+        ) {
+          (tile.content as { src: string }).src = permanentUrl;
+        }
+      }
+    }
+  }
+
   private isDuplicate(snapshot: Snapshot): boolean {
     const { actionLabel: _a, ...incomingData } = snapshot;
     const { actionLabel: _b, ...topOfStackData } =

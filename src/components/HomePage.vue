@@ -625,10 +625,10 @@ const proMonthlyPrice = 12;
 const proAnnualPrice = 120;
 const proAnnualMonthlyPrice = computed(() => Math.round(proAnnualPrice / 12));
 
-const pwywPresets = [0, 1, 5, 20, 50];
+const pwywPresets = [1, 5, 20, 50];
 const selectedAmount = ref(5);
 const customAmountMode = ref(false);
-const customAmount = ref(5);
+const customAmount = ref(0);
 
 function selectPreset(amount: number) {
   selectedAmount.value = amount;

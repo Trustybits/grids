@@ -281,6 +281,7 @@ export default {
     watch(
       [
         activeBreakpoint,
+        () => layoutStore.undoRedoVersion,
         () => layoutStore.currentLayout?.tiles?.length,
         () => layoutStore.currentLayout?.tiles?.map((t) => t.i).join(","),
         () =>

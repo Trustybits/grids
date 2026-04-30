@@ -129,7 +129,9 @@ export class UndoRedoManager {
       const count = this.undoStack.length - undoIndex;
       let rolling: Snapshot = currentSnapshot;
       for (let i = 0; i < count; i++) {
-        rolling = this.undo(rolling)!;
+        const result = this.undo(rolling);
+        if (!result) break;
+        rolling = result;
       }
       return rolling;
     }
@@ -139,7 +141,9 @@ export class UndoRedoManager {
       const count = this.redoStack.length - redoIndex;
       let rolling: Snapshot = currentSnapshot;
       for (let i = 0; i < count; i++) {
-        rolling = this.redo(rolling)!;
+        const result = this.redo(rolling);
+        if (!result) break;
+        rolling = result;
       }
       return rolling;
     }

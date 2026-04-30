@@ -83,6 +83,9 @@ const MAX_SCATTER_TILES = 20;
 const TILE_SECTION_AREA = 2 * (OG_W / 3) * OG_H;
 const MIN_COVERAGE = 0.20;
 const MAX_COVERAGE = 0.60;
+// Extra headroom (absolute fraction) allowed when equalizing left/right counts
+// would push total coverage slightly past MAX_COVERAGE.
+const BALANCE_TOLERANCE = 0.05;
 
 // Tiles are rendered at this fraction of their on-grid pixel size so the
 // composition feels intentional and tile→tile size relationships survive.
@@ -887,9 +890,9 @@ async function captureGridTiles(
       // explicit attributes aren't deployed yet. Round to nearest int.
       const itemRect = item.getBoundingClientRect();
       const colsEst =
-        unitW > 0 ? Math.max(1, Math.round(itemRect.width / unitW)) : 0;
+        unitW > 0 ? Math.max(1, Math.ceil(itemRect.width / unitW - 0.15)) : 0;
       const rowsEst =
-        unitH > 0 ? Math.max(1, Math.round(itemRect.height / unitH)) : 0;
+        unitH > 0 ? Math.max(1, Math.ceil(itemRect.height / unitH - 0.15)) : 0;
       const cols = colsAttr || colsEst;
       const rows = rowsAttr || rowsEst;
 
@@ -1155,6 +1158,9 @@ function splitPositionsBySection(
  * 3. Greedy assignment: for each tile pick the section (left / right / meta)
  *    whose `totalArea / sectionCapacity` ratio is currently lowest —
  *    capacity = number of seed slots for that section.
+ * 3b. Equalize left/right tile counts. If one side got more, try to move
+ *     excess to the smaller side (allowed if total ≤ maxCov + 5%). Otherwise
+ *     trim the larger side to match the smaller.
  * 4. Within each section, tiles (still largest-first) are mapped 1:1 to that
  *    section's seed positions, jitter + rotation applied as usual.
  * 5. Global z-index: largest tile area = z 0 (back), smallest = highest z.
@@ -1166,6 +1172,7 @@ function splitPositionsBySection(
 function scatterTiles(
   tiles: CapturedTile[],
   rng: () => number,
+  maxCov: number,
   positionsOverride?: ReadonlyArray<readonly [number, number]> | null
 ): ScatterPlacement[] {
   if (tiles.length === 0) return [];
@@ -1266,6 +1273,45 @@ function scatterTiles(
     totalArea[bestSection] += entry.area;
   }
 
+  // Step 3b: equalize left/right tile counts.
+  // If one side has more tiles, try to promote the smaller side to match.
+  // If promoting would push total coverage past maxCov + BALANCE_TOLERANCE,
+  // trim the larger side down instead.
+  const lCount = buckets.left.length;
+  const rCount = buckets.right.length;
+  if (lCount !== rCount) {
+    const bigger: Section = lCount > rCount ? "left" : "right";
+    const smaller: Section = bigger === "left" ? "right" : "left";
+    const diff = Math.abs(lCount - rCount);
+
+    // Could we instead add tiles from the bigger bucket's overflow to
+    // the smaller? No — tiles are already assigned. The only lever is
+    // trimming the bigger side so both match the smaller count.
+    //
+    // Exception: if trimming would waste tiles, check whether the current
+    // total is within maxCov + tolerance. If so, keep the larger count
+    // by moving excess tiles from bigger → smaller (they get new seed
+    // positions in the smaller section).
+    const currentTotal = totalArea.left + totalArea.right + totalArea.meta;
+    const toleranceCap = (maxCov + BALANCE_TOLERANCE) * TILE_SECTION_AREA;
+
+    if (currentTotal <= toleranceCap && capacity[smaller] >= lCount && capacity[smaller] >= rCount) {
+      // Promote: move excess tiles from bigger → smaller to equalize up.
+      const toMove = buckets[bigger].splice(-diff);
+      for (const entry of toMove) {
+        totalArea[bigger] -= entry.area;
+        totalArea[smaller] += entry.area;
+        buckets[smaller].push(entry);
+      }
+    } else {
+      // Trim: drop smallest tiles from the bigger side to match smaller.
+      const removed = buckets[bigger].splice(-diff);
+      for (const entry of removed) {
+        totalArea[bigger] -= entry.area;
+      }
+    }
+  }
+
   // Step 4: within each section, map tiles (largest→smallest, already sorted)
   // to that section's seed indices in order. Build the final placements array
   // indexed by the original tile order so HTML rendering stays consistent.
@@ -1316,7 +1362,7 @@ function buildOgHtml(
   const scatterHtml = placements
     .map((p, i) => {
       const tile = tiles[i];
-      if (!tile) return "";
+      if (!tile || !p) return "";
       return `
         <div class="scatter-tile" style="
           left:${p.left.toFixed(2)}px;
@@ -1749,7 +1795,7 @@ async function handler(req: Request, res: Response): Promise<void> {
     }
 
     const positionsOverride = parsePositions(positionsRaw);
-    const placements = scatterTiles(captured, rng, positionsOverride);
+    const placements = scatterTiles(captured, rng, maxCov, positionsOverride);
 
     // Phase B — render the OG composition HTML
     const html = buildOgHtml(info, captured, placements, theme);

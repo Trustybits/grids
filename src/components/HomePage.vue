@@ -276,6 +276,7 @@
                   inputmode="numeric"
                   pattern="[0-9]*"
                   placeholder="5"
+                  @keydown="onCustomAmountKeydown"
                   @input="onCustomAmountInput"
                   @blur="normalizeCustomAmount"
                   @focus="($event.target as HTMLInputElement)?.select()"
@@ -708,6 +709,12 @@ function onCustomAmountInput(event: Event) {
   const digitsOnly = target.value.replace(/[^\d]/g, '');
   const parsed = Number.parseInt(digitsOnly || '0', 10);
   customAmount.value = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+}
+
+function onCustomAmountKeydown(event: KeyboardEvent) {
+  if (event.key === '.' || event.key === ',') {
+    event.preventDefault();
+  }
 }
 
 function normalizeCustomAmount() {

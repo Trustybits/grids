@@ -123,6 +123,30 @@ export class UndoRedoManager {
     return this.redoStack[this.redoStack.length - 1] ?? null;
   }
 
+  undoRedoUntil(snapshotId: number, currentSnapshot: Snapshot): Snapshot | null {
+    const undoIndex = this.undoStack.findIndex(s => s.snapshotId === snapshotId);
+    if (undoIndex !== -1) {
+      const count = this.undoStack.length - undoIndex;
+      let rolling: Snapshot = currentSnapshot;
+      for (let i = 0; i < count; i++) {
+        rolling = this.undo(rolling)!;
+      }
+      return rolling;
+    }
+
+    const redoIndex = this.redoStack.findIndex(s => s.snapshotId === snapshotId);
+    if (redoIndex !== -1) {
+      const count = this.redoStack.length - redoIndex;
+      let rolling: Snapshot = currentSnapshot;
+      for (let i = 0; i < count; i++) {
+        rolling = this.redo(rolling)!;
+      }
+      return rolling;
+    }
+
+    return null;
+  }
+
   replaceBlobUrl(tileId: string, permanentUrl: string): void {
     for (const stack of [this.undoStack, this.redoStack]) {
       for (const snapshot of stack) {

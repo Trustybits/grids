@@ -267,7 +267,7 @@
                   type="text"
                   inputmode="numeric"
                   pattern="[0-9]*"
-                  placeholder="0"
+                  placeholder="5"
                   @input="onCustomAmountInput"
                   @blur="normalizeCustomAmount"
                   @focus="($event.target as HTMLInputElement)?.select()"
@@ -628,7 +628,7 @@ const proAnnualMonthlyPrice = computed(() => Math.round(proAnnualPrice / 12));
 const pwywPresets = [1, 5, 20, 50];
 const selectedAmount = ref(5);
 const customAmountMode = ref(false);
-const customAmount = ref(0);
+const customAmount = ref(5);
 
 function selectPreset(amount: number) {
   selectedAmount.value = amount;
@@ -1672,7 +1672,7 @@ const faqItems = [
 }
 .mkt__pwyw-btn {
   flex: 1;
-  min-width: 60px;
+  /* min-width: 48px; */
   border: 1px solid transparent;
   background:
     linear-gradient(var(--mkt-bg-0), var(--mkt-bg-0)) padding-box,

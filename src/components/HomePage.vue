@@ -28,8 +28,16 @@
         >
           <DiscordIcon />
         </a>
-        <router-link to="/login" class="mkt__text-btn">Sign in</router-link>
-        <router-link to="/login" class="mkt__cta-btn">Start your grid</router-link>
+        <template v-if="isAuthenticated">
+          <router-link to="/dashboard" class="mkt__outline-btn">
+            <span>Go to Dashboard</span>
+            <span aria-hidden="true" class="mkt__outline-btn-icon">→</span>
+          </router-link>
+        </template>
+        <template v-else>
+          <router-link to="/login" class="mkt__text-btn">Sign in</router-link>
+          <router-link to="/login" class="mkt__cta-btn">Start your grid</router-link>
+        </template>
       </div>
     </header>
 
@@ -483,6 +491,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useSubscription } from '@/composables/useSubscription';
 import { useStripeCheckout } from '@/composables/useStripeCheckout';
+import { getAuthProvider } from '@/auth/AuthProviderSingleton';
+import type { AuthUser } from '@/auth/AuthProvider';
 import DiscordIcon from '@/components/icons/DiscordIcon.vue';
 import HomePageGridEmbed from '@/components/HomePageGridEmbed.vue';
 
@@ -506,6 +516,9 @@ const route = useRoute();
 const router = useRouter();
 
 const currentPage = ref<Page>('home');
+const user = ref<AuthUser | null>(null);
+const isAuthenticated = computed(() => !!user.value);
+let unsubscribeAuthState: (() => void) | null = null;
 
 // Animated marketing pill — types/backspaces through sample handles
 const sampleSlugs = ['taylor', 'mira', 'jordan', 'kei', 'june', 'sam', 'paulo', 'liam', 'olivia', 'noah', 'mma', 'oliver', 'charlotte', 'elijah', 'amelia', 'james', 'ava', 'william', 'sophia', 'benjamin', 'isabella', 'lucas', 'mia', 'henry', 'evelyn', 'theodore', 'harper'];
@@ -556,10 +569,14 @@ function startSlugAnimation() {
 }
 
 onMounted(() => {
+  unsubscribeAuthState = getAuthProvider().onAuthStateChanged((currentUser) => {
+    user.value = currentUser;
+  });
   startSlugAnimation();
 });
 
 onBeforeUnmount(() => {
+  if (unsubscribeAuthState) unsubscribeAuthState();
   if (slugTimer) clearTimeout(slugTimer);
 });
 
@@ -923,6 +940,28 @@ const faqItems = [
   background: var(--mkt-brand-gradient);
   color: #000;
   text-decoration: none;
+}
+.mkt__outline-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 13px/1 var(--mkt-font-sans);
+  letter-spacing: -0.01em;
+  padding: 9px 14px;
+  border-radius: var(--mkt-radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+  color: var(--mkt-fg-1);
+  text-decoration: none;
+  transition: border-color .15s, background .15s;
+}
+.mkt__outline-btn:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+}
+.mkt__outline-btn-icon {
+  font-size: 14px;
+  line-height: 1;
 }
 .mkt__hero {
   position: relative;

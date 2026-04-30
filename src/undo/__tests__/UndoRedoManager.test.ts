@@ -926,4 +926,300 @@ describe("UndoRedoManager", () => {
       expect(entry).not.toHaveProperty("forcedBreakpoint");
     });
   });
+
+  describe("undoRedoUntil", () => {
+    // Equivalence classes:
+    // - snapshotId not found in either stack → null
+    // - snapshotId found in undo stack (bulk undo): top, middle, bottom
+    // - snapshotId found in redo stack (bulk redo): top, middle, bottom
+    // - round-trip: bulk undo then bulk redo back to verify jumping through history
+    // - stack integrity: after bulk undo, redo stack contains all skipped entries
+
+    it("returns null when snapshotId is not found in either stack", () => {
+      const snap1 = makeSnapshot({ themeId: "A", actionLabel: "first" });
+      undoRedoManager.pushSnapshot(snap1);
+
+      const current = makeSnapshot({ themeId: "B", actionLabel: "current" });
+      const result = undoRedoManager.undoRedoUntil(9999, current);
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null when both stacks are empty", () => {
+      const current = makeSnapshot({ themeId: "A", actionLabel: "current" });
+      const result = undoRedoManager.undoRedoUntil(1, current);
+
+      expect(result).toBeNull();
+    });
+
+    it("bulk undoes to the target snapshot in the middle of the undo stack", () => {
+      const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
+      const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
+      const snap3 = makeSnapshot({ themeId: "theme-3", actionLabel: "Set theme 3" });
+      const current = makeSnapshot({ themeId: "theme-4", actionLabel: "current" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+      undoRedoManager.pushSnapshot(snap3);
+
+      const snap2Id = undoRedoManager.getStacks().undoStack[1].snapshotId;
+      const result = undoRedoManager.undoRedoUntil(snap2Id, current);
+
+      expect(result).not.toBeNull();
+      expect(result!.themeId).toBe("theme-2");
+    });
+
+    it("bulk undoes to the bottom of the undo stack (undoes everything)", () => {
+      const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
+      const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
+      const snap3 = makeSnapshot({ themeId: "theme-3", actionLabel: "Set theme 3" });
+      const current = makeSnapshot({ themeId: "theme-4", actionLabel: "current" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+      undoRedoManager.pushSnapshot(snap3);
+
+      const snap1Id = undoRedoManager.getStacks().undoStack[0].snapshotId;
+      const result = undoRedoManager.undoRedoUntil(snap1Id, current);
+
+      expect(result).not.toBeNull();
+      expect(result!.themeId).toBe("theme-1");
+      expect(undoRedoManager.canUndo()).toBe(false);
+    });
+
+    it("undoes only once when target is at the top of the undo stack", () => {
+      const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
+      const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
+      const current = makeSnapshot({ themeId: "theme-3", actionLabel: "current" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+
+      const snap2Id = undoRedoManager.getStacks().undoStack[1].snapshotId;
+      const result = undoRedoManager.undoRedoUntil(snap2Id, current);
+
+      expect(result).not.toBeNull();
+      expect(result!.themeId).toBe("theme-2");
+      expect(undoRedoManager.canUndo()).toBe(true);
+      expect(undoRedoManager.getLastActionLabel()).toBe("Set theme 1");
+    });
+
+    it("moves all skipped snapshots to the redo stack after bulk undo", () => {
+      const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
+      const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
+      const snap3 = makeSnapshot({ themeId: "theme-3", actionLabel: "Set theme 3" });
+      const snap4 = makeSnapshot({ themeId: "theme-4", actionLabel: "Set theme 4" });
+      const current = makeSnapshot({ themeId: "theme-5", actionLabel: "current" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+      undoRedoManager.pushSnapshot(snap3);
+      undoRedoManager.pushSnapshot(snap4);
+
+      const snap2Id = undoRedoManager.getStacks().undoStack[1].snapshotId;
+      undoRedoManager.undoRedoUntil(snap2Id, current);
+
+      const stacks = undoRedoManager.getStacks();
+      expect(stacks.undoStack).toHaveLength(1);
+      expect(stacks.undoStack[0].actionLabel).toBe("Set theme 1");
+      expect(stacks.redoStack).toHaveLength(3);
+      expect(stacks.redoStack.map((s) => s.actionLabel)).toStrictEqual([
+        "Set theme 4",
+        "Set theme 3",
+        "Set theme 2",
+      ]);
+    });
+
+    it("bulk redoes to the target snapshot in the redo stack", () => {
+      const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
+      const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
+      const snap3 = makeSnapshot({ themeId: "theme-3", actionLabel: "Set theme 3" });
+      const current = makeSnapshot({ themeId: "theme-4", actionLabel: "current" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+      undoRedoManager.pushSnapshot(snap3);
+
+      // Undo all three to populate the redo stack
+      // Redo stack (bottom→top): [{theme-4, snap3Id}, {theme-3, snap2Id}, {theme-2, snap1Id}]
+      const afterUndo3 = undoRedoManager.undo(current)!;
+      const afterUndo2 = undoRedoManager.undo(afterUndo3)!;
+      const afterUndo1 = undoRedoManager.undo(afterUndo2)!;
+      expect(undoRedoManager.canUndo()).toBe(false);
+
+      // Target snap2Id (index 1) — redo pops from top, so 2 redo calls
+      // redo(theme-1) → returns theme-2; redo(theme-2) → returns theme-3
+      const redoStacks = undoRedoManager.getStacks();
+      const targetId = redoStacks.redoStack[1].snapshotId;
+
+      const result = undoRedoManager.undoRedoUntil(targetId, afterUndo1);
+
+      expect(result).not.toBeNull();
+      expect(result!.themeId).toBe("theme-3");
+    });
+
+    it("redoes only once when target is at the top of the redo stack", () => {
+      const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
+      const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
+      const current = makeSnapshot({ themeId: "theme-3", actionLabel: "current" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+
+      const afterUndo2 = undoRedoManager.undo(current)!;
+      const afterUndo1 = undoRedoManager.undo(afterUndo2)!;
+
+      const topRedoId = undoRedoManager.getStacks().redoStack[1].snapshotId;
+      const result = undoRedoManager.undoRedoUntil(topRedoId, afterUndo1);
+
+      expect(result).not.toBeNull();
+      expect(result!.themeId).toBe("theme-2");
+      expect(undoRedoManager.canRedo()).toBe(true);
+    });
+
+    it("bulk redoes to the bottom of the redo stack (redoes everything)", () => {
+      const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
+      const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
+      const snap3 = makeSnapshot({ themeId: "theme-3", actionLabel: "Set theme 3" });
+      const current = makeSnapshot({ themeId: "theme-4", actionLabel: "current" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+      undoRedoManager.pushSnapshot(snap3);
+
+      const afterUndo3 = undoRedoManager.undo(current)!;
+      const afterUndo2 = undoRedoManager.undo(afterUndo3)!;
+      const afterUndo1 = undoRedoManager.undo(afterUndo2)!;
+
+      // Target the bottom of the redo stack (first entry, index 0)
+      const bottomRedoId = undoRedoManager.getStacks().redoStack[0].snapshotId;
+      const result = undoRedoManager.undoRedoUntil(bottomRedoId, afterUndo1);
+
+      expect(result).not.toBeNull();
+      expect(result!.themeId).toBe("theme-4");
+      expect(undoRedoManager.canRedo()).toBe(false);
+    });
+
+    it("round-trip: bulk undo to an old version, then bulk redo back to a recent version", () => {
+      const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
+      const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
+      const snap3 = makeSnapshot({ themeId: "theme-3", actionLabel: "Set theme 3" });
+      const snap4 = makeSnapshot({ themeId: "theme-4", actionLabel: "Set theme 4" });
+      const current = makeSnapshot({ themeId: "theme-5", actionLabel: "current" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+      undoRedoManager.pushSnapshot(snap3);
+      undoRedoManager.pushSnapshot(snap4);
+
+      const stacks = undoRedoManager.getStacks();
+      const snap1Id = stacks.undoStack[0].snapshotId;
+      const snap3Id = stacks.undoStack[2].snapshotId;
+
+      // Jump back to snap1 (undoes 4 entries)
+      const jumped = undoRedoManager.undoRedoUntil(snap1Id, current)!;
+      expect(jumped.themeId).toBe("theme-1");
+      expect(undoRedoManager.canUndo()).toBe(false);
+      expect(undoRedoManager.canRedo()).toBe(true);
+
+      // Jump forward to snap3's redo entry (index 1 from bottom)
+      // Redo stack after full undo (bottom→top):
+      //   [{theme-5, snap4Id}, {theme-4, snap3Id}, {theme-3, snap2Id}, {theme-2, snap1Id}]
+      // snap3Id is at index 1, count = 4-1 = 3 redos
+      // redo(theme-1)→theme-2, redo(theme-2)→theme-3, redo(theme-3)→theme-4
+      const jumpedForward = undoRedoManager.undoRedoUntil(snap3Id, jumped)!;
+      expect(jumpedForward.themeId).toBe("theme-4");
+      expect(undoRedoManager.canUndo()).toBe(true);
+      expect(undoRedoManager.canRedo()).toBe(true);
+    });
+
+    it("round-trip: can jump back again after jumping forward", () => {
+      const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
+      const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
+      const snap3 = makeSnapshot({ themeId: "theme-3", actionLabel: "Set theme 3" });
+      const current = makeSnapshot({ themeId: "theme-4", actionLabel: "current" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+      undoRedoManager.pushSnapshot(snap3);
+
+      const stacks = undoRedoManager.getStacks();
+      const snap1Id = stacks.undoStack[0].snapshotId;
+      const snap2Id = stacks.undoStack[1].snapshotId;
+
+      // Jump back to snap1 (3 undos)
+      const jumped = undoRedoManager.undoRedoUntil(snap1Id, current)!;
+      expect(jumped.themeId).toBe("theme-1");
+
+      // Jump forward to snap2's redo entry
+      // Redo stack (bottom→top): [{theme-4, snap3Id}, {theme-3, snap2Id}, {theme-2, snap1Id}]
+      // snap2Id is at index 1, count = 3-1 = 2 redos
+      // redo(theme-1)→theme-2, redo(theme-2)→theme-3
+      const jumpedForward = undoRedoManager.undoRedoUntil(snap2Id, jumped)!;
+      expect(jumpedForward.themeId).toBe("theme-3");
+
+      // Jump back to snap1 again
+      const jumpedBack = undoRedoManager.undoRedoUntil(snap1Id, jumpedForward)!;
+      expect(jumpedBack.themeId).toBe("theme-1");
+      expect(undoRedoManager.canUndo()).toBe(false);
+    });
+
+    it("strips snapshotId and timestamp from the returned snapshot", () => {
+      const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
+      const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
+      const current = makeSnapshot({ themeId: "theme-3", actionLabel: "current" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+
+      const snap1Id = undoRedoManager.getStacks().undoStack[0].snapshotId;
+      const result = undoRedoManager.undoRedoUntil(snap1Id, current)!;
+
+      expect(result).not.toHaveProperty("snapshotId");
+      expect(result).not.toHaveProperty("timestamp");
+    });
+
+    it("calls onChanged for each intermediate undo step", () => {
+      const onChanged = vi.fn();
+      const manager = new UndoRedoManager(onChanged);
+
+      const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
+      const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
+      const snap3 = makeSnapshot({ themeId: "theme-3", actionLabel: "Set theme 3" });
+      const current = makeSnapshot({ themeId: "theme-4", actionLabel: "current" });
+
+      manager.pushSnapshot(snap1);
+      manager.pushSnapshot(snap2);
+      manager.pushSnapshot(snap3);
+      onChanged.mockClear();
+
+      const snap1Id = manager.getStacks().undoStack[0].snapshotId;
+      manager.undoRedoUntil(snap1Id, current);
+
+      // Should have been called 3 times (once per undo call)
+      expect(onChanged).toHaveBeenCalledTimes(3);
+    });
+
+    it("does not modify the undo stack when target is in the redo stack", () => {
+      const snap1 = makeSnapshot({ themeId: "theme-1", actionLabel: "Set theme 1" });
+      const snap2 = makeSnapshot({ themeId: "theme-2", actionLabel: "Set theme 2" });
+      const current = makeSnapshot({ themeId: "theme-3", actionLabel: "current" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+
+      // Undo both to move them to redo
+      const afterUndo2 = undoRedoManager.undo(current)!;
+      const afterUndo1 = undoRedoManager.undo(afterUndo2)!;
+      expect(undoRedoManager.canUndo()).toBe(false);
+
+      // Redo until the bottom entry (snap1's ID, which holds the current state from when snap1 was undone)
+      const bottomRedoId = undoRedoManager.getStacks().redoStack[0].snapshotId;
+      undoRedoManager.undoRedoUntil(bottomRedoId, afterUndo1);
+
+      // All entries should now be on the undo stack
+      expect(undoRedoManager.canUndo()).toBe(true);
+      expect(undoRedoManager.canRedo()).toBe(false);
+    });
+  });
 });

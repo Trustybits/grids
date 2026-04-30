@@ -123,7 +123,7 @@ describe("UndoRedoManager", () => {
     undoRedoManager.pushSnapshot(exampleSnapshot);
     const snapshotToApply = undoRedoManager.undo(currentSnapshot);
 
-    expect(snapshotToApply).toBe(exampleSnapshot);
+    expect(snapshotToApply).toStrictEqual(exampleSnapshot);
     expect(undoRedoManager.canRedo()).toBe(true);
     expect(undoRedoManager.canUndo()).toBe(false);
     expect(undoRedoManager.getNextRedoActionLabel()).toBe(
@@ -200,15 +200,15 @@ describe("UndoRedoManager", () => {
     undoRedoManager.pushSnapshot(snap3);
 
     const undo1 = undoRedoManager.undo(current);
-    expect(undo1).toBe(snap3);
+    expect(undo1).toStrictEqual(snap3);
     expect(undoRedoManager.getLastActionLabel()).toBe("Set theme 2");
 
     const undo2 = undoRedoManager.undo(snap3);
-    expect(undo2).toBe(snap2);
+    expect(undo2).toStrictEqual(snap2);
     expect(undoRedoManager.getLastActionLabel()).toBe("Set theme 1");
 
     const undo3 = undoRedoManager.undo(snap2);
-    expect(undo3).toBe(snap1);
+    expect(undo3).toStrictEqual(snap1);
     expect(undoRedoManager.canUndo()).toBe(false);
   });
 
@@ -728,6 +728,202 @@ describe("UndoRedoManager", () => {
           "https://storage.example.com/photo.jpg",
         );
       }).not.toThrow();
+    });
+  });
+
+  describe("snapshot metadata (snapshotId and timestamp)", () => {
+    it("assigns unique snapshotIds to pushed snapshots", () => {
+      const snap1 = makeSnapshot({ themeId: "A", actionLabel: "first" });
+      const snap2 = makeSnapshot({ themeId: "B", actionLabel: "second" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+
+      const stacks = undoRedoManager.getStacks();
+      const ids = stacks.undoStack.map((s) => s.snapshotId);
+      expect(ids[0]).not.toBe(ids[1]);
+    });
+
+    it("assigns a timestamp to pushed snapshots", () => {
+      const now = 1700000000000;
+      vi.spyOn(Date, "now").mockReturnValue(now);
+
+      undoRedoManager.pushSnapshot(
+        makeSnapshot({ themeId: "A", actionLabel: "first" }),
+      );
+
+      const stacks = undoRedoManager.getStacks();
+      expect(stacks.undoStack[0].timestamp).toBe(now);
+
+      vi.restoreAllMocks();
+    });
+
+    it("strips snapshotId and timestamp from undo return value", () => {
+      const snap = makeSnapshot({ actionLabel: "action" });
+      const current = makeSnapshot({
+        verticalCompact: false,
+        actionLabel: "current",
+      });
+
+      undoRedoManager.pushSnapshot(snap);
+      const result = undoRedoManager.undo(current)!;
+
+      expect(result).not.toHaveProperty("snapshotId");
+      expect(result).not.toHaveProperty("timestamp");
+      expect(result).toStrictEqual(snap);
+    });
+
+    it("strips snapshotId and timestamp from redo return value", () => {
+      const snap = makeSnapshot({ actionLabel: "action" });
+      const current = makeSnapshot({
+        verticalCompact: false,
+        actionLabel: "current",
+      });
+
+      undoRedoManager.pushSnapshot(snap);
+      undoRedoManager.undo(current);
+      const result = undoRedoManager.redo(snap)!;
+
+      expect(result).not.toHaveProperty("snapshotId");
+      expect(result).not.toHaveProperty("timestamp");
+    });
+
+    it("preserves snapshotId and timestamp when moving between stacks via undo", () => {
+      const snap = makeSnapshot({ themeId: "A", actionLabel: "action" });
+      const current = makeSnapshot({
+        themeId: "B",
+        actionLabel: "current",
+      });
+
+      undoRedoManager.pushSnapshot(snap);
+      const beforeUndo = undoRedoManager.getStacks();
+      const originalId = beforeUndo.undoStack[0].snapshotId;
+      const originalTimestamp = beforeUndo.undoStack[0].timestamp;
+
+      undoRedoManager.undo(current);
+      const afterUndo = undoRedoManager.getStacks();
+
+      expect(afterUndo.redoStack[0].snapshotId).toBe(originalId);
+      expect(afterUndo.redoStack[0].timestamp).toBe(originalTimestamp);
+    });
+
+    it("preserves snapshotId and timestamp when moving between stacks via redo", () => {
+      const snap = makeSnapshot({ themeId: "A", actionLabel: "action" });
+      const current = makeSnapshot({
+        themeId: "B",
+        actionLabel: "current",
+      });
+
+      undoRedoManager.pushSnapshot(snap);
+      undoRedoManager.undo(current);
+
+      const beforeRedo = undoRedoManager.getStacks();
+      const redoId = beforeRedo.redoStack[0].snapshotId;
+      const redoTimestamp = beforeRedo.redoStack[0].timestamp;
+
+      undoRedoManager.redo(snap);
+      const afterRedo = undoRedoManager.getStacks();
+
+      expect(afterRedo.undoStack[0].snapshotId).toBe(redoId);
+      expect(afterRedo.undoStack[0].timestamp).toBe(redoTimestamp);
+    });
+
+    it("increments snapshotId across pushes, not reusing IDs", () => {
+      undoRedoManager.pushSnapshot(
+        makeSnapshot({ themeId: "A", actionLabel: "first" }),
+      );
+      undoRedoManager.pushSnapshot(
+        makeSnapshot({ themeId: "B", actionLabel: "second" }),
+      );
+      undoRedoManager.pushSnapshot(
+        makeSnapshot({ themeId: "C", actionLabel: "third" }),
+      );
+
+      const stacks = undoRedoManager.getStacks();
+      const ids = stacks.undoStack.map((s) => s.snapshotId);
+      expect(ids[0]).toBeLessThan(ids[1]);
+      expect(ids[1]).toBeLessThan(ids[2]);
+    });
+  });
+
+  describe("getStacks", () => {
+    it("returns empty stacks initially", () => {
+      const stacks = undoRedoManager.getStacks();
+      expect(stacks.undoStack).toStrictEqual([]);
+      expect(stacks.redoStack).toStrictEqual([]);
+    });
+
+    it("returns only actionLabel, timestamp, and snapshotId for each entry", () => {
+      undoRedoManager.pushSnapshot(
+        makeSnapshot({ themeId: "A", actionLabel: "first" }),
+      );
+
+      const stacks = undoRedoManager.getStacks();
+      const entry = stacks.undoStack[0];
+      const keys = Object.keys(entry).sort();
+      expect(keys).toStrictEqual(["actionLabel", "snapshotId", "timestamp"]);
+    });
+
+    it("reflects the undo stack after multiple pushes", () => {
+      undoRedoManager.pushSnapshot(
+        makeSnapshot({ themeId: "A", actionLabel: "first" }),
+      );
+      undoRedoManager.pushSnapshot(
+        makeSnapshot({ themeId: "B", actionLabel: "second" }),
+      );
+      undoRedoManager.pushSnapshot(
+        makeSnapshot({ themeId: "C", actionLabel: "third" }),
+      );
+
+      const stacks = undoRedoManager.getStacks();
+      expect(stacks.undoStack).toHaveLength(3);
+      expect(stacks.undoStack.map((s) => s.actionLabel)).toStrictEqual([
+        "first",
+        "second",
+        "third",
+      ]);
+      expect(stacks.redoStack).toHaveLength(0);
+    });
+
+    it("reflects both stacks after undo operations", () => {
+      const snap1 = makeSnapshot({ themeId: "A", actionLabel: "first" });
+      const snap2 = makeSnapshot({ themeId: "B", actionLabel: "second" });
+      const current = makeSnapshot({ themeId: "C", actionLabel: "current" });
+
+      undoRedoManager.pushSnapshot(snap1);
+      undoRedoManager.pushSnapshot(snap2);
+      undoRedoManager.undo(current);
+
+      const stacks = undoRedoManager.getStacks();
+      expect(stacks.undoStack).toHaveLength(1);
+      expect(stacks.undoStack[0].actionLabel).toBe("first");
+      expect(stacks.redoStack).toHaveLength(1);
+      expect(stacks.redoStack[0].actionLabel).toBe("second");
+    });
+
+    it("returns empty stacks after clear", () => {
+      undoRedoManager.pushSnapshot(
+        makeSnapshot({ themeId: "A", actionLabel: "first" }),
+      );
+      undoRedoManager.clear();
+
+      const stacks = undoRedoManager.getStacks();
+      expect(stacks.undoStack).toStrictEqual([]);
+      expect(stacks.redoStack).toStrictEqual([]);
+    });
+
+    it("does not expose tile data or other snapshot fields", () => {
+      undoRedoManager.pushSnapshot(makeSnapshot({ actionLabel: "action" }));
+
+      const stacks = undoRedoManager.getStacks();
+      const entry = stacks.undoStack[0];
+      expect(entry).not.toHaveProperty("tiles");
+      expect(entry).not.toHaveProperty("overrides");
+      expect(entry).not.toHaveProperty("themeId");
+      expect(entry).not.toHaveProperty("verticalCompact");
+      expect(entry).not.toHaveProperty("backgroundImageSrc");
+      expect(entry).not.toHaveProperty("backgroundEmbed");
+      expect(entry).not.toHaveProperty("forcedBreakpoint");
     });
   });
 });

@@ -143,4 +143,11 @@ export class StripeService implements IStripeService {
   ): () => void {
     return this.customerDao.subscribeToActiveSubscriptions(userId, callback);
   }
+
+  subscribeToPayments(
+    userId: string,
+    callback: (payments: Array<Record<string, unknown>>) => void,
+  ): () => void {
+    return this.customerDao.subscribeToPayments(userId, callback);
+  }
 }

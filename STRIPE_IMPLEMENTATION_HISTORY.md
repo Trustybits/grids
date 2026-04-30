@@ -31,6 +31,20 @@ It is intentionally a project journal, not a generic setup checklist.
    - `/pricing` route now renders `HomePage` pricing section
    - Legacy standalone pricing component was removed
 
+4. **Billing state contract implemented (Option A)**
+   - Frontend now derives supporter entitlements from `customers/{uid}/payments`
+   - `useSubscription` aggregates succeeded payment amounts into `totalPaidCents`
+   - Supporter badge and amount thresholds are now computed from cumulative paid amount (not a manually-set user flag)
+
+5. **User menu billing state section added**
+   - User menu now shows `Free Account` + `Upgrade` (free users)
+   - User menu now shows `Supporter` or `Pro Plan` chip + `Manage Billing` (paid users)
+
+6. **$0 flow behavior updated**
+   - `$0` removed from presets, but still available through Custom input
+   - Custom amount defaults to `0`
+   - `$0` path continues for free without Stripe redirect
+
 ---
 
 ## Configuration and Deployment Timeline (Observed)
@@ -159,8 +173,80 @@ It is intentionally a project journal, not a generic setup checklist.
 
 - Checkout sessions can exist in Firestore for incomplete/canceled flows
   - This is expected
-- No obvious frontend supporter entitlement display yet
-  - hard to visually verify idempotency/upgrade state at UI layer
+- Frontend supporter entitlement display is now present in user menu
+  - billing state still needs full end-to-end validation under repeated payment scenarios
+
+---
+
+## Testing Checklist
+
+Billing contract (Option A) and user menu billing section are now implemented; the following tests validate behavior and regression risk.
+
+---
+
+### Section 1 — User Menu Billing Display
+
+- [ ] Log in as a free (never-paid) user — user menu shows "Free Account" label with "Upgrade" button
+- [ ] "Upgrade" navigates to `/pricing` and closes the menu
+- [ ] Log in as a confirmed supporter — menu shows orange "SUPPORTER" chip with "Manage Billing" button
+- [ ] Log in as a Pro subscriber — menu shows purple "PRO PLAN" chip with "Manage Billing" button
+- [ ] "Manage Billing" navigates to `/pricing` and closes the menu
+- [ ] Billing section state updates immediately after a new payment (no manual refresh required)
+
+---
+
+### Section 2 — $0 Custom Amount Path
+
+- [ ] Preset buttons do not include `$0` (only available through Custom input)
+- [ ] Click "Custom" on pricing card — input defaults to `0`
+- [ ] Button label reads "Continue for Free" when amount is `0`
+- [ ] Clicking "Continue for Free" navigates to `/` with no Stripe redirect and no error message
+- [ ] Entering any positive number immediately changes button label back to "Support for $X"
+- [ ] User who followed the $0 path is treated as a free/community account (no supporter badge)
+
+---
+
+### Section 3 — Supporter Checkout Flow (Happy Path)
+
+- [ ] Select `$1` preset → click button → redirected to Stripe Checkout
+- [ ] Complete payment with test card `4242 4242 4242 4242`
+- [ ] Stripe shows successful charge in test dashboard
+- [ ] Browser redirected to success URL after payment
+- [ ] `customers/{uid}/payments` document appears in Firestore with `status: succeeded` and `amount: 100`
+- [ ] Webhook delivery shows `2xx` response in Stripe dashboard event logs
+- [ ] After billing state sync, user menu shows "SUPPORTER" chip (no manual refresh required)
+- [ ] Select `$5` preset → complete payment → cumulative total increases to `$6`
+- [ ] Complete a `$10` total threshold → branding removal unlocks (once feature is wired up)
+
+---
+
+### Section 4 — Checkout Edge Cases
+
+- [ ] Custom amount `$0.25` (below Stripe's `$0.50` floor) → error shown, no redirect
+- [ ] Cancel Stripe checkout → redirected back to `/pricing`, no payment recorded, no badge set, no error shown
+- [ ] Use declined card `4000 0000 0000 0002` → Stripe shows failure, no payment doc written in Firestore
+- [ ] Use 3DS card `4000 0025 0000 3155` → complete auth challenge → payment succeeds and docs appear
+- [ ] Use 3DS card → cancel auth challenge → payment fails cleanly, no doc written
+- [ ] Multiple payments on same account → each creates a new `payments` doc, cumulative total grows correctly
+
+---
+
+### Section 5 — Idempotency and State Consistency
+
+- [ ] Complete two separate `$1` payments as the same user → both docs present, cumulative total is `$2`
+- [ ] Reload app after payment → billing state (badge/tier) survives page reload
+- [ ] Log out and log back in → billing state is restored correctly
+- [ ] Open app in a second browser tab after payment → state is consistent across tabs
+
+---
+
+### Section 6 — Pro Plan (Future / Not Yet Enabled)
+
+- [ ] Monthly Pro checkout → subscription created in Stripe and `customers/{uid}/subscriptions` doc appears
+- [ ] Annual Pro checkout → subscription created with annual interval
+- [ ] Active Pro subscriber → user menu shows "PRO PLAN" chip
+- [ ] Subscription cancels (via Customer Portal or test) → status transitions to `canceled`, chip reverts to previous tier
+- [ ] `past_due` subscription → UI reflects degraded state without full Pro access
 
 ---
 
@@ -171,24 +257,21 @@ It is intentionally a project journal, not a generic setup checklist.
    - Confirm `customers/{uid}/payments` docs are consistently created for successful supporter payments
    - Confirm no `handleWebhookEvents` errors in logs
 
-2. **Add basic frontend supporter state visibility**
-   - Show at least one clear supporter indicator in UI
-   - Makes payment outcome/idempotency verification practical
+2. **Run full billing state validation pass (Option A contract)**
+   - Verify cumulative `totalPaidCents` calculation across multiple successful payments
+   - Verify `$1+` threshold unlock (supporter badge) and `$10+` threshold unlock (branding removal)
+   - Verify `$0` custom flow keeps account in free/community state
 
-3. **Supporter amount tier model update**
-   - Revisit `$0` flow and tier unlock logic
-   - Implement amount-based entitlement behavior intentionally
+3. **Idempotency verification pass**
+   - Re-run repeat payment scenarios for the same uid
+   - Confirm no duplicate/bad entitlement transitions and no state regressions after reload/sign-out
 
-4. **Billing state contract (new planned item)**
-   - Add a normalization layer/doc for billing state consumed by frontend
-   - Reduce cross-collection confusion between `users/{uid}` and `customers/{uid}`
-
-5. **Idempotency verification pass**
-   - Re-run repeat payment scenarios once supporter UI state is visible
-   - Confirm no duplicate/bad entitlement transitions
-
-6. **Pro checkout enablement/testing**
+4. **Pro checkout enablement/testing**
    - Once enabled, validate monthly/annual checkout + subscription sync paths
+
+5. **Future migration option (Option B)**
+   - Consider moving aggregation to a Firestore trigger that writes `totalPaidCents` to `users/{uid}`
+   - Keep `useSubscription` API stable while swapping data source implementation
 
 ---
 

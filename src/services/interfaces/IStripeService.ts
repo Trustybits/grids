@@ -29,4 +29,9 @@ export interface IStripeService {
     userId: string,
     callback: (subscriptions: Array<Record<string, unknown>>) => void,
   ): () => void;
+
+  subscribeToPayments(
+    userId: string,
+    callback: (payments: Array<Record<string, unknown>>) => void,
+  ): () => void;
 }

@@ -17,4 +17,10 @@ export interface CustomerDao {
     userId: string,
     callback: (subscriptions: Array<Record<string, unknown>>) => void,
   ): () => void;
+
+  /** Subscribe to a user's succeeded one-time payments in real-time. Returns an unsubscribe function. */
+  subscribeToPayments(
+    userId: string,
+    callback: (payments: Array<Record<string, unknown>>) => void,
+  ): () => void;
 }

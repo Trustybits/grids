@@ -2,9 +2,11 @@
  * useSubscription — tier-based feature gating composable
  *
  * Reads subscription state from two data sources:
- *  1. users/{uid}              → hasSupporterBadge (PWYW one-time payment)
+ *  1. customers/{uid}/payments      → PWYW one-time payment history (Supporter tier)
+ *     Written automatically by the firestore-stripe-payments extension webhook.
+ *     We sum all succeeded payments to derive supporter status and feature thresholds.
  *  2. customers/{uid}/subscriptions → Stripe subscription status (Pro tier)
- *     Written automatically by the firestore-stripe-payments extension
+ *     Written automatically by the firestore-stripe-payments extension.
  *
  * ── Tier model ──────────────────────────────────────────────────────────────
  *
@@ -16,20 +18,41 @@
  *  PRO         Active Stripe subscription. Features with real hosting costs:
  *              custom domains, advanced analytics, AI, priority support, etc.
  *
+ * ── Supporter thresholds ────────────────────────────────────────────────────
+ *
+ *  totalPaidCents >= BADGE_MIN_CENTS    ($1)  → Supporter badge + early access
+ *  totalPaidCents >= BRANDING_MIN_CENTS ($10) → Remove Grids branding
+ *
  * ── Usage ──────────────────────────────────────────────────────────────────
  *
- *   const { can, tier, lockReason } = useSubscription()
+ *   const { can, tier, hasSupporterBadge, totalPaidCents } = useSubscription()
  *
  *   // Gate a feature in a component
  *   <button v-if="can('custom_domain')">Set Custom Domain</button>
  *
  *   // Show an upgrade prompt
  *   <UpgradePrompt v-else :reason="lockReason('custom_domain')" />
+ *
+ * ── Migration note ──────────────────────────────────────────────────────────
+ *
+ *  Option A (current): frontend aggregates from customers/{uid}/payments.
+ *  Option B (future):  a Firestore trigger Cloud Function writes totalPaidCents
+ *  to users/{uid}, and this composable reads it from a single doc snapshot.
+ *  The public API of this composable (hasSupporterBadge, totalPaidCents, can())
+ *  will stay identical — only initSubscription() needs to change.
  */
 
 import { computed, ref, readonly } from 'vue'
 import { getAuthProvider } from '@/auth/AuthProviderSingleton'
 import { getServiceFactory } from '@/services/ServiceFactorySingleton'
+
+// ── Supporter thresholds ───────────────────────────────────────────────────
+
+/** Minimum cumulative payment (cents) for the Supporter badge ($1.00) */
+const BADGE_MIN_CENTS = 100
+
+/** Minimum cumulative payment (cents) to remove Grids branding ($10.00) */
+const BRANDING_MIN_CENTS = 1000
 
 // ── Tier definition ────────────────────────────────────────────────────────
 
@@ -37,8 +60,10 @@ export type SubscriptionTier = 'free' | 'community' | 'pro'
 
 export interface SubscriptionState {
   tier: SubscriptionTier
-  /** True if the user made a PWYW payment OR claimed the free badge */
+  /** True when totalPaidCents >= BADGE_MIN_CENTS ($1) */
   hasSupporterBadge: boolean
+  /** Cumulative sum of all succeeded PWYW payments in cents */
+  totalPaidCents: number
   /** Stripe subscription status — only present when tier === 'pro' */
   stripeStatus?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid'
   /** Stripe Price ID of the active plan */
@@ -63,7 +88,7 @@ export type GatedFeature =
   | 'custom_background'
   | 'extra_grids'
   | 'advanced_themes'
-  // PWYW supporter perk
+  // PWYW supporter perks (threshold-gated)
   | 'remove_branding'
   // Pro tier
   | 'custom_domain'
@@ -83,7 +108,7 @@ const TIER_REQUIREMENTS: Record<GatedFeature, SubscriptionTier> = {
   custom_background: 'community',
   extra_grids: 'community',
   advanced_themes: 'community',
-  remove_branding: 'community',   // community + hasSupporterBadge
+  remove_branding: 'community',   // community + totalPaidCents >= BRANDING_MIN_CENTS
   custom_domain: 'pro',
   advanced_analytics: 'pro',
   analytics_export: 'pro',
@@ -98,50 +123,45 @@ const TIER_RANK: Record<SubscriptionTier, number> = {
   pro: 2,
 }
 
-/** Features that also require hasSupporterBadge (PWYW) */
-const REQUIRES_SUPPORTER: Set<GatedFeature> = new Set(['remove_branding'])
-
 /** Stripe statuses that grant Pro access */
 const ACTIVE_STRIPE_STATUSES = new Set(['active', 'trialing'])
 
 // ── Module-level reactive state ────────────────────────────────────────────
-// Shared across all composable instances — only one listener runs.
+// Shared across all composable instances — only one set of listeners runs.
 
 const _subscription = ref<SubscriptionState>({
   tier: 'free',
   hasSupporterBadge: false,
+  totalPaidCents: 0,
 })
 const _loading = ref(true)
 
-let _unsubUser: (() => void) | null = null
+let _unsubPayments: (() => void) | null = null
 let _unsubStripe: (() => void) | null = null
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────
 
 /**
- * Bootstrap the subscription listener. Call once in App.vue (inside onMounted
- * or at the top of <script setup>).
+ * Bootstrap the subscription listeners. Call once in App.vue.
  *
  * Listens to auth state changes and reactively mirrors both the
- * users/{uid} doc (for hasSupporterBadge) and the customers/{uid}/subscriptions
- * collection (for Stripe Pro status).
+ * customers/{uid}/payments collection (for supporter status) and
+ * customers/{uid}/subscriptions (for Stripe Pro status).
  */
 export function initSubscription(): void {
   getAuthProvider().onAuthStateChanged((user) => {
-    // Tear down previous listeners
-    _unsubUser?.()
+    _unsubPayments?.()
     _unsubStripe?.()
-    _unsubUser = null
+    _unsubPayments = null
     _unsubStripe = null
 
     if (!user) {
-      _subscription.value = { tier: 'free', hasSupporterBadge: false }
+      _subscription.value = { tier: 'free', hasSupporterBadge: false, totalPaidCents: 0 }
       _loading.value = false
       return
     }
 
-    // ── 1. Listen to user doc for hasSupporterBadge ──────────────────────
-    let latestBadge = false
+    let latestTotalPaidCents = 0
     let latestStripeStatus: SubscriptionState['stripeStatus'] | undefined
     let latestPriceId: string | undefined
     let latestInterval: 'month' | 'year' | undefined
@@ -154,7 +174,8 @@ export function initSubscription(): void {
 
       _subscription.value = {
         tier: isActivePro ? 'pro' : 'community',
-        hasSupporterBadge: latestBadge,
+        hasSupporterBadge: latestTotalPaidCents >= BADGE_MIN_CENTS,
+        totalPaidCents: latestTotalPaidCents,
         stripeStatus: latestStripeStatus,
         stripePriceId: latestPriceId,
         stripeInterval: latestInterval,
@@ -163,16 +184,18 @@ export function initSubscription(): void {
       _loading.value = false
     }
 
-    _unsubUser = getServiceFactory()
-      .getUserService()
-      .subscribeToUserProfile(user.uid, (profile) => {
-        if (profile) {
-          latestBadge = profile.hasSupporterBadge ?? false
-        }
+    // ── 1. Listen to PWYW payment history ─────────────────────────────────
+    _unsubPayments = getServiceFactory()
+      .getStripeService()
+      .subscribeToPayments(user.uid, (payments) => {
+        latestTotalPaidCents = payments.reduce(
+          (sum, p) => sum + (Number(p.amount) || 0),
+          0,
+        )
         reconcile()
       })
 
-    // ── 2. Listen to Stripe subscription ──────────────────────────────────
+    // ── 2. Listen to Stripe subscription (Pro tier) ────────────────────────
     _unsubStripe = getServiceFactory()
       .getStripeService()
       .subscribeToActiveSubscriptions(user.uid, (subscriptions) => {
@@ -204,6 +227,7 @@ export function initSubscription(): void {
 export function useSubscription() {
   const tier = computed(() => _subscription.value.tier)
   const hasSupporterBadge = computed(() => _subscription.value.hasSupporterBadge)
+  const totalPaidCents = computed(() => _subscription.value.totalPaidCents)
   const stripeStatus = computed(() => _subscription.value.stripeStatus)
   const currentPeriodEnd = computed(() => _subscription.value.currentPeriodEnd)
   const stripeInterval = computed(() => _subscription.value.stripeInterval)
@@ -223,7 +247,12 @@ export function useSubscription() {
     const required = TIER_REQUIREMENTS[feature]
     const meetsRank = TIER_RANK[tier.value] >= TIER_RANK[required]
     if (!meetsRank) return false
-    if (REQUIRES_SUPPORTER.has(feature) && !hasSupporterBadge.value) return false
+
+    // Branding removal requires a specific cumulative payment threshold
+    if (feature === 'remove_branding') {
+      return _subscription.value.totalPaidCents >= BRANDING_MIN_CENTS
+    }
+
     return true
   }
 
@@ -235,7 +264,7 @@ export function useSubscription() {
     if (can(feature)) return null
     const required = TIER_REQUIREMENTS[feature]
     if (required === 'community' && tier.value === 'free') return 'sign_in'
-    if (REQUIRES_SUPPORTER.has(feature)) return 'supporter'
+    if (feature === 'remove_branding') return 'supporter'
     if (required === 'pro') return 'pro'
     return null
   }
@@ -243,6 +272,7 @@ export function useSubscription() {
   return {
     tier: readonly(tier),
     hasSupporterBadge: readonly(hasSupporterBadge),
+    totalPaidCents: readonly(totalPaidCents),
     stripeStatus: readonly(stripeStatus),
     stripeInterval: readonly(stripeInterval),
     currentPeriodEnd: readonly(currentPeriodEnd),

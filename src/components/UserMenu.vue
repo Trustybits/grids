@@ -35,14 +35,14 @@
           <span v-if="isProOrAbove" class="billing-chip billing-chip--pro">Pro Plan</span>
           <span v-else-if="hasSupporterBadge" class="billing-chip billing-chip--supporter">Supporter</span>
           <span v-else class="billing-label">Free Account</span>
-          <router-link
-            v-if="hasSupporterBadge || isProOrAbove"
-            to="/pricing"
-            class="billing-action"
-            @click="showUserMenu = false"
+          <button
+            v-if="isProOrAbove"
+            class="billing-action billing-action-button"
+            :disabled="checkout.loading.value"
+            @click="openBillingPortal"
           >
-            Manage Billing
-          </router-link>
+            {{ checkout.loading.value ? 'Opening...' : 'Manage Billing' }}
+          </button>
           <router-link
             v-else
             to="/pricing"
@@ -76,6 +76,7 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@/auth/AuthProvider";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useSubscription } from "@/composables/useSubscription";
+import { useStripeCheckout } from "@/composables/useStripeCheckout";
 import SlugClaimModal from "./SlugClaimModal.vue";
 
 export default defineComponent({
@@ -86,6 +87,7 @@ export default defineComponent({
   setup() {
     const router = useRouter();
     const { hasSupporterBadge, isProOrAbove } = useSubscription();
+    const checkout = useStripeCheckout();
     const user = ref<AuthUser | null>(null);
     const showUserMenu = ref(false);
     const showSlugModal = ref(false);
@@ -126,6 +128,11 @@ export default defineComponent({
     const logout = async () => {
       await getAuthProvider().signOut();
       router.push("/login");
+      showUserMenu.value = false;
+    };
+
+    const openBillingPortal = async () => {
+      await checkout.openCustomerPortal();
       showUserMenu.value = false;
     };
 
@@ -171,6 +178,8 @@ export default defineComponent({
       handleSlugSuccess,
       hasSupporterBadge,
       isProOrAbove,
+      checkout,
+      openBillingPortal,
     };
   },
 });
@@ -355,6 +364,19 @@ export default defineComponent({
 
     &:hover {
       opacity: 0.75;
+    }
+  }
+
+  .billing-action-button {
+    background: transparent;
+    border: none;
+    text-align: left;
+    padding: 0;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
   }
 

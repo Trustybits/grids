@@ -231,79 +231,79 @@
           <p>One-time. No subscription. Unlock the Supporter badge.</p>
 
           <div class="mkt__plan-cta">
-            <template v-if="hasSupporterBadge">
-              <div class="mkt__current">
-                <span aria-hidden="true">🔥</span> You're a Supporter!
+            <div v-if="hasSupporterBadge" class="mkt__current">
+              <span aria-hidden="true">🔥</span> You're a Supporter!
+            </div>
+            <p v-if="totalPaidCents > 0" class="mkt__contribution-total">
+              Contributed to date: {{ formattedTotalContributed }}
+            </p>
+            <div class="mkt__pwyw">
+              <div class="mkt__pwyw-row">
+                <button
+                  v-for="preset in pwywPresets"
+                  :key="preset"
+                  :class="[
+                    'mkt__pwyw-btn',
+                    {
+                      'is-active':
+                        selectedAmount === preset && !customAmountMode,
+                    },
+                  ]"
+                  @click="selectPreset(preset)"
+                >
+                  ${{ preset }}
+                </button>
+                <button
+                  :class="['mkt__pwyw-btn', { 'is-active': customAmountMode }]"
+                  @click="customAmountMode = true"
+                >
+                  Custom
+                </button>
               </div>
-            </template>
-            <template v-else>
-              <div class="mkt__pwyw">
-                <div class="mkt__pwyw-row">
+              <div v-if="customAmountMode" class="mkt__pwyw-custom">
+                <span aria-hidden="true">$</span>
+                <input
+                  :value="customAmount"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="0"
+                  @input="onCustomAmountInput"
+                  @blur="normalizeCustomAmount"
+                  @focus="($event.target as HTMLInputElement)?.select()"
+                />
+                <div class="mkt__stepper" aria-hidden="true">
                   <button
-                    v-for="preset in pwywPresets"
-                    :key="preset"
-                    :class="[
-                      'mkt__pwyw-btn',
-                      {
-                        'is-active':
-                          selectedAmount === preset && !customAmountMode,
-                      },
-                    ]"
-                    @click="selectPreset(preset)"
+                    type="button"
+                    class="mkt__stepper-btn"
+                    @click="incrementCustomAmount"
                   >
-                    ${{ preset }}
+                    ˄
                   </button>
                   <button
-                    :class="['mkt__pwyw-btn', { 'is-active': customAmountMode }]"
-                    @click="customAmountMode = true"
+                    type="button"
+                    class="mkt__stepper-btn"
+                    @click="decrementCustomAmount"
                   >
-                    Custom
+                    ˅
                   </button>
                 </div>
-                <div v-if="customAmountMode" class="mkt__pwyw-custom">
-                  <span aria-hidden="true">$</span>
-                  <input
-                    :value="customAmount"
-                    type="text"
-                    inputmode="numeric"
-                    pattern="[0-9]*"
-                    placeholder="1"
-                    @input="onCustomAmountInput"
-                    @blur="normalizeCustomAmount"
-                    @focus="($event.target as HTMLInputElement)?.select()"
-                  />
-                  <div class="mkt__stepper" aria-hidden="true">
-                    <button
-                      type="button"
-                      class="mkt__stepper-btn"
-                      @click="incrementCustomAmount"
-                    >
-                      ˄
-                    </button>
-                    <button
-                      type="button"
-                      class="mkt__stepper-btn"
-                      @click="decrementCustomAmount"
-                    >
-                      ˅
-                    </button>
-                  </div>
-                </div>
               </div>
+            </div>
 
-              <button
-                class="mkt__plan-btn mkt__plan-btn--brand"
-                :disabled="checkout.loading.value"
-                @click="handleSupporterCheckout"
-              >
-                <span v-if="checkout.loading.value">Processing...</span>
-                <span v-else-if="effectiveAmount === 0">Continue for Free</span>
-                <span v-else>Support for ${{ effectiveAmount }}</span>
-              </button>
-              <p v-if="checkout.error.value" class="mkt__plan-error">
-                {{ checkout.error.value }}
-              </p>
-            </template>
+            <button
+              class="mkt__plan-btn mkt__plan-btn--brand"
+              :disabled="checkout.loading.value"
+              @click="handleSupporterCheckout"
+            >
+              <span v-if="checkout.loading.value">Processing...</span>
+              <span v-else-if="effectiveAmount === 0">Continue for Free</span>
+              <span v-else-if="hasSupporterBadge">Contribute Again (${{ effectiveAmount }})</span>
+              <span v-else>Support for ${{ effectiveAmount }}</span>
+            </button>
+            <p v-if="checkout.error.value" class="mkt__plan-error">
+              {{ checkout.error.value }}
+            </p>
           </div>
 
           <div class="mkt__unlocks">
@@ -616,7 +616,7 @@ const templates = [
 ];
 
 // ── Pricing ────────────────────────────────────────────────────────────────
-const { tier, hasSupporterBadge, isProOrAbove } = useSubscription();
+const { tier, hasSupporterBadge, isProOrAbove, totalPaidCents } = useSubscription();
 const checkout = useStripeCheckout();
 
 const billingInterval = ref<'month' | 'year'>('month');
@@ -639,6 +639,12 @@ const effectiveAmount = computed(() =>
   customAmountMode.value
     ? Math.max(0, Math.floor(customAmount.value || 0))
     : selectedAmount.value,
+);
+
+const formattedTotalContributed = computed(() =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+    totalPaidCents.value / 100,
+  ),
 );
 
 async function handleSupporterCheckout() {
@@ -1649,6 +1655,12 @@ const faqItems = [
   color: #7cf0c0;
   font: 600 13px/1 var(--mkt-font-sans);
   border: 1px solid rgba(88, 224, 163, .22);
+}
+.mkt__contribution-total {
+  margin: 0;
+  color: var(--mkt-fg-2);
+  font: 500 12px/1.35 var(--mkt-font-sans);
+  text-align: center;
 }
 
 /* ── PWYW picker ─────────────────────────────────────────────────────── */

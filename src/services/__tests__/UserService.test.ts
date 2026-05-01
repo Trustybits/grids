@@ -1,3 +1,4 @@
+// Unit tests for UserService — all DAOs and DbUtils are mocked via singletons.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { registerDaoFactory } from '@/dao/DaoFactorySingleton'
 import { registerDbUtils } from '@/dao/DbUtilsSingleton'
@@ -67,6 +68,25 @@ describe('getUserProfile', () => {
     expect(mockUserDao.getById).toHaveBeenCalledWith('uid-abc')
   })
 
+  it('returns a profile with all optional fields populated', async () => {
+    const profile: UserProfile = {
+      email: 'full@example.com',
+      slug: 'fulluser',
+      defaultGridId: 'grid-999',
+      storageUsed: 1024,
+      recentLayoutIds: ['l1', 'l2'],
+      starredLayoutIds: ['l3'],
+      profilePhotoUrl: 'https://example.com/photo.jpg',
+      hasSupporterBadge: true,
+    }
+    mockUserDao.getById.mockResolvedValueOnce(profile)
+
+    const service = new UserService()
+    const result = await service.getUserProfile('uid-full')
+
+    expect(result).toEqual(profile)
+  })
+
   it('returns null when no document exists for the user', async () => {
     mockUserDao.getById.mockResolvedValueOnce(null)
 
@@ -96,6 +116,29 @@ describe('updateUserProfile', () => {
     expect(mockUserDao.save).toHaveBeenCalledWith('uid-abc', { email: 'new@example.com' })
   })
 
+  it('passes through multiple fields', async () => {
+    mockUserDao.save.mockResolvedValueOnce(undefined)
+
+    const service = new UserService()
+    const data: Partial<UserProfile> = {
+      slug: 'newslug',
+      profilePhotoUrl: 'https://example.com/pic.png',
+      storageUsed: 512,
+    }
+    await service.updateUserProfile('uid-abc', data)
+
+    expect(mockUserDao.save).toHaveBeenCalledWith('uid-abc', data)
+  })
+
+  it('handles an empty partial update', async () => {
+    mockUserDao.save.mockResolvedValueOnce(undefined)
+
+    const service = new UserService()
+    await service.updateUserProfile('uid-abc', {})
+
+    expect(mockUserDao.save).toHaveBeenCalledWith('uid-abc', {})
+  })
+
   it('throws when the DAO write fails', async () => {
     mockUserDao.save.mockRejectedValueOnce(new Error('Permission denied'))
 
@@ -119,6 +162,26 @@ describe('recordLogin', () => {
       email: 'test@example.com',
       lastLogin: 'SERVER_TIMESTAMP',
     })
+    expect(mockDbUtils.serverTimestamp).toHaveBeenCalled()
+  })
+
+  it('saves null email when the user has no email', async () => {
+    mockUserDao.save.mockResolvedValueOnce(undefined)
+
+    const service = new UserService()
+    await service.recordLogin('uid-abc', null)
+
+    expect(mockUserDao.save).toHaveBeenCalledWith('uid-abc', {
+      email: null,
+      lastLogin: 'SERVER_TIMESTAMP',
+    })
+  })
+
+  it('throws when the DAO write fails', async () => {
+    mockUserDao.save.mockRejectedValueOnce(new Error('Write failed'))
+
+    const service = new UserService()
+    await expect(service.recordLogin('uid-abc', 'a@b.com')).rejects.toThrow('Write failed')
   })
 })
 
@@ -132,6 +195,13 @@ describe('grantSupporterBadge', () => {
     await service.grantSupporterBadge('uid-abc')
 
     expect(mockUserDao.update).toHaveBeenCalledWith('uid-abc', { hasSupporterBadge: true })
+  })
+
+  it('throws when the DAO update fails', async () => {
+    mockUserDao.update.mockRejectedValueOnce(new Error('Doc not found'))
+
+    const service = new UserService()
+    await expect(service.grantSupporterBadge('uid-abc')).rejects.toThrow('Doc not found')
   })
 })
 
@@ -165,24 +235,60 @@ describe('getUserIdBySlug', () => {
     expect(result).toBeNull()
   })
 
+  it('returns null when userId is a non-string type', async () => {
+    mockSlugDao.getBySlug.mockResolvedValueOnce({ userId: 42 })
+
+    const service = new UserService()
+    const result = await service.getUserIdBySlug('baddata')
+
+    expect(result).toBeNull()
+  })
+
   it('throws when the DAO throws an error', async () => {
     mockSlugDao.getBySlug.mockRejectedValueOnce(new Error('Network error'))
 
     const service = new UserService()
-    await expect(service.getUserIdBySlug('testuser')).rejects.toThrow()
+    await expect(service.getUserIdBySlug('testuser')).rejects.toThrow('Network error')
   })
 })
 
 // ── getSlugData ───────────────────────────────────────────────────────────
 
 describe('getSlugData', () => {
-  it('returns full slug data when document exists', async () => {
+  it('returns full slug data when document exists with string defaultGridId', async () => {
     mockSlugDao.getBySlug.mockResolvedValueOnce({ userId: 'uid-xyz', defaultGridId: 'grid-1' })
 
     const service = new UserService()
     const result = await service.getSlugData('testuser')
 
     expect(result).toEqual({ userId: 'uid-xyz', defaultGridId: 'grid-1' })
+  })
+
+  it('returns slug data with null defaultGridId', async () => {
+    mockSlugDao.getBySlug.mockResolvedValueOnce({ userId: 'uid-xyz', defaultGridId: null })
+
+    const service = new UserService()
+    const result = await service.getSlugData('testuser')
+
+    expect(result).toEqual({ userId: 'uid-xyz', defaultGridId: null })
+  })
+
+  it('returns slug data with undefined defaultGridId when field is missing', async () => {
+    mockSlugDao.getBySlug.mockResolvedValueOnce({ userId: 'uid-xyz' })
+
+    const service = new UserService()
+    const result = await service.getSlugData('testuser')
+
+    expect(result).toEqual({ userId: 'uid-xyz', defaultGridId: undefined })
+  })
+
+  it('coerces non-string/non-null defaultGridId to undefined', async () => {
+    mockSlugDao.getBySlug.mockResolvedValueOnce({ userId: 'uid-xyz', defaultGridId: 123 })
+
+    const service = new UserService()
+    const result = await service.getSlugData('testuser')
+
+    expect(result).toEqual({ userId: 'uid-xyz', defaultGridId: undefined })
   })
 
   it('returns null when slug does not exist', async () => {
@@ -202,6 +308,22 @@ describe('getSlugData', () => {
 
     expect(result).toBeNull()
   })
+
+  it('returns null when userId is missing entirely', async () => {
+    mockSlugDao.getBySlug.mockResolvedValueOnce({ defaultGridId: 'grid-1' })
+
+    const service = new UserService()
+    const result = await service.getSlugData('nouserid')
+
+    expect(result).toBeNull()
+  })
+
+  it('throws when the DAO throws an error', async () => {
+    mockSlugDao.getBySlug.mockRejectedValueOnce(new Error('Firestore error'))
+
+    const service = new UserService()
+    await expect(service.getSlugData('testuser')).rejects.toThrow('Firestore error')
+  })
 })
 
 // ── checkSlugAvailability ─────────────────────────────────────────────────
@@ -214,8 +336,7 @@ describe('checkSlugAvailability', () => {
     const service = new UserService()
     const result = await service.checkSlugAvailability('newslug')
 
-    expect(result.available).toBe(true)
-    expect(result.reason).toBe('available')
+    expect(result).toEqual(response)
     expect(mockSlugDao.checkAvailability).toHaveBeenCalledWith('newslug')
   })
 
@@ -226,8 +347,7 @@ describe('checkSlugAvailability', () => {
     const service = new UserService()
     const result = await service.checkSlugAvailability('takenslug')
 
-    expect(result.available).toBe(false)
-    expect(result.reason).toBe('taken')
+    expect(result).toEqual({ available: false, reason: 'taken', message: 'Already taken' })
   })
 
   it('returns reserved response for protected slugs', async () => {
@@ -237,15 +357,43 @@ describe('checkSlugAvailability', () => {
     const service = new UserService()
     const result = await service.checkSlugAvailability('admin')
 
-    expect(result.available).toBe(false)
-    expect(result.reason).toBe('reserved')
+    expect(result).toEqual({ available: false, reason: 'reserved', message: 'This slug is reserved' })
   })
 
-  it('throws with a user-friendly message when the DAO fails', async () => {
+  it('returns invalid-format response', async () => {
+    const response = { available: false, reason: 'invalid-format' as const, message: 'Invalid slug format' }
+    mockSlugDao.checkAvailability.mockResolvedValueOnce(response)
+
+    const service = new UserService()
+    const result = await service.checkSlugAvailability('BAD SLUG!')
+
+    expect(result).toEqual(response)
+  })
+
+  it('returns own-slug response', async () => {
+    const response = { available: false, reason: 'own-slug' as const, message: 'This is your current slug' }
+    mockSlugDao.checkAvailability.mockResolvedValueOnce(response)
+
+    const service = new UserService()
+    const result = await service.checkSlugAvailability('myslug')
+
+    expect(result).toEqual(response)
+  })
+
+  it('throws with the Error message when the DAO rejects with an Error', async () => {
     mockSlugDao.checkAvailability.mockRejectedValueOnce(new Error('Functions error'))
 
     const service = new UserService()
     await expect(service.checkSlugAvailability('slug')).rejects.toThrow('Functions error')
+  })
+
+  it('throws a generic message when the DAO rejects with a non-Error', async () => {
+    mockSlugDao.checkAvailability.mockRejectedValueOnce('string error')
+
+    const service = new UserService()
+    await expect(service.checkSlugAvailability('slug')).rejects.toThrow(
+      'Failed to check slug availability'
+    )
   })
 })
 
@@ -259,15 +407,32 @@ describe('claimSlug', () => {
     const service = new UserService()
     const result = await service.claimSlug('myslug')
 
-    expect(result.success).toBe(true)
+    expect(result).toEqual(response)
     expect(mockSlugDao.claim).toHaveBeenCalledWith('myslug')
   })
 
-  it('throws with error message when claim fails', async () => {
+  it('returns failure response when claim is unsuccessful', async () => {
+    const response = { success: false, message: 'Slug already taken' }
+    mockSlugDao.claim.mockResolvedValueOnce(response)
+
+    const service = new UserService()
+    const result = await service.claimSlug('takenslug')
+
+    expect(result).toEqual({ success: false, message: 'Slug already taken' })
+  })
+
+  it('throws with the Error message when the DAO rejects with an Error', async () => {
     mockSlugDao.claim.mockRejectedValueOnce(new Error('Slug already taken'))
 
     const service = new UserService()
     await expect(service.claimSlug('takenslug')).rejects.toThrow('Slug already taken')
+  })
+
+  it('throws a generic message when the DAO rejects with a non-Error', async () => {
+    mockSlugDao.claim.mockRejectedValueOnce(42)
+
+    const service = new UserService()
+    await expect(service.claimSlug('slug')).rejects.toThrow('Failed to claim slug')
   })
 })
 
@@ -292,11 +457,21 @@ describe('setDefaultGrid', () => {
     expect(mockSlugDao.updateDefaultGrid).toHaveBeenCalledWith(null)
   })
 
+  it('does not pass userId to the DAO (cloud function infers it from auth)', async () => {
+    mockSlugDao.updateDefaultGrid.mockResolvedValueOnce({ success: true })
+
+    const service = new UserService()
+    await service.setDefaultGrid('uid-abc', 'grid-123')
+
+    expect(mockSlugDao.updateDefaultGrid).toHaveBeenCalledTimes(1)
+    expect(mockSlugDao.updateDefaultGrid).toHaveBeenCalledWith('grid-123')
+  })
+
   it('throws when the DAO call fails', async () => {
     mockSlugDao.updateDefaultGrid.mockRejectedValueOnce(new Error('Unauthorized'))
 
     const service = new UserService()
-    await expect(service.setDefaultGrid('uid-abc', 'grid-123')).rejects.toThrow()
+    await expect(service.setDefaultGrid('uid-abc', 'grid-123')).rejects.toThrow('Unauthorized')
   })
 })
 
@@ -332,5 +507,16 @@ describe('subscribeToUserProfile', () => {
     service.subscribeToUserProfile('uid-abc', callback)
 
     expect(callback).toHaveBeenCalledWith(null)
+  })
+
+  it('returns a callable unsubscribe function', () => {
+    const unsubFn = vi.fn()
+    mockUserDao.subscribe.mockReturnValue(unsubFn)
+
+    const service = new UserService()
+    const unsub = service.subscribeToUserProfile('uid-abc', vi.fn())
+
+    unsub()
+    expect(unsubFn).toHaveBeenCalledOnce()
   })
 })

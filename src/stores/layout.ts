@@ -148,6 +148,14 @@ export const useLayoutStore = defineStore("layout", {
       void this.undoRedoVersion;
       return undoRedoManager?.getNextRedoActionLabel() ?? null;
     },
+
+    undoRedoStacks(): {
+      undoStack: { actionLabel: string; timestamp: number; snapshotId: number }[];
+      redoStack: { actionLabel: string; timestamp: number; snapshotId: number }[];
+    } {
+      void this.undoRedoVersion;
+      return undoRedoManager?.getStacks() ?? { undoStack: [], redoStack: [] };
+    },
   },
 
   actions: {
@@ -262,6 +270,17 @@ export const useLayoutStore = defineStore("layout", {
       if (!current) return;
 
       const snapshot = undoRedoManager.redo(current);
+      if (!snapshot) return;
+
+      await this.applySnapshot(snapshot);
+    },
+
+    async undoRedoUntil(snapshotId: number) {
+      if (!undoRedoManager || !this.currentLayout) return;
+      const current = this.captureSnapshot("");
+      if (!current) return;
+
+      const snapshot = undoRedoManager.undoRedoUntil(snapshotId, current);
       if (!snapshot) return;
 
       await this.applySnapshot(snapshot);

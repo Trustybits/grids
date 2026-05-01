@@ -301,6 +301,16 @@ export default defineComponent({
       constrainOffset(true);
     });
 
+    watch(
+      () => [props.content.offsetX, props.content.offsetY],
+      ([newX, newY]) => {
+        if (!isEditing.value) {
+          offsetX.value = newX || 0;
+          offsetY.value = newY || 0;
+        }
+      },
+    );
+
     const { overlayColor, handleBackgroundColorChange } = useColorPicker(
       tileId,
       props.content,

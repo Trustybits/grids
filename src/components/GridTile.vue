@@ -553,12 +553,14 @@ export default defineComponent({
         isActivated.value ||
         layoutStore.activeTileId === props.tile.i;
 
-      return {
-        zIndex:
-          isEditing.value || isToolbarActive
-            ? "var(--z-grid-tile-elevated)"
-            : 0,
-      };
+      let zIndex: string | number = 0;
+      if (isEditing.value) {
+        zIndex = "var(--z-grid-tile-elevated)";
+      } else if (isToolbarActive) {
+        zIndex = "var(--z-grid-tile-hover)";
+      }
+
+      return { zIndex };
     });
 
     // Check if tile supports crop/zoom (IMAGE or VIDEO)

@@ -19,7 +19,7 @@ export interface Layout {
   overrides?: Partial<Record<Breakpoint, Record<string, TilePosition>>>;
   // When true, non-owners can duplicate this grid as a template.
   duplicatable?: boolean;
-  createdAt?: any;
-  updatedAt?: any;
-  lastOpenedAt?: any;
+  createdAt?: Date | { toDate(): Date } | null;
+  updatedAt?: Date | { toDate(): Date } | null;
+  lastOpenedAt?: Date | { toDate(): Date } | null;
 }

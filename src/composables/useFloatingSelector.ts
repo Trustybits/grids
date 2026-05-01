@@ -1,11 +1,10 @@
-import { useLayoutStore } from "@/stores/layout";
 import { nextTick, onMounted, onUnmounted, watch, type Ref } from "vue";
 
 interface UseFloatingSelectorOptionsForElement<T extends HTMLElement> {
   isActive: Ref<boolean>;
   menuRef: Ref<T | null>;
   positionMenu: () => void;
-  buttonAction: (value: any) => void;
+  buttonAction: (value: string) => void;
   emitter?: () => void;
 }
 
@@ -16,7 +15,6 @@ export const useFloatingSelector = <T extends HTMLElement>({
   buttonAction,
   emitter = () => {},
 }: UseFloatingSelectorOptionsForElement<T>) => {
-  const layoutStore = useLayoutStore();
   let rafId: number | null = null;
 
   const handleClick = () => {
@@ -30,7 +28,7 @@ export const useFloatingSelector = <T extends HTMLElement>({
     nextTick(() => positionMenu());
   };
 
-  const handleButtonClick = (value: any) => {
+  const handleButtonClick = (value: string) => {
     buttonAction(value);
     isActive.value = false;
     // layoutStore.closeMenus();

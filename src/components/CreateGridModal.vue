@@ -13,43 +13,52 @@
       />
       <div class="modal-actions">
         <button @click="handleClose" class="cancel-button">Cancel</button>
-        <button @click="handleCreate" class="create-button" :disabled="!gridName.trim()">Create Grid</button>
+        <button
+          @click="handleCreate"
+          class="create-button"
+          :disabled="!gridName.trim()"
+        >
+          Create Grid
+        </button>
       </div>
     </div>
   </div>
 </template>
 
-<script setup>
-import { ref, watch, nextTick } from 'vue';
+<script setup lang="ts">
+import { ref, watch, nextTick } from "vue";
 
 const props = defineProps({
   show: {
     type: Boolean,
-    required: true
-  }
+    required: true,
+  },
 });
 
-const emit = defineEmits(['close', 'create']);
+const emit = defineEmits(["close", "create"]);
 
-const gridName = ref('');
-const gridNameInput = ref(null);
+const gridName = ref("");
+const gridNameInput = ref<HTMLInputElement | null>(null);
 
-watch(() => props.show, async (newValue) => {
-  if (newValue) {
-    gridName.value = '';
-    await nextTick();
-    gridNameInput.value?.focus();
-  }
-});
+watch(
+  () => props.show,
+  async (newValue) => {
+    if (newValue) {
+      gridName.value = "";
+      await nextTick();
+      gridNameInput.value?.focus();
+    }
+  },
+);
 
 const handleClose = () => {
-  emit('close');
+  emit("close");
 };
 
 const handleCreate = () => {
   const name = gridName.value.trim();
   if (!name) return;
-  emit('create', name);
+  emit("create", name);
 };
 </script>
 

@@ -30,12 +30,9 @@ export function useFileUpload() {
 
     try {
       return await storageService.upload(currentUserId, file, options);
-    } catch (error: any) {
+    } catch (error) {
       console.error("uploadFileToUrl - Upload failed:", {
         error,
-        code: error.code,
-        message: error.message,
-        serverResponse: error.serverResponse,
       });
       throw error;
     }
@@ -112,7 +109,7 @@ export function useFileUpload() {
       layoutStore.setResolvedUrl(tileId, url);
       layoutStore.clearTileUploading(tileId);
       layoutStore.updateLayout();
-    } catch (error: any) {
+    } catch (error) {
       console.error("File upload failed:", error);
       layoutStore.clearTileUploading(tileId);
       URL.revokeObjectURL(blobUrl);
@@ -165,7 +162,7 @@ export function useFileUpload() {
       layoutStore.setResolvedUrl(tileId, url);
       layoutStore.clearTileUploading(tileId);
       layoutStore.updateLayout();
-    } catch (error: any) {
+    } catch (error) {
       console.error("File upload failed:", error);
       layoutStore.clearTileUploading(tileId);
       URL.revokeObjectURL(blobUrl);
@@ -193,7 +190,11 @@ export function useFileUpload() {
       throw new Error("You must be logged in to upload.");
     }
 
-    return await storageService.uploadExternalImage(currentUserId, externalUrl, folder);
+    return storageService.uploadExternalImage(
+      currentUserId,
+      externalUrl,
+      folder,
+    );
   };
 
   return {

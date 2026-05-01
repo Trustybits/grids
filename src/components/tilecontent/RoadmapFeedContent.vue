@@ -463,8 +463,8 @@ export default defineComponent({
       isLoadingDatabases.value = true;
       try {
         availableDatabases.value = await roadmapService.listDatabases(layoutId.value, tileId);
-      } catch (err: any) {
-        connectError.value = err?.message || "Failed to load databases.";
+      } catch (err: unknown) {
+        connectError.value = err instanceof Error ? err.message : "Failed to load databases.";
       } finally {
         isLoadingDatabases.value = false;
       }
@@ -490,8 +490,8 @@ export default defineComponent({
           cachedItems: result.items,
           lastSyncedAt: Date.now(),
         });
-      } catch (err: any) {
-        fetchError.value = err?.message || "Failed to load roadmap.";
+      } catch (err: unknown) {
+        fetchError.value = err instanceof Error ? err.message : "Failed to load roadmap.";
       } finally {
         isLoading.value = false;
       }
@@ -526,9 +526,9 @@ export default defineComponent({
           cachedItems: result.items,
           lastSyncedAt: Date.now(),
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!silent) {
-          fetchError.value = err?.message || "Failed to load roadmap.";
+          fetchError.value = err instanceof Error ? err.message : "Failed to load roadmap.";
         } else {
           console.warn("[RoadmapFeed] Silent refresh failed:", err);
         }
@@ -586,8 +586,8 @@ export default defineComponent({
         }
         // The Firestore listener will also sync myVotedPageIds from the server,
         // but the optimistic update above already reflects the correct state.
-      } catch (err: any) {
-        console.error("Upvote failed:", err?.message);
+      } catch (err: unknown) {
+        console.error("Upvote failed:", err instanceof Error ? err.message : err);
         // Roll back the optimistic voted-set update on failure
         myVotedPageIds.value = new Set(myVotedPageIds.value.has(item.notionPageId)
           ? [...myVotedPageIds.value].filter((id) => id !== item.notionPageId)

@@ -47,8 +47,8 @@ function scheduleNextRotation() {
 function pickActive() {
   // Hover takes priority – pause rotation
   if (hoveredVideoId.value && videoTiles.has(hoveredVideoId.value)) {
-    const entry = videoTiles.get(hoveredVideoId.value)!;
-    if (entry.isVisible) {
+    const entry = videoTiles.get(hoveredVideoId.value);
+    if (entry?.isVisible) {
       clearRotation();
       activeVideoId.value = hoveredVideoId.value;
       return;
@@ -101,8 +101,9 @@ function ensureObserver() {
     (entries) => {
       for (const entry of entries) {
         const id = (entry.target as HTMLElement).dataset.videoTileId;
-        if (id && videoTiles.has(id)) {
-          videoTiles.get(id)!.isVisible = entry.isIntersecting;
+        const tile = id ? videoTiles.get(id) : undefined;
+        if (tile) {
+          tile.isVisible = entry.isIntersecting;
         }
       }
       pickActive();
@@ -116,7 +117,7 @@ export function useVideoFocus() {
     ensureObserver();
     element.dataset.videoTileId = id;
     videoTiles.set(id, { id, x, y, element, isVisible: false });
-    observer!.observe(element);
+    observer?.observe(element);
     // Defer pick so the observer callback can fire first
     requestAnimationFrame(() => pickActive());
   }

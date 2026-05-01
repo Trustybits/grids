@@ -74,7 +74,7 @@ export const DragHandle = Extension.create<DragHandleOptions>({
     function showHandle(blockEl: HTMLElement) {
       storage.hoveredBlockEl = blockEl;
       const blockRect = blockEl.getBoundingClientRect();
-      const wrapperRect = wrapper!.getBoundingClientRect();
+      const wrapperRect = wrapper?.getBoundingClientRect() ?? { top: 120 };
       handle.style.top = `${blockRect.top - wrapperRect.top}px`;
       handle.classList.add("visible");
     }
@@ -134,7 +134,7 @@ export const DragHandle = Extension.create<DragHandleOptions>({
         // Nullify view.dragging so ProseMirror's own drop handler
         // treats the drop as external (we handle everything ourselves
         // in the capture-phase handler below).
-        (view as any).dragging = null;
+        (view as unknown as Record<string, unknown>).dragging = null;
       } catch (e) {
         console.error("[DragHandle] dragstart failed:", e);
       }
@@ -221,16 +221,16 @@ export const DragHandle = Extension.create<DragHandleOptions>({
     wrapper.addEventListener("drop", containDrag);
 
     storage.cleanup = () => {
-      wrapper!.removeEventListener("mousemove", onMouseMove);
-      wrapper!.removeEventListener("mouseleave", onMouseLeave);
+      wrapper?.removeEventListener("mousemove", onMouseMove);
+      wrapper?.removeEventListener("mouseleave", onMouseLeave);
       handle.removeEventListener("mousedown", onHandleMouseDown);
       handle.removeEventListener("dragstart", onDragStart);
       handle.removeEventListener("dragend", onDragEnd);
       editorDom.removeEventListener("drop", onEditorDrop, true);
-      wrapper!.removeEventListener("dragover", containDrag);
-      wrapper!.removeEventListener("dragenter", containDrag);
-      wrapper!.removeEventListener("dragleave", containDrag);
-      wrapper!.removeEventListener("drop", containDrag);
+      wrapper?.removeEventListener("dragover", containDrag);
+      wrapper?.removeEventListener("dragenter", containDrag);
+      wrapper?.removeEventListener("dragleave", containDrag);
+      wrapper?.removeEventListener("drop", containDrag);
       handle.remove();
       editorDom.classList.remove("has-drag-handles");
     };
@@ -247,7 +247,8 @@ export const DragHandle = Extension.create<DragHandleOptions>({
         storage.handle
       ) {
         const blockRect = storage.hoveredBlockEl.getBoundingClientRect();
-        const wrapperRect = storage.wrapper!.getBoundingClientRect();
+        const wrapperRect = storage.wrapper?.getBoundingClientRect();
+        if (!wrapperRect) return;
         storage.handle.style.top = `${blockRect.top - wrapperRect.top}px`;
       }
     } else {

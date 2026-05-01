@@ -49,10 +49,10 @@
               <div class="col-md-12">
                 <!-- Option A: Inline — sits inside the toolbar row -->
                 <div v-if="switcherVariant === 'inline'" class="toolbar-with-switcher">
-                  <grid-buttons />
+                  <GridButtons />
                   <BreakpointSwitcher variant="inline" />
                 </div>
-                <grid-buttons v-else />
+                <GridButtons v-else />
               </div>
             </div>
             <!-- Option D: Toolbar-row — second row below the toolbar -->
@@ -74,7 +74,7 @@
           <div v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'" class="toolbar">
             <BreakpointSwitcher variant="toolbar-row" />
           </div>
-          <grid :row-height="75" />
+          <Grid :row-height="75" />
         </div>
       </div>
 
@@ -101,10 +101,13 @@ import BreakpointSwitcher from '@/components/BreakpointSwitcher.vue';
 type SwitcherVariant = 'inline' | 'floating' | 'toolbar-row';
 const switcherVariant = 'floating' as SwitcherVariant;
 import { useThemeStore } from '@/stores/theme';
+import { useUndoRedoKeys } from '@/composables/useUndoRedoKeys';
+import type { ProfileBioContent } from '@/types/TileContent';
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
 const themeStore = useThemeStore();
+useUndoRedoKeys();
 const isLoading = ref(true);
 const error = ref(false);
 const errorTitle = ref('Handle Not Found');
@@ -126,7 +129,7 @@ const profilePhotoUrl = computed(() => {
   if (!profileTile?.content) return null;
   
   // Type assertion since we know it's a profile tile
-  const profileContent = profileTile.content as any;
+  const profileContent = profileTile.content as ProfileBioContent;
   return profileContent.profilePhotoUrl || null;
 });
 

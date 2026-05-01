@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="text-container"
@@ -50,10 +51,10 @@
 </template>
 
 <script lang="ts">
+/* eslint-disable vue/no-mutating-props */
 import {
   defineComponent,
   ref,
-  onMounted,
   watch,
   inject,
   computed,
@@ -76,6 +77,10 @@ import type { TextContent } from "@/types/TileContent";
 import { useTileLink } from "@/composables/useTileLink";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import {
+  useEditingLifecycle,
+  useEditorContentSync,
+} from "@/composables/useEditingLifecycle";
 
 export default defineComponent({
   components: {
@@ -135,7 +140,7 @@ export default defineComponent({
         TaskItem,
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",
-      onCreate({ editor }) {
+      onCreate({ editor: _editor }) {
         nextTick(() => {
           checkOverflow();
 
@@ -151,7 +156,7 @@ export default defineComponent({
           }
         });
       },
-      onUpdate({ editor }) {
+      onUpdate({ editor: _editor }) {
         // props.content.text = editor.getHTML();
         checkOverflow();
         if (isEditing.value) {
@@ -209,30 +214,14 @@ export default defineComponent({
       () => isTextOverflowing.value && !isScrolledToBottom.value,
     );
 
-    watch(
-      [() => layoutStore.canEdit, () => isEditing.value],
-      ([isOwner, editing]) => {
-        if (!editor?.value) return;
+    const { tileId } = useEditingLifecycle({
+      editor,
+      isEditing,
+      containerRef: textContentDiv,
+      flushPersist,
+    });
 
-        const shouldBeEditable = isOwner && editing;
-        editor.value.setEditable(shouldBeEditable);
-
-        if (shouldBeEditable) {
-          editor.value.commands.focus("end");
-          return;
-        }
-
-        // Ensure the editor never appears editable to public viewers.
-        editor.value.commands.blur();
-
-        if (!isOwner) {
-          isEditing.value = false;
-          return;
-        }
-        // Owner is leaving edit mode: flush any pending debounce and persist.
-        flushPersist();
-      },
-    );
+    useEditorContentSync(editor, () => props.content.text);
 
     const onShortClick = () => {
       if (!layoutStore.canEdit) {
@@ -256,23 +245,6 @@ export default defineComponent({
     const onExitClick = () => {
       isEditing.value = false;
     };
-
-    // Inject the tile ID provided by GridTile so we can check if this tile
-    // should auto-focus on mount (e.g. after paste or toolbar "add text").
-    const tileId = inject<string | null>("tileId", null);
-
-    onMounted(() => {
-      // If this tile was just created and flagged for auto-focus, enter
-      // edit mode immediately so the user can start typing right away.
-      if (
-        tileId &&
-        layoutStore.canEdit &&
-        layoutStore.pendingFocusTileId === tileId
-      ) {
-        layoutStore.pendingFocusTileId = null;
-        isEditing.value = true;
-      }
-    });
 
     onUnmounted(() => {
       if (editorDomRef.value) {
@@ -378,7 +350,7 @@ export default defineComponent({
     };
 
     const getCurrentFontSize = () => {
-      let fontSize = editor.value?.getAttributes("textStyle")?.fontSize;
+      const fontSize = editor.value?.getAttributes("textStyle")?.fontSize;
 
       if (!fontSize) {
         return "Medium";

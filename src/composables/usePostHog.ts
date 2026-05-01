@@ -4,7 +4,7 @@ export function usePostHog() {
   /**
    * Track a custom event
    */
-  const capture = (event: string, properties?: Record<string, any>) => {
+  const capture = (event: string, properties?: Record<string, unknown>) => {
     if (import.meta.env.VITE_POSTHOG_KEY) {
       posthog.capture(event, properties);
     }
@@ -13,7 +13,7 @@ export function usePostHog() {
   /**
    * Identify a user
    */
-  const identify = (userId: string, properties?: Record<string, any>) => {
+  const identify = (userId: string, properties?: Record<string, unknown>) => {
     if (import.meta.env.VITE_POSTHOG_KEY) {
       posthog.identify(userId, properties);
     }
@@ -31,7 +31,7 @@ export function usePostHog() {
   /**
    * Set user properties
    */
-  const setPersonProperties = (properties: Record<string, any>) => {
+  const setPersonProperties = (properties: Record<string, unknown>) => {
     if (import.meta.env.VITE_POSTHOG_KEY) {
       posthog.setPersonProperties(properties);
     }

@@ -88,7 +88,6 @@ import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";
 import AddLinkModal from "../AddLinkModal.vue";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
-import type { ComputedRef } from "vue";
 
 export default defineComponent({
   components: {
@@ -301,6 +300,16 @@ export default defineComponent({
     watch(imageDimensions, () => {
       constrainOffset(true);
     });
+
+    watch(
+      () => [props.content.offsetX, props.content.offsetY],
+      ([newX, newY]) => {
+        if (!isEditing.value) {
+          offsetX.value = newX || 0;
+          offsetY.value = newY || 0;
+        }
+      },
+    );
 
     const { overlayColor, handleBackgroundColorChange } = useColorPicker(
       tileId,

@@ -14,51 +14,51 @@ import posthog from 'posthog-js';
 
 // Define routes
 const routes = [
-  { path: '/', component: HomePage },
-  { path: '/login', component: AuthPage },
-  { path: '/signup', redirect: '/login' },
+  { path: "/", component: HomePage },
+  { path: "/login", component: AuthPage },
+  { path: "/signup", redirect: "/login" },
   {
-    path: '/dashboard',
+    path: "/dashboard",
     component: DashboardPage,
-    meta: { requiresAuth: true }
-  },
-  { 
-    path: '/grid/:id', 
-    component: GridPage, 
-    meta: { requiresAuth: false } 
+    meta: { requiresAuth: true },
   },
   {
-    path: '/privacy',
+    path: "/grid/:id",
+    component: GridPage,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: "/privacy",
     component: PrivacyPage,
     meta: { requiresAuth: false },
   },
   {
-    path: '/terms',
+    path: "/terms",
     component: TermsPage,
     meta: { requiresAuth: false },
   },
   {
-    path: '/pricing',
+    path: "/pricing",
     component: PricingPage,
     meta: { requiresAuth: false },
   },
   {
     // Handles the Notion OAuth redirect — must be before /:slug to avoid being caught by it
-    path: '/notion-callback',
+    path: "/notion-callback",
     component: NotionCallback,
     meta: { requiresAuth: false },
   },
   {
-    path: '/:slug',
+    path: "/:slug",
     component: UserSlugPage,
-    meta: { requiresAuth: false }
+    meta: { requiresAuth: false },
   },
 ];
 
 // Create router
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
 });
 
 router.beforeEach(async (to, from, next) => {
@@ -66,9 +66,9 @@ router.beforeEach(async (to, from, next) => {
   const user = await authProvider.waitForAuthReady();
 
   // Handle root path
-  if (to.path === '/') {
+  if (to.path === "/") {
     if (user) {
-      next('/dashboard');
+      next("/dashboard");
       return;
     }
     next();
@@ -76,16 +76,17 @@ router.beforeEach(async (to, from, next) => {
   }
 
   // If already authenticated, redirect from login to app
-  if (to.path === '/login' && user) {
-    const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : null;
-    next(redirect && redirect.length > 0 ? redirect : '/dashboard');
+  if (to.path === "/login" && user) {
+    const redirect =
+      typeof to.query.redirect === "string" ? to.query.redirect : null;
+    next(redirect && redirect.length > 0 ? redirect : "/dashboard");
     return;
   }
 
   // Require auth for protected routes
   if (to.meta.requiresAuth && !user) {
     next({
-      path: '/login',
+      path: "/login",
       query: {
         redirect: to.fullPath,
       },
@@ -95,17 +96,22 @@ router.beforeEach(async (to, from, next) => {
 
   // Check if authenticated user has claimed a slug (required for all users)
   // Allow them to access dashboard where they can claim it via settings
-  if (user && to.meta.requiresAuth && to.path !== '/login' && to.path !== '/dashboard') {
+  if (
+    user &&
+    to.meta.requiresAuth &&
+    to.path !== "/login" &&
+    to.path !== "/dashboard"
+  ) {
     try {
       const profile = await getServiceFactory().getUserService().getUserProfile(user.uid);
       
       // If user doesn't have a slug, redirect to dashboard where they can claim it
       if (!profile?.slug) {
-        next('/dashboard');
+        next("/dashboard");
         return;
       }
     } catch (error) {
-      console.error('Error checking user slug:', error);
+      console.error("Error checking user slug:", error);
       // On error, allow navigation to continue
     }
   }
@@ -114,9 +120,9 @@ router.beforeEach(async (to, from, next) => {
 });
 
 // Track page views with PostHog
-router.afterEach((to) => {
+router.afterEach((_to) => {
   if (import.meta.env.VITE_POSTHOG_KEY) {
-    posthog.capture('$pageview', {
+    posthog.capture("$pageview", {
       $current_url: window.location.href,
     });
   }

@@ -271,15 +271,8 @@ export default defineComponent({
     // Fetch metadata from YouTube API
     const fetchMetadata = async () => {
       if (props.content.title) {
-        console.log("YouTube metadata already loaded:", props.content.title);
         return; // Already has metadata
       }
-      
-      console.log("Fetching YouTube metadata for:", {
-        type: props.content.youtubeType,
-        id: props.content.youtubeId,
-        url: props.content.youtubeUrl,
-      });
       
       isLoading.value = true;
       hasError.value = false;
@@ -288,13 +281,11 @@ export default defineComponent({
         const data = await getServiceFactory().getCloudFunctionsService().callFunction("getYouTubeMetadata", {
           youtubeType: props.content.youtubeType,
           youtubeId: props.content.youtubeId,
-        }) as any;
-        
-        console.log("YouTube metadata received:", data);
+        }) as Record<string, unknown>;
+
         
         // Update tile content with fetched metadata
         if (tileId) {
-          console.log("Patching tile content for tile:", tileId);
           layoutStore.patchTileContent(tileId, data);
         } else {
           console.warn("No tileId available to patch content");

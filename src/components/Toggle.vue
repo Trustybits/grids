@@ -1,12 +1,21 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <label class="toggle" :data-tooltip="tooltip">
     <span class="toggle__label">{{ label }}</span>
-    <div class="toggle-switch" :class="{ 'toggle-switch--checked': modelValue }">
+    <div
+      class="toggle-switch"
+      :class="{ 'toggle-switch--checked': modelValue }"
+    >
       <input
         type="checkbox"
         class="toggle-input"
         :checked="modelValue"
-        @change="$emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
+        @change="
+          $emit(
+            'update:modelValue',
+            ($event.target as HTMLInputElement).checked,
+          )
+        "
       />
       <span class="toggle-slider"></span>
     </div>
@@ -21,7 +30,7 @@ defineProps<{
 }>();
 
 defineEmits<{
-  'update:modelValue': [value: boolean];
+  "update:modelValue": [value: boolean];
 }>();
 </script>
 

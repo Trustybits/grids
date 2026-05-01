@@ -82,11 +82,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { getServiceFactory } from '@/services/ServiceFactorySingleton';
-
-const userService = getServiceFactory().getUserService();
-
 const props = defineProps<{
   isOpen: boolean;
   currentSlug?: string;
@@ -99,6 +94,10 @@ const emit = defineEmits<{
   success: [slug: string];
 }>();
 
+import { ref, computed, watch } from 'vue';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
+
+const userService = getServiceFactory().getUserService();
 const slugInput = ref(props.currentSlug || '');
 const isChecking = ref(false);
 const isClaiming = ref(false);
@@ -200,10 +199,10 @@ const checkAvailability = async (slug: string) => {
         validationClass.value = 'error';
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Only show error if this check wasn't aborted
     if (currentController === checkAbortController.value) {
-      validationMessage.value = error.message || 'Failed to check availability';
+      validationMessage.value = error instanceof Error ? error.message : 'Failed to check availability';
       validationClass.value = 'error';
     }
   } finally {
@@ -242,8 +241,8 @@ const handleClaim = async () => {
         props.onSuccess(claimedSlug);
       }
     }
-  } catch (error: any) {
-    validationMessage.value = error.message || 'Failed to claim handle';
+  } catch (error: unknown) {
+    validationMessage.value = error instanceof Error ? error.message : 'Failed to claim handle';
     validationClass.value = 'error';
     isClaiming.value = false;
   }

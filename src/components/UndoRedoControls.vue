@@ -14,6 +14,7 @@
       >
         Undo
       </button>
+      <span :style="{ 'opacity': hovered ? 100: 0 }" class="ur-divider" />
       <button
         class="ur-btn"
         :class="{ 'ur-btn--active': layoutStore.canRedo }"
@@ -22,6 +23,7 @@
       >
         Redo
       </button>
+      <span :style="{ 'opacity': hovered ? 100: 0 }" class="ur-divider" />
       <button
         :style="{ 'opacity': hovered ? 100 : 0 }"
         class="ur-chevron"
@@ -158,6 +160,7 @@ watch(menuOpen, (open) => {
     document.addEventListener("mousedown", onClickOutside);
   } else {
     document.removeEventListener("mousedown", onClickOutside);
+    hoveredItem.value = null;
   }
 });
 
@@ -184,7 +187,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0;
-  border-radius: var(--radius-md);
+  border-radius: 12px;
   transition: background-color var(--duration-fast) var(--easing-smooth),
     border-color var(--duration-fast) var(--easing-smooth);
   padding: 4px 8px;
@@ -221,6 +224,13 @@ onUnmounted(() => {
     cursor: default;
     opacity: 0.5;
   }
+}
+
+.ur-divider {
+  width: 1px;
+  height: 14px;
+  background-color: var(--color-tile-stroke);
+  flex-shrink: 0;
 }
 
 .ur-chevron {

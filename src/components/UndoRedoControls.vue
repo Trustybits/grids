@@ -23,9 +23,9 @@
         Redo
       </button>
       <button
-        v-if="hovered"
+        :style="{ 'opacity': hovered ? 100 : 0 }"
         class="ur-chevron"
-        :class="{ 'ur-chevron--active': hasHistory }"
+        :class="{ 'ur-chevron--active': hasHistory, 'ur-chevron--history-open': menuOpen }"
         @click.stop="toggleMenu"
       >
         <Chevron :size="14" />
@@ -235,14 +235,16 @@ onUnmounted(() => {
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: color var(--duration-fast) var(--easing-smooth);
+  transition: transform 0.2s ease;
   line-height: 0;
 
   &--active {
     color: var(--color-content-high);
   }
 
-  &:hover {
-    color: var(--color-content-high);
+  &--history-open {
+    transition: transform 0.2s ease;
+    transform: rotate(180deg);
   }
 }
 
@@ -261,7 +263,7 @@ onUnmounted(() => {
   &__scroll {
     max-height: 320px;
     overflow-y: auto;
-    padding: 4px 0;
+    padding: 0;
   }
 }
 
@@ -312,10 +314,10 @@ onUnmounted(() => {
   }
 
   &--highlighted {
-    outline: 1px solid var(--color-figma-purple);
-    border-radius: var(--radius-sm);
-    margin: 2px 4px;
-    padding: 8px 8px;
+    border: 1px solid var(--color-figma-purple);
+    border-radius: 12px;
+    margin: 0;
+    padding: 8px 12px;
   }
 }
 

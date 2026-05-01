@@ -1027,7 +1027,7 @@ function selectScatterTiles(
   for (const t of shuffled) {
     const cat = categoryFor(t.type);
     if (!groups.has(cat)) groups.set(cat, []);
-    groups.get(cat)!.push(t);
+    groups.get(cat)?.push(t);
   }
 
   const selected: CapturedTile[] = [];
@@ -1038,9 +1038,11 @@ function selectScatterTiles(
     if (selected.length >= limit) break;
     const group = groups.get(cat);
     if (group && group.length > 0) {
-      const t = group.shift()!;
-      selected.push(t);
-      used.add(t);
+      const t = group.shift();
+      if (t) {
+        selected.push(t);
+        used.add(t);
+      }
     }
   }
 

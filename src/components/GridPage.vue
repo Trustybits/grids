@@ -45,6 +45,7 @@
         v-if="layoutStore.isOwner && switcherVariant === 'floating'"
         variant="floating"
       />
+      <UndoRedoControls v-if="layoutStore.isOwner" />
       
       <!--
         Toolbar area: tile-add buttons are hidden during view-only preview
@@ -100,12 +101,14 @@ import { useRouter, useRoute } from "vue-router";
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
 import BreakpointSwitcher from "@/components/BreakpointSwitcher.vue";
+import UndoRedoControls from "@/components/UndoRedoControls.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
+import { useUndoRedoKeys } from "@/composables/useUndoRedoKeys";
 import type { ProfileBioContent } from "@/types/TileContent";
 
 // ── Breakpoint switcher placement ────────────────────────────────
@@ -121,10 +124,12 @@ export default defineComponent({
     Grid,
     GridButtons,
     BreakpointSwitcher,
+    UndoRedoControls,
   },
   setup() {
     const layoutStore = useLayoutStore();
     const themeStore = useThemeStore();
+    useUndoRedoKeys();
     const rowHeight = 75;
     const imageInput = ref<HTMLInputElement | null>(null);
     const layoutContainer = ref<HTMLElement | null>(null);

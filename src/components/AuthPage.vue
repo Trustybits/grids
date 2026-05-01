@@ -203,10 +203,11 @@ const maybeCompleteEmailLinkSignIn = async () => {
     if (redirectPath) {
       await router.replace(redirectPath);
     }
-  } catch (error: any) {
-    console.error('Email link sign-in error:', error?.message);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Email link sign-in error:', errorMessage);
     statusTone.value = 'error';
-    statusText.value = error?.message ?? 'Could not complete sign-in.';
+    statusText.value = errorMessage ?? 'Could not complete sign-in.';
   } finally {
     isCompletingLink.value = false;
   }
@@ -221,10 +222,11 @@ const handleGoogleAuth = async () => {
     if (redirectPath) {
       await router.replace(redirectPath);
     }
-  } catch (error: any) {
-    console.error('Google Auth error:', error?.message);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Google Auth error:', errorMessage);
     statusTone.value = 'error';
-    statusText.value = error?.message ?? 'Google sign-in failed.';
+    statusText.value = errorMessage ?? 'Google sign-in failed.';
   } finally {
     isBusy.value = false;
   }
@@ -244,10 +246,11 @@ const handleEmailContinue = async () => {
 
     await authProvider.sendEmailSignInLink(trimmedEmail, `${window.location.origin}/login`);
     statusText.value = `Check ${trimmedEmail} for your sign-in link.`;
-  } catch (error: any) {
-    console.error('Send email link error:', error?.message);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Send email link error:', errorMessage);
     statusTone.value = 'error';
-    statusText.value = error?.message ?? 'Could not send sign-in link.';
+    statusText.value = errorMessage ?? 'Could not send sign-in link.';
   } finally {
     isBusy.value = false;
   }

@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="link-tile-content"
@@ -233,6 +234,7 @@
 </template>
 
 <script lang="ts">
+/* eslint-disable vue/no-mutating-props */
 import {
   defineComponent,
   inject,
@@ -542,9 +544,9 @@ export default defineComponent({
         } else {
           layoutStore.saveLayout();
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Link tile image upload failed:", error);
-        alert(error.message || "Failed to upload image. Please try again.");
+        alert(error instanceof Error ? error.message : "Failed to upload image. Please try again.");
       }
     };
 
@@ -688,6 +690,7 @@ export default defineComponent({
       focusTarget?: "title" | "description" | "subtitle",
     ) => {
       if (!layoutStore.canEdit || isEditing.value) return;
+      if (tileId) layoutStore.beginEditing(tileId);
       isEditing.value = true;
       syncDrafts();
       nextTick(() => {
@@ -716,6 +719,7 @@ export default defineComponent({
     const stopEditing = () => {
       if (!isEditing.value) return;
       flushPersist();
+      layoutStore.commitEditing();
       removeExitClickHandler();
       isEditing.value = false;
       // Re-sync drafts so readonly inputs reflect saved values
@@ -814,12 +818,8 @@ export default defineComponent({
       return color;
     });
 
-    const { overlayColor, handleBackgroundColorChange } = useColorPicker(
-      tileId,
-      props.content,
-      emit,
-      "background",
-    );
+    const { overlayColor: _overlayColor, handleBackgroundColorChange } =
+      useColorPicker(tileId, props.content, emit, "background");
 
     const handleRemoveFavicon = () => {
       props.content.faviconUrl = undefined;

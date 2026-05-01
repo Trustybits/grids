@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <svg
     :width="size"
@@ -16,7 +17,7 @@
   </svg>
 </template>
 
-<script setup>
+<script setup lang="ts">
 defineProps({
   size: {
     type: [String, Number],

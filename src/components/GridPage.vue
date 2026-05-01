@@ -45,6 +45,7 @@
         v-if="layoutStore.isOwner && switcherVariant === 'floating'"
         variant="floating"
       />
+      <UndoRedoControls v-if="layoutStore.isOwner" />
       
       <!--
         Toolbar area: tile-add buttons are hidden during view-only preview
@@ -59,10 +60,10 @@
               right next to the tile-add buttons.
             -->
             <div v-if="switcherVariant === 'inline'" class="toolbar-with-switcher">
-              <grid-buttons />
+              <GridButtons />
               <BreakpointSwitcher variant="inline" />
             </div>
-            <grid-buttons v-else />
+            <GridButtons v-else />
           </div>
         </div>
         <!--
@@ -88,7 +89,7 @@
       <div v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'" class="toolbar">
         <BreakpointSwitcher variant="toolbar-row" />
       </div>
-      <grid :row-height="rowHeight" />
+      <Grid :row-height="rowHeight" />
     </div>
   </div>
 
@@ -100,12 +101,15 @@ import { useRouter, useRoute } from "vue-router";
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
 import BreakpointSwitcher from "@/components/BreakpointSwitcher.vue";
+import UndoRedoControls from "@/components/UndoRedoControls.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
+import { useUndoRedoKeys } from "@/composables/useUndoRedoKeys";
+import type { ProfileBioContent } from "@/types/TileContent";
 
 // ── Breakpoint switcher placement ────────────────────────────────
 // Change this value to flip between the three UI placements:
@@ -120,10 +124,12 @@ export default defineComponent({
     Grid,
     GridButtons,
     BreakpointSwitcher,
+    UndoRedoControls,
   },
   setup() {
     const layoutStore = useLayoutStore();
     const themeStore = useThemeStore();
+    useUndoRedoKeys();
     const rowHeight = 75;
     const imageInput = ref<HTMLInputElement | null>(null);
     const layoutContainer = ref<HTMLElement | null>(null);
@@ -171,7 +177,7 @@ export default defineComponent({
       const profileTile = tiles.find(tile => tile.content?.type === 'profile');
       if (!profileTile?.content) return null;
       
-      const profileContent = profileTile.content as any;
+      const profileContent = profileTile.content as ProfileBioContent;
       return profileContent.profilePhotoUrl || null;
     });
     
@@ -185,9 +191,9 @@ export default defineComponent({
       try {
         const url = await uploadFileToUrl(file, { fileType: "images" });
         layoutStore.addBackgroundImage(url, false);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Failed to upload image:", error);
-        alert(error.message || "Failed to upload image. Please try again.");
+        alert(error instanceof Error ? error.message : "Failed to upload image. Please try again.");
       }
     };
 

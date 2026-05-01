@@ -1,9 +1,22 @@
 import { ref, onMounted, onUnmounted, type Ref } from "vue";
 import { useFileUpload } from "./useFileUpload";
 import { useLayoutStore } from "@/stores/layout";
-import { createTileContent, createTileContentFromEmbedUrl } from "@/utils/TileUtils";
+import {
+  createTileContent,
+  createTileContentFromEmbedUrl,
+} from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+
+interface LinkPreviewResponse {
+  url?: string;
+  domain?: string;
+  faviconUrl?: string;
+  title?: string;
+  description?: string;
+  imageUrl?: string;
+  siteName?: string;
+}
 
 export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   const layoutStore = useLayoutStore();
@@ -43,18 +56,19 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     // Check for files first (images/videos)
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      
+
       if (item.kind === "file") {
         const file = item.getAsFile();
         if (file) {
           event.preventDefault();
           handled = true;
-          
+
           try {
             await uploadFileOptimistic(file);
-          } catch (error: any) {
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Failed to upload file.";
             console.error("Failed to upload file from paste:", error);
-            alert(error.message || "Failed to upload file.");
+            alert(errorMessage);
           }
         }
       }
@@ -65,8 +79,11 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
       const text = event.clipboardData?.getData("text/plain");
       if (text && text.trim()) {
         const trimmedText = text.trim();
-        
-        if (trimmedText.startsWith('<iframe') || trimmedText.startsWith('<IFRAME')) {
+
+        if (
+          trimmedText.startsWith("<iframe") ||
+          trimmedText.startsWith("<IFRAME")
+        ) {
           // Paste is an iframe embed code — route through embed URL handler
           event.preventDefault();
           const embedContent = createTileContentFromEmbedUrl(trimmedText);
@@ -83,7 +100,12 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
           event.preventDefault();
           const tiptapDoc = {
             type: "doc",
-            content: [{ type: "paragraph", content: [{ type: "text", text: trimmedText }] }],
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: trimmedText }],
+              },
+            ],
           };
           const textContent = createTileContent(ContentType.SMART_TEXT, {
             text: JSON.stringify(tiptapDoc),
@@ -110,24 +132,27 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     if (!layoutStore.canEdit) return;
 
     const files = event.dataTransfer?.files;
-    const urlData = event.dataTransfer?.getData("text/uri-list") || event.dataTransfer?.getData("text/plain");
+    const urlData =
+      event.dataTransfer?.getData("text/uri-list") ||
+      event.dataTransfer?.getData("text/plain");
 
     // Handle files
     if (files && files.length > 0) {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        
+
         try {
           await uploadFileOptimistic(file);
-        } catch (error: any) {
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Failed to upload file.";
           console.error("Failed to upload dropped file:", error);
-          alert(error.message || "Failed to upload file.");
+          alert(errorMessage);
         }
       }
     }
     // Handle URLs
     else if (urlData && urlData.trim()) {
-      const urls = urlData.split('\n').filter(url => url.trim());
+      const urls = urlData.split("\n").filter((url) => url.trim());
       for (const url of urls) {
         await handleUrlDrop(url.trim());
       }
@@ -201,37 +226,41 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
       : trimmed.startsWith("http")
         ? trimmed
         : `https://${trimmed}`;
-    
+
     // Check if this URL should be a special content type (YouTube, music, image, video, etc.)
     if (!/^(mailto|tel):/i.test(formattedUrl)) {
       const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
-      if (detectedContent.type === ContentType.YOUTUBE ||
-          detectedContent.type === ContentType.MUSIC ||
-          detectedContent.type === ContentType.IMAGE ||
-          detectedContent.type === ContentType.VIDEO) {
+      if (
+        detectedContent.type === ContentType.YOUTUBE ||
+        detectedContent.type === ContentType.MUSIC ||
+        detectedContent.type === ContentType.IMAGE ||
+        detectedContent.type === ContentType.VIDEO
+      ) {
         layoutStore.addTile(detectedContent);
         return;
       }
     }
 
     // Otherwise, create a link tile and fetch metadata
-    const linkContent = createTileContent(ContentType.LINK, { link: formattedUrl });
+    const linkContent = createTileContent(ContentType.LINK, {
+      link: formattedUrl,
+    });
     const tileId = layoutStore.addTile(linkContent);
 
     if (tileId) {
       // Fetch link preview in background
       try {
         if (/^(mailto|tel):/i.test(formattedUrl)) return;
-        const data = await getServiceFactory().getCloudFunctionsService().callFunction("getLinkPreview", { url: formattedUrl }) as any;
+        const data = await getServiceFactory().getCloudFunctionsService().callFunction<{ url: string }, LinkPreviewResponse>("getLinkPreview", { url: formattedUrl });
 
         layoutStore.patchTileContent(tileId, {
-          link: data?.url,
-          domain: data?.domain,
-          faviconUrl: data?.faviconUrl,
-          metaTitle: data?.title,
-          metaDescription: data?.description,
-          metaImageUrl: data?.imageUrl,
-          metaSiteName: data?.siteName,
+          link: data.url,
+          domain: data.domain,
+          faviconUrl: data.faviconUrl,
+          metaTitle: data.title,
+          metaDescription: data.description,
+          metaImageUrl: data.imageUrl,
+          metaSiteName: data.siteName,
         });
       } catch (error) {
         console.error("Failed to fetch link preview:", error);
@@ -250,33 +279,37 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     // Check if this URL should be a special content type (YouTube, music, image, video, etc.)
     if (!/^(mailto|tel):/i.test(formattedUrl)) {
       const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
-      if (detectedContent.type === ContentType.YOUTUBE ||
-          detectedContent.type === ContentType.MUSIC ||
-          detectedContent.type === ContentType.IMAGE ||
-          detectedContent.type === ContentType.VIDEO) {
+      if (
+        detectedContent.type === ContentType.YOUTUBE ||
+        detectedContent.type === ContentType.MUSIC ||
+        detectedContent.type === ContentType.IMAGE ||
+        detectedContent.type === ContentType.VIDEO
+      ) {
         layoutStore.addTile(detectedContent);
         return;
       }
     }
 
     // Otherwise, create a link tile and fetch metadata
-    const linkContent = createTileContent(ContentType.LINK, { link: formattedUrl });
+    const linkContent = createTileContent(ContentType.LINK, {
+      link: formattedUrl,
+    });
     const tileId = layoutStore.addTile(linkContent);
 
     if (tileId) {
       // Fetch link preview in background
       try {
         if (/^(mailto|tel):/i.test(formattedUrl)) return;
-        const data = await getServiceFactory().getCloudFunctionsService().callFunction("getLinkPreview", { url: formattedUrl }) as any;
+        const data = await getServiceFactory().getCloudFunctionsService().callFunction<{ url: string }, LinkPreviewResponse>("getLinkPreview", { url: formattedUrl });
 
         layoutStore.patchTileContent(tileId, {
-          link: data?.url,
-          domain: data?.domain,
-          faviconUrl: data?.faviconUrl,
-          metaTitle: data?.title,
-          metaDescription: data?.description,
-          metaImageUrl: data?.imageUrl,
-          metaSiteName: data?.siteName,
+          link: data.url,
+          domain: data.domain,
+          faviconUrl: data.faviconUrl,
+          metaTitle: data.title,
+          metaDescription: data.description,
+          metaImageUrl: data.imageUrl,
+          metaSiteName: data.siteName,
         });
       } catch (error) {
         console.error("Failed to fetch link preview:", error);

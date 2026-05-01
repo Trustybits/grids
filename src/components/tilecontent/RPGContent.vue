@@ -1,5 +1,11 @@
+<!-- eslint-disable vue/no-mutating-props -->
 <template>
-  <div class="rpg-container" tabindex="0" @keydown="handleKeyDown" ref="gameContainer">
+  <div
+    class="rpg-container"
+    tabindex="0"
+    @keydown="handleKeyDown"
+    ref="gameContainer"
+  >
     <div class="rpg-game">
       <!-- Score & Wave Display -->
       <div class="rpg-header">
@@ -15,20 +21,26 @@
 
       <!-- Game Grid -->
       <div class="rpg-grid">
-        <div 
-          v-for="(row, y) in MAP_HEIGHT" 
-          :key="`row-${y}`" 
-          class="rpg-row"
-        >
-          <div 
-            v-for="(col, x) in MAP_WIDTH" 
+        <div v-for="(row, y) in MAP_HEIGHT" :key="`row-${y}`" class="rpg-row">
+          <div
+            v-for="(col, x) in MAP_WIDTH"
             :key="`cell-${y}-${x}`"
             class="rpg-cell"
             :class="getCellClass(x, y)"
           >
             <span v-if="isPlayer(x, y)" class="player">🧙</span>
-            <span v-else-if="getEnemyAt(x, y)" class="enemy" :class="`enemy-${getEnemyAt(x, y)!.type}`">{{ getEnemyEmoji(getEnemyAt(x, y)!.type) }}</span>
-            <span v-else-if="getItemAt(x, y) && !getItemAt(x, y)!.collected" class="item" :class="`item-${getItemAt(x, y)!.type}`">{{ getItemEmoji(getItemAt(x, y)!.type) }}</span>
+            <span
+              v-else-if="getEnemyAt(x, y)"
+              class="enemy"
+              :class="`enemy-${getEnemyAt(x, y)!.type}`"
+              >{{ getEnemyEmoji(getEnemyAt(x, y)!.type) }}</span
+            >
+            <span
+              v-else-if="getItemAt(x, y) && !getItemAt(x, y)!.collected"
+              class="item"
+              :class="`item-${getItemAt(x, y)!.type}`"
+              >{{ getItemEmoji(getItemAt(x, y)!.type) }}</span
+            >
             <span v-else-if="isWall(x, y)" class="wall"></span>
           </div>
         </div>
@@ -39,14 +51,18 @@
         <div class="stat-bar">
           <span class="stat-label">❤️ HP:</span>
           <div class="health-bar">
-            <div 
-              class="health-fill player-health" 
-              :style="{ width: `${(content.playerHealth / content.playerMaxHealth) * 100}%` }"
+            <div
+              class="health-fill player-health"
+              :style="{
+                width: `${(content.playerHealth / content.playerMaxHealth) * 100}%`,
+              }"
             ></div>
           </div>
-          <span class="stat-value">{{ content.playerHealth }}/{{ content.playerMaxHealth }}</span>
+          <span class="stat-value"
+            >{{ content.playerHealth }}/{{ content.playerMaxHealth }}</span
+          >
         </div>
-        
+
         <div class="stat-bar">
           <span class="stat-label">⚔️ ATK:</span>
           <div class="attack-value">{{ content.playerAttack }}</div>
@@ -64,10 +80,12 @@
           <div class="message-title">🎉 Wave {{ content.wave }} Complete!</div>
           <div class="message-score">Score: {{ content.score }}</div>
           <button @click="nextWave" class="reset-btn">Next Wave</button>
-          <button @click="resetGame" class="reset-btn secondary">New Game</button>
+          <button @click="resetGame" class="reset-btn secondary">
+            New Game
+          </button>
         </div>
       </div>
-      
+
       <div v-else-if="content.gameState === 'lost'" class="game-message lose">
         <div class="message-content">
           <div class="message-title">💀 Defeated</div>
@@ -86,6 +104,7 @@
 </template>
 
 <script lang="ts">
+/* eslint-disable vue/no-mutating-props */
 import { defineComponent, ref, onMounted, onUnmounted, computed } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import type { RPGContent } from "@/types/TileContent";
@@ -93,19 +112,19 @@ import type { RPGContent } from "@/types/TileContent";
 const MAP_WIDTH = 10;
 const MAP_HEIGHT = 10;
 
-type EnemyType = 'goblin' | 'troll' | 'dragon';
-type ItemType = 'health' | 'strength' | 'shield';
+type EnemyType = "goblin" | "troll" | "dragon";
+type ItemType = "health" | "strength" | "shield";
 
 const ENEMY_STATS = {
-  goblin: { maxHealth: 30, attack: 8, emoji: '👺', points: 10 },
-  troll: { maxHealth: 60, attack: 12, emoji: '👹', points: 25 },
-  dragon: { maxHealth: 100, attack: 20, emoji: '🐉', points: 50 },
+  goblin: { maxHealth: 30, attack: 8, emoji: "👺", points: 10 },
+  troll: { maxHealth: 60, attack: 12, emoji: "👹", points: 25 },
+  dragon: { maxHealth: 100, attack: 20, emoji: "🐉", points: 50 },
 };
 
 const ITEM_EFFECTS = {
-  health: { emoji: '❤️', effect: 'heal', value: 30 },
-  strength: { emoji: '⚔️', effect: 'attack', value: 5 },
-  shield: { emoji: '🛡️', effect: 'maxHealth', value: 20 },
+  health: { emoji: "❤️", effect: "heal", value: 30 },
+  strength: { emoji: "⚔️", effect: "attack", value: 5 },
+  shield: { emoji: "🛡️", effect: "maxHealth", value: 20 },
 };
 
 export default defineComponent({
@@ -133,7 +152,7 @@ export default defineComponent({
     // Generate procedural map
     const generateMap = () => {
       const walls: Array<[number, number]> = [];
-      
+
       // Outer walls
       for (let x = 0; x < MAP_WIDTH; x++) {
         walls.push([x, 0]);
@@ -143,7 +162,7 @@ export default defineComponent({
         walls.push([0, y]);
         walls.push([MAP_WIDTH - 1, y]);
       }
-      
+
       // Random interior obstacles (3-6 walls)
       const numObstacles = Math.floor(Math.random() * 4) + 3;
       for (let i = 0; i < numObstacles; i++) {
@@ -158,15 +177,18 @@ export default defineComponent({
           }
         }
       }
-      
+
       props.content.walls = walls;
     };
 
     const isPositionValid = (x: number, y: number): boolean => {
-      if (x < 1 || x >= MAP_WIDTH - 1 || y < 1 || y >= MAP_HEIGHT - 1) return false;
+      if (x < 1 || x >= MAP_WIDTH - 1 || y < 1 || y >= MAP_HEIGHT - 1)
+        return false;
       if (isWall(x, y)) return false;
-      if (props.content.playerX === x && props.content.playerY === y) return false;
-      if (props.content.enemies.some(e => e.x === x && e.y === y)) return false;
+      if (props.content.playerX === x && props.content.playerY === y)
+        return false;
+      if (props.content.enemies.some((e) => e.x === x && e.y === y))
+        return false;
       return true;
     };
 
@@ -189,16 +211,16 @@ export default defineComponent({
 
     const spawnEnemies = (wave: number) => {
       const baseCount = Math.min(2 + Math.floor(wave / 2), 6);
-      const enemies: RPGContent['enemies'] = [];
-      
+      const enemies: RPGContent["enemies"] = [];
+
       for (let i = 0; i < baseCount; i++) {
         const [x, y] = findRandomPosition();
-        const types: EnemyType[] = ['goblin', 'goblin', 'troll'];
-        if (wave >= 3) types.push('dragon');
+        const types: EnemyType[] = ["goblin", "goblin", "troll"];
+        if (wave >= 3) types.push("dragon");
         const type = types[Math.floor(Math.random() * types.length)];
         const stats = ENEMY_STATS[type];
         const waveMultiplier = 1 + (wave - 1) * 0.2;
-        
+
         enemies.push({
           id: `enemy-${Date.now()}-${i}`,
           x,
@@ -209,14 +231,14 @@ export default defineComponent({
           attack: Math.floor(stats.attack * waveMultiplier),
         });
       }
-      
+
       props.content.enemies = enemies;
     };
 
     const spawnItems = (count: number) => {
-      const items: RPGContent['items'] = [];
-      const types: ItemType[] = ['health', 'strength', 'shield'];
-      
+      const items: RPGContent["items"] = [];
+      const types: ItemType[] = ["health", "strength", "shield"];
+
       for (let i = 0; i < count; i++) {
         const [x, y] = findRandomPosition();
         items.push({
@@ -227,7 +249,7 @@ export default defineComponent({
           collected: false,
         });
       }
-      
+
       props.content.items = items;
     };
 
@@ -240,11 +262,13 @@ export default defineComponent({
     };
 
     const getEnemyAt = (x: number, y: number) => {
-      return props.content.enemies.find(e => e.x === x && e.y === y && e.health > 0);
+      return props.content.enemies.find(
+        (e) => e.x === x && e.y === y && e.health > 0,
+      );
     };
 
     const getItemAt = (x: number, y: number) => {
-      return props.content.items.find(i => i.x === x && i.y === y);
+      return props.content.items.find((i) => i.x === x && i.y === y);
     };
 
     const getEnemyEmoji = (type: EnemyType): string => {
@@ -256,47 +280,52 @@ export default defineComponent({
     };
 
     const aliveEnemies = computed(() => {
-      return props.content.enemies.filter(e => e.health > 0);
+      return props.content.enemies.filter((e) => e.health > 0);
     });
 
     const getCellClass = (x: number, y: number): string => {
-      if (isWall(x, y)) return 'has-wall';
-      if (isPlayer(x, y)) return 'has-player';
-      if (getEnemyAt(x, y)) return 'has-enemy';
-      if (getItemAt(x, y) && !getItemAt(x, y)!.collected) return 'has-item';
-      return '';
+      if (isWall(x, y)) return "has-wall";
+      if (isPlayer(x, y)) return "has-player";
+      if (getEnemyAt(x, y)) return "has-enemy";
+      if (getItemAt(x, y) && !getItemAt(x, y)?.collected) return "has-item";
+      return "";
     };
 
-    const isAdjacent = (x1: number, y1: number, x2: number, y2: number): boolean => {
+    const _isAdjacent = (
+      x1: number,
+      y1: number,
+      x2: number,
+      y2: number,
+    ): boolean => {
       const dx = Math.abs(x1 - x2);
       const dy = Math.abs(y1 - y2);
       return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
     };
 
-    const collectItem = (item: RPGContent['items'][0]) => {
+    const collectItem = (item: RPGContent["items"][0]) => {
       item.collected = true;
       const effect = ITEM_EFFECTS[item.type];
-      
+
       switch (effect.effect) {
-        case 'heal':
+        case "heal":
           props.content.playerHealth = Math.min(
             props.content.playerMaxHealth,
-            props.content.playerHealth + effect.value
+            props.content.playerHealth + effect.value,
           );
           break;
-        case 'attack':
+        case "attack":
           props.content.playerAttack += effect.value;
           break;
-        case 'maxHealth':
+        case "maxHealth":
           props.content.playerMaxHealth += effect.value;
           props.content.playerHealth += effect.value;
           break;
       }
-      
+
       layoutStore.saveLayout();
     };
 
-    const combat = (enemy: RPGContent['enemies'][0]) => {
+    const combat = (enemy: RPGContent["enemies"][0]) => {
       if (enemy.health <= 0) return;
 
       // Player attacks enemy
@@ -308,12 +337,12 @@ export default defineComponent({
       if (enemy.health <= 0) {
         const points = ENEMY_STATS[enemy.type].points;
         props.content.score += points;
-        
+
         // Check if all enemies defeated
         if (aliveEnemies.value.length === 0) {
-          props.content.gameState = 'won';
+          props.content.gameState = "won";
         }
-        
+
         layoutStore.saveLayout();
         return;
       }
@@ -321,11 +350,14 @@ export default defineComponent({
       // Enemy counterattacks
       const enemyVariance = Math.floor(Math.random() * 4) - 2;
       const enemyDamage = Math.max(1, enemy.attack + enemyVariance);
-      props.content.playerHealth = Math.max(0, props.content.playerHealth - enemyDamage);
+      props.content.playerHealth = Math.max(
+        0,
+        props.content.playerHealth - enemyDamage,
+      );
 
       // Check if player is defeated
       if (props.content.playerHealth <= 0) {
-        props.content.gameState = 'lost';
+        props.content.gameState = "lost";
         stopEnemyAI();
       }
 
@@ -333,13 +365,14 @@ export default defineComponent({
     };
 
     const movePlayer = (dx: number, dy: number) => {
-      if (props.content.gameState !== 'playing') return;
+      if (props.content.gameState !== "playing") return;
 
       const newX = props.content.playerX + dx;
       const newY = props.content.playerY + dy;
 
       // Check bounds and walls
-      if (newX < 0 || newX >= MAP_WIDTH || newY < 0 || newY >= MAP_HEIGHT) return;
+      if (newX < 0 || newX >= MAP_WIDTH || newY < 0 || newY >= MAP_HEIGHT)
+        return;
       if (isWall(newX, newY)) return;
 
       // Check if moving onto enemy - attack instead
@@ -363,48 +396,53 @@ export default defineComponent({
     };
 
     const moveEnemies = () => {
-      if (props.content.gameState !== 'playing') return;
-      
-      props.content.enemies.forEach(enemy => {
+      if (props.content.gameState !== "playing") return;
+
+      props.content.enemies.forEach((enemy) => {
         if (enemy.health <= 0) return;
-        
+
         // 50% chance to move each turn
         if (Math.random() > 0.5) return;
-        
+
         const dx = props.content.playerX - enemy.x;
         const dy = props.content.playerY - enemy.y;
         const distance = Math.abs(dx) + Math.abs(dy);
-        
+
         // Only move if player is within range (6 tiles)
         if (distance > 6) return;
-        
+
         // Move toward player
         let moveX = 0;
         let moveY = 0;
-        
+
         if (Math.abs(dx) > Math.abs(dy)) {
           moveX = dx > 0 ? 1 : -1;
         } else {
           moveY = dy > 0 ? 1 : -1;
         }
-        
+
         const newX = enemy.x + moveX;
         const newY = enemy.y + moveY;
-        
+
         // Check if valid move
         if (isWall(newX, newY)) return;
-        if (props.content.enemies.some(e => e.x === newX && e.y === newY && e.id !== enemy.id)) return;
-        
+        if (
+          props.content.enemies.some(
+            (e) => e.x === newX && e.y === newY && e.id !== enemy.id,
+          )
+        )
+          return;
+
         // Check if attacking player
         if (newX === props.content.playerX && newY === props.content.playerY) {
           combat(enemy);
           return;
         }
-        
+
         enemy.x = newX;
         enemy.y = newY;
       });
-      
+
       layoutStore.saveLayout();
     };
 
@@ -422,27 +460,38 @@ export default defineComponent({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
-      
+
       // Prevent default behavior for game keys
-      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
+      if (
+        [
+          "arrowup",
+          "arrowdown",
+          "arrowleft",
+          "arrowright",
+          "w",
+          "a",
+          "s",
+          "d",
+        ].includes(key)
+      ) {
         event.preventDefault();
       }
 
       switch (key) {
-        case 'arrowup':
-        case 'w':
+        case "arrowup":
+        case "w":
           movePlayer(0, -1);
           break;
-        case 'arrowdown':
-        case 's':
+        case "arrowdown":
+        case "s":
           movePlayer(0, 1);
           break;
-        case 'arrowleft':
-        case 'a':
+        case "arrowleft":
+        case "a":
           movePlayer(-1, 0);
           break;
-        case 'arrowright':
-        case 'd':
+        case "arrowright":
+        case "d":
           movePlayer(1, 0);
           break;
       }
@@ -450,20 +499,20 @@ export default defineComponent({
 
     const nextWave = () => {
       props.content.wave += 1;
-      props.content.gameState = 'playing';
-      
+      props.content.gameState = "playing";
+
       // Heal player partially
       props.content.playerHealth = Math.min(
         props.content.playerMaxHealth,
-        props.content.playerHealth + 30
+        props.content.playerHealth + 30,
       );
-      
+
       // Generate new map and spawn entities
       generateMap();
       spawnPlayer();
       spawnEnemies(props.content.wave);
       spawnItems(Math.min(3 + Math.floor(props.content.wave / 2), 6));
-      
+
       layoutStore.saveLayout();
       startEnemyAI();
       gameContainer.value?.focus();
@@ -480,8 +529,8 @@ export default defineComponent({
       props.content.walls = [];
       props.content.score = 0;
       props.content.wave = 1;
-      props.content.gameState = 'playing';
-      
+      props.content.gameState = "playing";
+
       initializeGame();
       layoutStore.saveLayout();
       startEnemyAI();
@@ -490,7 +539,7 @@ export default defineComponent({
 
     onMounted(() => {
       initializeGame();
-      if (props.content.gameState === 'playing') {
+      if (props.content.gameState === "playing") {
         startEnemyAI();
       }
       gameContainer.value?.focus();
@@ -529,7 +578,11 @@ export default defineComponent({
   align-items: center;
   justify-content: center;
   outline: none;
-  background: linear-gradient(135deg, rgba(20, 20, 40, 0.95) 0%, rgba(40, 20, 60, 0.95) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(20, 20, 40, 0.95) 0%,
+    rgba(40, 20, 60, 0.95) 100%
+  );
 }
 
 .rpg-game {
@@ -550,18 +603,21 @@ export default defineComponent({
   font-size: 13px;
 }
 
-.score-display, .wave-display {
+.score-display,
+.wave-display {
   display: flex;
   gap: 6px;
   align-items: center;
 }
 
-.score-display .label, .wave-display .label {
+.score-display .label,
+.wave-display .label {
   color: rgba(255, 255, 255, 0.7);
   font-weight: 500;
 }
 
-.score-display .value, .wave-display .value {
+.score-display .value,
+.wave-display .value {
   color: #fbbf24;
   font-weight: 700;
 }
@@ -656,7 +712,8 @@ export default defineComponent({
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
@@ -697,7 +754,8 @@ export default defineComponent({
   min-width: 60px;
 }
 
-.attack-value, .enemy-count {
+.attack-value,
+.enemy-count {
   font-size: 13px;
   font-weight: 700;
   color: #fbbf24;

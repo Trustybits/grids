@@ -60,7 +60,7 @@ const description = computed(() => {
     password_protection: 'Protect your grids with a password for private sharing.',
     priority_support: 'Get faster responses and dedicated support from the Grids team.',
   }
-  if (props.feature && featureCopy[props.feature]) return featureCopy[props.feature]!
+  if (props.feature && featureCopy[props.feature]) return featureCopy[props.feature] ?? ''
   if (props.reason === 'sign_in') return 'Create a free account to get started.'
   if (props.reason === 'supporter') return 'Support Grids with any amount — even free — to unlock this.'
   return 'Upgrade to Pro to unlock this feature.'

@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names, vue/no-unused-components -->
 <template>
   <p v-if="layoutStore.isLoading">Loading layout...</p>
   <div
@@ -6,7 +7,7 @@
     class="grid-scale-wrapper"
     :style="scaleWrapperStyle"
   >
-    <grid-layout
+    <GridLayout
       ref="gridLayoutRef"
       class="grid-container"
       :layout="displayLayout"
@@ -21,8 +22,8 @@
       :margin="[margin, margin]"
       :style="gridInnerStyle"
     >
-      <grid-tile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
-    </grid-layout>
+      <GridTile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
+    </GridLayout>
   </div>
   <p v-else>No tiles yet.</p>
 </template>
@@ -39,7 +40,7 @@ import { type Tile, type Breakpoint } from "@/types/Tile";
 export default {
   components: {
     GridLayout,
-    GridItem,
+    GridItem, // eslint-disable-line vue/no-unused-components -- used internally by vue3-grid-layout
     GridTile,
   },
   props: {
@@ -280,6 +281,7 @@ export default {
     watch(
       [
         activeBreakpoint,
+        () => layoutStore.undoRedoVersion,
         () => layoutStore.currentLayout?.tiles?.length,
         () => layoutStore.currentLayout?.tiles?.map((t) => t.i).join(","),
         () =>
@@ -294,8 +296,9 @@ export default {
         () =>
           layoutStore.currentLayout?.tiles
             ?.map((t) => {
-              const c = t.content as any;
-              return `${t.i}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${c.thumbnails?.default?.url ?? ""}`;
+              const c = t.content as Record<string, unknown>;
+              const thumbs = c.thumbnails as Record<string, Record<string, unknown>> | undefined;
+              return `${t.i}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${thumbs?.default?.url ?? ""}`;
             })
             .join("|"),
       ],
@@ -343,8 +346,9 @@ export default {
       () =>
         layoutStore.currentLayout?.tiles
           ?.map((t) => {
-            const c = t.content as any;
-            return `${t.i}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${c.thumbnails?.default?.url ?? ""}:${c.metaTitle ?? ""}:${c.metaDescription ?? ""}:${c.metaImageUrl ?? ""}:${c.metaSiteName ?? ""}:${c.faviconUrl ?? ""}:${c.domain ?? ""}`;
+            const c = t.content as Record<string, unknown>;
+            const thumbs = c.thumbnails as Record<string, Record<string, unknown>> | undefined;
+            return `${t.i}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${thumbs?.default?.url ?? ""}:${c.metaTitle ?? ""}:${c.metaDescription ?? ""}:${c.metaImageUrl ?? ""}:${c.metaSiteName ?? ""}:${c.faviconUrl ?? ""}:${c.domain ?? ""}`;
           })
           .join("|"),
       () => {

@@ -426,13 +426,14 @@ export default defineComponent({
       const map = mapInstance.value;
       if (!map || !markerData) return;
       if (!markerInstance.value) {
-        const marker = new (mapboxgl as any).Marker({
+        const marker = new mapboxgl.Marker({
           element: buildMarkerElement(),
           anchor: "center",
-        }) as mapboxgl.Marker;
-        markerInstance.value = marker
-          .setLngLat([markerData.lng, markerData.lat])
-          .addTo(map as any);
+        });
+        marker.setLngLat([markerData.lng, markerData.lat] as [number, number]);
+        // @ts-expect-error — mapbox-gl Marker.addTo triggers TS2589 (excessively deep type) via Evented generics
+        marker.addTo(map);
+        markerInstance.value = marker;
       } else {
         markerInstance.value.setLngLat([markerData.lng, markerData.lat]);
       }

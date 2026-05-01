@@ -9,10 +9,6 @@ export interface Snapshot {
   themeId: string;
   backgroundImageSrc: string;
   backgroundEmbed: boolean;
+  forcedBreakpoint: Breakpoint;
   actionLabel: string;
-}
-
-export interface BreakpointStacks {
-  undoStack: Snapshot[];
-  redoStack: Snapshot[];
 }

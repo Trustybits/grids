@@ -169,7 +169,6 @@
 import {
   defineComponent,
   ref,
-  onMounted,
   watch,
   inject,
   computed,
@@ -200,6 +199,10 @@ import type { SmartTextContent } from "@/types/TileContent";
 import { useTileLink } from "@/composables/useTileLink";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import {
+  useEditingLifecycle,
+  useEditorContentSync,
+} from "@/composables/useEditingLifecycle";
 import { useFileUpload } from "@/composables/useFileUpload";
 import {
   normalizeHttpUrl,
@@ -757,26 +760,19 @@ export default defineComponent({
       () => isTextOverflowing.value && !isScrolledToBottom.value,
     );
 
-    watch(
-      [() => layoutStore.canEdit, () => isEditing.value],
-      ([canEdit, editing]) => {
-        if (!editor?.value) return;
-        const shouldBeEditable = canEdit && editing;
-        editor.value.setEditable(shouldBeEditable);
-        if (shouldBeEditable) {
-          editor.value.commands.focus("end");
-          return;
-        }
-        editor.value.commands.blur();
+    const { tileId } = useEditingLifecycle({
+      editor,
+      isEditing,
+      containerRef: textContentDiv,
+      flushPersist,
+      onExit: () => {
         hideSlashMenu();
         showTableToolbar.value = false;
-        if (!canEdit) {
-          isEditing.value = false;
-          return;
-        }
-        flushPersist();
       },
-    );
+      shouldBlockExit: () => slashCommandActive.value,
+    });
+
+    useEditorContentSync(editor, () => props.content.text);
 
     watch(showSlashMenu, (open, _prev, onCleanup) => {
       if (!open) return;
@@ -809,19 +805,6 @@ export default defineComponent({
       isEditing.value = false;
       hideSlashMenu();
     };
-
-    const tileId = inject<string | null>("tileId", null);
-
-    onMounted(() => {
-      if (
-        tileId &&
-        layoutStore.canEdit &&
-        layoutStore.pendingFocusTileId === tileId
-      ) {
-        layoutStore.pendingFocusTileId = null;
-        isEditing.value = true;
-      }
-    });
 
     onUnmounted(() => {
       if (editorDomRef.value) {

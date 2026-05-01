@@ -58,10 +58,19 @@ describe("useEditorAutosave", () => {
     expect(persist).toHaveBeenCalledTimes(1);
   });
 
-  it("flushPersist calls persist immediately", () => {
+  it("flushPersist is a no-op when no timer is pending", () => {
     const persist = vi.fn();
     const { flushPersist } = useEditorAutosave(persist);
 
+    flushPersist();
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it("flushPersist calls persist immediately when a timer is pending", () => {
+    const persist = vi.fn();
+    const { schedulePersist, flushPersist } = useEditorAutosave(persist);
+
+    schedulePersist();
     flushPersist();
     expect(persist).toHaveBeenCalledTimes(1);
   });

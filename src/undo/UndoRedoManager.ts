@@ -2,10 +2,16 @@ import type { Snapshot } from "./UndoTypes";
 
 const MAX_STACK_SIZE = 20;
 
+interface InternalSnapshot extends Snapshot {
+  snapshotId: number;
+  timestamp: number;
+}
+
 export class UndoRedoManager {
-  private undoStack: Snapshot[];
-  private redoStack: Snapshot[];
+  private undoStack: InternalSnapshot[];
+  private redoStack: InternalSnapshot[];
   private onChanged: (() => void) | null;
+  private nextSnapshotId = 1;
 
   constructor(onChanged?: () => void) {
     this.undoStack = [];
@@ -13,10 +19,23 @@ export class UndoRedoManager {
     this.onChanged = onChanged ?? null;
   }
 
+  private stamp(snapshot: Snapshot): InternalSnapshot {
+    return {
+      ...snapshot,
+      snapshotId: this.nextSnapshotId++,
+      timestamp: Date.now(),
+    };
+  }
+
+  private strip(snapshot: InternalSnapshot): Snapshot {
+    const { snapshotId: _, timestamp: _ts, ...rest } = snapshot;
+    return rest;
+  }
+
   pushSnapshot(snapshot: Snapshot): void {
     if (this.isDuplicate(snapshot)) return;
 
-    this.undoStack.push(snapshot);
+    this.undoStack.push(this.stamp(snapshot));
     if (this.undoStack.length > MAX_STACK_SIZE) {
       this.undoStack.shift();
     }
@@ -34,9 +53,11 @@ export class UndoRedoManager {
     this.redoStack.push({
       ...currentSnapshot,
       actionLabel: snapshot.actionLabel,
+      snapshotId: snapshot.snapshotId,
+      timestamp: snapshot.timestamp,
     });
     this.onChanged?.();
-    return snapshot;
+    return this.strip(snapshot);
   }
 
   redo(currentSnapshot: Snapshot): Snapshot | null {
@@ -48,9 +69,11 @@ export class UndoRedoManager {
     this.undoStack.push({
       ...currentSnapshot,
       actionLabel: snapshot.actionLabel,
+      snapshotId: snapshot.snapshotId,
+      timestamp: snapshot.timestamp,
     });
     this.onChanged?.();
-    return snapshot;
+    return this.strip(snapshot);
   }
 
   canUndo(): boolean {
@@ -59,6 +82,21 @@ export class UndoRedoManager {
 
   canRedo(): boolean {
     return this.redoStack.length > 0;
+  }
+
+  getStacks(): {
+    undoStack: { actionLabel: string; timestamp: number; snapshotId: number }[];
+    redoStack: { actionLabel: string; timestamp: number; snapshotId: number }[];
+  } {
+    const pick = (s: InternalSnapshot) => ({
+      actionLabel: s.actionLabel,
+      timestamp: s.timestamp,
+      snapshotId: s.snapshotId,
+    });
+    return {
+      undoStack: this.undoStack.map(pick),
+      redoStack: this.redoStack.map(pick),
+    };
   }
 
   clear(): void {
@@ -85,6 +123,34 @@ export class UndoRedoManager {
     return this.redoStack[this.redoStack.length - 1] ?? null;
   }
 
+  undoRedoUntil(snapshotId: number, currentSnapshot: Snapshot): Snapshot | null {
+    const undoIndex = this.undoStack.findIndex(s => s.snapshotId === snapshotId);
+    if (undoIndex !== -1) {
+      const count = this.undoStack.length - undoIndex;
+      let rolling: Snapshot = currentSnapshot;
+      for (let i = 0; i < count; i++) {
+        const result = this.undo(rolling);
+        if (!result) break;
+        rolling = result;
+      }
+      return rolling;
+    }
+
+    const redoIndex = this.redoStack.findIndex(s => s.snapshotId === snapshotId);
+    if (redoIndex !== -1) {
+      const count = this.redoStack.length - redoIndex;
+      let rolling: Snapshot = currentSnapshot;
+      for (let i = 0; i < count; i++) {
+        const result = this.redo(rolling);
+        if (!result) break;
+        rolling = result;
+      }
+      return rolling;
+    }
+
+    return null;
+  }
+
   replaceBlobUrl(tileId: string, permanentUrl: string): void {
     for (const stack of [this.undoStack, this.redoStack]) {
       for (const snapshot of stack) {
@@ -102,11 +168,13 @@ export class UndoRedoManager {
   }
 
   private isDuplicate(snapshot: Snapshot): boolean {
-    const { actionLabel: _a, ...incomingData } = snapshot;
-    const { actionLabel: _b, ...topOfStackData } =
-      this.undoStack[this.undoStack.length - 1] ?? {};
+    const top = this.undoStack[this.undoStack.length - 1];
+    if (!top) return false;
 
-    return JSON.stringify(incomingData) === JSON.stringify(topOfStackData);
+    const { actionLabel: _a, ...incomingData } = snapshot;
+    const { actionLabel: _b, snapshotId: _c, timestamp: _d, ...topData } = top;
+
+    return JSON.stringify(incomingData) === JSON.stringify(topData);
   }
 
   private handleDifferingBreakpoints(

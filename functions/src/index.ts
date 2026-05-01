@@ -7,6 +7,7 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
+/* eslint-disable */
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript

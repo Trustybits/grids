@@ -1,12 +1,22 @@
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
-import { ContentType, type TileContent } from "@/types/TileContent";
-import { createTileContent, createTileContentFromEmbedUrl } from "@/utils/TileUtils";
+import { ContentType, type LinkContent, type TileContent } from "@/types/TileContent";
+import {
+  createTileContent,
+  createTileContentFromEmbedUrl,
+} from "@/utils/TileUtils";
 
-type TileInputTarget =
-  | { mode: "add" }
-  | { mode: "replace"; tileId: string };
+interface LinkPreviewResponse {
+  url?: string;
+  domain?: string;
+  faviconUrl?: string;
+  title?: string;
+  description?: string;
+  imageUrl?: string;
+  siteName?: string;
+}
+
+type TileInputTarget = { mode: "add" } | { mode: "replace"; tileId: string };
 
 const isRichAutoDetectedContent = (content: TileContent): boolean => {
   return (
@@ -52,21 +62,21 @@ export const useTileInput = () => {
     if (!tileId) return null;
 
     try {
-      const url = ((linkContent as any).link || "").trim();
+      const url = (linkContent as LinkContent).link?.trim() || "";
       if (/^(mailto|tel):/i.test(url)) return tileId;
 
-      const getLinkPreview = httpsCallable(functions, "getLinkPreview");
-      const result = await getLinkPreview({ url });
-      const data = result.data as any;
+      const data = await getServiceFactory()
+        .getCloudFunctionsService()
+        .callFunction<{ url: string }, LinkPreviewResponse>("getLinkPreview", { url });
 
       layoutStore.patchTileContent(tileId, {
-        link: data?.url,
-        domain: data?.domain,
-        faviconUrl: data?.faviconUrl || (linkContent as any).faviconUrl,
-        metaTitle: data?.title,
-        metaDescription: data?.description,
-        metaImageUrl: data?.imageUrl,
-        metaSiteName: data?.siteName,
+        link: data.url,
+        domain: data.domain,
+        faviconUrl: data.faviconUrl || (linkContent as LinkContent).faviconUrl,
+        metaTitle: data.title,
+        metaDescription: data.description,
+        metaImageUrl: data.imageUrl,
+        metaSiteName: data.siteName,
       });
     } catch (error) {
       console.error("Failed to fetch link preview:", error);

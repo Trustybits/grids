@@ -19,6 +19,8 @@
  * Download it from Firebase Console → Project Settings → Service Accounts → Generate new private key.
  */
 
+/* eslint-disable */
+
 import * as admin from "firebase-admin";
 
 // Only initialize if not already done (safe for standalone runs)

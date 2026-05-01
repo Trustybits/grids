@@ -1,11 +1,11 @@
 <template>
-  <div class="grid-menu" ref="menuRef" :data-tooltip="showMenu ? null : 'Grid Menu'" >
-    <button
-      type="button"
-      class="grid-menu-button"
-      @click.stop="toggleMenu"
-    >
-      <div class="grid-menu-icon" >
+  <div
+    class="grid-menu"
+    ref="menuRef"
+    :data-tooltip="showMenu ? null : 'Grid Menu'"
+  >
+    <button type="button" class="grid-menu-button" @click.stop="toggleMenu">
+      <div class="grid-menu-icon">
         <GridMenuIcon />
       </div>
 
@@ -20,19 +20,19 @@
         <Divider />
         <!-- Settings -->
         <MenuSection>
-          <Toggle 
-            label="Dark Mode" 
+          <Toggle
+            label="Dark Mode"
             v-model="isDarkMode"
             tooltip="Toggle between dark and light theme for this grid"
           />
-          <Toggle 
-            label="Gravity" 
+          <Toggle
+            label="Gravity"
             v-model="verticalCompact"
             tooltip="When enabled, tiles automatically move up to fill empty space"
           />
-          <Toggle 
+          <Toggle
             v-if="isOwner"
-            label="Allow Public Template" 
+            label="Allow Public Template"
             v-model="duplicatable"
             tooltip="When enabled, anyone can duplicate this grid's structure as a template"
           />
@@ -42,15 +42,20 @@
         <MenuSection v-if="isOwner && layoutStore.activeBreakpoint !== 'lg'">
           <div class="breakpoint-section">
             <span class="breakpoint-label">
-              {{ layoutStore.activeBreakpoint === 'sm' ? 'Mobile' : 'Tablet' }} Layout
+              {{
+                layoutStore.activeBreakpoint === "sm" ? "Mobile" : "Tablet"
+              }}
+              Layout
             </span>
             <MenuItem v-if="!hasOverride" @click="saveBreakpoint">
-              Save {{ layoutStore.activeBreakpoint === 'sm' ? 'Mobile' : 'Tablet' }} Layout
+              Save
+              {{
+                layoutStore.activeBreakpoint === "sm" ? "Mobile" : "Tablet"
+              }}
+              Layout
             </MenuItem>
             <template v-else>
-              <MenuItem @click="saveBreakpoint">
-                Update Layout
-              </MenuItem>
+              <MenuItem @click="saveBreakpoint"> Update Layout </MenuItem>
               <MenuItem danger @click="resetBreakpoint">
                 Reset to Auto
               </MenuItem>
@@ -73,40 +78,51 @@
               class="ghost-split-chevron"
               @click.stop="showDuplicateDropdown = !showDuplicateDropdown"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M6 9l6 6 6-6"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
               </svg>
             </button>
             <div v-if="showDuplicateDropdown" class="ghost-split-dropdown">
-              <button class="ghost-split-dropdown-item" @click="duplicateGrid('structure')">
+              <button
+                class="ghost-split-dropdown-item"
+                @click="duplicateGrid('structure')"
+              >
                 Structure Only
               </button>
             </div>
           </div>
-          <MenuItem danger @click="confirmDelete">
-            Delete Grid
-          </MenuItem>
+          <MenuItem danger @click="confirmDelete"> Delete Grid </MenuItem>
         </MenuSection>
 
         <!-- Debug -->
         <Divider />
         <MenuSection>
           <Accordion title="Debug" class="debug-accordion">
-            <Toggle 
-              label="Metadata" 
+            <Toggle
+              label="Metadata"
               :modelValue="layoutStore.showMetaData"
               @update:modelValue="layoutStore.setShowMetaData"
               tooltip="Show compact metadata on each tile"
             />
-            <Toggle 
-              label="Verbose Metadata" 
+            <Toggle
+              label="Verbose Metadata"
               :modelValue="layoutStore.showMetaDataVerbose"
               @update:modelValue="layoutStore.setShowMetaDataVerbose"
               tooltip="Show extended debug metadata details"
             />
-            <MenuItem @click="launchPixelRacers">
-              🏍️ Pixel Racers
-            </MenuItem>
+            <MenuItem @click="launchPixelRacers"> 🏍️ Pixel Racers </MenuItem>
           </Accordion>
         </MenuSection>
       </div>
@@ -147,23 +163,23 @@ const isOwner = computed(() => {
 });
 
 const gridPageId = computed(() => {
-  return layoutStore.currentLayout?.id || '';
+  return layoutStore.currentLayout?.id || "";
 });
 
 // Computed property with setter to handle gravity toggle
 const verticalCompact = computed({
   get: () => layoutStore.verticalCompact,
-  set: (value: boolean) => layoutStore.setVerticalCompact(value)
+  set: (value: boolean) => layoutStore.setVerticalCompact(value),
 });
 
 // Computed property with setter to handle dark mode toggle for the grid
 const isDarkMode = computed({
   get: () => themeStore.isDarkMode,
   set: (value: boolean) => {
-    const newThemeId = value ? 'dark' : 'light';
+    const newThemeId = value ? "dark" : "light";
     themeStore.setTheme(newThemeId);
     layoutStore.setGridTheme(newThemeId);
-  }
+  },
 });
 
 const toggleMenu = () => {
@@ -178,11 +194,11 @@ const handleClickOutside = (event: MouseEvent) => {
 };
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside);
+  document.addEventListener("click", handleClickOutside);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
+  document.removeEventListener("click", handleClickOutside);
 });
 
 const hasOverride = computed(() => {
@@ -191,7 +207,7 @@ const hasOverride = computed(() => {
 
 const saveBreakpoint = () => {
   const bp = layoutStore.activeBreakpoint;
-  if (bp === 'lg') return;
+  if (bp === "lg") return;
 
   // Use the display positions published by Grid.vue — these reflect the
   // actual rendered positions at the current breakpoint (auto-repacked or
@@ -201,19 +217,19 @@ const saveBreakpoint = () => {
 
   layoutStore.saveBreakpointPositions(bp, positions);
   toastStore.addToast(
-    `${bp === 'sm' ? 'Mobile' : 'Tablet'} layout saved`,
-    'success'
+    `${bp === "sm" ? "Mobile" : "Tablet"} layout saved`,
+    "success",
   );
   showMenu.value = false;
 };
 
 const resetBreakpoint = () => {
   const bp = layoutStore.activeBreakpoint;
-  if (bp === 'lg') return;
+  if (bp === "lg") return;
   layoutStore.resetBreakpoint(bp);
   toastStore.addToast(
-    `${bp === 'sm' ? 'Mobile' : 'Tablet'} layout reset to auto`,
-    'success'
+    `${bp === "sm" ? "Mobile" : "Tablet"} layout reset to auto`,
+    "success",
   );
   showMenu.value = false;
 };
@@ -221,15 +237,18 @@ const resetBreakpoint = () => {
 // Computed property with setter to handle the public duplication toggle
 const duplicatable = computed({
   get: () => layoutStore.currentLayout?.duplicatable ?? false,
-  set: (value: boolean) => layoutStore.setDuplicatable(value)
+  set: (value: boolean) => layoutStore.setDuplicatable(value),
 });
 
 // Duplicate the current grid and navigate to the new copy.
 // copyDepth controls how much tile content is carried over.
-const duplicateGrid = async (copyDepth: CopyDepth = 'full') => {
+const duplicateGrid = async (copyDepth: CopyDepth = "full") => {
   if (!layoutStore.currentLayout) return;
 
-  const newId = await layoutStore.duplicateLayout(layoutStore.currentLayout, copyDepth);
+  const newId = await layoutStore.duplicateLayout(
+    layoutStore.currentLayout,
+    copyDepth,
+  );
   showDuplicateDropdown.value = false;
   showMenu.value = false;
   if (newId) {
@@ -253,9 +272,9 @@ const shareGrid = async () => {
   const currentUrl = window.location.href;
   try {
     await navigator.clipboard.writeText(currentUrl);
-    toastStore.addToast('Link to Grid copied to the clipboard', 'success');
-  } catch (err) {
-    toastStore.addToast('Failed to copy link', 'error');
+    toastStore.addToast("Link to Grid copied to the clipboard", "success");
+  } catch {
+    toastStore.addToast("Failed to copy link", "error");
   }
   showMenu.value = false;
 };
@@ -422,8 +441,9 @@ const launchPixelRacers = () => {
   color: var(--color-content-low);
   cursor: pointer;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  transition: background-color var(--duration-fast) var(--easing-smooth),
-              color var(--duration-fast) var(--easing-smooth);
+  transition:
+    background-color var(--duration-fast) var(--easing-smooth),
+    color var(--duration-fast) var(--easing-smooth);
 
   &:hover {
     background-color: var(--color-base-34);

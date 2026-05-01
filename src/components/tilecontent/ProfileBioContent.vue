@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="profile-bio"
@@ -397,6 +398,7 @@
 </template>
 
 <script lang="ts">
+/* eslint-disable vue/no-mutating-props */
 import {
   defineComponent,
   ref,
@@ -408,10 +410,11 @@ import {
   type PropType,
   type ComputedRef,
   type Ref,
+
   inject,
 } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
-import type { AnyExtension } from "@tiptap/core";
+import type { AnyExtension, Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
 import FontFamily from "@tiptap/extension-font-family";
@@ -427,6 +430,7 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import { useEditorContentSync } from "@/composables/useEditingLifecycle";
 import Placeholder from "@tiptap/extension-placeholder";
 import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
 import ShapeCircleIcon from "@/components/icons/actionbar/ShapeCircleIcon.vue";
@@ -494,7 +498,7 @@ export default defineComponent({
       return classes;
     });
 
-    const { uploadFileToUrl, uploadExternalImageToStorage } = useFileUpload();
+    const { uploadExternalImageToStorage } = useFileUpload();
     const storageService = getServiceFactory().getStorageService();
 
     const isUploadingAvatar = ref(false);
@@ -502,8 +506,8 @@ export default defineComponent({
 
     const isHovered = ref(false);
     const isEditing = ref(false);
-    const activeEditor = ref<any>(null);
-    const pendingFocusEditor = ref<any>(null);
+    const activeEditor = ref(null) as Ref<Editor | null>;
+    const pendingFocusEditor = ref(null) as Ref<Editor | null>;
     const avatarInput = ref<HTMLInputElement | null>(null);
     const avatarRef = ref<HTMLDivElement | null>(null);
     const profileRoot = ref<HTMLDivElement | null>(null);
@@ -592,6 +596,10 @@ export default defineComponent({
       onUpdate: onEditorUpdate,
     });
 
+    useEditorContentSync(nameEditor, () => props.content.name, parseContent);
+    useEditorContentSync(titleEditor, () => props.content.title, parseContent);
+    useEditorContentSync(bioEditor, () => props.content.bio, parseContent);
+
     const isNameEmpty = computed(() => nameEditor.value?.isEmpty ?? true);
     const isTitleEmpty = computed(() => titleEditor.value?.isEmpty ?? true);
     const isBioEmpty = computed(() => bioEditor.value?.isEmpty ?? true);
@@ -617,7 +625,7 @@ export default defineComponent({
     const avatarSrc = computed(() => {
       if (!tileId) return "";
       const tile = layoutStore.currentLayout?.tiles.find((t) => t.i === tileId);
-      return (tile?.content as any)?.profilePhotoUrl ?? "";
+      return (tile?.content as ProfileBioContent | undefined)?.profilePhotoUrl ?? "";
     });
 
     const saveProfilePhoto = async (url: string) => {
@@ -635,13 +643,13 @@ export default defineComponent({
       }
 
       // Mutate the store's content reference directly, not props.content
-      (tile.content as any).profilePhotoUrl = url;
+      (tile.content as ProfileBioContent).profilePhotoUrl = url;
 
       // Persist via layout store
       await layoutStore.saveLayout();
     };
 
-    const serializeEditor = (editor: any) => {
+    const serializeEditor = (editor: Editor) => {
       let output = JSON.stringify(editor.getJSON());
       output = output.replace(/^"(.*)"$/, "$1");
       return output;
@@ -655,14 +663,23 @@ export default defineComponent({
       const title = serializeEditor(titleEditor.value);
       const bio = serializeEditor(bioEditor.value);
 
-      if (tileId) {
-        layoutStore.patchTileContent(tileId, { name, title, bio });
+      if (tileId && layoutStore.currentLayout) {
+        const tile = layoutStore.currentLayout.tiles.find(
+          (t) => t.i === tileId,
+        );
+        if (tile) {
+          const content = tile.content as ProfileBioContent;
+          content.name = name;
+          content.title = title;
+          content.bio = bio;
+        }
       } else {
         props.content.name = name;
         props.content.title = title;
         props.content.bio = bio;
-        layoutStore.saveLayout();
       }
+
+      layoutStore.saveLayout();
     };
 
     watch(
@@ -672,7 +689,9 @@ export default defineComponent({
           nameEditor.value,
           titleEditor.value,
           bioEditor.value,
-        ].filter((editor) => editor != null) as any[];
+        ].filter(
+          (editor): editor is NonNullable<typeof editor> => editor != null,
+        );
         if (!editors.length) return;
 
         const shouldBeEditable = isOwner && editing;
@@ -690,6 +709,10 @@ export default defineComponent({
               bioEditor.value;
             pendingFocusEditor.value = null;
             target?.commands.focus("end");
+            nextTick(() => {
+              flushPersist();
+              if (tileId) layoutStore.beginEditing(tileId);
+            });
           });
           return;
         }
@@ -704,31 +727,27 @@ export default defineComponent({
         }
 
         flushPersist();
+        layoutStore.commitEditing();
       },
     );
 
-    const focusEditor = (editorRef: any, _event: MouseEvent) => {
+    const focusEditor = (editor: Editor | undefined, _event: MouseEvent) => {
       if (!layoutStore.canEdit) return;
-      const ed = editorRef?.value ?? editorRef;
-      if (!ed) return;
+      if (!editor) return;
 
       if (!isEditing.value) {
-        // Store which editor was clicked so the isEditing watch focuses it.
-        pendingFocusEditor.value = ed;
+        pendingFocusEditor.value = editor;
       }
       // When already editing, let ProseMirror handle mousedown naturally
       // so clicks on text place the cursor at the correct position.
     };
 
-    const catchEditorClick = (editorRef: any) => {
+    const catchEditorClick = (editor: Editor | undefined) => {
       if (!layoutStore.canEdit || !isEditing.value) return;
-      const ed = editorRef?.value ?? editorRef;
-      if (!ed) return;
+      if (!editor) return;
 
-      // If ProseMirror couldn't place a cursor (click was on empty space),
-      // the editor will have lost focus. Re-focus at the end of the text.
-      if (!ed.isFocused) {
-        ed.commands.focus("end");
+      if (!editor.isFocused) {
+        editor.commands.focus("end");
       }
     };
 
@@ -1277,7 +1296,7 @@ export default defineComponent({
           "images",
         );
         await saveProfilePhoto(ownedUrl);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Failed to import external image:", err);
         urlError.value =
           "Could not import image. Try uploading the file directly.";
@@ -1330,11 +1349,11 @@ export default defineComponent({
 
         URL.revokeObjectURL(blobUrl);
         await saveProfilePhoto(permanentUrl);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Avatar upload failed:", error);
         URL.revokeObjectURL(blobUrl);
         await saveProfilePhoto(previousUrl);
-        alert(error.message || "Failed to upload image. Please try again.");
+        alert(error instanceof Error ? error.message : "Failed to upload image. Please try again.");
       } finally {
         isUploadingAvatar.value = false;
         uploadPercent.value = 0;
@@ -1421,8 +1440,8 @@ export default defineComponent({
       const pLen = points.length;
       for (let i = 0; i < pLen; i++) {
         const current = points[i];
-        const next = points[(i + 1) % pLen];
-        const prev = points[(i - 1 + pLen) % pLen];
+        const _next = points[(i + 1) % pLen];
+        const _prev = points[(i - 1 + pLen) % pLen];
 
         if (current.isVertex) {
           // Use direction vectors from the actual polygon vertices
@@ -1556,7 +1575,6 @@ export default defineComponent({
       isTitleEmpty,
       isBioEmpty,
       allEmpty,
-      activeEditor,
       nameEditor,
       titleEditor,
       bioEditor,

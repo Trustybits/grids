@@ -29,6 +29,8 @@
           :class="{
             'is-owner': isOwnerMessage(message),
             'is-other': !isOwnerMessage(message),
+            'is-mine': isMyMessage(message),
+            'is-theirs': !isMyMessage(message),
           }"
         >
           <div class="chat-bubble-wrapper">
@@ -114,6 +116,7 @@ import {
 } from "vue";
 import SendIcon from "@/components/icons/SendIcon.vue";
 import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
 import type { ChatContent, ChatMessage } from "@/types/TileContent";
@@ -163,6 +166,15 @@ export default defineComponent({
       if (!ownerId.value) return false;
       if (!message.authorId) return true;
       return message.authorId === ownerId.value;
+    };
+
+    const currentUserId = computed(
+      () => getAuthProvider().getCurrentUserId() ?? "visitor",
+    );
+
+    const isMyMessage = (message: ChatMessage) => {
+      const authorId = message.authorId || ownerId.value;
+      return authorId === currentUserId.value;
     };
 
     // Check if we should show a date separator before this message
@@ -364,6 +376,7 @@ export default defineComponent({
       sortedMessages,
       isOwner,
       isOwnerMessage,
+      isMyMessage,
       canSend,
       composerPlaceholder,
       sendMessage,
@@ -466,14 +479,14 @@ export default defineComponent({
   flex-direction: column;
 }
 
-.chat-message.is-owner {
-  align-self: flex-start;
-  text-align: left;
-}
-
-.chat-message.is-other {
+.chat-message.is-mine {
   align-self: flex-end;
   text-align: right;
+}
+
+.chat-message.is-theirs {
+  align-self: flex-start;
+  text-align: left;
 }
 
 .chat-bubble-wrapper {
@@ -514,12 +527,12 @@ export default defineComponent({
   color: var(--color-light-100);
 }
 
-.chat-message.is-owner .chat-delete-btn {
-  right: -8px;
+.chat-message.is-mine .chat-delete-btn {
+  left: -8px;
 }
 
-.chat-message.is-other .chat-delete-btn {
-  left: -8px;
+.chat-message.is-theirs .chat-delete-btn {
+  right: -8px;
 }
 
 .chat-bubble-wrapper:hover .chat-delete-btn {
@@ -548,13 +561,19 @@ export default defineComponent({
     var(--color-text-primary) 8%
   );
   color: var(--color-text-primary);
-  border-bottom-left-radius: 6px;
 }
 
 .chat-message.is-other .chat-bubble {
-  border-bottom-right-radius: 6px;
   background-color: var(--color-text-primary);
   color: var(--color-tile-background);
+}
+
+.chat-message.is-mine .chat-bubble {
+  border-bottom-right-radius: 6px;
+}
+
+.chat-message.is-theirs .chat-bubble {
+  border-bottom-left-radius: 6px;
 }
 
 .chat-composer {

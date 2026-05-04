@@ -71,31 +71,3 @@ export default defineComponent({
 });
 </script>
 
-<style>
-.floating-tooltip {
-  position: fixed;
-  transform: translateX(-50%) translateY(-100%);
-  white-space: nowrap;
-  font-size: 11px;
-  line-height: 1;
-  padding: 5px 8px;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-text-primary);
-  color: var(--color-tile-background);
-  pointer-events: none;
-  z-index: var(--z-tooltip);
-}
-
-.floating-tooltip-enter-active,
-.floating-tooltip-leave-active {
-  transition:
-    opacity var(--duration-fast) var(--easing-ease-out),
-    transform var(--duration-fast) var(--easing-ease-out);
-}
-
-.floating-tooltip-enter-from,
-.floating-tooltip-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-100%) scale(0.9);
-}
-</style>

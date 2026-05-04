@@ -15,4 +15,11 @@ export interface ChatDao {
     tileId: string,
     message: { text: string; createdAt: number; authorId: string },
   ): Promise<void>;
+
+  /** Delete a chat message by its id. */
+  deleteMessage(
+    layoutId: string,
+    tileId: string,
+    messageId: string,
+  ): Promise<void>;
 }

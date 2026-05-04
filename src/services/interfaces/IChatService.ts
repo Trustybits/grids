@@ -21,4 +21,11 @@ export interface IChatService {
     tileId: string,
     text: string,
   ): Promise<void>;
+
+  /** Delete a chat message. Only the layout owner should call this. */
+  deleteMessage(
+    layoutId: string,
+    tileId: string,
+    messageId: string,
+  ): Promise<void>;
 }

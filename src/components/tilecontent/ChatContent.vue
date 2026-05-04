@@ -31,8 +31,18 @@
             'is-other': !isOwnerMessage(message),
           }"
         >
-          <div class="chat-bubble">
-            {{ message.text }}
+          <div class="chat-bubble-wrapper">
+            <button
+              v-if="isOwner"
+              class="chat-delete-btn"
+              @click="deleteMessage(message.id)"
+              @mousedown.stop
+            >
+              <CloseIcon />
+            </button>
+            <div class="chat-bubble">
+              {{ message.text }}
+            </div>
           </div>
         </div>
       </template>
@@ -103,6 +113,7 @@ import {
   watch,
 } from "vue";
 import SendIcon from "@/components/icons/SendIcon.vue";
+import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
 import type { ChatContent, ChatMessage } from "@/types/TileContent";
@@ -110,6 +121,7 @@ import type { ChatContent, ChatMessage } from "@/types/TileContent";
 export default defineComponent({
   components: {
     SendIcon,
+    CloseIcon,
   },
   props: {
     content: {
@@ -242,6 +254,15 @@ export default defineComponent({
       );
     };
 
+    const deleteMessage = async (messageId: string) => {
+      if (!isOwner.value || !layoutId.value || !props.tileId) return;
+      try {
+        await chatService.deleteMessage(layoutId.value, props.tileId, messageId);
+      } catch (error) {
+        console.error("Failed to delete chat message:", error);
+      }
+    };
+
     const sendMessage = async () => {
       if (!canSend.value) return;
       const text = draftMessage.value.trim();
@@ -341,10 +362,12 @@ export default defineComponent({
       inputRef,
       messagesContainer,
       sortedMessages,
+      isOwner,
       isOwnerMessage,
       canSend,
       composerPlaceholder,
       sendMessage,
+      deleteMessage,
       handleKeydown,
       setEditing,
       isEditing,
@@ -451,6 +474,56 @@ export default defineComponent({
 .chat-message.is-other {
   align-self: flex-end;
   text-align: right;
+}
+
+.chat-bubble-wrapper {
+  position: relative;
+}
+
+.chat-delete-btn {
+  position: absolute;
+  top: -8px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: 50%;
+  background-color: var(--color-actionbar-background);
+  color: var(--color-content-high);
+  cursor: pointer;
+  z-index: 2;
+  transition:
+    transform var(--duration-fast) var(--easing-ease-out),
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    border-color var(--duration-fast) var(--easing-ease-in-out),
+    color var(--duration-fast) var(--easing-ease-in-out);
+}
+
+.chat-delete-btn:deep(svg) {
+  width: 10px;
+  height: 10px;
+}
+
+.chat-delete-btn:hover {
+  transform: scale(1.15);
+  background-color: #ff3737;
+  border-color: #ff3737;
+  color: var(--color-light-100);
+}
+
+.chat-message.is-owner .chat-delete-btn {
+  right: -8px;
+}
+
+.chat-message.is-other .chat-delete-btn {
+  left: -8px;
+}
+
+.chat-bubble-wrapper:hover .chat-delete-btn {
+  display: flex;
 }
 
 .chat-bubble {

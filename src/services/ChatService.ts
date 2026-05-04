@@ -34,4 +34,12 @@ export class ChatService implements IChatService {
       authorId,
     });
   }
+
+  async deleteMessage(
+    layoutId: string,
+    tileId: string,
+    messageId: string,
+  ): Promise<void> {
+    await this.chatDao.deleteMessage(layoutId, tileId, messageId);
+  }
 }

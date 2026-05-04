@@ -8,7 +8,6 @@
       <iframe
         class="embed-frame"
         :class="{ 'non-interactive': canEdit && !isEmbedInteractive }"
-        scrolling="no"
         :src="content.src"
         frameborder="no"
         loading="lazy"
@@ -141,6 +140,19 @@ export default defineComponent({
   cursor: default;
   pointer-events: all;
   transition: filter 0.2s ease;
+  /* Chromium UA stylesheet uses `overflow: clip !important` on iframe; author
+     rules must be !important or scrolling inside nested documents is blocked. */
+  overflow: auto !important;
+  /* Hides scrollbars only for overflow on this iframe element. Cross-origin
+     pages usually scroll their own document; those scrollbars cannot be styled
+     from Grids (same-origin policy)—the embedded app must hide them. */
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  &::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
 
   &.non-interactive {
     pointer-events: none;

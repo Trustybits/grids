@@ -52,7 +52,12 @@ public/              Static assets + legal markdown (privacy.md, terms.md)
 - `/notion-callback` route must remain ordered before `/:slug` in `router/index.ts` (it would otherwise be captured as a slug).
 - Per-breakpoint tile positions are stored in `Layout.overrides` keyed by `'lg' | 'md' | 'sm'`, not on the tile itself — `useTileLayout` handles the merge.
 - Rich-text tiles use custom Tiptap extensions in `src/components/tiptap/` (FontSize, DragHandle, ResizableImage, SmartButton).
-- When writing code, ensure that existing unit tests pass and that running the linter passes as well. If unit tests or the linter do not pass due to a bug that you have introduced,
+
+## When Writing Code
+- When working with service or database logic in the app (specifically in the root src folder), verify that database logic (Firestore or any other database) is only used in a DAO class, and that the appropriate
+service classes are used for service logic. The functions folder (Firebase functions) and middleware.ts are exempt from this rule (due to having
+their own special deployments).
+- Ensure that existing unit tests pass and that running the linter passes as well. If unit tests or the linter do not pass due to a bug that you have introduced,
 resolve the bug. If unit tests do not pass because of a change in functionality that invalidates the test, let the user know immediately.
 
 ## Environments

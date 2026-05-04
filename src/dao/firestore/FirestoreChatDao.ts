@@ -2,6 +2,8 @@ import {
   type Firestore,
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   onSnapshot,
   orderBy,
   query,
@@ -76,5 +78,22 @@ export class FirestoreChatDao implements ChatDao {
   ): Promise<void> {
     const colRef = this.messagesCollection(layoutId, tileId);
     await addDoc(colRef, message);
+  }
+
+  public async deleteMessage(
+    layoutId: string,
+    tileId: string,
+    messageId: string,
+  ): Promise<void> {
+    const docRef = doc(
+      this.db,
+      "layouts",
+      layoutId,
+      "tiles",
+      tileId,
+      "messages",
+      messageId,
+    );
+    await deleteDoc(docRef);
   }
 }

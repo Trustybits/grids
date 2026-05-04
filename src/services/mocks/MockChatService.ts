@@ -18,4 +18,12 @@ export class MockChatService implements IChatService {
   ): Promise<void> {
     throw new Error("Method not implemented.");
   }
+
+  deleteMessage(
+    _layoutId: string,
+    _tileId: string,
+    _messageId: string,
+  ): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
 }

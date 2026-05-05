@@ -8,125 +8,123 @@
       <div class="grid-menu-icon">
         <GridMenuIcon />
       </div>
-
-      <div class="grid-menu-dropdown" v-if="showMenu" @click.stop>
-        <!-- Grid Page ID -->
-        <MenuSection>
-          <div class="grid-page-info" @click="shareGrid">
-            <span class="grid-page-label">Grid Page:</span>
-            <span class="grid-page-id">{{ gridPageId }}</span>
-          </div>
-        </MenuSection>
-        <Divider />
-        <!-- Settings -->
-        <MenuSection>
-          <Toggle
-            label="Dark Mode"
-            v-model="isDarkMode"
-            tooltip="Toggle between dark and light theme for this grid"
-          />
-          <Toggle
-            label="Gravity"
-            v-model="verticalCompact"
-            tooltip="When enabled, tiles automatically move up to fill empty space"
-          />
-          <Toggle
-            v-if="isOwner"
-            label="Allow Public Template"
-            v-model="duplicatable"
-            tooltip="When enabled, anyone can duplicate this grid's structure as a template"
-          />
-        </MenuSection>
-
-        <!-- Breakpoint Layout -->
-        <MenuSection v-if="isOwner && layoutStore.activeBreakpoint !== 'lg'">
-          <div class="breakpoint-section">
-            <span class="breakpoint-label">
-              {{
-                layoutStore.activeBreakpoint === "sm" ? "Mobile" : "Tablet"
-              }}
-              Layout
-            </span>
-            <MenuItem v-if="!hasOverride" @click="saveBreakpoint">
-              Save
-              {{
-                layoutStore.activeBreakpoint === "sm" ? "Mobile" : "Tablet"
-              }}
-              Layout
-            </MenuItem>
-            <template v-else>
-              <MenuItem @click="saveBreakpoint"> Update Layout </MenuItem>
-              <MenuItem danger @click="resetBreakpoint">
-                Reset to Auto
-              </MenuItem>
-            </template>
-          </div>
-        </MenuSection>
-        <Divider v-if="isOwner && layoutStore.activeBreakpoint !== 'lg'" />
-
-        <!-- Owner Actions -->
-        <MenuSection v-if="isOwner">
-          <!--
-            Ghost split button: main area triggers a full duplicate,
-            chevron reveals a "Structure Only" alternative.
-          -->
-          <div class="ghost-split-button">
-            <button class="ghost-split-main" @click="duplicateGrid('full')">
-              Duplicate Grid
-            </button>
-            <button
-              class="ghost-split-chevron"
-              @click.stop="showDuplicateDropdown = !showDuplicateDropdown"
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M6 9l6 6 6-6"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </button>
-            <div v-if="showDuplicateDropdown" class="ghost-split-dropdown">
-              <button
-                class="ghost-split-dropdown-item"
-                @click="duplicateGrid('structure')"
-              >
-                Structure Only
-              </button>
-            </div>
-          </div>
-          <MenuItem danger @click="confirmDelete"> Delete Grid </MenuItem>
-        </MenuSection>
-
-        <!-- Debug -->
-        <Divider />
-        <MenuSection>
-          <Accordion title="Debug" class="debug-accordion">
-            <Toggle
-              label="Metadata"
-              :modelValue="layoutStore.showMetaData"
-              @update:modelValue="layoutStore.setShowMetaData"
-              tooltip="Show compact metadata on each tile"
-            />
-            <Toggle
-              label="Verbose Metadata"
-              :modelValue="layoutStore.showMetaDataVerbose"
-              @update:modelValue="layoutStore.setShowMetaDataVerbose"
-              tooltip="Show extended debug metadata details"
-            />
-            <MenuItem @click="launchPixelRacers"> 🏍️ Pixel Racers </MenuItem>
-          </Accordion>
-        </MenuSection>
-      </div>
     </button>
+
+    <div class="grid-menu-dropdown" v-if="showMenu" @click.stop>
+      <!-- Grid Page ID -->
+      <MenuSection>
+        <div class="grid-page-info" @click="shareGrid">
+          <span class="grid-page-label">Grid Page:</span>
+          <span class="grid-page-id">{{ gridPageId }}</span>
+        </div>
+      </MenuSection>
+      <Divider />
+      <!-- Settings -->
+      <MenuSection>
+        <Toggle
+          label="Dark Mode"
+          v-model="isDarkMode"
+          tooltip="Toggle between dark and light theme for this grid"
+        />
+        <Toggle
+          label="Gravity"
+          v-model="verticalCompact"
+          tooltip="When enabled, tiles automatically move up to fill empty space"
+        />
+        <Toggle
+          v-if="isOwner"
+          label="Allow Public Template"
+          v-model="duplicatable"
+          tooltip="When enabled, anyone can duplicate this grid's structure as a template"
+        />
+      </MenuSection>
+
+      <!-- Breakpoint Layout -->
+      <MenuSection v-if="isOwner && layoutStore.activeBreakpoint !== 'lg'">
+        <div class="breakpoint-section">
+          <span class="breakpoint-label">
+            {{
+              layoutStore.activeBreakpoint === "sm" ? "Mobile" : "Tablet"
+            }}
+            Layout
+          </span>
+          <MenuItem v-if="!hasOverride" @click="saveBreakpoint">
+            Save
+            {{
+              layoutStore.activeBreakpoint === "sm" ? "Mobile" : "Tablet"
+            }}
+            Layout
+          </MenuItem>
+          <template v-else>
+            <MenuItem @click="saveBreakpoint"> Update Layout </MenuItem>
+            <MenuItem danger @click="resetBreakpoint"> Reset to Auto </MenuItem>
+          </template>
+        </div>
+      </MenuSection>
+      <Divider v-if="isOwner && layoutStore.activeBreakpoint !== 'lg'" />
+
+      <!-- Owner Actions -->
+      <MenuSection v-if="isOwner">
+        <!--
+          Ghost split button: main area triggers a full duplicate,
+          chevron reveals a "Structure Only" alternative.
+        -->
+        <div class="ghost-split-button">
+          <button class="ghost-split-main" @click="duplicateGrid('full')">
+            Duplicate Grid
+          </button>
+          <button
+            class="ghost-split-chevron"
+            @click.stop="showDuplicateDropdown = !showDuplicateDropdown"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M6 9l6 6 6-6"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <div v-if="showDuplicateDropdown" class="ghost-split-dropdown">
+            <button
+              class="ghost-split-dropdown-item"
+              @click="duplicateGrid('structure')"
+            >
+              Structure Only
+            </button>
+          </div>
+        </div>
+        <MenuItem danger @click="confirmDelete"> Delete Grid </MenuItem>
+      </MenuSection>
+
+      <!-- Debug -->
+      <Divider />
+      <MenuSection>
+        <Accordion title="Debug" class="debug-accordion">
+          <Toggle
+            label="Metadata"
+            :modelValue="layoutStore.showMetaData"
+            @update:modelValue="layoutStore.setShowMetaData"
+            tooltip="Show compact metadata on each tile"
+          />
+          <Toggle
+            label="Verbose Metadata"
+            :modelValue="layoutStore.showMetaDataVerbose"
+            @update:modelValue="layoutStore.setShowMetaDataVerbose"
+            tooltip="Show extended debug metadata details"
+          />
+          <MenuItem @click="launchPixelRacers"> 🏍️ Pixel Racers </MenuItem>
+        </Accordion>
+      </MenuSection>
+    </div>
   </div>
 </template>
 

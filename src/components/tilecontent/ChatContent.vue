@@ -33,19 +33,30 @@
             'is-theirs': !isMyMessage(message),
           }"
         >
-          <div class="chat-bubble-wrapper">
-            <button
-              v-if="isOwner"
-              class="chat-delete-btn"
-              @click="deleteMessage(message.id)"
-              @mousedown.stop
+          <FloatingTooltip
+            :text="canEditMessage(message) ? 'Edit message' : null"
+          >
+            <div
+              class="chat-bubble-wrapper"
+              :class="{
+                'is-editable': canEditMessage(message),
+                'is-editing': editingMessageId === message.id,
+              }"
+              @click="canEditMessage(message) && startEditing(message)"
             >
-              <CloseIcon />
-            </button>
-            <div class="chat-bubble">
-              {{ message.text }}
+              <button
+                v-if="isOwner"
+                class="chat-delete-btn"
+                @click.stop="deleteMessage(message.id)"
+                @mousedown.stop
+              >
+                <CloseIcon />
+              </button>
+              <div class="chat-bubble">
+                {{ message.text }}
+              </div>
             </div>
-          </div>
+          </FloatingTooltip>
         </div>
       </template>
     </div>
@@ -76,6 +87,17 @@
         </svg>
       </button>
     </transition>
+
+    <div v-if="editingMessageId" class="chat-editing-banner">
+      <span>Editing message</span>
+      <button
+        class="chat-editing-cancel"
+        @click="cancelEditing"
+        @mousedown.stop
+      >
+        Cancel
+      </button>
+    </div>
 
     <form
       class="chat-composer"
@@ -116,6 +138,7 @@ import {
 } from "vue";
 import SendIcon from "@/components/icons/SendIcon.vue";
 import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
+import FloatingTooltip from "@/components/FloatingTooltip.vue";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
@@ -125,6 +148,7 @@ export default defineComponent({
   components: {
     SendIcon,
     CloseIcon,
+    FloatingTooltip,
   },
   props: {
     content: {
@@ -147,6 +171,38 @@ export default defineComponent({
     const messages = ref<ChatMessage[]>([]);
     const showScrollButton = ref(false);
     const showTopFade = ref(false);
+
+    const editingMessageId = ref<string | null>(null);
+    const savedDraft = ref("");
+    const sessionMessageIds = new Set<string>();
+
+    const sessionStorageKey = computed(
+      () => `chat-session-msgs:${layoutId.value}:${props.tileId}`,
+    );
+
+    const loadSessionMessageIds = () => {
+      try {
+        const stored = sessionStorage.getItem(sessionStorageKey.value);
+        if (stored) {
+          const ids: string[] = JSON.parse(stored);
+          ids.forEach((id) => sessionMessageIds.add(id));
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    const persistSessionMessageId = (id: string) => {
+      sessionMessageIds.add(id);
+      try {
+        sessionStorage.setItem(
+          sessionStorageKey.value,
+          JSON.stringify([...sessionMessageIds]),
+        );
+      } catch {
+        // ignore
+      }
+    };
 
     const layoutId = computed(() => layoutStore.currentLayout?.id ?? "");
 
@@ -174,6 +230,26 @@ export default defineComponent({
     const isMyMessage = (message: ChatMessage) => {
       const authorId = message.authorId || ownerId.value;
       return authorId === currentUserId.value;
+    };
+
+    const canEditMessage = (message: ChatMessage) => {
+      if (!isMyMessage(message)) return false;
+      if (isOwner.value) return true;
+      return sessionMessageIds.has(message.id);
+    };
+
+    const startEditing = (message: ChatMessage) => {
+      if (!canEditMessage(message)) return;
+      editingMessageId.value = message.id;
+      savedDraft.value = draftMessage.value;
+      draftMessage.value = message.text;
+      nextTick(() => inputRef.value?.focus());
+    };
+
+    const cancelEditing = () => {
+      draftMessage.value = savedDraft.value;
+      editingMessageId.value = null;
+      savedDraft.value = "";
     };
 
     // Check if we should show a date separator before this message
@@ -289,9 +365,27 @@ export default defineComponent({
       if (!text) return;
       if (!layoutId.value || !props.tileId) return;
 
+      const messageIdToEdit = editingMessageId.value;
       draftMessage.value = "";
+      editingMessageId.value = null;
+      savedDraft.value = "";
+
       try {
-        await chatService.sendMessage(layoutId.value, props.tileId, text);
+        if (messageIdToEdit) {
+          await chatService.editMessage(
+            layoutId.value,
+            props.tileId,
+            messageIdToEdit,
+            text,
+          );
+        } else {
+          const newId = await chatService.sendMessage(
+            layoutId.value,
+            props.tileId,
+            text,
+          );
+          persistSessionMessageId(newId);
+        }
       } catch (error) {
         console.error("Failed to send chat message:", error);
       }
@@ -303,6 +397,11 @@ export default defineComponent({
 
     const handleKeydown = (event: KeyboardEvent) => {
       if (!canSend.value) return;
+      if (event.key === "Escape" && editingMessageId.value) {
+        event.preventDefault();
+        cancelEditing();
+        return;
+      }
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
         void sendMessage();
@@ -348,6 +447,7 @@ export default defineComponent({
     };
 
     onMounted(() => {
+      loadSessionMessageIds();
       nextTick(() => scrollToBottom("auto"));
     });
 
@@ -387,10 +487,14 @@ export default defineComponent({
       isOwner,
       isOwnerMessage,
       isMyMessage,
+      canEditMessage,
       canSend,
       composerPlaceholder,
       sendMessage,
       deleteMessage,
+      startEditing,
+      cancelEditing,
+      editingMessageId,
       handleKeydown,
       setEditing,
       isEditing,
@@ -579,6 +683,45 @@ export default defineComponent({
 
 .chat-message.is-theirs .chat-bubble {
   border-bottom-left-radius: 6px;
+}
+
+.chat-bubble-wrapper.is-editable {
+  cursor: pointer;
+}
+
+.chat-bubble-wrapper.is-editing .chat-bubble {
+  outline: 1.5px solid
+    color-mix(in srgb, var(--color-text-primary) 40%, transparent);
+  outline-offset: -1.5px;
+}
+
+.chat-editing-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--color-text-primary) 60%, transparent);
+  border-radius: 8px;
+  background: color-mix(
+    in srgb,
+    var(--color-text-primary) 6%,
+    var(--color-tile-background)
+  );
+}
+
+.chat-editing-cancel {
+  border: none;
+  background: none;
+  color: color-mix(in srgb, var(--color-text-primary) 60%, transparent);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 4px;
+  text-decoration: underline;
+}
+
+.chat-editing-cancel:hover {
+  color: var(--color-text-primary);
 }
 
 .chat-composer {

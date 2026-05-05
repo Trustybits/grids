@@ -7,6 +7,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  updateDoc,
 } from "firebase/firestore";
 import type { ChatDao } from "../interfaces/ChatDao";
 import type { ChatMessage } from "@/types/TileContent";
@@ -75,9 +76,28 @@ export class FirestoreChatDao implements ChatDao {
     layoutId: string,
     tileId: string,
     message: { text: string; createdAt: number; authorId: string },
-  ): Promise<void> {
+  ): Promise<string> {
     const colRef = this.messagesCollection(layoutId, tileId);
-    await addDoc(colRef, message);
+    const docRef = await addDoc(colRef, message);
+    return docRef.id;
+  }
+
+  public async updateMessage(
+    layoutId: string,
+    tileId: string,
+    messageId: string,
+    text: string,
+  ): Promise<void> {
+    const docRef = doc(
+      this.db,
+      "layouts",
+      layoutId,
+      "tiles",
+      tileId,
+      "messages",
+      messageId,
+    );
+    await updateDoc(docRef, { text });
   }
 
   public async deleteMessage(

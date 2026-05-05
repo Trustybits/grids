@@ -25,14 +25,23 @@ export class ChatService implements IChatService {
     layoutId: string,
     tileId: string,
     text: string,
-  ): Promise<void> {
+  ): Promise<string> {
     const authProvider = getAuthProvider();
     const authorId = authProvider.getCurrentUserId() ?? "visitor";
-    await this.chatDao.addMessage(layoutId, tileId, {
+    return this.chatDao.addMessage(layoutId, tileId, {
       text,
       createdAt: Date.now(),
       authorId,
     });
+  }
+
+  async editMessage(
+    layoutId: string,
+    tileId: string,
+    messageId: string,
+    text: string,
+  ): Promise<void> {
+    await this.chatDao.updateMessage(layoutId, tileId, messageId, text);
   }
 
   async deleteMessage(

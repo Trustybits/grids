@@ -140,7 +140,6 @@ import {
 import SendIcon from "@/components/icons/SendIcon.vue";
 import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
 import FloatingTooltip from "@/components/FloatingTooltip.vue";
-import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
 import type { ChatContent, ChatMessage } from "@/types/TileContent";
@@ -230,10 +229,6 @@ export default defineComponent({
       if (!message.authorId) return true;
       return message.authorId === ownerId.value;
     };
-
-    const currentUserId = computed(
-      () => getAuthProvider().getCurrentUserId() ?? "visitor",
-    );
 
     const isMyMessage = (message: ChatMessage) => {
       if (isOwner.value) {

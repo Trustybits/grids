@@ -11,50 +11,50 @@
           <path d="M6 21C6 17.134 8.68629 14 12 14C15.3137 14 18 17.134 18 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
       </div>
-      <div class="user-menu-dropdown" v-if="showUserMenu" @click.stop>
-        <div class="user-info-section">
-          <button type="button" @click="openSlugModal" class="info-item clickable">
-            <div class="info-content">
-              <span class="info-label">Handle</span>
-              <span class="info-value">{{ currentSlug || 'Not set' }}</span>
-            </div>
-            <svg class="edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <path d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            </svg>
-          </button>
-          <button
-            v-if="defaultGridId"
-            type="button"
-            @click="goToDefaultGrid"
-            class="info-item clickable default-grid-link"
-          >
-            <div class="info-content">
-              <span class="info-label">Default Grid</span>
-              <span class="info-value default-grid-value">
-                <span>{{ defaultGridName }}</span>
-                <img
-                  v-if="defaultGridProfileImageUrl"
-                  class="default-grid-image"
-                  :src="defaultGridProfileImageUrl"
-                  alt=""
-                />
-              </span>
-            </div>
-          </button>
-          <div class="info-item">
-            <div class="info-content">
-              <span class="info-label">Email</span>
-              <span class="info-value">{{ user.email }}</span>
-            </div>
+    </button>
+    <div class="user-menu-dropdown" v-if="showUserMenu" @click.stop>
+      <div class="user-info-section">
+        <button type="button" @click="openSlugModal" class="info-item clickable">
+          <div class="info-content">
+            <span class="info-label">Handle</span>
+            <span class="info-value">{{ currentSlug || 'Not set' }}</span>
+          </div>
+          <svg class="edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <path d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </button>
+        <button
+          v-if="defaultGridId"
+          type="button"
+          @click="goToDefaultGrid"
+          class="info-item clickable default-grid-link"
+        >
+          <div class="info-content">
+            <span class="info-label">Default Grid</span>
+            <span class="info-value default-grid-value">
+              <span>{{ defaultGridName }}</span>
+              <img
+                v-if="defaultGridProfileImageUrl"
+                class="default-grid-image"
+                :src="defaultGridProfileImageUrl"
+                alt=""
+              />
+            </span>
+          </div>
+        </button>
+        <div class="info-item">
+          <div class="info-content">
+            <span class="info-label">Email</span>
+            <span class="info-value">{{ user.email }}</span>
           </div>
         </div>
-        <div class="menu-divider"></div>
-        <button type="button" @click="logout" class="menu-action-item">
-          Logout
-        </button>
       </div>
-    </button>
+      <div class="menu-divider"></div>
+      <button type="button" @click="logout" class="menu-action-item">
+        Logout
+      </button>
+    </div>
     
     <!-- Slug Management Modal -->
     <SlugClaimModal
@@ -258,20 +258,21 @@ export default defineComponent({
     }
   }
 
-  .user-menu-dropdown {
-    position: absolute;
-    bottom: -4px;
-    left: 48px;
-    background: var(--color-tile-background);
-    border: var(--tile-border-width) solid var(--color-tile-stroke);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-sm);
-    min-width: 240px;
-    width: max-content;
-    max-width: min(420px, calc(100vw - 72px));
-    box-shadow: var(--shadow-lg);
-    z-index: 100;
-  }
+}
+
+.user-menu-dropdown {
+  position: absolute;
+  bottom: -4px;
+  left: 48px;
+  background: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm);
+  min-width: 240px;
+  width: max-content;
+  max-width: min(420px, calc(100vw - 72px));
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
 
   .user-info-section {
     display: flex;

@@ -53,7 +53,7 @@ defineEmits<{
   min-height: 40px;
 
   &:hover {
-    background-color: var(--color-base-34);
+    background-color: var(--color-input-edit);
   }
 
   &__label {

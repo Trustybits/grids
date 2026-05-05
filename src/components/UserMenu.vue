@@ -11,9 +11,9 @@
           <path d="M6 21C6 17.134 8.68629 14 12 14C15.3137 14 18 17.134 18 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
       </div>
-      <div class="user-menu-dropdown" v-if="showUserMenu">
+      <div class="user-menu-dropdown" v-if="showUserMenu" @click.stop>
         <div class="user-info-section">
-          <button @click="openSlugModal" class="info-item clickable">
+          <button type="button" @click="openSlugModal" class="info-item clickable">
             <div class="info-content">
               <span class="info-label">Handle</span>
               <span class="info-value">{{ currentSlug || 'Not set' }}</span>
@@ -23,6 +23,25 @@
               <path d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
             </svg>
           </button>
+          <button
+            v-if="defaultGridId"
+            type="button"
+            @click="goToDefaultGrid"
+            class="info-item clickable default-grid-link"
+          >
+            <div class="info-content">
+              <span class="info-label">Default Grid</span>
+              <span class="info-value default-grid-value">
+                <span>{{ defaultGridName }}</span>
+                <img
+                  v-if="defaultGridProfileImageUrl"
+                  class="default-grid-image"
+                  :src="defaultGridProfileImageUrl"
+                  alt=""
+                />
+              </span>
+            </div>
+          </button>
           <div class="info-item">
             <div class="info-content">
               <span class="info-label">Email</span>
@@ -31,7 +50,7 @@
           </div>
         </div>
         <div class="menu-divider"></div>
-        <button @click="logout" class="menu-action-item">
+        <button type="button" @click="logout" class="menu-action-item">
           Logout
         </button>
       </div>
@@ -53,6 +72,7 @@ import { useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@/auth/AuthProvider";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import { ContentType, type ProfileBioContent } from "@/types/TileContent";
 import SlugClaimModal from "./SlugClaimModal.vue";
 
 export default defineComponent({
@@ -66,30 +86,77 @@ export default defineComponent({
     const showUserMenu = ref(false);
     const showSlugModal = ref(false);
     const currentSlug = ref<string | undefined>(undefined);
+    const defaultGridId = ref<string | undefined>(undefined);
+    const defaultGridProfileImageUrl = ref<string | undefined>(undefined);
+    const defaultGridName = ref<string | undefined>(undefined);
+    const profileLoaded = ref(false);
+    const profileLoading = ref(false);
 
     onMounted(() => {
       getAuthProvider().onAuthStateChanged((currentUser) => {
         user.value = currentUser;
-        // Load user profile to get current slug
+        // Load user profile to get current slug/default grid.
         if (currentUser) {
-          loadUserSlug();
+          loadUserProfile({ force: true });
+        } else {
+          currentSlug.value = undefined;
+          defaultGridId.value = undefined;
+          defaultGridProfileImageUrl.value = undefined;
+          defaultGridName.value = undefined;
+          profileLoaded.value = false;
         }
       });
     });
 
-    const loadUserSlug = async () => {
-      if (user.value) {
-        try {
-          const profile = await getServiceFactory().getUserService().getUserProfile(user.value.uid);
-          currentSlug.value = profile?.slug;
-        } catch (error) {
-          console.error('Error loading user slug:', error);
-        }
+    const loadDefaultGridProfileImageAndName = async (gridId?: string) => {
+      if (!gridId) {
+        defaultGridName.value = undefined;
+        defaultGridProfileImageUrl.value = undefined;
+        return;
+      }
+
+      try {
+        const layout = await getServiceFactory().getLayoutService().fetchLayout(gridId);
+        defaultGridName.value = layout.name ? layout.name : undefined;
+        const profileTile = layout.tiles.find(
+          (tile) => tile.content.type === ContentType.PROFILE,
+        );
+        const profileContent = profileTile?.content as
+          | ProfileBioContent
+          | undefined;
+        defaultGridProfileImageUrl.value =
+          profileContent?.profilePhotoUrl || undefined;
+      } catch (error) {
+        console.error("Error loading default grid profile image:", error);
       }
     };
 
-    const toggleUserMenu = () => {
+    const loadUserProfile = async (options: { force?: boolean } = {}) => {
+      if (!user.value) return;
+      if (profileLoading.value) return;
+      if (profileLoaded.value && !options.force) return;
+
+      profileLoading.value = true;
+      try {
+        const profile = await getServiceFactory()
+          .getUserService()
+          .getUserProfile(user.value.uid);
+        currentSlug.value = profile?.slug;
+        defaultGridId.value = profile?.defaultGridId;
+        await loadDefaultGridProfileImageAndName(profile?.defaultGridId);
+        profileLoaded.value = true;
+      } catch (error) {
+        console.error("Error loading user profile:", error);
+      } finally {
+        profileLoading.value = false;
+      }
+    };
+
+    const toggleUserMenu = async () => {
       showUserMenu.value = !showUserMenu.value;
+      if (showUserMenu.value) {
+        await loadUserProfile();
+      }
     };
 
     const handleBlur = () => {
@@ -107,15 +174,15 @@ export default defineComponent({
 
     const openSlugModal = async () => {
       showUserMenu.value = false;
-      if (user.value) {
-        try {
-          const profile = await getServiceFactory().getUserService().getUserProfile(user.value.uid);
-          currentSlug.value = profile?.slug;
-        } catch (error) {
-          console.error('Error loading user profile:', error);
-        }
-      }
+      await loadUserProfile({ force: true });
       showSlugModal.value = true;
+    };
+
+    const goToDefaultGrid = () => {
+      if (!defaultGridId.value) return;
+      // router.push(`/grid/${defaultGridId.value}`);
+      router.push(`/${currentSlug.value}`);
+      showUserMenu.value = false;
     };
 
     const closeSlugModal = () => {
@@ -123,15 +190,8 @@ export default defineComponent({
     };
 
     const handleSlugSuccess = async () => {
-      // Reload profile to get updated slug
-      if (user.value) {
-        try {
-          const profile = await getServiceFactory().getUserService().getUserProfile(user.value.uid);
-          currentSlug.value = profile?.slug;
-        } catch (error) {
-          console.error('Error reloading profile:', error);
-        }
-      }
+      // Reload profile to get updated slug/default grid.
+      await loadUserProfile({ force: true });
     };
 
     return {
@@ -142,7 +202,11 @@ export default defineComponent({
       logout,
       showSlugModal,
       currentSlug,
+      defaultGridId,
+      defaultGridProfileImageUrl,
+      defaultGridName,
       openSlugModal,
+      goToDefaultGrid,
       closeSlugModal,
       handleSlugSuccess,
     };
@@ -203,6 +267,8 @@ export default defineComponent({
     border-radius: var(--radius-md);
     padding: var(--spacing-sm);
     min-width: 240px;
+    width: max-content;
+    max-width: min(420px, calc(100vw - 72px));
     box-shadow: var(--shadow-lg);
     z-index: 100;
   }
@@ -222,7 +288,8 @@ export default defineComponent({
     border-radius: var(--radius-sm);
     background: transparent;
     border: none;
-    width: 100%;
+    width: auto;
+    min-width: 100%;
     text-align: left;
     font-family: var(--font-family-base);
     transition: background-color var(--duration-fast) var(--easing-smooth);
@@ -268,6 +335,26 @@ export default defineComponent({
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 280px;
+  }
+
+  .default-grid-link {
+    color: var(--color-text-primary);
+  }
+
+  .default-grid-value {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+  }
+
+  .default-grid-image {
+    width: 20px;
+    height: 20px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    flex-shrink: 0;
   }
 
   .edit-icon {

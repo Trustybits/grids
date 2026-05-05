@@ -40,6 +40,13 @@
       </button>
       <button
         class="btn btn-secondary"
+        data-tooltip="Documents"
+        @click="selectDocuments"
+      >
+        <DocumentTileIcon />
+      </button>
+      <button
+        class="btn btn-secondary"
         data-tooltip="Link"
         @click="addLinkElement"
       >
@@ -85,6 +92,14 @@
         accept="image/*,video/*"
         @change.stop="addFile"
       />
+      <input
+        type="file"
+        ref="documentInput"
+        style="display: none"
+        accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+        multiple
+        @change.stop="addDocuments"
+      />
     </div>
 
     <!-- Modals -->
@@ -124,6 +139,7 @@ import AppBarTextIcon from "./icons/appbar/TextIcon.vue";
 import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkTileIcon from "./icons/LinkTileIcon.vue";
+import DocumentTileIcon from "./icons/DocumentTileIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileTileIcon from "./icons/ProfileTileIcon.vue";
 import MapIcon from "./icons/MapIcon.vue";
@@ -139,6 +155,7 @@ export default {
     ChatIcon,
     ImageIcon,
     LinkTileIcon,
+    DocumentTileIcon,
     EmbedIcon,
     ProfileTileIcon,
     MapIcon,
@@ -153,7 +170,9 @@ export default {
 
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);
-    const { uploadFileOptimistic } = useFileUpload();
+    const documentInput = ref<HTMLInputElement | null>(null);
+    const { uploadFileOptimistic, uploadDocumentStackOptimistic } =
+      useFileUpload();
     const { submitLink, submitEmbed } = useTileInput();
 
     const showLinkModal = ref(false);
@@ -194,6 +213,25 @@ export default {
 
     const selectFile = () => {
       imageInput.value?.click();
+    };
+
+    const selectDocuments = () => {
+      documentInput.value?.click();
+    };
+
+    const addDocuments = async (event: Event) => {
+      const input = event.target as HTMLInputElement;
+      const list = input.files;
+      input.value = "";
+      if (!list?.length) return;
+      const files = Array.from(list);
+      try {
+        await uploadDocumentStackOptimistic(files);
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : null;
+        const errorMessage = err?.message || "Unknown error";
+        alert(`Failed to upload documents: ${errorMessage}`);
+      }
     };
 
     const addFile = async (event: Event) => {
@@ -295,7 +333,10 @@ export default {
       addChatElement,
       addCampfireElement,
       selectFile,
+      selectDocuments,
       addFile,
+      addDocuments,
+      documentInput,
       addLinkElement,
       addEmbedElement,
       addMapElement,

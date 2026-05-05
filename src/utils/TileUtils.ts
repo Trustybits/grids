@@ -20,6 +20,7 @@ import {
   type MusicContent,
   type MusicPlatform,
   type AnyTileContent,
+  type DocumentStackContent,
 } from "@/types/TileContent";
 import { type Component, defineAsyncComponent, markRaw } from "vue";
 
@@ -567,6 +568,12 @@ export function createTileContent(
         textSubdued: (data as Partial<MusicContent>).textSubdued || "",
       } as MusicContent;
 
+    case ContentType.DOCUMENT:
+      return {
+        type,
+        items: (data as Partial<DocumentStackContent>).items ?? [],
+      } as DocumentStackContent;
+
     default:
       throw new Error(`Unsupported content type: ${type}`);
   }
@@ -657,6 +664,23 @@ export function validateTileContent(content: TileContent): boolean {
       return !!music.trackId && !!music.platform;
     case ContentType.ROADMAP_FEED:
       return true;
+    case ContentType.DOCUMENT: {
+      const doc = content as DocumentStackContent;
+      return (
+        Array.isArray(doc.items) &&
+        doc.items.length > 0 &&
+        doc.items.every(
+          (item) =>
+            !!item.id &&
+            typeof item.fileName === "string" &&
+            item.fileName.length > 0 &&
+            typeof item.url === "string" &&
+            (item.url.startsWith("http") ||
+              item.url.startsWith("blob:") ||
+              item.url.startsWith("data:")),
+        )
+      );
+    }
     default:
       return false;
   }
@@ -754,6 +778,12 @@ export function getContentComponent(content: TileContent): Component | null {
       return markRaw(
         defineAsyncComponent(
           () => import("@/components/tilecontent/MusicContent.vue"),
+        ),
+      );
+    case ContentType.DOCUMENT:
+      return markRaw(
+        defineAsyncComponent(
+          () => import("@/components/tilecontent/DocumentStackContent.vue"),
         ),
       );
     default:

@@ -12,7 +12,7 @@ export interface IStorageService {
   validateFile(
     file: File,
     options: UploadOptions,
-  ): { isImage: boolean; isVideo: boolean };
+  ): { isImage: boolean; isVideo: boolean; isDocument: boolean };
 
   /** Upload a file in one shot and return the permanent download URL. */
   upload(userId: string, file: File, options?: UploadOptions, metadata?: StorageUploadMetadata): Promise<string>;

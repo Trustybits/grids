@@ -301,6 +301,7 @@ export default defineComponent({
         ContentType.PROFILE,
         ContentType.YOUTUBE,
         ContentType.MUSIC,
+        ContentType.DOCUMENT,
       ];
       if (hiddenTypes.includes(props.tile.content.type)) return false;
       // Hide caption on 1-wide tiles (too narrow)
@@ -326,6 +327,12 @@ export default defineComponent({
     );
     const contentProps = computed(() => {
       if (props.tile.content.type === ContentType.CHAT) {
+        return {
+          content: props.tile.content,
+          tileId: props.tile.i,
+        };
+      }
+      if (props.tile.content.type === ContentType.DOCUMENT) {
         return {
           content: props.tile.content,
           tileId: props.tile.i,
@@ -766,6 +773,12 @@ export default defineComponent({
           return `zoom: ${content.zoom ?? "n/a"} | marker: ${content.marker ? "yes" : "no"}`;
         case ContentType.CHAT:
           return `messages: ${Array.isArray(content.messages) ? content.messages.length : 0}`;
+        case ContentType.DOCUMENT: {
+          const n = Array.isArray((content as { items?: unknown[] }).items)
+            ? (content as { items: unknown[] }).items.length
+            : 0;
+          return `documents: ${n}`;
+        }
         default:
           return "typeSpecific: n/a";
       }

@@ -362,7 +362,7 @@ const launchPixelRacers = () => {
   min-height: 40px;
 
   &:hover {
-    background-color: var(--color-base-34);
+    background-color: var(--color-input-edit);
   }
 
   .grid-page-label {
@@ -423,7 +423,7 @@ const launchPixelRacers = () => {
   transition: background-color var(--duration-fast) var(--easing-smooth);
 
   &:hover {
-    background-color: var(--color-base-34);
+    background-color: var(--color-input-edit);
   }
 }
 
@@ -444,7 +444,7 @@ const launchPixelRacers = () => {
     color var(--duration-fast) var(--easing-smooth);
 
   &:hover {
-    background-color: var(--color-base-34);
+    background-color: var(--color-input-edit);
     color: var(--color-text-primary);
   }
 }
@@ -478,7 +478,7 @@ const launchPixelRacers = () => {
   white-space: nowrap;
 
   &:hover {
-    background: var(--color-base-34);
+    background: var(--color-input-edit);
   }
 }
 </style>

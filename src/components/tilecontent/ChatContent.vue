@@ -42,7 +42,8 @@
                 'is-editable': canEditMessage(message),
                 'is-editing': editingMessageId === message.id,
               }"
-              @click="canEditMessage(message) && startEditing(message)"
+              @mousedown="onBubbleMousedown"
+              @click="onBubbleClick($event, message)"
             >
               <button
                 v-if="isOwner"
@@ -174,7 +175,7 @@ export default defineComponent({
 
     const editingMessageId = ref<string | null>(null);
     const savedDraft = ref("");
-    const sessionMessageIds = new Set<string>();
+    const sessionMessageIds = ref(new Set<string>());
 
     const sessionStorageKey = computed(
       () => `chat-session-msgs:${layoutId.value}:${props.tileId}`,
@@ -185,7 +186,9 @@ export default defineComponent({
         const stored = sessionStorage.getItem(sessionStorageKey.value);
         if (stored) {
           const ids: string[] = JSON.parse(stored);
-          ids.forEach((id) => sessionMessageIds.add(id));
+          const updated = new Set(sessionMessageIds.value);
+          ids.forEach((id) => updated.add(id));
+          sessionMessageIds.value = updated;
         }
       } catch {
         // ignore
@@ -193,16 +196,21 @@ export default defineComponent({
     };
 
     const persistSessionMessageId = (id: string) => {
-      sessionMessageIds.add(id);
+      const updated = new Set(sessionMessageIds.value);
+      updated.add(id);
+      sessionMessageIds.value = updated;
       try {
         sessionStorage.setItem(
           sessionStorageKey.value,
-          JSON.stringify([...sessionMessageIds]),
+          JSON.stringify([...sessionMessageIds.value]),
         );
       } catch {
         // ignore
       }
     };
+
+    let dragStartPos: { x: number; y: number } | null = null;
+    const DRAG_THRESHOLD = 5;
 
     const layoutId = computed(() => layoutStore.currentLayout?.id ?? "");
 
@@ -235,11 +243,28 @@ export default defineComponent({
     const canEditMessage = (message: ChatMessage) => {
       if (!isMyMessage(message)) return false;
       if (isOwner.value) return true;
-      return sessionMessageIds.has(message.id);
+      return sessionMessageIds.value.has(message.id);
+    };
+
+    const onBubbleMousedown = (event: MouseEvent) => {
+      dragStartPos = { x: event.clientX, y: event.clientY };
+    };
+
+    const onBubbleClick = (event: MouseEvent, message: ChatMessage) => {
+      if (!canEditMessage(message)) return;
+      if (dragStartPos) {
+        const dx = event.clientX - dragStartPos.x;
+        const dy = event.clientY - dragStartPos.y;
+        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+          dragStartPos = null;
+          return;
+        }
+      }
+      dragStartPos = null;
+      startEditing(message);
     };
 
     const startEditing = (message: ChatMessage) => {
-      if (!canEditMessage(message)) return;
       editingMessageId.value = message.id;
       savedDraft.value = draftMessage.value;
       draftMessage.value = message.text;
@@ -366,7 +391,7 @@ export default defineComponent({
       if (!layoutId.value || !props.tileId) return;
 
       const messageIdToEdit = editingMessageId.value;
-      draftMessage.value = "";
+      draftMessage.value = messageIdToEdit ? savedDraft.value : "";
       editingMessageId.value = null;
       savedDraft.value = "";
 
@@ -495,6 +520,8 @@ export default defineComponent({
       startEditing,
       cancelEditing,
       editingMessageId,
+      onBubbleMousedown,
+      onBubbleClick,
       handleKeydown,
       setEditing,
       isEditing,

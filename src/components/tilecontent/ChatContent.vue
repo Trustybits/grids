@@ -54,7 +54,7 @@
                 <CloseIcon />
               </button>
               <div class="chat-bubble">
-                {{ message.text }}
+                <span class="chat-bubble-text">{{ message.text }}</span>
               </div>
             </div>
           </FloatingTooltip>
@@ -223,6 +223,16 @@ export default defineComponent({
     const composerPlaceholder = computed(() =>
       isOwner.value ? "Write a message.." : "Message the owner..",
     );
+    const createMeasurementContext = () => {
+      if (typeof document === "undefined") return null;
+      try {
+        return document.createElement("canvas").getContext("2d");
+      } catch {
+        return null;
+      }
+    };
+    const measurementContext = createMeasurementContext();
+    let resizeFrame: number | null = null;
 
     const isOwnerMessage = (message: ChatMessage) => {
       if (!ownerId.value) return false;
@@ -348,6 +358,111 @@ export default defineComponent({
       }
     };
 
+    const getWrappedLineWidths = (
+      text: string,
+      maxWidth: number,
+      context: CanvasRenderingContext2D,
+    ) => {
+      const measure = (value: string) => context.measureText(value).width;
+      const paragraphs = text.split("\n");
+      const widths: number[] = [];
+
+      paragraphs.forEach((paragraph) => {
+        const words = paragraph.trim().split(/\s+/).filter(Boolean);
+        if (!words.length) {
+          widths.push(0);
+          return;
+        }
+
+        let line = "";
+        words.forEach((word) => {
+          const nextLine = line ? `${line} ${word}` : word;
+          if (line && measure(nextLine) > maxWidth) {
+            widths.push(measure(line));
+            line = word;
+            return;
+          }
+          line = nextLine;
+        });
+
+        widths.push(measure(line));
+      });
+
+      return widths;
+    };
+
+    const getTightContentWidth = (
+      text: string,
+      maxWidth: number,
+      context: CanvasRenderingContext2D,
+    ) => {
+      const words = text.split(/\s+/).filter(Boolean);
+      if (!words.length) return 0;
+
+      const longestWordWidth = Math.max(
+        ...words.map((word) => context.measureText(word).width),
+      );
+      const minWidth = Math.min(maxWidth, Math.max(24, longestWordWidth));
+      const maxLineCount = getWrappedLineWidths(text, maxWidth, context).length;
+
+      for (
+        let width = Math.ceil(minWidth);
+        width <= Math.ceil(maxWidth);
+        width += 2
+      ) {
+        const lineWidths = getWrappedLineWidths(text, width, context);
+        if (lineWidths.length <= maxLineCount) {
+          return Math.min(maxWidth, Math.ceil(width + 1));
+        }
+      }
+
+      return maxWidth;
+    };
+
+    const resizeVisitorBubbles = () => {
+      const container = messagesContainer.value;
+      if (!container || !measurementContext) return;
+
+      const bubbles = container.querySelectorAll<HTMLElement>(
+        ".chat-message.is-other .chat-bubble",
+      );
+
+      bubbles.forEach((bubble) => {
+        const message = bubble.closest<HTMLElement>(".chat-message");
+        if (!message) return;
+
+        bubble.style.width = "";
+
+        const style = window.getComputedStyle(bubble);
+        measurementContext.font = style.font;
+
+        const paddingX =
+          parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+        const rowWidth = message.clientWidth;
+        const maxBubbleWidth = Math.floor(rowWidth * 0.82);
+        const maxContentWidth = Math.max(24, maxBubbleWidth - paddingX);
+        const text = bubble.textContent?.trim() ?? "";
+        const contentWidth = getTightContentWidth(
+          text,
+          maxContentWidth,
+          measurementContext,
+        );
+
+        bubble.style.width = `${Math.ceil(contentWidth + paddingX)}px`;
+      });
+    };
+
+    const scheduleVisitorBubbleResize = () => {
+      if (typeof window === "undefined") return;
+      if (resizeFrame !== null) {
+        window.cancelAnimationFrame(resizeFrame);
+      }
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = null;
+        resizeVisitorBubbles();
+      });
+    };
+
     let unsubscribe: (() => void) | null = null;
 
     const subscribe = () => {
@@ -467,12 +582,18 @@ export default defineComponent({
     };
 
     const onResize = () => {
-      nextTick(() => scrollToBottom("auto"));
+      nextTick(() => {
+        scheduleVisitorBubbleResize();
+        scrollToBottom("auto");
+      });
     };
 
     onMounted(() => {
       loadSessionMessageIds();
-      nextTick(() => scrollToBottom("auto"));
+      nextTick(() => {
+        scheduleVisitorBubbleResize();
+        scrollToBottom("auto");
+      });
     });
 
     watch(
@@ -480,11 +601,23 @@ export default defineComponent({
       async (newLength, oldLength) => {
         const wasNearBottom = isNearBottom();
         await nextTick();
+        scheduleVisitorBubbleResize();
         if (oldLength === 0 || oldLength === undefined) {
           scrollToBottom("auto");
         } else if (wasNearBottom) {
           scrollToBottom("smooth");
         }
+      },
+    );
+
+    watch(
+      () =>
+        sortedMessages.value
+          .map((message) => `${message.id}:${message.text}`)
+          .join("\n"),
+      async () => {
+        await nextTick();
+        scheduleVisitorBubbleResize();
       },
     );
 
@@ -497,6 +630,10 @@ export default defineComponent({
     );
 
     onUnmounted(() => {
+      if (resizeFrame !== null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(resizeFrame);
+        resizeFrame = null;
+      }
       if (unsubscribe) {
         unsubscribe();
         unsubscribe = null;
@@ -615,23 +752,26 @@ export default defineComponent({
 }
 
 .chat-message {
-  max-width: 82%;
   display: flex;
-  flex-direction: column;
+  width: 100%;
 }
 
 .chat-message.is-mine {
-  align-self: flex-end;
-  text-align: right;
+  justify-content: flex-end;
 }
 
 .chat-message.is-theirs {
-  align-self: flex-start;
-  text-align: left;
+  justify-content: flex-start;
 }
 
 .chat-bubble-wrapper {
   position: relative;
+  display: inline-flex;
+  max-width: 82%;
+}
+
+.chat-message.is-other.is-mine .chat-bubble-wrapper {
+  justify-content: flex-end;
 }
 
 .chat-delete-btn {
@@ -675,6 +815,9 @@ export default defineComponent({
 }
 
 .chat-bubble {
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: 100%;
   padding: 8px 12px;
   border-radius: 16px;
   font-size: 13px;
@@ -685,8 +828,12 @@ export default defineComponent({
     var(--color-tile-background)
   );
   color: var(--color-text-primary);
-  word-break: break-word;
+  overflow-wrap: break-word;
   white-space: pre-wrap;
+}
+
+.chat-bubble-text {
+  display: block;
 }
 
 .chat-message.is-owner .chat-bubble {
@@ -701,6 +848,14 @@ export default defineComponent({
 .chat-message.is-other .chat-bubble {
   background-color: var(--color-text-primary);
   color: var(--color-tile-background);
+}
+
+.chat-message.is-other.is-mine .chat-bubble {
+  text-align: right;
+}
+
+.chat-message.is-other.is-theirs .chat-bubble {
+  text-align: left;
 }
 
 .chat-message.is-mine .chat-bubble {

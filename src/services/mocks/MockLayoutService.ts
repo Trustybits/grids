@@ -123,5 +123,6 @@ export class MockLayoutService implements ILayoutService {
   async queueSave(
     _layout: Layout,
     _resolvedUrls?: Record<string, string>,
+    _resolvedDocumentItemUrls?: Record<string, Record<string, string>>,
   ): Promise<void> {}
 }

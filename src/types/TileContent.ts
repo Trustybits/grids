@@ -15,6 +15,7 @@ export enum ContentType {
   YOUTUBE = "youtube",
   ROADMAP_FEED = "roadmap_feed",
   MUSIC = "music",
+  DOCUMENT = "document",
 }
 
 export interface TileContent {
@@ -289,6 +290,18 @@ export interface MusicContent extends TileContent {
   textSubdued: string;
 }
 
+export interface DocumentItem {
+  id: string;
+  fileName: string;
+  url: string;
+  mimeType?: string;
+}
+
+export interface DocumentStackContent extends TileContent {
+  type: ContentType.DOCUMENT;
+  items: DocumentItem[];
+}
+
 // ── Roadmap Feed (Notion integration) ──────────────────────────────
 
 // The three canonical status buckets items are mapped into for display.
@@ -364,4 +377,5 @@ export type AnyTileContent =
   | ClickerContent
   | YouTubeContent
   | RoadmapFeedContent
-  | MusicContent;
+  | MusicContent
+  | DocumentStackContent;

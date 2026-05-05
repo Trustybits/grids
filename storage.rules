@@ -67,6 +67,17 @@ service firebase.storage {
       allow update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
+    match /users/{userId}/documents/{documentId} {
+      allow read: if resource.metadata.published == 'true' ||
+                  (request.auth != null && request.auth.uid == userId);
+
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && isFileSizeValid();
+
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
     // OG images are generated server-side and must be publicly readable (CDN redirects)
     // Writes are only performed by the Cloud Function via Admin SDK (bypasses these rules)
     match /og-images/{allPaths=**} {

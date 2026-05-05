@@ -4,13 +4,14 @@ import type {
 } from "@/dao/interfaces/StorageDao";
 import type { IStorageService } from "../interfaces/IStorageService";
 import type { UploadOptions } from "@/types/UploadFileTypes";
+import { validateUploadFile } from "@/utils/uploadFileClassification";
 
 export class MockStorageService implements IStorageService {
   validateFile(
-    _file: File,
-    _options: UploadOptions,
-  ): { isImage: boolean; isVideo: boolean } {
-    throw new Error("Method not implemented.");
+    file: File,
+    options: UploadOptions,
+  ): { isImage: boolean; isVideo: boolean; isDocument: boolean } {
+    return validateUploadFile(file, options);
   }
   upload(
     _userId: string,

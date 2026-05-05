@@ -1,4 +1,8 @@
 import type { Snapshot } from "./UndoTypes";
+import {
+  ContentType,
+  type DocumentStackContent,
+} from "@/types/TileContent";
 
 const MAX_STACK_SIZE = 20;
 
@@ -151,12 +155,34 @@ export class UndoRedoManager {
     return null;
   }
 
-  replaceBlobUrl(tileId: string, permanentUrl: string): void {
+  replaceBlobUrl(
+    tileId: string,
+    permanentUrl: string,
+    documentItemId?: string,
+  ): void {
     for (const stack of [this.undoStack, this.redoStack]) {
       for (const snapshot of stack) {
         const tile = snapshot.tiles.find((t) => t.i === tileId);
+        if (!tile) continue;
+
         if (
-          tile &&
+          documentItemId &&
+          tile.content.type === ContentType.DOCUMENT
+        ) {
+          const doc = tile.content as DocumentStackContent;
+          const item = doc.items?.find((i) => i.id === documentItemId);
+          if (
+            item &&
+            typeof item.url === "string" &&
+            item.url.startsWith("blob:")
+          ) {
+            item.url = permanentUrl;
+          }
+          continue;
+        }
+
+        if (
+          !documentItemId &&
           "src" in tile.content &&
           typeof (tile.content as { src: string }).src === "string" &&
           (tile.content as { src: string }).src.startsWith("blob:")

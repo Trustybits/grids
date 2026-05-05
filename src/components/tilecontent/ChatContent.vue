@@ -108,7 +108,7 @@
       <textarea
         ref="inputRef"
         v-model="draftMessage"
-        class="chat-input"
+        class="chat-input scrollable-thin"
         rows="1"
         :placeholder="composerPlaceholder"
         :disabled="!canSend"
@@ -408,7 +408,7 @@ export default defineComponent({
       const longestWordWidth = Math.max(
         ...words.map((word) => context.measureText(word).width),
       );
-      const minWidth = Math.min(maxWidth, Math.max(24, longestWordWidth));
+      const minWidth = Math.min(maxWidth, Math.max(1, longestWordWidth));
       const maxLineCount = getWrappedLineWidths(text, maxWidth, context).length;
 
       for (
@@ -446,7 +446,7 @@ export default defineComponent({
           parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
         const rowWidth = message.clientWidth;
         const maxBubbleWidth = Math.floor(rowWidth * 0.82);
-        const maxContentWidth = Math.max(24, maxBubbleWidth - paddingX);
+        const maxContentWidth = Math.max(1, maxBubbleWidth - paddingX);
         const text = bubble.textContent?.trim() ?? "";
         const contentWidth = getTightContentWidth(
           text,
@@ -927,6 +927,10 @@ export default defineComponent({
   flex: 1;
   min-height: 36px;
   max-height: 120px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: transparent transparent;
   resize: none;
   border-radius: 12px;
   border: 1px solid
@@ -946,6 +950,11 @@ export default defineComponent({
 .chat-input:focus {
   outline: none;
   border-color: color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.chat-input:hover {
+  scrollbar-color: var(--color-border) transparent;
 }
 
 .chat-input:disabled {

@@ -9,7 +9,7 @@
       <button
         class="ur-btn"
         :class="{ 'ur-btn--active': layoutStore.canUndo }"
-        :data-tooltip="layoutStore.canUndo ? `Undo ${layoutStore.undoActionLabel}` : undefined"
+        :data-tooltip="layoutStore.canUndo ? `Undo ${layoutStore.undoActionLabel}` : 'Nothing to Undo'"
         @click="layoutStore.undo()"
       >
         Undo
@@ -18,7 +18,7 @@
       <button
         class="ur-btn"
         :class="{ 'ur-btn--active': layoutStore.canRedo }"
-        :data-tooltip="layoutStore.canRedo ? `Redo ${layoutStore.redoActionLabel}` : undefined"
+        :data-tooltip="layoutStore.canRedo ? `Redo ${layoutStore.redoActionLabel}` : 'Nothing to Redo'"
         @click="layoutStore.redo()"
       >
         Redo
@@ -213,10 +213,6 @@ onUnmounted(() => {
   line-height: 1;
 
   &--active {
-    color: var(--color-content-high);
-  }
-
-  &:hover {
     color: var(--color-content-high);
   }
 

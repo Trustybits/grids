@@ -1,9 +1,13 @@
 <template>
-  <div class="user-menu" v-if="user" :data-tooltip="showUserMenu ? null : 'User Menu'" >
+  <div
+    class="user-menu"
+    v-if="user"
+    ref="menuRef"
+    :data-tooltip="showUserMenu ? null : 'User Menu'"
+  >
     <button
       class="user-menu-button"
       @click="toggleUserMenu"
-      @blur="handleBlur"
     >
       <div class="user-icon" >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -67,7 +71,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted } from "vue";
+import { defineComponent, ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@/auth/AuthProvider";
@@ -83,6 +87,7 @@ export default defineComponent({
   setup() {
     const router = useRouter();
     const user = ref<AuthUser | null>(null);
+    const menuRef = ref<HTMLElement | null>(null);
     const showUserMenu = ref(false);
     const showSlugModal = ref(false);
     const currentSlug = ref<string | undefined>(undefined);
@@ -106,6 +111,11 @@ export default defineComponent({
           profileLoaded.value = false;
         }
       });
+      document.addEventListener("click", handleClickOutside, true);
+    });
+
+    onUnmounted(() => {
+      document.removeEventListener("click", handleClickOutside, true);
     });
 
     const loadDefaultGridProfileImageAndName = async (gridId?: string) => {
@@ -159,11 +169,10 @@ export default defineComponent({
       }
     };
 
-    const handleBlur = () => {
-      // Close menu when clicking outside
-      setTimeout(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.value && !menuRef.value.contains(event.target as Node)) {
         showUserMenu.value = false;
-      }, 200);
+      }
     };
 
     const logout = async () => {
@@ -196,9 +205,9 @@ export default defineComponent({
 
     return {
       user,
+      menuRef,
       showUserMenu,
       toggleUserMenu,
-      handleBlur,
       logout,
       showSlugModal,
       currentSlug,

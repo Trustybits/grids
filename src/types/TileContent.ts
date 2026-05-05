@@ -300,6 +300,7 @@ export interface DocumentItem {
 export interface DocumentStackContent extends TileContent {
   type: ContentType.DOCUMENT;
   items: DocumentItem[];
+  backgroundColor?: string;
 }
 
 // ── Roadmap Feed (Notion integration) ──────────────────────────────

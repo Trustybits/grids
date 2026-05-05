@@ -568,11 +568,17 @@ export function createTileContent(
         textSubdued: (data as Partial<MusicContent>).textSubdued || "",
       } as MusicContent;
 
-    case ContentType.DOCUMENT:
-      return {
+    case ContentType.DOCUMENT: {
+      const d = data as Partial<DocumentStackContent>;
+      const payload: DocumentStackContent = {
         type,
-        items: (data as Partial<DocumentStackContent>).items ?? [],
-      } as DocumentStackContent;
+        items: d.items ?? [],
+      };
+      if (typeof d.backgroundColor === "string" && d.backgroundColor !== "") {
+        payload.backgroundColor = d.backgroundColor;
+      }
+      return payload;
+    }
 
     default:
       throw new Error(`Unsupported content type: ${type}`);

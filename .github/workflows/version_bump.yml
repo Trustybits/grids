@@ -1,9 +1,10 @@
 name: version_bump
 
 on:
-  pull_request:
+  workflow_run:
+    workflows: [CI]
     branches: [main]
-    types: [closed]
+    types: [completed]
 
 concurrency:
   group: version-bump-main
@@ -15,7 +16,10 @@ permissions:
 jobs:
   version-bump:
     name: Version bump
-    if: github.event.pull_request.merged == true
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      !startsWith(github.event.workflow_run.head_commit.message, 'Bump version to')
     runs-on: ubuntu-latest
 
     steps:

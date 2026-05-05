@@ -146,7 +146,6 @@ export default defineComponent({
     const messagesContainer = ref<HTMLDivElement | null>(null);
     const messages = ref<ChatMessage[]>([]);
     const showScrollButton = ref(false);
-    const userHasScrolled = ref(false);
     const showTopFade = ref(false);
 
     const layoutId = computed(() => layoutStore.currentLayout?.id ?? "");
@@ -211,18 +210,21 @@ export default defineComponent({
       });
     };
 
+    const isNearBottom = () => {
+      const container = messagesContainer.value;
+      if (!container) return true;
+      return (
+        container.scrollHeight - container.scrollTop - container.clientHeight <
+        100
+      );
+    };
+
     // Handle scroll events to show/hide scroll-to-bottom button and top fade
     const handleScroll = () => {
       const container = messagesContainer.value;
       if (!container) return;
 
-      userHasScrolled.value = true;
-
-      // Check if user is near the bottom (within 100px)
-      const isNearBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight <
-        100;
-      showScrollButton.value = !isNearBottom;
+      showScrollButton.value = !isNearBottom();
 
       // Show top fade indicator if user has scrolled down from the top (more than 20px)
       showTopFade.value = container.scrollTop > 20;
@@ -231,13 +233,19 @@ export default defineComponent({
     const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
       const container = messagesContainer.value;
       if (!container) return;
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior,
-      });
-      // Hide scroll button after scrolling to bottom
-      if (behavior === "smooth") {
+      const doScroll = () => {
+        container.scrollTop = container.scrollHeight;
         showScrollButton.value = false;
+      };
+      if (behavior === "smooth") {
+        container.scrollTo({ top: container.scrollHeight, behavior });
+        setTimeout(() => container.scrollTo({ top: container.scrollHeight, behavior }), 50);
+        setTimeout(() => container.scrollTo({ top: container.scrollHeight, behavior }), 150);
+        showScrollButton.value = false;
+      } else {
+        doScroll();
+        setTimeout(doScroll, 50);
+        setTimeout(doScroll, 150);
       }
     };
 
@@ -346,9 +354,11 @@ export default defineComponent({
     watch(
       () => messages.value.length,
       async (newLength, oldLength) => {
+        const wasNearBottom = isNearBottom();
         await nextTick();
-        // Only auto-scroll if user hasn't manually scrolled up, or if it's the initial load
-        if (!userHasScrolled.value || oldLength === 0) {
+        if (oldLength === 0 || oldLength === undefined) {
+          scrollToBottom("auto");
+        } else if (wasNearBottom) {
           scrollToBottom("smooth");
         }
       },
@@ -420,7 +430,6 @@ export default defineComponent({
   overflow-anchor: none;
   margin: 0 -10px;
   padding: 0 10px;
-  scroll-behavior: smooth;
   overscroll-behavior: contain;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;

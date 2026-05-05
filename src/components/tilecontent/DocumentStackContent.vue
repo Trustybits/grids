@@ -6,6 +6,10 @@
       'is-uploading': isUploading,
       'has-multiple': items.length > 1,
     }"
+    :style="{
+      background: backgroundColor,
+      color: textColor,
+    }"
     @click="onRootClick"
   >
     <div class="doc-stack-visual" aria-hidden="true">
@@ -20,8 +24,12 @@
           <DocumentTileIcon class="doc-tile-logo-icon" />
         </div>
         <div class="doc-tile-text">
-          <p class="doc-tile-title">{{ displayTitle }}</p>
-          <p v-if="displaySubtitle" class="doc-tile-subtitle">{{ displaySubtitle }}</p>
+          <p class="doc-tile-title" :style="{ color: textColor }">{{ displayTitle }}</p>
+          <p
+            v-if="displaySubtitle"
+            class="doc-tile-subtitle"
+            :style="{ color: textColor, opacity: 0.72 }"
+          >{{ displaySubtitle }}</p>
         </div>
       </div>
     </div>
@@ -115,6 +123,7 @@
 </template>
 
 <script lang="ts">
+/* eslint-disable vue/no-mutating-props */
 import {
   computed,
   defineComponent,
@@ -130,6 +139,11 @@ import type {
 } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import DocumentTileIcon from "@/components/icons/DocumentTileIcon.vue";
+import { useColorPicker } from "@/composables/useColorPicker";
+import {
+  loadDocumentBytes,
+  uint8ArrayToArrayBuffer,
+} from "@/utils/documentBytes";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import mammoth from "mammoth";
@@ -164,6 +178,7 @@ function previewKindForItem(item: DocumentItem): "pdf" | "docx" | "doc" | "txt" 
 export default defineComponent({
   name: "DocumentStackContent",
   components: { DocumentTileIcon },
+  emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
       type: Object as () => DocumentStackContentType,
@@ -174,8 +189,10 @@ export default defineComponent({
       required: true,
     },
   },
-  setup(props) {
+  setup(props, { emit }) {
     const layoutStore = useLayoutStore();
+    const { backgroundColor, textColor, handleBackgroundColorChange } =
+      useColorPicker(props.tileId, props.content, emit);
     const items = computed(() => props.content.items ?? []);
     const primary = computed(() => items.value[0]);
     const displayTitle = computed(
@@ -253,26 +270,89 @@ export default defineComponent({
         (previewIndex.value - 1 + items.value.length) % items.value.length;
     };
 
-    const renderPdf = async (url: string) => {
+    const renderPdfBytes = async (bytes: Uint8Array) => {
       clearPdfMount();
       const el = pdfMountRef.value;
+      // #region agent log
+      fetch("http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Debug-Session-Id": "01bea2",
+        },
+        body: JSON.stringify({
+          sessionId: "01bea2",
+          runId: "post-fix",
+          hypothesisId: "H1",
+          location: "DocumentStackContent.vue:renderPdfBytes:mount-check",
+          message: "renderPdfBytes mount + byteLength",
+          data: { hasEl: !!el, byteLength: bytes.byteLength },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       if (!el) return;
       const pdfjsLib = await import("pdfjs-dist");
       pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
-      const loadingTask = pdfjsLib.getDocument(url);
-      const pdf = await loadingTask.promise;
-      for (let p = 1; p <= pdf.numPages; p++) {
-        const page = await pdf.getPage(p);
-        const viewport = page.getViewport({ scale: 1.25 });
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        canvas.className = "doc-pdf-page";
-        el.appendChild(canvas);
-        if (!ctx) continue;
-        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+      const copy = new Uint8Array(bytes);
+      const loadingTask = pdfjsLib.getDocument({ data: copy });
+      try {
+        const pdf = await loadingTask.promise;
+        // #region agent log
+        fetch("http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Debug-Session-Id": "01bea2",
+          },
+          body: JSON.stringify({
+            sessionId: "01bea2",
+            runId: "post-fix",
+            hypothesisId: "H2",
+            location: "DocumentStackContent.vue:renderPdfBytes:getDocument-ok",
+            message: "getDocument ok",
+            data: { numPages: pdf.numPages },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const viewport = page.getViewport({ scale: 1.25 });
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          canvas.className = "doc-pdf-page";
+          el.appendChild(canvas);
+          if (!ctx) continue;
+          await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+        }
+      } catch (pdfErr) {
+        // #region agent log
+        fetch("http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Debug-Session-Id": "01bea2",
+          },
+          body: JSON.stringify({
+            sessionId: "01bea2",
+            runId: "post-fix",
+            hypothesisId: "H2",
+            location:
+              "DocumentStackContent.vue:renderPdfBytes:getDocument-error",
+            message: "getDocument or render failed",
+            data: {
+              err:
+                pdfErr instanceof Error ? pdfErr.message : String(pdfErr),
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
+        throw pdfErr;
       }
     };
 
@@ -292,33 +372,83 @@ export default defineComponent({
       const url = item.url;
       const kind = previewKindForItem(item);
       try {
-        if (kind === "pdf") {
-          previewKind.value = "pdf";
-          await nextTick();
-          await renderPdf(url);
-        } else if (kind === "docx") {
-          const res = await fetch(url);
-          const buf = await res.arrayBuffer();
-          const result = await mammoth.convertToHtml({ arrayBuffer: buf });
-          previewKind.value = "html";
-          htmlContent.value = DOMPurify.sanitize(result.value || "");
-        } else if (kind === "doc") {
+        if (kind === "doc") {
           previewKind.value = "none";
           loadError.value =
             "Preview isn’t available for .doc files. Download to open in Word.";
+          return;
+        }
+        if (kind === "other") {
+          previewKind.value = "none";
+          loadError.value = "Unsupported type for preview.";
+          return;
+        }
+
+        const bytes = await loadDocumentBytes(url);
+
+        if (kind === "pdf") {
+          // #region agent log
+          fetch("http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Debug-Session-Id": "01bea2",
+            },
+            body: JSON.stringify({
+              sessionId: "01bea2",
+              runId: "post-fix",
+              hypothesisId: "H1",
+              location:
+                "DocumentStackContent.vue:loadCurrentDocument:pdf-branch-entry",
+              message: "pdf branch entered",
+              data: {
+                previewLoading: previewLoading.value,
+                previewKindBefore: previewKind.value,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {});
+          // #endregion
+          previewKind.value = "pdf";
+          previewLoading.value = false;
+          await nextTick();
+          // #region agent log
+          fetch("http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Debug-Session-Id": "01bea2",
+            },
+            body: JSON.stringify({
+              sessionId: "01bea2",
+              runId: "post-fix",
+              hypothesisId: "H1",
+              location:
+                "DocumentStackContent.vue:loadCurrentDocument:after-nextTick-pdf",
+              message: "after nextTick before renderPdfBytes",
+              data: {
+                previewLoading: previewLoading.value,
+                hasPdfMountRef: !!pdfMountRef.value,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {});
+          // #endregion
+          await renderPdfBytes(bytes);
+        } else if (kind === "docx") {
+          const result = await mammoth.convertToHtml({
+            arrayBuffer: uint8ArrayToArrayBuffer(bytes),
+          });
+          previewKind.value = "html";
+          htmlContent.value = DOMPurify.sanitize(result.value || "");
         } else if (kind === "md") {
-          const res = await fetch(url);
-          const raw = await res.text();
+          const raw = new TextDecoder().decode(bytes);
           const rawHtml = await marked.parse(raw);
           previewKind.value = "html";
           htmlContent.value = DOMPurify.sanitize(String(rawHtml));
         } else if (kind === "txt") {
-          const res = await fetch(url);
-          textContent.value = await res.text();
+          textContent.value = new TextDecoder().decode(bytes);
           previewKind.value = "text";
-        } else {
-          previewKind.value = "none";
-          loadError.value = "Unsupported type for preview.";
         }
       } catch (e) {
         console.error(e);
@@ -368,6 +498,9 @@ export default defineComponent({
       closePreview,
       nextDoc,
       prevDoc,
+      backgroundColor,
+      textColor,
+      handleBackgroundColorChange,
     };
   },
 });
@@ -381,7 +514,6 @@ export default defineComponent({
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
-  background: var(--color-tile-background, rgba(20, 20, 28, 0.92));
 }
 
 .doc-stack-visual {
@@ -525,19 +657,21 @@ export default defineComponent({
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(10px);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
 }
 
 .doc-preview-panel {
   position: relative;
-  width: min(900px, 100%);
-  height: min(88vh, 900px);
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
   background: var(--color-tile-background, #1a1a22);
-  border-radius: 16px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  border: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -602,6 +736,14 @@ export default defineComponent({
   inset: 0;
   overflow: auto;
   padding: 52px 56px 40px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.doc-preview-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .doc-preview-pdf {

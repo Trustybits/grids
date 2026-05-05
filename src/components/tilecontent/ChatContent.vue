@@ -418,6 +418,8 @@ export default defineComponent({
   min-height: 0;
   overflow-y: auto;
   overflow-anchor: none;
+  margin: 0 -10px;
+  padding: 0 10px;
   scroll-behavior: smooth;
   overscroll-behavior: contain;
   touch-action: pan-y;
@@ -496,6 +498,7 @@ export default defineComponent({
 .chat-delete-btn {
   position: absolute;
   top: -8px;
+  right: -8px;
   display: none;
   align-items: center;
   justify-content: center;
@@ -503,7 +506,7 @@ export default defineComponent({
   height: 20px;
   padding: 0;
   border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: 50%;
+  border-radius: 4px;
   background-color: var(--color-actionbar-background);
   color: var(--color-content-high);
   cursor: pointer;
@@ -527,13 +530,6 @@ export default defineComponent({
   color: var(--color-light-100);
 }
 
-.chat-message.is-mine .chat-delete-btn {
-  left: -8px;
-}
-
-.chat-message.is-theirs .chat-delete-btn {
-  right: -8px;
-}
 
 .chat-bubble-wrapper:hover .chat-delete-btn {
   display: flex;

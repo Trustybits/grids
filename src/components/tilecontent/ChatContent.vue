@@ -236,8 +236,10 @@ export default defineComponent({
     );
 
     const isMyMessage = (message: ChatMessage) => {
-      const authorId = message.authorId || ownerId.value;
-      return authorId === currentUserId.value;
+      if (isOwner.value) {
+        return isOwnerMessage(message);
+      }
+      return !isOwnerMessage(message);
     };
 
     const canEditMessage = (message: ChatMessage) => {
@@ -265,8 +267,9 @@ export default defineComponent({
     };
 
     const startEditing = (message: ChatMessage) => {
+      const updateDraft = !!editingMessageId.value;
       editingMessageId.value = message.id;
-      savedDraft.value = draftMessage.value;
+      savedDraft.value = updateDraft ? savedDraft.value : draftMessage.value;
       draftMessage.value = message.text;
       nextTick(() => inputRef.value?.focus());
     };
@@ -410,13 +413,14 @@ export default defineComponent({
             text,
           );
           persistSessionMessageId(newId);
+          await nextTick();
+          scrollToBottom("smooth");
         }
       } catch (error) {
         console.error("Failed to send chat message:", error);
       }
 
-      await nextTick();
-      scrollToBottom("smooth");
+      
       inputRef.value?.focus();
     };
 
@@ -717,8 +721,7 @@ export default defineComponent({
 }
 
 .chat-bubble-wrapper.is-editing .chat-bubble {
-  outline: 1.5px solid
-    color-mix(in srgb, var(--color-text-primary) 40%, transparent);
+  outline: 1.5px solid var(--color-figma-purple);
   outline-offset: -1.5px;
 }
 

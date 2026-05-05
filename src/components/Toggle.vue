@@ -81,7 +81,9 @@ defineEmits<{
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: var(--color-base-34);
+    box-sizing: border-box;
+    background-color: var(--color-content-low);
+    border: 1px solid var(--color-tile-stroke);
     transition: var(--duration-fast);
     border-radius: 20px;
 
@@ -91,7 +93,7 @@ defineEmits<{
       height: 14px;
       width: 14px;
       left: 3px;
-      bottom: 3px;
+      bottom: 2px;
       background-color: white;
       transition: var(--duration-fast);
       border-radius: 50%;
@@ -100,9 +102,11 @@ defineEmits<{
 
   &--checked .toggle-slider {
     background-color: var(--color-figma-purple);
+    border-color: var(--color-figma-purple);
 
     &:before {
       transform: translateX(16px);
+      background-color: var(--color-light-100);
     }
   }
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-tile">
+  <div class="chat-tile" :style="chatTileStyle">
     <div
       class="chat-messages"
       ref="messagesContainer"
@@ -140,6 +140,7 @@ import {
 import SendIcon from "@/components/icons/SendIcon.vue";
 import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
 import FloatingTooltip from "@/components/FloatingTooltip.vue";
+import { useColorPicker } from "@/composables/useColorPicker";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
 import type { ChatContent, ChatMessage } from "@/types/TileContent";
@@ -150,6 +151,7 @@ export default defineComponent({
     CloseIcon,
     FloatingTooltip,
   },
+  emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
       type: Object as () => ChatContent,
@@ -160,7 +162,7 @@ export default defineComponent({
       required: true,
     },
   },
-  setup(props) {
+  setup(props, { emit }) {
     const layoutStore = useLayoutStore();
     const chatService = getServiceFactory().getChatService();
 
@@ -223,6 +225,25 @@ export default defineComponent({
     const composerPlaceholder = computed(() =>
       isOwner.value ? "Write a message.." : "Message the owner..",
     );
+    const { backgroundColor, textColor, handleBackgroundColorChange } =
+      useColorPicker(props.tileId, props.content, emit);
+    const oppositeChatText = computed(() =>
+      textColor.value === "#000000" ? "#FFFFFF" : "#000000",
+    );
+    const isLightTile = computed(() => textColor.value === "#000000");
+    const chatTileStyle = computed(() => ({
+      "--tile-bg": backgroundColor.value,
+      "--chat-text": textColor.value,
+      "--opposite-chat-text": oppositeChatText.value,
+      "--chat-owner-bubble": isLightTile.value
+        ? "color-mix(in srgb, var(--tile-bg) 78%, #000000 22%)"
+        : "color-mix(in srgb, var(--tile-bg) 92%, #FFFFFF 8%)",
+      "--chat-visitor-bubble": isLightTile.value
+        ? "color-mix(in srgb, var(--tile-bg) 92%, #FFFFFF 8%)"
+        : "color-mix(in srgb, var(--tile-bg) 10%, #FFFFFF 90%)",
+      "--chat-owner-text": textColor.value,
+      "--chat-visitor-text": "#000000",
+    }));
     const createMeasurementContext = () => {
       if (typeof document === "undefined") return null;
       try {
@@ -645,6 +666,7 @@ export default defineComponent({
       inputRef,
       messagesContainer,
       sortedMessages,
+      chatTileStyle,
       isOwner,
       isOwnerMessage,
       isMyMessage,
@@ -671,6 +693,7 @@ export default defineComponent({
       scrollToBottom,
       shouldShowDateSeparator,
       formatDateSeparator,
+      handleBackgroundColorChange,
     };
   },
 });
@@ -678,12 +701,40 @@ export default defineComponent({
 
 <style scoped>
 .chat-tile {
+  --tile-bg: var(--color-tile-background);
+  --chat-text: var(--color-text-primary);
+  --opposite-chat-text: var(--color-tile-background);
+  --chat-owner-text: var(--chat-text);
+  --chat-visitor-text: var(--opposite-chat-text);
+  --chat-owner-bubble: color-mix(
+    in srgb,
+    var(--tile-bg) 92%,
+    var(--chat-text) 8%
+  );
+  --chat-visitor-bubble: color-mix(
+    in srgb,
+    var(--tile-bg) 10%,
+    #ffffff 90%
+  );
+  --chat-muted-text: color-mix(in srgb, var(--chat-text) 60%, var(--tile-bg));
+  --chat-subtle-surface: color-mix(
+    in srgb,
+    var(--tile-bg) 88%,
+    var(--chat-text) 12%
+  );
+  --chat-control-surface: color-mix(
+    in srgb,
+    var(--tile-bg) 92%,
+    var(--chat-text) 8%
+  );
   height: 100%;
   width: 100%;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+  background-color: var(--tile-bg);
+  color: var(--chat-text);
 }
 
 .chat-messages {
@@ -723,8 +774,8 @@ export default defineComponent({
   flex-shrink: 0;
   background: linear-gradient(
     to bottom,
-    var(--color-tile-background) 0%,
-    color-mix(in srgb, var(--color-tile-background) 50%, transparent) 50%,
+    var(--tile-bg) 0%,
+    color-mix(in srgb, var(--tile-bg) 50%, transparent) 50%,
     transparent 100%
   );
   pointer-events: none;
@@ -737,18 +788,18 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: var(--color-content-default);
+  color: color-mix(in srgb, var(--chat-text) 66%, var(--tile-bg));
 }
 
 .chat-empty-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--chat-text);
 }
 
 .chat-empty-subtitle {
   font-size: 12px;
-  color: var(--color-content-default);
+  color: color-mix(in srgb, var(--chat-text) 60%, var(--tile-bg));
 }
 
 .chat-message {
@@ -784,10 +835,11 @@ export default defineComponent({
   width: 20px;
   height: 20px;
   padding: 0;
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border: var(--tile-border-width) solid
+    color-mix(in srgb, var(--chat-text) 18%, transparent);
   border-radius: 4px;
-  background-color: var(--color-actionbar-background);
-  color: var(--color-content-high);
+  background-color: var(--chat-control-surface);
+  color: var(--chat-text);
   cursor: pointer;
   z-index: 2;
   transition:
@@ -824,10 +876,10 @@ export default defineComponent({
   line-height: 1.4;
   background: color-mix(
     in srgb,
-    var(--color-text-primary) 10%,
-    var(--color-tile-background)
+    var(--chat-text) 10%,
+    var(--tile-bg)
   );
-  color: var(--color-text-primary);
+  color: var(--chat-text);
   overflow-wrap: break-word;
   white-space: pre-wrap;
 }
@@ -837,17 +889,13 @@ export default defineComponent({
 }
 
 .chat-message.is-owner .chat-bubble {
-  background: color-mix(
-    in srgb,
-    var(--color-tile-background) 92%,
-    var(--color-text-primary) 8%
-  );
-  color: var(--color-text-primary);
+  background: var(--chat-owner-bubble);
+  color: var(--chat-owner-text);
 }
 
 .chat-message.is-other .chat-bubble {
-  background-color: var(--color-text-primary);
-  color: var(--color-tile-background);
+  background: var(--chat-visitor-bubble);
+  color: var(--chat-visitor-text);
 }
 
 .chat-message.is-other.is-mine .chat-bubble {
@@ -881,19 +929,15 @@ export default defineComponent({
   justify-content: space-between;
   padding: 4px 8px;
   font-size: 11px;
-  color: color-mix(in srgb, var(--color-text-primary) 60%, transparent);
+  color: var(--chat-muted-text);
   border-radius: 8px;
-  background: color-mix(
-    in srgb,
-    var(--color-text-primary) 6%,
-    var(--color-tile-background)
-  );
+  background: var(--chat-control-surface);
 }
 
 .chat-editing-cancel {
   border: none;
   background: none;
-  color: color-mix(in srgb, var(--color-text-primary) 60%, transparent);
+  color: var(--chat-muted-text);
   font-size: 11px;
   cursor: pointer;
   padding: 0 4px;
@@ -901,7 +945,7 @@ export default defineComponent({
 }
 
 .chat-editing-cancel:hover {
-  color: var(--color-text-primary);
+  color: var(--chat-text);
 }
 
 .chat-composer {
@@ -917,13 +961,9 @@ export default defineComponent({
   resize: none;
   border-radius: 12px;
   border: 1px solid
-    color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-  background: color-mix(
-    in srgb,
-    var(--color-tile-background) 92%,
-    var(--color-text-primary) 8%
-  );
-  color: var(--color-text-primary);
+    color-mix(in srgb, var(--chat-text) 18%, transparent);
+  background: var(--chat-control-surface);
+  color: var(--chat-text);
   padding: 8px 10px;
   font-size: 13px;
   line-height: 1.3;
@@ -932,7 +972,7 @@ export default defineComponent({
 
 .chat-input:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+  border-color: color-mix(in srgb, var(--chat-text) 38%, transparent);
 }
 
 .chat-input:disabled {
@@ -947,8 +987,8 @@ export default defineComponent({
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--color-content-low);
-  color: var(--color-text-primary);
+  background-color: var(--chat-subtle-surface);
+  color: var(--chat-text);
   cursor: pointer;
   pointer-events: auto;
   touch-action: manipulation;
@@ -959,7 +999,7 @@ export default defineComponent({
 
 .chat-send:hover {
   /* transform: translateY(-1px); */
-  background-color: var(--color-content-default);
+  background-color: color-mix(in srgb, var(--tile-bg) 78%, var(--chat-text) 22%);
 }
 
 .chat-send:disabled {
@@ -983,13 +1023,13 @@ export default defineComponent({
   content: "";
   flex: 1;
   height: 1px;
-  background: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
+  background: color-mix(in srgb, var(--chat-text) 18%, transparent);
 }
 
 .date-separator-text {
   font-size: 11px;
   font-weight: 600;
-  color: color-mix(in srgb, var(--color-text-primary) 50%, transparent);
+  color: var(--chat-muted-text);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
@@ -1005,8 +1045,8 @@ export default defineComponent({
   border-radius: 50%;
   border: none;
   padding: 4px;
-  background: var(--color-base-34);
-  color: var(--color-text-primary);
+  background: var(--chat-subtle-surface);
+  color: var(--chat-text);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1020,7 +1060,7 @@ export default defineComponent({
 }
 
 .scroll-to-bottom:hover {
-  background: var(--color-content-default);
+  background: color-mix(in srgb, var(--tile-bg) 78%, var(--chat-text) 22%);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   transform: translateX(-50%) translateY(-2px);
 }

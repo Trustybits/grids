@@ -397,6 +397,7 @@ export function createTileContent(
       return {
         type,
         messages: (data as Partial<ChatContent>).messages || [],
+        backgroundColor: (data as Partial<ChatContent>).backgroundColor,
       } as ChatContent;
 
     case ContentType.IMAGE:

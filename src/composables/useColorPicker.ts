@@ -2,6 +2,7 @@ import { useLayoutStore } from "@/stores/layout";
 import { useThemeStore } from "@/stores/theme";
 import type {
   ProfileBioContent,
+  ChatContent,
   TextContent,
   SmartTextContent,
   ImageContent,
@@ -13,6 +14,7 @@ import { computed, watch, type ComputedRef } from "vue";
 type ColorPickerContent =
   | TextContent
   | SmartTextContent
+  | ChatContent
   | ProfileBioContent
   | ImageContent
   | VideoContent

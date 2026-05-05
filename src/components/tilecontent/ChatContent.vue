@@ -46,9 +46,9 @@
               @click="onBubbleClick($event, message)"
             >
               <button
-                v-if="isOwner"
+                v-if="canDeleteMessage(message)"
                 class="chat-delete-btn"
-                @click.stop="deleteMessage(message.id)"
+                @click.stop="deleteMessage(message)"
                 @mousedown.stop
               >
                 <CloseIcon />
@@ -250,6 +250,12 @@ export default defineComponent({
     const canEditMessage = (message: ChatMessage) => {
       if (!isMyMessage(message)) return false;
       if (isOwner.value) return true;
+      return sessionMessageIds.value.has(message.id);
+    };
+
+    const canDeleteMessage = (message: ChatMessage) => {
+      if (isOwner.value) return true;
+      if (!isMyMessage(message)) return false;
       return sessionMessageIds.value.has(message.id);
     };
 
@@ -488,10 +494,16 @@ export default defineComponent({
       );
     };
 
-    const deleteMessage = async (messageId: string) => {
-      if (!isOwner.value || !layoutId.value || !props.tileId) return;
+    const deleteMessage = async (message: ChatMessage) => {
+      if (!canDeleteMessage(message) || !layoutId.value || !props.tileId) {
+        return;
+      }
       try {
-        await chatService.deleteMessage(layoutId.value, props.tileId, messageId);
+        await chatService.deleteMessage(
+          layoutId.value,
+          props.tileId,
+          message.id,
+        );
       } catch (error) {
         console.error("Failed to delete chat message:", error);
       }
@@ -649,6 +661,7 @@ export default defineComponent({
       isOwnerMessage,
       isMyMessage,
       canEditMessage,
+      canDeleteMessage,
       canSend,
       composerPlaceholder,
       sendMessage,

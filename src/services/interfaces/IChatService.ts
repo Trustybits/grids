@@ -30,7 +30,7 @@ export interface IChatService {
     text: string,
   ): Promise<void>;
 
-  /** Delete a chat message. Only the layout owner should call this. */
+  /** Delete a chat message. Owners can delete any message; visitors can delete their own current-session messages. */
   deleteMessage(
     layoutId: string,
     tileId: string,

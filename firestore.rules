@@ -74,7 +74,9 @@ service cloud.firestore {
               && ((request.auth != null && resource.data.authorId == request.auth.uid)
                   || (request.auth == null && resource.data.authorId == "visitor")));
 
-        allow delete: if isLayoutOwner(layoutId);
+        allow delete: if isLayoutOwner(layoutId)
+          || ((request.auth != null && resource.data.authorId == request.auth.uid)
+              || (request.auth == null && resource.data.authorId == "visitor"));
       }
 
       // Upvotes for roadmap feed tiles.

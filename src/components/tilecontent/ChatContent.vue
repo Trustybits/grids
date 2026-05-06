@@ -844,8 +844,8 @@ export default defineComponent({
 }
 
 .chat-message.is-mine .chat-bubble {
-  background: #ffffff;
-  color: #1a1a1a;
+  color: var(--color-tile-background);
+  background: var(--color-text-primary);
 }
 
 .chat-message.is-theirs .chat-bubble {

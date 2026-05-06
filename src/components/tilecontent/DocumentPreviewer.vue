@@ -389,12 +389,54 @@ export default defineComponent({
     const zoomBtnRef = ref<HTMLElement | null>(null);
     const thumbCanvases = new Map<number, HTMLCanvasElement>();
     let pageObserver: IntersectionObserver | null = null;
+    let pdfScrollRoot: HTMLElement | null = null;
+    let pdfScrollHandler: (() => void) | null = null;
+    let pdfScrollRaf = 0;
     let outlineObserver: IntersectionObserver | null = null;
     let outlineScrollRaf = 0;
     let outlineHeadings: HTMLElement[] = [];
     let outlineScrollRoot: HTMLElement | null = null;
     let pdfRenderToken = 0;
     let pdfLoadToken = 0;
+    let pdfDebugLogCount = 0;
+
+    const logPdfDebug = (
+      hypothesisId: string,
+      message: string,
+      data: Record<string, unknown>,
+    ) => {
+      if (pdfDebugLogCount > 80) return;
+      pdfDebugLogCount += 1;
+      const payload = {
+        sessionId: "7b23d6",
+        runId: "initial",
+        hypothesisId,
+        location: "DocumentPreviewer.vue:logPdfDebug",
+        message,
+        data,
+        timestamp: Date.now(),
+      };
+      // #region agent log
+      console.info("[DocumentPreviewerDebug]", payload);
+      console.info("[DocumentPreviewerDebugJSON]", JSON.stringify(payload));
+      fetch(
+        "http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Debug-Session-Id": "7b23d6",
+          },
+          body: JSON.stringify(payload),
+        },
+      ).catch(() => {
+        navigator.sendBeacon?.(
+          "http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3",
+          new Blob([JSON.stringify(payload)], { type: "application/json" }),
+        );
+      });
+      // #endregion
+    };
 
     const currentItem = computed(() => props.items[currentIndex.value]);
     const currentFileName = computed(
@@ -448,6 +490,13 @@ export default defineComponent({
     const teardownObservers = () => {
       pageObserver?.disconnect();
       pageObserver = null;
+      if (pdfScrollRoot && pdfScrollHandler) {
+        pdfScrollRoot.removeEventListener("scroll", pdfScrollHandler);
+      }
+      pdfScrollRoot = null;
+      pdfScrollHandler = null;
+      cancelAnimationFrame(pdfScrollRaf);
+      pdfScrollRaf = 0;
       outlineObserver?.disconnect();
       outlineObserver = null;
       if (outlineScrollRoot) {
@@ -572,27 +621,82 @@ export default defineComponent({
     const attachPageObserver = () => {
       const root = pdfMountRef.value;
       if (!root) return;
-      const observer = new IntersectionObserver(
-        (entries) => {
-          let bestRatio = 0;
-          let bestPage = activePage.value;
-          for (const entry of entries) {
-            if (entry.intersectionRatio > bestRatio) {
-              bestRatio = entry.intersectionRatio;
-              const p = Number(
-                (entry.target as HTMLElement).dataset.page || "0",
-              );
-              if (p > 0) bestPage = p;
-            }
+      const getPdfPageMetrics = () => {
+        const rootRect = root.getBoundingClientRect();
+        const anchorY = rootRect.top + rootRect.height * OUTLINE_ACTIVE_RATIO;
+        const pages = Array.from(
+          root.querySelectorAll(".doc-prev-pdf-page"),
+        ) as HTMLElement[];
+        let anchorPage = activePage.value;
+        let maxRatioPage = activePage.value;
+        let maxRatio = 0;
+        let tiedMaxPages: number[] = [];
+        const pageMetrics = pages.map((page) => {
+          const rect = page.getBoundingClientRect();
+          const visiblePx = Math.max(
+            0,
+            Math.min(rect.bottom, rootRect.bottom) -
+              Math.max(rect.top, rootRect.top),
+          );
+          const ratio = rect.height > 0 ? visiblePx / rect.height : 0;
+          const pageNum = Number(page.dataset.page || "0");
+          if (rect.top <= anchorY && pageNum > 0) anchorPage = pageNum;
+          if (ratio > maxRatio + 0.01 && pageNum > 0) {
+            maxRatio = ratio;
+            maxRatioPage = pageNum;
+            tiedMaxPages = [pageNum];
+          } else if (Math.abs(ratio - maxRatio) <= 0.01 && pageNum > 0) {
+            tiedMaxPages.push(pageNum);
           }
-          if (bestRatio > 0) activePage.value = bestPage;
-        },
-        { root, threshold: [0.25, 0.5, 0.75] },
-      );
-      pageObserver = observer;
-      root
-        .querySelectorAll(".doc-prev-pdf-page")
-        .forEach((el) => observer.observe(el));
+          return {
+            page: pageNum,
+            top: Math.round(rect.top - rootRect.top),
+            bottom: Math.round(rect.bottom - rootRect.top),
+            ratio: Math.round(ratio * 100) / 100,
+          };
+        });
+        const selectedPage =
+          spread.value === 2 && tiedMaxPages.length > 1
+            ? Math.min(...tiedMaxPages)
+            : maxRatioPage;
+        return {
+          scrollTop: Math.round(root.scrollTop),
+          rootHeight: Math.round(rootRect.height),
+          anchorPage,
+          maxRatioPage,
+          maxRatio: Math.round(maxRatio * 100) / 100,
+          tiedMaxPages,
+          selectedPage,
+          pageMetrics,
+        };
+      };
+
+      const updateActivePdfPage = () => {
+        const metrics = getPdfPageMetrics();
+        const nextPage = metrics.selectedPage;
+        logPdfDebug("H1-H3-H4", "pdf scroll active-page candidate", {
+          previousActivePage: activePage.value,
+          nextActivePage: nextPage,
+          spread: spread.value,
+          metrics,
+        });
+        if (nextPage > 0) activePage.value = nextPage;
+      };
+
+      pdfScrollRoot = root;
+      pdfScrollHandler = () => {
+        cancelAnimationFrame(pdfScrollRaf);
+        pdfScrollRaf = requestAnimationFrame(updateActivePdfPage);
+      };
+      root.addEventListener("scroll", pdfScrollHandler, { passive: true });
+      updateActivePdfPage();
+
+      logPdfDebug("H1-H3-H4", "pdf scroll tracker attached", {
+        spread: spread.value,
+        zoom: zoom.value,
+        pageCount: root.querySelectorAll(".doc-prev-pdf-page").length,
+        metrics: getPdfPageMetrics(),
+      });
     };
 
     const buildOutline = async () => {
@@ -832,6 +936,20 @@ export default defineComponent({
       const target = root.querySelector(
         `.doc-prev-pdf-page[data-page="${n}"]`,
       ) as HTMLElement | null;
+      const rootRect = root.getBoundingClientRect();
+      const targetRect = target?.getBoundingClientRect();
+      logPdfDebug("H2-H5", "thumbnail requested pdf page scroll", {
+        requestedPage: n,
+        activePage: activePage.value,
+        spread: spread.value,
+        scrollTop: Math.round(root.scrollTop),
+        targetTop: targetRect
+          ? Math.round(targetRect.top - rootRect.top)
+          : null,
+        targetBottom: targetRect
+          ? Math.round(targetRect.bottom - rootRect.top)
+          : null,
+      });
       target?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
 
@@ -932,6 +1050,10 @@ export default defineComponent({
     onMounted(() => {
       window.addEventListener("keydown", onKey);
       document.addEventListener("click", onDocumentClick, true);
+      logPdfDebug("H0", "document previewer mounted debug smoke", {
+        open: props.open,
+        itemCount: props.items.length,
+      });
     });
 
     onUnmounted(() => {

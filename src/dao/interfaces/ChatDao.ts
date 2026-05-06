@@ -9,10 +9,25 @@ export interface ChatDao {
     onError?: (error: Error) => void,
   ): () => void;
 
-  /** Add a new chat message to the tile's messages subcollection. */
+  /** Add a new chat message to the tile's messages subcollection. Returns the new message ID. */
   addMessage(
     layoutId: string,
     tileId: string,
     message: { text: string; createdAt: number; authorId: string },
+  ): Promise<string>;
+
+  /** Update the text of an existing chat message. */
+  updateMessage(
+    layoutId: string,
+    tileId: string,
+    messageId: string,
+    text: string,
+  ): Promise<void>;
+
+  /** Delete a chat message by its id. */
+  deleteMessage(
+    layoutId: string,
+    tileId: string,
+    messageId: string,
   ): Promise<void>;
 }

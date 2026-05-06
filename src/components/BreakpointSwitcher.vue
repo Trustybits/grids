@@ -164,7 +164,7 @@ const toggle = (bp: Breakpoint) => {
   transition: all var(--duration-fast) var(--easing-smooth);
 
   &:hover {
-    background-color: var(--color-base-55);
+    background-color: var(--color-input-edit);
     /* Purple tint on hover for all buttons, matching nav bar style */
     .bp-icon--device svg {
       opacity: 1;
@@ -179,7 +179,7 @@ const toggle = (bp: Breakpoint) => {
 
   /* Explicitly forced breakpoint — stronger highlight */
   &.bp-btn--forced {
-    background-color: var(--color-base-34);
+    background-color: var(--color-input-edit);
     .bp-icon--device svg {
       opacity: 1;
       color: var(--color-text-primary);

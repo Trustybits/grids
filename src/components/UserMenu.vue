@@ -1,41 +1,62 @@
 <template>
-  <div class="user-menu" v-if="user" :data-tooltip="showUserMenu ? null : 'User Menu'" >
+  <div
+    class="user-menu"
+    v-if="user"
+    ref="menuRef"
+    :data-tooltip="showUserMenu ? null : 'User Menu'"
+  >
     <button
       class="user-menu-button"
       @click="toggleUserMenu"
-      @blur="handleBlur"
     >
       <div class="user-icon" >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <img
+          v-if="defaultGridProfileImageUrl"
+          class="user-icon-image"
+          :src="defaultGridProfileImageUrl"
+          alt=""
+        />
+        <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/>
           <path d="M6 21C6 17.134 8.68629 14 12 14C15.3137 14 18 17.134 18 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
       </div>
-      <div class="user-menu-dropdown" v-if="showUserMenu">
-        <div class="user-info-section">
-          <button @click="openSlugModal" class="info-item clickable">
-            <div class="info-content">
-              <span class="info-label">Handle</span>
-              <span class="info-value">{{ currentSlug || 'Not set' }}</span>
-            </div>
-            <svg class="edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <path d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            </svg>
-          </button>
-          <div class="info-item">
-            <div class="info-content">
-              <span class="info-label">Email</span>
-              <span class="info-value">{{ user.email }}</span>
-            </div>
+    </button>
+    <div class="user-menu-dropdown" v-if="showUserMenu" @click.stop>
+      <div class="user-info-section">
+        <button type="button" @click="openSlugModal" class="info-item clickable">
+          <div class="info-content">
+            <span class="info-label">Handle</span>
+            <span class="info-value">{{ currentSlug || 'Not set' }}</span>
+          </div>
+          <svg class="edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <path d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </button>
+        <button
+          v-if="defaultGridId"
+          type="button"
+          @click="goToDefaultGrid"
+          class="info-item clickable default-grid-link"
+        >
+          <div class="info-content">
+            <span class="info-label">Default Grid</span>
+            <span class="info-value">{{ defaultGridName }}</span>
+          </div>
+        </button>
+        <div class="info-item">
+          <div class="info-content">
+            <span class="info-label">Email</span>
+            <span class="info-value">{{ user.email }}</span>
           </div>
         </div>
-        <div class="menu-divider"></div>
-        <button @click="logout" class="menu-action-item">
-          Logout
-        </button>
       </div>
-    </button>
+      <div class="menu-divider"></div>
+      <button type="button" @click="logout" class="menu-action-item">
+        Logout
+      </button>
+    </div>
     
     <!-- Slug Management Modal -->
     <SlugClaimModal
@@ -48,11 +69,12 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted } from "vue";
+import { defineComponent, ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@/auth/AuthProvider";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import { ContentType, type ProfileBioContent } from "@/types/TileContent";
 import SlugClaimModal from "./SlugClaimModal.vue";
 
 export default defineComponent({
@@ -63,40 +85,92 @@ export default defineComponent({
   setup() {
     const router = useRouter();
     const user = ref<AuthUser | null>(null);
+    const menuRef = ref<HTMLElement | null>(null);
     const showUserMenu = ref(false);
     const showSlugModal = ref(false);
     const currentSlug = ref<string | undefined>(undefined);
+    const defaultGridId = ref<string | undefined>(undefined);
+    const defaultGridProfileImageUrl = ref<string | undefined>(undefined);
+    const defaultGridName = ref<string | undefined>(undefined);
+    const profileLoaded = ref(false);
+    const profileLoading = ref(false);
 
     onMounted(() => {
       getAuthProvider().onAuthStateChanged((currentUser) => {
         user.value = currentUser;
-        // Load user profile to get current slug
+        // Load user profile to get current slug/default grid.
         if (currentUser) {
-          loadUserSlug();
+          loadUserProfile({ force: true });
+        } else {
+          currentSlug.value = undefined;
+          defaultGridId.value = undefined;
+          defaultGridProfileImageUrl.value = undefined;
+          defaultGridName.value = undefined;
+          profileLoaded.value = false;
         }
       });
+      document.addEventListener("click", handleClickOutside, true);
     });
 
-    const loadUserSlug = async () => {
-      if (user.value) {
-        try {
-          const profile = await getServiceFactory().getUserService().getUserProfile(user.value.uid);
-          currentSlug.value = profile?.slug;
-        } catch (error) {
-          console.error('Error loading user slug:', error);
-        }
+    onUnmounted(() => {
+      document.removeEventListener("click", handleClickOutside, true);
+    });
+
+    const loadDefaultGridProfileImageAndName = async (gridId?: string) => {
+      if (!gridId) {
+        defaultGridName.value = undefined;
+        defaultGridProfileImageUrl.value = undefined;
+        return;
+      }
+
+      try {
+        const layout = await getServiceFactory().getLayoutService().fetchLayout(gridId);
+        defaultGridName.value = layout.name ? layout.name : undefined;
+        const profileTile = layout.tiles.find(
+          (tile) => tile.content.type === ContentType.PROFILE,
+        );
+        const profileContent = profileTile?.content as
+          | ProfileBioContent
+          | undefined;
+        defaultGridProfileImageUrl.value =
+          profileContent?.profilePhotoUrl || undefined;
+      } catch (error) {
+        console.error("Error loading default grid profile image:", error);
       }
     };
 
-    const toggleUserMenu = () => {
-      showUserMenu.value = !showUserMenu.value;
+    const loadUserProfile = async (options: { force?: boolean } = {}) => {
+      if (!user.value) return;
+      if (profileLoading.value) return;
+      if (profileLoaded.value && !options.force) return;
+
+      profileLoading.value = true;
+      try {
+        const profile = await getServiceFactory()
+          .getUserService()
+          .getUserProfile(user.value.uid);
+        currentSlug.value = profile?.slug;
+        defaultGridId.value = profile?.defaultGridId;
+        await loadDefaultGridProfileImageAndName(profile?.defaultGridId);
+        profileLoaded.value = true;
+      } catch (error) {
+        console.error("Error loading user profile:", error);
+      } finally {
+        profileLoading.value = false;
+      }
     };
 
-    const handleBlur = () => {
-      // Close menu when clicking outside
-      setTimeout(() => {
+    const toggleUserMenu = async () => {
+      showUserMenu.value = !showUserMenu.value;
+      if (showUserMenu.value) {
+        await loadUserProfile();
+      }
+    };
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.value && !menuRef.value.contains(event.target as Node)) {
         showUserMenu.value = false;
-      }, 200);
+      }
     };
 
     const logout = async () => {
@@ -107,15 +181,15 @@ export default defineComponent({
 
     const openSlugModal = async () => {
       showUserMenu.value = false;
-      if (user.value) {
-        try {
-          const profile = await getServiceFactory().getUserService().getUserProfile(user.value.uid);
-          currentSlug.value = profile?.slug;
-        } catch (error) {
-          console.error('Error loading user profile:', error);
-        }
-      }
+      await loadUserProfile({ force: true });
       showSlugModal.value = true;
+    };
+
+    const goToDefaultGrid = () => {
+      if (!defaultGridId.value) return;
+      // router.push(`/grid/${defaultGridId.value}`);
+      router.push(`/${currentSlug.value}`);
+      showUserMenu.value = false;
     };
 
     const closeSlugModal = () => {
@@ -123,26 +197,23 @@ export default defineComponent({
     };
 
     const handleSlugSuccess = async () => {
-      // Reload profile to get updated slug
-      if (user.value) {
-        try {
-          const profile = await getServiceFactory().getUserService().getUserProfile(user.value.uid);
-          currentSlug.value = profile?.slug;
-        } catch (error) {
-          console.error('Error reloading profile:', error);
-        }
-      }
+      // Reload profile to get updated slug/default grid.
+      await loadUserProfile({ force: true });
     };
 
     return {
       user,
+      menuRef,
       showUserMenu,
       toggleUserMenu,
-      handleBlur,
       logout,
       showSlugModal,
       currentSlug,
+      defaultGridId,
+      defaultGridProfileImageUrl,
+      defaultGridName,
       openSlugModal,
+      goToDefaultGrid,
       closeSlugModal,
       handleSlugSuccess,
     };
@@ -184,6 +255,13 @@ export default defineComponent({
       width: 100%;
       height: 100%;
     }
+
+    .user-icon-image {
+      width: 24px;
+      height: 24px;
+      border-radius: 10%;
+      object-fit: cover;
+    }
   }
 
   &:hover {
@@ -194,18 +272,21 @@ export default defineComponent({
     }
   }
 
-  .user-menu-dropdown {
-    position: absolute;
-    bottom: -4px;
-    left: 48px;
-    background: var(--color-tile-background);
-    border: var(--tile-border-width) solid var(--color-tile-stroke);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-sm);
-    min-width: 240px;
-    box-shadow: var(--shadow-lg);
-    z-index: 100;
-  }
+}
+
+.user-menu-dropdown {
+  position: absolute;
+  bottom: -4px;
+  left: 48px;
+  background: var(--color-tile-background);
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm);
+  min-width: 240px;
+  width: max-content;
+  max-width: min(420px, calc(100vw - 72px));
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
 
   .user-info-section {
     display: flex;
@@ -222,7 +303,8 @@ export default defineComponent({
     border-radius: var(--radius-sm);
     background: transparent;
     border: none;
-    width: 100%;
+    width: auto;
+    min-width: 100%;
     text-align: left;
     font-family: var(--font-family-base);
     transition: background-color var(--duration-fast) var(--easing-smooth);
@@ -268,6 +350,11 @@ export default defineComponent({
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 280px;
+  }
+
+  .default-grid-link {
+    color: var(--color-text-primary);
   }
 
   .edit-icon {

@@ -25,6 +25,7 @@ export async function loadDocumentBytes(url: string): Promise<Uint8Array> {
   const objectPath = firebaseStorageObjectPathFromDownloadUrl(url);
   if (objectPath) {
     const bytes = await getBytes(storageRef(storage, objectPath));
+    const out = new Uint8Array(bytes);
     // #region agent log
     fetch("http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3", {
       method: "POST",
@@ -38,12 +39,12 @@ export async function loadDocumentBytes(url: string): Promise<Uint8Array> {
         hypothesisId: "CORS",
         location: "documentBytes.ts:loadDocumentBytes",
         message: "bytes via Firebase getBytes",
-        data: { byteLength: bytes.byteLength },
+        data: { byteLength: out.byteLength },
         timestamp: Date.now(),
       }),
     }).catch(() => {});
     // #endregion
-    return bytes;
+    return out;
   }
 
   const res = await fetch(url);
@@ -74,5 +75,7 @@ export async function loadDocumentBytes(url: string): Promise<Uint8Array> {
 }
 
 export function uint8ArrayToArrayBuffer(u8: Uint8Array): ArrayBuffer {
-  return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+  const out = new ArrayBuffer(u8.byteLength);
+  new Uint8Array(out).set(u8);
+  return out;
 }

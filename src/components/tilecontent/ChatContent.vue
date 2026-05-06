@@ -835,12 +835,6 @@ export default defineComponent({
   border-radius: 16px;
   font-size: 13px;
   line-height: 1.4;
-  background: color-mix(
-    in srgb,
-    var(--color-text-primary) 10%,
-    var(--color-tile-background)
-  );
-  color: var(--color-text-primary);
   overflow-wrap: break-word;
   white-space: pre-wrap;
 }
@@ -849,26 +843,18 @@ export default defineComponent({
   display: block;
 }
 
-.chat-message.is-owner .chat-bubble {
+.chat-message.is-mine .chat-bubble {
+  background: #ffffff;
+  color: #1a1a1a;
+}
+
+.chat-message.is-theirs .chat-bubble {
   background: color-mix(
     in srgb,
-    var(--color-tile-background) 92%,
-    var(--color-text-primary) 8%
+    var(--color-text-primary) 10%,
+    var(--color-tile-background)
   );
   color: var(--color-text-primary);
-}
-
-.chat-message.is-other .chat-bubble {
-  background-color: var(--color-text-primary);
-  color: var(--color-tile-background);
-}
-
-.chat-message.is-other.is-mine .chat-bubble {
-  text-align: right;
-}
-
-.chat-message.is-other.is-theirs .chat-bubble {
-  text-align: left;
 }
 
 .chat-message.is-mine .chat-bubble {

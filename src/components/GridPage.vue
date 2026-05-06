@@ -1,6 +1,11 @@
 <template>
   <div class="background-image-container">
     <div :style="backgroundStyle" class="background-image-overlay"></div>
+    <div
+      v-if="backgroundOverlayColor"
+      class="background-color-overlay"
+      :style="{ backgroundColor: backgroundOverlayColor }"
+    />
 
     <input
       v-if="layoutStore.canEdit"
@@ -109,6 +114,7 @@ import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
 import { useUndoRedoKeys } from "@/composables/useUndoRedoKeys";
+import { computeTextColor } from "@/composables/useColorPicker";
 import type { ProfileBioContent } from "@/types/TileContent";
 
 // ── Breakpoint switcher placement ────────────────────────────────
@@ -150,8 +156,15 @@ export default defineComponent({
     };
 
     const backgroundStyle = computed(() => {
+      const layout = layoutStore.currentLayout;
+      const hasImage = !!layout?.backgroundImageSrc;
+      const hasColor = !!layout?.backgroundColor;
       return {
-        backgroundImage: `url(${layoutStore.currentLayout?.backgroundImageSrc})`,
+        backgroundImage: hasImage
+          ? `url(${layout?.backgroundImageSrc})`
+          : "none",
+        backgroundColor:
+          hasColor && !hasImage ? (layout?.backgroundColor ?? "transparent") : "transparent",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -163,6 +176,14 @@ export default defineComponent({
         height: "100%",
         zIndex: -1,
       };
+    });
+
+    const backgroundOverlayColor = computed(() => {
+      const layout = layoutStore.currentLayout;
+      if (layout?.backgroundImageSrc && layout?.backgroundColor) {
+        return layout.backgroundColor;
+      }
+      return null;
     });
 
     // Dynamic page title with grid name
@@ -234,6 +255,23 @@ export default defineComponent({
     );
 
     watch(
+      () => layoutStore.currentLayout?.backgroundColor,
+      (bgColor) => {
+        const el = document.documentElement;
+        if (bgColor) {
+          el.style.setProperty("--bg-contrast-color", computeTextColor(bgColor));
+          el.style.setProperty("--bg-contrast-color-low", computeTextColor(bgColor, "low"));
+          el.style.setProperty("--bg-surface-color", bgColor);
+        } else {
+          el.style.removeProperty("--bg-contrast-color");
+          el.style.removeProperty("--bg-contrast-color-low");
+          el.style.removeProperty("--bg-surface-color");
+        }
+      },
+      { immediate: true },
+    );
+
+    watch(
       () => route.params.id,
       (newId) => {
         if (newId) {
@@ -247,12 +285,16 @@ export default defineComponent({
     // Restore dark mode when leaving the grid page
     onUnmounted(() => {
       themeStore.resetToAppDefault();
+      document.documentElement.style.removeProperty("--bg-contrast-color");
+      document.documentElement.style.removeProperty("--bg-contrast-color-low");
+      document.documentElement.style.removeProperty("--bg-surface-color");
     });
 
     return {
       layoutStore,
       rowHeight,
       backgroundStyle,
+      backgroundOverlayColor,
       addBackgroundImage,
       selectImage,
       embedBackground,
@@ -285,6 +327,14 @@ export default defineComponent({
 .toolbar-with-switcher {
   display: flex;
   align-items: center;
+}
+
+.background-color-overlay {
+  position: fixed;
+  inset: 0;
+  mix-blend-mode: color;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .layout-container {

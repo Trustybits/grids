@@ -7,8 +7,8 @@
       height="16"
       rx="2"
       fill="var(--toolbar-color-swatch, var(--color-figma-purple))"
-      stroke="var(--color-tile-stroke)"
-      stroke-width="1"
+      stroke="#000000"
+      stroke-width="1.5"
     />
   </svg>
 </template>

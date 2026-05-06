@@ -44,123 +44,37 @@
       />
     </div>
 
-    <teleport to="body">
-      <Transition name="doc-preview-shell">
-        <div
-          v-if="previewOpen"
-          class="doc-preview-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Document preview"
-          @click.self="closePreview"
-        >
-          <div
-            class="doc-preview-panel"
-          >
-            <button
-              type="button"
-              class="doc-preview-close"
-              aria-label="Close preview"
-              @click="closePreview"
-            >
-              ×
-            </button>
-            <button
-              v-if="items.length > 1"
-              type="button"
-              class="doc-preview-nav doc-preview-nav--prev"
-              aria-label="Previous document"
-              @click.stop="prevDoc"
-            >
-              ‹
-            </button>
-            <button
-              v-if="items.length > 1"
-              type="button"
-              class="doc-preview-nav doc-preview-nav--next"
-              aria-label="Next document"
-              @click.stop="nextDoc"
-            >
-              ›
-            </button>
-
-            <div v-if="loadError" class="doc-preview-error">{{ loadError }}</div>
-            <div v-else-if="previewLoading" class="doc-preview-loading">Loading…</div>
-            <div v-else class="doc-preview-body">
-              <div
-                v-if="previewKind === 'pdf'"
-                ref="pdfMountRef"
-                class="doc-preview-scroll doc-preview-pdf"
-              />
-              <!-- eslint-disable-next-line vue/no-v-html -->
-              <div v-else-if="previewKind === 'html'" class="doc-preview-scroll doc-preview-html" v-html="htmlContent" />
-              <pre
-                v-else-if="previewKind === 'text'"
-                class="doc-preview-scroll doc-preview-text"
-                >{{ textContent }}</pre
-              >
-              <div v-else class="doc-preview-fallback">
-                <p>No in-browser preview for this file type.</p>
-                <a
-                  v-if="currentPreviewUrl"
-                  class="btn btn-primary btn-sm"
-                  :href="currentPreviewUrl"
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >Download</a
-                >
-              </div>
-            </div>
-            <div v-if="items.length > 1" class="doc-preview-footer">
-              {{ previewIndex + 1 }} / {{ items.length }}
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </teleport>
+    <DocumentPreviewer
+      v-model:open="previewOpen"
+      :items="items"
+      :start-index="previewStartIndex"
+      @close="closePreview"
+    />
   </div>
 </template>
 
 <script lang="ts">
-/* eslint-disable vue/no-mutating-props */
-import {
-  computed,
-  defineComponent,
-  nextTick,
-  onMounted,
-  onUnmounted,
-  ref,
-  watch,
-} from "vue";
+import { computed, defineComponent, ref } from "vue";
 import type {
   DocumentItem,
   DocumentStackContent as DocumentStackContentType,
 } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import DocumentTileIcon from "@/components/icons/DocumentTileIcon.vue";
+import DocumentPreviewer from "@/components/tilecontent/DocumentPreviewer.vue";
 import { useColorPicker } from "@/composables/useColorPicker";
-import {
-  loadDocumentBytes,
-  uint8ArrayToArrayBuffer,
-} from "@/utils/documentBytes";
-import { marked } from "marked";
-import DOMPurify from "dompurify";
-import mammoth from "mammoth";
-import pdfWorkerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 function extOf(name: string): string {
   const i = name.lastIndexOf(".");
   return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
 }
 
-function previewKindForItem(item: DocumentItem): "pdf" | "docx" | "doc" | "txt" | "md" | "other" {
+function previewKindForItem(
+  item: DocumentItem,
+): "pdf" | "docx" | "doc" | "txt" | "md" | "other" {
   const mime = (item.mimeType || "").toLowerCase();
   if (mime.includes("pdf")) return "pdf";
-  if (
-    mime.includes("wordprocessingml") ||
-    mime.includes("officedocument")
-  ) {
+  if (mime.includes("wordprocessingml") || mime.includes("officedocument")) {
     return "docx";
   }
   if (mime.includes("msword")) return "doc";
@@ -177,7 +91,7 @@ function previewKindForItem(item: DocumentItem): "pdf" | "docx" | "doc" | "txt" 
 
 export default defineComponent({
   name: "DocumentStackContent",
-  components: { DocumentTileIcon },
+  components: { DocumentTileIcon, DocumentPreviewer },
   emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
@@ -218,17 +132,7 @@ export default defineComponent({
     });
 
     const previewOpen = ref(false);
-    const previewIndex = ref(0);
-    const previewLoading = ref(false);
-    const loadError = ref("");
-    const previewKind = ref<"pdf" | "html" | "text" | "none">("none");
-    const htmlContent = ref("");
-    const textContent = ref("");
-    const pdfMountRef = ref<HTMLElement | null>(null);
-
-    const currentPreviewUrl = computed(
-      () => items.value[previewIndex.value]?.url ?? "",
-    );
+    const previewStartIndex = ref(0);
 
     const openPreview = (event?: MouseEvent) => {
       if (event) {
@@ -236,248 +140,17 @@ export default defineComponent({
         if (t.closest("a, button, input")) return;
       }
       if (!items.value.length) return;
-      previewIndex.value = 0;
+      previewStartIndex.value = 0;
       previewOpen.value = true;
     };
 
     const closePreview = () => {
       previewOpen.value = false;
-      previewKind.value = "none";
-      htmlContent.value = "";
-      textContent.value = "";
-      loadError.value = "";
-      clearPdfMount();
-    };
-
-    const clearPdfMount = () => {
-      if (pdfMountRef.value) {
-        pdfMountRef.value.innerHTML = "";
-      }
     };
 
     const onRootClick = (event: MouseEvent) => {
       openPreview(event);
     };
-
-    const nextDoc = () => {
-      if (items.value.length <= 1) return;
-      previewIndex.value = (previewIndex.value + 1) % items.value.length;
-    };
-
-    const prevDoc = () => {
-      if (items.value.length <= 1) return;
-      previewIndex.value =
-        (previewIndex.value - 1 + items.value.length) % items.value.length;
-    };
-
-    const renderPdfBytes = async (bytes: Uint8Array) => {
-      clearPdfMount();
-      const el = pdfMountRef.value;
-      // #region agent log
-      fetch("http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Debug-Session-Id": "01bea2",
-        },
-        body: JSON.stringify({
-          sessionId: "01bea2",
-          runId: "post-fix",
-          hypothesisId: "H1",
-          location: "DocumentStackContent.vue:renderPdfBytes:mount-check",
-          message: "renderPdfBytes mount + byteLength",
-          data: { hasEl: !!el, byteLength: bytes.byteLength },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
-      if (!el) return;
-      const pdfjsLib = await import("pdfjs-dist");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
-
-      const copy = new Uint8Array(bytes);
-      const loadingTask = pdfjsLib.getDocument({ data: copy });
-      try {
-        const pdf = await loadingTask.promise;
-        // #region agent log
-        fetch("http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Debug-Session-Id": "01bea2",
-          },
-          body: JSON.stringify({
-            sessionId: "01bea2",
-            runId: "post-fix",
-            hypothesisId: "H2",
-            location: "DocumentStackContent.vue:renderPdfBytes:getDocument-ok",
-            message: "getDocument ok",
-            data: { numPages: pdf.numPages },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
-        for (let p = 1; p <= pdf.numPages; p++) {
-          const page = await pdf.getPage(p);
-          const viewport = page.getViewport({ scale: 1.25 });
-          const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          canvas.className = "doc-pdf-page";
-          el.appendChild(canvas);
-          if (!ctx) continue;
-          await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-        }
-      } catch (pdfErr) {
-        // #region agent log
-        fetch("http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Debug-Session-Id": "01bea2",
-          },
-          body: JSON.stringify({
-            sessionId: "01bea2",
-            runId: "post-fix",
-            hypothesisId: "H2",
-            location:
-              "DocumentStackContent.vue:renderPdfBytes:getDocument-error",
-            message: "getDocument or render failed",
-            data: {
-              err:
-                pdfErr instanceof Error ? pdfErr.message : String(pdfErr),
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
-        throw pdfErr;
-      }
-    };
-
-    const loadCurrentDocument = async () => {
-      loadError.value = "";
-      previewLoading.value = true;
-      previewKind.value = "none";
-      htmlContent.value = "";
-      textContent.value = "";
-      clearPdfMount();
-      const item = items.value[previewIndex.value];
-      if (!item?.url) {
-        previewLoading.value = false;
-        loadError.value = "No document URL.";
-        return;
-      }
-      const url = item.url;
-      const kind = previewKindForItem(item);
-      try {
-        if (kind === "doc") {
-          previewKind.value = "none";
-          loadError.value =
-            "Preview isn’t available for .doc files. Download to open in Word.";
-          return;
-        }
-        if (kind === "other") {
-          previewKind.value = "none";
-          loadError.value = "Unsupported type for preview.";
-          return;
-        }
-
-        const bytes = await loadDocumentBytes(url);
-
-        if (kind === "pdf") {
-          // #region agent log
-          fetch("http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Debug-Session-Id": "01bea2",
-            },
-            body: JSON.stringify({
-              sessionId: "01bea2",
-              runId: "post-fix",
-              hypothesisId: "H1",
-              location:
-                "DocumentStackContent.vue:loadCurrentDocument:pdf-branch-entry",
-              message: "pdf branch entered",
-              data: {
-                previewLoading: previewLoading.value,
-                previewKindBefore: previewKind.value,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-          // #endregion
-          previewKind.value = "pdf";
-          previewLoading.value = false;
-          await nextTick();
-          // #region agent log
-          fetch("http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Debug-Session-Id": "01bea2",
-            },
-            body: JSON.stringify({
-              sessionId: "01bea2",
-              runId: "post-fix",
-              hypothesisId: "H1",
-              location:
-                "DocumentStackContent.vue:loadCurrentDocument:after-nextTick-pdf",
-              message: "after nextTick before renderPdfBytes",
-              data: {
-                previewLoading: previewLoading.value,
-                hasPdfMountRef: !!pdfMountRef.value,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-          // #endregion
-          await renderPdfBytes(bytes);
-        } else if (kind === "docx") {
-          const result = await mammoth.convertToHtml({
-            arrayBuffer: uint8ArrayToArrayBuffer(bytes),
-          });
-          previewKind.value = "html";
-          htmlContent.value = DOMPurify.sanitize(result.value || "");
-        } else if (kind === "md") {
-          const raw = new TextDecoder().decode(bytes);
-          const rawHtml = await marked.parse(raw);
-          previewKind.value = "html";
-          htmlContent.value = DOMPurify.sanitize(String(rawHtml));
-        } else if (kind === "txt") {
-          textContent.value = new TextDecoder().decode(bytes);
-          previewKind.value = "text";
-        }
-      } catch (e) {
-        console.error(e);
-        loadError.value =
-          e instanceof Error ? e.message : "Could not load document.";
-        previewKind.value = "none";
-      } finally {
-        previewLoading.value = false;
-      }
-    };
-
-    watch([previewOpen, previewIndex], () => {
-      if (!previewOpen.value) return;
-      void loadCurrentDocument();
-    });
-
-    const onKey = (e: KeyboardEvent) => {
-      if (!previewOpen.value) return;
-      if (e.key === "Escape") closePreview();
-      if (e.key === "ArrowLeft") prevDoc();
-      if (e.key === "ArrowRight") nextDoc();
-    };
-
-    onMounted(() => {
-      window.addEventListener("keydown", onKey);
-    });
-    onUnmounted(() => {
-      window.removeEventListener("keydown", onKey);
-    });
 
     return {
       layoutStore,
@@ -486,18 +159,9 @@ export default defineComponent({
       displaySubtitle,
       isUploading,
       previewOpen,
-      previewIndex,
-      previewLoading,
-      loadError,
-      previewKind,
-      htmlContent,
-      textContent,
-      pdfMountRef,
-      currentPreviewUrl,
+      previewStartIndex,
       onRootClick,
       closePreview,
-      nextDoc,
-      prevDoc,
       backgroundColor,
       textColor,
       handleBackgroundColorChange,
@@ -648,149 +312,5 @@ export default defineComponent({
   height: 100%;
   background: linear-gradient(90deg, #6ea8fe, #9b7bff);
   transition: width 0.2s ease;
-}
-
-.doc-preview-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 12000;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(10px);
-  display: flex;
-  align-items: stretch;
-  justify-content: stretch;
-  padding: 0;
-}
-
-.doc-preview-panel {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  border-radius: 0;
-  background: var(--color-tile-background, #1a1a22);
-  box-shadow: none;
-  border: none;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transform-origin: center center;
-}
-
-.doc-preview-shell-enter-active,
-.doc-preview-shell-leave-active {
-  transition: opacity 0.28s ease;
-}
-.doc-preview-shell-enter-from,
-.doc-preview-shell-leave-to {
-  opacity: 0;
-}
-
-.doc-preview-close {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  z-index: 3;
-  border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.doc-preview-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 3;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  font-size: 28px;
-  cursor: pointer;
-}
-
-.doc-preview-nav--prev {
-  left: 10px;
-}
-.doc-preview-nav--next {
-  right: 10px;
-}
-
-.doc-preview-body {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-}
-
-.doc-preview-scroll {
-  position: absolute;
-  inset: 0;
-  overflow: auto;
-  padding: 52px 56px 40px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.doc-preview-scroll::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-.doc-preview-pdf {
-  text-align: center;
-}
-
-.doc-preview-pdf :deep(.doc-pdf-page) {
-  display: block;
-  margin: 0 auto 16px;
-  max-width: 100%;
-  height: auto;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
-}
-
-.doc-preview-html {
-  color: var(--color-text-primary, #eee);
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-.doc-preview-text {
-  margin: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.88rem;
-  color: var(--color-text-primary, #eee);
-  white-space: pre-wrap;
-}
-
-.doc-preview-loading,
-.doc-preview-error {
-  padding: 48px 24px;
-  text-align: center;
-  color: var(--color-text-primary, #ddd);
-}
-
-.doc-preview-fallback {
-  padding: 48px 24px;
-  text-align: center;
-  color: var(--color-text-primary, #ddd);
-}
-
-.doc-preview-footer {
-  flex: 0 0 auto;
-  text-align: center;
-  padding: 8px;
-  font-size: 0.85rem;
-  opacity: 0.75;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 </style>

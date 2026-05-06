@@ -144,8 +144,7 @@
                 ref="htmlScrollRef"
                 class="doc-prev-scroll doc-prev-page-stage"
               >
-                <!-- eslint-disable-next-line vue/no-v-html -->
-                <article ref="htmlMountRef" class="doc-prev-page" v-html="htmlContent" />
+                <div ref="htmlMountRef" class="doc-prev-docx-renderer" />
                 <div class="doc-prev-scroll-spacer" aria-hidden="true" />
               </div>
               <div
@@ -242,7 +241,8 @@ import {
 } from "@/utils/documentBytes";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import mammoth from "mammoth";
+import { renderAsync as renderDocxAsync } from "docx-preview";
+import type { Options as DocxPreviewOptions } from "docx-preview";
 import pdfWorkerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 // pdfjs-dist's TS types ship with esm bundler resolution edge cases;
 // importing the type alone keeps the component lean.
@@ -323,6 +323,19 @@ const SPREAD_GAP = 16;
 // Keep this value in sync with scrollToOutline so clicked headings land
 // exactly where active-outline detection expects them.
 const OUTLINE_ACTIVE_RATIO = 0.3;
+const DOCX_PREVIEW_OPTIONS: Partial<DocxPreviewOptions> = {
+  breakPages: true,
+  experimental: true,
+  ignoreLastRenderedPageBreak: false,
+  renderAltChunks: false,
+  renderChanges: false,
+  renderComments: false,
+  renderEndnotes: true,
+  renderFooters: true,
+  renderFootnotes: true,
+  renderHeaders: true,
+  useBase64URL: true,
+};
 
 export default defineComponent({
   name: "DocumentPreviewer",
@@ -646,6 +659,29 @@ export default defineComponent({
       updateActiveOutline();
     };
 
+    const alignContactHeaders = () => {
+      const root = htmlMountRef.value;
+      if (!root) return;
+
+      const headers = Array.from(
+        root.querySelectorAll("section.docx > header"),
+      ) as HTMLElement[];
+      for (const header of headers) {
+        const text = header.textContent || "";
+        const looksLikeContactHeader =
+          /@/.test(text) || /\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b/.test(text);
+        if (!looksLikeContactHeader) continue;
+
+        header.style.alignSelf = "stretch";
+        header.style.width = "100%";
+        header.style.textAlign = "right";
+        header.querySelectorAll("p").forEach((p) => {
+          (p as HTMLElement).style.width = "100%";
+          (p as HTMLElement).style.textAlign = "right";
+        });
+      }
+    };
+
     const loadCurrent = async () => {
       resetState();
       const item = currentItem.value;
@@ -689,20 +725,32 @@ export default defineComponent({
           await nextTick();
           await renderPdfPages();
         } else if (detected.kind === "html") {
-          let raw: string;
-          if (detected.format === "md") {
+          if (detected.format === "docx") {
+            loading.value = false;
+            await nextTick();
+            if (token !== pdfLoadToken) return;
+            const root = htmlMountRef.value;
+            if (!root) {
+              throw new Error("Could not initialize Word preview.");
+            }
+            root.innerHTML = "";
+            await renderDocxAsync(
+              uint8ArrayToArrayBuffer(bytes),
+              root,
+              root,
+              DOCX_PREVIEW_OPTIONS,
+            );
+            if (token !== pdfLoadToken) return;
+            alignContactHeaders();
+            await buildOutline();
+          } else if (detected.format === "md") {
             const text = new TextDecoder().decode(bytes);
-            raw = String(await marked.parse(text));
-          } else {
-            const result = await mammoth.convertToHtml({
-              arrayBuffer: uint8ArrayToArrayBuffer(bytes),
-            });
-            raw = result.value || "";
+            const raw = String(await marked.parse(text));
+            if (token !== pdfLoadToken) return;
+            htmlContent.value = DOMPurify.sanitize(raw);
+            loading.value = false;
+            await buildOutline();
           }
-          if (token !== pdfLoadToken) return;
-          htmlContent.value = DOMPurify.sanitize(raw);
-          loading.value = false;
-          await buildOutline();
         } else if (detected.kind === "text") {
           textContent.value = new TextDecoder().decode(bytes);
           loading.value = false;
@@ -1158,8 +1206,7 @@ export default defineComponent({
 }
 
 /* Two-page spread toggle — matches Figma node 1417:11686 (ghost button).
-   Inactive: transparent + 0.34 icon | Hover: 0.08 bg + 0.76 icon
-   Active: 0.08 bg + 1.0 icon. */
+   Inactive/active: transparent bg; hover: 0.08 bg. */
 .doc-prev-spread-toggle {
   display: inline-flex;
   align-items: center;
@@ -1178,8 +1225,13 @@ export default defineComponent({
   background: var(--color-light-100-8, rgba(255, 255, 255, 0.08));
   color: var(--color-light-100-76, rgba(255, 255, 255, 0.76));
 }
+.doc-prev-spread-toggle:focus,
+.doc-prev-spread-toggle:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 .doc-prev-spread-toggle.is-active {
-  background: var(--color-light-100-8, rgba(255, 255, 255, 0.08));
+  background: var(--color-light-100-0, rgba(255, 255, 255, 0));
   color: var(--color-light-100, #ffffff);
 }
 
@@ -1328,10 +1380,20 @@ export default defineComponent({
   /* TOKEN: letter "page gap" between pages — see notes; uses literal value. */
 }
 .doc-prev-pdf.is-spread {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  grid-auto-rows: max-content;
+  align-items: start;
+  justify-items: center;
+  justify-content: center;
   gap: 16px;
 }
 .doc-prev-pdf :deep(.doc-prev-pdf-page) {
   flex: 0 0 auto;
+  width: max-content;
+  height: max-content;
+  align-self: start;
+  justify-self: center;
   background: var(--color-light-100, #ffffff);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
   /* TOKEN GAP: Figma uses --radius/tiny: 4px which doesn't exist in tokens.scss.
@@ -1345,88 +1407,37 @@ export default defineComponent({
   height: auto;
 }
 
-/* HTML / Markdown / DOCX / plain text rendering — every non-PDF document is
-   rendered onto a single letter-paper-width white "page" card to mirror the
-   PDF rendering and match Figma node 1446:15835 (poc + text variants). */
+/* DOCX rendering — docx-preview owns the page markup and document-specific
+   styles so Word-authored spacing, margins, headers, and page breaks survive
+   better than the old generic HTML card. */
 .doc-prev-page-stage {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 32px 32px 0;
 }
-.doc-prev-page {
-  width: 612px;
+.doc-prev-docx-renderer {
+  width: max-content;
   max-width: 100%;
-  min-height: 792px;
-  background: var(--color-light-100, #ffffff);
-  /* TOKEN GAP: Figma uses --radius/tiny: 4px which isn't defined in
-     tokens.scss (--radius-sm: 8px is the smallest token). Using a literal
-     until a token is added. */
-  border-radius: 4px;
+  --doc-prev-letter-width: 8.5in;
+  --doc-prev-letter-height: 11in;
+  color: #000000;
+}
+.doc-prev-docx-renderer :deep(.docx-wrapper) {
+  background: transparent !important;
+  padding: 0 !important;
+}
+.doc-prev-docx-renderer :deep(section.docx) {
+  width: var(--doc-prev-letter-width) !important;
+  min-height: var(--doc-prev-letter-height) !important;
+  box-sizing: border-box;
+  background: #ffffff;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  padding: 72px 64px;
-  padding-bottom: 96px;
-  margin: 0;
-  color: var(--color-dark-0, #33312c);
-}
-.doc-prev-page > :first-child {
-  margin-top: 0;
-}
-.doc-prev-page :deep(h1) {
-  font-size: 1.85rem;
-  font-weight: var(--font-weight-bold, 700);
-  margin: 1.4em 0 0.6em;
-  color: var(--color-dark-0, #33312c);
-}
-.doc-prev-page :deep(h2) {
-  font-size: 1.35rem;
-  font-weight: var(--font-weight-semibold, 600);
-  margin: 1.4em 0 0.5em;
-  color: var(--color-dark-0, #33312c);
-}
-.doc-prev-page :deep(h3) {
-  font-size: 1.1rem;
-  font-weight: var(--font-weight-semibold, 600);
-  margin: 1.2em 0 0.4em;
-  color: var(--color-dark-0, #33312c);
-}
-.doc-prev-page :deep(p),
-.doc-prev-page :deep(li) {
-  margin: 0 0 0.7em;
-  font-size: 0.95rem;
-  line-height: 1.65;
-  color: var(--color-dark-0, #33312c);
-}
-.doc-prev-page :deep(a) {
-  color: #5b3fd0;
-  text-decoration: underline;
-}
-.doc-prev-page :deep(code) {
-  background: rgba(51, 49, 44, 0.08);
-  padding: 0.1em 0.35em;
   border-radius: 4px;
-  font-family: var(--font-family-mono, monospace);
-  font-size: 0.9em;
+  overflow: hidden;
 }
-.doc-prev-page :deep(pre) {
-  background: rgba(51, 49, 44, 0.06);
-  padding: 12px 16px;
-  border-radius: var(--radius-sm, 8px);
-  overflow-x: auto;
-}
-.doc-prev-page :deep(pre code) {
-  background: transparent;
-  padding: 0;
-}
-.doc-prev-page :deep(blockquote) {
-  border-left: 2px solid var(--color-purple, #d3bdff);
-  padding-left: 14px;
-  color: rgba(51, 49, 44, 0.7);
-  margin: 0 0 0.8em;
-}
-.doc-prev-page :deep(img) {
-  max-width: 100%;
-  height: auto;
+.doc-prev-docx-renderer :deep(section.docx + section.docx) {
+  margin-top: 24px;
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -1665,10 +1676,6 @@ export default defineComponent({
   }
   .doc-prev-page-stage {
     padding: 24px 16px 0;
-  }
-  .doc-prev-page {
-    padding: 48px 32px;
-    padding-bottom: 72px;
   }
   .doc-prev-reader {
     padding: 24px 16px 0;

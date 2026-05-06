@@ -388,7 +388,6 @@ export default defineComponent({
     const sideBodyRef = ref<HTMLElement | null>(null);
     const zoomBtnRef = ref<HTMLElement | null>(null);
     const thumbCanvases = new Map<number, HTMLCanvasElement>();
-    let pageObserver: IntersectionObserver | null = null;
     let pdfScrollRoot: HTMLElement | null = null;
     let pdfScrollHandler: (() => void) | null = null;
     let pdfScrollRaf = 0;
@@ -398,45 +397,6 @@ export default defineComponent({
     let outlineScrollRoot: HTMLElement | null = null;
     let pdfRenderToken = 0;
     let pdfLoadToken = 0;
-    let pdfDebugLogCount = 0;
-
-    const logPdfDebug = (
-      hypothesisId: string,
-      message: string,
-      data: Record<string, unknown>,
-    ) => {
-      if (pdfDebugLogCount > 80) return;
-      pdfDebugLogCount += 1;
-      const payload = {
-        sessionId: "7b23d6",
-        runId: "initial",
-        hypothesisId,
-        location: "DocumentPreviewer.vue:logPdfDebug",
-        message,
-        data,
-        timestamp: Date.now(),
-      };
-      // #region agent log
-      console.info("[DocumentPreviewerDebug]", payload);
-      console.info("[DocumentPreviewerDebugJSON]", JSON.stringify(payload));
-      fetch(
-        "http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Debug-Session-Id": "7b23d6",
-          },
-          body: JSON.stringify(payload),
-        },
-      ).catch(() => {
-        navigator.sendBeacon?.(
-          "http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3",
-          new Blob([JSON.stringify(payload)], { type: "application/json" }),
-        );
-      });
-      // #endregion
-    };
 
     const currentItem = computed(() => props.items[currentIndex.value]);
     const currentFileName = computed(
@@ -458,6 +418,7 @@ export default defineComponent({
       el: HTMLCanvasElement | null,
     ) => {
       if (el) {
+        if (thumbCanvases.get(pageNum) === el) return;
         thumbCanvases.set(pageNum, el);
         void renderThumbnail(pageNum);
       } else {
@@ -488,8 +449,6 @@ export default defineComponent({
     };
 
     const teardownObservers = () => {
-      pageObserver?.disconnect();
-      pageObserver = null;
       if (pdfScrollRoot && pdfScrollHandler) {
         pdfScrollRoot.removeEventListener("scroll", pdfScrollHandler);
       }
@@ -674,12 +633,6 @@ export default defineComponent({
       const updateActivePdfPage = () => {
         const metrics = getPdfPageMetrics();
         const nextPage = metrics.selectedPage;
-        logPdfDebug("H1-H3-H4", "pdf scroll active-page candidate", {
-          previousActivePage: activePage.value,
-          nextActivePage: nextPage,
-          spread: spread.value,
-          metrics,
-        });
         if (nextPage > 0) activePage.value = nextPage;
       };
 
@@ -690,13 +643,6 @@ export default defineComponent({
       };
       root.addEventListener("scroll", pdfScrollHandler, { passive: true });
       updateActivePdfPage();
-
-      logPdfDebug("H1-H3-H4", "pdf scroll tracker attached", {
-        spread: spread.value,
-        zoom: zoom.value,
-        pageCount: root.querySelectorAll(".doc-prev-pdf-page").length,
-        metrics: getPdfPageMetrics(),
-      });
     };
 
     const buildOutline = async () => {
@@ -936,20 +882,6 @@ export default defineComponent({
       const target = root.querySelector(
         `.doc-prev-pdf-page[data-page="${n}"]`,
       ) as HTMLElement | null;
-      const rootRect = root.getBoundingClientRect();
-      const targetRect = target?.getBoundingClientRect();
-      logPdfDebug("H2-H5", "thumbnail requested pdf page scroll", {
-        requestedPage: n,
-        activePage: activePage.value,
-        spread: spread.value,
-        scrollTop: Math.round(root.scrollTop),
-        targetTop: targetRect
-          ? Math.round(targetRect.top - rootRect.top)
-          : null,
-        targetBottom: targetRect
-          ? Math.round(targetRect.bottom - rootRect.top)
-          : null,
-      });
       target?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
 
@@ -1050,10 +982,6 @@ export default defineComponent({
     onMounted(() => {
       window.addEventListener("keydown", onKey);
       document.addEventListener("click", onDocumentClick, true);
-      logPdfDebug("H0", "document previewer mounted debug smoke", {
-        open: props.open,
-        itemCount: props.items.length,
-      });
     });
 
     onUnmounted(() => {

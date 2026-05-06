@@ -1,0 +1,77 @@
+name: version_bump
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+
+concurrency:
+  group: version-bump-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  version-bump:
+    name: Version bump
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      !startsWith(github.event.workflow_run.head_commit.message, 'Bump version to')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure git author
+        run: |
+          git config user.name "Version Bump Script"
+          git config user.email "dev@trustybits.com"
+
+      - name: Bump package version
+        id: bump
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'package.json';
+
+          function isoWeek(date) {
+            const utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+            const day = utcDate.getUTCDay() || 7;
+            utcDate.setUTCDate(utcDate.getUTCDate() + 4 - day);
+            const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
+            return Math.ceil((((utcDate - yearStart) / 86400000) + 1) / 7);
+          }
+
+          const packageJson = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const [major, week, patch] = packageJson.version.split('.').map((value) => Number.parseInt(value, 10));
+          const currentWeek = isoWeek(new Date());
+          const nextPatch = week === currentWeek ? patch + 1 : 0;
+          const nextVersion = `0.${currentWeek}.${nextPatch}`;
+
+          if (major !== 0) {
+            throw new Error(`Expected major version 0, found ${major}`);
+          }
+
+          packageJson.version = nextVersion;
+          fs.writeFileSync(path, `${JSON.stringify(packageJson, null, 2)}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${nextVersion}\n`);
+          NODE
+
+      - name: Commit version bump
+        run: |
+          git add package.json
+
+          if git diff --cached --quiet; then
+            echo "package.json version is already current."
+            exit 0
+          fi
+
+          git commit -m "Bump version to ${{ steps.bump.outputs.version }}"
+          git push origin main

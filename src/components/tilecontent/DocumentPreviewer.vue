@@ -140,7 +140,7 @@
                 :class="{ 'is-spread': spread === 2 }"
               />
               <div
-                v-else-if="kind === 'html'"
+                v-else-if="kind === 'html' && format === 'docx'"
                 ref="htmlScrollRef"
                 class="doc-prev-scroll doc-prev-page-stage"
               >
@@ -148,11 +148,19 @@
                 <article ref="htmlMountRef" class="doc-prev-page" v-html="htmlContent" />
               </div>
               <div
+                v-else-if="kind === 'html'"
+                ref="htmlScrollRef"
+                class="doc-prev-scroll doc-prev-reader"
+              >
+                <!-- eslint-disable-next-line vue/no-v-html -->
+                <article ref="htmlMountRef" class="doc-prev-reader-body" v-html="htmlContent" />
+              </div>
+              <div
                 v-else-if="kind === 'text'"
                 ref="textScrollRef"
-                class="doc-prev-scroll doc-prev-page-stage"
+                class="doc-prev-scroll doc-prev-reader"
               >
-                <pre class="doc-prev-page doc-prev-page--text">{{ textContent }}</pre>
+                <pre class="doc-prev-reader-body doc-prev-reader-body--mono">{{ textContent }}</pre>
               </div>
               <div v-else class="doc-prev-fallback">
                 <p>No in-browser preview for this file type.</p>
@@ -242,6 +250,13 @@ import type {
 } from "pdfjs-dist/types/src/display/api";
 
 type Kind = "pdf" | "html" | "text" | "fallback" | "none";
+// Granular format separates the "paper" formats (PDF / DOCX) from the
+// "lightweight reader" formats (Markdown / plain text). Different formats
+// share a render `kind` (e.g. DOCX and MD both render as `html`) but get
+// different presentation: paper formats use a white letter-paper card,
+// reader formats use a dark, max-width reader styled like Cursor's MD
+// preview.
+type Format = "pdf" | "docx" | "md" | "txt" | "doc" | "unknown";
 
 function extOf(name: string): string {
   const i = name.lastIndexOf(".");
@@ -250,29 +265,31 @@ function extOf(name: string): string {
 
 function detectKind(item: DocumentItem | undefined): {
   kind: Kind;
+  format: Format;
   label: string;
 } {
-  if (!item) return { kind: "none", label: "" };
+  if (!item) return { kind: "none", format: "unknown", label: "" };
   const mime = (item.mimeType || "").toLowerCase();
   const e = extOf(item.fileName);
-  if (mime.includes("pdf") || e === "pdf") return { kind: "pdf", label: "PDF" };
+  if (mime.includes("pdf") || e === "pdf")
+    return { kind: "pdf", format: "pdf", label: "PDF" };
   if (
     mime.includes("wordprocessingml") ||
     mime.includes("officedocument") ||
     e === "docx"
   ) {
-    return { kind: "html", label: "Word" };
+    return { kind: "html", format: "docx", label: "Word" };
   }
   if (mime.includes("msword") || e === "doc") {
-    return { kind: "fallback", label: "Word" };
+    return { kind: "fallback", format: "doc", label: "Word" };
   }
   if (mime.includes("markdown") || e === "md") {
-    return { kind: "html", label: "Markdown" };
+    return { kind: "html", format: "md", label: "Markdown" };
   }
   if (mime.includes("text/plain") || e === "txt") {
-    return { kind: "text", label: "Text" };
+    return { kind: "text", format: "txt", label: "Text" };
   }
-  return { kind: "fallback", label: "Document" };
+  return { kind: "fallback", format: "unknown", label: "Document" };
 }
 
 function slugify(text: string, idx: number): string {
@@ -322,6 +339,7 @@ export default defineComponent({
   setup(props, { emit }) {
     const currentIndex = ref(props.startIndex || 0);
     const kind = ref<Kind>("none");
+    const format = ref<Format>("unknown");
     const kindLabel = ref("");
     const htmlContent = ref("");
     const textContent = ref("");
@@ -441,6 +459,7 @@ export default defineComponent({
       outline.value = [];
       activeOutlineId.value = null;
       kind.value = "none";
+      format.value = "unknown";
       zoomMenuOpen.value = false;
       // Default each newly opened doc to 100% single-page view per spec.
       zoom.value = ZOOM_DEFAULT;
@@ -608,6 +627,7 @@ export default defineComponent({
       }
       const detected = detectKind(item);
       kind.value = detected.kind;
+      format.value = detected.format;
       kindLabel.value = detected.label;
 
       if (detected.kind === "fallback") {
@@ -641,10 +661,8 @@ export default defineComponent({
           await nextTick();
           await renderPdfPages();
         } else if (detected.kind === "html") {
-          const ext = extOf(item.fileName);
-          const isMarkdown = ext === "md" || (item.mimeType || "").includes("markdown");
           let raw: string;
-          if (isMarkdown) {
+          if (detected.format === "md") {
             const text = new TextDecoder().decode(bytes);
             raw = String(await marked.parse(text));
           } else {
@@ -835,6 +853,7 @@ export default defineComponent({
       currentItem,
       currentFileName,
       kind,
+      format,
       kindLabel,
       htmlContent,
       textContent,
@@ -1366,13 +1385,145 @@ export default defineComponent({
   height: auto;
 }
 
-.doc-prev-page--text {
+/* ──────────────────────────────────────────────────────────────
+   Reader styles for Markdown / plain text — matches Cursor's MD
+   preview: dark theme, max-readable width, viewport-responsive padding.
+   No white "paper" card; this is for lightweight text formats that
+   weren't authored against paper dimensions.
+   ──────────────────────────────────────────────────────────────── */
+.doc-prev-reader {
+  display: flex;
+  justify-content: center;
+  padding: clamp(24px, 6vw, 64px) clamp(16px, 5vw, 48px);
+  padding-bottom: max(96px, 70vh);
+}
+.doc-prev-reader-body {
+  width: 100%;
+  max-width: 720px;
+  color: var(--color-light-100, #ffffff);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+.doc-prev-reader-body > :first-child {
+  margin-top: 0;
+}
+.doc-prev-reader-body :deep(h1) {
+  font-size: 1.65rem;
+  font-weight: var(--font-weight-bold, 700);
+  margin: 1.6em 0 0.55em;
+  color: var(--color-light-100, #ffffff);
+}
+.doc-prev-reader-body :deep(h1:first-child) {
+  margin-top: 0;
+}
+.doc-prev-reader-body :deep(h2) {
+  font-size: 1.3rem;
+  font-weight: var(--font-weight-semibold, 600);
+  margin: 1.6em 0 0.5em;
+  color: var(--color-light-100, #ffffff);
+}
+.doc-prev-reader-body :deep(h3) {
+  font-size: 1.1rem;
+  font-weight: var(--font-weight-semibold, 600);
+  margin: 1.4em 0 0.45em;
+  color: var(--color-light-100, #ffffff);
+}
+.doc-prev-reader-body :deep(h4),
+.doc-prev-reader-body :deep(h5),
+.doc-prev-reader-body :deep(h6) {
+  font-size: 1rem;
+  font-weight: var(--font-weight-semibold, 600);
+  margin: 1.2em 0 0.4em;
+  color: var(--color-light-100, #ffffff);
+}
+.doc-prev-reader-body :deep(p),
+.doc-prev-reader-body :deep(li) {
+  margin: 0 0 0.7em;
+  color: var(--color-light-100-76, rgba(255, 255, 255, 0.76));
+}
+.doc-prev-reader-body :deep(ul),
+.doc-prev-reader-body :deep(ol) {
+  padding-left: 1.4em;
+  margin: 0 0 0.9em;
+}
+.doc-prev-reader-body :deep(a) {
+  color: var(--color-purple, #d3bdff);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.doc-prev-reader-body :deep(a:hover) {
+  text-decoration-thickness: 2px;
+}
+.doc-prev-reader-body :deep(code) {
+  background: var(--color-light-100-8, rgba(255, 255, 255, 0.08));
+  color: var(--color-pink, #ffa8db);
+  padding: 0.12em 0.4em;
+  border-radius: 4px;
   font-family: var(--font-family-mono, monospace);
-  font-size: 0.88rem;
+  font-size: 0.875em;
+}
+.doc-prev-reader-body :deep(pre) {
+  background: var(--color-light-100-8, rgba(255, 255, 255, 0.08));
+  padding: 14px 18px;
+  border-radius: var(--radius-sm, 8px);
+  overflow-x: auto;
+  margin: 0 0 1em;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+.doc-prev-reader-body :deep(pre code) {
+  background: transparent;
+  color: var(--color-light-100, #ffffff);
+  padding: 0;
+  font-size: inherit;
+}
+.doc-prev-reader-body :deep(blockquote) {
+  border-left: 3px solid var(--color-purple, #d3bdff);
+  padding: 0 0 0 14px;
+  color: var(--color-light-100-55, rgba(255, 255, 255, 0.55));
+  margin: 0 0 1em;
+  font-style: italic;
+}
+.doc-prev-reader-body :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--color-light-100-8, rgba(255, 255, 255, 0.08));
+  margin: 2em 0;
+}
+.doc-prev-reader-body :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.2em;
+  font-size: 0.9rem;
+}
+.doc-prev-reader-body :deep(th),
+.doc-prev-reader-body :deep(td) {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-light-100-8, rgba(255, 255, 255, 0.08));
+}
+.doc-prev-reader-body :deep(th) {
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-light-100, #ffffff);
+}
+.doc-prev-reader-body :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm, 8px);
+}
+.doc-prev-reader-body :deep(strong) {
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-light-100, #ffffff);
+}
+
+/* Plain-text variant of the reader — monospace, soft wrapping. */
+.doc-prev-reader-body--mono {
+  font-family: var(--font-family-mono, monospace);
+  font-size: 0.875rem;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
+  color: var(--color-light-100-76, rgba(255, 255, 255, 0.76));
 }
 
 .doc-prev-message,
@@ -1466,6 +1617,10 @@ export default defineComponent({
   .doc-prev-page {
     padding: 48px 32px;
     padding-bottom: max(72px, 60vh);
+  }
+  .doc-prev-reader {
+    padding: 24px 16px;
+    padding-bottom: max(96px, 70vh);
   }
 }
 </style>

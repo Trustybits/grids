@@ -10,7 +10,13 @@
       @click="toggleUserMenu"
     >
       <div class="user-icon" >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <img
+          v-if="defaultGridProfileImageUrl"
+          class="user-icon-image"
+          :src="defaultGridProfileImageUrl"
+          alt=""
+        />
+        <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/>
           <path d="M6 21C6 17.134 8.68629 14 12 14C15.3137 14 18 17.134 18 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
@@ -36,15 +42,7 @@
         >
           <div class="info-content">
             <span class="info-label">Default Grid</span>
-            <span class="info-value default-grid-value">
-              <span>{{ defaultGridName }}</span>
-              <img
-                v-if="defaultGridProfileImageUrl"
-                class="default-grid-image"
-                :src="defaultGridProfileImageUrl"
-                alt=""
-              />
-            </span>
+            <span class="info-value">{{ defaultGridName }}</span>
           </div>
         </button>
         <div class="info-item">
@@ -257,6 +255,13 @@ export default defineComponent({
       width: 100%;
       height: 100%;
     }
+
+    .user-icon-image {
+      width: 24px;
+      height: 24px;
+      border-radius: 10%;
+      object-fit: cover;
+    }
   }
 
   &:hover {
@@ -350,21 +355,6 @@ export default defineComponent({
 
   .default-grid-link {
     color: var(--color-text-primary);
-  }
-
-  .default-grid-value {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    min-width: 0;
-  }
-
-  .default-grid-image {
-    width: 20px;
-    height: 20px;
-    border-radius: var(--radius-sm);
-    object-fit: cover;
-    flex-shrink: 0;
   }
 
   .edit-icon {

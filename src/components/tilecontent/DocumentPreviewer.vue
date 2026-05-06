@@ -334,7 +334,10 @@ export default defineComponent({
     const spread = ref<1 | 2>(1);
     const zoomMenuOpen = ref(false);
 
-    const pdfDoc = ref<PDFDocumentProxy | null>(null);
+    // Plain (non-reactive) handle to the pdfjs document. pdfjs internals
+    // use `#private` fields which throw "Cannot read from private field"
+    // when accessed through a Vue Proxy, so this MUST stay un-reactive.
+    let pdfDoc: PDFDocumentProxy | null = null;
     const pdfPageCount = ref(0);
     const activePage = ref(1);
 
@@ -410,9 +413,18 @@ export default defineComponent({
 
     const teardownPdf = () => {
       pdfRenderToken += 1;
-      pdfDoc.value?.cleanup();
-      pdfDoc.value?.destroy();
-      pdfDoc.value = null;
+      const doc = pdfDoc;
+      pdfDoc = null;
+      try {
+        doc?.cleanup();
+      } catch {
+        // pdfjs may throw if cleanup runs while a render is mid-flight
+      }
+      try {
+        void doc?.destroy();
+      } catch {
+        // ignore destroy errors during teardown
+      }
       pdfPageCount.value = 0;
       activePage.value = 1;
       thumbCanvases.clear();
@@ -433,9 +445,10 @@ export default defineComponent({
 
     const renderThumbnail = async (pageNum: number) => {
       const canvas = thumbCanvases.get(pageNum);
-      if (!canvas || !pdfDoc.value) return;
+      const doc = pdfDoc;
+      if (!canvas || !doc) return;
       try {
-        const page = await pdfDoc.value.getPage(pageNum);
+        const page = await doc.getPage(pageNum);
         const baseViewport = page.getViewport({ scale: 1 });
         const scale = THUMB_WIDTH / baseViewport.width;
         const viewport = page.getViewport({ scale });
@@ -451,7 +464,7 @@ export default defineComponent({
 
     const renderPdfPages = async () => {
       const el = pdfMountRef.value;
-      const doc = pdfDoc.value;
+      const doc = pdfDoc;
       if (!el || !doc) return;
       const token = ++pdfRenderToken;
       el.innerHTML = "";
@@ -587,7 +600,7 @@ export default defineComponent({
             doc.destroy();
             return;
           }
-          pdfDoc.value = doc;
+          pdfDoc = doc;
           pdfPageCount.value = doc.numPages;
           loading.value = false;
           await nextTick();
@@ -649,7 +662,7 @@ export default defineComponent({
     };
     const zoomToFit = () => {
       const stage = stageRef.value;
-      const doc = pdfDoc.value;
+      const doc = pdfDoc;
       if (!stage || !doc) {
         setZoom(1);
         zoomMenuOpen.value = false;

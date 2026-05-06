@@ -157,7 +157,7 @@ const toggle = (bp: Breakpoint) => {
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-content-default);
+  color: var(--bg-contrast-color-low, var(--color-content-default));
   cursor: pointer;
   padding: 0;
   line-height: 0;
@@ -175,6 +175,7 @@ const toggle = (bp: Breakpoint) => {
   /* Active breakpoint (auto-detected or forced) */
   &.bp-btn--active .bp-icon--device svg {
     opacity: 0.85;
+    color: var(--bg-contrast-color, inherit);
   }
 
   /* Explicitly forced breakpoint — stronger highlight */
@@ -182,7 +183,7 @@ const toggle = (bp: Breakpoint) => {
     background-color: var(--color-input-edit);
     .bp-icon--device svg {
       opacity: 1;
-      color: var(--color-text-primary);
+      color: var(--bg-contrast-color, var(--color-text-primary));
     }
   }
 
@@ -275,7 +276,7 @@ const toggle = (bp: Breakpoint) => {
   /* Must sit above the TopBar (--z-topbar: 2000) so it's never obscured */
   z-index: calc(var(--z-topbar) + 1);
   padding: 6px;
-  background-color: var(--color-tile-background);
+  background-color: var(--bg-surface-color, var(--color-tile-background));
   border-radius: var(--radius-md);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   backdrop-filter: blur(20px);
@@ -287,7 +288,7 @@ const toggle = (bp: Breakpoint) => {
 
 .breakpoint-switcher--toolbar-row {
   padding: 6px;
-  background-color: var(--color-tile-background);
+  background-color: var(--bg-surface-color, var(--color-tile-background));
   border-radius: var(--radius-md);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   backdrop-filter: blur(20px);

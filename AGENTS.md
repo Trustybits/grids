@@ -53,6 +53,11 @@ public/              Static assets + legal markdown (privacy.md, terms.md)
 - Per-breakpoint tile positions are stored in `Layout.overrides` keyed by `'lg' | 'md' | 'sm'`, not on the tile itself — `useTileLayout` handles the merge.
 - Rich-text tiles use custom Tiptap extensions in `src/components/tiptap/` (FontSize, DragHandle, ResizableImage, SmartButton).
 
+## When Writing Code
+- When working with service or database logic in the app (specifically in the root src folder), verify that database logic (Firestore or any other database) is only used in a DAO class, and that the appropriate
+service classes are used for service logic. The functions folder (Firebase functions) and middleware.ts are exempt from this rule (due to having
+their own special deployments).
+
 ## Environments
 
 - **Prod:** `grids-one` (Firebase) + Vercel for OG / screenshot functions.

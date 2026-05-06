@@ -634,7 +634,7 @@ export default {
   display: none !important;
 
   position: absolute !important;
-  z-index: -1 !important;
+  z-index: var(--z-grid-placeholder) !important;
   pointer-events: none !important;
 }
 

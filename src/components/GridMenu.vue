@@ -69,6 +69,7 @@
         <div class="ghost-split-button">
           <button class="ghost-split-main" @click="triggerBackgroundImagePicker">
             {{ hasBackgroundImage ? 'Change Background Image' : 'Add Background Image' }}
+            <span class="beta-badge">BETA</span>
           </button>
           <button
             class="ghost-split-chevron"
@@ -605,5 +606,12 @@ const launchPixelRacers = () => {
   &--danger {
     color: var(--color-red);
   }
+}
+
+.beta-badge {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--color-red);
+  margin-left: 4px;
 }
 </style>

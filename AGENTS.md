@@ -57,8 +57,6 @@ public/              Static assets + legal markdown (privacy.md, terms.md)
 - When working with service or database logic in the app (specifically in the root src folder), verify that database logic (Firestore or any other database) is only used in a DAO class, and that the appropriate
 service classes are used for service logic. The functions folder (Firebase functions) and middleware.ts are exempt from this rule (due to having
 their own special deployments).
-- Ensure that existing unit tests pass and that running the linter passes as well. If unit tests or the linter do not pass due to a bug that you have introduced,
-resolve the bug. If unit tests do not pass because of a change in functionality that invalidates the test, let the user know immediately.
 
 ## Environments
 

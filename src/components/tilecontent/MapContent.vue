@@ -221,6 +221,8 @@ export default defineComponent({
     // Controls map canvas visibility — hidden until the first real center
     // is applied so the user never sees a flash of the [0,0] ocean.
     const mapReady = ref(false);
+    const useDefaultStyleFallback = ref(false);
+    let disable3dForSession = false;
     const token = import.meta.env.VITE_MAPBOX_TOKEN;
     const hasToken = computed(() => !!token);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
@@ -291,6 +293,9 @@ export default defineComponent({
     });
 
     const resolvedStyle = computed(() => resolveStyle(styleMode.value, themeStore.isDarkMode));
+    const activeStyleUrl = computed(() =>
+      useDefaultStyleFallback.value ? DEFAULT_STYLE_URL : resolvedStyle.value
+    );
 
     const isDefaultStyle = computed(() => styleMode.value === "default");
 
@@ -566,7 +571,12 @@ export default defineComponent({
         }
         statusMessage.value = null;
         const [lng, lat] = match.center as [number, number];
-        setMarker({ lat, lng });
+        const marker = { lat, lng };
+        if (layoutStore.canEdit) {
+          setMarker(marker);
+        } else {
+          updateMarker(marker);
+        }
         flyToLocation({ lat, lng }, clamp(storeContent.value.zoom ?? 9, 9, 14));
       } catch (error) {
         console.error("Mapbox search failed:", error);
@@ -798,7 +808,7 @@ export default defineComponent({
       mapInstance.value?.resize();
     };
 
-    watch(resolvedStyle, (value) => {
+    watch(activeStyleUrl, (value) => {
       const map = mapInstance.value;
       if (!map) return;
       map.setStyle(value);
@@ -839,7 +849,7 @@ export default defineComponent({
 
       const map = new mapboxgl.Map({
         container: mapContainer.value,
-        style: resolvedStyle.value,
+        style: activeStyleUrl.value,
         center: [content.center?.lng ?? 0, content.center?.lat ?? 0],
         zoom: content.zoom ?? 9,
         bearing: content.bearing ?? 0,
@@ -854,8 +864,25 @@ export default defineComponent({
       map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
 
       map.on("moveend", syncContentFromMap);
+      map.on("error", (event) => {
+        const error = event.error as Error & {
+          status?: number;
+          statusCode?: number;
+          url?: string;
+        };
+        const status = error?.status ?? error?.statusCode;
+        const url = error?.url ?? "";
+        if (status === 403 && url.includes("api.mapbox.com/v4/")) {
+          disable3dForSession = true;
+          if (!useDefaultStyleFallback.value) {
+            useDefaultStyleFallback.value = true;
+          }
+        }
+      });
       map.on("style.load", () => {
-        apply3d(show3d.value);
+        if (!disable3dForSession) {
+          apply3d(show3d.value);
+        }
         applyActivePreset();
       });
 
@@ -899,12 +926,10 @@ export default defineComponent({
         mapReady.value = true;
       }
 
-      if (layoutStore.canEdit) {
-        if (content.searchQuery && !hasSavedCenter) {
-          handleGeocode(content.searchQuery);
-        } else if (!hasSavedCenter) {
-          useMyLocation();
-        }
+      if (!hasSavedCenter && content.searchQuery) {
+        void handleGeocode(content.searchQuery);
+      } else if (layoutStore.canEdit && !hasSavedCenter) {
+        useMyLocation();
       } else if (!hasSavedCenter) {
         // Non-owner viewing a map that was never positioned — just reveal it
         // at whatever center it has rather than leaving it invisible.
@@ -912,7 +937,7 @@ export default defineComponent({
         mapReady.value = true;
       }
 
-      if (show3d.value) {
+      if (show3d.value && !disable3dForSession) {
         apply3d(true);
       }
     });

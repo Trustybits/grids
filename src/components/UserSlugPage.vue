@@ -107,6 +107,7 @@ type SwitcherVariant = 'inline' | 'floating' | 'toolbar-row';
 const switcherVariant = 'floating' as SwitcherVariant;
 import { useThemeStore } from '@/stores/theme';
 import { useUndoRedoKeys } from '@/composables/useUndoRedoKeys';
+import { computeTextColor } from '@/composables/useColorPicker';
 import type { ProfileBioContent } from '@/types/TileContent';
 
 const route = useRoute();
@@ -227,9 +228,29 @@ onMounted(() => {
   resolveSlug();
 });
 
+watch(
+  () => layoutStore.currentLayout?.backgroundColor,
+  (bgColor) => {
+    const el = document.documentElement;
+    if (bgColor) {
+      el.style.setProperty("--bg-contrast-color", computeTextColor(bgColor));
+      el.style.setProperty("--bg-contrast-color-low", computeTextColor(bgColor, "low"));
+      el.style.setProperty("--bg-surface-color", bgColor);
+    } else {
+      el.style.removeProperty("--bg-contrast-color");
+      el.style.removeProperty("--bg-contrast-color-low");
+      el.style.removeProperty("--bg-surface-color");
+    }
+  },
+  { immediate: true },
+);
+
 // Restore dark mode when leaving the slug page
 onUnmounted(() => {
   themeStore.resetToAppDefault();
+  document.documentElement.style.removeProperty("--bg-contrast-color");
+  document.documentElement.style.removeProperty("--bg-contrast-color-low");
+  document.documentElement.style.removeProperty("--bg-surface-color");
 });
 </script>
 

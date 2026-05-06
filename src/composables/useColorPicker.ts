@@ -25,8 +25,6 @@ export interface ColorPickerValues {
   handleBackgroundColorChange: (color: string) => void;
 }
 
-const themeStore = useThemeStore();
-
 const STRUCTURAL_COLORS = new Set([
   "var(--color-tile-background)",
   "var(--color-light-100)",
@@ -106,22 +104,28 @@ const colors: Record<string, string> = {
   "var(--color-content-background)": "#10100E",
 };
 
-const computeTextColor = (backgroundColor: string): string => {
+export const computeTextColor = (backgroundColor: string, modifier: string = "none"): string => {
   const bg = backgroundColor;
   let hex: string | undefined;
 
   if (bg.startsWith("#")) {
     hex = bg;
   } else if (bg === "var(--color-tile-background)") {
-    hex = themeStore.isDarkMode ? "#000000" : "#FFFEF5";
+    const ts = useThemeStore();
+    hex = ts.isDarkMode ? "#000000" : "#FFFEF5";
   } else if (bg === "var(--color-content-background)") {
-    hex = themeStore.isDarkMode ? "#10100E" : "#FFFEF5";
+    const ts = useThemeStore();
+    hex = ts.isDarkMode ? "#10100E" : "#FFFEF5";
   } else {
     hex = colors[bg];
   }
 
   if (!hex) return "";
-  return getLuminance(hex) > 0.5 ? "#000000" : "#FFFFFF";
+  let textColor = getLuminance(hex) > 0.5 ? "#000000" : "#FFFFFF";
+  if (modifier === "low") {
+    textColor = textColor === "#000000" ? "#00000057" : "#FFFFFF57";
+  }
+  return textColor;
 };
 
 const getLuminance = (hex: string): number => {

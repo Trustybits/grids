@@ -114,6 +114,7 @@ import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
 import { useUndoRedoKeys } from "@/composables/useUndoRedoKeys";
+import { computeTextColor } from "@/composables/useColorPicker";
 import type { ProfileBioContent } from "@/types/TileContent";
 
 // ── Breakpoint switcher placement ────────────────────────────────
@@ -254,6 +255,23 @@ export default defineComponent({
     );
 
     watch(
+      () => layoutStore.currentLayout?.backgroundColor,
+      (bgColor) => {
+        const el = document.documentElement;
+        if (bgColor) {
+          el.style.setProperty("--bg-contrast-color", computeTextColor(bgColor));
+          el.style.setProperty("--bg-contrast-color-low", computeTextColor(bgColor, "low"));
+          el.style.setProperty("--bg-surface-color", bgColor);
+        } else {
+          el.style.removeProperty("--bg-contrast-color");
+          el.style.removeProperty("--bg-contrast-color-low");
+          el.style.removeProperty("--bg-surface-color");
+        }
+      },
+      { immediate: true },
+    );
+
+    watch(
       () => route.params.id,
       (newId) => {
         if (newId) {
@@ -267,6 +285,9 @@ export default defineComponent({
     // Restore dark mode when leaving the grid page
     onUnmounted(() => {
       themeStore.resetToAppDefault();
+      document.documentElement.style.removeProperty("--bg-contrast-color");
+      document.documentElement.style.removeProperty("--bg-contrast-color-low");
+      document.documentElement.style.removeProperty("--bg-surface-color");
     });
 
     return {

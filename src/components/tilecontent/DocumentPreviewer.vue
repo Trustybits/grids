@@ -63,36 +63,17 @@
               </p>
             </div>
             <div class="doc-prev-toolbar-section doc-prev-toolbar-section--right">
-              <div v-if="kind === 'pdf'" class="doc-prev-spread-group" role="group" aria-label="Page layout">
-                <button
-                  type="button"
-                  class="doc-prev-spread-btn"
-                  :class="{ 'is-active': spread === 1 }"
-                  aria-label="Single page view"
-                  :aria-pressed="spread === 1"
-                  @click="setSpread(1)"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="6" y="3" width="12" height="18" rx="1.5"
-                      fill="none" stroke="currentColor" stroke-width="1.5" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  class="doc-prev-spread-btn"
-                  :class="{ 'is-active': spread === 2 }"
-                  aria-label="Two page spread"
-                  :aria-pressed="spread === 2"
-                  @click="setSpread(2)"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="3" y="3" width="8.5" height="18" rx="1"
-                      fill="none" stroke="currentColor" stroke-width="1.5" />
-                    <rect x="12.5" y="3" width="8.5" height="18" rx="1"
-                      fill="none" stroke="currentColor" stroke-width="1.5" />
-                  </svg>
-                </button>
-              </div>
+              <button
+                v-if="kind === 'pdf'"
+                type="button"
+                class="doc-prev-spread-toggle"
+                :class="{ 'is-active': spread === 2 }"
+                :aria-pressed="spread === 2"
+                aria-label="Two-page spread"
+                @click="toggleSpread"
+              >
+                <TwoPageIcon :width="37" :height="20" />
+              </button>
               <div v-if="kind === 'pdf'" class="doc-prev-zoom-wrap">
                 <button
                   ref="zoomBtnRef"
@@ -130,10 +111,7 @@
                 aria-label="Close preview"
                 @click="close"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 6L18 18M18 6L6 18" stroke="currentColor"
-                    stroke-width="1.8" stroke-linecap="round" />
-                </svg>
+                <CloseIcon />
               </button>
             </div>
           </header>
@@ -161,13 +139,21 @@
                 class="doc-prev-scroll doc-prev-pdf"
                 :class="{ 'is-spread': spread === 2 }"
               />
-              <!-- eslint-disable-next-line vue/no-v-html -->
-              <div v-else-if="kind === 'html'" ref="htmlMountRef" class="doc-prev-scroll doc-prev-html" v-html="htmlContent" />
-              <pre
-                v-else-if="kind === 'text'"
-                class="doc-prev-scroll doc-prev-text"
-                >{{ textContent }}</pre
+              <div
+                v-else-if="kind === 'html'"
+                ref="htmlScrollRef"
+                class="doc-prev-scroll doc-prev-page-stage"
               >
+                <!-- eslint-disable-next-line vue/no-v-html -->
+                <article ref="htmlMountRef" class="doc-prev-page" v-html="htmlContent" />
+              </div>
+              <div
+                v-else-if="kind === 'text'"
+                ref="textScrollRef"
+                class="doc-prev-scroll doc-prev-page-stage"
+              >
+                <pre class="doc-prev-page doc-prev-page--text">{{ textContent }}</pre>
+              </div>
               <div v-else class="doc-prev-fallback">
                 <p>No in-browser preview for this file type.</p>
                 <a
@@ -238,6 +224,8 @@ import {
 import type { PropType } from "vue";
 import type { DocumentItem } from "@/types/TileContent";
 import DocumentTileIcon from "@/components/icons/DocumentTileIcon.vue";
+import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
+import TwoPageIcon from "@/components/icons/actionbar/TwoPageIcon.vue";
 import {
   loadDocumentBytes,
   uint8ArrayToArrayBuffer,
@@ -300,12 +288,22 @@ const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 3;
 const ZOOM_STEP = 0.1;
 const ZOOM_DEFAULT = 1;
-const PDF_BASE_SCALE = 1.5; // base canvas scale at zoom 100%
+// 100% zoom = render the doc at its native page size in CSS pixels
+// (PDFs report sizes in points where 1pt = 1 CSS px in pdfjs viewports).
+// US Letter at 72 DPI = 612 wide; used as the fit-baseline width for
+// PDFs whose native page size we don't know yet, and as the rendered
+// page width for non-PDF formats (DOCX / Markdown / plain text).
+const LETTER_PAGE_WIDTH = 612;
 const THUMB_WIDTH = 120;
+// Horizontal breathing room reserved on either side of the rendered doc when
+// computing fit-to-stage zoom — keeps the page off the carousel chevrons.
+const STAGE_SIDE_PADDING = 64;
+// Gap between two pages when 2-up spread is active.
+const SPREAD_GAP = 16;
 
 export default defineComponent({
   name: "DocumentPreviewer",
-  components: { DocumentTileIcon },
+  components: { DocumentTileIcon, CloseIcon, TwoPageIcon },
   props: {
     items: {
       type: Array as PropType<DocumentItem[]>,
@@ -338,6 +336,7 @@ export default defineComponent({
     // use `#private` fields which throw "Cannot read from private field"
     // when accessed through a Vue Proxy, so this MUST stay un-reactive.
     let pdfDoc: PDFDocumentProxy | null = null;
+    let nativePageWidth = LETTER_PAGE_WIDTH;
     const pdfPageCount = ref(0);
     const activePage = ref(1);
 
@@ -346,6 +345,8 @@ export default defineComponent({
 
     const pdfMountRef = ref<HTMLElement | null>(null);
     const htmlMountRef = ref<HTMLElement | null>(null);
+    const htmlScrollRef = ref<HTMLElement | null>(null);
+    const textScrollRef = ref<HTMLElement | null>(null);
     const stageRef = ref<HTMLElement | null>(null);
     const sideBodyRef = ref<HTMLElement | null>(null);
     const zoomBtnRef = ref<HTMLElement | null>(null);
@@ -441,6 +442,9 @@ export default defineComponent({
       activeOutlineId.value = null;
       kind.value = "none";
       zoomMenuOpen.value = false;
+      // Default each newly opened doc to 100% single-page view per spec.
+      zoom.value = ZOOM_DEFAULT;
+      spread.value = 1;
     };
 
     const renderThumbnail = async (pageNum: number) => {
@@ -470,11 +474,14 @@ export default defineComponent({
       el.innerHTML = "";
       teardownObservers();
 
-      const baseScale = PDF_BASE_SCALE * zoom.value;
+      // 100% zoom = native PDF page size (1pt = 1 CSS px in pdfjs viewports).
+      // 2-up spread additionally halves the per-page width while preserving aspect.
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const spreadFactor = spread.value === 2 ? 0.5 : 1;
+      const renderScale = zoom.value * spreadFactor;
 
       const renderPage = async (pageNum: number, page: PDFPageProxy) => {
-        const viewport = page.getViewport({ scale: baseScale });
+        const viewport = page.getViewport({ scale: renderScale });
         const wrapper = document.createElement("div");
         wrapper.className = "doc-prev-pdf-page";
         wrapper.dataset.page = String(pageNum);
@@ -490,6 +497,18 @@ export default defineComponent({
         el.appendChild(wrapper);
         await page.render({ canvasContext: ctx, viewport, canvas }).promise;
       };
+
+      // Cache the native (zoom=1) width of the first page so zoom-to-fit and
+      // 2-up auto-fit can reason about the document's natural size, even if
+      // the document is non-letter (e.g. A4 or landscape).
+      try {
+        const firstPage = await doc.getPage(1);
+        if (token !== pdfRenderToken) return;
+        const native = firstPage.getViewport({ scale: 1 });
+        nativePageWidth = native.width;
+      } catch {
+        nativePageWidth = LETTER_PAGE_WIDTH;
+      }
 
       for (let p = 1; p <= doc.numPages; p++) {
         if (token !== pdfRenderToken) return;
@@ -549,16 +568,32 @@ export default defineComponent({
     };
 
     const attachOutlineObserver = (headings: HTMLElement[]) => {
-      const root = htmlMountRef.value;
+      const root = htmlScrollRef.value;
       if (!root || !headings.length) return;
       const observer = new IntersectionObserver(
         (entries) => {
           const visible = entries.filter((e) => e.isIntersecting);
-          if (!visible.length) return;
-          visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-          activeOutlineId.value = (visible[0].target as HTMLElement).id;
+          if (visible.length) {
+            visible.sort(
+              (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
+            );
+            activeOutlineId.value = (visible[0].target as HTMLElement).id;
+            return;
+          }
+          // Fallback when no heading is currently in the observation band:
+          // pick the last heading whose top is above the viewport top — this
+          // keeps a heading "active" while reading through long body content
+          // and especially at the very end of the document.
+          const rootRect = root.getBoundingClientRect();
+          let lastAbove: HTMLElement | null = null;
+          for (const h of headings) {
+            const r = h.getBoundingClientRect();
+            if (r.top - rootRect.top <= rootRect.height * 0.3) lastAbove = h;
+            else break;
+          }
+          if (lastAbove) activeOutlineId.value = lastAbove.id;
         },
-        { root, rootMargin: "0px 0px -70% 0px", threshold: 0.01 },
+        { root, rootMargin: "0px 0px -70% 0px", threshold: [0, 0.01, 0.5] },
       );
       outlineObserver = observer;
       headings.forEach((h) => observer.observe(h));
@@ -636,11 +671,6 @@ export default defineComponent({
       }
     };
 
-    const setSpread = (n: 1 | 2) => {
-      if (spread.value === n) return;
-      spread.value = n;
-    };
-
     const clampZoom = (v: number) =>
       Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(v * 100) / 100));
 
@@ -660,23 +690,42 @@ export default defineComponent({
       setZoom(1);
       zoomMenuOpen.value = false;
     };
+    // Width that one page actually occupies on screen at the given zoom,
+    // accounting for 2-up spread halving each page.
+    const renderedPageWidth = (z: number) =>
+      nativePageWidth * z * (spread.value === 2 ? 0.5 : 1);
+
     const zoomToFit = () => {
       const stage = stageRef.value;
-      const doc = pdfDoc;
-      if (!stage || !doc) {
+      if (!stage) {
         setZoom(1);
         zoomMenuOpen.value = false;
         return;
       }
-      void doc.getPage(1).then((page: PDFPageProxy) => {
-        const vp = page.getViewport({ scale: PDF_BASE_SCALE });
-        const stageWidth = stage.clientWidth - 80;
-        const cols = spread.value === 2 ? 2 : 1;
-        const targetWidth = stageWidth / cols;
-        const fit = clampZoom(targetWidth / vp.width);
-        zoom.value = fit;
-      });
+      const stageWidth = stage.clientWidth - STAGE_SIDE_PADDING;
+      const cols = spread.value === 2 ? 2 : 1;
+      const gaps = spread.value === 2 ? SPREAD_GAP : 0;
+      const targetPerPage = (stageWidth - gaps) / cols;
+      const baseScale = spread.value === 2 ? 0.5 : 1;
+      const fit = clampZoom(targetPerPage / (nativePageWidth * baseScale));
+      zoom.value = fit;
       zoomMenuOpen.value = false;
+    };
+
+    const toggleSpread = () => {
+      const next: 1 | 2 = spread.value === 2 ? 1 : 2;
+      spread.value = next;
+      // When entering 2-up, auto-fit if the current zoom would overflow the
+      // stage so the user immediately sees both pages side-by-side.
+      if (next === 2 && stageRef.value) {
+        const stageWidth = stageRef.value.clientWidth - STAGE_SIDE_PADDING;
+        const projected = renderedPageWidth(zoom.value) * 2 + SPREAD_GAP;
+        if (projected > stageWidth) {
+          const baseScale = 0.5;
+          const targetPerPage = (stageWidth - SPREAD_GAP) / 2;
+          zoom.value = clampZoom(targetPerPage / (nativePageWidth * baseScale));
+        }
+      }
     };
 
     const toggleZoomMenu = () => {
@@ -765,7 +814,7 @@ export default defineComponent({
       void loadCurrent();
     });
 
-    watch(zoom, () => {
+    watch([zoom, spread], () => {
       if (kind.value === "pdf") void renderPdfPages();
     });
 
@@ -802,6 +851,8 @@ export default defineComponent({
       spread,
       pdfMountRef,
       htmlMountRef,
+      htmlScrollRef,
+      textScrollRef,
       stageRef,
       sideBodyRef,
       zoomBtnRef,
@@ -810,7 +861,7 @@ export default defineComponent({
       nextDoc,
       prevDoc,
       goTo,
-      setSpread,
+      toggleSpread,
       toggleZoomMenu,
       zoomIn,
       zoomOut,
@@ -921,51 +972,67 @@ export default defineComponent({
   background: #fff;
 }
 
-/* MD/DOCX outline */
+/* MD / DOCX / TXT outline (table of contents)
+   Styled to match Figma node 1446:16198 — three-state ghost button.
+   - h1: 16px Inter Semi Bold, uppercase, 0.8px tracking, 10px padding
+   - h2: 14px Inter Semi Bold, 0.7px tracking, 30px left indent
+   - hover: white text on --color-light-100-8
+   - active: --color-dark-0 text on --color-light-100 (inverted) */
 .doc-prev-outline {
   list-style: none;
   margin: 0;
   padding: 4px 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .doc-prev-outline-item {
-  margin: 2px 0;
+  margin: 0;
 }
 .doc-prev-outline-btn {
   display: block;
   width: 100%;
-  background: transparent;
+  background: var(--color-light-100-0, rgba(255, 255, 255, 0));
   border: none;
-  color: rgba(255, 255, 255, 0.34);
   text-align: left;
-  padding: 6px 8px;
-  font-size: 0.85rem;
-  border-radius: 6px;
   cursor: pointer;
   font-family: inherit;
+  font-weight: var(--font-weight-semibold, 600);
+  border-radius: var(--radius-sm, 8px);
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-.doc-prev-outline-btn:hover {
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.04);
+  transition:
+    color var(--duration-fast, 150ms) var(--easing-smooth, ease),
+    background-color var(--duration-fast, 150ms) var(--easing-smooth, ease);
 }
 .doc-prev-outline-item.is-level-1 .doc-prev-outline-btn {
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  padding-left: 8px;
+  padding: 10px;
+  font-size: 1rem;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-light-100-55, rgba(255, 255, 255, 0.55));
 }
-.doc-prev-outline-item.is-level-2 .doc-prev-outline-btn {
-  padding-left: 24px;
+.doc-prev-outline-item.is-level-2 .doc-prev-outline-btn,
+.doc-prev-outline-item.is-level-3 .doc-prev-outline-btn {
+  padding: 10px 10px 10px 30px;
+  font-size: 0.875rem;
+  line-height: 1.143;
+  letter-spacing: 0.04em;
+  color: var(--color-light-100-34, rgba(255, 255, 255, 0.34));
 }
 .doc-prev-outline-item.is-level-3 .doc-prev-outline-btn {
-  padding-left: 40px;
-  font-size: 0.8rem;
+  padding-left: 50px;
+  color: var(--color-light-100-34, rgba(255, 255, 255, 0.34));
+}
+.doc-prev-outline-btn:hover {
+  background: var(--color-light-100-8, rgba(255, 255, 255, 0.08));
+  color: var(--color-light-100, #ffffff);
 }
 .doc-prev-outline-item.is-active .doc-prev-outline-btn {
-  color: var(--color-light-100, #fefdec);
-  background: rgba(211, 189, 255, 0.1);
+  background: var(--color-light-100, #ffffff);
+  color: var(--color-dark-0, #33312c);
 }
 
 .doc-prev-side-empty {
@@ -1026,33 +1093,30 @@ export default defineComponent({
   white-space: nowrap;
 }
 
-.doc-prev-spread-group {
-  display: inline-flex;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 8px;
-  padding: 2px;
-  gap: 2px;
-}
-.doc-prev-spread-btn {
+/* Two-page spread toggle — matches Figma node 1417:11686 (ghost button).
+   Inactive: transparent + 0.34 icon | Hover: 0.08 bg + 0.76 icon
+   Active: 0.08 bg + 1.0 icon. */
+.doc-prev-spread-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 32px;
+  padding: 10px;
   border: none;
-  background: transparent;
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.55);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--color-light-100-0, rgba(255, 255, 255, 0));
+  color: var(--color-light-100-34, rgba(255, 255, 255, 0.34));
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background-color var(--duration-fast, 150ms) var(--easing-smooth, ease),
+    color var(--duration-fast, 150ms) var(--easing-smooth, ease);
 }
-.doc-prev-spread-btn:hover {
-  color: rgba(255, 255, 255, 0.85);
+.doc-prev-spread-toggle:hover {
+  background: var(--color-light-100-8, rgba(255, 255, 255, 0.08));
+  color: var(--color-light-100-76, rgba(255, 255, 255, 0.76));
 }
-.doc-prev-spread-btn.is-active {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--color-light-100, #fefdec);
+.doc-prev-spread-toggle.is-active {
+  background: var(--color-light-100-8, rgba(255, 255, 255, 0.08));
+  color: var(--color-light-100, #ffffff);
 }
 
 .doc-prev-zoom-wrap {
@@ -1116,23 +1180,30 @@ export default defineComponent({
   padding: 0;
 }
 
+/* Close button — actionbar CloseIcon styled as a ghost button. */
 .doc-prev-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
+  padding: 10px;
   border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.55);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--color-light-100-0, rgba(255, 255, 255, 0));
+  color: var(--color-light-100-34, rgba(255, 255, 255, 0.34));
   cursor: pointer;
   margin-left: 4px;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background-color var(--duration-fast, 150ms) var(--easing-smooth, ease),
+    color var(--duration-fast, 150ms) var(--easing-smooth, ease);
 }
 .doc-prev-close:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--color-light-100, #fefdec);
+  background: var(--color-light-100-8, rgba(255, 255, 255, 0.08));
+  color: var(--color-light-100-76, rgba(255, 255, 255, 0.76));
+}
+.doc-prev-close:active {
+  color: var(--color-light-100, #ffffff);
 }
 
 /* Carousel */
@@ -1179,27 +1250,30 @@ export default defineComponent({
   height: 0;
 }
 
-/* PDF page container */
+/* All file types render onto white "page" cards sized to letter aspect (612 wide).
+   For PDFs we center each page; the canvas itself is rendered at the chosen
+   zoom. For HTML/text we render onto a single tall card whose width is fixed
+   at the letter-paper width. */
 .doc-prev-pdf {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-content: flex-start;
-  padding: 24px 24px 80px;
-  gap: 16px;
+  padding: 32px 32px 96px;
+  gap: 24px;
+  /* TOKEN: letter "page gap" between pages — see notes; uses literal value. */
 }
 .doc-prev-pdf.is-spread {
-  gap: 0;
+  gap: 16px;
 }
 .doc-prev-pdf :deep(.doc-prev-pdf-page) {
   flex: 0 0 auto;
-  background: #fff;
+  background: var(--color-light-100, #ffffff);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  border-radius: 2px;
+  /* TOKEN GAP: Figma uses --radius/tiny: 4px which doesn't exist in tokens.scss.
+     Falling back to a literal 4px. */
+  border-radius: 4px;
   overflow: hidden;
-}
-.doc-prev-pdf.is-spread :deep(.doc-prev-pdf-page) {
-  margin: 0;
 }
 .doc-prev-pdf :deep(.doc-prev-pdf-page canvas) {
   display: block;
@@ -1207,67 +1281,98 @@ export default defineComponent({
   height: auto;
 }
 
-/* HTML / Markdown / DOCX rendering */
-.doc-prev-html {
-  padding: 56px clamp(56px, 12%, 200px) 96px;
-  color: rgba(255, 255, 255, 0.85);
+/* HTML / Markdown / DOCX / plain text rendering — every non-PDF document is
+   rendered onto a single letter-paper-width white "page" card to mirror the
+   PDF rendering and match Figma node 1446:15835 (poc + text variants). */
+.doc-prev-page-stage {
+  display: flex;
+  justify-content: center;
+  padding: 32px 32px 96px;
+}
+.doc-prev-page {
+  width: 612px;
+  max-width: 100%;
+  min-height: 792px;
+  background: var(--color-light-100, #ffffff);
+  /* TOKEN GAP: Figma uses --radius/tiny: 4px which isn't defined in
+     tokens.scss (--radius-sm: 8px is the smallest token). Using a literal
+     until a token is added. */
+  border-radius: 4px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  padding: 72px 64px;
+  /* Tail padding so the IntersectionObserver can mark the last heading
+     active even when scrolled to the very bottom of the document. */
+  padding-bottom: max(96px, 60vh);
+  margin: 0;
+  color: var(--color-dark-0, #33312c);
+}
+.doc-prev-page > :first-child {
+  margin-top: 0;
+}
+.doc-prev-page :deep(h1) {
+  font-size: 1.85rem;
+  font-weight: var(--font-weight-bold, 700);
+  margin: 1.4em 0 0.6em;
+  color: var(--color-dark-0, #33312c);
+}
+.doc-prev-page :deep(h2) {
+  font-size: 1.35rem;
+  font-weight: var(--font-weight-semibold, 600);
+  margin: 1.4em 0 0.5em;
+  color: var(--color-dark-0, #33312c);
+}
+.doc-prev-page :deep(h3) {
+  font-size: 1.1rem;
+  font-weight: var(--font-weight-semibold, 600);
+  margin: 1.2em 0 0.4em;
+  color: var(--color-dark-0, #33312c);
+}
+.doc-prev-page :deep(p),
+.doc-prev-page :deep(li) {
+  margin: 0 0 0.7em;
   font-size: 0.95rem;
   line-height: 1.65;
-  max-width: 100%;
+  color: var(--color-dark-0, #33312c);
 }
-.doc-prev-html :deep(h1) {
-  font-size: 1.85rem;
-  font-weight: 700;
-  margin: 1.4em 0 0.6em;
-  color: var(--color-light-100, #fefdec);
+.doc-prev-page :deep(a) {
+  color: #5b3fd0;
+  text-decoration: underline;
 }
-.doc-prev-html :deep(h2) {
-  font-size: 1.35rem;
-  font-weight: 600;
-  margin: 1.4em 0 0.5em;
-  color: var(--color-light-100, #fefdec);
-}
-.doc-prev-html :deep(h3) {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 1.2em 0 0.4em;
-  color: var(--color-light-100, #fefdec);
-}
-.doc-prev-html :deep(p),
-.doc-prev-html :deep(li) {
-  margin: 0 0 0.7em;
-}
-.doc-prev-html :deep(a) {
-  color: var(--color-purple, #d3bdff);
-}
-.doc-prev-html :deep(code) {
-  background: rgba(255, 255, 255, 0.06);
+.doc-prev-page :deep(code) {
+  background: rgba(51, 49, 44, 0.08);
   padding: 0.1em 0.35em;
   border-radius: 4px;
   font-family: var(--font-family-mono, monospace);
   font-size: 0.9em;
 }
-.doc-prev-html :deep(pre) {
-  background: rgba(255, 255, 255, 0.04);
+.doc-prev-page :deep(pre) {
+  background: rgba(51, 49, 44, 0.06);
   padding: 12px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm, 8px);
   overflow-x: auto;
 }
-.doc-prev-html :deep(blockquote) {
-  border-left: 2px solid rgba(211, 189, 255, 0.5);
+.doc-prev-page :deep(pre code) {
+  background: transparent;
+  padding: 0;
+}
+.doc-prev-page :deep(blockquote) {
+  border-left: 2px solid var(--color-purple, #d3bdff);
   padding-left: 14px;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(51, 49, 44, 0.7);
   margin: 0 0 0.8em;
 }
+.doc-prev-page :deep(img) {
+  max-width: 100%;
+  height: auto;
+}
 
-.doc-prev-text {
-  margin: 0;
-  padding: 56px clamp(56px, 12%, 200px) 96px;
+.doc-prev-page--text {
   font-family: var(--font-family-mono, monospace);
   font-size: 0.88rem;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.85);
   white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
 }
 
 .doc-prev-message,
@@ -1355,9 +1460,12 @@ export default defineComponent({
   .doc-prev-side {
     display: none;
   }
-  .doc-prev-html,
-  .doc-prev-text {
-    padding: 40px 24px 80px;
+  .doc-prev-page-stage {
+    padding: 24px 16px 96px;
+  }
+  .doc-prev-page {
+    padding: 48px 32px;
+    padding-bottom: max(72px, 60vh);
   }
 }
 </style>

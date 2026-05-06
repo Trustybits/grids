@@ -51,7 +51,7 @@ jobs:
 
           const packageJson = JSON.parse(fs.readFileSync(path, 'utf8'));
           const [major, week, patch] = packageJson.version.split('.').map((value) => Number.parseInt(value, 10));
-          const currentWeek = isoWeek(new Date()) - 1;
+          const currentWeek = isoWeek(new Date());
           const nextPatch = week === currentWeek ? patch + 1 : 0;
           const nextVersion = `0.${currentWeek}.${nextPatch}`;
 

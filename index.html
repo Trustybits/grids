@@ -28,8 +28,9 @@
          These serve non-crawler services (getLinkPreview, FigJam, etc.) that
          fetch the page with a browser user-agent and therefore bypass the
          middleware. For social crawlers (Discord, Slack, Twitter…) the
-         middleware.ts injects personalised tags at the TOP of <head>, so those
-         always win the "first occurrence" race.
+         middleware.ts STRIPS this entire block from the served HTML and
+         replaces it with personalised tags — otherwise crawlers see two
+         og:image tags and render both as a carousel.
          og:image intentionally points at the Vercel proxy (/api/og), NOT the
          Firebase function URL directly. -->
     <meta name="description" content="Create and share your personal grid of links, tools, and more." />

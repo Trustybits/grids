@@ -146,6 +146,7 @@
               >
                 <!-- eslint-disable-next-line vue/no-v-html -->
                 <article ref="htmlMountRef" class="doc-prev-page" v-html="htmlContent" />
+                <div class="doc-prev-scroll-spacer" aria-hidden="true" />
               </div>
               <div
                 v-else-if="kind === 'html'"
@@ -154,6 +155,7 @@
               >
                 <!-- eslint-disable-next-line vue/no-v-html -->
                 <article ref="htmlMountRef" class="doc-prev-reader-body" v-html="htmlContent" />
+                <div class="doc-prev-scroll-spacer" aria-hidden="true" />
               </div>
               <div
                 v-else-if="kind === 'text'"
@@ -317,6 +319,10 @@ const THUMB_WIDTH = 120;
 const STAGE_SIDE_PADDING = 64;
 // Gap between two pages when 2-up spread is active.
 const SPREAD_GAP = 16;
+// The TOC active anchor line sits 30% down the document viewport.
+// Keep this value in sync with scrollToOutline so clicked headings land
+// exactly where active-outline detection expects them.
+const OUTLINE_ACTIVE_RATIO = 0.3;
 
 export default defineComponent({
   name: "DocumentPreviewer",
@@ -371,6 +377,9 @@ export default defineComponent({
     const thumbCanvases = new Map<number, HTMLCanvasElement>();
     let pageObserver: IntersectionObserver | null = null;
     let outlineObserver: IntersectionObserver | null = null;
+    let outlineScrollRaf = 0;
+    let outlineHeadings: HTMLElement[] = [];
+    let outlineScrollRoot: HTMLElement | null = null;
     let pdfRenderToken = 0;
     let pdfLoadToken = 0;
 
@@ -428,6 +437,13 @@ export default defineComponent({
       pageObserver = null;
       outlineObserver?.disconnect();
       outlineObserver = null;
+      if (outlineScrollRoot) {
+        outlineScrollRoot.removeEventListener("scroll", onOutlineScroll);
+        outlineScrollRoot = null;
+      }
+      cancelAnimationFrame(outlineScrollRaf);
+      outlineScrollRaf = 0;
+      outlineHeadings = [];
     };
 
     const teardownPdf = () => {
@@ -586,36 +602,48 @@ export default defineComponent({
       attachOutlineObserver(headings);
     };
 
+    const updateActiveOutline = () => {
+      const root = htmlScrollRef.value;
+      if (!root || !outlineHeadings.length) return;
+
+      const rootRect = root.getBoundingClientRect();
+      const anchorY = rootRect.top + rootRect.height * OUTLINE_ACTIVE_RATIO;
+
+      // Stable rule: the active heading is the last heading whose top has
+      // crossed the anchor line. This avoids IntersectionObserver flicker
+      // caused by partial entry batches and closely spaced headings.
+      let active: HTMLElement | null = outlineHeadings[0] ?? null;
+
+      for (const h of outlineHeadings) {
+        const rect = h.getBoundingClientRect();
+        if (rect.top <= anchorY) active = h;
+        else break;
+      }
+
+      if (active && activeOutlineId.value !== active.id) {
+        activeOutlineId.value = active.id;
+      }
+    };
+
+    const onOutlineScroll = () => {
+      cancelAnimationFrame(outlineScrollRaf);
+      outlineScrollRaf = requestAnimationFrame(updateActiveOutline);
+    };
+
     const attachOutlineObserver = (headings: HTMLElement[]) => {
       const root = htmlScrollRef.value;
       if (!root || !headings.length) return;
-      const observer = new IntersectionObserver(
-        (entries) => {
-          const visible = entries.filter((e) => e.isIntersecting);
-          if (visible.length) {
-            visible.sort(
-              (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
-            );
-            activeOutlineId.value = (visible[0].target as HTMLElement).id;
-            return;
-          }
-          // Fallback when no heading is currently in the observation band:
-          // pick the last heading whose top is above the viewport top — this
-          // keeps a heading "active" while reading through long body content
-          // and especially at the very end of the document.
-          const rootRect = root.getBoundingClientRect();
-          let lastAbove: HTMLElement | null = null;
-          for (const h of headings) {
-            const r = h.getBoundingClientRect();
-            if (r.top - rootRect.top <= rootRect.height * 0.3) lastAbove = h;
-            else break;
-          }
-          if (lastAbove) activeOutlineId.value = lastAbove.id;
-        },
-        { root, rootMargin: "0px 0px -70% 0px", threshold: [0, 0.01, 0.5] },
-      );
-      outlineObserver = observer;
-      headings.forEach((h) => observer.observe(h));
+
+      if (outlineScrollRoot) {
+        outlineScrollRoot.removeEventListener("scroll", onOutlineScroll);
+      }
+
+      outlineHeadings = headings;
+      outlineScrollRoot = root;
+      root.addEventListener("scroll", onOutlineScroll, { passive: true });
+
+      // Set the initial active item immediately after the outline is built.
+      updateActiveOutline();
     };
 
     const loadCurrent = async () => {
@@ -760,10 +788,27 @@ export default defineComponent({
     };
 
     const scrollToOutline = (id: string) => {
-      const root = htmlMountRef.value;
-      if (!root) return;
-      const el = root.querySelector(`#${CSS.escape(id)}`) as HTMLElement | null;
-      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const scrollRoot = htmlScrollRef.value;
+      const mount = htmlMountRef.value;
+      if (!scrollRoot || !mount) return;
+
+      const el = mount.querySelector(`#${CSS.escape(id)}`) as HTMLElement | null;
+      if (!el) return;
+
+      const rootRect = scrollRoot.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const targetTop =
+        scrollRoot.scrollTop +
+        (elRect.top - rootRect.top) -
+        scrollRoot.clientHeight * OUTLINE_ACTIVE_RATIO;
+
+      scrollRoot.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: "smooth",
+      });
+
+      // Optimistically highlight the clicked item while smooth scrolling catches up.
+      activeOutlineId.value = id;
     };
 
     const onKey = (e: KeyboardEvent) => {
@@ -1305,8 +1350,9 @@ export default defineComponent({
    PDF rendering and match Figma node 1446:15835 (poc + text variants). */
 .doc-prev-page-stage {
   display: flex;
-  justify-content: center;
-  padding: 32px 32px 96px;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 32px 0;
 }
 .doc-prev-page {
   width: 612px;
@@ -1319,9 +1365,7 @@ export default defineComponent({
   border-radius: 4px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
   padding: 72px 64px;
-  /* Tail padding so the IntersectionObserver can mark the last heading
-     active even when scrolled to the very bottom of the document. */
-  padding-bottom: max(96px, 60vh);
+  padding-bottom: 96px;
   margin: 0;
   color: var(--color-dark-0, #33312c);
 }
@@ -1393,9 +1437,9 @@ export default defineComponent({
    ──────────────────────────────────────────────────────────────── */
 .doc-prev-reader {
   display: flex;
-  justify-content: center;
-  padding: clamp(24px, 6vw, 64px) clamp(16px, 5vw, 48px);
-  padding-bottom: max(96px, 70vh);
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(24px, 6vw, 64px) clamp(16px, 5vw, 48px) 0;
 }
 .doc-prev-reader-body {
   width: 100%;
@@ -1526,6 +1570,14 @@ export default defineComponent({
   color: var(--color-light-100-76, rgba(255, 255, 255, 0.76));
 }
 
+/* Extra scrollable space after rendered HTML documents. This lets the last
+   heading, or last few headings, physically reach the 30% TOC active line. */
+.doc-prev-scroll-spacer {
+  width: 100%;
+  height: max(160px, 70vh);
+  flex: 0 0 auto;
+}
+
 .doc-prev-message,
 .doc-prev-fallback {
   position: absolute;
@@ -1612,15 +1664,14 @@ export default defineComponent({
     display: none;
   }
   .doc-prev-page-stage {
-    padding: 24px 16px 96px;
+    padding: 24px 16px 0;
   }
   .doc-prev-page {
     padding: 48px 32px;
-    padding-bottom: max(72px, 60vh);
+    padding-bottom: 72px;
   }
   .doc-prev-reader {
-    padding: 24px 16px;
-    padding-bottom: max(96px, 70vh);
+    padding: 24px 16px 0;
   }
 }
 </style>

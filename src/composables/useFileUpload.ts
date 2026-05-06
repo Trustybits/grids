@@ -6,6 +6,10 @@ import type { TileContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import type { UploadOptions } from "@/types/UploadFileTypes";
 import { v4 as uuidv4 } from "uuid";
+import {
+  ensureDocumentItemThumbnailOnServer,
+  documentItemIsPdf,
+} from "@/composables/useDocumentThumbnail";
 import type {
   StorageUploadProgress,
   StorageUploadTask,
@@ -244,6 +248,34 @@ export function useFileUpload() {
       }
       layoutStore.clearTileUploading(tileId);
       layoutStore.updateLayout();
+
+      const layoutId = layoutStore.currentLayout?.id;
+      if (layoutId) {
+        const thumbJobs = items
+          .map((item, i) => ({ item, file: files[i] }))
+          .filter(
+            (
+              x,
+            ): x is {
+              item: (typeof items)[number];
+              file: File;
+            } => !!x.item && !!x.file && documentItemIsPdf(x.file.name, x.file.type),
+          )
+          .map(({ item }) =>
+            ensureDocumentItemThumbnailOnServer(layoutId, tileId, item.id)
+              .then((res) => {
+                if (res.thumbnailUrl) {
+                  layoutStore.patchDocumentStackItem(tileId, item.id, {
+                    thumbnailUrl: res.thumbnailUrl,
+                  });
+                }
+              })
+              .catch((err) => {
+                console.warn("Document thumbnail generation failed:", err);
+              }),
+          );
+        void Promise.all(thumbJobs);
+      }
     } catch (error) {
       console.error("Document upload failed:", error);
       layoutStore.clearTileUploading(tileId);

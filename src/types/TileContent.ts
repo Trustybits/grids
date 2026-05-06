@@ -295,12 +295,16 @@ export interface DocumentItem {
   fileName: string;
   url: string;
   mimeType?: string;
+  /** First-page raster preview for PDFs; generated server-side. */
+  thumbnailUrl?: string;
 }
 
 export interface DocumentStackContent extends TileContent {
   type: ContentType.DOCUMENT;
   items: DocumentItem[];
   backgroundColor?: string;
+  customTitle?: string;
+  customSubtitle?: string;
 }
 
 // ── Roadmap Feed (Notion integration) ──────────────────────────────

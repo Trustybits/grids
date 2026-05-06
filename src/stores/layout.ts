@@ -8,6 +8,7 @@ import {
   type AnyTileContent,
   type LinkContent,
   type DocumentStackContent,
+  type DocumentItem,
 } from "@/types/TileContent";
 import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
@@ -826,6 +827,27 @@ export const useLayoutStore = defineStore("layout", {
         ...(patch as Partial<AnyTileContent>),
       } as TileContent;
 
+      this.updateLayout();
+    },
+
+    patchDocumentStackItem(
+      tileId: string,
+      itemId: string,
+      itemPatch: Partial<DocumentItem>,
+    ) {
+      if (!this.currentLayout) return;
+      const tile = this.currentLayout.tiles.find((t) => t.i === tileId);
+      if (!tile || tile.content.type !== ContentType.DOCUMENT) return;
+
+      if (editingTileId !== tileId) {
+        this.pushUndoSnapshot("Update document");
+      }
+
+      const doc = tile.content as DocumentStackContent;
+      const items = doc.items.map((it) =>
+        it.id === itemId ? { ...it, ...itemPatch } : it,
+      );
+      tile.content = { ...doc, items } as TileContent;
       this.updateLayout();
     },
 

@@ -313,7 +313,7 @@ const ZOOM_DEFAULT = 1;
 // PDFs whose native page size we don't know yet, and as the rendered
 // page width for non-PDF formats (DOCX / Markdown / plain text).
 const LETTER_PAGE_WIDTH = 612;
-const THUMB_WIDTH = 120;
+const THUMB_WIDTH = 140;
 // Horizontal breathing room reserved on either side of the rendered doc when
 // computing fit-to-stage zoom — keeps the page off the carousel chevrons.
 const STAGE_SIDE_PADDING = 64;
@@ -1060,25 +1060,25 @@ export default defineComponent({
 }
 .doc-prev-thumb {
   position: relative;
-  display: block;
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
   margin: 0;
   background: transparent;
   border: 2px solid transparent;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   transition: border-color 0.18s var(--easing-smooth, ease);
 }
 .doc-prev-thumb:hover {
-  border-color: rgba(211, 189, 255, 0.5);
+  border-color: var(--tile_stroke, rgba(254, 254, 245, 0.21));
 }
 .doc-prev-thumb.is-active {
-  border-color: var(--color-purple, #d3bdff);
-  box-shadow: 0 0 0 2px rgba(211, 189, 255, 0.25);
+  border-color: var(--grids-brand-purple, var(--color-purple, #9f40ff));
 }
 .doc-prev-thumb-canvas {
   display: block;
-  width: 120px;
+  width: 140px;
   height: auto;
   border-radius: 4px;
   background: #fff;

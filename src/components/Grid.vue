@@ -30,7 +30,6 @@
 
 <script lang="ts">
 import { computed, onMounted, onUnmounted, ref, nextTick, watch } from "vue";
-import { useRoute } from "vue-router";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
 import GridTile from "./GridTile.vue";
@@ -51,7 +50,6 @@ export default {
   },
   setup(props) {
     const layoutStore = useLayoutStore();
-    const route = useRoute(); // Access route parameters
     const margin = 48;
     const viewportWidth = ref(
       typeof window !== "undefined" ? window.innerWidth : 0,
@@ -446,16 +444,9 @@ export default {
       };
     });
 
-    // Load layout using ID from the route
     onMounted(() => {
       onResize();
       window.addEventListener("resize", onResize);
-      const layoutId = route.params.id;
-      if (layoutId) {
-        layoutStore.loadLayout(layoutId as string);
-      } else {
-        console.error("Layout ID is missing in the route.");
-      }
       nextTick(() => observeGridHeight());
     });
 

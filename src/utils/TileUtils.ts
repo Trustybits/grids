@@ -577,6 +577,12 @@ export function createTileContent(
       if (typeof d.backgroundColor === "string" && d.backgroundColor !== "") {
         payload.backgroundColor = d.backgroundColor;
       }
+      if (typeof d.customTitle === "string") {
+        payload.customTitle = d.customTitle;
+      }
+      if (typeof d.customSubtitle === "string") {
+        payload.customSubtitle = d.customSubtitle;
+      }
       return payload;
     }
 

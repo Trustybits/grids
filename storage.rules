@@ -84,5 +84,12 @@ service firebase.storage {
       allow read: if true;
       allow write: if false;
     }
+
+    // PDF page previews for document-stack tiles (Admin SDK writes).
+    match /thumbnails/documents/{userId}/{thumbId} {
+      allow read: if resource.metadata.published == 'true' ||
+                  (request.auth != null && request.auth.uid == userId);
+      allow write: if false;
+    }
   }
 }

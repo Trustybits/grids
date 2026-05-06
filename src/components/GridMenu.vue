@@ -441,7 +441,7 @@ const launchPixelRacers = () => {
   justify-content: center;
   width: 20px;
   height: 20px;
-  color: var(--color-content-default);
+  color: var(--bg-contrast-color, var(--color-content-default));
   transition: color var(--duration-fast) var(--easing-smooth);
 
   svg {

@@ -236,6 +236,7 @@ export const useLayoutStore = defineStore("layout", {
         themeId: this.currentLayout.themeId ?? "",
         backgroundImageSrc: this.currentLayout.backgroundImageSrc,
         backgroundEmbed: this.currentLayout.backgroundEmbed,
+        backgroundColor: this.currentLayout.backgroundColor || "",
         forcedBreakpoint: this.forcedBreakpoint ?? this.activeBreakpoint,
         actionLabel,
       };
@@ -303,6 +304,7 @@ export const useLayoutStore = defineStore("layout", {
       this.currentLayout.verticalCompact = snapshot.verticalCompact;
       this.currentLayout.backgroundImageSrc = snapshot.backgroundImageSrc;
       this.currentLayout.backgroundEmbed = snapshot.backgroundEmbed;
+      this.currentLayout.backgroundColor = snapshot.backgroundColor;
 
       if (this.currentLayout.themeId !== snapshot.themeId) {
         this.currentLayout.themeId = snapshot.themeId;
@@ -786,6 +788,28 @@ export const useLayoutStore = defineStore("layout", {
       this.pushUndoSnapshot("Change background image");
       this.currentLayout.backgroundImageSrc = url;
       this.currentLayout.backgroundEmbed = embed;
+      this.updateLayout();
+    },
+
+    removeBackgroundImage() {
+      if (!this.currentLayout) return;
+      this.pushUndoSnapshot("Remove background image");
+      this.currentLayout.backgroundImageSrc = "";
+      this.currentLayout.backgroundEmbed = false;
+      this.updateLayout();
+    },
+
+    setBackgroundColor(color: string) {
+      if (!this.currentLayout) return;
+      this.pushUndoSnapshot("Change background color");
+      this.currentLayout.backgroundColor = color;
+      this.updateLayout();
+    },
+
+    removeBackgroundColor() {
+      if (!this.currentLayout) return;
+      this.pushUndoSnapshot("Remove background color");
+      this.currentLayout.backgroundColor = "";
       this.updateLayout();
     },
 

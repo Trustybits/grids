@@ -30,7 +30,12 @@
     <div v-else-if="gridLoaded" class="grid-container">
       <div class="background-image-container">
         <div :style="backgroundStyle" class="background-image-overlay"></div>
-        
+        <div
+          v-if="backgroundOverlayColor"
+          class="background-color-overlay"
+          :style="{ backgroundColor: backgroundOverlayColor }"
+        />
+
         <div class="layout-container">
           <!--
             Option B: Floating breakpoint switcher at top of viewport.
@@ -136,8 +141,12 @@ const profilePhotoUrl = computed(() => {
 useDynamicFavicon(profilePhotoUrl);
 
 const backgroundStyle = computed(() => {
+  const layout = layoutStore.currentLayout;
+  const hasImage = !!layout?.backgroundImageSrc;
+  const hasColor = !!layout?.backgroundColor;
   return {
-    backgroundImage: `url(${layoutStore.currentLayout?.backgroundImageSrc})`,
+    backgroundImage: hasImage ? `url(${layout?.backgroundImageSrc})` : 'none',
+    backgroundColor: hasColor && !hasImage ? (layout?.backgroundColor ?? 'transparent') : 'transparent',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
@@ -149,6 +158,14 @@ const backgroundStyle = computed(() => {
     height: '100%',
     zIndex: -1,
   };
+});
+
+const backgroundOverlayColor = computed(() => {
+  const layout = layoutStore.currentLayout;
+  if (layout?.backgroundImageSrc && layout?.backgroundColor) {
+    return layout.backgroundColor;
+  }
+  return null;
 });
 
 /**
@@ -246,6 +263,14 @@ onUnmounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
+  z-index: -1;
+}
+
+.background-color-overlay {
+  position: fixed;
+  inset: 0;
+  mix-blend-mode: color;
+  pointer-events: none;
   z-index: -1;
 }
 

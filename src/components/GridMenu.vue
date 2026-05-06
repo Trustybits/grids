@@ -65,6 +65,70 @@
 
       <!-- Owner Actions -->
       <MenuSection v-if="isOwner">
+        <!-- Background image / color split button -->
+        <div class="ghost-split-button">
+          <button class="ghost-split-main" @click="triggerBackgroundImagePicker">
+            {{ hasBackgroundImage ? 'Change Background Image' : 'Add Background Image' }}
+          </button>
+          <button
+            class="ghost-split-chevron"
+            ref="bgChevronRef"
+            @click.stop="showBgDropdown = !showBgDropdown"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M6 9l6 6 6-6"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <div v-if="showBgDropdown" class="ghost-split-dropdown">
+            <button
+              class="ghost-split-dropdown-item"
+              @click="openBgColorPicker"
+            >
+              Change Background Color
+            </button>
+            <button
+              v-if="hasBackgroundImage"
+              class="ghost-split-dropdown-item ghost-split-dropdown-item--danger"
+              @click="removeBackgroundImage"
+            >
+              Remove Background Image
+            </button>
+            <button
+              v-if="hasBackgroundColor"
+              class="ghost-split-dropdown-item ghost-split-dropdown-item--danger"
+              @click="removeBackgroundColor"
+            >
+              Remove Background Color
+            </button>
+          </div>
+        </div>
+
+        <input
+          type="file"
+          ref="bgImageInput"
+          style="display: none"
+          accept="image/*,image/svg+xml"
+          @change.stop="handleBackgroundImageUpload"
+        />
+
+        <ColorPicker
+          v-if="showBgColorPicker"
+          :buttonEl="bgChevronRef"
+          :onColorChange="handleBackgroundColorChange"
+        />
+
         <!--
           Ghost split button: main area triggers a full duplicate,
           chevron reveals a "Structure Only" alternative.
@@ -143,6 +207,8 @@ import Accordion from "./Accordion.vue";
 import MenuSection from "./MenuSection.vue";
 import Divider from "./Divider.vue";
 import GridMenuIcon from "./icons/GridMenuIcon.vue";
+import ColorPicker from "./ColorPicker.vue";
+import { useFileUpload } from "@/composables/useFileUpload";
 
 const router = useRouter();
 const layoutStore = useLayoutStore();
@@ -153,6 +219,11 @@ const authProvider = getAuthProvider();
 const showMenu = ref(false);
 const showDuplicateDropdown = ref(false);
 const menuRef = ref<HTMLElement | null>(null);
+const showBgDropdown = ref(false);
+const showBgColorPicker = ref(false);
+const bgImageInput = ref<HTMLInputElement | null>(null);
+const bgChevronRef = ref<HTMLElement | null>(null);
+const { uploadFileToUrl } = useFileUpload();
 
 const isOwner = computed(() => {
   const userId = authProvider.getCurrentUserId();
@@ -162,6 +233,14 @@ const isOwner = computed(() => {
 
 const gridPageId = computed(() => {
   return layoutStore.currentLayout?.id || "";
+});
+
+const hasBackgroundImage = computed(() => {
+  return !!layoutStore.currentLayout?.backgroundImageSrc;
+});
+
+const hasBackgroundColor = computed(() => {
+  return !!layoutStore.currentLayout?.backgroundColor;
 });
 
 // Computed property with setter to handle gravity toggle
@@ -188,6 +267,8 @@ const toggleMenu = () => {
 const handleClickOutside = (event: MouseEvent) => {
   if (menuRef.value && !menuRef.value.contains(event.target as Node)) {
     showMenu.value = false;
+    showBgDropdown.value = false;
+    showBgColorPicker.value = false;
   }
 };
 
@@ -264,6 +345,46 @@ const confirmDelete = async () => {
   await layoutStore.deleteLayout(layoutStore.currentLayout.id);
   showMenu.value = false;
   router.push("/dashboard");
+};
+
+const triggerBackgroundImagePicker = () => {
+  bgImageInput.value?.click();
+};
+
+const handleBackgroundImageUpload = async (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  try {
+    const url = await uploadFileToUrl(file, { fileType: "images" });
+    layoutStore.addBackgroundImage(url, false);
+  } catch (error: unknown) {
+    console.error("Failed to upload background image:", error);
+    toastStore.addToast(
+      error instanceof Error ? error.message : "Failed to upload image",
+      "error",
+    );
+  }
+  if (bgImageInput.value) bgImageInput.value.value = "";
+};
+
+const openBgColorPicker = () => {
+  showBgDropdown.value = false;
+  showBgColorPicker.value = true;
+};
+
+const handleBackgroundColorChange = (color: string) => {
+  layoutStore.setBackgroundColor(color);
+  showBgColorPicker.value = false;
+};
+
+const removeBackgroundImage = () => {
+  layoutStore.removeBackgroundImage();
+  showBgDropdown.value = false;
+};
+
+const removeBackgroundColor = () => {
+  layoutStore.removeBackgroundColor();
+  showBgDropdown.value = false;
 };
 
 const shareGrid = async () => {
@@ -479,6 +600,10 @@ const launchPixelRacers = () => {
 
   &:hover {
     background: var(--color-input-edit);
+  }
+
+  &--danger {
+    color: var(--color-red);
   }
 }
 </style>

@@ -627,13 +627,50 @@ async function captureGridTiles(
   pageUrl: string,
   skipIndices: number[]
 ): Promise<CapturedTile[]> {
-  // Allow images + fonts. Tile content (photos, link previews, etc.) is what
-  // we're capturing, so blocking those resources is the wrong move.
+  // #region agent log
+  const dbgLog = (
+    hypothesisId: string,
+    message: string,
+    data: Record<string, unknown>
+  ): void => {
+    fetch("http://127.0.0.1:7369/ingest/2a702533-751b-4928-a009-2159aa220bf7", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "94975c",
+      },
+      body: JSON.stringify({
+        sessionId: "94975c",
+        hypothesisId,
+        location: `ogImage.ts:${message}`,
+        message,
+        data,
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {
+      /* swallow — debug logger is best-effort */
+    });
+    functions.logger.info(`[debug-94975c][${hypothesisId}] ${message}`, data);
+  };
+  let abortedMediaCount = 0;
+  const abortedSamples: string[] = [];
+  // #endregion
+
+  // Allow images, fonts, AND video. Tile content (photos, link previews,
+  // video first-frames) is what we're capturing — blocking media kills
+  // every <video> tile and they render as opaque black rectangles.
   await page.setRequestInterception(true);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   page.on("request", (req: any) => {
-    if (req.resourceType() === "media") req.abort();
-    else req.continue();
+    // #region agent log
+    if (req.resourceType() === "media") {
+      abortedMediaCount++; // now always 0 in steady state — kept for verification
+      if (abortedSamples.length < 5) {
+        abortedSamples.push(req.url().slice(0, 200));
+      }
+    }
+    // #endregion
+    req.continue();
   });
 
   // `domcontentloaded` is enough — the production app keeps long-lived
@@ -720,6 +757,25 @@ async function captureGridTiles(
       const dataSrc = el.dataset.src;
       if (dataSrc && !el.src) el.src = dataSrc;
     });
+    // Prepare videos so their first frame actually decodes and paints by the
+    // time we screenshot. Default `preload="metadata"` only fetches headers
+    // and may never paint frame 0 for paused <video> elements — we need
+    // `preload="auto"` plus a play+pause nudge below.
+    document.querySelectorAll("video").forEach((v) => {
+      const vid = v as HTMLVideoElement;
+      vid.preload = "auto";
+      vid.muted = true; // required by Chromium's autoplay policy for play()
+      vid.playsInline = true;
+      // If the element already errored (e.g. a previous load attempt was
+      // aborted before this run), trigger a fresh load now that media
+      // requests are allowed through.
+      if (
+        vid.error ||
+        vid.networkState === HTMLMediaElement.NETWORK_NO_SOURCE
+      ) {
+        vid.load();
+      }
+    });
     window.dispatchEvent(new Event("resize"));
     window.dispatchEvent(new Event("scroll"));
   });
@@ -768,6 +824,86 @@ async function captureGridTiles(
     )
   );
 
+  // Wait for videos to reach HAVE_CURRENT_DATA (readyState >= 2) — i.e. the
+  // first frame has been decoded and is available to paint. Without this
+  // gate, screenshots capture the default empty <video> rectangle (black).
+  await page.evaluate(() =>
+    Promise.all(
+      Array.from(document.querySelectorAll(".grid-container video")).map(
+        (v: Element) => {
+          const vid = v as HTMLVideoElement;
+          if (vid.readyState >= 2) return Promise.resolve();
+          if (vid.error) return Promise.resolve(); // genuinely broken — let blank-tile filter drop it
+          return new Promise((r) => {
+            const done = (): void => {
+              vid.removeEventListener("loadeddata", done);
+              vid.removeEventListener("error", done);
+              r(undefined);
+            };
+            vid.addEventListener("loadeddata", done, { once: true });
+            vid.addEventListener("error", done, { once: true });
+            // Hard ceiling so a single slow video can't blow the 90s
+            // function budget. Tiles still missing first-frame data will
+            // be filtered out by the per-tile videosReady gate below.
+            setTimeout(done, 6_000);
+          });
+        }
+      )
+    )
+  );
+
+  // Seek each video past any fade-in / production-logo intro so the
+  // captured frame has actual content. Empirically many uploaded clips
+  // open with ~0.5–0.8s of black or a logo splash, which would otherwise
+  // be scattered as flat dark rectangles in the OG.
+  //
+  // Target = min(0.8s, 15% of duration) so very short clips don't get
+  // seeked past meaningful content. We also still play()+pause() after
+  // the seek because some Chromium builds won't flush the first decoded
+  // frame to the compositor for a paused video until play() runs at
+  // least once. Videos are muted so autoplay policy allows play().
+  await page.evaluate(async () => {
+    const videos = Array.from(
+      document.querySelectorAll(".grid-container video")
+    ) as HTMLVideoElement[];
+    await Promise.all(
+      videos.map(async (vid) => {
+        try {
+          vid.muted = true;
+
+          const dur = isFinite(vid.duration) ? vid.duration : 0;
+          const target = dur > 0 ? Math.min(0.8, dur * 0.15) : 0.5;
+          if (vid.readyState >= 2 && vid.currentTime < target) {
+            await new Promise((r) => {
+              const done = (): void => {
+                vid.removeEventListener("seeked", done);
+                vid.removeEventListener("error", done);
+                r(undefined);
+              };
+              vid.addEventListener("seeked", done, { once: true });
+              vid.addEventListener("error", done, { once: true });
+              setTimeout(done, 1500);
+              vid.currentTime = target;
+            });
+          }
+
+          try {
+            await vid.play();
+            vid.pause();
+          } catch {
+            // play() rejection (autoplay policy, src error). Seeked frame
+            // should still composite; if not, the tile filters drop it.
+          }
+        } catch {
+          /* fall through — blank-tile filter handles unrendered videos */
+        }
+      })
+    );
+  });
+
+  // Small settle so the seeked-and-paused frame is definitely composited.
+  await new Promise((r) => setTimeout(r, 250));
+
   // CRITICAL: read rects + take screenshot back-to-back inside the page
   // context. If we screenshot first and read rects later (or vice-versa with
   // any awaitable Node work in between), a slow tile image can finish loading
@@ -787,6 +923,27 @@ async function captureGridTiles(
     hasContent: boolean;
     /** true if every <img> inside has finished loading (naturalWidth > 0) */
     imagesReady: boolean;
+    /** true if every <video> inside reached readyState>=2 and has nonzero dimensions */
+    videosReady: boolean;
+    // #region agent log
+    /** Debug-only: video element state for video tiles (null otherwise) */
+    videoState?: {
+      readyState: number;
+      networkState: number;
+      currentTime: number;
+      videoWidth: number;
+      videoHeight: number;
+      paused: boolean;
+      hasError: boolean;
+      errorCode: number | null;
+      errorMessage: string | null;
+      preload: string;
+      autoplay: boolean;
+      muted: boolean;
+      srcLen: number;
+      srcSample: string;
+    } | null;
+    // #endregion
   }
   const rects: Array<TileMeta | null> = await page.evaluate(() => {
     window.scrollTo(0, 0);
@@ -886,6 +1043,42 @@ async function captureGridTiles(
         (img) => img.complete && img.naturalWidth > 0
       );
 
+      // Per-tile video readiness — drop tiles whose <video> never reached
+      // HAVE_CURRENT_DATA or has 0×0 dimensions. Without this gate broken
+      // videos render as opaque black rectangles in the OG (see ogImage
+      // debug session 94975c — videos with networkState NETWORK_NO_SOURCE
+      // were sailing through and producing flat black tiles).
+      const videosInTile = Array.from(
+        card.querySelectorAll("video")
+      ) as HTMLVideoElement[];
+      const videosReady = videosInTile.every(
+        (vid) => vid.readyState >= 2 && vid.videoWidth > 0 && !vid.error
+      );
+
+      // #region agent log
+      const videoEl = card.querySelector(
+        "video"
+      ) as HTMLVideoElement | null;
+      const videoState = videoEl ?
+        {
+          readyState: videoEl.readyState,
+          networkState: videoEl.networkState,
+          currentTime: videoEl.currentTime,
+          videoWidth: videoEl.videoWidth,
+          videoHeight: videoEl.videoHeight,
+          paused: videoEl.paused,
+          hasError: !!videoEl.error,
+          errorCode: videoEl.error ? videoEl.error.code : null,
+          errorMessage: videoEl.error ? videoEl.error.message : null,
+          preload: videoEl.preload,
+          autoplay: videoEl.autoplay,
+          muted: videoEl.muted,
+          srcLen: (videoEl.currentSrc || videoEl.src || "").length,
+          srcSample: (videoEl.currentSrc || videoEl.src || "").slice(0, 120),
+        } :
+        null;
+      // #endregion
+
       return {
         x: r.x + sx,
         y: r.y + sy,
@@ -896,9 +1089,39 @@ async function captureGridTiles(
         rows,
         hasContent,
         imagesReady,
+        videosReady,
+        // #region agent log
+        videoState,
+        // #endregion
       };
     });
   });
+
+  // #region agent log
+  dbgLog("H1", "media-abort-summary", {
+    abortedMediaCount,
+    abortedSamples,
+  });
+  const videoRects = rects
+    .map((r, i) => ({ idx: i, rect: r }))
+    .filter(
+      (entry): entry is { idx: number; rect: TileMeta } =>
+        entry.rect !== null && entry.rect.type === "video"
+    );
+  dbgLog("H2_H3", "video-tile-states", {
+    totalTiles: rects.length,
+    videoTileCount: videoRects.length,
+    videos: videoRects.map((entry) => ({
+      idx: entry.idx,
+      type: entry.rect.type,
+      cols: entry.rect.cols,
+      rows: entry.rect.rows,
+      hasContent: entry.rect.hasContent,
+      imagesReady: entry.rect.imagesReady,
+      videoState: entry.rect.videoState,
+    })),
+  });
+  // #endregion
 
   // Now — with no awaits in between that could trigger lazy loaders or
   // shift the layout — take the full screenshot. The rects above describe
@@ -933,6 +1156,11 @@ async function captureGridTiles(
       functions.logger.info(
         `[og] tile ${i} no rendered content (type=${r.type}) — skipping`
       );
+      // #region agent log
+      if (r.type === "video") {
+        dbgLog("H3", "video-skipped-no-content", { idx: i });
+      }
+      // #endregion
       continue;
     }
     // Drop tiles that have <img> elements still decoding. Capturing them
@@ -942,6 +1170,25 @@ async function captureGridTiles(
       functions.logger.info(
         `[og] tile ${i} images not loaded (type=${r.type}) — skipping`
       );
+      // #region agent log
+      if (r.type === "video") {
+        dbgLog("H3", "video-skipped-images-not-ready", { idx: i });
+      }
+      // #endregion
+      continue;
+    }
+    // Same gate for <video> — without first-frame data the video element
+    // composites as a flat black rectangle which then sneaks past the
+    // pixel-stdev blank check thanks to corner anti-aliasing.
+    if (!r.videosReady) {
+      functions.logger.info(
+        `[og] tile ${i} video not ready (type=${r.type}) — skipping`
+      );
+      // #region agent log
+      if (r.type === "video") {
+        dbgLog("post-fix", "video-skipped-not-ready", { idx: i });
+      }
+      // #endregion
       continue;
     }
     // Drop oversized tiles. Anything wider/taller than MAX_TILE_SPAN cells
@@ -950,6 +1197,15 @@ async function captureGridTiles(
       functions.logger.info(
         `[og] tile ${i} too big (${r.cols}x${r.rows}) — skipping`
       );
+      // #region agent log
+      if (r.type === "video") {
+        dbgLog("H3", "video-skipped-too-big", {
+          idx: i,
+          cols: r.cols,
+          rows: r.rows,
+        });
+      }
+      // #endregion
       continue;
     }
 
@@ -968,17 +1224,48 @@ async function captureGridTiles(
         .png()
         .toBuffer();
 
-      // Drop tiles that came out as a near-uniform color. Causes:
+      // Drop tiles that came out as a near-uniform color OR essentially
+      // black. Causes:
       //   - dynamic component never resolved before the paint buffer
       //   - link/embed preview failed or hadn't fetched
       //   - tile genuinely has no rendered content (missing image, etc.)
+      //   - video first frame is fade-in / production-logo black even
+      //     after seeking past it (very short or all-dark clips)
       // Either way, scattering a flat dark rectangle in the OG looks worse
       // than just picking a different tile from the pool.
       const stats = await sharp(tileBuf).stats();
       const meaningfulChannels = stats.channels.slice(0, 3); // RGB only
-      const isBlank = meaningfulChannels.every(
+      const lowStdev = meaningfulChannels.every(
         (ch: { stdev: number }) => ch.stdev < 4
       );
+      // Mean luminance threshold catches near-black tiles where the
+      // pixel-stdev is dragged up by anti-aliasing on the rounded
+      // corners (~30) but the actual content is still essentially black.
+      // 8/255 is dark enough that a real image/video frame will easily
+      // clear it (dim-but-visible night scenes typically read 20–40+).
+      const lowMean = meaningfulChannels.every(
+        (ch: { mean: number }) => ch.mean < 8
+      );
+      const isBlank = lowStdev || lowMean;
+      // #region agent log
+      if (r.type === "video") {
+        dbgLog("H4", "video-stdev-check", {
+          idx: i,
+          cols: r.cols,
+          rows: r.rows,
+          width: w,
+          height: h,
+          channels: meaningfulChannels.map((ch: { stdev: number; mean: number }) => ({
+            mean: ch.mean,
+            stdev: ch.stdev,
+          })),
+          lowStdev,
+          lowMean,
+          isBlank,
+          willInclude: !isBlank,
+        });
+      }
+      // #endregion
       if (isBlank) {
         functions.logger.info(
           `[og] tile ${i} captured blank (type=${r.type}, ${r.cols}x${r.rows}) — skipping`
@@ -998,6 +1285,20 @@ async function captureGridTiles(
       functions.logger.warn(`[og] tile crop ${i} failed:`, err);
     }
   }
+
+  // #region agent log
+  const capturedVideoCount = captured.filter((t) => t.type === "video").length;
+  const totalVideoTiles = rects.filter(
+    (r): r is TileMeta => r !== null && r.type === "video"
+  ).length;
+  dbgLog("summary", "capture-summary", {
+    totalTiles: rects.length,
+    capturedTiles: captured.length,
+    totalVideoTiles,
+    capturedVideoCount,
+    abortedMediaCount,
+  });
+  // #endregion
 
   return captured;
 }
@@ -1026,8 +1327,12 @@ function selectScatterTiles(
   const groups = new Map<Category, CapturedTile[]>();
   for (const t of shuffled) {
     const cat = categoryFor(t.type);
-    if (!groups.has(cat)) groups.set(cat, []);
-    groups.get(cat)?.push(t);
+    let group = groups.get(cat);
+    if (!group) {
+      group = [];
+      groups.set(cat, group);
+    }
+    group.push(t);
   }
 
   const selected: CapturedTile[] = [];
@@ -1037,12 +1342,10 @@ function selectScatterTiles(
   for (const cat of PRIORITY_CATEGORIES) {
     if (selected.length >= limit) break;
     const group = groups.get(cat);
-    if (group && group.length > 0) {
-      const t = group.shift();
-      if (t) {
-        selected.push(t);
-        used.add(t);
-      }
+    const t = group?.shift();
+    if (t) {
+      selected.push(t);
+      used.add(t);
     }
   }
 

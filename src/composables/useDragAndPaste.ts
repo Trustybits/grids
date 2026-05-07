@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, type Ref } from "vue";
+import { ref, onMounted, onUnmounted, watch, type Ref } from "vue";
 import { useFileUpload } from "./useFileUpload";
 import { useLayoutStore } from "@/stores/layout";
 import {
@@ -23,6 +23,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   const { uploadFileOptimistic } = useFileUpload();
   const isDraggingOver = ref(false);
   let dragCounter = 0;
+  let activeContainer: HTMLElement | null = null;
 
   const handlePaste = async (event: ClipboardEvent) => {
     // Only handle paste if user is owner and we're on the grid page
@@ -317,29 +318,50 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     }
   };
 
-  onMounted(() => {
-    if (!containerRef.value) return;
+  const addContainerListeners = (container: HTMLElement) => {
+    if (activeContainer === container) return;
+    if (activeContainer) removeContainerListeners(activeContainer);
 
-    // Add paste listener to document
-    document.addEventListener("paste", handlePaste);
-
-    // Add drag and drop listeners to container
-    const container = containerRef.value;
     container.addEventListener("drop", handleDrop);
     container.addEventListener("dragover", handleDragOver);
     container.addEventListener("dragenter", handleDragEnter);
     container.addEventListener("dragleave", handleDragLeave);
+    activeContainer = container;
+  };
+
+  const removeContainerListeners = (container: HTMLElement) => {
+    container.removeEventListener("drop", handleDrop);
+    container.removeEventListener("dragover", handleDragOver);
+    container.removeEventListener("dragenter", handleDragEnter);
+    container.removeEventListener("dragleave", handleDragLeave);
+
+    if (activeContainer === container) {
+      activeContainer = null;
+    }
+  };
+
+  const stopContainerWatch = watch(
+    containerRef,
+    (container) => {
+      if (container) {
+        addContainerListeners(container);
+      } else if (activeContainer) {
+        removeContainerListeners(activeContainer);
+      }
+    },
+    { flush: "post" },
+  );
+
+  onMounted(() => {
+    document.addEventListener("paste", handlePaste);
   });
 
   onUnmounted(() => {
     document.removeEventListener("paste", handlePaste);
+    stopContainerWatch();
 
-    if (containerRef.value) {
-      const container = containerRef.value;
-      container.removeEventListener("drop", handleDrop);
-      container.removeEventListener("dragover", handleDragOver);
-      container.removeEventListener("dragenter", handleDragEnter);
-      container.removeEventListener("dragleave", handleDragLeave);
+    if (activeContainer) {
+      removeContainerListeners(activeContainer);
     }
   });
 

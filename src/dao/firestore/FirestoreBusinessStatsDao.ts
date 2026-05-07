@@ -27,7 +27,7 @@ function toBusinessStats(data: DocumentData): BusinessStats {
     activeGrids: data.activeGrids ?? 0,
     totalUsers: data.totalUsers ?? 0,
     totalLogins: data.totalLogins ?? 0,
-    totalOwnerEdits: data.totalOwnerEdits ?? 0,
+    totalOwnerVisits: data.totalOwnerVisits ?? 0,
     tileAdds: data.tileAdds ?? {},
     tileDeletes: data.tileDeletes ?? {},
     updatedAt:

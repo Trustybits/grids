@@ -28,6 +28,7 @@ Stores aggregated, displayable statistics for each grid. Two document types live
 - **Document ID:** `{layoutId}__{YYYY-MM-DD}` (double underscore delimiter)
 - **Fields:** same shape as the aggregate document, but scoped to a single UTC day
   - `layoutId`, `ownerId`, `date: string` (YYYY-MM-DD), `totalViews`, `uniqueViewers`, `authenticatedViews`, `anonymousViews`, `totalTimeSpentMs`, `totalSessions`, `averageTimeSpentMs`, `updatedAt`
+- **Note on `uniqueViewers`:** on the daily doc this means **new** unique viewers on that date — visitors whose lifetime fingerprint marker was created today. Returning visitors count toward `totalViews` but not `uniqueViewers`. This avoids a per-day fingerprint marker subcollection (see §5).
 
 This flat structure (aggregate + daily docs in one collection) keeps queries simple: fetch the aggregate doc for lifetime stats, query by `layoutId` + date range for daily stats. Using `{layoutId}__{date}` as the doc ID avoids the need for a subcollection and makes TTL cleanup straightforward later.
 
@@ -43,7 +44,7 @@ Tracks platform-wide operational metrics. Same aggregate + daily pattern:
   - `activeGrids: number` — `created - deleted` (maintained by the aggregation function)
   - `totalUsers: number` — cumulative signups
   - `totalLogins: number`
-  - `totalOwnerEdits: number` — times an owner entered/opened their own grid for editing
+  - `totalOwnerVisits: number` — times an owner entered/opened their own grid for editing
   - `tileAdds: Record<string, number>` — map of `ContentType → count` (e.g. `{ "image": 342, "text": 891 }`)
   - `tileDeletes: Record<string, number>` — same shape
   - `updatedAt: Timestamp`
@@ -219,13 +220,15 @@ The composable handles deduplication (e.g. won't double-log a `grid_view` if the
 - Reads `eventType` from the new document
 - Dispatches to handler per event type:
   - `grid_view`: increments `gridStats/{layoutId}` aggregate `totalViews`, `uniqueViewers` (if new fingerprint), `authenticatedViews` or `anonymousViews`; increments matching daily doc; increments `businessStats/global` and daily
-  - `grid_view_end`: adds `durationMs` to `totalTimeSpentMs`, increments `totalSessions`, recomputes `averageTimeSpentMs` on both aggregate and daily docs in `gridStats`
+  - `grid_view_end`: looks up the layout document first; if it does not exist, the handler logs a warning and skips aggregation entirely (no partial writes). Otherwise: adds `durationMs` to `totalTimeSpentMs`, increments `totalSessions`, recomputes `averageTimeSpentMs`, and ensures `ownerId` is populated on both the aggregate and daily docs (sourced from `layouts/{layoutId}.userId`). The aggregate and daily updates **must** be performed inside a **single** Firestore transaction so that an automatic retry after a partial failure cannot double-apply `durationMs` / `totalSessions` to the side that already committed.
   - `grid_created` / `grid_deleted`: increments `businessStats` counters
   - `tile_added` / `tile_removed`: increments the appropriate key in `businessStats.tileAdds` / `tileDeletes` map
   - `user_signup` / `user_login`: increments `businessStats` counters
-  - `owner_grid_enter`: increments `businessStats.totalOwnerEdits`
+  - `owner_grid_enter`: increments `businessStats.totalOwnerVisits`
 - Uses Firestore `FieldValue.increment()` for atomic counter updates (no read-before-write races)
 - Uses transactions or batched writes to update both aggregate and daily docs atomically
+- **`ownerId` must be populated whenever a `gridStats` document is created.** Any handler that writes a previously-nonexistent aggregate or daily `gridStats` doc must look up `layouts/{layoutId}.userId` and include it as `ownerId` in the write. `ownerId` is required by both the data model (§1.1) and the security rules (§8 — owner reads are gated on `request.auth.uid == resource.data.ownerId`); a stats doc missing `ownerId` will deny the owner access to their own stats.
+- **Cross-document read-modify-write must use a single transaction.** When a single event coordinates read-modify-write updates across both the aggregate and daily docs (e.g. `grid_view_end`'s average recomputation), both writes must occur inside one `runTransaction` call. Two parallel transactions are not equivalent — a partial failure followed by Firebase's automatic retry will double-apply the successful side's effect (e.g. `totalTimeSpentMs` inflated, skewing `averageTimeSpentMs`).
 
 **Existing functions enhanced:**
 - `onNewUserSignup`: add a Firestore write to `analyticsEvents` with `eventType: 'user_signup'`
@@ -276,7 +279,7 @@ To count unique viewers without requiring authentication:
 - Include it in the `grid_view` event metadata
 - The aggregation Cloud Function maintains a set (or uses a subcollection/bloom filter) to deduplicate
 
-For the initial implementation, a simple approach: the Cloud Function checks a subcollection `gridStats/{layoutId}/viewers/{fingerprint}` — if the doc exists, skip the `uniqueViewers` increment; if not, create it and increment. This subcollection can be cleaned up periodically or ignored for daily stats (daily uniqueness uses `gridStats/{layoutId}__{date}/viewers/{fingerprint}`).
+A single marker subcollection lives under the lifetime aggregate: `gridStats/{layoutId}/viewers/{fingerprint}`. The Cloud Function runs one transaction per `grid_view` — if the marker exists, the viewer is a returning visitor and `uniqueViewers` is not incremented; if not, the marker is created, the aggregate's `uniqueViewers` is incremented (lifetime uniques), AND the day's `uniqueViewers` is incremented (interpreted as **new** uniques today). There is no per-day marker subcollection — daily docs only count first-time-ever visitors, not "any unique today." This halves the dedup write cost and removes an unbounded-growth daily subcollection.
 
 Note: This is approximate — `localStorage` can be cleared, different browsers on the same device produce different fingerprints, etc. It's sufficient for the "how many different people saw my grid" use case without being invasive.
 

@@ -6,6 +6,9 @@ import type { ContentType } from "@/types/TileContent";
  * Client-originated events are written directly from the browser; server-only
  * events are written by Cloud Functions via the admin SDK and must be excluded
  * from the client-allowed set in Firestore security rules.
+ * 
+ * If this enum changes, changes *must* also be made in functions/src/analytics/onAnalyticsEvenyCreated.ts,
+ * which has its own mirrored version of this
  */
 export enum AnalyticsEventType {
   // Client-originated
@@ -81,7 +84,14 @@ export interface GridStats {
   updatedAt: Date;
 }
 
-/** Daily document in `gridStats` (doc id = `{layoutId}__{YYYY-MM-DD}`). */
+/**
+ * Daily document in `gridStats` (doc id = `{layoutId}__{YYYY-MM-DD}`).
+ *
+ * Note: `uniqueViewers` here means **new** unique viewers on this date —
+ * first-time lifetime visitors who arrived today. Returning visitors are
+ * counted in `totalViews` but not in `uniqueViewers`. This avoids the cost
+ * of per-day fingerprint marker subcollections.
+ */
 export interface DailyGridStats extends GridStats {
   /** UTC date in `YYYY-MM-DD` format. */
   date: string;
@@ -94,7 +104,7 @@ export interface BusinessStats {
   activeGrids: number;
   totalUsers: number;
   totalLogins: number;
-  totalOwnerEdits: number;
+  totalOwnerVisits: number;
   /** Map of `ContentType` → count. */
   tileAdds: Record<string, number>;
   /** Map of `ContentType` → count. */

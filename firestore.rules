@@ -66,7 +66,17 @@ service cloud.firestore {
           && request.resource.data.createdAt != null
           && (!("authorId" in request.resource.data) || request.resource.data.authorId is string);
 
-        allow update, delete: if isLayoutOwner(layoutId);
+        allow update: if isLayoutOwner(layoutId)
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(["text"])
+              && request.resource.data.text is string
+              && request.resource.data.text.size() > 0
+              && request.resource.data.text.size() <= 2000
+              && ((request.auth != null && resource.data.authorId == request.auth.uid)
+                  || (request.auth == null && resource.data.authorId == "visitor")));
+
+        allow delete: if isLayoutOwner(layoutId)
+          || ((request.auth != null && resource.data.authorId == request.auth.uid)
+              || (request.auth == null && resource.data.authorId == "visitor"));
       }
 
       // Upvotes for roadmap feed tiles.

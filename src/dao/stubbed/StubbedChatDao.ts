@@ -15,6 +15,23 @@ export class StubbedChatDao implements ChatDao {
     _layoutId: string,
     _tileId: string,
     _message: { text: string; createdAt: number; authorId: string },
+  ): Promise<string> {
+    throw new Error("Stubbed DAO implementation");
+  }
+
+  public updateMessage(
+    _layoutId: string,
+    _tileId: string,
+    _messageId: string,
+    _text: string,
+  ): Promise<void> {
+    throw new Error("Stubbed DAO implementation");
+  }
+
+  public deleteMessage(
+    _layoutId: string,
+    _tileId: string,
+    _messageId: string,
   ): Promise<void> {
     throw new Error("Stubbed DAO implementation");
   }

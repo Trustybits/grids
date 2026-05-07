@@ -9,7 +9,7 @@
       <button
         class="ur-btn"
         :class="{ 'ur-btn--active': layoutStore.canUndo }"
-        :data-tooltip="layoutStore.canUndo ? `Undo ${layoutStore.undoActionLabel}` : undefined"
+        :data-tooltip="layoutStore.canUndo ? `Undo ${layoutStore.undoActionLabel}` : 'Nothing to Undo'"
         @click="layoutStore.undo()"
       >
         Undo
@@ -18,7 +18,7 @@
       <button
         class="ur-btn"
         :class="{ 'ur-btn--active': layoutStore.canRedo }"
-        :data-tooltip="layoutStore.canRedo ? `Redo ${layoutStore.redoActionLabel}` : undefined"
+        :data-tooltip="layoutStore.canRedo ? `Redo ${layoutStore.redoActionLabel}` : 'Nothing to Redo'"
         @click="layoutStore.redo()"
       >
         Redo
@@ -194,7 +194,7 @@ onUnmounted(() => {
   border: var(--tile-border-width) solid transparent;
 
   &--hovered {
-    background-color: var(--color-tile-background);
+    background-color: var(--bg-surface-color, var(--color-tile-background));
     border-color: var(--color-tile-stroke);
     backdrop-filter: blur(20px);
   }
@@ -206,18 +206,14 @@ onUnmounted(() => {
   padding: 4px 8px;
   font-size: 13px;
   font-weight: var(--font-weight-medium);
-  color: var(--color-content-default);
+  color: var(--bg-contrast-color, var(--color-content-default));
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: color var(--duration-fast) var(--easing-smooth);
   line-height: 1;
 
   &--active {
-    color: var(--color-content-high);
-  }
-
-  &:hover {
-    color: var(--color-content-high);
+    color: var(--bg-contrast-color, var(--color-content-high));
   }
 
   &:not(.ur-btn--active) {
@@ -241,7 +237,7 @@ onUnmounted(() => {
   border: none;
   padding: 2px;
   margin-left: 2px;
-  color: var(--color-content-default);
+  color: var(--bg-contrast-color, var(--color-content-default));
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: color var(--duration-fast) var(--easing-smooth);
@@ -249,7 +245,7 @@ onUnmounted(() => {
   line-height: 0;
 
   &--active {
-    color: var(--color-content-high);
+    color: var(--bg-contrast-color, var(--color-content-high));
   }
 
   &--history-open {

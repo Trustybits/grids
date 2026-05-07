@@ -10,7 +10,7 @@ Repo: https://github.com/Trustybits/grids (open-source; community contributes co
 - **Tile** — a positioned cell on the grid (`src/types/Tile.ts`) holding a `TileContent`. Position is `{x, y, w, h}` plus an `i` id and optional caption/border.
 - **TileContent** — discriminated union of tile types (`src/types/TileContent.ts`):
   `text`, `smart_text`, `chat`, `image`, `video`, `link` (with OG metadata), `embed`, `map` (Mapbox), `youtube`, `music` (Spotify / Apple), `roadmap_feed` (Notion-synced), `profile`, plus mini-games `campfire`, `clicker`, `rpg`, and the internal-only `suggestion` type.
-- **Slug** — the user's public URL segment. `UserProfile.slug` in `src/types/UserProfile.ts`. Route `/:slug` resolves to `UserSlugPage.vue`. Claiming is gated through the dashboard.
+- **Slug** — the user's public URL segment. `UserProfile.slug` in `src/types/UserProfile.ts`. Route `/:slug` resolves through `GridPage.vue`. Claiming is gated through the dashboard.
 - **Roadmap Feed** — Notion integration: owners connect a Notion DB, map its select/status options to `backlog | in_progress | done`, and the page shows community-upvotable items. Sync is server-side via a Cloud Function.
 
 ## Tech stack

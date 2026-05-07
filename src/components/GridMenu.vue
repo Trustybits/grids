@@ -541,6 +541,7 @@ const launchPixelRacers = () => {
   font-size: var(--font-size-md);
   line-height: 1.5;
   min-height: 40px;
+  min-width: 240px;
   border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   transition: background-color var(--duration-fast) var(--easing-smooth);
 

@@ -139,7 +139,8 @@ This catalog is intentionally small to start. New event types can be added witho
 
 ### Why this architecture?
 
-- **Single write path:** The frontend (and Cloud Function triggers) all write to `analyticsEvents`. A single Firestore `onCreate` trigger on that collection handles all aggregation into `gridStats` and `businessStats`. This means the aggregation logic lives in one place, is easy to test, and new event types only need a new case in the switch statement.
+- **Single write path:** The frontend writes directly to `analyticsEvents` from the browser (Firestore client SDK), and Cloud Function triggers also write there for server-originated events. A single Firestore `onCreate` trigger on that collection handles all aggregation into `gridStats` and `businessStats`. This means the aggregation logic lives in one place, is easy to test, and new event types only need a new case in the switch statement.
+- **Why direct client writes (not a callable function):** Grid views come from anonymous visitors, and view events are high-volume on the hot read path — routing every event through a callable would add cold-start latency and per-invocation cost. Abuse is mitigated through Firestore security rules that validate the event payload (see §8). The one exception is `grid_view_end` on page unload, which uses an HTTP `sendBeacon` endpoint because client Firestore writes aren't reliable during teardown.
 - **Read path is pre-aggregated:** The user-facing dashboard reads directly from `gridStats/{layoutId}` — one document read, no queries. Daily stats are a simple range query on doc IDs.
 - **Follows existing patterns:** New DAOs (`AnalyticsEventDao`, `GridStatsDao`, `BusinessStatsDao`) follow the interface → Firestore impl → stubbed impl → factory pattern already established.
 - **Expandable:** Adding a new metric means: (1) add the field to the appropriate stats document type, (2) add a case to the aggregation Cloud Function, (3) optionally add a new event type. No structural changes needed.
@@ -160,10 +161,11 @@ This catalog is intentionally small to start. New event types can be added witho
 
 ### 3.2 DAO Layer
 
-**Interfaces:**
-- `src/dao/interfaces/AnalyticsEventDao.ts` — `logEvent(event)`, `queryByType(eventType, since?)`, `queryByLayoutId(layoutId, since?)`
-- `src/dao/interfaces/GridStatsDao.ts` — `getAggregate(layoutId)`, `getDaily(layoutId, date)`, `getDailyRange(layoutId, startDate, endDate)`, `upsertAggregate(layoutId, data)`, `upsertDaily(layoutId, date, data)`
-- `src/dao/interfaces/BusinessStatsDao.ts` — `getAggregate()`, `getDaily(date)`, `getDailyRange(startDate, endDate)`, `upsertAggregate(data)`, `upsertDaily(date, data)`
+**Interfaces:** (frontend DAOs are scoped to what clients are actually allowed to do per the security rules — writes to `gridStats` / `businessStats` and reads on `analyticsEvents` are server-only, so they don't belong on these interfaces. The aggregation Cloud Function writes to `gridStats` / `businessStats` via the admin SDK directly inside `functions/`.)
+
+- `src/dao/interfaces/AnalyticsEventDao.ts` — `logEvent(event)` only. No query methods: clients cannot read `analyticsEvents`.
+- `src/dao/interfaces/GridStatsDao.ts` — read-only: `getAggregate(layoutId)`, `getDaily(layoutId, date)`, `getDailyRange(layoutId, startDate, endDate)`.
+- `src/dao/interfaces/BusinessStatsDao.ts` — read-only: `getAggregate()`, `getDaily(date)`, `getDailyRange(startDate, endDate)`.
 
 **Firestore implementations:**
 - `src/dao/firestore/FirestoreAnalyticsEventDao.ts`
@@ -237,7 +239,7 @@ The composable handles deduplication (e.g. won't double-log a `grid_view` if the
 
 ### 4.1 Grid View Tracking
 
-**`UserSlugPage.vue`** and **`GridPage.vue`** — the two entry points for viewing a grid:
+**`GridPage.vue`** — the entry point for viewing a grid:
 - Import and use `useAnalytics()`
 - On `onMounted`: call `trackGridView(layoutId)` after the grid loads successfully
 - On `onUnmounted`: call `trackGridViewEnd(layoutId, sessionId)`
@@ -309,7 +311,13 @@ The `expiresAt` field is set to `timestamp + 90 days` when writing each event. F
 ## 8. Firestore Security Rules
 
 New rules to add:
-- `analyticsEvents`: allow `create` for any authenticated or anonymous user (since grid views come from non-logged-in visitors too). Deny `read`, `update`, `delete` from clients — only Cloud Functions (admin SDK) aggregate and read these.
+- `analyticsEvents`: allow `create` for any authenticated or anonymous user (since grid views come from non-logged-in visitors too). Deny `read`, `update`, `delete` from clients — only Cloud Functions (admin SDK) aggregate and read these. Because clients write directly, the `create` rule must validate the payload to prevent abuse:
+  - `eventType` is in the allowed set (the catalog in §1.3)
+  - `timestamp == request.time` (clients can't forge backdated/future events)
+  - `expiresAt == request.time + 90 days` (so TTL works correctly and can't be extended)
+  - `userId` either equals `request.auth.uid` or is `null`
+  - `metadata` size cap (e.g. payload under ~2KB) and no unexpected top-level fields
+  - Server-originated events (`user_signup`, `user_login`, `grid_created`, `grid_deleted`) should only be writable by the admin SDK — clients should not be allowed to forge these `eventType` values. Easiest enforcement: gate the allowed `eventType` set in the client rule to the client-originated subset (`grid_view`, `grid_view_end`, `tile_added`, `tile_removed`, `owner_grid_enter`).
 - `gridStats`: allow `read` for the grid owner (`request.auth.uid == resource.data.ownerId`). Deny `write` from clients — only Cloud Functions write.
 - `businessStats`: deny all client access — admin-only via Cloud Functions or Firebase console.
 

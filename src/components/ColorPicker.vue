@@ -51,7 +51,14 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, onUnmounted, ref, watch, type PropType } from "vue";
+import {
+  defineComponent,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+  type PropType,
+} from "vue";
 import { type Tile, type TileChildComponent } from "@/types/Tile";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
 import { useToastStore } from "@/stores/toast";
@@ -65,7 +72,7 @@ export default defineComponent({
   props: {
     tile: {
       type: Object as () => Tile,
-      required: true,
+      default: null,
     },
     childComponent: {
       type: Object as PropType<TileChildComponent | null>,
@@ -74,6 +81,10 @@ export default defineComponent({
     buttonEl: {
       type: Object as () => HTMLElement | null,
       required: true,
+    },
+    onColorChange: {
+      type: Function as unknown as PropType<((color: string) => void) | null>,
+      default: null,
     },
   },
   setup(props) {
@@ -104,9 +115,8 @@ export default defineComponent({
 
     const onColorClick = (event: MouseEvent, color: string) => {
       event.preventDefault();
-      if (props.childComponent?.handleBackgroundColorChange !== undefined) {
-        props.childComponent?.handleBackgroundColorChange(`var(${color.trim()})`);
-      }
+      const value = `var(${color.trim()})`;
+      handleColorChange(value);
     };
 
     const normalizeHex = (hex: string): string => {
@@ -146,9 +156,17 @@ export default defineComponent({
         }
         return;
       }
-      
-      if (props.childComponent?.handleBackgroundColorChange !== undefined) {
-        props.childComponent?.handleBackgroundColorChange(hex);
+
+      handleColorChange(hex);
+    };
+
+    const handleColorChange = (color: string): void => {
+      if (props.onColorChange) {
+        props.onColorChange(color);
+      } else if (
+        props.childComponent?.handleBackgroundColorChange !== undefined
+      ) {
+        props.childComponent.handleBackgroundColorChange(color);
       }
     };
 

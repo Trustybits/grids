@@ -23,7 +23,10 @@
       <p class="error-description">{{ errorMessage }}</p>
 
       <div v-if="isSlugRoute" class="cta-section">
-        <p class="cta-text">Want to claim <strong>@{{ slug }}</strong>?</p>
+        <p class="cta-text">
+          Want to claim <strong>@{{ slug }}</strong
+          >?
+        </p>
         <router-link to="/login" class="cta-button">
           Create Account & Claim Handle
         </router-link>
@@ -35,6 +38,11 @@
 
     <div v-else class="background-image-container">
       <div :style="backgroundStyle" class="background-image-overlay"></div>
+      <div
+        v-if="backgroundOverlayColor"
+        class="background-color-overlay"
+        :style="{ backgroundColor: backgroundOverlayColor }"
+      />
 
       <input
         v-if="layoutStore.canEdit"
@@ -57,11 +65,25 @@
         embedded background
       </iframe>
 
-      <div class="layout-container" ref="layoutContainer" :class="{ 'drag-over': isDraggingOver }">
+      <div
+        class="layout-container"
+        ref="layoutContainer"
+        :class="{ 'drag-over': isDraggingOver }"
+      >
         <!-- Drag overlay indicator -->
         <div v-if="isDraggingOver && layoutStore.canEdit" class="drag-overlay">
           <div class="drag-message">
-            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="64"
+              height="64"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
@@ -93,7 +115,10 @@
                 Option A: Inline — switcher sits inside the toolbar row,
                 right next to the tile-add buttons.
               -->
-              <div v-if="switcherVariant === 'inline'" class="toolbar-with-switcher">
+              <div
+                v-if="switcherVariant === 'inline'"
+                class="toolbar-with-switcher"
+              >
                 <GridButtons />
                 <BreakpointSwitcher variant="inline" />
               </div>
@@ -113,14 +138,20 @@
           When the toolbar is hidden (view-only preview), still show the
           inline/toolbar-row switcher so the owner can switch back.
         -->
-        <div v-else-if="layoutStore.isOwner && switcherVariant === 'inline'" class="toolbar">
+        <div
+          v-else-if="layoutStore.isOwner && switcherVariant === 'inline'"
+          class="toolbar"
+        >
           <div class="row">
             <div class="col-md-12">
               <BreakpointSwitcher variant="inline" />
             </div>
           </div>
         </div>
-        <div v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'" class="toolbar">
+        <div
+          v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'"
+          class="toolbar"
+        >
           <BreakpointSwitcher variant="toolbar-row" />
         </div>
         <Grid :row-height="rowHeight" />
@@ -130,7 +161,14 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from "vue";
+import {
+  defineComponent,
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+} from "vue";
 import { useRouter, useRoute } from "vue-router";
 import Grid from "@/components/Grid.vue";
 import GridButtons from "@/components/TileButtons.vue";
@@ -144,6 +182,7 @@ import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
 import { useUndoRedoKeys } from "@/composables/useUndoRedoKeys";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import { computeTextColor } from "@/composables/useColorPicker";
 import type { ProfileBioContent } from "@/types/TileContent";
 
 // ── Breakpoint switcher placement ────────────────────────────────
@@ -191,8 +230,17 @@ export default defineComponent({
     };
 
     const backgroundStyle = computed(() => {
+      const layout = layoutStore.currentLayout;
+      const hasImage = !!layout?.backgroundImageSrc;
+      const hasColor = !!layout?.backgroundColor;
       return {
-        backgroundImage: `url(${layoutStore.currentLayout?.backgroundImageSrc})`,
+        backgroundImage: hasImage
+          ? `url(${layout?.backgroundImageSrc})`
+          : "none",
+        backgroundColor:
+          hasColor && !hasImage
+            ? (layout?.backgroundColor ?? "transparent")
+            : "transparent",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -209,21 +257,35 @@ export default defineComponent({
     const isSlugRoute = computed(() => typeof route.params.slug === "string");
 
     // Dynamic page title with grid name, falling back to the public handle while resolving
-    const pageTitle = computed(() => layoutStore.currentLayout?.name ?? (slug.value ? `@${slug.value}` : undefined));
+    const pageTitle = computed(
+      () =>
+        layoutStore.currentLayout?.name ??
+        (slug.value ? `@${slug.value}` : undefined),
+    );
     usePageTitle(pageTitle, "|");
+
+    const backgroundOverlayColor = computed(() => {
+      const layout = layoutStore.currentLayout;
+      if (layout?.backgroundImageSrc && layout?.backgroundColor) {
+        return layout.backgroundColor;
+      }
+      return null;
+    });
 
     // Dynamic favicon from first profile tile's photo
     const profilePhotoUrl = computed(() => {
       const tiles = layoutStore.currentLayout?.tiles;
       if (!tiles) return null;
-      
-      const profileTile = tiles.find(tile => tile.content?.type === 'profile');
+
+      const profileTile = tiles.find(
+        (tile) => tile.content?.type === "profile",
+      );
       if (!profileTile?.content) return null;
-      
+
       const profileContent = profileTile.content as ProfileBioContent;
       return profileContent.profilePhotoUrl || null;
     });
-    
+
     useDynamicFavicon(profilePhotoUrl);
 
     const addBackgroundImage = async (event: Event) => {
@@ -236,7 +298,11 @@ export default defineComponent({
         layoutStore.addBackgroundImage(url, false);
       } catch (error: unknown) {
         console.error("Failed to upload image:", error);
-        alert(error instanceof Error ? error.message : "Failed to upload image. Please try again.");
+        alert(
+          error instanceof Error
+            ? error.message
+            : "Failed to upload image. Please try again.",
+        );
       }
     };
 
@@ -260,7 +326,8 @@ export default defineComponent({
     };
 
     const paramToString = (value: unknown): string => {
-      if (Array.isArray(value)) return typeof value[0] === "string" ? value[0] : "";
+      if (Array.isArray(value))
+        return typeof value[0] === "string" ? value[0] : "";
       return typeof value === "string" ? value : "";
     };
 
@@ -340,7 +407,10 @@ export default defineComponent({
         );
       } catch (err) {
         console.error("Error loading grid route:", err);
-        setError("Handle Not Found", "An error occurred while loading this handle.");
+        setError(
+          "Handle Not Found",
+          "An error occurred while loading this handle.",
+        );
       } finally {
         if (requestId === loadRequestId) {
           isLoading.value = false;
@@ -359,15 +429,38 @@ export default defineComponent({
     );
 
     watch(
-      () => [route.params.id, route.params.slug],
-      loadCurrentRoute,
+      () => layoutStore.currentLayout?.backgroundColor,
+      (bgColor) => {
+        const el = document.documentElement;
+        if (bgColor) {
+          el.style.setProperty(
+            "--bg-contrast-color",
+            computeTextColor(bgColor),
+          );
+          el.style.setProperty(
+            "--bg-contrast-color-low",
+            computeTextColor(bgColor, "low"),
+          );
+          el.style.setProperty("--bg-surface-color", bgColor);
+        } else {
+          el.style.removeProperty("--bg-contrast-color");
+          el.style.removeProperty("--bg-contrast-color-low");
+          el.style.removeProperty("--bg-surface-color");
+        }
+      },
+      { immediate: true },
     );
+
+    watch(() => [route.params.id, route.params.slug], loadCurrentRoute);
 
     // Expose the switcher variant so the template can gate rendering
     const switcherVariant = SWITCHER_VARIANT;
     // Restore dark mode when leaving the grid page
     onUnmounted(() => {
       themeStore.resetToAppDefault();
+      document.documentElement.style.removeProperty("--bg-contrast-color");
+      document.documentElement.style.removeProperty("--bg-contrast-color-low");
+      document.documentElement.style.removeProperty("--bg-surface-color");
     });
 
     return {
@@ -380,6 +473,7 @@ export default defineComponent({
       slug,
       isSlugRoute,
       backgroundStyle,
+      backgroundOverlayColor,
       addBackgroundImage,
       selectImage,
       embedBackground,
@@ -441,11 +535,19 @@ export default defineComponent({
   align-items: center;
 }
 
+.background-color-overlay {
+  position: fixed;
+  inset: 0;
+  mix-blend-mode: color;
+  pointer-events: none;
+  z-index: -1;
+}
+
 .layout-container {
   padding-top: var(--spacing-2xl);
   padding-bottom: var(--spacing-4xl);
   position: relative;
-  
+
   &.drag-over {
     .drag-overlay {
       opacity: 1;
@@ -460,7 +562,11 @@ export default defineComponent({
   left: 0;
   right: 0;
   bottom: 0;
-  background: color-mix(in srgb, var(--color-content-background) 50%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--color-content-background) 50%,
+    transparent
+  );
   backdrop-filter: blur(8px);
   z-index: var(--z-modal);
   display: flex;
@@ -469,7 +575,7 @@ export default defineComponent({
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--duration-fast) var(--easing-ease-out);
-  
+
   .drag-message {
     background: var(--color-tile-background);
     border: var(--tile-border-width) solid var(--color-tile-stroke);
@@ -478,7 +584,7 @@ export default defineComponent({
     padding: 2rem 3rem;
     text-align: center;
     box-shadow: var(--shadow-tile-hover);
-    
+
     svg {
       color: var(--color-text-primary);
       margin-bottom: 0.75rem;
@@ -487,7 +593,7 @@ export default defineComponent({
       height: 48px;
       animation: bounce 2s ease-in-out infinite;
     }
-    
+
     p {
       margin: 0;
       font-size: 1rem;
@@ -499,7 +605,8 @@ export default defineComponent({
 }
 
 @keyframes bounce {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {

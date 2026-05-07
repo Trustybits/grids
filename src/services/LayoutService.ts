@@ -254,6 +254,7 @@ export class LayoutService implements ILayoutService {
       tiles: stripBlobUrls(layout.tiles as unknown[]),
       backgroundImageSrc: layout.backgroundImageSrc,
       backgroundEmbed: layout.backgroundEmbed,
+      backgroundColor: layout.backgroundColor ?? "",
       themeId: layout.themeId ?? "dark",
       overrides: layout.overrides ?? {},
       duplicatable: layout.duplicatable ?? false,

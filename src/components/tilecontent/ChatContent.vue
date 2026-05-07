@@ -29,11 +29,35 @@
           :class="{
             'is-owner': isOwnerMessage(message),
             'is-other': !isOwnerMessage(message),
+            'is-mine': isMyMessage(message),
+            'is-theirs': !isMyMessage(message),
           }"
         >
-          <div class="chat-bubble">
-            {{ message.text }}
-          </div>
+          <FloatingTooltip
+            :text="canEditMessage(message) ? 'Edit message' : null"
+          >
+            <div
+              class="chat-bubble-wrapper"
+              :class="{
+                'is-editable': canEditMessage(message),
+                'is-editing': editingMessageId === message.id,
+              }"
+              @mousedown="onBubbleMousedown"
+              @click="onBubbleClick($event, message)"
+            >
+              <button
+                v-if="canDeleteMessage(message)"
+                class="chat-delete-btn"
+                @click.stop="deleteMessage(message)"
+                @mousedown.stop
+              >
+                <CloseIcon />
+              </button>
+              <div class="chat-bubble">
+                <span class="chat-bubble-text">{{ message.text }}</span>
+              </div>
+            </div>
+          </FloatingTooltip>
         </div>
       </template>
     </div>
@@ -65,6 +89,17 @@
       </button>
     </transition>
 
+    <div v-if="editingMessageId" class="chat-editing-banner">
+      <span>Editing message</span>
+      <button
+        class="chat-editing-cancel"
+        @click="cancelEditing"
+        @mousedown.stop
+      >
+        Cancel
+      </button>
+    </div>
+
     <form
       class="chat-composer"
       @submit.prevent="sendMessage"
@@ -73,7 +108,7 @@
       <textarea
         ref="inputRef"
         v-model="draftMessage"
-        class="chat-input"
+        class="chat-input scrollable-thin"
         rows="1"
         :placeholder="composerPlaceholder"
         :disabled="!canSend"
@@ -103,6 +138,8 @@ import {
   watch,
 } from "vue";
 import SendIcon from "@/components/icons/SendIcon.vue";
+import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
+import FloatingTooltip from "@/components/FloatingTooltip.vue";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
 import type { ChatContent, ChatMessage } from "@/types/TileContent";
@@ -110,6 +147,8 @@ import type { ChatContent, ChatMessage } from "@/types/TileContent";
 export default defineComponent({
   components: {
     SendIcon,
+    CloseIcon,
+    FloatingTooltip,
   },
   props: {
     content: {
@@ -131,8 +170,46 @@ export default defineComponent({
     const messagesContainer = ref<HTMLDivElement | null>(null);
     const messages = ref<ChatMessage[]>([]);
     const showScrollButton = ref(false);
-    const userHasScrolled = ref(false);
     const showTopFade = ref(false);
+
+    const editingMessageId = ref<string | null>(null);
+    const savedDraft = ref("");
+    const sessionMessageIds = ref(new Set<string>());
+
+    const sessionStorageKey = computed(
+      () => `chat-session-msgs:${layoutId.value}:${props.tileId}`,
+    );
+
+    const loadSessionMessageIds = () => {
+      try {
+        const stored = sessionStorage.getItem(sessionStorageKey.value);
+        if (stored) {
+          const ids: string[] = JSON.parse(stored);
+          const updated = new Set(sessionMessageIds.value);
+          ids.forEach((id) => updated.add(id));
+          sessionMessageIds.value = updated;
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    const persistSessionMessageId = (id: string) => {
+      const updated = new Set(sessionMessageIds.value);
+      updated.add(id);
+      sessionMessageIds.value = updated;
+      try {
+        sessionStorage.setItem(
+          sessionStorageKey.value,
+          JSON.stringify([...sessionMessageIds.value]),
+        );
+      } catch {
+        // ignore
+      }
+    };
+
+    let dragStartPos: { x: number; y: number } | null = null;
+    const DRAG_THRESHOLD = 5;
 
     const layoutId = computed(() => layoutStore.currentLayout?.id ?? "");
 
@@ -146,11 +223,72 @@ export default defineComponent({
     const composerPlaceholder = computed(() =>
       isOwner.value ? "Write a message.." : "Message the owner..",
     );
+    const createMeasurementContext = () => {
+      if (typeof document === "undefined") return null;
+      try {
+        return document.createElement("canvas").getContext("2d");
+      } catch {
+        return null;
+      }
+    };
+    const measurementContext = createMeasurementContext();
+    let resizeFrame: number | null = null;
 
     const isOwnerMessage = (message: ChatMessage) => {
       if (!ownerId.value) return false;
       if (!message.authorId) return true;
       return message.authorId === ownerId.value;
+    };
+
+    const isMyMessage = (message: ChatMessage) => {
+      if (isOwner.value) {
+        return isOwnerMessage(message);
+      }
+      return !isOwnerMessage(message);
+    };
+
+    const canEditMessage = (message: ChatMessage) => {
+      if (!isMyMessage(message)) return false;
+      if (isOwner.value) return true;
+      return sessionMessageIds.value.has(message.id);
+    };
+
+    const canDeleteMessage = (message: ChatMessage) => {
+      if (isOwner.value) return true;
+      if (!isMyMessage(message)) return false;
+      return sessionMessageIds.value.has(message.id);
+    };
+
+    const onBubbleMousedown = (event: MouseEvent) => {
+      dragStartPos = { x: event.clientX, y: event.clientY };
+    };
+
+    const onBubbleClick = (event: MouseEvent, message: ChatMessage) => {
+      if (!canEditMessage(message)) return;
+      if (dragStartPos) {
+        const dx = event.clientX - dragStartPos.x;
+        const dy = event.clientY - dragStartPos.y;
+        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+          dragStartPos = null;
+          return;
+        }
+      }
+      dragStartPos = null;
+      startEditing(message);
+    };
+
+    const startEditing = (message: ChatMessage) => {
+      const updateDraft = !!editingMessageId.value;
+      editingMessageId.value = message.id;
+      savedDraft.value = updateDraft ? savedDraft.value : draftMessage.value;
+      draftMessage.value = message.text;
+      nextTick(() => inputRef.value?.focus());
+    };
+
+    const cancelEditing = () => {
+      draftMessage.value = savedDraft.value;
+      editingMessageId.value = null;
+      savedDraft.value = "";
     };
 
     // Check if we should show a date separator before this message
@@ -187,18 +325,21 @@ export default defineComponent({
       });
     };
 
+    const isNearBottom = () => {
+      const container = messagesContainer.value;
+      if (!container) return true;
+      return (
+        container.scrollHeight - container.scrollTop - container.clientHeight <
+        100
+      );
+    };
+
     // Handle scroll events to show/hide scroll-to-bottom button and top fade
     const handleScroll = () => {
       const container = messagesContainer.value;
       if (!container) return;
 
-      userHasScrolled.value = true;
-
-      // Check if user is near the bottom (within 100px)
-      const isNearBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight <
-        100;
-      showScrollButton.value = !isNearBottom;
+      showScrollButton.value = !isNearBottom();
 
       // Show top fade indicator if user has scrolled down from the top (more than 20px)
       showTopFade.value = container.scrollTop > 20;
@@ -207,14 +348,125 @@ export default defineComponent({
     const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
       const container = messagesContainer.value;
       if (!container) return;
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior,
-      });
-      // Hide scroll button after scrolling to bottom
-      if (behavior === "smooth") {
+      const doScroll = () => {
+        container.scrollTop = container.scrollHeight;
         showScrollButton.value = false;
+      };
+      if (behavior === "smooth") {
+        container.scrollTo({ top: container.scrollHeight, behavior });
+        setTimeout(() => container.scrollTo({ top: container.scrollHeight, behavior }), 50);
+        setTimeout(() => container.scrollTo({ top: container.scrollHeight, behavior }), 150);
+        showScrollButton.value = false;
+      } else {
+        doScroll();
+        setTimeout(doScroll, 50);
+        setTimeout(doScroll, 150);
       }
+    };
+
+    const getWrappedLineWidths = (
+      text: string,
+      maxWidth: number,
+      context: CanvasRenderingContext2D,
+    ) => {
+      const measure = (value: string) => context.measureText(value).width;
+      const paragraphs = text.split("\n");
+      const widths: number[] = [];
+
+      paragraphs.forEach((paragraph) => {
+        const words = paragraph.trim().split(/\s+/).filter(Boolean);
+        if (!words.length) {
+          widths.push(0);
+          return;
+        }
+
+        let line = "";
+        words.forEach((word) => {
+          const nextLine = line ? `${line} ${word}` : word;
+          if (line && measure(nextLine) > maxWidth) {
+            widths.push(measure(line));
+            line = word;
+            return;
+          }
+          line = nextLine;
+        });
+
+        widths.push(measure(line));
+      });
+
+      return widths;
+    };
+
+    const getTightContentWidth = (
+      text: string,
+      maxWidth: number,
+      context: CanvasRenderingContext2D,
+    ) => {
+      const words = text.split(/\s+/).filter(Boolean);
+      if (!words.length) return 0;
+
+      const longestWordWidth = Math.max(
+        ...words.map((word) => context.measureText(word).width),
+      );
+      const minWidth = Math.min(maxWidth, Math.max(1, longestWordWidth));
+      const maxLineCount = getWrappedLineWidths(text, maxWidth, context).length;
+
+      for (
+        let width = Math.ceil(minWidth);
+        width <= Math.ceil(maxWidth);
+        width += 2
+      ) {
+        const lineWidths = getWrappedLineWidths(text, width, context);
+        if (lineWidths.length <= maxLineCount) {
+          return Math.min(maxWidth, Math.ceil(width + 1));
+        }
+      }
+
+      return maxWidth;
+    };
+
+    const resizeVisitorBubbles = () => {
+      const container = messagesContainer.value;
+      if (!container || !measurementContext) return;
+
+      const bubbles = container.querySelectorAll<HTMLElement>(
+        ".chat-message.is-other .chat-bubble",
+      );
+
+      bubbles.forEach((bubble) => {
+        const message = bubble.closest<HTMLElement>(".chat-message");
+        if (!message) return;
+
+        bubble.style.width = "";
+
+        const style = window.getComputedStyle(bubble);
+        measurementContext.font = style.font;
+
+        const paddingX =
+          parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+        const rowWidth = message.clientWidth;
+        const maxBubbleWidth = Math.floor(rowWidth * 0.82);
+        const maxContentWidth = Math.max(1, maxBubbleWidth - paddingX);
+        const text = bubble.textContent?.trim() ?? "";
+        const contentWidth = getTightContentWidth(
+          text,
+          maxContentWidth,
+          measurementContext,
+        );
+
+        bubble.style.width = `${Math.ceil(contentWidth + paddingX)}px`;
+      });
+    };
+
+    const scheduleVisitorBubbleResize = () => {
+      if (typeof window === "undefined") return;
+      if (resizeFrame !== null) {
+        window.cancelAnimationFrame(resizeFrame);
+      }
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = null;
+        resizeVisitorBubbles();
+      });
     };
 
     let unsubscribe: (() => void) | null = null;
@@ -242,26 +494,65 @@ export default defineComponent({
       );
     };
 
+    const deleteMessage = async (message: ChatMessage) => {
+      if (!canDeleteMessage(message) || !layoutId.value || !props.tileId) {
+        return;
+      }
+      try {
+        await chatService.deleteMessage(
+          layoutId.value,
+          props.tileId,
+          message.id,
+        );
+      } catch (error) {
+        console.error("Failed to delete chat message:", error);
+      }
+    };
+
     const sendMessage = async () => {
       if (!canSend.value) return;
       const text = draftMessage.value.trim();
       if (!text) return;
       if (!layoutId.value || !props.tileId) return;
 
-      draftMessage.value = "";
+      const messageIdToEdit = editingMessageId.value;
+      draftMessage.value = messageIdToEdit ? savedDraft.value : "";
+      editingMessageId.value = null;
+      savedDraft.value = "";
+
       try {
-        await chatService.sendMessage(layoutId.value, props.tileId, text);
+        if (messageIdToEdit) {
+          await chatService.editMessage(
+            layoutId.value,
+            props.tileId,
+            messageIdToEdit,
+            text,
+          );
+        } else {
+          const newId = await chatService.sendMessage(
+            layoutId.value,
+            props.tileId,
+            text,
+          );
+          persistSessionMessageId(newId);
+          await nextTick();
+          scrollToBottom("smooth");
+        }
       } catch (error) {
         console.error("Failed to send chat message:", error);
       }
 
-      await nextTick();
-      scrollToBottom("smooth");
+      
       inputRef.value?.focus();
     };
 
     const handleKeydown = (event: KeyboardEvent) => {
       if (!canSend.value) return;
+      if (event.key === "Escape" && editingMessageId.value) {
+        event.preventDefault();
+        cancelEditing();
+        return;
+      }
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
         void sendMessage();
@@ -303,21 +594,42 @@ export default defineComponent({
     };
 
     const onResize = () => {
-      nextTick(() => scrollToBottom("auto"));
+      nextTick(() => {
+        scheduleVisitorBubbleResize();
+        scrollToBottom("auto");
+      });
     };
 
     onMounted(() => {
-      nextTick(() => scrollToBottom("auto"));
+      loadSessionMessageIds();
+      nextTick(() => {
+        scheduleVisitorBubbleResize();
+        scrollToBottom("auto");
+      });
     });
 
     watch(
       () => messages.value.length,
       async (newLength, oldLength) => {
+        const wasNearBottom = isNearBottom();
         await nextTick();
-        // Only auto-scroll if user hasn't manually scrolled up, or if it's the initial load
-        if (!userHasScrolled.value || oldLength === 0) {
+        scheduleVisitorBubbleResize();
+        if (oldLength === 0 || oldLength === undefined) {
+          scrollToBottom("auto");
+        } else if (wasNearBottom) {
           scrollToBottom("smooth");
         }
+      },
+    );
+
+    watch(
+      () =>
+        sortedMessages.value
+          .map((message) => `${message.id}:${message.text}`)
+          .join("\n"),
+      async () => {
+        await nextTick();
+        scheduleVisitorBubbleResize();
       },
     );
 
@@ -330,6 +642,10 @@ export default defineComponent({
     );
 
     onUnmounted(() => {
+      if (resizeFrame !== null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(resizeFrame);
+        resizeFrame = null;
+      }
       if (unsubscribe) {
         unsubscribe();
         unsubscribe = null;
@@ -341,10 +657,20 @@ export default defineComponent({
       inputRef,
       messagesContainer,
       sortedMessages,
+      isOwner,
       isOwnerMessage,
+      isMyMessage,
+      canEditMessage,
+      canDeleteMessage,
       canSend,
       composerPlaceholder,
       sendMessage,
+      deleteMessage,
+      startEditing,
+      cancelEditing,
+      editingMessageId,
+      onBubbleMousedown,
+      onBubbleClick,
       handleKeydown,
       setEditing,
       isEditing,
@@ -382,7 +708,8 @@ export default defineComponent({
   min-height: 0;
   overflow-y: auto;
   overflow-anchor: none;
-  scroll-behavior: smooth;
+  margin: 0 -10px;
+  padding: 0 10px;
   overscroll-behavior: contain;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
@@ -438,50 +765,142 @@ export default defineComponent({
 }
 
 .chat-message {
-  max-width: 82%;
   display: flex;
-  flex-direction: column;
+  width: 100%;
 }
 
-.chat-message.is-owner {
-  align-self: flex-start;
-  text-align: left;
+.chat-message.is-mine {
+  justify-content: flex-end;
 }
 
-.chat-message.is-other {
-  align-self: flex-end;
-  text-align: right;
+.chat-message.is-theirs {
+  justify-content: flex-start;
+}
+
+.chat-bubble-wrapper {
+  position: relative;
+  display: inline-flex;
+  max-width: 82%;
+}
+
+.chat-message.is-other.is-mine .chat-bubble-wrapper {
+  justify-content: flex-end;
+}
+
+.chat-delete-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-radius: 4px;
+  background-color: var(--color-actionbar-background);
+  color: var(--color-content-high);
+  cursor: pointer;
+  z-index: 2;
+  transition:
+    transform var(--duration-fast) var(--easing-ease-out),
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    border-color var(--duration-fast) var(--easing-ease-in-out),
+    color var(--duration-fast) var(--easing-ease-in-out);
+}
+
+.chat-delete-btn:deep(svg) {
+  width: 10px;
+  height: 10px;
+}
+
+.chat-delete-btn:hover {
+  transform: scale(1.15);
+  background-color: #ff3737;
+  border-color: #ff3737;
+  color: var(--color-light-100);
+}
+
+
+.chat-bubble-wrapper:hover .chat-delete-btn {
+  display: flex;
 }
 
 .chat-bubble {
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: 100%;
   padding: 8px 12px;
   border-radius: 16px;
   font-size: 13px;
   line-height: 1.4;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.chat-bubble-text {
+  display: block;
+}
+
+.chat-message.is-mine .chat-bubble {
+  color: var(--color-tile-background);
+  background: var(--color-text-primary);
+}
+
+.chat-message.is-theirs .chat-bubble {
   background: color-mix(
     in srgb,
     var(--color-text-primary) 10%,
     var(--color-tile-background)
   );
   color: var(--color-text-primary);
-  word-break: break-word;
-  white-space: pre-wrap;
 }
 
-.chat-message.is-owner .chat-bubble {
-  background: color-mix(
-    in srgb,
-    var(--color-tile-background) 92%,
-    var(--color-text-primary) 8%
-  );
-  color: var(--color-text-primary);
+.chat-message.is-mine .chat-bubble {
+  border-bottom-right-radius: 6px;
+}
+
+.chat-message.is-theirs .chat-bubble {
   border-bottom-left-radius: 6px;
 }
 
-.chat-message.is-other .chat-bubble {
-  border-bottom-right-radius: 6px;
-  background-color: var(--color-text-primary);
-  color: var(--color-tile-background);
+.chat-bubble-wrapper.is-editable {
+  cursor: pointer;
+}
+
+.chat-bubble-wrapper.is-editing .chat-bubble {
+  outline: 1.5px solid var(--color-figma-purple);
+  outline-offset: -1.5px;
+}
+
+.chat-editing-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--color-text-primary) 60%, transparent);
+  border-radius: 8px;
+  background: color-mix(
+    in srgb,
+    var(--color-text-primary) 6%,
+    var(--color-tile-background)
+  );
+}
+
+.chat-editing-cancel {
+  border: none;
+  background: none;
+  color: color-mix(in srgb, var(--color-text-primary) 60%, transparent);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 4px;
+  text-decoration: underline;
+}
+
+.chat-editing-cancel:hover {
+  color: var(--color-text-primary);
 }
 
 .chat-composer {
@@ -494,6 +913,10 @@ export default defineComponent({
   flex: 1;
   min-height: 36px;
   max-height: 120px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: transparent transparent;
   resize: none;
   border-radius: 12px;
   border: 1px solid
@@ -513,6 +936,11 @@ export default defineComponent({
 .chat-input:focus {
   outline: none;
   border-color: color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.chat-input:hover {
+  scrollbar-color: var(--color-border) transparent;
 }
 
 .chat-input:disabled {

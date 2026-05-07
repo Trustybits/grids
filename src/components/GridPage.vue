@@ -250,7 +250,7 @@ export default defineComponent({
         left: 0,
         width: "100%",
         height: "100%",
-        zIndex: -1,
+        zIndex: 0,
       };
     });
 
@@ -504,7 +504,10 @@ export default defineComponent({
 
 .background-image-container {
   width: 100%;
-  height: 100%;
+  min-height: 100vh;
+  position: relative;
+  isolation: isolate;
+  background-color: var(--color-content-background);
 }
 
 .background-image-overlay {
@@ -513,7 +516,8 @@ export default defineComponent({
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: -1;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .toolbar {
@@ -540,13 +544,14 @@ export default defineComponent({
   inset: 0;
   mix-blend-mode: color;
   pointer-events: none;
-  z-index: -1;
+  z-index: 0;
 }
 
 .layout-container {
   padding-top: var(--spacing-2xl);
   padding-bottom: var(--spacing-4xl);
   position: relative;
+  z-index: 1;
 
   &.drag-over {
     .drag-overlay {

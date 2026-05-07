@@ -278,7 +278,6 @@ export default defineComponent({
     ) => {
       await layoutStore.loadLayout(layoutId);
       if (requestId !== loadRequestId) {
-        void loadCurrentRoute();
         return false;
       }
       if (!layoutStore.currentLayout) {
@@ -508,98 +507,100 @@ export default defineComponent({
   }
 }
 
-.loading-state,
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-md);
-  text-align: center;
-  max-width: 500px;
-}
+.grid-page {
+  .loading-state,
+  .error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    text-align: center;
+    max-width: 500px;
+  }
 
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--color-tile-stroke);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--color-tile-stroke);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .loading-state p {
+    margin: 0;
+    color: var(--color-content-default);
+    font-size: 14px;
+  }
+
+  .error-icon {
+    color: var(--color-content-default);
+  }
+
+  .error-state h1 {
+    margin: 0;
+    font-size: 24px;
+    color: var(--color-text-primary);
+  }
+
+  .error-description {
+    margin: 0;
+    color: var(--color-content-default);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .cta-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-tile-stroke);
+    width: 100%;
+  }
+
+  .cta-text {
+    margin: 0;
+    font-size: 16px;
+    color: var(--color-text-primary);
+  }
+
+  .cta-button {
+    padding: var(--spacing-md) var(--spacing-xl);
+    background-color: var(--primary-color);
+    color: var(--color-text-primary);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    font-weight: 600;
+    transition: all var(--duration-fast) var(--easing-smooth);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .cta-button:hover {
+    background-color: var(--color-content-high);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .secondary-link {
+    color: var(--color-content-default);
+    text-decoration: none;
+    font-size: 14px;
+    transition: color var(--duration-fast) var(--easing-smooth);
+  }
+
+  .secondary-link:hover {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+  }
 }
 
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
-}
-
-.loading-state p {
-  margin: 0;
-  color: var(--color-content-default);
-  font-size: 14px;
-}
-
-.error-icon {
-  color: var(--color-content-default);
-}
-
-.error-state h1 {
-  margin: 0;
-  font-size: 24px;
-  color: var(--color-text-primary);
-}
-
-.error-description {
-  margin: 0;
-  color: var(--color-content-default);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.cta-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-md);
-  margin-top: var(--spacing-lg);
-  padding-top: var(--spacing-lg);
-  border-top: 1px solid var(--color-tile-stroke);
-  width: 100%;
-}
-
-.cta-text {
-  margin: 0;
-  font-size: 16px;
-  color: var(--color-text-primary);
-}
-
-.cta-button {
-  padding: var(--spacing-md) var(--spacing-xl);
-  background-color: var(--primary-color);
-  color: var(--color-text-primary);
-  text-decoration: none;
-  border-radius: var(--radius-sm);
-  font-size: 15px;
-  font-weight: 600;
-  transition: all var(--duration-fast) var(--easing-smooth);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.cta-button:hover {
-  background-color: var(--color-content-high);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.secondary-link {
-  color: var(--color-content-default);
-  text-decoration: none;
-  font-size: 14px;
-  transition: color var(--duration-fast) var(--easing-smooth);
-}
-
-.secondary-link:hover {
-  color: var(--color-text-primary);
-  text-decoration: underline;
 }
 </style>

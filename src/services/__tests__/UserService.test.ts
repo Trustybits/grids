@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { registerDaoFactory } from '@/dao/DaoFactorySingleton'
 import { registerDbUtils } from '@/dao/DbUtilsSingleton'
 import { UserService } from '@/services/UserService'
@@ -13,8 +13,12 @@ import type { UserProfile } from '@/types/UserProfile'
 let mockUserDao: Record<string, ReturnType<typeof vi.fn>>
 let mockSlugDao: Record<string, ReturnType<typeof vi.fn>>
 let mockDbUtils: Record<string, ReturnType<typeof vi.fn>>
+let consoleErrorSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
+  // Suppress logged errors so the rethrow tests don't pollute test output.
+  consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
   mockUserDao = {
     getById: vi.fn(),
     save: vi.fn(),
@@ -46,6 +50,10 @@ beforeEach(() => {
   } as unknown as DaoFactory)
 
   registerDbUtils(mockDbUtils as unknown as DbUtils)
+})
+
+afterEach(() => {
+  consoleErrorSpy.mockRestore()
 })
 
 // ── getUserProfile ────────────────────────────────────────────────────────

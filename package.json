@@ -15,7 +15,8 @@
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "suite:full": "npm run lint && npm run test:run && npm run build"
+    "suite:full": "npm run lint && npm run test:run && npm run build && echo \"Success!\"",
+    "suite:full-quiet": "npm run lint && npm run test:run && { npm run build 2>/dev/null || { echo \"Build failed. Run `npm run suite:full` to see full output\"; exit 1; }; } && echo \"Success!\""
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.7.2",

@@ -22,10 +22,34 @@ import { useToastStore } from "@/stores/toast";
 import { useThemeStore } from "@/stores/theme";
 import { UndoRedoManager } from "@/undo/UndoRedoManager";
 import type { Snapshot } from "@/undo/UndoTypes";
+import { AnalyticsEventType } from "@/types/Analytics";
 
 // Lazy accessor — don't resolve the service at module load because main.ts
 // registers the service factory in an async IIFE that runs AFTER static imports.
 const svc = () => getServiceFactory().getLayoutService();
+
+function logTileEvent(
+  eventType: AnalyticsEventType.TILE_ADDED | AnalyticsEventType.TILE_REMOVED,
+  layoutId: string,
+  tileType: ContentType,
+  tileId: string,
+): void {
+  // Internal-only suggestion tiles are seeded by the app, not user-added.
+  if (tileType === ContentType.SUGGESTION) return;
+  try {
+    const analytics = getServiceFactory().getAnalyticsService();
+    void analytics
+      .logEvent({
+        eventType,
+        userId: getAuthProvider().getCurrentUserId(),
+        layoutId,
+        metadata: { tileType, tileId },
+      })
+      .catch(() => undefined);
+  } catch {
+    // Service factory not ready — drop the event rather than crash the mutation.
+  }
+}
 
 let undoRedoManager: UndoRedoManager | null = null;
 let pendingDragSnapshot: Snapshot | null = null;
@@ -724,6 +748,13 @@ export const useLayoutStore = defineStore("layout", {
       this.currentLayout.tiles.push(newTile);
       this.updateLayout();
 
+      logTileEvent(
+        AnalyticsEventType.TILE_ADDED,
+        this.currentLayout.id,
+        content.type,
+        newTile.i,
+      );
+
       return newTile.i;
     },
 
@@ -896,6 +927,13 @@ export const useLayoutStore = defineStore("layout", {
 
       this.updateLayout();
 
+      logTileEvent(
+        AnalyticsEventType.TILE_ADDED,
+        this.currentLayout.id,
+        newTile.content.type,
+        newId,
+      );
+
       return newId;
     },
 
@@ -935,6 +973,16 @@ export const useLayoutStore = defineStore("layout", {
       this.currentLayout.tiles = this.currentLayout.tiles.filter(
         (t) => t.i !== id,
       );
+
+      if (tile) {
+        logTileEvent(
+          AnalyticsEventType.TILE_REMOVED,
+          this.currentLayout.id,
+          tile.content.type,
+          id,
+        );
+      }
+
       this.saveLayout(); // Persist changes
       this.refreshStableSnapshot();
     },

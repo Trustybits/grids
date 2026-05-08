@@ -3,11 +3,11 @@ import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import { createHash } from "node:crypto";
 import { isSafeFirestoreDocId } from "./AnalyticsUtils";
+import { writeServerAnalyticsEvent } from "./writeServerEvent";
 
 const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
 
-const ANALYTICS_EVENTS_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const MAX_DURATION_MS = 24 * 60 * 60 * 1000; // sanity cap: 24h
 const MAX_BODY_BYTES = 2048; // payload is tiny; reject anything larger
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -254,26 +254,15 @@ export const trackGridViewEndBeacon = functions.https.onRequest(
       return;
     }
 
-    const now = Date.now();
-    const expiresAt = Timestamp.fromMillis(now + ANALYTICS_EVENTS_TTL_MS);
-
-    try {
-      await db.collection("analyticsEvents").add({
-        eventType: "grid_view_end",
-        timestamp: FieldValue.serverTimestamp(),
-        expiresAt,
-        userId: payload.userId,
-        layoutId: payload.layoutId,
-        metadata: {
-          sessionId: payload.sessionId,
-          durationMs: payload.durationMs,
-        },
-      });
-    } catch (error) {
-      logger.error("trackGridViewEndBeacon: failed to write event", { error });
-      res.status(500).json({ error: "Failed to record event" });
-      return;
-    }
+    await writeServerAnalyticsEvent({
+      eventType: "grid_view_end",
+      userId: payload.userId,
+      layoutId: payload.layoutId,
+      metadata: {
+        sessionId: payload.sessionId,
+        durationMs: payload.durationMs,
+      },
+    });
 
     res.status(204).send("");
   },

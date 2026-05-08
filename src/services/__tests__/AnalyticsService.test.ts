@@ -18,6 +18,7 @@ let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   mockAnalyticsEventDao = {
     logEvent: vi.fn(),
+    logGridViewEndEventBeacon: vi.fn(),
   };
   mockGridStatsDao = {
     getAggregate: vi.fn(),
@@ -126,7 +127,9 @@ describe("AnalyticsService.logEvent", () => {
 
   it("swallows DAO errors so the caller's flow is not broken", async () => {
     vi.stubEnv("VITE_POSTHOG_KEY", "");
-    mockAnalyticsEventDao.logEvent.mockRejectedValue(new Error("firestore down"));
+    mockAnalyticsEventDao.logEvent.mockRejectedValue(
+      new Error("firestore down"),
+    );
 
     const service = new AnalyticsService();
     await expect(service.logEvent(sampleEvent)).resolves.toBeUndefined();
@@ -144,6 +147,115 @@ describe("AnalyticsService.logEvent", () => {
     await expect(service.logEvent(sampleEvent)).resolves.toBeUndefined();
 
     expect(mockAnalyticsEventDao.logEvent).toHaveBeenCalledWith(sampleEvent);
+    expect(consoleErrorSpy).toHaveBeenCalled();
+  });
+});
+
+// ── logGridViewEndEventBeacon ────────────────────────────────────────────
+
+describe("AnalyticsService.logGridViewEndEventBeacon", () => {
+  const sampleBeaconEvent = {
+    eventType: AnalyticsEventType.GRID_VIEW_END,
+    userId: "user-1",
+    layoutId: "layout-1",
+    metadata: {
+      sessionId: "sess-1",
+      durationMs: 12345,
+    },
+  } as const;
+
+  it("forwards the event to AnalyticsEventDao.logGridViewEndEventBeacon and returns its result", () => {
+    vi.stubEnv("VITE_POSTHOG_KEY", "");
+    mockAnalyticsEventDao.logGridViewEndEventBeacon.mockReturnValue(true);
+
+    const service = new AnalyticsService();
+    const result = service.logGridViewEndEventBeacon(sampleBeaconEvent);
+
+    expect(mockAnalyticsEventDao.logGridViewEndEventBeacon).toHaveBeenCalledTimes(1);
+    expect(mockAnalyticsEventDao.logGridViewEndEventBeacon).toHaveBeenCalledWith(
+      sampleBeaconEvent,
+    );
+    expect(result).toBe(true);
+  });
+
+  it("returns false when the DAO returns false", () => {
+    vi.stubEnv("VITE_POSTHOG_KEY", "");
+    mockAnalyticsEventDao.logGridViewEndEventBeacon.mockReturnValue(false);
+
+    const service = new AnalyticsService();
+    expect(service.logGridViewEndEventBeacon(sampleBeaconEvent)).toBe(false);
+  });
+
+  it("mirrors to PostHog with eventType and a flattened payload when VITE_POSTHOG_KEY is set", () => {
+    vi.stubEnv("VITE_POSTHOG_KEY", "phc_abc123");
+    mockAnalyticsEventDao.logGridViewEndEventBeacon.mockReturnValue(true);
+
+    const service = new AnalyticsService();
+    service.logGridViewEndEventBeacon(sampleBeaconEvent);
+
+    expect(posthog.capture).toHaveBeenCalledTimes(1);
+    expect(posthog.capture).toHaveBeenCalledWith(
+      AnalyticsEventType.GRID_VIEW_END,
+      {
+        layoutId: "layout-1",
+        userId: "user-1",
+        sessionId: "sess-1",
+        durationMs: 12345,
+      },
+    );
+  });
+
+  it("does not call posthog.capture when VITE_POSTHOG_KEY is not set", () => {
+    vi.stubEnv("VITE_POSTHOG_KEY", "");
+    mockAnalyticsEventDao.logGridViewEndEventBeacon.mockReturnValue(true);
+
+    const service = new AnalyticsService();
+    service.logGridViewEndEventBeacon(sampleBeaconEvent);
+
+    expect(posthog.capture).not.toHaveBeenCalled();
+  });
+
+  it("captures to PostHog before calling the beacon DAO", () => {
+    vi.stubEnv("VITE_POSTHOG_KEY", "phc_abc123");
+    const order: string[] = [];
+    vi.mocked(posthog.capture).mockImplementation(() => {
+      order.push("posthog");
+      return undefined as any;
+    });
+    mockAnalyticsEventDao.logGridViewEndEventBeacon.mockImplementation(() => {
+      order.push("dao");
+      return true;
+    });
+
+    const service = new AnalyticsService();
+    service.logGridViewEndEventBeacon(sampleBeaconEvent);
+
+    expect(order).toEqual(["posthog", "dao"]);
+  });
+
+  it("returns false and logs when the DAO throws", () => {
+    vi.stubEnv("VITE_POSTHOG_KEY", "");
+    mockAnalyticsEventDao.logGridViewEndEventBeacon.mockImplementation(() => {
+      throw new Error("beacon kaboom");
+    });
+
+    const service = new AnalyticsService();
+    expect(service.logGridViewEndEventBeacon(sampleBeaconEvent)).toBe(false);
+    expect(consoleErrorSpy).toHaveBeenCalled();
+  });
+
+  it("still calls the beacon DAO even if PostHog throws", () => {
+    vi.stubEnv("VITE_POSTHOG_KEY", "phc_abc123");
+    vi.mocked(posthog.capture).mockImplementation(() => {
+      throw new Error("posthog kaboom");
+    });
+    mockAnalyticsEventDao.logGridViewEndEventBeacon.mockReturnValue(true);
+
+    const service = new AnalyticsService();
+    expect(service.logGridViewEndEventBeacon(sampleBeaconEvent)).toBe(true);
+    expect(mockAnalyticsEventDao.logGridViewEndEventBeacon).toHaveBeenCalledWith(
+      sampleBeaconEvent,
+    );
     expect(consoleErrorSpy).toHaveBeenCalled();
   });
 });
@@ -277,9 +389,9 @@ describe("AnalyticsService.getBusinessStatsDailyRange", () => {
       new Error("biz range fail"),
     );
     const service = new AnalyticsService();
-    await expect(
-      service.getBusinessStatsDailyRange("a", "b"),
-    ).rejects.toThrow("biz range fail");
+    await expect(service.getBusinessStatsDailyRange("a", "b")).rejects.toThrow(
+      "biz range fail",
+    );
     expect(consoleErrorSpy).toHaveBeenCalled();
   });
 });

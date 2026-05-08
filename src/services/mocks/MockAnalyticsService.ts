@@ -1,4 +1,7 @@
-import type { LogEventInput } from "@/dao/interfaces/AnalyticsEventDao";
+import type {
+  GridViewEndEvent,
+  LogEventInput,
+} from "@/dao/interfaces/AnalyticsEventDao";
 import type {
   AnalyticsEventType,
   BusinessStats,
@@ -12,6 +15,9 @@ export class MockAnalyticsService implements IAnalyticsService {
   logEvent<T extends AnalyticsEventType>(
     _event: LogEventInput<T>,
   ): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
+  logGridViewEndEventBeacon(_event: GridViewEndEvent): boolean {
     throw new Error("Method not implemented.");
   }
   getGridStats(_layoutId: string): Promise<GridStats | null> {

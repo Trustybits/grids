@@ -7,6 +7,7 @@ import {
 } from "firebase/firestore";
 import type {
   AnalyticsEventDao,
+  GridViewEndEvent,
   LogEventInput,
 } from "@/dao/interfaces/AnalyticsEventDao";
 import type { AnalyticsEventType } from "@/types/Analytics";
@@ -39,5 +40,28 @@ export class FirestoreAnalyticsEventDao implements AnalyticsEventDao {
       timestamp: serverTimestamp(),
       expiresAt,
     });
+  }
+
+  public logGridViewEndEventBeacon(event: GridViewEndEvent): boolean {
+    if (typeof navigator === "undefined" || !navigator.sendBeacon) return false;
+    if (!event.layoutId) return false;
+
+    const url = import.meta.env.VITE_VIEW_END_ANALYTICS_BEACON_URL;
+    if (!url) return false;
+
+    const payload = {
+      layoutId: event.layoutId,
+      userId: event.userId,
+      sessionId: event.metadata.sessionId,
+      durationMs: event.metadata.durationMs,
+    };
+
+    try {
+      // text/plain avoids a CORS preflight; the CF parses JSON from the body.
+      const blob = new Blob([JSON.stringify(payload)], { type: "text/plain" });
+      return navigator.sendBeacon(url, blob);
+    } catch {
+      return false;
+    }
   }
 }

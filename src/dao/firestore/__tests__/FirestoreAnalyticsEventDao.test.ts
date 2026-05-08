@@ -122,4 +122,100 @@ describe("FirestoreAnalyticsEventDao", () => {
       ).rejects.toThrow("write failed");
     });
   });
+
+  describe("logGridViewEndEventBeacon", () => {
+    const BEACON_URL = "https://example.com/beacon";
+    const sampleEvent = {
+      eventType: AnalyticsEventType.GRID_VIEW_END,
+      userId: "user-1",
+      layoutId: "layout-1",
+      metadata: { sessionId: "sess-1", durationMs: 12345 },
+    } as const;
+
+    let sendBeaconSpy: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      vi.stubEnv("VITE_VIEW_END_ANALYTICS_BEACON_URL", BEACON_URL);
+      sendBeaconSpy = vi.fn().mockReturnValue(true);
+      Object.defineProperty(navigator, "sendBeacon", {
+        configurable: true,
+        writable: true,
+        value: sendBeaconSpy,
+      });
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      // Remove the stub so other suites see the original navigator.
+      delete (navigator as any).sendBeacon;
+    });
+
+    it("calls navigator.sendBeacon with the URL and a text/plain Blob containing the flattened payload, returning the browser's result", () => {
+      const result = dao.logGridViewEndEventBeacon(sampleEvent);
+
+      expect(sendBeaconSpy).toHaveBeenCalledTimes(1);
+      const [urlArg, blobArg] = sendBeaconSpy.mock.calls[0];
+      expect(urlArg).toBe(BEACON_URL);
+      expect(blobArg).toBeInstanceOf(Blob);
+      expect((blobArg as Blob).type).toBe("text/plain");
+      expect(result).toBe(true);
+    });
+
+    it("serializes the payload as JSON with layoutId, userId, sessionId, and durationMs", () => {
+      const blobParts: BlobPart[][] = [];
+      const OriginalBlob = global.Blob;
+      const blobSpy = vi
+        .spyOn(global, "Blob")
+        .mockImplementation((parts: any, options?: any) => {
+          blobParts.push(parts);
+          return new OriginalBlob(parts, options);
+        });
+
+      try {
+        dao.logGridViewEndEventBeacon(sampleEvent);
+        expect(blobParts).toHaveLength(1);
+        expect(JSON.parse(String(blobParts[0][0]))).toEqual({
+          layoutId: "layout-1",
+          userId: "user-1",
+          sessionId: "sess-1",
+          durationMs: 12345,
+        });
+      } finally {
+        blobSpy.mockRestore();
+      }
+    });
+
+    it("returns the browser's false result when sendBeacon refuses", () => {
+      sendBeaconSpy.mockReturnValue(false);
+      expect(dao.logGridViewEndEventBeacon(sampleEvent)).toBe(false);
+    });
+
+    it("returns false and does not call sendBeacon when layoutId is null", () => {
+      const result = dao.logGridViewEndEventBeacon({
+        ...sampleEvent,
+        layoutId: null,
+      });
+      expect(result).toBe(false);
+      expect(sendBeaconSpy).not.toHaveBeenCalled();
+    });
+
+    it("returns false and does not call sendBeacon when the beacon URL is not configured", () => {
+      vi.stubEnv("VITE_VIEW_END_ANALYTICS_BEACON_URL", "");
+      const result = dao.logGridViewEndEventBeacon(sampleEvent);
+      expect(result).toBe(false);
+      expect(sendBeaconSpy).not.toHaveBeenCalled();
+    });
+
+    it("returns false when navigator.sendBeacon is unavailable", () => {
+      delete (navigator as any).sendBeacon;
+      expect(dao.logGridViewEndEventBeacon(sampleEvent)).toBe(false);
+    });
+
+    it("returns false when sendBeacon throws", () => {
+      sendBeaconSpy.mockImplementation(() => {
+        throw new Error("beacon kaboom");
+      });
+      expect(dao.logGridViewEndEventBeacon(sampleEvent)).toBe(false);
+    });
+  });
 });

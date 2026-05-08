@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 /**
  * Validates slug format: lowercase alphanumeric and hyphens only, 3-30 characters
  */

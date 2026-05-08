@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 import { onCall, HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import * as cheerio from "cheerio";
@@ -128,6 +126,7 @@ export const getLinkPreview = onCall(async (data, context) => {
     try {
       const addresses = await lookup(normalized.hostname, { all: true });
       // Use console.* so the message appears in textPayload in Cloud Logs UI.
+      /* eslint-disable no-console */
       console.log("Resolved link preview hostname", normalized.hostname, addresses.map((a) => a.address));
       logger.debug("Resolved link preview hostname", {
         hostname: normalized.hostname,
@@ -252,8 +251,8 @@ export const getLinkPreview = onCall(async (data, context) => {
       imageUrl: resolvedImageUrl,
       faviconUrl,
     };
-  } catch (err: any) {
-    if (err?.name === "AbortError") {
+  } catch (err: unknown) {
+    if ((err as { name?: string } | null)?.name === "AbortError") {
       throw new HttpsError("deadline-exceeded", "Timed out fetching URL.");
     }
     if (err instanceof HttpsError) {

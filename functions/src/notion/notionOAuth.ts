@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";

@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import { isDevTeamMember } from "../shared/devTeam";

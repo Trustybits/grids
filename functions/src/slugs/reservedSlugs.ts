@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 /**
  * Reserved slugs that cannot be claimed by users
  */

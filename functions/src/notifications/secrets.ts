@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 import { defineSecret } from "firebase-functions/params";
 
 // Define secrets for Discord webhook URLs

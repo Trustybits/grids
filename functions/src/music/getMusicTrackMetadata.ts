@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
@@ -123,7 +121,7 @@ export const getMusicTrackMetadata = functions.https.onCall(async (data, context
 
       return {
         trackName: entity.name || pageEntity.name || "",
-        artistName: artists.map((a: any) => a.name).join(", ") || "",
+        artistName: artists.map((a: { name?: string }) => a.name).join(", ") || "",
         albumArt: vi.image?.[0]?.url ?? "",
         previewUrl: entity.audioPreview?.url ?? pageEntity.audioPreview?.url ?? "",
         trackUrl: isAlbum
@@ -175,7 +173,7 @@ export const getMusicTrackMetadata = functions.https.onCall(async (data, context
         textSubdued,
       };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof HttpsError) {
       throw error;
     }

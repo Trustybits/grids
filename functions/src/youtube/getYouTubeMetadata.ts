@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
@@ -18,18 +16,30 @@ export const getYouTubeMetadata = functions
   })
   .https.onCall(async (data, context) => {
     if (!context.auth) {
-      throw new HttpsError("unauthenticated", "You must be signed in to fetch YouTube metadata.");
+      throw new HttpsError(
+        "unauthenticated",
+        "You must be signed in to fetch YouTube metadata.",
+      );
     }
 
-    const { youtubeType, youtubeId } = data as { youtubeType?: string; youtubeId?: string };
+    const { youtubeType, youtubeId } = data as {
+      youtubeType?: string;
+      youtubeId?: string;
+    };
 
     if (!youtubeType || !youtubeId) {
-      throw new HttpsError("invalid-argument", "Missing youtubeType or youtubeId.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Missing youtubeType or youtubeId.",
+      );
     }
 
     const validTypes = ["video", "playlist", "channel", "short"];
     if (!validTypes.includes(youtubeType)) {
-      throw new HttpsError("invalid-argument", `Invalid youtubeType: ${youtubeType}`);
+      throw new HttpsError(
+        "invalid-argument",
+        `Invalid youtubeType: ${youtubeType}`,
+      );
     }
 
     try {
@@ -37,7 +47,10 @@ export const getYouTubeMetadata = functions
 
       if (!apiKey) {
         logger.error("YouTube API key not configured");
-        throw new HttpsError("failed-precondition", "YouTube API not configured.");
+        throw new HttpsError(
+          "failed-precondition",
+          "YouTube API not configured.",
+        );
       }
 
       // Shorts are just videos with a different URL format
@@ -65,7 +78,7 @@ export const getYouTubeMetadata = functions
           }
 
           const videoData = await videoResponse.json();
-          
+
           if (!videoData.items || videoData.items.length === 0) {
             throw new HttpsError("not-found", "YouTube video not found.");
           }
@@ -83,7 +96,8 @@ export const getYouTubeMetadata = functions
             if (channelResponse.ok) {
               const channelData = await channelResponse.json();
               if (channelData.items && channelData.items.length > 0) {
-                channelThumbnail = channelData.items[0].snippet.thumbnails?.default?.url || "";
+                channelThumbnail =
+                  channelData.items[0].snippet.thumbnails?.default?.url || "";
               }
             }
           }
@@ -125,7 +139,7 @@ export const getYouTubeMetadata = functions
           }
 
           const playlistData = await playlistResponse.json();
-          
+
           if (!playlistData.items || playlistData.items.length === 0) {
             throw new HttpsError("not-found", "YouTube playlist not found.");
           }
@@ -137,17 +151,18 @@ export const getYouTubeMetadata = functions
           // Fetch playlist items (first 20 videos)
           const itemsUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${youtubeId}&maxResults=20&key=${apiKey}`;
           const itemsResponse = await fetch(itemsUrl);
-          
+
           let playlistItems = [];
           if (itemsResponse.ok) {
             const itemsData = await itemsResponse.json();
-            playlistItems = itemsData.items?.map((item: any, index: number) => ({
-              videoId: item.snippet.resourceId.videoId,
-              title: item.snippet.title,
-              thumbnails: item.snippet.thumbnails,
-              channelTitle: item.snippet.channelTitle,
-              position: index,
-            })) || [];
+            playlistItems =
+              itemsData.items?.map((item: { snippet: { resourceId: { videoId: string }; title: string; thumbnails: unknown; channelTitle: string } }, index: number) => ({
+                videoId: item.snippet.resourceId.videoId,
+                title: item.snippet.title,
+                thumbnails: item.snippet.thumbnails,
+                channelTitle: item.snippet.channelTitle,
+                position: index,
+              })) || [];
           }
 
           return {
@@ -165,14 +180,16 @@ export const getYouTubeMetadata = functions
         case "channel": {
           // For channel handles (@username) or custom URLs, we need to resolve to a channel ID first
           let channelId = youtubeId;
-          
+
           // If it doesn't look like a channel ID (UC...), resolve it
           if (!youtubeId.startsWith("UC")) {
             let resolved = false;
 
             // Try the forHandle parameter first (for @username handles)
             // The youtubeId may or may not have the @ prefix
-            const handle = youtubeId.startsWith("@") ? youtubeId : `@${youtubeId}`;
+            const handle = youtubeId.startsWith("@")
+              ? youtubeId
+              : `@${youtubeId}`;
             const handleUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet&forHandle=${encodeURIComponent(handle)}&key=${apiKey}`;
             const handleResponse = await fetch(handleUrl);
             if (handleResponse.ok) {
@@ -185,7 +202,9 @@ export const getYouTubeMetadata = functions
 
             // Fall back to forUsername (for /user/ style URLs)
             if (!resolved) {
-              const username = youtubeId.startsWith("@") ? youtubeId.slice(1) : youtubeId;
+              const username = youtubeId.startsWith("@")
+                ? youtubeId.slice(1)
+                : youtubeId;
               const userUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet&forUsername=${encodeURIComponent(username)}&key=${apiKey}`;
               const userResponse = await fetch(userUrl);
               if (userResponse.ok) {
@@ -199,7 +218,9 @@ export const getYouTubeMetadata = functions
 
             // Last resort: search API
             if (!resolved) {
-              const searchQuery = youtubeId.startsWith("@") ? youtubeId.slice(1) : youtubeId;
+              const searchQuery = youtubeId.startsWith("@")
+                ? youtubeId.slice(1)
+                : youtubeId;
               const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(searchQuery)}&maxResults=1&key=${apiKey}`;
               const searchResponse = await fetch(searchUrl);
               if (searchResponse.ok) {
@@ -224,7 +245,7 @@ export const getYouTubeMetadata = functions
           }
 
           const channelData = await channelResponse.json();
-          
+
           if (!channelData.items || channelData.items.length === 0) {
             throw new HttpsError("not-found", "YouTube channel not found.");
           }
@@ -240,16 +261,17 @@ export const getYouTubeMetadata = functions
             const uploadsPlaylistId = contentDetails.relatedPlaylists.uploads;
             const uploadsUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=12&key=${apiKey}`;
             const uploadsResponse = await fetch(uploadsUrl);
-            
+
             if (uploadsResponse.ok) {
               const uploadsData = await uploadsResponse.json();
-              recentVideos = uploadsData.items?.map((item: any, index: number) => ({
-                videoId: item.snippet.resourceId.videoId,
-                title: item.snippet.title,
-                thumbnails: item.snippet.thumbnails,
-                channelTitle: snippet.title,
-                position: index,
-              })) || [];
+              recentVideos =
+                uploadsData.items?.map((item: { snippet: { resourceId: { videoId: string }; title: string; thumbnails: unknown } }, index: number) => ({
+                  videoId: item.snippet.resourceId.videoId,
+                  title: item.snippet.title,
+                  thumbnails: item.snippet.thumbnails,
+                  channelTitle: snippet.title,
+                  position: index,
+                })) || [];
             }
           }
 
@@ -272,9 +294,12 @@ export const getYouTubeMetadata = functions
         }
 
         default:
-          throw new HttpsError("invalid-argument", "Unsupported YouTube content type.");
+          throw new HttpsError(
+            "invalid-argument",
+            "Unsupported YouTube content type.",
+          );
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof HttpsError) {
         throw error;
       }

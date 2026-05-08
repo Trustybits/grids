@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
@@ -54,12 +52,14 @@ export const listNotionDatabases = functions
       throw new HttpsError("internal", "Failed to list Notion databases.");
     }
 
-    const searchData = await searchRes.json() as { results: any[] };
+    type NotionRichText = { plain_text?: string };
+    type NotionDatabaseResult = { id: string; title?: NotionRichText[] };
+    const searchData = await searchRes.json() as { results: NotionDatabaseResult[] };
 
-    const databases = searchData.results.map((db: any) => ({
+    const databases = searchData.results.map((db: NotionDatabaseResult) => ({
       id: db.id,
       // Notion database titles are rich text arrays
-      title: (db.title as any[])?.map((t: any) => t.plain_text || "").join("") || "Untitled",
+      title: db.title?.map((t: NotionRichText) => t.plain_text || "").join("") || "Untitled",
     }));
 
     return { databases };

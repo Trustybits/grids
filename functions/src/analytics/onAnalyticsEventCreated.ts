@@ -1,8 +1,12 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
+import { isSafeFirestoreDocId } from "./AnalyticsUtils";
 
 const FieldValue = admin.firestore.FieldValue;
+const Timestamp = admin.firestore.Timestamp;
+
+const TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 // ── Event type constants ────────────────────────────────────────────────
 // Mirror of the AnalyticsEventType enum in src/types/Analytics.ts. Kept as a
@@ -71,12 +75,20 @@ async function handleGridView(
     logger.warn("grid_view event missing layoutId");
     return;
   }
+  if (!isSafeFirestoreDocId(layoutId)) {
+    logger.warn("grid_view event has invalid layoutId", { layoutId });
+    return;
+  }
 
   const viewerType = metadata?.viewerType as
     | "authenticated"
     | "anonymous"
     | undefined;
   const viewerFingerprint = metadata?.viewerFingerprint as string | undefined;
+  if (viewerFingerprint && !isSafeFirestoreDocId(viewerFingerprint)) {
+    logger.warn("grid_view event has invalid viewerFingerprint", { layoutId });
+    return;
+  }
   const date = toUtcDateString(event.timestamp);
 
   const ownerId = await getOwnerId(db, layoutId);
@@ -159,6 +171,22 @@ async function handleGridViewEnd(
     logger.warn("grid_view_end event missing layoutId");
     return;
   }
+  if (!isSafeFirestoreDocId(layoutId)) {
+    logger.warn("grid_view_end event has invalid layoutId", { layoutId });
+    return;
+  }
+  const sessionId = metadata?.sessionId;
+  if (!sessionId) {
+    logger.warn("grid_view_end event missing sessionId", { layoutId });
+    return;
+  }
+  if (!isSafeFirestoreDocId(sessionId)) {
+    logger.warn("grid_view_end event has invalid sessionId", {
+      layoutId,
+      sessionId,
+    });
+    return;
+  }
   const durationMs = Number(metadata?.durationMs);
   if (!Number.isFinite(durationMs) || durationMs <= 0) {
     logger.warn("grid_view_end event has invalid durationMs", {
@@ -181,16 +209,42 @@ async function handleGridViewEnd(
   const date = toUtcDateString(event.timestamp);
   const aggregateRef = db.collection("gridStats").doc(layoutId);
   const dailyRef = db.collection("gridStats").doc(gridDailyId(layoutId, date));
+  const sessionMarkerRef = aggregateRef
+    .collection("endedSessions")
+    .doc(sessionId);
 
-  // averageTimeSpentMs is precomputed and depends on a prior read, so this is
-  // a read-modify-write across two documents. Both reads and both writes must
-  // happen inside one runTransaction — two parallel transactions risk a
-  // partial-failure retry double-applying the side that already committed.
+  // Idempotency + read-modify-write across multiple docs must all live in one
+  // transaction. The session marker doc gates aggregation: if it already
+  // exists, this grid_view_end has been processed before (the trigger can
+  // fire multiple times for the same source event, or the client can resend)
+  // and we skip. If it doesn't exist, we create it AND apply the aggregate +
+  // daily updates atomically — so a Firebase retry after a partial failure
+  // can't double-apply durationMs / totalSessions to the side that already
+  // committed.
   await db.runTransaction(async (tx) => {
-    const [aggSnap, dailySnap] = await Promise.all([
+    const [markerSnap, aggSnap, dailySnap] = await Promise.all([
+      tx.get(sessionMarkerRef),
       tx.get(aggregateRef),
       tx.get(dailyRef),
     ]);
+
+    if (markerSnap.exists) {
+      logger.info("grid_view_end skipped: session already aggregated", {
+        layoutId,
+        sessionId,
+      });
+      return;
+    }
+
+    const expiresAt = Timestamp.fromMillis(
+      event.timestamp.toMillis() + TTL_MS,
+    );
+    tx.set(sessionMarkerRef, {
+      sessionId,
+      durationMs,
+      endedAt: FieldValue.serverTimestamp(),
+      expiresAt,
+    });
 
     const aggPrev = aggSnap.exists ? aggSnap.data() ?? {} : {};
     const dailyPrev = dailySnap.exists ? dailySnap.data() ?? {} : {};

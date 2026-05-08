@@ -196,6 +196,34 @@ service cloud.firestore {
             <= request.time + duration.value(90, 'd') + duration.value(10, 'm');
       }
 
+      function isSafeAnalyticsId(value) {
+        return value is string
+          && value.size() > 0
+          && value.size() <= 128
+          && value.matches('^[A-Za-z0-9_-]+$');
+      }
+
+      function hasValidLayoutId() {
+        return request.resource.data.layoutId == null
+          || isSafeAnalyticsId(request.resource.data.layoutId);
+      }
+
+      function hasValidGridViewEndMetadata() {
+        return request.resource.data.eventType != 'grid_view_end'
+          || (
+            request.resource.data.layoutId != null
+            && isSafeAnalyticsId(request.resource.data.layoutId)
+            && request.resource.data.metadata.keys().hasOnly([
+              'sessionId',
+              'durationMs'
+            ])
+            && isSafeAnalyticsId(request.resource.data.metadata.sessionId)
+            && request.resource.data.metadata.durationMs is number
+            && request.resource.data.metadata.durationMs > 0
+            && request.resource.data.metadata.durationMs <= 86400000
+          );
+      }
+
       allow read, update, delete: if false;
 
       allow create: if request.resource.data.keys().hasOnly([
@@ -206,10 +234,10 @@ service cloud.firestore {
         && request.resource.data.timestamp == request.time
         && hasValidExpiresAt()
         && hasValidUserId()
-        && (request.resource.data.layoutId == null
-            || request.resource.data.layoutId is string)
+        && hasValidLayoutId()
         && request.resource.data.metadata is map
-        && request.resource.data.metadata.size() <= 20;
+        && request.resource.data.metadata.size() <= 20
+        && hasValidGridViewEndMetadata();
     }
 
     // gridStats: only the grid owner can read; writes are Cloud Functions only.

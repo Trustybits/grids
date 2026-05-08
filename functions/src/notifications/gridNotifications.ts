@@ -2,6 +2,7 @@ import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import * as admin from "../firebase/admin";
 import { isDevTeamMember } from "../shared/devTeam";
+import { writeServerAnalyticsEvent } from "../analytics/writeServerEvent";
 import { discordUserActivityWebhookUrl } from "./secrets";
 
 /**
@@ -21,6 +22,13 @@ export const onGridCreated = functions
       layoutId,
       userId: layoutData.userId,
       name: layoutData.name,
+    });
+
+    await writeServerAnalyticsEvent({
+      eventType: "grid_created",
+      userId: layoutData.userId ?? null,
+      layoutId,
+      metadata: { gridName: layoutData.name || "Untitled" },
     });
 
     // Skip dev team members — look up email from users collection
@@ -335,6 +343,13 @@ export const onGridDeleted = functions
       layoutId,
       userId: layoutData.userId,
       name: layoutData.name,
+    });
+
+    await writeServerAnalyticsEvent({
+      eventType: "grid_deleted",
+      userId: layoutData.userId ?? null,
+      layoutId,
+      metadata: { gridName: layoutData.name || "Untitled" },
     });
 
     // Skip dev team members — look up email from users collection

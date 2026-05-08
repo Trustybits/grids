@@ -10,9 +10,12 @@
  *     or Buffer)
  *   - validate payload shape (layoutId, sessionId, durationMs, optional userId)
  *   - cap durationMs at 24h (sanity bound)
- *   - write a `grid_view_end` document to `analyticsEvents` with correct shape
+ *   - delegate the write to `writeServerAnalyticsEvent`, which lands a
+ *     `grid_view_end` document in `analyticsEvents` with the expected shape
  *     (eventType, server timestamp, expiresAt = now+90d, metadata)
- *   - return 500 on Firestore failure, 204 on success
+ *   - return 500 only when the marker pre-check fails; analytics-write
+ *     failures are swallowed by `writeServerAnalyticsEvent` so the handler
+ *     still responds 204 (analytics must never break the caller)
  *
  * All Firebase IO is mocked: `firebase-admin` provides a fake firestore with
  * recordable transaction reads/writes and `collection().add()`,
@@ -676,9 +679,15 @@ describe("Firestore write on success", () => {
 });
 
 // ── Firestore failure ────────────────────────────────────────────────────
+//
+// The handler delegates the analyticsEvents write to writeServerAnalyticsEvent,
+// which swallows its own errors so analytics failures never break the caller.
+// As a result the handler now responds 204 even when the underlying add()
+// rejects — the failure is logged from inside writeServerAnalyticsEvent with
+// the message "Failed to write server analytics event".
 
-describe("Firestore failure", () => {
-  it("returns 500 and logs an error when the Firestore add() rejects", async () => {
+describe("analytics write failure", () => {
+  it("still returns 204 when the underlying analytics write rejects (writeServerAnalyticsEvent swallows the error)", async () => {
     firestoreState.addImpl = async () => {
       throw new Error("transient firestore failure");
     };
@@ -689,19 +698,25 @@ describe("Firestore failure", () => {
         layoutId: "layout-1",
         sessionId: "sess-1",
         durationMs: 100,
+        userId: "user-7",
       }),
       res,
     );
 
-    expect(res._statusCode).toBe(500);
-    expect(res._jsonBody).toEqual({ error: "Failed to record event" });
+    expect(res._statusCode).toBe(204);
+    expect(res._sendBody).toBe("");
     expect(logger.error).toHaveBeenCalledWith(
-      "trackGridViewEndBeacon: failed to write event",
-      expect.objectContaining({ error: expect.any(Error) }),
+      "Failed to write server analytics event",
+      expect.objectContaining({
+        eventType: "grid_view_end",
+        userId: "user-7",
+        layoutId: "layout-1",
+        error: expect.stringContaining("transient firestore failure"),
+      }),
     );
   });
 
-  it("does not throw out of the handler on Firestore failure (must return a response)", async () => {
+  it("does not throw out of the handler when the analytics write rejects", async () => {
     firestoreState.addImpl = async () => {
       throw new Error("boom");
     };
@@ -716,7 +731,7 @@ describe("Firestore failure", () => {
         res,
       ),
     ).resolves.toBeUndefined();
-    expect(res._statusCode).toBe(500);
+    expect(res._statusCode).toBe(204);
   });
 });
 

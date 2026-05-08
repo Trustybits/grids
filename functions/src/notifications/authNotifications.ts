@@ -1,6 +1,8 @@
+import * as admin from "firebase-admin";
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import { isDevTeamMember } from "../shared/devTeam";
+import { writeServerAnalyticsEvent } from "../analytics/writeServerEvent";
 import { discordNewUsersWebhookUrl, discordUserActivityWebhookUrl } from "./secrets";
 
 /**
@@ -19,6 +21,20 @@ export const onNewUserSignup = functions
       displayName: user.displayName,
     });
 
+    const providerInfo = user.providerData[0];
+    const signInMethod = providerInfo?.providerId === "google.com"
+      ? "Google"
+      : providerInfo?.providerId === "password"
+      ? "Email/Password"
+      : "Email Link";
+
+    await writeServerAnalyticsEvent({
+      eventType: "user_signup",
+      userId: user.uid,
+      layoutId: null,
+      metadata: { signInMethod },
+    });
+
     // Skip dev team members
     if (isDevTeamMember(user.uid, user.email ?? undefined)) {
       logger.info("Skipping Discord notification for dev team member", { uid: user.uid });
@@ -32,14 +48,6 @@ export const onNewUserSignup = functions
       logger.error("DISCORD_NEW_USERS_WEBHOOK_URL secret is not configured");
       return null;
     }
-
-    // Determine sign-in method
-    const providerInfo = user.providerData[0];
-    const signInMethod = providerInfo?.providerId === "google.com" 
-      ? "Google" 
-      : providerInfo?.providerId === "password"
-      ? "Email/Password"
-      : "Email Link";
 
     // Build Discord embed payload
     const discordPayload = {
@@ -140,6 +148,27 @@ export const onUserLogin = functions
     logger.info("User login event detected", {
       userId,
       email: afterData.email,
+    });
+
+    let signInMethod = "unknown";
+    try {
+      const authUser = await admin.auth().getUser(userId);
+      const providerId = authUser.providerData[0]?.providerId;
+      if (providerId === "google.com") signInMethod = "Google";
+      else if (providerId === "password") signInMethod = "Email/Password";
+      else if (providerId) signInMethod = "Email Link";
+    } catch (error) {
+      logger.warn("Failed to look up auth provider for login event", {
+        userId,
+        error: String(error),
+      });
+    }
+
+    await writeServerAnalyticsEvent({
+      eventType: "user_login",
+      userId,
+      layoutId: null,
+      metadata: { signInMethod },
     });
 
     // Skip dev team members

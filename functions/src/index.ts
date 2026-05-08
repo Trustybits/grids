@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 import "./firebase/admin";
 
 export { getLinkPreview } from "./linkPreview";

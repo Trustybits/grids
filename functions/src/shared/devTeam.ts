@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 // ---------------------------------------------------------------------------
 // Dev team filter — update these lists to suppress notifications for internal
 // accounts. Email patterns are matched as case-insensitive substrings.

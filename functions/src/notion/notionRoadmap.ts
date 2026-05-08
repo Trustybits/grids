@@ -1,10 +1,19 @@
-/* eslint-disable */
-
 import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "../firebase/admin";
 import { notionClientId, notionClientSecret } from "./secrets";
+
+type NotionRichText = { plain_text?: string };
+type NotionOption = { name?: string };
+type NotionProperty = {
+  type: string;
+  title?: NotionRichText[];
+  select?: { name?: string; options?: NotionOption[] };
+  status?: { name?: string; options?: NotionOption[] };
+  multi_select?: { options?: NotionOption[] };
+  number?: number;
+};
 
 /**
  * Fetches pages from the connected Notion database and maps them to
@@ -60,20 +69,28 @@ export const fetchNotionRoadmap = functions
       throw new HttpsError("not-found", "Layout not found.");
     }
 
-    const tiles: any[] = layoutDoc.data()?.tiles || [];
-    const tile = tiles.find((t: any) => t.i === tileId);
+    type RoadmapTileContent = {
+      notionDatabaseId?: string;
+      statusPropertyName?: string;
+      upvotePropertyName?: string;
+      statusMapping?: Record<string, string>;
+      queryFilters?: Array<{ propertyName: string; type: string; value: boolean | string | string[] }>;
+    };
+    type TileShape = { i: string; content?: RoadmapTileContent };
+    const tiles: TileShape[] = layoutDoc.data()?.tiles || [];
+    const tile = tiles.find((t: TileShape) => t.i === tileId);
 
     // Prefer the client-supplied override (used when selectDatabase hasn't persisted yet)
-    const databaseId = databaseIdOverride || tile?.content?.notionDatabaseId as string | undefined;
+    const databaseId = databaseIdOverride || tile?.content?.notionDatabaseId;
     if (!databaseId || databaseId === "pending") {
       throw new HttpsError("not-found", "Roadmap tile or database ID not configured.");
     }
-    const effectiveStatusProp = statusPropertyName || tile.content.statusPropertyName || "";
-    const effectiveUpvoteProp = upvotePropertyName || tile.content.upvotePropertyName || "";
-    const effectiveMapping: Record<string, string> = statusMapping || tile.content.statusMapping || {};
+    const effectiveStatusProp = statusPropertyName || tile?.content?.statusPropertyName || "";
+    const effectiveUpvoteProp = upvotePropertyName || tile?.content?.upvotePropertyName || "";
+    const effectiveMapping: Record<string, string> = statusMapping || tile?.content?.statusMapping || {};
     // Owner-configured query filters — applied as Notion API filter conditions
     const effectiveQueryFilters: Array<{ propertyName: string; type: string; value: boolean | string | string[] }> =
-      queryFilters || (tile.content.queryFilters as Array<{ propertyName: string; type: string; value: boolean | string | string[] }> | undefined) || [];
+      queryFilters || tile?.content?.queryFilters || [];
 
     logger.info("[fetchNotionRoadmap] Received queryFilters from client:", { queryFilters });
     logger.info("[fetchNotionRoadmap] Effective queryFilters after fallback:", { effectiveQueryFilters });
@@ -81,9 +98,9 @@ export const fetchNotionRoadmap = functions
     // Build the Notion API `filter` object from effectiveQueryFilters.
     // All conditions are ANDed together using a compound `and` filter.
     // multi_select uses OR logic: item must have at least one of the selected tags.
-    const buildNotionFilter = (): Record<string, any> | undefined => {
+    const buildNotionFilter = (): Record<string, unknown> | undefined => {
       if (effectiveQueryFilters.length === 0) return undefined;
-      const conditions: Record<string, any>[] = [];
+      const conditions: Record<string, unknown>[] = [];
       for (const qf of effectiveQueryFilters) {
         if (qf.type === "checkbox") {
           conditions.push({ property: qf.propertyName, checkbox: { equals: qf.value as boolean } });
@@ -123,12 +140,13 @@ export const fetchNotionRoadmap = functions
       ? [{ property: effectiveUpvoteProp, direction: "descending" }]
       : [];
 
-    const allPages: any[] = [];
+    type NotionPage = { id: string; properties?: Record<string, NotionProperty> };
+    const allPages: NotionPage[] = [];
     let startCursor: string | undefined;
     let hasMore = true;
 
     while (hasMore) {
-      const body: Record<string, any> = { page_size: 100, sorts };
+      const body: Record<string, unknown> = { page_size: 100, sorts };
       if (startCursor) body.start_cursor = startCursor;
       if (notionFilter) body.filter = notionFilter;
 
@@ -148,22 +166,22 @@ export const fetchNotionRoadmap = functions
         throw new HttpsError("internal", "Failed to query Notion database.");
       }
 
-      const queryData = await queryRes.json() as { results: any[]; has_more: boolean; next_cursor: string | null };
+      const queryData = await queryRes.json() as { results: NotionPage[]; has_more: boolean; next_cursor: string | null };
       allPages.push(...queryData.results);
       hasMore = queryData.has_more;
       startCursor = queryData.next_cursor ?? undefined;
     }
 
     // Map Notion pages to RoadmapItem shape
-    const items = allPages.map((page: any) => {
-      const props = page.properties || {};
+    const items = allPages.map((page: NotionPage) => {
+      const props: Record<string, NotionProperty> = page.properties || {};
 
       // Extract title from the first title-type property
       let title = "";
       for (const key of Object.keys(props)) {
         const prop = props[key];
         if (prop.type === "title" && Array.isArray(prop.title)) {
-          title = prop.title.map((t: any) => t.plain_text || "").join("");
+          title = prop.title.map((t: NotionRichText) => t.plain_text || "").join("");
           break;
         }
       }
@@ -204,17 +222,17 @@ export const fetchNotionRoadmap = functions
     try {
       const dbRes = await schemaFetchPromise;
       if (dbRes.ok) {
-        const dbData = await dbRes.json() as { properties: Record<string, any> };
+        const dbData = await dbRes.json() as { properties: Record<string, NotionProperty> };
         propertyOptions = Object.entries(dbData.properties).map(([name, prop]) => ({
           name,
           type: prop.type,
           selectOptions:
             prop.type === "select"
-              ? (prop.select?.options || []).map((o: any) => o.name as string)
+              ? (prop.select?.options || []).map((o: NotionOption) => o.name as string)
               : prop.type === "status"
-              ? (prop.status?.options || []).map((o: any) => o.name as string)
+              ? (prop.status?.options || []).map((o: NotionOption) => o.name as string)
               : prop.type === "multi_select"
-              ? (prop.multi_select?.options || []).map((o: any) => o.name as string)
+              ? (prop.multi_select?.options || []).map((o: NotionOption) => o.name as string)
               : undefined,
         }));
       }
@@ -303,8 +321,9 @@ export const upvoteRoadmapItem = functions
 
     // Retrieve the tile content to find the upvote property name
     const layoutDoc = await db.collection("layouts").doc(layoutId).get();
-    const tiles: any[] = layoutDoc.data()?.tiles || [];
-    const tile = tiles.find((t: any) => t.i === tileId);
+    type UpvoteTileShape = { i: string; content?: { upvotePropertyName?: string } };
+    const tiles: UpvoteTileShape[] = layoutDoc.data()?.tiles || [];
+    const tile = tiles.find((t: UpvoteTileShape) => t.i === tileId);
     const upvotePropertyName: string = tile?.content?.upvotePropertyName || "";
 
     // Patch the upvote count on the Notion page if a property name is configured.
@@ -320,7 +339,7 @@ export const upvoteRoadmapItem = functions
         });
 
         if (pageRes.ok) {
-          const pageData = await pageRes.json() as { properties: Record<string, any> };
+          const pageData = await pageRes.json() as { properties: Record<string, NotionProperty> };
           const currentCount: number =
             pageData.properties[upvotePropertyName]?.number ?? 0;
 

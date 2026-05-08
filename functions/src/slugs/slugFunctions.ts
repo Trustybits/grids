@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 import { onCall, HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "../firebase/admin";
@@ -67,7 +65,7 @@ export const claimSlug = onCall(async (data, context) => {
 
       // If user had a previous slug, update its history to mark it as released
       if (userDoc.exists && userDoc.data()?.slug) {
-        const oldSlug = userDoc.data()!.slug;
+        const oldSlug = userDoc.data()?.slug as string;
         if (oldSlug !== slug) {
           const oldSlugRef = db.collection("slugs").doc(oldSlug);
           const oldSlugDoc = await transaction.get(oldSlugRef);

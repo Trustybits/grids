@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import * as admin from "../firebase/admin";
@@ -41,7 +39,7 @@ export const onFileUploaded = functions.storage.object().onFinalize(async (objec
       
       // Initialize storageUsed if it doesn't exist
       const currentUsage = userDoc.exists && userDoc.data()?.storageUsed 
-        ? userDoc.data()!.storageUsed 
+        ? (userDoc.data()?.storageUsed as number)
         : 0;
       
       const newUsage = currentUsage + fileSize;

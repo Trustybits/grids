@@ -350,7 +350,6 @@ Recommended phasing:
 9. Create `useAnalytics()` composable
 10. Integrate `grid_view` / `grid_view_end` tracking into `GridPage.vue`
 11. Integrate `tile_added` / `tile_removed` tracking into the layout store
-12. Integrate `owner_grid_enter` tracking into the layout store's `loadLayout`
 13. Enhance existing Cloud Functions to write `user_signup`, `user_login`, `grid_created`, `grid_deleted` events
 14. Add the `sendBeacon` Cloud Function endpoint for reliable time tracking on page close
 

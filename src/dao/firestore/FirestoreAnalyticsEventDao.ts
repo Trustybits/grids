@@ -16,6 +16,8 @@ const COLLECTION = "analyticsEvents";
 const TTL_DAYS = 90;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+let warnedAboutMissingBeaconUrl = false;
+
 export class FirestoreAnalyticsEventDao implements AnalyticsEventDao {
   private db: Firestore;
 
@@ -47,7 +49,15 @@ export class FirestoreAnalyticsEventDao implements AnalyticsEventDao {
     if (!event.layoutId) return false;
 
     const url = import.meta.env.VITE_VIEW_END_ANALYTICS_BEACON_URL;
-    if (!url) return false;
+    if (!url) {
+      if (!warnedAboutMissingBeaconUrl) {
+        warnedAboutMissingBeaconUrl = true;
+        console.warn(
+          "VITE_VIEW_END_ANALYTICS_BEACON_URL is not set — grid_view_end events on tab close/background will not be recorded.",
+        );
+      }
+      return false;
+    }
 
     const payload = {
       layoutId: event.layoutId,

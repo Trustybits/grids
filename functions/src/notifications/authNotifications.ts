@@ -140,8 +140,12 @@ export const onUserLogin = functions
     const afterData = change.after.data();
     const userId = context.params.userId;
 
-    // Only trigger if lastLogin field was updated
-    if (!afterData.lastLogin || beforeData.lastLogin === afterData.lastLogin) {
+    // Only trigger if lastLogin field was updated. Compare by millis — the raw
+    // Timestamp objects are deserialized fresh on each snapshot, so `===` is
+    // always false and would fire this trigger on every users/{userId} write.
+    const beforeLoginMs = beforeData.lastLogin?.toMillis?.() ?? null;
+    const afterLoginMs = afterData.lastLogin?.toMillis?.() ?? null;
+    if (!afterLoginMs || beforeLoginMs === afterLoginMs) {
       return null;
     }
 

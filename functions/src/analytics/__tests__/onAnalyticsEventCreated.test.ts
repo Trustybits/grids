@@ -21,20 +21,32 @@ import * as logger from "firebase-functions/logger";
 
 // ── Hoisted shared state (so vi.mock factories can see it) ──────────────
 
-const { dbHolder, FieldValue } = vi.hoisted(() => {
+const { dbHolder, FieldValue, Timestamp } = vi.hoisted(() => {
   const FieldValue = {
     increment: (value: number) => ({ __op: "increment", value }),
     serverTimestamp: () => ({ __op: "serverTimestamp" }),
   };
+  const Timestamp = {
+    fromMillis: (ms: number) => ({
+      __isTimestamp: true,
+      _millis: ms,
+      toMillis: () => ms,
+      toDate: () => new Date(ms),
+    }),
+  };
   const dbHolder: { db: unknown } = { db: null };
-  return { dbHolder, FieldValue };
+  return { dbHolder, FieldValue, Timestamp };
 });
 
 // ── Mocks ────────────────────────────────────────────────────────────────
 
 vi.mock("firebase-admin", () => {
-  const firestoreFn: any = () => dbHolder.db;
+  const firestoreFn: (() => unknown) & {
+    FieldValue?: typeof FieldValue;
+    Timestamp?: typeof Timestamp;
+  } = () => dbHolder.db;
   firestoreFn.FieldValue = FieldValue;
+  firestoreFn.Timestamp = Timestamp;
   return { firestore: firestoreFn, default: { firestore: firestoreFn } };
 });
 
@@ -207,7 +219,11 @@ function makeFakeDb() {
 }
 
 function fakeTimestamp(iso: string) {
-  return { toDate: () => new Date(iso) };
+  const date = new Date(iso);
+  return {
+    toDate: () => date,
+    toMillis: () => date.getTime(),
+  };
 }
 
 function snap(data: unknown) {
@@ -343,6 +359,37 @@ describe("grid_view", () => {
     await handler(snap(baseEvent({ layoutId: null })), ctx());
     expect(logger.warn).toHaveBeenCalledWith("grid_view event missing layoutId");
     expect(fake.ops).toHaveLength(0);
+  });
+
+  it("warns and writes nothing when layoutId is not safe for a Firestore doc path", async () => {
+    await handler(snap(baseEvent({ layoutId: "layouts/bad" })), ctx());
+    expect(logger.warn).toHaveBeenCalledWith(
+      "grid_view event has invalid layoutId",
+      expect.objectContaining({ layoutId: "layouts/bad" }),
+    );
+    expect(fake.ops).toHaveLength(0);
+    expect(fake.txCount).toBe(0);
+  });
+
+  it("warns and writes nothing when viewerFingerprint is not safe for a Firestore doc path", async () => {
+    await handler(
+      snap(
+        baseEvent({
+          metadata: {
+            viewerType: "authenticated",
+            sessionId: "sess-1",
+            viewerFingerprint: "viewers/bad",
+          },
+        }),
+      ),
+      ctx(),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      "grid_view event has invalid viewerFingerprint",
+      expect.objectContaining({ layoutId: "layout-1" }),
+    );
+    expect(fake.ops).toHaveLength(0);
+    expect(fake.txCount).toBe(0);
   });
 
   it("writes aggregate and daily docs with totalViews+authenticatedViews increments and ownerId", async () => {
@@ -543,7 +590,10 @@ describe("grid_view_end", () => {
 
   it("computes totalTimeSpentMs/totalSessions/averageTimeSpentMs from scratch when stats doc does not exist", async () => {
     fake.docs.set("layouts/layout-1", { userId: "owner-9" });
-    await handler(snap(evt({ metadata: { durationMs: 4000 } })), ctx());
+    await handler(
+      snap(evt({ metadata: { sessionId: "sess-1", durationMs: 4000 } })),
+      ctx(),
+    );
 
     const aggOp = findOps(fake.ops, "gridStats/layout-1")[0];
     expect(aggOp?.via).toBe("tx");
@@ -584,7 +634,10 @@ describe("grid_view_end", () => {
       averageTimeSpentMs: 1000,
     });
 
-    await handler(snap(evt({ metadata: { durationMs: 5000 } })), ctx());
+    await handler(
+      snap(evt({ metadata: { sessionId: "sess-1", durationMs: 5000 } })),
+      ctx(),
+    );
 
     const aggOp = findOps(fake.ops, "gridStats/layout-1")[0];
     expect(aggOp?.data).toMatchObject({
@@ -613,7 +666,10 @@ describe("grid_view_end", () => {
       totalSessions: 1,
     });
 
-    await handler(snap(evt({ metadata: { durationMs: 1000 } })), ctx());
+    await handler(
+      snap(evt({ metadata: { sessionId: "sess-1", durationMs: 1000 } })),
+      ctx(),
+    );
 
     const aggOp = findOps(fake.ops, "gridStats/layout-1")[0];
     expect(aggOp?.data).toMatchObject({
@@ -778,7 +834,10 @@ describe("grid_view_end: ownerId, gating, and atomicity (per spec §3.5)", () =>
 
   it("includes ownerId on both the aggregate and daily docs when creating them", async () => {
     fake.docs.set("layouts/layout-1", { userId: "owner-9" });
-    await handler(snap(evt({ metadata: { durationMs: 4000 } })), ctx());
+    await handler(
+      snap(evt({ metadata: { sessionId: "sess-1", durationMs: 4000 } })),
+      ctx(),
+    );
 
     const aggOp = findOps(fake.ops, "gridStats/layout-1")[0];
     expect(aggOp?.data).toMatchObject({
@@ -794,12 +853,77 @@ describe("grid_view_end: ownerId, gating, and atomicity (per spec §3.5)", () =>
     });
   });
 
+  it("warns and writes nothing when sessionId is missing", async () => {
+    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    await handler(
+      snap(evt({ metadata: { durationMs: 5000 } })),
+      ctx(),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      "grid_view_end event missing sessionId",
+      expect.any(Object),
+    );
+    expect(fake.ops).toHaveLength(0);
+    expect(fake.txCount).toBe(0);
+  });
+
+  it("is idempotent: skips aggregation when the session marker already exists", async () => {
+    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set(
+      "gridStats/layout-1/endedSessions/sess-1",
+      { sessionId: "sess-1", durationMs: 4000 },
+    );
+
+    await handler(
+      snap(evt({ metadata: { sessionId: "sess-1", durationMs: 4000 } })),
+      ctx(),
+    );
+
+    // Transaction ran (to read the marker), but produced no writes.
+    expect(fake.txCount).toBe(1);
+    expect(fake.ops).toHaveLength(0);
+  });
+
+  it("creates the session marker doc and aggregates when the marker does not exist", async () => {
+    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    await handler(
+      snap(evt({ metadata: { sessionId: "sess-42", durationMs: 4000 } })),
+      ctx(),
+    );
+
+    const markerOp = findOps(
+      fake.ops,
+      "gridStats/layout-1/endedSessions/sess-42",
+    )[0];
+    expect(markerOp?.via).toBe("tx");
+    const eventMs = new Date("2026-05-07T12:00:00Z").getTime();
+    const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+    expect(markerOp?.data).toMatchObject({
+      sessionId: "sess-42",
+      durationMs: 4000,
+      endedAt: { __op: "serverTimestamp" },
+      expiresAt: expect.objectContaining({
+        __isTimestamp: true,
+        _millis: eventMs + ninetyDaysMs,
+      }),
+    });
+
+    // Marker, aggregate, and daily writes all share one transaction.
+    const txOps = fake.ops.filter((o) => o.via === "tx");
+    const txIds = new Set(txOps.map((o) => o.txId));
+    expect(txOps.length).toBe(3);
+    expect(txIds.size).toBe(1);
+  });
+
   it("performs the aggregate and daily updates inside a single Firestore transaction", async () => {
     // Spec §3.5: the cross-document read-modify-write must be atomic so
     // that a Firebase retry after a partial failure cannot double-apply
     // durationMs / totalSessions to the side that already committed.
     fake.docs.set("layouts/layout-1", { userId: "owner-9" });
-    await handler(snap(evt({ metadata: { durationMs: 4000 } })), ctx());
+    await handler(
+      snap(evt({ metadata: { sessionId: "sess-1", durationMs: 4000 } })),
+      ctx(),
+    );
 
     expect(fake.txCount).toBe(1);
 
@@ -808,5 +932,394 @@ describe("grid_view_end: ownerId, gating, and atomicity (per spec §3.5)", () =>
     const txIds = new Set(txOps.map((o) => o.txId));
     expect(txOps.length).toBeGreaterThanOrEqual(2);
     expect(txIds.size).toBe(1);
+  });
+});
+
+// ── grid_view_end: additional validation & end-to-end idempotency ───────
+//
+// Targets validation branches and idempotency guarantees that the suite
+// above does not directly exercise:
+//   - sessionId validation: empty string, non-string types
+//   - durationMs validation: Infinity (Number.isFinite branch)
+//   - missing metadata entirely (defensive optional-chaining path)
+//   - calling the handler twice with the same event body — proving the
+//     second invocation is a complete no-op even after the first one
+//     committed real writes (covers the "Firebase retried the trigger"
+//     scenario from spec §3.5 end-to-end, not just with a pre-seeded marker)
+//   - two distinct sessions on the same layout/day accumulate independently
+//   - logger.info diagnostic is emitted on idempotent skip
+
+describe("grid_view_end: additional validation edge cases", () => {
+  const evt = (overrides: Record<string, unknown> = {}) => ({
+    eventType: "grid_view_end",
+    timestamp: fakeTimestamp("2026-05-07T12:00:00Z"),
+    userId: null,
+    layoutId: "layout-1",
+    metadata: { sessionId: "sess-1", durationMs: 5000 },
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    // All these tests assume the layout exists so that validation — not the
+    // ownerId gate — is what causes the early return.
+    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+  });
+
+  it("warns and writes nothing when sessionId is the empty string", async () => {
+    await handler(
+      snap(evt({ metadata: { sessionId: "", durationMs: 5000 } })),
+      ctx(),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      "grid_view_end event missing sessionId",
+      expect.any(Object),
+    );
+    expect(fake.ops).toHaveLength(0);
+    expect(fake.txCount).toBe(0);
+  });
+
+  it("warns and writes nothing when sessionId is not a string", async () => {
+    await handler(
+      snap(evt({ metadata: { sessionId: 12345, durationMs: 5000 } })),
+      ctx(),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      "grid_view_end event has invalid sessionId",
+      expect.any(Object),
+    );
+    expect(fake.ops).toHaveLength(0);
+    expect(fake.txCount).toBe(0);
+  });
+
+  it("warns and writes nothing when layoutId is not safe for a Firestore doc path", async () => {
+    await handler(snap(evt({ layoutId: "layouts/bad" })), ctx());
+    expect(logger.warn).toHaveBeenCalledWith(
+      "grid_view_end event has invalid layoutId",
+      expect.any(Object),
+    );
+    expect(fake.ops).toHaveLength(0);
+    expect(fake.txCount).toBe(0);
+  });
+
+  it("warns and writes nothing when sessionId is not safe for a Firestore doc path", async () => {
+    await handler(
+      snap(evt({ metadata: { sessionId: "sessions/bad", durationMs: 5000 } })),
+      ctx(),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      "grid_view_end event has invalid sessionId",
+      expect.any(Object),
+    );
+    expect(fake.ops).toHaveLength(0);
+    expect(fake.txCount).toBe(0);
+  });
+
+  it("warns and writes nothing when durationMs is Infinity", async () => {
+    await handler(
+      snap(evt({ metadata: { sessionId: "sess-1", durationMs: Infinity } })),
+      ctx(),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      "grid_view_end event has invalid durationMs",
+      expect.any(Object),
+    );
+    expect(fake.ops).toHaveLength(0);
+    expect(fake.txCount).toBe(0);
+  });
+
+  it("warns and writes nothing when metadata is missing entirely", async () => {
+    await handler(snap(evt({ metadata: undefined })), ctx());
+    // sessionId is the first metadata field validated.
+    expect(logger.warn).toHaveBeenCalledWith(
+      "grid_view_end event missing sessionId",
+      expect.any(Object),
+    );
+    expect(fake.ops).toHaveLength(0);
+    expect(fake.txCount).toBe(0);
+  });
+});
+
+describe("grid_view_end: end-to-end idempotency", () => {
+  const evt = (overrides: Record<string, unknown> = {}) => ({
+    eventType: "grid_view_end",
+    timestamp: fakeTimestamp("2026-05-07T12:00:00Z"),
+    userId: null,
+    layoutId: "layout-1",
+    metadata: { sessionId: "sess-1", durationMs: 4000 },
+    ...overrides,
+  });
+
+  it("a second invocation with the same sessionId is a complete no-op (does not double-count)", async () => {
+    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+
+    // First invocation: writes marker, aggregate, daily.
+    await handler(snap(evt()), ctx("evt-first"));
+
+    const firstAgg = findOps(fake.ops, "gridStats/layout-1")[0];
+    expect(firstAgg?.data).toMatchObject({
+      totalTimeSpentMs: 4000,
+      totalSessions: 1,
+      averageTimeSpentMs: 4000,
+    });
+    const firstTxOpsCount = fake.ops.filter((o) => o.via === "tx").length;
+    expect(firstTxOpsCount).toBe(3); // marker + agg + daily
+
+    // Second invocation with identical payload — simulates Firebase retrying
+    // the trigger on the same source doc, or the client resending. Marker
+    // already exists, so the transaction must short-circuit and produce zero
+    // additional writes.
+    await handler(snap(evt()), ctx("evt-retry"));
+
+    expect(fake.txCount).toBe(2); // both invocations opened a tx
+    const txOpsAfterSecond = fake.ops.filter((o) => o.via === "tx");
+    expect(txOpsAfterSecond.length).toBe(firstTxOpsCount); // unchanged
+
+    // Persisted state must match the single-write totals — not doubled.
+    expect(fake.docs.get("gridStats/layout-1")).toMatchObject({
+      totalTimeSpentMs: 4000,
+      totalSessions: 1,
+      averageTimeSpentMs: 4000,
+    });
+    expect(fake.docs.get("gridStats/layout-1__2026-05-07")).toMatchObject({
+      totalTimeSpentMs: 4000,
+      totalSessions: 1,
+    });
+  });
+
+  it("logs an info diagnostic when skipping a duplicate session", async () => {
+    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set("gridStats/layout-1/endedSessions/sess-1", {
+      sessionId: "sess-1",
+      durationMs: 4000,
+    });
+
+    await handler(snap(evt()), ctx());
+
+    expect(logger.info).toHaveBeenCalledWith(
+      "grid_view_end skipped: session already aggregated",
+      expect.objectContaining({ layoutId: "layout-1", sessionId: "sess-1" }),
+    );
+  });
+
+  it("two distinct sessions on the same layout+day accumulate independently", async () => {
+    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+
+    // Session A: 3000ms.
+    await handler(
+      snap(evt({ metadata: { sessionId: "sess-A", durationMs: 3000 } })),
+      ctx("evt-A"),
+    );
+    // Session B: 5000ms.
+    await handler(
+      snap(evt({ metadata: { sessionId: "sess-B", durationMs: 5000 } })),
+      ctx("evt-B"),
+    );
+
+    // Two separate marker docs, keyed by sessionId.
+    expect(fake.docs.has("gridStats/layout-1/endedSessions/sess-A")).toBe(true);
+    expect(fake.docs.has("gridStats/layout-1/endedSessions/sess-B")).toBe(true);
+
+    // Aggregate has accumulated both sessions: 3000 + 5000 = 8000, 2 sessions,
+    // avg 4000.
+    expect(fake.docs.get("gridStats/layout-1")).toMatchObject({
+      totalTimeSpentMs: 8000,
+      totalSessions: 2,
+      averageTimeSpentMs: 4000,
+    });
+    // Daily mirrors aggregate (both events fall on the same UTC date).
+    expect(fake.docs.get("gridStats/layout-1__2026-05-07")).toMatchObject({
+      totalTimeSpentMs: 8000,
+      totalSessions: 2,
+      averageTimeSpentMs: 4000,
+    });
+
+    // Two transactions ran (one per distinct session), each producing 3 writes.
+    expect(fake.txCount).toBe(2);
+    expect(fake.ops.filter((o) => o.via === "tx").length).toBe(6);
+  });
+});
+
+// ── Coverage gaps: getOwnerId branches, fingerprint edge cases, partial
+// existing gridStats docs, and "marker exists but batch still runs" for
+// grid_view ─────────────────────────────────────────────────────────────────
+
+describe("grid_view: getOwnerId and viewerFingerprint edge cases", () => {
+  const baseEvent = (overrides: Record<string, unknown> = {}) => ({
+    eventType: "grid_view",
+    timestamp: fakeTimestamp("2026-05-07T12:34:56Z"),
+    userId: "u-1",
+    layoutId: "layout-1",
+    metadata: {
+      viewerType: "authenticated",
+      sessionId: "sess-1",
+      viewerFingerprint: "fp-1",
+    },
+    ...overrides,
+  });
+
+  it("omits ownerId when the layout document exists but has no userId field", async () => {
+    // Distinct from the !exists branch: the doc exists but `data().userId` is
+    // undefined, so getOwnerId returns null and the writes must omit ownerId.
+    fake.docs.set("layouts/layout-1", { someOtherField: "x" });
+
+    await handler(snap(baseEvent()), ctx());
+
+    const aggOp = findOps(fake.ops, "gridStats/layout-1").find(
+      (o) => o.via === "batch",
+    );
+    expect(aggOp?.data).not.toHaveProperty("ownerId");
+    const dailyOp = findOps(fake.ops, "gridStats/layout-1__2026-05-07").find(
+      (o) => o.via === "batch",
+    );
+    expect(dailyOp?.data).not.toHaveProperty("ownerId");
+    // totalViews still incremented despite the missing owner.
+    expect(aggOp?.data).toMatchObject({
+      totalViews: { __op: "increment", value: 1 },
+    });
+  });
+
+  it("treats an empty-string viewerFingerprint as missing (no uniqueness transaction)", async () => {
+    await handler(
+      snap(
+        baseEvent({
+          metadata: {
+            viewerType: "authenticated",
+            sessionId: "s",
+            viewerFingerprint: "",
+          },
+        }),
+      ),
+      ctx(),
+    );
+    expect(fake.txCount).toBe(0);
+    expect(fake.ops.every((o) => o.via === "batch")).toBe(true);
+  });
+
+  it("still records the batch totalViews increment when the fingerprint marker already exists", async () => {
+    // Returning visitor: marker doc pre-seeded → tx no-ops the unique bump,
+    // but the per-view batch writes (totalViews, viewerType-specific count)
+    // must still happen.
+    fake.docs.set("gridStats/layout-1/viewers/fp-1", {
+      firstSeenAt: { __op: "serverTimestamp" },
+    });
+
+    await handler(snap(baseEvent()), ctx());
+
+    const aggOp = findOps(fake.ops, "gridStats/layout-1").find(
+      (o) => o.via === "batch",
+    );
+    expect(aggOp?.data).toMatchObject({
+      totalViews: { __op: "increment", value: 1 },
+      authenticatedViews: { __op: "increment", value: 1 },
+    });
+    expect(aggOp?.data).not.toHaveProperty("uniqueViewers");
+
+    const dailyOp = findOps(fake.ops, "gridStats/layout-1__2026-05-07").find(
+      (o) => o.via === "batch",
+    );
+    expect(dailyOp?.data).toMatchObject({
+      totalViews: { __op: "increment", value: 1 },
+    });
+    expect(dailyOp?.data).not.toHaveProperty("uniqueViewers");
+  });
+});
+
+describe("grid_view_end: getOwnerId and partial-doc edge cases", () => {
+  const evt = (overrides: Record<string, unknown> = {}) => ({
+    eventType: "grid_view_end",
+    timestamp: fakeTimestamp("2026-05-07T12:00:00Z"),
+    userId: null,
+    layoutId: "layout-1",
+    metadata: { sessionId: "sess-1", durationMs: 4000 },
+    ...overrides,
+  });
+
+  it("skips aggregation when the layout document exists but has no userId field", async () => {
+    // Same orphan-protection rationale as the missing-doc case, but for the
+    // distinct branch where data().userId is undefined.
+    fake.docs.set("layouts/layout-1", { someOtherField: "x" });
+
+    await handler(snap(evt()), ctx("evt-no-owner"));
+
+    expect(fake.ops).toHaveLength(0);
+    expect(fake.txCount).toBe(0);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "grid_view_end skipped: layout no longer exists",
+      expect.objectContaining({ layoutId: "layout-1" }),
+    );
+  });
+
+  it("treats missing totalTimeSpentMs/totalSessions on an existing aggregate doc as 0", async () => {
+    // Exercises the `aggPrev.totalTimeSpentMs ?? 0` default path: the doc
+    // exists (e.g. created earlier by a grid_view, which only writes
+    // totalViews / ownerId) but does NOT yet carry the duration fields.
+    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set("gridStats/layout-1", {
+      layoutId: "layout-1",
+      ownerId: "owner-9",
+      totalViews: 5, // present, but no totalTimeSpentMs / totalSessions
+    });
+    fake.docs.set("gridStats/layout-1__2026-05-07", {
+      layoutId: "layout-1",
+      ownerId: "owner-9",
+      date: "2026-05-07",
+      totalViews: 5,
+    });
+
+    await handler(
+      snap(evt({ metadata: { sessionId: "sess-1", durationMs: 4000 } })),
+      ctx(),
+    );
+
+    const aggOp = findOps(fake.ops, "gridStats/layout-1").find(
+      (o) => o.via === "tx",
+    );
+    expect(aggOp?.data).toMatchObject({
+      totalTimeSpentMs: 4000,
+      totalSessions: 1,
+      averageTimeSpentMs: 4000,
+    });
+    const dailyOp = findOps(fake.ops, "gridStats/layout-1__2026-05-07").find(
+      (o) => o.via === "tx",
+    );
+    expect(dailyOp?.data).toMatchObject({
+      totalTimeSpentMs: 4000,
+      totalSessions: 1,
+      averageTimeSpentMs: 4000,
+    });
+  });
+
+  it("treats existing stats snapshots with undefined data as empty docs", async () => {
+    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set(
+      "gridStats/layout-1",
+      undefined as unknown as Record<string, unknown>,
+    );
+    fake.docs.set(
+      "gridStats/layout-1__2026-05-07",
+      undefined as unknown as Record<string, unknown>,
+    );
+
+    await handler(
+      snap(evt({ metadata: { sessionId: "sess-1", durationMs: 4000 } })),
+      ctx(),
+    );
+
+    const aggOp = findOps(fake.ops, "gridStats/layout-1").find(
+      (o) => o.via === "tx",
+    );
+    expect(aggOp?.data).toMatchObject({
+      totalTimeSpentMs: 4000,
+      totalSessions: 1,
+      averageTimeSpentMs: 4000,
+    });
+    const dailyOp = findOps(fake.ops, "gridStats/layout-1__2026-05-07").find(
+      (o) => o.via === "tx",
+    );
+    expect(dailyOp?.data).toMatchObject({
+      totalTimeSpentMs: 4000,
+      totalSessions: 1,
+      averageTimeSpentMs: 4000,
+    });
   });
 });

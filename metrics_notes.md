@@ -205,13 +205,16 @@ This catalog is intentionally small to start. New event types can be added witho
 
 This composable is the main integration point for the frontend. It provides:
 
-- `trackGridView(layoutId)` — called when a public grid page mounts. Generates a `sessionId`, determines `viewerType` (authenticated vs anonymous) via `getAuthProvider().getCurrentUserId()`, and logs a `grid_view` event. Starts a timer.
-- `trackGridViewEnd(layoutId, sessionId)` — called on unmount or `visibilitychange` (hidden). Computes `durationMs` from the timer and logs a `grid_view_end` event.
-- `trackOwnerGridEnter(layoutId)` — called when the layout store detects the viewer is the owner. Logs `owner_grid_enter`.
+- `trackGridEnter(layoutId)` — called once from the page after the grid has finished loading. Reads ownership from the layout store (`useLayoutStore().isOwner`) and routes to the correct event:
+  - **Owner branch:** logs a single `owner_grid_enter` event. Starts no view session, so no `grid_view` and no `grid_view_end` are emitted. The owner does not contribute to `totalViews`, `uniqueViewers`, `totalSessions`, `totalTimeSpentMs`, or `averageTimeSpentMs`.
+  - **Viewer branch:** generates a `sessionId`, determines `viewerType` (authenticated vs anonymous) via `getAuthProvider().getCurrentUserId()`, logs a `grid_view` event, and starts a timer. The session is ended (with a `grid_view_end` carrying `durationMs`) when the tab becomes hidden (`visibilitychange`) or when the component unmounts. Both lifecycle hooks are owned by the composable — consumers don't wire them.
+  - **Defense-in-depth:** if `trackGridEnter` is called before the layout store has the matching layout loaded, the call is skipped with a `console.warn` rather than guessing at ownership and potentially misattributing the event.
 - `trackTileAdded(layoutId, tileType, tileId)` — called from the layout store's `addTile` action. Logs `tile_added`.
 - `trackTileRemoved(layoutId, tileType, tileId)` — called from the layout store's `removeTile` action. Logs `tile_removed`.
 
-The composable handles deduplication (e.g. won't double-log a `grid_view` if the component re-mounts) and gracefully no-ops if analytics aren't configured.
+**Owner exclusion is enforced inside the composable**, not by the page or the Cloud Function. Consumers only ever call `trackGridEnter` and the composable picks the right branch — there is no separate "owner enter" / "viewer view" call to choose between, so the page can't accidentally emit a viewer event for an owner. The Cloud Function trusts the event stream and aggregates whatever it receives.
+
+The composable handles deduplication (repeat `trackGridEnter(layoutId)` calls with the same `layoutId` in the same instance no-op; a different `layoutId` ends any prior viewer session before starting the new one) and gracefully no-ops if analytics aren't configured.
 
 ### 3.5 Cloud Functions
 
@@ -220,7 +223,7 @@ The composable handles deduplication (e.g. won't double-log a `grid_view` if the
 - Reads `eventType` from the new document
 - Dispatches to handler per event type:
   - `grid_view`: increments `gridStats/{layoutId}` aggregate `totalViews`, `uniqueViewers` (if new fingerprint), `authenticatedViews` or `anonymousViews`; increments matching daily doc; increments `businessStats/global` and daily
-  - `grid_view_end`: looks up the layout document first; if it does not exist, the handler logs a warning and skips aggregation entirely (no partial writes). Otherwise: adds `durationMs` to `totalTimeSpentMs`, increments `totalSessions`, recomputes `averageTimeSpentMs`, and ensures `ownerId` is populated on both the aggregate and daily docs (sourced from `layouts/{layoutId}.userId`). The aggregate and daily updates **must** be performed inside a **single** Firestore transaction so that an automatic retry after a partial failure cannot double-apply `durationMs` / `totalSessions` to the side that already committed.
+  - `grid_view_end`: looks up the layout document first; if it does not exist, the handler logs a warning and skips aggregation entirely (no partial writes). Otherwise: adds `durationMs` to `totalTimeSpentMs`, increments `totalSessions`, recomputes `averageTimeSpentMs`, and ensures `ownerId` is populated on both the aggregate and daily docs (sourced from `layouts/{layoutId}.userId`). **Idempotency:** a per-session marker doc at `gridStats/{layoutId}/endedSessions/{sessionId}` gates aggregation. Marker docs carry an `expiresAt` field set to `event.timestamp + 90 days` and are auto-deleted by a Firestore TTL policy on that field, matching the 90-day retention on `analyticsEvents` (§1.3 / §7) — markers only need to outlive duplicate retries of their source event, not live forever. Inside a single `runTransaction`, the handler reads the marker; if it exists the event has already been aggregated (duplicate trigger fire, retried cloud function, resent client event) and the handler returns without writing. Otherwise, the same transaction creates the marker AND applies the aggregate + daily updates. Marker creation, aggregate update, and daily update **must** all happen inside one transaction so that (a) a duplicate `grid_view_end` for the same `sessionId` can never double-count, and (b) an automatic retry after a partial failure cannot double-apply `durationMs` / `totalSessions` to the side that already committed. The handler also warns and skips when `sessionId` is missing from `metadata` — without it, idempotency cannot be enforced.
   - `grid_created` / `grid_deleted`: increments `businessStats` counters
   - `tile_added` / `tile_removed`: increments the appropriate key in `businessStats.tileAdds` / `tileDeletes` map
   - `user_signup` / `user_login`: increments `businessStats` counters
@@ -240,20 +243,15 @@ The composable handles deduplication (e.g. won't double-log a `grid_view` if the
 
 ## 4. Integration Points in Existing Code
 
-### 4.1 Grid View Tracking
+### 4.1 Grid Entry Tracking (viewer + owner)
 
-**`GridPage.vue`** — the entry point for viewing a grid:
+**`GridPage.vue`** — the entry point for viewing or editing a grid:
 - Import and use `useAnalytics()`
-- On `onMounted`: call `trackGridView(layoutId)` after the grid loads successfully
-- On `onUnmounted`: call `trackGridViewEnd(layoutId, sessionId)`
-- Also listen for `document.visibilitychange` to capture tab-switches and backgrounding
+- On `onMounted`, **after the layout has finished loading** (so the layout store has `currentLayout` set): call `trackGridEnter(layoutId)`
+- That single call routes to the right event based on ownership read from the layout store. The composable handles `visibilitychange`, viewer session timing, and the unmount flush internally — no other lifecycle wiring is needed in the page.
+- Owners do not generate `grid_view` / `grid_view_end` events; this is enforced inside the composable, not at the call site.
 
-### 4.2 Owner Grid Enter
-
-**Layout store `loadLayout` action** (`src/stores/layout.ts:513`):
-- After the `isOwner` check resolves to `true`, call `trackOwnerGridEnter(layoutId)` via the analytics service (not the composable, since this is a store not a component)
-
-### 4.3 Tile Add/Remove
+### 4.2 Tile Add/Remove
 
 **Layout store `addTile` action** (`src/stores/layout.ts:654`):
 - After successfully adding a tile, call `analyticsService.logEvent('tile_added', layoutId, { tileType, tileId })`
@@ -261,7 +259,7 @@ The composable handles deduplication (e.g. won't double-log a `grid_view` if the
 **Layout store `removeTile` action** (`src/stores/layout.ts:879`):
 - Before removing the tile (so we can read its `content.type`), call `analyticsService.logEvent('tile_removed', layoutId, { tileType, tileId })`
 
-### 4.4 Displaying Stats to Users
+### 4.3 Displaying Stats to Users
 
 Grid stats should be displayed in a component within the grid owner's editing view — likely a new section/panel in the grid page or dashboard. The `GridStats` aggregate document provides:
 - **Yesterday's views:** read from `gridStats/{layoutId}__{yesterday's date}`
@@ -289,7 +287,7 @@ Note: This is approximate — `localStorage` can be cleared, different browsers 
 
 Tracking time spent on a grid page:
 1. `useAnalytics()` starts a timer on mount (`performance.now()` or `Date.now()`)
-2. Listens for `visibilitychange` — when the tab becomes hidden, compute elapsed time and log `grid_view_end` with `durationMs`
+2. Listens for `visibilitychange` — when the tab becomes hidden, compute elapsed time and log `grid_view_end` with the session's `sessionId` and `durationMs`. The Cloud Function uses `sessionId` as an idempotency key (see §3.5), so duplicate end events for the same session are safe.
 3. When the tab becomes visible again, start a new session
 4. On `beforeunload` / `onUnmounted`, log any remaining session time via `navigator.sendBeacon` to a Cloud Function endpoint (since Firestore client writes may not complete during page teardown)
 
@@ -308,6 +306,14 @@ gcloud firestore fields ttls update expiresAt \
 ```
 
 The `expiresAt` field is set to `timestamp + 90 days` when writing each event. Firestore automatically garbage-collects expired documents (within ~24h of expiry).
+
+The same TTL policy should be configured for the `endedSessions` subcollection used by the `grid_view_end` idempotency markers (§3.5):
+
+```bash
+gcloud firestore fields ttls update expiresAt \
+  --collection-group=endedSessions \
+  --project=grids-one
+```
 
 ---
 
@@ -342,7 +348,7 @@ Recommended phasing:
 
 ### Phase 2 — Event Logging
 9. Create `useAnalytics()` composable
-10. Integrate `grid_view` / `grid_view_end` tracking into `UserSlugPage.vue` and `GridPage.vue`
+10. Integrate `grid_view` / `grid_view_end` tracking into `GridPage.vue`
 11. Integrate `tile_added` / `tile_removed` tracking into the layout store
 12. Integrate `owner_grid_enter` tracking into the layout store's `loadLayout`
 13. Enhance existing Cloud Functions to write `user_signup`, `user_login`, `grid_created`, `grid_deleted` events

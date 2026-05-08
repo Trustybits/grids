@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import { createHash } from "node:crypto";
+import { isSafeFirestoreDocId } from "./AnalyticsUtils";
 
 const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
@@ -12,8 +13,6 @@ const MAX_BODY_BYTES = 2048; // payload is tiny; reject anything larger
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX_PER_WINDOW = 20; // per IP + layoutId per minute
 const RATE_LIMIT_TTL_MS = 24 * 60 * 60 * 1000; // 1 day for the rate limit ttl
-const MAX_ID_LENGTH = 128;
-const SAFE_ID_RE = /^[A-Za-z0-9_-]+$/;
 
 interface BeaconPayload {
   layoutId: string;
@@ -69,15 +68,6 @@ function bodyByteSize(req: functions.https.Request): number {
   } catch {
     return Number.POSITIVE_INFINITY;
   }
-}
-
-function isSafeFirestoreDocId(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= MAX_ID_LENGTH &&
-    SAFE_ID_RE.test(value)
-  );
 }
 
 function validate(raw: unknown): BeaconPayload | null {

@@ -2491,3 +2491,4 @@ export const upvoteRoadmapItem = functions
 export * from './ogImage';
 export * from './thumbnail';
 export * from './analytics/onAnalyticsEventCreated';
+export * from './analytics/trackGridViewEndBeacon';

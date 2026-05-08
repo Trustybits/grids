@@ -1,4 +1,7 @@
-import type { LogEventInput } from "@/dao/interfaces/AnalyticsEventDao";
+import type {
+  GridViewEndEvent,
+  LogEventInput,
+} from "@/dao/interfaces/AnalyticsEventDao";
 import type {
   AnalyticsEventType,
   BusinessStats,
@@ -12,7 +15,18 @@ export interface IAnalyticsService {
    * Log a single analytics event. Writes to Firestore (`analyticsEvents`) and
    * mirrors to PostHog with the same `eventType` so both stores stay in sync.
    */
-  logEvent<T extends AnalyticsEventType>(event: LogEventInput<T>): Promise<void>;
+  logEvent<T extends AnalyticsEventType>(
+    event: LogEventInput<T>,
+  ): Promise<void>;
+
+  /**
+   * Synchronously enqueue a `grid_view_end` event via the beacon transport.
+   * Used during page teardown (`visibilitychange → hidden`, `pagehide`) where
+   * an async Firestore write may not complete. Mirrors the event to PostHog
+   * the same way `logEvent` does. Returns whatever `navigator.sendBeacon`
+   * returned, or `false` if the transport isn't available.
+   */
+  logGridViewEndEventBeacon(event: GridViewEndEvent): boolean;
 
   /** Lifetime aggregate stats for a grid. */
   getGridStats(layoutId: string): Promise<GridStats | null>;

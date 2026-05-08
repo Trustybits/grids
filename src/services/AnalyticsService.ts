@@ -2,6 +2,7 @@ import posthog from "posthog-js";
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import type {
   AnalyticsEventDao,
+  GridViewEndEvent,
   LogEventInput,
 } from "@/dao/interfaces/AnalyticsEventDao";
 import type { BusinessStatsDao } from "@/dao/interfaces/BusinessStatsDao";
@@ -40,6 +41,18 @@ export class AnalyticsService implements IAnalyticsService {
       // Analytics failures should never break the user-facing flow that
       // triggered the event (a tile add, a page view, etc.). Log and swallow.
       console.error("Failed to log analytics event:", event.eventType, error);
+    }
+  }
+
+  logGridViewEndEventBeacon(event: GridViewEndEvent): boolean {
+    // Mirror to PostHog first — same pattern as logEvent. PostHog's own
+    // capture is local/queued, so it survives page teardown without a beacon.
+    this.captureToPostHog(event);
+    try {
+      return this.analyticsEventDao.logGridViewEndEventBeacon(event);
+    } catch (error) {
+      console.error("Failed to send analytics beacon:", error);
+      return false;
     }
   }
 

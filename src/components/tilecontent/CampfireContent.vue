@@ -10,7 +10,7 @@
         :class="[fireIntensityClass, { disabled: dailyCapReached }]"
         @click="handleClick"
         :title="buttonTitle"
-        :disabled="dailyCapReached"
+        :aria-disabled="dailyCapReached"
       >
         <FireLargeIcon
           v-if="fireIntensity === 'blazing'"

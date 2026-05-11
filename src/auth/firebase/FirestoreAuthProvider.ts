@@ -1,5 +1,5 @@
 import type { AuthProvider, AuthUser } from "@/auth/AuthProvider";
-import { auth } from "@/firebase";
+import { auth } from "@/infrastructure/firebase";
 import {
   GoogleAuthProvider,
   isSignInWithEmailLink,

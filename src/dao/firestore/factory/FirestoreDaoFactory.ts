@@ -1,4 +1,4 @@
-import { db, functions, storage } from "@/firebase";
+import { db, functions, storage } from "@/infrastructure/firebase";
 import type { ChatDao } from "@/dao/interfaces/ChatDao";
 import type { CloudFunctionsDao } from "@/dao/interfaces/CloudFunctionsDao";
 import type { CustomerDao } from "@/dao/interfaces/CustomerDao";
@@ -39,7 +39,7 @@ export class FirestoreDaoFactory implements DaoFactory {
     this.customerDao = new FirestoreCustomerDao(db);
     this.layoutDao = new FirestoreLayoutDao(db);
     this.roadmapDao = new FirestoreRoadmapDao(functions);
-    this.slugDao = new FirestoreSlugDao(db);
+    this.slugDao = new FirestoreSlugDao(db, functions);
     this.storageDao = new FirebaseStorageDao(storage);
     this.upvoteDao = new FirestoreUpvoteDao(db, functions);
     this.userDao = new FirestoreUserDao(db);

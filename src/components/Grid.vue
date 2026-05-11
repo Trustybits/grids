@@ -25,7 +25,7 @@
       <GridTile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
     </GridLayout>
   </div>
-  <p v-else>No tiles yet.</p>
+  <p v-else class="empty-grid-message">No tiles yet</p>
 </template>
 
 <script lang="ts">
@@ -528,6 +528,18 @@ export default {
 <style scoped>
 .grid-scale-wrapper {
   overflow: hidden;
+}
+
+.empty-grid-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--bg-contrast-color-low, var(--color-content-low));
+  margin: 0;
+  pointer-events: none;
 }
 
 .vue-grid-layout {

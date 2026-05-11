@@ -148,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useLayoutStore } from "@/stores/layout";
@@ -214,6 +214,25 @@ const isDarkMode = computed({
     themeStore.setTheme(newThemeId);
     layoutStore.setGridTheme(newThemeId);
   },
+});
+
+watch(showBgDropdown, (open) => {
+  if (open) {
+    showBgColorPicker.value = false;
+    showDuplicateDropdown.value = false;
+  }
+});
+watch(showBgColorPicker, (open) => {
+  if (open) {
+    showBgDropdown.value = false;
+    showDuplicateDropdown.value = false;
+  }
+});
+watch(showDuplicateDropdown, (open) => {
+  if (open) {
+    showBgDropdown.value = false;
+    showBgColorPicker.value = false;
+  }
 });
 
 const toggleMenu = () => {

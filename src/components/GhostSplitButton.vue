@@ -6,6 +6,7 @@
     <button
       ref="chevronRef"
       class="ghost-split-chevron"
+      :class="{ 'ghost-split-chevron--open': open }"
       @click.stop="$emit('update:open', !open)"
     >
       <Chevron :size="12" />
@@ -80,6 +81,14 @@ defineExpose({ chevronRef });
   &:hover {
     background-color: var(--color-input-edit);
     color: var(--color-text-primary);
+  }
+
+  :deep(svg) {
+    transition: transform var(--duration-fast) var(--easing-smooth);
+  }
+
+  &.ghost-split-chevron--open :deep(svg) {
+    transform: rotate(180deg);
   }
 }
 

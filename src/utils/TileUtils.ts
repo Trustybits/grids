@@ -580,6 +580,9 @@ export function createTileContent(
       if (typeof d.customTitle === "string") {
         payload.customTitle = d.customTitle;
       }
+      if (typeof d.customDescription === "string") {
+        payload.customDescription = d.customDescription;
+      }
       if (typeof d.customSubtitle === "string") {
         payload.customSubtitle = d.customSubtitle;
       }

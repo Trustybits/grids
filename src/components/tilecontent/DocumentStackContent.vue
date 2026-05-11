@@ -366,39 +366,7 @@ export default defineComponent({
     const previewOpen = ref(false);
     const previewStartIndex = ref(0);
 
-    const openPreview = (event?: MouseEvent, caller: string = "unknown") => {
-      // #region agent log
-      try {
-        fetch(
-          "http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Debug-Session-Id": "805743",
-            },
-            body: JSON.stringify({
-              sessionId: "805743",
-              hypothesisId: "H1+H2+H3+H4",
-              location: "DocumentStackContent.vue:openPreview",
-              message: "openPreview invoked",
-              data: {
-                caller,
-                isEditing: isEditing.value,
-                itemCount: items.value.length,
-                hasEvent: !!event,
-                target: event
-                  ? (event.target as HTMLElement | null)?.className ?? null
-                  : null,
-              },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-      } catch {
-        /* noop */
-      }
-      // #endregion
+    const openPreview = (event?: MouseEvent) => {
       if (isEditing.value) return;
       if (event) {
         const t = event.target as HTMLElement;
@@ -508,42 +476,10 @@ export default defineComponent({
       startEditing(closest);
     };
 
+    // Native @click only handles editing-state cleanup. Opening the previewer
+    // is delegated to onShortClick(), which GridTile invokes only when it has
+    // confirmed the click is short and not a drag. (Mirrors LinkContent.)
     const onTileClick = (event: MouseEvent) => {
-      // #region agent log
-      try {
-        fetch(
-          "http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Debug-Session-Id": "805743",
-            },
-            body: JSON.stringify({
-              sessionId: "805743",
-              hypothesisId: "H1",
-              location: "DocumentStackContent.vue:onTileClick",
-              message: "native @click fired",
-              data: {
-                isEditing: isEditing.value,
-                detail: event.detail,
-                target:
-                  (event.target as HTMLElement | null)?.className ?? null,
-                inDetails: !!(event.target as HTMLElement | null)?.closest(
-                  ".tile-details",
-                ),
-              },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-      } catch {
-        /* noop */
-      }
-      // #endregion
-      // Mirror LinkContent: native @click only handles editing-state cleanup.
-      // Opening the previewer is delegated to onShortClick(), which GridTile
-      // invokes only when it has confirmed the click is short and not a drag.
       if (isEditing.value) {
         const target = event.target as HTMLElement;
         if (!target.closest("input, textarea")) {
@@ -553,41 +489,10 @@ export default defineComponent({
     };
 
     const onShortClick = (event: MouseEvent) => {
-      // #region agent log
-      try {
-        fetch(
-          "http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Debug-Session-Id": "805743",
-            },
-            body: JSON.stringify({
-              sessionId: "805743",
-              hypothesisId: "H2+H3",
-              location: "DocumentStackContent.vue:onShortClick",
-              message: "GridTile-invoked onShortClick",
-              data: {
-                isEditing: isEditing.value,
-                target:
-                  (event.target as HTMLElement | null)?.className ?? null,
-                inDetails: !!(event.target as HTMLElement | null)?.closest(
-                  ".tile-details",
-                ),
-              },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-      } catch {
-        /* noop */
-      }
-      // #endregion
       if (isEditing.value) return;
       const target = event.target as HTMLElement | null;
       if (target && target.closest(".tile-details")) return;
-      openPreview(event, "onShortClick");
+      openPreview(event);
     };
 
     // ── PDF thumbnail backfill (preserve existing behavior) ──

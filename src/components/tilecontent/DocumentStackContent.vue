@@ -1,56 +1,52 @@
 <!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
-    class="document-stack-tile"
+    class="doc-tile-content"
     :class="{
-      'is-owner': layoutStore.canEdit,
-      'is-uploading': isUploading,
-      'has-multiple': items.length > 1,
+      'is-mini': isOneByOne,
+      'is-banner': isBanner,
+      'is-narrow-tall': isNarrowTall,
       'is-editing': isEditing,
+      'is-owner': layoutStore.canEdit,
+      'has-multiple': items.length > 1,
+      'is-uploading': isUploading,
     }"
-    :style="{
-      background: backgroundColor,
-      color: textColor,
-    }"
-    ref="docTileRef"
+    ref="tileRef"
     @click="onTileClick"
   >
     <div
-      class="tile-background doc-stack-pages"
-      @click.stop="openPreviewFromStack"
+      v-if="overlayColor"
+      class="doc-color-overlay"
+      :style="{ backgroundColor: overlayColor }"
+      aria-hidden="true"
+    />
+
+    <!-- File-type illustration. Hidden for 1-wide and 1×1 layouts. -->
+    <div
+      v-if="showIllustration"
+      class="doc-art"
+      :class="`doc-art--${illustrationPlacement}`"
+      aria-hidden="true"
     >
-      <template v-if="items.length > 1">
-        <div class="doc-stack-paper doc-stack-paper--back-left" aria-hidden="true" />
-        <div class="doc-stack-paper doc-stack-paper--back-right" aria-hidden="true" />
-      </template>
-      <div class="doc-stack-paper doc-stack-paper--front" aria-hidden="true">
-        <img
-          v-if="frontThumbDisplayUrl"
-          class="doc-stack-thumb"
-          :src="frontThumbDisplayUrl"
-          alt=""
-        />
-        <div v-else class="doc-stack-placeholder">
-          <DocumentTileIcon class="doc-stack-placeholder-icon" />
-        </div>
-      </div>
-      <div
-        v-if="docOverlayColor"
-        class="link-color-overlay"
-        :style="{ backgroundColor: docOverlayColor }"
-        aria-hidden="true"
+      <img
+        :src="illustrationSrc"
+        :alt="''"
+        class="doc-art__img"
+        draggable="false"
       />
-      <div class="tile-background-overlay" aria-hidden="true" />
     </div>
 
-    <div class="tile-foreground">
-      <div class="doc-header-row">
-        <div class="tile-logo tile-logo--doc">
-          <DocumentTileIcon class="tile-logo-doc-icon" />
+    <div class="doc-foreground">
+      <div class="doc-header">
+        <div class="tile-logo doc-tile-logo">
+          <DocumentTileIcon class="doc-tile-logo-icon" />
         </div>
+
+        <!-- Banner sizes: details inline with the icon -->
         <div
+          v-if="showInlineDetails"
           ref="detailsRef"
-          class="tile-details"
+          class="tile-details doc-details doc-details--inline"
           :class="{
             'is-hovered': isDetailsHovered && !isEditing,
             'is-editing': isEditing,
@@ -64,57 +60,90 @@
           <div
             v-if="
               !displayTitle &&
+              !displayDescription &&
               !displaySubtitle &&
               !isEditing &&
-              isDetailsHovered &&
-              layoutStore.canEdit
+              isDetailsHovered
             "
             class="tile-details-placeholder"
           >
             Add a title
           </div>
-          <div
-            class="tile-field-wrap tile-field-wrap--title scrollable-thin"
-            :class="{
-              'is-visible': isEditing || !!displayTitle,
-              'has-overflow': !isEditing,
-            }"
-          >
-            <textarea
-              ref="titleInputRef"
-              v-model="draftTitle"
-              class="tile-field tile-field--title"
-              :readonly="!isEditing"
-              :tabindex="isEditing ? 0 : -1"
-              placeholder="Add a title"
-              rows="1"
-            />
-          </div>
-          <div
-            class="tile-field-wrap tile-field-wrap--subtitle"
-            :class="{ 'is-visible': isEditing || !!displaySubtitle }"
-          >
-            <input
-              ref="subtitleInputRef"
-              v-model="draftSubtitle"
-              class="tile-field tile-field--subtitle"
-              type="text"
-              :readonly="!isEditing"
-              :tabindex="isEditing ? 0 : -1"
-              placeholder="Add a subtitle"
-            />
-          </div>
+          <DocumentDetailsFields
+            :is-editing="isEditing"
+            :display-title="displayTitle"
+            :display-description="displayDescription"
+            :display-subtitle="displaySubtitle"
+            v-model:draft-title="draftTitle"
+            v-model:draft-description="draftDescription"
+            v-model:draft-subtitle="draftSubtitle"
+            :title-input-ref="(el: HTMLTextAreaElement | null) => (titleInputRef = el)"
+            :description-input-ref="
+              (el: HTMLTextAreaElement | null) => (descriptionInputRef = el)
+            "
+            :subtitle-input-ref="(el: HTMLInputElement | null) => (subtitleInputRef = el)"
+          />
         </div>
+      </div>
+
+      <!-- Bottom details: every shape that isn't 1×1 or banner -->
+      <div
+        v-if="showBottomDetails"
+        ref="detailsRef"
+        class="tile-details doc-details doc-details--bottom"
+        :class="{
+          'is-hovered': isDetailsHovered && !isEditing,
+          'is-editing': isEditing,
+          'additional-top-padding': !displayTitle,
+        }"
+        @mouseenter="isDetailsHovered = true"
+        @mouseleave="isDetailsHovered = false"
+        @mousedown.stop
+        @click.stop="onDetailsClick"
+      >
+        <div
+          v-if="
+            !displayTitle &&
+            !displayDescription &&
+            !displaySubtitle &&
+            !isEditing &&
+            isDetailsHovered
+          "
+          class="tile-details-placeholder"
+        >
+          Add a title
+        </div>
+        <DocumentDetailsFields
+          :is-editing="isEditing"
+          :display-title="displayTitle"
+          :display-description="displayDescription"
+          :display-subtitle="displaySubtitle"
+          v-model:draft-title="draftTitle"
+          v-model:draft-description="draftDescription"
+          v-model:draft-subtitle="draftSubtitle"
+          :title-input-ref="(el: HTMLTextAreaElement | null) => (titleInputRef = el)"
+          :description-input-ref="
+            (el: HTMLTextAreaElement | null) => (descriptionInputRef = el)
+          "
+          :subtitle-input-ref="(el: HTMLInputElement | null) => (subtitleInputRef = el)"
+        />
       </div>
     </div>
 
     <div
-      v-if="layoutStore.uploadingTiles[tileId] !== undefined && layoutStore.uploadingTiles[tileId]! >= 0"
+      v-if="
+        layoutStore.uploadingTiles[tileId] !== undefined &&
+        layoutStore.uploadingTiles[tileId]! >= 0
+      "
       class="doc-upload-progress"
     >
       <div
         class="doc-upload-progress__bar"
-        :style="{ width: `${Math.round((layoutStore.uploadingTiles[tileId] as number) * 100)}%` }"
+        :style="{
+          width: `${Math.round(
+            (layoutStore.uploadingTiles[tileId] as number) * 100,
+          )}%`,
+        }"
       />
     </div>
 
@@ -132,32 +161,40 @@
 import {
   computed,
   defineComponent,
+  inject,
   nextTick,
+  onMounted,
   onUnmounted,
   ref,
   watch,
+  type ComputedRef,
 } from "vue";
-import type {
-  DocumentStackContent as DocumentStackContentType,
-} from "@/types/TileContent";
+import type { DocumentStackContent as DocumentStackContentType } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import DocumentTileIcon from "@/components/icons/DocumentTileIcon.vue";
 import DocumentPreviewer from "@/components/tilecontent/DocumentPreviewer.vue";
+import DocumentDetailsFields from "@/components/tilecontent/DocumentDetailsFields.vue";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
 import {
   documentItemIsPdf,
   ensureDocumentItemThumbnailOnServer,
 } from "@/composables/useDocumentThumbnail";
+import { classifyDocumentItem } from "@/utils/documentTypeKind";
 
-const LINK_RESET_COLORS = new Set([
-  "var(--color-tile-background)",
-  "var(--color-content-background)",
-]);
+const ILLUSTRATION_BY_KIND: Record<string, string> = {
+  pdf: "/illustrations/file-pdf.png",
+  docx: "/illustrations/file-docx.png",
+  doc: "/illustrations/file-docx.png",
+  md: "/illustrations/file-md.png",
+  txt: "/illustrations/file-txt.png",
+};
+// Fallback for any unrecognized file type (matches the most generic-looking sketch).
+const ILLUSTRATION_FALLBACK = "/illustrations/file-txt.png";
 
 export default defineComponent({
   name: "DocumentStackContent",
-  components: { DocumentTileIcon, DocumentPreviewer },
+  components: { DocumentTileIcon, DocumentPreviewer, DocumentDetailsFields },
   emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
@@ -171,70 +208,115 @@ export default defineComponent({
   },
   setup(props, { emit }) {
     const layoutStore = useLayoutStore();
-    const { backgroundColor, textColor, handleBackgroundColorChange } =
-      useColorPicker(props.tileId, props.content, emit);
+    const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
+    const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
 
-    const docOverlayColor = computed((): string | null => {
-      const color = props.content.backgroundColor;
-      if (!color || LINK_RESET_COLORS.has(color)) return null;
-      return color;
-    });
+    const { backgroundColor, textColor, overlayColor, handleBackgroundColorChange } =
+      useColorPicker(props.tileId, props.content, emit, "background");
 
     const items = computed(() => props.content.items ?? []);
     const primary = computed(() => items.value[0]);
-
-    const defaultTitle = computed(
-      () => primary.value?.fileName?.trim() || "Document",
-    );
-
-    const defaultSubtitle = computed(() => {
-      const n = items.value.length;
-      if (n <= 0) return "";
-      return n === 1 ? "1 file" : `${n} files`;
-    });
-
-    const displayTitle = computed(() =>
-      props.content.customTitle !== undefined
-        ? props.content.customTitle
-        : defaultTitle.value,
-    );
-
-    const displaySubtitle = computed(() =>
-      props.content.customSubtitle !== undefined
-        ? props.content.customSubtitle
-        : defaultSubtitle.value,
-    );
-
-    const frontThumbDisplayUrl = computed(() => {
-      const p = primary.value;
-      if (!p?.thumbnailUrl) return "";
-      return p.thumbnailUrl;
-    });
 
     const isUploading = computed(() => {
       const p = layoutStore.uploadingTiles[props.tileId];
       return p !== undefined && p >= 0;
     });
 
-    const previewOpen = ref(false);
-    const previewStartIndex = ref(0);
+    // ── Sizing flags (mirrors LinkContent's pattern) ──
+    const w = computed(() => gridTileW?.value ?? 2);
+    const h = computed(() => gridTileH?.value ?? 2);
+    const isOneByOne = computed(() => w.value === 1 && h.value === 1);
+    const isBanner = computed(() => w.value >= 2 && h.value === 1);
+    const isNarrowTall = computed(() => w.value === 1 && h.value > 1);
 
+    // Illustration placement decision tree based on Figma sizes:
+    //   1×1 / 1×N           : no illustration
+    //   2×1                 : no illustration (no room)
+    //   3×1, 4×1+           : illustration peeks from right edge of banner
+    //   2×2, 3×2, 4×2 etc.  : illustration on right side
+    //   2×3+, 3×3+, 4×3+    : illustration centered-right
+    //   2×4+, 3×4+, 4×4+    : illustration peeks from bottom-right
+    const showIllustration = computed(() => {
+      if (isOneByOne.value) return false;
+      if (w.value === 1) return false;
+      if (isBanner.value && w.value < 3) return false;
+      return true;
+    });
+    const illustrationPlacement = computed<
+      "banner-right" | "side-right" | "bottom-right" | "center-right"
+    >(() => {
+      if (isBanner.value) return "banner-right";
+      if (h.value >= 4) return "bottom-right";
+      if (h.value >= 3) return "center-right";
+      return "side-right";
+    });
+
+    // Component visibility
+    const showInlineDetails = computed(
+      () => isBanner.value && w.value >= 2,
+    );
+    // Bottom details for everything that isn't mini or a banner
+    const showBottomDetails = computed(
+      () => !isOneByOne.value && !isBanner.value,
+    );
+
+    // ── Default text values (used when custom* === undefined) ──
+    const defaultTitle = computed(() => {
+      const n = items.value.length;
+      if (n === 0) return "Document";
+      if (n > 1) return "Documents";
+      return primary.value?.fileName?.trim() || "Document";
+    });
+    const defaultDescription = computed(() => {
+      const n = items.value.length;
+      if (n <= 0) return "";
+      return n === 1 ? "1 file" : `${n} files`;
+    });
+    const defaultSubtitle = computed(() => "");
+
+    const displayTitle = computed(() =>
+      props.content.customTitle !== undefined
+        ? props.content.customTitle
+        : defaultTitle.value,
+    );
+    const displayDescription = computed(() =>
+      props.content.customDescription !== undefined
+        ? props.content.customDescription
+        : defaultDescription.value,
+    );
+    const displaySubtitle = computed(() =>
+      props.content.customSubtitle !== undefined
+        ? props.content.customSubtitle
+        : defaultSubtitle.value,
+    );
+
+    // ── Illustration picker (PNG sketch art per file type) ──
+    const illustrationSrc = computed(() => {
+      const k = classifyDocumentItem(primary.value);
+      return ILLUSTRATION_BY_KIND[k] ?? ILLUSTRATION_FALLBACK;
+    });
+
+    // ── Editing state (mirrors LinkContent exactly) ──
     const isEditing = ref(false);
     const isDetailsHovered = ref(false);
-    const titleInputRef = ref<HTMLTextAreaElement | null>(null);
-    const subtitleInputRef = ref<HTMLInputElement | null>(null);
+    const tileRef = ref<HTMLElement | null>(null);
     const detailsRef = ref<HTMLElement | null>(null);
-    const docTileRef = ref<HTMLElement | null>(null);
+    const titleInputRef = ref<HTMLTextAreaElement | null>(null);
+    const descriptionInputRef = ref<HTMLTextAreaElement | null>(null);
+    const subtitleInputRef = ref<HTMLInputElement | null>(null);
+
     const draftTitle = ref("");
+    const draftDescription = ref("");
     const draftSubtitle = ref("");
 
     const syncDrafts = () => {
       draftTitle.value = displayTitle.value;
+      draftDescription.value = displayDescription.value;
       draftSubtitle.value = displaySubtitle.value;
     };
 
     watch(
-      [displayTitle, displaySubtitle],
+      [displayTitle, displayDescription, displaySubtitle],
       () => {
         if (!isEditing.value) syncDrafts();
       },
@@ -242,18 +324,27 @@ export default defineComponent({
     );
 
     const userEditedTitle = ref(props.content.customTitle !== undefined);
+    const userEditedDescription = ref(
+      props.content.customDescription !== undefined,
+    );
     const userEditedSubtitle = ref(
       props.content.customSubtitle !== undefined,
     );
 
     const saveEdits = () => {
       if (!layoutStore.canEdit) return;
+
       const nextTitle = draftTitle.value.trim();
+      const nextDescription = draftDescription.value.trim();
       const nextSubtitle = draftSubtitle.value.trim();
+
       props.content.customTitle = nextTitle;
+      props.content.customDescription = nextDescription;
       props.content.customSubtitle = nextSubtitle;
+
       layoutStore.patchTileContent(props.tileId, {
         customTitle: nextTitle,
+        customDescription: nextDescription,
         customSubtitle: nextSubtitle,
       });
     };
@@ -262,15 +353,52 @@ export default defineComponent({
       saveEdits(),
     );
 
-    watch([draftTitle, draftSubtitle], () => {
+    watch([draftTitle, draftDescription, draftSubtitle], () => {
       if (isEditing.value) {
         userEditedTitle.value = true;
+        userEditedDescription.value = true;
         userEditedSubtitle.value = true;
         schedulePersist();
       }
     });
 
-    const openPreview = (event?: MouseEvent) => {
+    // ── Previewer ──
+    const previewOpen = ref(false);
+    const previewStartIndex = ref(0);
+
+    const openPreview = (event?: MouseEvent, caller: string = "unknown") => {
+      // #region agent log
+      try {
+        fetch(
+          "http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Debug-Session-Id": "805743",
+            },
+            body: JSON.stringify({
+              sessionId: "805743",
+              hypothesisId: "H1+H2+H3+H4",
+              location: "DocumentStackContent.vue:openPreview",
+              message: "openPreview invoked",
+              data: {
+                caller,
+                isEditing: isEditing.value,
+                itemCount: items.value.length,
+                hasEvent: !!event,
+                target: event
+                  ? (event.target as HTMLElement | null)?.className ?? null
+                  : null,
+              },
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+      } catch {
+        /* noop */
+      }
+      // #endregion
       if (isEditing.value) return;
       if (event) {
         const t = event.target as HTMLElement;
@@ -281,17 +409,11 @@ export default defineComponent({
       previewOpen.value = true;
     };
 
-    const openPreviewFromStack = (event: MouseEvent) => {
-      event.stopPropagation();
-      openPreview(event);
-    };
-
     const closePreview = () => {
       previewOpen.value = false;
     };
 
     let exitClickHandler: ((event: MouseEvent) => void) | null = null;
-
     const removeExitClickHandler = () => {
       if (exitClickHandler) {
         document.removeEventListener("click", exitClickHandler);
@@ -308,7 +430,9 @@ export default defineComponent({
       nextTick(() => syncDrafts());
     };
 
-    const startEditing = (focusTarget?: "title" | "subtitle") => {
+    const startEditing = (
+      focusTarget?: "title" | "description" | "subtitle",
+    ) => {
       if (!layoutStore.canEdit || isEditing.value) return;
       layoutStore.beginEditing(props.tileId);
       isEditing.value = true;
@@ -316,12 +440,16 @@ export default defineComponent({
       nextTick(() => {
         setTimeout(() => {
           const targetRef =
-            focusTarget === "subtitle" ? subtitleInputRef : titleInputRef;
+            focusTarget === "subtitle"
+              ? subtitleInputRef
+              : focusTarget === "description"
+                ? descriptionInputRef
+                : titleInputRef;
           targetRef.value?.focus();
           exitClickHandler = (event: MouseEvent) => {
             if (
-              docTileRef.value &&
-              !docTileRef.value.contains(event.target as Node)
+              tileRef.value &&
+              !tileRef.value.contains(event.target as Node)
             ) {
               stopEditing();
             }
@@ -334,24 +462,39 @@ export default defineComponent({
     const onDetailsClick = (event: MouseEvent) => {
       if (isEditing.value) return;
       if (!layoutStore.canEdit) return;
+
       const el = detailsRef.value;
       if (!el) {
         startEditing();
         return;
       }
-      if (!displayTitle.value && !displaySubtitle.value) {
+
+      const fields = [
+        { name: "title" as const, el: el.querySelector(".tile-field--title") },
+        {
+          name: "description" as const,
+          el: el.querySelector(".tile-field--description"),
+        },
+        {
+          name: "subtitle" as const,
+          el: el.querySelector(".tile-field--subtitle"),
+        },
+      ];
+
+      if (
+        !displayTitle.value &&
+        !displayDescription.value &&
+        !displaySubtitle.value
+      ) {
         startEditing("title");
         return;
       }
+
       const clickY = event.clientY;
-      const titleEl = el.querySelector(".tile-field--title");
-      const subEl = el.querySelector(".tile-field--subtitle");
-      let closest: "title" | "subtitle" = "title";
+      let closest: "title" | "description" | "subtitle" = "title";
       let minDist = Infinity;
-      for (const f of [
-        { name: "title" as const, el: titleEl },
-        { name: "subtitle" as const, el: subEl },
-      ]) {
+
+      for (const f of fields) {
         if (!f.el) continue;
         const rect = f.el.getBoundingClientRect();
         const centerY = rect.top + rect.height / 2;
@@ -361,10 +504,46 @@ export default defineComponent({
           closest = f.name;
         }
       }
+
       startEditing(closest);
     };
 
     const onTileClick = (event: MouseEvent) => {
+      // #region agent log
+      try {
+        fetch(
+          "http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Debug-Session-Id": "805743",
+            },
+            body: JSON.stringify({
+              sessionId: "805743",
+              hypothesisId: "H1",
+              location: "DocumentStackContent.vue:onTileClick",
+              message: "native @click fired",
+              data: {
+                isEditing: isEditing.value,
+                detail: event.detail,
+                target:
+                  (event.target as HTMLElement | null)?.className ?? null,
+                inDetails: !!(event.target as HTMLElement | null)?.closest(
+                  ".tile-details",
+                ),
+              },
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+      } catch {
+        /* noop */
+      }
+      // #endregion
+      // Mirror LinkContent: native @click only handles editing-state cleanup.
+      // Opening the previewer is delegated to onShortClick(), which GridTile
+      // invokes only when it has confirmed the click is short and not a drag.
       if (isEditing.value) {
         const target = event.target as HTMLElement;
         if (!target.closest("input, textarea")) {
@@ -374,9 +553,44 @@ export default defineComponent({
     };
 
     const onShortClick = (event: MouseEvent) => {
-      openPreview(event);
+      // #region agent log
+      try {
+        fetch(
+          "http://127.0.0.1:7798/ingest/9bdcd177-980d-473a-a0d6-90ada5c856d3",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Debug-Session-Id": "805743",
+            },
+            body: JSON.stringify({
+              sessionId: "805743",
+              hypothesisId: "H2+H3",
+              location: "DocumentStackContent.vue:onShortClick",
+              message: "GridTile-invoked onShortClick",
+              data: {
+                isEditing: isEditing.value,
+                target:
+                  (event.target as HTMLElement | null)?.className ?? null,
+                inDetails: !!(event.target as HTMLElement | null)?.closest(
+                  ".tile-details",
+                ),
+              },
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+      } catch {
+        /* noop */
+      }
+      // #endregion
+      if (isEditing.value) return;
+      const target = event.target as HTMLElement | null;
+      if (target && target.closest(".tile-details")) return;
+      openPreview(event, "onShortClick");
     };
 
+    // ── PDF thumbnail backfill (preserve existing behavior) ──
     const requestedThumbIds = ref(new Set<string>());
 
     const requestPrimaryPdfThumb = () => {
@@ -410,6 +624,11 @@ export default defineComponent({
       { immediate: true },
     );
 
+    onMounted(() => {
+      // Reflect color-picker state up to GridTile so theme background applies.
+      handleBackgroundColorChange(props.content.backgroundColor ?? "");
+    });
+
     onUnmounted(() => {
       removeExitClickHandler();
     });
@@ -417,208 +636,273 @@ export default defineComponent({
     return {
       layoutStore,
       items,
-      displayTitle,
-      displaySubtitle,
-      frontThumbDisplayUrl,
       isUploading,
+      // sizes
+      isOneByOne,
+      isBanner,
+      isNarrowTall,
+      showIllustration,
+      illustrationPlacement,
+      illustrationSrc,
+      showInlineDetails,
+      showBottomDetails,
+      // text
+      displayTitle,
+      displayDescription,
+      displaySubtitle,
+      draftTitle,
+      draftDescription,
+      draftSubtitle,
+      // refs
+      tileRef,
+      detailsRef,
+      titleInputRef,
+      descriptionInputRef,
+      subtitleInputRef,
+      // state
+      isEditing,
+      isDetailsHovered,
+      // color
+      backgroundColor,
+      textColor,
+      overlayColor,
+      handleBackgroundColorChange,
+      // previewer
       previewOpen,
       previewStartIndex,
       closePreview,
-      backgroundColor,
-      textColor,
-      handleBackgroundColorChange,
-      docOverlayColor,
-      isEditing,
-      isDetailsHovered,
-      titleInputRef,
-      subtitleInputRef,
-      detailsRef,
-      docTileRef,
-      draftTitle,
-      draftSubtitle,
+      // events
       onDetailsClick,
       onTileClick,
       onShortClick,
-      openPreviewFromStack,
+      startEditing,
     };
   },
 });
 </script>
 
 <style scoped>
-.document-stack-tile {
-  --doc-thumb-pad: 8%;
+.doc-tile-content {
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 12px;
+  padding: var(--tile-padding);
+  border-radius: var(--tile-border-radius);
   overflow: hidden;
   isolation: isolate;
-}
-
-.tile-background {
-  position: absolute;
-  inset: -1px;
-  z-index: 0;
-  pointer-events: auto;
   cursor: pointer;
 }
 
-.doc-stack-pages {
-  inset: 0;
-}
-
-.doc-stack-paper {
-  position: absolute;
-  left: var(--doc-thumb-pad);
-  right: var(--doc-thumb-pad);
-  top: 12%;
-  bottom: 26%;
-  border-radius: 10px;
-  transform-origin: center bottom;
-  transition:
-    transform 0.35s ease,
-    opacity 0.35s ease;
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
-}
-
-.doc-stack-paper--back-left {
-  z-index: 1;
-  background: linear-gradient(145deg, #3a3a42, #242428);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.doc-stack-paper--back-right {
-  z-index: 2;
-  background: linear-gradient(145deg, #34343c, #1e1e22);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.document-stack-tile.has-multiple .doc-stack-paper--back-left {
-  transform: rotate(-4deg) translate(-5px, 7px) scale(0.93);
-  opacity: 0.55;
-}
-
-.document-stack-tile.has-multiple .doc-stack-paper--back-right {
-  transform: rotate(4deg) translate(5px, 4px) scale(0.95);
-  opacity: 0.62;
-}
-
-.document-stack-tile.has-multiple:hover .doc-stack-paper--back-left {
-  transform: rotate(-11deg) translate(-22px, 4px) scale(0.88);
-  opacity: 0.95;
-}
-
-.document-stack-tile.has-multiple:hover .doc-stack-paper--back-right {
-  transform: rotate(11deg) translate(22px, 4px) scale(0.88);
-  opacity: 0.95;
-}
-
-.doc-stack-paper--front {
-  z-index: 3;
-  overflow: hidden;
-  background: color-mix(
-    in srgb,
-    var(--color-content-background, #10100e) 88%,
-    #fff 12%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.doc-stack-thumb {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transform: translateZ(0);
-}
-
-.doc-stack-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(
-    160deg,
-    rgba(255, 255, 255, 0.06) 0%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
-}
-
-.doc-stack-placeholder-icon {
-  width: 40%;
-  height: 40%;
-  max-width: 72px;
-  max-height: 72px;
-  opacity: 0.35;
-  color: var(--color-text-primary, #fff);
-}
-
-.link-color-overlay {
+.doc-color-overlay {
   position: absolute;
   inset: 0;
+  z-index: 0;
   mix-blend-mode: color;
   pointer-events: none;
-  z-index: 4;
 }
 
-.tile-background-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  background-image:
-    linear-gradient(
-      180deg,
-      transparent 50%,
-      color-mix(in srgb, var(--tile-bg) 45%, transparent) 80%,
-      var(--tile-bg) 120%
-    ),
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--tile-bg) 0%, transparent) 0%,
-      color-mix(in srgb, var(--tile-bg) 20%, transparent) 100%
-    );
-  pointer-events: none;
-  transform: translateZ(0);
-}
+/* ── Foreground layout ────────────────────────────── */
 
-.tile-foreground {
+.doc-foreground {
   position: relative;
-  z-index: 6;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: var(--tile-padding);
+  gap: var(--spacing-md);
   pointer-events: none;
 }
 
-.doc-header-row {
+.doc-tile-content.is-banner .doc-foreground {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.doc-header {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
+  pointer-events: none;
+}
+
+.doc-tile-content.is-banner .doc-header {
+  flex: 1;
   min-width: 0;
+  align-items: center;
   pointer-events: auto;
 }
 
-.tile-logo--doc {
+/* ── Logo (icon) ───────────────────────────────────── */
+
+.tile-logo {
   flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--tile-text-color) 14%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--tile-text-color, #fff);
+  color: var(--tile-text-color);
+  pointer-events: none;
 }
 
-.tile-logo-doc-icon {
+.doc-tile-logo-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.doc-tile-content.is-mini .doc-foreground {
+  align-items: center;
+  justify-content: center;
+}
+
+.doc-tile-content.is-mini .doc-header {
+  justify-content: center;
+}
+
+.doc-tile-content.is-mini .tile-logo {
+  width: 36px;
+  height: 36px;
+}
+
+.doc-tile-content.is-mini .doc-tile-logo-icon {
   width: 22px;
   height: 22px;
+}
+
+/* ── Illustration ──────────────────────────────────── */
+
+.doc-art {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.doc-art__img {
+  display: block;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.18));
+}
+
+/* Banner: peek from right, vertically overflow */
+.doc-art--banner-right {
+  top: -22%;
+  right: -8%;
+  width: 70%;
+  height: 160%;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.doc-art--banner-right > * {
+  transform: rotate(8deg);
+  width: 70%;
+  height: 100%;
+}
+
+/* Square / landscape mid: right half */
+.doc-art--side-right {
+  top: -10%;
+  right: -10%;
+  width: 70%;
+  height: 130%;
+}
+
+.doc-art--side-right > * {
+  transform: rotate(8deg);
+  width: 90%;
+  height: 100%;
+}
+
+/* Tall + medium: center-right */
+.doc-art--center-right {
+  top: 14%;
+  right: -8%;
+  bottom: 22%;
+  width: 70%;
+}
+
+.doc-art--center-right > * {
+  transform: rotate(6deg);
+  width: 100%;
+  height: 100%;
+}
+
+/* Tall + wide: peek from bottom right */
+.doc-art--bottom-right {
+  right: -10%;
+  bottom: -22%;
+  width: 70%;
+  height: 70%;
+}
+
+.doc-art--bottom-right > * {
+  transform: rotate(8deg);
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Details (mirrors LinkContent visuals) ─────────── */
+
+.doc-details {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+  padding: 2px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.doc-details--inline {
+  flex: 1;
+  min-width: 0;
+  width: calc(100% + 16px);
+  margin-left: -8px;
+  margin-right: -8px;
+}
+
+.doc-details--bottom {
+  margin-top: auto;
+  width: calc(100% + 16px);
+  margin-left: -8px;
+  margin-bottom: -4px;
+}
+
+.doc-tile-content.is-owner .doc-details {
+  cursor: text;
+}
+
+.doc-details.is-hovered {
+  background-color: color-mix(
+    in srgb,
+    transparent 45%,
+    color-mix(in srgb, var(--tile-bg) 82%, var(--tile-text-color) 3%) 65%
+  );
+}
+
+.doc-details.is-editing {
+  background-color: var(--tile-bg);
+  border-color: transparent;
+}
+
+.doc-details.additional-top-padding {
+  padding-top: 4px;
 }
 
 .tile-details-placeholder {
@@ -629,147 +913,7 @@ export default defineComponent({
   transition: opacity 0.2s ease;
 }
 
-.tile-details {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  transition:
-    border-color 0.2s ease,
-    background-color 0.2s ease;
-  padding: 2px;
-  margin-bottom: -4px;
-  overflow: hidden;
-  min-height: 0;
-  margin-top: 0;
-}
-
-.document-stack-tile.is-owner .tile-details {
-  cursor: text;
-}
-
-.tile-details.is-hovered {
-  background-color: color-mix(
-    in srgb,
-    transparent 45%,
-    color-mix(in srgb, var(--tile-bg) 82%, var(--tile-text-color) 3%) 65%
-  );
-}
-
-.tile-details.is-editing {
-  background-color: var(--tile-bg);
-  border-color: transparent;
-}
-
-.tile-details.additional-top-padding {
-  padding-top: 4px;
-}
-
-.tile-field-wrap {
-  overflow: hidden;
-  border-radius: 4px;
-  margin-left: -2px;
-  margin-right: -2px;
-  max-height: 0;
-  padding: 0;
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    max-height 0.3s ease,
-    padding 0.3s ease,
-    opacity 0.25s ease;
-}
-
-.tile-field-wrap.is-visible {
-  opacity: 1;
-  pointer-events: auto;
-  transition:
-    max-height 0.35s ease,
-    padding 0.35s ease,
-    opacity 0.3s ease;
-}
-
-.tile-field-wrap--title {
-  margin-top: -2px;
-}
-
-.tile-details.is-editing .tile-field-wrap {
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-
-.tile-details.is-editing .tile-field-wrap:hover {
-  background-color: color-mix(
-    in srgb,
-    var(--color-input-edit) 97%,
-    var(--tile-text-color) 3%
-  );
-}
-
-.tile-field {
-  display: block;
-  width: 100%;
-  border: none;
-  background: transparent;
-  color: var(--tile-text-color);
-  font-family: "Inter", sans-serif;
-  cursor: inherit;
-  resize: none;
-  field-sizing: content;
-  padding: 8px 8px;
-  margin: -8px -8px;
-}
-
-.tile-field:focus {
-  outline: none;
-}
-
-.tile-field[readonly]::placeholder {
-  color: transparent;
-}
-
-.tile-field::placeholder {
-  color: color-mix(in srgb, var(--tile-text-color) 55%, transparent 45%);
-}
-
-.tile-field-wrap--title.is-visible {
-  max-height: none;
-  min-height: 28px;
-  padding: 4px 6px;
-  padding-top: 6px;
-}
-
-.tile-details.is-editing .tile-field-wrap--title.is-visible {
-  max-height: none;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.tile-field--title {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.25;
-  padding: 0;
-  margin: 0;
-  border: none;
-}
-
-.tile-field-wrap--subtitle.is-visible {
-  max-height: none;
-  min-height: 26px;
-  padding: 2px 6px 6px;
-}
-
-.tile-field--subtitle {
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.3;
-  opacity: 0.9;
-  padding: 0;
-  margin: 0;
-}
+/* ── Upload progress ──────────────────────────────── */
 
 .doc-upload-progress {
   position: absolute;
@@ -778,26 +922,13 @@ export default defineComponent({
   bottom: 0;
   height: 3px;
   background: rgba(255, 255, 255, 0.1);
-  z-index: 8;
+  z-index: 4;
+  pointer-events: none;
 }
 
 .doc-upload-progress__bar {
   height: 100%;
   background: linear-gradient(90deg, #6ea8fe, #9b7bff);
   transition: width 0.2s ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .doc-stack-paper {
-    transition: none;
-  }
-
-  .document-stack-tile.has-multiple .doc-stack-paper--back-left,
-  .document-stack-tile.has-multiple .doc-stack-paper--back-right,
-  .document-stack-tile.has-multiple:hover .doc-stack-paper--back-left,
-  .document-stack-tile.has-multiple:hover .doc-stack-paper--back-right {
-    transform: rotate(0deg) translate(0, 6px) scale(0.94);
-    opacity: 0.65;
-  }
 }
 </style>

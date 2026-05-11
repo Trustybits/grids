@@ -304,6 +304,7 @@ export interface DocumentStackContent extends TileContent {
   items: DocumentItem[];
   backgroundColor?: string;
   customTitle?: string;
+  customDescription?: string;
   customSubtitle?: string;
 }
 

@@ -30,6 +30,7 @@ src/
   components/        Vue components (GridPage, DashboardPage, AuthPage, modals, icons/, tiptap/)
   composables/       useAuthGuard, useEditorAutosave, useFileUpload, useSubscription, useFeatureFlags, ...
   dao/               Data-access layer: interfaces/, firestore/ impls, stubbed/ impls, singletons
+  infrastructure/    Cross-cutting setup (Firebase SDK init)
   router/            Routes + auth guards
   services/          Business logic: interfaces/, factory/, mocks/, concrete services (Layout, User, Stripe, Chat, ...)
   stores/            Pinia: layout, theme, toast, pixelRacers
@@ -40,7 +41,6 @@ src/
   types/             Layout, Tile, TileContent, UserProfile, GameData, theme, ...
   undo/              UndoRedoManager + UndoTypes
   utils/             LayoutUtils, TileUtils, GridPlacementUtils, smartTextHelpers, toolbarRegistry, ...
-  firebase.ts        Firebase init
   main.ts            App bootstrap (Pinia, router, PostHog)
 functions/           Firebase Cloud Functions (TS)
 public/              Static assets + legal markdown (privacy.md, terms.md)
@@ -54,9 +54,11 @@ public/              Static assets + legal markdown (privacy.md, terms.md)
 - Rich-text tiles use custom Tiptap extensions in `src/components/tiptap/` (FontSize, DragHandle, ResizableImage, SmartButton).
 
 ## When Writing Code
-- When working with service or database logic in the app (specifically in the root src folder), verify that database logic (Firestore or any other database) is only used in a DAO class, and that the appropriate
-service classes are used for service logic. The functions folder (Firebase functions) and middleware.ts are exempt from this rule (due to having
-their own special deployments).
+- All database logic and access should be localized in the appropriate dao/ subfolder, and generally DAO access should flow through a service class. All
+auth logic and access should be localized in the appropriate auth/ subfolder.
+- Firebase initialization occurs in the infrastructure/ folder only. Firebase or firestore usage occurs in the appropriate dao/ and auth/ subfolders
+only. This is in accordance with appropriate architecture and dependency flow. Exemptions from this rule include middleware.ts and the firebase
+configuration files that live at the root of the repo, and the functions/ folder which constitutes Cloud Functions deployed to firebase.
 
 ## Environments
 

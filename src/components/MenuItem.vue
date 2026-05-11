@@ -43,7 +43,7 @@ defineEmits<{
 
   &--danger:hover {
     background-color: var(--color-figma-red);
-    color: var(--color-base-100);
+    color: var(--color-text-primary);
   }
 }
 </style>

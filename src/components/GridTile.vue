@@ -49,6 +49,11 @@
         :data-tile-type="tile.content.type"
         :data-tile-w="tile.w"
         :data-tile-h="tile.h"
+        :style="{
+          '--tile-resize-handle-color': hasCustomTileColor && contentTextColor
+            ? contentTextColor
+            : undefined,
+        }"
         ref="gridTileRef"
         @mouseenter="isHovered = true"
         @mouseleave="isHovered = false"
@@ -286,6 +291,11 @@ export default defineComponent({
     const onContentTextColorChange = (color: string) => {
       contentTextColor.value = color;
     };
+
+    const hasCustomTileColor = computed(() => {
+      const bg = contentBackgroundColor.value;
+      return !!bg && bg !== "var(--color-tile-background)";
+    });
 
     const showCaption = computed(() => {
       // Hide caption for Link, Text, Chat, Embed, Map, Campfire, RPG, YouTube, and Suggestion tiles as requested
@@ -859,6 +869,7 @@ export default defineComponent({
       verboseMetadataLines,
       contentBackgroundColor,
       contentTextColor,
+      hasCustomTileColor,
       onContentBackgroundColorChange,
       onContentTextColorChange,
 
@@ -1400,8 +1411,8 @@ export default defineComponent({
     height: 0;
     border-style: solid;
     border-width: 0 0 20px 20px;
-    border-color: transparent transparent var(--color-content-default)
-      transparent;
+    border-color: transparent transparent
+      var(--tile-resize-handle-color, var(--color-content-default)) transparent;
     opacity: 0.3;
     border-radius: 0 0 calc(var(--tile-border-radius) - 2px) 0;
   }

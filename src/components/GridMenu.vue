@@ -144,6 +144,13 @@
         </Accordion>
       </MenuSection>
     </div>
+
+    <DeleteGridModal
+      :show="showDeleteModal"
+      :layoutName="currentLayoutName"
+      @close="showDeleteModal = false"
+      @delete="deleteGrid"
+    />
   </div>
 </template>
 
@@ -164,6 +171,7 @@ import Divider from "./Divider.vue";
 import GridMenuIcon from "./icons/GridMenuIcon.vue";
 import GhostSplitButton from "./GhostSplitButton.vue";
 import ColorPicker from "./ColorPicker.vue";
+import DeleteGridModal from "./DeleteGridModal.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 
 const router = useRouter();
@@ -177,6 +185,7 @@ const showDuplicateDropdown = ref(false);
 const menuRef = ref<HTMLElement | null>(null);
 const showBgDropdown = ref(false);
 const showBgColorPicker = ref(false);
+const showDeleteModal = ref(false);
 const bgImageInput = ref<HTMLInputElement | null>(null);
 const bgSplitRef = ref<InstanceType<typeof GhostSplitButton> | null>(null);
 const bgChevronEl = computed(() => bgSplitRef.value?.chevronRef ?? null);
@@ -198,6 +207,10 @@ const hasBackgroundImage = computed(() => {
 
 const hasBackgroundColor = computed(() => {
   return !!layoutStore.currentLayout?.backgroundColor;
+});
+
+const currentLayoutName = computed(() => {
+  return layoutStore.currentLayout?.name?.trim() || "Untitled Grid";
 });
 
 // Computed property with setter to handle gravity toggle
@@ -315,14 +328,18 @@ const duplicateGrid = async (copyDepth: CopyDepth = "full") => {
   }
 };
 
+const confirmDelete = () => {
+  if (!layoutStore.isOwner || !layoutStore.currentLayout) return;
+  showDeleteModal.value = true;
+  closeMenu();
+};
+
 // Handle grid deletion directly — no need to bubble up through parent components
-const confirmDelete = async () => {
+const deleteGrid = async () => {
   if (!layoutStore.isOwner || !layoutStore.currentLayout) return;
 
-  const confirmed = confirm("Are you sure you want to delete this layout?");
-  if (!confirmed) return;
-
   await layoutStore.deleteLayout(layoutStore.currentLayout.id);
+  showDeleteModal.value = false;
   closeMenu();
   router.push("/dashboard");
 };

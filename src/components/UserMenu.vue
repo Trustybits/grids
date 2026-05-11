@@ -107,13 +107,21 @@ import {
   type AvatarShape,
   type ProfileBioContent,
 } from "@/types/TileContent";
+import {
+  DEFAULT_AVATAR_RADIUS,
+  DEFAULT_AVATAR_SHAPE,
+  DEFAULT_AVATAR_SIDES,
+  getAvatarShapeSettings,
+  getPolygonGeometry,
+  getPolygonVertices,
+  getRoundedPolygonPath,
+  PROFILE_TILE_AVATAR_SIZE,
+  scaleAvatarRadius,
+} from "@/utils/AvatarShape";
 import SlugClaimModal from "./SlugClaimModal.vue";
 
-const PROFILE_TILE_AVATAR_SIZE = 152;
 const MENU_AVATAR_SIZE = 24;
 const MENU_AVATAR_POLYGON_INSET = 0.5;
-const POLYGON_MIN_SIDES = 3;
-const POLYGON_MAX_SIDES = 8;
 
 export default defineComponent({
   name: "UserMenu",
@@ -129,9 +137,11 @@ export default defineComponent({
     const currentSlug = ref<string | undefined>(undefined);
     const defaultGridId = ref<string | undefined>(undefined);
     const defaultGridProfileImageUrl = ref<string | undefined>(undefined);
-    const defaultGridProfileAvatarShape = ref<AvatarShape>("square");
-    const defaultGridProfileAvatarRadius = ref(12);
-    const defaultGridProfileAvatarSides = ref(6);
+    const defaultGridProfileAvatarShape = ref<AvatarShape>(
+      DEFAULT_AVATAR_SHAPE,
+    );
+    const defaultGridProfileAvatarRadius = ref(DEFAULT_AVATAR_RADIUS);
+    const defaultGridProfileAvatarSides = ref(DEFAULT_AVATAR_SIDES);
     const polygonClipPathId = `user-menu-avatar-clip-${Math.random()
       .toString(36)
       .slice(2, 9)}`;
@@ -140,9 +150,9 @@ export default defineComponent({
     const profileLoading = ref(false);
 
     const resetDefaultGridProfileShape = () => {
-      defaultGridProfileAvatarShape.value = "square";
-      defaultGridProfileAvatarRadius.value = 12;
-      defaultGridProfileAvatarSides.value = 6;
+      defaultGridProfileAvatarShape.value = DEFAULT_AVATAR_SHAPE;
+      defaultGridProfileAvatarRadius.value = DEFAULT_AVATAR_RADIUS;
+      defaultGridProfileAvatarSides.value = DEFAULT_AVATAR_SIDES;
     };
 
     onMounted(() => {
@@ -186,102 +196,39 @@ export default defineComponent({
         const profileContent = profileTile?.content as
           | ProfileBioContent
           | undefined;
+        const avatarSettings = getAvatarShapeSettings(profileContent);
         defaultGridProfileImageUrl.value =
           profileContent?.profilePhotoUrl || undefined;
-        defaultGridProfileAvatarShape.value =
-          profileContent?.avatarShape || "square";
-        defaultGridProfileAvatarRadius.value =
-          profileContent?.avatarRadius ?? 12;
-        defaultGridProfileAvatarSides.value =
-          profileContent?.avatarSides ?? 6;
+        defaultGridProfileAvatarShape.value = avatarSettings.avatarShape;
+        defaultGridProfileAvatarRadius.value = avatarSettings.avatarRadius;
+        defaultGridProfileAvatarSides.value = avatarSettings.avatarSides;
       } catch (error) {
         console.error("Error loading default grid profile image:", error);
       }
     };
 
-    const getPolygonPoints = (sides: number) => {
-      const normalizedSides = Math.min(
-        POLYGON_MAX_SIDES,
-        Math.max(POLYGON_MIN_SIDES, Math.round(sides)),
-      );
-      const unitPoints = Array.from({ length: normalizedSides }, (_, index) => {
-        const angle = -Math.PI / 2 + (2 * Math.PI * index) / normalizedSides;
-        return {
-          x: Math.cos(angle),
-          y: Math.sin(angle),
-        };
-      });
-
-      const minX = Math.min(...unitPoints.map((point) => point.x));
-      const maxX = Math.max(...unitPoints.map((point) => point.x));
-      const minY = Math.min(...unitPoints.map((point) => point.y));
-      const maxY = Math.max(...unitPoints.map((point) => point.y));
-      const unitWidth = maxX - minX;
-      const unitHeight = maxY - minY;
-      const unitCenterX = (minX + maxX) / 2;
-      const unitCenterY = (minY + maxY) / 2;
-      const radius =
-        (MENU_AVATAR_SIZE - MENU_AVATAR_POLYGON_INSET * 2) /
-        Math.max(unitWidth, unitHeight);
-
-      return unitPoints.map((point) => ({
-        x: MENU_AVATAR_SIZE / 2 + (point.x - unitCenterX) * radius,
-        y: MENU_AVATAR_SIZE / 2 + (point.y - unitCenterY) * radius,
-      }));
-    };
-
     const defaultGridProfilePolygonPath = computed(() => {
-      const points = getPolygonPoints(defaultGridProfileAvatarSides.value);
-      const scaledRadius = Math.max(
-        0,
-        (defaultGridProfileAvatarRadius.value / PROFILE_TILE_AVATAR_SIZE) *
-          MENU_AVATAR_SIZE,
+      const geometry = getPolygonGeometry({
+        sides: defaultGridProfileAvatarSides.value,
+        size: MENU_AVATAR_SIZE,
+        fit: "contain",
+        inset: MENU_AVATAR_POLYGON_INSET,
+      });
+      const vertices = getPolygonVertices(
+        defaultGridProfileAvatarSides.value,
+        geometry,
       );
-
-      if (scaledRadius === 0) {
-        return `${points
-          .map(
-            (point, index) =>
-              `${index === 0 ? "M" : "L"} ${point.x.toFixed(
-                2,
-              )} ${point.y.toFixed(2)}`,
-          )
-          .join(" ")} Z`;
-      }
-
-      const path = points
-        .map((current, index) => {
-          const previous = points[(index - 1 + points.length) % points.length];
-          const next = points[(index + 1) % points.length];
-          const prevVector = {
-            x: previous.x - current.x,
-            y: previous.y - current.y,
-          };
-          const nextVector = {
-            x: next.x - current.x,
-            y: next.y - current.y,
-          };
-          const prevLength = Math.hypot(prevVector.x, prevVector.y);
-          const nextLength = Math.hypot(nextVector.x, nextVector.y);
-          const offset = Math.min(scaledRadius, prevLength / 2, nextLength / 2);
-          const start = {
-            x: current.x + (prevVector.x / prevLength) * offset,
-            y: current.y + (prevVector.y / prevLength) * offset,
-          };
-          const end = {
-            x: current.x + (nextVector.x / nextLength) * offset,
-            y: current.y + (nextVector.y / nextLength) * offset,
-          };
-
-          return `${index === 0 ? "M" : "L"} ${start.x.toFixed(
-            2,
-          )} ${start.y.toFixed(2)} Q ${current.x.toFixed(
-            2,
-          )} ${current.y.toFixed(2)} ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
-        })
-        .join(" ");
-
-      return `${path} Z`;
+      return getRoundedPolygonPath({
+        vertices,
+        radius: Math.max(
+          0,
+          scaleAvatarRadius(
+            defaultGridProfileAvatarRadius.value,
+            PROFILE_TILE_AVATAR_SIZE,
+            MENU_AVATAR_SIZE,
+          ),
+        ),
+      });
     });
 
     const defaultGridProfileImageStyle = computed(() => {
@@ -290,8 +237,11 @@ export default defineComponent({
       }
 
       const scaledRadius =
-        (defaultGridProfileAvatarRadius.value / PROFILE_TILE_AVATAR_SIZE) *
-        MENU_AVATAR_SIZE;
+        scaleAvatarRadius(
+          defaultGridProfileAvatarRadius.value,
+          PROFILE_TILE_AVATAR_SIZE,
+          MENU_AVATAR_SIZE,
+        );
       return {
         borderRadius: `${Math.max(0, scaledRadius)}px`,
       };

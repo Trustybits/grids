@@ -2,7 +2,7 @@
   <div class="campfire-container">
     <div class="campfire-content" :class="layoutClass">
       <div v-if="showCount" class="flame-count">
-        {{ ownerGameData?.totalClicks || 0 }}
+        {{ displayedTotalClicks }}
       </div>
 
       <button
@@ -142,10 +142,32 @@ export default defineComponent({
     const showLeaderboard = ref(false);
     const ownerGameData = ref<UserGameData | null>(null);
     const leaderboard = ref<LeaderboardEntry[]>([]);
-    const dailyClicksRemaining = ref(100);
-    const dailyCapReached = ref(false);
     const showCapMessage = ref(false);
     const dailyClickCap = gameDataService.getDailyClickCap();
+
+    // Click batching: clicks are accepted instantly into pendingClicks, then
+    // debounced into Firestore writes of at most CHUNK_SIZE each. inFlightClicks
+    // tracks chunks sent but not yet acknowledged by the subscription, so the
+    // displayed remaining count stays stable across the round trip.
+    const CHUNK_SIZE = 25;
+    const FLUSH_DEBOUNCE_MS = 600;
+    const serverDailyClicks = ref(0);
+    const inFlightClicks = ref(0);
+    const pendingClicks = ref(0);
+
+    const projectedDailyClicks = computed(
+      () => serverDailyClicks.value + inFlightClicks.value + pendingClicks.value,
+    );
+    const dailyClicksRemaining = computed(() =>
+      Math.max(0, dailyClickCap - projectedDailyClicks.value),
+    );
+    const dailyCapReached = computed(() => dailyClicksRemaining.value === 0);
+    const displayedTotalClicks = computed(
+      () =>
+        (ownerGameData.value?.totalClicks ?? 0) +
+        inFlightClicks.value +
+        pendingClicks.value,
+    );
     const currentBoostTier = ref<BoostMilestone | null>(null);
     const nextBoostTier = ref<BoostMilestone | null>(null);
     const passiveClicksClaimed = ref(0);
@@ -219,8 +241,51 @@ export default defineComponent({
     });
 
     let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    let isFlushing = false;
     let unsubscribeOwnerData: (() => void) | null = null;
     let unsubscribeLeaderboard: (() => void) | null = null;
+
+    const flushPending = async () => {
+      if (isFlushing || pendingClicks.value === 0 || !ownerId.value) return;
+      isFlushing = true;
+      try {
+        while (pendingClicks.value > 0) {
+          const chunk = Math.min(pendingClicks.value, CHUNK_SIZE);
+          pendingClicks.value -= chunk;
+          inFlightClicks.value += chunk;
+          const success = await gameDataService.incrementUserClicks(
+            ownerId.value,
+            chunk,
+          );
+          if (!success) {
+            // Server cap reached (or write rejected). Drop everything we
+            // optimistically counted; the subscription is the source of truth.
+            inFlightClicks.value = 0;
+            pendingClicks.value = 0;
+            showCapMessage.value = true;
+            setTimeout(() => {
+              showCapMessage.value = false;
+            }, 3000);
+            break;
+          }
+        }
+      } finally {
+        isFlushing = false;
+      }
+    };
+
+    const scheduleFlush = () => {
+      if (flushTimer) clearTimeout(flushTimer);
+      flushTimer = setTimeout(() => {
+        flushTimer = null;
+        void flushPending();
+      }, FLUSH_DEBOUNCE_MS);
+    };
+
+    const handleFlushOnLeave = () => {
+      void flushPending();
+    };
 
     const ownerId = computed(() => layoutStore.currentLayout?.userId || "");
 
@@ -228,16 +293,9 @@ export default defineComponent({
       return `fire-${fireIntensity.value}`;
     });
 
-    const handleClick = async () => {
-      if (!ownerId.value || dailyCapReached.value) return;
-
-      // Increment the grid owner's score (not the clicker's score)
-      const success = await gameDataService.incrementUserClicks(ownerId.value, 1);
-      
-      // Check if daily cap was reached
-      if (!success) {
-        dailyCapReached.value = true;
-        dailyClicksRemaining.value = 0;
+    const handleClick = () => {
+      if (!ownerId.value) return;
+      if (dailyCapReached.value) {
         showCapMessage.value = true;
         setTimeout(() => {
           showCapMessage.value = false;
@@ -245,19 +303,11 @@ export default defineComponent({
         return;
       }
 
-      // Update remaining clicks
-      if (dailyClicksRemaining.value > 0) {
-        dailyClicksRemaining.value--;
-      }
-
-      // Check if we just hit the cap
-      if (dailyClicksRemaining.value === 0) {
-        dailyCapReached.value = true;
-        showCapMessage.value = true;
-        setTimeout(() => {
-          showCapMessage.value = false;
-        }, 3000);
-      }
+      // Optimistic accept: increment the local pending counter (UI updates
+      // immediately) and debounce the Firestore write. The cap check above
+      // uses projectedDailyClicks, so pendingClicks can never push past 100.
+      pendingClicks.value++;
+      scheduleFlush();
 
       // Check click speed to determine fire intensity
       const now = Date.now();
@@ -331,27 +381,36 @@ export default defineComponent({
       currentBoostTier.value = getCurrentBoostTier(gameData.totalClicks);
       nextBoostTier.value = getNextBoostTier(gameData.totalClicks);
 
-      // Check daily click limit
+      // Seed serverDailyClicks with today's authoritative count. checkDailyClickLimit
+      // already handles the day-rollover case (returns dailyClicks: 0 when
+      // lastClickDate is stale), so we can use its value directly.
       const limitCheck = await gameDataService.checkDailyClickLimit(ownerId.value);
-      dailyClicksRemaining.value = limitCheck.remaining;
-      dailyCapReached.value = !limitCheck.canClick;
+      serverDailyClicks.value = limitCheck.dailyClicks;
 
       // Subscribe to real-time updates for owner's game data
       unsubscribeOwnerData = gameDataService.subscribeToUserGameData(ownerId.value, (data) => {
         ownerGameData.value = data;
-        // Update daily clicks tracking when data changes
-        if (data.dailyClicks !== undefined) {
-          const remaining = Math.max(
-            0,
-            dailyClickCap - (data.dailyClicks || 0),
-          );
-          dailyClicksRemaining.value = remaining;
-          dailyCapReached.value = remaining === 0;
+        // The stored dailyClicks counter is only meaningful when lastClickDate
+        // matches today; otherwise it's stale from a previous day and will be
+        // reset on the next successful click.
+        const today = new Date().toISOString().split("T")[0];
+        const nextServerClicks =
+          data.lastClickDate === today ? data.dailyClicks ?? 0 : 0;
+        const delta = nextServerClicks - serverDailyClicks.value;
+        serverDailyClicks.value = nextServerClicks;
+        // Drain inFlightClicks by the delta — our chunks (and any concurrent
+        // writes from other viewers) just landed on the server.
+        if (delta > 0) {
+          inFlightClicks.value = Math.max(0, inFlightClicks.value - delta);
         }
         // Update boost tier when total clicks change
         currentBoostTier.value = getCurrentBoostTier(data.totalClicks);
         nextBoostTier.value = getNextBoostTier(data.totalClicks);
       });
+
+      // Flush any queued clicks before the user navigates away or hides the tab.
+      window.addEventListener("beforeunload", handleFlushOnLeave);
+      document.addEventListener("visibilitychange", handleFlushOnLeave);
 
       // Subscribe to leaderboard updates
       unsubscribeLeaderboard = gameDataService.subscribeToLeaderboard(20, (data) => {
@@ -363,6 +422,15 @@ export default defineComponent({
       if (cooldownTimer) {
         clearTimeout(cooldownTimer);
       }
+      if (flushTimer) {
+        clearTimeout(flushTimer);
+        flushTimer = null;
+      }
+      // Fire-and-forget: send any queued clicks before the component goes away.
+      // Firestore's write queue will retry if the network drops mid-call.
+      void flushPending();
+      window.removeEventListener("beforeunload", handleFlushOnLeave);
+      document.removeEventListener("visibilitychange", handleFlushOnLeave);
       if (unsubscribeOwnerData) {
         unsubscribeOwnerData();
       }
@@ -386,6 +454,7 @@ export default defineComponent({
       fireIconSize,
       dailyClicksRemaining,
       dailyCapReached,
+      displayedTotalClicks,
       showCapMessage,
       showDailyProgress,
       buttonTitle,

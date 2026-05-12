@@ -6,6 +6,9 @@ on:
     branches: [main]
     types: [completed]
 
+  # Manual run trigger in the event that it's needed
+  workflow_dispatch:
+
 concurrency:
   group: version-bump-main
   cancel-in-progress: false

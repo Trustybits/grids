@@ -6,6 +6,7 @@ import {
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
+import { classifyFileForUpload } from "@/utils/uploadFileClassification";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 
 interface LinkPreviewResponse {
@@ -20,7 +21,8 @@ interface LinkPreviewResponse {
 
 export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   const layoutStore = useLayoutStore();
-  const { uploadFileOptimistic } = useFileUpload();
+  const { uploadFileOptimistic, uploadDocumentsOptimistic } =
+    useFileUpload();
   const isDraggingOver = ref(false);
   let dragCounter = 0;
   let activeContainer: HTMLElement | null = null;
@@ -65,7 +67,11 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
           handled = true;
 
           try {
-            await uploadFileOptimistic(file);
+            if (classifyFileForUpload(file) === "document") {
+              await uploadDocumentsOptimistic([file]);
+            } else {
+              await uploadFileOptimistic(file);
+            }
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Failed to upload file.";
             console.error("Failed to upload file from paste:", error);
@@ -139,15 +145,46 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
 
     // Handle files
     if (files && files.length > 0) {
+      type FileGroup = { kind: "media" | "document"; files: File[] };
+      const groups: FileGroup[] = [];
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+        const file = files.item(i);
+        if (!file) continue;
+        const classified = classifyFileForUpload(file);
+        if (!classified) continue;
+        const bucket: "media" | "document" =
+          classified === "document" ? "document" : "media";
+        const last = groups[groups.length - 1];
+        if (last && last.kind === bucket) {
+          last.files.push(file);
+        } else {
+          groups.push({ kind: bucket, files: [file] });
+        }
+      }
 
-        try {
-          await uploadFileOptimistic(file);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : "Failed to upload file.";
-          console.error("Failed to upload dropped file:", error);
-          alert(errorMessage);
+      for (const group of groups) {
+        if (group.kind === "document") {
+          try {
+            await uploadDocumentsOptimistic(group.files);
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : "Failed to upload file.";
+            console.error("Failed to upload dropped file:", error);
+            alert(errorMessage);
+          }
+        } else {
+          for (const file of group.files) {
+            try {
+              await uploadFileOptimistic(file);
+            } catch (error) {
+              const errorMessage =
+                error instanceof Error
+                  ? error.message
+                  : "Failed to upload file.";
+              console.error("Failed to upload dropped file:", error);
+              alert(errorMessage);
+            }
+          }
         }
       }
     }

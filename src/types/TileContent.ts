@@ -305,7 +305,6 @@ export interface DocumentStackContent extends TileContent {
   backgroundColor?: string;
   customTitle?: string;
   customDescription?: string;
-  customSubtitle?: string;
 }
 
 // ── Roadmap Feed (Notion integration) ──────────────────────────────

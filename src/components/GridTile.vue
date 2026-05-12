@@ -50,9 +50,10 @@
         :data-tile-w="tile.w"
         :data-tile-h="tile.h"
         :style="{
-          '--tile-resize-handle-color': hasCustomTileColor && contentTextColor
-            ? contentTextColor
-            : undefined,
+          '--tile-resize-handle-color':
+            hasCustomTileColor && contentTextColor
+              ? contentTextColor
+              : undefined,
         }"
         ref="gridTileRef"
         @mouseenter="isHovered = true"
@@ -207,7 +208,12 @@ import {
   getOptionComponent,
   createTileContent,
 } from "@/utils/TileUtils";
-import { ContentType, type LinkContent, type SuggestionContent, type AnyTileContent } from "@/types/TileContent";
+import {
+  ContentType,
+  type LinkContent,
+  type SuggestionContent,
+  type AnyTileContent,
+} from "@/types/TileContent";
 
 import TextIcon from "./icons/TextIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
@@ -219,7 +225,7 @@ import TileActions from "./TileActions.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 import ColorPicker from "./ColorPicker.vue";
 import FloatingInputModal from "./modal/FloatingInputModal.vue";
-import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
+import { isValidLink, isValidEmbed } from "@/utils/urlValidation";
 import { useTileInput } from "@/composables/useTileInput";
 
 export default defineComponent({
@@ -669,9 +675,7 @@ export default defineComponent({
         clickStart.value = Date.now();
         const target = event.target as HTMLElement;
         if (
-          !target.closest(
-            'button, a, input, select, textarea, [role="button"]',
-          )
+          !target.closest('button, a, input, select, textarea, [role="button"]')
         ) {
           event.preventDefault();
         }
@@ -754,7 +758,8 @@ export default defineComponent({
     });
 
     const typeSpecificMeta = computed(() => {
-      const content = props.tile.content as AnyTileContent & Record<string, unknown>;
+      const content = props.tile.content as AnyTileContent &
+        Record<string, unknown>;
       switch (props.tile.content.type) {
         case ContentType.TEXT: {
           const rawText = typeof content.text === "string" ? content.text : "";
@@ -1198,7 +1203,9 @@ export default defineComponent({
 
 /* Glow border while embed is interactive */
 .tile-wrapper.embed-is-interactive {
-  box-shadow: 0 0 0 2px var(--color-figma-purple, #a259ff), 0 0 20px 4px rgba(162, 89, 255, 0.3);
+  box-shadow:
+    0 0 0 2px var(--color-figma-purple, #a259ff),
+    0 0 20px 4px rgba(162, 89, 255, 0.3);
 }
 
 /* Hover-priority layering wrappers */

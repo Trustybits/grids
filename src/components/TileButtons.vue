@@ -245,10 +245,9 @@ export default {
 
     const addDocuments = async (event: Event) => {
       const input = event.target as HTMLInputElement;
-      const list = input.files;
+      const files = Array.from(input.files || []);
       input.value = "";
-      if (!list?.length) return;
-      const files = Array.from(list);
+      if (!files.length) return;
       try {
         await uploadDocumentsOptimistic(files);
       } catch (error: unknown) {

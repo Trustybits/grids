@@ -211,7 +211,7 @@ import { useVideoFocus } from "@/composables/useVideoFocus";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
-import { isValidLink } from "@/utils/UrlValidation";
+import { isValidLink } from "@/utils/urlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 
 const DEFAULT_VOLUME = 0.15;

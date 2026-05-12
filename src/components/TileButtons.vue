@@ -7,11 +7,20 @@
 
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
-      <button class="btn btn-secondary" data-tooltip="Text" @click="addTextElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Text"
+        @click="addTextElement"
+      >
         <TextLegacyIcon />
       </button>
 
-      <button v-if="smartTextEnabled" class="btn btn-secondary" data-tooltip="Smart Text" @click="addSmartTextElement">
+      <button
+        v-if="smartTextEnabled"
+        class="btn btn-secondary"
+        data-tooltip="Smart Text"
+        @click="addSmartTextElement"
+      >
         <AppBarTextIcon />
       </button>
 
@@ -133,7 +142,7 @@ import { computed } from "vue";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 import { useTileInput } from "@/composables/useTileInput";
 import FloatingInputModal from "./modal/FloatingInputModal.vue";
-import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
+import { isValidLink, isValidEmbed } from "@/utils/urlValidation";
 import TextLegacyIcon from "./icons/appbar/TextLegacyIcon.vue";
 import AppBarTextIcon from "./icons/appbar/TextIcon.vue";
 import ChatIcon from "./icons/ChatIcon.vue";
@@ -162,7 +171,9 @@ export default {
     const isDarkMode = computed(() => themeStore.isDarkMode);
 
     const { isEnabled } = useFeatureFlags();
-    const smartTextEnabled = computed(() => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT));
+    const smartTextEnabled = computed(() =>
+      isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT),
+    );
 
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);

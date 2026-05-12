@@ -118,7 +118,7 @@ import {
   PROFILE_TILE_AVATAR_SIZE,
   scaleAvatarRadius,
 } from "@/utils/AvatarShape";
-import SlugClaimModal from "./SlugClaimModal.vue";
+import SlugClaimModal from "./modal/SlugClaimModal.vue";
 
 const MENU_AVATAR_SIZE = 24;
 const MENU_AVATAR_POLYGON_INSET = 0.5;

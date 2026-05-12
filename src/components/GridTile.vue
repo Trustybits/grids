@@ -165,15 +165,24 @@
       </div>
     </GridItem>
   </div>
-  <AddLinkModal
+  <FloatingInputModal
     :show="showSuggestionLinkModal"
+    placeholder="Type or paste a link..."
+    inputmode="url"
+    :validate="isValidLink"
+    submit-title="Add link (Enter)"
+    invalid-title="Enter a valid URL"
     @close="closeSuggestionLinkModal"
-    @add="handleSuggestionAddLink"
+    @submit="handleSuggestionAddLink"
   />
-  <AddEmbedModal
+  <FloatingInputModal
     :show="showSuggestionEmbedModal"
+    placeholder="Paste a URL or embed code (YouTube, Spotify, Apple Music...)"
+    :validate="isValidEmbed"
+    submit-title="Add embed (Enter)"
+    invalid-title="Enter a valid URL"
     @close="closeSuggestionEmbedModal"
-    @add="handleSuggestionAddEmbed"
+    @submit="handleSuggestionAddEmbed"
   />
 </template>
 
@@ -209,8 +218,8 @@ import TileToolbar from "./TileToolbar.vue";
 import TileActions from "./TileActions.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 import ColorPicker from "./ColorPicker.vue";
-import AddLinkModal from "./AddLinkModal.vue";
-import AddEmbedModal from "./AddEmbedModal.vue";
+import FloatingInputModal from "./modal/FloatingInputModal.vue";
+import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
 import { useTileInput } from "@/composables/useTileInput";
 
 export default defineComponent({
@@ -225,8 +234,7 @@ export default defineComponent({
     EmbedIcon,
     ProfileIcon,
     ColorPicker,
-    AddLinkModal,
-    AddEmbedModal,
+    FloatingInputModal,
   },
   props: {
     tile: {
@@ -881,6 +889,8 @@ export default defineComponent({
 
       mediaInput,
       onMediaSelected,
+      isValidLink,
+      isValidEmbed,
       showSuggestionLinkModal,
       showSuggestionEmbedModal,
       closeSuggestionLinkModal,

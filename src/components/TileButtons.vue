@@ -39,7 +39,7 @@
         <ImageIcon />
       </button>
       <button
-        v-if="documentStackEnabled"
+        v-if="documentsEnabled"
         class="btn btn-secondary"
         data-tooltip="Documents"
         @click="selectDocuments"
@@ -168,12 +168,12 @@ export default {
 
     const { isEnabled } = useFeatureFlags();
     const smartTextEnabled = computed(() => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT));
-    const documentStackEnabled = computed(() => isEnabled(FEATURE_FLAGS.BETA_DOCUMENT_STACK));
+    const documentsEnabled = computed(() => isEnabled(FEATURE_FLAGS.BETA_DOCUMENTS));
 
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);
     const documentInput = ref<HTMLInputElement | null>(null);
-    const { uploadFileOptimistic, uploadDocumentStackOptimistic } =
+    const { uploadFileOptimistic, uploadDocumentsOptimistic } =
       useFileUpload();
     const { submitLink, submitEmbed } = useTileInput();
 
@@ -228,7 +228,7 @@ export default {
       if (!list?.length) return;
       const files = Array.from(list);
       try {
-        await uploadDocumentStackOptimistic(files);
+        await uploadDocumentsOptimistic(files);
       } catch (error: unknown) {
         const err = error instanceof Error ? error : null;
         const errorMessage = err?.message || "Unknown error";
@@ -329,7 +329,7 @@ export default {
       imageInput,
       layoutStore,
       smartTextEnabled,
-      documentStackEnabled,
+      documentsEnabled,
       addTextElement,
       addSmartTextElement,
       addProfileElement,

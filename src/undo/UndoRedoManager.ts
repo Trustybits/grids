@@ -1,7 +1,7 @@
 import type { Snapshot } from "./UndoTypes";
 import {
   ContentType,
-  type DocumentStackContent,
+  type DocumentsContent,
 } from "@/types/TileContent";
 
 const MAX_STACK_SIZE = 20;
@@ -169,7 +169,7 @@ export class UndoRedoManager {
           documentItemId &&
           tile.content.type === ContentType.DOCUMENT
         ) {
-          const doc = tile.content as DocumentStackContent;
+          const doc = tile.content as DocumentsContent;
           const item = doc.items?.find((i) => i.id === documentItemId);
           if (
             item &&

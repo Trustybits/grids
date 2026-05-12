@@ -7,7 +7,7 @@ import {
   type TileContent,
   type AnyTileContent,
   type LinkContent,
-  type DocumentStackContent,
+  type DocumentsContent,
   type DocumentItem,
 } from "@/types/TileContent";
 import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
@@ -62,7 +62,7 @@ function patchSnapshotDocumentItemUrl(
   if (!snapshot) return;
   const tile = snapshot.tiles.find((t) => t.i === tileId);
   if (!tile || tile.content.type !== ContentType.DOCUMENT) return;
-  const doc = tile.content as DocumentStackContent;
+  const doc = tile.content as DocumentsContent;
   const item = doc.items?.find((i) => i.id === itemId);
   if (
     item &&
@@ -94,7 +94,7 @@ export const useLayoutStore = defineStore("layout", {
     // The blob URL stays as the in-memory src so the <img>/<video> element never reloads.
     resolvedUrls: {} as Record<string, string>,
     /**
-     * For document-stack tiles: tileId → (itemId → permanent storage URL)
+     * For document tiles: tileId → (itemId → permanent storage URL)
      * while items still display blob: URLs in the UI.
      */
     resolvedDocumentItemUrls: {} as Record<string, Record<string, string>>,
@@ -254,7 +254,7 @@ export const useLayoutStore = defineStore("layout", {
           }
         }
         if (tile.content.type === ContentType.DOCUMENT) {
-          const doc = tile.content as DocumentStackContent;
+          const doc = tile.content as DocumentsContent;
           const map = this.resolvedDocumentItemUrls[tile.i];
           if (map && doc.items?.length) {
             for (const item of doc.items) {
@@ -830,7 +830,7 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
-    patchDocumentStackItem(
+    patchDocumentItem(
       tileId: string,
       itemId: string,
       itemPatch: Partial<DocumentItem>,
@@ -843,7 +843,7 @@ export const useLayoutStore = defineStore("layout", {
         this.pushUndoSnapshot("Update document");
       }
 
-      const doc = tile.content as DocumentStackContent;
+      const doc = tile.content as DocumentsContent;
       const items = doc.items.map((it) =>
         it.id === itemId ? { ...it, ...itemPatch } : it,
       );
@@ -983,7 +983,7 @@ export const useLayoutStore = defineStore("layout", {
           URL.revokeObjectURL(src);
         }
         if (tile.content.type === ContentType.DOCUMENT) {
-          const doc = tile.content as DocumentStackContent;
+          const doc = tile.content as DocumentsContent;
           for (const item of doc.items ?? []) {
             if (typeof item.url === "string" && item.url.startsWith("blob:")) {
               URL.revokeObjectURL(item.url);

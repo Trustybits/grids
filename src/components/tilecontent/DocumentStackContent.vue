@@ -21,9 +21,9 @@
       aria-hidden="true"
     />
 
-    <!-- File-type illustration. Hidden for 1-wide and 1×1 layouts. -->
+    <!-- File-type illustration (non-narrow-tall placements render in-tile). -->
     <div
-      v-if="showIllustration"
+      v-if="showIllustration && illustrationPlacement !== 'narrow-tall'"
       class="doc-art"
       :class="`doc-art--${illustrationPlacement}`"
       aria-hidden="true"
@@ -35,6 +35,22 @@
         draggable="false"
       />
     </div>
+
+    <!-- 1×2: teleport illustration to tile-wrapper so it sits BEHIND card-body -->
+    <Teleport :to="tileWrapperEl" :disabled="!tileWrapperEl">
+      <div
+        v-if="showIllustration && illustrationPlacement === 'narrow-tall'"
+        class="doc-art-behind"
+        aria-hidden="true"
+      >
+        <img
+          :src="illustrationSrc"
+          alt=""
+          class="doc-art-behind__img"
+          draggable="false"
+        />
+      </div>
+    </Teleport>
 
     <div class="doc-foreground">
       <div class="doc-header">
@@ -290,6 +306,9 @@ export default defineComponent({
       return ILLUSTRATION_BY_KIND[k] ?? ILLUSTRATION_FALLBACK;
     });
 
+    // ── Teleport target for narrow-tall illustration ──
+    const tileWrapperEl = ref<HTMLElement | null>(null);
+
     // ── Editing state (mirrors LinkContent exactly) ──
     const isEditing = ref(false);
     const isDetailsHovered = ref(false);
@@ -493,8 +512,12 @@ export default defineComponent({
     );
 
     onMounted(() => {
-      // Reflect color-picker state up to GridTile so theme background applies.
       handleBackgroundColorChange(props.content.backgroundColor ?? "");
+
+      // Find the tile-wrapper ancestor for the narrow-tall teleport target.
+      if (tileRef.value) {
+        tileWrapperEl.value = tileRef.value.closest(".tile-wrapper") as HTMLElement | null;
+      }
     });
 
     onUnmounted(() => {
@@ -521,6 +544,7 @@ export default defineComponent({
       draftDescription,
       // refs
       tileRef,
+      tileWrapperEl,
       detailsRef,
       titleInputRef,
       descriptionInputRef,
@@ -556,13 +580,6 @@ export default defineComponent({
   overflow: hidden;
   isolation: isolate;
   cursor: pointer;
-}
-
-/* 1×2: drop isolation so the illustration's negative z-index can
-   escape this stacking context and sit behind card-body's background. */
-.doc-tile-content.is-narrow-tall {
-  isolation: auto;
-  overflow: visible;
 }
 
 .doc-color-overlay {
@@ -711,23 +728,6 @@ export default defineComponent({
   transform: translateY(-24px);
 }
 
-/* Narrow-tall (1×2 only): illustration appears from behind the tile.
-   In default state it sits at the top of the tile, hidden behind the
-   opaque card-body. On hover it slides up 26px so the top peeks out.
-   Size matches Figma: ~52 × 64px. */
-.doc-art--narrow-tall {
-  top: 2px;
-  left: 12px;
-  width: 52px;
-  height: 64px;
-  z-index: -1;
-  transition: transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
-}
-
-.doc-tile-content:hover .doc-art--narrow-tall {
-  transform: translateY(-26px);
-}
-
 /* ── Details (mirrors LinkContent visuals) ─────────── */
 
 .doc-details {
@@ -809,22 +809,47 @@ export default defineComponent({
 </style>
 
 <!--
-  Unscoped: allow the 1×2 document tile's illustration to slide above the
-  tile bounds on hover. The card-body has scoped overflow:hidden, mask-image,
-  and isolation:isolate — we need !important to override them for this case.
-  Targeted via data-tile-w/data-tile-h + :has() so only 1×2 document tiles
-  are affected.
+  Unscoped: the 1×2 document tile teleports its illustration into the
+  tile-wrapper, as a sibling of card-body. This lets it sit visually
+  BEHIND the opaque card-body background and slide up above the tile
+  on hover — no clipping overrides needed on card-body at all.
 -->
 <style>
 .tile-wrapper[data-tile-w="1"][data-tile-h="2"]:has(.doc-tile-content) {
+  position: relative;
   overflow: visible !important;
 }
 
+/* Teleported illustration — sibling of .card-body, sits behind it. */
+.doc-art-behind {
+  position: absolute;
+  top: 3px;
+  left: 12px;
+  width: 52px;
+  height: 64px;
+  z-index: 0;
+  pointer-events: none;
+  transition: transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
+}
+
+.doc-art-behind__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* card-body already has z-index via its stacking context (transform);
+   ensure it paints above the teleported illustration. */
 .tile-wrapper[data-tile-w="1"][data-tile-h="2"]:has(.doc-tile-content) > .card-body {
-  overflow: visible !important;
-  -webkit-mask-image: none !important;
-  mask-image: none !important;
-  isolation: auto !important;
+  z-index: 1;
+}
+
+/* Hover: slide illustration up 26px so it peeks above the tile. */
+.tile-wrapper[data-tile-w="1"][data-tile-h="2"]:hover > .doc-art-behind {
+  transform: translateY(-26px);
 }
 </style>
 

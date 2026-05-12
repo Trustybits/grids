@@ -23,6 +23,9 @@ export interface IStorageService {
   /** Fetch an external image URL, upload a copy to storage, and return our permanent URL. */
   uploadExternalImage(userId: string, externalUrl: string, folder?: string): Promise<string>;
 
+  /** Download the raw bytes of a file from its public URL. */
+  getBytes(url: string): Promise<Uint8Array>;
+
   /** Fetch the permanent download URL for an existing object. */
   getDownloadUrl(path: string): Promise<string>;
 

@@ -94,6 +94,15 @@ export class StorageService implements IStorageService {
     }
   }
 
+  async getBytes(url: string): Promise<Uint8Array> {
+    try {
+      return await this.storageDao.getBytes(url);
+    } catch (error) {
+      console.error("StorageService getBytes failed:", error);
+      throw error;
+    }
+  }
+
   async getDownloadUrl(path: string): Promise<string> {
     try {
       return await this.storageDao.getDownloadUrl(path);

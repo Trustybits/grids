@@ -36,6 +36,9 @@ export class MockStorageService implements IStorageService {
   ): Promise<string> {
     throw new Error("Method not implemented.");
   }
+  getBytes(_url: string): Promise<Uint8Array> {
+    throw new Error("Method not implemented.");
+  }
   getDownloadUrl(_path: string): Promise<string> {
     throw new Error("Method not implemented.");
   }

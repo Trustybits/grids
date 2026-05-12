@@ -4,6 +4,7 @@ import {
   uploadBytes,
   uploadBytesResumable,
   getDownloadURL,
+  getBytes,
   deleteObject,
 } from "firebase/storage";
 import type {
@@ -55,6 +56,32 @@ export class FirebaseStorageDao implements StorageDao {
         task.cancel();
       },
     };
+  }
+
+  private static readonly STORAGE_V0_DOWNLOAD =
+    /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[^/]+\/o\/([^?]+)/i;
+
+  private objectPathFromDownloadUrl(url: string): string | null {
+    const m = url.match(FirebaseStorageDao.STORAGE_V0_DOWNLOAD);
+    if (!m) return null;
+    try {
+      return decodeURIComponent(m[1].replace(/\+/g, " "));
+    } catch {
+      return null;
+    }
+  }
+
+  public async getBytes(url: string): Promise<Uint8Array> {
+    const objectPath = this.objectPathFromDownloadUrl(url);
+    if (objectPath) {
+      const bytes = await getBytes(storageRef(this.storage, objectPath));
+      return new Uint8Array(bytes);
+    }
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    return new Uint8Array(await res.arrayBuffer());
   }
 
   public async getDownloadUrl(path: string): Promise<string> {

@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ContentType, type DocumentItem, type DocumentsContent } from "@/types/TileContent";
-import { classifyDocumentItem, type DocumentKind } from "@/utils/documentTypeKind";
+import { describe, it, expect } from "vitest";
+import { type DocumentItem } from "@/types/TileContent";
+import { classifyDocumentItem } from "@/utils/documentTypeKind";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 
 // ── classifyDocumentItem ────────────────────────────────────────────────────

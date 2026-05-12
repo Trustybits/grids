@@ -28,6 +28,7 @@ export const FEATURE_FLAGS = {
   BETA_MARKETPLACE: 'beta-marketplace',
   BETA_ROADMAP_FEED: 'beta-roadmap-feed',
   BETA_ANALYTICS_DASHBOARD: 'beta-analytics-dashboard',
+  BETA_DOCUMENT_STACK: 'beta-document-stack',
 
   // ── Editor features ──────────────────────────────────────────────────────
   EDITOR_SMART_TEXT: 'editor-smart-text',

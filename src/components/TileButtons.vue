@@ -39,6 +39,7 @@
         <ImageIcon />
       </button>
       <button
+        v-if="documentStackEnabled"
         class="btn btn-secondary"
         data-tooltip="Documents"
         @click="selectDocuments"
@@ -167,6 +168,7 @@ export default {
 
     const { isEnabled } = useFeatureFlags();
     const smartTextEnabled = computed(() => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT));
+    const documentStackEnabled = computed(() => isEnabled(FEATURE_FLAGS.BETA_DOCUMENT_STACK));
 
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);
@@ -327,6 +329,7 @@ export default {
       imageInput,
       layoutStore,
       smartTextEnabled,
+      documentStackEnabled,
       addTextElement,
       addSmartTextElement,
       addProfileElement,

@@ -6,6 +6,8 @@ import {
   type TileContent,
   type AnyTileContent,
   type LinkContent,
+  type DocumentsContent,
+  type DocumentItem,
 } from "@/types/TileContent";
 import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
@@ -50,6 +52,26 @@ function patchSnapshotBlobUrl(
   }
 }
 
+function patchSnapshotDocumentItemUrl(
+  snapshot: Snapshot | null,
+  tileId: string,
+  itemId: string,
+  permanentUrl: string,
+): void {
+  if (!snapshot) return;
+  const tile = snapshot.tiles.find((t) => t.i === tileId);
+  if (!tile || tile.content.type !== ContentType.DOCUMENT) return;
+  const doc = tile.content as DocumentsContent;
+  const item = doc.items?.find((i) => i.id === itemId);
+  if (
+    item &&
+    typeof item.url === "string" &&
+    item.url.startsWith("blob:")
+  ) {
+    item.url = permanentUrl;
+  }
+}
+
 export const useLayoutStore = defineStore("layout", {
   state: () => ({
     undoRedoVersion: 0,
@@ -70,6 +92,11 @@ export const useLayoutStore = defineStore("layout", {
     // Used by the persistence layer to write the real URL instead of the blob.
     // The blob URL stays as the in-memory src so the <img>/<video> element never reloads.
     resolvedUrls: {} as Record<string, string>,
+    /**
+     * For document tiles: tileId → (itemId → permanent storage URL)
+     * while items still display blob: URLs in the UI.
+     */
+    resolvedDocumentItemUrls: {} as Record<string, Record<string, string>>,
     // When set, the TextContent component for this tile will auto-enter
     // edit mode on mount and place the cursor at the end. Cleared by the
     // component once it consumes the focus request.
@@ -223,6 +250,23 @@ export const useLayoutStore = defineStore("layout", {
           const resolved = this.resolvedUrls[tile.i];
           if (resolved) {
             (tile.content as { src: string }).src = resolved;
+          }
+        }
+        if (tile.content.type === ContentType.DOCUMENT) {
+          const doc = tile.content as DocumentsContent;
+          const map = this.resolvedDocumentItemUrls[tile.i];
+          if (map && doc.items?.length) {
+            for (const item of doc.items) {
+              if (
+                typeof item.url === "string" &&
+                item.url.startsWith("blob:")
+              ) {
+                const resolvedUrl = map[item.id];
+                if (resolvedUrl) {
+                  item.url = resolvedUrl;
+                }
+              }
+            }
           }
         }
       }
@@ -413,6 +457,18 @@ export const useLayoutStore = defineStore("layout", {
       patchSnapshotBlobUrl(pendingResizeSnapshot, tileId, url);
     },
 
+    setResolvedDocumentItemUrl(tileId: string, itemId: string, url: string) {
+      if (!this.resolvedDocumentItemUrls[tileId]) {
+        this.resolvedDocumentItemUrls[tileId] = {};
+      }
+      this.resolvedDocumentItemUrls[tileId][itemId] = url;
+      undoRedoManager?.replaceBlobUrl(tileId, url, itemId);
+      patchSnapshotDocumentItemUrl(lastStableSnapshot, tileId, itemId, url);
+      patchSnapshotDocumentItemUrl(pendingEditSnapshot, tileId, itemId, url);
+      patchSnapshotDocumentItemUrl(pendingDragSnapshot, tileId, itemId, url);
+      patchSnapshotDocumentItemUrl(pendingResizeSnapshot, tileId, itemId, url);
+    },
+
     // Retrieve the resolved storage URL for a tile, if one exists
     getResolvedUrl(tileId: string): string | undefined {
       return this.resolvedUrls[tileId];
@@ -421,6 +477,10 @@ export const useLayoutStore = defineStore("layout", {
     // Clean up resolved URL entry (e.g. when tile is removed)
     clearResolvedUrl(tileId: string) {
       delete this.resolvedUrls[tileId];
+    },
+
+    clearResolvedDocumentItemsForTile(tileId: string) {
+      delete this.resolvedDocumentItemUrls[tileId];
     },
 
     async fetchLayouts() {
@@ -640,7 +700,11 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        await svc().queueSave(this.currentLayout, this.resolvedUrls);
+        await svc().queueSave(
+          this.currentLayout,
+          this.resolvedUrls,
+          this.resolvedDocumentItemUrls,
+        );
       } catch (err) {
         this.error = "Failed to save layout.";
         console.error(err);
@@ -756,6 +820,27 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
+    patchDocumentItem(
+      tileId: string,
+      itemId: string,
+      itemPatch: Partial<DocumentItem>,
+    ) {
+      if (!this.currentLayout) return;
+      const tile = this.currentLayout.tiles.find((t) => t.i === tileId);
+      if (!tile || tile.content.type !== ContentType.DOCUMENT) return;
+
+      if (editingTileId !== tileId) {
+        this.pushUndoSnapshot("Update document");
+      }
+
+      const doc = tile.content as DocumentsContent;
+      const items = doc.items.map((it) =>
+        it.id === itemId ? { ...it, ...itemPatch } : it,
+      );
+      tile.content = { ...doc, items } as TileContent;
+      this.updateLayout();
+    },
+
     setGridTheme(themeId: string) {
       if (!this.currentLayout) return;
       this.pushUndoSnapshot("Change theme");
@@ -866,6 +951,11 @@ export const useLayoutStore = defineStore("layout", {
 
       this.currentLayout.tiles.push(newTile);
 
+      const docResolved = this.resolvedDocumentItemUrls[id];
+      if (docResolved) {
+        this.resolvedDocumentItemUrls[newId] = { ...docResolved };
+      }
+
       // Copy breakpoint overrides from the source tile to the duplicate
       if (this.currentLayout.overrides) {
         for (const overrideBp of Object.keys(
@@ -904,11 +994,20 @@ export const useLayoutStore = defineStore("layout", {
         if (typeof src === "string" && src.startsWith("blob:")) {
           URL.revokeObjectURL(src);
         }
+        if (tile.content.type === ContentType.DOCUMENT) {
+          const doc = tile.content as DocumentsContent;
+          for (const item of doc.items ?? []) {
+            if (typeof item.url === "string" && item.url.startsWith("blob:")) {
+              URL.revokeObjectURL(item.url);
+            }
+          }
+        }
       }
 
       // Clean up any upload tracking state for this tile
       delete this.uploadingTiles[id];
       delete this.resolvedUrls[id];
+      delete this.resolvedDocumentItemUrls[id];
 
       // Clean up stale breakpoint override entries for this tile
       if (this.currentLayout.overrides) {

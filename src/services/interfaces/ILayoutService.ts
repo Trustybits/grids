@@ -38,5 +38,6 @@ export interface ILayoutService {
   queueSave(
     layout: Layout,
     resolvedUrls?: Record<string, string>,
+    resolvedDocumentItemUrls?: Record<string, Record<string, string>>,
   ): Promise<void>;
 }

@@ -1,4 +1,4 @@
-import type { FetchRoadmapResult, NotionDatabase } from "@/dao/interfaces/RoadmapDao";
+import type { FetchRoadmapResult, NotionDatabase } from "@/types/Roadmap";
 import type { RoadmapQueryFilter } from "@/types/TileContent";
 import type { IRoadmapService } from "../interfaces/IRoadmapService";
 

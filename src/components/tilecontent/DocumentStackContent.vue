@@ -230,20 +230,22 @@ export default defineComponent({
     // Illustration placement based on tile shape:
     //   1×1 / 2×1        : no illustration (no room)
     //   3×1, 4×1+        : "banner" — vertically-centered, anchored to right edge
-    //   1×2, 1×3+        : "narrow-tall" — peeks above the tile (overflows top)
+    //   1×2 only         : "narrow-tall" — slides up from behind tile on hover
+    //   1×3+             : no illustration
     //   2×2              : "two-right" — right-aligned, vertically centered
     //   2×3, 2×4+        : "two-bottom-right" — bottom-right corner
     //   ≥3 × ≥2          : "standard" — fixed size, anchored to bottom-right
     const showIllustration = computed(() => {
       if (isOneByOne.value) return false;
       if (isBanner.value && w.value < 3) return false;
+      if (w.value === 1 && h.value > 2) return false;
       return true;
     });
     const illustrationPlacement = computed<
       "banner" | "narrow-tall" | "two-right" | "two-bottom-right" | "standard"
     >(() => {
       if (isBanner.value) return "banner";
-      if (isNarrowTall.value) return "narrow-tall";
+      if (w.value === 1 && h.value === 2) return "narrow-tall";
       if (w.value === 2 && h.value === 2) return "two-right";
       if (w.value === 2 && h.value >= 3) return "two-bottom-right";
       return "standard";
@@ -556,10 +558,10 @@ export default defineComponent({
   cursor: pointer;
 }
 
-/* Narrow-tall tiles let the illustration peek above the tile.
-   We drop overflow:hidden here and rely on the color overlay's
-   own border-radius to keep the rounded corners intact. */
+/* 1×2: drop isolation so the illustration's negative z-index can
+   escape this stacking context and sit behind card-body's background. */
 .doc-tile-content.is-narrow-tall {
+  isolation: auto;
   overflow: visible;
 }
 
@@ -569,10 +571,6 @@ export default defineComponent({
   z-index: 0;
   mix-blend-mode: color;
   pointer-events: none;
-}
-
-.doc-tile-content.is-narrow-tall .doc-color-overlay {
-  border-radius: inherit;
 }
 
 /* ── Foreground layout ────────────────────────────── */
@@ -713,26 +711,21 @@ export default defineComponent({
   transform: translateY(-24px);
 }
 
-/* Narrow-tall (1 × ≥2): centered horizontally, peeks above the tile.
-   The illustration sits BEHIND the tile — only the portion above the
-   tile's top edge is visible. We achieve this with clip-path so the
-   in-tile portion is hidden, while the surrounding tile-wrapper opts
-   into overflow:visible (see the unscoped :has rule below). */
+/* Narrow-tall (1×2 only): illustration appears from behind the tile.
+   In default state it sits at the top of the tile, hidden behind the
+   opaque card-body. On hover it slides up 26px so the top peeks out.
+   Size matches Figma: ~52 × 64px. */
 .doc-art--narrow-tall {
-  top: -52px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100px;
-  height: 124px;
-  /* Hide everything from the tile's top edge downward (the bottom 72px
-     of the 124px illustration). Only the top 52px shows above the tile. */
-  clip-path: inset(0 0 72px 0);
-  transform: translateY(0);
+  top: 2px;
+  left: 12px;
+  width: 52px;
+  height: 64px;
+  z-index: -1;
   transition: transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
 }
 
 .doc-tile-content:hover .doc-art--narrow-tall {
-  transform: translateY(-24px);
+  transform: translateY(-26px);
 }
 
 /* ── Details (mirrors LinkContent visuals) ─────────── */
@@ -816,14 +809,22 @@ export default defineComponent({
 </style>
 
 <!--
-  Unscoped: let the surrounding GridTile wrapper expose overflow above the
-  tile bounds when this is a narrow-tall (1 × ≥2) document tile so the file
-  illustration can peek above the tile. All other tile shapes keep the
-  default overflow:hidden clipping.
+  Unscoped: allow the 1×2 document tile's illustration to slide above the
+  tile bounds on hover. The card-body has scoped overflow:hidden, mask-image,
+  and isolation:isolate — we need !important to override them for this case.
+  Targeted via data-tile-w/data-tile-h + :has() so only 1×2 document tiles
+  are affected.
 -->
 <style>
-.tile-wrapper:has(.doc-tile-content.is-narrow-tall) {
-  overflow: visible;
+.tile-wrapper[data-tile-w="1"][data-tile-h="2"]:has(.doc-tile-content) {
+  overflow: visible !important;
+}
+
+.tile-wrapper[data-tile-w="1"][data-tile-h="2"]:has(.doc-tile-content) > .card-body {
+  overflow: visible !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  isolation: auto !important;
 }
 </style>
 

@@ -21,9 +21,9 @@
       aria-hidden="true"
     />
 
-    <!-- File-type illustration (non-narrow-tall placements render in-tile). -->
+    <!-- Single-file illustration (non-narrow-tall placements render in-tile). -->
     <div
-      v-if="showIllustration && illustrationPlacement !== 'narrow-tall'"
+      v-if="showIllustration && illustrationPlacement !== 'narrow-tall' && !isMultiFile"
       class="doc-art"
       :class="`doc-art--${illustrationPlacement}`"
       aria-hidden="true"
@@ -32,6 +32,24 @@
         :src="illustrationSrc"
         :alt="''"
         class="doc-art__img"
+        draggable="false"
+      />
+    </div>
+
+    <!-- Multi-file fan stack: 4 illustrations that fan out on hover. -->
+    <div
+      v-if="showIllustration && illustrationPlacement !== 'narrow-tall' && isMultiFile"
+      class="doc-art-stack"
+      :class="`doc-art-stack--${illustrationPlacement}`"
+      aria-hidden="true"
+    >
+      <img
+        v-for="(src, idx) in stackIllustrationSrcs"
+        :key="idx"
+        :src="src"
+        alt=""
+        class="doc-art-stack__card"
+        :class="`doc-art-stack__card--${idx}`"
         draggable="false"
       />
     </div>
@@ -306,6 +324,43 @@ export default defineComponent({
       return ILLUSTRATION_BY_KIND[k] ?? ILLUSTRATION_FALLBACK;
     });
 
+    const isMultiFile = computed(() => items.value.length > 1);
+
+    /** Build an array of 4 illustration URLs for the multi-file fan stack.
+     *  - All same type → all 4 identical
+     *  - Mixed types → majority type gets more slots; up to 4 distinct types */
+    const stackIllustrationSrcs = computed<string[]>(() => {
+      const all = items.value;
+      if (all.length <= 1) return [];
+
+      const freq = new Map<string, number>();
+      for (const item of all) {
+        const k = classifyDocumentItem(item);
+        const src = ILLUSTRATION_BY_KIND[k] ?? ILLUSTRATION_FALLBACK;
+        freq.set(src, (freq.get(src) || 0) + 1);
+      }
+
+      const sorted = [...freq.entries()].sort((a, b) => b[1] - a[1]);
+      const uniqueSrcs = sorted.map(([src]) => src);
+
+      if (uniqueSrcs.length >= 4) return uniqueSrcs.slice(0, 4);
+      if (uniqueSrcs.length === 1) return [uniqueSrcs[0], uniqueSrcs[0], uniqueSrcs[0], uniqueSrcs[0]];
+
+      const result: string[] = [];
+      let remaining = 4;
+      for (let i = 0; i < sorted.length && remaining > 0; i++) {
+        const [src, count] = sorted[i];
+        const share = i === sorted.length - 1
+          ? remaining
+          : Math.max(1, Math.round((count / all.length) * 4));
+        const slots = Math.min(share, remaining);
+        for (let j = 0; j < slots; j++) result.push(src);
+        remaining -= slots;
+      }
+      while (result.length < 4) result.push(uniqueSrcs[0]);
+      return result;
+    });
+
     // ── Teleport target for narrow-tall illustration ──
     const tileWrapperEl = ref<HTMLElement | null>(null);
 
@@ -535,6 +590,8 @@ export default defineComponent({
       showIllustration,
       illustrationPlacement,
       illustrationSrc,
+      isMultiFile,
+      stackIllustrationSrcs,
       showInlineDetails,
       showBottomDetails,
       // text
@@ -726,6 +783,106 @@ export default defineComponent({
 
 .doc-tile-content:hover .doc-art--standard {
   transform: translateY(-24px);
+}
+
+/* ── Multi-file fan stack ─────────────────────────── */
+
+/* Container inherits placement from the same modifier classes as single-file. */
+.doc-art-stack {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+  width: 191px;
+  height: 193px;
+}
+
+/* Placement modifiers — same anchors as single-file. */
+.doc-art-stack--banner {
+  top: 50%;
+  right: -87px;
+  transform: translateY(-23%) translateX(0);
+  transition: transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
+}
+
+.doc-art-stack--two-right {
+  bottom: -10px;
+  right: -82px;
+  transform: translateX(0);
+  transition: transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
+}
+
+.doc-art-stack--two-bottom-right {
+  right: -82px;
+  bottom: -10px;
+  transform: translateX(0);
+  transition: transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
+}
+
+.doc-art-stack--standard {
+  right: 21px;
+  bottom: -35px;
+  transform: translateY(0);
+  transition: transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
+}
+
+/* Hover: same slide as single-file per placement. */
+.doc-tile-content:hover .doc-art-stack--banner {
+  transform: translateY(-23%) translateX(-30px);
+}
+
+.doc-tile-content:hover .doc-art-stack--two-right {
+  transform: translateX(-30px);
+}
+
+.doc-tile-content:hover .doc-art-stack--two-bottom-right {
+  transform: translateX(-30px);
+}
+
+.doc-tile-content:hover .doc-art-stack--standard {
+  transform: translateY(-24px);
+}
+
+/* Individual cards: default state — stacked with slight horizontal offset. */
+.doc-art-stack__card {
+  position: absolute;
+  bottom: 0;
+  width: 154px;
+  height: 190px;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  transform-origin: bottom center;
+  transition:
+    transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1),
+    width 800ms cubic-bezier(0.2, 1.4, 0.36, 1),
+    height 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
+}
+
+.doc-art-stack__card--0 { left: 22px; z-index: 1; }
+.doc-art-stack__card--1 { left: 26px; z-index: 2; }
+.doc-art-stack__card--2 { left: 30px; z-index: 3; }
+.doc-art-stack__card--3 { left: 34px; z-index: 4; }
+
+/* Hover: fan out with rotation + grow to 170×210. */
+.doc-tile-content:hover .doc-art-stack__card {
+  width: 170px;
+  height: 210px;
+}
+
+.doc-tile-content:hover .doc-art-stack__card--0 {
+  transform: rotate(-17deg) translateX(-20px);
+}
+
+.doc-tile-content:hover .doc-art-stack__card--1 {
+  transform: rotate(-10deg) translateX(-8px);
+}
+
+.doc-tile-content:hover .doc-art-stack__card--2 {
+  transform: rotate(-2deg) translateX(4px);
+}
+
+.doc-tile-content:hover .doc-art-stack__card--3 {
+  transform: rotate(5deg) translateX(12px);
 }
 
 /* ── Details (mirrors LinkContent visuals) ─────────── */

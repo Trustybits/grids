@@ -92,16 +92,20 @@
                   @click.stop
                 >
                   <button type="button" class="doc-prev-zoom-row" role="menuitem" @click="zoomIn">
-                    <span>zoom in</span><kbd>{{ modKey }}++</kbd>
+                    <span>zoom in</span>
+                    <span class="doc-prev-keys"><kbd>{{ modKey }}</kbd><span class="doc-prev-keys-sep">+</span><kbd>+</kbd></span>
                   </button>
                   <button type="button" class="doc-prev-zoom-row" role="menuitem" @click="zoomOut">
-                    <span>zoom out</span><kbd>{{ modKey }}-</kbd>
+                    <span>zoom out</span>
+                    <span class="doc-prev-keys"><kbd>{{ modKey }}</kbd><span class="doc-prev-keys-sep">+</span><kbd>-</kbd></span>
                   </button>
                   <button type="button" class="doc-prev-zoom-row" role="menuitem" @click="zoomToFit">
-                    <span>zoom to fit</span><kbd>Shift+1</kbd>
+                    <span>zoom to fit</span>
+                    <span class="doc-prev-keys"><kbd>Shift</kbd><span class="doc-prev-keys-sep">+</span><kbd>1</kbd></span>
                   </button>
                   <button type="button" class="doc-prev-zoom-row" role="menuitem" @click="zoomTo100">
-                    <span>zoom to 100%</span><kbd>{{ modKey }}+0</kbd>
+                    <span>zoom to 100%</span>
+                    <span class="doc-prev-keys"><kbd>{{ modKey }}</kbd><span class="doc-prev-keys-sep">+</span><kbd>0</kbd></span>
                   </button>
                 </div>
               </div>
@@ -1340,12 +1344,24 @@ export default defineComponent({
 .doc-prev-zoom-row:hover {
   background: rgba(255, 255, 255, 0.05);
 }
-.doc-prev-zoom-row kbd {
+.doc-prev-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.doc-prev-keys kbd {
   font-family: var(--font-family-mono, monospace);
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.34);
-  background: transparent;
-  padding: 0;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  padding: 2px 6px;
+  line-height: 1.4;
+}
+.doc-prev-keys-sep {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.25);
 }
 
 /* Close button — actionbar CloseIcon styled as a ghost button. */

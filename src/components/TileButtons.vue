@@ -44,7 +44,7 @@
         data-tooltip="Documents"
         @click="selectDocuments"
       >
-        <DocumentTileIcon />
+        <DocumentsIcon />
       </button>
       <button
         class="btn btn-secondary"
@@ -140,7 +140,7 @@ import AppBarTextIcon from "./icons/appbar/TextIcon.vue";
 import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkTileIcon from "./icons/LinkTileIcon.vue";
-import DocumentTileIcon from "./icons/DocumentTileIcon.vue";
+import DocumentsIcon from "./icons/appbar/DocumentsIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileTileIcon from "./icons/ProfileTileIcon.vue";
 import MapIcon from "./icons/MapIcon.vue";
@@ -156,7 +156,7 @@ export default {
     ChatIcon,
     ImageIcon,
     LinkTileIcon,
-    DocumentTileIcon,
+    DocumentsIcon,
     EmbedIcon,
     ProfileTileIcon,
     MapIcon,

@@ -235,10 +235,8 @@ import type { DocumentItem } from "@/types/TileContent";
 import DocumentTileIcon from "@/components/icons/DocumentTileIcon.vue";
 import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
 import TwoPageIcon from "@/components/icons/actionbar/TwoPageIcon.vue";
-import {
-  loadDocumentBytes,
-  uint8ArrayToArrayBuffer,
-} from "@/utils/documentBytes";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import { uint8ArrayToArrayBuffer } from "@/utils/binaryUtils";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { renderAsync as renderDocxAsync } from "docx-preview";
@@ -756,7 +754,8 @@ export default defineComponent({
       loading.value = true;
       const token = ++pdfLoadToken;
       try {
-        const bytes = await loadDocumentBytes(item.url);
+        const storageService = getServiceFactory().getStorageService();
+        const bytes = await storageService.getBytes(item.url);
         if (token !== pdfLoadToken) return;
 
         if (detected.kind === "pdf") {

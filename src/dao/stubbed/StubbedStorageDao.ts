@@ -21,6 +21,10 @@ export class StubbedStorageDao implements StorageDao {
     throw new Error("Stubbed DAO implementation");
   }
 
+  public getBytes(_url: string): Promise<Uint8Array> {
+    throw new Error("Stubbed DAO implementation");
+  }
+
   public getDownloadUrl(_path: string): Promise<string> {
     throw new Error("Stubbed DAO implementation");
   }

@@ -133,6 +133,7 @@ describe("FirestoreAnalyticsEventDao", () => {
     } as const;
 
     let sendBeaconSpy: ReturnType<typeof vi.fn>;
+    let warnSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
       vi.stubEnv("VITE_VIEW_END_ANALYTICS_BEACON_URL", BEACON_URL);
@@ -142,12 +143,14 @@ describe("FirestoreAnalyticsEventDao", () => {
         writable: true,
         value: sendBeaconSpy,
       });
+      warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     });
 
     afterEach(() => {
       vi.unstubAllEnvs();
       // Remove the stub so other suites see the original navigator.
       delete (navigator as any).sendBeacon;
+      warnSpy.mockRestore();
     });
 
     it("calls navigator.sendBeacon with the URL and a text/plain Blob containing the flattened payload, returning the browser's result", () => {
@@ -204,6 +207,7 @@ describe("FirestoreAnalyticsEventDao", () => {
       const result = dao.logGridViewEndEventBeacon(sampleEvent);
       expect(result).toBe(false);
       expect(sendBeaconSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalled();
     });
 
     it("returns false when navigator.sendBeacon is unavailable", () => {

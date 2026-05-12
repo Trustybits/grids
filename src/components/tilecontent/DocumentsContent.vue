@@ -72,8 +72,9 @@
 
     <!-- Bottom scrim: gradient + progressive blur behind the details text -->
     <div
-      v-if="showBottomDetails"
+      v-if="showScrim"
       class="doc-bottom-scrim"
+      :class="{ 'doc-bottom-scrim--banner': isBanner }"
       :style="{ height: scrimHeight + 'px' }"
       aria-hidden="true"
     />
@@ -300,6 +301,11 @@ export default defineComponent({
     // Bottom details for everything that isn't mini or a banner
     const showBottomDetails = computed(
       () => !isOneByOne.value && !isBanner.value,
+    );
+
+    // Scrim shows on any tile with an illustration (banners + non-mini non-banner)
+    const showScrim = computed(
+      () => showIllustration.value && (showBottomDetails.value || showInlineDetails.value),
     );
 
     // ── Default text values (used when custom* === undefined) ──
@@ -580,8 +586,16 @@ export default defineComponent({
 
     const updateScrimHeight = () => {
       const tile = tileRef.value;
+      if (!tile || !showScrim.value) {
+        scrimHeight.value = 0;
+        return;
+      }
+      if (isBanner.value) {
+        scrimHeight.value = tile.getBoundingClientRect().height;
+        return;
+      }
       const details = detailsRef.value;
-      if (!tile || !details || !showBottomDetails.value) {
+      if (!details) {
         scrimHeight.value = 0;
         return;
       }
@@ -629,6 +643,7 @@ export default defineComponent({
       stackIllustrationSrcs,
       showInlineDetails,
       showBottomDetails,
+      showScrim,
       // text
       displayTitle,
       displayDescription,
@@ -1014,6 +1029,24 @@ export default defineComponent({
     rgba(0, 0, 0, 0.6) 43%,
     rgba(0, 0, 0, 0.89) 72%,
     rgba(0, 0, 0, 1) 100%
+  );
+}
+
+/* Banner variant: very subtle scrim — illustration stays clearly visible */
+.doc-bottom-scrim--banner::before {
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+  mask-image: linear-gradient(to right, transparent 40%, black 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 40%, black 100%);
+}
+
+.doc-bottom-scrim--banner::after {
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 30%,
+    rgba(0, 0, 0, 0.12) 55%,
+    rgba(0, 0, 0, 0.25) 75%,
+    rgba(0, 0, 0, 0.35) 100%
   );
 }
 

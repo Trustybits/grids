@@ -82,7 +82,7 @@
 import { computed, ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import GriddleAnimation from '@/components/GriddleAnimation.vue';
-import SlugClaimModal from '@/components/SlugClaimModal.vue';
+import SlugClaimModal from '@/components/modal/SlugClaimModal.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useLayoutStore } from '@/stores/layout';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';

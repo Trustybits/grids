@@ -1,7 +1,6 @@
 import { defineStore } from "pinia";
 import { type Layout, type CopyDepth } from "@/types/Layout";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { createStarterTiles } from "@/services/LayoutService";
 import {
   ContentType,
   type TileContent,
@@ -533,10 +532,6 @@ export const useLayoutStore = defineStore("layout", {
         this.checkShowMetaDataCookie();
         this.recordRecent(id);
 
-        if (this.isOwner && (this.currentLayout?.tiles?.length ?? 0) === 0) {
-          this.ensureSuggestionTiles();
-        }
-
         await svc().touchLastOpenedAt(id);
         // update in-memory list timestamp for immediate UI sorting
         const idx = this.layouts.findIndex((l) => l.id === id);
@@ -740,13 +735,6 @@ export const useLayoutStore = defineStore("layout", {
         tile.h = 4;
         adjustTilePosition(tile, this.currentLayout.colNum);
       }
-      this.updateLayout();
-    },
-
-    ensureSuggestionTiles() {
-      if (!this.currentLayout) return;
-      if (this.currentLayout.tiles.length !== 0) return;
-      this.currentLayout.tiles = createStarterTiles();
       this.updateLayout();
     },
 

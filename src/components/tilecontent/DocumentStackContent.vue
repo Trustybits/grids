@@ -666,7 +666,8 @@ export default defineComponent({
 .doc-art--banner {
   top: 50%;
   right: -87px;
-  transform: translateY(-23%);
+  transform: translateY(-23%) translateX(0);
+  transition: transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
 }
 
 /* 2×2 (illustration_on_right): right-aligned, vertically centered.
@@ -674,20 +675,42 @@ export default defineComponent({
 .doc-art--two-right {
   bottom: -10px;
   right: -82px;
-  /* transform: translateY(-43%); */
+  transform: translateX(0);
+  transition: transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
 }
 
 /* 2×3+ (illustration_on_bottomRight): anchored to bottom-right corner. */
 .doc-art--two-bottom-right {
   right: -82px;
   bottom: -10px;
+  transform: translateX(0);
+  transition: transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
+}
+
+/* Hover: slide illustration left 30px with spring easing */
+.doc-tile-content:hover .doc-art--banner {
+  transform: translateY(-23%) translateX(-30px);
+}
+
+.doc-tile-content:hover .doc-art--two-right {
+  transform: translateX(-30px);
+}
+
+.doc-tile-content:hover .doc-art--two-bottom-right {
+  transform: translateX(-30px);
 }
 
 /* Standard (≥3 × ≥2): anchored to bottom-right with a small overflow.
    On smaller tiles the right/bottom edges clip naturally. */
 .doc-art--standard {
   right: 21px;
-  bottom: -16px;
+  bottom: -35px;
+  transform: translateY(0);
+  transition: transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
+}
+
+.doc-tile-content:hover .doc-art--standard {
+  transform: translateY(-24px);
 }
 
 /* Narrow-tall (1 × ≥2): centered horizontally, peeks above the tile.
@@ -704,6 +727,12 @@ export default defineComponent({
   /* Hide everything from the tile's top edge downward (the bottom 72px
      of the 124px illustration). Only the top 52px shows above the tile. */
   clip-path: inset(0 0 72px 0);
+  transform: translateY(0);
+  transition: transform 800ms cubic-bezier(0.2, 1.4, 0.36, 1);
+}
+
+.doc-tile-content:hover .doc-art--narrow-tall {
+  transform: translateY(-24px);
 }
 
 /* ── Details (mirrors LinkContent visuals) ─────────── */

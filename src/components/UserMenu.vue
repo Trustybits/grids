@@ -9,13 +9,41 @@
       class="user-menu-button"
       @click="toggleUserMenu"
     >
-      <div class="user-icon" >
-        <img
-          v-if="defaultGridProfileImageUrl"
-          class="user-icon-image"
-          :src="defaultGridProfileImageUrl"
-          alt=""
-        />
+      <div class="user-icon">
+        <svg
+          v-if="
+            defaultGridProfileImageUrl &&
+            defaultGridProfileAvatarShape === 'polygon'
+          "
+          class="user-icon-image-frame"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <defs>
+            <clipPath :id="polygonClipPathId">
+              <path :d="defaultGridProfilePolygonPath" />
+            </clipPath>
+          </defs>
+          <image
+            class="user-icon-image-svg"
+            :href="defaultGridProfileImageUrl"
+            width="24"
+            height="24"
+            preserveAspectRatio="xMidYMid slice"
+            :clip-path="`url(#${polygonClipPathId})`"
+          />
+        </svg>
+        <div
+          v-else-if="defaultGridProfileImageUrl"
+          class="user-icon-image-frame"
+          :style="defaultGridProfileImageStyle"
+        >
+          <img
+            class="user-icon-image"
+            :src="defaultGridProfileImageUrl"
+            alt=""
+          />
+        </div>
         <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/>
           <path d="M6 21C6 17.134 8.68629 14 12 14C15.3137 14 18 17.134 18 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -69,13 +97,31 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, onUnmounted } from "vue";
+import { computed, defineComponent, ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@/auth/AuthProvider";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { ContentType, type ProfileBioContent } from "@/types/TileContent";
-import SlugClaimModal from "./SlugClaimModal.vue";
+import {
+  ContentType,
+  type AvatarShape,
+  type ProfileBioContent,
+} from "@/types/TileContent";
+import {
+  DEFAULT_AVATAR_RADIUS,
+  DEFAULT_AVATAR_SHAPE,
+  DEFAULT_AVATAR_SIDES,
+  getAvatarShapeSettings,
+  getPolygonGeometry,
+  getPolygonVertices,
+  getRoundedPolygonPath,
+  PROFILE_TILE_AVATAR_SIZE,
+  scaleAvatarRadius,
+} from "@/utils/AvatarShape";
+import SlugClaimModal from "./modal/SlugClaimModal.vue";
+
+const MENU_AVATAR_SIZE = 24;
+const MENU_AVATAR_POLYGON_INSET = 0.5;
 
 export default defineComponent({
   name: "UserMenu",
@@ -91,9 +137,23 @@ export default defineComponent({
     const currentSlug = ref<string | undefined>(undefined);
     const defaultGridId = ref<string | undefined>(undefined);
     const defaultGridProfileImageUrl = ref<string | undefined>(undefined);
+    const defaultGridProfileAvatarShape = ref<AvatarShape>(
+      DEFAULT_AVATAR_SHAPE,
+    );
+    const defaultGridProfileAvatarRadius = ref(DEFAULT_AVATAR_RADIUS);
+    const defaultGridProfileAvatarSides = ref(DEFAULT_AVATAR_SIDES);
+    const polygonClipPathId = `user-menu-avatar-clip-${Math.random()
+      .toString(36)
+      .slice(2, 9)}`;
     const defaultGridName = ref<string | undefined>(undefined);
     const profileLoaded = ref(false);
     const profileLoading = ref(false);
+
+    const resetDefaultGridProfileShape = () => {
+      defaultGridProfileAvatarShape.value = DEFAULT_AVATAR_SHAPE;
+      defaultGridProfileAvatarRadius.value = DEFAULT_AVATAR_RADIUS;
+      defaultGridProfileAvatarSides.value = DEFAULT_AVATAR_SIDES;
+    };
 
     onMounted(() => {
       getAuthProvider().onAuthStateChanged((currentUser) => {
@@ -105,6 +165,7 @@ export default defineComponent({
           currentSlug.value = undefined;
           defaultGridId.value = undefined;
           defaultGridProfileImageUrl.value = undefined;
+          resetDefaultGridProfileShape();
           defaultGridName.value = undefined;
           profileLoaded.value = false;
         }
@@ -120,11 +181,14 @@ export default defineComponent({
       if (!gridId) {
         defaultGridName.value = undefined;
         defaultGridProfileImageUrl.value = undefined;
+        resetDefaultGridProfileShape();
         return;
       }
 
       try {
-        const layout = await getServiceFactory().getLayoutService().fetchLayout(gridId);
+        const layout = await getServiceFactory()
+          .getLayoutService()
+          .fetchLayout(gridId);
         defaultGridName.value = layout.name ? layout.name : undefined;
         const profileTile = layout.tiles.find(
           (tile) => tile.content.type === ContentType.PROFILE,
@@ -132,12 +196,56 @@ export default defineComponent({
         const profileContent = profileTile?.content as
           | ProfileBioContent
           | undefined;
+        const avatarSettings = getAvatarShapeSettings(profileContent);
         defaultGridProfileImageUrl.value =
           profileContent?.profilePhotoUrl || undefined;
+        defaultGridProfileAvatarShape.value = avatarSettings.avatarShape;
+        defaultGridProfileAvatarRadius.value = avatarSettings.avatarRadius;
+        defaultGridProfileAvatarSides.value = avatarSettings.avatarSides;
       } catch (error) {
         console.error("Error loading default grid profile image:", error);
       }
     };
+
+    const defaultGridProfilePolygonPath = computed(() => {
+      const geometry = getPolygonGeometry({
+        sides: defaultGridProfileAvatarSides.value,
+        size: MENU_AVATAR_SIZE,
+        fit: "contain",
+        inset: MENU_AVATAR_POLYGON_INSET,
+      });
+      const vertices = getPolygonVertices(
+        defaultGridProfileAvatarSides.value,
+        geometry,
+      );
+      return getRoundedPolygonPath({
+        vertices,
+        radius: Math.max(
+          0,
+          scaleAvatarRadius(
+            defaultGridProfileAvatarRadius.value,
+            PROFILE_TILE_AVATAR_SIZE,
+            MENU_AVATAR_SIZE,
+          ),
+        ),
+      });
+    });
+
+    const defaultGridProfileImageStyle = computed(() => {
+      if (defaultGridProfileAvatarShape.value === "circle") {
+        return { borderRadius: "50%" };
+      }
+
+      const scaledRadius =
+        scaleAvatarRadius(
+          defaultGridProfileAvatarRadius.value,
+          PROFILE_TILE_AVATAR_SIZE,
+          MENU_AVATAR_SIZE,
+        );
+      return {
+        borderRadius: `${Math.max(0, scaledRadius)}px`,
+      };
+    });
 
     const loadUserProfile = async (options: { force?: boolean } = {}) => {
       if (!user.value) return;
@@ -211,6 +319,10 @@ export default defineComponent({
       currentSlug,
       defaultGridId,
       defaultGridProfileImageUrl,
+      defaultGridProfileAvatarShape,
+      defaultGridProfileImageStyle,
+      defaultGridProfilePolygonPath,
+      polygonClipPathId,
       defaultGridName,
       openSlugModal,
       goToDefaultGrid,
@@ -256,10 +368,19 @@ export default defineComponent({
       height: 100%;
     }
 
-    .user-icon-image {
+    .user-icon-image-frame {
       width: 24px;
       height: 24px;
-      border-radius: 10%;
+      aspect-ratio: 1 / 1;
+      flex-shrink: 0;
+      overflow: hidden;
+      background: var(--color-base-8);
+    }
+
+    .user-icon-image {
+      display: block;
+      width: 100%;
+      height: 100%;
       object-fit: cover;
     }
   }

@@ -7,11 +7,20 @@
 
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
-      <button class="btn btn-secondary" data-tooltip="Text" @click="addTextElement">
+      <button
+        class="btn btn-secondary"
+        data-tooltip="Text"
+        @click="addTextElement"
+      >
         <TextLegacyIcon />
       </button>
 
-      <button v-if="smartTextEnabled" class="btn btn-secondary" data-tooltip="Smart Text" @click="addSmartTextElement">
+      <button
+        v-if="smartTextEnabled"
+        class="btn btn-secondary"
+        data-tooltip="Smart Text"
+        @click="addSmartTextElement"
+      >
         <AppBarTextIcon />
       </button>
 
@@ -37,6 +46,14 @@
         @click="selectFile"
       >
         <ImageIcon />
+      </button>
+      <button
+        v-if="documentsEnabled"
+        class="btn btn-secondary"
+        data-tooltip="Documents"
+        @click="selectDocuments"
+      >
+        <DocumentsIcon />
       </button>
       <button
         class="btn btn-secondary"
@@ -85,24 +102,48 @@
         accept="image/*,video/*"
         @change.stop="addFile"
       />
+      <input
+        type="file"
+        ref="documentInput"
+        style="display: none"
+        accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+        multiple
+        @change.stop="addDocuments"
+      />
     </div>
 
     <!-- Modals -->
-    <AddLinkModal
+    <FloatingInputModal
       :show="showLinkModal"
+      placeholder="Type or paste a link..."
+      inputmode="url"
+      :validate="isValidLink"
+      submit-title="Add link (Enter)"
+      invalid-title="Enter a valid URL"
       @close="closeLinkModal"
-      @add="handleAddLink"
+      @submit="handleAddLink"
     />
-    <AddEmbedModal
+    <FloatingInputModal
       :show="showEmbedModal"
+      placeholder="Paste a URL or embed code (YouTube, Spotify, Apple Music...)"
+      :validate="isValidEmbed"
+      submit-title="Add embed (Enter)"
+      invalid-title="Enter a valid URL"
       @close="closeEmbedModal"
-      @add="handleAddEmbed"
+      @submit="handleAddEmbed"
     />
-    <AddMapModal
+    <FloatingInputModal
       :show="showMapModal"
+      placeholder="Enter a location (optional)"
+      :allow-empty="true"
+      submit-title="Add map (Enter)"
       @close="closeMapModal"
-      @add="handleAddMap"
-    />
+      @submit="handleAddMap"
+    >
+      <template #hint>
+        <p class="map-hint">Leave blank to use your current location.</p>
+      </template>
+    </FloatingInputModal>
   </div>
 </template>
 
@@ -116,14 +157,14 @@ import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 import { useTileInput } from "@/composables/useTileInput";
-import AddLinkModal from "./AddLinkModal.vue";
-import AddEmbedModal from "./AddEmbedModal.vue";
-import AddMapModal from "./AddMapModal.vue";
+import FloatingInputModal from "./modal/FloatingInputModal.vue";
+import { isValidLink, isValidEmbed } from "@/utils/urlValidation";
 import TextLegacyIcon from "./icons/appbar/TextLegacyIcon.vue";
 import AppBarTextIcon from "./icons/appbar/TextIcon.vue";
 import ChatIcon from "./icons/ChatIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
 import LinkTileIcon from "./icons/LinkTileIcon.vue";
+import DocumentsIcon from "./icons/appbar/DocumentsIcon.vue";
 import EmbedIcon from "./icons/EmbedIcon.vue";
 import ProfileTileIcon from "./icons/ProfileTileIcon.vue";
 import MapIcon from "./icons/MapIcon.vue";
@@ -131,14 +172,13 @@ import CampfireIcon from "./icons/CampfireIcon.vue";
 
 export default {
   components: {
-    AddLinkModal,
-    AddEmbedModal,
-    AddMapModal,
+    FloatingInputModal,
     TextLegacyIcon,
     AppBarTextIcon,
     ChatIcon,
     ImageIcon,
     LinkTileIcon,
+    DocumentsIcon,
     EmbedIcon,
     ProfileTileIcon,
     MapIcon,
@@ -150,10 +190,13 @@ export default {
 
     const { isEnabled } = useFeatureFlags();
     const smartTextEnabled = computed(() => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT));
+    const documentsEnabled = computed(() => isEnabled(FEATURE_FLAGS.BETA_DOCUMENTS));
 
     const layoutStore = useLayoutStore();
     const imageInput = ref<HTMLInputElement | null>(null);
-    const { uploadFileOptimistic } = useFileUpload();
+    const documentInput = ref<HTMLInputElement | null>(null);
+    const { uploadFileOptimistic, uploadDocumentsOptimistic } =
+      useFileUpload();
     const { submitLink, submitEmbed } = useTileInput();
 
     const showLinkModal = ref(false);
@@ -194,6 +237,25 @@ export default {
 
     const selectFile = () => {
       imageInput.value?.click();
+    };
+
+    const selectDocuments = () => {
+      documentInput.value?.click();
+    };
+
+    const addDocuments = async (event: Event) => {
+      const input = event.target as HTMLInputElement;
+      const list = input.files;
+      input.value = "";
+      if (!list?.length) return;
+      const files = Array.from(list);
+      try {
+        await uploadDocumentsOptimistic(files);
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : null;
+        const errorMessage = err?.message || "Unknown error";
+        alert(`Failed to upload documents: ${errorMessage}`);
+      }
     };
 
     const addFile = async (event: Event) => {
@@ -286,16 +348,22 @@ export default {
     };
 
     return {
+      isValidLink,
+      isValidEmbed,
       imageInput,
       layoutStore,
       smartTextEnabled,
+      documentsEnabled,
       addTextElement,
       addSmartTextElement,
       addProfileElement,
       addChatElement,
       addCampfireElement,
       selectFile,
+      selectDocuments,
       addFile,
+      addDocuments,
+      documentInput,
       addLinkElement,
       addEmbedElement,
       addMapElement,
@@ -318,6 +386,14 @@ export default {
 </script>
 
 <style>
+.map-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-content-default);
+  width: 100%;
+  text-align: center;
+}
+
 #toolbarArea {
   display: flex;
   flex-direction: row;

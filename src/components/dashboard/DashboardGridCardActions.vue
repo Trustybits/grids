@@ -68,21 +68,7 @@
         class="action-button duplicate-button split-chevron"
         data-tooltip="More duplicate options"
       >
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M6 9l6 6 6-6"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <Chevron :size="10" />
       </button>
       <div v-if="splitMenuOpen" class="split-dropdown">
         <button
@@ -168,6 +154,7 @@
 
 <script setup lang="ts">
 import type { Layout } from "@/types/Layout";
+import Chevron from "@/components/icons/Chevron.vue";
 
 defineProps<{
   layout: Layout;

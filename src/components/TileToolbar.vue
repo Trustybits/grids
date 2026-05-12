@@ -23,6 +23,7 @@
             },
             { 'toolbar-btn--danger': resolveDanger(item) },
           ]"
+          :style="resolveButtonStyle(item)"
           @click.stop="onItemClick($event, item)"
         >
           <component :is="resolveIcon(item)" />
@@ -347,6 +348,22 @@ export default defineComponent({
         : !!item.danger;
     };
 
+    const resolveButtonStyle = (
+      item: ToolbarItem,
+    ): Record<string, string> | undefined => {
+      if (item.id !== "color") return undefined;
+
+      const content = props.tile.content as { backgroundColor?: unknown };
+      const backgroundColor =
+        typeof content.backgroundColor === "string" && content.backgroundColor
+          ? content.backgroundColor
+          : "var(--color-tile-background)";
+
+      return {
+        "--toolbar-color-swatch": backgroundColor,
+      };
+    };
+
     const resolveMenuIcon = (mi: ToolbarMenuItem) => {
       if (typeof mi.icon === "function") {
         return (mi.icon as (ctx: ToolbarContext) => Component)(ctx.value);
@@ -645,6 +662,7 @@ export default defineComponent({
       menuItemLayoutDirection,
       resolveTitle,
       resolveIcon,
+      resolveButtonStyle,
       resolveDanger,
       resolveMenuIcon,
       resolveMenuTooltip,

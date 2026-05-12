@@ -6,7 +6,6 @@ import DashboardPage from '@/components/DashboardPage.vue';
 import PrivacyPage from '@/components/PrivacyPage.vue';
 import TermsPage from '@/components/TermsPage.vue';
 import PricingPage from '@/components/PricingPage.vue';
-import UserSlugPage from '@/components/UserSlugPage.vue';
 import NotionCallback from '@/components/NotionCallback.vue';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
@@ -50,7 +49,7 @@ const routes = [
   },
   {
     path: "/:slug",
-    component: UserSlugPage,
+    component: GridPage,
     meta: { requiresAuth: false },
   },
 ];

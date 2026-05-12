@@ -245,7 +245,7 @@ import { useRouter } from "vue-router";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
 import type { RoadmapFeedContent, RoadmapFilterableType, RoadmapItem, RoadmapQueryFilter, RoadmapStatus } from "@/types/TileContent";
-import type { NotionDatabase, PropertyOption } from "@/dao/interfaces/RoadmapDao";
+import type { NotionDatabase, PropertyOption } from "@/types/Roadmap";
 
 export default defineComponent({
   props: {

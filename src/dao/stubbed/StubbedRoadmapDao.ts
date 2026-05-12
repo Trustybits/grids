@@ -1,8 +1,5 @@
-import type {
-  FetchRoadmapResult,
-  NotionDatabase,
-  RoadmapDao,
-} from "@/dao/interfaces/RoadmapDao";
+import type { RoadmapDao } from "@/dao/interfaces/RoadmapDao";
+import type { FetchRoadmapResult, NotionDatabase } from "@/types/Roadmap";
 import type { RoadmapQueryFilter } from "@/types/TileContent";
 
 export class StubbedRoadmapDao implements RoadmapDao {

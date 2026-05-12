@@ -217,6 +217,40 @@ export class LayoutService implements ILayoutService {
 
   // ── Core CRUD ──────────────────────────────────────────────────────
 
+  private buildLayoutPayload(
+    layout: Layout,
+    mode: "save" | "update",
+  ): Record<string, unknown> {
+    const editableFields = {
+      name: layout.name,
+      colNum: layout.colNum,
+      verticalCompact: layout.verticalCompact,
+      // Safety net: strip any blob: URLs that weren't already resolved
+      tiles: stripBlobUrls(layout.tiles as unknown[]),
+      backgroundImageSrc: layout.backgroundImageSrc,
+      backgroundEmbed: layout.backgroundEmbed,
+      backgroundColor: layout.backgroundColor ?? "",
+      themeId: layout.themeId ?? "dark",
+      overrides: layout.overrides ?? {},
+      duplicatable: layout.duplicatable ?? false,
+      updatedAt: this.dbUtils.serverTimestamp(),
+    };
+
+    if (mode === "update") {
+      return this.dbUtils.sanitizeValue(editableFields) as Record<
+        string,
+        unknown
+      >;
+    }
+
+    return this.dbUtils.sanitizeValue({
+      userId: layout.userId,
+      ...editableFields,
+      createdAt: layout.createdAt ?? this.dbUtils.serverTimestamp(),
+      lastOpenedAt: layout.lastOpenedAt ?? this.dbUtils.serverTimestamp(),
+    }) as Record<string, unknown>;
+  }
+
   // Fetch a layout by Layout ID
   async fetchLayout(id: string): Promise<Layout> {
     try {
@@ -236,22 +270,7 @@ export class LayoutService implements ILayoutService {
   // Save a new layout (or overwrite)
   async saveLayout(layout: Layout): Promise<void> {
     try {
-      const payload = this.dbUtils.sanitizeValue({
-        userId: layout.userId,
-        name: layout.name,
-        colNum: layout.colNum,
-        verticalCompact: layout.verticalCompact,
-        // Safety net: strip any blob: URLs that weren't already resolved
-        tiles: stripBlobUrlsFromTiles(layout.tiles as unknown[]),
-        backgroundImageSrc: layout.backgroundImageSrc,
-        backgroundEmbed: layout.backgroundEmbed,
-        themeId: layout.themeId ?? "dark",
-        overrides: layout.overrides ?? {},
-        duplicatable: layout.duplicatable ?? false,
-        createdAt: layout.createdAt ?? this.dbUtils.serverTimestamp(),
-        updatedAt: this.dbUtils.serverTimestamp(),
-        lastOpenedAt: layout.lastOpenedAt ?? this.dbUtils.serverTimestamp(),
-      }) as Record<string, unknown>;
+      const payload = this.buildLayoutPayload(layout, "save");
       await this.layoutDao.save(layout.id, payload);
     } catch (error) {
       console.error(`Error saving layout with ID ${layout.id}:`, error);
@@ -262,19 +281,7 @@ export class LayoutService implements ILayoutService {
   // Update an existing layout (partial)
   async updateLayout(layout: Layout): Promise<void> {
     try {
-      const payload = this.dbUtils.sanitizeValue({
-        name: layout.name,
-        colNum: layout.colNum,
-        verticalCompact: layout.verticalCompact,
-        // Safety net: strip any blob: URLs that weren't already resolved
-        tiles: stripBlobUrlsFromTiles(layout.tiles as unknown[]),
-        backgroundImageSrc: layout.backgroundImageSrc,
-        backgroundEmbed: layout.backgroundEmbed,
-        themeId: layout.themeId ?? "dark",
-        overrides: layout.overrides ?? {},
-        duplicatable: layout.duplicatable ?? false,
-        updatedAt: this.dbUtils.serverTimestamp(),
-      }) as Record<string, unknown>;
+      const payload = this.buildLayoutPayload(layout, "update");
       await this.layoutDao.update(layout.id, payload);
     } catch (error) {
       console.error(`Error updating layout with ID ${layout.id}:`, error);

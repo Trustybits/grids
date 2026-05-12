@@ -61,7 +61,11 @@
       <button
         v-for="(item, idx) in filteredSlashCommands"
         :key="item.id"
-        :ref="(el) => { if (el) slashMenuItemRefs[idx] = el as HTMLElement }"
+        :ref="
+          (el) => {
+            if (el) slashMenuItemRefs[idx] = el as HTMLElement;
+          }
+        "
         type="button"
         class="slash-menu-item"
         :class="{ active: idx === selectedSlashIndex }"
@@ -90,19 +94,25 @@
           class="table-toolbar-btn"
           title="Insert column before"
           @click="tableCmd((e) => e.chain().focus().addColumnBefore().run())"
-        >+ Left</button>
+        >
+          + Left
+        </button>
         <button
           type="button"
           class="table-toolbar-btn"
           title="Insert column after"
           @click="tableCmd((e) => e.chain().focus().addColumnAfter().run())"
-        >+ Right</button>
+        >
+          + Right
+        </button>
         <button
           type="button"
           class="table-toolbar-btn table-toolbar-btn--danger"
           title="Delete column"
           @click="tableCmd((e) => e.chain().focus().deleteColumn().run())"
-        >&times;</button>
+        >
+          &times;
+        </button>
       </div>
       <span class="table-toolbar-sep" />
       <div class="table-toolbar-group">
@@ -112,19 +122,25 @@
           class="table-toolbar-btn"
           title="Insert row above"
           @click="tableCmd((e) => e.chain().focus().addRowBefore().run())"
-        >+ Above</button>
+        >
+          + Above
+        </button>
         <button
           type="button"
           class="table-toolbar-btn"
           title="Insert row below"
           @click="tableCmd((e) => e.chain().focus().addRowAfter().run())"
-        >+ Below</button>
+        >
+          + Below
+        </button>
         <button
           type="button"
           class="table-toolbar-btn table-toolbar-btn--danger"
           title="Delete row"
           @click="tableCmd((e) => e.chain().focus().deleteRow().run())"
-        >&times;</button>
+        >
+          &times;
+        </button>
       </div>
       <span class="table-toolbar-sep" />
       <div class="table-toolbar-group">
@@ -133,33 +149,49 @@
           class="table-toolbar-btn"
           title="Merge or split selected cells"
           @click="tableCmd((e) => e.chain().focus().mergeOrSplit().run())"
-        >Merge / Split</button>
+        >
+          Merge / Split
+        </button>
         <button
           type="button"
           class="table-toolbar-btn"
           title="Toggle header row"
           @click="tableCmd((e) => e.chain().focus().toggleHeaderRow().run())"
-        >H-Row</button>
+        >
+          H-Row
+        </button>
         <button
           type="button"
           class="table-toolbar-btn"
           title="Toggle header column"
           @click="tableCmd((e) => e.chain().focus().toggleHeaderColumn().run())"
-        >H-Col</button>
+        >
+          H-Col
+        </button>
       </div>
       <span class="table-toolbar-sep" />
       <button
         type="button"
         class="table-toolbar-btn table-toolbar-btn--danger table-toolbar-btn--delete"
         title="Delete entire table"
-        @click="tableCmd((e) => e.chain().focus().deleteTable().run()); showTableToolbar = false"
-      >Delete Table</button>
+        @click="
+          tableCmd((e) => e.chain().focus().deleteTable().run());
+          showTableToolbar = false;
+        "
+      >
+        Delete Table
+      </button>
     </div>
   </Teleport>
-  <AddLinkModal
+  <FloatingInputModal
     :show="showLinkModal"
+    placeholder="Type or paste a link..."
+    inputmode="url"
+    :validate="isValidLink"
+    submit-title="Add link (Enter)"
+    invalid-title="Enter a valid URL"
     @close="closeLinkModal"
-    @add="handleAddLink"
+    @submit="handleAddLink"
   />
 </template>
 
@@ -193,7 +225,8 @@ import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import { useLayoutStore } from "@/stores/layout";
-import AddLinkModal from "../AddLinkModal.vue";
+import FloatingInputModal from "../modal/FloatingInputModal.vue";
+import { isValidLink } from "@/utils/urlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import type { SmartTextContent } from "@/types/TileContent";
 import { useTileLink } from "@/composables/useTileLink";
@@ -229,7 +262,7 @@ type SlashCommand = {
 export default defineComponent({
   components: {
     EditorContent,
-    AddLinkModal,
+    FloatingInputModal,
     LinkIndicatorIcon,
   },
   emits: ["background-color-change", "text-color-change"],
@@ -265,13 +298,22 @@ export default defineComponent({
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
     const isTallOneWide = computed(() =>
-      isTallOneWideFn({ width: gridTileW?.value ?? 0, height: gridTileH?.value ?? 0 }),
+      isTallOneWideFn({
+        width: gridTileW?.value ?? 0,
+        height: gridTileH?.value ?? 0,
+      }),
     );
     const isWideOneHigh = computed(() =>
-      isWideOneHighFn({ width: gridTileW?.value ?? 0, height: gridTileH?.value ?? 0 }),
+      isWideOneHighFn({
+        width: gridTileW?.value ?? 0,
+        height: gridTileH?.value ?? 0,
+      }),
     );
     const isOneByOne = computed(() =>
-      isOneByOneFn({ width: gridTileW?.value ?? 0, height: gridTileH?.value ?? 0 }),
+      isOneByOneFn({
+        width: gridTileW?.value ?? 0,
+        height: gridTileH?.value ?? 0,
+      }),
     );
 
     const isBoldActive = ref(false);
@@ -286,7 +328,10 @@ export default defineComponent({
       if (!imageInput.value) return null;
       return new Promise((resolve) => {
         const input = imageInput.value;
-        if (!input) { resolve(null); return; }
+        if (!input) {
+          resolve(null);
+          return;
+        }
         const cleanup = () => {
           input.removeEventListener("change", onChange);
           input.removeEventListener("cancel", onCancel);
@@ -382,7 +427,8 @@ export default defineComponent({
           try {
             const file = await pickImageFile();
             if (!file) {
-              if (slashRange) editor.chain().focus().deleteRange(slashRange).run();
+              if (slashRange)
+                editor.chain().focus().deleteRange(slashRange).run();
               return;
             }
             const url = await uploadFileToUrl(file, { fileType: "images" });
@@ -407,12 +453,14 @@ export default defineComponent({
         run: (editor, slashRange) => {
           const rawUrl = window.prompt("Enter URL");
           if (!rawUrl) {
-            if (slashRange) editor.chain().focus().deleteRange(slashRange).run();
+            if (slashRange)
+              editor.chain().focus().deleteRange(slashRange).run();
             return;
           }
           const href = normalizeHttpUrl(rawUrl);
           if (!href) {
-            if (slashRange) editor.chain().focus().deleteRange(slashRange).run();
+            if (slashRange)
+              editor.chain().focus().deleteRange(slashRange).run();
             return;
           }
           const label = window.prompt("Link text", href) || href;
@@ -437,12 +485,14 @@ export default defineComponent({
         run: (editor, slashRange) => {
           const rawUrl = window.prompt("Enter button URL");
           if (!rawUrl) {
-            if (slashRange) editor.chain().focus().deleteRange(slashRange).run();
+            if (slashRange)
+              editor.chain().focus().deleteRange(slashRange).run();
             return;
           }
           const href = normalizeHttpUrl(rawUrl);
           if (!href) {
-            if (slashRange) editor.chain().focus().deleteRange(slashRange).run();
+            if (slashRange)
+              editor.chain().focus().deleteRange(slashRange).run();
             return;
           }
           const label = window.prompt("Button label", "Button") || "Button";
@@ -509,7 +559,12 @@ export default defineComponent({
 
       const parentOffset = $from.parentOffset;
       const parentStart = from - parentOffset;
-      const textBeforeCursor = $from.parent.textBetween(0, parentOffset, "\0", "\0");
+      const textBeforeCursor = $from.parent.textBetween(
+        0,
+        parentOffset,
+        "\0",
+        "\0",
+      );
 
       const lastSlash = textBeforeCursor.lastIndexOf("/");
       if (lastSlash === -1) {
@@ -659,7 +714,11 @@ export default defineComponent({
           openOnClick: true,
         }),
         ResizableImage.configure({ inline: true }),
-        Table.configure({ resizable: true, cellMinWidth: 40, allowTableNodeSelection: true }),
+        Table.configure({
+          resizable: true,
+          cellMinWidth: 40,
+          allowTableNodeSelection: true,
+        }),
         TableRow,
         TableHeader,
         TableCell,
@@ -695,20 +754,26 @@ export default defineComponent({
       },
       editorProps: {
         handleKeyDown(_view, event) {
-          if (!showSlashMenu.value || filteredSlashCommands.value.length === 0) {
+          if (
+            !showSlashMenu.value ||
+            filteredSlashCommands.value.length === 0
+          ) {
             return false;
           }
           if (event.key === "ArrowDown") {
             event.preventDefault();
             selectedSlashIndex.value =
-              (selectedSlashIndex.value + 1) % filteredSlashCommands.value.length;
+              (selectedSlashIndex.value + 1) %
+              filteredSlashCommands.value.length;
             scrollSlashItemIntoView(selectedSlashIndex.value);
             return true;
           }
           if (event.key === "ArrowUp") {
             event.preventDefault();
             selectedSlashIndex.value =
-              (selectedSlashIndex.value - 1 + filteredSlashCommands.value.length) %
+              (selectedSlashIndex.value -
+                1 +
+                filteredSlashCommands.value.length) %
               filteredSlashCommands.value.length;
             scrollSlashItemIntoView(selectedSlashIndex.value);
             return true;
@@ -777,10 +842,15 @@ export default defineComponent({
     watch(showSlashMenu, (open, _prev, onCleanup) => {
       if (!open) return;
       const reposition = () => updateSlashState();
-      window.addEventListener("scroll", reposition, { capture: true, passive: true });
+      window.addEventListener("scroll", reposition, {
+        capture: true,
+        passive: true,
+      });
       window.addEventListener("resize", reposition, { passive: true });
       onCleanup(() => {
-        window.removeEventListener("scroll", reposition, { capture: true } as EventListenerOptions);
+        window.removeEventListener("scroll", reposition, {
+          capture: true,
+        } as EventListenerOptions);
         window.removeEventListener("resize", reposition);
       });
     });
@@ -838,7 +908,9 @@ export default defineComponent({
       if (!editor.value || !layoutStore.canEdit) return;
       const output = JSON.stringify(editor.value.getJSON());
       if (tileId && layoutStore.currentLayout) {
-        const tile = layoutStore.currentLayout.tiles.find((t) => t.i === tileId);
+        const tile = layoutStore.currentLayout.tiles.find(
+          (t) => t.i === tileId,
+        );
         if (tile && (tile.content as SmartTextContent).type === "smart_text") {
           (tile.content as SmartTextContent).text = output;
         }
@@ -890,7 +962,9 @@ export default defineComponent({
     };
 
     const getCurrentFontSize = () => {
-      return pxToFontSizeLabel(editor.value?.getAttributes("textStyle")?.fontSize);
+      return pxToFontSizeLabel(
+        editor.value?.getAttributes("textStyle")?.fontSize,
+      );
     };
 
     const handleFontChange = (font: string) => {
@@ -903,7 +977,9 @@ export default defineComponent({
     };
 
     const getCurrentFont = () => {
-      return getDefaultFont(editor.value?.getAttributes("textStyle")?.fontFamily);
+      return getDefaultFont(
+        editor.value?.getAttributes("textStyle")?.fontFamily,
+      );
     };
 
     return {
@@ -912,6 +988,7 @@ export default defineComponent({
       shouldShowOverflow,
       isEditing,
       textContentDiv,
+      isValidLink,
       showLinkModal,
       isTallOneWide,
       isOneByOne,
@@ -1035,7 +1112,8 @@ export default defineComponent({
 }
 
 :deep(blockquote) {
-  border-left: 2px solid color-mix(in srgb, var(--tile-text-color) 35%, transparent);
+  border-left: 2px solid
+    color-mix(in srgb, var(--tile-text-color) 35%, transparent);
   margin: 0;
   padding-left: 10px;
   opacity: 0.95;
@@ -1330,7 +1408,9 @@ a[data-smart-button="true"].smart-button:hover {
   font-weight: 500;
   font-family: inherit;
   white-space: nowrap;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 }
 
 .table-toolbar-btn:hover {

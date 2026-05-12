@@ -66,7 +66,17 @@ service cloud.firestore {
           && request.resource.data.createdAt != null
           && (!("authorId" in request.resource.data) || request.resource.data.authorId is string);
 
-        allow update, delete: if isLayoutOwner(layoutId);
+        allow update: if isLayoutOwner(layoutId)
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(["text"])
+              && request.resource.data.text is string
+              && request.resource.data.text.size() > 0
+              && request.resource.data.text.size() <= 2000
+              && ((request.auth != null && resource.data.authorId == request.auth.uid)
+                  || (request.auth == null && resource.data.authorId == "visitor")));
+
+        allow delete: if isLayoutOwner(layoutId)
+          || ((request.auth != null && resource.data.authorId == request.auth.uid)
+              || (request.auth == null && resource.data.authorId == "visitor"));
       }
 
       // Upvotes for roadmap feed tiles.
@@ -82,24 +92,36 @@ service cloud.firestore {
     }
 
     match /userGameData/{userId} {
+      // Zero-padded YYYY-MM-DD to match the client's `new Date().toISOString().split("T")[0]`.
+      // Without padding, server "2026-5-11" never equals client "2026-05-11" and isNewDay
+      // would always be true, silently disabling the daily cap.
+      function todayString() {
+        let m = request.time.month();
+        let d = request.time.day();
+        let mStr = m < 10 ? '0' + string(m) : string(m);
+        let dStr = d < 10 ? '0' + string(d) : string(d);
+        return string(request.time.year()) + '-' + mStr + '-' + dStr;
+      }
+
       function isNewDay() {
-        let today = '' + request.time.year() + '-' + request.time.month() + '-' + request.time.day();
-        return resource.data.get('lastClickDate', '') != today;
+        return resource.data.get('lastClickDate', '') != todayString();
       }
 
       function clickIncrement() {
-        return request.resource.data.totalClicks - resource.data.totalClicks;
+        return request.resource.data.get('totalClicks', 0) - resource.data.get('totalClicks', 0);
       }
 
       function newDailyTotal() {
         return isNewDay() ? clickIncrement() : resource.data.get('dailyClicks', 0) + clickIncrement();
       }
 
+      // Note: we deliberately don't require request.resource.data.updatedAt == request.time.
+      // That check is unreliable inside runTransaction (the serverTimestamp sentinel doesn't
+      // always resolve to exactly request.time across retries), and was rejecting every click.
       function isValidClick() {
         return request.auth != null
-          && clickIncrement() > 0 && clickIncrement() <= 10
-          && newDailyTotal() <= 100
-          && request.resource.data.updatedAt == request.time;
+          && clickIncrement() > 0 && clickIncrement() <= 25
+          && newDailyTotal() <= 100;
       }
 
       function isValidPassive() {

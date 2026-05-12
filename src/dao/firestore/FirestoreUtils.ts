@@ -16,6 +16,7 @@ export function mapFirestoreToLayout(
     tiles: Array.isArray(data.tiles) ? data.tiles : [], // Validate tiles is an array
     backgroundImageSrc: data.backgroundImageSrc || "",
     backgroundEmbed: !!data.backgroundEmbed,
+    backgroundColor: data.backgroundColor || "",
     themeId: data.themeId || undefined,
     overrides:
       data.overrides && typeof data.overrides === "object"

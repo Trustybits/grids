@@ -1,87 +1,95 @@
 <template>
-  <div v-if="isOpen" class="modal-overlay" @click.self="hasExistingSlug ? handleClose() : null">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>{{ hasExistingSlug ? 'Manage Your Handle' : 'Claim Your Handle' }}</h2>
-        <button 
-          v-if="hasExistingSlug" 
-          class="close-btn" 
-          @click="handleClose" 
-          aria-label="Close"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 6L6 18M6 6l12 12" />
+  <BaseModal
+    :show="isOpen"
+    variant="centered"
+    :close-on-backdrop="hasExistingSlug"
+    content-class="slug-modal-content"
+    @close="handleClose"
+  >
+    <div class="modal-header">
+      <h2>{{ hasExistingSlug ? 'Manage Your Handle' : 'Claim Your Handle' }}</h2>
+      <button
+        v-if="hasExistingSlug"
+        class="close-btn"
+        @click="handleClose"
+        aria-label="Close"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <p class="description">
+        {{ hasExistingSlug
+          ? 'Your handle is used in your personal URL. Change it carefully as links may break.'
+          : 'Choose a unique handle for your personal URL. This will be used as grids.so/your-handle'
+        }}
+      </p>
+
+      <div class="input-group">
+        <label for="slug-input">Handle</label>
+        <div class="slug-input-wrapper">
+          <span class="slug-prefix">grids.so/</span>
+          <input
+            id="slug-input"
+            ref="inputElement"
+            v-model="slugInput"
+            type="text"
+            placeholder="your-handle"
+            :disabled="isClaiming"
+            @input="handleSlugInput"
+            @keydown.enter="handleClaim"
+            maxlength="30"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div v-if="validationMessage" class="validation-message" :class="validationClass">
+          <svg v-if="validationClass === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 6L9 17l-5-5" />
           </svg>
-        </button>
-      </div>
-
-      <div class="modal-body">
-        <p class="description">
-          {{ hasExistingSlug 
-            ? 'Your handle is used in your personal URL. Change it carefully as links may break.' 
-            : 'Choose a unique handle for your personal URL. This will be used as grids.so/your-handle' 
-          }}
-        </p>
-
-        <div class="input-group">
-          <label for="slug-input">Handle</label>
-          <div class="slug-input-wrapper">
-            <span class="slug-prefix">grids.so/</span>
-            <input
-              id="slug-input"
-              ref="inputElement"
-              v-model="slugInput"
-              type="text"
-              placeholder="your-handle"
-              :disabled="isClaiming"
-              @input="handleSlugInput"
-              @keydown.enter="handleClaim"
-              maxlength="30"
-              autocomplete="off"
-              spellcheck="false"
-            />
-          </div>
-          
-          <div v-if="validationMessage" class="validation-message" :class="validationClass">
-            <svg v-if="validationClass === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 6L9 17l-5-5" />
-            </svg>
-            <svg v-else-if="validationClass === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 8v4m0 4h.01" />
-            </svg>
-            <span>{{ validationMessage }}</span>
-          </div>
-        </div>
-
-        <div class="format-hint">
-          <strong>Format rules:</strong> 3-30 characters, lowercase letters, numbers, and hyphens only. Cannot start or end with a hyphen.
+          <svg v-else-if="validationClass === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 8v4m0 4h.01" />
+          </svg>
+          <span>{{ validationMessage }}</span>
         </div>
       </div>
 
-      <div class="modal-footer">
-        <button 
-          v-if="hasExistingSlug" 
-          class="btn-secondary" 
-          @click="handleClose" 
-          :disabled="isClaiming"
-        >
-          Cancel
-        </button>
-        <button 
-          class="btn-primary" 
-          :class="{ 'btn-full-width': !hasExistingSlug }"
-          @click="handleClaim" 
-          :disabled="!canClaim || isClaiming"
-        >
-          {{ isClaiming ? 'Claiming...' : hasExistingSlug ? 'Update Handle' : 'Claim Handle' }}
-        </button>
+      <div class="format-hint">
+        <strong>Format rules:</strong> 3-30 characters, lowercase letters, numbers, and hyphens only. Cannot start or end with a hyphen.
       </div>
     </div>
-  </div>
+
+    <div class="modal-footer">
+      <button
+        v-if="hasExistingSlug"
+        class="btn-secondary"
+        @click="handleClose"
+        :disabled="isClaiming"
+      >
+        Cancel
+      </button>
+      <button
+        class="btn-primary"
+        :class="{ 'btn-full-width': !hasExistingSlug }"
+        @click="handleClaim"
+        :disabled="!canClaim || isClaiming"
+      >
+        {{ isClaiming ? 'Claiming...' : hasExistingSlug ? 'Update Handle' : 'Claim Handle' }}
+      </button>
+    </div>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, watch } from 'vue';
+import { getServiceFactory } from '@/services/ServiceFactorySingleton';
+import BaseModal from './BaseModal.vue';
+
 const props = defineProps<{
   isOpen: boolean;
   currentSlug?: string;
@@ -93,9 +101,6 @@ const emit = defineEmits<{
   close: [];
   success: [slug: string];
 }>();
-
-import { ref, computed, watch } from 'vue';
-import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 
 const userService = getServiceFactory().getUserService();
 const slugInput = ref(props.currentSlug || '');
@@ -110,38 +115,29 @@ const inputElement = ref<HTMLInputElement | null>(null);
 const hasExistingSlug = computed(() => !!props.currentSlug);
 
 const canClaim = computed(() => {
-  return slugInput.value.length >= 3 && 
-         validationClass.value === 'success' && 
+  return slugInput.value.length >= 3 &&
+         validationClass.value === 'success' &&
          !isClaiming.value;
 });
 
-/**
- * Handle slug input changes with validation
- */
 const handleSlugInput = (event: Event) => {
   const value = (event.target as HTMLInputElement).value.toLowerCase();
   slugInput.value = value;
 
-  // Cancel any pending check timeout
   if (checkTimeout.value) {
     clearTimeout(checkTimeout.value);
     checkTimeout.value = null;
   }
 
-  // Cancel any ongoing availability check
   if (checkAbortController.value) {
     checkAbortController.value.abort();
     checkAbortController.value = null;
   }
 
-  // Reset checking state immediately so input stays enabled
   isChecking.value = false;
-
-  // Reset validation state
   validationMessage.value = '';
   validationClass.value = 'info';
 
-  // Basic client-side validation
   if (value.length === 0) {
     return;
   }
@@ -158,7 +154,6 @@ const handleSlugInput = (event: Event) => {
     return;
   }
 
-  // Check format
   const slugRegex = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
   if (!slugRegex.test(value)) {
     validationMessage.value = 'Invalid format. Use lowercase letters, numbers, and hyphens only';
@@ -166,19 +161,14 @@ const handleSlugInput = (event: Event) => {
     return;
   }
 
-  // Debounce server-side availability check (increased to 800ms for better typing experience)
   checkTimeout.value = window.setTimeout(() => {
     checkAvailability(value);
   }, 800);
 };
 
-/**
- * Check slug availability with server
- */
 const checkAvailability = async (slug: string) => {
   if (!slug || slug.length < 3) return;
 
-  // Create new abort controller for this check
   checkAbortController.value = new AbortController();
   const currentController = checkAbortController.value;
 
@@ -188,8 +178,7 @@ const checkAvailability = async (slug: string) => {
 
   try {
     const result = await userService.checkSlugAvailability(slug);
-    
-    // Only update UI if this check wasn't aborted
+
     if (currentController === checkAbortController.value) {
       if (result.available) {
         validationMessage.value = result.message;
@@ -200,18 +189,15 @@ const checkAvailability = async (slug: string) => {
       }
     }
   } catch (error: unknown) {
-    // Only show error if this check wasn't aborted
     if (currentController === checkAbortController.value) {
       validationMessage.value = error instanceof Error ? error.message : 'Failed to check availability';
       validationClass.value = 'error';
     }
   } finally {
-    // Only clear checking state if this check wasn't aborted
     if (currentController === checkAbortController.value) {
       isChecking.value = false;
       checkAbortController.value = null;
-      
-      // Refocus the input to maintain typing context
+
       if (inputElement.value) {
         inputElement.value.focus();
       }
@@ -219,23 +205,17 @@ const checkAvailability = async (slug: string) => {
   }
 };
 
-/**
- * Claim the slug
- */
 const handleClaim = async () => {
   if (!canClaim.value) return;
 
   isClaiming.value = true;
   const claimedSlug = slugInput.value;
-  
+
   try {
     const result = await userService.claimSlug(claimedSlug);
-    
+
     if (result.success) {
-      // Close modal immediately for responsive feel
       emit('close');
-      
-      // Emit success event after closing (parent handles the rest)
       emit('success', claimedSlug);
       if (props.onSuccess) {
         props.onSuccess(claimedSlug);
@@ -246,38 +226,30 @@ const handleClaim = async () => {
     validationClass.value = 'error';
     isClaiming.value = false;
   }
-  // Don't reset isClaiming on success - modal is closing anyway
 };
 
-/**
- * Close modal - only allowed if user has an existing slug
- */
 const handleClose = () => {
   if (isClaiming.value) return;
-  // Don't allow closing if this is a required claim (no existing slug)
   if (!hasExistingSlug.value) return;
-  
+
   emit('close');
   if (props.onClose) {
     props.onClose();
   }
 };
 
-// Watch for prop changes
 watch(() => props.currentSlug, (newSlug) => {
   if (newSlug) {
     slugInput.value = newSlug;
   }
 });
 
-// Reset modal state and trigger initial check when opened
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
-    // Reset state to prevent stuck claiming state
     isClaiming.value = false;
     validationMessage.value = '';
     validationClass.value = 'info';
-    
+
     if (props.currentSlug) {
       slugInput.value = props.currentSlug;
       checkAvailability(props.currentSlug);
@@ -287,26 +259,11 @@ watch(() => props.isOpen, (isOpen) => {
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: var(--spacing-lg);
-  backdrop-filter: blur(4px);
-}
-
-.modal-content {
-  background-color: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-lg);
+:deep(.slug-modal-content) {
+  padding: 0;
   width: min(500px, 100%);
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
 .modal-header {

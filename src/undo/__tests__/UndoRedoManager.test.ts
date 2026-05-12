@@ -76,6 +76,7 @@ const exampleSnapshot: Snapshot = {
   themeId: "default",
   backgroundImageSrc: "",
   backgroundEmbed: false,
+  backgroundColor: "",
   forcedBreakpoint: "lg",
   actionLabel: "Toggle gravity",
 };

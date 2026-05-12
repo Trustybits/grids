@@ -70,6 +70,14 @@
       </div>
     </Teleport>
 
+    <!-- Bottom scrim: gradient + progressive blur behind the details text -->
+    <div
+      v-if="showBottomDetails"
+      class="doc-bottom-scrim"
+      :style="{ height: scrimHeight + 'px' }"
+      aria-hidden="true"
+    />
+
     <div class="doc-foreground">
       <div class="doc-header">
         <div class="tile-logo doc-tile-logo">
@@ -364,6 +372,10 @@ export default defineComponent({
     // ── Teleport target for narrow-tall illustration ──
     const tileWrapperEl = ref<HTMLElement | null>(null);
 
+    // ── Bottom-scrim height (gradient + blur overlay) ──
+    const scrimHeight = ref(0);
+    let scrimObserver: ResizeObserver | null = null;
+
     // ── Editing state (mirrors LinkContent exactly) ──
     const isEditing = ref(false);
     const isDetailsHovered = ref(false);
@@ -566,6 +578,24 @@ export default defineComponent({
       { immediate: true },
     );
 
+    const updateScrimHeight = () => {
+      const tile = tileRef.value;
+      const details = detailsRef.value;
+      if (!tile || !details || !showBottomDetails.value) {
+        scrimHeight.value = 0;
+        return;
+      }
+      const tileRect = tile.getBoundingClientRect();
+      const detailsRect = details.getBoundingClientRect();
+      scrimHeight.value = Math.max(0, tileRect.bottom - detailsRect.top + 12);
+    };
+
+    watch(detailsRef, (el, oldEl) => {
+      if (oldEl && scrimObserver) scrimObserver.unobserve(oldEl);
+      if (el && scrimObserver) scrimObserver.observe(el);
+      nextTick(updateScrimHeight);
+    });
+
     onMounted(() => {
       handleBackgroundColorChange(props.content.backgroundColor ?? "");
 
@@ -573,9 +603,14 @@ export default defineComponent({
       if (tileRef.value) {
         tileWrapperEl.value = tileRef.value.closest(".tile-wrapper") as HTMLElement | null;
       }
+
+      scrimObserver = new ResizeObserver(() => updateScrimHeight());
+      if (tileRef.value) scrimObserver.observe(tileRef.value);
+      if (detailsRef.value) scrimObserver.observe(detailsRef.value);
     });
 
     onUnmounted(() => {
+      scrimObserver?.disconnect();
       removeExitClickHandler();
     });
 
@@ -613,6 +648,8 @@ export default defineComponent({
       textColor,
       overlayColor,
       handleBackgroundColorChange,
+      // scrim
+      scrimHeight,
       // previewer
       previewOpen,
       previewStartIndex,
@@ -943,6 +980,41 @@ export default defineComponent({
   padding: 6px 6px;
   margin-top: -4px;
   transition: opacity 0.2s ease;
+}
+
+/* ── Bottom scrim (gradient + progressive blur) ───── */
+
+.doc-bottom-scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  pointer-events: none;
+  transition: height 0.35s ease;
+}
+
+.doc-bottom-scrim::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 100%);
+}
+
+.doc-bottom-scrim::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.6) 43%,
+    rgba(0, 0, 0, 0.89) 72%,
+    rgba(0, 0, 0, 1) 100%
+  );
 }
 
 /* ── Upload progress ──────────────────────────────── */

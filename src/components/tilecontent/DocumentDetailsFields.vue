@@ -36,21 +36,6 @@
         @input="onDescriptionInput"
       />
     </div>
-    <div
-      class="tile-field-wrap tile-field-wrap--subtitle"
-      :class="{ 'is-visible': isEditing || !!displaySubtitle }"
-    >
-      <input
-        ref="subtitleEl"
-        :value="draftSubtitle"
-        class="tile-field tile-field--subtitle"
-        type="text"
-        :readonly="!isEditing"
-        :tabindex="isEditing ? 0 : -1"
-        placeholder="Add a subtitle"
-        @input="onSubtitleInput"
-      />
-    </div>
   </div>
 </template>
 
@@ -64,10 +49,8 @@ export default defineComponent({
     isEditing: { type: Boolean, required: true },
     displayTitle: { type: String, required: true },
     displayDescription: { type: String, required: true },
-    displaySubtitle: { type: String, required: true },
     draftTitle: { type: String, required: true },
     draftDescription: { type: String, required: true },
-    draftSubtitle: { type: String, required: true },
     titleInputRef: {
       type: Function as PropType<(el: HTMLTextAreaElement | null) => void>,
       default: () => () => undefined,
@@ -76,20 +59,11 @@ export default defineComponent({
       type: Function as PropType<(el: HTMLTextAreaElement | null) => void>,
       default: () => () => undefined,
     },
-    subtitleInputRef: {
-      type: Function as PropType<(el: HTMLInputElement | null) => void>,
-      default: () => () => undefined,
-    },
   },
-  emits: [
-    "update:draftTitle",
-    "update:draftDescription",
-    "update:draftSubtitle",
-  ],
+  emits: ["update:draftTitle", "update:draftDescription"],
   setup(props, { emit }) {
     const titleEl = ref<HTMLTextAreaElement | null>(null);
     const descriptionEl = ref<HTMLTextAreaElement | null>(null);
-    const subtitleEl = ref<HTMLInputElement | null>(null);
 
     const onTitleInput = (e: Event) => {
       emit("update:draftTitle", (e.target as HTMLTextAreaElement).value);
@@ -97,27 +71,20 @@ export default defineComponent({
     const onDescriptionInput = (e: Event) => {
       emit("update:draftDescription", (e.target as HTMLTextAreaElement).value);
     };
-    const onSubtitleInput = (e: Event) => {
-      emit("update:draftSubtitle", (e.target as HTMLInputElement).value);
-    };
 
     onMounted(() => {
       props.titleInputRef(titleEl.value);
       props.descriptionInputRef(descriptionEl.value);
-      props.subtitleInputRef(subtitleEl.value);
     });
 
     watch(titleEl, (el) => props.titleInputRef(el));
     watch(descriptionEl, (el) => props.descriptionInputRef(el));
-    watch(subtitleEl, (el) => props.subtitleInputRef(el));
 
     return {
       titleEl,
       descriptionEl,
-      subtitleEl,
       onTitleInput,
       onDescriptionInput,
-      onSubtitleInput,
     };
   },
 });
@@ -158,7 +125,7 @@ export default defineComponent({
 
 .tile-field-wrap--title {
   margin-top: -2px;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
 }
 
@@ -170,23 +137,13 @@ export default defineComponent({
 }
 
 .tile-field-wrap--description {
-  flex: 1 1 auto;
+  margin-bottom: -2px;
+  flex: 0 0 auto;
   min-height: 0;
 }
 
 .tile-field-wrap--description.is-visible {
   max-height: none;
-  min-height: 28px;
-  padding: 4px 6px;
-}
-
-.tile-field-wrap--subtitle {
-  margin-bottom: -2px;
-  flex: 0 0 auto;
-}
-
-.tile-field-wrap--subtitle.is-visible {
-  max-height: 32px;
   min-height: 24px;
   padding: 4px 6px;
 }
@@ -232,7 +189,7 @@ export default defineComponent({
 }
 
 .tile-field--title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.25;
   padding: 0;
@@ -241,20 +198,11 @@ export default defineComponent({
 }
 
 .tile-field--description {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 16px;
-  color: var(--tile-text-color);
+  color: color-mix(in srgb, var(--tile-text-color) 55%, transparent 45%);
   padding: 0;
   margin: 0;
   border: none;
-}
-
-.tile-field--subtitle {
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--tile-text-color);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 </style>

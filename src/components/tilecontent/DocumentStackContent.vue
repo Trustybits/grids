@@ -39,7 +39,12 @@
     <div class="doc-foreground">
       <div class="doc-header">
         <div class="tile-logo doc-tile-logo">
-          <DocumentTileIcon class="doc-tile-logo-icon" />
+          <FileIcon
+            v-if="items.length <= 1"
+            :size="24"
+            class="doc-tile-logo-icon"
+          />
+          <FolderIcon v-else :size="24" class="doc-tile-logo-icon" />
         </div>
 
         <!-- Banner sizes: details inline with the icon -->
@@ -61,7 +66,6 @@
             v-if="
               !displayTitle &&
               !displayDescription &&
-              !displaySubtitle &&
               !isEditing &&
               isDetailsHovered
             "
@@ -73,15 +77,12 @@
             :is-editing="isEditing"
             :display-title="displayTitle"
             :display-description="displayDescription"
-            :display-subtitle="displaySubtitle"
             v-model:draft-title="draftTitle"
             v-model:draft-description="draftDescription"
-            v-model:draft-subtitle="draftSubtitle"
             :title-input-ref="(el: HTMLTextAreaElement | null) => (titleInputRef = el)"
             :description-input-ref="
               (el: HTMLTextAreaElement | null) => (descriptionInputRef = el)
             "
-            :subtitle-input-ref="(el: HTMLInputElement | null) => (subtitleInputRef = el)"
           />
         </div>
       </div>
@@ -105,7 +106,6 @@
           v-if="
             !displayTitle &&
             !displayDescription &&
-            !displaySubtitle &&
             !isEditing &&
             isDetailsHovered
           "
@@ -117,15 +117,12 @@
           :is-editing="isEditing"
           :display-title="displayTitle"
           :display-description="displayDescription"
-          :display-subtitle="displaySubtitle"
           v-model:draft-title="draftTitle"
           v-model:draft-description="draftDescription"
-          v-model:draft-subtitle="draftSubtitle"
           :title-input-ref="(el: HTMLTextAreaElement | null) => (titleInputRef = el)"
           :description-input-ref="
             (el: HTMLTextAreaElement | null) => (descriptionInputRef = el)
           "
-          :subtitle-input-ref="(el: HTMLInputElement | null) => (subtitleInputRef = el)"
         />
       </div>
     </div>
@@ -171,7 +168,8 @@ import {
 } from "vue";
 import type { DocumentStackContent as DocumentStackContentType } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
-import DocumentTileIcon from "@/components/icons/DocumentTileIcon.vue";
+import FileIcon from "@/components/icons/FileIcon.vue";
+import FolderIcon from "@/components/icons/FolderIcon.vue";
 import DocumentPreviewer from "@/components/tilecontent/DocumentPreviewer.vue";
 import DocumentDetailsFields from "@/components/tilecontent/DocumentDetailsFields.vue";
 import { useColorPicker } from "@/composables/useColorPicker";
@@ -194,7 +192,7 @@ const ILLUSTRATION_FALLBACK = "/illustrations/file-txt.png";
 
 export default defineComponent({
   name: "DocumentStackContent",
-  components: { DocumentTileIcon, DocumentPreviewer, DocumentDetailsFields },
+  components: { FileIcon, FolderIcon, DocumentPreviewer, DocumentDetailsFields },
   emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
@@ -229,26 +227,26 @@ export default defineComponent({
     const isBanner = computed(() => w.value >= 2 && h.value === 1);
     const isNarrowTall = computed(() => w.value === 1 && h.value > 1);
 
-    // Illustration placement decision tree based on Figma sizes:
-    //   1×1 / 1×N           : no illustration
-    //   2×1                 : no illustration (no room)
-    //   3×1, 4×1+           : illustration peeks from right edge of banner
-    //   2×2, 3×2, 4×2 etc.  : illustration on right side
-    //   2×3+, 3×3+, 4×3+    : illustration centered-right
-    //   2×4+, 3×4+, 4×4+    : illustration peeks from bottom-right
+    // Illustration placement based on tile shape:
+    //   1×1 / 2×1        : no illustration (no room)
+    //   3×1, 4×1+        : "banner" — vertically-centered, anchored to right edge
+    //   1×2, 1×3+        : "narrow-tall" — peeks above the tile (overflows top)
+    //   2×2              : "two-right" — right-aligned, vertically centered
+    //   2×3, 2×4+        : "two-bottom-right" — bottom-right corner
+    //   ≥3 × ≥2          : "standard" — fixed size, anchored to bottom-right
     const showIllustration = computed(() => {
       if (isOneByOne.value) return false;
-      if (w.value === 1) return false;
       if (isBanner.value && w.value < 3) return false;
       return true;
     });
     const illustrationPlacement = computed<
-      "banner-right" | "side-right" | "bottom-right" | "center-right"
+      "banner" | "narrow-tall" | "two-right" | "two-bottom-right" | "standard"
     >(() => {
-      if (isBanner.value) return "banner-right";
-      if (h.value >= 4) return "bottom-right";
-      if (h.value >= 3) return "center-right";
-      return "side-right";
+      if (isBanner.value) return "banner";
+      if (isNarrowTall.value) return "narrow-tall";
+      if (w.value === 2 && h.value === 2) return "two-right";
+      if (w.value === 2 && h.value >= 3) return "two-bottom-right";
+      return "standard";
     });
 
     // Component visibility
@@ -272,7 +270,6 @@ export default defineComponent({
       if (n <= 0) return "";
       return n === 1 ? "1 file" : `${n} files`;
     });
-    const defaultSubtitle = computed(() => "");
 
     const displayTitle = computed(() =>
       props.content.customTitle !== undefined
@@ -283,11 +280,6 @@ export default defineComponent({
       props.content.customDescription !== undefined
         ? props.content.customDescription
         : defaultDescription.value,
-    );
-    const displaySubtitle = computed(() =>
-      props.content.customSubtitle !== undefined
-        ? props.content.customSubtitle
-        : defaultSubtitle.value,
     );
 
     // ── Illustration picker (PNG sketch art per file type) ──
@@ -303,32 +295,21 @@ export default defineComponent({
     const detailsRef = ref<HTMLElement | null>(null);
     const titleInputRef = ref<HTMLTextAreaElement | null>(null);
     const descriptionInputRef = ref<HTMLTextAreaElement | null>(null);
-    const subtitleInputRef = ref<HTMLInputElement | null>(null);
 
     const draftTitle = ref("");
     const draftDescription = ref("");
-    const draftSubtitle = ref("");
 
     const syncDrafts = () => {
       draftTitle.value = displayTitle.value;
       draftDescription.value = displayDescription.value;
-      draftSubtitle.value = displaySubtitle.value;
     };
 
     watch(
-      [displayTitle, displayDescription, displaySubtitle],
+      [displayTitle, displayDescription],
       () => {
         if (!isEditing.value) syncDrafts();
       },
       { immediate: true },
-    );
-
-    const userEditedTitle = ref(props.content.customTitle !== undefined);
-    const userEditedDescription = ref(
-      props.content.customDescription !== undefined,
-    );
-    const userEditedSubtitle = ref(
-      props.content.customSubtitle !== undefined,
     );
 
     const saveEdits = () => {
@@ -336,16 +317,13 @@ export default defineComponent({
 
       const nextTitle = draftTitle.value.trim();
       const nextDescription = draftDescription.value.trim();
-      const nextSubtitle = draftSubtitle.value.trim();
 
       props.content.customTitle = nextTitle;
       props.content.customDescription = nextDescription;
-      props.content.customSubtitle = nextSubtitle;
 
       layoutStore.patchTileContent(props.tileId, {
         customTitle: nextTitle,
         customDescription: nextDescription,
-        customSubtitle: nextSubtitle,
       });
     };
 
@@ -353,11 +331,8 @@ export default defineComponent({
       saveEdits(),
     );
 
-    watch([draftTitle, draftDescription, draftSubtitle], () => {
+    watch([draftTitle, draftDescription], () => {
       if (isEditing.value) {
-        userEditedTitle.value = true;
-        userEditedDescription.value = true;
-        userEditedSubtitle.value = true;
         schedulePersist();
       }
     });
@@ -398,9 +373,7 @@ export default defineComponent({
       nextTick(() => syncDrafts());
     };
 
-    const startEditing = (
-      focusTarget?: "title" | "description" | "subtitle",
-    ) => {
+    const startEditing = (focusTarget?: "title" | "description") => {
       if (!layoutStore.canEdit || isEditing.value) return;
       layoutStore.beginEditing(props.tileId);
       isEditing.value = true;
@@ -408,11 +381,7 @@ export default defineComponent({
       nextTick(() => {
         setTimeout(() => {
           const targetRef =
-            focusTarget === "subtitle"
-              ? subtitleInputRef
-              : focusTarget === "description"
-                ? descriptionInputRef
-                : titleInputRef;
+            focusTarget === "description" ? descriptionInputRef : titleInputRef;
           targetRef.value?.focus();
           exitClickHandler = (event: MouseEvent) => {
             if (
@@ -443,23 +412,15 @@ export default defineComponent({
           name: "description" as const,
           el: el.querySelector(".tile-field--description"),
         },
-        {
-          name: "subtitle" as const,
-          el: el.querySelector(".tile-field--subtitle"),
-        },
       ];
 
-      if (
-        !displayTitle.value &&
-        !displayDescription.value &&
-        !displaySubtitle.value
-      ) {
+      if (!displayTitle.value && !displayDescription.value) {
         startEditing("title");
         return;
       }
 
       const clickY = event.clientY;
-      let closest: "title" | "description" | "subtitle" = "title";
+      let closest: "title" | "description" = "title";
       let minDist = Infinity;
 
       for (const f of fields) {
@@ -554,16 +515,13 @@ export default defineComponent({
       // text
       displayTitle,
       displayDescription,
-      displaySubtitle,
       draftTitle,
       draftDescription,
-      draftSubtitle,
       // refs
       tileRef,
       detailsRef,
       titleInputRef,
       descriptionInputRef,
-      subtitleInputRef,
       // state
       isEditing,
       isDetailsHovered,
@@ -598,12 +556,23 @@ export default defineComponent({
   cursor: pointer;
 }
 
+/* Narrow-tall tiles let the illustration peek above the tile.
+   We drop overflow:hidden here and rely on the color overlay's
+   own border-radius to keep the rounded corners intact. */
+.doc-tile-content.is-narrow-tall {
+  overflow: visible;
+}
+
 .doc-color-overlay {
   position: absolute;
   inset: 0;
   z-index: 0;
   mix-blend-mode: color;
   pointer-events: none;
+}
+
+.doc-tile-content.is-narrow-tall .doc-color-overlay {
+  border-radius: inherit;
 }
 
 /* ── Foreground layout ────────────────────────────── */
@@ -648,18 +617,18 @@ export default defineComponent({
   position: relative;
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--tile-text-color) 14%, transparent);
+  border-radius: 8px;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--tile-text-color);
+  color: #0e0f12;
   pointer-events: none;
 }
 
 .doc-tile-logo-icon {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
 }
 
 .doc-tile-content.is-mini .doc-foreground {
@@ -671,91 +640,70 @@ export default defineComponent({
   justify-content: center;
 }
 
-.doc-tile-content.is-mini .tile-logo {
-  width: 36px;
-  height: 36px;
-}
-
-.doc-tile-content.is-mini .doc-tile-logo-icon {
-  width: 22px;
-  height: 22px;
-}
-
 /* ── Illustration ──────────────────────────────────── */
 
+/* Same illustration size on every variant — only the position differs.
+   Tile bounds naturally clip the illustration when it doesn't fit. */
 .doc-art {
   position: absolute;
   pointer-events: none;
   z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 154px;
+  height: 190px;
 }
 
 .doc-art__img {
   display: block;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   user-select: none;
   -webkit-user-drag: none;
-  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.18));
 }
 
-/* Banner: peek from right, vertically overflow */
-.doc-art--banner-right {
-  top: -22%;
-  right: -8%;
-  width: 70%;
-  height: 160%;
-  align-items: center;
-  justify-content: flex-end;
+/* Banner (3×1+): vertically centered, anchored to right edge.
+   The illustration overflows top/bottom of the banner and is clipped. */
+.doc-art--banner {
+  top: 50%;
+  right: -87px;
+  transform: translateY(-23%);
 }
 
-.doc-art--banner-right > * {
-  transform: rotate(8deg);
-  width: 70%;
-  height: 100%;
+/* 2×2 (illustration_on_right): right-aligned, vertically centered.
+   The illustration clips against the right edge and peeks above. */
+.doc-art--two-right {
+  bottom: -10px;
+  right: -82px;
+  /* transform: translateY(-43%); */
 }
 
-/* Square / landscape mid: right half */
-.doc-art--side-right {
-  top: -10%;
-  right: -10%;
-  width: 70%;
-  height: 130%;
+/* 2×3+ (illustration_on_bottomRight): anchored to bottom-right corner. */
+.doc-art--two-bottom-right {
+  right: -82px;
+  bottom: -10px;
 }
 
-.doc-art--side-right > * {
-  transform: rotate(8deg);
-  width: 90%;
-  height: 100%;
+/* Standard (≥3 × ≥2): anchored to bottom-right with a small overflow.
+   On smaller tiles the right/bottom edges clip naturally. */
+.doc-art--standard {
+  right: 21px;
+  bottom: -16px;
 }
 
-/* Tall + medium: center-right */
-.doc-art--center-right {
-  top: 14%;
-  right: -8%;
-  bottom: 22%;
-  width: 70%;
-}
-
-.doc-art--center-right > * {
-  transform: rotate(6deg);
-  width: 100%;
-  height: 100%;
-}
-
-/* Tall + wide: peek from bottom right */
-.doc-art--bottom-right {
-  right: -10%;
-  bottom: -22%;
-  width: 70%;
-  height: 70%;
-}
-
-.doc-art--bottom-right > * {
-  transform: rotate(8deg);
-  width: 100%;
-  height: 100%;
+/* Narrow-tall (1 × ≥2): centered horizontally, peeks above the tile.
+   The illustration sits BEHIND the tile — only the portion above the
+   tile's top edge is visible. We achieve this with clip-path so the
+   in-tile portion is hidden, while the surrounding tile-wrapper opts
+   into overflow:visible (see the unscoped :has rule below). */
+.doc-art--narrow-tall {
+  top: -52px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 124px;
+  /* Hide everything from the tile's top edge downward (the bottom 72px
+     of the 124px illustration). Only the top 52px shows above the tile. */
+  clip-path: inset(0 0 72px 0);
 }
 
 /* ── Details (mirrors LinkContent visuals) ─────────── */
@@ -837,3 +785,16 @@ export default defineComponent({
   transition: width 0.2s ease;
 }
 </style>
+
+<!--
+  Unscoped: let the surrounding GridTile wrapper expose overflow above the
+  tile bounds when this is a narrow-tall (1 × ≥2) document tile so the file
+  illustration can peek above the tile. All other tile shapes keep the
+  default overflow:hidden clipping.
+-->
+<style>
+.tile-wrapper:has(.doc-tile-content.is-narrow-tall) {
+  overflow: visible;
+}
+</style>
+

@@ -247,7 +247,7 @@ export function useFileUpload() {
         layoutStore.setResolvedDocumentItemUrl(tileId, item.id, url);
       }
       layoutStore.clearTileUploading(tileId);
-      layoutStore.updateLayout();
+      await layoutStore.saveLayout();
 
       const layoutId = layoutStore.currentLayout?.id;
       if (layoutId) {

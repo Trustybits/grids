@@ -92,16 +92,16 @@
                   @click.stop
                 >
                   <button type="button" class="doc-prev-zoom-row" role="menuitem" @click="zoomIn">
-                    <span>zoom in</span><kbd>Ctrl++</kbd>
+                    <span>zoom in</span><kbd>{{ modKey }}++</kbd>
                   </button>
                   <button type="button" class="doc-prev-zoom-row" role="menuitem" @click="zoomOut">
-                    <span>zoom out</span><kbd>Ctrl+-</kbd>
+                    <span>zoom out</span><kbd>{{ modKey }}-</kbd>
                   </button>
                   <button type="button" class="doc-prev-zoom-row" role="menuitem" @click="zoomToFit">
                     <span>zoom to fit</span><kbd>Shift+1</kbd>
                   </button>
                   <button type="button" class="doc-prev-zoom-row" role="menuitem" @click="zoomTo100">
-                    <span>zoom to 100%</span><kbd>Ctrl+0</kbd>
+                    <span>zoom to 100%</span><kbd>{{ modKey }}+0</kbd>
                   </button>
                 </div>
               </div>
@@ -355,6 +355,8 @@ export default defineComponent({
   emits: ["close", "update:open"],
   setup(props, { emit }) {
     const currentIndex = ref(props.startIndex || 0);
+    const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const modKey = isMac ? "⌘" : "Ctrl";
     const kind = ref<Kind>("none");
     const format = ref<Format>("unknown");
     const kindLabel = ref("");
@@ -938,7 +940,7 @@ export default defineComponent({
       } else if ((e.ctrlKey || e.metaKey) && e.key === "0") {
         e.preventDefault();
         zoomTo100();
-      } else if (e.shiftKey && e.key === "1") {
+      } else if (e.shiftKey && e.code === "Digit1") {
         e.preventDefault();
         zoomToFit();
       }
@@ -1030,6 +1032,7 @@ export default defineComponent({
       zoomToFit,
       scrollToPage,
       scrollToOutline,
+      modKey,
     };
   },
 });

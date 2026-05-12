@@ -226,7 +226,7 @@ export class LayoutService implements ILayoutService {
       colNum: layout.colNum,
       verticalCompact: layout.verticalCompact,
       // Safety net: strip any blob: URLs that weren't already resolved
-      tiles: stripBlobUrls(layout.tiles as unknown[]),
+      tiles: stripBlobUrlsFromTiles(layout.tiles as unknown[]),
       backgroundImageSrc: layout.backgroundImageSrc,
       backgroundEmbed: layout.backgroundEmbed,
       backgroundColor: layout.backgroundColor ?? "",

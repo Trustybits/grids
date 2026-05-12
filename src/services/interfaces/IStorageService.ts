@@ -12,7 +12,7 @@ export interface IStorageService {
   validateFile(
     file: File,
     options: UploadOptions,
-  ): { isImage: boolean; isVideo: boolean };
+  ): { isImage: boolean; isVideo: boolean; isDocument: boolean };
 
   /** Upload a file in one shot and return the permanent download URL. */
   upload(userId: string, file: File, options?: UploadOptions, metadata?: StorageUploadMetadata): Promise<string>;
@@ -22,6 +22,9 @@ export interface IStorageService {
 
   /** Fetch an external image URL, upload a copy to storage, and return our permanent URL. */
   uploadExternalImage(userId: string, externalUrl: string, folder?: string): Promise<string>;
+
+  /** Download the raw bytes of a file from its public URL. */
+  getBytes(url: string): Promise<Uint8Array>;
 
   /** Fetch the permanent download URL for an existing object. */
   getDownloadUrl(path: string): Promise<string>;

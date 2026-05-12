@@ -1,6 +1,6 @@
 {
   "name": "grids",
-  "version": "0.19.3",
+  "version": "0.20.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -39,8 +39,12 @@
     "@tiptap/starter-kit": "^2.27.1",
     "@tiptap/vue-3": "^2.27.1",
     "bootstrap": "^5.3.3",
+    "docx-preview": "^0.3.7",
+    "dompurify": "^3.4.2",
     "firebase": "^11.1.0",
     "mapbox-gl": "^3.4.0",
+    "marked": "^18.0.3",
+    "pdfjs-dist": "^5.7.284",
     "pinia": "^2.2.8",
     "posthog-js": "^1.331.0",
     "puppeteer-core": "^24.41.0",
@@ -54,6 +58,7 @@
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.0",
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^22.9.0",
     "@vercel/node": "^5.7.7",
     "@vitejs/plugin-vue": "^5.1.4",

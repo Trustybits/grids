@@ -71,7 +71,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { useLayoutStore } from '@/stores/layout';
-import SlugClaimModal from './SlugClaimModal.vue';
+import SlugClaimModal from './modal/SlugClaimModal.vue';
 import SuccessToast from './SuccessToast.vue';
 
 const layoutStore = useLayoutStore();

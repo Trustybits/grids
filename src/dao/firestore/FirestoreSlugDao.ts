@@ -1,6 +1,5 @@
 import { type Firestore, doc, getDoc } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { type Functions, httpsCallable } from "firebase/functions";
 import type {
   SlugAvailabilityResponse,
   SlugClaimResponse,
@@ -11,9 +10,11 @@ const COLLECTION = "slugs";
 
 export class FirestoreSlugDao implements SlugDao {
   private db: Firestore;
+  private functions: Functions;
 
-  public constructor(db: Firestore) {
+  public constructor(db: Firestore, functions: Functions) {
     this.db = db;
+    this.functions = functions;
   }
 
   public async getBySlug(
@@ -29,7 +30,7 @@ export class FirestoreSlugDao implements SlugDao {
     slug: string,
   ): Promise<SlugAvailabilityResponse> {
     const callable = httpsCallable<{ slug: string }, SlugAvailabilityResponse>(
-      functions,
+      this.functions,
       "checkSlugAvailability",
     );
     const result = await callable({ slug });
@@ -38,7 +39,7 @@ export class FirestoreSlugDao implements SlugDao {
 
   public async claim(slug: string): Promise<SlugClaimResponse> {
     const callable = httpsCallable<{ slug: string }, SlugClaimResponse>(
-      functions,
+      this.functions,
       "claimSlug",
     );
     const result = await callable({ slug });
@@ -51,7 +52,7 @@ export class FirestoreSlugDao implements SlugDao {
     const callable = httpsCallable<
       { gridId: string | null },
       { success: boolean }
-    >(functions, "updateDefaultGrid");
+    >(this.functions, "updateDefaultGrid");
     const result = await callable({ gridId });
     return result.data;
   }

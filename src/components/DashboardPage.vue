@@ -56,17 +56,38 @@
       </div>
     </div>
 
-    <CreateGridModal
+    <PromptModal
       :show="showCreateModal"
+      title="Create New Grid"
+      placeholder="Enter grid name..."
+      confirm-label="Create Grid"
+      variant="primary"
       @close="closeModal"
-      @create="handleCreateGrid"
+      @confirm="handleCreateGrid"
     />
 
-    <RenameGridModal
+    <PromptModal
       :show="showRenameModal"
-      :current-name="gridToRename?.name || ''"
+      title="Rename Grid"
+      placeholder="Enter new grid name..."
+      :initial-value="gridToRename?.name || ''"
+      :select-on-open="true"
+      confirm-label="Rename"
+      variant="primary"
       @close="closeRenameModal"
-      @rename="handleRenameGrid"
+      @confirm="handleRenameGrid"
+    />
+
+    <PromptModal
+      :show="showDeleteModal"
+      :title="`Delete ${gridToDelete?.name || ''}`"
+      :description='`Enter "${gridToDelete?.name || ""}" exactly to confirm deletion.`'
+      :placeholder="gridToDelete?.name || ''"
+      :require-match="gridToDelete?.name || ''"
+      confirm-label="Delete"
+      variant="danger"
+      @close="closeDeleteModal"
+      @confirm="handleDeleteGrid"
     />
   </div>
 </template>
@@ -83,8 +104,7 @@ const userService = getServiceFactory().getUserService();
 import { valueToMillis } from "@/utils/TimeConversion";
 import type { Layout } from "@/types/Layout";
 import type { CopyDepth } from "@/types/Layout";
-import CreateGridModal from "./CreateGridModal.vue";
-import RenameGridModal from "./RenameGridModal.vue";
+import PromptModal from "./modal/PromptModal.vue";
 import DashboardGridCard from "./dashboard/DashboardGridCard.vue";
 
 const layoutStore = useLayoutStore();
@@ -98,7 +118,9 @@ const isLoading = computed(() => layoutStore.isLoading);
 
 const showCreateModal = ref(false);
 const showRenameModal = ref(false);
+const showDeleteModal = ref(false);
 const gridToRename = ref<Layout | null>(null);
+const gridToDelete = ref<Layout | null>(null);
 const defaultGridId = ref<string | null>(null);
 const starredLayoutIds = ref<string[]>([]);
 const draggedStarId = ref<string | null>(null);
@@ -344,11 +366,20 @@ const persistStarredAfterDelete = async (deletedId: string) => {
   }
 };
 
-const confirmDeleteGrid = async (layout: Layout) => {
-  const confirmed = confirm(
-    `Are you sure you want to delete "${layout.name}"? This action cannot be undone.`,
-  );
-  if (!confirmed) return;
+const confirmDeleteGrid = (layout: Layout) => {
+  splitMenuOpenFor.value = null;
+  gridToDelete.value = layout;
+  showDeleteModal.value = true;
+};
+
+const closeDeleteModal = () => {
+  showDeleteModal.value = false;
+  gridToDelete.value = null;
+};
+
+const handleDeleteGrid = async () => {
+  if (!gridToDelete.value) return;
+  const layout = gridToDelete.value;
 
   try {
     await layoutStore.deleteLayout(layout.id);
@@ -361,6 +392,7 @@ const confirmDeleteGrid = async (layout: Layout) => {
         defaultGridId.value = null;
       }
     }
+    closeDeleteModal();
   } catch (error) {
     console.error("Error deleting grid:", error);
     alert("Failed to delete grid. Please try again.");

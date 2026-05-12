@@ -40,59 +40,35 @@
       </MenuSection>
 
       <!-- Breakpoint Layout -->
-      <MenuSection v-if="isOwner && layoutStore.activeBreakpoint !== 'lg'">
-        <div class="breakpoint-section">
-          <span class="breakpoint-label">
-            {{
-              layoutStore.activeBreakpoint === "sm" ? "Mobile" : "Tablet"
-            }}
-            Layout
-          </span>
-          <MenuItem v-if="!hasOverride" @click="saveBreakpoint">
-            Save
-            {{
-              layoutStore.activeBreakpoint === "sm" ? "Mobile" : "Tablet"
-            }}
-            Layout
-          </MenuItem>
-          <template v-else>
-            <MenuItem @click="saveBreakpoint"> Update Layout </MenuItem>
-            <MenuItem danger @click="resetBreakpoint"> Reset to Auto </MenuItem>
-          </template>
-        </div>
-      </MenuSection>
-      <Divider v-if="isOwner && layoutStore.activeBreakpoint !== 'lg'" />
+      <template v-if="isOwner && layoutStore.activeBreakpoint !== 'lg'">
+        <MenuSection>
+          <div class="breakpoint-section">
+            <span class="breakpoint-label">{{ breakpointLabel }} Layout</span>
+            <MenuItem v-if="!hasOverride" @click="saveBreakpoint">
+              Save {{ breakpointLabel }} Layout
+            </MenuItem>
+            <template v-else>
+              <MenuItem @click="saveBreakpoint"> Update Layout </MenuItem>
+              <MenuItem danger @click="resetBreakpoint"> Reset to Auto </MenuItem>
+            </template>
+          </div>
+        </MenuSection>
+        <Divider />
+      </template>
 
       <!-- Owner Actions -->
       <MenuSection v-if="isOwner">
-        <!-- Background image / color split button -->
-        <div class="ghost-split-button">
-          <button class="ghost-split-main" @click="triggerBackgroundImagePicker">
+        <GhostSplitButton
+          ref="bgSplitRef"
+          :open="showBgDropdown"
+          @update:open="showBgDropdown = $event"
+          @main-click="triggerBackgroundImagePicker"
+        >
+          <template #main>
             {{ hasBackgroundImage ? 'Change Background Image' : 'Add Background Image' }}
             <span class="beta-badge">BETA</span>
-          </button>
-          <button
-            class="ghost-split-chevron"
-            ref="bgChevronRef"
-            @click.stop="showBgDropdown = !showBgDropdown"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M6 9l6 6 6-6"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
-          <div v-if="showBgDropdown" class="ghost-split-dropdown">
+          </template>
+          <template #dropdown>
             <button
               class="ghost-split-dropdown-item"
               @click="openBgColorPicker"
@@ -113,8 +89,8 @@
             >
               Remove Background Color
             </button>
-          </div>
-        </div>
+          </template>
+        </GhostSplitButton>
 
         <input
           type="file"
@@ -126,47 +102,25 @@
 
         <ColorPicker
           v-if="showBgColorPicker"
-          :buttonEl="bgChevronRef"
+          :buttonEl="bgChevronEl"
           :onColorChange="handleBackgroundColorChange"
         />
 
-        <!--
-          Ghost split button: main area triggers a full duplicate,
-          chevron reveals a "Structure Only" alternative.
-        -->
-        <div class="ghost-split-button">
-          <button class="ghost-split-main" @click="duplicateGrid('full')">
-            Duplicate Grid
-          </button>
-          <button
-            class="ghost-split-chevron"
-            @click.stop="showDuplicateDropdown = !showDuplicateDropdown"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M6 9l6 6 6-6"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
-          <div v-if="showDuplicateDropdown" class="ghost-split-dropdown">
+        <GhostSplitButton
+          :open="showDuplicateDropdown"
+          @update:open="showDuplicateDropdown = $event"
+          @main-click="duplicateGrid('full')"
+        >
+          <template #main>Duplicate Grid</template>
+          <template #dropdown>
             <button
               class="ghost-split-dropdown-item"
               @click="duplicateGrid('structure')"
             >
               Structure Only
             </button>
-          </div>
-        </div>
+          </template>
+        </GhostSplitButton>
         <MenuItem danger @click="confirmDelete"> Delete Grid </MenuItem>
       </MenuSection>
 
@@ -190,11 +144,23 @@
         </Accordion>
       </MenuSection>
     </div>
+
+    <PromptModal
+      :show="showDeleteModal"
+      :title="`Delete ${currentLayoutName}`"
+      :description='`Enter "${currentLayoutName}" exactly to confirm deletion.`'
+      :placeholder="currentLayoutName"
+      :require-match="currentLayoutName"
+      confirm-label="Delete"
+      variant="danger"
+      @close="showDeleteModal = false"
+      @confirm="deleteGrid"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useLayoutStore } from "@/stores/layout";
@@ -208,7 +174,9 @@ import Accordion from "./Accordion.vue";
 import MenuSection from "./MenuSection.vue";
 import Divider from "./Divider.vue";
 import GridMenuIcon from "./icons/GridMenuIcon.vue";
+import GhostSplitButton from "./GhostSplitButton.vue";
 import ColorPicker from "./ColorPicker.vue";
+import PromptModal from "./modal/PromptModal.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 
 const router = useRouter();
@@ -222,8 +190,10 @@ const showDuplicateDropdown = ref(false);
 const menuRef = ref<HTMLElement | null>(null);
 const showBgDropdown = ref(false);
 const showBgColorPicker = ref(false);
+const showDeleteModal = ref(false);
 const bgImageInput = ref<HTMLInputElement | null>(null);
-const bgChevronRef = ref<HTMLElement | null>(null);
+const bgSplitRef = ref<InstanceType<typeof GhostSplitButton> | null>(null);
+const bgChevronEl = computed(() => bgSplitRef.value?.chevronRef ?? null);
 const { uploadFileToUrl } = useFileUpload();
 
 const isOwner = computed(() => {
@@ -244,6 +214,10 @@ const hasBackgroundColor = computed(() => {
   return !!layoutStore.currentLayout?.backgroundColor;
 });
 
+const currentLayoutName = computed(() => {
+  return layoutStore.currentLayout?.name?.trim() || "Untitled Grid";
+});
+
 // Computed property with setter to handle gravity toggle
 const verticalCompact = computed({
   get: () => layoutStore.verticalCompact,
@@ -260,16 +234,39 @@ const isDarkMode = computed({
   },
 });
 
+watch(showBgDropdown, (open) => {
+  if (open) {
+    showBgColorPicker.value = false;
+    showDuplicateDropdown.value = false;
+  }
+});
+watch(showBgColorPicker, (open) => {
+  if (open) {
+    showBgDropdown.value = false;
+    showDuplicateDropdown.value = false;
+  }
+});
+watch(showDuplicateDropdown, (open) => {
+  if (open) {
+    showBgDropdown.value = false;
+    showBgColorPicker.value = false;
+  }
+});
+
 const toggleMenu = () => {
   showMenu.value = !showMenu.value;
 };
 
-// Click outside to close menu
+const closeMenu = () => {
+  showMenu.value = false;
+  showBgDropdown.value = false;
+  showBgColorPicker.value = false;
+  showDuplicateDropdown.value = false;
+};
+
 const handleClickOutside = (event: MouseEvent) => {
   if (menuRef.value && !menuRef.value.contains(event.target as Node)) {
-    showMenu.value = false;
-    showBgDropdown.value = false;
-    showBgColorPicker.value = false;
+    closeMenu();
   }
 };
 
@@ -285,6 +282,10 @@ const hasOverride = computed(() => {
   return layoutStore.hasBreakpointOverride(layoutStore.activeBreakpoint);
 });
 
+const breakpointLabel = computed(() =>
+  layoutStore.activeBreakpoint === "sm" ? "Mobile" : "Tablet",
+);
+
 const saveBreakpoint = () => {
   const bp = layoutStore.activeBreakpoint;
   if (bp === "lg") return;
@@ -296,11 +297,8 @@ const saveBreakpoint = () => {
   if (!positions.length) return;
 
   layoutStore.saveBreakpointPositions(bp, positions);
-  toastStore.addToast(
-    `${bp === "sm" ? "Mobile" : "Tablet"} layout saved`,
-    "success",
-  );
-  showMenu.value = false;
+  toastStore.addToast(`${breakpointLabel.value} layout saved`, "success");
+  closeMenu();
 };
 
 const resetBreakpoint = () => {
@@ -308,10 +306,10 @@ const resetBreakpoint = () => {
   if (bp === "lg") return;
   layoutStore.resetBreakpoint(bp);
   toastStore.addToast(
-    `${bp === "sm" ? "Mobile" : "Tablet"} layout reset to auto`,
+    `${breakpointLabel.value} layout reset to auto`,
     "success",
   );
-  showMenu.value = false;
+  closeMenu();
 };
 
 // Computed property with setter to handle the public duplication toggle
@@ -329,22 +327,25 @@ const duplicateGrid = async (copyDepth: CopyDepth = "full") => {
     layoutStore.currentLayout,
     copyDepth,
   );
-  showDuplicateDropdown.value = false;
-  showMenu.value = false;
+  closeMenu();
   if (newId) {
     router.push(`/grid/${newId}`);
   }
 };
 
+const confirmDelete = () => {
+  if (!layoutStore.isOwner || !layoutStore.currentLayout) return;
+  showDeleteModal.value = true;
+  closeMenu();
+};
+
 // Handle grid deletion directly — no need to bubble up through parent components
-const confirmDelete = async () => {
+const deleteGrid = async () => {
   if (!layoutStore.isOwner || !layoutStore.currentLayout) return;
 
-  const confirmed = confirm("Are you sure you want to delete this layout?");
-  if (!confirmed) return;
-
   await layoutStore.deleteLayout(layoutStore.currentLayout.id);
-  showMenu.value = false;
+  showDeleteModal.value = false;
+  closeMenu();
   router.push("/dashboard");
 };
 
@@ -396,13 +397,13 @@ const shareGrid = async () => {
   } catch {
     toastStore.addToast("Failed to copy link", "error");
   }
-  showMenu.value = false;
+  closeMenu();
 };
 
 // Launch the Pixel Racers game
 const launchPixelRacers = () => {
   gameStore.startGame();
-  showMenu.value = false;
+  closeMenu();
 };
 </script>
 
@@ -515,98 +516,6 @@ const launchPixelRacers = () => {
   color: var(--color-content-low);
   padding: var(--spacing-xs) var(--spacing-sm);
   font-weight: 500;
-}
-
-/* ── Ghost split button ─────────────────────────────────────────────
-   A borderless split button that blends into the menu. The main area
-   acts like a regular MenuItem; the chevron reveals alternatives.    */
-.ghost-split-button {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  width: 100%;
-  border-radius: var(--radius-sm);
-}
-
-.ghost-split-main {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  padding: var(--spacing-sm);
-  background: transparent;
-  border: none;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  font-family: var(--font-family-base);
-  font-size: var(--font-size-md);
-  line-height: 1.5;
-  min-height: 40px;
-  min-width: 240px;
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-  transition: background-color var(--duration-fast) var(--easing-smooth);
-
-  &:hover {
-    background-color: var(--color-input-edit);
-  }
-}
-
-.ghost-split-chevron {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-left: 1px solid var(--color-tile-stroke);
-  color: var(--color-content-low);
-  cursor: pointer;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  transition:
-    background-color var(--duration-fast) var(--easing-smooth),
-    color var(--duration-fast) var(--easing-smooth);
-
-  &:hover {
-    background-color: var(--color-input-edit);
-    color: var(--color-text-primary);
-  }
-}
-
-.ghost-split-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
-  background: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-lg);
-  z-index: 10;
-  min-width: 140px;
-  padding: 4px;
-}
-
-.ghost-split-dropdown-item {
-  display: block;
-  width: 100%;
-  padding: 6px 10px;
-  text-align: left;
-  background: none;
-  border: none;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  font-family: var(--font-family-base);
-  border-radius: var(--radius-xs);
-  cursor: pointer;
-  white-space: nowrap;
-
-  &:hover {
-    background: var(--color-input-edit);
-  }
-
-  &--danger {
-    color: var(--color-red);
-  }
 }
 
 .beta-badge {

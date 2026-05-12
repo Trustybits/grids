@@ -156,10 +156,15 @@
       >Delete Table</button>
     </div>
   </Teleport>
-  <AddLinkModal
+  <FloatingInputModal
     :show="showLinkModal"
+    placeholder="Type or paste a link..."
+    inputmode="url"
+    :validate="isValidLink"
+    submit-title="Add link (Enter)"
+    invalid-title="Enter a valid URL"
     @close="closeLinkModal"
-    @add="handleAddLink"
+    @submit="handleAddLink"
   />
 </template>
 
@@ -193,7 +198,8 @@ import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import { useLayoutStore } from "@/stores/layout";
-import AddLinkModal from "../AddLinkModal.vue";
+import FloatingInputModal from "../modal/FloatingInputModal.vue";
+import { isValidLink } from "@/utils/UrlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import type { SmartTextContent } from "@/types/TileContent";
 import { useTileLink } from "@/composables/useTileLink";
@@ -229,7 +235,7 @@ type SlashCommand = {
 export default defineComponent({
   components: {
     EditorContent,
-    AddLinkModal,
+    FloatingInputModal,
     LinkIndicatorIcon,
   },
   emits: ["background-color-change", "text-color-change"],
@@ -912,6 +918,7 @@ export default defineComponent({
       shouldShowOverflow,
       isEditing,
       textContentDiv,
+      isValidLink,
       showLinkModal,
       isTallOneWide,
       isOneByOne,

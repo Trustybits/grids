@@ -56,24 +56,38 @@
       </div>
     </div>
 
-    <CreateGridModal
+    <PromptModal
       :show="showCreateModal"
+      title="Create New Grid"
+      placeholder="Enter grid name..."
+      confirm-label="Create Grid"
+      variant="primary"
       @close="closeModal"
-      @create="handleCreateGrid"
+      @confirm="handleCreateGrid"
     />
 
-    <RenameGridModal
+    <PromptModal
       :show="showRenameModal"
-      :current-name="gridToRename?.name || ''"
+      title="Rename Grid"
+      placeholder="Enter new grid name..."
+      :initial-value="gridToRename?.name || ''"
+      :select-on-open="true"
+      confirm-label="Rename"
+      variant="primary"
       @close="closeRenameModal"
-      @rename="handleRenameGrid"
+      @confirm="handleRenameGrid"
     />
 
-    <DeleteGridModal
+    <PromptModal
       :show="showDeleteModal"
-      :layoutName="gridToDelete?.name || ''"
+      :title="`Delete ${gridToDelete?.name || ''}`"
+      :description='`Enter "${gridToDelete?.name || ""}" exactly to confirm deletion.`'
+      :placeholder="gridToDelete?.name || ''"
+      :require-match="gridToDelete?.name || ''"
+      confirm-label="Delete"
+      variant="danger"
       @close="closeDeleteModal"
-      @delete="handleDeleteGrid"
+      @confirm="handleDeleteGrid"
     />
   </div>
 </template>
@@ -90,9 +104,7 @@ const userService = getServiceFactory().getUserService();
 import { valueToMillis } from "@/utils/TimeConversion";
 import type { Layout } from "@/types/Layout";
 import type { CopyDepth } from "@/types/Layout";
-import CreateGridModal from "./CreateGridModal.vue";
-import DeleteGridModal from "./DeleteGridModal.vue";
-import RenameGridModal from "./RenameGridModal.vue";
+import PromptModal from "./modal/PromptModal.vue";
 import DashboardGridCard from "./dashboard/DashboardGridCard.vue";
 
 const layoutStore = useLayoutStore();

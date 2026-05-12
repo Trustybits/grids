@@ -145,11 +145,16 @@
       </MenuSection>
     </div>
 
-    <DeleteGridModal
+    <PromptModal
       :show="showDeleteModal"
-      :layoutName="currentLayoutName"
+      :title="`Delete ${currentLayoutName}`"
+      :description='`Enter "${currentLayoutName}" exactly to confirm deletion.`'
+      :placeholder="currentLayoutName"
+      :require-match="currentLayoutName"
+      confirm-label="Delete"
+      variant="danger"
       @close="showDeleteModal = false"
-      @delete="deleteGrid"
+      @confirm="deleteGrid"
     />
   </div>
 </template>
@@ -171,7 +176,7 @@ import Divider from "./Divider.vue";
 import GridMenuIcon from "./icons/GridMenuIcon.vue";
 import GhostSplitButton from "./GhostSplitButton.vue";
 import ColorPicker from "./ColorPicker.vue";
-import DeleteGridModal from "./DeleteGridModal.vue";
+import PromptModal from "./modal/PromptModal.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 
 const router = useRouter();

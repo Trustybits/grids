@@ -88,21 +88,37 @@
     </div>
 
     <!-- Modals -->
-    <AddLinkModal
+    <FloatingInputModal
       :show="showLinkModal"
+      placeholder="Type or paste a link..."
+      inputmode="url"
+      :validate="isValidLink"
+      submit-title="Add link (Enter)"
+      invalid-title="Enter a valid URL"
       @close="closeLinkModal"
-      @add="handleAddLink"
+      @submit="handleAddLink"
     />
-    <AddEmbedModal
+    <FloatingInputModal
       :show="showEmbedModal"
+      placeholder="Paste a URL or embed code (YouTube, Spotify, Apple Music...)"
+      :validate="isValidEmbed"
+      submit-title="Add embed (Enter)"
+      invalid-title="Enter a valid URL"
       @close="closeEmbedModal"
-      @add="handleAddEmbed"
+      @submit="handleAddEmbed"
     />
-    <AddMapModal
+    <FloatingInputModal
       :show="showMapModal"
+      placeholder="Enter a location (optional)"
+      :allow-empty="true"
+      submit-title="Add map (Enter)"
       @close="closeMapModal"
-      @add="handleAddMap"
-    />
+      @submit="handleAddMap"
+    >
+      <template #hint>
+        <p class="map-hint">Leave blank to use your current location.</p>
+      </template>
+    </FloatingInputModal>
   </div>
 </template>
 
@@ -116,9 +132,8 @@ import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 import { useTileInput } from "@/composables/useTileInput";
-import AddLinkModal from "./AddLinkModal.vue";
-import AddEmbedModal from "./AddEmbedModal.vue";
-import AddMapModal from "./AddMapModal.vue";
+import FloatingInputModal from "./modal/FloatingInputModal.vue";
+import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
 import TextLegacyIcon from "./icons/appbar/TextLegacyIcon.vue";
 import AppBarTextIcon from "./icons/appbar/TextIcon.vue";
 import ChatIcon from "./icons/ChatIcon.vue";
@@ -131,9 +146,7 @@ import CampfireIcon from "./icons/CampfireIcon.vue";
 
 export default {
   components: {
-    AddLinkModal,
-    AddEmbedModal,
-    AddMapModal,
+    FloatingInputModal,
     TextLegacyIcon,
     AppBarTextIcon,
     ChatIcon,
@@ -286,6 +299,8 @@ export default {
     };
 
     return {
+      isValidLink,
+      isValidEmbed,
       imageInput,
       layoutStore,
       smartTextEnabled,
@@ -318,6 +333,14 @@ export default {
 </script>
 
 <style>
+.map-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-content-default);
+  width: 100%;
+  text-align: center;
+}
+
 #toolbarArea {
   display: flex;
   flex-direction: row;

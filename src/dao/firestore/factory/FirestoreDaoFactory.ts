@@ -1,4 +1,5 @@
 import { db, functions, storage } from "@/firebase";
+import type { BadgeDao } from "@/dao/interfaces/BadgeDao";
 import type { ChatDao } from "@/dao/interfaces/ChatDao";
 import type { CloudFunctionsDao } from "@/dao/interfaces/CloudFunctionsDao";
 import type { CustomerDao } from "@/dao/interfaces/CustomerDao";
@@ -12,6 +13,7 @@ import type { UserDao } from "@/dao/interfaces/UserDao";
 import type { UserGameDataDao } from "@/dao/interfaces/UserGameDataDao";
 import { FirebaseCloudFunctionsDao } from "../FirebaseCloudFunctionsDao";
 import { FirebaseStorageDao } from "../FirebaseStorageDao";
+import { FirestoreBadgeDao } from "../FirestoreBadgeDao";
 import { FirestoreChatDao } from "../FirestoreChatDao";
 import { FirestoreCustomerDao } from "../FirestoreCustomerDao";
 import { FirestoreLayoutDao } from "../FirestoreLayoutDao";
@@ -22,6 +24,7 @@ import { FirestoreUserDao } from "../FirestoreUserDao";
 import { FirestoreUserGameDataDao } from "../FirestoreUserGameDataDao";
 
 export class FirestoreDaoFactory implements DaoFactory {
+  private badgeDao: BadgeDao;
   private chatDao: ChatDao;
   private cloudFunctionsDao: CloudFunctionsDao;
   private customerDao: CustomerDao;
@@ -34,6 +37,7 @@ export class FirestoreDaoFactory implements DaoFactory {
   private userGameDataDao: UserGameDataDao;
 
   public constructor() {
+    this.badgeDao = new FirestoreBadgeDao(db);
     this.chatDao = new FirestoreChatDao(db);
     this.cloudFunctionsDao = new FirebaseCloudFunctionsDao(functions);
     this.customerDao = new FirestoreCustomerDao(db);
@@ -44,6 +48,10 @@ export class FirestoreDaoFactory implements DaoFactory {
     this.upvoteDao = new FirestoreUpvoteDao(db, functions);
     this.userDao = new FirestoreUserDao(db);
     this.userGameDataDao = new FirestoreUserGameDataDao(db);
+  }
+
+  public getBadgeDao(): BadgeDao {
+    return this.badgeDao;
   }
 
   public getChatDao(): ChatDao {

@@ -31,10 +31,14 @@ It is intentionally a project journal, not a generic setup checklist.
    - `/pricing` route now renders `HomePage` pricing section
    - Legacy standalone pricing component was removed
 
-4. **Billing state contract implemented (Option A)**
-   - Frontend now derives supporter entitlements from `customers/{uid}/payments`
-   - `useSubscription` aggregates succeeded payment amounts into `totalPaidCents`
-   - Supporter badge and amount thresholds are now computed from cumulative paid amount (not a manually-set user flag)
+4. **Billing state contract implemented (Option A → refactored)**
+   - Originally, a single `useSubscription` composable aggregated `customers/{uid}/payments` client-side to derive supporter status, tier, and `totalPaidCents` all in one place.
+   - **Refactored** into three focused modules:
+     - `useTier` — feature gating (free / community / pro), driven by auth state (+ future Stripe subscriptions)
+     - `useBadges` — reads the public `userBadges/{uid}` collection (server-authoritative, works for any visitor)
+     - `useContributions` — aggregates the owner's private `customers/{uid}/payments` for display on the pricing page
+   - Supporter badge is now granted **server-side** by the `grantSupporterBadgeOnPayment` Cloud Function trigger (writes to `userBadges/{uid}`), not computed client-side from payment sums.
+   - `useSubscription` has been deleted; all consumers migrated to the composables above.
 
 5. **User menu billing state section added**
    - User menu now shows `Free Account` + `Upgrade` (free users)
@@ -271,7 +275,7 @@ Billing contract (Option A) and user menu billing section are now implemented; t
 
 5. **Future migration option (Option B)**
    - Consider moving aggregation to a Firestore trigger that writes `totalPaidCents` to `users/{uid}`
-   - Keep `useSubscription` API stable while swapping data source implementation
+   - The former `useSubscription` composable has been replaced by `useTier`, `useBadges`, and `useContributions`; if this migration is pursued, only `useContributions` (the payment-sum reader) would need to change
 
 ---
 
@@ -279,6 +283,14 @@ Billing contract (Option A) and user menu billing section are now implemented; t
 
 - `src/components/HomePage.vue`
 - `src/composables/useStripeCheckout.ts`
+- `src/composables/useTier.ts` — feature gating (replaced tier logic from the former `useSubscription`)
+- `src/composables/useBadges.ts` — public badge display (replaced badge logic from the former `useSubscription`)
+- `src/composables/useContributions.ts` — private payment aggregation (replaced `totalPaidCents` from the former `useSubscription`)
+- `src/services/BadgeService.ts` / `src/services/interfaces/IBadgeService.ts`
+- `src/types/Badge.ts`
+- `functions/src/badges/grantSupporterBadge.ts` — Cloud Function trigger for Supporter badge
+- `functions/src/badges/constants.ts` — badge thresholds
+- `functions/src/scripts/grantBadge.ts` — admin CLI for manual badge grant/revoke/backfill
 - `src/services/StripeService.ts`
 - `src/dao/firestore/FirestoreCustomerDao.ts`
 - `firestore.rules`

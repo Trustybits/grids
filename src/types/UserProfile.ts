@@ -1,5 +1,8 @@
 /**
- * User profile data stored in the users collection
+ * User profile data stored in the users collection.
+ *
+ * Note: badges are NOT stored here. They live in the public `userBadges/{uid}`
+ * collection so visitors can see them on profile pages — see `@/types/Badge.ts`.
  */
 export interface UserProfile {
   email?: string;
@@ -11,8 +14,6 @@ export interface UserProfile {
   /** Dashboard favorites; order is preserved in the Starred section */
   starredLayoutIds?: string[];
   profilePhotoUrl?: string;
-  /** PWYW supporter badge (set via Stripe checkout or free-badge grant) */
-  hasSupporterBadge?: boolean;
 }
 
 /**

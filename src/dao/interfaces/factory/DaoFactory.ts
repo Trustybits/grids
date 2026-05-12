@@ -1,3 +1,4 @@
+import type { BadgeDao } from '../BadgeDao';
 import type { ChatDao } from '../ChatDao';
 import type { CloudFunctionsDao } from '../CloudFunctionsDao';
 import type { CustomerDao } from '../CustomerDao';
@@ -10,6 +11,7 @@ import type { UserDao } from '../UserDao';
 import type { UserGameDataDao } from '../UserGameDataDao';
 
 export interface DaoFactory {
+  getBadgeDao: () => BadgeDao;
   getChatDao: () => ChatDao;
   getCloudFunctionsDao: () => CloudFunctionsDao;
   getCustomerDao: () => CustomerDao;

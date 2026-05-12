@@ -1,3 +1,4 @@
+import type { BadgeDao } from "@/dao/interfaces/BadgeDao";
 import type { ChatDao } from "@/dao/interfaces/ChatDao";
 import type { CloudFunctionsDao } from "@/dao/interfaces/CloudFunctionsDao";
 import type { CustomerDao } from "@/dao/interfaces/CustomerDao";
@@ -9,6 +10,7 @@ import type { StorageDao } from "@/dao/interfaces/StorageDao";
 import type { UpvoteDao } from "@/dao/interfaces/UpvoteDao";
 import type { UserDao } from "@/dao/interfaces/UserDao";
 import type { UserGameDataDao } from "@/dao/interfaces/UserGameDataDao";
+import { StubbedBadgeDao } from "../StubbedBadgeDao";
 import { StubbedChatDao } from "../StubbedChatDao";
 import { StubbedCloudFunctionsDao } from "../StubbedCloudFunctionsDao";
 import { StubbedCustomerDao } from "../StubbedCustomerDao";
@@ -21,6 +23,7 @@ import { StubbedUserDao } from "../StubbedUserDao";
 import { StubbedUserGameDataDao } from "../StubbedUserGameDataDao";
 
 export class StubbedDaoFactory implements DaoFactory {
+  private badgeDao: BadgeDao;
   private chatDao: ChatDao;
   private cloudFunctionsDao: CloudFunctionsDao;
   private customerDao: CustomerDao;
@@ -33,6 +36,7 @@ export class StubbedDaoFactory implements DaoFactory {
   private userGameDataDao: UserGameDataDao;
 
   public constructor() {
+    this.badgeDao = new StubbedBadgeDao();
     this.chatDao = new StubbedChatDao();
     this.cloudFunctionsDao = new StubbedCloudFunctionsDao();
     this.customerDao = new StubbedCustomerDao();
@@ -43,6 +47,10 @@ export class StubbedDaoFactory implements DaoFactory {
     this.upvoteDao = new StubbedUpvoteDao();
     this.userDao = new StubbedUserDao();
     this.userGameDataDao = new StubbedUserGameDataDao();
+  }
+
+  public getBadgeDao(): BadgeDao {
+    return this.badgeDao;
   }
 
   public getChatDao(): ChatDao {

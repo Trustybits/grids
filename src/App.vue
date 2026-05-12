@@ -43,7 +43,8 @@ import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import type { AuthUser } from '@/auth/AuthProvider';
 import { usePostHog } from '@/composables/usePostHog';
-import { initSubscription } from '@/composables/useSubscription';
+import { initTier } from '@/composables/useTier';
+import { initContributions } from '@/composables/useContributions';
 
 const { identify, reset: resetPostHog } = usePostHog();
 
@@ -56,8 +57,11 @@ const previousUser = ref<AuthUser | null>(null);
 const isInitialLoad = ref(true);
 
 onMounted(() => {
-  // Boot global billing/subscription listeners once for the app session.
-  initSubscription();
+  // Boot global tier + contribution listeners once for the app session.
+  // (Badges are subscribed to per-component via useBadges since they're
+  // public and may be needed for visited profile pages, not just self.)
+  initTier();
+  initContributions();
 
   getAuthProvider().onAuthStateChanged(async (currentUser) => {
     // Track login for existing users (not new signups on page load)

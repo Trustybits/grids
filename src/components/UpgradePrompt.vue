@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { GatedFeature } from '@/composables/useSubscription'
+import type { GatedFeature } from '@/composables/useTier'
 
 const props = defineProps<{
   /** The feature that's locked — used to generate contextual copy */

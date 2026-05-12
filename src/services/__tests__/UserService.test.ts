@@ -37,6 +37,7 @@ beforeEach(() => {
   registerDaoFactory({
     getUserDao: () => mockUserDao as unknown as UserDao,
     getSlugDao: () => mockSlugDao as unknown as SlugDao,
+    getBadgeDao: () => null,
     getLayoutDao: () => null,
     getUserGameDataDao: () => null,
     getChatDao: () => null,
@@ -119,19 +120,6 @@ describe('recordLogin', () => {
       email: 'test@example.com',
       lastLogin: 'SERVER_TIMESTAMP',
     })
-  })
-})
-
-// ── grantSupporterBadge ──────────────────────────────────────────────────
-
-describe('grantSupporterBadge', () => {
-  it('updates hasSupporterBadge to true', async () => {
-    mockUserDao.update.mockResolvedValueOnce(undefined)
-
-    const service = new UserService()
-    await service.grantSupporterBadge('uid-abc')
-
-    expect(mockUserDao.update).toHaveBeenCalledWith('uid-abc', { hasSupporterBadge: true })
   })
 })
 

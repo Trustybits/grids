@@ -490,7 +490,9 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePageTitle } from '@/composables/usePageTitle';
-import { useSubscription } from '@/composables/useSubscription';
+import { useTier } from '@/composables/useTier';
+import { useBadges } from '@/composables/useBadges';
+import { useContributions } from '@/composables/useContributions';
 import { useStripeCheckout } from '@/composables/useStripeCheckout';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import type { AuthUser } from '@/auth/AuthProvider';
@@ -634,7 +636,11 @@ const templates = [
 ];
 
 // ── Pricing ────────────────────────────────────────────────────────────────
-const { tier, hasSupporterBadge, isProOrAbove, totalPaidCents } = useSubscription();
+const { tier, isProOrAbove } = useTier();
+const userId = computed(() => user.value?.uid ?? null);
+const { hasBadge } = useBadges(userId);
+const hasSupporterBadge = computed(() => hasBadge('supporter'));
+const { totalPaidCents } = useContributions();
 const checkout = useStripeCheckout();
 
 const billingInterval = ref<'month' | 'year'>('month');

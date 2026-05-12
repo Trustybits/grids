@@ -70,12 +70,13 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted } from "vue";
+import { computed, defineComponent, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@/auth/AuthProvider";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useSubscription } from "@/composables/useSubscription";
+import { useTier } from "@/composables/useTier";
+import { useBadges } from "@/composables/useBadges";
 import { useStripeCheckout } from "@/composables/useStripeCheckout";
 import SlugClaimModal from "./SlugClaimModal.vue";
 
@@ -86,9 +87,12 @@ export default defineComponent({
   },
   setup() {
     const router = useRouter();
-    const { hasSupporterBadge, isProOrAbove } = useSubscription();
-    const checkout = useStripeCheckout();
+    const { isProOrAbove } = useTier();
     const user = ref<AuthUser | null>(null);
+    const userId = computed(() => user.value?.uid ?? null);
+    const { hasBadge } = useBadges(userId);
+    const hasSupporterBadge = computed(() => hasBadge("supporter"));
+    const checkout = useStripeCheckout();
     const showUserMenu = ref(false);
     const showSlugModal = ref(false);
     const currentSlug = ref<string | undefined>(undefined);

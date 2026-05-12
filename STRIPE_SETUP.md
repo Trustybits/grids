@@ -98,26 +98,52 @@ firebase emulators:start --only firestore,auth,functions
 
 ---
 
-## Step 7 — Grant supporter badge on payment (webhook)
+## Step 7 — Grant the Supporter badge on payment
 
-When a user completes a PWYW supporter payment, you need to set `hasSupporterBadge: true` on their Firestore user doc. Add this Cloud Function to `functions/src/index.ts`:
+The Supporter badge is granted automatically by a Cloud Function trigger that
+listens to writes from the firestore-stripe-payments Extension. The function
+is already implemented at:
 
-```typescript
-// Triggered by the Stripe Extension when a one-time payment succeeds
-export const onSupporterPayment = functions.firestore
-  .document('customers/{uid}/payments/{paymentId}')
-  .onCreate(async (snap, context) => {
-    const payment = snap.data();
-    if (payment.status !== 'succeeded') return;
-    if (payment.metadata?.type !== 'supporter') return;
+- `functions/src/badges/grantSupporterBadge.ts` — trigger on `customers/{uid}/payments/{paymentId}`
+- `functions/src/badges/constants.ts` — threshold (default `$1.00`)
 
-    const uid = context.params.uid;
-    await admin.firestore().doc(`users/${uid}`).update({
-      hasSupporterBadge: true,
-    });
-    logger.info(`Granted supporter badge to ${uid}`);
-  });
+Behavior:
+
+1. Fires on every write to `customers/{uid}/payments/{paymentId}` (extension-managed)
+2. Ignores anything that isn't a succeeded payment
+3. Sums all succeeded payments for the user
+4. If total ≥ `SUPPORTER_BADGE_MIN_CENTS` and the user doesn't already have the
+   badge, writes `userBadges/{uid}.supporter = { earnedAt: serverTimestamp }`
+5. Idempotent — re-running never changes `earnedAt`
+
+Deploy with the rest of the functions:
+
+```bash
+cd functions
+npm run deploy
 ```
+
+For badges that aren't event-driven (Early Adopter, curated community badges,
+etc.), use the admin script instead:
+
+```bash
+cd functions
+
+# Grant a badge to specific UIDs
+npm run badge:grant -- grant earlyAdopter <uid1> [uid2 ...]
+
+# Backfill a badge to all users created before a date (uses Auth metadata)
+npm run badge:grant -- backfill earlyAdopter --before 2026-06-01
+
+# Revoke a badge
+npm run badge:grant -- revoke earlyAdopter <uid>
+
+# Add --dry-run to any of the above to preview without writing
+```
+
+The script requires `GOOGLE_APPLICATION_CREDENTIALS` to be set to a service
+account key JSON. See `functions/src/scripts/grantBadge.ts` for the full
+header docs.
 
 ---
 
@@ -141,11 +167,13 @@ We listen with onSnapshot, grab the URL
 window.location.assign(url) → Stripe-hosted checkout page
   ↓
 User pays → Stripe fires webhook → Extension writes to
-  customers/{uid}/subscriptions (status: 'active')
+  customers/{uid}/payments (status: 'succeeded')          [PWYW Supporter]
+  customers/{uid}/subscriptions (status: 'active')        [Pro — future]
   ↓
-useSubscription onSnapshot fires → tier updates to 'pro'
+grantSupporterBadgeOnPayment trigger fires →             [PWYW Supporter]
+  writes userBadges/{uid}.supporter = { earnedAt }
   ↓
-All can('pro_feature') checks return true automatically
+useBadges onSnapshot fires → badge appears in the UI
 ```
 
 ---
@@ -157,5 +185,6 @@ All can('pro_feature') checks return true automatically
 - [ ] Webhook endpoint active and receiving events in Stripe Dashboard
 - [ ] Both Price IDs set in Vercel environment variables
 - [ ] Tested full checkout flow in test mode
-- [ ] `hasSupporterBadge` Cloud Function deployed
+- [ ] `grantSupporterBadgeOnPayment` Cloud Function deployed
+- [ ] `userBadges/{userId}` rule deployed in `firestore.rules`
 - [ ] Switched Stripe keys from `sk_test_` / `pk_test_` to `sk_live_` / `pk_live_`

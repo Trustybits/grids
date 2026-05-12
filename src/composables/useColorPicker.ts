@@ -7,7 +7,7 @@ import type {
   ImageContent,
   VideoContent,
   LinkContent,
-  DocumentStackContent,
+  DocumentsContent,
 } from "@/types/TileContent";
 import { computed, watch, type ComputedRef } from "vue";
 
@@ -18,7 +18,7 @@ type ColorPickerContent =
   | ImageContent
   | VideoContent
   | LinkContent
-  | DocumentStackContent;
+  | DocumentsContent;
 
 export interface ColorPickerValues {
   backgroundColor: ComputedRef<string>;

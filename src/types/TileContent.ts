@@ -299,7 +299,7 @@ export interface DocumentItem {
   thumbnailUrl?: string;
 }
 
-export interface DocumentStackContent extends TileContent {
+export interface DocumentsContent extends TileContent {
   type: ContentType.DOCUMENT;
   items: DocumentItem[];
   backgroundColor?: string;
@@ -383,4 +383,4 @@ export type AnyTileContent =
   | YouTubeContent
   | RoadmapFeedContent
   | MusicContent
-  | DocumentStackContent;
+  | DocumentsContent;

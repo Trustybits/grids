@@ -1,6 +1,6 @@
 import { type Layout, type CopyDepth } from "@/types/Layout";
 import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
-import { ContentType, type AnyTileContent, type ChatContent, type DocumentStackContent, type SuggestionAction } from "@/types/TileContent";
+import { ContentType, type AnyTileContent, type ChatContent, type DocumentsContent, type SuggestionAction } from "@/types/TileContent";
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import { getDbUtils } from "@/dao/DbUtilsSingleton";
 import type { DbUtils } from "@/dao/interfaces/DbUtils";
@@ -525,7 +525,7 @@ export class LayoutService implements ILayoutService {
         }
       }
       if (content.type === ContentType.DOCUMENT) {
-        const doc = content as DocumentStackContent;
+        const doc = content as DocumentsContent;
         const itemMap = resolvedDocumentItemUrls[tile.i];
         if (doc.items?.length && itemMap && Object.keys(itemMap).length > 0) {
           const items = doc.items.map((item) => {
@@ -539,7 +539,7 @@ export class LayoutService implements ILayoutService {
             }
             return item;
           });
-          (tile.content as DocumentStackContent).items = items;
+          (tile.content as DocumentsContent).items = items;
         }
       }
       return tile;

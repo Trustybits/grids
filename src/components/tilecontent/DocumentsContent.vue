@@ -200,7 +200,7 @@ import {
   watch,
   type ComputedRef,
 } from "vue";
-import type { DocumentStackContent as DocumentStackContentType } from "@/types/TileContent";
+import type { DocumentsContent as DocumentsContentType } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import FileIcon from "@/components/icons/FileIcon.vue";
 import FolderIcon from "@/components/icons/FolderIcon.vue";
@@ -225,12 +225,12 @@ const ILLUSTRATION_BY_KIND: Record<string, string> = {
 const ILLUSTRATION_FALLBACK = "/illustrations/file-txt.png";
 
 export default defineComponent({
-  name: "DocumentStackContent",
+  name: "DocumentsContent",
   components: { FileIcon, FolderIcon, DocumentPreviewer, DocumentDetailsFields },
   emits: ["background-color-change", "text-color-change"],
   props: {
     content: {
-      type: Object as () => DocumentStackContentType,
+      type: Object as () => DocumentsContentType,
       required: true,
     },
     tileId: {
@@ -547,7 +547,7 @@ export default defineComponent({
       void ensureDocumentItemThumbnailOnServer(layoutId, props.tileId, p.id)
         .then((res) => {
           if (res.thumbnailUrl) {
-            layoutStore.patchDocumentStackItem(props.tileId, p.id, {
+            layoutStore.patchDocumentItem(props.tileId, p.id, {
               thumbnailUrl: res.thumbnailUrl,
             });
           }

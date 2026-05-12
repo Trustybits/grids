@@ -20,7 +20,7 @@ import {
   type MusicContent,
   type MusicPlatform,
   type AnyTileContent,
-  type DocumentStackContent,
+  type DocumentsContent,
 } from "@/types/TileContent";
 import { type Component, defineAsyncComponent, markRaw } from "vue";
 
@@ -569,8 +569,8 @@ export function createTileContent(
       } as MusicContent;
 
     case ContentType.DOCUMENT: {
-      const d = data as Partial<DocumentStackContent>;
-      const payload: DocumentStackContent = {
+      const d = data as Partial<DocumentsContent>;
+      const payload: DocumentsContent = {
         type,
         items: d.items ?? [],
       };
@@ -677,7 +677,7 @@ export function validateTileContent(content: TileContent): boolean {
     case ContentType.ROADMAP_FEED:
       return true;
     case ContentType.DOCUMENT: {
-      const doc = content as DocumentStackContent;
+      const doc = content as DocumentsContent;
       return (
         Array.isArray(doc.items) &&
         doc.items.length > 0 &&
@@ -795,7 +795,7 @@ export function getContentComponent(content: TileContent): Component | null {
     case ContentType.DOCUMENT:
       return markRaw(
         defineAsyncComponent(
-          () => import("@/components/tilecontent/DocumentStackContent.vue"),
+          () => import("@/components/tilecontent/DocumentsContent.vue"),
         ),
       );
     default:

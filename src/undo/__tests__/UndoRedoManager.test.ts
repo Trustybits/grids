@@ -3,7 +3,7 @@ import { UndoRedoManager } from "../UndoRedoManager";
 import type { Snapshot } from "../UndoTypes";
 import {
   ContentType,
-  type DocumentStackContent,
+  type DocumentsContent,
   type ImageContent,
   type LinkContent,
   type TileContent,
@@ -573,7 +573,7 @@ describe("UndoRedoManager", () => {
     });
 
     it("replaces a document stack item blob URL when documentItemId is passed", () => {
-      const docContent: DocumentStackContent = {
+      const docContent: DocumentsContent = {
         type: ContentType.DOCUMENT,
         items: [
           {
@@ -607,7 +607,7 @@ describe("UndoRedoManager", () => {
       );
 
       const peeked = undoRedoManager.peekAtUndo()!;
-      const items = (peeked.tiles[0].content as DocumentStackContent).items;
+      const items = (peeked.tiles[0].content as DocumentsContent).items;
       expect(items[0].url).toBe("https://storage.example.com/a.pdf");
     });
 

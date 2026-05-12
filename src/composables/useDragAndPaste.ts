@@ -21,7 +21,7 @@ interface LinkPreviewResponse {
 
 export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   const layoutStore = useLayoutStore();
-  const { uploadFileOptimistic, uploadDocumentStackOptimistic } =
+  const { uploadFileOptimistic, uploadDocumentsOptimistic } =
     useFileUpload();
   const isDraggingOver = ref(false);
   let dragCounter = 0;
@@ -67,7 +67,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
 
           try {
             if (classifyFileForUpload(file) === "document") {
-              await uploadDocumentStackOptimistic([file]);
+              await uploadDocumentsOptimistic([file]);
             } else {
               await uploadFileOptimistic(file);
             }
@@ -164,7 +164,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
       for (const group of groups) {
         if (group.kind === "document") {
           try {
-            await uploadDocumentStackOptimistic(group.files);
+            await uploadDocumentsOptimistic(group.files);
           } catch (error) {
             const errorMessage =
               error instanceof Error ? error.message : "Failed to upload file.";

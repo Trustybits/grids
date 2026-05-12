@@ -183,9 +183,9 @@ export function useFileUpload() {
   };
 
   /**
-   * Optimistic upload of one or more document files into a single document-stack tile.
+   * Optimistic upload of one or more document files into a single documents tile.
    */
-  const uploadDocumentStackOptimistic = async (
+  const uploadDocumentsOptimistic = async (
     files: File[],
   ): Promise<void> => {
     if (files.length === 0) return;
@@ -265,7 +265,7 @@ export function useFileUpload() {
             ensureDocumentItemThumbnailOnServer(layoutId, tileId, item.id)
               .then((res) => {
                 if (res.thumbnailUrl) {
-                  layoutStore.patchDocumentStackItem(tileId, item.id, {
+                  layoutStore.patchDocumentItem(tileId, item.id, {
                     thumbnailUrl: res.thumbnailUrl,
                   });
                 }
@@ -311,7 +311,7 @@ export function useFileUpload() {
     uploadFile,
     uploadFileToUrl,
     uploadFileOptimistic,
-    uploadDocumentStackOptimistic,
+    uploadDocumentsOptimistic,
     uploadFileOptimisticForTile,
     uploadExternalImageToStorage,
   };

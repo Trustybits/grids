@@ -1,5 +1,7 @@
 // Unit tests for LayoutService — all DAOs, DbUtils, and utility imports are mocked.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+// console.error / console.warn are spied on so error-path logging is silenced
+// during the test run and can be asserted on.
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { registerDaoFactory } from '@/dao/DaoFactorySingleton'
 import { registerDbUtils } from '@/dao/DbUtilsSingleton'
 import type { LayoutDao } from '@/dao/interfaces/LayoutDao'
@@ -65,6 +67,8 @@ vi.mock('@/utils/TileUtils', () => ({
 let mockLayoutDao: Record<string, ReturnType<typeof vi.fn>>
 let mockUserDao: Record<string, ReturnType<typeof vi.fn>>
 let mockDbUtils: Record<string, ReturnType<typeof vi.fn>>
+let consoleErrorSpy: ReturnType<typeof vi.spyOn>
+let consoleWarnSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   uuidCounter = 0
@@ -103,6 +107,14 @@ beforeEach(() => {
   } as unknown as DaoFactory)
 
   registerDbUtils(mockDbUtils as unknown as DbUtils)
+
+  consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+})
+
+afterEach(() => {
+  consoleErrorSpy.mockRestore()
+  consoleWarnSpy.mockRestore()
 })
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -167,6 +179,10 @@ describe('fetchLayout', () => {
     await expect(service.fetchLayout('missing')).rejects.toThrow(
       'Layout with ID missing does not exist'
     )
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error fetching layout with ID missing:',
+      expect.any(Error),
+    )
   })
 
   it('throws when the DAO throws', async () => {
@@ -174,6 +190,20 @@ describe('fetchLayout', () => {
 
     const service = await getService()
     await expect(service.fetchLayout('layout-1')).rejects.toThrow('DB error')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error fetching layout with ID layout-1:',
+      expect.any(Error),
+    )
+  })
+
+  it('does not log on the happy path', async () => {
+    mockLayoutDao.getById.mockResolvedValueOnce(makeLayout())
+
+    const service = await getService()
+    await service.fetchLayout('layout-1')
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
   })
 })
 
@@ -294,6 +324,10 @@ describe('saveLayout', () => {
 
     const service = await getService()
     await expect(service.saveLayout(makeLayout())).rejects.toThrow('Write error')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error saving layout with ID layout-1:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -334,6 +368,10 @@ describe('updateLayout', () => {
 
     const service = await getService()
     await expect(service.updateLayout(makeLayout())).rejects.toThrow('Update error')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error updating layout with ID layout-1:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -354,6 +392,10 @@ describe('deleteLayout', () => {
 
     const service = await getService()
     await expect(service.deleteLayout('layout-1')).rejects.toThrow('Delete error')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error deleting layout with ID layout-1:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -385,6 +427,10 @@ describe('fetchLayoutsByUserId', () => {
 
     const service = await getService()
     await expect(service.fetchLayoutsByUserId('user-1')).rejects.toThrow('Query error')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error fetching layouts for user user-1:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -443,6 +489,11 @@ describe('createLayout', () => {
 
     const service = await getService()
     await expect(service.createLayout('user-1', 'Grid')).rejects.toThrow('Save failed')
+    // saveLayout logs first, then createLayout logs its own message before rethrowing
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error creating layout:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -501,6 +552,10 @@ describe('duplicateLayout', () => {
 
     const service = await getService()
     await expect(service.duplicateLayout('user-2', source, [], {})).rejects.toThrow('Save failed')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error duplicating layout:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -522,6 +577,10 @@ describe('touchLastOpenedAt', () => {
     const service = await getService()
     // Should not throw
     await expect(service.touchLastOpenedAt('layout-1')).resolves.toBeUndefined()
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to update lastOpenedAt:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -593,6 +652,10 @@ describe('loadRecentLayoutIds', () => {
     const result = await service.loadRecentLayoutIds('user-1')
 
     expect(result).toEqual([])
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to load recent layouts:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -626,6 +689,10 @@ describe('saveRecentLayoutIds', () => {
 
     const service = await getService()
     await expect(service.saveRecentLayoutIds('user-1', ['a'])).resolves.toBeUndefined()
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to save recent layouts:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -830,5 +897,14 @@ describe('queueSave', () => {
 
     const service = await getService()
     await expect(service.queueSave(makeLayout())).resolves.toBeUndefined()
+    // saveLayout's catch logs first, then queueSave's catch logs its own message
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error saving layout with ID layout-1:',
+      expect.any(Error),
+    )
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to save layout.',
+      expect.any(Error),
+    )
   })
 })

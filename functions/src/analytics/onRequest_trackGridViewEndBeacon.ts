@@ -2,8 +2,8 @@ import * as admin from "firebase-admin";
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import { createHash } from "node:crypto";
-import { isSafeFirestoreDocId } from "./AnalyticsUtils";
-import { writeServerAnalyticsEvent } from "./writeServerEvent";
+import { isSafeFirestoreDocId } from "./utils_analytics";
+import { writeServerAnalyticsEvent } from "./utils_writeServerEvent";
 
 const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
@@ -246,10 +246,9 @@ export const trackGridViewEndBeacon = functions.https.onRequest(
         return;
       }
     } catch (error) {
-      logger.error(
-        "trackGridViewEndBeacon: failed to check session marker",
-        { error },
-      );
+      logger.error("trackGridViewEndBeacon: failed to check session marker", {
+        error,
+      });
       res.status(500).json({ error: "Failed to record event" });
       return;
     }

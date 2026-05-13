@@ -1,7 +1,7 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
-import { isSafeFirestoreDocId } from "./AnalyticsUtils";
+import { isSafeFirestoreDocId } from "./utils_analytics";
 
 const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
@@ -111,11 +111,7 @@ async function handleGridView(
 
   const batch = db.batch();
   batch.set(aggregateRef, viewDelta, { merge: true });
-  batch.set(
-    dailyRef,
-    { ...viewDelta, date },
-    { merge: true },
-  );
+  batch.set(dailyRef, { ...viewDelta, date }, { merge: true });
 
   // Business stats: count this view at the platform level too. (Optional —
   // omit if you'd rather keep businessStats focused on creator/owner actions.)
@@ -236,9 +232,7 @@ async function handleGridViewEnd(
       return;
     }
 
-    const expiresAt = Timestamp.fromMillis(
-      event.timestamp.toMillis() + TTL_MS,
-    );
+    const expiresAt = Timestamp.fromMillis(event.timestamp.toMillis() + TTL_MS);
     tx.set(sessionMarkerRef, {
       sessionId,
       durationMs,
@@ -246,8 +240,8 @@ async function handleGridViewEnd(
       expiresAt,
     });
 
-    const aggPrev = aggSnap.exists ? aggSnap.data() ?? {} : {};
-    const dailyPrev = dailySnap.exists ? dailySnap.data() ?? {} : {};
+    const aggPrev = aggSnap.exists ? (aggSnap.data() ?? {}) : {};
+    const dailyPrev = dailySnap.exists ? (dailySnap.data() ?? {}) : {};
 
     const aggTotalTime = (aggPrev.totalTimeSpentMs ?? 0) + durationMs;
     const aggSessions = (aggPrev.totalSessions ?? 0) + 1;
@@ -369,9 +363,7 @@ async function applyBusinessStats(
   delta: Record<string, unknown>,
 ): Promise<void> {
   const aggregateRef = db.collection("businessStats").doc("global");
-  const dailyRef = db
-    .collection("businessStats")
-    .doc(businessDailyId(date));
+  const dailyRef = db.collection("businessStats").doc(businessDailyId(date));
 
   const batch = db.batch();
   batch.set(aggregateRef, delta, { merge: true });

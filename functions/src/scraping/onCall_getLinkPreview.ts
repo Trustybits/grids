@@ -90,6 +90,7 @@ function pickFirst(...values: Array<string | undefined>): string | undefined {
   }
   return undefined;
 }
+
 export const getLinkPreview = onCall(async (data, context) => {
   if (!context.auth) {
     throw new HttpsError("unauthenticated", "You must be signed in to fetch link previews.");

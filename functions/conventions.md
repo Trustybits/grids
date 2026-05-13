@@ -15,7 +15,7 @@ These conventions apply to all folders and files within the `src/` folder.
 - Only 1 (one) Cloud Function per file. Files may contain multiple helper functions for the Cloud Function, but only 1 exported and deployed Cloud Function may be present per file
 - Prepend with `onCall` when functions are of the Callable type (use https.onCall specifically). Example: `onCall_claimSlug.ts`
 - Prepend with `onRequest` when functions are of the HTTP Request type (use https.onRequest specifically). Example: `onRequest_trackGridViewEndBeacon.ts`
-- Prepend with `onTrigger` when functions are of the Background Trigger type (uses any kind of Firebase invokation configuration). Example: `onTrigger_userLogin.ts`
+- Prepend with `onTrigger` when functions are of the Background Trigger type (uses any kind of Firebase invocation configuration). Example: `onTrigger_userLogin.ts`
 - Following the prepend, the name should describe what the function does
 
 **Other types of files follow these naming rules:**

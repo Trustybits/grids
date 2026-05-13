@@ -67,7 +67,7 @@ jobs:
         run: npm ci
 
       - name: Run Vitest
-        run: npm run test:run
+        run: npx vitest run
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v6
@@ -137,4 +137,27 @@ jobs:
         run: npm ci
 
       - name: Type check functions
-        run: npm run build
+        run: npm run type-check
+
+  # ── Functions Unit Tests ─────────────────────────────────────────────────
+  functions-test:
+    name: Functions Unit Tests
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install functions dependencies
+        run: npm ci
+
+      - name: Run Vitest
+        run: npm test

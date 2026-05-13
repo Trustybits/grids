@@ -181,6 +181,7 @@ import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
 import { useUndoRedoKeys } from "@/composables/useUndoRedoKeys";
+import { useAnalytics } from "@/composables/useAnalytics";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { computeTextColor } from "@/composables/useColorPicker";
 import type { ProfileBioContent } from "@/types/TileContent";
@@ -204,6 +205,7 @@ export default defineComponent({
     const layoutStore = useLayoutStore();
     const themeStore = useThemeStore();
     useUndoRedoKeys();
+    const { trackGridEnter } = useAnalytics();
     const rowHeight = 75;
     const imageInput = ref<HTMLInputElement | null>(null);
     const layoutContainer = ref<HTMLElement | null>(null);
@@ -351,6 +353,7 @@ export default defineComponent({
         setError(notFoundTitle, layoutStore.error ?? notFoundMessage);
         return false;
       }
+      trackGridEnter(layoutStore.currentLayout.id);
       return true;
     };
 

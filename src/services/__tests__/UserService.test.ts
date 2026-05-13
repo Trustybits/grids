@@ -20,6 +20,9 @@ let consoleErrorSpy: ReturnType<typeof vi.spyOn>
 let consoleWarnSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
+  // Suppress logged errors so the rethrow tests don't pollute test output.
+  consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
   mockUserDao = {
     getById: vi.fn(),
     save: vi.fn(),
@@ -59,6 +62,10 @@ beforeEach(() => {
 afterEach(() => {
   consoleErrorSpy.mockRestore()
   consoleWarnSpy.mockRestore()
+})
+
+afterEach(() => {
+  consoleErrorSpy.mockRestore()
 })
 
 // ── getUserProfile ────────────────────────────────────────────────────────

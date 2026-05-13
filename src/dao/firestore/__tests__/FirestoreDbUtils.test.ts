@@ -176,12 +176,14 @@ describe("FirestoreDbUtils", () => {
       const input: Record<string, unknown> = { x: undefined, y: 1 };
       utils.sanitizeValue(input);
       expect(input).toHaveProperty("x", undefined);
+      expect(input).toHaveProperty("y", 1);
     });
 
     it("does not mutate the original input array", () => {
       const input: unknown[] = [undefined, 1];
       utils.sanitizeValue(input);
       expect(input[0]).toBeUndefined();
+      expect(input[1]).toBe(1);
     });
   });
 

@@ -106,17 +106,11 @@ vi.mock("firebase-admin", () => {
       }
       const tx = {
         get: async (ref: { path: string }) => makeSnap(ref.path),
-        set: (
-          ref: { path: string },
-          data: Record<string, unknown>,
-        ) => {
+        set: (ref: { path: string }, data: Record<string, unknown>) => {
           firestoreState.setCalls.push({ path: ref.path, data });
           firestoreState.docs.set(ref.path, data);
         },
-        update: (
-          ref: { path: string },
-          data: Record<string, unknown>,
-        ) => {
+        update: (ref: { path: string }, data: Record<string, unknown>) => {
           firestoreState.updateCalls.push({ path: ref.path, data });
           firestoreState.docs.set(ref.path, {
             ...(firestoreState.docs.get(ref.path) ?? {}),
@@ -148,7 +142,7 @@ vi.mock("firebase-functions/logger", () => ({
 }));
 
 // Import AFTER mocks. Cast to the raw onRequest handler shape.
-import { trackGridViewEndBeacon as handlerExport } from "../trackGridViewEndBeacon";
+import { trackGridViewEndBeacon as handlerExport } from "../onRequest_trackGridViewEndBeacon";
 const handler = handlerExport as unknown as (
   req: FakeReq,
   res: FakeRes,
@@ -273,7 +267,10 @@ describe("CORS and HTTP method handling", () => {
 
   it("rejects PUT with 405 Method not allowed", async () => {
     const res = makeRes();
-    await handler(makeReq("PUT", { layoutId: "l", sessionId: "s", durationMs: 1 }), res);
+    await handler(
+      makeReq("PUT", { layoutId: "l", sessionId: "s", durationMs: 1 }),
+      res,
+    );
     expect(res._statusCode).toBe(405);
     expect(firestoreState.addCalls).toHaveLength(0);
   });
@@ -373,66 +370,45 @@ describe("payload validation", () => {
 
   it("rejects when layoutId is missing", async () => {
     const res = makeRes();
-    await handler(
-      makeReq("POST", { sessionId: "s", durationMs: 1 }),
-      res,
-    );
+    await handler(makeReq("POST", { sessionId: "s", durationMs: 1 }), res);
     expect(res._statusCode).toBe(400);
     expect(firestoreState.addCalls).toHaveLength(0);
   });
 
   it("rejects when layoutId is an empty string", async () => {
     const res = makeRes();
-    await handler(
-      makeReq("POST", { ...valid, layoutId: "" }),
-      res,
-    );
+    await handler(makeReq("POST", { ...valid, layoutId: "" }), res);
     expect(res._statusCode).toBe(400);
   });
 
   it("rejects when layoutId is not a string", async () => {
     const res = makeRes();
-    await handler(
-      makeReq("POST", { ...valid, layoutId: 123 }),
-      res,
-    );
+    await handler(makeReq("POST", { ...valid, layoutId: 123 }), res);
     expect(res._statusCode).toBe(400);
   });
 
   it("rejects when layoutId is not safe for Firestore document paths", async () => {
     const res = makeRes();
-    await handler(
-      makeReq("POST", { ...valid, layoutId: "layouts/bad" }),
-      res,
-    );
+    await handler(makeReq("POST", { ...valid, layoutId: "layouts/bad" }), res);
     expect(res._statusCode).toBe(400);
     expect(firestoreState.addCalls).toHaveLength(0);
   });
 
   it("rejects when sessionId is missing", async () => {
     const res = makeRes();
-    await handler(
-      makeReq("POST", { layoutId: "l", durationMs: 1 }),
-      res,
-    );
+    await handler(makeReq("POST", { layoutId: "l", durationMs: 1 }), res);
     expect(res._statusCode).toBe(400);
   });
 
   it("rejects when sessionId is an empty string", async () => {
     const res = makeRes();
-    await handler(
-      makeReq("POST", { ...valid, sessionId: "" }),
-      res,
-    );
+    await handler(makeReq("POST", { ...valid, sessionId: "" }), res);
     expect(res._statusCode).toBe(400);
   });
 
   it("rejects when sessionId is not a string", async () => {
     const res = makeRes();
-    await handler(
-      makeReq("POST", { ...valid, sessionId: 42 }),
-      res,
-    );
+    await handler(makeReq("POST", { ...valid, sessionId: 42 }), res);
     expect(res._statusCode).toBe(400);
   });
 
@@ -450,10 +426,7 @@ describe("payload validation", () => {
     const tooLong = "a".repeat(129);
 
     const layoutRes = makeRes();
-    await handler(
-      makeReq("POST", { ...valid, layoutId: tooLong }),
-      layoutRes,
-    );
+    await handler(makeReq("POST", { ...valid, layoutId: tooLong }), layoutRes);
     expect(layoutRes._statusCode).toBe(400);
 
     const sessionRes = makeRes();
@@ -517,10 +490,7 @@ describe("payload validation", () => {
   describe("userId handling", () => {
     it("stores a non-empty string userId", async () => {
       const res = makeRes();
-      await handler(
-        makeReq("POST", { ...valid, userId: "user-123" }),
-        res,
-      );
+      await handler(makeReq("POST", { ...valid, userId: "user-123" }), res);
       expect(res._statusCode).toBe(204);
       expect(firestoreState.addCalls[0].data.userId).toBe("user-123");
     });

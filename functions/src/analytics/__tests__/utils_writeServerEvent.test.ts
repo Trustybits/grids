@@ -62,7 +62,7 @@ vi.mock("firebase-functions/logger", () => ({
   log: vi.fn(),
 }));
 
-import { writeServerAnalyticsEvent } from "../writeServerEvent";
+import { writeServerAnalyticsEvent } from "../utils_writeServerEvent";
 
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
 const FIXED_NOW = new Date("2026-05-08T00:00:00Z").getTime();

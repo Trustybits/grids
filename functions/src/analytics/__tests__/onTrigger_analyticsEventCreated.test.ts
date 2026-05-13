@@ -69,7 +69,7 @@ vi.mock("firebase-functions/logger", () => ({
 
 // Import AFTER mocks so the trigger picks them up. Cast to the raw handler
 // shape since our `onCreate` mock returns the function as-is.
-import { onAnalyticsEventCreated as triggerExport } from "../onAnalyticsEventCreated";
+import { onAnalyticsEventCreated as triggerExport } from "../onTrigger_analyticsEventCreated";
 const handler = triggerExport as unknown as (
   snap: { data: () => unknown },
   ctx: { params: { docId: string } },
@@ -81,7 +81,10 @@ interface DocRef {
   __isDocRef: true;
   path: string;
   collection: (name: string) => CollectionRef;
-  get: () => Promise<{ exists: boolean; data: () => Record<string, unknown> | undefined }>;
+  get: () => Promise<{
+    exists: boolean;
+    data: () => Record<string, unknown> | undefined;
+  }>;
 }
 interface CollectionRef {
   __isColRef: true;
@@ -357,7 +360,9 @@ describe("grid_view", () => {
 
   it("warns and writes nothing when layoutId is missing", async () => {
     await handler(snap(baseEvent({ layoutId: null })), ctx());
-    expect(logger.warn).toHaveBeenCalledWith("grid_view event missing layoutId");
+    expect(logger.warn).toHaveBeenCalledWith(
+      "grid_view event missing layoutId",
+    );
     expect(fake.ops).toHaveLength(0);
   });
 
@@ -456,7 +461,11 @@ describe("grid_view", () => {
     await handler(
       snap(
         baseEvent({
-          metadata: { sessionId: "s", viewerType: "robot", viewerFingerprint: "fp" },
+          metadata: {
+            sessionId: "s",
+            viewerType: "robot",
+            viewerFingerprint: "fp",
+          },
         }),
       ),
       ctx(),
@@ -483,7 +492,9 @@ describe("grid_view", () => {
       snap(baseEvent({ timestamp: fakeTimestamp("2026-05-07T23:30:00Z") })),
       ctx(),
     );
-    expect(fake.ops.find((o) => o.path === "gridStats/layout-1__2026-05-07")).toBeDefined();
+    expect(
+      fake.ops.find((o) => o.path === "gridStats/layout-1__2026-05-07"),
+    ).toBeDefined();
   });
 
   it("creates the lifetime fingerprint marker and increments uniqueViewers on aggregate + daily on first sight", async () => {
@@ -492,10 +503,9 @@ describe("grid_view", () => {
     // Single lifetime marker doc was set by the transaction. There is no
     // per-day marker subcollection — the daily uniqueViewers increment is
     // gated on the lifetime marker being newly created.
-    const markerAgg = findOps(
-      fake.ops,
-      "gridStats/layout-1/viewers/fp-1",
-    ).find((o) => o.via === "tx");
+    const markerAgg = findOps(fake.ops, "gridStats/layout-1/viewers/fp-1").find(
+      (o) => o.via === "tx",
+    );
     expect(markerAgg?.data).toEqual({
       firstSeenAt: { __op: "serverTimestamp" },
     });
@@ -518,10 +528,7 @@ describe("grid_view", () => {
       uniqueViewers: { __op: "increment", value: 1 },
     });
 
-    const uniqDaily = findOps(
-      fake.ops,
-      "gridStats/layout-1__2026-05-07",
-    ).find(
+    const uniqDaily = findOps(fake.ops, "gridStats/layout-1__2026-05-07").find(
       (o) =>
         o.via === "tx" &&
         (o.data as Record<string, unknown>).uniqueViewers !== undefined,
@@ -855,10 +862,7 @@ describe("grid_view_end: ownerId, gating, and atomicity (per spec §3.5)", () =>
 
   it("warns and writes nothing when sessionId is missing", async () => {
     fake.docs.set("layouts/layout-1", { userId: "owner-9" });
-    await handler(
-      snap(evt({ metadata: { durationMs: 5000 } })),
-      ctx(),
-    );
+    await handler(snap(evt({ metadata: { durationMs: 5000 } })), ctx());
     expect(logger.warn).toHaveBeenCalledWith(
       "grid_view_end event missing sessionId",
       expect.any(Object),
@@ -869,10 +873,10 @@ describe("grid_view_end: ownerId, gating, and atomicity (per spec §3.5)", () =>
 
   it("is idempotent: skips aggregation when the session marker already exists", async () => {
     fake.docs.set("layouts/layout-1", { userId: "owner-9" });
-    fake.docs.set(
-      "gridStats/layout-1/endedSessions/sess-1",
-      { sessionId: "sess-1", durationMs: 4000 },
-    );
+    fake.docs.set("gridStats/layout-1/endedSessions/sess-1", {
+      sessionId: "sess-1",
+      durationMs: 4000,
+    });
 
     await handler(
       snap(evt({ metadata: { sessionId: "sess-1", durationMs: 4000 } })),

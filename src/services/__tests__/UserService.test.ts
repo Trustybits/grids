@@ -1,5 +1,7 @@
 // Unit tests for UserService — all DAOs and DbUtils are mocked via singletons.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+// console.error / console.warn are spied on so error-path logging is silenced
+// during the test run and can be asserted on.
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { registerDaoFactory } from '@/dao/DaoFactorySingleton'
 import { registerDbUtils } from '@/dao/DbUtilsSingleton'
 import { UserService } from '@/services/UserService'
@@ -14,6 +16,8 @@ import type { UserProfile } from '@/types/UserProfile'
 let mockUserDao: Record<string, ReturnType<typeof vi.fn>>
 let mockSlugDao: Record<string, ReturnType<typeof vi.fn>>
 let mockDbUtils: Record<string, ReturnType<typeof vi.fn>>
+let consoleErrorSpy: ReturnType<typeof vi.spyOn>
+let consoleWarnSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   mockUserDao = {
@@ -47,6 +51,14 @@ beforeEach(() => {
   } as unknown as DaoFactory)
 
   registerDbUtils(mockDbUtils as unknown as DbUtils)
+
+  consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+})
+
+afterEach(() => {
+  consoleErrorSpy.mockRestore()
+  consoleWarnSpy.mockRestore()
 })
 
 // ── getUserProfile ────────────────────────────────────────────────────────
@@ -101,6 +113,20 @@ describe('getUserProfile', () => {
 
     const service = new UserService()
     await expect(service.getUserProfile('uid-abc')).rejects.toThrow('Database unavailable')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error fetching user profile:',
+      expect.any(Error),
+    )
+  })
+
+  it('does not log on the happy path', async () => {
+    mockUserDao.getById.mockResolvedValueOnce(null)
+
+    const service = new UserService()
+    await service.getUserProfile('uid-abc')
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
   })
 })
 
@@ -146,6 +172,10 @@ describe('updateUserProfile', () => {
     await expect(
       service.updateUserProfile('uid-abc', { email: 'new@example.com' })
     ).rejects.toThrow('Permission denied')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error updating user profile:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -182,6 +212,10 @@ describe('recordLogin', () => {
 
     const service = new UserService()
     await expect(service.recordLogin('uid-abc', 'a@b.com')).rejects.toThrow('Write failed')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to record login:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -202,6 +236,10 @@ describe('grantSupporterBadge', () => {
 
     const service = new UserService()
     await expect(service.grantSupporterBadge('uid-abc')).rejects.toThrow('Doc not found')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to grant supporter badge:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -249,6 +287,10 @@ describe('getUserIdBySlug', () => {
 
     const service = new UserService()
     await expect(service.getUserIdBySlug('testuser')).rejects.toThrow('Network error')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error fetching slug data:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -323,6 +365,10 @@ describe('getSlugData', () => {
 
     const service = new UserService()
     await expect(service.getSlugData('testuser')).rejects.toThrow('Firestore error')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error fetching slug data:',
+      expect.any(Error),
+    )
   })
 })
 
@@ -385,6 +431,10 @@ describe('checkSlugAvailability', () => {
 
     const service = new UserService()
     await expect(service.checkSlugAvailability('slug')).rejects.toThrow('Functions error')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error checking slug availability:',
+      expect.any(Error),
+    )
   })
 
   it('throws a generic message when the DAO rejects with a non-Error', async () => {
@@ -393,6 +443,10 @@ describe('checkSlugAvailability', () => {
     const service = new UserService()
     await expect(service.checkSlugAvailability('slug')).rejects.toThrow(
       'Failed to check slug availability'
+    )
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error checking slug availability:',
+      'string error',
     )
   })
 })
@@ -426,6 +480,10 @@ describe('claimSlug', () => {
 
     const service = new UserService()
     await expect(service.claimSlug('takenslug')).rejects.toThrow('Slug already taken')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error claiming slug:',
+      expect.any(Error),
+    )
   })
 
   it('throws a generic message when the DAO rejects with a non-Error', async () => {
@@ -433,6 +491,7 @@ describe('claimSlug', () => {
 
     const service = new UserService()
     await expect(service.claimSlug('slug')).rejects.toThrow('Failed to claim slug')
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Error claiming slug:', 42)
   })
 })
 
@@ -472,6 +531,10 @@ describe('setDefaultGrid', () => {
 
     const service = new UserService()
     await expect(service.setDefaultGrid('uid-abc', 'grid-123')).rejects.toThrow('Unauthorized')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error setting default grid:',
+      expect.any(Error),
+    )
   })
 })
 

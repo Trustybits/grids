@@ -5,6 +5,11 @@ import { createTileContent } from "@/utils/TileUtils";
 import type { TileContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import type { UploadOptions } from "@/types/UploadFileTypes";
+import { v4 as uuidv4 } from "uuid";
+import {
+  ensureDocumentItemThumbnailOnServer,
+  documentItemIsPdf,
+} from "@/composables/useDocumentThumbnail";
 import type {
   StorageUploadProgress,
   StorageUploadTask,
@@ -178,6 +183,111 @@ export function useFileUpload() {
   };
 
   /**
+   * Optimistic upload of one or more document files into a single documents tile.
+   */
+  const uploadDocumentsOptimistic = async (
+    files: File[],
+  ): Promise<void> => {
+    if (files.length === 0) return;
+    for (const f of files) {
+      storageService.validateFile(f, { fileType: "documents" });
+    }
+
+    const currentUserId = authProvider.getCurrentUserId();
+    if (!currentUserId) {
+      throw new Error("You must be logged in to upload.");
+    }
+
+    const items = files.map((file) => ({
+      id: uuidv4(),
+      fileName: file.name,
+      url: URL.createObjectURL(file),
+      mimeType: file.type || undefined,
+    }));
+
+    const content = createTileContent(ContentType.DOCUMENT, { items });
+    const tileId = layoutStore.addTile(content);
+
+    if (!tileId) {
+      for (const item of items) {
+        URL.revokeObjectURL(item.url);
+      }
+      return;
+    }
+
+    layoutStore.setTileUploading(tileId, 0);
+
+    try {
+      const n = files.length;
+      let completed = 0;
+      for (let i = 0; i < n; i++) {
+        const file = files[i];
+        const item = items[i];
+        if (!file || !item) continue;
+        const uploadTask = storageService.uploadResumable(
+          currentUserId,
+          file,
+          { fileType: "documents" },
+        );
+
+        uploadTask.onProgress((progress) => {
+          const fileFrac =
+            progress.totalBytes > 0
+              ? progress.bytesTransferred / progress.totalBytes
+              : 0;
+          layoutStore.setTileUploading(
+            tileId,
+            (completed + fileFrac) / n,
+          );
+        });
+
+        const url = await uploadTask.done();
+        completed += 1;
+        layoutStore.setTileUploading(tileId, completed / n);
+        layoutStore.setResolvedDocumentItemUrl(tileId, item.id, url);
+      }
+      layoutStore.clearTileUploading(tileId);
+      await layoutStore.saveLayout();
+
+      const layoutId = layoutStore.currentLayout?.id;
+      if (layoutId) {
+        const thumbJobs = items
+          .map((item, i) => ({ item, file: files[i] }))
+          .filter(
+            (
+              x,
+            ): x is {
+              item: (typeof items)[number];
+              file: File;
+            } => !!x.item && !!x.file && documentItemIsPdf(x.file.name, x.file.type),
+          )
+          .map(({ item }) =>
+            ensureDocumentItemThumbnailOnServer(layoutId, tileId, item.id)
+              .then((res) => {
+                if (res.thumbnailUrl) {
+                  layoutStore.patchDocumentItem(tileId, item.id, {
+                    thumbnailUrl: res.thumbnailUrl,
+                  });
+                }
+              })
+              .catch((err) => {
+                console.warn("Document thumbnail generation failed:", err);
+              }),
+          );
+        void Promise.all(thumbJobs);
+      }
+    } catch (error) {
+      console.error("Document upload failed:", error);
+      layoutStore.clearTileUploading(tileId);
+      for (const item of items) {
+        URL.revokeObjectURL(item.url);
+      }
+      layoutStore.removeTile(tileId);
+      throw error;
+    }
+  };
+
+  /**
    * Fetch an external image URL, upload it to storage, and return our permanent URL.
    * Use this when a user provides a remote image URL so we own a copy and avoid external dependency.
    */
@@ -201,6 +311,7 @@ export function useFileUpload() {
     uploadFile,
     uploadFileToUrl,
     uploadFileOptimistic,
+    uploadDocumentsOptimistic,
     uploadFileOptimisticForTile,
     uploadExternalImageToStorage,
   };

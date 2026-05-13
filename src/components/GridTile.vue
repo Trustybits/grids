@@ -49,6 +49,12 @@
         :data-tile-type="tile.content.type"
         :data-tile-w="tile.w"
         :data-tile-h="tile.h"
+        :style="{
+          '--tile-resize-handle-color':
+            hasCustomTileColor && contentTextColor
+              ? contentTextColor
+              : undefined,
+        }"
         ref="gridTileRef"
         @mouseenter="isHovered = true"
         @mouseleave="isHovered = false"
@@ -160,15 +166,24 @@
       </div>
     </GridItem>
   </div>
-  <AddLinkModal
+  <FloatingInputModal
     :show="showSuggestionLinkModal"
+    placeholder="Type or paste a link..."
+    inputmode="url"
+    :validate="isValidLink"
+    submit-title="Add link (Enter)"
+    invalid-title="Enter a valid URL"
     @close="closeSuggestionLinkModal"
-    @add="handleSuggestionAddLink"
+    @submit="handleSuggestionAddLink"
   />
-  <AddEmbedModal
+  <FloatingInputModal
     :show="showSuggestionEmbedModal"
+    placeholder="Paste a URL or embed code (YouTube, Spotify, Apple Music...)"
+    :validate="isValidEmbed"
+    submit-title="Add embed (Enter)"
+    invalid-title="Enter a valid URL"
     @close="closeSuggestionEmbedModal"
-    @add="handleSuggestionAddEmbed"
+    @submit="handleSuggestionAddEmbed"
   />
 </template>
 
@@ -193,7 +208,12 @@ import {
   getOptionComponent,
   createTileContent,
 } from "@/utils/TileUtils";
-import { ContentType, type LinkContent, type SuggestionContent, type AnyTileContent } from "@/types/TileContent";
+import {
+  ContentType,
+  type LinkContent,
+  type SuggestionContent,
+  type AnyTileContent,
+} from "@/types/TileContent";
 
 import TextIcon from "./icons/TextIcon.vue";
 import ImageIcon from "./icons/ImageIcon.vue";
@@ -204,8 +224,8 @@ import TileToolbar from "./TileToolbar.vue";
 import TileActions from "./TileActions.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 import ColorPicker from "./ColorPicker.vue";
-import AddLinkModal from "./AddLinkModal.vue";
-import AddEmbedModal from "./AddEmbedModal.vue";
+import FloatingInputModal from "./modal/FloatingInputModal.vue";
+import { isValidLink, isValidEmbed } from "@/utils/urlValidation";
 import { useTileInput } from "@/composables/useTileInput";
 
 export default defineComponent({
@@ -220,8 +240,7 @@ export default defineComponent({
     EmbedIcon,
     ProfileIcon,
     ColorPicker,
-    AddLinkModal,
-    AddEmbedModal,
+    FloatingInputModal,
   },
   props: {
     tile: {
@@ -287,6 +306,11 @@ export default defineComponent({
       contentTextColor.value = color;
     };
 
+    const hasCustomTileColor = computed(() => {
+      const bg = contentBackgroundColor.value;
+      return !!bg && bg !== "var(--color-tile-background)";
+    });
+
     const showCaption = computed(() => {
       // Hide caption for Link, Text, Chat, Embed, Map, Campfire, RPG, YouTube, and Suggestion tiles as requested
       const hiddenTypes = [
@@ -301,6 +325,7 @@ export default defineComponent({
         ContentType.PROFILE,
         ContentType.YOUTUBE,
         ContentType.MUSIC,
+        ContentType.DOCUMENT,
       ];
       if (hiddenTypes.includes(props.tile.content.type)) return false;
       // Hide caption on 1-wide tiles (too narrow)
@@ -326,6 +351,12 @@ export default defineComponent({
     );
     const contentProps = computed(() => {
       if (props.tile.content.type === ContentType.CHAT) {
+        return {
+          content: props.tile.content,
+          tileId: props.tile.i,
+        };
+      }
+      if (props.tile.content.type === ContentType.DOCUMENT) {
         return {
           content: props.tile.content,
           tileId: props.tile.i,
@@ -553,12 +584,14 @@ export default defineComponent({
         isActivated.value ||
         layoutStore.activeTileId === props.tile.i;
 
-      return {
-        zIndex:
-          isEditing.value || isToolbarActive
-            ? "var(--z-grid-tile-elevated)"
-            : 0,
-      };
+      let zIndex: string | number = 0;
+      if (isEditing.value) {
+        zIndex = "var(--z-grid-tile-elevated)";
+      } else if (isToolbarActive) {
+        zIndex = "var(--z-grid-tile-hover)";
+      }
+
+      return { zIndex };
     });
 
     // Check if tile supports crop/zoom (IMAGE or VIDEO)
@@ -649,9 +682,7 @@ export default defineComponent({
         clickStart.value = Date.now();
         const target = event.target as HTMLElement;
         if (
-          !target.closest(
-            'button, a, input, select, textarea, [role="button"]',
-          )
+          !target.closest('button, a, input, select, textarea, [role="button"]')
         ) {
           event.preventDefault();
         }
@@ -734,7 +765,8 @@ export default defineComponent({
     });
 
     const typeSpecificMeta = computed(() => {
-      const content = props.tile.content as AnyTileContent & Record<string, unknown>;
+      const content = props.tile.content as AnyTileContent &
+        Record<string, unknown>;
       switch (props.tile.content.type) {
         case ContentType.TEXT: {
           const rawText = typeof content.text === "string" ? content.text : "";
@@ -764,6 +796,12 @@ export default defineComponent({
           return `zoom: ${content.zoom ?? "n/a"} | marker: ${content.marker ? "yes" : "no"}`;
         case ContentType.CHAT:
           return `messages: ${Array.isArray(content.messages) ? content.messages.length : 0}`;
+        case ContentType.DOCUMENT: {
+          const n = Array.isArray((content as { items?: unknown[] }).items)
+            ? (content as { items: unknown[] }).items.length
+            : 0;
+          return `documents: ${n}`;
+        }
         default:
           return "typeSpecific: n/a";
       }
@@ -857,6 +895,7 @@ export default defineComponent({
       verboseMetadataLines,
       contentBackgroundColor,
       contentTextColor,
+      hasCustomTileColor,
       onContentBackgroundColorChange,
       onContentTextColorChange,
 
@@ -868,6 +907,8 @@ export default defineComponent({
 
       mediaInput,
       onMediaSelected,
+      isValidLink,
+      isValidEmbed,
       showSuggestionLinkModal,
       showSuggestionEmbedModal,
       closeSuggestionLinkModal,
@@ -1175,7 +1216,9 @@ export default defineComponent({
 
 /* Glow border while embed is interactive */
 .tile-wrapper.embed-is-interactive {
-  box-shadow: 0 0 0 2px var(--color-figma-purple, #a259ff), 0 0 20px 4px rgba(162, 89, 255, 0.3);
+  box-shadow:
+    0 0 0 2px var(--color-figma-purple, #a259ff),
+    0 0 20px 4px rgba(162, 89, 255, 0.3);
 }
 
 /* Hover-priority layering wrappers */
@@ -1398,8 +1441,8 @@ export default defineComponent({
     height: 0;
     border-style: solid;
     border-width: 0 0 20px 20px;
-    border-color: transparent transparent var(--color-content-default)
-      transparent;
+    border-color: transparent transparent
+      var(--tile-resize-handle-color, var(--color-content-default)) transparent;
     opacity: 0.3;
     border-radius: 0 0 calc(var(--tile-border-radius) - 2px) 0;
   }

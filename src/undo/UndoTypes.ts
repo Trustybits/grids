@@ -9,6 +9,7 @@ export interface Snapshot {
   themeId: string;
   backgroundImageSrc: string;
   backgroundEmbed: boolean;
+  backgroundColor: string;
   forcedBreakpoint: Breakpoint;
   actionLabel: string;
 }

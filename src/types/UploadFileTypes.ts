@@ -1,4 +1,4 @@
-export type FileType = "images" | "videos";
+export type FileType = "images" | "videos" | "documents";
 
 export interface UploadOptions {
   /** Override the file type detection */

@@ -82,6 +82,7 @@ describe("FirestoreLayoutDao", () => {
         tiles: [{ id: "t1" }],
         backgroundImageSrc: "https://img.png",
         backgroundEmbed: true,
+        backgroundColor: "",
         themeId: "dark",
         overrides: undefined,
         duplicatable: true,

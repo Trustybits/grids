@@ -567,7 +567,7 @@ export default defineComponent({
         statusMessage.value = null;
         const [lng, lat] = match.center as [number, number];
         setMarker({ lat, lng });
-        flyToLocation({ lat, lng }, clamp(props.content.zoom ?? 9, 9, 14));
+        flyToLocation({ lat, lng }, clamp(storeContent.value.zoom ?? 9, 9, 14));
       } catch (error) {
         console.error("Mapbox search failed:", error);
         statusMessage.value = "Search failed.";
@@ -592,7 +592,7 @@ export default defineComponent({
             lng: position.coords.longitude,
           };
           setMarker(marker);
-          flyToLocation(marker, clamp(props.content.zoom ?? 9, 10, 14));
+          flyToLocation(marker, clamp(storeContent.value.zoom ?? 9, 10, 14));
         },
         () => {
           statusMessage.value = "Unable to get location.";
@@ -813,7 +813,7 @@ export default defineComponent({
     });
 
     watch(
-      () => props.content.searchQuery,
+      () => storeContent.value.searchQuery,
       (value) => {
         if (value !== undefined && value !== searchInput.value) {
           searchInput.value = value || "";
@@ -822,7 +822,7 @@ export default defineComponent({
     );
 
     watch(
-      () => props.content.marker,
+      () => storeContent.value.marker,
       (value) => {
         if (value) {
           updateMarker(value);
@@ -835,14 +835,15 @@ export default defineComponent({
       seedAnimationVars();
       if (!mapContainer.value || !token) return;
       mapboxgl.accessToken = token;
+      const content = storeContent.value;
 
       const map = new mapboxgl.Map({
         container: mapContainer.value,
         style: resolvedStyle.value,
-        center: [props.content.center?.lng ?? 0, props.content.center?.lat ?? 0],
-        zoom: props.content.zoom ?? 9,
-        bearing: props.content.bearing ?? 0,
-        pitch: props.content.pitch ?? 0,
+        center: [content.center?.lng ?? 0, content.center?.lat ?? 0],
+        zoom: content.zoom ?? 9,
+        bearing: content.bearing ?? 0,
+        pitch: content.pitch ?? 0,
         attributionControl: false,
         // Keep the last rendered frame in the WebGL buffer so the canvas
         // never flashes black when the tile container is being resized.
@@ -884,13 +885,13 @@ export default defineComponent({
 
       applyActivePreset();
 
-      if (props.content.marker) {
-        updateMarker(props.content.marker);
+      if (content.marker) {
+        updateMarker(content.marker);
       }
 
       const hasSavedCenter =
-        props.content.center &&
-        (props.content.center.lat !== 0 || props.content.center.lng !== 0);
+        content.center &&
+        (content.center.lat !== 0 || content.center.lng !== 0);
 
       if (hasSavedCenter) {
         // Map was constructed with valid coordinates — it's already positioned.
@@ -899,8 +900,8 @@ export default defineComponent({
       }
 
       if (layoutStore.canEdit) {
-        if (props.content.searchQuery && !hasSavedCenter) {
-          handleGeocode(props.content.searchQuery);
+        if (content.searchQuery && !hasSavedCenter) {
+          handleGeocode(content.searchQuery);
         } else if (!hasSavedCenter) {
           useMyLocation();
         }

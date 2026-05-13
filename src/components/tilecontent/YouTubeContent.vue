@@ -22,7 +22,7 @@
     </div>
 
     <!-- Video / Short -->
-    <div v-else-if="isVideo || isShort" class="yt-video" @click="openYouTube">
+    <div v-else-if="isVideo || isShort" class="yt-video">
       <!-- Edge-to-edge thumbnail background -->
       <div v-if="layout.showThumbnail && thumbnailUrl" class="yt-bg">
         <img :src="thumbnailUrl" :alt="content.title || 'YouTube video'" />
@@ -60,7 +60,7 @@
     </div>
 
     <!-- Playlist -->
-    <div v-else-if="isPlaylist" class="yt-playlist" @click="openYouTube">
+    <div v-else-if="isPlaylist" class="yt-playlist">
       <!-- Edge-to-edge thumbnail background -->
       <div v-if="layout.showThumbnail && thumbnailUrl" class="yt-bg">
         <img :src="thumbnailUrl" :alt="content.title || 'YouTube playlist'" />
@@ -325,6 +325,7 @@ export default defineComponent({
       openYouTube,
       openVideo,
       fetchMetadata,
+      onShortClick: openYouTube,
     };
   },
 });

@@ -1,6 +1,6 @@
 {
   "name": "grids",
-  "version": "0.17.5",
+  "version": "0.20.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,7 +14,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "suite:full": "npm run lint && npm run test:run && npm run build"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.7.2",
@@ -37,8 +38,12 @@
     "@tiptap/starter-kit": "^2.27.1",
     "@tiptap/vue-3": "^2.27.1",
     "bootstrap": "^5.3.3",
+    "docx-preview": "^0.3.7",
+    "dompurify": "^3.4.2",
     "firebase": "^11.1.0",
     "mapbox-gl": "^3.4.0",
+    "marked": "^18.0.3",
+    "pdfjs-dist": "^5.7.284",
     "pinia": "^2.2.8",
     "posthog-js": "^1.331.0",
     "puppeteer-core": "^24.41.0",
@@ -52,6 +57,7 @@
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.0",
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^22.9.0",
     "@vercel/node": "^5.7.7",
     "@vitejs/plugin-vue": "^5.1.4",

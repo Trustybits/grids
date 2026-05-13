@@ -25,12 +25,11 @@
       <GridTile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
     </GridLayout>
   </div>
-  <p v-else>No tiles yet.</p>
+  <p v-else class="empty-grid-message">No tiles yet</p>
 </template>
 
 <script lang="ts">
 import { computed, onMounted, onUnmounted, ref, nextTick, watch } from "vue";
-import { useRoute } from "vue-router";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
 import GridTile from "./GridTile.vue";
@@ -51,7 +50,6 @@ export default {
   },
   setup(props) {
     const layoutStore = useLayoutStore();
-    const route = useRoute(); // Access route parameters
     const margin = 48;
     const viewportWidth = ref(
       typeof window !== "undefined" ? window.innerWidth : 0,
@@ -446,16 +444,9 @@ export default {
       };
     });
 
-    // Load layout using ID from the route
     onMounted(() => {
       onResize();
       window.addEventListener("resize", onResize);
-      const layoutId = route.params.id;
-      if (layoutId) {
-        layoutStore.loadLayout(layoutId as string);
-      } else {
-        console.error("Layout ID is missing in the route.");
-      }
       nextTick(() => observeGridHeight());
     });
 
@@ -537,6 +528,18 @@ export default {
 <style scoped>
 .grid-scale-wrapper {
   overflow: hidden;
+}
+
+.empty-grid-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--bg-contrast-color-low, var(--color-content-low));
+  margin: 0;
+  pointer-events: none;
 }
 
 .vue-grid-layout {
@@ -634,7 +637,7 @@ export default {
   display: none !important;
 
   position: absolute !important;
-  z-index: -1 !important;
+  z-index: var(--z-grid-placeholder) !important;
   pointer-events: none !important;
 }
 

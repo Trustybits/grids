@@ -1,6 +1,6 @@
 import { type Layout, type CopyDepth } from "@/types/Layout";
 import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
-import { ContentType, type AnyTileContent, type ChatContent, type SuggestionAction } from "@/types/TileContent";
+import { ContentType, type AnyTileContent, type ChatContent, type DocumentsContent, type SuggestionAction } from "@/types/TileContent";
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import { getDbUtils } from "@/dao/DbUtilsSingleton";
 import type { DbUtils } from "@/dao/interfaces/DbUtils";
@@ -8,38 +8,12 @@ import type { LayoutDao } from "@/dao/interfaces/LayoutDao";
 import type { UserDao } from "@/dao/interfaces/UserDao";
 import { createDefaultLayout } from "@/utils/LayoutUtils";
 import { createTile, createTileContent } from "@/utils/TileUtils";
+import { stripBlobUrlsFromTiles } from "@/utils/layoutPersistenceUtils";
 import { v4 as uuidv4 } from "uuid";
 import heroGif from "@/assets/images/hero.gif";
 import type { ILayoutService } from "./interfaces/ILayoutService";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> => {
-  if (!value || typeof value !== "object") return false;
-  const proto = Object.getPrototypeOf(value);
-  return proto === Object.prototype || proto === null;
-};
-
-/**
- * Safety net: strip any remaining blob: URLs before persisting.
- * Normally the layout store substitutes resolved storage URLs before calling
- * the service, but this catches any edge cases where a blob URL slips through.
- */
-const stripBlobUrls = (tiles: unknown[]): unknown[] => {
-  return tiles.map((tile) => {
-    if (!isPlainObject(tile)) return tile;
-    const content = tile.content;
-    if (!isPlainObject(content)) return tile;
-    const src = content.src;
-    if (typeof src === "string" && src.startsWith("blob:")) {
-      return {
-        ...tile,
-        content: { ...content, src: "" },
-      };
-    }
-    return tile;
-  });
-};
 
 // Maps a real tile content type to the best-matching suggestion action so that
 // structure-only copies produce useful placeholder tiles instead of empty
@@ -52,6 +26,7 @@ const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
       return "text";
     case ContentType.IMAGE:
     case ContentType.VIDEO:
+    case ContentType.DOCUMENT:
       return "media";
     case ContentType.LINK:
       return "link";
@@ -242,6 +217,40 @@ export class LayoutService implements ILayoutService {
 
   // ── Core CRUD ──────────────────────────────────────────────────────
 
+  private buildLayoutPayload(
+    layout: Layout,
+    mode: "save" | "update",
+  ): Record<string, unknown> {
+    const editableFields = {
+      name: layout.name,
+      colNum: layout.colNum,
+      verticalCompact: layout.verticalCompact,
+      // Safety net: strip any blob: URLs that weren't already resolved
+      tiles: stripBlobUrlsFromTiles(layout.tiles as unknown[]),
+      backgroundImageSrc: layout.backgroundImageSrc,
+      backgroundEmbed: layout.backgroundEmbed,
+      backgroundColor: layout.backgroundColor ?? "",
+      themeId: layout.themeId ?? "dark",
+      overrides: layout.overrides ?? {},
+      duplicatable: layout.duplicatable ?? false,
+      updatedAt: this.dbUtils.serverTimestamp(),
+    };
+
+    if (mode === "update") {
+      return this.dbUtils.sanitizeValue(editableFields) as Record<
+        string,
+        unknown
+      >;
+    }
+
+    return this.dbUtils.sanitizeValue({
+      userId: layout.userId,
+      ...editableFields,
+      createdAt: layout.createdAt ?? this.dbUtils.serverTimestamp(),
+      lastOpenedAt: layout.lastOpenedAt ?? this.dbUtils.serverTimestamp(),
+    }) as Record<string, unknown>;
+  }
+
   // Fetch a layout by Layout ID
   async fetchLayout(id: string): Promise<Layout> {
     try {
@@ -261,22 +270,7 @@ export class LayoutService implements ILayoutService {
   // Save a new layout (or overwrite)
   async saveLayout(layout: Layout): Promise<void> {
     try {
-      const payload = this.dbUtils.sanitizeValue({
-        userId: layout.userId,
-        name: layout.name,
-        colNum: layout.colNum,
-        verticalCompact: layout.verticalCompact,
-        // Safety net: strip any blob: URLs that weren't already resolved
-        tiles: stripBlobUrls(layout.tiles as unknown[]),
-        backgroundImageSrc: layout.backgroundImageSrc,
-        backgroundEmbed: layout.backgroundEmbed,
-        themeId: layout.themeId ?? "dark",
-        overrides: layout.overrides ?? {},
-        duplicatable: layout.duplicatable ?? false,
-        createdAt: layout.createdAt ?? this.dbUtils.serverTimestamp(),
-        updatedAt: this.dbUtils.serverTimestamp(),
-        lastOpenedAt: layout.lastOpenedAt ?? this.dbUtils.serverTimestamp(),
-      }) as Record<string, unknown>;
+      const payload = this.buildLayoutPayload(layout, "save");
       await this.layoutDao.save(layout.id, payload);
     } catch (error) {
       console.error(`Error saving layout with ID ${layout.id}:`, error);
@@ -287,19 +281,7 @@ export class LayoutService implements ILayoutService {
   // Update an existing layout (partial)
   async updateLayout(layout: Layout): Promise<void> {
     try {
-      const payload = this.dbUtils.sanitizeValue({
-        name: layout.name,
-        colNum: layout.colNum,
-        verticalCompact: layout.verticalCompact,
-        // Safety net: strip any blob: URLs that weren't already resolved
-        tiles: stripBlobUrls(layout.tiles as unknown[]),
-        backgroundImageSrc: layout.backgroundImageSrc,
-        backgroundEmbed: layout.backgroundEmbed,
-        themeId: layout.themeId ?? "dark",
-        overrides: layout.overrides ?? {},
-        duplicatable: layout.duplicatable ?? false,
-        updatedAt: this.dbUtils.serverTimestamp(),
-      }) as Record<string, unknown>;
+      const payload = this.buildLayoutPayload(layout, "update");
       await this.layoutDao.update(layout.id, payload);
     } catch (error) {
       console.error(`Error updating layout with ID ${layout.id}:`, error);
@@ -536,15 +518,35 @@ export class LayoutService implements ILayoutService {
   private createPersistableSnapshot(
     layout: Layout,
     resolvedUrls: Record<string, string> = {},
+    resolvedDocumentItemUrls: Record<string, Record<string, string>> = {},
   ): Layout {
     const clonedTiles = (
       JSON.parse(JSON.stringify(layout.tiles)) as typeof layout.tiles
     ).map((tile) => {
-      const src = (tile.content as AnyTileContent & { src?: string })?.src;
+      const content = tile.content as AnyTileContent;
+      const src = (content as { src?: string }).src;
       if (typeof src === "string" && src.startsWith("blob:")) {
         const realUrl = resolvedUrls[tile.i];
         if (realUrl) {
-          (tile.content as { src? : string }).src = realUrl;
+          (tile.content as { src?: string }).src = realUrl;
+        }
+      }
+      if (content.type === ContentType.DOCUMENT) {
+        const doc = content as DocumentsContent;
+        const itemMap = resolvedDocumentItemUrls[tile.i];
+        if (doc.items?.length && itemMap && Object.keys(itemMap).length > 0) {
+          const items = doc.items.map((item) => {
+            const resolved = itemMap[item.id];
+            if (
+              typeof item.url === "string" &&
+              item.url.startsWith("blob:") &&
+              resolved
+            ) {
+              return { ...item, url: resolved };
+            }
+            return item;
+          });
+          (tile.content as DocumentsContent).items = items;
         }
       }
       return tile;
@@ -557,15 +559,20 @@ export class LayoutService implements ILayoutService {
   }
 
   // Queue a layout save. Accepts the current (potentially reactive) layout
-  // and an optional resolved-URL map for blob → storage URL substitution.
+  // and optional resolved-URL maps for blob → storage URL substitution.
   // The service deep-clones and sanitises the layout internally.
   // Returns immediately if a write is already in-flight; the queued snapshot
   // will be flushed when the current write completes.
   async queueSave(
     layout: Layout,
     resolvedUrls: Record<string, string> = {},
+    resolvedDocumentItemUrls: Record<string, Record<string, string>> = {},
   ): Promise<void> {
-    const snapshot = this.createPersistableSnapshot(layout, resolvedUrls);
+    const snapshot = this.createPersistableSnapshot(
+      layout,
+      resolvedUrls,
+      resolvedDocumentItemUrls,
+    );
 
     if (this._saveInFlight) {
       this._saveQueued = true;

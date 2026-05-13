@@ -104,7 +104,8 @@ onUnmounted(() => {
 
 <style scoped>
 .layout-title {
-  color: var(--color-content-low);
+  color: var(--bg-contrast-color-low, var(--color-content-low));
+  /* color: var(--color-content-low); */
 }
 
 .editable-text {
@@ -118,7 +119,8 @@ onUnmounted(() => {
 }
 
 .editable-text:focus {
-  color: var(--color-text-primary);
+  /* color: var(--color-text-primary); */
+  color: var(--bg-contrast-color, var(--color-text-primary));
   background-color: var(--color-content-low);
 }
 

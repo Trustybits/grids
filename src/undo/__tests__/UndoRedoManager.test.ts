@@ -3,6 +3,7 @@ import { UndoRedoManager } from "../UndoRedoManager";
 import type { Snapshot } from "../UndoTypes";
 import {
   ContentType,
+  type DocumentsContent,
   type ImageContent,
   type LinkContent,
   type TileContent,
@@ -75,6 +76,7 @@ const exampleSnapshot: Snapshot = {
   themeId: "default",
   backgroundImageSrc: "",
   backgroundEmbed: false,
+  backgroundColor: "",
   forcedBreakpoint: "lg",
   actionLabel: "Toggle gravity",
 };
@@ -569,6 +571,45 @@ describe("UndoRedoManager", () => {
       expect((peeked.tiles[0].content as ImageContent).src).toBe(
         "https://storage.example.com/photo.jpg",
       );
+    });
+
+    it("replaces a document stack item blob URL when documentItemId is passed", () => {
+      const docContent: DocumentsContent = {
+        type: ContentType.DOCUMENT,
+        items: [
+          {
+            id: "item-a",
+            fileName: "a.pdf",
+            url: "blob:http://localhost/doc",
+          },
+        ],
+      };
+      const snap = makeSnapshot({
+        tiles: [
+          {
+            i: "tile-doc",
+            x: 0,
+            y: 0,
+            w: 2,
+            h: 2,
+            borderEnabled: false,
+            caption: "",
+            content: docContent,
+          },
+        ],
+        actionLabel: "Add documents",
+      });
+      undoRedoManager.pushSnapshot(snap);
+
+      undoRedoManager.replaceBlobUrl(
+        "tile-doc",
+        "https://storage.example.com/a.pdf",
+        "item-a",
+      );
+
+      const peeked = undoRedoManager.peekAtUndo()!;
+      const items = (peeked.tiles[0].content as DocumentsContent).items;
+      expect(items[0].url).toBe("https://storage.example.com/a.pdf");
     });
 
     it("replaces a blob URL in the redo stack", () => {

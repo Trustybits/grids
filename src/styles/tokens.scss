@@ -24,6 +24,8 @@
   --color-pink: #FFA8DB;
   --color-knob: #FFFFFF;
 
+  --grids-brand-purple: #9f40ff;
+
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
@@ -109,9 +111,10 @@
   /* Above top bar and floating controls layered just above it (e.g. BreakpointSwitcher). */
   --z-tooltip: calc(var(--z-topbar) + 50);
 
-  /* vue-grid-item positions with transform, which traps stacking. Elevate the whole
-     tile while interactive so [data-tooltip]::after and similar UI can paint above
-     the fixed top bar (raising ::after z-index alone cannot escape that context). */
+  /* Above sibling tiles so the toolbar/actions render on top, but below the topbar. */
+  --z-grid-tile-hover: 10;
+
+  /* Above topbar — only used for crop/edit mode where the tile must overlay everything. */
   --z-grid-tile-elevated: calc(var(--z-topbar) + 2);
 
   --z-grid-placeholder: 2;

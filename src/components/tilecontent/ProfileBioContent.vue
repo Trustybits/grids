@@ -425,6 +425,11 @@ import TaskItem from "@tiptap/extension-task-item";
 import { useLayoutStore } from "@/stores/layout";
 import { type ProfileBioContent, type AvatarShape } from "@/types/TileContent";
 import { isDirectImageUrl } from "@/utils/TileUtils";
+import {
+  getPolygonGeometry,
+  getPolygonVertices,
+  getRoundedPolygonPath,
+} from "@/utils/AvatarShape";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
@@ -834,53 +839,13 @@ export default defineComponent({
       layoutStore.saveLayout();
     };
 
-    // Compute geometry for a regular N-gon oriented with a vertex at top.
-    // The polygon is sized so min(bboxWidth, bboxHeight) = avatarSize,
-    // ensuring all shapes are at least 152×152. The larger dimension overflows.
-    // The polygon's BOUNDING BOX is centered within the container so that
-    // overflow is distributed equally on all sides.
-    const polyGeometry = computed(() => {
-      const n = avatarSides.value;
-      const size = avatarSize.value;
-      const angleOffset = -Math.PI / 2;
-
-      // Compute bounding box of a unit-circumradius N-gon (R=1)
-      let minX = Infinity,
-        maxX = -Infinity;
-      let minY = Infinity,
-        maxY = -Infinity;
-      for (let i = 0; i < n; i++) {
-        const angle = angleOffset + (2 * Math.PI * i) / n;
-        const x = Math.cos(angle);
-        const y = Math.sin(angle);
-        minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x);
-        minY = Math.min(minY, y);
-        maxY = Math.max(maxY, y);
-      }
-      const unitW = maxX - minX;
-      const unitH = maxY - minY;
-
-      // Center of the bounding box in unit space (relative to circumcenter)
-      const unitBboxCenterX = (minX + maxX) / 2;
-      const unitBboxCenterY = (minY + maxY) / 2;
-
-      // Scale R so that min(bboxW, bboxH) = size
-      const R = size / Math.min(unitW, unitH);
-      const bboxW = unitW * R;
-      const bboxH = unitH * R;
-
-      // Overflow beyond the 152px container on each side
-      const bleedX = Math.max(0, (bboxW - size) / 2);
-      const bleedY = Math.max(0, (bboxH - size) / 2);
-
-      // Offset from circumcenter to bounding-box center (in px).
-      // For odd-sided polygons this is non-zero vertically.
-      const bboxOffsetX = unitBboxCenterX * R;
-      const bboxOffsetY = unitBboxCenterY * R;
-
-      return { R, bboxW, bboxH, bleedX, bleedY, bboxOffsetX, bboxOffsetY };
-    });
+    const polyGeometry = computed(() =>
+      getPolygonGeometry({
+        sides: avatarSides.value,
+        size: avatarSize.value,
+        fit: "cover",
+      }),
+    );
 
     // --- Radius drag handle ---
     // The handle sits on the bottom-left polygon corner. Dragging toward the
@@ -950,28 +915,17 @@ export default defineComponent({
         };
       }
 
-      // Polygon (polygon) mode — pick the bottom-left-ish vertex
+      // Polygon mode — pick the bottom-left-ish vertex
       const n = avatarSides.value;
-      const { R, bleedX, bleedY, bboxOffsetX, bboxOffsetY } =
-        polyGeometry.value;
-      const cx = size / 2 + bleedX - bboxOffsetX;
-      const cy = size / 2 + bleedY - bboxOffsetY;
-      const angleOffset = -Math.PI / 2;
-
-      const vertices: { x: number; y: number }[] = [];
-      for (let i = 0; i < n; i++) {
-        const angle = angleOffset + (2 * Math.PI * i) / n;
-        vertices.push({
-          x: cx + R * Math.cos(angle),
-          y: cy + R * Math.sin(angle),
-        });
-      }
+      const vertices = getPolygonVertices(n, polyGeometry.value);
+      const polygonCenterY =
+        size / 2 + polyGeometry.value.bleedY - polyGeometry.value.bboxOffsetY;
 
       let bestIdx = 0;
       let bestScore = Infinity;
       for (let i = 0; i < n; i++) {
         const v = vertices[i];
-        if (v.y >= cy) {
+        if (v.y >= polygonCenterY) {
           const score = v.x - v.y;
           if (score < bestScore) {
             bestScore = score;
@@ -1368,123 +1322,14 @@ export default defineComponent({
       if (avatarInput.value) avatarInput.value.value = "";
     };
 
-    // Always emit exactly FIXED_SEGMENTS segments so that CSS `d` transition
-    // can interpolate smoothly between any two side counts (3–8).
-    // Each segment = L … Q … — same command structure regardless of N.
-    const FIXED_SEGMENTS = 24; // LCM-friendly count; enough for smooth curves
-
-    const generateRoundedPolygonPath = (sides: number, radius: number) => {
-      const n = Math.max(3, Math.min(8, Math.round(sides)));
-      const { R, bleedX, bleedY, bboxOffsetX, bboxOffsetY } =
-        polyGeometry.value;
-      const size = avatarSize.value;
-
-      // The media box is (size + 2*bleedX) × (size + 2*bleedY).
-      // We want the polygon's BOUNDING BOX centered in the media box.
-      // The media-box center is at (size/2 + bleedX, size/2 + bleedY).
-      // The bbox center = circumcenter + bboxOffset, so:
-      // circumcenter = media-box center - bboxOffset
-      const cx = size / 2 + bleedX - bboxOffsetX;
-      const cy = size / 2 + bleedY - bboxOffsetY;
-
-      const angleOffset = -Math.PI / 2;
-      const vertices: { x: number; y: number }[] = [];
-      for (let i = 0; i < n; i++) {
-        const angle = angleOffset + (2 * Math.PI * i) / n;
-        vertices.push({
-          x: cx + R * Math.cos(angle),
-          y: cy + R * Math.sin(angle),
-        });
-      }
-
-      // Upsample to FIXED_SEGMENTS points by distributing extras along edges.
-      // This ensures every path has exactly the same number of L/Q commands.
-      // Track which points are actual polygon vertices (get rounding) vs
-      // intermediate edge points (pass through with zero rounding).
-      // For vertex points, store the vertex index so we can look up the
-      // correct edge direction vectors from the original vertices array.
-      const points: {
-        x: number;
-        y: number;
-        isVertex: boolean;
-        vertexIdx: number;
-      }[] = [];
-      const perEdge = Math.floor(FIXED_SEGMENTS / n);
-      let remainder = FIXED_SEGMENTS - perEdge * n;
-      for (let i = 0; i < n; i++) {
-        const a = vertices[i];
-        const b = vertices[(i + 1) % n];
-        const segs = perEdge + (remainder > 0 ? 1 : 0);
-        if (remainder > 0) remainder--;
-        for (let j = 0; j < segs; j++) {
-          const t = j / segs;
-          points.push({
-            x: a.x + (b.x - a.x) * t,
-            y: a.y + (b.y - a.y) * t,
-            isVertex: j === 0,
-            vertexIdx: i,
-          });
-        }
-      }
-
-      // Compute the max rounding offset from the actual edge length
-      const edgeLen = Math.sqrt(
-        (vertices[1].x - vertices[0].x) ** 2 +
-          (vertices[1].y - vertices[0].y) ** 2,
-      );
-      const maxOffset = edgeLen / 2;
-
-      // Build path with rounded corners only at real vertices;
-      // intermediate upsampled points get degenerate Q (no rounding).
-      let path = "";
-      const pLen = points.length;
-      for (let i = 0; i < pLen; i++) {
-        const current = points[i];
-        const _next = points[(i + 1) % pLen];
-        const _prev = points[(i - 1 + pLen) % pLen];
-
-        if (current.isVertex) {
-          // Use direction vectors from the actual polygon vertices
-          // so the offset scales correctly along the real edges.
-          const vi = current.vertexIdx;
-          const vPrev = vertices[(vi - 1 + n) % n];
-          const vNext = vertices[(vi + 1) % n];
-
-          const edx1 = vPrev.x - current.x;
-          const edy1 = vPrev.y - current.y;
-          const elen1 = Math.sqrt(edx1 * edx1 + edy1 * edy1);
-
-          const edx2 = vNext.x - current.x;
-          const edy2 = vNext.y - current.y;
-          const elen2 = Math.sqrt(edx2 * edx2 + edy2 * edy2);
-
-          const offset = Math.min(radius, maxOffset);
-
-          if (offset < 0.1 || elen1 === 0 || elen2 === 0) {
-            if (i === 0) path += `M ${current.x} ${current.y} `;
-            else path += `L ${current.x} ${current.y} `;
-            path += `Q ${current.x} ${current.y} ${current.x} ${current.y} `;
-          } else {
-            const x1 = current.x + (edx1 / elen1) * offset;
-            const y1 = current.y + (edy1 / elen1) * offset;
-            const x2 = current.x + (edx2 / elen2) * offset;
-            const y2 = current.y + (edy2 / elen2) * offset;
-
-            path += i === 0 ? `M ${x1} ${y1} ` : `L ${x1} ${y1} `;
-            path += `Q ${current.x} ${current.y} ${x2} ${y2} `;
-          }
-        } else {
-          // Intermediate upsampled point — degenerate Q (no rounding)
-          if (i === 0) path += `M ${current.x} ${current.y} `;
-          else path += `L ${current.x} ${current.y} `;
-          path += `Q ${current.x} ${current.y} ${current.x} ${current.y} `;
-        }
-      }
-      return `${path}Z`;
-    };
+    const FIXED_POLYGON_PATH_SEGMENTS = 24;
 
     const polygonPath = computed(() =>
-      generateRoundedPolygonPath(avatarSides.value * 0.98, avatarRadius.value),
+      getRoundedPolygonPath({
+        vertices: getPolygonVertices(avatarSides.value * 0.98, polyGeometry.value),
+        radius: avatarRadius.value,
+        fixedSegments: FIXED_POLYGON_PATH_SEGMENTS,
+      }),
     );
 
     const avatarMediaStyle = computed(() => {

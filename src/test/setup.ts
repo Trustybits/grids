@@ -71,8 +71,8 @@ vi.mock('firebase/app', () => ({
   getApp: vi.fn(() => ({})),
 }))
 
-// ── @/firebase module mock (re-exports Firebase instances) ─────────────────
-vi.mock('@/firebase', () => ({
+// ── @/infrastructure/firebase module mock (re-exports Firebase instances) ──
+vi.mock('@/infrastructure/firebase', () => ({
   auth: { currentUser: null },
   db: {},
   functions: {},

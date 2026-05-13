@@ -1,12 +1,13 @@
 import { defineStore } from "pinia";
 import { type Layout, type CopyDepth } from "@/types/Layout";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { createStarterTiles } from "@/services/LayoutService";
 import {
   ContentType,
   type TileContent,
   type AnyTileContent,
   type LinkContent,
+  type DocumentsContent,
+  type DocumentItem,
 } from "@/types/TileContent";
 import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
@@ -51,6 +52,26 @@ function patchSnapshotBlobUrl(
   }
 }
 
+function patchSnapshotDocumentItemUrl(
+  snapshot: Snapshot | null,
+  tileId: string,
+  itemId: string,
+  permanentUrl: string,
+): void {
+  if (!snapshot) return;
+  const tile = snapshot.tiles.find((t) => t.i === tileId);
+  if (!tile || tile.content.type !== ContentType.DOCUMENT) return;
+  const doc = tile.content as DocumentsContent;
+  const item = doc.items?.find((i) => i.id === itemId);
+  if (
+    item &&
+    typeof item.url === "string" &&
+    item.url.startsWith("blob:")
+  ) {
+    item.url = permanentUrl;
+  }
+}
+
 export const useLayoutStore = defineStore("layout", {
   state: () => ({
     undoRedoVersion: 0,
@@ -71,6 +92,11 @@ export const useLayoutStore = defineStore("layout", {
     // Used by the persistence layer to write the real URL instead of the blob.
     // The blob URL stays as the in-memory src so the <img>/<video> element never reloads.
     resolvedUrls: {} as Record<string, string>,
+    /**
+     * For document tiles: tileId → (itemId → permanent storage URL)
+     * while items still display blob: URLs in the UI.
+     */
+    resolvedDocumentItemUrls: {} as Record<string, Record<string, string>>,
     // When set, the TextContent component for this tile will auto-enter
     // edit mode on mount and place the cursor at the end. Cleared by the
     // component once it consumes the focus request.
@@ -226,6 +252,23 @@ export const useLayoutStore = defineStore("layout", {
             (tile.content as { src: string }).src = resolved;
           }
         }
+        if (tile.content.type === ContentType.DOCUMENT) {
+          const doc = tile.content as DocumentsContent;
+          const map = this.resolvedDocumentItemUrls[tile.i];
+          if (map && doc.items?.length) {
+            for (const item of doc.items) {
+              if (
+                typeof item.url === "string" &&
+                item.url.startsWith("blob:")
+              ) {
+                const resolvedUrl = map[item.id];
+                if (resolvedUrl) {
+                  item.url = resolvedUrl;
+                }
+              }
+            }
+          }
+        }
       }
       return {
         tiles,
@@ -236,6 +279,7 @@ export const useLayoutStore = defineStore("layout", {
         themeId: this.currentLayout.themeId ?? "",
         backgroundImageSrc: this.currentLayout.backgroundImageSrc,
         backgroundEmbed: this.currentLayout.backgroundEmbed,
+        backgroundColor: this.currentLayout.backgroundColor || "",
         forcedBreakpoint: this.forcedBreakpoint ?? this.activeBreakpoint,
         actionLabel,
       };
@@ -303,6 +347,7 @@ export const useLayoutStore = defineStore("layout", {
       this.currentLayout.verticalCompact = snapshot.verticalCompact;
       this.currentLayout.backgroundImageSrc = snapshot.backgroundImageSrc;
       this.currentLayout.backgroundEmbed = snapshot.backgroundEmbed;
+      this.currentLayout.backgroundColor = snapshot.backgroundColor;
 
       if (this.currentLayout.themeId !== snapshot.themeId) {
         this.currentLayout.themeId = snapshot.themeId;
@@ -412,6 +457,18 @@ export const useLayoutStore = defineStore("layout", {
       patchSnapshotBlobUrl(pendingResizeSnapshot, tileId, url);
     },
 
+    setResolvedDocumentItemUrl(tileId: string, itemId: string, url: string) {
+      if (!this.resolvedDocumentItemUrls[tileId]) {
+        this.resolvedDocumentItemUrls[tileId] = {};
+      }
+      this.resolvedDocumentItemUrls[tileId][itemId] = url;
+      undoRedoManager?.replaceBlobUrl(tileId, url, itemId);
+      patchSnapshotDocumentItemUrl(lastStableSnapshot, tileId, itemId, url);
+      patchSnapshotDocumentItemUrl(pendingEditSnapshot, tileId, itemId, url);
+      patchSnapshotDocumentItemUrl(pendingDragSnapshot, tileId, itemId, url);
+      patchSnapshotDocumentItemUrl(pendingResizeSnapshot, tileId, itemId, url);
+    },
+
     // Retrieve the resolved storage URL for a tile, if one exists
     getResolvedUrl(tileId: string): string | undefined {
       return this.resolvedUrls[tileId];
@@ -420,6 +477,10 @@ export const useLayoutStore = defineStore("layout", {
     // Clean up resolved URL entry (e.g. when tile is removed)
     clearResolvedUrl(tileId: string) {
       delete this.resolvedUrls[tileId];
+    },
+
+    clearResolvedDocumentItemsForTile(tileId: string) {
+      delete this.resolvedDocumentItemUrls[tileId];
     },
 
     async fetchLayouts() {
@@ -531,10 +592,6 @@ export const useLayoutStore = defineStore("layout", {
         this.checkShowMetaDataCookie();
         this.recordRecent(id);
 
-        if (this.isOwner && (this.currentLayout?.tiles?.length ?? 0) === 0) {
-          this.ensureSuggestionTiles();
-        }
-
         await svc().touchLastOpenedAt(id);
         // update in-memory list timestamp for immediate UI sorting
         const idx = this.layouts.findIndex((l) => l.id === id);
@@ -643,7 +700,11 @@ export const useLayoutStore = defineStore("layout", {
       }
 
       try {
-        await svc().queueSave(this.currentLayout, this.resolvedUrls);
+        await svc().queueSave(
+          this.currentLayout,
+          this.resolvedUrls,
+          this.resolvedDocumentItemUrls,
+        );
       } catch (err) {
         this.error = "Failed to save layout.";
         console.error(err);
@@ -741,13 +802,6 @@ export const useLayoutStore = defineStore("layout", {
       this.updateLayout();
     },
 
-    ensureSuggestionTiles() {
-      if (!this.currentLayout) return;
-      if (this.currentLayout.tiles.length !== 0) return;
-      this.currentLayout.tiles = createStarterTiles();
-      this.updateLayout();
-    },
-
     patchTileContent(id: string, patch: Partial<AnyTileContent>) {
       if (!this.currentLayout) return;
 
@@ -763,6 +817,27 @@ export const useLayoutStore = defineStore("layout", {
         ...(patch as Partial<AnyTileContent>),
       } as TileContent;
 
+      this.updateLayout();
+    },
+
+    patchDocumentItem(
+      tileId: string,
+      itemId: string,
+      itemPatch: Partial<DocumentItem>,
+    ) {
+      if (!this.currentLayout) return;
+      const tile = this.currentLayout.tiles.find((t) => t.i === tileId);
+      if (!tile || tile.content.type !== ContentType.DOCUMENT) return;
+
+      if (editingTileId !== tileId) {
+        this.pushUndoSnapshot("Update document");
+      }
+
+      const doc = tile.content as DocumentsContent;
+      const items = doc.items.map((it) =>
+        it.id === itemId ? { ...it, ...itemPatch } : it,
+      );
+      tile.content = { ...doc, items } as TileContent;
       this.updateLayout();
     },
 
@@ -786,6 +861,28 @@ export const useLayoutStore = defineStore("layout", {
       this.pushUndoSnapshot("Change background image");
       this.currentLayout.backgroundImageSrc = url;
       this.currentLayout.backgroundEmbed = embed;
+      this.updateLayout();
+    },
+
+    removeBackgroundImage() {
+      if (!this.currentLayout) return;
+      this.pushUndoSnapshot("Remove background image");
+      this.currentLayout.backgroundImageSrc = "";
+      this.currentLayout.backgroundEmbed = false;
+      this.updateLayout();
+    },
+
+    setBackgroundColor(color: string) {
+      if (!this.currentLayout) return;
+      this.pushUndoSnapshot("Change background color");
+      this.currentLayout.backgroundColor = color;
+      this.updateLayout();
+    },
+
+    removeBackgroundColor() {
+      if (!this.currentLayout) return;
+      this.pushUndoSnapshot("Remove background color");
+      this.currentLayout.backgroundColor = "";
       this.updateLayout();
     },
 
@@ -854,6 +951,11 @@ export const useLayoutStore = defineStore("layout", {
 
       this.currentLayout.tiles.push(newTile);
 
+      const docResolved = this.resolvedDocumentItemUrls[id];
+      if (docResolved) {
+        this.resolvedDocumentItemUrls[newId] = { ...docResolved };
+      }
+
       // Copy breakpoint overrides from the source tile to the duplicate
       if (this.currentLayout.overrides) {
         for (const overrideBp of Object.keys(
@@ -892,11 +994,20 @@ export const useLayoutStore = defineStore("layout", {
         if (typeof src === "string" && src.startsWith("blob:")) {
           URL.revokeObjectURL(src);
         }
+        if (tile.content.type === ContentType.DOCUMENT) {
+          const doc = tile.content as DocumentsContent;
+          for (const item of doc.items ?? []) {
+            if (typeof item.url === "string" && item.url.startsWith("blob:")) {
+              URL.revokeObjectURL(item.url);
+            }
+          }
+        }
       }
 
       // Clean up any upload tracking state for this tile
       delete this.uploadingTiles[id];
       delete this.resolvedUrls[id];
+      delete this.resolvedDocumentItemUrls[id];
 
       // Clean up stale breakpoint override entries for this tile
       if (this.currentLayout.overrides) {

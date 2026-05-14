@@ -452,8 +452,6 @@ export default {
       const layoutId = route.params.id;
       if (layoutId) {
         layoutStore.loadLayout(layoutId as string);
-      } else {
-        console.error("Layout ID is missing in the route.");
       }
       nextTick(() => observeGridHeight());
     });

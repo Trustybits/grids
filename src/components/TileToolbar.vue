@@ -207,6 +207,7 @@ import type {
   ToolbarContext,
 } from "@/types/TileToolbar";
 import { getToolbarItems } from "@/utils/toolbarRegistry";
+import { computeTextColor } from "@/composables/useColorPicker";
 import { useLayoutStore } from "@/stores/layout";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import LocateFixedIcon from "./icons/toolbar/LocateFixedIcon.vue";
@@ -359,8 +360,11 @@ export default defineComponent({
           ? content.backgroundColor
           : "var(--color-tile-background)";
 
+      const contrast = computeTextColor(backgroundColor) || "#000000";
+
       return {
         "--toolbar-color-swatch": backgroundColor,
+        "--toolbar-color-swatch-contrast": contrast,
       };
     };
 

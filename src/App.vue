@@ -5,8 +5,8 @@
          app content (TopBar, main area, etc.) below it. -->
     <ViewportWarning type="breakpoint-preview" :dismissible="false" />
 
-    <!-- Left Navigation Bar -->
-    <LeftNavBar v-if="isAuthenticated" />
+    <!-- Left Navigation Bar (hidden on marketing pages like /pricing) -->
+    <LeftNavBar v-if="isAuthenticated && !isMarketingPage" />
 
     <!-- Top Bar for Layout Title Editor -->
     <div ref="topBarRef" class="top-bar" v-if="showTopBar">
@@ -14,7 +14,7 @@
     </div>
 
     <!-- Main Content Area -->
-    <div class="main-content" :class="{ 'has-left-nav': isAuthenticated }">
+    <div class="main-content" :class="{ 'has-left-nav': isAuthenticated && !isMarketingPage }">
       <router-view />
     </div>
 
@@ -50,7 +50,8 @@ const { identify, reset: resetPostHog } = usePostHog();
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
-const hideBottomCornerButtons = computed(() => route.path === '/pricing');
+const isMarketingPage = computed(() => route.path === '/pricing');
+const hideBottomCornerButtons = isMarketingPage;
 
 const user = ref<AuthUser | null>(null);
 const previousUser = ref<AuthUser | null>(null);
@@ -98,12 +99,44 @@ onMounted(() => {
 
 const isAuthenticated = computed(() => !!user.value);
 
-const isOnGridPage = computed(() =>
-  // The marketing homepage embeds a demo <Grid> that populates
-  // layoutStore.currentLayout; exclude it so the TopBar / title editor
-  // / "Claim my Grid" CTA don't show up on the landing page.
-  route.path.startsWith("/grid") ||
-  (!!layoutStore.currentLayout && !layoutStore.isDemoLayout)
+// Routes that are definitely NOT grid pages. Must stay in sync with
+// NON_GRID_PATHS in BottomLeftButtons.vue.
+const NON_GRID_PATHS = [
+  "/",
+  "/pricing",
+  "/dashboard",
+  "/login",
+  "/signup",
+  "/privacy",
+  "/terms",
+  "/notion-callback",
+];
+
+const isOnGridPage = computed(() => {
+  const path = route.path;
+  if (path.startsWith("/grid/")) return true;
+  if (NON_GRID_PATHS.includes(path)) return false;
+  // Slug routes (/:slug) that loaded a real grid
+  return !!layoutStore.currentLayout && !layoutStore.isDemoLayout;
+});
+
+// Clear stale layout state when navigating away from a grid page.
+// Lives here (not BottomLeftButtons) so it fires even when that
+// component is unmounted (e.g. on /pricing).
+watch(
+  () => route.path,
+  (newPath, oldPath) => {
+    const wasOnGrid =
+      oldPath?.startsWith("/grid/") ||
+      (oldPath != null && !NON_GRID_PATHS.includes(oldPath));
+    const isOnGrid =
+      newPath.startsWith("/grid/") || !NON_GRID_PATHS.includes(newPath);
+
+    if (wasOnGrid && !isOnGrid) {
+      layoutStore.clearCurrentLayout();
+    }
+  },
+  { flush: "pre" },
 );
 
 const showTitleEditor = computed(() => {

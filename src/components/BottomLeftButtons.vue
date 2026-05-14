@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useLayoutStore } from "@/stores/layout";
@@ -46,6 +46,7 @@ onMounted(() => {
 // Named routes like /dashboard, /login, /privacy, /terms are NOT grid pages.
 const NON_GRID_PATHS = [
   "/",
+  "/pricing",
   "/dashboard",
   "/login",
   "/signup",
@@ -63,26 +64,6 @@ const isOnGridPage = computed(() => {
   if (!NON_GRID_PATHS.includes(path)) return true;
   return false;
 });
-
-// Clear stale layout state when navigating away from a grid page.
-// Without this, isOwner and currentLayout persist from the last grid
-// and leak into non-grid routes like /dashboard.
-watch(
-  () => route.path,
-  (newPath, oldPath) => {
-    // Check if we're navigating FROM a grid page TO a non-grid page
-    const wasOnGrid =
-      oldPath?.startsWith("/grid/") ||
-      (oldPath && !NON_GRID_PATHS.includes(oldPath));
-    const isOnGrid =
-      newPath.startsWith("/grid/") || !NON_GRID_PATHS.includes(newPath);
-
-    if (wasOnGrid && !isOnGrid) {
-      layoutStore.clearCurrentLayout();
-    }
-  },
-  { flush: "pre" }, // Run before component re-renders to avoid flash of stale buttons
-);
 
 // GridMenu shows when the logged-in user owns the currently loaded grid
 const isOwner = computed(() => layoutStore.isOwner);

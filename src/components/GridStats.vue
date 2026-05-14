@@ -57,6 +57,7 @@ import { useLayoutStore } from "@/stores/layout";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import type { GridStats, DailyGridStats } from "@/types/Analytics";
 import Chevron from "@/components/icons/Chevron.vue";
+import { formatDuration } from "@/utils/relativeTime";
 
 const layoutStore = useLayoutStore();
 
@@ -73,20 +74,9 @@ const lifetimeViews = computed(() => aggregate.value?.totalViews ?? 0);
 const uniqueViews = computed(() => aggregate.value?.uniqueViewers ?? 0);
 const yesterdayViews = computed(() => yesterday.value?.totalViews ?? 0);
 
-const averageTimeSpent = computed(() => {
-  const ms = aggregate.value?.averageTimeSpentMs ?? 0;
-  if (ms <= 0) return "0s";
-  const seconds = ms / 1000;
-  if (seconds < 60) {
-    return `${Math.round(seconds)}s`;
-  }
-  const minutes = seconds / 60;
-  if (minutes < 60) {
-    return `${minutes >= 10 ? Math.round(minutes) : minutes.toFixed(1)}m`;
-  }
-  const hours = minutes / 60;
-  return `${hours >= 10 ? Math.round(hours) : hours.toFixed(1)}h`;
-});
+const averageTimeSpent = computed(() =>
+  formatDuration(aggregate.value?.averageTimeSpentMs ?? 0),
+);
 
 function utcDateString(daysAgo: number): string {
   const d = new Date();

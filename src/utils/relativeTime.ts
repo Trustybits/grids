@@ -18,3 +18,20 @@ export function formatRelativeSince(date: Date, nowMs: number = Date.now()): str
     ...(y !== nowY ? { year: "numeric" as const } : {}),
   });
 }
+
+/**
+ * Format a duration in milliseconds as a compact "{n}{unit}" string, picking
+ * seconds, minutes, or hours based on magnitude. Values under 10 in the
+ * minute/hour bucket get one decimal place; everything else rounds.
+ */
+export function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "0s";
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const minutes = seconds / 60;
+  if (minutes < 60) {
+    return `${minutes >= 10 ? Math.round(minutes) : minutes.toFixed(1)}m`;
+  }
+  const hours = minutes / 60;
+  return `${hours >= 10 ? Math.round(hours) : hours.toFixed(1)}h`;
+}

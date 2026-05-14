@@ -10,6 +10,7 @@
     >
       {{ editableName }}
     </h2>
+    <GridStats />
   </div>
 
   <!-- Unauthenticated viewer: CTA buttons -->
@@ -30,6 +31,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import ExploreIcon from "@/components/icons/ExploreIcon.vue";
+import GridStats from "@/components/GridStats.vue";
 
 defineProps({
   isAuthenticated: {
@@ -104,6 +106,9 @@ onUnmounted(() => {
 
 <style scoped>
 .layout-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
   color: var(--bg-contrast-color-low, var(--color-content-low));
   /* color: var(--color-content-low); */
 }

@@ -49,6 +49,19 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // ── User badges ────────────────────────────────────────────────────────
+    //
+    // Badges are publicly readable (so any visitor can see badges on a user's
+    // profile page) but server-only writable. Granting / revoking happens via
+    // Cloud Functions (e.g. supporter badge from Stripe payments) or the
+    // admin script in functions/scripts/grantBadge.ts using the Admin SDK,
+    // which bypasses these rules. Clients — including the badge owner —
+    // can never grant themselves a badge.
+    match /userBadges/{userId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /layouts/{layoutId} {
       allow read: if true;
 
@@ -168,6 +181,19 @@ service cloud.firestore {
       }
     }
 
+    // Products and prices are synced from Stripe by the Extension.
+    // Public read so the pricing page can display current prices.
+    // Writes are Extension-only.
+    match /products/{id} {
+      allow read: if true;
+      allow write: if false;
+
+      match /prices/{priceId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
     // ── Analytics ──────────────────────────────────────────────────────────
     //
     // analyticsEvents: clients can append events but never read them. The
@@ -255,7 +281,7 @@ service cloud.firestore {
     // gridStats: only the grid owner can read; writes are Cloud Functions only.
     match /gridStats/{docId} {
       allow read: if request.auth != null
-        && resource.data.ownerId == request.auth.uid;
+        && (resource == null || resource.data.ownerId == request.auth.uid);
       allow write: if false;
 
       // viewers/{fingerprint} dedup markers are admin-only.
@@ -267,19 +293,6 @@ service cloud.firestore {
     // businessStats: admin-only; no client access.
     match /businessStats/{docId} {
       allow read, write: if false;
-    }
-
-    // Products and prices are synced from Stripe by the Extension.
-    // Public read so the pricing page can display current prices.
-    // Writes are Extension-only.
-    match /products/{id} {
-      allow read: if true;
-      allow write: if false;
-
-      match /prices/{priceId} {
-        allow read: if true;
-        allow write: if false;
-      }
     }
   }
 }

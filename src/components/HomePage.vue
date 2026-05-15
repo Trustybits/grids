@@ -826,7 +826,7 @@ const faqItems = [
   },
   {
     q: 'What payment methods do you accept?',
-    a: 'All major credit and debit cards via Stripe. No PayPal at this time.',
+    a: 'All major credit and debit cards via Stripe.',
   },
   {
     q: 'Do you offer refunds?',
@@ -1382,10 +1382,10 @@ const faqItems = [
   font: 600 11px/1 var(--mkt-font-sans);
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: #58e0a3;
+  color: var(--color-yellow);
   padding: 6px 12px;
   border-radius: 999px;
-  background: rgba(88, 224, 163, .12);
+  background: rgba(255, 226, 153, .12);
   margin-bottom: 20px;
 }
 .mkt__own h2 { font: 700 48px/1.02 var(--mkt-font-sans); margin: 0; }

@@ -1934,7 +1934,7 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--color-base-8);
+  //background: var(--color-base-8);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2102,11 +2102,8 @@ export default defineComponent({
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: color-mix(
-    in srgb,
-    var(--tile-text-color) 40%,
-    var(--color-content-default) 60%
-  );
+  color: #0C0;
+    mix-blend-mode: luminosity;
   line-height: 1.3;
   font-family:
     "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
@@ -2134,7 +2131,7 @@ export default defineComponent({
   font-family: inherit;
   color: color-mix(
     in srgb,
-    var(--color-content-high) 30%,
+    var(--tile-bg) 30%,
     var(--tile-text-color) 70%
   );
 }

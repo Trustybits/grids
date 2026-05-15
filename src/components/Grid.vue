@@ -456,10 +456,6 @@ export default {
     onMounted(() => {
       onResize();
       window.addEventListener("resize", onResize);
-      const layoutId = route.params.id;
-      if (layoutId) {
-        layoutStore.loadLayout(layoutId as string);
-      }
       nextTick(() => observeGridHeight());
     });
 

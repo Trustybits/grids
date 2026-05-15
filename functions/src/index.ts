@@ -40,5 +40,6 @@ export { generateOgImage } from "./storage/onRequest_generateOgImage";
 export { onFileDeleted } from "./storage/onTrigger_fileDeleted";
 export { onFileUploaded } from "./storage/onTrigger_fileUploaded";
 
-export * from './badges/grantSupporterBadge';
+// badges
 
+export { grantSupporterBadgeOnPayment } from "./badges/grantSupporterBadge";

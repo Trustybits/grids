@@ -36,8 +36,8 @@
         <span class="gs-row__value">{{ lifetimeViews }}</span>
       </div>
       <div class="gs-row">
-        <span class="gs-row__label">Unique views</span>
-        <span class="gs-row__value">{{ uniqueViews }}</span>
+        <span class="gs-row__label">Unique viewers</span>
+        <span class="gs-row__value">{{ uniqueViewers }}</span>
       </div>
       <div class="gs-row">
         <span class="gs-row__label">Average time spent</span>
@@ -67,7 +67,7 @@ const yesterday = ref<DailyGridStats | null>(null);
 const layoutId = computed(() => layoutStore.currentLayout?.id ?? null);
 
 const lifetimeViews = computed(() => aggregate.value?.totalViews ?? 0);
-const uniqueViews = computed(() => aggregate.value?.uniqueViewers ?? 0);
+const uniqueViewers = computed(() => aggregate.value?.uniqueViewers ?? 0);
 const yesterdayViews = computed(() => yesterday.value?.totalViews ?? 0);
 
 const averageTimeSpent = computed(() =>

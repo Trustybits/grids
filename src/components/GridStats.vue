@@ -14,11 +14,7 @@
         <span class="gs-num" data-tooltip="Views yesterday">{{
           yesterdayViews
         }}</span>
-        <span class="gs-slash">/</span>
-        <span class="gs-num" data-tooltip="Total views">{{
-          lifetimeViews
-        }}</span>
-        <span class="gs-label">views</span>
+        <span class="gs-label">new views</span>
       </span>
       <button
         :style="{ opacity: hovered || menuOpen ? 1 : 0 }"

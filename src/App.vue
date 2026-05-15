@@ -50,7 +50,7 @@ const { identify, reset: resetPostHog } = usePostHog();
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
-const isMarketingPage = computed(() => route.path === '/pricing');
+const isMarketingPage = computed(() => MARKETING_PATHS.includes(route.path));
 const hideBottomCornerButtons = isMarketingPage;
 
 const user = ref<AuthUser | null>(null);
@@ -101,9 +101,10 @@ const isAuthenticated = computed(() => !!user.value);
 
 // Routes that are definitely NOT grid pages. Must stay in sync with
 // NON_GRID_PATHS in BottomLeftButtons.vue.
+const MARKETING_PATHS = ["/", "/pricing", "/showcase", "/templates", "/blog"];
+
 const NON_GRID_PATHS = [
-  "/",
-  "/pricing",
+  ...MARKETING_PATHS,
   "/dashboard",
   "/login",
   "/signup",

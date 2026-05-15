@@ -82,13 +82,15 @@
       </div>
 
       <div class="grid-jack__legend" aria-hidden="true">
-        <span
-          v-for="bp in breakpointOrder"
-          :key="bp.id"
-          :class="['grid-jack__chip', { 'is-active': displayBreakpoint === bp.id }]"
-        >
-          {{ bp.label }}
-        </span>
+        <div class="grid-jack__chips">
+          <span
+            v-for="bp in breakpointOrder"
+            :key="bp.id"
+            :class="['grid-jack__chip', { 'is-active': displayBreakpoint === bp.id }]"
+          >
+            {{ bp.label }}
+          </span>
+        </div>
         <span v-if="!scrollDisabled" class="grid-jack__legend-hint">
           scroll to morph ↓
         </span>
@@ -621,20 +623,25 @@ const interceptOutboundClick = (event: MouseEvent) => {
 */
 .grid-jack__legend {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: center;
-  font: 500 12px/1 var(--mkt-font-sans);
+  gap: 32px;
+  font: 500 14px/1 var(--mkt-font-sans);
   color: var(--mkt-fg-3);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.grid-jack__chips {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .grid-jack__chip {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
+  padding: 12px 16px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.02);

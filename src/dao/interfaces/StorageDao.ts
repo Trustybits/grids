@@ -50,6 +50,13 @@ export interface StorageDao {
   getDownloadUrl(path: string): Promise<string>;
 
   /**
+   * Download the raw bytes of a file given its public download URL.
+   * For Firebase Storage URLs the SDK is used to avoid CORS issues;
+   * other URLs fall back to a plain fetch.
+   */
+  getBytes(url: string): Promise<Uint8Array>;
+
+  /**
    * Delete the object at the given path. No-op semantics are implementation-defined —
    * consult the concrete DAO for whether missing objects throw or silently succeed.
    */

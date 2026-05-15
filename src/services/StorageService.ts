@@ -6,6 +6,7 @@ import type {
 } from "@/dao/interfaces/StorageDao";
 import type { IStorageService } from "./interfaces/IStorageService";
 import type { UploadOptions } from "@/types/UploadFileTypes";
+import { validateUploadFile } from "@/utils/uploadFileClassification";
 
 const PUBLISHED_METADATA: StorageUploadMetadata = {
   customMetadata: { published: "true" },
@@ -33,30 +34,16 @@ export class StorageService implements IStorageService {
   validateFile(
     file: File,
     options: UploadOptions = {},
-  ): { isImage: boolean; isVideo: boolean } {
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
-    const defaultMaxSize = isImage ? 10 * 1024 * 1024 : 500 * 1024 * 1024;
-    const maxSize = options.maxSize ?? defaultMaxSize;
-
-    if (!isImage && !isVideo) {
-      throw new Error(
-        "Unsupported file type. Please upload an image or video.",
-      );
-    }
-
-    if (file.size > maxSize) {
-      const sizeMB = Math.round(maxSize / 1024 / 1024);
-      throw new Error(`File is too large! Maximum size: ${sizeMB}MB`);
-    }
-
-    return { isImage, isVideo };
+  ): { isImage: boolean; isVideo: boolean; isDocument: boolean } {
+    return validateUploadFile(file, options);
   }
 
   async upload(userId: string, file: File, options: UploadOptions = {}, metadata?: StorageUploadMetadata): Promise<string> {
-    const { isImage } = this.validateFile(file, options);
+    const { isImage, isVideo } = this.validateFile(file, options);
 
-    const fileType = options.fileType ?? (isImage ? "images" : "videos");
+    const fileType =
+      options.fileType ??
+      (isImage ? "images" : isVideo ? "videos" : "documents");
     const filePath = this.buildFilePath("users", userId, fileType, file.name);
 
     try {
@@ -73,9 +60,11 @@ export class StorageService implements IStorageService {
     options: UploadOptions = {},
     metadata?: StorageUploadMetadata,
   ): StorageUploadTask {
-    const { isImage } = this.validateFile(file, options);
+    const { isImage, isVideo } = this.validateFile(file, options);
 
-    const fileType = options.fileType ?? (isImage ? "images" : "videos");
+    const fileType =
+      options.fileType ??
+      (isImage ? "images" : isVideo ? "videos" : "documents");
     const filePath = this.buildFilePath("users", userId, fileType, file.name);
 
     return this.storageDao.uploadResumable(filePath, file, mergeMetadata(metadata));
@@ -101,6 +90,15 @@ export class StorageService implements IStorageService {
       return await this.storageDao.upload(filePath, blob, mergeMetadata({ contentType }));
     } catch (error) {
       console.error("StorageService uploadExternalImage failed:", error);
+      throw error;
+    }
+  }
+
+  async getBytes(url: string): Promise<Uint8Array> {
+    try {
+      return await this.storageDao.getBytes(url);
+    } catch (error) {
+      console.error("StorageService getBytes failed:", error);
       throw error;
     }
   }

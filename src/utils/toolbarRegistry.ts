@@ -443,13 +443,12 @@ const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
     RESIZE_3x2,
     RESIZE_4x2,
     RESIZE_4x4,
-    BORDER_TOGGLE,
-    COLOR_BUTTON,
   ],
   [ContentType.CAMPFIRE]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
   [ContentType.PROFILE]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
   // Roadmap feed uses standard resize/appearance options; settings are managed inside the tile itself
   [ContentType.ROADMAP_FEED]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
+  [ContentType.DOCUMENT]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
 };
 
 // Default fallback for any tile type not explicitly configured

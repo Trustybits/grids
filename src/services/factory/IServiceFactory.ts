@@ -1,4 +1,5 @@
 import type { IBadgeService } from "../interfaces/IBadgeService";
+import type { IAnalyticsService } from "../interfaces/IAnalyticsService";
 import type { IChatService } from "../interfaces/IChatService";
 import type { ICloudFunctionsService } from "../interfaces/ICloudFunctionsService";
 import type { IGameDataService } from "../interfaces/IGameDataService";
@@ -11,6 +12,7 @@ import type { IUserService } from "../interfaces/IUserService";
 
 export interface IServiceFactory {
   getBadgeService: () => IBadgeService;
+  getAnalyticsService: () => IAnalyticsService;
   getChatService: () => IChatService;
   getCloudFunctionsService: () => ICloudFunctionsService;
   getGameDataService: () => IGameDataService;

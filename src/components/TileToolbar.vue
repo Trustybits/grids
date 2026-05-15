@@ -11,22 +11,24 @@
   >
     <template v-for="(item, idx) in visibleItems" :key="item.id">
       <div v-if="shouldShowDivider(idx)" class="toolbar-divider"></div>
-      <button
-        class="toolbar-btn"
-        :class="[
-          item.cssClass,
-          {
-            'is-active':
-              item.isActive?.(ctx) ||
-              (item.panelId && panelOpen && activePanelId === item.panelId),
-          },
-          { 'toolbar-btn--danger': resolveDanger(item) },
-        ]"
-        :data-tooltip="resolveTitle(item)"
-        @click.stop="onItemClick($event, item)"
-      >
-        <component :is="resolveIcon(item)" />
-      </button>
+      <FloatingTooltip :text="resolveTitle(item)">
+        <button
+          class="toolbar-btn"
+          :class="[
+            item.cssClass,
+            {
+              'is-active':
+                item.isActive?.(ctx) ||
+                (item.panelId && panelOpen && activePanelId === item.panelId),
+            },
+            { 'toolbar-btn--danger': resolveDanger(item) },
+          ]"
+          :style="resolveButtonStyle(item)"
+          @click.stop="onItemClick($event, item)"
+        >
+          <component :is="resolveIcon(item)" />
+        </button>
+      </FloatingTooltip>
     </template>
   </div>
 
@@ -38,13 +40,14 @@
     @mousedown.stop
     @touchstart.stop
   >
-    <button
-      class="search-panel-btn"
-      data-tooltip="My location"
-      @click.stop="onLocateClick"
-    >
-      <CurrentLocationIcon />
-    </button>
+    <FloatingTooltip text="My location">
+      <button
+        class="search-panel-btn"
+        @click.stop="onLocateClick"
+      >
+        <CurrentLocationIcon />
+      </button>
+    </FloatingTooltip>
     <div class="search-panel-divider"></div>
     <input
       ref="searchInputRef"
@@ -54,13 +57,14 @@
       v-model="searchQuery"
       @keydown.enter.stop="onSearchSubmit"
     />
-    <button
-      class="search-panel-btn"
-      data-tooltip="Search map"
-      @click.stop="onSearchSubmit"
-    >
-      <SearchIcon />
-    </button>
+    <FloatingTooltip text="Search map">
+      <button
+        class="search-panel-btn"
+        @click.stop="onSearchSubmit"
+      >
+        <SearchIcon />
+      </button>
+    </FloatingTooltip>
   </div>
 
   <!-- Image URL Panel -->
@@ -81,13 +85,14 @@
         v-model="imageUrlDraft"
         @keydown.enter.stop.prevent="onImageUrlSubmit"
       />
-      <button
-        class="image-url-panel-btn"
-        data-tooltip="Submit"
-        @click.stop="onImageUrlSubmit"
-      >
-        <ArrowUpRightIcon />
-      </button>
+      <FloatingTooltip text="Submit">
+        <button
+          class="image-url-panel-btn"
+          @click.stop="onImageUrlSubmit"
+        >
+          <ArrowUpRightIcon />
+        </button>
+      </FloatingTooltip>
     </div>
     <p v-if="imageUrlError" class="image-url-panel-error">
       {{ imageUrlError }}
@@ -215,6 +220,7 @@ import ColorPicker from "./ColorPicker.vue";
 import TextAlignPanel from "./TextAlignPanel.vue";
 import FontSizeSelector from "./FontSizeSelector.vue";
 import FontSelector from "./FontSelector.vue";
+import FloatingTooltip from "./FloatingTooltip.vue";
 
 export default defineComponent({
   components: {
@@ -226,6 +232,7 @@ export default defineComponent({
     FontSizeSelector,
     FontSelector,
     TextAlignPanel,
+    FloatingTooltip,
   },
   props: {
     tile: {
@@ -339,6 +346,22 @@ export default defineComponent({
       return typeof item.danger === "function"
         ? item.danger(ctx.value)
         : !!item.danger;
+    };
+
+    const resolveButtonStyle = (
+      item: ToolbarItem,
+    ): Record<string, string> | undefined => {
+      if (item.id !== "color") return undefined;
+
+      const content = props.tile.content as { backgroundColor?: unknown };
+      const backgroundColor =
+        typeof content.backgroundColor === "string" && content.backgroundColor
+          ? content.backgroundColor
+          : "var(--color-tile-background)";
+
+      return {
+        "--toolbar-color-swatch": backgroundColor,
+      };
     };
 
     const resolveMenuIcon = (mi: ToolbarMenuItem) => {
@@ -639,6 +662,7 @@ export default defineComponent({
       menuItemLayoutDirection,
       resolveTitle,
       resolveIcon,
+      resolveButtonStyle,
       resolveDanger,
       resolveMenuIcon,
       resolveMenuTooltip,

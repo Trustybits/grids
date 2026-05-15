@@ -65,10 +65,15 @@
       </div>
     </div>
   </div>
-  <AddLinkModal
+  <FloatingInputModal
     :show="showLinkModal"
+    placeholder="Type or paste a link..."
+    inputmode="url"
+    :validate="isValidLink"
+    submit-title="Add link (Enter)"
+    invalid-title="Enter a valid URL"
     @close="closeLinkModal"
-    @add="handleAddLink"
+    @submit="handleAddLink"
   />
 </template>
 
@@ -86,12 +91,13 @@ import { type ImageContent } from "@/types/TileContent";
 import { useLayoutStore } from "@/stores/layout";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";
-import AddLinkModal from "../AddLinkModal.vue";
+import FloatingInputModal from "../modal/FloatingInputModal.vue";
+import { isValidLink } from "@/utils/urlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 
 export default defineComponent({
   components: {
-    AddLinkModal,
+    FloatingInputModal,
     LinkIndicatorIcon,
   },
   emits: ["background-color-change", "text-color-change"],
@@ -301,6 +307,16 @@ export default defineComponent({
       constrainOffset(true);
     });
 
+    watch(
+      () => [props.content.offsetX, props.content.offsetY],
+      ([newX, newY]) => {
+        if (!isEditing.value) {
+          offsetX.value = newX || 0;
+          offsetY.value = newY || 0;
+        }
+      },
+    );
+
     const { overlayColor, handleBackgroundColorChange } = useColorPicker(
       tileId,
       props.content,
@@ -341,6 +357,7 @@ export default defineComponent({
       tileDimensions,
       overlayColor,
       handleBackgroundColorChange,
+      isValidLink,
       showLinkModal,
       tileLinkExists,
       openUrlInput,

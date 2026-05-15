@@ -19,6 +19,7 @@ import './styles/tokens.scss';
 import './styles/claude-tokens.scss';
 import './styles/themes.scss';
 import './styles/custom.scss';
+import "./styles/_tooltips.scss";
 
 import { useThemeStore } from "@/stores/theme";
 

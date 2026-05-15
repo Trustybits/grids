@@ -14,6 +14,7 @@ export interface Layout {
   verticalCompact: boolean;
   backgroundImageSrc: string;
   backgroundEmbed: boolean;
+  backgroundColor?: string;
   themeId?: string;
   tiles: Tile[];
   overrides?: Partial<Record<Breakpoint, Record<string, TilePosition>>>;

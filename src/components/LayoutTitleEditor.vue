@@ -15,12 +15,13 @@
   <!-- Unauthenticated viewer: CTA buttons -->
   <div v-else-if="!isAuthenticated" class="cta-buttons" ref="ctaRef">
     <router-link class="cta-btn cta-btn--primary" to="/login">
+      <img src="/grids_logo.png" alt="" class="cta-logo" />
       Claim my Grid
     </router-link>
     <router-link class="cta-btn cta-btn--ghost" to="/login">
       Login
     </router-link>
-    <router-link class="cta-btn cta-btn--icon" to="/explore" title="Explore">
+    <router-link class="cta-btn cta-btn--icon" to="/showcase" title="Showcase">
       <ExploreIcon />
     </router-link>
   </div>
@@ -138,11 +139,18 @@ onUnmounted(() => {
   min-width: 0;
 }
 
+@media (max-width: 600px) {
+  .cta-buttons {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 .cta-btn {
   white-space: nowrap;
   text-decoration: none;
   font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-base);
+  font-size: 14px;;
   transition:
     transform var(--duration-fast) var(--easing-smooth),
     box-shadow var(--duration-fast) var(--easing-smooth),
@@ -156,12 +164,18 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
-  padding: 10px 16px;
-  border: 2px solid var(--color-border);
+  padding: 4px 8px;
+  /* border: 2px solid var(--color-border); */
   border-radius: var(--radius-sm);
   color: var(--color-content-background);
   box-shadow: var(--shadow-md);
   background-color: var(--color-text-primary);
+}
+
+.cta-logo {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
 }
 
 .cta-btn--primary:hover {

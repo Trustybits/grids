@@ -22,9 +22,6 @@ export class MockUserService implements IUserService {
   recordLogin(_userId: string, _email: string | null): Promise<void> {
     throw new Error("Method not implemented.");
   }
-  grantSupporterBadge(_userId: string): Promise<void> {
-    throw new Error("Method not implemented.");
-  }
   getUserIdBySlug(_slug: string): Promise<string | null> {
     throw new Error("Method not implemented.");
   }

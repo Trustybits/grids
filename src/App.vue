@@ -5,8 +5,8 @@
          app content (TopBar, main area, etc.) below it. -->
     <ViewportWarning type="breakpoint-preview" :dismissible="false" />
 
-    <!-- Left Navigation Bar -->
-    <LeftNavBar v-if="isAuthenticated" />
+    <!-- Left Navigation Bar (hidden on marketing pages like /pricing) -->
+    <LeftNavBar v-if="isAuthenticated && !isMarketingPage" />
 
     <!-- Top Bar for Layout Title Editor -->
     <div ref="topBarRef" class="top-bar" v-if="showTopBar">
@@ -14,12 +14,12 @@
     </div>
 
     <!-- Main Content Area -->
-    <div class="main-content" :class="{ 'has-left-nav': isAuthenticated }">
+    <div class="main-content" :class="{ 'has-left-nav': isAuthenticated && !isMarketingPage }">
       <router-view />
     </div>
 
     <!-- Global bottom-left buttons (Share, Discord, UserMenu, GridMenu) -->
-    <BottomLeftButtons />
+    <BottomLeftButtons v-if="!hideBottomCornerButtons" />
 
     <!-- Toast Notifications -->
     <ToastContainer />
@@ -43,17 +43,27 @@ import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import type { AuthUser } from '@/auth/AuthProvider';
 import { usePostHog } from '@/composables/usePostHog';
+import { initTier } from '@/composables/useTier';
+import { initContributions } from '@/composables/useContributions';
 
 const { identify, reset: resetPostHog } = usePostHog();
 
 const route = useRoute();
 const layoutStore = useLayoutStore();
+const isMarketingPage = computed(() => MARKETING_PATHS.includes(route.path));
+const hideBottomCornerButtons = isMarketingPage;
 
 const user = ref<AuthUser | null>(null);
 const previousUser = ref<AuthUser | null>(null);
 const isInitialLoad = ref(true);
 
 onMounted(() => {
+  // Boot global tier + contribution listeners once for the app session.
+  // (Badges are subscribed to per-component via useBadges since they're
+  // public and may be needed for visited profile pages, not just self.)
+  initTier();
+  initContributions();
+
   getAuthProvider().onAuthStateChanged(async (currentUser) => {
     // Track login for existing users (not new signups on page load)
     if (currentUser && !isInitialLoad.value && !previousUser.value) {
@@ -89,8 +99,45 @@ onMounted(() => {
 
 const isAuthenticated = computed(() => !!user.value);
 
-const isOnGridPage = computed(() =>
-  route.path.startsWith("/grid") || !!layoutStore.currentLayout
+// Routes that are definitely NOT grid pages. Must stay in sync with
+// NON_GRID_PATHS in BottomLeftButtons.vue.
+const MARKETING_PATHS = ["/", "/pricing", "/showcase", "/templates", "/blog"];
+
+const NON_GRID_PATHS = [
+  ...MARKETING_PATHS,
+  "/dashboard",
+  "/login",
+  "/signup",
+  "/privacy",
+  "/terms",
+  "/notion-callback",
+];
+
+const isOnGridPage = computed(() => {
+  const path = route.path;
+  if (path.startsWith("/grid/")) return true;
+  if (NON_GRID_PATHS.includes(path)) return false;
+  // Slug routes (/:slug) that loaded a real grid
+  return !!layoutStore.currentLayout && !layoutStore.isDemoLayout;
+});
+
+// Clear stale layout state when navigating away from a grid page.
+// Lives here (not BottomLeftButtons) so it fires even when that
+// component is unmounted (e.g. on /pricing).
+watch(
+  () => route.path,
+  (newPath, oldPath) => {
+    const wasOnGrid =
+      oldPath?.startsWith("/grid/") ||
+      (oldPath != null && !NON_GRID_PATHS.includes(oldPath));
+    const isOnGrid =
+      newPath.startsWith("/grid/") || !NON_GRID_PATHS.includes(newPath);
+
+    if (wasOnGrid && !isOnGrid) {
+      layoutStore.clearCurrentLayout();
+    }
+  },
+  { flush: "pre" },
 );
 
 const showTitleEditor = computed(() => {

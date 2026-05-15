@@ -1,4 +1,5 @@
 import { db, functions, storage } from "@/infrastructure/firebase";
+import type { BadgeDao } from "@/dao/interfaces/BadgeDao";
 import type { AnalyticsEventDao } from "@/dao/interfaces/AnalyticsEventDao";
 import type { BusinessStatsDao } from "@/dao/interfaces/BusinessStatsDao";
 import type { ChatDao } from "@/dao/interfaces/ChatDao";
@@ -15,6 +16,7 @@ import type { UserDao } from "@/dao/interfaces/UserDao";
 import type { UserGameDataDao } from "@/dao/interfaces/UserGameDataDao";
 import { FirebaseCloudFunctionsDao } from "../FirebaseCloudFunctionsDao";
 import { FirebaseStorageDao } from "../FirebaseStorageDao";
+import { FirestoreBadgeDao } from "../FirestoreBadgeDao";
 import { FirestoreAnalyticsEventDao } from "../FirestoreAnalyticsEventDao";
 import { FirestoreBusinessStatsDao } from "../FirestoreBusinessStatsDao";
 import { FirestoreChatDao } from "../FirestoreChatDao";
@@ -28,6 +30,7 @@ import { FirestoreUserDao } from "../FirestoreUserDao";
 import { FirestoreUserGameDataDao } from "../FirestoreUserGameDataDao";
 
 export class FirestoreDaoFactory implements DaoFactory {
+  private badgeDao: BadgeDao;
   private analyticsEventDao: AnalyticsEventDao;
   private businessStatsDao: BusinessStatsDao;
   private chatDao: ChatDao;
@@ -43,6 +46,7 @@ export class FirestoreDaoFactory implements DaoFactory {
   private userGameDataDao: UserGameDataDao;
 
   public constructor() {
+    this.badgeDao = new FirestoreBadgeDao(db);
     this.analyticsEventDao = new FirestoreAnalyticsEventDao(db);
     this.businessStatsDao = new FirestoreBusinessStatsDao(db);
     this.chatDao = new FirestoreChatDao(db);
@@ -58,6 +62,10 @@ export class FirestoreDaoFactory implements DaoFactory {
     this.userGameDataDao = new FirestoreUserGameDataDao(db);
   }
 
+  public getBadgeDao(): BadgeDao {
+    return this.badgeDao;
+  }
+  
   public getAnalyticsEventDao(): AnalyticsEventDao {
     return this.analyticsEventDao;
   }

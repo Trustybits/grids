@@ -49,6 +49,19 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // ── User badges ────────────────────────────────────────────────────────
+    //
+    // Badges are publicly readable (so any visitor can see badges on a user's
+    // profile page) but server-only writable. Granting / revoking happens via
+    // Cloud Functions (e.g. supporter badge from Stripe payments) or the
+    // admin script in functions/scripts/grantBadge.ts using the Admin SDK,
+    // which bypasses these rules. Clients — including the badge owner —
+    // can never grant themselves a badge.
+    match /userBadges/{userId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /layouts/{layoutId} {
       allow read: if true;
 

@@ -1,3 +1,4 @@
+import type { BadgeDao } from '../BadgeDao';
 import type { AnalyticsEventDao } from '../AnalyticsEventDao';
 import type { BusinessStatsDao } from '../BusinessStatsDao';
 import type { ChatDao } from '../ChatDao';
@@ -13,6 +14,7 @@ import type { UserDao } from '../UserDao';
 import type { UserGameDataDao } from '../UserGameDataDao';
 
 export interface DaoFactory {
+  getBadgeDao: () => BadgeDao;
   getAnalyticsEventDao: () => AnalyticsEventDao;
   getBusinessStatsDao: () => BusinessStatsDao;
   getChatDao: () => ChatDao;

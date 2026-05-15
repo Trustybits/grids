@@ -69,15 +69,6 @@ export class UserService implements IUserService {
     }
   }
 
-  async grantSupporterBadge(userId: string): Promise<void> {
-    try {
-      await this.userDao.update(userId, { hasSupporterBadge: true });
-    } catch (error) {
-      console.error("Failed to grant supporter badge:", error);
-      throw error;
-    }
-  }
-
   // ── Slug ────────────────────────────────────────────────────────────
 
   async getUserIdBySlug(slug: string): Promise<string | null> {

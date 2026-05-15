@@ -210,6 +210,25 @@
             </div>
           </div>
         </div>
+
+        <!-- Earned-badge row, sits to the right of the avatar.
+             Hidden in compact layouts (mini/narrow/banner) since they
+             dedicate the row to the avatar alone. -->
+        <div
+          v-if="!isCompactProfileLayout && earnedBadges.length > 0"
+          class="profile-badges"
+          @mousedown.stop
+          @click.stop
+        >
+          <div
+            v-for="badge in earnedBadges"
+            :key="badge.id"
+            class="profile-badge"
+            :data-tooltip="`${badge.meta.label} \u00b7 since ${formatBadgeDate(badge.earnedAt)}`"
+          >
+            <component :is="badge.meta.icon" :size="20" />
+          </div>
+        </div>
       </div>
 
       <div class="profile-meta" :style="{ '--tile-text-color': textColor }">
@@ -435,6 +454,7 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import { useBadges } from "@/composables/useBadges";
 import { useEditorContentSync } from "@/composables/useEditingLifecycle";
 import Placeholder from "@tiptap/extension-placeholder";
 import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
@@ -505,6 +525,22 @@ export default defineComponent({
 
     const { uploadExternalImageToStorage } = useFileUpload();
     const storageService = getServiceFactory().getStorageService();
+
+    // ── Badges ────────────────────────────────────────────────────────
+    // Resolve the layout owner's UID — works both for the owner editing
+    // their own profile and for visitors viewing someone else's grid.
+    const ownerUserId = computed(
+      () => layoutStore.currentLayout?.userId ?? null,
+    );
+    const { earnedBadges } = useBadges(ownerUserId);
+
+    const badgeDateFormatter = new Intl.DateTimeFormat(undefined, {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+    const formatBadgeDate = (date: Date): string =>
+      badgeDateFormatter.format(date);
 
     const isUploadingAvatar = ref(false);
     const uploadPercent = ref(0);
@@ -1461,6 +1497,8 @@ export default defineComponent({
       avatarFlyoutStyle,
       scheduleQuickActionClose,
       cancelQuickActionClose,
+      earnedBadges,
+      formatBadgeDate,
     };
   },
 });
@@ -1503,6 +1541,41 @@ export default defineComponent({
   align-items: center;
   gap: var(--spacing-lg);
   width: 100%;
+}
+
+/* ── Earned badges (right of avatar) ───────────────────────────────
+   Sits in the empty space alongside the avatar. Wraps onto multiple
+   lines if more than ~6 badges are earned. */
+.profile-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--spacing-xs, 6px);
+  padding-top: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.profile-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--tile-text-color);
+  /* lift slightly so the gradient pops against the tile background */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
+  transition: transform var(--duration-fast) var(--easing-smooth);
+
+  svg {
+    display: block;
+  }
+}
+
+.profile-badge:hover {
+  transform: translateY(-1px) scale(1.06);
 }
 
 .avatar {

@@ -47,6 +47,14 @@ export default {
       type: Number,
       default: 75,
     },
+    // When true, suppress Grid.vue's built-in viewport→grid auto-scaling.
+    // The marketing-homepage embed uses this so it can apply its own
+    // CSS transform: scale() to fit each device-frame size during the
+    // hero scroll-jack, without compounding on top of the internal scale.
+    disableAutoScale: {
+      type: Boolean,
+      default: false,
+    },
   },
   setup(props) {
     const layoutStore = useLayoutStore();
@@ -388,6 +396,7 @@ export default {
     });
 
     const mobileScale = computed(() => {
+      if (props.disableAutoScale) return 1;
       if (viewportWidth.value >= gridWidth.value) return 1;
       return viewportWidth.value / gridWidth.value;
     });

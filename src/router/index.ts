@@ -5,7 +5,6 @@ import AuthPage from '@/components/AuthPage.vue';
 import DashboardPage from '@/components/DashboardPage.vue';
 import PrivacyPage from '@/components/PrivacyPage.vue';
 import TermsPage from '@/components/TermsPage.vue';
-import PricingPage from '@/components/PricingPage.vue';
 import NotionCallback from '@/components/NotionCallback.vue';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
@@ -38,7 +37,22 @@ const routes = [
   },
   {
     path: "/pricing",
-    component: PricingPage,
+    component: HomePage,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: "/showcase",
+    component: HomePage,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: "/templates",
+    component: HomePage,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: "/blog",
+    component: HomePage,
     meta: { requiresAuth: false },
   },
   {

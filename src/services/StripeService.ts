@@ -73,7 +73,7 @@ export class StripeService implements IStripeService {
   async createSupporterCheckoutSession(amountCents: number): Promise<string> {
     if (amountCents < 50) {
       throw new Error(
-        "Minimum Stripe charge is $0.50. For free badges, use grantFreeSupporterBadge().",
+        "Minimum Stripe charge is $0.50.",
       );
     }
 
@@ -142,5 +142,12 @@ export class StripeService implements IStripeService {
     callback: (subscriptions: Array<Record<string, unknown>>) => void,
   ): () => void {
     return this.customerDao.subscribeToActiveSubscriptions(userId, callback);
+  }
+
+  subscribeToPayments(
+    userId: string,
+    callback: (payments: Array<Record<string, unknown>>) => void,
+  ): () => void {
+    return this.customerDao.subscribeToPayments(userId, callback);
   }
 }

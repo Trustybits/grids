@@ -34,6 +34,7 @@ coverage
 
 .env
 .env.local
+firestore-stripe-payments-setup.local.md
 src/components/FluidTextCard/CreateFluidTextCardModal.svelte
 src/components/FluidTextCard/EditingFluidTextCard.svelte
 src/components/FluidTextCard/FluidTextCard.svelte
@@ -42,6 +43,8 @@ src/components/FluidTextCard/index.ts
 
 
 notesAndPlans
+firestore-stripe-payments-setup.local.md
+
 # Local emulator env overrides
 functions/.env.local
 .vercel

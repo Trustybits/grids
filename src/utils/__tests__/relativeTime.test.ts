@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { formatRelativeSince } from "@/utils/relativeTime";
+import { formatRelativeSince, formatDuration } from "@/utils/relativeTime";
 
 // Fixed reference point for deterministic tests
 // 2024-06-15 12:00:00 UTC
@@ -225,6 +225,139 @@ describe("formatRelativeSince", () => {
       expect(formatRelativeSince(msAgo(30 * DAY - 1), NOW_MS)).toBe("29d ago");
       const result = formatRelativeSince(msAgo(30 * DAY), NOW_MS);
       expect(result).not.toMatch(/^\d+d ago$/);
+    });
+  });
+});
+
+// ── formatDuration ─────────────────────────────────────────────────────────
+//
+// Covers:
+//  - Invalid inputs (NaN, +/-Infinity, 0, negatives) → "0s"
+//  - Seconds bucket (< 60s) rounds to nearest integer
+//  - Minutes bucket (< 60m): one decimal under 10, rounded at/above 10
+//  - Hours bucket (>= 60m): one decimal under 10, rounded at/above 10
+//  - Boundary transitions between buckets
+
+describe("formatDuration", () => {
+  describe("invalid / non-positive inputs return '0s'", () => {
+    it("returns '0s' for 0", () => {
+      expect(formatDuration(0)).toBe("0s");
+    });
+
+    it("returns '0s' for a negative value", () => {
+      expect(formatDuration(-1)).toBe("0s");
+      expect(formatDuration(-10_000)).toBe("0s");
+    });
+
+    it("returns '0s' for NaN", () => {
+      expect(formatDuration(NaN)).toBe("0s");
+    });
+
+    it("returns '0s' for Infinity", () => {
+      expect(formatDuration(Infinity)).toBe("0s");
+    });
+
+    it("returns '0s' for -Infinity", () => {
+      expect(formatDuration(-Infinity)).toBe("0s");
+    });
+  });
+
+  describe("seconds bucket (ms > 0 and seconds < 60)", () => {
+    it("rounds sub-second values toward zero seconds", () => {
+      // 1ms → 0.001s → rounds to 0 → "0s"
+      expect(formatDuration(1)).toBe("0s");
+      expect(formatDuration(499)).toBe("0s");
+    });
+
+    it("rounds 500ms up to 1s", () => {
+      expect(formatDuration(500)).toBe("1s");
+    });
+
+    it("returns whole-second values", () => {
+      expect(formatDuration(1_000)).toBe("1s");
+      expect(formatDuration(30_000)).toBe("30s");
+      expect(formatDuration(59_000)).toBe("59s");
+    });
+
+    it("rounds fractional seconds to nearest integer", () => {
+      expect(formatDuration(1_499)).toBe("1s");
+      expect(formatDuration(1_500)).toBe("2s");
+    });
+  });
+
+  describe("minutes bucket (60s <= duration < 60m)", () => {
+    it("formats exactly 60s as '1.0m' (under 10 → one decimal)", () => {
+      expect(formatDuration(60_000)).toBe("1.0m");
+    });
+
+    it("formats 90s as '1.5m'", () => {
+      expect(formatDuration(90_000)).toBe("1.5m");
+    });
+
+    it("formats values just under 10 minutes with one decimal", () => {
+      // 9.5 minutes = 570_000 ms
+      expect(formatDuration(570_000)).toBe("9.5m");
+    });
+
+    it("formats exactly 10 minutes as '10m' (>= 10 → rounded)", () => {
+      expect(formatDuration(10 * 60_000)).toBe("10m");
+    });
+
+    it("rounds minute values >= 10 to nearest integer", () => {
+      // 15.4 minutes → 15
+      expect(formatDuration(15.4 * 60_000)).toBe("15m");
+      // 15.6 minutes → 16
+      expect(formatDuration(15.6 * 60_000)).toBe("16m");
+    });
+
+    it("formats 59 minutes as '59m'", () => {
+      expect(formatDuration(59 * 60_000)).toBe("59m");
+    });
+  });
+
+  describe("hours bucket (duration >= 60m)", () => {
+    it("formats exactly 60 minutes as '1.0h'", () => {
+      expect(formatDuration(60 * 60_000)).toBe("1.0h");
+    });
+
+    it("formats 90 minutes as '1.5h'", () => {
+      expect(formatDuration(90 * 60_000)).toBe("1.5h");
+    });
+
+    it("formats values just under 10 hours with one decimal", () => {
+      // 9.5h
+      expect(formatDuration(9.5 * 60 * 60_000)).toBe("9.5h");
+    });
+
+    it("formats exactly 10 hours as '10h' (>= 10 → rounded)", () => {
+      expect(formatDuration(10 * 60 * 60_000)).toBe("10h");
+    });
+
+    it("rounds hour values >= 10 to nearest integer", () => {
+      // 23.4 h → 23
+      expect(formatDuration(23.4 * 60 * 60_000)).toBe("23h");
+      // 23.6 h → 24
+      expect(formatDuration(23.6 * 60 * 60_000)).toBe("24h");
+    });
+
+    it("handles very large durations (multi-day) in hours", () => {
+      // 100 hours
+      expect(formatDuration(100 * 60 * 60_000)).toBe("100h");
+    });
+  });
+
+  describe("bucket boundary transitions", () => {
+    it("transitions from seconds to minutes at exactly 60s", () => {
+      // Just under: seconds = 59.999, still in seconds bucket, rounds to 60 → "60s"
+      expect(formatDuration(59_999)).toBe("60s");
+      expect(formatDuration(60_000)).toBe("1.0m");
+    });
+
+    it("transitions from minutes to hours at exactly 60 minutes", () => {
+      // Just under 60m: still in minutes bucket
+      const justUnder = 60 * 60_000 - 1;
+      expect(formatDuration(justUnder)).toBe("60m");
+      expect(formatDuration(60 * 60_000)).toBe("1.0h");
     });
   });
 });

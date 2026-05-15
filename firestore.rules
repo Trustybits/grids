@@ -181,6 +181,19 @@ service cloud.firestore {
       }
     }
 
+    // Products and prices are synced from Stripe by the Extension.
+    // Public read so the pricing page can display current prices.
+    // Writes are Extension-only.
+    match /products/{id} {
+      allow read: if true;
+      allow write: if false;
+
+      match /prices/{priceId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
     // ── Analytics ──────────────────────────────────────────────────────────
     //
     // analyticsEvents: clients can append events but never read them. The
@@ -268,7 +281,7 @@ service cloud.firestore {
     // gridStats: only the grid owner can read; writes are Cloud Functions only.
     match /gridStats/{docId} {
       allow read: if request.auth != null
-        && resource.data.ownerId == request.auth.uid;
+        && (resource == null || resource.data.ownerId == request.auth.uid);
       allow write: if false;
 
       // viewers/{fingerprint} dedup markers are admin-only.
@@ -280,19 +293,6 @@ service cloud.firestore {
     // businessStats: admin-only; no client access.
     match /businessStats/{docId} {
       allow read, write: if false;
-    }
-
-    // Products and prices are synced from Stripe by the Extension.
-    // Public read so the pricing page can display current prices.
-    // Writes are Extension-only.
-    match /products/{id} {
-      allow read: if true;
-      allow write: if false;
-
-      match /prices/{priceId} {
-        allow read: if true;
-        allow write: if false;
-      }
     }
   }
 }

@@ -65,14 +65,16 @@
             <span class="grid-jack__stand-base" />
           </span>
 
-          <div class="grid-jack__viewport" :style="viewportStyle">
-            <div class="grid-jack__scale" :style="scaleStyle">
-              <div
-                class="home-grid-embed"
-                @click.capture="interceptOutboundClick"
-                @auxclick.capture="interceptOutboundClick"
-              >
-                <Grid :row-height="rowHeight" :disable-auto-scale="true" />
+          <div ref="viewportEl" class="grid-jack__viewport" :style="viewportStyle">
+            <div class="grid-jack__scroll-sizer" :style="scrollSizerStyle">
+              <div class="grid-jack__scale" :style="scaleStyle">
+                <div
+                  class="home-grid-embed"
+                  @click.capture="interceptOutboundClick"
+                  @auxclick.capture="interceptOutboundClick"
+                >
+                  <Grid :row-height="rowHeight" :disable-auto-scale="true" />
+                </div>
               </div>
             </div>
           </div>
@@ -118,9 +120,10 @@ const layoutStore = useLayoutStore();
 
 // ── Pinned scroll-jack state ────────────────────────────────────────────────
 const jackRoot = ref<HTMLElement | null>(null);
+const viewportEl = ref<HTMLElement | null>(null);
 // The breakpoint actually applied to the grid + frame. Driven by scroll
-// progress; defaults to 'sm' so first paint matches the smallest device.
-const displayBreakpoint = ref<Breakpoint>('sm');
+// progress; defaults to 'lg' so first paint shows the desktop view.
+const displayBreakpoint = ref<Breakpoint>('lg');
 // Cached viewport metrics, refreshed on resize. We use innerWidth to decide
 // whether to enable scroll-jacking at all (disabled on narrow phones, where
 // pinning behaviour fights the system gesture momentum).
@@ -134,9 +137,9 @@ const viewportHeight = ref(
 const scrollDisabled = computed(() => viewportWidth.value < 720);
 
 const breakpointOrder = [
-  { id: 'sm' as const, label: 'Phone' },
-  { id: 'md' as const, label: 'Tablet' },
   { id: 'lg' as const, label: 'Desktop' },
+  { id: 'md' as const, label: 'Tablet' },
+  { id: 'sm' as const, label: 'Phone' },
 ];
 
 // ── Device frame sizing ─────────────────────────────────────────────────────
@@ -232,19 +235,15 @@ const viewportStyle = computed(() => {
   };
 });
 
-// Scale the natural-sized grid down to fit the device viewport. We pick
-// the smaller of width-fit and height-fit so nothing overflows. A small
-// safety margin (0.96) keeps the grid from kissing the bezel on either
-// side, which would look cramped.
-const SAFE_FILL = 0.96;
+// Scale the natural-sized grid to fill the device viewport width. The
+// bezel padding already provides visual breathing room, so the grid
+// stretches edge-to-edge inside the screen area. The viewport scrolls
+// vertically when the grid is taller than the frame.
 const gridScale = computed(() => {
   const spec = frameSpec.value;
   const innerW = spec.outerWidth - spec.paddingX * 2;
-  const innerH = spec.outerHeight - spec.paddingY * 2;
   const grid = DEMO_GRID_DIMENSIONS[displayBreakpoint.value];
-  const widthFit = innerW / grid.width;
-  const heightFit = innerH / grid.height;
-  return Math.min(widthFit, heightFit) * SAFE_FILL;
+  return innerW / grid.width;
 });
 
 const scaleStyle = computed(() => {
@@ -253,6 +252,15 @@ const scaleStyle = computed(() => {
     width: `${grid.width}px`,
     height: `${grid.height}px`,
     transform: `scale(${gridScale.value})`,
+  };
+});
+
+const scrollSizerStyle = computed(() => {
+  const grid = DEMO_GRID_DIMENSIONS[displayBreakpoint.value];
+  const scale = gridScale.value;
+  return {
+    width: `${grid.width * scale}px`,
+    height: `${grid.height * scale}px`,
   };
 });
 
@@ -266,7 +274,10 @@ const applyForcedBreakpoint = (bp: Breakpoint) => {
   layoutStore.setForcedBreakpoint(bp);
 };
 
-watch(displayBreakpoint, (bp) => applyForcedBreakpoint(bp));
+watch(displayBreakpoint, (bp) => {
+  applyForcedBreakpoint(bp);
+  if (viewportEl.value) viewportEl.value.scrollTop = 0;
+});
 
 // ── Scroll-progress driver ──────────────────────────────────────────────────
 //
@@ -275,9 +286,9 @@ watch(displayBreakpoint, (bp) => applyForcedBreakpoint(bp));
 // Discrete switching (rather than a continuous interpolation) is what
 // gives us the satisfying "pop" the user asked for.
 const breakpointForProgress = (progress: number): Breakpoint => {
-  if (progress < 0.34) return 'sm';
+  if (progress < 0.34) return 'lg';
   if (progress < 0.67) return 'md';
-  return 'lg';
+  return 'sm';
 };
 
 // Distance from the top of the viewport to where the pin parks. Must
@@ -460,26 +471,54 @@ const interceptOutboundClick = (event: MouseEvent) => {
   position: relative;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: #050507;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: border-radius var(--duration-slow, 420ms) cubic-bezier(0.22, 1, 0.36, 1);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.grid-jack__viewport::-webkit-scrollbar {
+  width: 4px;
+}
+
+.grid-jack__viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.grid-jack__viewport::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+/*
+  Scroll-sizer: a flow-layout wrapper whose dimensions match the visual
+  (post-transform) size of the grid. Because CSS transforms don't affect
+  layout, this div is what the viewport actually scrolls against.
+*/
+.grid-jack__scroll-sizer {
+  position: relative;
+  margin: 0 auto;
+  flex-shrink: 0;
+  transition: width var(--duration-slow, 420ms) cubic-bezier(0.22, 1, 0.36, 1),
+    height var(--duration-slow, 420ms) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /*
   Inner scaling layer. The grid is rendered at its natural pixel size so
   vue3-grid-layout's positioning maths stay valid; we scale the entire
   block with transform so all child sizes follow proportionally.
+  Positioned absolutely inside the scroll-sizer so its un-transformed
+  layout dimensions don't create unwanted overflow.
 */
 .grid-jack__scale {
-  transform-origin: center center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
   transition: width var(--duration-slow, 420ms) cubic-bezier(0.22, 1, 0.36, 1),
     height var(--duration-slow, 420ms) cubic-bezier(0.22, 1, 0.36, 1);
-  /* Keep our own scale separate from the grid's internal mobileScale so
-     they don't compound. <Grid :disable-auto-scale="true"> makes sure
-     of that on the JS side. */
 }
 
 /*

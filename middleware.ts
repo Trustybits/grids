@@ -30,6 +30,9 @@ const RESERVED_PATHS = new Set([
   'signup',
   'dashboard',
   'pricing',
+  'showcase',
+  'templates',
+  'blog',
   'privacy',
   'terms',
   'notion-callback',
@@ -211,6 +214,18 @@ async function resolveOgData(pathname: string): Promise<OgData> {
     '/pricing': {
       title: 'Pricing — Grids',
       description: 'Simple, transparent pricing for Grids.',
+    },
+    '/showcase': {
+      title: 'Showcase — Grids',
+      description: 'See what people are building with Grids.',
+    },
+    '/templates': {
+      title: 'Templates — Grids',
+      description: 'Start with a grid that already works.',
+    },
+    '/blog': {
+      title: 'Blog — Grids',
+      description: 'Updates, stories, and tips from the Grids team.',
     },
     '/privacy': {
       title: 'Privacy Policy — Grids',

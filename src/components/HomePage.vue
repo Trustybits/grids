@@ -41,12 +41,13 @@
       </div>
     </header>
 
+    <main class="mkt__body">
     <section v-if="currentPage === 'home'" class="mkt__hero">
       <div class="mkt__hero-container mkt__section">
         <div class="mkt__eyebrow">Showcase simplified</div>
         <h1 class="mkt__hero-title">
           Your page.<br />
-          Your work. <span>Your grid.</span>
+          Your work. <span>Your success.</span>
         </h1>
         <p class="mkt__hero-sub">
           Drop tiles on a canvas. Rearrange until it feels right. Share one link — no building from scratch.
@@ -57,7 +58,7 @@
             <span class="mkt__url-pill-text-value">{{ animatedSlug }}</span>
             <span class="mkt__url-pill-caret" aria-hidden="true"></span>
           </span>
-          <button>Claim handle →</button>
+          <button @click="router.push('/login')">Claim handle</button>
         </div>
       </div>
 
@@ -459,6 +460,7 @@
       <h1>Coming soon.</h1>
       <p>We haven't built this page yet.</p>
       </section>
+    </main>
 
     <footer class="mkt__footer">
       <div>
@@ -470,17 +472,19 @@
         </strong>
         <p>Showcase simplified. Your page, your work, your success.</p>
       </div>
-      <div class="mkt__footer-col">
-        <h4>Product</h4>
-        <a href="#" @click.prevent="nav('showcase')">Showcase</a>
-        <a href="#" @click.prevent="nav('pricing')">Pricing</a>
-        <a href="https://discord.com/channels/1452087541548191940/1464413220549955768" target="_blank" rel="noopener noreferrer">What's New</a>
-      </div>
-      <div class="mkt__footer-col">
-        <h4>Company</h4>
-        <router-link to="/privacy">Privacy Policy</router-link>
-        <router-link to="/terms">Terms</router-link>
-        <a href="https://discord.gg/DBscN5NUN6" target="_blank" rel="noopener noreferrer">Discord Server</a>
+      <div class="mkt__footer-links">
+        <div class="mkt__footer-col">
+          <h4>Product</h4>
+          <a href="#" @click.prevent="nav('showcase')">Showcase</a>
+          <a href="#" @click.prevent="nav('pricing')">Pricing</a>
+          <a href="https://discord.com/channels/1452087541548191940/1464413220549955768" target="_blank" rel="noopener noreferrer">What's New</a>
+        </div>
+        <div class="mkt__footer-col">
+          <h4>Company</h4>
+          <router-link to="/privacy">Privacy Policy</router-link>
+          <router-link to="/terms">Terms</router-link>
+          <a href="https://discord.gg/DBscN5NUN6" target="_blank" rel="noopener noreferrer">Discord Server</a>
+        </div>
       </div>
     </footer>
   </div>
@@ -583,10 +587,20 @@ onBeforeUnmount(() => {
   if (slugTimer) clearTimeout(slugTimer);
 });
 
+const pageRoutes: Record<Page, string> = {
+  home: '/',
+  pricing: '/pricing',
+  showcase: '/showcase',
+  templates: '/templates',
+  blog: '/blog',
+};
+
+const routeToPage: Record<string, Page> = Object.fromEntries(
+  Object.entries(pageRoutes).map(([page, path]) => [path, page as Page]),
+) as Record<string, Page>;
+
 const pageFromRoute = (path: string): Page | null => {
-  if (path === '/pricing') return 'pricing';
-  if (path === '/' || path === '') return 'home';
-  return null;
+  return routeToPage[path] ?? null;
 };
 
 const nav = (page: Page) => {
@@ -594,7 +608,7 @@ const nav = (page: Page) => {
   pageTitle.value = page[0].toUpperCase() + page.slice(1);
   localStorage.setItem('grids-mkt-page', page);
 
-  const targetPath = page === 'pricing' ? '/pricing' : '/';
+  const targetPath = pageRoutes[page];
   if (route.path !== targetPath) {
     router.push(targetPath);
   }
@@ -828,14 +842,28 @@ const faqItems = [
 <style scoped>
 .mkt {
   --mkt-section-max: 1120px;
+  --mkt-chrome-max: 1440px;
   --mkt-section-x: 40px;
   --mkt-section-y: 128px;
   --mkt-font-brand: 'Oxanium', var(--mkt-font-sans);
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   color: var(--mkt-fg-1);
   background: var(--mkt-bg-0);
   font-family: var(--mkt-font-sans);
   position: relative;
+}
+.mkt__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.mkt__body > :first-child {
+  margin-top: auto;
+}
+.mkt__body > :last-child {
+  margin-bottom: auto;
 }
 .mkt::before {
   content: "";
@@ -859,7 +887,8 @@ const faqItems = [
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  max-width: var(--mkt-section-max);
+  width: 100%;
+  max-width: var(--mkt-chrome-max);
   margin: 0 auto;
 }
 .mkt__brand {
@@ -1953,13 +1982,18 @@ const faqItems = [
 .mkt__footer {
   border-top: 1px solid rgba(255, 255, 255, .06);
   padding: 52px var(--mkt-section-x) 32px;
+  width: 100%;
+  max-width: var(--mkt-chrome-max);
   margin: 64px auto 0;
-  max-width: var(--mkt-section-max);
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: 40px;
-  justify-items: start;
   text-align: left;
+}
+.mkt__footer-links {
+  display: flex;
+  gap: 64px;
 }
 .mkt__footer-brand {
   display: inline-flex;
@@ -2007,7 +2041,6 @@ const faqItems = [
   }
   .mkt__community-cta { min-width: 0; }
   .mkt__faq-grid { grid-template-columns: 1fr; }
-  .mkt__footer { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 720px) {
   .mkt {
@@ -2028,7 +2061,9 @@ const faqItems = [
   .mkt__hero-title { font-size: 44px; }
   .mkt__hero-grid { grid-template-columns: repeat(2, 1fr); aspect-ratio: auto; }
   .mkt__feature, .mkt__page, .mkt__cta, .mkt__footer, .mkt__own { padding-left: 14px; padding-right: 14px; }
-  .mkt__cards, .mkt__footer { grid-template-columns: 1fr; }
+  .mkt__cards { grid-template-columns: 1fr; }
+  .mkt__footer { flex-direction: column; }
+  .mkt__footer-links { gap: 40px; }
   .mkt__community-features { grid-template-columns: 1fr !important; }
   .mkt__plan { padding: 24px; }
 }

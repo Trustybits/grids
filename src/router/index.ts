@@ -42,6 +42,21 @@ const routes = [
     meta: { requiresAuth: false },
   },
   {
+    path: "/showcase",
+    component: HomePage,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: "/templates",
+    component: HomePage,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: "/blog",
+    component: HomePage,
+    meta: { requiresAuth: false },
+  },
+  {
     // Handles the Notion OAuth redirect — must be before /:slug to avoid being caught by it
     path: "/notion-callback",
     component: NotionCallback,

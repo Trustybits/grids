@@ -47,6 +47,9 @@ onMounted(() => {
 const NON_GRID_PATHS = [
   "/",
   "/pricing",
+  "/showcase",
+  "/templates",
+  "/blog",
   "/dashboard",
   "/login",
   "/signup",

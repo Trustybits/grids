@@ -1,3 +1,4 @@
+import type { BadgeDao } from "@/dao/interfaces/BadgeDao";
 import type { AnalyticsEventDao } from "@/dao/interfaces/AnalyticsEventDao";
 import type { BusinessStatsDao } from "@/dao/interfaces/BusinessStatsDao";
 import type { ChatDao } from "@/dao/interfaces/ChatDao";
@@ -12,6 +13,7 @@ import type { StorageDao } from "@/dao/interfaces/StorageDao";
 import type { UpvoteDao } from "@/dao/interfaces/UpvoteDao";
 import type { UserDao } from "@/dao/interfaces/UserDao";
 import type { UserGameDataDao } from "@/dao/interfaces/UserGameDataDao";
+import { StubbedBadgeDao } from "../StubbedBadgeDao";
 import { StubbedAnalyticsEventDao } from "../StubbedAnalyticsEventDao";
 import { StubbedBusinessStatsDao } from "../StubbedBusinessStatsDao";
 import { StubbedChatDao } from "../StubbedChatDao";
@@ -27,6 +29,7 @@ import { StubbedUserDao } from "../StubbedUserDao";
 import { StubbedUserGameDataDao } from "../StubbedUserGameDataDao";
 
 export class StubbedDaoFactory implements DaoFactory {
+  private badgeDao: BadgeDao;
   private analyticsEventDao: AnalyticsEventDao;
   private businessStatsDao: BusinessStatsDao;
   private chatDao: ChatDao;
@@ -42,6 +45,7 @@ export class StubbedDaoFactory implements DaoFactory {
   private userGameDataDao: UserGameDataDao;
 
   public constructor() {
+    this.badgeDao = new StubbedBadgeDao();
     this.analyticsEventDao = new StubbedAnalyticsEventDao();
     this.businessStatsDao = new StubbedBusinessStatsDao();
     this.chatDao = new StubbedChatDao();
@@ -57,6 +61,10 @@ export class StubbedDaoFactory implements DaoFactory {
     this.userGameDataDao = new StubbedUserGameDataDao();
   }
 
+  public getBadgeDao(): BadgeDao {
+    return this.badgeDao;
+  }
+  
   public getAnalyticsEventDao(): AnalyticsEventDao {
     return this.analyticsEventDao;
   }

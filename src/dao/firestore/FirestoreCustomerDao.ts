@@ -68,4 +68,20 @@ export class FirestoreCustomerDao implements CustomerDao {
       callback(subscriptions);
     });
   }
+
+  public subscribeToPayments(
+    userId: string,
+    callback: (payments: Array<Record<string, unknown>>) => void,
+  ): () => void {
+    const paymentsQuery = query(
+      collection(this.db, "customers", userId, "payments"),
+      where("status", "==", "succeeded"),
+    );
+    return onSnapshot(paymentsQuery, (snap) => {
+      const payments = snap.docs.map(
+        (d) => d.data() as Record<string, unknown>,
+      );
+      callback(payments);
+    });
+  }
 }

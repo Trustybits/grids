@@ -29,9 +29,6 @@ export interface IUserService {
    */
   recordLogin(userId: string, email: string | null): Promise<void>;
 
-  /** Grant the PWYW supporter badge to the user (sets `hasSupporterBadge: true`). */
-  grantSupporterBadge(userId: string): Promise<void>;
-
   // ── Slug (slugs collection / cloud functions) ───────────────────────
 
   /** Resolve a public slug to its owning userId, or null if the slug is not claimed. */

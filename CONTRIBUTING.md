@@ -137,7 +137,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) spec:
 feat: add Spotify music tile
 fix: prevent map tile drag on mobile
 chore: update firebase to v11
-docs: add composable JSDoc for useSubscription
+docs: add composable JSDoc for useTier
 test: add TileUtils validation edge cases
 ```
 

@@ -15,9 +15,10 @@ import "@fortawesome/fontawesome-free/css/all.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-import "./styles/tokens.scss";
-import "./styles/themes.scss";
-import "./styles/custom.scss";
+import './styles/tokens.scss';
+import './styles/claude-tokens.scss';
+import './styles/themes.scss';
+import './styles/custom.scss';
 import "./styles/_tooltips.scss";
 
 import { useThemeStore } from "@/stores/theme";

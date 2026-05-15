@@ -1,3 +1,4 @@
+import { BadgeService } from "../BadgeService";
 import { AnalyticsService } from "../AnalyticsService";
 import { ChatService } from "../ChatService";
 import { CloudFunctionsService } from "../CloudFunctionsService";
@@ -8,6 +9,7 @@ import { StorageService } from "../StorageService";
 import { StripeService } from "../StripeService";
 import { UpvoteService } from "../UpvoteService";
 import { UserService } from "../UserService";
+import type { IBadgeService } from "../interfaces/IBadgeService";
 import type { IAnalyticsService } from "../interfaces/IAnalyticsService";
 import type { IChatService } from "../interfaces/IChatService";
 import type { ICloudFunctionsService } from "../interfaces/ICloudFunctionsService";
@@ -18,6 +20,7 @@ import type { IStorageService } from "../interfaces/IStorageService";
 import type { IStripeService } from "../interfaces/IStripeService";
 import type { IUpvoteService } from "../interfaces/IUpvoteService";
 import type { IUserService } from "../interfaces/IUserService";
+import { MockBadgeService } from "../mocks/MockBadgeService";
 import { MockAnalyticsService } from "../mocks/MockAnalyticsService";
 import { MockChatService } from "../mocks/MockChatService";
 import { MockCloudFunctionsService } from "../mocks/MockCloudFunctionsService";
@@ -32,6 +35,7 @@ import type { IServiceFactory } from "./IServiceFactory";
 
 export class ServiceFactory implements IServiceFactory {
   private useMocks: boolean;
+  private badgeService: IBadgeService;
   private analyticsService: IAnalyticsService;
   private chatService: IChatService;
   private cloudFunctionsService: ICloudFunctionsService;
@@ -47,6 +51,7 @@ export class ServiceFactory implements IServiceFactory {
     this.useMocks = useMocks;
 
     if (this.useMocks) {
+      this.badgeService = new MockBadgeService();
       this.analyticsService = new MockAnalyticsService();
       this.chatService = new MockChatService();
       this.cloudFunctionsService = new MockCloudFunctionsService();
@@ -58,6 +63,7 @@ export class ServiceFactory implements IServiceFactory {
       this.upvoteService = new MockUpvoteService();
       this.userService = new MockUserService();
     } else {
+      this.badgeService = new BadgeService();
       this.analyticsService = new AnalyticsService();
       this.chatService = new ChatService();
       this.cloudFunctionsService = new CloudFunctionsService();
@@ -71,6 +77,10 @@ export class ServiceFactory implements IServiceFactory {
     }
   }
 
+  public getBadgeService(): IBadgeService {
+    return this.badgeService;
+  }
+  
   public getAnalyticsService(): IAnalyticsService {
     return this.analyticsService;
   }

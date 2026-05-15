@@ -1,8 +1,8 @@
 // src/data/demoLayout.ts
 //
 // Hand-curated in-memory demo layout used by the marketing homepage embed.
-// Built fresh (not derived from createStarterTiles) so the landing page can
-// evolve independently of the "new grid" experience that live users get.
+// Recreated from a live grid in Firestore ("Grids Landing Page") so the
+// demo matches a real, tested layout rather than being assembled in code.
 //
 // The homepage hero scroll-jacks through three device viewports — phone,
 // tablet, desktop — so the same set of tiles needs to look great at every
@@ -15,12 +15,8 @@
 // Design constraints:
 //   • Every breakpoint is a single coherent page (not a re-flow of the next),
 //     so each layout is hand-tuned rather than auto-packed.
-//   • Sizes stay in tasteful proportions for each device:
-//       lg — wide and shallow (4 rows, plenty of room horizontally).
-//       md — squarish (6 rows).
-//       sm — tall and narrow (8 rows).
 //   • Mix of content types showcases what a real grid looks like:
-//     profile/image, text, gif, music, youtube embed, quote, links.
+//     profile, image, text, gif, music, youtube embed, quote, links.
 //   • Tile IDs are stable for the lifetime of the layout instance so the
 //     overrides correctly map onto the same tiles.
 
@@ -29,94 +25,66 @@ import type { Breakpoint, TilePosition } from "@/types/Tile";
 import { createDefaultLayout } from "@/utils/LayoutUtils";
 import { createTile } from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
-import { v4 as uuidv4 } from "uuid";
 import heroGif from "@/assets/images/hero.gif";
 
 export const DEMO_LAYOUT_ID = "__homepage_demo__";
 export const DEMO_USER_ID = "__homepage_demo_user__";
 
-// Small helper: TipTap doc JSON, kept inline so callers don't need to know
-// about the TipTap schema. Accepts an array of lines; lines starting with
-// "# "/"## "/... become headings, everything else becomes a paragraph.
-const textDoc = (lines: string[]): string => {
-  const content = lines.map((line) => {
-    const headingMatch = /^(#{1,6})\s+(.*)$/.exec(line);
-    if (headingMatch) {
-      return {
-        type: "heading",
-        attrs: { level: headingMatch[1].length },
-        content: [{ type: "text", text: headingMatch[2] }],
-      };
-    }
-    if (line.trim() === "") {
-      return { type: "paragraph", content: [{ type: "hardBreak" }] };
-    }
-    return {
-      type: "paragraph",
-      content: [{ type: "text", text: line }],
-    };
+// TipTap doc with a single paragraph — used for the profile tile's
+// name / title / bio fields which are stored as serialised TipTap JSON.
+const paragraphDoc = (text: string): string =>
+  JSON.stringify({
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text }] }],
   });
-  return JSON.stringify({ type: "doc", content });
-};
 
 // Stable IDs for each tile — used both as the base tile.i and as the keys
 // of the breakpoint overrides. Keeping them human-readable also makes the
 // overrides table below easy to scan.
 const ID = {
-  IMAGE: "demo-image",
-  WELCOME: "demo-welcome",
+  PROFILE: "demo-profile",
   GIF: "demo-gif",
-  MUSIC: "demo-music",
+  WELCOME: "demo-welcome",
   YT: "demo-yt",
+  MUSIC: "demo-music",
+  COVER: "demo-cover",
   QUOTE: "demo-quote",
-  LINK_STRIP: "demo-link-strip",
   LINK_X: "demo-link-x",
   LINK_GH: "demo-link-gh",
   LINK_IG: "demo-link-ig",
   LINK_DRIBBBLE: "demo-link-dribbble",
+  LINK_GRIDS: "demo-link-grids",
 } as const;
 
-// Desktop layout (lg, 12 columns, 6 rows tall ≈ 786px @ rowHeight 75)
+// Desktop layout (lg, 12 columns, 6 rows tall)
 //
 //   c:   0  1  2  3  4  5  6  7  8  9 10 11
-//   r=0  [   IMG 3×3   ][    WLC 5×2     ][   MUS 4×2  ]
-//   r=1  [             ][                ][            ]
-//   r=2  [             ][   GIF 4×2  ][        YT 5×3  ]
-//   r=3  [   QTE 3×2   ][            ][                ]
-//   r=4  [             ][ STRIP 4×1  ][                ]
-//   r=5  [  LK 3×1  ][  LK 3×1  ][  LK 3×1  ][  LK 3×1 ]
-//
-// Variety beats: IMG is a big 3×3 square, YT is a tall 5×3 video (the
-// "hero" of the desktop view), GIF and MUSIC are wide rectangles, QUOTE
-// tucks under the profile photo, and the four social links span 3 cols
-// each so they're full-width buttons rather than tiny icons.
+//   r=0  [ PROFILE 4×4 ][  GIF 3×3 ][MUS 2×3][ WLC 2×3]
+//   r=1  [              ][          ][       ][        ]
+//   r=2  [              ][          ][       ][        ]
+//   r=3  [              ][  YT 3×2  ][ X 1×1][ CVR 3×1]
+//   r=4                  [          ][IG 1×1][ QTE 3×2]
+//   r=5                  [GH][ GRD 2×1][DB  ][        ]
 const createDesktopBaseTiles = () => [
-  createTile(
-    ContentType.IMAGE,
-    ID.IMAGE,
-    0,
-    0,
-    3,
-    3,
-    {
-      src: "https://plus.unsplash.com/premium_photo-1674917000586-b7564f21540e?q=80&w=1288&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    },
-    "",
-  ),
   {
     ...createTile(
-      ContentType.TEXT,
-      ID.WELCOME,
-      3,
-      0,
-      5,
-      2,
+      ContentType.PROFILE,
+      ID.PROFILE,
+      0, 0, 4, 4,
       {
-        text: textDoc([
-          "# 👋",
-          "#### Welcome to my grid",
-          "A living page of what I'm making, listening to, and reading.",
-        ]),
+        name: paragraphDoc("Link"),
+        title: paragraphDoc("Hero of Time"),
+        bio: paragraphDoc(
+          "A skilled swordsman chosen to protect the kingdom of Hyrule " +
+          "from evil. Often seen in his iconic green tunic, he embarks on " +
+          "dangerous quests, solves ancient puzzles, and battles monsters " +
+          "to rescue Princess Zelda and defeat Ganon.",
+        ),
+        avatarShape: "square",
+        avatarRadius: 12,
+        avatarSides: 6,
+        profilePhotoUrl:
+          "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/users%2FetuFqcE7nsPsrbo4KiVZD4KVbtr2%2Fimages%2F1778778883084_YoungLink_Squared.png?alt=media&token=f6950e93-2acc-410d-8203-26209bab8c08",
       },
       "",
     ),
@@ -125,172 +93,213 @@ const createDesktopBaseTiles = () => [
   createTile(
     ContentType.IMAGE,
     ID.GIF,
-    3,
-    2,
-    4,
-    2,
+    4, 0, 3, 3,
     { src: heroGif },
-    "",
-  ),
-  createTile(
-    ContentType.MUSIC,
-    ID.MUSIC,
-    8,
-    0,
-    4,
-    2,
-    {
-      platform: "spotify",
-      trackId: "1u8c2t2Cy7UBoG4ArRcF5g",
-      trackName: "Blank Space",
-      artistName: "Taylor Swift",
-      trackUrl: "https://open.spotify.com/track/1u8c2t2Cy7UBoG4ArRcF5g",
-      artistUrl: "https://open.spotify.com/artist/06HL4z0CvFAxyc27GXpf02",
-      albumArt:
-        "https://image-cdn-fa.spotifycdn.com/image/ab67616d00001e029abdf14e6058bd3903686148",
-      backgroundColor: "rgba(96, 81, 53, 255)",
-      backgroundTinted: "rgba(62, 49, 21, 255)",
-      previewUrl:
-        "https://p.scdn.co/mp3-preview/e5cb812c19b14f4dc4c92a4c996bb92d05e2bf39",
-      textSubdued: "rgba(220, 204, 171, 255)",
-    },
-    "",
-  ),
-  createTile(
-    ContentType.EMBED,
-    ID.YT,
-    7,
-    2,
-    5,
-    3,
-    { src: "https://www.youtube.com/embed/7ccH8u8fj8Y?si=hnB1rbMIsMCWpPO8" },
     "",
   ),
   {
     ...createTile(
       ContentType.TEXT,
-      ID.QUOTE,
-      0,
-      3,
-      3,
-      2,
+      ID.WELCOME,
+      9, 0, 2, 3,
       {
-        text: textDoc([
-          '## "Simple,',
-          '## but significant."',
-          "",
-          "— my favorite design note",
-        ]),
-        backgroundColor: "rgba(0, 0, 0, 0)",
-        color: "rgba(255, 255, 255, 255)",
+        text: JSON.stringify({
+          type: "doc",
+          content: [
+            { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "\u{1F44B}" }] },
+            { type: "heading", attrs: { level: 4 }, content: [{ type: "text", text: "Welcome to grids.so!" }] },
+            { type: "paragraph", content: [{ type: "text", text: "Enjoy your new home." }, { type: "hardBreak" }] },
+            { type: "horizontalRule" },
+            {
+              type: "paragraph",
+              content: [
+                { type: "text", marks: [{ type: "italic" }], text: "you can find more tile types below." },
+                { type: "text", text: "\u{1F447}" },
+              ],
+            },
+          ],
+        }),
+        color: "#ffffff",
       },
       "",
     ),
     borderEnabled: false,
   },
   createTile(
-    ContentType.LINK,
-    ID.LINK_STRIP,
-    3,
-    4,
-    4,
-    1,
+    ContentType.MUSIC,
+    ID.MUSIC,
+    7, 0, 2, 3,
     {
-      link: "https://grids.so",
-      customTitle: "Visit the Grid",
-      customSubtitle: "Notes on building grids.so",
+      platform: "spotify",
+      trackId: "4Nd5HJn4EExnLmHtClk4QV",
+      trackName: "Ode to Joy",
+      artistName: "Ludwig van Beethoven",
+      trackUrl: "https://open.spotify.com/track/4Nd5HJn4EExnLmHtClk4QV",
+      artistUrl: "https://open.spotify.com/artist/2wOqMjp9TyABvtHdOSOTUS",
+      albumArt:
+        "https://image-cdn-fa.spotifycdn.com/image/ab67616d00001e028dd8211c6f6e49c9185e0c7d",
+      backgroundColor: "rgba(150, 38, 31, 255)",
+      backgroundTinted: "rgba(97, 0, 0, 255)",
+      previewUrl:
+        "https://p.scdn.co/mp3-preview/bba17a4739e090eff4f06fafe55b56732ccb54aa",
+      textSubdued: "rgba(255, 190, 178, 255)",
+    },
+    "",
+  ),
+  createTile(
+    ContentType.EMBED,
+    ID.YT,
+    4, 3, 3, 2,
+    { src: "https://www.youtube-nocookie.com/embed/7ccH8u8fj8Y?playsinline=1&rel=0&modestbranding=1" },
+    "",
+  ),
+  createTile(
+    ContentType.LINK,
+    ID.LINK_X,
+    7, 3, 1, 1,
+    {
+      link: "https://x.com/",
+      customTitle: "X. It\u2019s what\u2019s happening",
+      customSubtitle: "@x.com",
+      linkBackgroundEnabled: true,
+    },
+    "",
+  ),
+  createTile(
+    ContentType.IMAGE,
+    ID.COVER,
+    8, 3, 3, 1,
+    {
+      src: "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/users%2FetuFqcE7nsPsrbo4KiVZD4KVbtr2%2Fimages%2F1778780234666_Cover.png?alt=media&token=1bda389a-3699-48a2-b141-7259a4871cd6",
+    },
+    "",
+  ),
+  createTile(
+    ContentType.LINK,
+    ID.LINK_IG,
+    7, 4, 1, 1,
+    {
+      link: "https://www.instagram.com/",
+      customTitle: "Instagram",
+      customSubtitle: "@instagram.com",
+      linkBackgroundEnabled: true,
+    },
+    "",
+  ),
+  createTile(
+    ContentType.TEXT,
+    ID.QUOTE,
+    8, 4, 3, 2,
+    {
+      text: JSON.stringify({
+        type: "doc",
+        content: [
+          {
+            type: "heading",
+            attrs: { level: 1 },
+            content: [{ type: "text", text: "\u201cSimple, but significant.\u201d" }],
+          },
+          {
+            type: "paragraph",
+            content: [{ type: "hardBreak" }, { type: "text", text: "\u2014 unknown" }],
+          },
+        ],
+      }),
+      color: "#ffffff",
+    },
+    "",
+  ),
+  createTile(
+    ContentType.LINK,
+    ID.LINK_GH,
+    4, 5, 1, 1,
+    {
+      link: "https://github.com/",
+      customTitle: "GitHub",
+      customSubtitle: "@github.com",
       linkBackgroundEnabled: true,
     },
     "",
   ),
   createTile(
     ContentType.LINK,
-    ID.LINK_X,
-    0,
-    5,
-    3,
-    1,
-    { link: "https://twitter.com", customTitle: "x" },
-    "",
-  ),
-  createTile(
-    ContentType.LINK,
-    ID.LINK_GH,
-    3,
-    5,
-    3,
-    1,
-    { link: "https://github.com", customTitle: "github" },
-    "",
-  ),
-  createTile(
-    ContentType.LINK,
-    ID.LINK_IG,
-    6,
-    5,
-    3,
-    1,
-    { link: "https://instagram.com", customTitle: "ig" },
+    ID.LINK_GRIDS,
+    5, 5, 2, 1,
+    {
+      link: "https://www.grids.so/grid/3RlM4tGkJVoUPGfs9U8A",
+      customTitle: "My Grid",
+      customSubtitle: "@grids.so",
+      linkBackgroundEnabled: true,
+    },
     "",
   ),
   createTile(
     ContentType.LINK,
     ID.LINK_DRIBBBLE,
-    9,
-    5,
-    3,
-    1,
-    { link: "https://dribbble.com", customTitle: "dribbble" },
+    7, 5, 1, 1,
+    {
+      link: "https://dribbble.com/mgalley",
+      customTitle: "Matthew J. Galley",
+      customSubtitle: "@dribbble.com",
+      linkBackgroundEnabled: true,
+    },
     "",
   ),
 ];
 
-// Tablet layout (md, 8 columns, 6 rows tall ≈ 786px)
+// Tablet layout (md, 8 columns, 9 rows tall)
 //
 //   c:   0  1  2  3  4  5  6  7
-//   r=0  [IMG 2×2][   WLC 4×2  ][MUS 2×2]
-//   r=1  [       ][             ][       ]
-//   r=2  [    YT 4×3      ][   GIF 4×2  ]
-//   r=3  [                ][             ]
-//   r=4  [                ][   QTE 4×1  ]
-//   r=5  [   STRIP 4×1    ][LK][LK][LK][LK]
-//
-// Notably different from lg: YT is the tall portrait hero (4×3) rather
-// than a wide block, GIF sits beside it as a squarer chunk, and the four
-// social links collapse to 1×1 favicon dots after a half-width strip.
+//   r=0  [      PROFILE 8×2       ]
+//   r=1  [                        ]
+//   r=2  [WLC 2×3][DB][GH][MUS 4×3]
+//   r=3  [       ][IG][ X][       ]
+//   r=4  [       ][GRD 2×1][      ]
+//   r=5  [ YT 3×2][GIF 2×2][QTE 3×2]
+//   r=6  [       ][       ][       ]
+//   r=7  [       COVER 8×2        ]
+//   r=8  [                        ]
 const tabletPositions: Record<string, TilePosition> = {
-  [ID.IMAGE]: { x: 0, y: 0, w: 2, h: 2 },
-  [ID.WELCOME]: { x: 2, y: 0, w: 4, h: 2 },
-  [ID.MUSIC]: { x: 6, y: 0, w: 2, h: 2 },
-  [ID.YT]: { x: 0, y: 2, w: 4, h: 3 },
-  [ID.GIF]: { x: 4, y: 2, w: 4, h: 2 },
-  [ID.QUOTE]: { x: 4, y: 4, w: 4, h: 1 },
-  [ID.LINK_STRIP]: { x: 0, y: 5, w: 4, h: 1 },
-  [ID.LINK_X]: { x: 4, y: 5, w: 1, h: 1 },
-  [ID.LINK_GH]: { x: 5, y: 5, w: 1, h: 1 },
-  [ID.LINK_IG]: { x: 6, y: 5, w: 1, h: 1 },
-  [ID.LINK_DRIBBBLE]: { x: 7, y: 5, w: 1, h: 1 },
+  [ID.PROFILE]:       { x: 0, y: 0, w: 8, h: 2 },
+  [ID.WELCOME]:       { x: 0, y: 2, w: 2, h: 3 },
+  [ID.LINK_DRIBBBLE]: { x: 2, y: 2, w: 1, h: 1 },
+  [ID.LINK_GH]:       { x: 3, y: 2, w: 1, h: 1 },
+  [ID.MUSIC]:         { x: 4, y: 2, w: 4, h: 3 },
+  [ID.LINK_IG]:       { x: 2, y: 3, w: 1, h: 1 },
+  [ID.LINK_X]:        { x: 3, y: 3, w: 1, h: 1 },
+  [ID.LINK_GRIDS]:    { x: 2, y: 4, w: 2, h: 1 },
+  [ID.YT]:            { x: 0, y: 5, w: 3, h: 2 },
+  [ID.GIF]:           { x: 3, y: 5, w: 2, h: 2 },
+  [ID.QUOTE]:         { x: 5, y: 5, w: 3, h: 2 },
+  [ID.COVER]:         { x: 0, y: 7, w: 8, h: 2 },
 };
 
-// Phone layout (sm, 4 columns, 8 rows tall ≈ 1032px)
+// Phone layout (sm, 4 columns, 10 rows tall)
 //
-//   y=0   [IMG 2×2 ][TXT 2×2 ]
-//   y=2   [GIF 2×2 ][MUS 2×2 ]
-//   y=4   [YT  2×2 ][QTE 2×2 ]
-//   y=6   [───── LINK strip 4×1 ─────]
-//   y=7   [L 1×1][L 1×1][L 1×1][L 1×1]
+//   c:   0  1  2  3
+//   r=0  [PROFILE 4×1]
+//   r=1  [GIF 2×2][IG][ X]
+//   r=2  [       ][GH][DB]
+//   r=3  [MUS 2×2][WLC 2×3]
+//   r=4  [       ][        ]
+//   r=5  [CVR 2×1][        ]
+//   r=6  [ YT 3×2 ][GRD 1×2]
+//   r=7  [        ][       ]
+//   r=8  [   QUOTE 4×2     ]
+//   r=9  [                 ]
 const phonePositions: Record<string, TilePosition> = {
-  [ID.IMAGE]: { x: 0, y: 0, w: 2, h: 2 },
-  [ID.WELCOME]: { x: 2, y: 0, w: 2, h: 2 },
-  [ID.GIF]: { x: 0, y: 2, w: 2, h: 2 },
-  [ID.MUSIC]: { x: 2, y: 2, w: 2, h: 2 },
-  [ID.YT]: { x: 0, y: 4, w: 2, h: 2 },
-  [ID.QUOTE]: { x: 2, y: 4, w: 2, h: 2 },
-  [ID.LINK_STRIP]: { x: 0, y: 6, w: 4, h: 1 },
-  [ID.LINK_X]: { x: 0, y: 7, w: 1, h: 1 },
-  [ID.LINK_GH]: { x: 1, y: 7, w: 1, h: 1 },
-  [ID.LINK_IG]: { x: 2, y: 7, w: 1, h: 1 },
-  [ID.LINK_DRIBBBLE]: { x: 3, y: 7, w: 1, h: 1 },
+  [ID.PROFILE]:       { x: 0, y: 0, w: 4, h: 1 },
+  [ID.GIF]:           { x: 0, y: 1, w: 2, h: 2 },
+  [ID.LINK_IG]:       { x: 2, y: 1, w: 1, h: 1 },
+  [ID.LINK_X]:        { x: 3, y: 1, w: 1, h: 1 },
+  [ID.LINK_GH]:       { x: 2, y: 2, w: 1, h: 1 },
+  [ID.LINK_DRIBBBLE]: { x: 3, y: 2, w: 1, h: 1 },
+  [ID.MUSIC]:         { x: 0, y: 3, w: 2, h: 2 },
+  [ID.WELCOME]:       { x: 2, y: 3, w: 2, h: 3 },
+  [ID.COVER]:         { x: 0, y: 5, w: 2, h: 1 },
+  [ID.YT]:            { x: 0, y: 6, w: 3, h: 2 },
+  [ID.LINK_GRIDS]:    { x: 3, y: 6, w: 1, h: 2 },
+  [ID.QUOTE]:         { x: 0, y: 8, w: 4, h: 2 },
 };
 
 // Natural pixel dimensions of each breakpoint, given Grid.vue's defaults
@@ -305,10 +314,10 @@ export const DEMO_GRID_DIMENSIONS: Record<
 > = {
   // 12 cols × 75 + 13 × 48 = 1524, 6 rows × 75 + 7 × 48 = 786
   lg: { width: 1524, height: 786 },
-  // 8 cols × 75 + 9 × 48 = 1032, 6 rows × 75 + 7 × 48 = 786
-  md: { width: 1032, height: 786 },
-  // 4 cols × 75 + 5 × 48 = 540, 8 rows × 75 + 9 × 48 = 1032
-  sm: { width: 540, height: 1032 },
+  // 8 cols × 75 + 9 × 48 = 1032, 9 rows × 75 + 10 × 48 = 1155
+  md: { width: 1032, height: 1155 },
+  // 4 cols × 75 + 5 × 48 = 540, 10 rows × 75 + 11 × 48 = 1278
+  sm: { width: 540, height: 1278 },
 };
 
 export function createDemoLayout(): Layout {

@@ -98,7 +98,7 @@
         <div>
           <div class="mkt__kicker">Make it yours</div>
           <h2>Every tile, a statement.</h2>
-          <p>Pick a palette. Set a vibe. Tiles fill themselves with the color and shape of your work.</p>
+          <p>Pick a color. Set a vibe. Tiles fill themselves with the theme and shape of your work.</p>
         </div>
         <div class="mkt__feature-demo mkt__feature-demo--theme">
           <div class="mkt__palette-row">
@@ -107,7 +107,7 @@
             <span class="dot dot--indigo"></span>
             <span class="dot dot--violet"></span>
             <span class="dot dot--magenta"></span>
-            <span class="dot dot--green"></span>
+            <span class="dot dot--yellow"></span>
           </div>
           <div class="mkt__theme-card">
             <div class="mkt__theme-card-plasma"></div>
@@ -755,14 +755,12 @@ const proFeatures = [
   'Custom domain',
   'Advanced theming',
   'Higher storage and upload limits',
-  'Connect 3rd party storage',
   'Shared grid edit access',
   'Advanced analytics & export',
   'Password-protected grids',
   'Subpages',
-  'AI grid generation',
-  'Access to Tile Studio',
-  'Realtime multiplayer collaboration',
+  'Visitor heatmaps',
+  'Scheduled grid publishing',
   'Priority support',
 ];
 
@@ -795,19 +793,16 @@ const comparisonRows = [
   { feature: 'Storage and uploads', community: '—', supporter: 'Normal Limits', pro: 'Higher Limits' },
   { feature: 'Custom handle URL', community: false, supporter: true, pro: true },
   { feature: 'Early access to new features', community: false, supporter: true, pro: true },
-  { feature: 'Warm fuzzy feeling of supporting Grids', community: false, supporter: true, pro: true },
   { feature: 'Remove Grids branding ($10+ supporter)', community: false, supporter: true, pro: true },
   { feature: 'Supporter badge', community: false, supporter: true, pro: true },
   { feature: 'Custom domain', community: false, supporter: false, pro: true, comingSoon: true },
   { feature: 'Advanced theming', community: false, supporter: false, pro: true, comingSoon: true },
-  { feature: 'Connect 3rd party storage', community: false, supporter: false, pro: true, comingSoon: true },
   { feature: 'Shared grid edit access', community: false, supporter: false, pro: true, comingSoon: true },
   { feature: 'Advanced analytics & export', community: false, supporter: false, pro: true, comingSoon: true },
   { feature: 'Password-protected grids', community: false, supporter: false, pro: true, comingSoon: true },
   { feature: 'Subpages', community: false, supporter: false, pro: true, comingSoon: true },
-  { feature: 'AI grid generation', community: false, supporter: false, pro: true, comingSoon: true },
-  { feature: 'Access to Tile Studio', community: false, supporter: false, pro: true, comingSoon: true },
-  { feature: 'Realtime multiplayer collaboration', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Visitor heatmaps', community: false, supporter: false, pro: true, comingSoon: true },
+  { feature: 'Scheduled grid publishing', community: false, supporter: false, pro: true, comingSoon: true },
   { feature: 'Priority support', community: false, supporter: false, pro: true, comingSoon: true },
 ];
 
@@ -1328,7 +1323,7 @@ const faqItems = [
 .dot--indigo { background: var(--mkt-brand-indigo); }
 .dot--violet { background: var(--mkt-brand-violet); }
 .dot--magenta { background: var(--mkt-brand-magenta); }
-.dot--green { background: #58e0a3; }
+.dot--yellow { background: var(--color-yellow); }
 .mkt__theme-card {
   width: 236px;
   height: 132px;

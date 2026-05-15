@@ -326,6 +326,7 @@ export default defineComponent({
   .billing-section {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: 6px;
     padding: var(--spacing-sm);
   }

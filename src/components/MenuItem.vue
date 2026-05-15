@@ -38,12 +38,12 @@ defineEmits<{
   min-height: 40px;
 
   &:hover {
-    background-color: var(--color-base-34);
+    background-color: var(--color-input-edit);
   }
 
   &--danger:hover {
     background-color: var(--color-figma-red);
-    color: var(--color-base-100);
+    color: var(--color-light-100);
   }
 }
 </style>

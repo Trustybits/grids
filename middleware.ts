@@ -311,10 +311,20 @@ export default async function middleware(request: Request): Promise<Response | u
   const htmlRes = await fetch(passThroughReq)
   const html = await htmlRes.text()
 
-  // Inject meta tags immediately after <head> so they are the FIRST og:/twitter:
-  // tags the crawler sees. Injecting before </head> risks losing to any static
-  // fallback tags that remain in the SPA's index.html — crawlers use first-wins.
-  const injected = html.replace('<head>', `<head>${metaTags}`)
+  // Strip the static fallback OG/Twitter/description meta tags shipped in
+  // index.html. Otherwise crawlers (Discord, iMessage, …) end up with TWO
+  // og:image tags — the dynamic one we inject *and* the static fallback —
+  // and many platforms render both as a carousel instead of picking the
+  // first. We keep the static tags in index.html itself so non-crawler
+  // services that bypass this middleware (FigJam, getLinkPreview, regular
+  // browsers) still get a sensible default.
+  const STATIC_META_RE =
+    /\s*<meta\b[^>]*?\b(?:property=["']og:[^"']*["']|name=["'](?:twitter:[^"']*|description)["'])[^>]*?>/gi
+  const stripped = html.replace(STATIC_META_RE, '')
+
+  // Inject meta tags immediately after <head> so the only og:/twitter: tags
+  // the crawler sees are the personalized ones we just rendered.
+  const injected = stripped.replace('<head>', `<head>${metaTags}`)
 
   return new Response(injected, {
     status: htmlRes.status,

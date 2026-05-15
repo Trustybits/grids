@@ -79,7 +79,17 @@ service cloud.firestore {
           && request.resource.data.createdAt != null
           && (!("authorId" in request.resource.data) || request.resource.data.authorId is string);
 
-        allow update, delete: if isLayoutOwner(layoutId);
+        allow update: if isLayoutOwner(layoutId)
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(["text"])
+              && request.resource.data.text is string
+              && request.resource.data.text.size() > 0
+              && request.resource.data.text.size() <= 2000
+              && ((request.auth != null && resource.data.authorId == request.auth.uid)
+                  || (request.auth == null && resource.data.authorId == "visitor")));
+
+        allow delete: if isLayoutOwner(layoutId)
+          || ((request.auth != null && resource.data.authorId == request.auth.uid)
+              || (request.auth == null && resource.data.authorId == "visitor"));
       }
 
       // Upvotes for roadmap feed tiles.
@@ -95,24 +105,36 @@ service cloud.firestore {
     }
 
     match /userGameData/{userId} {
+      // Zero-padded YYYY-MM-DD to match the client's `new Date().toISOString().split("T")[0]`.
+      // Without padding, server "2026-5-11" never equals client "2026-05-11" and isNewDay
+      // would always be true, silently disabling the daily cap.
+      function todayString() {
+        let m = request.time.month();
+        let d = request.time.day();
+        let mStr = m < 10 ? '0' + string(m) : string(m);
+        let dStr = d < 10 ? '0' + string(d) : string(d);
+        return string(request.time.year()) + '-' + mStr + '-' + dStr;
+      }
+
       function isNewDay() {
-        let today = '' + request.time.year() + '-' + request.time.month() + '-' + request.time.day();
-        return resource.data.get('lastClickDate', '') != today;
+        return resource.data.get('lastClickDate', '') != todayString();
       }
 
       function clickIncrement() {
-        return request.resource.data.totalClicks - resource.data.totalClicks;
+        return request.resource.data.get('totalClicks', 0) - resource.data.get('totalClicks', 0);
       }
 
       function newDailyTotal() {
         return isNewDay() ? clickIncrement() : resource.data.get('dailyClicks', 0) + clickIncrement();
       }
 
+      // Note: we deliberately don't require request.resource.data.updatedAt == request.time.
+      // That check is unreliable inside runTransaction (the serverTimestamp sentinel doesn't
+      // always resolve to exactly request.time across retries), and was rejecting every click.
       function isValidClick() {
         return request.auth != null
-          && clickIncrement() > 0 && clickIncrement() <= 10
-          && newDailyTotal() <= 100
-          && request.resource.data.updatedAt == request.time;
+          && clickIncrement() > 0 && clickIncrement() <= 25
+          && newDailyTotal() <= 100;
       }
 
       function isValidPassive() {
@@ -157,6 +179,107 @@ service cloud.firestore {
         allow read: if request.auth != null && request.auth.uid == uid;
         allow write: if false;
       }
+    }
+
+    // ── Analytics ──────────────────────────────────────────────────────────
+    //
+    // analyticsEvents: clients can append events but never read them. The
+    // aggregation Cloud Function runs server-side and is the only consumer.
+    // Strict create-time validation prevents abuse since writes are open to
+    // anonymous visitors (so view tracking works for non-authed users).
+
+    match /analyticsEvents/{docId} {
+      function isClientAllowedEventType(t) {
+        // Server-originated events (user_signup, user_login, grid_created,
+        // grid_deleted) are written via the admin SDK and must NOT be
+        // forgeable from clients. Only the client-originated subset is
+        // allowed here.
+        return t in [
+          'grid_view',
+          'grid_view_end',
+          'tile_added',
+          'tile_removed',
+          'owner_grid_enter'
+        ];
+      }
+
+      function hasValidUserId() {
+        // userId must either be the caller's uid or null (anonymous).
+        return request.resource.data.userId == null
+          || (request.auth != null
+              && request.resource.data.userId == request.auth.uid);
+      }
+
+      function hasValidExpiresAt() {
+        // expiresAt must be ~90 days from now. Allow a ±10 minute tolerance
+        // because the client computes this from its own clock (we can't
+        // combine serverTimestamp() with arithmetic). The window is tight
+        // enough that retention can't be meaningfully extended.
+        return request.resource.data.expiresAt
+            >= request.time + duration.value(90, 'd') - duration.value(10, 'm')
+          && request.resource.data.expiresAt
+            <= request.time + duration.value(90, 'd') + duration.value(10, 'm');
+      }
+
+      function isSafeAnalyticsId(value) {
+        return value is string
+          && value.size() > 0
+          && value.size() <= 128
+          && value.matches('^[A-Za-z0-9_-]+$');
+      }
+
+      function hasValidLayoutId() {
+        return request.resource.data.layoutId == null
+          || isSafeAnalyticsId(request.resource.data.layoutId);
+      }
+
+      function hasValidGridViewEndMetadata() {
+        return request.resource.data.eventType != 'grid_view_end'
+          || (
+            request.resource.data.layoutId != null
+            && isSafeAnalyticsId(request.resource.data.layoutId)
+            && request.resource.data.metadata.keys().hasOnly([
+              'sessionId',
+              'durationMs'
+            ])
+            && isSafeAnalyticsId(request.resource.data.metadata.sessionId)
+            && request.resource.data.metadata.durationMs is number
+            && request.resource.data.metadata.durationMs > 0
+            && request.resource.data.metadata.durationMs <= 86400000
+          );
+      }
+
+      allow read, update, delete: if false;
+
+      allow create: if request.resource.data.keys().hasOnly([
+            'eventType', 'timestamp', 'expiresAt',
+            'userId', 'layoutId', 'metadata'
+          ])
+        && isClientAllowedEventType(request.resource.data.eventType)
+        && request.resource.data.timestamp == request.time
+        && hasValidExpiresAt()
+        && hasValidUserId()
+        && hasValidLayoutId()
+        && request.resource.data.metadata is map
+        && request.resource.data.metadata.size() <= 20
+        && hasValidGridViewEndMetadata();
+    }
+
+    // gridStats: only the grid owner can read; writes are Cloud Functions only.
+    match /gridStats/{docId} {
+      allow read: if request.auth != null
+        && resource.data.ownerId == request.auth.uid;
+      allow write: if false;
+
+      // viewers/{fingerprint} dedup markers are admin-only.
+      match /viewers/{fingerprint} {
+        allow read, write: if false;
+      }
+    }
+
+    // businessStats: admin-only; no client access.
+    match /businessStats/{docId} {
+      allow read, write: if false;
     }
 
     // Products and prices are synced from Stripe by the Extension.

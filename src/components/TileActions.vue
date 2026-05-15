@@ -9,57 +9,59 @@
     @mouseleave="hoveredToolbarZone = null"
   >
     <!-- Primary button: delete normally, stop interacting when embed is active -->
-    <button
-      class="tile-action-btn tile-action-btn--primary"
-      :data-tooltip="isEmbedInteractive ? 'Stop Interacting' : 'Delete'"
-      @click="isEmbedInteractive ? onStopInteracting($event) : onDelete()"
-    >
-      <span class="primary-icon-slot">
-        <CloseIcon class="icon-delete" />
-        <LogOutIcon class="icon-logout" />
-      </span>
-    </button>
+    <FloatingTooltip :text="isEmbedInteractive ? 'Stop Interacting' : 'Delete'">
+      <button
+        class="tile-action-btn tile-action-btn--primary"
+        @click="isEmbedInteractive ? onStopInteracting($event) : onDelete()"
+      >
+        <span class="primary-icon-slot">
+          <CloseIcon class="icon-delete" />
+          <LogOutIcon class="icon-logout" />
+        </span>
+      </button>
+    </FloatingTooltip>
 
     <!-- Quick Actions Group: collapses upward when embed is interactive -->
     <div class="tile-actions-group-collapse">
       <div v-if="!isSuggestionTile" class="tile-actions-group">
-        <a
-          v-if="hasLink"
-          class="tile-action-btn"
-          data-tooltip="Follow Link"
-          :href="resolvedTileUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          @click.stop
-        >
-          <ArrowUpRightIcon />
-        </a>
+        <FloatingTooltip v-if="hasLink" text="Follow Link">
+          <a
+            class="tile-action-btn"
+            :href="resolvedTileUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            @click.stop
+          >
+            <ArrowUpRightIcon />
+          </a>
+        </FloatingTooltip>
 
-        <button
-          class="tile-action-btn"
-          data-tooltip="Duplicate Tile"
-          @click="onDuplicate"
-        >
-          <DuplicateIcon />
-        </button>
+        <FloatingTooltip text="Duplicate Tile">
+          <button
+            class="tile-action-btn"
+            @click="onDuplicate"
+          >
+            <DuplicateIcon />
+          </button>
+        </FloatingTooltip>
 
-        <button
-          v-if="hasCopyable"
-          class="tile-action-btn"
-          data-tooltip="Copy to Clipboard"
-          @click="onCopyToClipboard"
-        >
-          <ClipboardIcon />
-        </button>
+        <FloatingTooltip v-if="hasCopyable" text="Copy to Clipboard">
+          <button
+            class="tile-action-btn"
+            @click="onCopyToClipboard"
+          >
+            <ClipboardIcon />
+          </button>
+        </FloatingTooltip>
 
-        <button
-          v-if="hasDownload"
-          class="tile-action-btn"
-          data-tooltip="Download"
-          @click="onDownload"
-        >
-          <DownloadCloudIcon />
-        </button>
+        <FloatingTooltip v-if="hasDownload" text="Download">
+          <button
+            class="tile-action-btn"
+            @click="onDownload"
+          >
+            <DownloadCloudIcon />
+          </button>
+        </FloatingTooltip>
       </div>
     </div>
   </div>
@@ -94,6 +96,7 @@ import ClipboardIcon from "./icons/actionbar/ClipboardIcon.vue";
 import DownloadCloudIcon from "./icons/actionbar/DownloadCloudIcon.vue";
 import CloseIcon from "./icons/actionbar/CloseIcon.vue";
 import LogOutIcon from "./icons/actionbar/LogOutIcon.vue";
+import FloatingTooltip from "./FloatingTooltip.vue";
 
 export default defineComponent({
   components: {
@@ -103,6 +106,7 @@ export default defineComponent({
     DownloadCloudIcon,
     CloseIcon,
     LogOutIcon,
+    FloatingTooltip,
   },
   props: {
     tile: {

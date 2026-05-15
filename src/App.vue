@@ -186,9 +186,12 @@ onUnmounted(() => {
   align-items: center;
   padding: var(--spacing-md) var(--spacing-lg);
   z-index: var(--z-topbar);
-  // backdrop-filter: blur(20px);
-  background-color: var(--color-content-background);
-  // opacity: 0.95;
+  pointer-events: none;
+  background-color: transparent;
+}
+
+.top-bar > * {
+  pointer-events: auto;
 }
 
 .main-content {

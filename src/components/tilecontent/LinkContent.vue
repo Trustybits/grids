@@ -690,6 +690,7 @@ export default defineComponent({
       focusTarget?: "title" | "description" | "subtitle",
     ) => {
       if (!layoutStore.canEdit || isEditing.value) return;
+      if (tileId) layoutStore.beginEditing(tileId);
       isEditing.value = true;
       syncDrafts();
       nextTick(() => {
@@ -718,6 +719,7 @@ export default defineComponent({
     const stopEditing = () => {
       if (!isEditing.value) return;
       flushPersist();
+      layoutStore.commitEditing();
       removeExitClickHandler();
       isEditing.value = false;
       // Re-sync drafts so readonly inputs reflect saved values

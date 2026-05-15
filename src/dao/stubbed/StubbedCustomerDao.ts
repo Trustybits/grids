@@ -22,4 +22,11 @@ export class StubbedCustomerDao implements CustomerDao {
   ): () => void {
     throw new Error("Stubbed DAO implementation");
   }
+
+  public subscribeToPayments(
+    _userId: string,
+    _callback: (payments: Array<Record<string, unknown>>) => void,
+  ): () => void {
+    throw new Error("Stubbed DAO implementation");
+  }
 }

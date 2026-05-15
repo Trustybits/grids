@@ -26,4 +26,11 @@ export class MockStripeService implements IStripeService {
   ): () => void {
     throw new Error("Method not implemented.");
   }
+
+  subscribeToPayments(
+    _userId: string,
+    _callback: (payments: Array<Record<string, unknown>>) => void,
+  ): () => void {
+    throw new Error("Method not implemented.");
+  }
 }

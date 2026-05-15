@@ -34,8 +34,6 @@
  *   key you intend to add to `BadgeId` in `src/types/Badge.ts`.
  */
 
-/* eslint-disable max-len, no-console */
-
 import * as admin from "firebase-admin";
 
 if (!admin.apps.length) {
@@ -89,12 +87,12 @@ async function grantOne(uid: string, badgeId: string, dryRun: boolean): Promise<
   const snap = await ref.get();
   const existing = snap.exists ? snap.data() ?? {} : {};
   if (existing[badgeId]) {
-    console.log(`  SKIP   ${uid} — already has ${badgeId}`);
+    console.warn(`  SKIP   ${uid} — already has ${badgeId}`);
     return "skipped";
   }
 
   if (dryRun) {
-    console.log(`  WOULD  ${uid} ← ${badgeId}`);
+    console.warn(`  WOULD  ${uid} ← ${badgeId}`);
     return "granted";
   }
 
@@ -104,7 +102,7 @@ async function grantOne(uid: string, badgeId: string, dryRun: boolean): Promise<
     },
     { merge: true },
   );
-  console.log(`  GRANT  ${uid} ← ${badgeId}`);
+  console.warn(`  GRANT  ${uid} ← ${badgeId}`);
   return "granted";
 }
 
@@ -112,22 +110,22 @@ async function revokeOne(uid: string, badgeId: string, dryRun: boolean): Promise
   const ref = db.collection("userBadges").doc(uid);
   const snap = await ref.get();
   if (!snap.exists || !(snap.data() ?? {})[badgeId]) {
-    console.log(`  SKIP   ${uid} — does not have ${badgeId}`);
+    console.warn(`  SKIP   ${uid} — does not have ${badgeId}`);
     return "skipped";
   }
   if (dryRun) {
-    console.log(`  WOULD  ${uid} ✗ ${badgeId}`);
+    console.warn(`  WOULD  ${uid} ✗ ${badgeId}`);
     return "revoked";
   }
   await ref.update({ [badgeId]: admin.firestore.FieldValue.delete() });
-  console.log(`  REVOKE ${uid} ✗ ${badgeId}`);
+  console.warn(`  REVOKE ${uid} ✗ ${badgeId}`);
   return "revoked";
 }
 
 async function findUsersCreatedBefore(date: Date): Promise<string[]> {
   // `users/{uid}.lastLogin` always exists; `createdAt` is not currently
   // written by the app. Use the auth user's metadata.creationTime instead.
-  console.log(`Listing auth users created before ${date.toISOString()}...`);
+  console.warn(`Listing auth users created before ${date.toISOString()}...`);
   const matches: string[] = [];
   let pageToken: string | undefined;
   do {
@@ -140,7 +138,7 @@ async function findUsersCreatedBefore(date: Date): Promise<string[]> {
     }
     pageToken = result.pageToken;
   } while (pageToken);
-  console.log(`Found ${matches.length} matching user(s).`);
+  console.warn(`Found ${matches.length} matching user(s).`);
   return matches;
 }
 
@@ -148,7 +146,7 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const args = parseArgs(argv);
 
-  console.log(
+  console.warn(
     `Action: ${args.action}  Badge: ${args.badgeId}  ${args.dryRun ? "(dry-run)" : ""}`,
   );
 
@@ -161,7 +159,7 @@ async function main(): Promise<void> {
   }
 
   if (!uids.length) {
-    console.log("No users to process.");
+    console.warn("No users to process.");
     return;
   }
 
@@ -181,7 +179,7 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log(
+  console.warn(
     `\nDone. Granted: ${granted}, Revoked: ${revoked}, Skipped: ${skipped}` +
       (args.dryRun ? " (dry-run — no writes performed)" : ""),
   );

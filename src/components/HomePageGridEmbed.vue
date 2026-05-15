@@ -109,7 +109,7 @@ import {
 } from '@/data/demoLayout';
 import type { Breakpoint } from '@/types/Tile';
 
-const props = withDefaults(
+const _props = withDefaults(
   defineProps<{
     rowHeight?: number;
   }>(),

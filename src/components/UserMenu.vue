@@ -5,10 +5,7 @@
     ref="menuRef"
     :data-tooltip="showUserMenu ? null : 'User Menu'"
   >
-    <button
-      class="user-menu-button"
-      @click="toggleUserMenu"
-    >
+    <button class="user-menu-button" @click="toggleUserMenu">
       <div class="user-icon">
         <svg
           v-if="
@@ -44,82 +41,126 @@
             alt=""
           />
         </div>
-        <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M6 21C6 17.134 8.68629 14 12 14C15.3137 14 18 17.134 18 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <svg
+          v-else
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <circle
+            cx="12"
+            cy="8"
+            r="4"
+            stroke="currentColor"
+            stroke-width="1.5"
+          />
+          <path
+            d="M6 21C6 17.134 8.68629 14 12 14C15.3137 14 18 17.134 18 21"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          />
         </svg>
       </div>
     </button>
     <div class="user-menu-dropdown" v-if="showUserMenu" @click.stop>
       <div class="user-info-section">
-        <button type="button" @click="openSlugModal" class="info-item clickable">
-          <div class="info-content">
-            <span class="info-label">Handle</span>
-            <span class="info-value">{{ currentSlug || 'Not set' }}</span>
-          </div>
-          <svg class="edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            <path d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-          </svg>
-        </div>
-        <div class="menu-divider"></div>
-        <div class="billing-section">
-          <span v-if="isProOrAbove" class="billing-chip billing-chip--pro">Pro Plan</span>
-          <span v-else-if="hasSupporterBadge" class="billing-chip billing-chip--supporter">Supporter</span>
-          <span v-else class="billing-label">Free Account</span>
-          <button
-            v-if="isProOrAbove"
-            class="billing-action billing-action-button"
-            :disabled="checkout.loading.value"
-            @click="openBillingPortal"
-          >
-            {{ checkout.loading.value ? 'Opening...' : 'Manage Billing' }}
-          </button>
-          <router-link
-            v-else
-            to="/pricing"
-            class="billing-action"
-            @click="showUserMenu = false"
-          >
-            Upgrade
-          </router-link>
-        </div>
-        <div class="menu-divider"></div>
-        <button @click="logout" class="menu-action-item">
-          Logout
-        </button>
         <button
-          v-if="defaultGridId"
           type="button"
-          @click="goToDefaultGrid"
-          class="info-item clickable default-grid-link"
+          @click="openSlugModal"
+          class="info-item clickable"
         >
           <div class="info-content">
-            <span class="info-label">Default Grid</span>
-            <span class="info-value">{{ defaultGridName }}</span>
+            <span class="info-label">Handle</span>
+            <span class="info-value">{{ currentSlug || "Not set" }}</span>
           </div>
+          <svg
+            class="edit-icon"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              fill="none"
+            />
+            <path
+              d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              fill="none"
+            />
+          </svg>
         </button>
-        <div class="info-item">
-          <div class="info-content">
-            <span class="info-label">Email</span>
-            <span class="info-value">{{ user.email }}</span>
-          </div>
+      </div>
+      <button
+        v-if="defaultGridId"
+        type="button"
+        @click="goToDefaultGrid"
+        class="info-item clickable default-grid-link"
+      >
+        <div class="info-content">
+          <span class="info-label">Default Grid</span>
+          <span class="info-value">{{ defaultGridName }}</span>
+        </div>
+      </button>
+      <div class="info-item">
+        <div class="info-content">
+          <span class="info-label">Email</span>
+          <span class="info-value">{{ user.email }}</span>
         </div>
       </div>
       <div class="menu-divider"></div>
-      <button type="button" @click="logout" class="menu-action-item">
-        Logout
-      </button>
+      <div class="billing-section">
+        <span v-if="isProOrAbove" class="billing-chip billing-chip--pro"
+          >Pro Plan</span
+        >
+        <span
+          v-else-if="hasSupporterBadge"
+          class="billing-chip billing-chip--supporter"
+          >Supporter</span
+        >
+        <span v-else class="billing-label">Free Account</span>
+        <button
+          v-if="isProOrAbove"
+          class="billing-action billing-action-button"
+          :disabled="checkout.loading.value"
+          @click="openBillingPortal"
+        >
+          {{ checkout.loading.value ? "Opening..." : "Manage Billing" }}
+        </button>
+        <router-link
+          v-else
+          to="/pricing"
+          class="billing-action"
+          @click="showUserMenu = false"
+        >
+          Upgrade
+        </router-link>
+      </div>
+      <div class="menu-divider"></div>
+      <button @click="logout" class="menu-action-item">Logout</button>
     </div>
-    
-    <!-- Slug Management Modal -->
-    <SlugClaimModal
-      :is-open="showSlugModal"
-      :current-slug="currentSlug"
-      @close="closeSlugModal"
-      @success="handleSlugSuccess"
-    />
+    <div class="menu-divider"></div>
   </div>
+
+  <!-- Slug Management Modal -->
+  <SlugClaimModal
+    :is-open="showSlugModal"
+    :current-slug="currentSlug"
+    @close="closeSlugModal"
+    @success="handleSlugSuccess"
+  />
 </template>
 
 <script lang="ts">
@@ -131,7 +172,6 @@ import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useTier } from "@/composables/useTier";
 import { useBadges } from "@/composables/useBadges";
 import { useStripeCheckout } from "@/composables/useStripeCheckout";
-import SlugClaimModal from "./SlugClaimModal.vue";
 import {
   ContentType,
   type AvatarShape,
@@ -172,9 +212,8 @@ export default defineComponent({
     const currentSlug = ref<string | undefined>(undefined);
     const defaultGridId = ref<string | undefined>(undefined);
     const defaultGridProfileImageUrl = ref<string | undefined>(undefined);
-    const defaultGridProfileAvatarShape = ref<AvatarShape>(
-      DEFAULT_AVATAR_SHAPE,
-    );
+    const defaultGridProfileAvatarShape =
+      ref<AvatarShape>(DEFAULT_AVATAR_SHAPE);
     const defaultGridProfileAvatarRadius = ref(DEFAULT_AVATAR_RADIUS);
     const defaultGridProfileAvatarSides = ref(DEFAULT_AVATAR_SIDES);
     const polygonClipPathId = `user-menu-avatar-clip-${Math.random()
@@ -271,12 +310,11 @@ export default defineComponent({
         return { borderRadius: "50%" };
       }
 
-      const scaledRadius =
-        scaleAvatarRadius(
-          defaultGridProfileAvatarRadius.value,
-          PROFILE_TILE_AVATAR_SIZE,
-          MENU_AVATAR_SIZE,
-        );
+      const scaledRadius = scaleAvatarRadius(
+        defaultGridProfileAvatarRadius.value,
+        PROFILE_TILE_AVATAR_SIZE,
+        MENU_AVATAR_SIZE,
+      );
       return {
         borderRadius: `${Math.max(0, scaledRadius)}px`,
       };
@@ -391,8 +429,8 @@ export default defineComponent({
   height: 40px;
   border-radius: var(--radius-sm);
   background: none;
-//   background: var(--color-tile-background);
-//   border: var(--tile-border-width) solid var(--color-tile-stroke);
+  //   background: var(--color-tile-background);
+  //   border: var(--tile-border-width) solid var(--color-tile-stroke);
   cursor: pointer;
   color: var(--color-text-primary);
   transition: all var(--duration-fast) var(--easing-smooth);
@@ -431,12 +469,11 @@ export default defineComponent({
 
   &:hover {
     background: var(--color-base-34);
-    
+
     .user-icon {
       color: var(--color-figma-purple);
     }
   }
-
 }
 
 .user-menu-dropdown {
@@ -473,22 +510,22 @@ export default defineComponent({
     text-align: left;
     font-family: var(--font-family-base);
     transition: background-color var(--duration-fast) var(--easing-smooth);
-    
+
     &.clickable {
       cursor: pointer;
-      
+
       &:hover {
         background-color: var(--color-base-34);
-        
+
         .edit-icon {
           opacity: 1;
         }
       }
     }
-    
+
     &:not(.clickable) {
       cursor: default;
-      
+
       .info-value {
         opacity: 0.5;
       }

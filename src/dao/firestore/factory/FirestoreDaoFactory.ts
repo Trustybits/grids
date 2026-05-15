@@ -1,4 +1,4 @@
-import { db, functions, storage } from "@/firebase";
+import { db, functions, storage } from "@/infrastructure/firebase";
 import type { BadgeDao } from "@/dao/interfaces/BadgeDao";
 import type { AnalyticsEventDao } from "@/dao/interfaces/AnalyticsEventDao";
 import type { BusinessStatsDao } from "@/dao/interfaces/BusinessStatsDao";

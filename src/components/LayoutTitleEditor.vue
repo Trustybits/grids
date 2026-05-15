@@ -117,6 +117,8 @@ onUnmounted(() => {
   cursor: text;
   font-size: 1.5rem;
   font-weight: bold;
+  line-height: 1;
+  margin: 0;
   outline: none;
   display: inline-block;
   padding: 4px 8px;

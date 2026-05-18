@@ -127,8 +127,8 @@
               <img src="/og-preview-placeholder.png" alt="Grid preview" />
             </div>
             <div class="mkt__og-meta">
-              <span class="mkt__og-site">cam's grid</span>
-              <span class="mkt__og-title">https://grids.so/cam</span>
+              <span class="mkt__og-site">matt's grid</span>
+              <span class="mkt__og-title">https://grids.so/matt</span>
             </div>
           </div>
           <!-- <div class="mkt__share-pill">

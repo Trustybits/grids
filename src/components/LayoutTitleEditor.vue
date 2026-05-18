@@ -17,7 +17,7 @@
   <div v-else-if="!isAuthenticated" class="cta-buttons" ref="ctaRef">
     <router-link class="cta-btn cta-btn--primary" to="/login">
       <img src="/grids_logo.png" alt="" class="cta-logo" />
-      Claim my Grid
+      Claim your Grid
     </router-link>
     <router-link class="cta-btn cta-btn--ghost" to="/login">
       Login

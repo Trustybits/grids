@@ -26,15 +26,16 @@
             Sign in
           </router-link>
         </template>
-        <a
-          href="https://discord.gg/DBscN5NUN6"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="mkt__mobile-link"
-        >
-          <DiscordIcon /> Discord
-        </a>
       </div>
+      <div class="mkt__mobile-divider"></div>
+      <a
+        href="https://discord.gg/DBscN5NUN6"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="mkt__mobile-link"
+      >
+        <DiscordIcon />
+      </a>
     </div>
   </transition>
 </template>

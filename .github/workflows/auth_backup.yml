@@ -1,0 +1,124 @@
+name: Auth Backup
+
+# Daily export of Firebase Auth users to a GCS bucket.
+# Authenticates to GCP via Workload Identity Federation (no long-lived keys).
+
+on:
+  schedule:
+    # 09:00 UTC daily. Adjust if you want a different time.
+    - cron: '0 9 * * *'
+  workflow_dispatch: {}
+
+# Required for Workload Identity Federation: the job must be able to mint an
+# OIDC token that GCP exchanges for a short-lived access token.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  export:
+    name: Export Firebase Auth and upload to GCS
+    runs-on: ubuntu-latest
+    # Only run from the main branch on schedule; manual runs from any branch are still allowed.
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+
+    env:
+      # GCP project that hosts Firebase Auth + the backup bucket.
+      GCP_PROJECT_ID: grids-one
+
+      # Full Workload Identity Provider resource name.
+      # Format: projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/github-actions-pool/providers/github
+      WIF_PROVIDER: projects/598562210148/locations/global/workloadIdentityPools/github-actions-pool/providers/github
+
+      # Service account email that the workflow impersonates.
+      WIF_SERVICE_ACCOUNT: auth-backup@grids-one.iam.gserviceaccount.com
+
+      # GCS bucket that receives the export (no gs:// prefix).
+      BACKUP_BUCKET: grids-one_backups
+
+    steps:
+      - name: Authenticate to Google Cloud (WIF)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Set up Node.js (for firebase-tools)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Compute timestamps
+        id: ts
+        run: |
+          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          echo "stamp=$(date -u +%Y-%m-%dT%H-%M-%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Export Firebase Auth users
+        env:
+          # firebase-tools picks up application-default credentials from the auth step.
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+        run: |
+          set -euo pipefail
+          firebase auth:export users.json \
+            --format=JSON \
+            --project "$GCP_PROJECT_ID"
+
+          # Sanity check: file exists and is non-empty.
+          if [ ! -s users.json ]; then
+            echo "::error::auth:export produced an empty file"
+            exit 1
+          fi
+
+          # Log user count without leaking content.
+          USER_COUNT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('users.json','utf8')).users.length)")
+          echo "Exported $USER_COUNT users."
+
+      - name: Capture password hash config
+        # Hash parameters are NOT included in the user export but are required
+        # to restore password logins. Save them as a sidecar file.
+        run: |
+          set -euo pipefail
+          ACCESS_TOKEN=$(gcloud auth print-access-token)
+          curl -sSf \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/${GCP_PROJECT_ID}/config" \
+            | node -e "
+              const cfg = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+              const out = {
+                signIn: cfg.signIn || null,
+                hashConfig: (cfg.signIn && cfg.signIn.hashConfig) || null,
+                capturedAt: new Date().toISOString(),
+                projectId: process.env.GCP_PROJECT_ID,
+              };
+              require('fs').writeFileSync('hash-config.json', JSON.stringify(out, null, 2));
+            "
+
+          if [ ! -s hash-config.json ]; then
+            echo "::error::failed to capture hash config"
+            exit 1
+          fi
+
+      - name: Upload to GCS
+        run: |
+          set -euo pipefail
+          DEST="gs://${BACKUP_BUCKET}/firebase-auth/${{ steps.ts.outputs.date }}"
+          gcloud storage cp users.json       "${DEST}/users-${{ steps.ts.outputs.stamp }}.json"
+          gcloud storage cp hash-config.json "${DEST}/hash-config-${{ steps.ts.outputs.stamp }}.json"
+          echo "Uploaded to ${DEST}/"
+
+      - name: Shred local copies
+        if: always()
+        run: |
+          shred -u users.json hash-config.json 2>/dev/null || rm -f users.json hash-config.json

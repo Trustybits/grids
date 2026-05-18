@@ -3,7 +3,7 @@
     <!-- Global viewport warning banner — sits above everything including the TopBar.
          Uses sticky positioning so it stays visible on scroll and pushes all
          app content (TopBar, main area, etc.) below it. -->
-    <ViewportWarning type="breakpoint-preview" :dismissible="false" />
+    <ViewportWarning v-if="!isMarketingPage" type="breakpoint-preview" :dismissible="false" />
 
     <!-- Left Navigation Bar (hidden on marketing pages like /pricing) -->
     <LeftNavBar v-if="isAuthenticated && !isMarketingPage" />

@@ -1,45 +1,11 @@
 <template>
   <div class="mkt">
-    <header class="mkt__nav">
-      <button class="mkt__brand" @click="nav('home')">
-        <span class="mkt__brand-mark" aria-hidden="true">
-          <img src="/grids_logo.png" alt="" />
-        </span>
-        <span class="mkt__brand-word">grids</span>
-      </button>
-      <nav class="mkt__menu">
-        <button
-          v-for="item in navItems"
-          :key="item.id"
-          :class="['mkt__menu-item', { 'is-active': currentPage === item.id }]"
-          @click="nav(item.id)"
-        >
-          {{ item.label }}
-        </button>
-      </nav>
-      <div class="mkt__actions">
-        <a
-          href="https://discord.gg/DBscN5NUN6"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="mkt__text-btn mkt__discord-link"
-          aria-label="Join our Discord"
-          title="Join our Discord"
-        >
-          <DiscordIcon />
-        </a>
-        <template v-if="isAuthenticated">
-          <router-link to="/dashboard" class="mkt__outline-btn">
-            <span>Go to Dashboard</span>
-            <span aria-hidden="true" class="mkt__outline-btn-icon">→</span>
-          </router-link>
-        </template>
-        <template v-else>
-          <router-link to="/login" class="mkt__text-btn">Sign in</router-link>
-          <router-link to="/login" class="mkt__cta-btn">Start your grid</router-link>
-        </template>
-      </div>
-    </header>
+    <MarketingNavBar
+      :nav-items="navItems"
+      :current-page="currentPage"
+      :is-authenticated="isAuthenticated"
+      @navigate="(page: string) => nav(page as Page)"
+    />
 
     <main class="mkt__body">
     <section v-if="currentPage === 'home'" class="mkt__hero">
@@ -127,8 +93,8 @@
               <img src="/og-preview-placeholder.png" alt="Grid preview" />
             </div>
             <div class="mkt__og-meta">
-              <span class="mkt__og-site">cam's grid</span>
-              <span class="mkt__og-title">https://grids.so/cam</span>
+              <span class="mkt__og-site">matt's grid</span>
+              <span class="mkt__og-title">https://grids.so/matt</span>
             </div>
           </div>
           <!-- <div class="mkt__share-pill">
@@ -144,7 +110,7 @@
             <i class="fab fa-github" aria-hidden="true"></i>
             <span>Open source</span>
           </div>
-          <h2>Your page is <span>yours forever.</span></h2>
+          <h2>Your page is yours. Forever.</h2>
           <p>
             We watched too many favorite link-in-bio and portfolio sites quietly shut down — taking their users'
             pages with them. We've felt that pain personally. So we open-sourced the whole thing.
@@ -462,31 +428,7 @@
       </section>
     </main>
 
-    <footer class="mkt__footer">
-      <div>
-        <strong class="mkt__footer-brand">
-          <span class="mkt__brand-mark" aria-hidden="true">
-            <img src="/grids_logo.png" alt="" />
-          </span>
-          <span class="mkt__brand-word">grids</span>
-        </strong>
-        <p>Showcase simplified. Your page, your work, your success.</p>
-      </div>
-      <div class="mkt__footer-links">
-        <div class="mkt__footer-col">
-          <h4>Product</h4>
-          <a href="#" @click.prevent="nav('showcase')">Showcase</a>
-          <a href="#" @click.prevent="nav('pricing')">Pricing</a>
-          <a href="https://discord.com/channels/1452087541548191940/1464413220549955768" target="_blank" rel="noopener noreferrer">What's New</a>
-        </div>
-        <div class="mkt__footer-col">
-          <h4>Company</h4>
-          <router-link to="/privacy">Privacy Policy</router-link>
-          <router-link to="/terms">Terms</router-link>
-          <a href="https://discord.gg/DBscN5NUN6" target="_blank" rel="noopener noreferrer">Discord Server</a>
-        </div>
-      </div>
-    </footer>
+    <MarketingFooter @navigate="(page: string) => nav(page as Page)" />
   </div>
 </template>
 
@@ -500,8 +442,9 @@ import { useContributions } from '@/composables/useContributions';
 import { useStripeCheckout } from '@/composables/useStripeCheckout';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import type { AuthUser } from '@/auth/AuthProvider';
-import DiscordIcon from '@/components/icons/DiscordIcon.vue';
 import HomePageGridEmbed from '@/components/HomePageGridEmbed.vue';
+import MarketingNavBar from '@/components/MarketingNavBar.vue';
+import MarketingFooter from '@/components/MarketingFooter.vue';
 
 // Toggle between the real <Grid>-powered preview and the legacy CSS mock.
 // Flip to `false` to fall back to the static tile mock (useful while
@@ -870,104 +813,7 @@ const faqItems = [
     radial-gradient(ellipse 55% 26% at 50% 96%, rgba(131, 139, 251, 0.16), transparent 72%);
   z-index: 0;
 }
-.mkt__nav {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 10px;
-  padding: 18px var(--mkt-section-x);
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  width: 100%;
-  max-width: var(--mkt-chrome-max);
-  margin: 0 auto;
-}
-.mkt__brand {
-  border: 0;
-  background: transparent;
-  color: var(--mkt-fg-1);
-  font: 800 20px/1 var(--mkt-font-sans);
-  letter-spacing: -0.04em;
-  cursor: pointer;
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-.mkt__brand-word {
-  font-family: var(--mkt-font-brand);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: lowercase;
-}
-.mkt__brand-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* background: var(--mkt-brand-gradient); */
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-.mkt__brand-mark :deep(svg) {
-  width: 18px;
-  height: 18px;
-  color: #ffffff;
-}
-.mkt__brand-mark img {
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  object-fit: cover;
-  display: block;
-}
-.mkt__menu {
-  display: flex;
-  gap: 2px;
-  justify-self: center;
-}
-.mkt__menu-item {
-  border: 0;
-  background: transparent;
-  color: var(--mkt-fg-3);
-  font: 500 14px/1 var(--mkt-font-sans);
-  cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 10px;
-}
-.mkt__menu-item.is-active {
-  color: var(--mkt-fg-1);
-}
-.mkt__actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  justify-self: end;
-}
-.mkt__text-btn {
-  color: var(--mkt-fg-2);
-  text-decoration: none;
-  font: 500 14px/1 var(--mkt-font-sans);
-}
-.mkt__discord-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  /* border: 1px solid rgba(255, 255, 255, 0.18); */
-  padding: 0;
-}
-.mkt__discord-link :deep(svg) {
-  width: 16px;
-  height: 16px;
-}
+/* .mkt__cta-btn is reused by the CTA section on the home page */
 .mkt__cta-btn {
   font: 600 13px/1 var(--mkt-font-sans);
   letter-spacing: -0.01em;
@@ -977,28 +823,6 @@ const faqItems = [
   background: var(--mkt-brand-gradient);
   color: #000;
   text-decoration: none;
-}
-.mkt__outline-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font: 600 13px/1 var(--mkt-font-sans);
-  letter-spacing: -0.01em;
-  padding: 9px 14px;
-  border-radius: var(--mkt-radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: transparent;
-  color: var(--mkt-fg-1);
-  text-decoration: none;
-  transition: border-color .15s, background .15s;
-}
-.mkt__outline-btn:hover {
-  border-color: rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.04);
-}
-.mkt__outline-btn-icon {
-  font-size: 14px;
-  line-height: 1;
 }
 .mkt__hero {
   position: relative;
@@ -1034,7 +858,7 @@ const faqItems = [
   color: transparent;
 }
 
-.mkt__cta h2 span, .mkt__own h2 span {
+.mkt__cta h2 span {
   background: var(--mkt-brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
@@ -1446,9 +1270,12 @@ const faqItems = [
   z-index: 1;
 }
 .mkt__cta h2 {
-  font: 800 64px/1 var(--mkt-font-sans);
+  font: 400 64px/1 var(--mkt-font-sans);
   letter-spacing: -0.04em;
   margin: 0;
+}
+.mkt__cta h2 span {
+  font-weight: 800;
 }
 .mkt__cta p {
   font: 400 19px/1.4 var(--mkt-font-sans);
@@ -1974,50 +1801,6 @@ const faqItems = [
 .mkt__placeholder p {
   color: rgba(255, 255, 255, .55);
 }
-.mkt__footer {
-  border-top: 1px solid rgba(255, 255, 255, .06);
-  padding: 52px var(--mkt-section-x) 32px;
-  width: 100%;
-  max-width: var(--mkt-chrome-max);
-  margin: 64px auto 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 40px;
-  text-align: left;
-}
-.mkt__footer-links {
-  display: flex;
-  gap: 64px;
-}
-.mkt__footer-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 20px;
-  letter-spacing: -0.04em;
-  margin-bottom: 10px;
-}
-.mkt__footer p {
-  color: rgba(255, 255, 255, .5);
-  max-width: 280px;
-}
-.mkt__footer-col h4 {
-  margin: 0 0 14px;
-  font: 600 12px/1 var(--mkt-font-sans);
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, .45);
-}
-.mkt__footer-col a {
-  display: block;
-  color: rgba(255, 255, 255, .75);
-  margin-bottom: 10px;
-  text-decoration: none;
-}
-.mkt__footer-col a:hover {
-  color: var(--mkt-fg-1);
-}
 @media (max-width: 1000px) {
   .mkt {
     --mkt-section-y: 72px;
@@ -2037,28 +1820,16 @@ const faqItems = [
   .mkt__community-cta { min-width: 0; }
   .mkt__faq-grid { grid-template-columns: 1fr; }
 }
-@media (max-width: 720px) {
+@media (max-width: 800px) {
   .mkt {
     --mkt-section-x: 14px;
     --mkt-section-y: 52px;
   }
-  .mkt__nav {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    padding: 14px;
-  }
-  .mkt__brand,
-  .mkt__menu,
-  .mkt__actions {
-    justify-self: center;
-  }
   .mkt__hero { padding: 40px 14px; }
   .mkt__hero-title { font-size: 44px; }
   .mkt__hero-grid { grid-template-columns: repeat(2, 1fr); aspect-ratio: auto; }
-  .mkt__feature, .mkt__page, .mkt__cta, .mkt__footer, .mkt__own { padding-left: 14px; padding-right: 14px; }
+  .mkt__feature, .mkt__page, .mkt__cta, .mkt__own { padding-left: 14px; padding-right: 14px; }
   .mkt__cards { grid-template-columns: 1fr; }
-  .mkt__footer { flex-direction: column; }
-  .mkt__footer-links { gap: 40px; }
   .mkt__community-features { grid-template-columns: 1fr !important; }
   .mkt__plan { padding: 24px; }
 }

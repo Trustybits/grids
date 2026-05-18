@@ -47,15 +47,18 @@
           />
         </div>
 
-        <div v-if="validationMessage" class="validation-message" :class="validationClass">
-          <svg v-if="validationClass === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 6L9 17l-5-5" />
-          </svg>
-          <svg v-else-if="validationClass === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 8v4m0 4h.01" />
-          </svg>
-          <span>{{ validationMessage }}</span>
+        <div class="validation-message" :class="[validationClass, { 'is-placeholder': !validationMessage }]">
+          <template v-if="validationMessage">
+            <svg v-if="validationClass === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+            <svg v-else-if="validationClass === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4m0 4h.01" />
+            </svg>
+            <span>{{ validationMessage }}</span>
+          </template>
+          <span v-else>&nbsp;</span>
         </div>
       </div>
 
@@ -75,18 +78,25 @@
       </button>
       <button
         class="btn-primary"
-        :class="{ 'btn-full-width': !hasExistingSlug }"
         @click="handleClaim"
         :disabled="!canClaim || isClaiming"
       >
         {{ isClaiming ? 'Claiming...' : hasExistingSlug ? 'Update Handle' : 'Claim Handle' }}
       </button>
     </div>
+    <button
+      v-if="!hasExistingSlug"
+      class="btn-skip"
+      @click="handleSkip"
+      :disabled="isClaiming"
+    >
+      Skip for now
+    </button>
   </BaseModal>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import BaseModal from './BaseModal.vue';
 
@@ -100,6 +110,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   success: [slug: string];
+  skip: [];
 }>();
 
 const userService = getServiceFactory().getUserService();
@@ -238,6 +249,11 @@ const handleClose = () => {
   }
 };
 
+const handleSkip = () => {
+  if (isClaiming.value) return;
+  emit('skip');
+};
+
 watch(() => props.currentSlug, (newSlug) => {
   if (newSlug) {
     slugInput.value = newSlug;
@@ -254,6 +270,12 @@ watch(() => props.isOpen, (isOpen) => {
       slugInput.value = props.currentSlug;
       checkAvailability(props.currentSlug);
     }
+
+    nextTick(() => {
+      setTimeout(() => {
+        inputElement.value?.focus();
+      }, 100);
+    });
   }
 });
 </script>
@@ -264,6 +286,15 @@ watch(() => props.isOpen, (isOpen) => {
   width: min(500px, 100%);
   max-height: 90vh;
   overflow-y: auto;
+  box-sizing: border-box;
+}
+
+@media (max-width: 600px) {
+  :deep(.slug-modal-content) {
+    width: calc(100% - var(--spacing-md) * 2);
+    max-height: 100dvh;
+    margin: var(--spacing-md);
+  }
 }
 
 .modal-header {
@@ -367,7 +398,12 @@ watch(() => props.isOpen, (isOpen) => {
   align-items: center;
   gap: var(--spacing-xs);
   font-size: 13px;
+  min-height: 24px;
   padding: var(--spacing-xs) 0;
+}
+
+.validation-message.is-placeholder {
+  visibility: hidden;
 }
 
 .validation-message.success {
@@ -437,7 +473,52 @@ watch(() => props.isOpen, (isOpen) => {
   cursor: not-allowed;
 }
 
-.btn-full-width {
-  flex: 1 1 100%;
+.btn-skip {
+  display: block;
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin: 0;
+  background: transparent;
+  color: var(--color-content-default);
+  font-size: 14px;
+  font-family: var(--font-family-base);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--easing-smooth);
+}
+
+.btn-skip:hover:not(:disabled) {
+  color: var(--color-text-primary);
+}
+
+.btn-skip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .modal-header {
+    padding: var(--spacing-md);
+  }
+
+  .modal-header h2 {
+    font-size: 18px;
+  }
+
+  .modal-body {
+    padding: var(--spacing-md);
+    gap: var(--spacing-sm);
+  }
+
+  .modal-footer {
+    padding: var(--spacing-md);
+  }
+
+  .slug-prefix {
+    font-size: 13px;
+  }
+
+  .slug-input-wrapper input {
+    font-size: 16px;
+  }
 }
 </style>

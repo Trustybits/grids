@@ -55,6 +55,7 @@
       :current-slug="userSlug"
       @close="closeSlugModal"
       @success="handleSlugSuccess"
+      @skip="closeSlugModal"
     />
 
     <SuccessToast

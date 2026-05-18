@@ -74,6 +74,7 @@
       :is-open="showSlugModal"
       @close="handleSlugModalClose"
       @success="handleSlugClaimed"
+      @skip="handleSlugSkipped"
     />
   </div>
 </template>
@@ -273,6 +274,13 @@ const handleSlugClaimed = () => {
     router.replace(pendingRedirect.value);
     pendingRedirect.value = null;
   }
+};
+
+const handleSlugSkipped = () => {
+  showSlugModal.value = false;
+  const dest = pendingRedirect.value || '/dashboard';
+  pendingRedirect.value = null;
+  router.replace(dest);
 };
 </script>
 

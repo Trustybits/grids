@@ -110,7 +110,7 @@
             <i class="fab fa-github" aria-hidden="true"></i>
             <span>Open source</span>
           </div>
-          <h2>Your page is <span>yours forever.</span></h2>
+          <h2>Your page is yours. Forever.</h2>
           <p>
             We watched too many favorite link-in-bio and portfolio sites quietly shut down — taking their users'
             pages with them. We've felt that pain personally. So we open-sourced the whole thing.
@@ -858,7 +858,7 @@ const faqItems = [
   color: transparent;
 }
 
-.mkt__cta h2 span, .mkt__own h2 span {
+.mkt__cta h2 span {
   background: var(--mkt-brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
@@ -1270,9 +1270,12 @@ const faqItems = [
   z-index: 1;
 }
 .mkt__cta h2 {
-  font: 800 64px/1 var(--mkt-font-sans);
+  font: 400 64px/1 var(--mkt-font-sans);
   letter-spacing: -0.04em;
   margin: 0;
+}
+.mkt__cta h2 span {
+  font-weight: 800;
 }
 .mkt__cta p {
   font: 400 19px/1.4 var(--mkt-font-sans);

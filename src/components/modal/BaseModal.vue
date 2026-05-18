@@ -61,12 +61,12 @@ const handleOverlayClick = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
 }
 
 .modal-content {
   position: relative;
-  z-index: 1001;
+  z-index: var(--z-modal);
   background-color: var(--color-tile-background);
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: var(--radius-lg);

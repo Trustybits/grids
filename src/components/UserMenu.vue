@@ -160,6 +160,7 @@
     :current-slug="currentSlug"
     @close="closeSlugModal"
     @success="handleSlugSuccess"
+    @skip="closeSlugModal"
   />
 </template>
 

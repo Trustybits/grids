@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { markdownToHtml } from "@/utils/markdownToHtml";
+import { markdownToHtml } from "@/utils/MarkdownToHtml";
 
 const props = defineProps<{
   srcPath: string;

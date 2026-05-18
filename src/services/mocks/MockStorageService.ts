@@ -4,7 +4,7 @@ import type {
 } from "@/dao/interfaces/StorageDao";
 import type { IStorageService } from "../interfaces/IStorageService";
 import type { UploadOptions } from "@/types/UploadFileTypes";
-import { validateUploadFile } from "@/utils/uploadFileClassification";
+import { validateUploadFile } from "@/utils/UploadFileClassification";
 
 export class MockStorageService implements IStorageService {
   validateFile(

@@ -221,7 +221,7 @@ import {
   documentItemIsPdf,
   ensureDocumentItemThumbnailOnServer,
 } from "@/composables/useDocumentThumbnail";
-import { classifyDocumentItem } from "@/utils/documentTypeKind";
+import { classifyDocumentItem } from "@/utils/DocumentTypeKind";
 
 const ILLUSTRATION_BY_KIND: Record<string, string> = {
   pdf: "/illustrations/file-pdf.png",

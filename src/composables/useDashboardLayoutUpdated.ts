@@ -1,7 +1,7 @@
 import { computed, toValue, type MaybeRefOrGetter } from "vue";
 import type { Layout } from "@/types/Layout";
 import { valueToDate } from "@/utils/TimeConversion";
-import { formatRelativeSince } from "@/utils/relativeTime";
+import { formatRelativeSince } from "@/utils/RelativeTime";
 
 type LayoutTimestamps = Pick<Layout, "updatedAt" | "createdAt">;
 

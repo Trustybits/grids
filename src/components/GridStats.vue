@@ -53,7 +53,7 @@ import { useLayoutStore } from "@/stores/layout";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import type { GridStats, DailyGridStats } from "@/types/Analytics";
 import Chevron from "@/components/icons/Chevron.vue";
-import { formatDuration } from "@/utils/relativeTime";
+import { formatDuration } from "@/utils/RelativeTime";
 
 const layoutStore = useLayoutStore();
 

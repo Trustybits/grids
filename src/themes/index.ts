@@ -1,4 +1,4 @@
-import type { Theme, ThemeRegistry } from '@/types/theme';
+import type { Theme, ThemeRegistry } from '@/types/Theme';
 
 const rgbaToHex = (r: number, g: number, b: number, a: number = 1): string => {
   const toHex = (n: number) => {

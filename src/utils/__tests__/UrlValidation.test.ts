@@ -3,7 +3,7 @@ import {
   extractIframeSrc,
   isValidEmbed,
   isValidLink,
-} from "@/utils/urlValidation";
+} from "@/utils/UrlValidation";
 
 describe("extractIframeSrc", () => {
   it("returns the src for an iframe with double-quoted src", () => {

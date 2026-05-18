@@ -20,7 +20,7 @@ import {
   isTallOneWide,
   isWideOneHigh,
   isOneByOne,
-} from "@/utils/smartTextHelpers";
+} from "@/utils/SmartTextHelpers";
 
 // ── normalizeHttpUrl ────────────────────────────────────────────────────────
 

@@ -240,7 +240,7 @@ import DocumentTileIcon from "@/components/icons/DocumentTileIcon.vue";
 import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
 import TwoPageIcon from "@/components/icons/actionbar/TwoPageIcon.vue";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { uint8ArrayToArrayBuffer } from "@/utils/binaryUtils";
+import { uint8ArrayToArrayBuffer } from "@/utils/BinaryUtils";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { renderAsync as renderDocxAsync } from "docx-preview";

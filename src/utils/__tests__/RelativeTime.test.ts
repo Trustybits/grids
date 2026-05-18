@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { formatRelativeSince, formatDuration } from "@/utils/relativeTime";
+import { formatRelativeSince, formatDuration } from "@/utils/RelativeTime";
 
 // Fixed reference point for deterministic tests
 // 2024-06-15 12:00:00 UTC

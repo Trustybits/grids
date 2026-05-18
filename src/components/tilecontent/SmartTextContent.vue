@@ -226,7 +226,7 @@ import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import { useLayoutStore } from "@/stores/layout";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
-import { isValidLink } from "@/utils/urlValidation";
+import { isValidLink } from "@/utils/UrlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import type { SmartTextContent } from "@/types/TileContent";
 import { useTileLink } from "@/composables/useTileLink";
@@ -246,7 +246,7 @@ import {
   isTallOneWide as isTallOneWideFn,
   isWideOneHigh as isWideOneHighFn,
   isOneByOne as isOneByOneFn,
-} from "@/utils/smartTextHelpers";
+} from "@/utils/SmartTextHelpers";
 
 type SlashRange = { from: number; to: number };
 

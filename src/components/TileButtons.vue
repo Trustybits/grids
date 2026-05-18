@@ -158,7 +158,7 @@ import { computed } from "vue";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 import { useTileInput } from "@/composables/useTileInput";
 import FloatingInputModal from "./modal/FloatingInputModal.vue";
-import { isValidLink, isValidEmbed } from "@/utils/urlValidation";
+import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
 import TextLegacyIcon from "./icons/appbar/TextLegacyIcon.vue";
 import AppBarTextIcon from "./icons/appbar/TextIcon.vue";
 import ChatIcon from "./icons/ChatIcon.vue";

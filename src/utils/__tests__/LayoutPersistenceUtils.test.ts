@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ContentType } from "@/types/TileContent";
-import { stripBlobUrlsFromTiles } from "../layoutPersistenceUtils";
+import { stripBlobUrlsFromTiles } from "../LayoutPersistenceUtils";
 
 describe("stripBlobUrlsFromTiles", () => {
   it("clears blob src and document item urls", () => {

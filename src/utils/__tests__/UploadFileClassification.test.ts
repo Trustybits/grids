@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   classifyFileForUpload,
   validateUploadFile,
-} from "../uploadFileClassification";
+} from "../UploadFileClassification";
 
 function makeFile(name: string, mime: string, size = 100): File {
   return new File([new Uint8Array(size)], name, { type: mime });

@@ -106,7 +106,7 @@ import { useLayoutStore } from '@/stores/layout';
 import {
   DEMO_GRID_DIMENSIONS,
   createDemoLayout,
-} from '@/data/demoLayout';
+} from '@/data/DemoLayout';
 import type { Breakpoint } from '@/types/Tile';
 
 const _props = withDefaults(

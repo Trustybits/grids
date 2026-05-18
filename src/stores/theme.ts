@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { themes, getTheme } from '@/themes';
-import type { Theme } from '@/types/theme';
+import type { Theme } from '@/types/Theme';
 
 function getDefaultThemeId(): string {
   return 'dark';

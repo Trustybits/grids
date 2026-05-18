@@ -206,7 +206,7 @@ import type {
   ToolbarMenuItem,
   ToolbarContext,
 } from "@/types/TileToolbar";
-import { getToolbarItems } from "@/utils/toolbarRegistry";
+import { getToolbarItems } from "@/utils/ToolbarRegistry";
 import { computeTextColor } from "@/composables/useColorPicker";
 import { useLayoutStore } from "@/stores/layout";
 import { isDirectImageUrl } from "@/utils/TileUtils";

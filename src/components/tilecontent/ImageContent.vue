@@ -92,7 +92,7 @@ import { useLayoutStore } from "@/stores/layout";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
-import { isValidLink } from "@/utils/urlValidation";
+import { isValidLink } from "@/utils/UrlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 
 export default defineComponent({

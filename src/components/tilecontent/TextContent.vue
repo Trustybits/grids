@@ -77,7 +77,7 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { useLayoutStore } from "@/stores/layout";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
-import { isValidLink } from "@/utils/urlValidation";
+import { isValidLink } from "@/utils/UrlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import type { TextContent } from "@/types/TileContent";
 import { useTileLink } from "@/composables/useTileLink";

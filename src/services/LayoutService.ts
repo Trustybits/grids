@@ -8,7 +8,7 @@ import type { LayoutDao } from "@/dao/interfaces/LayoutDao";
 import type { UserDao } from "@/dao/interfaces/UserDao";
 import { createDefaultLayout } from "@/utils/LayoutUtils";
 import { createTile, createTileContent } from "@/utils/TileUtils";
-import { stripBlobUrlsFromTiles } from "@/utils/layoutPersistenceUtils";
+import { stripBlobUrlsFromTiles } from "@/utils/LayoutPersistenceUtils";
 import { v4 as uuidv4 } from "uuid";
 import heroGif from "@/assets/images/hero.gif";
 import type { ILayoutService } from "./interfaces/ILayoutService";

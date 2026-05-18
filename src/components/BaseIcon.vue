@@ -4,7 +4,7 @@
 </template>
 
 <script lang="ts">
-import HomeIcon from "./icons/home.vue";
+import HomeIcon from "./icons/Home.vue";
 // import UserIcon from './icons/UserIcon.vue';
 // Import other icons similarly
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { type DocumentItem } from "@/types/TileContent";
-import { classifyDocumentItem } from "@/utils/documentTypeKind";
+import { classifyDocumentItem } from "@/utils/DocumentTypeKind";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 
 // ── classifyDocumentItem ────────────────────────────────────────────────────

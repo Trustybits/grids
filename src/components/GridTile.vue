@@ -225,7 +225,7 @@ import TileActions from "./TileActions.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 import ColorPicker from "./ColorPicker.vue";
 import FloatingInputModal from "./modal/FloatingInputModal.vue";
-import { isValidLink, isValidEmbed } from "@/utils/urlValidation";
+import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
 import { useTileInput } from "@/composables/useTileInput";
 
 export default defineComponent({

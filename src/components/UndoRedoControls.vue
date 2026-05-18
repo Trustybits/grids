@@ -70,7 +70,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useLayoutStore } from "@/stores/layout";
-import { formatRelativeSince } from "@/utils/relativeTime";
+import { formatRelativeSince } from "@/utils/RelativeTime";
 import Chevron from "@/components/icons/Chevron.vue";
 
 const layoutStore = useLayoutStore();

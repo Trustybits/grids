@@ -6,7 +6,7 @@ import {
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
-import { classifyFileForUpload } from "@/utils/uploadFileClassification";
+import { classifyFileForUpload } from "@/utils/UploadFileClassification";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 
 interface LinkPreviewResponse {

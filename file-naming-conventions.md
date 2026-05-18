@@ -21,6 +21,7 @@ in `conventions.md`
   - `utils/`
 
 - The following folders should be in camelCase:
+  - `assets/` -> Additionally, .css files within assets should be kebab-case
   - `composables/` -> Additionally must begin with the word "use"
   - `infrastructure/`
   - `router/`
@@ -31,3 +32,6 @@ in `conventions.md`
 
 - `styles/` should be in kebab-case, due to containing .scss and .css files
 
+**Tests:**
+
+- tests should follow standard TS naming convention, namely: `${nameOfFileUnderTest}.test.ts`

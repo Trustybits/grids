@@ -7,7 +7,6 @@ export default defineConfigWithVueTs(
     ignores: [
       'dist/**',
       'node_modules/**',
-      'apps/firebase-functions/**',
       'coverage/**',
       '*.d.ts',
       'public/**',

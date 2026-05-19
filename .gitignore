@@ -49,3 +49,5 @@ firestore-stripe-payments-setup.local.md
 functions/.env.local
 .vercel
 .env*.local
+
+.claude/

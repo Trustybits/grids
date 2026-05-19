@@ -51,9 +51,9 @@ jobs:
           project_id: ${{ env.GCP_PROJECT_ID }}
 
       - name: Set up Node.js (for firebase-tools)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools

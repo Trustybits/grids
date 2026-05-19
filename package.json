@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "lint": "npm --workspace apps/web run lint && npm --workspace apps/firebase-functions run lint",
+    "test": "npm --workspace apps/web run test:run && npm --workspace apps/firebase-functions run test",
+    "type-check": "npm --workspace apps/web run type-check && npm --workspace apps/firebase-functions run type-check",
+    "suite:full": "npm run lint && npm run test && npm run type-check && echo 'Success!'"
+  }
+}

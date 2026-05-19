@@ -42,7 +42,7 @@ jobs:
         run: |
           node <<'NODE'
           const fs = require('fs');
-          const path = 'package.json';
+          const path = 'apps/web/package.json';
 
           function isoWeek(date) {
             const utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -69,7 +69,7 @@ jobs:
 
       - name: Commit version bump
         run: |
-          git add package.json
+          git add apps/web/package.json
 
           if git diff --cached --quiet; then
             echo "package.json version is already current."

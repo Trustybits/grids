@@ -13,7 +13,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     // Where to look for tests
     include: ['src/**/__tests__/**/*.test.ts', 'api/**/__tests__/**/*.test.ts'],
-    exclude: ['apps/**', 'node_modules/**', 'dist/**'],
+    exclude: ['node_modules/**', 'dist/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

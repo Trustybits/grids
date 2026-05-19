@@ -1,0 +1,40 @@
+{
+  "name": "functions",
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "migrate:profile-photos": "npm run build && node lib/migrations/migrateProfilePhotos.js",
+    "badge:grant": "npm run build && node lib/scripts/grantBadge.js"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "@sparticuz/chromium-min": "^143.0.4",
+    "cheerio": "^1.0.0-rc.12",
+    "firebase-admin": "^13.8.0",
+    "firebase-functions": "^6.6.0",
+    "puppeteer-core": "^23.0.0",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "eslint": "^9.14.0",
+    "firebase-functions-test": "^3.1.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.14.0",
+    "vitest": "^4.1.5"
+  },
+  "private": true,
+  "type": "module"
+}

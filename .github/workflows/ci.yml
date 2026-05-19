@@ -12,9 +12,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── Type Check ──────────────────────────────────────────────────────────
-  type-check:
-    name: Type Check
+  # ── Web: Type Check ─────────────────────────────────────────────────────
+  web-type-check:
+    name: Web Type Check
     if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
     runs-on: ubuntu-latest
     steps:
@@ -29,11 +29,11 @@ jobs:
         run: npm ci
 
       - name: Run vue-tsc
-        run: npm run type-check
+        run: npm --workspace apps/web run type-check
 
-  # ── Lint ────────────────────────────────────────────────────────────────
-  lint:
-    name: Lint
+  # ── Web: Lint ───────────────────────────────────────────────────────────
+  web-lint:
+    name: Web Lint
     if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
     runs-on: ubuntu-latest
     steps:
@@ -48,11 +48,11 @@ jobs:
         run: npm ci
 
       - name: Run ESLint
-        run: npm run lint
+        run: npm --workspace apps/web run lint
 
-  # ── Unit Tests ──────────────────────────────────────────────────────────
-  test:
-    name: Unit Tests
+  # ── Web: Unit Tests ─────────────────────────────────────────────────────
+  web-test:
+    name: Web Unit Tests
     if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
     runs-on: ubuntu-latest
     steps:
@@ -67,24 +67,24 @@ jobs:
         run: npm ci
 
       - name: Run Vitest
-        run: npx vitest run
+        run: npm --workspace apps/web run test:run
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v6
         if: always()
         with:
           name: coverage
-          path: coverage/
+          path: apps/web/coverage/
           retention-days: 7
 
-  # ── Build ───────────────────────────────────────────────────────────────
+  # ── Web: Build ──────────────────────────────────────────────────────────
   # Validates the production build succeeds. This catches vite config errors
   # and missing env vars that type-check alone won't catch.
-  build:
-    name: Build
+  web-build:
+    name: Web Build
     if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
     runs-on: ubuntu-latest
-    needs: [type-check, lint, test]
+    needs: [web-type-check, web-lint, web-test]
     env:
       # Use empty stubs for build-time env vars — real values are on Vercel
       VITE_FIREBASE_API_KEY: stub
@@ -107,23 +107,20 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build-only
+        run: npm --workspace apps/web run build-only
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v6
         with:
           name: dist
-          path: dist/
+          path: apps/web/dist/
           retention-days: 3
 
-  # ── Functions Type Check ─────────────────────────────────────────────────
+  # ── Functions: Type Check ───────────────────────────────────────────────
   functions-type-check:
     name: Functions Type Check
     if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: functions
     steps:
       - uses: actions/checkout@v6
 
@@ -131,22 +128,37 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: functions/package-lock.json
 
-      - name: Install functions dependencies
+      - name: Install dependencies
         run: npm ci
 
       - name: Type check functions
-        run: npm run type-check
+        run: npm --workspace apps/firebase-functions run type-check
 
-  # ── Functions Unit Tests ─────────────────────────────────────────────────
+  # ── Functions: Lint ─────────────────────────────────────────────────────
+  functions-lint:
+    name: Functions Lint
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm --workspace apps/firebase-functions run lint
+
+  # ── Functions: Unit Tests ───────────────────────────────────────────────
   functions-test:
     name: Functions Unit Tests
     if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: functions
     steps:
       - uses: actions/checkout@v6
 
@@ -154,10 +166,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: functions/package-lock.json
 
-      - name: Install functions dependencies
+      - name: Install dependencies
         run: npm ci
 
       - name: Run Vitest
-        run: npm test
+        run: npm --workspace apps/firebase-functions run test

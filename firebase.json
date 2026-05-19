@@ -7,7 +7,7 @@
     "rules": "storage.rules"
   },
   "functions": {
-    "source": "functions"
+    "source": "apps/firebase-functions"
   },
   "emulators": {
     "auth": {

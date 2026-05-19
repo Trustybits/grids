@@ -4,6 +4,7 @@ import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   plugins: [vue()],
+  envDir: fileURLToPath(new URL('../../', import.meta.url)),
   test: {
     // Use jsdom to simulate a browser environment
     environment: 'jsdom',

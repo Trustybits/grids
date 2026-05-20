@@ -204,5 +204,3 @@ If you have questions about these Terms or the Service, you can contact us at:
 > 
 
 ---
-
-*Note: This document is intended as a general, standard Terms of Use for a cloud-based SaaS and web application and does not constitute legal advice. Consider having a qualified attorney review and customize it for your specific needs and jurisdiction.*

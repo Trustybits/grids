@@ -32,12 +32,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
-import LeftNavBar from './components/LeftNavBar.vue';
-import BottomLeftButtons from './components/BottomLeftButtons.vue';
-import LayoutTitleEditor from './components/LayoutTitleEditor.vue';
-import ToastContainer from './components/ToastContainer.vue';
-import PixelRacersGame from './components/PixelRacersGame.vue';
-import ViewportWarning from './components/ViewportWarning.vue';
+import LeftNavBar from './components/grid/LeftNavBar.vue';
+import BottomLeftButtons from './components/app/AppBar.vue';
+import LayoutTitleEditor from './components/grid/GridNameEditor.vue';
+import ToastContainer from './components/ui-controls/ToastContainer.vue';
+import PixelRacersGame from './components/grid/PixelRacersGame.vue';
+import ViewportWarning from './components/grid/ViewportWarning.vue';
 import { useLayoutStore } from '@/stores/layout';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';

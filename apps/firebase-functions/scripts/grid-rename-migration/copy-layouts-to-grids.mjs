@@ -17,6 +17,8 @@
  * Useful resume/testing options:
  *   --project-id=grids-one
  *   --page-size=50
+ *   --tile-probe-concurrency=25
+ *   --scan-all-tile-subcollections
  *   --start-after=<layoutDocId>
  *   --max-root-docs=10
  */
@@ -27,9 +29,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_PAGE_SIZE = 100;
+const DEFAULT_TILE_PROBE_CONCURRENCY = 25;
 const MAX_WRITE_RETRIES = 5;
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(SCRIPT_DIR, "..", "..", "..", "..");
+const TILE_TYPES_WITH_NESTED_COLLECTIONS = new Set(["chat", "roadmap_feed"]);
 
 function parseArgs(argv) {
   const options = {
@@ -37,6 +41,8 @@ function parseArgs(argv) {
     pageSize: DEFAULT_PAGE_SIZE,
     startAfter: null,
     maxRootDocs: null,
+    tileProbeConcurrency: DEFAULT_TILE_PROBE_CONCURRENCY,
+    scanAllTileSubcollections: false,
     sourceCollection: "layouts",
     destinationCollection: "grids",
     projectId: null,
@@ -65,6 +71,17 @@ function parseArgs(argv) {
     }
     if (arg.startsWith("--max-root-docs=")) {
       options.maxRootDocs = parsePositiveInt(arg, "--max-root-docs");
+      continue;
+    }
+    if (arg.startsWith("--tile-probe-concurrency=")) {
+      options.tileProbeConcurrency = parsePositiveInt(
+        arg,
+        "--tile-probe-concurrency",
+      );
+      continue;
+    }
+    if (arg === "--scan-all-tile-subcollections") {
+      options.scanAllTileSubcollections = true;
       continue;
     }
     if (arg.startsWith("--source=")) {
@@ -114,6 +131,10 @@ Options:
   --confirm=layouts-to-grids
                            Required with --write.
   --page-size=<n>          Documents to read per collection page. Default: ${DEFAULT_PAGE_SIZE}.
+  --tile-probe-concurrency=<n>
+                           Concurrent virtual tile subcollection checks. Default: ${DEFAULT_TILE_PROBE_CONCURRENCY}.
+  --scan-all-tile-subcollections
+                           Probe every tile ID instead of only known nested-data tile types.
   --start-after=<docId>    Resume root collection scan after this document ID.
   --max-root-docs=<n>      Stop after n root layout documents. Useful for testing.
   --source=<collection>    Source root collection. Default: layouts.
@@ -180,6 +201,7 @@ function createStats() {
     collectionsSkippedAsAlreadyScanned: 0,
     documentsScanned: 0,
     rootDocumentsScanned: 0,
+    virtualTileDocumentsConsidered: 0,
     virtualTileDocumentsScanned: 0,
     writesQueued: 0,
     writesSucceeded: 0,
@@ -250,17 +272,44 @@ function isRootSourceDocument(sourceSnap, context, depth) {
   );
 }
 
-function getTileIdsFromLayoutData(data) {
+function getTileIdsFromLayoutData(data, options) {
   if (!Array.isArray(data?.tiles)) return [];
 
   const ids = new Set();
   for (const tile of data.tiles) {
     const id = tile?.i;
-    if (typeof id === "string" && id.length > 0 && !id.includes("/")) {
-      ids.add(id);
+    if (typeof id !== "string" || id.length === 0 || id.includes("/")) continue;
+
+    const tileType = tile?.content?.type;
+    if (
+      !options.scanAllTileSubcollections &&
+      !TILE_TYPES_WITH_NESTED_COLLECTIONS.has(tileType)
+    ) {
+      continue;
     }
+
+    ids.add(id);
   }
   return [...ids];
+}
+
+async function mapWithConcurrency(items, concurrency, worker) {
+  const executing = new Set();
+
+  for (const item of items) {
+    const promise = Promise.resolve()
+      .then(() => worker(item))
+      .finally(() => {
+        executing.delete(promise);
+      });
+
+    executing.add(promise);
+    if (executing.size >= concurrency) {
+      await Promise.race(executing);
+    }
+  }
+
+  await Promise.all(executing);
 }
 
 async function copyVirtualTileSubcollections(
@@ -269,18 +318,19 @@ async function copyVirtualTileSubcollections(
   context,
   depth,
 ) {
-  const tileIds = getTileIdsFromLayoutData(sourceSnap.data());
+  const tileIds = getTileIdsFromLayoutData(sourceSnap.data(), context.options);
   if (tileIds.length === 0) return;
 
+  context.stats.virtualTileDocumentsConsidered += tileIds.length;
   const sourceTilesCollection = sourceSnap.ref.collection("tiles");
   const destTilesCollection = destRef.collection("tiles");
 
-  for (const tileId of tileIds) {
+  await mapWithConcurrency(tileIds, context.options.tileProbeConcurrency, async (tileId) => {
     const sourceTileRef = sourceTilesCollection.doc(tileId);
     const destTileRef = destTilesCollection.doc(tileId);
     const tileSubcollections = await sourceTileRef.listCollections();
 
-    if (tileSubcollections.length === 0) continue;
+    if (tileSubcollections.length === 0) return;
 
     context.stats.virtualTileDocumentsScanned += 1;
     console.warn(
@@ -295,7 +345,7 @@ async function copyVirtualTileSubcollections(
         depth + 2,
       );
     }
-  }
+  });
 }
 
 async function copyCollectionRecursively(

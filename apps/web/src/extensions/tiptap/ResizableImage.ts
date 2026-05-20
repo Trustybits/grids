@@ -1,6 +1,6 @@
 import ImageExt from "@tiptap/extension-image";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
-import ImageNodeView from "./ImageNodeView.vue";
+import ImageNodeView from "@/components/tiptap/ImageNodeView.vue";
 
 /**
  * Extends TipTap Image with resizable width, alignment,

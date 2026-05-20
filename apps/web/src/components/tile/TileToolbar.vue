@@ -220,7 +220,7 @@ import AlignRightIcon from "@/components/icons/toolbar/AlignRightIcon.vue";
 import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
 import TextAlignPanel from "@/components/ui-controls/TextAlignPanel.vue";
 import FontSizeSelector from "@/components/ui-controls/FontSizeSelector.vue";
-import FontSelector from "@/components/ui-controls/FontSelector.vue";
+import FontSelector from "@/components/ui-controls/FontFamilySelector.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 
 export default defineComponent({

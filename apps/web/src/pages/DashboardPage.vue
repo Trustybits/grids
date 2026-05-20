@@ -3,9 +3,9 @@
     <div class="dashboard-sections">
       <div class="dashboard-header">
         <h2>Your Grids</h2>
-        <button @click="promptAndCreateLayout" class="new-grid-button">
+        <Button variant="secondary" @click="promptAndCreateLayout" class="new-grid-button">
           New Grid
-        </button>
+        </Button>
       </div>
       <div class="layout-list">
         <div v-if="isLoading" class="loading">Loading grids...</div>
@@ -106,6 +106,7 @@ import type { Layout } from "@/types/Layout";
 import type { CopyDepth } from "@/types/Layout";
 import PromptModal from "@/components/modal/PromptModal.vue";
 import DashboardGridCard from "@/components/dashboard/DashboardGridCard.vue";
+import Button from "@/components/ui-elements/Button.vue";
 
 const layoutStore = useLayoutStore();
 const router = useRouter();
@@ -436,29 +437,10 @@ h1 {
 }
 
 .new-grid-button {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm) var(--spacing-lg);
-  background-color: var(--color-tile-background);
-  color: var(--color-text-primary);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--easing-smooth);
-}
-
-.new-grid-button:hover {
-  background-color: var(--color-base-34);
-  border-color: var(--color-content-default);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.new-grid-button svg {
-  color: var(--color-text-primary);
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
 }
 
 .layout-list {

@@ -12,15 +12,14 @@
       @keyup.esc="handleClose"
     />
     <div class="modal-actions">
-      <button @click="handleClose" class="cancel-button">Cancel</button>
-      <button
-        @click="handleConfirm"
-        class="confirm-button"
-        :class="`variant-${variant}`"
+      <Button variant="secondary" @click="handleClose">Cancel</Button>
+      <Button
+        :variant="variant"
         :disabled="!canConfirm"
+        @click="handleConfirm"
       >
         {{ confirmLabel }}
-      </button>
+      </Button>
     </div>
   </BaseModal>
 </template>
@@ -28,6 +27,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import BaseModal from "./BaseModal.vue";
+import Button from "@/components/ui-elements/Button.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -136,56 +136,5 @@ h3:has(+ .modal-description) {
   display: flex;
   gap: var(--spacing-sm);
   justify-content: flex-end;
-}
-
-.cancel-button,
-.confirm-button {
-  padding: var(--spacing-sm) var(--spacing-lg);
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-medium);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--easing-smooth);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-}
-
-.cancel-button {
-  background-color: transparent;
-  color: var(--color-content-default);
-}
-
-.cancel-button:hover {
-  background-color: var(--color-content-background);
-  color: var(--color-text-primary);
-}
-
-.confirm-button.variant-primary {
-  background-color: var(--color-content-high);
-  color: var(--color-text-primary);
-}
-
-.confirm-button.variant-primary:hover:not(:disabled) {
-  background-color: var(--color-content-low);
-  transform: translateY(-1px);
-}
-
-.confirm-button.variant-danger {
-  background-color: var(--color-figma-red);
-  color: var(--color-text-primary);
-}
-
-.confirm-button.variant-danger:hover:not(:disabled) {
-  background-color: var(--color-figma-red);
-  transform: translateY(-1px);
-}
-
-.confirm-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.confirm-button.variant-danger:disabled {
-  background-color: transparent;
-  color: var(--color-content-default);
 }
 </style>

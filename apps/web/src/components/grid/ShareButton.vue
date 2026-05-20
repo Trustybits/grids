@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import IconButton from '@/components/ui-elements/IconButton.vue';
+import IconButton from '@/components/ui-controls/IconButton.vue';
 import { useToastStore } from "@/stores/toast";
 
 const toastStore = useToastStore();

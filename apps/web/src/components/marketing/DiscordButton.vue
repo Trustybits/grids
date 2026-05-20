@@ -5,6 +5,6 @@
 </template>
 
 <script setup lang="ts">
-import IconButton from '@/components/ui-elements/IconButton.vue';
+import IconButton from '@/components/ui-controls/IconButton.vue';
 import DiscordIcon from '@/components/icons/DiscordIcon.vue';
 </script>

@@ -13,7 +13,7 @@ import { useRouter, useRoute } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useLayoutStore } from "@/stores/layout";
 import { useToastStore } from "@/stores/toast";
-import IconButton from '@/components/ui-elements/IconButton.vue';
+import IconButton from '@/components/ui-controls/IconButton.vue';
 
 const router = useRouter();
 const route = useRoute();

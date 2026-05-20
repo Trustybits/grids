@@ -27,7 +27,7 @@ import { useRoute } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useLayoutStore } from "@/stores/layout";
 import DiscordButton from "@/components/marketing/DiscordButton.vue";
-import GridMenu from "@/components/grid/GridMenu.vue";
+import GridMenu from "@/components/grid/GridSettings.vue";
 import ShareButton from "@/components/grid/ShareButton.vue";
 import UseTemplateButton from "@/components/grid/UseTemplateButton.vue";
 import UserMenu from "@/components/app/UserMenu.vue";

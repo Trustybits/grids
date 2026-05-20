@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <!-- Crop Mode Overlay - blurs everything outside the tile -->
   <div
@@ -312,7 +313,6 @@ export default defineComponent({
     });
 
     const showCaption = computed(() => {
-      // Hide caption for Link, Text, Chat, Embed, Map, Campfire, RPG, YouTube, and Suggestion tiles as requested
       const hiddenTypes = [
         ContentType.LINK,
         ContentType.TEXT,
@@ -320,7 +320,6 @@ export default defineComponent({
         ContentType.CHAT,
         ContentType.EMBED,
         ContentType.CAMPFIRE,
-        ContentType.RPG,
         ContentType.SUGGESTION,
         ContentType.PROFILE,
         ContentType.YOUTUBE,

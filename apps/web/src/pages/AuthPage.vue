@@ -11,10 +11,12 @@
           <p class="auth-subtitle">Sign in with Google or continue with your email.</p>
         </div>
 
-        <button @click="handleGoogleAuth" class="google-btn" :disabled="isBusy">
-          <i class="fab fa-google"></i>
+        <Button variant="secondary" block :disabled="isBusy" @click="handleGoogleAuth">
+          <template #icon-left>
+            <i class="fab fa-google"></i>
+          </template>
           Continue with Google
-        </button>
+        </Button>
 
         <div class="or-block">
           <hr class="solidDivider" />
@@ -84,6 +86,7 @@ import { computed, ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import GriddleAnimation from '@/components/marketing/GriddleAnimation.vue';
 import SlugClaimModal from '@/components/modal/SlugClaimModal.vue';
+import Button from '@/components/ui-elements/Button.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useLayoutStore } from '@/stores/layout';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
@@ -395,18 +398,6 @@ button:disabled {
 
 button:hover {
   background-color: var(--color-content-high);
-}
-
-.google-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-content-background);
-  color: var(--color-text-primary);
-}
-
-.google-btn i {
-  margin-right: var(--spacing-sm);
 }
 
 .or-block {

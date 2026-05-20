@@ -27,12 +27,12 @@
           Want to claim <strong>@{{ slug }}</strong
           >?
         </p>
-        <router-link to="/login" class="cta-button">
+        <AppButton variant="primary" to="/login" size="lg" class="cta-button">
           Create Account & Claim Handle
-        </router-link>
-        <router-link to="/" class="secondary-link">
+        </AppButton>
+        <AppButton variant="ghost" to="/login" size="sm">
           Or browse home
-        </router-link>
+        </AppButton>
       </div>
     </div>
 
@@ -171,8 +171,8 @@ import {
 } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import Grid from "@/components/grid/Grid.vue";
-import GridButtons from "@/components/grid/TileButtons.vue";
-import BreakpointSwitcher from "@/components/grid/BreakpointSwitcher.vue";
+import GridButtons from "@/components/grid/GridToolbar.vue";
+import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
 import UndoRedoControls from "@/components/grid/UndoRedoControls.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
@@ -185,6 +185,7 @@ import { useAnalytics } from "@/composables/useAnalytics";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { computeTextColor } from "@/composables/useColorPicker";
 import type { ProfileBioContent } from "@/types/TileContent";
+import AppButton from "@/components/ui-elements/Button.vue";
 
 // ── Breakpoint switcher placement ────────────────────────────────
 // Change this value to flip between the three UI placements:
@@ -200,6 +201,7 @@ export default defineComponent({
     GridButtons,
     BreakpointSwitcher,
     UndoRedoControls,
+    AppButton,
   },
   setup() {
     const layoutStore = useLayoutStore();
@@ -684,33 +686,10 @@ export default defineComponent({
   }
 
   .cta-button {
-    padding: var(--spacing-md) var(--spacing-xl);
-    background-color: var(--primary-color);
-    color: var(--color-text-primary);
-    text-decoration: none;
-    border-radius: var(--radius-sm);
-    font-size: 15px;
-    font-weight: 600;
-    transition: all var(--duration-fast) var(--easing-smooth);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  .cta-button:hover {
-    background-color: var(--color-content-high);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
-
-  .secondary-link {
-    color: var(--color-content-default);
-    text-decoration: none;
-    font-size: 14px;
-    transition: color var(--duration-fast) var(--easing-smooth);
-  }
-
-  .secondary-link:hover {
-    color: var(--color-text-primary);
-    text-decoration: underline;
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
   }
 }
 

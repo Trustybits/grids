@@ -150,7 +150,7 @@
       <section class="mkt__section mkt__cta">
         <h2>Ready to <span>show off?</span></h2>
         <p>Free to start. Your first grid takes about four minutes.</p>
-        <router-link to="/login" class="mkt__cta-btn">Make your grid →</router-link>
+        <Button variant="brand" to="/login" size="sm">Make your grid →</Button>
       </section>
     </section>
 
@@ -267,16 +267,18 @@
               </div>
             </div>
 
-            <button
-              class="mkt__plan-btn mkt__plan-btn--brand"
+            <Button
+              variant="brand"
               :disabled="checkout.loading.value"
+              block
+              size="lg"
               @click="handleSupporterCheckout"
             >
               <span v-if="checkout.loading.value">Processing...</span>
               <span v-else-if="effectiveAmount === 0">Continue for Free</span>
               <span v-else-if="hasSupporterBadge">Contribute Again (${{ effectiveAmount }})</span>
               <span v-else>Support for ${{ effectiveAmount }}</span>
-            </button>
+            </Button>
             <p v-if="checkout.error.value" class="mkt__plan-error">
               {{ checkout.error.value }}
             </p>
@@ -318,9 +320,9 @@
           <p>For power users and professionals.</p>
 
           <div class="mkt__plan-cta">
-            <button class="mkt__plan-btn mkt__plan-btn--outline" disabled>
+            <Button variant="outline" disabled block size="lg">
               Coming Soon
-            </button>
+            </Button>
           </div>
 
           <ul>
@@ -355,15 +357,17 @@
         </ul>
 
         <div class="mkt__community-cta">
-          <a
-            class="mkt__plan-btn mkt__plan-btn--outline"
+          <Button
+            variant="outline"
             href="https://github.com/trustybits/grids"
-            target="_blank"
-            rel="noopener noreferrer"
+            size="lg"
+            block
           >
-            <i class="fab fa-github" aria-hidden="true"></i>
-            <span>View public repo on GitHub</span>
-          </a>
+            <template #icon-left>
+              <i class="fab fa-github" aria-hidden="true"></i>
+            </template>
+            View public repo on GitHub
+          </Button>
         </div>
       </article>
 
@@ -445,6 +449,7 @@ import type { AuthUser } from '@/auth/AuthProvider';
 import HomePageGridEmbed from '@/components/marketing/HomePageGridEmbed.vue';
 import MarketingNavBar from '@/components/marketing/MarketingNavBar.vue';
 import MarketingFooter from '@/components/marketing/MarketingFooter.vue';
+import Button from '@/components/ui-elements/Button.vue';
 
 // Toggle between the real <Grid>-powered preview and the legacy CSS mock.
 // Flip to `false` to fall back to the static tile mock (useful while
@@ -812,17 +817,6 @@ const faqItems = [
     radial-gradient(ellipse 45% 24% at 50% 14%, rgba(131, 139, 251, 0.2), transparent 70%),
     radial-gradient(ellipse 55% 26% at 50% 96%, rgba(131, 139, 251, 0.16), transparent 72%);
   z-index: 0;
-}
-/* .mkt__cta-btn is reused by the CTA section on the home page */
-.mkt__cta-btn {
-  font: 600 13px/1 var(--mkt-font-sans);
-  letter-spacing: -0.01em;
-  padding: 9px 14px;
-  border: 0;
-  border-radius: var(--mkt-radius-md);
-  background: var(--mkt-brand-gradient);
-  color: #000;
-  text-decoration: none;
 }
 .mkt__hero {
   position: relative;
@@ -1510,40 +1504,6 @@ const faqItems = [
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-.mkt__plan-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  border: 0;
-  border-radius: 14px;
-  padding: 12px 16px;
-  font: 600 14px/1 var(--mkt-font-sans);
-  cursor: pointer;
-  text-decoration: none;
-  transition: transform .15s, background .15s, border-color .15s;
-}
-.mkt__plan-btn:disabled { opacity: .6; cursor: not-allowed; }
-.mkt__plan-btn--brand {
-  color: #000;
-  background: var(--mkt-brand-gradient);
-}
-.mkt__plan-btn--brand:hover:not(:disabled) { transform: translateY(-1px); }
-.mkt__plan-btn--ghost {
-  color: #fff;
-  background: #1c1c20;
-  border: 1px solid rgba(255, 255, 255, .08);
-}
-.mkt__plan-btn--outline {
-  color: var(--mkt-fg-1);
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, .18);
-}
-.mkt__plan-btn--outline:hover {
-  border-color: rgba(255, 255, 255, .35);
-  background: rgba(255, 255, 255, .03);
 }
 .mkt__plan-error {
   color: #ff8a94 !important;

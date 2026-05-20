@@ -32,7 +32,7 @@
 import { computed, onMounted, onUnmounted, ref, nextTick, watch } from "vue";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
-import GridTile from "./GridTile.vue";
+import GridTile from "./Tile.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { type Tile, type Breakpoint } from "@/types/Tile";
 

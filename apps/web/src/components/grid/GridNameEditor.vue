@@ -15,13 +15,15 @@
 
   <!-- Unauthenticated viewer: CTA buttons -->
   <div v-else-if="!isAuthenticated" class="cta-buttons" ref="ctaRef">
-    <router-link class="cta-btn cta-btn--primary" to="/login">
-      <img src="/grids_logo.png" alt="" class="cta-logo" />
+    <Button class="cta-btn cta-btn--primary" variant="primary" to="/login" size="sm">
+      <template #icon-left>
+        <img src="/grids_logo.png" alt="" class="cta-logo" />
+      </template>
       Claim your Grid
-    </router-link>
-    <router-link class="cta-btn cta-btn--ghost" to="/login">
+    </Button>
+    <Button class="cta-btn" variant="ghost" to="/login" size="sm">
       Login
-    </router-link>
+    </Button>
     <router-link class="cta-btn cta-btn--icon" to="/showcase" title="Showcase">
       <ExploreIcon />
     </router-link>
@@ -33,6 +35,7 @@ import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import ExploreIcon from "@/components/icons/ExploreIcon.vue";
 import GridStats from "@/components/grid/GridStats.vue";
+import Button from "@/components/ui-elements/Button.vue";
 
 defineProps({
   isAuthenticated: {
@@ -155,30 +158,20 @@ onUnmounted(() => {
   }
 }
 
-.cta-btn {
-  white-space: nowrap;
-  text-decoration: none;
-  font-weight: var(--font-weight-semibold);
-  font-size: 14px;;
-  transition:
-    transform var(--duration-fast) var(--easing-smooth),
-    box-shadow var(--duration-fast) var(--easing-smooth),
-    filter var(--duration-fast) var(--easing-smooth),
-    background-color var(--duration-normal) var(--easing-smooth);
-}
-
-/* Primary bordered button – matches .home-landing__cta */
-.cta-btn--primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-sm);
-  padding: 4px 8px;
-  /* border: 2px solid var(--color-border); */
-  border-radius: var(--radius-sm);
+.cta-btn--primary :deep(.btn) {
+  background-color: var(--color-text-primary);
   color: var(--color-content-background);
   box-shadow: var(--shadow-md);
-  background-color: var(--color-text-primary);
+
+  &:hover {
+    background-color: var(--color-content-background);
+    color: var(--color-content-high);
+    box-shadow: var(--shadow-lg);
+  }
+
+  &:active {
+    box-shadow: var(--shadow-md);
+  }
 }
 
 .cta-logo {
@@ -187,31 +180,7 @@ onUnmounted(() => {
   object-fit: contain;
 }
 
-.cta-btn--primary:hover {
-  background-color: var(--color-content-background);
-  color: var(--color-content-high);
-  box-shadow: var(--shadow-lg);
-  filter: brightness(1.02);
-}
-
-.cta-btn--primary:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-md);
-}
-
-/* Ghost text button – matches .home-landing__cta--ghost */
-.cta-btn--ghost {
-  color: var(--color-content-high);
-  background: transparent;
-  padding: 10px 8px;
-}
-
-.cta-btn--ghost:hover {
-  text-decoration: underline;
-  color: var(--color-text-primary);
-}
-
-/* Icon-only button (Explore) */
+/* Icon-only button (Explore) — kept as plain router-link */
 .cta-btn--icon {
   display: inline-flex;
   align-items: center;
@@ -221,10 +190,10 @@ onUnmounted(() => {
   padding: 0;
   color: var(--color-content-high);
   flex-shrink: 0;
+  text-decoration: none;
 }
 
 .cta-btn--icon:hover {
-  /*background-color: var(--color-content-high);*/
   color: var(--color-text-primary);
 }
 </style>

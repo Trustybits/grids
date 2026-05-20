@@ -8,7 +8,7 @@
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
       <button
-        class="btn btn-secondary"
+        class="toolbar-btn"
         data-tooltip="Text"
         @click="addTextElement"
       >
@@ -17,7 +17,7 @@
 
       <button
         v-if="smartTextEnabled"
-        class="btn btn-secondary"
+        class="toolbar-btn"
         data-tooltip="Smart Text"
         @click="addSmartTextElement"
       >
@@ -25,7 +25,7 @@
       </button>
 
       <button
-        class="btn btn-secondary"
+        class="toolbar-btn"
         data-tooltip="Profile"
         @click="addProfileElement"
       >
@@ -33,7 +33,7 @@
       </button>
 
       <button
-        class="btn btn-secondary"
+        class="toolbar-btn"
         data-tooltip="Chat"
         @click="addChatElement"
       >
@@ -41,7 +41,7 @@
       </button>
 
       <button
-        class="btn btn-secondary"
+        class="toolbar-btn"
         data-tooltip="Image / Video"
         @click="selectFile"
       >
@@ -49,35 +49,35 @@
       </button>
       <button
         v-if="documentsEnabled"
-        class="btn btn-secondary"
+        class="toolbar-btn"
         data-tooltip="Documents"
         @click="selectDocuments"
       >
         <DocumentsIcon />
       </button>
       <button
-        class="btn btn-secondary"
+        class="toolbar-btn"
         data-tooltip="Link"
         @click="addLinkElement"
       >
         <LinkTileIcon />
       </button>
       <button
-        class="btn btn-secondary"
+        class="toolbar-btn"
         data-tooltip="Embed"
         @click="addEmbedElement"
       >
         <EmbedIcon />
       </button>
       <button
-        class="btn btn-secondary"
+        class="toolbar-btn"
         data-tooltip="Map"
         @click="addMapElement"
       >
         <MapIcon />
       </button>
       <button
-        class="btn btn-secondary"
+        class="toolbar-btn"
         data-tooltip="Campfire"
         @click="addCampfireElement"
       >
@@ -89,9 +89,6 @@
           <rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M9 12h6M9 16h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-      </button> -->
-      <!-- <button class="btn btn-secondary" @click="addRPGElement">
-        <RPGIcon />
       </button> -->
       <!-- <button class="btn btn-secondary" @click="addLinkElement">➕</button> -->
 
@@ -316,11 +313,6 @@ export default {
       layoutStore.addTile(content);
     };
 
-    const addRPGElement = () => {
-      const rpgContent = createTileContent(ContentType.RPG, {});
-      layoutStore.addTile(rpgContent);
-    };
-
     const addRoadmapFeedElement = () => {
       // Creates a disconnected roadmap tile; the owner connects Notion from inside the tile
       const roadmapContent = createTileContent(ContentType.ROADMAP_FEED, {});
@@ -366,7 +358,6 @@ export default {
       addLinkElement,
       addEmbedElement,
       addMapElement,
-      addRPGElement,
       addRoadmapFeedElement,
       updateMetaData,
       isDarkMode,
@@ -431,7 +422,7 @@ export default {
     mask-composite: exclude;
   } */
 
-.toolbarAlpha button {
+.toolbarAlpha .toolbar-btn {
   height: 40px;
   width: 40px;
   border-radius: var(--radius-sm);
@@ -452,7 +443,7 @@ export default {
   }
 }
 
-.toolbarAlpha button svg {
+.toolbarAlpha .toolbar-btn svg {
   width: 28px;
   height: 28px;
   display: block;
@@ -461,7 +452,7 @@ export default {
   opacity: 0.55;
 }
 
-.toolbarAlpha button:hover svg {
+.toolbarAlpha .toolbar-btn:hover svg {
   opacity: 1;
 }
 

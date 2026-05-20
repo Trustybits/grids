@@ -8,8 +8,6 @@ export enum ContentType {
   EMBED = "embed",
   MAP = "map",
   CAMPFIRE = "campfire",
-  CLICKER = "clicker",
-  RPG = "rpg",
   SUGGESTION = "suggestion", // internal-only tile type
   PROFILE = "profile",
   YOUTUBE = "youtube",
@@ -136,35 +134,6 @@ export interface MapContent extends TileContent {
   };
 }
 
-export interface RPGContent extends TileContent {
-  type: ContentType.RPG;
-  playerX: number;
-  playerY: number;
-  playerHealth: number;
-  playerMaxHealth: number;
-  playerAttack: number;
-  enemies: Array<{
-    id: string;
-    x: number;
-    y: number;
-    health: number;
-    maxHealth: number;
-    attack: number;
-    type: "goblin" | "troll" | "dragon";
-  }>;
-  items: Array<{
-    id: string;
-    x: number;
-    y: number;
-    type: "health" | "strength" | "shield";
-    collected: boolean;
-  }>;
-  walls: Array<[number, number]>;
-  score: number;
-  wave: number;
-  gameState: "playing" | "won" | "lost";
-}
-
 export type AvatarShape = "circle" | "square" | "polygon";
 
 export interface ProfileBioContent extends TileContent {
@@ -192,10 +161,6 @@ export interface CampfireContent extends TileContent {
   type: ContentType.CAMPFIRE;
   count: number;
   highScore: number;
-}
-
-export interface ClickerContent extends TileContent {
-  type: ContentType.CLICKER;
 }
 
 // YouTube content types: video, playlist, channel, short
@@ -375,11 +340,9 @@ export type AnyTileContent =
   | EmbedContent
   | VideoContent
   | MapContent
-  | RPGContent
   | ProfileBioContent
   | SuggestionContent
   | CampfireContent
-  | ClickerContent
   | YouTubeContent
   | RoadmapFeedContent
   | MusicContent

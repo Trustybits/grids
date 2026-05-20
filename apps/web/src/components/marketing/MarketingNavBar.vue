@@ -28,14 +28,14 @@
         <DiscordIcon />
       </a>
       <template v-if="isAuthenticated">
-        <router-link to="/dashboard" class="mkt__outline-btn">
+        <Button variant="outline" to="/dashboard" size="sm">
           <span>Go to Dashboard</span>
-          <span aria-hidden="true" class="mkt__outline-btn-icon">→</span>
-        </router-link>
+          <span aria-hidden="true">→</span>
+        </Button>
       </template>
       <template v-else>
         <router-link to="/login" class="mkt__text-btn">Sign in</router-link>
-        <router-link to="/login" class="mkt__cta-btn">Start your grid</router-link>
+        <Button variant="brand" to="/login" size="sm">Start your grid</Button>
       </template>
     </div>
 
@@ -65,6 +65,7 @@
 import { ref } from 'vue';
 import DiscordIcon from '@/components/icons/DiscordIcon.vue';
 import MobileMenu from '@/components/ui-collections/MobileMenu.vue';
+import Button from '@/components/ui-elements/Button.vue';
 
 defineProps<{
   navItems: ReadonlyArray<{ id: string; label: string }>;
@@ -170,38 +171,6 @@ const menuOpen = ref(false);
 .mkt__discord-link :deep(svg) {
   width: 16px;
   height: 16px;
-}
-.mkt__cta-btn {
-  font: 600 13px/1 var(--mkt-font-sans);
-  letter-spacing: -0.01em;
-  padding: 9px 14px;
-  border: 0;
-  border-radius: var(--mkt-radius-md);
-  background: var(--mkt-brand-gradient);
-  color: #000;
-  text-decoration: none;
-}
-.mkt__outline-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font: 600 13px/1 var(--mkt-font-sans);
-  letter-spacing: -0.01em;
-  padding: 9px 14px;
-  border-radius: var(--mkt-radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: transparent;
-  color: var(--mkt-fg-1);
-  text-decoration: none;
-  transition: border-color .15s, background .15s;
-}
-.mkt__outline-btn:hover {
-  border-color: rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.04);
-}
-.mkt__outline-btn-icon {
-  font-size: 14px;
-  line-height: 1;
 }
 
 /* Hamburger — hidden on desktop */

@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import MarkdownSection from '@/components/MarkdownSection.vue';
+import MarkdownSection from '@/components/ui-elements/RenderedMarkdownSection.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
 
 const pageTitle = ref('Terms');

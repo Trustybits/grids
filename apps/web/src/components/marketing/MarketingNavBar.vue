@@ -64,7 +64,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import DiscordIcon from '@/components/icons/DiscordIcon.vue';
-import MobileMenu from '@/components/MobileMenu.vue';
+import MobileMenu from '@/components/ui-collections/MobileMenu.vue';
 
 defineProps<{
   navItems: ReadonlyArray<{ id: string; label: string }>;

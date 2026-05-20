@@ -104,8 +104,8 @@ const userService = getServiceFactory().getUserService();
 import { valueToMillis } from "@/utils/TimeConversion";
 import type { Layout } from "@/types/Layout";
 import type { CopyDepth } from "@/types/Layout";
-import PromptModal from "./modal/PromptModal.vue";
-import DashboardGridCard from "./dashboard/DashboardGridCard.vue";
+import PromptModal from "@/components/modal/PromptModal.vue";
+import DashboardGridCard from "@/components/dashboard/DashboardGridCard.vue";
 
 const layoutStore = useLayoutStore();
 const router = useRouter();

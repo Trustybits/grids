@@ -43,7 +43,7 @@
 <script lang="ts">
 import { computed, defineComponent, ref, type PropType } from "vue";
 import type { TileChildComponent } from "@/types/Tile";
-import Chevron from "./icons/Chevron.vue";
+import Chevron from "@/components/icons/Chevron.vue";
 import { useFloatingSelector } from "@/composables/useFloatingSelector";
 
 const FONT_SIZES = ["Small", "Medium", "Large", "Larger"] as const;

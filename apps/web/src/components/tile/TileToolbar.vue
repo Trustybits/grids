@@ -210,18 +210,18 @@ import { getToolbarItems } from "@/registries/ToolbarRegistry";
 import { computeTextColor } from "@/composables/useColorPicker";
 import { useLayoutStore } from "@/stores/layout";
 import { isDirectImageUrl } from "@/utils/TileUtils";
-import LocateFixedIcon from "./icons/toolbar/LocateFixedIcon.vue";
-import CurrentLocationIcon from "./icons/toolbar/CurrentLocationIcon.vue";
-import SearchIcon from "./icons/toolbar/SearchIcon.vue";
-import ArrowUpRightIcon from "./icons/toolbar/ArrowUpRightIcon.vue";
-import AlignLeftIcon from "./icons/toolbar/AlignLeftIcon.vue";
-import AlignCenterIcon from "./icons/toolbar/AlignCenterIcon.vue";
-import AlignRightIcon from "./icons/toolbar/AlignRightIcon.vue";
-import ColorPicker from "./ColorPicker.vue";
-import TextAlignPanel from "./TextAlignPanel.vue";
-import FontSizeSelector from "./FontSizeSelector.vue";
-import FontSelector from "./FontSelector.vue";
-import FloatingTooltip from "./FloatingTooltip.vue";
+import LocateFixedIcon from "@/components/icons/toolbar/LocateFixedIcon.vue";
+import CurrentLocationIcon from "@/components/icons/toolbar/CurrentLocationIcon.vue";
+import SearchIcon from "@/components/icons/toolbar/SearchIcon.vue";
+import ArrowUpRightIcon from "@/components/icons/toolbar/ArrowUpRightIcon.vue";
+import AlignLeftIcon from "@/components/icons/toolbar/AlignLeftIcon.vue";
+import AlignCenterIcon from "@/components/icons/toolbar/AlignCenterIcon.vue";
+import AlignRightIcon from "@/components/icons/toolbar/AlignRightIcon.vue";
+import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
+import TextAlignPanel from "@/components/ui-controls/TextAlignPanel.vue";
+import FontSizeSelector from "@/components/ui-controls/FontSizeSelector.vue";
+import FontSelector from "@/components/ui-controls/FontSelector.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 
 export default defineComponent({
   components: {

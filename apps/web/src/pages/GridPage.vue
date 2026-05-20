@@ -170,10 +170,10 @@ import {
   watch,
 } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import Grid from "@/components/Grid.vue";
-import GridButtons from "@/components/TileButtons.vue";
-import BreakpointSwitcher from "@/components/BreakpointSwitcher.vue";
-import UndoRedoControls from "@/components/UndoRedoControls.vue";
+import Grid from "@/components/grid/Grid.vue";
+import GridButtons from "@/components/grid/TileButtons.vue";
+import BreakpointSwitcher from "@/components/grid/BreakpointSwitcher.vue";
+import UndoRedoControls from "@/components/grid/UndoRedoControls.vue";
 import { useLayoutStore } from "@/stores/layout";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useDynamicFavicon } from "@/composables/useDynamicFavicon";

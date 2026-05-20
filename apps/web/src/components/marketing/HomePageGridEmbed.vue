@@ -101,7 +101,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import Grid from '@/components/Grid.vue';
+import Grid from '@/components/grid/Grid.vue';
 import { useLayoutStore } from '@/stores/layout';
 import {
   DEMO_GRID_DIMENSIONS,

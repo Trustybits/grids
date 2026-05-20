@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import Chevron from "./icons/Chevron.vue";
+import Chevron from "@/components/icons/Chevron.vue";
 
 defineProps<{ open: boolean }>();
 defineEmits<{

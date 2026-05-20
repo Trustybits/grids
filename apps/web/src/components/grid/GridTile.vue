@@ -202,7 +202,7 @@ import {
 import { GridItem } from "vue3-grid-layout";
 import { type Tile, type TileChildComponent } from "@/types/Tile";
 import { useLayoutStore } from "@/stores/layout";
-import TileCaption from "./TileCaption.vue";
+import TileCaption from "@/components/tile/TileCaption.vue";
 import {
   getContentComponent,
   getOptionComponent,
@@ -215,16 +215,16 @@ import {
   type AnyTileContent,
 } from "@/types/TileContent";
 
-import TextIcon from "./icons/TextIcon.vue";
-import ImageIcon from "./icons/ImageIcon.vue";
-import LinkIcon from "./icons/LinkIcon.vue";
-import EmbedIcon from "./icons/EmbedIcon.vue";
-import ProfileIcon from "./icons/ProfileIcon.vue";
-import TileToolbar from "./TileToolbar.vue";
-import TileActions from "./TileActions.vue";
+import TextIcon from "@/components/icons/TextIcon.vue";
+import ImageIcon from "@/components/icons/ImageIcon.vue";
+import LinkIcon from "@/components/icons/LinkIcon.vue";
+import EmbedIcon from "@/components/icons/EmbedIcon.vue";
+import ProfileIcon from "@/components/icons/ProfileIcon.vue";
+import TileToolbar from "@/components/tile/TileToolbar.vue";
+import TileActions from "@/components/tile/TileActions.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
-import ColorPicker from "./ColorPicker.vue";
-import FloatingInputModal from "./modal/FloatingInputModal.vue";
+import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
+import FloatingInputModal from "@/components/modal/FloatingInputModal.vue";
 import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
 import { useTileInput } from "@/composables/useTileInput";
 

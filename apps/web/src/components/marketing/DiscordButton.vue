@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import DiscordIcon from './icons/DiscordIcon.vue';
+import DiscordIcon from '@/components/icons/DiscordIcon.vue';
 </script>
 
 <style lang="scss" scoped>

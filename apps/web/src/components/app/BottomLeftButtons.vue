@@ -28,8 +28,8 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useLayoutStore } from "@/stores/layout";
 import DiscordButton from "./DiscordButton.vue";
 import GridMenu from "./GridMenu.vue";
-import ShareButton from "./ShareButton.vue";
-import UseTemplateButton from "./UseTemplateButton.vue";
+import ShareButton from "./grid/ShareButton.vue";
+import UseTemplateButton from "./grid/UseTemplateButton.vue";
 import UserMenu from "./UserMenu.vue";
 
 const route = useRoute();

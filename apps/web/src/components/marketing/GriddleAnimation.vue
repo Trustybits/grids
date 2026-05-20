@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
-import { startMatricksBackground, type MatricksBackgroundOptions } from '@/components/matricks-background';
+import { startMatricksBackground, type MatricksBackgroundOptions } from '@/components/marketing/matricks-background';
 
 const props = withDefaults(
   defineProps<{

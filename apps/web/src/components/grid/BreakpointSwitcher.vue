@@ -64,9 +64,9 @@
 import { markRaw } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import type { Breakpoint } from "@/types/Tile";
-import DeviceDesktopIcon from "./icons/DeviceDesktopIcon.vue";
-import DeviceTabletIcon from "./icons/DeviceTabletIcon.vue";
-import DeviceMobileIcon from "./icons/DeviceMobileIcon.vue";
+import DeviceDesktopIcon from "@/components/icons/DeviceDesktopIcon.vue";
+import DeviceTabletIcon from "@/components/icons/DeviceTabletIcon.vue";
+import DeviceMobileIcon from "@/components/icons/DeviceMobileIcon.vue";
 
 defineProps<{
   /**

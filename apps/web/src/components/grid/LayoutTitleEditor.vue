@@ -32,7 +32,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useLayoutStore } from "@/stores/layout";
 import ExploreIcon from "@/components/icons/ExploreIcon.vue";
-import GridStats from "@/components/GridStats.vue";
+import GridStats from "@/components/grid/GridStats.vue";
 
 defineProps({
   isAuthenticated: {

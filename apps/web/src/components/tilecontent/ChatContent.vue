@@ -139,7 +139,7 @@ import {
 } from "vue";
 import SendIcon from "@/components/icons/SendIcon.vue";
 import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
-import FloatingTooltip from "@/components/FloatingTooltip.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useLayoutStore } from "@/stores/layout";
 import type { ChatContent, ChatMessage } from "@/types/TileContent";

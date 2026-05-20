@@ -442,9 +442,9 @@ import { useContributions } from '@/composables/useContributions';
 import { useStripeCheckout } from '@/composables/useStripeCheckout';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import type { AuthUser } from '@/auth/AuthProvider';
-import HomePageGridEmbed from '@/components/HomePageGridEmbed.vue';
-import MarketingNavBar from '@/components/MarketingNavBar.vue';
-import MarketingFooter from '@/components/MarketingFooter.vue';
+import HomePageGridEmbed from '@/components/marketing/HomePageGridEmbed.vue';
+import MarketingNavBar from '@/components/marketing/MarketingNavBar.vue';
+import MarketingFooter from '@/components/marketing/MarketingFooter.vue';
 
 // Toggle between the real <Grid>-powered preview and the legacy CSS mock.
 // Flip to `false` to fall back to the static tile mock (useful while

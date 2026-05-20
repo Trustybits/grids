@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import LegalMarkdownPage from '@/components/LegalMarkdownPage.vue';
+import LegalMarkdownPage from '@/pages/LegalMarkdownPage.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
 
 // Set page title

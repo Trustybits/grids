@@ -44,9 +44,9 @@ import {
 } from "vue";
 import type { Tile, TileChildComponent } from "@/types/Tile";
 import type { TextContent } from "@/types/TileContent";
-import AlignLeftIcon from "./icons/toolbar/AlignLeftIcon.vue";
-import AlignCenterIcon from "./icons/toolbar/AlignCenterIcon.vue";
-import AlignRightIcon from "./icons/toolbar/AlignRightIcon.vue";
+import AlignLeftIcon from "@/components/icons/toolbar/AlignLeftIcon.vue";
+import AlignCenterIcon from "@/components/icons/toolbar/AlignCenterIcon.vue";
+import AlignRightIcon from "@/components/icons/toolbar/AlignRightIcon.vue";
 
 export default defineComponent({
   components: {

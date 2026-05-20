@@ -26,11 +26,11 @@ import { computed, ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useLayoutStore } from "@/stores/layout";
-import DiscordButton from "./DiscordButton.vue";
-import GridMenu from "./GridMenu.vue";
-import ShareButton from "./grid/ShareButton.vue";
-import UseTemplateButton from "./grid/UseTemplateButton.vue";
-import UserMenu from "./UserMenu.vue";
+import DiscordButton from "@/components/marketing/DiscordButton.vue";
+import GridMenu from "@/components/grid/GridMenu.vue";
+import ShareButton from "@/components/grid/ShareButton.vue";
+import UseTemplateButton from "@/components/grid/UseTemplateButton.vue";
+import UserMenu from "@/components/app/UserMenu.vue";
 
 const route = useRoute();
 const layoutStore = useLayoutStore();

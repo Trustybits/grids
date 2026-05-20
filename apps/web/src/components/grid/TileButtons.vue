@@ -157,18 +157,18 @@ import { useThemeStore } from "@/stores/theme";
 import { computed } from "vue";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 import { useTileInput } from "@/composables/useTileInput";
-import FloatingInputModal from "./modal/FloatingInputModal.vue";
+import FloatingInputModal from "@/components/modal/FloatingInputModal.vue";
 import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
-import TextLegacyIcon from "./icons/appbar/TextLegacyIcon.vue";
-import AppBarTextIcon from "./icons/appbar/TextIcon.vue";
-import ChatIcon from "./icons/ChatIcon.vue";
-import ImageIcon from "./icons/ImageIcon.vue";
-import LinkTileIcon from "./icons/LinkTileIcon.vue";
-import DocumentsIcon from "./icons/appbar/DocumentsIcon.vue";
-import EmbedIcon from "./icons/EmbedIcon.vue";
-import ProfileTileIcon from "./icons/ProfileTileIcon.vue";
-import MapIcon from "./icons/MapIcon.vue";
-import CampfireIcon from "./icons/CampfireIcon.vue";
+import TextLegacyIcon from "@/components/icons/appbar/TextLegacyIcon.vue";
+import AppBarTextIcon from "@/components/icons/appbar/TextIcon.vue";
+import ChatIcon from "@/components/icons/ChatIcon.vue";
+import ImageIcon from "@/components/icons/ImageIcon.vue";
+import LinkTileIcon from "@/components/icons/LinkTileIcon.vue";
+import DocumentsIcon from "@/components/icons/appbar/DocumentsIcon.vue";
+import EmbedIcon from "@/components/icons/EmbedIcon.vue";
+import ProfileTileIcon from "@/components/icons/ProfileTileIcon.vue";
+import MapIcon from "@/components/icons/MapIcon.vue";
+import CampfireIcon from "@/components/icons/CampfireIcon.vue";
 
 export default {
   components: {

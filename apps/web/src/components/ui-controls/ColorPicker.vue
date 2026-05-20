@@ -62,7 +62,7 @@ import {
 import { type Tile, type TileChildComponent } from "@/types/Tile";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
 import { useToastStore } from "@/stores/toast";
-import NoFillIcon from "./icons/NoFillIcon.vue";
+import NoFillIcon from "@/components/icons/NoFillIcon.vue";
 
 export default defineComponent({
   components: {

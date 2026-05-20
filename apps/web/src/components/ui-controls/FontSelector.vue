@@ -44,8 +44,8 @@
 <script lang="ts">
 import { computed, defineComponent, ref, type PropType } from "vue";
 import type { TileChildComponent } from "@/types/Tile";
-import FontStyleIcon from "./icons/toolbar/FontStyleIcon.vue";
-import Chevron from "./icons/Chevron.vue";
+import FontStyleIcon from "@/components/icons/toolbar/FontStyleIcon.vue";
+import Chevron from "@/components/icons/Chevron.vue";
 import { useFloatingSelector } from "@/composables/useFloatingSelector";
 
 export default defineComponent({

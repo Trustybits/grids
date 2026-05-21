@@ -5,7 +5,7 @@
  *
  * All collaborators are mocked: Vue lifecycle hooks (so we can drive
  * mounted/beforeUnmount manually), the auth provider, the analytics
- * service, the layout store, and the random/clock primitives that would
+ * service, the grid store, and the random/clock primitives that would
  * otherwise make assertions non-deterministic.
  */
 
@@ -48,7 +48,7 @@ const {
       mockLogEventBeacon,
       mockGetAnalyticsService: vi.fn(() => mockAnalyticsService),
       mockLayoutStore: {
-        currentLayout: null as { id: string } | null,
+        currentGrid: null as { id: string } | null,
         isOwner: false,
       },
     };
@@ -70,8 +70,8 @@ vi.mock("@/services/ServiceFactorySingleton", () => ({
   }),
 }));
 
-vi.mock("@/stores/layout", () => ({
-  useLayoutStore: () => mockLayoutStore,
+vi.mock("@/stores/grid", () => ({
+  useGridStore: () => mockLayoutStore,
 }));
 
 import { useAnalytics } from "@/composables/useAnalytics";
@@ -87,7 +87,7 @@ let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 type EventInput<T extends AnalyticsEventType> = LogEventInput<T>;
 
 function setLayoutLoaded(id: string | null, isOwner = false): void {
-  mockLayoutStore.currentLayout = id ? { id } : null;
+  mockLayoutStore.currentGrid = id ? { id } : null;
   mockLayoutStore.isOwner = isOwner;
 }
 
@@ -163,21 +163,21 @@ afterEach(() => {
 // ── trackGridEnter: guards ─────────────────────────────────────────────
 
 describe("trackGridEnter — guards", () => {
-  it("warns and emits nothing when the layout store has no loaded layout", () => {
+  it("warns and emits nothing when the grid store has no loaded grid", () => {
     setLayoutLoaded(null);
     const { trackGridEnter } = useAnalytics();
 
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
 
     expect(mockLogEvent).not.toHaveBeenCalled();
     expect(consoleWarnSpy).toHaveBeenCalled();
   });
 
-  it("warns and emits nothing when the loaded layout id does not match", () => {
-    setLayoutLoaded("layout-other", false);
+  it("warns and emits nothing when the loaded grid id does not match", () => {
+    setLayoutLoaded("grid-other", false);
     const { trackGridEnter } = useAnalytics();
 
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
 
     expect(mockLogEvent).not.toHaveBeenCalled();
     expect(consoleWarnSpy).toHaveBeenCalled();
@@ -188,56 +188,56 @@ describe("trackGridEnter — guards", () => {
 
 describe("trackGridEnter — owner branch", () => {
   it("logs OWNER_GRID_ENTER once with userId and empty metadata", () => {
-    setLayoutLoaded("layout-1", true);
+    setLayoutLoaded("grid-1", true);
     mockGetCurrentUserId.mockReturnValue("owner-1");
     const { trackGridEnter } = useAnalytics();
 
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
 
     expect(mockLogEvent).toHaveBeenCalledTimes(1);
     expect(mockLogEvent).toHaveBeenCalledWith({
       eventType: AnalyticsEventType.OWNER_GRID_ENTER,
       userId: "owner-1",
-      layoutId: "layout-1",
+      gridId: "grid-1",
       metadata: {},
     });
   });
 
   it("does not start a view session for an owner (no GRID_VIEW emitted)", () => {
-    setLayoutLoaded("layout-1", true);
+    setLayoutLoaded("grid-1", true);
     mockGetCurrentUserId.mockReturnValue("owner-1");
     const { trackGridEnter } = useAnalytics();
 
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
 
     expect(eventsOfType(AnalyticsEventType.GRID_VIEW)).toHaveLength(0);
   });
 
   it("ends a prior viewer session before logging OWNER_GRID_ENTER", () => {
-    // First arrive as a viewer on layout-1, then as the owner of layout-2.
-    setLayoutLoaded("layout-1", false);
+    // First arrive as a viewer on grid-1, then as the owner of grid-2.
+    setLayoutLoaded("grid-1", false);
     mockGetCurrentUserId.mockReturnValue(null);
     const { trackGridEnter } = useAnalytics();
 
     nowValue = 1000;
-    trackGridEnter("layout-1"); // starts session
+    trackGridEnter("grid-1"); // starts session
 
-    setLayoutLoaded("layout-2", true);
+    setLayoutLoaded("grid-2", true);
     mockGetCurrentUserId.mockReturnValue("user-1");
     nowValue = 1750;
-    trackGridEnter("layout-2");
+    trackGridEnter("grid-2");
 
     const ends = eventsOfType(AnalyticsEventType.GRID_VIEW_END);
     expect(ends).toHaveLength(1);
     expect(ends[0]).toMatchObject({
       eventType: AnalyticsEventType.GRID_VIEW_END,
-      layoutId: "layout-1",
+      gridId: "grid-1",
       metadata: { durationMs: 750 },
     });
 
-    // And the owner enter fired for layout-2.
+    // And the owner enter fired for grid-2.
     expect(lastEventOfType(AnalyticsEventType.OWNER_GRID_ENTER)).toMatchObject({
-      layoutId: "layout-2",
+      gridId: "grid-2",
       userId: "user-1",
     });
   });
@@ -247,17 +247,17 @@ describe("trackGridEnter — owner branch", () => {
 
 describe("trackGridEnter — viewer branch", () => {
   it("emits GRID_VIEW with viewerType=authenticated when a user is logged in", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     mockGetCurrentUserId.mockReturnValue("user-7");
     const { trackGridEnter } = useAnalytics();
 
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
 
     const view = lastEventOfType(AnalyticsEventType.GRID_VIEW);
     expect(view).toMatchObject({
       eventType: AnalyticsEventType.GRID_VIEW,
       userId: "user-7",
-      layoutId: "layout-1",
+      gridId: "grid-1",
     });
     expect(view.metadata).toMatchObject({
       viewerType: "authenticated",
@@ -267,60 +267,60 @@ describe("trackGridEnter — viewer branch", () => {
   });
 
   it("emits GRID_VIEW with viewerType=anonymous when no user is logged in", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     mockGetCurrentUserId.mockReturnValue(null);
     const { trackGridEnter } = useAnalytics();
 
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
 
     const view = lastEventOfType(AnalyticsEventType.GRID_VIEW);
     expect(view).toMatchObject({ userId: null });
     expect(view.metadata).toMatchObject({ viewerType: "anonymous" });
   });
 
-  it("dedupes a repeated trackGridEnter for the same layoutId in the same session", () => {
-    setLayoutLoaded("layout-1", false);
+  it("dedupes a repeated trackGridEnter for the same gridId in the same session", () => {
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
-    trackGridEnter("layout-1");
-    trackGridEnter("layout-1");
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
+    trackGridEnter("grid-1");
+    trackGridEnter("grid-1");
 
     expect(eventsOfType(AnalyticsEventType.GRID_VIEW)).toHaveLength(1);
     expect(eventsOfType(AnalyticsEventType.GRID_VIEW_END)).toHaveLength(0);
   });
 
   it("ends the prior session and starts a new one when navigating to a different grid", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
     nowValue = 1000;
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
 
-    setLayoutLoaded("layout-2", false);
+    setLayoutLoaded("grid-2", false);
     nowValue = 3500;
-    trackGridEnter("layout-2");
+    trackGridEnter("grid-2");
 
     const views = eventsOfType(AnalyticsEventType.GRID_VIEW);
     const ends = eventsOfType(AnalyticsEventType.GRID_VIEW_END);
     expect(views).toHaveLength(2);
-    expect(views[0]).toMatchObject({ layoutId: "layout-1" });
-    expect(views[1]).toMatchObject({ layoutId: "layout-2" });
+    expect(views[0]).toMatchObject({ gridId: "grid-1" });
+    expect(views[1]).toMatchObject({ gridId: "grid-2" });
     expect(ends).toHaveLength(1);
     expect(ends[0]).toMatchObject({
-      layoutId: "layout-1",
+      gridId: "grid-1",
       metadata: { durationMs: 2500 },
     });
   });
 
   it("uses unique sessionIds per session but the same fingerprint across them", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
-    trackGridEnter("layout-1");
-    setLayoutLoaded("layout-2", false);
+    trackGridEnter("grid-1");
+    setLayoutLoaded("grid-2", false);
     nowValue = 2000;
-    trackGridEnter("layout-2");
+    trackGridEnter("grid-2");
 
     const views = eventsOfType(AnalyticsEventType.GRID_VIEW);
     expect(views[0].metadata.sessionId).not.toEqual(views[1].metadata.sessionId);
@@ -337,10 +337,10 @@ describe("viewer fingerprint", () => {
 
   it("reuses an existing fingerprint stored in localStorage", () => {
     window.localStorage.setItem(KEY, "fp-existing");
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
 
     expect(
       lastEventOfType(AnalyticsEventType.GRID_VIEW).metadata.viewerFingerprint,
@@ -349,10 +349,10 @@ describe("viewer fingerprint", () => {
 
   it("generates and persists a new fingerprint on first view", () => {
     expect(window.localStorage.getItem(KEY)).toBeNull();
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
 
     const fp = lastEventOfType(
       AnalyticsEventType.GRID_VIEW,
@@ -368,10 +368,10 @@ describe("viewer fingerprint", () => {
         throw new Error("localStorage disabled");
       });
 
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
 
     const view = lastEventOfType(AnalyticsEventType.GRID_VIEW);
     expect(view.metadata.viewerFingerprint).toMatch(/^uuid-/);
@@ -383,11 +383,11 @@ describe("viewer fingerprint", () => {
 
 describe("session end behaviour", () => {
   it("rounds durationMs from performance.now()", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
     nowValue = 1000.4;
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
 
     // Mounted hook wires up visibilitychange.
     mountedCb?.();
@@ -404,11 +404,11 @@ describe("session end behaviour", () => {
   });
 
   it("does NOT emit GRID_VIEW_END when durationMs is zero or negative", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
     nowValue = 5000;
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
     mountedCb?.();
 
     // Same instant → durationMs = 0.
@@ -422,10 +422,10 @@ describe("session end behaviour", () => {
   });
 
   it("clears the active session after ending so a second end is a no-op", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
     nowValue = 1000;
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
     mountedCb?.();
 
     Object.defineProperty(document, "visibilityState", {
@@ -442,11 +442,11 @@ describe("session end behaviour", () => {
   });
 
   it("does not emit GRID_VIEW_END when no active session exists (e.g. owner enter)", () => {
-    setLayoutLoaded("layout-1", true);
+    setLayoutLoaded("grid-1", true);
     mockGetCurrentUserId.mockReturnValue("owner-1");
     const { trackGridEnter } = useAnalytics();
 
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
     mountedCb?.();
 
     Object.defineProperty(document, "visibilityState", {
@@ -463,10 +463,10 @@ describe("session end behaviour", () => {
 
 describe("visibilitychange lifecycle", () => {
   it("does not end the session when visibility changes to 'visible'", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
     nowValue = 1000;
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
     mountedCb?.();
 
     Object.defineProperty(document, "visibilityState", {
@@ -480,11 +480,11 @@ describe("visibilitychange lifecycle", () => {
   });
 
   it("starts a new view session when the tab becomes visible again after being hidden", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
     nowValue = 1000;
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
     mountedCb?.();
 
     Object.defineProperty(document, "visibilityState", {
@@ -527,11 +527,11 @@ describe("visibilitychange lifecycle", () => {
   });
 
   it("ends the session via beacon (not firestore) on visibilitychange → hidden", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
     nowValue = 1000;
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
     mountedCb?.();
     mockLogEvent.mockClear(); // drop the GRID_VIEW write so we can isolate the end
 
@@ -546,7 +546,7 @@ describe("visibilitychange lifecycle", () => {
     expect(mockLogEventBeacon).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: AnalyticsEventType.GRID_VIEW_END,
-        layoutId: "layout-1",
+        gridId: "grid-1",
         metadata: expect.objectContaining({ durationMs: 1500 }),
       }),
     );
@@ -558,11 +558,11 @@ describe("visibilitychange lifecycle", () => {
 
 describe("pagehide lifecycle", () => {
   it("ends the session via beacon on pagehide", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
     nowValue = 1000;
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
     mountedCb?.();
     mockLogEvent.mockClear();
 
@@ -573,7 +573,7 @@ describe("pagehide lifecycle", () => {
     expect(mockLogEventBeacon).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: AnalyticsEventType.GRID_VIEW_END,
-        layoutId: "layout-1",
+        gridId: "grid-1",
         metadata: expect.objectContaining({ durationMs: 3000 }),
       }),
     );
@@ -581,11 +581,11 @@ describe("pagehide lifecycle", () => {
   });
 
   it("is a no-op on pagehide when the session was already ended", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
     nowValue = 1000;
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
     mountedCb?.();
 
     Object.defineProperty(document, "visibilityState", {
@@ -618,11 +618,11 @@ describe("pagehide lifecycle", () => {
 
 describe("onBeforeUnmount", () => {
   it("flushes the active session as GRID_VIEW_END on unmount", () => {
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const { trackGridEnter } = useAnalytics();
 
     nowValue = 1000;
-    trackGridEnter("layout-1");
+    trackGridEnter("grid-1");
     mountedCb?.();
 
     nowValue = 5000;
@@ -630,7 +630,7 @@ describe("onBeforeUnmount", () => {
 
     const end = lastEventOfType(AnalyticsEventType.GRID_VIEW_END);
     expect(end).toMatchObject({
-      layoutId: "layout-1",
+      gridId: "grid-1",
       metadata: { durationMs: 4000 },
     });
     // sessionId should match the GRID_VIEW that started this session.
@@ -659,17 +659,17 @@ describe("analytics not configured", () => {
       analytics = useAnalytics();
     }).not.toThrow();
 
-    setLayoutLoaded("layout-1", false);
-    expect(() => analytics?.trackGridEnter("layout-1")).not.toThrow();
+    setLayoutLoaded("grid-1", false);
+    expect(() => analytics?.trackGridEnter("grid-1")).not.toThrow();
     expect(mockLogEvent).not.toHaveBeenCalled();
   });
 
   it("no-ops tracker calls when getAnalyticsService returns no service", () => {
     mockGetAnalyticsService.mockReturnValue(null as never);
-    setLayoutLoaded("layout-1", false);
+    setLayoutLoaded("grid-1", false);
     const analytics = useAnalytics();
 
-    expect(() => analytics.trackGridEnter("layout-1")).not.toThrow();
+    expect(() => analytics.trackGridEnter("grid-1")).not.toThrow();
     expect(mockLogEvent).not.toHaveBeenCalled();
   });
 });
@@ -679,10 +679,10 @@ describe("analytics not configured", () => {
 describe("logEvent rejection", () => {
   it("does not throw when analyticsService.logEvent rejects (fire-and-forget)", () => {
     mockLogEvent.mockRejectedValueOnce(new Error("offline"));
-    setLayoutLoaded("layout-1", true);
+    setLayoutLoaded("grid-1", true);
     mockGetCurrentUserId.mockReturnValue("owner-1");
     const { trackGridEnter } = useAnalytics();
 
-    expect(() => trackGridEnter("layout-1")).not.toThrow();
+    expect(() => trackGridEnter("grid-1")).not.toThrow();
   });
 });

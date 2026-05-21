@@ -7,13 +7,13 @@ import type {
 export interface RoadmapDao {
   /** List Notion databases available to the tile's integration. */
   listDatabases(
-    layoutId: string,
+    gridId: string,
     tileId: string,
   ): Promise<NotionDatabase[]>;
 
   /** Fetch roadmap items from the connected Notion database. */
   fetchRoadmap(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     queryFilters?: RoadmapQueryFilter[],
     databaseIdOverride?: string,

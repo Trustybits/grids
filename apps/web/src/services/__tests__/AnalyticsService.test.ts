@@ -39,7 +39,7 @@ beforeEach(() => {
       mockBusinessStatsDao as unknown as BusinessStatsDao,
     getUserDao: () => null,
     getSlugDao: () => null,
-    getLayoutDao: () => null,
+    getGridDao: () => null,
     getUserGameDataDao: () => null,
     getChatDao: () => null,
     getUpvoteDao: () => null,
@@ -62,7 +62,7 @@ describe("AnalyticsService.logEvent", () => {
   const sampleEvent = {
     eventType: AnalyticsEventType.GRID_VIEW,
     userId: "user-1",
-    layoutId: "layout-1",
+    gridId: "grid-1",
     metadata: {
       viewerType: "authenticated" as const,
       sessionId: "sess-1",
@@ -90,7 +90,7 @@ describe("AnalyticsService.logEvent", () => {
 
     expect(posthog.capture).toHaveBeenCalledTimes(1);
     expect(posthog.capture).toHaveBeenCalledWith(AnalyticsEventType.GRID_VIEW, {
-      layoutId: "layout-1",
+      gridId: "grid-1",
       userId: "user-1",
       viewerType: "authenticated",
       sessionId: "sess-1",
@@ -157,7 +157,7 @@ describe("AnalyticsService.logGridViewEndEventBeacon", () => {
   const sampleBeaconEvent = {
     eventType: AnalyticsEventType.GRID_VIEW_END,
     userId: "user-1",
-    layoutId: "layout-1",
+    gridId: "grid-1",
     metadata: {
       sessionId: "sess-1",
       durationMs: 12345,
@@ -197,7 +197,7 @@ describe("AnalyticsService.logGridViewEndEventBeacon", () => {
     expect(posthog.capture).toHaveBeenCalledWith(
       AnalyticsEventType.GRID_VIEW_END,
       {
-        layoutId: "layout-1",
+        gridId: "grid-1",
         userId: "user-1",
         sessionId: "sess-1",
         durationMs: 12345,
@@ -264,7 +264,7 @@ describe("AnalyticsService.logGridViewEndEventBeacon", () => {
 
 describe("AnalyticsService.getGridStats", () => {
   it("returns the aggregate grid stats from the DAO", async () => {
-    const stats = { layoutId: "l1", ownerId: "u1", totalViews: 7 } as any;
+    const stats = { gridId: "l1", ownerId: "u1", totalViews: 7 } as any;
     mockGridStatsDao.getAggregate.mockResolvedValue(stats);
 
     const service = new AnalyticsService();
@@ -291,8 +291,8 @@ describe("AnalyticsService.getGridStats", () => {
 // ── getGridStatsForDate ──────────────────────────────────────────────────
 
 describe("AnalyticsService.getGridStatsForDate", () => {
-  it("delegates to GridStatsDao.getDaily with layoutId and date", async () => {
-    const daily = { layoutId: "l1", date: "2026-05-07" } as any;
+  it("delegates to GridStatsDao.getDaily with gridId and date", async () => {
+    const daily = { gridId: "l1", date: "2026-05-07" } as any;
     mockGridStatsDao.getDaily.mockResolvedValue(daily);
 
     const service = new AnalyticsService();

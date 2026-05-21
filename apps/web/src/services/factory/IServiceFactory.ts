@@ -3,7 +3,7 @@ import type { IAnalyticsService } from "../interfaces/IAnalyticsService";
 import type { IChatService } from "../interfaces/IChatService";
 import type { ICloudFunctionsService } from "../interfaces/ICloudFunctionsService";
 import type { IGameDataService } from "../interfaces/IGameDataService";
-import type { ILayoutService } from "../interfaces/ILayoutService";
+import type { IGridService } from "../interfaces/IGridService";
 import type { IRoadmapService } from "../interfaces/IRoadmapService";
 import type { IStorageService } from "../interfaces/IStorageService";
 import type { IStripeService } from "../interfaces/IStripeService";
@@ -16,7 +16,7 @@ export interface IServiceFactory {
   getChatService: () => IChatService;
   getCloudFunctionsService: () => ICloudFunctionsService;
   getGameDataService: () => IGameDataService;
-  getLayoutService: () => ILayoutService;
+  getGridService: () => IGridService;
   getRoadmapService: () => IRoadmapService;
   getStorageService: () => IStorageService;
   getStripeService: () => IStripeService;

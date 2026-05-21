@@ -1,5 +1,5 @@
 /**
- * Strip blob: URLs from layout tiles before persisting (safety net).
+ * Strip blob: URLs from grid tiles before persisting (safety net).
  * Keeps Firestore documents from storing ephemeral object URLs.
  */
 export function stripBlobUrlsFromTiles(tiles: unknown[]): unknown[] {

@@ -262,8 +262,8 @@ export default defineComponent({
 
       try {
         const layout = await getServiceFactory()
-          .getLayoutService()
-          .fetchLayout(gridId);
+          .getGridService()
+          .fetchGrid(gridId);
         defaultGridName.value = layout.name ? layout.name : undefined;
         const profileTile = layout.tiles.find(
           (tile) => tile.content.type === ContentType.PROFILE,

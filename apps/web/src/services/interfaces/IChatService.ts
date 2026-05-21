@@ -6,7 +6,7 @@ export interface IChatService {
    * Returns an unsubscribe function.
    */
   subscribeToMessages(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     callback: (messages: ChatMessage[]) => void,
     onError?: (error: Error) => void,
@@ -17,14 +17,14 @@ export interface IChatService {
    * internally — callers only need to provide the text. Returns the new message ID.
    */
   sendMessage(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     text: string,
   ): Promise<string>;
 
   /** Edit the text of an existing chat message. */
   editMessage(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     messageId: string,
     text: string,
@@ -32,7 +32,7 @@ export interface IChatService {
 
   /** Delete a chat message. Owners can delete any message; visitors can delete their own current-session messages. */
   deleteMessage(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     messageId: string,
   ): Promise<void>;

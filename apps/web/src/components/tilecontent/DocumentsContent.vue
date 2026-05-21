@@ -7,7 +7,7 @@
       'is-banner': isBanner,
       'is-narrow-tall': isNarrowTall,
       'is-editing': isEditing,
-      'is-owner': layoutStore.canEdit,
+      'is-owner': gridStore.canEdit,
       'has-multiple': items.length > 1,
       'is-uploading': isUploading,
     }"
@@ -172,8 +172,8 @@
 
     <div
       v-if="
-        layoutStore.uploadingTiles[tileId] !== undefined &&
-        layoutStore.uploadingTiles[tileId]! >= 0
+        gridStore.uploadingTiles[tileId] !== undefined &&
+        gridStore.uploadingTiles[tileId]! >= 0
       "
       class="doc-upload-progress"
     >
@@ -181,7 +181,7 @@
         class="doc-upload-progress__bar"
         :style="{
           width: `${Math.round(
-            (layoutStore.uploadingTiles[tileId] as number) * 100,
+            (gridStore.uploadingTiles[tileId] as number) * 100,
           )}%`,
         }"
       />
@@ -210,7 +210,7 @@ import {
   type ComputedRef,
 } from "vue";
 import type { DocumentsContent as DocumentsContentType } from "@/types/TileContent";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import FileIcon from "@/components/icons/FileIcon.vue";
 import FolderIcon from "@/components/icons/FolderIcon.vue";
 import DocumentPreviewer from "@/components/tilecontent/DocumentPreviewer.vue";
@@ -248,7 +248,7 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
 
@@ -259,7 +259,7 @@ export default defineComponent({
     const primary = computed(() => items.value[0]);
 
     const isUploading = computed(() => {
-      const p = layoutStore.uploadingTiles[props.tileId];
+      const p = gridStore.uploadingTiles[props.tileId];
       return p !== undefined && p >= 0;
     });
 
@@ -407,7 +407,7 @@ export default defineComponent({
     );
 
     const saveEdits = () => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
 
       const nextTitle = draftTitle.value.trim();
       const nextDescription = draftDescription.value.trim();
@@ -415,7 +415,7 @@ export default defineComponent({
       props.content.customTitle = nextTitle;
       props.content.customDescription = nextDescription;
 
-      layoutStore.patchTileContent(props.tileId, {
+      gridStore.patchTileContent(props.tileId, {
         customTitle: nextTitle,
         customDescription: nextDescription,
       });
@@ -461,15 +461,15 @@ export default defineComponent({
     const stopEditing = () => {
       if (!isEditing.value) return;
       flushPersist();
-      layoutStore.commitEditing();
+      gridStore.commitEditing();
       removeExitClickHandler();
       isEditing.value = false;
       nextTick(() => syncDrafts());
     };
 
     const startEditing = (focusTarget?: "title" | "description") => {
-      if (!layoutStore.canEdit || isEditing.value) return;
-      layoutStore.beginEditing(props.tileId);
+      if (!gridStore.canEdit || isEditing.value) return;
+      gridStore.beginEditing(props.tileId);
       isEditing.value = true;
       syncDrafts();
       nextTick(() => {
@@ -492,7 +492,7 @@ export default defineComponent({
 
     const onDetailsClick = (event: MouseEvent) => {
       if (isEditing.value) return;
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
 
       const el = detailsRef.value;
       if (!el) {
@@ -554,18 +554,18 @@ export default defineComponent({
     const requestedThumbIds = ref(new Set<string>());
 
     const requestPrimaryPdfThumb = () => {
-      const layoutId = layoutStore.currentLayout?.id;
-      if (!layoutId || !layoutStore.canEdit) return;
+      const gridId = gridStore.currentGrid?.id;
+      if (!gridId || !gridStore.canEdit) return;
       const p = primary.value;
       if (!p || p.thumbnailUrl) return;
       if (!documentItemIsPdf(p.fileName, p.mimeType)) return;
       if (p.url.startsWith("blob:")) return;
       if (requestedThumbIds.value.has(p.id)) return;
       requestedThumbIds.value.add(p.id);
-      void ensureDocumentItemThumbnailOnServer(layoutId, props.tileId, p.id)
+      void ensureDocumentItemThumbnailOnServer(gridId, props.tileId, p.id)
         .then((res) => {
           if (res.thumbnailUrl) {
-            layoutStore.patchDocumentItem(props.tileId, p.id, {
+            gridStore.patchDocumentItem(props.tileId, p.id, {
               thumbnailUrl: res.thumbnailUrl,
             });
           }
@@ -577,7 +577,7 @@ export default defineComponent({
     };
 
     watch(
-      [primary, () => layoutStore.currentLayout?.id, () => layoutStore.canEdit],
+      [primary, () => gridStore.currentGrid?.id, () => gridStore.canEdit],
       () => {
         requestPrimaryPdfThumb();
       },
@@ -629,7 +629,7 @@ export default defineComponent({
     });
 
     return {
-      layoutStore,
+      gridStore,
       items,
       isUploading,
       // sizes

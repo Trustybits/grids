@@ -11,7 +11,7 @@ import {
   where,
   serverTimestamp,
 } from "firebase/firestore";
-import { FirestoreLayoutDao } from "../FirestoreLayoutDao";
+import { FirestoreGridDao } from "../FirestoreGridDao";
 import type { Firestore } from "firebase/firestore";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -38,17 +38,17 @@ function fakeQuerySnapshot(docs: ReturnType<typeof fakeSnapshot>[]) {
 
 // ── Suite ────────────────────────────────────────────────────────────────────
 
-describe("FirestoreLayoutDao", () => {
-  let dao: FirestoreLayoutDao;
+describe("FirestoreGridDao", () => {
+  let dao: FirestoreGridDao;
 
   beforeEach(() => {
-    dao = new FirestoreLayoutDao(fakeDb);
+    dao = new FirestoreGridDao(fakeDb);
   });
 
   // ── getById ──────────────────────────────────────────────────────────────
 
   describe("getById", () => {
-    it("returns the mapped layout when the document exists", async () => {
+    it("returns the mapped grid when the document exists", async () => {
       const data = {
         userId: "u1",
         name: "My Grid",
@@ -66,15 +66,15 @@ describe("FirestoreLayoutDao", () => {
 
       vi.mocked(doc).mockReturnValue("docRef" as any);
       vi.mocked(getDoc).mockResolvedValue(
-        fakeSnapshot("layout-1", data) as any,
+        fakeSnapshot("grid-1", data) as any,
       );
 
-      const result = await dao.getById("layout-1");
+      const result = await dao.getById("grid-1");
 
-      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "layout-1");
+      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "grid-1");
       expect(getDoc).toHaveBeenCalledWith("docRef");
       expect(result).toEqual({
-        id: "layout-1",
+        id: "grid-1",
         userId: "u1",
         name: "My Grid",
         colNum: 6,
@@ -104,7 +104,7 @@ describe("FirestoreLayoutDao", () => {
   // ── findByUserId ─────────────────────────────────────────────────────────
 
   describe("findByUserId", () => {
-    it("returns mapped layouts for the given user", async () => {
+    it("returns mapped grids for the given user", async () => {
       const docs = [
         fakeSnapshot("l1", { userId: "u1", name: "A", tiles: [] }),
         fakeSnapshot("l2", { userId: "u1", name: "B", tiles: [] }),
@@ -126,7 +126,7 @@ describe("FirestoreLayoutDao", () => {
       expect(result[1].id).toBe("l2");
     });
 
-    it("returns an empty array when no layouts exist for the user", async () => {
+    it("returns an empty array when no grids exist for the user", async () => {
       vi.mocked(collection).mockReturnValue("colRef" as any);
       vi.mocked(where).mockReturnValue("whereClause" as any);
       vi.mocked(query).mockReturnValue("queryRef" as any);
@@ -160,9 +160,9 @@ describe("FirestoreLayoutDao", () => {
       vi.mocked(setDoc).mockResolvedValue(undefined);
 
       const data = { name: "Updated", tiles: [] };
-      await dao.save("layout-1", data);
+      await dao.save("grid-1", data);
 
-      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "layout-1");
+      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "grid-1");
       expect(setDoc).toHaveBeenCalledWith("docRef", data, { merge: true });
     });
   });
@@ -175,9 +175,9 @@ describe("FirestoreLayoutDao", () => {
       vi.mocked(updateDoc).mockResolvedValue(undefined);
 
       const data = { name: "Renamed" };
-      await dao.update("layout-1", data);
+      await dao.update("grid-1", data);
 
-      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "layout-1");
+      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "grid-1");
       expect(updateDoc).toHaveBeenCalledWith("docRef", data);
     });
   });
@@ -191,9 +191,9 @@ describe("FirestoreLayoutDao", () => {
       vi.mocked(serverTimestamp).mockReturnValue(fakeTimestamp as any);
       vi.mocked(updateDoc).mockResolvedValue(undefined);
 
-      await dao.updateLastOpenedAt("layout-1");
+      await dao.updateLastOpenedAt("grid-1");
 
-      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "layout-1");
+      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "grid-1");
       expect(serverTimestamp).toHaveBeenCalled();
       expect(updateDoc).toHaveBeenCalledWith("docRef", {
         lastOpenedAt: fakeTimestamp,
@@ -208,9 +208,9 @@ describe("FirestoreLayoutDao", () => {
       vi.mocked(doc).mockReturnValue("docRef" as any);
       vi.mocked(deleteDoc).mockResolvedValue(undefined);
 
-      await dao.delete("layout-1");
+      await dao.delete("grid-1");
 
-      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "layout-1");
+      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "grid-1");
       expect(deleteDoc).toHaveBeenCalledWith("docRef");
     });
   });

@@ -2,7 +2,7 @@ import { onBeforeUnmount, onMounted } from "vue";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { AnalyticsEventType } from "@/types/Analytics";
 
 /**
@@ -14,7 +14,7 @@ import { AnalyticsEventType } from "@/types/Analytics";
  * session, and therefore never produce a `GRID_VIEW_END` event either.
  */
 interface ActiveSession {
-  layoutId: string;
+  gridId: string;
   sessionId: string;
   /** `performance.now()` timestamp at session start. */
   startedAt: number;
@@ -58,13 +58,13 @@ function generateRandomId(): string {
 /**
  * Frontend integration point for analytics. Provides:
  *
- * - `trackGridEnter(layoutId)` — call once after the grid loads. The
- *   composable reads ownership from the layout store and routes to the right
+ * - `trackGridEnter(gridId)` — call once after the grid loads. The
+ *   composable reads ownership from the grid store and routes to the right
  *   event: owners get a single `OWNER_GRID_ENTER` log, non-owners start a
  *   view session that emits `GRID_VIEW` immediately and `GRID_VIEW_END` on
  *   tab background / unmount. Owners never produce view-session events.
  *
- * Tile add/remove events are emitted from the layout store at the mutation
+ * Tile add/remove events are emitted from the grid store at the mutation
  * site, not from this composable.
  *
  * The composable owns the `visibilitychange` listener and the unmount hook
@@ -88,9 +88,9 @@ export function useAnalytics() {
     analyticsService = null;
   }
 
-  const layoutStore = useLayoutStore();
+  const gridStore = useGridStore();
   let activeSession: ActiveSession | null = null;
-  let lastViewerLayoutId: string | null = null;
+  let lastViewerGridId: string | null = null;
 
   function logEvent(
     event: Parameters<NonNullable<typeof analyticsService>["logEvent"]>[0],
@@ -98,23 +98,23 @@ export function useAnalytics() {
     void analyticsService?.logEvent(event).catch(() => undefined);
   }
 
-  function logOwnerEnter(layoutId: string): void {
+  function logOwnerEnter(gridId: string): void {
     logEvent({
       eventType: AnalyticsEventType.OWNER_GRID_ENTER,
       userId: getAuthProvider().getCurrentUserId(),
-      layoutId,
+      gridId,
       metadata: {},
     });
   }
 
-  function startSession(layoutId: string): void {
+  function startSession(gridId: string): void {
     const sessionId = generateRandomId();
     const viewerFingerprint = getOrCreateViewerFingerprint();
     const userId = getAuthProvider().getCurrentUserId();
     const viewerType = userId ? "authenticated" : "anonymous";
 
     activeSession = {
-      layoutId,
+      gridId,
       sessionId,
       startedAt: performance.now(),
     };
@@ -122,14 +122,14 @@ export function useAnalytics() {
     logEvent({
       eventType: AnalyticsEventType.GRID_VIEW,
       userId,
-      layoutId,
+      gridId,
       metadata: { viewerType, sessionId, viewerFingerprint },
     });
   }
 
   function endSession(useBeacon = false): void {
     if (!activeSession) return;
-    const { layoutId, sessionId, startedAt } = activeSession;
+    const { gridId, sessionId, startedAt } = activeSession;
     const durationMs = Math.round(performance.now() - startedAt);
     activeSession = null;
 
@@ -138,7 +138,7 @@ export function useAnalytics() {
     const event = {
       eventType: AnalyticsEventType.GRID_VIEW_END as const,
       userId: getAuthProvider().getCurrentUserId(),
-      layoutId,
+      gridId,
       metadata: { sessionId, durationMs },
     };
 
@@ -153,38 +153,38 @@ export function useAnalytics() {
   /**
    * Call once from the page after the grid has finished loading. Routes to
    * `OWNER_GRID_ENTER` or `GRID_VIEW` based on ownership pulled from the
-   * layout store. Safe to call multiple times — same `layoutId` in the same
-   * instance is deduped; a different `layoutId` ends any prior view session
+   * grid store. Safe to call multiple times — same `gridId` in the same
+   * instance is deduped; a different `gridId` ends any prior view session
    * and starts a new one.
    */
-  function trackGridEnter(layoutId: string): void {
+  function trackGridEnter(gridId: string): void {
     // Defense-in-depth: contract is "call after the grid loads", but if the
-    // store hasn't caught up (or the layoutId doesn't match the loaded one)
+    // store hasn't caught up (or the gridId doesn't match the loaded one)
     // we skip rather than guess at ownership and emit a misattributed event.
-    const loaded = layoutStore.currentLayout;
-    if (!loaded || loaded.id !== layoutId) {
+    const loaded = gridStore.currentGrid;
+    if (!loaded || loaded.id !== gridId) {
       console.warn(
-        "useAnalytics.trackGridEnter called before layout store is ready — skipping",
-        { requested: layoutId, loaded: loaded?.id ?? null },
+        "useAnalytics.trackGridEnter called before grid store is ready — skipping",
+        { requested: gridId, loaded: loaded?.id ?? null },
       );
       return;
     }
 
-    if (layoutStore.isOwner) {
+    if (gridStore.isOwner) {
       // Owner branch: a single OWNER_GRID_ENTER, no view session. End any
       // prior viewer session in case the user just navigated from a grid
       // they didn't own to one they do.
       if (activeSession) endSession();
-      lastViewerLayoutId = null;
-      logOwnerEnter(layoutId);
+      lastViewerGridId = null;
+      logOwnerEnter(gridId);
       return;
     }
 
     // Viewer branch.
-    if (activeSession && activeSession.layoutId === layoutId) return;
+    if (activeSession && activeSession.gridId === gridId) return;
     if (activeSession) endSession();
-    lastViewerLayoutId = layoutId;
-    startSession(layoutId);
+    lastViewerGridId = gridId;
+    startSession(gridId);
   }
 
   // ── Lifecycle: split sessions on tab background, flush on unmount ────
@@ -206,13 +206,13 @@ export function useAnalytics() {
 
     if (document.visibilityState !== "visible" || activeSession) return;
 
-    const loaded = layoutStore.currentLayout;
+    const loaded = gridStore.currentGrid;
     if (
-      lastViewerLayoutId &&
-      loaded?.id === lastViewerLayoutId &&
-      !layoutStore.isOwner
+      lastViewerGridId &&
+      loaded?.id === lastViewerGridId &&
+      !gridStore.isOwner
     ) {
-      startSession(lastViewerLayoutId);
+      startSession(lastViewerGridId);
     }
   }
 

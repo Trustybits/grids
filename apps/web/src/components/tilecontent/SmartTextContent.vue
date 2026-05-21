@@ -8,11 +8,11 @@
       class="text-content scrollable-thin"
       :class="{
         'not-editing': !isEditing,
-        'can-edit': layoutStore.canEdit,
+        'can-edit': gridStore.canEdit,
         'is-wide-1-high': isWideOneHigh,
         'is-tall-1-wide': isTallOneWide,
-        'owner-view': layoutStore.canEdit,
-        'viewer-view': !layoutStore.canEdit,
+        'owner-view': gridStore.canEdit,
+        'viewer-view': !gridStore.canEdit,
         'is-overflowing': isTextOverflowing,
       }"
       :style="{
@@ -21,7 +21,7 @@
         color: textColor,
         textAlign: textAlign,
       }"
-      :spellcheck="layoutStore.canEdit && isEditing"
+      :spellcheck="gridStore.canEdit && isEditing"
     >
       <EditorContent :editor="editor" />
       <div
@@ -224,7 +224,7 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
@@ -273,11 +273,11 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const imageInput = ref<HTMLInputElement | null>(null);
     const { uploadFileToUrl } = useFileUpload();
 
-    const isOwner = computed(() => layoutStore.canEdit);
+    const isOwner = computed(() => gridStore.canEdit);
     const isTextOverflowing = ref(false);
     const isScrolledToBottom = ref(false);
     const editorDomRef = ref<HTMLElement | null>(null);
@@ -545,7 +545,7 @@ export default defineComponent({
 
     const updateSlashState = () => {
       const e = editor.value;
-      if (!e || !isEditing.value || !layoutStore.canEdit) {
+      if (!e || !isEditing.value || !gridStore.canEdit) {
         hideSlashMenu();
         return;
       }
@@ -856,7 +856,7 @@ export default defineComponent({
     });
 
     const onShortClick = () => {
-      if (!layoutStore.canEdit) {
+      if (!gridStore.canEdit) {
         if (tileLinkExists.value) handleFollowLink();
         return;
       }
@@ -897,18 +897,18 @@ export default defineComponent({
       useColorPicker(tileId, props.content, emit);
 
     const handleTextAlignChange = (align: "left" | "center" | "right") => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       props.content.textAlign = align;
       if (tileId) {
-        layoutStore.patchTileContent(tileId, { textAlign: align });
+        gridStore.patchTileContent(tileId, { textAlign: align });
       }
     };
 
     const persistEditorText = () => {
-      if (!editor.value || !layoutStore.canEdit) return;
+      if (!editor.value || !gridStore.canEdit) return;
       const output = JSON.stringify(editor.value.getJSON());
-      if (tileId && layoutStore.currentLayout) {
-        const tile = layoutStore.currentLayout.tiles.find(
+      if (tileId && gridStore.currentGrid) {
+        const tile = gridStore.currentGrid.tiles.find(
           (t) => t.i === tileId,
         );
         if (tile && (tile.content as SmartTextContent).type === "smart_text") {
@@ -917,7 +917,7 @@ export default defineComponent({
       } else {
         props.content.text = output;
       }
-      layoutStore.saveLayout();
+      gridStore.saveGrid();
     };
 
     const syncMarkState = () => {
@@ -983,7 +983,7 @@ export default defineComponent({
     };
 
     return {
-      layoutStore,
+      gridStore,
       editor,
       shouldShowOverflow,
       isEditing,

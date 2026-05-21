@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, nextTick, onMounted, ref } from "vue";
 import { describe, expect, it, vi } from "vitest";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 
 vi.mock("@/composables/useFileUpload", () => ({
@@ -36,8 +36,8 @@ describe("useDragAndPaste", () => {
       }),
     );
 
-    const layoutStore = useLayoutStore();
-    layoutStore.isOwner = true;
+    const gridStore = useGridStore();
+    gridStore.isOwner = true;
 
     await nextTick();
     await nextTick();

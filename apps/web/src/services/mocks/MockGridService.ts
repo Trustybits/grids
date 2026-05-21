@@ -1,11 +1,11 @@
-import { type Layout } from "@/types/Layout";
-import type { ILayoutService } from "../interfaces/ILayoutService";
+import { type Grid } from "@/types/Grid";
+import type { IGridService } from "../interfaces/IGridService";
 import { ContentType } from "@/types/TileContent";
 import { createTile, createTileContent } from "@/utils/TileUtils";
 
-const mockData: Layout = {
-  id: "mock-layout-id",
-  name: "Mock Layout",
+const mockData: Grid = {
+  id: "mock-grid-id",
+  name: "Mock Grid",
   colNum: 16,
   verticalCompact: false,
   userId: "me",
@@ -54,25 +54,25 @@ const mockData: Layout = {
   backgroundEmbed: false,
 };
 
-export class MockLayoutService implements ILayoutService {
-  async fetchLayout(id: string): Promise<Layout> {
-    console.warn(`Fetching layout with id: ${id}`);
+export class MockGridService implements IGridService {
+  async fetchGrid(id: string): Promise<Grid> {
+    console.warn(`Fetching grid with id: ${id}`);
     return { ...mockData };
   }
 
-  async saveLayout(_layout: Layout): Promise<void> {
-    console.warn(`Saving layout`);
+  async saveGrid(_grid: Grid): Promise<void> {
+    console.warn(`Saving grid`);
   }
 
-  async updateLayout(_layout: Layout): Promise<void> {
-    console.warn(`Updating layout`);
+  async updateGrid(_grid: Grid): Promise<void> {
+    console.warn(`Updating grid`);
   }
 
-  async deleteLayout(id: string): Promise<void> {
-    console.warn(`Deleting layout with id: ${id}`);
+  async deleteGrid(id: string): Promise<void> {
+    console.warn(`Deleting grid with id: ${id}`);
   }
 
-  async fetchLayoutsByUserId(_userId: string): Promise<Layout[]> {
+  async fetchGridsByUserId(_userId: string): Promise<Grid[]> {
     return [];
   }
 
@@ -80,48 +80,48 @@ export class MockLayoutService implements ILayoutService {
     return "mock-id";
   }
 
-  async createLayout(
+  async createGrid(
     _userId: string,
     _name: string,
-    _starterTiles?: Layout["tiles"],
-  ): Promise<Layout> {
+    _starterTiles?: Grid["tiles"],
+  ): Promise<Grid> {
     return { ...mockData };
   }
 
-  async duplicateLayout(
+  async duplicateGrid(
     _userId: string,
-    _sourceLayout: Layout,
-    _clonedTiles: Layout["tiles"],
-    _newOverrides: Layout["overrides"],
-  ): Promise<Layout> {
+    _sourceGrid: Grid,
+    _clonedTiles: Grid["tiles"],
+    _newOverrides: Grid["overrides"],
+  ): Promise<Grid> {
     return { ...mockData };
   }
 
-  async touchLastOpenedAt(_layoutId: string): Promise<void> {}
+  async touchLastOpenedAt(_gridId: string): Promise<void> {}
 
-  async loadRecentLayoutIds(_userId: string): Promise<string[]> {
+  async loadRecentGridIds(_userId: string): Promise<string[]> {
     return [];
   }
 
-  async saveRecentLayoutIds(_userId: string, _ids: string[]): Promise<void> {}
+  async saveRecentGridIds(_userId: string, _ids: string[]): Promise<void> {}
 
-  async createLayoutWithStarterTiles(
+  async createGridWithStarterTiles(
     _userId: string,
     _name: string,
-  ): Promise<Layout> {
+  ): Promise<Grid> {
     return { ...mockData };
   }
 
-  async cloneAndPersistLayout(
+  async cloneAndPersistGrid(
     _userId: string,
-    _sourceLayout: Layout,
-    _copyDepth?: import("@/types/Layout").CopyDepth,
-  ): Promise<Layout> {
+    _sourceGrid: Grid,
+    _copyDepth?: import("@/types/Grid").CopyDepth,
+  ): Promise<Grid> {
     return { ...mockData };
   }
 
   async queueSave(
-    _layout: Layout,
+    _grid: Grid,
     _resolvedUrls?: Record<string, string>,
     _resolvedDocumentItemUrls?: Record<string, Record<string, string>>,
   ): Promise<void> {}

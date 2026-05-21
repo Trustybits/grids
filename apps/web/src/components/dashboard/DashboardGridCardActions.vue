@@ -1,7 +1,7 @@
 <template>
   <div class="grid-actions">
     <button
-      @click.prevent="$emit('toggle-default', layout.id)"
+      @click.prevent="$emit('toggle-default', grid.id)"
       :data-tooltip="isDefaultGrid ? 'Default grid' : 'Set as default grid'"
       :class="[
         'action-button',
@@ -32,7 +32,7 @@
     </button>
     <div class="split-button" @click.prevent>
       <button
-        @click.prevent="$emit('duplicate', layout, 'full')"
+        @click.prevent="$emit('duplicate', grid, 'full')"
         data-tooltip="Duplicate grid"
         class="action-button duplicate-button split-main"
       >
@@ -64,7 +64,7 @@
         </svg>
       </button>
       <button
-        @click.prevent.stop="$emit('toggle-split-menu', layout.id)"
+        @click.prevent.stop="$emit('toggle-split-menu', grid.id)"
         class="action-button duplicate-button split-chevron"
         data-tooltip="More duplicate options"
       >
@@ -72,7 +72,7 @@
       </button>
       <div v-if="splitMenuOpen" class="split-dropdown">
         <button
-          @click.prevent.stop="$emit('duplicate', layout, 'structure')"
+          @click.prevent.stop="$emit('duplicate', grid, 'structure')"
           class="split-dropdown-item"
         >
           Duplicate Structure Only
@@ -80,7 +80,7 @@
       </div>
     </div>
     <button
-      @click.prevent="$emit('rename', layout)"
+      @click.prevent="$emit('rename', grid)"
       class="action-button rename-button"
       data-tooltip="Rename grid"
     >
@@ -108,7 +108,7 @@
       </svg>
     </button>
     <button
-      @click.prevent="$emit('delete', layout)"
+      @click.prevent="$emit('delete', grid)"
       data-tooltip="Delete grid"
       class="action-button delete-button"
     >
@@ -153,11 +153,11 @@
 </template>
 
 <script setup lang="ts">
-import type { Layout } from "@/types/Layout";
+import type { Grid } from "@/types/Grid";
 import Chevron from "@/components/icons/Chevron.vue";
 
 defineProps<{
-  layout: Layout;
+  grid: Grid;
   isDefaultGrid?: boolean;
   splitMenuOpen?: boolean;
 }>();

@@ -257,7 +257,7 @@ describe("UndoRedoManager", () => {
     expect(undoRedoManager.canRedo()).toBe(false);
   });
 
-  it("does not accept duplicate layouts", () => {
+  it("does not accept duplicate grids", () => {
     const snap = makeSnapshot({ actionLabel: "action" });
     const duplicateWithDifferentLabel = makeSnapshot({
       actionLabel: "different label",

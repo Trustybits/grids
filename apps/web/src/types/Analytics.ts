@@ -66,13 +66,13 @@ export interface AnalyticsEvent<
   timestamp: Date;
   expiresAt: Date;
   userId: string | null;
-  layoutId: string | null;
+  gridId: string | null;
   metadata: AnalyticsEventMetadataMap[T];
 }
 
-/** Aggregate document in `gridStats` (doc id = `{layoutId}`). */
+/** Aggregate document in `gridStats` (doc id = `{gridId}`). */
 export interface GridStats {
-  layoutId: string;
+  gridId: string;
   ownerId: string;
   totalViews: number;
   uniqueViewers: number;
@@ -85,7 +85,7 @@ export interface GridStats {
 }
 
 /**
- * Daily document in `gridStats` (doc id = `{layoutId}__{YYYY-MM-DD}`).
+ * Daily document in `gridStats` (doc id = `{gridId}__{YYYY-MM-DD}`).
  *
  * Note: `uniqueViewers` here means **new** unique viewers on this date —
  * first-time lifetime visitors who arrived today. Returning visitors are

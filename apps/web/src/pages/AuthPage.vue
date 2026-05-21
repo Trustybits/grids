@@ -88,7 +88,7 @@ import GriddleAnimation from '@/components/marketing/GriddleAnimation.vue';
 import SlugClaimModal from '@/components/modal/SlugClaimModal.vue';
 import Button from '@/components/ui-elements/Button.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
-import { useLayoutStore } from '@/stores/layout';
+import { useGridStore } from '@/stores/grid';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 
@@ -98,7 +98,7 @@ const userService = getServiceFactory().getUserService();
 const email = ref('');
 const router = useRouter();
 const route = useRoute();
-const layoutStore = useLayoutStore();
+const gridStore = useGridStore();
 
 // Set page title
 const pageTitle = ref('Sign In');
@@ -139,13 +139,13 @@ const getPostAuthRedirect = async (): Promise<string | null> => {
     const hasSlug = !!profile?.slug;
 
     // Fetch user's existing grids to determine if they're a new user
-    await layoutStore.fetchLayouts();
-    const isNewUser = layoutStore.layouts.length === 0;
+    await gridStore.fetchGrids();
+    const isNewUser = gridStore.grids.length === 0;
     
     // If new user without slug, show slug modal first
     if (isNewUser && !hasSlug) {
       // Create default grid for them
-      const newGridId = await layoutStore.createLayout('My First Grid');
+      const newGridId = await gridStore.createGrid('My First Grid');
       const targetPath = newGridId ? `/grid/${newGridId}` : '/dashboard';
       
       // Store the redirect path and show slug modal
@@ -156,7 +156,7 @@ const getPostAuthRedirect = async (): Promise<string | null> => {
     
     // If user has no grids but has a slug (edge case), create a grid
     if (isNewUser) {
-      const newGridId = await layoutStore.createLayout('My First Grid');
+      const newGridId = await gridStore.createGrid('My First Grid');
       if (newGridId) {
         return `/grid/${newGridId}`;
       }

@@ -104,7 +104,7 @@
               <span class="suggestion-label">{{ suggestionLabel }}</span>
             </div>
             <input
-              v-if="layoutStore.canEdit"
+              v-if="gridStore.canEdit"
               type="file"
               ref="mediaInput"
               style="display: none"
@@ -116,15 +116,15 @@
 
         <!-- UI Layer -->
         <div
-          v-if="layoutStore.canEdit && headerComponent"
+          v-if="gridStore.canEdit && headerComponent"
           class="header-options"
         >
           <component :is="headerComponent" :content="tile.content" />
         </div>
 
-        <div v-if="layoutStore.showMetaData" class="meta-data">
+        <div v-if="gridStore.showMetaData" class="meta-data">
           <p class="meta-data__compact">{{ compactMetadata }}</p>
-          <template v-if="layoutStore.showMetaDataVerbose">
+          <template v-if="gridStore.showMetaDataVerbose">
             <p
               class="meta-data__verbose"
               v-for="line in verboseMetadataLines"
@@ -136,7 +136,7 @@
         </div>
 
         <div
-          v-if="layoutStore.canEdit"
+          v-if="gridStore.canEdit"
           class="tile-actions-layer"
           :class="{ 'z-priority': hoveredLayer === 'actions' }"
           @mouseenter="hoveredLayer = 'actions'"
@@ -147,7 +147,7 @@
         </div>
 
         <TileCaption
-          v-if="showCaption && (layoutStore.canEdit || tile.caption)"
+          v-if="showCaption && (gridStore.canEdit || tile.caption)"
           :tile="tile"
         />
 
@@ -155,7 +155,7 @@
         <div v-if="isTileResizable" class="resize-indicator"></div>
 
         <div
-          v-if="layoutStore.canEdit && !isSuggestion"
+          v-if="gridStore.canEdit && !isSuggestion"
           class="tile-toolbar-layer"
           :class="{ 'z-priority': hoveredLayer !== 'actions' }"
           @mouseenter="hoveredLayer = 'toolbar'"
@@ -202,7 +202,7 @@ import {
 
 import { GridItem } from "vue3-grid-layout";
 import { type Tile, type TileChildComponent } from "@/types/Tile";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import TileCaption from "@/components/tile/TileCaption.vue";
 import {
   getContentComponent,
@@ -250,7 +250,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const { uploadFileOptimisticForTile } = useFileUpload();
     const { submitLink, submitEmbed } = useTileInput();
 
@@ -374,13 +374,13 @@ export default defineComponent({
       () => props.tile.content.type === ContentType.PROFILE,
     );
     const isTileDraggable = computed(() => {
-      if (!layoutStore.canEdit || isEditing.value) return false;
+      if (!gridStore.canEdit || isEditing.value) return false;
       if (isTouchDevice()) return isActivated.value;
       return true;
     });
 
     const isTileResizable = computed(() => {
-      if (!layoutStore.canEdit || isSuggestion.value) {
+      if (!gridStore.canEdit || isSuggestion.value) {
         return false;
       }
       if (isTouchDevice()) return isActivated.value && !isEditing.value;
@@ -401,13 +401,13 @@ export default defineComponent({
         clickStart.value = Date.now();
         // Only preventDefault when the child doesn't handle short clicks
         // (e.g. text tiles need the default focus behavior on mousedown)
-        if (layoutStore.canEdit && !isEditing.value && !isSuggestion.value) {
+        if (gridStore.canEdit && !isEditing.value && !isSuggestion.value) {
           if (!childComponent.value?.onShortClick) {
             event.preventDefault();
           }
         }
         // Start long-press timer: activate isDragging after threshold
-        if (layoutStore.isOwner && !isEditing.value) {
+        if (gridStore.isOwner && !isEditing.value) {
           if (longPressTimer) clearTimeout(longPressTimer);
           longPressTimer = setTimeout(() => {
             isDragging.value = true;
@@ -448,7 +448,7 @@ export default defineComponent({
     };
 
     const onMove = () => {
-      layoutStore.beginMove();
+      gridStore.beginMove();
       isMoving.value = true;
       isDragging.value = true;
       setTimeout(() => (isMoving.value = false), 300);
@@ -457,8 +457,8 @@ export default defineComponent({
     const onMoved = () => {
       // Called when drag operation completes - save the final positions
       isDragging.value = false;
-      if (!layoutStore.canEdit) return;
-      layoutStore.commitMove();
+      if (!gridStore.canEdit) return;
+      gridStore.commitMove();
     };
 
     const onResize = (
@@ -468,15 +468,15 @@ export default defineComponent({
       _newHPx: number,
       _newWPx: number,
     ) => {
-      layoutStore.beginResize();
+      gridStore.beginResize();
       // Called during resize operation - snap to whole grid units for clean resizing
       // Only mutate the store's canonical tiles at the lg (default) breakpoint.
       // At smaller breakpoints the displayLayout contains detached copies;
       // vue3-grid-layout will mutate those in-place and the override system
       // snapshots them via displayPositions when the resize finishes.
-      if (layoutStore.activeBreakpoint !== "lg") return;
+      if (gridStore.activeBreakpoint !== "lg") return;
 
-      const tile = layoutStore.currentLayout?.tiles.find((t) => t.i === i);
+      const tile = gridStore.currentGrid?.tiles.find((t) => t.i === i);
       if (tile) {
         // Round to nearest whole number to snap to grid units
         const roundedH = Math.round(newH);
@@ -495,25 +495,25 @@ export default defineComponent({
       if (childComponent.value?.onResize) {
         childComponent.value.onResize();
       }
-      if (layoutStore.canEdit) {
-        layoutStore.commitResize();
+      if (gridStore.canEdit) {
+        gridStore.commitResize();
       }
     };
 
     const onSuggestionShortClick = () => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       const action = (props.tile.content as SuggestionContent)?.action;
       switch (action) {
         case "profile": {
           const content = createTileContent(ContentType.PROFILE, {});
-          layoutStore.setTileContent(props.tile.i, content);
+          gridStore.setTileContent(props.tile.i, content);
           break;
         }
         case "text": {
           const content = createTileContent(ContentType.TEXT, {});
-          layoutStore.setTileContent(props.tile.i, content);
+          gridStore.setTileContent(props.tile.i, content);
           // Auto-focus the new text tile so the user can start typing immediately
-          layoutStore.pendingFocusTileId = props.tile.i;
+          gridStore.pendingFocusTileId = props.tile.i;
           break;
         }
 
@@ -573,7 +573,7 @@ export default defineComponent({
 
       // Wait for animation to complete before actually removing the tile
       setTimeout(() => {
-        layoutStore.removeTile(props.tile.i);
+        gridStore.removeTile(props.tile.i);
       }, 250); // var(--duration-normal) = 250ms
     };
 
@@ -581,7 +581,7 @@ export default defineComponent({
       const isToolbarActive =
         isHovered.value ||
         isActivated.value ||
-        layoutStore.activeTileId === props.tile.i;
+        gridStore.activeTileId === props.tile.i;
 
       let zIndex: string | number = 0;
       if (isEditing.value) {
@@ -717,7 +717,7 @@ export default defineComponent({
 
     const handleDragStart = (event: Event) => {
       // Prevent default browser drag behavior which interferes with vue-grid-layout
-      if (layoutStore.canEdit && !isEditing.value) {
+      if (gridStore.canEdit && !isEditing.value) {
         event.preventDefault();
       }
     };
@@ -808,15 +808,15 @@ export default defineComponent({
 
     const verboseMetadataLines = computed(() => {
       const caption = props.tile.caption?.trim();
-      const cookieValue = layoutStore.getCookieValue("showMetaData");
-      const verboseCookieValue = layoutStore.getCookieValue(
+      const cookieValue = gridStore.getCookieValue("showMetaData");
+      const verboseCookieValue = gridStore.getCookieValue(
         "showMetaDataVerbose",
       );
       return [
         `caption: ${caption ? caption.slice(0, 40) : "n/a"}`,
         `borderEnabled: ${borderEnabled.value ? "true" : "false"} | draggable: ${isTileDraggable.value ? "true" : "false"} | resizable: ${isTileResizable.value ? "true" : "false"}`,
-        `breakpoint: ${layoutStore.activeBreakpoint} | canEdit: ${layoutStore.canEdit ? "true" : "false"} | isOwner: ${layoutStore.isOwner ? "true" : "false"}`,
-        `displaySource: ${layoutStore.activeBreakpoint === "lg" ? "tileBase" : "breakpointOverrideOrDisplay"}`,
+        `breakpoint: ${gridStore.activeBreakpoint} | canEdit: ${gridStore.canEdit ? "true" : "false"} | isOwner: ${gridStore.isOwner ? "true" : "false"}`,
+        `displaySource: ${gridStore.activeBreakpoint === "lg" ? "tileBase" : "breakpointOverrideOrDisplay"}`,
         `cookie(meta): ${cookieValue ?? "unset"} | cookie(verbose): ${verboseCookieValue ?? "unset"}`,
         typeSpecificMeta.value,
       ];
@@ -877,7 +877,7 @@ export default defineComponent({
       startClick,
       endClick,
       gridTileRef,
-      layoutStore,
+      gridStore,
       isEditing,
       isDragging,
       isExiting,

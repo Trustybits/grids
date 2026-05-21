@@ -6,7 +6,7 @@ import type { CloudFunctionsDao } from "@/dao/interfaces/CloudFunctionsDao";
 import type { CustomerDao } from "@/dao/interfaces/CustomerDao";
 import type { DaoFactory } from "@/dao/interfaces/factory/DaoFactory";
 import type { GridStatsDao } from "@/dao/interfaces/GridStatsDao";
-import type { LayoutDao } from "@/dao/interfaces/LayoutDao";
+import type { GridDao } from "@/dao/interfaces/GridDao";
 import type { RoadmapDao } from "@/dao/interfaces/RoadmapDao";
 import type { SlugDao } from "@/dao/interfaces/SlugDao";
 import type { StorageDao } from "@/dao/interfaces/StorageDao";
@@ -20,7 +20,7 @@ import { StubbedChatDao } from "../StubbedChatDao";
 import { StubbedCloudFunctionsDao } from "../StubbedCloudFunctionsDao";
 import { StubbedCustomerDao } from "../StubbedCustomerDao";
 import { StubbedGridStatsDao } from "../StubbedGridStatsDao";
-import { StubbedLayoutDao } from "../StubbedLayoutDao";
+import { StubbedGridDao } from "../StubbedGridDao";
 import { StubbedRoadmapDao } from "../StubbedRoadmapDao";
 import { StubbedSlugDao } from "../StubbedSlugDao";
 import { StubbedStorageDao } from "../StubbedStorageDao";
@@ -36,7 +36,7 @@ export class StubbedDaoFactory implements DaoFactory {
   private cloudFunctionsDao: CloudFunctionsDao;
   private customerDao: CustomerDao;
   private gridStatsDao: GridStatsDao;
-  private layoutDao: LayoutDao;
+  private gridDao: GridDao;
   private roadmapDao: RoadmapDao;
   private slugDao: SlugDao;
   private storageDao: StorageDao;
@@ -52,7 +52,7 @@ export class StubbedDaoFactory implements DaoFactory {
     this.cloudFunctionsDao = new StubbedCloudFunctionsDao();
     this.customerDao = new StubbedCustomerDao();
     this.gridStatsDao = new StubbedGridStatsDao();
-    this.layoutDao = new StubbedLayoutDao();
+    this.gridDao = new StubbedGridDao();
     this.roadmapDao = new StubbedRoadmapDao();
     this.slugDao = new StubbedSlugDao();
     this.storageDao = new StubbedStorageDao();
@@ -89,8 +89,8 @@ export class StubbedDaoFactory implements DaoFactory {
     return this.gridStatsDao;
   }
 
-  public getLayoutDao(): LayoutDao {
-    return this.layoutDao;
+  public getGridDao(): GridDao {
+    return this.gridDao;
   }
 
   public getRoadmapDao(): RoadmapDao {

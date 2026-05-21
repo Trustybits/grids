@@ -29,7 +29,7 @@
 <script lang="ts">
 /* eslint-disable vue/no-mutating-props */
 import { ref, computed, nextTick } from "vue";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 
 export default {
   name: "TileCaption",
@@ -40,12 +40,12 @@ export default {
     },
   },
   setup(props) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const editing = ref(false);
     const editableCaptionElement = ref<HTMLParagraphElement | null>(null);
 
     const captionClasses = computed(() => {
-      if (layoutStore.canEdit) {
+      if (gridStore.canEdit) {
         return "hover-display";
       }
       // Non-owner: show if caption exists, hide on hover
@@ -57,14 +57,14 @@ export default {
       // For non-owners, the .viewer-caption class handles display
       // and must not be overridden by an inline style (so the
       // hide-on-hover rule in GridTile.vue can take effect).
-      if (layoutStore.canEdit && (editing.value || props.tile.caption)) {
+      if (gridStore.canEdit && (editing.value || props.tile.caption)) {
         return { display: "flex" };
       }
       return {};
     });
 
     const startEditing = () => {
-      if (!layoutStore.canEdit) {
+      if (!gridStore.canEdit) {
         return;
       }
       // If already editing, let the native click handle cursor placement
@@ -91,13 +91,13 @@ export default {
 
     const saveCaption = () => {
       if (!editing.value) return;
-      if (!layoutStore.canEdit) {
+      if (!gridStore.canEdit) {
         editing.value = false;
         return;
       }
       const text = editableCaptionElement.value?.innerText.trim() ?? "";
       // Update the store's canonical tile so the caption persists
-      const storeTile = layoutStore.currentLayout?.tiles?.find(
+      const storeTile = gridStore.currentGrid?.tiles?.find(
         (t) => t.i === props.tile.i,
       );
       if (storeTile) {
@@ -105,12 +105,12 @@ export default {
       }
       // Also update the display copy so the UI reflects immediately
       props.tile.caption = text;
-      layoutStore.updateLayout();
+      gridStore.updateGrid();
       editing.value = false;
     };
 
     return {
-      layoutStore,
+      gridStore,
       editing,
       captionClasses,
       captionStyle,

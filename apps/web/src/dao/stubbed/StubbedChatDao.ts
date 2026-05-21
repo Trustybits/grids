@@ -3,7 +3,7 @@ import type { ChatMessage } from "@/types/TileContent";
 
 export class StubbedChatDao implements ChatDao {
   public subscribeToMessages(
-    _layoutId: string,
+    _gridId: string,
     _tileId: string,
     _callback: (messages: ChatMessage[]) => void,
     _onError?: (error: Error) => void,
@@ -12,7 +12,7 @@ export class StubbedChatDao implements ChatDao {
   }
 
   public addMessage(
-    _layoutId: string,
+    _gridId: string,
     _tileId: string,
     _message: { text: string; createdAt: number; authorId: string },
   ): Promise<string> {
@@ -20,7 +20,7 @@ export class StubbedChatDao implements ChatDao {
   }
 
   public updateMessage(
-    _layoutId: string,
+    _gridId: string,
     _tileId: string,
     _messageId: string,
     _text: string,
@@ -29,7 +29,7 @@ export class StubbedChatDao implements ChatDao {
   }
 
   public deleteMessage(
-    _layoutId: string,
+    _gridId: string,
     _tileId: string,
     _messageId: string,
   ): Promise<void> {

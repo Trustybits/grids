@@ -1,5 +1,5 @@
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { ContentType, type LinkContent, type TileContent } from "@/types/TileContent";
 import {
   createTileContent,
@@ -27,17 +27,17 @@ const isRichAutoDetectedContent = (content: TileContent): boolean => {
 };
 
 export const useTileInput = () => {
-  const layoutStore = useLayoutStore();
+  const gridStore = useGridStore();
 
   const applyContentToTarget = (
     content: TileContent,
     target: TileInputTarget,
   ): string | null => {
     if (target.mode === "add") {
-      return layoutStore.addTile(content);
+      return gridStore.addTile(content);
     }
 
-    layoutStore.setTileContent(target.tileId, content);
+    gridStore.setTileContent(target.tileId, content);
     return target.tileId;
   };
 
@@ -69,7 +69,7 @@ export const useTileInput = () => {
         .getCloudFunctionsService()
         .callFunction<{ url: string }, LinkPreviewResponse>("getLinkPreview", { url });
 
-      layoutStore.patchTileContent(tileId, {
+      gridStore.patchTileContent(tileId, {
         link: data.url,
         domain: data.domain,
         faviconUrl: data.faviconUrl || (linkContent as LinkContent).faviconUrl,

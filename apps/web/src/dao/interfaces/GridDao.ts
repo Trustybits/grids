@@ -1,0 +1,24 @@
+import type { Grid } from "@/types/Grid";
+
+export interface GridDao {
+  /** Fetch a single grid document by ID. */
+  getById(id: string): Promise<Grid | null>;
+
+  /** Query all grids belonging to a specific user. */
+  findByUserId(userId: string): Promise<Grid[]>;
+
+  /** Generate a new unique document ID without writing to the database. */
+  generateId(): string;
+
+  /** Create or fully overwrite a grid document. */
+  save(id: string, data: Record<string, unknown>): Promise<void>;
+
+  /** Partially update fields on an existing grid document. */
+  update(id: string, data: Record<string, unknown>): Promise<void>;
+
+  /** Update only the lastOpenedAt field to a server timestamp. */
+  updateLastOpenedAt(id: string): Promise<void>;
+
+  /** Delete a grid document by ID. */
+  delete(id: string): Promise<void>;
+}

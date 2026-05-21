@@ -56,9 +56,9 @@ export class AnalyticsService implements IAnalyticsService {
     }
   }
 
-  async getGridStats(layoutId: string): Promise<GridStats | null> {
+  async getGridStats(gridId: string): Promise<GridStats | null> {
     try {
-      return await this.gridStatsDao.getAggregate(layoutId);
+      return await this.gridStatsDao.getAggregate(gridId);
     } catch (error) {
       console.error("Error fetching grid stats:", error);
       throw error;
@@ -66,11 +66,11 @@ export class AnalyticsService implements IAnalyticsService {
   }
 
   async getGridStatsForDate(
-    layoutId: string,
+    gridId: string,
     date: string,
   ): Promise<DailyGridStats | null> {
     try {
-      return await this.gridStatsDao.getDaily(layoutId, date);
+      return await this.gridStatsDao.getDaily(gridId, date);
     } catch (error) {
       console.error("Error fetching daily grid stats:", error);
       throw error;
@@ -78,13 +78,13 @@ export class AnalyticsService implements IAnalyticsService {
   }
 
   async getGridStatsDailyRange(
-    layoutId: string,
+    gridId: string,
     startDate: string,
     endDate: string,
   ): Promise<DailyGridStats[]> {
     try {
       return await this.gridStatsDao.getDailyRange(
-        layoutId,
+        gridId,
         startDate,
         endDate,
       );
@@ -121,7 +121,7 @@ export class AnalyticsService implements IAnalyticsService {
     if (!import.meta.env.VITE_POSTHOG_KEY) return;
     try {
       posthog.capture(event.eventType, {
-        layoutId: event.layoutId,
+        gridId: event.gridId,
         userId: event.userId,
         ...event.metadata,
       });

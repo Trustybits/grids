@@ -8,18 +8,18 @@
     <div class="undo-redo-bar" :class="{ 'undo-redo-bar--hovered': hovered }">
       <button
         class="ur-btn"
-        :class="{ 'ur-btn--active': layoutStore.canUndo }"
-        :data-tooltip="layoutStore.canUndo ? `Undo ${layoutStore.undoActionLabel}` : 'Nothing to Undo'"
-        @click="layoutStore.undo()"
+        :class="{ 'ur-btn--active': gridStore.canUndo }"
+        :data-tooltip="gridStore.canUndo ? `Undo ${gridStore.undoActionLabel}` : 'Nothing to Undo'"
+        @click="gridStore.undo()"
       >
         Undo
       </button>
       <span :style="{ 'opacity': hovered ? 100: 0 }" class="ur-divider" />
       <button
         class="ur-btn"
-        :class="{ 'ur-btn--active': layoutStore.canRedo }"
-        :data-tooltip="layoutStore.canRedo ? `Redo ${layoutStore.redoActionLabel}` : 'Nothing to Redo'"
-        @click="layoutStore.redo()"
+        :class="{ 'ur-btn--active': gridStore.canRedo }"
+        :data-tooltip="gridStore.canRedo ? `Redo ${gridStore.redoActionLabel}` : 'Nothing to Redo'"
+        @click="gridStore.redo()"
       >
         Redo
       </button>
@@ -69,11 +69,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { formatRelativeSince } from "@/utils/RelativeTime";
 import Chevron from "@/components/icons/Chevron.vue";
 
-const layoutStore = useLayoutStore();
+const gridStore = useGridStore();
 const hovered = ref(false);
 const menuOpen = ref(false);
 const wrapperRef = ref<HTMLElement | null>(null);
@@ -91,7 +91,7 @@ interface HistoryItem {
 const hoveredItem = ref<HistoryItem | null>(null);
 const tooltipY = ref(0);
 
-const hasHistory = computed(() => layoutStore.canUndo || layoutStore.canRedo);
+const hasHistory = computed(() => gridStore.canUndo || gridStore.canRedo);
 
 const tooltipStyle = computed(() => ({
   top: `${tooltipY.value}px`,
@@ -108,7 +108,7 @@ const onItemEnter = (e: MouseEvent, item: HistoryItem) => {
 };
 
 const historyItems = computed<HistoryItem[]>(() => {
-  const { undoStack, redoStack } = layoutStore.undoRedoStacks;
+  const { undoStack, redoStack } = gridStore.undoRedoStacks;
   const now = Date.now();
   const items: HistoryItem[] = [];
 
@@ -145,7 +145,7 @@ const toggleMenu = () => {
 };
 
 const goTo = (snapshotId: number) => {
-  layoutStore.undoRedoUntil(snapshotId);
+  gridStore.undoRedoUntil(snapshotId);
   menuOpen.value = false;
 };
 

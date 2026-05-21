@@ -125,6 +125,7 @@ async function main() {
 
   const emails = await listAuthEmails();
   process.stdout.write(`${emails.join(",")}\n`);
+  process.stdout.write(`Number of emails: ${emails.length}`);
 }
 
 main().catch((error) => {

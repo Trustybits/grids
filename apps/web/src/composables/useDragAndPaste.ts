@@ -1,6 +1,6 @@
 import { ref, onMounted, onUnmounted, watch, type Ref } from "vue";
 import { useFileUpload } from "./useFileUpload";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import {
   createTileContent,
   createTileContentFromEmbedUrl,
@@ -20,7 +20,7 @@ interface LinkPreviewResponse {
 }
 
 export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
-  const layoutStore = useLayoutStore();
+  const gridStore = useGridStore();
   const { uploadFileOptimistic, uploadDocumentsOptimistic } =
     useFileUpload();
   const isDraggingOver = ref(false);
@@ -29,7 +29,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
 
   const handlePaste = async (event: ClipboardEvent) => {
     // Only handle paste if user is owner and we're on the grid page
-    if (!layoutStore.canEdit) return;
+    if (!gridStore.canEdit) return;
 
     // Don't intercept paste events targeting text inputs, textareas,
     // contenteditable elements, or elements inside modals — let the
@@ -94,7 +94,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
           // Paste is an iframe embed code — route through embed URL handler
           event.preventDefault();
           const embedContent = createTileContentFromEmbedUrl(trimmedText);
-          layoutStore.addTile(embedContent);
+          gridStore.addTile(embedContent);
         } else if (isUrl(trimmedText)) {
           // Paste is a URL — create a link tile
           event.preventDefault();
@@ -117,10 +117,10 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
           const textContent = createTileContent(ContentType.SMART_TEXT, {
             text: JSON.stringify(tiptapDoc),
           });
-          const tileId = layoutStore.addTile(textContent);
+          const tileId = gridStore.addTile(textContent);
           // Signal TextContent to auto-enter edit mode with cursor at end
           if (tileId) {
-            layoutStore.pendingFocusTileId = tileId;
+            gridStore.pendingFocusTileId = tileId;
           }
         }
       }
@@ -136,7 +136,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     isDraggingOver.value = false;
     dragCounter = 0;
 
-    if (!layoutStore.canEdit) return;
+    if (!gridStore.canEdit) return;
 
     const files = event.dataTransfer?.files;
     const urlData =
@@ -198,7 +198,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   };
 
   const handleDragOver = (event: DragEvent) => {
-    if (!layoutStore.canEdit || isSmartTextDrag(event)) return;
+    if (!gridStore.canEdit || isSmartTextDrag(event)) return;
     event.preventDefault();
     if (event.dataTransfer) {
       event.dataTransfer.dropEffect = "copy";
@@ -206,14 +206,14 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
   };
 
   const handleDragEnter = (event: DragEvent) => {
-    if (!layoutStore.canEdit || isSmartTextDrag(event)) return;
+    if (!gridStore.canEdit || isSmartTextDrag(event)) return;
     event.preventDefault();
     dragCounter++;
     isDraggingOver.value = true;
   };
 
   const handleDragLeave = (event: DragEvent) => {
-    if (!layoutStore.canEdit || isSmartTextDrag(event)) return;
+    if (!gridStore.canEdit || isSmartTextDrag(event)) return;
     event.preventDefault();
     dragCounter--;
     if (dragCounter === 0) {
@@ -274,7 +274,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
         detectedContent.type === ContentType.IMAGE ||
         detectedContent.type === ContentType.VIDEO
       ) {
-        layoutStore.addTile(detectedContent);
+        gridStore.addTile(detectedContent);
         return;
       }
     }
@@ -283,7 +283,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     const linkContent = createTileContent(ContentType.LINK, {
       link: formattedUrl,
     });
-    const tileId = layoutStore.addTile(linkContent);
+    const tileId = gridStore.addTile(linkContent);
 
     if (tileId) {
       // Fetch link preview in background
@@ -291,7 +291,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
         if (/^(mailto|tel):/i.test(formattedUrl)) return;
         const data = await getServiceFactory().getCloudFunctionsService().callFunction<{ url: string }, LinkPreviewResponse>("getLinkPreview", { url: formattedUrl });
 
-        layoutStore.patchTileContent(tileId, {
+        gridStore.patchTileContent(tileId, {
           link: data.url,
           domain: data.domain,
           faviconUrl: data.faviconUrl,
@@ -323,7 +323,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
         detectedContent.type === ContentType.IMAGE ||
         detectedContent.type === ContentType.VIDEO
       ) {
-        layoutStore.addTile(detectedContent);
+        gridStore.addTile(detectedContent);
         return;
       }
     }
@@ -332,7 +332,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
     const linkContent = createTileContent(ContentType.LINK, {
       link: formattedUrl,
     });
-    const tileId = layoutStore.addTile(linkContent);
+    const tileId = gridStore.addTile(linkContent);
 
     if (tileId) {
       // Fetch link preview in background
@@ -340,7 +340,7 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
         if (/^(mailto|tel):/i.test(formattedUrl)) return;
         const data = await getServiceFactory().getCloudFunctionsService().callFunction<{ url: string }, LinkPreviewResponse>("getLinkPreview", { url: formattedUrl });
 
-        layoutStore.patchTileContent(tileId, {
+        gridStore.patchTileContent(tileId, {
           link: data.url,
           domain: data.domain,
           faviconUrl: data.faviconUrl,

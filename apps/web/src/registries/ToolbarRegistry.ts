@@ -45,7 +45,7 @@ function makeResizeItem(
     title,
     group: "resize",
     action: (ctx) => {
-      ctx.layoutStore.resizeTile(ctx.tile.i, w, h);
+      ctx.gridStore.resizeTile(ctx.tile.i, w, h);
       ctx.childComponent.value?.onResize?.();
     },
     isActive: (ctx) => ctx.tile.w === w && ctx.tile.h === h,
@@ -137,7 +137,7 @@ export const BORDER_TOGGLE: ToolbarItem = {
     ctx.tile.borderEnabled !== false ? "Hide border" : "Show border",
   group: "appearance",
   cssClass: "toolbar-btn--border",
-  action: (ctx) => ctx.layoutStore.toggleTileBorder(ctx.tile.i),
+  action: (ctx) => ctx.gridStore.toggleTileBorder(ctx.tile.i),
   isActive: (ctx) => ctx.tile.borderEnabled !== false,
 };
 
@@ -266,7 +266,7 @@ export const LINK_BG_TOGGLE: ToolbarItem = {
       : "Show background image";
   },
   group: "appearance",
-  action: (ctx) => ctx.layoutStore.toggleLinkBackground(ctx.tile.i),
+  action: (ctx) => ctx.gridStore.toggleLinkBackground(ctx.tile.i),
   isActive: (ctx) =>
     (ctx.tile.content as LinkContent).linkBackgroundEnabled !== false,
 };
@@ -315,7 +315,7 @@ export const LINK_MORE_MENU: ToolbarItem = {
       id: "use-url",
       label: "Use image URL",
       action: (ctx) => {
-        ctx.layoutStore.setPanelActive(ctx.tile.i, "imageUrl");
+        ctx.gridStore.setPanelActive(ctx.tile.i, "imageUrl");
       },
     },
     {

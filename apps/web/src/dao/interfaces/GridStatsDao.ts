@@ -8,14 +8,14 @@ import type { DailyGridStats, GridStats } from "@/types/Analytics";
  */
 export interface GridStatsDao {
   /** Lifetime aggregate doc for a grid. Returns `null` if no stats yet. */
-  getAggregate(layoutId: string): Promise<GridStats | null>;
+  getAggregate(gridId: string): Promise<GridStats | null>;
 
   /** Daily doc for a grid on a UTC date (`YYYY-MM-DD`). */
-  getDaily(layoutId: string, date: string): Promise<DailyGridStats | null>;
+  getDaily(gridId: string, date: string): Promise<DailyGridStats | null>;
 
   /** Inclusive range of daily docs between two UTC dates (`YYYY-MM-DD`). */
   getDailyRange(
-    layoutId: string,
+    gridId: string,
     startDate: string,
     endDate: string,
   ): Promise<DailyGridStats[]>;

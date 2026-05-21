@@ -88,7 +88,7 @@ import {
   type MusicContent,
   type YouTubeContent,
 } from "@/types/TileContent";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { useToastStore } from "@/stores/toast";
 import ArrowUpRightIcon from "@/components/icons/actionbar/ArrowUpRightIcon.vue";
 import DuplicateIcon from "@/components/icons/actionbar/DuplicateIcon.vue";
@@ -116,7 +116,7 @@ export default defineComponent({
   },
   emits: ["delete"],
   setup(props, { emit }) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
     const isEmbedInteractive = inject<Ref<boolean>>("isEmbedInteractive", ref(false));
     const justExitedInteractive = ref(false);
@@ -204,7 +204,7 @@ export default defineComponent({
     };
 
     const onDuplicate = () => {
-      const newId = layoutStore.duplicateTile(props.tile.i);
+      const newId = gridStore.duplicateTile(props.tile.i);
       if (newId) {
         toastStore.addToast("Tile duplicated", "success");
       }

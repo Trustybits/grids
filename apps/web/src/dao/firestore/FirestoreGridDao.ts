@@ -11,33 +11,33 @@ import {
   where,
   serverTimestamp,
 } from "firebase/firestore";
-import type { Layout } from "@/types/Layout";
-import type { LayoutDao } from "../interfaces/LayoutDao";
-import { mapFirestoreToLayout } from "./FirestoreUtils";
+import type { Grid } from "@/types/Grid";
+import type { GridDao } from "../interfaces/GridDao";
+import { mapFirestoreToGrid } from "./FirestoreUtils";
 
 const COLLECTION = "layouts";
 
-export class FirestoreLayoutDao implements LayoutDao {
+export class FirestoreGridDao implements GridDao {
   private db: Firestore;
 
   public constructor(db: Firestore) {
     this.db = db;
   }
 
-  public async getById(id: string): Promise<Layout | null> {
+  public async getById(id: string): Promise<Grid | null> {
     const docRef = doc(this.db, COLLECTION, id);
     const snapshot = await getDoc(docRef);
     if (!snapshot.exists()) return null;
-    return mapFirestoreToLayout(snapshot);
+    return mapFirestoreToGrid(snapshot);
   }
 
-  public async findByUserId(userId: string): Promise<Layout[]> {
+  public async findByUserId(userId: string): Promise<Grid[]> {
     const q = query(
       collection(this.db, COLLECTION),
       where("userId", "==", userId),
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => mapFirestoreToLayout(d));
+    return snapshot.docs.map((d) => mapFirestoreToGrid(d));
   }
 
   public generateId(): string {

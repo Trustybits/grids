@@ -208,7 +208,7 @@ import type {
 } from "@/types/TileToolbar";
 import { getToolbarItems } from "@/registries/ToolbarRegistry";
 import { computeTextColor } from "@/composables/useColorPicker";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import LocateFixedIcon from "@/components/icons/toolbar/LocateFixedIcon.vue";
 import CurrentLocationIcon from "@/components/icons/toolbar/CurrentLocationIcon.vue";
@@ -250,7 +250,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
 
     const toolbarRef = ref<HTMLDivElement | null>(null);
@@ -279,9 +279,9 @@ export default defineComponent({
     const childComponent = props.toolbarRefs.childComponent;
 
     const isActiveTile = computed(
-      () => layoutStore?.activeTileId === props.tile.i,
+      () => gridStore?.activeTileId === props.tile.i,
     );
-    const activePanelId = computed(() => layoutStore?.activePanelId);
+    const activePanelId = computed(() => gridStore?.activePanelId);
 
     const panelOpen = computed(
       () => activePanelId.value !== null && isActiveTile.value,
@@ -294,7 +294,7 @@ export default defineComponent({
     const ctx = computed<ToolbarContext>(() => ({
       tile: props.tile,
       childComponent: props.toolbarRefs.childComponent,
-      layoutStore,
+      gridStore,
       isEditing: props.toolbarRefs.isEditing,
       isExitingCropMode: props.toolbarRefs.isExitingCropMode,
     }));
@@ -450,7 +450,7 @@ export default defineComponent({
     }));
 
     const closeMenu = () => {
-      layoutStore.closeMenus();
+      gridStore.closeMenus();
     };
 
     const onItemClick = (event: MouseEvent, item: ToolbarItem) => {
@@ -462,7 +462,7 @@ export default defineComponent({
       if (item.menuItems) menuAnchorRef.value = button;
 
       if (item.panelId) {
-        layoutStore.togglePanelActive(props.tile.i, item.panelId);
+        gridStore.togglePanelActive(props.tile.i, item.panelId);
         if (item.panelId === "search")
           nextTick(() => {
             searchInputRef.value?.focus();
@@ -473,7 +473,7 @@ export default defineComponent({
 
       // Handle menu items
       if (item.menuItems) {
-        layoutStore.toggleMenuActive(props.tile.i);
+        gridStore.toggleMenuActive(props.tile.i);
         nextTick(positionMenu);
         return;
       }

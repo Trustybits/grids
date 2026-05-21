@@ -121,15 +121,15 @@ import { defineComponent, ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@/auth/AuthProvider";
-import { useLayoutStore } from "@/stores/layout";
-import type { Layout } from "@/types/Layout";
+import { useGridStore } from "@/stores/grid";
+import type { Grid } from "@/types/Grid";
 import { valueToMillis } from "@/utils/TimeConversion";
 
 export default defineComponent({
   name: "LeftNavBar",
   setup() {
     const route = useRoute();
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const user = ref<AuthUser | null>(null);
     const isExpanded = ref(false);
     let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -138,7 +138,7 @@ export default defineComponent({
       getAuthProvider().onAuthStateChanged((currentUser) => {
         user.value = currentUser;
         if (currentUser) {
-          layoutStore.fetchLayouts();
+          gridStore.fetchGrids();
         }
       });
     });
@@ -154,8 +154,8 @@ export default defineComponent({
       return route.path.startsWith(`/grid/${id}`);
     };
 
-    const recentGrids = computed<Layout[]>(() => {
-      const scored = (layoutStore.layouts || []).map((l) => ({
+    const recentGrids = computed<Grid[]>(() => {
+      const scored = (gridStore.grids || []).map((l) => ({
         l,
         s:
           valueToMillis(l.lastOpenedAt) ||
@@ -171,8 +171,8 @@ export default defineComponent({
         .slice(0, 3);
 
       if (sorted.length === 0) {
-        if (layoutStore.currentLayout) return [layoutStore.currentLayout];
-        if (layoutStore.layouts.length > 0) return [layoutStore.layouts[0]];
+        if (gridStore.currentGrid) return [gridStore.currentGrid];
+        if (gridStore.grids.length > 0) return [gridStore.grids[0]];
       }
       return sorted;
     });
@@ -204,7 +204,7 @@ export default defineComponent({
       recentGrids,
       handleMouseEnter,
       handleMouseLeave,
-      layoutStore,
+      gridStore,
     };
   },
 });

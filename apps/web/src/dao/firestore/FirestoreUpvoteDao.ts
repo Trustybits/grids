@@ -19,7 +19,7 @@ export class FirestoreUpvoteDao implements UpvoteDao {
   }
 
   public subscribeToUserUpvotes(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     userId: string,
     callback: (votedPageIds: Set<string>) => void,
@@ -28,7 +28,7 @@ export class FirestoreUpvoteDao implements UpvoteDao {
     const upvotesRef = collection(
       this.db,
       "layouts",
-      layoutId,
+      gridId,
       "tiles",
       tileId,
       "upvotes",
@@ -52,7 +52,7 @@ export class FirestoreUpvoteDao implements UpvoteDao {
   }
 
   public async toggleUpvote(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     notionPageId: string,
   ): Promise<{ isNowUpvoted: boolean }> {
@@ -60,7 +60,7 @@ export class FirestoreUpvoteDao implements UpvoteDao {
       this.functions,
       "upvoteRoadmapItem",
     );
-    const result = await fn({ layoutId, tileId, notionPageId });
+    const result = await fn({ layoutId: gridId, tileId, notionPageId });
     return result.data;
   }
 }

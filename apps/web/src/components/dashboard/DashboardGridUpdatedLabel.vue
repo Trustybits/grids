@@ -3,14 +3,14 @@
 </template>
 
 <script setup lang="ts">
-import type { Layout } from "@/types/Layout";
-import { useDashboardLayoutUpdated } from "@/composables/useDashboardLayoutUpdated";
+import type { Grid } from "@/types/Grid";
+import { useDashboardGridUpdated } from "@/composables/useDashboardGridUpdated";
 
 const props = defineProps<{
-  layout: Layout;
+  grid: Grid;
 }>();
 
-const { label, title } = useDashboardLayoutUpdated(() => props.layout);
+const { label, title } = useDashboardGridUpdated(() => props.grid);
 </script>
 
 <style scoped>

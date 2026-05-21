@@ -15,11 +15,11 @@ export function documentItemIsPdf(fileName: string, mimeType?: string): boolean 
 }
 
 /**
- * Ask the backend to rasterize page 1 of a PDF into Storage and update the layout.
+ * Ask the backend to rasterize page 1 of a PDF into Storage and update the grid.
  * No-op for non-PDFs (server returns skipped).
  */
 export async function ensureDocumentItemThumbnailOnServer(
-  layoutId: string,
+  gridId: string,
   tileId: string,
   itemId: string,
 ): Promise<EnsureDocumentThumbResponse> {
@@ -28,5 +28,5 @@ export async function ensureDocumentItemThumbnailOnServer(
     .callFunction<
       { layoutId: string; tileId: string; itemId: string },
       EnsureDocumentThumbResponse
-    >("ensureDocumentItemThumbnail", { layoutId, tileId, itemId });
+    >("ensureDocumentItemThumbnail", { layoutId: gridId, tileId, itemId });
 }

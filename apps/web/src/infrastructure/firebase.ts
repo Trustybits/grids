@@ -1,10 +1,20 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { connectAuthEmulator, getAuth } from "firebase/auth";
+import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
-import { getFunctions } from "firebase/functions";
-import { getStorage } from "firebase/storage";
+import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
+import { connectStorageEmulator, getStorage } from "firebase/storage";
+
+const FIREBASE_EMULATOR_TARGETS = [
+  "auth",
+  "firestore",
+  "functions",
+  "storage",
+] as const;
+
+type FirebaseEmulatorTarget = (typeof FIREBASE_EMULATOR_TARGETS)[number];
+
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
@@ -24,5 +34,56 @@ const db = getFirestore(app);
 const analytics = getAnalytics(app);
 const functions = getFunctions(app);
 const storage = getStorage(app);
+
+const emulatorTargets = getFirebaseEmulatorTargets(
+  import.meta.env.VITE_FIREBASE_EMULATORS,
+);
+
+if (emulatorTargets.has("auth")) {
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", {
+    disableWarnings: true,
+  });
+}
+
+if (emulatorTargets.has("firestore")) {
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+}
+
+if (emulatorTargets.has("functions")) {
+  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+}
+
+if (emulatorTargets.has("storage")) {
+  connectStorageEmulator(storage, "127.0.0.1", 9199);
+}
+
+function getFirebaseEmulatorTargets(value: string | undefined) {
+  const targets = new Set<FirebaseEmulatorTarget>();
+  if (!value) return targets;
+
+  for (const token of value.split(",")) {
+    const target = token.trim().toLowerCase();
+    if (target === "all") {
+      FIREBASE_EMULATOR_TARGETS.forEach((target) => targets.add(target));
+      continue;
+    }
+
+    if (isFirebaseEmulatorTarget(target)) {
+      targets.add(target);
+    } else if (target) {
+      console.warn(`Ignoring unknown Firebase emulator target: ${target}`);
+    }
+  }
+
+  return targets;
+}
+
+function isFirebaseEmulatorTarget(
+  value: string,
+): value is FirebaseEmulatorTarget {
+  return FIREBASE_EMULATOR_TARGETS.includes(
+    value as FirebaseEmulatorTarget,
+  );
+}
 
 export { app, auth, db, analytics, functions, storage };

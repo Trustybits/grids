@@ -17,7 +17,7 @@
 
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import { SUPPORTER_BADGE_MIN_CENTS } from "./constants.js";
 
 const SUCCEEDED_STATUS = "succeeded";

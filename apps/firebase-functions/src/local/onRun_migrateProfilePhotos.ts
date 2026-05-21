@@ -21,7 +21,7 @@
 
 /* eslint-disable */
 
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 
 // Only initialize if not already done (safe for standalone runs)
 if (!admin.apps.length) {

@@ -1,7 +1,7 @@
 import { HttpsError } from "firebase-functions/v1/https";
 import { randomUUID } from "node:crypto";
 import * as functions from "firebase-functions/v1";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import sharp from "sharp";
 
 // v147.0.0 has no pack assets on GitHub releases; using v143.0.4 (last confirmed stable).

@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
+import { noopIfMaintenance } from "../maintenance.js";
 import { isDevTeamMember } from "./utils_devTeam.js";
 import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.js";
 import { discordUserActivityWebhookUrl } from "./secrets.js";
@@ -15,6 +16,8 @@ export const onGridCreated = functions
   })
   .firestore.document("layouts/{layoutId}")
   .onCreate(async (snapshot, context) => {
+    if (noopIfMaintenance("onGridCreated")) return null;
+
     const layoutData = snapshot.data();
     const layoutId = context.params.layoutId;
 

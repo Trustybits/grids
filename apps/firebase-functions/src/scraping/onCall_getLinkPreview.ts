@@ -3,6 +3,7 @@ import * as logger from "firebase-functions/logger";
 import * as cheerio from "cheerio";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { noopIfMaintenance } from "../maintenance.js";
 
 function isPrivateOrLocalhost(hostname: string): boolean {
   const lower = hostname.toLowerCase();
@@ -92,6 +93,8 @@ function pickFirst(...values: Array<string | undefined>): string | undefined {
 }
 
 export const getLinkPreview = onCall(async (data, context) => {
+  if (noopIfMaintenance("getLinkPreview")) return null;
+
   if (!context.auth) {
     throw new HttpsError("unauthenticated", "You must be signed in to fetch link previews.");
   }

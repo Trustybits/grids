@@ -2,6 +2,7 @@ import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
+import { noopIfMaintenance } from "../maintenance.js";
 import { notionClientId, notionClientSecret } from "./secrets.js";
 
 type NotionRichText = { plain_text?: string };
@@ -26,6 +27,8 @@ type NotionProperty = {
 export const fetchNotionRoadmap = functions
   .runWith({ secrets: [notionClientId, notionClientSecret] })
   .https.onCall(async (data, _context) => {
+    if (noopIfMaintenance("fetchNotionRoadmap")) return null;
+
     // No auth required — roadmap data is public (visible to anyone who can view the grid).
     // The Notion access token is read server-side from Firestore and never returned to the client.
 

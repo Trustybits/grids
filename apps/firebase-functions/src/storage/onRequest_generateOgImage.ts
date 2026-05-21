@@ -37,6 +37,7 @@
 import * as functions from "firebase-functions/v1";
 import admin from "firebase-admin";
 import type { Request, Response } from "firebase-functions/v1";
+import { respondWithMaintenanceIfEnabled } from "../maintenance.js";
 
 // chromium and puppeteer are lazy-loaded inside the handler so the Firebase
 // CLI's function-introspection server doesn't time out at deploy time.
@@ -1844,6 +1845,8 @@ async function renderOgImage(
 // ─── Main handler ────────────────────────────────────────────────────────────
 
 async function handler(req: Request, res: Response): Promise<void> {
+  if (respondWithMaintenanceIfEnabled("generateOgImage", res)) return;
+
   const slug = req.query.slug as string | undefined;
   const gridId = req.query.gridId as string | undefined;
   const refresh = req.query.refresh === "1";

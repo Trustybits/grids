@@ -2,6 +2,7 @@ import admin from "firebase-admin";
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import { createHash } from "node:crypto";
+import { respondWithMaintenanceIfEnabled } from "../maintenance.js";
 import { isSafeFirestoreDocId } from "./utils_analytics.js";
 import { writeServerAnalyticsEvent } from "./utils_writeServerEvent.js";
 
@@ -182,6 +183,8 @@ async function checkRateLimit(
  */
 export const trackGridViewEndBeacon = functions.https.onRequest(
   async (req, res) => {
+    if (respondWithMaintenanceIfEnabled("trackGridViewEndBeacon", res)) return;
+
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.set("Access-Control-Allow-Headers", "Content-Type");

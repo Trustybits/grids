@@ -16,7 +16,7 @@ export type ServerAnalyticsEventType =
 interface WriteServerEventArgs {
   eventType: ServerAnalyticsEventType;
   userId: string | null;
-  layoutId: string | null;
+  gridId: string | null;
   metadata: Record<string, unknown>;
 }
 
@@ -28,7 +28,7 @@ interface WriteServerEventArgs {
 export async function writeServerAnalyticsEvent({
   eventType,
   userId,
-  layoutId,
+  gridId,
   metadata,
 }: WriteServerEventArgs): Promise<void> {
   try {
@@ -38,14 +38,14 @@ export async function writeServerAnalyticsEvent({
       timestamp: FieldValue.serverTimestamp(),
       expiresAt,
       userId,
-      layoutId,
+      gridId,
       metadata,
     });
   } catch (error) {
     logger.error("Failed to write server analytics event", {
       eventType,
       userId,
-      layoutId,
+      gridId,
       error: String(error),
     });
   }

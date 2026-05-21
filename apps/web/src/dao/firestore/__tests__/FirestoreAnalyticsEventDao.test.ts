@@ -77,7 +77,7 @@ describe("FirestoreAnalyticsEventDao", () => {
       expect(payload).toMatchObject({
         eventType: AnalyticsEventType.GRID_VIEW,
         userId: null,
-        layoutId: "grid-1",
+        gridId: "grid-1",
         metadata,
         timestamp: "SERVER_TS",
       });
@@ -103,7 +103,7 @@ describe("FirestoreAnalyticsEventDao", () => {
       expect(payload).toMatchObject({
         eventType: AnalyticsEventType.USER_LOGIN,
         userId: "user-7",
-        layoutId: null,
+        gridId: null,
         metadata: { signInMethod: "google" },
       });
     });
@@ -164,7 +164,7 @@ describe("FirestoreAnalyticsEventDao", () => {
       expect(result).toBe(true);
     });
 
-    it("serializes the payload as JSON with legacy layoutId, userId, sessionId, and durationMs", () => {
+    it("serializes the payload as JSON with legacy gridId, userId, sessionId, and durationMs", () => {
       const blobParts: BlobPart[][] = [];
       const OriginalBlob = global.Blob;
       const blobSpy = vi
@@ -178,7 +178,7 @@ describe("FirestoreAnalyticsEventDao", () => {
         dao.logGridViewEndEventBeacon(sampleEvent);
         expect(blobParts).toHaveLength(1);
         expect(JSON.parse(String(blobParts[0][0]))).toEqual({
-          layoutId: "grid-1",
+          gridId: "grid-1",
           userId: "user-1",
           sessionId: "sess-1",
           durationMs: 12345,

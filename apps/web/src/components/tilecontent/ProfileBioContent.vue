@@ -527,7 +527,7 @@ export default defineComponent({
     const storageService = getServiceFactory().getStorageService();
 
     // ── Badges ────────────────────────────────────────────────────────
-    // Resolve the layout owner's UID — works both for the owner editing
+    // Resolve the grid owner's UID — works both for the owner editing
     // their own profile and for visitors viewing someone else's grid.
     const ownerUserId = computed(
       () => gridStore.currentGrid?.userId ?? null,

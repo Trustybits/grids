@@ -34,7 +34,7 @@ export const onNewUserSignup = functions
     await writeServerAnalyticsEvent({
       eventType: "user_signup",
       userId: user.uid,
-      layoutId: null,
+      gridId: null,
       metadata: { signInMethod },
     });
 

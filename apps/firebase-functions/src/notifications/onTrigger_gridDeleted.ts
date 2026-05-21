@@ -7,31 +7,31 @@ import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.j
 import { discordUserActivityWebhookUrl } from "./secrets.js";
 
 /**
- * Firebase function that triggers when a grid/layout is deleted.
+ * Firebase function that triggers when a grid is deleted.
  * Sends a notification to the user-activity Discord channel.
  */
 export const onGridDeleted = functions
   .runWith({
     secrets: [discordUserActivityWebhookUrl],
   })
-  .firestore.document("layouts/{layoutId}")
+  .firestore.document("grids/{gridId}")
   .onDelete(async (snapshot, context) => {
     if (noopIfMaintenance("onGridDeleted")) return null;
 
-    const layoutData = snapshot.data();
-    const layoutId = context.params.layoutId;
+    const gridData = snapshot.data();
+    const gridId = context.params.gridId;
 
     logger.info("Grid deleted", {
-      layoutId,
-      userId: layoutData.userId,
-      name: layoutData.name,
+      gridId,
+      userId: gridData.userId,
+      name: gridData.name,
     });
 
     await writeServerAnalyticsEvent({
       eventType: "grid_deleted",
-      userId: layoutData.userId ?? null,
-      layoutId,
-      metadata: { gridName: layoutData.name || "Untitled" },
+      userId: gridData.userId ?? null,
+      gridId,
+      metadata: { gridName: gridData.name || "Untitled" },
     });
 
     // Skip dev team members — look up email from users collection
@@ -40,15 +40,15 @@ export const onGridDeleted = functions
       const userDoc = await admin
         .firestore()
         .collection("users")
-        .doc(layoutData.userId)
+        .doc(gridData.userId)
         .get();
       ownerEmail = userDoc.data()?.email;
     } catch {
       // Non-fatal — proceed without email check
     }
-    if (isDevTeamMember(layoutData.userId, ownerEmail)) {
+    if (isDevTeamMember(gridData.userId, ownerEmail)) {
       logger.info("Skipping Discord notification for dev team member", {
-        userId: layoutData.userId,
+        userId: gridData.userId,
       });
       return null;
     }
@@ -72,17 +72,17 @@ export const onGridDeleted = functions
           fields: [
             {
               name: "Grid Name",
-              value: layoutData.name || "Untitled",
+              value: gridData.name || "Untitled",
               inline: true,
             },
             {
               name: "Grid ID",
-              value: layoutId,
+              value: gridId,
               inline: true,
             },
             {
               name: "User ID",
-              value: layoutData.userId || "Unknown",
+              value: gridData.userId || "Unknown",
               inline: false,
             },
           ],
@@ -107,14 +107,14 @@ export const onGridDeleted = functions
 
       if (!response.ok) {
         logger.error("Discord webhook returned error status", {
-          layoutId,
+          gridId,
           status: response.status,
           statusText: response.statusText,
           responseBody: responseText,
         });
       } else {
         logger.info("Discord grid deletion notification sent successfully", {
-          layoutId,
+          gridId,
           status: response.status,
         });
       }
@@ -123,7 +123,7 @@ export const onGridDeleted = functions
     } catch (error) {
       logger.error("Failed to send Discord webhook", {
         error: String(error),
-        layoutId,
+        gridId,
       });
       return null;
     }

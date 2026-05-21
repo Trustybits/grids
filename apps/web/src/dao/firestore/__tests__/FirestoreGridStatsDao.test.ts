@@ -69,7 +69,7 @@ describe("FirestoreGridStatsDao", () => {
     it("reads gridStats/{gridId} and maps full data", async () => {
       const updated = new FakeTimestamp(1700, 0);
       const data = {
-        layoutId: "grid-1",
+        gridId: "grid-1",
         ownerId: "user-1",
         totalViews: 50,
         uniqueViewers: 30,
@@ -113,7 +113,7 @@ describe("FirestoreGridStatsDao", () => {
       vi.mocked(doc).mockReturnValue("docRef" as any);
       vi.mocked(getDoc).mockResolvedValue(
         fakeSnapshot({
-          layoutId: "grid-1",
+          gridId: "grid-1",
           ownerId: "user-1",
         }) as any,
       );
@@ -140,7 +140,7 @@ describe("FirestoreGridStatsDao", () => {
   describe("getDaily", () => {
     it("reads the gridStats/{gridId}__{date} document and includes the date field", async () => {
       const data = {
-        layoutId: "grid-1",
+        gridId: "grid-1",
         ownerId: "user-1",
         totalViews: 3,
         date: "2026-05-07",
@@ -179,8 +179,8 @@ describe("FirestoreGridStatsDao", () => {
       vi.mocked(query).mockReturnValue("queryRef" as any);
       vi.mocked(getDocs).mockResolvedValue(
         fakeQueryResult([
-          { layoutId: "grid-1", date: "2026-05-01", totalViews: 1 },
-          { layoutId: "grid-1", date: "2026-05-02", totalViews: 2 },
+          { gridId: "grid-1", date: "2026-05-01", totalViews: 1 },
+          { gridId: "grid-1", date: "2026-05-02", totalViews: 2 },
         ]) as any,
       );
 

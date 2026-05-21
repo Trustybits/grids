@@ -1,0 +1,127 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // During maintenance, client reads keep their normal shape where practical,
+    // but every client write is denied. Cloud Functions/Admin SDK still bypass
+    // Firestore rules.
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    match /slugs/{slug} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /publicProfiles/{userId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /userBadges/{userId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /layouts/{layoutId} {
+      allow read: if true;
+      allow write: if false;
+
+      match /tiles/{tileId}/messages/{messageId} {
+        allow read: if true;
+        allow write: if false;
+      }
+
+      match /tiles/{tileId}/upvotes/{docId} {
+        allow read: if true;
+        allow write: if false;
+      }
+
+      match /notionTokens/{tileId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /grids/{gridId} {
+      allow read: if true;
+      allow write: if false;
+
+      match /tiles/{tileId}/messages/{messageId} {
+        allow read: if true;
+        allow write: if false;
+      }
+
+      match /tiles/{tileId}/upvotes/{docId} {
+        allow read: if true;
+        allow write: if false;
+      }
+
+      match /notionTokens/{tileId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /userGameData/{userId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /customers/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+
+      match /checkout_sessions/{id} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+
+      match /subscriptions/{id} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+
+      match /payments/{id} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+    }
+
+    match /products/{id} {
+      allow read: if true;
+      allow write: if false;
+
+      match /prices/{priceId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    match /analyticsEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    match /gridStats/{docId} {
+      allow read: if request.auth != null
+        && (resource == null || resource.data.ownerId == request.auth.uid);
+      allow write: if false;
+
+      match /viewers/{fingerprint} {
+        allow read, write: if false;
+      }
+
+      match /endedSessions/{sessionId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /businessStats/{docId} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow write: if false;
+    }
+  }
+}

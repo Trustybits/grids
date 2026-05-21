@@ -31,7 +31,7 @@ export const useFloatingSelector = <T extends HTMLElement>({
   const handleButtonClick = (value: string) => {
     buttonAction(value);
     isActive.value = false;
-    // layoutStore.closeMenus();
+    // gridStore.closeMenus();
   };
 
   const handleClickOutside = (event: MouseEvent) => {

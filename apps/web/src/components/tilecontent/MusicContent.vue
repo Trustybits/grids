@@ -930,7 +930,7 @@ import {
 } from "vue";
 import { type MusicContent } from "@/types/TileContent";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 
 export default defineComponent({
   props: {
@@ -940,7 +940,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const tileId = inject<string | null>("tileId", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
@@ -1417,7 +1417,7 @@ export default defineComponent({
         }) as Record<string, unknown>;
 
         if (tileId) {
-          layoutStore.patchTileContent(tileId, data);
+          gridStore.patchTileContent(tileId, data);
         }
         // Trigger fly-to-corner animation, then hide overlay
         loadingDone.value = true;

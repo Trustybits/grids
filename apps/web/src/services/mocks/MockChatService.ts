@@ -3,7 +3,7 @@ import type { IChatService } from "../interfaces/IChatService";
 
 export class MockChatService implements IChatService {
   subscribeToMessages(
-    _layoutId: string,
+    _gridId: string,
     _tileId: string,
     _callback: (messages: ChatMessage[]) => void,
     _onError?: (error: Error) => void,
@@ -12,7 +12,7 @@ export class MockChatService implements IChatService {
   }
 
   sendMessage(
-    _layoutId: string,
+    _gridId: string,
     _tileId: string,
     _text: string,
   ): Promise<string> {
@@ -20,7 +20,7 @@ export class MockChatService implements IChatService {
   }
 
   editMessage(
-    _layoutId: string,
+    _gridId: string,
     _tileId: string,
     _messageId: string,
     _text: string,
@@ -29,7 +29,7 @@ export class MockChatService implements IChatService {
   }
 
   deleteMessage(
-    _layoutId: string,
+    _gridId: string,
     _tileId: string,
     _messageId: string,
   ): Promise<void> {

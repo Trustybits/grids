@@ -11,13 +11,13 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { useToastStore } from "@/stores/toast";
 import IconButton from '@/components/ui-controls/IconButton.vue';
 
 const router = useRouter();
 const route = useRoute();
-const layoutStore = useLayoutStore();
+const gridStore = useGridStore();
 const toastStore = useToastStore();
 
 const handleUseTemplate = async () => {
@@ -26,9 +26,9 @@ const handleUseTemplate = async () => {
     return;
   }
 
-  if (!layoutStore.currentLayout) return;
+  if (!gridStore.currentGrid) return;
 
-  const newId = await layoutStore.duplicateLayout(layoutStore.currentLayout, 'structure');
+  const newId = await gridStore.duplicateGrid(gridStore.currentGrid, 'structure');
   if (newId) {
     toastStore.addToast('Grid duplicated as a new template!', 'success');
     router.push(`/grid/${newId}`);

@@ -39,7 +39,7 @@
       useTileLink all hard-code target="_blank"). We add a defensive
       click-interceptor anyway so any future tile type that forgets to
       do this still can't accidentally navigate the visitor away from /.
-    • Intentionally does NOT watch currentLayout.themeId or call
+    • Intentionally does NOT watch currentGrid.themeId or call
       themeStore.applyGridTheme — the demo grid's theme must not leak
       onto the landing page's document root.
 -->
@@ -102,11 +102,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Grid from '@/components/grid/Grid.vue';
-import { useLayoutStore } from '@/stores/layout';
+import { useGridStore } from '@/stores/grid';
 import {
   DEMO_GRID_DIMENSIONS,
-  createDemoLayout,
-} from '@/data/DemoLayout';
+  createDemoGrid,
+} from '@/data/DemoGrid';
 import type { Breakpoint } from '@/types/Tile';
 
 const _props = withDefaults(
@@ -118,7 +118,7 @@ const _props = withDefaults(
   },
 );
 
-const layoutStore = useLayoutStore();
+const gridStore = useGridStore();
 
 // ── Pinned scroll-jack state ────────────────────────────────────────────────
 const jackRoot = ref<HTMLElement | null>(null);
@@ -266,14 +266,14 @@ const scrollSizerStyle = computed(() => {
   };
 });
 
-// ── Layout-store wiring ─────────────────────────────────────────────────────
-let prevLayout: typeof layoutStore.currentLayout = null;
+// ── Grid-store wiring ─────────────────────────────────────────────────────
+let prevGrid: typeof gridStore.currentGrid = null;
 let prevIsOwner = false;
 let prevForcedBreakpoint: Breakpoint | null = null;
 
 const applyForcedBreakpoint = (bp: Breakpoint) => {
-  if (layoutStore.forcedBreakpoint === bp) return;
-  layoutStore.setForcedBreakpoint(bp);
+  if (gridStore.forcedBreakpoint === bp) return;
+  gridStore.setForcedBreakpoint(bp);
 };
 
 watch(displayBreakpoint, (bp) => {
@@ -337,11 +337,11 @@ const onResize = () => {
 
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 onMounted(() => {
-  prevLayout = layoutStore.currentLayout;
-  prevIsOwner = layoutStore.isOwner;
-  prevForcedBreakpoint = layoutStore.forcedBreakpoint;
+  prevGrid = gridStore.currentGrid;
+  prevIsOwner = gridStore.isOwner;
+  prevForcedBreakpoint = gridStore.forcedBreakpoint;
 
-  layoutStore.loadDemoLayout(createDemoLayout());
+  gridStore.loadDemoGrid(createDemoGrid());
   applyForcedBreakpoint(displayBreakpoint.value);
 
   window.addEventListener('scroll', onScroll, { passive: true });
@@ -354,10 +354,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize);
   if (rafId) cancelAnimationFrame(rafId);
 
-  layoutStore.setForcedBreakpoint(prevForcedBreakpoint);
-  layoutStore.currentLayout = prevLayout;
-  layoutStore.isOwner = prevIsOwner;
-  layoutStore.isDemoLayout = false;
+  gridStore.setForcedBreakpoint(prevForcedBreakpoint);
+  gridStore.currentGrid = prevGrid;
+  gridStore.isOwner = prevIsOwner;
+  gridStore.isDemoGrid = false;
 });
 
 // Defense in depth: if anything inside the embed tries to navigate via a

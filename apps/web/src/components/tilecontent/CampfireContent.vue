@@ -111,7 +111,7 @@ import {
   type ComputedRef,
 } from "vue";
 import { type CampfireContent } from "@/types/TileContent";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import FireSmallIcon from "@/components/icons/FireSmallIcon.vue";
 import FireMediumIcon from "@/components/icons/FireMediumIcon.vue";
 import FireLargeIcon from "@/components/icons/FireLargeIcon.vue";
@@ -134,7 +134,7 @@ export default defineComponent({
     },
   },
   setup(_props) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const gameDataService = getServiceFactory().getGameDataService();
     const fireIntensity = ref<'dying' | 'burning' | 'blazing'>('dying');
     const lastClickTime = ref(0);
@@ -287,7 +287,7 @@ export default defineComponent({
       void flushPending();
     };
 
-    const ownerId = computed(() => layoutStore.currentLayout?.userId || "");
+    const ownerId = computed(() => gridStore.currentGrid?.userId || "");
 
     const fireIntensityClass = computed(() => {
       return `fire-${fireIntensity.value}`;

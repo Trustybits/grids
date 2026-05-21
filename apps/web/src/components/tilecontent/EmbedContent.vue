@@ -40,7 +40,7 @@
 <script lang="ts">
 import { computed, defineComponent, inject, ref, type Ref } from "vue";
 import { type EmbedContent } from "@/types/TileContent";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 
 export default defineComponent({
   props: {
@@ -50,8 +50,8 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const layoutStore = useLayoutStore();
-    const canEdit = computed(() => layoutStore.canEdit);
+    const gridStore = useGridStore();
+    const canEdit = computed(() => gridStore.canEdit);
 
     const tileActivated = inject<Ref<boolean>>("tileActivated", ref(false));
 

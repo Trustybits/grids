@@ -1,6 +1,6 @@
 <template>
   <div
-    v-if="layoutStore.isOwner && layoutId"
+    v-if="gridStore.isOwner && gridId"
     class="grid-stats-wrapper"
     ref="wrapperRef"
     @mouseenter="hovered = true"
@@ -49,13 +49,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from "vue";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import type { GridStats, DailyGridStats } from "@/types/Analytics";
 import Chevron from "@/components/icons/Chevron.vue";
 import { formatDuration } from "@/utils/RelativeTime";
 
-const layoutStore = useLayoutStore();
+const gridStore = useGridStore();
 
 const wrapperRef = ref<HTMLElement | null>(null);
 const hovered = ref(false);
@@ -64,7 +64,7 @@ const menuOpen = ref(false);
 const aggregate = ref<GridStats | null>(null);
 const yesterday = ref<DailyGridStats | null>(null);
 
-const layoutId = computed(() => layoutStore.currentLayout?.id ?? null);
+const gridId = computed(() => gridStore.currentGrid?.id ?? null);
 
 const lifetimeViews = computed(() => aggregate.value?.totalViews ?? 0);
 const uniqueViewers = computed(() => aggregate.value?.uniqueViewers ?? 0);
@@ -89,7 +89,7 @@ async function loadStats(id: string) {
       svc.getGridStats(id),
       svc.getGridStatsForDate(id, date),
     ]);
-    if (layoutId.value !== id) return;
+    if (gridId.value !== id) return;
     aggregate.value = agg;
     yesterday.value = yest;
   } catch (err) {
@@ -98,7 +98,7 @@ async function loadStats(id: string) {
 }
 
 watch(
-  layoutId,
+  gridId,
   (id) => {
     aggregate.value = null;
     yesterday.value = null;

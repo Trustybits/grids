@@ -29,17 +29,17 @@ export interface IAnalyticsService {
   logGridViewEndEventBeacon(event: GridViewEndEvent): boolean;
 
   /** Lifetime aggregate stats for a grid. */
-  getGridStats(layoutId: string): Promise<GridStats | null>;
+  getGridStats(gridId: string): Promise<GridStats | null>;
 
   /** Daily stats for a grid on a UTC date (`YYYY-MM-DD`). */
   getGridStatsForDate(
-    layoutId: string,
+    gridId: string,
     date: string,
   ): Promise<DailyGridStats | null>;
 
   /** Inclusive range of daily stats for a grid. */
   getGridStatsDailyRange(
-    layoutId: string,
+    gridId: string,
     startDate: string,
     endDate: string,
   ): Promise<DailyGridStats[]>;

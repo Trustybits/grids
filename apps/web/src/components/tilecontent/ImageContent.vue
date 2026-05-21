@@ -6,8 +6,8 @@
       class="image-wrapper"
       :class="{
         'crop-active': isEditing,
-        'owner-view': layoutStore.isOwner,
-        'viewer-view': !layoutStore.isOwner,
+        'owner-view': gridStore.isOwner,
+        'viewer-view': !gridStore.isOwner,
         'has-link': tileLinkExists,
       }"
       @mousedown="startDragging"
@@ -88,7 +88,7 @@ import {
   inject,
 } from "vue";
 import { type ImageContent } from "@/types/TileContent";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
@@ -108,18 +108,18 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
 
     // Upload progress tracking — injected tile ID lets us look up our upload state
     const tileId = inject<string>("tileId", "");
     const isUploading = computed(() => {
       return (
-        tileId != null && tileId !== "" && tileId in layoutStore.uploadingTiles
+        tileId != null && tileId !== "" && tileId in gridStore.uploadingTiles
       );
     });
     const uploadPercent = computed(() => {
       if (!tileId) return 0;
-      const progress = layoutStore.uploadingTiles[tileId] ?? 0;
+      const progress = gridStore.uploadingTiles[tileId] ?? 0;
       return Math.round(progress * 100);
     });
 
@@ -149,7 +149,7 @@ export default defineComponent({
 
     // Toggle crop mode
     const toggleEditMode = () => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
 
       isEditing.value = !isEditing.value;
 
@@ -164,7 +164,7 @@ export default defineComponent({
       if (!isEditing.value) {
         // Use patchTileContent to properly persist the offset changes
         if (tileId && tileId !== "") {
-          layoutStore.patchTileContent(tileId, {
+          gridStore.patchTileContent(tileId, {
             offsetX: offsetX.value,
             offsetY: offsetY.value,
           });
@@ -240,7 +240,7 @@ export default defineComponent({
         ? isDragging.value
           ? "grabbing"
           : "grab"
-        : !layoutStore.isOwner && tileLinkExists.value
+        : !gridStore.isOwner && tileLinkExists.value
           ? "pointer"
           : "default";
       const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
@@ -335,13 +335,13 @@ export default defineComponent({
     } = useTileLink(tileId || null, props.content);
 
     const onShortClick = () => {
-      if (!layoutStore.isOwner && tileLinkExists.value) {
+      if (!gridStore.isOwner && tileLinkExists.value) {
         handleFollowLink();
       }
     };
 
     return {
-      layoutStore,
+      gridStore,
       isEditing,
       isUploading,
       uploadPercent,

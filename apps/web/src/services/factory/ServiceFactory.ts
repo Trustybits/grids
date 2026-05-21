@@ -3,7 +3,7 @@ import { AnalyticsService } from "../AnalyticsService";
 import { ChatService } from "../ChatService";
 import { CloudFunctionsService } from "../CloudFunctionsService";
 import { GameDataService } from "../GameDataService";
-import { LayoutService } from "../LayoutService";
+import { GridService } from "../GridService";
 import { RoadmapService } from "../RoadmapService";
 import { StorageService } from "../StorageService";
 import { StripeService } from "../StripeService";
@@ -14,7 +14,7 @@ import type { IAnalyticsService } from "../interfaces/IAnalyticsService";
 import type { IChatService } from "../interfaces/IChatService";
 import type { ICloudFunctionsService } from "../interfaces/ICloudFunctionsService";
 import type { IGameDataService } from "../interfaces/IGameDataService";
-import type { ILayoutService } from "../interfaces/ILayoutService";
+import type { IGridService } from "../interfaces/IGridService";
 import type { IRoadmapService } from "../interfaces/IRoadmapService";
 import type { IStorageService } from "../interfaces/IStorageService";
 import type { IStripeService } from "../interfaces/IStripeService";
@@ -25,7 +25,7 @@ import { MockAnalyticsService } from "../mocks/MockAnalyticsService";
 import { MockChatService } from "../mocks/MockChatService";
 import { MockCloudFunctionsService } from "../mocks/MockCloudFunctionsService";
 import { MockGameDataService } from "../mocks/MockGameDataService";
-import { MockLayoutService } from "../mocks/MockLayoutService";
+import { MockGridService } from "../mocks/MockGridService";
 import { MockRoadmapService } from "../mocks/MockRoadmapService";
 import { MockStorageService } from "../mocks/MockStorageService";
 import { MockStripeService } from "../mocks/MockStripeService";
@@ -40,7 +40,7 @@ export class ServiceFactory implements IServiceFactory {
   private chatService: IChatService;
   private cloudFunctionsService: ICloudFunctionsService;
   private gameDataService: IGameDataService;
-  private layoutService: ILayoutService;
+  private gridService: IGridService;
   private roadmapService: IRoadmapService;
   private storageService: IStorageService;
   private stripeService: IStripeService;
@@ -56,7 +56,7 @@ export class ServiceFactory implements IServiceFactory {
       this.chatService = new MockChatService();
       this.cloudFunctionsService = new MockCloudFunctionsService();
       this.gameDataService = new MockGameDataService();
-      this.layoutService = new MockLayoutService();
+      this.gridService = new MockGridService();
       this.roadmapService = new MockRoadmapService();
       this.storageService = new MockStorageService();
       this.stripeService = new MockStripeService();
@@ -68,7 +68,7 @@ export class ServiceFactory implements IServiceFactory {
       this.chatService = new ChatService();
       this.cloudFunctionsService = new CloudFunctionsService();
       this.gameDataService = new GameDataService();
-      this.layoutService = new LayoutService();
+      this.gridService = new GridService();
       this.roadmapService = new RoadmapService();
       this.storageService = new StorageService();
       this.stripeService = new StripeService();
@@ -97,8 +97,8 @@ export class ServiceFactory implements IServiceFactory {
     return this.gameDataService;
   }
 
-  public getLayoutService(): ILayoutService {
-    return this.layoutService;
+  public getGridService(): IGridService {
+    return this.gridService;
   }
 
   public getRoadmapService(): IRoadmapService {

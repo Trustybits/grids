@@ -26,7 +26,7 @@ type DocumentContentRecord = {
   items?: DocumentItemRecord[];
 };
 
-type LayoutTileRecord = {
+type GridTileRecord = {
   i: string;
   content: DocumentContentRecord | { type: string };
 };
@@ -96,37 +96,37 @@ export const ensureDocumentItemThumbnail = functions
       throw new HttpsError("unauthenticated", "Sign in required.");
     }
 
-    const layoutId = typeof data?.layoutId === "string" ? data.layoutId : "";
+    const gridId = typeof data?.gridId === "string" ? data.gridId : "";
     const tileId = typeof data?.tileId === "string" ? data.tileId : "";
     const itemId = typeof data?.itemId === "string" ? data.itemId : "";
 
-    if (!layoutId || !tileId || !itemId) {
+    if (!gridId || !tileId || !itemId) {
       throw new HttpsError(
         "invalid-argument",
-        "layoutId, tileId, and itemId are required.",
+        "gridId, tileId, and itemId are required.",
       );
     }
 
     const uid = context.auth.uid;
     const db = admin.firestore();
-    const layoutRef = db.collection("layouts").doc(layoutId);
+    const gridRef = db.collection("grids").doc(gridId);
 
-    const layoutSnap = await layoutRef.get();
-    if (!layoutSnap.exists) {
-      throw new HttpsError("not-found", "Layout not found.");
+    const gridSnap = await gridRef.get();
+    if (!gridSnap.exists) {
+      throw new HttpsError("not-found", "Grid not found.");
     }
 
-    const layout = layoutSnap.data();
-    if (!layout) {
-      throw new HttpsError("not-found", "Layout has no data.");
+    const grid = gridSnap.data();
+    if (!grid) {
+      throw new HttpsError("not-found", "Grid has no data.");
     }
-    if (layout.userId !== uid) {
-      throw new HttpsError("permission-denied", "You do not own this layout.");
+    if (grid.userId !== uid) {
+      throw new HttpsError("permission-denied", "You do not own this grid.");
     }
 
-    const tiles = layout.tiles as LayoutTileRecord[] | undefined;
+    const tiles = grid.tiles as GridTileRecord[] | undefined;
     if (!Array.isArray(tiles)) {
-      throw new HttpsError("failed-precondition", "Layout has no tiles.");
+      throw new HttpsError("failed-precondition", "Grid has no tiles.");
     }
 
     const tile = tiles.find((t) => t.i === tileId);
@@ -204,18 +204,18 @@ export const ensureDocumentItemThumbnail = functions
       `${encodeURIComponent(thumbPath)}?alt=media&token=${token}`;
 
     await db.runTransaction(async (tx) => {
-      const fresh = await tx.get(layoutRef);
+      const fresh = await tx.get(gridRef);
       if (!fresh.exists) {
-        throw new HttpsError("not-found", "Layout disappeared during update.");
+        throw new HttpsError("not-found", "Grid disappeared during update.");
       }
       const d = fresh.data();
       if (!d) {
-        throw new HttpsError("not-found", "Layout disappeared during update.");
+        throw new HttpsError("not-found", "Grid disappeared during update.");
       }
       if (d.userId !== uid) {
         throw new HttpsError("permission-denied", "Ownership changed.");
       }
-      const nextTiles = (d.tiles as LayoutTileRecord[]).map((t) => {
+      const nextTiles = (d.tiles as GridTileRecord[]).map((t) => {
         if (t.i !== tileId) return t;
         const c = t.content as DocumentContentRecord;
         if (c.type !== "document" || !Array.isArray(c.items)) return t;
@@ -227,11 +227,11 @@ export const ensureDocumentItemThumbnail = functions
           content: { ...c, items: nextItems },
         };
       });
-      tx.update(layoutRef, { tiles: nextTiles });
+      tx.update(gridRef, { tiles: nextTiles });
     });
 
     functions.logger.info("[doc-thumb] stored", {
-      layoutId,
+      gridId,
       tileId,
       itemId,
       thumbPath,

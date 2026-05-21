@@ -4,10 +4,10 @@
  * The unit under test is a thin wrapper that writes a single document into
  * the `analyticsEvents` collection. Coverage:
  *   - exact field shape written to Firestore (eventType, timestamp sentinel,
- *     expiresAt Timestamp, userId, layoutId, metadata)
+ *     expiresAt Timestamp, userId, gridId, metadata)
  *   - expiresAt is `now + 90 days` in millis
  *   - all four ServerAnalyticsEventType values pass through unchanged
- *   - null userId / null layoutId are passed through verbatim
+ *   - null userId / null gridId are passed through verbatim
  *   - metadata object is forwarded as-is
  *   - if firestore().add() rejects, the function logs and resolves (does NOT
  *     throw) — analytics writes must never break the caller's primary work
@@ -85,7 +85,7 @@ describe("writeServerAnalyticsEvent: happy path", () => {
     await writeServerAnalyticsEvent({
       eventType: "user_signup",
       userId: "u-1",
-      layoutId: null,
+      gridId: null,
       metadata: {},
     });
 
@@ -98,7 +98,7 @@ describe("writeServerAnalyticsEvent: happy path", () => {
     await writeServerAnalyticsEvent({
       eventType: "grid_created",
       userId: "u-1",
-      layoutId: "layout-1",
+      gridId: "grid-1",
       metadata: { source: "dashboard" },
     });
 
@@ -112,7 +112,7 @@ describe("writeServerAnalyticsEvent: happy path", () => {
         _millis: FIXED_NOW + NINETY_DAYS_MS,
       }),
       userId: "u-1",
-      layoutId: "layout-1",
+      gridId: "grid-1",
       metadata: { source: "dashboard" },
     });
   });
@@ -124,7 +124,7 @@ describe("writeServerAnalyticsEvent: happy path", () => {
     await writeServerAnalyticsEvent({
       eventType: "user_login",
       userId: "u-1",
-      layoutId: null,
+      gridId: null,
       metadata: {},
     });
 
@@ -142,22 +142,22 @@ describe("writeServerAnalyticsEvent: happy path", () => {
     await writeServerAnalyticsEvent({
       eventType,
       userId: "u-1",
-      layoutId: null,
+      gridId: null,
       metadata: {},
     });
     expect(addMock.mock.calls[0][0].eventType).toBe(eventType);
   });
 
-  it("passes null userId and null layoutId through unchanged", async () => {
+  it("passes null userId and null gridId through unchanged", async () => {
     await writeServerAnalyticsEvent({
       eventType: "user_login",
       userId: null,
-      layoutId: null,
+      gridId: null,
       metadata: {},
     });
     const doc = addMock.mock.calls[0][0];
     expect(doc.userId).toBeNull();
-    expect(doc.layoutId).toBeNull();
+    expect(doc.gridId).toBeNull();
   });
 
   it("forwards arbitrary metadata as-is (reference equality)", async () => {
@@ -168,7 +168,7 @@ describe("writeServerAnalyticsEvent: happy path", () => {
     await writeServerAnalyticsEvent({
       eventType: "user_signup",
       userId: "u-1",
-      layoutId: null,
+      gridId: null,
       metadata,
     });
     const doc = addMock.mock.calls[0][0];
@@ -184,7 +184,7 @@ describe("writeServerAnalyticsEvent: error handling", () => {
       writeServerAnalyticsEvent({
         eventType: "grid_deleted",
         userId: "u-1",
-        layoutId: "layout-1",
+        gridId: "grid-1",
         metadata: { reason: "user_initiated" },
       }),
     ).resolves.toBeUndefined();
@@ -195,7 +195,7 @@ describe("writeServerAnalyticsEvent: error handling", () => {
       expect.objectContaining({
         eventType: "grid_deleted",
         userId: "u-1",
-        layoutId: "layout-1",
+        gridId: "grid-1",
         error: expect.stringContaining("firestore unavailable"),
       }),
     );
@@ -207,7 +207,7 @@ describe("writeServerAnalyticsEvent: error handling", () => {
     await writeServerAnalyticsEvent({
       eventType: "user_login",
       userId: null,
-      layoutId: null,
+      gridId: null,
       metadata: {},
     });
 
@@ -221,7 +221,7 @@ describe("writeServerAnalyticsEvent: error handling", () => {
     await writeServerAnalyticsEvent({
       eventType: "user_signup",
       userId: "u-1",
-      layoutId: null,
+      gridId: null,
       metadata: {},
     });
     expect(logger.error).not.toHaveBeenCalled();

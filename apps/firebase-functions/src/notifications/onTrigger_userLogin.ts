@@ -53,7 +53,7 @@ export const onUserLogin = functions
     await writeServerAnalyticsEvent({
       eventType: "user_login",
       userId,
-      layoutId: null,
+      gridId: null,
       metadata: { signInMethod },
     });
 

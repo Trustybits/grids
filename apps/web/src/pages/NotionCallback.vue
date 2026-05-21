@@ -89,7 +89,7 @@ export default defineComponent({
       let redirectUri = "";
       try {
         const state = JSON.parse(decodeURIComponent(stateRaw ?? "{}"));
-        gridId = state.layoutId ?? state.gridId ?? "";
+        gridId = state.gridId ?? "";
         tileId = state.tileId ?? "";
         redirectUri = state.redirectUri ?? "";
       } catch {
@@ -116,7 +116,7 @@ export default defineComponent({
         // Exchange the authorization code for an access token via the Cloud Function.
         // The token is stored server-side; this page never sees it.
         // redirectUri is read from state so it exactly matches what was used in the authorize step.
-        await getServiceFactory().getCloudFunctionsService().callFunction("notionOAuthExchange", { code, layoutId: gridId, tileId, redirectUri });
+        await getServiceFactory().getCloudFunctionsService().callFunction("notionOAuthExchange", { code, gridId, tileId, redirectUri });
 
         status.value = "success";
 

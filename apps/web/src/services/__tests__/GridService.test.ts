@@ -588,7 +588,7 @@ describe('touchLastOpenedAt', () => {
 
 describe('loadRecentGridIds', () => {
   it('returns recent grid IDs from user document', async () => {
-    mockUserDao.getById.mockResolvedValueOnce({ recentLayoutIds: ['a', 'b', 'c'] })
+    mockUserDao.getById.mockResolvedValueOnce({ recentGridIds: ['a', 'b', 'c'] })
 
     const service = await getService()
     const result = await service.loadRecentGridIds('user-1')
@@ -598,7 +598,7 @@ describe('loadRecentGridIds', () => {
 
   it('truncates to 3 IDs', async () => {
     mockUserDao.getById.mockResolvedValueOnce({
-      recentLayoutIds: ['a', 'b', 'c', 'd', 'e'],
+      recentGridIds: ['a', 'b', 'c', 'd', 'e'],
     })
 
     const service = await getService()
@@ -609,7 +609,7 @@ describe('loadRecentGridIds', () => {
 
   it('filters out non-string values', async () => {
     mockUserDao.getById.mockResolvedValueOnce({
-      recentLayoutIds: ['a', 123, null, 'b'],
+      recentGridIds: ['a', 123, null, 'b'],
     })
 
     const service = await getService()
@@ -627,8 +627,8 @@ describe('loadRecentGridIds', () => {
     expect(result).toEqual([])
   })
 
-  it('returns empty array when recentLayoutIds is not an array', async () => {
-    mockUserDao.getById.mockResolvedValueOnce({ recentLayoutIds: 'not-an-array' })
+  it('returns empty array when recentGridIds is not an array', async () => {
+    mockUserDao.getById.mockResolvedValueOnce({ recentGridIds: 'not-an-array' })
 
     const service = await getService()
     const result = await service.loadRecentGridIds('user-1')
@@ -636,7 +636,7 @@ describe('loadRecentGridIds', () => {
     expect(result).toEqual([])
   })
 
-  it('returns empty array when recentLayoutIds is missing', async () => {
+  it('returns empty array when recentGridIds is missing', async () => {
     mockUserDao.getById.mockResolvedValueOnce({})
 
     const service = await getService()
@@ -669,7 +669,7 @@ describe('saveRecentGridIds', () => {
     await service.saveRecentGridIds('user-1', ['a', 'b', 'c', 'd'])
 
     expect(mockUserDao.save).toHaveBeenCalledWith('user-1', {
-      recentLayoutIds: ['a', 'b', 'c'],
+      recentGridIds: ['a', 'b', 'c'],
     })
   })
 
@@ -680,7 +680,7 @@ describe('saveRecentGridIds', () => {
     await service.saveRecentGridIds('user-1', ['a'])
 
     expect(mockUserDao.save).toHaveBeenCalledWith('user-1', {
-      recentLayoutIds: ['a'],
+      recentGridIds: ['a'],
     })
   })
 

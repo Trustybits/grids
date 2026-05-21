@@ -21,7 +21,7 @@ type NotionProperty = {
  * count back to the corresponding Notion page.
  *
  * Upvotes are stored in Firestore at:
- *   layouts/{layoutId}/tiles/{tileId}/upvotes/{userId}
+ *   grids/{gridId}/tiles/{tileId}/upvotes/{userId}
  *
  * One document per user per tile item — the notionPageId field identifies
  * which item within the tile the user voted on. This naturally deduplicates
@@ -40,16 +40,16 @@ export const upvoteRoadmapItem = functions
       );
     }
 
-    const { layoutId, tileId, notionPageId } = data as {
-      layoutId?: string;
+    const { gridId, tileId, notionPageId } = data as {
+      gridId?: string;
       tileId?: string;
       notionPageId?: string;
     };
 
-    if (!layoutId || !tileId || !notionPageId) {
+    if (!gridId || !tileId || !notionPageId) {
       throw new HttpsError(
         "invalid-argument",
-        "Missing layoutId, tileId, or notionPageId.",
+        "Missing gridId, tileId, or notionPageId.",
       );
     }
 
@@ -62,8 +62,8 @@ export const upvoteRoadmapItem = functions
     // where("userId", "==", uid) filter without needing a collection-group index.
     const docId = `${userId}_${notionPageId}`;
     const upvoteRef = db
-      .collection("layouts")
-      .doc(layoutId)
+      .collection("grids")
+      .doc(gridId)
       .collection("tiles")
       .doc(tileId)
       .collection("upvotes")
@@ -71,8 +71,8 @@ export const upvoteRoadmapItem = functions
 
     // Retrieve the Notion access token for this tile
     const tokenDoc = await db
-      .collection("layouts")
-      .doc(layoutId)
+      .collection("grids")
+      .doc(gridId)
       .collection("notionTokens")
       .doc(tileId)
       .get();
@@ -108,12 +108,12 @@ export const upvoteRoadmapItem = functions
     );
 
     // Retrieve the tile content to find the upvote property name
-    const layoutDoc = await db.collection("layouts").doc(layoutId).get();
+    const gridDoc = await db.collection("grids").doc(gridId).get();
     type UpvoteTileShape = {
       i: string;
       content?: { upvotePropertyName?: string };
     };
-    const tiles: UpvoteTileShape[] = layoutDoc.data()?.tiles || [];
+    const tiles: UpvoteTileShape[] = gridDoc.data()?.tiles || [];
     const tile = tiles.find((t: UpvoteTileShape) => t.i === tileId);
     const upvotePropertyName: string = tile?.content?.upvotePropertyName || "";
 

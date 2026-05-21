@@ -22,7 +22,7 @@ export class FirestoreChatDao implements ChatDao {
   private messagesCollection(gridId: string, tileId: string) {
     return collection(
       this.db,
-      "layouts",
+      "grids",
       gridId,
       "tiles",
       tileId,
@@ -90,7 +90,7 @@ export class FirestoreChatDao implements ChatDao {
   ): Promise<void> {
     const docRef = doc(
       this.db,
-      "layouts",
+      "grids",
       gridId,
       "tiles",
       tileId,
@@ -107,7 +107,7 @@ export class FirestoreChatDao implements ChatDao {
   ): Promise<void> {
     const docRef = doc(
       this.db,
-      "layouts",
+      "grids",
       gridId,
       "tiles",
       tileId,

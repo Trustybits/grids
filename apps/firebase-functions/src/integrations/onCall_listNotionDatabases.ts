@@ -18,15 +18,15 @@ export const listNotionDatabases = functions
       throw new HttpsError("unauthenticated", "You must be signed in.");
     }
 
-    const { layoutId, tileId } = data as { layoutId?: string; tileId?: string };
-    if (!layoutId || !tileId) {
-      throw new HttpsError("invalid-argument", "Missing layoutId or tileId.");
+    const { gridId, tileId } = data as { gridId?: string; tileId?: string };
+    if (!gridId || !tileId) {
+      throw new HttpsError("invalid-argument", "Missing gridId or tileId.");
     }
 
     const db = admin.firestore();
     const tokenDoc = await db
-      .collection("layouts")
-      .doc(layoutId)
+      .collection("grids")
+      .doc(gridId)
       .collection("notionTokens")
       .doc(tileId)
       .get();

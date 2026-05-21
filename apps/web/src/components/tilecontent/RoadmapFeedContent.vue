@@ -30,7 +30,7 @@
         <span class="roadmap-title">Roadmap</span>
         <div class="roadmap-header-actions">
           <span v-if="content.lastSyncedAt" class="roadmap-synced-at">Updated {{ relativeTime(content.lastSyncedAt) }}</span>
-          <!-- Refresh button visible only to layout owner -->
+          <!-- Refresh button visible only to grid owner -->
           <button v-if="isOwner" class="roadmap-icon-btn" title="Refresh from Notion" @click.stop="() => refresh()" :disabled="isLoading">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" :class="{ 'is-spinning': isLoading }">
               <path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -615,7 +615,7 @@ export default defineComponent({
       // Embed redirectUri in state so the callback page can pass the exact same value
       // back to the Cloud Function — Notion requires it to match the authorize request
       // when multiple redirect URIs are registered on the integration.
-      const state = encodeURIComponent(JSON.stringify({ layoutId: gridId.value, tileId, redirectUri: callbackUri }));
+      const state = encodeURIComponent(JSON.stringify({ gridId: gridId.value, tileId, redirectUri: callbackUri }));
       const notionAuthUrl =
         `https://api.notion.com/v1/oauth/authorize` +
         `?client_id=${clientId}&response_type=code&owner=user` +

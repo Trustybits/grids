@@ -296,7 +296,7 @@ describe("trigger: input validation", () => {
         eventType: "totally_made_up",
         timestamp: fakeTimestamp("2026-05-07T00:00:00Z"),
         userId: null,
-        layoutId: null,
+        gridId: null,
         metadata: {},
       }),
       ctx(),
@@ -326,7 +326,7 @@ describe("trigger: input validation", () => {
           eventType: "user_login",
           timestamp: fakeTimestamp("2026-05-07T00:00:00Z"),
           userId: "u",
-          layoutId: null,
+          gridId: null,
           metadata: { signInMethod: "google" },
         }),
         ctx("evt-x"),
@@ -349,7 +349,7 @@ describe("grid_view", () => {
     eventType: "grid_view",
     timestamp: fakeTimestamp("2026-05-07T12:34:56Z"),
     userId: "u-1",
-    layoutId: "layout-1",
+    gridId: "grid-1",
     metadata: {
       viewerType: "authenticated",
       sessionId: "sess-1",
@@ -358,19 +358,19 @@ describe("grid_view", () => {
     ...overrides,
   });
 
-  it("warns and writes nothing when layoutId is missing", async () => {
-    await handler(snap(baseEvent({ layoutId: null })), ctx());
+  it("warns and writes nothing when gridId is missing", async () => {
+    await handler(snap(baseEvent({ gridId: null })), ctx());
     expect(logger.warn).toHaveBeenCalledWith(
-      "grid_view event missing layoutId",
+      "grid_view event missing gridId",
     );
     expect(fake.ops).toHaveLength(0);
   });
 
-  it("warns and writes nothing when layoutId is not safe for a Firestore doc path", async () => {
-    await handler(snap(baseEvent({ layoutId: "layouts/bad" })), ctx());
+  it("warns and writes nothing when gridId is not safe for a Firestore doc path", async () => {
+    await handler(snap(baseEvent({ gridId: "grids/bad" })), ctx());
     expect(logger.warn).toHaveBeenCalledWith(
-      "grid_view event has invalid layoutId",
-      expect.objectContaining({ layoutId: "layouts/bad" }),
+      "grid_view event has invalid gridId",
+      expect.objectContaining({ gridId: "grids/bad" }),
     );
     expect(fake.ops).toHaveLength(0);
     expect(fake.txCount).toBe(0);
@@ -391,26 +391,26 @@ describe("grid_view", () => {
     );
     expect(logger.warn).toHaveBeenCalledWith(
       "grid_view event has invalid viewerFingerprint",
-      expect.objectContaining({ layoutId: "layout-1" }),
+      expect.objectContaining({ gridId: "grid-1" }),
     );
     expect(fake.ops).toHaveLength(0);
     expect(fake.txCount).toBe(0);
   });
 
   it("writes aggregate and daily docs with totalViews+authenticatedViews increments and ownerId", async () => {
-    // Seed the layout doc so getOwnerId returns a value.
-    fake.docs.set("layouts/layout-1", { userId: "owner-7" });
+    // Seed the grid doc so getOwnerId returns a value.
+    fake.docs.set("grids/grid-1", { userId: "owner-7" });
 
     await handler(snap(baseEvent()), ctx());
 
     expect(fake.batchCommit).toHaveBeenCalledTimes(1);
 
-    const aggOp = findOps(fake.ops, "gridStats/layout-1").find(
+    const aggOp = findOps(fake.ops, "gridStats/grid-1").find(
       (o) => o.via === "batch",
     );
     expect(aggOp?.opts).toEqual({ merge: true });
     expect(aggOp?.data).toMatchObject({
-      layoutId: "layout-1",
+      gridId: "grid-1",
       ownerId: "owner-7",
       totalViews: { __op: "increment", value: 1 },
       authenticatedViews: { __op: "increment", value: 1 },
@@ -419,12 +419,12 @@ describe("grid_view", () => {
     // No anonymousViews field for an authenticated viewer.
     expect(aggOp?.data).not.toHaveProperty("anonymousViews");
 
-    const dailyOp = findOps(fake.ops, "gridStats/layout-1__2026-05-07").find(
+    const dailyOp = findOps(fake.ops, "gridStats/grid-1__2026-05-07").find(
       (o) => o.via === "batch",
     );
     expect(dailyOp?.opts).toEqual({ merge: true });
     expect(dailyOp?.data).toMatchObject({
-      layoutId: "layout-1",
+      gridId: "grid-1",
       ownerId: "owner-7",
       date: "2026-05-07",
       totalViews: { __op: "increment", value: 1 },
@@ -448,7 +448,7 @@ describe("grid_view", () => {
       ctx(),
     );
 
-    const aggOp = findOps(fake.ops, "gridStats/layout-1").find(
+    const aggOp = findOps(fake.ops, "gridStats/grid-1").find(
       (o) => o.via === "batch",
     );
     expect(aggOp?.data).toMatchObject({
@@ -470,17 +470,17 @@ describe("grid_view", () => {
       ),
       ctx(),
     );
-    const aggOp = findOps(fake.ops, "gridStats/layout-1").find(
+    const aggOp = findOps(fake.ops, "gridStats/grid-1").find(
       (o) => o.via === "batch",
     );
     expect(aggOp?.data).not.toHaveProperty("authenticatedViews");
     expect(aggOp?.data).not.toHaveProperty("anonymousViews");
   });
 
-  it("omits ownerId when the layout document does not exist", async () => {
-    // No seed for `layouts/layout-1` → snap.exists is false.
+  it("omits ownerId when the grid document does not exist", async () => {
+    // No seed for `grids/grid-1` → snap.exists is false.
     await handler(snap(baseEvent()), ctx());
-    const aggOp = findOps(fake.ops, "gridStats/layout-1").find(
+    const aggOp = findOps(fake.ops, "gridStats/grid-1").find(
       (o) => o.via === "batch",
     );
     expect(aggOp?.data).not.toHaveProperty("ownerId");
@@ -493,7 +493,7 @@ describe("grid_view", () => {
       ctx(),
     );
     expect(
-      fake.ops.find((o) => o.path === "gridStats/layout-1__2026-05-07"),
+      fake.ops.find((o) => o.path === "gridStats/grid-1__2026-05-07"),
     ).toBeDefined();
   });
 
@@ -503,7 +503,7 @@ describe("grid_view", () => {
     // Single lifetime marker doc was set by the transaction. There is no
     // per-day marker subcollection — the daily uniqueViewers increment is
     // gated on the lifetime marker being newly created.
-    const markerAgg = findOps(fake.ops, "gridStats/layout-1/viewers/fp-1").find(
+    const markerAgg = findOps(fake.ops, "gridStats/grid-1/viewers/fp-1").find(
       (o) => o.via === "tx",
     );
     expect(markerAgg?.data).toEqual({
@@ -512,13 +512,13 @@ describe("grid_view", () => {
 
     const markerDaily = findOps(
       fake.ops,
-      "gridStats/layout-1__2026-05-07/viewers/fp-1",
+      "gridStats/grid-1__2026-05-07/viewers/fp-1",
     );
     expect(markerDaily).toHaveLength(0);
 
     // uniqueViewers increment was set on both the aggregate and daily refs
     // via the same transaction.
-    const uniqAgg = findOps(fake.ops, "gridStats/layout-1").find(
+    const uniqAgg = findOps(fake.ops, "gridStats/grid-1").find(
       (o) =>
         o.via === "tx" &&
         (o.data as Record<string, unknown>).uniqueViewers !== undefined,
@@ -528,7 +528,7 @@ describe("grid_view", () => {
       uniqueViewers: { __op: "increment", value: 1 },
     });
 
-    const uniqDaily = findOps(fake.ops, "gridStats/layout-1__2026-05-07").find(
+    const uniqDaily = findOps(fake.ops, "gridStats/grid-1__2026-05-07").find(
       (o) =>
         o.via === "tx" &&
         (o.data as Record<string, unknown>).uniqueViewers !== undefined,
@@ -550,7 +550,7 @@ describe("grid_view", () => {
 
   it("does NOT increment uniqueViewers when the lifetime marker already exists", async () => {
     // Pre-seed the lifetime marker doc — viewer is a returning visitor.
-    fake.docs.set("gridStats/layout-1/viewers/fp-1", {
+    fake.docs.set("gridStats/grid-1/viewers/fp-1", {
       firstSeenAt: { __op: "serverTimestamp" },
     });
 
@@ -568,15 +568,15 @@ describe("grid_view_end", () => {
     eventType: "grid_view_end",
     timestamp: fakeTimestamp("2026-05-07T00:00:00Z"),
     userId: null,
-    layoutId: "layout-1",
+    gridId: "grid-1",
     metadata: { sessionId: "sess-1", durationMs: 5000 },
     ...overrides,
   });
 
-  it("warns when layoutId is missing and writes nothing", async () => {
-    await handler(snap(evt({ layoutId: null })), ctx());
+  it("warns when gridId is missing and writes nothing", async () => {
+    await handler(snap(evt({ gridId: null })), ctx());
     expect(logger.warn).toHaveBeenCalledWith(
-      "grid_view_end event missing layoutId",
+      "grid_view_end event missing gridId",
     );
     expect(fake.ops).toHaveLength(0);
   });
@@ -596,17 +596,17 @@ describe("grid_view_end", () => {
   });
 
   it("computes totalTimeSpentMs/totalSessions/averageTimeSpentMs from scratch when stats doc does not exist", async () => {
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
     await handler(
       snap(evt({ metadata: { sessionId: "sess-1", durationMs: 4000 } })),
       ctx(),
     );
 
-    const aggOp = findOps(fake.ops, "gridStats/layout-1")[0];
+    const aggOp = findOps(fake.ops, "gridStats/grid-1")[0];
     expect(aggOp?.via).toBe("tx");
     expect(aggOp?.opts).toEqual({ merge: true });
     expect(aggOp?.data).toEqual({
-      layoutId: "layout-1",
+      gridId: "grid-1",
       ownerId: "owner-9",
       totalTimeSpentMs: 4000,
       totalSessions: 1,
@@ -614,9 +614,9 @@ describe("grid_view_end", () => {
       updatedAt: { __op: "serverTimestamp" },
     });
 
-    const dailyOp = findOps(fake.ops, "gridStats/layout-1__2026-05-07")[0];
+    const dailyOp = findOps(fake.ops, "gridStats/grid-1__2026-05-07")[0];
     expect(dailyOp?.data).toMatchObject({
-      layoutId: "layout-1",
+      gridId: "grid-1",
       date: "2026-05-07",
       totalTimeSpentMs: 4000,
       totalSessions: 1,
@@ -625,17 +625,17 @@ describe("grid_view_end", () => {
   });
 
   it("accumulates and rounds the average when prior totals exist", async () => {
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
     // Prior aggregate: 3 sessions totalling 9000ms (avg 3000). Add a 5000ms
     // session → total 14000, sessions 4, avg round(14000/4) = 3500.
-    fake.docs.set("gridStats/layout-1", {
+    fake.docs.set("gridStats/grid-1", {
       totalTimeSpentMs: 9000,
       totalSessions: 3,
       averageTimeSpentMs: 3000,
     });
     // Prior daily: 1 session of 1000ms → adding 5000 → total 6000, sessions 2,
     // avg 3000.
-    fake.docs.set("gridStats/layout-1__2026-05-07", {
+    fake.docs.set("gridStats/grid-1__2026-05-07", {
       totalTimeSpentMs: 1000,
       totalSessions: 1,
       averageTimeSpentMs: 1000,
@@ -646,14 +646,14 @@ describe("grid_view_end", () => {
       ctx(),
     );
 
-    const aggOp = findOps(fake.ops, "gridStats/layout-1")[0];
+    const aggOp = findOps(fake.ops, "gridStats/grid-1")[0];
     expect(aggOp?.data).toMatchObject({
       totalTimeSpentMs: 14000,
       totalSessions: 4,
       averageTimeSpentMs: 3500,
     });
 
-    const dailyOp = findOps(fake.ops, "gridStats/layout-1__2026-05-07")[0];
+    const dailyOp = findOps(fake.ops, "gridStats/grid-1__2026-05-07")[0];
     expect(dailyOp?.data).toMatchObject({
       totalTimeSpentMs: 6000,
       totalSessions: 2,
@@ -662,13 +662,13 @@ describe("grid_view_end", () => {
   });
 
   it("rounds non-integer averages to the nearest millisecond", async () => {
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
     // 2 sessions totalling 1001ms gives avg 500.5 → rounded 501.
-    fake.docs.set("gridStats/layout-1", {
+    fake.docs.set("gridStats/grid-1", {
       totalTimeSpentMs: 1,
       totalSessions: 1,
     });
-    fake.docs.set("gridStats/layout-1__2026-05-07", {
+    fake.docs.set("gridStats/grid-1__2026-05-07", {
       totalTimeSpentMs: 1,
       totalSessions: 1,
     });
@@ -678,7 +678,7 @@ describe("grid_view_end", () => {
       ctx(),
     );
 
-    const aggOp = findOps(fake.ops, "gridStats/layout-1")[0];
+    const aggOp = findOps(fake.ops, "gridStats/grid-1")[0];
     expect(aggOp?.data).toMatchObject({
       totalTimeSpentMs: 1001,
       totalSessions: 2,
@@ -697,7 +697,7 @@ describe("tile_added / tile_removed", () => {
     eventType,
     timestamp: fakeTimestamp("2026-05-07T10:00:00Z"),
     userId: "u-1",
-    layoutId: "layout-1",
+    gridId: "grid-1",
     metadata,
   });
 
@@ -793,7 +793,7 @@ describe("business-stats handlers", () => {
           eventType: c.eventType,
           timestamp: fakeTimestamp("2026-05-07T01:00:00Z"),
           userId: "u",
-          layoutId: c.eventType === "owner_grid_enter" ? "layout-1" : null,
+          gridId: c.eventType === "owner_grid_enter" ? "grid-1" : null,
           metadata: c.extra ?? {},
         }),
         ctx(),
@@ -823,13 +823,13 @@ describe("grid_view_end: ownerId, gating, and atomicity (per spec §3.5)", () =>
     eventType: "grid_view_end",
     timestamp: fakeTimestamp("2026-05-07T12:00:00Z"),
     userId: null,
-    layoutId: "layout-1",
+    gridId: "grid-1",
     metadata: { sessionId: "sess-1", durationMs: 5000 },
     ...overrides,
   });
 
-  it("skips aggregation entirely when the layout document does not exist", async () => {
-    // No seed for `layouts/layout-1`. Spec §3.5: handler should warn and
+  it("skips aggregation entirely when the grid document does not exist", async () => {
+    // No seed for `grids/grid-1`. Spec §3.5: handler should warn and
     // perform no writes — partial creation of a stats doc would leave it
     // missing the required `ownerId` field (§1.1) and break owner reads (§8).
     await handler(snap(evt()), ctx("evt-orphan"));
@@ -840,28 +840,28 @@ describe("grid_view_end: ownerId, gating, and atomicity (per spec §3.5)", () =>
   });
 
   it("includes ownerId on both the aggregate and daily docs when creating them", async () => {
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
     await handler(
       snap(evt({ metadata: { sessionId: "sess-1", durationMs: 4000 } })),
       ctx(),
     );
 
-    const aggOp = findOps(fake.ops, "gridStats/layout-1")[0];
+    const aggOp = findOps(fake.ops, "gridStats/grid-1")[0];
     expect(aggOp?.data).toMatchObject({
-      layoutId: "layout-1",
+      gridId: "grid-1",
       ownerId: "owner-9",
     });
 
-    const dailyOp = findOps(fake.ops, "gridStats/layout-1__2026-05-07")[0];
+    const dailyOp = findOps(fake.ops, "gridStats/grid-1__2026-05-07")[0];
     expect(dailyOp?.data).toMatchObject({
-      layoutId: "layout-1",
+      gridId: "grid-1",
       ownerId: "owner-9",
       date: "2026-05-07",
     });
   });
 
   it("warns and writes nothing when sessionId is missing", async () => {
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
     await handler(snap(evt({ metadata: { durationMs: 5000 } })), ctx());
     expect(logger.warn).toHaveBeenCalledWith(
       "grid_view_end event missing sessionId",
@@ -872,8 +872,8 @@ describe("grid_view_end: ownerId, gating, and atomicity (per spec §3.5)", () =>
   });
 
   it("is idempotent: skips aggregation when the session marker already exists", async () => {
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
-    fake.docs.set("gridStats/layout-1/endedSessions/sess-1", {
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
+    fake.docs.set("gridStats/grid-1/endedSessions/sess-1", {
       sessionId: "sess-1",
       durationMs: 4000,
     });
@@ -889,7 +889,7 @@ describe("grid_view_end: ownerId, gating, and atomicity (per spec §3.5)", () =>
   });
 
   it("creates the session marker doc and aggregates when the marker does not exist", async () => {
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
     await handler(
       snap(evt({ metadata: { sessionId: "sess-42", durationMs: 4000 } })),
       ctx(),
@@ -897,7 +897,7 @@ describe("grid_view_end: ownerId, gating, and atomicity (per spec §3.5)", () =>
 
     const markerOp = findOps(
       fake.ops,
-      "gridStats/layout-1/endedSessions/sess-42",
+      "gridStats/grid-1/endedSessions/sess-42",
     )[0];
     expect(markerOp?.via).toBe("tx");
     const eventMs = new Date("2026-05-07T12:00:00Z").getTime();
@@ -923,7 +923,7 @@ describe("grid_view_end: ownerId, gating, and atomicity (per spec §3.5)", () =>
     // Spec §3.5: the cross-document read-modify-write must be atomic so
     // that a Firebase retry after a partial failure cannot double-apply
     // durationMs / totalSessions to the side that already committed.
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
     await handler(
       snap(evt({ metadata: { sessionId: "sess-1", durationMs: 4000 } })),
       ctx(),
@@ -950,7 +950,7 @@ describe("grid_view_end: ownerId, gating, and atomicity (per spec §3.5)", () =>
 //     second invocation is a complete no-op even after the first one
 //     committed real writes (covers the "Firebase retried the trigger"
 //     scenario from spec §3.5 end-to-end, not just with a pre-seeded marker)
-//   - two distinct sessions on the same layout/day accumulate independently
+//   - two distinct sessions on the same grid/day accumulate independently
 //   - logger.info diagnostic is emitted on idempotent skip
 
 describe("grid_view_end: additional validation edge cases", () => {
@@ -958,15 +958,15 @@ describe("grid_view_end: additional validation edge cases", () => {
     eventType: "grid_view_end",
     timestamp: fakeTimestamp("2026-05-07T12:00:00Z"),
     userId: null,
-    layoutId: "layout-1",
+    gridId: "grid-1",
     metadata: { sessionId: "sess-1", durationMs: 5000 },
     ...overrides,
   });
 
   beforeEach(() => {
-    // All these tests assume the layout exists so that validation — not the
+    // All these tests assume the grid exists so that validation — not the
     // ownerId gate — is what causes the early return.
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
   });
 
   it("warns and writes nothing when sessionId is the empty string", async () => {
@@ -995,10 +995,10 @@ describe("grid_view_end: additional validation edge cases", () => {
     expect(fake.txCount).toBe(0);
   });
 
-  it("warns and writes nothing when layoutId is not safe for a Firestore doc path", async () => {
-    await handler(snap(evt({ layoutId: "layouts/bad" })), ctx());
+  it("warns and writes nothing when gridId is not safe for a Firestore doc path", async () => {
+    await handler(snap(evt({ gridId: "grids/bad" })), ctx());
     expect(logger.warn).toHaveBeenCalledWith(
-      "grid_view_end event has invalid layoutId",
+      "grid_view_end event has invalid gridId",
       expect.any(Object),
     );
     expect(fake.ops).toHaveLength(0);
@@ -1048,18 +1048,18 @@ describe("grid_view_end: end-to-end idempotency", () => {
     eventType: "grid_view_end",
     timestamp: fakeTimestamp("2026-05-07T12:00:00Z"),
     userId: null,
-    layoutId: "layout-1",
+    gridId: "grid-1",
     metadata: { sessionId: "sess-1", durationMs: 4000 },
     ...overrides,
   });
 
   it("a second invocation with the same sessionId is a complete no-op (does not double-count)", async () => {
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
 
     // First invocation: writes marker, aggregate, daily.
     await handler(snap(evt()), ctx("evt-first"));
 
-    const firstAgg = findOps(fake.ops, "gridStats/layout-1")[0];
+    const firstAgg = findOps(fake.ops, "gridStats/grid-1")[0];
     expect(firstAgg?.data).toMatchObject({
       totalTimeSpentMs: 4000,
       totalSessions: 1,
@@ -1079,20 +1079,20 @@ describe("grid_view_end: end-to-end idempotency", () => {
     expect(txOpsAfterSecond.length).toBe(firstTxOpsCount); // unchanged
 
     // Persisted state must match the single-write totals — not doubled.
-    expect(fake.docs.get("gridStats/layout-1")).toMatchObject({
+    expect(fake.docs.get("gridStats/grid-1")).toMatchObject({
       totalTimeSpentMs: 4000,
       totalSessions: 1,
       averageTimeSpentMs: 4000,
     });
-    expect(fake.docs.get("gridStats/layout-1__2026-05-07")).toMatchObject({
+    expect(fake.docs.get("gridStats/grid-1__2026-05-07")).toMatchObject({
       totalTimeSpentMs: 4000,
       totalSessions: 1,
     });
   });
 
   it("logs an info diagnostic when skipping a duplicate session", async () => {
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
-    fake.docs.set("gridStats/layout-1/endedSessions/sess-1", {
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
+    fake.docs.set("gridStats/grid-1/endedSessions/sess-1", {
       sessionId: "sess-1",
       durationMs: 4000,
     });
@@ -1101,12 +1101,12 @@ describe("grid_view_end: end-to-end idempotency", () => {
 
     expect(logger.info).toHaveBeenCalledWith(
       "grid_view_end skipped: session already aggregated",
-      expect.objectContaining({ layoutId: "layout-1", sessionId: "sess-1" }),
+      expect.objectContaining({ gridId: "grid-1", sessionId: "sess-1" }),
     );
   });
 
-  it("two distinct sessions on the same layout+day accumulate independently", async () => {
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+  it("two distinct sessions on the same grid+day accumulate independently", async () => {
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
 
     // Session A: 3000ms.
     await handler(
@@ -1120,18 +1120,18 @@ describe("grid_view_end: end-to-end idempotency", () => {
     );
 
     // Two separate marker docs, keyed by sessionId.
-    expect(fake.docs.has("gridStats/layout-1/endedSessions/sess-A")).toBe(true);
-    expect(fake.docs.has("gridStats/layout-1/endedSessions/sess-B")).toBe(true);
+    expect(fake.docs.has("gridStats/grid-1/endedSessions/sess-A")).toBe(true);
+    expect(fake.docs.has("gridStats/grid-1/endedSessions/sess-B")).toBe(true);
 
     // Aggregate has accumulated both sessions: 3000 + 5000 = 8000, 2 sessions,
     // avg 4000.
-    expect(fake.docs.get("gridStats/layout-1")).toMatchObject({
+    expect(fake.docs.get("gridStats/grid-1")).toMatchObject({
       totalTimeSpentMs: 8000,
       totalSessions: 2,
       averageTimeSpentMs: 4000,
     });
     // Daily mirrors aggregate (both events fall on the same UTC date).
-    expect(fake.docs.get("gridStats/layout-1__2026-05-07")).toMatchObject({
+    expect(fake.docs.get("gridStats/grid-1__2026-05-07")).toMatchObject({
       totalTimeSpentMs: 8000,
       totalSessions: 2,
       averageTimeSpentMs: 4000,
@@ -1152,7 +1152,7 @@ describe("grid_view: getOwnerId and viewerFingerprint edge cases", () => {
     eventType: "grid_view",
     timestamp: fakeTimestamp("2026-05-07T12:34:56Z"),
     userId: "u-1",
-    layoutId: "layout-1",
+    gridId: "grid-1",
     metadata: {
       viewerType: "authenticated",
       sessionId: "sess-1",
@@ -1161,18 +1161,18 @@ describe("grid_view: getOwnerId and viewerFingerprint edge cases", () => {
     ...overrides,
   });
 
-  it("omits ownerId when the layout document exists but has no userId field", async () => {
+  it("omits ownerId when the grid document exists but has no userId field", async () => {
     // Distinct from the !exists branch: the doc exists but `data().userId` is
     // undefined, so getOwnerId returns null and the writes must omit ownerId.
-    fake.docs.set("layouts/layout-1", { someOtherField: "x" });
+    fake.docs.set("grids/grid-1", { someOtherField: "x" });
 
     await handler(snap(baseEvent()), ctx());
 
-    const aggOp = findOps(fake.ops, "gridStats/layout-1").find(
+    const aggOp = findOps(fake.ops, "gridStats/grid-1").find(
       (o) => o.via === "batch",
     );
     expect(aggOp?.data).not.toHaveProperty("ownerId");
-    const dailyOp = findOps(fake.ops, "gridStats/layout-1__2026-05-07").find(
+    const dailyOp = findOps(fake.ops, "gridStats/grid-1__2026-05-07").find(
       (o) => o.via === "batch",
     );
     expect(dailyOp?.data).not.toHaveProperty("ownerId");
@@ -1203,13 +1203,13 @@ describe("grid_view: getOwnerId and viewerFingerprint edge cases", () => {
     // Returning visitor: marker doc pre-seeded → tx no-ops the unique bump,
     // but the per-view batch writes (totalViews, viewerType-specific count)
     // must still happen.
-    fake.docs.set("gridStats/layout-1/viewers/fp-1", {
+    fake.docs.set("gridStats/grid-1/viewers/fp-1", {
       firstSeenAt: { __op: "serverTimestamp" },
     });
 
     await handler(snap(baseEvent()), ctx());
 
-    const aggOp = findOps(fake.ops, "gridStats/layout-1").find(
+    const aggOp = findOps(fake.ops, "gridStats/grid-1").find(
       (o) => o.via === "batch",
     );
     expect(aggOp?.data).toMatchObject({
@@ -1218,7 +1218,7 @@ describe("grid_view: getOwnerId and viewerFingerprint edge cases", () => {
     });
     expect(aggOp?.data).not.toHaveProperty("uniqueViewers");
 
-    const dailyOp = findOps(fake.ops, "gridStats/layout-1__2026-05-07").find(
+    const dailyOp = findOps(fake.ops, "gridStats/grid-1__2026-05-07").find(
       (o) => o.via === "batch",
     );
     expect(dailyOp?.data).toMatchObject({
@@ -1233,23 +1233,23 @@ describe("grid_view_end: getOwnerId and partial-doc edge cases", () => {
     eventType: "grid_view_end",
     timestamp: fakeTimestamp("2026-05-07T12:00:00Z"),
     userId: null,
-    layoutId: "layout-1",
+    gridId: "grid-1",
     metadata: { sessionId: "sess-1", durationMs: 4000 },
     ...overrides,
   });
 
-  it("skips aggregation when the layout document exists but has no userId field", async () => {
+  it("skips aggregation when the grid document exists but has no userId field", async () => {
     // Same orphan-protection rationale as the missing-doc case, but for the
     // distinct branch where data().userId is undefined.
-    fake.docs.set("layouts/layout-1", { someOtherField: "x" });
+    fake.docs.set("grids/grid-1", { someOtherField: "x" });
 
     await handler(snap(evt()), ctx("evt-no-owner"));
 
     expect(fake.ops).toHaveLength(0);
     expect(fake.txCount).toBe(0);
     expect(logger.warn).toHaveBeenCalledWith(
-      "grid_view_end skipped: layout no longer exists",
-      expect.objectContaining({ layoutId: "layout-1" }),
+      "grid_view_end skipped: grid no longer exists",
+      expect.objectContaining({ gridId: "grid-1" }),
     );
   });
 
@@ -1257,14 +1257,14 @@ describe("grid_view_end: getOwnerId and partial-doc edge cases", () => {
     // Exercises the `aggPrev.totalTimeSpentMs ?? 0` default path: the doc
     // exists (e.g. created earlier by a grid_view, which only writes
     // totalViews / ownerId) but does NOT yet carry the duration fields.
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
-    fake.docs.set("gridStats/layout-1", {
-      layoutId: "layout-1",
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
+    fake.docs.set("gridStats/grid-1", {
+      gridId: "grid-1",
       ownerId: "owner-9",
       totalViews: 5, // present, but no totalTimeSpentMs / totalSessions
     });
-    fake.docs.set("gridStats/layout-1__2026-05-07", {
-      layoutId: "layout-1",
+    fake.docs.set("gridStats/grid-1__2026-05-07", {
+      gridId: "grid-1",
       ownerId: "owner-9",
       date: "2026-05-07",
       totalViews: 5,
@@ -1275,7 +1275,7 @@ describe("grid_view_end: getOwnerId and partial-doc edge cases", () => {
       ctx(),
     );
 
-    const aggOp = findOps(fake.ops, "gridStats/layout-1").find(
+    const aggOp = findOps(fake.ops, "gridStats/grid-1").find(
       (o) => o.via === "tx",
     );
     expect(aggOp?.data).toMatchObject({
@@ -1283,7 +1283,7 @@ describe("grid_view_end: getOwnerId and partial-doc edge cases", () => {
       totalSessions: 1,
       averageTimeSpentMs: 4000,
     });
-    const dailyOp = findOps(fake.ops, "gridStats/layout-1__2026-05-07").find(
+    const dailyOp = findOps(fake.ops, "gridStats/grid-1__2026-05-07").find(
       (o) => o.via === "tx",
     );
     expect(dailyOp?.data).toMatchObject({
@@ -1294,13 +1294,13 @@ describe("grid_view_end: getOwnerId and partial-doc edge cases", () => {
   });
 
   it("treats existing stats snapshots with undefined data as empty docs", async () => {
-    fake.docs.set("layouts/layout-1", { userId: "owner-9" });
+    fake.docs.set("grids/grid-1", { userId: "owner-9" });
     fake.docs.set(
-      "gridStats/layout-1",
+      "gridStats/grid-1",
       undefined as unknown as Record<string, unknown>,
     );
     fake.docs.set(
-      "gridStats/layout-1__2026-05-07",
+      "gridStats/grid-1__2026-05-07",
       undefined as unknown as Record<string, unknown>,
     );
 
@@ -1309,7 +1309,7 @@ describe("grid_view_end: getOwnerId and partial-doc edge cases", () => {
       ctx(),
     );
 
-    const aggOp = findOps(fake.ops, "gridStats/layout-1").find(
+    const aggOp = findOps(fake.ops, "gridStats/grid-1").find(
       (o) => o.via === "tx",
     );
     expect(aggOp?.data).toMatchObject({
@@ -1317,7 +1317,7 @@ describe("grid_view_end: getOwnerId and partial-doc edge cases", () => {
       totalSessions: 1,
       averageTimeSpentMs: 4000,
     });
-    const dailyOp = findOps(fake.ops, "gridStats/layout-1__2026-05-07").find(
+    const dailyOp = findOps(fake.ops, "gridStats/grid-1__2026-05-07").find(
       (o) => o.via === "tx",
     );
     expect(dailyOp?.data).toMatchObject({

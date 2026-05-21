@@ -12,11 +12,11 @@ const Timestamp = admin.firestore.Timestamp;
 const MAX_DURATION_MS = 24 * 60 * 60 * 1000; // sanity cap: 24h
 const MAX_BODY_BYTES = 2048; // payload is tiny; reject anything larger
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX_PER_WINDOW = 20; // per IP + layoutId per minute
+const RATE_LIMIT_MAX_PER_WINDOW = 20; // per IP + gridId per minute
 const RATE_LIMIT_TTL_MS = 24 * 60 * 60 * 1000; // 1 day for the rate limit ttl
 
 interface BeaconPayload {
-  layoutId: string;
+  gridId: string;
   userId: string | null;
   sessionId: string;
   durationMs: number;
@@ -75,8 +75,8 @@ function validate(raw: unknown): BeaconPayload | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
 
-  const layoutId = obj.layoutId;
-  if (!isSafeFirestoreDocId(layoutId)) return null;
+  const gridId = obj.gridId;
+  if (!isSafeFirestoreDocId(gridId)) return null;
 
   const sessionId = obj.sessionId;
   if (!isSafeFirestoreDocId(sessionId)) return null;
@@ -93,7 +93,7 @@ function validate(raw: unknown): BeaconPayload | null {
   }
 
   return {
-    layoutId,
+    gridId,
     userId,
     sessionId,
     durationMs: Math.round(durationMs),
@@ -118,28 +118,28 @@ function getClientIp(req: functions.https.Request): string {
 }
 
 /**
- * Hash the IP+layoutId tuple so rate-limit doc IDs stay compact, path-safe, and
+ * Hash the IP+gridId tuple so rate-limit doc IDs stay compact, path-safe, and
  * collision-resistant without exposing client IPs in document paths.
  */
-function rateLimitKey(ip: string, layoutId: string): string {
-  return createHash("sha256").update(`${ip}\0${layoutId}`).digest("hex");
+function rateLimitKey(ip: string, gridId: string): string {
+  return createHash("sha256").update(`${ip}\0${gridId}`).digest("hex");
 }
 
 /**
- * Fixed-window rate limiter keyed on (ip, layoutId). Returns true if the
+ * Fixed-window rate limiter keyed on (ip, gridId). Returns true if the
  * request is allowed, false if it should be rejected. Best-effort — on a
  * Firestore error we fail open and log.
  */
 async function checkRateLimit(
   db: FirebaseFirestore.Firestore,
   ip: string,
-  layoutId: string,
+  gridId: string,
 ): Promise<boolean> {
   const ref = db
     .collection("rateLimits")
     .doc("trackGridViewEndBeacon")
     .collection("gridViewEndEntries")
-    .doc(rateLimitKey(ip, layoutId));
+    .doc(rateLimitKey(ip, gridId));
 
   try {
     return await db.runTransaction(async (tx) => {
@@ -216,11 +216,11 @@ export const trackGridViewEndBeacon = functions.https.onRequest(
     const db = admin.firestore();
 
     const ip = getClientIp(req);
-    const allowed = await checkRateLimit(db, ip, payload.layoutId);
+    const allowed = await checkRateLimit(db, ip, payload.gridId);
     if (!allowed) {
       logger.warn("trackGridViewEndBeacon: rate limit exceeded", {
         ip,
-        layoutId: payload.layoutId,
+        gridId: payload.gridId,
       });
       res.status(429).json({ error: "Too many requests" });
       return;
@@ -234,7 +234,7 @@ export const trackGridViewEndBeacon = functions.https.onRequest(
     // an optimization, not a correctness gate.
     const sessionMarkerRef = db
       .collection("gridStats")
-      .doc(payload.layoutId)
+      .doc(payload.gridId)
       .collection("endedSessions")
       .doc(payload.sessionId);
 
@@ -242,7 +242,7 @@ export const trackGridViewEndBeacon = functions.https.onRequest(
       const markerSnap = await sessionMarkerRef.get();
       if (markerSnap.exists) {
         logger.info("trackGridViewEndBeacon: session already ended, skipping", {
-          layoutId: payload.layoutId,
+          gridId: payload.gridId,
           sessionId: payload.sessionId,
         });
         res.status(204).send("");
@@ -259,7 +259,7 @@ export const trackGridViewEndBeacon = functions.https.onRequest(
     await writeServerAnalyticsEvent({
       eventType: "grid_view_end",
       userId: payload.userId,
-      layoutId: payload.layoutId,
+      gridId: payload.gridId,
       metadata: {
         sessionId: payload.sessionId,
         durationMs: payload.durationMs,

@@ -21,7 +21,7 @@ function dailyDocId(gridId: string, date: string): string {
 
 function toGridStats(data: DocumentData): GridStats {
   return {
-    gridId: data.layoutId,
+    gridId: data.gridId,
     ownerId: data.ownerId,
     totalViews: data.totalViews ?? 0,
     uniqueViewers: data.uniqueViewers ?? 0,

@@ -6,7 +6,7 @@ import { isDevTeamMember } from "./utils_devTeam.js";
 import { discordUserActivityWebhookUrl } from "./secrets.js";
 
 /**
- * Firebase function that triggers when a grid/layout is updated.
+ * Firebase function that triggers when a grid is updated.
  * Only fires when the updatedAt field changes to avoid spurious triggers.
  * Sends a notification to the user-activity Discord channel.
  */
@@ -14,13 +14,13 @@ export const onGridUpdated = functions
   .runWith({
     secrets: [discordUserActivityWebhookUrl],
   })
-  .firestore.document("layouts/{layoutId}")
+  .firestore.document("grids/{gridId}")
   .onUpdate(async (change, context) => {
     if (noopIfMaintenance("onGridUpdated")) return null;
 
     const beforeData = change.before.data();
     const afterData = change.after.data();
-    const layoutId = context.params.layoutId;
+    const gridId = context.params.gridId;
 
     // Only trigger when updatedAt actually changed
     const beforeUpdatedAt =
@@ -44,7 +44,7 @@ export const onGridUpdated = functions
       logger.info(
         "Grid updated but no meaningful changes detected, skipping notification",
         {
-          layoutId,
+          gridId,
           userId: afterData.userId,
         },
       );
@@ -52,7 +52,7 @@ export const onGridUpdated = functions
     }
 
     logger.info("Grid updated with meaningful changes", {
-      layoutId,
+      gridId,
       userId: afterData.userId,
       name: afterData.name,
       nameChanged,
@@ -93,7 +93,7 @@ export const onGridUpdated = functions
       if (lastNotifiedAt && Date.now() - lastNotifiedAt < DEBOUNCE_MS) {
         logger.info("Skipping notification due to 10-minute debounce", {
           userId: afterData.userId,
-          layoutId,
+          gridId,
           lastNotifiedAt: new Date(lastNotifiedAt).toISOString(),
         });
         return null;
@@ -131,12 +131,12 @@ export const onGridUpdated = functions
             },
             {
               name: "Grid ID",
-              value: layoutId,
+              value: gridId,
               inline: true,
             },
             {
               name: "Grid Link",
-              value: `https://grids.so/grid/${layoutId}`,
+              value: `https://grids.so/grid/${gridId}`,
               inline: true,
             },
             {
@@ -166,14 +166,14 @@ export const onGridUpdated = functions
 
       if (!response.ok) {
         logger.error("Discord webhook returned error status", {
-          layoutId,
+          gridId,
           status: response.status,
           statusText: response.statusText,
           responseBody: responseText,
         });
       } else {
         logger.info("Discord grid update notification sent successfully", {
-          layoutId,
+          gridId,
           status: response.status,
         });
 
@@ -182,7 +182,7 @@ export const onGridUpdated = functions
           await notificationTrackingRef.set({
             lastNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
             userId: afterData.userId,
-            layoutId,
+            gridId,
           });
         } catch (error) {
           logger.warn("Failed to update notification tracking", {
@@ -195,7 +195,7 @@ export const onGridUpdated = functions
     } catch (error) {
       logger.error("Failed to send Discord webhook", {
         error: String(error),
-        layoutId,
+        gridId,
       });
       return null;
     }

@@ -15,7 +15,7 @@ import type { Grid } from "@/types/Grid";
 import type { GridDao } from "../interfaces/GridDao";
 import { mapFirestoreToGrid } from "./FirestoreUtils";
 
-const COLLECTION = "layouts";
+const COLLECTION = "grids";
 
 export class FirestoreGridDao implements GridDao {
   private db: Firestore;

@@ -109,22 +109,18 @@
           (isOwner) so they can switch back.
         -->
         <div v-if="layoutStore.canEdit" class="toolbar">
-          <div class="row">
-            <div class="col-md-12">
-              <!--
-                Option A: Inline — switcher sits inside the toolbar row,
-                right next to the tile-add buttons.
-              -->
-              <div
-                v-if="switcherVariant === 'inline'"
-                class="toolbar-with-switcher"
-              >
-                <GridButtons />
-                <BreakpointSwitcher variant="inline" />
-              </div>
-              <GridButtons v-else />
-            </div>
+          <!--
+            Option A: Inline — switcher sits inside the toolbar row,
+            right next to the tile-add buttons.
+          -->
+          <div
+            v-if="switcherVariant === 'inline'"
+            class="toolbar-with-switcher"
+          >
+            <GridButtons />
+            <BreakpointSwitcher variant="inline" />
           </div>
+          <GridButtons v-else />
           <!--
             Option D: Toolbar-row — switcher is a second row stacked
             below the tile-add toolbar, same styling family.
@@ -142,11 +138,7 @@
           v-else-if="layoutStore.isOwner && switcherVariant === 'inline'"
           class="toolbar"
         >
-          <div class="row">
-            <div class="col-md-12">
-              <BreakpointSwitcher variant="inline" />
-            </div>
-          </div>
+          <BreakpointSwitcher variant="inline" />
         </div>
         <div
           v-else-if="layoutStore.isOwner && switcherVariant === 'toolbar-row'"

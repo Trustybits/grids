@@ -90,12 +90,12 @@ import {
 } from "@/types/TileContent";
 import { useGridStore } from "@/stores/grid";
 import { useToastStore } from "@/stores/toast";
-import ArrowUpRightIcon from "@/components/icons/actionbar/ArrowUpRightIcon.vue";
-import DuplicateIcon from "@/components/icons/actionbar/DuplicateIcon.vue";
-import ClipboardIcon from "@/components/icons/actionbar/ClipboardIcon.vue";
-import DownloadCloudIcon from "@/components/icons/actionbar/DownloadCloudIcon.vue";
-import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
-import LogOutIcon from "@/components/icons/actionbar/LogOutIcon.vue";
+import ArrowUpRightIcon from "@/components/icons/tile-actionbar/ArrowUpRightIcon.vue";
+import DuplicateIcon from "@/components/icons/DuplicateIcon.vue";
+import ClipboardIcon from "@/components/icons/tile-actionbar/ClipboardIcon.vue";
+import DownloadCloudIcon from "@/components/icons/tile-actionbar/DownloadCloudIcon.vue";
+import CloseIcon from "@/components/icons/tile-actionbar/CloseIcon.vue";
+import LogOutIcon from "@/components/icons/tile-actionbar/LogOutIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 
 export default defineComponent({

@@ -3,22 +3,11 @@
   <div class="accordion">
     <button class="accordion__header" @click="toggleExpanded">
       <span>{{ title }}</span>
-      <svg
+      <Chevron
         class="accordion-icon"
         :class="{ 'accordion-icon--open': isExpanded }"
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-      >
-        <path
-          d="M6 9L12 15L18 9"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
+        :size="16"
+      />
     </button>
     <Transition name="accordion">
       <div v-if="isExpanded" class="accordion__content">
@@ -30,6 +19,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
+import Chevron from "@/components/icons/Chevron.vue";
 
 defineProps<{
   title: string;

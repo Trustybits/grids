@@ -9,17 +9,9 @@
       style="display: block !important; visibility: visible !important; opacity: 1 !important;"
     >
       <div class="toast-content" style="display: flex !important;">
-        <svg v-if="toast.type === 'success'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M20 6L9 17L4 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <svg v-else-if="toast.type === 'error'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <circle cx="12" cy="12" r="10" stroke-width="2"/>
-          <path d="M15 9L9 15M9 9L15 15" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <circle cx="12" cy="12" r="10" stroke-width="2"/>
-          <path d="M12 16V12M12 8H12.01" stroke-width="2" stroke-linecap="round"/>
-        </svg>
+        <CheckIcon v-if="toast.type === 'success'" :size="20" />
+        <ErrorCircleIcon v-else-if="toast.type === 'error'" :size="20" />
+        <InfoCircleIcon v-else :size="20" />
         <span style="display: inline !important;">{{ toast.message }}</span>
       </div>
     </div>
@@ -29,9 +21,13 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 import { useToastStore } from '@/stores/toast';
+import CheckIcon from '@/components/icons/CheckIcon.vue';
+import ErrorCircleIcon from '@/components/icons/ErrorCircleIcon.vue';
+import InfoCircleIcon from '@/components/icons/InfoCircleIcon.vue';
 
 export default defineComponent({
   name: 'ToastContainer',
+  components: { CheckIcon, ErrorCircleIcon, InfoCircleIcon },
   setup() {
     const toastStore = useToastStore();
 

@@ -138,7 +138,7 @@ import {
   watch,
 } from "vue";
 import SendIcon from "@/components/icons/SendIcon.vue";
-import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
+import CloseIcon from "@/components/icons/tile-actionbar/CloseIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridStore } from "@/stores/grid";

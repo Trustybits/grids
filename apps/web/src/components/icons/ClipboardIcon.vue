@@ -7,21 +7,30 @@
     xmlns="http://www.w3.org/2000/svg"
   >
     <path
-      d="M3 6h18"
+      d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
       stroke="currentColor"
-      stroke-width="1.5"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <rect
+      x="9"
+      y="3"
+      width="6"
+      height="4"
+      rx="1"
+      stroke="currentColor"
+      stroke-width="1.8"
       stroke-linecap="round"
       stroke-linejoin="round"
     />
     <path
-      d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+      d="M9 12h6M9 16h4"
       stroke="currentColor"
-      stroke-width="1.5"
+      stroke-width="1.8"
       stroke-linecap="round"
       stroke-linejoin="round"
     />
-    <path d="M10 11v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-    <path d="M14 11v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
   </svg>
 </template>
 

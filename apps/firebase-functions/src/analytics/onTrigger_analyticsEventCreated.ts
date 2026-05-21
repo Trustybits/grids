@@ -1,6 +1,7 @@
 import admin from "firebase-admin";
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
+import { noopIfMaintenance } from "../maintenance.js";
 import { isSafeFirestoreDocId } from "./utils_analytics.js";
 
 const FieldValue = admin.firestore.FieldValue;
@@ -376,6 +377,8 @@ async function applyBusinessStats(
 export const onAnalyticsEventCreated = functions.firestore
   .document("analyticsEvents/{docId}")
   .onCreate(async (snapshot, context) => {
+    if (noopIfMaintenance("onAnalyticsEventCreated")) return null;
+
     const data = snapshot.data() as Partial<AnalyticsEventDoc> | undefined;
     if (!data || !data.eventType || !data.timestamp) {
       logger.warn("Malformed analytics event", { docId: context.params.docId });

@@ -2,6 +2,7 @@ import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
+import { noopIfMaintenance } from "../maintenance.js";
 import { notionClientId, notionClientSecret } from "./secrets.js";
 
 /**
@@ -16,6 +17,8 @@ import { notionClientId, notionClientSecret } from "./secrets.js";
 export const notionOAuthExchange = functions
   .runWith({ secrets: [notionClientId, notionClientSecret] })
   .https.onCall(async (data, context) => {
+    if (noopIfMaintenance("notionOAuthExchange")) return null;
+
     if (!context.auth) {
       throw new HttpsError("unauthenticated", "You must be signed in.");
     }

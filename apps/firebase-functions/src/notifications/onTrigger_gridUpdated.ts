@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
+import { noopIfMaintenance } from "../maintenance.js";
 import { isDevTeamMember } from "./utils_devTeam.js";
 import { discordUserActivityWebhookUrl } from "./secrets.js";
 
@@ -15,6 +16,8 @@ export const onGridUpdated = functions
   })
   .firestore.document("layouts/{layoutId}")
   .onUpdate(async (change, context) => {
+    if (noopIfMaintenance("onGridUpdated")) return null;
+
     const beforeData = change.before.data();
     const afterData = change.after.data();
     const layoutId = context.params.layoutId;

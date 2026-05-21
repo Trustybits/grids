@@ -158,7 +158,7 @@ onUnmounted(() => {
   }
 }
 
-.cta-btn--primary :deep(.btn) {
+.cta-btn--primary :deep(.ui-btn) {
   background-color: var(--color-text-primary);
   color: var(--color-content-background);
   box-shadow: var(--shadow-md);

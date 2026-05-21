@@ -121,7 +121,7 @@ const ctaLabel = computed(() => {
   flex-shrink: 0;
 }
 
-.btn-supporter :deep(.btn) {
+.btn-supporter :deep(.ui-btn) {
   background: #f97316;
   border-color: #f97316;
   color: white;

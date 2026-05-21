@@ -28,14 +28,14 @@
         <DiscordIcon />
       </a>
       <template v-if="isAuthenticated">
-        <Button variant="outline" to="/dashboard" size="sm">
+        <Button variant="outline" to="/dashboard" size="md">
           <span>Go to Dashboard</span>
           <span aria-hidden="true">→</span>
         </Button>
       </template>
       <template v-else>
         <router-link to="/login" class="mkt__text-btn">Sign in</router-link>
-        <Button variant="brand" to="/login" size="sm">Start your grid</Button>
+        <Button variant="brand" to="/login" size="md">Start your grid</Button>
       </template>
     </div>
 

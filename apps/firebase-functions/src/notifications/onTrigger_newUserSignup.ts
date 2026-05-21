@@ -1,6 +1,7 @@
 import * as logger from "firebase-functions/logger";
 import * as functions from "firebase-functions/v1";
 import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.js";
+import { noopIfMaintenance } from "../maintenance.js";
 import { isDevTeamMember } from "./utils_devTeam.js";
 import { discordNewUsersWebhookUrl } from "./secrets.js";
 
@@ -14,6 +15,8 @@ export const onNewUserSignup = functions
   })
   .auth.user()
   .onCreate(async (user) => {
+    if (noopIfMaintenance("onNewUserSignup")) return null;
+
     logger.info("New user signup detected", {
       uid: user.uid,
       email: user.email,
@@ -31,7 +34,7 @@ export const onNewUserSignup = functions
     await writeServerAnalyticsEvent({
       eventType: "user_signup",
       userId: user.uid,
-      layoutId: null,
+      gridId: null,
       metadata: { signInMethod },
     });
 

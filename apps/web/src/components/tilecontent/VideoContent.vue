@@ -206,7 +206,7 @@ import {
   type ComputedRef,
 } from "vue";
 import { type VideoContent } from "@/types/TileContent";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { useVideoFocus } from "@/composables/useVideoFocus";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";
@@ -230,7 +230,7 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const videoFocus = useVideoFocus();
 
     // Injected tile position and size from GridTile
@@ -264,12 +264,12 @@ export default defineComponent({
     // Upload progress tracking — injected tile ID lets us look up our upload state
     const isUploading = computed(() => {
       return (
-        tileId != null && tileId !== "" && tileId in layoutStore.uploadingTiles
+        tileId != null && tileId !== "" && tileId in gridStore.uploadingTiles
       );
     });
     const uploadPercent = computed(() => {
       if (!tileId) return 0;
-      const progress = layoutStore.uploadingTiles[tileId] ?? 0;
+      const progress = gridStore.uploadingTiles[tileId] ?? 0;
       return Math.round(progress * 100);
     });
 
@@ -333,7 +333,7 @@ export default defineComponent({
 
     // Toggle crop mode
     const toggleEditMode = () => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
 
       isEditing.value = !isEditing.value;
 
@@ -348,7 +348,7 @@ export default defineComponent({
       if (!isEditing.value) {
         // Use patchTileContent to properly persist the offset changes
         if (tileId && tileId !== "") {
-          layoutStore.patchTileContent(tileId, {
+          gridStore.patchTileContent(tileId, {
             offsetX: offsetX.value,
             offsetY: offsetY.value,
           });
@@ -746,7 +746,7 @@ export default defineComponent({
     } = useTileLink(tileId || null, props.content);
 
     return {
-      layoutStore,
+      gridStore,
       isEditing,
       isUploading,
       uploadPercent,

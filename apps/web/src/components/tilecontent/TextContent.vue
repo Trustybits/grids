@@ -9,11 +9,11 @@
       class="text-content scrollable-thin"
       :class="{
         'not-editing': !isEditing,
-        'can-edit': layoutStore.canEdit,
+        'can-edit': gridStore.canEdit,
         'is-wide-1-high': isWideOneHigh,
         'is-tall-1-wide': isTallOneWide,
-        'owner-view': layoutStore.canEdit,
-        'viewer-view': !layoutStore.canEdit,
+        'owner-view': gridStore.canEdit,
+        'viewer-view': !gridStore.canEdit,
         'is-overflowing': isTextOverflowing,
       }"
       :style="{
@@ -22,7 +22,7 @@
         color: textColor,
         textAlign: textAlign,
       }"
-      :spellcheck="layoutStore.canEdit && isEditing"
+      :spellcheck="gridStore.canEdit && isEditing"
     >
       <EditorContent :editor="editor" />
       <div
@@ -72,10 +72,10 @@ import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
 import FontFamily from "@tiptap/extension-font-family";
 import Color from "@tiptap/extension-color";
-import { FontSize } from "../tiptap/FontSize";
+import { FontSize } from "../../extensions/tiptap/FontSize";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
@@ -102,11 +102,11 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
 
     // Reactive ref so the template updates when canEdit changes
     // (e.g. owner toggles a larger-than-viewport breakpoint preview).
-    const isOwner = computed(() => layoutStore.canEdit);
+    const isOwner = computed(() => gridStore.canEdit);
 
     const isTextOverflowing = ref(false);
     const isScrolledToBottom = ref(false);
@@ -230,7 +230,7 @@ export default defineComponent({
     useEditorContentSync(editor, () => props.content.text);
 
     const onShortClick = () => {
-      if (!layoutStore.canEdit) {
+      if (!gridStore.canEdit) {
         if (tileLinkExists.value) {
           handleFollowLink();
         }
@@ -273,20 +273,20 @@ export default defineComponent({
       useColorPicker(tileId, props.content, emit);
 
     const handleTextAlignChange = (align: "left" | "center" | "right") => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       props.content.textAlign = align;
       if (tileId) {
-        layoutStore.patchTileContent(tileId, { textAlign: align });
+        gridStore.patchTileContent(tileId, { textAlign: align });
       }
     };
 
     const persistEditorText = () => {
-      if (!editor.value || !layoutStore.canEdit) return;
+      if (!editor.value || !gridStore.canEdit) return;
 
       const output = JSON.stringify(editor.value.getJSON());
 
-      if (tileId && layoutStore.currentLayout) {
-        const tile = layoutStore.currentLayout.tiles.find(
+      if (tileId && gridStore.currentGrid) {
+        const tile = gridStore.currentGrid.tiles.find(
           (t) => t.i === tileId,
         );
         if (tile && (tile.content as TextContent).type === "text") {
@@ -296,7 +296,7 @@ export default defineComponent({
         props.content.text = output;
       }
 
-      layoutStore.saveLayout();
+      gridStore.saveGrid();
     };
 
     const syncMarkState = () => {
@@ -391,7 +391,7 @@ export default defineComponent({
     };
 
     return {
-      layoutStore,
+      gridStore,
       editor,
       shouldShowOverflow,
       isEditing,

@@ -1,12 +1,15 @@
 import { onCall, HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
+import { noopIfMaintenance } from "../maintenance.js";
 
 /**
  * Cloud Function to update the default grid for a user's slug.
  * This syncs the defaultGridId to the slugs collection for public access.
  */
 export const updateDefaultGrid = onCall(async (data, context) => {
+  if (noopIfMaintenance("updateDefaultGrid")) return null;
+
   // Ensure user is authenticated
   if (!context.auth) {
     throw new HttpsError(

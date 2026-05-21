@@ -29,7 +29,6 @@ import type {
   MapContent,
   ProfileBioContent,
   CampfireContent,
-  RPGContent,
   EmbedContent,
 } from "@/types/TileContent";
 
@@ -182,19 +181,6 @@ describe("createTileContent", () => {
     expect(content.highScore).toBe(0);
   });
 
-  it("creates RPG content with correct defaults", () => {
-    const content = createTileContent(ContentType.RPG) as RPGContent;
-    expect(content.type).toBe(ContentType.RPG);
-    expect(content.playerHealth).toBe(100);
-    expect(content.playerMaxHealth).toBe(100);
-    expect(content.playerAttack).toBe(15);
-    expect(content.gameState).toBe("playing");
-    expect(content.wave).toBe(1);
-    expect(content.score).toBe(0);
-    expect(Array.isArray(content.enemies)).toBe(true);
-    expect(Array.isArray(content.walls)).toBe(true);
-  });
-
   it("creates YOUTUBE content with provided data", () => {
     const content = createTileContent(ContentType.YOUTUBE, {
       youtubeUrl: "https://youtube.com/watch?v=abc123defgh",
@@ -330,9 +316,7 @@ describe("validateTileContent", () => {
 
   it.each([
     ContentType.CHAT,
-    ContentType.RPG,
     ContentType.CAMPFIRE,
-    ContentType.CLICKER,
     ContentType.PROFILE,
     ContentType.ROADMAP_FEED,
     ContentType.SUGGESTION,

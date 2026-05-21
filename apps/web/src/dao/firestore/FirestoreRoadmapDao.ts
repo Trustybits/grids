@@ -12,19 +12,19 @@ export class FirestoreRoadmapDao implements RoadmapDao {
   }
 
   public async listDatabases(
-    layoutId: string,
+    gridId: string,
     tileId: string,
   ): Promise<NotionDatabase[]> {
     const fn = httpsCallable<unknown, { databases: NotionDatabase[] }>(
       this.functions,
       "listNotionDatabases",
     );
-    const result = await fn({ layoutId, tileId });
+    const result = await fn({ gridId, tileId });
     return result.data.databases;
   }
 
   public async fetchRoadmap(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     queryFilters?: RoadmapQueryFilter[],
     databaseIdOverride?: string,
@@ -34,7 +34,7 @@ export class FirestoreRoadmapDao implements RoadmapDao {
       "fetchNotionRoadmap",
     );
     const result = await fn({
-      layoutId,
+      gridId,
       tileId,
       queryFilters,
       ...(databaseIdOverride ? { databaseIdOverride } : {}),

@@ -1,4 +1,4 @@
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { useThemeStore } from "@/stores/theme";
 import type {
   ProfileBioContent,
@@ -43,7 +43,7 @@ export const useColorPicker = (
   emit: (type: "background-color-change" | "text-color-change", value: string) => void,
   mode: "background" | "overlay" = "background",
 ): ColorPickerValues => {
-  const layoutStore = useLayoutStore();
+  const gridStore = useGridStore();
   const backgroundColorRef = computed(() => content?.backgroundColor);
 
   const overlayColor = computed((): string | null => {
@@ -65,13 +65,13 @@ export const useColorPicker = (
   });
 
   const handleBackgroundColorChange = (color: string) => {
-    if (!layoutStore.canEdit) return;
+    if (!gridStore.canEdit) return;
 
     content.backgroundColor = color;
     if (tileId) {
-      layoutStore.patchTileContent(tileId, { backgroundColor: color });
+      gridStore.patchTileContent(tileId, { backgroundColor: color });
     } else {
-      layoutStore.saveLayout();
+      gridStore.saveGrid();
     }
   };
 

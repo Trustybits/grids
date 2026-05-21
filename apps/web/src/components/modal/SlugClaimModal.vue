@@ -68,30 +68,34 @@
     </div>
 
     <div class="modal-footer">
-      <button
+      <Button
         v-if="hasExistingSlug"
-        class="btn-secondary"
+        variant="secondary"
         @click="handleClose"
         :disabled="isClaiming"
+        block
       >
         Cancel
-      </button>
-      <button
-        class="btn-primary"
+      </Button>
+      <Button
+        variant="primary"
         @click="handleClaim"
         :disabled="!canClaim || isClaiming"
+        :loading="isClaiming"
+        block
       >
-        {{ isClaiming ? 'Claiming...' : hasExistingSlug ? 'Update Handle' : 'Claim Handle' }}
-      </button>
+        {{ hasExistingSlug ? 'Update Handle' : 'Claim Handle' }}
+      </Button>
     </div>
-    <button
+    <Button
       v-if="!hasExistingSlug"
-      class="btn-skip"
-      @click="handleSkip"
+      variant="ghost"
       :disabled="isClaiming"
+      block
+      @click="handleSkip"
     >
       Skip for now
-    </button>
+    </Button>
   </BaseModal>
 </template>
 
@@ -99,6 +103,7 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import BaseModal from './BaseModal.vue';
+import Button from '@/components/ui-elements/Button.vue';
 
 const props = defineProps<{
   isOpen: boolean;
@@ -432,67 +437,6 @@ watch(() => props.isOpen, (isOpen) => {
   gap: var(--spacing-sm);
   padding: var(--spacing-lg);
   border-top: var(--tile-border-width) solid var(--color-tile-stroke);
-}
-
-.btn-secondary,
-.btn-primary {
-  flex: 1;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--easing-smooth);
-  border: none;
-  font-family: var(--font-family-base);
-}
-
-.btn-secondary {
-  background-color: var(--color-content-background);
-  color: var(--color-text-primary);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: var(--color-tile-background);
-  border-color: var(--color-content-high);
-}
-
-.btn-primary {
-  background-color: var(--primary-color);
-  color: var(--color-text-primary);
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: var(--color-content-high);
-}
-
-.btn-secondary:disabled,
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-skip {
-  display: block;
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
-  margin: 0;
-  background: transparent;
-  color: var(--color-content-default);
-  font-size: 14px;
-  font-family: var(--font-family-base);
-  cursor: pointer;
-  transition: color var(--duration-fast) var(--easing-smooth);
-}
-
-.btn-skip:hover:not(:disabled) {
-  color: var(--color-text-primary);
-}
-
-.btn-skip:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 @media (max-width: 600px) {

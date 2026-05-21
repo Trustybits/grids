@@ -11,7 +11,7 @@
  *
  * Routes handled:
  *   /:slug      → verifies slug exists, points og:image at generateOgImage?slug=
- *   /grid/:id   → fetches layout name, points og:image at generateOgImage?gridId=
+ *   /grid/:id   → fetches grid name, points og:image at generateOgImage?gridId=
  *   static pages (/, /pricing, etc.) → injects hardcoded meta tags
  */
 
@@ -142,14 +142,14 @@ async function resolveOgData(pathname: string): Promise<OgData> {
   // ── /grid/:id ──────────────────────────────────────────────────────────────
   const gridMatch = pathname.match(/^\/grid\/([^/]+)$/)
   if (gridMatch) {
-    const layoutId = gridMatch[1]
-    const doc = await fetchFirestoreDoc('layouts', layoutId)
+    const gridId = gridMatch[1]
+    const doc = await fetchFirestoreDoc('grids', gridId)
     const name = doc ? (firestoreStr(doc, 'name') ?? 'Untitled Grid') : 'Untitled Grid'
 
     return {
       title: `${name} — Grids`,
       description: 'View this grid on Grids.',
-      ogImageUrl: `${OG_FUNCTION_URL}?gridId=${encodeURIComponent(layoutId)}`,
+      ogImageUrl: `${OG_FUNCTION_URL}?gridId=${encodeURIComponent(gridId)}`,
       canonicalUrl: `${SITE_ORIGIN}${pathname}`,
     }
   }
@@ -165,15 +165,15 @@ async function resolveOgData(pathname: string): Promise<OgData> {
     const userId = slugDoc ? firestoreStr(slugDoc, 'userId') : null
     if (!userId) return defaultOg
 
-    // Fetch profile data: defaultGridId → layout → profile tile
+    // Fetch profile data: defaultGridId → grid document → profile tile
     const defaultGridId = slugDoc ? firestoreStr(slugDoc, 'defaultGridId') : null
     let ogTitle = `@${slug} — Grids`
     let ogDescription = `Check out @${slug}'s grid on Grids.`
 
     if (defaultGridId) {
-      const layoutDoc = await fetchFirestoreDoc('layouts', defaultGridId)
-      if (layoutDoc) {
-        const fields = layoutDoc.fields as Record<string, unknown> | undefined
+      const gridDoc = await fetchFirestoreDoc('grids', defaultGridId)
+      if (gridDoc) {
+        const fields = gridDoc.fields as Record<string, unknown> | undefined
         const tilesRaw = fields?.tiles
         const tiles = parseFsValue(tilesRaw) as Array<Record<string, unknown>> | null
 

@@ -7,7 +7,7 @@ import type { CloudFunctionsDao } from "@/dao/interfaces/CloudFunctionsDao";
 import type { CustomerDao } from "@/dao/interfaces/CustomerDao";
 import type { DaoFactory } from "@/dao/interfaces/factory/DaoFactory";
 import type { GridStatsDao } from "@/dao/interfaces/GridStatsDao";
-import type { LayoutDao } from "@/dao/interfaces/LayoutDao";
+import type { GridDao } from "@/dao/interfaces/GridDao";
 import type { RoadmapDao } from "@/dao/interfaces/RoadmapDao";
 import type { SlugDao } from "@/dao/interfaces/SlugDao";
 import type { StorageDao } from "@/dao/interfaces/StorageDao";
@@ -22,7 +22,7 @@ import { FirestoreBusinessStatsDao } from "../FirestoreBusinessStatsDao";
 import { FirestoreChatDao } from "../FirestoreChatDao";
 import { FirestoreCustomerDao } from "../FirestoreCustomerDao";
 import { FirestoreGridStatsDao } from "../FirestoreGridStatsDao";
-import { FirestoreLayoutDao } from "../FirestoreLayoutDao";
+import { FirestoreGridDao } from "../FirestoreGridDao";
 import { FirestoreRoadmapDao } from "../FirestoreRoadmapDao";
 import { FirestoreSlugDao } from "../FirestoreSlugDao";
 import { FirestoreUpvoteDao } from "../FirestoreUpvoteDao";
@@ -37,7 +37,7 @@ export class FirestoreDaoFactory implements DaoFactory {
   private cloudFunctionsDao: CloudFunctionsDao;
   private customerDao: CustomerDao;
   private gridStatsDao: GridStatsDao;
-  private layoutDao: LayoutDao;
+  private gridDao: GridDao;
   private roadmapDao: RoadmapDao;
   private slugDao: SlugDao;
   private storageDao: StorageDao;
@@ -53,7 +53,7 @@ export class FirestoreDaoFactory implements DaoFactory {
     this.cloudFunctionsDao = new FirebaseCloudFunctionsDao(functions);
     this.customerDao = new FirestoreCustomerDao(db);
     this.gridStatsDao = new FirestoreGridStatsDao(db);
-    this.layoutDao = new FirestoreLayoutDao(db);
+    this.gridDao = new FirestoreGridDao(db);
     this.roadmapDao = new FirestoreRoadmapDao(functions);
     this.slugDao = new FirestoreSlugDao(db, functions);
     this.storageDao = new FirebaseStorageDao(storage);
@@ -90,8 +90,8 @@ export class FirestoreDaoFactory implements DaoFactory {
     return this.gridStatsDao;
   }
 
-  public getLayoutDao(): LayoutDao {
-    return this.layoutDao;
+  public getGridDao(): GridDao {
+    return this.gridDao;
   }
 
   public getRoadmapDao(): RoadmapDao {

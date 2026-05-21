@@ -169,14 +169,12 @@
               </div>
               <div v-else class="doc-prev-fallback">
                 <p>No in-browser preview for this file type.</p>
-                <a
+                <Button
                   v-if="currentItem?.url"
-                  class="btn btn-primary btn-sm"
+                  variant="primary"
+                  size="sm"
                   :href="currentItem.url"
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >Download</a
+                  >Download</Button
                 >
               </div>
 

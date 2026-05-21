@@ -10,9 +10,9 @@ export interface UserProfile {
   defaultGridId?: string;
   lastLogin?: Date;
   storageUsed?: number;
-  recentLayoutIds?: string[];
+  recentGridIds?: string[];
   /** Dashboard favorites; order is preserved in the Starred section */
-  starredLayoutIds?: string[];
+  starredGridIds?: string[];
   profilePhotoUrl?: string;
 }
 

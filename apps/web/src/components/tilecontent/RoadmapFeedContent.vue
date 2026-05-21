@@ -30,7 +30,7 @@
         <span class="roadmap-title">Roadmap</span>
         <div class="roadmap-header-actions">
           <span v-if="content.lastSyncedAt" class="roadmap-synced-at">Updated {{ relativeTime(content.lastSyncedAt) }}</span>
-          <!-- Refresh button visible only to layout owner -->
+          <!-- Refresh button visible only to grid owner -->
           <button v-if="isOwner" class="roadmap-icon-btn" title="Refresh from Notion" @click.stop="() => refresh()" :disabled="isLoading">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" :class="{ 'is-spinning': isLoading }">
               <path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -243,7 +243,7 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@/auth/AuthProvider";
 import { useRouter } from "vue-router";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import type { RoadmapFeedContent, RoadmapFilterableType, RoadmapItem, RoadmapQueryFilter, RoadmapStatus } from "@/types/TileContent";
 import type { NotionDatabase, PropertyOption } from "@/types/Roadmap";
 
@@ -256,7 +256,7 @@ export default defineComponent({
   },
 
   setup(props) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const authProvider = getAuthProvider();
     const serviceFactory = getServiceFactory();
     const roadmapService = serviceFactory.getRoadmapService();
@@ -264,8 +264,8 @@ export default defineComponent({
 
     const tileId = inject<string>("tileId", "");
 
-    const isOwner = computed(() => layoutStore.canEdit);
-    const layoutId = computed(() => layoutStore.currentLayout?.id ?? "");
+    const isOwner = computed(() => gridStore.canEdit);
+    const gridId = computed(() => gridStore.currentGrid?.id ?? "");
 
     // ── Connection state ─────────────────────────────────────────────
     // A tile is "connected" once the owner has set a real notionDatabaseId
@@ -406,9 +406,9 @@ export default defineComponent({
     const subscribeToMyUpvote = () => {
       if (unsubscribeUpvotes) { unsubscribeUpvotes(); unsubscribeUpvotes = null; }
       const uid = currentUser.value?.uid;
-      if (!uid || !layoutId.value || !tileId) return;
+      if (!uid || !gridId.value || !tileId) return;
       unsubscribeUpvotes = upvoteService.subscribeToUserUpvotes(
-        layoutId.value,
+        gridId.value,
         tileId,
         uid,
         (voted) => {
@@ -459,10 +459,10 @@ export default defineComponent({
 
     // ── Database picker helpers ──────────────────────────────────────
     const loadDatabases = async () => {
-      if (!layoutId.value || !tileId) return;
+      if (!gridId.value || !tileId) return;
       isLoadingDatabases.value = true;
       try {
-        availableDatabases.value = await roadmapService.listDatabases(layoutId.value, tileId);
+        availableDatabases.value = await roadmapService.listDatabases(gridId.value, tileId);
       } catch (err: unknown) {
         connectError.value = err instanceof Error ? err.message : "Failed to load databases.";
       } finally {
@@ -473,20 +473,20 @@ export default defineComponent({
     const selectDatabase = async (databaseId: string) => {
       // Immediately transition to configuring phase so the picker closes and
       // settings panel opens — don't wait for the Firestore-backed prop to update.
-      layoutStore.patchTileContent(tileId, { notionDatabaseId: databaseId });
+      gridStore.patchTileContent(tileId, { notionDatabaseId: databaseId });
       setupPhase.value = "configuring";
       isLoading.value = true;
       fetchError.value = "";
       try {
         const result = await roadmapService.fetchRoadmap(
-          layoutId.value,
+          gridId.value,
           tileId,
           props.content.queryFilters,
           databaseId,
         );
         items.value = result.items;
         propertyOptions.value = result.propertyOptions;
-        layoutStore.patchTileContent(tileId, {
+        gridStore.patchTileContent(tileId, {
           cachedItems: result.items,
           lastSyncedAt: Date.now(),
         });
@@ -502,7 +502,7 @@ export default defineComponent({
     // and the loading spinner is suppressed so the UI doesn't flicker during background syncs.
     const refresh = async (silent = false) => {
       // Skip if not connected or if the database ID is still the post-OAuth sentinel
-      if (!layoutId.value || !tileId || !isConnected.value || props.content.notionDatabaseId === "pending") return;
+      if (!gridId.value || !tileId || !isConnected.value || props.content.notionDatabaseId === "pending") return;
       if (!silent) {
         isLoading.value = true;
         fetchError.value = "";
@@ -516,13 +516,13 @@ export default defineComponent({
       }
       try {
         const result = await roadmapService.fetchRoadmap(
-          layoutId.value,
+          gridId.value,
           tileId,
           props.content.queryFilters,
         );
         items.value = result.items;
         propertyOptions.value = result.propertyOptions;
-        layoutStore.patchTileContent(tileId, {
+        gridStore.patchTileContent(tileId, {
           cachedItems: result.items,
           lastSyncedAt: Date.now(),
         });
@@ -568,7 +568,7 @@ export default defineComponent({
 
       try {
         await upvoteService.toggleUpvote(
-          layoutId.value,
+          gridId.value,
           tileId,
           item.notionPageId,
         );
@@ -582,7 +582,7 @@ export default defineComponent({
         const idx = items.value.findIndex((i) => i.notionPageId === item.notionPageId);
         if (idx !== -1) {
           items.value[idx] = { ...items.value[idx], upvoteCount: Math.max(0, items.value[idx].upvoteCount + delta) };
-          layoutStore.patchTileContent(tileId, { cachedItems: items.value });
+          gridStore.patchTileContent(tileId, { cachedItems: items.value });
         }
         // The Firestore listener will also sync myVotedPageIds from the server,
         // but the optimistic update above already reflects the correct state.
@@ -604,7 +604,7 @@ export default defineComponent({
     // /notion-callback, which calls notionOAuthExchange and posts a message
     // back to this window when the exchange is complete.
     const startOAuth = () => {
-      if (!layoutId.value || !tileId) return;
+      if (!gridId.value || !tileId) return;
       isConnecting.value = true;
       connectError.value = "";
 
@@ -615,7 +615,7 @@ export default defineComponent({
       // Embed redirectUri in state so the callback page can pass the exact same value
       // back to the Cloud Function — Notion requires it to match the authorize request
       // when multiple redirect URIs are registered on the integration.
-      const state = encodeURIComponent(JSON.stringify({ layoutId: layoutId.value, tileId, redirectUri: callbackUri }));
+      const state = encodeURIComponent(JSON.stringify({ gridId: gridId.value, tileId, redirectUri: callbackUri }));
       const notionAuthUrl =
         `https://api.notion.com/v1/oauth/authorize` +
         `?client_id=${clientId}&response_type=code&owner=user` +
@@ -641,7 +641,7 @@ export default defineComponent({
         // Mark the tile as connected (token stored server-side) so the settings
         // panel becomes visible. The owner will replace "pending" with the real
         // Notion database ID in the settings panel.
-        layoutStore.patchTileContent(tileId, { notionDatabaseId: "pending" });
+        gridStore.patchTileContent(tileId, { notionDatabaseId: "pending" });
         // Immediately show the database picker and start loading the list
         setupPhase.value = "picking";
         loadDatabases();
@@ -670,7 +670,7 @@ export default defineComponent({
 
     const reconnect = () => {
       // Clear the database ID so the tile reverts to disconnected state, then re-trigger OAuth
-      layoutStore.patchTileContent(tileId, { notionDatabaseId: "", cachedItems: undefined, lastSyncedAt: undefined });
+      gridStore.patchTileContent(tileId, { notionDatabaseId: "", cachedItems: undefined, lastSyncedAt: undefined });
       showSettings.value = false;
       setupPhase.value = "idle";
       startOAuth();
@@ -679,18 +679,18 @@ export default defineComponent({
     // ── Settings save helpers ────────────────────────────────────────
     const saveDatabaseId = () => {
       if (draftDatabaseId.value !== props.content.notionDatabaseId) {
-        layoutStore.patchTileContent(tileId, { notionDatabaseId: draftDatabaseId.value.trim() });
+        gridStore.patchTileContent(tileId, { notionDatabaseId: draftDatabaseId.value.trim() });
       }
     };
-    const saveStatusProp = () => layoutStore.patchTileContent(tileId, { statusPropertyName: draftStatusProp.value });
-    const saveUpvoteProp = () => layoutStore.patchTileContent(tileId, { upvotePropertyName: draftUpvoteProp.value });
+    const saveStatusProp = () => gridStore.patchTileContent(tileId, { statusPropertyName: draftStatusProp.value });
+    const saveUpvoteProp = () => gridStore.patchTileContent(tileId, { upvotePropertyName: draftUpvoteProp.value });
     const setStatusMapping = (notionOption: string, bucket: string) => {
       draftStatusMapping.value = { ...draftStatusMapping.value, [notionOption]: bucket as RoadmapStatus };
-      layoutStore.patchTileContent(tileId, { statusMapping: { ...draftStatusMapping.value } });
+      gridStore.patchTileContent(tileId, { statusMapping: { ...draftStatusMapping.value } });
     };
     const saveAllSettings = () => {
       saveDatabaseId(); saveStatusProp(); saveUpvoteProp();
-      layoutStore.patchTileContent(tileId, {
+      gridStore.patchTileContent(tileId, {
         statusMapping: { ...draftStatusMapping.value },
         queryFilters: draftQueryFilters.value.length > 0 ? draftQueryFilters.value : undefined,
       });

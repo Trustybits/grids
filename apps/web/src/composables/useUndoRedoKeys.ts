@@ -1,5 +1,5 @@
 import { onMounted, onUnmounted } from "vue";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 
 function isEditorOrInput(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -9,10 +9,10 @@ function isEditorOrInput(target: EventTarget | null): boolean {
 }
 
 export function useUndoRedoKeys() {
-  const layoutStore = useLayoutStore();
+  const gridStore = useGridStore();
 
   const handleKeydown = async (e: KeyboardEvent) => {
-    if (!layoutStore.canEdit) return;
+    if (!gridStore.canEdit) return;
     if (isEditorOrInput(e.target)) return;
 
     const mod = e.metaKey || e.ctrlKey;
@@ -20,10 +20,10 @@ export function useUndoRedoKeys() {
 
     if (e.key === "z" && !e.shiftKey) {
       e.preventDefault();
-      await layoutStore.undo();
+      await gridStore.undo();
     } else if ((e.key === "z" && e.shiftKey) || e.key === "y") {
       e.preventDefault();
-      await layoutStore.redo();
+      await gridStore.redo();
     }
   };
 

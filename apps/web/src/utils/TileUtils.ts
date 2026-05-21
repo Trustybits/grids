@@ -9,12 +9,10 @@ import {
   type LinkContent,
   type VideoContent,
   type EmbedContent,
-  type RPGContent,
   type SuggestionContent,
   type ProfileBioContent,
   type MapContent,
   type CampfireContent,
-  type ClickerContent,
   type YouTubeContent,
   type RoadmapFeedContent,
   type MusicContent,
@@ -437,22 +435,6 @@ export function createTileContent(
         src: normalizeEmbedSrc((data as Partial<EmbedContent>).src || ""),
       } as EmbedContent;
 
-    case ContentType.RPG:
-      return {
-        type,
-        playerX: (data as Partial<RPGContent>).playerX ?? 1,
-        playerY: (data as Partial<RPGContent>).playerY ?? 1,
-        playerHealth: (data as Partial<RPGContent>).playerHealth ?? 100,
-        playerMaxHealth: (data as Partial<RPGContent>).playerMaxHealth ?? 100,
-        playerAttack: (data as Partial<RPGContent>).playerAttack ?? 15,
-        enemies: (data as Partial<RPGContent>).enemies ?? [],
-        items: (data as Partial<RPGContent>).items ?? [],
-        walls: (data as Partial<RPGContent>).walls ?? [],
-        score: (data as Partial<RPGContent>).score ?? 0,
-        wave: (data as Partial<RPGContent>).wave ?? 1,
-        gameState: (data as Partial<RPGContent>).gameState ?? "playing",
-      } as RPGContent;
-
     case ContentType.SUGGESTION: {
       const suggestion = data as Partial<SuggestionContent>;
       const payload: SuggestionContent = {
@@ -505,11 +487,6 @@ export function createTileContent(
         count: (data as Partial<CampfireContent>).count || 0,
         highScore: (data as Partial<CampfireContent>).highScore || 0,
       } as CampfireContent;
-
-    case ContentType.CLICKER:
-      return {
-        type,
-      } as ClickerContent;
 
     case ContentType.YOUTUBE:
       return {
@@ -651,8 +628,6 @@ export function validateTileContent(content: TileContent): boolean {
     case ContentType.EMBED:
       const embed = content as EmbedContent;
       return !!embed.src && embed.src.startsWith("http");
-    case ContentType.RPG:
-      return true; // RPG game tile is always valid
     case ContentType.SUGGESTION:
       return true; // internal placeholder is always valid
     case ContentType.PROFILE:
@@ -666,8 +641,6 @@ export function validateTileContent(content: TileContent): boolean {
       );
     case ContentType.CAMPFIRE:
       return true; // campfire game is always valid
-    case ContentType.CLICKER:
-      return true; // clicker game is always valid
     case ContentType.YOUTUBE:
       const youtube = content as YouTubeContent;
       return !!youtube.youtubeUrl && !!youtube.youtubeId;
@@ -742,12 +715,6 @@ export function getContentComponent(content: TileContent): Component | null {
           () => import("@/components/tilecontent/EmbedContent.vue"),
         ),
       );
-    case ContentType.RPG:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/RPGContent.vue"),
-        ),
-      );
     case ContentType.SUGGESTION:
       return null; // rendered inline in GridTile
     case ContentType.PROFILE:
@@ -766,12 +733,6 @@ export function getContentComponent(content: TileContent): Component | null {
       return markRaw(
         defineAsyncComponent(
           () => import("@/components/tilecontent/CampfireContent.vue"),
-        ),
-      );
-    case ContentType.CLICKER:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/ClickerContent.vue"),
         ),
       );
     case ContentType.YOUTUBE:

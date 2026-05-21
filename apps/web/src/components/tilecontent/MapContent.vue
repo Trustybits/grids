@@ -41,7 +41,7 @@ import cloudImage from "@/assets/images/cloud.png";
 import cloudShadow from "@/assets/images/cloud_shadow.png";
 import planeIcon from "@/assets/images/plane.png";
 import planeShadow from "@/assets/images/planeshadow.png";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { useThemeStore } from "@/stores/theme";
 import { type MapContent, type MapStyleMode } from "@/types/TileContent";
 
@@ -193,7 +193,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const themeStore = useThemeStore();
     const mapTile = ref<HTMLDivElement | null>(null);
     const mapContainer = ref<HTMLDivElement | null>(null);
@@ -230,7 +230,7 @@ export default defineComponent({
 
     const resolvedTileId = computed(() =>
       injectedTileId ??
-        layoutStore.currentLayout?.tiles.find((tile) => tile.content === props.content)?.i ??
+        gridStore.currentGrid?.tiles.find((tile) => tile.content === props.content)?.i ??
         null
     );
 
@@ -239,7 +239,7 @@ export default defineComponent({
     // canonical tile.  storeContent resolves to the store tile's content so
     // all writes persist correctly across layout rebuilds.
     const storeContent = computed(() => {
-      const tile = layoutStore.currentLayout?.tiles.find((t) => t.i === resolvedTileId.value);
+      const tile = gridStore.currentGrid?.tiles.find((t) => t.i === resolvedTileId.value);
       return (tile?.content as MapContent | undefined) ?? props.content;
     });
 
@@ -247,29 +247,29 @@ export default defineComponent({
       get: () => storeContent.value.style || "default",
       set: (value) => {
         storeContent.value.style = value;
-        layoutStore.saveLayout();
+        gridStore.saveGrid();
       },
     });
 
     const tileWidth = computed(() =>
       gridTileW?.value ??
-        layoutStore.currentLayout?.tiles.find((tile) => tile.i === resolvedTileId.value)?.w ??
+        gridStore.currentGrid?.tiles.find((tile) => tile.i === resolvedTileId.value)?.w ??
         0
     );
 
     const tileHeight = computed(() =>
       gridTileH?.value ??
-        layoutStore.currentLayout?.tiles.find((tile) => tile.i === resolvedTileId.value)?.h ??
+        gridStore.currentGrid?.tiles.find((tile) => tile.i === resolvedTileId.value)?.h ??
         0
     );
 
-    const isInteractive = computed(() => !layoutStore.canEdit || isEditing.value);
+    const isInteractive = computed(() => !gridStore.canEdit || isEditing.value);
 
     const show3d = computed({
       get: () => storeContent.value.show3d ?? false,
       set: (value: boolean) => {
         storeContent.value.show3d = value;
-        layoutStore.saveLayout();
+        gridStore.saveGrid();
         apply3d(value);
       },
     });
@@ -278,7 +278,7 @@ export default defineComponent({
       get: () => storeContent.value.showClouds ?? true,
       set: (value: boolean) => {
         storeContent.value.showClouds = value;
-        layoutStore.saveLayout();
+        gridStore.saveGrid();
       },
     });
 
@@ -286,7 +286,7 @@ export default defineComponent({
       get: () => storeContent.value.showPlanes ?? true,
       set: (value: boolean) => {
         storeContent.value.showPlanes = value;
-        layoutStore.saveLayout();
+        gridStore.saveGrid();
       },
     });
 
@@ -440,14 +440,14 @@ export default defineComponent({
     };
 
     const setMarker = (marker: { lat: number; lng: number }) => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       storeContent.value.marker = marker;
-      saveLayout();
+      saveGrid();
       updateMarker(marker);
     };
 
-    const saveLayout = () => {
-      layoutStore.saveLayout();
+    const saveGrid = () => {
+      gridStore.saveGrid();
     };
 
     const setMapInteractivity = (enabled: boolean) => {
@@ -474,7 +474,7 @@ export default defineComponent({
       // Don't persist the default [0,0] center during initial load;
       // we only want to save once a real position has been established.
       if (isInitialLoad) return;
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       // Skip intermediate moveend events fired during programmatic
       // animations (flyTo, easeTo, recenter).  Each caller sets
       // isProgrammaticMove = true before starting and registers a
@@ -500,7 +500,7 @@ export default defineComponent({
         sc.zoom = Number(map.getZoom().toFixed(2));
         sc.bearing = Number(map.getBearing().toFixed(2));
         sc.pitch = Number(map.getPitch().toFixed(2));
-        saveLayout();
+        saveGrid();
       }, SYNC_DEBOUNCE_MS);
     };
 
@@ -515,10 +515,10 @@ export default defineComponent({
           // Reveal the map now that it's positioned correctly.
           mapReady.value = true;
           // jumpTo doesn't fire moveend, so persist immediately.
-          if (layoutStore.canEdit) {
+          if (gridStore.canEdit) {
             storeContent.value.center = center;
             storeContent.value.zoom = targetZoom;
-            saveLayout();
+            saveGrid();
           }
         } else {
           // Suppress intermediate moveend events during the animation.
@@ -576,7 +576,7 @@ export default defineComponent({
     };
 
     const useMyLocation = () => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       if (!navigator.geolocation) {
         statusMessage.value = "Geolocation not supported.";
         // Reveal the map even without a location so the tile isn't blank.
@@ -605,7 +605,7 @@ export default defineComponent({
     const handleSearch = async () => {
       const query = searchInput.value.trim();
       storeContent.value.searchQuery = query || undefined;
-      saveLayout();
+      saveGrid();
       if (!query) {
         useMyLocation();
         return;
@@ -620,7 +620,7 @@ export default defineComponent({
     const resizeMapTile = (w: number, h: number) => {
       const tileId = resolvedTileId.value;
       if (!tileId) return;
-      layoutStore.resizeTile(tileId, w, h);
+      gridStore.resizeTile(tileId, w, h);
       nextTick(() => {
         mapInstance.value?.resize();
       });
@@ -750,12 +750,12 @@ export default defineComponent({
     };
 
     const toggleEditMode = () => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       isEditing.value = !isEditing.value;
       if (isEditing.value) {
         mapInstance.value?.resize();
       } else {
-        saveLayout();
+        saveGrid();
       }
     };
 
@@ -764,10 +764,10 @@ export default defineComponent({
     };
 
     const onExitClick = () => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       if (!isEditing.value) return;
       isEditing.value = false;
-      saveLayout();
+      saveGrid();
     };
 
     // Re-centers the map viewport on the marker (if set), falling back
@@ -899,7 +899,7 @@ export default defineComponent({
         mapReady.value = true;
       }
 
-      if (layoutStore.canEdit) {
+      if (gridStore.canEdit) {
         if (content.searchQuery && !hasSavedCenter) {
           handleGeocode(content.searchQuery);
         } else if (!hasSavedCenter) {
@@ -924,7 +924,7 @@ export default defineComponent({
         syncTimer = null;
         // Perform the save inline since the component is tearing down.
         const map = mapInstance.value;
-        if (map && !isInitialLoad && layoutStore.canEdit) {
+        if (map && !isInitialLoad && gridStore.canEdit) {
           const sc = storeContent.value;
           const center = map.getCenter();
           sc.center = {
@@ -934,7 +934,7 @@ export default defineComponent({
           sc.zoom = Number(map.getZoom().toFixed(2));
           sc.bearing = Number(map.getBearing().toFixed(2));
           sc.pitch = Number(map.getPitch().toFixed(2));
-          saveLayout();
+          saveGrid();
         }
       }
       resizeObserver?.disconnect();
@@ -944,7 +944,7 @@ export default defineComponent({
     });
 
     return {
-      layoutStore,
+      gridStore,
       cloudShadow,
       cloudImage,
       planeIcon,

@@ -3,19 +3,19 @@
     class="grid-card"
     :class="{ 'is-drag-over': isDragOver }"
     :draggable="draggable"
-    @dragstart="$emit('dragstart', $event, layout.id)"
-    @dragover="$emit('dragover', $event, layout.id)"
-    @drop="$emit('drop', $event, layout.id)"
-    @dragend="$emit('dragend', $event, layout.id)"
+    @dragstart="$emit('dragstart', $event, grid.id)"
+    @dragover="$emit('dragover', $event, grid.id)"
+    @drop="$emit('drop', $event, grid.id)"
+    @dragend="$emit('dragend', $event, grid.id)"
   >
-    <router-link :to="`/grid/${layout.id}`" class="grid-link">
+    <router-link :to="`/grid/${grid.id}`" class="grid-link">
       <DashboardGridStarButton
-        :grid-id="layout.id"
+        :grid-id="grid.id"
         :is-starred="isStarred"
         @toggle-star="$emit('toggle-star', $event)"
       />
       <span class="grid-name"
-        >{{ layout.name }}
+        >{{ grid.name }}
         <svg
           class="grid-arrow"
           width="16"
@@ -34,10 +34,10 @@
         </svg>
       </span>
 
-      <DashboardGridUpdatedLabel :layout="layout" />
+      <DashboardGridUpdatedLabel :grid="grid" />
 
       <DashboardGridCardActions
-        :layout="layout"
+        :grid="grid"
         :is-default-grid="isDefaultGrid"
         :split-menu-open="splitMenuOpen"
         @toggle-default="$emit('toggle-default', $event)"
@@ -54,10 +54,10 @@
 import DashboardGridStarButton from "./DashboardGridStarButton.vue";
 import DashboardGridUpdatedLabel from "./DashboardGridUpdatedLabel.vue";
 import DashboardGridCardActions from "./DashboardGridCardActions.vue";
-import type { Layout } from "@/types/Layout";
+import type { Grid } from "@/types/Grid";
 
 defineProps<{
-  layout: Layout,
+  grid: Grid,
   isDefaultGrid?: boolean,
   isStarred?: boolean,
   splitMenuOpen?: boolean,

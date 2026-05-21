@@ -1,10 +1,10 @@
-import type { Layout } from "@/types/Layout";
+import type { Grid } from "@/types/Grid";
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 
-// Mapper function to ensure Firestore data matches the Layout type
-export function mapFirestoreToLayout(
+// Mapper function to ensure Firestore data matches the Grid type
+export function mapFirestoreToGrid(
   doc: QueryDocumentSnapshot<DocumentData, DocumentData>,
-): Layout {
+): Grid {
   const data = doc.data();
   return {
     id: doc.id, // Explicitly set the Firestore document ID

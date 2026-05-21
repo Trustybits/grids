@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
+import { noopIfMaintenance } from "../maintenance.js";
 
 /**
  * Cloud Function that triggers when a file is deleted from Firebase Storage.
@@ -9,6 +10,8 @@ import admin from "../admin.js";
 export const onFileDeleted = functions.storage
   .object()
   .onDelete(async (object) => {
+    if (noopIfMaintenance("onFileDeleted")) return null;
+
     const filePath = object.name;
     const fileSize = parseInt(object.size || "0", 10);
 

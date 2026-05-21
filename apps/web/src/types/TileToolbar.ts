@@ -1,11 +1,11 @@
 import type { Component, Ref } from "vue";
 import type { Tile, TileChildComponent } from "./Tile";
-import type { useLayoutStore } from "@/stores/layout";
+import type { useGridStore } from "@/stores/grid";
 
 export interface ToolbarContext {
   tile: Tile;
   childComponent: Ref<TileChildComponent | null>;
-  layoutStore: ReturnType<typeof useLayoutStore>;
+  gridStore: ReturnType<typeof useGridStore>;
   isEditing: Ref<boolean>;
   isExitingCropMode: Ref<boolean>;
 }

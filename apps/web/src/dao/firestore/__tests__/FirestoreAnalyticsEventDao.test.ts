@@ -64,7 +64,7 @@ describe("FirestoreAnalyticsEventDao", () => {
       await dao.logEvent({
         eventType: AnalyticsEventType.GRID_VIEW,
         userId: null,
-        layoutId: "layout-1",
+        gridId: "grid-1",
         metadata,
       });
 
@@ -77,7 +77,7 @@ describe("FirestoreAnalyticsEventDao", () => {
       expect(payload).toMatchObject({
         eventType: AnalyticsEventType.GRID_VIEW,
         userId: null,
-        layoutId: "layout-1",
+        gridId: "grid-1",
         metadata,
         timestamp: "SERVER_TS",
       });
@@ -95,7 +95,7 @@ describe("FirestoreAnalyticsEventDao", () => {
       await dao.logEvent({
         eventType: AnalyticsEventType.USER_LOGIN,
         userId: "user-7",
-        layoutId: null,
+        gridId: null,
         metadata: { signInMethod: "google" },
       });
 
@@ -103,7 +103,7 @@ describe("FirestoreAnalyticsEventDao", () => {
       expect(payload).toMatchObject({
         eventType: AnalyticsEventType.USER_LOGIN,
         userId: "user-7",
-        layoutId: null,
+        gridId: null,
         metadata: { signInMethod: "google" },
       });
     });
@@ -116,7 +116,7 @@ describe("FirestoreAnalyticsEventDao", () => {
         dao.logEvent({
           eventType: AnalyticsEventType.OWNER_GRID_ENTER,
           userId: "u",
-          layoutId: "l",
+          gridId: "l",
           metadata: {},
         }),
       ).rejects.toThrow("write failed");
@@ -128,7 +128,7 @@ describe("FirestoreAnalyticsEventDao", () => {
     const sampleEvent = {
       eventType: AnalyticsEventType.GRID_VIEW_END,
       userId: "user-1",
-      layoutId: "layout-1",
+      gridId: "grid-1",
       metadata: { sessionId: "sess-1", durationMs: 12345 },
     } as const;
 
@@ -164,7 +164,7 @@ describe("FirestoreAnalyticsEventDao", () => {
       expect(result).toBe(true);
     });
 
-    it("serializes the payload as JSON with layoutId, userId, sessionId, and durationMs", () => {
+    it("serializes the payload as JSON with legacy gridId, userId, sessionId, and durationMs", () => {
       const blobParts: BlobPart[][] = [];
       const OriginalBlob = global.Blob;
       const blobSpy = vi
@@ -178,7 +178,7 @@ describe("FirestoreAnalyticsEventDao", () => {
         dao.logGridViewEndEventBeacon(sampleEvent);
         expect(blobParts).toHaveLength(1);
         expect(JSON.parse(String(blobParts[0][0]))).toEqual({
-          layoutId: "layout-1",
+          gridId: "grid-1",
           userId: "user-1",
           sessionId: "sess-1",
           durationMs: 12345,
@@ -193,10 +193,10 @@ describe("FirestoreAnalyticsEventDao", () => {
       expect(dao.logGridViewEndEventBeacon(sampleEvent)).toBe(false);
     });
 
-    it("returns false and does not call sendBeacon when layoutId is null", () => {
+    it("returns false and does not call sendBeacon when gridId is null", () => {
       const result = dao.logGridViewEndEventBeacon({
         ...sampleEvent,
-        layoutId: null,
+        gridId: null,
       });
       expect(result).toBe(false);
       expect(sendBeaconSpy).not.toHaveBeenCalled();

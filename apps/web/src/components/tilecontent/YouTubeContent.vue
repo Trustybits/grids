@@ -124,7 +124,7 @@
 import { defineComponent, ref, computed, inject, onMounted } from "vue";
 import { type YouTubeContent } from "@/types/TileContent";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { useTileLayout } from "@/composables/useTileLayout";
 
 export default defineComponent({
@@ -135,7 +135,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const layout = useTileLayout();
     const tileId = inject<string | null>("tileId", null);
 
@@ -286,7 +286,7 @@ export default defineComponent({
         
         // Update tile content with fetched metadata
         if (tileId) {
-          layoutStore.patchTileContent(tileId, data);
+          gridStore.patchTileContent(tileId, data);
         } else {
           console.warn("No tileId available to patch content");
         }

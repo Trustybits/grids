@@ -12,7 +12,7 @@ export interface LogEventInput<
 > {
   eventType: T;
   userId: string | null;
-  layoutId: string | null;
+  gridId: string | null;
   metadata: AnalyticsEventMetadataMap[T];
 }
 

@@ -1,11 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import HomePage from '@/components/HomePage.vue';
-import GridPage from '@/components/GridPage.vue';
-import AuthPage from '@/components/AuthPage.vue';
-import DashboardPage from '@/components/DashboardPage.vue';
-import PrivacyPage from '@/components/PrivacyPage.vue';
-import TermsPage from '@/components/TermsPage.vue';
-import NotionCallback from '@/components/NotionCallback.vue';
+import HomePage from '@/pages/HomePage.vue';
+import GridPage from '@/pages/GridPage.vue';
+import AuthPage from '@/pages/AuthPage.vue';
+import DashboardPage from '@/pages/DashboardPage.vue';
+import PrivacyPage from '@/pages/PrivacyPage.vue';
+import TermsPage from '@/pages/TermsPage.vue';
+import NotionCallback from '@/pages/NotionCallback.vue';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import posthog from 'posthog-js';

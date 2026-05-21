@@ -6,7 +6,7 @@
       'is-wide-1-high': isWideOneHigh,
       'is-tall-1-wide': isTallOneWide,
       'is-editing': isEditing,
-      'is-owner': layoutStore.canEdit,
+      'is-owner': gridStore.canEdit,
       'is-drag-over': isDragOver,
     }"
     :style="{ '--link-title-lines': String(titleLineClamp) }"
@@ -19,7 +19,7 @@
     @drop.prevent="onDrop"
   >
     <a
-      v-if="!layoutStore.canEdit && resolvedHref"
+      v-if="!gridStore.canEdit && resolvedHref"
       class="link-tile-anchor"
       :href="resolvedHref"
       target="_blank"
@@ -64,7 +64,7 @@
               :alt="content.domain"
             />
             <button
-              v-if="layoutStore.canEdit && !!content.faviconUrl"
+              v-if="gridStore.canEdit && !!content.faviconUrl"
               class="tile-logo-close"
               @mousedown.stop
               @mouseup.stop
@@ -190,7 +190,7 @@
     </div>
 
     <input
-      v-if="layoutStore.canEdit"
+      v-if="gridStore.canEdit"
       ref="customImageInput"
       class="link-image-input"
       type="file"
@@ -200,7 +200,7 @@
 
     <teleport to="body">
       <div
-        v-if="layoutStore.canEdit && showContextMenu"
+        v-if="gridStore.canEdit && showContextMenu"
         ref="contextMenuRef"
         class="link-context-menu"
         :style="contextMenuStyle"
@@ -248,7 +248,7 @@ import {
 } from "vue";
 
 import { type LinkContent } from "@/types/TileContent";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
@@ -270,7 +270,7 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const tileId = inject<string | null>("tileId", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
@@ -421,7 +421,7 @@ export default defineComponent({
         link: props.content.link,
       }),
       (newMeta) => {
-        if (!tileId || !layoutStore.canEdit) return;
+        if (!tileId || !gridStore.canEdit) return;
         // Only run when not editing — this handles the async metadata fetch
         if (isEditing.value) return;
 
@@ -454,7 +454,7 @@ export default defineComponent({
         if (Object.keys(patch).length > 0) {
           // Write metadata into custom fields on the content object
           Object.assign(props.content, patch);
-          layoutStore.patchTileContent(tileId, patch);
+          gridStore.patchTileContent(tileId, patch);
         }
       },
     );
@@ -464,7 +464,7 @@ export default defineComponent({
     );
 
     const saveEdits = () => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
 
       const nextTitle = draftTitle.value.trim();
       const nextDescription = draftDescription.value.trim();
@@ -481,9 +481,9 @@ export default defineComponent({
       };
 
       if (tileId) {
-        layoutStore.patchTileContent(tileId, updatedFields);
+        gridStore.patchTileContent(tileId, updatedFields);
       } else {
-        layoutStore.saveLayout();
+        gridStore.saveGrid();
       }
     };
 
@@ -492,22 +492,22 @@ export default defineComponent({
     };
 
     const applyImageUrlFromToolbar = (normalizedUrl: string) => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       props.content.customImageUrl = normalizedUrl;
       if (tileId) {
-        layoutStore.patchTileContent(tileId, { customImageUrl: normalizedUrl });
+        gridStore.patchTileContent(tileId, { customImageUrl: normalizedUrl });
       } else {
-        layoutStore.saveLayout();
+        gridStore.saveGrid();
       }
     };
 
     const openCustomImagePicker = () => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       customImageInput.value?.click();
     };
 
     const removeImage = () => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
 
       let changes = {};
 
@@ -520,16 +520,16 @@ export default defineComponent({
       }
 
       if (tileId) {
-        layoutStore.patchTileContent(tileId, changes);
+        gridStore.patchTileContent(tileId, changes);
       } else {
-        layoutStore.saveLayout();
+        gridStore.saveGrid();
       }
 
       closeContextMenu();
     };
 
     const uploadCustomImage = async (file: File) => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
 
       if (!file.type.startsWith("image/")) {
         alert("Unsupported file type. Please upload an image.");
@@ -540,9 +540,9 @@ export default defineComponent({
         const url = await uploadFileToUrl(file, { fileType: "images" });
         props.content.customImageUrl = url;
         if (tileId) {
-          layoutStore.patchTileContent(tileId, { customImageUrl: url });
+          gridStore.patchTileContent(tileId, { customImageUrl: url });
         } else {
-          layoutStore.saveLayout();
+          gridStore.saveGrid();
         }
       } catch (error: unknown) {
         console.error("Link tile image upload failed:", error);
@@ -551,7 +551,7 @@ export default defineComponent({
     };
 
     const onCustomImageSelected = async (event: Event) => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
       await uploadCustomImage(file);
@@ -559,19 +559,19 @@ export default defineComponent({
     };
 
     const onDragEnter = (event: DragEvent) => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       if (!event.dataTransfer?.types.includes("Files")) return;
       isDragOver.value = true;
     };
 
     const onDragOver = (event: DragEvent) => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       if (!event.dataTransfer?.types.includes("Files")) return;
       event.dataTransfer.dropEffect = "copy";
     };
 
     const onDragLeave = (event: DragEvent) => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       const container = linkTileRef.value;
       if (!container) {
         isDragOver.value = false;
@@ -590,7 +590,7 @@ export default defineComponent({
     };
 
     const onDrop = async (event: DragEvent) => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       isDragOver.value = false;
       const file = event.dataTransfer?.files?.[0];
       if (!file) return;
@@ -613,7 +613,7 @@ export default defineComponent({
     };
 
     const onContextMenu = (event: MouseEvent) => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       event.preventDefault();
       event.stopPropagation();
 
@@ -651,7 +651,7 @@ export default defineComponent({
     const handleContextUseUrl = () => {
       closeContextMenu();
       if (tileId) {
-        layoutStore.setPanelActive(tileId, "imageUrl");
+        gridStore.setPanelActive(tileId, "imageUrl");
       }
     };
 
@@ -689,8 +689,8 @@ export default defineComponent({
     const startEditing = (
       focusTarget?: "title" | "description" | "subtitle",
     ) => {
-      if (!layoutStore.canEdit || isEditing.value) return;
-      if (tileId) layoutStore.beginEditing(tileId);
+      if (!gridStore.canEdit || isEditing.value) return;
+      if (tileId) gridStore.beginEditing(tileId);
       isEditing.value = true;
       syncDrafts();
       nextTick(() => {
@@ -719,7 +719,7 @@ export default defineComponent({
     const stopEditing = () => {
       if (!isEditing.value) return;
       flushPersist();
-      layoutStore.commitEditing();
+      gridStore.commitEditing();
       removeExitClickHandler();
       isEditing.value = false;
       // Re-sync drafts so readonly inputs reflect saved values
@@ -728,7 +728,7 @@ export default defineComponent({
 
     const onDetailsClick = (event: MouseEvent) => {
       if (isEditing.value) return;
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
 
       // Determine which field is closest to the click position
       const el = detailsRef.value;
@@ -798,11 +798,11 @@ export default defineComponent({
       if (isEditing.value) return;
       // Owners use the action bar "Follow Link" control.
       // Viewers get native anchor behavior from the full-tile anchor.
-      if (layoutStore.canEdit) return;
+      if (gridStore.canEdit) return;
     };
 
     const onExitClick = () => {
-      if (!layoutStore.canEdit) return;
+      if (!gridStore.canEdit) return;
       if (!isEditing.value) return;
       stopEditing();
     };
@@ -825,14 +825,14 @@ export default defineComponent({
       props.content.faviconUrl = undefined;
 
       if (tileId) {
-        layoutStore.patchTileContent(tileId, { faviconUrl: undefined });
+        gridStore.patchTileContent(tileId, { faviconUrl: undefined });
       } else {
-        layoutStore.saveLayout();
+        gridStore.saveGrid();
       }
     };
 
     return {
-      layoutStore,
+      gridStore,
       overlayColor: linkOverlayColor,
       handleBackgroundColorChange,
       formatLink,

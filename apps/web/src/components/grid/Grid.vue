@@ -1,6 +1,6 @@
 <!-- eslint-disable vue/multi-word-component-names, vue/no-unused-components -->
 <template>
-  <p v-if="layoutStore.isLoading">Loading layout...</p>
+  <p v-if="gridStore.isLoading">Loading layout...</p>
   <div
     v-else-if="displayLayout.length"
     ref="scaleWrapperRef"
@@ -15,7 +15,7 @@
       :row-height="rowHeight"
       :is-draggable="isEditable"
       :is-resizable="isEditable"
-      :vertical-compact="layoutStore.verticalCompact"
+      :vertical-compact="gridStore.verticalCompact"
       :prevent-collision="false"
       :restore-on-drag="true"
       :use-css-transforms="true"
@@ -33,7 +33,7 @@ import { computed, onMounted, onUnmounted, ref, nextTick, watch } from "vue";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
 import GridTile from "./Tile.vue";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { type Tile, type Breakpoint } from "@/types/Tile";
 
 export default {
@@ -57,7 +57,7 @@ export default {
     },
   },
   setup(props) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const margin = 48;
     const viewportWidth = ref(
       typeof window !== "undefined" ? window.innerWidth : 0,
@@ -68,7 +68,7 @@ export default {
     };
 
     const baseColNum = computed(() => {
-      return layoutStore.currentLayout?.colNum ?? 12;
+      return gridStore.currentGrid?.colNum ?? 12;
     });
 
     const hasOverlap = (
@@ -189,7 +189,7 @@ export default {
     // When forcedBreakpoint is set by the owner, use its column count;
     // otherwise fall back to the viewport-derived value.
     const responsiveColNum = computed(() => {
-      const forced = layoutStore.forcedBreakpoint;
+      const forced = gridStore.forcedBreakpoint;
       if (forced) return breakpointToColNum(forced);
       return viewportColNum.value;
     });
@@ -208,7 +208,7 @@ export default {
 
     const activeBreakpoint = computed<Breakpoint>(() => {
       // Forced breakpoint takes priority over viewport detection
-      if (layoutStore.forcedBreakpoint) return layoutStore.forcedBreakpoint;
+      if (gridStore.forcedBreakpoint) return gridStore.forcedBreakpoint;
       return viewportBreakpoint.value;
     });
 
@@ -216,8 +216,8 @@ export default {
     watch(
       [activeBreakpoint, viewportBreakpoint],
       ([active, viewport]) => {
-        layoutStore.setActiveBreakpoint(active);
-        layoutStore.setViewportBreakpoint(viewport);
+        gridStore.setActiveBreakpoint(active);
+        gridStore.setViewportBreakpoint(viewport);
       },
       { immediate: true },
     );
@@ -229,7 +229,7 @@ export default {
     const displayLayout = ref<Tile[]>([]);
 
     const buildBreakpointLayout = (): Tile[] => {
-      const tiles = layoutStore.currentLayout?.tiles ?? [];
+      const tiles = gridStore.currentGrid?.tiles ?? [];
       const bp = activeBreakpoint.value;
       const cols = responsiveColNum.value;
 
@@ -247,7 +247,7 @@ export default {
         return [...tiles];
       }
 
-      const overrides = layoutStore.getBreakpointPositions(bp);
+      const overrides = gridStore.getBreakpointPositions(bp);
       if (overrides && Object.keys(overrides).length > 0) {
         const customized: Tile[] = [];
         const unplaced: Tile[] = [];
@@ -287,20 +287,20 @@ export default {
     watch(
       [
         activeBreakpoint,
-        () => layoutStore.undoRedoVersion,
-        () => layoutStore.currentLayout?.tiles?.length,
-        () => layoutStore.currentLayout?.tiles?.map((t) => t.i).join(","),
+        () => gridStore.undoRedoVersion,
+        () => gridStore.currentGrid?.tiles?.length,
+        () => gridStore.currentGrid?.tiles?.map((t) => t.i).join(","),
         () =>
-          layoutStore.currentLayout?.tiles
+          gridStore.currentGrid?.tiles
             ?.map((t) => `${t.i}:${t.w}x${t.h}`)
             .join(","),
         () =>
-          layoutStore.currentLayout?.tiles
+          gridStore.currentGrid?.tiles
             ?.map((t) => `${t.i}:${t.borderEnabled !== false}`)
             .join(","),
-        () => JSON.stringify(layoutStore.currentLayout?.overrides),
+        () => JSON.stringify(gridStore.currentGrid?.overrides),
         () =>
-          layoutStore.currentLayout?.tiles
+          gridStore.currentGrid?.tiles
             ?.map((t) => {
               const c = t.content as Record<string, unknown>;
               const thumbs = c.thumbnails as Record<string, Record<string, unknown>> | undefined;
@@ -309,8 +309,8 @@ export default {
             .join("|"),
       ],
       () => {
-        if (layoutStore.skipOverrideRebuild) {
-          layoutStore.skipOverrideRebuild = false;
+        if (gridStore.skipOverrideRebuild) {
+          gridStore.skipOverrideRebuild = false;
           return;
         }
         displayLayout.value = buildBreakpointLayout();
@@ -325,9 +325,9 @@ export default {
     // without a full remount of all tiles.
     watch(
       () =>
-        layoutStore.currentLayout?.tiles?.map((t) => t.content.type).join(","),
+        gridStore.currentGrid?.tiles?.map((t) => t.content.type).join(","),
       () => {
-        const storeTiles = layoutStore.currentLayout?.tiles;
+        const storeTiles = gridStore.currentGrid?.tiles;
         if (!storeTiles) return;
         for (const storeTile of storeTiles) {
           const displayTile = displayLayout.value.find(
@@ -350,7 +350,7 @@ export default {
     // above doesn't catch them.
     watch(
       () =>
-        layoutStore.currentLayout?.tiles
+        gridStore.currentGrid?.tiles
           ?.map((t) => {
             const c = t.content as Record<string, unknown>;
             const thumbs = c.thumbnails as Record<string, Record<string, unknown>> | undefined;
@@ -358,7 +358,7 @@ export default {
           })
           .join("|"),
       () => {
-        const storeTiles = layoutStore.currentLayout?.tiles;
+        const storeTiles = gridStore.currentGrid?.tiles;
         if (!storeTiles) return;
         for (const storeTile of storeTiles) {
           const displayTile = displayLayout.value.find(
@@ -377,16 +377,16 @@ export default {
     watch(
       displayLayout,
       (tiles) => {
-        layoutStore.setDisplayPositions(
+        gridStore.setDisplayPositions(
           tiles.map((t) => ({ i: t.i, x: t.x, y: t.y, w: t.w, h: t.h })),
         );
       },
       { immediate: true, deep: true },
     );
 
-    // Delegates to layoutStore.canEdit — the single source of truth for
+    // Delegates to gridStore.canEdit — the single source of truth for
     // whether grid manipulation (drag/resize) is allowed right now.
-    const isEditable = computed(() => layoutStore.canEdit);
+    const isEditable = computed(() => gridStore.canEdit);
 
     const gridWidth = computed(() => {
       return (
@@ -465,14 +465,14 @@ export default {
 
     // When gravity is toggled on, compact tiles and save positions to store
     watch(
-      () => layoutStore.verticalCompact,
+      () => gridStore.verticalCompact,
       (isCompact, wasCompact) => {
-        if (!layoutStore.currentLayout || !layoutStore.canEdit) return;
+        if (!gridStore.currentGrid || !gridStore.canEdit) return;
         if (activeBreakpoint.value !== "lg") return;
 
         // Only act when gravity is turned ON (false -> true)
         if (isCompact && !wasCompact) {
-          const tiles = layoutStore.currentLayout.tiles;
+          const tiles = gridStore.currentGrid.tiles;
           const compacted = packTiles([...tiles], responsiveColNum.value);
 
           // Update each tile's position in the store's tiles array
@@ -489,7 +489,7 @@ export default {
           displayLayout.value = [...tiles];
 
           // Save to database
-          layoutStore.updateLayout();
+          gridStore.updateGrid();
         }
       },
     );
@@ -503,7 +503,7 @@ export default {
     });
 
     return {
-      layoutStore,
+      gridStore,
       gridWidth,
       margin,
       displayLayout,

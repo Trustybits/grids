@@ -40,7 +40,7 @@
       </MenuSection>
 
       <!-- Breakpoint Layout -->
-      <template v-if="isOwner && layoutStore.activeBreakpoint !== 'lg'">
+      <template v-if="isOwner && gridStore.activeBreakpoint !== 'lg'">
         <MenuSection>
           <div class="breakpoint-section">
             <span class="breakpoint-label">{{ breakpointLabel }} Layout</span>
@@ -130,14 +130,14 @@
         <Accordion title="Debug" class="debug-accordion">
           <Toggle
             label="Metadata"
-            :modelValue="layoutStore.showMetaData"
-            @update:modelValue="layoutStore.setShowMetaData"
+            :modelValue="gridStore.showMetaData"
+            @update:modelValue="gridStore.setShowMetaData"
             tooltip="Show compact metadata on each tile"
           />
           <Toggle
             label="Verbose Metadata"
-            :modelValue="layoutStore.showMetaDataVerbose"
-            @update:modelValue="layoutStore.setShowMetaDataVerbose"
+            :modelValue="gridStore.showMetaDataVerbose"
+            @update:modelValue="gridStore.setShowMetaDataVerbose"
             tooltip="Show extended debug metadata details"
           />
           <MenuItem @click="launchPixelRacers"> 🏍️ Pixel Racers </MenuItem>
@@ -147,10 +147,10 @@
 
     <PromptModal
       :show="showDeleteModal"
-      :title="`Delete ${currentLayoutName}`"
-      :description='`Enter "${currentLayoutName}" exactly to confirm deletion.`'
-      :placeholder="currentLayoutName"
-      :require-match="currentLayoutName"
+      :title="`Delete ${currentGridName}`"
+      :description='`Enter "${currentGridName}" exactly to confirm deletion.`'
+      :placeholder="currentGridName"
+      :require-match="currentGridName"
       confirm-label="Delete"
       variant="danger"
       @close="showDeleteModal = false"
@@ -163,8 +163,8 @@
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
-import { useLayoutStore } from "@/stores/layout";
-import type { CopyDepth } from "@/types/Layout";
+import { useGridStore } from "@/stores/grid";
+import type { CopyDepth } from "@/types/Grid";
 import { useThemeStore } from "@/stores/theme";
 import { useToastStore } from "@/stores/toast";
 import { usePixelRacersStore } from "@/stores/pixelRacers";
@@ -180,7 +180,7 @@ import PromptModal from "@/components/modal/PromptModal.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 
 const router = useRouter();
-const layoutStore = useLayoutStore();
+const gridStore = useGridStore();
 const themeStore = useThemeStore();
 const toastStore = useToastStore();
 const gameStore = usePixelRacersStore();
@@ -198,30 +198,30 @@ const { uploadFileToUrl } = useFileUpload();
 
 const isOwner = computed(() => {
   const userId = authProvider.getCurrentUserId();
-  const layout = layoutStore.currentLayout;
+  const layout = gridStore.currentGrid;
   return userId && layout && userId === layout.userId;
 });
 
 const gridPageId = computed(() => {
-  return layoutStore.currentLayout?.id || "";
+  return gridStore.currentGrid?.id || "";
 });
 
 const hasBackgroundImage = computed(() => {
-  return !!layoutStore.currentLayout?.backgroundImageSrc;
+  return !!gridStore.currentGrid?.backgroundImageSrc;
 });
 
 const hasBackgroundColor = computed(() => {
-  return !!layoutStore.currentLayout?.backgroundColor;
+  return !!gridStore.currentGrid?.backgroundColor;
 });
 
-const currentLayoutName = computed(() => {
-  return layoutStore.currentLayout?.name?.trim() || "Untitled Grid";
+const currentGridName = computed(() => {
+  return gridStore.currentGrid?.name?.trim() || "Untitled Grid";
 });
 
 // Computed property with setter to handle gravity toggle
 const verticalCompact = computed({
-  get: () => layoutStore.verticalCompact,
-  set: (value: boolean) => layoutStore.setVerticalCompact(value),
+  get: () => gridStore.verticalCompact,
+  set: (value: boolean) => gridStore.setVerticalCompact(value),
 });
 
 // Computed property with setter to handle dark mode toggle for the grid
@@ -230,7 +230,7 @@ const isDarkMode = computed({
   set: (value: boolean) => {
     const newThemeId = value ? "dark" : "light";
     themeStore.setTheme(newThemeId);
-    layoutStore.setGridTheme(newThemeId);
+    gridStore.setGridTheme(newThemeId);
   },
 });
 
@@ -279,32 +279,32 @@ onUnmounted(() => {
 });
 
 const hasOverride = computed(() => {
-  return layoutStore.hasBreakpointOverride(layoutStore.activeBreakpoint);
+  return gridStore.hasBreakpointOverride(gridStore.activeBreakpoint);
 });
 
 const breakpointLabel = computed(() =>
-  layoutStore.activeBreakpoint === "sm" ? "Mobile" : "Tablet",
+  gridStore.activeBreakpoint === "sm" ? "Mobile" : "Tablet",
 );
 
 const saveBreakpoint = () => {
-  const bp = layoutStore.activeBreakpoint;
+  const bp = gridStore.activeBreakpoint;
   if (bp === "lg") return;
 
   // Use the display positions published by Grid.vue — these reflect the
   // actual rendered positions at the current breakpoint (auto-repacked or
   // previously saved overrides after user edits).
-  const positions = layoutStore.displayPositions;
+  const positions = gridStore.displayPositions;
   if (!positions.length) return;
 
-  layoutStore.saveBreakpointPositions(bp, positions);
+  gridStore.saveBreakpointPositions(bp, positions);
   toastStore.addToast(`${breakpointLabel.value} layout saved`, "success");
   closeMenu();
 };
 
 const resetBreakpoint = () => {
-  const bp = layoutStore.activeBreakpoint;
+  const bp = gridStore.activeBreakpoint;
   if (bp === "lg") return;
-  layoutStore.resetBreakpoint(bp);
+  gridStore.resetBreakpoint(bp);
   toastStore.addToast(
     `${breakpointLabel.value} layout reset to auto`,
     "success",
@@ -314,17 +314,17 @@ const resetBreakpoint = () => {
 
 // Computed property with setter to handle the public duplication toggle
 const duplicatable = computed({
-  get: () => layoutStore.currentLayout?.duplicatable ?? false,
-  set: (value: boolean) => layoutStore.setDuplicatable(value),
+  get: () => gridStore.currentGrid?.duplicatable ?? false,
+  set: (value: boolean) => gridStore.setDuplicatable(value),
 });
 
 // Duplicate the current grid and navigate to the new copy.
 // copyDepth controls how much tile content is carried over.
 const duplicateGrid = async (copyDepth: CopyDepth = "full") => {
-  if (!layoutStore.currentLayout) return;
+  if (!gridStore.currentGrid) return;
 
-  const newId = await layoutStore.duplicateLayout(
-    layoutStore.currentLayout,
+  const newId = await gridStore.duplicateGrid(
+    gridStore.currentGrid,
     copyDepth,
   );
   closeMenu();
@@ -334,16 +334,16 @@ const duplicateGrid = async (copyDepth: CopyDepth = "full") => {
 };
 
 const confirmDelete = () => {
-  if (!layoutStore.isOwner || !layoutStore.currentLayout) return;
+  if (!gridStore.isOwner || !gridStore.currentGrid) return;
   showDeleteModal.value = true;
   closeMenu();
 };
 
 // Handle grid deletion directly — no need to bubble up through parent components
 const deleteGrid = async () => {
-  if (!layoutStore.isOwner || !layoutStore.currentLayout) return;
+  if (!gridStore.isOwner || !gridStore.currentGrid) return;
 
-  await layoutStore.deleteLayout(layoutStore.currentLayout.id);
+  await gridStore.deleteGrid(gridStore.currentGrid.id);
   showDeleteModal.value = false;
   closeMenu();
   router.push("/dashboard");
@@ -358,7 +358,7 @@ const handleBackgroundImageUpload = async (event: Event) => {
   if (!file) return;
   try {
     const url = await uploadFileToUrl(file, { fileType: "images" });
-    layoutStore.addBackgroundImage(url, false);
+    gridStore.addBackgroundImage(url, false);
   } catch (error: unknown) {
     console.error("Failed to upload background image:", error);
     toastStore.addToast(
@@ -375,17 +375,17 @@ const openBgColorPicker = () => {
 };
 
 const handleBackgroundColorChange = (color: string) => {
-  layoutStore.setBackgroundColor(color);
+  gridStore.setBackgroundColor(color);
   showBgColorPicker.value = false;
 };
 
 const removeBackgroundImage = () => {
-  layoutStore.removeBackgroundImage();
+  gridStore.removeBackgroundImage();
   showBgDropdown.value = false;
 };
 
 const removeBackgroundColor = () => {
-  layoutStore.removeBackgroundColor();
+  gridStore.removeBackgroundColor();
   showBgDropdown.value = false;
 };
 

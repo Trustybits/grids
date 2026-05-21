@@ -8,9 +8,9 @@
     <!-- Left Navigation Bar (hidden on marketing pages like /pricing) -->
     <LeftNavBar v-if="isAuthenticated && !isMarketingPage" />
 
-    <!-- Top Bar for Layout Title Editor -->
+    <!-- Top Bar for Grid Name Editor -->
     <div ref="topBarRef" class="top-bar" v-if="showTopBar">
-      <LayoutTitleEditor v-if="showTitleEditor" :isAuthenticated="isAuthenticated" />
+      <GridNameEditor v-if="showTitleEditor" :isAuthenticated="isAuthenticated" />
     </div>
 
     <!-- Main Content Area -->
@@ -34,11 +34,11 @@ import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import LeftNavBar from './components/grid/LeftNavBar.vue';
 import BottomLeftButtons from './components/app/AppBar.vue';
-import LayoutTitleEditor from './components/grid/GridNameEditor.vue';
+import GridNameEditor from './components/grid/GridNameEditor.vue';
 import ToastContainer from './components/ui-controls/ToastContainer.vue';
 import PixelRacersGame from './components/grid/PixelRacersGame.vue';
 import ViewportWarning from './components/grid/ViewportWarning.vue';
-import { useLayoutStore } from '@/stores/layout';
+import { useGridStore } from '@/stores/grid';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import type { AuthUser } from '@/auth/AuthProvider';
@@ -49,7 +49,7 @@ import { initContributions } from '@/composables/useContributions';
 const { identify, reset: resetPostHog } = usePostHog();
 
 const route = useRoute();
-const layoutStore = useLayoutStore();
+const gridStore = useGridStore();
 const isMarketingPage = computed(() => MARKETING_PATHS.includes(route.path));
 const hideBottomCornerButtons = isMarketingPage;
 
@@ -118,7 +118,7 @@ const isOnGridPage = computed(() => {
   if (path.startsWith("/grid/")) return true;
   if (NON_GRID_PATHS.includes(path)) return false;
   // Slug routes (/:slug) that loaded a real grid
-  return !!layoutStore.currentLayout && !layoutStore.isDemoLayout;
+  return !!gridStore.currentGrid && !gridStore.isDemoGrid;
 });
 
 // Clear stale layout state when navigating away from a grid page.
@@ -134,7 +134,7 @@ watch(
       newPath.startsWith("/grid/") || !NON_GRID_PATHS.includes(newPath);
 
     if (wasOnGrid && !isOnGrid) {
-      layoutStore.clearCurrentLayout();
+      gridStore.clearCurrentGrid();
     }
   },
   { flush: "pre" },

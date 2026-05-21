@@ -4,7 +4,7 @@ export interface IUpvoteService {
    * Returns an unsubscribe function.
    */
   subscribeToUserUpvotes(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     userId: string,
     callback: (votedPageIds: Set<string>) => void,
@@ -13,7 +13,7 @@ export interface IUpvoteService {
 
   /** Toggle an upvote on a roadmap item. Returns the new vote state. */
   toggleUpvote(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     notionPageId: string,
   ): Promise<{ isNowUpvoted: boolean }>;

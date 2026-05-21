@@ -38,7 +38,7 @@ import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 
 // Module-level set: tracks which OAuth state values have already been exchanged.
 // Using the state string (not a boolean) means a fresh OAuth attempt with a new
-// state (new tileId/layoutId combo) is always allowed, while dev-mode double-mounts
+// state (new tileId/gridId combo) is always allowed, while dev-mode double-mounts
 // for the same state are still deduplicated.
 const exchangedStates = new Set<string>();
 
@@ -82,14 +82,14 @@ export default defineComponent({
         return;
       }
 
-      // Decode the state parameter to recover layoutId, tileId, and the redirectUri
+      // Decode the state parameter to recover the grid ID, tile ID, and redirect URI.
       // that was used in the authorize request (required for the token exchange).
-      let layoutId = "";
+      let gridId = "";
       let tileId = "";
       let redirectUri = "";
       try {
         const state = JSON.parse(decodeURIComponent(stateRaw ?? "{}"));
-        layoutId = state.layoutId ?? "";
+        gridId = state.layoutId ?? state.gridId ?? "";
         tileId = state.tileId ?? "";
         redirectUri = state.redirectUri ?? "";
       } catch {
@@ -102,7 +102,7 @@ export default defineComponent({
         return;
       }
 
-      if (!layoutId || !tileId) {
+      if (!gridId || !tileId) {
         status.value = "error";
         errorMessage.value = "Missing context. Please try connecting again.";
         window.opener?.postMessage(
@@ -116,7 +116,7 @@ export default defineComponent({
         // Exchange the authorization code for an access token via the Cloud Function.
         // The token is stored server-side; this page never sees it.
         // redirectUri is read from state so it exactly matches what was used in the authorize step.
-        await getServiceFactory().getCloudFunctionsService().callFunction("notionOAuthExchange", { code, layoutId, tileId, redirectUri });
+        await getServiceFactory().getCloudFunctionsService().callFunction("notionOAuthExchange", { code, layoutId: gridId, tileId, redirectUri });
 
         status.value = "success";
 

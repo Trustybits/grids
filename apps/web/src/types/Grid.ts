@@ -6,7 +6,7 @@ import type { Breakpoint, TilePosition } from "./Tile";
 //   'structure' — keep tile type/size/position only, reset content to defaults
 export type CopyDepth = 'full' | 'structure';
 
-export interface Layout {
+export interface Grid {
   id: string;
   userId: string;
   name: string;

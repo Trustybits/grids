@@ -29,13 +29,13 @@ export function adjustTilePosition(
 /**
  * Push existing tiles out of the way to make room for a new tile at the
  * given position. Modifies tile Y positions in-place so that by the time
- * Vue re-renders, the layout is already collision-free — no overlap flash.
+ * Vue re-renders, the grid is already collision-free — no overlap flash.
  *
  * Algorithm:
  *  1. Push every tile that overlaps the new tile's footprint directly
  *     below it (tile.y = newY + newH).
  *  2. Cascade: sort all tiles top-to-bottom and resolve any secondary
- *     overlaps the same way. Repeat until the layout is stable.
+ *     overlaps the same way. Repeat until the grid is stable.
  */
 export function pushTilesForNewItem(
   tiles: Tile[],

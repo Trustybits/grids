@@ -66,10 +66,10 @@ describe("FirestoreGridStatsDao", () => {
   // ── getAggregate ────────────────────────────────────────────────────────
 
   describe("getAggregate", () => {
-    it("reads gridStats/{layoutId} and maps full data", async () => {
+    it("reads gridStats/{gridId} and maps full data", async () => {
       const updated = new FakeTimestamp(1700, 0);
       const data = {
-        layoutId: "layout-1",
+        layoutId: "grid-1",
         ownerId: "user-1",
         totalViews: 50,
         uniqueViewers: 30,
@@ -83,12 +83,12 @@ describe("FirestoreGridStatsDao", () => {
       vi.mocked(doc).mockReturnValue("docRef" as any);
       vi.mocked(getDoc).mockResolvedValue(fakeSnapshot(data) as any);
 
-      const result = await dao.getAggregate("layout-1");
+      const result = await dao.getAggregate("grid-1");
 
-      expect(doc).toHaveBeenCalledWith(fakeDb, "gridStats", "layout-1");
+      expect(doc).toHaveBeenCalledWith(fakeDb, "gridStats", "grid-1");
       expect(getDoc).toHaveBeenCalledWith("docRef");
       expect(result).toEqual({
-        layoutId: "layout-1",
+        gridId: "grid-1",
         ownerId: "user-1",
         totalViews: 50,
         uniqueViewers: 30,
@@ -105,7 +105,7 @@ describe("FirestoreGridStatsDao", () => {
       vi.mocked(doc).mockReturnValue("docRef" as any);
       vi.mocked(getDoc).mockResolvedValue(fakeSnapshot(null) as any);
 
-      const result = await dao.getAggregate("layout-missing");
+      const result = await dao.getAggregate("grid-missing");
       expect(result).toBeNull();
     });
 
@@ -113,15 +113,15 @@ describe("FirestoreGridStatsDao", () => {
       vi.mocked(doc).mockReturnValue("docRef" as any);
       vi.mocked(getDoc).mockResolvedValue(
         fakeSnapshot({
-          layoutId: "layout-1",
+          layoutId: "grid-1",
           ownerId: "user-1",
         }) as any,
       );
 
-      const result = await dao.getAggregate("layout-1");
+      const result = await dao.getAggregate("grid-1");
 
       expect(result).toEqual({
-        layoutId: "layout-1",
+        gridId: "grid-1",
         ownerId: "user-1",
         totalViews: 0,
         uniqueViewers: 0,
@@ -138,9 +138,9 @@ describe("FirestoreGridStatsDao", () => {
   // ── getDaily ────────────────────────────────────────────────────────────
 
   describe("getDaily", () => {
-    it("reads the gridStats/{layoutId}__{date} document and includes the date field", async () => {
+    it("reads the gridStats/{gridId}__{date} document and includes the date field", async () => {
       const data = {
-        layoutId: "layout-1",
+        layoutId: "grid-1",
         ownerId: "user-1",
         totalViews: 3,
         date: "2026-05-07",
@@ -148,15 +148,15 @@ describe("FirestoreGridStatsDao", () => {
       vi.mocked(doc).mockReturnValue("docRef" as any);
       vi.mocked(getDoc).mockResolvedValue(fakeSnapshot(data) as any);
 
-      const result = await dao.getDaily("layout-1", "2026-05-07");
+      const result = await dao.getDaily("grid-1", "2026-05-07");
 
       expect(doc).toHaveBeenCalledWith(
         fakeDb,
         "gridStats",
-        "layout-1__2026-05-07",
+        "grid-1__2026-05-07",
       );
       expect(result).toMatchObject({
-        layoutId: "layout-1",
+        gridId: "grid-1",
         date: "2026-05-07",
         totalViews: 3,
       });
@@ -166,7 +166,7 @@ describe("FirestoreGridStatsDao", () => {
       vi.mocked(doc).mockReturnValue("docRef" as any);
       vi.mocked(getDoc).mockResolvedValue(fakeSnapshot(null) as any);
 
-      const result = await dao.getDaily("layout-1", "2026-05-07");
+      const result = await dao.getDaily("grid-1", "2026-05-07");
       expect(result).toBeNull();
     });
   });
@@ -174,18 +174,18 @@ describe("FirestoreGridStatsDao", () => {
   // ── getDailyRange ───────────────────────────────────────────────────────
 
   describe("getDailyRange", () => {
-    it("queries gridStats by documentId() between {layoutId}__{start} and {layoutId}__{end}", async () => {
+    it("queries gridStats by documentId() between {gridId}__{start} and {gridId}__{end}", async () => {
       vi.mocked(collection).mockReturnValue("colRef" as any);
       vi.mocked(query).mockReturnValue("queryRef" as any);
       vi.mocked(getDocs).mockResolvedValue(
         fakeQueryResult([
-          { layoutId: "layout-1", date: "2026-05-01", totalViews: 1 },
-          { layoutId: "layout-1", date: "2026-05-02", totalViews: 2 },
+          { layoutId: "grid-1", date: "2026-05-01", totalViews: 1 },
+          { layoutId: "grid-1", date: "2026-05-02", totalViews: 2 },
         ]) as any,
       );
 
       const result = await dao.getDailyRange(
-        "layout-1",
+        "grid-1",
         "2026-05-01",
         "2026-05-02",
       );
@@ -195,12 +195,12 @@ describe("FirestoreGridStatsDao", () => {
       expect(where).toHaveBeenCalledWith(
         "__name__",
         ">=",
-        "layout-1__2026-05-01",
+        "grid-1__2026-05-01",
       );
       expect(where).toHaveBeenCalledWith(
         "__name__",
         "<=",
-        "layout-1__2026-05-02",
+        "grid-1__2026-05-02",
       );
       expect(query).toHaveBeenCalledWith(
         "colRef",
@@ -220,7 +220,7 @@ describe("FirestoreGridStatsDao", () => {
       vi.mocked(getDocs).mockResolvedValue(fakeQueryResult([]) as any);
 
       const result = await dao.getDailyRange(
-        "layout-1",
+        "grid-1",
         "2026-05-01",
         "2026-05-02",
       );

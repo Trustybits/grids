@@ -13,22 +13,22 @@ export class ChatService implements IChatService {
   }
 
   subscribeToMessages(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     callback: (messages: ChatMessage[]) => void,
     onError?: (error: Error) => void,
   ): () => void {
-    return this.chatDao.subscribeToMessages(layoutId, tileId, callback, onError);
+    return this.chatDao.subscribeToMessages(gridId, tileId, callback, onError);
   }
 
   async sendMessage(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     text: string,
   ): Promise<string> {
     const authProvider = getAuthProvider();
     const authorId = authProvider.getCurrentUserId() ?? "visitor";
-    return this.chatDao.addMessage(layoutId, tileId, {
+    return this.chatDao.addMessage(gridId, tileId, {
       text,
       createdAt: Date.now(),
       authorId,
@@ -36,19 +36,19 @@ export class ChatService implements IChatService {
   }
 
   async editMessage(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     messageId: string,
     text: string,
   ): Promise<void> {
-    await this.chatDao.updateMessage(layoutId, tileId, messageId, text);
+    await this.chatDao.updateMessage(gridId, tileId, messageId, text);
   }
 
   async deleteMessage(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     messageId: string,
   ): Promise<void> {
-    await this.chatDao.deleteMessage(layoutId, tileId, messageId);
+    await this.chatDao.deleteMessage(gridId, tileId, messageId);
   }
 }

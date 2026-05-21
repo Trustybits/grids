@@ -37,7 +37,7 @@ export class FirestoreAnalyticsEventDao implements AnalyticsEventDao {
     await addDoc(collection(this.db, COLLECTION), {
       eventType: event.eventType,
       userId: event.userId,
-      layoutId: event.layoutId,
+      gridId: event.gridId,
       metadata: event.metadata,
       timestamp: serverTimestamp(),
       expiresAt,
@@ -46,7 +46,7 @@ export class FirestoreAnalyticsEventDao implements AnalyticsEventDao {
 
   public logGridViewEndEventBeacon(event: GridViewEndEvent): boolean {
     if (typeof navigator === "undefined" || !navigator.sendBeacon) return false;
-    if (!event.layoutId) return false;
+    if (!event.gridId) return false;
 
     const url = import.meta.env.VITE_VIEW_END_ANALYTICS_BEACON_URL;
     if (!url) {
@@ -60,7 +60,7 @@ export class FirestoreAnalyticsEventDao implements AnalyticsEventDao {
     }
 
     const payload = {
-      layoutId: event.layoutId,
+      gridId: event.gridId,
       userId: event.userId,
       sessionId: event.metadata.sessionId,
       durationMs: event.metadata.durationMs,

@@ -6,17 +6,18 @@
       <p class="prompt-description">{{ description }}</p>
     </div>
     <div class="prompt-action">
-      <router-link v-if="reason === 'sign_in'" to="/login" class="btn btn-sm btn-primary">
+      <Button v-if="reason === 'sign_in'" variant="primary" to="/login" size="sm">
         Sign in
-      </router-link>
-      <router-link
+      </Button>
+      <Button
         v-else
+        :variant="reason === 'pro' ? 'primary' : 'primary'"
         :to="reason === 'pro' ? '/pricing#pro' : '/pricing#supporter'"
-        class="btn btn-sm"
-        :class="reason === 'pro' ? 'btn-primary' : 'btn-supporter'"
+        size="sm"
+        :class="reason === 'supporter' ? 'btn-supporter' : ''"
       >
         {{ ctaLabel }}
-      </router-link>
+      </Button>
     </div>
   </div>
 </template>
@@ -24,6 +25,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { GatedFeature } from '@/composables/useTier'
+import Button from '@/components/ui-elements/Button.vue'
 
 const props = defineProps<{
   /** The feature that's locked — used to generate contextual copy */
@@ -119,7 +121,7 @@ const ctaLabel = computed(() => {
   flex-shrink: 0;
 }
 
-.btn-supporter {
+.btn-supporter :deep(.btn) {
   background: #f97316;
   border-color: #f97316;
   color: white;

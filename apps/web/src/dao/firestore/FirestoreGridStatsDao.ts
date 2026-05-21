@@ -15,13 +15,13 @@ import type { DailyGridStats, GridStats } from "@/types/Analytics";
 
 const COLLECTION = "gridStats";
 
-function dailyDocId(layoutId: string, date: string): string {
-  return `${layoutId}__${date}`;
+function dailyDocId(gridId: string, date: string): string {
+  return `${gridId}__${date}`;
 }
 
 function toGridStats(data: DocumentData): GridStats {
   return {
-    layoutId: data.layoutId,
+    gridId: data.gridId,
     ownerId: data.ownerId,
     totalViews: data.totalViews ?? 0,
     uniqueViewers: data.uniqueViewers ?? 0,
@@ -48,35 +48,35 @@ export class FirestoreGridStatsDao implements GridStatsDao {
     this.db = db;
   }
 
-  public async getAggregate(layoutId: string): Promise<GridStats | null> {
-    const snap = await getDoc(doc(this.db, COLLECTION, layoutId));
+  public async getAggregate(gridId: string): Promise<GridStats | null> {
+    const snap = await getDoc(doc(this.db, COLLECTION, gridId));
     if (!snap.exists()) return null;
     return toGridStats(snap.data());
   }
 
   public async getDaily(
-    layoutId: string,
+    gridId: string,
     date: string,
   ): Promise<DailyGridStats | null> {
     const snap = await getDoc(
-      doc(this.db, COLLECTION, dailyDocId(layoutId, date)),
+      doc(this.db, COLLECTION, dailyDocId(gridId, date)),
     );
     if (!snap.exists()) return null;
     return toDailyGridStats(snap.data());
   }
 
   public async getDailyRange(
-    layoutId: string,
+    gridId: string,
     startDate: string,
     endDate: string,
   ): Promise<DailyGridStats[]> {
-    // Doc IDs sort lexicographically; `{layoutId}__{YYYY-MM-DD}` keeps days
+    // Doc IDs sort lexicographically; `{gridId}__{YYYY-MM-DD}` keeps days
     // for one grid contiguous and ordered, so a documentId() range query
     // returns exactly the daily docs we want without an index.
     const q = query(
       collection(this.db, COLLECTION),
-      where(documentId(), ">=", dailyDocId(layoutId, startDate)),
-      where(documentId(), "<=", dailyDocId(layoutId, endDate)),
+      where(documentId(), ">=", dailyDocId(gridId, startDate)),
+      where(documentId(), "<=", dailyDocId(gridId, endDate)),
     );
     const snap = await getDocs(q);
     return snap.docs.map((d) => toDailyGridStats(d.data()));

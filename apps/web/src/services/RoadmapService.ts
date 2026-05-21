@@ -13,20 +13,20 @@ export class RoadmapService implements IRoadmapService {
   }
 
   async listDatabases(
-    layoutId: string,
+    gridId: string,
     tileId: string,
   ): Promise<NotionDatabase[]> {
-    return this.roadmapDao.listDatabases(layoutId, tileId);
+    return this.roadmapDao.listDatabases(gridId, tileId);
   }
 
   async fetchRoadmap(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     queryFilters?: RoadmapQueryFilter[],
     databaseIdOverride?: string,
   ): Promise<FetchRoadmapResult> {
     return this.roadmapDao.fetchRoadmap(
-      layoutId,
+      gridId,
       tileId,
       queryFilters,
       databaseIdOverride,

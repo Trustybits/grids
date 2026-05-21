@@ -1,7 +1,7 @@
 /**
  * One-time migration: copy avatarSrc from profile tiles → users/{uid}.profilePhotoUrl
  *
- * For each layout in Firestore:
+ * For each grid in Firestore:
  *   1. Find any tile with content.type === "profile" and a non-empty content.avatarSrc
  *   2. If the owning user does NOT already have a profilePhotoUrl set, write it now
  *
@@ -21,7 +21,7 @@
 
 /* eslint-disable */
 
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 
 // Only initialize if not already done (safe for standalone runs)
 if (!admin.apps.length) {
@@ -33,14 +33,14 @@ const db = admin.firestore();
 async function migrateProfilePhotos(): Promise<void> {
   console.log("Starting profile photo migration...");
 
-  const layoutsSnap = await db.collection("layouts").get();
-  console.log(`Found ${layoutsSnap.size} layouts to scan.`);
+  const gridsSnap = await db.collection("grids").get();
+  console.log(`Found ${gridsSnap.size} grids to scan.`);
 
   // uid → avatarSrc  (first non-empty one wins)
   const photoMap: Map<string, string> = new Map();
 
-  for (const layoutDoc of layoutsSnap.docs) {
-    const data = layoutDoc.data();
+  for (const gridDoc of gridsSnap.docs) {
+    const data = gridDoc.data();
     const userId: string = data.userId;
     if (!userId) continue;
 

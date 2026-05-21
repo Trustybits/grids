@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
+import { noopIfMaintenance } from "../maintenance.js";
 import { RESERVED_SLUGS } from "./utils_reservedSlugs.js";
 import { isValidSlugFormat } from "./utils_slugValidation.js";
 
@@ -9,6 +10,8 @@ import { isValidSlugFormat } from "./utils_slugValidation.js";
  * Enforces uniqueness and format validation.
  */
 export const claimSlug = onCall(async (data, context) => {
+  if (noopIfMaintenance("claimSlug")) return null;
+
   // Ensure user is authenticated
   if (!context.auth) {
     throw new HttpsError(

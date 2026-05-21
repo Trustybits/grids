@@ -1,6 +1,6 @@
 import { watch, nextTick, onUnmounted, inject, onMounted, type Ref } from "vue";
 import type { Editor } from "@tiptap/vue-3";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 
 interface EditingLifecycleOptions {
   editor: Ref<Editor | undefined>;
@@ -23,12 +23,12 @@ export function useEditingLifecycle(options: EditingLifecycleOptions) {
     shouldBlockExit,
   } = options;
 
-  const layoutStore = useLayoutStore();
+  const gridStore = useGridStore();
   const tileId = inject<string | null>("tileId", null);
 
   // ── Edit mode watcher ──────────────────────────────────────
   watch(
-    [() => layoutStore.canEdit, () => isEditing.value],
+    [() => gridStore.canEdit, () => isEditing.value],
     ([canEdit, editing]) => {
       if (!editor?.value) return;
 
@@ -40,7 +40,7 @@ export function useEditingLifecycle(options: EditingLifecycleOptions) {
         editor.value.commands.focus("end");
         nextTick(() => {
           flushPersist();
-          if (tileId) layoutStore.beginEditing(tileId);
+          if (tileId) gridStore.beginEditing(tileId);
         });
         return;
       }
@@ -54,7 +54,7 @@ export function useEditingLifecycle(options: EditingLifecycleOptions) {
       }
 
       flushPersist();
-      layoutStore.commitEditing();
+      gridStore.commitEditing();
     },
   );
 
@@ -62,10 +62,10 @@ export function useEditingLifecycle(options: EditingLifecycleOptions) {
   onMounted(() => {
     if (
       tileId &&
-      layoutStore.canEdit &&
-      layoutStore.pendingFocusTileId === tileId
+      gridStore.canEdit &&
+      gridStore.pendingFocusTileId === tileId
     ) {
-      layoutStore.pendingFocusTileId = null;
+      gridStore.pendingFocusTileId = null;
       isEditing.value = true;
     }
   });

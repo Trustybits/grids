@@ -2,7 +2,7 @@ import type { UpvoteDao } from "@/dao/interfaces/UpvoteDao";
 
 export class StubbedUpvoteDao implements UpvoteDao {
   public subscribeToUserUpvotes(
-    _layoutId: string,
+    _gridId: string,
     _tileId: string,
     _userId: string,
     _callback: (votedPageIds: Set<string>) => void,
@@ -12,7 +12,7 @@ export class StubbedUpvoteDao implements UpvoteDao {
   }
 
   public toggleUpvote(
-    _layoutId: string,
+    _gridId: string,
     _tileId: string,
     _notionPageId: string,
   ): Promise<{ isNowUpvoted: boolean }> {

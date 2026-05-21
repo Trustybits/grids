@@ -12,7 +12,7 @@
  *   4. Caches the result in Firebase Storage and 302-redirects clients there.
  *
  * Theme:
- *   - layoutDoc.themeId === "light" → light tokens (white bg, dark text, soft shadows)
+ *   - gridDoc.themeId === "light" → light tokens (white bg, dark text, soft shadows)
  *   - otherwise                     → dark  tokens (#10100e bg, white text, heavy shadows)
  *
  * Storage paths:
@@ -35,8 +35,9 @@
  */
 
 import * as functions from "firebase-functions/v1";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import type { Request, Response } from "firebase-functions/v1";
+import { respondWithMaintenanceIfEnabled } from "../maintenance.js";
 
 // chromium and puppeteer are lazy-loaded inside the handler so the Firebase
 // CLI's function-introspection server doesn't time out at deploy time.
@@ -357,8 +358,8 @@ async function resolveGridInfo(
   gridId: string | undefined,
   screenshotBase: string
 ): Promise<GridInfo | null> {
-  // Resolve which layout doc to load
-  let layoutDoc: Record<string, unknown> | null = null;
+  // Resolve which grid doc to load.
+  let gridDoc: Record<string, unknown> | null = null;
   let resolvedHandle: string | null = null;
   let resolvedScreenshotUrl: string;
   let seed: string;
@@ -368,20 +369,20 @@ async function resolveGridInfo(
     if (!slugDoc) return null;
     const defaultGridId = slugDoc.defaultGridId as string | undefined;
     if (!defaultGridId) return null;
-    layoutDoc = await firestoreGet("layouts", defaultGridId);
+    gridDoc = await firestoreGet("grids", defaultGridId);
     resolvedHandle = slug;
     resolvedScreenshotUrl = `${screenshotBase}/${slug}`;
     seed = `slug:${slug}`;
   } else if (gridId) {
-    layoutDoc = await firestoreGet("layouts", gridId);
+    gridDoc = await firestoreGet("grids", gridId);
     resolvedScreenshotUrl = `${screenshotBase}/grid/${gridId}`;
     seed = `grid:${gridId}`;
   } else {
     return null;
   }
-  if (!layoutDoc) return null;
+  if (!gridDoc) return null;
 
-  const tiles = (layoutDoc.tiles ?? []) as Array<Record<string, unknown>>;
+  const tiles = (gridDoc.tiles ?? []) as Array<Record<string, unknown>>;
 
   // Find profile tile (for avatar + name + title) and remember its index.
   const profileIdx = tiles.findIndex(
@@ -394,14 +395,14 @@ async function resolveGridInfo(
 
   const displayName =
     extractTiptapText(profileContent.name) ||
-    (layoutDoc.name as string | undefined) ||
+    (gridDoc.name as string | undefined) ||
     resolvedHandle ||
     "Untitled Grid";
   const subtitle = extractTiptapText(profileContent.title) || null;
 
   return {
     screenshotUrl: resolvedScreenshotUrl,
-    themeId: (layoutDoc.themeId as string | undefined) ?? "dark",
+    themeId: (gridDoc.themeId as string | undefined) ?? "dark",
     avatarUrl: (profileContent.profilePhotoUrl as string) || null,
     avatarShape:
       (profileContent.avatarShape as GridInfo["avatarShape"]) || "circle",
@@ -1844,6 +1845,8 @@ async function renderOgImage(
 // ─── Main handler ────────────────────────────────────────────────────────────
 
 async function handler(req: Request, res: Response): Promise<void> {
+  if (respondWithMaintenanceIfEnabled("generateOgImage", res)) return;
+
   const slug = req.query.slug as string | undefined;
   const gridId = req.query.gridId as string | undefined;
   const refresh = req.query.refresh === "1";

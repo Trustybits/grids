@@ -20,17 +20,17 @@ export class MockAnalyticsService implements IAnalyticsService {
   logGridViewEndEventBeacon(_event: GridViewEndEvent): boolean {
     throw new Error("Method not implemented.");
   }
-  getGridStats(_layoutId: string): Promise<GridStats | null> {
+  getGridStats(_gridId: string): Promise<GridStats | null> {
     throw new Error("Method not implemented.");
   }
   getGridStatsForDate(
-    _layoutId: string,
+    _gridId: string,
     _date: string,
   ): Promise<DailyGridStats | null> {
     throw new Error("Method not implemented.");
   }
   getGridStatsDailyRange(
-    _layoutId: string,
+    _gridId: string,
     _startDate: string,
     _endDate: string,
   ): Promise<DailyGridStats[]> {

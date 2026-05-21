@@ -46,7 +46,7 @@ beforeEach(() => {
     getUserDao: () => mockUserDao as unknown as UserDao,
     getSlugDao: () => mockSlugDao as unknown as SlugDao,
     getBadgeDao: () => null,
-    getLayoutDao: () => null,
+    getGridDao: () => null,
     getUserGameDataDao: () => null,
     getChatDao: () => null,
     getUpvoteDao: () => null,
@@ -94,8 +94,8 @@ describe("getUserProfile", () => {
       slug: "fulluser",
       defaultGridId: "grid-999",
       storageUsed: 1024,
-      recentLayoutIds: ["l1", "l2"],
-      starredLayoutIds: ["l3"],
+      recentGridIds: ["l1", "l2"],
+      starredGridIds: ["l3"],
       profilePhotoUrl: "https://example.com/photo.jpg",
     };
     mockUserDao.getById.mockResolvedValueOnce(profile);

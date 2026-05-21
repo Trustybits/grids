@@ -19,11 +19,11 @@ export class FirestoreChatDao implements ChatDao {
     this.db = db;
   }
 
-  private messagesCollection(layoutId: string, tileId: string) {
+  private messagesCollection(gridId: string, tileId: string) {
     return collection(
       this.db,
-      "layouts",
-      layoutId,
+      "grids",
+      gridId,
       "tiles",
       tileId,
       "messages",
@@ -39,12 +39,12 @@ export class FirestoreChatDao implements ChatDao {
   }
 
   public subscribeToMessages(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     callback: (messages: ChatMessage[]) => void,
     onError?: (error: Error) => void,
   ): () => void {
-    const colRef = this.messagesCollection(layoutId, tileId);
+    const colRef = this.messagesCollection(gridId, tileId);
     const messagesQuery = query(colRef, orderBy("createdAt", "asc"));
 
     return onSnapshot(
@@ -73,25 +73,25 @@ export class FirestoreChatDao implements ChatDao {
   }
 
   public async addMessage(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     message: { text: string; createdAt: number; authorId: string },
   ): Promise<string> {
-    const colRef = this.messagesCollection(layoutId, tileId);
+    const colRef = this.messagesCollection(gridId, tileId);
     const docRef = await addDoc(colRef, message);
     return docRef.id;
   }
 
   public async updateMessage(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     messageId: string,
     text: string,
   ): Promise<void> {
     const docRef = doc(
       this.db,
-      "layouts",
-      layoutId,
+      "grids",
+      gridId,
       "tiles",
       tileId,
       "messages",
@@ -101,14 +101,14 @@ export class FirestoreChatDao implements ChatDao {
   }
 
   public async deleteMessage(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     messageId: string,
   ): Promise<void> {
     const docRef = doc(
       this.db,
-      "layouts",
-      layoutId,
+      "grids",
+      gridId,
       "tiles",
       tileId,
       "messages",

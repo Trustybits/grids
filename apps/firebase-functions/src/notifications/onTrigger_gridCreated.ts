@@ -1,34 +1,37 @@
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
+import { noopIfMaintenance } from "../maintenance.js";
 import { isDevTeamMember } from "./utils_devTeam.js";
 import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.js";
 import { discordUserActivityWebhookUrl } from "./secrets.js";
 
 /**
- * Firebase function that triggers when a new grid/layout is created.
+ * Firebase function that triggers when a new grid is created.
  * Sends a notification to the user-activity Discord channel.
  */
 export const onGridCreated = functions
   .runWith({
     secrets: [discordUserActivityWebhookUrl],
   })
-  .firestore.document("layouts/{layoutId}")
+  .firestore.document("grids/{gridId}")
   .onCreate(async (snapshot, context) => {
-    const layoutData = snapshot.data();
-    const layoutId = context.params.layoutId;
+    if (noopIfMaintenance("onGridCreated")) return null;
+
+    const gridData = snapshot.data();
+    const gridId = context.params.gridId;
 
     logger.info("New grid created", {
-      layoutId,
-      userId: layoutData.userId,
-      name: layoutData.name,
+      gridId,
+      userId: gridData.userId,
+      name: gridData.name,
     });
 
     await writeServerAnalyticsEvent({
       eventType: "grid_created",
-      userId: layoutData.userId ?? null,
-      layoutId,
-      metadata: { gridName: layoutData.name || "Untitled" },
+      userId: gridData.userId ?? null,
+      gridId,
+      metadata: { gridName: gridData.name || "Untitled" },
     });
 
     // Skip dev team members — look up email from users collection
@@ -37,15 +40,15 @@ export const onGridCreated = functions
       const userDoc = await admin
         .firestore()
         .collection("users")
-        .doc(layoutData.userId)
+        .doc(gridData.userId)
         .get();
       ownerEmail = userDoc.data()?.email;
     } catch {
       // Non-fatal — proceed without email check
     }
-    if (isDevTeamMember(layoutData.userId, ownerEmail)) {
+    if (isDevTeamMember(gridData.userId, ownerEmail)) {
       logger.info("Skipping Discord notification for dev team member", {
-        userId: layoutData.userId,
+        userId: gridData.userId,
       });
       return null;
     }
@@ -69,22 +72,22 @@ export const onGridCreated = functions
           fields: [
             {
               name: "Grid Name",
-              value: layoutData.name || "Untitled",
+              value: gridData.name || "Untitled",
               inline: true,
             },
             {
               name: "Grid ID",
-              value: layoutId,
+              value: gridId,
               inline: true,
             },
             {
               name: "Grid Link",
-              value: `https://grids.so/grid/${layoutId}`,
+              value: `https://grids.so/grid/${gridId}`,
               inline: true,
             },
             {
               name: "User ID",
-              value: layoutData.userId || "Unknown",
+              value: gridData.userId || "Unknown",
               inline: false,
             },
           ],
@@ -109,26 +112,26 @@ export const onGridCreated = functions
 
       if (!response.ok) {
         logger.error("Discord webhook returned error status", {
-          layoutId,
+          gridId,
           status: response.status,
           statusText: response.statusText,
           responseBody: responseText,
         });
       } else {
         logger.info("Discord grid creation notification sent successfully", {
-          layoutId,
+          gridId,
           status: response.status,
         });
       }
     } catch (error) {
       logger.error("Failed to send Discord webhook", {
         error: String(error),
-        layoutId,
+        gridId,
       });
     }
 
     // Auto-assign this grid as the user's default if they don't have one set yet
-    const userId = layoutData.userId;
+    const userId = gridData.userId;
     if (userId) {
       try {
         const db = admin.firestore();
@@ -139,19 +142,19 @@ export const onGridCreated = functions
           if (!userDoc.exists || !userDoc.data()?.defaultGridId) {
             transaction.set(
               userRef,
-              { defaultGridId: layoutId },
+              { defaultGridId: gridId },
               { merge: true },
             );
 
             const userSlug = userDoc.exists ? userDoc.data()?.slug : null;
             if (userSlug) {
               const slugRef = db.collection("slugs").doc(userSlug);
-              transaction.update(slugRef, { defaultGridId: layoutId });
+              transaction.update(slugRef, { defaultGridId: gridId });
             }
 
             logger.info("Auto-assigned default grid for user", {
               userId,
-              layoutId,
+              gridId,
             });
           }
         });
@@ -159,7 +162,7 @@ export const onGridCreated = functions
         logger.error("Failed to auto-assign default grid", {
           error: String(error),
           userId,
-          layoutId,
+          gridId,
         });
       }
     }

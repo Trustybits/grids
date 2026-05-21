@@ -1,5 +1,5 @@
 import { ref, computed, type Ref } from "vue";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { useToastStore } from "@/stores/toast";
 
 interface LinkableContent {
@@ -21,7 +21,7 @@ export const useTileLink = (
   tileId: string | null,
   content: LinkableContent,
 ): TileLinkValues => {
-  const layoutStore = useLayoutStore();
+  const gridStore = useGridStore();
   const toastStore = useToastStore();
   const showLinkModal = ref(false);
 
@@ -29,7 +29,7 @@ export const useTileLink = (
   const tileLinkExists = computed(() => !!content?.tileLink);
 
   const openUrlInput = () => {
-    if (!layoutStore.isOwner) return;
+    if (!gridStore.isOwner) return;
     showLinkModal.value = true;
   };
 
@@ -53,7 +53,7 @@ export const useTileLink = (
   };
 
   const handleAddLink = (link: string) => {
-    if (!layoutStore.isOwner) return;
+    if (!gridStore.isOwner) return;
     const normalized = normalizeUrl(link);
     if (!normalized) {
       toastStore.addToast("Invalid URL format", "error");
@@ -61,9 +61,9 @@ export const useTileLink = (
     }
     content.tileLink = normalized;
     if (tileId) {
-      layoutStore.patchTileContent(tileId, { tileLink: normalized });
+      gridStore.patchTileContent(tileId, { tileLink: normalized });
     } else {
-      layoutStore.saveLayout();
+      gridStore.saveGrid();
     }
     showLinkModal.value = false;
   };
@@ -74,12 +74,12 @@ export const useTileLink = (
   };
 
   const clearLink = () => {
-    if (!layoutStore.isOwner) return;
+    if (!gridStore.isOwner) return;
     content.tileLink = undefined;
     if (tileId) {
-      layoutStore.patchTileContent(tileId, { tileLink: "" });
+      gridStore.patchTileContent(tileId, { tileLink: "" });
     } else {
-      layoutStore.saveLayout();
+      gridStore.saveGrid();
     }
   };
 

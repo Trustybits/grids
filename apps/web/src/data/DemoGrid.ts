@@ -1,33 +1,33 @@
-// src/data/demoLayout.ts
+// src/data/DemoGrid.ts
 //
-// Hand-curated in-memory demo layout used by the marketing homepage embed.
+// Hand-curated in-memory demo grid used by the marketing homepage embed.
 // Recreated from a live grid in Firestore ("Grids Landing Page") so the
-// demo matches a real, tested layout rather than being assembled in code.
+// demo matches a real, tested grid rather than being assembled in code.
 //
 // The homepage hero scroll-jacks through three device viewports — phone,
 // tablet, desktop — so the same set of tiles needs to look great at every
-// breakpoint. We model that the way the grid does for real layouts:
+// breakpoint. We model that the way the grid does for real grids:
 //
 //   • Base tiles use the lg (12-col, desktop) positions/sizes.
-//   • overrides.md provides an 8-col tablet layout.
-//   • overrides.sm provides a 4-col phone layout.
+//   • overrides.md provides an 8-col tablet grid.
+//   • overrides.sm provides a 4-col phone grid.
 //
 // Design constraints:
 //   • Every breakpoint is a single coherent page (not a re-flow of the next),
-//     so each layout is hand-tuned rather than auto-packed.
+//     so each grid is hand-tuned rather than auto-packed.
 //   • Mix of content types showcases what a real grid looks like:
 //     profile, image, text, gif, music, youtube embed, quote, links.
-//   • Tile IDs are stable for the lifetime of the layout instance so the
+//   • Tile IDs are stable for the lifetime of the grid instance so the
 //     overrides correctly map onto the same tiles.
 
-import type { Layout } from "@/types/Layout";
+import type { Grid } from "@/types/Grid";
 import type { Breakpoint, TilePosition } from "@/types/Tile";
-import { createDefaultLayout } from "@/utils/LayoutUtils";
+import { createDefaultGrid } from "@/utils/GridUtils";
 import { createTile } from "@/utils/TileUtils";
 import { ContentType } from "@/types/TileContent";
 import heroGif from "@/assets/images/hero.gif";
 
-export const DEMO_LAYOUT_ID = "__homepage_demo__";
+export const DEMO_GRID_ID = "__homepage_demo__";
 export const DEMO_USER_ID = "__homepage_demo_user__";
 
 // TipTap doc with a single paragraph — used for the profile tile's
@@ -56,7 +56,7 @@ const ID = {
   LINK_GRIDS: "demo-link-grids",
 } as const;
 
-// Desktop layout (lg, 12 columns, 6 rows tall)
+// Desktop grid (lg, 12 columns, 6 rows tall)
 //
 //   c:   0  1  2  3  4  5  6  7  8  9 10 11
 //   r=0  [ PROFILE 4×4 ][  GIF 3×3 ][MUS 2×3][ WLC 2×3]
@@ -247,7 +247,7 @@ const createDesktopBaseTiles = () => [
   ),
 ];
 
-// Tablet layout (md, 8 columns, 9 rows tall)
+// Tablet grid (md, 8 columns, 9 rows tall)
 //
 //   c:   0  1  2  3  4  5  6  7
 //   r=0  [      PROFILE 8×2       ]
@@ -274,7 +274,7 @@ const tabletPositions: Record<string, TilePosition> = {
   [ID.COVER]:         { x: 0, y: 7, w: 8, h: 2 },
 };
 
-// Phone layout (sm, 4 columns, 10 rows tall)
+// Phone grid (sm, 4 columns, 10 rows tall)
 //
 //   c:   0  1  2  3
 //   r=0  [PROFILE 4×1]
@@ -320,13 +320,13 @@ export const DEMO_GRID_DIMENSIONS: Record<
   sm: { width: 540, height: 1278 },
 };
 
-export function createDemoLayout(): Layout {
-  const layout = createDefaultLayout(DEMO_USER_ID, "Demo");
-  layout.id = DEMO_LAYOUT_ID;
-  layout.tiles = createDesktopBaseTiles();
-  layout.overrides = {
+export function createDemoGrid(): Grid {
+  const grid = createDefaultGrid(DEMO_USER_ID, "Demo");
+  grid.id = DEMO_GRID_ID;
+  grid.tiles = createDesktopBaseTiles();
+  grid.overrides = {
     md: tabletPositions,
     sm: phonePositions,
   };
-  return layout;
+  return grid;
 }

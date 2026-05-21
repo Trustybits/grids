@@ -1,7 +1,7 @@
 export interface UpvoteDao {
   /** Subscribe to the current user's upvotes for a tile in real-time. Returns an unsubscribe function. */
   subscribeToUserUpvotes(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     userId: string,
     callback: (votedPageIds: Set<string>) => void,
@@ -10,7 +10,7 @@ export interface UpvoteDao {
 
   /** Toggle an upvote on a roadmap item. */
   toggleUpvote(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     notionPageId: string,
   ): Promise<{ isNowUpvoted: boolean }>;

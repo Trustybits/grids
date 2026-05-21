@@ -146,7 +146,7 @@
 
 <script lang="ts">
 import { ref } from "vue";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import { ContentType } from "@/types/TileContent";
 import { createTileContent } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
@@ -189,7 +189,7 @@ export default {
     const smartTextEnabled = computed(() => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT));
     const documentsEnabled = computed(() => isEnabled(FEATURE_FLAGS.BETA_DOCUMENTS));
 
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const imageInput = ref<HTMLInputElement | null>(null);
     const documentInput = ref<HTMLInputElement | null>(null);
     const { uploadFileOptimistic, uploadDocumentsOptimistic } =
@@ -202,34 +202,34 @@ export default {
 
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
-      const tileId = layoutStore.addTile(textContent);
+      const tileId = gridStore.addTile(textContent);
       // Auto-focus the new text tile so the user can start typing immediately
       if (tileId) {
-        layoutStore.pendingFocusTileId = tileId;
+        gridStore.pendingFocusTileId = tileId;
       }
     };
 
     const addSmartTextElement = () => {
       const textContent = createTileContent(ContentType.SMART_TEXT, {});
-      const tileId = layoutStore.addTile(textContent);
+      const tileId = gridStore.addTile(textContent);
       if (tileId) {
-        layoutStore.pendingFocusTileId = tileId;
+        gridStore.pendingFocusTileId = tileId;
       }
     };
 
     const addProfileElement = () => {
       const profileContent = createTileContent(ContentType.PROFILE, {});
-      layoutStore.addTile(profileContent);
+      gridStore.addTile(profileContent);
     };
 
     const addChatElement = () => {
       const chatContent = createTileContent(ContentType.CHAT, {});
-      layoutStore.addTile(chatContent);
+      gridStore.addTile(chatContent);
     };
 
     const addCampfireElement = () => {
       const campfireContent = createTileContent(ContentType.CAMPFIRE, {});
-      layoutStore.addTile(campfireContent);
+      gridStore.addTile(campfireContent);
     };
 
     const selectFile = () => {
@@ -310,13 +310,13 @@ export default {
       const content = createTileContent(ContentType.MAP, {
         searchQuery: query || undefined,
       });
-      layoutStore.addTile(content);
+      gridStore.addTile(content);
     };
 
     const addRoadmapFeedElement = () => {
       // Creates a disconnected roadmap tile; the owner connects Notion from inside the tile
       const roadmapContent = createTileContent(ContentType.ROADMAP_FEED, {});
-      layoutStore.addTile(roadmapContent);
+      gridStore.addTile(roadmapContent);
     };
 
     const _addOtherElement = () => {
@@ -327,14 +327,14 @@ export default {
         const linkContent = createTileContent(ContentType.LINK, {
           src: link,
         });
-        layoutStore.addTile(linkContent);
+        gridStore.addTile(linkContent);
       }
     };
 
     const updateMetaData = () => {
-      layoutStore.setCookieValue(
+      gridStore.setCookieValue(
         "showMetaData",
-        layoutStore.showMetaData.toString(),
+        gridStore.showMetaData.toString(),
       );
     };
 
@@ -342,7 +342,7 @@ export default {
       isValidLink,
       isValidEmbed,
       imageInput,
-      layoutStore,
+      gridStore,
       smartTextEnabled,
       documentsEnabled,
       addTextElement,

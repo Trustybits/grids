@@ -2,7 +2,7 @@ import type { IUpvoteService } from "../interfaces/IUpvoteService";
 
 export class MockUpvoteService implements IUpvoteService {
   subscribeToUserUpvotes(
-    _layoutId: string,
+    _gridId: string,
     _tileId: string,
     _userId: string,
     _callback: (votedPageIds: Set<string>) => void,
@@ -12,7 +12,7 @@ export class MockUpvoteService implements IUpvoteService {
   }
 
   toggleUpvote(
-    _layoutId: string,
+    _gridId: string,
     _tileId: string,
     _notionPageId: string,
   ): Promise<{ isNowUpvoted: boolean }> {

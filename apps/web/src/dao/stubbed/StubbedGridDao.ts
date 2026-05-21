@@ -1,12 +1,12 @@
-import type { Layout } from "@/types/Layout";
-import type { LayoutDao } from "@/dao/interfaces/LayoutDao";
+import type { Grid } from "@/types/Grid";
+import type { GridDao } from "@/dao/interfaces/GridDao";
 
-export class StubbedLayoutDao implements LayoutDao {
-  public getById(_id: string): Promise<Layout | null> {
+export class StubbedGridDao implements GridDao {
+  public getById(_id: string): Promise<Grid | null> {
     throw new Error("Stubbed DAO implementation");
   }
 
-  public findByUserId(_userId: string): Promise<Layout[]> {
+  public findByUserId(_userId: string): Promise<Grid[]> {
     throw new Error("Stubbed DAO implementation");
   }
 

@@ -1,17 +1,17 @@
-import { type Layout, type CopyDepth } from "@/types/Layout";
+import { type Grid, type CopyDepth } from "@/types/Grid";
 import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
 import { ContentType, type AnyTileContent, type ChatContent, type DocumentsContent, type SuggestionAction } from "@/types/TileContent";
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import { getDbUtils } from "@/dao/DbUtilsSingleton";
 import type { DbUtils } from "@/dao/interfaces/DbUtils";
-import type { LayoutDao } from "@/dao/interfaces/LayoutDao";
+import type { GridDao } from "@/dao/interfaces/GridDao";
 import type { UserDao } from "@/dao/interfaces/UserDao";
-import { createDefaultLayout } from "@/utils/LayoutUtils";
+import { createDefaultGrid } from "@/utils/GridUtils";
 import { createTile, createTileContent } from "@/utils/TileUtils";
-import { stripBlobUrlsFromTiles } from "@/utils/LayoutPersistenceUtils";
+import { stripBlobUrlsFromTiles } from "@/utils/GridPersistenceUtils";
 import { v4 as uuidv4 } from "uuid";
 import heroGif from "@/assets/images/hero.gif";
-import type { ILayoutService } from "./interfaces/ILayoutService";
+import type { IGridService } from "./interfaces/IGridService";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -201,38 +201,38 @@ export const createStarterTiles = (): Tile[] => {
   ];
 };
 
-// ── LayoutService ───────────────────────────────────────────────────────
+// ── GridService ───────────────────────────────────────────────────────
 
-export class LayoutService implements ILayoutService {
-  private layoutDao: LayoutDao;
+export class GridService implements IGridService {
+  private gridDao: GridDao;
   private userDao: UserDao;
   private dbUtils: DbUtils;
 
   constructor() {
     const factory = getDaoFactory();
-    this.layoutDao = factory.getLayoutDao();
+    this.gridDao = factory.getGridDao();
     this.userDao = factory.getUserDao();
     this.dbUtils = getDbUtils();
   }
 
   // ── Core CRUD ──────────────────────────────────────────────────────
 
-  private buildLayoutPayload(
-    layout: Layout,
+  private buildGridPayload(
+    grid: Grid,
     mode: "save" | "update",
   ): Record<string, unknown> {
     const editableFields = {
-      name: layout.name,
-      colNum: layout.colNum,
-      verticalCompact: layout.verticalCompact,
+      name: grid.name,
+      colNum: grid.colNum,
+      verticalCompact: grid.verticalCompact,
       // Safety net: strip any blob: URLs that weren't already resolved
-      tiles: stripBlobUrlsFromTiles(layout.tiles as unknown[]),
-      backgroundImageSrc: layout.backgroundImageSrc,
-      backgroundEmbed: layout.backgroundEmbed,
-      backgroundColor: layout.backgroundColor ?? "",
-      themeId: layout.themeId ?? "dark",
-      overrides: layout.overrides ?? {},
-      duplicatable: layout.duplicatable ?? false,
+      tiles: stripBlobUrlsFromTiles(grid.tiles as unknown[]),
+      backgroundImageSrc: grid.backgroundImageSrc,
+      backgroundEmbed: grid.backgroundEmbed,
+      backgroundColor: grid.backgroundColor ?? "",
+      themeId: grid.themeId ?? "dark",
+      overrides: grid.overrides ?? {},
+      duplicatable: grid.duplicatable ?? false,
       updatedAt: this.dbUtils.serverTimestamp(),
     };
 
@@ -244,144 +244,144 @@ export class LayoutService implements ILayoutService {
     }
 
     return this.dbUtils.sanitizeValue({
-      userId: layout.userId,
+      userId: grid.userId,
       ...editableFields,
-      createdAt: layout.createdAt ?? this.dbUtils.serverTimestamp(),
-      lastOpenedAt: layout.lastOpenedAt ?? this.dbUtils.serverTimestamp(),
+      createdAt: grid.createdAt ?? this.dbUtils.serverTimestamp(),
+      lastOpenedAt: grid.lastOpenedAt ?? this.dbUtils.serverTimestamp(),
     }) as Record<string, unknown>;
   }
 
-  // Fetch a layout by Layout ID
-  async fetchLayout(id: string): Promise<Layout> {
+  // Fetch a grid by Grid ID
+  async fetchGrid(id: string): Promise<Grid> {
     try {
-      const layout = await this.layoutDao.getById(id);
+      const grid = await this.gridDao.getById(id);
 
-      if (!layout) {
-        throw new Error(`Layout with ID ${id} does not exist`);
+      if (!grid) {
+        throw new Error(`Grid with ID ${id} does not exist`);
       }
 
-      return layout;
+      return grid;
     } catch (error) {
-      console.error(`Error fetching layout with ID ${id}:`, error);
+      console.error(`Error fetching grid with ID ${id}:`, error);
       throw error;
     }
   }
 
-  // Save a new layout (or overwrite)
-  async saveLayout(layout: Layout): Promise<void> {
+  // Save a new grid (or overwrite)
+  async saveGrid(grid: Grid): Promise<void> {
     try {
-      const payload = this.buildLayoutPayload(layout, "save");
-      await this.layoutDao.save(layout.id, payload);
+      const payload = this.buildGridPayload(grid, "save");
+      await this.gridDao.save(grid.id, payload);
     } catch (error) {
-      console.error(`Error saving layout with ID ${layout.id}:`, error);
+      console.error(`Error saving grid with ID ${grid.id}:`, error);
       throw error;
     }
   }
 
-  // Update an existing layout (partial)
-  async updateLayout(layout: Layout): Promise<void> {
+  // Update an existing grid (partial)
+  async updateGrid(grid: Grid): Promise<void> {
     try {
-      const payload = this.buildLayoutPayload(layout, "update");
-      await this.layoutDao.update(layout.id, payload);
+      const payload = this.buildGridPayload(grid, "update");
+      await this.gridDao.update(grid.id, payload);
     } catch (error) {
-      console.error(`Error updating layout with ID ${layout.id}:`, error);
+      console.error(`Error updating grid with ID ${grid.id}:`, error);
       throw error;
     }
   }
 
-  // Delete a layout by ID
-  async deleteLayout(id: string): Promise<void> {
+  // Delete a grid by ID
+  async deleteGrid(id: string): Promise<void> {
     try {
-      await this.layoutDao.delete(id);
+      await this.gridDao.delete(id);
     } catch (error) {
-      console.error(`Error deleting layout with ID ${id}:`, error);
+      console.error(`Error deleting grid with ID ${id}:`, error);
       throw error;
     }
   }
 
-  // ── Operations extracted from layout.ts store ─────────────────────
+  // ── Operations extracted from grid.ts store ─────────────────────
 
-  // Fetch all layouts belonging to a user
-  async fetchLayoutsByUserId(userId: string): Promise<Layout[]> {
+  // Fetch all grids belonging to a user
+  async fetchGridsByUserId(userId: string): Promise<Grid[]> {
     try {
-      return await this.layoutDao.findByUserId(userId);
+      return await this.gridDao.findByUserId(userId);
     } catch (error) {
-      console.error(`Error fetching layouts for user ${userId}:`, error);
+      console.error(`Error fetching grids for user ${userId}:`, error);
       throw error;
     }
   }
 
-  // Generate a new unique layout document ID
+  // Generate a new unique grid document ID
   generateId(): string {
-    return this.layoutDao.generateId();
+    return this.gridDao.generateId();
   }
 
-  // Create a new layout for a user.
+  // Create a new grid for a user.
   // Accepts pre-built tiles so the store can inject starter content.
-  // Returns the new layout object with its generated ID.
-  async createLayout(
+  // Returns the new grid object with its generated ID.
+  async createGrid(
     userId: string,
     name: string,
-    starterTiles: Layout["tiles"] = [],
-  ): Promise<Layout> {
+    starterTiles: Grid["tiles"] = [],
+  ): Promise<Grid> {
     try {
-      const newLayout = createDefaultLayout(userId, name);
-      newLayout.tiles = starterTiles;
-      newLayout.id = this.layoutDao.generateId();
+      const newGrid = createDefaultGrid(userId, name);
+      newGrid.tiles = starterTiles;
+      newGrid.id = this.gridDao.generateId();
 
-      await this.saveLayout(newLayout);
-      return { ...newLayout };
+      await this.saveGrid(newGrid);
+      return { ...newGrid };
     } catch (error) {
-      console.error("Error creating layout:", error);
+      console.error("Error creating grid:", error);
       throw error;
     }
   }
 
-  // Duplicate an existing layout for a given user.
+  // Duplicate an existing grid for a given user.
   // The caller is responsible for cloning tiles (with new IDs) and remapping
-  // breakpoint overrides — this method just persists the new layout.
-  async duplicateLayout(
+  // breakpoint overrides — this method just persists the new grid.
+  async duplicateGrid(
     userId: string,
-    sourceLayout: Layout,
-    clonedTiles: Layout["tiles"],
-    newOverrides: Layout["overrides"],
-  ): Promise<Layout> {
+    sourceGrid: Grid,
+    clonedTiles: Grid["tiles"],
+    newOverrides: Grid["overrides"],
+  ): Promise<Grid> {
     try {
-      const newLayout: Layout = {
-        id: this.layoutDao.generateId(),
+      const newGrid: Grid = {
+        id: this.gridDao.generateId(),
         userId,
-        name: `Copy of ${sourceLayout.name || "Untitled"}`,
-        colNum: sourceLayout.colNum,
-        verticalCompact: sourceLayout.verticalCompact,
+        name: `Copy of ${sourceGrid.name || "Untitled"}`,
+        colNum: sourceGrid.colNum,
+        verticalCompact: sourceGrid.verticalCompact,
         tiles: clonedTiles,
-        backgroundImageSrc: sourceLayout.backgroundImageSrc || "",
-        backgroundEmbed: sourceLayout.backgroundEmbed || false,
-        themeId: sourceLayout.themeId,
+        backgroundImageSrc: sourceGrid.backgroundImageSrc || "",
+        backgroundEmbed: sourceGrid.backgroundEmbed || false,
+        themeId: sourceGrid.themeId,
         overrides: newOverrides,
       };
 
-      await this.saveLayout(newLayout);
-      return { ...newLayout };
+      await this.saveGrid(newGrid);
+      return { ...newGrid };
     } catch (error) {
-      console.error("Error duplicating layout:", error);
+      console.error("Error duplicating grid:", error);
       throw error;
     }
   }
 
-  // Update the lastOpenedAt timestamp for a layout
-  async touchLastOpenedAt(layoutId: string): Promise<void> {
+  // Update the lastOpenedAt timestamp for a grid
+  async touchLastOpenedAt(gridId: string): Promise<void> {
     try {
-      await this.layoutDao.updateLastOpenedAt(layoutId);
+      await this.gridDao.updateLastOpenedAt(gridId);
     } catch (error) {
       console.error("Failed to update lastOpenedAt:", error);
       // Non-critical — don't rethrow
     }
   }
 
-  // ── Recent layouts (user document) ────────────────────────────────
+  // ── Recent grids (user document) ────────────────────────────────
 
-  // Load the user's recent layout IDs from their user document
-  async loadRecentLayoutIds(userId: string): Promise<string[]> {
+  // Load the user's recent grid IDs from their user document
+  async loadRecentGridIds(userId: string): Promise<string[]> {
     try {
       const userData = await this.userDao.getById(userId);
       if (!userData) return [];
@@ -394,53 +394,53 @@ export class LayoutService implements ILayoutService {
 
       return arr.slice(0, 3);
     } catch (error) {
-      console.error("Failed to load recent layouts:", error);
+      console.error("Failed to load recent grids:", error);
       return [];
     }
   }
 
-  // Persist the user's recent layout IDs to their user document
-  async saveRecentLayoutIds(userId: string, ids: string[]): Promise<void> {
+  // Persist the user's recent grid IDs to their user document
+  async saveRecentGridIds(userId: string, ids: string[]): Promise<void> {
     try {
       await this.userDao.save(userId, {
         recentLayoutIds: ids.slice(0, 3),
       });
     } catch (error) {
-      console.error("Failed to save recent layouts:", error);
+      console.error("Failed to save recent grids:", error);
       // Non-critical — don't rethrow
     }
   }
 
   // ── Starter tile creation ─────────────────────────────────────────
 
-  // Create a new layout pre-populated with the default starter tiles.
-  // Returns the persisted layout with its generated ID.
-  async createLayoutWithStarterTiles(
+  // Create a new grid pre-populated with the default starter tiles.
+  // Returns the persisted grid with its generated ID.
+  async createGridWithStarterTiles(
     userId: string,
     name: string,
-  ): Promise<Layout> {
-    return this.createLayout(userId, name, createStarterTiles());
+  ): Promise<Grid> {
+    return this.createGrid(userId, name, createStarterTiles());
   }
 
   // ── Duplication with full clone logic ─────────────────────────────
 
-  // Duplicate an existing layout, handling tile cloning, UUID reassignment,
+  // Duplicate an existing grid, handling tile cloning, UUID reassignment,
   // content-type-based cleanup, and breakpoint override remapping.
   //
   // copyDepth controls what gets carried over:
   //   'full'      → all tile content (media URLs shared by reference, chat cleared)
   //   'structure' → tile type/size/position only, content reset to suggestion placeholders
-  async cloneAndPersistLayout(
+  async cloneAndPersistGrid(
     userId: string,
-    sourceLayout: Layout,
+    sourceGrid: Grid,
     copyDepth: CopyDepth = "full",
-  ): Promise<Layout> {
-    // Deep-clone tiles so mutations don't affect the source layout.
+  ): Promise<Grid> {
+    // Deep-clone tiles so mutations don't affect the source grid.
     // Each tile gets a fresh UUID to avoid ID collisions.
     const clonedTiles = (
       JSON.parse(
-        JSON.stringify(sourceLayout.tiles),
-      ) as typeof sourceLayout.tiles
+        JSON.stringify(sourceGrid.tiles),
+      ) as typeof sourceGrid.tiles
     ).map((tile) => {
       const oldId = tile.i;
       tile.i = uuidv4();
@@ -465,16 +465,16 @@ export class LayoutService implements ILayoutService {
     });
 
     // Rebuild breakpoint overrides with the new tile IDs so saved
-    // mobile/tablet layouts carry over correctly.
-    let newOverrides: Layout["overrides"];
-    if (sourceLayout.overrides) {
-      newOverrides = {} as NonNullable<Layout["overrides"]>;
+    // mobile/tablet grids carry over correctly.
+    let newOverrides: Grid["overrides"];
+    if (sourceGrid.overrides) {
+      newOverrides = {} as NonNullable<Grid["overrides"]>;
       // Build a mapping from old tile ID → new tile ID
       const idMap: Record<string, string> = {};
       for (const { tile, oldId } of clonedTiles) {
         idMap[oldId] = tile.i;
       }
-      for (const [bp, positions] of Object.entries(sourceLayout.overrides)) {
+      for (const [bp, positions] of Object.entries(sourceGrid.overrides)) {
         if (!positions) continue;
         const remapped: Record<string, TilePosition> = {};
         for (const [oldTileId, pos] of Object.entries(positions)) {
@@ -487,9 +487,9 @@ export class LayoutService implements ILayoutService {
       }
     }
 
-    return this.duplicateLayout(
+    return this.duplicateGrid(
       userId,
-      sourceLayout,
+      sourceGrid,
       clonedTiles.map(({ tile }) => tile),
       newOverrides,
     );
@@ -498,30 +498,30 @@ export class LayoutService implements ILayoutService {
   // ── Save serialization queue ──────────────────────────────────────
   //
   // Multiple callers (map moveend, style toggle, addTile, etc.) can invoke
-  // saves in rapid succession.  Each call snapshots the reactive layout and
+  // saves in rapid succession.  Each call snapshots the reactive grid and
   // writes to the database.  Without serialization, an earlier snapshot can
   // land *after* a later one (async race), reverting changes.
   //
   // Solution: only one write may be in-flight at a time.  If a new save is
   // requested while one is running, we set a flag.  When the in-flight
-  // write finishes, the caller re-snapshots the (now-latest) layout and
+  // write finishes, the caller re-snapshots the (now-latest) grid and
   // writes again — guaranteeing the final persisted state matches the
   // current in-memory state.
 
   private _saveInFlight = false;
   private _saveQueued = false;
-  private _pendingSnapshot: Layout | null = null;
+  private _pendingSnapshot: Grid | null = null;
 
-  // Deep-clone a layout and swap any blob: preview URLs with their resolved
+  // Deep-clone a grid and swap any blob: preview URLs with their resolved
   // Storage URLs so we never persist temporary blob references.
-  // Returns a plain (non-reactive) Layout safe for persistence.
+  // Returns a plain (non-reactive) Grid safe for persistence.
   private createPersistableSnapshot(
-    layout: Layout,
+    grid: Grid,
     resolvedUrls: Record<string, string> = {},
     resolvedDocumentItemUrls: Record<string, Record<string, string>> = {},
-  ): Layout {
+  ): Grid {
     const clonedTiles = (
-      JSON.parse(JSON.stringify(layout.tiles)) as typeof layout.tiles
+      JSON.parse(JSON.stringify(grid.tiles)) as typeof grid.tiles
     ).map((tile) => {
       const content = tile.content as AnyTileContent;
       const src = (content as { src?: string }).src;
@@ -553,23 +553,23 @@ export class LayoutService implements ILayoutService {
     });
 
     return {
-      ...JSON.parse(JSON.stringify({ ...layout, tiles: undefined })),
+      ...JSON.parse(JSON.stringify({ ...grid, tiles: undefined })),
       tiles: clonedTiles,
-    } as Layout;
+    } as Grid;
   }
 
-  // Queue a layout save. Accepts the current (potentially reactive) layout
+  // Queue a grid save. Accepts the current (potentially reactive) grid
   // and optional resolved-URL maps for blob → storage URL substitution.
-  // The service deep-clones and sanitises the layout internally.
+  // The service deep-clones and sanitises the grid internally.
   // Returns immediately if a write is already in-flight; the queued snapshot
   // will be flushed when the current write completes.
   async queueSave(
-    layout: Layout,
+    grid: Grid,
     resolvedUrls: Record<string, string> = {},
     resolvedDocumentItemUrls: Record<string, Record<string, string>> = {},
   ): Promise<void> {
     const snapshot = this.createPersistableSnapshot(
-      layout,
+      grid,
       resolvedUrls,
       resolvedDocumentItemUrls,
     );
@@ -583,9 +583,9 @@ export class LayoutService implements ILayoutService {
     this._saveInFlight = true;
 
     try {
-      await this.saveLayout(snapshot);
+      await this.saveGrid(snapshot);
     } catch (err) {
-      console.error("Failed to save layout.", err);
+      console.error("Failed to save grid.", err);
     } finally {
       this._saveInFlight = false;
 

@@ -141,7 +141,7 @@ import SendIcon from "@/components/icons/SendIcon.vue";
 import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import type { ChatContent, ChatMessage } from "@/types/TileContent";
 
 export default defineComponent({
@@ -161,7 +161,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
     const chatService = getServiceFactory().getChatService();
 
     const draftMessage = ref("");
@@ -177,7 +177,7 @@ export default defineComponent({
     const sessionMessageIds = ref(new Set<string>());
 
     const sessionStorageKey = computed(
-      () => `chat-session-msgs:${layoutId.value}:${props.tileId}`,
+      () => `chat-session-msgs:${gridId.value}:${props.tileId}`,
     );
 
     const loadSessionMessageIds = () => {
@@ -211,15 +211,15 @@ export default defineComponent({
     let dragStartPos: { x: number; y: number } | null = null;
     const DRAG_THRESHOLD = 5;
 
-    const layoutId = computed(() => layoutStore.currentLayout?.id ?? "");
+    const gridId = computed(() => gridStore.currentGrid?.id ?? "");
 
     const sortedMessages = computed(() =>
       [...messages.value].sort((a, b) => a.createdAt - b.createdAt),
     );
 
-    const ownerId = computed(() => layoutStore.currentLayout?.userId || "");
-    const isOwner = computed(() => layoutStore.isOwner);
-    const canSend = computed(() => !!layoutId.value && !!props.tileId);
+    const ownerId = computed(() => gridStore.currentGrid?.userId || "");
+    const isOwner = computed(() => gridStore.isOwner);
+    const canSend = computed(() => !!gridId.value && !!props.tileId);
     const composerPlaceholder = computed(() =>
       isOwner.value ? "Write a message.." : "Message the owner..",
     );
@@ -477,13 +477,13 @@ export default defineComponent({
         unsubscribe = null;
       }
 
-      if (!layoutId.value || !props.tileId) {
+      if (!gridId.value || !props.tileId) {
         messages.value = [];
         return;
       }
 
       unsubscribe = chatService.subscribeToMessages(
-        layoutId.value,
+        gridId.value,
         props.tileId,
         (msgs) => {
           messages.value = msgs;
@@ -495,12 +495,12 @@ export default defineComponent({
     };
 
     const deleteMessage = async (message: ChatMessage) => {
-      if (!canDeleteMessage(message) || !layoutId.value || !props.tileId) {
+      if (!canDeleteMessage(message) || !gridId.value || !props.tileId) {
         return;
       }
       try {
         await chatService.deleteMessage(
-          layoutId.value,
+          gridId.value,
           props.tileId,
           message.id,
         );
@@ -513,7 +513,7 @@ export default defineComponent({
       if (!canSend.value) return;
       const text = draftMessage.value.trim();
       if (!text) return;
-      if (!layoutId.value || !props.tileId) return;
+      if (!gridId.value || !props.tileId) return;
 
       const messageIdToEdit = editingMessageId.value;
       draftMessage.value = messageIdToEdit ? savedDraft.value : "";
@@ -523,14 +523,14 @@ export default defineComponent({
       try {
         if (messageIdToEdit) {
           await chatService.editMessage(
-            layoutId.value,
+            gridId.value,
             props.tileId,
             messageIdToEdit,
             text,
           );
         } else {
           const newId = await chatService.sendMessage(
-            layoutId.value,
+            gridId.value,
             props.tileId,
             text,
           );
@@ -634,7 +634,7 @@ export default defineComponent({
     );
 
     watch(
-      [layoutId, () => props.tileId],
+      [gridId, () => props.tileId],
       () => {
         subscribe();
       },

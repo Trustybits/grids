@@ -5,7 +5,7 @@ import type { ChatDao } from '../ChatDao';
 import type { CloudFunctionsDao } from '../CloudFunctionsDao';
 import type { CustomerDao } from '../CustomerDao';
 import type { GridStatsDao } from '../GridStatsDao';
-import type { LayoutDao } from '../LayoutDao';
+import type { GridDao } from '../GridDao';
 import type { RoadmapDao } from '../RoadmapDao';
 import type { SlugDao } from '../SlugDao';
 import type { StorageDao } from '../StorageDao';
@@ -21,7 +21,7 @@ export interface DaoFactory {
   getCloudFunctionsDao: () => CloudFunctionsDao;
   getCustomerDao: () => CustomerDao;
   getGridStatsDao: () => GridStatsDao;
-  getLayoutDao: () => LayoutDao;
+  getGridDao: () => GridDao;
   getRoadmapDao: () => RoadmapDao;
   getSlugDao: () => SlugDao;
   getStorageDao: () => StorageDao;

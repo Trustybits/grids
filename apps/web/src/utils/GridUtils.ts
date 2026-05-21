@@ -1,8 +1,8 @@
 import type { Tile } from "@/types/Tile";
-import { type Layout } from "@/types/Layout";
+import { type Grid } from "@/types/Grid";
 
-// Mapper for new layouts
-export function createDefaultLayout(userId: string, name: string): Layout {
+// Mapper for new grids
+export function createDefaultGrid(userId: string, name: string): Grid {
   if (!name) {
     name = "";
   }

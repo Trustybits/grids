@@ -60,7 +60,7 @@
 
 <script setup lang="ts">
 import { computed, watch, onMounted, onUnmounted, nextTick, ref } from "vue";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import type { Breakpoint } from "@/types/Tile";
 import Banner from "@/components/ui-elements/Banner.vue";
 
@@ -72,7 +72,7 @@ const props = withDefaults(
   { dismissible: true },
 );
 
-const layoutStore = useLayoutStore();
+const gridStore = useGridStore();
 const bannerComponent = ref<InstanceType<typeof Banner> | null>(null);
 
 const breakpointRank = (bp: Breakpoint): number => {
@@ -94,8 +94,8 @@ interface WarningState {
 
 const warning = computed<WarningState | null>(() => {
   if (props.type === "breakpoint-preview") {
-    const forced = layoutStore.forcedBreakpoint;
-    const viewport = layoutStore.viewportBreakpoint;
+    const forced = gridStore.forcedBreakpoint;
+    const viewport = gridStore.viewportBreakpoint;
 
     if (!forced) return null;
     if (breakpointRank(forced) <= breakpointRank(viewport)) return null;

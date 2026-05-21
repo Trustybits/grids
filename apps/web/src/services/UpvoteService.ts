@@ -11,14 +11,14 @@ export class UpvoteService implements IUpvoteService {
   }
 
   subscribeToUserUpvotes(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     userId: string,
     callback: (votedPageIds: Set<string>) => void,
     onError?: (error: Error) => void,
   ): () => void {
     return this.upvoteDao.subscribeToUserUpvotes(
-      layoutId,
+      gridId,
       tileId,
       userId,
       callback,
@@ -27,10 +27,10 @@ export class UpvoteService implements IUpvoteService {
   }
 
   async toggleUpvote(
-    layoutId: string,
+    gridId: string,
     tileId: string,
     notionPageId: string,
   ): Promise<{ isNowUpvoted: boolean }> {
-    return this.upvoteDao.toggleUpvote(layoutId, tileId, notionPageId);
+    return this.upvoteDao.toggleUpvote(gridId, tileId, notionPageId);
   }
 }

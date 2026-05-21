@@ -1,9 +1,9 @@
 <template>
   <!-- Owner: editable title -->
-  <div v-if="layoutStore.isOwner" class="layout-title">
+  <div v-if="gridStore.isOwner" class="layout-title">
     <h2
       class="editable-text"
-      :contenteditable="layoutStore.canEdit"
+      :contenteditable="gridStore.canEdit"
       spellcheck="false"
       @blur="saveName"
       @keydown.enter.prevent="blurOnEnter"
@@ -32,7 +32,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 import ExploreIcon from "@/components/icons/ExploreIcon.vue";
 import GridStats from "@/components/grid/GridStats.vue";
 import Button from "@/components/ui-elements/Button.vue";
@@ -44,31 +44,31 @@ defineProps({
   },
 });
 
-const layoutStore = useLayoutStore();
-const editableName = ref(layoutStore.currentLayout?.name || "");
+const gridStore = useGridStore();
+const editableName = ref(gridStore.currentGrid?.name || "");
 const ctaRef = ref<HTMLElement | null>(null);
 
 watch(
-  () => layoutStore.currentLayout?.name,
+  () => gridStore.currentGrid?.name,
   (newVal) => {
     editableName.value = newVal || "";
   },
 );
 
 const saveName = (event: FocusEvent) => {
-  if (!layoutStore.canEdit) {
+  if (!gridStore.canEdit) {
     return;
   }
   const newName = (event.target as HTMLElement).innerText.trim();
-  if (layoutStore.currentLayout && newName !== layoutStore.currentLayout.name) {
-    layoutStore.currentLayout.name = newName;
-    layoutStore.saveLayout();
+  if (gridStore.currentGrid && newName !== gridStore.currentGrid.name) {
+    gridStore.currentGrid.name = newName;
+    gridStore.saveGrid();
     editableName.value = newName;
   }
 };
 
 const blurOnEnter = (event: KeyboardEvent) => {
-  if (!layoutStore.canEdit) {
+  if (!gridStore.canEdit) {
     return;
   }
   (event.target as HTMLElement).blur();

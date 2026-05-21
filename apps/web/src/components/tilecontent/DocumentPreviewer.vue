@@ -128,10 +128,7 @@
               aria-label="Previous document"
               @click="prevDoc"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M15 6L9 12L15 18" stroke="currentColor"
-                  stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
+              <ChevronLeftIcon :size="20" aria-hidden="true" />
             </button>
 
             <div ref="stageRef" class="doc-prev-stage">
@@ -210,10 +207,7 @@
               aria-label="Next document"
               @click="nextDoc"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M9 6L15 12L9 18" stroke="currentColor"
-                  stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
+              <ChevronRightIcon :size="20" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -235,8 +229,10 @@ import {
 import type { PropType } from "vue";
 import type { DocumentItem } from "@/types/TileContent";
 import DocumentTileIcon from "@/components/icons/DocumentTileIcon.vue";
-import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
-import TwoPageIcon from "@/components/icons/actionbar/TwoPageIcon.vue";
+import CloseIcon from "@/components/icons/tile-actionbar/CloseIcon.vue";
+import TwoPageIcon from "@/components/icons/tile-actionbar/TwoPageIcon.vue";
+import ChevronLeftIcon from "@/components/icons/ChevronLeftIcon.vue";
+import ChevronRightIcon from "@/components/icons/ChevronRightIcon.vue";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { uint8ArrayToArrayBuffer } from "@/utils/BinaryUtils";
 import { marked } from "marked";
@@ -339,7 +335,7 @@ const DOCX_PREVIEW_OPTIONS: Partial<DocxPreviewOptions> = {
 
 export default defineComponent({
   name: "DocumentPreviewer",
-  components: { DocumentTileIcon, CloseIcon, TwoPageIcon },
+  components: { DocumentTileIcon, CloseIcon, TwoPageIcon, ChevronLeftIcon, ChevronRightIcon },
   props: {
     items: {
       type: Array as PropType<DocumentItem[]>,

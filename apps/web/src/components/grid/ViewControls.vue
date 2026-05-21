@@ -45,10 +45,7 @@
         class="bp-icon bp-icon--eye"
         aria-hidden="true"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-          <circle cx="12" cy="12" r="3" />
-        </svg>
+        <EyeIcon :size="20" />
       </span>
       <!-- Dot indicator when a saved override exists for this breakpoint -->
       <span
@@ -65,6 +62,7 @@ import { markRaw } from "vue";
 import { useGridStore } from "@/stores/grid";
 import type { Breakpoint } from "@/types/Tile";
 import DeviceDesktopIcon from "@/components/icons/DeviceDesktopIcon.vue";
+import EyeIcon from "@/components/icons/EyeIcon.vue";
 import DeviceTabletIcon from "@/components/icons/DeviceTabletIcon.vue";
 import DeviceMobileIcon from "@/components/icons/DeviceMobileIcon.vue";
 

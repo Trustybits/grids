@@ -14,35 +14,7 @@
         :class="{ 'is-active': isActiveRoute('/dashboard') }"
       >
         <div class="nav-button-icon">
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M4 10.5L12 4L20 10.5"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M6.5 9.5V19.5C6.5 20.0523 6.94772 20.5 7.5 20.5H16.5C17.0523 20.5 17.5 20.0523 17.5 19.5V9.5"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M10 20.5V15.5C10 14.9477 10.4477 14.5 11 14.5H13C13.5523 14.5 14 14.9477 14 15.5V20.5"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <HomeIcon />
         </div>
         <span class="nav-button-label" v-show="isExpanded">Dashboard</span>
         <div class="active-dot" v-if="isActiveRoute('/dashboard')"></div>
@@ -61,50 +33,7 @@
           :class="{ 'is-active': isActiveGrid(g.id) }"
         >
           <div class="nav-button-icon">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <rect
-                x="3"
-                y="3"
-                width="7"
-                height="7"
-                rx="1"
-                stroke="currentColor"
-                stroke-width="1.5"
-              />
-              <rect
-                x="14"
-                y="3"
-                width="7"
-                height="7"
-                rx="1"
-                stroke="currentColor"
-                stroke-width="1.5"
-              />
-              <rect
-                x="3"
-                y="14"
-                width="7"
-                height="7"
-                rx="1"
-                stroke="currentColor"
-                stroke-width="1.5"
-              />
-              <rect
-                x="14"
-                y="14"
-                width="7"
-                height="7"
-                rx="1"
-                stroke="currentColor"
-                stroke-width="1.5"
-              />
-            </svg>
+            <GridSquaresIcon />
           </div>
           <span class="nav-button-label" v-show="isExpanded">{{
             g.name || "Grid"
@@ -118,6 +47,8 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onUnmounted } from "vue";
+import HomeIcon from "@/components/icons/HomeIcon.vue";
+import GridSquaresIcon from "@/components/icons/GridSquaresIcon.vue";
 import { useRoute } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@/auth/AuthProvider";
@@ -127,6 +58,7 @@ import { valueToMillis } from "@/utils/TimeConversion";
 
 export default defineComponent({
   name: "LeftNavBar",
+  components: { HomeIcon, GridSquaresIcon },
   setup() {
     const route = useRoute();
     const gridStore = useGridStore();

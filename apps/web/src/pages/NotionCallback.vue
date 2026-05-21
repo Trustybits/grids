@@ -3,27 +3,19 @@
     <div class="notion-callback-card">
       <!-- Spinner shown while exchanging the OAuth code -->
       <div v-if="status === 'loading'" class="notion-callback-spinner" aria-label="Connecting…">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="spin">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-dasharray="40 20" stroke-linecap="round"/>
-        </svg>
+        <SpinnerIcon :size="32" />
         <p>Connecting to Notion…</p>
       </div>
 
       <!-- Success state — window will close automatically -->
       <div v-else-if="status === 'success'" class="notion-callback-success">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+        <SuccessCircleIcon :size="40" />
         <p>Connected! Closing…</p>
       </div>
 
       <!-- Error state -->
       <div v-else-if="status === 'error'" class="notion-callback-error">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
+        <ErrorCircleIcon :size="40" />
         <p>{{ errorMessage }}</p>
         <button @click="closeWindow">Close</button>
       </div>
@@ -35,6 +27,9 @@
 import { defineComponent, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import SpinnerIcon from "@/components/icons/SpinnerIcon.vue";
+import SuccessCircleIcon from "@/components/icons/SuccessCircleIcon.vue";
+import ErrorCircleIcon from "@/components/icons/ErrorCircleIcon.vue";
 
 // Module-level set: tracks which OAuth state values have already been exchanged.
 // Using the state string (not a boolean) means a fresh OAuth attempt with a new
@@ -44,6 +39,7 @@ const exchangedStates = new Set<string>();
 
 export default defineComponent({
   name: "NotionCallback",
+  components: { SpinnerIcon, SuccessCircleIcon, ErrorCircleIcon },
 
   setup() {
     const route = useRoute();
@@ -181,10 +177,6 @@ export default defineComponent({
   margin: 0;
   opacity: 0.8;
 }
-
-/* Spinning animation for the loading icon */
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 .notion-callback-success { color: var(--color-green, #B3EFBD); }
 .notion-callback-error { color: var(--color-red, #FFAFA3); }

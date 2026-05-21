@@ -19,6 +19,8 @@
  *   node scripts/grid-rename-migration/count-collection-tree.mjs --project-id=grids-one --collection=grids --json
  */
 
+/* eslint-disable no-console */
+
 import admin from "firebase-admin";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";

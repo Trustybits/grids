@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
+import { noopIfMaintenance } from "../maintenance.js";
 
 // ── Music Track Metadata (Spotify / Apple Music) ───────────────────────────
 
@@ -74,6 +75,8 @@ async function scrapeAppleEmbedColors(songId: string): Promise<string | null> {
  * Scrapes embed pages / iTunes API for track details and color palette.
  */
 export const getMusicTrackMetadata = functions.https.onCall(async (data, context) => {
+  if (noopIfMaintenance("getMusicTrackMetadata")) return null;
+
   if (!context.auth) {
     throw new HttpsError("unauthenticated", "You must be signed in to fetch music metadata.");
   }

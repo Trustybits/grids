@@ -11,7 +11,7 @@ This guide walks you through everything you need to add a new tile type to the p
 | Layer | Tech |
 |---|---|
 | Framework | Vue 3 (Composition API / `defineComponent`) |
-| State | Pinia (`src/stores/layout.ts`) |
+| State | Pinia (`src/stores/grid.ts`) |
 | Styling | Scoped SCSS with design tokens (`src/styles/tokens.scss`, `src/styles/themes.scss`) |
 | Backend | Firebase (Firestore for persistence, Cloud Functions in `functions/`) |
 | Build | Vite |
@@ -49,7 +49,7 @@ src/
 
 ### How a tile renders
 
-1. `Grid.vue` iterates the layout's `tiles[]` array and renders a `<GridTile>` for each.
+1. `Grid.vue` iterates the grid's `tiles[]` array and renders a `<GridTile>` for each.
 2. `GridTile.vue` calls `getContentComponent(tile.content)` from `TileUtils.ts` to resolve the async component.
 3. The resolved component (e.g. `ClickerContent.vue`) receives `content` as a prop.
 4. `GridTile` also **provides** via Vue's provide/inject:
@@ -59,10 +59,10 @@ src/
 
 ### How state flows
 
-- The **layout store** (`src/stores/layout.ts`) holds `currentLayout` which contains a `tiles: Tile[]` array.
-- To update your tile's persisted data, call `layoutStore.patchTileContent(tileId, { ...partialUpdate })`.
-- `saveLayout()` deep-clones the tiles, strips Vue reactivity, and writes to Firestore.
-- **Important:** `props.content` in your component is a deep copy (vue3-grid-layout clones layout items). If you need the canonical store object, look up the tile by ID in `layoutStore.currentLayout.tiles`.
+- The **grid store** (`src/stores/grid.ts`) holds `currentGrid` which contains a `tiles: Tile[]` array.
+- To update your tile's persisted data, call `gridStore.patchTileContent(tileId, { ...partialUpdate })`.
+- `saveGrid()` deep-clones the tiles, strips Vue reactivity, and writes to Firestore.
+- **Important:** `props.content` in your component is a deep copy (vue3-grid-layout clones layout items). If you need the canonical store object, look up the tile by ID in `gridStore.currentGrid.tiles`.
 
 ---
 
@@ -163,7 +163,7 @@ Create `src/components/tilecontent/MyNewTileContent.vue`:
 <script lang="ts">
 import { defineComponent, inject, computed } from "vue";
 import type { MyNewTileContent } from "@/types/TileContent";
-import { useLayoutStore } from "@/stores/layout";
+import { useGridStore } from "@/stores/grid";
 
 export default defineComponent({
   props: {
@@ -173,7 +173,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const layoutStore = useLayoutStore();
+    const gridStore = useGridStore();
 
     // The tile's unique ID — use this for patchTileContent calls
     const tileId = inject<string | null>("tileId", null);
@@ -184,8 +184,8 @@ export default defineComponent({
 
     // Example: updating persisted state
     const updateValue = (newVal: string) => {
-      if (!tileId || !layoutStore.canEdit) return;
-      layoutStore.patchTileContent(tileId, { someValue: newVal });
+      if (!tileId || !gridStore.canEdit) return;
+      gridStore.patchTileContent(tileId, { someValue: newVal });
     };
 
     return { updateValue };
@@ -249,7 +249,7 @@ Always use `<style scoped lang="scss">` so your styles don't leak into other til
 
 ```ts
 // Good — goes through the store and triggers Firestore save
-layoutStore.patchTileContent(tileId, { someValue: "new" });
+gridStore.patchTileContent(tileId, { someValue: "new" });
 
 // Bad — mutates the deep copy, lost on next layout rebuild
 props.content.someValue = "new";
@@ -261,14 +261,14 @@ If you need to read the latest persisted state (not the display copy), resolve i
 
 ```ts
 const storeContent = computed(() => {
-  const tile = layoutStore.currentLayout?.tiles.find(t => t.i === tileId);
+  const tile = gridStore.currentGrid?.tiles.find(t => t.i === tileId);
   return tile?.content as MyNewTileContent | undefined;
 });
 ```
 
 ### Owner vs visitor
 
-Check `layoutStore.canEdit` before showing edit controls. Visitors can interact with the tile (click, view) but should not be able to modify persisted content.
+Check `gridStore.canEdit` before showing edit controls. Visitors can interact with the tile (click, view) but should not be able to modify persisted content.
 
 ### Responsive layout
 
@@ -293,7 +293,7 @@ When submitting a new tile, make sure you've touched all of these:
 - [ ] Uses `<style scoped lang="scss">`
 - [ ] Persists state via `patchTileContent`, not direct prop mutation
 - [ ] Cleans up listeners/timers in `onUnmounted`
-- [ ] `layoutStore.canEdit` gated for any edit affordances
+- [ ] `gridStore.canEdit` gated for any edit affordances
 
 ---
 

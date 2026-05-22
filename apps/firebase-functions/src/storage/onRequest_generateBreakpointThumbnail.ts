@@ -26,8 +26,9 @@
  */
 
 import * as functions from "firebase-functions/v1";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import type { Request, Response } from "firebase-functions/v1";
+import { respondWithMaintenanceIfEnabled } from "../maintenance.js";
 
 // chromium and puppeteer are lazy-loaded inside captureBreakpoint.
 // Top-level imports cause the Firebase CLI's function-introspection server to
@@ -207,6 +208,8 @@ async function uploadThumbnail(path: string, pngBuffer: Buffer): Promise<void> {
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 async function handler(req: Request, res: Response): Promise<void> {
+  if (respondWithMaintenanceIfEnabled("generateThumbnail", res)) return;
+
   const slug = req.query.slug as string | undefined;
   const gridId = req.query.gridId as string | undefined;
   const bpParam = (req.query.breakpoint as string | undefined) ?? "desktop";

@@ -1,7 +1,8 @@
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.js";
+import { noopIfMaintenance } from "../maintenance.js";
 import { isDevTeamMember } from "./utils_devTeam.js";
 import { discordUserActivityWebhookUrl } from "./secrets.js";
 
@@ -15,6 +16,8 @@ export const onUserLogin = functions
   })
   .firestore.document("users/{userId}")
   .onUpdate(async (change, context) => {
+    if (noopIfMaintenance("onUserLogin")) return null;
+
     const beforeData = change.before.data();
     const afterData = change.after.data();
     const userId = context.params.userId;
@@ -50,7 +53,7 @@ export const onUserLogin = functions
     await writeServerAnalyticsEvent({
       eventType: "user_login",
       userId,
-      layoutId: null,
+      gridId: null,
       metadata: { signInMethod },
     });
 

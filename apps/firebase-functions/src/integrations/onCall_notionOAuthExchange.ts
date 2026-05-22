@@ -2,11 +2,12 @@ import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
+import { noopIfMaintenance } from "../maintenance.js";
 import { notionClientId, notionClientSecret } from "./secrets.js";
 
 /**
  * Exchanges a Notion OAuth authorization code for an access token and stores
- * it encrypted in Firestore at layouts/{layoutId}/notionTokens/{tileId}.
+ * it encrypted in Firestore at grids/{gridId}/notionTokens/{tileId}.
  *
  * The token is stored server-side only — it is never returned to the client
  * and is not part of the publicly-readable tile content.
@@ -16,29 +17,31 @@ import { notionClientId, notionClientSecret } from "./secrets.js";
 export const notionOAuthExchange = functions
   .runWith({ secrets: [notionClientId, notionClientSecret] })
   .https.onCall(async (data, context) => {
+    if (noopIfMaintenance("notionOAuthExchange")) return null;
+
     if (!context.auth) {
       throw new HttpsError("unauthenticated", "You must be signed in.");
     }
 
-    const { code, layoutId, tileId, redirectUri } = data as {
+    const { code, gridId, tileId, redirectUri } = data as {
       code?: string;
-      layoutId?: string;
+      gridId?: string;
       tileId?: string;
       redirectUri?: string;
     };
 
-    if (!code || !layoutId || !tileId || !redirectUri) {
+    if (!code || !gridId || !tileId || !redirectUri) {
       throw new HttpsError(
         "invalid-argument",
-        "Missing code, layoutId, tileId, or redirectUri.",
+        "Missing code, gridId, tileId, or redirectUri.",
       );
     }
 
-    // Verify the caller owns the layout before storing any token
+    // Verify the caller owns the grid before storing any token.
     const db = admin.firestore();
-    const layoutDoc = await db.collection("layouts").doc(layoutId).get();
-    if (!layoutDoc.exists || layoutDoc.data()?.userId !== context.auth.uid) {
-      throw new HttpsError("permission-denied", "You do not own this layout.");
+    const gridDoc = await db.collection("grids").doc(gridId).get();
+    if (!gridDoc.exists || gridDoc.data()?.userId !== context.auth.uid) {
+      throw new HttpsError("permission-denied", "You do not own this grid.");
     }
 
     const clientId = notionClientId.value();
@@ -92,8 +95,8 @@ export const notionOAuthExchange = functions
 
     // Store the token in a private subcollection — not readable by clients via Firestore rules
     await db
-      .collection("layouts")
-      .doc(layoutId)
+      .collection("grids")
+      .doc(gridId)
       .collection("notionTokens")
       .doc(tileId)
       .set({
@@ -106,7 +109,7 @@ export const notionOAuthExchange = functions
       });
 
     logger.info("Notion OAuth token stored", {
-      layoutId,
+      gridId,
       tileId,
       workspaceId: tokenData.workspace_id,
     });

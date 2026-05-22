@@ -26,7 +26,7 @@ export async function ensureDocumentItemThumbnailOnServer(
   return getServiceFactory()
     .getCloudFunctionsService()
     .callFunction<
-      { layoutId: string; tileId: string; itemId: string },
+      { gridId: string; tileId: string; itemId: string },
       EnsureDocumentThumbResponse
-    >("ensureDocumentItemThumbnail", { layoutId: gridId, tileId, itemId });
+    >("ensureDocumentItemThumbnail", { gridId, tileId, itemId });
 }

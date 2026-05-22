@@ -999,25 +999,29 @@ export default defineComponent({
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: none;
+  border: 2px solid color-mix(in srgb, var(--color-text-primary) 20%, transparent);
   padding: 4px;
-  background: var(--color-base-34);
+  background: color-mix(in srgb, var(--color-tile-background) 85%, var(--color-text-primary) 15%);
   color: var(--color-text-primary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   transition:
     transform var(--duration-fast) var(--easing-ease-out),
     background var(--duration-fast) var(--easing-ease-out),
+    border-color var(--duration-fast) var(--easing-ease-out),
     box-shadow var(--duration-fast) var(--easing-ease-out);
   z-index: 10;
   transform: translateX(-50%);
 }
 
 .scroll-to-bottom:hover {
-  background: var(--color-content-default);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  background: var(--color-text-primary);
+  color: var(--color-tile-background);
+  border-color: var(--color-base-76);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   transform: translateX(-50%) translateY(-2px);
 }
 

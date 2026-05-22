@@ -5,6 +5,11 @@ import { noopIfMaintenance } from "../maintenance.js";
 import { isDevTeamMember } from "./utils_devTeam.js";
 import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.js";
 import { discordUserActivityWebhookUrl } from "./secrets.js";
+import {
+  buildDiscordEmbedPayload,
+  getDiscordWebhookUrl,
+  sendDiscordWebhook,
+} from "./utils_discord.js";
 
 /**
  * Firebase function that triggers when a grid is deleted.
@@ -53,78 +58,45 @@ export const onGridDeleted = functions
       return null;
     }
 
-    // Get the Discord webhook URL from secrets
-    const webhookUrl = discordUserActivityWebhookUrl.value();
-
+    const webhookUrl = getDiscordWebhookUrl(
+      discordUserActivityWebhookUrl.value(),
+      "DISCORD_USER_ACTIVITY_WEBHOOK_URL",
+    );
     if (!webhookUrl) {
-      logger.error(
-        "DISCORD_USER_ACTIVITY_WEBHOOK_URL secret is not configured",
-      );
       return null;
     }
 
-    // Build Discord embed payload
-    const discordPayload = {
-      embeds: [
+    const discordPayload = buildDiscordEmbedPayload({
+      title: "🗑️ Grid Deleted",
+      color: 15158332,
+      fields: [
         {
-          title: "🗑️ Grid Deleted",
-          color: 15158332, // Red color
-          fields: [
-            {
-              name: "Grid Name",
-              value: gridData.name || "Untitled",
-              inline: true,
-            },
-            {
-              name: "Grid ID",
-              value: gridId,
-              inline: true,
-            },
-            {
-              name: "User ID",
-              value: gridData.userId || "Unknown",
-              inline: false,
-            },
-          ],
-          timestamp: new Date().toISOString(),
-          footer: {
-            text: "Grids Activity",
-          },
+          name: "Grid Name",
+          value: gridData.name || "Untitled",
+          inline: true,
+        },
+        {
+          name: "Grid ID",
+          value: gridId,
+          inline: true,
+        },
+        {
+          name: "User ID",
+          value: gridData.userId || "Unknown",
+          inline: false,
         },
       ],
-    };
+      footerText: "Grids Activity",
+    });
 
-    try {
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(discordPayload),
-      });
+    await sendDiscordWebhook({
+      webhookUrl,
+      payload: discordPayload,
+      successMessage: "Discord grid deletion notification sent successfully",
+      successContext: ({ status }) => ({ gridId, status }),
+      responseErrorContext: { gridId },
+      sendErrorContext: { gridId },
+    });
 
-      const responseText = await response.text();
-
-      if (!response.ok) {
-        logger.error("Discord webhook returned error status", {
-          gridId,
-          status: response.status,
-          statusText: response.statusText,
-          responseBody: responseText,
-        });
-      } else {
-        logger.info("Discord grid deletion notification sent successfully", {
-          gridId,
-          status: response.status,
-        });
-      }
-
-      return null;
-    } catch (error) {
-      logger.error("Failed to send Discord webhook", {
-        error: String(error),
-        gridId,
-      });
-      return null;
-    }
+    return null;
   });

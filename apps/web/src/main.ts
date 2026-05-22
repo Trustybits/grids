@@ -10,6 +10,7 @@ import { registerDbUtils } from "@/dao/DbUtilsSingleton";
 import { registerAuthProvider } from "@/auth/AuthProviderSingleton";
 import { registerServiceFactory } from "@/services/ServiceFactorySingleton";
 import { ServiceFactory } from "@/services/factory/ServiceFactory";
+import { registerAllTiles } from "@/registries/tiles";
 
 import "@fortawesome/fontawesome-free/css/all.css";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -42,6 +43,8 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
   // Services depend on DAO factory + DbUtils being registered first,
   // so the service factory is registered after either init branch completes.
   registerServiceFactory(new ServiceFactory());
+
+  registerAllTiles();
 
   const app = createApp(App);
   const pinia = createPinia();

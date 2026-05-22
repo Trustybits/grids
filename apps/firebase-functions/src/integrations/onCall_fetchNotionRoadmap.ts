@@ -40,7 +40,7 @@ export const fetchNotionRoadmap = functions
       statusMapping,
       databaseIdOverride,
       queryFilters,
-    } = data as {
+    } = (data ?? {}) as {
       gridId?: string;
       tileId?: string;
       statusPropertyName?: string;

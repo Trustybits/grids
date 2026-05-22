@@ -25,7 +25,7 @@ export const getYouTubeMetadata = functions
       );
     }
 
-    const { youtubeType, youtubeId } = data as {
+    const { youtubeType, youtubeId } = (data ?? {}) as {
       youtubeType?: string;
       youtubeId?: string;
     };

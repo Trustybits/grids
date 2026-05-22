@@ -6,7 +6,12 @@ import { isIP } from "node:net";
 import { noopIfMaintenance } from "../maintenance.js";
 
 function isPrivateOrLocalhost(hostname: string): boolean {
-  const lower = hostname.toLowerCase();
+  // URL.hostname returns IPv6 literals wrapped in brackets (e.g. "[::1]").
+  // Strip them so the equality and isIP checks below work on the raw address.
+  const unbracketed = hostname.startsWith("[") && hostname.endsWith("]")
+    ? hostname.slice(1, -1)
+    : hostname;
+  const lower = unbracketed.toLowerCase();
   if (lower === "localhost" || lower.endsWith(".localhost") || lower.endsWith(".local")) {
     return true;
   }

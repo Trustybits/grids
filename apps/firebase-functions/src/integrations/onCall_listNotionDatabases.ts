@@ -18,7 +18,7 @@ export const listNotionDatabases = functions
       throw new HttpsError("unauthenticated", "You must be signed in.");
     }
 
-    const { gridId, tileId } = data as { gridId?: string; tileId?: string };
+    const { gridId, tileId } = (data ?? {}) as { gridId?: string; tileId?: string };
     if (!gridId || !tileId) {
       throw new HttpsError("invalid-argument", "Missing gridId or tileId.");
     }

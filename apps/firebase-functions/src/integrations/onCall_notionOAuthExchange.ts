@@ -23,7 +23,7 @@ export const notionOAuthExchange = functions
       throw new HttpsError("unauthenticated", "You must be signed in.");
     }
 
-    const { code, gridId, tileId, redirectUri } = data as {
+    const { code, gridId, tileId, redirectUri } = (data ?? {}) as {
       code?: string;
       gridId?: string;
       tileId?: string;

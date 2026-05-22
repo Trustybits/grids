@@ -41,28 +41,7 @@
             alt=""
           />
         </div>
-        <svg
-          v-else
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <circle
-            cx="12"
-            cy="8"
-            r="4"
-            stroke="currentColor"
-            stroke-width="1.5"
-          />
-          <path
-            d="M6 21C6 17.134 8.68629 14 12 14C15.3137 14 18 17.134 18 21"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-          />
-        </svg>
+        <ProfileIcon v-else :size="20" />
       </div>
     </button>
     <div class="user-menu-dropdown" v-if="showUserMenu" @click.stop>
@@ -76,31 +55,7 @@
             <span class="info-label">Handle</span>
             <span class="info-value">{{ currentSlug || "Not set" }}</span>
           </div>
-          <svg
-            class="edit-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              fill="none"
-            />
-            <path
-              d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              fill="none"
-            />
-          </svg>
+          <EditIcon class="edit-icon" :size="14" />
         </button>
       </div>
       <button
@@ -190,6 +145,8 @@ import {
   scaleAvatarRadius,
 } from "@/utils/AvatarShape";
 import SlugClaimModal from "@/components/modal/SlugClaimModal.vue";
+import ProfileIcon from "@/components/icons/ProfileIcon.vue";
+import EditIcon from "@/components/icons/EditIcon.vue";
 
 const MENU_AVATAR_SIZE = 24;
 const MENU_AVATAR_POLYGON_INSET = 0.5;
@@ -198,6 +155,8 @@ export default defineComponent({
   name: "UserMenu",
   components: {
     SlugClaimModal,
+    ProfileIcon,
+    EditIcon,
   },
   setup() {
     const router = useRouter();

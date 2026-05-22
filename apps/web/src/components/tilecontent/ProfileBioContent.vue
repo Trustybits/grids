@@ -457,12 +457,12 @@ import { useEditorAutosave } from "@/composables/useEditorAutosave";
 import { useBadges } from "@/composables/useBadges";
 import { useEditorContentSync } from "@/composables/useEditingLifecycle";
 import Placeholder from "@tiptap/extension-placeholder";
-import CloseIcon from "@/components/icons/actionbar/CloseIcon.vue";
-import ShapeCircleIcon from "@/components/icons/actionbar/ShapeCircleIcon.vue";
-import ShapeSquareIcon from "@/components/icons/actionbar/ShapeSquareIcon.vue";
-import ShapePolygonIcon from "@/components/icons/actionbar/ShapePolygonIcon.vue";
-import UploadMediaIcon from "@/components/icons/actionbar/UploadMediaIcon.vue";
-import UrlSourceIcon from "@/components/icons/actionbar/UrlSourceIcon.vue";
+import CloseIcon from "@/components/icons/tile-actionbar/CloseIcon.vue";
+import ShapeCircleIcon from "@/components/icons/tile-actionbar/ShapeCircleIcon.vue";
+import ShapeSquareIcon from "@/components/icons/tile-actionbar/ShapeSquareIcon.vue";
+import ShapePolygonIcon from "@/components/icons/tile-actionbar/ShapePolygonIcon.vue";
+import UploadMediaIcon from "@/components/icons/tile-actionbar/UploadMediaIcon.vue";
+import UrlSourceIcon from "@/components/icons/tile-actionbar/UrlSourceIcon.vue";
 
 const baseExtensions: AnyExtension[] = [
   StarterKit,

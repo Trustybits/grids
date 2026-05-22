@@ -150,7 +150,7 @@
       <section class="mkt__section mkt__cta">
         <h2>Ready to <span>show off?</span></h2>
         <p>Free to start. Your first grid takes about four minutes.</p>
-        <Button variant="brand" to="/login" size="sm">Make your grid →</Button>
+        <Button variant="brand" to="/login" size="lg">Make your grid →</Button>
       </section>
     </section>
 
@@ -870,7 +870,7 @@ const faqItems = [
   background: var(--mkt-bg-2);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
-  padding: 5px 10px 5px 16px;
+  padding: 5px 6px 5px 16px;
   margin-bottom: 52px;
 }
 .mkt__url-pill span {

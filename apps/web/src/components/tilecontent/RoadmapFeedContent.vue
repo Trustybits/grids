@@ -6,11 +6,7 @@
     <template v-if="!isConnected && setupPhase === 'idle'">
       <div class="roadmap-empty">
         <div class="roadmap-empty-icon" aria-hidden="true">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M9 12h6M9 16h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <ClipboardIcon :size="32" />
         </div>
         <p class="roadmap-empty-title">Roadmap</p>
         <p class="roadmap-empty-subtitle" v-if="isOwner">Connect a Notion database to display your roadmap.</p>
@@ -32,17 +28,10 @@
           <span v-if="content.lastSyncedAt" class="roadmap-synced-at">Updated {{ relativeTime(content.lastSyncedAt) }}</span>
           <!-- Refresh button visible only to grid owner -->
           <button v-if="isOwner" class="roadmap-icon-btn" title="Refresh from Notion" @click.stop="() => refresh()" :disabled="isLoading">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" :class="{ 'is-spinning': isLoading }">
-              <path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M23 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+            <RefreshIcon :size="14" :class="{ 'is-spinning': isLoading }" />
           </button>
           <button v-if="isOwner" class="roadmap-icon-btn" title="Configure" @click.stop="showSettings = !showSettings">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2"/>
-            </svg>
+            <GearIcon :size="14" />
           </button>
         </div>
       </div>
@@ -153,9 +142,7 @@
                 </div>
               </template>
               <button class="roadmap-qf-remove" title="Remove filter" @click.stop="removeQueryFilter(filter.propertyName)">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-                </svg>
+                <CloseXIcon :size="10" />
               </button>
             </div>
             <!-- Add a new filter row -->
@@ -210,9 +197,7 @@
                   :title="myVotedPageIds.has(item.notionPageId) ? 'Remove upvote' : 'Upvote'"
                   @click.stop="toggleUpvote(item)"
                 >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                    <path d="M18 15l-6-6-6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
+                  <ChevronUpIcon :size="12" />
                   <span class="roadmap-upvote-count">{{ optimisticCount(item) }}</span>
                 </button>
                 <!-- Unauthenticated visitors see the count + a sign-in nudge -->
@@ -222,9 +207,7 @@
                   title="Sign in to upvote"
                   @click.stop="goToLogin"
                 >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                    <path d="M18 15l-6-6-6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
+                  <ChevronUpIcon :size="12" />
                   <span class="roadmap-upvote-count">{{ optimisticCount(item) }}</span>
                 </button>
               </div>
@@ -246,8 +229,20 @@ import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridStore } from "@/stores/grid";
 import type { RoadmapFeedContent, RoadmapFilterableType, RoadmapItem, RoadmapQueryFilter, RoadmapStatus } from "@/types/TileContent";
 import type { NotionDatabase, PropertyOption } from "@/types/Roadmap";
+import CloseXIcon from "@/components/icons/CloseXIcon.vue";
+import RefreshIcon from "@/components/icons/RefreshIcon.vue";
+import GearIcon from "@/components/icons/GearIcon.vue";
+import ChevronUpIcon from "@/components/icons/ChevronUpIcon.vue";
+import ClipboardIcon from "@/components/icons/ClipboardIcon.vue";
 
 export default defineComponent({
+  components: {
+    CloseXIcon,
+    RefreshIcon,
+    GearIcon,
+    ChevronUpIcon,
+    ClipboardIcon,
+  },
   props: {
     content: {
       type: Object as () => RoadmapFeedContent,

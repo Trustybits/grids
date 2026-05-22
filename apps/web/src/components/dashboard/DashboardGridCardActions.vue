@@ -9,26 +9,7 @@
         { 'is-default': isDefaultGrid },
       ]"
     >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <circle
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          stroke-width="1.5"
-        />
-        <path
-          d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
-          stroke="currentColor"
-          stroke-width="1.5"
-        />
-      </svg>
+      <GlobeIcon :size="18" />
     </button>
     <div class="split-button" @click.prevent>
       <button
@@ -36,32 +17,7 @@
         data-tooltip="Duplicate grid"
         class="action-button duplicate-button split-main"
       >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <rect
-            x="9"
-            y="9"
-            width="13"
-            height="13"
-            rx="2"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <DuplicateIcon :size="18" />
       </button>
       <button
         @click.prevent.stop="$emit('toggle-split-menu', grid.id)"
@@ -84,70 +40,14 @@
       class="action-button rename-button"
       data-tooltip="Rename grid"
     >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-        <path
-          d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
+      <EditIcon :size="18" />
     </button>
     <button
       @click.prevent="$emit('delete', grid)"
       data-tooltip="Delete grid"
       class="action-button delete-button"
     >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M3 6h18"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-        <path
-          d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-        <path
-          d="M10 11v6"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-        <path
-          d="M14 11v6"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
+      <TrashIcon :size="18" />
     </button>
   </div>
 </template>
@@ -155,6 +55,10 @@
 <script setup lang="ts">
 import type { Grid } from "@/types/Grid";
 import Chevron from "@/components/icons/Chevron.vue";
+import GlobeIcon from "@/components/icons/GlobeIcon.vue";
+import DuplicateIcon from "@/components/icons/DuplicateIcon.vue";
+import EditIcon from "@/components/icons/EditIcon.vue";
+import TrashIcon from "@/components/icons/toolbar/TrashIcon.vue";
 
 defineProps<{
   grid: Grid;

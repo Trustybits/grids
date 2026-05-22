@@ -3,27 +3,27 @@
   <component
     :is="elementType"
     v-bind="elementProps"
-    class="btn"
+    class="ui-btn"
     :class="[
-      `btn--${variant}`,
-      `btn--${size}`,
+      `ui-btn--${variant}`,
+      `ui-btn--${size}`,
       {
-        'btn--block': block,
-        'btn--disabled': disabled || loading,
-        'btn--loading': loading,
+        'ui-btn--block': block,
+        'ui-btn--disabled': disabled || loading,
+        'ui-btn--loading': loading,
       },
     ]"
     :disabled="isButton ? (disabled || loading) : undefined"
     @click="handleClick"
   >
-    <span v-if="loading" class="btn__spinner" aria-hidden="true" />
-    <span v-if="$slots['icon-left']" class="btn__icon btn__icon--left">
+    <span v-if="loading" class="ui-btn__spinner" aria-hidden="true" />
+    <span v-if="$slots['icon-left']" class="ui-btn__icon ui-btn__icon--left">
       <slot name="icon-left" />
     </span>
-    <span class="btn__label">
+    <span class="ui-btn__label">
       <slot />
     </span>
-    <span v-if="$slots['icon-right']" class="btn__icon btn__icon--right">
+    <span v-if="$slots['icon-right']" class="ui-btn__icon ui-btn__icon--right">
       <slot name="icon-right" />
     </span>
   </component>
@@ -91,11 +91,11 @@ const handleClick = (event: MouseEvent) => {
 </script>
 
 <style lang="scss" scoped>
-.btn {
+.ui-btn {
   --btn-padding-x: var(--spacing-lg);
   --btn-padding-y: var(--spacing-sm);
   --btn-font-size: 14px;
-  --btn-radius: var(--radius-md);
+  --btn-radius: var(--radius-sm);
 
   display: inline-flex;
   align-items: center;
@@ -130,9 +130,10 @@ const handleClick = (event: MouseEvent) => {
   }
 
   &--md {
-    --btn-padding-x: var(--spacing-lg);
+    --btn-padding-x: var(--spacing-md);
     --btn-padding-y: var(--spacing-sm);
     --btn-font-size: 14px;
+    font-weight: var(--font-weight-semibold);
   }
 
   &--lg {
@@ -145,12 +146,12 @@ const handleClick = (event: MouseEvent) => {
   // ─── Variants ────────────────────────────────────────────────
 
   &--primary {
-    background-color: var(--color-content-high);
+    background-color: var(--primary-color, var(--color-content-high));
     border-color: transparent;
     color: var(--color-text-primary);
 
-    &:hover:not(.btn--disabled) {
-      background-color: var(--color-content-low);
+    &:hover:not(.ui-btn--disabled) {
+      background-color: color-mix(in srgb, var(--primary-color, var(--color-content-high)) 80%, white);
     }
   }
 
@@ -159,7 +160,7 @@ const handleClick = (event: MouseEvent) => {
     border-color: var(--color-tile-stroke);
     color: var(--color-text-primary);
 
-    &:hover:not(.btn--disabled) {
+    &:hover:not(.ui-btn--disabled) {
       background-color: var(--color-content-background);
       border-color: var(--color-content-high);
     }
@@ -170,7 +171,7 @@ const handleClick = (event: MouseEvent) => {
     border-color: transparent;
     color: var(--color-content-default);
 
-    &:hover:not(.btn--disabled) {
+    &:hover:not(.ui-btn--disabled) {
       color: var(--color-text-primary);
       background-color: var(--color-content-background);
     }
@@ -181,19 +182,19 @@ const handleClick = (event: MouseEvent) => {
     border-color: transparent;
     color: #fff;
 
-    &:hover:not(.btn--disabled) {
+    &:hover:not(.ui-btn--disabled) {
       background-color: color-mix(in srgb, var(--color-figma-red) 85%, #000);
     }
   }
 
   &--brand {
     background: var(--mkt-brand-gradient, var(--color-figma-purple));
-    border-color: transparent;
+    border: 0;
     color: #000;
-    font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-bold);
     letter-spacing: -0.01em;
 
-    &:hover:not(.btn--disabled) {
+    &:hover:not(.ui-btn--disabled) {
       opacity: 0.9;
     }
   }
@@ -205,7 +206,7 @@ const handleClick = (event: MouseEvent) => {
     font-weight: var(--font-weight-semibold);
     letter-spacing: -0.01em;
 
-    &:hover:not(.btn--disabled) {
+    &:hover:not(.ui-btn--disabled) {
       border-color: rgba(255, 255, 255, 0.35);
       background: rgba(255, 255, 255, 0.04);
     }
@@ -223,39 +224,45 @@ const handleClick = (event: MouseEvent) => {
     pointer-events: none;
   }
 
+  &--disabled.ui-btn--secondary,
+  &--disabled.ui-btn--ghost {
+    opacity: 0.4;
+    color: var(--color-content-low);
+  }
+
   &--loading {
     position: relative;
 
-    .btn__label,
-    .btn__icon {
+    .ui-btn__label,
+    .ui-btn__icon {
       opacity: 0;
     }
   }
 }
 
-.btn__spinner {
+.ui-btn__spinner {
   position: absolute;
   width: 16px;
   height: 16px;
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
-  animation: btn-spin 0.6s linear infinite;
+  animation: ui-btn-spin 0.6s linear infinite;
 }
 
-.btn__icon {
+.ui-btn__icon {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
 }
 
-.btn__label {
+.ui-btn__label {
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-sm);
 }
 
-@keyframes btn-spin {
+@keyframes ui-btn-spin {
   to {
     transform: rotate(360deg);
   }

@@ -14,9 +14,7 @@
         @click="handleClose"
         aria-label="Close"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
+        <CloseXIcon :size="20" />
       </button>
     </div>
 
@@ -49,13 +47,8 @@
 
         <div class="validation-message" :class="[validationClass, { 'is-placeholder': !validationMessage }]">
           <template v-if="validationMessage">
-            <svg v-if="validationClass === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 6L9 17l-5-5" />
-            </svg>
-            <svg v-else-if="validationClass === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 8v4m0 4h.01" />
-            </svg>
+            <CheckIcon v-if="validationClass === 'success'" :size="16" />
+            <AlertCircleIcon v-else-if="validationClass === 'error'" :size="16" />
             <span>{{ validationMessage }}</span>
           </template>
           <span v-else>&nbsp;</span>
@@ -104,6 +97,9 @@ import { ref, computed, watch, nextTick } from 'vue';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import BaseModal from './BaseModal.vue';
 import Button from '@/components/ui-elements/Button.vue';
+import CheckIcon from '@/components/icons/CheckIcon.vue';
+import CloseXIcon from '@/components/icons/CloseXIcon.vue';
+import AlertCircleIcon from '@/components/icons/AlertCircleIcon.vue';
 
 const props = defineProps<{
   isOpen: boolean;

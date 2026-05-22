@@ -17,7 +17,8 @@
 
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
+import { noopIfMaintenance } from "../maintenance.js";
 import { SUPPORTER_BADGE_MIN_CENTS } from "./constants.js";
 
 const SUCCEEDED_STATUS = "succeeded";
@@ -26,6 +27,8 @@ export const grantSupporterBadgeOnPayment = functions
   .firestore
   .document("customers/{uid}/payments/{paymentId}")
   .onWrite(async (change, context) => {
+    if (noopIfMaintenance("grantSupporterBadgeOnPayment")) return null;
+
     const uid = context.params.uid as string;
     const after = change.after.exists ? change.after.data() : null;
 

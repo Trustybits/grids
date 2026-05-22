@@ -386,8 +386,8 @@ export class GridService implements IGridService {
       const userData = await this.userDao.getById(userId);
       if (!userData) return [];
 
-      const arr = Array.isArray(userData.recentLayoutIds)
-        ? ((userData.recentLayoutIds as unknown[]).filter(
+      const arr = Array.isArray(userData.recentGridIds)
+        ? ((userData.recentGridIds as unknown[]).filter(
             (x: unknown) => typeof x === "string",
           ) as string[])
         : [];
@@ -403,7 +403,7 @@ export class GridService implements IGridService {
   async saveRecentGridIds(userId: string, ids: string[]): Promise<void> {
     try {
       await this.userDao.save(userId, {
-        recentLayoutIds: ids.slice(0, 3),
+        recentGridIds: ids.slice(0, 3),
       });
     } catch (error) {
       console.error("Failed to save recent grids:", error);

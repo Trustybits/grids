@@ -2,7 +2,7 @@
  * Migration: move profilePhotoUrl to publicProfiles/{uid} only
  *
  * Steps:
- *   1. Scan layouts for profile tiles with avatarSrc (legacy data)
+ *   1. Scan grids for profile tiles with avatarSrc (legacy data)
  *   2. Collect profilePhotoUrl from users/{uid} docs (if exists)
  *   3. Write to publicProfiles/{uid} (single source of truth)
  *   4. Remove profilePhotoUrl from users/{uid} docs
@@ -27,13 +27,13 @@ const db = admin.firestore();
 async function migrateProfilePhotos() {
   console.log("Starting profile photo migration to publicProfiles...");
 
-  // --- Step 1: Scan layouts for legacy avatarSrc on profile tiles ---
-  const layoutsSnap = await db.collection("layouts").get();
-  console.log(`Scanning ${layoutsSnap.size} layouts for legacy avatarSrc...`);
+  // --- Step 1: Scan grids for legacy avatarSrc on profile tiles ---
+  const gridsSnap = await db.collection("grids").get();
+  console.log(`Scanning ${gridsSnap.size} grids for legacy avatarSrc...`);
 
   const tilePhotoMap = new Map(); // uid → avatarSrc from tile data
-  for (const layoutDoc of layoutsSnap.docs) {
-    const data = layoutDoc.data();
+  for (const gridDoc of gridsSnap.docs) {
+    const data = gridDoc.data();
     if (!data.userId || tilePhotoMap.has(data.userId)) continue;
     for (const tile of (data.tiles || [])) {
       const c = tile && tile.content;

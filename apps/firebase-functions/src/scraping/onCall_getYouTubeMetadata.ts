@@ -2,6 +2,7 @@ import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import { defineSecret } from "firebase-functions/params";
+import { noopIfMaintenance } from "../maintenance.js";
 
 // Define secret for YouTube API key
 const youtubeApiKey = defineSecret("YOUTUBE_API_KEY");
@@ -15,6 +16,8 @@ export const getYouTubeMetadata = functions
     secrets: [youtubeApiKey],
   })
   .https.onCall(async (data, context) => {
+    if (noopIfMaintenance("getYouTubeMetadata")) return null;
+
     if (!context.auth) {
       throw new HttpsError(
         "unauthenticated",

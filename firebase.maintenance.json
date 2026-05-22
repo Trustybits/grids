@@ -1,0 +1,6 @@
+{
+  "firestore": {
+    "rules": "firestore.maintenance.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

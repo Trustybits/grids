@@ -13,6 +13,7 @@ import { createPinia, setActivePinia } from 'pinia'
 // ── Firebase Auth mock ─────────────────────────────────────────────────────
 vi.mock('firebase/auth', () => ({
   getAuth: vi.fn(() => ({ currentUser: null })),
+  connectAuthEmulator: vi.fn(),
   onAuthStateChanged: vi.fn((_auth, callback) => {
     callback(null)
     return vi.fn() // unsubscribe fn
@@ -27,6 +28,7 @@ vi.mock('firebase/auth', () => ({
 // ── Firebase Firestore mock ────────────────────────────────────────────────
 vi.mock('firebase/firestore', () => ({
   getFirestore: vi.fn(),
+  connectFirestoreEmulator: vi.fn(),
   doc: vi.fn(),
   getDoc: vi.fn(),
   setDoc: vi.fn(),
@@ -59,6 +61,7 @@ vi.mock('firebase/functions', () => ({
 // ── Firebase Storage mock ──────────────────────────────────────────────────
 vi.mock('firebase/storage', () => ({
   getStorage: vi.fn(),
+  connectStorageEmulator: vi.fn(),
   ref: vi.fn(),
   uploadBytes: vi.fn(),
   getDownloadURL: vi.fn(),

@@ -8,7 +8,7 @@
  *   - parse bodies arriving as object, JSON string, or Buffer (body-parser
  *     normally handles JSON, but `sendBeacon`-via-Blob can land as a string
  *     or Buffer)
- *   - validate payload shape (layoutId, sessionId, durationMs, optional userId)
+ *   - validate payload shape (gridId, sessionId, durationMs, optional userId)
  *   - cap durationMs at 24h (sanity bound)
  *   - delegate the write to `writeServerAnalyticsEvent`, which lands a
  *     `grid_view_end` document in `analyticsEvents` with the expected shape
@@ -210,13 +210,13 @@ function makeReq(
   };
 }
 
-function expectedRateLimitPath(ip: string, layoutId: string): string {
-  const key = createHash("sha256").update(`${ip}\0${layoutId}`).digest("hex");
+function expectedRateLimitPath(ip: string, gridId: string): string {
+  const key = createHash("sha256").update(`${ip}\0${gridId}`).digest("hex");
   return `rateLimits/trackGridViewEndBeacon/gridViewEndEntries/${key}`;
 }
 
-function sessionMarkerPath(layoutId: string, sessionId: string): string {
-  return `gridStats/${layoutId}/endedSessions/${sessionId}`;
+function sessionMarkerPath(gridId: string, sessionId: string): string {
+  return `gridStats/${gridId}/endedSessions/${sessionId}`;
 }
 
 // ── Setup ────────────────────────────────────────────────────────────────
@@ -268,7 +268,7 @@ describe("CORS and HTTP method handling", () => {
   it("rejects PUT with 405 Method not allowed", async () => {
     const res = makeRes();
     await handler(
-      makeReq("PUT", { layoutId: "l", sessionId: "s", durationMs: 1 }),
+      makeReq("PUT", { gridId: "l", sessionId: "s", durationMs: 1 }),
       res,
     );
     expect(res._statusCode).toBe(405);
@@ -285,7 +285,7 @@ describe("CORS and HTTP method handling", () => {
 
 describe("body parsing", () => {
   const validPayload = {
-    layoutId: "layout-1",
+    gridId: "grid-1",
     sessionId: "sess-1",
     durationMs: 1234,
   };
@@ -363,40 +363,40 @@ describe("body parsing", () => {
 
 describe("payload validation", () => {
   const valid = {
-    layoutId: "layout-1",
+    gridId: "grid-1",
     sessionId: "sess-1",
     durationMs: 1000,
   };
 
-  it("rejects when layoutId is missing", async () => {
+  it("rejects when gridId is missing", async () => {
     const res = makeRes();
     await handler(makeReq("POST", { sessionId: "s", durationMs: 1 }), res);
     expect(res._statusCode).toBe(400);
     expect(firestoreState.addCalls).toHaveLength(0);
   });
 
-  it("rejects when layoutId is an empty string", async () => {
+  it("rejects when gridId is an empty string", async () => {
     const res = makeRes();
-    await handler(makeReq("POST", { ...valid, layoutId: "" }), res);
+    await handler(makeReq("POST", { ...valid, gridId: "" }), res);
     expect(res._statusCode).toBe(400);
   });
 
-  it("rejects when layoutId is not a string", async () => {
+  it("rejects when gridId is not a string", async () => {
     const res = makeRes();
-    await handler(makeReq("POST", { ...valid, layoutId: 123 }), res);
+    await handler(makeReq("POST", { ...valid, gridId: 123 }), res);
     expect(res._statusCode).toBe(400);
   });
 
-  it("rejects when layoutId is not safe for Firestore document paths", async () => {
+  it("rejects when gridId is not safe for Firestore document paths", async () => {
     const res = makeRes();
-    await handler(makeReq("POST", { ...valid, layoutId: "layouts/bad" }), res);
+    await handler(makeReq("POST", { ...valid, gridId: "grids/bad" }), res);
     expect(res._statusCode).toBe(400);
     expect(firestoreState.addCalls).toHaveLength(0);
   });
 
   it("rejects when sessionId is missing", async () => {
     const res = makeRes();
-    await handler(makeReq("POST", { layoutId: "l", durationMs: 1 }), res);
+    await handler(makeReq("POST", { gridId: "l", durationMs: 1 }), res);
     expect(res._statusCode).toBe(400);
   });
 
@@ -422,11 +422,11 @@ describe("payload validation", () => {
     expect(firestoreState.addCalls).toHaveLength(0);
   });
 
-  it("rejects overlong layoutId and sessionId values", async () => {
+  it("rejects overlong gridId and sessionId values", async () => {
     const tooLong = "a".repeat(129);
 
     const layoutRes = makeRes();
-    await handler(makeReq("POST", { ...valid, layoutId: tooLong }), layoutRes);
+    await handler(makeReq("POST", { ...valid, gridId: tooLong }), layoutRes);
     expect(layoutRes._statusCode).toBe(400);
 
     const sessionRes = makeRes();
@@ -539,7 +539,7 @@ describe("rate limiting", () => {
       makeReq(
         "POST",
         {
-          layoutId: "layout-7",
+          gridId: "grid-7",
           sessionId: "sess-xyz",
           durationMs: 7500,
         },
@@ -553,10 +553,10 @@ describe("rate limiting", () => {
 
     expect(res._statusCode).toBe(204);
     expect(firestoreState.setCalls[0].path).toBe(
-      expectedRateLimitPath("203.0.113.10", "layout-7"),
+      expectedRateLimitPath("203.0.113.10", "grid-7"),
     );
     expect(firestoreState.setCalls[0].path).not.toContain("198.51.100.99");
-    expect(firestoreState.setCalls[0].path).not.toContain("layout-7");
+    expect(firestoreState.setCalls[0].path).not.toContain("grid-7");
   });
 
   it("writes rate-limit entries with a timestamp expiresAt for TTL cleanup", async () => {
@@ -568,7 +568,7 @@ describe("rate limiting", () => {
       makeReq(
         "POST",
         {
-          layoutId: "layout-7",
+          gridId: "grid-7",
           sessionId: "sess-xyz",
           durationMs: 7500,
         },
@@ -601,7 +601,7 @@ describe("Firestore write on success", () => {
     const res = makeRes();
     await handler(
       makeReq("POST", {
-        layoutId: "layout-7",
+        gridId: "grid-7",
         sessionId: "sess-xyz",
         durationMs: 7500,
         userId: "user-9",
@@ -625,7 +625,7 @@ describe("Firestore write on success", () => {
         _millis: NOW + ninetyDaysMs,
       }),
       userId: "user-9",
-      layoutId: "layout-7",
+      gridId: "grid-7",
       metadata: {
         sessionId: "sess-xyz",
         durationMs: 7500,
@@ -637,7 +637,7 @@ describe("Firestore write on success", () => {
     const res = makeRes();
     await handler(
       makeReq("POST", {
-        layoutId: "l",
+        gridId: "l",
         sessionId: "s",
         durationMs: 1000,
       }),
@@ -665,7 +665,7 @@ describe("analytics write failure", () => {
     const res = makeRes();
     await handler(
       makeReq("POST", {
-        layoutId: "layout-1",
+        gridId: "grid-1",
         sessionId: "sess-1",
         durationMs: 100,
         userId: "user-7",
@@ -680,7 +680,7 @@ describe("analytics write failure", () => {
       expect.objectContaining({
         eventType: "grid_view_end",
         userId: "user-7",
-        layoutId: "layout-1",
+        gridId: "grid-1",
         error: expect.stringContaining("transient firestore failure"),
       }),
     );
@@ -694,7 +694,7 @@ describe("analytics write failure", () => {
     await expect(
       handler(
         makeReq("POST", {
-          layoutId: "l",
+          gridId: "l",
           sessionId: "s",
           durationMs: 1,
         }),
@@ -708,7 +708,7 @@ describe("analytics write failure", () => {
 // ── Body size limit (MAX_BODY_BYTES = 2048) ──────────────────────────────
 
 describe("body size limit", () => {
-  const valid = { layoutId: "l", sessionId: "s", durationMs: 100 };
+  const valid = { gridId: "l", sessionId: "s", durationMs: 100 };
 
   it("rejects with 413 when Content-Length header exceeds 2048", async () => {
     const res = makeRes();
@@ -783,14 +783,14 @@ describe("body size limit", () => {
 
 describe("session-end idempotency", () => {
   const payload = {
-    layoutId: "layout-9",
+    gridId: "grid-9",
     sessionId: "sess-9",
     durationMs: 5000,
   };
 
   it("returns 204 and skips the analyticsEvents write when the session marker already exists", async () => {
     firestoreState.docs.set(
-      sessionMarkerPath(payload.layoutId, payload.sessionId),
+      sessionMarkerPath(payload.gridId, payload.sessionId),
       { endedAt: 123 },
     );
 
@@ -803,7 +803,7 @@ describe("session-end idempotency", () => {
     expect(logger.info).toHaveBeenCalledWith(
       "trackGridViewEndBeacon: session already ended, skipping",
       expect.objectContaining({
-        layoutId: payload.layoutId,
+        gridId: payload.gridId,
         sessionId: payload.sessionId,
       }),
     );
@@ -811,7 +811,7 @@ describe("session-end idempotency", () => {
 
   it("returns 500 when reading the session marker throws", async () => {
     firestoreState.getThrowPaths.add(
-      sessionMarkerPath(payload.layoutId, payload.sessionId),
+      sessionMarkerPath(payload.gridId, payload.sessionId),
     );
 
     const res = makeRes();
@@ -831,7 +831,7 @@ describe("session-end idempotency", () => {
 
 describe("rate limiting: window behavior", () => {
   const payload = {
-    layoutId: "layout-rl",
+    gridId: "grid-rl",
     sessionId: "sess-rl",
     durationMs: 1000,
   };
@@ -847,7 +847,7 @@ describe("rate limiting: window behavior", () => {
     expect(res._statusCode).toBe(204);
     expect(firestoreState.setCalls).toHaveLength(1);
     expect(firestoreState.setCalls[0].path).toBe(
-      expectedRateLimitPath(ip, payload.layoutId),
+      expectedRateLimitPath(ip, payload.gridId),
     );
     expect(firestoreState.setCalls[0].data).toEqual(
       expect.objectContaining({
@@ -862,7 +862,7 @@ describe("rate limiting: window behavior", () => {
     const NOW = Date.UTC(2026, 4, 7, 12, 0, 0);
     vi.spyOn(Date, "now").mockReturnValue(NOW);
 
-    const path = expectedRateLimitPath(ip, payload.layoutId);
+    const path = expectedRateLimitPath(ip, payload.gridId);
     firestoreState.docs.set(path, {
       windowStart: NOW - 10_000, // 10s into a 60s window
       count: 5,
@@ -884,7 +884,7 @@ describe("rate limiting: window behavior", () => {
     const NOW = Date.UTC(2026, 4, 7, 12, 0, 0);
     vi.spyOn(Date, "now").mockReturnValue(NOW);
 
-    const path = expectedRateLimitPath(ip, payload.layoutId);
+    const path = expectedRateLimitPath(ip, payload.gridId);
     firestoreState.docs.set(path, {
       windowStart: NOW - 10_000,
       count: 20,
@@ -899,7 +899,7 @@ describe("rate limiting: window behavior", () => {
     expect(firestoreState.updateCalls).toHaveLength(0);
     expect(logger.warn).toHaveBeenCalledWith(
       "trackGridViewEndBeacon: rate limit exceeded",
-      expect.objectContaining({ ip, layoutId: payload.layoutId }),
+      expect.objectContaining({ ip, gridId: payload.gridId }),
     );
   });
 
@@ -907,7 +907,7 @@ describe("rate limiting: window behavior", () => {
     const NOW = Date.UTC(2026, 4, 7, 12, 0, 0);
     vi.spyOn(Date, "now").mockReturnValue(NOW);
 
-    const path = expectedRateLimitPath(ip, payload.layoutId);
+    const path = expectedRateLimitPath(ip, payload.gridId);
     // windowStart 2 minutes ago — well past the 60s window.
     firestoreState.docs.set(path, {
       windowStart: NOW - 120_000,
@@ -943,7 +943,7 @@ describe("rate limiting: window behavior", () => {
 
 describe("client IP extraction (rate-limit key derivation)", () => {
   const payload = {
-    layoutId: "layout-ip",
+    gridId: "grid-ip",
     sessionId: "sess-ip",
     durationMs: 1000,
   };
@@ -958,7 +958,7 @@ describe("client IP extraction (rate-limit key derivation)", () => {
     );
     expect(res._statusCode).toBe(204);
     expect(firestoreState.setCalls[0].path).toBe(
-      expectedRateLimitPath("198.51.100.5", payload.layoutId),
+      expectedRateLimitPath("198.51.100.5", payload.gridId),
     );
   });
 
@@ -972,7 +972,7 @@ describe("client IP extraction (rate-limit key derivation)", () => {
     );
     expect(res._statusCode).toBe(204);
     expect(firestoreState.setCalls[0].path).toBe(
-      expectedRateLimitPath("198.51.100.5", payload.layoutId),
+      expectedRateLimitPath("198.51.100.5", payload.gridId),
     );
   });
 
@@ -986,7 +986,7 @@ describe("client IP extraction (rate-limit key derivation)", () => {
     );
     expect(res._statusCode).toBe(204);
     expect(firestoreState.setCalls[0].path).toBe(
-      expectedRateLimitPath("198.51.100.8", payload.layoutId),
+      expectedRateLimitPath("198.51.100.8", payload.gridId),
     );
   });
 
@@ -995,7 +995,7 @@ describe("client IP extraction (rate-limit key derivation)", () => {
     await handler(makeReq("POST", payload), res);
     expect(res._statusCode).toBe(204);
     expect(firestoreState.setCalls[0].path).toBe(
-      expectedRateLimitPath("unknown", payload.layoutId),
+      expectedRateLimitPath("unknown", payload.gridId),
     );
   });
 });

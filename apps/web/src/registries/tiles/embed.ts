@@ -1,6 +1,7 @@
 import { ContentType, type EmbedContent } from "@/types/TileContent";
 import type { TileDefinition } from "@/types/TileDefinition";
 import { RESIZE_PRESETS, BORDER_TOGGLE } from "@/registries/ToolbarRegistry";
+import { normalizeEmbedSrc } from "@/utils/TileUtils";
 
 export const embedDefinition: TileDefinition<EmbedContent> = {
   type: ContentType.EMBED,
@@ -11,7 +12,7 @@ export const embedDefinition: TileDefinition<EmbedContent> = {
 
   defaultContent: (data) => ({
     type: ContentType.EMBED,
-    src: data?.src || "",
+    src: normalizeEmbedSrc(data?.src || ""),
   }),
 
   validate: (content) => !!content.src && content.src.startsWith("http"),

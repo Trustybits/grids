@@ -33,6 +33,10 @@ export function registerAllTiles(): void {
   registerTile(documentDefinition);
 }
 
+// Self-register on module evaluation so tiles are available to any
+// downstream module that imports createTileContent at the top level.
+registerAllTiles();
+
 export {
   textDefinition,
   smartTextDefinition,

@@ -6,7 +6,7 @@ const registry = new Map<ContentType, TileDefinition>();
 export function registerTile<T extends TileContent>(
   def: TileDefinition<T>,
 ): void {
-  registry.set(def.type, def as TileDefinition);
+  registry.set(def.type, def as unknown as TileDefinition);
 }
 
 export function getTileDefinition(

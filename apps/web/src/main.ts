@@ -5,12 +5,15 @@ import App from "./App.vue";
 import { createPinia } from "pinia";
 import router from "./router";
 import posthog from "posthog-js";
+// Register all tile definitions before any service that may call createTileContent
+// at module scope (e.g. MockGridService). This import self-registers on evaluation.
+import "@/registries/tiles";
+
 import { registerDaoFactory } from "@/dao/DaoFactorySingleton";
 import { registerDbUtils } from "@/dao/DbUtilsSingleton";
 import { registerAuthProvider } from "@/auth/AuthProviderSingleton";
 import { registerServiceFactory } from "@/services/ServiceFactorySingleton";
 import { ServiceFactory } from "@/services/factory/ServiceFactory";
-import { registerAllTiles } from "@/registries/tiles";
 
 import "@fortawesome/fontawesome-free/css/all.css";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -43,8 +46,6 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
   // Services depend on DAO factory + DbUtils being registered first,
   // so the service factory is registered after either init branch completes.
   registerServiceFactory(new ServiceFactory());
-
-  registerAllTiles();
 
   const app = createApp(App);
   const pinia = createPinia();

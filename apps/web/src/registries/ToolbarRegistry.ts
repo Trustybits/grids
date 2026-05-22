@@ -5,6 +5,7 @@ import {
   type TextContent,
 } from "@/types/TileContent";
 import type { ToolbarItem, ToolbarContext } from "@/types/TileToolbar";
+import { getTileDefinition } from "@/registries/tileRegistry";
 
 import ResizeWideIcon from "@/components/icons/toolbar/ResizeWideIcon.vue";
 import ResizeSquareIcon from "@/components/icons/toolbar/ResizeSquareIcon.vue";
@@ -387,69 +388,15 @@ export const TEXT_MORE_MENU: ToolbarItem = {
 
 // ── Registry ───────────────────────────────────────────────────────
 
-const registry: Partial<Record<ContentType, ToolbarItem[]>> = {
-  [ContentType.IMAGE]: [
-    ...RESIZE_PRESETS,
-    BORDER_TOGGLE,
-    CROP_BUTTON,
-    COLOR_BUTTON,
-    TILE_LINK,
-  ],
-  [ContentType.VIDEO]: [
-    ...RESIZE_PRESETS,
-    BORDER_TOGGLE,
-    CROP_BUTTON,
-    COLOR_BUTTON,
-    TILE_LINK,
-  ],
-  [ContentType.LINK]: [
-    ...RESIZE_PRESETS,
-    BORDER_TOGGLE,
-    COLOR_BUTTON,
-    LINK_MORE_MENU,
-  ],
-  [ContentType.TEXT]: [
-    ...RESIZE_PRESETS,
-    BORDER_TOGGLE,
-    COLOR_BUTTON,
-    TEXT_ALIGN_BUTTON,
-    TEXT_MORE_MENU,
-  ],
-  [ContentType.SMART_TEXT]: [
-    ...RESIZE_PRESETS,
-    BORDER_TOGGLE,
-    COLOR_BUTTON,
-    TEXT_ALIGN_BUTTON,
-    TEXT_MORE_MENU,
-  ],
-  [ContentType.MUSIC]: [
-    RESIZE_1x1,
-    RESIZE_2x3,
-    RESIZE_2x2,
-    RESIZE_4x2,
-    RESIZE_4x4,
-  ],
-  [ContentType.EMBED]: [...RESIZE_PRESETS, BORDER_TOGGLE],
-  [ContentType.MAP]: [
-    RESIZE_4x4,
-    RESIZE_2x4,
-    RESIZE_4x2,
-    MAP_DEFAULT,
-    MAP_PAN,
-    MAP_SEARCH,
-    MAP_RECENTER,
-  ],
-  [ContentType.CHAT]: [RESIZE_3x2, RESIZE_4x2, RESIZE_4x4],
-  [ContentType.CAMPFIRE]: [...RESIZE_PRESETS, BORDER_TOGGLE],
-  [ContentType.PROFILE]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
-  // Roadmap feed uses standard resize/appearance options; settings are managed inside the tile itself
-  [ContentType.ROADMAP_FEED]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
-  [ContentType.DOCUMENT]: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON],
-};
-
-// Default fallback for any tile type not explicitly configured
 const DEFAULT_ITEMS: ToolbarItem[] = [...RESIZE_PRESETS];
 
 export function getToolbarItems(type: ContentType): ToolbarItem[] {
-  return registry[type] ?? DEFAULT_ITEMS;
+  const def = getTileDefinition(type);
+  if (def?.toolbar) {
+    if (typeof def.toolbar === "function") {
+      return DEFAULT_ITEMS; // dynamic toolbars handled at render time
+    }
+    return def.toolbar;
+  }
+  return DEFAULT_ITEMS;
 }

@@ -17,6 +17,7 @@ export type TileEditMode =
   | "fields"
   | "interactive"
   | "composer"
+  | "settings"
   | "none";
 
 export interface TileDefinition<T extends TileContent = TileContent> {

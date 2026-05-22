@@ -81,7 +81,7 @@ export const getMusicTrackMetadata = functions.https.onCall(async (data, context
     throw new HttpsError("unauthenticated", "You must be signed in to fetch music metadata.");
   }
 
-  const { platform, trackId, trackType } = data as { platform?: string; trackId?: string; trackType?: string };
+  const { platform, trackId, trackType } = (data ?? {}) as { platform?: string; trackId?: string; trackType?: string };
 
   if (!platform || !trackId) {
     throw new HttpsError("invalid-argument", "Missing platform or trackId.");

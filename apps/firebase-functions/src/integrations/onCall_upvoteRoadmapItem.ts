@@ -40,7 +40,7 @@ export const upvoteRoadmapItem = functions
       );
     }
 
-    const { gridId, tileId, notionPageId } = data as {
+    const { gridId, tileId, notionPageId } = (data ?? {}) as {
       gridId?: string;
       tileId?: string;
       notionPageId?: string;

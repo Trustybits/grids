@@ -13,7 +13,8 @@ export const onFileUploaded = functions.storage
     if (noopIfMaintenance("onFileUploaded")) return null;
 
     const filePath = object.name;
-    const fileSize = parseInt(object.size || "0", 10);
+    const parsedSize = parseInt(object.size || "0", 10);
+    const fileSize = Number.isFinite(parsedSize) ? parsedSize : 0;
 
     if (!filePath) {
       logger.warn("File path is undefined");

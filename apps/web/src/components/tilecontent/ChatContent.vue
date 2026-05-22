@@ -71,21 +71,7 @@
         @mousedown.stop
         title="Jump to latest messages"
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M12 4L12 20M12 20L6 14M12 20L18 14"
-            stroke="currentColor"
-            stroke-width="3"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <ArrowDownIcon :size="16" />
       </button>
     </transition>
 
@@ -138,6 +124,7 @@ import {
   watch,
 } from "vue";
 import SendIcon from "@/components/icons/SendIcon.vue";
+import ArrowDownIcon from "@/components/icons/ArrowDownIcon.vue";
 import CloseIcon from "@/components/icons/tile-actionbar/CloseIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
@@ -149,6 +136,7 @@ export default defineComponent({
     SendIcon,
     CloseIcon,
     FloatingTooltip,
+    ArrowDownIcon,
   },
   props: {
     content: {

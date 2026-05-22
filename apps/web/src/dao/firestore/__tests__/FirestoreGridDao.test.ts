@@ -71,7 +71,7 @@ describe("FirestoreGridDao", () => {
 
       const result = await dao.getById("grid-1");
 
-      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "grid-1");
+      expect(doc).toHaveBeenCalledWith(fakeDb, "grids", "grid-1");
       expect(getDoc).toHaveBeenCalledWith("docRef");
       expect(result).toEqual({
         id: "grid-1",
@@ -117,7 +117,7 @@ describe("FirestoreGridDao", () => {
 
       const result = await dao.findByUserId("u1");
 
-      expect(collection).toHaveBeenCalledWith(fakeDb, "layouts");
+      expect(collection).toHaveBeenCalledWith(fakeDb, "grids");
       expect(where).toHaveBeenCalledWith("userId", "==", "u1");
       expect(query).toHaveBeenCalledWith("colRef", "whereClause");
       expect(getDocs).toHaveBeenCalledWith("queryRef");
@@ -146,7 +146,7 @@ describe("FirestoreGridDao", () => {
 
       const id = dao.generateId();
 
-      expect(collection).toHaveBeenCalledWith(fakeDb, "layouts");
+      expect(collection).toHaveBeenCalledWith(fakeDb, "grids");
       expect(doc).toHaveBeenCalledWith("colRef");
       expect(id).toBe("generated-id");
     });
@@ -162,7 +162,7 @@ describe("FirestoreGridDao", () => {
       const data = { name: "Updated", tiles: [] };
       await dao.save("grid-1", data);
 
-      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "grid-1");
+      expect(doc).toHaveBeenCalledWith(fakeDb, "grids", "grid-1");
       expect(setDoc).toHaveBeenCalledWith("docRef", data, { merge: true });
     });
   });
@@ -177,7 +177,7 @@ describe("FirestoreGridDao", () => {
       const data = { name: "Renamed" };
       await dao.update("grid-1", data);
 
-      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "grid-1");
+      expect(doc).toHaveBeenCalledWith(fakeDb, "grids", "grid-1");
       expect(updateDoc).toHaveBeenCalledWith("docRef", data);
     });
   });
@@ -193,7 +193,7 @@ describe("FirestoreGridDao", () => {
 
       await dao.updateLastOpenedAt("grid-1");
 
-      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "grid-1");
+      expect(doc).toHaveBeenCalledWith(fakeDb, "grids", "grid-1");
       expect(serverTimestamp).toHaveBeenCalled();
       expect(updateDoc).toHaveBeenCalledWith("docRef", {
         lastOpenedAt: fakeTimestamp,
@@ -210,7 +210,7 @@ describe("FirestoreGridDao", () => {
 
       await dao.delete("grid-1");
 
-      expect(doc).toHaveBeenCalledWith(fakeDb, "layouts", "grid-1");
+      expect(doc).toHaveBeenCalledWith(fakeDb, "grids", "grid-1");
       expect(deleteDoc).toHaveBeenCalledWith("docRef");
     });
   });

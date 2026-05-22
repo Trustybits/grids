@@ -32,15 +32,15 @@ src/
   dao/               Data-access layer: interfaces/, firestore/ impls, stubbed/ impls, singletons
   infrastructure/    Cross-cutting setup (Firebase SDK init)
   router/            Routes + auth guards
-  services/          Business logic: interfaces/, factory/, mocks/, concrete services (Layout, User, Stripe, Chat, ...)
-  stores/            Pinia: layout, theme, toast, pixelRacers
+  services/          Business logic: interfaces/, factory/, mocks/, concrete services (Grid, User, Stripe, Chat, ...)
+  stores/            Pinia: grid, theme, toast, pixelRacers
   styles/            SCSS: tokens.scss, themes.scss, custom.scss
   svgs/              SVG icon assets (icons/)
   test/              Vitest setup (setup.ts)
   themes/            Theme definitions
-  types/             Layout, Tile, TileContent, UserProfile, GameData, theme, ...
+  types/             Grid, Tile, TileContent, UserProfile, GameData, theme, ...
   undo/              UndoRedoManager + UndoTypes
-  utils/             LayoutUtils, TileUtils, GridPlacementUtils, smartTextHelpers, toolbarRegistry, ...
+  utils/             GridUtils, TileUtils, GridPlacementUtils, smartTextHelpers, toolbarRegistry, ...
   main.ts            App bootstrap (Pinia, router, PostHog)
 functions/           Firebase Cloud Functions (TS)
 public/              Static assets + legal markdown (privacy.md, terms.md)

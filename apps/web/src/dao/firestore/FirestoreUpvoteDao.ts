@@ -27,7 +27,7 @@ export class FirestoreUpvoteDao implements UpvoteDao {
   ): () => void {
     const upvotesRef = collection(
       this.db,
-      "layouts",
+      "grids",
       gridId,
       "tiles",
       tileId,
@@ -60,7 +60,7 @@ export class FirestoreUpvoteDao implements UpvoteDao {
       this.functions,
       "upvoteRoadmapItem",
     );
-    const result = await fn({ layoutId: gridId, tileId, notionPageId });
+    const result = await fn({ gridId, tileId, notionPageId });
     return result.data;
   }
 }

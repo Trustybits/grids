@@ -2,8 +2,8 @@ import * as logger from "firebase-functions/logger";
 import * as functions from "firebase-functions/v1";
 import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.js";
 import { noopIfMaintenance } from "../maintenance.js";
-import { isDevTeamMember } from "./utils_devTeam.js";
 import { discordNewUsersWebhookUrl } from "./secrets.js";
+import { shouldSkipDevTeamNotification } from "./utils_devTeamNotification.js";
 import {
   buildDiscordEmbedPayload,
   getDiscordWebhookUrl,
@@ -43,11 +43,13 @@ export const onNewUserSignup = functions
       metadata: { signInMethod },
     });
 
-    // Skip dev team members
-    if (isDevTeamMember(user.uid, user.email ?? undefined)) {
-      logger.info("Skipping Discord notification for dev team member", {
-        uid: user.uid,
-      });
+    if (
+      await shouldSkipDevTeamNotification({
+        userId: user.uid,
+        email: user.email ?? undefined,
+        logContext: { uid: user.uid },
+      })
+    ) {
       return null;
     }
 

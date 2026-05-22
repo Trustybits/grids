@@ -2,8 +2,8 @@ import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
-import { isDevTeamMember } from "./utils_devTeam.js";
 import { discordUserActivityWebhookUrl } from "./secrets.js";
+import { shouldSkipDevTeamNotification } from "./utils_devTeamNotification.js";
 import {
   buildDiscordEmbedPayload,
   getDiscordWebhookUrl,
@@ -65,22 +65,13 @@ export const onGridUpdated = functions
       privacyChanged,
     });
 
-    // Skip dev team members — look up email from users collection
-    let ownerEmail: string | undefined;
-    try {
-      const userDoc = await admin
-        .firestore()
-        .collection("users")
-        .doc(afterData.userId)
-        .get();
-      ownerEmail = userDoc.data()?.email;
-    } catch {
-      // Non-fatal — proceed without email check
-    }
-    if (isDevTeamMember(afterData.userId, ownerEmail)) {
-      logger.info("Skipping Discord notification for dev team member", {
+    if (
+      await shouldSkipDevTeamNotification({
         userId: afterData.userId,
-      });
+        lookupUserEmail: true,
+        logContext: { userId: afterData.userId },
+      })
+    ) {
       return null;
     }
 

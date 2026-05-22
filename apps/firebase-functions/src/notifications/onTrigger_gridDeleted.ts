@@ -1,10 +1,9 @@
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
-import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
-import { isDevTeamMember } from "./utils_devTeam.js";
 import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.js";
 import { discordUserActivityWebhookUrl } from "./secrets.js";
+import { shouldSkipDevTeamNotification } from "./utils_devTeamNotification.js";
 import {
   buildDiscordEmbedPayload,
   getDiscordWebhookUrl,
@@ -39,22 +38,13 @@ export const onGridDeleted = functions
       metadata: { gridName: gridData.name || "Untitled" },
     });
 
-    // Skip dev team members — look up email from users collection
-    let ownerEmail: string | undefined;
-    try {
-      const userDoc = await admin
-        .firestore()
-        .collection("users")
-        .doc(gridData.userId)
-        .get();
-      ownerEmail = userDoc.data()?.email;
-    } catch {
-      // Non-fatal — proceed without email check
-    }
-    if (isDevTeamMember(gridData.userId, ownerEmail)) {
-      logger.info("Skipping Discord notification for dev team member", {
+    if (
+      await shouldSkipDevTeamNotification({
         userId: gridData.userId,
-      });
+        lookupUserEmail: true,
+        logContext: { userId: gridData.userId },
+      })
+    ) {
       return null;
     }
 

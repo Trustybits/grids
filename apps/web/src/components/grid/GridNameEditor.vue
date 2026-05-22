@@ -15,7 +15,7 @@
 
   <!-- Unauthenticated viewer: CTA buttons -->
   <div v-else-if="!isAuthenticated" class="cta-buttons" ref="ctaRef">
-    <Button class="cta-btn cta-btn--primary" variant="primary" to="/login" size="sm">
+    <Button class="cta-btn" variant="secondary" to="/login" size="sm">
       <template #icon-left>
         <img src="/grids_logo.png" alt="" class="cta-logo" />
       </template>
@@ -155,22 +155,6 @@ onUnmounted(() => {
   .cta-buttons {
     width: 100%;
     justify-content: center;
-  }
-}
-
-.cta-btn--primary :deep(.ui-btn) {
-  background-color: var(--color-text-primary);
-  color: var(--color-content-background);
-  box-shadow: var(--shadow-md);
-
-  &:hover {
-    background-color: var(--color-content-background);
-    color: var(--color-content-high);
-    box-shadow: var(--shadow-lg);
-  }
-
-  &:active {
-    box-shadow: var(--shadow-md);
   }
 }
 

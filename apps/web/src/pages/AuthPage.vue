@@ -409,19 +409,22 @@ button:hover {
 
 .email-row {
   display: flex;
-  grid-template-columns: 1fr auto;
   gap: var(--spacing-xs);
   align-items: center;
 
-  .input {
+  input {
     flex: 1;
-    width: 100%;
+    min-width: 0;
   }
 }
 
 .email-continue-btn {
-  width: 0px;
+  width: 40px;
   height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  flex-shrink: 0;
+  aspect-ratio: 1;
   padding: 0;
   display: none;
   align-items: center;

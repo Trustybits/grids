@@ -151,7 +151,7 @@ const handleClick = (event: MouseEvent) => {
     color: var(--color-text-primary);
 
     &:hover:not(.ui-btn--disabled) {
-      background-color: var(--color-content-high);
+      background-color: color-mix(in srgb, var(--primary-color, var(--color-content-high)) 80%, white);
     }
   }
 

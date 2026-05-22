@@ -165,7 +165,7 @@ const loadUserProfile = async () => {
       const profile = await userService.getUserProfile(userId);
       if (profile) {
         defaultGridId.value = profile.defaultGridId || null;
-        const raw = profile.starredLayoutIds;
+        const raw = profile.starredGridIds;
         starredGridIds.value = Array.isArray(raw)
           ? raw.filter((id) => typeof id === "string")
           : [];
@@ -200,7 +200,7 @@ const toggleStarGrid = async (gridId: string) => {
 
   starredGridIds.value = next;
   try {
-    await userService.updateUserProfile(userId, { starredLayoutIds: next });
+    await userService.updateUserProfile(userId, { starredGridIds: next });
   } catch (error) {
     console.error("Error updating starred grids:", error);
     starredGridIds.value = prev;
@@ -215,7 +215,7 @@ const saveStarredOrder = async (next: string[], previous: string[]) => {
   }
   starredGridIds.value = next;
   try {
-    await userService.updateUserProfile(userId, { starredLayoutIds: next });
+    await userService.updateUserProfile(userId, { starredGridIds: next });
   } catch (error) {
     console.error("Error updating starred grid order:", error);
     starredGridIds.value = previous;
@@ -361,7 +361,7 @@ const persistStarredAfterDelete = async (deletedId: string) => {
   if (next.length === starredGridIds.value.length) return;
   starredGridIds.value = next;
   try {
-    await userService.updateUserProfile(userId, { starredLayoutIds: next });
+    await userService.updateUserProfile(userId, { starredGridIds: next });
   } catch (error) {
     console.error("Error updating starred grids after delete:", error);
   }

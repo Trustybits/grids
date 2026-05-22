@@ -1,6 +1,7 @@
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
+import { noopIfMaintenance } from "../maintenance.js";
 import { isSafeFirestoreDocId } from "./utils_analytics.js";
 
 const FieldValue = admin.firestore.FieldValue;
@@ -31,7 +32,7 @@ interface AnalyticsEventDoc {
   eventType: EventType;
   timestamp: FirebaseFirestore.Timestamp;
   userId: string | null;
-  layoutId: string | null;
+  gridId: string | null;
   metadata: Record<string, unknown>;
 }
 
@@ -42,8 +43,8 @@ function toUtcDateString(ts: FirebaseFirestore.Timestamp): string {
   return ts.toDate().toISOString().slice(0, 10);
 }
 
-function gridDailyId(layoutId: string, date: string): string {
-  return `${layoutId}__${date}`;
+function gridDailyId(gridId: string, date: string): string {
+  return `${gridId}__${date}`;
 }
 
 function businessDailyId(date: string): string {
@@ -51,14 +52,14 @@ function businessDailyId(date: string): string {
 }
 
 /**
- * Look up the layout owner for first-time creation of a gridStats doc. Returns
- * null if the layout no longer exists (e.g. deleted before the trigger fired).
+ * Look up the grid owner for first-time creation of a gridStats doc. Returns
+ * null if the grid no longer exists (e.g. deleted before the trigger fired).
  */
 async function getOwnerId(
   db: FirebaseFirestore.Firestore,
-  layoutId: string,
+  gridId: string,
 ): Promise<string | null> {
-  const snap = await db.collection("layouts").doc(layoutId).get();
+  const snap = await db.collection("grids").doc(gridId).get();
   if (!snap.exists) return null;
   const data = snap.data();
   return (data?.userId as string) ?? null;
@@ -70,13 +71,13 @@ async function handleGridView(
   db: FirebaseFirestore.Firestore,
   event: AnalyticsEventDoc,
 ): Promise<void> {
-  const { layoutId, metadata } = event;
-  if (!layoutId) {
-    logger.warn("grid_view event missing layoutId");
+  const { gridId, metadata } = event;
+  if (!gridId) {
+    logger.warn("grid_view event missing gridId");
     return;
   }
-  if (!isSafeFirestoreDocId(layoutId)) {
-    logger.warn("grid_view event has invalid layoutId", { layoutId });
+  if (!isSafeFirestoreDocId(gridId)) {
+    logger.warn("grid_view event has invalid gridId", { gridId });
     return;
   }
 
@@ -86,16 +87,16 @@ async function handleGridView(
     | undefined;
   const viewerFingerprint = metadata?.viewerFingerprint as string | undefined;
   if (viewerFingerprint && !isSafeFirestoreDocId(viewerFingerprint)) {
-    logger.warn("grid_view event has invalid viewerFingerprint", { layoutId });
+    logger.warn("grid_view event has invalid viewerFingerprint", { gridId });
     return;
   }
   const date = toUtcDateString(event.timestamp);
 
-  const ownerId = await getOwnerId(db, layoutId);
+  const ownerId = await getOwnerId(db, gridId);
 
   // Build the per-view counter delta.
   const viewDelta: Record<string, unknown> = {
-    layoutId,
+    gridId,
     totalViews: FieldValue.increment(1),
     updatedAt: FieldValue.serverTimestamp(),
   };
@@ -106,8 +107,8 @@ async function handleGridView(
     viewDelta.anonymousViews = FieldValue.increment(1);
   }
 
-  const aggregateRef = db.collection("gridStats").doc(layoutId);
-  const dailyRef = db.collection("gridStats").doc(gridDailyId(layoutId, date));
+  const aggregateRef = db.collection("gridStats").doc(gridId);
+  const dailyRef = db.collection("gridStats").doc(gridDailyId(gridId, date));
 
   const batch = db.batch();
   batch.set(aggregateRef, viewDelta, { merge: true });
@@ -162,23 +163,23 @@ async function handleGridViewEnd(
   db: FirebaseFirestore.Firestore,
   event: AnalyticsEventDoc,
 ): Promise<void> {
-  const { layoutId, metadata } = event;
-  if (!layoutId) {
-    logger.warn("grid_view_end event missing layoutId");
+  const { gridId, metadata } = event;
+  if (!gridId) {
+    logger.warn("grid_view_end event missing gridId");
     return;
   }
-  if (!isSafeFirestoreDocId(layoutId)) {
-    logger.warn("grid_view_end event has invalid layoutId", { layoutId });
+  if (!isSafeFirestoreDocId(gridId)) {
+    logger.warn("grid_view_end event has invalid gridId", { gridId });
     return;
   }
   const sessionId = metadata?.sessionId;
   if (!sessionId) {
-    logger.warn("grid_view_end event missing sessionId", { layoutId });
+    logger.warn("grid_view_end event missing sessionId", { gridId });
     return;
   }
   if (!isSafeFirestoreDocId(sessionId)) {
     logger.warn("grid_view_end event has invalid sessionId", {
-      layoutId,
+      gridId,
       sessionId,
     });
     return;
@@ -186,25 +187,25 @@ async function handleGridViewEnd(
   const durationMs = Number(metadata?.durationMs);
   if (!Number.isFinite(durationMs) || durationMs <= 0) {
     logger.warn("grid_view_end event has invalid durationMs", {
-      layoutId,
+      gridId,
       durationMs,
     });
     return;
   }
 
-  // Gate on the layout existing. If the grid has been deleted between the
+  // Gate on the grid existing. If the grid has been deleted between the
   // view start and view end, skip aggregation entirely — writing without an
   // ownerId would produce a stats doc the owner can't read (security rules
   // gate on resource.data.ownerId), and there's no owner to attribute it to.
-  const ownerId = await getOwnerId(db, layoutId);
+  const ownerId = await getOwnerId(db, gridId);
   if (!ownerId) {
-    logger.warn("grid_view_end skipped: layout no longer exists", { layoutId });
+    logger.warn("grid_view_end skipped: grid no longer exists", { gridId });
     return;
   }
 
   const date = toUtcDateString(event.timestamp);
-  const aggregateRef = db.collection("gridStats").doc(layoutId);
-  const dailyRef = db.collection("gridStats").doc(gridDailyId(layoutId, date));
+  const aggregateRef = db.collection("gridStats").doc(gridId);
+  const dailyRef = db.collection("gridStats").doc(gridDailyId(gridId, date));
   const sessionMarkerRef = aggregateRef
     .collection("endedSessions")
     .doc(sessionId);
@@ -226,7 +227,7 @@ async function handleGridViewEnd(
 
     if (markerSnap.exists) {
       logger.info("grid_view_end skipped: session already aggregated", {
-        layoutId,
+        gridId,
         sessionId,
       });
       return;
@@ -251,7 +252,7 @@ async function handleGridViewEnd(
     tx.set(
       aggregateRef,
       {
-        layoutId,
+        gridId,
         ownerId,
         totalTimeSpentMs: aggTotalTime,
         totalSessions: aggSessions,
@@ -263,7 +264,7 @@ async function handleGridViewEnd(
     tx.set(
       dailyRef,
       {
-        layoutId,
+        gridId,
         ownerId,
         date,
         totalTimeSpentMs: dailyTotalTime,
@@ -376,6 +377,8 @@ async function applyBusinessStats(
 export const onAnalyticsEventCreated = functions.firestore
   .document("analyticsEvents/{docId}")
   .onCreate(async (snapshot, context) => {
+    if (noopIfMaintenance("onAnalyticsEventCreated")) return null;
+
     const data = snapshot.data() as Partial<AnalyticsEventDoc> | undefined;
     if (!data || !data.eventType || !data.timestamp) {
       logger.warn("Malformed analytics event", { docId: context.params.docId });

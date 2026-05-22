@@ -2,6 +2,7 @@ import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
+import { noopIfMaintenance } from "../maintenance.js";
 import { notionClientId, notionClientSecret } from "./secrets.js";
 
 type NotionRichText = { plain_text?: string };
@@ -26,11 +27,13 @@ type NotionProperty = {
 export const fetchNotionRoadmap = functions
   .runWith({ secrets: [notionClientId, notionClientSecret] })
   .https.onCall(async (data, _context) => {
+    if (noopIfMaintenance("fetchNotionRoadmap")) return null;
+
     // No auth required — roadmap data is public (visible to anyone who can view the grid).
     // The Notion access token is read server-side from Firestore and never returned to the client.
 
     const {
-      layoutId,
+      gridId,
       tileId,
       statusPropertyName,
       upvotePropertyName,
@@ -38,7 +41,7 @@ export const fetchNotionRoadmap = functions
       databaseIdOverride,
       queryFilters,
     } = data as {
-      layoutId?: string;
+      gridId?: string;
       tileId?: string;
       statusPropertyName?: string;
       upvotePropertyName?: string;
@@ -56,15 +59,15 @@ export const fetchNotionRoadmap = functions
       }>;
     };
 
-    if (!layoutId || !tileId) {
-      throw new HttpsError("invalid-argument", "Missing layoutId or tileId.");
+    if (!gridId || !tileId) {
+      throw new HttpsError("invalid-argument", "Missing gridId or tileId.");
     }
 
     // Retrieve the stored Notion access token for this tile
     const db = admin.firestore();
     const tokenDoc = await db
-      .collection("layouts")
-      .doc(layoutId)
+      .collection("grids")
+      .doc(gridId)
       .collection("notionTokens")
       .doc(tileId)
       .get();
@@ -76,14 +79,14 @@ export const fetchNotionRoadmap = functions
       );
     }
 
-    // Only the layout owner or any authenticated user can fetch (items are public on the roadmap)
+    // Any authenticated user can fetch items; the token itself is only accessible server-side.
     // but the token itself is only accessible server-side
     const accessToken = tokenDoc.data()?.accessToken as string;
 
     // Fetch the tile content to get the configured databaseId
-    const layoutDoc = await db.collection("layouts").doc(layoutId).get();
-    if (!layoutDoc.exists) {
-      throw new HttpsError("not-found", "Layout not found.");
+    const gridDoc = await db.collection("grids").doc(gridId).get();
+    if (!gridDoc.exists) {
+      throw new HttpsError("not-found", "Grid not found.");
     }
 
     type RoadmapTileContent = {
@@ -98,7 +101,7 @@ export const fetchNotionRoadmap = functions
       }>;
     };
     type TileShape = { i: string; content?: RoadmapTileContent };
-    const tiles: TileShape[] = layoutDoc.data()?.tiles || [];
+    const tiles: TileShape[] = gridDoc.data()?.tiles || [];
     const tile = tiles.find((t: TileShape) => t.i === tileId);
 
     // Prefer the client-supplied override (used when selectDatabase hasn't persisted yet)
@@ -335,7 +338,7 @@ export const fetchNotionRoadmap = functions
     }
 
     logger.info("Notion roadmap fetched", {
-      layoutId,
+      gridId,
       tileId,
       itemCount: items.length,
     });

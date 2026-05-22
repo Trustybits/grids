@@ -19,7 +19,7 @@ export class FirestoreRoadmapDao implements RoadmapDao {
       this.functions,
       "listNotionDatabases",
     );
-    const result = await fn({ layoutId: gridId, tileId });
+    const result = await fn({ gridId, tileId });
     return result.data.databases;
   }
 
@@ -34,7 +34,7 @@ export class FirestoreRoadmapDao implements RoadmapDao {
       "fetchNotionRoadmap",
     );
     const result = await fn({
-      layoutId: gridId,
+      gridId,
       tileId,
       queryFilters,
       ...(databaseIdOverride ? { databaseIdOverride } : {}),

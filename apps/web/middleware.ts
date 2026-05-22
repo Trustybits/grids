@@ -11,7 +11,7 @@
  *
  * Routes handled:
  *   /:slug      → verifies slug exists, points og:image at generateOgImage?slug=
- *   /grid/:id   → fetches layout name, points og:image at generateOgImage?gridId=
+ *   /grid/:id   → fetches grid name, points og:image at generateOgImage?gridId=
  *   static pages (/, /pricing, etc.) → injects hardcoded meta tags
  */
 
@@ -143,7 +143,7 @@ async function resolveOgData(pathname: string): Promise<OgData> {
   const gridMatch = pathname.match(/^\/grid\/([^/]+)$/)
   if (gridMatch) {
     const gridId = gridMatch[1]
-    const doc = await fetchFirestoreDoc('layouts', gridId)
+    const doc = await fetchFirestoreDoc('grids', gridId)
     const name = doc ? (firestoreStr(doc, 'name') ?? 'Untitled Grid') : 'Untitled Grid'
 
     return {
@@ -171,7 +171,7 @@ async function resolveOgData(pathname: string): Promise<OgData> {
     let ogDescription = `Check out @${slug}'s grid on Grids.`
 
     if (defaultGridId) {
-      const gridDoc = await fetchFirestoreDoc('layouts', defaultGridId)
+      const gridDoc = await fetchFirestoreDoc('grids', defaultGridId)
       if (gridDoc) {
         const fields = gridDoc.fields as Record<string, unknown> | undefined
         const tilesRaw = fields?.tiles

@@ -37,7 +37,7 @@ export class FirestoreAnalyticsEventDao implements AnalyticsEventDao {
     await addDoc(collection(this.db, COLLECTION), {
       eventType: event.eventType,
       userId: event.userId,
-      layoutId: event.gridId,
+      gridId: event.gridId,
       metadata: event.metadata,
       timestamp: serverTimestamp(),
       expiresAt,
@@ -60,7 +60,7 @@ export class FirestoreAnalyticsEventDao implements AnalyticsEventDao {
     }
 
     const payload = {
-      layoutId: event.gridId,
+      gridId: event.gridId,
       userId: event.userId,
       sessionId: event.metadata.sessionId,
       durationMs: event.metadata.durationMs,

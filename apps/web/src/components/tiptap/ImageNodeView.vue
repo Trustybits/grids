@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from "vue";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/vue-3";
+import AlignLeftIcon from "@/components/icons/toolbar/AlignLeftIcon.vue";
+import AlignCenterIcon from "@/components/icons/toolbar/AlignCenterIcon.vue";
+import AlignRightIcon from "@/components/icons/toolbar/AlignRightIcon.vue";
 
 const props = defineProps<NodeViewProps>();
 
@@ -99,31 +102,9 @@ const alignOptions = [
           :class="{ active: align === opt.value }"
           @mousedown.prevent.stop="setAlign(opt.value)"
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-          >
-            <template v-if="opt.value === 'left'">
-              <line x1="1" y1="3.5" x2="15" y2="3.5" />
-              <line x1="1" y1="7.5" x2="10" y2="7.5" />
-              <line x1="1" y1="11.5" x2="13" y2="11.5" />
-            </template>
-            <template v-else-if="opt.value === 'center'">
-              <line x1="1" y1="3.5" x2="15" y2="3.5" />
-              <line x1="3.5" y1="7.5" x2="12.5" y2="7.5" />
-              <line x1="2" y1="11.5" x2="14" y2="11.5" />
-            </template>
-            <template v-else>
-              <line x1="1" y1="3.5" x2="15" y2="3.5" />
-              <line x1="6" y1="7.5" x2="15" y2="7.5" />
-              <line x1="3" y1="11.5" x2="15" y2="11.5" />
-            </template>
-          </svg>
+          <AlignLeftIcon v-if="opt.value === 'left'" :size="16" />
+          <AlignCenterIcon v-else-if="opt.value === 'center'" :size="16" />
+          <AlignRightIcon v-else :size="16" />
         </button>
       </div>
 

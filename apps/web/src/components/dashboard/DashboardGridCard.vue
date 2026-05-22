@@ -16,22 +16,7 @@
       />
       <span class="grid-name"
         >{{ grid.name }}
-        <svg
-          class="grid-arrow"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M9 18L15 12L9 6"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <ChevronRightIcon class="grid-arrow" :size="16" />
       </span>
 
       <DashboardGridUpdatedLabel :grid="grid" />
@@ -52,6 +37,7 @@
 
 <script setup lang="ts">
 import DashboardGridStarButton from "./DashboardGridStarButton.vue";
+import ChevronRightIcon from "@/components/icons/ChevronRightIcon.vue";
 import DashboardGridUpdatedLabel from "./DashboardGridUpdatedLabel.vue";
 import DashboardGridCardActions from "./DashboardGridCardActions.vue";
 import type { Grid } from "@/types/Grid";

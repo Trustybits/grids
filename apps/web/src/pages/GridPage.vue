@@ -7,17 +7,7 @@
 
     <div v-else-if="error" class="error-state">
       <div class="error-icon">
-        <svg
-          width="48"
-          height="48"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 8v4m0 4h.01" />
-        </svg>
+        <AlertCircleIcon :size="48" />
       </div>
       <h1>{{ errorTitle }}</h1>
       <p class="error-description">{{ errorMessage }}</p>
@@ -73,21 +63,7 @@
         <!-- Drag overlay indicator -->
         <div v-if="isDraggingOver && gridStore.canEdit" class="drag-overlay">
           <div class="drag-message">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="64"
-              height="64"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="17 8 12 3 7 8"></polyline>
-              <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
+            <UploadIcon :size="64" />
             <p>Drop to add to grid</p>
           </div>
         </div>
@@ -109,22 +85,18 @@
           (isOwner) so they can switch back.
         -->
         <div v-if="gridStore.canEdit" class="toolbar">
-          <div class="row">
-            <div class="col-md-12">
-              <!--
-                Option A: Inline — switcher sits inside the toolbar row,
-                right next to the tile-add buttons.
-              -->
-              <div
-                v-if="switcherVariant === 'inline'"
-                class="toolbar-with-switcher"
-              >
-                <GridButtons />
-                <BreakpointSwitcher variant="inline" />
-              </div>
-              <GridButtons v-else />
-            </div>
+          <!--
+            Option A: Inline — switcher sits inside the toolbar row,
+            right next to the tile-add buttons.
+          -->
+          <div
+            v-if="switcherVariant === 'inline'"
+            class="toolbar-with-switcher"
+          >
+            <GridButtons />
+            <BreakpointSwitcher variant="inline" />
           </div>
+          <GridButtons v-else />
           <!--
             Option D: Toolbar-row — switcher is a second row stacked
             below the tile-add toolbar, same styling family.
@@ -142,11 +114,7 @@
           v-else-if="gridStore.isOwner && switcherVariant === 'inline'"
           class="toolbar"
         >
-          <div class="row">
-            <div class="col-md-12">
-              <BreakpointSwitcher variant="inline" />
-            </div>
-          </div>
+          <BreakpointSwitcher variant="inline" />
         </div>
         <div
           v-else-if="gridStore.isOwner && switcherVariant === 'toolbar-row'"
@@ -186,6 +154,8 @@ import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { computeTextColor } from "@/composables/useColorPicker";
 import type { ProfileBioContent } from "@/types/TileContent";
 import AppButton from "@/components/ui-elements/Button.vue";
+import AlertCircleIcon from "@/components/icons/AlertCircleIcon.vue";
+import UploadIcon from "@/components/icons/UploadIcon.vue";
 
 // ── Breakpoint switcher placement ────────────────────────────────
 // Change this value to flip between the three UI placements:
@@ -202,6 +172,8 @@ export default defineComponent({
     BreakpointSwitcher,
     UndoRedoControls,
     AppButton,
+    AlertCircleIcon,
+    UploadIcon,
   },
   setup() {
     const gridStore = useGridStore();

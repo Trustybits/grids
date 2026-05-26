@@ -8,6 +8,11 @@ import {
   requireStringFields,
 } from "../shared/utils_callable.js";
 import { notionClientId, notionClientSecret } from "./secrets.js";
+import {
+  getNotionAccessToken,
+  notionBearerHeaders,
+  type NotionRichText,
+} from "./utils_notion.js";
 
 /**
  * Lists all Notion databases the user has shared with this integration.
@@ -27,30 +32,14 @@ export const listNotionDatabases = functions
     );
 
     const db = admin.firestore();
-    const tokenDoc = await db
-      .collection("grids")
-      .doc(gridId)
-      .collection("notionTokens")
-      .doc(tileId)
-      .get();
-
-    if (!tokenDoc.exists) {
-      throw new HttpsError(
-        "not-found",
-        "Notion integration not connected for this tile.",
-      );
-    }
-
-    const accessToken = tokenDoc.data()?.accessToken as string;
+    const accessToken = await getNotionAccessToken(db, gridId, tileId);
 
     // Use Notion's search endpoint to find all databases the integration can access
     const searchRes = await fetch("https://api.notion.com/v1/search", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        "Notion-Version": "2022-06-28",
-      },
+      headers: notionBearerHeaders(accessToken, {
+        contentType: "application/json",
+      }),
       body: JSON.stringify({
         filter: { value: "database", property: "object" },
         page_size: 50,
@@ -66,7 +55,6 @@ export const listNotionDatabases = functions
       throw new HttpsError("internal", "Failed to list Notion databases.");
     }
 
-    type NotionRichText = { plain_text?: string };
     type NotionDatabaseResult = { id: string; title?: NotionRichText[] };
     const searchData = (await searchRes.json()) as {
       results: NotionDatabaseResult[];

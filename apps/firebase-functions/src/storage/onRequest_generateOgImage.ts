@@ -38,6 +38,7 @@ import * as functions from "firebase-functions/v1";
 import admin from "firebase-admin";
 import type { Request, Response } from "firebase-functions/v1";
 import { respondWithMaintenanceIfEnabled } from "../maintenance.js";
+import { launchChromiumBrowser } from "./utils_browser.js";
 
 // chromium and puppeteer are lazy-loaded inside the handler so the Firebase
 // CLI's function-introspection server doesn't time out at deploy time.
@@ -53,10 +54,6 @@ const BUCKET_NAME = "grids-one.firebasestorage.app";
 const FIRESTORE_BASE =
   "https://firestore.googleapis.com/v1/projects/grids-one/databases/(default)/documents";
 const SITE_BASE = "https://grids.so";
-
-// Must match the installed @sparticuz/chromium-min version.
-const CHROMIUM_URL =
-  "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
 
 // Output dimensions (Twitter / Slack / Discord / iMessage all expect 1200×630).
 const OG_W = 1200;
@@ -1927,25 +1924,10 @@ async function handler(req: Request, res: Response): Promise<void> {
   let browser: any = null;
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chromium: any = (await import("@sparticuz/chromium-min")).default;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const puppeteer: any = (await import("puppeteer-core")).default;
-
-    const executablePath = isEmulatorEnv ?
-      process.env.PUPPETEER_EXECUTABLE_PATH ??
-        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" :
-      await chromium.executablePath(CHROMIUM_URL);
-
-    browser = await puppeteer.launch({
-      args: isEmulatorEnv ? [] : chromium.args,
-      defaultViewport: {
-        width: TILE_VIEWPORT_W,
-        height: TILE_VIEWPORT_H,
-        deviceScaleFactor: 1,
-      },
-      executablePath,
-      headless: true,
+    browser = await launchChromiumBrowser({
+      width: TILE_VIEWPORT_W,
+      height: TILE_VIEWPORT_H,
+      deviceScaleFactor: 1,
     });
 
     // Phase A — capture per-tile screenshots from the live grid page

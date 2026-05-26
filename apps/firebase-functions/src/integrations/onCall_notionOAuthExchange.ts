@@ -8,6 +8,7 @@ import {
   requireStringFields,
 } from "../shared/utils_callable.js";
 import { notionClientId, notionClientSecret } from "./secrets.js";
+import { notionBasicJsonHeaders } from "./utils_notion.js";
 
 /**
  * Exchanges a Notion OAuth authorization code for an access token and stores
@@ -53,11 +54,7 @@ export const notionOAuthExchange = functions
     );
     const tokenRes = await fetch("https://api.notion.com/v1/oauth/token", {
       method: "POST",
-      headers: {
-        Authorization: `Basic ${credentials}`,
-        "Content-Type": "application/json",
-        "Notion-Version": "2022-06-28",
-      },
+      headers: notionBasicJsonHeaders(credentials),
       body: JSON.stringify({
         grant_type: "authorization_code",
         code,

@@ -3,6 +3,10 @@ import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  requireAuth,
+  requireStringFields,
+} from "../shared/utils_callable.js";
 import { notionClientId, notionClientSecret } from "./secrets.js";
 
 /**
@@ -14,14 +18,13 @@ export const listNotionDatabases = functions
   .https.onCall(async (data, context) => {
     if (noopIfMaintenance("listNotionDatabases")) return null;
 
-    if (!context.auth) {
-      throw new HttpsError("unauthenticated", "You must be signed in.");
-    }
+    requireAuth(context, "You must be signed in.");
 
-    const { gridId, tileId } = (data ?? {}) as { gridId?: string; tileId?: string };
-    if (!gridId || !tileId) {
-      throw new HttpsError("invalid-argument", "Missing gridId or tileId.");
-    }
+    const { gridId, tileId } = requireStringFields(
+      data,
+      ["gridId", "tileId"],
+      "Missing gridId or tileId.",
+    );
 
     const db = admin.firestore();
     const tokenDoc = await db

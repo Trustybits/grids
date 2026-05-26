@@ -3,6 +3,10 @@ import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  getCallableData,
+  requireStringFields,
+} from "../shared/utils_callable.js";
 import { notionClientId, notionClientSecret } from "./secrets.js";
 
 type NotionRichText = { plain_text?: string };
@@ -32,15 +36,7 @@ export const fetchNotionRoadmap = functions
     // No auth required — roadmap data is public (visible to anyone who can view the grid).
     // The Notion access token is read server-side from Firestore and never returned to the client.
 
-    const {
-      gridId,
-      tileId,
-      statusPropertyName,
-      upvotePropertyName,
-      statusMapping,
-      databaseIdOverride,
-      queryFilters,
-    } = (data ?? {}) as {
+    const payload = getCallableData<{
       gridId?: string;
       tileId?: string;
       statusPropertyName?: string;
@@ -57,11 +53,19 @@ export const fetchNotionRoadmap = functions
         type: string;
         value: boolean | string | string[];
       }>;
-    };
-
-    if (!gridId || !tileId) {
-      throw new HttpsError("invalid-argument", "Missing gridId or tileId.");
-    }
+    }>(data);
+    const { gridId, tileId } = requireStringFields(
+      data,
+      ["gridId", "tileId"],
+      "Missing gridId or tileId.",
+    );
+    const {
+      statusPropertyName,
+      upvotePropertyName,
+      statusMapping,
+      databaseIdOverride,
+      queryFilters,
+    } = payload;
 
     // Retrieve the stored Notion access token for this tile
     const db = admin.firestore();

@@ -2,6 +2,10 @@ import { onCall, HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  requireAuth,
+  requireStringFields,
+} from "../shared/utils_callable.js";
 import { RESERVED_SLUGS } from "./utils_reservedSlugs.js";
 import { isValidSlugFormat } from "./utils_slugValidation.js";
 
@@ -12,20 +16,12 @@ import { isValidSlugFormat } from "./utils_slugValidation.js";
 export const claimSlug = onCall(async (data, context) => {
   if (noopIfMaintenance("claimSlug")) return null;
 
-  // Ensure user is authenticated
-  if (!context.auth) {
-    throw new HttpsError(
-      "unauthenticated",
-      "You must be signed in to claim a slug.",
-    );
-  }
-
-  const userId = context.auth.uid;
-  const requestedSlug = (data as { slug?: string } | undefined)?.slug;
-
-  if (!requestedSlug || typeof requestedSlug !== "string") {
-    throw new HttpsError("invalid-argument", "Slug is required.");
-  }
+  const userId = requireAuth(context, "You must be signed in to claim a slug.");
+  const { slug: requestedSlug } = requireStringFields(
+    data,
+    ["slug"],
+    "Slug is required.",
+  );
 
   // Normalize to lowercase
   const slug = requestedSlug.toLowerCase().trim();

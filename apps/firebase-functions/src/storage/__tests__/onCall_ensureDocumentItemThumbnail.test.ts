@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpsError } from "firebase-functions/v1/https";
 import { noopIfMaintenance } from "../../maintenance.js";
 import { resetMaintenanceMock } from "../../__tests__/utils_testMocks.js";
@@ -181,6 +181,17 @@ beforeEach(() => {
   randomState.value = "token-1";
   resetMaintenanceMock(noopIfMaintenance);
   vi.mocked(sharp).mockClear();
+  vi.stubGlobal(
+    "setTimeout",
+    ((fn: () => void) => {
+      fn();
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    }) as typeof setTimeout,
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe("ensureDocumentItemThumbnail", () => {

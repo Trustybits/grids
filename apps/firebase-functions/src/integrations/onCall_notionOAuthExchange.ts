@@ -3,6 +3,10 @@ import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  requireAuth,
+  requireStringFields,
+} from "../shared/utils_callable.js";
 import { notionClientId, notionClientSecret } from "./secrets.js";
 
 /**
@@ -19,28 +23,17 @@ export const notionOAuthExchange = functions
   .https.onCall(async (data, context) => {
     if (noopIfMaintenance("notionOAuthExchange")) return null;
 
-    if (!context.auth) {
-      throw new HttpsError("unauthenticated", "You must be signed in.");
-    }
-
-    const { code, gridId, tileId, redirectUri } = (data ?? {}) as {
-      code?: string;
-      gridId?: string;
-      tileId?: string;
-      redirectUri?: string;
-    };
-
-    if (!code || !gridId || !tileId || !redirectUri) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Missing code, gridId, tileId, or redirectUri.",
-      );
-    }
+    const userId = requireAuth(context, "You must be signed in.");
+    const { code, gridId, tileId, redirectUri } = requireStringFields(
+      data,
+      ["code", "gridId", "tileId", "redirectUri"],
+      "Missing code, gridId, tileId, or redirectUri.",
+    );
 
     // Verify the caller owns the grid before storing any token.
     const db = admin.firestore();
     const gridDoc = await db.collection("grids").doc(gridId).get();
-    if (!gridDoc.exists || gridDoc.data()?.userId !== context.auth.uid) {
+    if (!gridDoc.exists || gridDoc.data()?.userId !== userId) {
       throw new HttpsError("permission-denied", "You do not own this grid.");
     }
 
@@ -104,7 +97,7 @@ export const notionOAuthExchange = functions
         workspaceId: tokenData.workspace_id,
         workspaceName: tokenData.workspace_name || "",
         botId: tokenData.bot_id,
-        ownerId: context.auth.uid,
+        ownerId: userId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 

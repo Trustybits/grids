@@ -3,6 +3,10 @@ import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  requireAuth,
+  requireStringFields,
+} from "../shared/utils_callable.js";
 import { notionClientId, notionClientSecret } from "./secrets.js";
 
 type NotionRichText = { plain_text?: string };
@@ -33,28 +37,14 @@ export const upvoteRoadmapItem = functions
   .https.onCall(async (data, context) => {
     if (noopIfMaintenance("upvoteRoadmapItem")) return null;
 
-    if (!context.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "You must be signed in to upvote.",
-      );
-    }
-
-    const { gridId, tileId, notionPageId } = (data ?? {}) as {
-      gridId?: string;
-      tileId?: string;
-      notionPageId?: string;
-    };
-
-    if (!gridId || !tileId || !notionPageId) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Missing gridId, tileId, or notionPageId.",
-      );
-    }
+    const userId = requireAuth(context, "You must be signed in to upvote.");
+    const { gridId, tileId, notionPageId } = requireStringFields(
+      data,
+      ["gridId", "tileId", "notionPageId"],
+      "Missing gridId, tileId, or notionPageId.",
+    );
 
     const db = admin.firestore();
-    const userId = context.auth.uid;
 
     // One doc per user per item, keyed by "{userId}_{notionPageId}".
     // This allows a user to upvote multiple items independently.

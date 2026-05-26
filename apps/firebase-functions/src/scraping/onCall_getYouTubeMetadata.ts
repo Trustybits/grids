@@ -3,6 +3,10 @@ import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import { defineSecret } from "firebase-functions/params";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  requireAuth,
+  requireStringFields,
+} from "../shared/utils_callable.js";
 
 // Define secret for YouTube API key
 const youtubeApiKey = defineSecret("YOUTUBE_API_KEY");
@@ -18,24 +22,12 @@ export const getYouTubeMetadata = functions
   .https.onCall(async (data, context) => {
     if (noopIfMaintenance("getYouTubeMetadata")) return null;
 
-    if (!context.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "You must be signed in to fetch YouTube metadata.",
-      );
-    }
-
-    const { youtubeType, youtubeId } = (data ?? {}) as {
-      youtubeType?: string;
-      youtubeId?: string;
-    };
-
-    if (!youtubeType || !youtubeId) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Missing youtubeType or youtubeId.",
-      );
-    }
+    requireAuth(context, "You must be signed in to fetch YouTube metadata.");
+    const { youtubeType, youtubeId } = requireStringFields(
+      data,
+      ["youtubeType", "youtubeId"],
+      "Missing youtubeType or youtubeId.",
+    );
 
     const validTypes = ["video", "playlist", "channel", "short"];
     if (!validTypes.includes(youtubeType)) {

@@ -121,6 +121,19 @@ describe("onFileDeleted", () => {
     ]);
   });
 
+  it("does not corrupt storageUsed to NaN when the size is unparsable", async () => {
+    firestoreState.docs.set("users/user-1", { storageUsed: 100 });
+
+    await onFileDeleted({
+      name: "users/user-1/images/b.png",
+      size: "not-a-number",
+    });
+
+    const written = firestoreState.txUpdateCalls[0]?.data.storageUsed;
+    expect(Number.isFinite(written as number)).toBe(true);
+    expect(written).toBe(100);
+  });
+
   it("does not update when the user document is missing", async () => {
     await onFileDeleted({ name: "users/user-1/images/a.png", size: "25" });
 

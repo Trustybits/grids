@@ -5,12 +5,7 @@ import admin from "firebase-admin";
 import sharp from "sharp";
 import { noopIfMaintenance } from "../maintenance.js";
 import { requireAuth, requireStringFields } from "../shared/utils_callable.js";
-
-// v147.0.0 has no pack assets on GitHub releases; using v143.0.4 (last confirmed stable).
-// Firebase Functions run on Linux x86_64 → use the .x64.tar variant (added in v127+).
-// Update this URL when upgrading @sparticuz/chromium-min.
-const CHROMIUM_URL =
-  "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
+import { launchChromiumBrowser } from "./utils_browser.js";
 
 // ─── Document stack: PDF page-1 thumbnail (callable) ────────────────────────
 
@@ -55,23 +50,10 @@ function isPdfDocumentItem(fileName: string, mime?: string): boolean {
 }
 
 async function renderPdfFirstPagePng(pdfSignedUrl: string): Promise<Buffer> {
-  const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const chromium: any = (await import("@sparticuz/chromium-min")).default;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const puppeteer: any = (await import("puppeteer-core")).default;
-
-  const executablePath = isEmulator
-    ? (process.env.PUPPETEER_EXECUTABLE_PATH ??
-      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe")
-    : await chromium.executablePath(CHROMIUM_URL);
-
-  const browser = await puppeteer.launch({
-    args: isEmulator ? [] : chromium.args,
-    defaultViewport: { width: 920, height: 1180, deviceScaleFactor: 1 },
-    executablePath,
-    headless: true,
+  const browser = await launchChromiumBrowser({
+    width: 920,
+    height: 1180,
+    deviceScaleFactor: 1,
   });
 
   try {

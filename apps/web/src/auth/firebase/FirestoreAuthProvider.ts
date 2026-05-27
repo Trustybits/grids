@@ -1,4 +1,4 @@
-import type { AuthProvider, AuthUser } from "@/auth/AuthProvider";
+import type { AuthProvider, AuthUser } from "@grids/contracts/auth";
 import { auth } from "@/infrastructure/firebase";
 import {
   GoogleAuthProvider,

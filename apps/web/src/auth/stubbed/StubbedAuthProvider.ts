@@ -1,4 +1,4 @@
-import type { AuthProvider, AuthUser } from "@/auth/AuthProvider";
+import type { AuthProvider, AuthUser } from "@grids/contracts/auth";
 
 export class StubbedAuthProvider implements AuthProvider {
   readonly stubbedUser: AuthUser = {

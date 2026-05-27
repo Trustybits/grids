@@ -445,7 +445,7 @@ import { useBadges } from '@/composables/useBadges';
 import { useContributions } from '@/composables/useContributions';
 import { useStripeCheckout } from '@/composables/useStripeCheckout';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
-import type { AuthUser } from '@/auth/AuthProvider';
+import type { AuthUser } from '@grids/contracts/auth';
 import HomePageGridEmbed from '@/components/marketing/HomePageGridEmbed.vue';
 import MarketingNavBar from '@/components/marketing/MarketingNavBar.vue';
 import MarketingFooter from '@/components/marketing/MarketingFooter.vue';

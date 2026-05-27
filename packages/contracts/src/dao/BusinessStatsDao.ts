@@ -1,4 +1,4 @@
-import type { BusinessStats, DailyBusinessStats } from "@/types/Analytics";
+import type { BusinessStats, DailyBusinessStats } from "../types/Analytics.js";
 
 /**
  * Read-only DAO for the `businessStats` collection.

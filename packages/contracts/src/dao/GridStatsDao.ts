@@ -1,4 +1,4 @@
-import type { DailyGridStats, GridStats } from "@/types/Analytics";
+import type { DailyGridStats, GridStats } from "../types/Analytics.js";
 
 /**
  * Read-only DAO for the `gridStats` collection.

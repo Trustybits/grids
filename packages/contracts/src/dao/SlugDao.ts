@@ -1,7 +1,7 @@
 import type {
   SlugAvailabilityResponse,
   SlugClaimResponse,
-} from "@/types/UserProfile";
+} from "../types/UserProfile.js";
 
 export interface SlugDao {
   /** Look up a slug document to get the associated userId and metadata. */

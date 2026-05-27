@@ -1,4 +1,4 @@
-import type { RoadmapItem } from "./TileContent";
+import type { RoadmapItem } from "./TileContent.js";
 
 /** A Notion database available to the connected integration. */
 export interface NotionDatabase {

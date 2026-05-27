@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@/types/TileContent";
+import type { ChatMessage } from "../types/TileContent.js";
 
 export interface ChatDao {
   /** Subscribe to real-time chat messages for a specific tile, ordered by createdAt asc. Returns an unsubscribe function. */

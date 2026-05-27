@@ -1,7 +1,7 @@
 import type {
   AnalyticsEventType,
   AnalyticsEventMetadataMap,
-} from "@/types/Analytics";
+} from "../types/Analytics.js";
 
 /**
  * Payload accepted by `logEvent`. `timestamp` and `expiresAt` are set

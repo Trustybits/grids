@@ -30,7 +30,7 @@ export interface SlugData {
  */
 export interface SlugAvailabilityResponse {
   available: boolean;
-  reason: 'available' | 'taken' | 'reserved' | 'invalid-format' | 'own-slug';
+  reason: "available" | "taken" | "reserved" | "invalid-format" | "own-slug";
   message: string;
 }
 

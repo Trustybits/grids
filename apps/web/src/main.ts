@@ -5,6 +5,10 @@ import App from "./App.vue";
 import { createPinia } from "pinia";
 import router from "./router";
 import posthog from "posthog-js";
+// Register all tile definitions before any service that may call createTileContent
+// at module scope (e.g. MockGridService). This import self-registers on evaluation.
+import "@/registries/tiles";
+
 import { registerDaoFactory } from "@/dao/DaoFactorySingleton";
 import { registerDbUtils } from "@/dao/DbUtilsSingleton";
 import { registerAuthProvider } from "@/auth/AuthProviderSingleton";

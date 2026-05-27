@@ -3,8 +3,13 @@ import * as logger from "firebase-functions/logger";
 import admin from "firebase-admin";
 import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.js";
 import { noopIfMaintenance } from "../maintenance.js";
-import { isDevTeamMember } from "./utils_devTeam.js";
 import { discordUserActivityWebhookUrl } from "./secrets.js";
+import { shouldSkipDevTeamNotification } from "./utils_devTeamNotification.js";
+import {
+  buildDiscordEmbedPayload,
+  getDiscordWebhookUrl,
+  sendDiscordWebhook,
+} from "./utils_discord.js";
 
 /**
  * Firebase function that triggers when a user logs in.
@@ -57,81 +62,50 @@ export const onUserLogin = functions
       metadata: { signInMethod },
     });
 
-    // Skip dev team members
-    if (isDevTeamMember(userId, afterData.email)) {
-      logger.info("Skipping Discord notification for dev team member", {
+    if (
+      await shouldSkipDevTeamNotification({
         userId,
-      });
+        email: afterData.email,
+        logContext: { userId },
+      })
+    ) {
       return null;
     }
 
-    // Get the Discord webhook URL from secrets
-    const webhookUrl = discordUserActivityWebhookUrl.value();
-
+    const webhookUrl = getDiscordWebhookUrl(
+      discordUserActivityWebhookUrl.value(),
+      "DISCORD_USER_ACTIVITY_WEBHOOK_URL",
+    );
     if (!webhookUrl) {
-      logger.error(
-        "DISCORD_USER_ACTIVITY_WEBHOOK_URL secret is not configured",
-      );
       return null;
     }
 
-    // Build Discord embed payload
-    const discordPayload = {
-      embeds: [
+    const discordPayload = buildDiscordEmbedPayload({
+      title: "🔐 User Logged In",
+      color: 3447003,
+      fields: [
         {
-          title: "🔐 User Logged In",
-          color: 3447003, // Blue color
-          fields: [
-            {
-              name: "Email",
-              value: afterData.email || "Not available",
-              inline: true,
-            },
-            {
-              name: "User ID",
-              value: userId,
-              inline: true,
-            },
-          ],
-          timestamp: new Date().toISOString(),
-          footer: {
-            text: "Grids User Activity",
-          },
+          name: "Email",
+          value: afterData.email || "Not available",
+          inline: true,
+        },
+        {
+          name: "User ID",
+          value: userId,
+          inline: true,
         },
       ],
-    };
+      footerText: "Grids User Activity",
+    });
 
-    try {
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(discordPayload),
-      });
+    await sendDiscordWebhook({
+      webhookUrl,
+      payload: discordPayload,
+      successMessage: "Discord login notification sent successfully",
+      successContext: ({ status }) => ({ userId, status }),
+      responseErrorContext: { userId },
+      sendErrorContext: { userId },
+    });
 
-      const responseText = await response.text();
-
-      if (!response.ok) {
-        logger.error("Discord webhook returned error status", {
-          userId,
-          status: response.status,
-          statusText: response.statusText,
-          responseBody: responseText,
-        });
-      } else {
-        logger.info("Discord login notification sent successfully", {
-          userId,
-          status: response.status,
-        });
-      }
-
-      return null;
-    } catch (error) {
-      logger.error("Failed to send Discord webhook", {
-        error: String(error),
-        userId,
-      });
-      return null;
-    }
+    return null;
   });

@@ -1,6 +1,6 @@
 import { ContentType, type CampfireContent } from "@/types/TileContent";
 import type { TileDefinition } from "@/types/TileDefinition";
-import { RESIZE_PRESETS, BORDER_TOGGLE } from "@/registries/tileToolbar/sharedButtons";
+import { RESIZE_PRESETS, BORDER_TOGGLE } from "@/registries/tileToolbar/baseButtons";
 
 export const campfireDefinition: TileDefinition<CampfireContent> = {
   type: ContentType.CAMPFIRE,

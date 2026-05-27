@@ -1,6 +1,6 @@
 import { ContentType, type ProfileBioContent } from "@/types/TileContent";
 import type { TileDefinition } from "@/types/TileDefinition";
-import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/ToolbarRegistry";
+import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/tileToolbar/sharedButtons";
 
 export const profileDefinition: TileDefinition<ProfileBioContent> = {
   type: ContentType.PROFILE,

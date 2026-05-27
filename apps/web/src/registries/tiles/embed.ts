@@ -1,6 +1,6 @@
 import { ContentType, type EmbedContent } from "@/types/TileContent";
 import type { TileDefinition } from "@/types/TileDefinition";
-import { RESIZE_PRESETS, BORDER_TOGGLE } from "@/registries/ToolbarRegistry";
+import { RESIZE_PRESETS, BORDER_TOGGLE } from "@/registries/tileToolbar/sharedButtons";
 import { normalizeEmbedSrc } from "@/utils/TileUtils";
 
 export const embedDefinition: TileDefinition<EmbedContent> = {

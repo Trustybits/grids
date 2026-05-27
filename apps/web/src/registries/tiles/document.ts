@@ -1,6 +1,6 @@
 import { ContentType, type DocumentsContent } from "@/types/TileContent";
 import type { TileDefinition } from "@/types/TileDefinition";
-import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/ToolbarRegistry";
+import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/tileToolbar/sharedButtons";
 
 export const documentDefinition: TileDefinition<DocumentsContent> = {
   type: ContentType.DOCUMENT,

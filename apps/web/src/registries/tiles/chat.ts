@@ -1,6 +1,6 @@
 import { ContentType, type ChatContent } from "@/types/TileContent";
 import type { TileDefinition } from "@/types/TileDefinition";
-import { RESIZE_3x2, RESIZE_4x2, RESIZE_4x4 } from "@/registries/ToolbarRegistry";
+import { RESIZE_3x2, RESIZE_4x2, RESIZE_4x4 } from "@/registries/tileToolbar/sharedButtons";
 
 export const chatDefinition: TileDefinition<ChatContent> = {
   type: ContentType.CHAT,

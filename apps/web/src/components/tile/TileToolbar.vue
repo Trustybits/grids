@@ -202,11 +202,11 @@ import {
 import type { Tile, TileChildComponent } from "@/types/Tile";
 import type { TextContent } from "@/types/TileContent";
 import type {
-  ToolbarItem,
+  ToolbarButton,
   ToolbarMenuItem,
   ToolbarContext,
 } from "@/types/TileToolbar";
-import { getToolbarItems } from "@/registries/ToolbarRegistry";
+import { getTileToolbarButtons } from "@/registries/tileToolbar";
 import { computeTextColor } from "@/composables/useColorPicker";
 import { useGridStore } from "@/stores/grid";
 import { isDirectImageUrl } from "@/utils/TileUtils";
@@ -299,7 +299,7 @@ export default defineComponent({
       isExitingCropMode: props.toolbarRefs.isExitingCropMode,
     }));
 
-    const items = computed(() => getToolbarItems(props.tile.content.type));
+    const items = computed(() => getTileToolbarButtons(props.tile.content.type));
 
     const visibleItems = computed(() =>
       items.value.filter((item) => item.visible?.(ctx.value) ?? true),
@@ -322,13 +322,13 @@ export default defineComponent({
       activeMenuItems.value.filter((mi) => mi.visible?.(ctx.value) ?? true),
     );
 
-    const resolveTitle = (item: ToolbarItem): string => {
+    const resolveTitle = (item: ToolbarButton): string => {
       return typeof item.title === "function"
         ? item.title(ctx.value)
         : item.title;
     };
 
-    const resolveIcon = (item: ToolbarItem) => {
+    const resolveIcon = (item: ToolbarButton) => {
       // Special case for text-align icon
       if (item.id === "text-align") {
         const content = props.tile.content as TextContent;
@@ -343,14 +343,14 @@ export default defineComponent({
       return item.icon;
     };
 
-    const resolveDanger = (item: ToolbarItem): boolean => {
+    const resolveDanger = (item: ToolbarButton): boolean => {
       return typeof item.danger === "function"
         ? item.danger(ctx.value)
         : !!item.danger;
     };
 
     const resolveButtonStyle = (
-      item: ToolbarItem,
+      item: ToolbarButton,
     ): Record<string, string> | undefined => {
       if (item.id !== "color") return undefined;
 
@@ -453,7 +453,7 @@ export default defineComponent({
       gridStore.closeMenus();
     };
 
-    const onItemClick = (event: MouseEvent, item: ToolbarItem) => {
+    const onItemClick = (event: MouseEvent, item: ToolbarButton) => {
       // Handle panel items (e.g. search)
       const button = event.currentTarget as HTMLButtonElement | null;
       if (!button) return;

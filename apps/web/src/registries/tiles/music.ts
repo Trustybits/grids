@@ -6,7 +6,7 @@ import {
   RESIZE_2x2,
   RESIZE_4x2,
   RESIZE_4x4,
-} from "@/registries/ToolbarRegistry";
+} from "@/registries/tileToolbar/sharedButtons";
 
 export const musicDefinition: TileDefinition<MusicContent> = {
   type: ContentType.MUSIC,

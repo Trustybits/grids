@@ -1,6 +1,6 @@
 import { ContentType, type RoadmapFeedContent } from "@/types/TileContent";
 import type { TileDefinition } from "@/types/TileDefinition";
-import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/ToolbarRegistry";
+import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/tileToolbar/sharedButtons";
 
 export const roadmapFeedDefinition: TileDefinition<RoadmapFeedContent> = {
   type: ContentType.ROADMAP_FEED,

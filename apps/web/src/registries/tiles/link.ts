@@ -1,11 +1,7 @@
 import { ContentType, type LinkContent } from "@/types/TileContent";
 import type { TileDefinition } from "@/types/TileDefinition";
-import {
-  RESIZE_PRESETS,
-  BORDER_TOGGLE,
-  COLOR_BUTTON,
-  LINK_MORE_MENU,
-} from "@/registries/ToolbarRegistry";
+import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/tileToolbar/sharedButtons";
+import { LINK_MORE_MENU } from "@/registries/tileToolbar/linkButtons";
 
 export const linkDefinition: TileDefinition<LinkContent> = {
   type: ContentType.LINK,

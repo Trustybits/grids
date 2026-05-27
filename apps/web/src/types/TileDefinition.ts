@@ -1,7 +1,7 @@
 import type { Component } from "vue";
 import type { ContentType, TileContent } from "./TileContent";
 import type { Tile } from "./Tile";
-import type { ToolbarItem, ToolbarContext } from "./TileToolbar";
+import type { ToolbarButton, ToolbarContext } from "./TileToolbar";
 
 export type TileCategory =
   | "media"
@@ -64,7 +64,7 @@ export interface TileDefinition<T extends TileContent = TileContent> {
   };
 
   // ─── Toolbar ───
-  toolbar?: ToolbarItem[] | ((ctx: ToolbarContext) => ToolbarItem[]);
+  toolbar?: ToolbarButton[] | ((ctx: ToolbarContext) => ToolbarButton[]);
 
   // ─── Props & Injection ───
   extraProps?: (tile: Tile) => Record<string, unknown>;

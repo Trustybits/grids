@@ -1,5 +1,6 @@
 {
-  "name": "functions",
+  "name": "@grids/firebase-functions",
+  "version": "1.0.0",
   "scripts": {
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",

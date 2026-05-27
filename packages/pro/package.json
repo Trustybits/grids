@@ -1,0 +1,32 @@
+{
+  "name": "@grids/pro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private production code for grids.so",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@grids/contracts": "file:../contracts"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.60.0",
+    "vitest": "^4.1.7"
+  }
+}

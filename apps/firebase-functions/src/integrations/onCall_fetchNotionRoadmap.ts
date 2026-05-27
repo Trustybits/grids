@@ -3,18 +3,18 @@ import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  getCallableData,
+  requireStringFields,
+} from "../shared/utils_callable.js";
 import { notionClientId, notionClientSecret } from "./secrets.js";
-
-type NotionRichText = { plain_text?: string };
-type NotionOption = { name?: string };
-type NotionProperty = {
-  type: string;
-  title?: NotionRichText[];
-  select?: { name?: string; options?: NotionOption[] };
-  status?: { name?: string; options?: NotionOption[] };
-  multi_select?: { options?: NotionOption[] };
-  number?: number;
-};
+import {
+  getNotionAccessToken,
+  notionBearerHeaders,
+  type NotionOption,
+  type NotionProperty,
+  type NotionRichText,
+} from "./utils_notion.js";
 
 /**
  * Fetches pages from the connected Notion database and maps them to
@@ -32,15 +32,7 @@ export const fetchNotionRoadmap = functions
     // No auth required — roadmap data is public (visible to anyone who can view the grid).
     // The Notion access token is read server-side from Firestore and never returned to the client.
 
-    const {
-      gridId,
-      tileId,
-      statusPropertyName,
-      upvotePropertyName,
-      statusMapping,
-      databaseIdOverride,
-      queryFilters,
-    } = data as {
+    const payload = getCallableData<{
       gridId?: string;
       tileId?: string;
       statusPropertyName?: string;
@@ -57,31 +49,25 @@ export const fetchNotionRoadmap = functions
         type: string;
         value: boolean | string | string[];
       }>;
-    };
-
-    if (!gridId || !tileId) {
-      throw new HttpsError("invalid-argument", "Missing gridId or tileId.");
-    }
+    }>(data);
+    const { gridId, tileId } = requireStringFields(
+      data,
+      ["gridId", "tileId"],
+      "Missing gridId or tileId.",
+    );
+    const {
+      statusPropertyName,
+      upvotePropertyName,
+      statusMapping,
+      databaseIdOverride,
+      queryFilters,
+    } = payload;
 
     // Retrieve the stored Notion access token for this tile
     const db = admin.firestore();
-    const tokenDoc = await db
-      .collection("grids")
-      .doc(gridId)
-      .collection("notionTokens")
-      .doc(tileId)
-      .get();
-
-    if (!tokenDoc.exists) {
-      throw new HttpsError(
-        "not-found",
-        "Notion integration not connected for this tile.",
-      );
-    }
-
     // Any authenticated user can fetch items; the token itself is only accessible server-side.
     // but the token itself is only accessible server-side
-    const accessToken = tokenDoc.data()?.accessToken as string;
+    const accessToken = await getNotionAccessToken(db, gridId, tileId);
 
     // Fetch the tile content to get the configured databaseId
     const gridDoc = await db.collection("grids").doc(gridId).get();
@@ -188,10 +174,7 @@ export const fetchNotionRoadmap = functions
     const schemaFetchPromise = fetch(
       `https://api.notion.com/v1/databases/${databaseId}`,
       {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Notion-Version": "2022-06-28",
-        },
+        headers: notionBearerHeaders(accessToken),
       },
     );
 
@@ -218,11 +201,9 @@ export const fetchNotionRoadmap = functions
         `https://api.notion.com/v1/databases/${databaseId}/query`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-            "Notion-Version": "2022-06-28",
-          },
+          headers: notionBearerHeaders(accessToken, {
+            contentType: "application/json",
+          }),
           body: JSON.stringify(body),
         },
       );

@@ -38,6 +38,7 @@ import * as functions from "firebase-functions/v1";
 import admin from "firebase-admin";
 import type { Request, Response } from "firebase-functions/v1";
 import { respondWithMaintenanceIfEnabled } from "../maintenance.js";
+import { launchChromiumBrowser } from "./utils_browser.js";
 
 // chromium and puppeteer are lazy-loaded inside the handler so the Firebase
 // CLI's function-introspection server doesn't time out at deploy time.
@@ -53,10 +54,6 @@ const BUCKET_NAME = "grids-one.firebasestorage.app";
 const FIRESTORE_BASE =
   "https://firestore.googleapis.com/v1/projects/grids-one/databases/(default)/documents";
 const SITE_BASE = "https://grids.so";
-
-// Must match the installed @sparticuz/chromium-min version.
-const CHROMIUM_URL =
-  "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
 
 // Output dimensions (Twitter / Slack / Discord / iMessage all expect 1200×630).
 const OG_W = 1200;
@@ -138,7 +135,7 @@ const SEED_POSITIONS: ReadonlyArray<readonly [number, number]> = [
  * Returns `null` when the string is empty/undefined or contains no valid
  * entries, so the caller can fall back to the default SEED_POSITIONS.
  */
-function parsePositions(
+export function parsePositions(
   raw: string | undefined
 ): ReadonlyArray<readonly [number, number]> | null {
   if (!raw) return null;
@@ -259,8 +256,20 @@ const LIGHT_THEME: ThemeTokens = {
   subtitleTextShadow: "0 1px 0 rgba(255, 255, 255, 0.44)",
 };
 
-function themeFor(themeId: string | undefined): ThemeTokens {
+export function themeFor(themeId: string | undefined): ThemeTokens {
   return themeId === "light" ? LIGHT_THEME : DARK_THEME;
+}
+
+/**
+ * Parse a `?minCov=` / `?maxCov=` query value, falling back to the supplied
+ * default when the value is missing or not a finite number.
+ */
+export function parseCoverageOverride(
+  raw: string | undefined,
+  fallback: number
+): number {
+  const parsed = parseFloat(raw as string);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 // ─── Firestore REST helpers ──────────────────────────────────────────────────
@@ -418,7 +427,7 @@ async function resolveGridInfo(
 // ─── Seeded PRNG (Mulberry32 + FNV-1a) ───────────────────────────────────────
 // Deterministic so the same grid always gets the same scatter pattern.
 
-function fnv1a(s: string): number {
+export function fnv1a(s: string): number {
   let hash = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     hash ^= s.charCodeAt(i);
@@ -427,7 +436,7 @@ function fnv1a(s: string): number {
   return hash >>> 0;
 }
 
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let s = seed >>> 0;
   return () => {
     s = (s + 0x6d2b79f5) >>> 0;
@@ -1861,10 +1870,12 @@ async function handler(req: Request, res: Response): Promise<void> {
   // Override coverage thresholds for testing.
   //   ?minCov=0.15  → treat 15% as the minimum tile coverage
   //   ?maxCov=0.50  → treat 50% as the maximum tile coverage
-  const minCovOverride = parseFloat(req.query.minCov as string);
-  const maxCovOverride = parseFloat(req.query.maxCov as string);
-  const minCov = Number.isFinite(minCovOverride) ? minCovOverride : MIN_COVERAGE;
-  const maxCov = Number.isFinite(maxCovOverride) ? maxCovOverride : MAX_COVERAGE;
+  const minCovRaw = req.query.minCov as string | undefined;
+  const maxCovRaw = req.query.maxCov as string | undefined;
+  const minCov = parseCoverageOverride(minCovRaw, MIN_COVERAGE);
+  const maxCov = parseCoverageOverride(maxCovRaw, MAX_COVERAGE);
+  const minCovProvided = Number.isFinite(parseFloat(minCovRaw as string));
+  const maxCovProvided = Number.isFinite(parseFloat(maxCovRaw as string));
 
   if (!slug && !gridId) {
     res.status(400).json({ error: "Provide ?slug= or ?gridId=" });
@@ -1881,8 +1892,7 @@ async function handler(req: Request, res: Response): Promise<void> {
   // ── 1. Serve from Storage cache if available ─────────────────────────────
   // Skip cache entirely in the local emulator (no Storage credentials).
   const isEmulatorEnv = process.env.FUNCTIONS_EMULATOR === "true";
-  const hasOverrides = seedOverride || positionsRaw ||
-    Number.isFinite(minCovOverride) || Number.isFinite(maxCovOverride);
+  const hasOverrides = seedOverride || positionsRaw || minCovProvided || maxCovProvided;
   if (!refresh && !isEmulatorEnv && !hasOverrides) {
     try {
       const [exists] = await file.exists();
@@ -1914,25 +1924,10 @@ async function handler(req: Request, res: Response): Promise<void> {
   let browser: any = null;
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chromium: any = (await import("@sparticuz/chromium-min")).default;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const puppeteer: any = (await import("puppeteer-core")).default;
-
-    const executablePath = isEmulatorEnv ?
-      process.env.PUPPETEER_EXECUTABLE_PATH ??
-        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" :
-      await chromium.executablePath(CHROMIUM_URL);
-
-    browser = await puppeteer.launch({
-      args: isEmulatorEnv ? [] : chromium.args,
-      defaultViewport: {
-        width: TILE_VIEWPORT_W,
-        height: TILE_VIEWPORT_H,
-        deviceScaleFactor: 1,
-      },
-      executablePath,
-      headless: true,
+    browser = await launchChromiumBrowser({
+      width: TILE_VIEWPORT_W,
+      height: TILE_VIEWPORT_H,
+      deviceScaleFactor: 1,
     });
 
     // Phase A — capture per-tile screenshots from the live grid page

@@ -1,13 +1,9 @@
 import { ContentType, type VideoContent } from "@/types/TileContent";
 import type { TileDefinition } from "@/types/TileDefinition";
 import { isDirectVideoUrl } from "@/utils/TileUtils";
-import {
-  RESIZE_PRESETS,
-  BORDER_TOGGLE,
-  CROP_BUTTON,
-  COLOR_BUTTON,
-  TILE_LINK,
-} from "@/registries/ToolbarRegistry";
+import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/tileToolbar/sharedButtons";
+import { CROP_BUTTON } from "@/registries/tileToolbar/cropButton";
+import { TILE_LINK } from "@/registries/tileToolbar/tileLinkButton";
 
 export const videoDefinition: TileDefinition<VideoContent> = {
   type: ContentType.VIDEO,

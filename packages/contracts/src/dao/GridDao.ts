@@ -1,4 +1,4 @@
-import type { Grid } from "@/types/Grid";
+import type { Grid } from "../types/Grid.js";
 
 export interface GridDao {
   /** Fetch a single grid document by ID. */

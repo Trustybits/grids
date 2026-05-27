@@ -20,6 +20,14 @@
     "./auth": {
       "types": "./dist/auth/index.d.ts",
       "import": "./dist/auth/index.js"
+    },
+    "./dao": {
+      "types": "./dist/dao/index.d.ts",
+      "import": "./dist/dao/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
     }
   },
   "devDependencies": {

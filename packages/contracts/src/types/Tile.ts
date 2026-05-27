@@ -1,6 +1,6 @@
-import { type TileContent } from '@grids/contracts/types';
+import { type TileContent } from "./TileContent.js";
 
-export type Breakpoint = 'lg' | 'md' | 'sm';
+export type Breakpoint = "lg" | "md" | "sm";
 
 export interface TilePosition {
   x: number;
@@ -83,8 +83,7 @@ export interface ColorThemableTileChild {
 // Used by Tile.vue and TileToolbar — the full superset of all
 // capabilities. All members remain optional so callers use ?. access.
 
-export type TileChildComponent =
-  TileChildBase &
+export type TileChildComponent = TileChildBase &
   Partial<CroppableTileChild> &
   Partial<MapTileChild> &
   Partial<LinkableTileChild> &

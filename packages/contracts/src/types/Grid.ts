@@ -1,10 +1,10 @@
-import type { Tile } from "./Tile";
-import type { Breakpoint, TilePosition } from "./Tile";
+import type { Tile } from "./Tile.js";
+import type { Breakpoint, TilePosition } from "./Tile.js";
 
 // Controls how much content is carried over when duplicating a grid.
 //   'full'      — clone all tile content (media URLs kept, chat cleared)
 //   'structure' — keep tile type/size/position only, reset content to defaults
-export type CopyDepth = 'full' | 'structure';
+export type CopyDepth = "full" | "structure";
 
 export interface Grid {
   id: string;

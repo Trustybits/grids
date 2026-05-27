@@ -1,4 +1,4 @@
-import type { ContentType } from "@/types/TileContent";
+import type { ContentType } from "./TileContent.js";
 
 /**
  * Discriminator values for `analyticsEvents.eventType`.
@@ -6,7 +6,7 @@ import type { ContentType } from "@/types/TileContent";
  * Client-originated events are written directly from the browser; server-only
  * events are written by Cloud Functions via the admin SDK and must be excluded
  * from the client-allowed set in Firestore security rules.
- * 
+ *
  * If this enum changes, changes *must* also be made in functions/src/analytics/onAnalyticsEvenyCreated.ts,
  * which has its own mirrored version of this
  */

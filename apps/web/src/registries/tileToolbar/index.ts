@@ -1,11 +1,11 @@
 import { ContentType } from "@/types/TileContent";
 import type { ToolbarButton } from "@/types/TileToolbar";
 import { getTileDefinition } from "@/registries/tileRegistry";
-import { RESIZE_PRESETS } from "./sharedButtons";
+import { RESIZE_PRESETS } from "./baseButtons";
 
-export * from "./sharedButtons";
-export * from "./cropButton";
-export * from "./tileLinkButton";
+export * from "./baseButtons";
+export * from "./sharedCropButton";
+export * from "./sharedTileLinkButton";
 export * from "./mapButtons";
 export * from "./linkButtons";
 export * from "./textButtons";

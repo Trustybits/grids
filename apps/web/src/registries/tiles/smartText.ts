@@ -1,6 +1,6 @@
 import { ContentType, type SmartTextContent } from "@/types/TileContent";
 import type { TileDefinition } from "@/types/TileDefinition";
-import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/tileToolbar/sharedButtons";
+import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/tileToolbar/baseButtons";
 import { TEXT_ALIGN_BUTTON, TEXT_MORE_MENU } from "@/registries/tileToolbar/textButtons";
 
 export const smartTextDefinition: TileDefinition<SmartTextContent> = {

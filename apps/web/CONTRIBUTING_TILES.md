@@ -35,9 +35,9 @@ src/
 ├── registries/
 │   ├── tileRegistry.ts      # Central registry: Map<ContentType, TileDefinition>
 │   ├── tileToolbar/         # Modular toolbar button definitions
-│   │   ├── sharedButtons.ts  # Resize presets, border toggle, color button
-│   │   ├── cropButton.ts     # Crop/zoom button (image & video tiles)
-│   │   ├── tileLinkButton.ts # Tile link button
+│   │   ├── baseButtons.ts             # Resize presets, border toggle, color button
+│   │   ├── sharedCropButton.ts        # Crop/zoom button (image & video tiles)
+│   │   ├── sharedTileLinkButton.ts    # Tile link button (image & video tiles)
 │   │   ├── mapButtons.ts     # Map-specific buttons (pan, search, recenter, etc.)
 │   │   ├── linkButtons.ts    # Link tile buttons (background toggle, more menu)
 │   │   ├── textButtons.ts    # Text tile buttons (align, more menu)
@@ -116,7 +116,7 @@ Create `src/registries/tiles/myNewTile.ts`:
 ```ts
 import { ContentType, type MyNewTileContent } from "@/types/TileContent";
 import type { TileDefinition } from "@/types/TileDefinition";
-import { RESIZE_PRESETS, BORDER_TOGGLE } from "@/registries/tileToolbar/sharedButtons";
+import { RESIZE_PRESETS, BORDER_TOGGLE } from "@/registries/tileToolbar/baseButtons";
 
 export const myNewTileDefinition: TileDefinition<MyNewTileContent> = {
   type: ContentType.MY_NEW_TILE,

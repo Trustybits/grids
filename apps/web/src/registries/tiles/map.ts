@@ -1,6 +1,6 @@
 import { ContentType, type MapContent } from "@/types/TileContent";
 import type { TileDefinition } from "@/types/TileDefinition";
-import { RESIZE_4x4, RESIZE_2x4, RESIZE_4x2 } from "@/registries/tileToolbar/sharedButtons";
+import { RESIZE_4x4, RESIZE_2x4, RESIZE_4x2 } from "@/registries/tileToolbar/baseButtons";
 import { MAP_DEFAULT, MAP_PAN, MAP_SEARCH, MAP_RECENTER } from "@/registries/tileToolbar/mapButtons";
 
 export const mapDefinition: TileDefinition<MapContent> = {

@@ -41,7 +41,7 @@ import ViewportWarning from './components/grid/ViewportWarning.vue';
 import { useGridStore } from '@/stores/grid';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
-import type { AuthUser } from '@/auth/AuthProvider';
+import type { AuthUser } from '@grids/contracts/auth';
 import { usePostHog } from '@/composables/usePostHog';
 import { initTier } from '@/composables/useTier';
 import { initContributions } from '@/composables/useContributions';

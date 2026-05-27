@@ -223,7 +223,7 @@
 <script lang="ts">
 import { computed, defineComponent, inject, onMounted, onUnmounted, ref, watch } from "vue";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
-import type { AuthUser } from "@/auth/AuthProvider";
+import type { AuthUser } from "@grids/contracts/auth";
 import { useRouter } from "vue-router";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridStore } from "@/stores/grid";

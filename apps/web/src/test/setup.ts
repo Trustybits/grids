@@ -9,6 +9,7 @@
 
 import { vi, beforeEach, afterEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import '@/registries/tiles'
 
 // ── Firebase Auth mock ─────────────────────────────────────────────────────
 vi.mock('firebase/auth', () => ({

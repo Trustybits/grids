@@ -23,7 +23,7 @@ export interface ToolbarMenuItem {
   danger?: boolean | ((ctx: ToolbarContext) => boolean);
 }
 
-export interface ToolbarItem {
+export interface ToolbarButton {
   id: string;
   icon: Component | ((ctx: ToolbarContext) => Component);
   title: string | ((ctx: ToolbarContext) => string);
@@ -37,3 +37,6 @@ export interface ToolbarItem {
   menuItemsLayoutDirection?: "horizontal" | "vertical";
   danger?: boolean | ((ctx: ToolbarContext) => boolean);
 }
+
+/** @deprecated Use ToolbarButton instead */
+export type ToolbarItem = ToolbarButton;

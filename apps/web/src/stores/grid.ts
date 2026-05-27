@@ -13,6 +13,7 @@ import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
 import { v4 as uuidv4 } from "uuid";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { createTile } from "@/utils/TileUtils";
+import { getTileDefinition } from "@/registries/tileRegistry";
 import {
   adjustTilePosition,
   findBestXAtRow,
@@ -762,22 +763,25 @@ export const useGridStore = defineStore("grid", {
     addTile(content: TileContent): string | null {
       if (!this.currentGrid) return null;
 
-      // Validate: Only one campfire tile per grid
-      if (content.type === ContentType.CAMPFIRE) {
-        const hasCampfireTile = this.currentGrid.tiles.some(
-          (tile) => tile.content.type === ContentType.CAMPFIRE,
-        );
-        if (hasCampfireTile) {
-          // Use toast to notify user
+      const def = getTileDefinition(content.type);
+
+      // Validate: maxPerGrid constraint (e.g. only one campfire per grid)
+      if (def?.maxPerGrid) {
+        const count = this.currentGrid.tiles.filter(
+          (tile) => tile.content.type === content.type,
+        ).length;
+        if (count >= def.maxPerGrid) {
           const toastStore = useToastStore();
-          toastStore.addToast("Only one campfire allowed per grid", "error");
+          toastStore.addToast(
+            `Only ${def.maxPerGrid} ${def.label ?? content.type} tile${def.maxPerGrid > 1 ? "s" : ""} allowed per grid`,
+            "error",
+          );
           return null;
         }
       }
 
-      const isProfile = content.type === ContentType.PROFILE;
-      const tileWidth = isProfile ? 4 : 2;
-      const tileHeight = isProfile ? 4 : 2;
+      const tileWidth = def?.defaultSize?.w ?? 2;
+      const tileHeight = def?.defaultSize?.h ?? 2;
 
       const tiles = this.currentGrid.tiles;
       const colNum = this.currentGrid.colNum || 12;

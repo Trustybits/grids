@@ -1,7 +1,10 @@
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
-import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  decrementUserStorageUsage,
+  parseUserStorageObject,
+} from "./utils_storageUsage.js";
 
 /**
  * Cloud Function that triggers when a file is deleted from Firebase Storage.
@@ -12,25 +15,14 @@ export const onFileDeleted = functions.storage
   .onDelete(async (object) => {
     if (noopIfMaintenance("onFileDeleted")) return null;
 
-    const filePath = object.name;
-    const fileSize = parseInt(object.size || "0", 10);
-
-    if (!filePath) {
-      logger.warn("File path is undefined");
+    const storageObject = parseUserStorageObject(object, {
+      sanitizeInvalidSize: true,
+    });
+    if (!storageObject) {
       return null;
     }
 
-    // Extract userId from the file path (e.g., users/{userId}/images/{imageId})
-    const pathParts = filePath.split("/");
-    if (pathParts.length < 2 || pathParts[0] !== "users") {
-      logger.debug(
-        "File is not in a user directory, skipping storage tracking",
-        { filePath },
-      );
-      return null;
-    }
-
-    const userId = pathParts[1];
+    const { filePath, fileSize, userId } = storageObject;
 
     logger.info("File deleted, updating storage usage", {
       userId,
@@ -39,32 +31,7 @@ export const onFileDeleted = functions.storage
     });
 
     try {
-      const userRef = admin.firestore().collection("users").doc(userId);
-
-      // Use a transaction to safely decrement the storage usage
-      await admin.firestore().runTransaction(async (transaction) => {
-        const userDoc = await transaction.get(userRef);
-
-        if (!userDoc.exists) {
-          logger.warn(
-            "User document does not exist, cannot decrement storage",
-            { userId },
-          );
-          return;
-        }
-
-        const currentUsage = userDoc.data()?.storageUsed || 0;
-        const newUsage = Math.max(0, currentUsage - fileSize); // Ensure we don't go negative
-
-        transaction.update(userRef, { storageUsed: newUsage });
-
-        logger.info("Storage usage updated after deletion", {
-          userId,
-          previousUsage: currentUsage,
-          newUsage,
-          fileSize,
-        });
-      });
+      await decrementUserStorageUsage(userId, fileSize);
 
       return null;
     } catch (error) {

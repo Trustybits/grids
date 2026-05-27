@@ -2,25 +2,13 @@ import { type Tile } from "@/types/Tile";
 import {
   ContentType,
   type TileContent,
-  type TextContent,
-  type SmartTextContent,
-  type ChatContent,
-  type ImageContent,
-  type LinkContent,
-  type VideoContent,
-  type EmbedContent,
-  type SuggestionContent,
-  type ProfileBioContent,
-  type MapContent,
-  type CampfireContent,
   type YouTubeContent,
-  type RoadmapFeedContent,
   type MusicContent,
   type MusicPlatform,
   type AnyTileContent,
-  type DocumentsContent,
 } from "@/types/TileContent";
 import { type Component, defineAsyncComponent, markRaw } from "vue";
+import { getTileDefinition } from "@/registries/tileRegistry";
 
 function ensureUrlHasProtocol(url: string): string {
   if (!url) return url;
@@ -317,7 +305,7 @@ function extractYouTubeVideoId(parsedUrl: URL): string | null {
   return id;
 }
 
-function normalizeEmbedSrc(src: string): string {
+export function normalizeEmbedSrc(src: string): string {
   const formatted = ensureUrlHasProtocol(src.trim());
   if (!formatted) return formatted;
 
@@ -367,401 +355,31 @@ export function createTileContent(
   type: ContentType,
   data: Partial<AnyTileContent> = {},
 ): TileContent {
-  switch (type) {
-    case ContentType.TEXT:
-      return {
-        type,
-        text: (data as Partial<TextContent>).text || "",
-        font: (data as Partial<TextContent>).font || "Arial",
-        fontSize: (data as Partial<TextContent>).fontSize || 14,
-        isBold: (data as Partial<TextContent>).isBold || false,
-        isItalic: (data as Partial<TextContent>).isItalic || false,
-        textType: (data as Partial<TextContent>).textType || "",
-        color: (data as Partial<TextContent>).color || "#ffffff",
-      } as TextContent;
-
-    case ContentType.SMART_TEXT:
-      return {
-        type,
-        text: (data as Partial<SmartTextContent>).text || "",
-        font: (data as Partial<SmartTextContent>).font || "Arial",
-        fontSize: (data as Partial<SmartTextContent>).fontSize || 14,
-        isBold: (data as Partial<SmartTextContent>).isBold || false,
-        isItalic: (data as Partial<SmartTextContent>).isItalic || false,
-        textType: (data as Partial<SmartTextContent>).textType || "",
-        color: (data as Partial<SmartTextContent>).color || "#ffffff",
-      } as SmartTextContent;
-
-    case ContentType.CHAT:
-      return {
-        type,
-        messages: (data as Partial<ChatContent>).messages || [],
-      } as ChatContent;
-
-    case ContentType.IMAGE:
-      return {
-        type,
-        src: (data as Partial<ImageContent>).src || "",
-        zoom: 1,
-        offsetX: 0,
-        offsetY: 0,
-      } as ImageContent;
-
-    case ContentType.LINK: {
-      const input = data as Partial<LinkContent>;
-      const linkData = getLinkData(input.link || "");
-      return {
-        ...input,
-        type,
-        ...linkData,
-        linkBackgroundEnabled: input.linkBackgroundEnabled ?? true,
-      } as LinkContent;
-    }
-
-    case ContentType.VIDEO:
-      return {
-        type,
-        src: (data as Partial<VideoContent>).src || "",
-        zoom: 1,
-        offsetX: 0,
-        offsetY: 0,
-      } as VideoContent;
-
-    case ContentType.EMBED:
-      return {
-        type,
-        // For YouTube links, we normalize to an embeddable URL (watch/homepage URLs
-        // often refuse to render in iframes due to X-Frame-Options).
-        src: normalizeEmbedSrc((data as Partial<EmbedContent>).src || ""),
-      } as EmbedContent;
-
-    case ContentType.SUGGESTION: {
-      const suggestion = data as Partial<SuggestionContent>;
-      const payload: SuggestionContent = {
-        type,
-        action: suggestion.action || "text",
-      };
-      if (typeof suggestion.icon === "string") {
-        payload.icon = suggestion.icon;
-      }
-      if (typeof suggestion.label === "string") {
-        payload.label = suggestion.label;
-      }
-      return payload;
-    }
-
-    case ContentType.PROFILE:
-      return {
-        type,
-        name: (data as Partial<ProfileBioContent>).name || "",
-        title: (data as Partial<ProfileBioContent>).title || "",
-        bio: (data as Partial<ProfileBioContent>).bio || "",
-        avatarShape:
-          (data as Partial<ProfileBioContent>).avatarShape || "square",
-        avatarRadius: (data as Partial<ProfileBioContent>).avatarRadius ?? 12,
-        avatarSides: (data as Partial<ProfileBioContent>).avatarSides ?? 6,
-        // Preserve profile photo URL when creating from existing data
-        profilePhotoUrl:
-          (data as Partial<ProfileBioContent>).profilePhotoUrl ?? "",
-      } as ProfileBioContent;
-
-    case ContentType.MAP:
-      return {
-        type,
-        provider: "mapbox",
-        center: (data as Partial<MapContent>).center || { lat: 0, lng: 0 },
-        zoom: (data as Partial<MapContent>).zoom ?? 9,
-        bearing: (data as Partial<MapContent>).bearing ?? 0,
-        pitch: (data as Partial<MapContent>).pitch ?? 0,
-        style: (data as Partial<MapContent>).style || "default",
-        show3d: (data as Partial<MapContent>).show3d ?? false,
-        showClouds: (data as Partial<MapContent>).showClouds ?? true,
-        showPlanes: (data as Partial<MapContent>).showPlanes ?? true,
-        searchQuery: (data as Partial<MapContent>).searchQuery,
-        marker: (data as Partial<MapContent>).marker,
-      } as MapContent;
-
-    case ContentType.CAMPFIRE:
-      return {
-        type,
-        count: (data as Partial<CampfireContent>).count || 0,
-        highScore: (data as Partial<CampfireContent>).highScore || 0,
-      } as CampfireContent;
-
-    case ContentType.YOUTUBE:
-      return {
-        type,
-        youtubeUrl: (data as Partial<YouTubeContent>).youtubeUrl || "",
-        youtubeType: (data as Partial<YouTubeContent>).youtubeType || "video",
-        youtubeId: (data as Partial<YouTubeContent>).youtubeId || "",
-        title: (data as Partial<YouTubeContent>).title,
-        description: (data as Partial<YouTubeContent>).description,
-        thumbnails: (data as Partial<YouTubeContent>).thumbnails,
-        publishedAt: (data as Partial<YouTubeContent>).publishedAt,
-        channelTitle: (data as Partial<YouTubeContent>).channelTitle,
-        channelId: (data as Partial<YouTubeContent>).channelId,
-        channelThumbnail: (data as Partial<YouTubeContent>).channelThumbnail,
-        duration: (data as Partial<YouTubeContent>).duration,
-        viewCount: (data as Partial<YouTubeContent>).viewCount,
-        likeCount: (data as Partial<YouTubeContent>).likeCount,
-        commentCount: (data as Partial<YouTubeContent>).commentCount,
-        categoryId: (data as Partial<YouTubeContent>).categoryId,
-        itemCount: (data as Partial<YouTubeContent>).itemCount,
-        playlistItems: (data as Partial<YouTubeContent>).playlistItems,
-        channelData: (data as Partial<YouTubeContent>).channelData,
-        recentVideos: (data as Partial<YouTubeContent>).recentVideos,
-      } as YouTubeContent;
-
-    case ContentType.ROADMAP_FEED:
-      return {
-        type,
-        notionDatabaseId:
-          (data as Partial<RoadmapFeedContent>).notionDatabaseId || "",
-        statusPropertyName:
-          (data as Partial<RoadmapFeedContent>).statusPropertyName || "",
-        upvotePropertyName:
-          (data as Partial<RoadmapFeedContent>).upvotePropertyName || "",
-        statusMapping:
-          (data as Partial<RoadmapFeedContent>).statusMapping || {},
-        queryFilters: (data as Partial<RoadmapFeedContent>).queryFilters,
-        cachedItems: (data as Partial<RoadmapFeedContent>).cachedItems,
-        lastSyncedAt: (data as Partial<RoadmapFeedContent>).lastSyncedAt,
-      } as RoadmapFeedContent;
-
-    case ContentType.MUSIC:
-      return {
-        type,
-        platform: (data as Partial<MusicContent>).platform || "spotify",
-        trackId: (data as Partial<MusicContent>).trackId || "",
-        trackName: (data as Partial<MusicContent>).trackName || "",
-        artistName: (data as Partial<MusicContent>).artistName || "",
-        albumArt: (data as Partial<MusicContent>).albumArt || "",
-        previewUrl: (data as Partial<MusicContent>).previewUrl || "",
-        trackUrl: (data as Partial<MusicContent>).trackUrl || "",
-        artistUrl: (data as Partial<MusicContent>).artistUrl || "",
-        backgroundColor: (data as Partial<MusicContent>).backgroundColor || "",
-        backgroundTinted:
-          (data as Partial<MusicContent>).backgroundTinted || "",
-        textSubdued: (data as Partial<MusicContent>).textSubdued || "",
-      } as MusicContent;
-
-    case ContentType.DOCUMENT: {
-      const d = data as Partial<DocumentsContent>;
-      const payload: DocumentsContent = {
-        type,
-        items: d.items ?? [],
-      };
-      if (typeof d.backgroundColor === "string" && d.backgroundColor !== "") {
-        payload.backgroundColor = d.backgroundColor;
-      }
-      if (typeof d.customTitle === "string") {
-        payload.customTitle = d.customTitle;
-      }
-      if (typeof d.customDescription === "string") {
-        payload.customDescription = d.customDescription;
-      }
-      return payload;
-    }
-
-    default:
-      throw new Error(`Unsupported content type: ${type}`);
+  const def = getTileDefinition(type);
+  if (def) {
+    return def.defaultContent(data as never);
   }
+  throw new Error(`Unsupported content type: ${type}`);
 }
 
-function getLinkData(url: string) {
-  try {
-    const trimmed = (url || "").trim();
-    if (!trimmed) return {};
-
-    // Preserve non-web schemes as-is (e.g. mailto:, tel:)
-    if (/^(mailto|tel):/i.test(trimmed)) {
-      return { link: trimmed };
-    }
-
-    const formattedUrl = trimmed.startsWith("http")
-      ? trimmed
-      : `https://${trimmed}`;
-    const parsedUrl = new URL(formattedUrl);
-
-    const domain = parsedUrl.hostname;
-    const faviconUrl = `https://s2.googleusercontent.com/s2/favicons?sz=64&domain_url=${parsedUrl.origin}`;
-    const link = formattedUrl;
-
-    return { domain, faviconUrl, link };
-  } catch {
-    return {};
-  }
-}
 
 export function validateTileContent(content: TileContent): boolean {
-  switch (content.type) {
-    case ContentType.TEXT:
-      return (content as TextContent).text.trim().length > 0;
-    case ContentType.SMART_TEXT:
-      return (content as SmartTextContent).text.trim().length > 0;
-    case ContentType.CHAT:
-      return true;
-    case ContentType.IMAGE:
-      const image = content as ImageContent;
-      return (
-        !!image.src &&
-        (image.src.startsWith("http") ||
-          image.src.startsWith("data:") ||
-          image.src.startsWith("blob:"))
-      );
-    case ContentType.LINK:
-      const link = content as LinkContent;
-      return (
-        !!link.link &&
-        (link.link.startsWith("http") ||
-          /^mailto:/i.test(link.link) ||
-          /^tel:/i.test(link.link))
-      );
-    case ContentType.VIDEO:
-      const video = content as VideoContent;
-      return (
-        !!video.src &&
-        (video.src.startsWith("http") ||
-          video.src.startsWith("data:") ||
-          video.src.startsWith("blob:"))
-      );
-    case ContentType.EMBED:
-      const embed = content as EmbedContent;
-      return !!embed.src && embed.src.startsWith("http");
-    case ContentType.SUGGESTION:
-      return true; // internal placeholder is always valid
-    case ContentType.PROFILE:
-      return true;
-    case ContentType.MAP:
-      const map = content as MapContent;
-      return (
-        map.provider === "mapbox" &&
-        Number.isFinite(map.center?.lat) &&
-        Number.isFinite(map.center?.lng)
-      );
-    case ContentType.CAMPFIRE:
-      return true; // campfire game is always valid
-    case ContentType.YOUTUBE:
-      const youtube = content as YouTubeContent;
-      return !!youtube.youtubeUrl && !!youtube.youtubeId;
-    case ContentType.MUSIC:
-      const music = content as MusicContent;
-      return !!music.trackId && !!music.platform;
-    case ContentType.ROADMAP_FEED:
-      return true;
-    case ContentType.DOCUMENT: {
-      const doc = content as DocumentsContent;
-      return (
-        Array.isArray(doc.items) &&
-        doc.items.length > 0 &&
-        doc.items.every(
-          (item) =>
-            !!item.id &&
-            typeof item.fileName === "string" &&
-            item.fileName.length > 0 &&
-            typeof item.url === "string" &&
-            (item.url.startsWith("http") ||
-              item.url.startsWith("blob:") ||
-              item.url.startsWith("data:")),
-        )
-      );
-    }
-    default:
-      return false;
+  const def = getTileDefinition(content.type);
+  if (def) {
+    return def.validate(content as never);
   }
+  return false;
 }
 
 export function getContentComponent(content: TileContent): Component | null {
-  switch (content.type) {
-    case ContentType.TEXT:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/TextContent.vue"),
-        ),
-      );
-    case ContentType.SMART_TEXT:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/SmartTextContent.vue"),
-        ),
-      );
-    case ContentType.CHAT:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/ChatContent.vue"),
-        ),
-      );
-    case ContentType.IMAGE:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/ImageContent.vue"),
-        ),
-      );
-    case ContentType.LINK:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/LinkContent.vue"),
-        ),
-      );
-    case ContentType.VIDEO:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/VideoContent.vue"),
-        ),
-      );
-    case ContentType.EMBED:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/EmbedContent.vue"),
-        ),
-      );
-    case ContentType.SUGGESTION:
-      return null; // rendered inline in GridTile
-    case ContentType.PROFILE:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/ProfileBioContent.vue"),
-        ),
-      );
-    case ContentType.MAP:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/MapContent.vue"),
-        ),
-      );
-    case ContentType.CAMPFIRE:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/CampfireContent.vue"),
-        ),
-      );
-    case ContentType.YOUTUBE:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/YouTubeContent.vue"),
-        ),
-      );
-    case ContentType.ROADMAP_FEED:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/RoadmapFeedContent.vue"),
-        ),
-      );
-    case ContentType.MUSIC:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/MusicContent.vue"),
-        ),
-      );
-    case ContentType.DOCUMENT:
-      return markRaw(
-        defineAsyncComponent(
-          () => import("@/components/tilecontent/DocumentsContent.vue"),
-        ),
-      );
-    default:
-      throw new Error(`Unsupported content type: ${content.type}`);
+  const def = getTileDefinition(content.type);
+  if (!def) {
+    throw new Error(`Unsupported content type: ${content.type}`);
   }
+  if (content.type === ContentType.SUGGESTION) {
+    return null; // rendered inline in GridTile
+  }
+  return markRaw(defineAsyncComponent(def.component));
 }
 
 export function getOptionComponent(content: TileContent): null {

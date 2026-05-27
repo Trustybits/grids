@@ -4,12 +4,8 @@ import * as functions from "firebase-functions/v1";
 import admin from "firebase-admin";
 import sharp from "sharp";
 import { noopIfMaintenance } from "../maintenance.js";
-
-// v147.0.0 has no pack assets on GitHub releases; using v143.0.4 (last confirmed stable).
-// Firebase Functions run on Linux x86_64 → use the .x64.tar variant (added in v127+).
-// Update this URL when upgrading @sparticuz/chromium-min.
-const CHROMIUM_URL =
-  "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
+import { requireAuth, requireStringFields } from "../shared/utils_callable.js";
+import { launchChromiumBrowser } from "./utils_browser.js";
 
 // ─── Document stack: PDF page-1 thumbnail (callable) ────────────────────────
 
@@ -54,23 +50,10 @@ function isPdfDocumentItem(fileName: string, mime?: string): boolean {
 }
 
 async function renderPdfFirstPagePng(pdfSignedUrl: string): Promise<Buffer> {
-  const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const chromium: any = (await import("@sparticuz/chromium-min")).default;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const puppeteer: any = (await import("puppeteer-core")).default;
-
-  const executablePath = isEmulator
-    ? (process.env.PUPPETEER_EXECUTABLE_PATH ??
-      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe")
-    : await chromium.executablePath(CHROMIUM_URL);
-
-  const browser = await puppeteer.launch({
-    args: isEmulator ? [] : chromium.args,
-    defaultViewport: { width: 920, height: 1180, deviceScaleFactor: 1 },
-    executablePath,
-    headless: true,
+  const browser = await launchChromiumBrowser({
+    width: 920,
+    height: 1180,
+    deviceScaleFactor: 1,
   });
 
   try {
@@ -92,22 +75,12 @@ export const ensureDocumentItemThumbnail = functions
   .https.onCall(async (data, context) => {
     if (noopIfMaintenance("ensureDocumentItemThumbnail")) return null;
 
-    if (!context.auth?.uid) {
-      throw new HttpsError("unauthenticated", "Sign in required.");
-    }
-
-    const gridId = typeof data?.gridId === "string" ? data.gridId : "";
-    const tileId = typeof data?.tileId === "string" ? data.tileId : "";
-    const itemId = typeof data?.itemId === "string" ? data.itemId : "";
-
-    if (!gridId || !tileId || !itemId) {
-      throw new HttpsError(
-        "invalid-argument",
-        "gridId, tileId, and itemId are required.",
-      );
-    }
-
-    const uid = context.auth.uid;
+    const uid = requireAuth(context, "Sign in required.");
+    const { gridId, tileId, itemId } = requireStringFields(
+      data,
+      ["gridId", "tileId", "itemId"],
+      "gridId, tileId, and itemId are required.",
+    );
     const db = admin.firestore();
     const gridRef = db.collection("grids").doc(gridId);
 

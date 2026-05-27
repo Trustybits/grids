@@ -2,6 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
+import { getCallableData, requireAuth } from "../shared/utils_callable.js";
 
 /**
  * Cloud Function to update the default grid for a user's slug.
@@ -10,17 +11,11 @@ import { noopIfMaintenance } from "../maintenance.js";
 export const updateDefaultGrid = onCall(async (data, context) => {
   if (noopIfMaintenance("updateDefaultGrid")) return null;
 
-  // Ensure user is authenticated
-  if (!context.auth) {
-    throw new HttpsError(
-      "unauthenticated",
-      "You must be signed in to update your default grid.",
-    );
-  }
-
-  const userId = context.auth.uid;
-  const gridId =
-    (data as { gridId?: string | null } | undefined)?.gridId || null;
+  const userId = requireAuth(
+    context,
+    "You must be signed in to update your default grid.",
+  );
+  const gridId = getCallableData<{ gridId?: string | null }>(data).gridId || null;
 
   const db = admin.firestore();
 

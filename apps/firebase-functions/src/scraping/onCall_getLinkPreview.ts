@@ -4,9 +4,18 @@ import * as cheerio from "cheerio";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  requireAuth,
+  requireStringFields,
+} from "../shared/utils_callable.js";
 
 function isPrivateOrLocalhost(hostname: string): boolean {
-  const lower = hostname.toLowerCase();
+  // URL.hostname returns IPv6 literals wrapped in brackets (e.g. "[::1]").
+  // Strip them so the equality and isIP checks below work on the raw address.
+  const unbracketed = hostname.startsWith("[") && hostname.endsWith("]")
+    ? hostname.slice(1, -1)
+    : hostname;
+  const lower = unbracketed.toLowerCase();
   if (lower === "localhost" || lower.endsWith(".localhost") || lower.endsWith(".local")) {
     return true;
   }
@@ -95,14 +104,8 @@ function pickFirst(...values: Array<string | undefined>): string | undefined {
 export const getLinkPreview = onCall(async (data, context) => {
   if (noopIfMaintenance("getLinkPreview")) return null;
 
-  if (!context.auth) {
-    throw new HttpsError("unauthenticated", "You must be signed in to fetch link previews.");
-  }
-
-  const rawUrl = (data as { url?: string } | undefined)?.url ?? "";
-  if (!rawUrl || typeof rawUrl !== "string") {
-    throw new HttpsError("invalid-argument", "Missing url.");
-  }
+  requireAuth(context, "You must be signed in to fetch link previews.");
+  const { url: rawUrl } = requireStringFields(data, ["url"], "Missing url.");
 
   if (rawUrl.length > 2048) {
     throw new HttpsError("invalid-argument", "URL is too long.");

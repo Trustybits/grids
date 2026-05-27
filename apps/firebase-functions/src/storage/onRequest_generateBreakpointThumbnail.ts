@@ -29,6 +29,7 @@ import * as functions from "firebase-functions/v1";
 import admin from "firebase-admin";
 import type { Request, Response } from "firebase-functions/v1";
 import { respondWithMaintenanceIfEnabled } from "../maintenance.js";
+import { launchChromiumBrowser } from "./utils_browser.js";
 
 // chromium and puppeteer are lazy-loaded inside captureBreakpoint.
 // Top-level imports cause the Firebase CLI's function-introspection server to
@@ -38,12 +39,6 @@ import { respondWithMaintenanceIfEnabled } from "../maintenance.js";
 
 const BUCKET_NAME = "grids-one.firebasestorage.app";
 const SITE_BASE = "https://grids.so";
-
-// v147.0.0 has no pack assets on GitHub releases; using v143.0.4 (last confirmed stable).
-// Firebase Functions run on Linux x86_64 → use the .x64.tar variant (added in v127+).
-// Update this URL when upgrading @sparticuz/chromium-min.
-const CHROMIUM_URL =
-  "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
 
 // ─── Breakpoint definitions ───────────────────────────────────────────────────
 
@@ -80,23 +75,10 @@ async function captureBreakpoint(
 ): Promise<Buffer> {
   const { width, height } = BREAKPOINTS[breakpoint];
 
-  const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const chromium: any = (await import("@sparticuz/chromium-min")).default;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const puppeteer: any = (await import("puppeteer-core")).default;
-
-  const executablePath = isEmulator
-    ? (process.env.PUPPETEER_EXECUTABLE_PATH ??
-      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe")
-    : await chromium.executablePath(CHROMIUM_URL);
-
-  const browser = await puppeteer.launch({
-    args: isEmulator ? [] : chromium.args,
-    defaultViewport: { width, height, deviceScaleFactor: 1 },
-    executablePath,
-    headless: true,
+  const browser = await launchChromiumBrowser({
+    width,
+    height,
+    deviceScaleFactor: 1,
   });
 
   try {

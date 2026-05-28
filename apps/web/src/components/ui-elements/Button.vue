@@ -109,7 +109,6 @@ const handleClick = (event: MouseEvent) => {
 <style lang="scss" scoped>
 .ui-btn {
   --btn-padding-x: var(--spacing-lg);
-  --btn-padding-y: var(--spacing-sm);
   --btn-font-size: 14px;
   --btn-radius: var(--radius-sm);
 
@@ -117,13 +116,13 @@ const handleClick = (event: MouseEvent) => {
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
-  padding: var(--btn-padding-y) var(--btn-padding-x);
+  padding: 0 var(--btn-padding-x);
   font-size: var(--btn-font-size);
   font-weight: var(--font-weight-medium);
   font-family: var(--font-family-base);
   line-height: 1;
   border-radius: var(--btn-radius);
-  border: var(--tile-border-width) solid transparent;
+  border: var(--button-border-width) solid transparent;
   cursor: pointer;
   text-decoration: none;
   white-space: nowrap;
@@ -140,22 +139,25 @@ const handleClick = (event: MouseEvent) => {
 
   // ─── Sizes ───────────────────────────────────────────────────
   &--sm {
+    --btn-height: 32px;
     --btn-padding-x: 12px;
-    --btn-padding-y: 6px;
     --btn-font-size: 13px;
+    height: var(--btn-height);
   }
 
   &--md {
+    --btn-height: 36px;
     --btn-padding-x: var(--spacing-md);
-    --btn-padding-y: var(--spacing-sm);
     --btn-font-size: 14px;
+    height: var(--btn-height);
     font-weight: var(--font-weight-semibold);
   }
 
   &--lg {
+    --btn-height: 40px;
     --btn-padding-x: 16px;
-    --btn-padding-y: 12px;
     --btn-font-size: 15px;
+    height: var(--btn-height);
     font-weight: var(--font-weight-semibold);
   }
 
@@ -173,7 +175,7 @@ const handleClick = (event: MouseEvent) => {
 
   &--secondary {
     background-color: color-mix(in srgb, var(--color-content-background) 95%, transparent);
-    border-color: var(--color-tile-stroke);
+    border-color: var(--color-ui-stroke);
     color: var(--color-text-primary);
     // backdrop-filter: blur(4px) brightness(0.6);
 
@@ -233,13 +235,9 @@ const handleClick = (event: MouseEvent) => {
   // ─── Icon-only ─────────────────────────────────────────────
   &--icon-only {
     --btn-padding-x: 0;
-    --btn-padding-y: 0;
+    width: var(--btn-height);
     aspect-ratio: 1;
     flex-shrink: 0;
-
-    &.ui-btn--sm  { width: 32px; }
-    &.ui-btn--md  { width: 40px; }
-    &.ui-btn--lg  { width: 48px; }
 
     &:hover:not(.ui-btn--disabled) .ui-btn__icon {
       color: var(--btn-hover-color, currentColor);

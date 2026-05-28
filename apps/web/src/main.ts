@@ -60,13 +60,10 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
 })();
 
 async function initializeFirestore() {
-  const { FirestoreDaoFactory } =
-    await import("@/dao/firestore/factory/FirestoreDaoFactory");
+  const { FirestoreDaoFactory, FirestoreDbUtils, FirestoreAuthProvider } =
+    await import("@grids/pro");
   registerDaoFactory(new FirestoreDaoFactory());
-  const { FirestoreDbUtils } = await import("@/dao/firestore/FirestoreDbUtils");
   registerDbUtils(new FirestoreDbUtils());
-  const { FirestoreAuthProvider } =
-    await import("@/auth/firebase/FirestoreAuthProvider");
   registerAuthProvider(new FirestoreAuthProvider());
 }
 

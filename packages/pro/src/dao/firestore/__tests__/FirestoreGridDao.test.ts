@@ -11,7 +11,7 @@ import {
   where,
   serverTimestamp,
 } from "firebase/firestore";
-import { FirestoreGridDao } from "../FirestoreGridDao";
+import { FirestoreGridDao } from "../FirestoreGridDao.js";
 import type { Firestore } from "firebase/firestore";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

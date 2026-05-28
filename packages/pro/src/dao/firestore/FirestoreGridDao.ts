@@ -13,7 +13,7 @@ import {
 } from "firebase/firestore";
 import type { Grid } from "@grids/contracts/types";
 import type { GridDao } from "@grids/contracts/dao";
-import { mapFirestoreToGrid } from "./FirestoreUtils";
+import { mapFirestoreToGrid } from "./FirestoreUtils.js";
 
 const COLLECTION = "grids";
 

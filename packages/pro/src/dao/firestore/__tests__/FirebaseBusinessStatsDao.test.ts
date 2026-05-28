@@ -8,7 +8,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { FirestoreBusinessStatsDao } from "../FirestoreBusinessStatsDao.js";
+import { FirestoreBusinessStatsDao } from "../FirebaseBusinessStatsDao.js";
 import type { Firestore } from "firebase/firestore";
 
 vi.mock("firebase/firestore", () => {

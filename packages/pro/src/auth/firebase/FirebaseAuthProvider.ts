@@ -1,5 +1,4 @@
 import type { AuthProvider, AuthUser } from "@grids/contracts/auth";
-import { auth } from "../../infrastructure/firebase.js";
 import {
   GoogleAuthProvider,
   isSignInWithEmailLink,
@@ -8,6 +7,7 @@ import {
   signInWithEmailLink,
   signInWithPopup,
   signOut as firebaseSignOut,
+  type Auth,
   type User,
 } from "firebase/auth";
 
@@ -22,25 +22,31 @@ function toAuthUser(user: User | null): AuthUser | null {
 }
 
 export class FirestoreAuthProvider implements AuthProvider {
+  private auth: Auth;
+
+  public constructor(auth: Auth) {
+    this.auth = auth;
+  }
+
   public getCurrentUserId(): string | null {
-    return auth.currentUser?.uid ?? null;
+    return this.auth.currentUser?.uid ?? null;
   }
 
   public getCurrentUser(): AuthUser | null {
-    return toAuthUser(auth.currentUser);
+    return toAuthUser(this.auth.currentUser);
   }
 
   public onAuthStateChanged(
     callback: (user: AuthUser | null) => void,
   ): () => void {
-    return firebaseOnAuthStateChanged(auth, (user) => {
+    return firebaseOnAuthStateChanged(this.auth, (user) => {
       callback(toAuthUser(user));
     });
   }
 
   public waitForAuthReady(): Promise<AuthUser | null> {
     return new Promise((resolve) => {
-      const unsubscribe = firebaseOnAuthStateChanged(auth, (user) => {
+      const unsubscribe = firebaseOnAuthStateChanged(this.auth, (user) => {
         unsubscribe();
         resolve(toAuthUser(user));
       });
@@ -49,7 +55,7 @@ export class FirestoreAuthProvider implements AuthProvider {
 
   public async signInWithGoogle(): Promise<AuthUser> {
     const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(this.auth, provider);
     const user = toAuthUser(result.user);
     if (!user) {
       throw new Error("Google sign-in did not return a user.");
@@ -61,21 +67,21 @@ export class FirestoreAuthProvider implements AuthProvider {
     email: string,
     redirectUrl: string,
   ): Promise<void> {
-    await sendSignInLinkToEmail(auth, email, {
+    await sendSignInLinkToEmail(this.auth, email, {
       url: redirectUrl,
       handleCodeInApp: true,
     });
   }
 
   public isEmailSignInLink(url: string): boolean {
-    return isSignInWithEmailLink(auth, url);
+    return isSignInWithEmailLink(this.auth, url);
   }
 
   public async completeEmailSignIn(
     email: string,
     url: string,
   ): Promise<AuthUser> {
-    const result = await signInWithEmailLink(auth, email, url);
+    const result = await signInWithEmailLink(this.auth, email, url);
     const user = toAuthUser(result.user);
     if (!user) {
       throw new Error("Email-link sign-in did not return a user.");
@@ -84,6 +90,6 @@ export class FirestoreAuthProvider implements AuthProvider {
   }
 
   public async signOut(): Promise<void> {
-    await firebaseSignOut(auth);
+    await firebaseSignOut(this.auth);
   }
 }

@@ -10,7 +10,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { serverTimestamp } from "firebase/firestore";
-import { FirestoreDbUtils } from "../FirestoreDbUtils.js";
+import { FirestoreDbUtils } from "../FirebaseDbUtils.js";
 
 // ── Suite ────────────────────────────────────────────────────────────────────
 
@@ -24,7 +24,6 @@ describe("FirestoreDbUtils", () => {
   // ── sanitizeValue ─────────────────────────────────────────────────────────
 
   describe("sanitizeValue", () => {
-
     // ── Primitives / pass-through ─────────────────────────────────────────
 
     it("returns a string as-is", () => {
@@ -68,7 +67,9 @@ describe("FirestoreDbUtils", () => {
     });
 
     it("returns a class instance as-is (non-plain object)", () => {
-      class Foo { x = 1; }
+      class Foo {
+        x = 1;
+      }
       const foo = new Foo();
       expect(utils.sanitizeValue(foo)).toBe(foo);
     });
@@ -80,11 +81,20 @@ describe("FirestoreDbUtils", () => {
     });
 
     it("returns an array of primitives with values intact", () => {
-      expect(utils.sanitizeValue([1, "two", true, null])).toEqual([1, "two", true, null]);
+      expect(utils.sanitizeValue([1, "two", true, null])).toEqual([
+        1,
+        "two",
+        true,
+        null,
+      ]);
     });
 
     it("converts undefined array items to null", () => {
-      expect(utils.sanitizeValue([undefined, 1, undefined])).toEqual([null, 1, null]);
+      expect(utils.sanitizeValue([undefined, 1, undefined])).toEqual([
+        null,
+        1,
+        null,
+      ]);
     });
 
     it("recursively sanitizes objects nested inside arrays", () => {
@@ -93,8 +103,14 @@ describe("FirestoreDbUtils", () => {
     });
 
     it("recursively sanitizes arrays nested inside arrays", () => {
-      const input = [[undefined, 2], [3, undefined]];
-      expect(utils.sanitizeValue(input)).toEqual([[null, 2], [3, null]]);
+      const input = [
+        [undefined, 2],
+        [3, undefined],
+      ];
+      expect(utils.sanitizeValue(input)).toEqual([
+        [null, 2],
+        [3, null],
+      ]);
     });
 
     it("replaces undefined with null for objects-inside-arrays whose values are all undefined", () => {
@@ -111,11 +127,17 @@ describe("FirestoreDbUtils", () => {
     });
 
     it("passes through defined values in a plain object", () => {
-      expect(utils.sanitizeValue({ a: 1, b: "two" })).toEqual({ a: 1, b: "two" });
+      expect(utils.sanitizeValue({ a: 1, b: "two" })).toEqual({
+        a: 1,
+        b: "two",
+      });
     });
 
     it("strips keys whose values are undefined", () => {
-      const result = utils.sanitizeValue({ keep: "yes", drop: undefined }) as Record<string, unknown>;
+      const result = utils.sanitizeValue({
+        keep: "yes",
+        drop: undefined,
+      }) as Record<string, unknown>;
       expect(result).toEqual({ keep: "yes" });
       expect(result).not.toHaveProperty("drop");
     });

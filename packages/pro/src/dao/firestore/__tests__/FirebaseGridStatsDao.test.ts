@@ -8,7 +8,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { FirestoreGridStatsDao } from "../FirestoreGridStatsDao.js";
+import { FirestoreGridStatsDao } from "../FirebaseGridStatsDao.js";
 import type { Firestore } from "firebase/firestore";
 
 vi.mock("firebase/firestore", () => {

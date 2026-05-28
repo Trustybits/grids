@@ -1,4 +1,6 @@
-import { db, functions, storage } from "../../../infrastructure/firebase.js";
+import type { Firestore } from "firebase/firestore";
+import type { Functions } from "firebase/functions";
+import type { FirebaseStorage } from "firebase/storage";
 import type { BadgeDao } from "@grids/contracts/dao";
 import type { AnalyticsEventDao } from "@grids/contracts/dao";
 import type { BusinessStatsDao } from "@grids/contracts/dao";
@@ -16,18 +18,18 @@ import type { UserDao } from "@grids/contracts/dao";
 import type { UserGameDataDao } from "@grids/contracts/dao";
 import { FirebaseCloudFunctionsDao } from "../FirebaseCloudFunctionsDao.js";
 import { FirebaseStorageDao } from "../FirebaseStorageDao.js";
-import { FirestoreBadgeDao } from "../FirestoreBadgeDao.js";
-import { FirestoreAnalyticsEventDao } from "../FirestoreAnalyticsEventDao.js";
-import { FirestoreBusinessStatsDao } from "../FirestoreBusinessStatsDao.js";
-import { FirestoreChatDao } from "../FirestoreChatDao.js";
-import { FirestoreCustomerDao } from "../FirestoreCustomerDao.js";
-import { FirestoreGridStatsDao } from "../FirestoreGridStatsDao.js";
-import { FirestoreGridDao } from "../FirestoreGridDao.js";
-import { FirestoreRoadmapDao } from "../FirestoreRoadmapDao.js";
-import { FirestoreSlugDao } from "../FirestoreSlugDao.js";
-import { FirestoreUpvoteDao } from "../FirestoreUpvoteDao.js";
-import { FirestoreUserDao } from "../FirestoreUserDao.js";
-import { FirestoreUserGameDataDao } from "../FirestoreUserGameDataDao.js";
+import { FirestoreBadgeDao } from "../FirebaseBadgeDao.js";
+import { FirestoreAnalyticsEventDao } from "../FirebaseAnalyticsEventDao.js";
+import { FirestoreBusinessStatsDao } from "../FirebaseBusinessStatsDao.js";
+import { FirestoreChatDao } from "../FirebaseChatDao.js";
+import { FirestoreCustomerDao } from "../FirebaseCustomerDao.js";
+import { FirestoreGridStatsDao } from "../FirebaseGridStatsDao.js";
+import { FirestoreGridDao } from "../FirebaseGridDao.js";
+import { FirestoreRoadmapDao } from "../FirebaseRoadmapDao.js";
+import { FirestoreSlugDao } from "../FirebaseSlugDao.js";
+import { FirestoreUpvoteDao } from "../FirebaseUpvoteDao.js";
+import { FirestoreUserDao } from "../FirebaseUserDao.js";
+import { FirestoreUserGameDataDao } from "../FirebaseUserGameDataDao.js";
 
 export class FirestoreDaoFactory implements DaoFactory {
   private badgeDao: BadgeDao;
@@ -45,9 +47,18 @@ export class FirestoreDaoFactory implements DaoFactory {
   private userDao: UserDao;
   private userGameDataDao: UserGameDataDao;
 
-  public constructor() {
+  public constructor(deps: {
+    db: Firestore;
+    functions: Functions;
+    storage: FirebaseStorage;
+    viewEndAnalyticsBeaconUrl: string | null;
+  }) {
+    const { db, functions, storage, viewEndAnalyticsBeaconUrl } = deps;
     this.badgeDao = new FirestoreBadgeDao(db);
-    this.analyticsEventDao = new FirestoreAnalyticsEventDao(db);
+    this.analyticsEventDao = new FirestoreAnalyticsEventDao(
+      db,
+      viewEndAnalyticsBeaconUrl,
+    );
     this.businessStatsDao = new FirestoreBusinessStatsDao(db);
     this.chatDao = new FirestoreChatDao(db);
     this.cloudFunctionsDao = new FirebaseCloudFunctionsDao(functions);
@@ -65,7 +76,7 @@ export class FirestoreDaoFactory implements DaoFactory {
   public getBadgeDao(): BadgeDao {
     return this.badgeDao;
   }
-  
+
   public getAnalyticsEventDao(): AnalyticsEventDao {
     return this.analyticsEventDao;
   }

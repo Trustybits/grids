@@ -1,8 +1,8 @@
 import type { AuthProvider } from "@grids/contracts/auth";
 import type { DaoFactory, DbUtils } from "@grids/contracts/dao";
 import { FirebaseAuthProvider } from "../auth/firebase/FirebaseAuthProvider.js";
-import { FirebaseDaoFactory } from "../dao/firestore/factory/FirebaseDaoFactory.js";
-import { FirebaseDbUtils } from "../dao/firestore/FirebaseDbUtils.js";
+import { FirebaseDaoFactory } from "../dao/firebase/factory/FirebaseDaoFactory.js";
+import { FirebaseDbUtils } from "../dao/firebase/FirebaseDbUtils.js";
 import {
   createFirebaseServices,
   type FirebaseEmulatorTarget,

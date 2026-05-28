@@ -303,7 +303,7 @@ watch(() => props.isOpen, (isOpen) => {
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-lg);
-  border-bottom: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-bottom: var(--ui-border-width) solid var(--color-ui-stroke);
 }
 
 .modal-header h2 {
@@ -360,7 +360,7 @@ watch(() => props.isOpen, (isOpen) => {
   display: flex;
   align-items: center;
   background-color: var(--color-content-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border: var(--ui-border-width) solid var(--color-ui-stroke);
   border-radius: var(--radius-sm);
   overflow: hidden;
   transition: border-color var(--duration-fast) var(--easing-smooth);
@@ -432,7 +432,7 @@ watch(() => props.isOpen, (isOpen) => {
   display: flex;
   gap: var(--spacing-sm);
   padding: var(--spacing-lg);
-  border-top: var(--tile-border-width) solid var(--color-tile-stroke);
+  border-top: var(--ui-border-width) solid var(--color-ui-stroke);
 }
 
 @media (max-width: 600px) {

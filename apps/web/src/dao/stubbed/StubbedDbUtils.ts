@@ -1,11 +1,12 @@
 import type { DbUtils } from "@grids/contracts/dao";
+import { sanitizeStubbedValue } from "./StubbedMemoryDatabase";
 
 export class StubbedDbUtils implements DbUtils {
   sanitizeValue(value: unknown): unknown {
-    return value;
+    return sanitizeStubbedValue(value);
   }
 
   serverTimestamp(): unknown {
-    return new Date().toISOString();
+    return new Date();
   }
 }

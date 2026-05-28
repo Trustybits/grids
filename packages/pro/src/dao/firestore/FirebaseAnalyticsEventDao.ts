@@ -20,9 +20,11 @@ let warnedAboutMissingBeaconUrl = false;
 
 export class FirestoreAnalyticsEventDao implements AnalyticsEventDao {
   private db: Firestore;
+  private beaconUrl: string | null;
 
-  public constructor(db: Firestore) {
+  public constructor(db: Firestore, beaconUrl: string | null) {
     this.db = db;
+    this.beaconUrl = beaconUrl;
   }
 
   public async logEvent<T extends AnalyticsEventType>(
@@ -48,12 +50,12 @@ export class FirestoreAnalyticsEventDao implements AnalyticsEventDao {
     if (typeof navigator === "undefined" || !navigator.sendBeacon) return false;
     if (!event.gridId) return false;
 
-    const url = import.meta.env.VITE_VIEW_END_ANALYTICS_BEACON_URL;
+    const url = this.beaconUrl;
     if (!url) {
       if (!warnedAboutMissingBeaconUrl) {
         warnedAboutMissingBeaconUrl = true;
         console.warn(
-          "VITE_VIEW_END_ANALYTICS_BEACON_URL is not set — grid_view_end events on tab close/background will not be recorded.",
+          "View-end analytics beacon URL is not configured — grid_view_end events on tab close/background will not be recorded.",
         );
       }
       return false;

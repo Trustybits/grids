@@ -11,7 +11,7 @@ import {
   where,
   serverTimestamp,
 } from "firebase/firestore";
-import { FirestoreGridDao } from "../FirestoreGridDao.js";
+import { FirestoreGridDao } from "../FirebaseGridDao.js";
 import type { Firestore } from "firebase/firestore";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -65,9 +65,7 @@ describe("FirestoreGridDao", () => {
       };
 
       vi.mocked(doc).mockReturnValue("docRef" as any);
-      vi.mocked(getDoc).mockResolvedValue(
-        fakeSnapshot("grid-1", data) as any,
-      );
+      vi.mocked(getDoc).mockResolvedValue(fakeSnapshot("grid-1", data) as any);
 
       const result = await dao.getById("grid-1");
 

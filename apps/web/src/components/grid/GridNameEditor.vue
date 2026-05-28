@@ -24,9 +24,11 @@
     <Button class="cta-btn" variant="ghost" to="/login" size="sm">
       Login
     </Button>
-    <router-link class="cta-btn cta-btn--icon" to="/showcase" title="Showcase">
-      <ExploreIcon />
-    </router-link>
+    <Button class="cta-btn" variant="ghost" icon-only to="/showcase" size="sm" title="Showcase">
+      <template #icon-left>
+        <ExploreIcon />
+      </template>
+    </Button>
   </div>
 </template>
 
@@ -164,20 +166,4 @@ onUnmounted(() => {
   object-fit: contain;
 }
 
-/* Icon-only button (Explore) — kept as plain router-link */
-.cta-btn--icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  color: var(--color-content-high);
-  flex-shrink: 0;
-  text-decoration: none;
-}
-
-.cta-btn--icon:hover {
-  color: var(--color-text-primary);
-}
 </style>

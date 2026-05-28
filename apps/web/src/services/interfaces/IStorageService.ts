@@ -1,7 +1,7 @@
 import type {
   StorageUploadMetadata,
   StorageUploadTask,
-} from "@/dao/interfaces/StorageDao";
+} from "@grids/contracts/dao";
 import type { UploadOptions } from "@/types/UploadFileTypes";
 
 export interface IStorageService {

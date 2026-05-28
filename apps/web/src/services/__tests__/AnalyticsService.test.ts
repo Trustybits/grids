@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import posthog from "posthog-js";
 import { registerDaoFactory } from "@/dao/DaoFactorySingleton";
 import { AnalyticsService } from "@/services/AnalyticsService";
-import { AnalyticsEventType } from "@/types/Analytics";
-import type { AnalyticsEventDao } from "@/dao/interfaces/AnalyticsEventDao";
-import type { GridStatsDao } from "@/dao/interfaces/GridStatsDao";
-import type { BusinessStatsDao } from "@/dao/interfaces/BusinessStatsDao";
-import type { DaoFactory } from "@/dao/interfaces/factory/DaoFactory";
+import { AnalyticsEventType } from "@grids/contracts/types";
+import type { AnalyticsEventDao } from "@grids/contracts/dao";
+import type { GridStatsDao } from "@grids/contracts/dao";
+import type { BusinessStatsDao } from "@grids/contracts/dao";
+import type { DaoFactory } from "@grids/contracts/dao";
 
 // ── Mock DAOs ────────────────────────────────────────────────────────────
 

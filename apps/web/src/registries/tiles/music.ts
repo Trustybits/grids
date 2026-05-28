@@ -1,4 +1,4 @@
-import { ContentType, type MusicContent } from "@/types/TileContent";
+import { ContentType, type MusicContent } from "@grids/contracts/types";
 import type { TileDefinition } from "@/types/TileDefinition";
 import {
   RESIZE_1x1,

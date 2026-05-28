@@ -1,8 +1,8 @@
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { ContentType } from "@/types/TileContent";
+import { ContentType } from "@grids/contracts/types";
 import { createTileContent } from "@/utils/TileUtils";
-import type { TileContent } from "@/types/TileContent";
+import type { TileContent } from "@grids/contracts/types";
 import { useGridStore } from "@/stores/grid";
 import type { UploadOptions } from "@/types/UploadFileTypes";
 import { v4 as uuidv4 } from "uuid";
@@ -13,7 +13,7 @@ import {
 import type {
   StorageUploadProgress,
   StorageUploadTask,
-} from "@/dao/interfaces/StorageDao";
+} from "@grids/contracts/dao";
 
 export function useFileUpload() {
   const authProvider = getAuthProvider();

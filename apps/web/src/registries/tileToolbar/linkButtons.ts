@@ -1,5 +1,5 @@
 import { markRaw } from "vue";
-import type { LinkContent } from "@/types/TileContent";
+import type { LinkContent } from "@grids/contracts/types";
 import type { ToolbarButton } from "@/types/TileToolbar";
 import ColorIcon from "@/components/icons/toolbar/ColorIcon.vue";
 import MoreDotsIcon from "@/components/icons/toolbar/MoreDotsIcon.vue";

@@ -442,7 +442,7 @@ import { FontSize } from "../../extensions/tiptap/FontSize";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { useGridStore } from "@/stores/grid";
-import { type ProfileBioContent, type AvatarShape } from "@/types/TileContent";
+import { type ProfileBioContent, type AvatarShape } from "@grids/contracts/types";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import {
   getPolygonGeometry,

@@ -2,7 +2,7 @@ import type {
   DailyClickLimit,
   LeaderboardEntry,
   UserGameData,
-} from "@/types/GameData";
+} from "@grids/contracts/types";
 
 export interface IGameDataService {
   getOrCreateUserGameData(userId: string): Promise<UserGameData>;

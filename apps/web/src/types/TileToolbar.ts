@@ -1,5 +1,6 @@
 import type { Component, Ref } from "vue";
-import type { Tile, TileChildComponent } from "./Tile";
+import type { Tile } from "@grids/contracts/types";
+import type { TileChildComponent } from "./Tile";
 import type { useGridStore } from "@/stores/grid";
 
 export interface ToolbarContext {

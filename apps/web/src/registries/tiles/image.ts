@@ -1,4 +1,4 @@
-import { ContentType, type ImageContent } from "@/types/TileContent";
+import { ContentType, type ImageContent } from "@grids/contracts/types";
 import type { TileDefinition } from "@/types/TileDefinition";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/tileToolbar/baseButtons";

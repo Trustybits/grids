@@ -1,15 +1,26 @@
 {
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "npm --workspace apps/web run dev",
-    "dev:emulator": "npm --workspace apps/web run dev:emulator",
-    "emulators": "npm --workspace apps/firebase-functions run build && firebase emulators:start --project grids-one --only ${FIREBASE_EMULATORS:-auth,firestore,functions,storage}",
+    "build:contracts": "npm --workspace @grids/contracts run build",
+    "build:pro": "npm --workspace @grids/pro run build",
+    "build:web-deps": "npm run build:contracts && npm run build:pro",
+    "build:web": "npm --workspace apps/web run build",
+    "build:firebase-functions": "npm --workspace @grids/firebase-functions run build",
+    "build": "npm run build:web && npm run build:firebase-functions",
+    "dev": "npm run build:web-deps && npm --workspace apps/web run dev",
+    "dev:emulator": "npm run build:web-deps && npm --workspace apps/web run dev:emulator",
+    "emulators": "npm --workspace @grids/firebase-functions run build && firebase emulators:start --project grids-one --only ${FIREBASE_EMULATORS:-auth,firestore,functions,storage}",
     "emulators:export": "firebase emulators:export ./emulator-data --project grids-one",
-    "emulators:import": "npm --workspace apps/firebase-functions run build && firebase emulators:start --project grids-one --only ${FIREBASE_EMULATORS:-auth,firestore,functions,storage} --import=./emulator-data --export-on-exit",
-    "lint": "npm --workspace apps/web run lint && npm --workspace apps/firebase-functions run lint",
-    "test": "npm --workspace apps/web run test:run && npm --workspace apps/firebase-functions run test",
-    "type-check": "npm --workspace apps/web run type-check && npm --workspace apps/firebase-functions run type-check",
+    "emulators:import": "npm --workspace @grids/firebase-functions run build && firebase emulators:start --project grids-one --only ${FIREBASE_EMULATORS:-auth,firestore,functions,storage} --import=./emulator-data --export-on-exit",
+    "lint:web-deps": "npm --workspace @grids/contracts run lint && npm --workspace @grids/pro run lint",
+    "lint": "npm run lint:web-deps && npm --workspace apps/web run lint && npm --workspace @grids/firebase-functions run lint",
+    "test": "npm --workspace @grids/pro run test && npm --workspace apps/web run test:run && npm --workspace @grids/firebase-functions run test",
+    "type-check:web-deps": "npm --workspace @grids/contracts run type-check && npm --workspace @grids/pro run type-check",
+    "type-check": "npm run build:web-deps && npm --workspace apps/web run type-check && npm --workspace @grids/firebase-functions run type-check",
     "suite:full": "npm run lint && npm run test && npm run type-check && echo 'Success!'"
   }
 }

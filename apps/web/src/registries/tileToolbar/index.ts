@@ -1,4 +1,4 @@
-import { ContentType } from "@/types/TileContent";
+import { ContentType } from "@grids/contracts/types";
 import type { ToolbarButton } from "@/types/TileToolbar";
 import { getTileDefinition } from "@/registries/tileRegistry";
 import { RESIZE_PRESETS } from "./baseButtons";

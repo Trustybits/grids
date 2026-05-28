@@ -147,7 +147,7 @@
 <script lang="ts">
 import { ref } from "vue";
 import { useGridStore } from "@/stores/grid";
-import { ContentType } from "@/types/TileContent";
+import { ContentType } from "@grids/contracts/types";
 import { createTileContent } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";

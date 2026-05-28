@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProfileBioContent } from "@/types/TileContent";
+import type { ProfileBioContent } from "@grids/contracts/types";
 import {
   DEFAULT_AVATAR_RADIUS,
   DEFAULT_AVATAR_SHAPE,

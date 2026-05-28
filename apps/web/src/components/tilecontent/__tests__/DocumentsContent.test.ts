@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { type DocumentItem } from "@/types/TileContent";
+import { type DocumentItem } from "@grids/contracts/types";
 import { classifyDocumentItem } from "@/utils/DocumentTypeKind";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 

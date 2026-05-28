@@ -14,6 +14,7 @@ import { registerDbUtils } from "@/dao/DbUtilsSingleton";
 import { registerAuthProvider } from "@/auth/AuthProviderSingleton";
 import { registerServiceFactory } from "@/services/ServiceFactorySingleton";
 import { ServiceFactory } from "@/services/factory/ServiceFactory";
+import { loadProRuntime } from "@/pro/loadProRuntime";
 
 import "@fortawesome/fontawesome-free/css/all.css";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -37,9 +38,19 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
 }
 
 (async () => {
-  if (import.meta.env.VITE_USE_FIRESTORE === "true") {
-    await initializeFirestore();
+  const wantFirebase = import.meta.env.VITE_USE_FIREBASE === "true";
+  const proRuntime = wantFirebase ? await loadProRuntime() : null;
+
+  if (wantFirebase && proRuntime) {
+    registerDaoFactory(proRuntime.daoFactory);
+    registerDbUtils(proRuntime.dbUtils);
+    registerAuthProvider(proRuntime.authProvider);
   } else {
+    if (wantFirebase && !proRuntime) {
+      console.warn(
+        "VITE_USE_FIREBASE=true but @grids/pro runtime is unavailable — falling back to stubbed implementations.",
+      );
+    }
     await initializeStubs();
   }
 
@@ -58,17 +69,6 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
 
   app.mount("#app");
 })();
-
-async function initializeFirestore() {
-  const { FirestoreDaoFactory } =
-    await import("@/dao/firestore/factory/FirestoreDaoFactory");
-  registerDaoFactory(new FirestoreDaoFactory());
-  const { FirestoreDbUtils } = await import("@/dao/firestore/FirestoreDbUtils");
-  registerDbUtils(new FirestoreDbUtils());
-  const { FirestoreAuthProvider } =
-    await import("@/auth/firebase/FirestoreAuthProvider");
-  registerAuthProvider(new FirestoreAuthProvider());
-}
 
 async function initializeStubs() {
   const { StubbedDaoFactory } =

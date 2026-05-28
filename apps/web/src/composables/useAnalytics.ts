@@ -3,7 +3,7 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService";
 import { useGridStore } from "@/stores/grid";
-import { AnalyticsEventType } from "@/types/Analytics";
+import { AnalyticsEventType } from "@grids/contracts/types";
 
 /**
  * Tracks an in-progress grid view. One per active session — when the user

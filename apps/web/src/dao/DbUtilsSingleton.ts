@@ -1,4 +1,4 @@
-import type { DbUtils } from "./interfaces/DbUtils";
+import type { DbUtils } from "@grids/contracts/dao";
 
 let instance: DbUtils | null = null;
 

@@ -4,14 +4,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { registerDaoFactory } from '@/dao/DaoFactorySingleton'
 import { registerDbUtils } from '@/dao/DbUtilsSingleton'
-import type { GridDao } from '@/dao/interfaces/GridDao'
-import type { UserDao } from '@/dao/interfaces/UserDao'
-import type { DbUtils } from '@/dao/interfaces/DbUtils'
-import type { DaoFactory } from '@/dao/interfaces/factory/DaoFactory'
-import type { Grid } from '@/types/Grid'
-import type { Tile } from '@/types/Tile'
-import { ContentType } from '@/types/TileContent'
-import type { ChatContent, SuggestionContent } from '@/types/TileContent'
+import type { GridDao } from '@grids/contracts/dao'
+import type { UserDao } from '@grids/contracts/dao'
+import type { DbUtils } from '@grids/contracts/dao'
+import type { DaoFactory } from '@grids/contracts/dao'
+import type { Grid, Tile } from '@grids/contracts/types'
+import { ContentType } from '@grids/contracts/types'
+import type { ChatContent, SuggestionContent } from '@grids/contracts/types'
 
 // ── Mocks for external modules ───────────────────────────────────────────
 

@@ -611,7 +611,7 @@ import {
   watch,
   type ComputedRef,
 } from "vue";
-import { type MusicContent } from "@/types/TileContent";
+import { type MusicContent } from "@grids/contracts/types";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridStore } from "@/stores/grid";
 import MusicPlayIcon from "../icons/media/MusicPlayIcon.vue";

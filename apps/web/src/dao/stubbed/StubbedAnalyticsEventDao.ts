@@ -4,12 +4,18 @@ import type {
   LogEventInput,
 } from "@grids/contracts/dao";
 import type { AnalyticsEventType } from "@grids/contracts/types";
+import { memoryDatabase } from "./StubbedMemoryDatabase";
 
 export class StubbedAnalyticsEventDao implements AnalyticsEventDao {
-  public logEvent<T extends AnalyticsEventType>(
-    _event: LogEventInput<T>,
+  public async logEvent<T extends AnalyticsEventType>(
+    event: LogEventInput<T>,
   ): Promise<void> {
-    throw new Error("Stubbed DAO implementation");
+    const timestamp = new Date();
+    memoryDatabase.analyticsEvents.push({
+      ...event,
+      timestamp,
+      expiresAt: new Date(timestamp.getTime() + 90 * 24 * 60 * 60 * 1000),
+    });
   }
 
   public logGridViewEndEventBeacon(_event: GridViewEndEvent): boolean {

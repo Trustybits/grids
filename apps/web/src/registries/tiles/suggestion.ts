@@ -1,4 +1,4 @@
-import { ContentType, type SuggestionContent } from "@/types/TileContent";
+import { ContentType, type SuggestionContent } from "@grids/contracts/types";
 import type { TileDefinition } from "@/types/TileDefinition";
 
 export const suggestionDefinition: TileDefinition<SuggestionContent> = {

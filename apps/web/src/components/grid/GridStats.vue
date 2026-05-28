@@ -51,7 +51,7 @@
 import { ref, computed, watch, onUnmounted } from "vue";
 import { useGridStore } from "@/stores/grid";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import type { GridStats, DailyGridStats } from "@/types/Analytics";
+import type { GridStats, DailyGridStats } from "@grids/contracts/types";
 import Chevron from "@/components/icons/Chevron.vue";
 import { formatDuration } from "@/utils/RelativeTime";
 

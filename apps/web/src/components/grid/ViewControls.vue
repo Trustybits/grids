@@ -60,7 +60,7 @@
 <script setup lang="ts">
 import { markRaw } from "vue";
 import { useGridStore } from "@/stores/grid";
-import type { Breakpoint } from "@/types/Tile";
+import type { Breakpoint } from "@grids/contracts/types";
 import DeviceDesktopIcon from "@/components/icons/DeviceDesktopIcon.vue";
 import EyeIcon from "@/components/icons/EyeIcon.vue";
 import DeviceTabletIcon from "@/components/icons/DeviceTabletIcon.vue";

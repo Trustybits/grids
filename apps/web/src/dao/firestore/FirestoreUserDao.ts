@@ -6,7 +6,7 @@ import {
   updateDoc,
   onSnapshot,
 } from "firebase/firestore";
-import type { UserDao } from "../interfaces/UserDao";
+import type { UserDao } from "@grids/contracts/dao";
 
 const COLLECTION = "users";
 

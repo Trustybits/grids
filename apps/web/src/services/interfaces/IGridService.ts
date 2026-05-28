@@ -1,4 +1,4 @@
-import type { CopyDepth, Grid } from "@/types/Grid";
+import type { CopyDepth, Grid } from "@grids/contracts/types";
 
 export interface IGridService {
   // ── Core CRUD ───────────────────────────────────────────────────────

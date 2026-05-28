@@ -1,4 +1,4 @@
-import type { DocumentItem } from "@/types/TileContent";
+import type { DocumentItem } from "@grids/contracts/types";
 
 export type DocumentKind = "pdf" | "docx" | "doc" | "md" | "txt" | "other";
 

@@ -12,7 +12,7 @@ import type {
   StorageUploadMetadata,
   StorageUploadProgress,
   StorageUploadTask,
-} from "../interfaces/StorageDao";
+} from "@grids/contracts/dao";
 
 export class FirebaseStorageDao implements StorageDao {
   private storage: FirebaseStorage;

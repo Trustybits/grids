@@ -9,8 +9,8 @@ import type {
   AnalyticsEventDao,
   GridViewEndEvent,
   LogEventInput,
-} from "@/dao/interfaces/AnalyticsEventDao";
-import type { AnalyticsEventType } from "@/types/Analytics";
+} from "@grids/contracts/dao";
+import type { AnalyticsEventType } from "@grids/contracts/types";
 
 const COLLECTION = "analyticsEvents";
 const TTL_DAYS = 90;

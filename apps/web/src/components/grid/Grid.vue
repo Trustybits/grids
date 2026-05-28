@@ -34,7 +34,7 @@ import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
 import GridTile from "./Tile.vue";
 import { useGridStore } from "@/stores/grid";
-import { type Tile, type Breakpoint } from "@/types/Tile";
+import { type Tile, type Breakpoint } from "@grids/contracts/types";
 
 export default {
   components: {

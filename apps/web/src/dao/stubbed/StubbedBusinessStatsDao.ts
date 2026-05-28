@@ -1,5 +1,5 @@
-import type { BusinessStatsDao } from "@/dao/interfaces/BusinessStatsDao";
-import type { BusinessStats, DailyBusinessStats } from "@/types/Analytics";
+import type { BusinessStatsDao } from "@grids/contracts/dao";
+import type { BusinessStats, DailyBusinessStats } from "@grids/contracts/types";
 
 export class StubbedBusinessStatsDao implements BusinessStatsDao {
   public getAggregate(): Promise<BusinessStats | null> {

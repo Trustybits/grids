@@ -1,6 +1,4 @@
-import type { Tile, Breakpoint, TilePosition } from '../types/Tile';
-
-export type { Breakpoint } from '../types/Tile';
+import type { Tile, Breakpoint, TilePosition } from '@grids/contracts/types';
 
 export interface Snapshot {
   tiles: Tile[];

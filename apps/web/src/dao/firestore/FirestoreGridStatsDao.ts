@@ -10,8 +10,8 @@ import {
   where,
   documentId,
 } from "firebase/firestore";
-import type { GridStatsDao } from "@/dao/interfaces/GridStatsDao";
-import type { DailyGridStats, GridStats } from "@/types/Analytics";
+import type { GridStatsDao } from "@grids/contracts/dao";
+import type { DailyGridStats, GridStats } from "@grids/contracts/types";
 
 const COLLECTION = "gridStats";
 

@@ -1,5 +1,5 @@
 import { serverTimestamp } from "firebase/firestore";
-import type { DbUtils } from "../interfaces/DbUtils";
+import type { DbUtils } from "@grids/contracts/dao";
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   if (!value || typeof value !== "object") return false;

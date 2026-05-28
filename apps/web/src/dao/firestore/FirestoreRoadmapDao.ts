@@ -1,8 +1,8 @@
 import type { Functions } from "firebase/functions";
 import { httpsCallable } from "firebase/functions";
-import type { RoadmapDao } from "../interfaces/RoadmapDao";
-import type { FetchRoadmapResult, NotionDatabase } from "@/types/Roadmap";
-import type { RoadmapQueryFilter } from "@/types/TileContent";
+import type { RoadmapDao } from "@grids/contracts/dao";
+import type { FetchRoadmapResult, NotionDatabase } from "@grids/contracts/types";
+import type { RoadmapQueryFilter } from "@grids/contracts/types";
 
 export class FirestoreRoadmapDao implements RoadmapDao {
   private functions: Functions;

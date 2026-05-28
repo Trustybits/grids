@@ -11,8 +11,8 @@ import {
   where,
   serverTimestamp,
 } from "firebase/firestore";
-import type { Grid } from "@/types/Grid";
-import type { GridDao } from "../interfaces/GridDao";
+import type { Grid } from "@grids/contracts/types";
+import type { GridDao } from "@grids/contracts/dao";
 import { mapFirestoreToGrid } from "./FirestoreUtils";
 
 const COLLECTION = "grids";

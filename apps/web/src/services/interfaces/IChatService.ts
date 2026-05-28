@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@/types/TileContent";
+import type { ChatMessage } from "@grids/contracts/types";
 
 export interface IChatService {
   /**

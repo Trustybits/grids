@@ -1,4 +1,4 @@
-import type { CustomerDao } from "@/dao/interfaces/CustomerDao";
+import type { CustomerDao } from "@grids/contracts/dao";
 
 export class StubbedCustomerDao implements CustomerDao {
   public createCheckoutSession(

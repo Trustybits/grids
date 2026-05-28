@@ -1,4 +1,4 @@
-import { ContentType, type YouTubeContent } from "@/types/TileContent";
+import { ContentType, type YouTubeContent } from "@grids/contracts/types";
 import type { TileDefinition } from "@/types/TileDefinition";
 
 export const youtubeDefinition: TileDefinition<YouTubeContent> = {

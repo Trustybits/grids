@@ -2,8 +2,8 @@ import type {
   AnalyticsEventDao,
   GridViewEndEvent,
   LogEventInput,
-} from "@/dao/interfaces/AnalyticsEventDao";
-import type { AnalyticsEventType } from "@/types/Analytics";
+} from "@grids/contracts/dao";
+import type { AnalyticsEventType } from "@grids/contracts/types";
 
 export class StubbedAnalyticsEventDao implements AnalyticsEventDao {
   public logEvent<T extends AnalyticsEventType>(

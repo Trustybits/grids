@@ -1,5 +1,5 @@
 import { computed, toValue, type MaybeRefOrGetter } from "vue";
-import type { Grid } from "@/types/Grid";
+import type { Grid } from "@grids/contracts/types";
 import { valueToDate } from "@/utils/TimeConversion";
 import { formatRelativeSince } from "@/utils/RelativeTime";
 

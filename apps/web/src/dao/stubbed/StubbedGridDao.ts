@@ -1,5 +1,5 @@
-import type { Grid } from "@/types/Grid";
-import type { GridDao } from "@/dao/interfaces/GridDao";
+import type { Grid } from "@grids/contracts/types";
+import type { GridDao } from "@grids/contracts/dao";
 
 export class StubbedGridDao implements GridDao {
   public getById(_id: string): Promise<Grid | null> {

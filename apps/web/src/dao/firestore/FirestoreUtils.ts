@@ -1,4 +1,4 @@
-import type { Grid } from "@/types/Grid";
+import type { Grid } from "@grids/contracts/types";
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 
 // Mapper function to ensure Firestore data matches the Grid type

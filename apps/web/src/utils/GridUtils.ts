@@ -1,5 +1,4 @@
-import type { Tile } from "@/types/Tile";
-import { type Grid } from "@/types/Grid";
+import { type Grid, type Tile } from "@grids/contracts/types";
 
 // Mapper for new grids
 export function createDefaultGrid(userId: string, name: string): Grid {

@@ -1,6 +1,6 @@
 import type { Functions } from "firebase/functions";
 import { httpsCallable } from "firebase/functions";
-import type { CloudFunctionsDao } from "../interfaces/CloudFunctionsDao";
+import type { CloudFunctionsDao } from "@grids/contracts/dao";
 
 export class FirebaseCloudFunctionsDao implements CloudFunctionsDao {
   private functions: Functions;

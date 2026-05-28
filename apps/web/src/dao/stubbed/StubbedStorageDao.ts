@@ -2,7 +2,7 @@ import type {
   StorageDao,
   StorageUploadMetadata,
   StorageUploadTask,
-} from "@/dao/interfaces/StorageDao";
+} from "@grids/contracts/dao";
 
 export class StubbedStorageDao implements StorageDao {
   public upload(

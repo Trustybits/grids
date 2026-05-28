@@ -201,7 +201,8 @@ import {
 } from "vue";
 
 import { GridItem } from "vue3-grid-layout";
-import { type Tile, type TileChildComponent } from "@/types/Tile";
+import { type TileChildComponent } from "@/types/Tile";
+import { type Tile } from "@grids/contracts/types";
 import { useGridStore } from "@/stores/grid";
 import TileCaption from "@/components/tile/TileCaption.vue";
 import {
@@ -214,7 +215,7 @@ import {
   type LinkContent,
   type SuggestionContent,
   type AnyTileContent,
-} from "@/types/TileContent";
+} from "@grids/contracts/types";
 import { getTileDefinition } from "@/registries/tileRegistry";
 
 import TextIcon from "@/components/icons/TextIcon.vue";

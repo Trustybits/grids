@@ -42,8 +42,8 @@ import {
   watch,
   type PropType,
 } from "vue";
-import type { Tile, TileChildComponent } from "@/types/Tile";
-import type { TextContent } from "@/types/TileContent";
+import type { TileChildComponent } from "@/types/Tile";
+import type { Tile, TextContent } from "@grids/contracts/types";
 import AlignLeftIcon from "@/components/icons/toolbar/AlignLeftIcon.vue";
 import AlignCenterIcon from "@/components/icons/toolbar/AlignCenterIcon.vue";
 import AlignRightIcon from "@/components/icons/toolbar/AlignRightIcon.vue";

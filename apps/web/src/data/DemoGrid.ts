@@ -20,11 +20,10 @@
 //   • Tile IDs are stable for the lifetime of the grid instance so the
 //     overrides correctly map onto the same tiles.
 
-import type { Grid } from "@/types/Grid";
-import type { Breakpoint, TilePosition } from "@/types/Tile";
+import type { Grid, Breakpoint, TilePosition } from "@grids/contracts/types";
 import { createDefaultGrid } from "@/utils/GridUtils";
 import { createTile } from "@/utils/TileUtils";
-import { ContentType } from "@/types/TileContent";
+import { ContentType } from "@grids/contracts/types";
 import heroGif from "@/assets/images/hero.gif";
 
 export const DEMO_GRID_ID = "__homepage_demo__";

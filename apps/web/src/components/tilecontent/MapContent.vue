@@ -43,7 +43,7 @@ import planeIcon from "@/assets/images/plane.png";
 import planeShadow from "@/assets/images/planeshadow.png";
 import { useGridStore } from "@/stores/grid";
 import { useThemeStore } from "@/stores/theme";
-import { type MapContent, type MapStyleMode } from "@/types/TileContent";
+import { type MapContent, type MapStyleMode } from "@grids/contracts/types";
 
 type MapStylePreset = {
   style: string;

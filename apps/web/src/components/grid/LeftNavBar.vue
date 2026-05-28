@@ -53,7 +53,7 @@ import { useRoute } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@grids/contracts/auth";
 import { useGridStore } from "@/stores/grid";
-import type { Grid } from "@/types/Grid";
+import type { Grid } from "@grids/contracts/types";
 import { valueToMillis } from "@/utils/TimeConversion";
 
 export default defineComponent({

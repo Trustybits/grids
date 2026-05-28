@@ -1,4 +1,6 @@
 export * from "./Analytics.js";
+export * from "./Badge.js";
+export * from "./GameData.js";
 export * from "./Grid.js";
 export * from "./Roadmap.js";
 export * from "./Tile.js";

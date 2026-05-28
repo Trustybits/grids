@@ -1,4 +1,4 @@
-import type { UserBadges } from "@/types/Badge";
+import type { UserBadges } from "@grids/contracts/types";
 import type { IBadgeService } from "../interfaces/IBadgeService";
 
 export class MockBadgeService implements IBadgeService {

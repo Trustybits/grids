@@ -3,8 +3,8 @@ import { type Functions, httpsCallable } from "firebase/functions";
 import type {
   SlugAvailabilityResponse,
   SlugClaimResponse,
-} from "@/types/UserProfile";
-import type { SlugDao } from "../interfaces/SlugDao";
+} from "@grids/contracts/types";
+import type { SlugDao } from "@grids/contracts/dao";
 
 const COLLECTION = "slugs";
 

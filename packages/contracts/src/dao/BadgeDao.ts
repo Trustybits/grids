@@ -1,3 +1,5 @@
+import type { UserBadges } from "../types/Badge.js";
+
 /**
  * BadgeDao — read-only access to the public `userBadges/{userId}` collection.
  *
@@ -7,7 +9,7 @@
  */
 export interface BadgeDao {
   /** Get a user's badges document, or null if they haven't earned any badges. */
-  getById(userId: string): Promise<Record<string, unknown> | null>;
+  getById(userId: string): Promise<UserBadges | null>;
 
   /**
    * Subscribe to real-time changes on a user's badges document.
@@ -16,6 +18,6 @@ export interface BadgeDao {
    */
   subscribe(
     userId: string,
-    callback: (data: Record<string, unknown> | null) => void,
+    callback: (data: UserBadges | null) => void,
   ): () => void;
 }

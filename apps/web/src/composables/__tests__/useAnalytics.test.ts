@@ -18,8 +18,8 @@ import {
   afterEach,
 } from "vitest";
 import { onMounted, onBeforeUnmount } from "vue";
-import { AnalyticsEventType } from "@/types/Analytics";
-import type { LogEventInput } from "@/dao/interfaces/AnalyticsEventDao";
+import { AnalyticsEventType } from "@grids/contracts/types";
+import type { LogEventInput } from "@grids/contracts/dao";
 
 // ── Hoisted mock state ──────────────────────────────────────────────────
 

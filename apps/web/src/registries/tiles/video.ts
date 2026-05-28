@@ -1,4 +1,4 @@
-import { ContentType, type VideoContent } from "@/types/TileContent";
+import { ContentType, type VideoContent } from "@grids/contracts/types";
 import type { TileDefinition } from "@/types/TileDefinition";
 import { isDirectVideoUrl } from "@/utils/TileUtils";
 import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/tileToolbar/baseButtons";

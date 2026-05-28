@@ -19,7 +19,7 @@ import {
   validateTileContent,
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
-import { ContentType } from "@/types/TileContent";
+import { ContentType } from "@grids/contracts/types";
 import type {
   TextContent,
   ImageContent,
@@ -30,7 +30,7 @@ import type {
   ProfileBioContent,
   CampfireContent,
   EmbedContent,
-} from "@/types/TileContent";
+} from "@grids/contracts/types";
 
 // TileUtils imports useThemeStore at module level but never calls it in the
 // functions under test. Mock it to avoid Pinia "no active instance" errors.

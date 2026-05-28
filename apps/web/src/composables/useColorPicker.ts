@@ -8,7 +8,7 @@ import type {
   VideoContent,
   LinkContent,
   DocumentsContent,
-} from "@/types/TileContent";
+} from "@grids/contracts/types";
 import { computed, watch, type ComputedRef } from "vue";
 
 type ColorPickerContent =

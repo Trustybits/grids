@@ -1,8 +1,8 @@
-import type { SlugDao } from "@/dao/interfaces/SlugDao";
+import type { SlugDao } from "@grids/contracts/dao";
 import type {
   SlugAvailabilityResponse,
   SlugClaimResponse,
-} from "@/types/UserProfile";
+} from "@grids/contracts/types";
 
 export class StubbedSlugDao implements SlugDao {
   public getBySlug(_slug: string): Promise<Record<string, unknown> | null> {

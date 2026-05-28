@@ -27,4 +27,7 @@ export type {
 } from "./StorageDao.js";
 export type { UpvoteDao } from "./UpvoteDao.js";
 export type { UserDao } from "./UserDao.js";
-export type { UserGameDataDao } from "./UserGameDataDao.js";
+export type {
+  UserGameDataDao,
+  UserGameDataInput,
+} from "./UserGameDataDao.js";

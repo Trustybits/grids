@@ -1,6 +1,5 @@
 import type { Component } from "vue";
-import type { ContentType, TileContent } from "./TileContent";
-import type { Tile } from "./Tile";
+import type { ContentType, Tile, TileContent } from "@grids/contracts/types";
 import type { ToolbarButton, ToolbarContext } from "./TileToolbar";
 
 export type TileCategory =

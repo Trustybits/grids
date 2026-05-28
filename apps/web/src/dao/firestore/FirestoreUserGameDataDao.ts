@@ -14,9 +14,57 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
-import type { UserGameDataDao } from "../interfaces/UserGameDataDao";
+import type {
+  UserGameDataDao,
+  UserGameDataInput,
+} from "@grids/contracts/dao";
+import type {
+  LeaderboardEntry,
+  UserGameData,
+} from "@grids/contracts/types";
 
 const COLLECTION = "userGameData";
+
+function toDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if (
+    value &&
+    typeof value === "object" &&
+    "toDate" in value &&
+    typeof (value as { toDate: unknown }).toDate === "function"
+  ) {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  return new Date();
+}
+
+function snapshotToUserGameData(
+  userId: string,
+  data: Record<string, unknown>,
+): UserGameData {
+  return {
+    userId,
+    displayName: (data.displayName as string) ?? "",
+    totalClicks: (data.totalClicks as number) ?? 0,
+    createdAt: toDate(data.createdAt),
+    updatedAt: toDate(data.updatedAt),
+    dailyClicks: data.dailyClicks as number | undefined,
+    lastClickDate: data.lastClickDate as string | undefined,
+    passiveBoost: data.passiveBoost as number | undefined,
+    totalPassiveClicks: data.totalPassiveClicks as number | undefined,
+  };
+}
+
+function snapshotToLeaderboardEntry(
+  userId: string,
+  data: Record<string, unknown>,
+): LeaderboardEntry {
+  return {
+    userId,
+    displayName: (data.displayName as string) ?? "",
+    totalClicks: (data.totalClicks as number) ?? 0,
+  };
+}
 
 export class FirestoreUserGameDataDao implements UserGameDataDao {
   private db: Firestore;
@@ -25,16 +73,16 @@ export class FirestoreUserGameDataDao implements UserGameDataDao {
     this.db = db;
   }
 
-  public async getById(userId: string): Promise<Record<string, unknown> | null> {
+  public async getById(userId: string): Promise<UserGameData | null> {
     const docRef = doc(this.db, COLLECTION, userId);
     const snapshot = await getDoc(docRef);
     if (!snapshot.exists()) return null;
-    return snapshot.data() as Record<string, unknown>;
+    return snapshotToUserGameData(userId, snapshot.data());
   }
 
   public async create(
     userId: string,
-    data: Record<string, unknown>,
+    data: UserGameDataInput,
   ): Promise<void> {
     const docRef = doc(this.db, COLLECTION, userId);
     await setDoc(docRef, {
@@ -46,7 +94,7 @@ export class FirestoreUserGameDataDao implements UserGameDataDao {
 
   public async update(
     userId: string,
-    data: Record<string, unknown>,
+    data: UserGameDataInput,
   ): Promise<void> {
     const docRef = doc(this.db, COLLECTION, userId);
     await updateDoc(docRef, {
@@ -110,14 +158,14 @@ export class FirestoreUserGameDataDao implements UserGameDataDao {
 
   public subscribe(
     userId: string,
-    callback: (data: Record<string, unknown> | null) => void,
+    callback: (data: UserGameData | null) => void,
   ): () => void {
     const docRef = doc(this.db, COLLECTION, userId);
     return onSnapshot(
       docRef,
       (snapshot) => {
         if (snapshot.exists()) {
-          callback(snapshot.data() as Record<string, unknown>);
+          callback(snapshotToUserGameData(userId, snapshot.data()));
         } else {
           callback(null);
         }
@@ -128,25 +176,23 @@ export class FirestoreUserGameDataDao implements UserGameDataDao {
     );
   }
 
-  public async getLeaderboard(
-    topN: number,
-  ): Promise<Array<Record<string, unknown>>> {
+  public async getLeaderboard(topN: number): Promise<LeaderboardEntry[]> {
     const q = query(
       collection(this.db, COLLECTION),
       orderBy("totalClicks", "desc"),
       limit(topN),
     );
     const snapshot = await getDocs(q);
-    const entries: Array<Record<string, unknown>> = [];
+    const entries: LeaderboardEntry[] = [];
     snapshot.forEach((d) => {
-      entries.push({ id: d.id, ...d.data() });
+      entries.push(snapshotToLeaderboardEntry(d.id, d.data()));
     });
     return entries;
   }
 
   public subscribeToLeaderboard(
     topN: number,
-    callback: (entries: Array<Record<string, unknown>>) => void,
+    callback: (entries: LeaderboardEntry[]) => void,
   ): () => void {
     const q = query(
       collection(this.db, COLLECTION),
@@ -156,9 +202,9 @@ export class FirestoreUserGameDataDao implements UserGameDataDao {
     return onSnapshot(
       q,
       (snapshot) => {
-        const entries: Array<Record<string, unknown>> = [];
+        const entries: LeaderboardEntry[] = [];
         snapshot.forEach((d) => {
-          entries.push({ id: d.id, ...d.data() });
+          entries.push(snapshotToLeaderboardEntry(d.id, d.data()));
         });
         callback(entries);
       },

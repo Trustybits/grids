@@ -9,7 +9,7 @@ import {
   serverTimestamp,
   where,
 } from "firebase/firestore";
-import type { CustomerDao } from "../interfaces/CustomerDao";
+import type { CustomerDao } from "@grids/contracts/dao";
 
 export class FirestoreCustomerDao implements CustomerDao {
   private db: Firestore;

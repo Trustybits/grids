@@ -1,5 +1,5 @@
-import type { FetchRoadmapResult, NotionDatabase } from "@/types/Roadmap";
-import type { RoadmapQueryFilter } from "@/types/TileContent";
+import type { FetchRoadmapResult, NotionDatabase } from "@grids/contracts/types";
+import type { RoadmapQueryFilter } from "@grids/contracts/types";
 import type { IRoadmapService } from "../interfaces/IRoadmapService";
 
 export class MockRoadmapService implements IRoadmapService {

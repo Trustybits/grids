@@ -227,7 +227,7 @@ import {
   watch,
 } from "vue";
 import type { PropType } from "vue";
-import type { DocumentItem } from "@/types/TileContent";
+import type { DocumentItem } from "@grids/contracts/types";
 import DocumentTileIcon from "@/components/icons/DocumentTileIcon.vue";
 import CloseIcon from "@/components/icons/tile-actionbar/CloseIcon.vue";
 import TwoPageIcon from "@/components/icons/tile-actionbar/TwoPageIcon.vue";

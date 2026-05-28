@@ -1,4 +1,4 @@
-import type { CloudFunctionsDao } from "@/dao/interfaces/CloudFunctionsDao";
+import type { CloudFunctionsDao } from "@grids/contracts/dao";
 
 export class StubbedCloudFunctionsDao implements CloudFunctionsDao {
   public callFunction<TRequest = unknown, TResponse = unknown>(

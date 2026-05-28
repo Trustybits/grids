@@ -199,8 +199,8 @@ import {
   type Ref,
   type Component,
 } from "vue";
-import type { Tile, TileChildComponent } from "@/types/Tile";
-import type { TextContent } from "@/types/TileContent";
+import type { TileChildComponent } from "@/types/Tile";
+import type { Tile, TextContent } from "@grids/contracts/types";
 import type {
   ToolbarButton,
   ToolbarMenuItem,

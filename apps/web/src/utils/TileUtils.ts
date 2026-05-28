@@ -1,12 +1,12 @@
-import { type Tile } from "@/types/Tile";
 import {
   ContentType,
+  type Tile,
   type TileContent,
   type YouTubeContent,
   type MusicContent,
   type MusicPlatform,
   type AnyTileContent,
-} from "@/types/TileContent";
+} from "@grids/contracts/types";
 import { type Component, defineAsyncComponent, markRaw } from "vue";
 import { getTileDefinition } from "@/registries/tileRegistry";
 

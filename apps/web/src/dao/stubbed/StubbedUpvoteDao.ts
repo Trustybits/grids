@@ -1,4 +1,4 @@
-import type { UpvoteDao } from "@/dao/interfaces/UpvoteDao";
+import type { UpvoteDao } from "@grids/contracts/dao";
 
 export class StubbedUpvoteDao implements UpvoteDao {
   public subscribeToUserUpvotes(

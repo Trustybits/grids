@@ -1,4 +1,4 @@
-import { ContentType, type EmbedContent } from "@/types/TileContent";
+import { ContentType, type EmbedContent } from "@grids/contracts/types";
 import type { TileDefinition } from "@/types/TileDefinition";
 import { RESIZE_PRESETS, BORDER_TOGGLE } from "@/registries/tileToolbar/baseButtons";
 import { normalizeEmbedSrc } from "@/utils/TileUtils";

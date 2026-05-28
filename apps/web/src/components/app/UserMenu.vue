@@ -132,7 +132,7 @@ import {
   ContentType,
   type AvatarShape,
   type ProfileBioContent,
-} from "@/types/TileContent";
+} from "@grids/contracts/types";
 import {
   DEFAULT_AVATAR_RADIUS,
   DEFAULT_AVATAR_SHAPE,

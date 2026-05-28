@@ -1,5 +1,5 @@
-import type { GridStatsDao } from "@/dao/interfaces/GridStatsDao";
-import type { DailyGridStats, GridStats } from "@/types/Analytics";
+import type { GridStatsDao } from "@grids/contracts/dao";
+import type { DailyGridStats, GridStats } from "@grids/contracts/types";
 
 export class StubbedGridStatsDao implements GridStatsDao {
   public getAggregate(_gridId: string): Promise<GridStats | null> {

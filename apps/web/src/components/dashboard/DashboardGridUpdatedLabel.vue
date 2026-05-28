@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Grid } from "@/types/Grid";
+import type { Grid } from "@grids/contracts/types";
 import { useDashboardGridUpdated } from "@/composables/useDashboardGridUpdated";
 
 const props = defineProps<{

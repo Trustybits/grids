@@ -9,8 +9,8 @@ import {
   query,
   updateDoc,
 } from "firebase/firestore";
-import type { ChatDao } from "../interfaces/ChatDao";
-import type { ChatMessage } from "@/types/TileContent";
+import type { ChatDao } from "@grids/contracts/dao";
+import type { ChatMessage } from "@grids/contracts/types";
 
 export class FirestoreChatDao implements ChatDao {
   private db: Firestore;

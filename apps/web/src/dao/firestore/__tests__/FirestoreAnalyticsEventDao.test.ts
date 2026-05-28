@@ -6,7 +6,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { FirestoreAnalyticsEventDao } from "../FirestoreAnalyticsEventDao";
-import { AnalyticsEventType } from "@/types/Analytics";
+import { AnalyticsEventType } from "@grids/contracts/types";
 import type { Firestore } from "firebase/firestore";
 
 // Extend the global firestore mock from setup.ts with `Timestamp`, which

@@ -247,7 +247,7 @@ import {
   watch,
 } from "vue";
 
-import { type LinkContent } from "@/types/TileContent";
+import { type LinkContent } from "@grids/contracts/types";
 import { useGridStore } from "@/stores/grid";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";

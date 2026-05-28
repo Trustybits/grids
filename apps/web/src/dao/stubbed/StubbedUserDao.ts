@@ -1,4 +1,4 @@
-import type { UserDao } from "@/dao/interfaces/UserDao";
+import type { UserDao } from "@grids/contracts/dao";
 
 export class StubbedUserDao implements UserDao {
   public getById(_userId: string): Promise<Record<string, unknown> | null> {

@@ -10,8 +10,8 @@ import {
   where,
   documentId,
 } from "firebase/firestore";
-import type { BusinessStatsDao } from "@/dao/interfaces/BusinessStatsDao";
-import type { BusinessStats, DailyBusinessStats } from "@/types/Analytics";
+import type { BusinessStatsDao } from "@grids/contracts/dao";
+import type { BusinessStats, DailyBusinessStats } from "@grids/contracts/types";
 
 const COLLECTION = "businessStats";
 const AGGREGATE_DOC_ID = "global";

@@ -108,27 +108,26 @@ const handleClick = (event: MouseEvent) => {
 
 <style lang="scss" scoped>
 .ui-btn {
-  --btn-padding-x: var(--spacing-lg);
-  --btn-font-size: 14px;
-  --btn-radius: var(--radius-sm);
-
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
-  padding: 0 var(--btn-padding-x);
-  font-size: var(--btn-font-size);
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
   font-weight: var(--font-weight-medium);
   font-family: var(--font-family-base);
   line-height: 1;
-  border-radius: var(--btn-radius);
-  border: var(--button-border-width) solid transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  outline: var(--button-border-width) solid transparent;
+  outline-offset: 0;
   cursor: pointer;
   text-decoration: none;
   white-space: nowrap;
   transition:
     background-color var(--duration-fast) var(--easing-smooth),
-    border-color var(--duration-fast) var(--easing-smooth),
+    outline-color var(--duration-fast) var(--easing-smooth),
     color var(--duration-fast) var(--easing-smooth),
     opacity var(--duration-fast) var(--easing-smooth);
 
@@ -139,25 +138,22 @@ const handleClick = (event: MouseEvent) => {
 
   // ─── Sizes ───────────────────────────────────────────────────
   &--sm {
-    --btn-height: 32px;
-    --btn-padding-x: 12px;
-    --btn-font-size: 13px;
-    height: var(--btn-height);
+    height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
   }
 
   &--md {
-    --btn-height: 36px;
-    --btn-padding-x: var(--spacing-md);
-    --btn-font-size: 14px;
-    height: var(--btn-height);
+    height: 36px;
+    padding: 0 16px;
+    font-size: 14px;
     font-weight: var(--font-weight-semibold);
   }
 
   &--lg {
-    --btn-height: 40px;
-    --btn-padding-x: 16px;
-    --btn-font-size: 15px;
-    height: var(--btn-height);
+    height: 40px;
+    padding: 0 20px;
+    font-size: 15px;
     font-weight: var(--font-weight-semibold);
   }
 
@@ -165,7 +161,6 @@ const handleClick = (event: MouseEvent) => {
 
   &--primary {
     background-color: var(--primary-color, var(--color-content-high));
-    border-color: transparent;
     color: var(--color-text-primary);
 
     &:hover:not(.ui-btn--disabled) {
@@ -174,22 +169,19 @@ const handleClick = (event: MouseEvent) => {
   }
 
   &--secondary {
-    background-color: color-mix(in srgb, var(--color-content-background) 95%, transparent);
-    border-color: var(--color-ui-stroke);
+    background-color: color-mix(in srgb, var(--color-content-background) 89%, transparent);
+    outline-color: var(--color-ui-stroke);
     color: var(--color-text-primary);
-    // backdrop-filter: blur(4px) brightness(0.6);
 
     &:hover:not(.ui-btn--disabled) {
       background-color: var(--color-content-background);
-      border-color: var(--color-content-high);
+      outline-color: var(--color-content-high);
     }
   }
 
   &--ghost {
-    background-color: color-mix(in srgb, var(--color-content-background) 95%, transparent);
-    border-color: transparent;
+    background-color: color-mix(in srgb, var(--color-content-background) 89%, transparent);
     color: var(--color-text-primary);
-    // backdrop-filter: blur(4px) brightness(0.6);
 
     &:hover:not(.ui-btn--disabled) {
       color: var(--color-text-primary);
@@ -199,7 +191,6 @@ const handleClick = (event: MouseEvent) => {
 
   &--danger {
     background-color: var(--color-figma-red);
-    border-color: transparent;
     color: #fff;
 
     &:hover:not(.ui-btn--disabled) {
@@ -209,7 +200,6 @@ const handleClick = (event: MouseEvent) => {
 
   &--brand {
     background: var(--mkt-brand-gradient, var(--color-figma-purple));
-    border: 0;
     color: #000;
     font-weight: var(--font-weight-bold);
     letter-spacing: -0.01em;
@@ -221,21 +211,20 @@ const handleClick = (event: MouseEvent) => {
 
   &--outline {
     background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    outline-color: rgba(255, 255, 255, 0.22);
     color: var(--mkt-fg-1, var(--color-text-primary));
     font-weight: var(--font-weight-semibold);
     letter-spacing: -0.01em;
 
     &:hover:not(.ui-btn--disabled) {
-      border-color: rgba(255, 255, 255, 0.35);
+      outline-color: rgba(255, 255, 255, 0.35);
       background: rgba(255, 255, 255, 0.04);
     }
   }
 
   // ─── Icon-only ─────────────────────────────────────────────
   &--icon-only {
-    --btn-padding-x: 0;
-    width: var(--btn-height);
+    padding: 0;
     aspect-ratio: 1;
     flex-shrink: 0;
 

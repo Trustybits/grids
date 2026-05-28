@@ -147,8 +147,7 @@ onUnmounted(() => {
 .cta-buttons {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-  overflow: hidden;
+  gap: var(--spacing-sm);
   flex-shrink: 1;
   min-width: 0;
 }

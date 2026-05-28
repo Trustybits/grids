@@ -1,5 +1,5 @@
 import { markRaw } from "vue";
-import type { TextContent } from "@/types/TileContent";
+import type { TextContent } from "@grids/contracts/types";
 import type { ToolbarButton, ToolbarContext } from "@/types/TileToolbar";
 import TextAlignIcon from "@/components/icons/toolbar/TextAlignIcon.vue";
 import MoreDotsIcon from "@/components/icons/toolbar/MoreDotsIcon.vue";

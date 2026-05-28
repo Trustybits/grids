@@ -1,8 +1,8 @@
-import type { UserBadges } from "@/types/Badge";
+import type { UserBadges } from "@grids/contracts/types";
 
 /**
  * Read-only badge service. Badges are granted server-side only — there are
- * no `grant`/`revoke` methods on the client API. See `@/types/Badge.ts`.
+ * no `grant`/`revoke` methods on the client API. See `@grids/contracts/types.ts`.
  */
 export interface IBadgeService {
   /** Fetch a user's badges, or null if they have no badges document. */

@@ -1,32 +1,69 @@
-import type { CustomerDao } from "@/dao/interfaces/CustomerDao";
+import type { CustomerDao } from "@grids/contracts/dao";
+import {
+  channel,
+  createId,
+  emit,
+  memoryDatabase,
+  subscribeToValue,
+} from "./StubbedMemoryDatabase";
 
 export class StubbedCustomerDao implements CustomerDao {
-  public createCheckoutSession(
-    _userId: string,
-    _config: Record<string, unknown>,
+  public async createCheckoutSession(
+    userId: string,
+    config: Record<string, unknown>,
   ): Promise<string> {
-    throw new Error("Stubbed DAO implementation");
+    const sessionId = createId("checkout");
+    const successUrl =
+      typeof config.success_url === "string"
+        ? config.success_url
+        : this.localUrl("/dashboard");
+    memoryDatabase.checkoutSessions.set(`${userId}/${sessionId}`, {
+      ...config,
+      id: sessionId,
+      url: successUrl,
+      created: new Date(),
+    });
+    emit(channel("checkout", userId, sessionId));
+    return sessionId;
   }
 
   public subscribeToCheckoutSession(
-    _userId: string,
-    _sessionId: string,
-    _callback: (data: Record<string, unknown> | null) => void,
+    userId: string,
+    sessionId: string,
+    callback: (data: Record<string, unknown> | null) => void,
   ): () => void {
-    throw new Error("Stubbed DAO implementation");
+    return subscribeToValue(
+      channel("checkout", userId, sessionId),
+      () =>
+        memoryDatabase.checkoutSessions.get(`${userId}/${sessionId}`) ?? null,
+      callback,
+    );
   }
 
   public subscribeToActiveSubscriptions(
-    _userId: string,
-    _callback: (subscriptions: Array<Record<string, unknown>>) => void,
+    userId: string,
+    callback: (subscriptions: Array<Record<string, unknown>>) => void,
   ): () => void {
-    throw new Error("Stubbed DAO implementation");
+    return subscribeToValue(
+      channel("subscriptions", userId),
+      () => memoryDatabase.subscriptions.get(userId) ?? [],
+      callback,
+    );
   }
 
   public subscribeToPayments(
-    _userId: string,
-    _callback: (payments: Array<Record<string, unknown>>) => void,
+    userId: string,
+    callback: (payments: Array<Record<string, unknown>>) => void,
   ): () => void {
-    throw new Error("Stubbed DAO implementation");
+    return subscribeToValue(
+      channel("payments", userId),
+      () => memoryDatabase.payments.get(userId) ?? [],
+      callback,
+    );
+  }
+
+  private localUrl(path: string): string {
+    if (typeof window === "undefined") return path;
+    return `${window.location.origin}${path}`;
   }
 }

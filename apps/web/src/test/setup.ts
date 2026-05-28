@@ -2,87 +2,20 @@
  * Global test setup — runs before every test file.
  *
  * Responsibilities:
- *  1. Mock Firebase so tests never hit real Firestore / Auth / Functions
- *  2. Provide a minimal Pinia instance so stores can be used in tests
+ *  1. Provide a minimal Pinia instance so stores can be used in tests
+ *  2. Mock Vue Router and PostHog so composables that depend on them work
+ *     in isolation
  *  3. Silence noisy console output that isn't relevant to test results
+ *
+ * Firebase mocks live in @grids/pro's own test setup — the Firestore and
+ * Firebase Auth implementations were moved into that package, and no source
+ * file under apps/web/src imports `firebase/*` or `@/infrastructure/firebase`
+ * anymore, so mocking those here would be dead configuration.
  */
 
 import { vi, beforeEach, afterEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import '@/registries/tiles'
-
-// ── Firebase Auth mock ─────────────────────────────────────────────────────
-vi.mock('firebase/auth', () => ({
-  getAuth: vi.fn(() => ({ currentUser: null })),
-  connectAuthEmulator: vi.fn(),
-  onAuthStateChanged: vi.fn((_auth, callback) => {
-    callback(null)
-    return vi.fn() // unsubscribe fn
-  }),
-  signInWithEmailAndPassword: vi.fn(),
-  createUserWithEmailAndPassword: vi.fn(),
-  signOut: vi.fn(),
-  GoogleAuthProvider: vi.fn(),
-  signInWithPopup: vi.fn(),
-}))
-
-// ── Firebase Firestore mock ────────────────────────────────────────────────
-vi.mock('firebase/firestore', () => ({
-  getFirestore: vi.fn(),
-  connectFirestoreEmulator: vi.fn(),
-  doc: vi.fn(),
-  getDoc: vi.fn(),
-  setDoc: vi.fn(),
-  updateDoc: vi.fn(),
-  deleteDoc: vi.fn(),
-  collection: vi.fn(),
-  query: vi.fn(),
-  where: vi.fn(),
-  getDocs: vi.fn(),
-  serverTimestamp: vi.fn(() => new Date()),
-  onSnapshot: vi.fn(),
-  limit: vi.fn(),
-  orderBy: vi.fn(),
-  addDoc: vi.fn(),
-  writeBatch: vi.fn(() => ({
-    set: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    commit: vi.fn(),
-  })),
-}))
-
-// ── Firebase Functions mock ────────────────────────────────────────────────
-vi.mock('firebase/functions', () => ({
-  getFunctions: vi.fn(),
-  httpsCallable: vi.fn(() => vi.fn()),
-  connectFunctionsEmulator: vi.fn(),
-}))
-
-// ── Firebase Storage mock ──────────────────────────────────────────────────
-vi.mock('firebase/storage', () => ({
-  getStorage: vi.fn(),
-  connectStorageEmulator: vi.fn(),
-  ref: vi.fn(),
-  uploadBytes: vi.fn(),
-  getDownloadURL: vi.fn(),
-  deleteObject: vi.fn(),
-}))
-
-// ── Firebase App mock ─────────────────────────────────────────────────────
-vi.mock('firebase/app', () => ({
-  initializeApp: vi.fn(() => ({})),
-  getApp: vi.fn(() => ({})),
-}))
-
-// ── @/infrastructure/firebase module mock (re-exports Firebase instances) ──
-vi.mock('@/infrastructure/firebase', () => ({
-  auth: { currentUser: null },
-  db: {},
-  functions: {},
-  storage: {},
-  app: {},
-}))
 
 // ── Vue Router mock ────────────────────────────────────────────────────────
 vi.mock('vue-router', () => ({

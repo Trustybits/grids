@@ -209,7 +209,7 @@ import {
   watch,
   type ComputedRef,
 } from "vue";
-import type { DocumentsContent as DocumentsContentType } from "@/types/TileContent";
+import type { DocumentsContent as DocumentsContentType } from "@grids/contracts/types";
 import { useGridStore } from "@/stores/grid";
 import FileIcon from "@/components/icons/FileIcon.vue";
 import FolderIcon from "@/components/icons/FolderIcon.vue";

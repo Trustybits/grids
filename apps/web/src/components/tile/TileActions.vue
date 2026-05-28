@@ -76,8 +76,7 @@ import {
   type PropType,
   type Ref,
 } from "vue";
-import type { Tile } from "@/types/Tile";
-import { ContentType } from "@/types/TileContent";
+import { ContentType, type Tile } from "@grids/contracts/types";
 import { getTileDefinition } from "@/registries/tileRegistry";
 import { useGridStore } from "@/stores/grid";
 import { useToastStore } from "@/stores/toast";

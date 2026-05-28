@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { type Grid, type CopyDepth } from "@/types/Grid";
+import { type Grid, type CopyDepth } from "@grids/contracts/types";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import {
   ContentType,
@@ -8,8 +8,8 @@ import {
   type LinkContent,
   type DocumentsContent,
   type DocumentItem,
-} from "@/types/TileContent";
-import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
+} from "@grids/contracts/types";
+import type { Breakpoint, TilePosition, Tile } from "@grids/contracts/types";
 import { v4 as uuidv4 } from "uuid";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { createTile } from "@/utils/TileUtils";
@@ -24,7 +24,7 @@ import { useToastStore } from "@/stores/toast";
 import { useThemeStore } from "@/stores/theme";
 import { UndoRedoManager } from "@/undo/UndoRedoManager";
 import type { Snapshot } from "@/undo/UndoTypes";
-import { AnalyticsEventType } from "@/types/Analytics";
+import { AnalyticsEventType } from "@grids/contracts/types";
 
 // Lazy accessor — don't resolve the service at module load because main.ts
 // registers the service factory in an async IIFE that runs AFTER static imports.

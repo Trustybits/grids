@@ -129,7 +129,7 @@ import CloseIcon from "@/components/icons/tile-actionbar/CloseIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridStore } from "@/stores/grid";
-import type { ChatContent, ChatMessage } from "@/types/TileContent";
+import type { ChatContent, ChatMessage } from "@grids/contracts/types";
 
 export default defineComponent({
   components: {

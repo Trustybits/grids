@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@/types/TileContent";
+import type { ChatMessage } from "@grids/contracts/types";
 import type { IChatService } from "../interfaces/IChatService";
 
 export class MockChatService implements IChatService {

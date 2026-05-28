@@ -5,7 +5,7 @@ import {
   createTileContent,
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
-import { ContentType } from "@/types/TileContent";
+import { ContentType } from "@grids/contracts/types";
 import { classifyFileForUpload } from "@/utils/UploadFileClassification";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 

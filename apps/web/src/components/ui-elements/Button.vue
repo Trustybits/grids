@@ -120,7 +120,7 @@ const handleClick = (event: MouseEvent) => {
   line-height: 1;
   border: none;
   border-radius: var(--radius-sm);
-  outline: var(--button-border-width) solid transparent;
+  outline: var(--ui-border-width) solid transparent;
   outline-offset: 0;
   cursor: pointer;
   text-decoration: none;

@@ -23,7 +23,7 @@ This package (`apps/web`) is the Vue front end. Its backend (data access + auth)
 - **Client integrations:** Stripe (subscriptions — `src/services/StripeService.ts`, `useStripeCheckout`, `useSubscription`), PostHog (analytics + feature flags — `usePostHog`, `useFeatureFlags`), Notion OAuth (`NotionCallback.vue`, roadmap feed).
 - **Testing:** Vitest. Tests live in `__tests__/` folders next to source.
 
-## Project layout
+## Project structure
 
 ```
 src/

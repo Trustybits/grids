@@ -1,23 +1,34 @@
 import type { GridStatsDao } from "@grids/contracts/dao";
 import type { DailyGridStats, GridStats } from "@grids/contracts/types";
+import { cloneValue, memoryDatabase } from "./StubbedMemoryDatabase";
 
 export class StubbedGridStatsDao implements GridStatsDao {
-  public getAggregate(_gridId: string): Promise<GridStats | null> {
-    throw new Error("Stubbed DAO implementation");
+  public async getAggregate(gridId: string): Promise<GridStats | null> {
+    const stats = memoryDatabase.gridStats.get(gridId);
+    return stats ? cloneValue(stats) : null;
   }
 
-  public getDaily(
-    _gridId: string,
-    _date: string,
+  public async getDaily(
+    gridId: string,
+    date: string,
   ): Promise<DailyGridStats | null> {
-    throw new Error("Stubbed DAO implementation");
+    const stats = memoryDatabase.gridDailyStats.get(`${gridId}__${date}`);
+    return stats ? cloneValue(stats) : null;
   }
 
-  public getDailyRange(
-    _gridId: string,
-    _startDate: string,
-    _endDate: string,
+  public async getDailyRange(
+    gridId: string,
+    startDate: string,
+    endDate: string,
   ): Promise<DailyGridStats[]> {
-    throw new Error("Stubbed DAO implementation");
+    return Array.from(memoryDatabase.gridDailyStats.values())
+      .filter(
+        (stats) =>
+          stats.gridId === gridId &&
+          stats.date >= startDate &&
+          stats.date <= endDate,
+      )
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((stats) => cloneValue(stats));
   }
 }

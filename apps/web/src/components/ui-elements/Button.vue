@@ -11,16 +11,20 @@
         'ui-btn--block': block,
         'ui-btn--disabled': disabled || loading,
         'ui-btn--loading': loading,
+        'ui-btn--icon-only': iconOnly,
+        'ui-btn--active': active,
       },
     ]"
+    :style="hoverColorStyle"
     :disabled="isButton ? (disabled || loading) : undefined"
+    :aria-pressed="isButton && active ? true : undefined"
     @click="handleClick"
   >
     <span v-if="loading" class="ui-btn__spinner" aria-hidden="true" />
     <span v-if="$slots['icon-left']" class="ui-btn__icon ui-btn__icon--left">
       <slot name="icon-left" />
     </span>
-    <span class="ui-btn__label">
+    <span v-if="!iconOnly" class="ui-btn__label">
       <slot />
     </span>
     <span v-if="$slots['icon-right']" class="ui-btn__icon ui-btn__icon--right">
@@ -45,6 +49,9 @@ const props = withDefaults(
     disabled?: boolean;
     block?: boolean;
     loading?: boolean;
+    iconOnly?: boolean;
+    active?: boolean;
+    hoverColor?: string;
   }>(),
   {
     variant: 'secondary',
@@ -52,6 +59,8 @@ const props = withDefaults(
     disabled: false,
     block: false,
     loading: false,
+    iconOnly: false,
+    active: false,
   },
 );
 
@@ -79,6 +88,13 @@ const elementProps = computed(() => {
     };
   }
   return { type: 'button' };
+});
+
+const hoverColorStyle = computed(() => {
+  if (props.hoverColor) {
+    return { '--btn-hover-color': props.hoverColor } as Record<string, string>;
+  }
+  return {};
 });
 
 const handleClick = (event: MouseEvent) => {
@@ -214,7 +230,31 @@ const handleClick = (event: MouseEvent) => {
     }
   }
 
+  // ─── Icon-only ─────────────────────────────────────────────
+  &--icon-only {
+    --btn-padding-x: 0;
+    --btn-padding-y: 0;
+    aspect-ratio: 1;
+    flex-shrink: 0;
+
+    &.ui-btn--sm  { width: 32px; }
+    &.ui-btn--md  { width: 40px; }
+    &.ui-btn--lg  { width: 48px; }
+
+    &:hover:not(.ui-btn--disabled) .ui-btn__icon {
+      color: var(--btn-hover-color, currentColor);
+    }
+  }
+
   // ─── States ──────────────────────────────────────────────────
+
+  &--active:not(.ui-btn--disabled) {
+    background-color: var(--color-base-34);
+
+    .ui-btn__icon {
+      color: var(--btn-hover-color, var(--color-figma-purple));
+    }
+  }
 
   &--block {
     width: 100%;

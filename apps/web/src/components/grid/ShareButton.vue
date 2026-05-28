@@ -1,11 +1,13 @@
 <template>
-  <IconButton @click="handleShare">
-    <ShareIcon :size="20" />
-  </IconButton>
+  <Button variant="ghost" icon-only @click="handleShare">
+    <template #icon-left>
+      <ShareIcon :size="20" />
+    </template>
+  </Button>
 </template>
 
 <script setup lang="ts">
-import IconButton from '@/components/ui-controls/IconButton.vue';
+import Button from '@/components/ui-elements/Button.vue';
 import ShareIcon from '@/components/icons/ShareIcon.vue';
 import { useToastStore } from "@/stores/toast";
 

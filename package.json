@@ -10,6 +10,7 @@
     "build:web-deps": "npm run build:contracts && npm run build:pro",
     "build:web": "npm --workspace apps/web run build",
     "build:firebase-functions": "npm --workspace @grids/firebase-functions run build",
+    "build": "npm run build:web && npm run build:firebase-functions",
     "dev": "npm run build:web-deps && npm --workspace apps/web run dev",
     "dev:emulator": "npm run build:web-deps && npm --workspace apps/web run dev:emulator",
     "emulators": "npm --workspace @grids/firebase-functions run build && firebase emulators:start --project grids-one --only ${FIREBASE_EMULATORS:-auth,firestore,functions,storage}",

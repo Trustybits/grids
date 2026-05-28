@@ -8,7 +8,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { FirestoreGridStatsDao } from "../FirebaseGridStatsDao.js";
+import { FirebaseGridStatsDao } from "../FirebaseGridStatsDao.js";
 import type { Firestore } from "firebase/firestore";
 
 vi.mock("firebase/firestore", () => {
@@ -56,11 +56,11 @@ function fakeQueryResult(docs: Array<Record<string, unknown>>) {
   return { docs: docs.map((d) => ({ data: () => d })) };
 }
 
-describe("FirestoreGridStatsDao", () => {
-  let dao: FirestoreGridStatsDao;
+describe("FirebaseGridStatsDao", () => {
+  let dao: FirebaseGridStatsDao;
 
   beforeEach(() => {
-    dao = new FirestoreGridStatsDao(fakeDb);
+    dao = new FirebaseGridStatsDao(fakeDb);
   });
 
   // ── getAggregate ────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ import { mapFirestoreToGrid } from "./FirebaseUtils.js";
 
 const COLLECTION = "grids";
 
-export class FirestoreGridDao implements GridDao {
+export class FirebaseGridDao implements GridDao {
   private db: Firestore;
 
   public constructor(db: Firestore) {

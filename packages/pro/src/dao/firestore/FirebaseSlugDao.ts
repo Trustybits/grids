@@ -8,7 +8,7 @@ import type { SlugDao } from "@grids/contracts/dao";
 
 const COLLECTION = "slugs";
 
-export class FirestoreSlugDao implements SlugDao {
+export class FirebaseSlugDao implements SlugDao {
   private db: Firestore;
   private functions: Functions;
 

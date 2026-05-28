@@ -37,7 +37,7 @@ function extractDate(value: unknown): Date | null {
   return null;
 }
 
-export class FirestoreBadgeDao implements BadgeDao {
+export class FirebaseBadgeDao implements BadgeDao {
   private db: Firestore;
 
   public constructor(db: Firestore) {

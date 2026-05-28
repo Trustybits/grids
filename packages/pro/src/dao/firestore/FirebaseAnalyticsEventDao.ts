@@ -18,7 +18,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 let warnedAboutMissingBeaconUrl = false;
 
-export class FirestoreAnalyticsEventDao implements AnalyticsEventDao {
+export class FirebaseAnalyticsEventDao implements AnalyticsEventDao {
   private db: Firestore;
   private beaconUrl: string | null;
 

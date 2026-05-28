@@ -10,7 +10,7 @@ import type { UserDao } from "@grids/contracts/dao";
 
 const COLLECTION = "users";
 
-export class FirestoreUserDao implements UserDao {
+export class FirebaseUserDao implements UserDao {
   private db: Firestore;
 
   public constructor(db: Firestore) {

@@ -9,7 +9,7 @@ import type { Functions } from "firebase/functions";
 import { httpsCallable } from "firebase/functions";
 import type { UpvoteDao } from "@grids/contracts/dao";
 
-export class FirestoreUpvoteDao implements UpvoteDao {
+export class FirebaseUpvoteDao implements UpvoteDao {
   private db: Firestore;
   private functions: Functions;
 

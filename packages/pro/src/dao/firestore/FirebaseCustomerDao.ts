@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import type { CustomerDao } from "@grids/contracts/dao";
 
-export class FirestoreCustomerDao implements CustomerDao {
+export class FirebaseCustomerDao implements CustomerDao {
   private db: Firestore;
 
   public constructor(db: Firestore) {

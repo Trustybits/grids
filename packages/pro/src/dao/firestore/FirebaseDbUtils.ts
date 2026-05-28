@@ -7,7 +7,7 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return proto === Object.prototype || proto === null;
 };
 
-export class FirestoreDbUtils implements DbUtils {
+export class FirebaseDbUtils implements DbUtils {
   sanitizeValue(value: unknown): unknown {
     if (Array.isArray(value)) {
       return value.map((item) => {

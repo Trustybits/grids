@@ -21,7 +21,7 @@ function toAuthUser(user: User | null): AuthUser | null {
   };
 }
 
-export class FirestoreAuthProvider implements AuthProvider {
+export class FirebaseAuthProvider implements AuthProvider {
   private auth: Auth;
 
   public constructor(auth: Auth) {

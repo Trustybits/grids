@@ -7,7 +7,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
-import { FirestoreAnalyticsEventDao } from "../FirebaseAnalyticsEventDao.js";
+import { FirebaseAnalyticsEventDao } from "../FirebaseAnalyticsEventDao.js";
 import { AnalyticsEventType } from "@grids/contracts/types";
 import type { Firestore } from "firebase/firestore";
 
@@ -42,13 +42,13 @@ const TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 const BEACON_URL = "https://example.com/beacon";
 
-describe("FirestoreAnalyticsEventDao", () => {
-  let dao: FirestoreAnalyticsEventDao;
+describe("FirebaseAnalyticsEventDao", () => {
+  let dao: FirebaseAnalyticsEventDao;
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW_MS);
-    dao = new FirestoreAnalyticsEventDao(fakeDb, BEACON_URL);
+    dao = new FirebaseAnalyticsEventDao(fakeDb, BEACON_URL);
   });
 
   afterEach(() => {
@@ -208,7 +208,7 @@ describe("FirestoreAnalyticsEventDao", () => {
     });
 
     it("returns false and does not call sendBeacon when the beacon URL is not configured", () => {
-      const daoWithoutUrl = new FirestoreAnalyticsEventDao(fakeDb, null);
+      const daoWithoutUrl = new FirebaseAnalyticsEventDao(fakeDb, null);
       const result = daoWithoutUrl.logGridViewEndEventBeacon(sampleEvent);
       expect(result).toBe(false);
       expect(sendBeaconSpy).not.toHaveBeenCalled();

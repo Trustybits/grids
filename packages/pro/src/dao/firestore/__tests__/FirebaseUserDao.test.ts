@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
-import { FirestoreUserDao } from "../FirebaseUserDao.js";
+import { FirebaseUserDao } from "../FirebaseUserDao.js";
 import type { Firestore } from "firebase/firestore";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -22,11 +22,11 @@ function fakeSnapshot(
 
 // ── Suite ────────────────────────────────────────────────────────────────────
 
-describe("FirestoreUserDao", () => {
-  let dao: FirestoreUserDao;
+describe("FirebaseUserDao", () => {
+  let dao: FirebaseUserDao;
 
   beforeEach(() => {
-    dao = new FirestoreUserDao(fakeDb);
+    dao = new FirebaseUserDao(fakeDb);
   });
 
   // ── getById ──────────────────────────────────────────────────────────────

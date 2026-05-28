@@ -1,5 +1,5 @@
 /**
- * Unit tests for FirestoreDbUtils
+ * Unit tests for FirebaseDbUtils
  *
  * Covers:
  *  - sanitizeValue: primitives, undefined, null, arrays (with undefined items),
@@ -10,15 +10,15 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { serverTimestamp } from "firebase/firestore";
-import { FirestoreDbUtils } from "../FirebaseDbUtils.js";
+import { FirebaseDbUtils } from "../FirebaseDbUtils.js";
 
 // ── Suite ────────────────────────────────────────────────────────────────────
 
-describe("FirestoreDbUtils", () => {
-  let utils: FirestoreDbUtils;
+describe("FirebaseDbUtils", () => {
+  let utils: FirebaseDbUtils;
 
   beforeEach(() => {
-    utils = new FirestoreDbUtils();
+    utils = new FirebaseDbUtils();
   });
 
   // ── sanitizeValue ─────────────────────────────────────────────────────────

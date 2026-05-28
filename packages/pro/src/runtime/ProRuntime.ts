@@ -1,8 +1,8 @@
 import type { AuthProvider } from "@grids/contracts/auth";
 import type { DaoFactory, DbUtils } from "@grids/contracts/dao";
-import { FirestoreAuthProvider } from "../auth/firebase/FirebaseAuthProvider.js";
-import { FirestoreDaoFactory } from "../dao/firestore/factory/FirebaseDaoFactory.js";
-import { FirestoreDbUtils } from "../dao/firestore/FirebaseDbUtils.js";
+import { FirebaseAuthProvider } from "../auth/firebase/FirebaseAuthProvider.js";
+import { FirebaseDaoFactory } from "../dao/firestore/factory/FirebaseDaoFactory.js";
+import { FirebaseDbUtils } from "../dao/firestore/FirebaseDbUtils.js";
 import {
   createFirebaseServices,
   type FirebaseEmulatorTarget,
@@ -25,13 +25,13 @@ export class ProRuntime {
       config.firebaseEnv,
       config.emulatorTargets,
     );
-    this.daoFactory = new FirestoreDaoFactory({
+    this.daoFactory = new FirebaseDaoFactory({
       db: services.db,
       functions: services.functions,
       storage: services.storage,
       viewEndAnalyticsBeaconUrl: config.viewEndAnalyticsBeaconUrl,
     });
-    this.dbUtils = new FirestoreDbUtils();
-    this.authProvider = new FirestoreAuthProvider(services.auth);
+    this.dbUtils = new FirebaseDbUtils();
+    this.authProvider = new FirebaseAuthProvider(services.auth);
   }
 }

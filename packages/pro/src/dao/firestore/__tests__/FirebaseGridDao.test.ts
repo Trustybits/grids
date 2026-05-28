@@ -11,7 +11,7 @@ import {
   where,
   serverTimestamp,
 } from "firebase/firestore";
-import { FirestoreGridDao } from "../FirebaseGridDao.js";
+import { FirebaseGridDao } from "../FirebaseGridDao.js";
 import type { Firestore } from "firebase/firestore";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -38,11 +38,11 @@ function fakeQuerySnapshot(docs: ReturnType<typeof fakeSnapshot>[]) {
 
 // ── Suite ────────────────────────────────────────────────────────────────────
 
-describe("FirestoreGridDao", () => {
-  let dao: FirestoreGridDao;
+describe("FirebaseGridDao", () => {
+  let dao: FirebaseGridDao;
 
   beforeEach(() => {
-    dao = new FirestoreGridDao(fakeDb);
+    dao = new FirebaseGridDao(fakeDb);
   });
 
   // ── getById ──────────────────────────────────────────────────────────────

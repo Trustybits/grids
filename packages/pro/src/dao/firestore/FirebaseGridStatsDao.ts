@@ -41,7 +41,7 @@ function toDailyGridStats(data: DocumentData): DailyGridStats {
   return { ...toGridStats(data), date: data.date };
 }
 
-export class FirestoreGridStatsDao implements GridStatsDao {
+export class FirebaseGridStatsDao implements GridStatsDao {
   private db: Firestore;
 
   public constructor(db: Firestore) {

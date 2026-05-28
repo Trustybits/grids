@@ -4,7 +4,7 @@ import type { RoadmapDao } from "@grids/contracts/dao";
 import type { FetchRoadmapResult, NotionDatabase } from "@grids/contracts/types";
 import type { RoadmapQueryFilter } from "@grids/contracts/types";
 
-export class FirestoreRoadmapDao implements RoadmapDao {
+export class FirebaseRoadmapDao implements RoadmapDao {
   private functions: Functions;
 
   public constructor(functions: Functions) {

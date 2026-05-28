@@ -41,7 +41,7 @@ function toDailyBusinessStats(data: DocumentData): DailyBusinessStats {
   return { ...toBusinessStats(data), date: data.date };
 }
 
-export class FirestoreBusinessStatsDao implements BusinessStatsDao {
+export class FirebaseBusinessStatsDao implements BusinessStatsDao {
   private db: Firestore;
 
   public constructor(db: Firestore) {

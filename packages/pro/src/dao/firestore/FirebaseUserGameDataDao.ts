@@ -66,7 +66,7 @@ function snapshotToLeaderboardEntry(
   };
 }
 
-export class FirestoreUserGameDataDao implements UserGameDataDao {
+export class FirebaseUserGameDataDao implements UserGameDataDao {
   private db: Firestore;
 
   public constructor(db: Firestore) {

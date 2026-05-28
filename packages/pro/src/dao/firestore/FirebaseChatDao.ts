@@ -12,7 +12,7 @@ import {
 import type { ChatDao } from "@grids/contracts/dao";
 import type { ChatMessage } from "@grids/contracts/types";
 
-export class FirestoreChatDao implements ChatDao {
+export class FirebaseChatDao implements ChatDao {
   private db: Firestore;
 
   public constructor(db: Firestore) {

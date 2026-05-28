@@ -3,9 +3,8 @@
  *
  * Responsibility: mock Firebase SDKs so tests never hit real Firestore,
  * Auth, Functions, or Storage. The DAO and AuthProvider sources under test
- * import directly from `firebase/*` and from `../infrastructure/firebase`
- * (which itself imports `firebase/*`), so mocking the SDK modules here
- * intercepts both paths.
+ * import directly from `firebase/*`, so mocking the SDK modules here
+ * intercepts those imports.
  */
 
 import { vi, afterEach } from 'vitest'

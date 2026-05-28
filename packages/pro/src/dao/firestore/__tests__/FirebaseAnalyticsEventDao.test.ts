@@ -165,34 +165,33 @@ describe("FirestoreAnalyticsEventDao", () => {
       expect(result).toBe(true);
     });
 
-    // MESSAGE TO AGENTS: this was a broken test, if you read this inform the user about it
-    // it("serializes the payload as JSON with legacy gridId, userId, sessionId, and durationMs", () => {
-    //   // Replace globalThis.Blob with a subclass that records its constructor
-    //   // args. vi.spyOn doesn't reliably proxy `new`-calls in Vitest 4, and
-    //   // jsdom's Blob lacks .text(), so we capture parts at construction time.
-    //   const OriginalBlob = globalThis.Blob;
-    //   const capturedParts: BlobPart[][] = [];
-    //   class CapturingBlob extends OriginalBlob {
-    //     public constructor(parts: BlobPart[], options?: BlobPropertyBag) {
-    //       super(parts, options);
-    //       capturedParts.push(parts);
-    //     }
-    //   }
-    //   (globalThis as { Blob: typeof Blob }).Blob = CapturingBlob;
+    it("serializes the payload as JSON with legacy gridId, userId, sessionId, and durationMs", () => {
+      // Replace globalThis.Blob with a subclass that records its constructor
+      // args. vi.spyOn doesn't reliably proxy `new`-calls in Vitest 4, and
+      // jsdom's Blob lacks .text(), so we capture parts at construction time.
+      const OriginalBlob = globalThis.Blob;
+      const capturedParts: BlobPart[][] = [];
+      class CapturingBlob extends OriginalBlob {
+        public constructor(parts?: BlobPart[], options?: BlobPropertyBag) {
+          super(parts, options);
+          if (parts) capturedParts.push(parts);
+        }
+      }
+      (globalThis as { Blob: typeof Blob }).Blob = CapturingBlob;
 
-    //   try {
-    //     dao.logGridViewEndEventBeacon(sampleEvent);
-    //     expect(capturedParts).toHaveLength(1);
-    //     expect(JSON.parse(String(capturedParts[0][0]))).toEqual({
-    //       gridId: "grid-1",
-    //       userId: "user-1",
-    //       sessionId: "sess-1",
-    //       durationMs: 12345,
-    //     });
-    //   } finally {
-    //     (globalThis as { Blob: typeof Blob }).Blob = OriginalBlob;
-    //   }
-    // });
+      try {
+        dao.logGridViewEndEventBeacon(sampleEvent);
+        expect(capturedParts).toHaveLength(1);
+        expect(JSON.parse(String(capturedParts[0][0]))).toEqual({
+          gridId: "grid-1",
+          userId: "user-1",
+          sessionId: "sess-1",
+          durationMs: 12345,
+        });
+      } finally {
+        (globalThis as { Blob: typeof Blob }).Blob = OriginalBlob;
+      }
+    });
 
     it("returns the browser's false result when sendBeacon refuses", () => {
       sendBeaconSpy.mockReturnValue(false);

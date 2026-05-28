@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   addDoc,
@@ -5,7 +7,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
-import { FirestoreAnalyticsEventDao } from "../FirestoreAnalyticsEventDao";
+import { FirestoreAnalyticsEventDao } from "../FirestoreAnalyticsEventDao.js";
 import { AnalyticsEventType } from "@grids/contracts/types";
 import type { Firestore } from "firebase/firestore";
 
@@ -166,9 +168,9 @@ describe("FirestoreAnalyticsEventDao", () => {
 
     it("serializes the payload as JSON with legacy gridId, userId, sessionId, and durationMs", () => {
       const blobParts: BlobPart[][] = [];
-      const OriginalBlob = global.Blob;
+      const OriginalBlob = globalThis.Blob;
       const blobSpy = vi
-        .spyOn(global, "Blob")
+        .spyOn(globalThis, "Blob")
         .mockImplementation((parts: any, options?: any) => {
           blobParts.push(parts);
           return new OriginalBlob(parts, options);

@@ -1,5 +1,5 @@
 import type { AuthProvider, AuthUser } from "@grids/contracts/auth";
-import { auth } from "@/infrastructure/firebase";
+import { auth } from "../../infrastructure/firebase.js";
 import {
   GoogleAuthProvider,
   isSignInWithEmailLink,

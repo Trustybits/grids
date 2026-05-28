@@ -10,7 +10,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { serverTimestamp } from "firebase/firestore";
-import { FirestoreDbUtils } from "../FirestoreDbUtils";
+import { FirestoreDbUtils } from "../FirestoreDbUtils.js";
 
 // ── Suite ────────────────────────────────────────────────────────────────────
 

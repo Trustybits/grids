@@ -21,10 +21,12 @@
     }
   },
   "dependencies": {
-    "@grids/contracts": "file:../contracts"
+    "@grids/contracts": "file:../contracts",
+    "firebase": "^11.10.0"
   },
   "devDependencies": {
     "eslint": "^9.39.4",
+    "jsdom": "^25.0.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.60.0",
     "vitest": "^4.1.7"

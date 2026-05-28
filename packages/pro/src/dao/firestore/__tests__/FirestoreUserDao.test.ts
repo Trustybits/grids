@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
-import { FirestoreUserDao } from "../FirestoreUserDao";
+import { FirestoreUserDao } from "../FirestoreUserDao.js";
 import type { Firestore } from "firebase/firestore";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

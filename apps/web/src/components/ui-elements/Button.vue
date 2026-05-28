@@ -156,9 +156,10 @@ const handleClick = (event: MouseEvent) => {
   }
 
   &--secondary {
-    background-color: transparent;
+    background-color: color-mix(in srgb, var(--color-content-background) 95%, transparent);
     border-color: var(--color-tile-stroke);
     color: var(--color-text-primary);
+    // backdrop-filter: blur(4px) brightness(0.6);
 
     &:hover:not(.ui-btn--disabled) {
       background-color: var(--color-content-background);
@@ -167,9 +168,10 @@ const handleClick = (event: MouseEvent) => {
   }
 
   &--ghost {
-    background-color: transparent;
+    background-color: color-mix(in srgb, var(--color-content-background) 95%, transparent);
     border-color: transparent;
-    color: var(--color-content-default);
+    color: var(--color-text-primary);
+    // backdrop-filter: blur(4px) brightness(0.6);
 
     &:hover:not(.ui-btn--disabled) {
       color: var(--color-text-primary);

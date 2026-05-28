@@ -86,6 +86,8 @@ const hoverColorStyle = computed(() => {
   width: 20px;
   height: 20px;
   color: var(--bg-contrast-color, var(--color-content-default));
+  background-color: color-mix(in srgb, var(--color-content-background) 55%, transparent);
+  backdrop-filter: blur(2px) brightness(0.6);
   transition: color var(--duration-fast) var(--easing-smooth);
 
   :deep(svg) {

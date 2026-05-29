@@ -125,12 +125,7 @@
             >
               <div class="mkt__plan-section">{{ group.label }}</div>
               <ul>
-                <li v-for="item in group.items" :key="item.label">
-                  <span>{{ item.label }}</span>
-                  <span v-if="item.comingSoon" class="mkt__coming-soon-chip">
-                    Coming soon
-                  </span>
-                </li>
+                <li v-for="item in group.items" :key="item">{{ item }}</li>
               </ul>
             </div>
           </div>
@@ -191,12 +186,7 @@
         </div>
 
         <ul class="mkt__community-features">
-          <li v-for="f in communityFeatures" :key="f.label">
-            <span>{{ f.label }}</span>
-            <span v-if="f.comingSoon" class="mkt__coming-soon-chip">
-              Coming soon
-            </span>
-          </li>
+          <li v-for="f in communityFeatures" :key="f">{{ f }}</li>
         </ul>
 
         <div class="mkt__community-cta">
@@ -213,6 +203,18 @@
           </Button>
         </div>
       </article>
+
+      <p class="mkt__pricing-footnote">
+        Basic page analytics and remove Grids branding are launching soon.
+        <button
+          type="button"
+          class="mkt__pricing-footnote-link"
+          @click="showComparison = true"
+        >
+          See feature comparison
+        </button>
+        for details.
+      </p>
 
       <!-- Feature comparison -->
       <div class="mkt__comparison">
@@ -343,34 +345,34 @@ async function handleSupporterCheckout() {
   await checkout.checkoutSupporter(effectiveAmount.value);
 }
 
-const communityFeatures: FeatureListItem[] = [
-  { label: 'Unlimited grids' },
-  { label: 'Unlimited tiles' },
-  { label: 'Drag-and-drop editor' },
-  { label: 'Mobile-responsive layouts' },
-  { label: 'Basic page analytics', comingSoon: true },
+const communityFeatures = [
+  'Unlimited grids',
+  'Unlimited tiles',
+  'Drag-and-drop editor',
+  'Mobile-responsive layouts',
+  'Basic page analytics',
 ];
 
-const supporterUnlocks: { label: string; items: FeatureListItem[] }[] = [
+const supporterUnlocks = [
   {
     label: 'Always Free',
     items: [
-      { label: 'Two grid pages' },
-      { label: 'Unlimited tiles' },
-      { label: 'Custom handle URL (grids.so/yourhandle)' },
+      'Two grid pages',
+      'Unlimited tiles',
+      'Custom handle URL (grids.so/yourhandle)',
     ],
   },
   {
     label: '$1+ unlocks',
     items: [
-      { label: 'Supporter badge on your profile' },
-      { label: 'Early access to new features' },
-      { label: 'Warm fuzzy feeling of supporting an amazing open-source product' },
+      'Supporter badge on your profile',
+      'Early access to new features',
+      'Warm fuzzy feeling of supporting an amazing open-source product',
     ],
   },
   {
     label: '$10+ unlocks',
-    items: [{ label: 'Remove Grids branding', comingSoon: true }],
+    items: ['Remove Grids branding'],
   },
 ];
 
@@ -416,7 +418,6 @@ const proFeatures = [
 
 const showComparison = ref(false);
 type ComparisonCell = boolean | string;
-type FeatureListItem = { label: string; comingSoon?: boolean };
 
 function comparisonCellLabel(value: ComparisonCell) {
   if (typeof value === 'boolean') {
@@ -444,7 +445,7 @@ const comparisonRows = [
   { feature: 'Storage and uploads', community: '—', supporter: 'Normal Limits', pro: 'Higher Limits' },
   { feature: 'Custom handle URL', community: false, supporter: true, pro: true },
   { feature: 'Early access to new features', community: false, supporter: true, pro: true },
-  { feature: 'Remove Grids branding ($10+ supporter)', community: false, supporter: true, pro: true },
+  { feature: 'Remove Grids branding ($10+ supporter)', community: false, supporter: true, pro: true, comingSoon: true },
   { feature: 'Supporter badge', community: false, supporter: true, pro: true },
   { feature: 'Custom domain', community: false, supporter: false, pro: true, comingSoon: true },
   { feature: 'Advanced theming', community: false, supporter: false, pro: true, comingSoon: true },

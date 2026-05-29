@@ -657,9 +657,13 @@
 .mkt__plan li {
   position: relative;
   padding-left: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 .mkt__plan li::before {
-  content: "âœ“";
+  content: "\2713";
   position: absolute;
   left: 0;
   top: 0;
@@ -857,9 +861,13 @@
 .mkt__community-features li {
   position: relative;
   padding-left: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 .mkt__community-features li::before {
-  content: "âœ“";
+  content: "\2713";
   position: absolute;
   left: 0;
   top: 0;

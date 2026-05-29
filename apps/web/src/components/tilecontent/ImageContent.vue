@@ -87,7 +87,7 @@ import {
   watch,
   inject,
 } from "vue";
-import { type ImageContent } from "@/types/TileContent";
+import { type ImageContent } from "@grids/contracts/types";
 import { useGridStore } from "@/stores/grid";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";

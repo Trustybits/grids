@@ -53,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Grid } from "@/types/Grid";
+import type { Grid } from "@grids/contracts/types";
 import Chevron from "@/components/icons/Chevron.vue";
 import GlobeIcon from "@/components/icons/GlobeIcon.vue";
 import DuplicateIcon from "@/components/icons/DuplicateIcon.vue";

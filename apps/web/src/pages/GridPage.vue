@@ -152,7 +152,7 @@ import { useUndoRedoKeys } from "@/composables/useUndoRedoKeys";
 import { useAnalytics } from "@/composables/useAnalytics";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { computeTextColor } from "@/composables/useColorPicker";
-import type { ProfileBioContent } from "@/types/TileContent";
+import type { ProfileBioContent } from "@grids/contracts/types";
 import AppButton from "@/components/ui-elements/Button.vue";
 import AlertCircleIcon from "@/components/icons/AlertCircleIcon.vue";
 import UploadIcon from "@/components/icons/UploadIcon.vue";

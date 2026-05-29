@@ -76,18 +76,8 @@ import {
   type PropType,
   type Ref,
 } from "vue";
-import type { Tile } from "@/types/Tile";
-import {
-  ContentType,
-  type TextContent,
-  type SmartTextContent,
-  type LinkContent,
-  type ImageContent,
-  type VideoContent,
-  type EmbedContent,
-  type MusicContent,
-  type YouTubeContent,
-} from "@/types/TileContent";
+import { ContentType, type Tile } from "@grids/contracts/types";
+import { getTileDefinition } from "@/registries/tileRegistry";
 import { useGridStore } from "@/stores/grid";
 import { useToastStore } from "@/stores/toast";
 import ArrowUpRightIcon from "@/components/icons/tile-actionbar/ArrowUpRightIcon.vue";
@@ -142,28 +132,10 @@ export default defineComponent({
 
     // --- Computed: which actions are available per tile type ---
 
+    const tileDef = computed(() => getTileDefinition(props.tile.content.type));
+
     const tileUrl = computed<string | null>(() => {
-      const c = props.tile.content;
-      switch (c.type) {
-        case ContentType.LINK:
-          return (c as LinkContent).link || null;
-        case ContentType.MUSIC:
-          return (c as MusicContent).trackUrl || null;
-        case ContentType.YOUTUBE:
-          return (c as YouTubeContent).youtubeUrl || null;
-        case ContentType.EMBED:
-          return (c as EmbedContent).src || null;
-        case ContentType.IMAGE:
-          return (c as ImageContent).tileLink || null;
-        case ContentType.VIDEO:
-          return (c as VideoContent).tileLink || null;
-        case ContentType.TEXT:
-          return (c as TextContent).tileLink || null;
-        case ContentType.SMART_TEXT:
-          return (c as SmartTextContent).tileLink || null;
-        default:
-          return null;
-      }
+      return tileDef.value?.actions?.externalUrl?.(props.tile.content as never) ?? null;
     });
 
     const resolvedTileUrl = computed<string>(() => {
@@ -176,25 +148,11 @@ export default defineComponent({
     const hasLink = computed(() => !!resolvedTileUrl.value);
 
     const hasCopyable = computed(() => {
-      const c = props.tile.content;
-      switch (c.type) {
-        case ContentType.TEXT:
-          return true;
-        case ContentType.SMART_TEXT:
-          return true;
-        case ContentType.LINK:
-        case ContentType.MUSIC:
-        case ContentType.YOUTUBE:
-        case ContentType.EMBED:
-          return true;
-        default:
-          return false;
-      }
+      return !!tileDef.value?.actions?.copyContent;
     });
 
     const hasDownload = computed(() => {
-      const c = props.tile.content;
-      return c.type === ContentType.IMAGE || c.type === ContentType.VIDEO;
+      return !!tileDef.value?.actions?.downloadUrl;
     });
 
     // --- Actions ---
@@ -211,46 +169,7 @@ export default defineComponent({
     };
 
     const onCopyToClipboard = async () => {
-      const c = props.tile.content;
-      let text = "";
-
-      switch (c.type) {
-        case ContentType.TEXT: {
-          // Extract plain text from tiptap JSON doc
-          const raw = (c as TextContent).text;
-          try {
-            const doc = JSON.parse(raw);
-            text = extractPlainText(doc);
-          } catch {
-            text = raw || "";
-          }
-          break;
-        }
-        case ContentType.SMART_TEXT: {
-          // Extract plain text from tiptap JSON doc
-          const raw = (c as SmartTextContent).text;
-          try {
-            const doc = JSON.parse(raw);
-            text = extractPlainText(doc);
-          } catch {
-            text = raw || "";
-          }
-          break;
-        }
-        case ContentType.LINK:
-          text = (c as LinkContent).link || "";
-          break;
-        case ContentType.MUSIC:
-          text = (c as MusicContent).trackUrl || "";
-          break;
-        case ContentType.YOUTUBE:
-          text = (c as YouTubeContent).youtubeUrl || "";
-          break;
-        case ContentType.EMBED:
-          text = (c as EmbedContent).src || "";
-          break;
-      }
-
+      const text = tileDef.value?.actions?.copyContent?.(props.tile.content as never) ?? "";
       if (!text) return;
 
       try {
@@ -262,15 +181,7 @@ export default defineComponent({
     };
 
     const onDownload = async () => {
-      const c = props.tile.content;
-      let src = "";
-
-      if (c.type === ContentType.IMAGE) {
-        src = (c as ImageContent).src;
-      } else if (c.type === ContentType.VIDEO) {
-        src = (c as VideoContent).src;
-      }
-
+      const src = tileDef.value?.actions?.downloadUrl?.(props.tile.content as never) ?? "";
       if (!src) return;
 
       try {
@@ -305,36 +216,6 @@ export default defineComponent({
   },
 });
 
-// Extract plain text from a tiptap/ProseMirror JSON document
-interface ProseMirrorNode {
-  type: string;
-  text?: string;
-  content?: ProseMirrorNode[];
-}
-
-function extractPlainText(node: ProseMirrorNode | null | undefined): string {
-  if (!node) return "";
-  if (node.type === "text") return node.text || "";
-  if (Array.isArray(node.content)) {
-    return node.content
-      .map((child: ProseMirrorNode, i: number) => {
-        const text = extractPlainText(child);
-        // Add newline between block-level nodes
-        if (
-          i > 0 &&
-          child.type &&
-          child.type !== "text" &&
-          child.type !== "hardBreak"
-        ) {
-          return "\n" + text;
-        }
-        if (child.type === "hardBreak") return "\n";
-        return text;
-      })
-      .join("");
-  }
-  return "";
-}
 </script>
 
 <style scoped lang="scss">

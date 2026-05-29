@@ -1,14 +1,14 @@
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import { getDbUtils } from "@/dao/DbUtilsSingleton";
-import type { DbUtils } from "@/dao/interfaces/DbUtils";
-import type { SlugDao } from "@/dao/interfaces/SlugDao";
-import type { UserDao } from "@/dao/interfaces/UserDao";
+import type { DbUtils } from "@grids/contracts/dao";
+import type { SlugDao } from "@grids/contracts/dao";
+import type { UserDao } from "@grids/contracts/dao";
 import type {
   SlugAvailabilityResponse,
   SlugClaimResponse,
   SlugData,
   UserProfile,
-} from "@/types/UserProfile";
+} from "@grids/contracts/types";
 import type { IUserService } from "./interfaces/IUserService";
 
 export class UserService implements IUserService {

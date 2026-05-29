@@ -107,7 +107,7 @@ import {
   DEMO_GRID_DIMENSIONS,
   createDemoGrid,
 } from '@/data/DemoGrid';
-import type { Breakpoint } from '@/types/Tile';
+import type { Breakpoint } from '@grids/contracts/types';
 
 const _props = withDefaults(
   defineProps<{

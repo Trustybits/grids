@@ -4,16 +4,16 @@ import type {
   AnalyticsEventDao,
   GridViewEndEvent,
   LogEventInput,
-} from "@/dao/interfaces/AnalyticsEventDao";
-import type { BusinessStatsDao } from "@/dao/interfaces/BusinessStatsDao";
-import type { GridStatsDao } from "@/dao/interfaces/GridStatsDao";
+} from "@grids/contracts/dao";
+import type { BusinessStatsDao } from "@grids/contracts/dao";
+import type { GridStatsDao } from "@grids/contracts/dao";
 import type {
   AnalyticsEventType,
   BusinessStats,
   DailyBusinessStats,
   DailyGridStats,
   GridStats,
-} from "@/types/Analytics";
+} from "@grids/contracts/types";
 import type { IAnalyticsService } from "./interfaces/IAnalyticsService";
 
 export class AnalyticsService implements IAnalyticsService {

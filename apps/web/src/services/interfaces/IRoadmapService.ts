@@ -1,5 +1,5 @@
-import type { RoadmapQueryFilter } from "@/types/TileContent";
-import type { FetchRoadmapResult, NotionDatabase } from "@/types/Roadmap";
+import type { RoadmapQueryFilter } from "@grids/contracts/types";
+import type { FetchRoadmapResult, NotionDatabase } from "@grids/contracts/types";
 
 export interface IRoadmapService {
   /** List Notion databases available to the tile's integration. */

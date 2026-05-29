@@ -1,4 +1,4 @@
-import type { AvatarShape, ProfileBioContent } from "@/types/TileContent";
+import type { AvatarShape, ProfileBioContent } from "@grids/contracts/types";
 
 export const DEFAULT_AVATAR_SHAPE: AvatarShape = "square";
 export const DEFAULT_AVATAR_RADIUS = 12;

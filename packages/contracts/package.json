@@ -1,0 +1,38 @@
+{
+  "name": "@grids/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared interfaces for the public to private boundary, including DAOs and auth",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint . --max-warnings 0"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "import": "./dist/auth/index.js"
+    },
+    "./dao": {
+      "types": "./dist/dao/index.d.ts",
+      "import": "./dist/dao/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    }
+  },
+  "devDependencies": {
+    "eslint": "^9.39.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.60.0"
+  }
+}

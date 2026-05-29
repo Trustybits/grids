@@ -123,7 +123,7 @@
 import { computed, defineComponent, ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
-import type { AuthUser } from "@/auth/AuthProvider";
+import type { AuthUser } from "@grids/contracts/auth";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useTier } from "@/composables/useTier";
 import { useBadges } from "@/composables/useBadges";
@@ -132,7 +132,7 @@ import {
   ContentType,
   type AvatarShape,
   type ProfileBioContent,
-} from "@/types/TileContent";
+} from "@grids/contracts/types";
 import {
   DEFAULT_AVATAR_RADIUS,
   DEFAULT_AVATAR_SHAPE,

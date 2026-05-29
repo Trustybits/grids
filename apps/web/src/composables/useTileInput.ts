@@ -1,6 +1,6 @@
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridStore } from "@/stores/grid";
-import { ContentType, type LinkContent, type TileContent } from "@/types/TileContent";
+import { ContentType, type LinkContent, type TileContent } from "@grids/contracts/types";
 import {
   createTileContent,
   createTileContentFromEmbedUrl,

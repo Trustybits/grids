@@ -201,7 +201,8 @@ import {
 } from "vue";
 
 import { GridItem } from "vue3-grid-layout";
-import { type Tile, type TileChildComponent } from "@/types/Tile";
+import { type TileChildComponent } from "@/types/Tile";
+import { type Tile } from "@grids/contracts/types";
 import { useGridStore } from "@/stores/grid";
 import TileCaption from "@/components/tile/TileCaption.vue";
 import {
@@ -214,7 +215,8 @@ import {
   type LinkContent,
   type SuggestionContent,
   type AnyTileContent,
-} from "@/types/TileContent";
+} from "@grids/contracts/types";
+import { getTileDefinition } from "@/registries/tileRegistry";
 
 import TextIcon from "@/components/icons/TextIcon.vue";
 import ImageIcon from "@/components/icons/ImageIcon.vue";
@@ -313,21 +315,8 @@ export default defineComponent({
     });
 
     const showCaption = computed(() => {
-      const hiddenTypes = [
-        ContentType.LINK,
-        ContentType.TEXT,
-        ContentType.SMART_TEXT,
-        ContentType.CHAT,
-        ContentType.EMBED,
-        ContentType.CAMPFIRE,
-        ContentType.SUGGESTION,
-        ContentType.PROFILE,
-        ContentType.YOUTUBE,
-        ContentType.MUSIC,
-        ContentType.DOCUMENT,
-      ];
-      if (hiddenTypes.includes(props.tile.content.type)) return false;
-      // Hide caption on 1-wide tiles (too narrow)
+      const def = getTileDefinition(props.tile.content.type);
+      if (def && def.capabilities.caption === false) return false;
       if (props.tile.w === 1) return false;
       return true;
     });
@@ -349,19 +338,9 @@ export default defineComponent({
       () => props.tile.content.type === ContentType.SUGGESTION,
     );
     const contentProps = computed(() => {
-      if (props.tile.content.type === ContentType.CHAT) {
-        return {
-          content: props.tile.content,
-          tileId: props.tile.i,
-        };
-      }
-      if (props.tile.content.type === ContentType.DOCUMENT) {
-        return {
-          content: props.tile.content,
-          tileId: props.tile.i,
-        };
-      }
-      return { content: props.tile.content };
+      const def = getTileDefinition(props.tile.content.type);
+      const extra = def?.extraProps?.(props.tile) ?? {};
+      return { content: props.tile.content, ...extra };
     });
     const suggestionAction = computed(
       () => (props.tile.content as SuggestionContent)?.action ?? "text",

@@ -4,45 +4,51 @@ Open-source link-in-bio / microsite / digital garden / portfolio & personal page
 
 Repo: https://github.com/Trustybits/grids (open-source; community contributes code, design assets, and will contribute tiles via a future "Tile Studio").
 
+This package (`apps/web`) is the Vue front end. Its backend (data access + auth) is reached only through interfaces in `@grids/contracts`; the concrete production implementations live in the closed-source `@grids/pro` package and are stubbed in an open-source checkout.
+
 ## Core concepts
 
-- **Layout** (a.k.a. "grid") — the top-level document, owned by a user. See `src/types/Layout.ts`. Contains tiles, background, theme, and per-breakpoint (`lg` / `md` / `sm`) position overrides. Can be marked `duplicatable` so non-owners can clone it as a template.
-- **Tile** — a positioned cell on the grid (`src/types/Tile.ts`) holding a `TileContent`. Position is `{x, y, w, h}` plus an `i` id and optional caption/border.
-- **TileContent** — discriminated union of tile types (`src/types/TileContent.ts`):
+- **Grid** — the top-level document, owned by a user. Defined in `@grids/contracts/types` (`Grid`). Contains tiles, background, theme, and per-breakpoint (`lg` / `md` / `sm`) position overrides. Can be marked `duplicatable` so non-owners can clone it as a template.
+- **Tile** — a positioned cell on the grid (`Tile` in `@grids/contracts/types`) holding a `TileContent`. Position is `{x, y, w, h}` plus an `i` id and optional caption/border.
+- **TileContent** — discriminated union of tile types (`TileContent` in `@grids/contracts/types`):
   `text`, `smart_text`, `chat`, `image`, `video`, `link` (with OG metadata), `embed`, `map` (Mapbox), `youtube`, `music` (Spotify / Apple), `roadmap_feed` (Notion-synced), `profile`, plus mini-games `campfire`, `clicker`, `rpg`, and the internal-only `suggestion` type.
-- **Slug** — the user's public URL segment. `UserProfile.slug` in `src/types/UserProfile.ts`. Route `/:slug` resolves through `GridPage.vue`. Claiming is gated through the dashboard.
-- **Roadmap Feed** — Notion integration: owners connect a Notion DB, map its select/status options to `backlog | in_progress | done`, and the page shows community-upvotable items. Sync is server-side via a Cloud Function.
+- **Slug** — the user's public URL segment. `UserProfile.slug` in `@grids/contracts/types`. Route `/:slug` resolves through `GridPage.vue`. Claiming is gated through the dashboard.
+- **Roadmap Feed** — Notion integration: owners connect a Notion DB, map its select/status options to `backlog | in_progress | done`, and the page shows community-upvotable items.
 
 ## Tech stack
 
 - **Frontend:** Vue 3 + Vite + TypeScript, Pinia stores, Vue Router (`src/router/index.ts`). Tiptap for rich text. `vue3-grid-layout` for the grid. `vuedraggable` for reordering. Mapbox GL for map tiles. Bootstrap 5 + SCSS tokens for styling.
-- **Backend:** Firebase — Auth, Firestore, Storage, Cloud Functions (`functions/`). Two projects in `.firebaserc`: **`grids-one`** (prod / default) and **`grids-stage`** (stage).
-- **Also serverless on Vercel:** OG image generation uses `puppeteer-core` + `@sparticuz/chromium-min` (heavy deps, so it lives on Vercel rather than Firebase Functions). Recent work has been stabilizing this.
-- **Other services:** Stripe (subscriptions — `src/services/StripeService.ts`, `useStripeCheckout`, `useSubscription`), PostHog (analytics + feature flags — `usePostHog`, `useFeatureFlags`), Notion OAuth (`NotionCallback.vue`, roadmap feed).
+- **Data & auth boundary:** `apps/web` never talks to a database or auth SDK directly. It depends on DAO and `AuthProvider` interfaces from `@grids/contracts`, resolved at runtime through a factory/singleton. Production implementations come from `@grids/pro` (closed source), selected at boot in `src/main.ts` via `src/pro/loadProRuntime.ts`. When `@grids/pro` is unavailable (the open-source case), the app falls back to the local stubs in `src/dao/stubbed/` and `src/auth/stubbed/`.
+- **Shared contracts:** cross-package types and interfaces (`Grid`, `Tile`, `TileContent`, `UserProfile`, the DAO interfaces, `AuthProvider`, etc.) live in `@grids/contracts` so both the app and its backend implementations agree on shapes.
+- **Client integrations:** Stripe (subscriptions — `src/services/StripeService.ts`, `useStripeCheckout`, `useSubscription`), PostHog (analytics + feature flags — `usePostHog`, `useFeatureFlags`), Notion OAuth (`NotionCallback.vue`, roadmap feed).
 - **Testing:** Vitest. Tests live in `__tests__/` folders next to source.
 
-## Project layout
+## Project structure
 
 ```
 src/
   assets/            Static CSS and images imported by the app
-  auth/              AuthProvider interface + Firebase/Stubbed impls + singleton
-  components/        Vue components (GridPage, DashboardPage, AuthPage, modals, icons/, tiptap/)
-  composables/       useAuthGuard, useEditorAutosave, useFileUpload, useSubscription, useFeatureFlags, ...
-  dao/               Data-access layer: interfaces/, firestore/ impls, stubbed/ impls, singletons
-  infrastructure/    Cross-cutting setup (Firebase SDK init)
+  auth/              AuthProvider singleton + stubbed/ impl (interface lives in @grids/contracts)
+  components/        Vue components (app/, dashboard/, grid/, tile/, tilecontent/, modal/,
+                     marketing/, icons/, tiptap/, ui-collections/, ui-controls/, ui-elements/)
+  composables/       useAuthGuard, useTileLayout, useFileUpload, useSubscription, useFeatureFlags, ...
+  data/              Static seed/demo data (DemoGrid.ts)
+  dao/               Data-access layer: DAO + DbUtils factory singletons + stubbed/ impls
+                     (interfaces live in @grids/contracts; production impls in @grids/pro)
+  extensions/        Custom Tiptap extensions (tiptap/: FontSize, DragHandle, ResizableImage, SmartButton)
+  pages/             Top-level routed pages (GridPage, DashboardPage, HomePage, ...)
+  pro/               Runtime boundary to @grids/pro (loadProRuntime.ts)
+  registries/        Tile + toolbar registries (tiles/, tileToolbar/, tileRegistry.ts)
   router/            Routes + auth guards
   services/          Business logic: interfaces/, factory/, mocks/, concrete services (Grid, User, Stripe, Chat, ...)
   stores/            Pinia: grid, theme, toast, pixelRacers
   styles/            SCSS: tokens.scss, themes.scss, custom.scss
-  svgs/              SVG icon assets (icons/)
   test/              Vitest setup (setup.ts)
   themes/            Theme definitions
-  types/             Grid, Tile, TileContent, UserProfile, GameData, theme, ...
+  types/             App-local types (Tile child-component contracts, TileDefinition, TileToolbar, Theme, ...)
   undo/              UndoRedoManager + UndoTypes
-  utils/             GridUtils, TileUtils, GridPlacementUtils, smartTextHelpers, toolbarRegistry, ...
-  main.ts            App bootstrap (Pinia, router, PostHog)
-functions/           Firebase Cloud Functions (TS)
+  utils/             GridUtils, TileUtils, GridPlacementUtils, smartTextHelpers, ...
+  main.ts            App bootstrap (Pinia, router, PostHog, runtime selection)
 public/              Static assets + legal markdown (privacy.md, terms.md)
 ```
 
@@ -50,22 +56,10 @@ public/              Static assets + legal markdown (privacy.md, terms.md)
 
 - Public grid pages (`/grid/:id` and `/:slug`) do not require auth; the router guard also enforces that logged-in users have a claimed slug before navigating anywhere besides `/dashboard` or `/login`.
 - `/notion-callback` route must remain ordered before `/:slug` in `router/index.ts` (it would otherwise be captured as a slug).
-- Per-breakpoint tile positions are stored in `Layout.overrides` keyed by `'lg' | 'md' | 'sm'`, not on the tile itself — `useTileLayout` handles the merge.
-- Rich-text tiles use custom Tiptap extensions in `src/components/tiptap/` (FontSize, DragHandle, ResizableImage, SmartButton).
+- Per-breakpoint tile positions are stored in `Grid.overrides` keyed by `'lg' | 'md' | 'sm'`, not on the tile itself — `useTileLayout` handles the merge.
+- Rich-text tiles use custom Tiptap extensions in `src/extensions/tiptap/` (FontSize, DragHandle, ResizableImage, SmartButton).
 
 ## When Writing Code
-- All database logic and access should be localized in the appropriate dao/ subfolder, and generally DAO access should flow through a service class. All
-auth logic and access should be localized in the appropriate auth/ subfolder.
-- Firebase initialization occurs in the infrastructure/ folder only. Firebase or firestore usage occurs in the appropriate dao/ and auth/ subfolders
-only. This is in accordance with appropriate architecture and dependency flow. Exemptions from this rule include middleware.ts and the firebase
-configuration files that live at the root of the repo, and the functions/ folder which constitutes Cloud Functions deployed to firebase.
 
-## Environments
-
-- **Prod:** `grids-one` (Firebase) + Vercel for OG / screenshot functions.
-- **Stage:** `grids-stage`.
-- `.env` / `env.d.ts` — `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST`, and other client env vars.
-
-## Typical work
-
-Feature work on tiles and UI, bug fixes, refactors / code quality, product & UX decisions, and marketing.
+- Data access flows through a service class (`src/services/`), which obtains a DAO from the DAO factory singleton — never import or instantiate a concrete DAO directly. Auth access goes through the `AuthProvider` singleton (`src/auth/`). DAO and `AuthProvider` interfaces are defined in `@grids/contracts`.
+- `apps/web` must stay backend-agnostic: do not import database/auth SDKs (e.g. `firebase/*`) or reach into `@grids/pro` internals. The only crossing point is the runtime boundary in `src/pro/loadProRuntime.ts`, which hands back `@grids/contracts`-typed implementations. Everything else codes against the contracts interfaces and falls back to the local stubs.

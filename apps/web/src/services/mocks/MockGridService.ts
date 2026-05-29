@@ -1,6 +1,6 @@
-import { type Grid } from "@/types/Grid";
+import { type Grid } from "@grids/contracts/types";
 import type { IGridService } from "../interfaces/IGridService";
-import { ContentType } from "@/types/TileContent";
+import { ContentType } from "@grids/contracts/types";
 import { createTile, createTileContent } from "@/utils/TileUtils";
 
 const mockData: Grid = {
@@ -115,7 +115,7 @@ export class MockGridService implements IGridService {
   async cloneAndPersistGrid(
     _userId: string,
     _sourceGrid: Grid,
-    _copyDepth?: import("@/types/Grid").CopyDepth,
+    _copyDepth?: import("@grids/contracts/types").CopyDepth,
   ): Promise<Grid> {
     return { ...mockData };
   }

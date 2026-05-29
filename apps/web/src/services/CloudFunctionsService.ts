@@ -1,5 +1,5 @@
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
-import type { CloudFunctionsDao } from "@/dao/interfaces/CloudFunctionsDao";
+import type { CloudFunctionsDao } from "@grids/contracts/dao";
 import type { ICloudFunctionsService } from "./interfaces/ICloudFunctionsService";
 
 export class CloudFunctionsService implements ICloudFunctionsService {

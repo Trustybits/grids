@@ -110,13 +110,13 @@ import {
   inject,
   type ComputedRef,
 } from "vue";
-import { type CampfireContent } from "@/types/TileContent";
+import { type CampfireContent } from "@grids/contracts/types";
 import { useGridStore } from "@/stores/grid";
 import FireSmallIcon from "@/components/icons/FireSmallIcon.vue";
 import FireMediumIcon from "@/components/icons/FireMediumIcon.vue";
 import FireLargeIcon from "@/components/icons/FireLargeIcon.vue";
 import LeaderboardIcon from "@/components/icons/LeaderboardIcon.vue";
-import type { UserGameData, LeaderboardEntry } from "@/types/GameData";
+import type { UserGameData, LeaderboardEntry } from "@grids/contracts/types";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { getCurrentBoostTier, getNextBoostTier, type BoostMilestone } from "@/utils/PassiveBoostCalculator";
 

@@ -3,7 +3,7 @@ import type {
   SlugData,
   SlugAvailabilityResponse,
   SlugClaimResponse,
-} from "@/types/UserProfile";
+} from "@grids/contracts/types";
 import type { IUserService } from "../interfaces/IUserService";
 
 export class MockUserService implements IUserService {

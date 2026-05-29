@@ -32,7 +32,7 @@
 <script setup lang="ts">
 import { computed, watch, onMounted, onUnmounted, nextTick, ref } from "vue";
 import { useGridStore } from "@/stores/grid";
-import type { Breakpoint } from "@/types/Tile";
+import type { Breakpoint } from "@grids/contracts/types";
 import Banner from "@/components/ui-elements/Banner.vue";
 import EyeIcon from "@/components/icons/EyeIcon.vue";
 import WarningTriangleIcon from "@/components/icons/WarningTriangleIcon.vue";

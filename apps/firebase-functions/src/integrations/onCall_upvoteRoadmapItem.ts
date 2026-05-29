@@ -1,20 +1,17 @@
 import * as functions from "firebase-functions/v1";
-import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  requireAuth,
+  requireStringFields,
+} from "../shared/utils_callable.js";
 import { notionClientId, notionClientSecret } from "./secrets.js";
-
-type NotionRichText = { plain_text?: string };
-type NotionOption = { name?: string };
-type NotionProperty = {
-  type: string;
-  title?: NotionRichText[];
-  select?: { name?: string; options?: NotionOption[] };
-  status?: { name?: string; options?: NotionOption[] };
-  multi_select?: { options?: NotionOption[] };
-  number?: number;
-};
+import {
+  getNotionAccessToken,
+  notionBearerHeaders,
+  type NotionProperty,
+} from "./utils_notion.js";
 
 /**
  * Records a Grids user's upvote on a roadmap item and patches the upvote
@@ -33,28 +30,14 @@ export const upvoteRoadmapItem = functions
   .https.onCall(async (data, context) => {
     if (noopIfMaintenance("upvoteRoadmapItem")) return null;
 
-    if (!context.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "You must be signed in to upvote.",
-      );
-    }
-
-    const { gridId, tileId, notionPageId } = data as {
-      gridId?: string;
-      tileId?: string;
-      notionPageId?: string;
-    };
-
-    if (!gridId || !tileId || !notionPageId) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Missing gridId, tileId, or notionPageId.",
-      );
-    }
+    const userId = requireAuth(context, "You must be signed in to upvote.");
+    const { gridId, tileId, notionPageId } = requireStringFields(
+      data,
+      ["gridId", "tileId", "notionPageId"],
+      "Missing gridId, tileId, or notionPageId.",
+    );
 
     const db = admin.firestore();
-    const userId = context.auth.uid;
 
     // One doc per user per item, keyed by "{userId}_{notionPageId}".
     // This allows a user to upvote multiple items independently.
@@ -69,22 +52,7 @@ export const upvoteRoadmapItem = functions
       .collection("upvotes")
       .doc(docId);
 
-    // Retrieve the Notion access token for this tile
-    const tokenDoc = await db
-      .collection("grids")
-      .doc(gridId)
-      .collection("notionTokens")
-      .doc(tileId)
-      .get();
-
-    if (!tokenDoc.exists) {
-      throw new HttpsError(
-        "not-found",
-        "Notion integration not connected for this tile.",
-      );
-    }
-
-    const accessToken = tokenDoc.data()?.accessToken as string;
+    const accessToken = await getNotionAccessToken(db, gridId, tileId);
 
     // Use a transaction to toggle the upvote atomically
     const { isNowUpvoted, newCount } = await db.runTransaction(
@@ -125,10 +93,7 @@ export const upvoteRoadmapItem = functions
         const pageRes = await fetch(
           `https://api.notion.com/v1/pages/${notionPageId}`,
           {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Notion-Version": "2022-06-28",
-            },
+            headers: notionBearerHeaders(accessToken),
           },
         );
 
@@ -144,11 +109,9 @@ export const upvoteRoadmapItem = functions
           // Patch the Notion page with the new upvote count
           await fetch(`https://api.notion.com/v1/pages/${notionPageId}`, {
             method: "PATCH",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-              "Notion-Version": "2022-06-28",
-            },
+            headers: notionBearerHeaders(accessToken, {
+              contentType: "application/json",
+            }),
             body: JSON.stringify({
               properties: {
                 [upvotePropertyName]: { number: updatedCount },

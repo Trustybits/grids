@@ -39,7 +39,7 @@
 
 <script lang="ts">
 import { computed, defineComponent, inject, ref, type Ref } from "vue";
-import { type EmbedContent } from "@/types/TileContent";
+import { type EmbedContent } from "@grids/contracts/types";
 import { useGridStore } from "@/stores/grid";
 import CursorClickIcon from "@/components/icons/CursorClickIcon.vue";
 

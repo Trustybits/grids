@@ -1,5 +1,6 @@
 import type { Component, Ref } from "vue";
-import type { Tile, TileChildComponent } from "./Tile";
+import type { Tile } from "@grids/contracts/types";
+import type { TileChildComponent } from "./Tile";
 import type { useGridStore } from "@/stores/grid";
 
 export interface ToolbarContext {
@@ -23,7 +24,7 @@ export interface ToolbarMenuItem {
   danger?: boolean | ((ctx: ToolbarContext) => boolean);
 }
 
-export interface ToolbarItem {
+export interface ToolbarButton {
   id: string;
   icon: Component | ((ctx: ToolbarContext) => Component);
   title: string | ((ctx: ToolbarContext) => string);
@@ -37,3 +38,6 @@ export interface ToolbarItem {
   menuItemsLayoutDirection?: "horizontal" | "vertical";
   danger?: boolean | ((ctx: ToolbarContext) => boolean);
 }
+
+/** @deprecated Use ToolbarButton instead */
+export type ToolbarItem = ToolbarButton;

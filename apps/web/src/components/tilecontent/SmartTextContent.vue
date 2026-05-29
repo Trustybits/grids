@@ -228,7 +228,7 @@ import { useGridStore } from "@/stores/grid";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
-import type { SmartTextContent } from "@/types/TileContent";
+import type { SmartTextContent } from "@grids/contracts/types";
 import { useTileLink } from "@/composables/useTileLink";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";

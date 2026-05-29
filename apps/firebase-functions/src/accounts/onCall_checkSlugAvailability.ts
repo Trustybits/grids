@@ -2,6 +2,10 @@ import { onCall, HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  requireAuth,
+  requireStringFields,
+} from "../shared/utils_callable.js";
 import { RESERVED_SLUGS } from "./utils_reservedSlugs.js";
 import { isValidSlugFormat } from "./utils_slugValidation.js";
 
@@ -12,19 +16,15 @@ import { isValidSlugFormat } from "./utils_slugValidation.js";
 export const checkSlugAvailability = onCall(async (data, context) => {
   if (noopIfMaintenance("checkSlugAvailability")) return null;
 
-  // Authentication not strictly required for checking, but we'll require it
-  if (!context.auth) {
-    throw new HttpsError(
-      "unauthenticated",
-      "You must be signed in to check slug availability.",
-    );
-  }
-
-  const requestedSlug = (data as { slug?: string } | undefined)?.slug;
-
-  if (!requestedSlug || typeof requestedSlug !== "string") {
-    throw new HttpsError("invalid-argument", "Slug is required.");
-  }
+  const userId = requireAuth(
+    context,
+    "You must be signed in to check slug availability.",
+  );
+  const { slug: requestedSlug } = requireStringFields(
+    data,
+    ["slug"],
+    "Slug is required.",
+  );
 
   const slug = requestedSlug.toLowerCase().trim();
 
@@ -66,7 +66,7 @@ export const checkSlugAvailability = onCall(async (data, context) => {
       }
 
       // Check if it's the current user's slug
-      if (existingUserId === context.auth.uid) {
+      if (existingUserId === userId) {
         return {
           available: true,
           reason: "own-slug",

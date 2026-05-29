@@ -2,6 +2,11 @@ import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  getCallableData,
+  requireAuth,
+  requireStringFields,
+} from "../shared/utils_callable.js";
 
 // ── Music Track Metadata (Spotify / Apple Music) ───────────────────────────
 
@@ -77,15 +82,13 @@ async function scrapeAppleEmbedColors(songId: string): Promise<string | null> {
 export const getMusicTrackMetadata = functions.https.onCall(async (data, context) => {
   if (noopIfMaintenance("getMusicTrackMetadata")) return null;
 
-  if (!context.auth) {
-    throw new HttpsError("unauthenticated", "You must be signed in to fetch music metadata.");
-  }
-
-  const { platform, trackId, trackType } = data as { platform?: string; trackId?: string; trackType?: string };
-
-  if (!platform || !trackId) {
-    throw new HttpsError("invalid-argument", "Missing platform or trackId.");
-  }
+  requireAuth(context, "You must be signed in to fetch music metadata.");
+  const { platform, trackId } = requireStringFields(
+    data,
+    ["platform", "trackId"],
+    "Missing platform or trackId.",
+  );
+  const { trackType } = getCallableData<{ trackType?: string }>(data);
 
   if (platform !== "spotify" && platform !== "apple") {
     throw new HttpsError("invalid-argument", `Unsupported platform: ${platform}`);

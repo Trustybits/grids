@@ -1,6 +1,6 @@
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
-import type { CloudFunctionsDao } from "@/dao/interfaces/CloudFunctionsDao";
-import type { CustomerDao } from "@/dao/interfaces/CustomerDao";
+import type { CloudFunctionsDao } from "@grids/contracts/dao";
+import type { CustomerDao } from "@grids/contracts/dao";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type {
   CheckoutSessionConfig,

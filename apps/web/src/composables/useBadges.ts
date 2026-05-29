@@ -10,7 +10,7 @@
  *
  * ── Adding a new badge ────────────────────────────────────────────────────
  *
- *   1. Add the ID to `BadgeId` / `BADGE_IDS` in `@/types/Badge.ts`
+ *   1. Add the ID to `BadgeId` / `BADGE_IDS` in `@grids/contracts/types.ts`
  *   2. Add a metadata entry to `BADGE_META` below (label, description, icon)
  *   3. Decide how it's granted (Cloud Function trigger, admin script, etc.)
  *
@@ -35,7 +35,7 @@ import {
   type MaybeRefOrGetter,
 } from 'vue'
 import { getServiceFactory } from '@/services/ServiceFactorySingleton'
-import { BADGE_IDS, type BadgeId, type UserBadges } from '@/types/Badge'
+import { BADGE_IDS, type BadgeId, type UserBadges } from '@grids/contracts/types'
 import EarlyAdopterBadgeIcon from '@/components/icons/badges/EarlyAdopterBadgeIcon.vue'
 import SupporterBadgeIcon from '@/components/icons/badges/SupporterBadgeIcon.vue'
 

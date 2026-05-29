@@ -1,9 +1,3 @@
-import type { InjectionKey, Ref } from 'vue';
-import type { AuthUser } from '@/auth/AuthProvider';
-
-export const marketingUserKey: InjectionKey<Ref<AuthUser | null>> =
-  Symbol('marketingUser');
-
 export const MARKETING_PATHS = [
   '/',
   '/pricing',

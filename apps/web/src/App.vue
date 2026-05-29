@@ -45,12 +45,13 @@ import type { AuthUser } from '@/auth/AuthProvider';
 import { usePostHog } from '@/composables/usePostHog';
 import { initTier } from '@/composables/useTier';
 import { initContributions } from '@/composables/useContributions';
+import { isMarketingPath, isNonGridPath } from '@/constants/marketing';
 
 const { identify, reset: resetPostHog } = usePostHog();
 
 const route = useRoute();
 const gridStore = useGridStore();
-const isMarketingPage = computed(() => MARKETING_PATHS.includes(route.path));
+const isMarketingPage = computed(() => isMarketingPath(route.path));
 const hideBottomCornerButtons = isMarketingPage;
 
 const user = ref<AuthUser | null>(null);
@@ -101,22 +102,11 @@ const isAuthenticated = computed(() => !!user.value);
 
 // Routes that are definitely NOT grid pages. Must stay in sync with
 // NON_GRID_PATHS in BottomLeftButtons.vue.
-const MARKETING_PATHS = ["/", "/pricing", "/showcase", "/templates", "/blog"];
-
-const NON_GRID_PATHS = [
-  ...MARKETING_PATHS,
-  "/dashboard",
-  "/login",
-  "/signup",
-  "/privacy",
-  "/terms",
-  "/notion-callback",
-];
 
 const isOnGridPage = computed(() => {
   const path = route.path;
   if (path.startsWith("/grid/")) return true;
-  if (NON_GRID_PATHS.includes(path)) return false;
+  if (isNonGridPath(path)) return false;
   // Slug routes (/:slug) that loaded a real grid
   return !!gridStore.currentGrid && !gridStore.isDemoGrid;
 });
@@ -129,9 +119,9 @@ watch(
   (newPath, oldPath) => {
     const wasOnGrid =
       oldPath?.startsWith("/grid/") ||
-      (oldPath != null && !NON_GRID_PATHS.includes(oldPath));
+      (oldPath != null && !isNonGridPath(oldPath));
     const isOnGrid =
-      newPath.startsWith("/grid/") || !NON_GRID_PATHS.includes(newPath);
+      newPath.startsWith("/grid/") || !isNonGridPath(newPath);
 
     if (wasOnGrid && !isOnGrid) {
       gridStore.clearCurrentGrid();

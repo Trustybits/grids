@@ -12,8 +12,8 @@
     <div class="mkt__footer-links">
       <div class="mkt__footer-col">
         <h4>Product</h4>
-        <a href="#" @click.prevent="$emit('navigate', 'showcase')">Showcase</a>
-        <a href="#" @click.prevent="$emit('navigate', 'pricing')">Pricing</a>
+        <router-link to="/showcase">Showcase</router-link>
+        <router-link to="/pricing">Pricing</router-link>
         <a href="https://discord.com/channels/1452087541548191940/1464413220549955768" target="_blank" rel="noopener noreferrer">What's New</a>
       </div>
       <div class="mkt__footer-col">
@@ -27,9 +27,6 @@
 </template>
 
 <script setup lang="ts">
-defineEmits<{
-  navigate: [page: string];
-}>();
 </script>
 
 <style scoped>

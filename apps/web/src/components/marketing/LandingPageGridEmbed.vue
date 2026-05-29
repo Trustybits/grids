@@ -1,5 +1,5 @@
 <!--
-  HomePageGridEmbed.vue
+  LandingPageGridEmbed.vue
 
   Marketing-homepage wrapper around the real <Grid> component. Renders an
   in-memory demo layout so visitors can see (and lightly poke at) actual

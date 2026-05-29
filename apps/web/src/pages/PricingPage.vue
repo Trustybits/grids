@@ -35,7 +35,7 @@
           <header>
             <h3>Supporter</h3>
           </header>
-          <h4 class="mkt__plan-title--supporter">Donate to Support Grids</h4>
+          <h4 class="mkt__plan-title--supporter">Donate to Support</h4>
           <p>One-time. No subscription. Unlock the Supporter badge.</p>
 
           <div class="mkt__plan-cta">
@@ -261,14 +261,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePageTitle } from '@/composables/usePageTitle';
 import { useTier } from '@/composables/useTier';
 import { useBadges } from '@/composables/useBadges';
 import { useContributions } from '@/composables/useContributions';
 import { useStripeCheckout } from '@/composables/useStripeCheckout';
-import { marketingUserKey } from '@/constants/marketing';
+import { getAuthProvider } from '@/auth/AuthProviderSingleton';
+import type { AuthUser } from '@grids/contracts/auth';
 import MarketingLayout from '@/components/marketing/MarketingLayout.vue';
 import Button from '@/components/ui-elements/Button.vue';
 
@@ -276,8 +277,19 @@ const pageTitle = ref('Pricing');
 usePageTitle(pageTitle);
 
 const router = useRouter();
-const user = inject(marketingUserKey)!;
+const user = ref<AuthUser | null>(null);
 const userId = computed(() => user.value?.uid ?? null);
+let unsubscribeAuthState: (() => void) | null = null;
+
+onMounted(() => {
+  unsubscribeAuthState = getAuthProvider().onAuthStateChanged((currentUser) => {
+    user.value = currentUser;
+  });
+});
+
+onBeforeUnmount(() => {
+  if (unsubscribeAuthState) unsubscribeAuthState();
+});
 
 const { tier, isProOrAbove } = useTier();
 const { hasBadge } = useBadges(userId);

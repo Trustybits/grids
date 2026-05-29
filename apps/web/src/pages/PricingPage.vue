@@ -125,7 +125,12 @@
             >
               <div class="mkt__plan-section">{{ group.label }}</div>
               <ul>
-                <li v-for="item in group.items" :key="item">{{ item }}</li>
+                <li v-for="item in group.items" :key="item.label">
+                  <span>{{ item.label }}</span>
+                  <span v-if="item.comingSoon" class="mkt__coming-soon-chip">
+                    Coming soon
+                  </span>
+                </li>
               </ul>
             </div>
           </div>
@@ -186,7 +191,12 @@
         </div>
 
         <ul class="mkt__community-features">
-          <li v-for="f in communityFeatures" :key="f">{{ f }}</li>
+          <li v-for="f in communityFeatures" :key="f.label">
+            <span>{{ f.label }}</span>
+            <span v-if="f.comingSoon" class="mkt__coming-soon-chip">
+              Coming soon
+            </span>
+          </li>
         </ul>
 
         <div class="mkt__community-cta">
@@ -333,34 +343,34 @@ async function handleSupporterCheckout() {
   await checkout.checkoutSupporter(effectiveAmount.value);
 }
 
-const communityFeatures = [
-  'Unlimited grids',
-  'Unlimited tiles',
-  'Drag-and-drop editor',
-  'Mobile-responsive layouts',
-  'Basic page analytics (coming soon)',
+const communityFeatures: FeatureListItem[] = [
+  { label: 'Unlimited grids' },
+  { label: 'Unlimited tiles' },
+  { label: 'Drag-and-drop editor' },
+  { label: 'Mobile-responsive layouts' },
+  { label: 'Basic page analytics', comingSoon: true },
 ];
 
-const supporterUnlocks = [
+const supporterUnlocks: { label: string; items: FeatureListItem[] }[] = [
   {
     label: 'Always Free',
     items: [
-      'Two grid pages',
-      'Unlimited tiles',
-      'Custom handle URL (grids.so/yourhandle)',
+      { label: 'Two grid pages' },
+      { label: 'Unlimited tiles' },
+      { label: 'Custom handle URL (grids.so/yourhandle)' },
     ],
   },
   {
     label: '$1+ unlocks',
     items: [
-      'Supporter badge on your profile',
-      'Early access to new features',
-      'Warm fuzzy feeling of supporting an amazing open-source product',
+      { label: 'Supporter badge on your profile' },
+      { label: 'Early access to new features' },
+      { label: 'Warm fuzzy feeling of supporting an amazing open-source product' },
     ],
   },
   {
     label: '$10+ unlocks',
-    items: ['Remove Grids branding'],
+    items: [{ label: 'Remove Grids branding', comingSoon: true }],
   },
 ];
 
@@ -406,6 +416,7 @@ const proFeatures = [
 
 const showComparison = ref(false);
 type ComparisonCell = boolean | string;
+type FeatureListItem = { label: string; comingSoon?: boolean };
 
 function comparisonCellLabel(value: ComparisonCell) {
   if (typeof value === 'boolean') {

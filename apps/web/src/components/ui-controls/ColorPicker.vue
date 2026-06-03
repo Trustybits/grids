@@ -40,6 +40,15 @@
       />
 
       <button
+        v-if="eyeDropperSupported"
+        class="hex-panel-btn"
+        title="Pick a color from the page"
+        @click.stop="onEyeDropper"
+      >
+        <EyeDropperIcon :size="18" />
+      </button>
+
+      <button
         class="hex-panel-btn"
         title="Apply color"
         @click.stop="onHexSubmit"
@@ -64,11 +73,20 @@ import { type Tile } from "@grids/contracts/types";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
 import { useToastStore } from "@/stores/toast";
 import NoFillIcon from "@/components/icons/NoFillIcon.vue";
+import EyeDropperIcon from "@/components/icons/EyeDropperIcon.vue";
+
+interface EyeDropperResult {
+  sRGBHex: string;
+}
+interface EyeDropperConstructor {
+  new (): { open: () => Promise<EyeDropperResult> };
+}
 
 export default defineComponent({
   components: {
     CheckIcon,
     NoFillIcon,
+    EyeDropperIcon,
   },
   props: {
     tile: {
@@ -227,6 +245,26 @@ export default defineComponent({
       }
     };
 
+    // The native EyeDropper API is Chromium-only; the button is hidden where
+    // it is unavailable (Firefox, Safari, most mobile browsers).
+    const eyeDropperSupported = "EyeDropper" in window;
+
+    const onEyeDropper = async () => {
+      const Ctor = (window as unknown as { EyeDropper?: EyeDropperConstructor })
+        .EyeDropper;
+      if (!Ctor) return;
+
+      try {
+        const { sRGBHex } = await new Ctor().open();
+        const hex = normalizeHex(sRGBHex);
+        if (!verifyValidColor(hex)) return;
+        hexInput.value = hex.slice(1).toUpperCase();
+        handleColorChange(hex);
+      } catch {
+        // User dismissed the picker (e.g. pressed Escape) — no action needed.
+      }
+    };
+
     const updatePos = () => {
       const el = props.buttonEl;
       if (!el) return;
@@ -327,6 +365,8 @@ export default defineComponent({
       onHexSubmit,
       generateColorTooltip,
       panelRef,
+      eyeDropperSupported,
+      onEyeDropper,
     };
   },
 });

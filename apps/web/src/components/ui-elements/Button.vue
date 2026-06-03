@@ -289,6 +289,7 @@ const handleClick = (event: MouseEvent) => {
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-sm);
+  padding-bottom: 2px;
 }
 
 @keyframes ui-btn-spin {

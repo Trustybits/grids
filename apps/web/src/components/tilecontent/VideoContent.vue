@@ -167,7 +167,7 @@ import {
   inject,
   type ComputedRef,
 } from "vue";
-import { type VideoContent } from "@/types/TileContent";
+import { type VideoContent } from "@grids/contracts/types";
 import { useGridStore } from "@/stores/grid";
 import { useVideoFocus } from "@/composables/useVideoFocus";
 import { useColorPicker } from "@/composables/useColorPicker";

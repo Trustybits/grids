@@ -1,6 +1,6 @@
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
-import type { ChatDao } from "@/dao/interfaces/ChatDao";
-import type { ChatMessage } from "@/types/TileContent";
+import type { ChatDao } from "@grids/contracts/dao";
+import type { ChatMessage } from "@grids/contracts/types";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { IChatService } from "./interfaces/IChatService";
 

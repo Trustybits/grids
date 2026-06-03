@@ -2,7 +2,7 @@ import type { Snapshot } from "./UndoTypes";
 import {
   ContentType,
   type DocumentsContent,
-} from "@/types/TileContent";
+} from "@grids/contracts/types";
 
 const MAX_STACK_SIZE = 20;
 

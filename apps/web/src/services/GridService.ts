@@ -1,11 +1,10 @@
-import { type Grid, type CopyDepth } from "@/types/Grid";
-import type { Breakpoint, TilePosition, Tile } from "@/types/Tile";
-import { ContentType, type AnyTileContent, type ChatContent, type DocumentsContent, type SuggestionAction } from "@/types/TileContent";
+import { type Grid, type CopyDepth, type Breakpoint, type TilePosition, type Tile } from "@grids/contracts/types";
+import { ContentType, type AnyTileContent, type ChatContent, type DocumentsContent, type SuggestionAction } from "@grids/contracts/types";
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import { getDbUtils } from "@/dao/DbUtilsSingleton";
-import type { DbUtils } from "@/dao/interfaces/DbUtils";
-import type { GridDao } from "@/dao/interfaces/GridDao";
-import type { UserDao } from "@/dao/interfaces/UserDao";
+import type { DbUtils } from "@grids/contracts/dao";
+import type { GridDao } from "@grids/contracts/dao";
+import type { UserDao } from "@grids/contracts/dao";
 import { createDefaultGrid } from "@/utils/GridUtils";
 import { createTile, createTileContent } from "@/utils/TileUtils";
 import { stripBlobUrlsFromTiles } from "@/utils/GridPersistenceUtils";

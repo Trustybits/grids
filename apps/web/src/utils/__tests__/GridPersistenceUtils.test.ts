@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ContentType } from "@/types/TileContent";
+import { ContentType } from "@grids/contracts/types";
 import { stripBlobUrlsFromTiles } from "../GridPersistenceUtils";
 
 describe("stripBlobUrlsFromTiles", () => {

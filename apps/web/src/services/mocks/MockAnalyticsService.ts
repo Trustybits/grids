@@ -1,14 +1,14 @@
 import type {
   GridViewEndEvent,
   LogEventInput,
-} from "@/dao/interfaces/AnalyticsEventDao";
+} from "@grids/contracts/dao";
 import type {
   AnalyticsEventType,
   BusinessStats,
   DailyBusinessStats,
   DailyGridStats,
   GridStats,
-} from "@/types/Analytics";
+} from "@grids/contracts/types";
 import type { IAnalyticsService } from "../interfaces/IAnalyticsService";
 
 export class MockAnalyticsService implements IAnalyticsService {

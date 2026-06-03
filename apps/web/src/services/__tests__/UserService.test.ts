@@ -5,11 +5,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { registerDaoFactory } from "@/dao/DaoFactorySingleton";
 import { registerDbUtils } from "@/dao/DbUtilsSingleton";
 import { UserService } from "@/services/UserService";
-import type { UserDao } from "@/dao/interfaces/UserDao";
-import type { SlugDao } from "@/dao/interfaces/SlugDao";
-import type { DbUtils } from "@/dao/interfaces/DbUtils";
-import type { DaoFactory } from "@/dao/interfaces/factory/DaoFactory";
-import type { UserProfile } from "@/types/UserProfile";
+import type { UserDao } from "@grids/contracts/dao";
+import type { SlugDao } from "@grids/contracts/dao";
+import type { DbUtils } from "@grids/contracts/dao";
+import type { DaoFactory } from "@grids/contracts/dao";
+import type { UserProfile } from "@grids/contracts/types";
 
 // ── Mock DAOs ─────────────────────────────────────────────────────────────
 

@@ -1,10 +1,10 @@
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
-import type { UserGameDataDao } from "@/dao/interfaces/UserGameDataDao";
+import type { UserGameDataDao } from "@grids/contracts/dao";
 import type {
   UserGameData,
   LeaderboardEntry,
   DailyClickLimit,
-} from "@/types/GameData";
+} from "@grids/contracts/types";
 import { generateSeededDisplayName } from "@/utils/NameGenerator";
 import type { IGameDataService } from "./interfaces/IGameDataService";
 
@@ -12,42 +12,6 @@ const DAILY_CLICK_CAP = 100;
 
 function getTodayDateString(): string {
   return new Date().toISOString().split("T")[0];
-}
-
-function toUserGameData(
-  userId: string,
-  data: Record<string, unknown>,
-): UserGameData {
-  const toDate = (val: unknown): Date => {
-    if (val && typeof val === "object" && "toDate" in val) {
-      return (val as { toDate: () => Date }).toDate();
-    }
-    return new Date();
-  };
-
-  return {
-    userId,
-    displayName: data.displayName as string,
-    totalClicks: (data.totalClicks as number) || 0,
-    createdAt: toDate(data.createdAt),
-    updatedAt: toDate(data.updatedAt),
-    dailyClicks: (data.dailyClicks as number) || 0,
-    lastClickDate: (data.lastClickDate as string) || getTodayDateString(),
-    passiveBoost: (data.passiveBoost as number) || 0,
-    totalPassiveClicks: (data.totalPassiveClicks as number) || 0,
-  };
-}
-
-function toLeaderboardEntry(
-  data: Record<string, unknown>,
-  rank: number,
-): LeaderboardEntry {
-  return {
-    userId: data.id as string,
-    displayName: data.displayName as string,
-    totalClicks: (data.totalClicks as number) || 0,
-    rank,
-  };
 }
 
 function getDao(): UserGameDataDao {
@@ -60,7 +24,7 @@ export class GameDataService implements IGameDataService {
     const data = await dao.getById(userId);
 
     if (data) {
-      return toUserGameData(userId, data);
+      return data;
     }
 
     const displayName = generateSeededDisplayName(userId);
@@ -93,13 +57,13 @@ export class GameDataService implements IGameDataService {
     }
 
     const today = getTodayDateString();
-    const lastClickDate = (data.lastClickDate as string) || "";
+    const lastClickDate = data.lastClickDate ?? "";
 
     if (lastClickDate !== today) {
       return { canClick: true, remaining: DAILY_CLICK_CAP, dailyClicks: 0 };
     }
 
-    const dailyClicks = (data.dailyClicks as number) || 0;
+    const dailyClicks = data.dailyClicks ?? 0;
     const remaining = Math.max(0, DAILY_CLICK_CAP - dailyClicks);
 
     return {
@@ -147,9 +111,9 @@ export class GameDataService implements IGameDataService {
   ): () => void {
     const dao = getDao();
 
-    return dao.subscribe(userId, (raw) => {
-      if (raw) {
-        callback(toUserGameData(userId, raw));
+    return dao.subscribe(userId, (data) => {
+      if (data) {
+        callback(data);
       }
     });
   }
@@ -157,7 +121,7 @@ export class GameDataService implements IGameDataService {
   async getLeaderboard(topN: number = 10): Promise<LeaderboardEntry[]> {
     const dao = getDao();
     const entries = await dao.getLeaderboard(topN);
-    return entries.map((entry, i) => toLeaderboardEntry(entry, i + 1));
+    return entries.map((entry, i) => ({ ...entry, rank: i + 1 }));
   }
 
   subscribeToLeaderboard(
@@ -167,7 +131,7 @@ export class GameDataService implements IGameDataService {
     const dao = getDao();
 
     return dao.subscribeToLeaderboard(topN, (entries) => {
-      callback(entries.map((entry, i) => toLeaderboardEntry(entry, i + 1)));
+      callback(entries.map((entry, i) => ({ ...entry, rank: i + 1 })));
     });
   }
 
@@ -204,12 +168,8 @@ export class GameDataService implements IGameDataService {
       return 0;
     }
 
-    const totalClicks = (data.totalClicks as number) || 0;
-    const updatedAt = data.updatedAt;
-    const lastUpdate =
-      updatedAt && typeof updatedAt === "object" && "toDate" in updatedAt
-        ? (updatedAt as { toDate: () => Date }).toDate()
-        : new Date();
+    const totalClicks = data.totalClicks;
+    const lastUpdate = data.updatedAt;
 
     const { calculatePassiveClicks } =
       await import("@/utils/PassiveBoostCalculator");

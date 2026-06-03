@@ -122,7 +122,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, inject, onMounted } from "vue";
-import { type YouTubeContent } from "@/types/TileContent";
+import { type YouTubeContent } from "@grids/contracts/types";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridStore } from "@/stores/grid";
 import { useTileLayout } from "@/composables/useTileLayout";

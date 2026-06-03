@@ -223,12 +223,12 @@
 <script lang="ts">
 import { computed, defineComponent, inject, onMounted, onUnmounted, ref, watch } from "vue";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
-import type { AuthUser } from "@/auth/AuthProvider";
+import type { AuthUser } from "@grids/contracts/auth";
 import { useRouter } from "vue-router";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridStore } from "@/stores/grid";
-import type { RoadmapFeedContent, RoadmapFilterableType, RoadmapItem, RoadmapQueryFilter, RoadmapStatus } from "@/types/TileContent";
-import type { NotionDatabase, PropertyOption } from "@/types/Roadmap";
+import type { RoadmapFeedContent, RoadmapFilterableType, RoadmapItem, RoadmapQueryFilter, RoadmapStatus } from "@grids/contracts/types";
+import type { NotionDatabase, PropertyOption } from "@grids/contracts/types";
 import CloseXIcon from "@/components/icons/CloseXIcon.vue";
 import RefreshIcon from "@/components/icons/RefreshIcon.vue";
 import GearIcon from "@/components/icons/GearIcon.vue";

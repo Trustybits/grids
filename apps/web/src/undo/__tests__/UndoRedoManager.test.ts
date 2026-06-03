@@ -7,7 +7,7 @@ import {
   type ImageContent,
   type LinkContent,
   type TileContent,
-} from "../../types/TileContent";
+} from "@grids/contracts/types";
 
 const exampleSnapshot: Snapshot = {
   tiles: [

@@ -1,5 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import HomePage from '@/pages/HomePage.vue';
+import LandingPage from '@/pages/LandingPage.vue';
+import PricingPage from '@/pages/PricingPage.vue';
+import ShowcasePage from '@/pages/ShowcasePage.vue';
+import TemplatesPage from '@/pages/TemplatesPage.vue';
+import BlogPage from '@/pages/BlogPage.vue';
 import GridPage from '@/pages/GridPage.vue';
 import AuthPage from '@/pages/AuthPage.vue';
 import DashboardPage from '@/pages/DashboardPage.vue';
@@ -8,11 +12,12 @@ import TermsPage from '@/pages/TermsPage.vue';
 import NotionCallback from '@/pages/NotionCallback.vue';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
+import { MARKETING_PATHS } from '@/constants/marketing';
 import posthog from 'posthog-js';
 
 // Define routes
 const routes = [
-  { path: "/", component: HomePage },
+  { path: "/", component: LandingPage },
   { path: "/login", component: AuthPage },
   { path: "/signup", redirect: "/login" },
   {
@@ -37,22 +42,22 @@ const routes = [
   },
   {
     path: "/pricing",
-    component: HomePage,
+    component: PricingPage,
     meta: { requiresAuth: false },
   },
   {
     path: "/showcase",
-    component: HomePage,
+    component: ShowcasePage,
     meta: { requiresAuth: false },
   },
   {
     path: "/templates",
-    component: HomePage,
+    component: TemplatesPage,
     meta: { requiresAuth: false },
   },
   {
     path: "/blog",
-    component: HomePage,
+    component: BlogPage,
     meta: { requiresAuth: false },
   },
   {
@@ -68,10 +73,23 @@ const routes = [
   },
 ];
 
+const marketingPathSet = new Set<string>(MARKETING_PATHS);
+
 // Create router
 const router = createRouter({
   history: createWebHistory(),
   routes,
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) return savedPosition;
+    if (
+      marketingPathSet.has(to.path) &&
+      marketingPathSet.has(from.path) &&
+      to.path !== from.path
+    ) {
+      return { top: 0, behavior: 'smooth' };
+    }
+    return { top: 0 };
+  },
 });
 
 router.beforeEach(async (to, from, next) => {

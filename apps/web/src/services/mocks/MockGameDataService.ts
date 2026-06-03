@@ -2,7 +2,7 @@ import type {
   UserGameData,
   DailyClickLimit,
   LeaderboardEntry,
-} from "@/types/GameData";
+} from "@grids/contracts/types";
 import type { IGameDataService } from "../interfaces/IGameDataService";
 
 export class MockGameDataService implements IGameDataService {

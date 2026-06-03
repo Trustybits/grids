@@ -1,4 +1,4 @@
-import type { Tile } from "@/types/Tile";
+import type { Tile } from "@grids/contracts/types";
 
 /**
  * Calculate the lowest point (bottom edge) in the grid.

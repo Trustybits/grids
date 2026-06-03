@@ -164,7 +164,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useGridStore } from "@/stores/grid";
-import type { CopyDepth } from "@/types/Grid";
+import type { CopyDepth } from "@grids/contracts/types";
 import { useThemeStore } from "@/stores/theme";
 import { useToastStore } from "@/stores/toast";
 import { usePixelRacersStore } from "@/stores/pixelRacers";

@@ -3,7 +3,7 @@ import type {
   SlugClaimResponse,
   SlugData,
   UserProfile,
-} from "@/types/UserProfile";
+} from "@grids/contracts/types";
 
 export interface IUserService {
   // ── Profile (users collection) ──────────────────────────────────────

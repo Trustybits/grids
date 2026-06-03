@@ -104,6 +104,7 @@
           v-if="showBgColorPicker"
           :buttonEl="bgChevronEl"
           :onColorChange="handleBackgroundColorChange"
+          :currentColor="gridStore.currentGrid?.backgroundColor ?? ''"
         />
 
         <GhostSplitButton

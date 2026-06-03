@@ -1,20 +1,20 @@
 <template>
   <header class="mkt__nav">
-    <button class="mkt__brand" @click="$emit('navigate', 'home')">
+    <router-link to="/" class="mkt__brand">
       <span class="mkt__brand-mark" aria-hidden="true">
         <img src="/grids_logo.png" alt="" />
       </span>
       <span class="mkt__brand-word">grids</span>
-    </button>
+    </router-link>
     <nav class="mkt__menu">
-      <button
+      <router-link
         v-for="item in navItems"
         :key="item.id"
-        :class="['mkt__menu-item', { 'is-active': currentPage === item.id }]"
-        @click="$emit('navigate', item.id)"
+        :to="item.path"
+        :class="['mkt__menu-item', { 'is-active': route.path === item.path }]"
       >
         {{ item.label }}
-      </button>
+      </router-link>
     </nav>
     <div class="mkt__actions">
       <a
@@ -54,29 +54,25 @@
   <MobileMenu
     :open="menuOpen"
     :nav-items="navItems"
-    :current-page="currentPage"
     :is-authenticated="isAuthenticated"
-    @navigate="(page: string) => { $emit('navigate', page); menuOpen = false }"
     @close="menuOpen = false"
   />
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRoute } from 'vue-router';
+import { MARKETING_NAV_ITEMS } from '@/constants/marketing';
 import DiscordIcon from '@/components/icons/DiscordIcon.vue';
 import MobileMenu from '@/components/ui-collections/MobileMenu.vue';
 import Button from '@/components/ui-elements/Button.vue';
 
 defineProps<{
-  navItems: ReadonlyArray<{ id: string; label: string }>;
-  currentPage: string;
   isAuthenticated: boolean;
 }>();
 
-defineEmits<{
-  navigate: [page: string];
-}>();
-
+const route = useRoute();
+const navItems = MARKETING_NAV_ITEMS;
 const menuOpen = ref(false);
 </script>
 
@@ -108,6 +104,7 @@ const menuOpen = ref(false);
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  text-decoration: none;
 }
 .mkt__brand-word {
   font-family: var(--mkt-font-brand);
@@ -144,6 +141,7 @@ const menuOpen = ref(false);
   cursor: pointer;
   padding: 8px 12px;
   border-radius: 10px;
+  text-decoration: none;
 }
 .mkt__menu-item.is-active {
   color: var(--mkt-fg-1);

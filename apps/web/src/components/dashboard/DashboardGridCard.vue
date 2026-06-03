@@ -40,7 +40,7 @@ import DashboardGridStarButton from "./DashboardGridStarButton.vue";
 import ChevronRightIcon from "@/components/icons/ChevronRightIcon.vue";
 import DashboardGridUpdatedLabel from "./DashboardGridUpdatedLabel.vue";
 import DashboardGridCardActions from "./DashboardGridCardActions.vue";
-import type { Grid } from "@/types/Grid";
+import type { Grid } from "@grids/contracts/types";
 
 defineProps<{
   grid: Grid,

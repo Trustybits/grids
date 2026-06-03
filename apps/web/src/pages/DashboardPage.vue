@@ -102,8 +102,8 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 
 const userService = getServiceFactory().getUserService();
 import { valueToMillis } from "@/utils/TimeConversion";
-import type { Grid } from "@/types/Grid";
-import type { CopyDepth } from "@/types/Grid";
+import type { Grid } from "@grids/contracts/types";
+import type { CopyDepth } from "@grids/contracts/types";
 import PromptModal from "@/components/modal/PromptModal.vue";
 import DashboardGridCard from "@/components/dashboard/DashboardGridCard.vue";
 import Button from "@/components/ui-elements/Button.vue";

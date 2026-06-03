@@ -1,4 +1,4 @@
-import { ContentType, type RoadmapFeedContent } from "@/types/TileContent";
+import { ContentType, type RoadmapFeedContent } from "@grids/contracts/types";
 import type { TileDefinition } from "@/types/TileDefinition";
 import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/tileToolbar/baseButtons";
 

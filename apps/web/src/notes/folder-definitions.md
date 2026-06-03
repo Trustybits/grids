@@ -68,7 +68,7 @@ the uid, email, displayName, and photoUrl. It does this through an `AuthProvider
 implementation is used in the actual application, and uses Firebase's auth services. The `stubbed` implementation can
 be used for testing or provided to the open-source as a fake version of the auth system.
 - Any other component or file that needs to use the auth system uses the `AuthProvider` provided by the AuthProviderSingleton,
-meaning there is only 1 AuthProvider for the entire app, intialized in `main.ts` based on the VITE_USE_FIRESTORE environment
+meaning there is only 1 AuthProvider for the entire app, intialized in `main.ts` based on the VITE_USE_FIREBASE environment
 variable.
 - Switching to a new authentication system is as simple as creating an `AuthProvider` for that system and updating
 `main.ts`.

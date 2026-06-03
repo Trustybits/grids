@@ -1,4 +1,4 @@
-import type { DaoFactory } from "./interfaces/factory/DaoFactory";
+import type { DaoFactory } from "@grids/contracts/dao";
 
 let instance: DaoFactory | null = null;
 

@@ -59,7 +59,8 @@ import {
   watch,
   type PropType,
 } from "vue";
-import { type Tile, type TileChildComponent } from "@/types/Tile";
+import { type TileChildComponent } from "@/types/Tile";
+import { type Tile } from "@grids/contracts/types";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
 import { useToastStore } from "@/stores/toast";
 import NoFillIcon from "@/components/icons/NoFillIcon.vue";

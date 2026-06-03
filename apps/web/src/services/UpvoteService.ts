@@ -1,5 +1,5 @@
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
-import type { UpvoteDao } from "@/dao/interfaces/UpvoteDao";
+import type { UpvoteDao } from "@grids/contracts/dao";
 import type { IUpvoteService } from "./interfaces/IUpvoteService";
 
 export class UpvoteService implements IUpvoteService {

@@ -2,14 +2,15 @@
   <transition name="mkt-mobile-menu">
     <div v-if="open" class="mkt__mobile-menu" @click.self="$emit('close')">
       <nav class="mkt__mobile-nav">
-        <button
+        <router-link
           v-for="item in navItems"
           :key="item.id"
-          :class="['mkt__mobile-nav-item', { 'is-active': currentPage === item.id }]"
-          @click="$emit('navigate', item.id)"
+          :to="item.path"
+          :class="['mkt__mobile-nav-item', { 'is-active': route.path === item.path }]"
+          @click="$emit('close')"
         >
           {{ item.label }}
-        </button>
+        </router-link>
       </nav>
       <div class="mkt__mobile-divider"></div>
       <div class="mkt__mobile-actions">
@@ -41,19 +42,20 @@
 </template>
 
 <script setup lang="ts">
+import { useRoute } from 'vue-router';
 import DiscordIcon from '@/components/icons/DiscordIcon.vue';
 
 defineProps<{
   open: boolean;
-  navItems: ReadonlyArray<{ id: string; label: string }>;
-  currentPage: string;
+  navItems: ReadonlyArray<{ id: string; label: string; path: string }>;
   isAuthenticated: boolean;
 }>();
 
 defineEmits<{
-  navigate: [page: string];
   close: [];
 }>();
+
+const route = useRoute();
 </script>
 
 <style scoped>
@@ -88,6 +90,7 @@ defineEmits<{
   border-radius: 12px;
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
+  text-decoration: none;
 }
 .mkt__mobile-nav-item:hover,
 .mkt__mobile-nav-item.is-active {

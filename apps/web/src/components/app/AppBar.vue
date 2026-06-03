@@ -31,6 +31,7 @@ import GridMenu from "@/components/grid/GridSettings.vue";
 import ShareButton from "@/components/grid/ShareButton.vue";
 import UseTemplateButton from "@/components/grid/UseTemplateButton.vue";
 import UserMenu from "@/components/app/UserMenu.vue";
+import { isNonGridPath } from "@/constants/marketing";
 
 const route = useRoute();
 const gridStore = useGridStore();
@@ -44,19 +45,6 @@ onMounted(() => {
 
 // A "grid page" is either /grid/:id or a slug route (/:slug) that loaded a grid.
 // Named routes like /dashboard, /login, /privacy, /terms are NOT grid pages.
-const NON_GRID_PATHS = [
-  "/",
-  "/pricing",
-  "/showcase",
-  "/templates",
-  "/blog",
-  "/dashboard",
-  "/login",
-  "/signup",
-  "/privacy",
-  "/terms",
-  "/notion-callback",
-];
 
 const isOnGridPage = computed(() => {
   const path = route.path;
@@ -64,7 +52,7 @@ const isOnGridPage = computed(() => {
   if (path.startsWith("/grid/")) return true;
   // Any top-level slug route (/:slug) counts as a grid page,
   // as long as it's not one of the known non-grid routes
-  if (!NON_GRID_PATHS.includes(path)) return true;
+  if (!isNonGridPath(path)) return true;
   return false;
 });
 

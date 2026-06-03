@@ -1,9 +1,9 @@
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
-import type { StorageDao } from "@/dao/interfaces/StorageDao";
+import type { StorageDao } from "@grids/contracts/dao";
 import type {
   StorageUploadMetadata,
   StorageUploadTask,
-} from "@/dao/interfaces/StorageDao";
+} from "@grids/contracts/dao";
 import type { IStorageService } from "./interfaces/IStorageService";
 import type { UploadOptions } from "@/types/UploadFileTypes";
 import { validateUploadFile } from "@/utils/UploadFileClassification";

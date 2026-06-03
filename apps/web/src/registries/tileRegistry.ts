@@ -1,4 +1,4 @@
-import type { TileContent, ContentType } from "@/types/TileContent";
+import type { TileContent, ContentType } from "@grids/contracts/types";
 import type { TileCategory, TileDefinition } from "@/types/TileDefinition";
 
 const registry = new Map<ContentType, TileDefinition>();

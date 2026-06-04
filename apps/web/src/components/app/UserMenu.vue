@@ -114,6 +114,7 @@
     :is-open="showSlugModal"
     :current-slug="currentSlug"
     @close="closeSlugModal"
+    @success="handleSlugSuccess"
     @skip="closeSlugModal"
   />
 </template>
@@ -131,7 +132,6 @@ import {
   ContentType,
   type AvatarShape,
   type ProfileBioContent,
-  type UserProfile,
 } from "@grids/contracts/types";
 import {
   DEFAULT_AVATAR_RADIUS,
@@ -180,12 +180,8 @@ export default defineComponent({
       .toString(36)
       .slice(2, 9)}`;
     const defaultGridName = ref<string | undefined>(undefined);
-    // Bookkeeping for the live profile subscription. Tracking the last grid
-    // id we loaded an avatar for lets us skip redundant grid fetches when the
-    // profile pushes updates that don't change the default grid.
-    let authUnsubscribe: (() => void) | null = null;
-    let profileUnsubscribe: (() => void) | null = null;
-    let loadedAvatarGridId: string | undefined;
+    const profileLoaded = ref(false);
+    const profileLoading = ref(false);
 
     const resetDefaultGridProfileShape = () => {
       defaultGridProfileAvatarShape.value = DEFAULT_AVATAR_SHAPE;
@@ -193,49 +189,19 @@ export default defineComponent({
       defaultGridProfileAvatarSides.value = DEFAULT_AVATAR_SIDES;
     };
 
-    const clearProfileState = () => {
-      currentSlug.value = undefined;
-      defaultGridId.value = undefined;
-      defaultGridProfileImageUrl.value = undefined;
-      resetDefaultGridProfileShape();
-      defaultGridName.value = undefined;
-      loadedAvatarGridId = undefined;
-    };
-
-    const applyProfile = (profile: UserProfile | null) => {
-      currentSlug.value = profile?.slug;
-      const gridId = profile?.defaultGridId ?? undefined;
-      defaultGridId.value = gridId;
-      // Only re-fetch the avatar/name when the default grid actually changes.
-      if (gridId !== loadedAvatarGridId) {
-        loadedAvatarGridId = gridId;
-        void loadDefaultGridProfileImageAndName(gridId);
-      }
-    };
-
-    const subscribeToProfile = (userId: string) => {
-      if (profileUnsubscribe) {
-        profileUnsubscribe();
-        profileUnsubscribe = null;
-      }
-      profileUnsubscribe = getServiceFactory()
-        .getUserService()
-        .subscribeToUserProfile(userId, applyProfile);
-    };
-
     onMounted(() => {
-      authUnsubscribe = getAuthProvider().onAuthStateChanged((currentUser) => {
+      getAuthProvider().onAuthStateChanged((currentUser) => {
         user.value = currentUser;
-        // Live-subscribe to the profile so slug/default-grid updates (e.g.
-        // right after claiming a handle) push automatically — no manual reload.
+        // Load user profile to get current slug/default grid.
         if (currentUser) {
-          subscribeToProfile(currentUser.uid);
+          loadUserProfile({ force: true });
         } else {
-          if (profileUnsubscribe) {
-            profileUnsubscribe();
-            profileUnsubscribe = null;
-          }
-          clearProfileState();
+          currentSlug.value = undefined;
+          defaultGridId.value = undefined;
+          defaultGridProfileImageUrl.value = undefined;
+          resetDefaultGridProfileShape();
+          defaultGridName.value = undefined;
+          profileLoaded.value = false;
         }
       });
       document.addEventListener("click", handleClickOutside, true);
@@ -243,14 +209,6 @@ export default defineComponent({
 
     onUnmounted(() => {
       document.removeEventListener("click", handleClickOutside, true);
-      if (profileUnsubscribe) {
-        profileUnsubscribe();
-        profileUnsubscribe = null;
-      }
-      if (authUnsubscribe) {
-        authUnsubscribe();
-        authUnsubscribe = null;
-      }
     });
 
     const loadDefaultGridProfileImageAndName = async (gridId?: string) => {
@@ -322,8 +280,34 @@ export default defineComponent({
       };
     });
 
-    const toggleUserMenu = () => {
+    const loadUserProfile = async (options: { force?: boolean } = {}) => {
+      if (!user.value) return;
+      if (profileLoading.value) return;
+      if (profileLoaded.value && !options.force) return;
+
+      profileLoading.value = true;
+      try {
+        const profile = await getServiceFactory()
+          .getUserService()
+          .getUserProfile(user.value.uid);
+        currentSlug.value = profile?.slug;
+        defaultGridId.value = profile?.defaultGridId;
+        await loadDefaultGridProfileImageAndName(profile?.defaultGridId);
+        profileLoaded.value = true;
+      } catch (error) {
+        console.error("Error loading user profile:", error);
+      } finally {
+        profileLoading.value = false;
+      }
+    };
+
+    const toggleUserMenu = async () => {
       showUserMenu.value = !showUserMenu.value;
+      if (showUserMenu.value) {
+        // Force a refresh on open so the menu always reflects the latest
+        // slug/default grid, even if it changed elsewhere this session.
+        await loadUserProfile({ force: true });
+      }
     };
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -343,8 +327,9 @@ export default defineComponent({
       showUserMenu.value = false;
     };
 
-    const openSlugModal = () => {
+    const openSlugModal = async () => {
       showUserMenu.value = false;
+      await loadUserProfile({ force: true });
       showSlugModal.value = true;
     };
 
@@ -357,6 +342,14 @@ export default defineComponent({
 
     const closeSlugModal = () => {
       showSlugModal.value = false;
+    };
+
+    const handleSlugSuccess = (slug: string) => {
+      // Apply the canonical slug returned by the claim directly. Re-reading the
+      // profile here previously raced the just-written document, leaving the
+      // menu showing the old handle until a page reload. Using the returned
+      // value updates the menu immediately and avoids the race entirely.
+      currentSlug.value = slug;
     };
 
     return {
@@ -377,6 +370,7 @@ export default defineComponent({
       openSlugModal,
       goToDefaultGrid,
       closeSlugModal,
+      handleSlugSuccess,
       hasSupporterBadge,
       isProOrAbove,
       checkout,

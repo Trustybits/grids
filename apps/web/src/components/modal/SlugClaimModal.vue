@@ -227,10 +227,13 @@ const handleClaim = async () => {
     const result = await userService.claimSlug(claimedSlug);
 
     if (result.success) {
+      // Prefer the canonical slug returned by the claim; fall back to a
+      // locally-normalized value so consumers always get the stored form.
+      const finalSlug = result.slug ?? claimedSlug.trim().toLowerCase();
       emit('close');
-      emit('success', claimedSlug);
+      emit('success', finalSlug);
       if (props.onSuccess) {
-        props.onSuccess(claimedSlug);
+        props.onSuccess(finalSlug);
       }
     }
   } catch (error: unknown) {

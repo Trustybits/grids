@@ -304,7 +304,7 @@ export default defineComponent({
     const toggleUserMenu = async () => {
       showUserMenu.value = !showUserMenu.value;
       if (showUserMenu.value) {
-        await loadUserProfile();
+        await loadUserProfile({ force: true });
       }
     };
 

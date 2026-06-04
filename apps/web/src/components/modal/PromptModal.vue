@@ -115,7 +115,7 @@ h3:has(+ .modal-description) {
   font-family: var(--font-family-base);
   color: var(--color-text-primary);
   background-color: var(--color-content-background);
-  border: var(--ui-border-width) solid var(--color-ui-stroke);
+  border: var(--border-width) solid var(--color-stroke);
   border-radius: var(--radius-md);
   outline: none;
   transition: all var(--duration-fast) var(--easing-smooth);

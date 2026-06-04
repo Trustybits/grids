@@ -441,7 +441,7 @@ export default defineComponent({
   bottom: -4px;
   left: 48px;
   background: var(--color-tile-background);
-  border: var(--ui-border-width) solid var(--color-ui-stroke);
+  border: var(--border-width) solid var(--color-stroke);
   border-radius: var(--radius-md);
   padding: var(--spacing-sm);
   min-width: 240px;

@@ -334,7 +334,7 @@ const handleSlugSkipped = () => {
   gap: var(--spacing-md);
   width: min(520px, calc(100vw - 32px));
   background-color: color-mix(in srgb, var(--color-tile-background) 86%, transparent);
-  border: var(--ui-border-width) solid var(--color-ui-stroke);
+  border: var(--border-width) solid var(--color-stroke);
   backdrop-filter: blur(20px);
 }
 
@@ -362,7 +362,7 @@ input {
   width: 100%;
   height: 40px;
   padding: var(--spacing-sm);
-  border: var(--ui-border-width) solid var(--color-ui-stroke);
+  border: var(--border-width) solid var(--color-stroke);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   background-color: var(--color-content-background);
@@ -430,7 +430,7 @@ button:hover {
   align-items: center;
   justify-content: center;
   background-color: transparent;
-  border: var(--ui-border-width) solid var(--color-ui-stroke);
+  border: var(--border-width) solid var(--color-stroke);
   color: var(--color-text-primary);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -508,7 +508,7 @@ button:hover {
 }
 
 .solidDivider {
-  border: 1px solid var(--color-ui-stroke);
+  border: 1px solid var(--color-stroke);
   border-radius: 1px;
   width: 100%;
 }

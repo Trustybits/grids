@@ -225,7 +225,7 @@ export default defineComponent({
 .font-select-menu {
   position: fixed;
   z-index: 3000;
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border: var(--ui-border-width) solid var(--color-ui-stroke);
   background: var(--color-tile-background);
   border-radius: var(--radius-md);
   font-size: var(--font-size-md);

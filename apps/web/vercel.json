@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "if [ -f ../../package-lock.json ]; then cd ../..; fi; npm ci",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [

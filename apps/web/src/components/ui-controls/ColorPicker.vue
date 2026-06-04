@@ -40,6 +40,15 @@
       />
 
       <button
+        v-if="eyeDropperSupported"
+        class="hex-panel-btn"
+        title="Pick a color from the page"
+        @click.stop="onEyeDropper"
+      >
+        <EyeDropperIcon :size="18" />
+      </button>
+
+      <button
         class="hex-panel-btn"
         title="Apply color"
         @click.stop="onHexSubmit"
@@ -64,11 +73,20 @@ import { type Tile } from "@grids/contracts/types";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
 import { useToastStore } from "@/stores/toast";
 import NoFillIcon from "@/components/icons/NoFillIcon.vue";
+import EyeDropperIcon from "@/components/icons/EyeDropperIcon.vue";
+
+interface EyeDropperResult {
+  sRGBHex: string;
+}
+interface EyeDropperConstructor {
+  new (): { open: () => Promise<EyeDropperResult> };
+}
 
 export default defineComponent({
   components: {
     CheckIcon,
     NoFillIcon,
+    EyeDropperIcon,
   },
   props: {
     tile: {
@@ -86,6 +104,10 @@ export default defineComponent({
     onColorChange: {
       type: Function as unknown as PropType<((color: string) => void) | null>,
       default: null,
+    },
+    currentColor: {
+      type: String,
+      default: "",
     },
   },
   setup(props) {
@@ -114,9 +136,61 @@ export default defineComponent({
       return /^#[0-9a-fA-F]{6}$/.test(color);
     };
 
+    const extractCustomHexDigits = (color: string): string => {
+      const trimmed = color.trim();
+      if (!trimmed) return "";
+      const normalized = normalizeHex(trimmed);
+      if (!verifyValidColor(normalized)) return "";
+      return normalized.slice(1).toUpperCase();
+    };
+
+    // Resolve any applied background color — a custom hex or a `var(--token)`
+    // swatch — to 6 hex digits so the hex field always reflects the current
+    // color. Tokens are resolved against the live DOM so the active theme
+    // determines the concrete value.
+    const resolveColorToHexDigits = (color: string): string => {
+      const trimmed = color.trim();
+      if (!trimmed) return "";
+
+      const directHex = extractCustomHexDigits(trimmed);
+      if (directHex) return directHex;
+
+      const host = panelRef.value ?? document.body;
+      const probe = document.createElement("div");
+      probe.style.backgroundColor = trimmed;
+      probe.style.display = "none";
+      host.appendChild(probe);
+      const resolved = getComputedStyle(probe).backgroundColor;
+      host.removeChild(probe);
+      return rgbToHexDigits(resolved);
+    };
+
+    // Convert an `rgb()` / `rgba()` string to 6 uppercase hex digits.
+    // Returns "" for transparent or unparseable values.
+    const rgbToHexDigits = (rgb: string): string => {
+      const match = rgb.match(
+        /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/,
+      );
+      if (!match) return "";
+      const alpha = match[4] !== undefined ? parseFloat(match[4]) : 1;
+      if (alpha === 0) return "";
+      return [match[1], match[2], match[3]]
+        .map((n) => Number(n).toString(16).padStart(2, "0"))
+        .join("")
+        .toUpperCase();
+    };
+
     const onColorClick = (event: MouseEvent, color: string) => {
       event.preventDefault();
       const value = `var(${color.trim()})`;
+
+      // Reflect the resolved color of the swatch in the hex field so the
+      // user can see the concrete hex value they just selected.
+      const target = event.currentTarget as HTMLElement | null;
+      if (target) {
+        hexInput.value = rgbToHexDigits(getComputedStyle(target).backgroundColor);
+      }
+
       handleColorChange(value);
     };
 
@@ -171,6 +245,26 @@ export default defineComponent({
       }
     };
 
+    // The native EyeDropper API is Chromium-only; the button is hidden where
+    // it is unavailable (Firefox, Safari, most mobile browsers).
+    const eyeDropperSupported = "EyeDropper" in window;
+
+    const onEyeDropper = async () => {
+      const Ctor = (window as unknown as { EyeDropper?: EyeDropperConstructor })
+        .EyeDropper;
+      if (!Ctor) return;
+
+      try {
+        const { sRGBHex } = await new Ctor().open();
+        const hex = normalizeHex(sRGBHex);
+        if (!verifyValidColor(hex)) return;
+        hexInput.value = hex.slice(1).toUpperCase();
+        handleColorChange(hex);
+      } catch {
+        // User dismissed the picker (e.g. pressed Escape) — no action needed.
+      }
+    };
+
     const updatePos = () => {
       const el = props.buttonEl;
       if (!el) return;
@@ -211,6 +305,7 @@ export default defineComponent({
     };
 
     onMounted(() => {
+      hexInput.value = resolveColorToHexDigits(props.currentColor);
       updatePos();
       hexInputRef.value?.focus();
     });
@@ -270,6 +365,8 @@ export default defineComponent({
       onHexSubmit,
       generateColorTooltip,
       panelRef,
+      eyeDropperSupported,
+      onEyeDropper,
     };
   },
 });

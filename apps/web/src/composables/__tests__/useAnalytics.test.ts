@@ -101,7 +101,8 @@ function isEventOfType<T extends AnalyticsEventType>(
 function lastEventOfType<T extends AnalyticsEventType>(
   type: T,
 ): EventInput<T> {
-  const event = eventsOfType(type).at(-1);
+  const events = eventsOfType(type);
+  const event = events[events.length - 1];
   if (!event) {
     throw new Error(`Expected analytics event of type ${type}`);
   }

@@ -24,7 +24,7 @@
     "suite:full": "npm run lint && npm run test && npm run type-check && echo 'Success!'",
     "postinstall": "patch-package"
   },
-  "devDependencies": {
+  "dependencies": {
     "patch-package": "^8.0.1"
   }
 }

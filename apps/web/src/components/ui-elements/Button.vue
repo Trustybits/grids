@@ -120,7 +120,7 @@ const handleClick = (event: MouseEvent) => {
   line-height: 1;
   border: none;
   border-radius: var(--radius-sm);
-  outline: var(--ui-border-width) solid transparent;
+  outline: var(--border-width) solid transparent;
   outline-offset: 0;
   cursor: pointer;
   text-decoration: none;
@@ -173,7 +173,7 @@ const handleClick = (event: MouseEvent) => {
 
   &--secondary {
     background-color: color-mix(in srgb, var(--color-content-background) 89%, transparent);
-    outline-color: var(--color-ui-stroke);
+    outline-color: var(--color-stroke);
     color: var(--color-text-primary);
 
     &:hover:not(.ui-btn--disabled) {

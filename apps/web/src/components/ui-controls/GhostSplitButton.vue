@@ -98,7 +98,7 @@ defineExpose({ chevronRef });
   right: 0;
   margin-top: 4px;
   background: var(--color-tile-background);
-  border: var(--ui-border-width) solid var(--color-ui-stroke);
+  border: var(--border-width) solid var(--color-stroke);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-lg);
   z-index: 10;

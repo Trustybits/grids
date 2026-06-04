@@ -68,7 +68,7 @@ const handleOverlayClick = () => {
   position: relative;
   z-index: var(--z-modal);
   background-color: var(--color-tile-background);
-  border: var(--ui-border-width) solid var(--color-ui-stroke);
+  border: var(--border-width) solid var(--color-stroke);
   border-radius: var(--radius-lg);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }

@@ -66,7 +66,7 @@ export const claimSlug = onCall(async (data, context) => {
             );
           }
           // If it's the same user, they're updating to the same slug (no-op)
-          return { success: true, message: "Slug is already yours." };
+          return { success: true, message: "Slug is already yours.", slug };
         }
         // If userId is null, fall through to claim the released slug
       }
@@ -125,7 +125,7 @@ export const claimSlug = onCall(async (data, context) => {
       }
 
       logger.info("Slug claimed successfully", { userId, slug });
-      return { success: true, message: "Slug claimed successfully." };
+      return { success: true, message: "Slug claimed successfully.", slug };
     });
 
     return result;

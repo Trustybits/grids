@@ -81,7 +81,11 @@ export class StubbedSlugDao implements SlugDao {
       mergeRecord(memoryDatabase.users.get(userId), { slug: normalized }),
     );
     emit(channel("user", userId));
-    return { success: true, message: "Handle claimed locally." };
+    return {
+      success: true,
+      message: "Handle claimed locally.",
+      slug: normalized,
+    };
   }
 
   public async updateDefaultGrid(

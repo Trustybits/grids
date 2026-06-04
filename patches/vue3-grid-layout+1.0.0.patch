@@ -1,0 +1,54 @@
+diff --git a/node_modules/vue3-grid-layout/dist/vue-grid-layout.common.js b/node_modules/vue3-grid-layout/dist/vue-grid-layout.common.js
+index c36a82c..3ef2a11 100644
+--- a/node_modules/vue3-grid-layout/dist/vue-grid-layout.common.js
++++ b/node_modules/vue3-grid-layout/dist/vue-grid-layout.common.js
+@@ -21156,10 +21156,20 @@ function compactItem(compareWith
+ /*: LayoutItem*/
+ {
+   if (verticalCompact) {
+-    // Move the element up as far as it can go without colliding.
+-    while (l.y > 0 && !getFirstCollision(compareWith, l)) {
+-      l.y--;
++    // Order-preserving gravity: rest the element on top of the highest
++    // already-placed item that overlaps its columns (0 if none). This keeps
++    // the original top-to-bottom order of overlapping tiles, so a narrow tile
++    // can no longer float ABOVE a wider tile it started below (which produced
++    // the resize "swap / pass-through" behavior).
++    var floor = 0;
++
++    for (var k = 0; k < compareWith.length; k++) {
++      var c = compareWith[k];
++      var colOverlap = l.x < c.x + c.w && l.x + l.w > c.x;
++      if (colOverlap && c.y + c.h > floor) floor = c.y + c.h;
+     }
++
++    l.y = floor;
+   } // Move it down, and keep moving it down if it's colliding.
+ 
+ 
+diff --git a/node_modules/vue3-grid-layout/src/helpers/utils.js b/node_modules/vue3-grid-layout/src/helpers/utils.js
+index 136abf1..55908df 100644
+--- a/node_modules/vue3-grid-layout/src/helpers/utils.js
++++ b/node_modules/vue3-grid-layout/src/helpers/utils.js
+@@ -112,10 +112,18 @@ export function compact(layout: Layout, verticalCompact: Boolean): Layout {
+  */
+ export function compactItem(compareWith: Layout, l: LayoutItem, verticalCompact: boolean): LayoutItem {
+   if (verticalCompact) {
+-    // Move the element up as far as it can go without colliding.
+-    while (l.y > 0 && !getFirstCollision(compareWith, l)) {
+-      l.y--;
++    // Order-preserving gravity: rest the element on top of the highest
++    // already-placed item that overlaps its columns (0 if none). This keeps
++    // the original top-to-bottom order of overlapping tiles, so a narrow tile
++    // can no longer float ABOVE a wider tile it started below (which produced
++    // the resize "swap / pass-through" behavior).
++    let floor = 0;
++    for (let k = 0; k < compareWith.length; k++) {
++      const c = compareWith[k];
++      const colOverlap = l.x < c.x + c.w && l.x + l.w > c.x;
++      if (colOverlap && c.y + c.h > floor) floor = c.y + c.h;
+     }
++    l.y = floor;
+   }
+ 
+   // Move it down, and keep moving it down if it's colliding.

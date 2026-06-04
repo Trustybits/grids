@@ -49,7 +49,7 @@ onMounted(async () => {
   padding: 24px;
   border-radius: var(--radius-lg);
   background: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border: var(--border-width) solid var(--color-stroke);
 }
 
 .md-section__status {

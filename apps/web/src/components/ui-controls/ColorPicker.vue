@@ -385,7 +385,7 @@ export default defineComponent({
   white-space: nowrap;
 
   background-color: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border: var(--border-width) solid var(--color-stroke);
   border-radius: 12px;
   padding: 4px;
 }

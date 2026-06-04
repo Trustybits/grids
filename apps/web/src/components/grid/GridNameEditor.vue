@@ -17,16 +17,18 @@
   <div v-else-if="!isAuthenticated" class="cta-buttons" ref="ctaRef">
     <Button class="cta-btn" variant="secondary" to="/login" size="sm">
       <template #icon-left>
-        <img src="/grids_logo.png" alt="" class="cta-logo" />
+        <img src="/grids_logo.png" alt="" />
       </template>
       Claim your Grid
     </Button>
     <Button class="cta-btn" variant="ghost" to="/login" size="sm">
       Login
     </Button>
-    <router-link class="cta-btn cta-btn--icon" to="/showcase" title="Showcase">
-      <ExploreIcon />
-    </router-link>
+    <Button class="cta-btn" variant="ghost" icon-only to="/showcase" size="sm" title="Showcase">
+      <template #icon-left>
+        <ExploreIcon />
+      </template>
+    </Button>
   </div>
 </template>
 
@@ -145,8 +147,7 @@ onUnmounted(() => {
 .cta-buttons {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-  overflow: hidden;
+  gap: var(--spacing-sm);
   flex-shrink: 1;
   min-width: 0;
 }
@@ -158,26 +159,4 @@ onUnmounted(() => {
   }
 }
 
-.cta-logo {
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
-}
-
-/* Icon-only button (Explore) — kept as plain router-link */
-.cta-btn--icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  color: var(--color-content-high);
-  flex-shrink: 0;
-  text-decoration: none;
-}
-
-.cta-btn--icon:hover {
-  color: var(--color-text-primary);
-}
 </style>

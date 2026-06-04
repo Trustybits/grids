@@ -1,7 +1,7 @@
 <template>
   <Button variant="ghost" icon-only @click="handleShare">
     <template #icon-left>
-      <ShareIcon :size="20" />
+      <ShareIcon />
     </template>
   </Button>
 </template>

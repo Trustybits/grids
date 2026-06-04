@@ -138,12 +138,14 @@ const handleClick = (event: MouseEvent) => {
 
   // ─── Sizes ───────────────────────────────────────────────────
   &--sm {
+    --btn-icon-size: 16px;
     height: 32px;
     padding: 0 12px;
     font-size: 13px;
   }
 
   &--md {
+    --btn-icon-size: 18px;
     height: 36px;
     padding: 0 16px;
     font-size: 14px;
@@ -151,6 +153,7 @@ const handleClick = (event: MouseEvent) => {
   }
 
   &--lg {
+    --btn-icon-size: 20px;
     height: 40px;
     padding: 0 20px;
     font-size: 15px;
@@ -283,6 +286,12 @@ const handleClick = (event: MouseEvent) => {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
+
+  :deep(svg),
+  :deep(img) {
+    width: var(--btn-icon-size);
+    height: var(--btn-icon-size);
+  }
 }
 
 .ui-btn__label {

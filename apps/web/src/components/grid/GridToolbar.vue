@@ -405,7 +405,7 @@ export default {
   top: -8px;
   background-color: var(--color-tile-background);
   border-radius: var(--radius-md);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border: var(--ui-border-width) solid var(--color-ui-stroke);
   backdrop-filter: blur(20px);
 }
 

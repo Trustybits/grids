@@ -458,7 +458,7 @@ const launchPixelRacers = () => {
   bottom: -4px;
   left: 48px;
   background: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border: var(--ui-border-width) solid var(--color-ui-stroke);
   border-radius: var(--radius-md);
   padding: var(--spacing-sm);
   min-width: 240px;

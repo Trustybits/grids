@@ -159,7 +159,7 @@ export default defineComponent({
   gap: 4px;
   white-space: nowrap;
   background-color: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border: var(--ui-border-width) solid var(--color-ui-stroke);
   border-radius: 12px;
   padding: 4px;
   /* animation: textAlignPanelSlideIn var(--duration-normal) var(--easing-spring); */

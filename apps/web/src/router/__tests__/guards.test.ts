@@ -14,7 +14,7 @@
  * its output, avoiding the need to spin up a full Vue app.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -84,10 +84,10 @@ function makeRoute(path: string, requiresAuth = false, query: Record<string, str
 }
 
 describe('Router auth guard', () => {
-  let next: ReturnType<typeof vi.fn>
+  let next: Mock<NextFn>
 
   beforeEach(() => {
-    next = vi.fn()
+    next = vi.fn<NextFn>()
   })
 
   // ── Root path ────────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@
   <div v-else-if="!isAuthenticated" class="cta-buttons" ref="ctaRef">
     <Button class="cta-btn" variant="secondary" to="/login" size="sm">
       <template #icon-left>
-        <img src="/grids_logo.png" alt="" class="cta-logo" />
+        <img src="/grids_logo.png" alt="" />
       </template>
       Claim your Grid
     </Button>
@@ -157,12 +157,6 @@ onUnmounted(() => {
     width: 100%;
     justify-content: center;
   }
-}
-
-.cta-logo {
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
 }
 
 </style>

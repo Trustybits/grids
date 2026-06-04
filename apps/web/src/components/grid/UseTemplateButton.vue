@@ -1,7 +1,7 @@
 <template>
   <Button variant="ghost" icon-only @click="handleUseTemplate">
     <template #icon-left>
-      <DuplicatePlusIcon :size="20" />
+      <DuplicatePlusIcon />
     </template>
   </Button>
 </template>

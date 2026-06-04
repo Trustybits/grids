@@ -114,7 +114,6 @@
     :is-open="showSlugModal"
     :current-slug="currentSlug"
     @close="closeSlugModal"
-    @success="handleSlugSuccess"
     @skip="closeSlugModal"
   />
 </template>
@@ -132,6 +131,7 @@ import {
   ContentType,
   type AvatarShape,
   type ProfileBioContent,
+  type UserProfile,
 } from "@grids/contracts/types";
 import {
   DEFAULT_AVATAR_RADIUS,
@@ -180,8 +180,12 @@ export default defineComponent({
       .toString(36)
       .slice(2, 9)}`;
     const defaultGridName = ref<string | undefined>(undefined);
-    const profileLoaded = ref(false);
-    const profileLoading = ref(false);
+    // Bookkeeping for the live profile subscription. Tracking the last grid
+    // id we loaded an avatar for lets us skip redundant grid fetches when the
+    // profile pushes updates that don't change the default grid.
+    let authUnsubscribe: (() => void) | null = null;
+    let profileUnsubscribe: (() => void) | null = null;
+    let loadedAvatarGridId: string | undefined;
 
     const resetDefaultGridProfileShape = () => {
       defaultGridProfileAvatarShape.value = DEFAULT_AVATAR_SHAPE;
@@ -189,19 +193,49 @@ export default defineComponent({
       defaultGridProfileAvatarSides.value = DEFAULT_AVATAR_SIDES;
     };
 
+    const clearProfileState = () => {
+      currentSlug.value = undefined;
+      defaultGridId.value = undefined;
+      defaultGridProfileImageUrl.value = undefined;
+      resetDefaultGridProfileShape();
+      defaultGridName.value = undefined;
+      loadedAvatarGridId = undefined;
+    };
+
+    const applyProfile = (profile: UserProfile | null) => {
+      currentSlug.value = profile?.slug;
+      const gridId = profile?.defaultGridId ?? undefined;
+      defaultGridId.value = gridId;
+      // Only re-fetch the avatar/name when the default grid actually changes.
+      if (gridId !== loadedAvatarGridId) {
+        loadedAvatarGridId = gridId;
+        void loadDefaultGridProfileImageAndName(gridId);
+      }
+    };
+
+    const subscribeToProfile = (userId: string) => {
+      if (profileUnsubscribe) {
+        profileUnsubscribe();
+        profileUnsubscribe = null;
+      }
+      profileUnsubscribe = getServiceFactory()
+        .getUserService()
+        .subscribeToUserProfile(userId, applyProfile);
+    };
+
     onMounted(() => {
-      getAuthProvider().onAuthStateChanged((currentUser) => {
+      authUnsubscribe = getAuthProvider().onAuthStateChanged((currentUser) => {
         user.value = currentUser;
-        // Load user profile to get current slug/default grid.
+        // Live-subscribe to the profile so slug/default-grid updates (e.g.
+        // right after claiming a handle) push automatically — no manual reload.
         if (currentUser) {
-          loadUserProfile({ force: true });
+          subscribeToProfile(currentUser.uid);
         } else {
-          currentSlug.value = undefined;
-          defaultGridId.value = undefined;
-          defaultGridProfileImageUrl.value = undefined;
-          resetDefaultGridProfileShape();
-          defaultGridName.value = undefined;
-          profileLoaded.value = false;
+          if (profileUnsubscribe) {
+            profileUnsubscribe();
+            profileUnsubscribe = null;
+          }
+          clearProfileState();
         }
       });
       document.addEventListener("click", handleClickOutside, true);
@@ -209,6 +243,14 @@ export default defineComponent({
 
     onUnmounted(() => {
       document.removeEventListener("click", handleClickOutside, true);
+      if (profileUnsubscribe) {
+        profileUnsubscribe();
+        profileUnsubscribe = null;
+      }
+      if (authUnsubscribe) {
+        authUnsubscribe();
+        authUnsubscribe = null;
+      }
     });
 
     const loadDefaultGridProfileImageAndName = async (gridId?: string) => {
@@ -280,32 +322,8 @@ export default defineComponent({
       };
     });
 
-    const loadUserProfile = async (options: { force?: boolean } = {}) => {
-      if (!user.value) return;
-      if (profileLoading.value) return;
-      if (profileLoaded.value && !options.force) return;
-
-      profileLoading.value = true;
-      try {
-        const profile = await getServiceFactory()
-          .getUserService()
-          .getUserProfile(user.value.uid);
-        currentSlug.value = profile?.slug;
-        defaultGridId.value = profile?.defaultGridId;
-        await loadDefaultGridProfileImageAndName(profile?.defaultGridId);
-        profileLoaded.value = true;
-      } catch (error) {
-        console.error("Error loading user profile:", error);
-      } finally {
-        profileLoading.value = false;
-      }
-    };
-
-    const toggleUserMenu = async () => {
+    const toggleUserMenu = () => {
       showUserMenu.value = !showUserMenu.value;
-      if (showUserMenu.value) {
-        await loadUserProfile();
-      }
     };
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -325,9 +343,8 @@ export default defineComponent({
       showUserMenu.value = false;
     };
 
-    const openSlugModal = async () => {
+    const openSlugModal = () => {
       showUserMenu.value = false;
-      await loadUserProfile({ force: true });
       showSlugModal.value = true;
     };
 
@@ -340,11 +357,6 @@ export default defineComponent({
 
     const closeSlugModal = () => {
       showSlugModal.value = false;
-    };
-
-    const handleSlugSuccess = async () => {
-      // Reload profile to get updated slug/default grid.
-      await loadUserProfile({ force: true });
     };
 
     return {
@@ -365,7 +377,6 @@ export default defineComponent({
       openSlugModal,
       goToDefaultGrid,
       closeSlugModal,
-      handleSlugSuccess,
       hasSupporterBadge,
       isProOrAbove,
       checkout,

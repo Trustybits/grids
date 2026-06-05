@@ -108,6 +108,7 @@
         :tile="tile"
         :childComponent="childComponent"
         :buttonEl="panelAnchorRef"
+        :currentColor="currentBackgroundColor"
       />
     </transition>
   </teleport>
@@ -348,6 +349,13 @@ export default defineComponent({
         ? item.danger(ctx.value)
         : !!item.danger;
     };
+
+    const currentBackgroundColor = computed(() => {
+      const content = props.tile.content as { backgroundColor?: unknown };
+      return typeof content.backgroundColor === "string"
+        ? content.backgroundColor
+        : "";
+    });
 
     const resolveButtonStyle = (
       item: ToolbarButton,
@@ -667,6 +675,7 @@ export default defineComponent({
       resolveTitle,
       resolveIcon,
       resolveButtonStyle,
+      currentBackgroundColor,
       resolveDanger,
       resolveMenuIcon,
       resolveMenuTooltip,

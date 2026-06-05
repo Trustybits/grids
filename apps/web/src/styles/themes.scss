@@ -18,20 +18,7 @@ body.theme-light,
   --color-base-0: var(--color-light-100-0);
   --color-input-edit: var(--color-dark-0-8);
 
-  
-  --color-substack: #ff6719;
-  --color-instagram-yellow: #ffd600;
-  --color-instagram-orange: #ff7a00;
-  --color-instagram-red: #ff0069;
-  --color-instagram-pink: #d300c5;
-  --color-instagram-purple: #7638fa;
-  --color-youtube-magenta: #fe2792;
-  --color-youtube-red: #ff0132;
-  --color-figma-purple: #874fff;
-  --color-figma-red: #ff3737;
-  --color-figma-orange: #ff7237;
-  --color-figma-blue: #00b6ff;
-  --color-figma-green: #24cb71;
+  --color-stroke: #00000014;
   
   --color-editable-hover: rgba(0, 0, 0, 0.03);
 
@@ -61,20 +48,8 @@ body.theme-dark,
   --color-base-8: var(--color-dark-0-8);
   --color-base-0: var(--color-dark-0-0);
   --color-input-edit: var(--color-light-100-8);
-  
-  --color-substack: #ff6719;
-  --color-instagram-yellow: #ffd600;
-  --color-instagram-orange: #ff7a00;
-  --color-instagram-red: #ff0069;
-  --color-instagram-pink: #d300c5;
-  --color-instagram-purple: #7638fa;
-  --color-youtube-magenta: #fe2792;
-  --color-youtube-red: #ff0132;
-  --color-figma-purple: #874fff;
-  --color-figma-red: #ff3737;
-  --color-figma-orange: #ff7237;
-  --color-figma-blue: #00b6ff;
-  --color-figma-green: #24cb71;
+
+  --color-stroke: #FFFFFF14;
   
   --color-editable-hover: rgba(255, 255, 255, 0.05);
 

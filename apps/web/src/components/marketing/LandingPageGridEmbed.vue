@@ -81,15 +81,16 @@
         </div>
       </div>
 
-      <div class="grid-jack__legend" aria-hidden="true">
+      <div class="grid-jack__legend">
         <div class="grid-jack__chips">
-          <span
+          <button
             v-for="bp in breakpointOrder"
             :key="bp.id"
             :class="['grid-jack__chip', { 'is-active': displayBreakpoint === bp.id }]"
+            @click="scrollToBreakpoint(bp.id)"
           >
             {{ bp.label }}
-          </span>
+          </button>
         </div>
         <span v-if="!scrollDisabled" class="grid-jack__legend-hint">
           scroll to morph ↓
@@ -327,6 +328,26 @@ const onScroll = () => {
     const progress = scrolled / totalRunway;
     displayBreakpoint.value = breakpointForProgress(progress);
   });
+};
+
+// Scroll the page so the scroll-jack lands at the target breakpoint.
+// Each breakpoint owns a third of the runway; we aim for the midpoint
+// of that slice so the result isn't right on the threshold edge.
+const scrollToBreakpoint = (bp: Breakpoint) => {
+  if (scrollDisabled.value) return;
+  const root = jackRoot.value;
+  if (!root) return;
+
+  const totalRunway =
+    root.offsetHeight - viewportHeight.value + PIN_TOP_OFFSET;
+  if (totalRunway <= 0) return;
+
+  const targetProgress = bp === 'lg' ? 0.17 : bp === 'md' ? 0.5 : 0.84;
+  const rootPageTop = root.getBoundingClientRect().top + window.scrollY;
+  const targetScrollY =
+    targetProgress * totalRunway + rootPageTop - PIN_TOP_OFFSET;
+
+  window.scrollTo({ top: targetScrollY, behavior: 'smooth' });
 };
 
 const onResize = () => {
@@ -646,7 +667,17 @@ const interceptOutboundClick = (event: MouseEvent) => {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.02);
   color: var(--mkt-fg-3);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
   transition: color 200ms ease, border-color 200ms ease, background 200ms ease;
+}
+
+.grid-jack__chip:hover:not(.is-active) {
+  color: var(--mkt-fg-2);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .grid-jack__chip.is-active {

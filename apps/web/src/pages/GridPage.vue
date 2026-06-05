@@ -561,7 +561,7 @@ export default defineComponent({
 
   .drag-message {
     background: var(--color-tile-background);
-    border: var(--tile-border-width) solid var(--color-tile-stroke);
+    border: var(--border-width) solid var(--color-stroke);
     border-style: dashed;
     border-radius: var(--tile-border-radius);
     padding: 2rem 3rem;

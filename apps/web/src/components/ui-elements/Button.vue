@@ -11,16 +11,20 @@
         'ui-btn--block': block,
         'ui-btn--disabled': disabled || loading,
         'ui-btn--loading': loading,
+        'ui-btn--icon-only': iconOnly,
+        'ui-btn--active': active,
       },
     ]"
+    :style="hoverColorStyle"
     :disabled="isButton ? (disabled || loading) : undefined"
+    :aria-pressed="isButton && active ? true : undefined"
     @click="handleClick"
   >
     <span v-if="loading" class="ui-btn__spinner" aria-hidden="true" />
     <span v-if="$slots['icon-left']" class="ui-btn__icon ui-btn__icon--left">
       <slot name="icon-left" />
     </span>
-    <span class="ui-btn__label">
+    <span v-if="!iconOnly" class="ui-btn__label">
       <slot />
     </span>
     <span v-if="$slots['icon-right']" class="ui-btn__icon ui-btn__icon--right">
@@ -45,6 +49,9 @@ const props = withDefaults(
     disabled?: boolean;
     block?: boolean;
     loading?: boolean;
+    iconOnly?: boolean;
+    active?: boolean;
+    hoverColor?: string;
   }>(),
   {
     variant: 'secondary',
@@ -52,6 +59,8 @@ const props = withDefaults(
     disabled: false,
     block: false,
     loading: false,
+    iconOnly: false,
+    active: false,
   },
 );
 
@@ -81,6 +90,13 @@ const elementProps = computed(() => {
   return { type: 'button' };
 });
 
+const hoverColorStyle = computed(() => {
+  if (props.hoverColor) {
+    return { '--btn-hover-color': props.hoverColor } as Record<string, string>;
+  }
+  return {};
+});
+
 const handleClick = (event: MouseEvent) => {
   if (props.disabled || props.loading) {
     event.preventDefault();
@@ -92,28 +108,26 @@ const handleClick = (event: MouseEvent) => {
 
 <style lang="scss" scoped>
 .ui-btn {
-  --btn-padding-x: var(--spacing-lg);
-  --btn-padding-y: var(--spacing-sm);
-  --btn-font-size: 14px;
-  --btn-radius: var(--radius-sm);
-
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
-  padding: var(--btn-padding-y) var(--btn-padding-x);
-  font-size: var(--btn-font-size);
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
   font-weight: var(--font-weight-medium);
   font-family: var(--font-family-base);
   line-height: 1;
-  border-radius: var(--btn-radius);
-  border: var(--tile-border-width) solid transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  outline: var(--border-width) solid transparent;
+  outline-offset: 0;
   cursor: pointer;
   text-decoration: none;
   white-space: nowrap;
   transition:
     background-color var(--duration-fast) var(--easing-smooth),
-    border-color var(--duration-fast) var(--easing-smooth),
+    outline-color var(--duration-fast) var(--easing-smooth),
     color var(--duration-fast) var(--easing-smooth),
     opacity var(--duration-fast) var(--easing-smooth);
 
@@ -124,22 +138,25 @@ const handleClick = (event: MouseEvent) => {
 
   // ─── Sizes ───────────────────────────────────────────────────
   &--sm {
-    --btn-padding-x: 12px;
-    --btn-padding-y: 6px;
-    --btn-font-size: 13px;
+    --btn-icon-size: 16px;
+    height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
   }
 
   &--md {
-    --btn-padding-x: var(--spacing-md);
-    --btn-padding-y: var(--spacing-sm);
-    --btn-font-size: 14px;
+    --btn-icon-size: 18px;
+    height: 36px;
+    padding: 0 16px;
+    font-size: 14px;
     font-weight: var(--font-weight-semibold);
   }
 
   &--lg {
-    --btn-padding-x: 16px;
-    --btn-padding-y: 12px;
-    --btn-font-size: 15px;
+    --btn-icon-size: 20px;
+    height: 40px;
+    padding: 0 20px;
+    font-size: 15px;
     font-weight: var(--font-weight-semibold);
   }
 
@@ -147,7 +164,6 @@ const handleClick = (event: MouseEvent) => {
 
   &--primary {
     background-color: var(--primary-color, var(--color-content-high));
-    border-color: transparent;
     color: var(--color-text-primary);
 
     &:hover:not(.ui-btn--disabled) {
@@ -156,20 +172,19 @@ const handleClick = (event: MouseEvent) => {
   }
 
   &--secondary {
-    background-color: transparent;
-    border-color: var(--color-tile-stroke);
+    background-color: color-mix(in srgb, var(--color-content-background) 89%, transparent);
+    outline-color: var(--color-stroke);
     color: var(--color-text-primary);
 
     &:hover:not(.ui-btn--disabled) {
       background-color: var(--color-content-background);
-      border-color: var(--color-content-high);
+      outline-color: var(--color-content-high);
     }
   }
 
   &--ghost {
-    background-color: transparent;
-    border-color: transparent;
-    color: var(--color-content-default);
+    background-color: color-mix(in srgb, var(--color-content-background) 89%, transparent);
+    color: var(--color-text-primary);
 
     &:hover:not(.ui-btn--disabled) {
       color: var(--color-text-primary);
@@ -179,7 +194,6 @@ const handleClick = (event: MouseEvent) => {
 
   &--danger {
     background-color: var(--color-figma-red);
-    border-color: transparent;
     color: #fff;
 
     &:hover:not(.ui-btn--disabled) {
@@ -189,7 +203,6 @@ const handleClick = (event: MouseEvent) => {
 
   &--brand {
     background: var(--mkt-brand-gradient, var(--color-figma-purple));
-    border: 0;
     color: #000;
     font-weight: var(--font-weight-bold);
     letter-spacing: -0.01em;
@@ -201,18 +214,37 @@ const handleClick = (event: MouseEvent) => {
 
   &--outline {
     background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    outline-color: rgba(255, 255, 255, 0.22);
     color: var(--mkt-fg-1, var(--color-text-primary));
     font-weight: var(--font-weight-semibold);
     letter-spacing: -0.01em;
 
     &:hover:not(.ui-btn--disabled) {
-      border-color: rgba(255, 255, 255, 0.35);
+      outline-color: rgba(255, 255, 255, 0.35);
       background: rgba(255, 255, 255, 0.04);
     }
   }
 
+  // ─── Icon-only ─────────────────────────────────────────────
+  &--icon-only {
+    padding: 0;
+    aspect-ratio: 1;
+    flex-shrink: 0;
+
+    &:hover:not(.ui-btn--disabled) .ui-btn__icon {
+      color: var(--btn-hover-color, currentColor);
+    }
+  }
+
   // ─── States ──────────────────────────────────────────────────
+
+  &--active:not(.ui-btn--disabled) {
+    background-color: var(--color-base-34);
+
+    .ui-btn__icon {
+      color: var(--btn-hover-color, var(--color-figma-purple));
+    }
+  }
 
   &--block {
     width: 100%;
@@ -254,12 +286,19 @@ const handleClick = (event: MouseEvent) => {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
+
+  :deep(svg),
+  :deep(img) {
+    width: var(--btn-icon-size);
+    height: var(--btn-icon-size);
+  }
 }
 
 .ui-btn__label {
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-sm);
+  padding-bottom: 2px;
 }
 
 @keyframes ui-btn-spin {

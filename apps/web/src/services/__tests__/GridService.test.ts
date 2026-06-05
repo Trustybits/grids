@@ -510,6 +510,8 @@ describe('duplicateGrid', () => {
     expect(result.userId).toBe('user-2')
     expect(result.name).toBe('Copy of Original')
     expect(result.backgroundImageSrc).toBe('bg.jpg')
+    // Provenance marker so the assign-default trigger skips duplicates.
+    expect(result.clonedFrom).toBe('grid-1')
   })
 
   it('uses "Untitled" when source name is empty', async () => {

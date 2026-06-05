@@ -357,6 +357,9 @@ export class GridService implements IGridService {
         backgroundEmbed: sourceGrid.backgroundEmbed || false,
         themeId: sourceGrid.themeId,
         overrides: newOverrides,
+        // Mark provenance so the assign-default trigger skips duplicates — only
+        // a user's first/fresh grid should auto-become their default.
+        clonedFrom: sourceGrid.id,
       };
 
       await this.saveGrid(newGrid);

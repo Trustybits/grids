@@ -178,8 +178,14 @@ describe("claimSlug", () => {
   it("normalizes the requested slug before validating and writing", async () => {
     setDoc("users/user-1", { defaultGridId: "grid-1" });
 
-    await claimSlug({ slug: "  MaTT-Galley  " }, { auth: { uid: "user-1" } });
+    const result = await claimSlug(
+      { slug: "  MaTT-Galley  " },
+      { auth: { uid: "user-1" } },
+    );
 
+    // The canonical normalized slug is returned so callers can update UI
+    // without re-reading the profile.
+    expect(result).toMatchObject({ success: true, slug: "matt-galley" });
     expect(isValidSlugFormat).toHaveBeenCalledWith("matt-galley");
     expect(firestoreState.setCalls[0]).toMatchObject({
       path: "slugs/matt-galley",
@@ -241,7 +247,11 @@ describe("claimSlug", () => {
 
     await expect(
       claimSlug({ slug: "matt" }, { auth: { uid: "user-1" } }),
-    ).resolves.toEqual({ success: true, message: "Slug is already yours." });
+    ).resolves.toEqual({
+      success: true,
+      message: "Slug is already yours.",
+      slug: "matt",
+    });
     expect(firestoreState.setCalls).toEqual([]);
     expect(firestoreState.updateCalls).toEqual([]);
   });
@@ -258,6 +268,7 @@ describe("claimSlug", () => {
     ).resolves.toEqual({
       success: true,
       message: "Slug claimed successfully.",
+      slug: "matt",
     });
     expect(firestoreState.setCalls[0]).toMatchObject({
       path: "slugs/matt",

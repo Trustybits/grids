@@ -10,9 +10,6 @@ const { firestoreState } = vi.hoisted(() => ({
   firestoreState: {
     docs: new Map<string, Record<string, unknown>>(),
     getShouldThrow: false,
-    transactionShouldThrow: false,
-    txSetCalls: [] as Array<{ path: string; data: Record<string, unknown>; options?: Record<string, unknown> }>,
-    txUpdateCalls: [] as Array<{ path: string; data: Record<string, unknown> }>,
   },
 }));
 
@@ -31,6 +28,8 @@ vi.mock("firebase-functions/logger", () => ({
   info: vi.fn(),
 }));
 
+// The grid-creation notification itself does not write to Firestore; the only
+// Firestore access is the dev-team email lookup in shouldSkipDevTeamNotification.
 vi.mock("../../admin.js", () => ({
   default: {
     firestore: () => ({
@@ -44,28 +43,6 @@ vi.mock("../../admin.js", () => ({
           },
         }),
       }),
-      runTransaction: async (callback: (transaction: unknown) => Promise<unknown>) => {
-        if (firestoreState.transactionShouldThrow) {
-          throw new Error("transaction failed");
-        }
-        const transaction = {
-          get: async (ref: { path: string }) => {
-            const data = firestoreState.docs.get(ref.path);
-            return { exists: data !== undefined, data: () => data };
-          },
-          set: (
-            ref: { path: string },
-            data: Record<string, unknown>,
-            options?: Record<string, unknown>,
-          ) => {
-            firestoreState.txSetCalls.push({ path: ref.path, data, options });
-          },
-          update: (ref: { path: string }, data: Record<string, unknown>) => {
-            firestoreState.txUpdateCalls.push({ path: ref.path, data });
-          },
-        };
-        return callback(transaction);
-      },
     }),
   },
 }));
@@ -97,9 +74,6 @@ function context(gridId = "grid-1") {
 beforeEach(() => {
   firestoreState.docs = new Map([["users/user-1", { email: "person@example.com" }]]);
   firestoreState.getShouldThrow = false;
-  firestoreState.transactionShouldThrow = false;
-  firestoreState.txSetCalls = [];
-  firestoreState.txUpdateCalls = [];
   resetMaintenanceMock(noopIfMaintenance);
   vi.mocked(writeServerAnalyticsEvent).mockReset().mockResolvedValue(undefined);
   vi.mocked(isDevTeamMember).mockReset().mockReturnValue(false);
@@ -113,13 +87,12 @@ afterEach(() => {
 });
 
 describe("onGridCreated", () => {
-  it("returns null without analytics or Firestore when maintenance is enabled", async () => {
+  it("returns null without analytics when maintenance is enabled", async () => {
     vi.mocked(noopIfMaintenance).mockReturnValue(true);
 
     await expect(onGridCreated(snapshot({ userId: "user-1" }), context())).resolves.toBeNull();
 
     expect(writeServerAnalyticsEvent).not.toHaveBeenCalled();
-    expect(firestoreState.txSetCalls).toEqual([]);
   });
 
   it("writes grid_created analytics with grid metadata", async () => {
@@ -135,7 +108,7 @@ describe("onGridCreated", () => {
     });
   });
 
-  it("skips Discord and default-grid assignment for dev team members", async () => {
+  it("skips the Discord notification for dev team members", async () => {
     vi.mocked(isDevTeamMember).mockReturnValue(true);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -144,11 +117,9 @@ describe("onGridCreated", () => {
 
     expect(isDevTeamMember).toHaveBeenCalledWith("user-1", "person@example.com");
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(firestoreState.txSetCalls).toEqual([]);
   });
 
-  it("posts Discord notification and auto-assigns default grid when missing", async () => {
-    firestoreState.docs.set("users/user-1", { email: "person@example.com", slug: "matt" });
+  it("posts a Discord notification with grid details", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204, text: async () => "ok" });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -163,36 +134,9 @@ describe("onGridCreated", () => {
         { name: "User ID", value: "user-1", inline: false },
       ]),
     );
-    expect(firestoreState.txSetCalls).toEqual([
-      {
-        path: "users/user-1",
-        data: { defaultGridId: "grid-1" },
-        options: { merge: true },
-      },
-    ]);
-    expect(firestoreState.txUpdateCalls).toEqual([
-      {
-        path: "slugs/matt",
-        data: { defaultGridId: "grid-1" },
-      },
-    ]);
   });
 
-  it("does not overwrite an existing default grid", async () => {
-    firestoreState.docs.set("users/user-1", {
-      email: "person@example.com",
-      defaultGridId: "existing-grid",
-      slug: "matt",
-    });
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 204, text: async () => "" }));
-
-    await onGridCreated(snapshot({ userId: "user-1", name: "Grid" }), context("grid-1"));
-
-    expect(firestoreState.txSetCalls).toEqual([]);
-    expect(firestoreState.txUpdateCalls).toEqual([]);
-  });
-
-  it("logs missing Discord secret and returns before default-grid assignment", async () => {
+  it("logs a missing Discord secret and returns", async () => {
     vi.mocked(discordUserActivityWebhookUrl.value).mockReturnValue("");
 
     await onGridCreated(snapshot({ userId: "user-1", name: "Grid" }), context("grid-1"));
@@ -200,12 +144,10 @@ describe("onGridCreated", () => {
     expect(logger.error).toHaveBeenCalledWith(
       "DISCORD_USER_ACTIVITY_WEBHOOK_URL secret is not configured",
     );
-    expect(firestoreState.txSetCalls).toEqual([]);
   });
 
-  it("logs Discord and default assignment failures without throwing", async () => {
+  it("logs a Discord send failure without throwing", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
-    firestoreState.transactionShouldThrow = true;
 
     await expect(onGridCreated(snapshot({ userId: "user-1", name: "Grid" }), context("grid-1"))).resolves.toBeNull();
 
@@ -213,17 +155,9 @@ describe("onGridCreated", () => {
       error: "Error: network down",
       gridId: "grid-1",
     });
-    expect(logger.error).toHaveBeenCalledWith(
-      "Failed to auto-assign default grid",
-      {
-        error: "Error: transaction failed",
-        userId: "user-1",
-        gridId: "grid-1",
-      },
-    );
   });
 
-  it("does not auto-assign when the grid has no userId", async () => {
+  it("writes analytics with a null userId when the grid has no userId", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 204, text: async () => "" }));
 
     await onGridCreated(snapshot({ name: "Grid" }), context("grid-1"));
@@ -231,6 +165,5 @@ describe("onGridCreated", () => {
     expect(writeServerAnalyticsEvent).toHaveBeenCalledWith(
       expect.objectContaining({ userId: null }),
     );
-    expect(firestoreState.txSetCalls).toEqual([]);
   });
 });

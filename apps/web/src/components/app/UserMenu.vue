@@ -304,7 +304,9 @@ export default defineComponent({
     const toggleUserMenu = async () => {
       showUserMenu.value = !showUserMenu.value;
       if (showUserMenu.value) {
-        await loadUserProfile();
+        // Force a refresh on open so the menu always reflects the latest
+        // slug/default grid, even if it changed elsewhere this session.
+        await loadUserProfile({ force: true });
       }
     };
 
@@ -342,9 +344,12 @@ export default defineComponent({
       showSlugModal.value = false;
     };
 
-    const handleSlugSuccess = async () => {
-      // Reload profile to get updated slug/default grid.
-      await loadUserProfile({ force: true });
+    const handleSlugSuccess = (slug: string) => {
+      // Apply the canonical slug returned by the claim directly. Re-reading the
+      // profile here previously raced the just-written document, leaving the
+      // menu showing the old handle until a page reload. Using the returned
+      // value updates the menu immediately and avoids the race entirely.
+      currentSlug.value = slug;
     };
 
     return {

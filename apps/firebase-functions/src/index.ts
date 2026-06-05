@@ -2,6 +2,7 @@ import "./admin.js";
 
 // accounts
 
+export { assignDefaultGridOnCreate } from "./accounts/onTrigger_gridCreated_assignDefaultGrid.js";
 export { checkSlugAvailability } from "./accounts/onCall_checkSlugAvailability.js";
 export { claimSlug } from "./accounts/onCall_claimSlug.js";
 export { updateDefaultGrid } from "./accounts/onCall_updateDefaultGrid.js";

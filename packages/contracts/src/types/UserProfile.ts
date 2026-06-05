@@ -40,4 +40,10 @@ export interface SlugAvailabilityResponse {
 export interface SlugClaimResponse {
   success: boolean;
   message: string;
+  /**
+   * The canonical (normalized, lowercased) slug that was claimed. Present on
+   * successful claims so callers can update UI directly without re-reading the
+   * just-written profile (which is subject to read-after-write races).
+   */
+  slug?: string;
 }

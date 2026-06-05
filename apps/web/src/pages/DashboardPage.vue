@@ -309,6 +309,10 @@ const handleCreateGrid = async (name: string) => {
     const newGridId = await gridStore.createGrid(name);
     if (newGridId) {
       if (!defaultGridId.value) {
+        // Optimistic local update for immediate dashboard UI. Server-side
+        // persistence is handled by the assignDefaultGridOnCreate trigger,
+        // which sets the default only when the user has none and skips
+        // duplicates.
         defaultGridId.value = newGridId;
       }
       closeModal();

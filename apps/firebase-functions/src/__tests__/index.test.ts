@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { exportsByModule, adminImportSpy } = vi.hoisted(() => {
   const adminImportSpy = vi.fn();
   const exportsByModule = {
+    assignDefaultGridOnCreate: { functionName: "assignDefaultGridOnCreate" },
     checkSlugAvailability: { functionName: "checkSlugAvailability" },
     claimSlug: { functionName: "claimSlug" },
     updateDefaultGrid: { functionName: "updateDefaultGrid" },
@@ -36,6 +37,9 @@ vi.mock("../admin.js", () => {
   return { default: { initialized: true } };
 });
 
+vi.mock("../accounts/onTrigger_gridCreated_assignDefaultGrid.js", () => ({
+  assignDefaultGridOnCreate: exportsByModule.assignDefaultGridOnCreate,
+}));
 vi.mock("../accounts/onCall_checkSlugAvailability.js", () => ({
   checkSlugAvailability: exportsByModule.checkSlugAvailability,
 }));

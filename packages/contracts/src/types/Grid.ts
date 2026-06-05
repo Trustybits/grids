@@ -20,6 +20,10 @@ export interface Grid {
   overrides?: Partial<Record<Breakpoint, Record<string, TilePosition>>>;
   // When true, non-owners can duplicate this grid as a template.
   duplicatable?: boolean;
+  // Set to the source grid's id when this grid was created by duplicating
+  // another. Used to prevent duplicates from auto-becoming the user's default
+  // grid (only fresh grids should).
+  clonedFrom?: string;
   createdAt?: Date | { toDate(): Date } | null;
   updatedAt?: Date | { toDate(): Date } | null;
   lastOpenedAt?: Date | { toDate(): Date } | null;

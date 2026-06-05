@@ -1,6 +1,5 @@
 import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
-import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
 import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.js";
 import { discordUserActivityWebhookUrl } from "./secrets.js";
@@ -93,43 +92,6 @@ export const onGridCreated = functions
       responseErrorContext: { gridId },
       sendErrorContext: { gridId },
     });
-
-    // Auto-assign this grid as the user's default if they don't have one set yet
-    const userId = gridData.userId;
-    if (userId) {
-      try {
-        const db = admin.firestore();
-        await db.runTransaction(async (transaction) => {
-          const userRef = db.collection("users").doc(userId);
-          const userDoc = await transaction.get(userRef);
-
-          if (!userDoc.exists || !userDoc.data()?.defaultGridId) {
-            transaction.set(
-              userRef,
-              { defaultGridId: gridId },
-              { merge: true },
-            );
-
-            const userSlug = userDoc.exists ? userDoc.data()?.slug : null;
-            if (userSlug) {
-              const slugRef = db.collection("slugs").doc(userSlug);
-              transaction.update(slugRef, { defaultGridId: gridId });
-            }
-
-            logger.info("Auto-assigned default grid for user", {
-              userId,
-              gridId,
-            });
-          }
-        });
-      } catch (error) {
-        logger.error("Failed to auto-assign default grid", {
-          error: String(error),
-          userId,
-          gridId,
-        });
-      }
-    }
 
     return null;
   });

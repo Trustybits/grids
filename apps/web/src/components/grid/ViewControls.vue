@@ -276,7 +276,7 @@ const toggle = (bp: Breakpoint) => {
   padding: 6px;
   background-color: var(--bg-surface-color, var(--color-tile-background));
   border-radius: var(--radius-md);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border: var(--border-width) solid var(--color-stroke);
   backdrop-filter: blur(20px);
   box-shadow: var(--shadow-md);
 }
@@ -288,7 +288,7 @@ const toggle = (bp: Breakpoint) => {
   padding: 6px;
   background-color: var(--bg-surface-color, var(--color-tile-background));
   border-radius: var(--radius-md);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border: var(--border-width) solid var(--color-stroke);
   backdrop-filter: blur(20px);
   justify-content: center;
 }

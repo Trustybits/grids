@@ -1,7 +1,9 @@
 <template>
-  <IconButton @click="handleUseTemplate">
-    <DuplicatePlusIcon :size="20" />
-  </IconButton>
+  <Button variant="ghost" icon-only @click="handleUseTemplate">
+    <template #icon-left>
+      <DuplicatePlusIcon />
+    </template>
+  </Button>
 </template>
 
 <script setup lang="ts">
@@ -9,7 +11,7 @@ import { useRouter, useRoute } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useGridStore } from "@/stores/grid";
 import { useToastStore } from "@/stores/toast";
-import IconButton from '@/components/ui-controls/IconButton.vue';
+import Button from '@/components/ui-elements/Button.vue';
 import DuplicatePlusIcon from '@/components/icons/DuplicatePlusIcon.vue';
 
 const router = useRouter();

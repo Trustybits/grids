@@ -143,14 +143,14 @@ onUnmounted(() => {
   gap: 4px;
   padding: 4px 8px;
   border-radius: 12px;
-  border: var(--tile-border-width) solid transparent;
+  border: var(--border-width) solid transparent;
   transition:
     background-color var(--duration-fast) var(--easing-smooth),
     border-color var(--duration-fast) var(--easing-smooth);
 
   &--hovered {
     background-color: var(--bg-surface-color, var(--color-tile-background));
-    border-color: var(--color-tile-stroke);
+    border-color: var(--color-stroke);
     backdrop-filter: blur(20px);
   }
 }
@@ -202,7 +202,7 @@ onUnmounted(() => {
   right: 0;
   min-width: 220px;
   background-color: var(--color-tile-background);
-  border: var(--tile-border-width) solid var(--color-tile-stroke);
+  border: var(--border-width) solid var(--color-stroke);
   border-radius: var(--radius-md);
   backdrop-filter: blur(20px);
   box-shadow: var(--shadow-md);

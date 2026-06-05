@@ -21,6 +21,10 @@
     "test": "npm --workspace @grids/pro run test && npm --workspace apps/web run test:run && npm --workspace @grids/firebase-functions run test",
     "type-check:web-deps": "npm --workspace @grids/contracts run type-check && npm --workspace @grids/pro run type-check",
     "type-check": "npm run build:web-deps && npm --workspace apps/web run type-check && npm --workspace @grids/firebase-functions run type-check",
-    "suite:full": "npm run lint && npm run test && npm run type-check && echo 'Success!'"
+    "suite:full": "npm run lint && npm run test && npm run type-check && echo 'Success!'",
+    "postinstall": "patch-package"
+  },
+  "dependencies": {
+    "patch-package": "^8.0.1"
   }
 }

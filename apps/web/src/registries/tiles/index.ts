@@ -14,6 +14,7 @@ import { youtubeDefinition } from "./youtube";
 import { roadmapFeedDefinition } from "./roadmapFeed";
 import { musicDefinition } from "./music";
 import { documentDefinition } from "./document";
+import { brandDefinition } from "./brand";
 
 export function registerAllTiles(): void {
   registerTile(textDefinition);
@@ -31,6 +32,7 @@ export function registerAllTiles(): void {
   registerTile(roadmapFeedDefinition);
   registerTile(musicDefinition);
   registerTile(documentDefinition);
+  registerTile(brandDefinition);
 }
 
 // Self-register on module evaluation so tiles are available to any
@@ -53,4 +55,5 @@ export {
   roadmapFeedDefinition,
   musicDefinition,
   documentDefinition,
+  brandDefinition,
 };

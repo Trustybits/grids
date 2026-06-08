@@ -14,6 +14,7 @@ export enum ContentType {
   ROADMAP_FEED = "roadmap_feed",
   MUSIC = "music",
   DOCUMENT = "document",
+  BRAND = "brand",
 }
 
 export interface TileContent {
@@ -272,6 +273,43 @@ export interface DocumentsContent extends TileContent {
   customDescription?: string;
 }
 
+// ── Brand logos (reusable across tiles) ─────────────────────────────
+
+// A single brand logo reference. Designed to be tile-agnostic so it can be
+// reused by the Brand Showcase tile, the Link tile, the Profile tile, and a
+// Smart Text inline node. Logos are resolved dynamically at render time from
+// the brand's domain (so they stay up to date) rather than storing a snapshot.
+export type BrandLogoProvider = "brandfetch" | "custom";
+
+export interface BrandLogoRef {
+  // Stable uid used for reorder/remove within a collection.
+  id: string;
+  provider: BrandLogoProvider;
+  // brandfetch identifier — the canonical domain, e.g. "figma.com".
+  domain?: string;
+  // Uploaded image URL — used when provider === "custom".
+  src?: string;
+  // Brand/tool name, used for alt text and tooltips.
+  label: string;
+  // Click-through URL. Defaults to https://{domain} when omitted and not disabled.
+  link?: string;
+  // Explicit display-only: render the logo without a link.
+  linkDisabled?: boolean;
+  // Logo theme variant passed to the provider CDN.
+  theme?: "auto" | "light" | "dark";
+}
+
+export interface BrandShowcaseContent extends TileContent {
+  type: ContentType.BRAND;
+  items: BrandLogoRef[];
+  // Logo edge length in px (16 | 20 | 24 | 32 | 48 | custom).
+  iconSize: number;
+  // Spacing between logos in px (per-tile).
+  gap: number;
+  backgroundColor?: string;
+  customTitle?: string;
+}
+
 // ── Roadmap Feed (Notion integration) ──────────────────────────────
 
 // The three canonical status buckets items are mapped into for display.
@@ -346,4 +384,5 @@ export type AnyTileContent =
   | YouTubeContent
   | RoadmapFeedContent
   | MusicContent
-  | DocumentsContent;
+  | DocumentsContent
+  | BrandShowcaseContent;

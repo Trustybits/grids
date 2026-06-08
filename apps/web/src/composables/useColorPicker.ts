@@ -8,6 +8,7 @@ import type {
   VideoContent,
   LinkContent,
   DocumentsContent,
+  BrandShowcaseContent,
 } from "@grids/contracts/types";
 import { computed, watch, type ComputedRef } from "vue";
 
@@ -18,7 +19,8 @@ type ColorPickerContent =
   | ImageContent
   | VideoContent
   | LinkContent
-  | DocumentsContent;
+  | DocumentsContent
+  | BrandShowcaseContent;
 
 export interface ColorPickerValues {
   backgroundColor: ComputedRef<string>;

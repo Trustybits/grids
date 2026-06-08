@@ -56,6 +56,14 @@
         <DocumentsIcon />
       </button>
       <button
+        v-if="brandTileEnabled"
+        class="toolbar-btn"
+        data-tooltip="Brands"
+        @click="addBrandElement"
+      >
+        <BrandsIcon />
+      </button>
+      <button
         class="toolbar-btn"
         data-tooltip="Link"
         @click="addLinkElement"
@@ -162,6 +170,7 @@ import ChatIcon from "@/components/icons/ChatIcon.vue";
 import ImageIcon from "@/components/icons/ImageIcon.vue";
 import LinkTileIcon from "@/components/icons/LinkTileIcon.vue";
 import DocumentsIcon from "@/components/icons/appbar/DocumentsIcon.vue";
+import BrandsIcon from "@/components/icons/appbar/BrandsIcon.vue";
 import EmbedIcon from "@/components/icons/EmbedIcon.vue";
 import ProfileTileIcon from "@/components/icons/ProfileTileIcon.vue";
 import MapIcon from "@/components/icons/MapIcon.vue";
@@ -176,6 +185,7 @@ export default {
     ImageIcon,
     LinkTileIcon,
     DocumentsIcon,
+    BrandsIcon,
     EmbedIcon,
     ProfileTileIcon,
     MapIcon,
@@ -188,6 +198,7 @@ export default {
     const { isEnabled } = useFeatureFlags();
     const smartTextEnabled = computed(() => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT));
     const documentsEnabled = computed(() => isEnabled(FEATURE_FLAGS.BETA_DOCUMENTS));
+    const brandTileEnabled = computed(() => isEnabled(FEATURE_FLAGS.BETA_BRAND_TILE));
 
     const gridStore = useGridStore();
     const imageInput = ref<HTMLInputElement | null>(null);
@@ -230,6 +241,11 @@ export default {
     const addCampfireElement = () => {
       const campfireContent = createTileContent(ContentType.CAMPFIRE, {});
       gridStore.addTile(campfireContent);
+    };
+
+    const addBrandElement = () => {
+      const brandContent = createTileContent(ContentType.BRAND, {});
+      gridStore.addTile(brandContent);
     };
 
     const selectFile = () => {
@@ -345,11 +361,13 @@ export default {
       gridStore,
       smartTextEnabled,
       documentsEnabled,
+      brandTileEnabled,
       addTextElement,
       addSmartTextElement,
       addProfileElement,
       addChatElement,
       addCampfireElement,
+      addBrandElement,
       selectFile,
       selectDocuments,
       addFile,

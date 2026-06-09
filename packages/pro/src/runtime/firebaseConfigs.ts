@@ -10,29 +10,42 @@ export interface FirebaseProjectConfig {
   measurementId?: string;
 }
 
-const CONFIGS: Record<FirebaseEnv, FirebaseProjectConfig> = {
-  prod: {
-    apiKey: "AIzaSyD1SapZGG49zaIfBv3QqZWxobQmws263zQ",
-    authDomain: "grids-one.firebaseapp.com",
-    projectId: "grids-one",
-    storageBucket: "grids-one.firebasestorage.app",
-    messagingSenderId: "598562210148",
-    appId: "1:598562210148:web:6bfd6ef229fcd9fd5b3a71",
-    measurementId: "G-8Q904761XS",
-  },
-  // TODO: populate with real grids-stage Firebase config from the Firebase
-  // console (Project settings → Your apps). Selecting "stage" before these
-  // values are filled in will fail to connect.
-  stage: {
-    apiKey: "REPLACE_ME",
-    authDomain: "REPLACE_ME",
-    projectId: "grids-stage",
-    storageBucket: "REPLACE_ME",
-    messagingSenderId: "REPLACE_ME",
-    appId: "REPLACE_ME",
-  },
-};
+type FirebaseConfigFile = Partial<Record<FirebaseEnv, FirebaseProjectConfig>>;
 
-export function getFirebaseConfig(env: FirebaseEnv): FirebaseProjectConfig {
-  return CONFIGS[env];
+// `import.meta.glob` is provided by the bundler (Vite); typed locally so this
+// tsc-built package stays self-contained. The cast erases at emit, leaving a
+// bare `import.meta.glob(...)` call for Vite to statically detect and transform.
+interface ImportMetaWithGlob {
+  glob<T>(pattern: string, options: { eager: true }): Record<string, T>;
+}
+
+// Optionally load real per-environment Firebase config from a gitignored
+// `firebaseConfigs.json` sitting next to this file. That file is committed in
+// the private (Vercel) repo and absent from the public/OSS one.
+//
+// `import.meta.glob` resolves at bundle time: it inlines the JSON when the file
+// is present and yields an empty object when it is absent. So a checkout
+// without the file still builds and runs — `getFirebaseConfig` returns `null`
+// and the app falls back to its stubbed backend instead of crashing.
+const loadedConfigs = (
+  import.meta as unknown as ImportMetaWithGlob
+).glob<{ default: FirebaseConfigFile }>("./firebaseConfigs.json", {
+  eager: true,
+});
+
+const configFile: FirebaseConfigFile | null =
+  Object.values(loadedConfigs)[0]?.default ?? null;
+
+/** True when a real Firebase configuration file was bundled into this build. */
+export const hasFirebaseConfig: boolean = configFile !== null;
+
+/**
+ * Returns the Firebase config for `env`, or `null` when no configuration file
+ * is present (or it has no entry for that environment). A `null` result is the
+ * signal to fall back to the stubbed backend.
+ */
+export function getFirebaseConfig(
+  env: FirebaseEnv,
+): FirebaseProjectConfig | null {
+  return configFile?.[env] ?? null;
 }

@@ -41,7 +41,7 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
   const wantFirebase = import.meta.env.VITE_USE_FIREBASE === "true";
   const proRuntime = wantFirebase ? await loadProRuntime() : null;
 
-  if (wantFirebase && proRuntime) {
+  if (proRuntime?.daoFactory && proRuntime.dbUtils && proRuntime.authProvider) {
     registerDaoFactory(proRuntime.daoFactory);
     registerDbUtils(proRuntime.dbUtils);
     registerAuthProvider(proRuntime.authProvider);

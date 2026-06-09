@@ -22,6 +22,7 @@ import {
 } from "firebase/storage";
 import {
   getFirebaseConfig,
+  hasFirebaseConfig,
   type FirebaseEnv,
 } from "./firebaseConfigs.js";
 
@@ -43,11 +44,22 @@ export interface FirebaseServices {
   storage: FirebaseStorage;
 }
 
+/**
+ * Initializes the Firebase services for `firebaseEnv`, or returns `null` when
+ * no Firebase configuration is present (the gitignored `firebaseConfigs.json`
+ * was not bundled into this build). A `null` return tells the runtime to fall
+ * back to the stubbed backend.
+ */
 export function createFirebaseServices(
   firebaseEnv: FirebaseEnv,
   emulatorTargets: ReadonlySet<FirebaseEmulatorTarget>,
-): FirebaseServices {
-  const app = initializeApp(getFirebaseConfig(firebaseEnv));
+): FirebaseServices | null {
+  const config = getFirebaseConfig(firebaseEnv);
+  if (!hasFirebaseConfig || !config) {
+    return null;
+  }
+
+  const app = initializeApp(config);
   const auth = getAuth(app);
   const db = getFirestore(app);
   const analytics = getAnalytics(app);

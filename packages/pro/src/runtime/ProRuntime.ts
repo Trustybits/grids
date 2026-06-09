@@ -16,15 +16,32 @@ export interface ProRuntimeConfig {
 }
 
 export class ProRuntime {
-  public readonly daoFactory: DaoFactory;
-  public readonly dbUtils: DbUtils;
-  public readonly authProvider: AuthProvider;
+  /**
+   * `true` when a valid Firebase configuration was present and the backend
+   * services were constructed; `false` when no configuration was bundled, in
+   * which case the members below are `null` and callers should fall back to the
+   * stubbed backend.
+   */
+  public readonly hasValidFirebaseConfig: boolean;
+  public readonly daoFactory: DaoFactory | null;
+  public readonly dbUtils: DbUtils | null;
+  public readonly authProvider: AuthProvider | null;
 
   public constructor(config: ProRuntimeConfig) {
     const services = createFirebaseServices(
       config.firebaseEnv,
       config.emulatorTargets,
     );
+
+    if (!services) {
+      this.hasValidFirebaseConfig = false;
+      this.daoFactory = null;
+      this.dbUtils = null;
+      this.authProvider = null;
+      return;
+    }
+
+    this.hasValidFirebaseConfig = true;
     this.daoFactory = new FirebaseDaoFactory({
       db: services.db,
       functions: services.functions,

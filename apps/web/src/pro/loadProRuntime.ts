@@ -27,7 +27,7 @@ export async function loadProRuntime(): Promise<ProRuntime | null> {
     const mod = await import("@grids/pro");
     if (!mod.ProRuntime) return null;
 
-    return new mod.ProRuntime({
+    const runtime = new mod.ProRuntime({
       firebaseEnv: parseFirebaseEnv(import.meta.env.VITE_FIREBASE_ENV),
       emulatorTargets: parseEmulatorTargets(
         import.meta.env.VITE_FIREBASE_EMULATORS,
@@ -35,6 +35,13 @@ export async function loadProRuntime(): Promise<ProRuntime | null> {
       viewEndAnalyticsBeaconUrl:
         import.meta.env.VITE_VIEW_END_ANALYTICS_BEACON_URL ?? null,
     });
+
+    // No Firebase configuration was bundled (e.g. a public checkout where
+    // firebaseConfigs.json is gitignored). Treat the runtime as unavailable so
+    // the app falls back to its stubbed backend.
+    if (!runtime.hasValidFirebaseConfig) return null;
+
+    return runtime;
   } catch (err) {
     console.warn("Failed to load @grids/pro runtime:", err);
     return null;

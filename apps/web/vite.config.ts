@@ -18,6 +18,12 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  optimizeDeps: {
+    // @grids/pro uses import.meta.glob to optionally load its Firebase config.
+    // Excluding it from dep pre-bundling ensures Vite (not esbuild) transforms
+    // that glob, so the optional-config mechanism works in dev too.
+    exclude: ['@grids/pro'],
+  },
   build: {
     // Skip type checking
     outDir: 'dist',

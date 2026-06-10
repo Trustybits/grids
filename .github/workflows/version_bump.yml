@@ -1,10 +1,10 @@
 name: version_bump
 
 on:
-  workflow_run:
-    workflows: [CI]
-    branches: [main]
-    types: [completed]
+  # workflow_run:
+  #   workflows: [CI]
+  #   branches: [main]
+  #   types: [completed]
 
   # Manual run trigger in the event that it's needed
   workflow_dispatch:

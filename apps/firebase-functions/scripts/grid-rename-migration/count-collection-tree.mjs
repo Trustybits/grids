@@ -16,7 +16,7 @@
  *
  * Usage from apps/firebase-functions:
  *   node scripts/grid-rename-migration/count-collection-tree.mjs --collection=layouts
- *   node scripts/grid-rename-migration/count-collection-tree.mjs --project-id=grids-one --collection=grids --json
+ *   node scripts/grid-rename-migration/count-collection-tree.mjs --project-id=your-project-id --collection=grids --json
  */
 
 /* eslint-disable no-console */

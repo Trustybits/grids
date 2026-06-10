@@ -5,7 +5,7 @@
  *
  * Usage from apps/firebase-functions:
  *   node scripts/list-auth-emails.mjs
- *   node scripts/list-auth-emails.mjs --project-id=grids-one
+ *   node scripts/list-auth-emails.mjs --project-id=your-project-id
  *
  * Auth:
  *   Requires Application Default Credentials, usually either:
@@ -50,7 +50,7 @@ Print Firebase Auth user emails as one comma-separated line.
 
 Usage:
   node scripts/list-auth-emails.mjs
-  node scripts/list-auth-emails.mjs --project-id=grids-one
+  node scripts/list-auth-emails.mjs --project-id=your-project-id
 
 Options:
   --project-id=<id>  Firebase/GCP project ID. Defaults to env vars, then .firebaserc default.

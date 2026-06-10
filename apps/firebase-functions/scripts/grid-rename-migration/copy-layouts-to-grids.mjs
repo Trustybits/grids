@@ -12,10 +12,10 @@
  * Usage from apps/firebase-functions:
  *   node scripts/grid-rename-migration/copy-layouts-to-grids.mjs --dry-run
  *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json \
- *     node scripts/grid-rename-migration/copy-layouts-to-grids.mjs --project-id=grids-one --write --confirm=layouts-to-grids
+ *     node scripts/grid-rename-migration/copy-layouts-to-grids.mjs --project-id=your-project-id --write --confirm=layouts-to-grids
  *
  * Useful resume/testing options:
- *   --project-id=grids-one
+ *   --project-id=your-project-id
  *   --page-size=50
  *   --tile-probe-concurrency=25
  *   --scan-all-tile-subcollections

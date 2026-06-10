@@ -21,7 +21,7 @@
  * Usage from apps/firebase-functions:
  *   node scripts/grid-rename-migration/rename-layout-id-to-grid-id.mjs --dry-run
  *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json \
- *     node scripts/grid-rename-migration/rename-layout-id-to-grid-id.mjs --project-id=grids-one --write --confirm=layout-id-to-grid-id
+ *     node scripts/grid-rename-migration/rename-layout-id-to-grid-id.mjs --project-id=your-project-id --write --confirm=layout-id-to-grid-id
  */
 
 import admin from "firebase-admin";

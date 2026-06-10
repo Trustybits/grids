@@ -13,6 +13,7 @@
  *   /:slug      → verifies slug exists, points og:image at generateOgImage?slug=
  *   /grid/:id   → fetches grid name, points og:image at generateOgImage?gridId=
  *   static pages (/, /pricing, etc.) → injects hardcoded meta tags
+ * Trustybits©2026
  */
 
 const FIREBASE_PROJECT_ID = 'grids-one'

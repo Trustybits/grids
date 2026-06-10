@@ -22,13 +22,14 @@
  *   ?refresh=1              bypass Storage cache
  *
  * Function URL (once deployed):
- *   https://us-central1-grids-one.cloudfunctions.net/generateThumbnail
+ *   https://us-central1-<project-id>.cloudfunctions.net/generateThumbnail
  */
 
 import * as functions from "firebase-functions/v1";
 import admin from "firebase-admin";
 import type { Request, Response } from "firebase-functions/v1";
 import { respondWithMaintenanceIfEnabled } from "../maintenance.js";
+import { getStorageBucket } from "../shared/utils_projectConfig.js";
 import { launchChromiumBrowser } from "./utils_browser.js";
 
 // chromium and puppeteer are lazy-loaded inside captureBreakpoint.
@@ -37,7 +38,7 @@ import { launchChromiumBrowser } from "./utils_browser.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BUCKET_NAME = "grids-one.firebasestorage.app";
+const BUCKET_NAME = getStorageBucket();
 const SITE_BASE = "https://grids.so";
 
 // ─── Breakpoint definitions ───────────────────────────────────────────────────

@@ -42,3 +42,13 @@ notesAndPlans
 .vercel
 
 .claude/
+
+# Firebase stuff
+
+.firebaserc
+firebase.json
+firebase.maintenance.json
+firestore.indexes.json
+firestore.maintenance.rules
+firestore.rules
+storage.rules

@@ -36,3 +36,5 @@ coverage
 .vercel
 
 .claude/
+
+vercel.json

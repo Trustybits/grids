@@ -245,7 +245,7 @@ describe("generateOgImage", () => {
     expect(storageState.existsCalls).toEqual(["og-images/slug/matt.png"]);
     expect(res.redirect).toHaveBeenCalledWith(
       302,
-      "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/og-images%2Fslug%2Fmatt.png?alt=media",
+      "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/og-images%2Fslug%2Fmatt.png?alt=media",
     );
   });
 
@@ -258,7 +258,7 @@ describe("generateOgImage", () => {
     expect(storageState.existsCalls).toEqual(["og-images/grid/grid-1.png"]);
     expect(res.redirect).toHaveBeenCalledWith(
       302,
-      "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/og-images%2Fgrid%2Fgrid-1.png?alt=media",
+      "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/og-images%2Fgrid%2Fgrid-1.png?alt=media",
     );
   });
 
@@ -336,7 +336,7 @@ describe("generateOgImage", () => {
     expect(typeof save.options.metadata?.generatedAt).toBe("string");
     expect(res.redirect).toHaveBeenCalledWith(
       302,
-      "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/og-images%2Fgrid%2Fgrid-1.png?alt=media",
+      "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/og-images%2Fgrid%2Fgrid-1.png?alt=media",
     );
   });
 
@@ -365,7 +365,7 @@ describe("generateOgImage", () => {
     expect(storageState.saveCalls[0].options.contentType).toBe("image/png");
     expect(res.redirect).toHaveBeenCalledWith(
       302,
-      "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/og-images%2Fslug%2Fmatt.png?alt=media",
+      "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/og-images%2Fslug%2Fmatt.png?alt=media",
     );
   });
 

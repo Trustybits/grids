@@ -1,9 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { isDevTeamMember } from "../utils_devTeam.js";
 
 describe("isDevTeamMember", () => {
+  beforeEach(() => {
+    process.env.DEV_TEAM_USER_IDS = "dev-team-uid-1, dev-team-uid-2";
+  });
+
+  afterEach(() => {
+    delete process.env.DEV_TEAM_USER_IDS;
+  });
+
   it("returns true for a configured dev-team uid", () => {
-    expect(isDevTeamMember("REMOVED_FIREBASE_UID")).toBe(true);
+    expect(isDevTeamMember("dev-team-uid-1")).toBe(true);
+  });
+
+  it("trims and matches additional uids from the comma-separated env var", () => {
+    expect(isDevTeamMember("dev-team-uid-2")).toBe(true);
+  });
+
+  it("returns false for a configured uid once the env var is absent", () => {
+    delete process.env.DEV_TEAM_USER_IDS;
+    expect(isDevTeamMember("dev-team-uid-1")).toBe(false);
   });
 
   it.each([

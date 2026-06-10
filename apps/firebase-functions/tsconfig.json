@@ -10,10 +10,14 @@
     "outDir": "lib",
     "sourceMap": true,
     "strict": true,
-    "target": "es2017"
+    "target": "es2017",
+    "types": ["node"]
   },
   "compileOnSave": true,
   "include": [
     "src"
+  ],
+  "references": [
+    { "path": "./tsconfig.test.json" }
   ]
 }

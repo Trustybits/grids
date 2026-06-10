@@ -1,6 +1,10 @@
 # Compiled JavaScript files
 lib/
 
+# Throwaway output dir for tsconfig.test.json (editor-only project)
+lib-test/
+*.tsbuildinfo
+
 # TypeScript v1 declaration files
 typings/
 

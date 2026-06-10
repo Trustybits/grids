@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "composite": true,
+    "outDir": "./lib-test",
+    "noUnusedLocals": false,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["vitest.config.ts", "vitest.setup.ts"]
+}

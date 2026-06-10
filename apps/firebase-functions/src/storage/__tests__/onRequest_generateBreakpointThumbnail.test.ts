@@ -204,7 +204,7 @@ describe("generateThumbnail", () => {
     expect(storageState.existsCalls).toEqual(["thumbnails/slug/matt/desktop.png"]);
     expect(res.redirect).toHaveBeenCalledWith(
       302,
-      "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/thumbnails%2Fslug%2Fmatt%2Fdesktop.png?alt=media",
+      "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/thumbnails%2Fslug%2Fmatt%2Fdesktop.png?alt=media",
     );
   });
 
@@ -217,7 +217,7 @@ describe("generateThumbnail", () => {
     expect(storageState.existsCalls).toEqual(["thumbnails/grid/grid-1/mobile.png"]);
     expect(res.redirect).toHaveBeenCalledWith(
       302,
-      "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/thumbnails%2Fgrid%2Fgrid-1%2Fmobile.png?alt=media",
+      "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/thumbnails%2Fgrid%2Fgrid-1%2Fmobile.png?alt=media",
     );
   });
 
@@ -238,11 +238,11 @@ describe("generateThumbnail", () => {
     ]);
     expect(res.json).toHaveBeenCalledWith({
       desktop:
-        "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/thumbnails%2Fgrid%2Fgrid-1%2Fdesktop.png?alt=media",
+        "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/thumbnails%2Fgrid%2Fgrid-1%2Fdesktop.png?alt=media",
       tablet:
-        "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/thumbnails%2Fgrid%2Fgrid-1%2Ftablet.png?alt=media",
+        "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/thumbnails%2Fgrid%2Fgrid-1%2Ftablet.png?alt=media",
       mobile:
-        "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/thumbnails%2Fgrid%2Fgrid-1%2Fmobile.png?alt=media",
+        "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/thumbnails%2Fgrid%2Fgrid-1%2Fmobile.png?alt=media",
     });
   });
 
@@ -263,7 +263,7 @@ describe("generateThumbnail", () => {
     expect(typeof save.options.metadata?.generatedAt).toBe("string");
     expect(res.redirect).toHaveBeenCalledWith(
       302,
-      "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/thumbnails%2Fgrid%2Fgrid-1%2Fdesktop.png?alt=media",
+      "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/thumbnails%2Fgrid%2Fgrid-1%2Fdesktop.png?alt=media",
     );
   });
 

@@ -32,7 +32,6 @@ const RESERVED_PATHS = new Set([
   'pricing',
   'showcase',
   'templates',
-  'blog',
   'privacy',
   'terms',
   'notion-callback',
@@ -70,6 +69,17 @@ function firestoreStr(
 ): string | null {
   const fields = doc.fields as Record<string, { stringValue?: string }> | undefined
   return fields?.[field]?.stringValue ?? null
+}
+
+function firestoreTimestampSeconds(
+  doc: Record<string, unknown>,
+  field: string,
+): number | null {
+  const fields = doc.fields as Record<string, { timestampValue?: string }> | undefined
+  const ts = fields?.[field]?.timestampValue
+  if (!ts) return null
+  const ms = new Date(ts).getTime()
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : null
 }
 
 // Recursively convert a Firestore REST API typed value into a plain JS value.
@@ -145,11 +155,13 @@ async function resolveOgData(pathname: string): Promise<OgData> {
     const gridId = gridMatch[1]
     const doc = await fetchFirestoreDoc('grids', gridId)
     const name = doc ? (firestoreStr(doc, 'name') ?? 'Untitled Grid') : 'Untitled Grid'
+    const v = doc ? firestoreTimestampSeconds(doc, 'updatedAt') : null
+    const vParam = v ? `&v=${v}` : ''
 
     return {
       title: `${name} — Grids`,
       description: 'View this grid on Grids.',
-      ogImageUrl: `${OG_FUNCTION_URL}?gridId=${encodeURIComponent(gridId)}`,
+      ogImageUrl: `${OG_FUNCTION_URL}?gridId=${encodeURIComponent(gridId)}${vParam}`,
       canonicalUrl: `${SITE_ORIGIN}${pathname}`,
     }
   }
@@ -170,9 +182,13 @@ async function resolveOgData(pathname: string): Promise<OgData> {
     let ogTitle = `@${slug} — Grids`
     let ogDescription = `Check out @${slug}'s grid on Grids.`
 
+    let v: number | null = null
+
     if (defaultGridId) {
       const gridDoc = await fetchFirestoreDoc('grids', defaultGridId)
       if (gridDoc) {
+        v = firestoreTimestampSeconds(gridDoc, 'updatedAt')
+
         const fields = gridDoc.fields as Record<string, unknown> | undefined
         const tilesRaw = fields?.tiles
         const tiles = parseFsValue(tilesRaw) as Array<Record<string, unknown>> | null
@@ -197,10 +213,12 @@ async function resolveOgData(pathname: string): Promise<OgData> {
       }
     }
 
+    const vParam = v ? `&v=${v}` : ''
+
     return {
       title: ogTitle,
       description: ogDescription,
-      ogImageUrl: `${OG_FUNCTION_URL}?slug=${encodeURIComponent(slug)}`,
+      ogImageUrl: `${OG_FUNCTION_URL}?slug=${encodeURIComponent(slug)}${vParam}`,
       canonicalUrl: `${SITE_ORIGIN}${pathname}`,
     }
   }
@@ -222,10 +240,6 @@ async function resolveOgData(pathname: string): Promise<OgData> {
     '/templates': {
       title: 'Templates — Grids',
       description: 'Start with a grid that already works.',
-    },
-    '/blog': {
-      title: 'Blog — Grids',
-      description: 'Updates, stories, and tips from the Grids team.',
     },
     '/privacy': {
       title: 'Privacy Policy — Grids',

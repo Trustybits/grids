@@ -120,6 +120,7 @@ export default async function handler(
   }
 
   // ── Proxy to Firebase OG function ─────────────────────────────────────────
+  const isRefresh = req.query.refresh === '1'
   const target = new URL(FIREBASE_OG_URL)
 
   // Forward all query params (?slug=, ?gridId=, ?refresh=)
@@ -144,8 +145,10 @@ export default async function handler(
     res.setHeader('Content-Type', contentType)
 
     if (contentType.includes('image/png')) {
-      // Cache the generated image for 24 h at the CDN edge
-      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600')
+      res.setHeader(
+        'Cache-Control',
+        isRefresh ? 'no-store' : 'public, max-age=86400, stale-while-revalidate=3600',
+      )
       const buf = Buffer.from(await upstream.arrayBuffer())
       res.status(200).send(buf)
     } else {

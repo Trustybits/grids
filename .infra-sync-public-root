@@ -1,0 +1,5 @@
+This file marks this checkout as the public Grids development repository root.
+
+The private infra sync tool uses this marker to confirm it is being run from
+the public checkout, not from the private devops repo or another working
+directory. Do not remove it unless the infra sync guard is updated too.

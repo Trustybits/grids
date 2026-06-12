@@ -245,6 +245,7 @@ import {
   onUnmounted,
   nextTick,
   watch,
+  toRef,
 } from "vue";
 
 import { type LinkContent } from "@grids/contracts/types";
@@ -819,7 +820,7 @@ export default defineComponent({
     });
 
     const { overlayColor: _overlayColor, handleBackgroundColorChange } =
-      useColorPicker(tileId, props.content, emit, "background");
+      useColorPicker(tileId, toRef(props, "content"), emit, "background");
 
     const handleRemoveFavicon = () => {
       props.content.faviconUrl = undefined;

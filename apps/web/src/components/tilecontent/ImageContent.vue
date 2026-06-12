@@ -86,6 +86,7 @@ import {
   onUnmounted,
   watch,
   inject,
+  toRef,
 } from "vue";
 import { type ImageContent } from "@grids/contracts/types";
 import { useGridStore } from "@/stores/grid";
@@ -319,7 +320,7 @@ export default defineComponent({
 
     const { overlayColor, handleBackgroundColorChange } = useColorPicker(
       tileId,
-      props.content,
+      toRef(props, "content"),
       emit,
       "overlay",
     );

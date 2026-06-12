@@ -165,6 +165,7 @@ import {
   onUnmounted,
   watch,
   inject,
+  toRef,
   type ComputedRef,
 } from "vue";
 import { type VideoContent } from "@grids/contracts/types";
@@ -708,7 +709,7 @@ export default defineComponent({
 
     const { overlayColor, handleBackgroundColorChange } = useColorPicker(
       tileId,
-      props.content,
+      toRef(props, "content"),
       emit,
       "overlay",
     );

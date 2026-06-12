@@ -23,6 +23,8 @@
  *   ?slug=matt      generates for grids.so/matt
  *   ?gridId=abc123  generates for grids.so/grid/abc123
  *   ?refresh=1      bypasses cache and regenerates
+ *   ?check=1        existence probe — responds with JSON {exists, custom, url}
+ *                   and NEVER generates. Used by the app's share-image modal.
  *   ?seed=foo       overrides the deterministic seed (slug/gridId) so you
  *                   can preview alternate scatter compositions for the same
  *                   grid; also bypasses cache.
@@ -346,6 +348,30 @@ export function extractTiptapText(raw: unknown): string {
     .map((c) => extractTiptapText(c))
     .join("")
     .trim();
+}
+
+// ─── Custom OG image resolution ──────────────────────────────────────────────
+
+/**
+ * Returns the grid owner's custom OG image URL (grid doc `ogImageSrc`) for
+ * the requested slug/gridId, or null when none is set. A custom image always
+ * wins over the generated pipeline — including `?refresh=1` — so user
+ * uploads can never be clobbered by a regeneration.
+ */
+async function resolveCustomOgImageUrl(
+  slug: string | undefined,
+  gridId: string | undefined
+): Promise<string | null> {
+  let gridDoc: Record<string, unknown> | null = null;
+  if (gridId) {
+    gridDoc = await firestoreGet("grids", gridId);
+  } else if (slug) {
+    const slugDoc = await firestoreGet("slugs", slug.toLowerCase());
+    const defaultGridId = slugDoc?.defaultGridId as string | undefined;
+    if (defaultGridId) gridDoc = await firestoreGet("grids", defaultGridId);
+  }
+  const src = gridDoc?.ogImageSrc;
+  return typeof src === "string" && src.length > 0 ? src : null;
 }
 
 // ─── Grid info resolution ────────────────────────────────────────────────────
@@ -1696,6 +1722,8 @@ async function handler(req: Request, res: Response): Promise<void> {
   const slug = req.query.slug as string | undefined;
   const gridId = req.query.gridId as string | undefined;
   const refresh = req.query.refresh === "1";
+  // Existence probe — report whether an OG image exists without generating.
+  const check = req.query.check === "1";
   // Optional override seed — useful for previewing alternate scatter
   // compositions without changing the slug. Skips the storage cache.
   const seedOverride = req.query.seed as string | undefined;
@@ -1719,12 +1747,41 @@ async function handler(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  // ── 0. Custom (user-uploaded) OG image takes precedence ──────────────────
+  const customOgUrl = await resolveCustomOgImageUrl(slug, gridId);
+  if (customOgUrl) {
+    if (check) {
+      res.setHeader("Cache-Control", "no-store");
+      res.status(200).json({ exists: true, custom: true, url: customOgUrl });
+      return;
+    }
+    res.redirect(302, customOgUrl);
+    return;
+  }
+
   const cachePath = slug ?
     `og-images/slug/${slug}.png` :
     `og-images/grid/${gridId}.png`;
 
   const bucket = admin.storage().bucket(BUCKET_NAME);
   const file = bucket.file(cachePath);
+
+  // ── 0.5 Existence probe — never generates ─────────────────────────────────
+  if (check) {
+    let exists = false;
+    try {
+      [exists] = await file.exists();
+    } catch (checkErr) {
+      functions.logger.warn("[og] check probe failed:", checkErr);
+    }
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).json({
+      exists,
+      custom: false,
+      url: exists ? storageUrl(cachePath) : null,
+    });
+    return;
+  }
 
   // ── 1. Serve from Storage cache if available ─────────────────────────────
   // Skip cache entirely in the local emulator (no Storage credentials).

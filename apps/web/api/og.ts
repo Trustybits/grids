@@ -90,6 +90,10 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse,
 ): Promise<void> {
+  // Public, rate-limited image endpoint — allow cross-origin calls so the
+  // app's share-image modal works from any origin (including local dev).
+  res.setHeader('Access-Control-Allow-Origin', '*')
+
   // Resolve caller IP — Vercel sets x-forwarded-for on all requests
   const ip =
     (req.headers['x-forwarded-for'] as string | undefined)

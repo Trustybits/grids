@@ -126,12 +126,23 @@ vi.mock("../../maintenance.js", () => ({
  * can parse. Returns the minimum fields needed to push the handler past
  * resolveGridInfo and into the puppeteer render path.
  */
-function fakeGridDocResponse(): Response {
+function fakeGridDocResponse(ogImageSrc?: string): Response {
+  const fields: Record<string, unknown> = {
+    themeId: { stringValue: "dark" },
+    tiles: { arrayValue: { values: [] } },
+  };
+  if (ogImageSrc) fields.ogImageSrc = { stringValue: ogImageSrc };
+  const body = { fields };
+  return {
+    ok: true,
+    json: async () => body,
+  } as unknown as Response;
+}
+
+/** Firestore-REST-shaped slug document pointing at a default grid. */
+function fakeSlugDocResponse(defaultGridId: string): Response {
   const body = {
-    fields: {
-      themeId: { stringValue: "dark" },
-      tiles: { arrayValue: { values: [] } },
-    },
+    fields: { defaultGridId: { stringValue: defaultGridId } },
   };
   return {
     ok: true,
@@ -238,6 +249,8 @@ describe("generateOgImage", () => {
 
   it("redirects to a cached slug OG image", async () => {
     storageState.existsByPath.set("og-images/slug/matt.png", true);
+    // No slug/grid docs resolve → no custom OG image, fall through to cache.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
     const res = makeRes();
 
     await generateOgImage({ query: { slug: "matt" } }, res);
@@ -251,6 +264,7 @@ describe("generateOgImage", () => {
 
   it("redirects to a cached grid OG image", async () => {
     storageState.existsByPath.set("og-images/grid/grid-1.png", true);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
     const res = makeRes();
 
     await generateOgImage({ query: { gridId: "grid-1" } }, res);
@@ -341,20 +355,15 @@ describe("generateOgImage", () => {
   });
 
   it("uploads the rendered slug OG image at the slug path", async () => {
-    // First fetch resolves the slug → defaultGridId, second resolves the grid doc.
-    const slugDoc = {
-      ok: true,
-      json: async () => ({
-        fields: { defaultGridId: { stringValue: "grid-1" } },
-      }),
-    } as unknown as Response;
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(slugDoc)
-      .mockResolvedValueOnce(fakeGridDocResponse())
-      // Any additional fetches (e.g. the in-source debug logger) get a
-      // harmless default — they're swallowed inside try/catches anyway.
-      .mockResolvedValue({ ok: false } as unknown as Response);
+    // URL-keyed mock: the slug + grid docs are each fetched twice (custom OG
+    // check, then resolveGridInfo), so ordered mockResolvedValueOnce chains
+    // would desync. Any other fetch gets a harmless non-ok default.
+    const fetchMock = vi.fn().mockImplementation(async (url: unknown) => {
+      const u = String(url);
+      if (u.includes("/slugs/matt")) return fakeSlugDocResponse("grid-1");
+      if (u.includes("/grids/grid-1")) return fakeGridDocResponse();
+      return { ok: false } as unknown as Response;
+    });
     vi.stubGlobal("fetch", fetchMock);
     const res = makeRes();
 
@@ -367,6 +376,94 @@ describe("generateOgImage", () => {
       302,
       "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/og-images%2Fslug%2Fmatt.png?alt=media",
     );
+  });
+
+  it("redirects to a custom OG image on the grid doc, skipping cache and generation", async () => {
+    storageState.existsByPath.set("og-images/grid/grid-1.png", true);
+    const customUrl =
+      "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/og-images%2Fcustom%2Fgrid-1%2Fog?alt=media&v=123";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(fakeGridDocResponse(customUrl));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = makeRes();
+
+    await generateOgImage({ query: { gridId: "grid-1" } }, res);
+
+    expect(res.redirect).toHaveBeenCalledWith(302, customUrl);
+    expect(storageState.existsCalls).toEqual([]);
+    expect(storageState.saveCalls).toEqual([]);
+    expect(puppeteerState.launchCalls).toEqual([]);
+  });
+
+  it("redirects to the default grid's custom OG image for slug requests, even with refresh", async () => {
+    const customUrl = "https://example.com/custom-og.png";
+    const fetchMock = vi.fn().mockImplementation(async (url: unknown) => {
+      const u = String(url);
+      if (u.includes("/slugs/matt")) return fakeSlugDocResponse("grid-1");
+      if (u.includes("/grids/grid-1")) return fakeGridDocResponse(customUrl);
+      return { ok: false } as unknown as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const res = makeRes();
+
+    // refresh=1 must NOT regenerate over a custom image.
+    await generateOgImage({ query: { slug: "matt", refresh: "1" } }, res);
+
+    expect(res.redirect).toHaveBeenCalledWith(302, customUrl);
+    expect(storageState.saveCalls).toEqual([]);
+    expect(puppeteerState.launchCalls).toEqual([]);
+  });
+
+  it("check probe reports an existing cached image without generating", async () => {
+    storageState.existsByPath.set("og-images/grid/grid-1.png", true);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+    const res = makeRes();
+
+    await generateOgImage({ query: { gridId: "grid-1", check: "1" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      exists: true,
+      custom: false,
+      url: "https://firebasestorage.googleapis.com/v0/b/demo-test-project.firebasestorage.app/o/og-images%2Fgrid%2Fgrid-1.png?alt=media",
+    });
+    expect(puppeteerState.launchCalls).toEqual([]);
+    expect(storageState.saveCalls).toEqual([]);
+  });
+
+  it("check probe reports a missing image without generating", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+    const res = makeRes();
+
+    await generateOgImage({ query: { gridId: "grid-1", check: "1" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      exists: false,
+      custom: false,
+      url: null,
+    });
+    expect(puppeteerState.launchCalls).toEqual([]);
+  });
+
+  it("check probe reports a custom OG image", async () => {
+    const customUrl = "https://example.com/custom-og.png";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(fakeGridDocResponse(customUrl));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = makeRes();
+
+    await generateOgImage({ query: { gridId: "grid-1", check: "1" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      exists: true,
+      custom: true,
+      url: customUrl,
+    });
+    expect(res.redirect).not.toHaveBeenCalled();
   });
 
   it("does not call save and returns 500 when the browser fails to launch", async () => {

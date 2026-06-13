@@ -395,11 +395,20 @@ export default {
 .toolbarAlpha {
   /* border: 2px solid transparent; */
   width: fit-content;
+  /* Never exceed the viewport; scroll horizontally instead of clipping. */
+  max-width: calc(100vw - 16px);
   height: fit-content;
   padding: 6px;
 
   display: flex;
+  flex-wrap: nowrap;
   gap: 4px;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  /* Hide the scrollbar (Firefox) while keeping the area scrollable. */
+  scrollbar-width: none;
 
   position: relative;
   top: -8px;
@@ -407,6 +416,11 @@ export default {
   border-radius: var(--radius-md);
   border: var(--border-width) solid var(--color-stroke);
   backdrop-filter: blur(20px);
+}
+
+/* Hide the scrollbar (WebKit/Chromium) while keeping the area scrollable. */
+.toolbarAlpha::-webkit-scrollbar {
+  display: none;
 }
 
 /* .toolbarAlpha::before {
@@ -425,6 +439,7 @@ export default {
 .toolbarAlpha .toolbar-btn {
   height: 40px;
   width: 40px;
+  flex: 0 0 auto;
   border-radius: var(--radius-sm);
   padding: 4px;
   cursor: pointer;

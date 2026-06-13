@@ -242,7 +242,7 @@
             class="profile-name profile-editor"
             :class="{ 'can-edit': gridStore.canEdit }"
             :spellcheck="gridStore.canEdit && isEditing"
-            @mousedown="focusEditor(nameEditor, $event)"
+            @pointerdown="focusEditor(nameEditor, $event)"
             @click="catchEditorClick(nameEditor)"
           >
             <EditorContent :editor="nameEditor" />
@@ -258,7 +258,7 @@
             class="profile-title profile-editor"
             :class="{ 'can-edit': gridStore.canEdit }"
             :spellcheck="gridStore.canEdit && isEditing"
-            @mousedown="focusEditor(titleEditor, $event)"
+            @pointerdown="focusEditor(titleEditor, $event)"
             @click="catchEditorClick(titleEditor)"
           >
             <EditorContent :editor="titleEditor" />
@@ -282,7 +282,7 @@
         :class="{ 'can-edit': gridStore.canEdit }"
         :spellcheck="gridStore.canEdit && isEditing"
         :style="{ '--tile-text-color': textColor }"
-        @mousedown="focusEditor(bioEditor, $event)"
+        @pointerdown="focusEditor(bioEditor, $event)"
         @click="catchEditorClick(bioEditor)"
       >
         <EditorContent :editor="bioEditor" />
@@ -772,15 +772,20 @@ export default defineComponent({
       },
     );
 
-    const focusEditor = (editor: Editor | undefined, _event: MouseEvent) => {
+    const focusEditor = (editor: Editor | undefined, _event: PointerEvent) => {
       if (!gridStore.canEdit) return;
       if (!editor) return;
 
       if (!isEditing.value) {
+        // Record which field was tapped so the edit-mode watcher focuses it.
+        // Uses pointerdown (not mousedown) so this fires on touch too — touch
+        // devices suppress the synthesized mousedown via Tile's touchstart
+        // preventDefault, which would otherwise leave this unset and default
+        // focus to the name editor.
         pendingFocusEditor.value = editor;
       }
-      // When already editing, let ProseMirror handle mousedown naturally
-      // so clicks on text place the cursor at the correct position.
+      // When already editing, let ProseMirror handle the pointer event
+      // naturally so taps on text place the cursor at the correct position.
     };
 
     const catchEditorClick = (editor: Editor | undefined) => {

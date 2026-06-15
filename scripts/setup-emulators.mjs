@@ -56,15 +56,6 @@ const generatedFiles = new Map([
     }),
   ],
   [
-    "firebase.maintenance.json",
-    json({
-      firestore: {
-        rules: "firestore.maintenance.rules",
-        indexes: "firestore.indexes.json",
-      },
-    }),
-  ],
-  [
     "firestore.indexes.json",
     json({
       indexes: [],
@@ -117,20 +108,6 @@ service cloud.firestore {
     match /notification_tracking/{document=**} {
       allow read, write: if true;
     }
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}
-`,
-  ],
-  [
-    "firestore.maintenance.rules",
-    `rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Local maintenance mode scaffold for contributors. Keep this permissive
-    // so emulator-only development is not blocked by production policy.
     match /{document=**} {
       allow read, write: if true;
     }

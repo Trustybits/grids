@@ -422,6 +422,7 @@ import {
   defineComponent,
   ref,
   computed,
+  toRef,
   watch,
   nextTick,
   onMounted,
@@ -1388,7 +1389,7 @@ export default defineComponent({
     });
 
     const { backgroundColor, textColor, handleBackgroundColorChange } =
-      useColorPicker(tileId, props.content, emit);
+      useColorPicker(tileId, toRef(props, "content"), emit);
 
     watch(isDraggingRadius, (dragging) => {
       if (!hoveredToolbarZone) return;

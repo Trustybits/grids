@@ -16,8 +16,8 @@ const VALID_FIREBASE_ENVS = ["prod", "stage"] as const satisfies readonly Fireba
 /**
  * Attempts to construct the pro runtime from the @grids/pro package.
  *
- * Returns `null` when the package is unavailable (e.g., an OSS checkout that
- * ships only a stub @grids/pro). Callers decide whether that's an error or a
+ * Returns `null` when the runtime cannot be constructed, most commonly because
+ * no Firebase config was bundled. Callers decide whether that's an error or a
  * cue to fall back to stubs.
  *
  * Env reads happen here — at the boundary — so @grids/pro stays host-agnostic.

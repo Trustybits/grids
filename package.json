@@ -14,6 +14,7 @@
     "dev": "npm run build:web-deps && npm --workspace apps/web run dev",
     "dev:emulator": "npm run build:web-deps && npm --workspace apps/web run dev:emulator",
     "emulators": "npm --workspace @grids/firebase-functions run build && firebase emulators:start --only auth,firestore,functions,storage",
+    "emulators:setup": "node scripts/setup-emulators.mjs",
     "emulators:export": "firebase emulators:export ./emulator-data",
     "emulators:import": "npm --workspace @grids/firebase-functions run build && firebase emulators:start --only auth,firestore,functions,storage --import=./emulator-data --export-on-exit",
     "infra:setup": "node scripts/bootstrap-infra-sync.mjs",

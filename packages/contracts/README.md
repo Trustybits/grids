@@ -1,4 +1,9 @@
-## @grids/contracts
+# @grids/contracts
 
-Contains the contracts implemented for the `grids.so` application. This includes interfaces and types that are shared
-across package boundaries, including DAO and auth interfaces.
+Shared public interfaces and domain types for Grids.
+
+This package defines the boundary between public app code and runtime implementations. It includes DAO interfaces, auth provider interfaces, and domain types shared across packages.
+
+Start here when adding or changing a data model that crosses workspace boundaries.
+
+See [production runtime boundary](../../docs/architecture/production-runtime-boundary.md) and [data and service layer](../../docs/architecture/data-and-service-layer.md).

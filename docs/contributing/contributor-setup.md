@@ -14,8 +14,8 @@ you behavior closer to the actual grids production environment, but cannot repli
 used by the emulators do not match the ones used in production. As with the in-memory implementations, shutting down
 the emulators will result in a loss of data.
 
-If you would like actual persistence between reloads/shutdowns, you must set up your own backing database or backend
-service.
+> If you would like actual persistence between reloads/shutdowns, you must set up your own backing database or backend
+> service.
 
 We encourage you to contribute to grids.
 

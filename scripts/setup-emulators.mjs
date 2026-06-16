@@ -2,7 +2,7 @@
 
 import { spawn } from "node:child_process";
 import { constants } from "node:fs";
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
@@ -11,6 +11,49 @@ const PROJECT_ID = "demo-grids-local";
 const STORAGE_BUCKET = `${PROJECT_ID}.firebasestorage.app`;
 const FORCE = process.argv.includes("--force");
 const HELP = process.argv.includes("--help") || process.argv.includes("-h");
+
+// Marker string embedded in the demo rules files.
+const DEMO_MARKER = "Contributor-local emulator rules";
+
+// Distinctive emulator ports for the demo scaffold. Shared between firebase.json
+// generation and detection so the two can never drift apart.
+const DEMO_EMULATOR_PORTS = {
+  auth: 9076,
+  firestore: 3076,
+  functions: 5076,
+  storage: 9176,
+};
+
+// Under --force, each of these files is only overwritten when its existing
+// contents are recognizably demo scaffolding. Anything else is refused so the
+// script can never clobber real production config that shares these filenames.
+const overwriteGuards = new Map([
+  ["firestore.rules", (text) => text.includes(DEMO_MARKER)],
+  ["storage.rules", (text) => text.includes(DEMO_MARKER)],
+  [".firebaserc", isDemoFirebaserc],
+  ["firebase.json", isDemoFirebaseJson],
+]);
+
+function isDemoFirebaserc(text) {
+  try {
+    const def = JSON.parse(text)?.projects?.default;
+    return typeof def === "string" && def.startsWith("demo-");
+  } catch {
+    return false;
+  }
+}
+
+function isDemoFirebaseJson(text) {
+  try {
+    const emulators = JSON.parse(text)?.emulators;
+    if (!emulators || emulators.singleProjectMode !== true) return false;
+    return Object.entries(DEMO_EMULATOR_PORTS).every(
+      ([name, port]) => emulators?.[name]?.port === port,
+    );
+  } catch {
+    return false;
+  }
+}
 
 const generatedFiles = new Map([
   [
@@ -37,16 +80,16 @@ const generatedFiles = new Map([
       },
       emulators: {
         auth: {
-          port: 9099,
+          port: DEMO_EMULATOR_PORTS.auth,
         },
         firestore: {
-          port: 8080,
+          port: DEMO_EMULATOR_PORTS.firestore,
         },
         functions: {
-          port: 5001,
+          port: DEMO_EMULATOR_PORTS.functions,
         },
         storage: {
-          port: 9199,
+          port: DEMO_EMULATOR_PORTS.storage,
         },
         ui: {
           enabled: true,
@@ -237,11 +280,26 @@ async function confirmContinueAfterMissingTools(missingTools) {
 async function writeGeneratedFiles() {
   const written = [];
   const skipped = [];
+  const refused = [];
 
   for (const [path, contents] of generatedFiles) {
-    if ((await exists(path)) && !FORCE) {
+    const alreadyExists = await exists(path);
+
+    if (alreadyExists && !FORCE) {
       skipped.push(path);
       continue;
+    }
+
+    // Even with --force, never overwrite a guarded file unless its current
+    // contents are recognizably demo scaffolding. This guards against clobbering
+    // real production config (rules, .firebaserc, firebase.json) of the same name.
+    const guard = overwriteGuards.get(path);
+    if (alreadyExists && FORCE && guard) {
+      const current = await readFile(path, "utf8");
+      if (!guard(current)) {
+        refused.push(path);
+        continue;
+      }
     }
 
     await mkdir(dirname(path), { recursive: true });
@@ -249,10 +307,10 @@ async function writeGeneratedFiles() {
     written.push(path);
   }
 
-  return { written, skipped };
+  return { written, skipped, refused };
 }
 
-function printSummary({ written, skipped }) {
+function printSummary({ written, skipped, refused }) {
   console.log("");
   console.log("Firebase emulator setup files:");
   for (const path of written) {
@@ -260,6 +318,27 @@ function printSummary({ written, skipped }) {
   }
   for (const path of skipped) {
     console.log(`  skipped ${path} (already exists)`);
+  }
+  for (const path of refused) {
+    console.log(`  refused ${path} (existing file is not demo scaffolding)`);
+  }
+
+  if (refused.length > 0) {
+    console.log("");
+    console.log(
+      "Refused to overwrite the file(s) above because they do not look like demo scaffolding:",
+    );
+    console.log(
+      `  - rules files must contain the marker comment "${DEMO_MARKER}"`,
+    );
+    console.log("  - .firebaserc must target a demo- project");
+    console.log("  - firebase.json must use the demo emulator ports");
+    console.log(
+      "They were left untouched to avoid clobbering real production Firebase config.",
+    );
+    console.log(
+      "If you intentionally want to replace them with the demo scaffold, move or delete them first, then rerun.",
+    );
   }
 
   console.log("");

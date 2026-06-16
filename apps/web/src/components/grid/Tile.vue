@@ -659,8 +659,15 @@ export default defineComponent({
         touchWasActivating = false;
         clickStart.value = Date.now();
         const target = event.target as HTMLElement;
+        // Don't preventDefault when the tap lands on an interactive/editable
+        // element — doing so would suppress native cursor placement and the
+        // on-screen keyboard. Rich-text tiles (profile, text) render
+        // contenteditable `.ProseMirror` regions rather than <input>/<textarea>,
+        // so they must be exempted here too, mirroring native form fields.
         if (
-          !target.closest('button, a, input, select, textarea, [role="button"]')
+          !target.closest(
+            'button, a, input, select, textarea, [role="button"], [contenteditable="true"], .ProseMirror',
+          )
         ) {
           event.preventDefault();
         }

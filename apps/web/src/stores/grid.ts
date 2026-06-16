@@ -866,13 +866,21 @@ export const useGridStore = defineStore("grid", {
       const tile = this.currentGrid.tiles.find((t) => t.i === id);
       if (!tile) return;
 
+      const currentContent = tile.content as AnyTileContent &
+        Record<string, unknown>;
+      const patchRecord = patch as Record<string, unknown>;
+      const hasChanges = Object.keys(patchRecord).some(
+        (key) => !Object.is(currentContent[key], patchRecord[key]),
+      );
+      if (!hasChanges) return;
+
       if (editingTileId !== id) {
         this.pushUndoSnapshot("Update tile");
       }
 
       tile.content = {
-        ...(tile.content as AnyTileContent),
-        ...(patch as Partial<AnyTileContent>),
+        ...currentContent,
+        ...patchRecord,
       } as TileContent;
 
       this.updateGrid();

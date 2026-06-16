@@ -206,6 +206,7 @@ import {
   onMounted,
   onUnmounted,
   ref,
+  toRef,
   watch,
   type ComputedRef,
 } from "vue";
@@ -253,7 +254,7 @@ export default defineComponent({
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
 
     const { backgroundColor, textColor, overlayColor, handleBackgroundColorChange } =
-      useColorPicker(props.tileId, props.content, emit, "background");
+      useColorPicker(props.tileId, toRef(props, "content"), emit, "background");
 
     const items = computed(() => props.content.items ?? []);
     const primary = computed(() => items.value[0]);
@@ -1114,4 +1115,3 @@ export default defineComponent({
   transform: translateY(-26px);
 }
 </style>
-

@@ -14,7 +14,7 @@ export function usePageTitle(
   titleRef: Ref<string | undefined>,
   separator: TitleSeparator = '-'
 ) {
-  const isDev = import.meta.env.MODE === 'development';
+  const isDev = import.meta.env.DEV;
   const devPrefix = isDev ? 'DEV ' : '';
   let lastTitleSetByThisComposable: string | null = null;
   const updateTitle = (title?: string) => {

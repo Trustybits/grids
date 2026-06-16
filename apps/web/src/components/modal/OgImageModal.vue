@@ -6,14 +6,20 @@
       Upload your own, or use the auto-generated one.
     </p>
 
-    <div class="og-preview" :class="{ 'is-busy': busy }">
+    <div class="og-preview" :class="{ 'is-busy': busy, 'is-zoomable': zoomable }">
       <img
         v-if="previewUrl && !imgError"
         :key="previewUrl"
         :src="previewUrl"
         alt="Social share image preview"
+        :role="zoomable ? 'button' : undefined"
+        :tabindex="zoomable ? 0 : undefined"
+        :title="zoomable ? 'View full size' : undefined"
         @load="imgLoading = false"
         @error="handleImgError"
+        @click="openLightbox"
+        @keydown.enter.prevent="openLightbox"
+        @keydown.space.prevent="openLightbox"
       />
       <div v-if="imgError" class="og-preview-fallback">
         Preview unavailable right now.
@@ -24,6 +30,24 @@
       </div>
       <span class="og-source-badge" :class="badgeClass">
         {{ badgeText }}
+      </span>
+      <span v-if="zoomable" class="og-zoom-hint" aria-hidden="true">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M9 3H5a2 2 0 0 0-2 2v4m18 0V5a2 2 0 0 0-2-2h-4M3 15v4a2 2 0 0 0 2 2h4m6 0h4a2 2 0 0 0 2-2v-4"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        View full size
       </span>
     </div>
 
@@ -71,15 +95,44 @@
       </div>
     </div>
   </BaseModal>
+
+  <teleport to="body">
+    <transition name="og-lightbox-fade">
+      <div
+        v-if="lightboxOpen"
+        class="og-lightbox"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Full size social share image"
+        @click="closeLightbox"
+      >
+        <button
+          type="button"
+          class="og-lightbox-close"
+          aria-label="Close full size preview"
+          @click.stop="closeLightbox"
+        >
+          <CloseXIcon :size="26" />
+        </button>
+        <img
+          :src="previewUrl"
+          alt="Full size social share image"
+          class="og-lightbox-img"
+        />
+      </div>
+    </transition>
+  </teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import BaseModal from "./BaseModal.vue";
 import Button from "@/components/ui-elements/Button.vue";
+import CloseXIcon from "@/components/icons/CloseXIcon.vue";
 import { useGridStore } from "@/stores/grid";
 import { useToastStore } from "@/stores/toast";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import {
   customOgImagePath,
   defaultOgImageUrl,
@@ -94,6 +147,7 @@ const emit = defineEmits<{ close: [] }>();
 const gridStore = useGridStore();
 const toastStore = useToastStore();
 const storageService = getServiceFactory().getStorageService();
+const authProvider = getAuthProvider();
 
 const fileInput = ref<HTMLInputElement | null>(null);
 const uploading = ref(false);
@@ -139,6 +193,31 @@ const showOverlay = computed(
   () => busy.value || checking.value || (imgLoading.value && !!previewUrl.value),
 );
 
+// The preview is clickable to view full size once there's a real image to show
+// (not while busy/checking and not in the error state).
+const zoomable = computed(() => !!previewUrl.value && !imgError.value && !busy.value);
+
+const lightboxOpen = ref(false);
+
+const openLightbox = () => {
+  if (zoomable.value) lightboxOpen.value = true;
+};
+
+const closeLightbox = () => {
+  lightboxOpen.value = false;
+};
+
+const onLightboxKeydown = (e: KeyboardEvent) => {
+  if (e.key === "Escape") closeLightbox();
+};
+
+watch(lightboxOpen, (open) => {
+  if (open) window.addEventListener("keydown", onLightboxKeydown);
+  else window.removeEventListener("keydown", onLightboxKeydown);
+});
+
+onBeforeUnmount(() => window.removeEventListener("keydown", onLightboxKeydown));
+
 const overlayText = computed(() => {
   if (uploading.value) return "Uploading…";
   if (generating.value) {
@@ -183,7 +262,10 @@ const checkGeneratedExists = async () => {
 watch(
   () => props.show,
   (open) => {
-    if (!open) return;
+    if (!open) {
+      closeLightbox();
+      return;
+    }
     imgError.value = false;
     imgLoading.value = true;
     if (!isCustom.value) void checkGeneratedExists();
@@ -212,11 +294,16 @@ const triggerFilePicker = () => {
 const handleFileSelected = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file || !gridId.value) return;
+  const userId = authProvider.getCurrentUserId();
+  if (!userId) {
+    toastStore.addToast("You must be logged in to upload.", "error");
+    return;
+  }
   uploading.value = true;
   try {
     storageService.validateFile(file, { fileType: "images" });
     const url = await storageService.uploadToPath(
-      customOgImagePath(gridId.value),
+      customOgImagePath(userId, gridId.value),
       file,
       { contentType: file.type || "image/png" },
     );
@@ -367,6 +454,91 @@ h3 {
 .og-source-badge.is-default {
   background: rgba(0, 0, 0, 0.6);
   color: rgba(255, 255, 255, 0.7);
+}
+
+.og-preview.is-zoomable img {
+  cursor: zoom-in;
+}
+
+.og-zoom-hint {
+  position: absolute;
+  bottom: var(--spacing-sm);
+  left: var(--spacing-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: var(--font-size-xs, 11px);
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+
+.og-preview.is-zoomable:hover .og-zoom-hint,
+.og-preview.is-zoomable:focus-within .og-zoom-hint {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Full-size lightbox (teleported to body, sits above the modal) */
+.og-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal-backdrop, 1000) + 50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(6px);
+  cursor: zoom-out;
+}
+
+.og-lightbox-img {
+  max-width: min(1200px, 95vw);
+  max-height: 90vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.og-lightbox-close {
+  position: absolute;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.og-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.og-lightbox-fade-enter-active,
+.og-lightbox-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.og-lightbox-fade-enter-from,
+.og-lightbox-fade-leave-to {
+  opacity: 0;
 }
 
 .og-callout {

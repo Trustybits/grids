@@ -596,7 +596,25 @@ function htmlEsc(s: string): string {
 
 // ─── Storage public URL ──────────────────────────────────────────────────────
 
+/** Cloud Storage emulator host (host:port, optionally with scheme), if running. */
+function storageEmulatorHost(): string | undefined {
+  return (
+    process.env.STORAGE_EMULATOR_HOST ??
+    process.env.FIREBASE_STORAGE_EMULATOR_HOST ??
+    undefined
+  );
+}
+
 function storageUrl(path: string): string {
+  // When the Storage emulator is running, the admin SDK writes objects there,
+  // so download URLs must point at the emulator rather than production GCS.
+  const emulatorHost = storageEmulatorHost();
+  if (emulatorHost) {
+    const origin = emulatorHost.startsWith("http")
+      ? emulatorHost
+      : `http://${emulatorHost}`;
+    return `${origin}/v0/b/${BUCKET_NAME}/o/${encodeURIComponent(path)}?alt=media`;
+  }
   return `https://firebasestorage.googleapis.com/v0/b/${BUCKET_NAME}/o/${encodeURIComponent(path)}?alt=media`;
 }
 
@@ -1717,6 +1735,11 @@ async function renderOgImage(
 // ─── Main handler ────────────────────────────────────────────────────────────
 
 async function handler(req: Request, res: Response): Promise<void> {
+  // Public image endpoint — allow cross-origin fetches. The app's share-image
+  // modal calls this directly in emulator/dev setups (in production it goes
+  // through the Vercel proxy, which sets its own CORS header).
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
   if (respondWithMaintenanceIfEnabled("generateOgImage", res)) return;
 
   const slug = req.query.slug as string | undefined;
@@ -1784,10 +1807,13 @@ async function handler(req: Request, res: Response): Promise<void> {
   }
 
   // ── 1. Serve from Storage cache if available ─────────────────────────────
-  // Skip cache entirely in the local emulator (no Storage credentials).
+  // In the emulator we can only use Storage when the Storage emulator is
+  // running (admin writes target it); otherwise there are no credentials and
+  // we fall back to streaming a freshly rendered image (see step 4).
   const isEmulatorEnv = process.env.FUNCTIONS_EMULATOR === "true";
+  const canUseStorage = !isEmulatorEnv || !!storageEmulatorHost();
   const hasOverrides = seedOverride || positionsRaw || minCovProvided || maxCovProvided;
-  if (!refresh && !isEmulatorEnv && !hasOverrides) {
+  if (!refresh && canUseStorage && !hasOverrides) {
     try {
       const [exists] = await file.exists();
       if (exists) {
@@ -1900,10 +1926,13 @@ async function handler(req: Request, res: Response): Promise<void> {
     await browser.close();
     browser = null;
 
-    // ── 4. Upload + redirect (or stream in emulator) ────────────────────────
-    if (isEmulatorEnv) {
+    // ── 4. Upload + redirect ─────────────────────────────────────────────────
+    // Without Storage (emulator running without the Storage emulator) we can't
+    // persist, so stream the freshly rendered image back. The existence probe
+    // won't find it on a later request, but generation still works.
+    if (isEmulatorEnv && !storageEmulatorHost()) {
       functions.logger.info(
-        `[og] emulator — streaming image directly for: ${cachePath}`
+        `[og] emulator — no Storage emulator; streaming image directly for: ${cachePath}`
       );
       res.setHeader("Content-Type", "image/png");
       res.setHeader("Cache-Control", "no-store");

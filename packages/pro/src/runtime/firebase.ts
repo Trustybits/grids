@@ -67,18 +67,18 @@ export function createFirebaseServices(
   const storage = getStorage(app);
 
   if (emulatorTargets.has("auth")) {
-    connectAuthEmulator(auth, "http://127.0.0.1:9099", {
+    connectAuthEmulator(auth, "http://127.0.0.1:9076", {
       disableWarnings: true,
     });
   }
   if (emulatorTargets.has("firestore")) {
-    connectFirestoreEmulator(db, "127.0.0.1", 8080);
+    connectFirestoreEmulator(db, "127.0.0.1", 3076);
   }
   if (emulatorTargets.has("functions")) {
-    connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+    connectFunctionsEmulator(functions, "127.0.0.1", 5076);
   }
   if (emulatorTargets.has("storage")) {
-    connectStorageEmulator(storage, "127.0.0.1", 9199);
+    connectStorageEmulator(storage, "127.0.0.1", 9176);
   }
 
   return { app, auth, db, analytics, functions, storage };

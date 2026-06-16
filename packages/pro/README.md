@@ -6,4 +6,15 @@ This package lives in the public repository. It provides Firebase-backed runtime
 
 Do not commit private credentials or deploy-specific secrets to public docs or source.
 
-See [production runtime](../../docs/maintainers/production-runtime.md) and [production runtime boundary](../../docs/architecture/production-runtime-boundary.md).
+## Common Commands
+
+Run these from the repository root:
+
+```bash
+npm --workspace @grids/pro run build
+npm --workspace @grids/pro run test
+npm --workspace @grids/pro run type-check
+npm --workspace @grids/pro run lint
+```
+
+See [production runtime](../../docs/maintainers/production-runtime.md), [production runtime boundary](../../docs/architecture/production-runtime-boundary.md), and [npm scripts](../../docs/architecture/npm-scripts.md).

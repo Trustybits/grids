@@ -34,5 +34,5 @@ The production repository also owns production-specific workflows that are unnec
 
 ## Devops repo
 
-The devops repo serves as a sort of source of truth for the infrastructure files, as well as storing tooling like 
+The devops repo serves as a source of truth for the infrastructure files, as well as storing tooling like 
 the `infra-sync` tool. When internal developers use the `infra-sync` tool, it also syncs file changes to this repository.

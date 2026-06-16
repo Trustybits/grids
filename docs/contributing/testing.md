@@ -31,6 +31,6 @@ npm --workspace @grids/pro run test
 
 ## Firebase and Stubs
 
-Most frontend tests should not need production Firebase. Prefer stubs or mocks unless the behavior specifically needs emulator-backed Firebase behavior.
+Frontend tests should not need production Firebase. Use stubs and mocks when needing to test behavior that uses Firebase.
 
 Cloud Function tests live in `apps/firebase-functions` and should stay close to the function or utility being tested.

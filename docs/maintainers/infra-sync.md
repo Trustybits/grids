@@ -38,7 +38,7 @@ Use the canonical commands:
 
 - `npm run infra:new` - initialize local sync state and baselines (copies ignored files into your local environment).
 - `npm run infra:status` - inspect drift (see the differences between local and devops files).
-- `npm run infra:pull` - pull private/deploy file changes into the local checkout.
+- `npm run infra:pull` - pull private/deploy file changes into your local checkout.
 - `npm run infra:sync` - synchronize local changes back into the devops and private production repositories.
 
 `infra:status`, `infra:pull`, and `infra:sync` should validate local state and baselines before remote work.
@@ -51,8 +51,6 @@ npm run infra:refresh
 
 This refreshes the infra-sync tool with the most recent version. Running this command does not require you to rerun
 the `npm run infra:new` command, as it updates only the code of the tool, not the local sync state and memory.
-
-## Full Refresh
 
 ```bash
 npm run infra:full-refresh

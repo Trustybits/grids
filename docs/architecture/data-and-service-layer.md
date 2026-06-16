@@ -28,7 +28,7 @@ Avoid putting implementation details in contracts.
 
 `apps/web/src/services` contains app-level services. Services consume DAO interfaces and expose behavior to stores, composables, and components.
 
-Services are a good place for app rules that should not live in Vue components.
+Services are a good place for app or business rules that should not live in Vue components.
 
 ## DAOs
 
@@ -43,7 +43,7 @@ The active DAO factory is registered during app startup.
 
 ## Components
 
-Components should stay close to rendering and interaction. A component should not write directly to Firebase. Prefer a store, composable, or service when behavior needs data access or shared logic.
+Components should stay close to rendering and interaction. A component should not write directly to a database, persistent or otherwise. Prefer a store, composable, or service when behavior needs data access or shared logic.
 
 ## Tests
 

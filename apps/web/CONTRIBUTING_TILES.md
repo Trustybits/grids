@@ -1,209 +1,240 @@
-# Contributing Tiles to TrustyBits Grids
+# Contributing Tiles to Grids
 
-This guide walks you through adding a new tile type to the project.
+This guide walks through adding a new tile type to the Grids web app.
 
----
+For the higher-level architecture, see [docs/architecture/tiles.md](../../docs/architecture/tiles.md).
 
-## Project Overview
+## Current Tile Architecture
 
-**TrustyBits Grids** is a Vue 3 + TypeScript app that lets users build customisable grid pages (think link-in-bio on steroids). Each grid is a collection of **tiles** arranged on a drag-and-drop canvas powered by `vue3-grid-layout`.
+Tiles are defined across two workspaces:
 
-| Layer | Tech |
-|---|---|
-| Framework | Vue 3 (Composition API / `defineComponent`) |
-| State | Pinia (`src/stores/grid.ts`) |
-| Styling | Scoped SCSS with design tokens (`src/styles/tokens.scss`, `src/styles/themes.scss`) |
-| Backend | Firebase (Firestore for persistence, Cloud Functions in `functions/`) |
-| Build | Vite |
+```text
+packages/contracts/src/types/
+  TileContent.ts        ContentType enum, per-type content interfaces, AnyTileContent
+  Tile.ts               Shared Tile shape
 
-### Grid Unit System
-
-- **1 cell = 75 px**, gap = 48 px
-- Tile pixel size: `n × 123 − 48` (e.g. a 2×2 tile = 198 × 198 px)
-- Default new tile size: **2 wide × 2 tall** (configurable per tile type via `defaultSize`)
-
----
-
-## Architecture at a Glance
-
-```
-src/
-├── types/
-│   ├── Tile.ts              # Tile interface (i, x, y, w, h, content, caption)
-│   ├── TileContent.ts       # ContentType enum + per-type content interfaces
-│   └── TileDefinition.ts    # TileDefinition interface (the registry contract)
-├── registries/
-│   ├── tileRegistry.ts      # Central registry: Map<ContentType, TileDefinition>
-│   ├── tileToolbar/         # Modular toolbar button definitions
-│   │   ├── baseButtons.ts             # Resize presets, border toggle, color button
-│   │   ├── sharedCropButton.ts        # Crop/zoom button (image & video tiles)
-│   │   ├── sharedTileLinkButton.ts    # Tile link button (image & video tiles)
-│   │   ├── mapButtons.ts     # Map-specific buttons (pan, search, recenter, etc.)
-│   │   ├── linkButtons.ts    # Link tile buttons (background toggle, more menu)
-│   │   ├── textButtons.ts    # Text tile buttons (align, more menu)
-│   │   └── index.ts          # Re-exports all + getTileToolbarButtons()
-│   └── tiles/               # One definition file per tile type
-│       ├── index.ts          # Registers all tiles on import
-│       ├── text.ts
-│       ├── image.ts
-│       ├── chat.ts
-│       └── ...
-├── components/
-│   ├── grid/
-│   │   ├── Grid.vue          # Layout engine
-│   │   └── Tile.vue          # Shell that wraps every tile (drag, resize, toolbar, caption)
-│   └── tilecontent/          # One Vue component per tile type
-│       ├── TextContent.vue
-│       ├── ImageContent.vue
-│       └── ...
-├── stores/
-│   └── grid.ts              # Pinia store: addTile(), patchTileContent(), etc.
-└── styles/
-    ├── tokens.scss           # Design tokens (spacing, radius, shadows, typography)
-    └── themes.scss           # Light / dark theme CSS custom properties
+apps/web/src/
+  types/TileDefinition.ts         TileDefinition registry contract
+  registries/tileRegistry.ts      Runtime registry keyed by ContentType
+  registries/tiles/               One definition file per tile type
+  registries/tileToolbar/         Shared toolbar button definitions
+  components/grid/Tile.vue        Tile shell
+  components/tilecontent/         Tile content components
+  stores/grid.ts                  addTile, patchTileContent, saveGrid, layout updates
+  utils/TileUtils.ts              createTileContent, validateTileContent, URL routing helpers
 ```
 
-### How a tile renders
+Tile content types live in `@grids/contracts` because tile data is persisted user data and may be shared across app/runtime boundaries. App-only registry behavior lives in `apps/web`.
 
-1. `Grid.vue` iterates the grid's `tiles[]` array and renders a `<Tile>` for each.
-2. `Tile.vue` calls `getContentComponent(tile.content)` which looks up the tile's `component` from the registry.
-3. The resolved component (e.g. `ImageContent.vue`) receives `content` as a prop (plus any `extraProps` declared in the definition).
-4. `Tile.vue` also **provides** via Vue's provide/inject:
-   - `"tileId"` — the tile's unique `i` string
-   - `"gridTileW"` / `"gridTileH"` — reactive computed refs of the tile's current grid width/height
-   - `"tileX"` / `"tileY"` — reactive position
+## Existing Tile Types
 
-### How state flows
+`ContentType` currently includes:
 
-- The **grid store** (`src/stores/grid.ts`) holds `currentGrid` which contains a `tiles: Tile[]` array.
-- To update your tile's persisted data, call `gridStore.patchTileContent(tileId, { ...partialUpdate })`.
-- `saveGrid()` deep-clones the tiles, strips Vue reactivity, and writes to Firestore.
-- **Important:** `props.content` in your component is a deep copy (vue3-grid-layout clones layout items). If you need the canonical store object, look up the tile by ID in `gridStore.currentGrid.tiles`.
+- `TEXT`
+- `SMART_TEXT`
+- `CHAT`
+- `IMAGE`
+- `VIDEO`
+- `LINK`
+- `EMBED`
+- `MAP`
+- `CAMPFIRE`
+- `SUGGESTION` (internal-only)
+- `PROFILE`
+- `YOUTUBE`
+- `ROADMAP_FEED`
+- `MUSIC`
+- `DOCUMENT`
 
----
+All public tile definitions are registered in `apps/web/src/registries/tiles/index.ts`. If you add a new tile definition file, import and register it there.
 
-## Step-by-Step: Adding a New Tile Type
+## Grid Unit System
 
-### 1. Define the content type and interface
+- 1 cell = 75 px
+- Gap = 48 px
+- Tile pixel size on one axis is `cells * 123 - 48`
+- A 2 by 2 tile is 198 px by 198 px
+- Default new tile size is 2 wide by 2 tall unless the tile definition sets `defaultSize`
 
-In `src/types/TileContent.ts`:
+## How a Tile Renders
+
+1. `Grid.vue` renders the grid's `tiles` through `Tile.vue`.
+2. `Tile.vue` calls `getContentComponent(tile.content)` from `TileUtils.ts`.
+3. `getContentComponent` finds the tile definition in `tileRegistry.ts` and async-loads its `component`.
+4. The content component receives `content` as a prop, plus any props returned by the tile definition's `extraProps`.
+5. `Tile.vue` provides tile context with Vue provide/inject:
+
+```text
+tileId       Tile id string
+gridTileW    ComputedRef<number> for current tile width in grid cells
+gridTileH    ComputedRef<number> for current tile height in grid cells
+tileX        ComputedRef<number> for current x position
+tileY        ComputedRef<number> for current y position
+```
+
+## How State Flows
+
+Use `useGridStore()` for persisted tile updates.
 
 ```ts
-// Add to the ContentType enum
+gridStore.patchTileContent(tileId, { someValue: "new value" });
+```
+
+Do not directly mutate `props.content`. The layout layer can render copied tile objects, so direct prop mutation can be lost on the next layout rebuild.
+
+`patchTileContent` updates the canonical tile in `gridStore.currentGrid.tiles`, records undo state when appropriate, and triggers the grid update/save path. Depending on local mode, the active runtime may be stubbed, Firebase emulator-backed, or production Firebase-backed.
+
+## Step-by-Step: Adding a Tile Type
+
+### 1. Add the Content Type and Content Interface
+
+Edit `packages/contracts/src/types/TileContent.ts`.
+
+Add an enum value:
+
+```ts
 export enum ContentType {
-  // ... existing types ...
+  // existing values...
   MY_NEW_TILE = "my_new_tile",
 }
+```
 
-// Define the content interface
+Add the content interface:
+
+```ts
 export interface MyNewTileContent extends TileContent {
   type: ContentType.MY_NEW_TILE;
   someValue: string;
   someNumber: number;
 }
+```
 
-// Add to AnyTileContent union at the bottom
+Add the interface to `AnyTileContent`:
+
+```ts
 export type AnyTileContent =
   | TextContent
-  // ... existing types ...
+  // existing content types...
   | MyNewTileContent;
 ```
 
-### 2. Create the tile definition
+Because this package is consumed through built workspace output, run a contracts build before depending on the new type from `apps/web`:
 
-Create `src/registries/tiles/myNewTile.ts`:
+```bash
+npm --workspace @grids/contracts run build
+```
+
+### 2. Create the Tile Definition
+
+Create `apps/web/src/registries/tiles/myNewTile.ts`.
 
 ```ts
-import { ContentType, type MyNewTileContent } from "@/types/TileContent";
+import {
+  ContentType,
+  type MyNewTileContent,
+} from "@grids/contracts/types";
 import type { TileDefinition } from "@/types/TileDefinition";
-import { RESIZE_PRESETS, BORDER_TOGGLE } from "@/registries/tileToolbar/baseButtons";
+import {
+  RESIZE_PRESETS,
+  BORDER_TOGGLE,
+} from "@/registries/tileToolbar/baseButtons";
 
 export const myNewTileDefinition: TileDefinition<MyNewTileContent> = {
   type: ContentType.MY_NEW_TILE,
   label: "My New Tile",
   category: "utility",
 
-  // Async import for code-splitting
   component: () => import("@/components/tilecontent/MyNewTileContent.vue"),
 
-  // Factory: returns sensible defaults when the tile is first created
   defaultContent: (data) => ({
     type: ContentType.MY_NEW_TILE,
     someValue: data?.someValue || "",
     someNumber: data?.someNumber ?? 0,
   }),
 
-  // Return true when the content is in a valid, renderable state
-  validate: (content) => content.someValue.length > 0,
+  validate: (content) => content.someValue.trim().length > 0,
 
-  // Shell behavior flags (all default to true if omitted)
   capabilities: {
-    caption: true,       // Show caption below tile
-    border: true,        // Support border toggle
-    // tileLink: false,  // Uncomment to support click-through link
+    caption: true,
+    border: true,
+    tileLink: false,
+    duplicate: true,
+    resizable: true,
   },
 
-  // Optional: declare color theming support
   colorTheming: {
     backgroundColor: true,
   },
 
-  // What kind of editing does this tile support?
-  editMode: "fields",  // "richtext" | "crop" | "fields" | "interactive" | "composer" | "settings" | "none"
+  editMode: "fields",
 
-  // Optional: what shows up in TileActions (top-right corner)
   actions: {
-    externalUrl: (content) => null,       // "Follow link" button
-    copyContent: (content) => null,       // "Copy" button
-    downloadUrl: (content) => null,       // "Download" button
+    externalUrl: () => null,
+    copyContent: (content) => content.someValue || null,
+    downloadUrl: () => null,
   },
 
-  // Toolbar buttons (bottom bar when selected)
   toolbar: [...RESIZE_PRESETS, BORDER_TOGGLE],
 
-  // Optional: extra props passed to the component beyond `content`
+  // Optional: pass props beyond `content` to the content component.
   // extraProps: (tile) => ({ tileId: tile.i }),
 
-  // Optional: max instances per grid (e.g. 1 for campfire)
+  // Optional: limit instances per grid.
   // maxPerGrid: 1,
 
-  // Optional: custom default size (default is 2x2)
+  // Optional: custom default size. Default is { w: 2, h: 2 }.
   // defaultSize: { w: 4, h: 4 },
 
-  // Optional: gate behind a feature flag
+  // Optional: hide behind a PostHog feature flag.
   // featureFlag: "beta-my-new-tile",
 
-  // Optional: claim URLs from paste/embed routing
+  // Optional: claim pasted/embed URLs.
   // matchUrl: (url) => url.includes("example.com"),
   // parseUrl: (url) => ({ someValue: url }),
 };
 ```
 
-### 3. Register the definition
+### 3. Register the Definition
 
-In `src/registries/tiles/index.ts`, add:
+Edit `apps/web/src/registries/tiles/index.ts`.
 
 ```ts
 import { myNewTileDefinition } from "./myNewTile";
 
-// Inside registerAllTiles():
-registerTile(myNewTileDefinition);
+export function registerAllTiles(): void {
+  // existing registrations...
+  registerTile(myNewTileDefinition);
+}
+
+export {
+  // existing exports...
+  myNewTileDefinition,
+};
 ```
 
-### 4. Create the Vue component
+`apps/web/src/main.ts` imports `@/registries/tiles` before services initialize, so registration happens during app startup and before `createTileContent` is used at module scope.
 
-Create `src/components/tilecontent/MyNewTileContent.vue`:
+### 4. Create the Content Component
+
+Create `apps/web/src/components/tilecontent/MyNewTileContent.vue`.
+
+Most existing tile content components use `defineComponent`, so this example follows that local pattern.
 
 ```vue
 <template>
   <div class="my-tile-container">
-    <!-- Your tile UI here -->
+    <input
+      v-if="gridStore.canEdit"
+      :value="content.someValue"
+      @input="onInput"
+    />
+    <span v-else>{{ content.someValue }}</span>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, inject, computed } from "vue";
-import type { MyNewTileContent } from "@/types/TileContent";
+import { defineComponent, inject, computed, type ComputedRef } from "vue";
+import type { MyNewTileContent } from "@grids/contracts/types";
 import { useGridStore } from "@/stores/grid";
 
 export default defineComponent({
@@ -213,18 +244,28 @@ export default defineComponent({
       required: true,
     },
   },
-  setup(props) {
+  setup() {
     const gridStore = useGridStore();
     const tileId = inject<string | null>("tileId", null);
-    const gridW = inject<import("vue").ComputedRef<number>>("gridTileW");
-    const gridH = inject<import("vue").ComputedRef<number>>("gridTileH");
+    const gridW = inject<ComputedRef<number>>("gridTileW", computed(() => 2));
+    const gridH = inject<ComputedRef<number>>("gridTileH", computed(() => 2));
 
-    const updateValue = (newVal: string) => {
+    const updateValue = (someValue: string) => {
       if (!tileId || !gridStore.canEdit) return;
-      gridStore.patchTileContent(tileId, { someValue: newVal });
+      gridStore.patchTileContent(tileId, { someValue });
     };
 
-    return { updateValue };
+    const onInput = (event: Event) => {
+      updateValue((event.target as HTMLInputElement).value);
+    };
+
+    return {
+      gridStore,
+      gridW,
+      gridH,
+      onInput,
+      updateValue,
+    };
   },
 });
 </script>
@@ -242,120 +283,123 @@ export default defineComponent({
 </style>
 ```
 
-That's it. The registry handles component resolution, content factory, validation, caption visibility, toolbar, tile actions, and size defaults automatically.
+You can use `<script setup>` for new Vue code if it fits the surrounding file, but match nearby tile conventions when modifying an existing tile.
 
----
+### 5. Add Tests
+
+At minimum, update `apps/web/src/utils/__tests__/TileUtils.test.ts` to cover:
+
+- default content from `createTileContent(ContentType.MY_NEW_TILE)`
+- validation through `validateTileContent`
+- URL routing if the tile uses `matchUrl` / `parseUrl`
+
+Add component, store, service, or function tests when the tile has behavior outside its definition.
 
 ## TileDefinition Reference
 
+The current registry contract is `apps/web/src/types/TileDefinition.ts`.
+
 | Field | Required | Purpose |
-|-------|----------|---------|
+| --- | --- | --- |
 | `type` | Yes | `ContentType` enum value |
-| `label` | Yes | Human-readable name for UI and toasts |
-| `category` | No | `"media"` / `"text"` / `"social"` / `"embed"` / `"utility"` / `"game"` |
-| `featureFlag` | No | PostHog flag key — tile is hidden in add-menu when disabled |
-| `component` | Yes | `() => import(...)` for the Vue component |
-| `defaultContent` | Yes | Factory function returning default content |
+| `label` | Yes | Human-readable name for UI |
+| `icon` | No | Optional Vue component icon |
+| `category` | No | `"media"`, `"text"`, `"social"`, `"embed"`, `"utility"`, or `"game"` |
+| `featureFlag` | No | PostHog flag key for add-menu visibility |
+| `component` | Yes | Async component import used by `Tile.vue` |
+| `headerComponent` | No | Optional async header component |
+| `defaultContent` | Yes | Factory returning valid default content |
 | `validate` | Yes | Returns true when content is renderable |
-| `defaultSize` | No | `{ w, h }` — defaults to `{ w: 2, h: 2 }` |
-| `capabilities` | Yes | `{ caption?, border?, tileLink?, duplicate?, resizable? }` |
-| `colorTheming` | No | `{ backgroundColor?, textColor? }` |
-| `editMode` | No | What editing means for this tile |
-| `actions` | No | Functions for copy/download/external-link buttons |
-| `toolbar` | No | Array of `ToolbarItem` objects |
-| `extraProps` | No | Additional props passed to the component |
+| `defaultSize` | No | `{ w, h }`; defaults to `{ w: 2, h: 2 }` |
+| `capabilities` | Yes | Shell behavior flags: `caption`, `duplicate`, `border`, `tileLink`, `resizable` |
+| `colorTheming` | No | Background/text color support flags |
+| `editMode` | No | `"richtext"`, `"crop"`, `"fields"`, `"interactive"`, `"composer"`, `"settings"`, or `"none"` |
+| `actions` | No | Copy, download, and external-link action callbacks |
+| `toolbar` | No | `ToolbarButton[]` or `(ctx: ToolbarContext) => ToolbarButton[]` |
+| `extraProps` | No | Additional props passed to the content component |
 | `maxPerGrid` | No | Limit instances per grid |
 | `matchUrl` | No | Claim URLs from paste/embed routing |
 | `parseUrl` | No | Extract content fields from a matched URL |
 
----
+## Common Patterns
 
-## Styling Guidelines
-
-### Use design tokens — don't hard-code values
-
-| Token | Example values |
-|---|---|
-| `--spacing-xs` through `--spacing-4xl` | 4px → 80px |
-| `--radius-sm` through `--radius-full` | 8px → 9999px |
-| `--color-text-primary` | Adapts to light/dark theme |
-| `--color-content-high / default / low` | Semantic text opacity levels |
-| `--color-tile-background` | Tile surface color |
-| `--transition-fast / normal / slow` | 150ms / 250ms / 400ms ease-in-out |
-| `--font-family-base` / `--font-family-mono` | System font stacks |
-
-### Theme awareness
-
-The app has **light** and **dark** themes (`themes.scss`). All `--color-*` tokens switch automatically. Never hard-code colors like `#fff` or `#000` — use the semantic tokens so your tile looks correct in both themes.
-
-### Scoped styles
-
-Always use `<style scoped lang="scss">` so your styles don't leak into other tiles.
-
----
-
-## Common Patterns & Gotchas
-
-### Persisting state
+### Persist Through the Store
 
 ```ts
-// Good — goes through the store and triggers Firestore save
+// Good: updates the canonical tile and uses the grid update/save path.
 gridStore.patchTileContent(tileId, { someValue: "new" });
 
-// Bad — mutates the deep copy, lost on next layout rebuild
+// Bad: mutates a rendered copy and can be lost on layout rebuild.
 props.content.someValue = "new";
 ```
 
-### Reading canonical store data
+### Read Canonical Store Data When Needed
 
-If you need to read the latest persisted state (not the display copy), resolve it from the store:
+If your component needs the latest canonical tile data rather than the rendered copy:
 
 ```ts
 const storeContent = computed(() => {
-  const tile = gridStore.currentGrid?.tiles.find(t => t.i === tileId);
-  return tile?.content as MyNewTileContent | undefined;
+  const tile = gridStore.currentGrid?.tiles.find((t) => t.i === tileId);
+  return tile?.content.type === ContentType.MY_NEW_TILE
+    ? tile.content
+    : undefined;
 });
 ```
 
-### Owner vs visitor
+### Gate Editing
 
-Check `gridStore.canEdit` before showing edit controls. Visitors can interact with the tile (click, view) but should not be able to modify persisted content.
+Check `gridStore.canEdit` before showing edit controls or mutating persisted content. Visitors can view and interact with public tiles, but they should not be able to modify saved tile data.
 
-### Responsive layout
+### Use Tile Dimensions for Responsive UI
 
-Use the injected `gridTileW` / `gridTileH` to adapt your UI to different tile sizes. The tile container always fills 100% width/height — you control internal layout.
+Use injected `gridTileW` and `gridTileH` to adapt controls, labels, and dense layouts across tile sizes. The content component fills the shell; your component controls internal layout.
 
-### Cleanup
+### Clean Up Side Effects
 
-If your tile sets up subscriptions, timers, or event listeners, clean them up in `onUnmounted`.
+If your tile starts timers, subscriptions, global listeners, or third-party SDK instances, clean them up in `onUnmounted`.
 
----
+## Styling Guidelines
+
+- Use `<style scoped lang="scss">`.
+- Use design tokens from `apps/web/src/styles/tokens.scss`.
+- Use theme-aware CSS variables instead of hard-coded light/dark colors.
+- Verify the tile in light and dark themes.
+- Avoid leaking styles into shared tile shell components.
+
+Useful tokens include:
+
+| Token | Purpose |
+| --- | --- |
+| `--spacing-xs` through `--spacing-4xl` | Spacing |
+| `--radius-sm` through `--radius-full` | Radius |
+| `--color-text-primary` | Primary text |
+| `--color-content-high`, `--color-content-default`, `--color-content-low` | Text emphasis |
+| `--color-tile-background` | Tile surface |
+| `--transition-fast`, `--transition-normal`, `--transition-slow` | Motion |
+| `--font-family-base`, `--font-family-mono` | Font stacks |
 
 ## Checklist
 
-When submitting a new tile, make sure you've done:
+- [ ] Add `ContentType`, content interface, and `AnyTileContent` entry in `packages/contracts/src/types/TileContent.ts`
+- [ ] Build contracts with `npm --workspace @grids/contracts run build`
+- [ ] Add `apps/web/src/registries/tiles/yourTile.ts`
+- [ ] Register and export the tile in `apps/web/src/registries/tiles/index.ts`
+- [ ] Add `apps/web/src/components/tilecontent/YourTileContent.vue`
+- [ ] Persist content changes with `gridStore.patchTileContent` or an existing store/service helper
+- [ ] Gate edit affordances with `gridStore.canEdit`
+- [ ] Add or update tests, especially `TileUtils.test.ts`
+- [ ] Verify light and dark themes
+- [ ] Verify small and large tile sizes
+- [ ] Clean up timers, listeners, subscriptions, or SDK instances in `onUnmounted`
+- [ ] Update docs if the tile introduces a new pattern or external integration
 
-- [ ] `src/types/TileContent.ts` — enum value + content interface + union type
-- [ ] `src/registries/tiles/yourTile.ts` — tile definition (factory, validation, toolbar, capabilities)
-- [ ] `src/registries/tiles/index.ts` — import and register your definition
-- [ ] `src/components/tilecontent/YourContent.vue` — the actual component
-- [ ] Uses design tokens from `tokens.scss` for spacing, radii, colours
-- [ ] Works in both light and dark theme
-- [ ] Uses `<style scoped lang="scss">`
-- [ ] Persists state via `patchTileContent`, not direct prop mutation
-- [ ] Cleans up listeners/timers in `onUnmounted`
-- [ ] `gridStore.canEdit` gated for any edit affordances
+## Good Existing References
 
----
-
-## Existing Tiles for Reference
-
-| Tile | Complexity | Good example of |
-|---|---|---|
-| `CampfireContent.vue` | Simple | Game state, minimal persisted data, `maxPerGrid` constraint |
-| `TextContent.vue` | Medium | TipTap editor, inject tileId, auto-focus, colour picker |
-| `MapContent.vue` | Complex | External library (Mapbox), canonical store lookup |
-| `MusicContent.vue` | Complex | Multi-platform embed, size-responsive layout, URL matching |
-| `YouTubeContent.vue` | Medium | Metadata enrichment, external URL action |
-
-Start by reading `CampfireContent.vue` — it's the simplest end-to-end example of a tile with interaction and Firestore persistence.
+| Tile | Why to read it |
+| --- | --- |
+| `apps/web/src/registries/tiles/image.ts` | URL matching, crop toolbar, tile link, color theming |
+| `apps/web/src/registries/tiles/document.ts` | Feature flag, `extraProps`, document item validation |
+| `apps/web/src/registries/tiles/music.ts` | Custom resize toolbar and external URL action |
+| `apps/web/src/components/tilecontent/CampfireContent.vue` | Interactive tile with injected dimensions |
+| `apps/web/src/components/tilecontent/MapContent.vue` | External library lifecycle and canonical store updates |
+| `apps/web/src/components/tilecontent/DocumentsContent.vue` | Multi-item persisted content and extra props |

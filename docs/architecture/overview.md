@@ -44,7 +44,7 @@ This keeps components focused on rendering and interaction, while data access st
 - New UI: `apps/web/src/components`, `apps/web/src/pages`, or `apps/web/src/components/ui-*`.
 - Reusable UI behavior: `apps/web/src/composables`.
 - Frontend state: `apps/web/src/stores`.
-- Shared app behavior: `apps/web/src/services`.
+- Shared app behavior and business rules: `apps/web/src/services`.
 - Pure helpers: `apps/web/src/utils`.
 - Shared domain types and DAO contracts: `packages/contracts`.
 - Firebase-backed implementations: `packages/pro` or `apps/firebase-functions`, depending on whether the code runs in the browser runtime or Cloud Functions.
@@ -53,6 +53,9 @@ This keeps components focused on rendering and interaction, while data access st
 ## More Detail
 
 - [Workspaces](workspaces.md)
+- [Repository layout](repository-layout.md)
+- [npm scripts](npm-scripts.md)
 - [Production runtime boundary](production-runtime-boundary.md)
 - [Data and service layer](data-and-service-layer.md)
 - [Tiles](tiles.md)
+- [Private and Public repos](public-private-repos.md)

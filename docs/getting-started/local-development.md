@@ -6,8 +6,6 @@ This guide gets a public checkout running without production Firebase access.
 
 - Node.js 22+
 - npm 10+
-- Firebase CLI, only for emulator workflows: `npm install -g firebase-tools`
-- Java JDK 11+, only for emulator workflows
 
 ## Install
 
@@ -31,20 +29,7 @@ Use this mode for most UI work, tile behavior, routing, stores, composables, and
 
 ## Run With Firebase Emulators
 
-For work that needs Firebase Auth, Firestore, Functions, or Storage emulator behavior:
-
-```bash
-npm run emulators:setup
-npm run emulators
-```
-
-Then start the app in another terminal:
-
-```bash
-npm run dev:emulator
-```
-
-See [Firebase emulators](firebase-emulators.md) for details.
+To set up and use the Firebase Emulators, see the [firebase emulators guide](./firebase-emulators.md).
 
 ## Useful Commands
 

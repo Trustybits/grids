@@ -13,9 +13,9 @@ This repository is a TypeScript monorepo. The public app, shared contracts, and 
 - `docs` - contributor, architecture, and maintainer documentation.
 - `scripts` - local development and maintainer scripts.
 
-## Quick Start For CONTRIBUTORS
+## Quick Start For Contributors
 
-_Dev team, see the [dev setup notes](/docs/maintainers/dev-setup.md) to get started_
+Internal developers should use the [dev setup notes](docs/maintainers/dev-setup.md) instead.
 
 Prerequisites:
 
@@ -34,25 +34,10 @@ Start the web app with the stubbed local backend:
 npm run dev
 ```
 
-For Firebase Emulator Suite development, set up local demo config first:
+Additionally setup details can be found in `docs/getting-started/`, as well as in the [Contributor setup guide](./docs/contributing/contributor-setup.md).
 
-```bash
-npm run emulators:setup
-```
 
-This only needs to be done once per clone.
-
-Then run the emulators prior to running the dev server:
-
-```bash
-npm run emulators
-```
-
-Then, in another terminal:
-
-```bash
-npm run dev:emulator
-```
+For Firebase Emulator Suite development, follow the [Firebase emulators guide](docs/getting-started/firebase-emulators.md).
 
 ## Documentation
 
@@ -60,7 +45,9 @@ npm run dev:emulator
 - [Local development](docs/getting-started/local-development.md)
 - [Firebase emulators](docs/getting-started/firebase-emulators.md)
 - [Architecture overview](docs/architecture/overview.md)
+- [npm scripts](docs/architecture/npm-scripts.md)
 - [Production runtime boundary](docs/architecture/production-runtime-boundary.md)
+- [Public and private repos](docs/architecture/public-private-repos.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Tile contribution guide](apps/web/CONTRIBUTING_TILES.md)
 

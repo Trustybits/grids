@@ -31,7 +31,7 @@ npm run infra:new
 
 These commands will install the `infra sync` tool and download the necessary infrastructure files. These infrastructures
 files are gitignored in this repo and should not be committed. For more information on these commands, see the 
-[infra-syncnotes](./infra-sync.md).
+[infra-sync notes](./infra-sync.md).
 
 With these files installed, you may now run the dev server:
 

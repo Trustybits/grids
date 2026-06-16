@@ -67,6 +67,8 @@ export interface ImageContent extends TileContent {
   offsetX: number;
   offsetY: number;
   backgroundColor?: string;
+  /** Chromatic color blended over the media (mix-blend-mode: color), independent of the fill. */
+  overlayColor?: string;
   tileLink?: string;
 }
 
@@ -85,6 +87,8 @@ export interface LinkContent extends TileContent {
   linkBackgroundEnabled?: boolean;
   customImageUrl?: string;
   backgroundColor?: string;
+  /** Chromatic color blended over the preview image (mix-blend-mode: color), independent of the fill. */
+  overlayColor?: string;
 }
 
 export interface EmbedContent extends TileContent {
@@ -99,6 +103,8 @@ export interface VideoContent extends TileContent {
   offsetX: number;
   offsetY: number;
   backgroundColor?: string;
+  /** Chromatic color blended over the media (mix-blend-mode: color), independent of the fill. */
+  overlayColor?: string;
   tileLink?: string;
 }
 
@@ -268,6 +274,8 @@ export interface DocumentsContent extends TileContent {
   type: ContentType.DOCUMENT;
   items: DocumentItem[];
   backgroundColor?: string;
+  /** Chromatic color blended over the document preview (mix-blend-mode: color), independent of the fill. */
+  overlayColor?: string;
   customTitle?: string;
   customDescription?: string;
 }

@@ -55,6 +55,10 @@ export interface TextEditableTileChild {
 
 export interface ColorThemableTileChild {
   handleBackgroundColorChange?: (color: string) => void;
+  // Present only on tiles that support a color overlay separate from the fill
+  // (image, video, link, document). Its presence drives the toolbar's
+  // Fill/Overlay toggle.
+  handleOverlayColorChange?: (color: string) => void;
 }
 
 // ─── Composite type ────────────────────────────────────────────────

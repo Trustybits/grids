@@ -317,12 +317,11 @@ export default defineComponent({
       },
     );
 
-    const { overlayColor, handleBackgroundColorChange } = useColorPicker(
-      tileId,
-      props.content,
-      emit,
-      "overlay",
-    );
+    const { overlayColor, handleBackgroundColorChange, handleOverlayColorChange } =
+      useColorPicker(tileId, props.content, emit, {
+        overlayCapable: true,
+        legacyBackgroundAsOverlay: true,
+      });
 
     const {
       showLinkModal,
@@ -357,6 +356,7 @@ export default defineComponent({
       tileDimensions,
       overlayColor,
       handleBackgroundColorChange,
+      handleOverlayColorChange,
       isValidLink,
       showLinkModal,
       tileLinkExists,

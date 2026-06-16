@@ -706,12 +706,11 @@ export default defineComponent({
       }
     });
 
-    const { overlayColor, handleBackgroundColorChange } = useColorPicker(
-      tileId,
-      props.content,
-      emit,
-      "overlay",
-    );
+    const { overlayColor, handleBackgroundColorChange, handleOverlayColorChange } =
+      useColorPicker(tileId, props.content, emit, {
+        overlayCapable: true,
+        legacyBackgroundAsOverlay: true,
+      });
 
     const {
       showLinkModal,
@@ -738,6 +737,7 @@ export default defineComponent({
       videoOverflowElement,
       overlayColor,
       handleBackgroundColorChange,
+      handleOverlayColorChange,
       // Tile size
       isNarrow,
       isMedium,

@@ -807,19 +807,14 @@ export default defineComponent({
       stopEditing();
     };
 
-    const LINK_RESET_COLORS = new Set([
-      "var(--color-tile-background)",
-      "var(--color-content-background)",
-    ]);
-
-    const linkOverlayColor = computed((): string | null => {
-      const color = props.content.backgroundColor;
-      if (!color || LINK_RESET_COLORS.has(color)) return null;
-      return color;
+    const {
+      overlayColor: linkOverlayColor,
+      handleBackgroundColorChange,
+      handleOverlayColorChange,
+    } = useColorPicker(tileId, props.content, emit, {
+      overlayCapable: true,
+      legacyBackgroundAlsoOverlay: true,
     });
-
-    const { overlayColor: _overlayColor, handleBackgroundColorChange } =
-      useColorPicker(tileId, props.content, emit, "background");
 
     const handleRemoveFavicon = () => {
       props.content.faviconUrl = undefined;
@@ -835,6 +830,7 @@ export default defineComponent({
       gridStore,
       overlayColor: linkOverlayColor,
       handleBackgroundColorChange,
+      handleOverlayColorChange,
       formatLink,
       isTelLink,
       isMailtoLink,

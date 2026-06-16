@@ -252,8 +252,16 @@ export default defineComponent({
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
 
-    const { backgroundColor, textColor, overlayColor, handleBackgroundColorChange } =
-      useColorPicker(props.tileId, props.content, emit, "background");
+    const {
+      backgroundColor,
+      textColor,
+      overlayColor,
+      handleBackgroundColorChange,
+      handleOverlayColorChange,
+    } = useColorPicker(props.tileId, props.content, emit, {
+      overlayCapable: true,
+      legacyBackgroundAlsoOverlay: true,
+    });
 
     const items = computed(() => props.content.items ?? []);
     const primary = computed(() => items.value[0]);
@@ -663,6 +671,7 @@ export default defineComponent({
       textColor,
       overlayColor,
       handleBackgroundColorChange,
+      handleOverlayColorChange,
       // scrim
       scrimHeight,
       // previewer

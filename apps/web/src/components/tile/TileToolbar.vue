@@ -109,6 +109,8 @@
         :childComponent="childComponent"
         :buttonEl="panelAnchorRef"
         :currentColor="currentBackgroundColor"
+        :supportsOverlay="supportsColorOverlay"
+        :currentOverlayColor="currentOverlayColor"
       />
     </transition>
   </teleport>
@@ -356,6 +358,20 @@ export default defineComponent({
         ? content.backgroundColor
         : "";
     });
+
+    const currentOverlayColor = computed(() => {
+      const content = props.tile.content as { overlayColor?: unknown };
+      return typeof content.overlayColor === "string"
+        ? content.overlayColor
+        : "";
+    });
+
+    // The tile supports a separate color overlay when its content component
+    // exposes an overlay handler (image, video, link, document).
+    const supportsColorOverlay = computed(
+      () =>
+        typeof childComponent.value?.handleOverlayColorChange === "function",
+    );
 
     const resolveButtonStyle = (
       item: ToolbarButton,
@@ -676,6 +692,8 @@ export default defineComponent({
       resolveIcon,
       resolveButtonStyle,
       currentBackgroundColor,
+      currentOverlayColor,
+      supportsColorOverlay,
       resolveDanger,
       resolveMenuIcon,
       resolveMenuTooltip,

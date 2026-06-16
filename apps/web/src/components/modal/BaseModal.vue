@@ -149,12 +149,25 @@ const handleOverlayClick = () => {
     border-top-right-radius: var(--radius-lg);
   }
 
+  /* Match the overlay's own animation duration to the sheet slide so Vue
+     (which times the transition off the transitioned overlay element, not its
+     children) doesn't end the transition early and snap the sheet into place. */
+  .modal-overlay.is-mobile-sheet.modal-centered-enter-active {
+    animation: fadeIn 0.34s ease-out;
+  }
+
+  .modal-overlay.is-mobile-sheet.modal-centered-leave-active {
+    animation: fadeOut 0.26s ease-in;
+  }
+
+  /* iOS-style sheet curve: a smooth decelerate with NO overshoot, so the
+     sheet never lifts off the bottom edge (which flashes the backdrop). */
   .modal-overlay.is-mobile-sheet.modal-centered-enter-active .modal-content {
-    animation: sheetUp 0.35s var(--easing-spring);
+    animation: sheetUp 0.34s cubic-bezier(0.32, 0.72, 0, 1) both;
   }
 
   .modal-overlay.is-mobile-sheet.modal-centered-leave-active .modal-content {
-    animation: sheetDown 0.25s ease-in;
+    animation: sheetDown 0.26s cubic-bezier(0.32, 0.72, 0, 1) both;
   }
 }
 

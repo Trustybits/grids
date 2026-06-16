@@ -73,24 +73,23 @@
     />
 
     <div class="modal-actions">
-      <Button
-        v-if="isCustom"
-        variant="danger"
-        :disabled="busy"
-        @click="handleRemove"
-      >
-        Remove
-      </Button>
-      <Button
-        v-else
-        :variant="isNeverGenerated ? 'primary' : 'secondary'"
-        :disabled="busy || checking"
-        @click="handleGenerate"
-      >
-        {{ isNeverGenerated ? "Generate" : "Regenerate" }}
-      </Button>
-      <div class="modal-actions-right">
-        <Button variant="secondary" :disabled="busy" @click="handleClose">Close</Button>
+      <div class="modal-actions-left">
+        <Button
+          v-if="isCustom"
+          variant="danger"
+          :disabled="busy"
+          @click="handleRemove"
+        >
+          Remove
+        </Button>
+        <Button
+          v-else
+          :variant="isNeverGenerated ? 'primary' : 'secondary'"
+          :disabled="busy || checking"
+          @click="handleGenerate"
+        >
+          {{ isNeverGenerated ? "Generate" : "Regenerate" }}
+        </Button>
         <Button
           :variant="isNeverGenerated ? 'secondary' : 'primary'"
           :disabled="busy"
@@ -99,6 +98,7 @@
           {{ isCustom ? "Replace Image" : "Upload Image" }}
         </Button>
       </div>
+      <Button variant="secondary" :disabled="busy" @click="handleClose">Close</Button>
     </div>
   </BaseModal>
 
@@ -575,14 +575,14 @@ h3 {
   gap: var(--spacing-sm);
 }
 
-.modal-actions-right {
+.modal-actions-left {
   display: flex;
   gap: var(--spacing-sm);
 }
 
 /* Mobile: the dialog becomes a bottom sheet (see BaseModal `mobile-sheet`),
-   so stack the actions full-width with the primary action above Close, and
-   give the lightbox tighter chrome. */
+   so stack the actions full-width with Close at the bottom, and give the
+   lightbox tighter chrome. */
 @media (max-width: 600px) {
   .modal-actions {
     flex-direction: column;
@@ -590,10 +590,9 @@ h3 {
     gap: var(--spacing-sm);
   }
 
-  /* DOM order is [Close, Upload]; reverse so the primary (Upload/Replace)
-     sits above Close. */
-  .modal-actions-right {
-    flex-direction: column-reverse;
+  /* Stack the primary actions (Regenerate/Remove + Upload) above Close. */
+  .modal-actions-left {
+    flex-direction: column;
     width: 100%;
     gap: var(--spacing-sm);
   }

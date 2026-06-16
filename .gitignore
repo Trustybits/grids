@@ -43,6 +43,10 @@ notesAndPlans
 
 .claude/
 
+# Maintainer-only infra sync tooling/state copied from the private devops repo.
+.infra-sync/
+.infra-sync.local.json
+
 # Firebase stuff
 
 .firebaserc

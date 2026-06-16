@@ -1,5 +1,11 @@
 <template>
-  <BaseModal :show="show" variant="centered" content-class="og-image-modal" @close="handleClose">
+  <BaseModal
+    :show="show"
+    variant="centered"
+    content-class="og-image-modal"
+    mobile-sheet
+    @close="handleClose"
+  >
     <h3>Social Share Image</h3>
     <p class="modal-description">
       This image is shown when your grid is shared on social platforms.
@@ -572,5 +578,37 @@ h3 {
 .modal-actions-right {
   display: flex;
   gap: var(--spacing-sm);
+}
+
+/* Mobile: the dialog becomes a bottom sheet (see BaseModal `mobile-sheet`),
+   so stack the actions full-width with the primary action above Close, and
+   give the lightbox tighter chrome. */
+@media (max-width: 600px) {
+  .modal-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-sm);
+  }
+
+  /* DOM order is [Close, Upload]; reverse so the primary (Upload/Replace)
+     sits above Close. */
+  .modal-actions-right {
+    flex-direction: column-reverse;
+    width: 100%;
+    gap: var(--spacing-sm);
+  }
+
+  .modal-actions :deep(.ui-btn) {
+    width: 100%;
+  }
+
+  .og-lightbox {
+    padding: var(--spacing-md);
+  }
+
+  .og-lightbox-close {
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+  }
 }
 </style>

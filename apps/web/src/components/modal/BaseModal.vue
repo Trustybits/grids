@@ -4,7 +4,10 @@
       <div
         v-if="show"
         class="modal-overlay"
-        :class="{ 'is-floating': variant === 'floating' }"
+        :class="{
+          'is-floating': variant === 'floating',
+          'is-mobile-sheet': mobileSheet,
+        }"
         @click.self="handleOverlayClick"
       >
         <div
@@ -30,11 +33,18 @@ const props = withDefaults(
     variant?: Variant;
     closeOnBackdrop?: boolean;
     contentClass?: string;
+    /**
+     * On small screens (≤600px), dock the (centered) dialog to the bottom of
+     * the viewport as a full-width sheet that slides up — a more native mobile
+     * pattern. No effect on the floating variant or on larger screens.
+     */
+    mobileSheet?: boolean;
   }>(),
   {
     variant: "centered",
     closeOnBackdrop: true,
     contentClass: "",
+    mobileSheet: false,
   },
 );
 
@@ -116,6 +126,45 @@ const handleOverlayClick = () => {
 }
 .modal-floating-leave-active .modal-content {
   animation: slideDownFade 0.2s ease-in;
+}
+
+/* Mobile bottom-sheet (centered dialogs that opt in via `mobileSheet`) */
+@media (max-width: 600px) {
+  .modal-overlay.is-mobile-sheet {
+    align-items: flex-end;
+  }
+
+  .modal-overlay.is-mobile-sheet .modal-content {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: var(--spacing-lg);
+    padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom, 0px));
+    max-height: 92dvh;
+    overflow-y: auto;
+    border-bottom: none;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-top-left-radius: var(--radius-lg);
+    border-top-right-radius: var(--radius-lg);
+  }
+
+  .modal-overlay.is-mobile-sheet.modal-centered-enter-active .modal-content {
+    animation: sheetUp 0.35s var(--easing-spring);
+  }
+
+  .modal-overlay.is-mobile-sheet.modal-centered-leave-active .modal-content {
+    animation: sheetDown 0.25s ease-in;
+  }
+}
+
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes sheetDown {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
 }
 
 @keyframes fadeIn {

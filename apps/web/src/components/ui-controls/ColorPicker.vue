@@ -221,9 +221,11 @@ export default defineComponent({
 
       // Reflect the resolved color of the swatch in the hex field so the
       // user can see the concrete hex value they just selected.
-      const target = event.currentTarget as HTMLElement | null;
-      if (target) {
-        hexInput.value = rgbToHexDigits(getComputedStyle(target).backgroundColor);
+      const swatchEl = event.currentTarget as HTMLElement | null;
+      if (swatchEl) {
+        hexInput.value = rgbToHexDigits(
+          getComputedStyle(swatchEl).backgroundColor,
+        );
       }
 
       handleColorChange(value);
@@ -296,10 +298,16 @@ export default defineComponent({
     };
 
     const setTarget = (next: "fill" | "overlay") => {
-      if (target.value === next) return;
       target.value = next;
-      syncHexToTarget();
     };
+
+    // Keep the hex field locked to the active target's current color: re-sync
+    // whenever the target is toggled or either applied color changes. This is
+    // what makes Fill/Overlay switch back and forth cleanly.
+    watch(
+      [target, () => props.currentColor, () => props.currentOverlayColor],
+      syncHexToTarget,
+    );
 
     // The native EyeDropper API is Chromium-only; the button is hidden where
     // it is unavailable (Firefox, Safari, most mobile browsers).

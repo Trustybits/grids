@@ -257,6 +257,8 @@ export default defineComponent({
       backgroundColor,
       textColor,
       overlayColor,
+      pickerFillColor,
+      pickerOverlayColor,
       handleBackgroundColorChange,
       handleOverlayColorChange,
     } = useColorPicker(props.tileId, toRef(props, "content"), emit, {
@@ -671,6 +673,8 @@ export default defineComponent({
       backgroundColor,
       textColor,
       overlayColor,
+      pickerFillColor,
+      pickerOverlayColor,
       handleBackgroundColorChange,
       handleOverlayColorChange,
       // scrim

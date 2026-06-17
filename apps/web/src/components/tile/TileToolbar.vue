@@ -353,6 +353,10 @@ export default defineComponent({
     };
 
     const currentBackgroundColor = computed(() => {
+      // Overlay-capable tiles expose a resolved fill that matches what's
+      // rendered (handling legacy data); fall back to the raw field otherwise.
+      const resolved = childComponent.value?.pickerFillColor;
+      if (typeof resolved === "string") return resolved;
       const content = props.tile.content as { backgroundColor?: unknown };
       return typeof content.backgroundColor === "string"
         ? content.backgroundColor
@@ -360,6 +364,8 @@ export default defineComponent({
     });
 
     const currentOverlayColor = computed(() => {
+      const resolved = childComponent.value?.pickerOverlayColor;
+      if (typeof resolved === "string") return resolved;
       const content = props.tile.content as { overlayColor?: unknown };
       return typeof content.overlayColor === "string"
         ? content.overlayColor

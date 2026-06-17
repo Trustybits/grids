@@ -810,6 +810,8 @@ export default defineComponent({
 
     const {
       overlayColor: linkOverlayColor,
+      pickerFillColor,
+      pickerOverlayColor,
       handleBackgroundColorChange,
       handleOverlayColorChange,
     } = useColorPicker(tileId, toRef(props, "content"), emit, {
@@ -830,6 +832,8 @@ export default defineComponent({
     return {
       gridStore,
       overlayColor: linkOverlayColor,
+      pickerFillColor,
+      pickerOverlayColor,
       handleBackgroundColorChange,
       handleOverlayColorChange,
       formatLink,

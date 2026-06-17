@@ -59,6 +59,10 @@ export interface ColorThemableTileChild {
   // (image, video, link, document). Its presence drives the toolbar's
   // Fill/Overlay toggle.
   handleOverlayColorChange?: (color: string) => void;
+  // Resolved current colors for the picker's Fill/Overlay targets, consistent
+  // with what the tile renders (including legacy data).
+  pickerFillColor?: string;
+  pickerOverlayColor?: string;
 }
 
 // ─── Composite type ────────────────────────────────────────────────

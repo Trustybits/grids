@@ -26,6 +26,11 @@ export interface ColorPickerValues {
   backgroundColor: ComputedRef<string>;
   textColor: ComputedRef<string>;
   overlayColor: ComputedRef<string | null>;
+  // Raw values the color picker should present as "current" for each target.
+  // These mirror what is actually rendered (resolving legacy data) so the
+  // Fill/Overlay toggle always reflects the real applied value.
+  pickerFillColor: ComputedRef<string>;
+  pickerOverlayColor: ComputedRef<string>;
   handleBackgroundColorChange: (color: string) => void;
   handleOverlayColorChange: (color: string) => void;
 }
@@ -130,6 +135,25 @@ export const useColorPicker = (
     return computeTextColor(backgroundColor.value);
   });
 
+  // The fill the picker should show as current. Empty when a legacy chromatic
+  // background is actually rendering as a tint (so Fill reads as "none").
+  const pickerFillColor = computed(() => {
+    const bg = backgroundColorRef.value;
+    if (
+      legacyBackgroundAsOverlay &&
+      overlayColorRef.value === undefined &&
+      bg &&
+      !isStructuralColor(bg)
+    ) {
+      return "";
+    }
+    return bg ?? "";
+  });
+
+  // The overlay the picker should show as current — the resolved tint,
+  // including the legacy interpretation of a chromatic background.
+  const pickerOverlayColor = computed(() => overlayColor.value ?? "");
+
   const persist = (patch: Partial<OverlayContent>) => {
     if (tileId) {
       // Patch first so the undo snapshot captures the pre-change state, then
@@ -191,6 +215,8 @@ export const useColorPicker = (
     backgroundColor,
     textColor,
     overlayColor,
+    pickerFillColor,
+    pickerOverlayColor,
     handleBackgroundColorChange,
     handleOverlayColorChange,
   };

@@ -318,8 +318,13 @@ export default defineComponent({
       },
     );
 
-    const { overlayColor, handleBackgroundColorChange, handleOverlayColorChange } =
-      useColorPicker(tileId, toRef(props, "content"), emit, {
+    const {
+      overlayColor,
+      pickerFillColor,
+      pickerOverlayColor,
+      handleBackgroundColorChange,
+      handleOverlayColorChange,
+    } = useColorPicker(tileId, toRef(props, "content"), emit, {
         overlayCapable: true,
         legacyBackgroundAsOverlay: true,
       });
@@ -356,6 +361,8 @@ export default defineComponent({
       imageDimensions,
       tileDimensions,
       overlayColor,
+      pickerFillColor,
+      pickerOverlayColor,
       handleBackgroundColorChange,
       handleOverlayColorChange,
       isValidLink,

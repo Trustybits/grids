@@ -310,6 +310,37 @@ describe("useColorPicker — fill vs overlay separation", () => {
     expect(overlayColor.value).toBeNull();
   });
 
+  it("presents picker values consistent with what is rendered (legacy)", () => {
+    // Legacy image: chromatic backgroundColor renders as a tint. The picker
+    // should show Fill as empty and Overlay as that tint.
+    const content = makeImageContent({ backgroundColor: "var(--color-red)" });
+    const { pickerFillColor, pickerOverlayColor } = useColorPicker(
+      "t1",
+      content,
+      noopEmit,
+      imageOptions,
+    );
+
+    expect(pickerFillColor.value).toBe("");
+    expect(pickerOverlayColor.value).toBe("var(--color-red)");
+  });
+
+  it("presents independent picker values once fill and overlay are set", () => {
+    const content = makeImageContent();
+    const {
+      pickerFillColor,
+      pickerOverlayColor,
+      handleBackgroundColorChange,
+      handleOverlayColorChange,
+    } = useColorPicker("t1", content, noopEmit, imageOptions);
+
+    handleBackgroundColorChange("#F39600");
+    handleOverlayColorChange("#413F65");
+
+    expect(pickerFillColor.value).toBe("#F39600");
+    expect(pickerOverlayColor.value).toBe("#413F65");
+  });
+
   it("never exposes an overlay for non-overlay-capable tiles", () => {
     const content = makeImageContent({ backgroundColor: "var(--color-red)" });
     const { backgroundColor, overlayColor } = useColorPicker(

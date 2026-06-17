@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 // Copy the (gitignored) firebaseConfigs.json into dist/runtime so the
 // import.meta.glob in firebaseConfigs.ts resolves at runtime. Optional by
-// design: when the file is absent (public/OSS checkout) this is a no-op and
+// design: when the file is absent (ordinary local checkout) this is a no-op and
 // @grids/pro falls back to the stubbed backend.
 
 const src = fileURLToPath(

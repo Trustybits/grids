@@ -26,8 +26,14 @@ export function getStorageBucket(): string {
 
 /**
  * Base URL for the Firestore REST API of the active project's default
- * database (no trailing slash).
+ * database (no trailing slash). Inside the emulator suite the functions
+ * runtime gets FIRESTORE_EMULATOR_HOST injected, so REST reads target the
+ * local Firestore emulator instead of production.
  */
 export function getFirestoreRestBase(): string {
-  return `https://firestore.googleapis.com/v1/projects/${getProjectId()}/databases/(default)/documents`;
+  const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
+  const origin = emulatorHost
+    ? `http://${emulatorHost}`
+    : "https://firestore.googleapis.com";
+  return `${origin}/v1/projects/${getProjectId()}/databases/(default)/documents`;
 }

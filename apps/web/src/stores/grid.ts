@@ -866,13 +866,21 @@ export const useGridStore = defineStore("grid", {
       const tile = this.currentGrid.tiles.find((t) => t.i === id);
       if (!tile) return;
 
+      const currentContent = tile.content as AnyTileContent &
+        Record<string, unknown>;
+      const patchRecord = patch as Record<string, unknown>;
+      const hasChanges = Object.keys(patchRecord).some(
+        (key) => !Object.is(currentContent[key], patchRecord[key]),
+      );
+      if (!hasChanges) return;
+
       if (editingTileId !== id) {
         this.pushUndoSnapshot("Update tile");
       }
 
       tile.content = {
-        ...(tile.content as AnyTileContent),
-        ...(patch as Partial<AnyTileContent>),
+        ...currentContent,
+        ...patchRecord,
       } as TileContent;
 
       this.updateGrid();
@@ -927,6 +935,24 @@ export const useGridStore = defineStore("grid", {
       this.pushUndoSnapshot("Remove background image");
       this.currentGrid.backgroundImageSrc = "";
       this.currentGrid.backgroundEmbed = false;
+      this.updateGrid();
+    },
+
+    // Set a user-uploaded custom OG (social share) image. Undo just flips the
+    // URL back — the underlying Storage objects (custom + generated) both
+    // remain, so undo/redo never destroys an image.
+    setCustomOgImage(url: string) {
+      if (!this.currentGrid) return;
+      this.pushUndoSnapshot("Change social share image");
+      this.currentGrid.ogImageSrc = url;
+      this.updateGrid();
+    },
+
+    // Clear the custom OG image so the auto-generated one takes over again.
+    removeCustomOgImage() {
+      if (!this.currentGrid) return;
+      this.pushUndoSnapshot("Remove social share image");
+      this.currentGrid.ogImageSrc = "";
       this.updateGrid();
     },
 

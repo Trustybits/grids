@@ -15,6 +15,9 @@ export interface Grid {
   backgroundImageSrc: string;
   backgroundEmbed: boolean;
   backgroundColor?: string;
+  // User-uploaded social share (Open Graph) image URL. When set, it is used
+  // as the page's og:image instead of the auto-generated screenshot.
+  ogImageSrc?: string;
   themeId?: string;
   tiles: Tile[];
   overrides?: Partial<Record<Breakpoint, Record<string, TilePosition>>>;

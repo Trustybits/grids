@@ -297,6 +297,28 @@ describe('saveGrid', () => {
     expect(payload.duplicatable).toBe(false)
   })
 
+  it('persists a custom OG image (ogImageSrc) when set', async () => {
+    const grid = makeGrid({ ogImageSrc: 'https://cdn.test/custom-og.png' })
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    await service.saveGrid(grid)
+
+    const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
+    expect(payload.ogImageSrc).toBe('https://cdn.test/custom-og.png')
+  })
+
+  it('defaults ogImageSrc to empty string when not set', async () => {
+    const grid = makeGrid({ ogImageSrc: undefined })
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    await service.saveGrid(grid)
+
+    const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
+    expect(payload.ogImageSrc).toBe('')
+  })
+
   it('uses server timestamp for createdAt when not set', async () => {
     const grid = makeGrid()
     mockGridDao.save.mockResolvedValueOnce(undefined)

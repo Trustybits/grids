@@ -344,8 +344,9 @@ export default {
       },
     );
 
-    // Sync async-fetched content fields (e.g. music trackName/albumArt, YouTube title/thumbnails,
-    // link metaTitle/metaDescription/metaImageUrl) to displayLayout copies at non-lg breakpoints.
+    // Sync async-fetched content fields and tile colors to displayLayout copies at non-lg breakpoints.
+    // Examples: music trackName/albumArt, YouTube title/thumbnails,
+    // link metaTitle/metaDescription/metaImageUrl, and backgroundColor.
     // patchTileContent replaces these fields without changing content.type, so the type watcher
     // above doesn't catch them.
     watch(
@@ -354,7 +355,7 @@ export default {
           ?.map((t) => {
             const c = t.content as Record<string, unknown>;
             const thumbs = c.thumbnails as Record<string, Record<string, unknown>> | undefined;
-            return `${t.i}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${thumbs?.default?.url ?? ""}:${c.metaTitle ?? ""}:${c.metaDescription ?? ""}:${c.metaImageUrl ?? ""}:${c.metaSiteName ?? ""}:${c.faviconUrl ?? ""}:${c.domain ?? ""}`;
+            return `${t.i}:${c.backgroundColor ?? ""}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${thumbs?.default?.url ?? ""}:${c.metaTitle ?? ""}:${c.metaDescription ?? ""}:${c.metaImageUrl ?? ""}:${c.metaSiteName ?? ""}:${c.faviconUrl ?? ""}:${c.domain ?? ""}`;
           })
           .join("|"),
       () => {

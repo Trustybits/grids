@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 // Production build guard against silently shipping a backend-less app.
 //
 // Normally a missing firebaseConfigs.json just makes @grids/pro fall back to
-// the stubbed backend — desirable for public/OSS checkouts, dangerous for a
+// the stubbed backend — desirable for local contributor checkouts, dangerous for a
 // real deploy (a green build with no Firebase). When REQUIRE_FIREBASE_CONFIG
 // is set (do this only in the Vercel project env), this asserts the config is
 // actually present, valid, and wired up, failing the build loudly otherwise.

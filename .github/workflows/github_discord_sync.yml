@@ -1,0 +1,33 @@
+name: Close Discord Thread on Issue Close
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  sync-close:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Archive Discord Thread
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: |
+          # RegEx extract the Thread ID embedded in the issue body text metadata
+          BODY="${{ github.event.issue.body }}"
+          THREAD_ID=$(echo "$BODY" | grep -oP 'discord_thread_id:\s*\K\d+')
+          
+          if [ -z "$THREAD_ID" ]; then
+            echo "No thread ID metadata found."
+            exit 0
+          fi
+
+          # 1. Alert the Discord users the task is done
+          curl -X POST -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+               -H "Content-Type: application/json" \
+               -d '{"content": "🔒 **This issue has been closed on GitHub!** \nView here: ${{ github.event.issue.html_url }}"}' \
+               "https://discord.com"
+
+          # 2. Lock and Archive the thread out of view
+          curl -X PATCH -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+               -H "Content-Type: application/json" \
+               -d '{"archived": true, "locked": true}' \
+               "https://discord.com"

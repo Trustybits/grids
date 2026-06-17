@@ -347,7 +347,7 @@ function printSummary({ written, skipped, refused }) {
   console.log("  2. Install Firebase CLI if missing: npm install -g firebase-tools");
   console.log("  3. Install a Java JDK if missing. JDK 11+ is required; JDK 17 or 21 is fine.");
   console.log("  4. Start the local Firebase services: npm run emulators");
-  console.log("  5. In another terminal, start the app against emulators: npm run dev:emulator");
+  console.log("  5. In another terminal, start the app against emulators: npm run dev:emulators");
 
   if (skipped.length > 0 && !FORCE) {
     console.log("");

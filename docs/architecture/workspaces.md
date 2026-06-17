@@ -42,7 +42,7 @@ Common root scripts orchestrate workspace-level work:
 
 ```bash
 npm run dev
-npm run dev:emulator
+npm run dev:emulators
 npm run build
 npm run lint
 npm run test

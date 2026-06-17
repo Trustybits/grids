@@ -47,7 +47,7 @@ Contributors can use `@grids/pro` through the Firebase Emulator Suite:
 ```bash
 npm run emulators:setup
 npm run emulators
-npm run dev:emulator
+npm run dev:emulators
 ```
 
 The setup script creates demo-only local Firebase config and permissive local rules for emulator use. These files are not production rules and should not be deployed.

@@ -10,7 +10,7 @@ From the repository root:
 
 ```bash
 npm run dev
-npm run dev:emulator
+npm run dev:emulators
 npm --workspace apps/web run test:run
 npm --workspace apps/web run lint
 npm --workspace apps/web run type-check

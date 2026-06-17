@@ -66,7 +66,7 @@ npm run emulators
 And then in a separate terminal:
 
 ```bash
-npm run dev:emulator
+npm run dev:emulators
 ```
 
 This will start the dev environment connected to the Firebase emulators instead of the live Firebase deployment.

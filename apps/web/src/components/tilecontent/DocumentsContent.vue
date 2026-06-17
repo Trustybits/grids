@@ -712,9 +712,12 @@ export default defineComponent({
 .doc-color-overlay {
   position: absolute;
   inset: 0;
+  /* Full-card color wash, below the foreground content (z-index 2) so the
+     document details stay legible. */
   z-index: 0;
-  mix-blend-mode: color;
+  opacity: 0.6;
   pointer-events: none;
+  border-radius: inherit;
 }
 
 /* ── Foreground layout ────────────────────────────── */

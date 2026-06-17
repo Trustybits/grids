@@ -33,14 +33,16 @@
         :src="backgroundImageUrl"
         :alt="content.metaTitle || content.domain"
       />
-      <div
-        v-if="overlayColor"
-        class="link-color-overlay"
-        :style="{ backgroundColor: overlayColor }"
-        aria-hidden="true"
-      />
       <div class="tile-background-overlay"></div>
     </div>
+
+    <!-- Full-card color wash — renders with or without a preview image. -->
+    <div
+      v-if="overlayColor"
+      class="link-color-overlay"
+      :style="{ backgroundColor: overlayColor }"
+      aria-hidden="true"
+    />
 
     <div v-if="isDragOver" class="link-image-drop-overlay" aria-hidden="true">
       Drop image to upload
@@ -937,8 +939,12 @@ export default defineComponent({
 .link-color-overlay {
   position: absolute;
   inset: 0;
-  mix-blend-mode: color;
+  /* Sits above the preview image / card background but below the foreground
+     text (z-index 1), so it washes the whole card while keeping text legible. */
+  z-index: 0;
+  opacity: 0.6;
   pointer-events: none;
+  border-radius: inherit;
 }
 
 .tile-background-overlay {

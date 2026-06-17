@@ -97,6 +97,18 @@ export async function sendDiscordWebhook({
   responseErrorContext,
   sendErrorContext,
 }: DiscordWebhookOptions): Promise<boolean> {
+  // Discord notifications are production-only. The Functions emulator runs the
+  // exact same trigger code, so without this guard a local emulator run would
+  // POST to the real Discord webhooks. FUNCTIONS_EMULATOR is set to "true" by
+  // the Firebase Functions emulator runtime (and is unset in deployed
+  // functions), so bail out before any network call when running locally.
+  if (process.env.FUNCTIONS_EMULATOR === "true") {
+    logger.info("Skipping Discord webhook send in emulator environment", {
+      successMessage,
+    });
+    return false;
+  }
+
   try {
     const response = await fetch(webhookUrl, {
       method: "POST",

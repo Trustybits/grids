@@ -9,7 +9,7 @@ import type {
   LinkContent,
   DocumentsContent,
 } from "@grids/contracts/types";
-import { computed, watch, type ComputedRef } from "vue";
+import { computed, unref, watch, type ComputedRef, type Ref } from "vue";
 
 type ColorPickerContent =
   | TextContent
@@ -19,6 +19,8 @@ type ColorPickerContent =
   | VideoContent
   | LinkContent
   | DocumentsContent;
+
+type ColorPickerContentSource = ColorPickerContent | Readonly<Ref<ColorPickerContent>>;
 
 export interface ColorPickerValues {
   backgroundColor: ComputedRef<string>;
@@ -67,7 +69,7 @@ type OverlayContent = ColorPickerContent & { overlayColor?: string };
 
 export const useColorPicker = (
   tileId: string | null,
-  content: ColorPickerContent,
+  content: ColorPickerContentSource,
   emit: (type: "background-color-change" | "text-color-change", value: string) => void,
   options: ColorPickerOptions = {},
 ): ColorPickerValues => {
@@ -79,7 +81,8 @@ export const useColorPicker = (
   } = options;
 
   const overlayContent = content as OverlayContent;
-  const backgroundColorRef = computed(() => content?.backgroundColor);
+  const currentContent = computed(() => unref(content));
+  const backgroundColorRef = computed(() => currentContent.value?.backgroundColor);
   const overlayColorRef = computed(() => overlayContent?.overlayColor);
 
   const overlayColor = computed((): string | null => {
@@ -123,7 +126,9 @@ export const useColorPicker = (
   const persist = (patch: Partial<OverlayContent>) => {
     if (tileId) {
       gridStore.patchTileContent(tileId, patch);
+      currentContent.value.backgroundColor = patch.backgroundColor;
     } else {
+      currentContent.value.backgroundColor = patch.backgroundColor;
       gridStore.saveGrid();
     }
   };

@@ -206,6 +206,7 @@ import {
   onMounted,
   onUnmounted,
   ref,
+  toRef,
   watch,
   type ComputedRef,
 } from "vue";
@@ -258,7 +259,7 @@ export default defineComponent({
       overlayColor,
       handleBackgroundColorChange,
       handleOverlayColorChange,
-    } = useColorPicker(props.tileId, props.content, emit, {
+    } = useColorPicker(props.tileId, toRef(props, "content"), emit, {
       overlayCapable: true,
       legacyBackgroundAlsoOverlay: true,
     });
@@ -1123,4 +1124,3 @@ export default defineComponent({
   transform: translateY(-26px);
 }
 </style>
-

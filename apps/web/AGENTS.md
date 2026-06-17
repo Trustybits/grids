@@ -4,7 +4,7 @@ Open-source link-in-bio / microsite / digital garden / portfolio & personal page
 
 Repo: https://github.com/Trustybits/grids (open-source; community contributes code, design assets, and will contribute tiles via a future "Tile Studio").
 
-This package (`apps/web`) is the Vue front end. Its backend (data access + auth) is reached only through interfaces in `@grids/contracts`; the concrete production implementations live in the closed-source `@grids/pro` package and are stubbed in an open-source checkout.
+This package (`apps/web`) is the Vue front end. Its backend (data access + auth) is reached only through interfaces in `@grids/contracts`; the concrete production-oriented implementations live in the public `@grids/pro` package and can run against production Firebase config or local emulators.
 
 ## Core concepts
 
@@ -18,7 +18,7 @@ This package (`apps/web`) is the Vue front end. Its backend (data access + auth)
 ## Tech stack
 
 - **Frontend:** Vue 3 + Vite + TypeScript, Pinia stores, Vue Router (`src/router/index.ts`). Tiptap for rich text. `vue3-grid-layout` for the grid. `vuedraggable` for reordering. Mapbox GL for map tiles. Bootstrap 5 + SCSS tokens for styling.
-- **Data & auth boundary:** `apps/web` never talks to a database or auth SDK directly. It depends on DAO and `AuthProvider` interfaces from `@grids/contracts`, resolved at runtime through a factory/singleton. Production implementations come from `@grids/pro` (closed source), selected at boot in `src/main.ts` via `src/pro/loadProRuntime.ts`. When `@grids/pro` is unavailable (the open-source case), the app falls back to the local stubs in `src/dao/stubbed/` and `src/auth/stubbed/`.
+- **Data & auth boundary:** `apps/web` never talks to a database or auth SDK directly. It depends on DAO and `AuthProvider` interfaces from `@grids/contracts`, resolved at runtime through a factory/singleton. Production-oriented implementations come from `@grids/pro`, selected at boot in `src/main.ts` via `src/pro/loadProRuntime.ts`. When Firebase config is absent or invalid, the app falls back to the local stubs in `src/dao/stubbed/` and `src/auth/stubbed/`.
 - **Shared contracts:** cross-package types and interfaces (`Grid`, `Tile`, `TileContent`, `UserProfile`, the DAO interfaces, `AuthProvider`, etc.) live in `@grids/contracts` so both the app and its backend implementations agree on shapes.
 - **Client integrations:** Stripe (subscriptions — `src/services/StripeService.ts`, `useStripeCheckout`, `useSubscription`), PostHog (analytics + feature flags — `usePostHog`, `useFeatureFlags`), Notion OAuth (`NotionCallback.vue`, roadmap feed).
 - **Testing:** Vitest. Tests live in `__tests__/` folders next to source.

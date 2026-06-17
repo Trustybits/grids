@@ -86,6 +86,7 @@ import {
   onUnmounted,
   watch,
   inject,
+  toRef,
 } from "vue";
 import { type ImageContent } from "@grids/contracts/types";
 import { useGridStore } from "@/stores/grid";
@@ -318,7 +319,7 @@ export default defineComponent({
     );
 
     const { overlayColor, handleBackgroundColorChange, handleOverlayColorChange } =
-      useColorPicker(tileId, props.content, emit, {
+      useColorPicker(tileId, toRef(props, "content"), emit, {
         overlayCapable: true,
         legacyBackgroundAsOverlay: true,
       });

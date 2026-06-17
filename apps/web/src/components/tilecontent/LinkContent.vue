@@ -245,6 +245,7 @@ import {
   onUnmounted,
   nextTick,
   watch,
+  toRef,
 } from "vue";
 
 import { type LinkContent } from "@grids/contracts/types";
@@ -811,7 +812,7 @@ export default defineComponent({
       overlayColor: linkOverlayColor,
       handleBackgroundColorChange,
       handleOverlayColorChange,
-    } = useColorPicker(tileId, props.content, emit, {
+    } = useColorPicker(tileId, toRef(props, "content"), emit, {
       overlayCapable: true,
       legacyBackgroundAlsoOverlay: true,
     });

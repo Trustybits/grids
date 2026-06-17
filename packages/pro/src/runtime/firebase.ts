@@ -35,6 +35,20 @@ export const FIREBASE_EMULATOR_TARGETS = [
 
 export type FirebaseEmulatorTarget = (typeof FIREBASE_EMULATOR_TARGETS)[number];
 
+/**
+ * Host and ports the app connects to when an emulator target is enabled. These
+ * must match the `emulators` block in the repo-root `firebase.json` (and the
+ * demo ports written by `scripts/setup-emulators.mjs`); keep them in sync when
+ * either changes.
+ */
+const EMULATOR_HOST = "127.0.0.1";
+const EMULATOR_PORTS: Record<FirebaseEmulatorTarget, number> = {
+  auth: 9076,
+  firestore: 3076,
+  functions: 5076,
+  storage: 9176,
+};
+
 export interface FirebaseServices {
   app: FirebaseApp;
   auth: Auth;
@@ -67,18 +81,18 @@ export function createFirebaseServices(
   const storage = getStorage(app);
 
   if (emulatorTargets.has("auth")) {
-    connectAuthEmulator(auth, "http://127.0.0.1:9099", {
+    connectAuthEmulator(auth, `http://${EMULATOR_HOST}:${EMULATOR_PORTS.auth}`, {
       disableWarnings: true,
     });
   }
   if (emulatorTargets.has("firestore")) {
-    connectFirestoreEmulator(db, "127.0.0.1", 8080);
+    connectFirestoreEmulator(db, EMULATOR_HOST, EMULATOR_PORTS.firestore);
   }
   if (emulatorTargets.has("functions")) {
-    connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+    connectFunctionsEmulator(functions, EMULATOR_HOST, EMULATOR_PORTS.functions);
   }
   if (emulatorTargets.has("storage")) {
-    connectStorageEmulator(storage, "127.0.0.1", 9199);
+    connectStorageEmulator(storage, EMULATOR_HOST, EMULATOR_PORTS.storage);
   }
 
   return { app, auth, db, analytics, functions, storage };

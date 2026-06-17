@@ -1,12 +1,17 @@
 <template>
   <div id="toolbarArea">
-    <div class="toolbarAlpha">
       <!-- <button class="btn btn-primary me-2" @click="addTextElement">✒</button>    
       <button class="btn btn-secondary me-2" @click="selectFile">🖼</button>
       <button class="btn btn-dark me-2" @click="addLinkElement">🔗</button> -->
 
       <!-- {{ isDarkMode ? '☀🌑' : '🔆🌙' }} -->
       <!-- <template v-if="isDarkMode"> -->
+    <div ref="toolbarWrapperRef" class="toolbar-scroll-wrapper">
+      <div
+        ref="toolbarScrollRef"
+        class="toolbarAlpha"
+        @scroll="updateScrollFades"
+      >
       <button
         class="toolbar-btn"
         data-tooltip="Text"
@@ -107,6 +112,7 @@
         multiple
         @change.stop="addDocuments"
       />
+      </div>
     </div>
 
     <!-- Modals -->
@@ -145,13 +151,18 @@
 </template>
 
 <script lang="ts">
-import { ref } from "vue";
+import {
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  nextTick,
+} from "vue";
 import { useGridStore } from "@/stores/grid";
 import { ContentType } from "@grids/contracts/types";
 import { createTileContent } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
-import { computed } from "vue";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 import { useTileInput } from "@/composables/useTileInput";
 import FloatingInputModal from "@/components/modal/FloatingInputModal.vue";
@@ -199,6 +210,40 @@ export default {
     const showLinkModal = ref(false);
     const showEmbedModal = ref(false);
     const showMapModal = ref(false);
+
+    const toolbarScrollRef = ref<HTMLElement | null>(null);
+    const toolbarWrapperRef = ref<HTMLElement | null>(null);
+
+    const updateScrollFades = () => {
+      const el = toolbarScrollRef.value;
+      const wrapper = toolbarWrapperRef.value;
+      if (!el || !wrapper) return;
+
+      const { scrollLeft, scrollWidth, clientWidth } = el;
+      const overflow = scrollWidth > clientWidth + 1;
+
+      wrapper.classList.toggle("show-fade-left", overflow && scrollLeft > 1);
+      wrapper.classList.toggle(
+        "show-fade-right",
+        overflow && scrollLeft + clientWidth < scrollWidth - 1,
+      );
+    };
+
+    let toolbarResizeObserver: ResizeObserver | null = null;
+
+    onMounted(() => {
+      nextTick(updateScrollFades);
+      toolbarResizeObserver = new ResizeObserver(updateScrollFades);
+      if (toolbarScrollRef.value) {
+        toolbarResizeObserver.observe(toolbarScrollRef.value);
+      }
+      window.addEventListener("resize", updateScrollFades);
+    });
+
+    onUnmounted(() => {
+      toolbarResizeObserver?.disconnect();
+      window.removeEventListener("resize", updateScrollFades);
+    });
 
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
@@ -370,6 +415,9 @@ export default {
       handleAddLink,
       handleAddEmbed,
       handleAddMap,
+      toolbarScrollRef,
+      toolbarWrapperRef,
+      updateScrollFades,
     };
   },
 };
@@ -390,23 +438,79 @@ export default {
   justify-content: center;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+
+.toolbar-scroll-wrapper {
+  --toolbar-fade-width: 24px;
+
+  position: relative;
+  display: inline-flex;
+  top: -8px;
+  min-width: 0;
+  max-width: calc(100vw - 128px);
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: var(--border-width) solid var(--color-stroke);
+  background-color: var(--color-tile-background);
+  backdrop-filter: blur(20px);
+}
+
+.toolbar-scroll-wrapper::before,
+.toolbar-scroll-wrapper::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--toolbar-fade-width);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+}
+
+.toolbar-scroll-wrapper.show-fade-left::before {
+  opacity: 1;
+  left: 0;
+  background: linear-gradient(
+    to right,
+    var(--color-tile-background),
+    transparent
+  );
+}
+
+.toolbar-scroll-wrapper.show-fade-right::after {
+  opacity: 1;
+  right: 0;
+  background: linear-gradient(
+    to left,
+    var(--color-tile-background),
+    transparent
+  );
 }
 
 .toolbarAlpha {
-  /* border: 2px solid transparent; */
-  width: fit-content;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
   height: fit-content;
   padding: 6px;
 
   display: flex;
+  flex-wrap: nowrap;
   gap: 4px;
 
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  /* Hide the scrollbar (Firefox) while keeping the area scrollable. */
+  scrollbar-width: none;
+
   position: relative;
-  top: -8px;
-  background-color: var(--color-tile-background);
-  border-radius: var(--radius-md);
-  border: var(--border-width) solid var(--color-stroke);
-  backdrop-filter: blur(20px);
+}
+
+/* Hide the scrollbar (WebKit/Chromium) while keeping the area scrollable. */
+.toolbarAlpha::-webkit-scrollbar {
+  display: none;
 }
 
 /* .toolbarAlpha::before {
@@ -425,6 +529,7 @@ export default {
 .toolbarAlpha .toolbar-btn {
   height: 40px;
   width: 40px;
+  flex: 0 0 auto;
   border-radius: var(--radius-sm);
   padding: 4px;
   cursor: pointer;

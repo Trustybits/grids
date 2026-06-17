@@ -72,6 +72,17 @@ function firestoreStr(
   return fields?.[field]?.stringValue ?? null
 }
 
+function firestoreTimestampSeconds(
+  doc: Record<string, unknown>,
+  field: string,
+): number | null {
+  const fields = doc.fields as Record<string, { timestampValue?: string }> | undefined
+  const ts = fields?.[field]?.timestampValue
+  if (!ts) return null
+  const ms = new Date(ts).getTime()
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : null
+}
+
 // Recursively convert a Firestore REST API typed value into a plain JS value.
 // Handles string, boolean, integer, double, null, array, and map types.
 function parseFsValue(v: unknown): unknown {
@@ -147,12 +158,15 @@ async function resolveOgData(pathname: string): Promise<OgData> {
     const name = doc ? (firestoreStr(doc, 'name') ?? 'Untitled Grid') : 'Untitled Grid'
     // A user-uploaded custom OG image takes precedence over the generated one.
     const customOgImage = doc ? firestoreStr(doc, 'ogImageSrc') : null
+    const v = doc ? firestoreTimestampSeconds(doc, 'updatedAt') : null
+    const vParam = v ? `&v=${v}` : ''
 
     return {
       title: `${name} — Grids`,
       description: 'View this grid on Grids.',
       ogImageUrl:
-        customOgImage || `${OG_FUNCTION_URL}?gridId=${encodeURIComponent(gridId)}`,
+        customOgImage ||
+        `${OG_FUNCTION_URL}?gridId=${encodeURIComponent(gridId)}${vParam}`,
       canonicalUrl: `${SITE_ORIGIN}${pathname}`,
     }
   }
@@ -174,11 +188,13 @@ async function resolveOgData(pathname: string): Promise<OgData> {
     let ogDescription = `Check out @${slug}'s grid on Grids.`
     // Custom OG image on the user's default grid overrides the generated one.
     let customOgImage: string | null = null
+    let v: number | null = null
 
     if (defaultGridId) {
       const gridDoc = await fetchFirestoreDoc('grids', defaultGridId)
       if (gridDoc) {
         customOgImage = firestoreStr(gridDoc, 'ogImageSrc')
+        v = firestoreTimestampSeconds(gridDoc, 'updatedAt')
         const fields = gridDoc.fields as Record<string, unknown> | undefined
         const tilesRaw = fields?.tiles
         const tiles = parseFsValue(tilesRaw) as Array<Record<string, unknown>> | null
@@ -203,11 +219,14 @@ async function resolveOgData(pathname: string): Promise<OgData> {
       }
     }
 
+    const vParam = v ? `&v=${v}` : ''
+
     return {
       title: ogTitle,
       description: ogDescription,
       ogImageUrl:
-        customOgImage || `${OG_FUNCTION_URL}?slug=${encodeURIComponent(slug)}`,
+        customOgImage ||
+        `${OG_FUNCTION_URL}?slug=${encodeURIComponent(slug)}${vParam}`,
       canonicalUrl: `${SITE_ORIGIN}${pathname}`,
     }
   }

@@ -384,16 +384,22 @@ export default defineComponent({
     ): Record<string, string> | undefined => {
       if (item.id !== "color") return undefined;
 
-      const content = props.tile.content as { backgroundColor?: unknown };
-      const backgroundColor =
-        typeof content.backgroundColor === "string" && content.backgroundColor
-          ? content.backgroundColor
-          : "var(--color-tile-background)";
+      // While the color panel is open on the Overlay target, the swatch should
+      // reflect the overlay color being edited; otherwise it shows the fill.
+      const showingOverlay =
+        isActiveTile.value &&
+        activePanelId.value === "colorSelect" &&
+        gridStore.activeColorTarget === "overlay";
 
-      const contrast = computeTextColor(backgroundColor) || "#000000";
+      const active = showingOverlay
+        ? currentOverlayColor.value
+        : currentBackgroundColor.value;
+      const swatch = active || "var(--color-tile-background)";
+
+      const contrast = computeTextColor(swatch) || "#000000";
 
       return {
-        "--toolbar-color-swatch": backgroundColor,
+        "--toolbar-color-swatch": swatch,
         "--toolbar-color-swatch-contrast": contrast,
       };
     };

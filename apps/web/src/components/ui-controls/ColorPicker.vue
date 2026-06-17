@@ -84,6 +84,7 @@
 
 <script lang="ts">
 import {
+  computed,
   defineComponent,
   onMounted,
   onUnmounted,
@@ -95,6 +96,7 @@ import { type TileChildComponent } from "@/types/Tile";
 import { type Tile } from "@grids/contracts/types";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
 import { useToastStore } from "@/stores/toast";
+import { useGridStore } from "@/stores/grid";
 import NoFillIcon from "@/components/icons/NoFillIcon.vue";
 import EyeDropperIcon from "@/components/icons/EyeDropperIcon.vue";
 
@@ -143,15 +145,17 @@ export default defineComponent({
   },
   setup(props) {
     const toastStore = useToastStore();
+    const gridStore = useGridStore();
     const panelRef = ref<HTMLElement | null>(null);
 
     const hexInput = ref("");
     const hexInputRef = ref<HTMLInputElement | null>(null);
     const pos = ref({ top: 0, left: 0 });
 
-    // Which color the swatches/hex field currently edit. Only meaningful when
-    // the tile supports a separate overlay; otherwise it stays on "fill".
-    const target = ref<"fill" | "overlay">("fill");
+    // Which color the swatches/hex field currently edit. Held in the store so
+    // the toolbar swatch can reflect the active target. Only meaningful when the
+    // tile supports a separate overlay; otherwise it stays on "fill".
+    const target = computed(() => gridStore.activeColorTarget);
 
     const colors = ref<string[]>([
       "--color-red",
@@ -298,7 +302,7 @@ export default defineComponent({
     };
 
     const setTarget = (next: "fill" | "overlay") => {
-      target.value = next;
+      gridStore.setColorTarget(next);
     };
 
     // Keep the hex field locked to the active target's current color: re-sync

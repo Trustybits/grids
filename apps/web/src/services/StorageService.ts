@@ -54,6 +54,15 @@ export class StorageService implements IStorageService {
     }
   }
 
+  async uploadToPath(path: string, file: File, metadata?: StorageUploadMetadata): Promise<string> {
+    try {
+      return await this.storageDao.upload(path, file, mergeMetadata(metadata));
+    } catch (error) {
+      console.error("StorageService uploadToPath failed:", error);
+      throw error;
+    }
+  }
+
   uploadResumable(
     userId: string,
     file: File,

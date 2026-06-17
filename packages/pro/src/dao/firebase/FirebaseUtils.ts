@@ -17,6 +17,7 @@ export function mapFirestoreToGrid(
     backgroundImageSrc: data.backgroundImageSrc || "",
     backgroundEmbed: !!data.backgroundEmbed,
     backgroundColor: data.backgroundColor || "",
+    ogImageSrc: data.ogImageSrc || "",
     themeId: data.themeId || undefined,
     overrides:
       data.overrides && typeof data.overrides === "object"

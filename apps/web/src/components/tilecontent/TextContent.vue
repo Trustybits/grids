@@ -63,6 +63,7 @@ import {
   watch,
   inject,
   computed,
+  toRef,
   type ComputedRef,
   nextTick,
   onUnmounted,
@@ -270,7 +271,7 @@ export default defineComponent({
     } = useTileLink(tileId, props.content);
 
     const { backgroundColor, textColor, handleBackgroundColorChange } =
-      useColorPicker(tileId, props.content, emit);
+      useColorPicker(tileId, toRef(props, "content"), emit);
 
     const handleTextAlignChange = (align: "left" | "center" | "right") => {
       if (!gridStore.canEdit) return;

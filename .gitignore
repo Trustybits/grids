@@ -56,3 +56,6 @@ firestore.indexes.json
 firestore.maintenance.rules
 firestore.rules
 storage.rules
+
+emulator-data/
+extensions/

@@ -229,6 +229,7 @@ export class GridService implements IGridService {
       backgroundImageSrc: grid.backgroundImageSrc,
       backgroundEmbed: grid.backgroundEmbed,
       backgroundColor: grid.backgroundColor ?? "",
+      ogImageSrc: grid.ogImageSrc ?? "",
       themeId: grid.themeId ?? "dark",
       overrides: grid.overrides ?? {},
       duplicatable: grid.duplicatable ?? false,

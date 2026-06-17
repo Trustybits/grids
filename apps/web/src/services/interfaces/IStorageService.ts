@@ -17,6 +17,13 @@ export interface IStorageService {
   /** Upload a file in one shot and return the permanent download URL. */
   upload(userId: string, file: File, options?: UploadOptions, metadata?: StorageUploadMetadata): Promise<string>;
 
+  /**
+   * Upload a file to an explicit storage path (overwriting any existing
+   * object) and return the permanent download URL. Used for fixed-location
+   * assets like a grid's custom OG image.
+   */
+  uploadToPath(path: string, file: File, metadata?: StorageUploadMetadata): Promise<string>;
+
   /** Start a resumable upload and return a task handle for progress tracking. */
   uploadResumable(userId: string, file: File, options?: UploadOptions, metadata?: StorageUploadMetadata): StorageUploadTask;
 

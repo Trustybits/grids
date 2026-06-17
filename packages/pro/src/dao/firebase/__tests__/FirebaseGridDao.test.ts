@@ -81,6 +81,7 @@ describe("FirebaseGridDao", () => {
         backgroundImageSrc: "https://img.png",
         backgroundEmbed: true,
         backgroundColor: "",
+        ogImageSrc: "",
         themeId: "dark",
         overrides: undefined,
         duplicatable: true,

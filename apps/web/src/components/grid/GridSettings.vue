@@ -107,6 +107,8 @@
           :currentColor="gridStore.currentGrid?.backgroundColor ?? ''"
         />
 
+        <MenuItem @click="openOgImageModal"> Social Share Image </MenuItem>
+
         <GhostSplitButton
           :open="showDuplicateDropdown"
           @update:open="showDuplicateDropdown = $event"
@@ -146,6 +148,8 @@
       </MenuSection>
     </div>
 
+    <OgImageModal :show="showOgImageModal" @close="showOgImageModal = false" />
+
     <PromptModal
       :show="showDeleteModal"
       :title="`Delete ${currentGridName}`"
@@ -178,6 +182,7 @@ import GridMenuIcon from "@/components/icons/GridMenuIcon.vue";
 import GhostSplitButton from "@/components/ui-controls/GhostSplitButton.vue";
 import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
+import OgImageModal from "@/components/modal/OgImageModal.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 
 const router = useRouter();
@@ -192,6 +197,7 @@ const menuRef = ref<HTMLElement | null>(null);
 const showBgDropdown = ref(false);
 const showBgColorPicker = ref(false);
 const showDeleteModal = ref(false);
+const showOgImageModal = ref(false);
 const bgImageInput = ref<HTMLInputElement | null>(null);
 const bgSplitRef = ref<InstanceType<typeof GhostSplitButton> | null>(null);
 const bgChevronEl = computed(() => bgSplitRef.value?.chevronRef ?? null);
@@ -348,6 +354,11 @@ const deleteGrid = async () => {
   showDeleteModal.value = false;
   closeMenu();
   router.push("/dashboard");
+};
+
+const openOgImageModal = () => {
+  showOgImageModal.value = true;
+  closeMenu();
 };
 
 const triggerBackgroundImagePicker = () => {

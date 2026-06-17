@@ -90,6 +90,10 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse,
 ): Promise<void> {
+  // Public, rate-limited image endpoint — allow cross-origin calls so the
+  // app's share-image modal works from any origin (including local dev).
+  res.setHeader('Access-Control-Allow-Origin', '*')
+
   // Resolve caller IP — Vercel sets x-forwarded-for on all requests
   const ip =
     (req.headers['x-forwarded-for'] as string | undefined)
@@ -120,6 +124,7 @@ export default async function handler(
   }
 
   // ── Proxy to Firebase OG function ─────────────────────────────────────────
+  const isRefresh = req.query.refresh === '1'
   const target = new URL(FIREBASE_OG_URL)
 
   // Forward all query params (?slug=, ?gridId=, ?refresh=)
@@ -144,8 +149,10 @@ export default async function handler(
     res.setHeader('Content-Type', contentType)
 
     if (contentType.includes('image/png')) {
-      // Cache the generated image for 24 h at the CDN edge
-      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600')
+      res.setHeader(
+        'Cache-Control',
+        isRefresh ? 'no-store' : 'public, max-age=86400, stale-while-revalidate=3600',
+      )
       const buf = Buffer.from(await upstream.arrayBuffer())
       res.status(200).send(buf)
     } else {

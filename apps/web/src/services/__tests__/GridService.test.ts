@@ -2,15 +2,19 @@
 // console.error / console.warn are spied on so error-path logging is silenced
 // during the test run and can be asserted on.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { registerDaoFactory } from '@/dao/DaoFactorySingleton'
 import { registerDbUtils } from '@/dao/DbUtilsSingleton'
 import type { GridDao } from '@grids/contracts/dao'
 import type { UserDao } from '@grids/contracts/dao'
-import type { DbUtils } from '@grids/contracts/dao'
-import type { DaoFactory } from '@grids/contracts/dao'
 import type { Grid, Tile } from '@grids/contracts/types'
 import { ContentType } from '@grids/contracts/types'
 import type { ChatContent, SuggestionContent } from '@grids/contracts/types'
+import {
+  makeDbUtils,
+  mockConsoleError,
+  mockConsoleWarn,
+  registerTestDaoFactory,
+  type MockDbUtils,
+} from './testHelpers'
 
 // ── Mocks for external modules ───────────────────────────────────────────
 
@@ -61,16 +65,29 @@ vi.mock('@/utils/TileUtils', () => ({
   }),
 }))
 
+// GridPersistenceUtils is a separate unit — mock it so GridService is tested in
+// isolation. The spy defaults to a pass-through; tests assert that
+// buildGridPayload delegates tile-stripping to it (rather than re-testing the
+// real stripping logic, which has its own tests).
+const { stripBlobSpy } = vi.hoisted(() => ({
+  stripBlobSpy: vi.fn((tiles: unknown[]) => tiles),
+}))
+vi.mock('@/utils/GridPersistenceUtils', () => ({
+  stripBlobUrlsFromTiles: stripBlobSpy,
+}))
+
 // ── Mock DAOs ─────────────────────────────────────────────────────────────
 
 let mockGridDao: Record<string, ReturnType<typeof vi.fn>>
 let mockUserDao: Record<string, ReturnType<typeof vi.fn>>
-let mockDbUtils: Record<string, ReturnType<typeof vi.fn>>
+let mockDbUtils: MockDbUtils
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>
 let consoleWarnSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   uuidCounter = 0
+  stripBlobSpy.mockReset()
+  stripBlobSpy.mockImplementation((tiles: unknown[]) => tiles)
 
   mockGridDao = {
     getById: vi.fn(),
@@ -89,26 +106,19 @@ beforeEach(() => {
     subscribe: vi.fn(),
   }
 
-  mockDbUtils = {
-    sanitizeValue: vi.fn((v) => v),
+  mockDbUtils = makeDbUtils({
     serverTimestamp: vi.fn(() => 'SERVER_TS'),
-  }
+  })
 
-  registerDaoFactory({
+  registerTestDaoFactory({
     getUserDao: () => mockUserDao as unknown as UserDao,
     getGridDao: () => mockGridDao as unknown as GridDao,
-    getSlugDao: () => null,
-    getUserGameDataDao: () => null,
-    getChatDao: () => null,
-    getUpvoteDao: () => null,
-    getCustomerDao: () => null,
-    getStorageDao: () => null,
-  } as unknown as DaoFactory)
+  })
 
-  registerDbUtils(mockDbUtils as unknown as DbUtils)
+  registerDbUtils(mockDbUtils)
 
-  consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-  consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  consoleErrorSpy = mockConsoleError()
+  consoleWarnSpy = mockConsoleWarn()
 })
 
 afterEach(() => {
@@ -243,6 +253,28 @@ describe('saveGrid', () => {
     expect(payload.themeId).toBe('dark')
   })
 
+  it('defaults backgroundColor to empty string when not set', async () => {
+    const grid = makeGrid({ backgroundColor: undefined })
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    await service.saveGrid(grid)
+
+    const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
+    expect(payload.backgroundColor).toBe('')
+  })
+
+  it('preserves an explicit backgroundColor', async () => {
+    const grid = makeGrid({ backgroundColor: '#ff0000' })
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    await service.saveGrid(grid)
+
+    const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
+    expect(payload.backgroundColor).toBe('#ff0000')
+  })
+
   it('defaults overrides to empty object when not set', async () => {
     const grid = makeGrid({ overrides: undefined })
     mockGridDao.save.mockResolvedValueOnce(undefined)
@@ -288,34 +320,22 @@ describe('saveGrid', () => {
     expect(payload.createdAt).toBe(existingDate)
   })
 
-  it('strips blob: URLs from tile content src fields', async () => {
+  it('delegates tile blob-stripping to GridPersistenceUtils and persists its result', async () => {
     const tile = makeTile({
       content: { type: ContentType.IMAGE, src: 'blob:http://localhost/abc' } as never,
     })
     const grid = makeGrid({ tiles: [tile] })
+    // The stripping util is its own unit — here we only verify the wiring.
+    const strippedTiles = [{ i: 'tile-1', content: { src: '' } }]
+    stripBlobSpy.mockReturnValueOnce(strippedTiles as never)
     mockGridDao.save.mockResolvedValueOnce(undefined)
 
     const service = await getService()
     await service.saveGrid(grid)
 
+    expect(stripBlobSpy).toHaveBeenCalledWith(grid.tiles)
     const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
-    const savedTiles = payload.tiles as Array<{ content: { src: string } }>
-    expect(savedTiles[0].content.src).toBe('')
-  })
-
-  it('preserves non-blob URLs in tile content', async () => {
-    const tile = makeTile({
-      content: { type: ContentType.IMAGE, src: 'https://example.com/photo.jpg' } as never,
-    })
-    const grid = makeGrid({ tiles: [tile] })
-    mockGridDao.save.mockResolvedValueOnce(undefined)
-
-    const service = await getService()
-    await service.saveGrid(grid)
-
-    const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
-    const savedTiles = payload.tiles as Array<{ content: { src: string } }>
-    expect(savedTiles[0].content.src).toBe('https://example.com/photo.jpg')
+    expect(payload.tiles).toBe(strippedTiles)
   })
 
   it('throws when the DAO save fails', async () => {
@@ -347,19 +367,21 @@ describe('updateGrid', () => {
     expect(mockGridDao.update).toHaveBeenCalledWith('grid-1', expect.any(Object))
   })
 
-  it('strips blob: URLs from tiles', async () => {
+  it('delegates tile blob-stripping to GridPersistenceUtils', async () => {
     const tile = makeTile({
       content: { type: ContentType.VIDEO, src: 'blob:http://localhost/vid' } as never,
     })
     const grid = makeGrid({ tiles: [tile] })
+    const strippedTiles = [{ i: 'tile-1', content: { src: '' } }]
+    stripBlobSpy.mockReturnValueOnce(strippedTiles as never)
     mockGridDao.update.mockResolvedValueOnce(undefined)
 
     const service = await getService()
     await service.updateGrid(grid)
 
+    expect(stripBlobSpy).toHaveBeenCalledWith(grid.tiles)
     const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
-    const savedTiles = payload.tiles as Array<{ content: { src: string } }>
-    expect(savedTiles[0].content.src).toBe('')
+    expect(payload.tiles).toBe(strippedTiles)
   })
 
   it('throws when the DAO update fails', async () => {
@@ -436,7 +458,7 @@ describe('fetchGridsByUserId', () => {
 // ── generateId ───────────────────────────────────────────────────────────
 
 describe('generateId', () => {
-  it('delegates to layoutDao.generateId', async () => {
+  it('delegates to gridDao.generateId', async () => {
     const service = await getService()
     const id = service.generateId()
 
@@ -563,7 +585,7 @@ describe('duplicateGrid', () => {
 // ── touchLastOpenedAt ────────────────────────────────────────────────────
 
 describe('touchLastOpenedAt', () => {
-  it('delegates to layoutDao.updateLastOpenedAt', async () => {
+  it('delegates to gridDao.updateLastOpenedAt', async () => {
     mockGridDao.updateLastOpenedAt.mockResolvedValueOnce(undefined)
 
     const service = await getService()
@@ -713,6 +735,74 @@ describe('createGridWithStarterTiles', () => {
   })
 })
 
+// ── createStarterTiles (+ createTextDoc markdown parsing) ──────────────────
+
+describe('createStarterTiles', () => {
+  async function getStarterTiles() {
+    const { createStarterTiles } = await import('@/services/GridService')
+    return createStarterTiles()
+  }
+
+  it('builds the six starter tiles in order with the expected content types', async () => {
+    const tiles = await getStarterTiles()
+
+    expect(tiles).toHaveLength(6)
+    expect(tiles.map((t) => t.content.type)).toEqual([
+      ContentType.SUGGESTION,
+      ContentType.IMAGE,
+      ContentType.TEXT,
+      ContentType.EMBED,
+      ContentType.CHAT,
+      ContentType.SUGGESTION,
+    ])
+  })
+
+  it('wires the image, embed, and suggestion tile content', async () => {
+    const tiles = await getStarterTiles()
+
+    expect((tiles[0].content as unknown as { action: string }).action).toBe('profile')
+    expect((tiles[1].content as unknown as { src: string }).src).toBe('hero.gif')
+    expect((tiles[3].content as unknown as { src: string }).src).toContain(
+      'youtube.com/embed',
+    )
+    expect((tiles[5].content as unknown as { action: string }).action).toBe('link')
+  })
+
+  it('renders the welcome text tile as a Tiptap doc with parsed markdown structure', async () => {
+    const tiles = await getStarterTiles()
+    const doc = JSON.parse((tiles[2].content as unknown as { text: string }).text)
+
+    expect(doc.type).toBe('doc')
+    expect(doc.content).toHaveLength(5)
+
+    expect(doc.content[0]).toMatchObject({
+      type: 'heading',
+      attrs: { level: 1 },
+    })
+    expect(doc.content[1]).toMatchObject({
+      type: 'heading',
+      attrs: { level: 4 },
+    })
+    expect(doc.content[2].content.map((node: { type: string }) => node.type)).toEqual([
+      'text',
+      'hardBreak',
+      'hardBreak',
+    ])
+    expect(doc.content[3]).toEqual({ type: 'horizontalRule' })
+    expect(doc.content[4].content[0]).toMatchObject({
+      type: 'text',
+      marks: [{ type: 'italic' }],
+    })
+  })
+
+  it('assigns a unique generated id to each starter tile', async () => {
+    const tiles = await getStarterTiles()
+    const ids = tiles.map((t) => t.i)
+
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
 // ── cloneAndPersistGrid ────────────────────────────────────────────────
 
 describe('cloneAndPersistGrid', () => {
@@ -785,6 +875,38 @@ describe('cloneAndPersistGrid', () => {
     expect(actions).toEqual(['text', 'link', 'embed', 'profile', 'embed', 'media'])
   })
 
+  it('structure copy: maps the remaining content types and falls back to "text"', async () => {
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const tiles = [
+      makeTile({ i: 'c1', content: { type: ContentType.CHAT } as never }),
+      makeTile({ i: 'c2', content: { type: ContentType.CAMPFIRE } as never }),
+      makeTile({ i: 'c3', content: { type: ContentType.IMAGE } as never }),
+      makeTile({ i: 'c4', content: { type: ContentType.DOCUMENT } as never }),
+      makeTile({ i: 'c5', content: { type: ContentType.MUSIC } as never }),
+      makeTile({ i: 'c6', content: { type: ContentType.MAP } as never }),
+      makeTile({ i: 'c7', content: { type: ContentType.ROADMAP_FEED } as never }),
+      // Unmapped type → default branch
+      makeTile({ i: 'c8', content: { type: ContentType.SMART_TEXT } as never }),
+    ]
+    const source = makeGrid({ tiles })
+
+    const service = await getService()
+    const result = await service.cloneAndPersistGrid('user-2', source, 'structure')
+
+    const actions = result.tiles.map((t) => (t.content as SuggestionContent).action)
+    expect(actions).toEqual([
+      'text', // CHAT
+      'text', // CAMPFIRE
+      'media', // IMAGE
+      'media', // DOCUMENT
+      'embed', // MUSIC
+      'embed', // MAP
+      'embed', // ROADMAP_FEED
+      'text', // SMART_TEXT (default)
+    ])
+  })
+
   it('remaps breakpoint overrides to new tile IDs', async () => {
     mockGridDao.save.mockResolvedValueOnce(undefined)
 
@@ -806,6 +928,51 @@ describe('cloneAndPersistGrid', () => {
     expect(result.overrides?.md?.[newTileId]).toEqual({ x: 0, y: 0, w: 6, h: 3 })
     expect(result.overrides?.sm?.[newTileId]).toEqual({ x: 0, y: 0, w: 12, h: 2 })
     expect(result.overrides?.md?.['old-id']).toBeUndefined()
+  })
+
+  it('skips breakpoints whose positions map is null', async () => {
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const tile = makeTile({ i: 'old-id' })
+    const source = makeGrid({
+      tiles: [tile],
+      overrides: {
+        md: null,
+        sm: { 'old-id': { x: 0, y: 0, w: 12, h: 2 } },
+      } as unknown as Grid['overrides'],
+    })
+
+    const service = await getService()
+    const result = await service.cloneAndPersistGrid('user-2', source, 'full')
+
+    const newTileId = result.tiles[0].i
+    // md had a null positions map → it is skipped entirely (no key created).
+    expect(result.overrides?.md).toBeUndefined()
+    expect(result.overrides?.sm?.[newTileId]).toEqual({ x: 0, y: 0, w: 12, h: 2 })
+  })
+
+  it('drops override entries that reference unknown tile ids', async () => {
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const tile = makeTile({ i: 'old-id' })
+    const source = makeGrid({
+      tiles: [tile],
+      overrides: {
+        md: {
+          'old-id': { x: 1, y: 1, w: 6, h: 3 },
+          // No tile with this id exists, so it must not appear in the remap.
+          'ghost-id': { x: 9, y: 9, w: 1, h: 1 },
+        },
+      },
+    })
+
+    const service = await getService()
+    const result = await service.cloneAndPersistGrid('user-2', source, 'full')
+
+    const newTileId = result.tiles[0].i
+    expect(result.overrides?.md?.[newTileId]).toEqual({ x: 1, y: 1, w: 6, h: 3 })
+    // The ghost id mapped to no new tile → dropped, leaving only the one entry.
+    expect(Object.keys(result.overrides?.md ?? {})).toEqual([newTileId])
   })
 
   it('handles source grid with no overrides', async () => {
@@ -891,6 +1058,93 @@ describe('queueSave', () => {
 
     // The queued save should have flushed
     expect(mockGridDao.save).toHaveBeenCalledTimes(2)
+    // ...and the flush must carry the LATEST snapshot (grid2), not a stale one —
+    // that is the entire point of the serialization queue.
+    const firstPayload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
+    const secondPayload = mockDbUtils.sanitizeValue.mock.calls[1][0] as Record<string, unknown>
+    expect(firstPayload.name).toBe('First')
+    expect(secondPayload.name).toBe('Second')
+  })
+
+  it('coalesces multiple queued saves to the latest pending snapshot', async () => {
+    let resolveFirst!: () => void
+    const firstPromise = new Promise<void>((r) => { resolveFirst = r })
+    mockGridDao.save.mockReturnValueOnce(firstPromise)
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    const p1 = service.queueSave(makeGrid({ name: 'First' }))
+    const p2 = service.queueSave(makeGrid({ name: 'Second' }))
+    const p3 = service.queueSave(makeGrid({ name: 'Third' }))
+
+    expect(mockGridDao.save).toHaveBeenCalledTimes(1)
+
+    resolveFirst()
+    await p1
+    await p2
+    await p3
+
+    expect(mockGridDao.save).toHaveBeenCalledTimes(2)
+    const firstPayload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
+    const secondPayload = mockDbUtils.sanitizeValue.mock.calls[1][0] as Record<string, unknown>
+    expect(firstPayload.name).toBe('First')
+    expect(secondPayload.name).toBe('Third')
+  })
+
+  it('substitutes blob URLs inside DOCUMENT tile items when a resolved map is given', async () => {
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const tile = makeTile({
+      i: 'doc-tile',
+      content: {
+        type: ContentType.DOCUMENT,
+        items: [
+          { id: 'item-1', url: 'blob:http://localhost/doc1' },
+          { id: 'item-2', url: 'blob:http://localhost/doc2' },
+          { id: 'item-3', url: 'https://cdn.example.com/already.pdf' },
+        ],
+      } as never,
+    })
+    const grid = makeGrid({ tiles: [tile] })
+
+    const service = await getService()
+    await service.queueSave(grid, {}, {
+      'doc-tile': { 'item-1': 'https://storage.example.com/doc1.pdf' },
+    })
+
+    // Inspect what was handed to the persistence boundary (stripBlobSpy is a
+    // pass-through, so the snapshot is what reaches buildGridPayload).
+    const passedTiles = stripBlobSpy.mock.calls[0][0] as Array<{
+      content: { items: Array<{ id: string; url: string }> }
+    }>
+    const items = passedTiles[0].content.items
+    // item-1 had a resolved URL → swapped
+    expect(items[0].url).toBe('https://storage.example.com/doc1.pdf')
+    // item-2 is a blob with no resolved entry → left as-is for the strip safety net
+    expect(items[1].url).toBe('blob:http://localhost/doc2')
+    // item-3 was never a blob → untouched
+    expect(items[2].url).toBe('https://cdn.example.com/already.pdf')
+  })
+
+  it('leaves a blob src untouched in the snapshot when no resolved URL exists', async () => {
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const tile = makeTile({
+      i: 'tile-1',
+      content: { type: ContentType.IMAGE, src: 'blob:http://localhost/unresolved' } as never,
+    })
+    const grid = makeGrid({ tiles: [tile] })
+
+    const service = await getService()
+    // No matching entry in the resolved-URL map for tile-1.
+    await service.queueSave(grid, { 'other-tile': 'https://x/y.jpg' })
+
+    const passedTiles = stripBlobSpy.mock.calls[0][0] as Array<{
+      content: { src: string }
+    }>
+    // createPersistableSnapshot leaves it as the blob; the strip util (its own
+    // unit) is what neutralizes it downstream.
+    expect(passedTiles[0].content.src).toBe('blob:http://localhost/unresolved')
   })
 
   it('does not throw when the save fails (logs error)', async () => {

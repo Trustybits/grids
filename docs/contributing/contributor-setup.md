@@ -1,6 +1,6 @@
 # Contributor/Public Setup
 
-## Bsaic setup
+## Basic setup
 
 To set up grids to work in your local environment, see the instructions under `../getting-started`. To use grids
 locally, you do not need to setup Firebase emulators. Running `npm run install` then `npm run dev` will by default

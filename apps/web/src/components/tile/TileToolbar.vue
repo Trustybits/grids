@@ -109,6 +109,8 @@
         :childComponent="childComponent"
         :buttonEl="panelAnchorRef"
         :currentColor="currentBackgroundColor"
+        :supportsOverlay="supportsColorOverlay"
+        :currentOverlayColor="currentOverlayColor"
       />
     </transition>
   </teleport>
@@ -351,27 +353,50 @@ export default defineComponent({
     };
 
     const currentBackgroundColor = computed(() => {
+      // Overlay-capable tiles expose a resolved fill that matches what's
+      // rendered (handling legacy data); fall back to the raw field otherwise.
+      const resolved = childComponent.value?.pickerFillColor;
+      if (typeof resolved === "string") return resolved;
       const content = props.tile.content as { backgroundColor?: unknown };
       return typeof content.backgroundColor === "string"
         ? content.backgroundColor
         : "";
     });
 
+    const currentOverlayColor = computed(() => {
+      const resolved = childComponent.value?.pickerOverlayColor;
+      if (typeof resolved === "string") return resolved;
+      const content = props.tile.content as { overlayColor?: unknown };
+      return typeof content.overlayColor === "string"
+        ? content.overlayColor
+        : "";
+    });
+
+    // The tile supports a separate color overlay when its content component
+    // exposes an overlay handler (image, video, link, document).
+    const supportsColorOverlay = computed(
+      () =>
+        typeof childComponent.value?.handleOverlayColorChange === "function",
+    );
+
     const resolveButtonStyle = (
       item: ToolbarButton,
     ): Record<string, string> | undefined => {
       if (item.id !== "color") return undefined;
 
-      const content = props.tile.content as { backgroundColor?: unknown };
-      const backgroundColor =
-        typeof content.backgroundColor === "string" && content.backgroundColor
-          ? content.backgroundColor
-          : "var(--color-tile-background)";
+      // The swatch reflects the tile's active treatment: the overlay color when
+      // the overlay treatment is active, otherwise the fill.
+      const showingOverlay = childComponent.value?.colorMode === "overlay";
 
-      const contrast = computeTextColor(backgroundColor) || "#000000";
+      const active = showingOverlay
+        ? currentOverlayColor.value
+        : currentBackgroundColor.value;
+      const swatch = active || "var(--color-tile-background)";
+
+      const contrast = computeTextColor(swatch) || "#000000";
 
       return {
-        "--toolbar-color-swatch": backgroundColor,
+        "--toolbar-color-swatch": swatch,
         "--toolbar-color-swatch-contrast": contrast,
       };
     };
@@ -676,6 +701,8 @@ export default defineComponent({
       resolveIcon,
       resolveButtonStyle,
       currentBackgroundColor,
+      currentOverlayColor,
+      supportsColorOverlay,
       resolveDanger,
       resolveMenuIcon,
       resolveMenuTooltip,

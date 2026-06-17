@@ -2,9 +2,32 @@
   <div
     ref="panelRef"
     class="color-picker-panel"
+    :class="{ 'has-target-toggle': supportsOverlay }"
     :style="{ top: `${pos.top}px`, left: `${pos.left}px` }"
     @mousedown.stop
   >
+    <div v-if="supportsOverlay" class="target-toggle" role="tablist">
+      <button
+        type="button"
+        class="target-toggle-btn"
+        :class="{ 'is-active': target === 'fill' }"
+        role="tab"
+        :aria-selected="target === 'fill'"
+        @click.stop="setTarget('fill')"
+      >
+        Fill
+      </button>
+      <button
+        type="button"
+        class="target-toggle-btn"
+        :class="{ 'is-active': target === 'overlay' }"
+        role="tab"
+        :aria-selected="target === 'overlay'"
+        @click.stop="setTarget('overlay')"
+      >
+        Overlay
+      </button>
+    </div>
     <template v-for="color in colors" :key="`color-${color}`">
       <button
         class="color-box"
@@ -61,6 +84,7 @@
 
 <script lang="ts">
 import {
+  computed,
   defineComponent,
   onMounted,
   onUnmounted,
@@ -109,6 +133,14 @@ export default defineComponent({
       type: String,
       default: "",
     },
+    supportsOverlay: {
+      type: Boolean,
+      default: false,
+    },
+    currentOverlayColor: {
+      type: String,
+      default: "",
+    },
   },
   setup(props) {
     const toastStore = useToastStore();
@@ -117,6 +149,13 @@ export default defineComponent({
     const hexInput = ref("");
     const hexInputRef = ref<HTMLInputElement | null>(null);
     const pos = ref({ top: 0, left: 0 });
+
+    // Which color the swatches/hex field currently edit — the tile's persisted
+    // active treatment. Only meaningful when the tile supports a separate
+    // overlay; otherwise it stays on "fill".
+    const target = computed<"fill" | "overlay">(
+      () => props.childComponent?.colorMode ?? "fill",
+    );
 
     const colors = ref<string[]>([
       "--color-red",
@@ -186,9 +225,11 @@ export default defineComponent({
 
       // Reflect the resolved color of the swatch in the hex field so the
       // user can see the concrete hex value they just selected.
-      const target = event.currentTarget as HTMLElement | null;
-      if (target) {
-        hexInput.value = rgbToHexDigits(getComputedStyle(target).backgroundColor);
+      const swatchEl = event.currentTarget as HTMLElement | null;
+      if (swatchEl) {
+        hexInput.value = rgbToHexDigits(
+          getComputedStyle(swatchEl).backgroundColor,
+        );
       }
 
       handleColorChange(value);
@@ -238,12 +279,39 @@ export default defineComponent({
     const handleColorChange = (color: string): void => {
       if (props.onColorChange) {
         props.onColorChange(color);
+        return;
+      }
+      if (
+        target.value === "overlay" &&
+        props.childComponent?.handleOverlayColorChange !== undefined
+      ) {
+        props.childComponent.handleOverlayColorChange(color);
       } else if (
         props.childComponent?.handleBackgroundColorChange !== undefined
       ) {
         props.childComponent.handleBackgroundColorChange(color);
       }
     };
+
+    // Reflect the active target's current color in the hex field so it always
+    // mirrors what the swatches edit.
+    const syncHexToTarget = () => {
+      const source =
+        target.value === "overlay" ? props.currentOverlayColor : props.currentColor;
+      hexInput.value = resolveColorToHexDigits(source);
+    };
+
+    const setTarget = (next: "fill" | "overlay") => {
+      props.childComponent?.setColorMode?.(next);
+    };
+
+    // Keep the hex field locked to the active target's current color: re-sync
+    // whenever the target is toggled or either applied color changes. This is
+    // what makes Fill/Overlay switch back and forth cleanly.
+    watch(
+      [target, () => props.currentColor, () => props.currentOverlayColor],
+      syncHexToTarget,
+    );
 
     // The native EyeDropper API is Chromium-only; the button is hidden where
     // it is unavailable (Firefox, Safari, most mobile browsers).
@@ -305,7 +373,7 @@ export default defineComponent({
     };
 
     onMounted(() => {
-      hexInput.value = resolveColorToHexDigits(props.currentColor);
+      syncHexToTarget();
       updatePos();
       hexInputRef.value?.focus();
     });
@@ -361,6 +429,8 @@ export default defineComponent({
       pos,
       hexInput,
       hexInputRef,
+      target,
+      setTarget,
       onColorClick,
       onHexSubmit,
       generateColorTooltip,
@@ -388,6 +458,51 @@ export default defineComponent({
   border: var(--border-width) solid var(--color-stroke);
   border-radius: 12px;
   padding: 4px;
+}
+
+/* Fill / Overlay target toggle — spans the full swatch grid width */
+.target-toggle {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 2px;
+  margin: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--color-content-low);
+}
+
+.target-toggle-btn {
+  flex: 1;
+  height: 26px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-ease-in-out),
+    color var(--duration-fast) var(--easing-ease-in-out);
+}
+
+.target-toggle-btn:hover {
+  background: var(--color-content-default);
+}
+
+.target-toggle-btn.is-active {
+  background: var(--color-text-primary);
+  color: var(--color-tile-background);
+}
+
+/* When the toggle is present the swatch rows shift down one grid row. */
+.color-picker-panel.has-target-toggle {
+  grid-template-rows: auto repeat(3, auto);
+}
+
+.color-picker-panel.has-target-toggle .hex-panel {
+  grid-row: 4;
 }
 
 .color-box {

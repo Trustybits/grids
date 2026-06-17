@@ -253,8 +253,20 @@ export default defineComponent({
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
 
-    const { backgroundColor, textColor, overlayColor, handleBackgroundColorChange } =
-      useColorPicker(props.tileId, toRef(props, "content"), emit, "background");
+    const {
+      backgroundColor,
+      textColor,
+      overlayColor,
+      pickerFillColor,
+      pickerOverlayColor,
+      colorMode,
+      setColorMode,
+      handleBackgroundColorChange,
+      handleOverlayColorChange,
+    } = useColorPicker(props.tileId, toRef(props, "content"), emit, {
+      overlayCapable: true,
+      legacyBackgroundAlsoOverlay: true,
+    });
 
     const items = computed(() => props.content.items ?? []);
     const primary = computed(() => items.value[0]);
@@ -663,7 +675,12 @@ export default defineComponent({
       backgroundColor,
       textColor,
       overlayColor,
+      pickerFillColor,
+      pickerOverlayColor,
+      colorMode,
+      setColorMode,
       handleBackgroundColorChange,
+      handleOverlayColorChange,
       // scrim
       scrimHeight,
       // previewer
@@ -695,9 +712,12 @@ export default defineComponent({
 .doc-color-overlay {
   position: absolute;
   inset: 0;
+  /* Full-card color wash, below the foreground content (z-index 2) so the
+     document details stay legible. */
   z-index: 0;
-  mix-blend-mode: color;
+  opacity: 0.6;
   pointer-events: none;
+  border-radius: inherit;
 }
 
 /* ── Foreground layout ────────────────────────────── */

@@ -21,6 +21,13 @@ export class MockStorageService implements IStorageService {
   ): Promise<string> {
     throw new Error("Method not implemented.");
   }
+  uploadToPath(
+    _path: string,
+    _file: File,
+    _metadata?: StorageUploadMetadata,
+  ): Promise<string> {
+    throw new Error("Method not implemented.");
+  }
   uploadResumable(
     _userId: string,
     _file: File,

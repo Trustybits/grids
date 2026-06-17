@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_ENV?: "prod" | "stage";
   readonly VITE_FIREBASE_EMULATORS?: string;
   readonly VITE_VIEW_END_ANALYTICS_BEACON_URL?: string;
+  readonly VITE_OG_IMAGE_ENDPOINT?: string;
 }
 
 interface ImportMeta {

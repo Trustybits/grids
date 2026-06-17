@@ -938,6 +938,24 @@ export const useGridStore = defineStore("grid", {
       this.updateGrid();
     },
 
+    // Set a user-uploaded custom OG (social share) image. Undo just flips the
+    // URL back — the underlying Storage objects (custom + generated) both
+    // remain, so undo/redo never destroys an image.
+    setCustomOgImage(url: string) {
+      if (!this.currentGrid) return;
+      this.pushUndoSnapshot("Change social share image");
+      this.currentGrid.ogImageSrc = url;
+      this.updateGrid();
+    },
+
+    // Clear the custom OG image so the auto-generated one takes over again.
+    removeCustomOgImage() {
+      if (!this.currentGrid) return;
+      this.pushUndoSnapshot("Remove social share image");
+      this.currentGrid.ogImageSrc = "";
+      this.updateGrid();
+    },
+
     setBackgroundColor(color: string) {
       if (!this.currentGrid) return;
       this.pushUndoSnapshot("Change background color");

@@ -145,11 +145,14 @@ async function resolveOgData(pathname: string): Promise<OgData> {
     const gridId = gridMatch[1]
     const doc = await fetchFirestoreDoc('grids', gridId)
     const name = doc ? (firestoreStr(doc, 'name') ?? 'Untitled Grid') : 'Untitled Grid'
+    // A user-uploaded custom OG image takes precedence over the generated one.
+    const customOgImage = doc ? firestoreStr(doc, 'ogImageSrc') : null
 
     return {
       title: `${name} — Grids`,
       description: 'View this grid on Grids.',
-      ogImageUrl: `${OG_FUNCTION_URL}?gridId=${encodeURIComponent(gridId)}`,
+      ogImageUrl:
+        customOgImage || `${OG_FUNCTION_URL}?gridId=${encodeURIComponent(gridId)}`,
       canonicalUrl: `${SITE_ORIGIN}${pathname}`,
     }
   }
@@ -169,10 +172,13 @@ async function resolveOgData(pathname: string): Promise<OgData> {
     const defaultGridId = slugDoc ? firestoreStr(slugDoc, 'defaultGridId') : null
     let ogTitle = `@${slug} — Grids`
     let ogDescription = `Check out @${slug}'s grid on Grids.`
+    // Custom OG image on the user's default grid overrides the generated one.
+    let customOgImage: string | null = null
 
     if (defaultGridId) {
       const gridDoc = await fetchFirestoreDoc('grids', defaultGridId)
       if (gridDoc) {
+        customOgImage = firestoreStr(gridDoc, 'ogImageSrc')
         const fields = gridDoc.fields as Record<string, unknown> | undefined
         const tilesRaw = fields?.tiles
         const tiles = parseFsValue(tilesRaw) as Array<Record<string, unknown>> | null
@@ -200,7 +206,8 @@ async function resolveOgData(pathname: string): Promise<OgData> {
     return {
       title: ogTitle,
       description: ogDescription,
-      ogImageUrl: `${OG_FUNCTION_URL}?slug=${encodeURIComponent(slug)}`,
+      ogImageUrl:
+        customOgImage || `${OG_FUNCTION_URL}?slug=${encodeURIComponent(slug)}`,
       canonicalUrl: `${SITE_ORIGIN}${pathname}`,
     }
   }

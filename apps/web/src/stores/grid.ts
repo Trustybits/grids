@@ -115,9 +115,6 @@ export const useGridStore = defineStore("grid", {
     recentGridIds: [] as string[],
     activeTileId: null as string | null,
     activePanelId: null as string | null,
-    // Which color target the color picker is editing for the active tile.
-    // Shared so the toolbar swatch can reflect the actively selected target.
-    activeColorTarget: "fill" as "fill" | "overlay",
     // Tracks tiles that are currently uploading media in the background.
     // Key = tile ID, value = upload progress (0–1) or -1 for indeterminate.
     uploadingTiles: {} as Record<string, number>,
@@ -226,7 +223,6 @@ export const useGridStore = defineStore("grid", {
     setPanelActive(tileId: string, panelId: string) {
       this.activeTileId = tileId;
       this.activePanelId = panelId;
-      this.activeColorTarget = "fill";
     },
 
     // toggles the menu open and closed, and only allows 1 tile to have a menu open at a time
@@ -246,14 +242,8 @@ export const useGridStore = defineStore("grid", {
       this.activeTileId = null;
     },
 
-    setColorTarget(target: "fill" | "overlay") {
-      this.activeColorTarget = target;
-    },
-
     // toggles the panels open and closed, only allows 1 tile to have a panel open at a time
     togglePanelActive(tileId: string, panelId: string) {
-      // Each time the picker opens it starts on the Fill target.
-      this.activeColorTarget = "fill";
       if (this.activeTileId !== tileId) {
         this.activeTileId = tileId;
         this.activePanelId = panelId;

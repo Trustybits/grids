@@ -384,12 +384,9 @@ export default defineComponent({
     ): Record<string, string> | undefined => {
       if (item.id !== "color") return undefined;
 
-      // While the color panel is open on the Overlay target, the swatch should
-      // reflect the overlay color being edited; otherwise it shows the fill.
-      const showingOverlay =
-        isActiveTile.value &&
-        activePanelId.value === "colorSelect" &&
-        gridStore.activeColorTarget === "overlay";
+      // The swatch reflects the tile's active treatment: the overlay color when
+      // the overlay treatment is active, otherwise the fill.
+      const showingOverlay = childComponent.value?.colorMode === "overlay";
 
       const active = showingOverlay
         ? currentOverlayColor.value

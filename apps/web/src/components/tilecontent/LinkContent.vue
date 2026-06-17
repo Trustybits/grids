@@ -812,6 +812,8 @@ export default defineComponent({
       overlayColor: linkOverlayColor,
       pickerFillColor,
       pickerOverlayColor,
+      colorMode,
+      setColorMode,
       handleBackgroundColorChange,
       handleOverlayColorChange,
     } = useColorPicker(tileId, toRef(props, "content"), emit, {
@@ -834,6 +836,8 @@ export default defineComponent({
       overlayColor: linkOverlayColor,
       pickerFillColor,
       pickerOverlayColor,
+      colorMode,
+      setColorMode,
       handleBackgroundColorChange,
       handleOverlayColorChange,
       formatLink,

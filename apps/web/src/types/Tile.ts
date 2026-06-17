@@ -63,6 +63,9 @@ export interface ColorThemableTileChild {
   // with what the tile renders (including legacy data).
   pickerFillColor?: string;
   pickerOverlayColor?: string;
+  // Which color treatment is active on the tile, and a setter for the toggle.
+  colorMode?: "fill" | "overlay";
+  setColorMode?: (mode: "fill" | "overlay") => void;
 }
 
 // ─── Composite type ────────────────────────────────────────────────

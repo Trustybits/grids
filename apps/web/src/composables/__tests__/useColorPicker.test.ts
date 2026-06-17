@@ -241,16 +241,53 @@ describe("useColorPicker — fill vs overlay separation", () => {
     expect(backgroundColor.value).toBe(DEFAULT_FILL);
   });
 
-  it("promotes a legacy tint to the overlay when a fill is chosen", () => {
+  it("promotes a legacy tint to a remembered overlay when a fill is chosen", () => {
     const content = makeImageContent({ backgroundColor: "var(--color-red)" });
-    const { backgroundColor, overlayColor, handleBackgroundColorChange } =
-      useColorPicker("t1", content, noopEmit, imageOptions);
+    const {
+      backgroundColor,
+      overlayColor,
+      pickerOverlayColor,
+      colorMode,
+      handleBackgroundColorChange,
+    } = useColorPicker("t1", content, noopEmit, imageOptions);
 
     handleBackgroundColorChange("#FFE299");
 
-    expect(content.overlayColor).toBe("var(--color-red)");
+    expect(content.overlayColor).toBe("var(--color-red)"); // remembered
     expect(backgroundColor.value).toBe("#FFE299");
-    expect(overlayColor.value).toBe("var(--color-red)");
+    expect(colorMode.value).toBe("fill");
+    expect(overlayColor.value).toBeNull(); // fill is active, overlay not rendered
+    expect(pickerOverlayColor.value).toBe("var(--color-red)"); // still shown in picker
+  });
+
+  it("toggles the active treatment without losing either color", () => {
+    const content = makeImageContent();
+    const {
+      overlayColor,
+      pickerFillColor,
+      pickerOverlayColor,
+      colorMode,
+      setColorMode,
+      handleBackgroundColorChange,
+      handleOverlayColorChange,
+    } = useColorPicker("t1", content, noopEmit, imageOptions);
+
+    handleBackgroundColorChange("#F39600"); // fill active
+    handleOverlayColorChange("#413F65"); // overlay active
+    expect(colorMode.value).toBe("overlay");
+    expect(overlayColor.value).toBe("#413F65");
+
+    // Toggle to fill: overlay stops rendering but its color is remembered.
+    setColorMode("fill");
+    expect(colorMode.value).toBe("fill");
+    expect(overlayColor.value).toBeNull();
+    expect(content.overlayColor).toBe("#413F65");
+    expect(pickerFillColor.value).toBe("#F39600");
+    expect(pickerOverlayColor.value).toBe("#413F65");
+
+    // Toggle back to overlay: the overlay is re-applied.
+    setColorMode("overlay");
+    expect(overlayColor.value).toBe("#413F65");
   });
 
   it("sets an overlay independently and clears the legacy background", () => {

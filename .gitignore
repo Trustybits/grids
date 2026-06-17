@@ -58,3 +58,4 @@ firestore.rules
 storage.rules
 
 emulator-data/
+extensions/

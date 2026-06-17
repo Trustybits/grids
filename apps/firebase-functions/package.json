@@ -15,7 +15,6 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "migrate:profile-photos": "npm run build && node lib/migrations/migrateProfilePhotos.js",
     "badge:grant": "npm run build && node lib/scripts/grantBadge.js"
   },
   "engines": {

@@ -2,7 +2,7 @@
   "name": "@grids/pro",
   "version": "1.0.0",
   "private": true,
-  "description": "Private production code for grids.so",
+  "description": "Production Firebase runtime code for grids.so",
   "files": [
     "dist"
   ],

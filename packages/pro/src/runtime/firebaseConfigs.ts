@@ -21,7 +21,7 @@ interface ImportMetaWithGlob {
 
 // Optionally load real per-environment Firebase config from a gitignored
 // `firebaseConfigs.json` sitting next to this file. That file is committed in
-// the private (Vercel) repo and absent from the public/OSS one.
+// production/deploy environments and absent from ordinary local checkouts.
 //
 // `import.meta.glob` resolves at bundle time: it inlines the JSON when the file
 // is present and yields an empty object when it is absent. So a checkout

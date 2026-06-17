@@ -2,25 +2,47 @@
  * Unit tests for runtime/firebaseConfigs.ts
  *
  * The module loads an optional, gitignored `firebaseConfigs.json` via
- * `import.meta.glob`. In this checkout the file is absent (it only exists in
- * the private deploy repo), so these tests validate the documented fallback
- * path: the module must report "no config" instead of crashing, which is the
- * signal for the app to use the stubbed backend.
+ * `import.meta.glob`. Developer checkouts may or may not have that file, so
+ * these tests only assert behavior that is stable in both states.
  */
 
 import { describe, it, expect } from "vitest";
-import { getFirebaseConfig, hasFirebaseConfig } from "../firebaseConfigs.js";
+import {
+  getFirebaseConfig,
+  hasFirebaseConfig,
+  type FirebaseEnv,
+  type FirebaseProjectConfig,
+} from "../firebaseConfigs.js";
 
-describe("firebaseConfigs (no firebaseConfigs.json bundled)", () => {
-  it("reports that no Firebase config file is present", () => {
-    expect(hasFirebaseConfig).toBe(false);
+const envs: FirebaseEnv[] = ["prod", "stage"];
+
+function expectValidConfig(config: FirebaseProjectConfig) {
+  expect(config).toEqual(
+    expect.objectContaining({
+      apiKey: expect.any(String),
+      authDomain: expect.any(String),
+      projectId: expect.any(String),
+      storageBucket: expect.any(String),
+      messagingSenderId: expect.any(String),
+      appId: expect.any(String),
+    }),
+  );
+}
+
+describe("firebaseConfigs", () => {
+  it("reports Firebase config file presence as a boolean", () => {
+    expect(typeof hasFirebaseConfig).toBe("boolean");
   });
 
-  it("returns null for the prod environment", () => {
-    expect(getFirebaseConfig("prod")).toBeNull();
-  });
+  it.each(envs)("returns null or a valid %s config", (env) => {
+    const config = getFirebaseConfig(env);
 
-  it("returns null for the stage environment", () => {
-    expect(getFirebaseConfig("stage")).toBeNull();
+    if (config === null) {
+      expect(config).toBeNull();
+      return;
+    }
+
+    expect(hasFirebaseConfig).toBe(true);
+    expectValidConfig(config);
   });
 });

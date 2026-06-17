@@ -21,7 +21,7 @@ Package: root `package.json`
 | `build:firebase-functions` | General use | Builds `@grids/firebase-functions`. |
 | `build` | General use | Builds the web app and Firebase Functions. |
 | `dev` | General use | Builds web dependencies, then starts the web app dev server. Defaults to the stubbed backend unless Firebase mode is configured. |
-| `dev:emulator` | General use | Builds web dependencies, then starts the web app in emulator mode. |
+| `dev:emulators` | General use | Builds web dependencies, then starts the web app in emulator mode. |
 | `emulators` | General use | Builds Firebase Functions, then starts local Firebase Auth, Firestore, Functions, and Storage emulators. |
 | `emulators:setup` | General use | Creates demo-only, gitignored Firebase emulator config for local development. |
 | `emulators:export` | General use | Exports current Firebase Emulator Suite data to `./emulator-data`. |
@@ -48,7 +48,7 @@ Package: `apps/web/package.json` (`grids`)
 | Script | Classification | What it does |
 | --- | --- | --- |
 | `dev` | General use | Starts Vite for the web app. |
-| `dev:emulator` | General use | Starts Vite with `--mode emulator` so the app uses emulator-oriented env config. |
+| `dev:emulators` | General use | Starts Vite with `--mode emulator` so the app uses emulator-oriented env config. |
 | `build:deps` | General use | Runs the root `build:web-deps` script. |
 | `build` | General use | Builds dependencies, then runs type-checking and the Vite production build in parallel. |
 | `preview` | General use | Starts Vite preview for the built web app. |

@@ -12,7 +12,7 @@
     "build:firebase-functions": "npm --workspace @grids/firebase-functions run build",
     "build": "npm run build:web && npm run build:firebase-functions",
     "dev": "npm run build:web-deps && npm --workspace apps/web run dev",
-    "dev:emulator": "npm run build:web-deps && npm --workspace apps/web run dev:emulator",
+    "dev:emulators": "npm run build:web-deps && npm --workspace apps/web run dev:emulators",
     "emulators": "npm --workspace @grids/firebase-functions run build && firebase emulators:start --only auth,firestore,functions,storage",
     "emulators:setup": "node scripts/setup-emulators.mjs",
     "emulators:export": "firebase emulators:export ./emulator-data",

@@ -41,7 +41,7 @@ npm run emulators
 In a second terminal:
 
 ```bash
-npm run dev:emulator
+npm run dev:emulators
 ```
 
 See [Firebase emulators](docs/getting-started/firebase-emulators.md) for details.

@@ -5,8 +5,8 @@ import {
   buildSearchQuery,
   decideAction,
   extractImageUrls,
+  isGithubSyncDiscordNotification,
   shouldCloseGithubOnThreadArchive,
-  shouldReopenGithubOnThreadUnarchive,
   THREAD_MARKER_PREFIX,
   VIA_DISCORD_MARKER,
   type ForumMessage,
@@ -139,32 +139,6 @@ describe("extractImageUrls", () => {
   });
 });
 
-describe("shouldReopenGithubOnThreadUnarchive", () => {
-  it("reopens when a synced forum thread is unarchived", () => {
-    expect(
-      shouldReopenGithubOnThreadUnarchive(FORUM_CHANNEL_ID, FORUM_CHANNEL_ID, true, false),
-    ).toBe(true);
-  });
-
-  it("ignores when the thread stays archived", () => {
-    expect(
-      shouldReopenGithubOnThreadUnarchive(FORUM_CHANNEL_ID, FORUM_CHANNEL_ID, true, true),
-    ).toBe(false);
-  });
-
-  it("ignores when the thread was already active", () => {
-    expect(
-      shouldReopenGithubOnThreadUnarchive(FORUM_CHANNEL_ID, FORUM_CHANNEL_ID, false, false),
-    ).toBe(false);
-  });
-
-  it("ignores threads outside the synced forum channel", () => {
-    expect(
-      shouldReopenGithubOnThreadUnarchive("other-forum", FORUM_CHANNEL_ID, true, false),
-    ).toBe(false);
-  });
-});
-
 describe("shouldCloseGithubOnThreadArchive", () => {
   it("closes when a synced forum thread is archived", () => {
     expect(
@@ -187,6 +161,23 @@ describe("shouldCloseGithubOnThreadArchive", () => {
   it("ignores threads outside the synced forum channel", () => {
     expect(
       shouldCloseGithubOnThreadArchive("other-forum", FORUM_CHANNEL_ID, false, true),
+    ).toBe(false);
+  });
+});
+
+describe("isGithubSyncDiscordNotification", () => {
+  it("detects workflow notification messages from bots", () => {
+    expect(
+      isGithubSyncDiscordNotification(
+        "🔒 **This issue was closed on GitHub.**\nView: https://github.com",
+        true,
+      ),
+    ).toBe(true);
+  });
+
+  it("ignores human messages with similar text", () => {
+    expect(
+      isGithubSyncDiscordNotification("This issue was closed on GitHub", false),
     ).toBe(false);
   });
 });

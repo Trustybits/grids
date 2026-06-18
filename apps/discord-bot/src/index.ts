@@ -12,8 +12,8 @@ import { GitHubAppAuth } from "./githubAuth.js";
 import {
   decideAction,
   extractImageUrls,
+  isGithubSyncDiscordNotification,
   shouldCloseGithubOnThreadArchive,
-  shouldReopenGithubOnThreadUnarchive,
   type ForumMessage,
 } from "./sync.js";
 
@@ -79,42 +79,44 @@ async function handleMessage(message: Message): Promise<void> {
     return;
   }
 
-  const issueNumber = await github.findIssueNumberByThreadId(action.threadId);
-  if (issueNumber === null) {
+  const issue = await github.findIssueByThreadId(action.threadId);
+  if (issue === null) {
     console.log(
       `No matching issue for Discord thread ${action.threadId}; skipping comment`,
     );
     return;
   }
-  await github.addComment(issueNumber, action.body);
-  console.log(`Mirrored Discord reply to issue #${issueNumber}`);
-}
 
-async function handleThreadUnarchive(thread: ThreadChannel): Promise<void> {
-  const issueNumber = await github.findIssueNumberByThreadId(thread.id);
-  if (issueNumber === null) {
+  // Reopen on human activity (a real message), not on thread unarchive alone.
+  // That avoids loops from sync notification posts briefly unarchiving a thread.
+  if (issue.state === "closed") {
+    await github.reopenIssue(issue.number);
     console.log(
-      `No matching issue for unarchived Discord thread ${thread.id}; skipping reopen`,
+      `Reopened issue #${issue.number} after human message in Discord thread ${action.threadId}`,
     );
-    return;
   }
-  await github.reopenIssue(issueNumber);
-  console.log(
-    `Reopened issue #${issueNumber} after Discord thread ${thread.id} was unarchived`,
-  );
+
+  await github.addComment(issue.number, action.body);
+  console.log(`Mirrored Discord reply to issue #${issue.number}`);
 }
 
 async function handleThreadArchive(thread: ThreadChannel): Promise<void> {
-  const issueNumber = await github.findIssueNumberByThreadId(thread.id);
-  if (issueNumber === null) {
+  const issue = await github.findIssueByThreadId(thread.id);
+  if (issue === null) {
     console.log(
       `No matching issue for archived Discord thread ${thread.id}; skipping close`,
     );
     return;
   }
-  await github.closeIssue(issueNumber);
+  if (issue.state === "closed") {
+    console.log(
+      `Issue #${issue.number} already closed for Discord thread ${thread.id}`,
+    );
+    return;
+  }
+  await github.closeIssue(issue.number);
   console.log(
-    `Closed issue #${issueNumber} after Discord thread ${thread.id} was archived`,
+    `Closed issue #${issue.number} after Discord thread ${thread.id} was archived`,
   );
 }
 
@@ -123,6 +125,14 @@ client.once(Events.ClientReady, (readyClient) => {
 });
 
 client.on(Events.MessageCreate, (message) => {
+  if (
+    message.channel.isThread() &&
+    message.channel.parentId === config.forumChannelId &&
+    isGithubSyncDiscordNotification(message.content, message.author.bot)
+  ) {
+    return;
+  }
+
   void handleMessage(message).catch((error) => {
     console.error("Failed to process Discord message", error);
   });
@@ -134,20 +144,6 @@ client.on(Events.ThreadUpdate, (oldThread, newThread) => {
 
   const wasArchived = oldThread.archived === true;
   const isArchived = newThread.archived === true;
-
-  if (
-    shouldReopenGithubOnThreadUnarchive(
-      newThread.parentId,
-      config.forumChannelId,
-      wasArchived,
-      isArchived,
-    )
-  ) {
-    void handleThreadUnarchive(newThread).catch((error) => {
-      console.error("Failed to reopen GitHub issue for unarchived thread", error);
-    });
-    return;
-  }
 
   if (
     shouldCloseGithubOnThreadArchive(

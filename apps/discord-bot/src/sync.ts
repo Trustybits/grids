@@ -140,19 +140,6 @@ export function decideAction(msg: ForumMessage, forumChannelId: string): SyncAct
 }
 
 /**
- * Returns true when a forum thread was unarchived (reopened on Discord) and
- * should trigger a matching GitHub issue reopen.
- */
-export function shouldReopenGithubOnThreadUnarchive(
-  parentId: string | null,
-  forumChannelId: string,
-  wasArchived: boolean,
-  isArchived: boolean,
-): boolean {
-  return parentId === forumChannelId && wasArchived && !isArchived;
-}
-
-/**
  * Returns true when a forum thread was archived (closed on Discord) and should
  * close the linked GitHub issue.
  */
@@ -163,4 +150,20 @@ export function shouldCloseGithubOnThreadArchive(
   isArchived: boolean,
 ): boolean {
   return parentId === forumChannelId && !wasArchived && isArchived;
+}
+
+/** Phrases in GitHub → Discord workflow notification messages (loop guard). */
+export const GITHUB_SYNC_DISCORD_NOTIFICATION_MARKERS = [
+  "This issue was closed on GitHub",
+  "This issue was reopened on GitHub",
+] as const;
+
+export function isGithubSyncDiscordNotification(
+  content: string,
+  authorIsBot: boolean,
+): boolean {
+  if (!authorIsBot) return false;
+  return GITHUB_SYNC_DISCORD_NOTIFICATION_MARKERS.some((marker) =>
+    content.includes(marker),
+  );
 }

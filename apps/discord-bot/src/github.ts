@@ -59,15 +59,24 @@ export class GitHubClient {
     return data.number;
   }
 
-  async findIssueNumberByThreadId(threadId: string): Promise<number | null> {
+  async findIssueByThreadId(
+    threadId: string,
+  ): Promise<{ number: number; state: "open" | "closed" } | null> {
     const query = buildSearchQuery(this.repo, threadId);
     const data = (await this.request(
       "GET",
       `/search/issues?q=${encodeURIComponent(query)}`,
-    )) as { total_count: number; items: Array<{ number: number }> };
+    )) as {
+      total_count: number;
+      items: Array<{ number: number; state: string }>;
+    };
 
     if (data.total_count > 0 && data.items.length > 0) {
-      return data.items[0].number;
+      const item = data.items[0];
+      return {
+        number: item.number,
+        state: item.state === "closed" ? "closed" : "open",
+      };
     }
     return null;
   }

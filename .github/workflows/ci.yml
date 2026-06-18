@@ -184,3 +184,60 @@ jobs:
 
       - name: Run Vitest
         run: npm --workspace apps/firebase-functions run test
+
+  # ── Discord Bot: Type Check ─────────────────────────────────────────────
+  discord-bot-type-check:
+    name: Discord Bot Type Check
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check discord-bot
+        run: npm --workspace @grids/discord-bot run type-check
+
+  # ── Discord Bot: Lint ───────────────────────────────────────────────────
+  discord-bot-lint:
+    name: Discord Bot Lint
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm --workspace @grids/discord-bot run lint
+
+  # ── Discord Bot: Unit Tests ─────────────────────────────────────────────
+  discord-bot-test:
+    name: Discord Bot Unit Tests
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Vitest
+        run: npm --workspace @grids/discord-bot run test

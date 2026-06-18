@@ -1,0 +1,11 @@
+# Compiled JavaScript files
+lib/
+
+*.tsbuildinfo
+
+# Node.js dependency directory
+node_modules/
+
+# Local environment overrides
+.env
+*.local

@@ -42,10 +42,12 @@ It focuses on source-controlled project structure. You may also see generated or
 
 ```text
 apps/
+|-- discord-bot/
 |-- firebase-functions/
 `-- web/
 ```
 
+- `apps/discord-bot/` - Always-on Discord gateway bot that mirrors a forum channel into GitHub issues (inbound half of the Discord ↔ GitHub sync).
 - `apps/firebase-functions/` - Firebase Cloud Functions workspace.
 - `apps/web/` - Vue 3 + Vite web app workspace.
 
@@ -90,6 +92,24 @@ apps/firebase-functions/
 Generated folders you may see:
 
 - `lib/` - TypeScript build output for Firebase Functions.
+- `node_modules/` - Workspace dependencies.
+
+## apps/discord-bot
+
+```text
+apps/discord-bot/
+|-- src/
+|   `-- __tests__/
+`-- Dockerfile
+```
+
+- `src/` - TypeScript source for the gateway bot (`config.ts`, `sync.ts` routing/loop-guard logic, `github.ts` REST client, `index.ts` discord.js entry + Cloud Run health server).
+- `src/__tests__/` - Tests for the pure config and sync logic.
+- `Dockerfile` - Container build used to deploy the bot to Cloud Run.
+
+Generated folders you may see:
+
+- `lib/` - TypeScript build output for the bot.
 - `node_modules/` - Workspace dependencies.
 
 ## apps/web

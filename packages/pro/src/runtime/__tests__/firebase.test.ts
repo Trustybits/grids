@@ -6,7 +6,7 @@
  *  - returns null when no config file was bundled (hasFirebaseConfig false),
  *    even if an env config happens to be returned
  *  - initializes the app with the env config and constructs all services
- *  - connects each requested emulator with its canonical host/port
+ *  - connects each requested emulator with its configured host/port
  *  - connects all emulators when every target is requested
  *  - connects no emulators when the target set is empty
  *  - FIREBASE_EMULATOR_TARGETS constant shape
@@ -126,7 +126,7 @@ describe("createFirebaseServices", () => {
     expect(connectStorageEmulator).not.toHaveBeenCalled();
   });
 
-  it("connects only the requested emulators with their canonical endpoints", () => {
+  it("connects only the requested emulators with their configured endpoints", () => {
     vi.mocked(getAuth).mockReturnValue("auth" as any);
     vi.mocked(getFirestore).mockReturnValue("db" as any);
 
@@ -137,10 +137,10 @@ describe("createFirebaseServices", () => {
 
     expect(connectAuthEmulator).toHaveBeenCalledWith(
       "auth",
-      "http://127.0.0.1:9099",
+      "http://127.0.0.1:9076",
       { disableWarnings: true },
     );
-    expect(connectFirestoreEmulator).toHaveBeenCalledWith("db", "127.0.0.1", 8080);
+    expect(connectFirestoreEmulator).toHaveBeenCalledWith("db", "127.0.0.1", 3076);
     expect(connectFunctionsEmulator).not.toHaveBeenCalled();
     expect(connectStorageEmulator).not.toHaveBeenCalled();
   });
@@ -157,12 +157,12 @@ describe("createFirebaseServices", () => {
     expect(connectFunctionsEmulator).toHaveBeenCalledWith(
       "functions",
       "127.0.0.1",
-      5001,
+      5076,
     );
     expect(connectStorageEmulator).toHaveBeenCalledWith(
       "storage",
       "127.0.0.1",
-      9199,
+      9176,
     );
     expect(connectAuthEmulator).not.toHaveBeenCalled();
     expect(connectFirestoreEmulator).not.toHaveBeenCalled();
@@ -181,23 +181,23 @@ describe("createFirebaseServices", () => {
 
     expect(connectAuthEmulator).toHaveBeenCalledWith(
       "auth",
-      "http://127.0.0.1:9099",
+      "http://127.0.0.1:9076",
       { disableWarnings: true },
     );
     expect(connectFirestoreEmulator).toHaveBeenCalledWith(
       "db",
       "127.0.0.1",
-      8080,
+      3076,
     );
     expect(connectFunctionsEmulator).toHaveBeenCalledWith(
       "functions",
       "127.0.0.1",
-      5001,
+      5076,
     );
     expect(connectStorageEmulator).toHaveBeenCalledWith(
       "storage",
       "127.0.0.1",
-      9199,
+      9176,
     );
   });
 });

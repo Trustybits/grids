@@ -1,9 +1,22 @@
 import { mount } from "@vue/test-utils";
-import { defineComponent, h, nextTick, toRef, type PropType } from "vue";
-import { describe, expect, it, vi } from "vitest";
+import {
+  defineComponent,
+  h,
+  nextTick,
+  reactive,
+  ref,
+  toRef,
+  type PropType,
+} from "vue";
+import { describe, expect, it, beforeEach, vi } from "vitest";
+import { setActivePinia, createPinia } from "pinia";
 import { useGridStore } from "@/stores/grid";
 import { useColorPicker } from "@/composables/useColorPicker";
-import { ContentType, type TextContent } from "@grids/contracts/types";
+import {
+  ContentType,
+  type TextContent,
+  type ImageContent,
+} from "@grids/contracts/types";
 
 const makeTextContent = (backgroundColor: string): TextContent => ({
   type: ContentType.TEXT,
@@ -167,5 +180,214 @@ describe("useColorPicker", () => {
 
     patchTileContent.mockRestore();
     wrapper.unmount();
+  });
+});
+
+const DEFAULT_FILL = "var(--color-tile-background)";
+
+const makeImageContent = (
+  overrides: Partial<ImageContent> = {},
+): ImageContent =>
+  reactive({
+    type: ContentType.IMAGE,
+    src: "https://example.com/x.png",
+    zoom: 1,
+    offsetX: 0,
+    offsetY: 0,
+    ...overrides,
+  }) as ImageContent;
+
+const imageOptions = {
+  overlayCapable: true,
+  legacyBackgroundAsOverlay: true,
+};
+
+const noopEmit = () => {};
+
+describe("useColorPicker — fill vs overlay separation", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    const grid = useGridStore();
+    grid.isOwner = true; // makes canEdit true
+    // Persist is exercised in the suite above; here we assert in-memory behaviour.
+    vi.spyOn(grid, "patchTileContent").mockImplementation(() => {});
+  });
+
+  it("applies Fill as the background and not as an overlay on a fresh image", () => {
+    const content = makeImageContent();
+    const { backgroundColor, overlayColor, handleBackgroundColorChange } =
+      useColorPicker("t1", content, noopEmit, imageOptions);
+
+    handleBackgroundColorChange("#FFE299");
+
+    expect(content.backgroundColor).toBe("#FFE299");
+    // An explicit (empty) overlay is persisted so the fill is never re-read
+    // as a tint.
+    expect(content.overlayColor).toBe("");
+    expect(backgroundColor.value).toBe("#FFE299");
+    expect(overlayColor.value).toBeNull();
+  });
+
+  it("renders a legacy chromatic background as a tint until it is edited", () => {
+    const content = makeImageContent({ backgroundColor: "var(--color-red)" });
+    const { backgroundColor, overlayColor } = useColorPicker(
+      "t1",
+      content,
+      noopEmit,
+      imageOptions,
+    );
+
+    expect(overlayColor.value).toBe("var(--color-red)");
+    expect(backgroundColor.value).toBe(DEFAULT_FILL);
+  });
+
+  it("promotes a legacy tint to a remembered overlay when a fill is chosen", () => {
+    const content = makeImageContent({ backgroundColor: "var(--color-red)" });
+    const {
+      backgroundColor,
+      overlayColor,
+      pickerOverlayColor,
+      colorMode,
+      handleBackgroundColorChange,
+    } = useColorPicker("t1", content, noopEmit, imageOptions);
+
+    handleBackgroundColorChange("#FFE299");
+
+    expect(content.overlayColor).toBe("var(--color-red)"); // remembered
+    expect(backgroundColor.value).toBe("#FFE299");
+    expect(colorMode.value).toBe("fill");
+    expect(overlayColor.value).toBeNull(); // fill is active, overlay not rendered
+    expect(pickerOverlayColor.value).toBe("var(--color-red)"); // still shown in picker
+  });
+
+  it("toggles the active treatment without losing either color", () => {
+    const content = makeImageContent();
+    const {
+      overlayColor,
+      pickerFillColor,
+      pickerOverlayColor,
+      colorMode,
+      setColorMode,
+      handleBackgroundColorChange,
+      handleOverlayColorChange,
+    } = useColorPicker("t1", content, noopEmit, imageOptions);
+
+    handleBackgroundColorChange("#F39600"); // fill active
+    handleOverlayColorChange("#413F65"); // overlay active
+    expect(colorMode.value).toBe("overlay");
+    expect(overlayColor.value).toBe("#413F65");
+
+    // Toggle to fill: overlay stops rendering but its color is remembered.
+    setColorMode("fill");
+    expect(colorMode.value).toBe("fill");
+    expect(overlayColor.value).toBeNull();
+    expect(content.overlayColor).toBe("#413F65");
+    expect(pickerFillColor.value).toBe("#F39600");
+    expect(pickerOverlayColor.value).toBe("#413F65");
+
+    // Toggle back to overlay: the overlay is re-applied.
+    setColorMode("overlay");
+    expect(overlayColor.value).toBe("#413F65");
+  });
+
+  it("sets an overlay independently and clears the legacy background", () => {
+    const content = makeImageContent({ backgroundColor: "var(--color-red)" });
+    const { backgroundColor, overlayColor, handleOverlayColorChange } =
+      useColorPicker("t1", content, noopEmit, imageOptions);
+
+    handleOverlayColorChange("var(--color-blue)");
+
+    expect(content.backgroundColor).toBe("");
+    expect(content.overlayColor).toBe("var(--color-blue)");
+    expect(overlayColor.value).toBe("var(--color-blue)");
+    expect(backgroundColor.value).toBe(DEFAULT_FILL);
+  });
+
+  it("preserves an explicit fill when an overlay is later set", () => {
+    // No legacy ambiguity here: overlayColor is already "", so backgroundColor
+    // is a true fill and must survive an overlay change.
+    const content = makeImageContent({
+      backgroundColor: "#123456",
+      overlayColor: "",
+    });
+    const { backgroundColor, overlayColor, handleOverlayColorChange } =
+      useColorPicker("t1", content, noopEmit, imageOptions);
+
+    handleOverlayColorChange("var(--color-blue)");
+
+    expect(content.backgroundColor).toBe("#123456");
+    expect(backgroundColor.value).toBe("#123456");
+    expect(overlayColor.value).toBe("var(--color-blue)");
+  });
+
+  it("clears the overlay when a structural color is chosen for it", () => {
+    const content = makeImageContent({ overlayColor: "var(--color-blue)" });
+    const { overlayColor, handleOverlayColorChange } = useColorPicker(
+      "t1",
+      content,
+      noopEmit,
+      imageOptions,
+    );
+
+    handleOverlayColorChange("var(--color-tile-background)");
+
+    expect(content.overlayColor).toBe("");
+    expect(overlayColor.value).toBeNull();
+  });
+
+  it("reads and writes through a ref source (undo/redo identity swaps)", () => {
+    const contentRef = ref(makeImageContent());
+    const { backgroundColor, overlayColor, handleBackgroundColorChange } =
+      useColorPicker("t1", contentRef, noopEmit, imageOptions);
+
+    handleBackgroundColorChange("#FFE299");
+
+    expect(contentRef.value.backgroundColor).toBe("#FFE299");
+    expect(backgroundColor.value).toBe("#FFE299");
+    expect(overlayColor.value).toBeNull();
+  });
+
+  it("presents picker values consistent with what is rendered (legacy)", () => {
+    // Legacy image: chromatic backgroundColor renders as a tint. The picker
+    // should show Fill as empty and Overlay as that tint.
+    const content = makeImageContent({ backgroundColor: "var(--color-red)" });
+    const { pickerFillColor, pickerOverlayColor } = useColorPicker(
+      "t1",
+      content,
+      noopEmit,
+      imageOptions,
+    );
+
+    expect(pickerFillColor.value).toBe("");
+    expect(pickerOverlayColor.value).toBe("var(--color-red)");
+  });
+
+  it("presents independent picker values once fill and overlay are set", () => {
+    const content = makeImageContent();
+    const {
+      pickerFillColor,
+      pickerOverlayColor,
+      handleBackgroundColorChange,
+      handleOverlayColorChange,
+    } = useColorPicker("t1", content, noopEmit, imageOptions);
+
+    handleBackgroundColorChange("#F39600");
+    handleOverlayColorChange("#413F65");
+
+    expect(pickerFillColor.value).toBe("#F39600");
+    expect(pickerOverlayColor.value).toBe("#413F65");
+  });
+
+  it("never exposes an overlay for non-overlay-capable tiles", () => {
+    const content = makeImageContent({ backgroundColor: "var(--color-red)" });
+    const { backgroundColor, overlayColor } = useColorPicker(
+      "t1",
+      content,
+      noopEmit,
+    );
+
+    expect(overlayColor.value).toBeNull();
+    // Without overlay capability the chromatic color is a plain fill.
+    expect(backgroundColor.value).toBe("var(--color-red)");
   });
 });

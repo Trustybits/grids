@@ -486,6 +486,20 @@ export default defineComponent({
   outline: transparent !important;
 }
 
+/* Strip the leading/trailing block margins (browser defaults on <p>,
+   headings, etc.). Without this, a single line of text measures ~1em of
+   phantom margin top and bottom, which inflates the editor's scrollHeight
+   past a short tile's available height and triggers a false overflow
+   scrollbar even when the text fits on one line. Inter-paragraph spacing is
+   preserved because only the first/last child margins are removed. */
+:deep(.ProseMirror > :first-child) {
+  margin-top: 0;
+}
+
+:deep(.ProseMirror > :last-child) {
+  margin-bottom: 0;
+}
+
 .text-content ::selection {
   background: highlight;
   color: inherit;

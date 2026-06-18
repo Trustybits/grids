@@ -33,14 +33,16 @@
         :src="backgroundImageUrl"
         :alt="content.metaTitle || content.domain"
       />
-      <div
-        v-if="overlayColor"
-        class="link-color-overlay"
-        :style="{ backgroundColor: overlayColor }"
-        aria-hidden="true"
-      />
       <div class="tile-background-overlay"></div>
     </div>
+
+    <!-- Full-card color wash — renders with or without a preview image. -->
+    <div
+      v-if="overlayColor"
+      class="link-color-overlay"
+      :style="{ backgroundColor: overlayColor }"
+      aria-hidden="true"
+    />
 
     <div v-if="isDragOver" class="link-image-drop-overlay" aria-hidden="true">
       Drop image to upload
@@ -808,19 +810,18 @@ export default defineComponent({
       stopEditing();
     };
 
-    const LINK_RESET_COLORS = new Set([
-      "var(--color-tile-background)",
-      "var(--color-content-background)",
-    ]);
-
-    const linkOverlayColor = computed((): string | null => {
-      const color = props.content.backgroundColor;
-      if (!color || LINK_RESET_COLORS.has(color)) return null;
-      return color;
+    const {
+      overlayColor: linkOverlayColor,
+      pickerFillColor,
+      pickerOverlayColor,
+      colorMode,
+      setColorMode,
+      handleBackgroundColorChange,
+      handleOverlayColorChange,
+    } = useColorPicker(tileId, toRef(props, "content"), emit, {
+      overlayCapable: true,
+      legacyBackgroundAlsoOverlay: true,
     });
-
-    const { overlayColor: _overlayColor, handleBackgroundColorChange } =
-      useColorPicker(tileId, toRef(props, "content"), emit, "background");
 
     const handleRemoveFavicon = () => {
       props.content.faviconUrl = undefined;
@@ -835,7 +836,12 @@ export default defineComponent({
     return {
       gridStore,
       overlayColor: linkOverlayColor,
+      pickerFillColor,
+      pickerOverlayColor,
+      colorMode,
+      setColorMode,
       handleBackgroundColorChange,
+      handleOverlayColorChange,
       formatLink,
       isTelLink,
       isMailtoLink,
@@ -933,8 +939,12 @@ export default defineComponent({
 .link-color-overlay {
   position: absolute;
   inset: 0;
-  mix-blend-mode: color;
+  /* Sits above the preview image / card background but below the foreground
+     text (z-index 1), so it washes the whole card while keeping text legible. */
+  z-index: 0;
+  opacity: 0.6;
   pointer-events: none;
+  border-radius: inherit;
 }
 
 .tile-background-overlay {

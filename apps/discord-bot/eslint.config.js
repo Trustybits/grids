@@ -1,0 +1,31 @@
+import tseslint from 'typescript-eslint'
+
+export default tseslint.config(
+  {
+    ignores: ['lib/**', 'node_modules/**', 'coverage/**', '*.d.ts'],
+  },
+
+  ...tseslint.configs.recommended,
+
+  {
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      '@typescript-eslint/no-non-null-assertion': 'warn',
+
+      'prefer-const': 'error',
+      'no-return-await': 'error',
+    },
+  },
+
+  {
+    files: ['src/**/__tests__/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+    },
+  },
+)

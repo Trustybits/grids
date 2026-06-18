@@ -19,6 +19,12 @@ Firebase Cloud Functions for backend workflows such as scraping, analytics, badg
 
 Use this workspace when behavior must run server-side or respond to Firebase triggers/callables.
 
+## apps/discord-bot
+
+Always-on Discord gateway bot that mirrors a Discord forum channel into GitHub issues (new post → issue, reply → comment). It is the inbound half of the Discord ↔ GitHub sync; the outbound half (GitHub → Discord) is a GitHub Actions workflow.
+
+Unlike `apps/firebase-functions`, this needs a persistent connection, so it is deployed as a long-running service (e.g. Cloud Run with a warm instance) rather than as request-triggered functions. See `apps/discord-bot/README.md` for configuration and deploy steps.
+
 ## packages/contracts
 
 Shared TypeScript interfaces and domain types. This package defines the stable boundary between the public app and runtime implementations.
@@ -42,7 +48,7 @@ Common root scripts orchestrate workspace-level work:
 
 ```bash
 npm run dev
-npm run dev:emulator
+npm run dev:emulators
 npm run build
 npm run lint
 npm run test

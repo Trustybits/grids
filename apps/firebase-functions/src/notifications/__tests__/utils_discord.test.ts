@@ -134,6 +134,54 @@ describe("sendDiscordWebhook", () => {
     ],
   };
 
+  describe("emulator environment guard", () => {
+    const originalFunctionsEmulator = process.env.FUNCTIONS_EMULATOR;
+
+    afterEach(() => {
+      if (originalFunctionsEmulator === undefined) {
+        delete process.env.FUNCTIONS_EMULATOR;
+      } else {
+        process.env.FUNCTIONS_EMULATOR = originalFunctionsEmulator;
+      }
+    });
+
+    it("does not call fetch and returns false when running in the emulator", async () => {
+      process.env.FUNCTIONS_EMULATOR = "true";
+
+      const result = await sendDiscordWebhook({
+        webhookUrl: "https://discord.example/hook",
+        payload: basePayload,
+        successMessage: "sent",
+        successContext: { gridId: "g1" },
+        sendErrorContext: {},
+      });
+
+      expect(result).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith(
+        "Skipping Discord webhook send in emulator environment",
+        { successMessage: "sent" },
+      );
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it("sends normally when FUNCTIONS_EMULATOR is not set to 'true'", async () => {
+      delete process.env.FUNCTIONS_EMULATOR;
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: "ok" }));
+
+      const result = await sendDiscordWebhook({
+        webhookUrl: "https://discord.example/hook",
+        payload: basePayload,
+        successMessage: "sent",
+        successContext: {},
+        sendErrorContext: {},
+      });
+
+      expect(result).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("happy path (response.ok)", () => {
     it("POSTs JSON to the webhook url with the correct headers and body", async () => {
       fetchMock.mockResolvedValueOnce(mockResponse({ body: "ok" }));

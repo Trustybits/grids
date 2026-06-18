@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:emulator": "vite --mode emulator",
+    "dev:emulators": "vite --mode emulator",
     "build:deps": "npm --prefix ../.. run build:web-deps",
     "build": "npm run build:deps && run-p type-check:only \"build-only {@}\" --",
     "preview": "vite preview",

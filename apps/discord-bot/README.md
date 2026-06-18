@@ -12,12 +12,18 @@ GitHub Actions ─────────────────────�
 - New forum post → opens a GitHub issue (authored by your **GitHub App**, not a personal user).
 - Reply in a forum thread → adds a comment on the matching issue.
 - Unarchive a forum thread on Discord → reopens the linked GitHub issue.
+- Archive (close) a forum thread on Discord → closes the linked GitHub issue.
+- Images attached to posts or replies are embedded in the GitHub issue/comment body.
 - Bot-authored messages are ignored, and mirrored comments carry a
   `<!-- via_discord -->` marker the GitHub → Discord workflow skips, so updates
   never loop.
 
 Closing on GitHub (via the Actions workflow) archives the Discord thread but
 does **not** lock it, so the original poster can still reply if they need more help.
+
+Screenshots and other images are mirrored as markdown image links in the GitHub
+issue or comment. GitHub renders Discord CDN URLs directly; those links may
+eventually expire if Discord rotates attachment URLs.
 
 It needs a **persistent gateway connection**, so unlike the Firebase functions
 it must run as an always-on process (e.g. Cloud Run with a warm instance).

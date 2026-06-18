@@ -4,6 +4,8 @@ import {
   buildIssueBody,
   buildSearchQuery,
   decideAction,
+  extractImageUrls,
+  shouldCloseGithubOnThreadArchive,
   shouldReopenGithubOnThreadUnarchive,
   THREAD_MARKER_PREFIX,
   VIA_DISCORD_MARKER,
@@ -22,6 +24,7 @@ function message(overrides: Partial<ForumMessage> = {}): ForumMessage {
     channelIsThread: true,
     threadName: "Help with my grid",
     content: "Something is broken",
+    imageUrls: [],
     ...overrides,
   };
 }
@@ -35,6 +38,21 @@ describe("decideAction", () => {
     expect(action.threadId).toBe("thread-1");
     expect(action.body).toContain(`${THREAD_MARKER_PREFIX} thread-1`);
     expect(action.body).toContain("Something is broken");
+  });
+
+  it("embeds image markdown in the issue body when images are present", () => {
+    const action = decideAction(
+      message({
+        content: "see screenshot",
+        imageUrls: ["https://cdn.discordapp.com/attachments/1/2/screenshot.png"],
+      }),
+      FORUM_CHANNEL_ID,
+    );
+    expect(action.kind).toBe("create_issue");
+    if (action.kind !== "create_issue") return;
+    expect(action.body).toContain(
+      "![discord-image-1](https://cdn.discordapp.com/attachments/1/2/screenshot.png)",
+    );
   });
 
   it("comments for a reply in the thread", () => {
@@ -82,6 +100,45 @@ describe("decideAction", () => {
   });
 });
 
+describe("extractImageUrls", () => {
+  it("collects image attachments by content type", () => {
+    expect(
+      extractImageUrls(
+        [{ url: "https://cdn.discordapp.com/a.png", contentType: "image/png" }],
+        [],
+      ),
+    ).toEqual(["https://cdn.discordapp.com/a.png"]);
+  });
+
+  it("collects embed image and thumbnail urls", () => {
+    expect(
+      extractImageUrls([], [
+        "https://cdn.discordapp.com/embed.png",
+        "https://cdn.discordapp.com/thumb.png",
+      ]),
+    ).toEqual([
+      "https://cdn.discordapp.com/embed.png",
+      "https://cdn.discordapp.com/thumb.png",
+    ]);
+  });
+
+  it("skips non-image attachments", () => {
+    expect(
+      extractImageUrls(
+        [{ url: "https://cdn.discordapp.com/doc.pdf", contentType: "application/pdf" }],
+        [],
+      ),
+    ).toEqual([]);
+  });
+
+  it("deduplicates urls across attachments and embeds", () => {
+    const url = "https://cdn.discordapp.com/same.png";
+    expect(
+      extractImageUrls([{ url, contentType: "image/png" }], [url]),
+    ).toEqual([url]);
+  });
+});
+
 describe("shouldReopenGithubOnThreadUnarchive", () => {
   it("reopens when a synced forum thread is unarchived", () => {
     expect(
@@ -108,6 +165,32 @@ describe("shouldReopenGithubOnThreadUnarchive", () => {
   });
 });
 
+describe("shouldCloseGithubOnThreadArchive", () => {
+  it("closes when a synced forum thread is archived", () => {
+    expect(
+      shouldCloseGithubOnThreadArchive(FORUM_CHANNEL_ID, FORUM_CHANNEL_ID, false, true),
+    ).toBe(true);
+  });
+
+  it("ignores when the thread stays active", () => {
+    expect(
+      shouldCloseGithubOnThreadArchive(FORUM_CHANNEL_ID, FORUM_CHANNEL_ID, false, false),
+    ).toBe(false);
+  });
+
+  it("ignores when the thread was already archived", () => {
+    expect(
+      shouldCloseGithubOnThreadArchive(FORUM_CHANNEL_ID, FORUM_CHANNEL_ID, true, true),
+    ).toBe(false);
+  });
+
+  it("ignores threads outside the synced forum channel", () => {
+    expect(
+      shouldCloseGithubOnThreadArchive("other-forum", FORUM_CHANNEL_ID, false, true),
+    ).toBe(false);
+  });
+});
+
 describe("body + query builders", () => {
   it("embeds the thread marker in the issue body", () => {
     expect(buildIssueBody("hello", "999")).toContain(
@@ -117,6 +200,12 @@ describe("body + query builders", () => {
 
   it("uses a placeholder when the starter post has no text", () => {
     expect(buildIssueBody("   ", "999")).toContain("_(no description provided)_");
+  });
+
+  it("appends image markdown to issue and comment bodies", () => {
+    const url = "https://cdn.discordapp.com/shot.png";
+    expect(buildIssueBody("text", "999", [url])).toContain(`![discord-image-1](${url})`);
+    expect(buildCommentBody("bob", "text", [url])).toContain(`![discord-image-1](${url})`);
   });
 
   it("tags mirrored comments with the loop-guard marker", () => {

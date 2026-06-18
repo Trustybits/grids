@@ -85,4 +85,10 @@ export class GitHubClient {
       state: "open",
     });
   }
+
+  async closeIssue(issueNumber: number): Promise<void> {
+    await this.request("PATCH", `/repos/${this.repo}/issues/${issueNumber}`, {
+      state: "closed",
+    });
+  }
 }

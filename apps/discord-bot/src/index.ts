@@ -9,7 +9,13 @@ import {
 import { loadConfig } from "./config.js";
 import { GitHubClient } from "./github.js";
 import { GitHubAppAuth } from "./githubAuth.js";
-import { decideAction, shouldReopenGithubOnThreadUnarchive, type ForumMessage } from "./sync.js";
+import {
+  decideAction,
+  extractImageUrls,
+  shouldCloseGithubOnThreadArchive,
+  shouldReopenGithubOnThreadUnarchive,
+  type ForumMessage,
+} from "./sync.js";
 
 const config = loadConfig();
 const githubAppAuth = new GitHubAppAuth({
@@ -34,6 +40,17 @@ const client = new Client({
 function toForumMessage(message: Message): ForumMessage {
   const channel = message.channel;
   const isThread = channel.isThread();
+  const attachments = message.attachments.map((attachment) => ({
+    url: attachment.url,
+    contentType: attachment.contentType ?? undefined,
+    name: attachment.name,
+  }));
+  const embedImageUrls = message.embeds.flatMap((embed) =>
+    [embed.image?.url, embed.thumbnail?.url].filter(
+      (url): url is string => typeof url === "string",
+    ),
+  );
+
   return {
     authorIsBot: message.author.bot,
     authorUsername: message.author.username,
@@ -43,6 +60,7 @@ function toForumMessage(message: Message): ForumMessage {
     channelIsThread: isThread,
     threadName: isThread ? channel.name : "",
     content: message.content,
+    imageUrls: extractImageUrls(attachments, embedImageUrls),
   };
 }
 
@@ -86,6 +104,20 @@ async function handleThreadUnarchive(thread: ThreadChannel): Promise<void> {
   );
 }
 
+async function handleThreadArchive(thread: ThreadChannel): Promise<void> {
+  const issueNumber = await github.findIssueNumberByThreadId(thread.id);
+  if (issueNumber === null) {
+    console.log(
+      `No matching issue for archived Discord thread ${thread.id}; skipping close`,
+    );
+    return;
+  }
+  await github.closeIssue(issueNumber);
+  console.log(
+    `Closed issue #${issueNumber} after Discord thread ${thread.id} was archived`,
+  );
+}
+
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Discord bot logged in as ${readyClient.user.tag}`);
 });
@@ -98,23 +130,37 @@ client.on(Events.MessageCreate, (message) => {
 
 client.on(Events.ThreadUpdate, (oldThread, newThread) => {
   if (!newThread.isThread()) return;
+  if (newThread.parentId !== config.forumChannelId) return;
 
   const wasArchived = oldThread.archived === true;
   const isArchived = newThread.archived === true;
+
   if (
-    !shouldReopenGithubOnThreadUnarchive(
+    shouldReopenGithubOnThreadUnarchive(
       newThread.parentId,
       config.forumChannelId,
       wasArchived,
       isArchived,
     )
   ) {
+    void handleThreadUnarchive(newThread).catch((error) => {
+      console.error("Failed to reopen GitHub issue for unarchived thread", error);
+    });
     return;
   }
 
-  void handleThreadUnarchive(newThread).catch((error) => {
-    console.error("Failed to reopen GitHub issue for unarchived thread", error);
-  });
+  if (
+    shouldCloseGithubOnThreadArchive(
+      newThread.parentId,
+      config.forumChannelId,
+      wasArchived,
+      isArchived,
+    )
+  ) {
+    void handleThreadArchive(newThread).catch((error) => {
+      console.error("Failed to close GitHub issue for archived thread", error);
+    });
+  }
 });
 
 client.on(Events.Error, (error) => {

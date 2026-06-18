@@ -32,6 +32,20 @@ describe("generatedOgImageUrl", () => {
     const u = new URL(generatedOgImageUrl("grid-1", { cacheBust: 123 }));
     expect(u.searchParams.get("t")).toBe("123");
   });
+
+  it("includes both refresh and cache-bust when regenerating with a token", () => {
+    const u = new URL(
+      generatedOgImageUrl("grid-1", { refresh: true, cacheBust: 123 }),
+    );
+    expect(u.searchParams.get("gridId")).toBe("grid-1");
+    expect(u.searchParams.get("refresh")).toBe("1");
+    expect(u.searchParams.get("t")).toBe("123");
+  });
+
+  it("omits the cache-bust token when it is 0 (falsy)", () => {
+    const u = new URL(generatedOgImageUrl("grid-1", { cacheBust: 0 }));
+    expect(u.searchParams.has("t")).toBe(false);
+  });
 });
 
 describe("ogImageCheckUrl", () => {

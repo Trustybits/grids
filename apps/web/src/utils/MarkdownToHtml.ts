@@ -6,21 +6,22 @@ const escapeHtml = (input: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-const escapeAttribute = (input: string): string => escapeHtml(input).replace(/`/g, '&#96;');
-
 const renderInline = (input: string): string => {
-  // We intentionally escape everything first and then re-introduce a limited set of
-  // HTML tags. This prevents arbitrary HTML injection via the Markdown files.
+  // We escape the entire string exactly once up front and then re-introduce a
+  // limited set of HTML tags. This prevents arbitrary HTML injection via the
+  // Markdown files. The captured groups below are already-escaped substrings,
+  // so they must NOT be escaped again — doing so double-encodes entities
+  // (e.g. turning "<" into "&amp;lt;" instead of "&lt;").
   let out = escapeHtml(input);
 
-  // Inline code
-  out = out.replace(/`([^`]+?)`/g, (_, code) => `<code>${escapeHtml(code)}</code>`);
+  // Inline code — content is already escaped.
+  out = out.replace(/`([^`]+?)`/g, (_, code) => `<code>${code}</code>`);
 
-  // Links
+  // Links — text/href are already escaped; the href additionally needs
+  // backticks neutralized so they can't break out of the quoted attribute.
   out = out.replace(/\[([^\]]+?)\]\(([^)]+?)\)/g, (_, text, href) => {
-    const safeHref = escapeAttribute(String(href));
-    const safeText = escapeHtml(String(text));
-    return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${safeText}</a>`;
+    const safeHref = String(href).replace(/`/g, '&#96;');
+    return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${text}</a>`;
   });
 
   // Bold then italics
@@ -34,10 +35,11 @@ type ListType = 'ul' | 'ol';
 
 const closeLists = (stack: ListType[]): string => {
   let out = '';
-  for (let i = stack.length - 1; i >= 0; i -= 1) {
-    out += `</${stack[i]}>`;
+  // Each open list also has an open <li> (its last item, kept open so nested
+  // lists can sit inside it). Close the item, then the list, for every level.
+  while (stack.length > 0) {
+    out += `</li></${stack.pop()}>`;
   }
-  stack.length = 0;
   return out;
 };
 
@@ -134,28 +136,36 @@ const parseMarkdown = (markdown: string): string => {
       const level = Math.floor(indent / 2);
       const type: ListType = /^\d+\./.test(bullet.trim()) ? 'ol' : 'ul';
 
-      // Adjust nesting
+      // Close any lists deeper than the target level. Each level closes its
+      // open <li> first, then the list tag.
       while (listStack.length > level + 1) {
-        html += `</${listStack.pop()}>`;
+        html += `</li></${listStack.pop()}>`;
       }
 
-      if (listStack.length < level + 1) {
-        // Open missing levels
-        while (listStack.length < level + 1) {
+      if (listStack.length === level + 1) {
+        const current = listStack[listStack.length - 1];
+        if (current === type) {
+          // Sibling at the same level: close the previous item, open a new one.
+          html += `</li><li>`;
+        } else {
+          // Same level but different list type: close and reopen as the new
+          // type (the parent <li> we reopen into is the one above this list).
+          html += `</li></${listStack.pop()}>`;
           listStack.push(type);
-          html += `<${type}>`;
+          html += `<${type}><li>`;
         }
       } else {
-        // Same level: if list type changes, close and reopen
-        const current = listStack[listStack.length - 1];
-        if (current !== type) {
-          html += `</${listStack.pop()}>`;
+        // Deeper than the current depth: open missing levels. The new list
+        // nests inside the current open <li>, so that <li> stays open.
+        while (listStack.length < level + 1) {
           listStack.push(type);
-          html += `<${type}>`;
+          html += `<${type}><li>`;
         }
       }
 
-      html += `<li>${renderInline(itemText.trim())}</li>`;
+      // Append the item content. The <li> opened above stays open until a
+      // sibling, a de-nest, or closeLists/flushAll closes it.
+      html += renderInline(itemText.trim());
       continue;
     }
 

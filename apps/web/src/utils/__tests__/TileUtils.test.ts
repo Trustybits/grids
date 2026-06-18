@@ -6,6 +6,9 @@
  *  - createTileContent (default values for every ContentType)
  *  - validateTileContent (business rules per type)
  *  - createTileContentFromEmbedUrl (YouTube, Spotify, Apple Music, image, video routing)
+ *  - normalizeEmbedSrc (canonical YouTube nocookie embed rewriting)
+ *  - createTile (positioned tile wrapper)
+ *  - getContentComponent / getOptionComponent (component resolution)
  *
  * TileUtils has no runtime DAO calls so no special mocking is needed beyond
  * what setup.ts already provides for the module-level store import.
@@ -18,6 +21,10 @@ import {
   createTileContent,
   validateTileContent,
   createTileContentFromEmbedUrl,
+  normalizeEmbedSrc,
+  createTile,
+  getContentComponent,
+  getOptionComponent,
 } from "@/utils/TileUtils";
 import { ContentType } from "@grids/contracts/types";
 import type {
@@ -355,12 +362,22 @@ describe("createTileContentFromEmbedUrl", () => {
       expect(content.youtubeType).toBe("short");
     });
 
-    it("detects YouTube playlist URL", () => {
+    it("detects YouTube playlist URL and captures the list id", () => {
       const content = createTileContentFromEmbedUrl(
         "https://www.youtube.com/playlist?list=PLrEnWoR732-BHrPp_Pm8_VleD68f9s14-",
       ) as YouTubeContent;
       expect(content.type).toBe(ContentType.YOUTUBE);
       expect(content.youtubeType).toBe("playlist");
+      expect(content.youtubeId).toBe("PLrEnWoR732-BHrPp_Pm8_VleD68f9s14-");
+    });
+
+    it("ignores auto-generated 'My Mix' (RD...) playlists and treats watch URL as a video", () => {
+      const content = createTileContentFromEmbedUrl(
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RD12345",
+      ) as YouTubeContent;
+      expect(content.type).toBe(ContentType.YOUTUBE);
+      expect(content.youtubeType).toBe("video");
+      expect(content.youtubeId).toBe("dQw4w9WgXcQ");
     });
 
     it("detects YouTube channel @handle URL", () => {
@@ -369,6 +386,34 @@ describe("createTileContentFromEmbedUrl", () => {
       ) as YouTubeContent;
       expect(content.type).toBe(ContentType.YOUTUBE);
       expect(content.youtubeType).toBe("channel");
+      expect(content.youtubeId).toBe("SomeChannel");
+    });
+
+    it("detects YouTube /channel/<id> URL", () => {
+      const content = createTileContentFromEmbedUrl(
+        "https://www.youtube.com/channel/UC1234567890",
+      ) as YouTubeContent;
+      expect(content.type).toBe(ContentType.YOUTUBE);
+      expect(content.youtubeType).toBe("channel");
+      expect(content.youtubeId).toBe("UC1234567890");
+    });
+
+    it("detects YouTube /c/<name> custom channel URL", () => {
+      const content = createTileContentFromEmbedUrl(
+        "https://www.youtube.com/c/SomeCreator",
+      ) as YouTubeContent;
+      expect(content.type).toBe(ContentType.YOUTUBE);
+      expect(content.youtubeType).toBe("channel");
+      expect(content.youtubeId).toBe("SomeCreator");
+    });
+
+    it("detects YouTube /user/<name> legacy channel URL", () => {
+      const content = createTileContentFromEmbedUrl(
+        "https://www.youtube.com/user/LegacyUser",
+      ) as YouTubeContent;
+      expect(content.type).toBe(ContentType.YOUTUBE);
+      expect(content.youtubeType).toBe("channel");
+      expect(content.youtubeId).toBe("LegacyUser");
     });
   });
 
@@ -389,6 +434,34 @@ describe("createTileContentFromEmbedUrl", () => {
       expect(content.type).toBe(ContentType.MUSIC);
       expect(content.platform).toBe("spotify");
     });
+
+    it("detects a Spotify /embed/track/ URL as a track", () => {
+      const content = createTileContentFromEmbedUrl(
+        "https://open.spotify.com/embed/track/4cOdK2wGLETKBW3PvgPWqT",
+      ) as MusicContent;
+      expect(content.type).toBe(ContentType.MUSIC);
+      expect(content.platform).toBe("spotify");
+      expect(content.trackId).toBe("4cOdK2wGLETKBW3PvgPWqT");
+      expect(content.trackType).toBe("track");
+    });
+
+    it("detects a Spotify /embed/album/ URL as an album", () => {
+      const content = createTileContentFromEmbedUrl(
+        "https://open.spotify.com/embed/album/1DFixLWuPkv3KT3TnV35m3",
+      ) as MusicContent;
+      expect(content.type).toBe(ContentType.MUSIC);
+      expect(content.platform).toBe("spotify");
+      expect(content.trackType).toBe("album");
+    });
+
+    it("detects the bare spotify.com host (not just open.spotify.com)", () => {
+      const content = createTileContentFromEmbedUrl(
+        "https://spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+      ) as MusicContent;
+      expect(content.type).toBe(ContentType.MUSIC);
+      expect(content.platform).toBe("spotify");
+      expect(content.trackId).toBe("4cOdK2wGLETKBW3PvgPWqT");
+    });
   });
 
   describe("Apple Music URLs", () => {
@@ -408,6 +481,24 @@ describe("createTileContentFromEmbedUrl", () => {
       expect(content.type).toBe(ContentType.MUSIC);
       expect(content.platform).toBe("apple");
       expect(content.trackId).toBe("789012");
+    });
+
+    it("detects the short /song/<id> form (no slug segment)", () => {
+      const content = createTileContentFromEmbedUrl(
+        "https://music.apple.com/us/song/1450695723",
+      ) as MusicContent;
+      expect(content.type).toBe(ContentType.MUSIC);
+      expect(content.platform).toBe("apple");
+      expect(content.trackId).toBe("1450695723");
+    });
+
+    it("detects the embed.music.apple.com host", () => {
+      const content = createTileContentFromEmbedUrl(
+        "https://embed.music.apple.com/us/song/bad-guy/1450695723",
+      ) as MusicContent;
+      expect(content.type).toBe(ContentType.MUSIC);
+      expect(content.platform).toBe("apple");
+      expect(content.trackId).toBe("1450695723");
     });
   });
 
@@ -445,15 +536,17 @@ describe("createTileContentFromEmbedUrl", () => {
       expect(content.src).toBe("https://example.com/some-page");
     });
 
-    it("normalizes YouTube watch URLs to nocookie embed format in EMBED type", () => {
-      // When an embed-style YouTube URL is passed but not caught by YouTube parser
-      // (shouldn't happen, but tests the normalizeEmbedSrc fallback path)
+    it("routes a /embed/ YouTube URL to EMBED and normalizes it to a nocookie URL", () => {
+      // parseYouTubeUrl does NOT recognize the /embed/ path, so it falls through
+      // to EMBED — but the EMBED tile's defaultContent runs the src through
+      // normalizeEmbedSrc, rewriting it to the canonical youtube-nocookie embed.
       const content = createTileContentFromEmbedUrl(
         "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      ) as EmbedContent;
+      expect(content.type).toBe(ContentType.EMBED);
+      expect(content.src).toBe(
+        "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?playsinline=1&rel=0&modestbranding=1",
       );
-      // This is a YouTube embed URL — it should be caught as YOUTUBE type
-      // OR normalized to nocookie URL if it falls through to EMBED
-      expect([ContentType.YOUTUBE, ContentType.EMBED]).toContain(content.type);
     });
 
     it("extracts src from pasted <iframe> HTML", () => {
@@ -470,5 +563,151 @@ describe("createTileContentFromEmbedUrl", () => {
       ) as EmbedContent;
       expect(content.src).toMatch(/^https:\/\//);
     });
+
+    it("falls back to EMBED for a Spotify URL that is neither track nor album", () => {
+      // parseMusicUrl only recognizes /track and /album — a playlist URL is
+      // not music, so it routes to a generic embed.
+      const content = createTileContentFromEmbedUrl(
+        "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+      ) as EmbedContent;
+      expect(content.type).toBe(ContentType.EMBED);
+      expect(content.src).toBe(
+        "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+      );
+    });
+  });
+});
+
+// ── normalizeEmbedSrc ──────────────────────────────────────────────────────
+
+describe("normalizeEmbedSrc", () => {
+  const CANONICAL = (id: string) =>
+    `https://www.youtube-nocookie.com/embed/${id}?playsinline=1&rel=0&modestbranding=1`;
+  const VIDEO_ID = "dQw4w9WgXcQ"; // exactly 11 chars
+
+  it.each([
+    ["youtu.be short link", `https://youtu.be/${VIDEO_ID}`],
+    ["watch URL", `https://www.youtube.com/watch?v=${VIDEO_ID}`],
+    ["embed URL", `https://www.youtube.com/embed/${VIDEO_ID}`],
+    ["shorts URL", `https://www.youtube.com/shorts/${VIDEO_ID}`],
+    ["live URL", `https://www.youtube.com/live/${VIDEO_ID}`],
+    ["already-nocookie URL", `https://www.youtube-nocookie.com/embed/${VIDEO_ID}`],
+  ])("rewrites a %s to the canonical nocookie embed URL", (_label, input) => {
+    expect(normalizeEmbedSrc(input)).toBe(CANONICAL(VIDEO_ID));
+  });
+
+  it("adds a protocol before normalizing a bare YouTube URL", () => {
+    expect(normalizeEmbedSrc(`youtube.com/watch?v=${VIDEO_ID}`)).toBe(
+      CANONICAL(VIDEO_ID),
+    );
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(normalizeEmbedSrc(`  https://youtu.be/${VIDEO_ID}  `)).toBe(
+      CANONICAL(VIDEO_ID),
+    );
+  });
+
+  it("returns the (protocol-added) URL unchanged for non-YouTube hosts", () => {
+    expect(normalizeEmbedSrc("https://vimeo.com/123456")).toBe(
+      "https://vimeo.com/123456",
+    );
+  });
+
+  it("does not rewrite a YouTube URL whose id is not exactly 11 chars", () => {
+    // Strict 11-char guard prevents turning non-video URLs into embeds.
+    const input = "https://www.youtube.com/watch?v=tooShort";
+    expect(normalizeEmbedSrc(input)).toBe(input);
+  });
+
+  it("does not rewrite a YouTube channel URL (no extractable video id)", () => {
+    const input = "https://www.youtube.com/@SomeChannel";
+    expect(normalizeEmbedSrc(input)).toBe(input);
+  });
+
+  it("returns an empty string for empty input", () => {
+    expect(normalizeEmbedSrc("")).toBe("");
+    expect(normalizeEmbedSrc("   ")).toBe("");
+  });
+});
+
+// ── createTile ─────────────────────────────────────────────────────────────
+
+describe("createTile", () => {
+  it("wraps tile content with the given position and identity", () => {
+    const tile = createTile(
+      ContentType.TEXT,
+      "tile-1",
+      2,
+      3,
+      4,
+      5,
+      { text: "hi" },
+      "my caption",
+    );
+    expect(tile).toMatchObject({
+      i: "tile-1",
+      x: 2,
+      y: 3,
+      w: 4,
+      h: 5,
+      borderEnabled: true,
+      caption: "my caption",
+    });
+  });
+
+  it("builds content via createTileContent for the given type", () => {
+    const tile = createTile(
+      ContentType.TEXT,
+      "t",
+      0,
+      0,
+      1,
+      1,
+      { text: "hi" },
+      "",
+    );
+    const content = tile.content as TextContent;
+    expect(content.type).toBe(ContentType.TEXT);
+    expect(content.text).toBe("hi");
+    expect(content.font).toBe("Arial"); // default merged in
+  });
+
+  it("defaults border to enabled", () => {
+    const tile = createTile(ContentType.TEXT, "t", 0, 0, 1, 1, {}, "");
+    expect(tile.borderEnabled).toBe(true);
+  });
+
+  it("throws for an unsupported content type", () => {
+    expect(() =>
+      createTile("nope" as ContentType, "t", 0, 0, 1, 1, {}, ""),
+    ).toThrow(/Unsupported content type/);
+  });
+});
+
+// ── getContentComponent / getOptionComponent ───────────────────────────────
+
+describe("getContentComponent", () => {
+  it("returns null for SUGGESTION content (rendered inline elsewhere)", () => {
+    const content = createTileContent(ContentType.SUGGESTION);
+    expect(getContentComponent(content)).toBeNull();
+  });
+
+  it("returns a (non-null) async component for a normal content type", () => {
+    const content = createTileContent(ContentType.TEXT) as TextContent;
+    expect(getContentComponent(content)).not.toBeNull();
+  });
+
+  it("throws for an unsupported content type", () => {
+    expect(() =>
+      getContentComponent({ type: "nope" } as unknown as TextContent),
+    ).toThrow(/Unsupported content type/);
+  });
+});
+
+describe("getOptionComponent", () => {
+  it("returns null (no per-type option components are defined)", () => {
+    const content = createTileContent(ContentType.TEXT) as TextContent;
+    expect(getOptionComponent(content)).toBeNull();
   });
 });

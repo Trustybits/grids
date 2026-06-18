@@ -4,6 +4,7 @@ import {
   buildIssueBody,
   buildSearchQuery,
   decideAction,
+  shouldReopenGithubOnThreadUnarchive,
   THREAD_MARKER_PREFIX,
   VIA_DISCORD_MARKER,
   type ForumMessage,
@@ -78,6 +79,32 @@ describe("decideAction", () => {
     expect(action.kind).toBe("create_issue");
     if (action.kind !== "create_issue") return;
     expect(action.title).toBe("[Discord] New Support Request");
+  });
+});
+
+describe("shouldReopenGithubOnThreadUnarchive", () => {
+  it("reopens when a synced forum thread is unarchived", () => {
+    expect(
+      shouldReopenGithubOnThreadUnarchive(FORUM_CHANNEL_ID, FORUM_CHANNEL_ID, true, false),
+    ).toBe(true);
+  });
+
+  it("ignores when the thread stays archived", () => {
+    expect(
+      shouldReopenGithubOnThreadUnarchive(FORUM_CHANNEL_ID, FORUM_CHANNEL_ID, true, true),
+    ).toBe(false);
+  });
+
+  it("ignores when the thread was already active", () => {
+    expect(
+      shouldReopenGithubOnThreadUnarchive(FORUM_CHANNEL_ID, FORUM_CHANNEL_ID, false, false),
+    ).toBe(false);
+  });
+
+  it("ignores threads outside the synced forum channel", () => {
+    expect(
+      shouldReopenGithubOnThreadUnarchive("other-forum", FORUM_CHANNEL_ID, true, false),
+    ).toBe(false);
   });
 });
 

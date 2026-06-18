@@ -79,4 +79,10 @@ export class GitHubClient {
       { body },
     );
   }
+
+  async reopenIssue(issueNumber: number): Promise<void> {
+    await this.request("PATCH", `/repos/${this.repo}/issues/${issueNumber}`, {
+      state: "open",
+    });
+  }
 }

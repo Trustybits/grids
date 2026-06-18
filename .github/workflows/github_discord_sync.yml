@@ -14,7 +14,7 @@ on:
 
 jobs:
   issue-closed:
-    if: github.event_name == 'issues' && github.event.action == 'closed'
+    if: github.repository == 'Trustybits/grids' && github.event_name == 'issues' && github.event.action == 'closed'
     runs-on: ubuntu-latest
     steps:
       - name: Notify and archive Discord thread
@@ -42,14 +42,15 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
 
-          # 2. Lock and archive the thread out of the active view.
+          # 2. Archive the thread out of the active view but leave it unlocked so
+          #    the original poster can still reply if they need more help.
           curl -sS -X PATCH "$API/channels/$THREAD_ID" \
             -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"archived": true, "locked": true}'
+            -d '{"archived": true, "locked": false}'
 
   issue-reopened:
-    if: github.event_name == 'issues' && github.event.action == 'reopened'
+    if: github.repository == 'Trustybits/grids' && github.event_name == 'issues' && github.event.action == 'reopened'
     runs-on: ubuntu-latest
     steps:
       - name: Unarchive and notify Discord thread
@@ -81,7 +82,7 @@ jobs:
             -d "$PAYLOAD"
 
   issue-comment:
-    if: github.event_name == 'issue_comment' && github.event.action == 'created'
+    if: github.repository == 'Trustybits/grids' && github.event_name == 'issue_comment' && github.event.action == 'created'
     runs-on: ubuntu-latest
     steps:
       - name: Mirror GitHub comment to Discord thread

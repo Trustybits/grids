@@ -79,3 +79,16 @@ export function decideAction(msg: ForumMessage, forumChannelId: string): SyncAct
     body: buildCommentBody(msg.authorUsername, msg.content),
   };
 }
+
+/**
+ * Returns true when a forum thread was unarchived (reopened on Discord) and
+ * should trigger a matching GitHub issue reopen.
+ */
+export function shouldReopenGithubOnThreadUnarchive(
+  parentId: string | null,
+  forumChannelId: string,
+  wasArchived: boolean,
+  isArchived: boolean,
+): boolean {
+  return parentId === forumChannelId && wasArchived && !isArchived;
+}

@@ -14,7 +14,7 @@ on:
 
 jobs:
   issue-closed:
-    if: github.event_name == 'issues' && github.event.action == 'closed'
+    if: github.repository == 'Trustybits/grids' && github.event_name == 'issues' && github.event.action == 'closed'
     runs-on: ubuntu-latest
     steps:
       - name: Notify and archive Discord thread
@@ -50,7 +50,7 @@ jobs:
             -d '{"archived": true, "locked": false}'
 
   issue-reopened:
-    if: github.event_name == 'issues' && github.event.action == 'reopened'
+    if: github.repository == 'Trustybits/grids' && github.event_name == 'issues' && github.event.action == 'reopened'
     runs-on: ubuntu-latest
     steps:
       - name: Unarchive and notify Discord thread
@@ -82,7 +82,7 @@ jobs:
             -d "$PAYLOAD"
 
   issue-comment:
-    if: github.event_name == 'issue_comment' && github.event.action == 'created'
+    if: github.repository == 'Trustybits/grids' && github.event_name == 'issue_comment' && github.event.action == 'created'
     runs-on: ubuntu-latest
     steps:
       - name: Mirror GitHub comment to Discord thread

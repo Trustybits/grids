@@ -1,0 +1,119 @@
+name: GitHub → Discord Sync
+
+# Mirrors GitHub issue activity back into the linked Discord forum thread.
+# The thread id is read from the hidden `discord_thread_id:` marker that the
+# discordGithubSync Firebase function embeds in each issue body.
+#
+# Requires a repo Actions secret DISCORD_BOT_TOKEN whose bot can manage the
+# forum channel's threads (Send Messages + Manage Threads).
+on:
+  issues:
+    types: [closed, reopened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  issue-closed:
+    if: github.event_name == 'issues' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify and archive Discord thread
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          set -euo pipefail
+          # Pull the embedded thread id out of the issue body metadata.
+          THREAD_ID=$(printf '%s' "$ISSUE_BODY" | grep -oP 'discord_thread_id:\s*\K\d+' || true)
+          if [ -z "$THREAD_ID" ]; then
+            echo "No Discord thread id found in issue body; nothing to sync."
+            exit 0
+          fi
+
+          API="https://discord.com/api/v10"
+
+          # 1. Tell the thread the issue was closed (build JSON with jq so the
+          #    URL can never break out of the payload).
+          PAYLOAD=$(jq -n --arg url "$ISSUE_URL" \
+            '{content: ("🔒 **This issue was closed on GitHub.**\nView: " + $url)}')
+          curl -sS -X POST "$API/channels/$THREAD_ID/messages" \
+            -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
+
+          # 2. Lock and archive the thread out of the active view.
+          curl -sS -X PATCH "$API/channels/$THREAD_ID" \
+            -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"archived": true, "locked": true}'
+
+  issue-reopened:
+    if: github.event_name == 'issues' && github.event.action == 'reopened'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Unarchive and notify Discord thread
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          set -euo pipefail
+          THREAD_ID=$(printf '%s' "$ISSUE_BODY" | grep -oP 'discord_thread_id:\s*\K\d+' || true)
+          if [ -z "$THREAD_ID" ]; then
+            echo "No Discord thread id found in issue body; nothing to sync."
+            exit 0
+          fi
+
+          API="https://discord.com/api/v10"
+
+          # Unlock + unarchive first so the thread can receive a message again.
+          curl -sS -X PATCH "$API/channels/$THREAD_ID" \
+            -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"archived": false, "locked": false}'
+
+          PAYLOAD=$(jq -n --arg url "$ISSUE_URL" \
+            '{content: ("🔓 **This issue was reopened on GitHub.**\nView: " + $url)}')
+          curl -sS -X POST "$API/channels/$THREAD_ID/messages" \
+            -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
+
+  issue-comment:
+    if: github.event_name == 'issue_comment' && github.event.action == 'created'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mirror GitHub comment to Discord thread
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+        run: |
+          set -euo pipefail
+
+          # Loop guard: comments the Firebase sync created from a Discord reply
+          # carry this marker. Skip them so we don't echo them back to Discord.
+          case "$COMMENT_BODY" in
+            *"<!-- via_discord -->"*)
+              echo "Comment originated from Discord; skipping to avoid a loop."
+              exit 0
+              ;;
+          esac
+
+          THREAD_ID=$(printf '%s' "$ISSUE_BODY" | grep -oP 'discord_thread_id:\s*\K\d+' || true)
+          if [ -z "$THREAD_ID" ]; then
+            echo "No Discord thread id found in issue body; nothing to sync."
+            exit 0
+          fi
+
+          API="https://discord.com/api/v10"
+
+          # Truncate to stay under Discord's 2000-char message limit.
+          PAYLOAD=$(jq -n --arg a "$COMMENT_AUTHOR" --arg b "$COMMENT_BODY" \
+            '{content: ("💬 **" + $a + " commented on GitHub:**\n" + ($b[0:1800]))}')
+          curl -sS -X POST "$API/channels/$THREAD_ID/messages" \
+            -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"

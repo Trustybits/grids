@@ -540,6 +540,17 @@ export default defineComponent({
   font-style: italic;
 }
 
+/* Divider (horizontal rule). The browser default renders a flat grey line
+   that clashes on colored backgrounds. Derive it from the tile's own text
+   color mixed into transparent so it stays a subtle, contrast-aware line on
+   light, dark, and colored tiles. */
+:deep(hr) {
+  border: none;
+  height: 1px;
+  margin: 0.75em 0;
+  background: color-mix(in srgb, var(--tile-text-color) 21%, transparent);
+}
+
 .text-content.is-wide-1-high .tile-link-indicator {
   margin-left: auto;
 }

@@ -7,10 +7,19 @@ import {
 } from "discord.js";
 import { loadConfig } from "./config.js";
 import { GitHubClient } from "./github.js";
+import { GitHubAppAuth } from "./githubAuth.js";
 import { decideAction, type ForumMessage } from "./sync.js";
 
 const config = loadConfig();
-const github = new GitHubClient(config.githubToken, config.githubRepo);
+const githubAppAuth = new GitHubAppAuth({
+  appId: config.githubAppId,
+  installationId: config.githubAppInstallationId,
+  privateKey: config.githubAppPrivateKey,
+});
+const github = new GitHubClient(
+  () => githubAppAuth.getToken(),
+  config.githubRepo,
+);
 
 const client = new Client({
   // Guilds: thread lifecycle. GuildMessages + MessageContent: read posts/replies.

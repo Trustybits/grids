@@ -15,13 +15,14 @@ export class GitHubApiError extends Error {
 /** Thin GitHub REST client scoped to a single `owner/repo`. */
 export class GitHubClient {
   constructor(
-    private readonly token: string,
+    private readonly getToken: () => Promise<string>,
     private readonly repo: string,
   ) {}
 
-  private headers(): Record<string, string> {
+  private async headers(): Promise<Record<string, string>> {
+    const token = await this.getToken();
     return {
-      Authorization: `Bearer ${this.token}`,
+      Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
       "Content-Type": "application/json",
@@ -36,7 +37,7 @@ export class GitHubClient {
   ): Promise<unknown> {
     const response = await fetch(`${GITHUB_API}${path}`, {
       method,
-      headers: this.headers(),
+      headers: await this.headers(),
       body: body === undefined ? undefined : JSON.stringify(body),
     });
 

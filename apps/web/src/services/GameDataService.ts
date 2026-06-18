@@ -19,6 +19,23 @@ function getDao(): UserGameDataDao {
 }
 
 export class GameDataService implements IGameDataService {
+  private handleIncrementClicksError(error: unknown): boolean {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "permission-denied"
+    ) {
+      console.warn(
+        "Click rejected by security rules - likely daily cap reached",
+      );
+      return false;
+    }
+
+    console.error("Error incrementing user clicks:", error);
+    return false;
+  }
+
   async getOrCreateUserGameData(userId: string): Promise<UserGameData> {
     const dao = getDao();
     const data = await dao.getById(userId);
@@ -84,24 +101,15 @@ export class GameDataService implements IGameDataService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "";
       if (errorMessage === "DOCUMENT_NOT_FOUND") {
-        await this.getOrCreateUserGameData(userId);
-        return this.incrementUserClicks(userId, amount);
+        try {
+          await this.getOrCreateUserGameData(userId);
+          return await dao.incrementClicksTransaction(userId, amount);
+        } catch (retryError) {
+          return this.handleIncrementClicksError(retryError);
+        }
       }
 
-      if (
-        error &&
-        typeof error === "object" &&
-        "code" in error &&
-        error.code === "permission-denied"
-      ) {
-        console.warn(
-          "Click rejected by security rules - likely daily cap reached",
-        );
-        return false;
-      }
-
-      console.error("Error incrementing user clicks:", error);
-      return false;
+      return this.handleIncrementClicksError(error);
     }
   }
 

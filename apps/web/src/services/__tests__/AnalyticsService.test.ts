@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import posthog from "posthog-js";
-import { registerDaoFactory } from "@/dao/DaoFactorySingleton";
 import { AnalyticsService } from "@/services/AnalyticsService";
 import { AnalyticsEventType } from "@grids/contracts/types";
 import type { AnalyticsEventDao } from "@grids/contracts/dao";
 import type { GridStatsDao } from "@grids/contracts/dao";
 import type { BusinessStatsDao } from "@grids/contracts/dao";
-import type { DaoFactory } from "@grids/contracts/dao";
+import { mockConsoleError, registerTestDaoFactory } from "./testHelpers";
 
 // ── Mock DAOs ────────────────────────────────────────────────────────────
 
@@ -31,24 +30,16 @@ beforeEach(() => {
     getDailyRange: vi.fn(),
   };
 
-  registerDaoFactory({
+  registerTestDaoFactory({
     getAnalyticsEventDao: () =>
       mockAnalyticsEventDao as unknown as AnalyticsEventDao,
     getGridStatsDao: () => mockGridStatsDao as unknown as GridStatsDao,
     getBusinessStatsDao: () =>
       mockBusinessStatsDao as unknown as BusinessStatsDao,
-    getUserDao: () => null,
-    getSlugDao: () => null,
-    getGridDao: () => null,
-    getUserGameDataDao: () => null,
-    getChatDao: () => null,
-    getUpvoteDao: () => null,
-    getCustomerDao: () => null,
-    getStorageDao: () => null,
-  } as unknown as DaoFactory);
+  });
 
   // Suppress logged errors so the swallowed-error tests don't pollute output.
-  consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  consoleErrorSpy = mockConsoleError();
 });
 
 afterEach(() => {

@@ -45,6 +45,9 @@ vi.mock('firebase/firestore', () => ({
   limit: vi.fn(),
   orderBy: vi.fn(),
   addDoc: vi.fn(),
+  documentId: vi.fn(() => '__name__'),
+  increment: vi.fn((n: number) => ({ __increment: n })),
+  runTransaction: vi.fn(),
   Timestamp: {
     fromDate: vi.fn((d: Date) => ({ toDate: () => d })),
     now: vi.fn(() => ({ toDate: () => new Date() })),
@@ -70,6 +73,8 @@ vi.mock('firebase/storage', () => ({
   connectStorageEmulator: vi.fn(),
   ref: vi.fn(),
   uploadBytes: vi.fn(),
+  uploadBytesResumable: vi.fn(),
+  getBytes: vi.fn(),
   getDownloadURL: vi.fn(),
   deleteObject: vi.fn(),
 }))

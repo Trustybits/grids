@@ -7,7 +7,13 @@ export function valueToDate(value: unknown): Date | null {
   try {
     const maybe = value as { toDate?: () => Date };
     if (typeof maybe.toDate === "function") {
-      return maybe.toDate();
+      const d = maybe.toDate();
+      // Only trust the result if it's actually a valid Date. A Timestamp-like
+      // whose toDate() returns a non-Date or an invalid Date falls through to
+      // the checks below (and ultimately null) rather than leaking a bad value.
+      if (d instanceof Date && !Number.isNaN(d.getTime())) {
+        return d;
+      }
     }
   } catch {
     /* ignore */

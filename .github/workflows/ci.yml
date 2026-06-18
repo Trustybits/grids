@@ -241,3 +241,110 @@ jobs:
 
       - name: Run Vitest
         run: npm --workspace @grids/discord-bot run test
+
+  # ── Web Deps / Contracts: Type Check ────────────────────────────────────
+  contracts-type-check:
+    name: Contracts Type Check
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check contracts
+        run: npm --workspace @grids/contracts run type-check
+
+  # ── Web Deps / Contracts: Lint ──────────────────────────────────────────
+  contracts-lint:
+    name: Contracts Lint
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm --workspace @grids/contracts run lint
+
+  # ── Web Deps / Pro: Type Check ──────────────────────────────────────────
+  pro-type-check:
+    name: Pro Type Check
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Pro imports @grids/contracts via its built dist output
+      - name: Build web dependencies
+        run: npm run build:web-deps
+
+      - name: Type check pro
+        run: npm --workspace @grids/pro run type-check
+
+  # ── Web Deps / Pro: Lint ────────────────────────────────────────────────
+  pro-lint:
+    name: Pro Lint
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Pro imports @grids/contracts via its built dist output
+      - name: Build web dependencies
+        run: npm run build:web-deps
+
+      - name: Run ESLint
+        run: npm --workspace @grids/pro run lint
+
+  # ── Web Deps / Pro: Unit Tests ──────────────────────────────────────────
+  pro-test:
+    name: Pro Unit Tests
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump version to')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Pro imports @grids/contracts via its built dist output
+      - name: Build web dependencies
+        run: npm run build:web-deps
+
+      - name: Run Vitest
+        run: npm --workspace @grids/pro run test

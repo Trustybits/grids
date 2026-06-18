@@ -56,6 +56,14 @@ describe("normalizeHttpUrl", () => {
       "https://example.com/path"
     );
   });
+
+  it("treats the protocol check as case-sensitive (uppercase HTTP:// is not recognized)", () => {
+    // The guard matches lowercase "http://"/"https://" only, so an uppercase
+    // scheme is treated as a bare string and gets https:// prepended.
+    expect(normalizeHttpUrl("HTTP://example.com")).toBe(
+      "https://HTTP://example.com"
+    );
+  });
 });
 
 // ── fontSizeLabelToPx ───────────────────────────────────────────────────────

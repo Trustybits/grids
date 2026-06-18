@@ -42,11 +42,12 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
 
-          # 2. Lock and archive the thread out of the active view.
+          # 2. Archive the thread out of the active view but leave it unlocked so
+          #    the original poster can still reply if they need more help.
           curl -sS -X PATCH "$API/channels/$THREAD_ID" \
             -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"archived": true, "locked": true}'
+            -d '{"archived": true, "locked": false}'
 
   issue-reopened:
     if: github.event_name == 'issues' && github.event.action == 'reopened'

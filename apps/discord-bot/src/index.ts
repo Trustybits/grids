@@ -4,11 +4,12 @@ import {
   Events,
   GatewayIntentBits,
   type Message,
+  type ThreadChannel,
 } from "discord.js";
 import { loadConfig } from "./config.js";
 import { GitHubClient } from "./github.js";
 import { GitHubAppAuth } from "./githubAuth.js";
-import { decideAction, type ForumMessage } from "./sync.js";
+import { decideAction, shouldReopenGithubOnThreadUnarchive, type ForumMessage } from "./sync.js";
 
 const config = loadConfig();
 const githubAppAuth = new GitHubAppAuth({
@@ -71,6 +72,20 @@ async function handleMessage(message: Message): Promise<void> {
   console.log(`Mirrored Discord reply to issue #${issueNumber}`);
 }
 
+async function handleThreadUnarchive(thread: ThreadChannel): Promise<void> {
+  const issueNumber = await github.findIssueNumberByThreadId(thread.id);
+  if (issueNumber === null) {
+    console.log(
+      `No matching issue for unarchived Discord thread ${thread.id}; skipping reopen`,
+    );
+    return;
+  }
+  await github.reopenIssue(issueNumber);
+  console.log(
+    `Reopened issue #${issueNumber} after Discord thread ${thread.id} was unarchived`,
+  );
+}
+
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Discord bot logged in as ${readyClient.user.tag}`);
 });
@@ -78,6 +93,27 @@ client.once(Events.ClientReady, (readyClient) => {
 client.on(Events.MessageCreate, (message) => {
   void handleMessage(message).catch((error) => {
     console.error("Failed to process Discord message", error);
+  });
+});
+
+client.on(Events.ThreadUpdate, (oldThread, newThread) => {
+  if (!newThread.isThread()) return;
+
+  const wasArchived = oldThread.archived === true;
+  const isArchived = newThread.archived === true;
+  if (
+    !shouldReopenGithubOnThreadUnarchive(
+      newThread.parentId,
+      config.forumChannelId,
+      wasArchived,
+      isArchived,
+    )
+  ) {
+    return;
+  }
+
+  void handleThreadUnarchive(newThread).catch((error) => {
+    console.error("Failed to reopen GitHub issue for unarchived thread", error);
   });
 });
 

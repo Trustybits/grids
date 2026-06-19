@@ -16,10 +16,10 @@
   >
     <GridItem
       :i="tile.i"
-      :x="tile.x"
-      :y="tile.y"
-      :w="tile.w"
-      :h="tile.h"
+      :x="layout.x"
+      :y="layout.y"
+      :w="layout.w"
+      :h="layout.h"
       :style="tileStyle"
       :minW="1"
       :minH="1"
@@ -48,8 +48,8 @@
         :data-suggestion="isSuggestion ? 'true' : 'false'"
         :data-active-zone="hoveredToolbarZone || ''"
         :data-tile-type="tile.content.type"
-        :data-tile-w="tile.w"
-        :data-tile-h="tile.h"
+        :data-tile-w="layout.w"
+        :data-tile-h="layout.h"
         :style="{
           '--tile-resize-handle-color':
             hasCustomTileColor && contentTextColor
@@ -203,6 +203,7 @@ import {
 import { GridItem } from "vue3-grid-layout";
 import { type TileChildComponent } from "@/types/Tile";
 import { type Tile } from "@grids/contracts/types";
+import type { GridLayoutItem } from "@/types/GridLayout";
 import { useGridStore } from "@/stores/grid";
 import TileCaption from "@/components/tile/TileCaption.vue";
 import {
@@ -250,6 +251,10 @@ export default defineComponent({
       type: Object as () => Tile,
       required: true,
     },
+    layout: {
+      type: Object as () => GridLayoutItem,
+      required: true,
+    },
   },
   setup(props) {
     const gridStore = useGridStore();
@@ -260,21 +265,21 @@ export default defineComponent({
     // This is used for responsive content rendering (e.g. title line clamping).
     provide(
       "gridTileH",
-      computed(() => props.tile.h),
+      computed(() => props.layout.h),
     );
     provide(
       "gridTileW",
-      computed(() => props.tile.w),
+      computed(() => props.layout.w),
     );
     /*provide("tileId", computed(() => props.tile.i));*/
     provide("tileId", props.tile.i);
     provide(
       "tileX",
-      computed(() => props.tile.x),
+      computed(() => props.layout.x),
     );
     provide(
       "tileY",
-      computed(() => props.tile.y),
+      computed(() => props.layout.y),
     );
 
     const isTouchDevice = () =>
@@ -317,7 +322,7 @@ export default defineComponent({
     const showCaption = computed(() => {
       const def = getTileDefinition(props.tile.content.type);
       if (def && def.capabilities.caption === false) return false;
-      if (props.tile.w === 1) return false;
+      if (props.layout.w === 1) return false;
       return true;
     });
 
@@ -450,8 +455,8 @@ export default defineComponent({
       gridStore.beginResize();
       // Called during resize operation - snap to whole grid units for clean resizing
       // Only mutate the store's canonical tiles at the lg (default) breakpoint.
-      // At smaller breakpoints the displayLayout contains detached copies;
-      // vue3-grid-layout will mutate those in-place and the override system
+      // At smaller breakpoints vue3-grid-layout mutates position-only layout
+      // items in-place and the override system
       // snapshots them via displayPositions when the resize finishes.
       if (gridStore.activeBreakpoint !== "lg") return;
 
@@ -741,10 +746,10 @@ export default defineComponent({
     const compactMetadata = computed(() => {
       return [
         `type: ${props.tile.content.type}`,
-        `x: ${props.tile.x}`,
-        `y: ${props.tile.y}`,
-        `w: ${props.tile.w}`,
-        `h: ${props.tile.h}`,
+        `x: ${props.layout.x}`,
+        `y: ${props.layout.y}`,
+        `w: ${props.layout.w}`,
+        `h: ${props.layout.h}`,
         `id: ${props.tile.i}`,
       ].join(" | ");
     });

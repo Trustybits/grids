@@ -1,4 +1,3 @@
-<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <!-- @pointerdown.stop and @mousedown.stop prevent these events from
        reaching the tile-wrapper's startClick handler and interact.js's drag
@@ -27,7 +26,6 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable vue/no-mutating-props */
 import { ref, computed, nextTick } from "vue";
 import { useGridStore } from "@/stores/grid";
 
@@ -103,8 +101,6 @@ export default {
       if (storeTile) {
         storeTile.caption = text;
       }
-      // Also update the display copy so the UI reflects immediately
-      props.tile.caption = text;
       gridStore.updateGrid();
       editing.value = false;
     };

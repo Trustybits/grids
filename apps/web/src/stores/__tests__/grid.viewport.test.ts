@@ -168,7 +168,6 @@ describe("grid store viewport and breakpoint behavior", () => {
       "tile-1": { x: 1, y: 2, w: 3, h: 4 },
       "tile-2": { x: 4, y: 5, w: 2, h: 2 },
     });
-    expect(store.skipOverrideRebuild).toBe(true);
     expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
   });
 

@@ -415,7 +415,6 @@ describe("grid store history orchestration", () => {
     expect(store.currentGrid?.overrides?.md).toEqual({
       "tile-1": { x: 1, y: 2, w: 4, h: 5 },
     });
-    expect(store.skipOverrideRebuild).toBe(true);
     expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
   });
 

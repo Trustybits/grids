@@ -29,9 +29,8 @@ describe("TileCaption characterization", () => {
     vi.clearAllMocks();
   });
 
-  it("updates canonical and displayed captions and requests one save", async () => {
+  it("updates the canonical caption and requests one save", async () => {
     const canonicalTile = makeTile();
-    const displayedTile = makeTile();
     const store = reactive({
       canEdit: true,
       currentGrid: { tiles: [canonicalTile] },
@@ -42,7 +41,7 @@ describe("TileCaption characterization", () => {
       "@/components/tile/TileCaption.vue"
     );
     const wrapper = mount(TileCaption, {
-      props: { tile: displayedTile },
+      props: { tile: store.currentGrid.tiles[0] },
     });
 
     await wrapper.find(".tile-caption").trigger("click");
@@ -51,7 +50,6 @@ describe("TileCaption characterization", () => {
     await input.trigger("blur");
 
     expect(store.currentGrid.tiles[0]?.caption).toBe("New caption");
-    expect(displayedTile.caption).toBe("New caption");
     expect(store.updateGrid).toHaveBeenCalledTimes(1);
     expect(wrapper.find(".caption-text").text()).toBe("New caption");
   });
@@ -77,7 +75,6 @@ describe("TileCaption characterization", () => {
 
   it("abandons an edit if permission is lost before save", async () => {
     const canonicalTile = makeTile();
-    const displayedTile = makeTile();
     const store = reactive({
       canEdit: true,
       currentGrid: { tiles: [canonicalTile] },
@@ -88,7 +85,7 @@ describe("TileCaption characterization", () => {
       "@/components/tile/TileCaption.vue"
     );
     const wrapper = mount(TileCaption, {
-      props: { tile: displayedTile },
+      props: { tile: store.currentGrid.tiles[0] },
     });
 
     await wrapper.find(".tile-caption").trigger("click");
@@ -98,7 +95,6 @@ describe("TileCaption characterization", () => {
     await input.trigger("blur");
 
     expect(canonicalTile.caption).toBe("Old caption");
-    expect(displayedTile.caption).toBe("Old caption");
     expect(store.updateGrid).not.toHaveBeenCalled();
     expect(wrapper.find(".caption-input").exists()).toBe(false);
   });

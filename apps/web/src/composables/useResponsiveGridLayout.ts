@@ -4,7 +4,6 @@ import {
   onMounted,
   onUnmounted,
   ref,
-  shallowRef,
   toValue,
   watch,
   type CSSProperties,
@@ -126,7 +125,7 @@ export function useResponsiveGridLayout({
   const gridLayoutRef = ref<GridLayoutElement>(null);
   const scaleWrapperRef = ref<HTMLElement | null>(null);
   const naturalGridHeight = ref(0);
-  const renderedLayout = shallowRef<GridLayoutItem[]>([]);
+  const renderedLayout = ref<GridLayoutItem[]>([]);
   const layoutRevision = ref(0);
   const layoutReadyBreakpoint = ref<Breakpoint | null>(null);
   const layoutWaiters = new Map<

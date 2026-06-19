@@ -7,6 +7,7 @@ import {
   type LinkContent,
   type Tile,
 } from "@grids/contracts/types";
+import type { GridLayoutItem } from "@/types/GridLayout";
 
 const storeHolder = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
@@ -45,12 +46,14 @@ vi.mock("@/components/grid/Tile.vue", async () => {
       name: "GridTileStub",
       props: {
         tile: { type: Object, required: true },
+        layout: { type: Object, required: true },
       },
       setup(props) {
         return () =>
           h("div", {
             "data-test": "grid-tile",
             "data-tile-id": (props.tile as Tile).i,
+            "data-layout-x": (props.layout as GridLayoutItem).x,
           });
       },
     }),
@@ -95,16 +98,11 @@ function makeStore(grid = makeGrid()) {
     currentGrid: grid,
     forcedBreakpoint: null as "lg" | "md" | "sm" | null,
     undoRedoVersion: 0,
-    skipOverrideRebuild: false,
     canEdit: true,
     verticalCompact: true,
     setActiveBreakpoint: vi.fn(),
     setViewportBreakpoint: vi.fn(),
     setDisplayPositions: vi.fn(),
-    getBreakpointPositions: vi.fn(
-      (breakpoint: "lg" | "md" | "sm") =>
-        store.currentGrid.overrides?.[breakpoint],
-    ),
   });
   return store;
 }
@@ -149,7 +147,7 @@ describe("Grid canvas characterization", () => {
     wrapper.unmount();
   });
 
-  it("builds a detached non-desktop layout from saved overrides", async () => {
+  it("passes canonical tile data separately from non-desktop layout geometry", async () => {
     const canonicalTile = makeTile();
     const grid = makeGrid(canonicalTile);
     grid.overrides = {
@@ -167,18 +165,21 @@ describe("Grid canvas characterization", () => {
     const wrapper = mount(GridComponent);
     await flushPromises();
 
-    const renderedTile = wrapper
-      .findComponent({ name: "GridTileStub" })
-      .props("tile") as Tile;
+    const gridTile = wrapper.findComponent({ name: "GridTileStub" });
+    const renderedTile = gridTile.props("tile") as Tile;
+    const renderedLayout = gridTile.props("layout") as GridLayoutItem;
+
+    expect(renderedTile).toBe(store.currentGrid.tiles[0]);
     expect(renderedTile).toEqual(
-      expect.objectContaining({ x: 3, y: 4, w: 5, h: 6 }),
+      expect.objectContaining({ x: 0, y: 0, w: 2, h: 2 }),
     );
-    expect(renderedTile).not.toBe(canonicalTile);
+    expect(renderedLayout).toEqual({ i: "tile-1", x: 3, y: 4, w: 5, h: 6 });
+    expect(renderedLayout).not.toHaveProperty("content");
 
     wrapper.unmount();
   });
 
-  it("synchronizes asynchronously replaced content into a detached layout", async () => {
+  it("reads asynchronously replaced content directly from the canonical tile", async () => {
     const canonicalTile = makeTile();
     const grid = makeGrid(canonicalTile);
     grid.overrides = {
@@ -203,20 +204,22 @@ describe("Grid canvas characterization", () => {
     } as LinkContent;
     await nextTick();
 
-    const renderedTile = wrapper
-      .findComponent({ name: "GridTileStub" })
-      .props("tile") as Tile;
+    const gridTile = wrapper.findComponent({ name: "GridTileStub" });
+    const renderedTile = gridTile.props("tile") as Tile;
+    const renderedLayout = gridTile.props("layout") as GridLayoutItem;
     expect(renderedTile.content).toEqual(
       expect.objectContaining({
         metaTitle: "Fetched title",
         metaDescription: "Fetched description",
       }),
     );
+    expect(renderedLayout).toEqual({ i: "tile-1", x: 3, y: 4, w: 5, h: 6 });
+    expect(renderedLayout).not.toHaveProperty("content");
 
     wrapper.unmount();
   });
 
-  it("consumes override rebuild suppression without replacing rendered layout", async () => {
+  it("retains rendered layout identity when persisted overrides match it", async () => {
     const store = makeStore();
     store.forcedBreakpoint = "md";
     storeHolder.current = store;
@@ -227,9 +230,14 @@ describe("Grid canvas characterization", () => {
     await flushPromises();
     const before = wrapper
       .findComponent({ name: "GridLayoutStub" })
-      .props("layout") as Tile[];
+      .props("layout") as GridLayoutItem[];
 
-    store.skipOverrideRebuild = true;
+    before[0]!.x = 3;
+    before[0]!.y = 4;
+    before[0]!.w = 4;
+    before[0]!.h = 4;
+    await nextTick();
+
     store.currentGrid.overrides = {
       md: {
         "tile-1": { x: 3, y: 4, w: 4, h: 4 },
@@ -239,11 +247,10 @@ describe("Grid canvas characterization", () => {
 
     const after = wrapper
       .findComponent({ name: "GridLayoutStub" })
-      .props("layout") as Tile[];
-    expect(store.skipOverrideRebuild).toBe(false);
-    expect(after).toBe(before);
+      .props("layout") as GridLayoutItem[];
+    expect(after[0]).toBe(before[0]);
     expect(after[0]).toEqual(
-      expect.objectContaining({ x: 0, y: 0, w: 2, h: 2 }),
+      expect.objectContaining({ x: 3, y: 4, w: 4, h: 4 }),
     );
 
     wrapper.unmount();

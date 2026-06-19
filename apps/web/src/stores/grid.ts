@@ -105,10 +105,6 @@ export const useGridStore = defineStore("grid", {
     // When non-null, Grid.vue uses this breakpoint instead of the viewport-derived one.
     // Lets owners preview/edit at any breakpoint without resizing the browser window.
     forcedBreakpoint: null as Breakpoint | null,
-    // When true, Grid.vue should skip the next displayLayout rebuild triggered by
-    // overrides changing (because the change came from a drag/resize and positions
-    // are already correct in the stable ref).
-    skipOverrideRebuild: false,
     // Snapshot of tile positions as currently rendered by Grid.vue's displayLayout.
     // Updated by Grid.vue so that GridMenu can read accurate positions for breakpoint saves.
     displayPositions: [] as Array<{
@@ -1151,10 +1147,9 @@ export const useGridStore = defineStore("grid", {
         return;
       }
 
-      // At the lg (default) breakpoint, displayLayout may have been rebuilt as
-      // detached copies (e.g. after repacking out-of-bounds tiles). vue3-grid-grid
-      // mutates those copies in-place during drag/resize, so the store's canonical
-      // tiles can become stale. Sync the rendered positions back before saving.
+      // The responsive canvas owns position-only layout items that
+      // vue3-grid-layout mutates during drag/resize. Sync those rendered
+      // positions into the canonical desktop tiles before saving.
       if (
         this.activeBreakpoint === "lg" &&
         this.currentGrid &&
@@ -1234,8 +1229,6 @@ export const useGridStore = defineStore("grid", {
         positions[pos.i] = { x: pos.x, y: pos.y, w: pos.w, h: pos.h };
       }
       this.currentGrid.overrides[bp] = positions;
-      // Tell Grid.vue not to rebuild displayLayout — positions are already correct
-      this.skipOverrideRebuild = true;
       this.updateGrid();
     },
 

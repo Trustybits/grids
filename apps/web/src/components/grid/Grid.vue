@@ -22,20 +22,28 @@
       :margin="[margin, margin]"
       :style="gridInnerStyle"
     >
-      <GridTile v-for="tile in displayLayout" :key="tile.i" :tile="tile" />
+      <GridTile
+        v-for="entry in renderedTiles"
+        :key="entry.tile.i"
+        :tile="entry.tile"
+        :layout="entry.layout"
+      />
     </GridLayout>
   </div>
   <p v-else class="empty-grid-message">No tiles yet</p>
 </template>
 
 <script lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, watch } from "vue";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
 import GridTile from "./Tile.vue";
 import { useResponsiveGridLayout } from "@/composables/useResponsiveGridLayout";
 import { useGridStore } from "@/stores/grid";
-import { type Tile } from "@grids/contracts/types";
+import {
+  packGridLayout,
+  reconcileGridLayout,
+} from "@/utils/GridLayoutUtils";
 
 export default {
   components: {
@@ -65,101 +73,9 @@ export default {
       return gridStore.currentGrid?.colNum ?? 12;
     });
 
-    const hasOverlap = (
-      placed: Tile[],
-      x: number,
-      y: number,
-      w: number,
-      h: number,
-    ) => {
-      return placed.some((tile) => {
-        return !(
-          x + w <= tile.x ||
-          x >= tile.x + tile.w ||
-          y + h <= tile.y ||
-          y >= tile.y + tile.h
-        );
-      });
-    };
-
-    const findFirstAvailableSpot = (
-      placed: Tile[],
-      width: number,
-      height: number,
-      columns: number,
-      startY = 0,
-    ) => {
-      let y = Math.max(0, startY);
-      while (true) {
-        for (let x = 0; x <= columns - width; x += 1) {
-          if (!hasOverlap(placed, x, y, width, height)) {
-            return { x, y };
-          }
-        }
-        y += 1;
-      }
-    };
-
-    const scaleTileToFit = (tile: Tile, columns: number) => {
-      if (tile.w <= columns) {
-        return { ...tile };
-      }
-
-      const scale = columns / tile.w;
-      return {
-        ...tile,
-        w: columns,
-        h: Math.max(1, Math.round(tile.h * scale)),
-      };
-    };
-
-    const packTiles = (tiles: Tile[], columns: number) => {
-      const ordered = [...tiles].sort((a, b) => {
-        if (a.y !== b.y) return a.y - b.y;
-        if (a.x !== b.x) return a.x - b.x;
-        return String(a.i).localeCompare(String(b.i));
-      });
-      const placed: Tile[] = [];
-
-      ordered.forEach((tile) => {
-        // Scale down tiles that are too wide for the grid
-        const scaledTile =
-          tile.w > columns ? scaleTileToFit(tile, columns) : tile;
-
-        const withinBounds =
-          scaledTile.x >= 0 && scaledTile.x + scaledTile.w <= columns;
-        const canKeep =
-          withinBounds &&
-          !hasOverlap(
-            placed,
-            scaledTile.x,
-            scaledTile.y,
-            scaledTile.w,
-            scaledTile.h,
-          );
-
-        if (canKeep) {
-          placed.push({ ...scaledTile });
-          return;
-        }
-
-        const startY = withinBounds ? scaledTile.y : 0;
-        const spot = findFirstAvailableSpot(
-          placed,
-          scaledTile.w,
-          scaledTile.h,
-          columns,
-          startY,
-        );
-        placed.push({ ...scaledTile, x: spot.x, y: spot.y });
-      });
-
-      const placedById = new Map(placed.map((tile) => [tile.i, tile]));
-      return tiles.map((tile) => placedById.get(tile.i) ?? tile);
-    };
-
     const {
       activeBreakpoint,
+      renderedLayout: displayLayout,
       gridInnerStyle,
       gridLayoutRef,
       gridWidth,
@@ -180,155 +96,15 @@ export default {
       },
     });
 
-    // Stable ref that vue3-grid-layout can mutate in-place.
-    // At lg we hand it the store's own reactive array (mutations persist naturally).
-    // At smaller breakpoints we build a one-time array and only rebuild when the
-    // underlying data (tile list, breakpoint, or overrides) actually changes.
-    const displayLayout = ref<Tile[]>([]);
-
-    const buildBreakpointLayout = (): Tile[] => {
-      const tiles = gridStore.currentGrid?.tiles ?? [];
-      const bp = activeBreakpoint.value;
-      const cols = responsiveColNum.value;
-
-      if (bp === "lg") {
-        // Validate that all tiles fit within bounds and don't have invalid positions
-        const needsRepacking = tiles.some(
-          (tile) => tile.w > cols || tile.x < 0 || tile.x + tile.w > cols,
-        );
-
-        if (needsRepacking) {
-          // Repack tiles to fix any out-of-bounds issues
-          return packTiles(tiles, cols);
-        }
-
-        return [...tiles];
-      }
-
-      const overrides = gridStore.getBreakpointPositions(bp);
-      if (overrides && Object.keys(overrides).length > 0) {
-        const customized: Tile[] = [];
-        const unplaced: Tile[] = [];
-
-        for (const tile of tiles) {
-          const pos = overrides[tile.i];
-          if (pos) {
-            customized.push({ ...tile, ...pos });
-          } else {
-            unplaced.push(scaleTileToFit(tile, cols));
-          }
-        }
-
-        const finalLayout = [...customized];
-        for (const tile of unplaced) {
-          const spot = findFirstAvailableSpot(
-            finalLayout,
-            tile.w,
-            tile.h,
-            cols,
-          );
-          finalLayout.push({ ...tile, x: spot.x, y: spot.y });
-        }
-
-        return finalLayout;
-      }
-
-      // No saved overrides — auto-repack (current behavior)
-      const resizedTiles = tiles.map((tile) => scaleTileToFit(tile, cols));
-
-      return packTiles(resizedTiles, cols);
-    };
-
-    // Rebuild when breakpoint, tile count, or overrides change.
-    // Using a deep-ish watch key so we don't rebuild on every in-place mutation.
-    // Note: verticalCompact is NOT watched here - gravity changes are handled separately
-    watch(
-      [
-        activeBreakpoint,
-        () => gridStore.undoRedoVersion,
-        () => gridStore.currentGrid?.tiles?.length,
-        () => gridStore.currentGrid?.tiles?.map((t) => t.i).join(","),
-        () =>
-          gridStore.currentGrid?.tiles
-            ?.map((t) => `${t.i}:${t.w}x${t.h}`)
-            .join(","),
-        () =>
-          gridStore.currentGrid?.tiles
-            ?.map((t) => `${t.i}:${t.borderEnabled !== false}`)
-            .join(","),
-        () => JSON.stringify(gridStore.currentGrid?.overrides),
-        () =>
-          gridStore.currentGrid?.tiles
-            ?.map((t) => {
-              const c = t.content as Record<string, unknown>;
-              const thumbs = c.thumbnails as Record<string, Record<string, unknown>> | undefined;
-              return `${t.i}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${thumbs?.default?.url ?? ""}`;
-            })
-            .join("|"),
-      ],
-      () => {
-        if (gridStore.skipOverrideRebuild) {
-          gridStore.skipOverrideRebuild = false;
-          return;
-        }
-        displayLayout.value = buildBreakpointLayout();
-      },
-      { immediate: true },
-    );
-
-    // At non-lg breakpoints, buildBreakpointLayout returns copied tile objects.
-    // When setTileContent mutates a store tile, the copy in displayLayout is stale.
-    // This watcher detects content-type changes on store tiles and syncs the
-    // corresponding displayLayout copy in-place so GridTile sees the update
-    // without a full remount of all tiles.
-    watch(
-      () =>
-        gridStore.currentGrid?.tiles?.map((t) => t.content.type).join(","),
-      () => {
-        const storeTiles = gridStore.currentGrid?.tiles;
-        if (!storeTiles) return;
-        for (const storeTile of storeTiles) {
-          const displayTile = displayLayout.value.find(
-            (t) => t.i === storeTile.i,
-          );
-          if (displayTile && displayTile.content !== storeTile.content) {
-            displayTile.content = storeTile.content;
-            displayTile.w = storeTile.w;
-            displayTile.h = storeTile.h;
-            displayTile.x = storeTile.x;
-            displayTile.y = storeTile.y;
-          }
-        }
-      },
-    );
-
-    // Sync async-fetched content fields and tile colors to displayLayout copies at non-lg breakpoints.
-    // Examples: music trackName/albumArt, YouTube title/thumbnails,
-    // link metaTitle/metaDescription/metaImageUrl, and backgroundColor.
-    // patchTileContent replaces these fields without changing content.type, so the type watcher
-    // above doesn't catch them.
-    watch(
-      () =>
-        gridStore.currentGrid?.tiles
-          ?.map((t) => {
-            const c = t.content as Record<string, unknown>;
-            const thumbs = c.thumbnails as Record<string, Record<string, unknown>> | undefined;
-            return `${t.i}:${c.backgroundColor ?? ""}:${c.trackName ?? ""}:${c.albumArt ?? ""}:${c.title ?? ""}:${thumbs?.default?.url ?? ""}:${c.metaTitle ?? ""}:${c.metaDescription ?? ""}:${c.metaImageUrl ?? ""}:${c.metaSiteName ?? ""}:${c.faviconUrl ?? ""}:${c.domain ?? ""}`;
-          })
-          .join("|"),
-      () => {
-        const storeTiles = gridStore.currentGrid?.tiles;
-        if (!storeTiles) return;
-        for (const storeTile of storeTiles) {
-          const displayTile = displayLayout.value.find(
-            (t) => t.i === storeTile.i,
-          );
-          if (displayTile && displayTile.content !== storeTile.content) {
-            displayTile.content = storeTile.content;
-          }
-        }
-      },
-    );
+    const renderedTiles = computed(() => {
+      const tilesById = new Map(
+        (gridStore.currentGrid?.tiles ?? []).map((tile) => [tile.i, tile]),
+      );
+      return displayLayout.value.flatMap((layout) => {
+        const tile = tilesById.get(layout.i);
+        return tile ? [{ tile, layout }] : [];
+      });
+    });
 
     // Publish rendered tile positions so GridMenu and updateBreakpointOverride
     // can snapshot them. Deep watch is needed because vue3-grid-layout mutates
@@ -357,7 +133,10 @@ export default {
         // Only act when gravity is turned ON (false -> true)
         if (isCompact && !wasCompact) {
           const tiles = gridStore.currentGrid.tiles;
-          const compacted = packTiles([...tiles], responsiveColNum.value);
+          const compacted = packGridLayout(
+            displayLayout.value,
+            responsiveColNum.value,
+          );
 
           // Update each tile's position in the store's tiles array
           compacted.forEach((compactedTile) => {
@@ -368,9 +147,10 @@ export default {
             }
           });
 
-          // Force displayLayout to update by creating a new array reference
-          // This triggers the animation while maintaining the store connection
-          displayLayout.value = [...tiles];
+          displayLayout.value = reconcileGridLayout(
+            displayLayout.value,
+            compacted,
+          );
 
           // Save to database
           gridStore.updateGrid();
@@ -383,6 +163,7 @@ export default {
       gridWidth,
       margin,
       displayLayout,
+      renderedTiles,
       responsiveColNum,
       activeBreakpoint,
       isEditable,

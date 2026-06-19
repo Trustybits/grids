@@ -83,7 +83,7 @@ describe("StubbedUpvoteDao.subscribeToUserUpvotes", () => {
     await dao.toggleUpvote(GRID, TILE, PAGE);
     await flushMicrotasks();
 
-    const delivered = callback.mock.calls.at(-1)?.[0];
+    const delivered = callback.mock.calls[callback.mock.calls.length - 1]?.[0];
     expect([...delivered]).toEqual([PAGE]);
   });
 

@@ -125,7 +125,7 @@ describe("StubbedChatDao.subscribeToMessages", () => {
     await dao.addMessage(GRID, TILE, message({ text: "live" }));
     await flushMicrotasks();
 
-    const lastCall = callback.mock.calls.at(-1)?.[0];
+    const lastCall = callback.mock.calls[callback.mock.calls.length - 1]?.[0];
     expect(lastCall.map((m: { text: string }) => m.text)).toEqual(["live"]);
   });
 

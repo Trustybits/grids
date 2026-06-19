@@ -363,7 +363,7 @@ describe("viewer fingerprint", () => {
   });
 
   it("falls back to a generated id when localStorage throws", () => {
-    const setItemSpy = vi
+    const getItemSpy = vi
       .spyOn(Storage.prototype, "getItem")
       .mockImplementation(() => {
         throw new Error("localStorage disabled");
@@ -376,7 +376,7 @@ describe("viewer fingerprint", () => {
 
     const view = lastEventOfType(AnalyticsEventType.GRID_VIEW);
     expect(view.metadata.viewerFingerprint).toMatch(/^uuid-/);
-    setItemSpy.mockRestore();
+    getItemSpy.mockRestore();
   });
 });
 

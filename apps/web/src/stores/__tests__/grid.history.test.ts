@@ -24,6 +24,7 @@ function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     backgroundImageSrc: "",
     backgroundEmbed: false,
     backgroundColor: "",
+    ogImageSrc: "",
     forcedBreakpoint: "lg",
     actionLabel: "Snapshot",
     ...overrides,
@@ -72,6 +73,7 @@ describe("grid store history orchestration", () => {
       backgroundImageSrc: "background",
       backgroundEmbed: true,
       backgroundColor: "#123456",
+      ogImageSrc: "https://cdn/og.png",
     });
     const store = await createLoadedGridStore(grid);
     store.forcedBreakpoint = "md";
@@ -104,6 +106,7 @@ describe("grid store history orchestration", () => {
       backgroundImageSrc: "background",
       backgroundEmbed: true,
       backgroundColor: "#123456",
+      ogImageSrc: "https://cdn/og.png",
       forcedBreakpoint: "md",
       actionLabel: "Before change",
     });
@@ -169,6 +172,7 @@ describe("grid store history orchestration", () => {
         backgroundImageSrc: "restored-background",
         backgroundEmbed: true,
         backgroundColor: "#abcdef",
+        ogImageSrc: "restored-og-image",
         forcedBreakpoint: "lg",
       }),
     );
@@ -186,6 +190,7 @@ describe("grid store history orchestration", () => {
         backgroundImageSrc: "restored-background",
         backgroundEmbed: true,
         backgroundColor: "#abcdef",
+        ogImageSrc: "restored-og-image",
       }),
     );
     expect(gridHarness.themeStore.setTheme).toHaveBeenCalledWith("theme-b");
@@ -278,6 +283,29 @@ describe("grid store history orchestration", () => {
     expect(store.currentGrid?.tiles[0]?.caption).toBe("After");
     expect(store.canUndo).toBe(true);
     expect(store.canRedo).toBe(false);
+    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(2);
+  });
+
+  it("restores the custom OG image through undo and redo", async () => {
+    const store = await createLoadedGridStore(
+      makeGrid({ ogImageSrc: "https://cdn.example/before.png" }),
+    );
+    store.forcedBreakpoint = "lg";
+    store.pushUndoSnapshot("Change social share image");
+    store.currentGrid!.ogImageSrc = "https://cdn.example/after.png";
+    gridHarness.gridService.queueSave.mockClear();
+
+    await store.undo();
+
+    expect(store.currentGrid?.ogImageSrc).toBe(
+      "https://cdn.example/before.png",
+    );
+
+    await store.redo();
+
+    expect(store.currentGrid?.ogImageSrc).toBe(
+      "https://cdn.example/after.png",
+    );
     expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(2);
   });
 

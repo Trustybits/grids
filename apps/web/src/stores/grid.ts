@@ -22,6 +22,7 @@ import {
 } from "@/utils/GridPlacementUtils";
 import { useToastStore } from "@/stores/toast";
 import { useThemeStore } from "@/stores/theme";
+import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
 import { UndoRedoManager } from "@/undo/UndoRedoManager";
 import type { Snapshot } from "@/undo/UndoTypes";
 import { AnalyticsEventType } from "@grids/contracts/types";
@@ -59,43 +60,7 @@ let pendingResizeSnapshot: Snapshot | null = null;
 let lastStableSnapshot: Snapshot | null = null;
 let pendingEditSnapshot: Snapshot | null = null;
 let editingTileId: string | null = null;
-
-function patchSnapshotBlobUrl(
-  snapshot: Snapshot | null,
-  tileId: string,
-  permanentUrl: string,
-): void {
-  if (!snapshot) return;
-  const tile = snapshot.tiles.find((t) => t.i === tileId);
-  if (
-    tile &&
-    "src" in tile.content &&
-    typeof (tile.content as { src: string }).src === "string" &&
-    (tile.content as { src: string }).src.startsWith("blob:")
-  ) {
-    (tile.content as { src: string }).src = permanentUrl;
-  }
-}
-
-function patchSnapshotDocumentItemUrl(
-  snapshot: Snapshot | null,
-  tileId: string,
-  itemId: string,
-  permanentUrl: string,
-): void {
-  if (!snapshot) return;
-  const tile = snapshot.tiles.find((t) => t.i === tileId);
-  if (!tile || tile.content.type !== ContentType.DOCUMENT) return;
-  const doc = tile.content as DocumentsContent;
-  const item = doc.items?.find((i) => i.id === itemId);
-  if (
-    item &&
-    typeof item.url === "string" &&
-    item.url.startsWith("blob:")
-  ) {
-    item.url = permanentUrl;
-  }
-}
+const snapshotCodec = new GridSnapshotCodec();
 
 export const useGridStore = defineStore("grid", {
   state: () => ({
@@ -268,51 +233,13 @@ export const useGridStore = defineStore("grid", {
 
     captureSnapshot(actionLabel: string): Snapshot | null {
       if (!this.currentGrid) return null;
-      const tiles: Tile[] = JSON.parse(
-        JSON.stringify(this.currentGrid.tiles),
-      );
-      for (const tile of tiles) {
-        if (
-          "src" in tile.content &&
-          typeof (tile.content as { src: string }).src === "string" &&
-          (tile.content as { src: string }).src.startsWith("blob:")
-        ) {
-          const resolved = this.resolvedUrls[tile.i];
-          if (resolved) {
-            (tile.content as { src: string }).src = resolved;
-          }
-        }
-        if (tile.content.type === ContentType.DOCUMENT) {
-          const doc = tile.content as DocumentsContent;
-          const map = this.resolvedDocumentItemUrls[tile.i];
-          if (map && doc.items?.length) {
-            for (const item of doc.items) {
-              if (
-                typeof item.url === "string" &&
-                item.url.startsWith("blob:")
-              ) {
-                const resolvedUrl = map[item.id];
-                if (resolvedUrl) {
-                  item.url = resolvedUrl;
-                }
-              }
-            }
-          }
-        }
-      }
-      return {
-        tiles,
-        overrides: JSON.parse(
-          JSON.stringify(this.currentGrid.overrides ?? {}),
-        ),
-        verticalCompact: this.currentGrid.verticalCompact,
-        themeId: this.currentGrid.themeId ?? "",
-        backgroundImageSrc: this.currentGrid.backgroundImageSrc,
-        backgroundEmbed: this.currentGrid.backgroundEmbed,
-        backgroundColor: this.currentGrid.backgroundColor || "",
-        forcedBreakpoint: this.forcedBreakpoint ?? this.activeBreakpoint,
+      return snapshotCodec.capture({
+        grid: this.currentGrid,
+        breakpoint: this.forcedBreakpoint ?? this.activeBreakpoint,
         actionLabel,
-      };
+        resolvedUrls: this.resolvedUrls,
+        resolvedDocumentItemUrls: this.resolvedDocumentItemUrls,
+      });
     },
 
     refreshStableSnapshot() {
@@ -372,15 +299,10 @@ export const useGridStore = defineStore("grid", {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
-      this.currentGrid.tiles = snapshot.tiles;
-      this.currentGrid.overrides = snapshot.overrides;
-      this.currentGrid.verticalCompact = snapshot.verticalCompact;
-      this.currentGrid.backgroundImageSrc = snapshot.backgroundImageSrc;
-      this.currentGrid.backgroundEmbed = snapshot.backgroundEmbed;
-      this.currentGrid.backgroundColor = snapshot.backgroundColor;
+      const themeChanged = this.currentGrid.themeId !== snapshot.themeId;
+      snapshotCodec.apply(this.currentGrid, snapshot);
 
-      if (this.currentGrid.themeId !== snapshot.themeId) {
-        this.currentGrid.themeId = snapshot.themeId;
+      if (themeChanged) {
         const themeStore = useThemeStore();
         themeStore.setTheme(snapshot.themeId);
       }
@@ -400,13 +322,12 @@ export const useGridStore = defineStore("grid", {
     commitEditing() {
       if (pendingEditSnapshot && undoRedoManager) {
         const current = this.captureSnapshot("");
-        if (current) {
-          const { actionLabel: _, ...pendingData } = pendingEditSnapshot;
-          const { actionLabel: _2, ...currentData } = current;
-          if (JSON.stringify(pendingData) !== JSON.stringify(currentData)) {
-            undoRedoManager.pushSnapshot(pendingEditSnapshot);
-            this.refreshStableSnapshot();
-          }
+        if (
+          current &&
+          !snapshotCodec.equals(pendingEditSnapshot, current)
+        ) {
+          undoRedoManager.pushSnapshot(pendingEditSnapshot);
+          this.refreshStableSnapshot();
         }
       }
       pendingEditSnapshot = null;
@@ -481,10 +402,10 @@ export const useGridStore = defineStore("grid", {
     setResolvedUrl(tileId: string, url: string) {
       this.resolvedUrls[tileId] = url;
       undoRedoManager?.replaceBlobUrl(tileId, url);
-      patchSnapshotBlobUrl(lastStableSnapshot, tileId, url);
-      patchSnapshotBlobUrl(pendingEditSnapshot, tileId, url);
-      patchSnapshotBlobUrl(pendingDragSnapshot, tileId, url);
-      patchSnapshotBlobUrl(pendingResizeSnapshot, tileId, url);
+      snapshotCodec.replaceBlobUrl(lastStableSnapshot, tileId, url);
+      snapshotCodec.replaceBlobUrl(pendingEditSnapshot, tileId, url);
+      snapshotCodec.replaceBlobUrl(pendingDragSnapshot, tileId, url);
+      snapshotCodec.replaceBlobUrl(pendingResizeSnapshot, tileId, url);
     },
 
     setResolvedDocumentItemUrl(tileId: string, itemId: string, url: string) {
@@ -493,10 +414,30 @@ export const useGridStore = defineStore("grid", {
       }
       this.resolvedDocumentItemUrls[tileId][itemId] = url;
       undoRedoManager?.replaceBlobUrl(tileId, url, itemId);
-      patchSnapshotDocumentItemUrl(lastStableSnapshot, tileId, itemId, url);
-      patchSnapshotDocumentItemUrl(pendingEditSnapshot, tileId, itemId, url);
-      patchSnapshotDocumentItemUrl(pendingDragSnapshot, tileId, itemId, url);
-      patchSnapshotDocumentItemUrl(pendingResizeSnapshot, tileId, itemId, url);
+      snapshotCodec.replaceBlobUrl(
+        lastStableSnapshot,
+        tileId,
+        url,
+        itemId,
+      );
+      snapshotCodec.replaceBlobUrl(
+        pendingEditSnapshot,
+        tileId,
+        url,
+        itemId,
+      );
+      snapshotCodec.replaceBlobUrl(
+        pendingDragSnapshot,
+        tileId,
+        url,
+        itemId,
+      );
+      snapshotCodec.replaceBlobUrl(
+        pendingResizeSnapshot,
+        tileId,
+        url,
+        itemId,
+      );
     },
 
     // Retrieve the resolved storage URL for a tile, if one exists

@@ -306,6 +306,22 @@ describe("projectGridLayout", () => {
     ]);
   });
 
+  it("automatically scales and packs a tablet layout without overrides", () => {
+    expect(
+      projectGridLayout({
+        tiles: [
+          tile("a", 0, 0, 10, 5),
+          tile("b", 0, 0, 3, 2),
+        ],
+        breakpoint: "md",
+        columns: 8,
+      }),
+    ).toEqual([
+      layoutItem("a", 0, 0, 8, 4),
+      layoutItem("b", 0, 4, 3, 2),
+    ]);
+  });
+
   it("does not mutate canonical tiles or overrides", () => {
     const tiles = [tile("a", 0, 0, 8, 4)];
     const overrides = {

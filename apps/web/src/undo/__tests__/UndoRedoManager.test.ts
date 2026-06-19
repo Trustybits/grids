@@ -77,6 +77,7 @@ const exampleSnapshot: Snapshot = {
   backgroundImageSrc: "",
   backgroundEmbed: false,
   backgroundColor: "",
+  ogImageSrc: "",
   forcedBreakpoint: "lg",
   actionLabel: "Toggle gravity",
 };

@@ -29,12 +29,13 @@
 </template>
 
 <script lang="ts">
-import { computed, onMounted, onUnmounted, ref, nextTick, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
 import GridTile from "./Tile.vue";
+import { useResponsiveGridLayout } from "@/composables/useResponsiveGridLayout";
 import { useGridStore } from "@/stores/grid";
-import { type Tile, type Breakpoint } from "@grids/contracts/types";
+import { type Tile } from "@grids/contracts/types";
 
 export default {
   components: {
@@ -59,13 +60,6 @@ export default {
   setup(props) {
     const gridStore = useGridStore();
     const margin = 48;
-    const viewportWidth = ref(
-      typeof window !== "undefined" ? window.innerWidth : 0,
-    );
-
-    const onResize = () => {
-      viewportWidth.value = window.innerWidth;
-    };
 
     const baseColNum = computed(() => {
       return gridStore.currentGrid?.colNum ?? 12;
@@ -164,63 +158,27 @@ export default {
       return tiles.map((tile) => placedById.get(tile.i) ?? tile);
     };
 
-    // Map breakpoint names to their column counts
-    const breakpointToColNum = (bp: Breakpoint): number => {
-      if (bp === "sm") return Math.min(4, baseColNum.value);
-      if (bp === "md") return Math.min(8, baseColNum.value);
-      return Math.min(12, baseColNum.value);
-    };
-
-    // Viewport-derived column count (used when no forced breakpoint is active)
-    const viewportColNum = computed(() => {
-      const candidates = [12, 8, 4].filter(
-        (columns) => columns <= baseColNum.value,
-      );
-      const fits = (columns: number) => {
-        return (
-          columns * props.rowHeight + (columns + 1) * margin <=
-          viewportWidth.value
-        );
-      };
-
-      return candidates.find(fits) ?? Math.min(4, baseColNum.value);
-    });
-
-    // When forcedBreakpoint is set by the owner, use its column count;
-    // otherwise fall back to the viewport-derived value.
-    const responsiveColNum = computed(() => {
-      const forced = gridStore.forcedBreakpoint;
-      if (forced) return breakpointToColNum(forced);
-      return viewportColNum.value;
-    });
-
-    const colNumToBreakpoint = (cols: number): Breakpoint => {
-      if (cols <= 4) return "sm";
-      if (cols <= 8) return "md";
-      return "lg";
-    };
-
-    // The breakpoint the viewport naturally supports (ignoring any forced override).
-    // Used to determine whether a forced breakpoint requires scaling / view-only mode.
-    const viewportBreakpoint = computed<Breakpoint>(() => {
-      return colNumToBreakpoint(viewportColNum.value);
-    });
-
-    const activeBreakpoint = computed<Breakpoint>(() => {
-      // Forced breakpoint takes priority over viewport detection
-      if (gridStore.forcedBreakpoint) return gridStore.forcedBreakpoint;
-      return viewportBreakpoint.value;
-    });
-
-    // Keep the store in sync so other components can read both breakpoints
-    watch(
-      [activeBreakpoint, viewportBreakpoint],
-      ([active, viewport]) => {
+    const {
+      activeBreakpoint,
+      gridInnerStyle,
+      gridLayoutRef,
+      gridWidth,
+      responsiveColumnCount: responsiveColNum,
+      scaleWrapperRef,
+      scaleWrapperStyle,
+    } = useResponsiveGridLayout({
+      baseColumnCount: baseColNum,
+      forcedBreakpoint: () => gridStore.forcedBreakpoint,
+      tiles: () => gridStore.currentGrid?.tiles ?? [],
+      overrides: () => gridStore.currentGrid?.overrides,
+      rowHeight: () => props.rowHeight,
+      margin,
+      disableAutoScale: () => props.disableAutoScale,
+      onBreakpointsChanged: (active, viewport) => {
         gridStore.setActiveBreakpoint(active);
         gridStore.setViewportBreakpoint(viewport);
       },
-      { immediate: true },
-    );
+    });
 
     // Stable ref that vue3-grid-layout can mutate in-place.
     // At lg we hand it the store's own reactive array (mutations persist naturally).
@@ -389,81 +347,6 @@ export default {
     // whether grid manipulation (drag/resize) is allowed right now.
     const isEditable = computed(() => gridStore.canEdit);
 
-    const gridWidth = computed(() => {
-      return (
-        responsiveColNum.value * props.rowHeight +
-        (responsiveColNum.value + 1) * margin
-      );
-    });
-
-    const mobileScale = computed(() => {
-      if (props.disableAutoScale) return 1;
-      if (viewportWidth.value >= gridWidth.value) return 1;
-      return viewportWidth.value / gridWidth.value;
-    });
-
-    // grid-layout is a Vue component, so its ref may be a component instance (with $el)
-    // rather than a plain HTMLElement. We use a loose type to accommodate both cases.
-    const gridLayoutRef = ref<{ $el: HTMLElement } | HTMLElement | null>(null);
-    const scaleWrapperRef = ref<HTMLElement | null>(null);
-    const naturalGridHeight = ref(0);
-
-    let resizeObserver: ResizeObserver | null = null;
-
-    const observeGridHeight = () => {
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-        resizeObserver = null;
-      }
-      // If the ref is a Vue component instance, access its root DOM element via $el;
-      // otherwise it's already a plain HTMLElement (e.g. in test environments).
-      const raw = gridLayoutRef.value;
-      const el = raw && "$el" in raw ? raw.$el : raw;
-      if (!el) return;
-      resizeObserver = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          naturalGridHeight.value = entry.contentRect.height;
-        }
-      });
-      resizeObserver.observe(el);
-      naturalGridHeight.value = el.getBoundingClientRect().height;
-    };
-
-    const scaleWrapperStyle = computed(() => {
-      const scale = mobileScale.value;
-      if (scale >= 1) return {};
-      const scaledHeight =
-        naturalGridHeight.value > 0
-          ? naturalGridHeight.value * scale
-          : undefined;
-      return {
-        width: `${viewportWidth.value}px`,
-        overflow: "hidden",
-        ...(scaledHeight !== undefined ? { height: `${scaledHeight}px` } : {}),
-      };
-    });
-
-    const gridInnerStyle = computed(() => {
-      const scale = mobileScale.value;
-      const base = { width: `${gridWidth.value}px` };
-      if (scale >= 1) return base;
-      return {
-        ...base,
-        transformOrigin: "top left",
-        transform: `scale(${scale})`,
-      };
-    });
-
-    onMounted(() => {
-      onResize();
-      window.addEventListener("resize", onResize);
-      nextTick(() => observeGridHeight());
-    });
-
-    watch(displayLayout, () => {
-      nextTick(() => observeGridHeight());
-    });
-
     // When gravity is toggled on, compact tiles and save positions to store
     watch(
       () => gridStore.verticalCompact,
@@ -494,14 +377,6 @@ export default {
         }
       },
     );
-
-    onUnmounted(() => {
-      window.removeEventListener("resize", onResize);
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-        resizeObserver = null;
-      }
-    });
 
     return {
       gridStore,

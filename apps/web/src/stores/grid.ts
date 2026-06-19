@@ -22,6 +22,7 @@ import {
 } from "@/utils/GridPlacementUtils";
 import { useToastStore } from "@/stores/toast";
 import { useThemeStore } from "@/stores/theme";
+import { measureViewportGridRow } from "@/composables/useResponsiveGridLayout";
 import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
 import { UndoRedoManager } from "@/undo/UndoRedoManager";
 import type { Snapshot } from "@/undo/UndoTypes";
@@ -918,22 +919,7 @@ export const useGridStore = defineStore("grid", {
      * Returns 0 if the grid element can't be found (safe fallback to old behaviour).
      */
     getViewportGridY(): number {
-      const ROW_HEIGHT = 75;
-      const MARGIN = 48;
-      const CELL_HEIGHT = ROW_HEIGHT + MARGIN; // 123px per grid unit
-
-      const gridEl = document.querySelector<HTMLElement>(".vue-grid-grid");
-      if (!gridEl) return 0;
-
-      // getBoundingClientRect().top is viewport-relative, so it already
-      // accounts for how far the user has scrolled.
-      const gridRect = gridEl.getBoundingClientRect();
-      const viewportCenterY = window.innerHeight / 2;
-      const pixelsIntoGrid = viewportCenterY - gridRect.top;
-
-      // Convert pixel offset into grid row units (first row starts at MARGIN px)
-      const gridY = Math.floor((pixelsIntoGrid - MARGIN) / CELL_HEIGHT);
-      return Math.max(0, gridY);
+      return measureViewportGridRow();
     },
 
     // Duplicate a tile — deep-copies content, preserves size, places nearby

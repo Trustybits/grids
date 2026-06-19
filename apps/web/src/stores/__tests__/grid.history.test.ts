@@ -159,23 +159,23 @@ describe("grid store history orchestration", () => {
       } as TextContent,
     });
 
-    await store.applySnapshot(
-      makeSnapshot({
-        tiles: [replacementTile],
-        overrides: {
-          md: {
-            "tile-1": { x: 1, y: 1, w: 3, h: 3 },
-          },
+    const snapshot = makeSnapshot({
+      tiles: [replacementTile],
+      overrides: {
+        md: {
+          "tile-1": { x: 1, y: 1, w: 3, h: 3 },
         },
-        verticalCompact: false,
-        themeId: "theme-b",
-        backgroundImageSrc: "restored-background",
-        backgroundEmbed: true,
-        backgroundColor: "#abcdef",
-        ogImageSrc: "restored-og-image",
-        forcedBreakpoint: "lg",
-      }),
-    );
+      },
+      verticalCompact: false,
+      themeId: "theme-b",
+      backgroundImageSrc: "restored-background",
+      backgroundEmbed: true,
+      backgroundColor: "#abcdef",
+      ogImageSrc: "restored-og-image",
+      forcedBreakpoint: "lg",
+    });
+
+    await store.applySnapshot(snapshot);
 
     expect(store.currentGrid).toEqual(
       expect.objectContaining({
@@ -192,6 +192,14 @@ describe("grid store history orchestration", () => {
         backgroundColor: "#abcdef",
         ogImageSrc: "restored-og-image",
       }),
+    );
+    expect(store.currentGrid?.tiles).not.toBe(snapshot.tiles);
+    expect(store.currentGrid?.tiles[0]?.content).not.toBe(
+      snapshot.tiles[0]?.content,
+    );
+    snapshot.tiles[0]!.caption = "Snapshot mutated after apply";
+    expect(store.currentGrid?.tiles[0]?.caption).not.toBe(
+      "Snapshot mutated after apply",
     );
     expect(gridHarness.themeStore.setTheme).toHaveBeenCalledWith("theme-b");
     expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);

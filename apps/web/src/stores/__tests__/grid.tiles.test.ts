@@ -547,6 +547,7 @@ describe("grid store tile and grid mutations", () => {
 
   it("synchronizes rendered desktop positions before persistence", async () => {
     const store = await createLoadedGridStore();
+    const canonicalContent = store.currentGrid!.tiles[0]!.content;
     store.setDisplayPositions([
       { i: "tile-1", x: 5, y: 6, w: 7, h: 8 },
       { i: "missing", x: 0, y: 0, w: 1, h: 1 },
@@ -557,6 +558,7 @@ describe("grid store tile and grid mutations", () => {
     expect(store.currentGrid?.tiles[0]).toEqual(
       expect.objectContaining({ x: 5, y: 6, w: 7, h: 8 }),
     );
+    expect(store.currentGrid?.tiles[0]?.content).toBe(canonicalContent);
     expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
   });
 

@@ -143,6 +143,9 @@ describe("Grid canvas characterization", () => {
     expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
       { i: "tile-1", x: 5, y: 6, w: 2, h: 2 },
     ]);
+    expect(store.currentGrid.tiles[0]).toEqual(
+      expect.objectContaining({ x: 0, y: 0, w: 2, h: 2 }),
+    );
 
     wrapper.unmount();
   });
@@ -195,24 +198,34 @@ describe("Grid canvas characterization", () => {
     );
     const wrapper = mount(GridComponent);
     await flushPromises();
+    const beforeLayout = wrapper
+      .findComponent({ name: "GridLayoutStub" })
+      .props("layout") as GridLayoutItem[];
 
-    store.currentGrid.tiles[0]!.content = {
+    const fetchedContent = {
       type: ContentType.LINK,
       link: "https://example.com",
       metaTitle: "Fetched title",
       metaDescription: "Fetched description",
     } as LinkContent;
+    store.currentGrid.tiles[0]!.content = fetchedContent;
     await nextTick();
 
     const gridTile = wrapper.findComponent({ name: "GridTileStub" });
     const renderedTile = gridTile.props("tile") as Tile;
     const renderedLayout = gridTile.props("layout") as GridLayoutItem;
+    const afterLayout = wrapper
+      .findComponent({ name: "GridLayoutStub" })
+      .props("layout") as GridLayoutItem[];
+    expect(renderedTile).toBe(store.currentGrid.tiles[0]);
+    expect(renderedTile.content).toBe(store.currentGrid.tiles[0]!.content);
     expect(renderedTile.content).toEqual(
       expect.objectContaining({
         metaTitle: "Fetched title",
         metaDescription: "Fetched description",
       }),
     );
+    expect(afterLayout[0]).toBe(beforeLayout[0]);
     expect(renderedLayout).toEqual({ i: "tile-1", x: 3, y: 4, w: 5, h: 6 });
     expect(renderedLayout).not.toHaveProperty("content");
 

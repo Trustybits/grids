@@ -215,6 +215,25 @@ describe("FirebaseAnalyticsEventDao", () => {
       expect(warnSpy).toHaveBeenCalled();
     });
 
+    it("warns only once about a missing beacon URL across repeated calls", async () => {
+      // `warnedAboutMissingBeaconUrl` is module-level state, so re-import a
+      // fresh module to start from the un-warned state regardless of which
+      // other tests have already run.
+      vi.resetModules();
+      const { FirebaseAnalyticsEventDao: FreshDao } = await import(
+        "../FirebaseAnalyticsEventDao.js"
+      );
+      const daoWithoutUrl = new FreshDao(fakeDb, null);
+
+      expect(daoWithoutUrl.logGridViewEndEventBeacon(sampleEvent)).toBe(false);
+      expect(daoWithoutUrl.logGridViewEndEventBeacon(sampleEvent)).toBe(false);
+      expect(daoWithoutUrl.logGridViewEndEventBeacon(sampleEvent)).toBe(false);
+
+      // The guard only logs on the first missing-URL call; later calls take the
+      // already-warned branch and stay silent.
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+    });
+
     it("returns false when navigator.sendBeacon is unavailable", () => {
       delete (navigator as any).sendBeacon;
       expect(dao.logGridViewEndEventBeacon(sampleEvent)).toBe(false);

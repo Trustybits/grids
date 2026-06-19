@@ -2,27 +2,28 @@
 // console.error / console.warn are spied on so error-path logging is silenced
 // during the test run and can be asserted on.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { registerDaoFactory } from "@/dao/DaoFactorySingleton";
 import { registerDbUtils } from "@/dao/DbUtilsSingleton";
 import { UserService } from "@/services/UserService";
 import type { UserDao } from "@grids/contracts/dao";
 import type { SlugDao } from "@grids/contracts/dao";
-import type { DbUtils } from "@grids/contracts/dao";
-import type { DaoFactory } from "@grids/contracts/dao";
 import type { UserProfile } from "@grids/contracts/types";
+import {
+  makeDbUtils,
+  mockConsoleError,
+  mockConsoleWarn,
+  registerTestDaoFactory,
+  type MockDbUtils,
+} from "./testHelpers";
 
 // ── Mock DAOs ─────────────────────────────────────────────────────────────
 
 let mockUserDao: Record<string, ReturnType<typeof vi.fn>>;
 let mockSlugDao: Record<string, ReturnType<typeof vi.fn>>;
-let mockDbUtils: Record<string, ReturnType<typeof vi.fn>>;
+let mockDbUtils: MockDbUtils;
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
-  // Suppress logged errors so the rethrow tests don't pollute test output.
-  consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
   mockUserDao = {
     getById: vi.fn(),
     save: vi.fn(),
@@ -37,36 +38,23 @@ beforeEach(() => {
     updateDefaultGrid: vi.fn(),
   };
 
-  mockDbUtils = {
-    sanitizeValue: vi.fn((v) => v),
-    serverTimestamp: vi.fn(() => "SERVER_TIMESTAMP"),
-  };
+  mockDbUtils = makeDbUtils();
 
-  registerDaoFactory({
+  registerTestDaoFactory({
     getUserDao: () => mockUserDao as unknown as UserDao,
     getSlugDao: () => mockSlugDao as unknown as SlugDao,
-    getBadgeDao: () => null,
-    getGridDao: () => null,
-    getUserGameDataDao: () => null,
-    getChatDao: () => null,
-    getUpvoteDao: () => null,
-    getCustomerDao: () => null,
-    getStorageDao: () => null,
-  } as unknown as DaoFactory);
+  });
 
-  registerDbUtils(mockDbUtils as unknown as DbUtils);
+  registerDbUtils(mockDbUtils);
 
-  consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-  consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  // Suppress logged errors so the rethrow tests don't pollute test output.
+  consoleErrorSpy = mockConsoleError();
+  consoleWarnSpy = mockConsoleWarn();
 });
 
 afterEach(() => {
   consoleErrorSpy.mockRestore();
   consoleWarnSpy.mockRestore();
-});
-
-afterEach(() => {
-  consoleErrorSpy.mockRestore();
 });
 
 // ── getUserProfile ────────────────────────────────────────────────────────

@@ -43,6 +43,16 @@ describe("getAvatarShapeSettings", () => {
       avatarSides: DEFAULT_AVATAR_SIDES,
     });
   });
+
+  it("falls back to the default shape for an empty-string avatarShape", () => {
+    // avatarShape uses `||` (not `??`), so an empty string falls back to the
+    // default — unlike the numeric radius/sides fields which keep an explicit 0.
+    expect(
+      getAvatarShapeSettings({
+        avatarShape: "",
+      } as unknown as Partial<ProfileBioContent>).avatarShape,
+    ).toBe(DEFAULT_AVATAR_SHAPE);
+  });
 });
 
 describe("scaleAvatarRadius", () => {

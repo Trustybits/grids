@@ -70,14 +70,16 @@ export function calculatePassiveClicks(
     return 0;
   }
   
-  // Calculate time elapsed in hours
+  // Calculate time elapsed in hours. Guard against a backwards clock (clock
+  // skew or a corrected system time where currentTime < lastUpdateTime): a
+  // negative elapsed time must never subtract earned clicks.
   const timeElapsedMs = currentTime.getTime() - lastUpdateTime.getTime();
-  const hoursElapsed = timeElapsedMs / (1000 * 60 * 60);
-  
+  const hoursElapsed = Math.max(0, timeElapsedMs / (1000 * 60 * 60));
+
   // Calculate passive clicks based on daily rate
   const clicksPerHour = currentTier.dailyPassiveClicks / 24;
   const passiveClicks = Math.floor(clicksPerHour * hoursElapsed);
-  
+
   return passiveClicks;
 }
 

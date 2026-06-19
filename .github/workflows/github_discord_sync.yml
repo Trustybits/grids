@@ -6,6 +6,10 @@ name: GitHub → Discord Sync
 #
 # Requires a repo Actions secret DISCORD_BOT_TOKEN whose bot can manage the
 # forum channel's threads (Send Messages + Manage Threads).
+#
+# Loop guard: skip close/reopen jobs when the GitHub App bot closed/reopened the
+# issue (sync originated on Discord). Otherwise the workflow would post into the
+# thread, unarchive it, and the gateway bot would reopen the issue again.
 on:
   issues:
     types: [closed, reopened]
@@ -14,7 +18,11 @@ on:
 
 jobs:
   issue-closed:
-    if: github.repository == 'Trustybits/grids' && github.event_name == 'issues' && github.event.action == 'closed'
+    if: >-
+      github.repository == 'Trustybits/grids' &&
+      github.event_name == 'issues' &&
+      github.event.action == 'closed' &&
+      github.event.sender.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - name: Notify and archive Discord thread
@@ -33,8 +41,17 @@ jobs:
 
           API="https://discord.com/api/v10"
 
-          # 1. Tell the thread the issue was closed (build JSON with jq so the
-          #    URL can never break out of the payload).
+          THREAD_JSON=$(curl -sS "$API/channels/$THREAD_ID" \
+            -H "Authorization: Bot $DISCORD_BOT_TOKEN")
+          IS_ARCHIVED=$(echo "$THREAD_JSON" | jq -r '.archived // false')
+
+          if [ "$IS_ARCHIVED" = "true" ]; then
+            echo "Discord thread already archived; skipping (already closed on Discord)."
+            exit 0
+          fi
+
+          # Notify on an open thread, then archive so the end state matches the
+          # closed GitHub issue (posting into an archived thread would unarchive it).
           PAYLOAD=$(jq -n --arg url "$ISSUE_URL" \
             '{content: ("🔒 **This issue was closed on GitHub.**\nView: " + $url)}')
           curl -sS -X POST "$API/channels/$THREAD_ID/messages" \
@@ -42,15 +59,17 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
 
-          # 2. Archive the thread out of the active view but leave it unlocked so
-          #    the original poster can still reply if they need more help.
           curl -sS -X PATCH "$API/channels/$THREAD_ID" \
             -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"archived": true, "locked": false}'
 
   issue-reopened:
-    if: github.repository == 'Trustybits/grids' && github.event_name == 'issues' && github.event.action == 'reopened'
+    if: >-
+      github.repository == 'Trustybits/grids' &&
+      github.event_name == 'issues' &&
+      github.event.action == 'reopened' &&
+      github.event.sender.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - name: Unarchive and notify Discord thread
@@ -68,11 +87,16 @@ jobs:
 
           API="https://discord.com/api/v10"
 
-          # Unlock + unarchive first so the thread can receive a message again.
-          curl -sS -X PATCH "$API/channels/$THREAD_ID" \
-            -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"archived": false, "locked": false}'
+          THREAD_JSON=$(curl -sS "$API/channels/$THREAD_ID" \
+            -H "Authorization: Bot $DISCORD_BOT_TOKEN")
+          IS_ARCHIVED=$(echo "$THREAD_JSON" | jq -r '.archived // false')
+
+          if [ "$IS_ARCHIVED" != "true" ]; then
+            curl -sS -X PATCH "$API/channels/$THREAD_ID" \
+              -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{"archived": false, "locked": false}'
+          fi
 
           PAYLOAD=$(jq -n --arg url "$ISSUE_URL" \
             '{content: ("🔓 **This issue was reopened on GitHub.**\nView: " + $url)}')

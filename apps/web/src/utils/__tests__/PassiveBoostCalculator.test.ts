@@ -163,6 +163,22 @@ describe('calculatePassiveClicks', () => {
     const result = calculatePassiveClicks(20000, lastUpdate, now)
     expect(result).toBe(105)
   })
+
+  it('still returns 0 for Novice even when the clock runs backwards', () => {
+    // The tier-0 short-circuit runs before any time math.
+    const lastUpdate = new Date('2025-01-02T00:00:00Z')
+    const now = new Date('2025-01-01T00:00:00Z') // 24h earlier
+    expect(calculatePassiveClicks(50, lastUpdate, now)).toBe(0)
+  })
+
+  it('clamps to 0 (never negative) when the clock runs backwards on an earning tier', () => {
+    // Clock skew / a corrected system time can make currentTime < lastUpdate.
+    // Elapsed hours are floored at 0 so passive clicks are never subtracted.
+    const lastUpdate = new Date('2025-01-02T00:00:00Z')
+    const now = new Date('2025-01-01T00:00:00Z') // 24h earlier
+    expect(calculatePassiveClicks(100, lastUpdate, now)).toBe(0) // Apprentice
+    expect(calculatePassiveClicks(250000, lastUpdate, now)).toBe(0) // Legend
+  })
 })
 
 // ── getProgressToNextTier ──────────────────────────────────────────────────

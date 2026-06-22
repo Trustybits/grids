@@ -62,11 +62,14 @@ export interface GridControllerDependencies {
   delay(milliseconds: number): Promise<void>;
   now(): Date;
   measureViewportGridRow(): number;
-  waitForLayoutReady(): Promise<void>;
   readMetadataPreferences(): GridMetadataPreferences;
   getCookieValue(name: string): string | null;
   setCookieValue(name: string, value: string, days?: number): void;
   snapshotCodec: GridSnapshotCodec;
+}
+
+export interface GridLayoutReadinessAdapter {
+  waitForLayoutReady(breakpoint: Breakpoint): Promise<void>;
 }
 
 export interface GridEditPermissionInput {
@@ -80,11 +83,28 @@ export interface GridHistoryUrlMaps {
   resolvedDocumentItemUrls: Record<string, Record<string, string>>;
 }
 
+const BREAKPOINT_HISTORY_TRANSITION_MS = 500;
+
 export class GridController {
+  private layoutReadinessAdapter: GridLayoutReadinessAdapter | null =
+    null;
+
   constructor(
     private readonly stores: GridControllerStores,
     private readonly dependencies: GridControllerDependencies,
   ) {}
+
+  registerLayoutReadinessAdapter(
+    adapter: GridLayoutReadinessAdapter,
+  ): () => void {
+    this.layoutReadinessAdapter = adapter;
+
+    return () => {
+      if (this.layoutReadinessAdapter === adapter) {
+        this.layoutReadinessAdapter = null;
+      }
+    };
+  }
 
   canEdit({
     isOwner,
@@ -347,6 +367,16 @@ export class GridController {
     this.stores.session.reset();
   }
 
+  resetFacade(): void {
+    this.stores.ui.reset();
+    this.stores.viewport.reset();
+    this.stores.collection.reset();
+    this.stores.session.reset();
+    this.stores.history.reset();
+    this.stores.uploads.reset();
+    this.stores.compatibility.reset();
+  }
+
   async loadGrid(id: string): Promise<void> {
     this.stores.compatibility.setError(null);
     this.resetSessionDependents();
@@ -578,7 +608,12 @@ export class GridController {
         urlMaps.resolvedUrls,
         urlMaps.resolvedDocumentItemUrls,
       );
-      await this.dependencies.delay(500);
+      await Promise.all([
+        this.dependencies.delay(BREAKPOINT_HISTORY_TRANSITION_MS),
+        this.layoutReadinessAdapter?.waitForLayoutReady(
+          snapshot.forcedBreakpoint,
+        ) ?? Promise.resolve(),
+      ]);
     }
 
     const themeChanged = grid.themeId !== snapshot.themeId;

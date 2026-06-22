@@ -287,7 +287,7 @@ describe("useResponsiveGridLayout", () => {
     wrapper.unmount();
   });
 
-  it("resolves layout readiness when the requested breakpoint renders", async () => {
+  it("resolves layout readiness only after the projected breakpoint is reported as rendered", async () => {
     const browser = createEnvironment();
     const forcedBreakpoint = ref<Breakpoint | null>(null);
     const { composable, wrapper } = mountComposable(browser.environment, {
@@ -303,6 +303,17 @@ describe("useResponsiveGridLayout", () => {
 
     forcedBreakpoint.value = "sm";
     await nextTick();
+    await nextTick();
+    expect(resolved).toBe(false);
+    expect(composable.layoutReadyBreakpoint.value).toBeNull();
+
+    composable.reportRenderedLayout([
+      layoutItem("different-tile", 0, 0, 2, 2),
+    ]);
+    await nextTick();
+    expect(resolved).toBe(false);
+
+    composable.reportRenderedLayout(composable.renderedLayout.value);
     await readiness;
 
     expect(resolved).toBe(true);

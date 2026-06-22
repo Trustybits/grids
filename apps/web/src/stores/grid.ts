@@ -1,14 +1,6 @@
 import { computed } from "vue";
 import { defineStore, storeToRefs } from "pinia";
-import type {
-  Breakpoint,
-  CopyDepth,
-  DocumentItem,
-  Grid,
-  TileContent,
-  AnyTileContent,
-} from "@grids/contracts/types";
-import type { Snapshot } from "@/undo/UndoTypes";
+import type { Breakpoint } from "@grids/contracts/types";
 import { useGridController } from "@/controllers/useGridController";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridViewportStore } from "@/stores/grid/gridViewport";
@@ -54,16 +46,6 @@ export const useGridStore = defineStore("grid", () => {
     }),
   );
 
-  function $reset(): void {
-    ui.reset();
-    viewport.reset();
-    collection.reset();
-    session.reset();
-    history.reset();
-    uploads.reset();
-    compatibility.reset();
-  }
-
   return {
     undoRedoVersion: historyRefs.stackVersion,
     grids: collectionRefs.grids,
@@ -106,89 +88,24 @@ export const useGridStore = defineStore("grid", () => {
       controller.setShowMetaDataVerbose.bind(controller),
     getCookieValue: controller.getCookieValue.bind(controller),
     setCookieValue: controller.setCookieValue.bind(controller),
+    registerLayoutReadinessAdapter:
+      controller.registerLayoutReadinessAdapter.bind(controller),
 
-    captureSnapshot: (actionLabel: string) =>
-      controller.captureSnapshot(actionLabel, {
-        resolvedUrls: uploads.resolvedUrls,
-        resolvedDocumentItemUrls:
-          uploads.resolvedDocumentItemUrls,
-      }),
-    refreshStableSnapshot: () =>
-      controller.refreshStableSnapshot({
-        resolvedUrls: uploads.resolvedUrls,
-        resolvedDocumentItemUrls:
-          uploads.resolvedDocumentItemUrls,
-      }),
-    pushUndoSnapshot: (actionLabel: string) =>
-      controller.pushUndoSnapshot(actionLabel, {
-        resolvedUrls: uploads.resolvedUrls,
-        resolvedDocumentItemUrls:
-          uploads.resolvedDocumentItemUrls,
-      }),
-    undo: () =>
-      controller.undo({
-        resolvedUrls: uploads.resolvedUrls,
-        resolvedDocumentItemUrls:
-          uploads.resolvedDocumentItemUrls,
-      }),
-    redo: () =>
-      controller.redo({
-        resolvedUrls: uploads.resolvedUrls,
-        resolvedDocumentItemUrls:
-          uploads.resolvedDocumentItemUrls,
-      }),
-    undoRedoUntil: (snapshotId: number) =>
-      controller.undoRedoUntil(snapshotId, {
-        resolvedUrls: uploads.resolvedUrls,
-        resolvedDocumentItemUrls:
-          uploads.resolvedDocumentItemUrls,
-      }),
-    applySnapshot: (snapshot: Snapshot) =>
-      controller.applySnapshot(snapshot, {
-        resolvedUrls: uploads.resolvedUrls,
-        resolvedDocumentItemUrls:
-          uploads.resolvedDocumentItemUrls,
-      }),
-    beginEditing: (tileId: string) =>
-      controller.beginEditing(tileId, {
-        resolvedUrls: uploads.resolvedUrls,
-        resolvedDocumentItemUrls:
-          uploads.resolvedDocumentItemUrls,
-      }),
-    commitEditing: () =>
-      controller.commitEditing({
-        resolvedUrls: uploads.resolvedUrls,
-        resolvedDocumentItemUrls:
-          uploads.resolvedDocumentItemUrls,
-      }),
-    beginMove: () =>
-      controller.beginMove({
-        resolvedUrls: uploads.resolvedUrls,
-        resolvedDocumentItemUrls:
-          uploads.resolvedDocumentItemUrls,
-      }),
-    commitMove: () =>
-      controller.commitMove(
-        {
-          resolvedUrls: uploads.resolvedUrls,
-          resolvedDocumentItemUrls:
-            uploads.resolvedDocumentItemUrls,
-        },
-      ),
-    beginResize: () =>
-      controller.beginResize({
-        resolvedUrls: uploads.resolvedUrls,
-        resolvedDocumentItemUrls:
-          uploads.resolvedDocumentItemUrls,
-      }),
-    commitResize: () =>
-      controller.commitResize(
-        {
-          resolvedUrls: uploads.resolvedUrls,
-          resolvedDocumentItemUrls:
-            uploads.resolvedDocumentItemUrls,
-        },
-      ),
+    captureSnapshot: controller.captureSnapshot.bind(controller),
+    refreshStableSnapshot:
+      controller.refreshStableSnapshot.bind(controller),
+    pushUndoSnapshot:
+      controller.pushUndoSnapshot.bind(controller),
+    undo: controller.undo.bind(controller),
+    redo: controller.redo.bind(controller),
+    undoRedoUntil: controller.undoRedoUntil.bind(controller),
+    applySnapshot: controller.applySnapshot.bind(controller),
+    beginEditing: controller.beginEditing.bind(controller),
+    commitEditing: controller.commitEditing.bind(controller),
+    beginMove: controller.beginMove.bind(controller),
+    commitMove: controller.commitMove.bind(controller),
+    beginResize: controller.beginResize.bind(controller),
+    commitResize: controller.commitResize.bind(controller),
     setTileUploading: controller.setTileUploading.bind(controller),
     clearTileUploading:
       controller.clearTileUploading.bind(controller),
@@ -200,15 +117,8 @@ export const useGridStore = defineStore("grid", () => {
     clearResolvedDocumentItemsForTile:
       controller.clearResolvedDocumentItemsForTile.bind(controller),
     fetchGrids: controller.fetchGrids.bind(controller),
-    createGrid: (name: string) => {
-      return controller.createGrid(name);
-    },
-    duplicateGrid: (
-      sourceGrid: Grid,
-      copyDepth: CopyDepth = "full",
-    ) => {
-      return controller.duplicateGrid(sourceGrid, copyDepth);
-    },
+    createGrid: controller.createGrid.bind(controller),
+    duplicateGrid: controller.duplicateGrid.bind(controller),
     loadGrid: controller.loadGrid.bind(controller),
     loadDemoGrid: controller.loadDemoGrid.bind(controller),
     recordRecent: controller.recordRecent.bind(controller),
@@ -218,23 +128,11 @@ export const useGridStore = defineStore("grid", () => {
       controller.toggleVerticalCompact.bind(controller),
     setVerticalCompact:
       controller.setVerticalCompact.bind(controller),
-    saveGrid: () =>
-      controller.saveGrid(
-        uploads.resolvedUrls,
-        uploads.resolvedDocumentItemUrls,
-      ),
-    addTile: (content: TileContent) => controller.addTile(content),
-    setTileContent: (id: string, content: TileContent) =>
-      controller.setTileContent(id, content),
-    patchTileContent: (
-      id: string,
-      patch: Partial<AnyTileContent>,
-    ) => controller.patchTileContent(id, patch),
-    patchDocumentItem: (
-      tileId: string,
-      itemId: string,
-      patch: Partial<DocumentItem>,
-    ) => controller.patchDocumentItem(tileId, itemId, patch),
+    saveGrid: controller.saveGrid.bind(controller),
+    addTile: controller.addTile.bind(controller),
+    setTileContent: controller.setTileContent.bind(controller),
+    patchTileContent: controller.patchTileContent.bind(controller),
+    patchDocumentItem: controller.patchDocumentItem.bind(controller),
     setGridTheme: controller.setGridTheme.bind(controller),
     setDuplicatable:
       controller.setDuplicatable.bind(controller),
@@ -263,13 +161,8 @@ export const useGridStore = defineStore("grid", () => {
     setActiveBreakpoint: controller.setActiveBreakpoint.bind(controller),
     setViewportBreakpoint:
       controller.setViewportBreakpoint.bind(controller),
-    setForcedBreakpoint: (breakpoint: Breakpoint | null) =>
-      controller.setForcedBreakpoint(
-        breakpoint,
-        session.currentGrid,
-        uploads.resolvedUrls,
-        uploads.resolvedDocumentItemUrls,
-      ),
+    setForcedBreakpoint:
+      controller.setForcedBreakpoint.bind(controller),
     setDisplayPositions:
       controller.setDisplayPositions.bind(controller),
     getBreakpointPositions: (breakpoint: Breakpoint) =>
@@ -288,10 +181,8 @@ export const useGridStore = defineStore("grid", () => {
       controller.saveBreakpointPositions.bind(controller),
     resetBreakpoint: controller.resetBreakpoint.bind(controller),
     clearCurrentGrid: () => controller.clearSession(),
-    deleteGrid: (id: string) => controller.deleteGrid(id),
-    renameGrid: (id: string, newName: string) => {
-      return controller.renameGrid(id, newName);
-    },
-    $reset,
+    deleteGrid: controller.deleteGrid.bind(controller),
+    renameGrid: controller.renameGrid.bind(controller),
+    $reset: () => controller.resetFacade(),
   };
 });

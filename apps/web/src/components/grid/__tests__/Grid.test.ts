@@ -8,6 +8,7 @@ import {
   type Tile,
 } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
+import type { GridLayoutReadinessAdapter } from "@/controllers/GridController";
 
 const storeHolder = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
@@ -93,6 +94,11 @@ function makeGrid(tile = makeTile()): Grid {
 }
 
 function makeStore(grid = makeGrid()) {
+  const disposeLayoutReadiness = vi.fn();
+  const registerLayoutReadinessAdapter = vi.fn(
+    (_adapter: GridLayoutReadinessAdapter) =>
+      disposeLayoutReadiness,
+  );
   const store = reactive({
     isLoading: false,
     currentGrid: grid,
@@ -103,8 +109,13 @@ function makeStore(grid = makeGrid()) {
     setActiveBreakpoint: vi.fn(),
     setViewportBreakpoint: vi.fn(),
     setDisplayPositions: vi.fn(),
+    registerLayoutReadinessAdapter,
   });
-  return store;
+  return {
+    store,
+    disposeLayoutReadiness,
+    registerLayoutReadinessAdapter,
+  };
 }
 
 describe("Grid canvas characterization", () => {
@@ -118,7 +129,7 @@ describe("Grid canvas characterization", () => {
   });
 
   it("publishes the initial rendered positions and subsequent deep mutations", async () => {
-    const store = makeStore();
+    const { store } = makeStore();
     storeHolder.current = store;
     const { default: GridComponent } = await import(
       "@/components/grid/Grid.vue"
@@ -158,7 +169,7 @@ describe("Grid canvas characterization", () => {
         "tile-1": { x: 3, y: 4, w: 5, h: 6 },
       },
     };
-    const store = makeStore(grid);
+    const { store } = makeStore(grid);
     store.forcedBreakpoint = "md";
     storeHolder.current = store;
     const { default: GridComponent } = await import(
@@ -190,7 +201,7 @@ describe("Grid canvas characterization", () => {
         "tile-1": { x: 3, y: 4, w: 5, h: 6 },
       },
     };
-    const store = makeStore(grid);
+    const { store } = makeStore(grid);
     store.forcedBreakpoint = "md";
     storeHolder.current = store;
     const { default: GridComponent } = await import(
@@ -233,7 +244,7 @@ describe("Grid canvas characterization", () => {
   });
 
   it("retains rendered layout identity when persisted overrides match it", async () => {
-    const store = makeStore();
+    const { store } = makeStore();
     store.forcedBreakpoint = "md";
     storeHolder.current = store;
     const { default: GridComponent } = await import(
@@ -265,6 +276,63 @@ describe("Grid canvas characterization", () => {
     expect(after[0]).toEqual(
       expect.objectContaining({ x: 3, y: 4, w: 4, h: 4 }),
     );
+
+    wrapper.unmount();
+  });
+
+  it("registers rendered-layout readiness and disposes it on unmount", async () => {
+    const {
+      store,
+      disposeLayoutReadiness,
+      registerLayoutReadinessAdapter,
+    } = makeStore();
+    storeHolder.current = store;
+    const { default: GridComponent } = await import(
+      "@/components/grid/Grid.vue"
+    );
+
+    const wrapper = mount(GridComponent);
+    await flushPromises();
+
+    expect(registerLayoutReadinessAdapter).toHaveBeenCalledTimes(1);
+    const adapter =
+      registerLayoutReadinessAdapter.mock.calls[0]![0];
+    const readiness = adapter.waitForLayoutReady("lg");
+    wrapper
+      .findComponent({ name: "GridLayoutStub" })
+      .vm.$emit(
+        "layout-updated",
+        wrapper
+          .findComponent({ name: "GridLayoutStub" })
+          .props("layout"),
+      );
+    await readiness;
+
+    wrapper.unmount();
+    expect(disposeLayoutReadiness).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports an empty grid as rendered after Vue commits the empty state", async () => {
+    const grid = makeGrid();
+    grid.tiles = [];
+    const { store, registerLayoutReadinessAdapter } =
+      makeStore(grid);
+    storeHolder.current = store;
+    const { default: GridComponent } = await import(
+      "@/components/grid/Grid.vue"
+    );
+
+    const wrapper = mount(GridComponent);
+    await flushPromises();
+    const adapter =
+      registerLayoutReadinessAdapter.mock.calls[0]![0];
+
+    await expect(
+      adapter.waitForLayoutReady("lg"),
+    ).resolves.toBeUndefined();
+    expect(
+      wrapper.findComponent({ name: "GridLayoutStub" }).exists(),
+    ).toBe(false);
 
     wrapper.unmount();
   });

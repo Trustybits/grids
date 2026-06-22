@@ -212,9 +212,13 @@ export function useResponsiveGridLayout({
     layoutWaiters.delete(breakpoint);
   };
 
-  const waitForLayoutReady = (breakpoint: Breakpoint): Promise<void> => {
+  const waitForLayoutReady = async (
+    breakpoint: Breakpoint,
+  ): Promise<void> => {
+    await nextTick();
+
     if (layoutReadyBreakpoint.value === breakpoint) {
-      return Promise.resolve();
+      return;
     }
 
     return new Promise((resolve) => {
@@ -222,6 +226,30 @@ export function useResponsiveGridLayout({
       waiters.add(resolve);
       layoutWaiters.set(breakpoint, waiters);
     });
+  };
+
+  const reportRenderedLayout = (
+    layout: readonly GridLayoutItem[],
+  ): void => {
+    if (layout.length !== renderedLayout.value.length) return;
+
+    const renderedById = new Map(
+      renderedLayout.value.map((item) => [item.i, item]),
+    );
+    const matchesProjection = layout.every((item) => {
+      const rendered = renderedById.get(item.i);
+      return (
+        rendered?.x === item.x &&
+        rendered.y === item.y &&
+        rendered.w === item.w &&
+        rendered.h === item.h
+      );
+    });
+    if (!matchesProjection) return;
+
+    const breakpoint = activeBreakpoint.value;
+    layoutReadyBreakpoint.value = breakpoint;
+    resolveLayoutWaiters(breakpoint);
   };
 
   const resolveGridElement = (): HTMLElement | null => {
@@ -259,14 +287,13 @@ export function useResponsiveGridLayout({
 
   watch(
     [activeBreakpoint, projectedLayout],
-    ([breakpoint, projected]) => {
+    ([, projected]) => {
       renderedLayout.value = reconcileGridLayout(
         renderedLayout.value,
         projected,
       );
-      layoutReadyBreakpoint.value = breakpoint;
+      layoutReadyBreakpoint.value = null;
       layoutRevision.value += 1;
-      resolveLayoutWaiters(breakpoint);
       void nextTick(observeGridHeight);
     },
     { immediate: true },
@@ -302,6 +329,7 @@ export function useResponsiveGridLayout({
     mobileScale,
     naturalGridHeight,
     projectedLayout,
+    reportRenderedLayout,
     renderedLayout,
     responsiveColumnCount,
     scaleWrapperRef,

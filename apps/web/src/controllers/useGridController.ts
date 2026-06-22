@@ -44,7 +44,6 @@ export function createDefaultGridControllerDependencies(): GridControllerDepende
       new Promise((resolve) => setTimeout(resolve, milliseconds)),
     now: () => new Date(),
     measureViewportGridRow: () => measureViewportGridRow(),
-    waitForLayoutReady: async () => undefined,
     readMetadataPreferences: () => ({
       showMetaData: readCookie("showMetaData") === "true",
       showMetaDataVerbose:

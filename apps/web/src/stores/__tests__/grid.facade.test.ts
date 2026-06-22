@@ -1,6 +1,6 @@
 import { computed, nextTick, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type AnyTileContent,
   type Breakpoint,
@@ -12,6 +12,12 @@ import {
 } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
 import type { Snapshot } from "@/undo/UndoTypes";
+import { useGridCollectionStore } from "@/stores/grid/gridCollection";
+import { useGridHistoryStore } from "@/stores/grid/gridHistory";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridUiStore } from "@/stores/grid/gridUi";
+import { useGridUploadsStore } from "@/stores/grid/gridUploads";
+import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import {
   createGridStore,
   gridHarness,
@@ -343,6 +349,68 @@ describe("grid store compatibility facade contract", () => {
     ]);
   });
 
+  it("writes facade state directly through to each focused owner", () => {
+    const grid = makeGrid();
+    const positions: GridLayoutItem[] = [
+      { i: "tile-1", x: 1, y: 2, w: 3, h: 4 },
+    ];
+
+    store.grids = [grid];
+    store.currentGrid = grid;
+    store.isOwner = true;
+    store.pendingFocusTileId = "tile-1";
+    store.uploadingTiles = { "tile-1": 0.5 };
+    store.forcedBreakpoint = "sm";
+    store.displayPositions = positions;
+    store.undoRedoVersion = 7;
+
+    expect(useGridCollectionStore().grids).toEqual([grid]);
+    expect(useGridSessionStore().currentGrid).toEqual(grid);
+    expect(useGridSessionStore().isOwner).toBe(true);
+    expect(useGridUiStore().pendingFocusTileId).toBe("tile-1");
+    expect(useGridUploadsStore().uploadingTiles).toEqual({
+      "tile-1": 0.5,
+    });
+    expect(useGridViewportStore().forcedBreakpoint).toBe("sm");
+    expect(useGridViewportStore().displayPositions).toEqual(positions);
+    expect(useGridHistoryStore().stackVersion).toBe(7);
+  });
+
+  it("delegates representative facade actions exactly once and preserves results", () => {
+    const ui = useGridUiStore();
+    const viewport = useGridViewportStore();
+    const uploads = useGridUploadsStore();
+    const setMenuActive = vi.spyOn(ui, "setMenuActive");
+    const setActiveBreakpoint = vi.spyOn(
+      viewport,
+      "setActiveBreakpoint",
+    );
+    const setTileUploading = vi.spyOn(
+      uploads,
+      "setTileUploading",
+    );
+    const getResolvedUrl = vi.spyOn(uploads, "getResolvedUrl");
+    uploads.setResolvedUrl("tile-1", "https://cdn/media");
+
+    store.setMenuActive("tile-1");
+    store.setActiveBreakpoint("md");
+    store.setTileUploading("tile-1", 0.75);
+    const resolvedUrl = store.getResolvedUrl("tile-1");
+
+    expect(setMenuActive).toHaveBeenCalledOnce();
+    expect(setMenuActive).toHaveBeenCalledWith("tile-1");
+    expect(setActiveBreakpoint).toHaveBeenCalledOnce();
+    expect(setActiveBreakpoint).toHaveBeenCalledWith("md");
+    expect(setTileUploading).toHaveBeenCalledOnce();
+    expect(setTileUploading).toHaveBeenCalledWith("tile-1", 0.75);
+    expect(getResolvedUrl).toHaveBeenCalledOnce();
+    expect(getResolvedUrl).toHaveBeenCalledWith("tile-1");
+    expect(resolvedUrl).toBe("https://cdn/media");
+    expect(store.activeTileId).toBe("tile-1");
+    expect(store.activeBreakpoint).toBe("md");
+    expect(store.uploadingTiles).toEqual({ "tile-1": 0.75 });
+  });
+
   it("keeps all seven getters reactive through storeToRefs", async () => {
     gridHarness.gridService.fetchGrid.mockResolvedValueOnce(
       makeGrid({ verticalCompact: false }),
@@ -432,16 +500,30 @@ describe("grid store compatibility facade contract", () => {
     }
   });
 
-  it("retains the Pinia reset entry point for the future setup facade", () => {
+  it("retains the Pinia reset entry point across all focused owners", () => {
     store.currentGrid = makeGrid();
     store.isOwner = true;
+    store.grids = [makeGrid()];
     store.pendingFocusTileId = "tile-1";
+    store.forcedBreakpoint = "sm";
+    store.uploadingTiles = { "tile-1": 0.5 };
+    store.error = "failure";
+    store.showMetaData = true;
+    store.pushUndoSnapshot("Old history");
 
     store.$reset();
 
     expect(store.currentGrid).toBeNull();
     expect(store.isOwner).toBe(false);
+    expect(store.grids).toEqual([]);
     expect(store.pendingFocusTileId).toBeNull();
+    expect(store.forcedBreakpoint).toBeNull();
+    expect(store.uploadingTiles).toEqual({});
+    expect(store.error).toBeNull();
+    expect(store.showMetaData).toBe(false);
+    expect(store.canUndo).toBe(false);
+    expect(useGridHistoryStore().manager).toBeNull();
+    expect(useGridHistoryStore().stableSnapshot).toBeNull();
   });
 
   it("keeps facade loading active until every overlapping load finishes", async () => {

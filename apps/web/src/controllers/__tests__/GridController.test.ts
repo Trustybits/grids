@@ -9,6 +9,7 @@ import type { Grid } from "@grids/contracts/types";
 import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService";
 import type { IGridService } from "@/services/interfaces/IGridService";
 import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
+import type { Snapshot } from "@/undo/UndoTypes";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
 import { useGridCompatibilityStore } from "@/stores/grid/gridCompatibility";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
@@ -67,6 +68,24 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+function makeSnapshot(
+  overrides: Partial<Snapshot> = {},
+): Snapshot {
+  return {
+    tiles: [],
+    overrides: {},
+    verticalCompact: true,
+    themeId: "theme-a",
+    backgroundImageSrc: "",
+    backgroundEmbed: false,
+    backgroundColor: "",
+    ogImageSrc: "",
+    forcedBreakpoint: "lg",
+    actionLabel: "",
+    ...overrides,
+  };
+}
+
 function createStores(pinia: Pinia): GridControllerStores {
   return {
     collection: useGridCollectionStore(pinia),
@@ -123,7 +142,6 @@ function createControllerHarness() {
     delay: vi.fn(async () => undefined),
     now: vi.fn(() => new Date("2026-06-22T12:00:00Z")),
     measureViewportGridRow: vi.fn(() => 0),
-    waitForLayoutReady: vi.fn(async () => undefined),
     readMetadataPreferences: vi.fn(() => ({
       showMetaData: true,
       showMetaDataVerbose: false,
@@ -192,31 +210,86 @@ describe("GridController", () => {
     vi.mocked(gridService.fetchGrid).mockReturnValueOnce(request.promise);
     stores.session.setCurrentGrid(makeGrid({ id: "old-grid" }));
     stores.history.initializeManager();
-    stores.history.beginEdit("tile-1", null);
-    stores.history.beginMove({} as never);
+    const oldManager = stores.history.manager;
+    stores.history.setStableSnapshot(
+      makeSnapshot({ actionLabel: "Old stable" }),
+    );
+    stores.history.pushSnapshot(
+      makeSnapshot({ actionLabel: "Old undo" }),
+    );
+    stores.history.beginEdit(
+      "tile-1",
+      makeSnapshot({ actionLabel: "Old edit" }),
+    );
+    stores.history.beginMove(
+      makeSnapshot({ actionLabel: "Old move" }),
+    );
+    stores.history.beginResize(
+      makeSnapshot({ actionLabel: "Old resize" }),
+    );
     stores.viewport.setForcedBreakpoint("sm");
     stores.viewport.setDisplayPositions([
       { i: "tile-1", x: 1, y: 2, w: 3, h: 4 },
     ]);
     stores.uploads.setTileUploading("tile-1", 0.5);
+    stores.uploads.setResolvedUrl("tile-1", "https://cdn/media");
+    stores.uploads.setResolvedDocumentItemUrl(
+      "tile-1",
+      "item-1",
+      "https://cdn/document",
+    );
     stores.ui.setPanelActive("tile-1", "settings");
     stores.ui.setPendingFocusTileId("tile-1");
+    stores.ui.setShowMetaData(true);
+    stores.ui.setShowMetaDataVerbose(true);
 
     const loading = controller.loadGrid("new-grid");
 
     expect(stores.session.currentGrid).toBeNull();
     expect(stores.session.isLoading).toBe(true);
+    expect(stores.history.manager).not.toBe(oldManager);
+    expect(stores.history.manager).not.toBeNull();
+    expect(stores.history.canUndo).toBe(false);
+    expect(stores.history.canRedo).toBe(false);
+    expect(stores.history.undoRedoStacks).toEqual({
+      undoStack: [],
+      redoStack: [],
+    });
+    expect(stores.history.stableSnapshot).toBeNull();
     expect(stores.history.editingTileId).toBeNull();
+    expect(stores.history.pendingEditSnapshot).toBeNull();
     expect(stores.history.pendingMoveSnapshot).toBeNull();
+    expect(stores.history.pendingResizeSnapshot).toBeNull();
     expect(stores.viewport.forcedBreakpoint).toBeNull();
     expect(stores.viewport.displayPositions).toEqual([]);
     expect(stores.uploads.uploadingTiles).toEqual({});
+    expect(stores.uploads.resolvedUrls).toEqual({});
+    expect(stores.uploads.resolvedDocumentItemUrls).toEqual({});
     expect(stores.ui.activeTileId).toBeNull();
     expect(stores.ui.activePanelId).toBeNull();
     expect(stores.ui.pendingFocusTileId).toBeNull();
+    expect(stores.ui.showMetaData).toBe(true);
+    expect(stores.ui.showMetaDataVerbose).toBe(true);
 
     request.resolve(makeGrid({ id: "new-grid" }));
     await loading;
+
+    expect(stores.session.currentGrid?.id).toBe("new-grid");
+    expect(stores.history.canUndo).toBe(false);
+    expect(stores.history.canRedo).toBe(false);
+    expect(stores.history.undoRedoStacks).toEqual({
+      undoStack: [],
+      redoStack: [],
+    });
+    expect(stores.history.stableSnapshot).toEqual(
+      expect.objectContaining({
+        actionLabel: "",
+        forcedBreakpoint: "lg",
+      }),
+    );
+    expect(stores.history.stableSnapshot?.actionLabel).not.toBe(
+      "Old stable",
+    );
   });
 
   it("loads an owned grid and updates focused session and collection state", async () => {
@@ -318,19 +391,50 @@ describe("GridController", () => {
     const { controller, stores } = createControllerHarness();
     stores.session.setCurrentGrid(makeGrid());
     stores.history.initializeManager();
-    stores.history.beginResize({} as never);
+    stores.history.setStableSnapshot(makeSnapshot());
+    stores.history.pushSnapshot(
+      makeSnapshot({ actionLabel: "Old undo" }),
+    );
+    stores.history.beginEdit("tile-1", makeSnapshot());
+    stores.history.beginMove(makeSnapshot());
+    stores.history.beginResize(makeSnapshot());
     stores.viewport.setForcedBreakpoint("md");
+    stores.viewport.setDisplayPositions([
+      { i: "tile-1", x: 1, y: 2, w: 3, h: 4 },
+    ]);
+    stores.uploads.setTileUploading("tile-1", 0.5);
     stores.uploads.setResolvedUrl("tile-1", "url");
+    stores.uploads.setResolvedDocumentItemUrl(
+      "tile-1",
+      "item-1",
+      "document-url",
+    );
+    stores.ui.setPanelActive("tile-1", "settings");
     stores.ui.setPendingFocusTileId("tile-1");
+    stores.ui.setShowMetaData(true);
 
     controller.clearSession();
 
     expect(stores.session.currentGrid).toBeNull();
     expect(stores.history.manager).toBeNull();
+    expect(stores.history.stableSnapshot).toBeNull();
+    expect(stores.history.editingTileId).toBeNull();
+    expect(stores.history.pendingEditSnapshot).toBeNull();
+    expect(stores.history.pendingMoveSnapshot).toBeNull();
     expect(stores.history.pendingResizeSnapshot).toBeNull();
+    expect(stores.history.undoRedoStacks).toEqual({
+      undoStack: [],
+      redoStack: [],
+    });
     expect(stores.viewport.forcedBreakpoint).toBeNull();
+    expect(stores.viewport.displayPositions).toEqual([]);
+    expect(stores.uploads.uploadingTiles).toEqual({});
     expect(stores.uploads.resolvedUrls).toEqual({});
+    expect(stores.uploads.resolvedDocumentItemUrls).toEqual({});
+    expect(stores.ui.activeTileId).toBeNull();
+    expect(stores.ui.activePanelId).toBeNull();
     expect(stores.ui.pendingFocusTileId).toBeNull();
+    expect(stores.ui.showMetaData).toBe(true);
   });
 
   it("refreshes stable history when forcing a breakpoint", () => {
@@ -347,6 +451,82 @@ describe("GridController", () => {
         actionLabel: "",
       }),
     );
+  });
+
+  it("waits for both the minimum delay and rendered target layout before applying a cross-breakpoint snapshot", async () => {
+    const { controller, stores, dependencies } =
+      createControllerHarness();
+    const delayGate = deferred<void>();
+    const readinessGate = deferred<void>();
+    const waitForLayoutReady = vi.fn(
+      () => readinessGate.promise,
+    );
+    const applySnapshot = vi.spyOn(
+      dependencies.snapshotCodec,
+      "apply",
+    );
+    vi.mocked(dependencies.delay).mockReturnValue(
+      delayGate.promise,
+    );
+    stores.session.setCurrentGrid(makeGrid());
+    stores.viewport.setForcedBreakpoint("lg");
+    controller.registerLayoutReadinessAdapter({
+      waitForLayoutReady,
+    });
+
+    const applying = controller.applySnapshot(
+      makeSnapshot({
+        forcedBreakpoint: "sm",
+        verticalCompact: false,
+      }),
+    );
+
+    expect(stores.viewport.forcedBreakpoint).toBe("sm");
+    expect(dependencies.delay).toHaveBeenCalledWith(500);
+    expect(waitForLayoutReady).toHaveBeenCalledWith("sm");
+    expect(applySnapshot).not.toHaveBeenCalled();
+
+    delayGate.resolve();
+    await Promise.resolve();
+    expect(applySnapshot).not.toHaveBeenCalled();
+
+    readinessGate.resolve();
+    await applying;
+
+    expect(applySnapshot).toHaveBeenCalledTimes(1);
+    expect(stores.session.currentGrid?.verticalCompact).toBe(false);
+  });
+
+  it("disposes only the currently registered layout readiness adapter", async () => {
+    const { controller, stores } = createControllerHarness();
+    const staleWait = vi.fn(async () => undefined);
+    const currentWait = vi.fn(async () => undefined);
+    stores.session.setCurrentGrid(makeGrid());
+    stores.viewport.setForcedBreakpoint("lg");
+
+    const disposeStale =
+      controller.registerLayoutReadinessAdapter({
+        waitForLayoutReady: staleWait,
+      });
+    const disposeCurrent =
+      controller.registerLayoutReadinessAdapter({
+        waitForLayoutReady: currentWait,
+      });
+    disposeStale();
+
+    await controller.applySnapshot(
+      makeSnapshot({ forcedBreakpoint: "sm" }),
+    );
+
+    expect(staleWait).not.toHaveBeenCalled();
+    expect(currentWait).toHaveBeenCalledWith("sm");
+
+    disposeCurrent();
+    stores.viewport.setForcedBreakpoint("lg");
+    await controller.applySnapshot(
+      makeSnapshot({ forcedBreakpoint: "sm" }),
+    );
+    expect(currentWait).toHaveBeenCalledTimes(1);
   });
 
   it("stores resolved upload URLs before patching every history snapshot", () => {
@@ -488,13 +668,22 @@ describe("useGridController", () => {
 
     const firstUi = useGridUiStore(firstPinia);
     const secondUi = useGridUiStore(secondPinia);
+    const firstHistory = useGridHistoryStore(firstPinia);
+    const secondHistory = useGridHistoryStore(secondPinia);
+    firstHistory.initializeManager();
+    secondHistory.initializeManager();
     firstUi.setPendingFocusTileId("first");
     secondUi.setPendingFocusTileId("second");
+
+    expect(firstHistory).not.toBe(secondHistory);
+    expect(firstHistory.manager).not.toBe(secondHistory.manager);
 
     first.clearSession();
 
     expect(firstUi.pendingFocusTileId).toBeNull();
     expect(secondUi.pendingFocusTileId).toBe("second");
+    expect(firstHistory.manager).toBeNull();
+    expect(secondHistory.manager).not.toBeNull();
   });
 
   it("uses the active Pinia when one is not passed", () => {

@@ -21,6 +21,8 @@
       :use-css-transforms="true"
       :margin="[margin, margin]"
       :style="gridInnerStyle"
+      @layout-ready="reportRenderedLayout"
+      @layout-updated="reportRenderedLayout"
     >
       <GridTile
         v-for="entry in renderedTiles"
@@ -34,7 +36,7 @@
 </template>
 
 <script lang="ts">
-import { computed, watch } from "vue";
+import { computed, nextTick, onUnmounted, watch } from "vue";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
 import GridTile from "./Tile.vue";
@@ -79,9 +81,12 @@ export default {
       gridInnerStyle,
       gridLayoutRef,
       gridWidth,
+      layoutRevision,
+      reportRenderedLayout,
       responsiveColumnCount: responsiveColNum,
       scaleWrapperRef,
       scaleWrapperStyle,
+      waitForLayoutReady,
     } = useResponsiveGridLayout({
       baseColumnCount: baseColNum,
       forcedBreakpoint: () => gridStore.forcedBreakpoint,
@@ -95,6 +100,22 @@ export default {
         gridStore.setViewportBreakpoint(viewport);
       },
     });
+
+    const disposeLayoutReadiness =
+      gridStore.registerLayoutReadinessAdapter({
+        waitForLayoutReady,
+      });
+    onUnmounted(disposeLayoutReadiness);
+
+    watch(
+      layoutRevision,
+      async () => {
+        if (displayLayout.value.length > 0) return;
+        await nextTick();
+        reportRenderedLayout([]);
+      },
+      { immediate: true, flush: "post" },
+    );
 
     const renderedTiles = computed(() => {
       const tilesById = new Map(
@@ -170,6 +191,7 @@ export default {
       scaleWrapperStyle,
       gridInnerStyle,
       gridLayoutRef,
+      reportRenderedLayout,
       scaleWrapperRef,
     };
   },

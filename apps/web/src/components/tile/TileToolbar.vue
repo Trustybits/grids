@@ -302,7 +302,9 @@ export default defineComponent({
       isExitingCropMode: props.toolbarRefs.isExitingCropMode,
     }));
 
-    const items = computed(() => getTileToolbarButtons(props.tile.content.type));
+    const items = computed(() =>
+      getTileToolbarButtons(props.tile.content.type, ctx.value),
+    );
 
     const visibleItems = computed(() =>
       items.value.filter((item) => item.visible?.(ctx.value) ?? true),

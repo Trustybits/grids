@@ -44,6 +44,10 @@ export const textDefinition: TileDefinition<TextContent> = {
       if (!content.text) return null;
       try {
         const doc = JSON.parse(content.text);
+        // A tiptap doc is always an object; a primitive (number, boolean, or a
+        // JSON-quoted string) parses successfully but has no text/content, so
+        // fall back to the raw string rather than silently dropping it.
+        if (typeof doc !== "object" || doc === null) return content.text;
         const extractText = (node: { text?: string; content?: unknown[] }): string => {
           if (node.text) return node.text;
           if (node.content) return (node.content as typeof node[]).map(extractText).join("");

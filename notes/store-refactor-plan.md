@@ -188,6 +188,17 @@ Failure:
 
 - Detached layouts still contain independent content objects or snapshot coverage remains field-list dependent.
 
+Handoff note for controller integration:
+
+- The Step 2 `waitForLayoutReady()` API currently reports that layout
+  projection and reconciliation have completed. It does not yet guarantee that
+  Vue and the grid component have committed the corresponding visible DOM
+  layout.
+- Before cross-breakpoint history restoration relies on this API, strengthen
+  its contract so readiness resolves only after the target breakpoint has been
+  rendered. Preserve the minimum 500 ms breakpoint transition while also
+  waiting for this stronger layout-ready signal.
+
 ### 3. Introduce Focused Stores and the Controller Behind the Facade
 
 - Create the focused stores with explicit reset methods.

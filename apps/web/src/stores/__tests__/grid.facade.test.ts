@@ -1,0 +1,436 @@
+import { computed, nextTick, watch } from "vue";
+import { storeToRefs } from "pinia";
+import { beforeEach, describe, expect, it } from "vitest";
+import {
+  type AnyTileContent,
+  type Breakpoint,
+  type CopyDepth,
+  type DocumentItem,
+  type Grid,
+  type TileContent,
+  type TilePosition,
+} from "@grids/contracts/types";
+import type { GridLayoutItem } from "@/types/GridLayout";
+import type { Snapshot } from "@/undo/UndoTypes";
+import {
+  createGridStore,
+  gridHarness,
+  makeGrid,
+  resetGridHarness,
+} from "./gridTestHarness";
+
+const legacyStateMembers = [
+  "undoRedoVersion",
+  "grids",
+  "currentGrid",
+  "isLoading",
+  "error",
+  "showMetaData",
+  "showMetaDataVerbose",
+  "isOwner",
+  "isDemoGrid",
+  "recentGridIds",
+  "activeTileId",
+  "activePanelId",
+  "uploadingTiles",
+  "resolvedUrls",
+  "resolvedDocumentItemUrls",
+  "pendingFocusTileId",
+  "activeBreakpoint",
+  "viewportBreakpoint",
+  "forcedBreakpoint",
+  "displayPositions",
+] as const;
+
+const legacyGetters = [
+  "verticalCompact",
+  "canEdit",
+  "canUndo",
+  "canRedo",
+  "undoActionLabel",
+  "redoActionLabel",
+  "undoRedoStacks",
+] as const;
+
+const legacyActions = [
+  "setMenuActive",
+  "setPanelActive",
+  "toggleMenuActive",
+  "togglePanelActive",
+  "closeMenus",
+  "captureSnapshot",
+  "refreshStableSnapshot",
+  "pushUndoSnapshot",
+  "undo",
+  "redo",
+  "undoRedoUntil",
+  "applySnapshot",
+  "beginEditing",
+  "commitEditing",
+  "beginMove",
+  "commitMove",
+  "beginResize",
+  "commitResize",
+  "setTileUploading",
+  "clearTileUploading",
+  "setResolvedUrl",
+  "setResolvedDocumentItemUrl",
+  "getResolvedUrl",
+  "clearResolvedUrl",
+  "clearResolvedDocumentItemsForTile",
+  "fetchGrids",
+  "createGrid",
+  "duplicateGrid",
+  "loadGrid",
+  "loadDemoGrid",
+  "recordRecent",
+  "loadRecents",
+  "saveRecents",
+  "checkShowMetaDataCookie",
+  "setShowMetaData",
+  "setShowMetaDataVerbose",
+  "toggleVerticalCompact",
+  "setVerticalCompact",
+  "getCookieValue",
+  "setCookieValue",
+  "saveGrid",
+  "addTile",
+  "setTileContent",
+  "patchTileContent",
+  "patchDocumentItem",
+  "setGridTheme",
+  "setDuplicatable",
+  "addBackgroundImage",
+  "removeBackgroundImage",
+  "setCustomOgImage",
+  "removeCustomOgImage",
+  "setBackgroundColor",
+  "removeBackgroundColor",
+  "getViewportGridY",
+  "duplicateTile",
+  "removeTile",
+  "resizeTile",
+  "toggleTileBorder",
+  "toggleLinkBackground",
+  "updateGrid",
+  "setActiveBreakpoint",
+  "setViewportBreakpoint",
+  "setForcedBreakpoint",
+  "setDisplayPositions",
+  "getBreakpointPositions",
+  "hasBreakpointOverride",
+  "updateBreakpointOverride",
+  "saveBreakpointPositions",
+  "resetBreakpoint",
+  "clearCurrentGrid",
+  "deleteGrid",
+  "renameGrid",
+] as const;
+
+interface LegacyGridFacadeContract {
+  undoRedoVersion: number;
+  grids: Grid[];
+  currentGrid: Grid | null;
+  isLoading: boolean;
+  error: string | null;
+  showMetaData: boolean;
+  showMetaDataVerbose: boolean;
+  isOwner: boolean;
+  isDemoGrid: boolean;
+  recentGridIds: string[];
+  activeTileId: string | null;
+  activePanelId: string | null;
+  uploadingTiles: Record<string, number>;
+  resolvedUrls: Record<string, string>;
+  resolvedDocumentItemUrls: Record<string, Record<string, string>>;
+  pendingFocusTileId: string | null;
+  activeBreakpoint: Breakpoint;
+  viewportBreakpoint: Breakpoint;
+  forcedBreakpoint: Breakpoint | null;
+  displayPositions: GridLayoutItem[];
+  readonly verticalCompact: boolean;
+  readonly canEdit: boolean;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly undoActionLabel: string | null;
+  readonly redoActionLabel: string | null;
+  readonly undoRedoStacks: {
+    undoStack: {
+      actionLabel: string;
+      timestamp: number;
+      snapshotId: number;
+    }[];
+    redoStack: {
+      actionLabel: string;
+      timestamp: number;
+      snapshotId: number;
+    }[];
+  };
+  setMenuActive(tileId: string): void;
+  setPanelActive(tileId: string, panelId: string): void;
+  toggleMenuActive(tileId: string): void;
+  togglePanelActive(tileId: string, panelId: string): void;
+  closeMenus(): void;
+  captureSnapshot(actionLabel: string): Snapshot | null;
+  refreshStableSnapshot(): void;
+  pushUndoSnapshot(actionLabel: string): void;
+  undo(): Promise<void>;
+  redo(): Promise<void>;
+  undoRedoUntil(snapshotId: number): Promise<void>;
+  applySnapshot(snapshot: Snapshot): Promise<void>;
+  beginEditing(tileId: string): void;
+  commitEditing(): void;
+  beginMove(): void;
+  commitMove(): void;
+  beginResize(): void;
+  commitResize(): void;
+  setTileUploading(tileId: string, progress: number): void;
+  clearTileUploading(tileId: string): void;
+  setResolvedUrl(tileId: string, url: string): void;
+  setResolvedDocumentItemUrl(
+    tileId: string,
+    itemId: string,
+    url: string,
+  ): void;
+  getResolvedUrl(tileId: string): string | undefined;
+  clearResolvedUrl(tileId: string): void;
+  clearResolvedDocumentItemsForTile(tileId: string): void;
+  fetchGrids(): Promise<void>;
+  createGrid(name: string): Promise<string | null>;
+  duplicateGrid(
+    sourceGrid: Grid,
+    copyDepth?: CopyDepth,
+  ): Promise<string | null>;
+  loadGrid(id: string): Promise<void>;
+  loadDemoGrid(grid: Grid): void;
+  recordRecent(id: string): void;
+  loadRecents(): Promise<void>;
+  saveRecents(): Promise<void>;
+  checkShowMetaDataCookie(): void;
+  setShowMetaData(value: boolean): void;
+  setShowMetaDataVerbose(value: boolean): void;
+  toggleVerticalCompact(): void;
+  setVerticalCompact(value: boolean): void;
+  getCookieValue(name: string): string | null;
+  setCookieValue(name: string, value: string, days?: number): void;
+  saveGrid(): Promise<void>;
+  addTile(content: TileContent): string | null;
+  setTileContent(id: string, content: TileContent): void;
+  patchTileContent(id: string, patch: Partial<AnyTileContent>): void;
+  patchDocumentItem(
+    tileId: string,
+    itemId: string,
+    itemPatch: Partial<DocumentItem>,
+  ): void;
+  setGridTheme(themeId: string): void;
+  setDuplicatable(value: boolean): void;
+  addBackgroundImage(url: string, embed: boolean): void;
+  removeBackgroundImage(): void;
+  setCustomOgImage(url: string): void;
+  removeCustomOgImage(): void;
+  setBackgroundColor(color: string): void;
+  removeBackgroundColor(): void;
+  getViewportGridY(): number;
+  duplicateTile(id: string): string | null;
+  removeTile(id: string): void;
+  resizeTile(id: string, w: number, h: number): void;
+  toggleTileBorder(id: string): void;
+  toggleLinkBackground(id: string): void;
+  updateGrid(): void;
+  setActiveBreakpoint(bp: Breakpoint): void;
+  setViewportBreakpoint(bp: Breakpoint): void;
+  setForcedBreakpoint(bp: Breakpoint | null): void;
+  setDisplayPositions(positions: GridLayoutItem[]): void;
+  getBreakpointPositions(
+    bp: Breakpoint,
+  ): Record<string, TilePosition> | undefined;
+  hasBreakpointOverride(bp: Breakpoint): boolean;
+  updateBreakpointOverride(): void;
+  saveBreakpointPositions(bp: Breakpoint, tiles: GridLayoutItem[]): void;
+  resetBreakpoint(bp: Breakpoint): void;
+  clearCurrentGrid(): void;
+  deleteGrid(id: string): Promise<void>;
+  renameGrid(id: string, newName: string): Promise<void>;
+}
+
+function requireLegacyGridFacade(_store: LegacyGridFacadeContract): void {
+  // Compile-time compatibility check for legacy argument and return types.
+}
+
+describe("grid store compatibility facade contract", () => {
+  let store: Awaited<ReturnType<typeof createGridStore>>;
+
+  beforeEach(async () => {
+    resetGridHarness();
+    store = await createGridStore();
+  });
+
+  it("exposes every legacy state member, getter, and action", () => {
+    requireLegacyGridFacade(store);
+
+    for (const member of [...legacyStateMembers, ...legacyGetters]) {
+      expect(store).toHaveProperty(member);
+    }
+    for (const action of legacyActions) {
+      expect(store[action]).toBeTypeOf("function");
+    }
+  });
+
+  it("keeps every legacy state member directly writable", () => {
+    const grid = makeGrid();
+    const positions: GridLayoutItem[] = [
+      { i: "tile-1", x: 1, y: 2, w: 3, h: 4 },
+    ];
+
+    store.undoRedoVersion = 4;
+    store.grids = [grid];
+    store.currentGrid = grid;
+    store.isLoading = true;
+    store.error = "contract error";
+    store.showMetaData = true;
+    store.showMetaDataVerbose = true;
+    store.isOwner = true;
+    store.isDemoGrid = true;
+    store.recentGridIds = ["grid-1"];
+    store.activeTileId = "tile-1";
+    store.activePanelId = "settings";
+    store.uploadingTiles = { "tile-1": 0.5 };
+    store.resolvedUrls = { "tile-1": "https://example.com/media" };
+    store.resolvedDocumentItemUrls = {
+      "tile-1": { "item-1": "https://example.com/document" },
+    };
+    store.pendingFocusTileId = "tile-1";
+    store.activeBreakpoint = "md";
+    store.viewportBreakpoint = "sm";
+    store.forcedBreakpoint = "lg";
+    store.displayPositions = positions;
+
+    expect(
+      legacyStateMembers.map((member) => store[member]),
+    ).toEqual([
+      4,
+      [grid],
+      grid,
+      true,
+      "contract error",
+      true,
+      true,
+      true,
+      true,
+      ["grid-1"],
+      "tile-1",
+      "settings",
+      { "tile-1": 0.5 },
+      { "tile-1": "https://example.com/media" },
+      {
+        "tile-1": { "item-1": "https://example.com/document" },
+      },
+      "tile-1",
+      "md",
+      "sm",
+      "lg",
+      positions,
+    ]);
+  });
+
+  it("keeps all seven getters reactive through storeToRefs", async () => {
+    gridHarness.gridService.fetchGrid.mockResolvedValueOnce(
+      makeGrid({ verticalCompact: false }),
+    );
+    await store.loadGrid("grid-1");
+
+    const refs = storeToRefs(store);
+    expect(refs.verticalCompact.value).toBe(false);
+    expect(refs.canEdit.value).toBe(true);
+    expect(refs.canUndo.value).toBe(false);
+    expect(refs.canRedo.value).toBe(false);
+    expect(refs.undoActionLabel.value).toBeNull();
+    expect(refs.redoActionLabel.value).toBeNull();
+    expect(refs.undoRedoStacks.value).toEqual({
+      undoStack: [],
+      redoStack: [],
+    });
+
+    store.currentGrid!.verticalCompact = true;
+    refs.viewportBreakpoint.value = "sm";
+    refs.forcedBreakpoint.value = "md";
+    store.pushUndoSnapshot("Facade contract");
+    await nextTick();
+
+    expect(refs.verticalCompact.value).toBe(true);
+    expect(refs.canEdit.value).toBe(false);
+    expect(refs.canUndo.value).toBe(true);
+    expect(refs.undoActionLabel.value).toBe("Facade contract");
+    expect(refs.undoRedoStacks.value.undoStack).toHaveLength(1);
+
+    refs.forcedBreakpoint.value = null;
+    await store.undo();
+    await nextTick();
+
+    expect(refs.canUndo.value).toBe(false);
+    expect(refs.canRedo.value).toBe(true);
+    expect(refs.undoActionLabel.value).toBeNull();
+    expect(refs.redoActionLabel.value).toBe("Facade contract");
+    expect(refs.undoRedoStacks.value.redoStack).toHaveLength(1);
+  });
+
+  it("keeps ordinary computed reads reactive to nested canonical writes", async () => {
+    store.currentGrid = makeGrid({ name: "Before" });
+    const currentName = computed(() => store.currentGrid?.name ?? null);
+    const observedNames: Array<string | null> = [];
+    const stop = watch(currentName, (name) => observedNames.push(name));
+
+    store.currentGrid.name = "After";
+    await nextTick();
+
+    expect(currentName.value).toBe("After");
+    expect(observedNames).toEqual(["After"]);
+    stop();
+  });
+
+  it("preserves promise and return-value behavior for async actions", async () => {
+    const sourceGrid = makeGrid({ id: "source-grid" });
+    const asyncCalls = [
+      { call: () => store.undo(), expected: undefined },
+      { call: () => store.redo(), expected: undefined },
+      { call: () => store.undoRedoUntil(1), expected: undefined },
+      {
+        call: () => store.applySnapshot({} as Snapshot),
+        expected: undefined,
+      },
+      { call: () => store.fetchGrids(), expected: undefined },
+      { call: () => store.createGrid("Created"), expected: "created-grid" },
+      {
+        call: () => store.duplicateGrid(sourceGrid),
+        expected: "cloned-grid",
+      },
+      { call: () => store.loadGrid("grid-1"), expected: undefined },
+      { call: () => store.loadRecents(), expected: undefined },
+      { call: () => store.saveRecents(), expected: undefined },
+      { call: () => store.saveGrid(), expected: undefined },
+      { call: () => store.deleteGrid("created-grid"), expected: undefined },
+      {
+        call: () => store.renameGrid("cloned-grid", "Renamed"),
+        expected: undefined,
+      },
+    ];
+
+    for (const { call, expected } of asyncCalls) {
+      const result = call();
+      expect(result).toBeInstanceOf(Promise);
+      await expect(result).resolves.toBe(expected);
+    }
+  });
+
+  it("retains the Pinia reset entry point for the future setup facade", () => {
+    store.currentGrid = makeGrid();
+    store.isOwner = true;
+    store.pendingFocusTileId = "tile-1";
+
+    store.$reset();
+
+    expect(store.currentGrid).toBeNull();
+    expect(store.isOwner).toBe(false);
+    expect(store.pendingFocusTileId).toBeNull();
+  });
+});

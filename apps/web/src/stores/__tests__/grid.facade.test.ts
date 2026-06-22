@@ -444,7 +444,7 @@ describe("grid store compatibility facade contract", () => {
     expect(store.pendingFocusTileId).toBeNull();
   });
 
-  it("documents that legacy loading clears when either overlapping load finishes", async () => {
+  it("keeps facade loading active until every overlapping load finishes", async () => {
     const collectionRequest = deferred<ReturnType<typeof makeGrid>[]>();
     const sessionRequest = deferred<ReturnType<typeof makeGrid>>();
     gridHarness.gridService.fetchGridsByUserId.mockReturnValueOnce(
@@ -462,7 +462,7 @@ describe("grid store compatibility facade contract", () => {
     collectionRequest.resolve([]);
     await fetchPromise;
 
-    expect(store.isLoading).toBe(false);
+    expect(store.isLoading).toBe(true);
 
     sessionRequest.resolve(makeGrid());
     await loadPromise;

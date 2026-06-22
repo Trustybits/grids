@@ -443,6 +443,33 @@ describe("grid store history orchestration", () => {
     expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
   });
 
+  it("records and persists one desktop resize transaction", async () => {
+    const store = await createLoadedGridStore();
+    const manager = gridHarness.undoManagers[0];
+    store.activeBreakpoint = "lg";
+    store.setDisplayPositions([
+      { i: "tile-1", x: 3, y: 4, w: 5, h: 6 },
+    ]);
+    gridHarness.gridService.queueSave.mockClear();
+
+    store.beginResize();
+    store.commitResize();
+
+    expect(manager?.pushSnapshot).toHaveBeenCalledTimes(1);
+    expect(manager?.pushSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionLabel: "Resize tile",
+        tiles: [
+          expect.objectContaining({ x: 0, y: 0, w: 2, h: 2 }),
+        ],
+      }),
+    );
+    expect(store.currentGrid?.tiles[0]).toEqual(
+      expect.objectContaining({ x: 3, y: 4, w: 5, h: 6 }),
+    );
+    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+  });
+
   it("undoes only a resize performed immediately after another mutation", async () => {
     const store = await createLoadedGridStore();
 

@@ -51,6 +51,17 @@ Step 3 must preserve:
   assigns fields such as `pendingFocusTileId`, `currentGrid`, `isOwner`, and
   `isDemoGrid`, and also mutates nested canonical grid fields.
 
+Approved compatibility deviation:
+
+- The facade `isLoading` value uses aggregate loading semantics. Collection
+  and active-grid loads are tracked independently, and the facade remains
+  loading until every overlapping operation finishes.
+- This intentionally replaces the legacy shared-field behavior, where the
+  first completed overlapping operation could clear `isLoading` while another
+  operation was still pending.
+- `grid.facade.test.ts` and `gridFacadePolicy.test.ts` define the approved
+  replacement contract.
+
 Step 3 does not:
 
 - Migrate components or composables away from `useGridStore()`.
@@ -241,11 +252,14 @@ Split the legacy shared `isLoading` and `error` fields internally:
 
 - `gridCollection` owns collection loading and collection errors.
 - `gridSession` owns active-grid loading, load errors, and persistence errors.
-- The facade computes legacy `isLoading` and `error` using the current
-  compatibility precedence.
+- The facade computes `isLoading` from both focused loading fields using the
+  approved aggregate policy: it remains `true` while either owner is loading.
+- The compatibility error channel preserves the characterized last-write
+  sequencing for collection, session-load, and persistence failures.
 
-The precedence must be characterized before extraction so simultaneous
-collection/session states do not produce an accidental UI change.
+The loading policy and error sequencing must be characterized before
+extraction so simultaneous collection/session operations do not produce an
+accidental UI change.
 
 ### 3. Move History and Transaction State First
 

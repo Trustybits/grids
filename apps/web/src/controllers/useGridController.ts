@@ -4,6 +4,7 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { measureViewportGridRow } from "@/composables/useResponsiveGridLayout";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
+import { useGridCompatibilityStore } from "@/stores/grid/gridCompatibility";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridUiStore } from "@/stores/grid/gridUi";
@@ -26,6 +27,12 @@ function readCookie(name: string): string | null {
   return cookie ? cookie.split("=")[1] : null;
 }
 
+function writeCookie(name: string, value: string, days = 365): void {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/`;
+}
+
 export function createDefaultGridControllerDependencies(): GridControllerDependencies {
   return {
     getGridService: () => getServiceFactory().getGridService(),
@@ -43,6 +50,9 @@ export function createDefaultGridControllerDependencies(): GridControllerDepende
       showMetaDataVerbose:
         readCookie("showMetaDataVerbose") === "true",
     }),
+    getCookieValue: (name) => readCookie(name),
+    setCookieValue: (name, value, days) =>
+      writeCookie(name, value, days),
     snapshotCodec: new GridSnapshotCodec(),
   };
 }
@@ -61,6 +71,7 @@ export function useGridController(pinia?: Pinia): GridController {
   const controller = new GridController(
     {
       collection: useGridCollectionStore(resolvedPinia),
+      compatibility: useGridCompatibilityStore(resolvedPinia),
       history: useGridHistoryStore(resolvedPinia),
       session: useGridSessionStore(resolvedPinia),
       ui: useGridUiStore(resolvedPinia),

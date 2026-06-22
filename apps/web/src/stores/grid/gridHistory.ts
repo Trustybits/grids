@@ -113,6 +113,10 @@ export const useGridHistoryStore = defineStore("gridHistory", () => {
     stableSnapshot.value = snapshot;
   }
 
+  function bumpVersion(): void {
+    stackVersion.value++;
+  }
+
   function beginEdit(
     tileId: string,
     snapshot: Snapshot | null,
@@ -193,6 +197,7 @@ export const useGridHistoryStore = defineStore("gridHistory", () => {
     undoRedoUntil,
     replaceBlobUrl,
     setStableSnapshot,
+    bumpVersion,
     beginEdit,
     isEditing,
     takeEditSnapshot,

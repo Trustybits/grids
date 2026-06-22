@@ -63,6 +63,7 @@ const gridHarness = vi.hoisted(() => {
     findBestXAtRow: vi.fn(),
     findFirstAvailableSpot: vi.fn(),
     pushTilesForNewItem: vi.fn(),
+    measureViewportGridRow: vi.fn<() => number | null>(),
     uuid: vi.fn(),
     undoManagers: [] as MockUndoManager[],
   };
@@ -111,6 +112,22 @@ vi.mock("@/utils/GridPlacementUtils", () => ({
   pushTilesForNewItem: (...args: unknown[]) =>
     gridHarness.pushTilesForNewItem(...args),
 }));
+
+vi.mock(
+  "@/composables/useResponsiveGridLayout",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/composables/useResponsiveGridLayout")
+      >();
+    return {
+      ...actual,
+      measureViewportGridRow: () =>
+        gridHarness.measureViewportGridRow() ??
+        actual.measureViewportGridRow(),
+    };
+  },
+);
 
 vi.mock("@/stores/toast", () => ({
   useToastStore: () => gridHarness.toastStore,
@@ -279,6 +296,7 @@ export function resetGridHarness(): void {
   gridHarness.uuid.mockReturnValue("generated-tile");
   gridHarness.getTileDefinition.mockReturnValue(undefined);
   gridHarness.findBestXAtRow.mockReturnValue({ x: 2, y: 4 });
+  gridHarness.measureViewportGridRow.mockReturnValue(null);
   gridHarness.findFirstAvailableSpot.mockReturnValue({ x: 0, y: 0 });
   gridHarness.createTile.mockImplementation(
     (

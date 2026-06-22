@@ -190,6 +190,13 @@ describe("grid store session behavior", () => {
     store.beginMove();
     store.beginResize();
     store.pushUndoSnapshot("Edit tile");
+    store.setTileUploading("tile-1", 0.5);
+    store.setResolvedUrl("tile-1", "https://cdn.example/media");
+    store.setResolvedDocumentItemUrl(
+      "tile-1",
+      "item-1",
+      "https://cdn.example/document",
+    );
     const manager = gridHarness.undoManagers[0];
 
     store.clearCurrentGrid();
@@ -202,6 +209,9 @@ describe("grid store session behavior", () => {
     expect(store.activePanelId).toBeNull();
     expect(store.forcedBreakpoint).toBeNull();
     expect(store.viewportBreakpoint).toBe("lg");
+    expect(store.uploadingTiles).toEqual({});
+    expect(store.resolvedUrls).toEqual({});
+    expect(store.resolvedDocumentItemUrls).toEqual({});
     expect(manager?.clear).toHaveBeenCalled();
     expect(store.canUndo).toBe(false);
     expect(useGridHistoryStore().manager).toBeNull();

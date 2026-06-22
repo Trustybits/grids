@@ -10,6 +10,8 @@ Status values:
 - `covered elsewhere` - protected by an existing focused unit test.
 - `confirmed defect` - current behavior is documented but must not become the
   desired contract.
+- `approved behavior change` - intentionally differs from legacy behavior and
+  is protected by tests for the replacement contract.
 - `pending` - test still needs to be added during Step 1. No rows remain in
   this state.
 
@@ -20,7 +22,7 @@ Status values:
 | `undoRedoVersion` | Invalidates history getters when history stacks change. | `gridHistory` | `grid.history.test.ts` | covered |
 | `grids` | Holds dashboard grid collection. | `gridCollection` | `grid.collection.test.ts` | covered |
 | `currentGrid` | Holds the canonical active or demo grid. | `gridSession` | `grid.session.test.ts` | covered |
-| `isLoading` | Shared loading flag for collection and active-grid loads. | Split between `gridCollection` and `gridSession` | `grid.collection.test.ts`, `grid.session.test.ts` | covered |
+| `isLoading` | Approved behavior change: collection and active-grid loading are tracked independently, and the compatibility facade remains loading until every overlapping operation finishes. The legacy shared flag could clear when the first operation finished. | Split between `gridCollection` and `gridSession`; combined by `gridFacadePolicy` | `grid.facade.test.ts`, `gridFacadePolicy.test.ts` | approved behavior change |
 | `error` | Shared error string for collection, session, and persistence failures. | Split between `gridCollection` and `gridSession` | Collection/session suites | covered |
 | `showMetaData` | Metadata display preference loaded from and persisted to a cookie. | `gridUi` | `grid.ui.test.ts` | covered |
 | `showMetaDataVerbose` | Verbose metadata preference loaded from and persisted to a cookie. | `gridUi` | `grid.ui.test.ts` | covered |

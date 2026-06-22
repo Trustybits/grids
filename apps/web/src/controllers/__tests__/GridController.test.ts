@@ -10,6 +10,7 @@ import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService"
 import type { IGridService } from "@/services/interfaces/IGridService";
 import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
+import { useGridCompatibilityStore } from "@/stores/grid/gridCompatibility";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridUiStore } from "@/stores/grid/gridUi";
@@ -69,6 +70,7 @@ function deferred<T>() {
 function createStores(pinia: Pinia): GridControllerStores {
   return {
     collection: useGridCollectionStore(pinia),
+    compatibility: useGridCompatibilityStore(pinia),
     history: useGridHistoryStore(pinia),
     session: useGridSessionStore(pinia),
     ui: useGridUiStore(pinia),
@@ -126,6 +128,8 @@ function createControllerHarness() {
       showMetaData: true,
       showMetaDataVerbose: false,
     })),
+    getCookieValue: vi.fn(() => null),
+    setCookieValue: vi.fn(),
     snapshotCodec: new GridSnapshotCodec(),
   };
   const controller = new GridController(stores, dependencies);
@@ -282,6 +286,7 @@ describe("GridController", () => {
 
     expect(stores.session.currentGrid).toBeNull();
     expect(stores.session.loadError).toBe("Failed to load grid.");
+    expect(stores.compatibility.error).toBe("Failed to load grid.");
     expect(stores.session.isLoading).toBe(false);
     expect(gridService.touchLastOpenedAt).not.toHaveBeenCalled();
   });
@@ -326,6 +331,85 @@ describe("GridController", () => {
     expect(stores.viewport.forcedBreakpoint).toBeNull();
     expect(stores.uploads.resolvedUrls).toEqual({});
     expect(stores.ui.pendingFocusTileId).toBeNull();
+  });
+
+  it("refreshes stable history when forcing a breakpoint", () => {
+    const { controller, stores } = createControllerHarness();
+    const grid = makeGrid();
+    stores.session.setCurrentGrid(grid);
+
+    controller.setForcedBreakpoint("sm");
+
+    expect(stores.viewport.forcedBreakpoint).toBe("sm");
+    expect(stores.history.stableSnapshot).toEqual(
+      expect.objectContaining({
+        forcedBreakpoint: "sm",
+        actionLabel: "",
+      }),
+    );
+  });
+
+  it("stores resolved upload URLs before patching every history snapshot", () => {
+    const { controller, stores } = createControllerHarness();
+    const setMedia = vi.spyOn(stores.uploads, "setResolvedUrl");
+    const setDocument = vi.spyOn(
+      stores.uploads,
+      "setResolvedDocumentItemUrl",
+    );
+    const replaceHistory = vi.spyOn(
+      stores.history,
+      "replaceBlobUrl",
+    );
+
+    controller.setResolvedUrl("tile-1", "https://cdn/media");
+    controller.setResolvedDocumentItemUrl(
+      "tile-2",
+      "item-1",
+      "https://cdn/document",
+    );
+
+    expect(stores.uploads.resolvedUrls).toEqual({
+      "tile-1": "https://cdn/media",
+    });
+    expect(stores.uploads.resolvedDocumentItemUrls).toEqual({
+      "tile-2": { "item-1": "https://cdn/document" },
+    });
+    expect(replaceHistory).toHaveBeenNthCalledWith(
+      1,
+      "tile-1",
+      "https://cdn/media",
+    );
+    expect(replaceHistory).toHaveBeenNthCalledWith(
+      2,
+      "tile-2",
+      "https://cdn/document",
+      "item-1",
+    );
+    expect(setMedia.mock.invocationCallOrder[0]).toBeLessThan(
+      replaceHistory.mock.invocationCallOrder[0]!,
+    );
+    expect(setDocument.mock.invocationCallOrder[0]).toBeLessThan(
+      replaceHistory.mock.invocationCallOrder[1]!,
+    );
+  });
+
+  it("owns compatibility error sequencing for direct controller callers", async () => {
+    const { controller, stores, gridService } =
+      createControllerHarness();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    stores.compatibility.setError("previous failure");
+    vi.mocked(gridService.fetchGrid).mockRejectedValueOnce(
+      new Error("load failed"),
+    );
+
+    const loading = controller.loadGrid("grid-1");
+
+    expect(stores.compatibility.error).toBeNull();
+    await loading;
+    expect(stores.compatibility.error).toBe("Failed to load grid.");
+
+    controller.loadDemoGrid(makeGrid({ id: "demo" }));
+    expect(stores.compatibility.error).toBeNull();
   });
 
   it("deletes an owned grid and clears the matching active session", async () => {

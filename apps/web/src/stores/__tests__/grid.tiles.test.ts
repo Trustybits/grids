@@ -70,9 +70,23 @@ describe("grid store tile and grid mutations", () => {
     expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
   });
 
+  it("exposes persistence failures from controller-owned mutations", async () => {
+    const store = await createLoadedGridStore();
+    gridHarness.gridService.queueSave.mockRejectedValueOnce(
+      new Error("save failed"),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    store.setGridTheme("theme-b");
+
+    await vi.waitFor(() => {
+      expect(store.error).toBe("Failed to save grid.");
+    });
+  });
+
   it("adds a tile at the first available top-of-grid position", async () => {
     const store = await createLoadedGridStore(makeGrid({ tiles: [] }));
-    vi.spyOn(store, "getViewportGridY").mockReturnValue(0);
+    gridHarness.measureViewportGridRow.mockReturnValue(0);
     gridHarness.getTileDefinition.mockReturnValue({
       defaultSize: { w: 3, h: 4 },
     });
@@ -122,7 +136,7 @@ describe("grid store tile and grid mutations", () => {
 
   it("places a new tile at the visible viewport row when scrolled", async () => {
     const store = await createLoadedGridStore(makeGrid({ tiles: [] }));
-    vi.spyOn(store, "getViewportGridY").mockReturnValue(7);
+    gridHarness.measureViewportGridRow.mockReturnValue(7);
     gridHarness.findBestXAtRow.mockReturnValue({ x: 4, y: 7 });
 
     store.addTile({ type: ContentType.IMAGE } as TileContent);
@@ -168,7 +182,7 @@ describe("grid store tile and grid mutations", () => {
 
   it("does not emit analytics for internal suggestion tiles", async () => {
     const store = await createLoadedGridStore(makeGrid({ tiles: [] }));
-    vi.spyOn(store, "getViewportGridY").mockReturnValue(0);
+    gridHarness.measureViewportGridRow.mockReturnValue(0);
 
     store.addTile({
       type: ContentType.SUGGESTION,

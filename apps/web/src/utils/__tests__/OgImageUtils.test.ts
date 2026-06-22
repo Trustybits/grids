@@ -78,17 +78,27 @@ describe("defaultOgImageUrl", () => {
 });
 
 describe("ogApiBase (via generatedOgImageUrl)", () => {
+  const originalLocation = window.location;
+
+  afterEach(() => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: originalLocation,
+    });
+  });
+
   it("uses same-origin /api/og on www.grids.so", () => {
-    const prev = window.location;
-    // @ts-expect-error — jsdom location stub for production host detection
-    delete window.location;
-    window.location = { hostname: "www.grids.so", origin: "https://www.grids.so" } as Location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        hostname: "www.grids.so",
+        origin: "https://www.grids.so",
+      },
+    });
 
     const u = new URL(generatedOgImageUrl("grid-1"));
     expect(u.origin).toBe("https://www.grids.so");
     expect(u.pathname).toBe("/api/og");
-
-    window.location = prev;
   });
 });
 

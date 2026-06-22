@@ -83,10 +83,16 @@ describe("grid store session behavior", () => {
 
   it("replaces prior history with a fresh manager on each load", async () => {
     const store = await createGridStore();
+    const { useGridHistoryStore } = await import(
+      "@/stores/grid/gridHistory"
+    );
 
     await store.loadGrid("grid-1");
     const firstManager = gridHarness.undoManagers[0];
     store.pushUndoSnapshot("Before reload");
+    store.beginEditing("tile-1");
+    store.beginMove();
+    store.beginResize();
 
     gridHarness.gridService.fetchGrid.mockResolvedValueOnce(
       makeGrid({ id: "grid-2" }),
@@ -96,6 +102,10 @@ describe("grid store session behavior", () => {
     expect(firstManager?.clear).toHaveBeenCalled();
     expect(gridHarness.undoManagers).toHaveLength(2);
     expect(store.canUndo).toBe(false);
+    expect(useGridHistoryStore().editingTileId).toBeNull();
+    expect(useGridHistoryStore().pendingEditSnapshot).toBeNull();
+    expect(useGridHistoryStore().pendingMoveSnapshot).toBeNull();
+    expect(useGridHistoryStore().pendingResizeSnapshot).toBeNull();
   });
 
   it("loads a demo grid without persistence, ownership, or history setup", async () => {
@@ -169,11 +179,16 @@ describe("grid store session behavior", () => {
 
   it("clears active session, UI, viewport, edit, and history state", async () => {
     const store = await createLoadedGridStore();
+    const { useGridHistoryStore } = await import(
+      "@/stores/grid/gridHistory"
+    );
     store.setPanelActive("tile-1", "settings");
     store.setDisplayPositions([{ i: "tile-1", x: 1, y: 2, w: 3, h: 4 }]);
     store.setForcedBreakpoint("sm");
     store.setViewportBreakpoint("md");
     store.beginEditing("tile-1");
+    store.beginMove();
+    store.beginResize();
     store.pushUndoSnapshot("Edit tile");
     const manager = gridHarness.undoManagers[0];
 
@@ -189,5 +204,10 @@ describe("grid store session behavior", () => {
     expect(store.viewportBreakpoint).toBe("lg");
     expect(manager?.clear).toHaveBeenCalled();
     expect(store.canUndo).toBe(false);
+    expect(useGridHistoryStore().manager).toBeNull();
+    expect(useGridHistoryStore().editingTileId).toBeNull();
+    expect(useGridHistoryStore().pendingEditSnapshot).toBeNull();
+    expect(useGridHistoryStore().pendingMoveSnapshot).toBeNull();
+    expect(useGridHistoryStore().pendingResizeSnapshot).toBeNull();
   });
 });

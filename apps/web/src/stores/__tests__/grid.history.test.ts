@@ -385,7 +385,24 @@ describe("grid store history orchestration", () => {
     expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
   });
 
-  it("refreshes the stable snapshot used by the next move transaction", async () => {
+  it("undoes only a move performed immediately after another mutation", async () => {
+    const store = await createLoadedGridStore();
+
+    store.setGridTheme("theme-b");
+    store.beginMove();
+    store.currentGrid!.tiles[0]!.x = 5;
+    store.commitMove();
+    gridHarness.gridService.queueSave.mockClear();
+
+    await store.undo();
+
+    expect(store.currentGrid?.themeId).toBe("theme-b");
+    expect(store.currentGrid?.tiles[0]?.x).toBe(0);
+    expect(store.undoActionLabel).toBe("Change theme");
+    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("captures current canonical state when a move begins", async () => {
     const store = await createLoadedGridStore();
     const manager = gridHarness.undoManagers[0]!;
     store.currentGrid!.tiles[0]!.x = 3;
@@ -399,7 +416,7 @@ describe("grid store history orchestration", () => {
     expect(manager.pushSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
         actionLabel: "Move tile",
-        tiles: [expect.objectContaining({ x: 3 })],
+        tiles: [expect.objectContaining({ x: 7 })],
       }),
     );
   });
@@ -423,6 +440,26 @@ describe("grid store history orchestration", () => {
     expect(store.currentGrid?.overrides?.md).toEqual({
       "tile-1": { x: 1, y: 2, w: 4, h: 5 },
     });
+    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("undoes only a resize performed immediately after another mutation", async () => {
+    const store = await createLoadedGridStore();
+
+    store.setGridTheme("theme-b");
+    store.beginResize();
+    store.currentGrid!.tiles[0]!.w = 5;
+    store.currentGrid!.tiles[0]!.h = 6;
+    store.commitResize();
+    gridHarness.gridService.queueSave.mockClear();
+
+    await store.undo();
+
+    expect(store.currentGrid?.themeId).toBe("theme-b");
+    expect(store.currentGrid?.tiles[0]).toEqual(
+      expect.objectContaining({ w: 2, h: 2 }),
+    );
+    expect(store.undoActionLabel).toBe("Change theme");
     expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
   });
 
@@ -458,5 +495,38 @@ describe("grid store history orchestration", () => {
     snapshot!.tiles[0]!.caption = "Snapshot only";
 
     expect(store.currentGrid?.tiles[0]?.caption).toBe("");
+  });
+
+  it("keeps legacy history and transactions isolated per Pinia instance", async () => {
+    const { createPinia } = await import("pinia");
+    const { useGridStore } = await import("@/stores/grid");
+    const { useGridHistoryStore } = await import(
+      "@/stores/grid/gridHistory"
+    );
+    const firstPinia = createPinia();
+    const secondPinia = createPinia();
+    const first = useGridStore(firstPinia);
+    const second = useGridStore(secondPinia);
+
+    await first.loadGrid("grid-1");
+    await second.loadGrid("grid-2");
+    first.pushUndoSnapshot("First only");
+    first.beginEditing("tile-1");
+    first.beginMove();
+    first.beginResize();
+
+    const firstHistory = useGridHistoryStore(firstPinia);
+    const secondHistory = useGridHistoryStore(secondPinia);
+
+    expect(firstHistory.manager).not.toBe(secondHistory.manager);
+    expect(first.canUndo).toBe(true);
+    expect(second.canUndo).toBe(false);
+    expect(firstHistory.editingTileId).toBe("tile-1");
+    expect(firstHistory.pendingMoveSnapshot).not.toBeNull();
+    expect(firstHistory.pendingResizeSnapshot).not.toBeNull();
+    expect(secondHistory.editingTileId).toBeNull();
+    expect(secondHistory.pendingEditSnapshot).toBeNull();
+    expect(secondHistory.pendingMoveSnapshot).toBeNull();
+    expect(secondHistory.pendingResizeSnapshot).toBeNull();
   });
 });

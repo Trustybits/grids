@@ -22,9 +22,9 @@ import {
 } from "@/utils/GridPlacementUtils";
 import { useToastStore } from "@/stores/toast";
 import { useThemeStore } from "@/stores/theme";
+import { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import { measureViewportGridRow } from "@/composables/useResponsiveGridLayout";
 import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
-import { UndoRedoManager } from "@/undo/UndoRedoManager";
 import type { Snapshot } from "@/undo/UndoTypes";
 import { AnalyticsEventType } from "@grids/contracts/types";
 
@@ -55,12 +55,6 @@ function logTileEvent(
   }
 }
 
-let undoRedoManager: UndoRedoManager | null = null;
-let pendingDragSnapshot: Snapshot | null = null;
-let pendingResizeSnapshot: Snapshot | null = null;
-let lastStableSnapshot: Snapshot | null = null;
-let pendingEditSnapshot: Snapshot | null = null;
-let editingTileId: string | null = null;
 const snapshotCodec = new GridSnapshotCodec();
 
 export const useGridStore = defineStore("grid", {
@@ -148,31 +142,26 @@ export const useGridStore = defineStore("grid", {
     },
 
     canUndo(): boolean {
-      void this.undoRedoVersion;
-      return undoRedoManager?.canUndo() ?? false;
+      return useGridHistoryStore().canUndo;
     },
 
     canRedo(): boolean {
-      void this.undoRedoVersion;
-      return undoRedoManager?.canRedo() ?? false;
+      return useGridHistoryStore().canRedo;
     },
 
     undoActionLabel(): string | null {
-      void this.undoRedoVersion;
-      return undoRedoManager?.getLastActionLabel() ?? null;
+      return useGridHistoryStore().undoActionLabel;
     },
 
     redoActionLabel(): string | null {
-      void this.undoRedoVersion;
-      return undoRedoManager?.getNextRedoActionLabel() ?? null;
+      return useGridHistoryStore().redoActionLabel;
     },
 
     undoRedoStacks(): {
       undoStack: { actionLabel: string; timestamp: number; snapshotId: number }[];
       redoStack: { actionLabel: string; timestamp: number; snapshotId: number }[];
     } {
-      void this.undoRedoVersion;
-      return undoRedoManager?.getStacks() ?? { undoStack: [], redoStack: [] };
+      return useGridHistoryStore().undoRedoStacks;
     },
   },
 
@@ -240,47 +229,55 @@ export const useGridStore = defineStore("grid", {
     },
 
     refreshStableSnapshot() {
-      lastStableSnapshot = this.captureSnapshot("");
+      useGridHistoryStore().setStableSnapshot(this.captureSnapshot(""));
     },
 
     pushUndoSnapshot(actionLabel: string) {
       const snapshot = this.captureSnapshot(actionLabel);
-      if (!snapshot || !undoRedoManager) return;
+      if (!snapshot) return;
 
-      undoRedoManager.pushSnapshot(snapshot);
+      const historyStore = useGridHistoryStore();
+      historyStore.pushSnapshot(snapshot);
+      this.undoRedoVersion = historyStore.stackVersion;
       this.refreshStableSnapshot();
     },
 
     async undo() {
-      if (!undoRedoManager || !this.currentGrid) return;
+      if (!this.currentGrid) return;
       const current = this.captureSnapshot("");
       if (!current) return;
 
-      const snapshot = undoRedoManager.undo(current);
+      const historyStore = useGridHistoryStore();
+      const snapshot = historyStore.undo(current);
       if (!snapshot) return;
 
+      this.undoRedoVersion = historyStore.stackVersion;
       await this.applySnapshot(snapshot);
     },
 
     async redo() {
-      if (!undoRedoManager || !this.currentGrid) return;
+      if (!this.currentGrid) return;
       const current = this.captureSnapshot("");
       if (!current) return;
 
-      const snapshot = undoRedoManager.redo(current);
+      const historyStore = useGridHistoryStore();
+      const snapshot = historyStore.redo(current);
       if (!snapshot) return;
 
+      this.undoRedoVersion = historyStore.stackVersion;
       await this.applySnapshot(snapshot);
     },
 
     async undoRedoUntil(snapshotId: number) {
-      if (!undoRedoManager || !this.currentGrid) return;
+      if (!this.currentGrid) return;
       const current = this.captureSnapshot("");
       if (!current) return;
 
-      const snapshot = undoRedoManager.undoRedoUntil(snapshotId, current);
+      const historyStore = useGridHistoryStore();
+      const snapshot = historyStore.undoRedoUntil(snapshotId, current);
       if (!snapshot) return;
 
+      this.undoRedoVersion = historyStore.stackVersion;
       await this.applySnapshot(snapshot);
     },
 
@@ -310,45 +307,45 @@ export const useGridStore = defineStore("grid", {
     },
 
     beginEditing(tileId: string) {
-      if (editingTileId) return;
-      pendingEditSnapshot = this.captureSnapshot("Edit tile");
-      editingTileId = tileId;
-      this.refreshStableSnapshot();
+      const historyStore = useGridHistoryStore();
+      if (
+        historyStore.beginEdit(
+          tileId,
+          this.captureSnapshot("Edit tile"),
+        )
+      ) {
+        this.refreshStableSnapshot();
+      }
     },
 
     commitEditing() {
-      if (pendingEditSnapshot && undoRedoManager) {
+      const historyStore = useGridHistoryStore();
+      const pendingEditSnapshot = historyStore.takeEditSnapshot();
+      if (pendingEditSnapshot) {
         const current = this.captureSnapshot("");
         if (
           current &&
           !snapshotCodec.equals(pendingEditSnapshot, current)
         ) {
-          undoRedoManager.pushSnapshot(pendingEditSnapshot);
+          historyStore.pushSnapshot(pendingEditSnapshot);
+          this.undoRedoVersion = historyStore.stackVersion;
           this.refreshStableSnapshot();
         }
       }
-      pendingEditSnapshot = null;
-      editingTileId = null;
     },
 
     beginMove() {
-      if (!pendingDragSnapshot) {
-        if (lastStableSnapshot) {
-          pendingDragSnapshot = {
-            ...lastStableSnapshot,
-            actionLabel: "Move tile",
-          };
-        } else {
-          pendingDragSnapshot = this.captureSnapshot("Move tile");
-        }
-      }
+      const historyStore = useGridHistoryStore();
+      historyStore.beginMove(this.captureSnapshot("Move tile"));
     },
 
     commitMove() {
-      if (pendingDragSnapshot && undoRedoManager) {
-        undoRedoManager.pushSnapshot(pendingDragSnapshot);
+      const historyStore = useGridHistoryStore();
+      const pendingMoveSnapshot = historyStore.takeMoveSnapshot();
+      if (pendingMoveSnapshot) {
+        historyStore.pushSnapshot(pendingMoveSnapshot);
+        this.undoRedoVersion = historyStore.stackVersion;
       }
-      pendingDragSnapshot = null;
       if (this.activeBreakpoint !== "lg") {
         this.updateBreakpointOverride();
       } else {
@@ -358,23 +355,17 @@ export const useGridStore = defineStore("grid", {
     },
 
     beginResize() {
-      if (!pendingResizeSnapshot) {
-        if (lastStableSnapshot) {
-          pendingResizeSnapshot = {
-            ...lastStableSnapshot,
-            actionLabel: "Resize tile",
-          };
-        } else {
-          pendingResizeSnapshot = this.captureSnapshot("Resize tile");
-        }
-      }
+      const historyStore = useGridHistoryStore();
+      historyStore.beginResize(this.captureSnapshot("Resize tile"));
     },
 
     commitResize() {
-      if (pendingResizeSnapshot && undoRedoManager) {
-        undoRedoManager.pushSnapshot(pendingResizeSnapshot);
+      const historyStore = useGridHistoryStore();
+      const pendingResizeSnapshot = historyStore.takeResizeSnapshot();
+      if (pendingResizeSnapshot) {
+        historyStore.pushSnapshot(pendingResizeSnapshot);
+        this.undoRedoVersion = historyStore.stackVersion;
       }
-      pendingResizeSnapshot = null;
       if (this.activeBreakpoint !== "lg") {
         this.updateBreakpointOverride();
       } else {
@@ -398,11 +389,7 @@ export const useGridStore = defineStore("grid", {
     // Also updates undo/redo snapshots and the lastStable and pendingEdit snapshots
     setResolvedUrl(tileId: string, url: string) {
       this.resolvedUrls[tileId] = url;
-      undoRedoManager?.replaceBlobUrl(tileId, url);
-      snapshotCodec.replaceBlobUrl(lastStableSnapshot, tileId, url);
-      snapshotCodec.replaceBlobUrl(pendingEditSnapshot, tileId, url);
-      snapshotCodec.replaceBlobUrl(pendingDragSnapshot, tileId, url);
-      snapshotCodec.replaceBlobUrl(pendingResizeSnapshot, tileId, url);
+      useGridHistoryStore().replaceBlobUrl(tileId, url);
     },
 
     setResolvedDocumentItemUrl(tileId: string, itemId: string, url: string) {
@@ -410,31 +397,7 @@ export const useGridStore = defineStore("grid", {
         this.resolvedDocumentItemUrls[tileId] = {};
       }
       this.resolvedDocumentItemUrls[tileId][itemId] = url;
-      undoRedoManager?.replaceBlobUrl(tileId, url, itemId);
-      snapshotCodec.replaceBlobUrl(
-        lastStableSnapshot,
-        tileId,
-        url,
-        itemId,
-      );
-      snapshotCodec.replaceBlobUrl(
-        pendingEditSnapshot,
-        tileId,
-        url,
-        itemId,
-      );
-      snapshotCodec.replaceBlobUrl(
-        pendingDragSnapshot,
-        tileId,
-        url,
-        itemId,
-      );
-      snapshotCodec.replaceBlobUrl(
-        pendingResizeSnapshot,
-        tileId,
-        url,
-        itemId,
-      );
+      useGridHistoryStore().replaceBlobUrl(tileId, url, itemId);
     },
 
     // Retrieve the resolved storage URL for a tile, if one exists
@@ -545,10 +508,9 @@ export const useGridStore = defineStore("grid", {
       this.isOwner = false;
       this.isDemoGrid = false;
 
-      undoRedoManager?.clear();
-      undoRedoManager = new UndoRedoManager(() => {
-        this.undoRedoVersion++;
-      });
+      const historyStore = useGridHistoryStore();
+      historyStore.initializeManager();
+      this.undoRedoVersion = historyStore.stackVersion;
 
       try {
         this.currentGrid = await svc().fetchGrid(id);
@@ -812,7 +774,7 @@ export const useGridStore = defineStore("grid", {
       );
       if (!hasChanges) return;
 
-      if (editingTileId !== id) {
+      if (!useGridHistoryStore().isEditing(id)) {
         this.pushUndoSnapshot("Update tile");
       }
 
@@ -833,7 +795,7 @@ export const useGridStore = defineStore("grid", {
       const tile = this.currentGrid.tiles.find((t) => t.i === tileId);
       if (!tile || tile.content.type !== ContentType.DOCUMENT) return;
 
-      if (editingTileId !== tileId) {
+      if (!useGridHistoryStore().isEditing(tileId)) {
         this.pushUndoSnapshot("Update document");
       }
 
@@ -1270,11 +1232,9 @@ export const useGridStore = defineStore("grid", {
       this.activePanelId = null;
       this.forcedBreakpoint = null;
       this.viewportBreakpoint = "lg";
-      editingTileId = null;
-      pendingEditSnapshot = null;
-      lastStableSnapshot = null;
-      undoRedoManager?.clear();
-      undoRedoManager = null;
+      const historyStore = useGridHistoryStore();
+      historyStore.reset();
+      this.undoRedoVersion = historyStore.stackVersion;
     },
 
     async deleteGrid(id: string) {

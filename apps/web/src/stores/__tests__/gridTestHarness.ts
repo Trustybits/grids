@@ -329,7 +329,6 @@ export function resetGridHarness(): void {
 }
 
 export async function createGridStore() {
-  vi.resetModules();
   const { createPinia, setActivePinia } = await import("pinia");
   setActivePinia(createPinia());
   const { useGridStore } = await import("@/stores/grid");

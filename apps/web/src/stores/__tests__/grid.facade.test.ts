@@ -19,6 +19,16 @@ import {
   resetGridHarness,
 } from "./gridTestHarness";
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 const legacyStateMembers = [
   "undoRedoVersion",
   "grids",
@@ -432,5 +442,73 @@ describe("grid store compatibility facade contract", () => {
     expect(store.currentGrid).toBeNull();
     expect(store.isOwner).toBe(false);
     expect(store.pendingFocusTileId).toBeNull();
+  });
+
+  it("documents that legacy loading clears when either overlapping load finishes", async () => {
+    const collectionRequest = deferred<ReturnType<typeof makeGrid>[]>();
+    const sessionRequest = deferred<ReturnType<typeof makeGrid>>();
+    gridHarness.gridService.fetchGridsByUserId.mockReturnValueOnce(
+      collectionRequest.promise,
+    );
+    gridHarness.gridService.fetchGrid.mockReturnValueOnce(
+      sessionRequest.promise,
+    );
+
+    const fetchPromise = store.fetchGrids();
+    const loadPromise = store.loadGrid("grid-1");
+
+    expect(store.isLoading).toBe(true);
+
+    collectionRequest.resolve([]);
+    await fetchPromise;
+
+    expect(store.isLoading).toBe(false);
+
+    sessionRequest.resolve(makeGrid());
+    await loadPromise;
+
+    expect(store.isLoading).toBe(false);
+  });
+
+  it("exposes the most recent failure write from overlapping operations", async () => {
+    const collectionRequest = deferred<ReturnType<typeof makeGrid>[]>();
+    const sessionRequest = deferred<ReturnType<typeof makeGrid>>();
+    gridHarness.gridService.fetchGridsByUserId.mockReturnValueOnce(
+      collectionRequest.promise,
+    );
+    gridHarness.gridService.fetchGrid.mockReturnValueOnce(
+      sessionRequest.promise,
+    );
+
+    const fetchPromise = store.fetchGrids();
+    const loadPromise = store.loadGrid("grid-1");
+
+    sessionRequest.reject(new Error("load failed"));
+    await loadPromise;
+    expect(store.error).toBe("Failed to load grid.");
+
+    collectionRequest.reject(new Error("collection failed"));
+    await fetchPromise;
+    expect(store.error).toBe("Failed to fetch grids.");
+  });
+
+  it("clears a prior legacy error when a later operation starts", async () => {
+    const sessionRequest = deferred<ReturnType<typeof makeGrid>>();
+    gridHarness.gridService.fetchGrid.mockReturnValueOnce(
+      sessionRequest.promise,
+    );
+    gridHarness.gridService.fetchGridsByUserId.mockRejectedValueOnce(
+      new Error("collection failed"),
+    );
+
+    await store.fetchGrids();
+    expect(store.error).toBe("Failed to fetch grids.");
+
+    const loadPromise = store.loadGrid("grid-1");
+    expect(store.error).toBeNull();
+
+    sessionRequest.resolve(makeGrid());
+    await loadPromise;
+    expect(store.error).toBeNull();
   });
 });

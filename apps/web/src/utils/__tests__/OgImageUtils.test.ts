@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   customOgImagePath,
   defaultOgImageUrl,
@@ -6,6 +6,16 @@ import {
   ogImageCheckUrl,
   withVersionParam,
 } from "../OgImageUtils";
+
+// Root .env may set VITE_OG_IMAGE_ENDPOINT for emulator dev — clear it so
+// URL-builder tests hit the production / same-origin logic under test.
+beforeEach(() => {
+  vi.stubEnv("VITE_OG_IMAGE_ENDPOINT", "");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("customOgImagePath", () => {
   it("namespaces the fixed object under the owner uid and grid id", () => {
@@ -61,10 +71,24 @@ describe("ogImageCheckUrl", () => {
 });
 
 describe("defaultOgImageUrl", () => {
-  it("always points at the production grids.so default", () => {
-    // Independent of VITE_OG_IMAGE_ENDPOINT: the cached site-wide default only
-    // exists in production.
+  it("points at the site-wide default slug on the apex fallback", () => {
+    // Vitest/jsdom is not on grids.so — ogApiBase() falls back to production apex.
     expect(defaultOgImageUrl()).toBe("https://grids.so/api/og?slug=grids");
+  });
+});
+
+describe("ogApiBase (via generatedOgImageUrl)", () => {
+  it("uses same-origin /api/og on www.grids.so", () => {
+    const prev = window.location;
+    // @ts-expect-error — jsdom location stub for production host detection
+    delete window.location;
+    window.location = { hostname: "www.grids.so", origin: "https://www.grids.so" } as Location;
+
+    const u = new URL(generatedOgImageUrl("grid-1"));
+    expect(u.origin).toBe("https://www.grids.so");
+    expect(u.pathname).toBe("/api/og");
+
+    window.location = prev;
   });
 });
 

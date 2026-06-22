@@ -79,7 +79,7 @@ const menuOpen = ref(false);
 <style scoped>
 .mkt__nav {
   position: sticky;
-  top: 0;
+  top: var(--app-status-banners-height, 0px);
   z-index: 20;
   display: grid;
   grid-template-columns: 1fr auto 1fr;

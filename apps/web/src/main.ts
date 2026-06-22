@@ -40,11 +40,13 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
 (async () => {
   const wantFirebase = import.meta.env.VITE_USE_FIREBASE === "true";
   const proRuntime = wantFirebase ? await loadProRuntime() : null;
+  let isStubbedMode = true;
 
   if (proRuntime?.daoFactory && proRuntime.dbUtils && proRuntime.authProvider) {
     registerDaoFactory(proRuntime.daoFactory);
     registerDbUtils(proRuntime.dbUtils);
     registerAuthProvider(proRuntime.authProvider);
+    isStubbedMode = false;
   } else {
     if (wantFirebase && !proRuntime) {
       console.warn(
@@ -58,7 +60,7 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
   // so the service factory is registered after either init branch completes.
   registerServiceFactory(new ServiceFactory());
 
-  const app = createApp(App);
+  const app = createApp(App, { isStubbedMode });
   const pinia = createPinia();
 
   app.use(router);

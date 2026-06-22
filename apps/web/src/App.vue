@@ -1,9 +1,9 @@
 <template>
   <div id="app">
-    <!-- Global viewport warning banner — sits above everything including the TopBar.
-         Uses sticky positioning so it stays visible on scroll and pushes all
-         app content (TopBar, main area, etc.) below it. -->
-    <ViewportWarning v-if="!isMarketingPage" type="breakpoint-preview" :dismissible="false" />
+    <AppStatusBanners
+      :is-stubbed-mode="isStubbedMode"
+      :show-viewport-warning="!isMarketingPage"
+    />
 
     <!-- Left Navigation Bar (hidden on marketing pages like /pricing) -->
     <LeftNavBar v-if="isAuthenticated && !isMarketingPage" />
@@ -37,7 +37,7 @@ import BottomLeftButtons from './components/app/AppBar.vue';
 import GridNameEditor from './components/grid/GridNameEditor.vue';
 import ToastContainer from './components/ui-controls/ToastContainer.vue';
 import PixelRacersGame from './components/grid/PixelRacersGame.vue';
-import ViewportWarning from './components/grid/ViewportWarning.vue';
+import AppStatusBanners from './components/app/AppStatusBanners.vue';
 import { useGridStore } from '@/stores/grid';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
@@ -46,6 +46,15 @@ import { usePostHog } from '@/composables/usePostHog';
 import { initTier } from '@/composables/useTier';
 import { initContributions } from '@/composables/useContributions';
 import { isMarketingPath, isNonGridPath } from '@/constants/marketing';
+
+withDefaults(
+  defineProps<{
+    isStubbedMode?: boolean;
+  }>(),
+  {
+    isStubbedMode: false,
+  },
+);
 
 const { identify, reset: resetPostHog } = usePostHog();
 
@@ -166,9 +175,7 @@ onUnmounted(() => {
 <style lang="scss">
 .top-bar {
   position: fixed;
-  /* Offset below the ViewportWarning banner when it's visible.
-     --viewport-warning-height is set dynamically by ViewportWarning.vue. */
-  top: var(--viewport-warning-height, 0px);
+  top: var(--app-status-banners-height, 0px);
   left: 0;
   right: 0;
   display: flex;

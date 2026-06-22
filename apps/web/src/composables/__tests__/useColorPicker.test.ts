@@ -11,11 +11,13 @@ import {
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useGridStore } from "@/stores/grid";
-import { useColorPicker } from "@/composables/useColorPicker";
+import { useThemeStore } from "@/stores/theme";
+import { useColorPicker, computeTextColor } from "@/composables/useColorPicker";
 import {
   ContentType,
   type TextContent,
   type ImageContent,
+  type LinkContent,
 } from "@grids/contracts/types";
 
 const makeTextContent = (backgroundColor: string): TextContent => ({
@@ -389,5 +391,207 @@ describe("useColorPicker — fill vs overlay separation", () => {
     expect(overlayColor.value).toBeNull();
     // Without overlay capability the chromatic color is a plain fill.
     expect(backgroundColor.value).toBe("var(--color-red)");
+  });
+});
+
+// ── computeTextColor ────────────────────────────────────────────────────────
+// Picks black or white text for legibility against a background, via relative
+// luminance. Structural CSS-variable backgrounds resolve through the theme
+// store (dark vs. light mode). The "low" modifier appends a 0x57 alpha.
+
+describe("computeTextColor", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it("returns black for a light hex background", () => {
+    expect(computeTextColor("#FFFFFF")).toBe("#000000");
+  });
+
+  it("returns white for a dark hex background", () => {
+    expect(computeTextColor("#000000")).toBe("#FFFFFF");
+  });
+
+  it("resolves a named palette color and chooses by its luminance", () => {
+    // #FFAFA3 (var(--color-red)) is light → black text.
+    expect(computeTextColor("var(--color-red)")).toBe("#000000");
+    // #33312C (var(--color-dark-0)) is dark → white text.
+    expect(computeTextColor("var(--color-dark-0)")).toBe("#FFFFFF");
+  });
+
+  it("returns an empty string for an unknown color token", () => {
+    expect(computeTextColor("var(--color-unknown)")).toBe("");
+  });
+
+  it("returns an empty string for an empty background", () => {
+    expect(computeTextColor("")).toBe("");
+  });
+
+  describe("structural tile background by theme", () => {
+    it("resolves var(--color-tile-background) to white text in dark mode", () => {
+      useThemeStore().currentThemeId = "dark"; // isDarkMode → true, bg #000000
+      expect(computeTextColor("var(--color-tile-background)")).toBe("#FFFFFF");
+    });
+
+    it("resolves var(--color-tile-background) to black text in light mode", () => {
+      useThemeStore().currentThemeId = "light"; // bg #FFFEF5 (light)
+      expect(computeTextColor("var(--color-tile-background)")).toBe("#000000");
+    });
+
+    it("resolves var(--color-content-background) to white text in dark mode", () => {
+      useThemeStore().currentThemeId = "dark"; // bg #10100E (dark)
+      expect(computeTextColor("var(--color-content-background)")).toBe(
+        "#FFFFFF",
+      );
+    });
+
+    it("resolves var(--color-content-background) to black text in light mode", () => {
+      useThemeStore().currentThemeId = "light"; // bg #FFFEF5 (light)
+      expect(computeTextColor("var(--color-content-background)")).toBe(
+        "#000000",
+      );
+    });
+  });
+
+  describe("low modifier", () => {
+    it("appends the alpha suffix to black text", () => {
+      expect(computeTextColor("#FFFFFF", "low")).toBe("#00000057");
+    });
+
+    it("appends the alpha suffix to white text", () => {
+      expect(computeTextColor("#000000", "low")).toBe("#FFFFFF57");
+    });
+
+    it("still returns empty for an unknown color even with the modifier", () => {
+      expect(computeTextColor("nonsense", "low")).toBe("");
+    });
+  });
+});
+
+// ── Edit-permission guard + persistence target ──────────────────────────────
+
+describe("useColorPicker — canEdit guard", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it("ignores fill changes when the user cannot edit", () => {
+    const grid = useGridStore();
+    grid.isOwner = false; // canEdit → false
+    const patchSpy = vi.spyOn(grid, "patchTileContent");
+    const content = makeImageContent();
+
+    const { handleBackgroundColorChange } = useColorPicker(
+      "t1",
+      content,
+      noopEmit,
+      imageOptions,
+    );
+    handleBackgroundColorChange("#FFE299");
+
+    expect(content.backgroundColor).toBeUndefined();
+    expect(patchSpy).not.toHaveBeenCalled();
+  });
+
+  it("ignores overlay changes and mode toggles when the user cannot edit", () => {
+    const grid = useGridStore();
+    grid.isOwner = false;
+    const patchSpy = vi.spyOn(grid, "patchTileContent");
+    const content = makeImageContent();
+
+    const { handleOverlayColorChange, setColorMode } = useColorPicker(
+      "t1",
+      content,
+      noopEmit,
+      imageOptions,
+    );
+    handleOverlayColorChange("#413F65");
+    setColorMode("overlay");
+
+    expect(content.overlayColor).toBeUndefined();
+    expect(content.colorMode).toBeUndefined();
+    expect(patchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("useColorPicker — persistence with a null tileId", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it("saves the grid instead of patching a tile when tileId is null", () => {
+    const grid = useGridStore();
+    grid.isOwner = true;
+    const patchSpy = vi
+      .spyOn(grid, "patchTileContent")
+      .mockImplementation(() => {});
+    const saveSpy = vi.spyOn(grid, "saveGrid").mockImplementation(async () => {});
+    const content = makeImageContent();
+
+    const { handleBackgroundColorChange } = useColorPicker(
+      null,
+      content,
+      noopEmit,
+      imageOptions,
+    );
+    handleBackgroundColorChange("#FFE299");
+
+    expect(content.backgroundColor).toBe("#FFE299");
+    expect(saveSpy).toHaveBeenCalledTimes(1);
+    expect(patchSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ── legacyBackgroundAlsoOverlay (link / document tiles) ─────────────────────
+// Unlike legacyBackgroundAsOverlay (image/video), here a chromatic background
+// drives the overlay tint AND keeps acting as the fill color.
+
+describe("useColorPicker — legacyBackgroundAlsoOverlay", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    const grid = useGridStore();
+    grid.isOwner = true;
+    vi.spyOn(grid, "patchTileContent").mockImplementation(() => {});
+  });
+
+  const makeLinkContent = (backgroundColor: string): LinkContent =>
+    reactive({
+      type: ContentType.LINK,
+      link: "https://example.com",
+      backgroundColor,
+    }) as unknown as LinkContent;
+
+  const linkOptions = {
+    overlayCapable: true,
+    legacyBackgroundAlsoOverlay: true,
+  };
+
+  it("renders a chromatic background as both the fill and the overlay tint", () => {
+    const content = makeLinkContent("var(--color-red)");
+    const { backgroundColor, overlayColor, colorMode } = useColorPicker(
+      "t1",
+      content,
+      noopEmit,
+      linkOptions,
+    );
+
+    // Defaults to overlay treatment because a tint is present...
+    expect(colorMode.value).toBe("overlay");
+    expect(overlayColor.value).toBe("var(--color-red)");
+    // ...but the fill keeps the color (not reset to default like image/video).
+    expect(backgroundColor.value).toBe("var(--color-red)");
+  });
+
+  it("shows the chromatic background in both picker targets", () => {
+    const content = makeLinkContent("var(--color-red)");
+    const { pickerFillColor, pickerOverlayColor } = useColorPicker(
+      "t1",
+      content,
+      noopEmit,
+      linkOptions,
+    );
+
+    expect(pickerFillColor.value).toBe("var(--color-red)");
+    expect(pickerOverlayColor.value).toBe("var(--color-red)");
   });
 });

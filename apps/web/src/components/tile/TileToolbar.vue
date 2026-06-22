@@ -41,10 +41,7 @@
     @touchstart.stop
   >
     <FloatingTooltip text="My location">
-      <button
-        class="search-panel-btn"
-        @click.stop="onLocateClick"
-      >
+      <button class="search-panel-btn" @click.stop="onLocateClick">
         <CurrentLocationIcon />
       </button>
     </FloatingTooltip>
@@ -58,10 +55,7 @@
       @keydown.enter.stop="onSearchSubmit"
     />
     <FloatingTooltip text="Search map">
-      <button
-        class="search-panel-btn"
-        @click.stop="onSearchSubmit"
-      >
+      <button class="search-panel-btn" @click.stop="onSearchSubmit">
         <SearchIcon />
       </button>
     </FloatingTooltip>
@@ -86,10 +80,7 @@
         @keydown.enter.stop.prevent="onImageUrlSubmit"
       />
       <FloatingTooltip text="Submit">
-        <button
-          class="image-url-panel-btn"
-          @click.stop="onImageUrlSubmit"
-        >
+        <button class="image-url-panel-btn" @click.stop="onImageUrlSubmit">
           <ArrowUpRightIcon />
         </button>
       </FloatingTooltip>
@@ -514,8 +505,9 @@ export default defineComponent({
       }
 
       if (
-        item.id === "tile-link" &&
-        !(ctx.value.tile.content as { tileLink?: string })?.tileLink
+        (item.id === "tile-link" &&
+          !(ctx.value.tile.content as { tileLink?: string })?.tileLink) ||
+        item.group === "resize"
       ) {
         closeMenu();
       }

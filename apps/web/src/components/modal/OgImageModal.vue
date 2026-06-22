@@ -260,8 +260,10 @@ const checkGeneratedExists = async () => {
       generatedState.value = res.ok ? "exists" : "none";
     }
   } catch {
-    // Probe unreachable (offline?) — fall back to showing the generated URL.
-    generatedState.value = "exists";
+    // Probe failed (offline, CORS, etc.) — show the site default rather than
+    // assuming a generated image exists (which would load /api/og via <img>
+    // and trigger generation unintentionally).
+    generatedState.value = "none";
   }
 };
 

@@ -37,15 +37,15 @@ describe("copyFirebaseConfig script", () => {
     await runScript();
 
     expect(existsSync).toHaveBeenCalledWith(
-      expect.stringContaining("src/runtime/firebaseConfigs.json"),
+      expect.stringMatching(/src[\\/]runtime[\\/]firebaseConfigs\.json/),
     );
     expect(mkdirSync).toHaveBeenCalledWith(
-      expect.stringContaining("dist/runtime"),
+      expect.stringMatching(/dist[\\/]runtime/),
       { recursive: true },
     );
     expect(copyFileSync).toHaveBeenCalledWith(
-      expect.stringContaining("src/runtime/firebaseConfigs.json"),
-      expect.stringContaining("dist/runtime/firebaseConfigs.json"),
+      expect.stringMatching(/src[\\/]runtime[\\/]firebaseConfigs\.json/),
+      expect.stringMatching(/dist[\\/]runtime[\\/]firebaseConfigs\.json/),
     );
   });
 

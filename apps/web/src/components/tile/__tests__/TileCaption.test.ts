@@ -29,11 +29,12 @@ describe("TileCaption characterization", () => {
     vi.clearAllMocks();
   });
 
-  it("updates the canonical caption and requests one save", async () => {
+  it("requests a typed caption update without mutating canonical state directly", async () => {
     const canonicalTile = makeTile();
     const store = reactive({
       canEdit: true,
       currentGrid: { tiles: [canonicalTile] },
+      updateCaption: vi.fn(),
       updateGrid: vi.fn(),
     });
     storeHolder.current = store;
@@ -49,9 +50,13 @@ describe("TileCaption characterization", () => {
     input.element.innerText = "  New caption  ";
     await input.trigger("blur");
 
-    expect(store.currentGrid.tiles[0]?.caption).toBe("New caption");
-    expect(store.updateGrid).toHaveBeenCalledTimes(1);
-    expect(wrapper.find(".caption-text").text()).toBe("New caption");
+    expect(store.updateCaption).toHaveBeenCalledWith({
+      tileId: "tile-1",
+      caption: "New caption",
+    });
+    expect(store.currentGrid.tiles[0]?.caption).toBe("Old caption");
+    expect(store.updateGrid).not.toHaveBeenCalled();
+    expect(wrapper.find(".caption-text").text()).toBe("Old caption");
   });
 
   it("does not enter edit mode for a read-only viewer", async () => {
@@ -59,6 +64,7 @@ describe("TileCaption characterization", () => {
     const store = reactive({
       canEdit: false,
       currentGrid: { tiles: [tile] },
+      updateCaption: vi.fn(),
       updateGrid: vi.fn(),
     });
     storeHolder.current = store;
@@ -70,6 +76,7 @@ describe("TileCaption characterization", () => {
     await wrapper.find(".tile-caption").trigger("click");
 
     expect(wrapper.find(".caption-input").exists()).toBe(false);
+    expect(store.updateCaption).not.toHaveBeenCalled();
     expect(store.updateGrid).not.toHaveBeenCalled();
   });
 
@@ -78,6 +85,7 @@ describe("TileCaption characterization", () => {
     const store = reactive({
       canEdit: true,
       currentGrid: { tiles: [canonicalTile] },
+      updateCaption: vi.fn(),
       updateGrid: vi.fn(),
     });
     storeHolder.current = store;
@@ -95,6 +103,7 @@ describe("TileCaption characterization", () => {
     await input.trigger("blur");
 
     expect(canonicalTile.caption).toBe("Old caption");
+    expect(store.updateCaption).not.toHaveBeenCalled();
     expect(store.updateGrid).not.toHaveBeenCalled();
     expect(wrapper.find(".caption-input").exists()).toBe(false);
   });

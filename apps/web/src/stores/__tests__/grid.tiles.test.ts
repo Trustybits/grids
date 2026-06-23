@@ -39,9 +39,9 @@ describe("grid store tile and grid mutations", () => {
         verticalCompact: true,
       }),
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
 
-    gridHarness.gridService.queueSave.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
     store.setVerticalCompact(true);
 
     expect(store.currentGrid?.verticalCompact).toBe(true);
@@ -51,7 +51,7 @@ describe("grid store tile and grid mutations", () => {
         verticalCompact: false,
       }),
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("captures history and saves when gravity is set to its existing value", async () => {
@@ -67,12 +67,12 @@ describe("grid store tile and grid mutations", () => {
         verticalCompact: true,
       }),
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("exposes persistence failures from controller-owned mutations", async () => {
     const store = await createLoadedGridStore();
-    gridHarness.gridService.queueSave.mockRejectedValueOnce(
+    gridHarness.persistenceScheduler.flush.mockRejectedValueOnce(
       new Error("save failed"),
     );
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -121,7 +121,7 @@ describe("grid store tile and grid mutations", () => {
     expect(gridHarness.undoManagers[0]?.pushSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ actionLabel: "Add tile", tiles: [] }),
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
     expect(gridHarness.analyticsService.logEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         gridId: "grid-1",
@@ -176,7 +176,7 @@ describe("grid store tile and grid mutations", () => {
       "Only 1 Campfire tile allowed per grid",
       "error",
     );
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
     expect(gridHarness.analyticsService.logEvent).not.toHaveBeenCalled();
   });
 
@@ -189,7 +189,7 @@ describe("grid store tile and grid mutations", () => {
       action: "text",
     } as SuggestionContent);
 
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
     expect(gridHarness.analyticsService.logEvent).not.toHaveBeenCalled();
   });
 
@@ -218,18 +218,18 @@ describe("grid store tile and grid mutations", () => {
     expect(gridHarness.undoManagers[0]?.pushSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ actionLabel: "Change tile content" }),
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("ignores content replacement for missing grids or tiles", async () => {
     const store = await createLoadedGridStore();
-    gridHarness.gridService.queueSave.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
 
     store.setTileContent("missing", { type: ContentType.TEXT } as TileContent);
     store.currentGrid = null;
     store.setTileContent("tile-1", { type: ContentType.TEXT } as TileContent);
 
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
   });
 
   it("patches changed content, skips no-op patches, and saves once", async () => {
@@ -239,7 +239,7 @@ describe("grid store tile and grid mutations", () => {
     store.patchTileContent("tile-1", { text: "Hello" });
 
     expect(manager?.pushSnapshot).not.toHaveBeenCalled();
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
 
     store.patchTileContent("tile-1", { text: "Updated" });
 
@@ -249,10 +249,10 @@ describe("grid store tile and grid mutations", () => {
     expect(manager?.pushSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ actionLabel: "Update tile" }),
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
-  it("does not create per-keystroke history while an edit transaction is active", async () => {
+  it("defers history and persistence while an edit transaction is active, then schedules once at commit", async () => {
     const store = await createLoadedGridStore();
     const manager = gridHarness.undoManagers[0];
 
@@ -261,8 +261,16 @@ describe("grid store tile and grid mutations", () => {
 
     store.patchTileContent("tile-1", { text: "Updated" });
 
+    expect(store.currentGrid?.tiles[0]?.content).toEqual(
+      expect.objectContaining({ text: "Updated" }),
+    );
     expect(manager?.pushSnapshot).not.toHaveBeenCalled();
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
+
+    store.commitEditing();
+
+    expect(manager?.pushSnapshot).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("patches one document item without changing its siblings", async () => {
@@ -296,7 +304,7 @@ describe("grid store tile and grid mutations", () => {
     expect(gridHarness.undoManagers[0]?.pushSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ actionLabel: "Update document" }),
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("updates theme, duplicatability, backgrounds, OG image, and color", async () => {
@@ -346,7 +354,7 @@ describe("grid store tile and grid mutations", () => {
     store.removeBackgroundColor();
     expect(store.currentGrid?.backgroundColor).toBe("");
 
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(8);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(8);
   });
 
   it("captures pre-mutation history for background image and color changes", async () => {
@@ -388,7 +396,7 @@ describe("grid store tile and grid mutations", () => {
         backgroundColor: "#123456",
       }),
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(4);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(4);
   });
 
   it("duplicates a tile using displayed size and copies content and overrides", async () => {
@@ -457,7 +465,7 @@ describe("grid store tile and grid mutations", () => {
     expect(
       store.currentGrid?.overrides?.sm?.["generated-tile"],
     ).toEqual({ x: 0, y: 11, w: 4, h: 3 });
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
     expect(gridHarness.events).toEqual(["save", "analytics"]);
   });
 
@@ -467,7 +475,7 @@ describe("grid store tile and grid mutations", () => {
     expect(store.duplicateTile("missing")).toBeNull();
     store.currentGrid = null;
     expect(store.duplicateTile("tile-1")).toBeNull();
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
   });
 
   it("removes a tile, optimistic URLs, overrides, and upload state", async () => {
@@ -519,10 +527,10 @@ describe("grid store tile and grid mutations", () => {
     expect(gridHarness.undoManagers[0]?.pushSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ actionLabel: "Remove tile" }),
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
     expect(gridHarness.events).toEqual(["analytics", "save"]);
 
-    gridHarness.gridService.queueSave.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
     store.removeTile("document");
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:one");
     expect(URL.revokeObjectURL).not.toHaveBeenCalledWith("https://cdn/two");
@@ -548,7 +556,7 @@ describe("grid store tile and grid mutations", () => {
         .linkBackgroundEnabled,
     ).toBe(true);
 
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(2);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(2);
     expect(gridHarness.undoManagers[0]?.pushSnapshot).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ actionLabel: "Toggle tile border" }),
@@ -557,6 +565,74 @@ describe("grid store tile and grid mutations", () => {
       2,
       expect.objectContaining({ actionLabel: "Toggle link background" }),
     );
+  });
+
+  it("updates a tile caption without history and schedules once", async () => {
+    const store = await createLoadedGridStore();
+    const manager = gridHarness.undoManagers[0];
+    manager?.pushSnapshot.mockClear();
+
+    store.updateCaption({ tileId: "tile-1", caption: "A caption" });
+
+    expect(store.currentGrid?.tiles[0]?.caption).toBe("A caption");
+    expect(manager?.pushSnapshot).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores caption updates for a missing tile", async () => {
+    const store = await createLoadedGridStore();
+
+    store.updateCaption({ tileId: "missing", caption: "A caption" });
+
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
+  });
+
+  it("renames the active grid, mirrors the collection entry, and schedules once without history", async () => {
+    const store = await createLoadedGridStore();
+    store.grids = [makeGrid({ id: "grid-1", name: "Test Grid" })];
+    const manager = gridHarness.undoManagers[0];
+    manager?.pushSnapshot.mockClear();
+
+    store.renameCurrentGrid("Renamed");
+
+    expect(store.currentGrid?.name).toBe("Renamed");
+    expect(store.grids[0]?.name).toBe("Renamed");
+    expect(manager?.pushSnapshot).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves an uploaded media URL, clears progress, and schedules once", async () => {
+    const store = await createLoadedGridStore();
+    store.setTileUploading("tile-1", 0.5);
+    gridHarness.persistenceScheduler.schedule.mockClear();
+
+    store.resolveUploadedUrl({
+      tileId: "tile-1",
+      permanentUrl: "https://cdn/media",
+    });
+
+    expect(store.resolvedUrls["tile-1"]).toBe("https://cdn/media");
+    expect(store.uploadingTiles["tile-1"]).toBeUndefined();
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves an uploaded document item URL and keeps progress for non-final items", async () => {
+    const store = await createLoadedGridStore();
+    store.setTileUploading("tile-1", 0.5);
+    gridHarness.persistenceScheduler.schedule.mockClear();
+
+    store.resolveUploadedUrl({
+      tileId: "tile-1",
+      itemId: "item-1",
+      permanentUrl: "https://cdn/document",
+      final: false,
+    });
+
+    expect(store.resolvedDocumentItemUrls["tile-1"]).toEqual({
+      "item-1": "https://cdn/document",
+    });
+    expect(store.uploadingTiles["tile-1"]).toBe(0.5);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("synchronizes rendered desktop positions before persistence", async () => {
@@ -573,7 +649,7 @@ describe("grid store tile and grid mutations", () => {
       expect.objectContaining({ x: 5, y: 6, w: 7, h: 8 }),
     );
     expect(store.currentGrid?.tiles[0]?.content).toBe(canonicalContent);
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("blocks update persistence when the session is not editable", async () => {
@@ -588,6 +664,6 @@ describe("grid store tile and grid mutations", () => {
     expect(store.currentGrid?.tiles[0]).toEqual(
       expect.objectContaining({ x: 0, y: 0, w: 2, h: 2 }),
     );
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
   });
 });

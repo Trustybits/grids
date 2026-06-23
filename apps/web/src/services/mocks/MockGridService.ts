@@ -119,10 +119,4 @@ export class MockGridService implements IGridService {
   ): Promise<Grid> {
     return { ...mockData };
   }
-
-  async queueSave(
-    _grid: Grid,
-    _resolvedUrls?: Record<string, string>,
-    _resolvedDocumentItemUrls?: Record<string, Record<string, string>>,
-  ): Promise<void> {}
 }

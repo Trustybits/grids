@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ContentType,
+  type DocumentsContent,
+  type ImageContent,
+} from "@grids/contracts/types";
+import {
   createGridStore,
   createLoadedGridStore,
   gridHarness,
   makeGrid,
+  makeTile,
   resetGridHarness,
 } from "./gridTestHarness";
 
@@ -125,25 +131,72 @@ describe("grid store session behavior", () => {
     expect(gridHarness.undoManagers).toHaveLength(0);
   });
 
-  it("queues the active grid and resolved URL maps when editable", async () => {
-    const store = await createLoadedGridStore();
+  it("schedules an active-grid snapshot with resolved URLs when editable", async () => {
+    const store = await createLoadedGridStore(
+      makeGrid({
+        tiles: [
+          makeTile({
+            i: "tile-1",
+            content: {
+              type: ContentType.IMAGE,
+              src: "blob:media",
+              zoom: 1,
+              offsetX: 0,
+              offsetY: 0,
+            } as ImageContent,
+          }),
+          makeTile({
+            i: "document-tile",
+            content: {
+              type: ContentType.DOCUMENT,
+              items: [
+                {
+                  id: "item-1",
+                  fileName: "Document.pdf",
+                  url: "blob:document",
+                },
+              ],
+            } as DocumentsContent,
+          }),
+        ],
+      }),
+    );
     store.setResolvedUrl("tile-1", "https://cdn.example/media");
     store.setResolvedDocumentItemUrl(
-      "tile-1",
+      "document-tile",
       "item-1",
       "https://cdn.example/document",
     );
-    gridHarness.gridService.queueSave.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
 
     await store.saveGrid();
 
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledWith(
-      store.currentGrid,
-      { "tile-1": "https://cdn.example/media" },
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledWith(
       {
-        "tile-1": {
-          "item-1": "https://cdn.example/document",
-        },
+        gridId: "grid-1",
+        sessionGeneration: store.sessionGeneration,
+      },
+      {
+        ...store.currentGrid!,
+        tiles: expect.arrayContaining([
+          expect.objectContaining({
+            i: "tile-1",
+            content: expect.objectContaining({
+              src: "https://cdn.example/media",
+            }),
+          }),
+          expect.objectContaining({
+            i: "document-tile",
+            content: expect.objectContaining({
+              items: [
+                expect.objectContaining({
+                  id: "item-1",
+                  url: "https://cdn.example/document",
+                }),
+              ],
+            }),
+          }),
+        ]),
       },
     );
   });
@@ -163,12 +216,12 @@ describe("grid store session behavior", () => {
     store.forcedBreakpoint = "lg";
     await store.saveGrid();
 
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
   });
 
   it("exposes queue failures through session error state", async () => {
     const store = await createLoadedGridStore();
-    gridHarness.gridService.queueSave.mockRejectedValueOnce(
+    gridHarness.persistenceScheduler.flush.mockRejectedValue(
       new Error("save failed"),
     );
 

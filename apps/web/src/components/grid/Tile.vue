@@ -446,32 +446,19 @@ export default defineComponent({
     };
 
     const onResize = (
-      i: string,
-      newH: number,
-      newW: number,
+      _i: string,
+      _newH: number,
+      _newW: number,
       _newHPx: number,
       _newWPx: number,
     ) => {
+      // Capture the pre-resize snapshot once; repeated begin calls do not
+      // replace it. Live resize feedback is provided by the position-only
+      // layout — vue3-grid-layout mutates displayLayout in place and the deep
+      // watcher in Grid.vue publishes it to displayPositions. commitResize()
+      // synchronizes the final canonical desktop geometry or breakpoint
+      // override, so this handler never writes canonical tile w/h directly.
       gridStore.beginResize();
-      // Called during resize operation - snap to whole grid units for clean resizing
-      // Only mutate the store's canonical tiles at the lg (default) breakpoint.
-      // At smaller breakpoints vue3-grid-layout mutates position-only layout
-      // items in-place and the override system
-      // snapshots them via displayPositions when the resize finishes.
-      if (gridStore.activeBreakpoint !== "lg") return;
-
-      const tile = gridStore.currentGrid?.tiles.find((t) => t.i === i);
-      if (tile) {
-        // Round to nearest whole number to snap to grid units
-        const roundedH = Math.round(newH);
-        const roundedW = Math.round(newW);
-
-        // Only update if the rounded values have changed to avoid unnecessary updates
-        if (tile.h !== roundedH || tile.w !== roundedW) {
-          tile.h = roundedH;
-          tile.w = roundedW;
-        }
-      }
     };
 
     const onResized = () => {

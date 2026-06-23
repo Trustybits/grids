@@ -1,4 +1,3 @@
-<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="doc-tile-content"
@@ -197,7 +196,6 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable vue/no-mutating-props */
 import {
   computed,
   defineComponent,
@@ -424,9 +422,6 @@ export default defineComponent({
 
       const nextTitle = draftTitle.value.trim();
       const nextDescription = draftDescription.value.trim();
-
-      props.content.customTitle = nextTitle;
-      props.content.customDescription = nextDescription;
 
       gridStore.patchTileContent(props.tileId, {
         customTitle: nextTitle,

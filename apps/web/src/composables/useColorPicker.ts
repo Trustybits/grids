@@ -178,14 +178,13 @@ export const useColorPicker = (
 
   const persist = (patch: Partial<OverlayContent>) => {
     if (tileId) {
-      // Patch first so the undo snapshot captures the pre-change state, then
-      // mirror onto the local content for an immediate update.
+      // Live grid: the controller owns the canonical write and persistence.
       gridStore.patchTileContent(tileId, patch);
-      Object.assign(currentContent.value, patch);
-    } else {
-      Object.assign(currentContent.value, patch);
-      gridStore.saveGrid();
+      return;
     }
+    // Non-live preview (e.g. demo/landing) with no tile identity: keep the
+    // change local and never touch grid persistence. Demo isolation is Step 6.
+    Object.assign(currentContent.value, patch);
   };
 
   // Toggle which treatment is active without losing either color.

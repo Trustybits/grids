@@ -8,6 +8,7 @@ import type { AuthProvider } from "@grids/contracts/auth";
 import type { Grid } from "@grids/contracts/types";
 import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService";
 import type { IGridService } from "@/services/interfaces/IGridService";
+import type { IGridPersistenceScheduler } from "@/services/interfaces/IGridPersistenceScheduler";
 import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
 import type { Snapshot } from "@/undo/UndoTypes";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
@@ -115,7 +116,6 @@ function createGridServiceMock(): IGridService {
     saveRecentGridIds: vi.fn(),
     createGridWithStarterTiles: vi.fn(),
     cloneAndPersistGrid: vi.fn(),
-    queueSave: vi.fn(),
   };
 }
 
@@ -132,8 +132,13 @@ function createControllerHarness() {
   const authProvider = {
     getCurrentUserId: vi.fn(() => "user-1"),
   } as unknown as AuthProvider;
+  const persistenceScheduler: IGridPersistenceScheduler = {
+    schedule: vi.fn(),
+    flush: vi.fn(async () => undefined),
+  };
   const dependencies: GridControllerDependencies = {
     getGridService: vi.fn(() => gridService),
+    persistenceScheduler,
     getAuthProvider: vi.fn(() => authProvider),
     getAnalyticsService: vi.fn(
       () => ({}) as IAnalyticsService,
@@ -156,6 +161,7 @@ function createControllerHarness() {
     pinia,
     stores,
     gridService,
+    persistenceScheduler,
     authProvider,
     dependencies,
     controller,
@@ -451,6 +457,52 @@ describe("GridController", () => {
         actionLabel: "",
       }),
     );
+  });
+
+  it("schedules one scoped snapshot and tracks persistence status", async () => {
+    const { controller, stores, persistenceScheduler } =
+      createControllerHarness();
+    const grid = makeGrid({ id: "grid-1", name: "Before" });
+    stores.session.setCurrentGrid(grid);
+    stores.session.setOwner(true);
+    const generation = stores.session.sessionGeneration;
+
+    controller.scheduleSave();
+
+    expect(persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+    expect(persistenceScheduler.schedule).toHaveBeenCalledWith(
+      { gridId: "grid-1", sessionGeneration: generation },
+      expect.objectContaining({
+        id: "grid-1",
+        name: "Before",
+      }),
+    );
+    expect(stores.session.persistenceStatus).toBe("saving");
+
+    await Promise.resolve();
+
+    expect(stores.session.persistenceStatus).toBe("idle");
+    expect(stores.session.persistenceError).toBeNull();
+  });
+
+  it("ignores stale persistence failures after the active session changes", async () => {
+    const { controller, stores, persistenceScheduler } =
+      createControllerHarness();
+    const flushGate = deferred<void>();
+    vi.mocked(persistenceScheduler.flush).mockReturnValueOnce(
+      flushGate.promise,
+    );
+    stores.session.setCurrentGrid(makeGrid({ id: "old-grid" }));
+    stores.session.setOwner(true);
+
+    controller.scheduleSave();
+    stores.session.setCurrentGrid(makeGrid({ id: "new-grid" }));
+    flushGate.reject(new Error("stale save failed"));
+    await Promise.resolve();
+
+    expect(stores.session.currentGrid?.id).toBe("new-grid");
+    expect(stores.session.persistenceError).toBeNull();
+    expect(stores.compatibility.error).toBeNull();
   });
 
   it("waits for both the minimum delay and rendered target layout before applying a cross-breakpoint snapshot", async () => {

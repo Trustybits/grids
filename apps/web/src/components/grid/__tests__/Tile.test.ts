@@ -198,7 +198,7 @@ describe("GridTile position-only rendering", () => {
     wrapper.unmount();
   });
 
-  it("updates canonical dimensions during a desktop resize and commits once", async () => {
+  it("leaves canonical dimensions unchanged during live desktop resize and commits once", async () => {
     const tile = makeTile();
     const store = makeStore(tile);
     store.activeBreakpoint = "lg";
@@ -218,7 +218,7 @@ describe("GridTile position-only rendering", () => {
 
     expect(store.beginResize).toHaveBeenCalledTimes(1);
     expect(store.currentGrid.tiles[0]).toEqual(
-      expect.objectContaining({ w: 4, h: 6 }),
+      expect.objectContaining({ w: 2, h: 2 }),
     );
     expect(store.commitResize).toHaveBeenCalledTimes(1);
 

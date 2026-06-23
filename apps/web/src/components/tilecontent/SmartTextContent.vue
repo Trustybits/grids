@@ -196,8 +196,6 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable vue/no-mutating-props */
-
 import {
   defineComponent,
   ref,
@@ -837,6 +835,13 @@ export default defineComponent({
       },
       shouldBlockExit: () => slashCommandActive.value,
     });
+    const patchContent = (patch: Partial<SmartTextContent>) => {
+      if (tileId) {
+        gridStore.patchTileContent(tileId, patch);
+        return;
+      }
+      Object.assign(props.content, patch);
+    };
 
     useEditorContentSync(editor, () => props.content.text);
 
@@ -899,26 +904,13 @@ export default defineComponent({
 
     const handleTextAlignChange = (align: "left" | "center" | "right") => {
       if (!gridStore.canEdit) return;
-      props.content.textAlign = align;
-      if (tileId) {
-        gridStore.patchTileContent(tileId, { textAlign: align });
-      }
+      patchContent({ textAlign: align });
     };
 
     const persistEditorText = () => {
       if (!editor.value || !gridStore.canEdit) return;
       const output = JSON.stringify(editor.value.getJSON());
-      if (tileId && gridStore.currentGrid) {
-        const tile = gridStore.currentGrid.tiles.find(
-          (t) => t.i === tileId,
-        );
-        if (tile && (tile.content as SmartTextContent).type === "smart_text") {
-          (tile.content as SmartTextContent).text = output;
-        }
-      } else {
-        props.content.text = output;
-      }
-      gridStore.saveGrid();
+      patchContent({ text: output });
     };
 
     const syncMarkState = () => {

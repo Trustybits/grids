@@ -109,6 +109,8 @@ const legacyActions = [
   "setVerticalCompact",
   "getCookieValue",
   "setCookieValue",
+  "scheduleSave",
+  "flushSaves",
   "saveGrid",
   "addTile",
   "setTileContent",
@@ -153,6 +155,9 @@ interface LegacyGridFacadeContract {
   showMetaDataVerbose: boolean;
   isOwner: boolean;
   isDemoGrid: boolean;
+  readonly sessionGeneration: number;
+  readonly persistenceStatus: "idle" | "pending" | "saving" | "error";
+  readonly persistenceError: string | null;
   recentGridIds: string[];
   activeTileId: string | null;
   activePanelId: string | null;
@@ -229,6 +234,8 @@ interface LegacyGridFacadeContract {
   setVerticalCompact(value: boolean): void;
   getCookieValue(name: string): string | null;
   setCookieValue(name: string, value: string, days?: number): void;
+  scheduleSave(): void;
+  flushSaves(): Promise<void>;
   saveGrid(): Promise<void>;
   addTile(content: TileContent): string | null;
   setTileContent(id: string, content: TileContent): void;

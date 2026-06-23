@@ -243,11 +243,19 @@ export default defineComponent({
       return (tile?.content as MapContent | undefined) ?? props.content;
     });
 
+    const patchContent = (patch: Partial<MapContent>) => {
+      const tileId = resolvedTileId.value;
+      if (tileId) {
+        gridStore.patchTileContent(tileId, patch);
+        return;
+      }
+      Object.assign(props.content, patch);
+    };
+
     const styleMode = computed<MapStyleMode>({
       get: () => storeContent.value.style || "default",
       set: (value) => {
-        storeContent.value.style = value;
-        gridStore.saveGrid();
+        patchContent({ style: value });
       },
     });
 
@@ -268,8 +276,7 @@ export default defineComponent({
     const show3d = computed({
       get: () => storeContent.value.show3d ?? false,
       set: (value: boolean) => {
-        storeContent.value.show3d = value;
-        gridStore.saveGrid();
+        patchContent({ show3d: value });
         apply3d(value);
       },
     });
@@ -277,16 +284,14 @@ export default defineComponent({
     const showClouds = computed({
       get: () => storeContent.value.showClouds ?? true,
       set: (value: boolean) => {
-        storeContent.value.showClouds = value;
-        gridStore.saveGrid();
+        patchContent({ showClouds: value });
       },
     });
 
     const showPlanes = computed({
       get: () => storeContent.value.showPlanes ?? true,
       set: (value: boolean) => {
-        storeContent.value.showPlanes = value;
-        gridStore.saveGrid();
+        patchContent({ showPlanes: value });
       },
     });
 
@@ -441,13 +446,23 @@ export default defineComponent({
 
     const setMarker = (marker: { lat: number; lng: number }) => {
       if (!gridStore.canEdit) return;
-      storeContent.value.marker = marker;
-      saveGrid();
+      patchContent({ marker });
       updateMarker(marker);
     };
 
-    const saveGrid = () => {
-      gridStore.saveGrid();
+    const persistCurrentMapView = () => {
+      const map = mapInstance.value;
+      if (!map) return;
+      const center = map.getCenter();
+      patchContent({
+        center: {
+          lat: Number(center.lat.toFixed(6)),
+          lng: Number(center.lng.toFixed(6)),
+        },
+        zoom: Number(map.getZoom().toFixed(2)),
+        bearing: Number(map.getBearing().toFixed(2)),
+        pitch: Number(map.getPitch().toFixed(2)),
+      });
     };
 
     const setMapInteractivity = (enabled: boolean) => {
@@ -489,18 +504,7 @@ export default defineComponent({
       if (syncTimer) clearTimeout(syncTimer);
       syncTimer = setTimeout(() => {
         syncTimer = null;
-        const map = mapInstance.value;
-        if (!map) return;
-        const sc = storeContent.value;
-        const center = map.getCenter();
-        sc.center = {
-          lat: Number(center.lat.toFixed(6)),
-          lng: Number(center.lng.toFixed(6)),
-        };
-        sc.zoom = Number(map.getZoom().toFixed(2));
-        sc.bearing = Number(map.getBearing().toFixed(2));
-        sc.pitch = Number(map.getPitch().toFixed(2));
-        saveGrid();
+        persistCurrentMapView();
       }, SYNC_DEBOUNCE_MS);
     };
 
@@ -516,9 +520,7 @@ export default defineComponent({
           mapReady.value = true;
           // jumpTo doesn't fire moveend, so persist immediately.
           if (gridStore.canEdit) {
-            storeContent.value.center = center;
-            storeContent.value.zoom = targetZoom;
-            saveGrid();
+            patchContent({ center, zoom: targetZoom });
           }
         } else {
           // Suppress intermediate moveend events during the animation.
@@ -604,8 +606,7 @@ export default defineComponent({
 
     const handleSearch = async () => {
       const query = searchInput.value.trim();
-      storeContent.value.searchQuery = query || undefined;
-      saveGrid();
+      patchContent({ searchQuery: query || undefined });
       if (!query) {
         useMyLocation();
         return;
@@ -755,7 +756,7 @@ export default defineComponent({
       if (isEditing.value) {
         mapInstance.value?.resize();
       } else {
-        saveGrid();
+        persistCurrentMapView();
       }
     };
 
@@ -767,7 +768,7 @@ export default defineComponent({
       if (!gridStore.canEdit) return;
       if (!isEditing.value) return;
       isEditing.value = false;
-      saveGrid();
+      persistCurrentMapView();
     };
 
     // Re-centers the map viewport on the marker (if set), falling back
@@ -925,16 +926,7 @@ export default defineComponent({
         // Perform the save inline since the component is tearing down.
         const map = mapInstance.value;
         if (map && !isInitialLoad && gridStore.canEdit) {
-          const sc = storeContent.value;
-          const center = map.getCenter();
-          sc.center = {
-            lat: Number(center.lat.toFixed(6)),
-            lng: Number(center.lng.toFixed(6)),
-          };
-          sc.zoom = Number(map.getZoom().toFixed(2));
-          sc.bearing = Number(map.getBearing().toFixed(2));
-          sc.pitch = Number(map.getPitch().toFixed(2));
-          saveGrid();
+          persistCurrentMapView();
         }
       }
       resizeObserver?.disconnect();

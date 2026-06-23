@@ -33,11 +33,4 @@ export interface IGridService {
     sourceGrid: Grid,
     copyDepth?: CopyDepth,
   ): Promise<Grid>;
-
-  // ── Save serialization queue ────────────────────────────────────────
-  queueSave(
-    grid: Grid,
-    resolvedUrls?: Record<string, string>,
-    resolvedDocumentItemUrls?: Record<string, Record<string, string>>,
-  ): Promise<void>;
 }

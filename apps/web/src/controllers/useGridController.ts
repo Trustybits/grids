@@ -2,6 +2,7 @@ import { getActivePinia, type Pinia } from "pinia";
 import { v4 as uuidv4 } from "uuid";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { measureViewportGridRow } from "@/composables/useResponsiveGridLayout";
+import { GridPersistenceScheduler } from "@/services/GridPersistenceScheduler";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
 import { useGridCompatibilityStore } from "@/stores/grid/gridCompatibility";
@@ -36,6 +37,9 @@ function writeCookie(name: string, value: string, days = 365): void {
 export function createDefaultGridControllerDependencies(): GridControllerDependencies {
   return {
     getGridService: () => getServiceFactory().getGridService(),
+    persistenceScheduler: new GridPersistenceScheduler((snapshot) =>
+      getServiceFactory().getGridService().saveGrid(snapshot),
+    ),
     getAuthProvider: () => getAuthProvider(),
     getAnalyticsService: () =>
       getServiceFactory().getAnalyticsService(),

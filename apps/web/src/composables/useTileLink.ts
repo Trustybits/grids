@@ -59,11 +59,11 @@ export const useTileLink = (
       toastStore.addToast("Invalid URL format", "error");
       return;
     }
-    content.tileLink = normalized;
     if (tileId) {
       gridStore.patchTileContent(tileId, { tileLink: normalized });
     } else {
-      gridStore.saveGrid();
+      // Local-only preview (no live tile identity); no grid persistence.
+      Object.assign(content, { tileLink: normalized });
     }
     showLinkModal.value = false;
   };
@@ -75,11 +75,11 @@ export const useTileLink = (
 
   const clearLink = () => {
     if (!gridStore.isOwner) return;
-    content.tileLink = undefined;
     if (tileId) {
       gridStore.patchTileContent(tileId, { tileLink: "" });
     } else {
-      gridStore.saveGrid();
+      // Local-only preview (no live tile identity); no grid persistence.
+      Object.assign(content, { tileLink: undefined });
     }
   };
 

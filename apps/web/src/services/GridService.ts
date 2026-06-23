@@ -7,10 +7,7 @@ import type { GridDao } from "@grids/contracts/dao";
 import type { UserDao } from "@grids/contracts/dao";
 import { createDefaultGrid } from "@/utils/GridUtils";
 import { createTile, createTileContent } from "@/utils/TileUtils";
-import {
-  createPersistableGridSnapshot,
-  stripBlobUrlsFromTiles,
-} from "@/utils/GridPersistenceUtils";
+import { stripBlobUrlsFromTiles } from "@/utils/GridPersistenceUtils";
 import { v4 as uuidv4 } from "uuid";
 import heroGif from "@/assets/images/hero.gif";
 import type { IGridService } from "./interfaces/IGridService";
@@ -501,62 +498,4 @@ export class GridService implements IGridService {
     );
   }
 
-  // ── Save serialization queue ──────────────────────────────────────
-  //
-  // Multiple callers (map moveend, style toggle, addTile, etc.) can invoke
-  // saves in rapid succession.  Each call snapshots the reactive grid and
-  // writes to the database.  Without serialization, an earlier snapshot can
-  // land *after* a later one (async race), reverting changes.
-  //
-  // Solution: only one write may be in-flight at a time.  If a new save is
-  // requested while one is running, we set a flag.  When the in-flight
-  // write finishes, the caller re-snapshots the (now-latest) grid and
-  // writes again — guaranteeing the final persisted state matches the
-  // current in-memory state.
-
-  private _saveInFlight = false;
-  private _saveQueued = false;
-  private _pendingSnapshot: Grid | null = null;
-
-  // Queue a grid save. Accepts the current (potentially reactive) grid
-  // and optional resolved-URL maps for blob → storage URL substitution.
-  // The service deep-clones and sanitises the grid internally.
-  // Returns immediately if a write is already in-flight; the queued snapshot
-  // will be flushed when the current write completes.
-  async queueSave(
-    grid: Grid,
-    resolvedUrls: Record<string, string> = {},
-    resolvedDocumentItemUrls: Record<string, Record<string, string>> = {},
-  ): Promise<void> {
-    const snapshot = createPersistableGridSnapshot(
-      grid,
-      resolvedUrls,
-      resolvedDocumentItemUrls,
-    );
-
-    if (this._saveInFlight) {
-      this._saveQueued = true;
-      this._pendingSnapshot = snapshot;
-      return;
-    }
-
-    this._saveInFlight = true;
-
-    try {
-      await this.saveGrid(snapshot);
-    } catch (err) {
-      console.error("Failed to save grid.", err);
-    } finally {
-      this._saveInFlight = false;
-
-      // If another save was requested while we were writing,
-      // flush it now with the latest snapshot.
-      if (this._saveQueued && this._pendingSnapshot) {
-        this._saveQueued = false;
-        const next = this._pendingSnapshot;
-        this._pendingSnapshot = null;
-        await this.queueSave(next);
-      }
-    }
-  }
 }

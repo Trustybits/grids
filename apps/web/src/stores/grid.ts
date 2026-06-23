@@ -56,6 +56,9 @@ export const useGridStore = defineStore("grid", () => {
     showMetaDataVerbose: uiRefs.showMetaDataVerbose,
     isOwner: sessionRefs.isOwner,
     isDemoGrid: sessionRefs.isDemoGrid,
+    sessionGeneration: sessionRefs.sessionGeneration,
+    persistenceStatus: sessionRefs.persistenceStatus,
+    persistenceError: sessionRefs.persistenceError,
     recentGridIds: collectionRefs.recentGridIds,
     activeTileId: uiRefs.activeTileId,
     activePanelId: uiRefs.activePanelId,
@@ -128,11 +131,16 @@ export const useGridStore = defineStore("grid", () => {
       controller.toggleVerticalCompact.bind(controller),
     setVerticalCompact:
       controller.setVerticalCompact.bind(controller),
+    scheduleSave: controller.scheduleSave.bind(controller),
+    flushSaves: controller.flushSaves.bind(controller),
     saveGrid: controller.saveGrid.bind(controller),
+    renameCurrentGrid: controller.renameCurrentGrid.bind(controller),
     addTile: controller.addTile.bind(controller),
     setTileContent: controller.setTileContent.bind(controller),
     patchTileContent: controller.patchTileContent.bind(controller),
     patchDocumentItem: controller.patchDocumentItem.bind(controller),
+    updateCaption: controller.updateCaption.bind(controller),
+    resolveUploadedUrl: controller.resolveUploadedUrl.bind(controller),
     setGridTheme: controller.setGridTheme.bind(controller),
     setDuplicatable:
       controller.setDuplicatable.bind(controller),
@@ -157,6 +165,10 @@ export const useGridStore = defineStore("grid", () => {
       controller.toggleTileBorder.bind(controller),
     toggleLinkBackground:
       controller.toggleLinkBackground.bind(controller),
+    commitRenderedDesktopLayout:
+      controller.commitRenderedDesktopLayout.bind(controller),
+    commitCompactedLayout:
+      controller.commitCompactedLayout.bind(controller),
     updateGrid: controller.updateGrid.bind(controller),
     setActiveBreakpoint: controller.setActiveBreakpoint.bind(controller),
     setViewportBreakpoint:

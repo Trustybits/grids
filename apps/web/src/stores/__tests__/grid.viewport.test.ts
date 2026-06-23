@@ -96,7 +96,7 @@ describe("grid store viewport and breakpoint behavior", () => {
       w: 5,
       h: 6,
     });
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("seeds and clamps a medium breakpoint resize without changing base size", async () => {
@@ -119,7 +119,7 @@ describe("grid store viewport and breakpoint behavior", () => {
       "tile-1": { x: 0, y: 4, w: 8, h: 6 },
       "tile-2": { x: 0, y: 0, w: 3, h: 3 },
     });
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("preserves existing override position while clamping a small resize", async () => {
@@ -151,7 +151,7 @@ describe("grid store viewport and breakpoint behavior", () => {
     store.currentGrid = null;
     store.resizeTile("tile-1", 3, 3);
 
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
   });
 
   it("captures every rendered position into the active non-desktop override", async () => {
@@ -168,7 +168,7 @@ describe("grid store viewport and breakpoint behavior", () => {
       "tile-1": { x: 1, y: 2, w: 3, h: 4 },
       "tile-2": { x: 4, y: 5, w: 2, h: 2 },
     });
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("does not create breakpoint overrides at desktop or without a grid", async () => {
@@ -180,7 +180,7 @@ describe("grid store viewport and breakpoint behavior", () => {
     store.activeBreakpoint = "md";
     store.updateBreakpointOverride();
 
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
   });
 
   it("saves supplied non-desktop positions as the complete override", async () => {
@@ -201,7 +201,7 @@ describe("grid store viewport and breakpoint behavior", () => {
     expect(store.currentGrid?.overrides?.md).toEqual({
       "tile-1": { x: 2, y: 3, w: 4, h: 5 },
     });
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("ignores explicit breakpoint saves for desktop or missing grids", async () => {
@@ -211,7 +211,7 @@ describe("grid store viewport and breakpoint behavior", () => {
     store.currentGrid = null;
     store.saveBreakpointPositions("md", []);
 
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
   });
 
   it("captures history and removes a non-desktop override on reset", async () => {
@@ -231,7 +231,7 @@ describe("grid store viewport and breakpoint behavior", () => {
     expect(gridHarness.undoManagers[0]?.pushSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ actionLabel: "Reset breakpoint grid" }),
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("ignores desktop or missing-grid breakpoint resets", async () => {
@@ -242,6 +242,72 @@ describe("grid store viewport and breakpoint behavior", () => {
     store.resetBreakpoint("md");
 
     expect(gridHarness.undoManagers[0]?.pushSnapshot).not.toHaveBeenCalled();
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
+  });
+
+  it("commits an explicit rendered desktop layout into canonical tiles without copying content", async () => {
+    const store = await createLoadedGridStore();
+    store.activeBreakpoint = "lg";
+    const canonicalContent = store.currentGrid!.tiles[0]!.content;
+    store.setDisplayPositions([
+      { i: "tile-1", x: 0, y: 0, w: 1, h: 1 },
+    ]);
+
+    store.commitRenderedDesktopLayout([
+      { i: "tile-1", x: 9, y: 8, w: 7, h: 6 },
+      { i: "missing", x: 0, y: 0, w: 1, h: 1 },
+    ]);
+
+    expect(store.currentGrid?.tiles[0]).toEqual(
+      expect.objectContaining({ x: 9, y: 8, w: 7, h: 6 }),
+    );
+    expect(store.currentGrid?.tiles[0]?.content).toBe(canonicalContent);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not sync a desktop layout while a non-desktop breakpoint is active", async () => {
+    const store = await createLoadedGridStore();
+    store.activeBreakpoint = "md";
+
+    store.commitRenderedDesktopLayout([
+      { i: "tile-1", x: 9, y: 8, w: 7, h: 6 },
+    ]);
+
+    expect(store.currentGrid?.tiles[0]).toEqual(
+      expect.objectContaining({ x: 0, y: 0, w: 2, h: 2 }),
+    );
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+  });
+
+  it("commits a compacted layout into canonical tiles and schedules once", async () => {
+    const store = await createLoadedGridStore();
+    store.activeBreakpoint = "lg";
+
+    store.commitCompactedLayout([
+      { i: "tile-1", x: 0, y: 5, w: 2, h: 2 },
+    ]);
+
+    expect(store.currentGrid?.tiles[0]).toEqual(
+      expect.objectContaining({ x: 0, y: 5 }),
+    );
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not commit geometry or schedule when the session is not editable", async () => {
+    const store = await createLoadedGridStore();
+    store.isOwner = false;
+    store.activeBreakpoint = "lg";
+
+    store.commitRenderedDesktopLayout([
+      { i: "tile-1", x: 9, y: 8, w: 7, h: 6 },
+    ]);
+    store.commitCompactedLayout([
+      { i: "tile-1", x: 0, y: 5, w: 2, h: 2 },
+    ]);
+
+    expect(store.currentGrid?.tiles[0]).toEqual(
+      expect.objectContaining({ x: 0, y: 0, w: 2, h: 2 }),
+    );
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
   });
 });

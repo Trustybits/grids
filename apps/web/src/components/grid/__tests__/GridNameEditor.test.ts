@@ -32,11 +32,12 @@ describe("GridNameEditor characterization", () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverStub);
   });
 
-  it("renames the active grid directly and requests one save without history", async () => {
+  it("requests a typed current-grid rename without mutating canonical state directly", async () => {
     const store = reactive({
       isOwner: true,
       canEdit: true,
       currentGrid: { id: "grid-1", name: "Old name" },
+      renameCurrentGrid: vi.fn(),
       saveGrid: vi.fn(),
       pushUndoSnapshot: vi.fn(),
     });
@@ -52,8 +53,9 @@ describe("GridNameEditor characterization", () => {
     title.element.innerText = "  New name  ";
     await title.trigger("blur");
 
-    expect(store.currentGrid.name).toBe("New name");
-    expect(store.saveGrid).toHaveBeenCalledTimes(1);
+    expect(store.renameCurrentGrid).toHaveBeenCalledWith("New name");
+    expect(store.currentGrid.name).toBe("Old name");
+    expect(store.saveGrid).not.toHaveBeenCalled();
     expect(store.pushUndoSnapshot).not.toHaveBeenCalled();
     expect(wrapper.find(".editable-text").text()).toBe("New name");
   });
@@ -63,6 +65,7 @@ describe("GridNameEditor characterization", () => {
       isOwner: true,
       canEdit: false,
       currentGrid: { id: "grid-1", name: "Old name" },
+      renameCurrentGrid: vi.fn(),
       saveGrid: vi.fn(),
     });
     storeHolder.current = store;
@@ -78,6 +81,7 @@ describe("GridNameEditor characterization", () => {
     await title.trigger("blur");
 
     expect(store.currentGrid.name).toBe("Old name");
+    expect(store.renameCurrentGrid).not.toHaveBeenCalled();
     expect(store.saveGrid).not.toHaveBeenCalled();
   });
 });

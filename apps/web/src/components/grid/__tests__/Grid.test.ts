@@ -109,6 +109,7 @@ function makeStore(grid = makeGrid()) {
     setActiveBreakpoint: vi.fn(),
     setViewportBreakpoint: vi.fn(),
     setDisplayPositions: vi.fn(),
+    commitCompactedLayout: vi.fn(),
     updateGrid: vi.fn(),
     registerLayoutReadinessAdapter,
   });
@@ -313,7 +314,7 @@ describe("Grid canvas characterization", () => {
     expect(disposeLayoutReadiness).toHaveBeenCalledTimes(1);
   });
 
-  it("compacts canonical desktop positions and requests one save when gravity is enabled", async () => {
+  it("commits compacted positions through a typed command when gravity is enabled", async () => {
     const first = makeTile({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 });
     const second = makeTile({ i: "tile-2", x: 0, y: 0, w: 2, h: 2 });
     const { store } = makeStore(makeGrid(first));
@@ -331,9 +332,13 @@ describe("Grid canvas characterization", () => {
 
     expect(store.currentGrid.tiles).toEqual([
       expect.objectContaining({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 }),
+      expect.objectContaining({ i: "tile-2", x: 0, y: 0, w: 2, h: 2 }),
+    ]);
+    expect(store.commitCompactedLayout).toHaveBeenCalledWith([
+      expect.objectContaining({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 }),
       expect.objectContaining({ i: "tile-2", x: 2, y: 0, w: 2, h: 2 }),
     ]);
-    expect(store.updateGrid).toHaveBeenCalledTimes(1);
+    expect(store.updateGrid).not.toHaveBeenCalled();
     expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
       { i: "tile-1", x: 0, y: 0, w: 2, h: 2 },
       { i: "tile-2", x: 2, y: 0, w: 2, h: 2 },

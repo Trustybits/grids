@@ -66,21 +66,12 @@ vi.mock('@/utils/TileUtils', () => ({
 }))
 
 // GridPersistenceUtils is a separate unit — mock it so GridService is tested in
-// isolation. The spy defaults to a pass-through; tests assert that
-// buildGridPayload delegates tile-stripping to it (rather than re-testing the
-// real stripping logic, which has its own tests).
-const { createPersistableGridSnapshotSpy, stripBlobSpy } = vi.hoisted(() => ({
-  createPersistableGridSnapshotSpy: vi.fn(
-    (
-      grid: Grid,
-      _resolvedUrls?: Record<string, string>,
-      _resolvedDocumentItemUrls?: Record<string, Record<string, string>>,
-    ) => JSON.parse(JSON.stringify(grid)) as Grid,
-  ),
+// isolation. Tests assert that buildGridPayload delegates tile-stripping to it
+// rather than re-testing the real stripping logic, which has its own tests.
+const { stripBlobSpy } = vi.hoisted(() => ({
   stripBlobSpy: vi.fn((tiles: unknown[]) => tiles),
 }))
 vi.mock('@/utils/GridPersistenceUtils', () => ({
-  createPersistableGridSnapshot: createPersistableGridSnapshotSpy,
   stripBlobUrlsFromTiles: stripBlobSpy,
 }))
 
@@ -94,14 +85,6 @@ let consoleWarnSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   uuidCounter = 0
-  createPersistableGridSnapshotSpy.mockReset()
-  createPersistableGridSnapshotSpy.mockImplementation(
-    (
-      grid: Grid,
-      _resolvedUrls?: Record<string, string>,
-      _resolvedDocumentItemUrls?: Record<string, Record<string, string>>,
-    ) => JSON.parse(JSON.stringify(grid)) as Grid,
-  )
   stripBlobSpy.mockReset()
   stripBlobSpy.mockImplementation((tiles: unknown[]) => tiles)
 
@@ -1040,114 +1023,5 @@ describe('cloneAndPersistGrid', () => {
     const content = result.tiles[0].content as ChatContent
     expect(content.type).toBe(ContentType.CHAT)
     expect(content.messages).toEqual([])
-  })
-})
-
-// ── queueSave ────────────────────────────────────────────────────────────
-
-describe('queueSave', () => {
-  it('saves the grid immediately when no save is in flight', async () => {
-    mockGridDao.save.mockResolvedValueOnce(undefined)
-    const grid = makeGrid()
-
-    const service = await getService()
-    await service.queueSave(grid)
-
-    expect(mockGridDao.save).toHaveBeenCalledTimes(1)
-  })
-
-  it('builds an immutable snapshot before saving', async () => {
-    mockGridDao.save.mockResolvedValue(undefined)
-
-    const grid = makeGrid({ name: 'Reactive source' })
-    const snapshot = makeGrid({ name: 'Plain snapshot' })
-    createPersistableGridSnapshotSpy.mockReturnValueOnce(snapshot)
-
-    const service = await getService()
-    await service.queueSave(
-      grid,
-      { 'tile-1': 'https://storage.example.com/real.jpg' },
-      { 'doc-tile': { 'item-1': 'https://storage.example.com/doc.pdf' } },
-    )
-
-    const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
-    expect(createPersistableGridSnapshotSpy).toHaveBeenCalledWith(
-      grid,
-      { 'tile-1': 'https://storage.example.com/real.jpg' },
-      { 'doc-tile': { 'item-1': 'https://storage.example.com/doc.pdf' } },
-    )
-    expect(payload.name).toBe('Plain snapshot')
-  })
-
-  it('queues a second save while one is in flight and flushes it after', async () => {
-    let resolveFirst!: () => void
-    const firstPromise = new Promise<void>((r) => { resolveFirst = r })
-    mockGridDao.save.mockReturnValueOnce(firstPromise)
-    mockGridDao.save.mockResolvedValueOnce(undefined)
-
-    const grid1 = makeGrid({ name: 'First' })
-    const grid2 = makeGrid({ name: 'Second' })
-
-    const service = await getService()
-    const p1 = service.queueSave(grid1)
-    // Queue a second while first is in flight
-    const p2 = service.queueSave(grid2)
-
-    // Only one save call so far
-    expect(mockGridDao.save).toHaveBeenCalledTimes(1)
-
-    resolveFirst()
-    await p1
-    await p2
-
-    // The queued save should have flushed
-    expect(mockGridDao.save).toHaveBeenCalledTimes(2)
-    // ...and the flush must carry the LATEST snapshot (grid2), not a stale one —
-    // that is the entire point of the serialization queue.
-    const firstPayload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
-    const secondPayload = mockDbUtils.sanitizeValue.mock.calls[1][0] as Record<string, unknown>
-    expect(firstPayload.name).toBe('First')
-    expect(secondPayload.name).toBe('Second')
-  })
-
-  it('coalesces multiple queued saves to the latest pending snapshot', async () => {
-    let resolveFirst!: () => void
-    const firstPromise = new Promise<void>((r) => { resolveFirst = r })
-    mockGridDao.save.mockReturnValueOnce(firstPromise)
-    mockGridDao.save.mockResolvedValueOnce(undefined)
-
-    const service = await getService()
-    const p1 = service.queueSave(makeGrid({ name: 'First' }))
-    const p2 = service.queueSave(makeGrid({ name: 'Second' }))
-    const p3 = service.queueSave(makeGrid({ name: 'Third' }))
-
-    expect(mockGridDao.save).toHaveBeenCalledTimes(1)
-
-    resolveFirst()
-    await p1
-    await p2
-    await p3
-
-    expect(mockGridDao.save).toHaveBeenCalledTimes(2)
-    const firstPayload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
-    const secondPayload = mockDbUtils.sanitizeValue.mock.calls[1][0] as Record<string, unknown>
-    expect(firstPayload.name).toBe('First')
-    expect(secondPayload.name).toBe('Third')
-  })
-
-  it('does not throw when the save fails (logs error)', async () => {
-    mockGridDao.save.mockRejectedValueOnce(new Error('Write error'))
-
-    const service = await getService()
-    await expect(service.queueSave(makeGrid())).resolves.toBeUndefined()
-    // saveGrid's catch logs first, then queueSave's catch logs its own message
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Error saving grid with ID grid-1:',
-      expect.any(Error),
-    )
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Failed to save grid.',
-      expect.any(Error),
-    )
   })
 })

@@ -63,8 +63,7 @@ const saveName = (event: FocusEvent) => {
   }
   const newName = (event.target as HTMLElement).innerText.trim();
   if (gridStore.currentGrid && newName !== gridStore.currentGrid.name) {
-    gridStore.currentGrid.name = newName;
-    gridStore.saveGrid();
+    gridStore.renameCurrentGrid(newName);
     editableName.value = newName;
   }
 };

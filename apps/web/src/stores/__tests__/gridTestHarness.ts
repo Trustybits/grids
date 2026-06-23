@@ -39,12 +39,16 @@ const gridHarness = vi.hoisted(() => {
     saveRecentGridIds: vi.fn(),
     createGridWithStarterTiles: vi.fn(),
     cloneAndPersistGrid: vi.fn(),
-    queueSave: vi.fn(),
+  };
+  const persistenceScheduler = {
+    schedule: vi.fn(),
+    flush: vi.fn(),
   };
 
   return {
     events: [] as string[],
     gridService,
+    persistenceScheduler,
     analyticsService: {
       logEvent: vi.fn(),
     },
@@ -74,6 +78,18 @@ vi.mock("@/services/ServiceFactorySingleton", () => ({
     getGridService: () => gridHarness.gridService,
     getAnalyticsService: () => gridHarness.analyticsService,
   }),
+}));
+
+vi.mock("@/services/GridPersistenceScheduler", () => ({
+  GridPersistenceScheduler: class {
+    schedule(...args: unknown[]) {
+      gridHarness.persistenceScheduler.schedule(...args);
+    }
+
+    flush(...args: unknown[]) {
+      return gridHarness.persistenceScheduler.flush(...args);
+    }
+  },
 }));
 
 vi.mock("@/auth/AuthProviderSingleton", () => ({
@@ -323,6 +339,9 @@ export function resetGridHarness(): void {
   for (const mock of Object.values(gridHarness.gridService)) {
     mock.mockReset();
   }
+  for (const mock of Object.values(gridHarness.persistenceScheduler)) {
+    mock.mockReset();
+  }
   gridHarness.gridService.fetchGridsByUserId.mockResolvedValue([]);
   gridHarness.gridService.fetchGrid.mockResolvedValue(makeGrid());
   gridHarness.gridService.createGridWithStarterTiles.mockResolvedValue(
@@ -334,9 +353,10 @@ export function resetGridHarness(): void {
   gridHarness.gridService.loadRecentGridIds.mockResolvedValue([]);
   gridHarness.gridService.saveRecentGridIds.mockResolvedValue(undefined);
   gridHarness.gridService.touchLastOpenedAt.mockResolvedValue(undefined);
-  gridHarness.gridService.queueSave.mockImplementation(async () => {
+  gridHarness.persistenceScheduler.schedule.mockImplementation(() => {
     gridHarness.events.push("save");
   });
+  gridHarness.persistenceScheduler.flush.mockResolvedValue(undefined);
   gridHarness.gridService.deleteGrid.mockResolvedValue(undefined);
   gridHarness.gridService.updateGrid.mockResolvedValue(undefined);
 
@@ -357,7 +377,8 @@ export async function createLoadedGridStore(grid = makeGrid()) {
   gridHarness.gridService.fetchGrid.mockResolvedValueOnce(grid);
   const store = await createGridStore();
   await store.loadGrid(grid.id);
-  gridHarness.gridService.queueSave.mockClear();
+  gridHarness.persistenceScheduler.schedule.mockClear();
+  gridHarness.persistenceScheduler.flush.mockClear();
   gridHarness.analyticsService.logEvent.mockClear();
   gridHarness.events.length = 0;
   return store;

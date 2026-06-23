@@ -1,4 +1,3 @@
-<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="link-tile-content"
@@ -236,7 +235,6 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable vue/no-mutating-props */
 import {
   defineComponent,
   inject,
@@ -277,6 +275,13 @@ export default defineComponent({
     const tileId = inject<string | null>("tileId", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
+    const patchContent = (patch: Partial<LinkContent>) => {
+      if (tileId) {
+        gridStore.patchTileContent(tileId, patch);
+        return;
+      }
+      Object.assign(props.content, patch);
+    };
 
     const isOneByOne = computed(
       () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1,
@@ -455,9 +460,7 @@ export default defineComponent({
         }
 
         if (Object.keys(patch).length > 0) {
-          // Write metadata into custom fields on the content object
-          Object.assign(props.content, patch);
-          gridStore.patchTileContent(tileId, patch);
+          patchContent(patch);
         }
       },
     );
@@ -473,21 +476,13 @@ export default defineComponent({
       const nextDescription = draftDescription.value.trim();
       const nextSubtitle = draftSubtitle.value.trim();
 
-      props.content.customTitle = nextTitle;
-      props.content.customDescription = nextDescription;
-      props.content.customSubtitle = nextSubtitle;
-
       const updatedFields = {
         customTitle: nextTitle,
         customDescription: nextDescription,
         customSubtitle: nextSubtitle,
       };
 
-      if (tileId) {
-        gridStore.patchTileContent(tileId, updatedFields);
-      } else {
-        gridStore.saveGrid();
-      }
+      patchContent(updatedFields);
     };
 
     const closeContextMenu = () => {
@@ -496,12 +491,7 @@ export default defineComponent({
 
     const applyImageUrlFromToolbar = (normalizedUrl: string) => {
       if (!gridStore.canEdit) return;
-      props.content.customImageUrl = normalizedUrl;
-      if (tileId) {
-        gridStore.patchTileContent(tileId, { customImageUrl: normalizedUrl });
-      } else {
-        gridStore.saveGrid();
-      }
+      patchContent({ customImageUrl: normalizedUrl });
     };
 
     const openCustomImagePicker = () => {
@@ -512,21 +502,15 @@ export default defineComponent({
     const removeImage = () => {
       if (!gridStore.canEdit) return;
 
-      let changes = {};
+      let changes: Partial<LinkContent> = {};
 
       if (props.content.customImageUrl !== undefined) {
-        props.content.customImageUrl = undefined;
         changes = { customImageUrl: undefined };
       } else {
-        props.content.metaImageUrl = undefined;
         changes = { metaImageUrl: undefined };
       }
 
-      if (tileId) {
-        gridStore.patchTileContent(tileId, changes);
-      } else {
-        gridStore.saveGrid();
-      }
+      patchContent(changes);
 
       closeContextMenu();
     };
@@ -541,12 +525,7 @@ export default defineComponent({
 
       try {
         const url = await uploadFileToUrl(file, { fileType: "images" });
-        props.content.customImageUrl = url;
-        if (tileId) {
-          gridStore.patchTileContent(tileId, { customImageUrl: url });
-        } else {
-          gridStore.saveGrid();
-        }
+        patchContent({ customImageUrl: url });
       } catch (error: unknown) {
         console.error("Link tile image upload failed:", error);
         alert(error instanceof Error ? error.message : "Failed to upload image. Please try again.");
@@ -824,13 +803,7 @@ export default defineComponent({
     });
 
     const handleRemoveFavicon = () => {
-      props.content.faviconUrl = undefined;
-
-      if (tileId) {
-        gridStore.patchTileContent(tileId, { faviconUrl: undefined });
-      } else {
-        gridStore.saveGrid();
-      }
+      patchContent({ faviconUrl: undefined });
     };
 
     return {

@@ -202,7 +202,7 @@ describe("grid store history orchestration", () => {
       "Snapshot mutated after apply",
     );
     expect(gridHarness.themeStore.setTheme).toHaveBeenCalledWith("theme-b");
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
     expect(store.undoRedoVersion).toBeGreaterThan(0);
   });
 
@@ -221,18 +221,18 @@ describe("grid store history orchestration", () => {
     expect(store.forcedBreakpoint).toBe("sm");
     expect(store.currentGrid?.verticalCompact).toBe(true);
     expect(store.currentGrid?.tiles[0]?.x).toBe(0);
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(499);
     expect(store.currentGrid?.verticalCompact).toBe(true);
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1);
     await applying;
 
     expect(store.currentGrid?.verticalCompact).toBe(false);
     expect(store.currentGrid?.tiles[0]?.x).toBe(9);
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("preserves the 500 ms transition through cross-breakpoint undo and redo", async () => {
@@ -242,7 +242,7 @@ describe("grid store history orchestration", () => {
     store.pushUndoSnapshot("Cross breakpoint edit");
     store.currentGrid!.tiles[0]!.caption = "After";
     store.forcedBreakpoint = "sm";
-    gridHarness.gridService.queueSave.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
 
     const undoing = store.undo();
 
@@ -250,12 +250,12 @@ describe("grid store history orchestration", () => {
     expect(store.currentGrid?.tiles[0]?.caption).toBe("After");
     await vi.advanceTimersByTimeAsync(499);
     expect(store.currentGrid?.tiles[0]?.caption).toBe("After");
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1);
     await undoing;
     expect(store.currentGrid?.tiles[0]?.caption).toBe("");
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
 
     const redoing = store.redo();
 
@@ -263,12 +263,12 @@ describe("grid store history orchestration", () => {
     expect(store.currentGrid?.tiles[0]?.caption).toBe("");
     await vi.advanceTimersByTimeAsync(499);
     expect(store.currentGrid?.tiles[0]?.caption).toBe("");
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(1);
     await redoing;
     expect(store.currentGrid?.tiles[0]?.caption).toBe("After");
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(2);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(2);
   });
 
   it("undoes and redoes by capturing current state before applying history", async () => {
@@ -276,7 +276,7 @@ describe("grid store history orchestration", () => {
     store.forcedBreakpoint = "lg";
     store.pushUndoSnapshot("Change text");
     store.currentGrid!.tiles[0]!.caption = "After";
-    gridHarness.gridService.queueSave.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
 
     await store.undo();
 
@@ -284,14 +284,14 @@ describe("grid store history orchestration", () => {
     expect(store.canUndo).toBe(false);
     expect(store.canRedo).toBe(true);
     expect(store.redoActionLabel).toBe("Change text");
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
 
     await store.redo();
 
     expect(store.currentGrid?.tiles[0]?.caption).toBe("After");
     expect(store.canUndo).toBe(true);
     expect(store.canRedo).toBe(false);
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(2);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(2);
   });
 
   it("restores the custom OG image through undo and redo", async () => {
@@ -301,7 +301,7 @@ describe("grid store history orchestration", () => {
     store.forcedBreakpoint = "lg";
     store.pushUndoSnapshot("Change social share image");
     store.currentGrid!.ogImageSrc = "https://cdn.example/after.png";
-    gridHarness.gridService.queueSave.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
 
     await store.undo();
 
@@ -314,7 +314,7 @@ describe("grid store history orchestration", () => {
     expect(store.currentGrid?.ogImageSrc).toBe(
       "https://cdn.example/after.png",
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(2);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(2);
   });
 
   it("applies the selected multi-step history result", async () => {
@@ -326,7 +326,7 @@ describe("grid store history orchestration", () => {
     store.currentGrid!.tiles[0]!.caption = "two";
     store.pushUndoSnapshot("Second");
     store.currentGrid!.tiles[0]!.caption = "three";
-    gridHarness.gridService.queueSave.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
 
     await store.undoRedoUntil(1);
 
@@ -341,7 +341,7 @@ describe("grid store history orchestration", () => {
       }),
     );
     expect(store.currentGrid?.tiles[0]?.caption).toBe("one");
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("records one edit history entry only when the transaction changed", async () => {
@@ -352,7 +352,7 @@ describe("grid store history orchestration", () => {
     store.beginEditing("another-tile");
     store.commitEditing();
     expect(manager?.pushSnapshot).not.toHaveBeenCalled();
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
 
     store.beginEditing("tile-1");
     store.currentGrid!.tiles[0]!.caption = "Changed";
@@ -365,7 +365,7 @@ describe("grid store history orchestration", () => {
         tiles: [expect.objectContaining({ caption: "" })],
       }),
     );
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("records one desktop move transaction and persists once at commit", async () => {
@@ -375,7 +375,7 @@ describe("grid store history orchestration", () => {
     store.beginMove();
     store.beginMove();
     store.currentGrid!.tiles[0]!.x = 5;
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
     store.commitMove();
 
     expect(manager?.pushSnapshot).toHaveBeenCalledTimes(1);
@@ -385,7 +385,18 @@ describe("grid store history orchestration", () => {
         tiles: [expect.objectContaining({ x: 0 })],
       }),
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a move or resize commit without a pending gesture as a no-op", async () => {
+    const store = await createLoadedGridStore();
+    const manager = gridHarness.undoManagers[0];
+
+    store.commitMove();
+    store.commitResize();
+
+    expect(manager?.pushSnapshot).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
   });
 
   it("undoes only a move performed immediately after another mutation", async () => {
@@ -395,14 +406,14 @@ describe("grid store history orchestration", () => {
     store.beginMove();
     store.currentGrid!.tiles[0]!.x = 5;
     store.commitMove();
-    gridHarness.gridService.queueSave.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
 
     await store.undo();
 
     expect(store.currentGrid?.themeId).toBe("theme-b");
     expect(store.currentGrid?.tiles[0]?.x).toBe(0);
     expect(store.undoActionLabel).toBe("Change theme");
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("captures current canonical state when a move begins", async () => {
@@ -434,7 +445,7 @@ describe("grid store history orchestration", () => {
 
     store.beginResize();
     store.beginResize();
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
     store.commitResize();
 
     expect(manager?.pushSnapshot).toHaveBeenCalledTimes(1);
@@ -444,7 +455,7 @@ describe("grid store history orchestration", () => {
     expect(store.currentGrid?.overrides?.md).toEqual({
       "tile-1": { x: 1, y: 2, w: 4, h: 5 },
     });
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("records and persists one desktop resize transaction", async () => {
@@ -454,7 +465,7 @@ describe("grid store history orchestration", () => {
     store.setDisplayPositions([
       { i: "tile-1", x: 3, y: 4, w: 5, h: 6 },
     ]);
-    gridHarness.gridService.queueSave.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
 
     store.beginResize();
     store.commitResize();
@@ -471,7 +482,7 @@ describe("grid store history orchestration", () => {
     expect(store.currentGrid?.tiles[0]).toEqual(
       expect.objectContaining({ x: 3, y: 4, w: 5, h: 6 }),
     );
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("undoes only a resize performed immediately after another mutation", async () => {
@@ -482,7 +493,7 @@ describe("grid store history orchestration", () => {
     store.currentGrid!.tiles[0]!.w = 5;
     store.currentGrid!.tiles[0]!.h = 6;
     store.commitResize();
-    gridHarness.gridService.queueSave.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
 
     await store.undo();
 
@@ -491,7 +502,7 @@ describe("grid store history orchestration", () => {
       expect.objectContaining({ w: 2, h: 2 }),
     );
     expect(store.undoActionLabel).toBe("Change theme");
-    expect(gridHarness.gridService.queueSave).toHaveBeenCalledTimes(1);
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("no-ops undo, redo, and snapshot application without required state", async () => {
@@ -505,7 +516,7 @@ describe("grid store history orchestration", () => {
     await store.applySnapshot(makeSnapshot());
 
     expect(originalTiles).toBeDefined();
-    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
   });
 
   it("captures forced breakpoint context from the active breakpoint fallback", async () => {

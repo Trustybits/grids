@@ -153,28 +153,18 @@ export default {
 
         // Only act when gravity is turned ON (false -> true)
         if (isCompact && !wasCompact) {
-          const tiles = gridStore.currentGrid.tiles;
           const compacted = packGridLayout(
             displayLayout.value,
             responsiveColNum.value,
           );
-
-          // Update each tile's position in the store's tiles array
-          compacted.forEach((compactedTile) => {
-            const storeTile = tiles.find((t) => t.i === compactedTile.i);
-            if (storeTile) {
-              storeTile.x = compactedTile.x;
-              storeTile.y = compactedTile.y;
-            }
-          });
 
           displayLayout.value = reconcileGridLayout(
             displayLayout.value,
             compacted,
           );
 
-          // Save to database
-          gridStore.updateGrid();
+          // Commit the compacted positions into canonical tiles and persist.
+          gridStore.commitCompactedLayout(compacted);
         }
       },
     );

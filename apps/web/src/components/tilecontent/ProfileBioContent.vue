@@ -1,4 +1,3 @@
-<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="profile-bio"
@@ -417,7 +416,6 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable vue/no-mutating-props */
 import {
   defineComponent,
   ref,
@@ -665,30 +663,21 @@ export default defineComponent({
     // content-field matching which breaks when multiple profile tiles share
     // the same default text or when text fields are edited mid-session.
     const avatarSrc = computed(() => {
-      if (!tileId) return "";
+      if (!tileId) return props.content.profilePhotoUrl ?? "";
       const tile = gridStore.currentGrid?.tiles.find((t) => t.i === tileId);
       return (tile?.content as ProfileBioContent | undefined)?.profilePhotoUrl ?? "";
     });
 
+    const patchContent = (patch: Partial<ProfileBioContent>) => {
+      if (tileId) {
+        gridStore.patchTileContent(tileId, patch);
+        return;
+      }
+      Object.assign(props.content, patch);
+    };
+
     const saveProfilePhoto = async (url: string) => {
-      if (!tileId) {
-        console.error("No tileId injected — cannot save profile photo");
-        return;
-      }
-
-      const tile = gridStore.currentGrid?.tiles.find((t) => t.i === tileId);
-      if (!tile) {
-        console.error(
-          `Could not find tile ${tileId} in store for profile photo save`,
-        );
-        return;
-      }
-
-      // Mutate the store's content reference directly, not props.content
-      (tile.content as ProfileBioContent).profilePhotoUrl = url;
-
-      // Persist via layout store
-      await gridStore.saveGrid();
+      patchContent({ profilePhotoUrl: url });
     };
 
     const serializeEditor = (editor: Editor) => {
@@ -705,23 +694,7 @@ export default defineComponent({
       const title = serializeEditor(titleEditor.value);
       const bio = serializeEditor(bioEditor.value);
 
-      if (tileId && gridStore.currentGrid) {
-        const tile = gridStore.currentGrid.tiles.find(
-          (t) => t.i === tileId,
-        );
-        if (tile) {
-          const content = tile.content as ProfileBioContent;
-          content.name = name;
-          content.title = title;
-          content.bio = bio;
-        }
-      } else {
-        props.content.name = name;
-        props.content.title = title;
-        props.content.bio = bio;
-      }
-
-      gridStore.saveGrid();
+      patchContent({ name, title, bio });
     };
 
     watch(
@@ -861,8 +834,7 @@ export default defineComponent({
 
     const setAvatarShape = (shape: AvatarShape) => {
       if (!gridStore.canEdit) return;
-      props.content.avatarShape = shape;
-      gridStore.saveGrid();
+      patchContent({ avatarShape: shape });
     };
 
     const isDraggingRadius = ref(false);
@@ -877,8 +849,7 @@ export default defineComponent({
 
     const onRadiusCommit = () => {
       if (!gridStore.canEdit) return;
-      props.content.avatarRadius = avatarRadius.value;
-      gridStore.saveGrid();
+      patchContent({ avatarRadius: avatarRadius.value });
     };
 
     const polyGeometry = computed(() =>
@@ -934,8 +905,7 @@ export default defineComponent({
         document.removeEventListener("pointerup", onUp);
         // Commit the final value
         if (gridStore.canEdit) {
-          props.content.avatarRadius = avatarRadius.value;
-          gridStore.saveGrid();
+          patchContent({ avatarRadius: avatarRadius.value });
         }
       };
 
@@ -1188,8 +1158,7 @@ export default defineComponent({
         document.removeEventListener("pointermove", onMove);
         document.removeEventListener("pointerup", onUp);
         if (gridStore.canEdit) {
-          props.content.avatarSides = avatarSides.value;
-          gridStore.saveGrid();
+          patchContent({ avatarSides: avatarSides.value });
         }
       };
 

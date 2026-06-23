@@ -66,13 +66,15 @@ describe("modal control", () => {
 });
 
 describe("handleAddLink", () => {
-  it("normalizes a bare domain to https and patches an existing tile", () => {
+  it("normalizes a bare domain to https and patches an existing tile without mutating content directly", () => {
     const content: { tileLink?: string } = {};
     const { handleAddLink, showLinkModal } = useTileLink("t1", content);
 
     handleAddLink("example.com");
 
-    expect(content.tileLink).toBe("https://example.com");
+    // Live tile: the controller owns the canonical write; the composable does
+    // not mutate the content prop directly.
+    expect(content.tileLink).toBeUndefined();
     expect(mockGridStore.patchTileContent).toHaveBeenCalledWith("t1", {
       tileLink: "https://example.com",
     });
@@ -84,15 +86,18 @@ describe("handleAddLink", () => {
     const content: { tileLink?: string } = {};
     const { handleAddLink } = useTileLink("t1", content);
     handleAddLink("http://insecure.example");
-    expect(content.tileLink).toBe("http://insecure.example");
+    expect(mockGridStore.patchTileContent).toHaveBeenCalledWith("t1", {
+      tileLink: "http://insecure.example",
+    });
   });
 
-  it("saves the grid (not patch) when there is no tileId", () => {
+  it("mutates local preview content (no persistence) when there is no tileId", () => {
     const content: { tileLink?: string } = {};
     const { handleAddLink } = useTileLink(null, content);
     handleAddLink("example.com");
-    expect(mockGridStore.saveGrid).toHaveBeenCalledTimes(1);
+    expect(content.tileLink).toBe("https://example.com");
     expect(mockGridStore.patchTileContent).not.toHaveBeenCalled();
+    expect(mockGridStore.saveGrid).not.toHaveBeenCalled();
   });
 
   it("rejects whitespace-only input with a toast and persists nothing", () => {
@@ -159,23 +164,26 @@ describe("handleFollowLink", () => {
 });
 
 describe("clearLink", () => {
-  it("clears the link and patches an existing tile with an empty string", () => {
+  it("clears an existing tile's link through a patch without mutating content directly", () => {
     const content: { tileLink?: string } = { tileLink: "https://x.com" };
     const { clearLink } = useTileLink("t1", content);
 
     clearLink();
 
-    expect(content.tileLink).toBeUndefined();
+    // Live tile: content prop is untouched; the patch owns the canonical write.
+    expect(content.tileLink).toBe("https://x.com");
     expect(mockGridStore.patchTileContent).toHaveBeenCalledWith("t1", {
       tileLink: "",
     });
   });
 
-  it("saves the grid when there is no tileId", () => {
+  it("clears local preview content (no persistence) when there is no tileId", () => {
     const content: { tileLink?: string } = { tileLink: "https://x.com" };
     const { clearLink } = useTileLink(null, content);
     clearLink();
-    expect(mockGridStore.saveGrid).toHaveBeenCalledTimes(1);
+    expect(content.tileLink).toBeUndefined();
+    expect(mockGridStore.patchTileContent).not.toHaveBeenCalled();
+    expect(mockGridStore.saveGrid).not.toHaveBeenCalled();
   });
 
   it("does nothing for a non-owner", () => {

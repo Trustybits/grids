@@ -94,14 +94,7 @@ export default {
         return;
       }
       const text = editableCaptionElement.value?.innerText.trim() ?? "";
-      // Update the store's canonical tile so the caption persists
-      const storeTile = gridStore.currentGrid?.tiles?.find(
-        (t) => t.i === props.tile.i,
-      );
-      if (storeTile) {
-        storeTile.caption = text;
-      }
-      gridStore.updateGrid();
+      gridStore.updateCaption({ tileId: props.tile.i, caption: text });
       editing.value = false;
     };
 

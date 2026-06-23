@@ -111,9 +111,7 @@ export function useFileUpload() {
 
       // Store the permanent URL for persistence without touching the displayed src.
       // This avoids a visible flash and keeps video playback uninterrupted.
-      gridStore.setResolvedUrl(tileId, url);
-      gridStore.clearTileUploading(tileId);
-      gridStore.updateGrid();
+      gridStore.resolveUploadedUrl({ tileId, permanentUrl: url });
     } catch (error) {
       console.error("File upload failed:", error);
       gridStore.clearTileUploading(tileId);
@@ -164,9 +162,7 @@ export function useFileUpload() {
 
       const url = await uploadTask.done();
 
-      gridStore.setResolvedUrl(tileId, url);
-      gridStore.clearTileUploading(tileId);
-      gridStore.updateGrid();
+      gridStore.resolveUploadedUrl({ tileId, permanentUrl: url });
     } catch (error) {
       console.error("File upload failed:", error);
       gridStore.clearTileUploading(tileId);
@@ -244,10 +240,19 @@ export function useFileUpload() {
         const url = await uploadTask.done();
         completed += 1;
         gridStore.setTileUploading(tileId, completed / n);
-        gridStore.setResolvedDocumentItemUrl(tileId, item.id, url);
+        // Record each item's resolved URL without clearing progress yet; the
+        // single final save is scheduled and flushed after the loop.
+        gridStore.resolveUploadedUrl({
+          tileId,
+          itemId: item.id,
+          permanentUrl: url,
+          final: false,
+        });
       }
       gridStore.clearTileUploading(tileId);
-      await gridStore.saveGrid();
+      // Server-side thumbnail generation requires the document data to be
+      // durably persisted first, so flush the scheduled saves before starting.
+      await gridStore.flushSaves();
 
       const gridId = gridStore.currentGrid?.id;
       if (gridId) {

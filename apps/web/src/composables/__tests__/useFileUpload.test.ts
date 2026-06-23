@@ -30,9 +30,11 @@ const { mockGetCurrentUserId, storage, gridStore } = vi.hoisted(() => ({
     clearTileUploading: vi.fn(),
     setResolvedUrl: vi.fn(),
     setResolvedDocumentItemUrl: vi.fn(),
+    resolveUploadedUrl: vi.fn(),
     patchDocumentItem: vi.fn(),
     updateGrid: vi.fn(),
     saveGrid: vi.fn(),
+    flushSaves: vi.fn(() => Promise.resolve()),
     removeTile: vi.fn(),
     currentGrid: { id: "grid-1" } as { id: string } | null,
   },
@@ -166,12 +168,11 @@ describe("uploadFileOptimistic", () => {
     resolveDone("https://storage/final.png");
     await promise;
 
-    expect(gridStore.setResolvedUrl).toHaveBeenCalledWith(
-      "tile-1",
-      "https://storage/final.png",
-    );
-    expect(gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
-    expect(gridStore.updateGrid).toHaveBeenCalledTimes(1);
+    expect(gridStore.resolveUploadedUrl).toHaveBeenCalledWith({
+      tileId: "tile-1",
+      permanentUrl: "https://storage/final.png",
+    });
+    expect(gridStore.resolveUploadedUrl).toHaveBeenCalledTimes(1);
   });
 
   it("reports upload progress as a fraction", async () => {
@@ -239,11 +240,10 @@ describe("uploadFileOptimisticForTile", () => {
     resolveDone("https://storage/final.png");
     await promise;
 
-    expect(gridStore.setResolvedUrl).toHaveBeenCalledWith(
-      "tile-9",
-      "https://storage/final.png",
-    );
-    expect(gridStore.updateGrid).toHaveBeenCalled();
+    expect(gridStore.resolveUploadedUrl).toHaveBeenCalledWith({
+      tileId: "tile-9",
+      permanentUrl: "https://storage/final.png",
+    });
   });
 
   it("reports upload progress as a fraction for the existing tile", async () => {
@@ -314,13 +314,14 @@ describe("uploadDocumentsOptimistic", () => {
     resolveDone("https://storage/a.txt");
     await promise;
 
-    expect(gridStore.setResolvedDocumentItemUrl).toHaveBeenCalledWith(
-      "tile-1",
-      "uuid-1",
-      "https://storage/a.txt",
-    );
+    expect(gridStore.resolveUploadedUrl).toHaveBeenCalledWith({
+      tileId: "tile-1",
+      itemId: "uuid-1",
+      permanentUrl: "https://storage/a.txt",
+      final: false,
+    });
     expect(gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
-    expect(gridStore.saveGrid).toHaveBeenCalled();
+    expect(gridStore.flushSaves).toHaveBeenCalled();
   });
 
   it("requests a server thumbnail for PDF items and patches the result", async () => {
@@ -346,7 +347,7 @@ describe("uploadDocumentsOptimistic", () => {
   it("waits for the document save before requesting server thumbnails", async () => {
     mockDocumentItemIsPdf.mockReturnValue(true);
     let resolveSave!: () => void;
-    gridStore.saveGrid.mockReturnValueOnce(
+    gridStore.flushSaves.mockReturnValueOnce(
       new Promise<void>((resolve) => {
         resolveSave = resolve;
       }),
@@ -360,7 +361,7 @@ describe("uploadDocumentsOptimistic", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(gridStore.saveGrid).toHaveBeenCalledTimes(1);
+    expect(gridStore.flushSaves).toHaveBeenCalledTimes(1);
     expect(mockEnsureThumb).not.toHaveBeenCalled();
 
     resolveSave();

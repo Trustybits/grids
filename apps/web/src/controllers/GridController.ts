@@ -16,6 +16,10 @@ import {
 import type { GridLayoutItem } from "@/types/GridLayout";
 import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService";
 import type { IGridService } from "@/services/interfaces/IGridService";
+import type {
+  GridPersistenceScope,
+  IGridPersistenceScheduler,
+} from "@/services/interfaces/IGridPersistenceScheduler";
 import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
 import type { Snapshot } from "@/undo/UndoTypes";
 import type { useGridCollectionStore } from "@/stores/grid/gridCollection";
@@ -36,6 +40,11 @@ import {
   findFirstAvailableSpot,
   pushTilesForNewItem,
 } from "@/utils/GridPlacementUtils";
+import { createPersistableGridSnapshot } from "@/utils/GridPersistenceUtils";
+import type {
+  ResolveUploadedUrlInput,
+  UpdateCaptionInput,
+} from "./GridCommands";
 
 export interface GridControllerStores {
   collection: ReturnType<typeof useGridCollectionStore>;
@@ -56,6 +65,7 @@ export interface GridMetadataPreferences {
 
 export interface GridControllerDependencies {
   getGridService(): IGridService;
+  persistenceScheduler: IGridPersistenceScheduler;
   getAuthProvider(): AuthProvider;
   getAnalyticsService(): IAnalyticsService;
   generateUuid(): string;
@@ -436,18 +446,31 @@ export class GridController {
     this.resetSessionDependents();
   }
 
-  async saveGrid(
+  scheduleSave(
     resolvedUrls: Record<string, string> =
       this.stores.uploads.resolvedUrls,
     resolvedDocumentItemUrls: Record<
       string,
       Record<string, string>
     > = this.stores.uploads.resolvedDocumentItemUrls,
-  ): Promise<void> {
+  ): void {
+    const scope = this.enqueueSave(
+      resolvedUrls,
+      resolvedDocumentItemUrls,
+    );
+    if (scope) {
+      this.observeScheduledSave(scope);
+    }
+  }
+
+  private enqueueSave(
+    resolvedUrls: Record<string, string>,
+    resolvedDocumentItemUrls: Record<string, Record<string, string>>,
+  ): GridPersistenceScope | null {
     const grid = this.stores.session.currentGrid;
     if (!grid) {
       console.warn("No grid to save.");
-      return;
+      return null;
     }
     if (
       !this.canEdit({
@@ -456,21 +479,74 @@ export class GridController {
         viewportBreakpoint: this.stores.viewport.viewportBreakpoint,
       })
     ) {
-      return;
+      return null;
     }
+
+    const scope = this.stores.session.getPersistenceScope();
+    if (!scope) return null;
+
     try {
-      await this.dependencies
-        .getGridService()
-        .queueSave(
-          grid,
-          resolvedUrls,
-          resolvedDocumentItemUrls,
-        );
+      const snapshot = createPersistableGridSnapshot(
+        grid,
+        resolvedUrls,
+        resolvedDocumentItemUrls,
+      );
+      this.stores.session.setPersistenceStatus("pending");
+      this.dependencies.persistenceScheduler.schedule(scope, snapshot);
+      if (this.stores.session.matchesPersistenceScope(scope)) {
+        this.stores.session.setPersistenceStatus("saving");
+      }
+      return scope;
+    } catch (error) {
+      this.reportPersistenceError(error);
+      return null;
+    }
+  }
+
+  async flushSaves(): Promise<void> {
+    const scope = this.stores.session.getPersistenceScope();
+    if (!scope) return;
+
+    await this.flushPersistenceScope(scope);
+  }
+
+  private async flushPersistenceScope(
+    scope: GridPersistenceScope,
+  ): Promise<void> {
+    try {
+      await this.dependencies.persistenceScheduler.flush(scope);
+      if (!this.stores.session.matchesPersistenceScope(scope)) return;
+      this.stores.session.setPersistenceStatus("idle");
       this.stores.session.setPersistenceError(null);
     } catch (error) {
-      this.stores.session.setPersistenceError("Failed to save grid.");
-      this.stores.compatibility.setError("Failed to save grid.");
-      console.error(error);
+      if (this.stores.session.matchesPersistenceScope(scope)) {
+        this.reportPersistenceError(error);
+      }
+      throw error;
+    }
+  }
+
+  private observeScheduledSave(scope: GridPersistenceScope): void {
+    void this.flushPersistenceScope(scope).catch(() => undefined);
+  }
+
+  async saveGrid(
+    resolvedUrls: Record<string, string> =
+      this.stores.uploads.resolvedUrls,
+    resolvedDocumentItemUrls: Record<
+      string,
+      Record<string, string>
+    > = this.stores.uploads.resolvedDocumentItemUrls,
+  ): Promise<void> {
+    const scope = this.enqueueSave(
+      resolvedUrls,
+      resolvedDocumentItemUrls,
+    );
+    if (!scope) return;
+    try {
+      await this.flushPersistenceScope(scope);
+    } catch {
+      // Legacy callers observe save failures through store state.
     }
   }
 
@@ -623,7 +699,7 @@ export class GridController {
       this.stores.theme.setTheme(snapshot.themeId);
     }
 
-    void this.saveGrid(
+    this.scheduleSave(
       urlMaps.resolvedUrls,
       urlMaps.resolvedDocumentItemUrls,
     );
@@ -655,6 +731,7 @@ export class GridController {
       !this.dependencies.snapshotCodec.equals(pending, current)
     ) {
       this.stores.history.pushSnapshot(pending);
+      this.scheduleSave();
       this.refreshStableSnapshot(urlMaps);
     }
   }
@@ -669,13 +746,10 @@ export class GridController {
     urlMaps?: GridHistoryUrlMaps,
   ): void {
     const pending = this.stores.history.takeMoveSnapshot();
-    if (pending) this.stores.history.pushSnapshot(pending);
+    if (!pending) return;
 
-    if (this.stores.viewport.activeBreakpoint !== "lg") {
-      this.updateBreakpointOverride();
-    } else {
-      this.updateGrid();
-    }
+    this.stores.history.pushSnapshot(pending);
+    this.commitGestureGeometry();
     this.refreshStableSnapshot(urlMaps);
   }
 
@@ -689,14 +763,30 @@ export class GridController {
     urlMaps?: GridHistoryUrlMaps,
   ): void {
     const pending = this.stores.history.takeResizeSnapshot();
-    if (pending) this.stores.history.pushSnapshot(pending);
+    if (!pending) return;
 
-    if (this.stores.viewport.activeBreakpoint !== "lg") {
-      this.updateBreakpointOverride();
-    } else {
-      this.updateGrid();
-    }
+    this.stores.history.pushSnapshot(pending);
+    this.commitGestureGeometry();
     this.refreshStableSnapshot(urlMaps);
+  }
+
+  /**
+   * Commit the geometry produced by a move/resize gesture. Desktop gestures
+   * synchronize rendered positions into canonical tiles; non-desktop gestures
+   * capture the active breakpoint override. Either way persistence is
+   * scheduled exactly once.
+   */
+  private commitGestureGeometry(): void {
+    const grid = this.stores.session.currentGrid;
+    if (this.stores.viewport.activeBreakpoint !== "lg") {
+      this.captureActiveBreakpointOverride();
+    } else if (grid && this.stores.viewport.displayPositions.length) {
+      this.syncPositionOnlyLayout(
+        grid,
+        this.stores.viewport.displayPositions,
+      );
+    }
+    this.scheduleSave();
   }
 
   setTileUploading(tileId: string, progress: number): void {
@@ -737,22 +827,39 @@ export class GridController {
     this.stores.uploads.clearResolvedDocumentItemsForTile(tileId);
   }
 
-  toggleVerticalCompact(): void {
-    const grid = this.stores.session.currentGrid;
-    if (!grid) return;
+  resolveUploadedUrl({
+    tileId,
+    itemId,
+    permanentUrl,
+    final = true,
+  }: ResolveUploadedUrlInput): void {
+    if (itemId) {
+      this.setResolvedDocumentItemUrl(tileId, itemId, permanentUrl);
+    } else {
+      this.setResolvedUrl(tileId, permanentUrl);
+    }
+    if (final) {
+      this.clearTileUploading(tileId);
+    }
+    this.scheduleSave();
+  }
 
-    this.pushUndoSnapshot("Toggle gravity");
-    grid.verticalCompact = !grid.verticalCompact;
-    this.updateGrid();
+  toggleVerticalCompact(): void {
+    this.runGridCommand({
+      captureHistory: "Toggle gravity",
+      mutate: (grid) => {
+        grid.verticalCompact = !grid.verticalCompact;
+      },
+    });
   }
 
   setVerticalCompact(value: boolean): void {
-    const grid = this.stores.session.currentGrid;
-    if (!grid) return;
-
-    this.pushUndoSnapshot("Set gravity");
-    grid.verticalCompact = value;
-    this.updateGrid();
+    this.runGridCommand({
+      captureHistory: "Set gravity",
+      mutate: (grid) => {
+        grid.verticalCompact = value;
+      },
+    });
   }
 
   addTile(content: TileContent): string | null {
@@ -813,7 +920,7 @@ export class GridController {
       "",
     );
     grid.tiles.push(tile);
-    this.updateGrid();
+    this.scheduleSave();
     this.logTileEvent(
       AnalyticsEventType.TILE_ADDED,
       grid.id,
@@ -835,7 +942,7 @@ export class GridController {
       tile.h = 4;
       adjustTilePosition(tile, grid.colNum);
     }
-    this.updateGrid();
+    this.scheduleSave();
   }
 
   patchTileContent(
@@ -854,14 +961,19 @@ export class GridController {
     );
     if (!hasChanges) return;
 
-    if (!this.stores.history.isEditing(id)) {
+    const editing = this.stores.history.isEditing(id);
+    if (!editing) {
       this.pushUndoSnapshot("Update tile");
     }
     tile.content = {
       ...currentContent,
       ...patchRecord,
     } as TileContent;
-    this.updateGrid();
+    // During an active edit transaction the final save is scheduled once by
+    // commitEditing(); intermediate patches must not schedule.
+    if (!editing) {
+      this.scheduleSave();
+    }
   }
 
   patchDocumentItem(
@@ -874,7 +986,8 @@ export class GridController {
     );
     if (!tile || tile.content.type !== ContentType.DOCUMENT) return;
 
-    if (!this.stores.history.isEditing(tileId)) {
+    const editing = this.stores.history.isEditing(tileId);
+    if (!editing) {
       this.pushUndoSnapshot("Update document");
     }
     const document = tile.content as DocumentsContent;
@@ -884,63 +997,105 @@ export class GridController {
         item.id === itemId ? { ...item, ...itemPatch } : item,
       ),
     } as TileContent;
-    this.updateGrid();
+    // Intermediate document patches inside an edit transaction defer their
+    // save to commitEditing().
+    if (!editing) {
+      this.scheduleSave();
+    }
+  }
+
+  updateCaption({ tileId, caption }: UpdateCaptionInput): void {
+    this.runGridCommand({
+      validate: (grid) =>
+        grid.tiles.some((candidate) => candidate.i === tileId),
+      mutate: (grid) => {
+        const tile = grid.tiles.find(
+          (candidate) => candidate.i === tileId,
+        );
+        if (tile) tile.caption = caption;
+      },
+    });
+  }
+
+  renameCurrentGrid(name: string): void {
+    this.runGridCommand({
+      mutate: (grid) => {
+        grid.name = name;
+        this.stores.collection.updateGrid(grid.id, { name });
+      },
+    });
   }
 
   setGridTheme(themeId: string): void {
-    this.mutateGridWithHistory("Change theme", (grid) => {
-      grid.themeId = themeId;
+    this.runGridCommand({
+      captureHistory: "Change theme",
+      mutate: (grid) => {
+        grid.themeId = themeId;
+      },
     });
   }
 
   setDuplicatable(value: boolean): void {
-    const grid = this.stores.session.currentGrid;
-    if (!grid) return;
-    grid.duplicatable = value;
-    this.updateGrid();
+    this.runGridCommand({
+      mutate: (grid) => {
+        grid.duplicatable = value;
+      },
+    });
   }
 
   addBackgroundImage(url: string, embed: boolean): void {
-    this.mutateGridWithHistory("Change background image", (grid) => {
-      grid.backgroundImageSrc = url;
-      grid.backgroundEmbed = embed;
+    this.runGridCommand({
+      captureHistory: "Change background image",
+      mutate: (grid) => {
+        grid.backgroundImageSrc = url;
+        grid.backgroundEmbed = embed;
+      },
     });
   }
 
   removeBackgroundImage(): void {
-    this.mutateGridWithHistory("Remove background image", (grid) => {
-      grid.backgroundImageSrc = "";
-      grid.backgroundEmbed = false;
+    this.runGridCommand({
+      captureHistory: "Remove background image",
+      mutate: (grid) => {
+        grid.backgroundImageSrc = "";
+        grid.backgroundEmbed = false;
+      },
     });
   }
 
   setCustomOgImage(url: string): void {
-    this.mutateGridWithHistory(
-      "Change social share image",
-      (grid) => {
+    this.runGridCommand({
+      captureHistory: "Change social share image",
+      mutate: (grid) => {
         grid.ogImageSrc = url;
       },
-    );
+    });
   }
 
   removeCustomOgImage(): void {
-    this.mutateGridWithHistory(
-      "Remove social share image",
-      (grid) => {
+    this.runGridCommand({
+      captureHistory: "Remove social share image",
+      mutate: (grid) => {
         grid.ogImageSrc = "";
       },
-    );
+    });
   }
 
   setBackgroundColor(color: string): void {
-    this.mutateGridWithHistory("Change background color", (grid) => {
-      grid.backgroundColor = color;
+    this.runGridCommand({
+      captureHistory: "Change background color",
+      mutate: (grid) => {
+        grid.backgroundColor = color;
+      },
     });
   }
 
   removeBackgroundColor(): void {
-    this.mutateGridWithHistory("Remove background color", (grid) => {
-      grid.backgroundColor = "";
+    this.runGridCommand({
+      captureHistory: "Remove background color",
+      mutate: (grid) => {
+        grid.backgroundColor = "";
+      },
     });
   }
 
@@ -1014,7 +1169,7 @@ export class GridController {
       }
     }
 
-    this.updateGrid();
+    this.scheduleSave();
     this.logTileEvent(
       AnalyticsEventType.TILE_ADDED,
       grid.id,
@@ -1051,7 +1206,7 @@ export class GridController {
         id,
       );
     }
-    void this.saveGrid();
+    this.scheduleSave();
     this.refreshStableSnapshot();
   }
 
@@ -1074,7 +1229,7 @@ export class GridController {
         displayPosition.h = height;
         displayPosition.x = tile.x;
       }
-      this.updateGrid();
+      this.scheduleSave();
       return;
     }
 
@@ -1105,31 +1260,46 @@ export class GridController {
       w: clampedWidth,
       h: height,
     };
-    this.updateGrid();
+    this.scheduleSave();
   }
 
   toggleTileBorder(id: string): void {
-    const tile = this.stores.session.currentGrid?.tiles.find(
-      (candidate) => candidate.i === id,
-    );
-    if (!tile) return;
-    this.pushUndoSnapshot("Toggle tile border");
-    tile.borderEnabled = tile.borderEnabled === false;
-    this.updateGrid();
+    this.runGridCommand({
+      validate: (grid) =>
+        grid.tiles.some((candidate) => candidate.i === id),
+      captureHistory: "Toggle tile border",
+      mutate: (grid) => {
+        const tile = grid.tiles.find(
+          (candidate) => candidate.i === id,
+        );
+        if (tile) tile.borderEnabled = tile.borderEnabled === false;
+      },
+    });
   }
 
   toggleLinkBackground(id: string): void {
-    const tile = this.stores.session.currentGrid?.tiles.find(
-      (candidate) => candidate.i === id,
-    );
-    if (!tile || tile.content.type !== ContentType.LINK) return;
-    this.pushUndoSnapshot("Toggle link background");
-    const link = tile.content as LinkContent;
-    link.linkBackgroundEnabled = link.linkBackgroundEnabled === false;
-    this.updateGrid();
+    this.runGridCommand({
+      validate: (grid) => {
+        const tile = grid.tiles.find(
+          (candidate) => candidate.i === id,
+        );
+        return tile?.content.type === ContentType.LINK;
+      },
+      captureHistory: "Toggle link background",
+      mutate: (grid) => {
+        const tile = grid.tiles.find(
+          (candidate) => candidate.i === id,
+        );
+        if (!tile || tile.content.type !== ContentType.LINK) return;
+        const link = tile.content as LinkContent;
+        link.linkBackgroundEnabled = link.linkBackgroundEnabled === false;
+      },
+    });
   }
 
-  updateGrid(): void {
+  commitRenderedDesktopLayout(
+    layout: GridLayoutItem[] = this.stores.viewport.displayPositions,
+  ): void {
     const grid = this.stores.session.currentGrid;
     if (
       !grid ||
@@ -1144,27 +1314,63 @@ export class GridController {
 
     if (
       this.stores.viewport.activeBreakpoint === "lg" &&
-      this.stores.viewport.displayPositions.length
+      layout.length
     ) {
-      for (const position of this.stores.viewport.displayPositions) {
-        const tile = grid.tiles.find(
-          (candidate) => candidate.i === position.i,
-        );
-        if (tile) {
-          tile.x = position.x;
-          tile.y = position.y;
-          tile.w = position.w;
-          tile.h = position.h;
-        }
-      }
+      this.syncPositionOnlyLayout(grid, layout);
     }
-    void this.saveGrid();
+    this.scheduleSave();
   }
 
-  updateBreakpointOverride(): void {
+  commitCompactedLayout(layout: GridLayoutItem[]): void {
+    const grid = this.stores.session.currentGrid;
+    if (
+      !grid ||
+      !this.canEdit({
+        isOwner: this.stores.session.isOwner,
+        forcedBreakpoint: this.stores.viewport.forcedBreakpoint,
+        viewportBreakpoint: this.stores.viewport.viewportBreakpoint,
+      })
+    ) {
+      return;
+    }
+    this.syncPositionOnlyLayout(grid, layout);
+    this.scheduleSave();
+  }
+
+  /**
+   * @deprecated Use {@link commitRenderedDesktopLayout}. Retained only as a
+   * thin facade-compatibility wrapper until the consumer migration in Step 7.
+   */
+  updateGrid(): void {
+    this.commitRenderedDesktopLayout();
+  }
+
+  /**
+   * Copy only positional fields (`x`, `y`, `w`, `h`) from a position-only
+   * rendered layout into canonical tiles. Tile content is never copied from
+   * rendered layout objects.
+   */
+  private syncPositionOnlyLayout(
+    grid: Grid,
+    layout: GridLayoutItem[],
+  ): void {
+    for (const position of layout) {
+      const tile = grid.tiles.find(
+        (candidate) => candidate.i === position.i,
+      );
+      if (tile) {
+        tile.x = position.x;
+        tile.y = position.y;
+        tile.w = position.w;
+        tile.h = position.h;
+      }
+    }
+  }
+
+  private captureActiveBreakpointOverride(): boolean {
     const grid = this.stores.session.currentGrid;
     const breakpoint = this.stores.viewport.activeBreakpoint;
-    if (!grid || breakpoint === "lg") return;
+    if (!grid || breakpoint === "lg") return false;
 
     grid.overrides ??= {};
     grid.overrides[breakpoint] = Object.fromEntries(
@@ -1178,7 +1384,13 @@ export class GridController {
         },
       ]),
     );
-    this.updateGrid();
+    return true;
+  }
+
+  updateBreakpointOverride(): void {
+    if (this.captureActiveBreakpointOverride()) {
+      this.scheduleSave();
+    }
   }
 
   saveBreakpointPositions(
@@ -1195,7 +1407,7 @@ export class GridController {
         { x: tile.x, y: tile.y, w: tile.w, h: tile.h },
       ]),
     );
-    void this.saveGrid();
+    this.scheduleSave();
   }
 
   resetBreakpoint(breakpoint: Breakpoint): void {
@@ -1204,18 +1416,40 @@ export class GridController {
 
     this.pushUndoSnapshot("Reset breakpoint grid");
     if (grid.overrides) delete grid.overrides[breakpoint];
-    void this.saveGrid();
+    this.scheduleSave();
   }
 
-  private mutateGridWithHistory(
-    actionLabel: string,
-    mutate: (grid: Grid) => void,
-  ): void {
+  /**
+   * Internal executor for discrete grid mutations. It makes the
+   * validate → capture-history → mutate → schedule sequence explicit so
+   * public commands stay semantic and never schedule through another public
+   * command. This is not a public generic mutation API.
+   */
+  private runGridCommand<T>(definition: {
+    validate?: (grid: Grid) => boolean;
+    captureHistory?: string;
+    mutate: (grid: Grid) => T;
+    persist?: boolean;
+  }): T | undefined {
     const grid = this.stores.session.currentGrid;
-    if (!grid) return;
-    this.pushUndoSnapshot(actionLabel);
-    mutate(grid);
-    this.updateGrid();
+    if (!grid) return undefined;
+    if (definition.validate && !definition.validate(grid)) {
+      return undefined;
+    }
+    if (definition.captureHistory !== undefined) {
+      this.pushUndoSnapshot(definition.captureHistory);
+    }
+    const result = definition.mutate(grid);
+    if (definition.persist !== false) {
+      this.scheduleSave();
+    }
+    return result;
+  }
+
+  private reportPersistenceError(error: unknown): void {
+    this.stores.session.setPersistenceError("Failed to save grid.");
+    this.stores.compatibility.setError("Failed to save grid.");
+    console.error(error);
   }
 
   private revokeTileObjectUrls(tile: Tile): void {

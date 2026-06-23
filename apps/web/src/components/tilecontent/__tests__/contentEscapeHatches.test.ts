@@ -134,7 +134,7 @@ function makeStore(content: LinkContent | DocumentsContent | MapContent | Profil
   });
 }
 
-describe("tile-content direct mutation escape hatches", () => {
+describe("tile-content command boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
@@ -146,7 +146,7 @@ describe("tile-content direct mutation escape hatches", () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverStub);
   });
 
-  it("link detail edits mutate content, patch once after debounce, and commit editing on exit", async () => {
+  it("link detail edits patch once after debounce without mutating content directly", async () => {
     vi.useFakeTimers();
     const content = reactive({
       type: ContentType.LINK,
@@ -175,7 +175,7 @@ describe("tile-content direct mutation escape hatches", () => {
 
     await vi.advanceTimersByTimeAsync(1500);
 
-    expect(content.customTitle).toBe("Custom title");
+    expect(content.customTitle).toBeUndefined();
     expect(store.patchTileContent).toHaveBeenCalledTimes(1);
     expect(store.patchTileContent).toHaveBeenCalledWith("tile-1", {
       customTitle: "Custom title",
@@ -190,7 +190,7 @@ describe("tile-content direct mutation escape hatches", () => {
     wrapper.unmount();
   });
 
-  it("document detail edits patch once after debounce and commit editing on exit", async () => {
+  it("document detail edits patch once after debounce without mutating content directly", async () => {
     vi.useFakeTimers();
     const content = reactive({
       type: ContentType.DOCUMENT,
@@ -220,7 +220,7 @@ describe("tile-content direct mutation escape hatches", () => {
 
     await vi.advanceTimersByTimeAsync(1500);
 
-    expect(content.customTitle).toBe("Custom document");
+    expect(content.customTitle).toBeUndefined();
     expect(store.patchTileContent).toHaveBeenCalledTimes(1);
     expect(store.patchTileContent).toHaveBeenCalledWith("tile-1", {
       customTitle: "Custom document",
@@ -234,7 +234,7 @@ describe("tile-content direct mutation escape hatches", () => {
     wrapper.unmount();
   });
 
-  it("map option changes mutate canonical content and save each discrete change", async () => {
+  it("map option changes patch canonical content through typed commands", async () => {
     const content = reactive({
       type: ContentType.MAP,
       style: "default",
@@ -260,17 +260,25 @@ describe("tile-content direct mutation escape hatches", () => {
 
     expect(content).toEqual(
       expect.objectContaining({
-        style: "satellite",
-        showClouds: false,
-        showPlanes: false,
+        style: "default",
+        showClouds: true,
+        showPlanes: true,
       }),
     );
-    expect(store.saveGrid).toHaveBeenCalledTimes(3);
-    expect(store.patchTileContent).not.toHaveBeenCalled();
+    expect(store.patchTileContent).toHaveBeenNthCalledWith(1, "tile-1", {
+      style: "satellite",
+    });
+    expect(store.patchTileContent).toHaveBeenNthCalledWith(2, "tile-1", {
+      showClouds: false,
+    });
+    expect(store.patchTileContent).toHaveBeenNthCalledWith(3, "tile-1", {
+      showPlanes: false,
+    });
+    expect(store.saveGrid).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
-  it("profile avatar controls save once on discrete commit, not while radius input changes", async () => {
+  it("profile avatar controls patch once on discrete commit, not while radius input changes", async () => {
     const content = reactive({
       type: ContentType.PROFILE,
       name: "",
@@ -301,15 +309,22 @@ describe("tile-content direct mutation escape hatches", () => {
     wrapper.vm.setAvatarShape("circle");
     wrapper.vm.onRadiusInput({ target: { value: "24" } } as unknown as Event);
 
-    expect(content.avatarShape).toBe("circle");
+    expect(content.avatarShape).toBe("square");
     expect(content.avatarRadius).toBe(12);
-    expect(store.saveGrid).toHaveBeenCalledTimes(1);
+    expect(store.patchTileContent).toHaveBeenCalledTimes(1);
+    expect(store.patchTileContent).toHaveBeenCalledWith("tile-1", {
+      avatarShape: "circle",
+    });
+    expect(store.saveGrid).not.toHaveBeenCalled();
 
     wrapper.vm.onRadiusCommit();
 
-    expect(content.avatarRadius).toBe(24);
-    expect(store.saveGrid).toHaveBeenCalledTimes(2);
-    expect(store.patchTileContent).not.toHaveBeenCalled();
+    expect(content.avatarRadius).toBe(12);
+    expect(store.patchTileContent).toHaveBeenCalledTimes(2);
+    expect(store.patchTileContent).toHaveBeenLastCalledWith("tile-1", {
+      avatarRadius: 24,
+    });
+    expect(store.saveGrid).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 });

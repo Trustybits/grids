@@ -13,17 +13,20 @@ import {
   getGridEngagementEmailDelayMs,
   processPendingGridEngagementEmails,
 } from "../notifications/utils_gridEngagementEmail.js";
+import { getResendScriptCredentials } from "./utils_loadScriptEnv.js";
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-const apiKey = process.env.RESEND_API_KEY;
-const from = process.env.RESEND_FROM_EMAIL;
+const { apiKey, from } = getResendScriptCredentials();
 
 if (!apiKey || !from) {
   console.error(
-    "RESEND_API_KEY and RESEND_FROM_EMAIL environment variables are required.",
+    "RESEND_API_KEY and RESEND_FROM_EMAIL are required.",
+  );
+  console.error(
+    "Export them in your shell, or add them to apps/firebase-functions/.env.local",
   );
   process.exit(1);
 }

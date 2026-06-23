@@ -328,7 +328,7 @@ describe("grantSupporterBadgeOnPayment", () => {
     expect(url).toBe("https://api.resend.com/emails");
     const body = JSON.parse(init.body);
     expect(body.to).toBe("person@example.com");
-    expect(body.subject).toBe("Thank you for supporting Grids");
+    expect(body.subject).toBe("Thank you for supporting Grids ✦");
   });
 
   it("grants the supporter badge when cumulative succeeded payments exceed the threshold", async () => {

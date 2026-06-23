@@ -124,7 +124,7 @@ describe("processPendingGridEngagementEmails", () => {
     expect(result).toEqual({ processed: 1, sent: 1 });
     expect(vi.mocked(sendResendEmail)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(sendResendEmail).mock.calls[0][0].payload.subject).toBe(
-      "Your grid is ready",
+      "My Grid is live",
     );
     expect(refSet).toHaveBeenCalledWith(
       expect.objectContaining({ status: "sent" }),

@@ -41,6 +41,13 @@ const C = {
 const FONT =
   "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
+// MarketingNavBar brand word uses Orbitron (see apps/web claude-tokens.scss).
+const FONT_BRAND =
+  "'Orbitron', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
+const LOGO_URL = `${SITE_BASE}/grids_logo.png`;
+const DISCORD_SUPPORT_URL = "https://discord.gg/5dVU9EPPAY";
+
 // ─── Primitive helpers ────────────────────────────────────────────────────────
 
 function greeting(displayName: string | null): string {
@@ -76,6 +83,42 @@ function hr(): string {
 </table>`.trim();
 }
 
+/**
+ * Landing-page header wordmark: grids_logo.png icon + lowercase "grids" in Orbitron.
+ * Matches MarketingNavBar.vue (.mkt__brand-mark + .mkt__brand-word).
+ */
+function wordmark(): string {
+  return `
+<table cellpadding="0" cellspacing="0" border="0" role="presentation">
+  <tr>
+    <td align="center">
+      <a href="${SITE_BASE}"
+         style="display:inline-block;text-decoration:none;"
+      >
+        <table cellpadding="0" cellspacing="0" border="0" role="presentation">
+          <tr>
+            <td valign="middle" style="padding-right:10px;">
+              <img src="${LOGO_URL}"
+                   width="30" height="30"
+                   alt=""
+                   style="display:block;width:30px;height:30px;border:0;border-radius:8px;"
+              />
+            </td>
+            <td valign="middle"
+                style="font-family:${FONT_BRAND};font-size:20px;font-weight:700;line-height:1;letter-spacing:0.02em;color:${C.textHigh};text-transform:lowercase;"
+            >grids</td>
+          </tr>
+        </table>
+      </a>
+    </td>
+  </tr>
+</table>`.trim();
+}
+
+function discordSupportLine(): string {
+  return `Questions? Reach us in the <a href="${DISCORD_SUPPORT_URL}" style="color:${C.textLow};text-decoration:underline;">support channel on Discord</a>.`;
+}
+
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
 /**
@@ -105,6 +148,7 @@ function wrapEmail(
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <meta name="x-apple-disable-message-reformatting">
   <title>${subject}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
   <style>
     /* Reset — kept minimal to avoid fighting email client overrides */
     body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
@@ -126,9 +170,7 @@ function wrapEmail(
                style="max-width:560px;margin-bottom:16px;">
           <tr>
             <td align="center" style="padding-bottom:16px;">
-              <a href="${SITE_BASE}"
-                 style="font-family:${FONT};font-size:22px;font-weight:800;letter-spacing:-0.045em;color:${C.brandPurple};text-decoration:none;"
-              >Grids</a>
+              ${wordmark()}
             </td>
           </tr>
         </table>
@@ -204,7 +246,7 @@ ${btn("Open your dashboard →", `${SITE_BASE}/dashboard`)}
 ${hr()}
 
 <p style="margin:0;font-size:13px;line-height:1.6;color:${C.textLow};">
-  Questions? Reply to this email — someone from the team will get back to you.
+  ${discordSupportLine()}
 </p>`.trim();
 
   return wrapEmail("Welcome to Grids", body);
@@ -304,7 +346,8 @@ ${btn("Visit your dashboard →", `${SITE_BASE}/dashboard`)}
 ${hr()}
 
 <p style="margin:0;font-size:13px;line-height:1.6;color:${C.textLow};">
-  Have ideas or feedback? We'd love to hear from you — just reply to this email.
+  Have ideas or feedback? We'd love to hear from you in our
+  <a href="${DISCORD_SUPPORT_URL}" style="color:${C.textLow};text-decoration:underline;">Discord support channel</a>.
 </p>`.trim();
 
   return wrapEmail("Thank you for supporting Grids ✦", body);

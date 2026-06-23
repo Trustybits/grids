@@ -11,6 +11,10 @@ describe("buildWelcomeEmail", () => {
     expect(subject).toBe("Welcome to Grids");
     expect(html).toContain("Hi Matt,");
     expect(html).toContain("https://grids.so/dashboard");
+    expect(html).toContain("grids_logo.png");
+    expect(html).toContain(">grids</td>");
+    expect(html).toContain("https://discord.gg/5dVU9EPPAY");
+    expect(html).not.toContain("Reply to this email");
   });
 
   it("uses a generic greeting when display name is missing", () => {
@@ -28,9 +32,10 @@ describe("buildFirstGridEmail", () => {
       slug: "matt",
     });
 
-    expect(subject).toBe("Your grid is ready");
+    expect(subject).toBe("My Grid is live");
     expect(html).toContain("https://grids.so/matt");
-    expect(html).toContain("<strong>My Grid</strong>");
+    expect(html).toContain("My Grid is live.");
+    expect(html).toContain("grids_logo.png");
   });
 
   it("falls back to grid id URL when slug is missing", () => {
@@ -46,10 +51,12 @@ describe("buildFirstGridEmail", () => {
 });
 
 describe("buildSupporterBadgeEmail", () => {
-  it("mentions the supporter badge", () => {
+  it("mentions the supporter badge and Discord support", () => {
     const { subject, html } = buildSupporterBadgeEmail({ displayName: "Matt" });
-    expect(subject).toBe("Thank you for supporting Grids");
-    expect(html).toContain("<strong>Supporter</strong>");
+    expect(subject).toBe("Thank you for supporting Grids ✦");
+    expect(html).toContain("Supporter");
     expect(html).toContain("https://grids.so/dashboard");
+    expect(html).toContain("https://discord.gg/5dVU9EPPAY");
+    expect(html).not.toContain("reply to this email");
   });
 });

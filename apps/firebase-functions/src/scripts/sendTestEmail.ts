@@ -2,8 +2,10 @@
  * Send a single test email through Resend.
  *
  * Usage (from apps/firebase-functions):
- *   RESEND_API_KEY=re_... RESEND_FROM_EMAIL='Grids <hello@grids.so>' \
- *     npm run email:send-test -- welcome you@example.com
+ *   npm run email:send-test -- welcome you@example.com
+ *
+ * Credentials are read from the shell, or from the first file found:
+ *   .env.local, .env.resend.local, or .env.grids-one (package or repo root).
  *
  * Templates: welcome | grid-engagement | supporter
  */
@@ -14,12 +16,16 @@ import {
   buildWelcomeEmail,
 } from "../notifications/utils_emailTemplates.js";
 import { sendResendEmail } from "../notifications/utils_resend.js";
+import { getResendScriptCredentials } from "./utils_loadScriptEnv.js";
 
 type TemplateName = "welcome" | "grid-engagement" | "supporter";
 
 function usage(): void {
   console.error(
     "Usage: npm run email:send-test -- <welcome|grid-engagement|supporter> <to@email.com>",
+  );
+  console.error(
+    "Set RESEND_API_KEY and RESEND_FROM_EMAIL in the shell or apps/firebase-functions/.env.local",
   );
 }
 
@@ -48,12 +54,14 @@ if (!templateArg || !toArg) {
   process.exit(1);
 }
 
-const apiKey = process.env.RESEND_API_KEY;
-const from = process.env.RESEND_FROM_EMAIL;
+const { apiKey, from } = getResendScriptCredentials();
 
 if (!apiKey || !from) {
   console.error(
-    "RESEND_API_KEY and RESEND_FROM_EMAIL environment variables are required.",
+    "RESEND_API_KEY and RESEND_FROM_EMAIL are required.",
+  );
+  console.error(
+    "Export them in your shell, or add them to apps/firebase-functions/.env.local",
   );
   process.exit(1);
 }

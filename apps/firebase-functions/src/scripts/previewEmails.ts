@@ -25,24 +25,6 @@ type PreviewEmail = {
   html: string;
 };
 
-function wrapPreviewHtml(subject: string, bodyHtml: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${subject}</title>
-    <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.5; padding: 24px; color: #111; }
-      a { color: #2563eb; }
-    </style>
-  </head>
-  <body>
-    ${bodyHtml}
-  </body>
-</html>`;
-}
-
 const previews: PreviewEmail[] = [
   {
     fileName: "welcome.html",
@@ -76,7 +58,7 @@ mkdirSync(outputDir, { recursive: true });
 
 for (const preview of previews) {
   const path = join(outputDir, preview.fileName);
-  writeFileSync(path, wrapPreviewHtml(preview.subject, preview.html), "utf8");
+  writeFileSync(path, preview.html, "utf8");
   console.log(`Wrote ${path}`);
 }
 

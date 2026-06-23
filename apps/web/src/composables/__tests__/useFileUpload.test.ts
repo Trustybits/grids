@@ -343,6 +343,33 @@ describe("uploadDocumentsOptimistic", () => {
     });
   });
 
+  it("waits for the document save before requesting server thumbnails", async () => {
+    mockDocumentItemIsPdf.mockReturnValue(true);
+    let resolveSave!: () => void;
+    gridStore.saveGrid.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+    const { task, resolveDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+
+    const { uploadDocumentsOptimistic } = useFileUpload();
+    const promise = uploadDocumentsOptimistic([file("doc.pdf", "application/pdf")]);
+    resolveDone("https://storage/doc.pdf");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(gridStore.saveGrid).toHaveBeenCalledTimes(1);
+    expect(mockEnsureThumb).not.toHaveBeenCalled();
+
+    resolveSave();
+    await promise;
+    await Promise.resolve();
+
+    expect(mockEnsureThumb).toHaveBeenCalledWith("grid-1", "tile-1", "uuid-1");
+  });
+
   it("aggregates progress across multiple files", async () => {
     const t1 = makeUploadTask();
     const t2 = makeUploadTask();

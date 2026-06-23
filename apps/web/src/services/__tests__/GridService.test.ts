@@ -69,10 +69,18 @@ vi.mock('@/utils/TileUtils', () => ({
 // isolation. The spy defaults to a pass-through; tests assert that
 // buildGridPayload delegates tile-stripping to it (rather than re-testing the
 // real stripping logic, which has its own tests).
-const { stripBlobSpy } = vi.hoisted(() => ({
+const { createPersistableGridSnapshotSpy, stripBlobSpy } = vi.hoisted(() => ({
+  createPersistableGridSnapshotSpy: vi.fn(
+    (
+      grid: Grid,
+      _resolvedUrls?: Record<string, string>,
+      _resolvedDocumentItemUrls?: Record<string, Record<string, string>>,
+    ) => JSON.parse(JSON.stringify(grid)) as Grid,
+  ),
   stripBlobSpy: vi.fn((tiles: unknown[]) => tiles),
 }))
 vi.mock('@/utils/GridPersistenceUtils', () => ({
+  createPersistableGridSnapshot: createPersistableGridSnapshotSpy,
   stripBlobUrlsFromTiles: stripBlobSpy,
 }))
 
@@ -86,6 +94,14 @@ let consoleWarnSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   uuidCounter = 0
+  createPersistableGridSnapshotSpy.mockReset()
+  createPersistableGridSnapshotSpy.mockImplementation(
+    (
+      grid: Grid,
+      _resolvedUrls?: Record<string, string>,
+      _resolvedDocumentItemUrls?: Record<string, Record<string, string>>,
+    ) => JSON.parse(JSON.stringify(grid)) as Grid,
+  )
   stripBlobSpy.mockReset()
   stripBlobSpy.mockImplementation((tiles: unknown[]) => tiles)
 
@@ -1040,21 +1056,27 @@ describe('queueSave', () => {
     expect(mockGridDao.save).toHaveBeenCalledTimes(1)
   })
 
-  it('substitutes blob URLs with resolved storage URLs', async () => {
+  it('builds an immutable snapshot before saving', async () => {
     mockGridDao.save.mockResolvedValue(undefined)
 
-    const tile = makeTile({
-      i: 'tile-1',
-      content: { type: ContentType.IMAGE, src: 'blob:http://localhost/abc' } as never,
-    })
-    const grid = makeGrid({ tiles: [tile] })
+    const grid = makeGrid({ name: 'Reactive source' })
+    const snapshot = makeGrid({ name: 'Plain snapshot' })
+    createPersistableGridSnapshotSpy.mockReturnValueOnce(snapshot)
 
     const service = await getService()
-    await service.queueSave(grid, { 'tile-1': 'https://storage.example.com/real.jpg' })
+    await service.queueSave(
+      grid,
+      { 'tile-1': 'https://storage.example.com/real.jpg' },
+      { 'doc-tile': { 'item-1': 'https://storage.example.com/doc.pdf' } },
+    )
 
     const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
-    const savedTiles = payload.tiles as Array<{ content: { src: string } }>
-    expect(savedTiles[0].content.src).toBe('https://storage.example.com/real.jpg')
+    expect(createPersistableGridSnapshotSpy).toHaveBeenCalledWith(
+      grid,
+      { 'tile-1': 'https://storage.example.com/real.jpg' },
+      { 'doc-tile': { 'item-1': 'https://storage.example.com/doc.pdf' } },
+    )
+    expect(payload.name).toBe('Plain snapshot')
   })
 
   it('queues a second save while one is in flight and flushes it after', async () => {
@@ -1111,62 +1133,6 @@ describe('queueSave', () => {
     const secondPayload = mockDbUtils.sanitizeValue.mock.calls[1][0] as Record<string, unknown>
     expect(firstPayload.name).toBe('First')
     expect(secondPayload.name).toBe('Third')
-  })
-
-  it('substitutes blob URLs inside DOCUMENT tile items when a resolved map is given', async () => {
-    mockGridDao.save.mockResolvedValueOnce(undefined)
-
-    const tile = makeTile({
-      i: 'doc-tile',
-      content: {
-        type: ContentType.DOCUMENT,
-        items: [
-          { id: 'item-1', url: 'blob:http://localhost/doc1' },
-          { id: 'item-2', url: 'blob:http://localhost/doc2' },
-          { id: 'item-3', url: 'https://cdn.example.com/already.pdf' },
-        ],
-      } as never,
-    })
-    const grid = makeGrid({ tiles: [tile] })
-
-    const service = await getService()
-    await service.queueSave(grid, {}, {
-      'doc-tile': { 'item-1': 'https://storage.example.com/doc1.pdf' },
-    })
-
-    // Inspect what was handed to the persistence boundary (stripBlobSpy is a
-    // pass-through, so the snapshot is what reaches buildGridPayload).
-    const passedTiles = stripBlobSpy.mock.calls[0][0] as Array<{
-      content: { items: Array<{ id: string; url: string }> }
-    }>
-    const items = passedTiles[0].content.items
-    // item-1 had a resolved URL → swapped
-    expect(items[0].url).toBe('https://storage.example.com/doc1.pdf')
-    // item-2 is a blob with no resolved entry → left as-is for the strip safety net
-    expect(items[1].url).toBe('blob:http://localhost/doc2')
-    // item-3 was never a blob → untouched
-    expect(items[2].url).toBe('https://cdn.example.com/already.pdf')
-  })
-
-  it('leaves a blob src untouched in the snapshot when no resolved URL exists', async () => {
-    mockGridDao.save.mockResolvedValueOnce(undefined)
-
-    const tile = makeTile({
-      i: 'tile-1',
-      content: { type: ContentType.IMAGE, src: 'blob:http://localhost/unresolved' } as never,
-    })
-    const grid = makeGrid({ tiles: [tile] })
-
-    const service = await getService()
-    // No matching entry in the resolved-URL map for tile-1.
-    await service.queueSave(grid, { 'other-tile': 'https://x/y.jpg' })
-
-    const passedTiles = stripBlobSpy.mock.calls[0][0] as Array<{
-      content: { src: string }
-    }>
-    // createPersistableSnapshot leaves it as the blob; the strip util (its own
-    // unit) is what neutralizes it downstream.
-    expect(passedTiles[0].content.src).toBe('blob:http://localhost/unresolved')
   })
 
   it('does not throw when the save fails (logs error)', async () => {

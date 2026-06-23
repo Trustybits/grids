@@ -352,6 +352,7 @@ describe("grid store history orchestration", () => {
     store.beginEditing("another-tile");
     store.commitEditing();
     expect(manager?.pushSnapshot).not.toHaveBeenCalled();
+    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
 
     store.beginEditing("tile-1");
     store.currentGrid!.tiles[0]!.caption = "Changed";
@@ -364,6 +365,7 @@ describe("grid store history orchestration", () => {
         tiles: [expect.objectContaining({ caption: "" })],
       }),
     );
+    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
   });
 
   it("records one desktop move transaction and persists once at commit", async () => {
@@ -373,6 +375,7 @@ describe("grid store history orchestration", () => {
     store.beginMove();
     store.beginMove();
     store.currentGrid!.tiles[0]!.x = 5;
+    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
     store.commitMove();
 
     expect(manager?.pushSnapshot).toHaveBeenCalledTimes(1);
@@ -431,6 +434,7 @@ describe("grid store history orchestration", () => {
 
     store.beginResize();
     store.beginResize();
+    expect(gridHarness.gridService.queueSave).not.toHaveBeenCalled();
     store.commitResize();
 
     expect(manager?.pushSnapshot).toHaveBeenCalledTimes(1);

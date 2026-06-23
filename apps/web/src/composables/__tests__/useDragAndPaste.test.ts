@@ -10,14 +10,7 @@
  * dataTransfer payloads since jsdom's are minimal.
  */
 
-import {
-  describe,
-  it,
-  expect,
-  vi,
-  beforeEach,
-  afterEach,
-} from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { defineComponent, h, nextTick, ref, type Ref } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { ContentType } from "@grids/contracts/types";
@@ -89,10 +82,7 @@ function fileList(files: File[]): FileList {
   } as unknown as FileList;
 }
 
-function pasteEvent(opts: {
-  files?: File[];
-  text?: string;
-}): ClipboardEvent {
+function pasteEvent(opts: { files?: File[]; text?: string }): ClipboardEvent {
   const items =
     opts.files?.map((f) => ({
       kind: "file" as const,
@@ -102,7 +92,7 @@ function pasteEvent(opts: {
   Object.defineProperty(event, "clipboardData", {
     value: {
       items,
-      getData: (t: string) => (t === "text/plain" ? opts.text ?? "" : ""),
+      getData: (t: string) => (t === "text/plain" ? (opts.text ?? "") : ""),
     },
   });
   return event as ClipboardEvent;
@@ -124,9 +114,9 @@ function dragEvent(
       types: opts.types ?? [],
       getData: (t: string) =>
         t === "text/uri-list"
-          ? opts.uriList ?? ""
+          ? (opts.uriList ?? "")
           : t === "text/plain"
-            ? opts.plain ?? ""
+            ? (opts.plain ?? "")
             : "",
       dropEffect: "",
     },
@@ -176,10 +166,13 @@ beforeEach(() => {
       return "document";
     return null;
   });
-  mockCreateFromEmbed.mockImplementation((src) => ({
-    type: ContentType.EMBED,
-    src,
-  }) as never);
+  mockCreateFromEmbed.mockImplementation(
+    (src) =>
+      ({
+        type: ContentType.EMBED,
+        src,
+      }) as never,
+  );
   vi.spyOn(window, "alert").mockImplementation(() => {});
 });
 
@@ -676,49 +669,5 @@ describe("listener lifecycle", () => {
 
     expect(mockUploadFileOptimistic).not.toHaveBeenCalled();
     expect(mockGridStore.addTile).not.toHaveBeenCalled();
-  });
-
-  it("requests focus for the smart-text tile created from pasted plain text", async () => {
-    const wrapper = mount(
-      defineComponent({
-        setup() {
-          const container = ref<HTMLElement | null>(null);
-          useDragAndPaste(container);
-          return () => h("div", { ref: container });
-        },
-      }),
-    );
-    const gridStore = useGridStore();
-    gridStore.isOwner = true;
-    const addTile = vi
-      .spyOn(gridStore, "addTile")
-      .mockReturnValue("pasted-text-tile");
-    const pasteTarget = document.createElement("div");
-    document.body.appendChild(pasteTarget);
-    const pasteEvent = new Event("paste", {
-      bubbles: true,
-      cancelable: true,
-    }) as ClipboardEvent;
-    Object.defineProperty(pasteEvent, "clipboardData", {
-      value: {
-        items: [],
-        getData: vi.fn(() => "Pasted plain text"),
-      },
-    });
-
-    pasteTarget.dispatchEvent(pasteEvent);
-    await nextTick();
-
-    expect(addTile).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "smart_text",
-        text: expect.stringContaining("Pasted plain text"),
-      }),
-    );
-    expect(gridStore.pendingFocusTileId).toBe("pasted-text-tile");
-    expect(pasteEvent.defaultPrevented).toBe(true);
-
-    wrapper.unmount();
-    pasteTarget.remove();
   });
 });

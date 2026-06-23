@@ -1,14 +1,177 @@
 /**
  * Tests for GridPersistenceUtils.ts
  *
- * Covers stripBlobUrlsFromTiles — a safety net that blanks ephemeral `blob:`
- * URLs (both top-level content.src and per-document-item urls) before tiles are
- * persisted, while leaving everything else untouched and not mutating inputs.
+ * Covers persistable snapshot creation and stripBlobUrlsFromTiles — the safety
+ * net that blanks ephemeral `blob:` URLs before tiles are persisted.
  */
 
 import { describe, it, expect } from "vitest";
-import { ContentType } from "@grids/contracts/types";
-import { stripBlobUrlsFromTiles } from "../GridPersistenceUtils";
+import {
+  ContentType,
+  type DocumentsContent,
+  type Grid,
+  type ImageContent,
+  type TextContent,
+  type Tile,
+} from "@grids/contracts/types";
+import {
+  createPersistableGridSnapshot,
+  stripBlobUrlsFromTiles,
+} from "../GridPersistenceUtils";
+
+function makeTile(overrides: Partial<Tile> = {}): Tile {
+  return {
+    i: "tile-1",
+    x: 0,
+    y: 0,
+    w: 2,
+    h: 2,
+    borderEnabled: true,
+    caption: "",
+    content: {
+      type: ContentType.TEXT,
+      text: "Hello",
+    } as TextContent,
+    ...overrides,
+  } as Tile;
+}
+
+function makeGrid(overrides: Partial<Grid> = {}): Grid {
+  return {
+    id: "grid-1",
+    userId: "user-1",
+    name: "Test Grid",
+    colNum: 12,
+    verticalCompact: true,
+    backgroundImageSrc: "",
+    backgroundEmbed: false,
+    backgroundColor: "",
+    ogImageSrc: "",
+    themeId: "dark",
+    duplicatable: false,
+    tiles: [makeTile()],
+    overrides: {},
+    ...overrides,
+  };
+}
+
+describe("createPersistableGridSnapshot", () => {
+  it("returns a plain deep snapshot without retaining caller-owned references", () => {
+    const source = makeGrid({
+      tiles: [
+        makeTile({
+          content: {
+            type: ContentType.TEXT,
+            text: "Before",
+            font: "Inter",
+          } as TextContent,
+        }),
+      ],
+      overrides: {
+        md: {
+          "tile-1": { x: 1, y: 2, w: 3, h: 4 },
+        },
+      },
+    });
+
+    const snapshot = createPersistableGridSnapshot(source);
+
+    expect(snapshot).toEqual(source);
+    expect(snapshot).not.toBe(source);
+    expect(snapshot.tiles).not.toBe(source.tiles);
+    expect(snapshot.tiles[0]).not.toBe(source.tiles[0]);
+    expect(snapshot.tiles[0]?.content).not.toBe(source.tiles[0]?.content);
+    expect(snapshot.overrides).not.toBe(source.overrides);
+
+    snapshot.tiles[0]!.caption = "Snapshot only";
+    (snapshot.tiles[0]!.content as TextContent).text = "Snapshot text";
+    snapshot.overrides!.md!["tile-1"]!.x = 9;
+
+    expect(source.tiles[0]?.caption).toBe("");
+    expect((source.tiles[0]?.content as TextContent).text).toBe("Before");
+    expect(source.overrides?.md?.["tile-1"]?.x).toBe(1);
+  });
+
+  it("replaces resolved media and document blob URLs", () => {
+    const image = makeTile({
+      i: "image",
+      content: {
+        type: ContentType.IMAGE,
+        src: "blob:http://localhost/image",
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0,
+      } as ImageContent,
+    });
+    const documents = makeTile({
+      i: "documents",
+      content: {
+        type: ContentType.DOCUMENT,
+        items: [
+          { id: "one", fileName: "one.pdf", url: "blob:http://localhost/one" },
+          { id: "two", fileName: "two.pdf", url: "https://cdn.example/two" },
+        ],
+      } as DocumentsContent,
+    });
+
+    const snapshot = createPersistableGridSnapshot(
+      makeGrid({ tiles: [image, documents] }),
+      { image: "https://cdn.example/image.png" },
+      { documents: { one: "https://cdn.example/one.pdf" } },
+    );
+
+    expect((snapshot.tiles[0]?.content as ImageContent).src).toBe(
+      "https://cdn.example/image.png",
+    );
+    expect((snapshot.tiles[1]?.content as DocumentsContent).items).toEqual([
+      { id: "one", fileName: "one.pdf", url: "https://cdn.example/one.pdf" },
+      { id: "two", fileName: "two.pdf", url: "https://cdn.example/two" },
+    ]);
+    expect((image.content as ImageContent).src).toBe(
+      "blob:http://localhost/image",
+    );
+    expect((documents.content as DocumentsContent).items[0]?.url).toBe(
+      "blob:http://localhost/one",
+    );
+  });
+
+  it("strips unresolved media and document blob URLs from the snapshot", () => {
+    const snapshot = createPersistableGridSnapshot(
+      makeGrid({
+        tiles: [
+          makeTile({
+            i: "image",
+            content: {
+              type: ContentType.IMAGE,
+              src: "blob:http://localhost/image",
+              zoom: 1,
+              offsetX: 0,
+              offsetY: 0,
+            } as ImageContent,
+          }),
+          makeTile({
+            i: "documents",
+            content: {
+              type: ContentType.DOCUMENT,
+              items: [
+                {
+                  id: "one",
+                  fileName: "one.pdf",
+                  url: "blob:http://localhost/one",
+                },
+              ],
+            } as DocumentsContent,
+          }),
+        ],
+      }),
+    );
+
+    expect((snapshot.tiles[0]?.content as ImageContent).src).toBe("");
+    expect((snapshot.tiles[1]?.content as DocumentsContent).items[0]?.url).toBe(
+      "",
+    );
+  });
+});
 
 describe("stripBlobUrlsFromTiles", () => {
   it("clears blob src and document item urls", () => {

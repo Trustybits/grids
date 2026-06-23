@@ -1,5 +1,5 @@
 import { type Grid, type CopyDepth, type Breakpoint, type TilePosition, type Tile } from "@grids/contracts/types";
-import { ContentType, type AnyTileContent, type ChatContent, type DocumentsContent, type SuggestionAction } from "@grids/contracts/types";
+import { ContentType, type ChatContent, type SuggestionAction } from "@grids/contracts/types";
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import { getDbUtils } from "@/dao/DbUtilsSingleton";
 import type { DbUtils } from "@grids/contracts/dao";
@@ -7,7 +7,10 @@ import type { GridDao } from "@grids/contracts/dao";
 import type { UserDao } from "@grids/contracts/dao";
 import { createDefaultGrid } from "@/utils/GridUtils";
 import { createTile, createTileContent } from "@/utils/TileUtils";
-import { stripBlobUrlsFromTiles } from "@/utils/GridPersistenceUtils";
+import {
+  createPersistableGridSnapshot,
+  stripBlobUrlsFromTiles,
+} from "@/utils/GridPersistenceUtils";
 import { v4 as uuidv4 } from "uuid";
 import heroGif from "@/assets/images/hero.gif";
 import type { IGridService } from "./interfaces/IGridService";
@@ -515,52 +518,6 @@ export class GridService implements IGridService {
   private _saveQueued = false;
   private _pendingSnapshot: Grid | null = null;
 
-  // Deep-clone a grid and swap any blob: preview URLs with their resolved
-  // Storage URLs so we never persist temporary blob references.
-  // Returns a plain (non-reactive) Grid safe for persistence.
-  private createPersistableSnapshot(
-    grid: Grid,
-    resolvedUrls: Record<string, string> = {},
-    resolvedDocumentItemUrls: Record<string, Record<string, string>> = {},
-  ): Grid {
-    const clonedTiles = (
-      JSON.parse(JSON.stringify(grid.tiles)) as typeof grid.tiles
-    ).map((tile) => {
-      const content = tile.content as AnyTileContent;
-      const src = (content as { src?: string }).src;
-      if (typeof src === "string" && src.startsWith("blob:")) {
-        const realUrl = resolvedUrls[tile.i];
-        if (realUrl) {
-          (tile.content as { src?: string }).src = realUrl;
-        }
-      }
-      if (content.type === ContentType.DOCUMENT) {
-        const doc = content as DocumentsContent;
-        const itemMap = resolvedDocumentItemUrls[tile.i];
-        if (doc.items?.length && itemMap && Object.keys(itemMap).length > 0) {
-          const items = doc.items.map((item) => {
-            const resolved = itemMap[item.id];
-            if (
-              typeof item.url === "string" &&
-              item.url.startsWith("blob:") &&
-              resolved
-            ) {
-              return { ...item, url: resolved };
-            }
-            return item;
-          });
-          (tile.content as DocumentsContent).items = items;
-        }
-      }
-      return tile;
-    });
-
-    return {
-      ...JSON.parse(JSON.stringify({ ...grid, tiles: undefined })),
-      tiles: clonedTiles,
-    } as Grid;
-  }
-
   // Queue a grid save. Accepts the current (potentially reactive) grid
   // and optional resolved-URL maps for blob → storage URL substitution.
   // The service deep-clones and sanitises the grid internally.
@@ -571,7 +528,7 @@ export class GridService implements IGridService {
     resolvedUrls: Record<string, string> = {},
     resolvedDocumentItemUrls: Record<string, Record<string, string>> = {},
   ): Promise<void> {
-    const snapshot = this.createPersistableSnapshot(
+    const snapshot = createPersistableGridSnapshot(
       grid,
       resolvedUrls,
       resolvedDocumentItemUrls,

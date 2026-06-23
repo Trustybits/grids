@@ -4,7 +4,7 @@ import { noopIfMaintenance } from "../../maintenance.js";
 import { resetMaintenanceMock } from "../../__tests__/utils_testMocks.js";
 import { writeServerAnalyticsEvent } from "../../analytics/utils_writeServerEvent.js";
 import { isDevTeamMember } from "../utils_devTeam.js";
-import { discordNewUsersWebhookUrl } from "../secrets.js";
+import { discordNewUsersWebhookUrl, resendApiKey, resendFromEmail } from "../secrets.js";
 
 vi.mock("firebase-functions/v1", () => ({
   runWith: vi.fn(() => ({
@@ -35,6 +35,8 @@ vi.mock("../utils_devTeam.js", () => ({
 
 vi.mock("../secrets.js", () => ({
   discordNewUsersWebhookUrl: { value: vi.fn() },
+  resendApiKey: { value: vi.fn() },
+  resendFromEmail: { value: vi.fn() },
 }));
 
 import { onNewUserSignup as handlerExport } from "../onTrigger_newUserSignup.js";
@@ -60,6 +62,8 @@ beforeEach(() => {
   vi.mocked(writeServerAnalyticsEvent).mockReset().mockResolvedValue(undefined);
   vi.mocked(isDevTeamMember).mockReset().mockReturnValue(false);
   vi.mocked(discordNewUsersWebhookUrl.value).mockReset().mockReturnValue("https://discord.test/hook");
+  vi.mocked(resendApiKey.value).mockReset().mockReturnValue("re_test");
+  vi.mocked(resendFromEmail.value).mockReset().mockReturnValue("Grids <hello@grids.so>");
   vi.mocked(logger.error).mockClear();
   vi.mocked(logger.info).mockClear();
 });
@@ -106,16 +110,44 @@ describe("onNewUserSignup", () => {
     });
   });
 
+  it("sends welcome email before dev-team Discord skip check", async () => {
+    vi.mocked(isDevTeamMember).mockReturnValue(true);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => '{"id":"email-1"}',
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await onNewUserSignup(user());
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.resend.com/emails");
+    const body = JSON.parse(init.body);
+    expect(body.to).toBe("person@example.com");
+    expect(body.subject).toBe("Welcome to Grids");
+    expect(logger.info).toHaveBeenCalledWith(
+      "Skipping Discord notification for dev team member",
+      { uid: "user-1" },
+    );
+  });
+
   it("skips Discord notification for dev team members after analytics is written", async () => {
     vi.mocked(isDevTeamMember).mockReturnValue(true);
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => '{"id":"email-1"}',
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(onNewUserSignup(user())).resolves.toBeNull();
 
     expect(isDevTeamMember).toHaveBeenCalledWith("user-1", "person@example.com");
     expect(writeServerAnalyticsEvent).toHaveBeenCalledTimes(1);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.resend.com/emails");
     expect(logger.info).toHaveBeenCalledWith(
       "Skipping Discord notification for dev team member",
       { uid: "user-1" },
@@ -124,7 +156,11 @@ describe("onNewUserSignup", () => {
 
   it("logs and returns null when the Discord secret is missing", async () => {
     vi.mocked(discordNewUsersWebhookUrl.value).mockReturnValue("");
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => '{"id":"email-1"}',
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(onNewUserSignup(user())).resolves.toBeNull();
@@ -132,7 +168,8 @@ describe("onNewUserSignup", () => {
     expect(logger.error).toHaveBeenCalledWith(
       "DISCORD_NEW_USERS_WEBHOOK_URL secret is not configured",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.resend.com/emails");
   });
 
   it("posts a Discord embed with user details when configured", async () => {
@@ -145,13 +182,17 @@ describe("onNewUserSignup", () => {
 
     await onNewUserSignup(user("password"));
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [, init] = fetchMock.mock.calls[0];
-    expect(init).toMatchObject({
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-    const body = JSON.parse(init.body);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const resendCall = fetchMock.mock.calls.find(
+      ([url]) => url === "https://api.resend.com/emails",
+    );
+    expect(resendCall).toBeDefined();
+    const discordCall = fetchMock.mock.calls.find(
+      ([url]) => url === "https://discord.test/hook",
+    );
+    expect(discordCall).toBeDefined();
+    const [, discordInit] = discordCall!;
+    const body = JSON.parse(discordInit.body);
     expect(body.embeds[0].fields).toEqual(
       expect.arrayContaining([
         { name: "Display Name", value: "Person", inline: true },

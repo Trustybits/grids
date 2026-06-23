@@ -16,6 +16,8 @@ const { exportsByModule, adminImportSpy } = vi.hoisted(() => {
     onGridCreated: { functionName: "onGridCreated" },
     onGridDeleted: { functionName: "onGridDeleted" },
     onGridUpdated: { functionName: "onGridUpdated" },
+    onRecordFirstGridEdit: { functionName: "onRecordFirstGridEdit" },
+    onSendGridEngagementEmails: { functionName: "onSendGridEngagementEmails" },
     onNewUserSignup: { functionName: "onNewUserSignup" },
     onUserLogin: { functionName: "onUserLogin" },
     getLinkPreview: { functionName: "getLinkPreview" },
@@ -75,6 +77,12 @@ vi.mock("../notifications/onTrigger_gridDeleted.js", () => ({
 }));
 vi.mock("../notifications/onTrigger_gridUpdated.js", () => ({
   onGridUpdated: exportsByModule.onGridUpdated,
+}));
+vi.mock("../notifications/onTrigger_recordFirstGridEdit.js", () => ({
+  onRecordFirstGridEdit: exportsByModule.onRecordFirstGridEdit,
+}));
+vi.mock("../notifications/onTrigger_sendGridEngagementEmails.js", () => ({
+  onSendGridEngagementEmails: exportsByModule.onSendGridEngagementEmails,
 }));
 vi.mock("../notifications/onTrigger_newUserSignup.js", () => ({
   onNewUserSignup: exportsByModule.onNewUserSignup,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as logger from "firebase-functions/logger";
 import { noopIfMaintenance } from "../../maintenance.js";
 import { resetMaintenanceMock } from "../../__tests__/utils_testMocks.js";
@@ -29,6 +29,13 @@ const { firestoreState, FieldValue } = vi.hoisted(() => {
 });
 
 vi.mock("firebase-functions/v1", () => ({
+  runWith: vi.fn(() => ({
+    firestore: {
+      document: vi.fn((_path: string) => ({
+        onWrite: (handler: unknown) => handler,
+      })),
+    },
+  })),
   firestore: {
     document: vi.fn((_path: string) => ({
       onWrite: (handler: unknown) => handler,
@@ -38,10 +45,20 @@ vi.mock("firebase-functions/v1", () => ({
 
 vi.mock("firebase-functions/logger", () => ({
   info: vi.fn(),
+  error: vi.fn(),
 }));
 
 vi.mock("../../maintenance.js", () => ({
   noopIfMaintenance: vi.fn(),
+}));
+
+vi.mock("../../notifications/secrets.js", () => ({
+  resendApiKey: { value: vi.fn() },
+  resendFromEmail: { value: vi.fn() },
+}));
+
+vi.mock("../../notifications/utils_userEmail.js", () => ({
+  getUserEmailInfo: vi.fn(),
 }));
 
 vi.mock("firebase-admin", () => ({
@@ -102,6 +119,8 @@ vi.mock("firebase-admin", () => ({
 }));
 
 import { grantSupporterBadgeOnPayment as handlerExport } from "../grantSupporterBadge.js";
+import { resendApiKey, resendFromEmail } from "../../notifications/secrets.js";
+import { getUserEmailInfo } from "../../notifications/utils_userEmail.js";
 
 const grantSupporterBadgeOnPayment = handlerExport as unknown as (
   change: {
@@ -145,6 +164,20 @@ beforeEach(() => {
   FieldValue.serverTimestamp.mockClear();
   resetMaintenanceMock(noopIfMaintenance);
   vi.mocked(logger.info).mockClear();
+  vi.mocked(resendApiKey.value).mockReset().mockReturnValue("re_test");
+  vi.mocked(resendFromEmail.value).mockReset().mockReturnValue("Grids <hello@grids.so>");
+  vi.mocked(getUserEmailInfo).mockReset().mockResolvedValue({
+    email: "person@example.com",
+    displayName: "Person",
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => '{"id":"email-1"}',
+    }),
+  );
 });
 
 describe("grantSupporterBadgeOnPayment", () => {
@@ -263,6 +296,12 @@ describe("grantSupporterBadgeOnPayment", () => {
 
   it("grants the supporter badge exactly at the threshold", async () => {
     setPayments("user-1", [{ amount: SUPPORTER_BADGE_MIN_CENTS }]);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => '{"id":"email-1"}',
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     await grantSupporterBadgeOnPayment(
       makeChange({ status: "succeeded", amount: SUPPORTER_BADGE_MIN_CENTS }),
@@ -284,6 +323,12 @@ describe("grantSupporterBadgeOnPayment", () => {
       uid: "user-1",
       totalCents: SUPPORTER_BADGE_MIN_CENTS,
     });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.resend.com/emails");
+    const body = JSON.parse(init.body);
+    expect(body.to).toBe("person@example.com");
+    expect(body.subject).toBe("Thank you for supporting Grids");
   });
 
   it("grants the supporter badge when cumulative succeeded payments exceed the threshold", async () => {
@@ -303,4 +348,8 @@ describe("grantSupporterBadgeOnPayment", () => {
       totalCents: 600,
     });
   });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });

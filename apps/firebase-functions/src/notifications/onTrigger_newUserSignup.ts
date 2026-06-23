@@ -2,13 +2,19 @@ import * as logger from "firebase-functions/logger";
 import * as functions from "firebase-functions/v1";
 import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.js";
 import { noopIfMaintenance } from "../maintenance.js";
-import { discordNewUsersWebhookUrl } from "./secrets.js";
+import { discordNewUsersWebhookUrl, resendApiKey, resendFromEmail } from "./secrets.js";
 import { shouldSkipDevTeamNotification } from "./utils_devTeamNotification.js";
+import { buildWelcomeEmail } from "./utils_emailTemplates.js";
 import {
   buildDiscordEmbedPayload,
   getDiscordWebhookUrl,
   sendDiscordWebhook,
 } from "./utils_discord.js";
+import {
+  getResendApiKey,
+  getResendFromEmail,
+  sendResendEmail,
+} from "./utils_resend.js";
 
 /**
  * Firebase function that triggers when a new user signs up.
@@ -16,7 +22,7 @@ import {
  */
 export const onNewUserSignup = functions
   .runWith({
-    secrets: [discordNewUsersWebhookUrl],
+    secrets: [discordNewUsersWebhookUrl, resendApiKey, resendFromEmail],
   })
   .auth.user()
   .onCreate(async (user) => {
@@ -42,6 +48,38 @@ export const onNewUserSignup = functions
       gridId: null,
       metadata: { signInMethod },
     });
+
+    if (user.email) {
+      const welcomeApiKey = getResendApiKey(resendApiKey.value(), "RESEND_API_KEY");
+      const welcomeFrom = getResendFromEmail(
+        resendFromEmail.value(),
+        "RESEND_FROM_EMAIL",
+      );
+
+      if (welcomeApiKey && welcomeFrom) {
+        const { subject, html } = buildWelcomeEmail({
+          displayName: user.displayName ?? null,
+        });
+
+        await sendResendEmail({
+          apiKey: welcomeApiKey,
+          payload: {
+            from: welcomeFrom,
+            to: user.email,
+            subject,
+            html,
+          },
+          successMessage: "Welcome email sent successfully",
+          successContext: ({ status }) => ({
+            uid: user.uid,
+            email: user.email,
+            status,
+          }),
+          responseErrorContext: { uid: user.uid },
+          sendErrorContext: { uid: user.uid },
+        });
+      }
+    }
 
     if (
       await shouldSkipDevTeamNotification({

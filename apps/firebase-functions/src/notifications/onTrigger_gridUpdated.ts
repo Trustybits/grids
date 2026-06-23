@@ -9,6 +9,10 @@ import {
   getDiscordWebhookUrl,
   sendDiscordWebhook,
 } from "./utils_discord.js";
+import {
+  getMeaningfulGridChanges,
+  hasMeaningfulGridChanges,
+} from "./utils_gridChanges.js";
 
 /**
  * Firebase function that triggers when a grid is updated.
@@ -37,13 +41,8 @@ export const onGridUpdated = functions
     }
 
     // Check for meaningful changes (name, tiles, or privacy settings)
-    const nameChanged = beforeData.name !== afterData.name;
-    const tilesChanged =
-      JSON.stringify(beforeData.tiles || []) !==
-      JSON.stringify(afterData.tiles || []);
-    const privacyChanged = beforeData.isPublic !== afterData.isPublic;
-
-    const hasMeaningfulChanges = nameChanged || tilesChanged || privacyChanged;
+    const changes = getMeaningfulGridChanges(beforeData, afterData);
+    const hasMeaningfulChanges = hasMeaningfulGridChanges(changes);
 
     if (!hasMeaningfulChanges) {
       logger.info(
@@ -60,9 +59,9 @@ export const onGridUpdated = functions
       gridId,
       userId: afterData.userId,
       name: afterData.name,
-      nameChanged,
-      tilesChanged,
-      privacyChanged,
+      nameChanged: changes.nameChanged,
+      tilesChanged: changes.tilesChanged,
+      privacyChanged: changes.privacyChanged,
     });
 
     if (

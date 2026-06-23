@@ -59,3 +59,6 @@ storage.rules
 
 emulator-data/
 extensions/
+
+# Local email HTML previews (npm run email:preview)
+apps/firebase-functions/email-previews/

@@ -1,376 +1,472 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ContentType } from "@grids/contracts/types";
+/**
+ * Tests for useFileUpload — upload flows that turn Files into tiles (direct,
+ * optimistic-new, optimistic-existing, multi-document) plus external image
+ * import. Every collaborator is mocked: auth provider, storage service, grid
+ * store, TileUtils.createTileContent, the document-thumbnail helpers, uuid, and
+ * URL.createObjectURL/revokeObjectURL.
+ */
 
-const mocks = vi.hoisted(() => ({
-  currentUserId: vi.fn(),
-  storageService: {
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ContentType } from "@grids/contracts/types";
+import { useFileUpload } from "@/composables/useFileUpload";
+import { createTileContent } from "@/utils/TileUtils";
+import {
+  documentItemIsPdf,
+  ensureDocumentItemThumbnailOnServer,
+} from "@/composables/useDocumentThumbnail";
+
+const { mockGetCurrentUserId, storage, gridStore } = vi.hoisted(() => ({
+  mockGetCurrentUserId: vi.fn<() => string | null>(() => "user-1"),
+  storage: {
     upload: vi.fn(),
-    validateFile: vi.fn(),
+    validateFile: vi.fn(() => ({ isImage: true })),
     uploadResumable: vi.fn(),
     uploadExternalImage: vi.fn(),
   },
   gridStore: {
-    currentGrid: { id: "grid-1" } as { id: string } | null,
-    addTile: vi.fn(),
+    addTile: vi.fn<() => string | null>(() => "tile-1"),
     setTileContent: vi.fn(),
     setTileUploading: vi.fn(),
     clearTileUploading: vi.fn(),
     setResolvedUrl: vi.fn(),
     setResolvedDocumentItemUrl: vi.fn(),
-    updateGrid: vi.fn(),
-    removeTile: vi.fn(),
-    saveGrid: vi.fn(),
     patchDocumentItem: vi.fn(),
+    updateGrid: vi.fn(),
+    saveGrid: vi.fn(),
+    removeTile: vi.fn(),
+    currentGrid: { id: "grid-1" } as { id: string } | null,
   },
-  createTileContent: vi.fn(),
-  ensureThumbnail: vi.fn(),
-  documentItemIsPdf: vi.fn(),
-  uuid: vi.fn(),
 }));
 
 vi.mock("@/auth/AuthProviderSingleton", () => ({
-  getAuthProvider: () => ({
-    getCurrentUserId: mocks.currentUserId,
-  }),
+  getAuthProvider: () => ({ getCurrentUserId: mockGetCurrentUserId }),
 }));
-
 vi.mock("@/services/ServiceFactorySingleton", () => ({
-  getServiceFactory: () => ({
-    getStorageService: () => mocks.storageService,
-  }),
+  getServiceFactory: () => ({ getStorageService: () => storage }),
 }));
-
-vi.mock("@/stores/grid", () => ({
-  useGridStore: () => mocks.gridStore,
-}));
-
+vi.mock("@/stores/grid", () => ({ useGridStore: () => gridStore }));
 vi.mock("@/utils/TileUtils", () => ({
-  createTileContent: (
-    type: ContentType,
-    data: Record<string, unknown>,
-  ) => mocks.createTileContent(type, data),
+  createTileContent: vi.fn((type, data) => ({ type, ...data })),
 }));
-
 vi.mock("@/composables/useDocumentThumbnail", () => ({
-  ensureDocumentItemThumbnailOnServer: (
-    gridId: string,
-    tileId: string,
-    itemId: string,
-  ) => mocks.ensureThumbnail(gridId, tileId, itemId),
-  documentItemIsPdf: (name: string, type: string) =>
-    mocks.documentItemIsPdf(name, type),
+  documentItemIsPdf: vi.fn(() => false),
+  ensureDocumentItemThumbnailOnServer: vi.fn(),
 }));
+const uuidState = vi.hoisted(() => ({ n: 0 }));
+vi.mock("uuid", () => ({ v4: vi.fn(() => `uuid-${++uuidState.n}`) }));
 
-vi.mock("uuid", () => ({
-  v4: () => mocks.uuid(),
-}));
+const mockCreateTileContent = vi.mocked(createTileContent);
+const mockDocumentItemIsPdf = vi.mocked(documentItemIsPdf);
+const mockEnsureThumb = vi.mocked(ensureDocumentItemThumbnailOnServer);
 
-type Progress = { bytesTransferred: number; totalBytes: number };
-
-function makeUploadTask(result: Promise<string>) {
-  let progressHandler: ((progress: Progress) => void) | undefined;
+/** A resolvable upload task: control progress and completion explicitly. */
+function makeUploadTask() {
+  let progressCb: ((p: { bytesTransferred: number; totalBytes: number }) => void) | null =
+    null;
+  let resolveDone!: (url: string) => void;
+  let rejectDone!: (err: unknown) => void;
+  const donePromise = new Promise<string>((res, rej) => {
+    resolveDone = res;
+    rejectDone = rej;
+  });
   return {
     task: {
-      onProgress: vi.fn((handler: (progress: Progress) => void) => {
-        progressHandler = handler;
+      onProgress: vi.fn((cb) => {
+        progressCb = cb;
       }),
-      done: vi.fn(() => result),
-      cancel: vi.fn(),
+      done: vi.fn(() => donePromise),
     },
-    emitProgress(progress: Progress) {
-      progressHandler?.(progress);
-    },
+    emitProgress: (bytesTransferred: number, totalBytes: number) =>
+      progressCb?.({ bytesTransferred, totalBytes }),
+    resolveDone,
+    rejectDone,
   };
 }
 
-describe("useFileUpload", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.currentUserId.mockReturnValue("user-1");
-    mocks.storageService.validateFile.mockReturnValue({ isImage: true });
-    mocks.storageService.upload.mockResolvedValue("https://cdn.example/file");
-    mocks.storageService.uploadExternalImage.mockResolvedValue(
-      "https://cdn.example/external",
-    );
-    mocks.gridStore.currentGrid = { id: "grid-1" };
-    mocks.gridStore.addTile.mockReturnValue("tile-1");
-    mocks.gridStore.saveGrid.mockResolvedValue(undefined);
-    mocks.createTileContent.mockImplementation(
-      (type: ContentType, data: Record<string, unknown>) => ({
-        type,
-        ...data,
-      }),
-    );
-    mocks.uuid
-      .mockReturnValueOnce("item-1")
-      .mockReturnValueOnce("item-2");
-    mocks.documentItemIsPdf.mockReturnValue(false);
-    mocks.ensureThumbnail.mockResolvedValue({});
-    Object.defineProperty(URL, "createObjectURL", {
-      configurable: true,
-      value: vi
-        .fn()
-        .mockReturnValueOnce("blob:one")
-        .mockReturnValueOnce("blob:two"),
-    });
-    Object.defineProperty(URL, "revokeObjectURL", {
-      configurable: true,
-      value: vi.fn(),
-    });
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-    vi.spyOn(console, "warn").mockImplementation(() => undefined);
-  });
+function file(name = "a.png", type = "image/png"): File {
+  return new File(["data"], name, { type });
+}
 
-  it("uploads directly and creates image or video tile content", async () => {
-    const { useFileUpload } = await import("@/composables/useFileUpload");
-    const upload = useFileUpload();
-    const image = new File(["image"], "image.png", { type: "image/png" });
-    const video = new File(["video"], "video.mp4", { type: "video/mp4" });
+beforeEach(() => {
+  vi.clearAllMocks();
+  uuidState.n = 0;
+  mockGetCurrentUserId.mockReturnValue("user-1");
+  storage.validateFile.mockReturnValue({ isImage: true });
+  gridStore.addTile.mockReturnValue("tile-1");
+  gridStore.currentGrid = { id: "grid-1" };
+  mockDocumentItemIsPdf.mockReturnValue(false);
+  globalThis.URL.createObjectURL = vi.fn(() => "blob:mock");
+  globalThis.URL.revokeObjectURL = vi.fn();
+});
 
-    await expect(
-      upload.uploadFileToUrl(image, { fileType: "images" }),
-    ).resolves.toBe("https://cdn.example/file");
-    expect(mocks.storageService.upload).toHaveBeenCalledWith(
-      "user-1",
-      image,
-      { fileType: "images" },
-    );
-
-    await expect(upload.uploadFile(image)).resolves.toEqual({
-      type: ContentType.IMAGE,
-      src: "https://cdn.example/file",
-    });
-    await expect(upload.uploadFile(video)).resolves.toEqual({
-      type: ContentType.VIDEO,
-      src: "https://cdn.example/file",
-    });
-  });
-
-  it("rejects direct and external uploads without authentication", async () => {
-    mocks.currentUserId.mockReturnValue(null);
-    const { useFileUpload } = await import("@/composables/useFileUpload");
-    const upload = useFileUpload();
-    const file = new File(["image"], "image.png", { type: "image/png" });
-
-    await expect(upload.uploadFileToUrl(file)).rejects.toThrow(
-      "You must be logged in to upload.",
-    );
-    await expect(
-      upload.uploadExternalImageToStorage("https://example.com/image.png"),
-    ).rejects.toThrow("You must be logged in to upload.");
-  });
-
-  it("tracks an optimistic new-tile upload and resolves it without replacing preview content", async () => {
-    let resolveUpload!: (url: string) => void;
-    const result = new Promise<string>((resolve) => {
-      resolveUpload = resolve;
-    });
-    const uploadTask = makeUploadTask(result);
-    mocks.storageService.uploadResumable.mockReturnValue(uploadTask.task);
-    const { useFileUpload } = await import("@/composables/useFileUpload");
-    const upload = useFileUpload();
-    const file = new File(["image"], "image.png", { type: "image/png" });
-
-    const pending = upload.uploadFileOptimistic(file, {
+describe("uploadFileToUrl", () => {
+  it("uploads and returns the storage URL", async () => {
+    storage.upload.mockResolvedValue("https://storage/a.png");
+    const { uploadFileToUrl } = useFileUpload();
+    const url = await uploadFileToUrl(file(), { fileType: "images" });
+    expect(storage.upload).toHaveBeenCalledWith("user-1", expect.any(File), {
       fileType: "images",
     });
-    expect(mocks.gridStore.addTile).toHaveBeenCalledWith({
-      type: ContentType.IMAGE,
-      src: "blob:one",
+    expect(url).toBe("https://storage/a.png");
+  });
+
+  it("throws when not logged in", async () => {
+    mockGetCurrentUserId.mockReturnValue(null);
+    const { uploadFileToUrl } = useFileUpload();
+    await expect(uploadFileToUrl(file())).rejects.toThrow(
+      "You must be logged in to upload.",
+    );
+    expect(storage.upload).not.toHaveBeenCalled();
+  });
+
+  it("logs and rethrows when the storage upload fails", async () => {
+    storage.upload.mockRejectedValue(new Error("storage down"));
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { uploadFileToUrl } = useFileUpload();
+    await expect(uploadFileToUrl(file())).rejects.toThrow("storage down");
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+  });
+});
+
+describe("uploadFile", () => {
+  it("returns IMAGE content for an image file", async () => {
+    storage.upload.mockResolvedValue("https://storage/a.png");
+    const { uploadFile } = useFileUpload();
+    const content = await uploadFile(file("a.png", "image/png"));
+    expect(mockCreateTileContent).toHaveBeenCalledWith(ContentType.IMAGE, {
+      src: "https://storage/a.png",
     });
-    expect(mocks.gridStore.setTileUploading).toHaveBeenCalledWith(
-      "tile-1",
-      0,
-    );
-
-    uploadTask.emitProgress({ bytesTransferred: 25, totalBytes: 100 });
-    expect(mocks.gridStore.setTileUploading).toHaveBeenLastCalledWith(
-      "tile-1",
-      0.25,
-    );
-
-    resolveUpload("https://cdn.example/image");
-    await pending;
-
-    expect(mocks.gridStore.setResolvedUrl).toHaveBeenCalledWith(
-      "tile-1",
-      "https://cdn.example/image",
-    );
-    expect(mocks.gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
-    expect(mocks.gridStore.updateGrid).toHaveBeenCalledTimes(1);
-    expect(mocks.gridStore.setTileContent).not.toHaveBeenCalled();
-    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    expect(content).toMatchObject({ type: ContentType.IMAGE });
   });
 
-  it("revokes the preview when optimistic tile creation is rejected", async () => {
-    mocks.gridStore.addTile.mockReturnValue(null);
-    const { useFileUpload } = await import("@/composables/useFileUpload");
-    const file = new File(["image"], "image.png", { type: "image/png" });
+  it("returns VIDEO content for a non-image file", async () => {
+    storage.upload.mockResolvedValue("https://storage/a.mp4");
+    const { uploadFile } = useFileUpload();
+    const content = await uploadFile(file("a.mp4", "video/mp4"));
+    expect(mockCreateTileContent).toHaveBeenCalledWith(ContentType.VIDEO, {
+      src: "https://storage/a.mp4",
+    });
+    expect(content).toMatchObject({ type: ContentType.VIDEO });
+  });
+});
 
-    await useFileUpload().uploadFileOptimistic(file);
+describe("uploadFileOptimistic", () => {
+  it("creates a tile with a blob preview, then resolves the permanent URL", async () => {
+    const { task, resolveDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
 
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:one");
-    expect(mocks.storageService.uploadResumable).not.toHaveBeenCalled();
+    const { uploadFileOptimistic } = useFileUpload();
+    const promise = uploadFileOptimistic(file());
+
+    expect(globalThis.URL.createObjectURL).toHaveBeenCalled();
+    expect(gridStore.addTile).toHaveBeenCalled();
+    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-1", 0);
+
+    resolveDone("https://storage/final.png");
+    await promise;
+
+    expect(gridStore.setResolvedUrl).toHaveBeenCalledWith(
+      "tile-1",
+      "https://storage/final.png",
+    );
+    expect(gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
+    expect(gridStore.updateGrid).toHaveBeenCalledTimes(1);
   });
 
-  it("cleans up and removes a new tile when optimistic upload fails", async () => {
-    const failure = new Error("upload failed");
-    const uploadTask = makeUploadTask(Promise.reject(failure));
-    mocks.storageService.uploadResumable.mockReturnValue(uploadTask.task);
-    const { useFileUpload } = await import("@/composables/useFileUpload");
-    const file = new File(["video"], "video.mp4", { type: "video/mp4" });
-    mocks.storageService.validateFile.mockReturnValue({ isImage: false });
+  it("reports upload progress as a fraction", async () => {
+    const { task, emitProgress, resolveDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+
+    const { uploadFileOptimistic } = useFileUpload();
+    const promise = uploadFileOptimistic(file());
+
+    emitProgress(25, 100);
+    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-1", 0.25);
+
+    resolveDone("https://x");
+    await promise;
+  });
+
+  it("revokes the blob and bails when the tile cannot be created", async () => {
+    gridStore.addTile.mockReturnValue(null);
+    const { uploadFileOptimistic } = useFileUpload();
+    await uploadFileOptimistic(file());
+    expect(globalThis.URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock");
+    expect(storage.uploadResumable).not.toHaveBeenCalled();
+  });
+
+  it("throws when not logged in (before creating a tile)", async () => {
+    mockGetCurrentUserId.mockReturnValue(null);
+    const { uploadFileOptimistic } = useFileUpload();
+    await expect(uploadFileOptimistic(file())).rejects.toThrow(
+      "You must be logged in to upload.",
+    );
+    expect(gridStore.addTile).not.toHaveBeenCalled();
+  });
+
+  it("cleans up and removes the tile when the upload fails", async () => {
+    const { task, rejectDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { uploadFileOptimistic } = useFileUpload();
+    const promise = uploadFileOptimistic(file());
+    rejectDone(new Error("upload failed"));
+
+    await expect(promise).rejects.toThrow("upload failed");
+    expect(gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
+    expect(globalThis.URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock");
+    expect(gridStore.removeTile).toHaveBeenCalledWith("tile-1");
+    errSpy.mockRestore();
+  });
+});
+
+describe("uploadFileOptimisticForTile", () => {
+  it("replaces the existing tile's content and resolves the permanent URL", async () => {
+    const { task, resolveDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+
+    const { uploadFileOptimisticForTile } = useFileUpload();
+    const promise = uploadFileOptimisticForTile(file(), "tile-9");
+
+    expect(gridStore.setTileContent).toHaveBeenCalledWith(
+      "tile-9",
+      expect.objectContaining({ type: ContentType.IMAGE }),
+    );
+    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-9", 0);
+
+    resolveDone("https://storage/final.png");
+    await promise;
+
+    expect(gridStore.setResolvedUrl).toHaveBeenCalledWith(
+      "tile-9",
+      "https://storage/final.png",
+    );
+    expect(gridStore.updateGrid).toHaveBeenCalled();
+  });
+
+  it("reports upload progress as a fraction for the existing tile", async () => {
+    const { task, emitProgress, resolveDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+
+    const { uploadFileOptimisticForTile } = useFileUpload();
+    const promise = uploadFileOptimisticForTile(file(), "tile-9");
+
+    emitProgress(30, 120);
+    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-9", 0.25);
+
+    resolveDone("https://x");
+    await promise;
+  });
+
+  it("reverts the tile to a suggestion on failure", async () => {
+    const { task, rejectDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { uploadFileOptimisticForTile } = useFileUpload();
+    const promise = uploadFileOptimisticForTile(file(), "tile-9");
+    rejectDone(new Error("boom"));
+
+    await expect(promise).rejects.toThrow("boom");
+    expect(mockCreateTileContent).toHaveBeenCalledWith(ContentType.SUGGESTION, {
+      action: "media",
+      label: "Add Media",
+    });
+    expect(gridStore.setTileContent).toHaveBeenLastCalledWith(
+      "tile-9",
+      expect.objectContaining({ type: ContentType.SUGGESTION }),
+    );
+    errSpy.mockRestore();
+  });
+});
+
+describe("uploadDocumentsOptimistic", () => {
+  it("returns immediately for an empty file list", async () => {
+    const { uploadDocumentsOptimistic } = useFileUpload();
+    await uploadDocumentsOptimistic([]);
+    expect(gridStore.addTile).not.toHaveBeenCalled();
+  });
+
+  it("validates each file as a document", async () => {
+    const { task, resolveDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+    const { uploadDocumentsOptimistic } = useFileUpload();
+
+    const promise = uploadDocumentsOptimistic([file("doc.pdf", "application/pdf")]);
+    expect(storage.validateFile).toHaveBeenCalledWith(expect.any(File), {
+      fileType: "documents",
+    });
+    resolveDone("https://storage/doc.pdf");
+    await promise;
+  });
+
+  it("uploads each item and saves the grid", async () => {
+    const { task, resolveDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+    const { uploadDocumentsOptimistic } = useFileUpload();
+
+    const promise = uploadDocumentsOptimistic([file("a.txt", "text/plain")]);
+    expect(gridStore.addTile).toHaveBeenCalledWith(
+      expect.objectContaining({ type: ContentType.DOCUMENT }),
+    );
+    resolveDone("https://storage/a.txt");
+    await promise;
+
+    expect(gridStore.setResolvedDocumentItemUrl).toHaveBeenCalledWith(
+      "tile-1",
+      "uuid-1",
+      "https://storage/a.txt",
+    );
+    expect(gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
+    expect(gridStore.saveGrid).toHaveBeenCalled();
+  });
+
+  it("requests a server thumbnail for PDF items and patches the result", async () => {
+    mockDocumentItemIsPdf.mockReturnValue(true);
+    mockEnsureThumb.mockResolvedValue({ thumbnailUrl: "https://storage/thumb.png" });
+    const { task, resolveDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+
+    const { uploadDocumentsOptimistic } = useFileUpload();
+    const promise = uploadDocumentsOptimistic([file("doc.pdf", "application/pdf")]);
+    resolveDone("https://storage/doc.pdf");
+    await promise;
+    // Thumbnail jobs are fire-and-forget; flush the microtask queue.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockEnsureThumb).toHaveBeenCalledWith("grid-1", "tile-1", "uuid-1");
+    expect(gridStore.patchDocumentItem).toHaveBeenCalledWith("tile-1", "uuid-1", {
+      thumbnailUrl: "https://storage/thumb.png",
+    });
+  });
+
+  it("aggregates progress across multiple files", async () => {
+    const t1 = makeUploadTask();
+    const t2 = makeUploadTask();
+    storage.uploadResumable
+      .mockReturnValueOnce(t1.task)
+      .mockReturnValueOnce(t2.task);
+
+    const { uploadDocumentsOptimistic } = useFileUpload();
+    const promise = uploadDocumentsOptimistic([
+      file("a.txt", "text/plain"),
+      file("b.txt", "text/plain"),
+    ]);
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+
+    // Halfway through file 1 of 2: (0 + 0.5) / 2 = 0.25
+    t1.emitProgress(50, 100);
+    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-1", 0.25);
+
+    // Finish file 1: completed becomes 1 → 1/2 = 0.5
+    t1.resolveDone("https://storage/a.txt");
+    await tick();
+    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-1", 0.5);
+
+    // Halfway through file 2: (1 + 0.5) / 2 = 0.75
+    t2.emitProgress(50, 100);
+    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-1", 0.75);
+
+    t2.resolveDone("https://storage/b.txt");
+    await promise;
+    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-1", 1);
+  });
+
+  it("does not request a thumbnail for non-PDF items", async () => {
+    mockDocumentItemIsPdf.mockReturnValue(false);
+    const { task, resolveDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+
+    const { uploadDocumentsOptimistic } = useFileUpload();
+    const promise = uploadDocumentsOptimistic([file("a.txt", "text/plain")]);
+    resolveDone("https://storage/a.txt");
+    await promise;
+    await Promise.resolve();
+
+    expect(mockEnsureThumb).not.toHaveBeenCalled();
+    expect(gridStore.patchDocumentItem).not.toHaveBeenCalled();
+  });
+
+  it("validates files before the login check (validation runs even logged out)", async () => {
+    mockGetCurrentUserId.mockReturnValue(null);
+    const { uploadDocumentsOptimistic } = useFileUpload();
 
     await expect(
-      useFileUpload().uploadFileOptimistic(file),
-    ).rejects.toThrow("upload failed");
+      uploadDocumentsOptimistic([file("a.txt", "text/plain")]),
+    ).rejects.toThrow("You must be logged in to upload.");
 
-    expect(mocks.gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:one");
-    expect(mocks.gridStore.removeTile).toHaveBeenCalledWith("tile-1");
-  });
-
-  it("reverts an existing tile to a suggestion when upload fails", async () => {
-    const uploadTask = makeUploadTask(
-      Promise.reject(new Error("upload failed")),
-    );
-    mocks.storageService.uploadResumable.mockReturnValue(uploadTask.task);
-    const { useFileUpload } = await import("@/composables/useFileUpload");
-    const file = new File(["image"], "image.png", { type: "image/png" });
-
-    await expect(
-      useFileUpload().uploadFileOptimisticForTile(file, "existing"),
-    ).rejects.toThrow("upload failed");
-
-    expect(mocks.gridStore.setTileContent).toHaveBeenNthCalledWith(
-      1,
-      "existing",
-      { type: ContentType.IMAGE, src: "blob:one" },
-    );
-    expect(mocks.gridStore.setTileContent).toHaveBeenNthCalledWith(
-      2,
-      "existing",
-      {
-        type: ContentType.SUGGESTION,
-        action: "media",
-        label: "Add Media",
-      },
-    );
-    expect(mocks.gridStore.removeTile).not.toHaveBeenCalled();
-  });
-
-  it("uploads document items sequentially, tracks aggregate progress, and saves resolved URLs", async () => {
-    const firstTask = makeUploadTask(
-      Promise.resolve("https://cdn.example/one"),
-    );
-    const secondTask = makeUploadTask(
-      Promise.resolve("https://cdn.example/two"),
-    );
-    mocks.storageService.uploadResumable
-      .mockReturnValueOnce(firstTask.task)
-      .mockReturnValueOnce(secondTask.task);
-    mocks.documentItemIsPdf.mockImplementation((name: string) =>
-      name.endsWith(".pdf"),
-    );
-    mocks.ensureThumbnail.mockResolvedValue({
-      thumbnailUrl: "https://cdn.example/thumb",
+    // Per source ordering, each file is validated before the auth guard runs.
+    expect(storage.validateFile).toHaveBeenCalledWith(expect.any(File), {
+      fileType: "documents",
     });
-    const { useFileUpload } = await import("@/composables/useFileUpload");
-    const files = [
-      new File(["one"], "one.pdf", { type: "application/pdf" }),
-      new File(["two"], "two.txt", { type: "text/plain" }),
-    ];
-
-    await useFileUpload().uploadDocumentsOptimistic(files);
-
-    expect(mocks.storageService.validateFile).toHaveBeenCalledTimes(2);
-    expect(mocks.gridStore.addTile).toHaveBeenCalledWith({
-      type: ContentType.DOCUMENT,
-      items: [
-        {
-          id: "item-1",
-          fileName: "one.pdf",
-          url: "blob:one",
-          mimeType: "application/pdf",
-        },
-        {
-          id: "item-2",
-          fileName: "two.txt",
-          url: "blob:two",
-          mimeType: "text/plain",
-        },
-      ],
-    });
-    expect(mocks.gridStore.setResolvedDocumentItemUrl).toHaveBeenNthCalledWith(
-      1,
-      "tile-1",
-      "item-1",
-      "https://cdn.example/one",
-    );
-    expect(mocks.gridStore.setResolvedDocumentItemUrl).toHaveBeenNthCalledWith(
-      2,
-      "tile-1",
-      "item-2",
-      "https://cdn.example/two",
-    );
-    expect(mocks.gridStore.setTileUploading).toHaveBeenCalledWith(
-      "tile-1",
-      0.5,
-    );
-    expect(mocks.gridStore.setTileUploading).toHaveBeenCalledWith(
-      "tile-1",
-      1,
-    );
-    expect(mocks.gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
-    expect(mocks.gridStore.saveGrid).toHaveBeenCalledTimes(1);
-    await vi.waitFor(() => {
-      expect(mocks.gridStore.patchDocumentItem).toHaveBeenCalledWith(
-        "tile-1",
-        "item-1",
-        { thumbnailUrl: "https://cdn.example/thumb" },
-      );
-    });
+    expect(gridStore.addTile).not.toHaveBeenCalled();
   });
 
-  it("revokes every document preview and removes the tile after a failed upload", async () => {
-    const firstTask = makeUploadTask(
-      Promise.resolve("https://cdn.example/one"),
-    );
-    const secondTask = makeUploadTask(
-      Promise.reject(new Error("second failed")),
-    );
-    mocks.storageService.uploadResumable
-      .mockReturnValueOnce(firstTask.task)
-      .mockReturnValueOnce(secondTask.task);
-    const { useFileUpload } = await import("@/composables/useFileUpload");
-    const files = [
-      new File(["one"], "one.pdf", { type: "application/pdf" }),
-      new File(["two"], "two.pdf", { type: "application/pdf" }),
-    ];
-
-    await expect(
-      useFileUpload().uploadDocumentsOptimistic(files),
-    ).rejects.toThrow("second failed");
-
-    expect(mocks.gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:one");
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:two");
-    expect(mocks.gridStore.removeTile).toHaveBeenCalledWith("tile-1");
+  it("revokes all blob URLs and bails when the tile cannot be created", async () => {
+    gridStore.addTile.mockReturnValue(null);
+    const { uploadDocumentsOptimistic } = useFileUpload();
+    await uploadDocumentsOptimistic([file("a.txt"), file("b.txt")]);
+    expect(globalThis.URL.revokeObjectURL).toHaveBeenCalledTimes(2);
+    expect(storage.uploadResumable).not.toHaveBeenCalled();
   });
 
-  it("uploads an external image for the authenticated user", async () => {
-    const { useFileUpload } = await import("@/composables/useFileUpload");
+  it("cleans up and removes the tile when a document upload fails", async () => {
+    const { task, rejectDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
+    const { uploadDocumentsOptimistic } = useFileUpload();
+    const promise = uploadDocumentsOptimistic([file("a.txt")]);
+    rejectDone(new Error("doc failed"));
+
+    await expect(promise).rejects.toThrow("doc failed");
+    expect(gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
+    expect(globalThis.URL.revokeObjectURL).toHaveBeenCalled();
+    expect(gridStore.removeTile).toHaveBeenCalledWith("tile-1");
+    errSpy.mockRestore();
+  });
+
+  it("throws when not logged in", async () => {
+    mockGetCurrentUserId.mockReturnValue(null);
+    const { uploadDocumentsOptimistic } = useFileUpload();
     await expect(
-      useFileUpload().uploadExternalImageToStorage(
-        "https://example.com/image.png",
-        "backgrounds",
-      ),
-    ).resolves.toBe("https://cdn.example/external");
-    expect(mocks.storageService.uploadExternalImage).toHaveBeenCalledWith(
+      uploadDocumentsOptimistic([file("a.txt")]),
+    ).rejects.toThrow("You must be logged in to upload.");
+  });
+});
+
+describe("uploadExternalImageToStorage", () => {
+  it("delegates to the storage service with the default folder", async () => {
+    storage.uploadExternalImage.mockResolvedValue("https://storage/ext.png");
+    const { uploadExternalImageToStorage } = useFileUpload();
+    const url = await uploadExternalImageToStorage("https://remote/x.png");
+    expect(storage.uploadExternalImage).toHaveBeenCalledWith(
       "user-1",
-      "https://example.com/image.png",
-      "backgrounds",
+      "https://remote/x.png",
+      "images",
     );
+    expect(url).toBe("https://storage/ext.png");
+  });
+
+  it("passes through a custom folder", async () => {
+    storage.uploadExternalImage.mockResolvedValue("https://storage/ext.png");
+    const { uploadExternalImageToStorage } = useFileUpload();
+    await uploadExternalImageToStorage("https://remote/x.png", "avatars");
+    expect(storage.uploadExternalImage).toHaveBeenCalledWith(
+      "user-1",
+      "https://remote/x.png",
+      "avatars",
+    );
+  });
+
+  it("throws when not logged in", async () => {
+    mockGetCurrentUserId.mockReturnValue(null);
+    const { uploadExternalImageToStorage } = useFileUpload();
+    await expect(
+      uploadExternalImageToStorage("https://remote/x.png"),
+    ).rejects.toThrow("You must be logged in to upload.");
   });
 });

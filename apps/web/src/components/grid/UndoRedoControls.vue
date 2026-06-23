@@ -178,7 +178,7 @@ onUnmounted(() => {
 <style lang="scss" scoped>
 .undo-redo-wrapper {
   position: fixed;
-  top: calc(var(--viewport-warning-height, 0px) + var(--spacing-md));
+  top: calc(var(--app-status-banners-height, 0px) + var(--spacing-md));
   right: var(--spacing-md);
   z-index: calc(var(--z-topbar) + 1);
 }

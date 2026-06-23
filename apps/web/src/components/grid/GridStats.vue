@@ -14,7 +14,7 @@
         <span class="gs-num" data-tooltip="Views yesterday">{{
           yesterdayViews
         }}</span>
-        <span class="gs-label">new views</span>
+        <span class="gs-label">views yesterday</span>
       </span>
       <button
         :style="{ opacity: hovered || menuOpen ? 1 : 0 }"
@@ -26,7 +26,12 @@
       </button>
     </div>
 
-    <div v-if="menuOpen" class="gs-panel">
+    <div
+      v-if="menuOpen"
+      ref="panelRef"
+      class="gs-panel"
+      :style="{ transform: `translateX(${panelOffsetX}px)` }"
+    >
       <div class="gs-row">
         <span class="gs-row__label">Views yesterday</span>
         <span class="gs-row__value">{{ yesterdayViews }}</span>
@@ -48,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from "vue";
+import { ref, computed, watch, onUnmounted, nextTick } from "vue";
 import { useGridStore } from "@/stores/grid";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import type { GridStats, DailyGridStats } from "@grids/contracts/types";
@@ -58,8 +63,12 @@ import { formatDuration } from "@/utils/RelativeTime";
 const gridStore = useGridStore();
 
 const wrapperRef = ref<HTMLElement | null>(null);
+const panelRef = ref<HTMLElement | null>(null);
 const hovered = ref(false);
 const menuOpen = ref(false);
+const panelOffsetX = ref(0);
+
+const VIEWPORT_MARGIN = 8;
 
 const aggregate = ref<GridStats | null>(null);
 const yesterday = ref<DailyGridStats | null>(null);
@@ -111,6 +120,29 @@ const toggleMenu = () => {
   menuOpen.value = !menuOpen.value;
 };
 
+const clampPanelToViewport = () => {
+  const panel = panelRef.value;
+  if (!panel) return;
+
+  // Measure from the preferred right-aligned position before applying a new
+  // correction, then shift only when an edge would leave the viewport.
+  panelOffsetX.value = 0;
+
+  nextTick(() => {
+    const rect = panel.getBoundingClientRect();
+    const viewport = window.visualViewport;
+    const viewportLeft = viewport?.offsetLeft ?? 0;
+    const viewportRight =
+      viewportLeft + (viewport?.width ?? window.innerWidth);
+
+    if (rect.left < viewportLeft + VIEWPORT_MARGIN) {
+      panelOffsetX.value = viewportLeft + VIEWPORT_MARGIN - rect.left;
+    } else if (rect.right > viewportRight - VIEWPORT_MARGIN) {
+      panelOffsetX.value = viewportRight - VIEWPORT_MARGIN - rect.right;
+    }
+  });
+};
+
 const onClickOutside = (e: MouseEvent) => {
   if (wrapperRef.value && !wrapperRef.value.contains(e.target as Node)) {
     menuOpen.value = false;
@@ -120,13 +152,21 @@ const onClickOutside = (e: MouseEvent) => {
 watch(menuOpen, (open) => {
   if (open) {
     document.addEventListener("mousedown", onClickOutside);
+    window.addEventListener("resize", clampPanelToViewport);
+    window.visualViewport?.addEventListener("resize", clampPanelToViewport);
+    void nextTick(clampPanelToViewport);
   } else {
     document.removeEventListener("mousedown", onClickOutside);
+    window.removeEventListener("resize", clampPanelToViewport);
+    window.visualViewport?.removeEventListener("resize", clampPanelToViewport);
+    panelOffsetX.value = 0;
   }
 });
 
 onUnmounted(() => {
   document.removeEventListener("mousedown", onClickOutside);
+  window.removeEventListener("resize", clampPanelToViewport);
+  window.visualViewport?.removeEventListener("resize", clampPanelToViewport);
 });
 </script>
 
@@ -200,7 +240,9 @@ onUnmounted(() => {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  min-width: 220px;
+  width: max-content;
+  min-width: min(220px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
   background-color: var(--color-tile-background);
   border: var(--border-width) solid var(--color-stroke);
   border-radius: var(--radius-md);

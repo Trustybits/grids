@@ -100,11 +100,21 @@ export class StubbedAuthProvider implements AuthProvider {
 
     const params = new URLSearchParams(window.location.search);
     const redirect = params.get("redirect");
-    const target =
-      redirect && redirect.startsWith("/") && !redirect.startsWith("//")
-        ? redirect
-        : "/dashboard";
+    const target = this.isSafeRedirect(redirect) ? redirect : "/dashboard";
 
     window.location.assign(target);
+  }
+
+  /**
+   * Only allow same-origin relative paths as redirect targets. Browsers strip
+   * tab/newline characters and normalize backslashes to forward slashes before
+   * navigating, so a naive `startsWith("//")` check can be bypassed with values
+   * like `/\evil.com` or `/<tab>/evil.com`. Normalize the same way the browser
+   * would, then require a single leading slash that is not protocol-relative.
+   */
+  private isSafeRedirect(redirect: string | null): redirect is string {
+    if (!redirect) return false;
+    const normalized = redirect.replace(/[\t\n\r]/g, "").replace(/\\/g, "/");
+    return normalized.startsWith("/") && !normalized.startsWith("//");
   }
 }

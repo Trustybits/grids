@@ -5,7 +5,11 @@ import {
   type Pinia,
 } from "pinia";
 import type { AuthProvider } from "@grids/contracts/auth";
-import type { Grid } from "@grids/contracts/types";
+import {
+  ContentType,
+  type Grid,
+  type ImageContent,
+} from "@grids/contracts/types";
 import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService";
 import type { IGridService } from "@/services/interfaces/IGridService";
 import type { IGridPersistenceScheduler } from "@/services/interfaces/IGridPersistenceScheduler";
@@ -623,6 +627,130 @@ describe("GridController", () => {
     expect(setDocument.mock.invocationCallOrder[0]).toBeLessThan(
       replaceHistory.mock.invocationCallOrder[1]!,
     );
+  });
+
+  it("captures upload scope and resolves active uploads through history and persistence", () => {
+    const { controller, stores, persistenceScheduler } =
+      createControllerHarness();
+    const replaceHistory = vi.spyOn(
+      stores.history,
+      "replaceBlobUrl",
+    );
+    const resolveUpload = vi.spyOn(stores.uploads, "resolveUpload");
+    stores.session.setCurrentGrid(
+      makeGrid({
+        tiles: [
+          {
+            i: "tile-1",
+            x: 0,
+            y: 0,
+            w: 2,
+            h: 2,
+            caption: "",
+            content: {
+              type: ContentType.IMAGE,
+              src: "blob:media",
+              zoom: 1,
+              offsetX: 0,
+              offsetY: 0,
+            } as ImageContent,
+          },
+        ],
+      }),
+    );
+    stores.session.setOwner(true);
+
+    const uploadId = controller.startUpload({
+      tileId: "tile-1",
+      ownedObjectUrl: "blob:media",
+      progress: 0,
+    });
+
+    expect(uploadId).toBe("upload-1");
+    expect(stores.uploads.uploadRecords["upload-1"]).toEqual(
+      expect.objectContaining({
+        gridId: "grid-1",
+        sessionGeneration: stores.session.sessionGeneration,
+        tileId: "tile-1",
+        generation: 1,
+        status: "active",
+      }),
+    );
+
+    expect(controller.progressUpload("upload-1", 0.5)).toBe(true);
+    expect(stores.uploads.uploadingTiles).toEqual({ "tile-1": 0.5 });
+
+    expect(controller.resolveUpload("upload-1", "https://cdn/media")).toBe(
+      true,
+    );
+    expect(stores.uploads.resolvedUrls).toEqual({
+      "tile-1": "https://cdn/media",
+    });
+    expect(replaceHistory).toHaveBeenCalledWith(
+      "tile-1",
+      "https://cdn/media",
+    );
+    expect(persistenceScheduler.schedule).toHaveBeenCalledOnce();
+    expect(resolveUpload.mock.invocationCallOrder[0]).toBeLessThan(
+      replaceHistory.mock.invocationCallOrder[0]!,
+    );
+    expect(replaceHistory.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(persistenceScheduler.schedule).mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("abandons stale upload callbacks without history or persistence changes", () => {
+    const { controller, stores, persistenceScheduler } =
+      createControllerHarness();
+    const replaceHistory = vi.spyOn(
+      stores.history,
+      "replaceBlobUrl",
+    );
+    const abandonUpload = vi.spyOn(stores.uploads, "abandonUpload");
+    stores.session.setCurrentGrid(
+      makeGrid({
+        tiles: [
+          {
+            i: "tile-1",
+            x: 0,
+            y: 0,
+            w: 2,
+            h: 2,
+            caption: "",
+            content: {
+              type: ContentType.IMAGE,
+              src: "blob:media",
+              zoom: 1,
+              offsetX: 0,
+              offsetY: 0,
+            } as ImageContent,
+          },
+        ],
+      }),
+    );
+    stores.session.setOwner(true);
+    const uploadId = controller.startUpload({ tileId: "tile-1" });
+    expect(uploadId).toBe("upload-1");
+
+    stores.session.setCurrentGrid(makeGrid({ id: "grid-2" }));
+
+    expect(controller.resolveUpload("upload-1", "https://cdn/media")).toBe(
+      false,
+    );
+    expect(abandonUpload).toHaveBeenCalledWith("upload-1");
+    expect(stores.uploads.resolvedUrls).toEqual({});
+    expect(replaceHistory).not.toHaveBeenCalled();
+    expect(persistenceScheduler.schedule).not.toHaveBeenCalled();
+  });
+
+  it("delegates owned object URL revocation to the uploads ledger", () => {
+    const { controller, stores } = createControllerHarness();
+    const revoke = vi
+      .spyOn(stores.uploads, "revokeOwnedObjectUrl")
+      .mockReturnValue(true);
+
+    expect(controller.revokeOwnedObjectUrl("blob:owned")).toBe(true);
+    expect(revoke).toHaveBeenCalledWith("blob:owned");
   });
 
   it("owns compatibility error sequencing for direct controller callers", async () => {

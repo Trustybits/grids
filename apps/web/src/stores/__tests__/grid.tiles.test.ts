@@ -273,6 +273,56 @@ describe("grid store tile and grid mutations", () => {
     expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
+  it("autosaves paused editor content mid-edit, scheduling a save without a history entry", async () => {
+    const store = await createLoadedGridStore();
+    const manager = gridHarness.undoManagers[0];
+
+    store.beginEditing("tile-1");
+    manager?.pushSnapshot.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
+
+    // A 1.5s editor pause routes through autosaveTileContent: the paused text
+    // is persisted immediately without opening a second undo entry.
+    store.autosaveTileContent("tile-1", { text: "paused" });
+
+    expect(store.currentGrid?.tiles[0]?.content).toEqual(
+      expect.objectContaining({ text: "paused" }),
+    );
+    expect(manager?.pushSnapshot).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+
+    // Exiting the tile still commits exactly one history entry for the edit.
+    store.commitEditing();
+    expect(manager?.pushSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not schedule an autosave when the paused content is unchanged", async () => {
+    const store = await createLoadedGridStore();
+
+    store.beginEditing("tile-1");
+    store.autosaveTileContent("tile-1", { text: "typed" });
+    gridHarness.persistenceScheduler.schedule.mockClear();
+
+    store.autosaveTileContent("tile-1", { text: "typed" });
+
+    expect(gridHarness.persistenceScheduler.schedule).not.toHaveBeenCalled();
+  });
+
+  it("autosave outside an edit transaction falls back to a discrete patch with history", async () => {
+    const store = await createLoadedGridStore();
+    const manager = gridHarness.undoManagers[0];
+
+    store.autosaveTileContent("tile-1", { text: "discrete" });
+
+    expect(store.currentGrid?.tiles[0]?.content).toEqual(
+      expect.objectContaining({ text: "discrete" }),
+    );
+    expect(manager?.pushSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ actionLabel: "Update tile" }),
+    );
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+  });
+
   it("patches one document item without changing its siblings", async () => {
     const documentTile = makeTile({
       content: {

@@ -256,6 +256,7 @@ import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import EmailIcon from "../icons/EmailIcon.vue";
 import PhoneIcon from "../icons/PhoneIcon.vue";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import { useTileContentWriter } from "@/composables/useTileContentWriter";
 
 export default defineComponent({
   emits: ["background-color-change", "text-color-change"],
@@ -275,13 +276,10 @@ export default defineComponent({
     const tileId = inject<string | null>("tileId", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
-    const patchContent = (patch: Partial<LinkContent>) => {
-      if (tileId) {
-        gridStore.patchTileContent(tileId, patch);
-        return;
-      }
-      Object.assign(props.content, patch);
-    };
+    const { patchContent, autosaveContent } = useTileContentWriter(
+      tileId,
+      () => props.content,
+    );
 
     const isOneByOne = computed(
       () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1,
@@ -482,7 +480,7 @@ export default defineComponent({
         customSubtitle: nextSubtitle,
       };
 
-      patchContent(updatedFields);
+      autosaveContent(updatedFields);
     };
 
     const closeContextMenu = () => {

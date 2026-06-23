@@ -98,6 +98,90 @@ describe("grid store upload bookkeeping", () => {
     }
   });
 
+  it("keeps resolved media URLs through undo and redo without adding history entries", async () => {
+    const media = makeTile({
+      content: {
+        type: ContentType.IMAGE,
+        src: "blob:media",
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0,
+      } as ImageContent,
+    });
+    const store = await createLoadedGridStore(makeGrid({ tiles: [media] }));
+    const manager = gridHarness.undoManagers[0]!;
+    store.pushUndoSnapshot("Edit media tile");
+    store.currentGrid!.tiles[0]!.caption = "After";
+    const uploadId = store.startUpload({
+      tileId: "tile-1",
+      ownedObjectUrl: "blob:media",
+    });
+    expect(uploadId).toBe("upload-1");
+    manager.pushSnapshot.mockClear();
+    gridHarness.persistenceScheduler.schedule.mockClear();
+
+    expect(store.resolveUpload(uploadId!, "https://cdn.example/media")).toBe(
+      true,
+    );
+
+    expect(manager.pushSnapshot).not.toHaveBeenCalled();
+    expect(gridHarness.persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+
+    await store.undo();
+
+    expect(store.currentGrid?.tiles[0]?.caption).toBe("");
+    expect(
+      (store.currentGrid?.tiles[0]?.content as ImageContent).src,
+    ).toBe("https://cdn.example/media");
+
+    await store.redo();
+
+    expect(store.currentGrid?.tiles[0]?.caption).toBe("After");
+    expect(
+      (store.currentGrid?.tiles[0]?.content as ImageContent).src,
+    ).toBe("https://cdn.example/media");
+  });
+
+  it("resolves media uploads during continuous transactions without creating extra history", async () => {
+    const media = makeTile({
+      content: {
+        type: ContentType.IMAGE,
+        src: "blob:media",
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0,
+      } as ImageContent,
+    });
+    const store = await createLoadedGridStore(makeGrid({ tiles: [media] }));
+    const manager = gridHarness.undoManagers[0]!;
+    store.beginEditing("tile-1");
+    store.beginMove();
+    store.beginResize();
+    const uploadId = store.startUpload({
+      tileId: "tile-1",
+      ownedObjectUrl: "blob:media",
+    });
+    manager.pushSnapshot.mockClear();
+
+    expect(store.resolveUpload(uploadId!, "https://cdn.example/media")).toBe(
+      true,
+    );
+
+    expect(manager.pushSnapshot).not.toHaveBeenCalled();
+
+    store.currentGrid!.tiles[0]!.caption = "Changed";
+    store.commitEditing();
+    store.commitMove();
+    store.commitResize();
+
+    expect(manager.pushSnapshot).toHaveBeenCalledTimes(3);
+    for (const [snapshot] of manager.pushSnapshot.mock.calls) {
+      expect((snapshot.tiles[0].content as ImageContent).src).toBe(
+        "https://cdn.example/media",
+      );
+    }
+  });
+
   it("does not replace a permanent media URL in history snapshots", async () => {
     const media = makeTile({
       content: {
@@ -223,5 +307,49 @@ describe("grid store upload bookkeeping", () => {
         "https://cdn.example/two",
       );
     }
+  });
+
+  it("keeps resolved document item URLs through undo and redo", async () => {
+    const documentTile = makeTile({
+      content: {
+        type: ContentType.DOCUMENT,
+        items: [
+          { id: "item-1", fileName: "one.pdf", url: "blob:one" },
+        ],
+      } as DocumentsContent,
+    });
+    const store = await createLoadedGridStore(
+      makeGrid({ tiles: [documentTile] }),
+    );
+    store.pushUndoSnapshot("Edit document tile");
+    store.currentGrid!.tiles[0]!.caption = "After";
+    const uploadId = store.startUpload({
+      tileId: "tile-1",
+      itemId: "item-1",
+      ownedObjectUrl: "blob:one",
+    });
+    expect(uploadId).toBe("upload-1");
+
+    expect(
+      store.resolveUpload(uploadId!, "https://cdn.example/one"),
+    ).toBe(true);
+
+    await store.undo();
+
+    expect(store.currentGrid?.tiles[0]?.caption).toBe("");
+    expect(
+      (
+        store.currentGrid?.tiles[0]?.content as DocumentsContent
+      ).items[0]?.url,
+    ).toBe("https://cdn.example/one");
+
+    await store.redo();
+
+    expect(store.currentGrid?.tiles[0]?.caption).toBe("After");
+    expect(
+      (
+        store.currentGrid?.tiles[0]?.content as DocumentsContent
+      ).items[0]?.url,
+    ).toBe("https://cdn.example/one");
   });
 });

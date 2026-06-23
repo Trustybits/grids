@@ -41,7 +41,6 @@ Keep the implementation aligned with:
 
 - `notes/store-refactor-plan.md`
 - `notes/store-refactor-behavior-matrix.md`
-- `notes/store-refactor-step-4-implementation-plan.md`
 - `docs/architecture/repository-layout.md`
 
 The behavior matrix remains the compatibility contract. Step 5 may correct the
@@ -109,6 +108,8 @@ Primary tests:
   exactly-once cleanup.
 - Keep non-serializable upload task handles out of persisted grid data. If task
   handles are tracked, keep them controller-local or `markRaw`.
+- Ensure that tiles like the ImageContent or VideoContent can still read the upload progress
+  to provide a progress bar
 
 ### 3. Route Upload Lifecycle Through Controller Commands
 

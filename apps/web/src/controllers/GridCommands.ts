@@ -1,4 +1,5 @@
 import type { AnyTileContent, DocumentItem } from "@grids/contracts/types";
+import type { StorageUploadTask } from "@grids/contracts/dao";
 
 /**
  * Typed command inputs for discrete grid mutations.
@@ -40,4 +41,13 @@ export interface ResolveUploadedUrlInput {
    * pass `false` for intermediate items.
    */
   final?: boolean;
+}
+
+export interface StartUploadInput {
+  uploadId?: string;
+  tileId: string;
+  itemId?: string;
+  progress?: number;
+  ownedObjectUrl?: string;
+  task?: StorageUploadTask;
 }

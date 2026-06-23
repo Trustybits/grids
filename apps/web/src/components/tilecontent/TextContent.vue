@@ -82,6 +82,7 @@ import type { TextContent } from "@grids/contracts/types";
 import { useTileLink } from "@/composables/useTileLink";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import { useTileContentWriter } from "@/composables/useTileContentWriter";
 import {
   useEditingLifecycle,
   useEditorContentSync,
@@ -224,13 +225,10 @@ export default defineComponent({
       containerRef: textContentDiv,
       flushPersist,
     });
-    const patchContent = (patch: Partial<TextContent>) => {
-      if (tileId) {
-        gridStore.patchTileContent(tileId, patch);
-        return;
-      }
-      Object.assign(props.content, patch);
-    };
+    const { patchContent, autosaveContent } = useTileContentWriter(
+      tileId,
+      () => props.content,
+    );
 
     useEditorContentSync(editor, () => props.content.text);
 
@@ -287,7 +285,7 @@ export default defineComponent({
 
       const output = JSON.stringify(editor.value.getJSON());
 
-      patchContent({ text: output });
+      autosaveContent({ text: output });
     };
 
     const syncMarkState = () => {

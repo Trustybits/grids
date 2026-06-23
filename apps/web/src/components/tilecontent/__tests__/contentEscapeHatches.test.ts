@@ -127,6 +127,7 @@ function makeStore(content: LinkContent | DocumentsContent | MapContent | Profil
     uploadingTiles: {},
     pendingFocusTileId: null,
     patchTileContent: vi.fn(),
+    autosaveTileContent: vi.fn(),
     patchDocumentItem: vi.fn(),
     beginEditing: vi.fn(),
     commitEditing: vi.fn(),
@@ -171,13 +172,17 @@ describe("tile-content command boundary", () => {
     await nextTick();
 
     expect(store.beginEditing).toHaveBeenCalledWith("tile-1");
-    expect(store.patchTileContent).not.toHaveBeenCalled();
+    expect(store.autosaveTileContent).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1500);
 
+    // The debounced editor autosave routes through autosaveTileContent so the
+    // paused edit persists mid-edit; it never mutates content directly and
+    // never uses the discrete patchTileContent path.
     expect(content.customTitle).toBeUndefined();
-    expect(store.patchTileContent).toHaveBeenCalledTimes(1);
-    expect(store.patchTileContent).toHaveBeenCalledWith("tile-1", {
+    expect(store.patchTileContent).not.toHaveBeenCalled();
+    expect(store.autosaveTileContent).toHaveBeenCalledTimes(1);
+    expect(store.autosaveTileContent).toHaveBeenCalledWith("tile-1", {
       customTitle: "Custom title",
       customDescription: "",
       customSubtitle: "@example.com",
@@ -216,13 +221,16 @@ describe("tile-content command boundary", () => {
     await nextTick();
 
     expect(store.beginEditing).toHaveBeenCalledWith("tile-1");
-    expect(store.patchTileContent).not.toHaveBeenCalled();
+    expect(store.autosaveTileContent).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1500);
 
+    // The debounced editor autosave persists the paused edit mid-edit through
+    // autosaveTileContent, never mutating content or using patchTileContent.
     expect(content.customTitle).toBeUndefined();
-    expect(store.patchTileContent).toHaveBeenCalledTimes(1);
-    expect(store.patchTileContent).toHaveBeenCalledWith("tile-1", {
+    expect(store.patchTileContent).not.toHaveBeenCalled();
+    expect(store.autosaveTileContent).toHaveBeenCalledTimes(1);
+    expect(store.autosaveTileContent).toHaveBeenCalledWith("tile-1", {
       customTitle: "Custom document",
       customDescription: "1 file",
     });

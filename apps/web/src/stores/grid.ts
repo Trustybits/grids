@@ -112,6 +112,14 @@ export const useGridStore = defineStore("grid", () => {
     setTileUploading: controller.setTileUploading.bind(controller),
     clearTileUploading:
       controller.clearTileUploading.bind(controller),
+    startUpload: controller.startUpload.bind(controller),
+    progressUpload: controller.progressUpload.bind(controller),
+    resolveUpload: controller.resolveUpload.bind(controller),
+    failUpload: controller.failUpload.bind(controller),
+    abandonUpload: controller.abandonUpload.bind(controller),
+    cancelUpload: controller.cancelUpload.bind(controller),
+    revokeOwnedObjectUrl:
+      controller.revokeOwnedObjectUrl.bind(controller),
     setResolvedUrl: controller.setResolvedUrl.bind(controller),
     setResolvedDocumentItemUrl:
       controller.setResolvedDocumentItemUrl.bind(controller),
@@ -138,6 +146,8 @@ export const useGridStore = defineStore("grid", () => {
     addTile: controller.addTile.bind(controller),
     setTileContent: controller.setTileContent.bind(controller),
     patchTileContent: controller.patchTileContent.bind(controller),
+    autosaveTileContent:
+      controller.autosaveTileContent.bind(controller),
     patchDocumentItem: controller.patchDocumentItem.bind(controller),
     updateCaption: controller.updateCaption.bind(controller),
     resolveUploadedUrl: controller.resolveUploadedUrl.bind(controller),

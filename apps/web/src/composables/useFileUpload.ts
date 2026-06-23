@@ -20,6 +20,14 @@ export function useFileUpload() {
   const storageService = getServiceFactory().getStorageService();
   const gridStore = useGridStore();
 
+  const cancelUploadTask = (uploadTask: StorageUploadTask) => {
+    try {
+      uploadTask.cancel();
+    } catch {
+      // Cancellation is best-effort; controller validation drops late callbacks.
+    }
+  };
+
   /**
    * Upload a file to storage and return just the URL.
    * Use this for cases where you need the URL directly (avatars, backgrounds, etc.).
@@ -85,13 +93,11 @@ export function useFileUpload() {
     const tileId = gridStore.addTile(content);
 
     if (!tileId) {
-      URL.revokeObjectURL(blobUrl);
+      gridStore.revokeOwnedObjectUrl(blobUrl);
       return;
     }
 
-    // Mark tile as uploading so content components show a progress bar
-    gridStore.setTileUploading(tileId, 0);
-
+    let uploadId: string | null = null;
     try {
       // Resumable upload to track progress
       const uploadTask: StorageUploadTask = storageService.uploadResumable(
@@ -99,10 +105,22 @@ export function useFileUpload() {
         file,
         options,
       );
+      uploadId = gridStore.startUpload({
+        tileId,
+        progress: 0,
+        ownedObjectUrl: blobUrl,
+        task: uploadTask,
+      });
+      if (!uploadId) {
+        cancelUploadTask(uploadTask);
+        gridStore.revokeOwnedObjectUrl(blobUrl);
+        return;
+      }
+      const currentUploadId = uploadId;
 
       uploadTask.onProgress((progress: StorageUploadProgress) => {
-        gridStore.setTileUploading(
-          tileId,
+        gridStore.progressUpload(
+          currentUploadId,
           progress.bytesTransferred / progress.totalBytes,
         );
       });
@@ -111,12 +129,12 @@ export function useFileUpload() {
 
       // Store the permanent URL for persistence without touching the displayed src.
       // This avoids a visible flash and keeps video playback uninterrupted.
-      gridStore.resolveUploadedUrl({ tileId, permanentUrl: url });
+      gridStore.resolveUpload(currentUploadId, url);
     } catch (error) {
       console.error("File upload failed:", error);
-      gridStore.clearTileUploading(tileId);
-      URL.revokeObjectURL(blobUrl);
-      gridStore.removeTile(tileId);
+      if (uploadId && gridStore.failUpload(uploadId)) {
+        gridStore.removeTile(tileId);
+      }
       throw error; // Re-throw so callers can display their own error UI
     }
   };
@@ -144,36 +162,48 @@ export function useFileUpload() {
     const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
     const content = createTileContent(contentType, { src: blobUrl });
     gridStore.setTileContent(tileId, content);
-    gridStore.setTileUploading(tileId, 0);
 
+    let uploadId: string | null = null;
     try {
       const uploadTask: StorageUploadTask = storageService.uploadResumable(
         currentUserId,
         file,
         options,
       );
+      uploadId = gridStore.startUpload({
+        tileId,
+        progress: 0,
+        ownedObjectUrl: blobUrl,
+        task: uploadTask,
+      });
+      if (!uploadId) {
+        cancelUploadTask(uploadTask);
+        gridStore.revokeOwnedObjectUrl(blobUrl);
+        return;
+      }
+      const currentUploadId = uploadId;
 
       uploadTask.onProgress((progress: StorageUploadProgress) => {
-        gridStore.setTileUploading(
-          tileId,
+        gridStore.progressUpload(
+          currentUploadId,
           progress.bytesTransferred / progress.totalBytes,
         );
       });
 
       const url = await uploadTask.done();
 
-      gridStore.resolveUploadedUrl({ tileId, permanentUrl: url });
+      gridStore.resolveUpload(currentUploadId, url);
     } catch (error) {
       console.error("File upload failed:", error);
-      gridStore.clearTileUploading(tileId);
-      URL.revokeObjectURL(blobUrl);
 
       // Revert to suggestion tile on failure
-      const revertContent = createTileContent(ContentType.SUGGESTION, {
-        action: "media",
-        label: "Add Media",
-      });
-      gridStore.setTileContent(tileId, revertContent);
+      if (uploadId && gridStore.failUpload(uploadId)) {
+        const revertContent = createTileContent(ContentType.SUGGESTION, {
+          action: "media",
+          label: "Add Media",
+        });
+        gridStore.setTileContent(tileId, revertContent);
+      }
       throw error;
     }
   };
@@ -206,13 +236,12 @@ export function useFileUpload() {
 
     if (!tileId) {
       for (const item of items) {
-        URL.revokeObjectURL(item.url);
+        gridStore.revokeOwnedObjectUrl(item.url);
       }
       return;
     }
 
-    gridStore.setTileUploading(tileId, 0);
-
+    let activeUploadId: string | null = null;
     try {
       const n = files.length;
       let completed = 0;
@@ -225,31 +254,40 @@ export function useFileUpload() {
           file,
           { fileType: "documents" },
         );
+        const uploadId = gridStore.startUpload({
+          tileId,
+          itemId: item.id,
+          progress: completed / n,
+          ownedObjectUrl: item.url,
+          task: uploadTask,
+        });
+        activeUploadId = uploadId;
+        if (!uploadId) {
+          cancelUploadTask(uploadTask);
+          gridStore.revokeOwnedObjectUrl(item.url);
+          return;
+        }
 
         uploadTask.onProgress((progress) => {
           const fileFrac =
             progress.totalBytes > 0
               ? progress.bytesTransferred / progress.totalBytes
               : 0;
-          gridStore.setTileUploading(
-            tileId,
+          gridStore.progressUpload(
+            uploadId,
             (completed + fileFrac) / n,
           );
         });
 
         const url = await uploadTask.done();
         completed += 1;
-        gridStore.setTileUploading(tileId, completed / n);
+        gridStore.progressUpload(uploadId, completed / n);
         // Record each item's resolved URL without clearing progress yet; the
         // single final save is scheduled and flushed after the loop.
-        gridStore.resolveUploadedUrl({
-          tileId,
-          itemId: item.id,
-          permanentUrl: url,
-          final: false,
-        });
+        if (!gridStore.resolveUpload(uploadId, url, i === n - 1)) {
+          return;
+        }
       }
-      gridStore.clearTileUploading(tileId);
       // Server-side thumbnail generation requires the document data to be
       // durably persisted first, so flush the scheduled saves before starting.
       await gridStore.flushSaves();
@@ -283,11 +321,9 @@ export function useFileUpload() {
       }
     } catch (error) {
       console.error("Document upload failed:", error);
-      gridStore.clearTileUploading(tileId);
-      for (const item of items) {
-        URL.revokeObjectURL(item.url);
+      if (activeUploadId && gridStore.failUpload(activeUploadId)) {
+        gridStore.removeTile(tileId);
       }
-      gridStore.removeTile(tileId);
       throw error;
     }
   };

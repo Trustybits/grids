@@ -27,6 +27,7 @@ import type { useGridCompatibilityStore } from "@/stores/grid/gridCompatibility"
 import type { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import type { useGridSessionStore } from "@/stores/grid/gridSession";
 import type { useGridUiStore } from "@/stores/grid/gridUi";
+import type { GridUploadRecord } from "@/stores/grid/gridUploads";
 import type { useGridUploadsStore } from "@/stores/grid/gridUploads";
 import type { useGridViewportStore } from "@/stores/grid/gridViewport";
 import type { useThemeStore } from "@/stores/theme";
@@ -43,6 +44,7 @@ import {
 import { createPersistableGridSnapshot } from "@/utils/GridPersistenceUtils";
 import type {
   ResolveUploadedUrlInput,
+  StartUploadInput,
   UpdateCaptionInput,
 } from "./GridCommands";
 
@@ -789,6 +791,124 @@ export class GridController {
     this.scheduleSave();
   }
 
+  startUpload(input: StartUploadInput): string | null {
+    const scope = this.stores.session.getPersistenceScope();
+    if (!scope || !this.uploadTargetExists(input.tileId, input.itemId)) {
+      return null;
+    }
+
+    return this.stores.uploads.startUpload({
+      uploadId: input.uploadId,
+      gridId: scope.gridId,
+      sessionGeneration: scope.sessionGeneration,
+      tileId: input.tileId,
+      documentItemId: input.itemId,
+      progress: input.progress,
+      ownedObjectUrl: input.ownedObjectUrl,
+      task: input.task,
+    });
+  }
+
+  progressUpload(uploadId: string, progress: number): boolean {
+    if (!this.validateUpload(uploadId)) {
+      this.stores.uploads.abandonUpload(uploadId);
+      return false;
+    }
+    return this.stores.uploads.progressUpload(uploadId, progress);
+  }
+
+  resolveUpload(
+    uploadId: string,
+    url: string,
+    final = true,
+  ): boolean {
+    const record = this.validateUpload(uploadId);
+    if (!record) {
+      this.stores.uploads.abandonUpload(uploadId);
+      return false;
+    }
+
+    const resolved = this.stores.uploads.resolveUpload(
+      uploadId,
+      url,
+      final,
+    );
+    if (!resolved) return false;
+
+    if (record.documentItemId) {
+      this.stores.history.replaceBlobUrl(
+        record.tileId,
+        url,
+        record.documentItemId,
+      );
+    } else {
+      this.stores.history.replaceBlobUrl(record.tileId, url);
+    }
+    this.scheduleSave();
+    return true;
+  }
+
+  failUpload(uploadId: string): boolean {
+    if (!this.validateUpload(uploadId)) {
+      this.stores.uploads.abandonUpload(uploadId);
+      return false;
+    }
+    return this.stores.uploads.failUpload(uploadId);
+  }
+
+  abandonUpload(uploadId: string): boolean {
+    return this.stores.uploads.abandonUpload(uploadId);
+  }
+
+  cancelUpload(uploadId: string): boolean {
+    return this.stores.uploads.cancelUpload(uploadId);
+  }
+
+  /**
+   * Revoke a locally created object URL through the uploads store so the
+   * exactly-once ownership ledger stays the single revocation authority.
+   * Optimistic upload flows route their early-bail and pre-record cleanup here
+   * instead of calling `URL.revokeObjectURL` directly.
+   */
+  revokeOwnedObjectUrl(url: string | undefined): boolean {
+    return this.stores.uploads.revokeOwnedObjectUrl(url);
+  }
+
+  private validateUpload(uploadId: string): GridUploadRecord | null {
+    const record = this.stores.uploads.uploadRecords[uploadId];
+    if (!record || record.status !== "active") return null;
+    if (!this.stores.uploads.isCurrentUpload(uploadId)) return null;
+    if (
+      !this.stores.session.matchesPersistenceScope({
+        gridId: record.gridId,
+        sessionGeneration: record.sessionGeneration,
+      })
+    ) {
+      return null;
+    }
+    if (!this.uploadTargetExists(record.tileId, record.documentItemId)) {
+      return null;
+    }
+    return record;
+  }
+
+  private uploadTargetExists(
+    tileId: string,
+    documentItemId?: string,
+  ): boolean {
+    const tile = this.stores.session.currentGrid?.tiles.find(
+      (candidate) => candidate.i === tileId,
+    );
+    if (!tile) return false;
+    if (!documentItemId) return true;
+    if (tile.content.type !== ContentType.DOCUMENT) return false;
+    return Boolean(
+      (tile.content as DocumentsContent).items?.some(
+        (item) => item.id === documentItemId,
+      ),
+    );
+  }
+
   setTileUploading(tileId: string, progress: number): void {
     this.stores.uploads.setTileUploading(tileId, progress);
   }
@@ -974,6 +1094,43 @@ export class GridController {
     if (!editing) {
       this.scheduleSave();
     }
+  }
+
+  /**
+   * Persist a debounced editor autosave. While an edit transaction is active
+   * for the tile this updates canonical content and schedules a single
+   * background save, so text the user paused on mid-edit survives a reload —
+   * without pushing a history entry, since the open transaction still records
+   * exactly one undo entry at commit. Outside an edit transaction it defers to
+   * {@link patchTileContent} so a stray autosave still captures history.
+   */
+  autosaveTileContent(
+    id: string,
+    patch: Partial<AnyTileContent>,
+  ): void {
+    if (!this.stores.history.isEditing(id)) {
+      this.patchTileContent(id, patch);
+      return;
+    }
+
+    const tile = this.stores.session.currentGrid?.tiles.find(
+      (candidate) => candidate.i === id,
+    );
+    if (!tile) return;
+
+    const currentContent = tile.content as AnyTileContent &
+      Record<string, unknown>;
+    const patchRecord = patch as Record<string, unknown>;
+    const hasChanges = Object.keys(patchRecord).some(
+      (key) => !Object.is(currentContent[key], patchRecord[key]),
+    );
+    if (!hasChanges) return;
+
+    tile.content = {
+      ...currentContent,
+      ...patchRecord,
+    } as TileContent;
+    this.scheduleSave();
   }
 
   patchDocumentItem(
@@ -1185,8 +1342,10 @@ export class GridController {
 
     this.pushUndoSnapshot("Remove tile");
     const tile = grid.tiles.find((candidate) => candidate.i === id);
-    if (tile) this.revokeTileObjectUrls(tile);
-    this.stores.uploads.clearTileState(id);
+    this.stores.uploads.clearTileState(
+      id,
+      tile ? this.getTileObjectUrls(tile) : [],
+    );
 
     if (grid.overrides) {
       for (const breakpoint of Object.keys(
@@ -1452,23 +1611,25 @@ export class GridController {
     console.error(error);
   }
 
-  private revokeTileObjectUrls(tile: Tile): void {
+  private getTileObjectUrls(tile: Tile): string[] {
+    const urls: string[] = [];
     if (
       "src" in tile.content &&
       typeof tile.content.src === "string" &&
       tile.content.src.startsWith("blob:")
     ) {
-      URL.revokeObjectURL(tile.content.src);
+      urls.push(tile.content.src);
     }
-    if (tile.content.type !== ContentType.DOCUMENT) return;
+    if (tile.content.type !== ContentType.DOCUMENT) return urls;
     for (const item of (tile.content as DocumentsContent).items ?? []) {
       if (
         typeof item.url === "string" &&
         item.url.startsWith("blob:")
       ) {
-        URL.revokeObjectURL(item.url);
+        urls.push(item.url);
       }
     }
+    return urls;
   }
 
   private logTileEvent(

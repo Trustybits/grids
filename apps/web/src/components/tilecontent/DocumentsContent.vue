@@ -423,7 +423,9 @@ export default defineComponent({
       const nextTitle = draftTitle.value.trim();
       const nextDescription = draftDescription.value.trim();
 
-      gridStore.patchTileContent(props.tileId, {
+      // Debounced editor autosave: persists paused detail edits mid-edit
+      // without adding a history entry (the edit transaction owns the entry).
+      gridStore.autosaveTileContent(props.tileId, {
         customTitle: nextTitle,
         customDescription: nextDescription,
       });

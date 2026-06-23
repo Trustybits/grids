@@ -453,6 +453,7 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import { useTileContentWriter } from "@/composables/useTileContentWriter";
 import { useBadges } from "@/composables/useBadges";
 import { useEditorContentSync } from "@/composables/useEditingLifecycle";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -668,13 +669,10 @@ export default defineComponent({
       return (tile?.content as ProfileBioContent | undefined)?.profilePhotoUrl ?? "";
     });
 
-    const patchContent = (patch: Partial<ProfileBioContent>) => {
-      if (tileId) {
-        gridStore.patchTileContent(tileId, patch);
-        return;
-      }
-      Object.assign(props.content, patch);
-    };
+    const { patchContent, autosaveContent } = useTileContentWriter(
+      tileId,
+      () => props.content,
+    );
 
     const saveProfilePhoto = async (url: string) => {
       patchContent({ profilePhotoUrl: url });
@@ -694,7 +692,7 @@ export default defineComponent({
       const title = serializeEditor(titleEditor.value);
       const bio = serializeEditor(bioEditor.value);
 
-      patchContent({ name, title, bio });
+      autosaveContent({ name, title, bio });
     };
 
     watch(

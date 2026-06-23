@@ -26,6 +26,11 @@ const { mockGetCurrentUserId, storage, gridStore } = vi.hoisted(() => ({
   gridStore: {
     addTile: vi.fn<() => string | null>(() => "tile-1"),
     setTileContent: vi.fn(),
+    startUpload: vi.fn(() => "upload-1" as string | null),
+    progressUpload: vi.fn(),
+    resolveUpload: vi.fn(() => true),
+    failUpload: vi.fn(() => true),
+    revokeOwnedObjectUrl: vi.fn(() => true),
     setTileUploading: vi.fn(),
     clearTileUploading: vi.fn(),
     setResolvedUrl: vi.fn(),
@@ -77,6 +82,7 @@ function makeUploadTask() {
         progressCb = cb;
       }),
       done: vi.fn(() => donePromise),
+      cancel: vi.fn(),
     },
     emitProgress: (bytesTransferred: number, totalBytes: number) =>
       progressCb?.({ bytesTransferred, totalBytes }),
@@ -95,6 +101,9 @@ beforeEach(() => {
   mockGetCurrentUserId.mockReturnValue("user-1");
   storage.validateFile.mockReturnValue({ isImage: true });
   gridStore.addTile.mockReturnValue("tile-1");
+  gridStore.startUpload.mockReturnValue("upload-1");
+  gridStore.resolveUpload.mockReturnValue(true);
+  gridStore.failUpload.mockReturnValue(true);
   gridStore.currentGrid = { id: "grid-1" };
   mockDocumentItemIsPdf.mockReturnValue(false);
   globalThis.URL.createObjectURL = vi.fn(() => "blob:mock");
@@ -163,16 +172,21 @@ describe("uploadFileOptimistic", () => {
 
     expect(globalThis.URL.createObjectURL).toHaveBeenCalled();
     expect(gridStore.addTile).toHaveBeenCalled();
-    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-1", 0);
+    expect(gridStore.startUpload).toHaveBeenCalledWith({
+      tileId: "tile-1",
+      progress: 0,
+      ownedObjectUrl: "blob:mock",
+      task,
+    });
 
     resolveDone("https://storage/final.png");
     await promise;
 
-    expect(gridStore.resolveUploadedUrl).toHaveBeenCalledWith({
-      tileId: "tile-1",
-      permanentUrl: "https://storage/final.png",
-    });
-    expect(gridStore.resolveUploadedUrl).toHaveBeenCalledTimes(1);
+    expect(gridStore.resolveUpload).toHaveBeenCalledWith(
+      "upload-1",
+      "https://storage/final.png",
+    );
+    expect(gridStore.resolveUploadedUrl).not.toHaveBeenCalled();
   });
 
   it("reports upload progress as a fraction", async () => {
@@ -183,17 +197,18 @@ describe("uploadFileOptimistic", () => {
     const promise = uploadFileOptimistic(file());
 
     emitProgress(25, 100);
-    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-1", 0.25);
+    expect(gridStore.progressUpload).toHaveBeenCalledWith("upload-1", 0.25);
 
     resolveDone("https://x");
     await promise;
   });
 
-  it("revokes the blob and bails when the tile cannot be created", async () => {
+  it("revokes the blob through the owned-URL ledger and bails when the tile cannot be created", async () => {
     gridStore.addTile.mockReturnValue(null);
     const { uploadFileOptimistic } = useFileUpload();
     await uploadFileOptimistic(file());
-    expect(globalThis.URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock");
+    expect(gridStore.revokeOwnedObjectUrl).toHaveBeenCalledWith("blob:mock");
+    expect(globalThis.URL.revokeObjectURL).not.toHaveBeenCalled();
     expect(storage.uploadResumable).not.toHaveBeenCalled();
   });
 
@@ -216,8 +231,10 @@ describe("uploadFileOptimistic", () => {
     rejectDone(new Error("upload failed"));
 
     await expect(promise).rejects.toThrow("upload failed");
-    expect(gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
-    expect(globalThis.URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock");
+    expect(gridStore.failUpload).toHaveBeenCalledWith("upload-1");
+    // Cleanup is delegated to failUpload; useFileUpload never revokes directly.
+    expect(gridStore.revokeOwnedObjectUrl).not.toHaveBeenCalled();
+    expect(globalThis.URL.revokeObjectURL).not.toHaveBeenCalled();
     expect(gridStore.removeTile).toHaveBeenCalledWith("tile-1");
     errSpy.mockRestore();
   });
@@ -235,15 +252,20 @@ describe("uploadFileOptimisticForTile", () => {
       "tile-9",
       expect.objectContaining({ type: ContentType.IMAGE }),
     );
-    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-9", 0);
+    expect(gridStore.startUpload).toHaveBeenCalledWith({
+      tileId: "tile-9",
+      progress: 0,
+      ownedObjectUrl: "blob:mock",
+      task,
+    });
 
     resolveDone("https://storage/final.png");
     await promise;
 
-    expect(gridStore.resolveUploadedUrl).toHaveBeenCalledWith({
-      tileId: "tile-9",
-      permanentUrl: "https://storage/final.png",
-    });
+    expect(gridStore.resolveUpload).toHaveBeenCalledWith(
+      "upload-1",
+      "https://storage/final.png",
+    );
   });
 
   it("reports upload progress as a fraction for the existing tile", async () => {
@@ -254,7 +276,7 @@ describe("uploadFileOptimisticForTile", () => {
     const promise = uploadFileOptimisticForTile(file(), "tile-9");
 
     emitProgress(30, 120);
-    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-9", 0.25);
+    expect(gridStore.progressUpload).toHaveBeenCalledWith("upload-1", 0.25);
 
     resolveDone("https://x");
     await promise;
@@ -270,6 +292,7 @@ describe("uploadFileOptimisticForTile", () => {
     rejectDone(new Error("boom"));
 
     await expect(promise).rejects.toThrow("boom");
+    expect(gridStore.failUpload).toHaveBeenCalledWith("upload-1");
     expect(mockCreateTileContent).toHaveBeenCalledWith(ContentType.SUGGESTION, {
       action: "media",
       label: "Add Media",
@@ -314,13 +337,18 @@ describe("uploadDocumentsOptimistic", () => {
     resolveDone("https://storage/a.txt");
     await promise;
 
-    expect(gridStore.resolveUploadedUrl).toHaveBeenCalledWith({
+    expect(gridStore.startUpload).toHaveBeenCalledWith({
       tileId: "tile-1",
       itemId: "uuid-1",
-      permanentUrl: "https://storage/a.txt",
-      final: false,
+      progress: 0,
+      ownedObjectUrl: "blob:mock",
+      task,
     });
-    expect(gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
+    expect(gridStore.resolveUpload).toHaveBeenCalledWith(
+      "upload-1",
+      "https://storage/a.txt",
+      true,
+    );
     expect(gridStore.flushSaves).toHaveBeenCalled();
   });
 
@@ -387,20 +415,20 @@ describe("uploadDocumentsOptimistic", () => {
 
     // Halfway through file 1 of 2: (0 + 0.5) / 2 = 0.25
     t1.emitProgress(50, 100);
-    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-1", 0.25);
+    expect(gridStore.progressUpload).toHaveBeenCalledWith("upload-1", 0.25);
 
     // Finish file 1: completed becomes 1 → 1/2 = 0.5
     t1.resolveDone("https://storage/a.txt");
     await tick();
-    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-1", 0.5);
+    expect(gridStore.progressUpload).toHaveBeenCalledWith("upload-1", 0.5);
 
     // Halfway through file 2: (1 + 0.5) / 2 = 0.75
     t2.emitProgress(50, 100);
-    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-1", 0.75);
+    expect(gridStore.progressUpload).toHaveBeenCalledWith("upload-1", 0.75);
 
     t2.resolveDone("https://storage/b.txt");
     await promise;
-    expect(gridStore.setTileUploading).toHaveBeenCalledWith("tile-1", 1);
+    expect(gridStore.progressUpload).toHaveBeenCalledWith("upload-1", 1);
   });
 
   it("does not request a thumbnail for non-PDF items", async () => {
@@ -433,11 +461,12 @@ describe("uploadDocumentsOptimistic", () => {
     expect(gridStore.addTile).not.toHaveBeenCalled();
   });
 
-  it("revokes all blob URLs and bails when the tile cannot be created", async () => {
+  it("revokes all blob URLs through the owned-URL ledger and bails when the tile cannot be created", async () => {
     gridStore.addTile.mockReturnValue(null);
     const { uploadDocumentsOptimistic } = useFileUpload();
     await uploadDocumentsOptimistic([file("a.txt"), file("b.txt")]);
-    expect(globalThis.URL.revokeObjectURL).toHaveBeenCalledTimes(2);
+    expect(gridStore.revokeOwnedObjectUrl).toHaveBeenCalledTimes(2);
+    expect(globalThis.URL.revokeObjectURL).not.toHaveBeenCalled();
     expect(storage.uploadResumable).not.toHaveBeenCalled();
   });
 
@@ -451,8 +480,10 @@ describe("uploadDocumentsOptimistic", () => {
     rejectDone(new Error("doc failed"));
 
     await expect(promise).rejects.toThrow("doc failed");
-    expect(gridStore.clearTileUploading).toHaveBeenCalledWith("tile-1");
-    expect(globalThis.URL.revokeObjectURL).toHaveBeenCalled();
+    expect(gridStore.failUpload).toHaveBeenCalledWith("upload-1");
+    // Cleanup is delegated to failUpload; useFileUpload never revokes directly.
+    expect(gridStore.revokeOwnedObjectUrl).not.toHaveBeenCalled();
+    expect(globalThis.URL.revokeObjectURL).not.toHaveBeenCalled();
     expect(gridStore.removeTile).toHaveBeenCalledWith("tile-1");
     errSpy.mockRestore();
   });

@@ -1,6 +1,6 @@
 <!-- eslint-disable vue/multi-word-component-names, vue/no-unused-components -->
 <template>
-  <p v-if="gridStore.isLoading">Loading layout...</p>
+  <p v-if="gridView.isLoading">Loading layout...</p>
   <div
     v-else-if="displayLayout.length"
     ref="scaleWrapperRef"
@@ -15,7 +15,7 @@
       :row-height="rowHeight"
       :is-draggable="isEditable"
       :is-resizable="isEditable"
-      :vertical-compact="gridStore.verticalCompact"
+      :vertical-compact="gridView.verticalCompact"
       :prevent-collision="false"
       :restore-on-drag="true"
       :use-css-transforms="true"
@@ -36,12 +36,12 @@
 </template>
 
 <script lang="ts">
-import { computed, nextTick, onUnmounted, watch } from "vue";
+import { proxyRefs, computed, nextTick, onUnmounted, watch } from "vue";
 import { GridLayout, GridItem } from "vue3-grid-layout";
 // import VueGridLayout from "vue-grid-layout-v3";
 import GridTile from "./Tile.vue";
 import { useResponsiveGridLayout } from "@/composables/useResponsiveGridLayout";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-view/useGridViewContext";
 import {
   packGridLayout,
   reconcileGridLayout,
@@ -68,11 +68,11 @@ export default {
     },
   },
   setup(props) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const margin = 48;
 
     const baseColNum = computed(() => {
-      return gridStore.currentGrid?.colNum ?? 12;
+      return gridView.grid?.colNum ?? 12;
     });
 
     const {
@@ -89,20 +89,20 @@ export default {
       waitForLayoutReady,
     } = useResponsiveGridLayout({
       baseColumnCount: baseColNum,
-      forcedBreakpoint: () => gridStore.forcedBreakpoint,
-      tiles: () => gridStore.currentGrid?.tiles ?? [],
-      overrides: () => gridStore.currentGrid?.overrides,
+      forcedBreakpoint: () => gridView.forcedBreakpoint,
+      tiles: () => gridView.grid?.tiles ?? [],
+      overrides: () => gridView.grid?.overrides,
       rowHeight: () => props.rowHeight,
       margin,
       disableAutoScale: () => props.disableAutoScale,
       onBreakpointsChanged: (active, viewport) => {
-        gridStore.setActiveBreakpoint(active);
-        gridStore.setViewportBreakpoint(viewport);
+        gridView.setActiveBreakpoint(active);
+        gridView.setViewportBreakpoint(viewport);
       },
     });
 
     const disposeLayoutReadiness =
-      gridStore.registerLayoutReadinessAdapter({
+      gridView.registerLayoutReadinessAdapter({
         waitForLayoutReady,
       });
     onUnmounted(disposeLayoutReadiness);
@@ -119,7 +119,7 @@ export default {
 
     const renderedTiles = computed(() => {
       const tilesById = new Map(
-        (gridStore.currentGrid?.tiles ?? []).map((tile) => [tile.i, tile]),
+        (gridView.grid?.tiles ?? []).map((tile) => [tile.i, tile]),
       );
       return displayLayout.value.flatMap((layout) => {
         const tile = tilesById.get(layout.i);
@@ -133,22 +133,23 @@ export default {
     watch(
       displayLayout,
       (tiles) => {
-        gridStore.setDisplayPositions(
+        gridView.setDisplayPositions(
           tiles.map((t) => ({ i: t.i, x: t.x, y: t.y, w: t.w, h: t.h })),
         );
       },
       { immediate: true, deep: true },
     );
 
-    // Delegates to gridStore.canEdit — the single source of truth for
+    // Delegates to gridView.canEdit — the single source of truth for
     // whether grid manipulation (drag/resize) is allowed right now.
-    const isEditable = computed(() => gridStore.canEdit);
+    const isEditable = computed(() => gridView.canEdit);
 
-    // When gravity is toggled on, compact tiles and save positions to store
+    // When gravity is toggled on, compact tiles and publish the positions
+    // through the view context.
     watch(
-      () => gridStore.verticalCompact,
+      () => gridView.verticalCompact,
       (isCompact, wasCompact) => {
-        if (!gridStore.currentGrid || !gridStore.canEdit) return;
+        if (!gridView.grid || !gridView.canEdit) return;
         if (activeBreakpoint.value !== "lg") return;
 
         // Only act when gravity is turned ON (false -> true)
@@ -164,13 +165,13 @@ export default {
           );
 
           // Commit the compacted positions into canonical tiles and persist.
-          gridStore.commitCompactedLayout(compacted);
+          gridView.commitCompactedLayout(compacted);
         }
       },
     );
 
     return {
-      gridStore,
+      gridView,
       gridWidth,
       margin,
       displayLayout,

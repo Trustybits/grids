@@ -115,6 +115,7 @@
 
 <script lang="ts">
 import {
+  proxyRefs,
   computed,
   defineComponent,
   nextTick,
@@ -128,7 +129,7 @@ import ArrowDownIcon from "@/components/icons/ArrowDownIcon.vue";
 import CloseIcon from "@/components/icons/tile-actionbar/CloseIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-view/useGridViewContext";
 import type { ChatContent, ChatMessage } from "@grids/contracts/types";
 
 export default defineComponent({
@@ -149,7 +150,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const chatService = getServiceFactory().getChatService();
 
     const draftMessage = ref("");
@@ -199,14 +200,14 @@ export default defineComponent({
     let dragStartPos: { x: number; y: number } | null = null;
     const DRAG_THRESHOLD = 5;
 
-    const gridId = computed(() => gridStore.currentGrid?.id ?? "");
+    const gridId = computed(() => gridView.grid?.id ?? "");
 
     const sortedMessages = computed(() =>
       [...messages.value].sort((a, b) => a.createdAt - b.createdAt),
     );
 
-    const ownerId = computed(() => gridStore.currentGrid?.userId || "");
-    const isOwner = computed(() => gridStore.isOwner);
+    const ownerId = computed(() => gridView.grid?.userId || "");
+    const isOwner = computed(() => gridView.isOwner);
     const canSend = computed(() => !!gridId.value && !!props.tileId);
     const composerPlaceholder = computed(() =>
       isOwner.value ? "Write a message.." : "Message the owner..",

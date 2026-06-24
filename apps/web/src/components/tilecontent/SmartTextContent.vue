@@ -8,11 +8,11 @@
       class="text-content scrollable-thin"
       :class="{
         'not-editing': !isEditing,
-        'can-edit': gridStore.canEdit,
+        'can-edit': gridView.canEdit,
         'is-wide-1-high': isWideOneHigh,
         'is-tall-1-wide': isTallOneWide,
-        'owner-view': gridStore.canEdit,
-        'viewer-view': !gridStore.canEdit,
+        'owner-view': gridView.canEdit,
+        'viewer-view': !gridView.canEdit,
         'is-overflowing': isTextOverflowing,
       }"
       :style="{
@@ -21,7 +21,7 @@
         color: textColor,
         textAlign: textAlign,
       }"
-      :spellcheck="gridStore.canEdit && isEditing"
+      :spellcheck="gridView.canEdit && isEditing"
     >
       <EditorContent :editor="editor" />
       <div
@@ -197,6 +197,7 @@
 
 <script lang="ts">
 import {
+  proxyRefs,
   defineComponent,
   ref,
   watch,
@@ -223,7 +224,7 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-view/useGridViewContext";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
@@ -273,11 +274,11 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const imageInput = ref<HTMLInputElement | null>(null);
     const { uploadFileToUrl } = useFileUpload();
 
-    const isOwner = computed(() => gridStore.canEdit);
+    const isOwner = computed(() => gridView.canEdit);
     const isTextOverflowing = ref(false);
     const isScrolledToBottom = ref(false);
     const editorDomRef = ref<HTMLElement | null>(null);
@@ -545,7 +546,7 @@ export default defineComponent({
 
     const updateSlashState = () => {
       const e = editor.value;
-      if (!e || !isEditing.value || !gridStore.canEdit) {
+      if (!e || !isEditing.value || !gridView.canEdit) {
         hideSlashMenu();
         return;
       }
@@ -860,7 +861,7 @@ export default defineComponent({
     });
 
     const onShortClick = () => {
-      if (!gridStore.canEdit) {
+      if (!gridView.canEdit) {
         if (tileLinkExists.value) handleFollowLink();
         return;
       }
@@ -901,12 +902,12 @@ export default defineComponent({
       useColorPicker(tileId, toRef(props, "content"), emit);
 
     const handleTextAlignChange = (align: "left" | "center" | "right") => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       patchContent({ textAlign: align });
     };
 
     const persistEditorText = () => {
-      if (!editor.value || !gridStore.canEdit) return;
+      if (!editor.value || !gridView.canEdit) return;
       const output = JSON.stringify(editor.value.getJSON());
       autosaveContent({ text: output });
     };
@@ -974,7 +975,7 @@ export default defineComponent({
     };
 
     return {
-      gridStore,
+      gridView,
       editor,
       shouldShowOverflow,
       isEditing,

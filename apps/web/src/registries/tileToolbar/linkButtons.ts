@@ -14,7 +14,7 @@ export const LINK_BG_TOGGLE: ToolbarButton = {
       : "Show background image";
   },
   group: "appearance",
-  action: (ctx) => ctx.gridStore.toggleLinkBackground(ctx.tile.i),
+  action: (ctx) => ctx.gridView.toggleLinkBackground(ctx.tile.i),
   isActive: (ctx) =>
     (ctx.tile.content as LinkContent).linkBackgroundEnabled !== false,
 };
@@ -37,7 +37,7 @@ export const LINK_MORE_MENU: ToolbarButton = {
       id: "use-url",
       label: "Use image URL",
       action: (ctx) => {
-        ctx.gridStore.setPanelActive(ctx.tile.i, "imageUrl");
+        ctx.gridView.setPanelActive(ctx.tile.i, "imageUrl");
       },
     },
     {

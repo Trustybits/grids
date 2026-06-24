@@ -6,8 +6,8 @@
       class="image-wrapper"
       :class="{
         'crop-active': isEditing,
-        'owner-view': gridStore.isOwner,
-        'viewer-view': !gridStore.isOwner,
+        'owner-view': gridView.isOwner,
+        'viewer-view': !gridView.isOwner,
         'has-link': tileLinkExists,
       }"
       @mousedown="startDragging"
@@ -79,6 +79,7 @@
 
 <script lang="ts">
 import {
+  proxyRefs,
   defineComponent,
   ref,
   computed,
@@ -89,7 +90,7 @@ import {
   toRef,
 } from "vue";
 import { type ImageContent } from "@grids/contracts/types";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-view/useGridViewContext";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
@@ -109,18 +110,18 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
 
     // Upload progress tracking — injected tile ID lets us look up our upload state
     const tileId = inject<string>("tileId", "");
     const isUploading = computed(() => {
       return (
-        tileId != null && tileId !== "" && tileId in gridStore.uploadingTiles
+        tileId != null && tileId !== "" && tileId in gridView.uploadingTiles
       );
     });
     const uploadPercent = computed(() => {
       if (!tileId) return 0;
-      const progress = gridStore.uploadingTiles[tileId] ?? 0;
+      const progress = gridView.uploadingTiles[tileId] ?? 0;
       return Math.round(progress * 100);
     });
 
@@ -150,7 +151,7 @@ export default defineComponent({
 
     // Toggle crop mode
     const toggleEditMode = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       isEditing.value = !isEditing.value;
 
@@ -165,7 +166,7 @@ export default defineComponent({
       if (!isEditing.value) {
         // Use patchTileContent to properly persist the offset changes
         if (tileId && tileId !== "") {
-          gridStore.patchTileContent(tileId, {
+          gridView.patchTileContent(tileId, {
             offsetX: offsetX.value,
             offsetY: offsetY.value,
           });
@@ -241,7 +242,7 @@ export default defineComponent({
         ? isDragging.value
           ? "grabbing"
           : "grab"
-        : !gridStore.isOwner && tileLinkExists.value
+        : !gridView.isOwner && tileLinkExists.value
           ? "pointer"
           : "default";
       const baseTransform = `translate(-50%, -50%) translate(${offsetX.value}px, ${offsetY.value}px)`;
@@ -342,13 +343,13 @@ export default defineComponent({
     } = useTileLink(tileId || null, props.content);
 
     const onShortClick = () => {
-      if (!gridStore.isOwner && tileLinkExists.value) {
+      if (!gridView.isOwner && tileLinkExists.value) {
         handleFollowLink();
       }
     };
 
     return {
-      gridStore,
+      gridView,
       isEditing,
       isUploading,
       uploadPercent,

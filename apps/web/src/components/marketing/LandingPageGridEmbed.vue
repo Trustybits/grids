@@ -32,7 +32,7 @@
   Other design decisions:
     • No <GridPage> / <UserSlugPage> wrapper → no toolbar, no breakpoint
       switcher, no background iframe, no drag/drop overlay.
-    • Non-owner by default (layout store sets isOwner=false on load) →
+    • Non-owner by default (demo grid view context reports canEdit=false) →
       every owner-only UI element inside <GridTile> is gated off.
     • Clicks into tiles naturally open external links in new tabs
       (LinkContent, MusicContent, YouTubeContent, markdown <a>, and
@@ -103,7 +103,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Grid from '@/components/grid/Grid.vue';
-import { useGridStore } from '@/stores/grid';
+import { createDemoGridViewContext } from '@/grid-view/createDemoGridViewContext';
+import { provideGridViewContext } from '@/grid-view/useGridViewContext';
 import {
   DEMO_GRID_DIMENSIONS,
   createDemoGrid,
@@ -119,7 +120,8 @@ const _props = withDefaults(
   },
 );
 
-const gridStore = useGridStore();
+const demoContext = createDemoGridViewContext(createDemoGrid());
+provideGridViewContext(demoContext);
 
 // ── Pinned scroll-jack state ────────────────────────────────────────────────
 const jackRoot = ref<HTMLElement | null>(null);
@@ -267,20 +269,16 @@ const scrollSizerStyle = computed(() => {
   };
 });
 
-// ── Grid-store wiring ─────────────────────────────────────────────────────
-let prevGrid: typeof gridStore.currentGrid = null;
-let prevIsOwner = false;
-let prevForcedBreakpoint: Breakpoint | null = null;
-
+// ── Demo context breakpoint wiring ─────────────────────────────────────────
 const applyForcedBreakpoint = (bp: Breakpoint) => {
-  if (gridStore.forcedBreakpoint === bp) return;
-  gridStore.setForcedBreakpoint(bp);
+  if (demoContext.forcedBreakpoint.value === bp) return;
+  demoContext.setForcedBreakpoint(bp);
 };
 
 watch(displayBreakpoint, (bp) => {
   applyForcedBreakpoint(bp);
   if (viewportEl.value) viewportEl.value.scrollTop = 0;
-});
+}, { immediate: true });
 
 // ── Scroll-progress driver ──────────────────────────────────────────────────
 //
@@ -358,13 +356,6 @@ const onResize = () => {
 
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 onMounted(() => {
-  prevGrid = gridStore.currentGrid;
-  prevIsOwner = gridStore.isOwner;
-  prevForcedBreakpoint = gridStore.forcedBreakpoint;
-
-  gridStore.loadDemoGrid(createDemoGrid());
-  applyForcedBreakpoint(displayBreakpoint.value);
-
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onResize);
   onScroll();
@@ -374,11 +365,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll);
   window.removeEventListener('resize', onResize);
   if (rafId) cancelAnimationFrame(rafId);
-
-  gridStore.setForcedBreakpoint(prevForcedBreakpoint);
-  gridStore.currentGrid = prevGrid;
-  gridStore.isOwner = prevIsOwner;
-  gridStore.isDemoGrid = false;
 });
 
 // Defense in depth: if anything inside the embed tries to navigate via a

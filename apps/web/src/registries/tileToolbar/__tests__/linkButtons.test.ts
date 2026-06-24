@@ -4,10 +4,10 @@
  * Covers:
  *  - LINK_BG_TOGGLE: dynamic title + isActive driven by
  *    content.linkBackgroundEnabled (tri-state: undefined/true => on), action
- *    delegates to gridStore.toggleLinkBackground
+ *    delegates to gridView.toggleLinkBackground
  *  - LINK_MORE_MENU menu items:
  *      upload-image -> child.openCustomImagePicker
- *      use-url      -> gridStore.setPanelActive(tile.i, "imageUrl")
+ *      use-url      -> gridView.setPanelActive(tile.i, "imageUrl")
  *      remove-image -> child.removeImage, danger flag, and `visible`
  *        predicate based on customImageUrl / metaImageUrl
  */
@@ -23,18 +23,18 @@ function makeCtx(
   content: Record<string, unknown> = {},
   child: Record<string, unknown> | null = {},
 ) {
-  const gridStore = {
+  const gridView = {
     toggleLinkBackground: vi.fn(),
     setPanelActive: vi.fn(),
   };
   const ctx = {
     tile: { i: "link-1", content },
     childComponent: { value: child },
-    gridStore,
+    gridView,
     isEditing: { value: false },
     isExitingCropMode: { value: false },
   } as unknown as ToolbarContext;
-  return { ctx, gridStore };
+  return { ctx, gridView };
 }
 
 describe("LINK_BG_TOGGLE", () => {
@@ -59,10 +59,10 @@ describe("LINK_BG_TOGGLE", () => {
     );
   });
 
-  it("action toggles the link background via the grid store", () => {
-    const { ctx, gridStore } = makeCtx({});
+  it("action toggles the link background via the grid view", () => {
+    const { ctx, gridView } = makeCtx({});
     LINK_BG_TOGGLE.action(ctx);
-    expect(gridStore.toggleLinkBackground).toHaveBeenCalledWith("link-1");
+    expect(gridView.toggleLinkBackground).toHaveBeenCalledWith("link-1");
   });
 
   it("isActive is true unless the flag is explicitly false", () => {
@@ -104,9 +104,9 @@ describe("LINK_MORE_MENU", () => {
   });
 
   it("use-url activates the imageUrl panel for the tile", () => {
-    const { ctx, gridStore } = makeCtx();
+    const { ctx, gridView } = makeCtx();
     byId("use-url").action(ctx);
-    expect(gridStore.setPanelActive).toHaveBeenCalledWith("link-1", "imageUrl");
+    expect(gridView.setPanelActive).toHaveBeenCalledWith("link-1", "imageUrl");
   });
 
   it("remove-image is flagged as a danger action", () => {

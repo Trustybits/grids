@@ -11,6 +11,10 @@ vi.mock("@/stores/grid", () => ({
   useGridStore: () => storeHolder.current,
 }));
 
+vi.mock("@/grid-view/useGridViewContext", () => ({
+  useGridViewContext: () => storeHolder.current,
+}));
+
 function makeTile(overrides: Partial<Tile> = {}): Tile {
   return {
     i: "tile-1",

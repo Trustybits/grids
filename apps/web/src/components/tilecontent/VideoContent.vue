@@ -158,6 +158,7 @@
 
 <script lang="ts">
 import {
+  proxyRefs,
   defineComponent,
   ref,
   computed,
@@ -169,7 +170,7 @@ import {
   type ComputedRef,
 } from "vue";
 import { type VideoContent } from "@grids/contracts/types";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-view/useGridViewContext";
 import { useVideoFocus } from "@/composables/useVideoFocus";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";
@@ -209,7 +210,7 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const videoFocus = useVideoFocus();
 
     // Injected tile position and size from GridTile
@@ -243,12 +244,12 @@ export default defineComponent({
     // Upload progress tracking — injected tile ID lets us look up our upload state
     const isUploading = computed(() => {
       return (
-        tileId != null && tileId !== "" && tileId in gridStore.uploadingTiles
+        tileId != null && tileId !== "" && tileId in gridView.uploadingTiles
       );
     });
     const uploadPercent = computed(() => {
       if (!tileId) return 0;
-      const progress = gridStore.uploadingTiles[tileId] ?? 0;
+      const progress = gridView.uploadingTiles[tileId] ?? 0;
       return Math.round(progress * 100);
     });
 
@@ -312,7 +313,7 @@ export default defineComponent({
 
     // Toggle crop mode
     const toggleEditMode = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       isEditing.value = !isEditing.value;
 
@@ -327,7 +328,7 @@ export default defineComponent({
       if (!isEditing.value) {
         // Use patchTileContent to properly persist the offset changes
         if (tileId && tileId !== "") {
-          gridStore.patchTileContent(tileId, {
+          gridView.patchTileContent(tileId, {
             offsetX: offsetX.value,
             offsetY: offsetY.value,
           });
@@ -731,7 +732,7 @@ export default defineComponent({
     } = useTileLink(tileId || null, props.content);
 
     return {
-      gridStore,
+      gridView,
       isEditing,
       isUploading,
       uploadPercent,

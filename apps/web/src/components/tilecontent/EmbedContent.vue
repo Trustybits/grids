@@ -38,9 +38,9 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, inject, ref, type Ref } from "vue";
+import { proxyRefs, computed, defineComponent, inject, ref, type Ref } from "vue";
 import { type EmbedContent } from "@grids/contracts/types";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-view/useGridViewContext";
 import CursorClickIcon from "@/components/icons/CursorClickIcon.vue";
 
 export default defineComponent({
@@ -54,8 +54,8 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const gridStore = useGridStore();
-    const canEdit = computed(() => gridStore.canEdit);
+    const gridView = proxyRefs(useGridViewContext());
+    const canEdit = computed(() => gridView.canEdit);
 
     const tileActivated = inject<Ref<boolean>>("tileActivated", ref(false));
 

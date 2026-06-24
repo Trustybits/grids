@@ -17,6 +17,10 @@ vi.mock("@/stores/grid", () => ({
   useGridStore: () => storeHolder.current,
 }));
 
+vi.mock("@/grid-view/useGridViewContext", () => ({
+  useGridViewContext: () => storeHolder.current,
+}));
+
 vi.mock("vue3-grid-layout", async () => {
   const { defineComponent, h } = await import("vue");
   return {
@@ -94,12 +98,15 @@ function makeTile(): Tile {
 }
 
 function makeStore(tile: Tile) {
+  const grid = { tiles: [tile] };
+
   return reactive({
     activeBreakpoint: "md",
     activeTileId: null,
     canEdit: false,
     isOwner: false,
-    currentGrid: { tiles: [tile] },
+    grid,
+    currentGrid: grid,
     pendingFocusTileId: null,
     showMetaData: false,
     showMetaDataVerbose: false,

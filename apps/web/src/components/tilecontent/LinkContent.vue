@@ -5,7 +5,7 @@
       'is-wide-1-high': isWideOneHigh,
       'is-tall-1-wide': isTallOneWide,
       'is-editing': isEditing,
-      'is-owner': gridStore.canEdit,
+      'is-owner': gridView.canEdit,
       'is-drag-over': isDragOver,
     }"
     :style="{ '--link-title-lines': String(titleLineClamp) }"
@@ -18,7 +18,7 @@
     @drop.prevent="onDrop"
   >
     <a
-      v-if="!gridStore.canEdit && resolvedHref"
+      v-if="!gridView.canEdit && resolvedHref"
       class="link-tile-anchor"
       :href="resolvedHref"
       target="_blank"
@@ -65,7 +65,7 @@
               :alt="content.domain"
             />
             <button
-              v-if="gridStore.canEdit && !!content.faviconUrl"
+              v-if="gridView.canEdit && !!content.faviconUrl"
               class="tile-logo-close"
               @mousedown.stop
               @mouseup.stop
@@ -191,7 +191,7 @@
     </div>
 
     <input
-      v-if="gridStore.canEdit"
+      v-if="gridView.canEdit"
       ref="customImageInput"
       class="link-image-input"
       type="file"
@@ -201,7 +201,7 @@
 
     <teleport to="body">
       <div
-        v-if="gridStore.canEdit && showContextMenu"
+        v-if="gridView.canEdit && showContextMenu"
         ref="contextMenuRef"
         class="link-context-menu"
         :style="contextMenuStyle"
@@ -236,6 +236,7 @@
 
 <script lang="ts">
 import {
+  proxyRefs,
   defineComponent,
   inject,
   computed,
@@ -249,7 +250,7 @@ import {
 } from "vue";
 
 import { type LinkContent } from "@grids/contracts/types";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-view/useGridViewContext";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
@@ -272,7 +273,7 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const tileId = inject<string | null>("tileId", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
@@ -427,7 +428,7 @@ export default defineComponent({
         link: props.content.link,
       }),
       (newMeta) => {
-        if (!tileId || !gridStore.canEdit) return;
+        if (!tileId || !gridView.canEdit) return;
         // Only run when not editing — this handles the async metadata fetch
         if (isEditing.value) return;
 
@@ -468,7 +469,7 @@ export default defineComponent({
     );
 
     const saveEdits = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       const nextTitle = draftTitle.value.trim();
       const nextDescription = draftDescription.value.trim();
@@ -488,17 +489,17 @@ export default defineComponent({
     };
 
     const applyImageUrlFromToolbar = (normalizedUrl: string) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       patchContent({ customImageUrl: normalizedUrl });
     };
 
     const openCustomImagePicker = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       customImageInput.value?.click();
     };
 
     const removeImage = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       let changes: Partial<LinkContent> = {};
 
@@ -514,7 +515,7 @@ export default defineComponent({
     };
 
     const uploadCustomImage = async (file: File) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       if (!file.type.startsWith("image/")) {
         alert("Unsupported file type. Please upload an image.");
@@ -531,7 +532,7 @@ export default defineComponent({
     };
 
     const onCustomImageSelected = async (event: Event) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
       await uploadCustomImage(file);
@@ -539,19 +540,19 @@ export default defineComponent({
     };
 
     const onDragEnter = (event: DragEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!event.dataTransfer?.types.includes("Files")) return;
       isDragOver.value = true;
     };
 
     const onDragOver = (event: DragEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!event.dataTransfer?.types.includes("Files")) return;
       event.dataTransfer.dropEffect = "copy";
     };
 
     const onDragLeave = (event: DragEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       const container = linkTileRef.value;
       if (!container) {
         isDragOver.value = false;
@@ -570,7 +571,7 @@ export default defineComponent({
     };
 
     const onDrop = async (event: DragEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       isDragOver.value = false;
       const file = event.dataTransfer?.files?.[0];
       if (!file) return;
@@ -593,7 +594,7 @@ export default defineComponent({
     };
 
     const onContextMenu = (event: MouseEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       event.preventDefault();
       event.stopPropagation();
 
@@ -631,7 +632,7 @@ export default defineComponent({
     const handleContextUseUrl = () => {
       closeContextMenu();
       if (tileId) {
-        gridStore.setPanelActive(tileId, "imageUrl");
+        gridView.setPanelActive(tileId, "imageUrl");
       }
     };
 
@@ -669,8 +670,8 @@ export default defineComponent({
     const startEditing = (
       focusTarget?: "title" | "description" | "subtitle",
     ) => {
-      if (!gridStore.canEdit || isEditing.value) return;
-      if (tileId) gridStore.beginEditing(tileId);
+      if (!gridView.canEdit || isEditing.value) return;
+      if (tileId) gridView.beginEditing(tileId);
       isEditing.value = true;
       syncDrafts();
       nextTick(() => {
@@ -699,7 +700,7 @@ export default defineComponent({
     const stopEditing = () => {
       if (!isEditing.value) return;
       flushPersist();
-      gridStore.commitEditing();
+      gridView.commitEditing();
       removeExitClickHandler();
       isEditing.value = false;
       // Re-sync drafts so readonly inputs reflect saved values
@@ -708,7 +709,7 @@ export default defineComponent({
 
     const onDetailsClick = (event: MouseEvent) => {
       if (isEditing.value) return;
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       // Determine which field is closest to the click position
       const el = detailsRef.value;
@@ -778,11 +779,11 @@ export default defineComponent({
       if (isEditing.value) return;
       // Owners use the action bar "Follow Link" control.
       // Viewers get native anchor behavior from the full-tile anchor.
-      if (gridStore.canEdit) return;
+      if (gridView.canEdit) return;
     };
 
     const onExitClick = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!isEditing.value) return;
       stopEditing();
     };
@@ -805,7 +806,7 @@ export default defineComponent({
     };
 
     return {
-      gridStore,
+      gridView,
       overlayColor: linkOverlayColor,
       pickerFillColor,
       pickerOverlayColor,

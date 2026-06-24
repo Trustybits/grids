@@ -26,8 +26,8 @@
 </template>
 
 <script lang="ts">
-import { ref, computed, nextTick } from "vue";
-import { useGridStore } from "@/stores/grid";
+import { proxyRefs, ref, computed, nextTick } from "vue";
+import { useGridViewContext } from "@/grid-view/useGridViewContext";
 
 export default {
   name: "TileCaption",
@@ -38,12 +38,12 @@ export default {
     },
   },
   setup(props) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const editing = ref(false);
     const editableCaptionElement = ref<HTMLParagraphElement | null>(null);
 
     const captionClasses = computed(() => {
-      if (gridStore.canEdit) {
+      if (gridView.canEdit) {
         return "hover-display";
       }
       // Non-owner: show if caption exists, hide on hover
@@ -55,14 +55,14 @@ export default {
       // For non-owners, the .viewer-caption class handles display
       // and must not be overridden by an inline style (so the
       // hide-on-hover rule in GridTile.vue can take effect).
-      if (gridStore.canEdit && (editing.value || props.tile.caption)) {
+      if (gridView.canEdit && (editing.value || props.tile.caption)) {
         return { display: "flex" };
       }
       return {};
     });
 
     const startEditing = () => {
-      if (!gridStore.canEdit) {
+      if (!gridView.canEdit) {
         return;
       }
       // If already editing, let the native click handle cursor placement
@@ -89,17 +89,17 @@ export default {
 
     const saveCaption = () => {
       if (!editing.value) return;
-      if (!gridStore.canEdit) {
+      if (!gridView.canEdit) {
         editing.value = false;
         return;
       }
       const text = editableCaptionElement.value?.innerText.trim() ?? "";
-      gridStore.updateCaption({ tileId: props.tile.i, caption: text });
+      gridView.updateCaption({ tileId: props.tile.i, caption: text });
       editing.value = false;
     };
 
     return {
-      gridStore,
+      gridView,
       editing,
       captionClasses,
       captionStyle,

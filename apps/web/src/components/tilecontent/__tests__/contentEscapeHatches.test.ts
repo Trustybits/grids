@@ -17,6 +17,10 @@ vi.mock("@/stores/grid", () => ({
   useGridStore: () => storeHolder.current,
 }));
 
+vi.mock("@/grid-view/useGridViewContext", () => ({
+  useGridViewContext: () => storeHolder.current,
+}));
+
 vi.mock("@/stores/theme", () => ({
   useThemeStore: () => ({ isDarkMode: false }),
 }));
@@ -106,24 +110,27 @@ vi.mock("mapbox-gl", () => ({
 }));
 
 function makeStore(content: LinkContent | DocumentsContent | MapContent | ProfileBioContent) {
+  const grid = {
+    id: "grid-1",
+    userId: "user-1",
+    tiles: [
+      {
+        i: "tile-1",
+        x: 0,
+        y: 0,
+        w: 4,
+        h: 4,
+        caption: "",
+        content,
+      },
+    ],
+  };
+
   return reactive({
     canEdit: true,
     isOwner: true,
-    currentGrid: {
-      id: "grid-1",
-      userId: "user-1",
-      tiles: [
-        {
-          i: "tile-1",
-          x: 0,
-          y: 0,
-          w: 4,
-          h: 4,
-          caption: "",
-          content,
-        },
-      ],
-    },
+    grid,
+    currentGrid: grid,
     uploadingTiles: {},
     pendingFocusTileId: null,
     patchTileContent: vi.fn(),

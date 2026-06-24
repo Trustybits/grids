@@ -18,6 +18,10 @@ vi.mock("@/stores/grid", () => ({
   useGridStore: () => storeHolder.current,
 }));
 
+vi.mock("@/grid-view/useGridViewContext", () => ({
+  useGridViewContext: () => storeHolder.current,
+}));
+
 vi.mock("vue3-grid-layout", async () => {
   const { defineComponent, h } = await import("vue");
   return {
@@ -101,6 +105,7 @@ function makeStore(grid = makeGrid()) {
   );
   const store = reactive({
     isLoading: false,
+    grid,
     currentGrid: grid,
     forcedBreakpoint: null as "lg" | "md" | "sm" | null,
     undoRedoVersion: 0,

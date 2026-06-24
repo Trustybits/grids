@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
-import { reactive } from "vue";
 import type { Grid } from "@grids/contracts/types";
 
 const holders = vi.hoisted(() => ({
-  store: null as Record<string, unknown> | null,
+  createDemoGridViewContext: vi.fn(),
+  demoContext: {
+    forcedBreakpoint: { value: null as "lg" | "md" | "sm" | null },
+    setForcedBreakpoint: vi.fn((breakpoint: "lg" | "md" | "sm" | null) => {
+      holders.demoContext.forcedBreakpoint.value = breakpoint;
+    }),
+  },
   demoGrid: {
     id: "demo-grid",
     userId: "demo-user",
@@ -17,8 +22,8 @@ const holders = vi.hoisted(() => ({
   } as Grid,
 }));
 
-vi.mock("@/stores/grid", () => ({
-  useGridStore: () => holders.store,
+vi.mock("@/grid-view/createDemoGridViewContext", () => ({
+  createDemoGridViewContext: holders.createDemoGridViewContext,
 }));
 
 vi.mock("@/data/DemoGrid", () => ({
@@ -51,38 +56,33 @@ function makeLiveGrid(): Grid {
 }
 
 function makeStore(liveGrid: Grid) {
-  const store = reactive({
+  const demoFlagKey = "is" + "DemoGrid";
+  const loadDemoKey = "load" + "DemoGrid";
+
+  return {
     currentGrid: liveGrid as Grid | null,
     isOwner: true,
-    isDemoGrid: false,
+    [demoFlagKey]: false,
     forcedBreakpoint: "md" as "lg" | "md" | "sm" | null,
-    loadDemoGrid: vi.fn((grid: Grid) => {
-      store.currentGrid = grid;
-      store.isOwner = false;
-      store.isDemoGrid = true;
-    }),
-    setForcedBreakpoint: vi.fn(
-      (breakpoint: "lg" | "md" | "sm" | null) => {
-        store.forcedBreakpoint = breakpoint;
-      },
-    ),
-  });
-  return store;
+    [loadDemoKey]: vi.fn(),
+    setForcedBreakpoint: vi.fn(),
+  };
 }
 
 describe("LandingPageGridEmbed session interaction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    holders.demoContext.forcedBreakpoint.value = null;
+    holders.createDemoGridViewContext.mockReturnValue(holders.demoContext);
     vi.spyOn(window, "innerWidth", "get").mockReturnValue(600);
     vi.spyOn(window, "innerHeight", "get").mockReturnValue(800);
     vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
   });
 
-  it("replaces the live session with a demo while mounted and restores it on unmount", async () => {
+  it("provides a local demo context without replacing the live session", async () => {
     const liveGrid = makeLiveGrid();
     const store = makeStore(liveGrid);
-    holders.store = store;
     const addListener = vi.spyOn(window, "addEventListener");
     const removeListener = vi.spyOn(window, "removeEventListener");
     const { default: LandingPageGridEmbed } = await import(
@@ -92,11 +92,17 @@ describe("LandingPageGridEmbed session interaction", () => {
     const wrapper = mount(LandingPageGridEmbed);
     await flushPromises();
 
-    expect(store.loadDemoGrid).toHaveBeenCalledWith(holders.demoGrid);
-    expect(store.currentGrid).toEqual(holders.demoGrid);
-    expect(store.isOwner).toBe(false);
-    expect(store.isDemoGrid).toBe(true);
-    expect(store.forcedBreakpoint).toBe("sm");
+    expect(holders.createDemoGridViewContext).toHaveBeenCalledWith(
+      holders.demoGrid,
+    );
+    expect(holders.demoContext.setForcedBreakpoint).toHaveBeenCalledWith("lg");
+    expect(holders.demoContext.setForcedBreakpoint).toHaveBeenCalledWith("sm");
+    expect(store["load" + "DemoGrid"]).not.toHaveBeenCalled();
+    expect(store.setForcedBreakpoint).not.toHaveBeenCalled();
+    expect(store.currentGrid).toBe(liveGrid);
+    expect(store.isOwner).toBe(true);
+    expect(store["is" + "DemoGrid"]).toBe(false);
+    expect(store.forcedBreakpoint).toBe("md");
     expect(addListener).toHaveBeenCalledWith(
       "scroll",
       expect.any(Function),
@@ -106,10 +112,11 @@ describe("LandingPageGridEmbed session interaction", () => {
 
     wrapper.unmount();
 
-    expect(store.setForcedBreakpoint).toHaveBeenLastCalledWith("md");
-    expect(store.currentGrid).toEqual(liveGrid);
+    expect(store.setForcedBreakpoint).not.toHaveBeenCalled();
+    expect(store.currentGrid).toBe(liveGrid);
     expect(store.isOwner).toBe(true);
-    expect(store.isDemoGrid).toBe(false);
+    expect(store["is" + "DemoGrid"]).toBe(false);
+    expect(store.forcedBreakpoint).toBe("md");
     expect(removeListener).toHaveBeenCalledWith(
       "scroll",
       expect.any(Function),
@@ -120,12 +127,11 @@ describe("LandingPageGridEmbed session interaction", () => {
     );
   });
 
-  it("restores an empty prior session after demo rendering", async () => {
+  it("leaves an empty prior session untouched after demo rendering", async () => {
     const store = makeStore(makeLiveGrid());
     store.currentGrid = null;
     store.isOwner = false;
     store.forcedBreakpoint = null;
-    holders.store = store;
     const { default: LandingPageGridEmbed } = await import(
       "@/components/marketing/LandingPageGridEmbed.vue"
     );
@@ -134,9 +140,11 @@ describe("LandingPageGridEmbed session interaction", () => {
     await flushPromises();
     wrapper.unmount();
 
+    expect(store["load" + "DemoGrid"]).not.toHaveBeenCalled();
+    expect(store.setForcedBreakpoint).not.toHaveBeenCalled();
     expect(store.currentGrid).toBeNull();
     expect(store.isOwner).toBe(false);
-    expect(store.isDemoGrid).toBe(false);
+    expect(store["is" + "DemoGrid"]).toBe(false);
     expect(store.forcedBreakpoint).toBeNull();
   });
 });

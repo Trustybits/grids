@@ -26,6 +26,7 @@
 
 <script lang="ts">
 import {
+  proxyRefs,
   defineComponent,
   ref,
   computed,
@@ -41,7 +42,7 @@ import cloudImage from "@/assets/images/cloud.png";
 import cloudShadow from "@/assets/images/cloud_shadow.png";
 import planeIcon from "@/assets/images/plane.png";
 import planeShadow from "@/assets/images/planeshadow.png";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-view/useGridViewContext";
 import { useThemeStore } from "@/stores/theme";
 import { type MapContent, type MapStyleMode } from "@grids/contracts/types";
 
@@ -193,7 +194,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const themeStore = useThemeStore();
     const mapTile = ref<HTMLDivElement | null>(null);
     const mapContainer = ref<HTMLDivElement | null>(null);
@@ -230,7 +231,7 @@ export default defineComponent({
 
     const resolvedTileId = computed(() =>
       injectedTileId ??
-        gridStore.currentGrid?.tiles.find((tile) => tile.content === props.content)?.i ??
+        gridView.grid?.tiles.find((tile) => tile.content === props.content)?.i ??
         null
     );
 
@@ -239,14 +240,14 @@ export default defineComponent({
     // canonical tile.  storeContent resolves to the store tile's content so
     // all writes persist correctly across layout rebuilds.
     const storeContent = computed(() => {
-      const tile = gridStore.currentGrid?.tiles.find((t) => t.i === resolvedTileId.value);
+      const tile = gridView.grid?.tiles.find((t) => t.i === resolvedTileId.value);
       return (tile?.content as MapContent | undefined) ?? props.content;
     });
 
     const patchContent = (patch: Partial<MapContent>) => {
       const tileId = resolvedTileId.value;
       if (tileId) {
-        gridStore.patchTileContent(tileId, patch);
+        gridView.patchTileContent(tileId, patch);
         return;
       }
       Object.assign(props.content, patch);
@@ -261,17 +262,17 @@ export default defineComponent({
 
     const tileWidth = computed(() =>
       gridTileW?.value ??
-        gridStore.currentGrid?.tiles.find((tile) => tile.i === resolvedTileId.value)?.w ??
+        gridView.grid?.tiles.find((tile) => tile.i === resolvedTileId.value)?.w ??
         0
     );
 
     const tileHeight = computed(() =>
       gridTileH?.value ??
-        gridStore.currentGrid?.tiles.find((tile) => tile.i === resolvedTileId.value)?.h ??
+        gridView.grid?.tiles.find((tile) => tile.i === resolvedTileId.value)?.h ??
         0
     );
 
-    const isInteractive = computed(() => !gridStore.canEdit || isEditing.value);
+    const isInteractive = computed(() => !gridView.canEdit || isEditing.value);
 
     const show3d = computed({
       get: () => storeContent.value.show3d ?? false,
@@ -445,7 +446,7 @@ export default defineComponent({
     };
 
     const setMarker = (marker: { lat: number; lng: number }) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       patchContent({ marker });
       updateMarker(marker);
     };
@@ -489,7 +490,7 @@ export default defineComponent({
       // Don't persist the default [0,0] center during initial load;
       // we only want to save once a real position has been established.
       if (isInitialLoad) return;
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       // Skip intermediate moveend events fired during programmatic
       // animations (flyTo, easeTo, recenter).  Each caller sets
       // isProgrammaticMove = true before starting and registers a
@@ -519,7 +520,7 @@ export default defineComponent({
           // Reveal the map now that it's positioned correctly.
           mapReady.value = true;
           // jumpTo doesn't fire moveend, so persist immediately.
-          if (gridStore.canEdit) {
+          if (gridView.canEdit) {
             patchContent({ center, zoom: targetZoom });
           }
         } else {
@@ -578,7 +579,7 @@ export default defineComponent({
     };
 
     const useMyLocation = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!navigator.geolocation) {
         statusMessage.value = "Geolocation not supported.";
         // Reveal the map even without a location so the tile isn't blank.
@@ -621,7 +622,7 @@ export default defineComponent({
     const resizeMapTile = (w: number, h: number) => {
       const tileId = resolvedTileId.value;
       if (!tileId) return;
-      gridStore.resizeTile(tileId, w, h);
+      gridView.resizeTile(tileId, w, h);
       nextTick(() => {
         mapInstance.value?.resize();
       });
@@ -751,7 +752,7 @@ export default defineComponent({
     };
 
     const toggleEditMode = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       isEditing.value = !isEditing.value;
       if (isEditing.value) {
         mapInstance.value?.resize();
@@ -765,7 +766,7 @@ export default defineComponent({
     };
 
     const onExitClick = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!isEditing.value) return;
       isEditing.value = false;
       persistCurrentMapView();
@@ -900,7 +901,7 @@ export default defineComponent({
         mapReady.value = true;
       }
 
-      if (gridStore.canEdit) {
+      if (gridView.canEdit) {
         if (content.searchQuery && !hasSavedCenter) {
           handleGeocode(content.searchQuery);
         } else if (!hasSavedCenter) {
@@ -925,7 +926,7 @@ export default defineComponent({
         syncTimer = null;
         // Perform the save inline since the component is tearing down.
         const map = mapInstance.value;
-        if (map && !isInitialLoad && gridStore.canEdit) {
+        if (map && !isInitialLoad && gridView.canEdit) {
           persistCurrentMapView();
         }
       }
@@ -936,7 +937,7 @@ export default defineComponent({
     });
 
     return {
-      gridStore,
+      gridView,
       cloudShadow,
       cloudImage,
       planeIcon,

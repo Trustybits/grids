@@ -221,12 +221,12 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, inject, onMounted, onUnmounted, ref, watch } from "vue";
+import { proxyRefs, computed, defineComponent, inject, onMounted, onUnmounted, ref, watch } from "vue";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@grids/contracts/auth";
 import { useRouter } from "vue-router";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-view/useGridViewContext";
 import type { RoadmapFeedContent, RoadmapFilterableType, RoadmapItem, RoadmapQueryFilter, RoadmapStatus } from "@grids/contracts/types";
 import type { NotionDatabase, PropertyOption } from "@grids/contracts/types";
 import CloseXIcon from "@/components/icons/CloseXIcon.vue";
@@ -251,7 +251,7 @@ export default defineComponent({
   },
 
   setup(props) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const authProvider = getAuthProvider();
     const serviceFactory = getServiceFactory();
     const roadmapService = serviceFactory.getRoadmapService();
@@ -259,8 +259,8 @@ export default defineComponent({
 
     const tileId = inject<string>("tileId", "");
 
-    const isOwner = computed(() => gridStore.canEdit);
-    const gridId = computed(() => gridStore.currentGrid?.id ?? "");
+    const isOwner = computed(() => gridView.canEdit);
+    const gridId = computed(() => gridView.grid?.id ?? "");
 
     // ── Connection state ─────────────────────────────────────────────
     // A tile is "connected" once the owner has set a real notionDatabaseId
@@ -468,7 +468,7 @@ export default defineComponent({
     const selectDatabase = async (databaseId: string) => {
       // Immediately transition to configuring phase so the picker closes and
       // settings panel opens — don't wait for the Firestore-backed prop to update.
-      gridStore.patchTileContent(tileId, { notionDatabaseId: databaseId });
+      gridView.patchTileContent(tileId, { notionDatabaseId: databaseId });
       setupPhase.value = "configuring";
       isLoading.value = true;
       fetchError.value = "";
@@ -481,7 +481,7 @@ export default defineComponent({
         );
         items.value = result.items;
         propertyOptions.value = result.propertyOptions;
-        gridStore.patchTileContent(tileId, {
+        gridView.patchTileContent(tileId, {
           cachedItems: result.items,
           lastSyncedAt: Date.now(),
         });
@@ -517,7 +517,7 @@ export default defineComponent({
         );
         items.value = result.items;
         propertyOptions.value = result.propertyOptions;
-        gridStore.patchTileContent(tileId, {
+        gridView.patchTileContent(tileId, {
           cachedItems: result.items,
           lastSyncedAt: Date.now(),
         });
@@ -577,7 +577,7 @@ export default defineComponent({
         const idx = items.value.findIndex((i) => i.notionPageId === item.notionPageId);
         if (idx !== -1) {
           items.value[idx] = { ...items.value[idx], upvoteCount: Math.max(0, items.value[idx].upvoteCount + delta) };
-          gridStore.patchTileContent(tileId, { cachedItems: items.value });
+          gridView.patchTileContent(tileId, { cachedItems: items.value });
         }
         // The Firestore listener will also sync myVotedPageIds from the server,
         // but the optimistic update above already reflects the correct state.
@@ -636,7 +636,7 @@ export default defineComponent({
         // Mark the tile as connected (token stored server-side) so the settings
         // panel becomes visible. The owner will replace "pending" with the real
         // Notion database ID in the settings panel.
-        gridStore.patchTileContent(tileId, { notionDatabaseId: "pending" });
+        gridView.patchTileContent(tileId, { notionDatabaseId: "pending" });
         // Immediately show the database picker and start loading the list
         setupPhase.value = "picking";
         loadDatabases();
@@ -665,7 +665,7 @@ export default defineComponent({
 
     const reconnect = () => {
       // Clear the database ID so the tile reverts to disconnected state, then re-trigger OAuth
-      gridStore.patchTileContent(tileId, { notionDatabaseId: "", cachedItems: undefined, lastSyncedAt: undefined });
+      gridView.patchTileContent(tileId, { notionDatabaseId: "", cachedItems: undefined, lastSyncedAt: undefined });
       showSettings.value = false;
       setupPhase.value = "idle";
       startOAuth();
@@ -674,18 +674,18 @@ export default defineComponent({
     // ── Settings save helpers ────────────────────────────────────────
     const saveDatabaseId = () => {
       if (draftDatabaseId.value !== props.content.notionDatabaseId) {
-        gridStore.patchTileContent(tileId, { notionDatabaseId: draftDatabaseId.value.trim() });
+        gridView.patchTileContent(tileId, { notionDatabaseId: draftDatabaseId.value.trim() });
       }
     };
-    const saveStatusProp = () => gridStore.patchTileContent(tileId, { statusPropertyName: draftStatusProp.value });
-    const saveUpvoteProp = () => gridStore.patchTileContent(tileId, { upvotePropertyName: draftUpvoteProp.value });
+    const saveStatusProp = () => gridView.patchTileContent(tileId, { statusPropertyName: draftStatusProp.value });
+    const saveUpvoteProp = () => gridView.patchTileContent(tileId, { upvotePropertyName: draftUpvoteProp.value });
     const setStatusMapping = (notionOption: string, bucket: string) => {
       draftStatusMapping.value = { ...draftStatusMapping.value, [notionOption]: bucket as RoadmapStatus };
-      gridStore.patchTileContent(tileId, { statusMapping: { ...draftStatusMapping.value } });
+      gridView.patchTileContent(tileId, { statusMapping: { ...draftStatusMapping.value } });
     };
     const saveAllSettings = () => {
       saveDatabaseId(); saveStatusProp(); saveUpvoteProp();
-      gridStore.patchTileContent(tileId, {
+      gridView.patchTileContent(tileId, {
         statusMapping: { ...draftStatusMapping.value },
         queryFilters: draftQueryFilters.value.length > 0 ? draftQueryFilters.value : undefined,
       });

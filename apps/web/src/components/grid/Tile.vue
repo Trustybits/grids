@@ -104,7 +104,7 @@
               <span class="suggestion-label">{{ suggestionLabel }}</span>
             </div>
             <input
-              v-if="gridStore.canEdit"
+              v-if="gridView.canEdit"
               type="file"
               ref="mediaInput"
               style="display: none"
@@ -116,15 +116,15 @@
 
         <!-- UI Layer -->
         <div
-          v-if="gridStore.canEdit && headerComponent"
+          v-if="gridView.canEdit && headerComponent"
           class="header-options"
         >
           <component :is="headerComponent" :content="tile.content" />
         </div>
 
-        <div v-if="gridStore.showMetaData" class="meta-data">
+        <div v-if="gridView.showMetaData" class="meta-data">
           <p class="meta-data__compact">{{ compactMetadata }}</p>
-          <template v-if="gridStore.showMetaDataVerbose">
+          <template v-if="gridView.showMetaDataVerbose">
             <p
               class="meta-data__verbose"
               v-for="line in verboseMetadataLines"
@@ -136,7 +136,7 @@
         </div>
 
         <div
-          v-if="gridStore.canEdit"
+          v-if="gridView.canEdit"
           class="tile-actions-layer"
           :class="{ 'z-priority': hoveredLayer === 'actions' }"
           @mouseenter="hoveredLayer = 'actions'"
@@ -147,7 +147,7 @@
         </div>
 
         <TileCaption
-          v-if="showCaption && (gridStore.canEdit || tile.caption)"
+          v-if="showCaption && (gridView.canEdit || tile.caption)"
           :tile="tile"
         />
 
@@ -155,7 +155,7 @@
         <div v-if="isTileResizable" class="resize-indicator"></div>
 
         <div
-          v-if="gridStore.canEdit && !isSuggestion"
+          v-if="gridView.canEdit && !isSuggestion"
           class="tile-toolbar-layer"
           :class="{ 'z-priority': hoveredLayer !== 'actions' }"
           @mouseenter="hoveredLayer = 'toolbar'"
@@ -190,6 +190,7 @@
 
 <script lang="ts">
 import {
+  proxyRefs,
   defineComponent,
   onMounted,
   onUnmounted,
@@ -204,7 +205,7 @@ import { GridItem } from "vue3-grid-layout";
 import { type TileChildComponent } from "@/types/Tile";
 import { type Tile } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-view/useGridViewContext";
 import TileCaption from "@/components/tile/TileCaption.vue";
 import {
   getContentComponent,
@@ -257,7 +258,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const { uploadFileOptimisticForTile } = useFileUpload();
     const { submitLink, submitEmbed } = useTileInput();
 
@@ -358,13 +359,13 @@ export default defineComponent({
       () => props.tile.content.type === ContentType.PROFILE,
     );
     const isTileDraggable = computed(() => {
-      if (!gridStore.canEdit || isEditing.value) return false;
+      if (!gridView.canEdit || isEditing.value) return false;
       if (isTouchDevice()) return isActivated.value;
       return true;
     });
 
     const isTileResizable = computed(() => {
-      if (!gridStore.canEdit || isSuggestion.value) {
+      if (!gridView.canEdit || isSuggestion.value) {
         return false;
       }
       if (isTouchDevice()) return isActivated.value && !isEditing.value;
@@ -385,13 +386,13 @@ export default defineComponent({
         clickStart.value = Date.now();
         // Only preventDefault when the child doesn't handle short clicks
         // (e.g. text tiles need the default focus behavior on mousedown)
-        if (gridStore.canEdit && !isEditing.value && !isSuggestion.value) {
+        if (gridView.canEdit && !isEditing.value && !isSuggestion.value) {
           if (!childComponent.value?.onShortClick) {
             event.preventDefault();
           }
         }
         // Start long-press timer: activate isDragging after threshold
-        if (gridStore.isOwner && !isEditing.value) {
+        if (gridView.isOwner && !isEditing.value) {
           if (longPressTimer) clearTimeout(longPressTimer);
           longPressTimer = setTimeout(() => {
             isDragging.value = true;
@@ -432,7 +433,7 @@ export default defineComponent({
     };
 
     const onMove = () => {
-      gridStore.beginMove();
+      gridView.beginMove();
       isMoving.value = true;
       isDragging.value = true;
       setTimeout(() => (isMoving.value = false), 300);
@@ -441,8 +442,8 @@ export default defineComponent({
     const onMoved = () => {
       // Called when drag operation completes - save the final positions
       isDragging.value = false;
-      if (!gridStore.canEdit) return;
-      gridStore.commitMove();
+      if (!gridView.canEdit) return;
+      gridView.commitMove();
     };
 
     const onResize = (
@@ -458,7 +459,7 @@ export default defineComponent({
       // watcher in Grid.vue publishes it to displayPositions. commitResize()
       // synchronizes the final canonical desktop geometry or breakpoint
       // override, so this handler never writes canonical tile w/h directly.
-      gridStore.beginResize();
+      gridView.beginResize();
     };
 
     const onResized = () => {
@@ -466,25 +467,25 @@ export default defineComponent({
       if (childComponent.value?.onResize) {
         childComponent.value.onResize();
       }
-      if (gridStore.canEdit) {
-        gridStore.commitResize();
+      if (gridView.canEdit) {
+        gridView.commitResize();
       }
     };
 
     const onSuggestionShortClick = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       const action = (props.tile.content as SuggestionContent)?.action;
       switch (action) {
         case "profile": {
           const content = createTileContent(ContentType.PROFILE, {});
-          gridStore.setTileContent(props.tile.i, content);
+          gridView.setTileContent(props.tile.i, content);
           break;
         }
         case "text": {
           const content = createTileContent(ContentType.TEXT, {});
-          gridStore.setTileContent(props.tile.i, content);
+          gridView.setTileContent(props.tile.i, content);
           // Auto-focus the new text tile so the user can start typing immediately
-          gridStore.pendingFocusTileId = props.tile.i;
+          gridView.pendingFocusTileId = props.tile.i;
           break;
         }
 
@@ -544,7 +545,7 @@ export default defineComponent({
 
       // Wait for animation to complete before actually removing the tile
       setTimeout(() => {
-        gridStore.removeTile(props.tile.i);
+        gridView.removeTile(props.tile.i);
       }, 250); // var(--duration-normal) = 250ms
     };
 
@@ -552,7 +553,7 @@ export default defineComponent({
       const isToolbarActive =
         isHovered.value ||
         isActivated.value ||
-        gridStore.activeTileId === props.tile.i;
+        gridView.activeTileId === props.tile.i;
 
       let zIndex: string | number = 0;
       if (isEditing.value) {
@@ -695,7 +696,7 @@ export default defineComponent({
 
     const handleDragStart = (event: Event) => {
       // Prevent default browser drag behavior which interferes with vue-grid-layout
-      if (gridStore.canEdit && !isEditing.value) {
+      if (gridView.canEdit && !isEditing.value) {
         event.preventDefault();
       }
     };
@@ -786,15 +787,15 @@ export default defineComponent({
 
     const verboseMetadataLines = computed(() => {
       const caption = props.tile.caption?.trim();
-      const cookieValue = gridStore.getCookieValue("showMetaData");
-      const verboseCookieValue = gridStore.getCookieValue(
+      const cookieValue = gridView.getCookieValue("showMetaData");
+      const verboseCookieValue = gridView.getCookieValue(
         "showMetaDataVerbose",
       );
       return [
         `caption: ${caption ? caption.slice(0, 40) : "n/a"}`,
         `borderEnabled: ${borderEnabled.value ? "true" : "false"} | draggable: ${isTileDraggable.value ? "true" : "false"} | resizable: ${isTileResizable.value ? "true" : "false"}`,
-        `breakpoint: ${gridStore.activeBreakpoint} | canEdit: ${gridStore.canEdit ? "true" : "false"} | isOwner: ${gridStore.isOwner ? "true" : "false"}`,
-        `displaySource: ${gridStore.activeBreakpoint === "lg" ? "tileBase" : "breakpointOverrideOrDisplay"}`,
+        `breakpoint: ${gridView.activeBreakpoint} | canEdit: ${gridView.canEdit ? "true" : "false"} | isOwner: ${gridView.isOwner ? "true" : "false"}`,
+        `displaySource: ${gridView.activeBreakpoint === "lg" ? "tileBase" : "breakpointOverrideOrDisplay"}`,
         `cookie(meta): ${cookieValue ?? "unset"} | cookie(verbose): ${verboseCookieValue ?? "unset"}`,
         typeSpecificMeta.value,
       ];
@@ -855,7 +856,7 @@ export default defineComponent({
       startClick,
       endClick,
       gridTileRef,
-      gridStore,
+      gridView,
       isEditing,
       isDragging,
       isExiting,

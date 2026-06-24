@@ -181,6 +181,7 @@
 
 <script lang="ts">
 import {
+  proxyRefs,
   defineComponent,
   computed,
   ref,
@@ -202,7 +203,7 @@ import type {
 } from "@/types/TileToolbar";
 import { getTileToolbarButtons } from "@/registries/tileToolbar";
 import { computeTextColor } from "@/composables/useColorPicker";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-view/useGridViewContext";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import LocateFixedIcon from "@/components/icons/toolbar/LocateFixedIcon.vue";
 import CurrentLocationIcon from "@/components/icons/toolbar/CurrentLocationIcon.vue";
@@ -244,7 +245,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
 
     const toolbarRef = ref<HTMLDivElement | null>(null);
@@ -273,9 +274,9 @@ export default defineComponent({
     const childComponent = props.toolbarRefs.childComponent;
 
     const isActiveTile = computed(
-      () => gridStore?.activeTileId === props.tile.i,
+      () => gridView?.activeTileId === props.tile.i,
     );
-    const activePanelId = computed(() => gridStore?.activePanelId);
+    const activePanelId = computed(() => gridView?.activePanelId);
 
     const panelOpen = computed(
       () => activePanelId.value !== null && isActiveTile.value,
@@ -288,7 +289,7 @@ export default defineComponent({
     const ctx = computed<ToolbarContext>(() => ({
       tile: props.tile,
       childComponent: props.toolbarRefs.childComponent,
-      gridStore,
+      gridView,
       isEditing: props.toolbarRefs.isEditing,
       isExitingCropMode: props.toolbarRefs.isExitingCropMode,
     }));
@@ -476,7 +477,7 @@ export default defineComponent({
     }));
 
     const closeMenu = () => {
-      gridStore.closeMenus();
+      gridView.closeMenus();
     };
 
     const onItemClick = (event: MouseEvent, item: ToolbarButton) => {
@@ -488,7 +489,7 @@ export default defineComponent({
       if (item.menuItems) menuAnchorRef.value = button;
 
       if (item.panelId) {
-        gridStore.togglePanelActive(props.tile.i, item.panelId);
+        gridView.togglePanelActive(props.tile.i, item.panelId);
         if (item.panelId === "search")
           nextTick(() => {
             searchInputRef.value?.focus();
@@ -499,7 +500,7 @@ export default defineComponent({
 
       // Handle menu items
       if (item.menuItems) {
-        gridStore.toggleMenuActive(props.tile.i);
+        gridView.toggleMenuActive(props.tile.i);
         nextTick(positionMenu);
         return;
       }

@@ -465,6 +465,9 @@ import ShapePolygonIcon from "@/components/icons/tile-actionbar/ShapePolygonIcon
 import UploadMediaIcon from "@/components/icons/tile-actionbar/UploadMediaIcon.vue";
 import UrlSourceIcon from "@/components/icons/tile-actionbar/UrlSourceIcon.vue";
 
+type ServiceFactory = ReturnType<typeof getServiceFactory>;
+type StorageService = ReturnType<ServiceFactory["getStorageService"]>;
+
 const baseExtensions: AnyExtension[] = [
   StarterKit,
   TextStyle,
@@ -525,13 +528,17 @@ export default defineComponent({
     });
 
     const { uploadExternalImageToStorage } = useFileUpload();
-    const storageService = getServiceFactory().getStorageService();
+    let storageService: StorageService | null = null;
+    const getProfileStorageService = (): StorageService => {
+      storageService ??= getServiceFactory().getStorageService();
+      return storageService;
+    };
 
     // ── Badges ────────────────────────────────────────────────────────
     // Resolve the grid owner's UID — works both for the owner editing
     // their own profile and for visitors viewing someone else's grid.
     const ownerUserId = computed(
-      () => gridView.grid?.userId ?? null,
+      () => gridView.mode === "demo" ? null : gridView.grid?.userId ?? null,
     );
     const { earnedBadges } = useBadges(ownerUserId);
 
@@ -1297,7 +1304,7 @@ export default defineComponent({
       uploadPercent.value = 0;
 
       try {
-        const uploadTask = storageService.uploadResumable(
+        const uploadTask = getProfileStorageService().uploadResumable(
           currentUserId,
           file,
           { fileType: "images" },

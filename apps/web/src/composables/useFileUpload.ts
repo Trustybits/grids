@@ -15,10 +15,30 @@ import type {
   StorageUploadTask,
 } from "@grids/contracts/dao";
 
+type AuthProvider = ReturnType<typeof getAuthProvider>;
+type ServiceFactory = ReturnType<typeof getServiceFactory>;
+type StorageService = ReturnType<ServiceFactory["getStorageService"]>;
+type GridStore = ReturnType<typeof useGridStore>;
+
 export function useFileUpload() {
-  const authProvider = getAuthProvider();
-  const storageService = getServiceFactory().getStorageService();
-  const gridStore = useGridStore();
+  let authProvider: AuthProvider | null = null;
+  let storageService: StorageService | null = null;
+  let gridStore: GridStore | null = null;
+
+  const getUploadAuthProvider = (): AuthProvider => {
+    authProvider ??= getAuthProvider();
+    return authProvider;
+  };
+
+  const getUploadStorageService = (): StorageService => {
+    storageService ??= getServiceFactory().getStorageService();
+    return storageService;
+  };
+
+  const getUploadGridStore = (): GridStore => {
+    gridStore ??= useGridStore();
+    return gridStore;
+  };
 
   const cancelUploadTask = (uploadTask: StorageUploadTask) => {
     try {
@@ -36,6 +56,8 @@ export function useFileUpload() {
     file: File,
     options: UploadOptions = {},
   ): Promise<string> => {
+    const authProvider = getUploadAuthProvider();
+    const storageService = getUploadStorageService();
     const currentUserId = authProvider.getCurrentUserId();
     if (!currentUserId) {
       throw new Error("You must be logged in to upload.");
@@ -79,6 +101,9 @@ export function useFileUpload() {
     file: File,
     options: UploadOptions = {},
   ): Promise<void> => {
+    const authProvider = getUploadAuthProvider();
+    const storageService = getUploadStorageService();
+    const gridStore = getUploadGridStore();
     const { isImage } = storageService.validateFile(file, options);
 
     const currentUserId = authProvider.getCurrentUserId();
@@ -150,6 +175,9 @@ export function useFileUpload() {
     tileId: string,
     options: UploadOptions = {},
   ): Promise<void> => {
+    const authProvider = getUploadAuthProvider();
+    const storageService = getUploadStorageService();
+    const gridStore = getUploadGridStore();
     const { isImage } = storageService.validateFile(file, options);
 
     const currentUserId = authProvider.getCurrentUserId();
@@ -215,6 +243,9 @@ export function useFileUpload() {
     files: File[],
   ): Promise<void> => {
     if (files.length === 0) return;
+    const authProvider = getUploadAuthProvider();
+    const storageService = getUploadStorageService();
+    const gridStore = getUploadGridStore();
     for (const f of files) {
       storageService.validateFile(f, { fileType: "documents" });
     }
@@ -336,6 +367,8 @@ export function useFileUpload() {
     externalUrl: string,
     folder = "images",
   ): Promise<string> => {
+    const authProvider = getUploadAuthProvider();
+    const storageService = getUploadStorageService();
     const currentUserId = authProvider.getCurrentUserId();
     if (!currentUserId) {
       throw new Error("You must be logged in to upload.");

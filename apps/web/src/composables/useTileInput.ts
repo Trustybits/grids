@@ -17,6 +17,7 @@ interface LinkPreviewResponse {
 }
 
 type TileInputTarget = { mode: "add" } | { mode: "replace"; tileId: string };
+type GridStore = ReturnType<typeof useGridStore>;
 
 const isRichAutoDetectedContent = (content: TileContent): boolean => {
   return (
@@ -27,12 +28,18 @@ const isRichAutoDetectedContent = (content: TileContent): boolean => {
 };
 
 export const useTileInput = () => {
-  const gridStore = useGridStore();
+  let gridStore: GridStore | null = null;
+
+  const getGridStore = (): GridStore => {
+    gridStore ??= useGridStore();
+    return gridStore;
+  };
 
   const applyContentToTarget = (
     content: TileContent,
     target: TileInputTarget,
   ): string | null => {
+    const gridStore = getGridStore();
     if (target.mode === "add") {
       return gridStore.addTile(content);
     }
@@ -69,7 +76,7 @@ export const useTileInput = () => {
         .getCloudFunctionsService()
         .callFunction<{ url: string }, LinkPreviewResponse>("getLinkPreview", { url });
 
-      gridStore.patchTileContent(tileId, {
+      getGridStore().patchTileContent(tileId, {
         link: data.url,
         domain: data.domain,
         faviconUrl: data.faviconUrl || (linkContent as LinkContent).faviconUrl,

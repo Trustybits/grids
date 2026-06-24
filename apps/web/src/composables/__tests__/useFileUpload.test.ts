@@ -15,15 +15,23 @@ import {
   ensureDocumentItemThumbnailOnServer,
 } from "@/composables/useDocumentThumbnail";
 
-const { mockGetCurrentUserId, storage, gridStore } = vi.hoisted(() => ({
-  mockGetCurrentUserId: vi.fn<() => string | null>(() => "user-1"),
-  storage: {
+const {
+  mockGetAuthProvider,
+  mockGetCurrentUserId,
+  mockGetServiceFactory,
+  mockGetStorageService,
+  mockUseGridStore,
+  storage,
+  gridStore,
+} = vi.hoisted(() => {
+  const mockGetCurrentUserId = vi.fn<() => string | null>(() => "user-1");
+  const storage = {
     upload: vi.fn(),
     validateFile: vi.fn(() => ({ isImage: true })),
     uploadResumable: vi.fn(),
     uploadExternalImage: vi.fn(),
-  },
-  gridStore: {
+  };
+  const gridStore = {
     addTile: vi.fn<() => string | null>(() => "tile-1"),
     setTileContent: vi.fn(),
     startUpload: vi.fn(() => "upload-1" as string | null),
@@ -42,16 +50,31 @@ const { mockGetCurrentUserId, storage, gridStore } = vi.hoisted(() => ({
     flushSaves: vi.fn(() => Promise.resolve()),
     removeTile: vi.fn(),
     currentGrid: { id: "grid-1" } as { id: string } | null,
-  },
-}));
+  };
+  const mockGetAuthProvider = vi.fn(() => ({ getCurrentUserId: mockGetCurrentUserId }));
+  const mockGetStorageService = vi.fn(() => storage);
+  const mockGetServiceFactory = vi.fn(() => ({
+    getStorageService: mockGetStorageService,
+  }));
+  const mockUseGridStore = vi.fn(() => gridStore);
+  return {
+    mockGetAuthProvider,
+    mockGetCurrentUserId,
+    mockGetServiceFactory,
+    mockGetStorageService,
+    mockUseGridStore,
+    storage,
+    gridStore,
+  };
+});
 
 vi.mock("@/auth/AuthProviderSingleton", () => ({
-  getAuthProvider: () => ({ getCurrentUserId: mockGetCurrentUserId }),
+  getAuthProvider: mockGetAuthProvider,
 }));
 vi.mock("@/services/ServiceFactorySingleton", () => ({
-  getServiceFactory: () => ({ getStorageService: () => storage }),
+  getServiceFactory: mockGetServiceFactory,
 }));
-vi.mock("@/stores/grid", () => ({ useGridStore: () => gridStore }));
+vi.mock("@/stores/grid", () => ({ useGridStore: mockUseGridStore }));
 vi.mock("@/utils/TileUtils", () => ({
   createTileContent: vi.fn((type, data) => ({ type, ...data })),
 }));
@@ -108,6 +131,19 @@ beforeEach(() => {
   mockDocumentItemIsPdf.mockReturnValue(false);
   globalThis.URL.createObjectURL = vi.fn(() => "blob:mock");
   globalThis.URL.revokeObjectURL = vi.fn();
+});
+
+describe("setup", () => {
+  it("does not resolve live upload dependencies until an upload command runs", () => {
+    const api = useFileUpload();
+
+    expect(api.uploadFileToUrl).toEqual(expect.any(Function));
+    expect(api.uploadFileOptimistic).toEqual(expect.any(Function));
+    expect(mockGetAuthProvider).not.toHaveBeenCalled();
+    expect(mockGetServiceFactory).not.toHaveBeenCalled();
+    expect(mockGetStorageService).not.toHaveBeenCalled();
+    expect(mockUseGridStore).not.toHaveBeenCalled();
+  });
 });
 
 describe("uploadFileToUrl", () => {

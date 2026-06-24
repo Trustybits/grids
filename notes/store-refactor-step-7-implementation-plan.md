@@ -15,6 +15,9 @@ Steps 1–6 are assumed complete:
 - Upload/history coordination is hardened.
 - The canvas subtree reads/dispatches through `GridViewContext`; the **live**
   context still delegates to the `useGridStore()` facade (Step 6).
+- Demo-mounted canvas renderers must not resolve live store/auth/service
+  dependencies at setup time. Step 6 made upload/input/profile renderer helpers
+  lazy; preserve that isolation while removing the facade.
 
 Step 7 retires the facade: it migrates every remaining consumer off
 `@/stores/grid`, repoints the live context onto stores + typed commands directly,
@@ -42,7 +45,7 @@ Step 6.
 | 2. Grid route / app shell / title / analytics | `gridSession` (+ controller) | `pages/GridPage.vue`, `App.vue`, `components/app/AppBar.vue`, `composables/useAnalytics.ts` |
 | 3. Breakpoint controls | `gridViewport` / view context | `components/grid/ViewControls.vue`, `components/grid/ViewportWarning.vue` |
 | 4. Undo controls / keyboard | controller / `gridHistory` | `components/grid/UndoRedoControls.vue`, `composables/useUndoRedoKeys.ts` |
-| 5. Settings / toolbar / tile actions / captions | controller / `gridUi` | `components/grid/GridSettings.vue`, `components/grid/GridToolbar.vue`, `components/grid/GridStats.vue`, `components/grid/GridNameEditor.vue`, `components/modal/OgImageModal.vue`, `composables/useColorPicker.ts`, `composables/useTileInput.ts`, `composables/useTileLink.ts`, `composables/useEditingLifecycle.ts`, `composables/useDragAndPaste.ts`, `types/TileToolbar.ts` |
+| 5. Settings / toolbar / tile actions / captions | controller / `gridUi` | `components/grid/GridSettings.vue`, `components/grid/GridToolbar.vue`, `components/grid/GridStats.vue`, `components/grid/GridNameEditor.vue`, `components/modal/OgImageModal.vue`, `composables/useColorPicker.ts`, `composables/useTileInput.ts`, `composables/useTileLink.ts`, `composables/useTileContentWriter.ts`, `composables/useEditingLifecycle.ts`, `composables/useDragAndPaste.ts`, `types/TileToolbar.ts` |
 | 6. Upload composables | controller / `gridUploads` | `composables/useFileUpload.ts` |
 | 7. Live context internals + tile-content commands | stores + typed controller commands | `grid-view/createLiveGridViewContext.ts`; verify `components/tilecontent/*` |
 
@@ -128,19 +131,30 @@ Per the master plan, after **each** group:
   tile mutations to typed controller commands (theme, background, OG image,
   duplicatable, rename, color) and menu/focus reads to `gridUi`.
 - Composables (`useColorPicker`, `useTileInput`, `useTileLink`,
-  `useEditingLifecycle`, `useDragAndPaste`) move to controller commands +
-  focused-store reads. `types/TileToolbar.ts` updates its store-facing types.
+  `useTileContentWriter`, `useEditingLifecycle`, `useDragAndPaste`) move to
+  controller commands + focused-store reads. `types/TileToolbar.ts` updates its
+  store-facing types.
+- Replace remaining `pendingFocusTileId` assignments with `gridUi` actions or
+  controller commands; do not keep writable focus refs as a component escape
+  hatch.
 - Tile actions/captions are already on the view context (Step 6); ensure their
   command members resolve to typed controller commands once Group 7 repoints the
   live context.
-- Run `grid.tiles`, `TileCaption`, `useColorPicker`, and `useDragAndPaste`
-  suites.
+- Preserve Step 6 setup-time isolation: renderer-mounted composables may create
+  inert command functions, but they must not resolve live store/auth/service
+  dependencies until a user command actually runs.
+- Run `grid.tiles`, `TileCaption`, `useColorPicker`, `useTileInput`,
+  `useTileLink`, `useTileContentWriter`, `useEditingLifecycle`, and
+  `useDragAndPaste` suites.
 
 ### 7. Group 6 — Upload Composables → Controller / Uploads
 
 - `useFileUpload.ts`: read upload progress/resolved URLs from `gridUploads`;
   dispatch start/progress/resolve/fail/abandon/cancel through the controller.
 - No component-level save calls; persistence stays inside controller commands.
+- Preserve the Step 6 lazy boundary: constructing `useFileUpload()` in a
+  demo-mounted renderer must not resolve auth, storage services, focused stores,
+  or the controller. Only upload commands resolve upload collaborators.
 - Run `useFileUpload` and `grid.uploads` suites.
 
 ### 8. Group 7 — Repoint the Live Context + Tile-Content Commands
@@ -151,6 +165,9 @@ Per the master plan, after **each** group:
 - This migrates the entire canvas subtree (`Grid.vue`, `Tile.vue`,
   `tilecontent/*`, captions, toolbars, actions) off the facade in one place,
   since they consume the context.
+- Do not assume this covers support composables used by tile content. Confirm
+  `useTileContentWriter`, `useTileLink`, `useEditingLifecycle`,
+  `useTileInput`, and `useFileUpload` have already moved in Groups 5 and 6.
 - Verify each `tilecontent/*` command path lands on a typed controller command
   (`patchTileContent`, `patchDocumentItem`, `resolveUploadedUrl`, …).
 - Run the full canvas + tilecontent suites.
@@ -187,6 +204,9 @@ After all groups pass and no production file imports `@/stores/grid`:
 - `grid.ts` and the compatibility facade are deleted.
 - A lint rule blocks re-importing the deleted facade path.
 - Active grid state is deeply readonly to components.
+- The Step 6 demo-isolation regression still passes: mounting the marketing demo
+  with representative real canvas renderers does not resolve live store, auth, or
+  service dependencies during render.
 - The full existing characterization and application suites pass unchanged.
 
 ## Verification

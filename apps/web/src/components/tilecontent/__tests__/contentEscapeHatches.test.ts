@@ -12,6 +12,9 @@ import {
 const storeHolder = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
 }));
+const badgeHolder = vi.hoisted(() => ({
+  userId: null as unknown,
+}));
 
 vi.mock("@/stores/grid", () => ({
   useGridStore: () => storeHolder.current,
@@ -59,7 +62,10 @@ vi.mock("@/services/ServiceFactorySingleton", () => ({
 }));
 
 vi.mock("@/composables/useBadges", () => ({
-  useBadges: () => ({ earnedBadges: computed(() => []) }),
+  useBadges: (userId: unknown) => {
+    badgeHolder.userId = userId;
+    return { earnedBadges: computed(() => []) };
+  },
 }));
 
 vi.mock("@/composables/useDocumentThumbnail", () => ({
@@ -127,6 +133,7 @@ function makeStore(content: LinkContent | DocumentsContent | MapContent | Profil
   };
 
   return reactive({
+    mode: "live",
     canEdit: true,
     isOwner: true,
     grid,
@@ -145,6 +152,7 @@ function makeStore(content: LinkContent | DocumentsContent | MapContent | Profil
 describe("tile-content command boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    badgeHolder.userId = null;
     vi.useRealTimers();
     class ResizeObserverStub {
       observe = vi.fn();
@@ -340,6 +348,40 @@ describe("tile-content command boundary", () => {
       avatarRadius: 24,
     });
     expect(store.saveGrid).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("profile badges do not subscribe for demo-rendered tiles", async () => {
+    const content = reactive({
+      type: ContentType.PROFILE,
+      name: "",
+      title: "",
+      bio: "",
+      avatarShape: "square",
+      avatarRadius: 12,
+      avatarSides: 6,
+    }) as ProfileBioContent;
+    const store = makeStore(content);
+    store.mode = "demo";
+    store.canEdit = false;
+    storeHolder.current = store;
+    const { default: ProfileBioContentComponent } = await import(
+      "@/components/tilecontent/ProfileBioContent.vue"
+    );
+    const wrapper = mount(ProfileBioContentComponent, {
+      props: { content },
+      global: {
+        provide: {
+          tileId: "tile-1",
+          gridTileW: computed(() => 4),
+          gridTileH: computed(() => 4),
+          hoveredToolbarZone: computed(() => null),
+        },
+        stubs: { Teleport: true },
+      },
+    });
+
+    expect((badgeHolder.userId as { value: unknown }).value).toBeNull();
     wrapper.unmount();
   });
 });

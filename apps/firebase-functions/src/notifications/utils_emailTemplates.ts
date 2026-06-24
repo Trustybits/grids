@@ -41,11 +41,12 @@ const C = {
 const FONT =
   "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
-// MarketingNavBar brand word uses Orbitron (see apps/web claude-tokens.scss).
-const FONT_BRAND =
-  "'Orbitron', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-
-const LOGO_URL = `${SITE_BASE}/grids_logo.png`;
+// Raster wordmark (icon + Orbitron "grids") — web fonts fail in most email clients.
+// Asset: apps/web/public/grids_wordmark.png → https://grids.so/grids_wordmark.png
+// Regenerate after logo/font tweaks: npm run email:generate-wordmark
+const WORDMARK_URL = `${SITE_BASE}/grids_wordmark.png`;
+const WORDMARK_WIDTH = 98;
+const WORDMARK_HEIGHT = 30;
 const DISCORD_SUPPORT_URL = "https://discord.gg/5dVU9EPPAY";
 
 // ─── Primitive helpers ────────────────────────────────────────────────────────
@@ -84,35 +85,17 @@ function hr(): string {
 }
 
 /**
- * Landing-page header wordmark: grids_logo.png icon + lowercase "grids" in Orbitron.
- * Matches MarketingNavBar.vue (.mkt__brand-mark + .mkt__brand-word).
+ * Landing-page header wordmark as a single hosted PNG (Orbitron doesn't load in email).
  */
 function wordmark(): string {
   return `
-<table cellpadding="0" cellspacing="0" border="0" role="presentation">
-  <tr>
-    <td align="center">
-      <a href="${SITE_BASE}"
-         style="display:inline-block;text-decoration:none;"
-      >
-        <table cellpadding="0" cellspacing="0" border="0" role="presentation">
-          <tr>
-            <td valign="middle" style="padding-right:10px;">
-              <img src="${LOGO_URL}"
-                   width="30" height="30"
-                   alt=""
-                   style="display:block;width:30px;height:30px;border:0;border-radius:8px;"
-              />
-            </td>
-            <td valign="middle"
-                style="font-family:${FONT_BRAND};font-size:20px;font-weight:700;line-height:1;letter-spacing:0.02em;color:${C.textHigh};text-transform:lowercase;"
-            >grids</td>
-          </tr>
-        </table>
-      </a>
-    </td>
-  </tr>
-</table>`.trim();
+<a href="${SITE_BASE}" style="display:inline-block;text-decoration:none;">
+  <img src="${WORDMARK_URL}"
+       width="${WORDMARK_WIDTH}" height="${WORDMARK_HEIGHT}"
+       alt="grids"
+       style="display:block;width:${WORDMARK_WIDTH}px;height:${WORDMARK_HEIGHT}px;border:0;"
+  />
+</a>`.trim();
 }
 
 function discordSupportLine(): string {
@@ -148,7 +131,6 @@ function wrapEmail(
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <meta name="x-apple-disable-message-reformatting">
   <title>${subject}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
   <style>
     /* Reset — kept minimal to avoid fighting email client overrides */
     body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
@@ -177,22 +159,28 @@ function wrapEmail(
 
         <!-- Card ─────────────────────────────────────────── -->
         <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
-               style="max-width:560px;background-color:${C.cardBg};border-radius:24px;border:1px solid ${C.cardBorder};box-shadow:0 2px 8px rgba(51,49,44,0.07);">
-
-          <!-- Gradient accent strip (cyan → indigo → magenta) -->
+               style="max-width:560px;">
           <tr>
-            <td height="4"
-                style="font-size:0;line-height:0;padding:0;background:${C.gradientBar};border-radius:24px 24px 0 0;"
-            >&nbsp;</td>
-          </tr>
+            <td style="border-radius:24px;border:1px solid ${C.cardBorder};overflow:hidden;background-color:${C.cardBg};box-shadow:0 2px 8px rgba(51,49,44,0.07);">
 
-          <!-- Body content -->
-          <tr>
-            <td style="padding:40px 44px 44px;font-family:${FONT};color:${C.textHigh};">
-              ${body}
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+                <!-- Gradient accent strip — clipped by outer overflow:hidden -->
+                <tr>
+                  <td height="4"
+                      style="font-size:0;line-height:0;padding:0;background:${C.gradientBar};mso-line-height-rule:exactly;"
+                  >&nbsp;</td>
+                </tr>
+
+                <!-- Body content -->
+                <tr>
+                  <td style="padding:40px 44px 44px;font-family:${FONT};color:${C.textHigh};">
+                    ${body}
+                  </td>
+                </tr>
+              </table>
+
             </td>
           </tr>
-
         </table>
 
         <!-- Footer ───────────────────────────────────────── -->

@@ -18,6 +18,14 @@ import {
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const outputDir = join(scriptDir, "../../email-previews");
+const localWordmarkPath = "../../web/public/grids_wordmark.png";
+
+function localizeAssetsForPreview(html: string): string {
+  return html.replace(
+    "https://grids.so/grids_wordmark.png",
+    localWordmarkPath,
+  );
+}
 
 type PreviewEmail = {
   fileName: string;
@@ -58,7 +66,7 @@ mkdirSync(outputDir, { recursive: true });
 
 for (const preview of previews) {
   const path = join(outputDir, preview.fileName);
-  writeFileSync(path, preview.html, "utf8");
+  writeFileSync(path, localizeAssetsForPreview(preview.html), "utf8");
   console.log(`Wrote ${path}`);
 }
 

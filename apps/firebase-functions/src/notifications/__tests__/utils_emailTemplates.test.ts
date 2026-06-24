@@ -11,8 +11,7 @@ describe("buildWelcomeEmail", () => {
     expect(subject).toBe("Welcome to Grids");
     expect(html).toContain("Hi Matt,");
     expect(html).toContain("https://grids.so/dashboard");
-    expect(html).toContain("grids_logo.png");
-    expect(html).toContain(">grids</td>");
+    expect(html).toContain("grids_wordmark.png");
     expect(html).toContain("https://discord.gg/5dVU9EPPAY");
     expect(html).not.toContain("Reply to this email");
   });
@@ -35,7 +34,7 @@ describe("buildFirstGridEmail", () => {
     expect(subject).toBe("My Grid is live");
     expect(html).toContain("https://grids.so/matt");
     expect(html).toContain("My Grid is live.");
-    expect(html).toContain("grids_logo.png");
+    expect(html).toContain("grids_wordmark.png");
   });
 
   it("falls back to grid id URL when slug is missing", () => {

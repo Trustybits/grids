@@ -10,6 +10,8 @@
  * Templates: welcome | grid-engagement | supporter
  */
 
+/* eslint-disable no-console -- CLI script output */
+
 import {
   buildFirstGridEmail,
   buildSupporterBadgeEmail,

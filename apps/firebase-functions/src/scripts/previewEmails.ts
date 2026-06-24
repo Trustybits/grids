@@ -7,6 +7,8 @@
  * Opens email-previews/*.html in a browser to review layout and copy.
  */
 
+/* eslint-disable no-console -- CLI script output */
+
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

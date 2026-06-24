@@ -10,6 +10,8 @@
  * Usage: npm run email:generate-wordmark
  */
 
+/* eslint-disable no-console -- CLI script output */
+
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

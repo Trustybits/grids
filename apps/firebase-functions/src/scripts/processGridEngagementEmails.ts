@@ -8,6 +8,8 @@
  * GRID_ENGAGEMENT_EMAIL_DELAY_MS=0 sends immediately for any pending record.
  */
 
+/* eslint-disable no-console -- CLI script output */
+
 import admin from "firebase-admin";
 import {
   getGridEngagementEmailDelayMs,

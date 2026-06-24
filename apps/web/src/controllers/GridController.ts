@@ -1,4 +1,3 @@
-import type { AuthProvider } from "@grids/contracts/auth";
 import {
   AnalyticsEventType,
   ContentType,
@@ -14,23 +13,9 @@ import {
   type TilePosition,
 } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
-import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService";
-import type { IGridService } from "@/services/interfaces/IGridService";
-import type {
-  GridPersistenceScope,
-  IGridPersistenceScheduler,
-} from "@/services/interfaces/IGridPersistenceScheduler";
-import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
+import type { GridPersistenceScope } from "@/services/interfaces/IGridPersistenceScheduler";
 import type { Snapshot } from "@/undo/UndoTypes";
-import type { useGridCollectionStore } from "@/stores/grid/gridCollection";
-import type { useGridHistoryStore } from "@/stores/grid/gridHistory";
-import type { useGridSessionStore } from "@/stores/grid/gridSession";
-import type { useGridUiStore } from "@/stores/grid/gridUi";
 import type { GridUploadRecord } from "@/stores/grid/gridUploads";
-import type { useGridUploadsStore } from "@/stores/grid/gridUploads";
-import type { useGridViewportStore } from "@/stores/grid/gridViewport";
-import type { useThemeStore } from "@/stores/theme";
-import type { useToastStore } from "@/stores/toast";
 import { breakpointRank } from "@/utils/BreakpointUtils";
 import { createTile } from "@/utils/TileUtils";
 import { getTileDefinition } from "@/registries/tileRegistry";
@@ -45,54 +30,29 @@ import type {
   StartUploadInput,
   UpdateCaptionInput,
 } from "./GridCommands";
+import {
+  createPositionMap,
+  getTileObjectUrls,
+  hasRecordChanges,
+  syncPositionOnlyLayout,
+} from "./GridControllerHelpers";
+import {
+  BREAKPOINT_HISTORY_TRANSITION_MS,
+  type GridControllerDependencies,
+  type GridControllerStores,
+  type GridEditPermissionInput,
+  type GridHistoryUrlMaps,
+  type GridLayoutReadinessAdapter,
+} from "./GridControllerTypes";
 
-export interface GridControllerStores {
-  collection: ReturnType<typeof useGridCollectionStore>;
-  history: ReturnType<typeof useGridHistoryStore>;
-  session: ReturnType<typeof useGridSessionStore>;
-  ui: ReturnType<typeof useGridUiStore>;
-  uploads: ReturnType<typeof useGridUploadsStore>;
-  viewport: ReturnType<typeof useGridViewportStore>;
-  theme: ReturnType<typeof useThemeStore>;
-  toast: ReturnType<typeof useToastStore>;
-}
-
-export interface GridMetadataPreferences {
-  showMetaData: boolean;
-  showMetaDataVerbose: boolean;
-}
-
-export interface GridControllerDependencies {
-  getGridService(): IGridService;
-  persistenceScheduler: IGridPersistenceScheduler;
-  getAuthProvider(): AuthProvider;
-  getAnalyticsService(): IAnalyticsService;
-  generateUuid(): string;
-  delay(milliseconds: number): Promise<void>;
-  now(): Date;
-  measureViewportGridRow(): number;
-  readMetadataPreferences(): GridMetadataPreferences;
-  getCookieValue(name: string): string | null;
-  setCookieValue(name: string, value: string, days?: number): void;
-  snapshotCodec: GridSnapshotCodec;
-}
-
-export interface GridLayoutReadinessAdapter {
-  waitForLayoutReady(breakpoint: Breakpoint): Promise<void>;
-}
-
-export interface GridEditPermissionInput {
-  isOwner: boolean;
-  forcedBreakpoint: Breakpoint | null;
-  viewportBreakpoint: Breakpoint;
-}
-
-export interface GridHistoryUrlMaps {
-  resolvedUrls: Record<string, string>;
-  resolvedDocumentItemUrls: Record<string, Record<string, string>>;
-}
-
-const BREAKPOINT_HISTORY_TRANSITION_MS = 500;
+export type {
+  GridControllerDependencies,
+  GridControllerStores,
+  GridEditPermissionInput,
+  GridHistoryUrlMaps,
+  GridLayoutReadinessAdapter,
+  GridMetadataPreferences,
+} from "./GridControllerTypes";
 
 export class GridController {
   private layoutReadinessAdapter: GridLayoutReadinessAdapter | null =
@@ -760,7 +720,7 @@ export class GridController {
     if (this.stores.viewport.activeBreakpoint !== "lg") {
       this.captureActiveBreakpointOverride();
     } else if (grid && this.stores.viewport.displayPositions.length) {
-      this.syncPositionOnlyLayout(
+      syncPositionOnlyLayout(
         grid,
         this.stores.viewport.displayPositions,
       );
@@ -1027,10 +987,7 @@ export class GridController {
     const currentContent = tile.content as AnyTileContent &
       Record<string, unknown>;
     const patchRecord = patch as Record<string, unknown>;
-    const hasChanges = Object.keys(patchRecord).some(
-      (key) => !Object.is(currentContent[key], patchRecord[key]),
-    );
-    if (!hasChanges) return;
+    if (!hasRecordChanges(currentContent, patchRecord)) return;
 
     const editing = this.stores.history.isEditing(id);
     if (!editing) {
@@ -1072,10 +1029,7 @@ export class GridController {
     const currentContent = tile.content as AnyTileContent &
       Record<string, unknown>;
     const patchRecord = patch as Record<string, unknown>;
-    const hasChanges = Object.keys(patchRecord).some(
-      (key) => !Object.is(currentContent[key], patchRecord[key]),
-    );
-    if (!hasChanges) return;
+    if (!hasRecordChanges(currentContent, patchRecord)) return;
 
     tile.content = {
       ...currentContent,
@@ -1295,7 +1249,7 @@ export class GridController {
     const tile = grid.tiles.find((candidate) => candidate.i === id);
     this.stores.uploads.clearTileState(
       id,
-      tile ? this.getTileObjectUrls(tile) : [],
+      tile ? getTileObjectUrls(tile) : [],
     );
 
     if (grid.overrides) {
@@ -1346,16 +1300,8 @@ export class GridController {
     const columns = breakpoint === "sm" ? 4 : 8;
     const clampedWidth = Math.min(width, columns);
     grid.overrides ??= {};
-    grid.overrides[breakpoint] ??= Object.fromEntries(
-      this.stores.viewport.displayPositions.map((position) => [
-        position.i,
-        {
-          x: position.x,
-          y: position.y,
-          w: position.w,
-          h: position.h,
-        },
-      ]),
+    grid.overrides[breakpoint] ??= createPositionMap(
+      this.stores.viewport.displayPositions,
     );
     const positions = grid.overrides[breakpoint];
     if (!positions) return;
@@ -1426,7 +1372,7 @@ export class GridController {
       this.stores.viewport.activeBreakpoint === "lg" &&
       layout.length
     ) {
-      this.syncPositionOnlyLayout(grid, layout);
+      syncPositionOnlyLayout(grid, layout);
     }
     this.scheduleSave();
   }
@@ -1443,30 +1389,8 @@ export class GridController {
     ) {
       return;
     }
-    this.syncPositionOnlyLayout(grid, layout);
+    syncPositionOnlyLayout(grid, layout);
     this.scheduleSave();
-  }
-
-  /**
-   * Copy only positional fields (`x`, `y`, `w`, `h`) from a position-only
-   * rendered layout into canonical tiles. Tile content is never copied from
-   * rendered layout objects.
-   */
-  private syncPositionOnlyLayout(
-    grid: Grid,
-    layout: GridLayoutItem[],
-  ): void {
-    for (const position of layout) {
-      const tile = grid.tiles.find(
-        (candidate) => candidate.i === position.i,
-      );
-      if (tile) {
-        tile.x = position.x;
-        tile.y = position.y;
-        tile.w = position.w;
-        tile.h = position.h;
-      }
-    }
   }
 
   private captureActiveBreakpointOverride(): boolean {
@@ -1475,16 +1399,8 @@ export class GridController {
     if (!grid || breakpoint === "lg") return false;
 
     grid.overrides ??= {};
-    grid.overrides[breakpoint] = Object.fromEntries(
-      this.stores.viewport.displayPositions.map((position) => [
-        position.i,
-        {
-          x: position.x,
-          y: position.y,
-          w: position.w,
-          h: position.h,
-        },
-      ]),
+    grid.overrides[breakpoint] = createPositionMap(
+      this.stores.viewport.displayPositions,
     );
     return true;
   }
@@ -1503,12 +1419,7 @@ export class GridController {
     if (!grid || breakpoint === "lg") return;
 
     grid.overrides ??= {};
-    grid.overrides[breakpoint] = Object.fromEntries(
-      tiles.map((tile) => [
-        tile.i,
-        { x: tile.x, y: tile.y, w: tile.w, h: tile.h },
-      ]),
-    );
+    grid.overrides[breakpoint] = createPositionMap(tiles);
     this.scheduleSave();
   }
 
@@ -1551,27 +1462,6 @@ export class GridController {
   private reportPersistenceError(error: unknown): void {
     this.stores.session.setPersistenceError("Failed to save grid.");
     console.error(error);
-  }
-
-  private getTileObjectUrls(tile: Tile): string[] {
-    const urls: string[] = [];
-    if (
-      "src" in tile.content &&
-      typeof tile.content.src === "string" &&
-      tile.content.src.startsWith("blob:")
-    ) {
-      urls.push(tile.content.src);
-    }
-    if (tile.content.type !== ContentType.DOCUMENT) return urls;
-    for (const item of (tile.content as DocumentsContent).items ?? []) {
-      if (
-        typeof item.url === "string" &&
-        item.url.startsWith("blob:")
-      ) {
-        urls.push(item.url);
-      }
-    }
-    return urls;
   }
 
   private logTileEvent(

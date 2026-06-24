@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { isReadonly } from "vue";
 import type { AnyTileContent, Grid } from "@grids/contracts/types";
 import { createDemoGridViewContext } from "@/grid-view/createDemoGridViewContext";
 import type { GridLayoutItem } from "@/types/GridLayout";
@@ -49,7 +50,9 @@ describe("createDemoGridViewContext", () => {
     const ctx = createDemoGridViewContext(grid);
 
     expect(ctx.mode).toBe("demo");
-    expect(ctx.grid.value).toBe(grid);
+    // Demo grid is exposed deeply readonly, mirroring the live context.
+    expect(ctx.grid.value).toEqual(grid);
+    expect(isReadonly(ctx.grid.value)).toBe(true);
     expect(ctx.isOwner.value).toBe(false);
     expect(ctx.canEdit.value).toBe(false);
     expect(ctx.isLoading.value).toBe(false);
@@ -80,7 +83,7 @@ describe("createDemoGridViewContext", () => {
     ctx.setViewportBreakpoint("sm");
     ctx.setDisplayPositions(positions);
     positions[0]!.x = 7;
-    ctx.pendingFocusTileId.value = "tile-1";
+    ctx.setPendingFocusTileId("tile-1");
 
     expect(ctx.forcedBreakpoint.value).toBe("md");
     expect(ctx.activeBreakpoint.value).toBe("md");

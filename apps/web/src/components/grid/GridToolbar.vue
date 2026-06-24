@@ -158,7 +158,8 @@ import {
   onUnmounted,
   nextTick,
 } from "vue";
-import { useGridStore } from "@/stores/grid";
+import { useGridUiStore } from "@/stores/grid/gridUi";
+import { useGridController } from "@/controllers/useGridController";
 import { ContentType } from "@grids/contracts/types";
 import { createTileContent } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
@@ -200,7 +201,8 @@ export default {
     const smartTextEnabled = computed(() => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT));
     const documentsEnabled = computed(() => isEnabled(FEATURE_FLAGS.BETA_DOCUMENTS));
 
-    const gridStore = useGridStore();
+    const uiStore = useGridUiStore();
+    const controller = useGridController();
     const imageInput = ref<HTMLInputElement | null>(null);
     const documentInput = ref<HTMLInputElement | null>(null);
     const { uploadFileOptimistic, uploadDocumentsOptimistic } =
@@ -247,34 +249,34 @@ export default {
 
     const addTextElement = () => {
       const textContent = createTileContent(ContentType.TEXT, {});
-      const tileId = gridStore.addTile(textContent);
+      const tileId = controller.addTile(textContent);
       // Auto-focus the new text tile so the user can start typing immediately
       if (tileId) {
-        gridStore.pendingFocusTileId = tileId;
+        uiStore.setPendingFocusTileId(tileId);
       }
     };
 
     const addSmartTextElement = () => {
       const textContent = createTileContent(ContentType.SMART_TEXT, {});
-      const tileId = gridStore.addTile(textContent);
+      const tileId = controller.addTile(textContent);
       if (tileId) {
-        gridStore.pendingFocusTileId = tileId;
+        uiStore.setPendingFocusTileId(tileId);
       }
     };
 
     const addProfileElement = () => {
       const profileContent = createTileContent(ContentType.PROFILE, {});
-      gridStore.addTile(profileContent);
+      controller.addTile(profileContent);
     };
 
     const addChatElement = () => {
       const chatContent = createTileContent(ContentType.CHAT, {});
-      gridStore.addTile(chatContent);
+      controller.addTile(chatContent);
     };
 
     const addCampfireElement = () => {
       const campfireContent = createTileContent(ContentType.CAMPFIRE, {});
-      gridStore.addTile(campfireContent);
+      controller.addTile(campfireContent);
     };
 
     const selectFile = () => {
@@ -355,13 +357,13 @@ export default {
       const content = createTileContent(ContentType.MAP, {
         searchQuery: query || undefined,
       });
-      gridStore.addTile(content);
+      controller.addTile(content);
     };
 
     const addRoadmapFeedElement = () => {
       // Creates a disconnected roadmap tile; the owner connects Notion from inside the tile
       const roadmapContent = createTileContent(ContentType.ROADMAP_FEED, {});
-      gridStore.addTile(roadmapContent);
+      controller.addTile(roadmapContent);
     };
 
     const _addOtherElement = () => {
@@ -372,14 +374,14 @@ export default {
         const linkContent = createTileContent(ContentType.LINK, {
           src: link,
         });
-        gridStore.addTile(linkContent);
+        controller.addTile(linkContent);
       }
     };
 
     const updateMetaData = () => {
-      gridStore.setCookieValue(
+      controller.setCookieValue(
         "showMetaData",
-        gridStore.showMetaData.toString(),
+        uiStore.showMetaData.toString(),
       );
     };
 
@@ -387,7 +389,6 @@ export default {
       isValidLink,
       isValidEmbed,
       imageInput,
-      gridStore,
       smartTextEnabled,
       documentsEnabled,
       addTextElement,

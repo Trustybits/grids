@@ -10,7 +10,8 @@ import {
 } from "vue";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useGridStore } from "@/stores/grid";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridController } from "@/controllers/useGridController";
 import { useThemeStore } from "@/stores/theme";
 import { useColorPicker, computeTextColor } from "@/composables/useColorPicker";
 import {
@@ -105,9 +106,9 @@ describe("useColorPicker", () => {
       { props: { content: originalContent } },
     );
 
-    const gridStore = useGridStore();
-    gridStore.isOwner = true;
-    gridStore.currentGrid = {
+    const session = useGridSessionStore();
+    session.setOwner(true);
+    session.setCurrentGrid({
       id: "grid-1",
       name: "Grid",
       userId: "user-1",
@@ -126,7 +127,7 @@ describe("useColorPicker", () => {
           content: replacementContent,
         },
       ],
-    };
+    });
 
     await wrapper.setProps({ content: replacementContent });
     changeColor("#A8DAFF");
@@ -136,7 +137,7 @@ describe("useColorPicker", () => {
     // prop objects are not mutated in place (no mirror after the command).
     expect(replacementContent.backgroundColor).toBe("#B3EFBD");
     expect(
-      (gridStore.currentGrid?.tiles[0].content as TextContent).backgroundColor,
+      (session.currentGrid?.tiles[0].content as TextContent).backgroundColor,
     ).toBe("#A8DAFF");
   });
 
@@ -168,11 +169,12 @@ describe("useColorPicker", () => {
       { props: { content } },
     );
 
-    const gridStore = useGridStore();
-    gridStore.isOwner = true;
+    const session = useGridSessionStore();
+    session.setOwner(true);
+    const controller = useGridController();
     const observedColors: string[] = [];
     const patchTileContent = vi
-      .spyOn(gridStore, "patchTileContent")
+      .spyOn(controller, "patchTileContent")
       .mockImplementation(() => {
         observedColors.push(content.backgroundColor ?? "");
       });
@@ -216,11 +218,12 @@ const noopEmit = () => {};
 describe("useColorPicker — fill vs overlay separation", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    const grid = useGridStore();
-    grid.isOwner = true; // makes canEdit true
+    useGridSessionStore().setOwner(true); // makes canEdit true
     // Persist is exercised in the suite above; here we assert local preview
     // behavior with no live tile identity.
-    vi.spyOn(grid, "patchTileContent").mockImplementation(() => {});
+    vi.spyOn(useGridController(), "patchTileContent").mockImplementation(
+      () => {},
+    );
   });
 
   it("applies Fill as the background and not as an overlay on a fresh image", () => {
@@ -484,9 +487,8 @@ describe("useColorPicker — canEdit guard", () => {
   });
 
   it("ignores fill changes when the user cannot edit", () => {
-    const grid = useGridStore();
-    grid.isOwner = false; // canEdit → false
-    const patchSpy = vi.spyOn(grid, "patchTileContent");
+    useGridSessionStore().setOwner(false); // canEdit → false
+    const patchSpy = vi.spyOn(useGridController(), "patchTileContent");
     const content = makeImageContent();
 
     const { handleBackgroundColorChange } = useColorPicker(
@@ -502,9 +504,8 @@ describe("useColorPicker — canEdit guard", () => {
   });
 
   it("ignores overlay changes and mode toggles when the user cannot edit", () => {
-    const grid = useGridStore();
-    grid.isOwner = false;
-    const patchSpy = vi.spyOn(grid, "patchTileContent");
+    useGridSessionStore().setOwner(false);
+    const patchSpy = vi.spyOn(useGridController(), "patchTileContent");
     const content = makeImageContent();
 
     const { handleOverlayColorChange, setColorMode } = useColorPicker(
@@ -528,12 +529,14 @@ describe("useColorPicker — persistence with a null tileId", () => {
   });
 
   it("mutates local preview content without any grid persistence when tileId is null", () => {
-    const grid = useGridStore();
-    grid.isOwner = true;
+    useGridSessionStore().setOwner(true);
+    const controller = useGridController();
     const patchSpy = vi
-      .spyOn(grid, "patchTileContent")
+      .spyOn(controller, "patchTileContent")
       .mockImplementation(() => {});
-    const saveSpy = vi.spyOn(grid, "saveGrid").mockImplementation(async () => {});
+    const saveSpy = vi
+      .spyOn(controller, "saveGrid")
+      .mockImplementation(async () => {});
     const content = makeImageContent();
 
     const { handleBackgroundColorChange } = useColorPicker(
@@ -557,9 +560,10 @@ describe("useColorPicker — persistence with a null tileId", () => {
 describe("useColorPicker — legacyBackgroundAlsoOverlay", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    const grid = useGridStore();
-    grid.isOwner = true;
-    vi.spyOn(grid, "patchTileContent").mockImplementation(() => {});
+    useGridSessionStore().setOwner(true);
+    vi.spyOn(useGridController(), "patchTileContent").mockImplementation(
+      () => {},
+    );
   });
 
   const makeLinkContent = (backgroundColor: string): LinkContent =>

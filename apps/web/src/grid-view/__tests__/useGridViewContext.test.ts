@@ -9,10 +9,14 @@ import {
   useGridViewContext,
 } from "@/grid-view/useGridViewContext";
 
-const storeHolder = vi.hoisted(() => ({ current: null as unknown }));
+const storeHolder = vi.hoisted(() => ({
+  current: null as GridViewContext | null,
+}));
 
-vi.mock("@/stores/grid", () => ({
-  useGridStore: () => storeHolder.current,
+// The default factory path delegates to createLiveGridViewContext; stub it so
+// these provide/inject + memoization tests don't depend on the live store wiring.
+vi.mock("@/grid-view/createLiveGridViewContext", () => ({
+  createLiveGridViewContext: () => storeHolder.current,
 }));
 
 function makeContext(mode: GridViewContext["mode"]): GridViewContext {
@@ -97,50 +101,7 @@ describe("useGridViewContext", () => {
   });
 
   it("creates a live context when no provider or override factory exists", () => {
-    storeHolder.current = {
-      currentGrid: null,
-      isOwner: false,
-      canEdit: false,
-      isLoading: false,
-      verticalCompact: true,
-      activeBreakpoint: "lg",
-      viewportBreakpoint: "lg",
-      forcedBreakpoint: null,
-      displayPositions: [],
-      showMetaData: false,
-      showMetaDataVerbose: false,
-      uploadingTiles: {},
-      activeTileId: null,
-      activePanelId: null,
-      pendingFocusTileId: null,
-      registerLayoutReadinessAdapter: vi.fn(),
-      setActiveBreakpoint: vi.fn(),
-      setViewportBreakpoint: vi.fn(),
-      setForcedBreakpoint: vi.fn(),
-      setDisplayPositions: vi.fn(),
-      commitCompactedLayout: vi.fn(),
-      beginMove: vi.fn(),
-      commitMove: vi.fn(),
-      beginResize: vi.fn(),
-      commitResize: vi.fn(),
-      beginEditing: vi.fn(),
-      commitEditing: vi.fn(),
-      setTileContent: vi.fn(),
-      patchTileContent: vi.fn(),
-      autosaveTileContent: vi.fn(),
-      patchDocumentItem: vi.fn(),
-      updateCaption: vi.fn(),
-      removeTile: vi.fn(),
-      duplicateTile: vi.fn(),
-      resizeTile: vi.fn(),
-      toggleTileBorder: vi.fn(),
-      toggleLinkBackground: vi.fn(),
-      setPanelActive: vi.fn(),
-      toggleMenuActive: vi.fn(),
-      togglePanelActive: vi.fn(),
-      closeMenus: vi.fn(),
-      getCookieValue: vi.fn(),
-    };
+    storeHolder.current = makeContext("live");
 
     const first = mountContextConsumer();
     const second = mountContextConsumer();

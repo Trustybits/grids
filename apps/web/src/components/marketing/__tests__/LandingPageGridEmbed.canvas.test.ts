@@ -10,7 +10,9 @@ const dependencySpies = vi.hoisted(() => ({
     getBadgeService: vi.fn(),
     getStorageService: vi.fn(),
   })),
-  useGridStore: vi.fn(() => null),
+  // The live view context is the single chokepoint that resolves live
+  // stores + the controller; the demo must never construct it.
+  createLiveGridViewContext: vi.fn(),
 }));
 
 vi.mock("@/auth/AuthProviderSingleton", () => ({
@@ -21,8 +23,8 @@ vi.mock("@/services/ServiceFactorySingleton", () => ({
   getServiceFactory: dependencySpies.getServiceFactory,
 }));
 
-vi.mock("@/stores/grid", () => ({
-  useGridStore: dependencySpies.useGridStore,
+vi.mock("@/grid-view/createLiveGridViewContext", () => ({
+  createLiveGridViewContext: dependencySpies.createLiveGridViewContext,
 }));
 
 vi.mock("vue3-grid-layout", async () => {
@@ -152,7 +154,7 @@ describe("LandingPageGridEmbed canvas isolation", () => {
 
     expect(wrapper.find('[data-test="grid-layout"]').exists()).toBe(true);
     expect(wrapper.findAll('[data-test="grid-item"]').length).toBeGreaterThan(0);
-    expect(dependencySpies.useGridStore).not.toHaveBeenCalled();
+    expect(dependencySpies.createLiveGridViewContext).not.toHaveBeenCalled();
     expect(dependencySpies.getServiceFactory).not.toHaveBeenCalled();
     expect(dependencySpies.getAuthProvider).not.toHaveBeenCalled();
 

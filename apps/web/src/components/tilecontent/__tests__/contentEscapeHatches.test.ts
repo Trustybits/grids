@@ -16,12 +16,15 @@ const badgeHolder = vi.hoisted(() => ({
   userId: null as unknown,
 }));
 
-vi.mock("@/stores/grid", () => ({
-  useGridStore: () => storeHolder.current,
-}));
-
 vi.mock("@/grid-view/useGridViewContext", () => ({
   useGridViewContext: () => storeHolder.current,
+}));
+
+// Tile-content composables (useTileContentWriter, useEditingLifecycle, …) now
+// dispatch through the controller; point it at the same spy object the view
+// context exposes so both command paths funnel into one set of assertions.
+vi.mock("@/controllers/useGridController", () => ({
+  useGridController: () => storeHolder.current,
 }));
 
 vi.mock("@/stores/theme", () => ({

@@ -16,7 +16,6 @@ import type { IGridPersistenceScheduler } from "@/services/interfaces/IGridPersi
 import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
 import type { Snapshot } from "@/undo/UndoTypes";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
-import { useGridCompatibilityStore } from "@/stores/grid/gridCompatibility";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridUiStore } from "@/stores/grid/gridUi";
@@ -94,7 +93,6 @@ function makeSnapshot(
 function createStores(pinia: Pinia): GridControllerStores {
   return {
     collection: useGridCollectionStore(pinia),
-    compatibility: useGridCompatibilityStore(pinia),
     history: useGridHistoryStore(pinia),
     session: useGridSessionStore(pinia),
     ui: useGridUiStore(pinia),
@@ -302,6 +300,73 @@ describe("GridController", () => {
     );
   });
 
+  it("ignores an obsolete load response while a replacement load is pending", async () => {
+    const { controller, stores, gridService } =
+      createControllerHarness();
+    const oldRequest = deferred<Grid>();
+    const newRequest = deferred<Grid>();
+    vi.mocked(gridService.fetchGrid)
+      .mockReturnValueOnce(oldRequest.promise)
+      .mockReturnValueOnce(newRequest.promise);
+
+    const oldLoad = controller.loadGrid("old-grid");
+    const newLoad = controller.loadGrid("new-grid");
+
+    oldRequest.resolve(makeGrid({ id: "old-grid" }));
+    await oldLoad;
+
+    expect(stores.session.currentGrid).toBeNull();
+    expect(stores.session.isLoading).toBe(true);
+    expect(stores.collection.recentGridIds).toEqual([]);
+    expect(gridService.saveRecentGridIds).not.toHaveBeenCalled();
+    expect(gridService.touchLastOpenedAt).not.toHaveBeenCalled();
+
+    newRequest.resolve(makeGrid({ id: "new-grid" }));
+    await newLoad;
+
+    expect(stores.session.currentGrid?.id).toBe("new-grid");
+    expect(stores.session.isLoading).toBe(false);
+    expect(stores.collection.recentGridIds).toEqual(["new-grid"]);
+    expect(gridService.saveRecentGridIds).toHaveBeenCalledWith(
+      "user-1",
+      ["new-grid"],
+    );
+    expect(gridService.touchLastOpenedAt).toHaveBeenCalledWith(
+      "new-grid",
+    );
+  });
+
+  it("keeps the newer grid when an obsolete load response resolves last", async () => {
+    const { controller, stores, gridService } =
+      createControllerHarness();
+    const oldRequest = deferred<Grid>();
+    const newRequest = deferred<Grid>();
+    vi.mocked(gridService.fetchGrid)
+      .mockReturnValueOnce(oldRequest.promise)
+      .mockReturnValueOnce(newRequest.promise);
+
+    const oldLoad = controller.loadGrid("old-grid");
+    const newLoad = controller.loadGrid("new-grid");
+
+    newRequest.resolve(makeGrid({ id: "new-grid" }));
+    await newLoad;
+    oldRequest.resolve(makeGrid({ id: "old-grid" }));
+    await oldLoad;
+
+    expect(stores.session.currentGrid?.id).toBe("new-grid");
+    expect(stores.session.isLoading).toBe(false);
+    expect(stores.collection.recentGridIds).toEqual(["new-grid"]);
+    expect(gridService.saveRecentGridIds).toHaveBeenCalledTimes(1);
+    expect(gridService.saveRecentGridIds).toHaveBeenCalledWith(
+      "user-1",
+      ["new-grid"],
+    );
+    expect(gridService.touchLastOpenedAt).toHaveBeenCalledTimes(1);
+    expect(gridService.touchLastOpenedAt).toHaveBeenCalledWith(
+      "new-grid",
+    );
+  });
+
   it("loads an owned grid and updates focused session and collection state", async () => {
     const {
       controller,
@@ -369,32 +434,8 @@ describe("GridController", () => {
 
     expect(stores.session.currentGrid).toBeNull();
     expect(stores.session.loadError).toBe("Failed to load grid.");
-    expect(stores.compatibility.error).toBe("Failed to load grid.");
     expect(stores.session.isLoading).toBe(false);
     expect(gridService.touchLastOpenedAt).not.toHaveBeenCalled();
-  });
-
-  it("loads a demo after resetting session state without creating history", () => {
-    const { controller, stores, gridService } =
-      createControllerHarness();
-    stores.ui.setShowMetaData(true);
-    stores.ui.setPanelActive("tile-1", "settings");
-    stores.uploads.setTileUploading("tile-1", -1);
-    stores.viewport.setForcedBreakpoint("sm");
-    stores.history.initializeManager();
-    const demo = makeGrid({ id: "demo", userId: "demo-user" });
-
-    controller.loadDemoGrid(demo);
-
-    expect(stores.session.currentGrid).toEqual(demo);
-    expect(stores.session.isOwner).toBe(false);
-    expect(stores.session.isDemoGrid).toBe(true);
-    expect(stores.history.manager).toBeNull();
-    expect(stores.viewport.forcedBreakpoint).toBeNull();
-    expect(stores.uploads.uploadingTiles).toEqual({});
-    expect(stores.ui.activePanelId).toBeNull();
-    expect(stores.ui.showMetaData).toBe(true);
-    expect(gridService.fetchGrid).not.toHaveBeenCalled();
   });
 
   it("clears the active session and all dependent state", () => {
@@ -506,7 +547,6 @@ describe("GridController", () => {
 
     expect(stores.session.currentGrid?.id).toBe("new-grid");
     expect(stores.session.persistenceError).toBeNull();
-    expect(stores.compatibility.error).toBeNull();
   });
 
   it("waits for both the minimum delay and rendered target layout before applying a cross-breakpoint snapshot", async () => {
@@ -753,23 +793,20 @@ describe("GridController", () => {
     expect(revoke).toHaveBeenCalledWith("blob:owned");
   });
 
-  it("owns compatibility error sequencing for direct controller callers", async () => {
+  it("owns load error sequencing for direct controller callers", async () => {
     const { controller, stores, gridService } =
       createControllerHarness();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    stores.compatibility.setError("previous failure");
+    stores.session.setLoadError("previous failure");
     vi.mocked(gridService.fetchGrid).mockRejectedValueOnce(
       new Error("load failed"),
     );
 
     const loading = controller.loadGrid("grid-1");
 
-    expect(stores.compatibility.error).toBeNull();
+    expect(stores.session.loadError).toBeNull();
     await loading;
-    expect(stores.compatibility.error).toBe("Failed to load grid.");
-
-    controller.loadDemoGrid(makeGrid({ id: "demo" }));
-    expect(stores.compatibility.error).toBeNull();
+    expect(stores.session.loadError).toBe("Failed to load grid.");
   });
 
   it("deletes an owned grid and clears the matching active session", async () => {

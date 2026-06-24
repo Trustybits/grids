@@ -1,4 +1,6 @@
-import { useGridStore } from "@/stores/grid";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridViewportStore } from "@/stores/grid/gridViewport";
+import { useGridController } from "@/controllers/useGridController";
 import { useThemeStore } from "@/stores/theme";
 import type {
   ProfileBioContent,
@@ -84,7 +86,15 @@ export const useColorPicker = (
   emit: (type: "background-color-change" | "text-color-change", value: string) => void,
   options: ColorPickerOptions = {},
 ): ColorPickerValues => {
-  const gridStore = useGridStore();
+  const sessionStore = useGridSessionStore();
+  const viewportStore = useGridViewportStore();
+  const controller = useGridController();
+  const canEdit = computed(() =>
+    sessionStore.canEditAtBreakpoint(
+      viewportStore.forcedBreakpoint,
+      viewportStore.viewportBreakpoint,
+    ),
+  );
   const {
     overlayCapable = false,
     legacyBackgroundAsOverlay = false,
@@ -179,7 +189,7 @@ export const useColorPicker = (
   const persist = (patch: Partial<OverlayContent>) => {
     if (tileId) {
       // Live grid: the controller owns the canonical write and persistence.
-      gridStore.patchTileContent(tileId, patch);
+      controller.patchTileContent(tileId, patch);
       return;
     }
     // Non-live preview (e.g. demo/landing) with no tile identity: keep the
@@ -189,12 +199,12 @@ export const useColorPicker = (
 
   // Toggle which treatment is active without losing either color.
   const setColorMode = (mode: "fill" | "overlay") => {
-    if (!gridStore.canEdit) return;
+    if (!canEdit.value) return;
     persist({ colorMode: mode });
   };
 
   const handleBackgroundColorChange = (color: string) => {
-    if (!gridStore.canEdit) return;
+    if (!canEdit.value) return;
 
     // Editing the fill activates the fill treatment (only meaningful for
     // overlay-capable tiles; non-overlay tiles never carry a colorMode).
@@ -214,7 +224,7 @@ export const useColorPicker = (
   };
 
   const handleOverlayColorChange = (color: string) => {
-    if (!gridStore.canEdit) return;
+    if (!canEdit.value) return;
 
     // Structural picks (default / light / dark / no-fill) clear the overlay.
     const next = isStructuralColor(color) ? "" : color;

@@ -31,17 +31,6 @@ export interface ResizeTileInput {
   height: number;
 }
 
-export interface ResolveUploadedUrlInput {
-  tileId: string;
-  itemId?: string;
-  permanentUrl: string;
-  /**
-   * Whether this resolution completes the tile's upload. When `true`
-   * (the default) upload progress is cleared. Multi-item document uploads
-   * pass `false` for intermediate items.
-   */
-  final?: boolean;
-}
 
 export interface StartUploadInput {
   uploadId?: string;

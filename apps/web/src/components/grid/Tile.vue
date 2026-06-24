@@ -485,7 +485,7 @@ export default defineComponent({
           const content = createTileContent(ContentType.TEXT, {});
           gridView.setTileContent(props.tile.i, content);
           // Auto-focus the new text tile so the user can start typing immediately
-          gridView.pendingFocusTileId = props.tile.i;
+          gridView.setPendingFocusTileId(props.tile.i);
           break;
         }
 

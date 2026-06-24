@@ -52,7 +52,9 @@ import GridSquaresIcon from "@/components/icons/GridSquaresIcon.vue";
 import { useRoute } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@grids/contracts/auth";
-import { useGridStore } from "@/stores/grid";
+import { useGridCollectionStore } from "@/stores/grid/gridCollection";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridController } from "@/controllers/useGridController";
 import type { Grid } from "@grids/contracts/types";
 import { valueToMillis } from "@/utils/TimeConversion";
 
@@ -61,7 +63,9 @@ export default defineComponent({
   components: { HomeIcon, GridSquaresIcon },
   setup() {
     const route = useRoute();
-    const gridStore = useGridStore();
+    const collectionStore = useGridCollectionStore();
+    const sessionStore = useGridSessionStore();
+    const controller = useGridController();
     const user = ref<AuthUser | null>(null);
     const isExpanded = ref(false);
     let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -70,7 +74,7 @@ export default defineComponent({
       getAuthProvider().onAuthStateChanged((currentUser) => {
         user.value = currentUser;
         if (currentUser) {
-          gridStore.fetchGrids();
+          controller.fetchGrids();
         }
       });
     });
@@ -87,7 +91,7 @@ export default defineComponent({
     };
 
     const recentGrids = computed<Grid[]>(() => {
-      const scored = (gridStore.grids || []).map((l) => ({
+      const scored = (collectionStore.grids || []).map((l) => ({
         l,
         s:
           valueToMillis(l.lastOpenedAt) ||
@@ -103,8 +107,9 @@ export default defineComponent({
         .slice(0, 3);
 
       if (sorted.length === 0) {
-        if (gridStore.currentGrid) return [gridStore.currentGrid];
-        if (gridStore.grids.length > 0) return [gridStore.grids[0]];
+        if (sessionStore.currentGrid) return [sessionStore.currentGrid];
+        if (collectionStore.grids.length > 0)
+          return [collectionStore.grids[0]];
       }
       return sorted;
     });
@@ -136,7 +141,6 @@ export default defineComponent({
       recentGrids,
       handleMouseEnter,
       handleMouseLeave,
-      gridStore,
     };
   },
 });

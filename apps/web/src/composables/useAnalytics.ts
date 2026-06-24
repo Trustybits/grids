@@ -2,7 +2,7 @@ import { onBeforeUnmount, onMounted } from "vue";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService";
-import { useGridStore } from "@/stores/grid";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { AnalyticsEventType } from "@grids/contracts/types";
 
 /**
@@ -88,7 +88,7 @@ export function useAnalytics() {
     analyticsService = null;
   }
 
-  const gridStore = useGridStore();
+  const sessionStore = useGridSessionStore();
   let activeSession: ActiveSession | null = null;
   let lastViewerGridId: string | null = null;
 
@@ -161,7 +161,7 @@ export function useAnalytics() {
     // Defense-in-depth: contract is "call after the grid loads", but if the
     // store hasn't caught up (or the gridId doesn't match the loaded one)
     // we skip rather than guess at ownership and emit a misattributed event.
-    const loaded = gridStore.currentGrid;
+    const loaded = sessionStore.currentGrid;
     if (!loaded || loaded.id !== gridId) {
       console.warn(
         "useAnalytics.trackGridEnter called before grid store is ready — skipping",
@@ -170,7 +170,7 @@ export function useAnalytics() {
       return;
     }
 
-    if (gridStore.isOwner) {
+    if (sessionStore.isOwner) {
       // Owner branch: a single OWNER_GRID_ENTER, no view session. End any
       // prior viewer session in case the user just navigated from a grid
       // they didn't own to one they do.
@@ -206,11 +206,11 @@ export function useAnalytics() {
 
     if (document.visibilityState !== "visible" || activeSession) return;
 
-    const loaded = gridStore.currentGrid;
+    const loaded = sessionStore.currentGrid;
     if (
       lastViewerGridId &&
       loaded?.id === lastViewerGridId &&
-      !gridStore.isOwner
+      !sessionStore.isOwner
     ) {
       startSession(lastViewerGridId);
     }

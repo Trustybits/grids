@@ -23,7 +23,6 @@ import type {
 import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
 import type { Snapshot } from "@/undo/UndoTypes";
 import type { useGridCollectionStore } from "@/stores/grid/gridCollection";
-import type { useGridCompatibilityStore } from "@/stores/grid/gridCompatibility";
 import type { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import type { useGridSessionStore } from "@/stores/grid/gridSession";
 import type { useGridUiStore } from "@/stores/grid/gridUi";
@@ -43,14 +42,12 @@ import {
 } from "@/utils/GridPlacementUtils";
 import { createPersistableGridSnapshot } from "@/utils/GridPersistenceUtils";
 import type {
-  ResolveUploadedUrlInput,
   StartUploadInput,
   UpdateCaptionInput,
 } from "./GridCommands";
 
 export interface GridControllerStores {
   collection: ReturnType<typeof useGridCollectionStore>;
-  compatibility: ReturnType<typeof useGridCompatibilityStore>;
   history: ReturnType<typeof useGridHistoryStore>;
   session: ReturnType<typeof useGridSessionStore>;
   ui: ReturnType<typeof useGridUiStore>;
@@ -151,14 +148,6 @@ export class GridController {
     this.stores.ui.closeMenus();
   }
 
-  checkShowMetaDataCookie(): void {
-    const preferences = this.dependencies.readMetadataPreferences();
-    this.stores.ui.setShowMetaData(preferences.showMetaData);
-    this.stores.ui.setShowMetaDataVerbose(
-      preferences.showMetaDataVerbose,
-    );
-  }
-
   setShowMetaData(value: boolean): void {
     this.stores.ui.setShowMetaData(value);
     this.dependencies.setCookieValue(
@@ -236,7 +225,6 @@ export class GridController {
   }
 
   async fetchGrids(): Promise<void> {
-    this.stores.compatibility.setError(null);
     this.stores.collection.setLoading(true);
     this.stores.collection.setError(null);
     this.stores.collection.setGrids([]);
@@ -245,7 +233,6 @@ export class GridController {
       this.dependencies.getAuthProvider().getCurrentUserId();
     if (!userId) {
       this.stores.collection.setError("User not authenticated");
-      this.stores.compatibility.setError("User not authenticated");
       this.stores.collection.setLoading(false);
       return;
     }
@@ -258,7 +245,6 @@ export class GridController {
       await this.loadRecents();
     } catch (error) {
       this.stores.collection.setError("Failed to fetch grids.");
-      this.stores.compatibility.setError("Failed to fetch grids.");
       console.error(error);
     } finally {
       this.stores.collection.setLoading(false);
@@ -270,7 +256,6 @@ export class GridController {
       this.dependencies.getAuthProvider().getCurrentUserId();
     if (!userId) {
       this.stores.collection.setError("User not authenticated");
-      this.stores.compatibility.setError("User not authenticated");
       return null;
     }
     const resolvedName =
@@ -283,7 +268,6 @@ export class GridController {
       return grid.id;
     } catch (error) {
       this.stores.collection.setError("Failed to create grid.");
-      this.stores.compatibility.setError("Failed to create grid.");
       console.error(error);
       return null;
     }
@@ -297,7 +281,6 @@ export class GridController {
       this.dependencies.getAuthProvider().getCurrentUserId();
     if (!userId) {
       this.stores.collection.setError("User not authenticated");
-      this.stores.compatibility.setError("User not authenticated");
       return null;
     }
     try {
@@ -308,7 +291,6 @@ export class GridController {
       return grid.id;
     } catch (error) {
       this.stores.collection.setError("Failed to duplicate grid.");
-      this.stores.compatibility.setError("Failed to duplicate grid.");
       console.error(error);
       return null;
     }
@@ -365,7 +347,6 @@ export class GridController {
       if (activeGrid?.id === id) activeGrid.name = newName;
     } catch (error) {
       this.stores.collection.setError("Failed to rename grid.");
-      this.stores.compatibility.setError("Failed to rename grid.");
       console.error(error);
       throw error;
     }
@@ -379,29 +360,26 @@ export class GridController {
     this.stores.session.reset();
   }
 
-  resetFacade(): void {
-    this.stores.ui.reset();
-    this.stores.viewport.reset();
-    this.stores.collection.reset();
-    this.stores.session.reset();
-    this.stores.history.reset();
-    this.stores.uploads.reset();
-    this.stores.compatibility.reset();
-  }
-
   async loadGrid(id: string): Promise<void> {
-    this.stores.compatibility.setError(null);
+    this.stores.session.setLoadError(null);
     this.resetSessionDependents();
+    const sessionGeneration = this.stores.session.sessionGeneration;
+    let committedGrid = false;
     this.stores.history.initializeManager();
     this.stores.session.setLoading(true);
 
     try {
       const gridService = this.dependencies.getGridService();
       const grid = await gridService.fetchGrid(id);
+      if (this.stores.session.sessionGeneration !== sessionGeneration) {
+        return;
+      }
+
       const userId =
         this.dependencies.getAuthProvider().getCurrentUserId();
 
       this.stores.session.setCurrentGrid(grid);
+      committedGrid = true;
       this.stores.session.setOwner(
         !!(userId && grid.userId && userId === grid.userId),
       );
@@ -428,20 +406,20 @@ export class GridController {
       });
       this.refreshStableSnapshot();
     } catch (error) {
+      if (this.stores.session.sessionGeneration !== sessionGeneration) {
+        return;
+      }
+
       this.stores.session.setLoadError("Failed to load grid.");
-      this.stores.compatibility.setError("Failed to load grid.");
       console.error(error);
     } finally {
-      this.stores.session.setLoading(false);
+      if (
+        committedGrid ||
+        this.stores.session.sessionGeneration === sessionGeneration
+      ) {
+        this.stores.session.setLoading(false);
+      }
     }
-  }
-
-  loadDemoGrid(grid: Grid): void {
-    this.stores.compatibility.setError(null);
-    this.resetSessionDependents();
-    this.stores.session.setCurrentGrid(grid);
-    this.stores.session.setOwner(false);
-    this.stores.session.setDemoGrid(true);
   }
 
   clearSession(): void {
@@ -574,7 +552,6 @@ export class GridController {
       }
     } catch (error) {
       this.stores.collection.setError("Failed to delete grid.");
-      this.stores.compatibility.setError("Failed to delete grid.");
       console.error(error);
     }
   }
@@ -945,32 +922,6 @@ export class GridController {
 
   clearResolvedDocumentItemsForTile(tileId: string): void {
     this.stores.uploads.clearResolvedDocumentItemsForTile(tileId);
-  }
-
-  resolveUploadedUrl({
-    tileId,
-    itemId,
-    permanentUrl,
-    final = true,
-  }: ResolveUploadedUrlInput): void {
-    if (itemId) {
-      this.setResolvedDocumentItemUrl(tileId, itemId, permanentUrl);
-    } else {
-      this.setResolvedUrl(tileId, permanentUrl);
-    }
-    if (final) {
-      this.clearTileUploading(tileId);
-    }
-    this.scheduleSave();
-  }
-
-  toggleVerticalCompact(): void {
-    this.runGridCommand({
-      captureHistory: "Toggle gravity",
-      mutate: (grid) => {
-        grid.verticalCompact = !grid.verticalCompact;
-      },
-    });
   }
 
   setVerticalCompact(value: boolean): void {
@@ -1497,14 +1448,6 @@ export class GridController {
   }
 
   /**
-   * @deprecated Use {@link commitRenderedDesktopLayout}. Retained only as a
-   * thin facade-compatibility wrapper until the consumer migration in Step 7.
-   */
-  updateGrid(): void {
-    this.commitRenderedDesktopLayout();
-  }
-
-  /**
    * Copy only positional fields (`x`, `y`, `w`, `h`) from a position-only
    * rendered layout into canonical tiles. Tile content is never copied from
    * rendered layout objects.
@@ -1607,7 +1550,6 @@ export class GridController {
 
   private reportPersistenceError(error: unknown): void {
     this.stores.session.setPersistenceError("Failed to save grid.");
-    this.stores.compatibility.setError("Failed to save grid.");
     console.error(error);
   }
 

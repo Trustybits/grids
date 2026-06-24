@@ -1,5 +1,5 @@
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useGridStore } from "@/stores/grid";
+import { useGridController } from "@/controllers/useGridController";
 import { ContentType, type LinkContent, type TileContent } from "@grids/contracts/types";
 import {
   createTileContent,
@@ -17,7 +17,7 @@ interface LinkPreviewResponse {
 }
 
 type TileInputTarget = { mode: "add" } | { mode: "replace"; tileId: string };
-type GridStore = ReturnType<typeof useGridStore>;
+type GridController = ReturnType<typeof useGridController>;
 
 const isRichAutoDetectedContent = (content: TileContent): boolean => {
   return (
@@ -28,23 +28,23 @@ const isRichAutoDetectedContent = (content: TileContent): boolean => {
 };
 
 export const useTileInput = () => {
-  let gridStore: GridStore | null = null;
+  let controller: GridController | null = null;
 
-  const getGridStore = (): GridStore => {
-    gridStore ??= useGridStore();
-    return gridStore;
+  const getController = (): GridController => {
+    controller ??= useGridController();
+    return controller;
   };
 
   const applyContentToTarget = (
     content: TileContent,
     target: TileInputTarget,
   ): string | null => {
-    const gridStore = getGridStore();
+    const controller = getController();
     if (target.mode === "add") {
-      return gridStore.addTile(content);
+      return controller.addTile(content);
     }
 
-    gridStore.setTileContent(target.tileId, content);
+    controller.setTileContent(target.tileId, content);
     return target.tileId;
   };
 
@@ -76,7 +76,7 @@ export const useTileInput = () => {
         .getCloudFunctionsService()
         .callFunction<{ url: string }, LinkPreviewResponse>("getLinkPreview", { url });
 
-      getGridStore().patchTileContent(tileId, {
+      getController().patchTileContent(tileId, {
         link: data.url,
         domain: data.domain,
         faviconUrl: data.faviconUrl || (linkContent as LinkContent).faviconUrl,

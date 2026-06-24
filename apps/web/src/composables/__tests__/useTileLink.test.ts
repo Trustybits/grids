@@ -10,20 +10,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useTileLink } from "@/composables/useTileLink";
 
-const mockGridStore = vi.hoisted(() => ({
-  isOwner: true,
+const mockSessionStore = vi.hoisted(() => ({ isOwner: true }));
+const mockController = vi.hoisted(() => ({
   patchTileContent: vi.fn(),
   saveGrid: vi.fn(),
 }));
 const mockToastStore = vi.hoisted(() => ({ addToast: vi.fn() }));
 
-vi.mock("@/stores/grid", () => ({ useGridStore: () => mockGridStore }));
+vi.mock("@/stores/grid/gridSession", () => ({
+  useGridSessionStore: () => mockSessionStore,
+}));
+vi.mock("@/controllers/useGridController", () => ({
+  useGridController: () => mockController,
+}));
 vi.mock("@/stores/toast", () => ({ useToastStore: () => mockToastStore }));
 
 beforeEach(() => {
-  mockGridStore.isOwner = true;
-  mockGridStore.patchTileContent.mockReset();
-  mockGridStore.saveGrid.mockReset();
+  mockSessionStore.isOwner = true;
+  mockController.patchTileContent.mockReset();
+  mockController.saveGrid.mockReset();
   mockToastStore.addToast.mockReset();
 });
 
@@ -51,7 +56,7 @@ describe("modal control", () => {
   });
 
   it("does not open the modal for a non-owner", () => {
-    mockGridStore.isOwner = false;
+    mockSessionStore.isOwner = false;
     const { openUrlInput, showLinkModal } = useTileLink("t1", {});
     openUrlInput();
     expect(showLinkModal.value).toBe(false);
@@ -75,10 +80,10 @@ describe("handleAddLink", () => {
     // Live tile: the controller owns the canonical write; the composable does
     // not mutate the content prop directly.
     expect(content.tileLink).toBeUndefined();
-    expect(mockGridStore.patchTileContent).toHaveBeenCalledWith("t1", {
+    expect(mockController.patchTileContent).toHaveBeenCalledWith("t1", {
       tileLink: "https://example.com",
     });
-    expect(mockGridStore.saveGrid).not.toHaveBeenCalled();
+    expect(mockController.saveGrid).not.toHaveBeenCalled();
     expect(showLinkModal.value).toBe(false);
   });
 
@@ -86,7 +91,7 @@ describe("handleAddLink", () => {
     const content: { tileLink?: string } = {};
     const { handleAddLink } = useTileLink("t1", content);
     handleAddLink("http://insecure.example");
-    expect(mockGridStore.patchTileContent).toHaveBeenCalledWith("t1", {
+    expect(mockController.patchTileContent).toHaveBeenCalledWith("t1", {
       tileLink: "http://insecure.example",
     });
   });
@@ -96,8 +101,8 @@ describe("handleAddLink", () => {
     const { handleAddLink } = useTileLink(null, content);
     handleAddLink("example.com");
     expect(content.tileLink).toBe("https://example.com");
-    expect(mockGridStore.patchTileContent).not.toHaveBeenCalled();
-    expect(mockGridStore.saveGrid).not.toHaveBeenCalled();
+    expect(mockController.patchTileContent).not.toHaveBeenCalled();
+    expect(mockController.saveGrid).not.toHaveBeenCalled();
   });
 
   it("rejects whitespace-only input with a toast and persists nothing", () => {
@@ -111,7 +116,7 @@ describe("handleAddLink", () => {
       "error",
     );
     expect(content.tileLink).toBeUndefined();
-    expect(mockGridStore.patchTileContent).not.toHaveBeenCalled();
+    expect(mockController.patchTileContent).not.toHaveBeenCalled();
   });
 
   it("rejects a malformed (non-blank) URL that fails to parse", () => {
@@ -126,16 +131,16 @@ describe("handleAddLink", () => {
       "error",
     );
     expect(content.tileLink).toBeUndefined();
-    expect(mockGridStore.patchTileContent).not.toHaveBeenCalled();
+    expect(mockController.patchTileContent).not.toHaveBeenCalled();
   });
 
   it("does nothing for a non-owner", () => {
-    mockGridStore.isOwner = false;
+    mockSessionStore.isOwner = false;
     const content: { tileLink?: string } = {};
     const { handleAddLink } = useTileLink("t1", content);
     handleAddLink("example.com");
     expect(content.tileLink).toBeUndefined();
-    expect(mockGridStore.patchTileContent).not.toHaveBeenCalled();
+    expect(mockController.patchTileContent).not.toHaveBeenCalled();
   });
 });
 
@@ -172,7 +177,7 @@ describe("clearLink", () => {
 
     // Live tile: content prop is untouched; the patch owns the canonical write.
     expect(content.tileLink).toBe("https://x.com");
-    expect(mockGridStore.patchTileContent).toHaveBeenCalledWith("t1", {
+    expect(mockController.patchTileContent).toHaveBeenCalledWith("t1", {
       tileLink: "",
     });
   });
@@ -182,16 +187,16 @@ describe("clearLink", () => {
     const { clearLink } = useTileLink(null, content);
     clearLink();
     expect(content.tileLink).toBeUndefined();
-    expect(mockGridStore.patchTileContent).not.toHaveBeenCalled();
-    expect(mockGridStore.saveGrid).not.toHaveBeenCalled();
+    expect(mockController.patchTileContent).not.toHaveBeenCalled();
+    expect(mockController.saveGrid).not.toHaveBeenCalled();
   });
 
   it("does nothing for a non-owner", () => {
-    mockGridStore.isOwner = false;
+    mockSessionStore.isOwner = false;
     const content: { tileLink?: string } = { tileLink: "https://x.com" };
     const { clearLink } = useTileLink("t1", content);
     clearLink();
     expect(content.tileLink).toBe("https://x.com");
-    expect(mockGridStore.patchTileContent).not.toHaveBeenCalled();
+    expect(mockController.patchTileContent).not.toHaveBeenCalled();
   });
 });

@@ -25,7 +25,7 @@
 import { computed, ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
-import { useGridStore } from "@/stores/grid";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
 import DiscordButton from "@/components/marketing/DiscordButton.vue";
 import GridMenu from "@/components/grid/GridSettings.vue";
 import ShareButton from "@/components/grid/ShareButton.vue";
@@ -34,7 +34,7 @@ import UserMenu from "@/components/app/UserMenu.vue";
 import { isNonGridPath } from "@/constants/marketing";
 
 const route = useRoute();
-const gridStore = useGridStore();
+const sessionStore = useGridSessionStore();
 const isAuthenticated = ref(false);
 
 onMounted(() => {
@@ -57,11 +57,11 @@ const isOnGridPage = computed(() => {
 });
 
 // GridMenu shows when the logged-in user owns the currently loaded grid
-const isOwner = computed(() => gridStore.isOwner);
+const isOwner = computed(() => sessionStore.isOwner);
 
 // UseTemplateButton shows when the grid owner has opted in to public duplication
 const isDuplicatable = computed(
-  () => gridStore.currentGrid?.duplicatable ?? false,
+  () => sessionStore.currentGrid?.duplicatable ?? false,
 );
 
 // Hide Discord in bottom-left on marketing landing page.

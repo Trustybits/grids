@@ -14,10 +14,6 @@ const storeHolder = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
 }));
 
-vi.mock("@/stores/grid", () => ({
-  useGridStore: () => storeHolder.current,
-}));
-
 vi.mock("@/grid-view/useGridViewContext", () => ({
   useGridViewContext: () => storeHolder.current,
 }));

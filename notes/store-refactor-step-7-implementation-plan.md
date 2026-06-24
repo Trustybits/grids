@@ -189,6 +189,7 @@ After all groups pass and no production file imports `@/stores/grid`:
     actions/commands only).
 - Remove the now-unused `isDemoGrid` global flag if Step 6 left it only for
   compatibility and nothing reads it.
+- Remove any unused parts of the GridController
 
 ### 10. Final Verification Pass
 

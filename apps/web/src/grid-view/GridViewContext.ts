@@ -1,4 +1,4 @@
-import type { ComputedRef, InjectionKey, Ref } from "vue";
+import type { ComputedRef, DeepReadonly, InjectionKey } from "vue";
 import type {
   AnyTileContent,
   Breakpoint,
@@ -18,7 +18,7 @@ export type GridViewMode = "live" | "demo";
 export interface GridViewContext {
   mode: GridViewMode;
 
-  grid: ComputedRef<Grid | null>;
+  grid: ComputedRef<DeepReadonly<Grid> | null>;
   isOwner: ComputedRef<boolean>;
   canEdit: ComputedRef<boolean>;
   isLoading: ComputedRef<boolean>;
@@ -32,7 +32,7 @@ export interface GridViewContext {
   uploadingTiles: ComputedRef<Record<string, number>>;
   activeTileId: ComputedRef<string | null>;
   activePanelId: ComputedRef<string | null>;
-  pendingFocusTileId: Ref<string | null>;
+  pendingFocusTileId: ComputedRef<string | null>;
 
   registerLayoutReadinessAdapter(
     adapter: GridLayoutReadinessAdapter,
@@ -70,6 +70,7 @@ export interface GridViewContext {
   toggleTileBorder(tileId: string): void;
   toggleLinkBackground(tileId: string): void;
 
+  setPendingFocusTileId(tileId: string | null): void;
   setPanelActive(tileId: string, panelId: string): void;
   toggleMenuActive(tileId: string): void;
   togglePanelActive(tileId: string, panelId: string): void;

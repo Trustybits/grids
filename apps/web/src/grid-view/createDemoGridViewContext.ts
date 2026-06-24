@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef } from "vue";
+import { computed, readonly, ref, shallowRef } from "vue";
 import type { Breakpoint, Grid } from "@grids/contracts/types";
 import type { GridViewContext } from "@/grid-view/GridViewContext";
 import { projectGridLayout } from "@/utils/GridLayoutUtils";
@@ -24,7 +24,7 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
   return {
     mode: "demo",
 
-    grid: computed(() => gridRef.value),
+    grid: computed(() => readonly(gridRef.value)),
     isOwner: computed(() => false),
     canEdit: computed(() => false),
     isLoading: computed(() => false),
@@ -38,7 +38,7 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
     uploadingTiles: computed(() => ({})),
     activeTileId: computed(() => null),
     activePanelId: computed(() => null),
-    pendingFocusTileId,
+    pendingFocusTileId: computed(() => pendingFocusTileId.value),
 
     registerLayoutReadinessAdapter: () => noop,
     setActiveBreakpoint: (breakpoint) => {
@@ -74,6 +74,9 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
     toggleTileBorder: noop,
     toggleLinkBackground: noop,
 
+    setPendingFocusTileId: (tileId) => {
+      pendingFocusTileId.value = tileId;
+    },
     setPanelActive: noop,
     toggleMenuActive: noop,
     togglePanelActive: noop,

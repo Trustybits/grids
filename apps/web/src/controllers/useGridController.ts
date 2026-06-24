@@ -5,7 +5,6 @@ import { measureViewportGridRow } from "@/composables/useResponsiveGridLayout";
 import { GridPersistenceScheduler } from "@/services/GridPersistenceScheduler";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
-import { useGridCompatibilityStore } from "@/stores/grid/gridCompatibility";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridUiStore } from "@/stores/grid/gridUi";
@@ -74,7 +73,6 @@ export function useGridController(pinia?: Pinia): GridController {
   const controller = new GridController(
     {
       collection: useGridCollectionStore(resolvedPinia),
-      compatibility: useGridCompatibilityStore(resolvedPinia),
       history: useGridHistoryStore(resolvedPinia),
       session: useGridSessionStore(resolvedPinia),
       ui: useGridUiStore(resolvedPinia),

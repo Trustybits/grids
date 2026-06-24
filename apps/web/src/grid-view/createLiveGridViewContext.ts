@@ -1,66 +1,90 @@
-import { computed, toRef } from "vue";
+import { computed, readonly } from "vue";
 import type { GridViewContext } from "@/grid-view/GridViewContext";
-import { useGridStore } from "@/stores/grid";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridViewportStore } from "@/stores/grid/gridViewport";
+import { useGridUiStore } from "@/stores/grid/gridUi";
+import { useGridUploadsStore } from "@/stores/grid/gridUploads";
+import { useGridCollectionStore } from "@/stores/grid/gridCollection";
+import { useGridController } from "@/controllers/useGridController";
 
 export function createLiveGridViewContext(): GridViewContext {
-  const gridStore = useGridStore();
+  // Resolved inside the factory (not at module scope) so the demo path, which
+  // never calls this function, does not pull live stores/controller at setup.
+  const session = useGridSessionStore();
+  const viewport = useGridViewportStore();
+  const ui = useGridUiStore();
+  const uploads = useGridUploadsStore();
+  const collection = useGridCollectionStore();
+  const controller = useGridController();
 
   return {
     mode: "live",
 
-    grid: computed(() => gridStore.currentGrid),
-    isOwner: computed(() => gridStore.isOwner),
-    canEdit: computed(() => gridStore.canEdit),
-    isLoading: computed(() => gridStore.isLoading),
-    verticalCompact: computed(() => gridStore.verticalCompact),
-    activeBreakpoint: computed(() => gridStore.activeBreakpoint),
-    viewportBreakpoint: computed(() => gridStore.viewportBreakpoint),
-    forcedBreakpoint: computed(() => gridStore.forcedBreakpoint),
-    displayPositions: computed(() => gridStore.displayPositions),
-    showMetaData: computed(() => gridStore.showMetaData),
-    showMetaDataVerbose: computed(() => gridStore.showMetaDataVerbose),
-    uploadingTiles: computed(() => gridStore.uploadingTiles),
-    activeTileId: computed(() => gridStore.activeTileId),
-    activePanelId: computed(() => gridStore.activePanelId),
-    pendingFocusTileId: toRef(gridStore, "pendingFocusTileId"),
+    grid: computed(() =>
+      session.currentGrid === null ? null : readonly(session.currentGrid),
+    ),
+    isOwner: computed(() => session.isOwner),
+    canEdit: computed(() =>
+      session.canEditAtBreakpoint(
+        viewport.forcedBreakpoint,
+        viewport.viewportBreakpoint,
+      ),
+    ),
+    // Loading stays true until every tracked operation finishes: a grid load
+    // (session) or a collection fetch can independently gate the canvas.
+    isLoading: computed(
+      () => collection.isLoading || session.isLoading,
+    ),
+    verticalCompact: computed(() => session.verticalCompact),
+    activeBreakpoint: computed(() => viewport.activeBreakpoint),
+    viewportBreakpoint: computed(() => viewport.viewportBreakpoint),
+    forcedBreakpoint: computed(() => viewport.forcedBreakpoint),
+    displayPositions: computed(() => viewport.displayPositions),
+    showMetaData: computed(() => ui.showMetaData),
+    showMetaDataVerbose: computed(() => ui.showMetaDataVerbose),
+    uploadingTiles: computed(() => uploads.uploadingTiles),
+    activeTileId: computed(() => ui.activeTileId),
+    activePanelId: computed(() => ui.activePanelId),
+    pendingFocusTileId: computed(() => ui.pendingFocusTileId),
 
     registerLayoutReadinessAdapter:
-      gridStore.registerLayoutReadinessAdapter.bind(gridStore),
+      controller.registerLayoutReadinessAdapter.bind(controller),
     setActiveBreakpoint:
-      gridStore.setActiveBreakpoint.bind(gridStore),
+      controller.setActiveBreakpoint.bind(controller),
     setViewportBreakpoint:
-      gridStore.setViewportBreakpoint.bind(gridStore),
+      controller.setViewportBreakpoint.bind(controller),
     setForcedBreakpoint:
-      gridStore.setForcedBreakpoint.bind(gridStore),
+      controller.setForcedBreakpoint.bind(controller),
     setDisplayPositions:
-      gridStore.setDisplayPositions.bind(gridStore),
+      controller.setDisplayPositions.bind(controller),
     commitCompactedLayout:
-      gridStore.commitCompactedLayout.bind(gridStore),
+      controller.commitCompactedLayout.bind(controller),
 
-    beginMove: gridStore.beginMove.bind(gridStore),
-    commitMove: gridStore.commitMove.bind(gridStore),
-    beginResize: gridStore.beginResize.bind(gridStore),
-    commitResize: gridStore.commitResize.bind(gridStore),
-    beginEditing: gridStore.beginEditing.bind(gridStore),
-    commitEditing: gridStore.commitEditing.bind(gridStore),
-    setTileContent: gridStore.setTileContent.bind(gridStore),
-    patchTileContent: gridStore.patchTileContent.bind(gridStore),
+    beginMove: controller.beginMove.bind(controller),
+    commitMove: controller.commitMove.bind(controller),
+    beginResize: controller.beginResize.bind(controller),
+    commitResize: controller.commitResize.bind(controller),
+    beginEditing: controller.beginEditing.bind(controller),
+    commitEditing: controller.commitEditing.bind(controller),
+    setTileContent: controller.setTileContent.bind(controller),
+    patchTileContent: controller.patchTileContent.bind(controller),
     autosaveTileContent:
-      gridStore.autosaveTileContent.bind(gridStore),
-    patchDocumentItem: gridStore.patchDocumentItem.bind(gridStore),
-    updateCaption: gridStore.updateCaption.bind(gridStore),
-    removeTile: gridStore.removeTile.bind(gridStore),
-    duplicateTile: gridStore.duplicateTile.bind(gridStore),
-    resizeTile: gridStore.resizeTile.bind(gridStore),
-    toggleTileBorder: gridStore.toggleTileBorder.bind(gridStore),
+      controller.autosaveTileContent.bind(controller),
+    patchDocumentItem: controller.patchDocumentItem.bind(controller),
+    updateCaption: controller.updateCaption.bind(controller),
+    removeTile: controller.removeTile.bind(controller),
+    duplicateTile: controller.duplicateTile.bind(controller),
+    resizeTile: controller.resizeTile.bind(controller),
+    toggleTileBorder: controller.toggleTileBorder.bind(controller),
     toggleLinkBackground:
-      gridStore.toggleLinkBackground.bind(gridStore),
+      controller.toggleLinkBackground.bind(controller),
 
-    setPanelActive: gridStore.setPanelActive.bind(gridStore),
-    toggleMenuActive: gridStore.toggleMenuActive.bind(gridStore),
+    setPendingFocusTileId: ui.setPendingFocusTileId.bind(ui),
+    setPanelActive: controller.setPanelActive.bind(controller),
+    toggleMenuActive: controller.toggleMenuActive.bind(controller),
     togglePanelActive:
-      gridStore.togglePanelActive.bind(gridStore),
-    closeMenus: gridStore.closeMenus.bind(gridStore),
-    getCookieValue: gridStore.getCookieValue.bind(gridStore),
+      controller.togglePanelActive.bind(controller),
+    closeMenus: controller.closeMenus.bind(controller),
+    getCookieValue: controller.getCookieValue.bind(controller),
   };
 }

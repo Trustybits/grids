@@ -135,7 +135,8 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import BaseModal from "./BaseModal.vue";
 import Button from "@/components/ui-elements/Button.vue";
 import CloseXIcon from "@/components/icons/CloseXIcon.vue";
-import { useGridStore } from "@/stores/grid";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridController } from "@/controllers/useGridController";
 import { useToastStore } from "@/stores/toast";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
@@ -150,7 +151,8 @@ import {
 const props = defineProps<{ show: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 
-const gridStore = useGridStore();
+const sessionStore = useGridSessionStore();
+const controller = useGridController();
 const toastStore = useToastStore();
 const storageService = getServiceFactory().getStorageService();
 const authProvider = getAuthProvider();
@@ -173,8 +175,8 @@ const checking = computed(
   () => !isCustom.value && generatedState.value === "unknown",
 );
 
-const gridId = computed(() => gridStore.currentGrid?.id ?? "");
-const customUrl = computed(() => gridStore.currentGrid?.ogImageSrc ?? "");
+const gridId = computed(() => sessionStore.currentGrid?.id ?? "");
+const customUrl = computed(() => sessionStore.currentGrid?.ogImageSrc ?? "");
 const isCustom = computed(() => !!customUrl.value);
 const isNeverGenerated = computed(
   () => !isCustom.value && generatedState.value === "none",
@@ -317,7 +319,7 @@ const handleFileSelected = async (event: Event) => {
     );
     // Version param makes the (otherwise stable) URL unique per upload so
     // CDNs and social platforms pick up the replacement.
-    gridStore.setCustomOgImage(withVersionParam(url, Date.now()));
+    controller.setCustomOgImage(withVersionParam(url, Date.now()));
     toastStore.addToast("Social share image updated", "success");
   } catch (error: unknown) {
     console.error("Failed to upload social share image:", error);
@@ -332,7 +334,7 @@ const handleFileSelected = async (event: Event) => {
 };
 
 const handleRemove = () => {
-  gridStore.removeCustomOgImage();
+  controller.removeCustomOgImage();
   toastStore.addToast("Custom image removed", "success");
   // Back on the generated pipeline — find out whether an image exists.
   void checkGeneratedExists();

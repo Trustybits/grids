@@ -5,7 +5,8 @@ import type { Grid } from "@grids/contracts/types";
 
 const holders = vi.hoisted(() => ({
   route: null as Record<string, unknown> | null,
-  store: null as Record<string, unknown> | null,
+  session: null as Record<string, unknown> | null,
+  controller: null as Record<string, unknown> | null,
   routerPush: vi.fn(),
   trackGridEnter: vi.fn(),
   getSlugData: vi.fn(),
@@ -18,8 +19,19 @@ vi.mock("vue-router", () => ({
   useRouter: () => ({ push: holders.routerPush }),
 }));
 
-vi.mock("@/stores/grid", () => ({
-  useGridStore: () => holders.store,
+vi.mock("@/stores/grid/gridSession", () => ({
+  useGridSessionStore: () => holders.session,
+}));
+
+vi.mock("@/stores/grid/gridViewport", () => ({
+  useGridViewportStore: () => ({
+    forcedBreakpoint: null,
+    viewportBreakpoint: "lg",
+  }),
+}));
+
+vi.mock("@/controllers/useGridController", () => ({
+  useGridController: () => holders.controller,
 }));
 
 vi.mock("@/stores/theme", () => ({
@@ -115,19 +127,24 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function makeStore() {
+function makeSession() {
   return reactive({
     currentGrid: null as Grid | null,
-    error: null as string | null,
-    canEdit: false,
     isOwner: false,
-    clearCurrentGrid: vi.fn(function (this: { currentGrid: Grid | null }) {
-      this.currentGrid = null;
+    loadError: null as string | null,
+    canEditAtBreakpoint: vi.fn(() => false),
+  });
+}
+
+function makeController(session: ReturnType<typeof makeSession>) {
+  return {
+    clearSession: vi.fn(() => {
+      session.currentGrid = null;
     }),
     loadGrid: vi.fn(),
     addBackgroundImage: vi.fn(),
     deleteGrid: vi.fn(),
-  });
+  };
 }
 
 describe("GridPage route loading", () => {
@@ -137,22 +154,25 @@ describe("GridPage route loading", () => {
       path: "/grid/grid-1",
       params: { id: "grid-1", slug: undefined },
     });
-    holders.store = makeStore();
+    const session = makeSession();
+    holders.session = session;
+    holders.controller = makeController(session);
     holders.getSlugData.mockResolvedValue(null);
   });
 
   it("clears the prior session, loads a direct grid route, and tracks entry", async () => {
-    const store = holders.store as ReturnType<typeof makeStore>;
-    store.loadGrid.mockImplementation(async (id: string) => {
-      store.currentGrid = makeGrid(id);
+    const session = holders.session as ReturnType<typeof makeSession>;
+    const controller = holders.controller as ReturnType<typeof makeController>;
+    controller.loadGrid.mockImplementation(async (id: string) => {
+      session.currentGrid = makeGrid(id);
     });
     const { default: GridPage } = await import("@/pages/GridPage.vue");
 
     const wrapper = mount(GridPage);
     await flushPromises();
 
-    expect(store.clearCurrentGrid).toHaveBeenCalledTimes(1);
-    expect(store.loadGrid).toHaveBeenCalledWith("grid-1");
+    expect(controller.clearSession).toHaveBeenCalledTimes(1);
+    expect(controller.loadGrid).toHaveBeenCalledWith("grid-1");
     expect(holders.trackGridEnter).toHaveBeenCalledWith("grid-1");
     expect(wrapper.find(".loading-state").exists()).toBe(false);
     expect(wrapper.find(".background-image-container").exists()).toBe(true);
@@ -165,16 +185,17 @@ describe("GridPage route loading", () => {
       path: string;
       params: { id?: string; slug?: string };
     };
-    const store = holders.store as ReturnType<typeof makeStore>;
+    const session = holders.session as ReturnType<typeof makeSession>;
+    const controller = holders.controller as ReturnType<typeof makeController>;
     const first = deferred<void>();
     const second = deferred<void>();
-    store.loadGrid.mockImplementation(async (id: string) => {
+    controller.loadGrid.mockImplementation(async (id: string) => {
       if (id === "grid-1") {
         await first.promise;
         return;
       }
       await second.promise;
-      store.currentGrid = makeGrid("grid-2");
+      session.currentGrid = makeGrid("grid-2");
     });
     const { default: GridPage } = await import("@/pages/GridPage.vue");
     const wrapper = mount(GridPage);
@@ -183,7 +204,7 @@ describe("GridPage route loading", () => {
     route.path = "/grid/grid-2";
     route.params.id = "grid-2";
     await flushPromises();
-    expect(store.loadGrid).toHaveBeenNthCalledWith(2, "grid-2");
+    expect(controller.loadGrid).toHaveBeenNthCalledWith(2, "grid-2");
 
     second.resolve();
     await flushPromises();
@@ -205,12 +226,13 @@ describe("GridPage route loading", () => {
       path: "/ada",
       params: { id: undefined, slug: "ada" },
     });
-    const store = holders.store as ReturnType<typeof makeStore>;
+    const session = holders.session as ReturnType<typeof makeSession>;
+    const controller = holders.controller as ReturnType<typeof makeController>;
     holders.getSlugData.mockResolvedValue({
       defaultGridId: "default-grid",
     });
-    store.loadGrid.mockImplementation(async (id: string) => {
-      store.currentGrid = makeGrid(id);
+    controller.loadGrid.mockImplementation(async (id: string) => {
+      session.currentGrid = makeGrid(id);
     });
     const { default: GridPage } = await import("@/pages/GridPage.vue");
 
@@ -218,7 +240,7 @@ describe("GridPage route loading", () => {
     await flushPromises();
 
     expect(holders.getSlugData).toHaveBeenCalledWith("ada");
-    expect(store.loadGrid).toHaveBeenCalledWith("default-grid");
+    expect(controller.loadGrid).toHaveBeenCalledWith("default-grid");
     expect(holders.trackGridEnter).toHaveBeenCalledWith("default-grid");
     expect(wrapper.find(".background-image-container").exists()).toBe(true);
 

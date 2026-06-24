@@ -1,5 +1,5 @@
 import type { AnyTileContent } from "@grids/contracts/types";
-import { useGridStore } from "@/stores/grid";
+import { useGridController } from "@/controllers/useGridController";
 
 /**
  * Provides the two canonical content-write paths shared by editor-backed tile
@@ -19,7 +19,7 @@ export function useTileContentWriter<T extends AnyTileContent>(
   tileId: string | null,
   getContent: () => T,
 ) {
-  const gridStore = useGridStore();
+  const controller = useGridController();
 
   const write = (
     patch: Partial<T>,
@@ -33,10 +33,10 @@ export function useTileContentWriter<T extends AnyTileContent>(
   };
 
   const patchContent = (patch: Partial<T>) =>
-    write(patch, gridStore.patchTileContent);
+    write(patch, (id, p) => controller.patchTileContent(id, p));
 
   const autosaveContent = (patch: Partial<T>) =>
-    write(patch, gridStore.autosaveTileContent);
+    write(patch, (id, p) => controller.autosaveTileContent(id, p));
 
   return { patchContent, autosaveContent };
 }

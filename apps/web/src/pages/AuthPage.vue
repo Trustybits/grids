@@ -83,7 +83,8 @@ import GriddleAnimation from '@/components/marketing/GriddleAnimation.vue';
 import SlugClaimModal from '@/components/modal/SlugClaimModal.vue';
 import Button from '@/components/ui-elements/Button.vue';
 import { usePageTitle } from '@/composables/usePageTitle';
-import { useGridStore } from '@/stores/grid';
+import { useGridCollectionStore } from '@/stores/grid/gridCollection';
+import { useGridController } from '@/controllers/useGridController';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import ArrowRightIcon from '@/components/icons/ArrowRightIcon.vue';
@@ -94,7 +95,8 @@ const userService = getServiceFactory().getUserService();
 const email = ref('');
 const router = useRouter();
 const route = useRoute();
-const gridStore = useGridStore();
+const collectionStore = useGridCollectionStore();
+const controller = useGridController();
 
 // Set page title
 const pageTitle = ref('Sign In');
@@ -135,13 +137,13 @@ const getPostAuthRedirect = async (): Promise<string | null> => {
     const hasSlug = !!profile?.slug;
 
     // Fetch user's existing grids to determine if they're a new user
-    await gridStore.fetchGrids();
-    const isNewUser = gridStore.grids.length === 0;
-    
+    await controller.fetchGrids();
+    const isNewUser = collectionStore.grids.length === 0;
+
     // If new user without slug, show slug modal first
     if (isNewUser && !hasSlug) {
       // Create default grid for them
-      const newGridId = await gridStore.createGrid('My First Grid');
+      const newGridId = await controller.createGrid('My First Grid');
       const targetPath = newGridId ? `/grid/${newGridId}` : '/dashboard';
       
       // Store the redirect path and show slug modal
@@ -152,7 +154,7 @@ const getPostAuthRedirect = async (): Promise<string | null> => {
     
     // If user has no grids but has a slug (edge case), create a grid
     if (isNewUser) {
-      const newGridId = await gridStore.createGrid('My First Grid');
+      const newGridId = await controller.createGrid('My First Grid');
       if (newGridId) {
         return `/grid/${newGridId}`;
       }

@@ -94,8 +94,10 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed, ref } from "vue";
+import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
-import { useGridStore } from "@/stores/grid";
+import { useGridCollectionStore } from "@/stores/grid/gridCollection";
+import { useGridController } from "@/controllers/useGridController";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
@@ -108,14 +110,14 @@ import PromptModal from "@/components/modal/PromptModal.vue";
 import DashboardGridCard from "@/components/dashboard/DashboardGridCard.vue";
 import Button from "@/components/ui-elements/Button.vue";
 
-const gridStore = useGridStore();
+const collectionStore = useGridCollectionStore();
+const controller = useGridController();
 const router = useRouter();
 
 const pageTitle = ref("Dashboard");
 usePageTitle(pageTitle);
 
-const grids = computed(() => gridStore.grids);
-const isLoading = computed(() => gridStore.isLoading);
+const { grids, isLoading } = storeToRefs(collectionStore);
 
 const showCreateModal = ref(false);
 const showRenameModal = ref(false);
@@ -287,7 +289,7 @@ const closeSplitMenu = () => {
 };
 
 onMounted(() => {
-  gridStore.fetchGrids();
+  controller.fetchGrids();
   loadUserProfile();
   document.addEventListener("click", closeSplitMenu);
 });
@@ -306,7 +308,7 @@ const closeModal = () => {
 
 const handleCreateGrid = async (name: string) => {
   try {
-    const newGridId = await gridStore.createGrid(name);
+    const newGridId = await controller.createGrid(name);
     if (newGridId) {
       if (!defaultGridId.value) {
         // Optimistic local update for immediate dashboard UI. Server-side
@@ -337,7 +339,7 @@ const handleRenameGrid = async (newName: string) => {
   if (!gridToRename.value) return;
 
   try {
-    await gridStore.renameGrid(gridToRename.value.id, newName);
+    await controller.renameGrid(gridToRename.value.id, newName);
     closeRenameModal();
   } catch (error) {
     console.error("Error renaming grid:", error);
@@ -348,7 +350,7 @@ const handleRenameGrid = async (newName: string) => {
 const duplicateGrid = async (grid: Grid, copyDepth: CopyDepth = "full") => {
   splitMenuOpenFor.value = null;
   try {
-    const newId = await gridStore.duplicateGrid(grid, copyDepth);
+    const newId = await controller.duplicateGrid(grid, copyDepth);
     if (newId) {
       router.push(`/grid/${newId}`);
     }
@@ -387,7 +389,7 @@ const handleDeleteGrid = async () => {
   const grid = gridToDelete.value;
 
   try {
-    await gridStore.deleteGrid(grid.id);
+    await controller.deleteGrid(grid.id);
     await persistStarredAfterDelete(grid.id);
 
     if (defaultGridId.value === grid.id) {

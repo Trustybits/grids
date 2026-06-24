@@ -9,14 +9,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ContentType, type TextContent } from "@grids/contracts/types";
 import { useTileContentWriter } from "@/composables/useTileContentWriter";
 
-const { gridStore } = vi.hoisted(() => ({
-  gridStore: {
+const { controller } = vi.hoisted(() => ({
+  controller: {
     patchTileContent: vi.fn(),
     autosaveTileContent: vi.fn(),
   },
 }));
 
-vi.mock("@/stores/grid", () => ({ useGridStore: () => gridStore }));
+vi.mock("@/controllers/useGridController", () => ({
+  useGridController: () => controller,
+}));
 
 function makeContent(): TextContent {
   return { type: ContentType.TEXT, text: "Hello" } as TextContent;
@@ -33,10 +35,10 @@ describe("useTileContentWriter", () => {
 
     patchContent({ text: "Updated" });
 
-    expect(gridStore.patchTileContent).toHaveBeenCalledWith("tile-1", {
+    expect(controller.patchTileContent).toHaveBeenCalledWith("tile-1", {
       text: "Updated",
     });
-    expect(gridStore.autosaveTileContent).not.toHaveBeenCalled();
+    expect(controller.autosaveTileContent).not.toHaveBeenCalled();
     // The local content object is left untouched; the store owns persistence.
     expect(content.text).toBe("Hello");
   });
@@ -47,10 +49,10 @@ describe("useTileContentWriter", () => {
 
     autosaveContent({ text: "Paused" });
 
-    expect(gridStore.autosaveTileContent).toHaveBeenCalledWith("tile-1", {
+    expect(controller.autosaveTileContent).toHaveBeenCalledWith("tile-1", {
       text: "Paused",
     });
-    expect(gridStore.patchTileContent).not.toHaveBeenCalled();
+    expect(controller.patchTileContent).not.toHaveBeenCalled();
     expect(content.text).toBe("Hello");
   });
 
@@ -67,8 +69,8 @@ describe("useTileContentWriter", () => {
     autosaveContent({ text: "Local autosave" });
     expect(content.text).toBe("Local autosave");
 
-    expect(gridStore.patchTileContent).not.toHaveBeenCalled();
-    expect(gridStore.autosaveTileContent).not.toHaveBeenCalled();
+    expect(controller.patchTileContent).not.toHaveBeenCalled();
+    expect(controller.autosaveTileContent).not.toHaveBeenCalled();
   });
 
   it("reads content lazily so the fallback targets the current content", () => {

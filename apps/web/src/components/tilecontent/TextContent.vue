@@ -143,13 +143,25 @@ export default defineComponent({
       () => isTextOverflowing.value && allowOverflowScroll.value,
     );
 
+    // On a single-row (N×1) tile, large text whose line box is taller than the
+    // row makes top/bottom alignment read as inverted — the glyph sits in the
+    // middle of an oversized line box, so "top" appears low and "bottom"
+    // appears high. When that happens, center is the only alignment that looks
+    // correct, so we force it and the toolbar disables the top/bottom buttons.
+    // Taller tiles are unaffected.
+    const disableTopBottomAlign = computed(
+      () => isWideOneHigh.value && isTextOverflowing.value,
+    );
+
     // Map the stored vertical alignment to a flex justify-content value. When
     // the text overflows a scrollable tile we force top alignment so the
     // scrollable content stays reachable (centered/bottom flex content clips
     // its top edge and cannot be scrolled into view). On non-scrollable tiles
-    // the chosen alignment is always honored.
+    // the chosen alignment is honored — except an oversized N×1 line, which is
+    // centered (see disableTopBottomAlign).
     const verticalAlignJustify = computed(() => {
       if (isScrollableOverflow.value) return "flex-start";
+      if (disableTopBottomAlign.value) return "center";
       switch (verticalAlign.value) {
         case "center":
           return "center";
@@ -462,6 +474,7 @@ export default defineComponent({
       isItalicActive,
       isTextOverflowing,
       isScrollableOverflow,
+      disableTopBottomAlign,
       isOwner,
       getCurrentFontSize,
       handleFontSizeChange,

@@ -33,7 +33,10 @@
     <button
       class="text-align-option"
       :class="{ 'is-active': activeVerticalAlign === 'top' }"
-      data-tooltip="Align top"
+      :disabled="verticalEndsDisabled"
+      :data-tooltip="
+        verticalEndsDisabled ? 'Text too tall to align top' : 'Align top'
+      "
       @click.stop="onVerticalAlignClick('top')"
     >
       <AlignTopIcon />
@@ -49,7 +52,10 @@
     <button
       class="text-align-option"
       :class="{ 'is-active': activeVerticalAlign === 'bottom' }"
-      data-tooltip="Align bottom"
+      :disabled="verticalEndsDisabled"
+      :data-tooltip="
+        verticalEndsDisabled ? 'Text too tall to align bottom' : 'Align bottom'
+      "
       @click.stop="onVerticalAlignClick('bottom')"
     >
       <AlignBottomIcon />
@@ -108,7 +114,17 @@ export default defineComponent({
       return content?.textAlign ?? "left";
     });
 
+    // When the text is too tall to fit a single-row (N×1) tile, top/bottom
+    // alignment looks inverted, so the child component centers the text and
+    // tells us to disable those two options.
+    const verticalEndsDisabled = computed(
+      () => !!props.childComponent?.disableTopBottomAlign,
+    );
+
     const activeVerticalAlign = computed(() => {
+      // While the ends are disabled the tile renders centered, so reflect that
+      // in the toolbar regardless of the stored (and preserved) value.
+      if (verticalEndsDisabled.value) return "center";
       const content = props.tile.content as TextContent;
       return content?.verticalAlign ?? "top";
     });
@@ -118,6 +134,7 @@ export default defineComponent({
     };
 
     const onVerticalAlignClick = (align: "top" | "center" | "bottom") => {
+      if (verticalEndsDisabled.value && align !== "center") return;
       props.childComponent?.handleVerticalAlignChange?.(align);
     };
 
@@ -184,6 +201,7 @@ export default defineComponent({
       pos,
       activeAlign,
       activeVerticalAlign,
+      verticalEndsDisabled,
       onAlignClick,
       onVerticalAlignClick,
     };
@@ -232,9 +250,14 @@ export default defineComponent({
     color var(--duration-fast) var(--easing-ease-in-out);
 }
 
-.text-align-option:hover {
+.text-align-option:hover:not(:disabled) {
   background-color: var(--color-content-low);
   transform: scale(1.05);
+}
+
+.text-align-option:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .text-align-option.is-active {

@@ -52,6 +52,10 @@ export interface TextEditableTileChild {
   handleFontSizeChange?: (size: string) => void;
   handleTextAlignChange?: (align: string) => void;
   handleVerticalAlignChange?: (align: string) => void;
+  // True when the tile is a single row (N×1) and the text no longer fits, so
+  // top/bottom vertical alignment would look inverted — the toolbar disables
+  // those options and the tile renders centered.
+  disableTopBottomAlign?: boolean;
 }
 
 export interface ColorThemableTileChild {

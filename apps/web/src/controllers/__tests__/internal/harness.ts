@@ -13,9 +13,9 @@ import {
   type DocumentsContent,
   type Tile,
 } from "@grids/contracts/types";
-import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService";
-import type { IGridService } from "@/services/interfaces/IGridService";
-import type { IGridPersistenceScheduler } from "@/services/interfaces/IGridPersistenceScheduler";
+import type { AnalyticsServiceInterface } from "@/services/interfaces/AnalyticsServiceInterface";
+import type { GridServiceInterface } from "@/services/interfaces/GridServiceInterface";
+import type { GridPersistenceSchedulerInterface } from "@/services/interfaces/GridPersistenceSchedulerInterface";
 import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
 import type { Snapshot } from "@/undo/UndoTypes";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
@@ -152,7 +152,7 @@ export function createStores(pinia: Pinia): GridControllerStores {
   };
 }
 
-export function createGridServiceMock(): IGridService {
+export function createGridServiceMock(): GridServiceInterface {
   return {
     fetchGrid: vi.fn(),
     saveGrid: vi.fn(),
@@ -173,10 +173,10 @@ export function createGridServiceMock(): IGridService {
 export interface InternalHarness {
   pinia: Pinia;
   stores: GridControllerStores;
-  gridService: IGridService;
-  analyticsService: IAnalyticsService;
+  gridService: GridServiceInterface;
+  analyticsService: AnalyticsServiceInterface;
   logEvent: ReturnType<typeof vi.fn>;
-  persistenceScheduler: IGridPersistenceScheduler;
+  persistenceScheduler: GridPersistenceSchedulerInterface;
   authProvider: AuthProvider;
   getCurrentUserId: ReturnType<typeof vi.fn>;
   dependencies: GridControllerDependencies;
@@ -191,14 +191,14 @@ export function createHarness(): InternalHarness {
   const logEvent = vi.fn(async () => undefined);
   const analyticsService = {
     logEvent,
-  } as unknown as IAnalyticsService;
+  } as unknown as AnalyticsServiceInterface;
 
   const getCurrentUserId = vi.fn<() => string | null>(() => "user-1");
   const authProvider = {
     getCurrentUserId,
   } as unknown as AuthProvider;
 
-  const persistenceScheduler: IGridPersistenceScheduler = {
+  const persistenceScheduler: GridPersistenceSchedulerInterface = {
     schedule: vi.fn(),
     flush: vi.fn(async () => undefined),
   };

@@ -16,7 +16,7 @@ export interface CheckoutSessionConfig {
   billing_address_collection?: "auto" | "required";
 }
 
-export interface IStripeService {
+export interface StripeServiceInterface {
   createCheckoutSession(config: CheckoutSessionConfig): Promise<string>;
 
   createSupporterCheckoutSession(amountCents: number): Promise<string>;

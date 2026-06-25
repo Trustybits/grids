@@ -1,9 +1,9 @@
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import type { BadgeDao } from "@grids/contracts/dao";
 import type { UserBadges } from "@grids/contracts/types";
-import type { IBadgeService } from "./interfaces/IBadgeService";
+import type { BadgeServiceInterface } from "./interfaces/BadgeServiceInterface";
 
-export class BadgeService implements IBadgeService {
+export class BadgeService implements BadgeServiceInterface {
   private badgeDao: BadgeDao;
 
   constructor() {

@@ -1,12 +1,12 @@
-import type { FetchRoadmapResult, NotionDatabase } from "@grids/contracts/types";
+import type {
+  FetchRoadmapResult,
+  NotionDatabase,
+} from "@grids/contracts/types";
 import type { RoadmapQueryFilter } from "@grids/contracts/types";
-import type { IRoadmapService } from "../interfaces/IRoadmapService";
+import type { RoadmapServiceInterface } from "../interfaces/RoadmapServiceInterface";
 
-export class MockRoadmapService implements IRoadmapService {
-  listDatabases(
-    _gridId: string,
-    _tileId: string,
-  ): Promise<NotionDatabase[]> {
+export class MockRoadmapService implements RoadmapServiceInterface {
+  listDatabases(_gridId: string, _tileId: string): Promise<NotionDatabase[]> {
     throw new Error("Method not implemented.");
   }
 

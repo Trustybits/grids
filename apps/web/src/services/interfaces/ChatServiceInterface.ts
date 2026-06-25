@@ -1,6 +1,6 @@
 import type { ChatMessage } from "@grids/contracts/types";
 
-export interface IChatService {
+export interface ChatServiceInterface {
   /**
    * Subscribe to real-time chat messages for a tile, ordered by createdAt asc.
    * Returns an unsubscribe function.
@@ -16,11 +16,7 @@ export interface IChatService {
    * Send a chat message. Resolves the current user from the auth provider
    * internally — callers only need to provide the text. Returns the new message ID.
    */
-  sendMessage(
-    gridId: string,
-    tileId: string,
-    text: string,
-  ): Promise<string>;
+  sendMessage(gridId: string, tileId: string, text: string): Promise<string>;
 
   /** Edit the text of an existing chat message. */
   editMessage(

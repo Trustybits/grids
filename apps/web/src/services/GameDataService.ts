@@ -6,7 +6,7 @@ import type {
   DailyClickLimit,
 } from "@grids/contracts/types";
 import { generateSeededDisplayName } from "@/utils/NameGenerator";
-import type { IGameDataService } from "./interfaces/IGameDataService";
+import type { GameDataServiceInterface } from "./interfaces/GameDataServiceInterface";
 
 const DAILY_CLICK_CAP = 100;
 
@@ -18,7 +18,7 @@ function getDao(): UserGameDataDao {
   return getDaoFactory().getUserGameDataDao();
 }
 
-export class GameDataService implements IGameDataService {
+export class GameDataService implements GameDataServiceInterface {
   private handleIncrementClicksError(error: unknown): boolean {
     if (
       error &&

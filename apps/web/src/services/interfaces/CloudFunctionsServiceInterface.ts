@@ -1,4 +1,4 @@
-export interface ICloudFunctionsService {
+export interface CloudFunctionsServiceInterface {
   callFunction<TRequest = unknown, TResponse = unknown>(
     functionName: string,
     data: TRequest,

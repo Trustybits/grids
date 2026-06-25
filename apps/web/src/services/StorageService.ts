@@ -4,7 +4,7 @@ import type {
   StorageUploadMetadata,
   StorageUploadTask,
 } from "@grids/contracts/dao";
-import type { IStorageService } from "./interfaces/IStorageService";
+import type { StorageServiceInterface } from "./interfaces/StorageServiceInterface";
 import type { UploadOptions } from "@/types/UploadFileTypes";
 import { validateUploadFile } from "@/utils/UploadFileClassification";
 
@@ -23,7 +23,7 @@ function mergeMetadata(custom?: StorageUploadMetadata): StorageUploadMetadata {
   };
 }
 
-export class StorageService implements IStorageService {
+export class StorageService implements StorageServiceInterface {
   private storageDao: StorageDao;
 
   constructor() {
@@ -38,7 +38,12 @@ export class StorageService implements IStorageService {
     return validateUploadFile(file, options);
   }
 
-  async upload(userId: string, file: File, options: UploadOptions = {}, metadata?: StorageUploadMetadata): Promise<string> {
+  async upload(
+    userId: string,
+    file: File,
+    options: UploadOptions = {},
+    metadata?: StorageUploadMetadata,
+  ): Promise<string> {
     const { isImage, isVideo } = this.validateFile(file, options);
 
     const fileType =
@@ -47,14 +52,22 @@ export class StorageService implements IStorageService {
     const filePath = this.buildFilePath("users", userId, fileType, file.name);
 
     try {
-      return await this.storageDao.upload(filePath, file, mergeMetadata(metadata));
+      return await this.storageDao.upload(
+        filePath,
+        file,
+        mergeMetadata(metadata),
+      );
     } catch (error) {
       console.error("StorageService upload failed:", error);
       throw error;
     }
   }
 
-  async uploadToPath(path: string, file: File, metadata?: StorageUploadMetadata): Promise<string> {
+  async uploadToPath(
+    path: string,
+    file: File,
+    metadata?: StorageUploadMetadata,
+  ): Promise<string> {
     try {
       return await this.storageDao.upload(path, file, mergeMetadata(metadata));
     } catch (error) {
@@ -76,10 +89,18 @@ export class StorageService implements IStorageService {
       (isImage ? "images" : isVideo ? "videos" : "documents");
     const filePath = this.buildFilePath("users", userId, fileType, file.name);
 
-    return this.storageDao.uploadResumable(filePath, file, mergeMetadata(metadata));
+    return this.storageDao.uploadResumable(
+      filePath,
+      file,
+      mergeMetadata(metadata),
+    );
   }
 
-  async uploadExternalImage(userId: string, externalUrl: string, folder = "images"): Promise<string> {
+  async uploadExternalImage(
+    userId: string,
+    externalUrl: string,
+    folder = "images",
+  ): Promise<string> {
     const response = await fetch(externalUrl);
     if (!response.ok) {
       throw new Error("Failed to fetch image from the provided URL.");
@@ -96,7 +117,11 @@ export class StorageService implements IStorageService {
     const filePath = this.buildFilePath("users", userId, folder, fileName);
 
     try {
-      return await this.storageDao.upload(filePath, blob, mergeMetadata({ contentType }));
+      return await this.storageDao.upload(
+        filePath,
+        blob,
+        mergeMetadata({ contentType }),
+      );
     } catch (error) {
       console.error("StorageService uploadExternalImage failed:", error);
       throw error;
@@ -130,7 +155,12 @@ export class StorageService implements IStorageService {
     }
   }
 
-  buildFilePath(root: string, userId: string, folder: string, fileName: string): string {
+  buildFilePath(
+    root: string,
+    userId: string,
+    folder: string,
+    fileName: string,
+  ): string {
     return this.storageDao.buildFilePath(root, userId, folder, fileName);
   }
 }

@@ -1,10 +1,13 @@
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import type { RoadmapDao } from "@grids/contracts/dao";
-import type { FetchRoadmapResult, NotionDatabase } from "@grids/contracts/types";
+import type {
+  FetchRoadmapResult,
+  NotionDatabase,
+} from "@grids/contracts/types";
 import type { RoadmapQueryFilter } from "@grids/contracts/types";
-import type { IRoadmapService } from "./interfaces/IRoadmapService";
+import type { RoadmapServiceInterface } from "./interfaces/RoadmapServiceInterface";
 
-export class RoadmapService implements IRoadmapService {
+export class RoadmapService implements RoadmapServiceInterface {
   private roadmapDao: RoadmapDao;
 
   constructor() {

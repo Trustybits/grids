@@ -1,7 +1,7 @@
 import type { ChatMessage } from "@grids/contracts/types";
-import type { IChatService } from "../interfaces/IChatService";
+import type { ChatServiceInterface } from "../interfaces/ChatServiceInterface";
 
-export class MockChatService implements IChatService {
+export class MockChatService implements ChatServiceInterface {
   subscribeToMessages(
     _gridId: string,
     _tileId: string,

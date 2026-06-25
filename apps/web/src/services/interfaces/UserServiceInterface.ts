@@ -5,7 +5,7 @@ import type {
   UserProfile,
 } from "@grids/contracts/types";
 
-export interface IUserService {
+export interface UserServiceInterface {
   // ── Profile (users collection) ──────────────────────────────────────
 
   /** Fetch a user's profile by ID, or null if no document exists. */

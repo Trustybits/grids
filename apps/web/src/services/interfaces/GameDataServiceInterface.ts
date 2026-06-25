@@ -4,7 +4,7 @@ import type {
   UserGameData,
 } from "@grids/contracts/types";
 
-export interface IGameDataService {
+export interface GameDataServiceInterface {
   getOrCreateUserGameData(userId: string): Promise<UserGameData>;
   checkDailyClickLimit(userId: string): Promise<DailyClickLimit>;
   incrementUserClicks(userId: string, amount: number): Promise<boolean>;

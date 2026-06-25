@@ -1,4 +1,4 @@
-import type { GridPersistenceScope } from "@/services/interfaces/IGridPersistenceScheduler";
+import type { GridPersistenceScope } from "@/services/interfaces/GridPersistenceSchedulerInterface";
 import { createPersistableGridSnapshot } from "@/utils/GridPersistenceUtils";
 import type {
   GridControllerDependencies,

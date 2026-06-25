@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ContentType, type Grid } from "@grids/contracts/types";
 import { GridPersistenceScheduler } from "@/services/GridPersistenceScheduler";
-import type { GridPersistenceScope } from "@/services/interfaces/IGridPersistenceScheduler";
+import type { GridPersistenceScope } from "@/services/interfaces/GridPersistenceSchedulerInterface";
 
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;

@@ -1,5 +1,15 @@
-import { type Grid, type CopyDepth, type Breakpoint, type TilePosition, type Tile } from "@grids/contracts/types";
-import { ContentType, type ChatContent, type SuggestionAction } from "@grids/contracts/types";
+import {
+  type Grid,
+  type CopyDepth,
+  type Breakpoint,
+  type TilePosition,
+  type Tile,
+} from "@grids/contracts/types";
+import {
+  ContentType,
+  type ChatContent,
+  type SuggestionAction,
+} from "@grids/contracts/types";
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import { getDbUtils } from "@/dao/DbUtilsSingleton";
 import type { DbUtils } from "@grids/contracts/dao";
@@ -10,7 +20,7 @@ import { createTile, createTileContent } from "@/utils/TileUtils";
 import { stripBlobUrlsFromTiles } from "@/utils/GridPersistenceUtils";
 import { v4 as uuidv4 } from "uuid";
 import heroGif from "@/assets/images/hero.gif";
-import type { IGridService } from "./interfaces/IGridService";
+import type { GridServiceInterface } from "./interfaces/GridServiceInterface";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -202,7 +212,7 @@ export const createStarterTiles = (): Tile[] => {
 
 // ── GridService ───────────────────────────────────────────────────────
 
-export class GridService implements IGridService {
+export class GridService implements GridServiceInterface {
   private gridDao: GridDao;
   private userDao: UserDao;
   private dbUtils: DbUtils;
@@ -441,9 +451,7 @@ export class GridService implements IGridService {
     // Deep-clone tiles so mutations don't affect the source grid.
     // Each tile gets a fresh UUID to avoid ID collisions.
     const clonedTiles = (
-      JSON.parse(
-        JSON.stringify(sourceGrid.tiles),
-      ) as typeof sourceGrid.tiles
+      JSON.parse(JSON.stringify(sourceGrid.tiles)) as typeof sourceGrid.tiles
     ).map((tile) => {
       const oldId = tile.i;
       tile.i = uuidv4();
@@ -497,5 +505,4 @@ export class GridService implements IGridService {
       newOverrides,
     );
   }
-
 }

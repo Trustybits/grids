@@ -14,9 +14,9 @@ import type {
   DailyGridStats,
   GridStats,
 } from "@grids/contracts/types";
-import type { IAnalyticsService } from "./interfaces/IAnalyticsService";
+import type { AnalyticsServiceInterface } from "./interfaces/AnalyticsServiceInterface";
 
-export class AnalyticsService implements IAnalyticsService {
+export class AnalyticsService implements AnalyticsServiceInterface {
   private analyticsEventDao: AnalyticsEventDao;
   private gridStatsDao: GridStatsDao;
   private businessStatsDao: BusinessStatsDao;
@@ -83,11 +83,7 @@ export class AnalyticsService implements IAnalyticsService {
     endDate: string,
   ): Promise<DailyGridStats[]> {
     try {
-      return await this.gridStatsDao.getDailyRange(
-        gridId,
-        startDate,
-        endDate,
-      );
+      return await this.gridStatsDao.getDailyRange(gridId, startDate, endDate);
     } catch (error) {
       console.error("Error fetching grid stats range:", error);
       throw error;

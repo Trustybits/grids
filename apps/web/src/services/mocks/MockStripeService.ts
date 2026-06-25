@@ -1,9 +1,9 @@
 import type {
   CheckoutSessionConfig,
-  IStripeService,
-} from "../interfaces/IStripeService";
+  StripeServiceInterface,
+} from "../interfaces/StripeServiceInterface";
 
-export class MockStripeService implements IStripeService {
+export class MockStripeService implements StripeServiceInterface {
   createCheckoutSession(_config: CheckoutSessionConfig): Promise<string> {
     throw new Error("Method not implemented.");
   }

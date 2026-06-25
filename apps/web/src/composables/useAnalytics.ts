@@ -1,7 +1,7 @@
 import { onBeforeUnmount, onMounted } from "vue";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService";
+import type { AnalyticsServiceInterface } from "@/services/interfaces/AnalyticsServiceInterface";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { AnalyticsEventType } from "@grids/contracts/types";
 
@@ -81,7 +81,7 @@ function generateRandomId(): string {
  * client-side. See §6 of metrics_notes.md.
  */
 export function useAnalytics() {
-  let analyticsService: IAnalyticsService | null = null;
+  let analyticsService: AnalyticsServiceInterface | null = null;
   try {
     analyticsService = getServiceFactory().getAnalyticsService() ?? null;
   } catch {

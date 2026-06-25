@@ -9,9 +9,9 @@ import type {
   SlugData,
   UserProfile,
 } from "@grids/contracts/types";
-import type { IUserService } from "./interfaces/IUserService";
+import type { UserServiceInterface } from "./interfaces/UserServiceInterface";
 
-export class UserService implements IUserService {
+export class UserService implements UserServiceInterface {
   private userDao: UserDao;
   private slugDao: SlugDao;
   private dbUtils: DbUtils;
@@ -94,9 +94,7 @@ export class UserService implements IUserService {
     }
   }
 
-  async checkSlugAvailability(
-    slug: string,
-  ): Promise<SlugAvailabilityResponse> {
+  async checkSlugAvailability(slug: string): Promise<SlugAvailabilityResponse> {
     try {
       return await this.slugDao.checkAvailability(slug);
     } catch (error: unknown) {
@@ -120,10 +118,7 @@ export class UserService implements IUserService {
     }
   }
 
-  async setDefaultGrid(
-    _userId: string,
-    gridId: string | null,
-  ): Promise<void> {
+  async setDefaultGrid(_userId: string, gridId: string | null): Promise<void> {
     try {
       await this.slugDao.updateDefaultGrid(gridId);
     } catch (error) {

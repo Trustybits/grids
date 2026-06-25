@@ -1,7 +1,4 @@
-import type {
-  GridViewEndEvent,
-  LogEventInput,
-} from "@grids/contracts/dao";
+import type { GridViewEndEvent, LogEventInput } from "@grids/contracts/dao";
 import type {
   AnalyticsEventType,
   BusinessStats,
@@ -9,9 +6,9 @@ import type {
   DailyGridStats,
   GridStats,
 } from "@grids/contracts/types";
-import type { IAnalyticsService } from "../interfaces/IAnalyticsService";
+import type { AnalyticsServiceInterface } from "../interfaces/AnalyticsServiceInterface";
 
-export class MockAnalyticsService implements IAnalyticsService {
+export class MockAnalyticsService implements AnalyticsServiceInterface {
   logEvent<T extends AnalyticsEventType>(
     _event: LogEventInput<T>,
   ): Promise<void> {

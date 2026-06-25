@@ -1,12 +1,12 @@
 import type { RoadmapQueryFilter } from "@grids/contracts/types";
-import type { FetchRoadmapResult, NotionDatabase } from "@grids/contracts/types";
+import type {
+  FetchRoadmapResult,
+  NotionDatabase,
+} from "@grids/contracts/types";
 
-export interface IRoadmapService {
+export interface RoadmapServiceInterface {
   /** List Notion databases available to the tile's integration. */
-  listDatabases(
-    gridId: string,
-    tileId: string,
-  ): Promise<NotionDatabase[]>;
+  listDatabases(gridId: string, tileId: string): Promise<NotionDatabase[]>;
 
   /** Fetch roadmap items from the connected Notion database. */
   fetchRoadmap(

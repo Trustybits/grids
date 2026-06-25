@@ -10,9 +10,9 @@ import {
   type Grid,
   type ImageContent,
 } from "@grids/contracts/types";
-import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService";
-import type { IGridService } from "@/services/interfaces/IGridService";
-import type { IGridPersistenceScheduler } from "@/services/interfaces/IGridPersistenceScheduler";
+import type { AnalyticsServiceInterface } from "@/services/interfaces/AnalyticsServiceInterface";
+import type { GridServiceInterface } from "@/services/interfaces/GridServiceInterface";
+import type { GridPersistenceSchedulerInterface } from "@/services/interfaces/GridPersistenceSchedulerInterface";
 import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
 import type { Snapshot } from "@/undo/UndoTypes";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
@@ -103,7 +103,7 @@ function createStores(pinia: Pinia): GridControllerStores {
   };
 }
 
-function createGridServiceMock(): IGridService {
+function createGridServiceMock(): GridServiceInterface {
   return {
     fetchGrid: vi.fn(),
     saveGrid: vi.fn(),
@@ -134,7 +134,7 @@ function createControllerHarness() {
   const authProvider = {
     getCurrentUserId: vi.fn(() => "user-1"),
   } as unknown as AuthProvider;
-  const persistenceScheduler: IGridPersistenceScheduler = {
+  const persistenceScheduler: GridPersistenceSchedulerInterface = {
     schedule: vi.fn(),
     flush: vi.fn(async () => undefined),
   };
@@ -143,7 +143,7 @@ function createControllerHarness() {
     persistenceScheduler,
     getAuthProvider: vi.fn(() => authProvider),
     getAnalyticsService: vi.fn(
-      () => ({}) as IAnalyticsService,
+      () => ({}) as AnalyticsServiceInterface,
     ),
     generateUuid: vi.fn(() => "uuid"),
     delay: vi.fn(async () => undefined),

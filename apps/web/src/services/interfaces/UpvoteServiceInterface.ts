@@ -1,4 +1,4 @@
-export interface IUpvoteService {
+export interface UpvoteServiceInterface {
   /**
    * Subscribe to the current user's upvoted page IDs for a tile in real-time.
    * Returns an unsubscribe function.

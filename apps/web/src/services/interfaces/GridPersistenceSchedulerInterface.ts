@@ -5,7 +5,7 @@ export interface GridPersistenceScope {
   sessionGeneration: number;
 }
 
-export interface IGridPersistenceScheduler {
+export interface GridPersistenceSchedulerInterface {
   schedule(scope: GridPersistenceScope, snapshot: Grid): void;
   flush(scope: GridPersistenceScope): Promise<void>;
 }

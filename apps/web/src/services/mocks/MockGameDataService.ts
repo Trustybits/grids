@@ -3,9 +3,9 @@ import type {
   DailyClickLimit,
   LeaderboardEntry,
 } from "@grids/contracts/types";
-import type { IGameDataService } from "../interfaces/IGameDataService";
+import type { GameDataServiceInterface } from "../interfaces/GameDataServiceInterface";
 
-export class MockGameDataService implements IGameDataService {
+export class MockGameDataService implements GameDataServiceInterface {
   getOrCreateUserGameData(_userId: string): Promise<UserGameData> {
     throw new Error("Method not implemented.");
   }

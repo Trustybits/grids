@@ -1,7 +1,4 @@
-import type {
-  GridViewEndEvent,
-  LogEventInput,
-} from "@grids/contracts/dao";
+import type { GridViewEndEvent, LogEventInput } from "@grids/contracts/dao";
 import type {
   AnalyticsEventType,
   BusinessStats,
@@ -10,7 +7,7 @@ import type {
   GridStats,
 } from "@grids/contracts/types";
 
-export interface IAnalyticsService {
+export interface AnalyticsServiceInterface {
   /**
    * Log a single analytics event. Writes to Firestore (`analyticsEvents`) and
    * mirrors to PostHog with the same `eventType` so both stores stay in sync.

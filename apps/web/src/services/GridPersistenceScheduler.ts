@@ -1,8 +1,8 @@
 import type { Grid } from "@grids/contracts/types";
 import type {
   GridPersistenceScope,
-  IGridPersistenceScheduler,
-} from "@/services/interfaces/IGridPersistenceScheduler";
+  GridPersistenceSchedulerInterface,
+} from "@/services/interfaces/GridPersistenceSchedulerInterface";
 
 type WriteGridSnapshot = (snapshot: Grid) => Promise<void>;
 
@@ -27,7 +27,7 @@ function cloneSnapshot(snapshot: Grid): Grid {
   return JSON.parse(JSON.stringify(snapshot)) as Grid;
 }
 
-export class GridPersistenceScheduler implements IGridPersistenceScheduler {
+export class GridPersistenceScheduler implements GridPersistenceSchedulerInterface {
   private readonly lanes = new Map<string, PersistenceLane>();
 
   constructor(private readonly write: WriteGridSnapshot) {}
@@ -87,11 +87,7 @@ export class GridPersistenceScheduler implements IGridPersistenceScheduler {
     return lane;
   }
 
-  private startWrite(
-    key: string,
-    lane: PersistenceLane,
-    snapshot: Grid,
-  ): void {
+  private startWrite(key: string, lane: PersistenceLane, snapshot: Grid): void {
     let writePromise: Promise<void>;
     try {
       writePromise = this.write(snapshot);

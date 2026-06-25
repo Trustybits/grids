@@ -1,8 +1,8 @@
 import type { AuthProvider } from "@grids/contracts/auth";
 import type { Breakpoint } from "@grids/contracts/types";
-import type { IAnalyticsService } from "@/services/interfaces/IAnalyticsService";
-import type { IGridService } from "@/services/interfaces/IGridService";
-import type { IGridPersistenceScheduler } from "@/services/interfaces/IGridPersistenceScheduler";
+import type { AnalyticsServiceInterface } from "@/services/interfaces/AnalyticsServiceInterface";
+import type { GridServiceInterface } from "@/services/interfaces/GridServiceInterface";
+import type { GridPersistenceSchedulerInterface } from "@/services/interfaces/GridPersistenceSchedulerInterface";
 import type { useGridCollectionStore } from "@/stores/grid/gridCollection";
 import type { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import type { useGridSessionStore } from "@/stores/grid/gridSession";
@@ -30,10 +30,10 @@ export interface GridMetadataPreferences {
 }
 
 export interface GridControllerDependencies {
-  getGridService(): IGridService;
-  persistenceScheduler: IGridPersistenceScheduler;
+  getGridService(): GridServiceInterface;
+  persistenceScheduler: GridPersistenceSchedulerInterface;
   getAuthProvider(): AuthProvider;
-  getAnalyticsService(): IAnalyticsService;
+  getAnalyticsService(): AnalyticsServiceInterface;
   generateUuid(): string;
   delay(milliseconds: number): Promise<void>;
   now(): Date;

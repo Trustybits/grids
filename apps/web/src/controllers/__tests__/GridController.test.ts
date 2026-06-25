@@ -826,6 +826,26 @@ describe("GridController", () => {
     expect(stores.history.manager).toBeNull();
   });
 
+  it("invokes the explicit clearActiveGrid callback instead of clearing the session", async () => {
+    const { controller, stores, gridService } =
+      createControllerHarness();
+    const owned = makeGrid({ id: "owned" });
+    stores.collection.setGrids([owned]);
+    // A different grid is active, so the fallback path would not clear it; the
+    // explicit callback must be used for the deleted grid that the caller owns.
+    stores.session.setCurrentGrid(makeGrid({ id: "active" }));
+    stores.history.initializeManager();
+    const clearActiveGrid = vi.fn();
+
+    await controller.deleteGrid("owned", owned, clearActiveGrid);
+
+    expect(gridService.deleteGrid).toHaveBeenCalledWith("owned");
+    expect(clearActiveGrid).toHaveBeenCalledTimes(1);
+    // The session was not the deleted grid and must remain untouched.
+    expect(stores.session.currentGrid?.id).toBe("active");
+    expect(stores.history.manager).not.toBeNull();
+  });
+
   it("does not delete missing, unauthenticated, or foreign grids", async () => {
     const {
       controller,

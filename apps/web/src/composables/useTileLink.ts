@@ -1,7 +1,9 @@
 import { ref, computed, type Ref } from "vue";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridController } from "@/controllers/useGridController";
+import { useRouter } from "vue-router";
 import { useToastStore } from "@/stores/toast";
+import { resolveInternalGridRoute } from "@/utils/InternalLink";
 
 interface LinkableContent {
   tileLink?: string;
@@ -25,6 +27,7 @@ export const useTileLink = (
   const sessionStore = useGridSessionStore();
   const controller = useGridController();
   const toastStore = useToastStore();
+  const router = useRouter();
   const showLinkModal = ref(false);
 
   const tileLink = computed(() => content?.tileLink);
@@ -72,6 +75,13 @@ export const useTileLink = (
 
   const handleFollowLink = () => {
     if (!tileLinkExists.value) return;
+    // Links to another grid on this same site navigate in-app rather than
+    // opening a new tab.
+    const internal = resolveInternalGridRoute(tileLink.value ?? "");
+    if (internal) {
+      router.push(internal);
+      return;
+    }
     window.open(tileLink.value, "_blank", "noopener,noreferrer");
   };
 

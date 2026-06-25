@@ -98,6 +98,7 @@ describe("textDefinition", () => {
         textType: "",
         color: "#ffffff",
         textAlign: undefined,
+        verticalAlign: undefined,
         tileLink: undefined,
         backgroundColor: undefined,
       });
@@ -113,6 +114,7 @@ describe("textDefinition", () => {
         textType: "h1",
         color: "#000000",
         textAlign: "center",
+        verticalAlign: "center",
         tileLink: "https://x.com",
         backgroundColor: "#111",
       });
@@ -125,6 +127,7 @@ describe("textDefinition", () => {
         textType: "h1",
         color: "#000000",
         textAlign: "center",
+        verticalAlign: "center",
         tileLink: "https://x.com",
         backgroundColor: "#111",
       });

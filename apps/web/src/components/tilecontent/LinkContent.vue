@@ -17,8 +17,14 @@
     @dragleave="onDragLeave"
     @drop.prevent="onDrop"
   >
+    <router-link
+      v-if="!gridView.canEdit && internalRoute"
+      class="link-tile-anchor"
+      :to="internalRoute"
+      :aria-label="displayTitle || displaySubtitle || 'Open link'"
+    ></router-link>
     <a
-      v-if="!gridView.canEdit && resolvedHref"
+      v-else-if="!gridView.canEdit && resolvedHref"
       class="link-tile-anchor"
       :href="resolvedHref"
       target="_blank"
@@ -253,6 +259,7 @@ import { type LinkContent } from "@grids/contracts/types";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";
+import { resolveInternalGridRoute } from "@/utils/InternalLink";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import EmailIcon from "../icons/EmailIcon.vue";
 import PhoneIcon from "../icons/PhoneIcon.vue";
@@ -766,6 +773,12 @@ export default defineComponent({
       return `https://${link}`;
     });
 
+    // When the resolved link points at another grid on this same site, viewers
+    // navigate in-app (via <router-link>) instead of opening a new tab.
+    const internalRoute = computed(() =>
+      gridStore.canEdit ? null : resolveInternalGridRoute(resolvedHref.value),
+    );
+
     const onTileClick = (event: MouseEvent) => {
       if (isEditing.value) {
         const target = event.target as HTMLElement;
@@ -820,6 +833,7 @@ export default defineComponent({
       onTileClick,
       onShortClick,
       onExitClick,
+      internalRoute,
       isEditing,
       isDetailsHovered,
       detailsRef,

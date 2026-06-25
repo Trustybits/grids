@@ -2,11 +2,11 @@ import type {
   StorageUploadMetadata,
   StorageUploadTask,
 } from "@grids/contracts/dao";
-import type { IStorageService } from "../interfaces/IStorageService";
+import type { StorageServiceInterface } from "../interfaces/StorageServiceInterface";
 import type { UploadOptions } from "@/types/UploadFileTypes";
 import { validateUploadFile } from "@/utils/UploadFileClassification";
 
-export class MockStorageService implements IStorageService {
+export class MockStorageService implements StorageServiceInterface {
   validateFile(
     file: File,
     options: UploadOptions,

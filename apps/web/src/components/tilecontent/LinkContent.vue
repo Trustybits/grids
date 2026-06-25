@@ -1,4 +1,3 @@
-<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="link-tile-content"
@@ -6,7 +5,7 @@
       'is-wide-1-high': isWideOneHigh,
       'is-tall-1-wide': isTallOneWide,
       'is-editing': isEditing,
-      'is-owner': gridStore.canEdit,
+      'is-owner': gridView.canEdit,
       'is-drag-over': isDragOver,
     }"
     :style="{ '--link-title-lines': String(titleLineClamp) }"
@@ -19,13 +18,13 @@
     @drop.prevent="onDrop"
   >
     <router-link
-      v-if="!gridStore.canEdit && internalRoute"
+      v-if="!gridView.canEdit && internalRoute"
       class="link-tile-anchor"
       :to="internalRoute"
       :aria-label="displayTitle || displaySubtitle || 'Open link'"
     ></router-link>
     <a
-      v-else-if="!gridStore.canEdit && resolvedHref"
+      v-else-if="!gridView.canEdit && resolvedHref"
       class="link-tile-anchor"
       :href="resolvedHref"
       target="_blank"
@@ -72,7 +71,7 @@
               :alt="content.domain"
             />
             <button
-              v-if="gridStore.canEdit && !!content.faviconUrl"
+              v-if="gridView.canEdit && !!content.faviconUrl"
               class="tile-logo-close"
               @mousedown.stop
               @mouseup.stop
@@ -198,7 +197,7 @@
     </div>
 
     <input
-      v-if="gridStore.canEdit"
+      v-if="gridView.canEdit"
       ref="customImageInput"
       class="link-image-input"
       type="file"
@@ -208,7 +207,7 @@
 
     <teleport to="body">
       <div
-        v-if="gridStore.canEdit && showContextMenu"
+        v-if="gridView.canEdit && showContextMenu"
         ref="contextMenuRef"
         class="link-context-menu"
         :style="contextMenuStyle"
@@ -242,8 +241,8 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable vue/no-mutating-props */
 import {
+  proxyRefs,
   defineComponent,
   inject,
   computed,
@@ -257,7 +256,7 @@ import {
 } from "vue";
 
 import { type LinkContent } from "@grids/contracts/types";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { resolveInternalGridRoute } from "@/utils/InternalLink";
@@ -265,6 +264,7 @@ import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import EmailIcon from "../icons/EmailIcon.vue";
 import PhoneIcon from "../icons/PhoneIcon.vue";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import { useTileContentWriter } from "@/composables/useTileContentWriter";
 
 export default defineComponent({
   emits: ["background-color-change", "text-color-change"],
@@ -280,10 +280,14 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const tileId = inject<string | null>("tileId", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
+    const { patchContent, autosaveContent } = useTileContentWriter(
+      tileId,
+      () => props.content,
+    );
 
     const isOneByOne = computed(
       () => (gridTileW?.value ?? 0) === 1 && (gridTileH?.value ?? 0) === 1,
@@ -431,7 +435,7 @@ export default defineComponent({
         link: props.content.link,
       }),
       (newMeta) => {
-        if (!tileId || !gridStore.canEdit) return;
+        if (!tileId || !gridView.canEdit) return;
         // Only run when not editing — this handles the async metadata fetch
         if (isEditing.value) return;
 
@@ -462,9 +466,7 @@ export default defineComponent({
         }
 
         if (Object.keys(patch).length > 0) {
-          // Write metadata into custom fields on the content object
-          Object.assign(props.content, patch);
-          gridStore.patchTileContent(tileId, patch);
+          patchContent(patch);
         }
       },
     );
@@ -474,15 +476,11 @@ export default defineComponent({
     );
 
     const saveEdits = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       const nextTitle = draftTitle.value.trim();
       const nextDescription = draftDescription.value.trim();
       const nextSubtitle = draftSubtitle.value.trim();
-
-      props.content.customTitle = nextTitle;
-      props.content.customDescription = nextDescription;
-      props.content.customSubtitle = nextSubtitle;
 
       const updatedFields = {
         customTitle: nextTitle,
@@ -490,11 +488,7 @@ export default defineComponent({
         customSubtitle: nextSubtitle,
       };
 
-      if (tileId) {
-        gridStore.patchTileContent(tileId, updatedFields);
-      } else {
-        gridStore.saveGrid();
-      }
+      autosaveContent(updatedFields);
     };
 
     const closeContextMenu = () => {
@@ -502,44 +496,33 @@ export default defineComponent({
     };
 
     const applyImageUrlFromToolbar = (normalizedUrl: string) => {
-      if (!gridStore.canEdit) return;
-      props.content.customImageUrl = normalizedUrl;
-      if (tileId) {
-        gridStore.patchTileContent(tileId, { customImageUrl: normalizedUrl });
-      } else {
-        gridStore.saveGrid();
-      }
+      if (!gridView.canEdit) return;
+      patchContent({ customImageUrl: normalizedUrl });
     };
 
     const openCustomImagePicker = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       customImageInput.value?.click();
     };
 
     const removeImage = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
-      let changes = {};
+      let changes: Partial<LinkContent> = {};
 
       if (props.content.customImageUrl !== undefined) {
-        props.content.customImageUrl = undefined;
         changes = { customImageUrl: undefined };
       } else {
-        props.content.metaImageUrl = undefined;
         changes = { metaImageUrl: undefined };
       }
 
-      if (tileId) {
-        gridStore.patchTileContent(tileId, changes);
-      } else {
-        gridStore.saveGrid();
-      }
+      patchContent(changes);
 
       closeContextMenu();
     };
 
     const uploadCustomImage = async (file: File) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       if (!file.type.startsWith("image/")) {
         alert("Unsupported file type. Please upload an image.");
@@ -548,12 +531,7 @@ export default defineComponent({
 
       try {
         const url = await uploadFileToUrl(file, { fileType: "images" });
-        props.content.customImageUrl = url;
-        if (tileId) {
-          gridStore.patchTileContent(tileId, { customImageUrl: url });
-        } else {
-          gridStore.saveGrid();
-        }
+        patchContent({ customImageUrl: url });
       } catch (error: unknown) {
         console.error("Link tile image upload failed:", error);
         alert(error instanceof Error ? error.message : "Failed to upload image. Please try again.");
@@ -561,7 +539,7 @@ export default defineComponent({
     };
 
     const onCustomImageSelected = async (event: Event) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
       await uploadCustomImage(file);
@@ -569,19 +547,19 @@ export default defineComponent({
     };
 
     const onDragEnter = (event: DragEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!event.dataTransfer?.types.includes("Files")) return;
       isDragOver.value = true;
     };
 
     const onDragOver = (event: DragEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!event.dataTransfer?.types.includes("Files")) return;
       event.dataTransfer.dropEffect = "copy";
     };
 
     const onDragLeave = (event: DragEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       const container = linkTileRef.value;
       if (!container) {
         isDragOver.value = false;
@@ -600,7 +578,7 @@ export default defineComponent({
     };
 
     const onDrop = async (event: DragEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       isDragOver.value = false;
       const file = event.dataTransfer?.files?.[0];
       if (!file) return;
@@ -623,7 +601,7 @@ export default defineComponent({
     };
 
     const onContextMenu = (event: MouseEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       event.preventDefault();
       event.stopPropagation();
 
@@ -661,7 +639,7 @@ export default defineComponent({
     const handleContextUseUrl = () => {
       closeContextMenu();
       if (tileId) {
-        gridStore.setPanelActive(tileId, "imageUrl");
+        gridView.setPanelActive(tileId, "imageUrl");
       }
     };
 
@@ -699,8 +677,8 @@ export default defineComponent({
     const startEditing = (
       focusTarget?: "title" | "description" | "subtitle",
     ) => {
-      if (!gridStore.canEdit || isEditing.value) return;
-      if (tileId) gridStore.beginEditing(tileId);
+      if (!gridView.canEdit || isEditing.value) return;
+      if (tileId) gridView.beginEditing(tileId);
       isEditing.value = true;
       syncDrafts();
       nextTick(() => {
@@ -729,7 +707,7 @@ export default defineComponent({
     const stopEditing = () => {
       if (!isEditing.value) return;
       flushPersist();
-      gridStore.commitEditing();
+      gridView.commitEditing();
       removeExitClickHandler();
       isEditing.value = false;
       // Re-sync drafts so readonly inputs reflect saved values
@@ -738,7 +716,7 @@ export default defineComponent({
 
     const onDetailsClick = (event: MouseEvent) => {
       if (isEditing.value) return;
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       // Determine which field is closest to the click position
       const el = detailsRef.value;
@@ -798,7 +776,7 @@ export default defineComponent({
     // When the resolved link points at another grid on this same site, viewers
     // navigate in-app (via <router-link>) instead of opening a new tab.
     const internalRoute = computed(() =>
-      gridStore.canEdit ? null : resolveInternalGridRoute(resolvedHref.value),
+      gridView.canEdit ? null : resolveInternalGridRoute(resolvedHref.value),
     );
 
     const onTileClick = (event: MouseEvent) => {
@@ -814,11 +792,11 @@ export default defineComponent({
       if (isEditing.value) return;
       // Owners use the action bar "Follow Link" control.
       // Viewers get native anchor behavior from the full-tile anchor.
-      if (gridStore.canEdit) return;
+      if (gridView.canEdit) return;
     };
 
     const onExitClick = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!isEditing.value) return;
       stopEditing();
     };
@@ -837,17 +815,11 @@ export default defineComponent({
     });
 
     const handleRemoveFavicon = () => {
-      props.content.faviconUrl = undefined;
-
-      if (tileId) {
-        gridStore.patchTileContent(tileId, { faviconUrl: undefined });
-      } else {
-        gridStore.saveGrid();
-      }
+      patchContent({ faviconUrl: undefined });
     };
 
     return {
-      gridStore,
+      gridView,
       overlayColor: linkOverlayColor,
       pickerFillColor,
       pickerOverlayColor,

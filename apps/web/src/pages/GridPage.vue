@@ -35,7 +35,7 @@
       />
 
       <input
-        v-if="gridStore.canEdit"
+        v-if="canEdit"
         type="file"
         ref="imageInput"
         style="display: none"
@@ -43,10 +43,10 @@
         @change.stop="addBackgroundImage"
       />
       <iframe
-        v-if="gridStore.currentGrid?.backgroundEmbed"
+        v-if="currentGrid?.backgroundEmbed"
         style="width: 100%; height: 100%; position: fixed; top: 0; z-index: 0"
         scrolling="no"
-        :src="gridStore.currentGrid?.backgroundImageSrc"
+        :src="currentGrid?.backgroundImageSrc"
         frameborder="no"
         loading="lazy"
         allowtransparency="true"
@@ -61,7 +61,7 @@
         :class="{ 'drag-over': isDraggingOver }"
       >
         <!-- Drag overlay indicator -->
-        <div v-if="isDraggingOver && gridStore.canEdit" class="drag-overlay">
+        <div v-if="isDraggingOver && canEdit" class="drag-overlay">
           <div class="drag-message">
             <UploadIcon :size="64" />
             <p>Drop to add to grid</p>
@@ -74,17 +74,17 @@
           the toolbar is scrolled off-screen.
         -->
         <BreakpointSwitcher
-          v-if="gridStore.isOwner && switcherVariant === 'floating'"
+          v-if="isOwner && switcherVariant === 'floating'"
           variant="floating"
         />
-        <UndoRedoControls v-if="gridStore.isOwner" />
+        <UndoRedoControls v-if="isOwner" />
 
         <!--
           Toolbar area: tile-add buttons are hidden during view-only preview
           (canEdit), but the breakpoint switcher stays visible for owners
           (isOwner) so they can switch back.
         -->
-        <div v-if="gridStore.canEdit" class="toolbar">
+        <div v-if="canEdit" class="toolbar">
           <!--
             Option A: Inline — switcher sits inside the toolbar row,
             right next to the tile-add buttons.
@@ -111,13 +111,13 @@
           inline/toolbar-row switcher so the owner can switch back.
         -->
         <div
-          v-else-if="gridStore.isOwner && switcherVariant === 'inline'"
+          v-else-if="isOwner && switcherVariant === 'inline'"
           class="toolbar"
         >
           <BreakpointSwitcher variant="inline" />
         </div>
         <div
-          v-else-if="gridStore.isOwner && switcherVariant === 'toolbar-row'"
+          v-else-if="isOwner && switcherVariant === 'toolbar-row'"
           class="toolbar"
         >
           <BreakpointSwitcher variant="toolbar-row" />
@@ -142,7 +142,9 @@ import Grid from "@/components/grid/Grid.vue";
 import GridButtons from "@/components/grid/GridToolbar.vue";
 import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
 import UndoRedoControls from "@/components/grid/UndoRedoControls.vue";
-import { useGridStore } from "@/stores/grid";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridViewportStore } from "@/stores/grid/gridViewport";
+import { useGridController } from "@/controllers/useGridController";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
@@ -176,7 +178,10 @@ export default defineComponent({
     UploadIcon,
   },
   setup() {
-    const gridStore = useGridStore();
+    const sessionStore = useGridSessionStore();
+    const viewportStore = useGridViewportStore();
+    const controller = useGridController();
+    const currentGrid = computed(() => sessionStore.currentGrid);
     const themeStore = useThemeStore();
     useUndoRedoKeys();
     const { trackGridEnter } = useAnalytics();
@@ -196,17 +201,22 @@ export default defineComponent({
     const { isDraggingOver } = useDragAndPaste(layoutContainer);
     const { uploadFileToUrl } = useFileUpload();
 
-    const isOwner = computed(() => {
-      return gridStore.isOwner;
-    });
+    const isOwner = computed(() => sessionStore.isOwner);
+
+    const canEdit = computed(() =>
+      sessionStore.canEditAtBreakpoint(
+        viewportStore.forcedBreakpoint,
+        viewportStore.viewportBreakpoint,
+      ),
+    );
 
     const selectImage = () => {
-      if (!gridStore.canEdit) return;
+      if (!canEdit.value) return;
       imageInput.value?.click();
     };
 
     const backgroundStyle = computed(() => {
-      const layout = gridStore.currentGrid;
+      const layout = currentGrid.value;
       const hasImage = !!layout?.backgroundImageSrc;
       const hasColor = !!layout?.backgroundColor;
       return {
@@ -235,13 +245,13 @@ export default defineComponent({
     // Dynamic page title with grid name, falling back to the public handle while resolving
     const pageTitle = computed(
       () =>
-        gridStore.currentGrid?.name ??
+        currentGrid.value?.name ??
         (slug.value ? `@${slug.value}` : undefined),
     );
     usePageTitle(pageTitle, "|");
 
     const backgroundOverlayColor = computed(() => {
-      const layout = gridStore.currentGrid;
+      const layout = currentGrid.value;
       if (layout?.backgroundImageSrc && layout?.backgroundColor) {
         return layout.backgroundColor;
       }
@@ -250,7 +260,7 @@ export default defineComponent({
 
     // Dynamic favicon from first profile tile's photo
     const profilePhotoUrl = computed(() => {
-      const tiles = gridStore.currentGrid?.tiles;
+      const tiles = currentGrid.value?.tiles;
       if (!tiles) return null;
 
       const profileTile = tiles.find(
@@ -265,13 +275,13 @@ export default defineComponent({
     useDynamicFavicon(profilePhotoUrl);
 
     const addBackgroundImage = async (event: Event) => {
-      if (!gridStore.canEdit) return;
+      if (!canEdit.value) return;
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
 
       try {
         const url = await uploadFileToUrl(file, { fileType: "images" });
-        gridStore.addBackgroundImage(url, false);
+        controller.addBackgroundImage(url, false);
       } catch (error: unknown) {
         console.error("Failed to upload image:", error);
         alert(
@@ -283,21 +293,21 @@ export default defineComponent({
     };
 
     const embedBackground = () => {
-      if (!gridStore.canEdit) return;
+      if (!canEdit.value) return;
       const link = prompt("Please enter an embed URL");
       if (link) {
-        gridStore.addBackgroundImage(link, true);
+        controller.addBackgroundImage(link, true);
       }
     };
 
     const confirmDelete = async () => {
-      if (!gridStore.canEdit) return;
-      if (!gridStore.currentGrid) return;
+      if (!canEdit.value) return;
+      if (!currentGrid.value) return;
 
       const confirmed = confirm("Are you sure you want to delete this layout?");
       if (!confirmed) return;
 
-      await gridStore.deleteGrid(gridStore.currentGrid.id);
+      await controller.deleteGrid(currentGrid.value.id);
       router.push("/dashboard");
     };
 
@@ -319,15 +329,15 @@ export default defineComponent({
       notFoundTitle = "Grid Not Found",
       notFoundMessage = "This grid could not be loaded.",
     ) => {
-      await gridStore.loadGrid(gridId);
+      await controller.loadGrid(gridId);
       if (requestId !== loadRequestId) {
         return false;
       }
-      if (!gridStore.currentGrid) {
-        setError(notFoundTitle, gridStore.error ?? notFoundMessage);
+      if (!currentGrid.value) {
+        setError(notFoundTitle, sessionStore.loadError ?? notFoundMessage);
         return false;
       }
-      trackGridEnter(gridStore.currentGrid.id);
+      trackGridEnter(currentGrid.value.id);
       return true;
     };
 
@@ -341,7 +351,7 @@ export default defineComponent({
       errorTitle.value = "Handle Not Found";
       errorMessage.value = "";
       slug.value = routeSlug;
-      gridStore.clearCurrentGrid();
+      controller.clearSession();
 
       try {
         if (gridId) {
@@ -399,14 +409,14 @@ export default defineComponent({
 
     // Apply the grid's saved theme when the layout finishes loading
     watch(
-      () => gridStore.currentGrid?.themeId,
+      () => currentGrid.value?.themeId,
       (themeId) => {
         themeStore.applyGridTheme(themeId);
       },
     );
 
     watch(
-      () => gridStore.currentGrid?.backgroundColor,
+      () => currentGrid.value?.backgroundColor,
       (bgColor) => {
         const el = document.documentElement;
         if (bgColor) {
@@ -441,7 +451,8 @@ export default defineComponent({
     });
 
     return {
-      gridStore,
+      currentGrid,
+      canEdit,
       rowHeight,
       isLoading,
       error,

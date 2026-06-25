@@ -77,6 +77,7 @@ const exampleSnapshot: Snapshot = {
   backgroundImageSrc: "",
   backgroundEmbed: false,
   backgroundColor: "",
+  ogImageSrc: "",
   forcedBreakpoint: "lg",
   actionLabel: "Toggle gravity",
 };
@@ -103,6 +104,20 @@ describe("UndoRedoManager", () => {
     expect(undoRedoManager.getLastActionLabel()).toBe(
       exampleSnapshot.actionLabel,
     );
+  });
+
+  it("stores a deep copy of caller-owned snapshot data", () => {
+    const snapshot = makeSnapshot({
+      tiles: exampleSnapshot.tiles.map((tile) => ({
+        ...tile,
+        content: { ...tile.content },
+      })),
+    });
+
+    undoRedoManager.pushSnapshot(snapshot);
+    snapshot.tiles[0]!.caption = "Mutated after push";
+
+    expect(undoRedoManager.peekAtUndo()?.tiles[0]?.caption).toBe("");
   });
 
   it("clears the undo and redo stacks", () => {

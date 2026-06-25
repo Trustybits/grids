@@ -1,6 +1,6 @@
 <template>
   <div
-    v-if="gridStore.isOwner && gridId"
+    v-if="sessionStore.isOwner && gridId"
     class="grid-stats-wrapper"
     ref="wrapperRef"
     @mouseenter="hovered = true"
@@ -54,13 +54,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted, nextTick } from "vue";
-import { useGridStore } from "@/stores/grid";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import type { GridStats, DailyGridStats } from "@grids/contracts/types";
 import Chevron from "@/components/icons/Chevron.vue";
 import { formatDuration } from "@/utils/RelativeTime";
 
-const gridStore = useGridStore();
+const sessionStore = useGridSessionStore();
 
 const wrapperRef = ref<HTMLElement | null>(null);
 const panelRef = ref<HTMLElement | null>(null);
@@ -73,7 +73,7 @@ const VIEWPORT_MARGIN = 8;
 const aggregate = ref<GridStats | null>(null);
 const yesterday = ref<DailyGridStats | null>(null);
 
-const gridId = computed(() => gridStore.currentGrid?.id ?? null);
+const gridId = computed(() => sessionStore.currentGrid?.id ?? null);
 
 const lifetimeViews = computed(() => aggregate.value?.totalViews ?? 0);
 const uniqueViewers = computed(() => aggregate.value?.uniqueViewers ?? 0);

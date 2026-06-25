@@ -3,7 +3,8 @@ import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { ContentType } from "@grids/contracts/types";
 import { createTileContent } from "@/utils/TileUtils";
 import type { TileContent } from "@grids/contracts/types";
-import { useGridStore } from "@/stores/grid";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridController } from "@/controllers/useGridController";
 import type { UploadOptions } from "@/types/UploadFileTypes";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -15,10 +16,45 @@ import type {
   StorageUploadTask,
 } from "@grids/contracts/dao";
 
+type AuthProvider = ReturnType<typeof getAuthProvider>;
+type ServiceFactory = ReturnType<typeof getServiceFactory>;
+type StorageService = ReturnType<ServiceFactory["getStorageService"]>;
+type GridSessionStore = ReturnType<typeof useGridSessionStore>;
+type GridController = ReturnType<typeof useGridController>;
+
 export function useFileUpload() {
-  const authProvider = getAuthProvider();
-  const storageService = getServiceFactory().getStorageService();
-  const gridStore = useGridStore();
+  let authProvider: AuthProvider | null = null;
+  let storageService: StorageService | null = null;
+  let sessionStore: GridSessionStore | null = null;
+  let controller: GridController | null = null;
+
+  const getUploadAuthProvider = (): AuthProvider => {
+    authProvider ??= getAuthProvider();
+    return authProvider;
+  };
+
+  const getUploadStorageService = (): StorageService => {
+    storageService ??= getServiceFactory().getStorageService();
+    return storageService;
+  };
+
+  const getUploadSessionStore = (): GridSessionStore => {
+    sessionStore ??= useGridSessionStore();
+    return sessionStore;
+  };
+
+  const getUploadController = (): GridController => {
+    controller ??= useGridController();
+    return controller;
+  };
+
+  const cancelUploadTask = (uploadTask: StorageUploadTask) => {
+    try {
+      uploadTask.cancel();
+    } catch {
+      // Cancellation is best-effort; controller validation drops late callbacks.
+    }
+  };
 
   /**
    * Upload a file to storage and return just the URL.
@@ -28,6 +64,8 @@ export function useFileUpload() {
     file: File,
     options: UploadOptions = {},
   ): Promise<string> => {
+    const authProvider = getUploadAuthProvider();
+    const storageService = getUploadStorageService();
     const currentUserId = authProvider.getCurrentUserId();
     if (!currentUserId) {
       throw new Error("You must be logged in to upload.");
@@ -71,6 +109,9 @@ export function useFileUpload() {
     file: File,
     options: UploadOptions = {},
   ): Promise<void> => {
+    const authProvider = getUploadAuthProvider();
+    const storageService = getUploadStorageService();
+    const controller = getUploadController();
     const { isImage } = storageService.validateFile(file, options);
 
     const currentUserId = authProvider.getCurrentUserId();
@@ -82,16 +123,14 @@ export function useFileUpload() {
     const blobUrl = URL.createObjectURL(file);
     const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
     const content = createTileContent(contentType, { src: blobUrl });
-    const tileId = gridStore.addTile(content);
+    const tileId = controller.addTile(content);
 
     if (!tileId) {
-      URL.revokeObjectURL(blobUrl);
+      controller.revokeOwnedObjectUrl(blobUrl);
       return;
     }
 
-    // Mark tile as uploading so content components show a progress bar
-    gridStore.setTileUploading(tileId, 0);
-
+    let uploadId: string | null = null;
     try {
       // Resumable upload to track progress
       const uploadTask: StorageUploadTask = storageService.uploadResumable(
@@ -99,10 +138,22 @@ export function useFileUpload() {
         file,
         options,
       );
+      uploadId = controller.startUpload({
+        tileId,
+        progress: 0,
+        ownedObjectUrl: blobUrl,
+        task: uploadTask,
+      });
+      if (!uploadId) {
+        cancelUploadTask(uploadTask);
+        controller.revokeOwnedObjectUrl(blobUrl);
+        return;
+      }
+      const currentUploadId = uploadId;
 
       uploadTask.onProgress((progress: StorageUploadProgress) => {
-        gridStore.setTileUploading(
-          tileId,
+        controller.progressUpload(
+          currentUploadId,
           progress.bytesTransferred / progress.totalBytes,
         );
       });
@@ -111,14 +162,12 @@ export function useFileUpload() {
 
       // Store the permanent URL for persistence without touching the displayed src.
       // This avoids a visible flash and keeps video playback uninterrupted.
-      gridStore.setResolvedUrl(tileId, url);
-      gridStore.clearTileUploading(tileId);
-      gridStore.updateGrid();
+      controller.resolveUpload(currentUploadId, url);
     } catch (error) {
       console.error("File upload failed:", error);
-      gridStore.clearTileUploading(tileId);
-      URL.revokeObjectURL(blobUrl);
-      gridStore.removeTile(tileId);
+      if (uploadId && controller.failUpload(uploadId)) {
+        controller.removeTile(tileId);
+      }
       throw error; // Re-throw so callers can display their own error UI
     }
   };
@@ -134,6 +183,9 @@ export function useFileUpload() {
     tileId: string,
     options: UploadOptions = {},
   ): Promise<void> => {
+    const authProvider = getUploadAuthProvider();
+    const storageService = getUploadStorageService();
+    const controller = getUploadController();
     const { isImage } = storageService.validateFile(file, options);
 
     const currentUserId = authProvider.getCurrentUserId();
@@ -145,39 +197,49 @@ export function useFileUpload() {
     const blobUrl = URL.createObjectURL(file);
     const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
     const content = createTileContent(contentType, { src: blobUrl });
-    gridStore.setTileContent(tileId, content);
-    gridStore.setTileUploading(tileId, 0);
+    controller.setTileContent(tileId, content);
 
+    let uploadId: string | null = null;
     try {
       const uploadTask: StorageUploadTask = storageService.uploadResumable(
         currentUserId,
         file,
         options,
       );
+      uploadId = controller.startUpload({
+        tileId,
+        progress: 0,
+        ownedObjectUrl: blobUrl,
+        task: uploadTask,
+      });
+      if (!uploadId) {
+        cancelUploadTask(uploadTask);
+        controller.revokeOwnedObjectUrl(blobUrl);
+        return;
+      }
+      const currentUploadId = uploadId;
 
       uploadTask.onProgress((progress: StorageUploadProgress) => {
-        gridStore.setTileUploading(
-          tileId,
+        controller.progressUpload(
+          currentUploadId,
           progress.bytesTransferred / progress.totalBytes,
         );
       });
 
       const url = await uploadTask.done();
 
-      gridStore.setResolvedUrl(tileId, url);
-      gridStore.clearTileUploading(tileId);
-      gridStore.updateGrid();
+      controller.resolveUpload(currentUploadId, url);
     } catch (error) {
       console.error("File upload failed:", error);
-      gridStore.clearTileUploading(tileId);
-      URL.revokeObjectURL(blobUrl);
 
       // Revert to suggestion tile on failure
-      const revertContent = createTileContent(ContentType.SUGGESTION, {
-        action: "media",
-        label: "Add Media",
-      });
-      gridStore.setTileContent(tileId, revertContent);
+      if (uploadId && controller.failUpload(uploadId)) {
+        const revertContent = createTileContent(ContentType.SUGGESTION, {
+          action: "media",
+          label: "Add Media",
+        });
+        controller.setTileContent(tileId, revertContent);
+      }
       throw error;
     }
   };
@@ -189,6 +251,10 @@ export function useFileUpload() {
     files: File[],
   ): Promise<void> => {
     if (files.length === 0) return;
+    const authProvider = getUploadAuthProvider();
+    const storageService = getUploadStorageService();
+    const controller = getUploadController();
+    const sessionStore = getUploadSessionStore();
     for (const f of files) {
       storageService.validateFile(f, { fileType: "documents" });
     }
@@ -206,17 +272,16 @@ export function useFileUpload() {
     }));
 
     const content = createTileContent(ContentType.DOCUMENT, { items });
-    const tileId = gridStore.addTile(content);
+    const tileId = controller.addTile(content);
 
     if (!tileId) {
       for (const item of items) {
-        URL.revokeObjectURL(item.url);
+        controller.revokeOwnedObjectUrl(item.url);
       }
       return;
     }
 
-    gridStore.setTileUploading(tileId, 0);
-
+    let activeUploadId: string | null = null;
     try {
       const n = files.length;
       let completed = 0;
@@ -229,27 +294,45 @@ export function useFileUpload() {
           file,
           { fileType: "documents" },
         );
+        const uploadId = controller.startUpload({
+          tileId,
+          itemId: item.id,
+          progress: completed / n,
+          ownedObjectUrl: item.url,
+          task: uploadTask,
+        });
+        activeUploadId = uploadId;
+        if (!uploadId) {
+          cancelUploadTask(uploadTask);
+          controller.revokeOwnedObjectUrl(item.url);
+          return;
+        }
 
         uploadTask.onProgress((progress) => {
           const fileFrac =
             progress.totalBytes > 0
               ? progress.bytesTransferred / progress.totalBytes
               : 0;
-          gridStore.setTileUploading(
-            tileId,
+          controller.progressUpload(
+            uploadId,
             (completed + fileFrac) / n,
           );
         });
 
         const url = await uploadTask.done();
         completed += 1;
-        gridStore.setTileUploading(tileId, completed / n);
-        gridStore.setResolvedDocumentItemUrl(tileId, item.id, url);
+        controller.progressUpload(uploadId, completed / n);
+        // Record each item's resolved URL without clearing progress yet; the
+        // single final save is scheduled and flushed after the loop.
+        if (!controller.resolveUpload(uploadId, url, i === n - 1)) {
+          return;
+        }
       }
-      gridStore.clearTileUploading(tileId);
-      await gridStore.saveGrid();
+      // Server-side thumbnail generation requires the document data to be
+      // durably persisted first, so flush the scheduled saves before starting.
+      await controller.flushSaves();
 
-      const gridId = gridStore.currentGrid?.id;
+      const gridId = sessionStore.currentGrid?.id;
       if (gridId) {
         const thumbJobs = items
           .map((item, i) => ({ item, file: files[i] }))
@@ -265,7 +348,7 @@ export function useFileUpload() {
             ensureDocumentItemThumbnailOnServer(gridId, tileId, item.id)
               .then((res) => {
                 if (res.thumbnailUrl) {
-                  gridStore.patchDocumentItem(tileId, item.id, {
+                  controller.patchDocumentItem(tileId, item.id, {
                     thumbnailUrl: res.thumbnailUrl,
                   });
                 }
@@ -278,11 +361,9 @@ export function useFileUpload() {
       }
     } catch (error) {
       console.error("Document upload failed:", error);
-      gridStore.clearTileUploading(tileId);
-      for (const item of items) {
-        URL.revokeObjectURL(item.url);
+      if (activeUploadId && controller.failUpload(activeUploadId)) {
+        controller.removeTile(tileId);
       }
-      gridStore.removeTile(tileId);
       throw error;
     }
   };
@@ -295,6 +376,8 @@ export function useFileUpload() {
     externalUrl: string,
     folder = "images",
   ): Promise<string> => {
+    const authProvider = getUploadAuthProvider();
+    const storageService = getUploadStorageService();
     const currentUserId = authProvider.getCurrentUserId();
     if (!currentUserId) {
       throw new Error("You must be logged in to upload.");

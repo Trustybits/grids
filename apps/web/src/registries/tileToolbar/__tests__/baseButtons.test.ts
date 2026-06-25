@@ -8,7 +8,7 @@
  *  - COLOR_BUTTON: metadata + no-op action
  *
  * ToolbarContext is built as a plain stub — the buttons only read `.tile`,
- * `.gridStore`, and `.childComponent.value`, so no real Pinia store or Vue
+ * `.gridView`, and `.childComponent.value`, so no real Pinia store or Vue
  * ref is needed.
  */
 
@@ -36,7 +36,7 @@ interface CtxOptions {
 }
 
 function makeCtx(opts: CtxOptions = {}) {
-  const gridStore = {
+  const gridView = {
     resizeTile: vi.fn(),
     toggleTileBorder: vi.fn(),
     toggleLinkBackground: vi.fn(),
@@ -45,11 +45,11 @@ function makeCtx(opts: CtxOptions = {}) {
   const ctx = {
     tile: { i: "tile-1", w: 1, h: 1, ...opts.tile },
     childComponent: { value: opts.child === undefined ? {} : opts.child },
-    gridStore,
+    gridView,
     isEditing: { value: false },
     isExitingCropMode: { value: false },
   } as unknown as ToolbarContext;
-  return { ctx, gridStore };
+  return { ctx, gridView };
 }
 
 describe("resize button factory (RESIZE_* presets)", () => {
@@ -62,29 +62,29 @@ describe("resize button factory (RESIZE_* presets)", () => {
 
   it("action resizes the tile to the button's dimensions and triggers onResize", () => {
     const onResize = vi.fn();
-    const { ctx, gridStore } = makeCtx({
+    const { ctx, gridView } = makeCtx({
       tile: { i: "t9", w: 1, h: 1 },
       child: { onResize },
     });
 
     RESIZE_4x4.action(ctx);
 
-    expect(gridStore.resizeTile).toHaveBeenCalledWith("t9", 4, 4);
+    expect(gridView.resizeTile).toHaveBeenCalledWith("t9", 4, 4);
     expect(onResize).toHaveBeenCalledOnce();
   });
 
   it("action still resizes when the child component is null (no onResize)", () => {
-    const { ctx, gridStore } = makeCtx({ tile: { i: "t" }, child: null });
+    const { ctx, gridView } = makeCtx({ tile: { i: "t" }, child: null });
 
     expect(() => RESIZE_3x1.action(ctx)).not.toThrow();
-    expect(gridStore.resizeTile).toHaveBeenCalledWith("t", 3, 1);
+    expect(gridView.resizeTile).toHaveBeenCalledWith("t", 3, 1);
   });
 
   it("action does not throw when the child component lacks onResize", () => {
-    const { ctx, gridStore } = makeCtx({ child: {} });
+    const { ctx, gridView } = makeCtx({ child: {} });
 
     expect(() => RESIZE_1x1.action(ctx)).not.toThrow();
-    expect(gridStore.resizeTile).toHaveBeenCalledWith("tile-1", 1, 1);
+    expect(gridView.resizeTile).toHaveBeenCalledWith("tile-1", 1, 1);
   });
 
   it("isActive is true only when the tile dimensions match the button", () => {
@@ -126,9 +126,9 @@ describe("resize button factory (RESIZE_* presets)", () => {
     expect(btn.id).toBe(id);
     expect(btn.group).toBe("resize");
 
-    const { ctx, gridStore } = makeCtx({ tile: { i: "t", w: 0, h: 0 } });
+    const { ctx, gridView } = makeCtx({ tile: { i: "t", w: 0, h: 0 } });
     btn.action(ctx);
-    expect(gridStore.resizeTile).toHaveBeenCalledWith("t", w, h);
+    expect(gridView.resizeTile).toHaveBeenCalledWith("t", w, h);
 
     expect(btn.isActive?.(makeCtx({ tile: { w, h } }).ctx)).toBe(true);
     expect(btn.isActive?.(makeCtx({ tile: { w: w + 1, h } }).ctx)).toBe(false);
@@ -165,10 +165,10 @@ describe("BORDER_TOGGLE", () => {
     expect(titleFn(ctx)).toBe("Show border");
   });
 
-  it("action toggles the tile border via the grid store", () => {
-    const { ctx, gridStore } = makeCtx({ tile: { i: "border-tile" } });
+  it("action toggles the tile border via the grid view", () => {
+    const { ctx, gridView } = makeCtx({ tile: { i: "border-tile" } });
     BORDER_TOGGLE.action(ctx);
-    expect(gridStore.toggleTileBorder).toHaveBeenCalledWith("border-tile");
+    expect(gridView.toggleTileBorder).toHaveBeenCalledWith("border-tile");
   });
 
   it("isActive mirrors the enabled state (undefined and true => active)", () => {
@@ -194,10 +194,10 @@ describe("COLOR_BUTTON", () => {
     expect(COLOR_BUTTON.title).toBe("Tile color");
   });
 
-  it("has a no-op action that does not touch the grid store", () => {
-    const { ctx, gridStore } = makeCtx();
+  it("has a no-op action that does not touch the grid view", () => {
+    const { ctx, gridView } = makeCtx();
     expect(() => COLOR_BUTTON.action(ctx)).not.toThrow();
-    expect(gridStore.resizeTile).not.toHaveBeenCalled();
-    expect(gridStore.toggleTileBorder).not.toHaveBeenCalled();
+    expect(gridView.resizeTile).not.toHaveBeenCalled();
+    expect(gridView.toggleTileBorder).not.toHaveBeenCalled();
   });
 });

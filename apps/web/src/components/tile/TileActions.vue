@@ -69,6 +69,7 @@
 
 <script lang="ts">
 import {
+  proxyRefs,
   defineComponent,
   computed,
   inject,
@@ -78,7 +79,7 @@ import {
 } from "vue";
 import { ContentType, type Tile } from "@grids/contracts/types";
 import { getTileDefinition } from "@/registries/tileRegistry";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useToastStore } from "@/stores/toast";
 import ArrowUpRightIcon from "@/components/icons/tile-actionbar/ArrowUpRightIcon.vue";
 import DuplicateIcon from "@/components/icons/DuplicateIcon.vue";
@@ -106,7 +107,7 @@ export default defineComponent({
   },
   emits: ["delete"],
   setup(props, { emit }) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
     const isEmbedInteractive = inject<Ref<boolean>>("isEmbedInteractive", ref(false));
     const justExitedInteractive = ref(false);
@@ -162,7 +163,7 @@ export default defineComponent({
     };
 
     const onDuplicate = () => {
-      const newId = gridStore.duplicateTile(props.tile.i);
+      const newId = gridView.duplicateTile(props.tile.i);
       if (newId) {
         toastStore.addToast("Tile duplicated", "success");
       }

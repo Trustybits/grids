@@ -1,4 +1,3 @@
-<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="profile-bio"
@@ -80,7 +79,7 @@
               (effectiveAvatarShape === 'polygon' ||
                 effectiveAvatarShape === 'square') &&
               avatarSrc &&
-              gridStore.canEdit &&
+              gridView.canEdit &&
               (isEditing || isHovered)
             "
             class="radius-knob"
@@ -101,7 +100,7 @@
               !isCompactProfileLayout &&
               effectiveAvatarShape === 'polygon' &&
               avatarSrc &&
-              gridStore.canEdit &&
+              gridView.canEdit &&
               (isEditing || isHovered)
             "
             class="sides-slider"
@@ -137,7 +136,7 @@
             v-if="
               !isCompactProfileLayout &&
               avatarSrc &&
-              gridStore.canEdit &&
+              gridView.canEdit &&
               (isEditing || isHovered)
             "
             class="avatar-action-bar"
@@ -240,8 +239,8 @@
         >
           <div
             class="profile-name profile-editor"
-            :class="{ 'can-edit': gridStore.canEdit }"
-            :spellcheck="gridStore.canEdit && isEditing"
+            :class="{ 'can-edit': gridView.canEdit }"
+            :spellcheck="gridView.canEdit && isEditing"
             @pointerdown="focusEditor(nameEditor, $event)"
             @click="catchEditorClick(nameEditor)"
           >
@@ -256,8 +255,8 @@
         >
           <div
             class="profile-title profile-editor"
-            :class="{ 'can-edit': gridStore.canEdit }"
-            :spellcheck="gridStore.canEdit && isEditing"
+            :class="{ 'can-edit': gridView.canEdit }"
+            :spellcheck="gridView.canEdit && isEditing"
             @pointerdown="focusEditor(titleEditor, $event)"
             @click="catchEditorClick(titleEditor)"
           >
@@ -279,8 +278,8 @@
     >
       <div
         class="profile-bio-text profile-editor scrollable-thin"
-        :class="{ 'can-edit': gridStore.canEdit }"
-        :spellcheck="gridStore.canEdit && isEditing"
+        :class="{ 'can-edit': gridView.canEdit }"
+        :spellcheck="gridView.canEdit && isEditing"
         :style="{ '--tile-text-color': textColor }"
         @pointerdown="focusEditor(bioEditor, $event)"
         @click="catchEditorClick(bioEditor)"
@@ -417,8 +416,8 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable vue/no-mutating-props */
 import {
+  proxyRefs,
   defineComponent,
   ref,
   computed,
@@ -442,7 +441,7 @@ import Color from "@tiptap/extension-color";
 import { FontSize } from "../../extensions/tiptap/FontSize";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { type ProfileBioContent, type AvatarShape } from "@grids/contracts/types";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import {
@@ -455,6 +454,7 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import { useTileContentWriter } from "@/composables/useTileContentWriter";
 import { useBadges } from "@/composables/useBadges";
 import { useEditorContentSync } from "@/composables/useEditingLifecycle";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -464,6 +464,9 @@ import ShapeSquareIcon from "@/components/icons/tile-actionbar/ShapeSquareIcon.v
 import ShapePolygonIcon from "@/components/icons/tile-actionbar/ShapePolygonIcon.vue";
 import UploadMediaIcon from "@/components/icons/tile-actionbar/UploadMediaIcon.vue";
 import UrlSourceIcon from "@/components/icons/tile-actionbar/UrlSourceIcon.vue";
+
+type ServiceFactory = ReturnType<typeof getServiceFactory>;
+type StorageService = ReturnType<ServiceFactory["getStorageService"]>;
 
 const baseExtensions: AnyExtension[] = [
   StarterKit,
@@ -498,7 +501,7 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const tileId = inject<string | null>("tileId", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
@@ -525,13 +528,17 @@ export default defineComponent({
     });
 
     const { uploadExternalImageToStorage } = useFileUpload();
-    const storageService = getServiceFactory().getStorageService();
+    let storageService: StorageService | null = null;
+    const getProfileStorageService = (): StorageService => {
+      storageService ??= getServiceFactory().getStorageService();
+      return storageService;
+    };
 
     // ── Badges ────────────────────────────────────────────────────────
     // Resolve the grid owner's UID — works both for the owner editing
     // their own profile and for visitors viewing someone else's grid.
     const ownerUserId = computed(
-      () => gridStore.currentGrid?.userId ?? null,
+      () => gridView.mode === "demo" ? null : gridView.grid?.userId ?? null,
     );
     const { earnedBadges } = useBadges(ownerUserId);
 
@@ -665,33 +672,25 @@ export default defineComponent({
     // content-field matching which breaks when multiple profile tiles share
     // the same default text or when text fields are edited mid-session.
     const avatarSrc = computed(() => {
-      if (!tileId) return "";
-      const tile = gridStore.currentGrid?.tiles.find((t) => t.i === tileId);
+      if (!tileId) return props.content.profilePhotoUrl ?? "";
+      const tile = gridView.grid?.tiles.find((t) => t.i === tileId);
       return (tile?.content as ProfileBioContent | undefined)?.profilePhotoUrl ?? "";
     });
 
+    const { patchContent, autosaveContent } = useTileContentWriter(
+      tileId,
+      () => props.content,
+    );
+
     const saveProfilePhoto = async (url: string) => {
-      if (!tileId) {
-        console.error("No tileId injected — cannot save profile photo");
-        return;
-      }
-
-      const tile = gridStore.currentGrid?.tiles.find((t) => t.i === tileId);
-      if (!tile) {
-        console.error(
-          `Could not find tile ${tileId} in store for profile photo save`,
-        );
-        return;
-      }
-
-      // Mutate the store's content reference directly, not props.content
-      (tile.content as ProfileBioContent).profilePhotoUrl = url;
-
-      // Persist via layout store
-      await gridStore.saveGrid();
+      patchContent({ profilePhotoUrl: url });
     };
 
     const serializeEditor = (editor: Editor) => {
+      // An empty editor serializes to a non-empty doc rather than the `""` a
+      // fresh tile stores; return "" so an untouched field registers no content
+      // change (and captures no spurious undo snapshot on focus).
+      if (editor.isEmpty) return "";
       let output = JSON.stringify(editor.getJSON());
       output = output.replace(/^"(.*)"$/, "$1");
       return output;
@@ -699,33 +698,17 @@ export default defineComponent({
 
     const persistContent = () => {
       if (!nameEditor.value || !titleEditor.value || !bioEditor.value) return;
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       const name = serializeEditor(nameEditor.value);
       const title = serializeEditor(titleEditor.value);
       const bio = serializeEditor(bioEditor.value);
 
-      if (tileId && gridStore.currentGrid) {
-        const tile = gridStore.currentGrid.tiles.find(
-          (t) => t.i === tileId,
-        );
-        if (tile) {
-          const content = tile.content as ProfileBioContent;
-          content.name = name;
-          content.title = title;
-          content.bio = bio;
-        }
-      } else {
-        props.content.name = name;
-        props.content.title = title;
-        props.content.bio = bio;
-      }
-
-      gridStore.saveGrid();
+      autosaveContent({ name, title, bio });
     };
 
     watch(
-      [() => gridStore.canEdit, () => isEditing.value],
+      [() => gridView.canEdit, () => isEditing.value],
       ([isOwner, editing]) => {
         const editors = [
           nameEditor.value,
@@ -753,7 +736,7 @@ export default defineComponent({
             target?.commands.focus("end");
             nextTick(() => {
               flushPersist();
-              if (tileId) gridStore.beginEditing(tileId);
+              if (tileId) gridView.beginEditing(tileId);
             });
           });
           return;
@@ -769,12 +752,12 @@ export default defineComponent({
         }
 
         flushPersist();
-        gridStore.commitEditing();
+        gridView.commitEditing();
       },
     );
 
     const focusEditor = (editor: Editor | undefined, _event: PointerEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!editor) return;
 
       if (!isEditing.value) {
@@ -790,7 +773,7 @@ export default defineComponent({
     };
 
     const catchEditorClick = (editor: Editor | undefined) => {
-      if (!gridStore.canEdit || !isEditing.value) return;
+      if (!gridView.canEdit || !isEditing.value) return;
       if (!editor) return;
 
       if (!editor.isFocused) {
@@ -799,7 +782,7 @@ export default defineComponent({
     };
 
     const onShortClick = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!isEditing.value) {
         isEditing.value = true;
         if (!activeEditor.value) {
@@ -810,7 +793,7 @@ export default defineComponent({
     };
 
     const onExitClick = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!isEditing.value) return;
       isEditing.value = false;
     };
@@ -860,9 +843,8 @@ export default defineComponent({
     );
 
     const setAvatarShape = (shape: AvatarShape) => {
-      if (!gridStore.canEdit) return;
-      props.content.avatarShape = shape;
-      gridStore.saveGrid();
+      if (!gridView.canEdit) return;
+      patchContent({ avatarShape: shape });
     };
 
     const isDraggingRadius = ref(false);
@@ -876,9 +858,8 @@ export default defineComponent({
     };
 
     const onRadiusCommit = () => {
-      if (!gridStore.canEdit) return;
-      props.content.avatarRadius = avatarRadius.value;
-      gridStore.saveGrid();
+      if (!gridView.canEdit) return;
+      patchContent({ avatarRadius: avatarRadius.value });
     };
 
     const polyGeometry = computed(() =>
@@ -896,7 +877,7 @@ export default defineComponent({
     // that to a radius value.
 
     const onRadiusHandleDown = (e: PointerEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       isDraggingRadius.value = true;
 
       const startRadius = avatarRadius.value;
@@ -933,9 +914,8 @@ export default defineComponent({
         document.removeEventListener("pointermove", onMove);
         document.removeEventListener("pointerup", onUp);
         // Commit the final value
-        if (gridStore.canEdit) {
-          props.content.avatarRadius = avatarRadius.value;
-          gridStore.saveGrid();
+        if (gridView.canEdit) {
+          patchContent({ avatarRadius: avatarRadius.value });
         }
       };
 
@@ -1161,7 +1141,7 @@ export default defineComponent({
     });
 
     const onSidesKnobDown = (e: PointerEvent) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       isDraggingSides.value = true;
 
       const track = sidesTrackRef.value;
@@ -1187,9 +1167,8 @@ export default defineComponent({
         isDraggingSides.value = false;
         document.removeEventListener("pointermove", onMove);
         document.removeEventListener("pointerup", onUp);
-        if (gridStore.canEdit) {
-          props.content.avatarSides = avatarSides.value;
-          gridStore.saveGrid();
+        if (gridView.canEdit) {
+          patchContent({ avatarSides: avatarSides.value });
         }
       };
 
@@ -1213,13 +1192,13 @@ export default defineComponent({
     };
 
     const openCustomImagePicker = () => {
-      if (!gridStore.canEdit || isCompactProfileLayout.value) return;
+      if (!gridView.canEdit || isCompactProfileLayout.value) return;
       lastAvatarMethod.value = "upload";
       avatarInput.value?.click();
     };
 
     const onLastAvatarMethod = () => {
-      if (!gridStore.canEdit || isCompactProfileLayout.value) return;
+      if (!gridView.canEdit || isCompactProfileLayout.value) return;
       if (lastAvatarMethod.value === "upload") {
         openCustomImagePicker();
       } else {
@@ -1245,7 +1224,7 @@ export default defineComponent({
     };
 
     const onAvatarClick = () => {
-      if (!gridStore.canEdit || isCompactProfileLayout.value) return;
+      if (!gridView.canEdit || isCompactProfileLayout.value) return;
       if (!isEditing.value) {
         isEditing.value = true;
       }
@@ -1258,7 +1237,7 @@ export default defineComponent({
     }));
 
     const openUrlInput = () => {
-      if (!gridStore.canEdit || isCompactProfileLayout.value) return;
+      if (!gridView.canEdit || isCompactProfileLayout.value) return;
       lastAvatarMethod.value = "url";
       draftAvatarUrl.value = avatarSrc.value || "";
       urlError.value = "";
@@ -1272,7 +1251,7 @@ export default defineComponent({
     };
 
     const applyAvatarUrl = async () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       const normalized = normalizeImageUrl(draftAvatarUrl.value);
       if (!normalized) {
         urlError.value = "Enter a valid URL.";
@@ -1301,13 +1280,13 @@ export default defineComponent({
     };
 
     const removeCustomImage = async () => {
-      if (!gridStore.canEdit || isCompactProfileLayout.value) return;
+      if (!gridView.canEdit || isCompactProfileLayout.value) return;
       showUrlInput.value = false;
       await saveProfilePhoto("");
     };
 
     const uploadAvatarImage = async (file: File) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       if (!file.type.startsWith("image/")) {
         alert("Please upload an image file.");
@@ -1329,7 +1308,7 @@ export default defineComponent({
       uploadPercent.value = 0;
 
       try {
-        const uploadTask = storageService.uploadResumable(
+        const uploadTask = getProfileStorageService().uploadResumable(
           currentUserId,
           file,
           { fileType: "images" },
@@ -1357,7 +1336,7 @@ export default defineComponent({
     };
 
     const onAvatarSelected = async (event: Event) => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
       await uploadAvatarImage(file);
@@ -1434,7 +1413,7 @@ export default defineComponent({
     });
 
     return {
-      gridStore,
+      gridView,
       profileRoot,
       avatarRef,
       avatarInput,

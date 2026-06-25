@@ -10,14 +10,7 @@
  * dataTransfer payloads since jsdom's are minimal.
  */
 
-import {
-  describe,
-  it,
-  expect,
-  vi,
-  beforeEach,
-  afterEach,
-} from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { defineComponent, h, nextTick, ref, type Ref } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { ContentType } from "@grids/contracts/types";
@@ -40,6 +33,16 @@ const mockGridStore = vi.hoisted(() => ({
   patchTileContent: vi.fn(),
   pendingFocusTileId: null as string | null,
 }));
+const mockSessionStore = vi.hoisted(() => ({
+  canEditAtBreakpoint: vi.fn(),
+}));
+const mockViewportStore = vi.hoisted(() => ({
+  forcedBreakpoint: null as string | null,
+  viewportBreakpoint: "lg",
+}));
+const mockUiStore = vi.hoisted(() => ({
+  setPendingFocusTileId: vi.fn(),
+}));
 const { mockCallFunction } = vi.hoisted(() => ({ mockCallFunction: vi.fn() }));
 
 vi.mock("@/composables/useFileUpload", () => ({
@@ -48,7 +51,18 @@ vi.mock("@/composables/useFileUpload", () => ({
     uploadDocumentsOptimistic: mockUploadDocumentsOptimistic,
   }),
 }));
-vi.mock("@/stores/grid", () => ({ useGridStore: () => mockGridStore }));
+vi.mock("@/stores/grid/gridSession", () => ({
+  useGridSessionStore: () => mockSessionStore,
+}));
+vi.mock("@/stores/grid/gridViewport", () => ({
+  useGridViewportStore: () => mockViewportStore,
+}));
+vi.mock("@/stores/grid/gridUi", () => ({
+  useGridUiStore: () => mockUiStore,
+}));
+vi.mock("@/controllers/useGridController", () => ({
+  useGridController: () => mockGridStore,
+}));
 vi.mock("@/utils/TileUtils", () => ({
   createTileContent: vi.fn((type, data) => ({ type, ...data })),
   createTileContentFromEmbedUrl: vi.fn((src) => ({
@@ -89,10 +103,7 @@ function fileList(files: File[]): FileList {
   } as unknown as FileList;
 }
 
-function pasteEvent(opts: {
-  files?: File[];
-  text?: string;
-}): ClipboardEvent {
+function pasteEvent(opts: { files?: File[]; text?: string }): ClipboardEvent {
   const items =
     opts.files?.map((f) => ({
       kind: "file" as const,
@@ -102,7 +113,7 @@ function pasteEvent(opts: {
   Object.defineProperty(event, "clipboardData", {
     value: {
       items,
-      getData: (t: string) => (t === "text/plain" ? opts.text ?? "" : ""),
+      getData: (t: string) => (t === "text/plain" ? (opts.text ?? "") : ""),
     },
   });
   return event as ClipboardEvent;
@@ -124,9 +135,9 @@ function dragEvent(
       types: opts.types ?? [],
       getData: (t: string) =>
         t === "text/uri-list"
-          ? opts.uriList ?? ""
+          ? (opts.uriList ?? "")
           : t === "text/plain"
-            ? opts.plain ?? ""
+            ? (opts.plain ?? "")
             : "",
       dropEffect: "",
     },
@@ -169,6 +180,13 @@ beforeEach(() => {
   mockGridStore.canEdit = true;
   mockGridStore.addTile.mockReturnValue("tile-1");
   mockGridStore.pendingFocusTileId = null;
+  // canEdit is rebuilt at the consumer from the session getter.
+  mockSessionStore.canEditAtBreakpoint = vi.fn(() => mockGridStore.canEdit);
+  // The focus escape hatch now routes through a gridUi action; mirror it onto
+  // the tracked field so the existing pendingFocusTileId assertions hold.
+  mockUiStore.setPendingFocusTileId = vi.fn((tileId: string | null) => {
+    mockGridStore.pendingFocusTileId = tileId;
+  });
   mockClassify.mockImplementation((file: File) => {
     if (file.type.startsWith("image/")) return "image";
     if (file.type.startsWith("video/")) return "video";
@@ -176,10 +194,13 @@ beforeEach(() => {
       return "document";
     return null;
   });
-  mockCreateFromEmbed.mockImplementation((src) => ({
-    type: ContentType.EMBED,
-    src,
-  }) as never);
+  mockCreateFromEmbed.mockImplementation(
+    (src) =>
+      ({
+        type: ContentType.EMBED,
+        src,
+      }) as never,
+  );
   vi.spyOn(window, "alert").mockImplementation(() => {});
 });
 

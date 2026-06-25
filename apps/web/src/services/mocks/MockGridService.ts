@@ -1,5 +1,5 @@
 import { type Grid } from "@grids/contracts/types";
-import type { IGridService } from "../interfaces/IGridService";
+import type { GridServiceInterface } from "../interfaces/GridServiceInterface";
 import { ContentType } from "@grids/contracts/types";
 import { createTile, createTileContent } from "@/utils/TileUtils";
 
@@ -54,7 +54,7 @@ const mockData: Grid = {
   backgroundEmbed: false,
 };
 
-export class MockGridService implements IGridService {
+export class MockGridService implements GridServiceInterface {
   async fetchGrid(id: string): Promise<Grid> {
     console.warn(`Fetching grid with id: ${id}`);
     return { ...mockData };
@@ -119,10 +119,4 @@ export class MockGridService implements IGridService {
   ): Promise<Grid> {
     return { ...mockData };
   }
-
-  async queueSave(
-    _grid: Grid,
-    _resolvedUrls?: Record<string, string>,
-    _resolvedDocumentItemUrls?: Record<string, Record<string, string>>,
-  ): Promise<void> {}
 }

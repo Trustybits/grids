@@ -26,6 +26,7 @@
 
 <script lang="ts">
 import {
+  proxyRefs,
   defineComponent,
   ref,
   computed,
@@ -41,7 +42,7 @@ import cloudImage from "@/assets/images/cloud.png";
 import cloudShadow from "@/assets/images/cloud_shadow.png";
 import planeIcon from "@/assets/images/plane.png";
 import planeShadow from "@/assets/images/planeshadow.png";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useThemeStore } from "@/stores/theme";
 import { type MapContent, type MapStyleMode } from "@grids/contracts/types";
 
@@ -193,7 +194,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const themeStore = useThemeStore();
     const mapTile = ref<HTMLDivElement | null>(null);
     const mapContainer = ref<HTMLDivElement | null>(null);
@@ -230,7 +231,7 @@ export default defineComponent({
 
     const resolvedTileId = computed(() =>
       injectedTileId ??
-        gridStore.currentGrid?.tiles.find((tile) => tile.content === props.content)?.i ??
+        gridView.grid?.tiles.find((tile) => tile.content === props.content)?.i ??
         null
     );
 
@@ -239,37 +240,51 @@ export default defineComponent({
     // canonical tile.  storeContent resolves to the store tile's content so
     // all writes persist correctly across layout rebuilds.
     const storeContent = computed(() => {
-      const tile = gridStore.currentGrid?.tiles.find((t) => t.i === resolvedTileId.value);
+      const tile = gridView.grid?.tiles.find((t) => t.i === resolvedTileId.value);
       return (tile?.content as MapContent | undefined) ?? props.content;
     });
+
+    const patchContent = (
+      patch: Partial<MapContent>,
+      { undoable = true }: { undoable?: boolean } = {},
+    ) => {
+      const tileId = resolvedTileId.value;
+      if (tileId) {
+        if (undoable) {
+          gridView.patchTileContent(tileId, patch);
+        } else {
+          gridView.patchTileContentSilently(tileId, patch);
+        }
+        return;
+      }
+      Object.assign(props.content, patch);
+    };
 
     const styleMode = computed<MapStyleMode>({
       get: () => storeContent.value.style || "default",
       set: (value) => {
-        storeContent.value.style = value;
-        gridStore.saveGrid();
+        patchContent({ style: value });
       },
     });
 
     const tileWidth = computed(() =>
       gridTileW?.value ??
-        gridStore.currentGrid?.tiles.find((tile) => tile.i === resolvedTileId.value)?.w ??
+        gridView.grid?.tiles.find((tile) => tile.i === resolvedTileId.value)?.w ??
         0
     );
 
     const tileHeight = computed(() =>
       gridTileH?.value ??
-        gridStore.currentGrid?.tiles.find((tile) => tile.i === resolvedTileId.value)?.h ??
+        gridView.grid?.tiles.find((tile) => tile.i === resolvedTileId.value)?.h ??
         0
     );
 
-    const isInteractive = computed(() => !gridStore.canEdit || isEditing.value);
+    const isInteractive = computed(() => !gridView.canEdit || isEditing.value);
 
     const show3d = computed({
       get: () => storeContent.value.show3d ?? false,
       set: (value: boolean) => {
-        storeContent.value.show3d = value;
-        gridStore.saveGrid();
+        patchContent({ show3d: value });
         apply3d(value);
       },
     });
@@ -277,16 +292,14 @@ export default defineComponent({
     const showClouds = computed({
       get: () => storeContent.value.showClouds ?? true,
       set: (value: boolean) => {
-        storeContent.value.showClouds = value;
-        gridStore.saveGrid();
+        patchContent({ showClouds: value });
       },
     });
 
     const showPlanes = computed({
       get: () => storeContent.value.showPlanes ?? true,
       set: (value: boolean) => {
-        storeContent.value.showPlanes = value;
-        gridStore.saveGrid();
+        patchContent({ showPlanes: value });
       },
     });
 
@@ -439,15 +452,30 @@ export default defineComponent({
       }
     };
 
-    const setMarker = (marker: { lat: number; lng: number }) => {
-      if (!gridStore.canEdit) return;
-      storeContent.value.marker = marker;
-      saveGrid();
+    const setMarker = (
+      marker: { lat: number; lng: number },
+      { undoable = true }: { undoable?: boolean } = {},
+    ) => {
+      if (!gridView.canEdit) return;
+      patchContent({ marker }, { undoable });
       updateMarker(marker);
     };
 
-    const saveGrid = () => {
-      gridStore.saveGrid();
+    const persistCurrentMapView = (
+      { undoable = true }: { undoable?: boolean } = {},
+    ) => {
+      const map = mapInstance.value;
+      if (!map) return;
+      const center = map.getCenter();
+      patchContent({
+        center: {
+          lat: Number(center.lat.toFixed(6)),
+          lng: Number(center.lng.toFixed(6)),
+        },
+        zoom: Number(map.getZoom().toFixed(2)),
+        bearing: Number(map.getBearing().toFixed(2)),
+        pitch: Number(map.getPitch().toFixed(2)),
+      }, { undoable });
     };
 
     const setMapInteractivity = (enabled: boolean) => {
@@ -470,11 +498,18 @@ export default defineComponent({
       }
     };
 
-    const syncContentFromMap = () => {
+    const syncContentFromMap = (
+      force = false,
+      { undoable = true }: { undoable?: boolean } = {},
+    ) => {
       // Don't persist the default [0,0] center during initial load;
       // we only want to save once a real position has been established.
       if (isInitialLoad) return;
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
+      // Mapbox can emit moveend while a saved map is initializing or resizing.
+      // Those passive events normalize camera values and would otherwise create
+      // undo entries as soon as a grid loads.
+      if (!force && !isEditing.value) return;
       // Skip intermediate moveend events fired during programmatic
       // animations (flyTo, easeTo, recenter).  Each caller sets
       // isProgrammaticMove = true before starting and registers a
@@ -489,22 +524,15 @@ export default defineComponent({
       if (syncTimer) clearTimeout(syncTimer);
       syncTimer = setTimeout(() => {
         syncTimer = null;
-        const map = mapInstance.value;
-        if (!map) return;
-        const sc = storeContent.value;
-        const center = map.getCenter();
-        sc.center = {
-          lat: Number(center.lat.toFixed(6)),
-          lng: Number(center.lng.toFixed(6)),
-        };
-        sc.zoom = Number(map.getZoom().toFixed(2));
-        sc.bearing = Number(map.getBearing().toFixed(2));
-        sc.pitch = Number(map.getPitch().toFixed(2));
-        saveGrid();
+        persistCurrentMapView({ undoable });
       }, SYNC_DEBOUNCE_MS);
     };
 
-    const flyToLocation = (center: { lat: number; lng: number }, zoom?: number) => {
+    const flyToLocation = (
+      center: { lat: number; lng: number },
+      zoom?: number,
+      { undoable = true }: { undoable?: boolean } = {},
+    ) => {
       const map = mapInstance.value;
       const targetZoom = zoom ?? storeContent.value.zoom ?? 9;
       if (map) {
@@ -515,10 +543,8 @@ export default defineComponent({
           // Reveal the map now that it's positioned correctly.
           mapReady.value = true;
           // jumpTo doesn't fire moveend, so persist immediately.
-          if (gridStore.canEdit) {
-            storeContent.value.center = center;
-            storeContent.value.zoom = targetZoom;
-            saveGrid();
+          if (gridView.canEdit) {
+            patchContent({ center, zoom: targetZoom }, { undoable });
           }
         } else {
           // Suppress intermediate moveend events during the animation.
@@ -527,7 +553,7 @@ export default defineComponent({
           isProgrammaticMove = true;
           map.once("moveend", () => {
             isProgrammaticMove = false;
-            syncContentFromMap();
+            syncContentFromMap(true, { undoable });
           });
           // Use Mapbox's flyTo for a cinematic arc animation between locations.
           map.flyTo({
@@ -566,8 +592,13 @@ export default defineComponent({
         }
         statusMessage.value = null;
         const [lng, lat] = match.center as [number, number];
-        setMarker({ lat, lng });
-        flyToLocation({ lat, lng }, clamp(storeContent.value.zoom ?? 9, 9, 14));
+        const undoable = !isInitialLoad;
+        setMarker({ lat, lng }, { undoable });
+        flyToLocation(
+          { lat, lng },
+          clamp(storeContent.value.zoom ?? 9, 9, 14),
+          { undoable },
+        );
       } catch (error) {
         console.error("Mapbox search failed:", error);
         statusMessage.value = "Search failed.";
@@ -576,7 +607,7 @@ export default defineComponent({
     };
 
     const useMyLocation = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!navigator.geolocation) {
         statusMessage.value = "Geolocation not supported.";
         // Reveal the map even without a location so the tile isn't blank.
@@ -591,8 +622,13 @@ export default defineComponent({
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           };
-          setMarker(marker);
-          flyToLocation(marker, clamp(storeContent.value.zoom ?? 9, 10, 14));
+          const undoable = !isInitialLoad;
+          setMarker(marker, { undoable });
+          flyToLocation(
+            marker,
+            clamp(storeContent.value.zoom ?? 9, 10, 14),
+            { undoable },
+          );
         },
         () => {
           statusMessage.value = "Unable to get location.";
@@ -604,8 +640,7 @@ export default defineComponent({
 
     const handleSearch = async () => {
       const query = searchInput.value.trim();
-      storeContent.value.searchQuery = query || undefined;
-      saveGrid();
+      patchContent({ searchQuery: query || undefined });
       if (!query) {
         useMyLocation();
         return;
@@ -620,7 +655,7 @@ export default defineComponent({
     const resizeMapTile = (w: number, h: number) => {
       const tileId = resolvedTileId.value;
       if (!tileId) return;
-      gridStore.resizeTile(tileId, w, h);
+      gridView.resizeTile(tileId, w, h);
       nextTick(() => {
         mapInstance.value?.resize();
       });
@@ -693,7 +728,10 @@ export default defineComponent({
       }
     };
 
-    const apply3d = (enabled: boolean) => {
+    const apply3d = (
+      enabled: boolean,
+      { persistCamera = true }: { persistCamera?: boolean } = {},
+    ) => {
       const map = mapInstance.value;
       if (!map) return;
       const apply = () => {
@@ -708,13 +746,17 @@ export default defineComponent({
         // Mapbox won't fire moveend — so skip the programmatic-move guard
         // to avoid permanently blocking syncContentFromMap.
         if (currentPitch === targetPitch) {
-          syncContentFromMap();
+          if (persistCamera) {
+            syncContentFromMap(true);
+          }
           return;
         }
         isProgrammaticMove = true;
         map.once("moveend", () => {
           isProgrammaticMove = false;
-          syncContentFromMap();
+          if (persistCamera) {
+            syncContentFromMap(true);
+          }
         });
         map.easeTo({ pitch: targetPitch, duration: 500 });
       };
@@ -750,12 +792,12 @@ export default defineComponent({
     };
 
     const toggleEditMode = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       isEditing.value = !isEditing.value;
       if (isEditing.value) {
         mapInstance.value?.resize();
       } else {
-        saveGrid();
+        persistCurrentMapView();
       }
     };
 
@@ -764,10 +806,10 @@ export default defineComponent({
     };
 
     const onExitClick = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
       if (!isEditing.value) return;
       isEditing.value = false;
-      saveGrid();
+      persistCurrentMapView();
     };
 
     // Re-centers the map viewport on the marker (if set), falling back
@@ -783,7 +825,7 @@ export default defineComponent({
       isProgrammaticMove = true;
       map.once("moveend", () => {
         isProgrammaticMove = false;
-        syncContentFromMap();
+        syncContentFromMap(true);
       });
       // Use easeTo for a smooth pan back to the marker — flyTo's arc
       // animation is reserved for search-driven location changes.
@@ -853,9 +895,9 @@ export default defineComponent({
       map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
       map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
 
-      map.on("moveend", syncContentFromMap);
+      map.on("moveend", () => syncContentFromMap());
       map.on("style.load", () => {
-        apply3d(show3d.value);
+        apply3d(show3d.value, { persistCamera: false });
         applyActivePreset();
       });
 
@@ -899,7 +941,7 @@ export default defineComponent({
         mapReady.value = true;
       }
 
-      if (gridStore.canEdit) {
+      if (gridView.canEdit) {
         if (content.searchQuery && !hasSavedCenter) {
           handleGeocode(content.searchQuery);
         } else if (!hasSavedCenter) {
@@ -913,7 +955,7 @@ export default defineComponent({
       }
 
       if (show3d.value) {
-        apply3d(true);
+        apply3d(true, { persistCamera: false });
       }
     });
 
@@ -924,17 +966,8 @@ export default defineComponent({
         syncTimer = null;
         // Perform the save inline since the component is tearing down.
         const map = mapInstance.value;
-        if (map && !isInitialLoad && gridStore.canEdit) {
-          const sc = storeContent.value;
-          const center = map.getCenter();
-          sc.center = {
-            lat: Number(center.lat.toFixed(6)),
-            lng: Number(center.lng.toFixed(6)),
-          };
-          sc.zoom = Number(map.getZoom().toFixed(2));
-          sc.bearing = Number(map.getBearing().toFixed(2));
-          sc.pitch = Number(map.getPitch().toFixed(2));
-          saveGrid();
+        if (map && !isInitialLoad && gridView.canEdit) {
+          persistCurrentMapView();
         }
       }
       resizeObserver?.disconnect();
@@ -944,7 +977,7 @@ export default defineComponent({
     });
 
     return {
-      gridStore,
+      gridView,
       cloudShadow,
       cloudImage,
       planeIcon,

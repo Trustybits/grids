@@ -2,9 +2,9 @@ import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import type { ChatDao } from "@grids/contracts/dao";
 import type { ChatMessage } from "@grids/contracts/types";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
-import type { IChatService } from "./interfaces/IChatService";
+import type { ChatServiceInterface } from "./interfaces/ChatServiceInterface";
 
-export class ChatService implements IChatService {
+export class ChatService implements ChatServiceInterface {
   private chatDao: ChatDao;
 
   constructor() {

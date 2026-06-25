@@ -26,7 +26,7 @@ function makeCtx(child: Record<string, unknown> | null = {}) {
   const ctx = {
     tile: { i: "map-1", w: 4, h: 4 },
     childComponent: { value: child },
-    gridStore: {},
+    gridView: {},
     isEditing: { value: false },
     isExitingCropMode: { value: false },
   } as unknown as ToolbarContext;

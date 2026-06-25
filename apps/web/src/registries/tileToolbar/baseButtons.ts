@@ -25,7 +25,7 @@ function makeResizeButton(
     title,
     group: "resize",
     action: (ctx) => {
-      ctx.gridStore.resizeTile(ctx.tile.i, w, h);
+      ctx.gridView.resizeTile(ctx.tile.i, w, h);
       ctx.childComponent.value?.onResize?.();
     },
     isActive: (ctx) => ctx.tile.w === w && ctx.tile.h === h,
@@ -117,7 +117,7 @@ export const BORDER_TOGGLE: ToolbarButton = {
     ctx.tile.borderEnabled !== false ? "Hide border" : "Show border",
   group: "appearance",
   cssClass: "toolbar-btn--border",
-  action: (ctx) => ctx.gridStore.toggleTileBorder(ctx.tile.i),
+  action: (ctx) => ctx.gridView.toggleTileBorder(ctx.tile.i),
   isActive: (ctx) => ctx.tile.borderEnabled !== false,
 };
 

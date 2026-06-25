@@ -1,6 +1,6 @@
-import type { ICloudFunctionsService } from "../interfaces/ICloudFunctionsService";
+import type { CloudFunctionsServiceInterface } from "../interfaces/CloudFunctionsServiceInterface";
 
-export class MockCloudFunctionsService implements ICloudFunctionsService {
+export class MockCloudFunctionsService implements CloudFunctionsServiceInterface {
   callFunction<TRequest = unknown, TResponse = unknown>(
     _functionName: string,
     _data: TRequest,

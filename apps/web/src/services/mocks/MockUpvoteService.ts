@@ -1,6 +1,6 @@
-import type { IUpvoteService } from "../interfaces/IUpvoteService";
+import type { UpvoteServiceInterface } from "../interfaces/UpvoteServiceInterface";
 
-export class MockUpvoteService implements IUpvoteService {
+export class MockUpvoteService implements UpvoteServiceInterface {
   subscribeToUserUpvotes(
     _gridId: string,
     _tileId: string,

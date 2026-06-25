@@ -1,9 +1,10 @@
 /**
  * Tests for useUndoRedoKeys — global keydown handler that maps
- * Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z / Cmd/Ctrl+Y to grid store undo/redo,
+ * Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z / Cmd/Ctrl+Y to controller undo/redo,
  * but only while editing and not when focus is in a text field/editor.
  *
- * The grid store is mocked. A host component is mounted so onMounted registers
+ * The session/viewport stores and controller are mocked. A host component is
+ * mounted so onMounted registers
  * the window listener and onUnmounted removes it; keydown events are dispatched
  * to drive the handler.
  */
@@ -12,14 +13,26 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { defineComponent, h } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
 
-const mockStore = vi.hoisted(() => ({
-  canEdit: true,
+const mockSession = vi.hoisted(() => ({
+  canEditAtBreakpoint: vi.fn(() => true),
+}));
+const mockViewport = vi.hoisted(() => ({
+  forcedBreakpoint: null as string | null,
+  viewportBreakpoint: "lg",
+}));
+const mockController = vi.hoisted(() => ({
   undo: vi.fn(),
   redo: vi.fn(),
 }));
 
-vi.mock("@/stores/grid", () => ({
-  useGridStore: () => mockStore,
+vi.mock("@/stores/grid/gridSession", () => ({
+  useGridSessionStore: () => mockSession,
+}));
+vi.mock("@/stores/grid/gridViewport", () => ({
+  useGridViewportStore: () => mockViewport,
+}));
+vi.mock("@/controllers/useGridController", () => ({
+  useGridController: () => mockController,
 }));
 
 import { useUndoRedoKeys } from "@/composables/useUndoRedoKeys";
@@ -56,9 +69,10 @@ function dispatchKey(
 }
 
 beforeEach(() => {
-  mockStore.canEdit = true;
-  mockStore.undo.mockReset();
-  mockStore.redo.mockReset();
+  mockSession.canEditAtBreakpoint.mockReset();
+  mockSession.canEditAtBreakpoint.mockReturnValue(true);
+  mockController.undo.mockReset();
+  mockController.redo.mockReset();
 });
 
 afterEach(() => {
@@ -69,15 +83,15 @@ describe("undo", () => {
   it("calls undo on Cmd+Z and prevents default", () => {
     mountKeys();
     const event = dispatchKey({ key: "z", metaKey: true });
-    expect(mockStore.undo).toHaveBeenCalledTimes(1);
-    expect(mockStore.redo).not.toHaveBeenCalled();
+    expect(mockController.undo).toHaveBeenCalledTimes(1);
+    expect(mockController.redo).not.toHaveBeenCalled();
     expect(event.defaultPrevented).toBe(true);
   });
 
   it("calls undo on Ctrl+Z", () => {
     mountKeys();
     dispatchKey({ key: "z", ctrlKey: true });
-    expect(mockStore.undo).toHaveBeenCalledTimes(1);
+    expect(mockController.undo).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -85,15 +99,15 @@ describe("redo", () => {
   it("calls redo on Cmd+Shift+Z", () => {
     mountKeys();
     const event = dispatchKey({ key: "z", metaKey: true, shiftKey: true });
-    expect(mockStore.redo).toHaveBeenCalledTimes(1);
-    expect(mockStore.undo).not.toHaveBeenCalled();
+    expect(mockController.redo).toHaveBeenCalledTimes(1);
+    expect(mockController.undo).not.toHaveBeenCalled();
     expect(event.defaultPrevented).toBe(true);
   });
 
   it("calls redo on Cmd+Y", () => {
     mountKeys();
     dispatchKey({ key: "y", metaKey: true });
-    expect(mockStore.redo).toHaveBeenCalledTimes(1);
+    expect(mockController.redo).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -101,22 +115,22 @@ describe("guards", () => {
   it("does nothing when the modifier key is absent", () => {
     mountKeys();
     dispatchKey({ key: "z" });
-    expect(mockStore.undo).not.toHaveBeenCalled();
-    expect(mockStore.redo).not.toHaveBeenCalled();
+    expect(mockController.undo).not.toHaveBeenCalled();
+    expect(mockController.redo).not.toHaveBeenCalled();
   });
 
   it("does nothing when the grid is not editable", () => {
-    mockStore.canEdit = false;
+    mockSession.canEditAtBreakpoint.mockReturnValue(false);
     mountKeys();
     dispatchKey({ key: "z", metaKey: true });
-    expect(mockStore.undo).not.toHaveBeenCalled();
+    expect(mockController.undo).not.toHaveBeenCalled();
   });
 
   it("ignores an unrelated key with the modifier held", () => {
     mountKeys();
     dispatchKey({ key: "a", metaKey: true });
-    expect(mockStore.undo).not.toHaveBeenCalled();
-    expect(mockStore.redo).not.toHaveBeenCalled();
+    expect(mockController.undo).not.toHaveBeenCalled();
+    expect(mockController.redo).not.toHaveBeenCalled();
   });
 
   it("ignores keystrokes originating from an input field", () => {
@@ -124,7 +138,7 @@ describe("guards", () => {
     const input = document.createElement("input");
     document.body.appendChild(input);
     dispatchKey({ key: "z", metaKey: true }, input);
-    expect(mockStore.undo).not.toHaveBeenCalled();
+    expect(mockController.undo).not.toHaveBeenCalled();
     input.remove();
   });
 
@@ -136,7 +150,7 @@ describe("guards", () => {
     Object.defineProperty(div, "isContentEditable", { value: true });
     document.body.appendChild(div);
     dispatchKey({ key: "z", metaKey: true }, div);
-    expect(mockStore.undo).not.toHaveBeenCalled();
+    expect(mockController.undo).not.toHaveBeenCalled();
     div.remove();
   });
 
@@ -145,7 +159,7 @@ describe("guards", () => {
     const textarea = document.createElement("textarea");
     document.body.appendChild(textarea);
     dispatchKey({ key: "z", metaKey: true }, textarea);
-    expect(mockStore.undo).not.toHaveBeenCalled();
+    expect(mockController.undo).not.toHaveBeenCalled();
     textarea.remove();
   });
 
@@ -154,7 +168,7 @@ describe("guards", () => {
     const select = document.createElement("select");
     document.body.appendChild(select);
     dispatchKey({ key: "z", metaKey: true }, select);
-    expect(mockStore.undo).not.toHaveBeenCalled();
+    expect(mockController.undo).not.toHaveBeenCalled();
     select.remove();
   });
 });
@@ -164,6 +178,6 @@ describe("listener lifecycle", () => {
     const wrapper = mountKeys();
     wrapper.unmount();
     dispatchKey({ key: "z", metaKey: true });
-    expect(mockStore.undo).not.toHaveBeenCalled();
+    expect(mockController.undo).not.toHaveBeenCalled();
   });
 });

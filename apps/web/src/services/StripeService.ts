@@ -4,12 +4,12 @@ import type { CustomerDao } from "@grids/contracts/dao";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type {
   CheckoutSessionConfig,
-  IStripeService,
-} from "./interfaces/IStripeService";
+  StripeServiceInterface,
+} from "./interfaces/StripeServiceInterface";
 
 const CHECKOUT_TIMEOUT_MS = 15_000;
 
-export class StripeService implements IStripeService {
+export class StripeService implements StripeServiceInterface {
   private customerDao: CustomerDao;
   private cloudFunctionsDao: CloudFunctionsDao;
 
@@ -31,10 +31,9 @@ export class StripeService implements IStripeService {
 
   async createCheckoutSession(config: CheckoutSessionConfig): Promise<string> {
     const userId = this.requireUserId();
-    const sessionId = await this.customerDao.createCheckoutSession(
-      userId,
-      { ...config } as Record<string, unknown>,
-    );
+    const sessionId = await this.customerDao.createCheckoutSession(userId, {
+      ...config,
+    } as Record<string, unknown>);
 
     return new Promise<string>((resolve, reject) => {
       const timeoutId = setTimeout(() => {
@@ -72,9 +71,7 @@ export class StripeService implements IStripeService {
 
   async createSupporterCheckoutSession(amountCents: number): Promise<string> {
     if (amountCents < 50) {
-      throw new Error(
-        "Minimum Stripe charge is $0.50.",
-      );
+      throw new Error("Minimum Stripe charge is $0.50.");
     }
 
     return this.createCheckoutSession({
@@ -99,9 +96,7 @@ export class StripeService implements IStripeService {
     });
   }
 
-  async createProCheckoutSession(
-    interval: "month" | "year",
-  ): Promise<string> {
+  async createProCheckoutSession(interval: "month" | "year"): Promise<string> {
     const priceId =
       interval === "month"
         ? import.meta.env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID

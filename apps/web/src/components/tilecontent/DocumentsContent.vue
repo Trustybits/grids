@@ -1,4 +1,3 @@
-<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="doc-tile-content"
@@ -7,7 +6,7 @@
       'is-banner': isBanner,
       'is-narrow-tall': isNarrowTall,
       'is-editing': isEditing,
-      'is-owner': gridStore.canEdit,
+      'is-owner': gridView.canEdit,
       'has-multiple': items.length > 1,
       'is-uploading': isUploading,
     }"
@@ -172,8 +171,8 @@
 
     <div
       v-if="
-        gridStore.uploadingTiles[tileId] !== undefined &&
-        gridStore.uploadingTiles[tileId]! >= 0
+        gridView.uploadingTiles[tileId] !== undefined &&
+        gridView.uploadingTiles[tileId]! >= 0
       "
       class="doc-upload-progress"
     >
@@ -181,7 +180,7 @@
         class="doc-upload-progress__bar"
         :style="{
           width: `${Math.round(
-            (gridStore.uploadingTiles[tileId] as number) * 100,
+            (gridView.uploadingTiles[tileId] as number) * 100,
           )}%`,
         }"
       />
@@ -197,8 +196,8 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable vue/no-mutating-props */
 import {
+  proxyRefs,
   computed,
   defineComponent,
   inject,
@@ -211,7 +210,7 @@ import {
   type ComputedRef,
 } from "vue";
 import type { DocumentsContent as DocumentsContentType } from "@grids/contracts/types";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import FileIcon from "@/components/icons/FileIcon.vue";
 import FolderIcon from "@/components/icons/FolderIcon.vue";
 import DocumentPreviewer from "@/components/tilecontent/DocumentPreviewer.vue";
@@ -249,7 +248,7 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
 
@@ -272,7 +271,7 @@ export default defineComponent({
     const primary = computed(() => items.value[0]);
 
     const isUploading = computed(() => {
-      const p = gridStore.uploadingTiles[props.tileId];
+      const p = gridView.uploadingTiles[props.tileId];
       return p !== undefined && p >= 0;
     });
 
@@ -420,15 +419,14 @@ export default defineComponent({
     );
 
     const saveEdits = () => {
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       const nextTitle = draftTitle.value.trim();
       const nextDescription = draftDescription.value.trim();
 
-      props.content.customTitle = nextTitle;
-      props.content.customDescription = nextDescription;
-
-      gridStore.patchTileContent(props.tileId, {
+      // Debounced editor autosave: persists paused detail edits mid-edit
+      // without adding a history entry (the edit transaction owns the entry).
+      gridView.autosaveTileContent(props.tileId, {
         customTitle: nextTitle,
         customDescription: nextDescription,
       });
@@ -474,15 +472,15 @@ export default defineComponent({
     const stopEditing = () => {
       if (!isEditing.value) return;
       flushPersist();
-      gridStore.commitEditing();
+      gridView.commitEditing();
       removeExitClickHandler();
       isEditing.value = false;
       nextTick(() => syncDrafts());
     };
 
     const startEditing = (focusTarget?: "title" | "description") => {
-      if (!gridStore.canEdit || isEditing.value) return;
-      gridStore.beginEditing(props.tileId);
+      if (!gridView.canEdit || isEditing.value) return;
+      gridView.beginEditing(props.tileId);
       isEditing.value = true;
       syncDrafts();
       nextTick(() => {
@@ -505,7 +503,7 @@ export default defineComponent({
 
     const onDetailsClick = (event: MouseEvent) => {
       if (isEditing.value) return;
-      if (!gridStore.canEdit) return;
+      if (!gridView.canEdit) return;
 
       const el = detailsRef.value;
       if (!el) {
@@ -567,8 +565,8 @@ export default defineComponent({
     const requestedThumbIds = ref(new Set<string>());
 
     const requestPrimaryPdfThumb = () => {
-      const gridId = gridStore.currentGrid?.id;
-      if (!gridId || !gridStore.canEdit) return;
+      const gridId = gridView.grid?.id;
+      if (!gridId || !gridView.canEdit) return;
       const p = primary.value;
       if (!p || p.thumbnailUrl) return;
       if (!documentItemIsPdf(p.fileName, p.mimeType)) return;
@@ -578,7 +576,7 @@ export default defineComponent({
       void ensureDocumentItemThumbnailOnServer(gridId, props.tileId, p.id)
         .then((res) => {
           if (res.thumbnailUrl) {
-            gridStore.patchDocumentItem(props.tileId, p.id, {
+            gridView.patchDocumentItem(props.tileId, p.id, {
               thumbnailUrl: res.thumbnailUrl,
             });
           }
@@ -590,7 +588,7 @@ export default defineComponent({
     };
 
     watch(
-      [primary, () => gridStore.currentGrid?.id, () => gridStore.canEdit],
+      [primary, () => gridView.grid?.id, () => gridView.canEdit],
       () => {
         requestPrimaryPdfThumb();
       },
@@ -642,7 +640,7 @@ export default defineComponent({
     });
 
     return {
-      gridStore,
+      gridView,
       items,
       isUploading,
       // sizes

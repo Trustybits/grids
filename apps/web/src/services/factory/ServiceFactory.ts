@@ -9,17 +9,17 @@ import { StorageService } from "../StorageService";
 import { StripeService } from "../StripeService";
 import { UpvoteService } from "../UpvoteService";
 import { UserService } from "../UserService";
-import type { IBadgeService } from "../interfaces/IBadgeService";
-import type { IAnalyticsService } from "../interfaces/IAnalyticsService";
-import type { IChatService } from "../interfaces/IChatService";
-import type { ICloudFunctionsService } from "../interfaces/ICloudFunctionsService";
-import type { IGameDataService } from "../interfaces/IGameDataService";
-import type { IGridService } from "../interfaces/IGridService";
-import type { IRoadmapService } from "../interfaces/IRoadmapService";
-import type { IStorageService } from "../interfaces/IStorageService";
-import type { IStripeService } from "../interfaces/IStripeService";
-import type { IUpvoteService } from "../interfaces/IUpvoteService";
-import type { IUserService } from "../interfaces/IUserService";
+import type { BadgeServiceInterface } from "../interfaces/BadgeServiceInterface";
+import type { AnalyticsServiceInterface } from "../interfaces/AnalyticsServiceInterface";
+import type { ChatServiceInterface } from "../interfaces/ChatServiceInterface";
+import type { CloudFunctionsServiceInterface } from "../interfaces/CloudFunctionsServiceInterface";
+import type { GameDataServiceInterface } from "../interfaces/GameDataServiceInterface";
+import type { GridServiceInterface } from "../interfaces/GridServiceInterface";
+import type { RoadmapServiceInterface } from "../interfaces/RoadmapServiceInterface";
+import type { StorageServiceInterface } from "../interfaces/StorageServiceInterface";
+import type { StripeServiceInterface } from "../interfaces/StripeServiceInterface";
+import type { UpvoteServiceInterface } from "../interfaces/UpvoteServiceInterface";
+import type { UserServiceInterface } from "../interfaces/UserServiceInterface";
 import { MockBadgeService } from "../mocks/MockBadgeService";
 import { MockAnalyticsService } from "../mocks/MockAnalyticsService";
 import { MockChatService } from "../mocks/MockChatService";
@@ -31,21 +31,21 @@ import { MockStorageService } from "../mocks/MockStorageService";
 import { MockStripeService } from "../mocks/MockStripeService";
 import { MockUpvoteService } from "../mocks/MockUpvoteService";
 import { MockUserService } from "../mocks/MockUserService";
-import type { IServiceFactory } from "./IServiceFactory";
+import type { ServiceFactoryInterface } from "./ServiceFactoryInterface";
 
-export class ServiceFactory implements IServiceFactory {
+export class ServiceFactory implements ServiceFactoryInterface {
   private useMocks: boolean;
-  private badgeService: IBadgeService;
-  private analyticsService: IAnalyticsService;
-  private chatService: IChatService;
-  private cloudFunctionsService: ICloudFunctionsService;
-  private gameDataService: IGameDataService;
-  private gridService: IGridService;
-  private roadmapService: IRoadmapService;
-  private storageService: IStorageService;
-  private stripeService: IStripeService;
-  private upvoteService: IUpvoteService;
-  private userService: IUserService;
+  private badgeService: BadgeServiceInterface;
+  private analyticsService: AnalyticsServiceInterface;
+  private chatService: ChatServiceInterface;
+  private cloudFunctionsService: CloudFunctionsServiceInterface;
+  private gameDataService: GameDataServiceInterface;
+  private gridService: GridServiceInterface;
+  private roadmapService: RoadmapServiceInterface;
+  private storageService: StorageServiceInterface;
+  private stripeService: StripeServiceInterface;
+  private upvoteService: UpvoteServiceInterface;
+  private userService: UserServiceInterface;
 
   public constructor(useMocks: boolean = false) {
     this.useMocks = useMocks;
@@ -77,47 +77,47 @@ export class ServiceFactory implements IServiceFactory {
     }
   }
 
-  public getBadgeService(): IBadgeService {
+  public getBadgeService(): BadgeServiceInterface {
     return this.badgeService;
   }
-  
-  public getAnalyticsService(): IAnalyticsService {
+
+  public getAnalyticsService(): AnalyticsServiceInterface {
     return this.analyticsService;
   }
 
-  public getChatService(): IChatService {
+  public getChatService(): ChatServiceInterface {
     return this.chatService;
   }
 
-  public getCloudFunctionsService(): ICloudFunctionsService {
+  public getCloudFunctionsService(): CloudFunctionsServiceInterface {
     return this.cloudFunctionsService;
   }
 
-  public getGameDataService(): IGameDataService {
+  public getGameDataService(): GameDataServiceInterface {
     return this.gameDataService;
   }
 
-  public getGridService(): IGridService {
+  public getGridService(): GridServiceInterface {
     return this.gridService;
   }
 
-  public getRoadmapService(): IRoadmapService {
+  public getRoadmapService(): RoadmapServiceInterface {
     return this.roadmapService;
   }
 
-  public getStorageService(): IStorageService {
+  public getStorageService(): StorageServiceInterface {
     return this.storageService;
   }
 
-  public getStripeService(): IStripeService {
+  public getStripeService(): StripeServiceInterface {
     return this.stripeService;
   }
 
-  public getUpvoteService(): IUpvoteService {
+  public getUpvoteService(): UpvoteServiceInterface {
     return this.upvoteService;
   }
 
-  public getUserService(): IUserService {
+  public getUserService(): UserServiceInterface {
     return this.userService;
   }
 }

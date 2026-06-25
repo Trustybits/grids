@@ -1,12 +1,12 @@
-import type { Component, Ref } from "vue";
+import type { Component, Ref, ShallowUnwrapRef } from "vue";
 import type { Tile } from "@grids/contracts/types";
 import type { TileChildComponent } from "./Tile";
-import type { useGridStore } from "@/stores/grid";
+import type { GridViewContext } from "@/grid-context/GridViewContext";
 
 export interface ToolbarContext {
   tile: Tile;
   childComponent: Ref<TileChildComponent | null>;
-  gridStore: ReturnType<typeof useGridStore>;
+  gridView: ShallowUnwrapRef<GridViewContext>;
   isEditing: Ref<boolean>;
   isExitingCropMode: Ref<boolean>;
 }

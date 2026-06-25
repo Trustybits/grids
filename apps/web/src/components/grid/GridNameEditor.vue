@@ -1,9 +1,9 @@
 <template>
   <!-- Owner: editable title -->
-  <div v-if="gridStore.isOwner" class="layout-title">
+  <div v-if="sessionStore.isOwner" class="layout-title">
     <h2
       class="editable-text"
-      :contenteditable="gridStore.canEdit"
+      :contenteditable="canEdit"
       spellcheck="false"
       @blur="saveName"
       @keydown.enter.prevent="blurOnEnter"
@@ -33,8 +33,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
-import { useGridStore } from "@/stores/grid";
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridViewportStore } from "@/stores/grid/gridViewport";
+import { useGridController } from "@/controllers/useGridController";
 import ExploreIcon from "@/components/icons/ExploreIcon.vue";
 import GridStats from "@/components/grid/GridStats.vue";
 import Button from "@/components/ui-elements/Button.vue";
@@ -46,31 +48,39 @@ defineProps({
   },
 });
 
-const gridStore = useGridStore();
-const editableName = ref(gridStore.currentGrid?.name || "");
+const sessionStore = useGridSessionStore();
+const viewportStore = useGridViewportStore();
+const controller = useGridController();
+const editableName = ref(sessionStore.currentGrid?.name || "");
 const ctaRef = ref<HTMLElement | null>(null);
 
+const canEdit = computed(() =>
+  sessionStore.canEditAtBreakpoint(
+    viewportStore.forcedBreakpoint,
+    viewportStore.viewportBreakpoint,
+  ),
+);
+
 watch(
-  () => gridStore.currentGrid?.name,
+  () => sessionStore.currentGrid?.name,
   (newVal) => {
     editableName.value = newVal || "";
   },
 );
 
 const saveName = (event: FocusEvent) => {
-  if (!gridStore.canEdit) {
+  if (!canEdit.value) {
     return;
   }
   const newName = (event.target as HTMLElement).innerText.trim();
-  if (gridStore.currentGrid && newName !== gridStore.currentGrid.name) {
-    gridStore.currentGrid.name = newName;
-    gridStore.saveGrid();
+  if (sessionStore.currentGrid && newName !== sessionStore.currentGrid.name) {
+    controller.renameCurrentGrid(newName);
     editableName.value = newName;
   }
 };
 
 const blurOnEnter = (event: KeyboardEvent) => {
-  if (!gridStore.canEdit) {
+  if (!canEdit.value) {
     return;
   }
   (event.target as HTMLElement).blur();

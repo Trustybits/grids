@@ -38,7 +38,8 @@ import GridNameEditor from './components/grid/GridNameEditor.vue';
 import ToastContainer from './components/ui-controls/ToastContainer.vue';
 import PixelRacersGame from './components/grid/PixelRacersGame.vue';
 import AppStatusBanners from './components/app/AppStatusBanners.vue';
-import { useGridStore } from '@/stores/grid';
+import { useGridSessionStore } from '@/stores/grid/gridSession';
+import { useGridController } from '@/controllers/useGridController';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import type { AuthUser } from '@grids/contracts/auth';
@@ -59,7 +60,8 @@ withDefaults(
 const { identify, reset: resetPostHog } = usePostHog();
 
 const route = useRoute();
-const gridStore = useGridStore();
+const sessionStore = useGridSessionStore();
+const controller = useGridController();
 const isMarketingPage = computed(() => isMarketingPath(route.path));
 const hideBottomCornerButtons = isMarketingPage;
 
@@ -117,7 +119,7 @@ const isOnGridPage = computed(() => {
   if (path.startsWith("/grid/")) return true;
   if (isNonGridPath(path)) return false;
   // Slug routes (/:slug) that loaded a real grid
-  return !!gridStore.currentGrid && !gridStore.isDemoGrid;
+  return !!sessionStore.currentGrid && !sessionStore.isDemoGrid;
 });
 
 // Clear stale layout state when navigating away from a grid page.
@@ -133,7 +135,7 @@ watch(
       newPath.startsWith("/grid/") || !isNonGridPath(newPath);
 
     if (wasOnGrid && !isOnGrid) {
-      gridStore.clearCurrentGrid();
+      controller.clearSession();
     }
   },
   { flush: "pre" },

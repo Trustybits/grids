@@ -1,6 +1,7 @@
 import { ref, computed, type Ref } from "vue";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridController } from "@/controllers/useGridController";
 import { useRouter } from "vue-router";
-import { useGridStore } from "@/stores/grid";
 import { useToastStore } from "@/stores/toast";
 import { resolveInternalGridRoute } from "@/utils/InternalLink";
 
@@ -23,7 +24,8 @@ export const useTileLink = (
   tileId: string | null,
   content: LinkableContent,
 ): TileLinkValues => {
-  const gridStore = useGridStore();
+  const sessionStore = useGridSessionStore();
+  const controller = useGridController();
   const toastStore = useToastStore();
   const router = useRouter();
   const showLinkModal = ref(false);
@@ -32,7 +34,7 @@ export const useTileLink = (
   const tileLinkExists = computed(() => !!content?.tileLink);
 
   const openUrlInput = () => {
-    if (!gridStore.isOwner) return;
+    if (!sessionStore.isOwner) return;
     showLinkModal.value = true;
   };
 
@@ -56,17 +58,17 @@ export const useTileLink = (
   };
 
   const handleAddLink = (link: string) => {
-    if (!gridStore.isOwner) return;
+    if (!sessionStore.isOwner) return;
     const normalized = normalizeUrl(link);
     if (!normalized) {
       toastStore.addToast("Invalid URL format", "error");
       return;
     }
-    content.tileLink = normalized;
     if (tileId) {
-      gridStore.patchTileContent(tileId, { tileLink: normalized });
+      controller.patchTileContent(tileId, { tileLink: normalized });
     } else {
-      gridStore.saveGrid();
+      // Local-only preview (no live tile identity); no grid persistence.
+      Object.assign(content, { tileLink: normalized });
     }
     showLinkModal.value = false;
   };
@@ -84,12 +86,12 @@ export const useTileLink = (
   };
 
   const clearLink = () => {
-    if (!gridStore.isOwner) return;
-    content.tileLink = undefined;
+    if (!sessionStore.isOwner) return;
     if (tileId) {
-      gridStore.patchTileContent(tileId, { tileLink: "" });
+      controller.patchTileContent(tileId, { tileLink: "" });
     } else {
-      gridStore.saveGrid();
+      // Local-only preview (no live tile identity); no grid persistence.
+      Object.assign(content, { tileLink: undefined });
     }
   };
 

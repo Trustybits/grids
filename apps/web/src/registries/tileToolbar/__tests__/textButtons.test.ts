@@ -23,7 +23,7 @@ function makeCtx(
   return {
     tile: { i: "text-1", content },
     childComponent: { value: child },
-    gridStore: {},
+    gridView: {},
     isEditing: { value: false },
     isExitingCropMode: { value: false },
   } as unknown as ToolbarContext;

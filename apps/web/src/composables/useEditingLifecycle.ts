@@ -1,6 +1,17 @@
-import { watch, nextTick, onUnmounted, inject, onMounted, type Ref } from "vue";
+import {
+  watch,
+  computed,
+  nextTick,
+  onUnmounted,
+  inject,
+  onMounted,
+  type Ref,
+} from "vue";
 import type { Editor } from "@tiptap/vue-3";
-import { useGridStore } from "@/stores/grid";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridViewportStore } from "@/stores/grid/gridViewport";
+import { useGridUiStore } from "@/stores/grid/gridUi";
+import { useGridController } from "@/controllers/useGridController";
 
 interface EditingLifecycleOptions {
   editor: Ref<Editor | undefined>;
@@ -23,12 +34,21 @@ export function useEditingLifecycle(options: EditingLifecycleOptions) {
     shouldBlockExit,
   } = options;
 
-  const gridStore = useGridStore();
+  const sessionStore = useGridSessionStore();
+  const viewportStore = useGridViewportStore();
+  const uiStore = useGridUiStore();
+  const controller = useGridController();
+  const canEdit = computed(() =>
+    sessionStore.canEditAtBreakpoint(
+      viewportStore.forcedBreakpoint,
+      viewportStore.viewportBreakpoint,
+    ),
+  );
   const tileId = inject<string | null>("tileId", null);
 
   // ── Edit mode watcher ──────────────────────────────────────
   watch(
-    [() => gridStore.canEdit, () => isEditing.value],
+    [() => canEdit.value, () => isEditing.value],
     ([canEdit, editing]) => {
       if (!editor?.value) return;
 
@@ -40,7 +60,7 @@ export function useEditingLifecycle(options: EditingLifecycleOptions) {
         editor.value.commands.focus("end");
         nextTick(() => {
           flushPersist();
-          if (tileId) gridStore.beginEditing(tileId);
+          if (tileId) controller.beginEditing(tileId);
         });
         return;
       }
@@ -54,7 +74,7 @@ export function useEditingLifecycle(options: EditingLifecycleOptions) {
       }
 
       flushPersist();
-      gridStore.commitEditing();
+      controller.commitEditing();
     },
   );
 
@@ -62,10 +82,9 @@ export function useEditingLifecycle(options: EditingLifecycleOptions) {
   onMounted(() => {
     if (
       tileId &&
-      gridStore.canEdit &&
-      gridStore.pendingFocusTileId === tileId
+      canEdit.value &&
+      uiStore.consumePendingFocus(tileId)
     ) {
-      gridStore.pendingFocusTileId = null;
       isEditing.value = true;
     }
   });

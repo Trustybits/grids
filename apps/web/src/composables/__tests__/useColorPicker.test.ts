@@ -10,7 +10,8 @@ import {
 } from "vue";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useGridStore } from "@/stores/grid";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridController } from "@/controllers/useGridController";
 import { useThemeStore } from "@/stores/theme";
 import { useColorPicker, computeTextColor } from "@/composables/useColorPicker";
 import {
@@ -105,9 +106,9 @@ describe("useColorPicker", () => {
       { props: { content: originalContent } },
     );
 
-    const gridStore = useGridStore();
-    gridStore.isOwner = true;
-    gridStore.currentGrid = {
+    const session = useGridSessionStore();
+    session.setOwner(true);
+    session.setCurrentGrid({
       id: "grid-1",
       name: "Grid",
       userId: "user-1",
@@ -126,19 +127,21 @@ describe("useColorPicker", () => {
           content: replacementContent,
         },
       ],
-    };
+    });
 
     await wrapper.setProps({ content: replacementContent });
     changeColor("#A8DAFF");
 
     expect(originalContent.backgroundColor).toBe("#FFAFA3");
-    expect(replacementContent.backgroundColor).toBe("#A8DAFF");
+    // The controller replaces canonical tile content with a new object; the
+    // prop objects are not mutated in place (no mirror after the command).
+    expect(replacementContent.backgroundColor).toBe("#B3EFBD");
     expect(
-      (gridStore.currentGrid?.tiles[0].content as TextContent).backgroundColor,
+      (session.currentGrid?.tiles[0].content as TextContent).backgroundColor,
     ).toBe("#A8DAFF");
   });
 
-  it("patches the store before mutating the current content object", async () => {
+  it("patches the store without mutating the content prop directly", async () => {
     let changeColor: (color: string) => void = () => {
       throw new Error("handleBackgroundColorChange was not registered");
     };
@@ -166,19 +169,25 @@ describe("useColorPicker", () => {
       { props: { content } },
     );
 
-    const gridStore = useGridStore();
-    gridStore.isOwner = true;
+    const session = useGridSessionStore();
+    session.setOwner(true);
+    const controller = useGridController();
     const observedColors: string[] = [];
     const patchTileContent = vi
-      .spyOn(gridStore, "patchTileContent")
+      .spyOn(controller, "patchTileContent")
       .mockImplementation(() => {
         observedColors.push(content.backgroundColor ?? "");
       });
 
     changeColor("#A8DAFF");
 
+    // patchTileContent receives the change; the composable never mutates the
+    // content prop directly, so it still reads its pre-change value here.
+    expect(patchTileContent).toHaveBeenCalledWith("tile-1", {
+      backgroundColor: "#A8DAFF",
+    });
     expect(observedColors).toStrictEqual(["#B3EFBD"]);
-    expect(content.backgroundColor).toBe("#A8DAFF");
+    expect(content.backgroundColor).toBe("#B3EFBD");
 
     patchTileContent.mockRestore();
     wrapper.unmount();
@@ -209,16 +218,18 @@ const noopEmit = () => {};
 describe("useColorPicker — fill vs overlay separation", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    const grid = useGridStore();
-    grid.isOwner = true; // makes canEdit true
-    // Persist is exercised in the suite above; here we assert in-memory behaviour.
-    vi.spyOn(grid, "patchTileContent").mockImplementation(() => {});
+    useGridSessionStore().setOwner(true); // makes canEdit true
+    // Persist is exercised in the suite above; here we assert local preview
+    // behavior with no live tile identity.
+    vi.spyOn(useGridController(), "patchTileContent").mockImplementation(
+      () => {},
+    );
   });
 
   it("applies Fill as the background and not as an overlay on a fresh image", () => {
     const content = makeImageContent();
     const { backgroundColor, overlayColor, handleBackgroundColorChange } =
-      useColorPicker("t1", content, noopEmit, imageOptions);
+      useColorPicker(null, content, noopEmit, imageOptions);
 
     handleBackgroundColorChange("#FFE299");
 
@@ -233,7 +244,7 @@ describe("useColorPicker — fill vs overlay separation", () => {
   it("renders a legacy chromatic background as a tint until it is edited", () => {
     const content = makeImageContent({ backgroundColor: "var(--color-red)" });
     const { backgroundColor, overlayColor } = useColorPicker(
-      "t1",
+      null,
       content,
       noopEmit,
       imageOptions,
@@ -251,7 +262,7 @@ describe("useColorPicker — fill vs overlay separation", () => {
       pickerOverlayColor,
       colorMode,
       handleBackgroundColorChange,
-    } = useColorPicker("t1", content, noopEmit, imageOptions);
+    } = useColorPicker(null, content, noopEmit, imageOptions);
 
     handleBackgroundColorChange("#FFE299");
 
@@ -272,7 +283,7 @@ describe("useColorPicker — fill vs overlay separation", () => {
       setColorMode,
       handleBackgroundColorChange,
       handleOverlayColorChange,
-    } = useColorPicker("t1", content, noopEmit, imageOptions);
+    } = useColorPicker(null, content, noopEmit, imageOptions);
 
     handleBackgroundColorChange("#F39600"); // fill active
     handleOverlayColorChange("#413F65"); // overlay active
@@ -295,7 +306,7 @@ describe("useColorPicker — fill vs overlay separation", () => {
   it("sets an overlay independently and clears the legacy background", () => {
     const content = makeImageContent({ backgroundColor: "var(--color-red)" });
     const { backgroundColor, overlayColor, handleOverlayColorChange } =
-      useColorPicker("t1", content, noopEmit, imageOptions);
+      useColorPicker(null, content, noopEmit, imageOptions);
 
     handleOverlayColorChange("var(--color-blue)");
 
@@ -313,7 +324,7 @@ describe("useColorPicker — fill vs overlay separation", () => {
       overlayColor: "",
     });
     const { backgroundColor, overlayColor, handleOverlayColorChange } =
-      useColorPicker("t1", content, noopEmit, imageOptions);
+      useColorPicker(null, content, noopEmit, imageOptions);
 
     handleOverlayColorChange("var(--color-blue)");
 
@@ -325,7 +336,7 @@ describe("useColorPicker — fill vs overlay separation", () => {
   it("clears the overlay when a structural color is chosen for it", () => {
     const content = makeImageContent({ overlayColor: "var(--color-blue)" });
     const { overlayColor, handleOverlayColorChange } = useColorPicker(
-      "t1",
+      null,
       content,
       noopEmit,
       imageOptions,
@@ -340,7 +351,7 @@ describe("useColorPicker — fill vs overlay separation", () => {
   it("reads and writes through a ref source (undo/redo identity swaps)", () => {
     const contentRef = ref(makeImageContent());
     const { backgroundColor, overlayColor, handleBackgroundColorChange } =
-      useColorPicker("t1", contentRef, noopEmit, imageOptions);
+      useColorPicker(null, contentRef, noopEmit, imageOptions);
 
     handleBackgroundColorChange("#FFE299");
 
@@ -354,7 +365,7 @@ describe("useColorPicker — fill vs overlay separation", () => {
     // should show Fill as empty and Overlay as that tint.
     const content = makeImageContent({ backgroundColor: "var(--color-red)" });
     const { pickerFillColor, pickerOverlayColor } = useColorPicker(
-      "t1",
+      null,
       content,
       noopEmit,
       imageOptions,
@@ -371,7 +382,7 @@ describe("useColorPicker — fill vs overlay separation", () => {
       pickerOverlayColor,
       handleBackgroundColorChange,
       handleOverlayColorChange,
-    } = useColorPicker("t1", content, noopEmit, imageOptions);
+    } = useColorPicker(null, content, noopEmit, imageOptions);
 
     handleBackgroundColorChange("#F39600");
     handleOverlayColorChange("#413F65");
@@ -383,7 +394,7 @@ describe("useColorPicker — fill vs overlay separation", () => {
   it("never exposes an overlay for non-overlay-capable tiles", () => {
     const content = makeImageContent({ backgroundColor: "var(--color-red)" });
     const { backgroundColor, overlayColor } = useColorPicker(
-      "t1",
+      null,
       content,
       noopEmit,
     );
@@ -476,9 +487,8 @@ describe("useColorPicker — canEdit guard", () => {
   });
 
   it("ignores fill changes when the user cannot edit", () => {
-    const grid = useGridStore();
-    grid.isOwner = false; // canEdit → false
-    const patchSpy = vi.spyOn(grid, "patchTileContent");
+    useGridSessionStore().setOwner(false); // canEdit → false
+    const patchSpy = vi.spyOn(useGridController(), "patchTileContent");
     const content = makeImageContent();
 
     const { handleBackgroundColorChange } = useColorPicker(
@@ -494,9 +504,8 @@ describe("useColorPicker — canEdit guard", () => {
   });
 
   it("ignores overlay changes and mode toggles when the user cannot edit", () => {
-    const grid = useGridStore();
-    grid.isOwner = false;
-    const patchSpy = vi.spyOn(grid, "patchTileContent");
+    useGridSessionStore().setOwner(false);
+    const patchSpy = vi.spyOn(useGridController(), "patchTileContent");
     const content = makeImageContent();
 
     const { handleOverlayColorChange, setColorMode } = useColorPicker(
@@ -519,13 +528,15 @@ describe("useColorPicker — persistence with a null tileId", () => {
     setActivePinia(createPinia());
   });
 
-  it("saves the grid instead of patching a tile when tileId is null", () => {
-    const grid = useGridStore();
-    grid.isOwner = true;
+  it("mutates local preview content without any grid persistence when tileId is null", () => {
+    useGridSessionStore().setOwner(true);
+    const controller = useGridController();
     const patchSpy = vi
-      .spyOn(grid, "patchTileContent")
+      .spyOn(controller, "patchTileContent")
       .mockImplementation(() => {});
-    const saveSpy = vi.spyOn(grid, "saveGrid").mockImplementation(async () => {});
+    const saveSpy = vi
+      .spyOn(controller, "saveGrid")
+      .mockImplementation(async () => {});
     const content = makeImageContent();
 
     const { handleBackgroundColorChange } = useColorPicker(
@@ -537,7 +548,7 @@ describe("useColorPicker — persistence with a null tileId", () => {
     handleBackgroundColorChange("#FFE299");
 
     expect(content.backgroundColor).toBe("#FFE299");
-    expect(saveSpy).toHaveBeenCalledTimes(1);
+    expect(saveSpy).not.toHaveBeenCalled();
     expect(patchSpy).not.toHaveBeenCalled();
   });
 });
@@ -549,9 +560,10 @@ describe("useColorPicker — persistence with a null tileId", () => {
 describe("useColorPicker — legacyBackgroundAlsoOverlay", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    const grid = useGridStore();
-    grid.isOwner = true;
-    vi.spyOn(grid, "patchTileContent").mockImplementation(() => {});
+    useGridSessionStore().setOwner(true);
+    vi.spyOn(useGridController(), "patchTileContent").mockImplementation(
+      () => {},
+    );
   });
 
   const makeLinkContent = (backgroundColor: string): LinkContent =>

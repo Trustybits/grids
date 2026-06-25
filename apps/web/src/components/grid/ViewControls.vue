@@ -27,7 +27,7 @@
       class="bp-btn"
       :class="{
         'bp-btn--active': isActive(bp.key),
-        'bp-btn--forced': gridStore.forcedBreakpoint === bp.key,
+        'bp-btn--forced': viewportStore.forcedBreakpoint === bp.key,
         'bp-btn--view-only': isLargerThanViewport(bp.key),
       }"
       :data-tooltip="tooltipFor(bp)"
@@ -59,7 +59,9 @@
 
 <script setup lang="ts">
 import { markRaw } from "vue";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewportStore } from "@/stores/grid/gridViewport";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
+import { useGridController } from "@/controllers/useGridController";
 import type { Breakpoint } from "@grids/contracts/types";
 import DeviceDesktopIcon from "@/components/icons/DeviceDesktopIcon.vue";
 import EyeIcon from "@/components/icons/EyeIcon.vue";
@@ -76,7 +78,9 @@ defineProps<{
   variant: "inline" | "floating" | "toolbar-row";
 }>();
 
-const gridStore = useGridStore();
+const viewportStore = useGridViewportStore();
+const sessionStore = useGridSessionStore();
+const controller = useGridController();
 
 // Numeric rank for comparing breakpoint "size": sm=0, md=1, lg=2
 const breakpointRank = (bp: Breakpoint): number => {
@@ -94,7 +98,7 @@ const breakpoints = [
 
 /** Whether this breakpoint requires a larger screen than the current viewport */
 const isLargerThanViewport = (bp: Breakpoint): boolean => {
-  return breakpointRank(bp) > breakpointRank(gridStore.viewportBreakpoint);
+  return breakpointRank(bp) > breakpointRank(viewportStore.viewportBreakpoint);
 };
 
 /** Build context-aware tooltip: appends "(view only)" for upscaled breakpoints */
@@ -111,15 +115,15 @@ const tooltipFor = (bp: { key: Breakpoint; tooltip: string }): string => {
  *  - no breakpoint is forced and it matches the viewport-derived activeBreakpoint
  */
 const isActive = (bp: Breakpoint): boolean => {
-  if (gridStore.forcedBreakpoint) {
-    return gridStore.forcedBreakpoint === bp;
+  if (viewportStore.forcedBreakpoint) {
+    return viewportStore.forcedBreakpoint === bp;
   }
-  return gridStore.activeBreakpoint === bp;
+  return viewportStore.activeBreakpoint === bp;
 };
 
 /** Check if the layout has a saved override for a given breakpoint */
 const hasOverride = (bp: Breakpoint): boolean => {
-  return gridStore.hasBreakpointOverride(bp);
+  return controller.hasBreakpointOverride(sessionStore.currentGrid, bp);
 };
 
 /**
@@ -128,11 +132,11 @@ const hasOverride = (bp: Breakpoint): boolean => {
  * are still selectable but will render in view-only mode.
  */
 const toggle = (bp: Breakpoint) => {
-  if (gridStore.forcedBreakpoint === bp) {
+  if (viewportStore.forcedBreakpoint === bp) {
     // Clicking the active forced breakpoint clears back to auto
-    gridStore.setForcedBreakpoint(null);
+    controller.setForcedBreakpoint(null);
   } else {
-    gridStore.setForcedBreakpoint(bp);
+    controller.setForcedBreakpoint(bp);
   }
 };
 </script>

@@ -62,6 +62,24 @@ export default defineConfigWithVueTs(
 
       // Catch common async mistakes
       'no-return-await': 'error',
+
+      // The legacy grid facade (@/stores/grid) was removed in the store
+      // refactor. Block re-importing the deleted path so it can't be
+      // reintroduced; the focused stores (@/stores/grid/gridSession, …),
+      // useGridController(), and useGridViewContext() are the supported
+      // access points. Exact-path match keeps the focused subpaths allowed.
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/stores/grid',
+              message:
+                'The grid facade was removed. Import the focused stores (@/stores/grid/gridSession, gridViewport, gridUi, gridUploads, gridHistory, gridCollection) or use useGridController()/useGridViewContext().',
+            },
+          ],
+        },
+      ],
     },
   },
 

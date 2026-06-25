@@ -601,6 +601,7 @@
 
 <script lang="ts">
 import {
+  proxyRefs,
   defineComponent,
   ref,
   computed,
@@ -613,7 +614,7 @@ import {
 } from "vue";
 import { type MusicContent } from "@grids/contracts/types";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import MusicPlayIcon from "../icons/media/MusicPlayIcon.vue";
 import MusicPauseIcon from "../icons/media/MusicPauseIcon.vue";
 import MusicVolumeMuteIcon from "../icons/media/MusicVolumeMuteIcon.vue";
@@ -639,7 +640,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const tileId = inject<string | null>("tileId", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
@@ -1116,7 +1117,7 @@ export default defineComponent({
         }) as Record<string, unknown>;
 
         if (tileId) {
-          gridStore.patchTileContent(tileId, data);
+          gridView.patchTileContent(tileId, data);
         }
         // Trigger fly-to-corner animation, then hide overlay
         loadingDone.value = true;

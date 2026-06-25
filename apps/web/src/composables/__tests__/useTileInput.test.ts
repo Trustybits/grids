@@ -15,14 +15,22 @@ import {
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 
-const mockGridStore = vi.hoisted(() => ({
-  addTile: vi.fn(),
-  setTileContent: vi.fn(),
-  patchTileContent: vi.fn(),
-}));
+const { mockGridStore, mockUseGridController } = vi.hoisted(() => {
+  const mockGridStore = {
+    addTile: vi.fn(),
+    setTileContent: vi.fn(),
+    patchTileContent: vi.fn(),
+  };
+  return {
+    mockGridStore,
+    mockUseGridController: vi.fn(() => mockGridStore),
+  };
+});
 const { mockCallFunction } = vi.hoisted(() => ({ mockCallFunction: vi.fn() }));
 
-vi.mock("@/stores/grid", () => ({ useGridStore: () => mockGridStore }));
+vi.mock("@/controllers/useGridController", () => ({
+  useGridController: mockUseGridController,
+}));
 vi.mock("@/services/ServiceFactorySingleton", () => ({
   getServiceFactory: () => ({
     getCloudFunctionsService: () => ({ callFunction: mockCallFunction }),
@@ -38,6 +46,19 @@ const mockCreateFromEmbed = vi.mocked(createTileContentFromEmbedUrl);
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("setup", () => {
+  it("does not resolve the live grid controller until content is applied", async () => {
+    const { submitLink } = useTileInput();
+
+    expect(mockUseGridController).not.toHaveBeenCalled();
+
+    const result = await submitLink("   ", { mode: "add" });
+
+    expect(result).toBeNull();
+    expect(mockUseGridController).not.toHaveBeenCalled();
+  });
 });
 
 describe("submitLink — empty input", () => {

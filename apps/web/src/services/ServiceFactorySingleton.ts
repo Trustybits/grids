@@ -1,12 +1,12 @@
-import type { IServiceFactory } from "./factory/IServiceFactory";
+import type { ServiceFactoryInterface } from "./factory/ServiceFactoryInterface";
 
-let instance: IServiceFactory | null = null;
+let instance: ServiceFactoryInterface | null = null;
 
-export function registerServiceFactory(factory: IServiceFactory) {
+export function registerServiceFactory(factory: ServiceFactoryInterface) {
   instance = factory;
 }
 
-export function getServiceFactory(): IServiceFactory {
+export function getServiceFactory(): ServiceFactoryInterface {
   if (!instance) {
     throw new Error(
       "ServiceFactory has not been registered. Call registerServiceFactory() at app startup.",

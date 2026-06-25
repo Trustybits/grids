@@ -28,8 +28,33 @@ import {
 
 // Reactive store mock assigned per-test so watchers can react to canEdit.
 const storeHolder = vi.hoisted(() => ({ current: null as unknown }));
-vi.mock("@/stores/grid", () => ({
-  useGridStore: () => storeHolder.current,
+const mockSessionStore = vi.hoisted(() => ({
+  // canEditAtBreakpoint is read by the composable's canEdit computed; it reads
+  // the reactive holder so watchers still track canEdit changes per-test.
+  canEditAtBreakpoint: vi.fn(),
+}));
+const mockViewportStore = vi.hoisted(() => ({
+  forcedBreakpoint: null as string | null,
+  viewportBreakpoint: "lg",
+}));
+const mockController = vi.hoisted(() => ({
+  beginEditing: vi.fn(),
+  commitEditing: vi.fn(),
+}));
+const mockUiStore = vi.hoisted(() => ({
+  consumePendingFocus: vi.fn(),
+}));
+vi.mock("@/stores/grid/gridSession", () => ({
+  useGridSessionStore: () => mockSessionStore,
+}));
+vi.mock("@/stores/grid/gridViewport", () => ({
+  useGridViewportStore: () => mockViewportStore,
+}));
+vi.mock("@/stores/grid/gridUi", () => ({
+  useGridUiStore: () => mockUiStore,
+}));
+vi.mock("@/controllers/useGridController", () => ({
+  useGridController: () => mockController,
 }));
 
 interface FakeEditor {
@@ -102,12 +127,29 @@ async function flushAll() {
 }
 
 beforeEach(() => {
-  storeHolder.current = reactive({
+  const holder = reactive({
     canEdit: true,
     pendingFocusTileId: null as string | null,
     beginEditing: vi.fn(),
     commitEditing: vi.fn(),
   });
+  storeHolder.current = holder;
+
+  // canEdit is rebuilt at the consumer from the session getter; reading the
+  // reactive holder keeps the composable's canEdit computed tracking per-test.
+  mockSessionStore.canEditAtBreakpoint = vi.fn(() => holder.canEdit);
+  // Atomic pending-focus consume mirrors gridUi.consumePendingFocus.
+  mockUiStore.consumePendingFocus = vi.fn((tileId: string) => {
+    if (holder.pendingFocusTileId !== tileId) return false;
+    holder.pendingFocusTileId = null;
+    return true;
+  });
+  mockController.beginEditing = vi.fn((...args: unknown[]) =>
+    holder.beginEditing(...args),
+  );
+  mockController.commitEditing = vi.fn((...args: unknown[]) =>
+    holder.commitEditing(...args),
+  );
 });
 
 afterEach(() => {

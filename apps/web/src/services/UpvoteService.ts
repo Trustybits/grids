@@ -1,8 +1,8 @@
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import type { UpvoteDao } from "@grids/contracts/dao";
-import type { IUpvoteService } from "./interfaces/IUpvoteService";
+import type { UpvoteServiceInterface } from "./interfaces/UpvoteServiceInterface";
 
-export class UpvoteService implements IUpvoteService {
+export class UpvoteService implements UpvoteServiceInterface {
   private upvoteDao: UpvoteDao;
 
   constructor() {

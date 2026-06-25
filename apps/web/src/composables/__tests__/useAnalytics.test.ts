@@ -70,8 +70,8 @@ vi.mock("@/services/ServiceFactorySingleton", () => ({
   }),
 }));
 
-vi.mock("@/stores/grid", () => ({
-  useGridStore: () => mockLayoutStore,
+vi.mock("@/stores/grid/gridSession", () => ({
+  useGridSessionStore: () => mockLayoutStore,
 }));
 
 import { useAnalytics } from "@/composables/useAnalytics";

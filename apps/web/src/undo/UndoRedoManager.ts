@@ -1,8 +1,5 @@
 import type { Snapshot } from "./UndoTypes";
-import {
-  ContentType,
-  type DocumentsContent,
-} from "@grids/contracts/types";
+import { GridSnapshotCodec } from "./GridSnapshotCodec";
 
 const MAX_STACK_SIZE = 20;
 
@@ -15,17 +12,22 @@ export class UndoRedoManager {
   private undoStack: InternalSnapshot[];
   private redoStack: InternalSnapshot[];
   private onChanged: (() => void) | null;
+  private snapshotCodec: GridSnapshotCodec;
   private nextSnapshotId = 1;
 
-  constructor(onChanged?: () => void) {
+  constructor(
+    onChanged?: () => void,
+    snapshotCodec = new GridSnapshotCodec(),
+  ) {
     this.undoStack = [];
     this.redoStack = [];
     this.onChanged = onChanged ?? null;
+    this.snapshotCodec = snapshotCodec;
   }
 
   private stamp(snapshot: Snapshot): InternalSnapshot {
     return {
-      ...snapshot,
+      ...this.snapshotCodec.clone(snapshot),
       snapshotId: this.nextSnapshotId++,
       timestamp: Date.now(),
     };
@@ -33,7 +35,7 @@ export class UndoRedoManager {
 
   private strip(snapshot: InternalSnapshot): Snapshot {
     const { snapshotId: _, timestamp: _ts, ...rest } = snapshot;
-    return rest;
+    return this.snapshotCodec.clone(rest);
   }
 
   pushSnapshot(snapshot: Snapshot): void {
@@ -162,33 +164,12 @@ export class UndoRedoManager {
   ): void {
     for (const stack of [this.undoStack, this.redoStack]) {
       for (const snapshot of stack) {
-        const tile = snapshot.tiles.find((t) => t.i === tileId);
-        if (!tile) continue;
-
-        if (
-          documentItemId &&
-          tile.content.type === ContentType.DOCUMENT
-        ) {
-          const doc = tile.content as DocumentsContent;
-          const item = doc.items?.find((i) => i.id === documentItemId);
-          if (
-            item &&
-            typeof item.url === "string" &&
-            item.url.startsWith("blob:")
-          ) {
-            item.url = permanentUrl;
-          }
-          continue;
-        }
-
-        if (
-          !documentItemId &&
-          "src" in tile.content &&
-          typeof (tile.content as { src: string }).src === "string" &&
-          (tile.content as { src: string }).src.startsWith("blob:")
-        ) {
-          (tile.content as { src: string }).src = permanentUrl;
-        }
+        this.snapshotCodec.replaceBlobUrl(
+          snapshot,
+          tileId,
+          permanentUrl,
+          documentItemId,
+        );
       }
     }
   }
@@ -197,10 +178,7 @@ export class UndoRedoManager {
     const top = this.undoStack[this.undoStack.length - 1];
     if (!top) return false;
 
-    const { actionLabel: _a, ...incomingData } = snapshot;
-    const { actionLabel: _b, snapshotId: _c, timestamp: _d, ...topData } = top;
-
-    return JSON.stringify(incomingData) === JSON.stringify(topData);
+    return this.snapshotCodec.equals(snapshot, top);
   }
 
   private handleDifferingBreakpoints(

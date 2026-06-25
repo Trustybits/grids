@@ -4,9 +4,9 @@ import type {
   SlugAvailabilityResponse,
   SlugClaimResponse,
 } from "@grids/contracts/types";
-import type { IUserService } from "../interfaces/IUserService";
+import type { UserServiceInterface } from "../interfaces/UserServiceInterface";
 
-export class MockUserService implements IUserService {
+export class MockUserService implements UserServiceInterface {
   getUserProfile(_userId: string): Promise<UserProfile | null> {
     throw new Error("Method not implemented.");
   }

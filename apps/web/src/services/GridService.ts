@@ -1,5 +1,15 @@
-import { type Grid, type CopyDepth, type Breakpoint, type TilePosition, type Tile } from "@grids/contracts/types";
-import { ContentType, type AnyTileContent, type ChatContent, type DocumentsContent, type SuggestionAction } from "@grids/contracts/types";
+import {
+  type Grid,
+  type CopyDepth,
+  type Breakpoint,
+  type TilePosition,
+  type Tile,
+} from "@grids/contracts/types";
+import {
+  ContentType,
+  type ChatContent,
+  type SuggestionAction,
+} from "@grids/contracts/types";
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import { getDbUtils } from "@/dao/DbUtilsSingleton";
 import type { DbUtils } from "@grids/contracts/dao";
@@ -10,7 +20,7 @@ import { createTile, createTileContent } from "@/utils/TileUtils";
 import { stripBlobUrlsFromTiles } from "@/utils/GridPersistenceUtils";
 import { v4 as uuidv4 } from "uuid";
 import heroGif from "@/assets/images/hero.gif";
-import type { IGridService } from "./interfaces/IGridService";
+import type { GridServiceInterface } from "./interfaces/GridServiceInterface";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -202,7 +212,7 @@ export const createStarterTiles = (): Tile[] => {
 
 // ── GridService ───────────────────────────────────────────────────────
 
-export class GridService implements IGridService {
+export class GridService implements GridServiceInterface {
   private gridDao: GridDao;
   private userDao: UserDao;
   private dbUtils: DbUtils;
@@ -441,9 +451,7 @@ export class GridService implements IGridService {
     // Deep-clone tiles so mutations don't affect the source grid.
     // Each tile gets a fresh UUID to avoid ID collisions.
     const clonedTiles = (
-      JSON.parse(
-        JSON.stringify(sourceGrid.tiles),
-      ) as typeof sourceGrid.tiles
+      JSON.parse(JSON.stringify(sourceGrid.tiles)) as typeof sourceGrid.tiles
     ).map((tile) => {
       const oldId = tile.i;
       tile.i = uuidv4();
@@ -496,110 +504,5 @@ export class GridService implements IGridService {
       clonedTiles.map(({ tile }) => tile),
       newOverrides,
     );
-  }
-
-  // ── Save serialization queue ──────────────────────────────────────
-  //
-  // Multiple callers (map moveend, style toggle, addTile, etc.) can invoke
-  // saves in rapid succession.  Each call snapshots the reactive grid and
-  // writes to the database.  Without serialization, an earlier snapshot can
-  // land *after* a later one (async race), reverting changes.
-  //
-  // Solution: only one write may be in-flight at a time.  If a new save is
-  // requested while one is running, we set a flag.  When the in-flight
-  // write finishes, the caller re-snapshots the (now-latest) grid and
-  // writes again — guaranteeing the final persisted state matches the
-  // current in-memory state.
-
-  private _saveInFlight = false;
-  private _saveQueued = false;
-  private _pendingSnapshot: Grid | null = null;
-
-  // Deep-clone a grid and swap any blob: preview URLs with their resolved
-  // Storage URLs so we never persist temporary blob references.
-  // Returns a plain (non-reactive) Grid safe for persistence.
-  private createPersistableSnapshot(
-    grid: Grid,
-    resolvedUrls: Record<string, string> = {},
-    resolvedDocumentItemUrls: Record<string, Record<string, string>> = {},
-  ): Grid {
-    const clonedTiles = (
-      JSON.parse(JSON.stringify(grid.tiles)) as typeof grid.tiles
-    ).map((tile) => {
-      const content = tile.content as AnyTileContent;
-      const src = (content as { src?: string }).src;
-      if (typeof src === "string" && src.startsWith("blob:")) {
-        const realUrl = resolvedUrls[tile.i];
-        if (realUrl) {
-          (tile.content as { src?: string }).src = realUrl;
-        }
-      }
-      if (content.type === ContentType.DOCUMENT) {
-        const doc = content as DocumentsContent;
-        const itemMap = resolvedDocumentItemUrls[tile.i];
-        if (doc.items?.length && itemMap && Object.keys(itemMap).length > 0) {
-          const items = doc.items.map((item) => {
-            const resolved = itemMap[item.id];
-            if (
-              typeof item.url === "string" &&
-              item.url.startsWith("blob:") &&
-              resolved
-            ) {
-              return { ...item, url: resolved };
-            }
-            return item;
-          });
-          (tile.content as DocumentsContent).items = items;
-        }
-      }
-      return tile;
-    });
-
-    return {
-      ...JSON.parse(JSON.stringify({ ...grid, tiles: undefined })),
-      tiles: clonedTiles,
-    } as Grid;
-  }
-
-  // Queue a grid save. Accepts the current (potentially reactive) grid
-  // and optional resolved-URL maps for blob → storage URL substitution.
-  // The service deep-clones and sanitises the grid internally.
-  // Returns immediately if a write is already in-flight; the queued snapshot
-  // will be flushed when the current write completes.
-  async queueSave(
-    grid: Grid,
-    resolvedUrls: Record<string, string> = {},
-    resolvedDocumentItemUrls: Record<string, Record<string, string>> = {},
-  ): Promise<void> {
-    const snapshot = this.createPersistableSnapshot(
-      grid,
-      resolvedUrls,
-      resolvedDocumentItemUrls,
-    );
-
-    if (this._saveInFlight) {
-      this._saveQueued = true;
-      this._pendingSnapshot = snapshot;
-      return;
-    }
-
-    this._saveInFlight = true;
-
-    try {
-      await this.saveGrid(snapshot);
-    } catch (err) {
-      console.error("Failed to save grid.", err);
-    } finally {
-      this._saveInFlight = false;
-
-      // If another save was requested while we were writing,
-      // flush it now with the latest snapshot.
-      if (this._saveQueued && this._pendingSnapshot) {
-        this._saveQueued = false;
-        const next = this._pendingSnapshot;
-        this._pendingSnapshot = null;
-        await this.queueSave(next);
-      }
-    }
   }
 }

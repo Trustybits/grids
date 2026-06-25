@@ -1,0 +1,370 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import {
+  AnalyticsEventType,
+  ContentType,
+  type TileContent,
+} from "@grids/contracts/types";
+import { createTileContent } from "@/utils/TileUtils";
+import { GridTileStructureController } from "../../internal/GridTileStructureController";
+import {
+  createHarness,
+  makeDocumentTile,
+  makeGrid,
+  makeImageTile,
+  makeLinkTile,
+  type InternalHarness,
+} from "./harness";
+
+/**
+ * Tests for GridTileStructureController — add/duplicate/remove/resize tiles.
+ * Runs against the real tile registry and placement utilities; mocks only the
+ * injected viewport/save/history/analytics collaborators.
+ */
+
+describe("GridTileStructureController", () => {
+  let h: InternalHarness;
+  let getViewportGridY: Mock<() => number>;
+  let pushUndoSnapshot: Mock<(actionLabel: string) => void>;
+  let scheduleSave: Mock<() => void>;
+  let refreshStableSnapshot: Mock<() => void>;
+  let controller: GridTileStructureController;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    h = createHarness();
+    getViewportGridY = vi.fn<() => number>(() => 0);
+    pushUndoSnapshot = vi.fn<(actionLabel: string) => void>();
+    scheduleSave = vi.fn<() => void>();
+    refreshStableSnapshot = vi.fn<() => void>();
+    controller = new GridTileStructureController(
+      h.stores,
+      h.dependencies,
+      getViewportGridY,
+      pushUndoSnapshot,
+      scheduleSave,
+      refreshStableSnapshot,
+    );
+  });
+
+  const textContent = (): TileContent => createTileContent(ContentType.TEXT);
+
+  describe("addTile", () => {
+    it("returns null with no active grid", () => {
+      expect(controller.addTile(textContent())).toBeNull();
+    });
+
+    it("adds a tile, captures history, persists, and logs analytics", () => {
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [] }));
+
+      const id = controller.addTile(textContent());
+
+      expect(id).toBe("uuid");
+      expect(h.stores.session.currentGrid?.tiles).toHaveLength(1);
+      expect(pushUndoSnapshot).toHaveBeenCalledWith("Add tile");
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+      expect(h.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: AnalyticsEventType.TILE_ADDED,
+          gridId: "grid-1",
+          metadata: { tileType: ContentType.TEXT, tileId: "uuid" },
+        }),
+      );
+    });
+
+    it("enforces a tile type's maxPerGrid and toasts instead of adding", () => {
+      // Campfire is registered with maxPerGrid: 1.
+      h.stores.session.setCurrentGrid(
+        makeGrid({
+          tiles: [
+            makeLinkTile({
+              i: "existing",
+              content: { type: ContentType.CAMPFIRE } as TileContent,
+            }),
+          ],
+        }),
+      );
+      const addToast = vi.spyOn(h.stores.toast, "addToast");
+
+      const id = controller.addTile({
+        type: ContentType.CAMPFIRE,
+      } as TileContent);
+
+      expect(id).toBeNull();
+      expect(addToast).toHaveBeenCalledWith(
+        expect.stringContaining("allowed per grid"),
+        "error",
+      );
+      expect(h.stores.session.currentGrid?.tiles).toHaveLength(1);
+    });
+
+    it("stores normalized content built from the requested type", () => {
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [] }));
+
+      controller.addTile(textContent());
+
+      // createTile rebuilds content via the registry default rather than
+      // storing the caller-supplied object as an identity.
+      const stored = h.stores.session.currentGrid!.tiles[0]!.content;
+      expect(stored.type).toBe(ContentType.TEXT);
+      expect(stored).toEqual(createTileContent(ContentType.TEXT));
+    });
+
+    it("places a tile at the viewport row when the measurement is positive", () => {
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [] }));
+      getViewportGridY.mockReturnValue(5);
+
+      controller.addTile(textContent());
+
+      // findBestXAtRow places the new tile at the measured row.
+      expect(h.stores.session.currentGrid?.tiles[0]?.y).toBe(5);
+    });
+
+    it("does not log analytics for internal-only suggestion tiles", () => {
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [] }));
+      controller.addTile({ type: ContentType.SUGGESTION } as TileContent);
+      expect(h.logEvent).not.toHaveBeenCalled();
+    });
+
+    it("still adds the tile when analytics logging throws", () => {
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [] }));
+      h.logEvent.mockImplementationOnce(() => {
+        throw new Error("analytics down");
+      });
+
+      const id = controller.addTile(textContent());
+
+      // Analytics must never make a grid mutation fail.
+      expect(id).toBe("uuid");
+      expect(h.stores.session.currentGrid?.tiles).toHaveLength(1);
+    });
+
+    it("allows adding a capped tile type below its maxPerGrid limit", () => {
+      // Campfire is capped at 1; with zero existing the add is permitted.
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [] }));
+
+      const id = controller.addTile({
+        type: ContentType.CAMPFIRE,
+      } as TileContent);
+
+      expect(id).not.toBeNull();
+      expect(h.stores.session.currentGrid?.tiles).toHaveLength(1);
+    });
+  });
+
+  describe("duplicateTile", () => {
+    it("returns null when the source tile is missing", () => {
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [] }));
+      expect(controller.duplicateTile("missing")).toBeNull();
+    });
+
+    it("deep-clones the source content into a new tile", () => {
+      const source = makeLinkTile({ i: "src", x: 0, y: 0, w: 2, h: 2 });
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [source] }));
+
+      const newId = controller.duplicateTile("src");
+
+      expect(newId).toBe("uuid");
+      const clone = h.stores.session.currentGrid!.tiles.find(
+        (t) => t.i === "uuid",
+      );
+      expect(clone).toBeDefined();
+      expect(clone?.content).toEqual(source.content);
+      expect(clone?.content).not.toBe(source.content);
+      expect(pushUndoSnapshot).toHaveBeenCalledWith("Duplicate tile");
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+      expect(h.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: AnalyticsEventType.TILE_ADDED,
+          gridId: "grid-1",
+          metadata: { tileType: ContentType.LINK, tileId: "uuid" },
+        }),
+      );
+    });
+
+    it("copies resolved document item urls onto the duplicate", () => {
+      const source = makeDocumentTile({ i: "src" });
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [source] }));
+      h.stores.uploads.setResolvedDocumentItemUrl(
+        "src",
+        "item-1",
+        "https://cdn/doc",
+      );
+
+      const newId = controller.duplicateTile("src")!;
+
+      expect(
+        h.stores.uploads.resolvedDocumentItemUrls[newId]?.["item-1"],
+      ).toBe("https://cdn/doc");
+    });
+
+    it("derives the duplicate from the active breakpoint override when present", () => {
+      const source = makeLinkTile({ i: "src", x: 0, y: 0, w: 2, h: 2 });
+      h.stores.session.setCurrentGrid(
+        makeGrid({
+          tiles: [source],
+          overrides: { sm: { src: { x: 1, y: 1, w: 3, h: 3 } } },
+        }),
+      );
+      h.stores.viewport.setActiveBreakpoint("sm");
+
+      const newId = controller.duplicateTile("src")!;
+      const clone = h.stores.session.currentGrid!.tiles.find(
+        (t) => t.i === newId,
+      );
+
+      // Override w/h (3x3) drive the clone size rather than the base tile.
+      expect(clone?.w).toBe(3);
+      expect(clone?.h).toBe(3);
+      // The override map gets a matching entry for the new tile.
+      expect(h.stores.session.currentGrid!.overrides?.sm?.[newId]).toBeDefined();
+    });
+  });
+
+  describe("removeTile", () => {
+    it("does nothing without a grid", () => {
+      controller.removeTile("t1");
+      expect(pushUndoSnapshot).not.toHaveBeenCalled();
+    });
+
+    it("removes the tile, clears overrides, and refreshes stable history", () => {
+      const tile = makeLinkTile({ i: "t1" });
+      h.stores.session.setCurrentGrid(
+        makeGrid({
+          tiles: [tile],
+          overrides: { sm: { t1: { x: 0, y: 0, w: 1, h: 1 } } },
+        }),
+      );
+      const clearTileState = vi.spyOn(h.stores.uploads, "clearTileState");
+
+      controller.removeTile("t1");
+
+      expect(h.stores.session.currentGrid?.tiles).toHaveLength(0);
+      expect(h.stores.session.currentGrid?.overrides?.sm?.t1).toBeUndefined();
+      expect(clearTileState).toHaveBeenCalledWith("t1", []);
+      expect(pushUndoSnapshot).toHaveBeenCalledWith("Remove tile");
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+      expect(refreshStableSnapshot).toHaveBeenCalledTimes(1);
+      expect(h.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: AnalyticsEventType.TILE_REMOVED,
+          metadata: { tileType: ContentType.LINK, tileId: "t1" },
+        }),
+      );
+    });
+
+    it("passes blob object urls of the removed tile to clearTileState", () => {
+      const tile = makeImageTile({ i: "t1" });
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [tile] }));
+      const clearTileState = vi.spyOn(h.stores.uploads, "clearTileState");
+
+      controller.removeTile("t1");
+
+      expect(clearTileState).toHaveBeenCalledWith("t1", ["blob:media"]);
+    });
+
+    it("still schedules a save and refreshes when removing an unknown id", () => {
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [] }));
+      controller.removeTile("missing");
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+      expect(refreshStableSnapshot).toHaveBeenCalledTimes(1);
+      expect(h.logEvent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("resizeTile", () => {
+    it("does nothing without a grid or tile", () => {
+      controller.resizeTile("t1", 3, 3);
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [] }));
+      controller.resizeTile("t1", 3, 3);
+      expect(scheduleSave).not.toHaveBeenCalled();
+    });
+
+    it("resizes the tile directly at the lg breakpoint", () => {
+      const tile = makeLinkTile({ i: "t1", x: 0, y: 0, w: 2, h: 2 });
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [tile] }));
+      h.stores.viewport.setActiveBreakpoint("lg");
+      h.stores.viewport.setDisplayPositions([
+        { i: "t1", x: 0, y: 0, w: 2, h: 2 },
+      ]);
+
+      controller.resizeTile("t1", 4, 5);
+
+      expect(tile.w).toBe(4);
+      expect(tile.h).toBe(5);
+      expect(h.stores.viewport.displayPositions[0]).toMatchObject({
+        w: 4,
+        h: 5,
+      });
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("syncs the lg display position x to the clamped tile x", () => {
+      // x:10 with new w:4 overflows the 12-col grid; adjustTilePosition clamps
+      // the tile to x = 8 and the display position must follow.
+      const tile = makeLinkTile({ i: "t1", x: 10, y: 0, w: 2, h: 2 });
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [tile] }));
+      h.stores.viewport.setActiveBreakpoint("lg");
+      h.stores.viewport.setDisplayPositions([
+        { i: "t1", x: 10, y: 0, w: 2, h: 2 },
+      ]);
+
+      controller.resizeTile("t1", 4, 4);
+
+      expect(tile.x).toBe(8);
+      expect(h.stores.viewport.displayPositions[0]).toMatchObject({
+        x: 8,
+        w: 4,
+        h: 4,
+      });
+    });
+
+    it("clamps width to the sm column count and writes an override", () => {
+      const tile = makeLinkTile({ i: "t1", x: 0, y: 0, w: 2, h: 2 });
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [tile] }));
+      h.stores.viewport.setActiveBreakpoint("sm");
+      h.stores.viewport.setDisplayPositions([
+        { i: "t1", x: 0, y: 0, w: 2, h: 2 },
+      ]);
+
+      // sm has 4 columns, so a requested width of 10 is clamped to 4.
+      controller.resizeTile("t1", 10, 3);
+
+      const override = h.stores.session.currentGrid!.overrides?.sm?.t1;
+      // x:0 with clampedWidth 4 → clampedX = min(0, 4-4) = 0.
+      expect(override).toEqual({ x: 0, y: 0, w: 4, h: 3 });
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("clamps the override x to columns minus the clamped width", () => {
+      const tile = makeLinkTile({ i: "t1", x: 3, y: 1, w: 1, h: 1 });
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [tile] }));
+      h.stores.viewport.setActiveBreakpoint("sm");
+      h.stores.viewport.setDisplayPositions([
+        { i: "t1", x: 3, y: 1, w: 1, h: 1 },
+      ]);
+
+      // sm has 4 columns; width 2 → clampedX = min(3, 4-2) = 2.
+      controller.resizeTile("t1", 2, 2);
+
+      expect(h.stores.session.currentGrid!.overrides?.sm?.t1).toEqual({
+        x: 2,
+        y: 1,
+        w: 2,
+        h: 2,
+      });
+    });
+
+    it("clamps width to the md column count (8)", () => {
+      const tile = makeLinkTile({ i: "t1", x: 0, y: 0, w: 2, h: 2 });
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [tile] }));
+      h.stores.viewport.setActiveBreakpoint("md");
+      h.stores.viewport.setDisplayPositions([
+        { i: "t1", x: 0, y: 0, w: 2, h: 2 },
+      ]);
+
+      controller.resizeTile("t1", 12, 4);
+
+      expect(h.stores.session.currentGrid!.overrides?.md?.t1?.w).toBe(8);
+    });
+  });
+});

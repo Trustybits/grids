@@ -1,4 +1,3 @@
-<!-- eslint-disable vue/no-mutating-props -->
 <template>
   <div
     class="text-container"
@@ -9,11 +8,11 @@
       class="text-content scrollable-thin"
       :class="{
         'not-editing': !isEditing,
-        'can-edit': gridStore.canEdit,
+        'can-edit': gridView.canEdit,
         'is-wide-1-high': isWideOneHigh,
         'is-tall-1-wide': isTallOneWide,
-        'owner-view': gridStore.canEdit,
-        'viewer-view': !gridStore.canEdit,
+        'owner-view': gridView.canEdit,
+        'viewer-view': !gridView.canEdit,
         'is-overflowing': isScrollableOverflow,
       }"
       :style="{
@@ -23,7 +22,7 @@
         textAlign: textAlign,
         justifyContent: verticalAlignJustify,
       }"
-      :spellcheck="gridStore.canEdit && isEditing"
+      :spellcheck="gridView.canEdit && isEditing"
     >
       <EditorContent :editor="editor" />
       <div
@@ -57,8 +56,8 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable vue/no-mutating-props */
 import {
+  proxyRefs,
   defineComponent,
   ref,
   watch,
@@ -77,7 +76,7 @@ import Color from "@tiptap/extension-color";
 import { FontSize } from "../../extensions/tiptap/FontSize";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
 import {
@@ -91,6 +90,7 @@ import type { TextContent } from "@grids/contracts/types";
 import { useTileLink } from "@/composables/useTileLink";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
+import { useTileContentWriter } from "@/composables/useTileContentWriter";
 import {
   useEditingLifecycle,
   useEditorContentSync,
@@ -110,11 +110,11 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
 
     // Reactive ref so the template updates when canEdit changes
     // (e.g. owner toggles a larger-than-viewport breakpoint preview).
-    const isOwner = computed(() => gridStore.canEdit);
+    const isOwner = computed(() => gridView.canEdit);
 
     const isTextOverflowing = ref(false);
     const isScrolledToBottom = ref(false);
@@ -201,7 +201,6 @@ export default defineComponent({
         });
       },
       onUpdate({ editor: _editor }) {
-        // props.content.text = editor.getHTML();
         checkOverflow();
         if (isEditing.value) {
           schedulePersist();
@@ -280,11 +279,15 @@ export default defineComponent({
       containerRef: textContentDiv,
       flushPersist,
     });
+    const { patchContent, autosaveContent } = useTileContentWriter(
+      tileId,
+      () => props.content,
+    );
 
     useEditorContentSync(editor, () => props.content.text);
 
     const onShortClick = () => {
-      if (!gridStore.canEdit) {
+      if (!gridView.canEdit) {
         if (tileLinkExists.value) {
           handleFollowLink();
         }
@@ -333,38 +336,28 @@ export default defineComponent({
       useColorPicker(tileId, toRef(props, "content"), emit);
 
     const handleTextAlignChange = (align: "left" | "center" | "right") => {
-      if (!gridStore.canEdit) return;
-      props.content.textAlign = align;
-      if (tileId) {
-        gridStore.patchTileContent(tileId, { textAlign: align });
-      }
+      if (!gridView.canEdit) return;
+      patchContent({ textAlign: align });
     };
 
     const handleVerticalAlignChange = (align: "top" | "center" | "bottom") => {
-      if (!gridStore.canEdit) return;
-      props.content.verticalAlign = align;
-      if (tileId) {
-        gridStore.patchTileContent(tileId, { verticalAlign: align });
-      }
+      if (!gridView.canEdit) return;
+      patchContent({ verticalAlign: align });
     };
 
     const persistEditorText = () => {
-      if (!editor.value || !gridStore.canEdit) return;
+      if (!editor.value || !gridView.canEdit) return;
 
-      const output = JSON.stringify(editor.value.getJSON());
+      // An empty editor still serializes to a non-empty doc
+      // (`{"type":"doc","content":[{"type":"paragraph"}]}`), which would not
+      // match the `""` a fresh tile stores and would register as a spurious
+      // content change (capturing an undo snapshot on focus). Persist "" so an
+      // untouched tile produces no history entry.
+      const output = editor.value.isEmpty
+        ? ""
+        : JSON.stringify(editor.value.getJSON());
 
-      if (tileId && gridStore.currentGrid) {
-        const tile = gridStore.currentGrid.tiles.find(
-          (t) => t.i === tileId,
-        );
-        if (tile && (tile.content as TextContent).type === "text") {
-          (tile.content as TextContent).text = output;
-        }
-      } else {
-        props.content.text = output;
-      }
-
-      gridStore.saveGrid();
+      autosaveContent({ text: output });
     };
 
     const syncMarkState = () => {
@@ -459,7 +452,7 @@ export default defineComponent({
     };
 
     return {
-      gridStore,
+      gridView,
       editor,
       shouldShowOverflow,
       isEditing,

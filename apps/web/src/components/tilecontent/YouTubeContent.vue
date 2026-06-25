@@ -121,10 +121,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, inject, onMounted } from "vue";
+import { proxyRefs, defineComponent, ref, computed, inject, onMounted } from "vue";
 import { type YouTubeContent } from "@grids/contracts/types";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useGridStore } from "@/stores/grid";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useTileLayout } from "@/composables/useTileLayout";
 
 export default defineComponent({
@@ -135,7 +135,7 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const gridStore = useGridStore();
+    const gridView = proxyRefs(useGridViewContext());
     const layout = useTileLayout();
     const tileId = inject<string | null>("tileId", null);
 
@@ -286,7 +286,7 @@ export default defineComponent({
         
         // Update tile content with fetched metadata
         if (tileId) {
-          gridStore.patchTileContent(tileId, data);
+          gridView.patchTileContent(tileId, data);
         } else {
           console.warn("No tileId available to patch content");
         }

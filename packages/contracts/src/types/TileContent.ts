@@ -30,6 +30,7 @@ export interface TextContent extends TileContent {
   textType: string;
   color: string;
   textAlign?: "left" | "center" | "right";
+  verticalAlign?: "top" | "center" | "bottom";
   tileLink?: string;
   backgroundColor?: string;
 }

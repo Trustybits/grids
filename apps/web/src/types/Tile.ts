@@ -51,6 +51,7 @@ export interface TextEditableTileChild {
   getCurrentFontSize?: () => string;
   handleFontSizeChange?: (size: string) => void;
   handleTextAlignChange?: (align: string) => void;
+  handleVerticalAlignChange?: (align: string) => void;
 }
 
 export interface ColorThemableTileChild {

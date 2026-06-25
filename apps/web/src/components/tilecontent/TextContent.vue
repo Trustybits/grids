@@ -21,6 +21,7 @@
         '--tile-text-color': textColor,
         color: textColor,
         textAlign: textAlign,
+        justifyContent: verticalAlignJustify,
       }"
       :spellcheck="gridStore.canEdit && isEditing"
     >
@@ -130,6 +131,23 @@ export default defineComponent({
     const isBoldActive = ref(false);
     const isItalicActive = ref(false);
     const textAlign = computed(() => props.content?.textAlign ?? "left");
+    const verticalAlign = computed(() => props.content?.verticalAlign ?? "top");
+
+    // Map the stored vertical alignment to a flex justify-content value. When
+    // the text overflows the tile we force top alignment so the scrollable
+    // content stays reachable (centered/bottom flex content clips its top edge
+    // and cannot be scrolled into view).
+    const verticalAlignJustify = computed(() => {
+      if (isTextOverflowing.value) return "flex-start";
+      switch (verticalAlign.value) {
+        case "center":
+          return "center";
+        case "bottom":
+          return "flex-end";
+        default:
+          return "flex-start";
+      }
+    });
 
     const { schedulePersist, flushPersist } = useEditorAutosave(() =>
       persistEditorText(),
@@ -281,6 +299,14 @@ export default defineComponent({
       }
     };
 
+    const handleVerticalAlignChange = (align: "top" | "center" | "bottom") => {
+      if (!gridStore.canEdit) return;
+      props.content.verticalAlign = align;
+      if (tileId) {
+        gridStore.patchTileContent(tileId, { verticalAlign: align });
+      }
+    };
+
     const persistEditorText = () => {
       if (!editor.value || !gridStore.canEdit) return;
 
@@ -406,6 +432,8 @@ export default defineComponent({
       backgroundColor,
       textColor,
       textAlign,
+      verticalAlign,
+      verticalAlignJustify,
       onShortClick,
       onExitClick,
       openUrlInput,
@@ -415,6 +443,7 @@ export default defineComponent({
       clearLink,
       handleBackgroundColorChange,
       handleTextAlignChange,
+      handleVerticalAlignChange,
       toggleItalic,
       toggleBold,
       isBoldActive,
@@ -448,6 +477,11 @@ export default defineComponent({
   transition: background-color 0.3s ease;
   position: relative;
   color: var(--tile-text-color);
+  /* Flex column lets justify-content position the editor content vertically
+     (top / center / bottom) within the full-height tile. The justify-content
+     value itself is bound inline from the tile's verticalAlign setting. */
+  display: flex;
+  flex-direction: column;
 }
 
 .text-content.is-overflowing {

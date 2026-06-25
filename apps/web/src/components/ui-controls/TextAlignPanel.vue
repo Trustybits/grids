@@ -29,6 +29,31 @@
     >
       <AlignRightIcon />
     </button>
+    <span class="text-align-divider" aria-hidden="true" />
+    <button
+      class="text-align-option"
+      :class="{ 'is-active': activeVerticalAlign === 'top' }"
+      data-tooltip="Align top"
+      @click.stop="onVerticalAlignClick('top')"
+    >
+      <AlignTopIcon />
+    </button>
+    <button
+      class="text-align-option"
+      :class="{ 'is-active': activeVerticalAlign === 'center' }"
+      data-tooltip="Align middle"
+      @click.stop="onVerticalAlignClick('center')"
+    >
+      <AlignMiddleIcon />
+    </button>
+    <button
+      class="text-align-option"
+      :class="{ 'is-active': activeVerticalAlign === 'bottom' }"
+      data-tooltip="Align bottom"
+      @click.stop="onVerticalAlignClick('bottom')"
+    >
+      <AlignBottomIcon />
+    </button>
   </div>
 </template>
 
@@ -47,12 +72,18 @@ import type { Tile, TextContent } from "@grids/contracts/types";
 import AlignLeftIcon from "@/components/icons/toolbar/AlignLeftIcon.vue";
 import AlignCenterIcon from "@/components/icons/toolbar/AlignCenterIcon.vue";
 import AlignRightIcon from "@/components/icons/toolbar/AlignRightIcon.vue";
+import AlignTopIcon from "@/components/icons/toolbar/AlignTopIcon.vue";
+import AlignMiddleIcon from "@/components/icons/toolbar/AlignMiddleIcon.vue";
+import AlignBottomIcon from "@/components/icons/toolbar/AlignBottomIcon.vue";
 
 export default defineComponent({
   components: {
     AlignLeftIcon,
     AlignCenterIcon,
     AlignRightIcon,
+    AlignTopIcon,
+    AlignMiddleIcon,
+    AlignBottomIcon,
   },
   props: {
     tile: {
@@ -77,8 +108,17 @@ export default defineComponent({
       return content?.textAlign ?? "left";
     });
 
+    const activeVerticalAlign = computed(() => {
+      const content = props.tile.content as TextContent;
+      return content?.verticalAlign ?? "top";
+    });
+
     const onAlignClick = (align: "left" | "center" | "right") => {
       props.childComponent?.handleTextAlignChange?.(align);
+    };
+
+    const onVerticalAlignClick = (align: "top" | "center" | "bottom") => {
+      props.childComponent?.handleVerticalAlignChange?.(align);
     };
 
     const updatePos = () => {
@@ -143,7 +183,9 @@ export default defineComponent({
       panelRef,
       pos,
       activeAlign,
+      activeVerticalAlign,
       onAlignClick,
+      onVerticalAlignClick,
     };
   },
 });
@@ -163,6 +205,13 @@ export default defineComponent({
   border-radius: 12px;
   padding: 4px;
   /* animation: textAlignPanelSlideIn var(--duration-normal) var(--easing-spring); */
+}
+
+.text-align-divider {
+  width: var(--border-width);
+  align-self: stretch;
+  margin: 4px 2px;
+  background-color: var(--color-stroke);
 }
 
 .text-align-option {

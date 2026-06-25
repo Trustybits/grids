@@ -14,13 +14,14 @@
         'is-tall-1-wide': isTallOneWide,
         'owner-view': gridStore.canEdit,
         'viewer-view': !gridStore.canEdit,
-        'is-overflowing': isTextOverflowing,
+        'is-overflowing': isScrollableOverflow,
       }"
       :style="{
         '--tile-bg': backgroundColor,
         '--tile-text-color': textColor,
         color: textColor,
         textAlign: textAlign,
+        justifyContent: verticalAlignJustify,
       }"
       :spellcheck="gridStore.canEdit && isEditing"
     >
@@ -79,6 +80,12 @@ import TaskItem from "@tiptap/extension-task-item";
 import { useGridStore } from "@/stores/grid";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
+import {
+  resolveVerticalAlignJustify,
+  shouldDisableTopBottomAlign,
+  isScrollableOverflow as computeScrollableOverflow,
+  type VerticalAlign,
+} from "@/utils/textTileAlign";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import type { TextContent } from "@grids/contracts/types";
 import { useTileLink } from "@/composables/useTileLink";
@@ -114,6 +121,7 @@ export default defineComponent({
     const editorDomRef = ref<HTMLElement | null>(null);
     const isEditing = ref(false);
     const textContentDiv = ref<HTMLDivElement | null>(null);
+    const resizeObserver = ref<ResizeObserver | null>(null);
 
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
@@ -130,6 +138,28 @@ export default defineComponent({
     const isBoldActive = ref(false);
     const isItalicActive = ref(false);
     const textAlign = computed(() => props.content?.textAlign ?? "left");
+    const verticalAlign = computed<VerticalAlign>(
+      () => props.content?.verticalAlign ?? "top",
+    );
+
+    // Decision logic lives in @/utils/textTileAlign so it can be unit-tested
+    // and shared with the toolbar (TextAlignPanel). See that module for the
+    // reasoning behind each rule.
+    const isScrollableOverflow = computed(() =>
+      computeScrollableOverflow(isWideOneHigh.value, isTextOverflowing.value),
+    );
+
+    const disableTopBottomAlign = computed(() =>
+      shouldDisableTopBottomAlign(isWideOneHigh.value, isTextOverflowing.value),
+    );
+
+    const verticalAlignJustify = computed(() =>
+      resolveVerticalAlignJustify({
+        verticalAlign: verticalAlign.value,
+        isWideOneHigh: isWideOneHigh.value,
+        isTextOverflowing: isTextOverflowing.value,
+      }),
+    );
 
     const { schedulePersist, flushPersist } = useEditorAutosave(() =>
       persistEditorText(),
@@ -159,6 +189,13 @@ export default defineComponent({
             if (scrollableElement) {
               editorDomRef.value = scrollableElement;
               scrollableElement.addEventListener("scroll", handleScroll);
+
+              if (typeof ResizeObserver !== "undefined") {
+                resizeObserver.value = new ResizeObserver(() =>
+                  scheduleCheckOverflow(),
+                );
+                resizeObserver.value.observe(scrollableElement);
+              }
             }
           }
         });
@@ -217,8 +254,24 @@ export default defineComponent({
       checkScrollPosition();
     };
 
+    // Overflow is a layout-dependent measurement, so it must be re-checked
+    // whenever the tile's rendered size changes (grid resize, breakpoint, or
+    // window resize) — not only when the text content changes. Without this,
+    // isTextOverflowing goes stale after a resize and the vertical-align
+    // behaviour (center-lock on N×1, top-on-overflow on taller tiles) reflects
+    // the old size until the next edit. rAF-debounced to coalesce bursts.
+    let overflowRafId: number | null = null;
+    const scheduleCheckOverflow = () => {
+      if (overflowRafId != null) return;
+      overflowRafId = requestAnimationFrame(() => {
+        overflowRafId = null;
+        checkOverflow();
+      });
+    };
+
     const shouldShowOverflow = computed(
-      () => isTextOverflowing.value && !isScrolledToBottom.value,
+      () =>
+        isScrollableOverflow.value && !isScrolledToBottom.value,
     );
 
     const { tileId } = useEditingLifecycle({
@@ -258,6 +311,12 @@ export default defineComponent({
         editorDomRef.value.removeEventListener("scroll", handleScroll);
         editorDomRef.value = null;
       }
+      resizeObserver.value?.disconnect();
+      resizeObserver.value = null;
+      if (overflowRafId != null) {
+        cancelAnimationFrame(overflowRafId);
+        overflowRafId = null;
+      }
     });
 
     const {
@@ -278,6 +337,14 @@ export default defineComponent({
       props.content.textAlign = align;
       if (tileId) {
         gridStore.patchTileContent(tileId, { textAlign: align });
+      }
+    };
+
+    const handleVerticalAlignChange = (align: "top" | "center" | "bottom") => {
+      if (!gridStore.canEdit) return;
+      props.content.verticalAlign = align;
+      if (tileId) {
+        gridStore.patchTileContent(tileId, { verticalAlign: align });
       }
     };
 
@@ -406,6 +473,8 @@ export default defineComponent({
       backgroundColor,
       textColor,
       textAlign,
+      verticalAlign,
+      verticalAlignJustify,
       onShortClick,
       onExitClick,
       openUrlInput,
@@ -415,11 +484,14 @@ export default defineComponent({
       clearLink,
       handleBackgroundColorChange,
       handleTextAlignChange,
+      handleVerticalAlignChange,
       toggleItalic,
       toggleBold,
       isBoldActive,
       isItalicActive,
       isTextOverflowing,
+      isScrollableOverflow,
+      disableTopBottomAlign,
       isOwner,
       getCurrentFontSize,
       handleFontSizeChange,
@@ -448,6 +520,11 @@ export default defineComponent({
   transition: background-color 0.3s ease;
   position: relative;
   color: var(--tile-text-color);
+  /* Flex column lets justify-content position the editor content vertically
+     (top / center / bottom) within the full-height tile. The justify-content
+     value itself is bound inline from the tile's verticalAlign setting. */
+  display: flex;
+  flex-direction: column;
 }
 
 .text-content.is-overflowing {

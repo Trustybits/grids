@@ -29,6 +29,37 @@
     >
       <AlignRightIcon />
     </button>
+    <span class="text-align-divider" aria-hidden="true" />
+    <button
+      class="text-align-option"
+      :class="{ 'is-active': activeVerticalAlign === 'top' }"
+      :disabled="verticalEndsDisabled"
+      :data-tooltip="
+        verticalEndsDisabled ? 'Text too tall to align top' : 'Align top'
+      "
+      @click.stop="onVerticalAlignClick('top')"
+    >
+      <AlignTopIcon />
+    </button>
+    <button
+      class="text-align-option"
+      :class="{ 'is-active': activeVerticalAlign === 'center' }"
+      data-tooltip="Align middle"
+      @click.stop="onVerticalAlignClick('center')"
+    >
+      <AlignMiddleIcon />
+    </button>
+    <button
+      class="text-align-option"
+      :class="{ 'is-active': activeVerticalAlign === 'bottom' }"
+      :disabled="verticalEndsDisabled"
+      :data-tooltip="
+        verticalEndsDisabled ? 'Text too tall to align bottom' : 'Align bottom'
+      "
+      @click.stop="onVerticalAlignClick('bottom')"
+    >
+      <AlignBottomIcon />
+    </button>
   </div>
 </template>
 
@@ -47,12 +78,19 @@ import type { Tile, TextContent } from "@grids/contracts/types";
 import AlignLeftIcon from "@/components/icons/toolbar/AlignLeftIcon.vue";
 import AlignCenterIcon from "@/components/icons/toolbar/AlignCenterIcon.vue";
 import AlignRightIcon from "@/components/icons/toolbar/AlignRightIcon.vue";
+import AlignTopIcon from "@/components/icons/toolbar/AlignTopIcon.vue";
+import AlignMiddleIcon from "@/components/icons/toolbar/AlignMiddleIcon.vue";
+import AlignBottomIcon from "@/components/icons/toolbar/AlignBottomIcon.vue";
+import { resolveActiveVerticalAlign } from "@/utils/textTileAlign";
 
 export default defineComponent({
   components: {
     AlignLeftIcon,
     AlignCenterIcon,
     AlignRightIcon,
+    AlignTopIcon,
+    AlignMiddleIcon,
+    AlignBottomIcon,
   },
   props: {
     tile: {
@@ -77,8 +115,28 @@ export default defineComponent({
       return content?.textAlign ?? "left";
     });
 
+    // When the text is too tall to fit a single-row (N×1) tile, top/bottom
+    // alignment looks inverted, so the child component centers the text and
+    // tells us to disable those two options.
+    const verticalEndsDisabled = computed(
+      () => !!props.childComponent?.disableTopBottomAlign,
+    );
+
+    const activeVerticalAlign = computed(() => {
+      const content = props.tile.content as TextContent;
+      return resolveActiveVerticalAlign(
+        content?.verticalAlign ?? "top",
+        verticalEndsDisabled.value,
+      );
+    });
+
     const onAlignClick = (align: "left" | "center" | "right") => {
       props.childComponent?.handleTextAlignChange?.(align);
+    };
+
+    const onVerticalAlignClick = (align: "top" | "center" | "bottom") => {
+      if (verticalEndsDisabled.value && align !== "center") return;
+      props.childComponent?.handleVerticalAlignChange?.(align);
     };
 
     const updatePos = () => {
@@ -143,7 +201,10 @@ export default defineComponent({
       panelRef,
       pos,
       activeAlign,
+      activeVerticalAlign,
+      verticalEndsDisabled,
       onAlignClick,
+      onVerticalAlignClick,
     };
   },
 });
@@ -165,6 +226,13 @@ export default defineComponent({
   /* animation: textAlignPanelSlideIn var(--duration-normal) var(--easing-spring); */
 }
 
+.text-align-divider {
+  width: var(--border-width);
+  align-self: stretch;
+  margin: 4px 2px;
+  background-color: var(--color-stroke);
+}
+
 .text-align-option {
   background-color: transparent;
   color: var(--color-text-primary);
@@ -183,9 +251,14 @@ export default defineComponent({
     color var(--duration-fast) var(--easing-ease-in-out);
 }
 
-.text-align-option:hover {
+.text-align-option:hover:not(:disabled) {
   background-color: var(--color-content-low);
   transform: scale(1.05);
+}
+
+.text-align-option:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .text-align-option.is-active {

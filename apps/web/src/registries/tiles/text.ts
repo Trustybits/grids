@@ -20,6 +20,7 @@ export const textDefinition: TileDefinition<TextContent> = {
     textType: data?.textType || "",
     color: data?.color || "#ffffff",
     textAlign: data?.textAlign,
+    verticalAlign: data?.verticalAlign,
     tileLink: data?.tileLink,
     backgroundColor: data?.backgroundColor,
   }),

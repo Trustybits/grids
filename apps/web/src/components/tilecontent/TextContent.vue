@@ -75,7 +75,7 @@ import Color from "@tiptap/extension-color";
 import { FontSize } from "../../extensions/tiptap/FontSize";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
@@ -284,7 +284,14 @@ export default defineComponent({
     const persistEditorText = () => {
       if (!editor.value || !gridView.canEdit) return;
 
-      const output = JSON.stringify(editor.value.getJSON());
+      // An empty editor still serializes to a non-empty doc
+      // (`{"type":"doc","content":[{"type":"paragraph"}]}`), which would not
+      // match the `""` a fresh tile stores and would register as a spurious
+      // content change (capturing an undo snapshot on focus). Persist "" so an
+      // untouched tile produces no history entry.
+      const output = editor.value.isEmpty
+        ? ""
+        : JSON.stringify(editor.value.getJSON());
 
       autosaveContent({ text: output });
     };

@@ -250,7 +250,7 @@ import {
 } from "vue";
 
 import { type LinkContent } from "@grids/contracts/types";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useColorPicker } from "@/composables/useColorPicker";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";

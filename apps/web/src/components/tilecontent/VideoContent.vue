@@ -170,7 +170,7 @@ import {
   type ComputedRef,
 } from "vue";
 import { type VideoContent } from "@grids/contracts/types";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useVideoFocus } from "@/composables/useVideoFocus";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useTileLink } from "@/composables/useTileLink";

@@ -23,7 +23,7 @@ vi.mock("@/services/ServiceFactorySingleton", () => ({
   getServiceFactory: dependencySpies.getServiceFactory,
 }));
 
-vi.mock("@/grid-view/createLiveGridViewContext", () => ({
+vi.mock("@/grid-context/createLiveGridViewContext", () => ({
   createLiveGridViewContext: dependencySpies.createLiveGridViewContext,
 }));
 

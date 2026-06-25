@@ -1,5 +1,5 @@
 import { computed, readonly } from "vue";
-import type { GridViewContext } from "@/grid-view/GridViewContext";
+import type { GridViewContext } from "@/grid-context/GridViewContext";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridUiStore } from "@/stores/grid/gridUi";

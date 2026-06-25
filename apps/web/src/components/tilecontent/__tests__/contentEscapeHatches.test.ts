@@ -16,7 +16,7 @@ const badgeHolder = vi.hoisted(() => ({
   userId: null as unknown,
 }));
 
-vi.mock("@/grid-view/useGridViewContext", () => ({
+vi.mock("@/grid-context/useGridViewContext", () => ({
   useGridViewContext: () => storeHolder.current,
 }));
 

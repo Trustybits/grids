@@ -2,8 +2,8 @@ import { inject, provide } from "vue";
 import {
   gridViewContextKey,
   type GridViewContext,
-} from "@/grid-view/GridViewContext";
-import { createLiveGridViewContext } from "@/grid-view/createLiveGridViewContext";
+} from "@/grid-context/GridViewContext";
+import { createLiveGridViewContext } from "@/grid-context/createLiveGridViewContext";
 
 export type GridViewContextFactory = () => GridViewContext;
 

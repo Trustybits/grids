@@ -129,7 +129,7 @@ import ArrowDownIcon from "@/components/icons/ArrowDownIcon.vue";
 import CloseIcon from "@/components/icons/tile-actionbar/CloseIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import type { ChatContent, ChatMessage } from "@grids/contracts/types";
 
 export default defineComponent({

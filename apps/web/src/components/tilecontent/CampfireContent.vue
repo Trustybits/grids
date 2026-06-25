@@ -112,7 +112,7 @@ import {
   type ComputedRef,
 } from "vue";
 import { type CampfireContent } from "@grids/contracts/types";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import FireSmallIcon from "@/components/icons/FireSmallIcon.vue";
 import FireMediumIcon from "@/components/icons/FireMediumIcon.vue";
 import FireLargeIcon from "@/components/icons/FireLargeIcon.vue";

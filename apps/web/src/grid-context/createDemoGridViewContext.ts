@@ -1,6 +1,6 @@
 import { computed, readonly, ref, shallowRef } from "vue";
 import type { Breakpoint, Grid } from "@grids/contracts/types";
-import type { GridViewContext } from "@/grid-view/GridViewContext";
+import type { GridViewContext } from "@/grid-context/GridViewContext";
 import { projectGridLayout } from "@/utils/GridLayoutUtils";
 
 function projectInitialDisplayPositions(grid: Grid) {

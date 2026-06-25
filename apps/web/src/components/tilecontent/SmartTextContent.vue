@@ -224,7 +224,7 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
@@ -908,7 +908,12 @@ export default defineComponent({
 
     const persistEditorText = () => {
       if (!editor.value || !gridView.canEdit) return;
-      const output = JSON.stringify(editor.value.getJSON());
+      // An empty editor serializes to a non-empty doc rather than the `""` a
+      // fresh tile stores; persist "" so an untouched tile registers no content
+      // change (and captures no spurious undo snapshot on focus).
+      const output = editor.value.isEmpty
+        ? ""
+        : JSON.stringify(editor.value.getJSON());
       autosaveContent({ text: output });
     };
 

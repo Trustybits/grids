@@ -42,7 +42,7 @@ import cloudImage from "@/assets/images/cloud.png";
 import cloudShadow from "@/assets/images/cloud_shadow.png";
 import planeIcon from "@/assets/images/plane.png";
 import planeShadow from "@/assets/images/planeshadow.png";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useThemeStore } from "@/stores/theme";
 import { type MapContent, type MapStyleMode } from "@grids/contracts/types";
 

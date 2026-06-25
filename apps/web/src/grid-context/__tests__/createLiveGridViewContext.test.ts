@@ -7,7 +7,7 @@ import type {
   Grid,
 } from "@grids/contracts/types";
 import type { GridHistoryUrlMaps } from "@/controllers/GridController";
-import { createLiveGridViewContext } from "@/grid-view/createLiveGridViewContext";
+import { createLiveGridViewContext } from "@/grid-context/createLiveGridViewContext";
 import type { GridLayoutItem } from "@/types/GridLayout";
 
 // Holders so each test can install fresh reactive store stand-ins and a fresh

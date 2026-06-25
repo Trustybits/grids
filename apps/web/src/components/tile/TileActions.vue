@@ -79,7 +79,7 @@ import {
 } from "vue";
 import { ContentType, type Tile } from "@grids/contracts/types";
 import { getTileDefinition } from "@/registries/tileRegistry";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useToastStore } from "@/stores/toast";
 import ArrowUpRightIcon from "@/components/icons/tile-actionbar/ArrowUpRightIcon.vue";
 import DuplicateIcon from "@/components/icons/DuplicateIcon.vue";

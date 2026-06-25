@@ -441,7 +441,7 @@ import Color from "@tiptap/extension-color";
 import { FontSize } from "../../extensions/tiptap/FontSize";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { type ProfileBioContent, type AvatarShape } from "@grids/contracts/types";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import {
@@ -687,6 +687,10 @@ export default defineComponent({
     };
 
     const serializeEditor = (editor: Editor) => {
+      // An empty editor serializes to a non-empty doc rather than the `""` a
+      // fresh tile stores; return "" so an untouched field registers no content
+      // change (and captures no spurious undo snapshot on focus).
+      if (editor.isEmpty) return "";
       let output = JSON.stringify(editor.getJSON());
       output = output.replace(/^"(.*)"$/, "$1");
       return output;

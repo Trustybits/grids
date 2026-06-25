@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { isReadonly } from "vue";
 import type { AnyTileContent, Grid } from "@grids/contracts/types";
-import { createDemoGridViewContext } from "@/grid-view/createDemoGridViewContext";
+import { createDemoGridViewContext } from "@/grid-context/createDemoGridViewContext";
 import type { GridLayoutItem } from "@/types/GridLayout";
 
 function makeGrid(): Grid {

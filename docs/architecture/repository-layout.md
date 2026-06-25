@@ -124,9 +124,11 @@ apps/web/
     |-- components/
     |-- composables/
     |-- constants/
+    |-- controllers/
     |-- dao/
     |-- data/
     |-- extensions/
+    |-- grid-context/
     |-- notes/
     |-- pages/
     |-- pro/
@@ -176,12 +178,17 @@ apps/web/
 - `src/composables/` - Vue composables for reusable app behavior.
 - `src/composables/__tests__/` - Composable tests.
 - `src/constants/` - App constants.
+- `src/controllers/` - Grid write/orchestration layer. `GridController` is a thin facade that delegates to focused internal controllers; cross-store mutations and side effects live here.
+- `src/controllers/internal/` - Focused controllers (session, layout, persistence, history, uploads, tiles, viewport, UI, settings, collection) that own one slice of grid command logic each.
+- `src/controllers/__tests__/` - Controller tests.
 - `src/dao/` - DAO factory singletons and DAO boundary wiring.
 - `src/dao/stubbed/` - In-memory DAO implementations for local/stubbed runtime.
 - `src/dao/stubbed/factory/` - Stubbed DAO factory implementation.
 - `src/data/` - Static seed/demo data used by the app.
 - `src/extensions/` - Custom extension code.
 - `src/extensions/tiptap/` - Custom Tiptap extensions.
+- `src/grid-context/` - The `GridViewContext` seam: a flat interface that grid-canvas and tile-content components inject, plus the live and demo factories that back it (reads wrap stores, writes delegate to the controller). Keeps rendered grid contents swappable between live and demo modes.
+- `src/grid-context/__tests__/` - Grid context tests.
 - `src/notes/` - App-local notes. Prefer `docs/` for durable documentation.
 - `src/pages/` - Route-level page components.
 - `src/pro/` - Runtime boundary that loads `@grids/pro` when Firebase mode is enabled.
@@ -196,6 +203,8 @@ apps/web/
 - `src/services/interfaces/` - Service interfaces.
 - `src/services/mocks/` - Mock service implementations.
 - `src/stores/` - Pinia stores.
+- `src/stores/grid/` - Focused single-slice grid stores (session, viewport, UI, uploads, collection, history). Each owns one slice of grid state with low-level getters/actions; cross-slice orchestration lives in `src/controllers/`.
+- `src/stores/grid/__tests__/` - Grid store tests.
 - `src/styles/` - SCSS tokens, themes, and app-wide styles.
 - `src/test/` - Web test setup utilities.
 - `src/themes/` - Theme definitions.

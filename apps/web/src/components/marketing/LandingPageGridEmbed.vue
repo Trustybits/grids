@@ -103,8 +103,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Grid from '@/components/grid/Grid.vue';
-import { createDemoGridViewContext } from '@/grid-view/createDemoGridViewContext';
-import { provideGridViewContext } from '@/grid-view/useGridViewContext';
+import { createDemoGridViewContext } from '@/grid-context/createDemoGridViewContext';
+import { provideGridViewContext } from '@/grid-context/useGridViewContext';
 import {
   DEMO_GRID_DIMENSIONS,
   createDemoGrid,

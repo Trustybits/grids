@@ -203,7 +203,7 @@ import type {
 } from "@/types/TileToolbar";
 import { getTileToolbarButtons } from "@/registries/tileToolbar";
 import { computeTextColor } from "@/composables/useColorPicker";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { isDirectImageUrl } from "@/utils/TileUtils";
 import LocateFixedIcon from "@/components/icons/toolbar/LocateFixedIcon.vue";
 import CurrentLocationIcon from "@/components/icons/toolbar/CurrentLocationIcon.vue";

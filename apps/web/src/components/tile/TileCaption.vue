@@ -27,7 +27,7 @@
 
 <script lang="ts">
 import { proxyRefs, ref, computed, nextTick } from "vue";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 
 export default {
   name: "TileCaption",

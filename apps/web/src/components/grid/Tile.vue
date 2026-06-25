@@ -205,7 +205,7 @@ import { GridItem } from "vue3-grid-layout";
 import { type TileChildComponent } from "@/types/Tile";
 import { type Tile } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import TileCaption from "@/components/tile/TileCaption.vue";
 import {
   getContentComponent,

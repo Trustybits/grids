@@ -226,7 +226,7 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@grids/contracts/auth";
 import { useRouter } from "vue-router";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import type { RoadmapFeedContent, RoadmapFilterableType, RoadmapItem, RoadmapQueryFilter, RoadmapStatus } from "@grids/contracts/types";
 import type { NotionDatabase, PropertyOption } from "@grids/contracts/types";
 import CloseXIcon from "@/components/icons/CloseXIcon.vue";

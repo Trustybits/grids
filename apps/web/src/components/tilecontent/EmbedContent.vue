@@ -40,7 +40,7 @@
 <script lang="ts">
 import { proxyRefs, computed, defineComponent, inject, ref, type Ref } from "vue";
 import { type EmbedContent } from "@grids/contracts/types";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import CursorClickIcon from "@/components/icons/CursorClickIcon.vue";
 
 export default defineComponent({

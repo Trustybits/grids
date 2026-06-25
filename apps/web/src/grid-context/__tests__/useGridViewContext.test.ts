@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
-import type { GridViewContext } from "@/grid-view/GridViewContext";
+import type { GridViewContext } from "@/grid-context/GridViewContext";
 import {
   provideGridViewContext,
   resetDefaultGridViewContext,
   setDefaultGridViewContextFactory,
   useGridViewContext,
-} from "@/grid-view/useGridViewContext";
+} from "@/grid-context/useGridViewContext";
 
 const storeHolder = vi.hoisted(() => ({
   current: null as GridViewContext | null,
@@ -15,7 +15,7 @@ const storeHolder = vi.hoisted(() => ({
 
 // The default factory path delegates to createLiveGridViewContext; stub it so
 // these provide/inject + memoization tests don't depend on the live store wiring.
-vi.mock("@/grid-view/createLiveGridViewContext", () => ({
+vi.mock("@/grid-context/createLiveGridViewContext", () => ({
   createLiveGridViewContext: () => storeHolder.current,
 }));
 

@@ -124,7 +124,7 @@
 import { proxyRefs, defineComponent, ref, computed, inject, onMounted } from "vue";
 import { type YouTubeContent } from "@grids/contracts/types";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useTileLayout } from "@/composables/useTileLayout";
 
 export default defineComponent({

@@ -22,7 +22,7 @@ const holders = vi.hoisted(() => ({
   } as Grid,
 }));
 
-vi.mock("@/grid-view/createDemoGridViewContext", () => ({
+vi.mock("@/grid-context/createDemoGridViewContext", () => ({
   createDemoGridViewContext: holders.createDemoGridViewContext,
 }));
 

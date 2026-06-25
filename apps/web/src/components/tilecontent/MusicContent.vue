@@ -614,7 +614,7 @@ import {
 } from "vue";
 import { type MusicContent } from "@grids/contracts/types";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import MusicPlayIcon from "../icons/media/MusicPlayIcon.vue";
 import MusicPauseIcon from "../icons/media/MusicPauseIcon.vue";
 import MusicVolumeMuteIcon from "../icons/media/MusicVolumeMuteIcon.vue";

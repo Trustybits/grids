@@ -210,7 +210,7 @@ import {
   type ComputedRef,
 } from "vue";
 import type { DocumentsContent as DocumentsContentType } from "@grids/contracts/types";
-import { useGridViewContext } from "@/grid-view/useGridViewContext";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import FileIcon from "@/components/icons/FileIcon.vue";
 import FolderIcon from "@/components/icons/FolderIcon.vue";
 import DocumentPreviewer from "@/components/tilecontent/DocumentPreviewer.vue";

@@ -1,7 +1,7 @@
 import type { Component, Ref, ShallowUnwrapRef } from "vue";
 import type { Tile } from "@grids/contracts/types";
 import type { TileChildComponent } from "./Tile";
-import type { GridViewContext } from "@/grid-view/GridViewContext";
+import type { GridViewContext } from "@/grid-context/GridViewContext";
 
 export interface ToolbarContext {
   tile: Tile;

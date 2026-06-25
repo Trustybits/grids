@@ -341,11 +341,8 @@ export default defineComponent({
     };
 
     const handleVerticalAlignChange = (align: "top" | "center" | "bottom") => {
-      if (!gridStore.canEdit) return;
-      props.content.verticalAlign = align;
-      if (tileId) {
-        gridStore.patchTileContent(tileId, { verticalAlign: align });
-      }
+      if (!gridView.canEdit) return;
+      patchContent({ verticalAlign: align });
     };
 
     const persistEditorText = () => {

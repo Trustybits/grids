@@ -776,7 +776,7 @@ export default defineComponent({
     // When the resolved link points at another grid on this same site, viewers
     // navigate in-app (via <router-link>) instead of opening a new tab.
     const internalRoute = computed(() =>
-      gridStore.canEdit ? null : resolveInternalGridRoute(resolvedHref.value),
+      gridView.canEdit ? null : resolveInternalGridRoute(resolvedHref.value),
     );
 
     const onTileClick = (event: MouseEvent) => {

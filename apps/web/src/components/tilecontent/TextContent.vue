@@ -14,7 +14,7 @@
         'is-tall-1-wide': isTallOneWide,
         'owner-view': gridStore.canEdit,
         'viewer-view': !gridStore.canEdit,
-        'is-overflowing': isTextOverflowing,
+        'is-overflowing': isScrollableOverflow,
       }"
       :style="{
         '--tile-bg': backgroundColor,
@@ -133,12 +133,23 @@ export default defineComponent({
     const textAlign = computed(() => props.content?.textAlign ?? "left");
     const verticalAlign = computed(() => props.content?.verticalAlign ?? "top");
 
+    // Short, wide tiles (N×1) never scroll — like the link tile, overflowing
+    // text is clipped, not scrolled. That lets the chosen vertical alignment
+    // (e.g. center) take effect on a single row. Taller tiles keep their
+    // scroll-on-overflow behavior.
+    const allowOverflowScroll = computed(() => !isWideOneHigh.value);
+
+    const isScrollableOverflow = computed(
+      () => isTextOverflowing.value && allowOverflowScroll.value,
+    );
+
     // Map the stored vertical alignment to a flex justify-content value. When
-    // the text overflows the tile we force top alignment so the scrollable
-    // content stays reachable (centered/bottom flex content clips its top edge
-    // and cannot be scrolled into view).
+    // the text overflows a scrollable tile we force top alignment so the
+    // scrollable content stays reachable (centered/bottom flex content clips
+    // its top edge and cannot be scrolled into view). On non-scrollable tiles
+    // the chosen alignment is always honored.
     const verticalAlignJustify = computed(() => {
-      if (isTextOverflowing.value) return "flex-start";
+      if (isScrollableOverflow.value) return "flex-start";
       switch (verticalAlign.value) {
         case "center":
           return "center";
@@ -236,7 +247,8 @@ export default defineComponent({
     };
 
     const shouldShowOverflow = computed(
-      () => isTextOverflowing.value && !isScrolledToBottom.value,
+      () =>
+        isScrollableOverflow.value && !isScrolledToBottom.value,
     );
 
     const { tileId } = useEditingLifecycle({
@@ -449,6 +461,7 @@ export default defineComponent({
       isBoldActive,
       isItalicActive,
       isTextOverflowing,
+      isScrollableOverflow,
       isOwner,
       getCurrentFontSize,
       handleFontSizeChange,

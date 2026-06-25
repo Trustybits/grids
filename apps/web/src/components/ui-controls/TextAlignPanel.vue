@@ -81,6 +81,7 @@ import AlignRightIcon from "@/components/icons/toolbar/AlignRightIcon.vue";
 import AlignTopIcon from "@/components/icons/toolbar/AlignTopIcon.vue";
 import AlignMiddleIcon from "@/components/icons/toolbar/AlignMiddleIcon.vue";
 import AlignBottomIcon from "@/components/icons/toolbar/AlignBottomIcon.vue";
+import { resolveActiveVerticalAlign } from "@/utils/textTileAlign";
 
 export default defineComponent({
   components: {
@@ -122,11 +123,11 @@ export default defineComponent({
     );
 
     const activeVerticalAlign = computed(() => {
-      // While the ends are disabled the tile renders centered, so reflect that
-      // in the toolbar regardless of the stored (and preserved) value.
-      if (verticalEndsDisabled.value) return "center";
       const content = props.tile.content as TextContent;
-      return content?.verticalAlign ?? "top";
+      return resolveActiveVerticalAlign(
+        content?.verticalAlign ?? "top",
+        verticalEndsDisabled.value,
+      );
     });
 
     const onAlignClick = (align: "left" | "center" | "right") => {

@@ -80,6 +80,12 @@ import TaskItem from "@tiptap/extension-task-item";
 import { useGridStore } from "@/stores/grid";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
+import {
+  resolveVerticalAlignJustify,
+  shouldDisableTopBottomAlign,
+  isScrollableOverflow as computeScrollableOverflow,
+  type VerticalAlign,
+} from "@/utils/textTileAlign";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import type { TextContent } from "@grids/contracts/types";
 import { useTileLink } from "@/composables/useTileLink";
@@ -132,46 +138,28 @@ export default defineComponent({
     const isBoldActive = ref(false);
     const isItalicActive = ref(false);
     const textAlign = computed(() => props.content?.textAlign ?? "left");
-    const verticalAlign = computed(() => props.content?.verticalAlign ?? "top");
-
-    // Short, wide tiles (N×1) never scroll — like the link tile, overflowing
-    // text is clipped, not scrolled. That lets the chosen vertical alignment
-    // (e.g. center) take effect on a single row. Taller tiles keep their
-    // scroll-on-overflow behavior.
-    const allowOverflowScroll = computed(() => !isWideOneHigh.value);
-
-    const isScrollableOverflow = computed(
-      () => isTextOverflowing.value && allowOverflowScroll.value,
+    const verticalAlign = computed<VerticalAlign>(
+      () => props.content?.verticalAlign ?? "top",
     );
 
-    // On a single-row (N×1) tile, large text whose line box is taller than the
-    // row makes top/bottom alignment read as inverted — the glyph sits in the
-    // middle of an oversized line box, so "top" appears low and "bottom"
-    // appears high. When that happens, center is the only alignment that looks
-    // correct, so we force it and the toolbar disables the top/bottom buttons.
-    // Taller tiles are unaffected.
-    const disableTopBottomAlign = computed(
-      () => isWideOneHigh.value && isTextOverflowing.value,
+    // Decision logic lives in @/utils/textTileAlign so it can be unit-tested
+    // and shared with the toolbar (TextAlignPanel). See that module for the
+    // reasoning behind each rule.
+    const isScrollableOverflow = computed(() =>
+      computeScrollableOverflow(isWideOneHigh.value, isTextOverflowing.value),
     );
 
-    // Map the stored vertical alignment to a flex justify-content value. When
-    // the text overflows a scrollable tile we force top alignment so the
-    // scrollable content stays reachable (centered/bottom flex content clips
-    // its top edge and cannot be scrolled into view). On non-scrollable tiles
-    // the chosen alignment is honored — except an oversized N×1 line, which is
-    // centered (see disableTopBottomAlign).
-    const verticalAlignJustify = computed(() => {
-      if (isScrollableOverflow.value) return "flex-start";
-      if (disableTopBottomAlign.value) return "center";
-      switch (verticalAlign.value) {
-        case "center":
-          return "center";
-        case "bottom":
-          return "flex-end";
-        default:
-          return "flex-start";
-      }
-    });
+    const disableTopBottomAlign = computed(() =>
+      shouldDisableTopBottomAlign(isWideOneHigh.value, isTextOverflowing.value),
+    );
+
+    const verticalAlignJustify = computed(() =>
+      resolveVerticalAlignJustify({
+        verticalAlign: verticalAlign.value,
+        isWideOneHigh: isWideOneHigh.value,
+        isTextOverflowing: isTextOverflowing.value,
+      }),
+    );
 
     const { schedulePersist, flushPersist } = useEditorAutosave(() =>
       persistEditorText(),

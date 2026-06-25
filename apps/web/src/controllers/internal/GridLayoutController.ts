@@ -57,7 +57,17 @@ export class GridLayoutController {
     if (!grid || !this.canEditCurrentGrid()) {
       return;
     }
-    syncPositionOnlyLayout(grid, layout);
+
+    const breakpoint = this.stores.viewport.activeBreakpoint;
+    if (breakpoint === "lg") {
+      // Desktop positions live on the tiles themselves.
+      syncPositionOnlyLayout(grid, layout);
+    } else {
+      // md/sm positions are stored as per-breakpoint overrides, not on the
+      // tile, so compaction has to be written there instead.
+      grid.overrides ??= {};
+      grid.overrides[breakpoint] = createPositionMap(layout);
+    }
     this.scheduleSave();
   }
 

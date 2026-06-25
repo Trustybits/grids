@@ -141,13 +141,27 @@ describe("GridLayoutController", () => {
   });
 
   describe("commitCompactedLayout", () => {
-    it("syncs the compacted layout when editing is allowed", () => {
+    it("syncs the compacted layout onto tiles at the lg breakpoint", () => {
       const grid = makeGrid({ tiles: [makeLinkTile({ i: "t1" })] });
       h.stores.session.setCurrentGrid(grid);
+      h.stores.viewport.setActiveBreakpoint("lg");
 
       controller.commitCompactedLayout([{ i: "t1", x: 2, y: 3, w: 2, h: 2 }]);
 
       expect(grid.tiles[0]).toMatchObject({ x: 2, y: 3 });
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("writes compacted positions to overrides at a non-lg breakpoint", () => {
+      const grid = makeGrid({ tiles: [makeLinkTile({ i: "t1", x: 0, y: 0 })] });
+      h.stores.session.setCurrentGrid(grid);
+      h.stores.viewport.setActiveBreakpoint("md");
+
+      controller.commitCompactedLayout([{ i: "t1", x: 1, y: 2, w: 2, h: 2 }]);
+
+      // Canonical tile (lg) position is untouched; the override carries it.
+      expect(grid.tiles[0]).toMatchObject({ x: 0, y: 0 });
+      expect(grid.overrides?.md?.t1).toEqual({ x: 1, y: 2, w: 2, h: 2 });
       expect(scheduleSave).toHaveBeenCalledTimes(1);
     });
 

@@ -316,8 +316,10 @@ describe("Grid canvas characterization", () => {
   });
 
   it("commits compacted positions through a typed command when gravity is enabled", async () => {
+    // tile-2 sits below an empty gap; enabling gravity should pull it up to
+    // rest directly beneath tile-1.
     const first = makeTile({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 });
-    const second = makeTile({ i: "tile-2", x: 0, y: 0, w: 2, h: 2 });
+    const second = makeTile({ i: "tile-2", x: 0, y: 5, w: 2, h: 2 });
     const { store } = makeStore(makeGrid(first));
     store.currentGrid.tiles = [first, second];
     store.verticalCompact = false;
@@ -333,16 +335,55 @@ describe("Grid canvas characterization", () => {
 
     expect(store.currentGrid.tiles).toEqual([
       expect.objectContaining({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 }),
-      expect.objectContaining({ i: "tile-2", x: 0, y: 0, w: 2, h: 2 }),
+      expect.objectContaining({ i: "tile-2", x: 0, y: 5, w: 2, h: 2 }),
     ]);
     expect(store.commitCompactedLayout).toHaveBeenCalledWith([
       expect.objectContaining({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 }),
-      expect.objectContaining({ i: "tile-2", x: 2, y: 0, w: 2, h: 2 }),
+      expect.objectContaining({ i: "tile-2", x: 0, y: 2, w: 2, h: 2 }),
     ]);
     expect(store.updateGrid).not.toHaveBeenCalled();
     expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
       { i: "tile-1", x: 0, y: 0, w: 2, h: 2 },
-      { i: "tile-2", x: 2, y: 0, w: 2, h: 2 },
+      { i: "tile-2", x: 0, y: 2, w: 2, h: 2 },
+    ]);
+
+    wrapper.unmount();
+  });
+
+  it("compacts the active breakpoint's override layout when gravity is enabled", async () => {
+    // At md the tile positions come from the per-breakpoint override map, not
+    // the canonical tiles. Enabling gravity should compact those override
+    // positions (here pulling tile-2 up to rest beneath tile-1).
+    const first = makeTile({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 });
+    const second = makeTile({ i: "tile-2", x: 0, y: 0, w: 2, h: 2 });
+    const grid = makeGrid(first);
+    grid.tiles = [first, second];
+    grid.overrides = {
+      md: {
+        "tile-1": { x: 0, y: 0, w: 2, h: 2 },
+        "tile-2": { x: 0, y: 5, w: 2, h: 2 },
+      },
+    };
+    const { store } = makeStore(grid);
+    store.forcedBreakpoint = "md";
+    store.verticalCompact = false;
+    storeHolder.current = store;
+    const { default: GridComponent } = await import(
+      "@/components/grid/Grid.vue"
+    );
+    const wrapper = mount(GridComponent);
+    await flushPromises();
+
+    store.verticalCompact = true;
+    await nextTick();
+
+    expect(store.commitCompactedLayout).toHaveBeenCalledWith([
+      expect.objectContaining({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 }),
+      expect.objectContaining({ i: "tile-2", x: 0, y: 2, w: 2, h: 2 }),
+    ]);
+    expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
+      { i: "tile-1", x: 0, y: 0, w: 2, h: 2 },
+      { i: "tile-2", x: 0, y: 2, w: 2, h: 2 },
     ]);
 
     wrapper.unmount();

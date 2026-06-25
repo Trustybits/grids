@@ -10,6 +10,7 @@ import {
   breakpointToColumnCount,
   calculateViewportColumnCount,
   columnCountToBreakpoint,
+  compactGridLayout,
   findFirstAvailableLayoutSpot,
   gridItemsOverlap,
   packGridLayout,
@@ -153,6 +154,68 @@ describe("packGridLayout", () => {
     const original = structuredClone(items);
 
     packGridLayout(items, 4);
+
+    expect(items).toEqual(original);
+  });
+});
+
+describe("compactGridLayout", () => {
+  it("pulls tiles upward to fill vertical gaps", () => {
+    const items = [
+      layoutItem("a", 0, 0, 2, 2),
+      layoutItem("b", 0, 5, 2, 2),
+    ];
+
+    expect(compactGridLayout(items, 4)).toEqual([
+      layoutItem("a", 0, 0, 2, 2),
+      layoutItem("b", 0, 2, 2, 2),
+    ]);
+  });
+
+  it("stacks tiles in different columns independently", () => {
+    const items = [
+      layoutItem("a", 0, 3, 2, 2),
+      layoutItem("b", 2, 7, 2, 2),
+    ];
+
+    expect(compactGridLayout(items, 4)).toEqual([
+      layoutItem("a", 0, 0, 2, 2),
+      layoutItem("b", 2, 0, 2, 2),
+    ]);
+  });
+
+  it("settles a tile on top of the one above it", () => {
+    const items = [
+      layoutItem("a", 0, 0, 4, 2),
+      layoutItem("b", 0, 6, 2, 2),
+    ];
+
+    expect(compactGridLayout(items, 4)).toEqual([
+      layoutItem("a", 0, 0, 4, 2),
+      layoutItem("b", 0, 2, 2, 2),
+    ]);
+  });
+
+  it("returns items in their original input order", () => {
+    const items = [
+      layoutItem("b", 0, 5, 2, 2),
+      layoutItem("a", 0, 0, 2, 2),
+    ];
+
+    expect(compactGridLayout(items, 4)).toEqual([
+      layoutItem("b", 0, 2, 2, 2),
+      layoutItem("a", 0, 0, 2, 2),
+    ]);
+  });
+
+  it("does not mutate the supplied items", () => {
+    const items = [
+      layoutItem("a", 0, 0, 2, 2),
+      layoutItem("b", 0, 5, 2, 2),
+    ];
+    const original = structuredClone(items);
+
+    compactGridLayout(items, 4);
 
     expect(items).toEqual(original);
   });

@@ -157,6 +157,46 @@ export function packGridLayout(
   return items.map((item) => placedById.get(item.i) ?? { ...item });
 }
 
+/**
+ * Applies vertical "gravity" to a layout: every item falls upward until it
+ * rests on the top of the grid or on another item. Unlike {@link packGridLayout}
+ * (which only resolves overlaps and out-of-bounds items, leaving vertical gaps
+ * intact), this closes the empty space above tiles. It mirrors the compaction
+ * that vue3-grid-layout performs when `verticalCompact` is enabled, so it can be
+ * used to reposition tiles the instant gravity is toggled on. Items are returned
+ * in their original input order.
+ */
+export function compactGridLayout(
+  items: readonly GridLayoutItem[],
+  columns: number,
+): GridLayoutItem[] {
+  assertPositiveInteger(columns, "columns");
+
+  const ordered = [...items].sort((left, right) => {
+    if (left.y !== right.y) return left.y - right.y;
+    if (left.x !== right.x) return left.x - right.x;
+    return left.i.localeCompare(right.i);
+  });
+  const placed: GridLayoutItem[] = [];
+
+  for (const item of ordered) {
+    const settled = { ...scaleLayoutItemToFit(item, columns) };
+
+    while (settled.y > 0) {
+      const lifted = { ...settled, y: settled.y - 1 };
+      if (placed.some((placedItem) => gridItemsOverlap(placedItem, lifted))) {
+        break;
+      }
+      settled.y -= 1;
+    }
+
+    placed.push(settled);
+  }
+
+  const placedById = new Map(placed.map((item) => [item.i, item]));
+  return items.map((item) => placedById.get(item.i) ?? { ...item });
+}
+
 export function breakpointToColumnCount(
   breakpoint: Breakpoint,
   baseColumnCount: number,

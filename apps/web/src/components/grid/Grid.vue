@@ -43,7 +43,7 @@ import GridTile from "./Tile.vue";
 import { useResponsiveGridLayout } from "@/composables/useResponsiveGridLayout";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import {
-  packGridLayout,
+  compactGridLayout,
   reconcileGridLayout,
 } from "@/utils/GridLayoutUtils";
 
@@ -150,11 +150,10 @@ export default {
       () => gridView.verticalCompact,
       (isCompact, wasCompact) => {
         if (!gridView.grid || !gridView.canEdit) return;
-        if (activeBreakpoint.value !== "lg") return;
 
         // Only act when gravity is turned ON (false -> true)
         if (isCompact && !wasCompact) {
-          const compacted = packGridLayout(
+          const compacted = compactGridLayout(
             displayLayout.value,
             responsiveColNum.value,
           );
@@ -164,7 +163,8 @@ export default {
             compacted,
           );
 
-          // Commit the compacted positions into canonical tiles and persist.
+          // Commit the compacted positions and persist. The controller routes
+          // them to canonical tiles (lg) or per-breakpoint overrides (md/sm).
           gridView.commitCompactedLayout(compacted);
         }
       },

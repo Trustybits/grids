@@ -115,6 +115,7 @@ export default defineComponent({
     const editorDomRef = ref<HTMLElement | null>(null);
     const isEditing = ref(false);
     const textContentDiv = ref<HTMLDivElement | null>(null);
+    const resizeObserver = ref<ResizeObserver | null>(null);
 
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
@@ -200,6 +201,13 @@ export default defineComponent({
             if (scrollableElement) {
               editorDomRef.value = scrollableElement;
               scrollableElement.addEventListener("scroll", handleScroll);
+
+              if (typeof ResizeObserver !== "undefined") {
+                resizeObserver.value = new ResizeObserver(() =>
+                  scheduleCheckOverflow(),
+                );
+                resizeObserver.value.observe(scrollableElement);
+              }
             }
           }
         });
@@ -258,6 +266,21 @@ export default defineComponent({
       checkScrollPosition();
     };
 
+    // Overflow is a layout-dependent measurement, so it must be re-checked
+    // whenever the tile's rendered size changes (grid resize, breakpoint, or
+    // window resize) — not only when the text content changes. Without this,
+    // isTextOverflowing goes stale after a resize and the vertical-align
+    // behaviour (center-lock on N×1, top-on-overflow on taller tiles) reflects
+    // the old size until the next edit. rAF-debounced to coalesce bursts.
+    let overflowRafId: number | null = null;
+    const scheduleCheckOverflow = () => {
+      if (overflowRafId != null) return;
+      overflowRafId = requestAnimationFrame(() => {
+        overflowRafId = null;
+        checkOverflow();
+      });
+    };
+
     const shouldShowOverflow = computed(
       () =>
         isScrollableOverflow.value && !isScrolledToBottom.value,
@@ -299,6 +322,12 @@ export default defineComponent({
       if (editorDomRef.value) {
         editorDomRef.value.removeEventListener("scroll", handleScroll);
         editorDomRef.value = null;
+      }
+      resizeObserver.value?.disconnect();
+      resizeObserver.value = null;
+      if (overflowRafId != null) {
+        cancelAnimationFrame(overflowRafId);
+        overflowRafId = null;
       }
     });
 

@@ -59,6 +59,26 @@ export class GridTileContentController {
     }
   }
 
+  patchTileContentSilently(
+    id: string,
+    patch: Partial<AnyTileContent>,
+  ): void {
+    const grid = this.stores.session.currentGrid;
+    const tile = grid?.tiles.find((candidate) => candidate.i === id);
+    if (!tile) return;
+
+    const currentContent = tile.content as AnyTileContent &
+      Record<string, unknown>;
+    const patchRecord = patch as Record<string, unknown>;
+    if (!hasRecordChanges(currentContent, patchRecord)) return;
+
+    tile.content = {
+      ...currentContent,
+      ...patchRecord,
+    } as TileContent;
+    this.scheduleSave();
+  }
+
   autosaveTileContent(
     id: string,
     patch: Partial<AnyTileContent>,

@@ -244,10 +244,17 @@ export default defineComponent({
       return (tile?.content as MapContent | undefined) ?? props.content;
     });
 
-    const patchContent = (patch: Partial<MapContent>) => {
+    const patchContent = (
+      patch: Partial<MapContent>,
+      { undoable = true }: { undoable?: boolean } = {},
+    ) => {
       const tileId = resolvedTileId.value;
       if (tileId) {
-        gridView.patchTileContent(tileId, patch);
+        if (undoable) {
+          gridView.patchTileContent(tileId, patch);
+        } else {
+          gridView.patchTileContentSilently(tileId, patch);
+        }
         return;
       }
       Object.assign(props.content, patch);
@@ -445,13 +452,18 @@ export default defineComponent({
       }
     };
 
-    const setMarker = (marker: { lat: number; lng: number }) => {
+    const setMarker = (
+      marker: { lat: number; lng: number },
+      { undoable = true }: { undoable?: boolean } = {},
+    ) => {
       if (!gridView.canEdit) return;
-      patchContent({ marker });
+      patchContent({ marker }, { undoable });
       updateMarker(marker);
     };
 
-    const persistCurrentMapView = () => {
+    const persistCurrentMapView = (
+      { undoable = true }: { undoable?: boolean } = {},
+    ) => {
       const map = mapInstance.value;
       if (!map) return;
       const center = map.getCenter();
@@ -463,7 +475,7 @@ export default defineComponent({
         zoom: Number(map.getZoom().toFixed(2)),
         bearing: Number(map.getBearing().toFixed(2)),
         pitch: Number(map.getPitch().toFixed(2)),
-      });
+      }, { undoable });
     };
 
     const setMapInteractivity = (enabled: boolean) => {
@@ -486,11 +498,18 @@ export default defineComponent({
       }
     };
 
-    const syncContentFromMap = () => {
+    const syncContentFromMap = (
+      force = false,
+      { undoable = true }: { undoable?: boolean } = {},
+    ) => {
       // Don't persist the default [0,0] center during initial load;
       // we only want to save once a real position has been established.
       if (isInitialLoad) return;
       if (!gridView.canEdit) return;
+      // Mapbox can emit moveend while a saved map is initializing or resizing.
+      // Those passive events normalize camera values and would otherwise create
+      // undo entries as soon as a grid loads.
+      if (!force && !isEditing.value) return;
       // Skip intermediate moveend events fired during programmatic
       // animations (flyTo, easeTo, recenter).  Each caller sets
       // isProgrammaticMove = true before starting and registers a
@@ -505,11 +524,15 @@ export default defineComponent({
       if (syncTimer) clearTimeout(syncTimer);
       syncTimer = setTimeout(() => {
         syncTimer = null;
-        persistCurrentMapView();
+        persistCurrentMapView({ undoable });
       }, SYNC_DEBOUNCE_MS);
     };
 
-    const flyToLocation = (center: { lat: number; lng: number }, zoom?: number) => {
+    const flyToLocation = (
+      center: { lat: number; lng: number },
+      zoom?: number,
+      { undoable = true }: { undoable?: boolean } = {},
+    ) => {
       const map = mapInstance.value;
       const targetZoom = zoom ?? storeContent.value.zoom ?? 9;
       if (map) {
@@ -521,7 +544,7 @@ export default defineComponent({
           mapReady.value = true;
           // jumpTo doesn't fire moveend, so persist immediately.
           if (gridView.canEdit) {
-            patchContent({ center, zoom: targetZoom });
+            patchContent({ center, zoom: targetZoom }, { undoable });
           }
         } else {
           // Suppress intermediate moveend events during the animation.
@@ -530,7 +553,7 @@ export default defineComponent({
           isProgrammaticMove = true;
           map.once("moveend", () => {
             isProgrammaticMove = false;
-            syncContentFromMap();
+            syncContentFromMap(true, { undoable });
           });
           // Use Mapbox's flyTo for a cinematic arc animation between locations.
           map.flyTo({
@@ -569,8 +592,13 @@ export default defineComponent({
         }
         statusMessage.value = null;
         const [lng, lat] = match.center as [number, number];
-        setMarker({ lat, lng });
-        flyToLocation({ lat, lng }, clamp(storeContent.value.zoom ?? 9, 9, 14));
+        const undoable = !isInitialLoad;
+        setMarker({ lat, lng }, { undoable });
+        flyToLocation(
+          { lat, lng },
+          clamp(storeContent.value.zoom ?? 9, 9, 14),
+          { undoable },
+        );
       } catch (error) {
         console.error("Mapbox search failed:", error);
         statusMessage.value = "Search failed.";
@@ -594,8 +622,13 @@ export default defineComponent({
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           };
-          setMarker(marker);
-          flyToLocation(marker, clamp(storeContent.value.zoom ?? 9, 10, 14));
+          const undoable = !isInitialLoad;
+          setMarker(marker, { undoable });
+          flyToLocation(
+            marker,
+            clamp(storeContent.value.zoom ?? 9, 10, 14),
+            { undoable },
+          );
         },
         () => {
           statusMessage.value = "Unable to get location.";
@@ -695,7 +728,10 @@ export default defineComponent({
       }
     };
 
-    const apply3d = (enabled: boolean) => {
+    const apply3d = (
+      enabled: boolean,
+      { persistCamera = true }: { persistCamera?: boolean } = {},
+    ) => {
       const map = mapInstance.value;
       if (!map) return;
       const apply = () => {
@@ -710,13 +746,17 @@ export default defineComponent({
         // Mapbox won't fire moveend — so skip the programmatic-move guard
         // to avoid permanently blocking syncContentFromMap.
         if (currentPitch === targetPitch) {
-          syncContentFromMap();
+          if (persistCamera) {
+            syncContentFromMap(true);
+          }
           return;
         }
         isProgrammaticMove = true;
         map.once("moveend", () => {
           isProgrammaticMove = false;
-          syncContentFromMap();
+          if (persistCamera) {
+            syncContentFromMap(true);
+          }
         });
         map.easeTo({ pitch: targetPitch, duration: 500 });
       };
@@ -785,7 +825,7 @@ export default defineComponent({
       isProgrammaticMove = true;
       map.once("moveend", () => {
         isProgrammaticMove = false;
-        syncContentFromMap();
+        syncContentFromMap(true);
       });
       // Use easeTo for a smooth pan back to the marker — flyTo's arc
       // animation is reserved for search-driven location changes.
@@ -855,9 +895,9 @@ export default defineComponent({
       map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
       map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
 
-      map.on("moveend", syncContentFromMap);
+      map.on("moveend", () => syncContentFromMap());
       map.on("style.load", () => {
-        apply3d(show3d.value);
+        apply3d(show3d.value, { persistCamera: false });
         applyActivePreset();
       });
 
@@ -915,7 +955,7 @@ export default defineComponent({
       }
 
       if (show3d.value) {
-        apply3d(true);
+        apply3d(true, { persistCamera: false });
       }
     });
 

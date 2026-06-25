@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { computed, nextTick, reactive } from "vue";
 import {
@@ -14,6 +14,12 @@ const storeHolder = vi.hoisted(() => ({
 }));
 const badgeHolder = vi.hoisted(() => ({
   userId: null as unknown,
+}));
+const mapboxHolder = vi.hoisted(() => ({
+  instances: [] as Array<{
+    __emit: (event: string, ...args: unknown[]) => void;
+    remove: ReturnType<typeof vi.fn>;
+  }>,
 }));
 
 vi.mock("@/grid-context/useGridViewContext", () => ({
@@ -80,16 +86,34 @@ vi.mock("mapbox-gl", () => ({
   default: {
     accessToken: "",
     Map: vi.fn(function () {
-      return {
+      const handlers = new Map<string, Array<(...args: unknown[]) => void>>();
+      const onceHandlers = new Map<string, Array<(...args: unknown[]) => void>>();
+      const instance = {
         addControl: vi.fn(),
-        on: vi.fn(),
-        once: vi.fn(),
+        on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+          handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+          return instance;
+        }),
+        once: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+          onceHandlers.set(event, [...(onceHandlers.get(event) ?? []), handler]);
+          return instance;
+        }),
         remove: vi.fn(),
         resize: vi.fn(),
         isStyleLoaded: vi.fn(() => true),
         setStyle: vi.fn(),
         setLight: vi.fn(),
         setFog: vi.fn(),
+        getSource: vi.fn(() => null),
+        addSource: vi.fn(),
+        removeSource: vi.fn(),
+        getLayer: vi.fn(() => null),
+        addLayer: vi.fn(),
+        removeLayer: vi.fn(),
+        setTerrain: vi.fn(),
+        easeTo: vi.fn(),
+        flyTo: vi.fn(),
+        jumpTo: vi.fn(),
         getCenter: vi.fn(() => ({ lat: 0, lng: 0 })),
         getZoom: vi.fn(() => 9),
         getBearing: vi.fn(() => 0),
@@ -100,7 +124,19 @@ vi.mock("mapbox-gl", () => ({
         doubleClickZoom: { enable: vi.fn(), disable: vi.fn() },
         keyboard: { enable: vi.fn(), disable: vi.fn() },
         touchZoomRotate: { enable: vi.fn(), disable: vi.fn() },
+        __emit: (event: string, ...args: unknown[]) => {
+          for (const handler of handlers.get(event) ?? []) {
+            handler(...args);
+          }
+          const queuedOnceHandlers = onceHandlers.get(event) ?? [];
+          onceHandlers.delete(event);
+          for (const handler of queuedOnceHandlers) {
+            handler(...args);
+          }
+        },
       };
+      mapboxHolder.instances.push(instance);
+      return instance;
     }),
     Marker: vi.fn(function () {
       return {
@@ -144,6 +180,7 @@ function makeStore(content: LinkContent | DocumentsContent | MapContent | Profil
     uploadingTiles: {},
     pendingFocusTileId: null,
     patchTileContent: vi.fn(),
+    patchTileContentSilently: vi.fn(),
     autosaveTileContent: vi.fn(),
     patchDocumentItem: vi.fn(),
     beginEditing: vi.fn(),
@@ -156,6 +193,7 @@ describe("tile-content command boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     badgeHolder.userId = null;
+    mapboxHolder.instances = [];
     vi.useRealTimers();
     class ResizeObserverStub {
       observe = vi.fn();
@@ -163,6 +201,11 @@ describe("tile-content command boundary", () => {
       disconnect = vi.fn();
     }
     vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it("link detail edits patch once after debounce without mutating content directly", async () => {
@@ -301,6 +344,89 @@ describe("tile-content command boundary", () => {
       showPlanes: false,
     });
     expect(store.saveGrid).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("map load camera events do not patch canonical content", async () => {
+    const content = reactive({
+      type: ContentType.MAP,
+      provider: "mapbox",
+      center: { lat: 40.7128, lng: -74.006 },
+      zoom: 12,
+      bearing: 0,
+      pitch: 0,
+      style: "default",
+      show3d: false,
+      showClouds: true,
+      showPlanes: true,
+    }) as MapContent;
+    const store = makeStore(content);
+    storeHolder.current = store;
+    vi.stubEnv("VITE_MAPBOX_TOKEN", "token");
+    const { default: MapContentComponent } = await import(
+      "@/components/tilecontent/MapContent.vue"
+    );
+    const wrapper = mount(MapContentComponent, {
+      props: { content },
+      global: {
+        provide: { tileId: "tile-1", gridTileW: computed(() => 4), gridTileH: computed(() => 3) },
+      },
+    });
+    await flushPromises();
+
+    expect(mapboxHolder.instances).toHaveLength(1);
+    mapboxHolder.instances[0].__emit("style.load", { type: "style.load" });
+    mapboxHolder.instances[0].__emit("moveend", { type: "moveend" });
+
+    expect(store.patchTileContent).not.toHaveBeenCalled();
+    expect(store.patchTileContentSilently).not.toHaveBeenCalled();
+    expect(content.center).toEqual({ lat: 40.7128, lng: -74.006 });
+    wrapper.unmount();
+  });
+
+  it("map initial geocode persists without undoing canonical content", async () => {
+    const content = reactive({
+      type: ContentType.MAP,
+      provider: "mapbox",
+      center: { lat: 0, lng: 0 },
+      zoom: 9,
+      bearing: 0,
+      pitch: 0,
+      style: "default",
+      show3d: false,
+      showClouds: true,
+      showPlanes: true,
+      searchQuery: "New York",
+    }) as MapContent;
+    const store = makeStore(content);
+    storeHolder.current = store;
+    vi.stubEnv("VITE_MAPBOX_TOKEN", "token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ features: [{ center: [-74.006, 40.7128] }] }),
+      })),
+    );
+    const { default: MapContentComponent } = await import(
+      "@/components/tilecontent/MapContent.vue"
+    );
+    const wrapper = mount(MapContentComponent, {
+      props: { content },
+      global: {
+        provide: { tileId: "tile-1", gridTileW: computed(() => 4), gridTileH: computed(() => 3) },
+      },
+    });
+    await flushPromises();
+
+    expect(store.patchTileContent).not.toHaveBeenCalled();
+    expect(store.patchTileContentSilently).toHaveBeenNthCalledWith(1, "tile-1", {
+      marker: { lat: 40.7128, lng: -74.006 },
+    });
+    expect(store.patchTileContentSilently).toHaveBeenNthCalledWith(2, "tile-1", {
+      center: { lat: 40.7128, lng: -74.006 },
+      zoom: 9,
+    });
     wrapper.unmount();
   });
 

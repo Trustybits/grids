@@ -118,6 +118,9 @@ describe("createDemoGridViewContext", () => {
     ctx.patchTileContent("tile-1", { text: "Changed" } as Partial<
       AnyTileContent
     >);
+    ctx.patchTileContentSilently("tile-1", { text: "Changed" } as Partial<
+      AnyTileContent
+    >);
     ctx.autosaveTileContent("tile-1", { text: "Changed" } as Partial<
       AnyTileContent
     >);

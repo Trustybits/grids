@@ -68,6 +68,8 @@ export function createLiveGridViewContext(): GridViewContext {
     commitEditing: controller.commitEditing.bind(controller),
     setTileContent: controller.setTileContent.bind(controller),
     patchTileContent: controller.patchTileContent.bind(controller),
+    patchTileContentSilently:
+      controller.patchTileContentSilently.bind(controller),
     autosaveTileContent:
       controller.autosaveTileContent.bind(controller),
     patchDocumentItem: controller.patchDocumentItem.bind(controller),

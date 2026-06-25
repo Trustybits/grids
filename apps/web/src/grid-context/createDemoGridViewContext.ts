@@ -65,6 +65,7 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
     commitEditing: noop,
     setTileContent: noop,
     patchTileContent: noop,
+    patchTileContentSilently: noop,
     autosaveTileContent: noop,
     patchDocumentItem: noop,
     updateCaption: noop,

@@ -119,6 +119,7 @@ function installController() {
     commitEditing: vi.fn(),
     setTileContent: vi.fn(),
     patchTileContent: vi.fn(),
+    patchTileContentSilently: vi.fn(),
     autosaveTileContent: vi.fn(),
     patchDocumentItem: vi.fn(),
     updateCaption: vi.fn(),
@@ -238,6 +239,7 @@ describe("createLiveGridViewContext", () => {
     ctx.commitEditing(urlMaps);
     ctx.setTileContent("tile-1", content);
     ctx.patchTileContent("tile-1", patch);
+    ctx.patchTileContentSilently("tile-1", patch);
     ctx.autosaveTileContent("tile-1", patch);
     ctx.patchDocumentItem("tile-2", "item-1", itemPatch);
     ctx.updateCaption({ tileId: "tile-1", caption: "Caption" });
@@ -269,6 +271,10 @@ describe("createLiveGridViewContext", () => {
     expect(controller.commitEditing).toHaveBeenCalledWith(urlMaps);
     expect(controller.setTileContent).toHaveBeenCalledWith("tile-1", content);
     expect(controller.patchTileContent).toHaveBeenCalledWith("tile-1", patch);
+    expect(controller.patchTileContentSilently).toHaveBeenCalledWith(
+      "tile-1",
+      patch,
+    );
     expect(controller.autosaveTileContent).toHaveBeenCalledWith(
       "tile-1",
       patch,

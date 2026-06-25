@@ -523,6 +523,13 @@ export class GridController {
     this.tileContentController.patchTileContent(id, patch);
   }
 
+  patchTileContentSilently(
+    id: string,
+    patch: Partial<AnyTileContent>,
+  ): void {
+    this.tileContentController.patchTileContentSilently(id, patch);
+  }
+
   autosaveTileContent(
     id: string,
     patch: Partial<AnyTileContent>,

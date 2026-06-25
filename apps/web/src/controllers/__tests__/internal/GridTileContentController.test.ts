@@ -157,6 +157,41 @@ describe("GridTileContentController", () => {
     });
   });
 
+  describe("patchTileContentSilently", () => {
+    it("merges the patch and persists without capturing history", () => {
+      seedGrid([makeLinkTile({ i: "t1" })]);
+
+      controller.patchTileContentSilently("t1", {
+        link: "https://silent.com",
+      } as never);
+
+      expect(
+        (h.stores.session.currentGrid!.tiles[0]!.content as LinkContent).link,
+      ).toBe("https://silent.com");
+      expect(pushUndoSnapshot).not.toHaveBeenCalled();
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("skips unchanged silent patches", () => {
+      seedGrid([
+        makeLinkTile({
+          i: "t1",
+          content: {
+            type: ContentType.LINK,
+            link: "https://example.com",
+          } as LinkContent,
+        }),
+      ]);
+
+      controller.patchTileContentSilently("t1", {
+        link: "https://example.com",
+      } as never);
+
+      expect(pushUndoSnapshot).not.toHaveBeenCalled();
+      expect(scheduleSave).not.toHaveBeenCalled();
+    });
+  });
+
   describe("autosaveTileContent", () => {
     it("delegates to patchTileContent when not editing the tile", () => {
       seedGrid([makeLinkTile({ i: "t1" })]);

@@ -54,6 +54,10 @@ export interface GridViewContext {
     tileId: string,
     patch: Partial<AnyTileContent>,
   ): void;
+  patchTileContentSilently(
+    tileId: string,
+    patch: Partial<AnyTileContent>,
+  ): void;
   autosaveTileContent(
     tileId: string,
     patch: Partial<AnyTileContent>,

@@ -27,6 +27,36 @@ vi.mock("@/grid-context/createLiveGridViewContext", () => ({
   createLiveGridViewContext: dependencySpies.createLiveGridViewContext,
 }));
 
+vi.mock("@/utils/TileUtils", async (importActual) => {
+  const actual = await importActual<typeof import("@/utils/TileUtils")>();
+  const { defineComponent, h, markRaw } = await import("vue");
+
+  const TileContentStub = markRaw(
+    defineComponent({
+      name: "TileContentStub",
+      props: {
+        content: {
+          type: Object,
+          required: true,
+        },
+      },
+      setup(props) {
+        return () =>
+          h("div", {
+            "data-test": "tile-content",
+            "data-content-type": (props.content as { type?: string }).type,
+          });
+      },
+    }),
+  );
+
+  return {
+    ...actual,
+    getContentComponent: vi.fn(() => TileContentStub),
+    getOptionComponent: vi.fn(() => null),
+  };
+});
+
 vi.mock("vue3-grid-layout", async () => {
   const { defineComponent, h } = await import("vue");
 

@@ -3,7 +3,17 @@ import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    // Disable asset-URL transformation in tests. Outside a dev server,
+    // @vitejs/plugin-vue defaults to `transformAssetUrls.includeAbsolute = true`,
+    // which rewrites template `src="/grids_logo.png"` into a real module import
+    // of the absolute public path. Vite then resolves that path to a file URL;
+    // on Windows the result (`file:///grids_logo.png`, no drive letter) makes
+    // Node's fileURLToPath throw, breaking the dynamic component import even for
+    // branches that never render the image. Tests only need the literal `src`
+    // string, so skip the rewrite entirely.
+    vue({ template: { transformAssetUrls: false } }),
+  ],
   envDir: fileURLToPath(new URL("../../", import.meta.url)),
   test: {
     // Use jsdom to simulate a browser environment

@@ -177,6 +177,12 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default the background link-preview fetch to a benign success so URL paste
+  // tests that don't care about preview metadata don't log an error from the
+  // composable's catch block (clearAllMocks wipes any prior resolved value,
+  // leaving callFunction returning undefined → `data.url` throws). Tests that
+  // assert preview behaviour override this with their own resolved/rejected value.
+  mockCallFunction.mockResolvedValue({ url: "https://example.com" });
   mockGridStore.canEdit = true;
   mockGridStore.addTile.mockReturnValue("tile-1");
   mockGridStore.pendingFocusTileId = null;

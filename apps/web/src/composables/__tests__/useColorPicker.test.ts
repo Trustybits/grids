@@ -14,6 +14,8 @@ import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridController } from "@/controllers/useGridController";
 import { useThemeStore } from "@/stores/theme";
 import { useColorPicker, computeTextColor } from "@/composables/useColorPicker";
+import { registerServiceFactory } from "@/services/ServiceFactorySingleton";
+import type { ServiceFactoryInterface } from "@/services/factory/ServiceFactoryInterface";
 import {
   ContentType,
   type TextContent,
@@ -34,6 +36,20 @@ const makeTextContent = (backgroundColor: string): TextContent => ({
 });
 
 describe("useColorPicker", () => {
+  beforeEach(() => {
+    // "writes changes…" lets a real patchTileContent flow into the persistence
+    // scheduler, which calls getServiceFactory().getGridService().saveGrid().
+    // Register a no-op factory so that fire-and-forget save resolves instead of
+    // throwing "ServiceFactory has not been registered" and logging via
+    // console.error. The save is incidental; the test asserts the session
+    // store content update, which happens independently of the save.
+    registerServiceFactory({
+      getGridService: () => ({
+        saveGrid: async () => {},
+      }),
+    } as unknown as ServiceFactoryInterface);
+  });
+
   it("reacts when the content prop object is replaced", async () => {
     const events: Array<[string, string]> = [];
 

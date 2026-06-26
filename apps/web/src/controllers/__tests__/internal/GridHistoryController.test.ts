@@ -247,8 +247,16 @@ describe("GridHistoryController", () => {
       await controller.applySnapshot(makeSnapshot({ themeId: "theme-a" }));
       expect(setTheme).not.toHaveBeenCalled();
 
+      // "theme-b" is not a registered theme, so the real theme store logs a
+      // fallback warning. Silence it to keep the test output clean, but assert
+      // it actually fired so we still cover the fallback path.
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       await controller.applySnapshot(makeSnapshot({ themeId: "theme-b" }));
       expect(setTheme).toHaveBeenCalledWith("theme-b");
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Theme "theme-b" not found, falling back to dark',
+      );
+      warnSpy.mockRestore();
     });
 
     it("bumps the history stack version after applying", async () => {

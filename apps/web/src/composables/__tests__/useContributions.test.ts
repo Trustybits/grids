@@ -140,8 +140,12 @@ describe("readonly exposure", () => {
   it("exposes totalPaidCents and isLoading as readonly refs", () => {
     initContributions();
     const { totalPaidCents } = useContributions();
-    // Writing to a readonly ref is a no-op (and warns); value stays put.
+    // Writing to a readonly ref is a no-op; value stays put. Vue logs an
+    // expected "target is readonly" warning here, so suppress it to keep the
+    // test output clean while still asserting the write had no effect.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     (totalPaidCents as unknown as { value: number }).value = 9999;
+    warnSpy.mockRestore();
     expect(totalPaidCents.value).not.toBe(9999);
   });
 });

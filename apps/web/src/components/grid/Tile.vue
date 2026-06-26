@@ -195,6 +195,7 @@ import {
   onMounted,
   onUnmounted,
   ref,
+  shallowRef,
   computed,
   provide,
   watch,
@@ -297,8 +298,12 @@ export default defineComponent({
     const isEmbedInteractive = ref(false);
     provide("isEmbedInteractive", isEmbedInteractive);
     const hoveredLayer = ref<"actions" | "toolbar" | null>(null);
-    const currentComponent = ref<Component | null>(null);
-    const headerComponent = ref<Component | null>(null);
+    // Hold the dynamically resolved content/header component definitions in
+    // shallowRefs. A plain `ref` makes the component object deeply reactive,
+    // which Vue warns about ("Vue received a Component that was made a reactive
+    // object … use markRaw or shallowRef") and adds needless overhead.
+    const currentComponent = shallowRef<Component | null>(null);
+    const headerComponent = shallowRef<Component | null>(null);
     const childComponent = ref<TileChildComponent | null>(null);
     const gridTileRef = ref<HTMLElement | null>(null);
     const isEditing = ref<boolean>(false);

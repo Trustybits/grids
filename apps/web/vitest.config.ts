@@ -31,16 +31,16 @@ export default defineConfig({
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
       "@grids/contracts/types": fileURLToPath(
-        new URL("../contracts/src/types/index.ts", import.meta.url),
+        new URL("../../packages/contracts/src/types/index.ts", import.meta.url),
       ),
       "@grids/contracts/dao": fileURLToPath(
-        new URL("../contracts/src/dao/index.ts", import.meta.url),
+        new URL("../../packages/contracts/src/dao/index.ts", import.meta.url),
       ),
       "@grids/contracts/auth": fileURLToPath(
-        new URL("../contracts/src/auth/index.ts", import.meta.url),
+        new URL("../../packages/contracts/src/auth/index.ts", import.meta.url),
       ),
       "@grids/contracts": fileURLToPath(
-        new URL("../contracts/src/index.ts", import.meta.url),
+        new URL("../../packages/contracts/src/index.ts", import.meta.url),
       ),
     },
   },

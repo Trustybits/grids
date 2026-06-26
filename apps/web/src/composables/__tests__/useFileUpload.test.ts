@@ -190,6 +190,83 @@ describe("uploadFileToUrl", () => {
   });
 });
 
+describe("uploadFileToUrlWithProgress", () => {
+  it("uploads resumably, reports progress as a fraction, and returns the URL", async () => {
+    const { task, emitProgress, resolveDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+    const onProgress = vi.fn();
+
+    const { uploadFileToUrlWithProgress } = useFileUpload();
+    const promise = uploadFileToUrlWithProgress(
+      file(),
+      { fileType: "images" },
+      onProgress,
+    );
+
+    expect(storage.uploadResumable).toHaveBeenCalledWith(
+      "user-1",
+      expect.any(File),
+      { fileType: "images" },
+    );
+
+    emitProgress(25, 100);
+    expect(onProgress).toHaveBeenCalledWith(0.25);
+
+    resolveDone("https://storage/avatar.png");
+    expect(await promise).toBe("https://storage/avatar.png");
+  });
+
+  it("reports a 0 fraction when total bytes are unknown", async () => {
+    const { task, emitProgress, resolveDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+    const onProgress = vi.fn();
+
+    const { uploadFileToUrlWithProgress } = useFileUpload();
+    const promise = uploadFileToUrlWithProgress(file(), {}, onProgress);
+
+    emitProgress(0, 0);
+    expect(onProgress).toHaveBeenCalledWith(0);
+
+    resolveDone("https://x");
+    await promise;
+  });
+
+  it("works without an onProgress callback", async () => {
+    const { task, resolveDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+
+    const { uploadFileToUrlWithProgress } = useFileUpload();
+    const promise = uploadFileToUrlWithProgress(file());
+
+    expect(task.onProgress).not.toHaveBeenCalled();
+    resolveDone("https://storage/avatar.png");
+    expect(await promise).toBe("https://storage/avatar.png");
+  });
+
+  it("throws when not logged in", async () => {
+    mockGetCurrentUserId.mockReturnValue(null);
+    const { uploadFileToUrlWithProgress } = useFileUpload();
+    await expect(uploadFileToUrlWithProgress(file())).rejects.toThrow(
+      "You must be logged in to upload.",
+    );
+    expect(storage.uploadResumable).not.toHaveBeenCalled();
+  });
+
+  it("logs and rethrows when the upload fails", async () => {
+    const { task, rejectDone } = makeUploadTask();
+    storage.uploadResumable.mockReturnValue(task);
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { uploadFileToUrlWithProgress } = useFileUpload();
+    const promise = uploadFileToUrlWithProgress(file());
+    rejectDone(new Error("storage down"));
+
+    await expect(promise).rejects.toThrow("storage down");
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+  });
+});
+
 describe("uploadFile", () => {
   it("returns IMAGE content for an image file", async () => {
     storage.upload.mockResolvedValue("https://storage/a.png");

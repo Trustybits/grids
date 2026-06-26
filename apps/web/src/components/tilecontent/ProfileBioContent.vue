@@ -450,8 +450,6 @@ import {
   getRoundedPolygonPath,
 } from "@/utils/AvatarShape";
 import { useFileUpload } from "@/composables/useFileUpload";
-import { getAuthProvider } from "@/auth/AuthProviderSingleton";
-import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useColorPicker } from "@/composables/useColorPicker";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
 import { useTileContentWriter } from "@/composables/useTileContentWriter";
@@ -464,9 +462,6 @@ import ShapeSquareIcon from "@/components/icons/tile-actionbar/ShapeSquareIcon.v
 import ShapePolygonIcon from "@/components/icons/tile-actionbar/ShapePolygonIcon.vue";
 import UploadMediaIcon from "@/components/icons/tile-actionbar/UploadMediaIcon.vue";
 import UrlSourceIcon from "@/components/icons/tile-actionbar/UrlSourceIcon.vue";
-
-type ServiceFactory = ReturnType<typeof getServiceFactory>;
-type StorageService = ReturnType<ServiceFactory["getStorageService"]>;
 
 const baseExtensions: AnyExtension[] = [
   StarterKit,
@@ -527,12 +522,8 @@ export default defineComponent({
       return classes;
     });
 
-    const { uploadExternalImageToStorage } = useFileUpload();
-    let storageService: StorageService | null = null;
-    const getProfileStorageService = (): StorageService => {
-      storageService ??= getServiceFactory().getStorageService();
-      return storageService;
-    };
+    const { uploadExternalImageToStorage, uploadFileToUrlWithProgress } =
+      useFileUpload();
 
     // ── Badges ────────────────────────────────────────────────────────
     // Resolve the grid owner's UID — works both for the owner editing
@@ -1293,12 +1284,6 @@ export default defineComponent({
         return;
       }
 
-      const currentUserId = getAuthProvider().getCurrentUserId();
-      if (!currentUserId) {
-        alert("You must be logged in to upload.");
-        return;
-      }
-
       const previousUrl = avatarSrc.value;
 
       const blobUrl = URL.createObjectURL(file);
@@ -1308,19 +1293,13 @@ export default defineComponent({
       uploadPercent.value = 0;
 
       try {
-        const uploadTask = getProfileStorageService().uploadResumable(
-          currentUserId,
+        const permanentUrl = await uploadFileToUrlWithProgress(
           file,
           { fileType: "images" },
+          (fraction) => {
+            uploadPercent.value = Math.round(fraction * 100);
+          },
         );
-
-        uploadTask.onProgress((progress) => {
-          uploadPercent.value = Math.round(
-            (progress.bytesTransferred / progress.totalBytes) * 100,
-          );
-        });
-
-        const permanentUrl = await uploadTask.done();
 
         URL.revokeObjectURL(blobUrl);
         await saveProfilePhoto(permanentUrl);

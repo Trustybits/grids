@@ -82,6 +82,48 @@ export function useFileUpload() {
   };
 
   /**
+   * Upload a file to storage with resumable progress reporting and return just
+   * the URL. Use this when you need the URL directly but also want to surface
+   * upload progress (e.g. the profile avatar). The optional `onProgress`
+   * callback receives a 0–1 fraction of bytes transferred.
+   */
+  const uploadFileToUrlWithProgress = async (
+    file: File,
+    options: UploadOptions = {},
+    onProgress?: (fraction: number) => void,
+  ): Promise<string> => {
+    const authProvider = getUploadAuthProvider();
+    const storageService = getUploadStorageService();
+    const currentUserId = authProvider.getCurrentUserId();
+    if (!currentUserId) {
+      throw new Error("You must be logged in to upload.");
+    }
+
+    try {
+      const uploadTask = storageService.uploadResumable(
+        currentUserId,
+        file,
+        options,
+      );
+      if (onProgress) {
+        uploadTask.onProgress((progress: StorageUploadProgress) => {
+          onProgress(
+            progress.totalBytes > 0
+              ? progress.bytesTransferred / progress.totalBytes
+              : 0,
+          );
+        });
+      }
+      return await uploadTask.done();
+    } catch (error) {
+      console.error("uploadFileToUrlWithProgress - Upload failed:", {
+        error,
+      });
+      throw error;
+    }
+  };
+
+  /**
    * Upload a file to storage and return TileContent.
    * Use this for creating new tiles from uploaded files (non-optimistic path).
    */
@@ -393,6 +435,7 @@ export function useFileUpload() {
   return {
     uploadFile,
     uploadFileToUrl,
+    uploadFileToUrlWithProgress,
     uploadFileOptimistic,
     uploadDocumentsOptimistic,
     uploadFileOptimisticForTile,

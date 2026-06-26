@@ -16,6 +16,7 @@ import {
 describe("GridPersistenceController", () => {
   let h: InternalHarness;
   let canSave: Mock<() => boolean>;
+  let flushChatCleanup: Mock<() => void>;
   let controller: GridPersistenceController;
 
   beforeEach(() => {
@@ -24,10 +25,12 @@ describe("GridPersistenceController", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     h = createHarness();
     canSave = vi.fn<() => boolean>(() => true);
+    flushChatCleanup = vi.fn<() => void>();
     controller = new GridPersistenceController(
       h.stores,
       h.dependencies,
       canSave,
+      flushChatCleanup,
     );
   });
 
@@ -172,6 +175,45 @@ describe("GridPersistenceController", () => {
       await Promise.resolve();
 
       expect(h.stores.session.persistenceError).toBe("Failed to save grid.");
+    });
+  });
+
+  describe("chat-cleanup GC tick", () => {
+    it("runs the GC tick after a successful flush for the active scope", async () => {
+      seedSavableGrid();
+
+      await controller.saveGrid();
+
+      expect(flushChatCleanup).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not run the GC tick when the flushed scope is stale", async () => {
+      const flushGate = deferred<void>();
+      vi.mocked(h.persistenceScheduler.flush).mockReturnValueOnce(
+        flushGate.promise,
+      );
+      h.stores.session.setCurrentGrid(makeGrid({ id: "old-grid" }));
+      h.stores.session.setOwner(true);
+
+      controller.scheduleSave();
+      // Session moves on before the flush resolves → scope no longer matches.
+      h.stores.session.setCurrentGrid(makeGrid({ id: "new-grid" }));
+      flushGate.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(flushChatCleanup).not.toHaveBeenCalled();
+    });
+
+    it("does not run the GC tick when the flush fails", async () => {
+      seedSavableGrid();
+      vi.mocked(h.persistenceScheduler.flush).mockRejectedValueOnce(
+        new Error("flush failed"),
+      );
+
+      await controller.saveGrid();
+
+      expect(flushChatCleanup).not.toHaveBeenCalled();
     });
   });
 

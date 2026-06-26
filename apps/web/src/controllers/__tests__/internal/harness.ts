@@ -14,6 +14,7 @@ import {
   type Tile,
 } from "@grids/contracts/types";
 import type { AnalyticsServiceInterface } from "@/services/interfaces/AnalyticsServiceInterface";
+import type { ChatServiceInterface } from "@/services/interfaces/ChatServiceInterface";
 import type { GridServiceInterface } from "@/services/interfaces/GridServiceInterface";
 import type { GridPersistenceSchedulerInterface } from "@/services/interfaces/GridPersistenceSchedulerInterface";
 import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
@@ -179,6 +180,8 @@ export interface InternalHarness {
   persistenceScheduler: GridPersistenceSchedulerInterface;
   authProvider: AuthProvider;
   getCurrentUserId: ReturnType<typeof vi.fn>;
+  chatService: ChatServiceInterface;
+  deleteAllMessages: ReturnType<typeof vi.fn>;
   dependencies: GridControllerDependencies;
 }
 
@@ -203,11 +206,17 @@ export function createHarness(): InternalHarness {
     flush: vi.fn(async () => undefined),
   };
 
+  const deleteAllMessages = vi.fn(async () => undefined);
+  const chatService = {
+    deleteAllMessages,
+  } as unknown as ChatServiceInterface;
+
   const dependencies: GridControllerDependencies = {
     getGridService: vi.fn(() => gridService),
     persistenceScheduler,
     getAuthProvider: vi.fn(() => authProvider),
     getAnalyticsService: vi.fn(() => analyticsService),
+    getChatService: vi.fn(() => chatService),
     generateUuid: vi.fn(() => "uuid"),
     delay: vi.fn(async () => undefined),
     now: vi.fn(() => new Date("2026-06-22T12:00:00Z")),
@@ -230,6 +239,8 @@ export function createHarness(): InternalHarness {
     persistenceScheduler,
     authProvider,
     getCurrentUserId,
+    chatService,
+    deleteAllMessages,
     dependencies,
   };
 }

@@ -8,9 +8,14 @@ export class GridSessionController {
     private readonly stores: GridControllerStores,
     private readonly dependencies: GridControllerDependencies,
     private readonly refreshStableSnapshot: () => void,
+    private readonly flushChatCleanup: () => void,
   ) {}
 
   resetSessionDependents(): void {
+    // Flush the outgoing grid's pending chat-tile cleanup before the history
+    // and session stores are reset — while its id and undo/redo stacks are
+    // still intact for the reachability check.
+    this.flushChatCleanup();
     this.stores.history.reset();
     this.stores.viewport.reset();
     this.stores.uploads.reset();

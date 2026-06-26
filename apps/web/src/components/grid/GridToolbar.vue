@@ -12,82 +12,70 @@
         class="toolbarAlpha"
         @scroll="updateScrollFades"
       >
-      <button
-        class="toolbar-btn"
-        data-tooltip="Text"
-        @click="addTextElement"
-      >
-        <TextLegacyIcon />
-      </button>
+      <!--
+        Tooltips are teleported to <body> via FloatingTooltip rather than
+        rendered with the CSS [data-tooltip] ::after, because .toolbarAlpha
+        is an overflow scroll container that would clip an in-flow tooltip.
+      -->
+      <FloatingTooltip text="Text">
+        <button class="toolbar-btn" @click="addTextElement">
+          <TextLegacyIcon />
+        </button>
+      </FloatingTooltip>
 
-      <button
-        v-if="smartTextEnabled"
-        class="toolbar-btn"
-        data-tooltip="Smart Text"
-        @click="addSmartTextElement"
-      >
-        <AppBarTextIcon />
-      </button>
+      <FloatingTooltip v-if="smartTextEnabled" text="Smart Text">
+        <button class="toolbar-btn" @click="addSmartTextElement">
+          <AppBarTextIcon />
+        </button>
+      </FloatingTooltip>
 
-      <button
-        class="toolbar-btn"
-        data-tooltip="Profile"
-        @click="addProfileElement"
-      >
-        <ProfileTileIcon />
-      </button>
+      <FloatingTooltip text="Profile">
+        <button class="toolbar-btn" @click="addProfileElement">
+          <ProfileTileIcon />
+        </button>
+      </FloatingTooltip>
 
-      <button
-        class="toolbar-btn"
-        data-tooltip="Chat"
-        @click="addChatElement"
-      >
-        <ChatIcon />
-      </button>
+      <FloatingTooltip text="Chat">
+        <button class="toolbar-btn" @click="addChatElement">
+          <ChatIcon />
+        </button>
+      </FloatingTooltip>
 
-      <button
-        class="toolbar-btn"
-        data-tooltip="Image / Video"
-        @click="selectFile"
-      >
-        <ImageIcon />
-      </button>
-      <button
-        v-if="documentsEnabled"
-        class="toolbar-btn"
-        data-tooltip="Documents"
-        @click="selectDocuments"
-      >
-        <DocumentsIcon />
-      </button>
-      <button
-        class="toolbar-btn"
-        data-tooltip="Link"
-        @click="addLinkElement"
-      >
-        <LinkTileIcon />
-      </button>
-      <button
-        class="toolbar-btn"
-        data-tooltip="Embed"
-        @click="addEmbedElement"
-      >
-        <EmbedIcon />
-      </button>
-      <button
-        class="toolbar-btn"
-        data-tooltip="Map"
-        @click="addMapElement"
-      >
-        <MapIcon />
-      </button>
-      <button
-        class="toolbar-btn"
-        data-tooltip="Campfire"
-        @click="addCampfireElement"
-      >
-        <CampfireIcon />
-      </button>
+      <FloatingTooltip text="Image / Video">
+        <button class="toolbar-btn" @click="selectFile">
+          <ImageIcon />
+        </button>
+      </FloatingTooltip>
+
+      <FloatingTooltip v-if="documentsEnabled" text="Documents">
+        <button class="toolbar-btn" @click="selectDocuments">
+          <DocumentsIcon />
+        </button>
+      </FloatingTooltip>
+
+      <FloatingTooltip text="Link">
+        <button class="toolbar-btn" @click="addLinkElement">
+          <LinkTileIcon />
+        </button>
+      </FloatingTooltip>
+
+      <FloatingTooltip text="Embed">
+        <button class="toolbar-btn" @click="addEmbedElement">
+          <EmbedIcon />
+        </button>
+      </FloatingTooltip>
+
+      <FloatingTooltip text="Map">
+        <button class="toolbar-btn" @click="addMapElement">
+          <MapIcon />
+        </button>
+      </FloatingTooltip>
+
+      <FloatingTooltip text="Campfire">
+        <button class="toolbar-btn" @click="addCampfireElement">
+          <CampfireIcon />
+        </button>
+      </FloatingTooltip>
       <!-- <button class="btn btn-secondary" data-tooltip="Roadmap" @click="addRoadmapFeedElement">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -167,6 +155,7 @@ import { useThemeStore } from "@/stores/theme";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 import { useTileInput } from "@/composables/useTileInput";
 import FloatingInputModal from "@/components/modal/FloatingInputModal.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
 import TextLegacyIcon from "@/components/icons/appbar/TextLegacyIcon.vue";
 import AppBarTextIcon from "@/components/icons/appbar/TextIcon.vue";
@@ -182,6 +171,7 @@ import CampfireIcon from "@/components/icons/CampfireIcon.vue";
 export default {
   components: {
     FloatingInputModal,
+    FloatingTooltip,
     TextLegacyIcon,
     AppBarTextIcon,
     ChatIcon,

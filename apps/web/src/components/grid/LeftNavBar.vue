@@ -177,7 +177,7 @@ export default defineComponent({
     gap: var(--spacing-sm);
     background: color-mix(in srgb, var(--color-content-background) 89%, transparent);
     border: 1.4px solid var(--color-tile-stroke);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     padding: var(--spacing-sm);
     width: 6px; /* visible bar width in collapsed state */
     min-height: fit-content;
@@ -195,7 +195,7 @@ export default defineComponent({
     justify-content: center;
     width: 32px;
     height: 32px;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-sm);
     background: transparent;
     border: none;
     cursor: pointer;

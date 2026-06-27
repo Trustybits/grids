@@ -84,7 +84,8 @@ const showDiscordButton = computed(() => route.path !== "/");
 .bottom-left-buttons {
   position: fixed;
   bottom: var(--spacing-md);
-  left: var(--spacing-md);
+  /* Left edge aligns with the expanded LeftNavBar (also at --spacing-sm) */
+  left: var(--spacing-sm);
   z-index: var(--z-fixed);
   display: flex;
   flex-direction: column;

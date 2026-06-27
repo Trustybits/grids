@@ -441,7 +441,7 @@ const launchPixelRacers = () => {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-sm);
-  background: none;
+  background: color-mix(in srgb, var(--color-content-background) 89%, transparent);
   cursor: pointer;
   color: var(--color-text-primary);
   transition: all var(--duration-fast) var(--easing-smooth);
@@ -450,10 +450,10 @@ const launchPixelRacers = () => {
   line-height: 0;
 
   &:hover {
-    background: var(--color-base-34);
+    background: var(--color-content-background);
 
     .grid-menu-icon {
-      color: var(--color-figma-purple);
+      color: var(--color-text-primary);
     }
   }
 }
@@ -464,7 +464,7 @@ const launchPixelRacers = () => {
   justify-content: center;
   width: 20px;
   height: 20px;
-  color: var(--bg-contrast-color, var(--color-content-default));
+  color: var(--color-content-default);
   transition: color var(--duration-fast) var(--easing-smooth);
 
   svg {

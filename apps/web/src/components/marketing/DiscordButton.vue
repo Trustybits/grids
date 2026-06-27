@@ -1,5 +1,5 @@
 <template>
-  <Button variant="ghost" icon-only href="https://discord.gg/DBscN5NUN6" hover-color="#5865F2">
+  <Button variant="ghost" icon-only size="lg" href="https://discord.gg/DBscN5NUN6" hover-color="#5865F2">
     <template #icon-left>
       <DiscordIcon />
     </template>

@@ -393,9 +393,8 @@ export default defineComponent({
   width: 40px;
   height: 40px;
   border-radius: var(--radius-sm);
-  background: none;
-  //   background: var(--color-tile-background);
-  //   border: var(--tile-border-width) solid var(--color-tile-stroke);
+  background: color-mix(in srgb, var(--color-content-background) 89%, transparent);
+  border: none;
   cursor: pointer;
   color: var(--color-text-primary);
   transition: all var(--duration-fast) var(--easing-smooth);
@@ -407,7 +406,7 @@ export default defineComponent({
     justify-content: center;
     width: 20px;
     height: 20px;
-    color: var(--bg-contrast-color, var(--color-content-default));
+    color: var(--color-content-default);
     transition: color var(--duration-fast) var(--easing-smooth);
 
     svg {
@@ -433,10 +432,10 @@ export default defineComponent({
   }
 
   &:hover {
-    background: var(--color-base-34);
+    background: var(--color-content-background);
 
     .user-icon {
-      color: var(--color-figma-purple);
+      color: var(--color-text-primary);
     }
   }
 }

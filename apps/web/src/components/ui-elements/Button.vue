@@ -231,8 +231,12 @@ const handleClick = (event: MouseEvent) => {
     aspect-ratio: 1;
     flex-shrink: 0;
 
+    .ui-btn__icon {
+      color: var(--color-content-default);
+    }
+
     &:hover:not(.ui-btn--disabled) .ui-btn__icon {
-      color: var(--btn-hover-color, currentColor);
+      color: var(--btn-hover-color, var(--color-text-primary));
     }
   }
 

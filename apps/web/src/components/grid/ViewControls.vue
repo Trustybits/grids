@@ -45,7 +45,7 @@
         class="bp-icon bp-icon--eye"
         aria-hidden="true"
       >
-        <EyeIcon :size="20" />
+        <EyeIcon :size="28" />
       </span>
       <!-- Dot indicator when a saved override exists for this breakpoint -->
       <span
@@ -159,33 +159,32 @@ const toggle = (bp: Breakpoint) => {
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--bg-contrast-color-low, var(--color-content-default));
+  color: var(--color-content-default);
   cursor: pointer;
   padding: 0;
   line-height: 0;
   transition: all var(--duration-fast) var(--easing-smooth);
 
   &:hover {
-    background-color: var(--color-input-edit);
-    /* Purple tint on hover for all buttons, matching nav bar style */
+    /* Match the left nav: icon brightens to text-primary, no background, no purple */
     .bp-icon--device svg {
       opacity: 1;
-      color: var(--color-figma-purple, #a259ff);
+      color: var(--color-text-primary);
     }
   }
 
   /* Active breakpoint (auto-detected or forced) */
   &.bp-btn--active .bp-icon--device svg {
-    opacity: 0.85;
-    color: var(--bg-contrast-color, inherit);
+    opacity: 1;
+    color: var(--color-text-primary);
   }
 
-  /* Explicitly forced breakpoint — stronger highlight */
+  /* Explicitly forced breakpoint — keep a highlight so the locked breakpoint reads as selected */
   &.bp-btn--forced {
     background-color: var(--color-input-edit);
     .bp-icon--device svg {
       opacity: 1;
-      color: var(--bg-contrast-color, var(--color-text-primary));
+      color: var(--color-text-primary);
     }
   }
 
@@ -225,8 +224,9 @@ const toggle = (bp: Breakpoint) => {
   pointer-events: none;
 
   svg {
-    width: 20px;
-    height: 20px;
+    /* Icon size matches the GridToolbar (.toolbar-btn svg) */
+    width: 28px;
+    height: 28px;
     transition:
       opacity var(--duration-normal, 0.2s) var(--easing-smooth),
       color var(--duration-normal, 0.2s) var(--easing-smooth);
@@ -234,7 +234,7 @@ const toggle = (bp: Breakpoint) => {
 }
 
 .bp-icon--device svg {
-  opacity: 0.55;
+  opacity: 1;
 }
 
 /* Eye icon: hidden by default, purple-tinted, fades in on hover */

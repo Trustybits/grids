@@ -79,7 +79,7 @@ const showDiscordButton = computed(() => route.path !== "/");
   gap: var(--spacing-xs);
 }
 
-.bottom-left-buttons > [data-tooltip] {
+.bottom-left-buttons > :deep([data-tooltip]) {
   &::after {
     bottom: auto;
     left: calc(100% + 6px);

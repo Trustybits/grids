@@ -21,39 +21,43 @@
     class="breakpoint-switcher"
     :class="[`breakpoint-switcher--${variant}`]"
   >
-    <button
+    <FloatingTooltip
       v-for="bp in breakpoints"
       :key="bp.key"
-      class="bp-btn"
-      :class="{
-        'bp-btn--active': isActive(bp.key),
-        'bp-btn--forced': viewportStore.forcedBreakpoint === bp.key,
-        'bp-btn--view-only': isLargerThanViewport(bp.key),
-      }"
-      :data-tooltip="tooltipFor(bp)"
-      @click="toggle(bp.key)"
+      :text="tooltipFor(bp)"
+      placement="bottom"
     >
-      <!-- Device icon — fades out on hover when this is a view-only breakpoint -->
-      <span class="bp-icon bp-icon--device">
-        <component :is="bp.icon" />
-      </span>
-      <!-- Full-size eye icon — fades in on hover for view-only breakpoints.
-           Always rendered in the DOM for smooth transitions, but invisible
-           (opacity 0) unless hovered on a view-only button. -->
-      <span
-        v-if="isLargerThanViewport(bp.key)"
-        class="bp-icon bp-icon--eye"
-        aria-hidden="true"
+      <button
+        class="bp-btn"
+        :class="{
+          'bp-btn--active': isActive(bp.key),
+          'bp-btn--forced': viewportStore.forcedBreakpoint === bp.key,
+          'bp-btn--view-only': isLargerThanViewport(bp.key),
+        }"
+        @click="toggle(bp.key)"
       >
-        <EyeIcon :size="28" />
-      </span>
-      <!-- Dot indicator when a saved override exists for this breakpoint -->
-      <span
-        v-if="!isLargerThanViewport(bp.key) && bp.key !== 'lg' && hasOverride(bp.key)"
-        class="bp-override-dot"
-        :title="`Saved ${bp.label} override`"
-      />
-    </button>
+        <!-- Device icon — fades out on hover when this is a view-only breakpoint -->
+        <span class="bp-icon bp-icon--device">
+          <component :is="bp.icon" />
+        </span>
+        <!-- Full-size eye icon — fades in on hover for view-only breakpoints.
+             Always rendered in the DOM for smooth transitions, but invisible
+             (opacity 0) unless hovered on a view-only button. -->
+        <span
+          v-if="isLargerThanViewport(bp.key)"
+          class="bp-icon bp-icon--eye"
+          aria-hidden="true"
+        >
+          <EyeIcon :size="28" />
+        </span>
+        <!-- Dot indicator when a saved override exists for this breakpoint -->
+        <span
+          v-if="!isLargerThanViewport(bp.key) && bp.key !== 'lg' && hasOverride(bp.key)"
+          class="bp-override-dot"
+          :title="`Saved ${bp.label} override`"
+        />
+      </button>
+    </FloatingTooltip>
   </div>
 </template>
 
@@ -65,6 +69,7 @@ import { useGridController } from "@/controllers/useGridController";
 import type { Breakpoint } from "@grids/contracts/types";
 import DeviceDesktopIcon from "@/components/icons/DeviceDesktopIcon.vue";
 import EyeIcon from "@/components/icons/EyeIcon.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import DeviceTabletIcon from "@/components/icons/DeviceTabletIcon.vue";
 import DeviceMobileIcon from "@/components/icons/DeviceMobileIcon.vue";
 

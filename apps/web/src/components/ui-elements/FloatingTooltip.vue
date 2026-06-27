@@ -5,7 +5,10 @@
       <div
         v-if="visible && text"
         class="floating-tooltip"
-        :class="{ 'floating-tooltip--right': placement === 'right' }"
+        :class="{
+          'floating-tooltip--right': placement === 'right',
+          'floating-tooltip--bottom': placement === 'bottom',
+        }"
         :style="posStyle"
       >
         {{ text }}
@@ -31,7 +34,7 @@ export default defineComponent({
       default: undefined,
     },
     placement: {
-      type: String as PropType<"top" | "right">,
+      type: String as PropType<"top" | "right" | "bottom">,
       default: "top",
     },
   },
@@ -44,16 +47,22 @@ export default defineComponent({
       if (!triggerEl) return;
       const r = triggerEl.getBoundingClientRect();
       const gap = 6;
-      posStyle.value =
-        props.placement === "right"
-          ? {
-              top: `${r.top + r.height / 2}px`,
-              left: `${r.right + gap}px`,
-            }
-          : {
-              top: `${r.top - gap}px`,
-              left: `${r.left + r.width / 2}px`,
-            };
+      if (props.placement === "right") {
+        posStyle.value = {
+          top: `${r.top + r.height / 2}px`,
+          left: `${r.right + gap}px`,
+        };
+      } else if (props.placement === "bottom") {
+        posStyle.value = {
+          top: `${r.bottom + gap}px`,
+          left: `${r.left + r.width / 2}px`,
+        };
+      } else {
+        posStyle.value = {
+          top: `${r.top - gap}px`,
+          left: `${r.left + r.width / 2}px`,
+        };
+      }
       visible.value = true;
     };
 

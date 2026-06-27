@@ -49,6 +49,11 @@
   transform: translateY(-50%);
 }
 
+/* Bottom placement: anchored below the trigger, horizontally centered */
+.floating-tooltip--bottom {
+  transform: translateX(-50%);
+}
+
 .floating-tooltip-enter-active,
 .floating-tooltip-leave-active {
   @include tooltip-transition;
@@ -63,4 +68,9 @@
 .floating-tooltip--right.floating-tooltip-enter-from,
 .floating-tooltip--right.floating-tooltip-leave-to {
   transform: translateY(-50%) scale(0.9);
+}
+
+.floating-tooltip--bottom.floating-tooltip-enter-from,
+.floating-tooltip--bottom.floating-tooltip-leave-to {
+  transform: translateX(-50%) scale(0.9);
 }

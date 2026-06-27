@@ -206,9 +206,10 @@ const toggle = (bp: Breakpoint) => {
       }
     }
 
-    /* When forced AND view-only, keep the forced bg but soften the device icon;
-       the eye icon is still revealed on hover. */
-    &.bp-btn--forced .bp-icon--device svg {
+    /* When forced AND view-only (but not hovered), keep the forced bg but
+       soften the device icon. Scoped to :not(:hover) so the hover cross-fade
+       above still fades the device fully out and reveals the eye. */
+    &.bp-btn--forced:not(:hover) .bp-icon--device svg {
       opacity: 0.5;
     }
   }

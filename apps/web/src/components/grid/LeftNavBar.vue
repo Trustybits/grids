@@ -7,39 +7,41 @@
   >
     <div class="nav-bar-container">
       <!-- Dashboard Button -->
-      <router-link
-        v-if="user"
-        to="/dashboard"
-        class="nav-button"
-        :class="{ 'is-active': isActiveRoute('/dashboard') }"
-      >
-        <div class="nav-button-icon">
-          <HomeIcon />
-        </div>
-        <span class="nav-button-label" v-show="isExpanded">Dashboard</span>
-        <div class="active-dot" v-if="isActiveRoute('/dashboard')"></div>
-      </router-link>
+      <FloatingTooltip v-if="user" text="Dashboard" placement="right">
+        <router-link
+          to="/dashboard"
+          class="nav-button"
+          :class="{ 'is-active': isActiveRoute('/dashboard') }"
+        >
+          <div class="nav-button-icon">
+            <HomeIcon />
+          </div>
+          <div class="active-dot" v-if="isActiveRoute('/dashboard')"></div>
+        </router-link>
+      </FloatingTooltip>
 
       <!-- Divider -->
       <div v-if="user" class="nav-divider"></div>
 
       <!-- Recent Grids -->
       <template v-if="user">
-        <router-link
+        <FloatingTooltip
           v-for="g in recentGrids"
           :key="g.id"
-          :to="`/grid/${g.id}`"
-          class="nav-button"
-          :class="{ 'is-active': isActiveGrid(g.id) }"
+          :text="g.name || 'Grid'"
+          placement="right"
         >
-          <div class="nav-button-icon">
-            <GridSquaresIcon />
-          </div>
-          <span class="nav-button-label" v-show="isExpanded">{{
-            g.name || "Grid"
-          }}</span>
-          <div class="active-dot" v-if="isActiveGrid(g.id)"></div>
-        </router-link>
+          <router-link
+            :to="`/grid/${g.id}`"
+            class="nav-button"
+            :class="{ 'is-active': isActiveGrid(g.id) }"
+          >
+            <div class="nav-button-icon">
+              <GridSquaresIcon />
+            </div>
+            <div class="active-dot" v-if="isActiveGrid(g.id)"></div>
+          </router-link>
+        </FloatingTooltip>
       </template>
     </div>
   </nav>
@@ -49,6 +51,7 @@
 import { defineComponent, ref, computed, onMounted, onUnmounted } from "vue";
 import HomeIcon from "@/components/icons/HomeIcon.vue";
 import GridSquaresIcon from "@/components/icons/GridSquaresIcon.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import { useRoute } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import type { AuthUser } from "@grids/contracts/auth";
@@ -60,7 +63,7 @@ import { valueToMillis } from "@/utils/TimeConversion";
 
 export default defineComponent({
   name: "LeftNavBar",
-  components: { HomeIcon, GridSquaresIcon },
+  components: { HomeIcon, GridSquaresIcon, FloatingTooltip },
   setup() {
     const route = useRoute();
     const collectionStore = useGridCollectionStore();
@@ -172,7 +175,7 @@ export default defineComponent({
     flex-direction: column;
     align-items: center;
     gap: var(--spacing-sm);
-    background: var(--color-base-34);
+    background: color-mix(in srgb, var(--color-content-background) 89%, transparent);
     border: 1.4px solid var(--color-tile-stroke);
     border-radius: var(--radius-md);
     padding: var(--spacing-sm);
@@ -240,7 +243,7 @@ export default defineComponent({
 
     &:hover:not(.is-active) {
       .nav-button-icon {
-        color: var(--color-figma-purple);
+        color: var(--color-text-primary);
       }
     }
 
@@ -248,24 +251,6 @@ export default defineComponent({
       .nav-button-icon {
         color: var(--color-text-primary);
       }
-    }
-
-    .nav-button-label {
-      position: absolute;
-      left: 44px;
-      white-space: nowrap;
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-medium);
-      color: var(--color-text-primary);
-      opacity: 0;
-      transform: translateX(-8px);
-      transition: all var(--duration-normal) var(--easing-ease-in-out);
-      pointer-events: none;
-    }
-
-    &:hover .nav-button-label {
-      opacity: 1;
-      transform: translateX(0);
     }
   }
 }

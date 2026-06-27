@@ -44,6 +44,11 @@
   transform: translateX(-50%) translateY(-100%);
 }
 
+/* Right placement: anchored to the trigger's right edge, vertically centered */
+.floating-tooltip--right {
+  transform: translateY(-50%);
+}
+
 .floating-tooltip-enter-active,
 .floating-tooltip-leave-active {
   @include tooltip-transition;
@@ -53,4 +58,9 @@
 .floating-tooltip-leave-to {
   opacity: 0;
   transform: translateX(-50%) translateY(-100%) scale(0.9);
+}
+
+.floating-tooltip--right.floating-tooltip-enter-from,
+.floating-tooltip--right.floating-tooltip-leave-to {
+  transform: translateY(-50%) scale(0.9);
 }

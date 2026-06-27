@@ -1,14 +1,12 @@
 <template>
-  <div
-    class="grid-menu"
-    ref="menuRef"
-    :data-tooltip="showMenu ? null : 'Grid Menu'"
-  >
-    <button type="button" class="grid-menu-button" @click.stop="toggleMenu">
-      <div class="grid-menu-icon">
-        <GridMenuIcon />
-      </div>
-    </button>
+  <div class="grid-menu" ref="menuRef">
+    <FloatingTooltip :text="showMenu ? null : 'Grid Menu'" placement="right">
+      <button type="button" class="grid-menu-button" @click.stop="toggleMenu">
+        <div class="grid-menu-icon">
+          <GridMenuIcon />
+        </div>
+      </button>
+    </FloatingTooltip>
 
     <div class="grid-menu-dropdown" v-if="showMenu" @click.stop>
       <!-- Grid Page ID -->
@@ -183,6 +181,7 @@ import MenuSection from "@/components/ui-collections/MenuSection.vue";
 import Divider from "@/components/ui-elements/Divider.vue";
 import GridMenuIcon from "@/components/icons/GridMenuIcon.vue";
 import GhostSplitButton from "@/components/ui-controls/GhostSplitButton.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
 import OgImageModal from "@/components/modal/OgImageModal.vue";

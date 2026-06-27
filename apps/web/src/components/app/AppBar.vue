@@ -9,13 +9,24 @@
       - GridMenu: shown only when viewing a grid the current user owns
   -->
   <div class="bottom-left-buttons">
-    <DiscordButton v-if="showDiscordButton" data-tooltip="Join our Discord" />
-    <ShareButton v-if="isOnGridPage" data-tooltip="Share" />
-    <UseTemplateButton
+    <FloatingTooltip
+      v-if="showDiscordButton"
+      text="Join our Discord"
+      placement="right"
+    >
+      <DiscordButton />
+    </FloatingTooltip>
+    <FloatingTooltip v-if="isOnGridPage" text="Share" placement="right">
+      <ShareButton />
+    </FloatingTooltip>
+    <FloatingTooltip
       v-if="isOnGridPage && !isOwner && isDuplicatable"
-      data-tooltip="Use this Grid as a Template"
-    />
-    <!-- tooltips for GridMenu and UserMenu are contained in the components themselves -->
+      text="Use this Grid as a Template"
+      placement="right"
+    >
+      <UseTemplateButton />
+    </FloatingTooltip>
+    <!-- GridMenu and UserMenu render their own FloatingTooltip internally -->
     <GridMenu v-if="isOnGridPage && isOwner" />
     <UserMenu v-if="isAuthenticated" />
   </div>
@@ -31,6 +42,7 @@ import GridMenu from "@/components/grid/GridSettings.vue";
 import ShareButton from "@/components/grid/ShareButton.vue";
 import UseTemplateButton from "@/components/grid/UseTemplateButton.vue";
 import UserMenu from "@/components/app/UserMenu.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import { isNonGridPath } from "@/constants/marketing";
 
 const route = useRoute();
@@ -77,18 +89,5 @@ const showDiscordButton = computed(() => route.path !== "/");
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
-}
-
-.bottom-left-buttons > :deep([data-tooltip]) {
-  &::after {
-    bottom: auto;
-    left: calc(100% + 6px);
-    top: 50%;
-    transform: translateY(-50%) scale(0.9);
-  }
-
-  &:hover::after {
-    transform: translateY(-50%) scale(1);
-  }
 }
 </style>

@@ -1,12 +1,8 @@
 <template>
-  <div
-    class="user-menu"
-    v-if="user"
-    ref="menuRef"
-    :data-tooltip="showUserMenu ? null : 'User Menu'"
-  >
-    <button class="user-menu-button" @click="toggleUserMenu">
-      <div class="user-icon">
+  <div class="user-menu" v-if="user" ref="menuRef">
+    <FloatingTooltip :text="showUserMenu ? null : 'User Menu'" placement="right">
+      <button class="user-menu-button" @click="toggleUserMenu">
+        <div class="user-icon">
         <svg
           v-if="
             defaultGridProfileImageUrl &&
@@ -44,6 +40,7 @@
         <ProfileIcon v-else :size="20" />
       </div>
     </button>
+    </FloatingTooltip>
     <div class="user-menu-dropdown" v-if="showUserMenu" @click.stop>
       <div class="user-info-section">
         <button
@@ -147,6 +144,7 @@ import {
 import SlugClaimModal from "@/components/modal/SlugClaimModal.vue";
 import ProfileIcon from "@/components/icons/ProfileIcon.vue";
 import EditIcon from "@/components/icons/EditIcon.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 
 const MENU_AVATAR_SIZE = 24;
 const MENU_AVATAR_POLYGON_INSET = 0.5;
@@ -157,6 +155,7 @@ export default defineComponent({
     SlugClaimModal,
     ProfileIcon,
     EditIcon,
+    FloatingTooltip,
   },
   setup() {
     const router = useRouter();

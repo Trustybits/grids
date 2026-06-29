@@ -13,6 +13,12 @@ const { exportsByModule, adminImportSpy } = vi.hoisted(() => {
     listNotionDatabases: { functionName: "listNotionDatabases" },
     notionOAuthExchange: { functionName: "notionOAuthExchange" },
     upvoteRoadmapItem: { functionName: "upvoteRoadmapItem" },
+    cleanupGridSubcollectionsOnDelete: {
+      functionName: "cleanupGridSubcollectionsOnDelete",
+    },
+    sweepOrphanedSubcollections: {
+      functionName: "sweepOrphanedSubcollections",
+    },
     onGridCreated: { functionName: "onGridCreated" },
     onGridDeleted: { functionName: "onGridDeleted" },
     onGridUpdated: { functionName: "onGridUpdated" },
@@ -66,6 +72,13 @@ vi.mock("../integrations/onCall_notionOAuthExchange.js", () => ({
 }));
 vi.mock("../integrations/onCall_upvoteRoadmapItem.js", () => ({
   upvoteRoadmapItem: exportsByModule.upvoteRoadmapItem,
+}));
+vi.mock("../grids/onTrigger_gridDeleted_cleanupSubcollections.js", () => ({
+  cleanupGridSubcollectionsOnDelete:
+    exportsByModule.cleanupGridSubcollectionsOnDelete,
+}));
+vi.mock("../grids/onSchedule_sweepOrphanedSubcollections.js", () => ({
+  sweepOrphanedSubcollections: exportsByModule.sweepOrphanedSubcollections,
 }));
 vi.mock("../notifications/onTrigger_gridCreated.js", () => ({
   onGridCreated: exportsByModule.onGridCreated,

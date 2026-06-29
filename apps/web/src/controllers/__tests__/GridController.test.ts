@@ -600,6 +600,30 @@ describe("GridController", () => {
       expect(chatService.deleteAllMessages).not.toHaveBeenCalled();
     });
 
+    it("drops a restored tile's pending entry at teardown so a later session can't stale-delete it", async () => {
+      const { controller, stores, chatService } = seedChatGrid();
+
+      // Remove then undo-restore chat-1, so it is live again at teardown.
+      controller.removeTile("chat-1");
+      await controller.undo();
+      expect(stores.session.currentGrid?.tiles.map((t) => t.i)).toContain(
+        "chat-1",
+      );
+      controller.clearSession();
+      expect(chatService.deleteAllMessages).not.toHaveBeenCalled();
+
+      // Re-enter the same grid id in a fresh session where chat-1 is gone and
+      // was never removed here. A lingering pending entry from the prior
+      // session would wrongly reclaim it now.
+      stores.session.setCurrentGrid(makeGrid({ id: "grid-1", tiles: [] }));
+      stores.session.setOwner(true);
+      stores.history.initializeManager();
+
+      controller.clearSession();
+
+      expect(chatService.deleteAllMessages).not.toHaveBeenCalled();
+    });
+
     it("does not reclaim a tile pending under a different grid than the current one", async () => {
       const { controller, stores, chatService } = seedChatGrid();
 

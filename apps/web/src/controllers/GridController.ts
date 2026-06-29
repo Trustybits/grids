@@ -496,7 +496,12 @@ export class GridController {
         .catch((error: unknown) => console.error(error));
     }
 
-    if (pending.size === 0) {
+    // At teardown the session and its undo/redo stacks are discarded, so any
+    // tile still pending here is no longer a pending removal — it was either
+    // deleted above or restored into the live grid. Drop the grid's entry so it
+    // can't outlive the session and stale-delete a tile in a later session that
+    // reuses the same grid id. Mid-session, only drop it once fully drained.
+    if (discardingHistory || pending.size === 0) {
       this.pendingChatDeletions.delete(grid.id);
     }
   }

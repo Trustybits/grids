@@ -652,11 +652,11 @@
   margin: 0;
   border-radius: 0;
 }
-.mkt__showcase-tagline {
-  display: block;
-  margin-top: 4px;
-  font: 400 12px/1.4 var(--mkt-font-sans);
-  color: var(--mkt-fg-3);
+.mkt__card--showcase .mkt__og-meta {
+  padding: 8px 12px;
+  min-height: 44px;
+  justify-content: center;
+  gap: 4px;
 }
 .mkt__pricing-page { text-align: center; }
 .mkt__pricing-page h1 span {

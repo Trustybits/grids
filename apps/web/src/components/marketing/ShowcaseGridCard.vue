@@ -17,9 +17,6 @@
     <div class="mkt__og-meta">
       <span class="mkt__og-site">{{ entry.name }}</span>
       <span class="mkt__og-title">grids.so/{{ entry.slug }}</span>
-      <small v-if="entry.tagline" class="mkt__showcase-tagline">
-        {{ entry.tagline }}
-      </small>
     </div>
   </div>
 </template>

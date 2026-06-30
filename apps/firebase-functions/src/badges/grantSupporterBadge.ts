@@ -19,11 +19,25 @@ import * as functions from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import admin from "firebase-admin";
 import { noopIfMaintenance } from "../maintenance.js";
+import {
+  resendApiKey,
+  resendFromEmail,
+} from "../notifications/secrets.js";
+import { buildSupporterBadgeEmail } from "../notifications/utils_emailTemplates.js";
+import { getUserEmailInfo } from "../notifications/utils_userEmail.js";
+import {
+  getResendApiKey,
+  getResendFromEmail,
+  sendResendEmail,
+} from "../notifications/utils_resend.js";
 import { SUPPORTER_BADGE_MIN_CENTS } from "./constants.js";
 
 const SUCCEEDED_STATUS = "succeeded";
 
 export const grantSupporterBadgeOnPayment = functions
+  .runWith({
+    secrets: [resendApiKey, resendFromEmail],
+  })
   .firestore
   .document("customers/{uid}/payments/{paymentId}")
   .onWrite(async (change, context) => {
@@ -80,5 +94,32 @@ export const grantSupporterBadgeOnPayment = functions
     );
 
     logger.info("Granted supporter badge", { uid, totalCents });
+
+    const userInfo = await getUserEmailInfo(uid);
+    if (userInfo) {
+      const apiKey = getResendApiKey(resendApiKey.value(), "RESEND_API_KEY");
+      const from = getResendFromEmail(resendFromEmail.value(), "RESEND_FROM_EMAIL");
+
+      if (apiKey && from) {
+        const { subject, html } = buildSupporterBadgeEmail({
+          displayName: userInfo.displayName,
+        });
+
+        await sendResendEmail({
+          apiKey,
+          payload: {
+            from,
+            to: userInfo.email,
+            subject,
+            html,
+          },
+          successMessage: "Supporter badge email sent successfully",
+          successContext: ({ status }) => ({ uid, status }),
+          responseErrorContext: { uid },
+          sendErrorContext: { uid },
+        });
+      }
+    }
+
     return null;
   });

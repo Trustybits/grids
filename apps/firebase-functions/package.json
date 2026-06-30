@@ -15,7 +15,11 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "badge:grant": "npm run build && node lib/scripts/grantBadge.js"
+    "badge:grant": "npm run build && node lib/scripts/grantBadge.js",
+    "email:preview": "npm run build && node lib/scripts/previewEmails.js",
+    "email:generate-wordmark": "npm run build && node lib/scripts/generateEmailWordmark.js",
+    "email:send-test": "npm run build && node lib/scripts/sendTestEmail.js",
+    "email:process-engagement": "npm run build && node lib/scripts/processGridEngagementEmails.js"
   },
   "engines": {
     "node": "22"

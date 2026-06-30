@@ -24,6 +24,8 @@ export { upvoteRoadmapItem } from "./integrations/onCall_upvoteRoadmapItem.js";
 export { onGridCreated } from "./notifications/onTrigger_gridCreated.js";
 export { onGridDeleted } from "./notifications/onTrigger_gridDeleted.js";
 export { onGridUpdated } from "./notifications/onTrigger_gridUpdated.js";
+export { onRecordFirstGridEdit } from "./notifications/onTrigger_recordFirstGridEdit.js";
+export { onSendGridEngagementEmails } from "./notifications/onTrigger_sendGridEngagementEmails.js";
 export { onNewUserSignup } from "./notifications/onTrigger_newUserSignup.js";
 export { onUserLogin } from "./notifications/onTrigger_userLogin.js";
 

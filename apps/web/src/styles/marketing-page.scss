@@ -540,7 +540,7 @@
   z-index: 1;
   width: 100%;
   margin: 8px auto 72px;
-  overflow: hidden;
+  overflow: visible;
 }
 .mkt__landing-showcase-head {
   width: 100%;
@@ -572,6 +572,8 @@
   flex-direction: column;
   gap: 18px;
   width: 100%;
+  padding-block: 20px;
+  box-sizing: border-box;
   mask-image: linear-gradient(
     90deg,
     transparent,
@@ -581,8 +583,10 @@
   );
 }
 .mkt__showcase-marquee-row {
-  overflow: hidden;
   width: 100%;
+  padding-block: 16px;
+  box-sizing: border-box;
+  overflow: visible;
 }
 .mkt__showcase-marquee-track {
   display: flex;
@@ -619,7 +623,7 @@
 .mkt__card--showcase {
   display: block;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
   text-decoration: none;
   color: inherit;
   transition: border-color 280ms ease, box-shadow 280ms ease;
@@ -634,9 +638,10 @@
 .mkt__card--showcase .mkt__og-card {
   width: 100%;
   border: 0;
-  border-radius: 0;
   box-shadow: none;
   background: transparent;
+  overflow: hidden;
+  border-radius: inherit;
 }
 .mkt__card--showcase .mkt__og-image {
   aspect-ratio: 1.91 / 1;

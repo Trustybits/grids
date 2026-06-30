@@ -114,7 +114,7 @@
           </p>
           <a
             class="mkt__repo-btn"
-            href="https://github.com/TrustyDev-76/grids1"
+            href="https://github.com/trustybits/grids"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -132,7 +132,7 @@
             <span class="mkt__terminal-path">~/grids</span>
           </div>
           <div class="mkt__terminal-body">
-            <div><span class="mkt__terminal-prompt">$</span> git clone grids-so/grids</div>
+            <div><span class="mkt__terminal-prompt">$</span> git clone trustybits/grids</div>
             <div><span class="mkt__terminal-prompt">$</span> cd grids && pnpm i</div>
             <div><span class="mkt__terminal-prompt">$</span> pnpm dev</div>
           </div>

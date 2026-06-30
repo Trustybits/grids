@@ -266,7 +266,7 @@ export default defineComponent({
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: 8px;
   background-color: var(--color-actionbar-background);
-  color: var(--color-content-high);
+  color: var(--color-content-default);
   cursor: pointer;
   transition:
     background-color var(--duration-fast) var(--easing-ease-in-out),
@@ -281,7 +281,7 @@ export default defineComponent({
 
   &:hover {
     background-color: var(--color-actionbar-background);
-    color: var(--color-figma-purple);
+    color: var(--color-text-primary);
   }
 }
 

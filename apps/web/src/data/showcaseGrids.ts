@@ -19,4 +19,5 @@ export const SHOWCASE_GRIDS: ShowcaseEntry[] = [
   { slug: 'nikpavic', name: 'Nik Pavic', tagline: 'Developer' },
   { slug: 'rochdi', name: 'Rochdi ', tagline: 'Developer' },
   { slug: 'harshit', name: 'Harshit Khemani', tagline: 'Developer' },
+  { slug: 'slasher', name: 'Slasher', tagline: 'Developer' },
 ];

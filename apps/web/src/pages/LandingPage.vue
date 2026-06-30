@@ -35,6 +35,8 @@
         <div class="tile tile--variant-f"><div class="tile__meta"><strong>Shop the print</strong><small>$48 · prints.taylor.site</small></div></div>
       </div>
 
+      <LandingShowcaseMarquee />
+
       <section class="mkt__section mkt__feature">
         <div>
           <div class="mkt__kicker">Drag · drop · done</div>
@@ -152,7 +154,9 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePageTitle } from '@/composables/usePageTitle';
+import { SHOWCASE_GRIDS } from '@/data/showcaseGrids';
 import LandingPageGridEmbed from '@/components/marketing/LandingPageGridEmbed.vue';
+import LandingShowcaseMarquee from '@/components/marketing/LandingShowcaseMarquee.vue';
 import MarketingLayout from '@/components/marketing/MarketingLayout.vue';
 import Button from '@/components/ui-elements/Button.vue';
 
@@ -166,7 +170,7 @@ usePageTitle(pageTitle);
 
 const router = useRouter();
 
-const sampleSlugs = ['taylor', 'mira', 'jordan', 'kei', 'june', 'sam', 'paulo', 'liam', 'olivia', 'noah', 'mma', 'oliver', 'charlotte', 'elijah', 'amelia', 'james', 'ava', 'william', 'sophia', 'benjamin', 'isabella', 'lucas', 'mia', 'henry', 'evelyn', 'theodore', 'harper'];
+const sampleSlugs = SHOWCASE_GRIDS.map((entry) => entry.slug);
 const animatedSlug = ref(sampleSlugs[0]);
 let slugTimer: ReturnType<typeof setTimeout> | null = null;
 

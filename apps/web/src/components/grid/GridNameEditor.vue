@@ -24,7 +24,7 @@
     <Button class="cta-btn" variant="ghost" to="/login" size="sm">
       Login
     </Button>
-    <Button class="cta-btn" variant="ghost" icon-only to="/showcase" size="sm" title="Showcase">
+    <Button class="cta-btn" variant="ghost" icon-only to="/#showcase" size="sm" title="Featured grids">
       <template #icon-left>
         <ExploreIcon />
       </template>

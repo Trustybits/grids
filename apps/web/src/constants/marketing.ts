@@ -1,7 +1,6 @@
 export const MARKETING_PATHS = [
   '/',
   '/pricing',
-  '/showcase',
   '/templates',
   '/blog',
 ] as const;
@@ -11,7 +10,6 @@ export type MarketingPath = (typeof MARKETING_PATHS)[number];
 export const MARKETING_NAV_ITEMS = [
   { id: 'home', label: 'Home', path: '/' },
   { id: 'pricing', label: 'Pricing', path: '/pricing' },
-  { id: 'showcase', label: 'Showcase', path: '/showcase' },
 ] as const;
 
 export type MarketingNavId = (typeof MARKETING_NAV_ITEMS)[number]['id'];

@@ -16,7 +16,9 @@
     </div>
     <div class="mkt__og-meta">
       <span class="mkt__og-site">{{ entry.name }}</span>
-      <span class="mkt__og-title">grids.so/{{ entry.slug }}</span>
+      <span class="mkt__og-title mkt__showcase-url">
+        <span class="mkt__showcase-url-host">grids.so/</span><span class="mkt__showcase-url-slug">{{ entry.slug }}</span>
+      </span>
     </div>
   </div>
 </template>

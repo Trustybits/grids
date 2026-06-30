@@ -6,7 +6,7 @@ export type ShowcaseEntry = {
 
 /** Curated featured grids — edit order and copy here as the showcase evolves. */
 export const SHOWCASE_GRIDS: ShowcaseEntry[] = [
-  { slug: 'staci', name: 'Staci', tagline: 'Designer · Lisbon' },
+  { slug: 'staci', name: 'Staci Lawson', tagline: 'Designer · Lisbon' },
   { slug: 'stack', name: 'Whostacking', tagline: 'Photographer' },
   { slug: 'matt', name: 'Matthew Galley', tagline: 'Writer' },
   { slug: 'nath', name: 'Nath', tagline: 'Musician' },

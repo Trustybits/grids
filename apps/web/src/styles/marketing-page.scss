@@ -658,6 +658,16 @@
   justify-content: center;
   gap: 4px;
 }
+.mkt__card--showcase .mkt__showcase-url {
+  line-height: 1.3;
+}
+.mkt__card--showcase .mkt__showcase-url-host {
+  color: var(--mkt-fg-4);
+  font-weight: 500;
+}
+.mkt__card--showcase .mkt__showcase-url-slug {
+  color: var(--mkt-fg-1);
+}
 .mkt__pricing-page { text-align: center; }
 .mkt__pricing-page h1 span {
   background: var(--mkt-brand-gradient);

@@ -49,6 +49,11 @@
   transform: translateY(-50%);
 }
 
+/* Left placement: anchored to the trigger's left edge, vertically centered */
+.floating-tooltip--left {
+  transform: translateX(-100%) translateY(-50%);
+}
+
 /* Bottom placement: anchored below the trigger, horizontally centered */
 .floating-tooltip--bottom {
   transform: translateX(-50%);
@@ -68,6 +73,11 @@
 .floating-tooltip--right.floating-tooltip-enter-from,
 .floating-tooltip--right.floating-tooltip-leave-to {
   transform: translateY(-50%) scale(0.9);
+}
+
+.floating-tooltip--left.floating-tooltip-enter-from,
+.floating-tooltip--left.floating-tooltip-leave-to {
+  transform: translateX(-100%) translateY(-50%) scale(0.9);
 }
 
 .floating-tooltip--bottom.floating-tooltip-enter-from,

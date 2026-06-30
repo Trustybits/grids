@@ -4,6 +4,7 @@ import {
   defaultOgImageUrl,
   generatedOgImageUrl,
   ogImageCheckUrl,
+  slugOgImageUrl,
   withVersionParam,
 } from "../OgImageUtils";
 
@@ -74,6 +75,12 @@ describe("defaultOgImageUrl", () => {
   it("points at the site-wide default slug on the apex fallback", () => {
     // Vitest/jsdom is not on grids.so — ogApiBase() falls back to production apex.
     expect(defaultOgImageUrl()).toBe("https://grids.so/api/og?slug=grids");
+  });
+});
+
+describe("slugOgImageUrl", () => {
+  it("points at the slug-based OG screenshot endpoint", () => {
+    expect(slugOgImageUrl("taylor")).toBe("https://grids.so/api/og?slug=taylor");
   });
 });
 

@@ -589,15 +589,6 @@
   width: max-content;
   will-change: transform;
 }
-.mkt__showcase-marquee-row--fwd .mkt__showcase-marquee-track {
-  animation: mkt-showcase-marquee-fwd 72s linear infinite;
-}
-.mkt__showcase-marquee-row--rev .mkt__showcase-marquee-track {
-  animation: mkt-showcase-marquee-rev 84s linear infinite;
-}
-.mkt__showcase-marquee.is-paused .mkt__showcase-marquee-track {
-  animation-play-state: paused;
-}
 .mkt__showcase-marquee-group {
   display: flex;
   gap: 18px;
@@ -606,14 +597,6 @@
 .mkt__showcase-marquee-card {
   flex: 0 0 280px;
   width: 280px;
-}
-@keyframes mkt-showcase-marquee-fwd {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-@keyframes mkt-showcase-marquee-rev {
-  from { transform: translateX(-50%); }
-  to { transform: translateX(0); }
 }
 .mkt__showcase-static {
   display: none;
@@ -639,14 +622,14 @@
   overflow: hidden;
   text-decoration: none;
   color: inherit;
-  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 220ms ease,
-    box-shadow 220ms ease;
+  transition: border-color 280ms ease, box-shadow 280ms ease;
 }
 .mkt__card--showcase:hover {
-  transform: translateY(-3px);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 28px rgba(131, 139, 251, 0.22),
+    0 0 56px rgba(131, 139, 251, 0.1);
 }
 .mkt__card--showcase .mkt__og-card {
   width: 100%;

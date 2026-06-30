@@ -11,7 +11,7 @@ export const SHOWCASE_GRIDS: ShowcaseEntry[] = [
   { slug: 'matt', name: 'Matthew Galley', tagline: 'Writer' },
   { slug: 'nath', name: 'Nath', tagline: 'Musician' },
   { slug: 'denis', name: 'Denis Dukhalov', tagline: 'Developer' },
-  { slug: 'cam', name: 'Cam Watkins', tagline: 'Designer' },
+  { slug: 'cam', name: 'Cam Watkins'},
   { slug: 'prottoy', name: 'Prottoy', tagline: 'Developer' },
   { slug: 'lonni', name: 'Brickheadz', tagline: 'Developer' },
   { slug: 'jisenku', name: 'Jisenku', tagline: 'Developer' },

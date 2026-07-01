@@ -106,6 +106,42 @@ describe("GridPersistenceController", () => {
       );
     });
 
+    it("uses resolved upload maps from the upload store by default", () => {
+      h.stores.session.setCurrentGrid(
+        makeGrid({
+          id: "grid-1",
+          tiles: [
+            {
+              i: "t1",
+              x: 0,
+              y: 0,
+              w: 2,
+              h: 2,
+              caption: "",
+              content: { type: "image", src: "blob:x" } as never,
+            },
+          ],
+        }),
+      );
+      h.stores.session.setOwner(true);
+      h.stores.uploads.setResolvedUrl("t1", "https://cdn/from-store.png");
+
+      controller.scheduleSave();
+
+      expect(h.persistenceScheduler.schedule).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          tiles: [
+            expect.objectContaining({
+              content: expect.objectContaining({
+                src: "https://cdn/from-store.png",
+              }),
+            }),
+          ],
+        }),
+      );
+    });
+
     it("reports an error when the scheduler throws synchronously", () => {
       seedSavableGrid();
       vi.mocked(h.persistenceScheduler.schedule).mockImplementationOnce(

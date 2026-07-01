@@ -9,10 +9,12 @@ export type CopyDepth = "full" | "structure";
 export interface Grid {
   id: string;
   userId: string;
+  rev?: number;
   name: string;
   colNum: number;
   verticalCompact: boolean;
   backgroundImageSrc: string;
+  backgroundImageHash?: string;
   backgroundEmbed: boolean;
   backgroundColor?: string;
   // User-uploaded social share (Open Graph) image URL. When set, it is used

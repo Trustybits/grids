@@ -298,6 +298,9 @@ describe("uploadFileOptimistic", () => {
     const promise = uploadFileOptimistic(file());
 
     expect(globalThis.URL.createObjectURL).toHaveBeenCalled();
+    expect(mockCreateTileContent).toHaveBeenCalledWith(ContentType.IMAGE, {
+      src: "blob:mock",
+    });
     expect(controllerMock.addTile).toHaveBeenCalled();
     expect(controllerMock.startUpload).toHaveBeenCalledWith({
       tileId: "tile-1",
@@ -376,7 +379,7 @@ describe("uploadFileOptimisticForTile", () => {
 
     expect(controllerMock.setTileContent).toHaveBeenCalledWith(
       "tile-9",
-      expect.objectContaining({ type: ContentType.IMAGE }),
+      expect.objectContaining({ type: ContentType.IMAGE, src: "blob:mock" }),
     );
     expect(controllerMock.startUpload).toHaveBeenCalledWith({
       tileId: "tile-9",
@@ -458,7 +461,16 @@ describe("uploadDocumentsOptimistic", () => {
 
     const promise = uploadDocumentsOptimistic([file("a.txt", "text/plain")]);
     expect(controllerMock.addTile).toHaveBeenCalledWith(
-      expect.objectContaining({ type: ContentType.DOCUMENT }),
+      expect.objectContaining({
+        type: ContentType.DOCUMENT,
+        items: [
+          expect.objectContaining({
+            id: "uuid-1",
+            fileName: "a.txt",
+            url: "blob:mock",
+          }),
+        ],
+      }),
     );
     resolveDone("https://storage/a.txt");
     await promise;

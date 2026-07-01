@@ -131,6 +131,19 @@ describe("parseUserStorageObject", () => {
       { filePath: "public/file.png" },
     );
   });
+
+  it("currently treats legacy user subfolders as storage-tracked files", () => {
+    expect(
+      parseUserStorageObject({
+        name: "users/user-1/link-images/image-1.png",
+        size: "40",
+      }),
+    ).toEqual({
+      filePath: "users/user-1/link-images/image-1.png",
+      fileSize: 40,
+      userId: "user-1",
+    });
+  });
 });
 
 describe("incrementUserStorageUsage", () => {

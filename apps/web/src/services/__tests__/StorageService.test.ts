@@ -102,6 +102,27 @@ describe("upload", () => {
     expect(url).toBe("https://cdn/img.png");
   });
 
+  it("currently uses the original filename in direct upload paths", async () => {
+    validateUploadFile.mockReturnValue(fileTypeResult({ isImage: true }));
+    mockStorageDao.upload.mockResolvedValueOnce("https://cdn/my-photo.png");
+    const file = makeFile("my vacation photo.png", "image/png");
+
+    const service = new StorageService();
+    await service.upload("u1", file);
+
+    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
+      "users",
+      "u1",
+      "images",
+      "my vacation photo.png",
+    );
+    expect(mockStorageDao.upload).toHaveBeenCalledWith(
+      "users/u1/images/my vacation photo.png",
+      file,
+      { customMetadata: { published: "true" } },
+    );
+  });
+
   it("routes videos to the videos folder", async () => {
     validateUploadFile.mockReturnValue(fileTypeResult({ isVideo: true }));
     mockStorageDao.upload.mockResolvedValueOnce("url");
@@ -199,6 +220,23 @@ describe("uploadResumable", () => {
 
     expect(mockStorageDao.uploadResumable).toHaveBeenCalledWith(
       "users/u1/images/img.png",
+      file,
+      { customMetadata: { published: "true" } },
+    );
+    expect(result).toBe(task);
+  });
+
+  it("currently starts resumable uploads directly without server authorization", () => {
+    validateUploadFile.mockReturnValue(fileTypeResult({ isVideo: true }));
+    const task = { cancel: vi.fn() };
+    mockStorageDao.uploadResumable.mockReturnValueOnce(task);
+    const file = makeFile("clip.mov", "video/quicktime");
+
+    const service = new StorageService();
+    const result = service.uploadResumable("u1", file);
+
+    expect(mockStorageDao.uploadResumable).toHaveBeenCalledWith(
+      "users/u1/videos/clip.mov",
       file,
       { customMetadata: { published: "true" } },
     );

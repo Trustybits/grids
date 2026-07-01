@@ -61,12 +61,14 @@ export class GridSettingsController {
     });
   }
 
-  addBackgroundImage(url: string, embed: boolean): void {
+  addBackgroundImage(url: string, embed: boolean, hash?: string): void {
     this.runGridCommand({
       captureHistory: "Change background image",
       mutate: (grid) => {
         grid.backgroundImageSrc = url;
         grid.backgroundEmbed = embed;
+        // Only archive-backed (non-embed) uploads carry a hash.
+        grid.backgroundImageHash = !embed && hash ? hash : "";
       },
     });
   }
@@ -77,6 +79,7 @@ export class GridSettingsController {
       mutate: (grid) => {
         grid.backgroundImageSrc = "";
         grid.backgroundEmbed = false;
+        grid.backgroundImageHash = "";
       },
     });
   }

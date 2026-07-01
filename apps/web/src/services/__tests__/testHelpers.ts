@@ -22,6 +22,7 @@ export function makeDaoFactory(overrides: Partial<DaoFactory> = {}): DaoFactory 
     getRoadmapDao: nullDao,
     getSlugDao: nullDao,
     getStorageDao: nullDao,
+    getUploadArchiveDao: nullDao,
     getUpvoteDao: nullDao,
     getUserDao: nullDao,
     getUserGameDataDao: nullDao,

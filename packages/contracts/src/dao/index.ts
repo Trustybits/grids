@@ -25,6 +25,7 @@ export type {
   StorageUploadTask,
   StorageDao,
 } from "./StorageDao.js";
+export type { UploadArchiveDao } from "./UploadArchiveDao.js";
 export type { UpvoteDao } from "./UpvoteDao.js";
 export type { UserDao } from "./UserDao.js";
 export type {

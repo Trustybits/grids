@@ -13,11 +13,13 @@ import type { GridDao } from "@grids/contracts/dao";
 import type { RoadmapDao } from "@grids/contracts/dao";
 import type { SlugDao } from "@grids/contracts/dao";
 import type { StorageDao } from "@grids/contracts/dao";
+import type { UploadArchiveDao } from "@grids/contracts/dao";
 import type { UpvoteDao } from "@grids/contracts/dao";
 import type { UserDao } from "@grids/contracts/dao";
 import type { UserGameDataDao } from "@grids/contracts/dao";
 import { FirebaseCloudFunctionsDao } from "../FirebaseCloudFunctionsDao.js";
 import { FirebaseStorageDao } from "../FirebaseStorageDao.js";
+import { FirebaseUploadArchiveDao } from "../FirebaseUploadArchiveDao.js";
 import { FirebaseBadgeDao } from "../FirebaseBadgeDao.js";
 import { FirebaseAnalyticsEventDao } from "../FirebaseAnalyticsEventDao.js";
 import { FirebaseBusinessStatsDao } from "../FirebaseBusinessStatsDao.js";
@@ -43,6 +45,7 @@ export class FirebaseDaoFactory implements DaoFactory {
   private roadmapDao: RoadmapDao;
   private slugDao: SlugDao;
   private storageDao: StorageDao;
+  private uploadArchiveDao: UploadArchiveDao;
   private upvoteDao: UpvoteDao;
   private userDao: UserDao;
   private userGameDataDao: UserGameDataDao;
@@ -68,6 +71,7 @@ export class FirebaseDaoFactory implements DaoFactory {
     this.roadmapDao = new FirebaseRoadmapDao(functions);
     this.slugDao = new FirebaseSlugDao(db, functions);
     this.storageDao = new FirebaseStorageDao(storage);
+    this.uploadArchiveDao = new FirebaseUploadArchiveDao(db);
     this.upvoteDao = new FirebaseUpvoteDao(db, functions);
     this.userDao = new FirebaseUserDao(db);
     this.userGameDataDao = new FirebaseUserGameDataDao(db);
@@ -115,6 +119,10 @@ export class FirebaseDaoFactory implements DaoFactory {
 
   public getStorageDao(): StorageDao {
     return this.storageDao;
+  }
+
+  public getUploadArchiveDao(): UploadArchiveDao {
+    return this.uploadArchiveDao;
   }
 
   public getUpvoteDao(): UpvoteDao {

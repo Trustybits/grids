@@ -188,6 +188,11 @@ Goal: route all user-owned uploads through hash + authorization while preserving
      - Continue to use local blob URLs until upload completion so image/video preview behavior stays unchanged.
    - Update document uploads so each `DocumentItem` receives `hash`.
    - Update link custom images, profile photos, background images, and external-image copies to store hash metadata when they are user-owned archive files.
+   - Capture an explicit hash for smart-text inline images (`SmartTextContent.text` Tiptap JSON image nodes). DONE — landed within Phase 2.
+     - Background: inline images route through the archive flow (canonical URL). Before this change they were still tracked/deduped/quota-counted because `packages/contracts/src/storage/GridStorageReferences.ts` walks the Tiptap JSON and recovers the hash from the canonical URL via its `source: "url-fallback"` path. Storing the hash upgrades them to `source: "stored-hash"`, which is owner- and URL-independent (robust to URL rewrites, cross-owner duplication, and the Phase 7 migration window; also enables the URL/hash-agreement validation).
+     - Added a `hash` attribute (`data-hash`) to the ResizableImage Tiptap node in `apps/web/src/extensions/tiptap/ResizableImage.ts`, and switched the `/image` insertion in `apps/web/src/components/tilecontent/SmartTextContent.vue` from `uploadFileToUrl` to `uploadFileToArchive`, persisting `{url, hash}` into the node attrs.
+     - Updated the extractor's `visitTiptapNode` to read `node.attrs.hash` first and fall back to URL parsing only when absent, matching the stored-hash-first rule used for the typed fields.
+     - Tests: `packages/contracts/.../GridStorageReferences.test.ts` (stored-hash inline image → `source: "stored-hash"`) and `apps/web/src/extensions/tiptap/__tests__/ResizableImage.test.ts` (hash attribute declared + `data-hash` round-trip).
 
 4. Update upload state and persistence.
    - `apps/web/src/stores/grid/gridUploads.ts`
@@ -209,6 +214,7 @@ Goal: route all user-owned uploads through hash + authorization while preserving
    - New upload uses authorized path.
    - Optimistic image/video tiles still render blob URLs first and persist final URL/hash.
    - Document upload persists item hashes.
+   - Smart-text inline image upload persists its Tiptap node hash, and the reference extractor returns `source: "stored-hash"` for it.
    - Large files warn but are not rejected client-side.
    - Direct client delete is no longer used.
 

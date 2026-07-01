@@ -207,7 +207,7 @@ const showOgImageModal = ref(false);
 const bgImageInput = ref<HTMLInputElement | null>(null);
 const bgSplitRef = ref<InstanceType<typeof GhostSplitButton> | null>(null);
 const bgChevronEl = computed(() => bgSplitRef.value?.chevronRef ?? null);
-const { uploadFileToUrl } = useFileUpload();
+const { uploadFileToArchive } = useFileUpload();
 
 const isOwner = computed(() => {
   const userId = authProvider.getCurrentUserId();
@@ -378,8 +378,10 @@ const handleBackgroundImageUpload = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
   try {
-    const url = await uploadFileToUrl(file, { fileType: "images" });
-    controller.addBackgroundImage(url, false);
+    const { url, hash } = await uploadFileToArchive(file, {
+      fileType: "images",
+    });
+    controller.addBackgroundImage(url, false, hash);
   } catch (error: unknown) {
     console.error("Failed to upload background image:", error);
     toastStore.addToast(

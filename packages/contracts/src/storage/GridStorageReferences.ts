@@ -184,13 +184,14 @@ function extractReferences(grid: GridRecordLike): GridStorageReference[] {
         break;
       case ContentType.SMART_TEXT:
         if (typeof c.text === "string") {
-          for (const url of extractSmartTextImageUrls(c.text)) {
+          for (const image of extractSmartTextImages(c.text)) {
             addReference(references, {
               location: "tile.smartText.inlineImage",
               tileId,
               ownerId,
               kindHint: "images",
-              url,
+              url: image.url,
+              hash: image.hash,
             });
           }
         }
@@ -317,7 +318,12 @@ function extractStoragePath(url: string): string | null {
   }
 }
 
-function extractSmartTextImageUrls(text: string): string[] {
+interface SmartTextImage {
+  url?: string;
+  hash?: unknown;
+}
+
+function extractSmartTextImages(text: string): SmartTextImage[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -325,26 +331,28 @@ function extractSmartTextImageUrls(text: string): string[] {
     return [];
   }
 
-  const urls: string[] = [];
-  visitTiptapNode(parsed, urls);
-  return urls;
+  const images: SmartTextImage[] = [];
+  visitTiptapNode(parsed, images);
+  return images;
 }
 
-function visitTiptapNode(value: unknown, urls: string[]) {
+function visitTiptapNode(value: unknown, images: SmartTextImage[]) {
   if (!value || typeof value !== "object") return;
 
   const node = value as {
     type?: unknown;
-    attrs?: { src?: unknown };
+    attrs?: { src?: unknown; hash?: unknown };
     content?: unknown;
   };
   if (node.type === "image" && typeof node.attrs?.src === "string") {
-    urls.push(node.attrs.src);
+    // Prefer the stored node hash; addReference falls back to URL parsing when
+    // it is absent (legacy inline images uploaded before hashes were stored).
+    images.push({ url: node.attrs.src, hash: node.attrs.hash });
   }
 
   if (Array.isArray(node.content)) {
     for (const child of node.content) {
-      visitTiptapNode(child, urls);
+      visitTiptapNode(child, images);
     }
   }
 }

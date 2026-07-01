@@ -1,23 +1,65 @@
-// Unit tests for StorageService — StorageDao is mocked via the DAO factory
-// singleton, the file-classification util is mocked, and global fetch is mocked
-// for the external-image path. console.error is spied on for the error paths.
+// Unit tests for StorageService — the archive upload orchestration (hash →
+// authorize → upload → finalize) plus passthrough helpers. StorageDao,
+// CloudFunctionsDao, and UploadArchiveDao are mocked via the DAO factory
+// singleton; hashing and file-classification utils are mocked; global fetch is
+// mocked for the external-image path.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { StorageService } from "@/services/StorageService";
-import type { StorageDao } from "@grids/contracts/dao";
+import type {
+  CloudFunctionsDao,
+  StorageDao,
+  UploadArchiveDao,
+} from "@grids/contracts/dao";
+import type { UploadArchiveDocument } from "@grids/contracts/types";
 import { mockConsoleError, registerTestDaoFactory } from "./testHelpers";
 
-// ── Mock file classification ─────────────────────────────────────────────
+// ── Mocks ──────────────────────────────────────────────────────────────────
 
 const validateUploadFile = vi.fn();
 vi.mock("@/utils/UploadFileClassification", () => ({
   validateUploadFile: (...args: unknown[]) => validateUploadFile(...args),
 }));
 
+const hashFile = vi.fn();
+vi.mock("@/utils/FileHashing", async () => {
+  const actual = await vi.importActual<typeof import("@/utils/FileHashing")>(
+    "@/utils/FileHashing",
+  );
+  return {
+    ...actual,
+    hashFile: (...args: unknown[]) => hashFile(...args),
+  };
+});
+
+const HASH = "a".repeat(64);
+
 let mockStorageDao: Record<string, ReturnType<typeof vi.fn>>;
+let mockCloudFunctionsDao: { callFunction: ReturnType<typeof vi.fn> };
+let subscribeUploadStatus: ReturnType<typeof vi.fn>;
+/** Document the mocked archive subscription emits (set per test). */
+let finalizeDoc: UploadArchiveDocument | null;
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
-function fileTypeResult(over: Partial<{ isImage: boolean; isVideo: boolean; isDocument: boolean }> = {}) {
+function fileTypeResult(
+  over: Partial<{ isImage: boolean; isVideo: boolean; isDocument: boolean }> = {},
+) {
   return { isImage: false, isVideo: false, isDocument: false, ...over };
+}
+
+function activeDoc(url: string): UploadArchiveDocument {
+  return {
+    uid: "u1",
+    hash: HASH,
+    kind: "images",
+    path: `users/u1/images/${HASH}.png`,
+    url,
+    size: 4,
+    contentType: "image/png",
+    ext: "png",
+    status: "active",
+    refCount: 0,
+    shareable: false,
+  };
 }
 
 beforeEach(() => {
@@ -26,20 +68,33 @@ beforeEach(() => {
     uploadResumable: vi.fn(),
     getBytes: vi.fn(),
     getDownloadUrl: vi.fn(),
-    delete: vi.fn(),
-    // Deterministic, joinable path so assertions can verify composition.
-    buildFilePath: vi.fn(
-      (root: string, userId: string, folder: string, name: string) =>
-        `${root}/${userId}/${folder}/${name}`,
-    ),
   };
+  mockCloudFunctionsDao = { callFunction: vi.fn() };
+  finalizeDoc = activeDoc("https://cdn/final.png");
+  subscribeUploadStatus = vi.fn(
+    (
+      _uid: string,
+      _hash: string,
+      cb: (doc: UploadArchiveDocument | null) => void,
+    ) => {
+      // Emit asynchronously, mirroring an onSnapshot listener.
+      queueMicrotask(() => cb(finalizeDoc));
+      return () => {};
+    },
+  );
 
   registerTestDaoFactory({
     getStorageDao: () => mockStorageDao as unknown as StorageDao,
+    getCloudFunctionsDao: () =>
+      mockCloudFunctionsDao as unknown as CloudFunctionsDao,
+    getUploadArchiveDao: () =>
+      ({ subscribeUploadStatus }) as unknown as UploadArchiveDao,
   });
 
   validateUploadFile.mockReset();
-  validateUploadFile.mockReturnValue(fileTypeResult());
+  validateUploadFile.mockReturnValue(fileTypeResult({ isImage: true }));
+  hashFile.mockReset();
+  hashFile.mockResolvedValue(HASH);
   consoleErrorSpy = mockConsoleError();
 });
 
@@ -48,497 +103,224 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function makeFile(name = "doc.pdf", type = "application/pdf"): File {
-  return new File(["content"], name, { type });
+function makeFile(name = "img.png", type = "image/png"): File {
+  return new File(["data"], name, { type });
 }
-
-// ── validateFile ─────────────────────────────────────────────────────────
 
 describe("validateFile", () => {
   it("delegates to validateUploadFile and returns its result", () => {
     const expected = fileTypeResult({ isImage: true });
     validateUploadFile.mockReturnValueOnce(expected);
-    const file = makeFile("p.png", "image/png");
-
-    const service = new StorageService();
-    const result = service.validateFile(file, { fileType: "images" });
-
-    expect(validateUploadFile).toHaveBeenCalledWith(file, { fileType: "images" });
-    expect(result).toBe(expected);
-  });
-
-  it("passes an empty options object by default", () => {
     const file = makeFile();
-
     const service = new StorageService();
-    service.validateFile(file);
-
-    expect(validateUploadFile).toHaveBeenCalledWith(file, {});
+    expect(service.validateFile(file, { fileType: "images" })).toBe(expected);
+    expect(validateUploadFile).toHaveBeenCalledWith(file, { fileType: "images" });
   });
 });
 
-// ── upload ───────────────────────────────────────────────────────────────
-
-describe("upload", () => {
-  it("uploads images under the images folder and merges published metadata", async () => {
-    validateUploadFile.mockReturnValue(fileTypeResult({ isImage: true }));
-    mockStorageDao.upload.mockResolvedValueOnce("https://cdn/img.png");
-    const file = makeFile("img.png", "image/png");
-
-    const service = new StorageService();
-    const url = await service.upload("u1", file);
-
-    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
-      "users",
-      "u1",
-      "images",
-      "img.png",
-    );
-    expect(mockStorageDao.upload).toHaveBeenCalledWith(
-      "users/u1/images/img.png",
-      file,
-      { customMetadata: { published: "true" } },
-    );
-    expect(url).toBe("https://cdn/img.png");
-  });
-
-  it("currently uses the original filename in direct upload paths", async () => {
-    validateUploadFile.mockReturnValue(fileTypeResult({ isImage: true }));
-    mockStorageDao.upload.mockResolvedValueOnce("https://cdn/my-photo.png");
-    const file = makeFile("my vacation photo.png", "image/png");
-
-    const service = new StorageService();
-    await service.upload("u1", file);
-
-    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
-      "users",
-      "u1",
-      "images",
-      "my vacation photo.png",
-    );
-    expect(mockStorageDao.upload).toHaveBeenCalledWith(
-      "users/u1/images/my vacation photo.png",
-      file,
-      { customMetadata: { published: "true" } },
-    );
-  });
-
-  it("routes videos to the videos folder", async () => {
-    validateUploadFile.mockReturnValue(fileTypeResult({ isVideo: true }));
-    mockStorageDao.upload.mockResolvedValueOnce("url");
-    const file = makeFile("clip.mp4", "video/mp4");
-
-    const service = new StorageService();
-    await service.upload("u1", file);
-
-    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
-      "users",
-      "u1",
-      "videos",
-      "clip.mp4",
-    );
-  });
-
-  it("falls back to the documents folder when neither image nor video", async () => {
-    validateUploadFile.mockReturnValue(fileTypeResult());
-    mockStorageDao.upload.mockResolvedValueOnce("url");
-    const file = makeFile("notes.pdf", "application/pdf");
-
-    const service = new StorageService();
-    await service.upload("u1", file);
-
-    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
-      "users",
-      "u1",
-      "documents",
-      "notes.pdf",
-    );
-  });
-
-  it("honors an explicit fileType override", async () => {
-    validateUploadFile.mockReturnValue(fileTypeResult({ isImage: true }));
-    mockStorageDao.upload.mockResolvedValueOnce("url");
-    const file = makeFile("thing.bin", "application/octet-stream");
-
-    const service = new StorageService();
-    await service.upload("u1", file, { fileType: "documents" });
-
-    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
-      "users",
-      "u1",
-      "documents",
-      "thing.bin",
-    );
-  });
-
-  it("merges caller metadata while keeping published=true", async () => {
-    validateUploadFile.mockReturnValue(fileTypeResult({ isImage: true }));
-    mockStorageDao.upload.mockResolvedValueOnce("url");
-    const file = makeFile("img.png", "image/png");
-
-    const service = new StorageService();
-    await service.upload("u1", file, {}, {
-      contentType: "image/png",
-      customMetadata: { alt: "logo" },
+describe("uploadArchiveFile", () => {
+  it("hashes, authorizes, uploads to the canonical path, and finalizes", async () => {
+    mockCloudFunctionsDao.callFunction.mockResolvedValueOnce({
+      uploadRequired: true,
+      path: `users/u1/images/${HASH}.png`,
     });
+    mockStorageDao.upload.mockResolvedValueOnce("https://cdn/uploaded.png");
+    finalizeDoc = activeDoc("https://cdn/final.png");
 
-    expect(mockStorageDao.upload).toHaveBeenCalledWith(
-      "users/u1/images/img.png",
-      file,
-      {
+    const service = new StorageService();
+    const result = await service.uploadArchiveFile("u1", makeFile());
+
+    expect(hashFile).toHaveBeenCalled();
+    expect(mockCloudFunctionsDao.callFunction).toHaveBeenCalledWith(
+      "authorizeStorageUpload",
+      expect.objectContaining({
+        hash: HASH,
+        kind: "images",
+        ext: "png",
         contentType: "image/png",
-        customMetadata: { published: "true", alt: "logo" },
-      },
-    );
-  });
-
-  it("logs and rethrows when the DAO upload fails", async () => {
-    validateUploadFile.mockReturnValue(fileTypeResult({ isImage: true }));
-    mockStorageDao.upload.mockRejectedValueOnce(new Error("upload boom"));
-    const file = makeFile("img.png", "image/png");
-
-    const service = new StorageService();
-    await expect(service.upload("u1", file)).rejects.toThrow("upload boom");
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "StorageService upload failed:",
-      expect.any(Error),
-    );
-  });
-});
-
-// ── uploadResumable ──────────────────────────────────────────────────────
-
-describe("uploadResumable", () => {
-  it("returns the resumable task with the composed path and merged metadata", () => {
-    validateUploadFile.mockReturnValue(fileTypeResult({ isImage: true }));
-    const task = { pause: vi.fn() };
-    mockStorageDao.uploadResumable.mockReturnValueOnce(task);
-    const file = makeFile("img.png", "image/png");
-
-    const service = new StorageService();
-    const result = service.uploadResumable("u1", file);
-
-    expect(mockStorageDao.uploadResumable).toHaveBeenCalledWith(
-      "users/u1/images/img.png",
-      file,
-      { customMetadata: { published: "true" } },
-    );
-    expect(result).toBe(task);
-  });
-
-  it("currently starts resumable uploads directly without server authorization", () => {
-    validateUploadFile.mockReturnValue(fileTypeResult({ isVideo: true }));
-    const task = { cancel: vi.fn() };
-    mockStorageDao.uploadResumable.mockReturnValueOnce(task);
-    const file = makeFile("clip.mov", "video/quicktime");
-
-    const service = new StorageService();
-    const result = service.uploadResumable("u1", file);
-
-    expect(mockStorageDao.uploadResumable).toHaveBeenCalledWith(
-      "users/u1/videos/clip.mov",
-      file,
-      { customMetadata: { published: "true" } },
-    );
-    expect(result).toBe(task);
-  });
-
-  it("uses the documents folder for non-media files", () => {
-    validateUploadFile.mockReturnValue(fileTypeResult());
-    mockStorageDao.uploadResumable.mockReturnValueOnce({});
-    const file = makeFile("a.txt", "text/plain");
-
-    const service = new StorageService();
-    service.uploadResumable("u1", file);
-
-    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
-      "users",
-      "u1",
-      "documents",
-      "a.txt",
-    );
-  });
-
-  it("merges caller metadata while keeping published=true", () => {
-    validateUploadFile.mockReturnValue(fileTypeResult({ isImage: true }));
-    mockStorageDao.uploadResumable.mockReturnValueOnce({});
-    const file = makeFile("img.png", "image/png");
-
-    const service = new StorageService();
-    service.uploadResumable("u1", file, {}, {
-      customMetadata: { alt: "logo" },
-    });
-
-    expect(mockStorageDao.uploadResumable).toHaveBeenCalledWith(
-      "users/u1/images/img.png",
-      file,
-      { customMetadata: { published: "true", alt: "logo" } },
-    );
-  });
-
-  it("does not wrap DAO errors (no try/catch, unlike upload)", () => {
-    validateUploadFile.mockReturnValue(fileTypeResult({ isImage: true }));
-    mockStorageDao.uploadResumable.mockImplementation(() => {
-      throw new Error("resumable boom");
-    });
-    const file = makeFile("img.png", "image/png");
-
-    const service = new StorageService();
-    expect(() => service.uploadResumable("u1", file)).toThrow("resumable boom");
-    expect(consoleErrorSpy).not.toHaveBeenCalled();
-  });
-});
-
-// ── uploadExternalImage ──────────────────────────────────────────────────
-
-describe("uploadExternalImage", () => {
-  function stubFetch(response: Partial<Response> & { ok: boolean }) {
-    const fetchMock = vi.fn().mockResolvedValue(response);
-    vi.stubGlobal("fetch", fetchMock);
-    return fetchMock;
-  }
-
-  it("fetches, derives the extension from content-type, and uploads the blob", async () => {
-    const blob = new Blob(["x"], { type: "image/png" });
-    stubFetch({
-      ok: true,
-      headers: { get: () => "image/png" } as unknown as Headers,
-      blob: () => Promise.resolve(blob),
-    } as Partial<Response> & { ok: boolean });
-    mockStorageDao.upload.mockResolvedValueOnce("https://cdn/external.png");
-
-    const service = new StorageService();
-    const url = await service.uploadExternalImage(
-      "u1",
-      "https://example.com/pic.png",
-    );
-
-    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
-      "users",
-      "u1",
-      "images",
-      "external.png",
+      }),
     );
     expect(mockStorageDao.upload).toHaveBeenCalledWith(
-      "users/u1/images/external.png",
-      blob,
-      {
-        contentType: "image/png",
-        customMetadata: { published: "true" },
+      `users/u1/images/${HASH}.png`,
+      expect.any(File),
+      expect.objectContaining({
+        customMetadata: expect.objectContaining({ published: "true" }),
+      }),
+    );
+    // Finalize supplies the authoritative URL.
+    expect(result).toEqual({
+      url: "https://cdn/final.png",
+      hash: HASH,
+      path: `users/u1/images/${HASH}.png`,
+      type: "images",
+      size: 4,
+      uploadRequired: true,
+    });
+  });
+
+  it("short-circuits the byte upload when the file already exists (dedupe)", async () => {
+    mockCloudFunctionsDao.callFunction.mockResolvedValueOnce({
+      uploadRequired: false,
+      url: "https://cdn/existing.png",
+      path: `users/u1/images/${HASH}.png`,
+    });
+
+    const service = new StorageService();
+    const result = await service.uploadArchiveFile("u1", makeFile());
+
+    expect(mockStorageDao.upload).not.toHaveBeenCalled();
+    expect(subscribeUploadStatus).not.toHaveBeenCalled();
+    expect(result.url).toBe("https://cdn/existing.png");
+    expect(result.uploadRequired).toBe(false);
+  });
+
+  it("rejects when the server marks the upload failed (hash mismatch)", async () => {
+    mockCloudFunctionsDao.callFunction.mockResolvedValueOnce({
+      uploadRequired: true,
+      path: `users/u1/images/${HASH}.png`,
+    });
+    mockStorageDao.upload.mockResolvedValueOnce("https://cdn/uploaded.png");
+    finalizeDoc = {
+      ...activeDoc(""),
+      status: "failed",
+      failureReason: "hash-mismatch",
+    };
+
+    const service = new StorageService();
+    await expect(service.uploadArchiveFile("u1", makeFile())).rejects.toThrow(
+      /verification failed/i,
+    );
+  });
+
+  it("falls back to the uploaded URL when finalization is never observed", async () => {
+    vi.useFakeTimers();
+    mockCloudFunctionsDao.callFunction.mockResolvedValueOnce({
+      uploadRequired: true,
+      path: `users/u1/images/${HASH}.png`,
+    });
+    mockStorageDao.upload.mockResolvedValueOnce("https://cdn/uploaded.png");
+    finalizeDoc = { ...activeDoc(""), status: "pending" };
+
+    const service = new StorageService();
+    const promise = service.uploadArchiveFile("u1", makeFile());
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await promise;
+    expect(result.url).toBe("https://cdn/uploaded.png");
+    vi.useRealTimers();
+  });
+});
+
+describe("uploadArchiveResumable", () => {
+  it("reports byte progress and resolves the finalized result", async () => {
+    mockCloudFunctionsDao.callFunction.mockResolvedValueOnce({
+      uploadRequired: true,
+      path: `users/u1/images/${HASH}.png`,
+    });
+    let progressCb: ((p: { bytesTransferred: number; totalBytes: number }) => void) | null =
+      null;
+    let resolveUpload!: (url: string) => void;
+    mockStorageDao.uploadResumable.mockReturnValue({
+      onProgress: (cb: typeof progressCb) => {
+        progressCb = cb;
+        return () => {};
       },
-    );
-    expect(url).toBe("https://cdn/external.png");
-  });
-
-  it("respects a custom folder argument", async () => {
-    stubFetch({
-      ok: true,
-      headers: { get: () => "image/jpeg" } as unknown as Headers,
-      blob: () => Promise.resolve(new Blob([], { type: "image/jpeg" })),
-    } as Partial<Response> & { ok: boolean });
-    mockStorageDao.upload.mockResolvedValueOnce("url");
+      done: () => new Promise<string>((res) => (resolveUpload = res)),
+      cancel: vi.fn(),
+    });
+    finalizeDoc = activeDoc("https://cdn/final.png");
 
     const service = new StorageService();
-    await service.uploadExternalImage("u1", "https://x/y.jpg", "avatars");
+    const task = service.uploadArchiveResumable("u1", makeFile());
+    const onProgress = vi.fn();
+    task.onProgress(onProgress);
 
-    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
-      "users",
-      "u1",
-      "avatars",
-      "external.jpeg",
-    );
+    // Let hashing + authorize settle so the inner upload task is created.
+    await vi.waitFor(() => expect(progressCb).not.toBeNull());
+    progressCb!({ bytesTransferred: 50, totalBytes: 100 });
+    expect(onProgress).toHaveBeenCalledWith({
+      bytesTransferred: 50,
+      totalBytes: 100,
+    });
+
+    resolveUpload("https://cdn/uploaded.png");
+    const result = await task.done();
+    expect(result.url).toBe("https://cdn/final.png");
+    expect(result.hash).toBe(HASH);
   });
+});
 
-  it("strips charset parameters when deriving the extension", async () => {
-    stubFetch({
-      ok: true,
-      headers: { get: () => "image/webp; charset=binary" } as unknown as Headers,
-      blob: () => Promise.resolve(new Blob([], { type: "image/webp" })),
-    } as Partial<Response> & { ok: boolean });
-    mockStorageDao.upload.mockResolvedValueOnce("url");
+describe("uploadExternalImageToArchive", () => {
+  it("fetches the image and routes it through the archive flow", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: () => "image/png" },
+        blob: () => Promise.resolve(new Blob(["x"], { type: "image/png" })),
+      }),
+    );
+    mockCloudFunctionsDao.callFunction.mockResolvedValueOnce({
+      uploadRequired: false,
+      url: "https://cdn/existing.png",
+      path: `users/u1/images/${HASH}.png`,
+    });
 
     const service = new StorageService();
-    await service.uploadExternalImage("u1", "https://x/y.webp");
-
-    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
-      "users",
+    const result = await service.uploadExternalImageToArchive(
       "u1",
-      "images",
-      "external.webp",
+      "https://remote/x.png",
     );
+    expect(result.url).toBe("https://cdn/existing.png");
   });
 
-  it('falls back to a "jpg" extension when the content-type has no subtype', async () => {
-    // "image/" passes the startsWith("image/") guard but yields an empty
-    // subtype, exercising the `|| "jpg"` fallback in the extension derivation.
-    stubFetch({
-      ok: true,
-      headers: { get: () => "image/" } as unknown as Headers,
-      blob: () => Promise.resolve(new Blob([], { type: "image/" })),
-    } as Partial<Response> & { ok: boolean });
-    mockStorageDao.upload.mockResolvedValueOnce("url");
-
-    const service = new StorageService();
-    await service.uploadExternalImage("u1", "https://x/y");
-
-    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
-      "users",
-      "u1",
-      "images",
-      "external.jpg",
+  it("throws for a non-image URL", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: () => "text/html" },
+        blob: () => Promise.resolve(new Blob([""], { type: "text/html" })),
+      }),
     );
-  });
-
-  it("defaults the content-type to image/jpeg when the header is missing", async () => {
-    stubFetch({
-      ok: true,
-      headers: { get: () => null } as unknown as Headers,
-      blob: () => Promise.resolve(new Blob([], { type: "" })),
-    } as Partial<Response> & { ok: boolean });
-    mockStorageDao.upload.mockResolvedValueOnce("url");
-
-    const service = new StorageService();
-    await service.uploadExternalImage("u1", "https://x/y");
-
-    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
-      "users",
-      "u1",
-      "images",
-      "external.jpeg",
-    );
-  });
-
-  it("throws when the fetch response is not ok", async () => {
-    stubFetch({ ok: false } as Partial<Response> & { ok: boolean });
-
     const service = new StorageService();
     await expect(
-      service.uploadExternalImage("u1", "https://x/y"),
-    ).rejects.toThrow("Failed to fetch image from the provided URL.");
-    expect(mockStorageDao.upload).not.toHaveBeenCalled();
+      service.uploadExternalImageToArchive("u1", "https://remote/x.html"),
+    ).rejects.toThrow(/valid image/i);
   });
+});
 
-  it("throws when the URL does not point to an image", async () => {
-    stubFetch({
-      ok: true,
-      headers: { get: () => "text/html" } as unknown as Headers,
-      blob: () => Promise.resolve(new Blob([])),
-    } as Partial<Response> & { ok: boolean });
-
+describe("deleteArchiveUpload", () => {
+  it("calls the deleteStorageUpload callable with hash and force", async () => {
+    mockCloudFunctionsDao.callFunction.mockResolvedValueOnce({ deleted: true });
     const service = new StorageService();
-    await expect(
-      service.uploadExternalImage("u1", "https://x/y"),
-    ).rejects.toThrow("The URL does not point to a valid image.");
-    expect(mockStorageDao.upload).not.toHaveBeenCalled();
-  });
-
-  it("logs and rethrows when the DAO upload fails", async () => {
-    stubFetch({
-      ok: true,
-      headers: { get: () => "image/png" } as unknown as Headers,
-      blob: () => Promise.resolve(new Blob([], { type: "image/png" })),
-    } as Partial<Response> & { ok: boolean });
-    mockStorageDao.upload.mockRejectedValueOnce(new Error("store boom"));
-
-    const service = new StorageService();
-    await expect(
-      service.uploadExternalImage("u1", "https://x/y.png"),
-    ).rejects.toThrow("store boom");
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "StorageService uploadExternalImage failed:",
-      expect.any(Error),
+    await service.deleteArchiveUpload(HASH, true);
+    expect(mockCloudFunctionsDao.callFunction).toHaveBeenCalledWith(
+      "deleteStorageUpload",
+      { hash: HASH, force: true },
     );
   });
 });
 
-// ── getBytes ─────────────────────────────────────────────────────────────
-
-describe("getBytes", () => {
-  it("delegates to the DAO and returns the bytes", async () => {
-    const bytes = new Uint8Array([1, 2, 3]);
-    mockStorageDao.getBytes.mockResolvedValueOnce(bytes);
-
+describe("passthrough helpers", () => {
+  it("uploadToPath merges published metadata", async () => {
+    mockStorageDao.upload.mockResolvedValueOnce("https://cdn/og.png");
     const service = new StorageService();
-    const result = await service.getBytes("path/to/file");
-
-    expect(mockStorageDao.getBytes).toHaveBeenCalledWith("path/to/file");
-    expect(result).toBe(bytes);
-  });
-
-  it("logs and rethrows on failure", async () => {
-    mockStorageDao.getBytes.mockRejectedValueOnce(new Error("bytes boom"));
-
-    const service = new StorageService();
-    await expect(service.getBytes("p")).rejects.toThrow("bytes boom");
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "StorageService getBytes failed:",
-      expect.any(Error),
+    const url = await service.uploadToPath("og-images/x.png", makeFile());
+    expect(url).toBe("https://cdn/og.png");
+    expect(mockStorageDao.upload).toHaveBeenCalledWith(
+      "og-images/x.png",
+      expect.any(File),
+      expect.objectContaining({
+        customMetadata: expect.objectContaining({ published: "true" }),
+      }),
     );
   });
-});
 
-// ── getDownloadUrl ───────────────────────────────────────────────────────
-
-describe("getDownloadUrl", () => {
-  it("delegates to the DAO and returns the URL", async () => {
-    mockStorageDao.getDownloadUrl.mockResolvedValueOnce("https://cdn/file");
-
+  it("getBytes and getDownloadUrl delegate to the DAO", async () => {
+    mockStorageDao.getBytes.mockResolvedValueOnce(new Uint8Array([1]));
+    mockStorageDao.getDownloadUrl.mockResolvedValueOnce("https://cdn/x");
     const service = new StorageService();
-    const result = await service.getDownloadUrl("path");
-
-    expect(mockStorageDao.getDownloadUrl).toHaveBeenCalledWith("path");
-    expect(result).toBe("https://cdn/file");
-  });
-
-  it("logs and rethrows on failure", async () => {
-    mockStorageDao.getDownloadUrl.mockRejectedValueOnce(new Error("url boom"));
-
-    const service = new StorageService();
-    await expect(service.getDownloadUrl("p")).rejects.toThrow("url boom");
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "StorageService getDownloadUrl failed:",
-      expect.any(Error),
-    );
-  });
-});
-
-// ── delete ───────────────────────────────────────────────────────────────
-
-describe("delete", () => {
-  it("delegates to the DAO", async () => {
-    mockStorageDao.delete.mockResolvedValueOnce(undefined);
-
-    const service = new StorageService();
-    await service.delete("path");
-
-    expect(mockStorageDao.delete).toHaveBeenCalledWith("path");
-  });
-
-  it("logs and rethrows on failure", async () => {
-    mockStorageDao.delete.mockRejectedValueOnce(new Error("del boom"));
-
-    const service = new StorageService();
-    await expect(service.delete("p")).rejects.toThrow("del boom");
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "StorageService delete failed:",
-      expect.any(Error),
-    );
-  });
-});
-
-// ── buildFilePath ────────────────────────────────────────────────────────
-
-describe("buildFilePath", () => {
-  it("delegates to the DAO and returns the composed path", () => {
-    const service = new StorageService();
-    const result = service.buildFilePath("users", "u1", "images", "a.png");
-
-    expect(mockStorageDao.buildFilePath).toHaveBeenCalledWith(
-      "users",
-      "u1",
-      "images",
-      "a.png",
-    );
-    expect(result).toBe("users/u1/images/a.png");
+    expect(await service.getBytes("https://cdn/x")).toEqual(new Uint8Array([1]));
+    expect(await service.getDownloadUrl("path")).toBe("https://cdn/x");
   });
 });

@@ -29,6 +29,17 @@ export class GridPersistenceController {
     }
   }
 
+  private currentResolvedHashes(): Record<string, string> {
+    return this.stores.uploads.resolvedHashes;
+  }
+
+  private currentResolvedDocumentItemHashes(): Record<
+    string,
+    Record<string, string>
+  > {
+    return this.stores.uploads.resolvedDocumentItemHashes;
+  }
+
   async flushSaves(): Promise<void> {
     const scope = this.stores.session.getPersistenceScope();
     if (!scope) return;
@@ -77,6 +88,8 @@ export class GridPersistenceController {
         grid,
         resolvedUrls,
         resolvedDocumentItemUrls,
+        this.currentResolvedHashes(),
+        this.currentResolvedDocumentItemHashes(),
       );
       this.stores.session.setPersistenceStatus("pending");
       this.dependencies.persistenceScheduler.schedule(scope, snapshot);

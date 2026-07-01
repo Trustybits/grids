@@ -218,6 +218,48 @@ describe("extractGridStorageReferences", () => {
     ]);
   });
 
+  it("prefers the stored node hash for smart text inline images", () => {
+    const text = JSON.stringify({
+      type: "doc",
+      content: [
+        {
+          type: "image",
+          attrs: {
+            src: `users/user-1/images/${INLINE_HASH}.png`,
+            hash: INLINE_HASH,
+          },
+        },
+      ],
+    });
+    const grid = makeGrid({
+      tiles: [
+        makeTile({
+          i: "smart",
+          content: {
+            type: ContentType.SMART_TEXT,
+            text,
+            font: "Inter",
+            fontSize: 16,
+            isBold: false,
+            isItalic: false,
+            textType: "paragraph",
+            color: "#000",
+          } as SmartTextContent,
+        }),
+      ],
+    });
+
+    expect(extractGridStorageReferences(grid)).toMatchObject([
+      {
+        location: "tile.smartText.inlineImage",
+        tileId: "smart",
+        hash: INLINE_HASH,
+        kind: "images",
+        source: "stored-hash",
+      },
+    ]);
+  });
+
   it("ignores external, generated, thumbnail, transient, and other-owner URLs", () => {
     const grid = makeGrid({
       ogImageSrc: `users/user-1/images/${"9".repeat(64)}.png`,

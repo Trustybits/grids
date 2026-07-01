@@ -9,6 +9,7 @@ import type { GridDao } from '../GridDao.js';
 import type { RoadmapDao } from '../RoadmapDao.js';
 import type { SlugDao } from '../SlugDao.js';
 import type { StorageDao } from '../StorageDao.js';
+import type { UploadArchiveDao } from '../UploadArchiveDao.js';
 import type { UpvoteDao } from '../UpvoteDao.js';
 import type { UserDao } from '../UserDao.js';
 import type { UserGameDataDao } from '../UserGameDataDao.js';
@@ -25,6 +26,7 @@ export interface DaoFactory {
   getRoadmapDao: () => RoadmapDao;
   getSlugDao: () => SlugDao;
   getStorageDao: () => StorageDao;
+  getUploadArchiveDao: () => UploadArchiveDao;
   getUpvoteDao: () => UpvoteDao;
   getUserDao: () => UserDao;
   getUserGameDataDao: () => UserGameDataDao;

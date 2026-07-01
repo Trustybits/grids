@@ -441,9 +441,10 @@ export class GridController {
   resolveUpload(
     uploadId: string,
     url: string,
+    hash?: string,
     final = true,
   ): boolean {
-    return this.uploadController.resolveUpload(uploadId, url, final);
+    return this.uploadController.resolveUpload(uploadId, url, hash, final);
   }
 
   failUpload(uploadId: string): boolean {
@@ -565,8 +566,8 @@ export class GridController {
     this.settingsController.setDuplicatable(value);
   }
 
-  addBackgroundImage(url: string, embed: boolean): void {
-    this.settingsController.addBackgroundImage(url, embed);
+  addBackgroundImage(url: string, embed: boolean, hash?: string): void {
+    this.settingsController.addBackgroundImage(url, embed, hash);
   }
 
   removeBackgroundImage(): void {

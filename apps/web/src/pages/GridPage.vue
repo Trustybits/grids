@@ -199,7 +199,7 @@ export default defineComponent({
 
     // Setup drag and drop + paste functionality
     const { isDraggingOver } = useDragAndPaste(layoutContainer);
-    const { uploadFileToUrl } = useFileUpload();
+    const { uploadFileToArchive } = useFileUpload();
 
     const isOwner = computed(() => sessionStore.isOwner);
 
@@ -280,8 +280,10 @@ export default defineComponent({
       if (!file) return;
 
       try {
-        const url = await uploadFileToUrl(file, { fileType: "images" });
-        controller.addBackgroundImage(url, false);
+        const { url, hash } = await uploadFileToArchive(file, {
+          fileType: "images",
+        });
+        controller.addBackgroundImage(url, false, hash);
       } catch (error: unknown) {
         console.error("Failed to upload image:", error);
         alert(

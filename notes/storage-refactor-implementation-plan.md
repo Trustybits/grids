@@ -373,6 +373,10 @@ Goal: expose the archive after backend and upload primitives are stable.
 
 Goal: safely migrate existing production data into the new scheme.
 
+> Boundary note: the runtime extractor in `packages/contracts/src/storage/GridStorageReferences.ts` resolves only the canonical scheme (stored SHA-256 hash or a `users/{uid}/{kind}/{sha256}.{ext}` URL). It intentionally ignores pre-migration original-filename objects, so the migration inventory below must do its own byte-level scan/stream-hash rather than reusing that extractor for legacy discovery.
+>
+> Migration-window edge case: duplicating a grid that still holds an un-migrated legacy file. The runtime extractor won't detect that tile as file-backed, so `onCall_prepareGridDuplicateStorage` will neither copy the file nor convert the tile to a suggestion tile — the raw legacy URL is carried into the duplicate as-is (which can point at the source owner's object). This resolves once the file is backfilled into the canonical scheme. Sequence the migration ahead of exposing full duplication broadly, or add a legacy-URL guard in the duplicate path if the window is a concern.
+
 1. Build migration as a Cloud Run job or maintainer script, not a 540-second function.
    - Put source under the functions workspace if it uses Admin SDK and deploy/runtime config, e.g. `apps/firebase-functions/src/scripts/storageBackfill.ts`, or under root `scripts/` if it is a maintainer CLI.
    - Include dry-run, copy-only, converge, and GC modes.

@@ -14,6 +14,15 @@ import {
 } from "../../types/index.js";
 import { extractGridStorageReferences } from "../GridStorageReferences.js";
 
+// Stored hashes and canonical object names are lowercase SHA-256 digests.
+const BG_HASH = "a".repeat(64);
+const SHARED_HASH = "b".repeat(64);
+const VIDEO_HASH = "c".repeat(64);
+const DOC_HASH = "d".repeat(64);
+const AVATAR_HASH = "e".repeat(64);
+const LINK_HASH = "f".repeat(64);
+const INLINE_HASH = "0".repeat(64);
+
 function makeGrid(overrides: Partial<Grid> = {}): Grid {
   return {
     id: "grid-1",
@@ -42,16 +51,15 @@ function makeTile(tile: { i: string; content: TileContent }): Tile {
 describe("extractGridStorageReferences", () => {
   it("returns duplicate archive references as separate rows", () => {
     const grid = makeGrid({
-      backgroundImageSrc:
-        "https://firebasestorage.googleapis.com/v0/b/demo/o/users%2Fuser-1%2Fimages%2Fbg-hash.png?alt=media",
-      backgroundImageHash: "bg-hash",
+      backgroundImageSrc: `https://firebasestorage.googleapis.com/v0/b/demo/o/users%2Fuser-1%2Fimages%2F${BG_HASH}.png?alt=media`,
+      backgroundImageHash: BG_HASH,
       tiles: [
         makeTile({
           i: "image-a",
           content: {
             type: ContentType.IMAGE,
-            src: "users/user-1/images/shared-hash.png",
-            srcHash: "shared-hash",
+            src: `users/user-1/images/${SHARED_HASH}.png`,
+            srcHash: SHARED_HASH,
             zoom: 1,
             offsetX: 0,
             offsetY: 0,
@@ -61,8 +69,8 @@ describe("extractGridStorageReferences", () => {
           i: "image-b",
           content: {
             type: ContentType.IMAGE,
-            src: "users/user-1/images/shared-hash.png",
-            srcHash: "shared-hash",
+            src: `users/user-1/images/${SHARED_HASH}.png`,
+            srcHash: SHARED_HASH,
             zoom: 1,
             offsetX: 0,
             offsetY: 0,
@@ -75,13 +83,11 @@ describe("extractGridStorageReferences", () => {
 
     expect(references).toHaveLength(3);
     expect(references.map((ref) => ref.hash)).toEqual([
-      "bg-hash",
-      "shared-hash",
-      "shared-hash",
+      BG_HASH,
+      SHARED_HASH,
+      SHARED_HASH,
     ]);
-    expect(references.filter((ref) => ref.hash === "shared-hash")).toHaveLength(
-      2,
-    );
+    expect(references.filter((ref) => ref.hash === SHARED_HASH)).toHaveLength(2);
   });
 
   it("uses stored hash fields as the authoritative key", () => {
@@ -92,7 +98,7 @@ describe("extractGridStorageReferences", () => {
           content: {
             type: ContentType.VIDEO,
             src: "users/user-1/videos/url-derived.mp4",
-            srcHash: "stored-video-hash",
+            srcHash: VIDEO_HASH,
             zoom: 1,
             offsetX: 0,
             offsetY: 0,
@@ -107,7 +113,7 @@ describe("extractGridStorageReferences", () => {
                 id: "doc-1",
                 fileName: "doc.pdf",
                 url: "users/user-1/documents/url-derived.pdf",
-                hash: "stored-doc-hash",
+                hash: DOC_HASH,
               },
             ],
           } as DocumentsContent,
@@ -118,21 +124,21 @@ describe("extractGridStorageReferences", () => {
     expect(extractGridStorageReferences(grid)).toMatchObject([
       {
         tileId: "video",
-        hash: "stored-video-hash",
+        hash: VIDEO_HASH,
         kind: "videos",
         source: "stored-hash",
       },
       {
         tileId: "documents",
         documentItemId: "doc-1",
-        hash: "stored-doc-hash",
+        hash: DOC_HASH,
         kind: "documents",
         source: "stored-hash",
       },
     ]);
   });
 
-  it("falls back to user storage URLs for legacy src-only data", () => {
+  it("falls back to canonical user storage URLs for legacy hash-only data", () => {
     const grid = makeGrid({
       tiles: [
         makeTile({
@@ -144,7 +150,7 @@ describe("extractGridStorageReferences", () => {
             bio: "",
             avatarShape: "circle",
             avatarRadius: 50,
-            profilePhotoUrl: "gs://bucket/users/user-1/images/avatar-hash.jpg",
+            profilePhotoUrl: `gs://bucket/users/user-1/images/${AVATAR_HASH}.jpg`,
           } as ProfileBioContent,
         }),
         makeTile({
@@ -152,7 +158,7 @@ describe("extractGridStorageReferences", () => {
           content: {
             type: ContentType.LINK,
             link: "https://example.com",
-            customImageUrl: "users/user-1/images/link-hash.webp",
+            customImageUrl: `users/user-1/images/${LINK_HASH}.webp`,
           } as LinkContent,
         }),
       ],
@@ -161,12 +167,12 @@ describe("extractGridStorageReferences", () => {
     expect(extractGridStorageReferences(grid)).toMatchObject([
       {
         location: "tile.profile.profilePhoto",
-        hash: "avatar-hash",
+        hash: AVATAR_HASH,
         source: "url-fallback",
       },
       {
         location: "tile.link.customImage",
-        hash: "link-hash",
+        hash: LINK_HASH,
         source: "url-fallback",
       },
     ]);
@@ -179,7 +185,7 @@ describe("extractGridStorageReferences", () => {
         {
           type: "image",
           attrs: {
-            src: "users/user-1/images/inline-hash.png",
+            src: `users/user-1/images/${INLINE_HASH}.png`,
           },
         },
       ],
@@ -206,7 +212,7 @@ describe("extractGridStorageReferences", () => {
       {
         location: "tile.smartText.inlineImage",
         tileId: "smart",
-        hash: "inline-hash",
+        hash: INLINE_HASH,
         kind: "images",
       },
     ]);
@@ -214,7 +220,7 @@ describe("extractGridStorageReferences", () => {
 
   it("ignores external, generated, thumbnail, transient, and other-owner URLs", () => {
     const grid = makeGrid({
-      ogImageSrc: "users/user-1/images/og-ignored.png",
+      ogImageSrc: `users/user-1/images/${"9".repeat(64)}.png`,
       tiles: [
         makeTile({
           i: "image",
@@ -254,14 +260,24 @@ describe("extractGridStorageReferences", () => {
           i: "embed",
           content: {
             type: ContentType.EMBED,
-            src: "users/user-1/images/embed-ignored.png",
+            src: `users/user-1/images/${"8".repeat(64)}.png`,
           } as EmbedContent,
         }),
         makeTile({
           i: "other-owner",
           content: {
             type: ContentType.IMAGE,
-            src: "users/user-2/images/not-owned.png",
+            src: `users/user-2/images/${"7".repeat(64)}.png`,
+            zoom: 1,
+            offsetX: 0,
+            offsetY: 0,
+          } as ImageContent,
+        }),
+        makeTile({
+          i: "legacy-filename",
+          content: {
+            type: ContentType.IMAGE,
+            src: "users/user-1/images/original-photo-name.png",
             zoom: 1,
             offsetX: 0,
             offsetY: 0,

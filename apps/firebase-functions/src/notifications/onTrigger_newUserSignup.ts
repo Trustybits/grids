@@ -3,6 +3,7 @@ import * as functions from "firebase-functions/v1";
 import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.js";
 import { noopIfMaintenance } from "../maintenance.js";
 import { discordNewUsersWebhookUrl } from "./secrets.js";
+import { syncDevAccountFlagForUser } from "./utils_devAccount.js";
 import { shouldSkipDevTeamNotification } from "./utils_devTeamNotification.js";
 import {
   buildDiscordEmbedPayload,
@@ -42,6 +43,7 @@ export const onNewUserSignup = functions
       gridId: null,
       metadata: { signInMethod },
     });
+    await syncDevAccountFlagForUser(user.uid, user.email ?? undefined);
 
     if (
       await shouldSkipDevTeamNotification({

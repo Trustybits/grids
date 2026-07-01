@@ -10,6 +10,7 @@ export interface UserProfile {
   defaultGridId?: string;
   lastLogin?: Date;
   storageUsed?: number;
+  isDevAccount?: boolean;
   recentGridIds?: string[];
   /** Dashboard favorites; order is preserved in the Starred section */
   starredGridIds?: string[];

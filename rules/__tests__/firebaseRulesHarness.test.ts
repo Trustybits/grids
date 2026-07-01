@@ -6,7 +6,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { ref, uploadString } from "firebase/storage";
 
 describe("Firebase rules harness", () => {
@@ -49,6 +49,43 @@ describe("Firebase rules harness", () => {
       setDoc(doc(alice, "users/alice"), {
         displayName: "Alice",
         storageUsed: 10,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(alice, "users/alice"), {
+        displayName: "Alice",
+        storageUsed: 0,
+        isDevAccount: true,
+      }),
+    );
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users/alice"), {
+        displayName: "Alice",
+        storageUsed: 0,
+        isDevAccount: true,
+      });
+    });
+    await assertFails(updateDoc(doc(alice, "users/alice"), { isDevAccount: false }));
+  });
+
+  it("allows owners to read upload archive docs but never write them", async () => {
+    const alice = testEnv.authenticatedContext("alice").firestore();
+    const bob = testEnv.authenticatedContext("bob").firestore();
+    const uploadPath = `users/alice/uploads/${"a".repeat(64)}`;
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), uploadPath), {
+        hash: "a".repeat(64),
+        status: "active",
+      });
+    });
+
+    await assertSucceeds(getDoc(doc(alice, uploadPath)));
+    await assertFails(getDoc(doc(bob, uploadPath)));
+    await assertFails(
+      setDoc(doc(alice, uploadPath), {
+        hash: "a".repeat(64),
+        status: "active",
       }),
     );
   });

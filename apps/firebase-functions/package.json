@@ -8,7 +8,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
-    "build": "tsc",
+    "build:deps": "npm --prefix ../.. run build:contracts",
+    "build": "npm run build:deps && tsc",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
@@ -22,6 +23,7 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@grids/contracts": "file:../../packages/contracts",
     "@sparticuz/chromium-min": "^143.0.4",
     "cheerio": "^1.0.0-rc.12",
     "firebase-admin": "^13.8.0",

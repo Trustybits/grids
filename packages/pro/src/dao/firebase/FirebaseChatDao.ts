@@ -4,10 +4,12 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import type { ChatDao } from "@grids/contracts/dao";
 import type { ChatMessage } from "@grids/contracts/types";
@@ -115,5 +117,24 @@ export class FirebaseChatDao implements ChatDao {
       messageId,
     );
     await deleteDoc(docRef);
+  }
+
+  public async deleteAllMessages(
+    gridId: string,
+    tileId: string,
+  ): Promise<void> {
+    const colRef = this.messagesCollection(gridId, tileId);
+    const snapshot = await getDocs(colRef);
+    if (snapshot.empty) return;
+
+    // Firestore caps a write batch at 500 operations; chunk to stay within it.
+    const MAX_BATCH_SIZE = 500;
+    for (let i = 0; i < snapshot.docs.length; i += MAX_BATCH_SIZE) {
+      const batch = writeBatch(this.db);
+      for (const docSnapshot of snapshot.docs.slice(i, i + MAX_BATCH_SIZE)) {
+        batch.delete(docSnapshot.ref);
+      }
+      await batch.commit();
+    }
   }
 }

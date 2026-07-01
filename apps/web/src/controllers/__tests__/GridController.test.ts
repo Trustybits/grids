@@ -7,10 +7,13 @@ import {
 import type { AuthProvider } from "@grids/contracts/auth";
 import {
   ContentType,
+  type ChatContent,
   type Grid,
   type ImageContent,
+  type Tile,
 } from "@grids/contracts/types";
 import type { AnalyticsServiceInterface } from "@/services/interfaces/AnalyticsServiceInterface";
+import type { ChatServiceInterface } from "@/services/interfaces/ChatServiceInterface";
 import type { GridServiceInterface } from "@/services/interfaces/GridServiceInterface";
 import type { GridPersistenceSchedulerInterface } from "@/services/interfaces/GridPersistenceSchedulerInterface";
 import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
@@ -138,6 +141,9 @@ function createControllerHarness() {
     schedule: vi.fn(),
     flush: vi.fn(async () => undefined),
   };
+  const chatService = {
+    deleteAllMessages: vi.fn(async () => undefined),
+  } as unknown as ChatServiceInterface;
   const dependencies: GridControllerDependencies = {
     getGridService: vi.fn(() => gridService),
     persistenceScheduler,
@@ -145,6 +151,7 @@ function createControllerHarness() {
     getAnalyticsService: vi.fn(
       () => ({}) as AnalyticsServiceInterface,
     ),
+    getChatService: vi.fn(() => chatService),
     generateUuid: vi.fn(() => "uuid"),
     delay: vi.fn(async () => undefined),
     now: vi.fn(() => new Date("2026-06-22T12:00:00Z")),
@@ -165,6 +172,7 @@ function createControllerHarness() {
     gridService,
     persistenceScheduler,
     authProvider,
+    chatService,
     dependencies,
     controller,
   };
@@ -528,6 +536,159 @@ describe("GridController", () => {
 
     expect(stores.session.persistenceStatus).toBe("idle");
     expect(stores.session.persistenceError).toBeNull();
+  });
+
+  describe("deferred chat-tile cleanup", () => {
+    function chatTile(i: string): Tile {
+      return {
+        i,
+        x: 0,
+        y: 0,
+        w: 2,
+        h: 2,
+        caption: "",
+        content: { type: ContentType.CHAT, messages: [] } as ChatContent,
+      };
+    }
+
+    function seedChatGrid() {
+      const harness = createControllerHarness();
+      harness.stores.session.setCurrentGrid(
+        makeGrid({ id: "grid-1", tiles: [chatTile("chat-1")] }),
+      );
+      harness.stores.session.setOwner(true);
+      harness.stores.history.initializeManager();
+      return harness;
+    }
+
+    it("does not delete messages while the removed tile is still undo-restorable", async () => {
+      const { controller, chatService } = seedChatGrid();
+
+      controller.removeTile("chat-1");
+      // Let the save-commit GC tick run; the removal snapshot still references
+      // chat-1, so the tile is skipped.
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(chatService.deleteAllMessages).not.toHaveBeenCalled();
+    });
+
+    it("hard-deletes a removed chat tile's messages on session teardown", () => {
+      const { controller, chatService } = seedChatGrid();
+
+      controller.removeTile("chat-1");
+      controller.clearSession();
+
+      expect(chatService.deleteAllMessages).toHaveBeenCalledTimes(1);
+      expect(chatService.deleteAllMessages).toHaveBeenCalledWith(
+        "grid-1",
+        "chat-1",
+      );
+    });
+
+    it("keeps messages when an undo restores the chat tile before teardown", async () => {
+      const { controller, stores, chatService } = seedChatGrid();
+
+      controller.removeTile("chat-1");
+      await controller.undo();
+      expect(stores.session.currentGrid?.tiles.map((t) => t.i)).toContain(
+        "chat-1",
+      );
+
+      controller.clearSession();
+
+      expect(chatService.deleteAllMessages).not.toHaveBeenCalled();
+    });
+
+    it("drops a restored tile's pending entry at teardown so a later session can't stale-delete it", async () => {
+      const { controller, stores, chatService } = seedChatGrid();
+
+      // Remove then undo-restore chat-1, so it is live again at teardown.
+      controller.removeTile("chat-1");
+      await controller.undo();
+      expect(stores.session.currentGrid?.tiles.map((t) => t.i)).toContain(
+        "chat-1",
+      );
+      controller.clearSession();
+      expect(chatService.deleteAllMessages).not.toHaveBeenCalled();
+
+      // Re-enter the same grid id in a fresh session where chat-1 is gone and
+      // was never removed here. A lingering pending entry from the prior
+      // session would wrongly reclaim it now.
+      stores.session.setCurrentGrid(makeGrid({ id: "grid-1", tiles: [] }));
+      stores.session.setOwner(true);
+      stores.history.initializeManager();
+
+      controller.clearSession();
+
+      expect(chatService.deleteAllMessages).not.toHaveBeenCalled();
+    });
+
+    it("does not reclaim a tile pending under a different grid than the current one", async () => {
+      const { controller, stores, chatService } = seedChatGrid();
+
+      controller.removeTile("chat-1"); // pending is keyed under grid-1
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Move to a different grid with a fresh (empty) history, then flush. The
+      // per-grid keying means grid-1's pending entry is never evaluated against
+      // grid-2 — a flat tileId set would wrongly delete it here.
+      stores.session.setCurrentGrid(makeGrid({ id: "grid-2", tiles: [] }));
+      stores.session.setOwner(true);
+      stores.history.initializeManager();
+
+      controller.scheduleSave();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(chatService.deleteAllMessages).not.toHaveBeenCalled();
+    });
+
+    it("reclaims only the still-unreachable tile among several pending", async () => {
+      const { controller, stores, chatService } = createControllerHarness();
+      stores.session.setCurrentGrid(
+        makeGrid({
+          id: "grid-1",
+          tiles: [chatTile("chat-1"), chatTile("chat-2")],
+        }),
+      );
+      stores.session.setOwner(true);
+      stores.history.initializeManager();
+
+      controller.removeTile("chat-1");
+      controller.removeTile("chat-2");
+      // Undo restores chat-2 to the live grid; chat-1 stays removed.
+      await controller.undo();
+
+      controller.clearSession();
+
+      expect(chatService.deleteAllMessages).toHaveBeenCalledTimes(1);
+      expect(chatService.deleteAllMessages).toHaveBeenCalledWith(
+        "grid-1",
+        "chat-1",
+      );
+    });
+
+    it("swallows a rejected message deletion at teardown without throwing", async () => {
+      const errorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      const { controller, chatService } = seedChatGrid();
+      vi.mocked(chatService.deleteAllMessages).mockRejectedValueOnce(
+        new Error("delete failed"),
+      );
+
+      controller.removeTile("chat-1");
+
+      expect(() => controller.clearSession()).not.toThrow();
+      await Promise.resolve();
+      expect(chatService.deleteAllMessages).toHaveBeenCalledWith(
+        "grid-1",
+        "chat-1",
+      );
+      expect(errorSpy).toHaveBeenCalled();
+    });
   });
 
   it("ignores stale persistence failures after the active session changes", async () => {

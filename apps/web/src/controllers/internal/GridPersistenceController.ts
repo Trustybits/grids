@@ -10,6 +10,7 @@ export class GridPersistenceController {
     private readonly stores: GridControllerStores,
     private readonly dependencies: GridControllerDependencies,
     private readonly canSaveCurrentGrid: () => boolean,
+    private readonly flushChatCleanup: () => void,
   ) {}
 
   scheduleSave(
@@ -98,6 +99,9 @@ export class GridPersistenceController {
       if (!this.stores.session.matchesPersistenceScope(scope)) return;
       this.stores.session.setPersistenceStatus("idle");
       this.stores.session.setPersistenceError(null);
+      // Periodic GC tick: reclaim removed chat tiles that have fallen out of
+      // undo/redo reach now that this save has committed.
+      this.flushChatCleanup();
     } catch (error) {
       if (this.stores.session.matchesPersistenceScope(scope)) {
         this.reportPersistenceError(error);

@@ -35,4 +35,8 @@ export class MockChatService implements ChatServiceInterface {
   ): Promise<void> {
     throw new Error("Method not implemented.");
   }
+
+  deleteAllMessages(_gridId: string, _tileId: string): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
 }

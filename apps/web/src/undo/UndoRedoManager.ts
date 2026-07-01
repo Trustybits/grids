@@ -111,6 +111,24 @@ export class UndoRedoManager {
     this.onChanged?.();
   }
 
+  /**
+   * Union of every tile id referenced by any snapshot in either stack. Used by
+   * deferred chat-tile cleanup to tell whether a removed tile is still
+   * restorable via undo/redo (and therefore must not have its messages deleted
+   * yet). Reports reachability only — it has no knowledge of Firestore.
+   */
+  getReferencedTileIds(): Set<string> {
+    const ids = new Set<string>();
+    for (const stack of [this.undoStack, this.redoStack]) {
+      for (const snapshot of stack) {
+        for (const tile of snapshot.tiles) {
+          ids.add(tile.i);
+        }
+      }
+    }
+    return ids;
+  }
+
   getLastActionLabel(): string | null {
     if (this.undoStack.length === 0) return null;
     return this.undoStack[this.undoStack.length - 1].actionLabel;

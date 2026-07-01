@@ -131,6 +131,60 @@ describe("UndoRedoManager", () => {
     expect(undoRedoManager.getNextRedoActionLabel()).toBeNull();
   });
 
+  describe("getReferencedTileIds", () => {
+    function tileSnapshot(ids: string[], actionLabel: string): Snapshot {
+      return makeSnapshot({
+        actionLabel,
+        tiles: ids.map((i) => ({
+          i,
+          x: 0,
+          y: 0,
+          w: 1,
+          h: 1,
+          caption: "",
+          content: { type: ContentType.TEXT, text: i } as TileContent,
+        })),
+      });
+    }
+
+    it("returns an empty set when both stacks are empty", () => {
+      expect(undoRedoManager.getReferencedTileIds().size).toBe(0);
+    });
+
+    it("unions tile ids across the undo and redo stacks", () => {
+      undoRedoManager.pushSnapshot(tileSnapshot(["a"], "one"));
+      undoRedoManager.pushSnapshot(tileSnapshot(["b"], "two"));
+      // Move the top undo slot to the redo stack, parking a tile-"c" snapshot there.
+      undoRedoManager.undo(tileSnapshot(["c"], "current"));
+
+      expect([...undoRedoManager.getReferencedTileIds()].sort()).toEqual([
+        "a",
+        "c",
+      ]);
+    });
+
+    it("includes every tile id within a multi-tile snapshot", () => {
+      undoRedoManager.pushSnapshot(
+        tileSnapshot(["a", "b", "c"], "multi"),
+      );
+
+      expect([...undoRedoManager.getReferencedTileIds()].sort()).toEqual([
+        "a",
+        "b",
+        "c",
+      ]);
+    });
+
+    it("reports a tile id once even when several snapshots reference it", () => {
+      undoRedoManager.pushSnapshot(tileSnapshot(["shared"], "one"));
+      undoRedoManager.pushSnapshot(tileSnapshot(["shared", "other"], "two"));
+
+      const ids = undoRedoManager.getReferencedTileIds();
+      expect([...ids].sort()).toEqual(["other", "shared"]);
+      expect(ids.size).toBe(2);
+    });
+  });
+
   it("returns the snapshot to undo", () => {
     const currentSnapshot = makeSnapshot({
       verticalCompact: false,

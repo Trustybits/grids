@@ -12,6 +12,11 @@ export { updateDefaultGrid } from "./accounts/onCall_updateDefaultGrid.js";
 export { trackGridViewEndBeacon } from "./analytics/onRequest_trackGridViewEndBeacon.js";
 export { onAnalyticsEventCreated } from "./analytics/onTrigger_analyticsEventCreated.js";
 
+// grids
+
+export { cleanupGridSubcollectionsOnDelete } from "./grids/onTrigger_gridDeleted_cleanupSubcollections.js";
+export { sweepOrphanedSubcollections } from "./grids/onSchedule_sweepOrphanedSubcollections.js";
+
 // integrations
 
 export { fetchNotionRoadmap } from "./integrations/onCall_fetchNotionRoadmap.js";

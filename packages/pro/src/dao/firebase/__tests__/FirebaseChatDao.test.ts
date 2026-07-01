@@ -18,10 +18,12 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { FirebaseChatDao } from "../FirebaseChatDao.js";
 import type { Firestore } from "firebase/firestore";
@@ -273,6 +275,125 @@ describe("FirebaseChatDao", () => {
         "msg-1",
       );
       expect(deleteDoc).toHaveBeenCalledWith("docRef");
+    });
+  });
+
+  // ── deleteAllMessages ─────────────────────────────────────────────────────
+
+  describe("deleteAllMessages", () => {
+    function fakeDeleteSnapshot(ids: string[]) {
+      return {
+        empty: ids.length === 0,
+        docs: ids.map((id) => ({ ref: `ref-${id}` })),
+      };
+    }
+
+    function arrangeBatch() {
+      const batch = { delete: vi.fn(), commit: vi.fn() };
+      vi.mocked(writeBatch).mockReturnValue(batch as any);
+      return batch;
+    }
+
+    it("queries the tile's messages subcollection", async () => {
+      vi.mocked(collection).mockReturnValue("colRef" as any);
+      vi.mocked(getDocs).mockResolvedValue(fakeDeleteSnapshot([]) as any);
+
+      await dao.deleteAllMessages("grid-1", "tile-1");
+
+      expect(collection).toHaveBeenCalledWith(
+        fakeDb,
+        "grids",
+        "grid-1",
+        "tiles",
+        "tile-1",
+        "messages",
+      );
+      expect(getDocs).toHaveBeenCalledWith("colRef");
+    });
+
+    it("does nothing when the collection is empty", async () => {
+      vi.mocked(getDocs).mockResolvedValue(fakeDeleteSnapshot([]) as any);
+
+      await dao.deleteAllMessages("grid-1", "tile-1");
+
+      expect(writeBatch).not.toHaveBeenCalled();
+    });
+
+    it("batch-deletes every message in a single batch", async () => {
+      vi.mocked(getDocs).mockResolvedValue(
+        fakeDeleteSnapshot(["a", "b", "c"]) as any,
+      );
+      const batch = arrangeBatch();
+
+      await dao.deleteAllMessages("grid-1", "tile-1");
+
+      expect(writeBatch).toHaveBeenCalledTimes(1);
+      expect(batch.delete).toHaveBeenCalledTimes(3);
+      expect(batch.delete).toHaveBeenCalledWith("ref-a");
+      expect(batch.delete).toHaveBeenCalledWith("ref-b");
+      expect(batch.delete).toHaveBeenCalledWith("ref-c");
+      expect(batch.commit).toHaveBeenCalledTimes(1);
+    });
+
+    it("uses a single batch at exactly the 500-op limit", async () => {
+      const ids = Array.from({ length: 500 }, (_, i) => `m${i}`);
+      vi.mocked(getDocs).mockResolvedValue(fakeDeleteSnapshot(ids) as any);
+      const batch = arrangeBatch();
+
+      await dao.deleteAllMessages("grid-1", "tile-1");
+
+      // 500 is the cap, not over it → exactly one batch.
+      expect(writeBatch).toHaveBeenCalledTimes(1);
+      expect(batch.delete).toHaveBeenCalledTimes(500);
+      expect(batch.commit).toHaveBeenCalledTimes(1);
+    });
+
+    it("opens a second batch one past the limit", async () => {
+      const ids = Array.from({ length: 501 }, (_, i) => `m${i}`);
+      vi.mocked(getDocs).mockResolvedValue(fakeDeleteSnapshot(ids) as any);
+      const batch = arrangeBatch();
+
+      await dao.deleteAllMessages("grid-1", "tile-1");
+
+      expect(writeBatch).toHaveBeenCalledTimes(2);
+      expect(batch.delete).toHaveBeenCalledTimes(501);
+      expect(batch.commit).toHaveBeenCalledTimes(2);
+    });
+
+    it("chunks into multiple batches beyond the 500-op limit", async () => {
+      const ids = Array.from({ length: 1001 }, (_, i) => `m${i}`);
+      vi.mocked(getDocs).mockResolvedValue(fakeDeleteSnapshot(ids) as any);
+      const batch = arrangeBatch();
+
+      await dao.deleteAllMessages("grid-1", "tile-1");
+
+      // 1001 docs → 500 + 500 + 1 = three batches.
+      expect(writeBatch).toHaveBeenCalledTimes(3);
+      expect(batch.delete).toHaveBeenCalledTimes(1001);
+      expect(batch.commit).toHaveBeenCalledTimes(3);
+    });
+
+    it("propagates errors from getDocs", async () => {
+      vi.mocked(getDocs).mockRejectedValue(new Error("read failed"));
+
+      await expect(
+        dao.deleteAllMessages("grid-1", "tile-1"),
+      ).rejects.toThrow("read failed");
+      expect(writeBatch).not.toHaveBeenCalled();
+    });
+
+    it("propagates errors from batch.commit", async () => {
+      vi.mocked(getDocs).mockResolvedValue(
+        fakeDeleteSnapshot(["a", "b"]) as any,
+      );
+      vi.mocked(writeBatch).mockReturnValue({
+        delete: vi.fn(),
+        commit: vi.fn().mockRejectedValue(new Error("commit failed")),
+      } as any);
+
+      await expect(
+        dao.deleteAllMessages("grid-1", "tile-1"),
+      ).rejects.toThrow("commit failed");
     });
   });
 });

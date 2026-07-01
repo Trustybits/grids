@@ -74,4 +74,13 @@ export class StubbedChatDao implements ChatDao {
     );
     emit(channel("messages", key));
   }
+
+  public async deleteAllMessages(
+    gridId: string,
+    tileId: string,
+  ): Promise<void> {
+    const key = messageKey(gridId, tileId);
+    memoryDatabase.messages.delete(key);
+    emit(channel("messages", key));
+  }
 }

@@ -64,6 +64,15 @@ export class FirebaseGridDao implements GridDao {
 
   public async delete(id: string): Promise<void> {
     const docRef = doc(this.db, COLLECTION, id);
+    // Deleting the grid doc is what fires the server-side
+    // `cleanupGridSubcollectionsOnDelete` trigger
+    // (apps/firebase-functions/src/grids/onTrigger_gridDeleted_cleanupSubcollections.ts),
+    // which `recursiveDelete`s the whole grid subtree (tiles/*/messages, etc.)
+    // since Firestore does not cascade deletes. This is IRREVERSIBLE — grid
+    // deletion is a hard delete today with no undo or trash/restore. If grid
+    // deletion ever becomes soft-delete / trash-restore, this delete and that
+    // trigger must be revisited so the subtree is only reclaimed on permanent
+    // deletion.
     await deleteDoc(docRef);
   }
 }

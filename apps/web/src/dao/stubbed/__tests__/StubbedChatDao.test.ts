@@ -108,6 +108,54 @@ describe("StubbedChatDao.deleteMessage", () => {
   });
 });
 
+describe("StubbedChatDao.deleteAllMessages", () => {
+  it("clears every message for the grid/tile key", async () => {
+    await dao.addMessage(GRID, TILE, message({ text: "one" }));
+    await dao.addMessage(GRID, TILE, message({ text: "two" }));
+
+    await dao.deleteAllMessages(GRID, TILE);
+
+    expect(memoryDatabase.messages.get(KEY)).toBeUndefined();
+  });
+
+  it("notifies subscribers after clearing", async () => {
+    const callback = vi.fn();
+    await dao.addMessage(GRID, TILE, message());
+    dao.subscribeToMessages(GRID, TILE, callback);
+    await flushMicrotasks();
+    callback.mockClear();
+
+    await dao.deleteAllMessages(GRID, TILE);
+    await flushMicrotasks();
+
+    expect(callback).toHaveBeenCalledWith([]);
+  });
+
+  it("leaves other grid/tile keys untouched", async () => {
+    await dao.addMessage(GRID, TILE, message({ text: "a" }));
+    await dao.addMessage("grid-2", "tile-2", message({ text: "b" }));
+
+    await dao.deleteAllMessages(GRID, TILE);
+
+    expect(
+      memoryDatabase.messages.get("grid-2/tile-2")?.map((m) => m.text),
+    ).toEqual(["b"]);
+  });
+
+  it("is a no-op but still notifies subscribers for an unknown key", async () => {
+    const callback = vi.fn();
+    dao.subscribeToMessages(GRID, TILE, callback);
+    await flushMicrotasks();
+    callback.mockClear();
+
+    await dao.deleteAllMessages(GRID, TILE);
+    await flushMicrotasks();
+
+    expect(memoryDatabase.messages.get(KEY)).toBeUndefined();
+    expect(callback).toHaveBeenCalledWith([]);
+  });
+});
+
 describe("StubbedChatDao.subscribeToMessages", () => {
   it("delivers an empty list when there are no messages", async () => {
     const callback = vi.fn();

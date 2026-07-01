@@ -348,8 +348,8 @@ const handleGenerate = async () => {
   try {
     const res = await fetch(
       generatedOgImageUrl(gridId.value, {
-        // refresh only when one already exists; a missing image generates anyway
-        refresh: !firstTime,
+        // Always bypass Storage cache — the modal is an explicit (re)generate.
+        refresh: true,
         cacheBust: Date.now(),
       }),
     );

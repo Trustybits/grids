@@ -302,6 +302,24 @@ describe("deleteArchiveUpload", () => {
   });
 });
 
+describe("getShareableArchiveDownloadUrl", () => {
+  it("calls the shareable download callable with owner and hash", async () => {
+    mockCloudFunctionsDao.callFunction.mockResolvedValueOnce({
+      hash: HASH,
+      url: "https://cdn/shareable.png",
+    });
+    const service = new StorageService();
+
+    await expect(
+      service.getShareableArchiveDownloadUrl("owner-1", HASH),
+    ).resolves.toBe("https://cdn/shareable.png");
+    expect(mockCloudFunctionsDao.callFunction).toHaveBeenCalledWith(
+      "getStorageUploadDownloadUrl",
+      { ownerId: "owner-1", hash: HASH },
+    );
+  });
+});
+
 describe("passthrough helpers", () => {
   it("uploadToPath merges published metadata", async () => {
     mockStorageDao.upload.mockResolvedValueOnce("https://cdn/og.png");

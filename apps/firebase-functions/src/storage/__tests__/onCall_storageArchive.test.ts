@@ -119,6 +119,7 @@ vi.mock("../../admin.js", () => {
 
 import { authorizeStorageUpload } from "../onCall_authorizeStorageUpload.js";
 import { deleteStorageUpload } from "../onCall_deleteStorageUpload.js";
+import { getStorageUploadDownloadUrl } from "../onCall_getStorageUploadDownloadUrl.js";
 import { setStorageUploadShareable } from "../onCall_setStorageUploadShareable.js";
 import { setStorageUploadDisplayName } from "../onCall_setStorageUploadDisplayName.js";
 
@@ -126,6 +127,7 @@ type Callable = (data: unknown, context: { auth?: { uid: string } }) => Promise<
 
 const authorize = authorizeStorageUpload as unknown as Callable;
 const remove = deleteStorageUpload as unknown as Callable;
+const getDownloadUrl = getStorageUploadDownloadUrl as unknown as Callable;
 const setShareable = setStorageUploadShareable as unknown as Callable;
 const setDisplayName = setStorageUploadDisplayName as unknown as Callable;
 
@@ -403,6 +405,37 @@ describe("storage archive callables", () => {
       setShareable({ hash: HASH, shareable: true }, { auth: { uid: "user-1" } }),
     ).rejects.toMatchObject({ code: "not-found" });
     expect(firestoreState.directUpdateCalls).toEqual([]);
+  });
+
+  it("returns a download URL only for active shareable uploads", async () => {
+    firestoreState.docs.set(
+      `users/user-1/uploads/${HASH}`,
+      activeArchive({ shareable: true, url: "https://cdn/file.png" }),
+    );
+
+    await expect(
+      getDownloadUrl(
+        { ownerId: "user-1", hash: HASH },
+        { auth: { uid: "user-2" } },
+      ),
+    ).resolves.toEqual({ hash: HASH, url: "https://cdn/file.png" });
+  });
+
+  it("rejects non-shareable download URL requests", async () => {
+    firestoreState.docs.set(`users/user-1/uploads/${HASH}`, activeArchive());
+
+    await expect(
+      getDownloadUrl(
+        { ownerId: "user-1", hash: HASH },
+        { auth: { uid: "user-2" } },
+      ),
+    ).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("requires auth to resolve a shareable download URL", async () => {
+    await expect(
+      getDownloadUrl({ ownerId: "user-1", hash: HASH }, {}),
+    ).rejects.toMatchObject({ code: "unauthenticated" });
   });
 
   it("renames only the displayName through the owner callable", async () => {

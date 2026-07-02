@@ -24,7 +24,9 @@ const { exportsByModule, adminImportSpy } = vi.hoisted(() => {
     authorizeStorageUpload: { functionName: "authorizeStorageUpload" },
     deleteStorageUpload: { functionName: "deleteStorageUpload" },
     ensureDocumentItemThumbnail: { functionName: "ensureDocumentItemThumbnail" },
+    getStorageUploadDownloadUrl: { functionName: "getStorageUploadDownloadUrl" },
     prepareGridDuplicateStorage: { functionName: "prepareGridDuplicateStorage" },
+    setStorageUploadDisplayName: { functionName: "setStorageUploadDisplayName" },
     setStorageUploadShareable: { functionName: "setStorageUploadShareable" },
     generateThumbnail: { functionName: "generateThumbnail" },
     generateOgImage: { functionName: "generateOgImage" },
@@ -107,8 +109,14 @@ vi.mock("../storage/onCall_authorizeStorageUpload.js", () => ({
 vi.mock("../storage/onCall_deleteStorageUpload.js", () => ({
   deleteStorageUpload: exportsByModule.deleteStorageUpload,
 }));
+vi.mock("../storage/onCall_getStorageUploadDownloadUrl.js", () => ({
+  getStorageUploadDownloadUrl: exportsByModule.getStorageUploadDownloadUrl,
+}));
 vi.mock("../storage/onCall_prepareGridDuplicateStorage.js", () => ({
   prepareGridDuplicateStorage: exportsByModule.prepareGridDuplicateStorage,
+}));
+vi.mock("../storage/onCall_setStorageUploadDisplayName.js", () => ({
+  setStorageUploadDisplayName: exportsByModule.setStorageUploadDisplayName,
 }));
 vi.mock("../storage/onCall_setStorageUploadShareable.js", () => ({
   setStorageUploadShareable: exportsByModule.setStorageUploadShareable,

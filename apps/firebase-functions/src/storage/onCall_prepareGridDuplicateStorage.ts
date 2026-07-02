@@ -44,6 +44,7 @@ export const prepareGridDuplicateStorage = functions.https.onCall(
         copiableCount: 0,
         nonCopiableCount: 0,
         replacementTileIds: [],
+        removeBackgroundImage: false,
       };
     }
 
@@ -93,6 +94,11 @@ export const prepareGridDuplicateStorage = functions.https.onCall(
           .map((ref) => ref.tileId as string),
       ),
     ];
+    const removeBackgroundImage = references.some(
+      (ref) =>
+        ref.location === "grid.backgroundImage" &&
+        nonCopiableHashes.has(ref.hash),
+    );
 
     const targetArchiveDocs = new Map<string, UploadArchiveDoc>();
     const missingForTarget = new Map<string, ReferencePlan>();
@@ -117,6 +123,7 @@ export const prepareGridDuplicateStorage = functions.https.onCall(
         copiableCount: copiable.size,
         nonCopiableCount: replacementTileIds.length,
         replacementTileIds,
+        removeBackgroundImage,
       };
     }
 
@@ -161,6 +168,7 @@ export const prepareGridDuplicateStorage = functions.https.onCall(
       nonCopiableCount: replacementTileIds.length,
       rewriteMap,
       replacementTileIds,
+      removeBackgroundImage,
     };
   },
 );

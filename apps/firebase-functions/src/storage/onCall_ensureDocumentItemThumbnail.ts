@@ -6,6 +6,7 @@ import sharp from "sharp";
 import { noopIfMaintenance } from "../maintenance.js";
 import { requireAuth, requireStringFields } from "../shared/utils_callable.js";
 import { launchChromiumBrowser } from "./utils_browser.js";
+import { buildStorageDownloadUrl } from "./utils_storageDownloadUrl.js";
 
 // ─── Document stack: PDF page-1 thumbnail (callable) ────────────────────────
 
@@ -172,9 +173,7 @@ export const ensureDocumentItemThumbnail = functions
       },
     });
 
-    const thumbnailUrl =
-      `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/` +
-      `${encodeURIComponent(thumbPath)}?alt=media&token=${token}`;
+    const thumbnailUrl = buildStorageDownloadUrl(bucket.name, thumbPath, token);
 
     await db.runTransaction(async (tx) => {
       const fresh = await tx.get(gridRef);

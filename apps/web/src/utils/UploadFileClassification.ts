@@ -20,6 +20,23 @@ const DOCUMENT_MIME = new Set([
 
 const DOCUMENT_EXT = /\.(pdf|doc|docx|txt|md)$/i;
 
+/**
+ * `accept` attribute value for file inputs that feed the archive upload flow —
+ * images, videos, and the document types supported elsewhere in the app. Kept
+ * in sync with {@link classifyFileForUpload}; the picker is advisory, the real
+ * gate is `validateUploadFile`.
+ */
+export const SUPPORTED_UPLOAD_ACCEPT = [
+  "image/*",
+  "video/*",
+  ...DOCUMENT_MIME,
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".txt",
+  ".md",
+].join(",");
+
 export type UploadKindLabel = "image" | "video" | "document";
 
 /** Classify a file for grid upload (image, video, document). Returns null if unsupported. */

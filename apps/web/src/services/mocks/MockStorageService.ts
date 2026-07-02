@@ -58,6 +58,18 @@ export class MockStorageService implements StorageServiceInterface {
   listArchiveUploads(_userId: string): Promise<UploadArchiveDocument[]> {
     return Promise.resolve([]);
   }
+  getArchiveUpload(
+    _userId: string,
+    _hash: string,
+  ): Promise<UploadArchiveDocument | null> {
+    return Promise.resolve(null);
+  }
+  getShareableArchiveDownloadUrl(
+    _ownerId: string,
+    _hash: string,
+  ): Promise<string> {
+    return Promise.reject(new Error("Upload is not shareable."));
+  }
   setUploadShareable(_hash: string, shareable: boolean): Promise<boolean> {
     return Promise.resolve(shareable);
   }

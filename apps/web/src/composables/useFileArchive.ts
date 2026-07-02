@@ -43,6 +43,7 @@ function toMillis(
 export function useFileArchive() {
   const uploads = ref<UploadArchiveDocument[]>([]);
   const loading = ref(false);
+  const uploading = ref(false);
   const error = ref<string | null>(null);
 
   let authProvider: AuthProvider | null = null;
@@ -91,6 +92,31 @@ export function useFileArchive() {
       throw err;
     } finally {
       loading.value = false;
+    }
+  };
+
+  /**
+   * Upload one or more files straight into the archive (no tile is created) and
+   * refresh the list. Used by the File Archive upload button; each file routes
+   * through the same hash → authorize → finalize flow as tile uploads.
+   */
+  const uploadFiles = async (files: File[]): Promise<void> => {
+    if (files.length === 0) return;
+    uploading.value = true;
+    error.value = null;
+    try {
+      const uid = requireUserId();
+      const service = getArchiveStorageService();
+      for (const file of files) {
+        await service.uploadArchiveFile(uid, file);
+      }
+      await refresh();
+    } catch (err) {
+      error.value =
+        err instanceof Error ? err.message : "Failed to upload file.";
+      throw err;
+    } finally {
+      uploading.value = false;
     }
   };
 
@@ -147,16 +173,39 @@ export function useFileArchive() {
   };
 
   /**
+   * Resolve the download URL to render for an archive file. Prefer a freshly
+   * SDK-resolved URL for the canonical path (its download token is guaranteed
+   * valid for the current environment) and fall back to the archive doc's
+   * stored URL. This mirrors the pre-refactor upload flow, which resolved the
+   * client `getDownloadURL` rather than trusting a server-constructed token URL.
+   */
+  const resolveDisplayUrl = async (
+    doc: UploadArchiveDocument,
+  ): Promise<string | null> => {
+    if (doc.path) {
+      try {
+        return await getArchiveStorageService().getDownloadUrl(doc.path);
+      } catch {
+        // Fall through to the stored URL below.
+      }
+    }
+    return doc.url ?? null;
+  };
+
+  /**
    * Add an image or video archive file to the open grid as a new media tile.
    * Returns the new tile id, or `null` if the file has no URL / no tile could
    * be placed.
    */
-  const addMediaToGrid = (doc: UploadArchiveDocument): string | null => {
-    if (!doc.url) return null;
+  const addMediaToGrid = async (
+    doc: UploadArchiveDocument,
+  ): Promise<string | null> => {
+    const src = await resolveDisplayUrl(doc);
+    if (!src) return null;
     const type =
       doc.kind === "videos" ? ContentType.VIDEO : ContentType.IMAGE;
     const content = createTileContent(type, {
-      src: doc.url,
+      src,
       srcHash: doc.hash,
     });
     return getArchiveController().addTile(content);
@@ -166,14 +215,17 @@ export function useFileArchive() {
    * Add a document archive file to the open grid as a new documents tile with a
    * single item. Returns the new tile id, or `null` if the file has no URL.
    */
-  const addDocumentToGrid = (doc: UploadArchiveDocument): string | null => {
-    if (!doc.url) return null;
+  const addDocumentToGrid = async (
+    doc: UploadArchiveDocument,
+  ): Promise<string | null> => {
+    const url = await resolveDisplayUrl(doc);
+    if (!url) return null;
     const content = createTileContent(ContentType.DOCUMENT, {
       items: [
         {
           id: uuidv4(),
           fileName: doc.displayName ?? `${doc.hash}.${doc.ext}`,
-          url: doc.url,
+          url,
           hash: doc.hash,
           mimeType: doc.contentType || undefined,
         },
@@ -186,7 +238,9 @@ export function useFileArchive() {
    * Add a file to the open grid, dispatching to the correct tile type. Relies on
    * the next persisted grid diff to update the file's refCount server-side.
    */
-  const addToGrid = (doc: UploadArchiveDocument): string | null =>
+  const addToGrid = (
+    doc: UploadArchiveDocument,
+  ): Promise<string | null> =>
     doc.kind === "documents" ? addDocumentToGrid(doc) : addMediaToGrid(doc);
 
   /**
@@ -221,8 +275,10 @@ export function useFileArchive() {
   return {
     uploads,
     loading,
+    uploading,
     error,
     refresh,
+    uploadFiles,
     setShareable,
     rename,
     remove,

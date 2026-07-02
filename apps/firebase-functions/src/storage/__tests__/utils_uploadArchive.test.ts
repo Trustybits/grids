@@ -190,6 +190,21 @@ describe("buildDownloadUrl", () => {
       "&token=tok%20en",
     );
   });
+
+  it("points at the Storage emulator host when one is configured", () => {
+    const prev = process.env.STORAGE_EMULATOR_HOST;
+    process.env.STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
+    try {
+      expect(buildDownloadUrl("bucket-x", PATH)).toBe(
+        `http://127.0.0.1:9199/v0/b/bucket-x/o/${encodeURIComponent(
+          PATH,
+        )}?alt=media`,
+      );
+    } finally {
+      if (prev === undefined) delete process.env.STORAGE_EMULATOR_HOST;
+      else process.env.STORAGE_EMULATOR_HOST = prev;
+    }
+  });
 });
 
 describe("ensureDownloadToken", () => {

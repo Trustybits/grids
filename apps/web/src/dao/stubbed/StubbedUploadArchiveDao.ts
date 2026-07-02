@@ -46,4 +46,12 @@ export class StubbedUploadArchiveDao implements UploadArchiveDao {
   public listUploads(_uid: string): Promise<UploadArchiveDocument[]> {
     return Promise.resolve([]);
   }
+
+  /** Local mode has no server-written archive index. */
+  public getUpload(
+    _uid: string,
+    _hash: string,
+  ): Promise<UploadArchiveDocument | null> {
+    return Promise.resolve(null);
+  }
 }

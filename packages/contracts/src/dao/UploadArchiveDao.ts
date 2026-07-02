@@ -29,4 +29,11 @@ export interface UploadArchiveDao {
    * by server code.
    */
   listUploads(uid: string): Promise<UploadArchiveDocument[]>;
+
+  /**
+   * Read a single archive document at `users/{uid}/uploads/{hash}`, or `null`
+   * when it does not exist. Used to check a file's `shareable` state (e.g. to
+   * gate a tile's download affordance).
+   */
+  getUpload(uid: string, hash: string): Promise<UploadArchiveDocument | null>;
 }

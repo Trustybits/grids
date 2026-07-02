@@ -11,6 +11,8 @@ import type {
   AuthorizeStorageUploadRequest,
   AuthorizeStorageUploadResponse,
   DeleteStorageUploadRequest,
+  GetStorageUploadDownloadUrlRequest,
+  GetStorageUploadDownloadUrlResponse,
   PrepareGridDuplicateStorageRequest,
   PrepareGridDuplicateStorageResponse,
   SetStorageUploadDisplayNameRequest,
@@ -235,6 +237,34 @@ export class StorageService implements StorageServiceInterface {
       return await this.uploadArchiveDao.listUploads(userId);
     } catch (error) {
       console.error("StorageService listArchiveUploads failed:", error);
+      throw error;
+    }
+  }
+
+  async getArchiveUpload(
+    userId: string,
+    hash: string,
+  ): Promise<UploadArchiveDocument | null> {
+    try {
+      return await this.uploadArchiveDao.getUpload(userId, hash);
+    } catch (error) {
+      console.error("StorageService getArchiveUpload failed:", error);
+      throw error;
+    }
+  }
+
+  async getShareableArchiveDownloadUrl(
+    ownerId: string,
+    hash: string,
+  ): Promise<string> {
+    try {
+      const response = await this.cloudFunctionsDao.callFunction<
+        GetStorageUploadDownloadUrlRequest,
+        GetStorageUploadDownloadUrlResponse
+      >("getStorageUploadDownloadUrl", { ownerId, hash });
+      return response.url;
+    } catch (error) {
+      console.error("StorageService getShareableArchiveDownloadUrl failed:", error);
       throw error;
     }
   }

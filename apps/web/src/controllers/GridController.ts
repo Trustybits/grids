@@ -1,6 +1,7 @@
 import {
   type AnyTileContent,
   type Breakpoint,
+  type ConfirmedGridDuplicateStorage,
   type CopyDepth,
   type DocumentItem,
   type Grid,
@@ -255,10 +256,12 @@ export class GridController {
   async duplicateGrid(
     sourceGrid: Grid,
     copyDepth: CopyDepth = "full",
+    storagePlan?: ConfirmedGridDuplicateStorage,
   ): Promise<string | null> {
     return this.collectionController.duplicateGrid(
       sourceGrid,
       copyDepth,
+      storagePlan,
     );
   }
 

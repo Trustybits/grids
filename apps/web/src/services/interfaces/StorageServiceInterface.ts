@@ -84,6 +84,24 @@ export interface StorageServiceInterface {
   listArchiveUploads(userId: string): Promise<UploadArchiveDocument[]>;
 
   /**
+   * Read a single archive document (or `null`). Used to check a file's
+   * `shareable` state, e.g. to gate a tile's download affordance.
+   */
+  getArchiveUpload(
+    userId: string,
+    hash: string,
+  ): Promise<UploadArchiveDocument | null>;
+
+  /**
+   * Resolve the app-provided download URL for a source owner's archive file.
+   * The server returns a URL only when the file is active and `shareable: true`.
+   */
+  getShareableArchiveDownloadUrl(
+    ownerId: string,
+    hash: string,
+  ): Promise<string>;
+
+  /**
    * Toggle a file's `shareable` flag through the server callable. Archive docs
    * are server-write-only, so this must not write Firestore directly. Resolves
    * to the persisted flag value.

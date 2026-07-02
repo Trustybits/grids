@@ -173,6 +173,28 @@ describe("prepareGridDuplicateStorage", () => {
       copiableCount: 1,
       nonCopiableCount: 1,
       replacementTileIds: ["blocked-image"],
+      removeBackgroundImage: false,
+    });
+  });
+
+  it("reports non-copiable background images separately from tile replacements", async () => {
+    seedSourceGrid();
+    const sourceGrid = firestoreState.docs.get("grids/grid-source");
+    firestoreState.docs.set("grids/grid-source", {
+      ...sourceGrid,
+      backgroundImageSrc: `users/source/images/${HASH_B}.png`,
+      backgroundImageHash: HASH_B,
+    });
+
+    await expect(
+      prepare(
+        { sourceGridId: "grid-source", copyDepth: "full" },
+        { auth: { uid: "target" } },
+      ),
+    ).resolves.toMatchObject({
+      nonCopiableCount: 1,
+      replacementTileIds: ["blocked-image"],
+      removeBackgroundImage: true,
     });
   });
 

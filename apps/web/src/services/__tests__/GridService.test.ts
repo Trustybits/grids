@@ -896,6 +896,86 @@ describe('cloneAndPersistGrid', () => {
     expect(chatContent.messages).toEqual([])
   })
 
+  it('full copy: applies archive URL rewrites from duplicate storage confirmation', async () => {
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const hash = 'a'.repeat(64)
+    const imageTile = makeTile({
+      i: 'img-tile',
+      content: {
+        type: ContentType.IMAGE,
+        src: 'https://cdn/source.png',
+        srcHash: hash,
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0,
+      } as never,
+    })
+    const source = makeGrid({
+      backgroundImageSrc: 'https://cdn/bg-source.png',
+      backgroundImageHash: hash,
+      tiles: [imageTile],
+    })
+
+    const service = await getService()
+    const result = await service.cloneAndPersistGrid('user-2', source, 'full', {
+      rewriteMap: {
+        [hash]: {
+          oldHash: hash,
+          oldUrl: 'https://cdn/source.png',
+          newHash: hash,
+          newUrl: 'https://cdn/target.png',
+        },
+      },
+    })
+
+    const content = result.tiles[0].content as unknown as {
+      src: string
+      srcHash: string
+    }
+    expect(content.src).toBe('https://cdn/target.png')
+    expect(content.srcHash).toBe(hash)
+    expect(result.backgroundImageSrc).toBe('https://cdn/target.png')
+    expect(result.backgroundImageHash).toBe(hash)
+  })
+
+  it('full copy: replaces non-copiable file-backed source tiles with suggestions', async () => {
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const imageTile = makeTile({
+      i: 'img-tile',
+      content: { type: ContentType.IMAGE, src: 'https://cdn/private.png' } as never,
+    })
+    const source = makeGrid({ tiles: [imageTile] })
+
+    const service = await getService()
+    const result = await service.cloneAndPersistGrid('user-2', source, 'full', {
+      replacementTileIds: ['img-tile'],
+    })
+
+    const content = result.tiles[0].content as SuggestionContent
+    expect(content.type).toBe(ContentType.SUGGESTION)
+    expect(content.action).toBe('media')
+  })
+
+  it('full copy: removes a non-copiable archive-backed background image', async () => {
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const source = makeGrid({
+      backgroundImageSrc: 'https://cdn/private-bg.png',
+      backgroundImageHash: 'b'.repeat(64),
+      tiles: [],
+    })
+
+    const service = await getService()
+    const result = await service.cloneAndPersistGrid('user-2', source, 'full', {
+      removeBackgroundImage: true,
+    })
+
+    expect(result.backgroundImageSrc).toBe('')
+    expect(result.backgroundImageHash).toBe('')
+  })
+
   it('structure copy: replaces tiles with suggestion placeholders', async () => {
     mockGridDao.save.mockResolvedValueOnce(undefined)
 

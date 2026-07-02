@@ -187,6 +187,7 @@ import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
 import OgImageModal from "@/components/modal/OgImageModal.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
+import { useGridDuplicateStorage } from "@/composables/useGridDuplicateStorage";
 
 const router = useRouter();
 const sessionStore = useGridSessionStore();
@@ -208,6 +209,7 @@ const bgImageInput = ref<HTMLInputElement | null>(null);
 const bgSplitRef = ref<InstanceType<typeof GhostSplitButton> | null>(null);
 const bgChevronEl = computed(() => bgSplitRef.value?.chevronRef ?? null);
 const { uploadFileToArchive } = useFileUpload();
+const { resolveStoragePlan } = useGridDuplicateStorage();
 
 const isOwner = computed(() => {
   const userId = authProvider.getCurrentUserId();
@@ -339,13 +341,27 @@ const duplicatable = computed({
 const duplicateGrid = async (copyDepth: CopyDepth = "full") => {
   if (!sessionStore.currentGrid) return;
 
-  const newId = await controller.duplicateGrid(
-    sessionStore.currentGrid,
-    copyDepth,
-  );
-  closeMenu();
-  if (newId) {
-    router.push(`/grid/${newId}`);
+  try {
+    const storagePlan = await resolveStoragePlan(
+      sessionStore.currentGrid,
+      copyDepth,
+    );
+    if (storagePlan === null) return;
+
+    const newId = await controller.duplicateGrid(
+      sessionStore.currentGrid,
+      copyDepth,
+      storagePlan,
+    );
+    closeMenu();
+    if (newId) {
+      router.push(`/grid/${newId}`);
+    }
+  } catch (error) {
+    toastStore.addToast(
+      error instanceof Error ? error.message : "Failed to duplicate grid.",
+      "error",
+    );
   }
 };
 

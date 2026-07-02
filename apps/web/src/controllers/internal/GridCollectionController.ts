@@ -1,4 +1,8 @@
-import type { CopyDepth, Grid } from "@grids/contracts/types";
+import type {
+  ConfirmedGridDuplicateStorage,
+  CopyDepth,
+  Grid,
+} from "@grids/contracts/types";
 import type {
   GridControllerDependencies,
   GridControllerStores,
@@ -63,6 +67,7 @@ export class GridCollectionController {
   async duplicateGrid(
     sourceGrid: Grid,
     copyDepth: CopyDepth = "full",
+    storagePlan?: ConfirmedGridDuplicateStorage,
   ): Promise<string | null> {
     const userId =
       this.dependencies.getAuthProvider().getCurrentUserId();
@@ -71,9 +76,16 @@ export class GridCollectionController {
       return null;
     }
     try {
-      const grid = await this.dependencies
-        .getGridService()
-        .cloneAndPersistGrid(userId, sourceGrid, copyDepth);
+      const gridService = this.dependencies.getGridService();
+      const grid =
+        storagePlan === undefined
+          ? await gridService.cloneAndPersistGrid(userId, sourceGrid, copyDepth)
+          : await gridService.cloneAndPersistGrid(
+              userId,
+              sourceGrid,
+              copyDepth,
+              storagePlan,
+            );
       this.stores.collection.addGrid({ ...grid });
       return grid.id;
     } catch (error) {

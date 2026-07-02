@@ -7,6 +7,7 @@ import {
   buildCanonicalUploadPath,
   type UploadMetadata,
 } from "./utils_uploadPaths.js";
+import { buildStorageDownloadUrl } from "./utils_storageDownloadUrl.js";
 
 export type UploadArchiveStatus = "pending" | "active" | "failed";
 
@@ -48,10 +49,7 @@ export function buildDownloadUrl(
   path: string,
   token?: string,
 ): string {
-  const base =
-    `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/` +
-    `${encodeURIComponent(path)}?alt=media`;
-  return token ? `${base}&token=${encodeURIComponent(token)}` : base;
+  return buildStorageDownloadUrl(bucketName, path, token);
 }
 
 export function ensureDownloadToken(metadata: Record<string, unknown> = {}) {

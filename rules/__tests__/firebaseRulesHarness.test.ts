@@ -28,6 +28,16 @@ async function seedUser(
   });
 }
 
+async function seedGrid(
+  testEnv: RulesTestEnvironment,
+  gridId: string,
+  data: Record<string, unknown>,
+) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), `grids/${gridId}`), data);
+  });
+}
+
 describe("Firebase rules harness", () => {
   let testEnv: RulesTestEnvironment;
 
@@ -120,6 +130,107 @@ describe("Firebase rules harness", () => {
     await assertFails(
       updateDoc(doc(alice, uploadPath), {
         shareable: true,
+      }),
+    );
+  });
+
+  it("enforces grid rev on creates and content updates", async () => {
+    const alice = testEnv.authenticatedContext("alice").firestore();
+    const bob = testEnv.authenticatedContext("bob").firestore();
+
+    await assertSucceeds(
+      setDoc(doc(alice, "grids/new-grid"), {
+        userId: "alice",
+        rev: 1,
+        name: "New Grid",
+        tiles: [],
+      }),
+    );
+    await assertFails(
+      setDoc(doc(alice, "grids/bad-initial-rev"), {
+        userId: "alice",
+        rev: 0,
+        name: "Bad Grid",
+        tiles: [],
+      }),
+    );
+
+    await seedGrid(testEnv, "grid-1", {
+      userId: "alice",
+      rev: 3,
+      name: "Saved",
+      tiles: [],
+    });
+
+    await assertSucceeds(
+      updateDoc(doc(alice, "grids/grid-1"), {
+        rev: 4,
+        name: "Fresh Save",
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(alice, "grids/grid-1"), {
+        rev: 4,
+        name: "Stale Save",
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(bob, "grids/grid-1"), {
+        rev: 5,
+        name: "Wrong Owner",
+      }),
+    );
+  });
+
+  it("treats missing stored grid rev as 0 for the first new-client update", async () => {
+    const alice = testEnv.authenticatedContext("alice").firestore();
+
+    await seedGrid(testEnv, "legacy-grid", {
+      userId: "alice",
+      name: "Legacy",
+      tiles: [],
+    });
+
+    await assertSucceeds(
+      updateDoc(doc(alice, "grids/legacy-grid"), {
+        rev: 1,
+        name: "Migrated by new client",
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(alice, "grids/legacy-grid"), {
+        rev: 1,
+        name: "Repeated stale save",
+      }),
+    );
+  });
+
+  it("allows owner lastOpenedAt-only updates without a rev bump", async () => {
+    const alice = testEnv.authenticatedContext("alice").firestore();
+    const bob = testEnv.authenticatedContext("bob").firestore();
+
+    await seedGrid(testEnv, "recent-grid", {
+      userId: "alice",
+      rev: 7,
+      name: "Recent",
+      tiles: [],
+      lastOpenedAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
+
+    await assertSucceeds(
+      updateDoc(doc(alice, "grids/recent-grid"), {
+        lastOpenedAt: new Date("2026-01-02T00:00:00.000Z"),
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(alice, "grids/recent-grid"), {
+        lastOpenedAt: new Date("2026-01-03T00:00:00.000Z"),
+        name: "Not recency only",
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(bob, "grids/recent-grid"), {
+        lastOpenedAt: new Date("2026-01-04T00:00:00.000Z"),
       }),
     );
   });

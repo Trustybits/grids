@@ -38,6 +38,7 @@ export { getYouTubeMetadata } from "./scraping/onCall_getYouTubeMetadata.js";
 export { authorizeStorageUpload } from "./storage/onCall_authorizeStorageUpload.js";
 export { deleteStorageUpload } from "./storage/onCall_deleteStorageUpload.js";
 export { ensureDocumentItemThumbnail } from "./storage/onCall_ensureDocumentItemThumbnail.js";
+export { getStorageUploadDownloadUrl } from "./storage/onCall_getStorageUploadDownloadUrl.js";
 export { prepareGridDuplicateStorage } from "./storage/onCall_prepareGridDuplicateStorage.js";
 export { setStorageUploadDisplayName } from "./storage/onCall_setStorageUploadDisplayName.js";
 export { setStorageUploadShareable } from "./storage/onCall_setStorageUploadShareable.js";

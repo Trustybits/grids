@@ -2,6 +2,7 @@ import {
   type Firestore,
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
 } from "firebase/firestore";
@@ -56,5 +57,16 @@ export class FirebaseUploadArchiveDao implements UploadArchiveDao {
     );
     const snapshot = await getDocs(uploadsRef);
     return snapshot.docs.map((d) => d.data() as UploadArchiveDocument);
+  }
+
+  public async getUpload(
+    uid: string,
+    hash: string,
+  ): Promise<UploadArchiveDocument | null> {
+    const docRef = doc(this.db, USERS_COLLECTION, uid, UPLOADS_COLLECTION, hash);
+    const snapshot = await getDoc(docRef);
+    return snapshot.exists()
+      ? (snapshot.data() as UploadArchiveDocument)
+      : null;
   }
 }

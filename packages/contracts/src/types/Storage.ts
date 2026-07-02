@@ -78,6 +78,16 @@ export interface SetStorageUploadDisplayNameResponse {
   displayName: string;
 }
 
+export interface GetStorageUploadDownloadUrlRequest {
+  ownerId: string;
+  hash: string;
+}
+
+export interface GetStorageUploadDownloadUrlResponse {
+  hash: string;
+  url: string;
+}
+
 export interface PrepareGridDuplicateStorageRequest {
   sourceGridId: string;
   copyDepth: "full" | "structure";
@@ -98,4 +108,10 @@ export interface PrepareGridDuplicateStorageResponse {
     }
   >;
   replacementTileIds?: string[];
+  removeBackgroundImage?: boolean;
 }
+
+export type ConfirmedGridDuplicateStorage = Pick<
+  PrepareGridDuplicateStorageResponse,
+  "rewriteMap" | "replacementTileIds" | "removeBackgroundImage"
+>;

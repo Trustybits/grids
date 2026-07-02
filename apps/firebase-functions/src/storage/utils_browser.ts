@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+
 // v147.0.0 has no pack assets on GitHub releases; using v143.0.4 (last confirmed stable).
 // Firebase Functions run on Linux x86_64 -> use the .x64.tar variant (added in v127+).
 // Update this URL when upgrading @sparticuz/chromium-min.
@@ -6,6 +8,23 @@ const CHROMIUM_URL =
 
 const DEFAULT_EMULATOR_EXECUTABLE_PATH =
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+
+const EMULATOR_CHROME_CANDIDATES = [
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/Applications/Chromium.app/Contents/MacOS/Chromium",
+  "/usr/bin/google-chrome",
+  "/usr/bin/chromium-browser",
+  DEFAULT_EMULATOR_EXECUTABLE_PATH,
+];
+
+function resolveEmulatorChromePath(): string {
+  const override = process.env.PUPPETEER_EXECUTABLE_PATH?.trim();
+  if (override) return override.replace(/^["']|["']$/g, "");
+  for (const candidate of EMULATOR_CHROME_CANDIDATES) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return DEFAULT_EMULATOR_EXECUTABLE_PATH;
+}
 
 type ChromiumViewport = {
   width: number;
@@ -23,7 +42,7 @@ export async function launchChromiumBrowser(defaultViewport: ChromiumViewport): 
   const puppeteer: any = (await import("puppeteer-core")).default;
 
   const executablePath = isEmulator
-    ? (process.env.PUPPETEER_EXECUTABLE_PATH ?? DEFAULT_EMULATOR_EXECUTABLE_PATH)
+    ? resolveEmulatorChromePath()
     : await chromium.executablePath(CHROMIUM_URL);
 
   return puppeteer.launch({

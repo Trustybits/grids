@@ -618,6 +618,22 @@ function storageUrl(path: string): string {
   return `https://firebasestorage.googleapis.com/v0/b/${BUCKET_NAME}/o/${encodeURIComponent(path)}?alt=media`;
 }
 
+/** Stream a PNG inline — used in the emulator so browser tabs show a preview. */
+function sendOgImageInline(res: Response, image: Buffer): void {
+  res.setHeader("Content-Type", "image/png");
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Content-Disposition", "inline");
+  res.end(image);
+}
+
+async function sendCachedOgImageInline(
+  file: { download: () => Promise<[Buffer]> },
+  res: Response
+): Promise<void> {
+  const [buf] = await file.download();
+  sendOgImageInline(res, buf);
+}
+
 // ─── Per-tile capture from the live grid page ────────────────────────────────
 
 interface CapturedTile {
@@ -678,12 +694,55 @@ function categoryFor(type: string): Category {
   }
 }
 
+/** Strip trailing slash from the screenshot base URL. Host is kept as-is — do not
+ * rewrite localhost to 127.0.0.1; Vite often binds IPv6-only (localhost → ::1)
+ * and an explicit 127.0.0.1 URL will get ERR_CONNECTION_REFUSED. */
+export function normalizeScreenshotBaseUrl(raw: string): string {
+  return raw.replace(/\/$/, "");
+}
+
+function gridContainerWaitMs(): number {
+  // Local Vite cold starts + Firebase emulator round-trips can exceed 20s.
+  return process.env.FUNCTIONS_EMULATOR === "true" ? 60_000 : 20_000;
+}
+
+/** Whether ?refresh= should bypass the Storage cache and regenerate. */
+export function parseRefreshQuery(raw: unknown): boolean {
+  const value = String(raw ?? "").trim().toLowerCase();
+  return value === "1" || value === "true" || value === "yes";
+}
+
+async function isScreenshotPageReachable(pageUrl: string): Promise<boolean> {
+  try {
+    const res = await fetch(pageUrl, {
+      method: "GET",
+      redirect: "follow",
+      signal: AbortSignal.timeout(8_000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function captureGridTiles(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   page: any,
   pageUrl: string,
   skipIndices: number[]
 ): Promise<CapturedTile[]> {
+  if (!(await isScreenshotPageReachable(pageUrl))) {
+    functions.logger.warn(
+      `[og] screenshot page unreachable at ${pageUrl}. ` +
+        "Start the web app (npm run dev:emulators) and ensure " +
+        "OG_SCREENSHOT_BASE_URL matches its host/port."
+    );
+    return [];
+  }
+
+  functions.logger.info(`[og] capturing tiles from ${pageUrl}`);
+
+  try {
   // Allow images, fonts, AND video. Tile content (photos, link previews,
   // video first-frames) is what we're capturing — blocking media kills
   // every <video> tile and they render as opaque black rectangles.
@@ -702,7 +761,9 @@ async function captureGridTiles(
     timeout: 30_000,
   });
 
-  await page.waitForSelector(".grid-container", { timeout: 20_000 });
+  await page.waitForSelector(".grid-container", {
+    timeout: gridContainerWaitMs(),
+  });
 
   // Strip UI chrome by walking from .grid-container up to <body> and removing
   // every sibling at each level. Also remove per-tile UI overlays (toolbars,
@@ -1192,6 +1253,30 @@ async function captureGridTiles(
   }
 
   return captured;
+  } catch (err) {
+    let diagnostics: Record<string, unknown> = {};
+    try {
+      diagnostics = await page.evaluate(() => ({
+        title: document.title,
+        href: location.href,
+        hasGrid: !!document.querySelector(".grid-container"),
+        hasLoading: !!document.querySelector(".loading-state"),
+        hasError: !!document.querySelector(".error-state"),
+        errorText:
+          document.querySelector(".error-description")?.textContent?.trim() ??
+          null,
+      }));
+    } catch {
+      // Page may not have loaded enough to inspect.
+    }
+
+    functions.logger.warn("[og] tile capture failed — rendering meta-only layout", {
+      pageUrl,
+      error: err instanceof Error ? err.message : String(err),
+      ...diagnostics,
+    });
+    return [];
+  }
 }
 
 /**
@@ -1434,7 +1519,7 @@ function assignZIndex(placements: ScatterPlacement[]): void {
 
 // ─── HTML composition ────────────────────────────────────────────────────────
 
-function buildOgHtml(
+export function buildOgHtml(
   info: GridInfo,
   tiles: CapturedTile[],
   placements: ScatterPlacement[],
@@ -1442,15 +1527,19 @@ function buildOgHtml(
 ): string {
   const avatarSize = 200;
   const gridsIconDataUri = `data:image/png;base64,${GRIDS_ICON_B64}`;
-  const avatarHref = info.avatarUrl ?? "";
+  const avatarUrl = info.avatarUrl;
+  const hasAvatar = Boolean(avatarUrl);
 
-  const avatarMarkup = avatarSvg(
-    avatarSize,
-    info.avatarShape,
-    info.avatarSides,
-    avatarHref,
-    theme
-  );
+  const avatarMarkup =
+    avatarUrl ?
+      avatarSvg(
+        avatarSize,
+        info.avatarShape,
+        info.avatarSides,
+        avatarUrl,
+        theme
+      )
+    : "";
 
   const scatterHtml = placements
     .map((p, i) => {
@@ -1564,6 +1653,9 @@ function buildOgHtml(
       flex-direction: column;
       align-items: center;
     }
+    .profile.no-avatar .text-container {
+      padding-top: 0;
+    }
 
     .avatar {
       width: ${avatarSize}px;
@@ -1649,8 +1741,8 @@ function buildOgHtml(
   ${scatterHtml}
   <div class="vignette"></div>
   <div class="meta">
-    <div class="profile">
-      <div class="avatar">${avatarMarkup}</div>
+    <div class="profile${hasAvatar ? "" : " no-avatar"}">
+      ${hasAvatar ? `<div class="avatar">${avatarMarkup}</div>` : ""}
       <div class="text-container">
         <div class="name">${htmlEsc(info.displayName)}</div>
         ${subtitleRow}
@@ -1702,9 +1794,14 @@ async function renderOgImage(
     deviceScaleFactor: 1,
   });
 
+  // `domcontentloaded` — same rationale as tile capture: external font/CDN
+  // requests (Google Fonts, esm.sh pretext) can keep connections open so
+  // `networkidle0` never resolves within the timeout.
+  const contentTimeout =
+    process.env.FUNCTIONS_EMULATOR === "true" ? 45_000 : 25_000;
   await page.setContent(html, {
-    waitUntil: "networkidle0",
-    timeout: 25_000,
+    waitUntil: "domcontentloaded",
+    timeout: contentTimeout,
   });
 
   // Belt-and-braces: ensure web fonts are ready before we screenshot.
@@ -1744,7 +1841,7 @@ async function handler(req: Request, res: Response): Promise<void> {
 
   const slug = req.query.slug as string | undefined;
   const gridId = req.query.gridId as string | undefined;
-  const refresh = req.query.refresh === "1";
+  const refresh = parseRefreshQuery(req.query.refresh);
   // Existence probe — report whether an OG image exists without generating.
   const check = req.query.check === "1";
   // Optional override seed — useful for previewing alternate scatter
@@ -1817,6 +1914,13 @@ async function handler(req: Request, res: Response): Promise<void> {
     try {
       const [exists] = await file.exists();
       if (exists) {
+        if (isEmulatorEnv) {
+          functions.logger.info(
+            `[og] serving cached: ${cachePath} (add ?refresh=1 to regenerate)`
+          );
+          await sendCachedOgImageInline(file, res);
+          return;
+        }
         res.redirect(302, storageUrl(cachePath));
         return;
       }
@@ -1826,9 +1930,8 @@ async function handler(req: Request, res: Response): Promise<void> {
   }
 
   // ── 2. Resolve grid/profile data ──────────────────────────────────────────
-  const screenshotBase = (process.env.OG_SCREENSHOT_BASE_URL ?? SITE_BASE).replace(
-    /\/$/,
-    ""
+  const screenshotBase = normalizeScreenshotBaseUrl(
+    process.env.OG_SCREENSHOT_BASE_URL ?? SITE_BASE
   );
 
   const info = await resolveGridInfo(slug, gridId, screenshotBase);
@@ -1859,9 +1962,15 @@ async function handler(req: Request, res: Response): Promise<void> {
     );
     await tilePage.close();
 
-    if (captured.length === 0) {
+    const rawCaptureCount = captured.length;
+
+    if (rawCaptureCount === 0) {
       functions.logger.warn(
-        "[og] no tiles captured — rendering minimal layout"
+        "[og] no tiles captured — rendering meta-only layout"
+      );
+    } else {
+      functions.logger.info(
+        `[og] captured ${rawCaptureCount} tile(s) from page`
       );
     }
 
@@ -1877,6 +1986,11 @@ async function handler(req: Request, res: Response): Promise<void> {
     captured = selectScatterTiles(captured, rng, MAX_SCATTER_TILES);
 
     if (captured.length < MIN_SCATTER_TILES) {
+      if (rawCaptureCount > 0) {
+        functions.logger.warn(
+          `[og] ${rawCaptureCount} tile(s) captured but ${MIN_SCATTER_TILES} required for scatter — meta-only layout`
+        );
+      }
       captured = [];
     }
 
@@ -1908,7 +2022,7 @@ async function handler(req: Request, res: Response): Promise<void> {
       // Under minCov? Render empty — too few/tiny tiles to look good.
       if (totalArea < minCov * TILE_SECTION_AREA) {
         functions.logger.info(
-          `[og] tile coverage ${((totalArea / TILE_SECTION_AREA) * 100).toFixed(1)}% < ${(minCov * 100).toFixed(0)}% — rendering empty`
+          `[og] tile coverage ${((totalArea / TILE_SECTION_AREA) * 100).toFixed(1)}% < ${(minCov * 100).toFixed(0)}% — meta-only layout`
         );
         captured = [];
       }
@@ -1926,17 +2040,15 @@ async function handler(req: Request, res: Response): Promise<void> {
     await browser.close();
     browser = null;
 
-    // ── 4. Upload + redirect ─────────────────────────────────────────────────
-    // Without Storage (emulator running without the Storage emulator) we can't
-    // persist, so stream the freshly rendered image back. The existence probe
-    // won't find it on a later request, but generation still works.
+    // ── 4. Upload + respond ──────────────────────────────────────────────────
+    // In the emulator, stream the PNG inline after caching. Redirecting to the
+    // Storage emulator's ?alt=media URL sets Content-Disposition: attachment,
+    // which triggers a download instead of an in-browser preview.
     if (isEmulatorEnv && !storageEmulatorHost()) {
       functions.logger.info(
         `[og] emulator — no Storage emulator; streaming image directly for: ${cachePath}`
       );
-      res.setHeader("Content-Type", "image/png");
-      res.setHeader("Cache-Control", "no-store");
-      res.end(finalImage);
+      sendOgImageInline(res, finalImage);
       return;
     }
 
@@ -1950,6 +2062,12 @@ async function handler(req: Request, res: Response): Promise<void> {
     });
 
     functions.logger.info(`[og] generated and cached: ${cachePath}`);
+
+    if (isEmulatorEnv) {
+      sendOgImageInline(res, finalImage);
+      return;
+    }
+
     res.redirect(302, storageUrl(cachePath));
   } catch (err) {
     if (browser) {

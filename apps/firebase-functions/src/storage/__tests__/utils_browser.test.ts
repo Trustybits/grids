@@ -95,21 +95,17 @@ describe("launchChromiumBrowser", () => {
     ]);
   });
 
-  it("falls back to the Windows Chrome path in the emulator", async () => {
+  it("auto-detects a local Chrome install in the emulator when unset", async () => {
     process.env.FUNCTIONS_EMULATOR = "true";
     const viewport = { width: 920, height: 1180, deviceScaleFactor: 1 };
 
     await launchChromiumBrowser(viewport);
 
     expect(chromiumState.executablePathCalls).toEqual([]);
-    expect(puppeteerState.launchCalls).toEqual([
-      {
-        args: [],
-        defaultViewport: viewport,
-        executablePath:
-          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-        headless: true,
-      },
-    ]);
+    expect(puppeteerState.launchCalls).toHaveLength(1);
+    const launchOpts = puppeteerState.launchCalls[0] as {
+      executablePath: string;
+    };
+    expect(launchOpts.executablePath).toMatch(/Google Chrome|chromium|chrome/i);
   });
 });

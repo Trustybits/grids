@@ -158,6 +158,9 @@ import {
   themeFor,
   fnv1a,
   mulberry32,
+  buildOgHtml,
+  normalizeScreenshotBaseUrl,
+  parseRefreshQuery,
 } from "../onRequest_generateOgImage.js";
 
 const generateOgImage = handlerExport as unknown as (
@@ -477,6 +480,80 @@ describe("generateOgImage", () => {
     expect(storageState.saveCalls).toEqual([]);
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: "OG image generation failed" });
+  });
+});
+
+describe("parseRefreshQuery", () => {
+  it("accepts common truthy refresh values", () => {
+    expect(parseRefreshQuery("1")).toBe(true);
+    expect(parseRefreshQuery("true")).toBe(true);
+    expect(parseRefreshQuery("TRUE")).toBe(true);
+    expect(parseRefreshQuery("yes")).toBe(true);
+  });
+
+  it("rejects missing or falsey refresh values", () => {
+    expect(parseRefreshQuery(undefined)).toBe(false);
+    expect(parseRefreshQuery("")).toBe(false);
+    expect(parseRefreshQuery("0")).toBe(false);
+    expect(parseRefreshQuery("false")).toBe(false);
+  });
+});
+
+// ─── normalizeScreenshotBaseUrl ─────────────────────────────────────────────
+
+describe("normalizeScreenshotBaseUrl", () => {
+  it("strips a trailing slash without rewriting the host", () => {
+    expect(normalizeScreenshotBaseUrl("http://localhost:5173/")).toBe(
+      "http://localhost:5173",
+    );
+    expect(normalizeScreenshotBaseUrl("https://grids.so/")).toBe(
+      "https://grids.so",
+    );
+  });
+});
+
+// ─── buildOgHtml — profile meta without avatar ───────────────────────────────
+// When a grid has no profile photo, the OG must not render an empty avatar
+// shape — only the text block, vertically centered in the meta area.
+
+describe("buildOgHtml — avatar presence", () => {
+  const baseInfo = {
+    screenshotUrl: "https://grids.so/test",
+    themeId: "dark",
+    avatarShape: "circle" as const,
+    avatarSides: 6,
+    displayName: "Test User",
+    handle: "testuser",
+    subtitle: "CEO & Founder",
+    skipTileIndices: [],
+    seed: "slug:testuser",
+  };
+
+  it("omits the avatar shape when profilePhotoUrl is missing", () => {
+    const html = buildOgHtml(
+      { ...baseInfo, avatarUrl: null },
+      [],
+      [],
+      themeFor("dark"),
+    );
+    expect(html).toContain('class="profile no-avatar"');
+    expect(html).not.toContain('class="avatar"');
+    expect(html).not.toContain("stroke-width");
+  });
+
+  it("renders the avatar when profilePhotoUrl is set", () => {
+    const html = buildOgHtml(
+      {
+        ...baseInfo,
+        avatarUrl: "https://cdn.example.com/photo.png",
+      },
+      [],
+      [],
+      themeFor("dark"),
+    );
+    expect(html).toMatch(/<div class="profile">\s*\n?\s*<div class="avatar">/);
+    expect(html).toContain('class="avatar"');
+    expect(html).toContain("https://cdn.example.com/photo.png");
   });
 });
 

@@ -9,12 +9,17 @@ export function mapFirestoreToGrid(
   return {
     id: doc.id, // Explicitly set the Firestore document ID
     userId: data.userId || "",
+    rev: typeof data.rev === "number" ? data.rev : 0,
     name: data.name || "Untitled",
     colNum: data.colNum || 12,
     verticalCompact:
       data.verticalCompact !== undefined ? data.verticalCompact : true,
     tiles: Array.isArray(data.tiles) ? data.tiles : [], // Validate tiles is an array
     backgroundImageSrc: data.backgroundImageSrc || "",
+    backgroundImageHash:
+      typeof data.backgroundImageHash === "string"
+        ? data.backgroundImageHash
+        : undefined,
     backgroundEmbed: !!data.backgroundEmbed,
     backgroundColor: data.backgroundColor || "",
     ogImageSrc: data.ogImageSrc || "",

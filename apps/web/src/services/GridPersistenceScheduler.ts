@@ -4,10 +4,10 @@ import type {
   GridPersistenceSchedulerInterface,
 } from "@/services/interfaces/GridPersistenceSchedulerInterface";
 
-type WriteGridSnapshot = (snapshot: Grid) => Promise<void>;
+type WriteGridSnapshot = (snapshot: Grid) => Promise<Grid | void>;
 
 interface FlushWaiter {
-  resolve: () => void;
+  resolve: (snapshot: Grid | null) => void;
   reject: (error: unknown) => void;
   error: unknown | null;
 }
@@ -17,6 +17,7 @@ interface PersistenceLane {
   pendingSnapshot: Grid | null;
   flushWaiters: FlushWaiter[];
   lastError: unknown | null;
+  lastSavedSnapshot: Grid | null;
 }
 
 function scopeKey(scope: GridPersistenceScope): string {
@@ -46,12 +47,12 @@ export class GridPersistenceScheduler implements GridPersistenceSchedulerInterfa
     this.startWrite(key, lane, scheduledSnapshot);
   }
 
-  flush(scope: GridPersistenceScope): Promise<void> {
+  flush(scope: GridPersistenceScope): Promise<Grid | null> {
     const key = scopeKey(scope);
     const lane = this.lanes.get(key);
 
     if (!lane) {
-      return Promise.resolve();
+      return Promise.resolve(null);
     }
 
     if (!lane.inFlight && !lane.pendingSnapshot) {
@@ -60,11 +61,14 @@ export class GridPersistenceScheduler implements GridPersistenceSchedulerInterfa
         this.lanes.delete(key);
         return Promise.reject(error);
       }
+      const snapshot = lane.lastSavedSnapshot
+        ? cloneSnapshot(lane.lastSavedSnapshot)
+        : null;
       this.lanes.delete(key);
-      return Promise.resolve();
+      return Promise.resolve(snapshot);
     }
 
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<Grid | null>((resolve, reject) => {
       lane.flushWaiters.push({
         resolve,
         reject,
@@ -82,13 +86,14 @@ export class GridPersistenceScheduler implements GridPersistenceSchedulerInterfa
       pendingSnapshot: null,
       flushWaiters: [],
       lastError: null,
+      lastSavedSnapshot: null,
     };
     this.lanes.set(key, lane);
     return lane;
   }
 
   private startWrite(key: string, lane: PersistenceLane, snapshot: Grid): void {
-    let writePromise: Promise<void>;
+    let writePromise: Promise<Grid | void>;
     try {
       writePromise = this.write(snapshot);
     } catch (error) {
@@ -96,8 +101,10 @@ export class GridPersistenceScheduler implements GridPersistenceSchedulerInterfa
     }
 
     lane.inFlight = writePromise
-      .then(() => {
+      .then((savedSnapshot) => {
+        const resolvedSnapshot = savedSnapshot ?? snapshot;
         lane.lastError = null;
+        lane.lastSavedSnapshot = cloneSnapshot(resolvedSnapshot);
       })
       .catch((error: unknown) => {
         lane.lastError = error;
@@ -111,6 +118,9 @@ export class GridPersistenceScheduler implements GridPersistenceSchedulerInterfa
         if (lane.pendingSnapshot) {
           const next = lane.pendingSnapshot;
           lane.pendingSnapshot = null;
+          if (typeof lane.lastSavedSnapshot?.rev === "number") {
+            next.rev = lane.lastSavedSnapshot.rev;
+          }
           this.startWrite(key, lane, next);
           return;
         }
@@ -126,7 +136,9 @@ export class GridPersistenceScheduler implements GridPersistenceSchedulerInterfa
       if (waiter.error) {
         waiter.reject(waiter.error);
       } else {
-        waiter.resolve();
+        waiter.resolve(
+          lane.lastSavedSnapshot ? cloneSnapshot(lane.lastSavedSnapshot) : null,
+        );
       }
     }
   }

@@ -2,6 +2,7 @@
 // return normalized, cloned Grid objects; save/update normalize via toGrid and
 // merge over any existing record; updateLastOpenedAt only touches existing grids.
 import { describe, it, expect, beforeEach } from "vitest";
+import { GridRevisionConflictError } from "@grids/contracts/dao";
 import { StubbedGridDao } from "../StubbedGridDao";
 import { memoryDatabase, toGrid } from "../StubbedMemoryDatabase";
 import { resetMemoryDatabase } from "./memoryTestUtils";
@@ -69,6 +70,7 @@ describe("StubbedGridDao.save", () => {
     expect(stored).toMatchObject({
       id: "grid-1",
       userId: "user-1",
+      rev: 0,
       name: "My Grid",
       colNum: 12,
       duplicatable: false,
@@ -82,6 +84,22 @@ describe("StubbedGridDao.save", () => {
     const stored = memoryDatabase.grids.get("grid-1");
     expect(stored?.name).toBe("Renamed");
     expect(stored?.userId).toBe("user-1");
+  });
+
+  it("checks the expected rev and writes the next rev", async () => {
+    await dao.save("grid-1", { userId: "user-1", name: "Original", rev: 0 });
+    await dao.save("grid-1", { name: "Renamed", rev: 1 }, 0);
+
+    expect(memoryDatabase.grids.get("grid-1")?.rev).toBe(1);
+  });
+
+  it("rejects stale expected revs", async () => {
+    await dao.save("grid-1", { userId: "user-1", name: "Original", rev: 2 });
+
+    await expect(
+      dao.save("grid-1", { name: "Stale", rev: 3 }, 1),
+    ).rejects.toBeInstanceOf(GridRevisionConflictError);
+    expect(memoryDatabase.grids.get("grid-1")?.name).toBe("Original");
   });
 });
 
@@ -98,6 +116,13 @@ describe("StubbedGridDao.update", () => {
   it("creates the grid when it does not yet exist", async () => {
     await dao.update("grid-1", { userId: "user-1" });
     expect(memoryDatabase.grids.get("grid-1")?.userId).toBe("user-1");
+  });
+
+  it("treats missing existing rev as 0 for updates", async () => {
+    await dao.save("grid-1", { userId: "user-1", name: "Original" });
+    await dao.update("grid-1", { name: "Updated", rev: 1 }, 0);
+
+    expect(memoryDatabase.grids.get("grid-1")?.rev).toBe(1);
   });
 });
 

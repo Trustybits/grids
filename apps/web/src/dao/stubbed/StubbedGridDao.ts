@@ -1,5 +1,8 @@
 import type { Grid } from "@grids/contracts/types";
-import type { GridDao } from "@grids/contracts/dao";
+import {
+  GridRevisionConflictError,
+  type GridDao,
+} from "@grids/contracts/dao";
 import {
   cloneValue,
   createId,
@@ -24,20 +27,27 @@ export class StubbedGridDao implements GridDao {
     return createId("grid");
   }
 
-  public async save(id: string, data: Record<string, unknown>): Promise<void> {
+  public async save(
+    id: string,
+    data: Record<string, unknown>,
+    expectedRev?: number,
+  ): Promise<void> {
     const existing = memoryDatabase.grids.get(id) as unknown as
       | Record<string, unknown>
       | undefined;
+    this.assertExpectedRev(id, existing, expectedRev);
     memoryDatabase.grids.set(id, toGrid(id, mergeRecord(existing, data)));
   }
 
   public async update(
     id: string,
     data: Record<string, unknown>,
+    expectedRev?: number,
   ): Promise<void> {
     const existing = memoryDatabase.grids.get(id) as unknown as
       | Record<string, unknown>
       | undefined;
+    this.assertExpectedRev(id, existing, expectedRev);
     memoryDatabase.grids.set(id, toGrid(id, mergeRecord(existing, data)));
   }
 
@@ -52,5 +62,25 @@ export class StubbedGridDao implements GridDao {
 
   public async delete(id: string): Promise<void> {
     memoryDatabase.grids.delete(id);
+  }
+
+  private assertExpectedRev(
+    id: string,
+    existing: Record<string, unknown> | undefined,
+    expectedRev: number | undefined,
+  ): void {
+    if (expectedRev === undefined) return;
+    const actualRev =
+      typeof existing?.rev === "number" && Number.isFinite(existing.rev)
+        ? existing.rev
+        : 0;
+    if (actualRev !== expectedRev) {
+      throw new GridRevisionConflictError(
+        id,
+        expectedRev,
+        actualRev,
+        existing ? toGrid(id, existing) : null,
+      );
+    }
   }
 }

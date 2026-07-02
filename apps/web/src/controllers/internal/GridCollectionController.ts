@@ -130,8 +130,13 @@ export class GridCollectionController {
       );
       if (!grid) throw new Error("Grid not found");
       grid.name = newName;
-      await this.dependencies.getGridService().updateGrid(grid);
-      if (activeGrid?.id === id) activeGrid.name = newName;
+      const savedGrid = await this.dependencies
+        .getGridService()
+        .updateGrid(grid);
+      if (activeGrid?.id === id) {
+        activeGrid.name = newName;
+        activeGrid.rev = savedGrid.rev;
+      }
     } catch (error) {
       this.stores.collection.setError("Failed to rename grid.");
       console.error(error);

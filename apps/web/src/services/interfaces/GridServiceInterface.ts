@@ -3,8 +3,8 @@ import type { CopyDepth, Grid } from "@grids/contracts/types";
 export interface GridServiceInterface {
   // ── Core CRUD ───────────────────────────────────────────────────────
   fetchGrid(id: string): Promise<Grid>;
-  saveGrid(grid: Grid): Promise<void>;
-  updateGrid(grid: Grid): Promise<void>;
+  saveGrid(grid: Grid): Promise<Grid>;
+  updateGrid(grid: Grid): Promise<Grid>;
   deleteGrid(id: string): Promise<void>;
 
   fetchGridsByUserId(userId: string): Promise<Grid[]>;

@@ -7,5 +7,5 @@ export interface GridPersistenceScope {
 
 export interface GridPersistenceSchedulerInterface {
   schedule(scope: GridPersistenceScope, snapshot: Grid): void;
-  flush(scope: GridPersistenceScope): Promise<void>;
+  flush(scope: GridPersistenceScope): Promise<Grid | null>;
 }

@@ -16,6 +16,10 @@ export type { CloudFunctionsDao } from "./CloudFunctionsDao.js";
 export type { CustomerDao } from "./CustomerDao.js";
 export type { DbUtils } from "./DbUtils.js";
 export type { GridDao } from "./GridDao.js";
+export {
+  GridRevisionConflictError,
+  isGridRevisionConflictError,
+} from "./GridDao.js";
 export type { GridStatsDao } from "./GridStatsDao.js";
 export type { RoadmapDao } from "./RoadmapDao.js";
 export type { SlugDao } from "./SlugDao.js";

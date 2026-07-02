@@ -226,17 +226,26 @@ export class GridService implements GridServiceInterface {
 
   // ── Core CRUD ──────────────────────────────────────────────────────
 
+  private readGridRev(grid: Grid): number {
+    return typeof grid.rev === "number" && Number.isFinite(grid.rev)
+      ? grid.rev
+      : 0;
+  }
+
   private buildGridPayload(
     grid: Grid,
     mode: "save" | "update",
+    nextRev: number,
   ): Record<string, unknown> {
     const editableFields = {
+      rev: nextRev,
       name: grid.name,
       colNum: grid.colNum,
       verticalCompact: grid.verticalCompact,
       // Safety net: strip any blob: URLs that weren't already resolved
       tiles: stripBlobUrlsFromTiles(grid.tiles as unknown[]),
       backgroundImageSrc: grid.backgroundImageSrc,
+      backgroundImageHash: grid.backgroundImageHash ?? "",
       backgroundEmbed: grid.backgroundEmbed,
       backgroundColor: grid.backgroundColor ?? "",
       ogImageSrc: grid.ogImageSrc ?? "",
@@ -278,10 +287,14 @@ export class GridService implements GridServiceInterface {
   }
 
   // Save a new grid (or overwrite)
-  async saveGrid(grid: Grid): Promise<void> {
+  async saveGrid(grid: Grid): Promise<Grid> {
     try {
-      const payload = this.buildGridPayload(grid, "save");
-      await this.gridDao.save(grid.id, payload);
+      const expectedRev = this.readGridRev(grid);
+      const nextRev = expectedRev + 1;
+      const payload = this.buildGridPayload(grid, "save", nextRev);
+      await this.gridDao.save(grid.id, payload, expectedRev);
+      grid.rev = nextRev;
+      return { ...grid };
     } catch (error) {
       console.error(`Error saving grid with ID ${grid.id}:`, error);
       throw error;
@@ -289,10 +302,14 @@ export class GridService implements GridServiceInterface {
   }
 
   // Update an existing grid (partial)
-  async updateGrid(grid: Grid): Promise<void> {
+  async updateGrid(grid: Grid): Promise<Grid> {
     try {
-      const payload = this.buildGridPayload(grid, "update");
-      await this.gridDao.update(grid.id, payload);
+      const expectedRev = this.readGridRev(grid);
+      const nextRev = expectedRev + 1;
+      const payload = this.buildGridPayload(grid, "update", nextRev);
+      await this.gridDao.update(grid.id, payload, expectedRev);
+      grid.rev = nextRev;
+      return { ...grid };
     } catch (error) {
       console.error(`Error updating grid with ID ${grid.id}:`, error);
       throw error;
@@ -360,6 +377,7 @@ export class GridService implements GridServiceInterface {
       const newGrid: Grid = {
         id: this.gridDao.generateId(),
         userId,
+        rev: 0,
         name: `Copy of ${sourceGrid.name || "Untitled"}`,
         colNum: sourceGrid.colNum,
         verticalCompact: sourceGrid.verticalCompact,

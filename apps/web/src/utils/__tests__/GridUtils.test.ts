@@ -46,6 +46,7 @@ describe("createDefaultGrid", () => {
     const grid = createDefaultGrid("user-1", "Test");
     expect(grid).toMatchObject({
       id: "",
+      rev: 0,
       colNum: 12,
       verticalCompact: true,
       tiles: [],

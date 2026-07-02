@@ -439,6 +439,9 @@ Goal: enforce the migrated model and remove dead paths after verification.
 1. Enable grid `rev` enforcement in `firestore.rules`.
    - Grid create requires a valid initial `rev`.
    - Grid update requires `request.resource.data.rev == resource.data.rev + 1`.
+   - Rules must explicitly support the revision contract used by the client DAO transaction: the stored `resource.data.rev` is the expected/client-loaded revision, and the incoming document must advance it by exactly one.
+   - Add a separate `lastOpenedAt`-only update allowance that does not require a `rev` bump, matching the runtime behavior where recency touches are intentionally excluded from grid-content revisioning.
+   - Keep the client-side transaction conflict check as the typed app error path; Firestore rules are a server-side enforcement layer for client SDK writes.
    - Admin SDK migration/backfill bypasses rules.
 
 2. Remove old upload paths.

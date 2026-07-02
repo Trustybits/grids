@@ -29,6 +29,7 @@ vi.mock('@/utils/GridUtils', () => ({
   createDefaultGrid: (userId: string, name: string): Grid => ({
     id: '',
     userId,
+    rev: 0,
     name,
     colNum: 12,
     verticalCompact: true,
@@ -131,6 +132,7 @@ function makeGrid(overrides: Partial<Grid> = {}): Grid {
   return {
     id: 'grid-1',
     userId: 'user-1',
+    rev: 0,
     name: 'Test Grid',
     colNum: 12,
     verticalCompact: true,
@@ -230,6 +232,7 @@ describe('saveGrid', () => {
       'grid-1',
       expect.objectContaining({
         userId: 'user-1',
+        rev: 1,
         name: 'Test Grid',
         colNum: 12,
         verticalCompact: true,
@@ -237,8 +240,26 @@ describe('saveGrid', () => {
         themeId: 'dark',
         duplicatable: true,
         updatedAt: 'SERVER_TS',
-      })
+      }),
+      0,
     )
+    expect(grid.rev).toBe(1)
+  })
+
+  it('defaults a missing grid rev to 0 and persists rev 1', async () => {
+    const grid = makeGrid({ rev: undefined })
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    const saved = await service.saveGrid(grid)
+
+    expect(mockGridDao.save).toHaveBeenCalledWith(
+      'grid-1',
+      expect.objectContaining({ rev: 1 }),
+      0,
+    )
+    expect(saved.rev).toBe(1)
+    expect(grid.rev).toBe(1)
   })
 
   it('defaults themeId to "dark" when not set', async () => {
@@ -385,7 +406,23 @@ describe('updateGrid', () => {
     expect(payload).not.toHaveProperty('userId')
     expect(payload).not.toHaveProperty('createdAt')
     expect(payload.updatedAt).toBe('SERVER_TS')
-    expect(mockGridDao.update).toHaveBeenCalledWith('grid-1', expect.any(Object))
+    expect(mockGridDao.update).toHaveBeenCalledWith('grid-1', expect.any(Object), 0)
+  })
+
+  it('bumps rev on update payloads', async () => {
+    const grid = makeGrid({ rev: 4 })
+    mockGridDao.update.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    const saved = await service.updateGrid(grid)
+
+    expect(mockGridDao.update).toHaveBeenCalledWith(
+      'grid-1',
+      expect.objectContaining({ rev: 5 }),
+      4,
+    )
+    expect(saved.rev).toBe(5)
+    expect(grid.rev).toBe(5)
   })
 
   it('delegates tile blob-stripping to GridPersistenceUtils', async () => {

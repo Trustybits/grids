@@ -1,5 +1,4 @@
 import { isGridRevisionConflictError } from "@grids/contracts/dao";
-import type { Grid } from "@grids/contracts/types";
 import type {
   GridPersistenceFlushResult,
   GridPersistenceScope,

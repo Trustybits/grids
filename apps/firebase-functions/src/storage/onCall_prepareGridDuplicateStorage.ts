@@ -172,5 +172,6 @@ function metadataFromArchiveDoc(doc: UploadArchiveDoc): UploadMetadata {
     ext: doc.ext,
     size: doc.size,
     contentType: doc.contentType,
+    displayName: doc.displayName ?? `${doc.hash}.${doc.ext}`,
   };
 }

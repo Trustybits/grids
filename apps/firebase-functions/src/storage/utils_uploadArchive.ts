@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { HttpsError } from "firebase-functions/v1/https";
+import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import {
   STORAGE_QUOTA_BYTES,
@@ -15,6 +16,7 @@ export type UploadArchiveDoc = {
   kind: string;
   path: string;
   url?: string;
+  displayName?: string;
   size: number;
   contentType: string;
   ext: string;
@@ -136,6 +138,7 @@ export async function authorizeUploadReservation(
           ref,
           {
             ...baseArchiveReservation(uid, metadata, path),
+            displayName: resolveArchiveDisplayName(existing, metadata),
             createdAt: existing.createdAt ?? fieldValue().serverTimestamp(),
             updatedAt: fieldValue().serverTimestamp(),
             failedAt: fieldValue().delete(),
@@ -239,6 +242,7 @@ export async function finalizeUploadArchiveDoc(params: {
         kind: params.metadata.kind,
         path,
         url,
+        displayName: resolveArchiveDisplayName(existing, params.metadata),
         size: params.metadata.size,
         contentType: params.metadata.contentType,
         ext: params.metadata.ext,
@@ -286,10 +290,26 @@ export async function adjustUploadRefCounts(
 
     entries.forEach(([hash, delta], index) => {
       const snap = snaps[index];
-      if (!snap?.exists) return;
+      if (!snap?.exists) {
+        logger.warn(
+          "Skipping upload refCount adjustment because archive doc is missing",
+          { uid, hash, delta },
+        );
+        return;
+      }
       const current = (snap.data()?.refCount as number | undefined) ?? 0;
+      const next = current + delta;
+      if (next < 0) {
+        logger.warn("Clamping upload refCount adjustment below zero", {
+          uid,
+          hash,
+          current,
+          delta,
+          attempted: next,
+        });
+      }
       tx.update(uploadArchiveRef(uid, hash), {
-        refCount: Math.max(0, current + delta),
+        refCount: Math.max(0, next),
         updatedAt: fieldValue().serverTimestamp(),
       });
     });
@@ -335,6 +355,7 @@ function baseArchiveReservation(
     hash: metadata.hash,
     kind: metadata.kind,
     path,
+    displayName: metadata.displayName ?? fallbackDisplayName(metadata),
     size: metadata.size,
     contentType: metadata.contentType,
     ext: metadata.ext,
@@ -344,4 +365,17 @@ function baseArchiveReservation(
     createdAt: fieldValue().serverTimestamp(),
     updatedAt: fieldValue().serverTimestamp(),
   };
+}
+
+function resolveArchiveDisplayName(
+  existing: Partial<UploadArchiveDoc>,
+  metadata: UploadMetadata,
+): string {
+  return typeof existing.displayName === "string" && existing.displayName.trim()
+    ? existing.displayName
+    : metadata.displayName ?? fallbackDisplayName(metadata);
+}
+
+function fallbackDisplayName(metadata: UploadMetadata): string {
+  return `${metadata.hash}.${metadata.ext}`;
 }

@@ -23,6 +23,7 @@ import {
   STORAGE_QUOTA_BYTES,
   buildCanonicalUploadPath,
   normalizeContentType,
+  normalizeDisplayName,
   normalizeExtension,
   normalizeHash,
   normalizeUploadKind,
@@ -162,6 +163,7 @@ describe("normalizeUploadMetadata", () => {
         ext: ".PNG",
         size: 25,
         contentType: "Image/PNG",
+        displayName: " Original Photo.PNG ",
       }),
     ).toEqual<UploadMetadata>({
       kind: "images",
@@ -169,6 +171,7 @@ describe("normalizeUploadMetadata", () => {
       ext: "png",
       size: 25,
       contentType: "image/png",
+      displayName: "Original Photo.PNG",
     });
   });
 
@@ -184,10 +187,35 @@ describe("normalizeUploadMetadata", () => {
     ).toBe("videos");
   });
 
+  it("falls back to hash.ext when displayName is absent", () => {
+    expect(
+      normalizeUploadMetadata({
+        kind: "images",
+        hash: HASH,
+        ext: "png",
+        size: 25,
+        contentType: "image/png",
+      }).displayName,
+    ).toBe(`${HASH}.png`);
+  });
+
   it("treats a missing payload as an empty object and rejects it", () => {
     expect(caught(() => normalizeUploadMetadata(undefined))?.code).toBe(
       "invalid-argument",
     );
+  });
+});
+
+describe("normalizeDisplayName", () => {
+  it("trims unsafe separators and control characters", () => {
+    expect(normalizeDisplayName(" ../My\u0000File.png ", "fallback.png")).toBe(
+      ".. My File.png",
+    );
+  });
+
+  it("uses the fallback when the display name is blank or non-string", () => {
+    expect(normalizeDisplayName("   ", "fallback.png")).toBe("fallback.png");
+    expect(normalizeDisplayName(undefined, "fallback.png")).toBe("fallback.png");
   });
 });
 

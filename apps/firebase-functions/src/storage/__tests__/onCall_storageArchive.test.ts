@@ -134,6 +134,7 @@ function metadata(overrides: Record<string, unknown> = {}) {
     ext: "png",
     size: 25,
     contentType: "image/png",
+    displayName: "photo.png",
     ...overrides,
   };
 }
@@ -148,6 +149,7 @@ function activeArchive(overrides: Record<string, unknown> = {}) {
     size: 25,
     contentType: "image/png",
     ext: "png",
+    displayName: "photo.png",
     status: "active",
     refCount: 0,
     shareable: false,
@@ -175,11 +177,16 @@ describe("storage archive callables", () => {
     });
   });
 
-  it("returns an existing active upload without changing refCount", async () => {
-    firestoreState.docs.set(`users/user-1/uploads/${HASH}`, activeArchive());
+  it("returns an existing active upload without changing refCount or displayName", async () => {
+    firestoreState.docs.set(
+      `users/user-1/uploads/${HASH}`,
+      activeArchive({ displayName: "original.png" }),
+    );
 
     await expect(
-      authorize(metadata(), { auth: { uid: "user-1" } }),
+      authorize(metadata({ displayName: "renamed.png" }), {
+        auth: { uid: "user-1" },
+      }),
     ).resolves.toMatchObject({
       uploadRequired: false,
       hash: HASH,
@@ -252,6 +259,7 @@ describe("storage archive callables", () => {
           status: "pending",
           shareable: false,
           refCount: 0,
+          displayName: "photo.png",
         }),
       }),
     ]);
@@ -278,8 +286,39 @@ describe("storage archive callables", () => {
         path: `users/user-1/uploads/${HASH}`,
         data: expect.objectContaining({
           status: "pending",
+          displayName: "photo.png",
           failedAt: { __op: "delete" },
           failureReason: { __op: "delete" },
+        }),
+        options: { merge: true },
+      }),
+    ]);
+  });
+
+  it("preserves the first displayName when retrying a failed reservation", async () => {
+    firestoreState.docs.set("users/user-1", { storageUsed: 100 });
+    firestoreState.docs.set(`users/user-1/uploads/${HASH}`, {
+      ...activeArchive({ displayName: "original.png" }),
+      status: "failed",
+      failureReason: "hash-mismatch",
+      failedAt: "old-failed-at",
+    });
+
+    await expect(
+      authorize(metadata({ displayName: "renamed.png" }), {
+        auth: { uid: "user-1" },
+      }),
+    ).resolves.toMatchObject({
+      uploadRequired: true,
+      status: "pending",
+    });
+
+    expect(firestoreState.txSetCalls).toEqual([
+      expect.objectContaining({
+        path: `users/user-1/uploads/${HASH}`,
+        data: expect.objectContaining({
+          status: "pending",
+          displayName: "original.png",
         }),
         options: { merge: true },
       }),

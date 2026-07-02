@@ -99,6 +99,78 @@ describe("grid storage reference reconciliation", () => {
     expect(deltas?.get(HASH_B)).toBe(1);
   });
 
+  it("decrements removed tile references without deleting objects", async () => {
+    await onUpdate(
+      {
+        before: { data: () => grid([HASH_A]) },
+        after: { data: () => grid([]) },
+      },
+      ctx(),
+    );
+
+    const deltas = vi.mocked(adjustUploadRefCounts).mock.calls[0]?.[1];
+    expect(deltas?.get(HASH_A)).toBe(-1);
+    expect(deltas?.size).toBe(1);
+  });
+
+  it("adjusts refs for undo and redo-style grid snapshots", async () => {
+    await onUpdate(
+      {
+        before: { data: () => grid([]) },
+        after: { data: () => grid([HASH_A]) },
+      },
+      ctx("grid-redo"),
+    );
+    await onUpdate(
+      {
+        before: { data: () => grid([HASH_A]) },
+        after: { data: () => grid([]) },
+      },
+      ctx("grid-undo"),
+    );
+
+    expect(vi.mocked(adjustUploadRefCounts).mock.calls[0]?.[1].get(HASH_A)).toBe(1);
+    expect(vi.mocked(adjustUploadRefCounts).mock.calls[1]?.[1].get(HASH_A)).toBe(-1);
+  });
+
+  it("ignores non-archive and external references", async () => {
+    await onCreate(
+      {
+        data: () => ({
+          userId: "user-1",
+          tiles: [
+            {
+              i: "external",
+              content: {
+                type: "image",
+                src: "https://cdn.example.com/photo.png",
+              },
+            },
+            {
+              i: "other-owner",
+              content: {
+                type: "image",
+                src: `users/user-2/images/${HASH_A}.png`,
+              },
+            },
+            {
+              i: "legacy-filename",
+              content: {
+                type: "image",
+                src: "users/user-1/images/original-name.png",
+              },
+            },
+          ],
+        }),
+      },
+      ctx("grid-external"),
+    );
+
+    const deltas = vi.mocked(adjustUploadRefCounts).mock.calls[0]?.[1];
+    expect(vi.mocked(adjustUploadRefCounts).mock.calls[0]?.[0]).toBe("user-1");
+    expect(deltas?.size).toBe(0);
+  });
+
   it("moves reference counts between owners when grid ownership changes", async () => {
     await onUpdate(
       {

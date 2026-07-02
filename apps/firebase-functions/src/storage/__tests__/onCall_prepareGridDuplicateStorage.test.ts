@@ -125,6 +125,7 @@ function seedSourceGrid() {
     kind: "images",
     path: SOURCE_A,
     url: "https://cdn/source-a.png",
+    displayName: "source-photo.png",
     size: 10,
     contentType: "image/png",
     ext: "png",
@@ -253,6 +254,7 @@ describe("prepareGridDuplicateStorage", () => {
           status: "pending",
           shareable: false,
           refCount: 0,
+          displayName: "source-photo.png",
         }),
         options: { merge: true },
       }),
@@ -260,9 +262,53 @@ describe("prepareGridDuplicateStorage", () => {
     expect(storageState.copyCalls).toEqual([
       { source: SOURCE_A, target: TARGET_A },
     ]);
+    expect(storageState.copyCalls).not.toContainEqual({
+      source: `users/source/images/${HASH_B}.png`,
+      target: `users/target/images/${HASH_B}.png`,
+    });
     expect(storageState.setMetadataCalls).toEqual([
       expect.objectContaining({ path: TARGET_A }),
     ]);
+    expect(firestoreState.directSetCalls).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: expect.stringContaining("users/source/uploads/"),
+        }),
+      ]),
+    );
+    expect(firestoreState.directSetCalls).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: `users/target/uploads/${HASH_B}`,
+        }),
+      ]),
+    );
+  });
+
+  it("treats references with missing source archive docs as non-copiable", async () => {
+    seedSourceGrid();
+    firestoreState.docs.delete(`users/source/uploads/${HASH_B}`);
+
+    const result = await prepare(
+      { sourceGridId: "grid-source", copyDepth: "full", confirmed: true },
+      { auth: { uid: "target" } },
+    );
+
+    expect(result).toMatchObject({
+      copiableCount: 1,
+      nonCopiableCount: 1,
+      replacementTileIds: ["blocked-image"],
+    });
+    expect(storageState.copyCalls).toEqual([
+      { source: SOURCE_A, target: TARGET_A },
+    ]);
+    expect(firestoreState.directSetCalls).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: `users/target/uploads/${HASH_B}`,
+        }),
+      ]),
+    );
   });
 
   it("uses an existing target archive URL without copying", async () => {

@@ -8,6 +8,7 @@ export interface UploadMetadata {
   ext: string;
   size: number;
   contentType: string;
+  displayName?: string;
 }
 
 export interface CanonicalUploadPath {
@@ -78,14 +79,29 @@ export function normalizeContentType(value: unknown): string {
   return value.trim().toLowerCase();
 }
 
+export function normalizeDisplayName(
+  value: unknown,
+  fallback: string,
+): string {
+  if (typeof value !== "string") return fallback;
+  const normalized = value
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/[\\/]+/g, " ")
+    .trim();
+  return normalized ? normalized.slice(0, 255) : fallback;
+}
+
 export function normalizeUploadMetadata(data: unknown): UploadMetadata {
   const payload = (data ?? {}) as Record<string, unknown>;
+  const hash = normalizeHash(payload.hash);
+  const ext = normalizeExtension(payload.ext);
   return {
     kind: normalizeUploadKind(payload.kind ?? payload.type),
-    hash: normalizeHash(payload.hash),
-    ext: normalizeExtension(payload.ext),
+    hash,
+    ext,
     size: normalizeUploadSize(payload.size),
     contentType: normalizeContentType(payload.contentType),
+    displayName: normalizeDisplayName(payload.displayName, `${hash}.${ext}`),
   };
 }
 

@@ -138,6 +138,7 @@ describe("uploadArchiveFile", () => {
         kind: "images",
         ext: "png",
         contentType: "image/png",
+        displayName: "img.png",
       }),
     );
     expect(mockStorageDao.upload).toHaveBeenCalledWith(

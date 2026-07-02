@@ -259,6 +259,7 @@ export class StorageService implements StorageServiceInterface {
       kind: descriptor.kind as UploadKind,
       ext: descriptor.ext,
       contentType: descriptor.contentType,
+      displayName: file.name,
     });
 
     const path =

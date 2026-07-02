@@ -326,7 +326,7 @@ Goal: expose the archive after backend and upload primitives are stable.
 
 1. Add archive service/composable APIs.
    - Use Firestore read access to list `users/{uid}/uploads`.
-   - Add typed methods for archive list, add-to-grid helpers, `shareable` toggle callable, duplicate-import preparation, duplicate-import confirmation, and permanent delete callable.
+   - Add typed methods for archive list, add-to-grid helpers, `displayName` rename callable, `shareable` toggle callable, duplicate-import preparation, duplicate-import confirmation, and permanent delete callable.
    - Add mock/stub behavior for local non-Firebase mode.
 
 2. Add UI entry point.
@@ -335,7 +335,8 @@ Goal: expose the archive after backend and upload primitives are stable.
    - Prefer a new modal under `apps/web/src/components/modal/` unless a route-level settings surface is added.
 
 3. Build File Archive view.
-   - List file type, preview, size, refCount, shareable state, created/updated timestamps.
+   - List display name, file type, preview, size, refCount, shareable state, created/updated timestamps.
+   - Support editing the archive doc `displayName` through the rename callable. Renaming changes only the archive display label; it must not rewrite the object path, hash, or grid references.
    - Show current `storageUsed` and free-tier limit unless `isDevAccount`.
    - Show a per-file `shareable` toggle. The toggle calls the server function and should optimistically show pending/saving/error state rather than directly writing Firestore.
    - New uploads and migrated files should appear with sharing disabled until the owner explicitly turns it on.

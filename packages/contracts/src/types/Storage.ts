@@ -8,6 +8,7 @@ export interface UploadArchiveDocument {
   kind: UploadKind;
   path: string;
   url?: string;
+  displayName?: string;
   size: number;
   contentType: string;
   ext: string;
@@ -35,6 +36,7 @@ export interface AuthorizeStorageUploadRequest {
   kind: UploadKind;
   ext: string;
   contentType: string;
+  displayName?: string;
 }
 
 export interface AuthorizeStorageUploadResponse {

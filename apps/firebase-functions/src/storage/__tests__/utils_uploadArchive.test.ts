@@ -16,6 +16,7 @@
  * - metadata-match assertion.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as logger from "firebase-functions/logger";
 
 const HASH = "a".repeat(64);
 const PATH = `users/user-1/images/${HASH}.png`;
@@ -54,6 +55,10 @@ vi.mock("firebase-functions/v1/https", async () => {
   );
   return createHttpsModuleMock();
 });
+
+vi.mock("firebase-functions/logger", () => ({
+  warn: vi.fn(),
+}));
 
 vi.mock("../../admin.js", () => {
   function docRef(path: string) {
@@ -130,6 +135,7 @@ function metadata(overrides: Partial<UploadMetadata> = {}): UploadMetadata {
     ext: "png",
     size: 25,
     contentType: "image/png",
+    displayName: "photo.png",
     ...overrides,
   };
 }
@@ -140,6 +146,7 @@ function pendingDoc(overrides: Record<string, unknown> = {}) {
     hash: HASH,
     kind: "images",
     path: PATH,
+    displayName: "photo.png",
     size: 25,
     contentType: "image/png",
     ext: "png",
@@ -156,6 +163,7 @@ beforeEach(() => {
   firestoreState.txSetCalls = [];
   firestoreState.txUpdateCalls = [];
   firestoreState.directSetCalls = [];
+  vi.mocked(logger.warn).mockClear();
   FieldValue.serverTimestamp.mockClear();
   FieldValue.delete.mockClear();
 });
@@ -295,6 +303,7 @@ describe("createPendingArchiveReservation", () => {
           status: "pending",
           refCount: 0,
           shareable: false,
+          displayName: "photo.png",
           failedAt: { __op: "delete" },
           failureReason: { __op: "delete" },
         }),
@@ -334,11 +343,25 @@ describe("adjustUploadRefCounts", () => {
         data: expect.objectContaining({ refCount: 0 }),
       },
     ]);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Clamping upload refCount adjustment below zero",
+      {
+        uid: "user-1",
+        hash: HASH,
+        current: 1,
+        delta: -5,
+        attempted: -4,
+      },
+    );
   });
 
-  it("skips deltas whose archive doc is missing", async () => {
+  it("skips and logs deltas whose archive doc is missing", async () => {
     await adjustUploadRefCounts("user-1", new Map([[HASH, 1]]));
     expect(firestoreState.txUpdateCalls).toEqual([]);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Skipping upload refCount adjustment because archive doc is missing",
+      { uid: "user-1", hash: HASH, delta: 1 },
+    );
   });
 
   it("ignores zero deltas without touching the doc", async () => {
@@ -406,7 +429,11 @@ describe("finalizeUploadArchiveDoc", () => {
   it("activates a matching reservation, preserving refCount and shareable", async () => {
     firestoreState.docs.set(
       `users/user-1/uploads/${HASH}`,
-      pendingDoc({ refCount: 4, shareable: true }),
+      pendingDoc({
+        refCount: 4,
+        shareable: true,
+        displayName: "original-name.png",
+      }),
     );
 
     const result = await finalizeUploadArchiveDoc(params);
@@ -420,6 +447,7 @@ describe("finalizeUploadArchiveDoc", () => {
           status: "active",
           refCount: 4,
           shareable: true,
+          displayName: "original-name.png",
           url: expect.stringContaining("token=tok-1"),
         }),
         options: { merge: true },
@@ -445,6 +473,7 @@ describe("finalizeUploadArchiveDoc", () => {
       status: "active",
       refCount: 0,
       shareable: false,
+      displayName: "photo.png",
     });
   });
 });

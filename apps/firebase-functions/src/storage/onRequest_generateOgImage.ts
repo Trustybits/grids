@@ -731,8 +731,6 @@ async function captureGridTiles(
   pageUrl: string,
   skipIndices: number[]
 ): Promise<CapturedTile[]> {
-  functions.logger.info(`[og] capturing tiles from ${pageUrl}`);
-
   if (!(await isScreenshotPageReachable(pageUrl))) {
     functions.logger.warn(
       `[og] screenshot page unreachable at ${pageUrl}. ` +
@@ -741,6 +739,8 @@ async function captureGridTiles(
     );
     return [];
   }
+
+  functions.logger.info(`[og] capturing tiles from ${pageUrl}`);
 
   try {
   // Allow images, fonts, AND video. Tile content (photos, link previews,
@@ -1527,14 +1527,16 @@ export function buildOgHtml(
 ): string {
   const avatarSize = 200;
   const gridsIconDataUri = `data:image/png;base64,${GRIDS_ICON_B64}`;
-  const hasAvatar = Boolean(info.avatarUrl);
+  const avatarUrl = info.avatarUrl;
+  const hasAvatar = Boolean(avatarUrl);
 
-  const avatarMarkup = hasAvatar
-    ? avatarSvg(
+  const avatarMarkup =
+    avatarUrl ?
+      avatarSvg(
         avatarSize,
         info.avatarShape,
         info.avatarSides,
-        info.avatarUrl!,
+        avatarUrl,
         theme
       )
     : "";
@@ -1925,8 +1927,6 @@ async function handler(req: Request, res: Response): Promise<void> {
     } catch (cacheErr) {
       functions.logger.warn("[og] cache check failed, regenerating:", cacheErr);
     }
-  } else if (refresh) {
-    functions.logger.info(`[og] refresh requested — bypassing cache for ${cachePath}`);
   }
 
   // ── 2. Resolve grid/profile data ──────────────────────────────────────────
@@ -1962,13 +1962,15 @@ async function handler(req: Request, res: Response): Promise<void> {
     );
     await tilePage.close();
 
-    if (captured.length === 0) {
+    const rawCaptureCount = captured.length;
+
+    if (rawCaptureCount === 0) {
       functions.logger.warn(
-        "[og] no tiles captured — rendering minimal layout"
+        "[og] no tiles captured — rendering meta-only layout"
       );
     } else {
       functions.logger.info(
-        `[og] captured ${captured.length} tile(s) for scatter`
+        `[og] captured ${rawCaptureCount} tile(s) from page`
       );
     }
 
@@ -1984,6 +1986,11 @@ async function handler(req: Request, res: Response): Promise<void> {
     captured = selectScatterTiles(captured, rng, MAX_SCATTER_TILES);
 
     if (captured.length < MIN_SCATTER_TILES) {
+      if (rawCaptureCount > 0) {
+        functions.logger.warn(
+          `[og] ${rawCaptureCount} tile(s) captured but ${MIN_SCATTER_TILES} required for scatter — meta-only layout`
+        );
+      }
       captured = [];
     }
 
@@ -2015,7 +2022,7 @@ async function handler(req: Request, res: Response): Promise<void> {
       // Under minCov? Render empty — too few/tiny tiles to look good.
       if (totalArea < minCov * TILE_SECTION_AREA) {
         functions.logger.info(
-          `[og] tile coverage ${((totalArea / TILE_SECTION_AREA) * 100).toFixed(1)}% < ${(minCov * 100).toFixed(0)}% — rendering empty`
+          `[og] tile coverage ${((totalArea / TILE_SECTION_AREA) * 100).toFixed(1)}% < ${(minCov * 100).toFixed(0)}% — meta-only layout`
         );
         captured = [];
       }

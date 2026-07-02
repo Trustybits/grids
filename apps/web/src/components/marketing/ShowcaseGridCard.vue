@@ -27,7 +27,7 @@
 import type { ShowcaseEntry } from '@/data/showcaseGrids';
 import { slugOgImageUrl } from '@/utils/OgImageUtils';
 
-const props = defineProps<{
+defineProps<{
   entry: ShowcaseEntry;
   failedSlugs: Set<string>;
 }>();

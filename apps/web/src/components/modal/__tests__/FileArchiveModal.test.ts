@@ -2,12 +2,14 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import type { AuthProvider } from "@grids/contracts/auth";
 import type {
+  Grid,
   UploadArchiveDocument,
   UserProfile,
 } from "@grids/contracts/types";
 import { registerAuthProvider } from "@/auth/AuthProviderSingleton";
 import { registerServiceFactory } from "@/services/ServiceFactorySingleton";
 import type { ServiceFactoryInterface } from "@/services/factory/ServiceFactoryInterface";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
 import FileArchiveModal from "../FileArchiveModal.vue";
 
 const MB = 1024 * 1024;
@@ -28,6 +30,20 @@ function makeUpload(
     status: "active",
     refCount: 0,
     shareable: false,
+    ...overrides,
+  };
+}
+
+function makeGrid(overrides: Partial<Grid> = {}): Grid {
+  return {
+    id: "grid-1",
+    userId: "user-1",
+    name: "My Grid",
+    colNum: 12,
+    verticalCompact: true,
+    backgroundImageSrc: "",
+    backgroundEmbed: false,
+    tiles: [],
     ...overrides,
   };
 }
@@ -76,6 +92,10 @@ describe("FileArchiveModal", () => {
     await flushPromises();
 
     const text = document.body.textContent ?? "";
+    expect(text).toContain("File Archive");
+    expect(document.body.querySelector(".fa__beta-tag")?.textContent).toBe(
+      "Beta",
+    );
     expect(text).toContain("No files in archive");
     for (const pill of ["All", "Images", "Videos", "Documents"]) {
       expect(text).toContain(pill);
@@ -128,6 +148,37 @@ describe("FileArchiveModal", () => {
 
     expect(document.body.textContent).toContain("clip.mp4");
     expect(document.body.textContent).not.toContain("pic.png");
+
+    wrapper.unmount();
+    document.body.innerHTML = "";
+  });
+
+  it("renders visible icon actions with the expected archive icons", async () => {
+    registerStubs({
+      uploads: [makeUpload({ displayName: "pic.png" })],
+    });
+    const session = useGridSessionStore();
+    session.setCurrentGrid(makeGrid());
+    session.setOwner(true);
+
+    const wrapper = mount(FileArchiveModal, { props: { isOpen: true } });
+    await flushPromises();
+
+    const expectedPaths = {
+      "Add to grid": "M12 5v14M5 12h14",
+      Rename:
+        "M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
+      "Delete permanently": "M13 3.00004L3.00004 13M3 3L13 13",
+    };
+
+    for (const [label, path] of Object.entries(expectedPaths)) {
+      const button = document.body.querySelector<HTMLButtonElement>(
+        `button[aria-label="${label}"]`,
+      );
+      expect(button).not.toBeNull();
+      expect(button?.classList.contains("fa__icon-btn")).toBe(true);
+      expect(button?.querySelector(`svg path[d="${path}"]`)).not.toBeNull();
+    }
 
     wrapper.unmount();
     document.body.innerHTML = "";

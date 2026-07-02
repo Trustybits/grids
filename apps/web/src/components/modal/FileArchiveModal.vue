@@ -7,7 +7,10 @@
   >
     <div class="fa">
       <header class="fa__header">
-        <h2>File Archive</h2>
+        <div class="fa__title">
+          <h2>File Archive</h2>
+          <span class="fa__beta-tag">Beta</span>
+        </div>
         <button class="fa__close" aria-label="Close" @click="handleClose">
           <CloseXIcon :size="20" />
         </button>
@@ -535,15 +538,37 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--spacing-md);
   padding: var(--spacing-lg);
   border-bottom: var(--border-width) solid var(--color-stroke);
   flex-shrink: 0;
+}
+
+.fa__title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 0;
 
   h2 {
     margin: 0;
     font-size: 20px;
     color: var(--color-text-primary);
   }
+}
+
+.fa__beta-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border: var(--border-width) solid var(--color-stroke);
+  border-radius: 999px;
+  background-color: var(--color-content-background);
+  color: var(--color-content-default);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
 }
 
 .fa__close {
@@ -863,25 +888,39 @@ onUnmounted(() => {
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: transparent;
-  border: none;
+  background-color: var(--color-content-background);
+  border: var(--border-width) solid var(--color-stroke);
   border-radius: var(--radius-sm);
-  color: var(--color-content-high);
+  color: var(--color-content-default);
   cursor: pointer;
+  padding: 0;
   transition: all var(--duration-fast) var(--easing-smooth);
 
   :deep(svg) {
     display: block;
     width: 16px;
     height: 16px;
+    color: currentColor;
+    stroke: currentColor;
   }
 
   &:hover {
-    background-color: var(--color-base-34, var(--color-content-background));
+    background-color: var(--color-tile-background);
+    border-color: var(--color-content-default);
     color: var(--color-text-primary);
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--color-figma-purple);
+    outline-offset: 2px;
+  }
+
+  &--danger {
+    color: var(--color-content-default);
+  }
+
   &--danger:hover {
+    border-color: var(--color-figma-red);
     color: var(--color-figma-red);
   }
 }

@@ -1,6 +1,9 @@
 import { isGridRevisionConflictError } from "@grids/contracts/dao";
 import type { Grid } from "@grids/contracts/types";
-import type { GridPersistenceScope } from "@/services/interfaces/GridPersistenceSchedulerInterface";
+import type {
+  GridPersistenceFlushResult,
+  GridPersistenceScope,
+} from "@/services/interfaces/GridPersistenceSchedulerInterface";
 import { createPersistableGridSnapshot } from "@/utils/GridPersistenceUtils";
 import type {
   GridControllerDependencies,
@@ -127,7 +130,9 @@ export class GridPersistenceController {
     void this.flushPersistenceScope(scope).catch(() => undefined);
   }
 
-  private updateCurrentGridRev(savedSnapshot: Grid | null): void {
+  private updateCurrentGridRev(
+    savedSnapshot: GridPersistenceFlushResult,
+  ): void {
     const currentGrid = this.stores.session.currentGrid;
     if (
       currentGrid &&

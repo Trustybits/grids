@@ -7,14 +7,33 @@ import {
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { ref, uploadString } from "firebase/storage";
+import {
+  deleteObject,
+  ref,
+  updateMetadata,
+  uploadString,
+} from "firebase/storage";
+
+const HASH = "a".repeat(64);
+const OTHER_HASH = "b".repeat(64);
+const STORAGE_QUOTA_BYTES = 5_368_709_120;
+
+async function seedUser(
+  testEnv: RulesTestEnvironment,
+  userId: string,
+  data: Record<string, unknown>,
+) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), `users/${userId}`), data);
+  });
+}
 
 describe("Firebase rules harness", () => {
   let testEnv: RulesTestEnvironment;
 
   beforeAll(async () => {
     testEnv = await initializeTestEnvironment({
-      projectId: "grids-rules-phase-0",
+      projectId: "grids-one",
       firestore: {
         rules: readFileSync(resolve("firestore.rules"), "utf8"),
       },
@@ -40,7 +59,6 @@ describe("Firebase rules harness", () => {
     await assertSucceeds(
       setDoc(doc(alice, "users/alice"), {
         displayName: "Alice",
-        storageUsed: 0,
       }),
     );
     await assertSucceeds(getDoc(doc(alice, "users/alice")));
@@ -55,7 +73,18 @@ describe("Firebase rules harness", () => {
       setDoc(doc(alice, "users/alice"), {
         displayName: "Alice",
         storageUsed: 0,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(alice, "users/alice"), {
+        displayName: "Alice",
         isDevAccount: true,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(alice, "users/alice"), {
+        displayName: "Alice",
+        isDevAccount: false,
       }),
     );
     await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -88,22 +117,109 @@ describe("Firebase rules harness", () => {
         status: "active",
       }),
     );
+    await assertFails(
+      updateDoc(doc(alice, uploadPath), {
+        shareable: true,
+      }),
+    );
   });
 
-  it("loads storage.rules and enforces current owner upload paths", async () => {
+  it("accepts canonical owner uploads within quota", async () => {
     const alice = testEnv.authenticatedContext("alice").storage();
+    await seedUser(testEnv, "alice", {
+      storageUsed: 0,
+      isDevAccount: false,
+    });
 
     await assertSucceeds(
-      uploadString(ref(alice, "users/alice/images/photo.png"), "image", "raw", {
+      uploadString(ref(alice, `users/alice/images/${HASH}.png`), "image", "raw", {
         contentType: "image/png",
         customMetadata: { published: "true" },
       }),
     );
+  });
+
+  it("rejects original-filename uploads under archive-owned folders", async () => {
+    const alice = testEnv.authenticatedContext("alice").storage();
+    await seedUser(testEnv, "alice", {
+      storageUsed: 0,
+      isDevAccount: false,
+    });
+
     await assertFails(
-      uploadString(ref(alice, "users/bob/images/photo.png"), "image", "raw", {
+      uploadString(ref(alice, "users/alice/images/photo.png"), "image", "raw", {
         contentType: "image/png",
       }),
     );
+  });
+
+  it("rejects uploads to another user's archive path", async () => {
+    const alice = testEnv.authenticatedContext("alice").storage();
+    await seedUser(testEnv, "bob", {
+      storageUsed: 0,
+      isDevAccount: false,
+    });
+
+    await assertFails(
+      uploadString(ref(alice, `users/bob/images/${HASH}.png`), "image", "raw", {
+        contentType: "image/png",
+      }),
+    );
+  });
+
+  it("rejects over-quota non-dev uploads and allows dev-account uploads", async () => {
+    const alice = testEnv.authenticatedContext("alice").storage();
+
+    await seedUser(testEnv, "alice", {
+      storageUsed: STORAGE_QUOTA_BYTES + 1,
+      isDevAccount: false,
+    });
+    await assertFails(
+      uploadString(ref(alice, `users/alice/videos/${HASH}.mp4`), "video", "raw", {
+        contentType: "video/mp4",
+      }),
+    );
+
+    await seedUser(testEnv, "alice", {
+      storageUsed: STORAGE_QUOTA_BYTES + 1,
+      isDevAccount: true,
+    });
+    await assertSucceeds(
+      uploadString(
+        ref(alice, `users/alice/videos/${OTHER_HASH}.mp4`),
+        "video",
+        "raw",
+        {
+          contentType: "video/mp4",
+        },
+      ),
+    );
+  });
+
+  it("rejects direct update and delete of archive-owned objects", async () => {
+    const alice = testEnv.authenticatedContext("alice").storage();
+    const fileRef = ref(alice, `users/alice/documents/${HASH}.pdf`);
+    await seedUser(testEnv, "alice", {
+      storageUsed: 0,
+      isDevAccount: false,
+    });
+
+    await assertSucceeds(
+      uploadString(fileRef, "document", "raw", {
+        contentType: "application/pdf",
+      }),
+    );
+    await assertFails(
+      updateMetadata(fileRef, {
+        customMetadata: { published: "true" },
+      }),
+    );
+    await assertFails(deleteObject(fileRef));
+  });
+
+  it("keeps fixed-location OG images server-only", async () => {
+    const alice = testEnv.authenticatedContext("alice").storage();
+
     await assertFails(
       uploadString(ref(alice, "og-images/grid/grid-1.png"), "image", "raw", {
         contentType: "image/png",

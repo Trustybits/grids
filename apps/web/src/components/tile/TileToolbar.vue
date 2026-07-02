@@ -1,15 +1,32 @@
 <template>
-  <div
-    v-if="items.length"
-    ref="toolbarRef"
-    class="tile-toolbar"
-    :class="{ 'tile-toolbar-force-show': menuOpen || panelOpen }"
-    @mousedown.stop
-    @touchstart.stop
-    @mouseenter="hoveredToolbarZone = 'toolbar'"
-    @mouseleave="hoveredToolbarZone = null"
-  >
-    <template v-for="(item, idx) in visibleItems" :key="item.id">
+  <!-- Anchor stays inside the tile so we can measure where the floating
+       toolbar should sit. The toolbar + inline panels are teleported to
+       <body> so they float above fixed page chrome (AppBar/TopBar) rather
+       than being clipped by the tile's own stacking context. -->
+  <div ref="anchorRef" class="tile-toolbar-anchor" aria-hidden="true"></div>
+
+  <teleport to="body">
+    <div
+      v-if="items.length"
+      class="tile-toolbar-floating"
+      :style="floatingStyle"
+      @mousedown.stop
+      @touchstart.stop
+      @click.stop
+    >
+      <div
+        ref="toolbarRef"
+        class="tile-toolbar"
+        :class="{
+          'tile-toolbar-force-show': toolbarShown,
+          'tile-toolbar--dimmed': toolbarDimmed,
+        }"
+        @mousedown.stop
+        @touchstart.stop
+        @mouseenter="onToolbarEnter"
+        @mouseleave="onToolbarLeave"
+      >
+        <template v-for="(item, idx) in visibleItems" :key="item.id">
       <div v-if="shouldShowDivider(idx)" class="toolbar-divider"></div>
       <FloatingTooltip :text="resolveTitle(item)">
         <button
@@ -89,6 +106,8 @@
       {{ imageUrlError }}
     </p>
   </div>
+    </div>
+  </teleport>
 
   <!-- Color Picker Panel -->
   <teleport to="body">
@@ -247,6 +266,23 @@ export default defineComponent({
   setup(props) {
     const gridView = proxyRefs(useGridViewContext());
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
+    // Provided by Tile.vue — mirrors the hover/activation/crop visibility that
+    // used to be expressed as `.tile-wrapper:hover :deep(.tile-toolbar)` CSS,
+    // which no longer reaches the toolbar now that it is teleported to <body>.
+    const tileToolbarVisible = inject<Ref<boolean>>(
+      "tileToolbarVisible",
+      ref(false),
+    );
+
+    // Tracks hover over the (teleported) toolbar itself. Because the toolbar is
+    // no longer a DOM descendant of the tile, hovering it would otherwise drop
+    // the tile's hover state and hide the toolbar out from under the cursor.
+    const toolbarHovered = ref(false);
+
+    // Anchor lives inside the tile; its rect tells us where to pin the
+    // teleported floating toolbar (centered below the tile's bottom edge).
+    const anchorRef = ref<HTMLElement | null>(null);
+    const floatingPos = ref({ top: 0, left: 0 });
 
     const toolbarRef = ref<HTMLDivElement | null>(null);
     const menuAnchorRef = ref<HTMLButtonElement | null>(null);
@@ -285,6 +321,51 @@ export default defineComponent({
     const menuOpen = computed(
       () => activePanelId.value === null && isActiveTile.value,
     );
+
+    // The toolbar is shown when the tile says so (hover/activation/crop),
+    // when its own area is hovered (so it doesn't vanish as the cursor moves
+    // onto it post-teleport), or when a menu/panel is open.
+    const toolbarShown = computed(
+      () =>
+        tileToolbarVisible.value ||
+        toolbarHovered.value ||
+        menuOpen.value ||
+        panelOpen.value,
+    );
+
+    // Dim the toolbar while a different tile zone (actions/avatar/radius/sides)
+    // is the hovered zone — matches the old `[data-active-zone]` CSS rules.
+    const DIM_ZONES = ["actions", "avatar", "radius", "sides"];
+    const toolbarDimmed = computed(() =>
+      DIM_ZONES.includes(hoveredToolbarZone?.value ?? ""),
+    );
+
+    const floatingStyle = computed(() => ({
+      top: `${floatingPos.value.top}px`,
+      left: `${floatingPos.value.left}px`,
+    }));
+
+    const updateFloatingPosition = () => {
+      const el = anchorRef.value;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      // Anchor spans the tile's full width at its bottom edge, so this pins the
+      // floating wrapper to the tile's bottom-center (in viewport coordinates).
+      floatingPos.value = {
+        top: r.bottom,
+        left: r.left + r.width / 2,
+      };
+    };
+
+    const onToolbarEnter = () => {
+      if (hoveredToolbarZone) hoveredToolbarZone.value = "toolbar";
+      toolbarHovered.value = true;
+    };
+
+    const onToolbarLeave = () => {
+      if (hoveredToolbarZone) hoveredToolbarZone.value = null;
+      toolbarHovered.value = false;
+    };
 
     const ctx = computed<ToolbarContext>(() => ({
       tile: props.tile,
@@ -668,6 +749,39 @@ export default defineComponent({
       });
     });
 
+    // Keep the teleported floating toolbar pinned to its tile while it's
+    // visible (the tile can move on scroll/resize). Listeners are only active
+    // while shown, mirroring the menu's positioning strategy above.
+    let toolbarRafId: number | null = null;
+    const scheduleToolbarPosition = () => {
+      if (toolbarRafId != null) return;
+      toolbarRafId = requestAnimationFrame(() => {
+        toolbarRafId = null;
+        updateFloatingPosition();
+      });
+    };
+
+    watch(toolbarShown, (shown, _prev, onCleanup) => {
+      if (!shown) return;
+
+      nextTick(updateFloatingPosition);
+
+      window.addEventListener("resize", scheduleToolbarPosition);
+      window.addEventListener("scroll", scheduleToolbarPosition, {
+        capture: true,
+        passive: true,
+      });
+
+      onCleanup(() => {
+        if (toolbarRafId != null) cancelAnimationFrame(toolbarRafId);
+        toolbarRafId = null;
+        window.removeEventListener("resize", scheduleToolbarPosition);
+        window.removeEventListener("scroll", scheduleToolbarPosition, {
+          capture: true,
+        });
+      });
+    });
+
     onMounted(() => {
       document.addEventListener("click", handleClickOutside);
       document.addEventListener("contextmenu", handleClickOutside);
@@ -688,6 +802,12 @@ export default defineComponent({
       menuOpen,
       menuAnchorRef,
       toolbarRef,
+      anchorRef,
+      floatingStyle,
+      toolbarShown,
+      toolbarDimmed,
+      onToolbarEnter,
+      onToolbarLeave,
       menuRef,
       menuStyle,
       menuPosition,
@@ -736,6 +856,26 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
+/* Zero-size marker left inside the tile; the floating toolbar is pinned to it. */
+.tile-toolbar-anchor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Teleported wrapper, pinned (via inline top/left) to the tile's bottom-center.
+   z-index lifts the toolbar above fixed page chrome (AppBar/TopBar) so it is no
+   longer clipped, while the tiles themselves keep their normal stacking. */
+.tile-toolbar-floating {
+  position: fixed;
+  width: 0;
+  height: 0;
+  z-index: 10000;
+}
+
 /* Tile Toolbar */
 .tile-toolbar {
   position: absolute;
@@ -769,6 +909,14 @@ export default defineComponent({
   opacity: 1;
   transform: translate(-50%, 100%) scale(1);
   pointer-events: auto;
+}
+
+/* Dim while another tile zone is the active hover target (replaces the old
+   `.tile-wrapper[data-active-zone=...]` CSS). Declared after force-show so it
+   wins at equal specificity when both classes are present. */
+.tile-toolbar--dimmed {
+  opacity: 0.15;
+  pointer-events: none;
 }
 
 .toolbar-btn {

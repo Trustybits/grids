@@ -1,5 +1,5 @@
 <template>
-  <Button variant="ghost" icon-only @click="handleUseTemplate">
+  <Button variant="ghost" icon-only size="lg" @click="handleUseTemplate">
     <template #icon-left>
       <DuplicatePlusIcon />
     </template>

@@ -1,5 +1,5 @@
 <template>
-  <Button variant="ghost" icon-only @click="handleShare">
+  <Button variant="ghost" icon-only size="lg" @click="handleShare">
     <template #icon-left>
       <ShareIcon />
     </template>

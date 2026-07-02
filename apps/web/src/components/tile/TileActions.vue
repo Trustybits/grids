@@ -9,7 +9,10 @@
     @mouseleave="hoveredToolbarZone = null"
   >
     <!-- Primary button: delete normally, stop interacting when embed is active -->
-    <FloatingTooltip :text="isEmbedInteractive ? 'Stop Interacting' : 'Delete'">
+    <FloatingTooltip
+      :text="isEmbedInteractive ? 'Stop Interacting' : 'Delete'"
+      placement="right"
+    >
       <button
         class="tile-action-btn tile-action-btn--primary"
         @click="isEmbedInteractive ? onStopInteracting($event) : onDelete()"
@@ -24,7 +27,7 @@
     <!-- Quick Actions Group: collapses upward when embed is interactive -->
     <div class="tile-actions-group-collapse">
       <div v-if="!isSuggestionTile" class="tile-actions-group">
-        <FloatingTooltip v-if="hasLink" text="Follow Link">
+        <FloatingTooltip v-if="hasLink" text="Follow Link" placement="right">
           <a
             class="tile-action-btn"
             :href="resolvedTileUrl"
@@ -36,7 +39,7 @@
           </a>
         </FloatingTooltip>
 
-        <FloatingTooltip text="Duplicate Tile">
+        <FloatingTooltip text="Duplicate Tile" placement="right">
           <button
             class="tile-action-btn"
             @click="onDuplicate"
@@ -45,7 +48,11 @@
           </button>
         </FloatingTooltip>
 
-        <FloatingTooltip v-if="hasCopyable" text="Copy to Clipboard">
+        <FloatingTooltip
+          v-if="hasCopyable"
+          text="Copy to Clipboard"
+          placement="right"
+        >
           <button
             class="tile-action-btn"
             @click="onCopyToClipboard"
@@ -54,7 +61,7 @@
           </button>
         </FloatingTooltip>
 
-        <FloatingTooltip v-if="hasDownload" text="Download">
+        <FloatingTooltip v-if="hasDownload" text="Download" placement="right">
           <button
             class="tile-action-btn"
             @click="onDownload"
@@ -266,7 +273,7 @@ export default defineComponent({
   border: var(--tile-border-width) solid var(--color-tile-stroke);
   border-radius: 8px;
   background-color: var(--color-actionbar-background);
-  color: var(--color-content-high);
+  color: var(--color-content-default);
   cursor: pointer;
   transition:
     background-color var(--duration-fast) var(--easing-ease-in-out),
@@ -281,7 +288,7 @@ export default defineComponent({
 
   &:hover {
     background-color: var(--color-actionbar-background);
-    color: var(--color-figma-purple);
+    color: var(--color-text-primary);
   }
 }
 

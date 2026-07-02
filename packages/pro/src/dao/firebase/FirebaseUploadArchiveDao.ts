@@ -1,4 +1,10 @@
-import { type Firestore, doc, onSnapshot } from "firebase/firestore";
+import {
+  type Firestore,
+  collection,
+  doc,
+  getDocs,
+  onSnapshot,
+} from "firebase/firestore";
 import type { UploadArchiveDao } from "@grids/contracts/dao";
 import type { UploadArchiveDocument } from "@grids/contracts/types";
 
@@ -39,5 +45,16 @@ export class FirebaseUploadArchiveDao implements UploadArchiveDao {
         callback(null);
       },
     );
+  }
+
+  public async listUploads(uid: string): Promise<UploadArchiveDocument[]> {
+    const uploadsRef = collection(
+      this.db,
+      USERS_COLLECTION,
+      uid,
+      UPLOADS_COLLECTION,
+    );
+    const snapshot = await getDocs(uploadsRef);
+    return snapshot.docs.map((d) => d.data() as UploadArchiveDocument);
   }
 }

@@ -39,6 +39,7 @@ export { authorizeStorageUpload } from "./storage/onCall_authorizeStorageUpload.
 export { deleteStorageUpload } from "./storage/onCall_deleteStorageUpload.js";
 export { ensureDocumentItemThumbnail } from "./storage/onCall_ensureDocumentItemThumbnail.js";
 export { prepareGridDuplicateStorage } from "./storage/onCall_prepareGridDuplicateStorage.js";
+export { setStorageUploadDisplayName } from "./storage/onCall_setStorageUploadDisplayName.js";
 export { setStorageUploadShareable } from "./storage/onCall_setStorageUploadShareable.js";
 export { generateThumbnail } from "./storage/onRequest_generateBreakpointThumbnail.js";
 export { generateOgImage } from "./storage/onRequest_generateOgImage.js";

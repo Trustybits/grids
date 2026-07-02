@@ -1,5 +1,10 @@
 import type { StorageUploadMetadata } from "@grids/contracts/dao";
 import type {
+  PrepareGridDuplicateStorageRequest,
+  PrepareGridDuplicateStorageResponse,
+  UploadArchiveDocument,
+} from "@grids/contracts/types";
+import type {
   ArchiveUploadResult,
   ArchiveUploadTask,
   UploadOptions,
@@ -71,4 +76,33 @@ export interface StorageServiceInterface {
    * Direct bucket deletion is intentionally not exposed to client flows.
    */
   deleteArchiveUpload(hash: string, force?: boolean): Promise<void>;
+
+  /**
+   * List every archive document under `users/{uid}/uploads` for the File Archive
+   * UI. Read-only Firestore access; archive docs are written only by the server.
+   */
+  listArchiveUploads(userId: string): Promise<UploadArchiveDocument[]>;
+
+  /**
+   * Toggle a file's `shareable` flag through the server callable. Archive docs
+   * are server-write-only, so this must not write Firestore directly. Resolves
+   * to the persisted flag value.
+   */
+  setUploadShareable(hash: string, shareable: boolean): Promise<boolean>;
+
+  /**
+   * Rename a file's archive `displayName` through the server callable. Changes
+   * only the display label; the object path, hash, and grid references are
+   * untouched. Resolves to the persisted display name.
+   */
+  renameUpload(hash: string, displayName: string): Promise<string>;
+
+  /**
+   * Estimate (and, when `confirmed`, execute) the storage side of a full grid
+   * duplication: which referenced files are copiable, the additional quota
+   * required, and the URL/hash rewrite + tile-replacement maps.
+   */
+  prepareGridDuplicateStorage(
+    request: PrepareGridDuplicateStorageRequest,
+  ): Promise<PrepareGridDuplicateStorageResponse>;
 }

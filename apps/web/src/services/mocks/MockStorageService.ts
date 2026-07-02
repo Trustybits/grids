@@ -1,4 +1,9 @@
 import type { StorageUploadMetadata } from "@grids/contracts/dao";
+import type {
+  PrepareGridDuplicateStorageRequest,
+  PrepareGridDuplicateStorageResponse,
+  UploadArchiveDocument,
+} from "@grids/contracts/types";
 import type { StorageServiceInterface } from "../interfaces/StorageServiceInterface";
 import type {
   ArchiveUploadResult,
@@ -48,6 +53,24 @@ export class MockStorageService implements StorageServiceInterface {
     throw new Error("Method not implemented.");
   }
   deleteArchiveUpload(_hash: string, _force?: boolean): Promise<void> {
-    throw new Error("Method not implemented.");
+    return Promise.resolve();
+  }
+  listArchiveUploads(_userId: string): Promise<UploadArchiveDocument[]> {
+    return Promise.resolve([]);
+  }
+  setUploadShareable(_hash: string, shareable: boolean): Promise<boolean> {
+    return Promise.resolve(shareable);
+  }
+  renameUpload(_hash: string, displayName: string): Promise<string> {
+    return Promise.resolve(displayName);
+  }
+  prepareGridDuplicateStorage(
+    _request: PrepareGridDuplicateStorageRequest,
+  ): Promise<PrepareGridDuplicateStorageResponse> {
+    return Promise.resolve({
+      additionalBytesRequired: 0,
+      copiableCount: 0,
+      nonCopiableCount: 0,
+    });
   }
 }

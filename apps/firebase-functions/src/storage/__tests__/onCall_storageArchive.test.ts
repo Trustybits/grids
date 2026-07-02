@@ -120,12 +120,14 @@ vi.mock("../../admin.js", () => {
 import { authorizeStorageUpload } from "../onCall_authorizeStorageUpload.js";
 import { deleteStorageUpload } from "../onCall_deleteStorageUpload.js";
 import { setStorageUploadShareable } from "../onCall_setStorageUploadShareable.js";
+import { setStorageUploadDisplayName } from "../onCall_setStorageUploadDisplayName.js";
 
 type Callable = (data: unknown, context: { auth?: { uid: string } }) => Promise<unknown>;
 
 const authorize = authorizeStorageUpload as unknown as Callable;
 const remove = deleteStorageUpload as unknown as Callable;
 const setShareable = setStorageUploadShareable as unknown as Callable;
+const setDisplayName = setStorageUploadDisplayName as unknown as Callable;
 
 function metadata(overrides: Record<string, unknown> = {}) {
   return {
@@ -399,6 +401,64 @@ describe("storage archive callables", () => {
   it("cannot set shareable on an upload that does not exist", async () => {
     await expect(
       setShareable({ hash: HASH, shareable: true }, { auth: { uid: "user-1" } }),
+    ).rejects.toMatchObject({ code: "not-found" });
+    expect(firestoreState.directUpdateCalls).toEqual([]);
+  });
+
+  it("renames only the displayName through the owner callable", async () => {
+    firestoreState.docs.set(
+      `users/user-1/uploads/${HASH}`,
+      activeArchive({ displayName: "original.png" }),
+    );
+
+    await expect(
+      setDisplayName(
+        { hash: HASH, displayName: "  My Photo  " },
+        { auth: { uid: "user-1" } },
+      ),
+    ).resolves.toEqual({ hash: HASH, displayName: "My Photo" });
+
+    expect(firestoreState.directUpdateCalls).toEqual([
+      {
+        path: `users/user-1/uploads/${HASH}`,
+        data: expect.objectContaining({ displayName: "My Photo" }),
+      },
+    ]);
+  });
+
+  it("requires auth to rename an upload", async () => {
+    await expect(
+      setDisplayName({ hash: HASH, displayName: "x" }, {}),
+    ).rejects.toMatchObject({ code: "unauthenticated" });
+  });
+
+  it("rejects a non-string display name", async () => {
+    firestoreState.docs.set(`users/user-1/uploads/${HASH}`, activeArchive());
+
+    await expect(
+      setDisplayName({ hash: HASH, displayName: 5 }, { auth: { uid: "user-1" } }),
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+    expect(firestoreState.directUpdateCalls).toEqual([]);
+  });
+
+  it("rejects a blank display name", async () => {
+    firestoreState.docs.set(`users/user-1/uploads/${HASH}`, activeArchive());
+
+    await expect(
+      setDisplayName(
+        { hash: HASH, displayName: "   " },
+        { auth: { uid: "user-1" } },
+      ),
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+    expect(firestoreState.directUpdateCalls).toEqual([]);
+  });
+
+  it("cannot rename an upload that does not exist", async () => {
+    await expect(
+      setDisplayName(
+        { hash: HASH, displayName: "x" },
+        { auth: { uid: "user-1" } },
+      ),
     ).rejects.toMatchObject({ code: "not-found" });
     expect(firestoreState.directUpdateCalls).toEqual([]);
   });

@@ -38,4 +38,12 @@ export class StubbedUploadArchiveDao implements UploadArchiveDao {
       cancelled = true;
     };
   }
+
+  /**
+   * Local mode has no server-written archive index, so there are no uploads to
+   * list. The File Archive UI renders an empty state against the stub.
+   */
+  public listUploads(_uid: string): Promise<UploadArchiveDocument[]> {
+    return Promise.resolve([]);
+  }
 }

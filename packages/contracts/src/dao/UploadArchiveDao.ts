@@ -21,4 +21,12 @@ export interface UploadArchiveDao {
     hash: string,
     callback: (doc: UploadArchiveDocument | null) => void,
   ): () => void;
+
+  /**
+   * Read every archive document under `users/{uid}/uploads`. Used by the File
+   * Archive UI to render the owner's uploads (display name, size, refCount,
+   * shareable state, timestamps). Read-only: archive documents are written only
+   * by server code.
+   */
+  listUploads(uid: string): Promise<UploadArchiveDocument[]>;
 }

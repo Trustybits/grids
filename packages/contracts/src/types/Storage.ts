@@ -68,6 +68,16 @@ export interface SetStorageUploadShareableResponse {
   shareable: boolean;
 }
 
+export interface SetStorageUploadDisplayNameRequest {
+  hash: string;
+  displayName: string;
+}
+
+export interface SetStorageUploadDisplayNameResponse {
+  hash: string;
+  displayName: string;
+}
+
 export interface PrepareGridDuplicateStorageRequest {
   sourceGridId: string;
   copyDepth: "full" | "structure";

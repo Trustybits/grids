@@ -11,6 +11,12 @@ import type {
   AuthorizeStorageUploadRequest,
   AuthorizeStorageUploadResponse,
   DeleteStorageUploadRequest,
+  PrepareGridDuplicateStorageRequest,
+  PrepareGridDuplicateStorageResponse,
+  SetStorageUploadDisplayNameRequest,
+  SetStorageUploadDisplayNameResponse,
+  SetStorageUploadShareableRequest,
+  SetStorageUploadShareableResponse,
   UploadArchiveDocument,
   UploadKind,
 } from "@grids/contracts/types";
@@ -218,6 +224,60 @@ export class StorageService implements StorageServiceInterface {
       >("deleteStorageUpload", { hash, force });
     } catch (error) {
       console.error("StorageService deleteArchiveUpload failed:", error);
+      throw error;
+    }
+  }
+
+  async listArchiveUploads(
+    userId: string,
+  ): Promise<UploadArchiveDocument[]> {
+    try {
+      return await this.uploadArchiveDao.listUploads(userId);
+    } catch (error) {
+      console.error("StorageService listArchiveUploads failed:", error);
+      throw error;
+    }
+  }
+
+  async setUploadShareable(
+    hash: string,
+    shareable: boolean,
+  ): Promise<boolean> {
+    try {
+      const response = await this.cloudFunctionsDao.callFunction<
+        SetStorageUploadShareableRequest,
+        SetStorageUploadShareableResponse
+      >("setStorageUploadShareable", { hash, shareable });
+      return response.shareable;
+    } catch (error) {
+      console.error("StorageService setUploadShareable failed:", error);
+      throw error;
+    }
+  }
+
+  async renameUpload(hash: string, displayName: string): Promise<string> {
+    try {
+      const response = await this.cloudFunctionsDao.callFunction<
+        SetStorageUploadDisplayNameRequest,
+        SetStorageUploadDisplayNameResponse
+      >("setStorageUploadDisplayName", { hash, displayName });
+      return response.displayName;
+    } catch (error) {
+      console.error("StorageService renameUpload failed:", error);
+      throw error;
+    }
+  }
+
+  async prepareGridDuplicateStorage(
+    request: PrepareGridDuplicateStorageRequest,
+  ): Promise<PrepareGridDuplicateStorageResponse> {
+    try {
+      return await this.cloudFunctionsDao.callFunction<
+        PrepareGridDuplicateStorageRequest,
+        PrepareGridDuplicateStorageResponse
+      >("prepareGridDuplicateStorage", request);
+    } catch (error) {
+      console.error("StorageService prepareGridDuplicateStorage failed:", error);
       throw error;
     }
   }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { GridRevisionConflictError } from "@grids/contracts/dao";
+import type { Grid } from "@grids/contracts/types";
 import { GridPersistenceController } from "../../internal/GridPersistenceController";
 import {
   createHarness,
@@ -192,7 +193,7 @@ describe("GridPersistenceController", () => {
     });
 
     it("ignores a stale flush failure after the session changes", async () => {
-      const flushGate = deferred<import("@grids/contracts/types").Grid | null>();
+      const flushGate = deferred<Grid | null>();
       vi.mocked(h.persistenceScheduler.flush).mockReturnValueOnce(
         flushGate.promise,
       );

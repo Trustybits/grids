@@ -2,8 +2,8 @@
   <section id="showcase" class="mkt__landing-showcase" aria-labelledby="showcase-heading">
     <div class="mkt__landing-showcase-head">
       <div class="mkt__kicker">Built on grids</div>
-      <h2 id="showcase-heading">Real pages from <span>real creators.</span></h2>
-      <p>Tap any card to visit their grid — then claim your own handle above.</p>
+      <h2 id="showcase-heading">Real pages from <span>real users.</span></h2>
+      <p>Tap any card to visit their grid — get inspired!</p>
     </div>
 
     <div

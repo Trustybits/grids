@@ -15,7 +15,16 @@ export class GridCollectionController {
     private readonly clearSessionIfGridDeleted: (id: string) => void,
   ) {}
 
-  async fetchGrids(): Promise<void> {
+  /**
+   * Load the current user's grids into the collection store.
+   *
+   * Returns `true` when the fetch completed and the collection reflects the
+   * user's real grids, `false` when it could not (unauthenticated or the read
+   * failed). Callers must not treat an empty collection as "new user" without
+   * checking this flag — a swallowed read failure looks identical to a genuine
+   * zero-grid account and would otherwise trigger spurious grid creation.
+   */
+  async fetchGrids(): Promise<boolean> {
     this.stores.collection.setLoading(true);
     this.stores.collection.setError(null);
     this.stores.collection.setGrids([]);
@@ -25,7 +34,7 @@ export class GridCollectionController {
     if (!userId) {
       this.stores.collection.setError("User not authenticated");
       this.stores.collection.setLoading(false);
-      return;
+      return false;
     }
 
     try {
@@ -34,9 +43,11 @@ export class GridCollectionController {
         await gridService.fetchGridsByUserId(userId),
       );
       await this.loadRecents();
+      return true;
     } catch (error) {
       this.stores.collection.setError("Failed to fetch grids.");
       console.error(error);
+      return false;
     } finally {
       this.stores.collection.setLoading(false);
     }

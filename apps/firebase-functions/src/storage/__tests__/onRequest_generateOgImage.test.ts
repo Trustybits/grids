@@ -161,6 +161,7 @@ import {
   buildOgHtml,
   normalizeScreenshotBaseUrl,
   parseRefreshQuery,
+  resolveHandleForGrid,
 } from "../onRequest_generateOgImage.js";
 
 const generateOgImage = handlerExport as unknown as (
@@ -582,6 +583,86 @@ describe("buildOgHtml — avatar presence", () => {
     expect(html).not.toContain('class="logo-large"');
     expect(html).toContain('class="slug-row"');
     expect(html).toContain("/testuser");
+  });
+});
+
+// ─── resolveHandleForGrid — reverse slug lookup ──────────────────────────────
+// The share modal calls the OG endpoint by grid id, so we reverse-resolve the
+// public handle from the slugs collection (which mirrors defaultGridId) to keep
+// the /handle in the composition. A bug here silently drops the slug.
+
+/** Firestore :runQuery-shaped response listing slug docs by name + fields. */
+function fakeSlugQueryResponse(
+  rows: Array<{ slug: string; userId: string | null }>,
+): Response {
+  const body = rows.map(({ slug, userId }) => ({
+    document: {
+      name: `projects/demo/databases/(default)/documents/slugs/${slug}`,
+      fields: {
+        userId:
+          userId === null ? { nullValue: null } : { stringValue: userId },
+      },
+    },
+  }));
+  return { ok: true, json: async () => body } as unknown as Response;
+}
+
+describe("resolveHandleForGrid", () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns the handle of the active slug pointing at the grid", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(fakeSlugQueryResponse([{ slug: "matt", userId: "u1" }]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await resolveHandleForGrid("grid-1")).toBe("matt");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toContain(":runQuery");
+    expect(JSON.parse((init as { body: string }).body)).toMatchObject({
+      structuredQuery: {
+        from: [{ collectionId: "slugs" }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: "defaultGridId" },
+            op: "EQUAL",
+            value: { stringValue: "grid-1" },
+          },
+        },
+      },
+    });
+  });
+
+  it("skips released slugs whose userId was nulled and returns the active one", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        fakeSlugQueryResponse([
+          { slug: "old-handle", userId: null },
+          { slug: "new-handle", userId: "u1" },
+        ]),
+      ),
+    );
+
+    expect(await resolveHandleForGrid("grid-1")).toBe("new-handle");
+  });
+
+  it("returns null when no slug points at the grid", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => [] } as unknown as Response),
+    );
+
+    expect(await resolveHandleForGrid("grid-1")).toBeNull();
+  });
+
+  it("returns null when the query request fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false } as Response));
+
+    expect(await resolveHandleForGrid("grid-1")).toBeNull();
   });
 });
 

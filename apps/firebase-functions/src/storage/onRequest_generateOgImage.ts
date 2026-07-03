@@ -329,6 +329,73 @@ async function firestoreGet(
   }
 }
 
+interface FsQueryRow {
+  document?: { name: string; fields?: Record<string, FsValue> };
+}
+
+/** Run a Firestore REST structured query, returning the raw result rows. */
+async function firestoreRunQuery(
+  structuredQuery: Record<string, unknown>
+): Promise<FsQueryRow[]> {
+  try {
+    const res = await fetch(`${FIRESTORE_BASE}:runQuery`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ structuredQuery }),
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return Array.isArray(json) ? (json as FsQueryRow[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Reverse-lookup the public handle (slug) whose default grid is `gridId`.
+ *
+ * The share modal only knows the grid id, so the OG endpoint is normally
+ * called with `?gridId=`. We still want to render `/handle` when the grid is
+ * the public face of a claimed slug. Slugs mirror their owner's
+ * `defaultGridId` into the publicly-readable `slugs` collection, so we can
+ * resolve the handle without touching the private `users` collection.
+ *
+ * Returns null when no *active* slug points at this grid — e.g. secondary
+ * grids that are only reachable at /grid/:id, or a released slug whose
+ * `userId` was nulled out.
+ */
+export async function resolveHandleForGrid(
+  gridId: string
+): Promise<string | null> {
+  const rows = await firestoreRunQuery({
+    from: [{ collectionId: "slugs" }],
+    where: {
+      fieldFilter: {
+        field: { fieldPath: "defaultGridId" },
+        op: "EQUAL",
+        value: { stringValue: gridId },
+      },
+    },
+    limit: 10,
+  });
+
+  for (const row of rows) {
+    const doc = row.document;
+    if (!doc?.name) continue;
+    const parsed = parseDoc(doc);
+    // Released slugs have their userId nulled — skip them.
+    if (typeof parsed.userId !== "string" || parsed.userId.length === 0) {
+      continue;
+    }
+    const handle = doc.name.split("/").pop();
+    if (handle) return decodeURIComponent(handle);
+  }
+  return null;
+}
+
 // ─── TipTap rich-text → plain text ───────────────────────────────────────────
 // Profile-tile fields (name, title) are stored as serialised TipTap JSON.
 
@@ -413,6 +480,9 @@ async function resolveGridInfo(
     seed = `slug:${slug}`;
   } else if (gridId) {
     gridDoc = await firestoreGet("grids", gridId);
+    // The share modal calls us by grid id, but this grid may be the public
+    // face of a claimed slug — resolve the handle so the OG shows /handle.
+    resolvedHandle = await resolveHandleForGrid(gridId);
     resolvedScreenshotUrl = `${screenshotBase}/grid/${gridId}`;
     seed = `grid:${gridId}`;
   } else {

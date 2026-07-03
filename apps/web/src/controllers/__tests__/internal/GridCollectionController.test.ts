@@ -29,8 +29,9 @@ describe("GridCollectionController", () => {
     it("errors and stops loading when unauthenticated", async () => {
       h.getCurrentUserId.mockReturnValue(null);
 
-      await controller.fetchGrids();
+      const ok = await controller.fetchGrids();
 
+      expect(ok).toBe(false);
       expect(h.stores.collection.error).toBe("User not authenticated");
       expect(h.stores.collection.isLoading).toBe(false);
       expect(h.gridService.fetchGridsByUserId).not.toHaveBeenCalled();
@@ -41,8 +42,9 @@ describe("GridCollectionController", () => {
       vi.mocked(h.gridService.fetchGridsByUserId).mockResolvedValue(grids);
       vi.mocked(h.gridService.loadRecentGridIds).mockResolvedValue(["g2"]);
 
-      await controller.fetchGrids();
+      const ok = await controller.fetchGrids();
 
+      expect(ok).toBe(true);
       expect(h.stores.collection.grids).toEqual(grids);
       expect(h.stores.collection.recentGridIds).toEqual(["g2"]);
       expect(h.stores.collection.isLoading).toBe(false);
@@ -54,8 +56,9 @@ describe("GridCollectionController", () => {
         new Error("boom"),
       );
 
-      await controller.fetchGrids();
+      const ok = await controller.fetchGrids();
 
+      expect(ok).toBe(false);
       expect(h.stores.collection.error).toBe("Failed to fetch grids.");
       expect(h.stores.collection.isLoading).toBe(false);
     });

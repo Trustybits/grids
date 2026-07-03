@@ -258,8 +258,8 @@ export class GridController {
     );
   }
 
-  async fetchGrids(): Promise<void> {
-    await this.collectionController.fetchGrids();
+  async fetchGrids(): Promise<boolean> {
+    return this.collectionController.fetchGrids();
   }
 
   async createGrid(name: string): Promise<string | null> {

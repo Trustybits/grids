@@ -178,7 +178,7 @@ export const sweepOrphanedSubcollections = functions
         { deleted, cap: MAX_DELETIONS_PER_RUN },
       );
     }
-    logger.info("Orphaned subcollection sweep complete", {
+    logger.info("Orphaned subcollection sweep completed", {
       deleted,
       skipped,
       reachedDeletionCap,

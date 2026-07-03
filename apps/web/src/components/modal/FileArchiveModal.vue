@@ -126,58 +126,63 @@
             </div>
 
             <div class="fa__row-actions">
-              <button
-                type="button"
-                class="fa__switch"
-                role="switch"
-                :aria-checked="doc.shareable"
-                :class="{
-                  'is-on': doc.shareable,
-                  'is-pending': savingShare.has(doc.hash),
-                }"
-                :data-tooltip="
+              <FloatingTooltip
+                :text="
                   doc.shareable
                     ? 'Shareable — others can copy & download this file'
                     : 'Private — only you can use this file'
                 "
-                @click="onToggleShareable(doc)"
               >
-                <span class="fa__switch-track">
-                  <span class="fa__switch-thumb"></span>
-                </span>
-                <span class="fa__switch-text">Share</span>
-              </button>
+                <button
+                  type="button"
+                  class="fa__switch"
+                  role="switch"
+                  :aria-checked="doc.shareable"
+                  :class="{
+                    'is-on': doc.shareable,
+                    'is-pending': savingShare.has(doc.hash),
+                  }"
+                  @click="onToggleShareable(doc)"
+                >
+                  <span class="fa__switch-track">
+                    <span class="fa__switch-thumb"></span>
+                  </span>
+                  <span class="fa__switch-text">Share</span>
+                </button>
+              </FloatingTooltip>
 
-              <button
-                v-if="canAddToGrid"
-                type="button"
-                class="fa__icon-btn"
-                data-tooltip="Add to grid"
-                aria-label="Add to grid"
-                @click="onAddToGrid(doc)"
-              >
-                <PlusIcon :size="18" />
-              </button>
+              <FloatingTooltip v-if="canAddToGrid" text="Add to grid">
+                <button
+                  type="button"
+                  class="fa__icon-btn"
+                  aria-label="Add to grid"
+                  @click="onAddToGrid(doc)"
+                >
+                  <PlusIcon :size="18" />
+                </button>
+              </FloatingTooltip>
 
-              <button
-                type="button"
-                class="fa__icon-btn"
-                data-tooltip="Rename"
-                aria-label="Rename"
-                @click="openRename(doc)"
-              >
-                <EditIcon :size="15" />
-              </button>
+              <FloatingTooltip text="Rename">
+                <button
+                  type="button"
+                  class="fa__icon-btn"
+                  aria-label="Rename"
+                  @click="openRename(doc)"
+                >
+                  <EditIcon :size="15" />
+                </button>
+              </FloatingTooltip>
 
-              <button
-                type="button"
-                class="fa__icon-btn fa__icon-btn--danger"
-                data-tooltip="Delete permanently"
-                aria-label="Delete permanently"
-                @click="openDelete(doc)"
-              >
-                <DeleteTileIcon :size="16" />
-              </button>
+              <FloatingTooltip text="Delete permanently">
+                <button
+                  type="button"
+                  class="fa__icon-btn fa__icon-btn--danger"
+                  aria-label="Delete permanently"
+                  @click="openDelete(doc)"
+                >
+                  <DeleteTileIcon :size="16" />
+                </button>
+              </FloatingTooltip>
             </div>
           </li>
         </ul>
@@ -243,6 +248,7 @@ import type {
 import BaseModal from "./BaseModal.vue";
 import PromptModal from "./PromptModal.vue";
 import Button from "@/components/ui-elements/Button.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import CloseXIcon from "@/components/icons/CloseXIcon.vue";
 import UploadIcon from "@/components/icons/UploadIcon.vue";
 import ImageIcon from "@/components/icons/ImageIcon.vue";

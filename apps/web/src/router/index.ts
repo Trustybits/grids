@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import LandingPage from '@/pages/LandingPage.vue';
 import PricingPage from '@/pages/PricingPage.vue';
-import ShowcasePage from '@/pages/ShowcasePage.vue';
 import TemplatesPage from '@/pages/TemplatesPage.vue';
 import BlogPage from '@/pages/BlogPage.vue';
 import GridPage from '@/pages/GridPage.vue';
@@ -47,8 +46,7 @@ const routes = [
   },
   {
     path: "/showcase",
-    component: ShowcasePage,
-    meta: { requiresAuth: false },
+    redirect: { path: "/", hash: "#showcase" },
   },
   {
     path: "/templates",
@@ -81,6 +79,9 @@ const router = createRouter({
   routes,
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) return savedPosition;
+    if (to.hash) {
+      return { el: to.hash, behavior: 'smooth' };
+    }
     if (
       marketingPathSet.has(to.path) &&
       marketingPathSet.has(from.path) &&

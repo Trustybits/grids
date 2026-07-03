@@ -158,6 +158,10 @@ import {
   themeFor,
   fnv1a,
   mulberry32,
+  buildOgHtml,
+  normalizeScreenshotBaseUrl,
+  parseRefreshQuery,
+  resolveHandleForGrid,
 } from "../onRequest_generateOgImage.js";
 
 const generateOgImage = handlerExport as unknown as (
@@ -477,6 +481,188 @@ describe("generateOgImage", () => {
     expect(storageState.saveCalls).toEqual([]);
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: "OG image generation failed" });
+  });
+});
+
+describe("parseRefreshQuery", () => {
+  it("accepts common truthy refresh values", () => {
+    expect(parseRefreshQuery("1")).toBe(true);
+    expect(parseRefreshQuery("true")).toBe(true);
+    expect(parseRefreshQuery("TRUE")).toBe(true);
+    expect(parseRefreshQuery("yes")).toBe(true);
+  });
+
+  it("rejects missing or falsey refresh values", () => {
+    expect(parseRefreshQuery(undefined)).toBe(false);
+    expect(parseRefreshQuery("")).toBe(false);
+    expect(parseRefreshQuery("0")).toBe(false);
+    expect(parseRefreshQuery("false")).toBe(false);
+  });
+});
+
+// ─── normalizeScreenshotBaseUrl ─────────────────────────────────────────────
+
+describe("normalizeScreenshotBaseUrl", () => {
+  it("strips a trailing slash without rewriting the host", () => {
+    expect(normalizeScreenshotBaseUrl("http://localhost:5173/")).toBe(
+      "http://localhost:5173",
+    );
+    expect(normalizeScreenshotBaseUrl("https://grids.so/")).toBe(
+      "https://grids.so",
+    );
+  });
+});
+
+// ─── buildOgHtml — profile meta without avatar ───────────────────────────────
+// When a grid has no profile photo, the OG must not render an empty avatar
+// shape — only the text block, vertically centered in the meta area.
+
+describe("buildOgHtml — avatar presence", () => {
+  const baseInfo = {
+    screenshotUrl: "https://grids.so/test",
+    themeId: "dark",
+    avatarShape: "circle" as const,
+    avatarSides: 6,
+    displayName: "Test User",
+    handle: "testuser",
+    subtitle: "CEO & Founder",
+    skipTileIndices: [],
+    seed: "slug:testuser",
+  };
+
+  it("omits the avatar shape when profilePhotoUrl is missing", () => {
+    const html = buildOgHtml(
+      { ...baseInfo, avatarUrl: null },
+      [],
+      [],
+      themeFor("dark"),
+    );
+    expect(html).toContain('class="profile no-avatar"');
+    expect(html).not.toContain('class="avatar"');
+    expect(html).not.toContain("stroke-width");
+  });
+
+  it("renders the avatar when profilePhotoUrl is set", () => {
+    const html = buildOgHtml(
+      {
+        ...baseInfo,
+        avatarUrl: "https://cdn.example.com/photo.png",
+      },
+      [],
+      [],
+      themeFor("dark"),
+    );
+    expect(html).toMatch(/<div class="profile">\s*\n?\s*<div class="avatar">/);
+    expect(html).toContain('class="avatar"');
+    expect(html).toContain("https://cdn.example.com/photo.png");
+  });
+
+  it("promotes the logo to the avatar slot and drops the slug row when there is no avatar and no handle", () => {
+    const html = buildOgHtml(
+      { ...baseInfo, avatarUrl: null, handle: null },
+      [],
+      [],
+      themeFor("dark"),
+    );
+    expect(html).toContain('class="logo-large"');
+    expect(html).not.toContain('class="avatar"');
+    expect(html).not.toContain('class="slug-row"');
+    expect(html).not.toContain('class="slug-icon"');
+    // The top element exists, so the profile should not get the no-avatar tweak.
+    expect(html).not.toContain('class="profile no-avatar"');
+  });
+
+  it("keeps the small logo + slug row when a handle exists but no avatar", () => {
+    const html = buildOgHtml(
+      { ...baseInfo, avatarUrl: null, handle: "testuser" },
+      [],
+      [],
+      themeFor("dark"),
+    );
+    expect(html).toContain('class="profile no-avatar"');
+    expect(html).not.toContain('class="logo-large"');
+    expect(html).toContain('class="slug-row"');
+    expect(html).toContain("/testuser");
+  });
+});
+
+// ─── resolveHandleForGrid — reverse slug lookup ──────────────────────────────
+// The share modal calls the OG endpoint by grid id, so we reverse-resolve the
+// public handle from the slugs collection (which mirrors defaultGridId) to keep
+// the /handle in the composition. A bug here silently drops the slug.
+
+/** Firestore :runQuery-shaped response listing slug docs by name + fields. */
+function fakeSlugQueryResponse(
+  rows: Array<{ slug: string; userId: string | null }>,
+): Response {
+  const body = rows.map(({ slug, userId }) => ({
+    document: {
+      name: `projects/demo/databases/(default)/documents/slugs/${slug}`,
+      fields: {
+        userId:
+          userId === null ? { nullValue: null } : { stringValue: userId },
+      },
+    },
+  }));
+  return { ok: true, json: async () => body } as unknown as Response;
+}
+
+describe("resolveHandleForGrid", () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns the handle of the active slug pointing at the grid", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(fakeSlugQueryResponse([{ slug: "matt", userId: "u1" }]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await resolveHandleForGrid("grid-1")).toBe("matt");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toContain(":runQuery");
+    expect(JSON.parse((init as { body: string }).body)).toMatchObject({
+      structuredQuery: {
+        from: [{ collectionId: "slugs" }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: "defaultGridId" },
+            op: "EQUAL",
+            value: { stringValue: "grid-1" },
+          },
+        },
+      },
+    });
+  });
+
+  it("skips released slugs whose userId was nulled and returns the active one", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        fakeSlugQueryResponse([
+          { slug: "old-handle", userId: null },
+          { slug: "new-handle", userId: "u1" },
+        ]),
+      ),
+    );
+
+    expect(await resolveHandleForGrid("grid-1")).toBe("new-handle");
+  });
+
+  it("returns null when no slug points at the grid", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => [] } as unknown as Response),
+    );
+
+    expect(await resolveHandleForGrid("grid-1")).toBeNull();
+  });
+
+  it("returns null when the query request fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false } as Response));
+
+    expect(await resolveHandleForGrid("grid-1")).toBeNull();
   });
 });
 

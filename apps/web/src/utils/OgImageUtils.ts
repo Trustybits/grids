@@ -76,6 +76,15 @@ export function defaultOgImageUrl(): string {
   return `${ogApiBase()}?slug=grids`;
 }
 
+/**
+ * Auto-generated OG screenshot for a public slug page, served through the
+ * rate-limited Vercel proxy (api/og.ts → Firebase generateOgImage).
+ */
+export function slugOgImageUrl(slug: string): string {
+  const params = new URLSearchParams({ slug });
+  return `${ogApiBase()}?${params.toString()}`;
+}
+
 /** Append a version param so CDNs and social platforms re-fetch the new image. */
 export function withVersionParam(url: string, version: number): string {
   return `${url}${url.includes("?") ? "&" : "?"}v=${version}`;

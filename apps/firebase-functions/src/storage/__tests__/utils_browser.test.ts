@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { chromiumState, puppeteerState } = vi.hoisted(() => ({
+const { chromiumState, puppeteerState, fsState } = vi.hoisted(() => ({
   chromiumState: {
     executablePathCalls: [] as string[],
   },
@@ -8,6 +8,14 @@ const { chromiumState, puppeteerState } = vi.hoisted(() => ({
     launchCalls: [] as unknown[],
     browser: { close: vi.fn() },
   },
+  fsState: {
+    existingPaths: null as Set<string> | null,
+  },
+}));
+
+vi.mock("node:fs", () => ({
+  existsSync: (path: string) =>
+    fsState.existingPaths === null ? true : fsState.existingPaths.has(path),
 }));
 
 vi.mock("@sparticuz/chromium-min", () => ({
@@ -46,6 +54,7 @@ function restoreEnv(key: string, value: string | undefined): void {
 beforeEach(() => {
   chromiumState.executablePathCalls = [];
   puppeteerState.launchCalls = [];
+  fsState.existingPaths = null;
   vi.mocked(puppeteerState.browser.close).mockClear();
   delete process.env.FUNCTIONS_EMULATOR;
   delete process.env.PUPPETEER_EXECUTABLE_PATH;
@@ -95,21 +104,33 @@ describe("launchChromiumBrowser", () => {
     ]);
   });
 
-  it("falls back to the Windows Chrome path in the emulator", async () => {
+  it("auto-detects a local Chrome install in the emulator when unset", async () => {
     process.env.FUNCTIONS_EMULATOR = "true";
     const viewport = { width: 920, height: 1180, deviceScaleFactor: 1 };
 
     await launchChromiumBrowser(viewport);
 
     expect(chromiumState.executablePathCalls).toEqual([]);
-    expect(puppeteerState.launchCalls).toEqual([
-      {
-        args: [],
-        defaultViewport: viewport,
-        executablePath:
-          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-        headless: true,
-      },
-    ]);
+    expect(puppeteerState.launchCalls).toHaveLength(1);
+    const launchOpts = puppeteerState.launchCalls[0] as {
+      executablePath: string;
+    };
+    expect(launchOpts.executablePath).toMatch(/Google Chrome|chromium|chrome/i);
+  });
+
+  it("falls back to the 32-bit Program Files (x86) Chrome install on Windows", async () => {
+    process.env.FUNCTIONS_EMULATOR = "true";
+    const x86Path =
+      "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe";
+    fsState.existingPaths = new Set([x86Path]);
+    const viewport = { width: 1200, height: 630, deviceScaleFactor: 1 };
+
+    await launchChromiumBrowser(viewport);
+
+    expect(chromiumState.executablePathCalls).toEqual([]);
+    const launchOpts = puppeteerState.launchCalls[0] as {
+      executablePath: string;
+    };
+    expect(launchOpts.executablePath).toBe(x86Path);
   });
 });

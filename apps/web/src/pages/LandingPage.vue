@@ -35,6 +35,8 @@
         <div class="tile tile--variant-f"><div class="tile__meta"><strong>Shop the print</strong><small>$48 · prints.taylor.site</small></div></div>
       </div>
 
+      <LandingShowcaseMarquee />
+
       <section class="mkt__section mkt__feature">
         <div>
           <div class="mkt__kicker">Drag · drop · done</div>
@@ -112,7 +114,7 @@
           </p>
           <a
             class="mkt__repo-btn"
-            href="https://github.com/TrustyDev-76/grids1"
+            href="https://github.com/trustybits/grids"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -130,7 +132,7 @@
             <span class="mkt__terminal-path">~/grids</span>
           </div>
           <div class="mkt__terminal-body">
-            <div><span class="mkt__terminal-prompt">$</span> git clone grids-so/grids</div>
+            <div><span class="mkt__terminal-prompt">$</span> git clone trustybits/grids</div>
             <div><span class="mkt__terminal-prompt">$</span> cd grids && pnpm i</div>
             <div><span class="mkt__terminal-prompt">$</span> pnpm dev</div>
           </div>
@@ -152,7 +154,9 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePageTitle } from '@/composables/usePageTitle';
+import { SHOWCASE_GRIDS } from '@/data/showcaseGrids';
 import LandingPageGridEmbed from '@/components/marketing/LandingPageGridEmbed.vue';
+import LandingShowcaseMarquee from '@/components/marketing/LandingShowcaseMarquee.vue';
 import MarketingLayout from '@/components/marketing/MarketingLayout.vue';
 import Button from '@/components/ui-elements/Button.vue';
 
@@ -166,7 +170,7 @@ usePageTitle(pageTitle);
 
 const router = useRouter();
 
-const sampleSlugs = ['taylor', 'mira', 'jordan', 'kei', 'june', 'sam', 'paulo', 'liam', 'olivia', 'noah', 'mma', 'oliver', 'charlotte', 'elijah', 'amelia', 'james', 'ava', 'william', 'sophia', 'benjamin', 'isabella', 'lucas', 'mia', 'henry', 'evelyn', 'theodore', 'harper'];
+const sampleSlugs = SHOWCASE_GRIDS.map((entry) => entry.slug);
 const animatedSlug = ref(sampleSlugs[0]);
 let slugTimer: ReturnType<typeof setTimeout> | null = null;
 

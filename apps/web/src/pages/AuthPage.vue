@@ -132,36 +132,45 @@ const getPostAuthRedirect = async (): Promise<string | null> => {
     const userId = authProvider.getCurrentUserId();
     if (!userId) return '/dashboard';
 
-    // Check if user has a slug
+    // Read the profile first. getUserProfile throws on a read failure, which
+    // the catch below turns into a safe /dashboard redirect (never a grid
+    // creation), so reaching this point means the profile actually loaded.
     const profile = await userService.getUserProfile(userId);
     const hasSlug = !!profile?.slug;
+    // defaultGridId is the authoritative "this is an established account"
+    // signal — it lives on the same user doc as slug and is set for every
+    // returning user, so we trust it over a (fragile) grid-list count.
+    const hasDefaultGrid = !!profile?.defaultGridId;
 
-    // Fetch user's existing grids to determine if they're a new user
-    await controller.fetchGrids();
-    const isNewUser = collectionStore.grids.length === 0;
+    // Fetch existing grids. The boolean tells us whether the read actually
+    // succeeded — a swallowed failure must NOT be read as "zero grids".
+    const gridsLoaded = await controller.fetchGrids();
+    const gridCount = collectionStore.grids.length;
 
-    // If new user without slug, show slug modal first
-    if (isNewUser && !hasSlug) {
-      // Create default grid for them
-      const newGridId = await controller.createGrid('My First Grid');
-      const targetPath = newGridId ? `/grid/${newGridId}` : '/dashboard';
-      
-      // Store the redirect path and show slug modal
+    // Established account — has a default grid or existing grids. Never
+    // auto-create a grid or relocate the user; just go to the dashboard.
+    if (hasDefaultGrid || (gridsLoaded && gridCount > 0)) {
+      return '/dashboard';
+    }
+
+    // Couldn't confirm the account is empty (grid read failed). Bail safely
+    // rather than risk creating a duplicate grid or a spurious slug prompt.
+    if (!gridsLoaded) {
+      return '/dashboard';
+    }
+
+    // Genuinely new account: no default grid and a successful read returned
+    // zero grids. Create their first grid, and prompt for a slug if unset.
+    const newGridId = await controller.createGrid('My First Grid');
+    const targetPath = newGridId ? `/grid/${newGridId}` : '/dashboard';
+
+    if (!hasSlug) {
       pendingRedirect.value = targetPath;
       showSlugModal.value = true;
-      return null; // Don't redirect yet
+      return null; // Don't redirect yet — slug modal handles it.
     }
-    
-    // If user has no grids but has a slug (edge case), create a grid
-    if (isNewUser) {
-      const newGridId = await controller.createGrid('My First Grid');
-      if (newGridId) {
-        return `/grid/${newGridId}`;
-      }
-    }
-    
-    // Existing user with grids - send to dashboard
-    return '/dashboard';
+
+    return targetPath;
   } catch (error) {
     console.error('Error checking user grids:', error);
     return '/dashboard';

@@ -37,6 +37,7 @@ These docs are for repository maintainers. They should describe procedures, not 
 - [Dev setup](maintainers/dev-setup.md)
 - [Production runtime](maintainers/production-runtime.md)
 - [Infra sync](maintainers/infra-sync.md)
+- [Workflows](maintainers/workflows.md)
 
 ## Where New Docs Should Go
 

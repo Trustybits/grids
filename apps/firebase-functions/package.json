@@ -9,12 +9,13 @@
     "test:coverage": "npm run build:deps && vitest run --coverage",
     "test:watch": "vitest",
     "build:deps": "npm --prefix ../.. run build:contracts",
-    "build": "npm run build:deps && tsc",
+    "embed:contracts": "node scripts/embedContracts.mjs",
+    "build": "npm run build:deps && tsc && npm run embed:contracts",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
-    "deploy": "firebase deploy --only functions",
+    "deploy": "npm run build && firebase deploy --only functions",
     "logs": "firebase functions:log",
     "badge:grant": "npm run build && node lib/scripts/grantBadge.js"
   },
@@ -23,7 +24,6 @@
   },
   "main": "lib/index.js",
   "dependencies": {
-    "@grids/contracts": "file:../../packages/contracts",
     "@sparticuz/chromium-min": "^143.0.4",
     "cheerio": "^1.0.0-rc.12",
     "firebase-admin": "^13.8.0",
@@ -32,6 +32,7 @@
     "sharp": "^0.33.5"
   },
   "devDependencies": {
+    "@grids/contracts": "file:../../packages/contracts",
     "@types/node": "^25.9.2",
     "@vitest/coverage-v8": "^4.1.7",
     "eslint": "^9.14.0",

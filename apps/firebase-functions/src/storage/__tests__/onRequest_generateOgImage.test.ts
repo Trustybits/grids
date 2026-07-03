@@ -555,6 +555,34 @@ describe("buildOgHtml — avatar presence", () => {
     expect(html).toContain('class="avatar"');
     expect(html).toContain("https://cdn.example.com/photo.png");
   });
+
+  it("promotes the logo to the avatar slot and drops the slug row when there is no avatar and no handle", () => {
+    const html = buildOgHtml(
+      { ...baseInfo, avatarUrl: null, handle: null },
+      [],
+      [],
+      themeFor("dark"),
+    );
+    expect(html).toContain('class="logo-large"');
+    expect(html).not.toContain('class="avatar"');
+    expect(html).not.toContain('class="slug-row"');
+    expect(html).not.toContain('class="slug-icon"');
+    // The top element exists, so the profile should not get the no-avatar tweak.
+    expect(html).not.toContain('class="profile no-avatar"');
+  });
+
+  it("keeps the small logo + slug row when a handle exists but no avatar", () => {
+    const html = buildOgHtml(
+      { ...baseInfo, avatarUrl: null, handle: "testuser" },
+      [],
+      [],
+      themeFor("dark"),
+    );
+    expect(html).toContain('class="profile no-avatar"');
+    expect(html).not.toContain('class="logo-large"');
+    expect(html).toContain('class="slug-row"');
+    expect(html).toContain("/testuser");
+  });
 });
 
 // ─── extractTiptapText helper ──────────────────────────────────────────────

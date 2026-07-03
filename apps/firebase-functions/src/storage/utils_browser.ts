@@ -9,12 +9,22 @@ const CHROMIUM_URL =
 const DEFAULT_EMULATOR_EXECUTABLE_PATH =
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 
+// Windows Chrome installs commonly land in one of three locations depending on
+// whether the 64-bit, 32-bit, or per-user installer was used.
+const WINDOWS_CHROME_CANDIDATES = [
+  DEFAULT_EMULATOR_EXECUTABLE_PATH,
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  process.env.LOCALAPPDATA
+    ? `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`
+    : undefined,
+].filter((path): path is string => Boolean(path));
+
 const EMULATOR_CHROME_CANDIDATES = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "/Applications/Chromium.app/Contents/MacOS/Chromium",
   "/usr/bin/google-chrome",
   "/usr/bin/chromium-browser",
-  DEFAULT_EMULATOR_EXECUTABLE_PATH,
+  ...WINDOWS_CHROME_CANDIDATES,
 ];
 
 function resolveEmulatorChromePath(): string {

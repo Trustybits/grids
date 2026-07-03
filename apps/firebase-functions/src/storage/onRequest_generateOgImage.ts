@@ -1529,6 +1529,12 @@ export function buildOgHtml(
   const gridsIconDataUri = `data:image/png;base64,${GRIDS_ICON_B64}`;
   const avatarUrl = info.avatarUrl;
   const hasAvatar = Boolean(avatarUrl);
+  const hasHandle = Boolean(info.handle);
+  // With no profile photo AND no claimed slug there's nothing to anchor the
+  // meta block, so we promote the Grids logo into the avatar slot (rendered
+  // large) and drop the small logo+slug row at the bottom.
+  const showLargeLogo = !hasAvatar && !hasHandle;
+  const hasTopElement = hasAvatar || showLargeLogo;
 
   const avatarMarkup =
     avatarUrl ?
@@ -1540,6 +1546,12 @@ export function buildOgHtml(
         theme
       )
     : "";
+
+  const topMarkup = hasAvatar ?
+    `<div class="avatar">${avatarMarkup}</div>` :
+    showLargeLogo ?
+      `<div class="logo-large"><img src="${gridsIconDataUri}" alt="" /></div>` :
+      "";
 
   const scatterHtml = placements
     .map((p, i) => {
@@ -1560,13 +1572,15 @@ export function buildOgHtml(
     })
     .join("\n");
 
-  const slugRow = info.handle ?
-    `
+  const slugRow = showLargeLogo ?
+    "" :
+    info.handle ?
+      `
     <div class="slug-row">
       <div class="slug-icon"><img src="${gridsIconDataUri}" alt="" /></div>
       <div class="slug-text">/${htmlEsc(info.handle)}</div>
     </div>` :
-    `
+      `
     <div class="slug-row">
       <div class="slug-icon"><img src="${gridsIconDataUri}" alt="" /></div>
     </div>`;
@@ -1667,6 +1681,22 @@ export function buildOgHtml(
     }
     .avatar svg { display: block; width: 100%; height: 100%; }
 
+    /* Grids logo promoted into the avatar slot when there's no profile photo
+     * and no claimed slug. Sized to fill the avatar footprint with a rounded
+     * "app icon" treatment (corner radius scaled from the small slug icon). */
+    .logo-large {
+      width: ${avatarSize}px;
+      height: ${avatarSize}px;
+      border-radius: ${((avatarSize * 5.211) / 32).toFixed(2)}px;
+      background: ${theme.tileBackground};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      filter: ${theme.avatarShadow};
+    }
+    .logo-large img { width: 100%; height: 100%; object-fit: cover; }
+
     .text-container {
       display: flex;
       flex-direction: column;
@@ -1741,8 +1771,8 @@ export function buildOgHtml(
   ${scatterHtml}
   <div class="vignette"></div>
   <div class="meta">
-    <div class="profile${hasAvatar ? "" : " no-avatar"}">
-      ${hasAvatar ? `<div class="avatar">${avatarMarkup}</div>` : ""}
+    <div class="profile${hasTopElement ? "" : " no-avatar"}">
+      ${topMarkup}
       <div class="text-container">
         <div class="name">${htmlEsc(info.displayName)}</div>
         ${subtitleRow}

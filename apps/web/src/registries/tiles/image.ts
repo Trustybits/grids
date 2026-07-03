@@ -15,6 +15,7 @@ export const imageDefinition: TileDefinition<ImageContent> = {
   defaultContent: (data) => ({
     type: ContentType.IMAGE,
     src: data?.src || "",
+    srcHash: data?.srcHash,
     zoom: 1,
     offsetX: 0,
     offsetY: 0,

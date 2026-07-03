@@ -11,6 +11,7 @@
 import { describe, it, expect } from "vitest";
 import {
   classifyFileForUpload,
+  classifyUploadSize,
   isDocumentUploadFile,
   validateUploadFile,
 } from "../UploadFileClassification";
@@ -169,42 +170,35 @@ describe("validateUploadFile", () => {
     });
   });
 
-  describe("size enforcement", () => {
-    it("throws when the file exceeds an explicit maxSize", () => {
+  describe("size is advisory, never a failure", () => {
+    it("does not throw for a large file (hard caps removed)", () => {
+      const f = makeFile("a.mp4", "video/mp4", 2 * 1024 * 1024 * 1024);
+      expect(() => validateUploadFile(f)).not.toThrow();
+    });
+
+    it("does not throw even past an explicit maxSize", () => {
       const f = makeFile("a.pdf", "application/pdf", 200);
-      expect(() => validateUploadFile(f, { maxSize: 100 })).toThrow(
-        /File is too large/,
-      );
+      expect(() => validateUploadFile(f, { maxSize: 100 })).not.toThrow();
     });
+  });
+});
 
-    it("allows a file exactly at the maxSize boundary", () => {
-      const f = makeFile("a.pdf", "application/pdf", 100);
-      expect(() =>
-        validateUploadFile(f, { maxSize: 100 }),
-      ).not.toThrow();
-    });
+describe("classifyUploadSize", () => {
+  it("does not warn for a small file", () => {
+    const f = makeFile("a.png", "image/png", 1024);
+    expect(classifyUploadSize(f).warn).toBe(false);
+  });
 
-    it("reports the limit in megabytes in the error message", () => {
-      const f = makeFile("a.pdf", "application/pdf", 6 * 1024 * 1024);
-      expect(() =>
-        validateUploadFile(f, { maxSize: 5 * 1024 * 1024 }),
-      ).toThrow(/Maximum size: 5MB/);
-    });
+  it("warns (without erroring) for an image over the advisory threshold", () => {
+    const f = makeFile("a.png", "image/png", 30 * 1024 * 1024);
+    const result = classifyUploadSize(f);
+    expect(result.warn).toBe(true);
+    expect(result.message).toMatch(/large/i);
+  });
 
-    it("uses the document default max (50MB) when none is provided", () => {
-      // Just under 50MB should pass against the document default.
-      const f = makeFile("a.pdf", "application/pdf", 1024);
-      expect(() => validateUploadFile(f)).not.toThrow();
-    });
-
-    it("uses the image default max for an image with no explicit maxSize", () => {
-      const f = makeFile("a.png", "image/png", 1024);
-      expect(() => validateUploadFile(f)).not.toThrow();
-    });
-
-    it("uses the video default max for a video with no explicit maxSize", () => {
-      const f = makeFile("a.mp4", "video/mp4", 1024);
-      expect(() => validateUploadFile(f)).not.toThrow();
-    });
+  it("honors an explicit maxSize as the warning threshold", () => {
+    const f = makeFile("a.pdf", "application/pdf", 200);
+    expect(classifyUploadSize(f, { maxSize: 100 }).warn).toBe(true);
+    expect(classifyUploadSize(f, { maxSize: 300 }).warn).toBe(false);
   });
 });

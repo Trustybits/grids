@@ -522,7 +522,7 @@ export default defineComponent({
       return classes;
     });
 
-    const { uploadExternalImageToStorage, uploadFileToUrlWithProgress } =
+    const { uploadExternalImageToArchive, uploadFileToArchiveWithProgress } =
       useFileUpload();
 
     // ── Badges ────────────────────────────────────────────────────────
@@ -673,8 +673,10 @@ export default defineComponent({
       () => props.content,
     );
 
-    const saveProfilePhoto = async (url: string) => {
-      patchContent({ profilePhotoUrl: url });
+    const saveProfilePhoto = async (url: string, hash?: string) => {
+      // Only archive-backed uploads carry a hash; clear it for blob previews,
+      // removals, and external URLs so a stale hash never trails the photo.
+      patchContent({ profilePhotoUrl: url, profilePhotoHash: hash ?? "" });
     };
 
     const serializeEditor = (editor: Editor) => {
@@ -1257,11 +1259,9 @@ export default defineComponent({
       urlError.value = "";
       showUrlInput.value = false;
       try {
-        const ownedUrl = await uploadExternalImageToStorage(
-          normalized,
-          "images",
-        );
-        await saveProfilePhoto(ownedUrl);
+        const { url: ownedUrl, hash } =
+          await uploadExternalImageToArchive(normalized);
+        await saveProfilePhoto(ownedUrl, hash);
       } catch (err: unknown) {
         console.error("Failed to import external image:", err);
         urlError.value =
@@ -1293,16 +1293,17 @@ export default defineComponent({
       uploadPercent.value = 0;
 
       try {
-        const permanentUrl = await uploadFileToUrlWithProgress(
-          file,
-          { fileType: "images" },
-          (fraction) => {
-            uploadPercent.value = Math.round(fraction * 100);
-          },
-        );
+        const { url: permanentUrl, hash } =
+          await uploadFileToArchiveWithProgress(
+            file,
+            { fileType: "images" },
+            (fraction) => {
+              uploadPercent.value = Math.round(fraction * 100);
+            },
+          );
 
         URL.revokeObjectURL(blobUrl);
-        await saveProfilePhoto(permanentUrl);
+        await saveProfilePhoto(permanentUrl, hash);
       } catch (error: unknown) {
         console.error("Avatar upload failed:", error);
         URL.revokeObjectURL(blobUrl);

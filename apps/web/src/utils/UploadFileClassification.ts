@@ -1,8 +1,14 @@
 import type { UploadOptions } from "@/types/UploadFileTypes";
 
-const IMAGE_MAX_DEFAULT = 10 * 1024 * 1024;
-const VIDEO_MAX_DEFAULT = 500 * 1024 * 1024;
-const DOCUMENT_MAX_DEFAULT = 50 * 1024 * 1024;
+/**
+ * Advisory large-file thresholds. These no longer reject uploads — the archive
+ * flow supports arbitrarily large files (subject to quota, enforced server-side
+ * and in storage.rules). They exist only so the UI can warn the user that a big
+ * file may take a while to hash and upload.
+ */
+const IMAGE_WARN_BYTES = 25 * 1024 * 1024;
+const VIDEO_WARN_BYTES = 1024 * 1024 * 1024;
+const DOCUMENT_WARN_BYTES = 100 * 1024 * 1024;
 
 const DOCUMENT_MIME = new Set([
   "application/pdf",
@@ -14,10 +20,27 @@ const DOCUMENT_MIME = new Set([
 
 const DOCUMENT_EXT = /\.(pdf|doc|docx|txt|md)$/i;
 
+/**
+ * `accept` attribute value for file inputs that feed the archive upload flow —
+ * images, videos, and the document types supported elsewhere in the app. Kept
+ * in sync with {@link classifyFileForUpload}; the picker is advisory, the real
+ * gate is `validateUploadFile`.
+ */
+export const SUPPORTED_UPLOAD_ACCEPT = [
+  "image/*",
+  "video/*",
+  ...DOCUMENT_MIME,
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".txt",
+  ".md",
+].join(",");
+
+export type UploadKindLabel = "image" | "video" | "document";
+
 /** Classify a file for grid upload (image, video, document). Returns null if unsupported. */
-export function classifyFileForUpload(
-  file: File,
-): "image" | "video" | "document" | null {
+export function classifyFileForUpload(file: File): UploadKindLabel | null {
   if (file.type.startsWith("image/")) return "image";
   if (file.type.startsWith("video/")) return "video";
   const mime = file.type.toLowerCase().trim();
@@ -30,15 +53,16 @@ export function isDocumentUploadFile(file: File): boolean {
   return classifyFileForUpload(file) === "document";
 }
 
-function defaultMaxBytesForKind(kind: "image" | "video" | "document"): number {
-  if (kind === "image") return IMAGE_MAX_DEFAULT;
-  if (kind === "video") return VIDEO_MAX_DEFAULT;
-  return DOCUMENT_MAX_DEFAULT;
+function warnBytesForKind(kind: UploadKindLabel): number {
+  if (kind === "image") return IMAGE_WARN_BYTES;
+  if (kind === "video") return VIDEO_WARN_BYTES;
+  return DOCUMENT_WARN_BYTES;
 }
 
 /**
- * Same rules as StorageService.validateFile: throws with a user-facing message if invalid.
- * Used by StorageService and can be unit-tested without Firebase.
+ * Validate a file's type. Throws with a user-facing message on unsupported
+ * types. Size is intentionally not a failure condition anymore (see
+ * {@link classifyUploadSize} for the advisory warning).
  */
 export function validateUploadFile(
   file: File,
@@ -63,15 +87,45 @@ export function validateUploadFile(
     );
   }
 
-  const maxSize = options.maxSize ?? defaultMaxBytesForKind(kind);
-  if (file.size > maxSize) {
-    const sizeMB = Math.round(maxSize / 1024 / 1024);
-    throw new Error(`File is too large! Maximum size: ${sizeMB}MB`);
-  }
-
   return {
     isImage: kind === "image",
     isVideo: kind === "video",
     isDocument: kind === "document",
+  };
+}
+
+export interface UploadSizeClassification {
+  /** True when the file is large enough to warrant a non-blocking warning. */
+  warn: boolean;
+  sizeMB: number;
+  thresholdMB: number;
+  message?: string;
+}
+
+/**
+ * Non-blocking size classification. Returns a warning (never an error) when the
+ * file exceeds the advisory threshold for its kind, so the UI can inform the
+ * user without preventing the upload.
+ */
+export function classifyUploadSize(
+  file: File,
+  options: UploadOptions = {},
+): UploadSizeClassification {
+  const kind = classifyFileForUpload(file);
+  const threshold = options.maxSize ?? (kind ? warnBytesForKind(kind) : Infinity);
+  const sizeMB = Math.round(file.size / 1024 / 1024);
+  const thresholdMB = Number.isFinite(threshold)
+    ? Math.round(threshold / 1024 / 1024)
+    : 0;
+
+  if (file.size <= threshold) {
+    return { warn: false, sizeMB, thresholdMB };
+  }
+
+  return {
+    warn: true,
+    sizeMB,
+    thresholdMB,
+    message: `This file is large (${sizeMB}MB). It may take a while to prepare and upload.`,
   };
 }

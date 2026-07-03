@@ -41,6 +41,7 @@ export class GridUploadController {
   resolveUpload(
     uploadId: string,
     url: string,
+    hash?: string,
     final = true,
   ): boolean {
     const record = this.validateUpload(uploadId);
@@ -52,6 +53,7 @@ export class GridUploadController {
     const resolved = this.stores.uploads.resolveUpload(
       uploadId,
       url,
+      hash,
       final,
     );
     if (!resolved) return false;

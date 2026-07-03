@@ -32,4 +32,10 @@ export interface ChatServiceInterface {
     tileId: string,
     messageId: string,
   ): Promise<void>;
+
+  /**
+   * Delete every message belonging to a tile. Used when a chat tile is removed,
+   * to reclaim its orphaned Firestore subcollection.
+   */
+  deleteAllMessages(gridId: string, tileId: string): Promise<void>;
 }

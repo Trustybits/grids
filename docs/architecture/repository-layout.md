@@ -264,6 +264,7 @@ docs/
 - `docs/maintainers/dev-setup.md` - Internal developer setup, including infra-sync and emulator caveats for maintainers.
 - `docs/maintainers/infra-sync.md` - Maintainer-only infra-sync command workflow and state/baseline expectations.
 - `docs/maintainers/production-runtime.md` - Maintainer notes for the production Firebase runtime and deploy config guard.
+- `docs/maintainers/workflows.md` - Maintainer notes for GitHub workflow routing, production-repo sync behavior, and deploy workflow troubleshooting.
 
 ## notes
 

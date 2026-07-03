@@ -101,6 +101,9 @@
         </router-link>
       </div>
       <div class="menu-divider"></div>
+      <button @click="openFileArchive" class="menu-action-item">
+        File Archive
+      </button>
       <button @click="logout" class="menu-action-item">Logout</button>
     </div>
     <div class="menu-divider"></div>
@@ -113,6 +116,12 @@
     @close="closeSlugModal"
     @success="handleSlugSuccess"
     @skip="closeSlugModal"
+  />
+
+  <!-- File Archive Modal -->
+  <FileArchiveModal
+    :is-open="showFileArchiveModal"
+    @close="showFileArchiveModal = false"
   />
 </template>
 
@@ -142,6 +151,7 @@ import {
   scaleAvatarRadius,
 } from "@/utils/AvatarShape";
 import SlugClaimModal from "@/components/modal/SlugClaimModal.vue";
+import FileArchiveModal from "@/components/modal/FileArchiveModal.vue";
 import ProfileIcon from "@/components/icons/ProfileIcon.vue";
 import EditIcon from "@/components/icons/EditIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
@@ -153,6 +163,7 @@ export default defineComponent({
   name: "UserMenu",
   components: {
     SlugClaimModal,
+    FileArchiveModal,
     ProfileIcon,
     EditIcon,
     FloatingTooltip,
@@ -168,6 +179,7 @@ export default defineComponent({
     const menuRef = ref<HTMLElement | null>(null);
     const showUserMenu = ref(false);
     const showSlugModal = ref(false);
+    const showFileArchiveModal = ref(false);
     const currentSlug = ref<string | undefined>(undefined);
     const defaultGridId = ref<string | undefined>(undefined);
     const defaultGridProfileImageUrl = ref<string | undefined>(undefined);
@@ -332,6 +344,11 @@ export default defineComponent({
       showSlugModal.value = true;
     };
 
+    const openFileArchive = () => {
+      showUserMenu.value = false;
+      showFileArchiveModal.value = true;
+    };
+
     const goToDefaultGrid = () => {
       if (!defaultGridId.value) return;
       // router.push(`/grid/${defaultGridId.value}`);
@@ -358,6 +375,8 @@ export default defineComponent({
       toggleUserMenu,
       logout,
       showSlugModal,
+      showFileArchiveModal,
+      openFileArchive,
       currentSlug,
       defaultGridId,
       defaultGridProfileImageUrl,

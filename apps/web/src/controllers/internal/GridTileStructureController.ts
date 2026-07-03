@@ -30,6 +30,10 @@ export class GridTileStructureController {
     private readonly pushUndoSnapshot: (actionLabel: string) => void,
     private readonly scheduleSave: () => void,
     private readonly refreshStableSnapshot: () => void,
+    private readonly recordChatTileForCleanup: (
+      gridId: string,
+      tileId: string,
+    ) => void,
   ) {}
 
   addTile(content: TileContent): string | null {
@@ -198,6 +202,11 @@ export class GridTileStructureController {
     grid.tiles = grid.tiles.filter((candidate) => candidate.i !== id);
 
     if (tile) {
+      // Defer chat message cleanup so an undo can restore the tile (and its
+      // messages, which remain in Firestore) before the GC flush runs.
+      if (tile.content.type === ContentType.CHAT) {
+        this.recordChatTileForCleanup(grid.id, id);
+      }
       this.logTileEvent(
         AnalyticsEventType.TILE_REMOVED,
         grid.id,

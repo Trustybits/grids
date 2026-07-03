@@ -17,6 +17,7 @@ import {
 describe("GridSessionController", () => {
   let h: InternalHarness;
   let refreshStableSnapshot: Mock<() => void>;
+  let flushChatCleanup: Mock<() => void>;
   let controller: GridSessionController;
 
   beforeEach(() => {
@@ -24,10 +25,12 @@ describe("GridSessionController", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     h = createHarness();
     refreshStableSnapshot = vi.fn<() => void>();
+    flushChatCleanup = vi.fn<() => void>();
     controller = new GridSessionController(
       h.stores,
       h.dependencies,
       refreshStableSnapshot,
+      flushChatCleanup,
     );
     vi.mocked(h.gridService.fetchGrid).mockResolvedValue(makeGrid());
     vi.mocked(h.gridService.touchLastOpenedAt).mockResolvedValue(undefined);
@@ -62,6 +65,21 @@ describe("GridSessionController", () => {
         "ui",
         "session",
       ]);
+    });
+
+    it("flushes pending chat cleanup before the history stack is reset", () => {
+      const order: string[] = [];
+      flushChatCleanup.mockImplementation(() => {
+        order.push("flush");
+      });
+      vi.spyOn(h.stores.history, "reset").mockImplementation(() => {
+        order.push("history-reset");
+      });
+
+      controller.resetSessionDependents();
+
+      // The flush must read the outgoing grid's stacks before they are cleared.
+      expect(order).toEqual(["flush", "history-reset"]);
     });
   });
 

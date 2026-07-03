@@ -13,6 +13,12 @@ const { exportsByModule, adminImportSpy } = vi.hoisted(() => {
     listNotionDatabases: { functionName: "listNotionDatabases" },
     notionOAuthExchange: { functionName: "notionOAuthExchange" },
     upvoteRoadmapItem: { functionName: "upvoteRoadmapItem" },
+    cleanupGridSubcollectionsOnDelete: {
+      functionName: "cleanupGridSubcollectionsOnDelete",
+    },
+    sweepOrphanedSubcollections: {
+      functionName: "sweepOrphanedSubcollections",
+    },
     onGridCreated: { functionName: "onGridCreated" },
     onGridDeleted: { functionName: "onGridDeleted" },
     onGridUpdated: { functionName: "onGridUpdated" },
@@ -21,11 +27,20 @@ const { exportsByModule, adminImportSpy } = vi.hoisted(() => {
     getLinkPreview: { functionName: "getLinkPreview" },
     getMusicTrackMetadata: { functionName: "getMusicTrackMetadata" },
     getYouTubeMetadata: { functionName: "getYouTubeMetadata" },
+    authorizeStorageUpload: { functionName: "authorizeStorageUpload" },
+    deleteStorageUpload: { functionName: "deleteStorageUpload" },
     ensureDocumentItemThumbnail: { functionName: "ensureDocumentItemThumbnail" },
+    getStorageUploadDownloadUrl: { functionName: "getStorageUploadDownloadUrl" },
+    prepareGridDuplicateStorage: { functionName: "prepareGridDuplicateStorage" },
+    setStorageUploadDisplayName: { functionName: "setStorageUploadDisplayName" },
+    setStorageUploadShareable: { functionName: "setStorageUploadShareable" },
     generateThumbnail: { functionName: "generateThumbnail" },
     generateOgImage: { functionName: "generateOgImage" },
     onFileDeleted: { functionName: "onFileDeleted" },
     onFileUploaded: { functionName: "onFileUploaded" },
+    onGridStorageReferencesCreated: { functionName: "onGridStorageReferencesCreated" },
+    onGridStorageReferencesDeleted: { functionName: "onGridStorageReferencesDeleted" },
+    onGridStorageReferencesUpdated: { functionName: "onGridStorageReferencesUpdated" },
     grantSupporterBadgeOnPayment: { functionName: "grantSupporterBadgeOnPayment" },
   };
 
@@ -67,6 +82,13 @@ vi.mock("../integrations/onCall_notionOAuthExchange.js", () => ({
 vi.mock("../integrations/onCall_upvoteRoadmapItem.js", () => ({
   upvoteRoadmapItem: exportsByModule.upvoteRoadmapItem,
 }));
+vi.mock("../grids/onTrigger_gridDeleted_cleanupSubcollections.js", () => ({
+  cleanupGridSubcollectionsOnDelete:
+    exportsByModule.cleanupGridSubcollectionsOnDelete,
+}));
+vi.mock("../grids/onSchedule_sweepOrphanedSubcollections.js", () => ({
+  sweepOrphanedSubcollections: exportsByModule.sweepOrphanedSubcollections,
+}));
 vi.mock("../notifications/onTrigger_gridCreated.js", () => ({
   onGridCreated: exportsByModule.onGridCreated,
 }));
@@ -94,6 +116,24 @@ vi.mock("../scraping/onCall_getYouTubeMetadata.js", () => ({
 vi.mock("../storage/onCall_ensureDocumentItemThumbnail.js", () => ({
   ensureDocumentItemThumbnail: exportsByModule.ensureDocumentItemThumbnail,
 }));
+vi.mock("../storage/onCall_authorizeStorageUpload.js", () => ({
+  authorizeStorageUpload: exportsByModule.authorizeStorageUpload,
+}));
+vi.mock("../storage/onCall_deleteStorageUpload.js", () => ({
+  deleteStorageUpload: exportsByModule.deleteStorageUpload,
+}));
+vi.mock("../storage/onCall_getStorageUploadDownloadUrl.js", () => ({
+  getStorageUploadDownloadUrl: exportsByModule.getStorageUploadDownloadUrl,
+}));
+vi.mock("../storage/onCall_prepareGridDuplicateStorage.js", () => ({
+  prepareGridDuplicateStorage: exportsByModule.prepareGridDuplicateStorage,
+}));
+vi.mock("../storage/onCall_setStorageUploadDisplayName.js", () => ({
+  setStorageUploadDisplayName: exportsByModule.setStorageUploadDisplayName,
+}));
+vi.mock("../storage/onCall_setStorageUploadShareable.js", () => ({
+  setStorageUploadShareable: exportsByModule.setStorageUploadShareable,
+}));
 vi.mock("../storage/onRequest_generateBreakpointThumbnail.js", () => ({
   generateThumbnail: exportsByModule.generateThumbnail,
 }));
@@ -105,6 +145,14 @@ vi.mock("../storage/onTrigger_fileDeleted.js", () => ({
 }));
 vi.mock("../storage/onTrigger_fileUploaded.js", () => ({
   onFileUploaded: exportsByModule.onFileUploaded,
+}));
+vi.mock("../storage/onTrigger_gridStorageReferences.js", () => ({
+  onGridStorageReferencesCreated:
+    exportsByModule.onGridStorageReferencesCreated,
+  onGridStorageReferencesDeleted:
+    exportsByModule.onGridStorageReferencesDeleted,
+  onGridStorageReferencesUpdated:
+    exportsByModule.onGridStorageReferencesUpdated,
 }));
 vi.mock("../badges/grantSupporterBadge.js", () => ({
   grantSupporterBadgeOnPayment: exportsByModule.grantSupporterBadgeOnPayment,

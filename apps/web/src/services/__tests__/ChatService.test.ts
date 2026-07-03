@@ -18,6 +18,7 @@ beforeEach(() => {
     addMessage: vi.fn(),
     updateMessage: vi.fn(),
     deleteMessage: vi.fn(),
+    deleteAllMessages: vi.fn(),
   };
 
   mockAuthProvider = {
@@ -190,6 +191,28 @@ describe("deleteMessage", () => {
 
     const service = new ChatService();
     await expect(service.deleteMessage("g1", "t1", "m1")).rejects.toThrow(
+      "nope",
+    );
+  });
+});
+
+// ── deleteAllMessages ───────────────────────────────────────────────────────
+
+describe("deleteAllMessages", () => {
+  it("delegates to chatDao.deleteAllMessages", async () => {
+    mockChatDao.deleteAllMessages.mockResolvedValueOnce(undefined);
+
+    const service = new ChatService();
+    await service.deleteAllMessages("g1", "t1");
+
+    expect(mockChatDao.deleteAllMessages).toHaveBeenCalledWith("g1", "t1");
+  });
+
+  it("propagates errors from the DAO", async () => {
+    mockChatDao.deleteAllMessages.mockRejectedValueOnce(new Error("nope"));
+
+    const service = new ChatService();
+    await expect(service.deleteAllMessages("g1", "t1")).rejects.toThrow(
       "nope",
     );
   });

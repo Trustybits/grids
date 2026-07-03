@@ -51,4 +51,8 @@ export class ChatService implements ChatServiceInterface {
   ): Promise<void> {
     await this.chatDao.deleteMessage(gridId, tileId, messageId);
   }
+
+  async deleteAllMessages(gridId: string, tileId: string): Promise<void> {
+    await this.chatDao.deleteAllMessages(gridId, tileId);
+  }
 }

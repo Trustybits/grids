@@ -30,4 +30,11 @@ export interface ChatDao {
     tileId: string,
     messageId: string,
   ): Promise<void>;
+
+  /**
+   * Delete every message in a tile's messages subcollection. Used to reclaim the
+   * orphaned subcollection when its parent chat tile is removed (tiles are not
+   * Firestore documents, so deletes do not cascade).
+   */
+  deleteAllMessages(gridId: string, tileId: string): Promise<void>;
 }

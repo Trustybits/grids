@@ -12,6 +12,11 @@ const { firestoreState } = vi.hoisted(() => ({
       options?: Record<string, unknown>;
     }>,
     txUpdateCalls: [] as Array<{ path: string; data: Record<string, unknown> }>,
+    directSetCalls: [] as Array<{
+      path: string;
+      data: Record<string, unknown>;
+      options?: Record<string, unknown>;
+    }>,
   },
 }));
 
@@ -26,7 +31,19 @@ vi.mock("../../admin.js", () => ({
   default: {
     firestore: () => ({
       collection: (collectionName: string) => ({
-        doc: (docId: string) => ({ path: `${collectionName}/${docId}` }),
+        doc: (docId: string) => ({
+          path: `${collectionName}/${docId}`,
+          set: (
+            data: Record<string, unknown>,
+            options?: Record<string, unknown>,
+          ) => {
+            firestoreState.directSetCalls.push({
+              path: `${collectionName}/${docId}`,
+              data,
+              options,
+            });
+          },
+        }),
       }),
       runTransaction: async (
         callback: (transaction: unknown) => Promise<unknown>,
@@ -66,7 +83,11 @@ import {
   decrementUserStorageUsage,
   incrementUserStorageUsage,
   parseUserStorageObject,
+  setUserStorageUsed,
 } from "../utils_storageUsage.js";
+
+const HASH = "a".repeat(64);
+const CANONICAL_IMAGE_PATH = `users/user-1/images/${HASH}.png`;
 
 beforeEach(() => {
   firestoreState.docs = new Map();
@@ -74,6 +95,7 @@ beforeEach(() => {
   firestoreState.txGetCalls = [];
   firestoreState.txSetCalls = [];
   firestoreState.txUpdateCalls = [];
+  firestoreState.directSetCalls = [];
   vi.mocked(logger.debug).mockClear();
   vi.mocked(logger.error).mockClear();
   vi.mocked(logger.info).mockClear();
@@ -84,12 +106,13 @@ describe("parseUserStorageObject", () => {
   it("extracts user id, file path, and parsed byte size for user files", () => {
     expect(
       parseUserStorageObject({
-        name: "users/user-1/images/a.png",
+        name: CANONICAL_IMAGE_PATH,
         size: "25",
       }),
     ).toEqual({
-      filePath: "users/user-1/images/a.png",
+      filePath: CANONICAL_IMAGE_PATH,
       fileSize: 25,
+      hash: HASH,
       userId: "user-1",
     });
   });
@@ -97,7 +120,7 @@ describe("parseUserStorageObject", () => {
   it("treats missing size as zero bytes", () => {
     expect(
       parseUserStorageObject({
-        name: "users/user-1/images/a.png",
+        name: CANONICAL_IMAGE_PATH,
       }),
     ).toMatchObject({ fileSize: 0 });
   });
@@ -106,7 +129,7 @@ describe("parseUserStorageObject", () => {
     expect(
       parseUserStorageObject(
         {
-          name: "users/user-1/images/a.png",
+          name: CANONICAL_IMAGE_PATH,
           size: "not-a-number",
         },
         { sanitizeInvalidSize: true },
@@ -127,9 +150,28 @@ describe("parseUserStorageObject", () => {
       }),
     ).toBeNull();
     expect(logger.debug).toHaveBeenCalledWith(
-      "File is not in a user directory, skipping storage tracking",
+      "File is not a canonical user upload, skipping storage tracking",
       { filePath: "public/file.png" },
     );
+  });
+
+  it("skips legacy user subfolders that are not canonical archive paths", () => {
+    expect(
+      parseUserStorageObject({
+        name: "users/user-1/link-images/image-1.png",
+        size: "40",
+      }),
+    ).toBeNull();
+  });
+
+  it("skips migration-tagged objects", () => {
+    expect(
+      parseUserStorageObject({
+        name: CANONICAL_IMAGE_PATH,
+        size: "40",
+        metadata: { gridsStorageMigration: "true" },
+      }),
+    ).toBeNull();
   });
 });
 
@@ -205,5 +247,19 @@ describe("decrementUserStorageUsage", () => {
       { userId: "user-1" },
     );
     expect(firestoreState.txUpdateCalls).toEqual([]);
+  });
+});
+
+describe("setUserStorageUsed", () => {
+  it("sets a clamped authoritative storageUsed value", async () => {
+    await setUserStorageUsed("user-1", -25);
+
+    expect(firestoreState.directSetCalls).toEqual([
+      {
+        path: "users/user-1",
+        data: { storageUsed: 0 },
+        options: { merge: true },
+      },
+    ]);
   });
 });

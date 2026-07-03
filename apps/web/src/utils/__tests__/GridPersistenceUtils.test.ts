@@ -135,6 +135,77 @@ describe("createPersistableGridSnapshot", () => {
     );
   });
 
+  it("stamps srcHash and document item hash when the resolved URL matches", () => {
+    const image = makeTile({
+      i: "image",
+      content: {
+        type: ContentType.IMAGE,
+        src: "blob:http://localhost/image",
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0,
+      } as ImageContent,
+    });
+    const documents = makeTile({
+      i: "documents",
+      content: {
+        type: ContentType.DOCUMENT,
+        items: [
+          { id: "one", fileName: "one.pdf", url: "blob:http://localhost/one" },
+        ],
+      } as DocumentsContent,
+    });
+
+    const snapshot = createPersistableGridSnapshot(
+      makeGrid({ tiles: [image, documents] }),
+      { image: "https://cdn.example/image.png" },
+      { documents: { one: "https://cdn.example/one.pdf" } },
+      { image: "hash-image" },
+      { documents: { one: "hash-one" } },
+    );
+
+    const imageContent = snapshot.tiles[0]?.content as ImageContent & {
+      srcHash?: string;
+    };
+    expect(imageContent.src).toBe("https://cdn.example/image.png");
+    expect(imageContent.srcHash).toBe("hash-image");
+    expect(
+      (snapshot.tiles[1]?.content as DocumentsContent).items[0],
+    ).toEqual({
+      id: "one",
+      fileName: "one.pdf",
+      url: "https://cdn.example/one.pdf",
+      hash: "hash-one",
+    });
+  });
+
+  it("does not stamp srcHash when the tile URL no longer matches the resolved upload", () => {
+    const image = makeTile({
+      i: "image",
+      content: {
+        type: ContentType.IMAGE,
+        src: "https://external.example/other.png",
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0,
+      } as ImageContent,
+    });
+
+    const snapshot = createPersistableGridSnapshot(
+      makeGrid({ tiles: [image] }),
+      { image: "https://cdn.example/image.png" },
+      {},
+      { image: "hash-image" },
+      {},
+    );
+
+    const imageContent = snapshot.tiles[0]?.content as ImageContent & {
+      srcHash?: string;
+    };
+    expect(imageContent.src).toBe("https://external.example/other.png");
+    expect(imageContent.srcHash).toBeUndefined();
+  });
+
   it("strips unresolved media and document blob URLs from the snapshot", () => {
     const snapshot = createPersistableGridSnapshot(
       makeGrid({

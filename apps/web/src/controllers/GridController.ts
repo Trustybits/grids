@@ -1,6 +1,7 @@
 import {
   type AnyTileContent,
   type Breakpoint,
+  type ConfirmedGridDuplicateStorage,
   type CopyDepth,
   type DocumentItem,
   type Grid,
@@ -54,6 +55,15 @@ export class GridController {
   private readonly uiController: GridUiController;
   private readonly viewportController: GridViewportController;
 
+  /**
+   * Removed chat tiles awaiting Firestore message cleanup, keyed per grid
+   * (gridId → tileIds). Entries carry their own gridId because the main flush
+   * point — grid switch / teardown — fires while the live grid is changing, so
+   * a bare tileId could be reclaimed against the wrong grid. See
+   * `flushChatCleanup`.
+   */
+  private readonly pendingChatDeletions = new Map<string, Set<string>>();
+
   constructor(
     private readonly stores: GridControllerStores,
     private readonly dependencies: GridControllerDependencies,
@@ -62,6 +72,7 @@ export class GridController {
       stores,
       dependencies,
       () => this.refreshStableSnapshot(),
+      () => this.flushChatCleanup(true),
     );
     this.collectionController = new GridCollectionController(
       stores,
@@ -98,6 +109,8 @@ export class GridController {
       (actionLabel) => this.pushUndoSnapshot(actionLabel),
       () => this.scheduleSave(),
       () => this.refreshStableSnapshot(),
+      (gridId, tileId) =>
+        this.recordChatTileForCleanup(gridId, tileId),
     );
     this.viewportController = new GridViewportController(
       stores,
@@ -112,6 +125,7 @@ export class GridController {
           forcedBreakpoint: this.stores.viewport.forcedBreakpoint,
           viewportBreakpoint: this.stores.viewport.viewportBreakpoint,
         }),
+      () => this.flushChatCleanup(),
     );
     this.uploadController = new GridUploadController(stores, () =>
       this.scheduleSave(),
@@ -255,10 +269,12 @@ export class GridController {
   async duplicateGrid(
     sourceGrid: Grid,
     copyDepth: CopyDepth = "full",
+    storagePlan?: ConfirmedGridDuplicateStorage,
   ): Promise<string | null> {
     return this.collectionController.duplicateGrid(
       sourceGrid,
       copyDepth,
+      storagePlan,
     );
   }
 
@@ -430,6 +446,69 @@ export class GridController {
     this.layoutController.commitGestureGeometry();
   }
 
+  /**
+   * Record a removed chat tile for deferred Firestore message cleanup. The tile
+   * is not yet deleted — `flushChatCleanup` reclaims it once it can no longer be
+   * restored via undo/redo.
+   */
+  private recordChatTileForCleanup(
+    gridId: string,
+    tileId: string,
+  ): void {
+    const existing = this.pendingChatDeletions.get(gridId);
+    if (existing) {
+      existing.add(tileId);
+    } else {
+      this.pendingChatDeletions.set(gridId, new Set([tileId]));
+    }
+  }
+
+  /**
+   * Garbage-collect pending chat-tile message deletions for the current grid.
+   * A pending tile's messages are hard-deleted once the tile can no longer be
+   * brought back by an undo. Mid-session that means it must be absent from both
+   * the live grid and every undo/redo snapshot. At teardown (`discardingHistory`
+   * — grid switch / clear) the stacks are about to be thrown away, so the tile
+   * is unrestorable regardless of the stacks and only the live grid protects it.
+   *
+   * Deletes are fire-and-forget; any that miss this pass (e.g. the client dies
+   * first, or a removed tile is still parked in the undo stack at teardown of a
+   * grid that is kept) are reclaimed by the server-side sweep.
+   */
+  private flushChatCleanup(discardingHistory = false): void {
+    const grid = this.stores.session.currentGrid;
+    if (!grid) return;
+
+    const pending = this.pendingChatDeletions.get(grid.id);
+    if (!pending || pending.size === 0) return;
+
+    const reachable = new Set(grid.tiles.map((tile) => tile.i));
+    if (!discardingHistory) {
+      const referenced = this.stores.history.manager?.getReferencedTileIds();
+      if (referenced) {
+        for (const tileId of referenced) reachable.add(tileId);
+      }
+    }
+
+    const chatService = this.dependencies.getChatService();
+    for (const tileId of [...pending]) {
+      if (reachable.has(tileId)) continue;
+      pending.delete(tileId);
+      void chatService
+        .deleteAllMessages(grid.id, tileId)
+        .catch((error: unknown) => console.error(error));
+    }
+
+    // At teardown the session and its undo/redo stacks are discarded, so any
+    // tile still pending here is no longer a pending removal — it was either
+    // deleted above or restored into the live grid. Drop the grid's entry so it
+    // can't outlive the session and stale-delete a tile in a later session that
+    // reuses the same grid id. Mid-session, only drop it once fully drained.
+    if (discardingHistory || pending.size === 0) {
+      this.pendingChatDeletions.delete(grid.id);
+    }
+  }
+
   startUpload(input: StartUploadInput): string | null {
     return this.uploadController.startUpload(input);
   }
@@ -441,9 +520,10 @@ export class GridController {
   resolveUpload(
     uploadId: string,
     url: string,
+    hash?: string,
     final = true,
   ): boolean {
-    return this.uploadController.resolveUpload(uploadId, url, final);
+    return this.uploadController.resolveUpload(uploadId, url, hash, final);
   }
 
   failUpload(uploadId: string): boolean {
@@ -565,8 +645,8 @@ export class GridController {
     this.settingsController.setDuplicatable(value);
   }
 
-  addBackgroundImage(url: string, embed: boolean): void {
-    this.settingsController.addBackgroundImage(url, embed);
+  addBackgroundImage(url: string, embed: boolean, hash?: string): void {
+    this.settingsController.addBackgroundImage(url, embed, hash);
   }
 
   removeBackgroundImage(): void {

@@ -152,9 +152,9 @@ describe("GridUploadController", () => {
       controller.progressUpload(id, 0.5);
       expect(h.stores.uploads.uploadingTiles["tile-1"]).toBe(0.5);
 
-      expect(controller.resolveUpload(id, "https://cdn/media", false)).toBe(
-        true,
-      );
+      expect(
+        controller.resolveUpload(id, "https://cdn/media", undefined, false),
+      ).toBe(true);
 
       // final=false leaves the uploading indicator in place for the tile.
       expect(h.stores.uploads.uploadingTiles["tile-1"]).toBe(0.5);

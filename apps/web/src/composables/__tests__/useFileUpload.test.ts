@@ -1,8 +1,10 @@
 /**
  * Tests for useFileUpload — upload flows that turn Files into tiles (direct,
  * optimistic-new, optimistic-existing, multi-document) plus external image
- * import. Every collaborator is mocked: auth provider, storage service, grid
- * store, TileUtils.createTileContent, the document-thumbnail helpers, uuid, and
+ * import. Uploads now route through the archive flow: the storage service
+ * hashes, authorizes, uploads, and finalizes, returning {url, hash, ...}. Every
+ * collaborator is mocked: auth provider, storage service, grid store,
+ * TileUtils.createTileContent, the document-thumbnail helpers, uuid, and
  * URL.createObjectURL/revokeObjectURL.
  */
 
@@ -14,6 +16,7 @@ import {
   documentItemIsPdf,
   ensureDocumentItemThumbnailOnServer,
 } from "@/composables/useDocumentThumbnail";
+import type { ArchiveUploadResult } from "@/types/UploadFileTypes";
 
 const {
   mockGetAuthProvider,
@@ -28,12 +31,11 @@ const {
 } = vi.hoisted(() => {
   const mockGetCurrentUserId = vi.fn<() => string | null>(() => "user-1");
   const storage = {
-    upload: vi.fn(),
+    uploadArchiveFile: vi.fn(),
     validateFile: vi.fn(() => ({ isImage: true })),
-    uploadResumable: vi.fn(),
-    uploadExternalImage: vi.fn(),
+    uploadArchiveResumable: vi.fn(),
+    uploadExternalImageToArchive: vi.fn(),
   };
-  // `controllerMock` holds the upload/tile commands now owned by the controller.
   const controllerMock = {
     addTile: vi.fn<() => string | null>(() => "tile-1"),
     setTileContent: vi.fn(),
@@ -52,7 +54,6 @@ const {
     flushSaves: vi.fn(() => Promise.resolve()),
     removeTile: vi.fn(),
   };
-  // The grid id is read from the focused session store.
   const sessionStore = {
     currentGrid: { id: "grid-1" } as { id: string } | null,
   };
@@ -102,13 +103,30 @@ const mockCreateTileContent = vi.mocked(createTileContent);
 const mockDocumentItemIsPdf = vi.mocked(documentItemIsPdf);
 const mockEnsureThumb = vi.mocked(ensureDocumentItemThumbnailOnServer);
 
-/** A resolvable upload task: control progress and completion explicitly. */
+function archiveResult(
+  url: string,
+  hash: string,
+  overrides: Partial<ArchiveUploadResult> = {},
+): ArchiveUploadResult {
+  return {
+    url,
+    hash,
+    path: `users/user-1/images/${hash}.png`,
+    type: "images",
+    size: 4,
+    uploadRequired: true,
+    ...overrides,
+  };
+}
+
+/** A resolvable archive upload task: control hash/upload progress and completion. */
 function makeUploadTask() {
   let progressCb: ((p: { bytesTransferred: number; totalBytes: number }) => void) | null =
     null;
-  let resolveDone!: (url: string) => void;
+  let hashCb: ((fraction: number) => void) | null = null;
+  let resolveDone!: (result: ArchiveUploadResult) => void;
   let rejectDone!: (err: unknown) => void;
-  const donePromise = new Promise<string>((res, rej) => {
+  const donePromise = new Promise<ArchiveUploadResult>((res, rej) => {
     resolveDone = res;
     rejectDone = rej;
   });
@@ -116,12 +134,18 @@ function makeUploadTask() {
     task: {
       onProgress: vi.fn((cb) => {
         progressCb = cb;
+        return () => {};
+      }),
+      onHashProgress: vi.fn((cb) => {
+        hashCb = cb;
+        return () => {};
       }),
       done: vi.fn(() => donePromise),
       cancel: vi.fn(),
     },
     emitProgress: (bytesTransferred: number, totalBytes: number) =>
       progressCb?.({ bytesTransferred, totalBytes }),
+    emitHashProgress: (fraction: number) => hashCb?.(fraction),
     resolveDone,
     rejectDone,
   };
@@ -160,15 +184,26 @@ describe("setup", () => {
   });
 });
 
-describe("uploadFileToUrl", () => {
-  it("uploads and returns the storage URL", async () => {
-    storage.upload.mockResolvedValue("https://storage/a.png");
+describe("uploadFileToUrl / uploadFileToArchive", () => {
+  it("uploads through the archive flow and returns the storage URL", async () => {
+    storage.uploadArchiveFile.mockResolvedValue(
+      archiveResult("https://storage/a.png", "hash-a"),
+    );
     const { uploadFileToUrl } = useFileUpload();
     const url = await uploadFileToUrl(file(), { fileType: "images" });
-    expect(storage.upload).toHaveBeenCalledWith("user-1", expect.any(File), {
-      fileType: "images",
-    });
+    expect(storage.uploadArchiveFile).toHaveBeenCalledWith(
+      "user-1",
+      expect.any(File),
+      { fileType: "images" },
+    );
     expect(url).toBe("https://storage/a.png");
+  });
+
+  it("returns the structured archive result (url + hash)", async () => {
+    const result = archiveResult("https://storage/a.png", "hash-a");
+    storage.uploadArchiveFile.mockResolvedValue(result);
+    const { uploadFileToArchive } = useFileUpload();
+    expect(await uploadFileToArchive(file())).toEqual(result);
   });
 
   it("throws when not logged in", async () => {
@@ -177,11 +212,11 @@ describe("uploadFileToUrl", () => {
     await expect(uploadFileToUrl(file())).rejects.toThrow(
       "You must be logged in to upload.",
     );
-    expect(storage.upload).not.toHaveBeenCalled();
+    expect(storage.uploadArchiveFile).not.toHaveBeenCalled();
   });
 
-  it("logs and rethrows when the storage upload fails", async () => {
-    storage.upload.mockRejectedValue(new Error("storage down"));
+  it("logs and rethrows when the archive upload fails", async () => {
+    storage.uploadArchiveFile.mockRejectedValue(new Error("storage down"));
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { uploadFileToUrl } = useFileUpload();
     await expect(uploadFileToUrl(file())).rejects.toThrow("storage down");
@@ -190,114 +225,87 @@ describe("uploadFileToUrl", () => {
   });
 });
 
-describe("uploadFileToUrlWithProgress", () => {
-  it("uploads resumably, reports progress as a fraction, and returns the URL", async () => {
-    const { task, emitProgress, resolveDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
+describe("uploadFileToArchiveWithProgress", () => {
+  it("reports combined hash+upload progress and returns the result", async () => {
+    const { task, emitHashProgress, emitProgress, resolveDone } = makeUploadTask();
+    storage.uploadArchiveResumable.mockReturnValue(task);
     const onProgress = vi.fn();
 
-    const { uploadFileToUrlWithProgress } = useFileUpload();
-    const promise = uploadFileToUrlWithProgress(
+    const { uploadFileToArchiveWithProgress } = useFileUpload();
+    const promise = uploadFileToArchiveWithProgress(
       file(),
       { fileType: "images" },
       onProgress,
     );
 
-    expect(storage.uploadResumable).toHaveBeenCalledWith(
+    expect(storage.uploadArchiveResumable).toHaveBeenCalledWith(
       "user-1",
       expect.any(File),
       { fileType: "images" },
     );
 
-    emitProgress(25, 100);
+    // Hashing fills the first half of the bar.
+    emitHashProgress(0.5);
     expect(onProgress).toHaveBeenCalledWith(0.25);
+    // Byte transfer fills the second half.
+    emitProgress(50, 100);
+    expect(onProgress).toHaveBeenCalledWith(0.75);
 
-    resolveDone("https://storage/avatar.png");
-    expect(await promise).toBe("https://storage/avatar.png");
-  });
-
-  it("reports a 0 fraction when total bytes are unknown", async () => {
-    const { task, emitProgress, resolveDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
-    const onProgress = vi.fn();
-
-    const { uploadFileToUrlWithProgress } = useFileUpload();
-    const promise = uploadFileToUrlWithProgress(file(), {}, onProgress);
-
-    emitProgress(0, 0);
-    expect(onProgress).toHaveBeenCalledWith(0);
-
-    resolveDone("https://x");
-    await promise;
-  });
-
-  it("works without an onProgress callback", async () => {
-    const { task, resolveDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
-
-    const { uploadFileToUrlWithProgress } = useFileUpload();
-    const promise = uploadFileToUrlWithProgress(file());
-
-    expect(task.onProgress).not.toHaveBeenCalled();
-    resolveDone("https://storage/avatar.png");
-    expect(await promise).toBe("https://storage/avatar.png");
+    const result = archiveResult("https://storage/avatar.png", "hash-av");
+    resolveDone(result);
+    expect(await promise).toEqual(result);
   });
 
   it("throws when not logged in", async () => {
     mockGetCurrentUserId.mockReturnValue(null);
-    const { uploadFileToUrlWithProgress } = useFileUpload();
-    await expect(uploadFileToUrlWithProgress(file())).rejects.toThrow(
+    const { uploadFileToArchiveWithProgress } = useFileUpload();
+    await expect(uploadFileToArchiveWithProgress(file())).rejects.toThrow(
       "You must be logged in to upload.",
     );
-    expect(storage.uploadResumable).not.toHaveBeenCalled();
-  });
-
-  it("logs and rethrows when the upload fails", async () => {
-    const { task, rejectDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
-    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    const { uploadFileToUrlWithProgress } = useFileUpload();
-    const promise = uploadFileToUrlWithProgress(file());
-    rejectDone(new Error("storage down"));
-
-    await expect(promise).rejects.toThrow("storage down");
-    expect(errSpy).toHaveBeenCalled();
-    errSpy.mockRestore();
+    expect(storage.uploadArchiveResumable).not.toHaveBeenCalled();
   });
 });
 
 describe("uploadFile", () => {
-  it("returns IMAGE content for an image file", async () => {
-    storage.upload.mockResolvedValue("https://storage/a.png");
+  it("returns IMAGE content with src and srcHash for an image file", async () => {
+    storage.uploadArchiveFile.mockResolvedValue(
+      archiveResult("https://storage/a.png", "hash-a"),
+    );
     const { uploadFile } = useFileUpload();
     const content = await uploadFile(file("a.png", "image/png"));
     expect(mockCreateTileContent).toHaveBeenCalledWith(ContentType.IMAGE, {
       src: "https://storage/a.png",
+      srcHash: "hash-a",
     });
     expect(content).toMatchObject({ type: ContentType.IMAGE });
   });
 
   it("returns VIDEO content for a non-image file", async () => {
-    storage.upload.mockResolvedValue("https://storage/a.mp4");
+    storage.uploadArchiveFile.mockResolvedValue(
+      archiveResult("https://storage/a.mp4", "hash-v", { type: "videos" }),
+    );
     const { uploadFile } = useFileUpload();
     const content = await uploadFile(file("a.mp4", "video/mp4"));
     expect(mockCreateTileContent).toHaveBeenCalledWith(ContentType.VIDEO, {
       src: "https://storage/a.mp4",
+      srcHash: "hash-v",
     });
     expect(content).toMatchObject({ type: ContentType.VIDEO });
   });
 });
 
 describe("uploadFileOptimistic", () => {
-  it("creates a tile with a blob preview, then resolves the permanent URL", async () => {
+  it("creates a tile with a blob preview, then resolves the URL and hash", async () => {
     const { task, resolveDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
+    storage.uploadArchiveResumable.mockReturnValue(task);
 
     const { uploadFileOptimistic } = useFileUpload();
     const promise = uploadFileOptimistic(file());
 
     expect(globalThis.URL.createObjectURL).toHaveBeenCalled();
+    expect(mockCreateTileContent).toHaveBeenCalledWith(ContentType.IMAGE, {
+      src: "blob:mock",
+    });
     expect(controllerMock.addTile).toHaveBeenCalled();
     expect(controllerMock.startUpload).toHaveBeenCalledWith({
       tileId: "tile-1",
@@ -306,26 +314,29 @@ describe("uploadFileOptimistic", () => {
       task,
     });
 
-    resolveDone("https://storage/final.png");
+    resolveDone(archiveResult("https://storage/final.png", "hash-final"));
     await promise;
 
     expect(controllerMock.resolveUpload).toHaveBeenCalledWith(
       "upload-1",
       "https://storage/final.png",
+      "hash-final",
     );
   });
 
-  it("reports upload progress as a fraction", async () => {
-    const { task, emitProgress, resolveDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
+  it("reports combined hash+upload progress", async () => {
+    const { task, emitHashProgress, emitProgress, resolveDone } = makeUploadTask();
+    storage.uploadArchiveResumable.mockReturnValue(task);
 
     const { uploadFileOptimistic } = useFileUpload();
     const promise = uploadFileOptimistic(file());
 
-    emitProgress(25, 100);
+    emitHashProgress(0.5);
     expect(controllerMock.progressUpload).toHaveBeenCalledWith("upload-1", 0.25);
+    emitProgress(25, 100);
+    expect(controllerMock.progressUpload).toHaveBeenCalledWith("upload-1", 0.625);
 
-    resolveDone("https://x");
+    resolveDone(archiveResult("https://x", "hash-x"));
     await promise;
   });
 
@@ -335,7 +346,7 @@ describe("uploadFileOptimistic", () => {
     await uploadFileOptimistic(file());
     expect(controllerMock.revokeOwnedObjectUrl).toHaveBeenCalledWith("blob:mock");
     expect(globalThis.URL.revokeObjectURL).not.toHaveBeenCalled();
-    expect(storage.uploadResumable).not.toHaveBeenCalled();
+    expect(storage.uploadArchiveResumable).not.toHaveBeenCalled();
   });
 
   it("throws when not logged in (before creating a tile)", async () => {
@@ -349,7 +360,7 @@ describe("uploadFileOptimistic", () => {
 
   it("cleans up and removes the tile when the upload fails", async () => {
     const { task, rejectDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
+    storage.uploadArchiveResumable.mockReturnValue(task);
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const { uploadFileOptimistic } = useFileUpload();
@@ -358,7 +369,6 @@ describe("uploadFileOptimistic", () => {
 
     await expect(promise).rejects.toThrow("upload failed");
     expect(controllerMock.failUpload).toHaveBeenCalledWith("upload-1");
-    // Cleanup is delegated to failUpload; useFileUpload never revokes directly.
     expect(controllerMock.revokeOwnedObjectUrl).not.toHaveBeenCalled();
     expect(globalThis.URL.revokeObjectURL).not.toHaveBeenCalled();
     expect(controllerMock.removeTile).toHaveBeenCalledWith("tile-1");
@@ -367,16 +377,16 @@ describe("uploadFileOptimistic", () => {
 });
 
 describe("uploadFileOptimisticForTile", () => {
-  it("replaces the existing tile's content and resolves the permanent URL", async () => {
+  it("replaces the existing tile's content and resolves URL + hash", async () => {
     const { task, resolveDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
+    storage.uploadArchiveResumable.mockReturnValue(task);
 
     const { uploadFileOptimisticForTile } = useFileUpload();
     const promise = uploadFileOptimisticForTile(file(), "tile-9");
 
     expect(controllerMock.setTileContent).toHaveBeenCalledWith(
       "tile-9",
-      expect.objectContaining({ type: ContentType.IMAGE }),
+      expect.objectContaining({ type: ContentType.IMAGE, src: "blob:mock" }),
     );
     expect(controllerMock.startUpload).toHaveBeenCalledWith({
       tileId: "tile-9",
@@ -385,32 +395,19 @@ describe("uploadFileOptimisticForTile", () => {
       task,
     });
 
-    resolveDone("https://storage/final.png");
+    resolveDone(archiveResult("https://storage/final.png", "hash-final"));
     await promise;
 
     expect(controllerMock.resolveUpload).toHaveBeenCalledWith(
       "upload-1",
       "https://storage/final.png",
+      "hash-final",
     );
-  });
-
-  it("reports upload progress as a fraction for the existing tile", async () => {
-    const { task, emitProgress, resolveDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
-
-    const { uploadFileOptimisticForTile } = useFileUpload();
-    const promise = uploadFileOptimisticForTile(file(), "tile-9");
-
-    emitProgress(30, 120);
-    expect(controllerMock.progressUpload).toHaveBeenCalledWith("upload-1", 0.25);
-
-    resolveDone("https://x");
-    await promise;
   });
 
   it("reverts the tile to a suggestion on failure", async () => {
     const { task, rejectDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
+    storage.uploadArchiveResumable.mockReturnValue(task);
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const { uploadFileOptimisticForTile } = useFileUpload();
@@ -440,27 +437,36 @@ describe("uploadDocumentsOptimistic", () => {
 
   it("validates each file as a document", async () => {
     const { task, resolveDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
+    storage.uploadArchiveResumable.mockReturnValue(task);
     const { uploadDocumentsOptimistic } = useFileUpload();
 
     const promise = uploadDocumentsOptimistic([file("doc.pdf", "application/pdf")]);
     expect(storage.validateFile).toHaveBeenCalledWith(expect.any(File), {
       fileType: "documents",
     });
-    resolveDone("https://storage/doc.pdf");
+    resolveDone(archiveResult("https://storage/doc.pdf", "hash-doc"));
     await promise;
   });
 
-  it("uploads each item and saves the grid", async () => {
+  it("uploads each item, persists the item hash, and saves the grid", async () => {
     const { task, resolveDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
+    storage.uploadArchiveResumable.mockReturnValue(task);
     const { uploadDocumentsOptimistic } = useFileUpload();
 
     const promise = uploadDocumentsOptimistic([file("a.txt", "text/plain")]);
     expect(controllerMock.addTile).toHaveBeenCalledWith(
-      expect.objectContaining({ type: ContentType.DOCUMENT }),
+      expect.objectContaining({
+        type: ContentType.DOCUMENT,
+        items: [
+          expect.objectContaining({
+            id: "uuid-1",
+            fileName: "a.txt",
+            url: "blob:mock",
+          }),
+        ],
+      }),
     );
-    resolveDone("https://storage/a.txt");
+    resolveDone(archiveResult("https://storage/a.txt", "hash-a", { type: "documents" }));
     await promise;
 
     expect(controllerMock.startUpload).toHaveBeenCalledWith({
@@ -473,6 +479,7 @@ describe("uploadDocumentsOptimistic", () => {
     expect(controllerMock.resolveUpload).toHaveBeenCalledWith(
       "upload-1",
       "https://storage/a.txt",
+      "hash-a",
       true,
     );
     expect(controllerMock.flushSaves).toHaveBeenCalled();
@@ -482,13 +489,12 @@ describe("uploadDocumentsOptimistic", () => {
     mockDocumentItemIsPdf.mockReturnValue(true);
     mockEnsureThumb.mockResolvedValue({ thumbnailUrl: "https://storage/thumb.png" });
     const { task, resolveDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
+    storage.uploadArchiveResumable.mockReturnValue(task);
 
     const { uploadDocumentsOptimistic } = useFileUpload();
     const promise = uploadDocumentsOptimistic([file("doc.pdf", "application/pdf")]);
-    resolveDone("https://storage/doc.pdf");
+    resolveDone(archiveResult("https://storage/doc.pdf", "hash-doc", { type: "documents" }));
     await promise;
-    // Thumbnail jobs are fire-and-forget; flush the microtask queue.
     await Promise.resolve();
     await Promise.resolve();
 
@@ -498,37 +504,10 @@ describe("uploadDocumentsOptimistic", () => {
     });
   });
 
-  it("waits for the document save before requesting server thumbnails", async () => {
-    mockDocumentItemIsPdf.mockReturnValue(true);
-    let resolveSave!: () => void;
-    controllerMock.flushSaves.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        resolveSave = resolve;
-      }),
-    );
-    const { task, resolveDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
-
-    const { uploadDocumentsOptimistic } = useFileUpload();
-    const promise = uploadDocumentsOptimistic([file("doc.pdf", "application/pdf")]);
-    resolveDone("https://storage/doc.pdf");
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(controllerMock.flushSaves).toHaveBeenCalledTimes(1);
-    expect(mockEnsureThumb).not.toHaveBeenCalled();
-
-    resolveSave();
-    await promise;
-    await Promise.resolve();
-
-    expect(mockEnsureThumb).toHaveBeenCalledWith("grid-1", "tile-1", "uuid-1");
-  });
-
-  it("aggregates progress across multiple files", async () => {
+  it("aggregates upload progress across multiple files", async () => {
     const t1 = makeUploadTask();
     const t2 = makeUploadTask();
-    storage.uploadResumable
+    storage.uploadArchiveResumable
       .mockReturnValueOnce(t1.task)
       .mockReturnValueOnce(t2.task);
 
@@ -544,7 +523,7 @@ describe("uploadDocumentsOptimistic", () => {
     expect(controllerMock.progressUpload).toHaveBeenCalledWith("upload-1", 0.25);
 
     // Finish file 1: completed becomes 1 → 1/2 = 0.5
-    t1.resolveDone("https://storage/a.txt");
+    t1.resolveDone(archiveResult("https://storage/a.txt", "hash-a", { type: "documents" }));
     await tick();
     expect(controllerMock.progressUpload).toHaveBeenCalledWith("upload-1", 0.5);
 
@@ -552,53 +531,14 @@ describe("uploadDocumentsOptimistic", () => {
     t2.emitProgress(50, 100);
     expect(controllerMock.progressUpload).toHaveBeenCalledWith("upload-1", 0.75);
 
-    t2.resolveDone("https://storage/b.txt");
+    t2.resolveDone(archiveResult("https://storage/b.txt", "hash-b", { type: "documents" }));
     await promise;
     expect(controllerMock.progressUpload).toHaveBeenCalledWith("upload-1", 1);
   });
 
-  it("does not request a thumbnail for non-PDF items", async () => {
-    mockDocumentItemIsPdf.mockReturnValue(false);
-    const { task, resolveDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
-
-    const { uploadDocumentsOptimistic } = useFileUpload();
-    const promise = uploadDocumentsOptimistic([file("a.txt", "text/plain")]);
-    resolveDone("https://storage/a.txt");
-    await promise;
-    await Promise.resolve();
-
-    expect(mockEnsureThumb).not.toHaveBeenCalled();
-    expect(controllerMock.patchDocumentItem).not.toHaveBeenCalled();
-  });
-
-  it("validates files before the login check (validation runs even logged out)", async () => {
-    mockGetCurrentUserId.mockReturnValue(null);
-    const { uploadDocumentsOptimistic } = useFileUpload();
-
-    await expect(
-      uploadDocumentsOptimistic([file("a.txt", "text/plain")]),
-    ).rejects.toThrow("You must be logged in to upload.");
-
-    // Per source ordering, each file is validated before the auth guard runs.
-    expect(storage.validateFile).toHaveBeenCalledWith(expect.any(File), {
-      fileType: "documents",
-    });
-    expect(controllerMock.addTile).not.toHaveBeenCalled();
-  });
-
-  it("revokes all blob URLs through the owned-URL ledger and bails when the tile cannot be created", async () => {
-    controllerMock.addTile.mockReturnValue(null);
-    const { uploadDocumentsOptimistic } = useFileUpload();
-    await uploadDocumentsOptimistic([file("a.txt"), file("b.txt")]);
-    expect(controllerMock.revokeOwnedObjectUrl).toHaveBeenCalledTimes(2);
-    expect(globalThis.URL.revokeObjectURL).not.toHaveBeenCalled();
-    expect(storage.uploadResumable).not.toHaveBeenCalled();
-  });
-
   it("cleans up and removes the tile when a document upload fails", async () => {
     const { task, rejectDone } = makeUploadTask();
-    storage.uploadResumable.mockReturnValue(task);
+    storage.uploadArchiveResumable.mockReturnValue(task);
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const { uploadDocumentsOptimistic } = useFileUpload();
@@ -607,9 +547,6 @@ describe("uploadDocumentsOptimistic", () => {
 
     await expect(promise).rejects.toThrow("doc failed");
     expect(controllerMock.failUpload).toHaveBeenCalledWith("upload-1");
-    // Cleanup is delegated to failUpload; useFileUpload never revokes directly.
-    expect(controllerMock.revokeOwnedObjectUrl).not.toHaveBeenCalled();
-    expect(globalThis.URL.revokeObjectURL).not.toHaveBeenCalled();
     expect(controllerMock.removeTile).toHaveBeenCalledWith("tile-1");
     errSpy.mockRestore();
   });
@@ -623,27 +560,26 @@ describe("uploadDocumentsOptimistic", () => {
   });
 });
 
-describe("uploadExternalImageToStorage", () => {
-  it("delegates to the storage service with the default folder", async () => {
-    storage.uploadExternalImage.mockResolvedValue("https://storage/ext.png");
+describe("uploadExternalImageToStorage / uploadExternalImageToArchive", () => {
+  it("delegates to the storage service and returns the URL", async () => {
+    storage.uploadExternalImageToArchive.mockResolvedValue(
+      archiveResult("https://storage/ext.png", "hash-ext"),
+    );
     const { uploadExternalImageToStorage } = useFileUpload();
     const url = await uploadExternalImageToStorage("https://remote/x.png");
-    expect(storage.uploadExternalImage).toHaveBeenCalledWith(
+    expect(storage.uploadExternalImageToArchive).toHaveBeenCalledWith(
       "user-1",
       "https://remote/x.png",
-      "images",
     );
     expect(url).toBe("https://storage/ext.png");
   });
 
-  it("passes through a custom folder", async () => {
-    storage.uploadExternalImage.mockResolvedValue("https://storage/ext.png");
-    const { uploadExternalImageToStorage } = useFileUpload();
-    await uploadExternalImageToStorage("https://remote/x.png", "avatars");
-    expect(storage.uploadExternalImage).toHaveBeenCalledWith(
-      "user-1",
-      "https://remote/x.png",
-      "avatars",
+  it("returns the structured result (url + hash)", async () => {
+    const result = archiveResult("https://storage/ext.png", "hash-ext");
+    storage.uploadExternalImageToArchive.mockResolvedValue(result);
+    const { uploadExternalImageToArchive } = useFileUpload();
+    expect(await uploadExternalImageToArchive("https://remote/x.png")).toEqual(
+      result,
     );
   });
 

@@ -139,7 +139,7 @@ function createControllerHarness() {
   } as unknown as AuthProvider;
   const persistenceScheduler: GridPersistenceSchedulerInterface = {
     schedule: vi.fn(),
-    flush: vi.fn(async () => undefined),
+    flush: vi.fn(async () => null),
   };
   const chatService = {
     deleteAllMessages: vi.fn(async () => undefined),
@@ -694,7 +694,7 @@ describe("GridController", () => {
   it("ignores stale persistence failures after the active session changes", async () => {
     const { controller, stores, persistenceScheduler } =
       createControllerHarness();
-    const flushGate = deferred<void>();
+    const flushGate = deferred<Grid | null>();
     vi.mocked(persistenceScheduler.flush).mockReturnValueOnce(
       flushGate.promise,
     );

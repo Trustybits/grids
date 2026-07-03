@@ -64,6 +64,7 @@ export interface ChatContent extends TileContent {
 export interface ImageContent extends TileContent {
   type: ContentType.IMAGE;
   src: string;
+  srcHash?: string;
   zoom: number;
   offsetX: number;
   offsetY: number;
@@ -89,6 +90,7 @@ export interface LinkContent extends TileContent {
   customSubtitle?: string;
   linkBackgroundEnabled?: boolean;
   customImageUrl?: string;
+  customImageHash?: string;
   backgroundColor?: string;
   /** Chromatic color blended over the preview image (mix-blend-mode: color), independent of the fill. */
   overlayColor?: string;
@@ -104,6 +106,7 @@ export interface EmbedContent extends TileContent {
 export interface VideoContent extends TileContent {
   type: ContentType.VIDEO;
   src: string;
+  srcHash?: string;
   zoom: number;
   offsetX: number;
   offsetY: number;
@@ -158,6 +161,7 @@ export interface ProfileBioContent extends TileContent {
   avatarRadius: number;
   avatarSides?: number; // polygon side count (3–8), default 6
   profilePhotoUrl?: string; // URL of the uploaded profile photo
+  profilePhotoHash?: string;
   backgroundColor?: string;
 }
 
@@ -272,6 +276,7 @@ export interface DocumentItem {
   id: string;
   fileName: string;
   url: string;
+  hash?: string;
   mimeType?: string;
   /** First-page raster preview for PDFs; generated server-side. */
   thumbnailUrl?: string;

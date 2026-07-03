@@ -1,10 +1,14 @@
-import type { CopyDepth, Grid } from "@grids/contracts/types";
+import type {
+  ConfirmedGridDuplicateStorage,
+  CopyDepth,
+  Grid,
+} from "@grids/contracts/types";
 
 export interface GridServiceInterface {
   // ── Core CRUD ───────────────────────────────────────────────────────
   fetchGrid(id: string): Promise<Grid>;
-  saveGrid(grid: Grid): Promise<void>;
-  updateGrid(grid: Grid): Promise<void>;
+  saveGrid(grid: Grid): Promise<Grid>;
+  updateGrid(grid: Grid): Promise<Grid>;
   deleteGrid(id: string): Promise<void>;
 
   fetchGridsByUserId(userId: string): Promise<Grid[]>;
@@ -19,6 +23,7 @@ export interface GridServiceInterface {
     sourceGrid: Grid,
     clonedTiles: Grid["tiles"],
     newOverrides: Grid["overrides"],
+    storagePlan?: ConfirmedGridDuplicateStorage,
   ): Promise<Grid>;
   touchLastOpenedAt(gridId: string): Promise<void>;
 
@@ -32,5 +37,6 @@ export interface GridServiceInterface {
     userId: string,
     sourceGrid: Grid,
     copyDepth?: CopyDepth,
+    storagePlan?: ConfirmedGridDuplicateStorage,
   ): Promise<Grid>;
 }

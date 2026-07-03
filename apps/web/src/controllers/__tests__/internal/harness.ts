@@ -203,7 +203,7 @@ export function createHarness(): InternalHarness {
 
   const persistenceScheduler: GridPersistenceSchedulerInterface = {
     schedule: vi.fn(),
-    flush: vi.fn(async () => undefined),
+    flush: vi.fn(async () => null),
   };
 
   const deleteAllMessages = vi.fn(async () => undefined);

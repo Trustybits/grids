@@ -235,10 +235,12 @@ describe("toGrid", () => {
     expect(toGrid("grid-1", {})).toEqual({
       id: "grid-1",
       userId: "",
+      rev: 0,
       name: "Untitled",
       colNum: 12,
       verticalCompact: true,
       backgroundImageSrc: "",
+      backgroundImageHash: undefined,
       backgroundEmbed: false,
       backgroundColor: "",
       ogImageSrc: "",

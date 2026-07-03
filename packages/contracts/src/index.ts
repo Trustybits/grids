@@ -6,6 +6,10 @@ export * from "./auth/index.js";
 
 export * from "./dao/index.js";
 
+// Storage utilities
+
+export * from "./storage/index.js";
+
 // Types
 
 export * from "./types/index.js";

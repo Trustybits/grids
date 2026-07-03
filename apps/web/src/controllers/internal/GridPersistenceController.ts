@@ -1,4 +1,8 @@
-import type { GridPersistenceScope } from "@/services/interfaces/GridPersistenceSchedulerInterface";
+import { isGridRevisionConflictError } from "@grids/contracts/dao";
+import type {
+  GridPersistenceFlushResult,
+  GridPersistenceScope,
+} from "@/services/interfaces/GridPersistenceSchedulerInterface";
 import { createPersistableGridSnapshot } from "@/utils/GridPersistenceUtils";
 import type {
   GridControllerDependencies,
@@ -28,6 +32,17 @@ export class GridPersistenceController {
     if (scope) {
       this.observeScheduledSave(scope);
     }
+  }
+
+  private currentResolvedHashes(): Record<string, string> {
+    return this.stores.uploads.resolvedHashes;
+  }
+
+  private currentResolvedDocumentItemHashes(): Record<
+    string,
+    Record<string, string>
+  > {
+    return this.stores.uploads.resolvedDocumentItemHashes;
   }
 
   async flushSaves(): Promise<void> {
@@ -78,6 +93,8 @@ export class GridPersistenceController {
         grid,
         resolvedUrls,
         resolvedDocumentItemUrls,
+        this.currentResolvedHashes(),
+        this.currentResolvedDocumentItemHashes(),
       );
       this.stores.session.setPersistenceStatus("pending");
       this.dependencies.persistenceScheduler.schedule(scope, snapshot);
@@ -95,8 +112,10 @@ export class GridPersistenceController {
     scope: GridPersistenceScope,
   ): Promise<void> {
     try {
-      await this.dependencies.persistenceScheduler.flush(scope);
+      const savedSnapshot =
+        await this.dependencies.persistenceScheduler.flush(scope);
       if (!this.stores.session.matchesPersistenceScope(scope)) return;
+      this.updateCurrentGridRev(savedSnapshot);
       this.stores.session.setPersistenceStatus("idle");
       this.stores.session.setPersistenceError(null);
       // Periodic GC tick: reclaim removed chat tiles that have fallen out of
@@ -114,8 +133,26 @@ export class GridPersistenceController {
     void this.flushPersistenceScope(scope).catch(() => undefined);
   }
 
+  private updateCurrentGridRev(
+    savedSnapshot: GridPersistenceFlushResult,
+  ): void {
+    const currentGrid = this.stores.session.currentGrid;
+    if (
+      currentGrid &&
+      savedSnapshot &&
+      currentGrid.id === savedSnapshot.id &&
+      typeof savedSnapshot.rev === "number"
+    ) {
+      currentGrid.rev = savedSnapshot.rev;
+    }
+  }
+
   private reportPersistenceError(error: unknown): void {
-    this.stores.session.setPersistenceError("Failed to save grid.");
+    this.stores.session.setPersistenceError(
+      isGridRevisionConflictError(error)
+        ? "This grid has newer saved changes elsewhere. Refresh the grid before saving again."
+        : "Failed to save grid.",
+    );
     console.error(error);
   }
 }

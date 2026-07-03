@@ -15,6 +15,7 @@ export const videoDefinition: TileDefinition<VideoContent> = {
   defaultContent: (data) => ({
     type: ContentType.VIDEO,
     src: data?.src || "",
+    srcHash: data?.srcHash,
     zoom: 1,
     offsetX: 0,
     offsetY: 0,

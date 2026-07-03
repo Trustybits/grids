@@ -10,9 +10,13 @@ import {
   query,
   where,
   serverTimestamp,
+  runTransaction,
 } from "firebase/firestore";
 import type { Grid } from "@grids/contracts/types";
-import type { GridDao } from "@grids/contracts/dao";
+import {
+  GridRevisionConflictError,
+  type GridDao,
+} from "@grids/contracts/dao";
 import { mapFirestoreToGrid } from "./FirebaseUtils.js";
 
 const COLLECTION = "grids";
@@ -44,16 +48,31 @@ export class FirebaseGridDao implements GridDao {
     return doc(collection(this.db, COLLECTION)).id;
   }
 
-  public async save(id: string, data: Record<string, unknown>): Promise<void> {
+  public async save(
+    id: string,
+    data: Record<string, unknown>,
+    expectedRev?: number,
+  ): Promise<void> {
     const docRef = doc(this.db, COLLECTION, id);
+    const revision = this.readExpectedRev(expectedRev);
+    if (revision !== null) {
+      await this.writeWithRevision(id, "save", data, revision);
+      return;
+    }
     await setDoc(docRef, data, { merge: true });
   }
 
   public async update(
     id: string,
     data: Record<string, unknown>,
+    expectedRev?: number,
   ): Promise<void> {
     const docRef = doc(this.db, COLLECTION, id);
+    const revision = this.readExpectedRev(expectedRev);
+    if (revision !== null) {
+      await this.writeWithRevision(id, "update", data, revision);
+      return;
+    }
     await updateDoc(docRef, data);
   }
 
@@ -74,5 +93,46 @@ export class FirebaseGridDao implements GridDao {
     // trigger must be revisited so the subtree is only reclaimed on permanent
     // deletion.
     await deleteDoc(docRef);
+  }
+
+  private readExpectedRev(value: unknown): number | null {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+
+  private async writeWithRevision(
+    id: string,
+    mode: "save" | "update",
+    data: Record<string, unknown>,
+    expectedRev: number,
+  ): Promise<void> {
+    const docRef = doc(this.db, COLLECTION, id);
+    await runTransaction(this.db, async (transaction) => {
+      const snapshot = await transaction.get(docRef);
+      const actualRev = snapshot.exists()
+        ? this.readStoredRev(snapshot.data()?.rev)
+        : 0;
+      if (actualRev !== expectedRev) {
+        throw new GridRevisionConflictError(
+          id,
+          expectedRev,
+          actualRev,
+          snapshot.exists()
+            ? mapFirestoreToGrid(
+                snapshot as Parameters<typeof mapFirestoreToGrid>[0],
+              )
+            : null,
+        );
+      }
+
+      if (mode === "save") {
+        transaction.set(docRef, data, { merge: true });
+      } else {
+        transaction.update(docRef, data);
+      }
+    });
+  }
+
+  private readStoredRev(value: unknown): number {
+    return typeof value === "number" && Number.isFinite(value) ? value : 0;
   }
 }

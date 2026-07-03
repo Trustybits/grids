@@ -101,6 +101,7 @@ import { useGridController } from "@/controllers/useGridController";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
+import { useGridDuplicateStorage } from "@/composables/useGridDuplicateStorage";
 
 const userService = getServiceFactory().getUserService();
 import { valueToMillis } from "@/utils/TimeConversion";
@@ -113,6 +114,7 @@ import Button from "@/components/ui-elements/Button.vue";
 const collectionStore = useGridCollectionStore();
 const controller = useGridController();
 const router = useRouter();
+const { resolveStoragePlan } = useGridDuplicateStorage();
 
 const pageTitle = ref("Dashboard");
 usePageTitle(pageTitle);
@@ -350,13 +352,23 @@ const handleRenameGrid = async (newName: string) => {
 const duplicateGrid = async (grid: Grid, copyDepth: CopyDepth = "full") => {
   splitMenuOpenFor.value = null;
   try {
-    const newId = await controller.duplicateGrid(grid, copyDepth);
+    const storagePlan = await resolveStoragePlan(grid, copyDepth);
+    if (storagePlan === null) return;
+    const newId = await controller.duplicateGrid(
+      grid,
+      copyDepth,
+      storagePlan,
+    );
     if (newId) {
       router.push(`/grid/${newId}`);
     }
   } catch (error) {
     console.error("Error duplicating grid:", error);
-    alert("Failed to duplicate grid. Please try again.");
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Failed to duplicate grid. Please try again.",
+    );
   }
 };
 

@@ -317,7 +317,7 @@ export default defineComponent({
     const showContextMenu = ref(false);
     const contextMenuPosition = ref({ x: 0, y: 0 });
     const isDragOver = ref(false);
-    const { uploadFileToUrl } = useFileUpload();
+    const { uploadFileToArchive } = useFileUpload();
 
     const formatLink = (link: string) => {
       if (!link) return "@handle or address";
@@ -497,7 +497,8 @@ export default defineComponent({
 
     const applyImageUrlFromToolbar = (normalizedUrl: string) => {
       if (!gridView.canEdit) return;
-      patchContent({ customImageUrl: normalizedUrl });
+      // Toolbar URLs are external, not archive files — clear any prior hash.
+      patchContent({ customImageUrl: normalizedUrl, customImageHash: undefined });
     };
 
     const openCustomImagePicker = () => {
@@ -511,7 +512,7 @@ export default defineComponent({
       let changes: Partial<LinkContent> = {};
 
       if (props.content.customImageUrl !== undefined) {
-        changes = { customImageUrl: undefined };
+        changes = { customImageUrl: undefined, customImageHash: undefined };
       } else {
         changes = { metaImageUrl: undefined };
       }
@@ -530,8 +531,10 @@ export default defineComponent({
       }
 
       try {
-        const url = await uploadFileToUrl(file, { fileType: "images" });
-        patchContent({ customImageUrl: url });
+        const { url, hash } = await uploadFileToArchive(file, {
+          fileType: "images",
+        });
+        patchContent({ customImageUrl: url, customImageHash: hash });
       } catch (error: unknown) {
         console.error("Link tile image upload failed:", error);
         alert(error instanceof Error ? error.message : "Failed to upload image. Please try again.");

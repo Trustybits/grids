@@ -99,7 +99,7 @@ describe("gridUploads store", () => {
     expect(store.progressUpload(media, 0.75)).toBe(true);
     expect(store.resolveUpload(media, "https://cdn/media")).toBe(true);
     expect(
-      store.resolveUpload(document, "https://cdn/document", false),
+      store.resolveUpload(document, "https://cdn/document", undefined, false),
     ).toBe(true);
 
     expect(store.uploadRecords[media]).toEqual(

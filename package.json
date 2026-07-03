@@ -26,7 +26,8 @@
     "infra:sync": "node scripts/run-infra-sync.mjs sync",
     "lint:web-deps": "npm --workspace @grids/contracts run lint && npm --workspace @grids/pro run lint",
     "lint": "npm run lint:web-deps && npm --workspace apps/web run lint && npm --workspace @grids/firebase-functions run lint && npm --workspace @grids/discord-bot run lint",
-    "test": "npm --workspace @grids/pro run test && npm --workspace apps/web run test:run && npm --workspace @grids/firebase-functions run test && npm --workspace @grids/discord-bot run test",
+    "test": "npm --workspace @grids/contracts run test && npm --workspace @grids/pro run test && npm --workspace apps/web run test:run && npm --workspace @grids/firebase-functions run test && npm --workspace @grids/discord-bot run test",
+    "test:rules": "firebase emulators:exec --only firestore,storage \"vitest run rules/**/*.test.ts --config rules/vitest.config.ts\"",
     "type-check:web-deps": "npm --workspace @grids/contracts run type-check && npm --workspace @grids/pro run type-check",
     "type-check": "npm run build:web-deps && npm --workspace apps/web run type-check && npm --workspace @grids/firebase-functions run type-check && npm --workspace @grids/discord-bot run type-check",
     "suite:full": "npm run lint && npm run test && npm run type-check && echo 'Success!'",
@@ -34,5 +35,8 @@
   },
   "dependencies": {
     "patch-package": "^8.0.1"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1"
   }
 }

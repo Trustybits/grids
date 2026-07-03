@@ -4,6 +4,7 @@ import admin from "firebase-admin";
 import { writeServerAnalyticsEvent } from "../analytics/utils_writeServerEvent.js";
 import { noopIfMaintenance } from "../maintenance.js";
 import { discordUserActivityWebhookUrl } from "./secrets.js";
+import { syncDevAccountFlagForUser } from "./utils_devAccount.js";
 import { shouldSkipDevTeamNotification } from "./utils_devTeamNotification.js";
 import {
   buildDiscordEmbedPayload,
@@ -61,6 +62,7 @@ export const onUserLogin = functions
       gridId: null,
       metadata: { signInMethod },
     });
+    await syncDevAccountFlagForUser(userId, afterData.email);
 
     if (
       await shouldSkipDevTeamNotification({

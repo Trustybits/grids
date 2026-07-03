@@ -1,9 +1,11 @@
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
+import { parseCanonicalUploadPath } from "./utils_uploadPaths.js";
 
 type StorageObjectLike = {
   name?: string;
   size?: string;
+  metadata?: Record<string, string | undefined>;
 };
 
 type ParseOptions = {
@@ -14,7 +16,20 @@ export type UserStorageObjectInfo = {
   filePath: string;
   fileSize: number;
   userId: string;
+  hash: string;
 };
+
+export const SKIP_STORAGE_ACCOUNTING_METADATA_KEY =
+  "gridsStorageSkipAccounting";
+
+export function isMigrationTaggedObject(object: StorageObjectLike): boolean {
+  const metadata = object.metadata ?? {};
+  return (
+    metadata.gridsStorageMigration === "true" ||
+    metadata.storageMigration === "true" ||
+    metadata[SKIP_STORAGE_ACCOUNTING_METADATA_KEY] === "true"
+  );
+}
 
 export function parseUserStorageObject(
   object: StorageObjectLike,
@@ -32,10 +47,15 @@ export function parseUserStorageObject(
     return null;
   }
 
-  const pathParts = filePath.split("/");
-  if (pathParts.length < 2 || pathParts[0] !== "users") {
+  if (isMigrationTaggedObject(object)) {
+    logger.debug("Migration-tagged storage object skipped", { filePath });
+    return null;
+  }
+
+  const parsedPath = parseCanonicalUploadPath(filePath);
+  if (!parsedPath) {
     logger.debug(
-      "File is not in a user directory, skipping storage tracking",
+      "File is not a canonical user upload, skipping storage tracking",
       { filePath },
     );
     return null;
@@ -44,7 +64,8 @@ export function parseUserStorageObject(
   return {
     filePath,
     fileSize,
-    userId: pathParts[1],
+    hash: parsedPath.hash,
+    userId: parsedPath.uid,
   };
 }
 
@@ -107,5 +128,20 @@ export async function decrementUserStorageUsage(
       newUsage,
       fileSize,
     });
+  });
+}
+
+export async function setUserStorageUsed(
+  userId: string,
+  bytes: number,
+): Promise<void> {
+  const storageUsed = Math.max(0, bytes);
+  await admin.firestore().collection("users").doc(userId).set(
+    { storageUsed },
+    { merge: true },
+  );
+  logger.info("Storage usage set authoritatively", {
+    userId,
+    storageUsed,
   });
 }

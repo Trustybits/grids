@@ -276,7 +276,7 @@ export default defineComponent({
   setup(props, { emit }) {
     const gridView = proxyRefs(useGridViewContext());
     const imageInput = ref<HTMLInputElement | null>(null);
-    const { uploadFileToUrl } = useFileUpload();
+    const { uploadFileToArchive } = useFileUpload();
 
     const isOwner = computed(() => gridView.canEdit);
     const isTextOverflowing = ref(false);
@@ -432,13 +432,15 @@ export default defineComponent({
                 editor.chain().focus().deleteRange(slashRange).run();
               return;
             }
-            const url = await uploadFileToUrl(file, { fileType: "images" });
+            const { url, hash } = await uploadFileToArchive(file, {
+              fileType: "images",
+            });
+            // Include the archive hash alongside src; the ResizableImage node
+            // declares a `hash` attr so Tiptap persists it into the node attrs.
+            const imageAttrs = { src: url, alt: file.name || "image", hash };
             const chain = editor.chain().focus();
             if (slashRange) chain.deleteRange(slashRange);
-            chain
-              .setImage({ src: url, alt: file.name || "image" })
-              .splitBlock()
-              .run();
+            chain.setImage(imageAttrs).splitBlock().run();
             schedulePersist();
           } catch (err) {
             console.error("[SmartText] /image failed:", err);

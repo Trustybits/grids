@@ -1,9 +1,15 @@
+import type { StorageUploadMetadata } from "@grids/contracts/dao";
 import type {
-  StorageUploadMetadata,
-  StorageUploadTask,
-} from "@grids/contracts/dao";
+  PrepareGridDuplicateStorageRequest,
+  PrepareGridDuplicateStorageResponse,
+  UploadArchiveDocument,
+} from "@grids/contracts/types";
 import type { StorageServiceInterface } from "../interfaces/StorageServiceInterface";
-import type { UploadOptions } from "@/types/UploadFileTypes";
+import type {
+  ArchiveUploadResult,
+  ArchiveUploadTask,
+  UploadOptions,
+} from "@/types/UploadFileTypes";
 import { validateUploadFile } from "@/utils/UploadFileClassification";
 
 export class MockStorageService implements StorageServiceInterface {
@@ -13,12 +19,18 @@ export class MockStorageService implements StorageServiceInterface {
   ): { isImage: boolean; isVideo: boolean; isDocument: boolean } {
     return validateUploadFile(file, options);
   }
-  upload(
+  uploadArchiveFile(
     _userId: string,
     _file: File,
     _options?: UploadOptions,
-    _metadata?: StorageUploadMetadata,
-  ): Promise<string> {
+  ): Promise<ArchiveUploadResult> {
+    throw new Error("Method not implemented.");
+  }
+  uploadArchiveResumable(
+    _userId: string,
+    _file: File,
+    _options?: UploadOptions,
+  ): ArchiveUploadTask {
     throw new Error("Method not implemented.");
   }
   uploadToPath(
@@ -28,19 +40,10 @@ export class MockStorageService implements StorageServiceInterface {
   ): Promise<string> {
     throw new Error("Method not implemented.");
   }
-  uploadResumable(
-    _userId: string,
-    _file: File,
-    _options?: UploadOptions,
-    _metadata?: StorageUploadMetadata,
-  ): StorageUploadTask {
-    throw new Error("Method not implemented.");
-  }
-  uploadExternalImage(
+  uploadExternalImageToArchive(
     _userId: string,
     _externalUrl: string,
-    _folder?: string,
-  ): Promise<string> {
+  ): Promise<ArchiveUploadResult> {
     throw new Error("Method not implemented.");
   }
   getBytes(_url: string): Promise<Uint8Array> {
@@ -49,15 +52,37 @@ export class MockStorageService implements StorageServiceInterface {
   getDownloadUrl(_path: string): Promise<string> {
     throw new Error("Method not implemented.");
   }
-  delete(_path: string): Promise<void> {
-    throw new Error("Method not implemented.");
+  deleteArchiveUpload(_hash: string, _force?: boolean): Promise<void> {
+    return Promise.resolve();
   }
-  buildFilePath(
-    _root: string,
+  listArchiveUploads(_userId: string): Promise<UploadArchiveDocument[]> {
+    return Promise.resolve([]);
+  }
+  getArchiveUpload(
     _userId: string,
-    _folder: string,
-    _fileName: string,
-  ): string {
-    throw new Error("Method not implemented.");
+    _hash: string,
+  ): Promise<UploadArchiveDocument | null> {
+    return Promise.resolve(null);
+  }
+  getShareableArchiveDownloadUrl(
+    _ownerId: string,
+    _hash: string,
+  ): Promise<string> {
+    return Promise.reject(new Error("Upload is not shareable."));
+  }
+  setUploadShareable(_hash: string, shareable: boolean): Promise<boolean> {
+    return Promise.resolve(shareable);
+  }
+  renameUpload(_hash: string, displayName: string): Promise<string> {
+    return Promise.resolve(displayName);
+  }
+  prepareGridDuplicateStorage(
+    _request: PrepareGridDuplicateStorageRequest,
+  ): Promise<PrepareGridDuplicateStorageResponse> {
+    return Promise.resolve({
+      additionalBytesRequired: 0,
+      copiableCount: 0,
+      nonCopiableCount: 0,
+    });
   }
 }

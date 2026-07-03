@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { GridRevisionConflictError } from "@grids/contracts/dao";
+import type { Grid } from "@grids/contracts/types";
 import { GridPersistenceController } from "../../internal/GridPersistenceController";
 import {
   createHarness,
@@ -76,6 +78,20 @@ describe("GridPersistenceController", () => {
       expect(h.stores.session.persistenceError).toBeNull();
     });
 
+    it("updates the active grid rev from the saved scheduler snapshot", async () => {
+      seedSavableGrid();
+      vi.mocked(h.persistenceScheduler.flush).mockResolvedValueOnce(
+        makeGrid({ id: "grid-1", rev: 3 }),
+      );
+
+      controller.scheduleSave();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(h.stores.session.currentGrid?.rev).toBe(3);
+      expect(h.stores.session.persistenceStatus).toBe("idle");
+    });
+
     it("passes explicit resolved url maps into the snapshot builder", () => {
       h.stores.session.setCurrentGrid(
         makeGrid({
@@ -103,6 +119,42 @@ describe("GridPersistenceController", () => {
           tiles: [
             expect.objectContaining({
               content: expect.objectContaining({ src: "https://cdn/x" }),
+            }),
+          ],
+        }),
+      );
+    });
+
+    it("uses resolved upload maps from the upload store by default", () => {
+      h.stores.session.setCurrentGrid(
+        makeGrid({
+          id: "grid-1",
+          tiles: [
+            {
+              i: "t1",
+              x: 0,
+              y: 0,
+              w: 2,
+              h: 2,
+              caption: "",
+              content: { type: "image", src: "blob:x" } as never,
+            },
+          ],
+        }),
+      );
+      h.stores.session.setOwner(true);
+      h.stores.uploads.setResolvedUrl("t1", "https://cdn/from-store.png");
+
+      controller.scheduleSave();
+
+      expect(h.persistenceScheduler.schedule).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          tiles: [
+            expect.objectContaining({
+              content: expect.objectContaining({
+                src: "https://cdn/from-store.png",
+              }),
             }),
           ],
         }),
@@ -144,7 +196,7 @@ describe("GridPersistenceController", () => {
     });
 
     it("ignores a stale flush failure after the session changes", async () => {
-      const flushGate = deferred<void>();
+      const flushGate = deferred<Grid | null>();
       vi.mocked(h.persistenceScheduler.flush).mockReturnValueOnce(
         flushGate.promise,
       );
@@ -175,6 +227,22 @@ describe("GridPersistenceController", () => {
       await Promise.resolve();
 
       expect(h.stores.session.persistenceError).toBe("Failed to save grid.");
+    });
+
+    it("surfaces a conflict-specific error and does not report idle after stale rev rejection", async () => {
+      seedSavableGrid();
+      vi.mocked(h.persistenceScheduler.flush).mockRejectedValueOnce(
+        new GridRevisionConflictError("grid-1", 1, 2),
+      );
+
+      controller.scheduleSave();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(h.stores.session.persistenceStatus).toBe("error");
+      expect(h.stores.session.persistenceError).toBe(
+        "This grid has newer saved changes elsewhere. Refresh the grid before saving again.",
+      );
     });
   });
 

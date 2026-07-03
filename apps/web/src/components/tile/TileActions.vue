@@ -1,13 +1,25 @@
 <template>
-  <div
-    class="tile-actions"
-    :class="{ 'is-embed-interactive': isEmbedInteractive, 'just-exited-interactive': justExitedInteractive }"
-    @mousedown.stop
-    @touchstart.stop
-    @click.stop
-    @mouseenter="hoveredToolbarZone = 'actions'"
-    @mouseleave="hoveredToolbarZone = null"
-  >
+  <!-- Anchor stays in the tile so we can measure its top-right corner. The
+       action bar is teleported to <body> so the grid's overflow:hidden scale
+       wrapper can't clip it (e.g. when the tile sits on the last row). -->
+  <div ref="anchorRef" class="tile-actions-anchor" aria-hidden="true"></div>
+
+  <teleport to="body">
+    <div class="tile-actions-floating" :style="floatingStyle">
+      <div
+        class="tile-actions"
+        :class="{
+          'tile-actions--visible': actionsShown,
+          'tile-actions--dimmed': actionsDimmed,
+          'is-embed-interactive': isEmbedInteractive,
+          'just-exited-interactive': justExitedInteractive,
+        }"
+        @mousedown.stop
+        @touchstart.stop
+        @click.stop
+        @mouseenter="onActionsEnter"
+        @mouseleave="onActionsLeave"
+      >
     <!-- Primary button: delete normally, stop interacting when embed is active -->
     <FloatingTooltip
       :text="isEmbedInteractive ? 'Stop Interacting' : 'Delete'"
@@ -71,7 +83,9 @@
         </FloatingTooltip>
       </div>
     </div>
-  </div>
+      </div>
+    </div>
+  </teleport>
 </template>
 
 <script lang="ts">
@@ -81,6 +95,10 @@ import {
   computed,
   inject,
   ref,
+  watch,
+  nextTick,
+  onMounted,
+  onBeforeUnmount,
   type PropType,
   type Ref,
 } from "vue";
@@ -117,8 +135,92 @@ export default defineComponent({
     const gridView = proxyRefs(useGridViewContext());
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
     const isEmbedInteractive = inject<Ref<boolean>>("isEmbedInteractive", ref(false));
+    // Provided by Tile.vue — mirrors the hover/activation/embed visibility that
+    // used to be expressed as `.tile-wrapper:hover :deep(.tile-actions)` CSS,
+    // which no longer reaches the action bar now that it is teleported to <body>.
+    const tileActionsVisible = inject<Ref<boolean>>(
+      "tileActionsVisible",
+      ref(false),
+    );
     const justExitedInteractive = ref(false);
     const toastStore = useToastStore();
+
+    // Tracks hover over the (teleported) action bar itself so it doesn't vanish
+    // as the cursor moves onto it — it's no longer a DOM descendant of the tile.
+    const actionsHovered = ref(false);
+
+    // Anchor lives in the tile; its rect pins the teleported bar to the tile's
+    // top-right corner (where `.tile-actions` sits with top:-12 / right:-16).
+    const anchorRef = ref<HTMLElement | null>(null);
+    const floatingPos = ref({ top: 0, left: 0 });
+
+    const floatingStyle = computed(() => ({
+      top: `${floatingPos.value.top}px`,
+      left: `${floatingPos.value.left}px`,
+    }));
+
+    const actionsShown = computed(
+      () => tileActionsVisible.value || actionsHovered.value,
+    );
+
+    // Dim when another tile zone is the active hover target — matches the old
+    // `.tile-wrapper[data-active-zone="toolbar|avatar|radius|sides"]` rules.
+    const DIM_ZONES = ["toolbar", "avatar", "radius", "sides"];
+    const actionsDimmed = computed(() =>
+      DIM_ZONES.includes(hoveredToolbarZone?.value ?? ""),
+    );
+
+    const updateFloatingPosition = () => {
+      const el = anchorRef.value;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      // Anchor is a zero-size marker at the tile's top-right corner.
+      floatingPos.value = { top: r.top, left: r.right };
+    };
+
+    const onActionsEnter = () => {
+      if (hoveredToolbarZone) hoveredToolbarZone.value = "actions";
+      actionsHovered.value = true;
+    };
+
+    const onActionsLeave = () => {
+      if (hoveredToolbarZone) hoveredToolbarZone.value = null;
+      actionsHovered.value = false;
+    };
+
+    let rafId: number | null = null;
+    const schedulePosition = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        updateFloatingPosition();
+      });
+    };
+
+    // Keep the teleported bar pinned to its tile while visible (the tile can
+    // move on scroll/resize). Listeners are only active while shown.
+    watch(actionsShown, (shown, _prev, onCleanup) => {
+      if (!shown) return;
+      nextTick(updateFloatingPosition);
+      window.addEventListener("resize", schedulePosition);
+      window.addEventListener("scroll", schedulePosition, {
+        capture: true,
+        passive: true,
+      });
+      onCleanup(() => {
+        if (rafId != null) cancelAnimationFrame(rafId);
+        rafId = null;
+        window.removeEventListener("resize", schedulePosition);
+        window.removeEventListener("scroll", schedulePosition, {
+          capture: true,
+        });
+      });
+    });
+
+    onMounted(updateFloatingPosition);
+    onBeforeUnmount(() => {
+      if (rafId != null) cancelAnimationFrame(rafId);
+    });
 
     const isSuggestionTile = computed(
       () => props.tile.content.type === ContentType.SUGGESTION,
@@ -220,6 +322,12 @@ export default defineComponent({
       justExitedInteractive,
       onStopInteracting,
       resolvedTileUrl,
+      anchorRef,
+      floatingStyle,
+      actionsShown,
+      actionsDimmed,
+      onActionsEnter,
+      onActionsLeave,
     };
   },
 });
@@ -227,6 +335,26 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
+/* Zero-size marker left in the tile; the floating bar is pinned to it. */
+.tile-actions-anchor {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Teleported wrapper, pinned (via inline top/left) to the tile's top-right
+   corner. z-index lifts it above the grid's overflow:hidden scale wrapper and
+   fixed page chrome so a last-row tile's action bar is never clipped. */
+.tile-actions-floating {
+  position: fixed;
+  width: 0;
+  height: 0;
+  z-index: 10000;
+}
+
 .tile-actions {
   position: absolute;
   top: -12px;
@@ -237,10 +365,22 @@ export default defineComponent({
   align-items: center;
   gap: 16px;
 
-  /* Hidden by default */
+  /* Hidden by default; shown/dimmed via JS-driven classes (the old
+     `.tile-wrapper:hover :deep(.tile-actions)` rules can't reach it post-teleport). */
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--duration-fast) var(--easing-ease-out);
+}
+
+.tile-actions--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Declared after --visible so it wins at equal specificity when both apply. */
+.tile-actions--dimmed {
+  opacity: 0.15;
+  pointer-events: none;
 }
 
 .tile-actions-group-collapse {

@@ -595,6 +595,22 @@ export default defineComponent({
     );
     provide("tileToolbarVisible", isToolbarVisible);
 
+    // The tile action bar is likewise teleported to <body> (so it isn't clipped
+    // by the grid's overflow:hidden scale wrapper when a tile sits on the last
+    // row). Recreate the `.tile-wrapper:hover/.is-activated/.embed-is-interactive
+    // :deep(.tile-actions)` show rules (and the crop/exit/drag hide rules) here.
+    const isActionsVisible = computed(
+      () =>
+        !isExiting.value &&
+        !isDragging.value &&
+        !(isEditing.value && isCroppable.value) &&
+        !(isExitingCropMode.value && isCroppable.value) &&
+        (isHovered.value ||
+          isActivated.value ||
+          isEmbedInteractive.value),
+    );
+    provide("tileActionsVisible", isActionsVisible);
+
     // Toggle crop/zoom mode for image/video tiles
     const toggleCropMode = () => {
       if (!childComponent.value?.toggleEditMode) return;

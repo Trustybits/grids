@@ -24,7 +24,7 @@ export const onFileDeleted = functions.storage
 
     const { filePath, fileSize, userId } = storageObject;
 
-    logger.info("File deleted, updating storage usage", {
+    logger.info("Canonical file deleted, updating storage usage", {
       userId,
       filePath,
       fileSize,

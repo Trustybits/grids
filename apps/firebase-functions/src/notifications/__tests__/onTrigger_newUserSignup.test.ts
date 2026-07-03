@@ -4,6 +4,7 @@ import { noopIfMaintenance } from "../../maintenance.js";
 import { resetMaintenanceMock } from "../../__tests__/utils_testMocks.js";
 import { writeServerAnalyticsEvent } from "../../analytics/utils_writeServerEvent.js";
 import { isDevTeamMember } from "../utils_devTeam.js";
+import { syncDevAccountFlagForUser } from "../utils_devAccount.js";
 import { discordNewUsersWebhookUrl } from "../secrets.js";
 
 vi.mock("firebase-functions/v1", () => ({
@@ -33,6 +34,10 @@ vi.mock("../utils_devTeam.js", () => ({
   isDevTeamMember: vi.fn(),
 }));
 
+vi.mock("../utils_devAccount.js", () => ({
+  syncDevAccountFlagForUser: vi.fn(),
+}));
+
 vi.mock("../secrets.js", () => ({
   discordNewUsersWebhookUrl: { value: vi.fn() },
 }));
@@ -58,6 +63,7 @@ function user(providerId: string | null = "google.com") {
 beforeEach(() => {
   resetMaintenanceMock(noopIfMaintenance);
   vi.mocked(writeServerAnalyticsEvent).mockReset().mockResolvedValue(undefined);
+  vi.mocked(syncDevAccountFlagForUser).mockReset().mockResolvedValue(false);
   vi.mocked(isDevTeamMember).mockReset().mockReturnValue(false);
   vi.mocked(discordNewUsersWebhookUrl.value).mockReset().mockReturnValue("https://discord.test/hook");
   vi.mocked(logger.error).mockClear();
@@ -78,6 +84,7 @@ describe("onNewUserSignup", () => {
 
     expect(noopIfMaintenance).toHaveBeenCalledWith("onNewUserSignup");
     expect(writeServerAnalyticsEvent).not.toHaveBeenCalled();
+    expect(syncDevAccountFlagForUser).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -104,6 +111,10 @@ describe("onNewUserSignup", () => {
       gridId: null,
       metadata: { signInMethod },
     });
+    expect(syncDevAccountFlagForUser).toHaveBeenCalledWith(
+      "user-1",
+      "person@example.com",
+    );
   });
 
   it("skips Discord notification for dev team members after analytics is written", async () => {

@@ -31,6 +31,7 @@ import type { Request, Response } from "firebase-functions/v1";
 import { respondWithMaintenanceIfEnabled } from "../maintenance.js";
 import { getStorageBucket } from "../shared/utils_projectConfig.js";
 import { launchChromiumBrowser } from "./utils_browser.js";
+import { buildStorageDownloadUrl } from "./utils_storageDownloadUrl.js";
 
 // chromium and puppeteer are lazy-loaded inside captureBreakpoint.
 // Top-level imports cause the Firebase CLI's function-introspection server to
@@ -65,7 +66,7 @@ function storagePath(
 }
 
 function storageUrl(path: string): string {
-  return `https://firebasestorage.googleapis.com/v0/b/${BUCKET_NAME}/o/${encodeURIComponent(path)}?alt=media`;
+  return buildStorageDownloadUrl(BUCKET_NAME, path);
 }
 
 // ─── Screenshot capture ───────────────────────────────────────────────────────

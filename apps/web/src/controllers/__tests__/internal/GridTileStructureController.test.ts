@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import {
   AnalyticsEventType,
   ContentType,
+  type ChatContent,
+  type Tile,
   type TileContent,
 } from "@grids/contracts/types";
 import { createTileContent } from "@/utils/TileUtils";
@@ -27,6 +29,9 @@ describe("GridTileStructureController", () => {
   let pushUndoSnapshot: Mock<(actionLabel: string) => void>;
   let scheduleSave: Mock<() => void>;
   let refreshStableSnapshot: Mock<() => void>;
+  let recordChatTileForCleanup: Mock<
+    (gridId: string, tileId: string) => void
+  >;
   let controller: GridTileStructureController;
 
   beforeEach(() => {
@@ -36,6 +41,8 @@ describe("GridTileStructureController", () => {
     pushUndoSnapshot = vi.fn<(actionLabel: string) => void>();
     scheduleSave = vi.fn<() => void>();
     refreshStableSnapshot = vi.fn<() => void>();
+    recordChatTileForCleanup =
+      vi.fn<(gridId: string, tileId: string) => void>();
     controller = new GridTileStructureController(
       h.stores,
       h.dependencies,
@@ -43,6 +50,7 @@ describe("GridTileStructureController", () => {
       pushUndoSnapshot,
       scheduleSave,
       refreshStableSnapshot,
+      recordChatTileForCleanup,
     );
   });
 
@@ -268,6 +276,39 @@ describe("GridTileStructureController", () => {
       expect(scheduleSave).toHaveBeenCalledTimes(1);
       expect(refreshStableSnapshot).toHaveBeenCalledTimes(1);
       expect(h.logEvent).not.toHaveBeenCalled();
+    });
+
+    it("records a removed chat tile for deferred message cleanup", () => {
+      const tile: Tile = {
+        i: "chat-1",
+        x: 0,
+        y: 0,
+        w: 2,
+        h: 2,
+        caption: "",
+        content: { type: ContentType.CHAT, messages: [] } as ChatContent,
+      };
+      h.stores.session.setCurrentGrid(
+        makeGrid({ id: "grid-1", tiles: [tile] }),
+      );
+
+      controller.removeTile("chat-1");
+
+      expect(recordChatTileForCleanup).toHaveBeenCalledWith(
+        "grid-1",
+        "chat-1",
+      );
+      // Deferred, not immediate: the DAO/service is never touched here.
+      expect(h.deleteAllMessages).not.toHaveBeenCalled();
+    });
+
+    it("does not record cleanup when removing a non-chat tile", () => {
+      const tile = makeLinkTile({ i: "t1" });
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [tile] }));
+
+      controller.removeTile("t1");
+
+      expect(recordChatTileForCleanup).not.toHaveBeenCalled();
     });
   });
 

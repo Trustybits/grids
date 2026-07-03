@@ -4,6 +4,7 @@ import { noopIfMaintenance } from "../../maintenance.js";
 import { resetMaintenanceMock } from "../../__tests__/utils_testMocks.js";
 import { writeServerAnalyticsEvent } from "../../analytics/utils_writeServerEvent.js";
 import { isDevTeamMember } from "../utils_devTeam.js";
+import { syncDevAccountFlagForUser } from "../utils_devAccount.js";
 import { discordUserActivityWebhookUrl } from "../secrets.js";
 
 const { adminState } = vi.hoisted(() => ({
@@ -58,6 +59,10 @@ vi.mock("../utils_devTeam.js", () => ({
   isDevTeamMember: vi.fn(),
 }));
 
+vi.mock("../utils_devAccount.js", () => ({
+  syncDevAccountFlagForUser: vi.fn(),
+}));
+
 vi.mock("../secrets.js", () => ({
   discordUserActivityWebhookUrl: { value: vi.fn() },
 }));
@@ -89,6 +94,7 @@ beforeEach(() => {
   adminState.getUserReject = false;
   resetMaintenanceMock(noopIfMaintenance);
   vi.mocked(writeServerAnalyticsEvent).mockReset().mockResolvedValue(undefined);
+  vi.mocked(syncDevAccountFlagForUser).mockReset().mockResolvedValue(false);
   vi.mocked(isDevTeamMember).mockReset().mockReturnValue(false);
   vi.mocked(discordUserActivityWebhookUrl.value).mockReset().mockReturnValue("https://discord.test/hook");
   vi.mocked(logger.error).mockClear();
@@ -108,6 +114,7 @@ describe("onUserLogin", () => {
 
     expect(noopIfMaintenance).toHaveBeenCalledWith("onUserLogin");
     expect(writeServerAnalyticsEvent).not.toHaveBeenCalled();
+    expect(syncDevAccountFlagForUser).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -146,6 +153,10 @@ describe("onUserLogin", () => {
       gridId: null,
       metadata: { signInMethod },
     });
+    expect(syncDevAccountFlagForUser).toHaveBeenCalledWith(
+      "user-1",
+      "person@example.com",
+    );
   });
 
   it("falls back to unknown when auth provider lookup fails", async () => {

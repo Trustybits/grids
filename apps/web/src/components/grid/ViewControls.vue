@@ -21,39 +21,43 @@
     class="breakpoint-switcher"
     :class="[`breakpoint-switcher--${variant}`]"
   >
-    <button
+    <FloatingTooltip
       v-for="bp in breakpoints"
       :key="bp.key"
-      class="bp-btn"
-      :class="{
-        'bp-btn--active': isActive(bp.key),
-        'bp-btn--forced': viewportStore.forcedBreakpoint === bp.key,
-        'bp-btn--view-only': isLargerThanViewport(bp.key),
-      }"
-      :data-tooltip="tooltipFor(bp)"
-      @click="toggle(bp.key)"
+      :text="tooltipFor(bp)"
+      placement="bottom"
     >
-      <!-- Device icon — fades out on hover when this is a view-only breakpoint -->
-      <span class="bp-icon bp-icon--device">
-        <component :is="bp.icon" />
-      </span>
-      <!-- Full-size eye icon — fades in on hover for view-only breakpoints.
-           Always rendered in the DOM for smooth transitions, but invisible
-           (opacity 0) unless hovered on a view-only button. -->
-      <span
-        v-if="isLargerThanViewport(bp.key)"
-        class="bp-icon bp-icon--eye"
-        aria-hidden="true"
+      <button
+        class="bp-btn"
+        :class="{
+          'bp-btn--active': isActive(bp.key),
+          'bp-btn--forced': viewportStore.forcedBreakpoint === bp.key,
+          'bp-btn--view-only': isLargerThanViewport(bp.key),
+        }"
+        @click="toggle(bp.key)"
       >
-        <EyeIcon :size="20" />
-      </span>
-      <!-- Dot indicator when a saved override exists for this breakpoint -->
-      <span
-        v-if="!isLargerThanViewport(bp.key) && bp.key !== 'lg' && hasOverride(bp.key)"
-        class="bp-override-dot"
-        :title="`Saved ${bp.label} override`"
-      />
-    </button>
+        <!-- Device icon — fades out on hover when this is a view-only breakpoint -->
+        <span class="bp-icon bp-icon--device">
+          <component :is="bp.icon" />
+        </span>
+        <!-- Full-size eye icon — fades in on hover for view-only breakpoints.
+             Always rendered in the DOM for smooth transitions, but invisible
+             (opacity 0) unless hovered on a view-only button. -->
+        <span
+          v-if="isLargerThanViewport(bp.key)"
+          class="bp-icon bp-icon--eye"
+          aria-hidden="true"
+        >
+          <EyeIcon :size="28" />
+        </span>
+        <!-- Dot indicator when a saved override exists for this breakpoint -->
+        <span
+          v-if="!isLargerThanViewport(bp.key) && bp.key !== 'lg' && hasOverride(bp.key)"
+          class="bp-override-dot"
+          :title="`Saved ${bp.label} override`"
+        />
+      </button>
+    </FloatingTooltip>
   </div>
 </template>
 
@@ -65,6 +69,7 @@ import { useGridController } from "@/controllers/useGridController";
 import type { Breakpoint } from "@grids/contracts/types";
 import DeviceDesktopIcon from "@/components/icons/DeviceDesktopIcon.vue";
 import EyeIcon from "@/components/icons/EyeIcon.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import DeviceTabletIcon from "@/components/icons/DeviceTabletIcon.vue";
 import DeviceMobileIcon from "@/components/icons/DeviceMobileIcon.vue";
 
@@ -159,33 +164,32 @@ const toggle = (bp: Breakpoint) => {
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--bg-contrast-color-low, var(--color-content-default));
+  color: var(--color-content-default);
   cursor: pointer;
   padding: 0;
   line-height: 0;
   transition: all var(--duration-fast) var(--easing-smooth);
 
   &:hover {
-    background-color: var(--color-input-edit);
-    /* Purple tint on hover for all buttons, matching nav bar style */
+    /* Match the left nav: icon brightens to text-primary, no background, no purple */
     .bp-icon--device svg {
       opacity: 1;
-      color: var(--color-figma-purple, #a259ff);
+      color: var(--color-text-primary);
     }
   }
 
   /* Active breakpoint (auto-detected or forced) */
   &.bp-btn--active .bp-icon--device svg {
-    opacity: 0.85;
-    color: var(--bg-contrast-color, inherit);
+    opacity: 1;
+    color: var(--color-text-primary);
   }
 
-  /* Explicitly forced breakpoint — stronger highlight */
+  /* Explicitly forced breakpoint — keep a highlight so the locked breakpoint reads as selected */
   &.bp-btn--forced {
     background-color: var(--color-input-edit);
     .bp-icon--device svg {
       opacity: 1;
-      color: var(--bg-contrast-color, var(--color-text-primary));
+      color: var(--color-text-primary);
     }
   }
 
@@ -207,9 +211,10 @@ const toggle = (bp: Breakpoint) => {
       }
     }
 
-    /* When forced AND view-only, keep the forced bg but soften the device icon;
-       the eye icon is still revealed on hover. */
-    &.bp-btn--forced .bp-icon--device svg {
+    /* When forced AND view-only (but not hovered), keep the forced bg but
+       soften the device icon. Scoped to :not(:hover) so the hover cross-fade
+       above still fades the device fully out and reveals the eye. */
+    &.bp-btn--forced:not(:hover) .bp-icon--device svg {
       opacity: 0.5;
     }
   }
@@ -225,8 +230,9 @@ const toggle = (bp: Breakpoint) => {
   pointer-events: none;
 
   svg {
-    width: 20px;
-    height: 20px;
+    /* Icon size matches the GridToolbar (.toolbar-btn svg) */
+    width: 28px;
+    height: 28px;
     transition:
       opacity var(--duration-normal, 0.2s) var(--easing-smooth),
       color var(--duration-normal, 0.2s) var(--easing-smooth);
@@ -234,7 +240,7 @@ const toggle = (bp: Breakpoint) => {
 }
 
 .bp-icon--device svg {
-  opacity: 0.55;
+  opacity: 1;
 }
 
 /* Eye icon: hidden by default, purple-tinted, fades in on hover */

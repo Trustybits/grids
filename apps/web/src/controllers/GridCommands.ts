@@ -1,5 +1,5 @@
 import type { AnyTileContent, DocumentItem } from "@grids/contracts/types";
-import type { StorageUploadTask } from "@grids/contracts/dao";
+import type { CancelableUploadTask } from "@/stores/grid/gridUploads";
 
 /**
  * Typed command inputs for discrete grid mutations.
@@ -38,5 +38,5 @@ export interface StartUploadInput {
   itemId?: string;
   progress?: number;
   ownedObjectUrl?: string;
-  task?: StorageUploadTask;
+  task?: CancelableUploadTask;
 }

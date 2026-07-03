@@ -3,6 +3,9 @@ import * as logger from "firebase-functions/logger";
 import { noopIfMaintenance } from "../../maintenance.js";
 import { resetMaintenanceMock } from "../../__tests__/utils_testMocks.js";
 
+const HASH = "a".repeat(64);
+const CANONICAL_IMAGE_PATH = `users/user-1/images/${HASH}.png`;
+
 const { firestoreState } = vi.hoisted(() => ({
   firestoreState: {
     docs: new Map<string, Record<string, unknown>>(),
@@ -65,6 +68,7 @@ import { onFileDeleted as handlerExport } from "../onTrigger_fileDeleted.js";
 const onFileDeleted = handlerExport as unknown as (object: {
   name?: string;
   size?: string;
+  metadata?: Record<string, string>;
 }) => Promise<unknown>;
 
 beforeEach(() => {
@@ -95,16 +99,27 @@ describe("onFileDeleted", () => {
 
     await onFileDeleted({ name: "public/file.png", size: "10" });
     expect(logger.debug).toHaveBeenCalledWith(
-      "File is not in a user directory, skipping storage tracking",
+      "File is not a canonical user upload, skipping storage tracking",
       { filePath: "public/file.png" },
     );
     expect(firestoreState.txGetCalls).toEqual([]);
   });
 
+  it("skips objects tagged to bypass storage accounting", async () => {
+    await onFileDeleted({
+      name: CANONICAL_IMAGE_PATH,
+      size: "25",
+      metadata: { gridsStorageSkipAccounting: "true" },
+    });
+
+    expect(firestoreState.txGetCalls).toEqual([]);
+    expect(firestoreState.txUpdateCalls).toEqual([]);
+  });
+
   it("decrements storageUsed for an existing user", async () => {
     firestoreState.docs.set("users/user-1", { storageUsed: 100 });
 
-    await onFileDeleted({ name: "users/user-1/images/a.png", size: "25" });
+    await onFileDeleted({ name: CANONICAL_IMAGE_PATH, size: "25" });
 
     expect(firestoreState.txUpdateCalls).toEqual([
       { path: "users/user-1", data: { storageUsed: 75 } },
@@ -114,7 +129,7 @@ describe("onFileDeleted", () => {
   it("does not decrement below zero", async () => {
     firestoreState.docs.set("users/user-1", { storageUsed: 10 });
 
-    await onFileDeleted({ name: "users/user-1/images/a.png", size: "25" });
+    await onFileDeleted({ name: CANONICAL_IMAGE_PATH, size: "25" });
 
     expect(firestoreState.txUpdateCalls).toEqual([
       { path: "users/user-1", data: { storageUsed: 0 } },
@@ -125,7 +140,7 @@ describe("onFileDeleted", () => {
     firestoreState.docs.set("users/user-1", { storageUsed: 100 });
 
     await onFileDeleted({
-      name: "users/user-1/images/b.png",
+      name: CANONICAL_IMAGE_PATH,
       size: "not-a-number",
     });
 
@@ -135,7 +150,7 @@ describe("onFileDeleted", () => {
   });
 
   it("does not update when the user document is missing", async () => {
-    await onFileDeleted({ name: "users/user-1/images/a.png", size: "25" });
+    await onFileDeleted({ name: CANONICAL_IMAGE_PATH, size: "25" });
 
     expect(logger.warn).toHaveBeenCalledWith(
       "User document does not exist, cannot decrement storage",
@@ -147,12 +162,12 @@ describe("onFileDeleted", () => {
   it("logs and returns null when the transaction fails", async () => {
     firestoreState.transactionShouldThrow = true;
 
-    await expect(onFileDeleted({ name: "users/user-1/a.png", size: "10" })).resolves.toBeNull();
+    await expect(onFileDeleted({ name: CANONICAL_IMAGE_PATH, size: "10" })).resolves.toBeNull();
 
     expect(logger.error).toHaveBeenCalledWith("Failed to update storage usage on deletion", {
       error: "Error: transaction failed",
       userId: "user-1",
-      filePath: "users/user-1/a.png",
+      filePath: CANONICAL_IMAGE_PATH,
       fileSize: 10,
     });
   });

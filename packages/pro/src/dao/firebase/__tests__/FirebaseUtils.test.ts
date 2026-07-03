@@ -31,11 +31,13 @@ describe("mapFirestoreToGrid", () => {
     const grid = mapFirestoreToGrid(
       fakeDoc("grid-1", {
         userId: "user-1",
+        rev: 3,
         name: "My Grid",
         colNum: 6,
         verticalCompact: false,
         tiles,
         backgroundImageSrc: "https://img.png",
+        backgroundImageHash: "hash-1",
         backgroundEmbed: true,
         backgroundColor: "#fff",
         ogImageSrc: "https://og.png",
@@ -51,11 +53,13 @@ describe("mapFirestoreToGrid", () => {
     expect(grid).toEqual({
       id: "grid-1",
       userId: "user-1",
+      rev: 3,
       name: "My Grid",
       colNum: 6,
       verticalCompact: false,
       tiles,
       backgroundImageSrc: "https://img.png",
+      backgroundImageHash: "hash-1",
       backgroundEmbed: true,
       backgroundColor: "#fff",
       ogImageSrc: "https://og.png",
@@ -74,11 +78,13 @@ describe("mapFirestoreToGrid", () => {
     expect(grid).toEqual({
       id: "grid-empty",
       userId: "",
+      rev: 0,
       name: "Untitled",
       colNum: 12,
       verticalCompact: true,
       tiles: [],
       backgroundImageSrc: "",
+      backgroundImageHash: undefined,
       backgroundEmbed: false,
       backgroundColor: "",
       ogImageSrc: "",
@@ -122,5 +128,10 @@ describe("mapFirestoreToGrid", () => {
   it("treats an empty-string themeId as absent", () => {
     const grid = mapFirestoreToGrid(fakeDoc("g", { themeId: "" }));
     expect(grid.themeId).toBeUndefined();
+  });
+
+  it("defaults a missing rev to 0 for legacy grids", () => {
+    const grid = mapFirestoreToGrid(fakeDoc("legacy", { name: "Legacy" }));
+    expect(grid.rev).toBe(0);
   });
 });

@@ -28,6 +28,17 @@ export const ResizableImage = ImageExt.extend({
           return { "data-align": attrs.align };
         },
       },
+      // Authoritative archive key for user-owned inline uploads. Round-trips
+      // through the serialized JSON/HTML so refCount reconciliation and grid
+      // duplication can resolve the file by hash rather than URL parsing.
+      hash: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-hash") || null,
+        renderHTML: (attrs: Record<string, unknown>) => {
+          if (!attrs.hash) return {};
+          return { "data-hash": attrs.hash };
+        },
+      },
     };
   },
 

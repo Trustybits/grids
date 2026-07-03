@@ -1,12 +1,8 @@
 <template>
-  <div
-    class="user-menu"
-    v-if="user"
-    ref="menuRef"
-    :data-tooltip="showUserMenu ? null : 'User Menu'"
-  >
-    <button class="user-menu-button" @click="toggleUserMenu">
-      <div class="user-icon">
+  <div class="user-menu" v-if="user" ref="menuRef">
+    <FloatingTooltip :text="showUserMenu ? null : 'User Menu'" placement="right">
+      <button class="user-menu-button" @click="toggleUserMenu">
+        <div class="user-icon">
         <svg
           v-if="
             defaultGridProfileImageUrl &&
@@ -44,6 +40,7 @@
         <ProfileIcon v-else :size="20" />
       </div>
     </button>
+    </FloatingTooltip>
     <div class="user-menu-dropdown" v-if="showUserMenu" @click.stop>
       <div class="user-info-section">
         <button
@@ -104,6 +101,9 @@
         </router-link>
       </div>
       <div class="menu-divider"></div>
+      <button @click="openFileArchive" class="menu-action-item">
+        File Archive
+      </button>
       <button @click="logout" class="menu-action-item">Logout</button>
     </div>
     <div class="menu-divider"></div>
@@ -116,6 +116,12 @@
     @close="closeSlugModal"
     @success="handleSlugSuccess"
     @skip="closeSlugModal"
+  />
+
+  <!-- File Archive Modal -->
+  <FileArchiveModal
+    :is-open="showFileArchiveModal"
+    @close="showFileArchiveModal = false"
   />
 </template>
 
@@ -145,8 +151,10 @@ import {
   scaleAvatarRadius,
 } from "@/utils/AvatarShape";
 import SlugClaimModal from "@/components/modal/SlugClaimModal.vue";
+import FileArchiveModal from "@/components/modal/FileArchiveModal.vue";
 import ProfileIcon from "@/components/icons/ProfileIcon.vue";
 import EditIcon from "@/components/icons/EditIcon.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 
 const MENU_AVATAR_SIZE = 24;
 const MENU_AVATAR_POLYGON_INSET = 0.5;
@@ -155,8 +163,10 @@ export default defineComponent({
   name: "UserMenu",
   components: {
     SlugClaimModal,
+    FileArchiveModal,
     ProfileIcon,
     EditIcon,
+    FloatingTooltip,
   },
   setup() {
     const router = useRouter();
@@ -169,6 +179,7 @@ export default defineComponent({
     const menuRef = ref<HTMLElement | null>(null);
     const showUserMenu = ref(false);
     const showSlugModal = ref(false);
+    const showFileArchiveModal = ref(false);
     const currentSlug = ref<string | undefined>(undefined);
     const defaultGridId = ref<string | undefined>(undefined);
     const defaultGridProfileImageUrl = ref<string | undefined>(undefined);
@@ -333,6 +344,11 @@ export default defineComponent({
       showSlugModal.value = true;
     };
 
+    const openFileArchive = () => {
+      showUserMenu.value = false;
+      showFileArchiveModal.value = true;
+    };
+
     const goToDefaultGrid = () => {
       if (!defaultGridId.value) return;
       // router.push(`/grid/${defaultGridId.value}`);
@@ -359,6 +375,8 @@ export default defineComponent({
       toggleUserMenu,
       logout,
       showSlugModal,
+      showFileArchiveModal,
+      openFileArchive,
       currentSlug,
       defaultGridId,
       defaultGridProfileImageUrl,
@@ -393,9 +411,8 @@ export default defineComponent({
   width: 40px;
   height: 40px;
   border-radius: var(--radius-sm);
-  background: none;
-  //   background: var(--color-tile-background);
-  //   border: var(--tile-border-width) solid var(--color-tile-stroke);
+  background: color-mix(in srgb, var(--color-content-background) 89%, transparent);
+  border: none;
   cursor: pointer;
   color: var(--color-text-primary);
   transition: all var(--duration-fast) var(--easing-smooth);
@@ -407,7 +424,7 @@ export default defineComponent({
     justify-content: center;
     width: 20px;
     height: 20px;
-    color: var(--bg-contrast-color, var(--color-content-default));
+    color: var(--color-content-default);
     transition: color var(--duration-fast) var(--easing-smooth);
 
     svg {
@@ -433,10 +450,10 @@ export default defineComponent({
   }
 
   &:hover {
-    background: var(--color-base-34);
+    background: var(--color-content-background);
 
     .user-icon {
-      color: var(--color-figma-purple);
+      color: var(--color-text-primary);
     }
   }
 }

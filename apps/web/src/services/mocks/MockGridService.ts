@@ -9,6 +9,7 @@ const mockData: Grid = {
   colNum: 16,
   verticalCompact: false,
   userId: "me",
+  rev: 0,
   tiles: [
     createTile(
       ContentType.TEXT,
@@ -60,12 +61,14 @@ export class MockGridService implements GridServiceInterface {
     return { ...mockData };
   }
 
-  async saveGrid(_grid: Grid): Promise<void> {
+  async saveGrid(grid: Grid): Promise<Grid> {
     console.warn(`Saving grid`);
+    return { ...grid, rev: (grid.rev ?? 0) + 1 };
   }
 
-  async updateGrid(_grid: Grid): Promise<void> {
+  async updateGrid(grid: Grid): Promise<Grid> {
     console.warn(`Updating grid`);
+    return { ...grid, rev: (grid.rev ?? 0) + 1 };
   }
 
   async deleteGrid(id: string): Promise<void> {

@@ -9,6 +9,7 @@ export function createDefaultGrid(userId: string, name: string): Grid {
   return {
     id: "", // The DAO will provide the ID later
     userId,
+    rev: 0,
     name,
     colNum: 12, // Default number of columns
     verticalCompact: true, // Default to gravity ON

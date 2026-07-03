@@ -154,6 +154,7 @@ export function toGrid(id: string, data: Record<string, unknown>): Grid {
   return {
     id,
     userId: typeof data.userId === "string" ? data.userId : "",
+    rev: typeof data.rev === "number" ? data.rev : 0,
     name: typeof data.name === "string" ? data.name : "Untitled",
     colNum: typeof data.colNum === "number" ? data.colNum : 12,
     verticalCompact:
@@ -162,6 +163,10 @@ export function toGrid(id: string, data: Record<string, unknown>): Grid {
       typeof data.backgroundImageSrc === "string"
         ? data.backgroundImageSrc
         : "",
+    backgroundImageHash:
+      typeof data.backgroundImageHash === "string"
+        ? data.backgroundImageHash
+        : undefined,
     backgroundEmbed:
       typeof data.backgroundEmbed === "boolean" ? data.backgroundEmbed : false,
     backgroundColor:

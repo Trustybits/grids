@@ -5,7 +5,9 @@ export interface GridPersistenceScope {
   sessionGeneration: number;
 }
 
+export type GridPersistenceFlushResult = Grid | null | void;
+
 export interface GridPersistenceSchedulerInterface {
   schedule(scope: GridPersistenceScope, snapshot: Grid): void;
-  flush(scope: GridPersistenceScope): Promise<void>;
+  flush(scope: GridPersistenceScope): Promise<GridPersistenceFlushResult>;
 }

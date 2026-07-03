@@ -5,22 +5,31 @@ import { createTileContent } from "@/utils/TileUtils";
 import type { TileContent } from "@grids/contracts/types";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridController } from "@/controllers/useGridController";
-import type { UploadOptions } from "@/types/UploadFileTypes";
+import type {
+  ArchiveUploadResult,
+  ArchiveUploadTask,
+  UploadOptions,
+} from "@/types/UploadFileTypes";
 import { v4 as uuidv4 } from "uuid";
 import {
   ensureDocumentItemThumbnailOnServer,
   documentItemIsPdf,
 } from "@/composables/useDocumentThumbnail";
-import type {
-  StorageUploadProgress,
-  StorageUploadTask,
-} from "@grids/contracts/dao";
+import type { StorageUploadProgress } from "@grids/contracts/dao";
 
 type AuthProvider = ReturnType<typeof getAuthProvider>;
 type ServiceFactory = ReturnType<typeof getServiceFactory>;
 type StorageService = ReturnType<ServiceFactory["getStorageService"]>;
 type GridSessionStore = ReturnType<typeof useGridSessionStore>;
 type GridController = ReturnType<typeof useGridController>;
+
+/** Hashing occupies the first half of a media tile's progress bar, upload the second. */
+const HASH_PROGRESS_SHARE = 0.5;
+
+const uploadFraction = (progress: StorageUploadProgress): number =>
+  progress.totalBytes > 0
+    ? progress.bytesTransferred / progress.totalBytes
+    : 0;
 
 export function useFileUpload() {
   let authProvider: AuthProvider | null = null;
@@ -48,7 +57,7 @@ export function useFileUpload() {
     return controller;
   };
 
-  const cancelUploadTask = (uploadTask: StorageUploadTask) => {
+  const cancelUploadTask = (uploadTask: ArchiveUploadTask) => {
     try {
       uploadTask.cancel();
     } catch {
@@ -56,25 +65,81 @@ export function useFileUpload() {
     }
   };
 
+  const requireUserId = (): string => {
+    const currentUserId = getUploadAuthProvider().getCurrentUserId();
+    if (!currentUserId) {
+      throw new Error("You must be logged in to upload.");
+    }
+    return currentUserId;
+  };
+
   /**
-   * Upload a file to storage and return just the URL.
-   * Use this for cases where you need the URL directly (avatars, backgrounds, etc.).
+   * Upload a user-owned file through the archive flow and return the structured
+   * result (url + hash + path + type + size).
+   */
+  const uploadFileToArchive = async (
+    file: File,
+    options: UploadOptions = {},
+  ): Promise<ArchiveUploadResult> => {
+    const storageService = getUploadStorageService();
+    const currentUserId = requireUserId();
+    try {
+      return await storageService.uploadArchiveFile(
+        currentUserId,
+        file,
+        options,
+      );
+    } catch (error) {
+      console.error("uploadFileToArchive - Upload failed:", { error });
+      throw error;
+    }
+  };
+
+  /**
+   * Upload a file to storage and return just the URL. Back-compat helper for
+   * callers that only need a URL (e.g. smart-text inline images). The file is
+   * still routed through the archive flow so it is hashed, deduped, and counted.
    */
   const uploadFileToUrl = async (
     file: File,
     options: UploadOptions = {},
   ): Promise<string> => {
-    const authProvider = getUploadAuthProvider();
-    const storageService = getUploadStorageService();
-    const currentUserId = authProvider.getCurrentUserId();
-    if (!currentUserId) {
-      throw new Error("You must be logged in to upload.");
-    }
+    const result = await uploadFileToArchive(file, options);
+    return result.url;
+  };
 
+  /**
+   * Archive upload with resumable progress reporting. Returns the structured
+   * result. The optional `onProgress` callback receives a 0–1 fraction that
+   * spans both the hashing (first half) and byte-transfer (second half) phases.
+   */
+  const uploadFileToArchiveWithProgress = async (
+    file: File,
+    options: UploadOptions = {},
+    onProgress?: (fraction: number) => void,
+  ): Promise<ArchiveUploadResult> => {
+    const storageService = getUploadStorageService();
+    const currentUserId = requireUserId();
     try {
-      return await storageService.upload(currentUserId, file, options);
+      const uploadTask = storageService.uploadArchiveResumable(
+        currentUserId,
+        file,
+        options,
+      );
+      if (onProgress) {
+        uploadTask.onHashProgress((fraction) =>
+          onProgress(fraction * HASH_PROGRESS_SHARE),
+        );
+        uploadTask.onProgress((progress) =>
+          onProgress(
+            HASH_PROGRESS_SHARE +
+              (1 - HASH_PROGRESS_SHARE) * uploadFraction(progress),
+          ),
+        );
+      }
+      return await uploadTask.done();
     } catch (error) {
-      console.error("uploadFileToUrl - Upload failed:", {
+      console.error("uploadFileToArchiveWithProgress - Upload failed:", {
         error,
       });
       throw error;
@@ -82,84 +147,58 @@ export function useFileUpload() {
   };
 
   /**
-   * Upload a file to storage with resumable progress reporting and return just
-   * the URL. Use this when you need the URL directly but also want to surface
-   * upload progress (e.g. the profile avatar). The optional `onProgress`
-   * callback receives a 0–1 fraction of bytes transferred.
+   * Back-compat wrapper returning only the URL. Used where the caller does not
+   * yet capture the archive hash (e.g. profile avatar).
    */
   const uploadFileToUrlWithProgress = async (
     file: File,
     options: UploadOptions = {},
     onProgress?: (fraction: number) => void,
   ): Promise<string> => {
-    const authProvider = getUploadAuthProvider();
-    const storageService = getUploadStorageService();
-    const currentUserId = authProvider.getCurrentUserId();
-    if (!currentUserId) {
-      throw new Error("You must be logged in to upload.");
-    }
-
-    try {
-      const uploadTask = storageService.uploadResumable(
-        currentUserId,
-        file,
-        options,
-      );
-      if (onProgress) {
-        uploadTask.onProgress((progress: StorageUploadProgress) => {
-          onProgress(
-            progress.totalBytes > 0
-              ? progress.bytesTransferred / progress.totalBytes
-              : 0,
-          );
-        });
-      }
-      return await uploadTask.done();
-    } catch (error) {
-      console.error("uploadFileToUrlWithProgress - Upload failed:", {
-        error,
-      });
-      throw error;
-    }
+    const result = await uploadFileToArchiveWithProgress(
+      file,
+      options,
+      onProgress,
+    );
+    return result.url;
   };
 
   /**
-   * Upload a file to storage and return TileContent.
-   * Use this for creating new tiles from uploaded files (non-optimistic path).
+   * Upload a file to storage and return TileContent (non-optimistic path).
    */
   const uploadFile = async (
     file: File,
     options: UploadOptions = {},
   ): Promise<TileContent | null> => {
-    const url = await uploadFileToUrl(file, options);
+    const result = await uploadFileToArchive(file, options);
 
     const isImage = file.type.startsWith("image/");
     const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-    return createTileContent(contentType, { src: url });
+    return createTileContent(contentType, {
+      src: result.url,
+      srcHash: result.hash,
+    });
   };
 
   /**
-   * Optimistic upload for a **new** tile (toolbar button, drag-and-drop, paste).
+   * Optimistic upload for a **new** media tile (toolbar, drag-and-drop, paste).
    *
-   * 1. Creates a tile immediately with a local blob URL so the user sees instant feedback.
-   * 2. Uploads the file to storage in the background with progress tracking.
-   * 3. On completion, stores the storage URL in resolvedUrls for persistence
-   *    without swapping the displayed src (avoids flash / video playback interruption).
+   * 1. Creates a tile immediately with a local blob URL for instant feedback.
+   * 2. Hashes, authorizes, and uploads in the background with progress tracking
+   *    (hashing fills the first half of the bar, upload the second).
+   * 3. On finalize, records the storage URL and archive hash for persistence
+   *    without swapping the displayed src (avoids flash / playback interruption).
    * 4. On failure, removes the tile and alerts the user.
    */
   const uploadFileOptimistic = async (
     file: File,
     options: UploadOptions = {},
   ): Promise<void> => {
-    const authProvider = getUploadAuthProvider();
     const storageService = getUploadStorageService();
     const controller = getUploadController();
     const { isImage } = storageService.validateFile(file, options);
-
-    const currentUserId = authProvider.getCurrentUserId();
-    if (!currentUserId) {
-      throw new Error("You must be logged in to upload.");
-    }
+    requireUserId();
+    const currentUserId = getUploadAuthProvider().getCurrentUserId() as string;
 
     // Immediately show a local preview via blob URL
     const blobUrl = URL.createObjectURL(file);
@@ -174,8 +213,7 @@ export function useFileUpload() {
 
     let uploadId: string | null = null;
     try {
-      // Resumable upload to track progress
-      const uploadTask: StorageUploadTask = storageService.uploadResumable(
+      const uploadTask = storageService.uploadArchiveResumable(
         currentUserId,
         file,
         options,
@@ -193,18 +231,25 @@ export function useFileUpload() {
       }
       const currentUploadId = uploadId;
 
-      uploadTask.onProgress((progress: StorageUploadProgress) => {
+      uploadTask.onHashProgress((fraction) =>
         controller.progressUpload(
           currentUploadId,
-          progress.bytesTransferred / progress.totalBytes,
-        );
-      });
+          fraction * HASH_PROGRESS_SHARE,
+        ),
+      );
+      uploadTask.onProgress((progress) =>
+        controller.progressUpload(
+          currentUploadId,
+          HASH_PROGRESS_SHARE +
+            (1 - HASH_PROGRESS_SHARE) * uploadFraction(progress),
+        ),
+      );
 
-      const url = await uploadTask.done();
+      const result = await uploadTask.done();
 
-      // Store the permanent URL for persistence without touching the displayed src.
-      // This avoids a visible flash and keeps video playback uninterrupted.
-      controller.resolveUpload(currentUploadId, url);
+      // Store the permanent URL + archive hash for persistence without touching
+      // the displayed src. Avoids a visible flash and keeps playback smooth.
+      controller.resolveUpload(currentUploadId, result.url, result.hash);
     } catch (error) {
       console.error("File upload failed:", error);
       if (uploadId && controller.failUpload(uploadId)) {
@@ -216,24 +261,18 @@ export function useFileUpload() {
 
   /**
    * Optimistic upload for an **existing** tile (e.g. suggestion tile → media).
-   *
-   * Same flow as uploadFileOptimistic but updates the content of an existing tile
-   * rather than creating a new one. On failure, reverts the tile to a suggestion.
+   * On failure, reverts the tile to a suggestion.
    */
   const uploadFileOptimisticForTile = async (
     file: File,
     tileId: string,
     options: UploadOptions = {},
   ): Promise<void> => {
-    const authProvider = getUploadAuthProvider();
     const storageService = getUploadStorageService();
     const controller = getUploadController();
     const { isImage } = storageService.validateFile(file, options);
-
-    const currentUserId = authProvider.getCurrentUserId();
-    if (!currentUserId) {
-      throw new Error("You must be logged in to upload.");
-    }
+    requireUserId();
+    const currentUserId = getUploadAuthProvider().getCurrentUserId() as string;
 
     // Immediately show a local preview via blob URL
     const blobUrl = URL.createObjectURL(file);
@@ -243,7 +282,7 @@ export function useFileUpload() {
 
     let uploadId: string | null = null;
     try {
-      const uploadTask: StorageUploadTask = storageService.uploadResumable(
+      const uploadTask = storageService.uploadArchiveResumable(
         currentUserId,
         file,
         options,
@@ -261,16 +300,23 @@ export function useFileUpload() {
       }
       const currentUploadId = uploadId;
 
-      uploadTask.onProgress((progress: StorageUploadProgress) => {
+      uploadTask.onHashProgress((fraction) =>
         controller.progressUpload(
           currentUploadId,
-          progress.bytesTransferred / progress.totalBytes,
-        );
-      });
+          fraction * HASH_PROGRESS_SHARE,
+        ),
+      );
+      uploadTask.onProgress((progress) =>
+        controller.progressUpload(
+          currentUploadId,
+          HASH_PROGRESS_SHARE +
+            (1 - HASH_PROGRESS_SHARE) * uploadFraction(progress),
+        ),
+      );
 
-      const url = await uploadTask.done();
+      const result = await uploadTask.done();
 
-      controller.resolveUpload(currentUploadId, url);
+      controller.resolveUpload(currentUploadId, result.url, result.hash);
     } catch (error) {
       console.error("File upload failed:", error);
 
@@ -293,7 +339,6 @@ export function useFileUpload() {
     files: File[],
   ): Promise<void> => {
     if (files.length === 0) return;
-    const authProvider = getUploadAuthProvider();
     const storageService = getUploadStorageService();
     const controller = getUploadController();
     const sessionStore = getUploadSessionStore();
@@ -301,10 +346,8 @@ export function useFileUpload() {
       storageService.validateFile(f, { fileType: "documents" });
     }
 
-    const currentUserId = authProvider.getCurrentUserId();
-    if (!currentUserId) {
-      throw new Error("You must be logged in to upload.");
-    }
+    requireUserId();
+    const currentUserId = getUploadAuthProvider().getCurrentUserId() as string;
 
     const items = files.map((file) => ({
       id: uuidv4(),
@@ -331,7 +374,7 @@ export function useFileUpload() {
         const file = files[i];
         const item = items[i];
         if (!file || !item) continue;
-        const uploadTask = storageService.uploadResumable(
+        const uploadTask = storageService.uploadArchiveResumable(
           currentUserId,
           file,
           { fileType: "documents" },
@@ -351,22 +394,25 @@ export function useFileUpload() {
         }
 
         uploadTask.onProgress((progress) => {
-          const fileFrac =
-            progress.totalBytes > 0
-              ? progress.bytesTransferred / progress.totalBytes
-              : 0;
           controller.progressUpload(
             uploadId,
-            (completed + fileFrac) / n,
+            (completed + uploadFraction(progress)) / n,
           );
         });
 
-        const url = await uploadTask.done();
+        const result = await uploadTask.done();
         completed += 1;
         controller.progressUpload(uploadId, completed / n);
-        // Record each item's resolved URL without clearing progress yet; the
-        // single final save is scheduled and flushed after the loop.
-        if (!controller.resolveUpload(uploadId, url, i === n - 1)) {
+        // Record each item's resolved URL + hash without clearing progress yet;
+        // the single final save is scheduled and flushed after the loop.
+        if (
+          !controller.resolveUpload(
+            uploadId,
+            result.url,
+            result.hash,
+            i === n - 1,
+          )
+        ) {
           return;
         }
       }
@@ -411,34 +457,40 @@ export function useFileUpload() {
   };
 
   /**
-   * Fetch an external image URL, upload it to storage, and return our permanent URL.
-   * Use this when a user provides a remote image URL so we own a copy and avoid external dependency.
+   * Fetch an external image URL and copy it into the caller's archive. Returns
+   * the structured result (url + hash).
+   */
+  const uploadExternalImageToArchive = async (
+    externalUrl: string,
+  ): Promise<ArchiveUploadResult> => {
+    const storageService = getUploadStorageService();
+    const currentUserId = requireUserId();
+    return storageService.uploadExternalImageToArchive(
+      currentUserId,
+      externalUrl,
+    );
+  };
+
+  /**
+   * Back-compat wrapper returning only the URL for external-image imports.
    */
   const uploadExternalImageToStorage = async (
     externalUrl: string,
-    folder = "images",
   ): Promise<string> => {
-    const authProvider = getUploadAuthProvider();
-    const storageService = getUploadStorageService();
-    const currentUserId = authProvider.getCurrentUserId();
-    if (!currentUserId) {
-      throw new Error("You must be logged in to upload.");
-    }
-
-    return storageService.uploadExternalImage(
-      currentUserId,
-      externalUrl,
-      folder,
-    );
+    const result = await uploadExternalImageToArchive(externalUrl);
+    return result.url;
   };
 
   return {
     uploadFile,
     uploadFileToUrl,
+    uploadFileToArchive,
     uploadFileToUrlWithProgress,
+    uploadFileToArchiveWithProgress,
     uploadFileOptimistic,
     uploadDocumentsOptimistic,
     uploadFileOptimisticForTile,
     uploadExternalImageToStorage,
+    uploadExternalImageToArchive,
   };
 }

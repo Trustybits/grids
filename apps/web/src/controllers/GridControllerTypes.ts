@@ -1,6 +1,7 @@
 import type { AuthProvider } from "@grids/contracts/auth";
 import type { Breakpoint } from "@grids/contracts/types";
 import type { AnalyticsServiceInterface } from "@/services/interfaces/AnalyticsServiceInterface";
+import type { ChatServiceInterface } from "@/services/interfaces/ChatServiceInterface";
 import type { GridServiceInterface } from "@/services/interfaces/GridServiceInterface";
 import type { GridPersistenceSchedulerInterface } from "@/services/interfaces/GridPersistenceSchedulerInterface";
 import type { useGridCollectionStore } from "@/stores/grid/gridCollection";
@@ -34,6 +35,7 @@ export interface GridControllerDependencies {
   persistenceScheduler: GridPersistenceSchedulerInterface;
   getAuthProvider(): AuthProvider;
   getAnalyticsService(): AnalyticsServiceInterface;
+  getChatService(): ChatServiceInterface;
   generateUuid(): string;
   delay(milliseconds: number): Promise<void>;
   now(): Date;

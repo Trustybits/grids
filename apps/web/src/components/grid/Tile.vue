@@ -578,6 +578,39 @@ export default defineComponent({
       );
     });
 
+    // The tile toolbar is teleported to <body> so it floats above fixed page
+    // chrome (AppBar/TopBar) instead of being clipped by the tile's stacking
+    // context. That teleport breaks the descendant `.tile-wrapper:hover
+    // :deep(.tile-toolbar)` / `.is-activated` selectors that used to drive its
+    // visibility, so we recreate those exact show/hide rules here and provide
+    // the result to TileToolbar (which also ORs in its own hover state).
+    const isToolbarVisible = computed(
+      () =>
+        !isExiting.value &&
+        !isDragging.value &&
+        (isHovered.value ||
+          isActivated.value ||
+          (isEditing.value && isCroppable.value) ||
+          (isExitingCropMode.value && isCroppable.value)),
+    );
+    provide("tileToolbarVisible", isToolbarVisible);
+
+    // The tile action bar is likewise teleported to <body> (so it isn't clipped
+    // by the grid's overflow:hidden scale wrapper when a tile sits on the last
+    // row). Recreate the `.tile-wrapper:hover/.is-activated/.embed-is-interactive
+    // :deep(.tile-actions)` show rules (and the crop/exit/drag hide rules) here.
+    const isActionsVisible = computed(
+      () =>
+        !isExiting.value &&
+        !isDragging.value &&
+        !(isEditing.value && isCroppable.value) &&
+        !(isExitingCropMode.value && isCroppable.value) &&
+        (isHovered.value ||
+          isActivated.value ||
+          isEmbedInteractive.value),
+    );
+    provide("tileActionsVisible", isActionsVisible);
+
     // Toggle crop/zoom mode for image/video tiles
     const toggleCropMode = () => {
       if (!childComponent.value?.toggleEditMode) return;

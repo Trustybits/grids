@@ -10,6 +10,11 @@ export class StubbedCloudFunctionsDao implements CloudFunctionsDao {
         return this.stubLinkPreview(data) as TResponse;
       case "ensureDocumentItemThumbnail":
         return { skipped: true } as TResponse;
+      case "authorizeStorageUpload":
+        // No dedupe index in local mode: always require an upload. The service
+        // builds the canonical path itself and the stubbed archive DAO reports
+        // the upload as finalized immediately.
+        return { uploadRequired: true } as TResponse;
       case "ext-firestore-stripe-payments-createPortalLink":
         return { url: this.localUrl("/dashboard") } as TResponse;
       case "notionOAuthExchange":

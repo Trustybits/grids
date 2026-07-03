@@ -1,14 +1,12 @@
 <template>
-  <div
-    class="grid-menu"
-    ref="menuRef"
-    :data-tooltip="showMenu ? null : 'Grid Menu'"
-  >
-    <button type="button" class="grid-menu-button" @click.stop="toggleMenu">
-      <div class="grid-menu-icon">
-        <GridMenuIcon />
-      </div>
-    </button>
+  <div class="grid-menu" ref="menuRef">
+    <FloatingTooltip :text="showMenu ? null : 'Grid Menu'" placement="right">
+      <button type="button" class="grid-menu-button" @click.stop="toggleMenu">
+        <div class="grid-menu-icon">
+          <GridMenuIcon />
+        </div>
+      </button>
+    </FloatingTooltip>
 
     <div class="grid-menu-dropdown" v-if="showMenu" @click.stop>
       <!-- Grid Page ID -->
@@ -183,10 +181,12 @@ import MenuSection from "@/components/ui-collections/MenuSection.vue";
 import Divider from "@/components/ui-elements/Divider.vue";
 import GridMenuIcon from "@/components/icons/GridMenuIcon.vue";
 import GhostSplitButton from "@/components/ui-controls/GhostSplitButton.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
 import OgImageModal from "@/components/modal/OgImageModal.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
+import { useGridDuplicateStorage } from "@/composables/useGridDuplicateStorage";
 
 const router = useRouter();
 const sessionStore = useGridSessionStore();
@@ -207,7 +207,8 @@ const showOgImageModal = ref(false);
 const bgImageInput = ref<HTMLInputElement | null>(null);
 const bgSplitRef = ref<InstanceType<typeof GhostSplitButton> | null>(null);
 const bgChevronEl = computed(() => bgSplitRef.value?.chevronRef ?? null);
-const { uploadFileToUrl } = useFileUpload();
+const { uploadFileToArchive } = useFileUpload();
+const { resolveStoragePlan } = useGridDuplicateStorage();
 
 const isOwner = computed(() => {
   const userId = authProvider.getCurrentUserId();
@@ -339,13 +340,27 @@ const duplicatable = computed({
 const duplicateGrid = async (copyDepth: CopyDepth = "full") => {
   if (!sessionStore.currentGrid) return;
 
-  const newId = await controller.duplicateGrid(
-    sessionStore.currentGrid,
-    copyDepth,
-  );
-  closeMenu();
-  if (newId) {
-    router.push(`/grid/${newId}`);
+  try {
+    const storagePlan = await resolveStoragePlan(
+      sessionStore.currentGrid,
+      copyDepth,
+    );
+    if (storagePlan === null) return;
+
+    const newId = await controller.duplicateGrid(
+      sessionStore.currentGrid,
+      copyDepth,
+      storagePlan,
+    );
+    closeMenu();
+    if (newId) {
+      router.push(`/grid/${newId}`);
+    }
+  } catch (error) {
+    toastStore.addToast(
+      error instanceof Error ? error.message : "Failed to duplicate grid.",
+      "error",
+    );
   }
 };
 
@@ -378,8 +393,10 @@ const handleBackgroundImageUpload = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
   try {
-    const url = await uploadFileToUrl(file, { fileType: "images" });
-    controller.addBackgroundImage(url, false);
+    const { url, hash } = await uploadFileToArchive(file, {
+      fileType: "images",
+    });
+    controller.addBackgroundImage(url, false, hash);
   } catch (error: unknown) {
     console.error("Failed to upload background image:", error);
     toastStore.addToast(
@@ -441,7 +458,7 @@ const launchPixelRacers = () => {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-sm);
-  background: none;
+  background: color-mix(in srgb, var(--color-content-background) 89%, transparent);
   cursor: pointer;
   color: var(--color-text-primary);
   transition: all var(--duration-fast) var(--easing-smooth);
@@ -450,10 +467,10 @@ const launchPixelRacers = () => {
   line-height: 0;
 
   &:hover {
-    background: var(--color-base-34);
+    background: var(--color-content-background);
 
     .grid-menu-icon {
-      color: var(--color-figma-purple);
+      color: var(--color-text-primary);
     }
   }
 }
@@ -464,7 +481,7 @@ const launchPixelRacers = () => {
   justify-content: center;
   width: 20px;
   height: 20px;
-  color: var(--bg-contrast-color, var(--color-content-default));
+  color: var(--color-content-default);
   transition: color var(--duration-fast) var(--easing-smooth);
 
   svg {

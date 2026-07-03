@@ -28,7 +28,19 @@ function makeResizeButton(
       ctx.gridView.resizeTile(ctx.tile.i, w, h);
       ctx.childComponent.value?.onResize?.();
     },
-    isActive: (ctx) => ctx.tile.w === w && ctx.tile.h === h,
+    // Compare against the size actually rendered at the active breakpoint, not
+    // the tile's base (lg) dimensions. resizeTile writes per-breakpoint
+    // overrides on md/sm without touching tile.w/h, so reading tile.w/h here
+    // would highlight the desktop size instead of what's on screen. Fall back
+    // to the base size when no display position exists (e.g. lg, or in tests).
+    isActive: (ctx) => {
+      const shown = ctx.gridView.displayPositions.find(
+        (position) => position.i === ctx.tile.i,
+      );
+      const currentW = shown?.w ?? ctx.tile.w;
+      const currentH = shown?.h ?? ctx.tile.h;
+      return currentW === w && currentH === h;
+    },
   };
 }
 

@@ -1,5 +1,6 @@
 import {
   type Grid,
+  type ConfirmedGridDuplicateStorage,
   type CopyDepth,
   type Breakpoint,
   type TilePosition,
@@ -23,6 +24,130 @@ import heroGif from "@/assets/images/hero.gif";
 import type { GridServiceInterface } from "./interfaces/GridServiceInterface";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
+
+type DuplicateRewrite = NonNullable<
+  ConfirmedGridDuplicateStorage["rewriteMap"]
+>[string];
+
+const getRewriteForHash = (
+  hash: unknown,
+  storagePlan?: ConfirmedGridDuplicateStorage,
+): DuplicateRewrite | null => {
+  if (typeof hash !== "string" || !hash) return null;
+  return storagePlan?.rewriteMap?.[hash] ?? null;
+};
+
+const rewriteTiptapImages = (
+  text: string,
+  storagePlan?: ConfirmedGridDuplicateStorage,
+): string => {
+  if (!storagePlan?.rewriteMap) return text;
+  try {
+    const root = JSON.parse(text) as unknown;
+    let changed = false;
+    const visit = (node: unknown) => {
+      if (!node || typeof node !== "object") return;
+      const record = node as {
+        type?: unknown;
+        attrs?: { hash?: unknown; src?: unknown };
+        content?: unknown;
+      };
+      if (record.type === "image" && record.attrs) {
+        const rewrite = getRewriteForHash(record.attrs.hash, storagePlan);
+        if (rewrite) {
+          record.attrs.hash = rewrite.newHash;
+          record.attrs.src = rewrite.newUrl;
+          changed = true;
+        }
+      }
+      if (Array.isArray(record.content)) {
+        for (const child of record.content) visit(child);
+      }
+    };
+    visit(root);
+    return changed ? JSON.stringify(root) : text;
+  } catch {
+    return text;
+  }
+};
+
+const rewriteArchiveBackedContent = (
+  tile: Tile,
+  storagePlan?: ConfirmedGridDuplicateStorage,
+): Tile => {
+  if (!storagePlan?.rewriteMap) return tile;
+  const content = tile.content as unknown as Record<string, unknown>;
+  switch (content.type) {
+    case ContentType.IMAGE:
+    case ContentType.VIDEO: {
+      const rewrite = getRewriteForHash(content.srcHash, storagePlan);
+      if (rewrite) {
+        content.srcHash = rewrite.newHash;
+        content.src = rewrite.newUrl;
+      }
+      break;
+    }
+    case ContentType.DOCUMENT:
+      if (Array.isArray(content.items)) {
+        content.items = content.items.map((item) => {
+          if (!item || typeof item !== "object") return item;
+          const next = { ...(item as Record<string, unknown>) };
+          const rewrite = getRewriteForHash(next.hash, storagePlan);
+          if (rewrite) {
+            next.hash = rewrite.newHash;
+            next.url = rewrite.newUrl;
+          }
+          return next;
+        });
+      }
+      break;
+    case ContentType.LINK: {
+      const rewrite = getRewriteForHash(content.customImageHash, storagePlan);
+      if (rewrite) {
+        content.customImageHash = rewrite.newHash;
+        content.customImageUrl = rewrite.newUrl;
+      }
+      break;
+    }
+    case ContentType.PROFILE: {
+      const rewrite = getRewriteForHash(content.profilePhotoHash, storagePlan);
+      if (rewrite) {
+        content.profilePhotoHash = rewrite.newHash;
+        content.profilePhotoUrl = rewrite.newUrl;
+      }
+      break;
+    }
+    case ContentType.SMART_TEXT:
+      if (typeof content.text === "string") {
+        content.text = rewriteTiptapImages(content.text, storagePlan);
+      }
+      break;
+  }
+  return tile;
+};
+
+const rewriteBackgroundImage = (
+  sourceGrid: Grid,
+  storagePlan?: ConfirmedGridDuplicateStorage,
+): Pick<Grid, "backgroundImageSrc" | "backgroundImageHash"> => {
+  if (storagePlan?.removeBackgroundImage) {
+    return {
+      backgroundImageSrc: "",
+      backgroundImageHash: "",
+    };
+  }
+  const rewrite = getRewriteForHash(sourceGrid.backgroundImageHash, storagePlan);
+  if (!rewrite) {
+    return {
+      backgroundImageSrc: sourceGrid.backgroundImageSrc || "",
+      backgroundImageHash: sourceGrid.backgroundImageHash,
+    };
+  }
+  return {
+    backgroundImageSrc: rewrite.newUrl,
+    backgroundImageHash: rewrite.newHash,
+  };
+};
 
 // Maps a real tile content type to the best-matching suggestion action so that
 // structure-only copies produce useful placeholder tiles instead of empty
@@ -226,17 +351,26 @@ export class GridService implements GridServiceInterface {
 
   // ── Core CRUD ──────────────────────────────────────────────────────
 
+  private readGridRev(grid: Grid): number {
+    return typeof grid.rev === "number" && Number.isFinite(grid.rev)
+      ? grid.rev
+      : 0;
+  }
+
   private buildGridPayload(
     grid: Grid,
     mode: "save" | "update",
+    nextRev: number,
   ): Record<string, unknown> {
     const editableFields = {
+      rev: nextRev,
       name: grid.name,
       colNum: grid.colNum,
       verticalCompact: grid.verticalCompact,
       // Safety net: strip any blob: URLs that weren't already resolved
       tiles: stripBlobUrlsFromTiles(grid.tiles as unknown[]),
       backgroundImageSrc: grid.backgroundImageSrc,
+      backgroundImageHash: grid.backgroundImageHash ?? "",
       backgroundEmbed: grid.backgroundEmbed,
       backgroundColor: grid.backgroundColor ?? "",
       ogImageSrc: grid.ogImageSrc ?? "",
@@ -278,10 +412,14 @@ export class GridService implements GridServiceInterface {
   }
 
   // Save a new grid (or overwrite)
-  async saveGrid(grid: Grid): Promise<void> {
+  async saveGrid(grid: Grid): Promise<Grid> {
     try {
-      const payload = this.buildGridPayload(grid, "save");
-      await this.gridDao.save(grid.id, payload);
+      const expectedRev = this.readGridRev(grid);
+      const nextRev = expectedRev + 1;
+      const payload = this.buildGridPayload(grid, "save", nextRev);
+      await this.gridDao.save(grid.id, payload, expectedRev);
+      grid.rev = nextRev;
+      return { ...grid };
     } catch (error) {
       console.error(`Error saving grid with ID ${grid.id}:`, error);
       throw error;
@@ -289,10 +427,14 @@ export class GridService implements GridServiceInterface {
   }
 
   // Update an existing grid (partial)
-  async updateGrid(grid: Grid): Promise<void> {
+  async updateGrid(grid: Grid): Promise<Grid> {
     try {
-      const payload = this.buildGridPayload(grid, "update");
-      await this.gridDao.update(grid.id, payload);
+      const expectedRev = this.readGridRev(grid);
+      const nextRev = expectedRev + 1;
+      const payload = this.buildGridPayload(grid, "update", nextRev);
+      await this.gridDao.update(grid.id, payload, expectedRev);
+      grid.rev = nextRev;
+      return { ...grid };
     } catch (error) {
       console.error(`Error updating grid with ID ${grid.id}:`, error);
       throw error;
@@ -355,16 +497,20 @@ export class GridService implements GridServiceInterface {
     sourceGrid: Grid,
     clonedTiles: Grid["tiles"],
     newOverrides: Grid["overrides"],
+    storagePlan?: ConfirmedGridDuplicateStorage,
   ): Promise<Grid> {
     try {
+      const background = rewriteBackgroundImage(sourceGrid, storagePlan);
       const newGrid: Grid = {
         id: this.gridDao.generateId(),
         userId,
+        rev: 0,
         name: `Copy of ${sourceGrid.name || "Untitled"}`,
         colNum: sourceGrid.colNum,
         verticalCompact: sourceGrid.verticalCompact,
         tiles: clonedTiles,
-        backgroundImageSrc: sourceGrid.backgroundImageSrc || "",
+        backgroundImageSrc: background.backgroundImageSrc,
+        backgroundImageHash: background.backgroundImageHash,
         backgroundEmbed: sourceGrid.backgroundEmbed || false,
         themeId: sourceGrid.themeId,
         overrides: newOverrides,
@@ -447,7 +593,9 @@ export class GridService implements GridServiceInterface {
     userId: string,
     sourceGrid: Grid,
     copyDepth: CopyDepth = "full",
+    storagePlan?: ConfirmedGridDuplicateStorage,
   ): Promise<Grid> {
+    const replacementTileIds = new Set(storagePlan?.replacementTileIds ?? []);
     // Deep-clone tiles so mutations don't affect the source grid.
     // Each tile gets a fresh UUID to avoid ID collisions.
     const clonedTiles = (
@@ -456,7 +604,7 @@ export class GridService implements GridServiceInterface {
       const oldId = tile.i;
       tile.i = uuidv4();
 
-      if (copyDepth === "structure") {
+      if (copyDepth === "structure" || replacementTileIds.has(oldId)) {
         // Structure-only: replace each tile with a SUGGESTION placeholder whose
         // action hint matches the original content type. This gives the new owner
         // useful "Add Media" / "Add Text" / etc. prompts instead of empty typed
@@ -466,6 +614,7 @@ export class GridService implements GridServiceInterface {
           action,
         });
       } else {
+        rewriteArchiveBackedContent(tile, storagePlan);
         // Full copy: preserve content, but clear ephemeral/user-generated data
         if (tile.content.type === ContentType.CHAT) {
           (tile.content as ChatContent).messages = [];
@@ -503,6 +652,7 @@ export class GridService implements GridServiceInterface {
       sourceGrid,
       clonedTiles.map(({ tile }) => tile),
       newOverrides,
+      storagePlan,
     );
   }
 }

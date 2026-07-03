@@ -10,7 +10,9 @@ import {
   query,
   where,
   serverTimestamp,
+  runTransaction,
 } from "firebase/firestore";
+import { GridRevisionConflictError } from "@grids/contracts/dao";
 import { FirebaseGridDao } from "../FirebaseGridDao.js";
 import type { Firestore } from "firebase/firestore";
 
@@ -51,11 +53,13 @@ describe("FirebaseGridDao", () => {
     it("returns the mapped grid when the document exists", async () => {
       const data = {
         userId: "u1",
+        rev: 2,
         name: "My Grid",
         colNum: 6,
         verticalCompact: false,
         tiles: [{ id: "t1" }],
         backgroundImageSrc: "https://img.png",
+        backgroundImageHash: "hash-1",
         backgroundEmbed: true,
         themeId: "dark",
         duplicatable: true,
@@ -74,11 +78,13 @@ describe("FirebaseGridDao", () => {
       expect(result).toEqual({
         id: "grid-1",
         userId: "u1",
+        rev: 2,
         name: "My Grid",
         colNum: 6,
         verticalCompact: false,
         tiles: [{ id: "t1" }],
         backgroundImageSrc: "https://img.png",
+        backgroundImageHash: "hash-1",
         backgroundEmbed: true,
         backgroundColor: "",
         ogImageSrc: "",
@@ -164,6 +170,60 @@ describe("FirebaseGridDao", () => {
       expect(doc).toHaveBeenCalledWith(fakeDb, "grids", "grid-1");
       expect(setDoc).toHaveBeenCalledWith("docRef", data, { merge: true });
     });
+
+    it("uses a transaction when an expected rev is provided", async () => {
+      const transaction = {
+        get: vi.fn().mockResolvedValue(fakeSnapshot("grid-1", { rev: 4 })),
+        set: vi.fn(),
+        update: vi.fn(),
+      };
+      vi.mocked(doc).mockReturnValue("docRef" as any);
+      vi.mocked(runTransaction).mockImplementation(
+        (_db: any, updateFn: any) => updateFn(transaction) as any,
+      );
+
+      const data = { name: "Updated", rev: 5 };
+      await dao.save("grid-1", data, 4);
+
+      expect(transaction.get).toHaveBeenCalledWith("docRef");
+      expect(transaction.set).toHaveBeenCalledWith("docRef", data, {
+        merge: true,
+      });
+      expect(setDoc).not.toHaveBeenCalled();
+    });
+
+    it("treats a missing stored rev as 0 in revision checks", async () => {
+      const transaction = {
+        get: vi.fn().mockResolvedValue(fakeSnapshot("grid-1", {})),
+        set: vi.fn(),
+        update: vi.fn(),
+      };
+      vi.mocked(doc).mockReturnValue("docRef" as any);
+      vi.mocked(runTransaction).mockImplementation(
+        (_db: any, updateFn: any) => updateFn(transaction) as any,
+      );
+
+      await dao.save("grid-1", { name: "Legacy save", rev: 1 }, 0);
+
+      expect(transaction.set).toHaveBeenCalled();
+    });
+
+    it("rejects a stale expected rev", async () => {
+      const transaction = {
+        get: vi.fn().mockResolvedValue(fakeSnapshot("grid-1", { rev: 6 })),
+        set: vi.fn(),
+        update: vi.fn(),
+      };
+      vi.mocked(doc).mockReturnValue("docRef" as any);
+      vi.mocked(runTransaction).mockImplementation(
+        (_db: any, updateFn: any) => updateFn(transaction) as any,
+      );
+
+      await expect(
+        dao.save("grid-1", { name: "Stale", rev: 5 }, 4),
+      ).rejects.toBeInstanceOf(GridRevisionConflictError);
+      expect(transaction.set).not.toHaveBeenCalled();
+    });
   });
 
   // ── update ────────────────────────────────────────────────────────────────
@@ -178,6 +238,24 @@ describe("FirebaseGridDao", () => {
 
       expect(doc).toHaveBeenCalledWith(fakeDb, "grids", "grid-1");
       expect(updateDoc).toHaveBeenCalledWith("docRef", data);
+    });
+
+    it("updates through a revision transaction when an expected rev is provided", async () => {
+      const transaction = {
+        get: vi.fn().mockResolvedValue(fakeSnapshot("grid-1", { rev: 1 })),
+        set: vi.fn(),
+        update: vi.fn(),
+      };
+      vi.mocked(doc).mockReturnValue("docRef" as any);
+      vi.mocked(runTransaction).mockImplementation(
+        (_db: any, updateFn: any) => updateFn(transaction) as any,
+      );
+
+      const data = { name: "Renamed", rev: 2 };
+      await dao.update("grid-1", data, 1);
+
+      expect(transaction.update).toHaveBeenCalledWith("docRef", data);
+      expect(updateDoc).not.toHaveBeenCalled();
     });
   });
 

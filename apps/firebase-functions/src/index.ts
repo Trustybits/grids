@@ -12,6 +12,11 @@ export { updateDefaultGrid } from "./accounts/onCall_updateDefaultGrid.js";
 export { trackGridViewEndBeacon } from "./analytics/onRequest_trackGridViewEndBeacon.js";
 export { onAnalyticsEventCreated } from "./analytics/onTrigger_analyticsEventCreated.js";
 
+// grids
+
+export { cleanupGridSubcollectionsOnDelete } from "./grids/onTrigger_gridDeleted_cleanupSubcollections.js";
+export { sweepOrphanedSubcollections } from "./grids/onSchedule_sweepOrphanedSubcollections.js";
+
 // integrations
 
 export { fetchNotionRoadmap } from "./integrations/onCall_fetchNotionRoadmap.js";
@@ -35,11 +40,22 @@ export { getYouTubeMetadata } from "./scraping/onCall_getYouTubeMetadata.js";
 
 // storage
 
+export { authorizeStorageUpload } from "./storage/onCall_authorizeStorageUpload.js";
+export { deleteStorageUpload } from "./storage/onCall_deleteStorageUpload.js";
 export { ensureDocumentItemThumbnail } from "./storage/onCall_ensureDocumentItemThumbnail.js";
+export { getStorageUploadDownloadUrl } from "./storage/onCall_getStorageUploadDownloadUrl.js";
+export { prepareGridDuplicateStorage } from "./storage/onCall_prepareGridDuplicateStorage.js";
+export { setStorageUploadDisplayName } from "./storage/onCall_setStorageUploadDisplayName.js";
+export { setStorageUploadShareable } from "./storage/onCall_setStorageUploadShareable.js";
 export { generateThumbnail } from "./storage/onRequest_generateBreakpointThumbnail.js";
 export { generateOgImage } from "./storage/onRequest_generateOgImage.js";
 export { onFileDeleted } from "./storage/onTrigger_fileDeleted.js";
 export { onFileUploaded } from "./storage/onTrigger_fileUploaded.js";
+export {
+  onGridStorageReferencesCreated,
+  onGridStorageReferencesDeleted,
+  onGridStorageReferencesUpdated,
+} from "./storage/onTrigger_gridStorageReferences.js";
 
 // badges
 

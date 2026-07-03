@@ -1,6 +1,10 @@
 import { defineStore } from "pinia";
 import { markRaw } from "vue";
-import type { StorageUploadTask } from "@grids/contracts/dao";
+
+/** Minimal handle the store needs to cancel an in-flight upload. */
+export interface CancelableUploadTask {
+  cancel(): void;
+}
 
 export type GridUploadStatus =
   | "active"
@@ -18,9 +22,10 @@ export interface GridUploadRecord {
   progress: number;
   ownedObjectUrl?: string;
   resolvedUrl?: string;
+  resolvedHash?: string;
   status: GridUploadStatus;
   generation: number;
-  task?: StorageUploadTask;
+  task?: CancelableUploadTask;
 }
 
 export interface StartGridUploadInput {
@@ -31,7 +36,7 @@ export interface StartGridUploadInput {
   documentItemId?: string;
   progress?: number;
   ownedObjectUrl?: string;
-  task?: StorageUploadTask;
+  task?: CancelableUploadTask;
 }
 
 const isBlobUrl = (url: string | undefined): url is string =>
@@ -64,6 +69,11 @@ export const useGridUploadsStore = defineStore("gridUploads", {
     uploadingTiles: {} as Record<string, number>,
     resolvedUrls: {} as Record<string, string>,
     resolvedDocumentItemUrls: {} as Record<
+      string,
+      Record<string, string>
+    >,
+    resolvedHashes: {} as Record<string, string>,
+    resolvedDocumentItemHashes: {} as Record<
       string,
       Record<string, string>
     >,
@@ -127,6 +137,7 @@ export const useGridUploadsStore = defineStore("gridUploads", {
     resolveUpload(
       uploadId: string,
       url: string,
+      hash?: string,
       final = true,
     ): boolean {
       const record = this.uploadRecords[uploadId];
@@ -134,14 +145,25 @@ export const useGridUploadsStore = defineStore("gridUploads", {
 
       record.status = "resolved";
       record.resolvedUrl = url;
+      record.resolvedHash = hash;
       if (record.documentItemId) {
         this.setResolvedDocumentItemUrl(
           record.tileId,
           record.documentItemId,
           url,
         );
+        if (hash) {
+          this.setResolvedDocumentItemHash(
+            record.tileId,
+            record.documentItemId,
+            hash,
+          );
+        }
       } else {
         this.setResolvedUrl(record.tileId, url);
+        if (hash) {
+          this.setResolvedHash(record.tileId, hash);
+        }
       }
       if (final) {
         this.clearTileUploading(record.tileId);
@@ -235,6 +257,15 @@ export const useGridUploadsStore = defineStore("gridUploads", {
 
     clearResolvedUrl(tileId: string) {
       delete this.resolvedUrls[tileId];
+      delete this.resolvedHashes[tileId];
+    },
+
+    setResolvedHash(tileId: string, hash: string) {
+      this.resolvedHashes[tileId] = hash;
+    },
+
+    getResolvedHash(tileId: string): string | undefined {
+      return this.resolvedHashes[tileId];
     },
 
     setResolvedDocumentItemUrl(
@@ -246,8 +277,18 @@ export const useGridUploadsStore = defineStore("gridUploads", {
       this.resolvedDocumentItemUrls[tileId][itemId] = url;
     },
 
+    setResolvedDocumentItemHash(
+      tileId: string,
+      itemId: string,
+      hash: string,
+    ) {
+      this.resolvedDocumentItemHashes[tileId] ??= {};
+      this.resolvedDocumentItemHashes[tileId][itemId] = hash;
+    },
+
     clearResolvedDocumentItemsForTile(tileId: string) {
       delete this.resolvedDocumentItemUrls[tileId];
+      delete this.resolvedDocumentItemHashes[tileId];
     },
 
     clearTileState(tileId: string, ownedObjectUrls: string[] = []) {

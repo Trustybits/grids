@@ -33,6 +33,8 @@ import {
 interface CtxOptions {
   tile?: Record<string, unknown>;
   child?: Record<string, unknown> | null;
+  /** Breakpoint-resolved layout the toolbar reads for resize highlighting. */
+  display?: Array<{ i: string; w: number; h: number }>;
 }
 
 function makeCtx(opts: CtxOptions = {}) {
@@ -41,6 +43,7 @@ function makeCtx(opts: CtxOptions = {}) {
     toggleTileBorder: vi.fn(),
     toggleLinkBackground: vi.fn(),
     setPanelActive: vi.fn(),
+    displayPositions: opts.display ?? [],
   };
   const ctx = {
     tile: { i: "tile-1", w: 1, h: 1, ...opts.tile },
@@ -101,6 +104,29 @@ describe("resize button factory (RESIZE_* presets)", () => {
 
     expect(RESIZE_5x1.isActive?.(match)).toBe(true);
     expect(RESIZE_5x1.isActive?.(swapped)).toBe(false);
+  });
+
+  it("isActive reflects the rendered breakpoint size, not the base tile size", () => {
+    // Tile's base (lg) size is 3x2, but at the active breakpoint a per-breakpoint
+    // override renders it at 2x2 — the 2x2 preset should be the highlighted one.
+    const { ctx } = makeCtx({
+      tile: { i: "t", w: 3, h: 2 },
+      display: [{ i: "t", w: 2, h: 2 }],
+    });
+
+    expect(RESIZE_2x2.isActive?.(ctx)).toBe(true);
+    expect(RESIZE_3x2.isActive?.(ctx)).toBe(false);
+  });
+
+  it("isActive falls back to the base tile size when no display position exists", () => {
+    // No matching display entry (e.g. lg, where the base size is authoritative).
+    const { ctx } = makeCtx({
+      tile: { i: "t", w: 4, h: 4 },
+      display: [{ i: "other", w: 1, h: 1 }],
+    });
+
+    expect(RESIZE_4x4.isActive?.(ctx)).toBe(true);
+    expect(RESIZE_2x2.isActive?.(ctx)).toBe(false);
   });
 
   // The remaining exported presets are used by real tile toolbars

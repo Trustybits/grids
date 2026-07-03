@@ -16,6 +16,7 @@ These conventions apply to all folders and files within the `src/` folder.
 - Prepend with `onCall` when functions are of the Callable type (use https.onCall specifically). Example: `onCall_claimSlug.ts`
 - Prepend with `onRequest` when functions are of the HTTP Request type (use https.onRequest specifically). Example: `onRequest_trackGridViewEndBeacon.ts`
 - Prepend with `onTrigger` when functions are of the Background Trigger type (uses any kind of Firebase invocation configuration). Example: `onTrigger_userLogin.ts`
+- Prepend with `onSchedule` when functions are of the Scheduled type (use `functions.pubsub.schedule(...)` / `onRun`). Example: `onSchedule_sweepOrphanedSubcollections.ts`
 - Following the prepend, the name should describe what the function does
 
 **Other types of files follow these naming rules:**

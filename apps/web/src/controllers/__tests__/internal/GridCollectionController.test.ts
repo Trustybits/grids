@@ -241,7 +241,9 @@ describe("GridCollectionController", () => {
     it("renames the collection grid and persists it", async () => {
       const grid = makeGrid({ id: "g1", name: "Old" });
       h.stores.collection.setGrids([grid]);
-      vi.mocked(h.gridService.updateGrid).mockResolvedValue(undefined);
+      vi.mocked(h.gridService.updateGrid).mockResolvedValue(
+        makeGrid({ id: "g1", name: "New", rev: 1 }),
+      );
 
       await controller.renameGrid("g1", "New", null);
 
@@ -255,7 +257,9 @@ describe("GridCollectionController", () => {
       const collectionGrid = makeGrid({ id: "g1", name: "Old" });
       const activeGrid = makeGrid({ id: "g1", name: "Old" });
       h.stores.collection.setGrids([collectionGrid]);
-      vi.mocked(h.gridService.updateGrid).mockResolvedValue(undefined);
+      vi.mocked(h.gridService.updateGrid).mockResolvedValue(
+        makeGrid({ id: "g1", name: "New", rev: 1 }),
+      );
 
       await controller.renameGrid("g1", "New", activeGrid);
 
@@ -266,7 +270,9 @@ describe("GridCollectionController", () => {
       const collectionGrid = makeGrid({ id: "g1", name: "Old" });
       const activeGrid = makeGrid({ id: "other", name: "Active" });
       h.stores.collection.setGrids([collectionGrid]);
-      vi.mocked(h.gridService.updateGrid).mockResolvedValue(undefined);
+      vi.mocked(h.gridService.updateGrid).mockResolvedValue(
+        makeGrid({ id: "g1", name: "New", rev: 1 }),
+      );
 
       await controller.renameGrid("g1", "New", activeGrid);
 

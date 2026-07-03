@@ -2,21 +2,36 @@ import { ContentType, type DocumentsContent, type Grid } from "@grids/contracts/
 
 export type ResolvedMediaUrlMap = Record<string, string>;
 export type ResolvedDocumentItemUrlMap = Record<string, Record<string, string>>;
+export type ResolvedMediaHashMap = Record<string, string>;
+export type ResolvedDocumentItemHashMap = Record<
+  string,
+  Record<string, string>
+>;
 
 /**
  * Deep-clone the active grid into a plain persistable snapshot, replacing any
- * known optimistic blob URLs with resolved storage URLs and stripping any
- * unresolved blob URLs as a final safety net.
+ * known optimistic blob URLs with resolved storage URLs (and stamping their
+ * archive hash), and stripping any unresolved blob URLs as a final safety net.
+ *
+ * The archive hash is the authoritative `users/{uid}/uploads/{hash}` key. It is
+ * only stamped when the tile's persisted URL matches the resolved upload URL,
+ * so a hash is never attached to a src the user has since changed.
  */
 export function createPersistableGridSnapshot(
   grid: Grid,
   resolvedUrls: ResolvedMediaUrlMap = {},
   resolvedDocumentItemUrls: ResolvedDocumentItemUrlMap = {},
+  resolvedHashes: ResolvedMediaHashMap = {},
+  resolvedDocumentItemHashes: ResolvedDocumentItemHashMap = {},
 ): Grid {
   const snapshot = JSON.parse(JSON.stringify(grid)) as Grid;
 
   for (const tile of snapshot.tiles) {
-    const content = tile.content as { src?: unknown; type?: unknown };
+    const content = tile.content as {
+      src?: unknown;
+      srcHash?: unknown;
+      type?: unknown;
+    };
     if (typeof content.src === "string" && content.src.startsWith("blob:")) {
       const resolved = resolvedUrls[tile.i];
       if (resolved) {
@@ -24,21 +39,40 @@ export function createPersistableGridSnapshot(
       }
     }
 
+    const resolvedUrl = resolvedUrls[tile.i];
+    const resolvedHash = resolvedHashes[tile.i];
+    if (
+      typeof content.src === "string" &&
+      resolvedUrl &&
+      content.src === resolvedUrl &&
+      resolvedHash
+    ) {
+      content.srcHash = resolvedHash;
+    }
+
     if (content.type === ContentType.DOCUMENT) {
       const documentContent = tile.content as DocumentsContent;
-      const itemMap = resolvedDocumentItemUrls[tile.i];
-      if (!itemMap || !documentContent.items?.length) continue;
+      if (!documentContent.items?.length) continue;
+
+      const itemUrlMap = resolvedDocumentItemUrls[tile.i];
+      const itemHashMap = resolvedDocumentItemHashes[tile.i];
 
       documentContent.items = documentContent.items.map((item) => {
-        const resolved = itemMap[item.id];
+        let next = item;
+        const itemUrl = itemUrlMap?.[item.id];
         if (
-          typeof item.url === "string" &&
-          item.url.startsWith("blob:") &&
-          resolved
+          typeof next.url === "string" &&
+          next.url.startsWith("blob:") &&
+          itemUrl
         ) {
-          return { ...item, url: resolved };
+          next = { ...next, url: itemUrl };
         }
-        return item;
+
+        const itemHash = itemHashMap?.[item.id];
+        if (itemHash && itemUrl && next.url === itemUrl) {
+          next = { ...next, hash: itemHash };
+        }
+        return next;
       });
     }
   }
@@ -52,7 +86,8 @@ export function createPersistableGridSnapshot(
 
 /**
  * Strip blob: URLs from grid tiles before persisting (safety net).
- * Keeps Firestore documents from storing ephemeral object URLs.
+ * Keeps Firestore documents from storing ephemeral object URLs, and drops any
+ * dangling archive hash whose URL was stripped.
  */
 export function stripBlobUrlsFromTiles(tiles: unknown[]): unknown[] {
   return tiles.map((tile) => {
@@ -66,6 +101,9 @@ export function stripBlobUrlsFromTiles(tiles: unknown[]): unknown[] {
     const src = c.src;
     if (typeof src === "string" && src.startsWith("blob:")) {
       contentOut = { ...contentOut, src: "" };
+      if ("srcHash" in contentOut) {
+        contentOut = { ...contentOut, srcHash: "" };
+      }
     }
 
     if (c.type === "document" && Array.isArray(c.items)) {
@@ -74,7 +112,9 @@ export function stripBlobUrlsFromTiles(tiles: unknown[]): unknown[] {
         const it = item as Record<string, unknown>;
         const url = it.url;
         if (typeof url === "string" && url.startsWith("blob:")) {
-          return { ...it, url: "" };
+          const stripped: Record<string, unknown> = { ...it, url: "" };
+          if ("hash" in stripped) stripped.hash = "";
+          return stripped;
         }
         return item;
       });

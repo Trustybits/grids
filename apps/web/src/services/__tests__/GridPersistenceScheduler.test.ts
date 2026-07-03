@@ -147,7 +147,7 @@ describe("GridPersistenceScheduler", () => {
     const write = vi.fn<(_: Grid) => Promise<void>>();
     const scheduler = new GridPersistenceScheduler(write);
 
-    await expect(scheduler.flush(makeScope("missing", 1))).resolves.toBeUndefined();
+    await expect(scheduler.flush(makeScope("missing", 1))).resolves.toBeNull();
     expect(write).not.toHaveBeenCalled();
   });
 
@@ -176,7 +176,7 @@ describe("GridPersistenceScheduler", () => {
     scheduler.schedule(newScope, makeGrid({ id: "grid-2" }));
 
     await expect(scheduler.flush(oldScope)).rejects.toThrow("old scope failed");
-    await expect(scheduler.flush(newScope)).resolves.toBeUndefined();
+    await expect(scheduler.flush(newScope)).resolves.toBeNull();
   });
 
   it("freezes queued snapshot contents at schedule time", async () => {
@@ -221,14 +221,43 @@ describe("GridPersistenceScheduler", () => {
 
     firstWrite.resolve();
 
-    await expect(firstFlush).resolves.toBeUndefined();
-    await expect(secondFlush).resolves.toBeUndefined();
-    await expect(scheduler.flush(scope)).resolves.toBeUndefined();
+    await expect(firstFlush).resolves.toEqual(
+      expect.objectContaining({ name: "First" }),
+    );
+    await expect(secondFlush).resolves.toEqual(
+      expect.objectContaining({ name: "First" }),
+    );
+    await expect(scheduler.flush(scope)).resolves.toBeNull();
 
     scheduler.schedule(scope, makeGrid({ name: "After cleanup" }));
     await scheduler.flush(scope);
 
     expect(write).toHaveBeenCalledTimes(2);
     expect(write.mock.calls[1]![0].name).toBe("After cleanup");
+  });
+
+  it("carries the saved rev forward across consecutive queued writes", async () => {
+    const firstWrite = deferred<Grid>();
+    const write = vi
+      .fn<(_: Grid) => Promise<Grid>>()
+      .mockReturnValueOnce(firstWrite.promise)
+      .mockImplementationOnce(async (snapshot) => ({
+        ...snapshot,
+        rev: (snapshot.rev ?? 0) + 1,
+      }));
+    const scheduler = new GridPersistenceScheduler(write);
+    const scope = makeScope("grid-1", 1);
+
+    scheduler.schedule(scope, makeGrid({ name: "First", rev: 0 }));
+    scheduler.schedule(scope, makeGrid({ name: "Second", rev: 0 }));
+
+    firstWrite.resolve(makeGrid({ name: "First", rev: 1 }));
+    const saved = await scheduler.flush(scope);
+
+    expect(write).toHaveBeenCalledTimes(2);
+    expect(write.mock.calls[1]![0]).toEqual(
+      expect.objectContaining({ name: "Second", rev: 1 }),
+    );
+    expect(saved).toEqual(expect.objectContaining({ name: "Second", rev: 2 }));
   });
 });

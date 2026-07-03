@@ -42,6 +42,7 @@ export function createDefaultGridControllerDependencies(): GridControllerDepende
     getAuthProvider: () => getAuthProvider(),
     getAnalyticsService: () =>
       getServiceFactory().getAnalyticsService(),
+    getChatService: () => getServiceFactory().getChatService(),
     generateUuid: () => uuidv4(),
     delay: (milliseconds) =>
       new Promise((resolve) => setTimeout(resolve, milliseconds)),

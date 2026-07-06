@@ -20,4 +20,10 @@ export const SHOWCASE_GRIDS: ShowcaseEntry[] = [
   { slug: 'rochdi', name: 'Rochdi ', tagline: 'Developer' },
   // { slug: 'harshit', name: 'Harshit Khemani', tagline: 'Developer' },
   { slug: 'slasher', name: 'Slasher', tagline: 'Developer' },
+  { slug: 'rygarde', name: 'Agung Laksono', tagline: 'Developer' },
+  { slug: 'katrella', name: 'Herramientas', tagline: 'Developer' },
+  { slug: 'iden', name: 'IDEN', tagline: 'Developer' },
+  { slug: 'mbuono', name: 'Michael Buono', tagline: 'Developer' },
+  // { slug: 'gbdesign', name: 'Gabriele Ba' }, // page was incomplete, and they significantly fleshed out a page on a competitor platform
+  { slug: 'zqiv', name: 'Music Guy', tagline: 'Developer' },
 ];

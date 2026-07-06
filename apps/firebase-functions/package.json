@@ -17,7 +17,8 @@
     "start": "npm run shell",
     "deploy": "npm run build && firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "badge:grant": "npm run build && node lib/scripts/grantBadge.js"
+    "badge:grant": "npm run build && node lib/scripts/grantBadge.js",
+    "storage:migrate": "npm run build && node lib/scripts/storageMigration.js"
   },
   "engines": {
     "node": "22"

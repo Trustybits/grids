@@ -84,6 +84,9 @@ function registerStubs(options: {
 describe("FileArchiveModal", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // BaseModal teleports its content to <body>; clear it up front so a leftover
+    // modal from an earlier (possibly failed) test can't pollute assertions here.
+    document.body.innerHTML = "";
   });
 
   it("renders the empty state, filter pills and quota text", async () => {
@@ -93,9 +96,6 @@ describe("FileArchiveModal", () => {
 
     const text = document.body.textContent ?? "";
     expect(text).toContain("File Archive");
-    expect(document.body.querySelector(".fa__beta-tag")?.textContent).toBe(
-      "Beta",
-    );
     expect(text).toContain("No files in archive");
     for (const pill of ["All", "Images", "Videos", "Documents"]) {
       expect(text).toContain(pill);

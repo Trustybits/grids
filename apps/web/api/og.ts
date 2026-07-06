@@ -154,7 +154,12 @@ export default async function handler(
     const contentType = upstream.headers.get('content-type') ?? 'image/png'
     res.setHeader('Content-Type', contentType)
 
-    if (contentType.includes('image/png')) {
+    // Any image type is forwarded as binary. The generated OG is always PNG,
+    // but a custom user upload (served via a 302 the Firebase function issues
+    // and we follow above) can be JPEG / WebP / GIF. Reading those as text
+    // corrupts the bytes, which showed up as broken images anywhere that goes
+    // through this proxy (e.g. the showcase marquee).
+    if (contentType.startsWith('image/')) {
       res.setHeader(
         'Cache-Control',
         isRefresh ? 'no-store' : 'public, max-age=86400, stale-while-revalidate=3600',

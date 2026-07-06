@@ -1,6 +1,6 @@
 ### Terms of Use
 
-> Last updated: December 5, 2025
+> Last updated: July 6, 2026
 > 
 
 These Terms of Use ("Terms") govern access to and use of the Grids platform and related websites, applications, and services (collectively, the "Service"). By creating an account or using the Service, you agree to these Terms.
@@ -72,10 +72,11 @@ You are solely responsible for ensuring that Your Content complies with these co
 2. **License to operate the Service.** You grant us a worldwide, non-exclusive, royalty-free license to host, store, reproduce, process, transmit, and display Your Content **only as necessary** to provide, maintain, secure, and improve the Service and as otherwise permitted by these Terms.
 3. **AI and processing.** Some features of the Service may use AI models and automated processing (for example, to parse documents, suggest profile improvements, generate views, or analyze content). To the extent necessary to provide those features, you grant us the right to process Your Content through such systems.
 4. **Aggregated and de-identified use.** In addition to the license described above, you agree that we may use Your Content and other data related to your use of the Service to create aggregated, de-identified, or anonymized datasets, and that we may use and share those datasets for analytics, benchmarking, and industry insights, as described in our Privacy Policy. These datasets will not reasonably identify you or any other individual.
-5. **Your responsibilities.** You are responsible for:
+5. **Promotional and showcase use of public content.** If you publish a grid, page, or other content so that it is publicly accessible through the Service (for example, at a public slug or a shared public link), you grant us a worldwide, non-exclusive, royalty-free license to display, reproduce, and distribute that public content, along with its associated public username or handle, to promote and market the Service. This includes featuring it on our landing pages, marketing pages, showcase or gallery sections, social media, and similar promotional materials. By default, public content is eligible for this promotional use. If you would prefer that a particular grid or page not be used in this way, you may contact us at [support@grids.so](mailto:support@grids.so) to opt out, and we will honor your request going forward and make reasonable efforts to remove that content from our promotional materials. This license applies only to content you have made public; content that is private or restricted is not used for promotion.
+6. **Your responsibilities.** You are responsible for:
     - ensuring you have all necessary rights and permissions to use and upload Your Content
     - ensuring Your Content does not violate these Terms, our content standards, or applicable law
-6. **Removal.** We may remove or disable access to any of Your Content that we reasonably believe violates these Terms, our content standards, or applicable law, or that is inconsistent with the purpose of the Service.
+7. **Removal.** We may remove or disable access to any of Your Content that we reasonably believe violates these Terms, our content standards, or applicable law, or that is inconsistent with the purpose of the Service.
 
 ---
 

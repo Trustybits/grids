@@ -1,6 +1,6 @@
 **PRIVACY POLICY**
 
-**Last updated: December 5, 2025** 
+**Last updated: July 6, 2026** 
 
 This Privacy Notice for Grids.so ("we," "us," or "our") describes how and why we might access, collect, store, use, and/or share ("process") your personal information when you use our services ("Services"), including when you:
 
@@ -19,6 +19,7 @@ This Privacy Notice for Grids.so ("we," "us," or "our") describes how and why we
 - **Do we process any sensitive personal information?** Some of the information may be considered "special" or "sensitive" in certain jurisdictions, for example your racial or ethnic origins, sexual orientation, and religious beliefs. We do not process sensitive personal information.
 - **Do we collect any information from third parties?** We may collect information from public databases, marketing partners, social media platforms, and other outside sources.
 - **How do we process your information?** We process your information to provide, improve, and administer our Services, communicate with you, for security and fraud prevention, and to comply with law. We may also process your information for other purposes with your consent. We process your information only when we have a valid legal reason to do so.
+- **Do we use public content to promote our Services?** If you make a grid or page publicly accessible through our Services, we may feature it—along with its public username or handle our landing, marketing, and showcase pages and in similar promotional materials. This is the default for public content, but you can ask us to opt a grid out at any time.
 
 ---
 
@@ -35,7 +36,8 @@ This Privacy Notice for Grids.so ("we," "us," or "our") describes how and why we
 9. CONTROLS FOR DO-NOT-TRACK FEATURES
 10. DO WE MAKE UPDATES TO THIS NOTICE?
 11. ANALYTICS, AGGREGATED, AND DE-IDENTIFIED DATA
-12. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?
+12. HOW DO WE USE PUBLIC CONTENT TO PROMOTE OUR SERVICES?
+13. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?
 
 ---
 
@@ -122,6 +124,16 @@ We will not attempt to re-identify aggregated or de-identified data and will tak
 
 ---
 
-## 12. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?
+## 12. HOW DO WE USE PUBLIC CONTENT TO PROMOTE OUR SERVICES?
+
+When you publish a grid, page, or other content so that it is publicly accessible through our Services (for example, at a public handle or a shared public link), you make that content available to the public. By default, we may use this public content—along with its associated public username or handle—to promote and market our Services.
+
+This may include displaying, reproducing, or distributing your public content on our landing pages, marketing pages, showcase or gallery sections, social media, and similar promotional materials. We only use content that you have made public; content that is private or restricted to specific viewers is not used for promotion.
+
+If you would prefer that a particular grid or page not be used in this way, you can opt out at any time by contacting us at [support@grids.so](mailto:support@grids.so). We will honor your request going forward and make reasonable efforts to remove that content from our promotional materials. For more detail on the license you grant us for public content, see the "Your content" section of our Terms of Use.
+
+---
+
+## 13. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?
 
 If you have questions or comments about this notice, you may email us at [support@grids.so](mailto:support@grids.so).

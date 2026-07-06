@@ -5,7 +5,6 @@ import {
   uploadBytesResumable,
   getDownloadURL,
   getBytes,
-  deleteObject,
 } from "firebase/storage";
 import type {
   StorageDao,
@@ -87,19 +86,5 @@ export class FirebaseStorageDao implements StorageDao {
   public async getDownloadUrl(path: string): Promise<string> {
     const ref = storageRef(this.storage, path);
     return getDownloadURL(ref);
-  }
-
-  public async delete(path: string): Promise<void> {
-    const ref = storageRef(this.storage, path);
-    await deleteObject(ref);
-  }
-
-  public buildFilePath(
-    root: string,
-    userId: string,
-    folder: string,
-    fileName: string,
-  ): string {
-    return `${root}/${userId}/${folder}/${Date.now()}_${fileName}`;
   }
 }

@@ -1,7 +1,6 @@
 // Unit tests for StubbedStorageDao — files are stored in memory by path with a
 // reverse url->path index. Covers upload, resumable upload (progress/done/
-// cancel), byte retrieval (stored + network fallback), download urls, deletion,
-// and path building.
+// cancel), byte retrieval (stored + network fallback), and download urls.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { StubbedStorageDao } from "../StubbedStorageDao";
 import { memoryDatabase } from "../StubbedMemoryDatabase";
@@ -184,38 +183,3 @@ describe("StubbedStorageDao.getDownloadUrl", () => {
   });
 });
 
-describe("StubbedStorageDao.delete", () => {
-  it("removes the stored file", async () => {
-    await dao.upload("path/file.txt", blob());
-    await dao.delete("path/file.txt");
-
-    expect(memoryDatabase.storageByPath.has("path/file.txt")).toBe(false);
-  });
-
-  it("revokes the object url and prunes the reverse index on delete", async () => {
-    const url = await dao.upload("path/file.txt", blob());
-    await dao.delete("path/file.txt");
-
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith(url);
-    expect(memoryDatabase.storagePathByUrl.has(url)).toBe(false);
-  });
-
-  it("is a no-op for an unknown path", async () => {
-    await expect(dao.delete("unknown")).resolves.toBeUndefined();
-  });
-});
-
-describe("StubbedStorageDao.buildFilePath", () => {
-  it("builds a timestamped path from its parts", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-18T00:00:00.000Z"));
-    try {
-      const path = dao.buildFilePath("uploads", "user-1", "avatars", "pic.png");
-      expect(path).toBe(
-        `uploads/user-1/avatars/${Date.now()}_pic.png`,
-      );
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-});

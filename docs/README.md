@@ -20,6 +20,7 @@ For internal developers, use the [Dev setup](maintainers/dev-setup.md) guide ins
 - [Public and private repos](architecture/public-private-repos.md)
 - [Production runtime boundary](architecture/production-runtime-boundary.md)
 - [Data and service layer](architecture/data-and-service-layer.md)
+- [Storage, uploads, and deduplication](architecture/storage-and-uploads.md)
 - [Tiles](architecture/tiles.md)
 
 ## Contributing
@@ -38,6 +39,7 @@ These docs are for repository maintainers. They should describe procedures, not 
 - [Production runtime](maintainers/production-runtime.md)
 - [Infra sync](maintainers/infra-sync.md)
 - [Workflows](maintainers/workflows.md)
+- [Storage migration](maintainers/storage-migration.md)
 
 ## Where New Docs Should Go
 

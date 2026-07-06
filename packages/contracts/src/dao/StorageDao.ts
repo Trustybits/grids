@@ -55,21 +55,4 @@ export interface StorageDao {
    * other URLs fall back to a plain fetch.
    */
   getBytes(url: string): Promise<Uint8Array>;
-
-  /**
-   * Delete the object at the given path. No-op semantics are implementation-defined —
-   * consult the concrete DAO for whether missing objects throw or silently succeed.
-   */
-  delete(path: string): Promise<void>;
-
-  /**
-   * Build the canonical storage path for a user-owned object.
-   * Centralizing path construction keeps security-rule expectations consistent across callers.
-   */
-  buildFilePath(
-    root: string,
-    userId: string,
-    folder: string,
-    fileName: string,
-  ): string;
 }

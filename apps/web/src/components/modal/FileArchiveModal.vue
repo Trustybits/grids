@@ -152,7 +152,7 @@
                 </button>
               </FloatingTooltip>
 
-              <FloatingTooltip v-if="canAddToGrid" text="Add to grid">
+              <FloatingTooltip v-if="canAddDocToGrid(doc)" text="Add to grid">
                 <button
                   type="button"
                   class="fa__icon-btn"
@@ -240,6 +240,7 @@ import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useToastStore } from "@/stores/toast";
 import { useFileArchive } from "@/composables/useFileArchive";
+import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
 import { formatBytes, STORAGE_QUOTA_BYTES } from "@/utils/StorageFormat";
 import { SUPPORTED_UPLOAD_ACCEPT } from "@/utils/UploadFileClassification";
 import type {
@@ -290,6 +291,14 @@ const sessionStore = useGridSessionStore();
 const toast = useToastStore();
 const archive = useFileArchive();
 const { uploads, loading, uploading, error } = archive;
+const { isEnabled } = useFeatureFlags();
+
+// Documents tiles are gated behind the same PostHog flag as the toolbar entry
+// (see GridToolbar.vue / registries/tiles/document.ts). Adding a document file
+// to a grid creates a Documents tile, so it must respect that gate too.
+const documentsEnabled = computed(() =>
+  isEnabled(FEATURE_FLAGS.BETA_DOCUMENTS),
+);
 
 const quota = STORAGE_QUOTA_BYTES;
 const storageUsed = ref(0);
@@ -318,6 +327,12 @@ const barWidth = computed(() =>
 const canAddToGrid = computed(
   () => !!sessionStore.currentGrid && sessionStore.isOwner,
 );
+
+// A document file becomes a Documents tile, which is flag-gated; media files
+// are not. Hide the affordance for docs when the flag is off.
+const canAddDocToGrid = (doc: UploadArchiveDocument): boolean =>
+  canAddToGrid.value &&
+  (doc.kind !== "documents" || documentsEnabled.value);
 
 const filteredUploads = computed(() =>
   activeFilter.value === "all"

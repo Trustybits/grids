@@ -9,7 +9,6 @@
       <header class="fa__header">
         <div class="fa__title">
           <h2>File Archive</h2>
-          <span class="fa__beta-tag">Beta</span>
         </div>
         <button class="fa__close" aria-label="Close" @click="handleClose">
           <CloseXIcon :size="20" />
@@ -54,7 +53,9 @@
             {{ filter.label }}
           </button>
         </div>
+        <span class="fa__count">{{ activeCountLabel }}</span>
         <Button
+          class="fa__upload-btn"
           variant="primary"
           size="sm"
           :loading="uploading"
@@ -324,6 +325,13 @@ const filteredUploads = computed(() =>
     : uploads.value.filter((u) => u.kind === activeFilter.value),
 );
 
+const activeCountLabel = computed(() => {
+  const count = filteredUploads.value.length;
+  const noun =
+    activeFilter.value === "all" ? "file" : activeFilter.value.slice(0, -1);
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+});
+
 const emptyMessage = computed(() => {
   if (uploads.value.length === 0) return "No files in archive";
   if (activeFilter.value === "all") return "No files in archive";
@@ -563,20 +571,6 @@ onUnmounted(() => {
   }
 }
 
-.fa__beta-tag {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  border: var(--border-width) solid var(--color-stroke);
-  border-radius: 999px;
-  background-color: var(--color-content-background);
-  color: var(--color-content-default);
-  font-size: 11px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1;
-}
-
 .fa__close {
   background: transparent;
   border: none;
@@ -667,7 +661,9 @@ onUnmounted(() => {
 .fa__pills {
   display: flex;
   gap: var(--spacing-xs);
-  flex: 1;
+  // Size to content so the count can sit directly after the last pill; still
+  // allowed to shrink and scroll horizontally on narrow screens.
+  flex: 0 1 auto;
   min-width: 0;
   overflow-x: auto;
   // Match the app's shared thin scrollbar (see `.scrollable-thin` in main.css)
@@ -701,6 +697,26 @@ onUnmounted(() => {
   }
 }
 
+.fa__count {
+  flex-shrink: 0;
+  // Hug the last pill, and push the upload button to the far right.
+  margin-right: auto;
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-content-low);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+// Match the active filter pill's color (see `.fa__pill.is-active`).
+// `--primary-color` drives the Button's background; the doubled selector
+// outweighs Button's own `.ui-btn--primary` color so the label stays white
+// (text-primary is black in the light theme).
+.fa__upload-btn.fa__upload-btn {
+  --primary-color: var(--color-figma-purple);
+  color: var(--color-light-100);
+}
+
 .fa__file-input {
   display: none;
 }
@@ -709,6 +725,9 @@ onUnmounted(() => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  // Reserve the scrollbar track on every tab so switching between short and
+  // long file lists doesn't shift the layout horizontally.
+  scrollbar-gutter: stable;
   // Belt-and-suspenders with the background scroll lock: don't chain scroll to
   // the page when the list reaches its top/bottom.
   overscroll-behavior: contain;
@@ -786,13 +805,15 @@ onUnmounted(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .fa__name {
   color: var(--color-text-primary);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-medium);
+  // Enough line box to clear descenders (g, y, p) despite `overflow: hidden`.
+  line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

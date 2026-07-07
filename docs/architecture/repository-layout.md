@@ -244,6 +244,7 @@ docs/
 - `docs/architecture/production-runtime-boundary.md` - Explains how `packages/pro`, Firebase config, emulators, and stubbed runtime fit together.
 - `docs/architecture/public-private-repos.md` - Explains the public repo, private production repo, devops repo, and infra-sync relationship.
 - `docs/architecture/repository-layout.md` - This repository layout guide.
+- `docs/architecture/storage-and-uploads.md` - Explains the content-addressed storage model: canonical paths, upload archive documents, deduplication, reference counting, quota, sharing, duplication, and the security rules that enforce it.
 - `docs/architecture/tiles.md` - Explains tile architecture and points to the hands-on tile contribution guide.
 - `docs/architecture/workspaces.md` - Explains npm workspaces and the purpose of each app/package workspace.
 
@@ -264,6 +265,7 @@ docs/
 - `docs/maintainers/dev-setup.md` - Internal developer setup, including infra-sync and emulator caveats for maintainers.
 - `docs/maintainers/infra-sync.md` - Maintainer-only infra-sync command workflow and state/baseline expectations.
 - `docs/maintainers/production-runtime.md` - Maintainer notes for the production Firebase runtime and deploy config guard.
+- `docs/maintainers/storage-migration.md` - Runbook for the storage migration CLI: modes, safety gates, recommended sequence, GC gating, and legacy `link-images` removal.
 - `docs/maintainers/workflows.md` - Maintainer notes for GitHub workflow routing, production-repo sync behavior, and deploy workflow troubleshooting.
 
 ## notes

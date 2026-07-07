@@ -75,24 +75,6 @@ export class StubbedStorageDao implements StorageDao {
     return stored?.url ?? path;
   }
 
-  public async delete(path: string): Promise<void> {
-    const stored = memoryDatabase.storageByPath.get(path);
-    if (stored && typeof URL !== "undefined" && "revokeObjectURL" in URL) {
-      URL.revokeObjectURL(stored.url);
-      memoryDatabase.storagePathByUrl.delete(stored.url);
-    }
-    memoryDatabase.storageByPath.delete(path);
-  }
-
-  public buildFilePath(
-    root: string,
-    userId: string,
-    folder: string,
-    fileName: string,
-  ): string {
-    return `${root}/${userId}/${folder}/${Date.now()}_${fileName}`;
-  }
-
   private store(
     path: string,
     data: Blob | File,

@@ -244,6 +244,7 @@ docs/
 - `docs/architecture/production-runtime-boundary.md` - Explains how `packages/pro`, Firebase config, emulators, and stubbed runtime fit together.
 - `docs/architecture/public-private-repos.md` - Explains the public repo, private production repo, devops repo, and infra-sync relationship.
 - `docs/architecture/repository-layout.md` - This repository layout guide.
+- `docs/architecture/storage-usage-accounting.md` - Explains how `storageUsed` is incremented on upload and decremented on deletion, and why deletion accounting lives in the callable (not the delete trigger) under Cloud Storage soft delete.
 - `docs/architecture/tiles.md` - Explains tile architecture and points to the hands-on tile contribution guide.
 - `docs/architecture/workspaces.md` - Explains npm workspaces and the purpose of each app/package workspace.
 

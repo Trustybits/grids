@@ -58,4 +58,5 @@ This keeps components focused on rendering and interaction, while data access st
 - [Production runtime boundary](production-runtime-boundary.md)
 - [Data and service layer](data-and-service-layer.md)
 - [Tiles](tiles.md)
+- [Storage usage accounting](storage-usage-accounting.md)
 - [Private and Public repos](public-private-repos.md)

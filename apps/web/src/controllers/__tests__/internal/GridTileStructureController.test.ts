@@ -248,7 +248,7 @@ describe("GridTileStructureController", () => {
 
       expect(h.stores.session.currentGrid?.tiles).toHaveLength(0);
       expect(h.stores.session.currentGrid?.overrides?.sm?.t1).toBeUndefined();
-      expect(clearTileState).toHaveBeenCalledWith("t1", []);
+      expect(clearTileState).toHaveBeenCalledWith("t1", [], {});
       expect(pushUndoSnapshot).toHaveBeenCalledWith("Remove tile");
       expect(scheduleSave).toHaveBeenCalledTimes(1);
       expect(refreshStableSnapshot).toHaveBeenCalledTimes(1);
@@ -267,7 +267,22 @@ describe("GridTileStructureController", () => {
 
       controller.removeTile("t1");
 
-      expect(clearTileState).toHaveBeenCalledWith("t1", ["blob:media"]);
+      expect(clearTileState).toHaveBeenCalledWith("t1", ["blob:media"], {});
+    });
+
+    it("maps blob urls still shown by a remaining tile to their surviving owner", () => {
+      const original = makeImageTile({ i: "t1" });
+      const duplicate = makeImageTile({ i: "t2" });
+      h.stores.session.setCurrentGrid(
+        makeGrid({ tiles: [original, duplicate] }),
+      );
+      const clearTileState = vi.spyOn(h.stores.uploads, "clearTileState");
+
+      controller.removeTile("t1");
+
+      expect(clearTileState).toHaveBeenCalledWith("t1", ["blob:media"], {
+        "blob:media": "t2",
+      });
     });
 
     it("still schedules a save and refreshes when removing an unknown id", () => {

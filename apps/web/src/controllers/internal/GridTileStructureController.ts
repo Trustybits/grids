@@ -186,9 +186,22 @@ export class GridTileStructureController {
 
     this.pushUndoSnapshot("Remove tile");
     const tile = grid.tiles.find((candidate) => candidate.i === id);
+
+    // Map each blob URL still shown by a *remaining* tile to that tile's id, so
+    // shared optimistic uploads (e.g. a duplicate of an in-flight upload) are
+    // reassigned to the survivor instead of being revoked/cancelled.
+    const survivingBlobOwners: Record<string, string> = {};
+    for (const candidate of grid.tiles) {
+      if (candidate.i === id) continue;
+      for (const url of getTileObjectUrls(candidate)) {
+        survivingBlobOwners[url] ??= candidate.i;
+      }
+    }
+
     this.stores.uploads.clearTileState(
       id,
       tile ? getTileObjectUrls(tile) : [],
+      survivingBlobOwners,
     );
 
     if (grid.overrides) {

@@ -29,6 +29,7 @@ describe("gridSession store", () => {
     expect(store.isOwner).toBe(false);
     expect(store.isDemoGrid).toBe(false);
     expect(store.isLoading).toBe(false);
+    expect(store.isResyncing).toBe(false);
     expect(store.loadError).toBeNull();
     expect(store.persistenceError).toBeNull();
     expect(store.verticalCompact).toBe(true);
@@ -93,6 +94,16 @@ describe("gridSession store", () => {
     expect(store.isLoading).toBe(true);
   });
 
+  it("toggles the resync overlay flag through setResyncing", () => {
+    const store = useGridSessionStore();
+
+    store.setResyncing(true);
+    expect(store.isResyncing).toBe(true);
+
+    store.setResyncing(false);
+    expect(store.isResyncing).toBe(false);
+  });
+
   it("reset restores every session field", () => {
     const store = useGridSessionStore();
 
@@ -100,6 +111,7 @@ describe("gridSession store", () => {
     store.setOwner(true);
     store.setDemoGrid(true);
     store.setLoading(true);
+    store.setResyncing(true);
     store.setLoadError("load");
     store.setPersistenceError("save");
     store.reset();
@@ -108,6 +120,7 @@ describe("gridSession store", () => {
     expect(store.isOwner).toBe(false);
     expect(store.isDemoGrid).toBe(false);
     expect(store.isLoading).toBe(false);
+    expect(store.isResyncing).toBe(false);
     expect(store.loadError).toBeNull();
     expect(store.persistenceError).toBeNull();
     expect(store.verticalCompact).toBe(true);

@@ -19,6 +19,7 @@ export const useGridSessionStore = defineStore("gridSession", {
     isOwner: false,
     isDemoGrid: false,
     isLoading: false,
+    isResyncing: false,
     loadError: null as string | null,
     sessionGeneration: 0,
     persistenceStatus: "idle" as GridPersistenceStatus,
@@ -62,6 +63,10 @@ export const useGridSessionStore = defineStore("gridSession", {
 
     setLoading(isLoading: boolean) {
       this.isLoading = isLoading;
+    },
+
+    setResyncing(isResyncing: boolean) {
+      this.isResyncing = isResyncing;
     },
 
     setLoadError(error: string | null) {

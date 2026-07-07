@@ -310,6 +310,10 @@ export class GridController {
     await this.sessionController.loadGrid(id);
   }
 
+  async resyncIfStale(): Promise<void> {
+    await this.sessionController.resyncIfStale();
+  }
+
   clearSession(): void {
     this.sessionController.clearSession();
   }

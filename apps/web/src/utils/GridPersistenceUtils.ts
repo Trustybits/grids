@@ -17,6 +17,70 @@ export type ResolvedDocumentItemHashMap = Record<
  * only stamped when the tile's persisted URL matches the resolved upload URL,
  * so a hash is never attached to a src the user has since changed.
  */
+export interface BlobResolution {
+  url: string;
+  hash?: string;
+}
+
+/**
+ * Build reverse lookups from an optimistic `blob:` URL to its resolved storage
+ * URL (and archive hash). Keyed off the source tiles that actually own a
+ * resolved entry, this lets any tile duplicated from an in-flight upload — which
+ * shares the source's blob URL but has no entry under its own id — be swapped to
+ * the permanent URL on save (and in undo snapshots).
+ */
+export function buildBlobResolutionMaps(
+  tiles: Grid["tiles"],
+  resolvedUrls: ResolvedMediaUrlMap,
+  resolvedDocumentItemUrls: ResolvedDocumentItemUrlMap,
+  resolvedHashes: ResolvedMediaHashMap = {},
+  resolvedDocumentItemHashes: ResolvedDocumentItemHashMap = {},
+): {
+  blobToResolved: Map<string, BlobResolution>;
+  blobItemToResolved: Map<string, BlobResolution>;
+} {
+  const blobToResolved = new Map<string, BlobResolution>();
+  const blobItemToResolved = new Map<string, BlobResolution>();
+
+  for (const tile of tiles) {
+    const content = tile.content as { src?: unknown; type?: unknown };
+
+    const resolvedUrl = resolvedUrls[tile.i];
+    if (
+      resolvedUrl &&
+      typeof content.src === "string" &&
+      content.src.startsWith("blob:")
+    ) {
+      blobToResolved.set(content.src, {
+        url: resolvedUrl,
+        hash: resolvedHashes[tile.i],
+      });
+    }
+
+    if (content.type !== ContentType.DOCUMENT) continue;
+    const documentContent = tile.content as DocumentsContent;
+    const itemUrlMap = resolvedDocumentItemUrls[tile.i];
+    if (!itemUrlMap || !documentContent.items?.length) continue;
+    const itemHashMap = resolvedDocumentItemHashes[tile.i];
+
+    for (const item of documentContent.items) {
+      const itemUrl = itemUrlMap[item.id];
+      if (
+        itemUrl &&
+        typeof item.url === "string" &&
+        item.url.startsWith("blob:")
+      ) {
+        blobItemToResolved.set(item.url, {
+          url: itemUrl,
+          hash: itemHashMap?.[item.id],
+        });
+      }
+    }
+  }
+
+  return { blobToResolved, blobItemToResolved };
+}
+
 export function createPersistableGridSnapshot(
   grid: Grid,
   resolvedUrls: ResolvedMediaUrlMap = {},
@@ -26,28 +90,47 @@ export function createPersistableGridSnapshot(
 ): Grid {
   const snapshot = JSON.parse(JSON.stringify(grid)) as Grid;
 
+  const { blobToResolved, blobItemToResolved } = buildBlobResolutionMaps(
+    snapshot.tiles,
+    resolvedUrls,
+    resolvedDocumentItemUrls,
+    resolvedHashes,
+    resolvedDocumentItemHashes,
+  );
+
   for (const tile of snapshot.tiles) {
     const content = tile.content as {
       src?: unknown;
       srcHash?: unknown;
       type?: unknown;
     };
-    if (typeof content.src === "string" && content.src.startsWith("blob:")) {
-      const resolved = resolvedUrls[tile.i];
-      if (resolved) {
-        content.src = resolved;
-      }
+
+    // Prefer a resolution keyed by this tile's own id, then fall back to one
+    // keyed by the blob URL itself. Tiles duplicated from an in-flight upload
+    // share the source's blob URL but have no resolved entry under their own
+    // id, so the reverse map is what swaps them to the permanent URL.
+    const blobSrc =
+      typeof content.src === "string" && content.src.startsWith("blob:")
+        ? content.src
+        : undefined;
+    const ownResolvedUrl = resolvedUrls[tile.i];
+    const resolution = ownResolvedUrl
+      ? { url: ownResolvedUrl, hash: resolvedHashes[tile.i] }
+      : blobSrc
+        ? blobToResolved.get(blobSrc)
+        : undefined;
+
+    if (blobSrc && resolution) {
+      content.src = resolution.url;
     }
 
-    const resolvedUrl = resolvedUrls[tile.i];
-    const resolvedHash = resolvedHashes[tile.i];
     if (
       typeof content.src === "string" &&
-      resolvedUrl &&
-      content.src === resolvedUrl &&
-      resolvedHash
+      resolution &&
+      content.src === resolution.url &&
+      resolution.hash
     ) {
-      content.srcHash = resolvedHash;
+      content.srcHash = resolution.hash;
     }
 
     if (content.type === ContentType.DOCUMENT) {
@@ -59,18 +142,27 @@ export function createPersistableGridSnapshot(
 
       documentContent.items = documentContent.items.map((item) => {
         let next = item;
-        const itemUrl = itemUrlMap?.[item.id];
-        if (
-          typeof next.url === "string" &&
-          next.url.startsWith("blob:") &&
-          itemUrl
-        ) {
-          next = { ...next, url: itemUrl };
+        const blobItemUrl =
+          typeof item.url === "string" && item.url.startsWith("blob:")
+            ? item.url
+            : undefined;
+        const ownItemUrl = itemUrlMap?.[item.id];
+        const itemResolution = ownItemUrl
+          ? { url: ownItemUrl, hash: itemHashMap?.[item.id] }
+          : blobItemUrl
+            ? blobItemToResolved.get(blobItemUrl)
+            : undefined;
+
+        if (blobItemUrl && itemResolution) {
+          next = { ...next, url: itemResolution.url };
         }
 
-        const itemHash = itemHashMap?.[item.id];
-        if (itemHash && itemUrl && next.url === itemUrl) {
-          next = { ...next, hash: itemHash };
+        if (
+          itemResolution?.hash &&
+          typeof next.url === "string" &&
+          next.url === itemResolution.url
+        ) {
+          next = { ...next, hash: itemResolution.hash };
         }
         return next;
       });

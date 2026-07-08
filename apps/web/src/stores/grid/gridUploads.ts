@@ -291,11 +291,90 @@ export const useGridUploadsStore = defineStore("gridUploads", {
       delete this.resolvedDocumentItemHashes[tileId];
     },
 
-    clearTileState(tileId: string, ownedObjectUrls: string[] = []) {
+    /**
+     * Reassign an upload record (and any resolved URL/hash, generation, and
+     * progress it owns) from its current tile to a surviving tile that still
+     * displays the same blob URL. Used when the tile that started an upload is
+     * removed while a duplicate sharing its blob URL remains: keeps the upload
+     * alive (validation requires the owning tile to exist) and preserves the
+     * resolved URL under a tile that will actually be persisted.
+     */
+    reassignUploadOwner(
+      uploadId: string,
+      record: GridUploadRecord,
+      newTileId: string,
+    ) {
+      const oldKey = targetKey(record.tileId, record.documentItemId);
+      const newKey = targetKey(newTileId, record.documentItemId);
+      const generation = this.uploadGenerations[oldKey];
+      if (generation !== undefined) {
+        this.uploadGenerations[newKey] = generation;
+        delete this.uploadGenerations[oldKey];
+      }
+
+      const progress = this.uploadingTiles[record.tileId];
+
+      if (record.documentItemId) {
+        const url =
+          this.resolvedDocumentItemUrls[record.tileId]?.[
+            record.documentItemId
+          ];
+        if (url) {
+          this.setResolvedDocumentItemUrl(
+            newTileId,
+            record.documentItemId,
+            url,
+          );
+        }
+        const hash =
+          this.resolvedDocumentItemHashes[record.tileId]?.[
+            record.documentItemId
+          ];
+        if (hash) {
+          this.setResolvedDocumentItemHash(
+            newTileId,
+            record.documentItemId,
+            hash,
+          );
+        }
+      } else {
+        const url = this.resolvedUrls[record.tileId];
+        if (url) this.setResolvedUrl(newTileId, url);
+        const hash = this.resolvedHashes[record.tileId];
+        if (hash) this.setResolvedHash(newTileId, hash);
+      }
+
+      record.tileId = newTileId;
+
+      if (isActive(record) && progress !== undefined) {
+        this.uploadingTiles[newTileId] = progress;
+      }
+    },
+
+    /**
+     * Tear down all upload/resolved state for a removed tile. A blob URL (and
+     * the upload/resolved state tied to it) is only revoked or cleared when no
+     * surviving tile still displays it: `survivingBlobOwners` maps each still-in-use
+     * blob URL to the id of a remaining tile that shows it, so shared uploads are
+     * reassigned to that tile instead of being destroyed.
+     */
+    clearTileState(
+      tileId: string,
+      ownedObjectUrls: string[] = [],
+      survivingBlobOwners: Record<string, string> = {},
+    ) {
       for (const [uploadId, record] of Object.entries(
         this.uploadRecords,
       )) {
         if (record.tileId !== tileId) continue;
+
+        const blob = record.ownedObjectUrl;
+        const newOwner = blob ? survivingBlobOwners[blob] : undefined;
+        if (newOwner && newOwner !== tileId) {
+          this.reassignUploadOwner(uploadId, record, newOwner);
+          continue;
+        }
+
         if (isActive(record)) {
           this.cancelUpload(uploadId);
         } else {
@@ -308,6 +387,7 @@ export const useGridUploadsStore = defineStore("gridUploads", {
       }
 
       for (const url of ownedObjectUrls) {
+        if (survivingBlobOwners[url]) continue;
         this.revokeOwnedObjectUrl(url);
       }
 

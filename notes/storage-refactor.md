@@ -186,7 +186,7 @@ User permanently deletes a file
 |
 |
 V
-Server deletes the dedupe document at users/{userID}/uploads/{hash}
+Server stamps the skip-accounting tag (gridsStorageSkipAccounting) on the bucket object
 |
 |
 V
@@ -194,9 +194,31 @@ Server deletes the corresponding file in the storage bucket
 |
 |
 V
-The storage delete trigger (onFileDeleted / onTrigger_fileDeleted) fires and decrements the user's storageUsed by the deleted object's size.
-Do the decrement in exactly ONE place — the trigger — so the explicit delete and the trigger don't double-decrement. (The trigger already reads
-the size from the deleted storage object, so it does not need the dedupe document, which is why the dedupe document can be deleted first.)
+Server deletes the dedupe/archive document at users/{userID}/uploads/{hash} AND decrements storageUsed by the doc's
+size — atomically, in a single Firestore transaction. The callable is the single writer of the delete-time decrement.
+
+> **Where the decrement lives, and why it is NOT the delete trigger (updated 2026-07).**
+> The original design (the crossed-out step this note replaces) decremented `storageUsed` in the storage delete
+> trigger (`onFileDeleted` / `onTrigger_fileDeleted`), "in exactly ONE place — the trigger." **That does not work
+> with Cloud Storage soft delete, which is enabled by default on all buckets (7-day retention).** Firebase's v1
+> `object().onDelete()` is bound to the Cloud Storage `OBJECT_DELETE` event, which fires only when an object is
+> *permanently* deleted. With soft delete on, deleting an object moves it to a recoverable soft-deleted state — not
+> a permanent delete — so `OBJECT_DELETE` is **not** emitted at delete time (at best it fires when the retention
+> window purges the object ~7 days later, if at all). Net effect of the old design: permanent deletes silently
+> stopped decrementing `storageUsed`.
+>
+> **Current design:** `onCall_deleteStorageUpload` decrements `storageUsed` itself, in the same Firestore
+> transaction that deletes the archive doc (`deleteUploadArchiveAndDecrementUsage`). The archive doc is the
+> idempotency token: a concurrent/retried delete finds it already gone and does not decrement again — exactly-once.
+> Before deleting the bucket object the callable stamps the `gridsStorageSkipAccounting` metadata tag, so that if
+> `OBJECT_DELETE` ever *does* fire later (soft-delete purge), `onFileDeleted` sees the tag, `parseUserStorageObject`
+> returns null, and the trigger no-ops instead of double-decrementing. The callable refuses to delete an object it
+> could not tag, to keep that guarantee intact.
+>
+> **`onFileDeleted` is kept as a backstop** for permanent deletions that bypass the callable (console hard-delete,
+> a future lifecycle rule, admin scripts). Every *deliberate* delete path — this callable, the hash-mismatch
+> quarantine in `onFileUploaded`, and `storageMigration` gc — stamps the skip-accounting tag first, so the trigger
+> can never double-count them. **Do not move the delete-time decrement back into the trigger.**
 
 
 ## Migration Plan

@@ -22,6 +22,7 @@ For internal developers, use the [Dev setup](maintainers/dev-setup.md) guide ins
 - [Data and service layer](architecture/data-and-service-layer.md)
 - [Storage, uploads, and deduplication](architecture/storage-and-uploads.md)
 - [Tiles](architecture/tiles.md)
+- [Storage usage accounting](architecture/storage-usage-accounting.md)
 
 ## Contributing
 

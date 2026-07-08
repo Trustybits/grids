@@ -174,6 +174,62 @@ describe("GridSnapshotCodec", () => {
     ).toBe("blob:one");
   });
 
+  it("captures resolved URLs for tiles duplicated from a shared blob URL", () => {
+    const source = grid({
+      tiles: [
+        textTile({
+          i: "media",
+          content: {
+            type: ContentType.IMAGE,
+            src: "blob:media",
+            zoom: 1,
+            offsetX: 0,
+            offsetY: 0,
+          } as ImageContent,
+        }),
+        textTile({
+          i: "media-copy",
+          content: {
+            type: ContentType.IMAGE,
+            src: "blob:media",
+            zoom: 1,
+            offsetX: 0,
+            offsetY: 0,
+          } as ImageContent,
+        }),
+        textTile({
+          i: "documents",
+          content: {
+            type: ContentType.DOCUMENT,
+            items: [{ id: "one", fileName: "one.pdf", url: "blob:one" }],
+          } as DocumentsContent,
+        }),
+        textTile({
+          i: "documents-copy",
+          content: {
+            type: ContentType.DOCUMENT,
+            items: [{ id: "one", fileName: "one.pdf", url: "blob:one" }],
+          } as DocumentsContent,
+        }),
+      ],
+    });
+
+    const captured = codec.capture({
+      grid: source,
+      breakpoint: "lg",
+      actionLabel: "Uploads",
+      resolvedUrls: { media: "https://cdn/media" },
+      resolvedDocumentItemUrls: { documents: { one: "https://cdn/one" } },
+    });
+
+    expect((captured.tiles[1]!.content as ImageContent).src).toBe(
+      "https://cdn/media",
+    );
+    expect(
+      (captured.tiles[3]!.content as DocumentsContent).items[0]!.url,
+    ).toBe("https://cdn/one");
+  });
+
   it("does not share captured tile or override references with the grid", () => {
     const source = grid();
     const captured = codec.capture({

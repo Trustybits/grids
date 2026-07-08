@@ -5,6 +5,7 @@ import {
   type Grid,
 } from "@grids/contracts/types";
 import type { Snapshot } from "./UndoTypes";
+import { buildBlobResolutionMaps } from "@/utils/GridPersistenceUtils";
 
 export interface GridSnapshotCaptureInput {
   grid: Grid;
@@ -26,29 +27,39 @@ export class GridSnapshotCodec {
   }: GridSnapshotCaptureInput): Snapshot {
     const tiles = this.deepClone(grid.tiles);
 
+    // Reverse lookups let tiles duplicated from an in-flight upload — which
+    // share the source's blob URL but have no resolved entry under their own
+    // id — be swapped to the permanent URL as well.
+    const { blobToResolved, blobItemToResolved } = buildBlobResolutionMaps(
+      tiles,
+      resolvedUrls,
+      resolvedDocumentItemUrls,
+    );
+
     for (const tile of tiles) {
       if (
         "src" in tile.content &&
         typeof tile.content.src === "string" &&
         tile.content.src.startsWith("blob:")
       ) {
-        const resolvedUrl = resolvedUrls[tile.i];
+        const resolvedUrl =
+          resolvedUrls[tile.i] ?? blobToResolved.get(tile.content.src)?.url;
         if (resolvedUrl) tile.content.src = resolvedUrl;
       }
 
       if (tile.content.type !== ContentType.DOCUMENT) continue;
 
       const content = tile.content as DocumentsContent;
-      const resolvedItems = resolvedDocumentItemUrls[tile.i];
-      if (!resolvedItems) continue;
 
       for (const item of content.items ?? []) {
         if (
           typeof item.url === "string" &&
-          item.url.startsWith("blob:") &&
-          resolvedItems[item.id]
+          item.url.startsWith("blob:")
         ) {
-          item.url = resolvedItems[item.id];
+          const itemUrl =
+            resolvedDocumentItemUrls[tile.i]?.[item.id] ??
+            blobItemToResolved.get(item.url)?.url;
+          if (itemUrl) item.url = itemUrl;
         }
       }
     }

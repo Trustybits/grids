@@ -6,23 +6,31 @@
     @mouseleave="hovered = false"
   >
     <div class="undo-redo-bar" :class="{ 'undo-redo-bar--hovered': hovered }">
-      <button
-        class="ur-btn"
-        :class="{ 'ur-btn--active': historyStore.canUndo }"
-        :data-tooltip="historyStore.canUndo ? `Undo ${historyStore.undoActionLabel}` : 'Nothing to Undo'"
-        @click="controller.undo()"
+      <FloatingTooltip
+        :text="historyStore.canUndo ? `Undo ${historyStore.undoActionLabel}` : 'Nothing to Undo'"
+        placement="bottom"
       >
-        Undo
-      </button>
+        <button
+          class="ur-btn"
+          :class="{ 'ur-btn--active': historyStore.canUndo }"
+          @click="controller.undo()"
+        >
+          Undo
+        </button>
+      </FloatingTooltip>
       <span :style="{ 'opacity': hovered ? 100: 0 }" class="ur-divider" />
-      <button
-        class="ur-btn"
-        :class="{ 'ur-btn--active': historyStore.canRedo }"
-        :data-tooltip="historyStore.canRedo ? `Redo ${historyStore.redoActionLabel}` : 'Nothing to Redo'"
-        @click="controller.redo()"
+      <FloatingTooltip
+        :text="historyStore.canRedo ? `Redo ${historyStore.redoActionLabel}` : 'Nothing to Redo'"
+        placement="bottom"
       >
-        Redo
-      </button>
+        <button
+          class="ur-btn"
+          :class="{ 'ur-btn--active': historyStore.canRedo }"
+          @click="controller.redo()"
+        >
+          Redo
+        </button>
+      </FloatingTooltip>
       <span :style="{ 'opacity': hovered ? 100: 0 }" class="ur-divider" />
       <button
         :style="{ 'opacity': hovered ? 100 : 0 }"
@@ -73,6 +81,7 @@ import { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import { useGridController } from "@/controllers/useGridController";
 import { formatRelativeSince } from "@/utils/RelativeTime";
 import Chevron from "@/components/icons/Chevron.vue";
+import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 
 const historyStore = useGridHistoryStore();
 const controller = useGridController();

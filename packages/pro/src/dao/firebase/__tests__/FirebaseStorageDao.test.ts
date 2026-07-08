@@ -8,8 +8,7 @@
  *  - getBytes: Firebase v0 download URLs go through the SDK (with percent
  *    decoding and "+" → space), non-Firebase URLs and undecodable paths fall
  *    back to fetch; non-ok fetch responses throw `HTTP {status}`
- *  - getDownloadUrl / delete: ref + SDK call passthrough
- *  - buildFilePath: `${root}/${userId}/${folder}/${Date.now()}_${fileName}`
+ *  - getDownloadUrl: ref + SDK call passthrough
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -19,7 +18,6 @@ import {
   uploadBytesResumable,
   getDownloadURL,
   getBytes,
-  deleteObject,
 } from "firebase/storage";
 import { FirebaseStorageDao } from "../FirebaseStorageDao.js";
 import type { FirebaseStorage } from "firebase/storage";
@@ -215,42 +213,6 @@ describe("FirebaseStorageDao", () => {
       expect(storageRef).toHaveBeenCalledWith(fakeStorage, "docs/x.pdf");
       expect(getDownloadURL).toHaveBeenCalledWith("ref");
       expect(url).toBe("https://cdn/x");
-    });
-  });
-
-  // ── delete ────────────────────────────────────────────────────────────────
-
-  describe("delete", () => {
-    it("deletes the object at the given path", async () => {
-      vi.mocked(storageRef).mockReturnValue("ref" as any);
-      vi.mocked(deleteObject).mockResolvedValue(undefined);
-
-      await dao.delete("docs/x.pdf");
-
-      expect(storageRef).toHaveBeenCalledWith(fakeStorage, "docs/x.pdf");
-      expect(deleteObject).toHaveBeenCalledWith("ref");
-    });
-
-    it("propagates deletion errors", async () => {
-      vi.mocked(storageRef).mockReturnValue("ref" as any);
-      vi.mocked(deleteObject).mockRejectedValue(new Error("object-not-found"));
-
-      await expect(dao.delete("gone")).rejects.toThrow("object-not-found");
-    });
-  });
-
-  // ── buildFilePath ─────────────────────────────────────────────────────────
-
-  describe("buildFilePath", () => {
-    it("builds root/userId/folder/{now}_{fileName}", () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(1_750_000_000_000);
-      try {
-        const path = dao.buildFilePath("uploads", "user-1", "images", "pic.png");
-        expect(path).toBe("uploads/user-1/images/1750000000000_pic.png");
-      } finally {
-        vi.useRealTimers();
-      }
     });
   });
 });

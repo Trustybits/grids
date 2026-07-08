@@ -57,6 +57,7 @@ This keeps components focused on rendering and interaction, while data access st
 - [npm scripts](npm-scripts.md)
 - [Production runtime boundary](production-runtime-boundary.md)
 - [Data and service layer](data-and-service-layer.md)
+- [Storage, uploads, and deduplication](storage-and-uploads.md)
 - [Tiles](tiles.md)
 - [Storage usage accounting](storage-usage-accounting.md)
 - [Private and Public repos](public-private-repos.md)

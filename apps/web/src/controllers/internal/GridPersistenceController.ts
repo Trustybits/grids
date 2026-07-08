@@ -148,11 +148,18 @@ export class GridPersistenceController {
   }
 
   private reportPersistenceError(error: unknown): void {
-    this.stores.session.setPersistenceError(
-      isGridRevisionConflictError(error)
-        ? "This grid has newer saved changes elsewhere. Refresh the grid before saving again."
-        : "Failed to save grid.",
-    );
+    const message = isGridRevisionConflictError(error)
+      ? "This grid has newer saved changes elsewhere. Refresh the grid before saving again."
+      : "Failed to save grid.";
+    // Toast only on the transition into a failed episode. A rev conflict
+    // persists until the grid is refreshed, so every subsequent save would
+    // otherwise re-toast; the store status resets to null on the next
+    // successful save, re-arming the toast for a genuinely new failure.
+    const wasAlreadyFailing = this.stores.session.persistenceError !== null;
+    this.stores.session.setPersistenceError(message);
+    if (!wasAlreadyFailing) {
+      this.stores.toast.addToast(message, "error");
+    }
     console.error(error);
   }
 }

@@ -15,7 +15,11 @@ export type { ChatDao } from "./ChatDao.js";
 export type { CloudFunctionsDao } from "./CloudFunctionsDao.js";
 export type { CustomerDao } from "./CustomerDao.js";
 export type { DbUtils } from "./DbUtils.js";
-export type { GridDao } from "./GridDao.js";
+export type { GridDao, GridSubscription } from "./GridDao.js";
+export type {
+  GridTransferDao,
+  GridTransferSubscription,
+} from "./GridTransferDao.js";
 export {
   GridRevisionConflictError,
   isGridRevisionConflictError,

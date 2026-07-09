@@ -4,6 +4,7 @@ import type { ChatServiceInterface } from "../interfaces/ChatServiceInterface";
 import type { CloudFunctionsServiceInterface } from "../interfaces/CloudFunctionsServiceInterface";
 import type { GameDataServiceInterface } from "../interfaces/GameDataServiceInterface";
 import type { GridServiceInterface } from "../interfaces/GridServiceInterface";
+import type { GridTransferServiceInterface } from "../interfaces/GridTransferServiceInterface";
 import type { RoadmapServiceInterface } from "../interfaces/RoadmapServiceInterface";
 import type { StorageServiceInterface } from "../interfaces/StorageServiceInterface";
 import type { StripeServiceInterface } from "../interfaces/StripeServiceInterface";
@@ -17,6 +18,7 @@ export interface ServiceFactoryInterface {
   getCloudFunctionsService: () => CloudFunctionsServiceInterface;
   getGameDataService: () => GameDataServiceInterface;
   getGridService: () => GridServiceInterface;
+  getGridTransferService: () => GridTransferServiceInterface;
   getRoadmapService: () => RoadmapServiceInterface;
   getStorageService: () => StorageServiceInterface;
   getStripeService: () => StripeServiceInterface;

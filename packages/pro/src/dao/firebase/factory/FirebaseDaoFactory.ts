@@ -10,6 +10,7 @@ import type { CustomerDao } from "@grids/contracts/dao";
 import type { DaoFactory } from "@grids/contracts/dao";
 import type { GridStatsDao } from "@grids/contracts/dao";
 import type { GridDao } from "@grids/contracts/dao";
+import type { GridTransferDao } from "@grids/contracts/dao";
 import type { RoadmapDao } from "@grids/contracts/dao";
 import type { SlugDao } from "@grids/contracts/dao";
 import type { StorageDao } from "@grids/contracts/dao";
@@ -27,6 +28,7 @@ import { FirebaseChatDao } from "../FirebaseChatDao.js";
 import { FirebaseCustomerDao } from "../FirebaseCustomerDao.js";
 import { FirebaseGridStatsDao } from "../FirebaseGridStatsDao.js";
 import { FirebaseGridDao } from "../FirebaseGridDao.js";
+import { FirebaseGridTransferDao } from "../FirebaseGridTransferDao.js";
 import { FirebaseRoadmapDao } from "../FirebaseRoadmapDao.js";
 import { FirebaseSlugDao } from "../FirebaseSlugDao.js";
 import { FirebaseUpvoteDao } from "../FirebaseUpvoteDao.js";
@@ -42,6 +44,7 @@ export class FirebaseDaoFactory implements DaoFactory {
   private customerDao: CustomerDao;
   private gridStatsDao: GridStatsDao;
   private gridDao: GridDao;
+  private gridTransferDao: GridTransferDao;
   private roadmapDao: RoadmapDao;
   private slugDao: SlugDao;
   private storageDao: StorageDao;
@@ -68,6 +71,7 @@ export class FirebaseDaoFactory implements DaoFactory {
     this.customerDao = new FirebaseCustomerDao(db);
     this.gridStatsDao = new FirebaseGridStatsDao(db);
     this.gridDao = new FirebaseGridDao(db);
+    this.gridTransferDao = new FirebaseGridTransferDao(db);
     this.roadmapDao = new FirebaseRoadmapDao(functions);
     this.slugDao = new FirebaseSlugDao(db, functions);
     this.storageDao = new FirebaseStorageDao(storage);
@@ -107,6 +111,10 @@ export class FirebaseDaoFactory implements DaoFactory {
 
   public getGridDao(): GridDao {
     return this.gridDao;
+  }
+
+  public getGridTransferDao(): GridTransferDao {
+    return this.gridTransferDao;
   }
 
   public getRoadmapDao(): RoadmapDao {

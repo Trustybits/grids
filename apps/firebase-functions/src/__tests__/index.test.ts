@@ -19,6 +19,14 @@ const { exportsByModule, adminImportSpy } = vi.hoisted(() => {
     sweepOrphanedSubcollections: {
       functionName: "sweepOrphanedSubcollections",
     },
+    acceptGridTransfer: { functionName: "acceptGridTransfer" },
+    cancelGridTransfer: { functionName: "cancelGridTransfer" },
+    createGridTransfer: { functionName: "createGridTransfer" },
+    declineGridTransfer: { functionName: "declineGridTransfer" },
+    previewGridTransferAcceptance: {
+      functionName: "previewGridTransferAcceptance",
+    },
+    sweepExpiredGridTransfers: { functionName: "sweepExpiredGridTransfers" },
     onGridCreated: { functionName: "onGridCreated" },
     onGridDeleted: { functionName: "onGridDeleted" },
     onGridUpdated: { functionName: "onGridUpdated" },
@@ -88,6 +96,25 @@ vi.mock("../grids/onTrigger_gridDeleted_cleanupSubcollections.js", () => ({
 }));
 vi.mock("../grids/onSchedule_sweepOrphanedSubcollections.js", () => ({
   sweepOrphanedSubcollections: exportsByModule.sweepOrphanedSubcollections,
+}));
+vi.mock("../transfers/onCall_acceptGridTransfer.js", () => ({
+  acceptGridTransfer: exportsByModule.acceptGridTransfer,
+}));
+vi.mock("../transfers/onCall_cancelGridTransfer.js", () => ({
+  cancelGridTransfer: exportsByModule.cancelGridTransfer,
+}));
+vi.mock("../transfers/onCall_createGridTransfer.js", () => ({
+  createGridTransfer: exportsByModule.createGridTransfer,
+}));
+vi.mock("../transfers/onCall_declineGridTransfer.js", () => ({
+  declineGridTransfer: exportsByModule.declineGridTransfer,
+}));
+vi.mock("../transfers/onCall_previewGridTransferAcceptance.js", () => ({
+  previewGridTransferAcceptance:
+    exportsByModule.previewGridTransferAcceptance,
+}));
+vi.mock("../transfers/onSchedule_sweepExpiredGridTransfers.js", () => ({
+  sweepExpiredGridTransfers: exportsByModule.sweepExpiredGridTransfers,
 }));
 vi.mock("../notifications/onTrigger_gridCreated.js", () => ({
   onGridCreated: exportsByModule.onGridCreated,

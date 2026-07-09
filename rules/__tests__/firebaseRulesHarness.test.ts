@@ -6,7 +6,18 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import {
   deleteObject,
   ref,
@@ -35,6 +46,16 @@ async function seedGrid(
 ) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), `grids/${gridId}`), data);
+  });
+}
+
+async function seedTransfer(
+  testEnv: RulesTestEnvironment,
+  transferId: string,
+  data: Record<string, unknown>,
+) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), `gridTransfers/${transferId}`), data);
   });
 }
 
@@ -131,6 +152,140 @@ describe("Firebase rules harness", () => {
       updateDoc(doc(alice, uploadPath), {
         shareable: true,
       }),
+    );
+  });
+
+  it("allows only transfer participants to read grid transfer docs and keeps writes server-only", async () => {
+    const alice = testEnv.authenticatedContext("alice").firestore();
+    const bob = testEnv.authenticatedContext("bob").firestore();
+    const charlie = testEnv.authenticatedContext("charlie").firestore();
+    const guest = testEnv.unauthenticatedContext().firestore();
+    const transferPath = "gridTransfers/transfer-1";
+
+    await seedTransfer(testEnv, "transfer-1", {
+      id: "transfer-1",
+      gridId: "grid-1",
+      gridName: "Transferred Grid",
+      fromUserId: "alice",
+      toUserId: "bob",
+      removeOrphanedFiles: false,
+      status: "pending",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      expiresAt: new Date("2026-01-15T00:00:00.000Z"),
+    });
+
+    await assertSucceeds(getDoc(doc(alice, transferPath)));
+    await assertSucceeds(getDoc(doc(bob, transferPath)));
+    await assertFails(getDoc(doc(charlie, transferPath)));
+    await assertFails(getDoc(doc(guest, transferPath)));
+
+    await assertFails(
+      setDoc(doc(alice, "gridTransfers/client-created"), {
+        id: "client-created",
+        gridId: "grid-1",
+        fromUserId: "alice",
+        toUserId: "bob",
+        status: "pending",
+      }),
+    );
+    await assertFails(updateDoc(doc(alice, transferPath), { status: "cancelled" }));
+    await assertFails(deleteDoc(doc(bob, transferPath)));
+  });
+
+  it("allows participant-scoped grid transfer queries and rejects unscoped transfer list reads", async () => {
+    const bob = testEnv.authenticatedContext("bob").firestore();
+    const guest = testEnv.unauthenticatedContext().firestore();
+
+    await seedTransfer(testEnv, "incoming-for-bob", {
+      id: "incoming-for-bob",
+      gridId: "grid-1",
+      gridName: "Incoming",
+      fromUserId: "alice",
+      toUserId: "bob",
+      removeOrphanedFiles: false,
+      status: "pending",
+      createdAt: new Date("2026-01-02T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+      expiresAt: new Date("2026-01-16T00:00:00.000Z"),
+    });
+    await seedTransfer(testEnv, "outgoing-from-bob", {
+      id: "outgoing-from-bob",
+      gridId: "grid-2",
+      gridName: "Outgoing",
+      fromUserId: "bob",
+      toUserId: "carol",
+      removeOrphanedFiles: true,
+      status: "pending",
+      createdAt: new Date("2026-01-03T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-03T00:00:00.000Z"),
+      expiresAt: new Date("2026-01-17T00:00:00.000Z"),
+    });
+    await seedTransfer(testEnv, "private-transfer", {
+      id: "private-transfer",
+      gridId: "grid-3",
+      gridName: "Private",
+      fromUserId: "charlie",
+      toUserId: "dana",
+      removeOrphanedFiles: false,
+      status: "pending",
+      createdAt: new Date("2026-01-04T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-04T00:00:00.000Z"),
+      expiresAt: new Date("2026-01-18T00:00:00.000Z"),
+    });
+
+    const incoming = await assertSucceeds(
+      getDocs(
+        query(
+          collection(bob, "gridTransfers"),
+          where("toUserId", "==", "bob"),
+          where("status", "==", "pending"),
+          orderBy("createdAt", "desc"),
+        ),
+      ),
+    );
+    expect(incoming.docs.map((snap) => snap.id)).toEqual(["incoming-for-bob"]);
+
+    const outgoing = await assertSucceeds(
+      getDocs(
+        query(
+          collection(bob, "gridTransfers"),
+          where("fromUserId", "==", "bob"),
+          where("status", "==", "pending"),
+          orderBy("createdAt", "desc"),
+        ),
+      ),
+    );
+    expect(outgoing.docs.map((snap) => snap.id)).toEqual(["outgoing-from-bob"]);
+
+    await assertFails(
+      getDocs(
+        query(
+          collection(bob, "gridTransfers"),
+          where("status", "==", "pending"),
+          orderBy("createdAt", "desc"),
+        ),
+      ),
+    );
+    await assertFails(
+      getDocs(
+        query(
+          collection(bob, "gridTransfers"),
+          where("toUserId", "==", "charlie"),
+          where("status", "==", "pending"),
+          orderBy("createdAt", "desc"),
+        ),
+      ),
+    );
+    await assertFails(
+      getDocs(
+        query(
+          collection(guest, "gridTransfers"),
+          where("toUserId", "==", "bob"),
+          where("status", "==", "pending"),
+          orderBy("createdAt", "desc"),
+        ),
+      ),
     );
   });
 

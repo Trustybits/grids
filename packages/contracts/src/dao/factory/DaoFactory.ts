@@ -6,6 +6,7 @@ import type { CloudFunctionsDao } from '../CloudFunctionsDao.js';
 import type { CustomerDao } from '../CustomerDao.js';
 import type { GridStatsDao } from '../GridStatsDao.js';
 import type { GridDao } from '../GridDao.js';
+import type { GridTransferDao } from '../GridTransferDao.js';
 import type { RoadmapDao } from '../RoadmapDao.js';
 import type { SlugDao } from '../SlugDao.js';
 import type { StorageDao } from '../StorageDao.js';
@@ -23,6 +24,7 @@ export interface DaoFactory {
   getCustomerDao: () => CustomerDao;
   getGridStatsDao: () => GridStatsDao;
   getGridDao: () => GridDao;
+  getGridTransferDao: () => GridTransferDao;
   getRoadmapDao: () => RoadmapDao;
   getSlugDao: () => SlugDao;
   getStorageDao: () => StorageDao;

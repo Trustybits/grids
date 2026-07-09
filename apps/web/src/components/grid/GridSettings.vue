@@ -126,8 +126,13 @@
           <div class="transfer-pending-label">
             Transfer pending — awaiting recipient
           </div>
-          <MenuItem danger @click="cancelPendingTransfer">
-            Cancel Transfer
+          <MenuItem
+            danger
+            :disabled="isCancellingTransfer"
+            @click="cancelPendingTransfer"
+          >
+            <SpinnerIcon v-if="isCancellingTransfer" :size="16" />
+            {{ isCancellingTransfer ? "Cancelling…" : "Cancel Transfer" }}
           </MenuItem>
         </template>
         <MenuItem v-else @click="openTransferModal"> Transfer Grid </MenuItem>
@@ -197,6 +202,7 @@ import Accordion from "@/components/ui-controls/Accordion.vue";
 import MenuSection from "@/components/ui-collections/MenuSection.vue";
 import Divider from "@/components/ui-elements/Divider.vue";
 import GridMenuIcon from "@/components/icons/GridMenuIcon.vue";
+import SpinnerIcon from "@/components/icons/SpinnerIcon.vue";
 import GhostSplitButton from "@/components/ui-controls/GhostSplitButton.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
@@ -225,6 +231,7 @@ const showBgColorPicker = ref(false);
 const showDeleteModal = ref(false);
 const showOgImageModal = ref(false);
 const showTransferModal = ref(false);
+const isCancellingTransfer = ref(false);
 const bgImageInput = ref<HTMLInputElement | null>(null);
 const bgSplitRef = ref<InstanceType<typeof GhostSplitButton> | null>(null);
 const bgChevronEl = computed(() => bgSplitRef.value?.chevronRef ?? null);
@@ -421,17 +428,20 @@ const openTransferModal = () => {
 
 const cancelPendingTransfer = async () => {
   const transfer = pendingTransfer.value;
-  if (!transfer) return;
+  if (!transfer || isCancellingTransfer.value) return;
+  isCancellingTransfer.value = true;
   try {
     await transfers.cancelTransfer(transfer.id);
     toastStore.addToast("Transfer cancelled", "success");
+    closeMenu();
   } catch (error) {
     toastStore.addToast(
       describeCallableError(error, "Couldn't cancel the transfer. Please try again."),
       "error",
     );
+  } finally {
+    isCancellingTransfer.value = false;
   }
-  closeMenu();
 };
 
 const triggerBackgroundImagePicker = () => {

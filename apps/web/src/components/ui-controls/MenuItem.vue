@@ -1,7 +1,8 @@
 <template>
-  <button 
+  <button
     class="menu-item"
     :class="{ 'menu-item--danger': danger }"
+    :disabled="disabled"
     @click="$emit('click')"
   >
     <slot></slot>
@@ -11,6 +12,7 @@
 <script setup lang="ts">
 defineProps<{
   danger?: boolean;
+  disabled?: boolean;
 }>();
 
 defineEmits<{
@@ -44,6 +46,19 @@ defineEmits<{
   &--danger:hover {
     background-color: var(--color-figma-red);
     color: var(--color-light-100);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+
+    &:hover {
+      background-color: transparent;
+    }
+
+    &.menu-item--danger:hover {
+      color: var(--color-text-primary);
+    }
   }
 }
 </style>

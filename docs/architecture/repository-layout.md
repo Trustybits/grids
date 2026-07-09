@@ -65,7 +65,8 @@ apps/firebase-functions/
     |-- scraping/
     |-- scripts/
     |-- shared/
-    `-- storage/
+    |-- storage/
+    `-- transfers/
 ```
 
 - `src/` - TypeScript source for Firebase Functions.
@@ -88,6 +89,8 @@ apps/firebase-functions/
 - `src/shared/__tests__/` - Shared utility tests.
 - `src/storage/` - Storage triggers, thumbnail generation, OG image generation, and storage usage helpers.
 - `src/storage/__tests__/` - Storage tests.
+- `src/transfers/` - Grid ownership transfer callables (create/preview/accept/decline/cancel), the expiry sweep, and their helpers.
+- `src/transfers/__tests__/` - Transfer tests.
 
 Generated folders you may see:
 

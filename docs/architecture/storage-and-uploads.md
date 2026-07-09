@@ -278,6 +278,11 @@ Full grid duplication must not point the new owner's grid at another user's stor
 The client presents a confirmation prompt before duplicating a grid with file-backed tiles, describing
 the additional quota required and noting when non-shareable tiles will be replaced.
 
+The object-copy loop is shared code (`utils_copyArchiveObjects.ts` — `prepareArchiveObjectCopyPlan` +
+`copyArchiveObjects`), also used by grid ownership transfer. A `requireShareable` flag distinguishes the
+two callers: `true` for cross-owner duplication, `false` for the owner-authorized transfer. See
+[Grid ownership transfer](grid-ownership-transfer.md) for the full transfer model.
+
 ## Deletion semantics
 
 There are two very different "deletes":
@@ -375,7 +380,8 @@ All storage functions live in `apps/firebase-functions/src/storage/` and are exp
 Supporting utilities: `utils_uploadPaths.ts` (paths + validation), `utils_uploadArchive.ts` (archive
 transactions, quota, refCount, finalize), `utils_storageHash.ts` (server stream hashing),
 `utils_storageUsage.ts` (usage accounting + object filtering), `utils_storageDownloadUrl.ts`
-(emulator-aware `?alt=media` URLs).
+(emulator-aware `?alt=media` URLs), `utils_copyArchiveObjects.ts` (shared object-copy loop used by both
+grid duplication and [grid ownership transfer](grid-ownership-transfer.md)).
 
 Client side: `apps/web/src/services/StorageService.ts` and its interface, the DAOs behind
 `StorageDao` / `UploadArchiveDao` / `CloudFunctionsDao`, `apps/web/src/utils/FileHashing.ts` (chunked

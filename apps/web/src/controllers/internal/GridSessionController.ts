@@ -9,6 +9,10 @@ import type {
 const RESYNC_OVERLAY_MS = 350;
 
 export class GridSessionController {
+  // Realtime listener on the open grid document; used only to detect ownership
+  // changes (e.g. an accepted transfer) so we can flip the previous owner to
+  // read-only without waiting for a reload. It never syncs grid content.
+  private gridSubscription: (() => void) | null = null;
   // Guards against overlapping reactivation checks — rapid tab flips must not
   // stack Firestore reads or reloads on top of one another.
   private resyncInFlight = false;
@@ -25,11 +29,18 @@ export class GridSessionController {
     // and session stores are reset — while its id and undo/redo stacks are
     // still intact for the reachability check.
     this.flushChatCleanup();
+    this.stopGridSubscription();
     this.stores.history.reset();
     this.stores.viewport.reset();
     this.stores.uploads.reset();
     this.stores.ui.resetSessionState();
     this.stores.session.reset();
+  }
+
+  /** Tear down the current grid's realtime ownership listener, if any. */
+  stopGridSubscription(): void {
+    this.gridSubscription?.();
+    this.gridSubscription = null;
   }
 
   async loadGrid(id: string): Promise<void> {
@@ -52,10 +63,15 @@ export class GridSessionController {
 
       this.stores.session.setCurrentGrid(grid);
       committedGrid = true;
-      this.stores.session.setOwner(
-        !!(userId && grid.userId && userId === grid.userId),
-      );
+      const isOwner = !!(userId && grid.userId && userId === grid.userId);
+      this.stores.session.setOwner(isOwner);
       this.stores.session.setDemoGrid(false);
+      // Only owners need the ownership listener — it exists to catch losing the
+      // grid (e.g. an accepted transfer). Skipping it for viewers avoids opening
+      // a realtime listener on every anonymous public-page view.
+      if (isOwner) {
+        this.startGridSubscription(id, userId);
+      }
 
       const preferences = this.dependencies.readMetadataPreferences();
       this.stores.ui.setShowMetaData(preferences.showMetaData);
@@ -204,6 +220,56 @@ export class GridSessionController {
 
   clearSession(): void {
     this.resetSessionDependents();
+  }
+
+  /**
+   * Watch the open grid document for an ownership change (e.g. an accepted
+   * transfer). When the grid's `userId` moves away from us while we still hold
+   * edit rights, flip to read-only immediately and tell the user, instead of
+   * letting them keep editing a grid they can no longer save.
+   */
+  private startGridSubscription(
+    gridId: string,
+    currentUserId: string | null,
+  ): void {
+    this.stopGridSubscription();
+    // Captured after setCurrentGrid, this pins the listener to this session so a
+    // late snapshot can't act after a different grid has been loaded.
+    const generation = this.stores.session.sessionGeneration;
+    this.gridSubscription = this.dependencies
+      .getGridService()
+      .subscribeToGrid(gridId, (grid) => {
+        this.handleGridSnapshot(gridId, generation, currentUserId, grid);
+      });
+  }
+
+  private handleGridSnapshot(
+    gridId: string,
+    generation: number,
+    currentUserId: string | null,
+    grid: Grid | null,
+  ): void {
+    // Ignore snapshots from a superseded session (another grid has loaded).
+    if (
+      this.stores.session.sessionGeneration !== generation ||
+      this.stores.session.currentGrid?.id !== gridId
+    ) {
+      return;
+    }
+    // Only react to a real ownership change away from us while we still own the
+    // grid. Deletion (null) and ordinary content changes are ignored — this
+    // listener never syncs content, so local unsaved edits are preserved.
+    if (!grid || !this.stores.session.isOwner) return;
+    if (!currentUserId || grid.userId === currentUserId) return;
+
+    this.stores.session.markOwnershipRevoked(grid.userId);
+    // Close any open tile menus/editors so no edit affordance lingers.
+    this.stores.ui.resetSessionState();
+    this.stores.toast.addToast(
+      "This grid was transferred to a new owner and is now read-only. Any unsaved changes weren't saved.",
+      "info",
+      8000,
+    );
   }
 
   clearSessionIfGridDeleted(id: string): void {

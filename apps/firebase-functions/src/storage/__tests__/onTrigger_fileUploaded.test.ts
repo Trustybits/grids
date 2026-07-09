@@ -42,11 +42,13 @@ const { firestoreState, storageState, FieldValue } = vi.hoisted(() => {
 });
 
 vi.mock("firebase-functions/v1", () => ({
-  storage: {
-    object: () => ({
-      onFinalize: (handler: unknown) => handler,
-    }),
-  },
+  runWith: vi.fn(() => ({
+    storage: {
+      object: () => ({
+        onFinalize: (handler: unknown) => handler,
+      }),
+    },
+  })),
 }));
 
 vi.mock("firebase-functions/logger", () => ({

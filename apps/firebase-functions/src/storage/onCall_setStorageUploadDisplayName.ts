@@ -14,7 +14,9 @@ import { normalizeDisplayName, normalizeHash } from "./utils_uploadPaths.js";
  * document's `displayName`; the object path, hash, and any grid references that
  * point at the file are untouched.
  */
-export const setStorageUploadDisplayName = functions.https.onCall(
+export const setStorageUploadDisplayName = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(
   async (data, context) => {
     if (noopIfMaintenance("setStorageUploadDisplayName")) return null;
 

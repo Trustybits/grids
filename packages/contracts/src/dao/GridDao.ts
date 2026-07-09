@@ -28,9 +28,18 @@ export function isGridRevisionConflictError(
   );
 }
 
+export type GridSubscription = (grid: Grid | null) => void;
+
 export interface GridDao {
   /** Fetch a single grid document by ID. */
   getById(id: string): Promise<Grid | null>;
+
+  /**
+   * Subscribe to realtime updates for a single grid document. The callback
+   * fires with the current grid immediately and again on every change, and
+   * receives `null` if the grid is deleted. Returns an unsubscribe function.
+   */
+  subscribeToGrid(id: string, callback: GridSubscription): () => void;
 
   /** Query all grids belonging to a specific user. */
   findByUserId(userId: string): Promise<Grid[]>;

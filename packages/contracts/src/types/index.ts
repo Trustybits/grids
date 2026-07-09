@@ -2,6 +2,7 @@ export * from "./Analytics.js";
 export * from "./Badge.js";
 export * from "./GameData.js";
 export * from "./Grid.js";
+export * from "./GridTransfer.js";
 export * from "./Roadmap.js";
 export * from "./Storage.js";
 export * from "./Tile.js";

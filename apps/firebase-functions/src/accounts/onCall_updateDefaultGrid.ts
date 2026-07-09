@@ -1,4 +1,5 @@
-import { onCall, HttpsError } from "firebase-functions/v1/https";
+import * as functions from "firebase-functions/v1";
+import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
@@ -8,7 +9,9 @@ import { getCallableData, requireAuth } from "../shared/utils_callable.js";
  * Cloud Function to update the default grid for a user's slug.
  * This syncs the defaultGridId to the slugs collection for public access.
  */
-export const updateDefaultGrid = onCall(async (data, context) => {
+export const updateDefaultGrid = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(async (data, context) => {
   if (noopIfMaintenance("updateDefaultGrid")) return null;
 
   const userId = requireAuth(

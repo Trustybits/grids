@@ -1,4 +1,5 @@
-import { onCall, HttpsError } from "firebase-functions/v1/https";
+import * as functions from "firebase-functions/v1";
+import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import * as cheerio from "cheerio";
 import { lookup } from "node:dns/promises";
@@ -101,7 +102,9 @@ function pickFirst(...values: Array<string | undefined>): string | undefined {
   return undefined;
 }
 
-export const getLinkPreview = onCall(async (data, context) => {
+export const getLinkPreview = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(async (data, context) => {
   if (noopIfMaintenance("getLinkPreview")) return null;
 
   requireAuth(context, "You must be signed in to fetch link previews.");

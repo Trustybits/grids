@@ -57,6 +57,19 @@ export const useGridSessionStore = defineStore("gridSession", {
       this.isOwner = isOwner;
     },
 
+    /**
+     * The open grid was transferred to another user while we had it open. Patch
+     * the cached owner id and drop edit rights so both `isOwner` and any
+     * `currentGrid.userId`-derived ownership checks flip to read-only without
+     * replacing the grid content (which would clobber unsaved local edits).
+     */
+    markOwnershipRevoked(newOwnerId: string) {
+      if (this.currentGrid) {
+        this.currentGrid.userId = newOwnerId;
+      }
+      this.isOwner = false;
+    },
+
     setDemoGrid(isDemoGrid: boolean) {
       this.isDemoGrid = isDemoGrid;
     },

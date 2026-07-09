@@ -2,19 +2,41 @@ import type { Grid } from "@grids/contracts/types";
 import {
   GridRevisionConflictError,
   type GridDao,
+  type GridSubscription,
 } from "@grids/contracts/dao";
 import {
+  channel,
   cloneValue,
   createId,
+  emit,
   memoryDatabase,
   mergeRecord,
+  subscribeToValue,
   toGrid,
 } from "./StubbedMemoryDatabase";
+
+const GRID_CHANNEL_PREFIX = "grid";
+
+/** Notify subscribers that a single grid document changed. */
+export function emitGridChanged(id: string): void {
+  emit(channel(GRID_CHANNEL_PREFIX, id));
+}
 
 export class StubbedGridDao implements GridDao {
   public async getById(id: string): Promise<Grid | null> {
     const grid = memoryDatabase.grids.get(id);
     return grid ? cloneValue(grid) : null;
+  }
+
+  public subscribeToGrid(
+    id: string,
+    callback: GridSubscription,
+  ): () => void {
+    return subscribeToValue(
+      channel(GRID_CHANNEL_PREFIX, id),
+      () => memoryDatabase.grids.get(id) ?? null,
+      callback,
+    );
   }
 
   public async findByUserId(userId: string): Promise<Grid[]> {
@@ -37,6 +59,7 @@ export class StubbedGridDao implements GridDao {
       | undefined;
     this.assertExpectedRev(id, existing, expectedRev);
     memoryDatabase.grids.set(id, toGrid(id, mergeRecord(existing, data)));
+    emitGridChanged(id);
   }
 
   public async update(
@@ -49,6 +72,7 @@ export class StubbedGridDao implements GridDao {
       | undefined;
     this.assertExpectedRev(id, existing, expectedRev);
     memoryDatabase.grids.set(id, toGrid(id, mergeRecord(existing, data)));
+    emitGridChanged(id);
   }
 
   public async updateLastOpenedAt(id: string): Promise<void> {
@@ -58,10 +82,12 @@ export class StubbedGridDao implements GridDao {
       ...cloneValue(existing),
       lastOpenedAt: new Date(),
     });
+    emitGridChanged(id);
   }
 
   public async delete(id: string): Promise<void> {
     memoryDatabase.grids.delete(id);
+    emitGridChanged(id);
   }
 
   private assertExpectedRev(

@@ -7,6 +7,15 @@ import type {
 export interface GridServiceInterface {
   // ── Core CRUD ───────────────────────────────────────────────────────
   fetchGrid(id: string): Promise<Grid>;
+  /**
+   * Subscribe to realtime updates for a single grid. The callback receives the
+   * current grid immediately and on every change (null if deleted). Returns an
+   * unsubscribe function.
+   */
+  subscribeToGrid(
+    id: string,
+    callback: (grid: Grid | null) => void,
+  ): () => void;
   saveGrid(grid: Grid): Promise<Grid>;
   updateGrid(grid: Grid): Promise<Grid>;
   deleteGrid(id: string): Promise<void>;

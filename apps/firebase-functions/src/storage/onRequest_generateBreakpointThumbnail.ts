@@ -316,5 +316,5 @@ async function handler(req: Request, res: Response): Promise<void> {
 // ─── Export ───────────────────────────────────────────────────────────────────
 
 export const generateThumbnail = functions
-  .runWith({ memory: "2GB", timeoutSeconds: 120 })
+  .runWith({ minInstances: 1, memory: "2GB", timeoutSeconds: 120 })
   .https.onRequest(handler);

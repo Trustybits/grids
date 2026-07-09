@@ -470,6 +470,8 @@ export default defineComponent({
     const switcherVariant = SWITCHER_VARIANT;
     // Restore dark mode when leaving the grid page
     onUnmounted(() => {
+      // Drop the realtime ownership listener so it doesn't outlive the page.
+      controller.stopWatchingGrid();
       document.removeEventListener("visibilitychange", handleReactivate);
       window.removeEventListener("focus", handleReactivate);
       themeStore.resetToAppDefault();

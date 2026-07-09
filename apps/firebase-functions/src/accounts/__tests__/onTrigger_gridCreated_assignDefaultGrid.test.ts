@@ -17,11 +17,13 @@ const { firestoreState } = vi.hoisted(() => ({
 }));
 
 vi.mock("firebase-functions/v1", () => ({
-  firestore: {
-    document: vi.fn(() => ({
-      onCreate: (handler: unknown) => handler,
-    })),
-  },
+  runWith: vi.fn(() => ({
+    firestore: {
+      document: vi.fn(() => ({
+        onCreate: (handler: unknown) => handler,
+      })),
+    },
+  })),
 }));
 
 vi.mock("firebase-functions/logger", () => ({

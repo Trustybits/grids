@@ -7,6 +7,7 @@ import type { CustomerDao } from "@grids/contracts/dao";
 import type { DaoFactory } from "@grids/contracts/dao";
 import type { GridStatsDao } from "@grids/contracts/dao";
 import type { GridDao } from "@grids/contracts/dao";
+import type { GridTransferDao } from "@grids/contracts/dao";
 import type { RoadmapDao } from "@grids/contracts/dao";
 import type { SlugDao } from "@grids/contracts/dao";
 import type { StorageDao } from "@grids/contracts/dao";
@@ -22,6 +23,7 @@ import { StubbedCloudFunctionsDao } from "../StubbedCloudFunctionsDao";
 import { StubbedCustomerDao } from "../StubbedCustomerDao";
 import { StubbedGridStatsDao } from "../StubbedGridStatsDao";
 import { StubbedGridDao } from "../StubbedGridDao";
+import { StubbedGridTransferDao } from "../StubbedGridTransferDao";
 import { StubbedRoadmapDao } from "../StubbedRoadmapDao";
 import { StubbedSlugDao } from "../StubbedSlugDao";
 import { StubbedStorageDao } from "../StubbedStorageDao";
@@ -39,6 +41,7 @@ export class StubbedDaoFactory implements DaoFactory {
   private customerDao: CustomerDao;
   private gridStatsDao: GridStatsDao;
   private gridDao: GridDao;
+  private gridTransferDao: GridTransferDao;
   private roadmapDao: RoadmapDao;
   private slugDao: SlugDao;
   private storageDao: StorageDao;
@@ -56,6 +59,7 @@ export class StubbedDaoFactory implements DaoFactory {
     this.customerDao = new StubbedCustomerDao();
     this.gridStatsDao = new StubbedGridStatsDao();
     this.gridDao = new StubbedGridDao();
+    this.gridTransferDao = new StubbedGridTransferDao();
     this.roadmapDao = new StubbedRoadmapDao();
     this.slugDao = new StubbedSlugDao();
     this.storageDao = new StubbedStorageDao();
@@ -95,6 +99,10 @@ export class StubbedDaoFactory implements DaoFactory {
 
   public getGridDao(): GridDao {
     return this.gridDao;
+  }
+
+  public getGridTransferDao(): GridTransferDao {
+    return this.gridTransferDao;
   }
 
   public getRoadmapDao(): RoadmapDao {

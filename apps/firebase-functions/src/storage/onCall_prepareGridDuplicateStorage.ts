@@ -4,15 +4,10 @@ import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
 import { getCallableData, requireAuth } from "../shared/utils_callable.js";
 import {
-  assertUserHasStorageQuota,
-  buildDownloadUrl,
-  createPendingArchiveReservation,
-  ensureDownloadToken,
-  readUploadArchiveDoc,
-  type UploadArchiveDoc,
-} from "./utils_uploadArchive.js";
+  copyArchiveObjects,
+  prepareArchiveObjectCopyPlan,
+} from "./utils_copyArchiveObjects.js";
 import { extractGridStorageReferencesFromRecord } from "@grids/contracts/storage";
-import { buildCanonicalUploadPath, type UploadMetadata } from "./utils_uploadPaths.js";
 
 type GridDuplicateStorageRequest = {
   sourceGridId?: unknown;
@@ -20,12 +15,9 @@ type GridDuplicateStorageRequest = {
   confirmed?: unknown;
 };
 
-type ReferencePlan = {
-  hash: string;
-  archiveDoc: UploadArchiveDoc;
-};
-
-export const prepareGridDuplicateStorage = functions.https.onCall(
+export const prepareGridDuplicateStorage = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(
   async (data, context) => {
     if (noopIfMaintenance("prepareGridDuplicateStorage")) return null;
 
@@ -62,109 +54,44 @@ export const prepareGridDuplicateStorage = functions.https.onCall(
     }
 
     const references = extractGridStorageReferencesFromRecord(sourceGrid);
-    const uniqueHashes = [...new Set(references.map((ref) => ref.hash))];
-    const archiveDocs = await Promise.all(
-      uniqueHashes.map(async (hash) => ({
-        hash,
-        archiveDoc: await readUploadArchiveDoc(sourceUid, hash),
-      })),
-    );
-
-    const copiable = new Map<string, ReferencePlan>();
-    const nonCopiableHashes = new Set<string>();
-    for (const entry of archiveDocs) {
-      if (!entry.archiveDoc) {
-        nonCopiableHashes.add(entry.hash);
-        continue;
-      }
-      if (sourceUid === targetUid || entry.archiveDoc.shareable === true) {
-        copiable.set(entry.hash, {
-          hash: entry.hash,
-          archiveDoc: entry.archiveDoc,
-        });
-      } else {
-        nonCopiableHashes.add(entry.hash);
-      }
-    }
+    const copyPlan = await prepareArchiveObjectCopyPlan({
+      sourceUid,
+      targetUid,
+      references,
+      requireShareable: true,
+    });
 
     const replacementTileIds = [
       ...new Set(
         references
-          .filter((ref) => nonCopiableHashes.has(ref.hash) && ref.tileId)
+          .filter((ref) => copyPlan.nonCopiableHashes.has(ref.hash) && ref.tileId)
           .map((ref) => ref.tileId as string),
       ),
     ];
     const removeBackgroundImage = references.some(
       (ref) =>
         ref.location === "grid.backgroundImage" &&
-        nonCopiableHashes.has(ref.hash),
+        copyPlan.nonCopiableHashes.has(ref.hash),
     );
-
-    const targetArchiveDocs = new Map<string, UploadArchiveDoc>();
-    const missingForTarget = new Map<string, ReferencePlan>();
-    for (const [hash, plan] of copiable) {
-      const targetDoc = await readUploadArchiveDoc(targetUid, hash);
-      if (targetDoc?.status === "active") {
-        targetArchiveDocs.set(hash, targetDoc);
-      } else {
-        missingForTarget.set(hash, plan);
-      }
-    }
-
-    const additionalBytesRequired = [...missingForTarget.values()].reduce(
-      (sum, plan) => sum + plan.archiveDoc.size,
-      0,
-    );
-    await assertUserHasStorageQuota(targetUid, additionalBytesRequired);
 
     if (payload.confirmed !== true) {
       return {
-        additionalBytesRequired,
-        copiableCount: copiable.size,
+        additionalBytesRequired: copyPlan.additionalBytesRequired,
+        copiableCount: copyPlan.copiable.size,
         nonCopiableCount: replacementTileIds.length,
         replacementTileIds,
         removeBackgroundImage,
       };
     }
 
-    const bucket = admin.storage().bucket();
-    const rewriteMap: Record<
-      string,
-      { oldHash?: string; oldUrl?: string; newHash: string; newUrl: string }
-    > = {};
-
-    for (const [hash, plan] of copiable) {
-      const targetMetadata = metadataFromArchiveDoc(plan.archiveDoc);
-      const targetPath = buildCanonicalUploadPath(targetUid, targetMetadata);
-      const token = ensureDownloadToken();
-      let targetUrl =
-        targetArchiveDocs.get(hash)?.url ??
-        buildDownloadUrl(bucket.name, targetPath, token);
-
-      if (missingForTarget.has(hash)) {
-        await createPendingArchiveReservation(targetUid, targetMetadata);
-        await bucket.file(plan.archiveDoc.path).copy(bucket.file(targetPath));
-        await bucket.file(targetPath).setMetadata({
-          contentType: plan.archiveDoc.contentType,
-          metadata: {
-            published: "true",
-            firebaseStorageDownloadTokens: token,
-          },
-        });
-        targetUrl = buildDownloadUrl(bucket.name, targetPath, token);
-      }
-
-      rewriteMap[hash] = {
-        oldHash: hash,
-        oldUrl: plan.archiveDoc.url,
-        newHash: hash,
-        newUrl: targetUrl,
-      };
-    }
+    const rewriteMap = await copyArchiveObjects({
+      targetUid,
+      plan: copyPlan,
+    });
 
     return {
-      additionalBytesRequired,
-      copiableCount: copiable.size,
+      additionalBytesRequired: copyPlan.additionalBytesRequired,
+      copiableCount: copyPlan.copiable.size,
       nonCopiableCount: replacementTileIds.length,
       rewriteMap,
       replacementTileIds,
@@ -172,14 +99,3 @@ export const prepareGridDuplicateStorage = functions.https.onCall(
     };
   },
 );
-
-function metadataFromArchiveDoc(doc: UploadArchiveDoc): UploadMetadata {
-  return {
-    kind: doc.kind as UploadMetadata["kind"],
-    hash: doc.hash,
-    ext: doc.ext,
-    size: doc.size,
-    contentType: doc.contentType,
-    displayName: doc.displayName ?? `${doc.hash}.${doc.ext}`,
-  };
-}

@@ -72,7 +72,7 @@ async function renderPdfFirstPagePng(pdfSignedUrl: string): Promise<Buffer> {
 }
 
 export const ensureDocumentItemThumbnail = functions
-  .runWith({ memory: "1GB", timeoutSeconds: 120 })
+  .runWith({ minInstances: 1, memory: "1GB", timeoutSeconds: 120 })
   .https.onCall(async (data, context) => {
     if (noopIfMaintenance("ensureDocumentItemThumbnail")) return null;
 

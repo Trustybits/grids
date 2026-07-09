@@ -5,7 +5,9 @@ import { getCallableData, requireAuth } from "../shared/utils_callable.js";
 import { readUploadArchiveDoc } from "./utils_uploadArchive.js";
 import { normalizeHash } from "./utils_uploadPaths.js";
 
-export const getStorageUploadDownloadUrl = functions.https.onCall(
+export const getStorageUploadDownloadUrl = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(
   async (data, context) => {
     if (noopIfMaintenance("getStorageUploadDownloadUrl")) return null;
 

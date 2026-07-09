@@ -11,7 +11,9 @@ import {
 import { normalizeHash } from "./utils_uploadPaths.js";
 import { SKIP_STORAGE_ACCOUNTING_METADATA_KEY } from "./utils_storageUsage.js";
 
-export const deleteStorageUpload = functions.https.onCall(
+export const deleteStorageUpload = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(
   async (data, context) => {
     if (noopIfMaintenance("deleteStorageUpload")) return null;
 

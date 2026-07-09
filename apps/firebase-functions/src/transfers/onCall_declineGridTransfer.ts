@@ -8,7 +8,9 @@ import {
   readTransfer,
 } from "./utils_gridTransfer.js";
 
-export const declineGridTransfer = functions.https.onCall(
+export const declineGridTransfer = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(
   async (data, context) => {
     if (noopIfMaintenance("declineGridTransfer")) return null;
 

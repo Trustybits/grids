@@ -2184,5 +2184,5 @@ async function handler(req: Request, res: Response): Promise<void> {
 
 // Export as a v1 onRequest function with boosted memory for Chromium.
 export const generateOgImage = functions
-  .runWith({ memory: "2GB", timeoutSeconds: 90 })
+  .runWith({ minInstances: 1, memory: "2GB", timeoutSeconds: 90 })
   .https.onRequest(handler);

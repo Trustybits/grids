@@ -19,8 +19,9 @@ import { parseCanonicalUploadPath } from "./utils_uploadPaths.js";
  * Cloud Function that triggers when a file is uploaded to Firebase Storage.
  * Updates the user's storage usage in Firestore.
  */
-export const onFileUploaded = functions.storage
-  .object()
+export const onFileUploaded = functions
+  .runWith({ minInstances: 1 })
+  .storage.object()
   .onFinalize(async (object) => {
     if (noopIfMaintenance("onFileUploaded")) return null;
 

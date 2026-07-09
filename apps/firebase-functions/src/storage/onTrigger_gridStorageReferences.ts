@@ -11,8 +11,9 @@ type GridSnapshotLike = {
   data: () => Record<string, unknown> | undefined;
 };
 
-export const onGridStorageReferencesCreated = functions.firestore
-  .document("grids/{gridId}")
+export const onGridStorageReferencesCreated = functions
+  .runWith({ minInstances: 1 })
+  .firestore.document("grids/{gridId}")
   .onCreate(async (snapshot, context) => {
     if (noopIfMaintenance("onGridStorageReferencesCreated")) return null;
 
@@ -20,8 +21,9 @@ export const onGridStorageReferencesCreated = functions.firestore
     return null;
   });
 
-export const onGridStorageReferencesUpdated = functions.firestore
-  .document("grids/{gridId}")
+export const onGridStorageReferencesUpdated = functions
+  .runWith({ minInstances: 1 })
+  .firestore.document("grids/{gridId}")
   .onUpdate(async (change, context) => {
     if (noopIfMaintenance("onGridStorageReferencesUpdated")) return null;
 
@@ -33,8 +35,9 @@ export const onGridStorageReferencesUpdated = functions.firestore
     return null;
   });
 
-export const onGridStorageReferencesDeleted = functions.firestore
-  .document("grids/{gridId}")
+export const onGridStorageReferencesDeleted = functions
+  .runWith({ minInstances: 1 })
+  .firestore.document("grids/{gridId}")
   .onDelete(async (snapshot, context) => {
     if (noopIfMaintenance("onGridStorageReferencesDeleted")) return null;
 

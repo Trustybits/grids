@@ -15,7 +15,9 @@ type GridDuplicateStorageRequest = {
   confirmed?: unknown;
 };
 
-export const prepareGridDuplicateStorage = functions.https.onCall(
+export const prepareGridDuplicateStorage = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(
   async (data, context) => {
     if (noopIfMaintenance("prepareGridDuplicateStorage")) return null;
 

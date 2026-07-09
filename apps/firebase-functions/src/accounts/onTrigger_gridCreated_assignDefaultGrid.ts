@@ -14,8 +14,9 @@ import { noopIfMaintenance } from "../maintenance.js";
  * failures). Keeping it independent guarantees it runs for every grid create,
  * including dev/test accounts.
  */
-export const assignDefaultGridOnCreate = functions.firestore
-  .document("grids/{gridId}")
+export const assignDefaultGridOnCreate = functions
+  .runWith({ minInstances: 1 })
+  .firestore.document("grids/{gridId}")
   .onCreate(async (snapshot, context) => {
     if (noopIfMaintenance("assignDefaultGridOnCreate")) return null;
 

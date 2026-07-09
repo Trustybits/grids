@@ -17,6 +17,7 @@ const youtubeApiKey = defineSecret("YOUTUBE_API_KEY");
  */
 export const getYouTubeMetadata = functions
   .runWith({
+    minInstances: 1,
     secrets: [youtubeApiKey],
   })
   .https.onCall(async (data, context) => {

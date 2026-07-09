@@ -12,7 +12,9 @@ import {
 } from "./utils_gridTransfer.js";
 import { buildTransferInventory } from "./utils_gridTransferAcceptance.js";
 
-export const previewGridTransferAcceptance = functions.https.onCall(
+export const previewGridTransferAcceptance = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(
   async (data, context) => {
     if (noopIfMaintenance("previewGridTransferAcceptance")) return null;
 

@@ -9,7 +9,9 @@ import {
 } from "./utils_uploadArchive.js";
 import { normalizeHash } from "./utils_uploadPaths.js";
 
-export const setStorageUploadShareable = functions.https.onCall(
+export const setStorageUploadShareable = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(
   async (data, context) => {
     if (noopIfMaintenance("setStorageUploadShareable")) return null;
 

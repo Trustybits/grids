@@ -18,7 +18,9 @@ import {
   rewriteGridForTransfer,
 } from "./utils_gridTransferAcceptance.js";
 
-export const acceptGridTransfer = functions.https.onCall(
+export const acceptGridTransfer = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(
   async (data, context) => {
     if (noopIfMaintenance("acceptGridTransfer")) return null;
 

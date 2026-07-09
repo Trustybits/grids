@@ -8,7 +8,9 @@ import {
   readTransfer,
 } from "./utils_gridTransfer.js";
 
-export const cancelGridTransfer = functions.https.onCall(
+export const cancelGridTransfer = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(
   async (data, context) => {
     if (noopIfMaintenance("cancelGridTransfer")) return null;
 

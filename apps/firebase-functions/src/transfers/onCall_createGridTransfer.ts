@@ -14,7 +14,9 @@ import {
 } from "./utils_gridTransfer.js";
 import { buildTransferInventory } from "./utils_gridTransferAcceptance.js";
 
-export const createGridTransfer = functions.https.onCall(
+export const createGridTransfer = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(
   async (data, context) => {
     if (noopIfMaintenance("createGridTransfer")) return null;
 

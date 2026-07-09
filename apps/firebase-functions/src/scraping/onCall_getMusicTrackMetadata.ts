@@ -79,7 +79,9 @@ async function scrapeAppleEmbedColors(songId: string): Promise<string | null> {
  * Cloud Function to fetch music track metadata from Spotify or Apple Music.
  * Scrapes embed pages / iTunes API for track details and color palette.
  */
-export const getMusicTrackMetadata = functions.https.onCall(async (data, context) => {
+export const getMusicTrackMetadata = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(async (data, context) => {
   if (noopIfMaintenance("getMusicTrackMetadata")) return null;
 
   requireAuth(context, "You must be signed in to fetch music metadata.");

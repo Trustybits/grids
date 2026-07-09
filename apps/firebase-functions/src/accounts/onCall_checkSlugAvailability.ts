@@ -1,4 +1,5 @@
-import { onCall, HttpsError } from "firebase-functions/v1/https";
+import * as functions from "firebase-functions/v1";
+import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
 import admin from "../admin.js";
 import { noopIfMaintenance } from "../maintenance.js";
@@ -13,7 +14,9 @@ import { isValidSlugFormat } from "./utils_slugValidation.js";
  * Cloud Function to check if a slug is available.
  * Returns availability status without claiming it.
  */
-export const checkSlugAvailability = onCall(async (data, context) => {
+export const checkSlugAvailability = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(async (data, context) => {
   if (noopIfMaintenance("checkSlugAvailability")) return null;
 
   const userId = requireAuth(

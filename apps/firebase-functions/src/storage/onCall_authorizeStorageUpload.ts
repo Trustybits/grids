@@ -4,7 +4,9 @@ import { requireAuth } from "../shared/utils_callable.js";
 import { authorizeUploadReservation } from "./utils_uploadArchive.js";
 import { normalizeUploadMetadata } from "./utils_uploadPaths.js";
 
-export const authorizeStorageUpload = functions.https.onCall(
+export const authorizeStorageUpload = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(
   async (data, context) => {
     if (noopIfMaintenance("authorizeStorageUpload")) return null;
 

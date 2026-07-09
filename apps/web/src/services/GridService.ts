@@ -11,6 +11,10 @@ import {
   type ChatContent,
   type SuggestionAction,
 } from "@grids/contracts/types";
+import {
+  rewriteArchiveBackedContent,
+  rewriteBackgroundImage,
+} from "@grids/contracts/storage";
 import { getDaoFactory } from "@/dao/DaoFactorySingleton";
 import { getDbUtils } from "@/dao/DbUtilsSingleton";
 import type { DbUtils } from "@grids/contracts/dao";
@@ -24,130 +28,6 @@ import heroGif from "@/assets/images/hero.gif";
 import type { GridServiceInterface } from "./interfaces/GridServiceInterface";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
-
-type DuplicateRewrite = NonNullable<
-  ConfirmedGridDuplicateStorage["rewriteMap"]
->[string];
-
-const getRewriteForHash = (
-  hash: unknown,
-  storagePlan?: ConfirmedGridDuplicateStorage,
-): DuplicateRewrite | null => {
-  if (typeof hash !== "string" || !hash) return null;
-  return storagePlan?.rewriteMap?.[hash] ?? null;
-};
-
-const rewriteTiptapImages = (
-  text: string,
-  storagePlan?: ConfirmedGridDuplicateStorage,
-): string => {
-  if (!storagePlan?.rewriteMap) return text;
-  try {
-    const root = JSON.parse(text) as unknown;
-    let changed = false;
-    const visit = (node: unknown) => {
-      if (!node || typeof node !== "object") return;
-      const record = node as {
-        type?: unknown;
-        attrs?: { hash?: unknown; src?: unknown };
-        content?: unknown;
-      };
-      if (record.type === "image" && record.attrs) {
-        const rewrite = getRewriteForHash(record.attrs.hash, storagePlan);
-        if (rewrite) {
-          record.attrs.hash = rewrite.newHash;
-          record.attrs.src = rewrite.newUrl;
-          changed = true;
-        }
-      }
-      if (Array.isArray(record.content)) {
-        for (const child of record.content) visit(child);
-      }
-    };
-    visit(root);
-    return changed ? JSON.stringify(root) : text;
-  } catch {
-    return text;
-  }
-};
-
-const rewriteArchiveBackedContent = (
-  tile: Tile,
-  storagePlan?: ConfirmedGridDuplicateStorage,
-): Tile => {
-  if (!storagePlan?.rewriteMap) return tile;
-  const content = tile.content as unknown as Record<string, unknown>;
-  switch (content.type) {
-    case ContentType.IMAGE:
-    case ContentType.VIDEO: {
-      const rewrite = getRewriteForHash(content.srcHash, storagePlan);
-      if (rewrite) {
-        content.srcHash = rewrite.newHash;
-        content.src = rewrite.newUrl;
-      }
-      break;
-    }
-    case ContentType.DOCUMENT:
-      if (Array.isArray(content.items)) {
-        content.items = content.items.map((item) => {
-          if (!item || typeof item !== "object") return item;
-          const next = { ...(item as Record<string, unknown>) };
-          const rewrite = getRewriteForHash(next.hash, storagePlan);
-          if (rewrite) {
-            next.hash = rewrite.newHash;
-            next.url = rewrite.newUrl;
-          }
-          return next;
-        });
-      }
-      break;
-    case ContentType.LINK: {
-      const rewrite = getRewriteForHash(content.customImageHash, storagePlan);
-      if (rewrite) {
-        content.customImageHash = rewrite.newHash;
-        content.customImageUrl = rewrite.newUrl;
-      }
-      break;
-    }
-    case ContentType.PROFILE: {
-      const rewrite = getRewriteForHash(content.profilePhotoHash, storagePlan);
-      if (rewrite) {
-        content.profilePhotoHash = rewrite.newHash;
-        content.profilePhotoUrl = rewrite.newUrl;
-      }
-      break;
-    }
-    case ContentType.SMART_TEXT:
-      if (typeof content.text === "string") {
-        content.text = rewriteTiptapImages(content.text, storagePlan);
-      }
-      break;
-  }
-  return tile;
-};
-
-const rewriteBackgroundImage = (
-  sourceGrid: Grid,
-  storagePlan?: ConfirmedGridDuplicateStorage,
-): Pick<Grid, "backgroundImageSrc" | "backgroundImageHash"> => {
-  if (storagePlan?.removeBackgroundImage) {
-    return {
-      backgroundImageSrc: "",
-      backgroundImageHash: "",
-    };
-  }
-  const rewrite = getRewriteForHash(sourceGrid.backgroundImageHash, storagePlan);
-  if (!rewrite) {
-    return {
-      backgroundImageSrc: sourceGrid.backgroundImageSrc || "",
-      backgroundImageHash: sourceGrid.backgroundImageHash,
-    };
-  }
-  return {
-    backgroundImageSrc: rewrite.newUrl,
-    backgroundImageHash: rewrite.newHash,
-  };
-};
 
 // Maps a real tile content type to the best-matching suggestion action so that
 // structure-only copies produce useful placeholder tiles instead of empty

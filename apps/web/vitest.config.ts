@@ -49,6 +49,12 @@ export default defineConfig({
       "@grids/contracts/auth": fileURLToPath(
         new URL("../../packages/contracts/src/auth/index.ts", import.meta.url),
       ),
+      "@grids/contracts/storage": fileURLToPath(
+        new URL(
+          "../../packages/contracts/src/storage/index.ts",
+          import.meta.url,
+        ),
+      ),
       "@grids/contracts": fileURLToPath(
         new URL("../../packages/contracts/src/index.ts", import.meta.url),
       ),

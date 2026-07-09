@@ -109,6 +109,7 @@ function createStores(pinia: Pinia): GridControllerStores {
 function createGridServiceMock(): GridServiceInterface {
   return {
     fetchGrid: vi.fn(),
+    subscribeToGrid: vi.fn(() => () => {}),
     saveGrid: vi.fn(),
     updateGrid: vi.fn(),
     deleteGrid: vi.fn(),

@@ -2,10 +2,16 @@
 // return normalized, cloned Grid objects; save/update normalize via toGrid and
 // merge over any existing record; updateLastOpenedAt only touches existing grids.
 import { describe, it, expect, beforeEach } from "vitest";
+import type { Grid } from "@grids/contracts/types";
 import { GridRevisionConflictError } from "@grids/contracts/dao";
 import { StubbedGridDao } from "../StubbedGridDao";
 import { memoryDatabase, toGrid } from "../StubbedMemoryDatabase";
 import { resetMemoryDatabase } from "./memoryTestUtils";
+
+// Subscriptions emit on a microtask (queueMicrotask), so tests await a macrotask
+// tick to let queued callbacks run.
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+const last = <T>(items: T[]): T | undefined => items[items.length - 1];
 
 let dao: StubbedGridDao;
 
@@ -161,5 +167,54 @@ describe("StubbedGridDao.delete", () => {
 
   it("is a no-op for an unknown grid", async () => {
     await expect(dao.delete("missing")).resolves.toBeUndefined();
+  });
+});
+
+describe("StubbedGridDao.subscribeToGrid", () => {
+  it("emits the current grid immediately and again on change", async () => {
+    memoryDatabase.grids.set("grid-1", toGrid("grid-1", { userId: "user-1" }));
+    const received: (Grid | null)[] = [];
+    const unsubscribe = dao.subscribeToGrid("grid-1", (g) =>
+      received.push(g),
+    );
+    await flush();
+    expect(last(received)?.userId).toBe("user-1");
+
+    await dao.update("grid-1", { userId: "user-2" });
+    await flush();
+    expect(last(received)?.userId).toBe("user-2");
+
+    unsubscribe();
+  });
+
+  it("emits null when the grid is deleted", async () => {
+    memoryDatabase.grids.set("grid-1", toGrid("grid-1", {}));
+    const received: (Grid | null)[] = [];
+    const unsubscribe = dao.subscribeToGrid("grid-1", (g) =>
+      received.push(g),
+    );
+    await flush();
+
+    await dao.delete("grid-1");
+    await flush();
+    expect(last(received)).toBeNull();
+
+    unsubscribe();
+  });
+
+  it("stops delivering updates after unsubscribe", async () => {
+    memoryDatabase.grids.set("grid-1", toGrid("grid-1", { userId: "user-1" }));
+    const received: (Grid | null)[] = [];
+    const unsubscribe = dao.subscribeToGrid("grid-1", (g) =>
+      received.push(g),
+    );
+    await flush();
+    const countBefore = received.length;
+
+    unsubscribe();
+    await dao.update("grid-1", { userId: "user-2" });
+    await flush();
+
+    expect(received.length).toBe(countBefore);
   });
 });

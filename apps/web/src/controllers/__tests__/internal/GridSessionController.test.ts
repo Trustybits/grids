@@ -257,6 +257,116 @@ describe("GridSessionController", () => {
     });
   });
 
+  describe("grid ownership subscription", () => {
+    /** Load a grid and return the snapshot callback the subscription registered. */
+    async function loadAndCaptureSnapshotCallback(
+      grid: Grid,
+      unsubscribe: () => void = () => {},
+    ): Promise<(grid: Grid | null) => void> {
+      let captured: ((grid: Grid | null) => void) | undefined;
+      vi.mocked(h.gridService.subscribeToGrid).mockImplementation(
+        (_id, cb) => {
+          captured = cb;
+          return unsubscribe;
+        },
+      );
+      vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(grid);
+      await controller.loadGrid(grid.id);
+      if (!captured) throw new Error("subscription callback was not registered");
+      return captured;
+    }
+
+    it("subscribes to the loaded grid", async () => {
+      await loadAndCaptureSnapshotCallback(
+        makeGrid({ id: "g2", userId: "user-1" }),
+      );
+      expect(h.gridService.subscribeToGrid).toHaveBeenCalledWith(
+        "g2",
+        expect.any(Function),
+      );
+    });
+
+    it("flips the previous owner to read-only when ownership moves away", async () => {
+      const emit = await loadAndCaptureSnapshotCallback(
+        makeGrid({ id: "g2", userId: "user-1" }),
+      );
+      const resetSessionState = vi.spyOn(h.stores.ui, "resetSessionState");
+
+      emit(makeGrid({ id: "g2", userId: "recipient" }));
+
+      expect(h.stores.session.isOwner).toBe(false);
+      expect(h.stores.session.currentGrid?.userId).toBe("recipient");
+      expect(resetSessionState).toHaveBeenCalled();
+      const toasts = h.stores.toast.toasts;
+      expect(toasts[toasts.length - 1]?.message).toContain("read-only");
+    });
+
+    it("ignores snapshots that do not change ownership", async () => {
+      const emit = await loadAndCaptureSnapshotCallback(
+        makeGrid({ id: "g2", userId: "user-1" }),
+      );
+
+      // A normal content change (still owned by us) must not revoke edit rights.
+      emit(makeGrid({ id: "g2", userId: "user-1", name: "Renamed" }));
+
+      expect(h.stores.session.isOwner).toBe(true);
+      expect(h.stores.toast.toasts).toHaveLength(0);
+    });
+
+    it("ignores a deletion snapshot (null) without revoking ownership here", async () => {
+      const emit = await loadAndCaptureSnapshotCallback(
+        makeGrid({ id: "g2", userId: "user-1" }),
+      );
+
+      emit(null);
+
+      expect(h.stores.session.isOwner).toBe(true);
+      expect(h.stores.toast.toasts).toHaveLength(0);
+    });
+
+    it("does not open a listener for a viewer who does not own the grid", async () => {
+      h.getCurrentUserId.mockReturnValue("viewer");
+      vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(
+        makeGrid({ id: "g2", userId: "owner" }),
+      );
+
+      await controller.loadGrid("g2");
+
+      expect(h.stores.session.isOwner).toBe(false);
+      expect(h.gridService.subscribeToGrid).not.toHaveBeenCalled();
+    });
+
+    it("ignores a stale snapshot after a newer grid has loaded", async () => {
+      const emit = await loadAndCaptureSnapshotCallback(
+        makeGrid({ id: "g2", userId: "user-1" }),
+      );
+
+      vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(
+        makeGrid({ id: "g3", userId: "user-1" }),
+      );
+      await controller.loadGrid("g3");
+
+      // The old grid's listener firing after g3 loaded must not touch state.
+      emit(makeGrid({ id: "g2", userId: "recipient" }));
+
+      expect(h.stores.session.currentGrid?.id).toBe("g3");
+      expect(h.stores.session.isOwner).toBe(true);
+      expect(h.stores.toast.toasts).toHaveLength(0);
+    });
+
+    it("unsubscribes the previous listener on reset", async () => {
+      const unsubscribe = vi.fn();
+      await loadAndCaptureSnapshotCallback(
+        makeGrid({ id: "g2", userId: "user-1" }),
+        unsubscribe,
+      );
+
+      controller.stopGridSubscription();
+
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("clearSession / clearSessionIfGridDeleted", () => {
     it("clearSession resets all session-dependent state", () => {
       h.stores.session.setCurrentGrid(makeGrid());

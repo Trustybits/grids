@@ -141,6 +141,7 @@ function makeController(session: ReturnType<typeof makeSession>) {
     clearSession: vi.fn(() => {
       session.currentGrid = null;
     }),
+    stopWatchingGrid: vi.fn(),
     loadGrid: vi.fn(),
     addBackgroundImage: vi.fn(),
     deleteGrid: vi.fn(),

@@ -93,6 +93,41 @@ describe("gridSession store", () => {
     expect(store.isLoading).toBe(true);
   });
 
+  describe("markOwnershipRevoked", () => {
+    it("patches the cached owner id and drops edit rights", () => {
+      const store = useGridSessionStore();
+      store.setCurrentGrid(makeGrid({ id: "g1", userId: "user-1" }));
+      store.setOwner(true);
+
+      store.markOwnershipRevoked("recipient");
+
+      expect(store.currentGrid?.userId).toBe("recipient");
+      expect(store.isOwner).toBe(false);
+    });
+
+    it("preserves grid content so unsaved local edits aren't clobbered", () => {
+      const store = useGridSessionStore();
+      const grid = makeGrid({ id: "g1", userId: "user-1", name: "Local edit" });
+      store.setCurrentGrid(grid);
+      store.setOwner(true);
+
+      store.markOwnershipRevoked("recipient");
+
+      expect(store.currentGrid?.id).toBe("g1");
+      expect(store.currentGrid?.name).toBe("Local edit");
+    });
+
+    it("is a no-op on ownership fields when there is no active grid", () => {
+      const store = useGridSessionStore();
+      store.setOwner(true);
+
+      store.markOwnershipRevoked("recipient");
+
+      expect(store.currentGrid).toBeNull();
+      expect(store.isOwner).toBe(false);
+    });
+  });
+
   it("reset restores every session field", () => {
     const store = useGridSessionStore();
 

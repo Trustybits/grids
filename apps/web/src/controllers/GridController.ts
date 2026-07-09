@@ -314,6 +314,15 @@ export class GridController {
     this.sessionController.clearSession();
   }
 
+  /**
+   * Stop the realtime ownership listener on the open grid without resetting the
+   * session stores. Call this when leaving the grid page so the listener does
+   * not leak past unmount.
+   */
+  stopWatchingGrid(): void {
+    this.sessionController.stopGridSubscription();
+  }
+
   scheduleSave(
     resolvedUrls: Record<string, string> =
       this.stores.uploads.resolvedUrls,

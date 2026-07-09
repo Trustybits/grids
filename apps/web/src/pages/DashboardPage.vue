@@ -1,6 +1,7 @@
 <template>
   <div class="dashboard">
     <div class="dashboard-sections">
+      <PendingGridTransfers @accepted="onTransferAccepted" />
       <div class="dashboard-header">
         <h2>Your Grids</h2>
         <Button variant="secondary" @click="promptAndCreateGrid" class="new-grid-button">
@@ -109,6 +110,7 @@ import type { Grid } from "@grids/contracts/types";
 import type { CopyDepth } from "@grids/contracts/types";
 import PromptModal from "@/components/modal/PromptModal.vue";
 import DashboardGridCard from "@/components/dashboard/DashboardGridCard.vue";
+import PendingGridTransfers from "@/components/dashboard/PendingGridTransfers.vue";
 import Button from "@/components/ui-elements/Button.vue";
 
 const collectionStore = useGridCollectionStore();
@@ -299,6 +301,13 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener("click", closeSplitMenu);
 });
+
+// A newly accepted transfer makes the grid ours; pull the updated list so it
+// appears on the dashboard (and refresh the profile for any default changes).
+const onTransferAccepted = async () => {
+  await controller.fetchGrids();
+  await loadUserProfile();
+};
 
 const promptAndCreateGrid = () => {
   showCreateModal.value = true;

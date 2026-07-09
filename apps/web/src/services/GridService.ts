@@ -291,6 +291,14 @@ export class GridService implements GridServiceInterface {
     }
   }
 
+  // Subscribe to realtime updates for a single grid document.
+  subscribeToGrid(
+    id: string,
+    callback: (grid: Grid | null) => void,
+  ): () => void {
+    return this.gridDao.subscribeToGrid(id, callback);
+  }
+
   // Save a new grid (or overwrite)
   async saveGrid(grid: Grid): Promise<Grid> {
     try {

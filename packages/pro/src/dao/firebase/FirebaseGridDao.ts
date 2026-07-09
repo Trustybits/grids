@@ -11,11 +11,13 @@ import {
   where,
   serverTimestamp,
   runTransaction,
+  onSnapshot,
 } from "firebase/firestore";
 import type { Grid } from "@grids/contracts/types";
 import {
   GridRevisionConflictError,
   type GridDao,
+  type GridSubscription,
 } from "@grids/contracts/dao";
 import { mapFirestoreToGrid } from "./FirebaseUtils.js";
 
@@ -33,6 +35,24 @@ export class FirebaseGridDao implements GridDao {
     const snapshot = await getDoc(docRef);
     if (!snapshot.exists()) return null;
     return mapFirestoreToGrid(snapshot);
+  }
+
+  public subscribeToGrid(
+    id: string,
+    callback: GridSubscription,
+  ): () => void {
+    const docRef = doc(this.db, COLLECTION, id);
+    return onSnapshot(
+      docRef,
+      (snapshot) => {
+        // `exists()` narrows the DocumentSnapshot to a QueryDocumentSnapshot,
+        // which is what mapFirestoreToGrid expects.
+        callback(snapshot.exists() ? mapFirestoreToGrid(snapshot) : null);
+      },
+      // On a listen error (e.g. permission revoked), report no grid rather than
+      // leaving the caller with stale ownership state.
+      () => callback(null),
+    );
   }
 
   public async findByUserId(userId: string): Promise<Grid[]> {

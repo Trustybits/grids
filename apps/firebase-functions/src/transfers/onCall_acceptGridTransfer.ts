@@ -82,7 +82,10 @@ export const acceptGridTransfer = functions.https.onCall(
       Array.isArray(grid.tiles) ? grid.tiles : [],
     );
 
+    const senderRef = db.collection("users").doc(transfer.fromUserId);
     await db.runTransaction(async (tx) => {
+      // Firestore transactions require every read before any write, so read the
+      // grid, transfer, and sender docs up front, then apply all mutations.
       const latestGridSnap = await tx.get(gridRef);
       if (
         !latestGridSnap.exists ||
@@ -100,11 +103,10 @@ export const acceptGridTransfer = functions.https.onCall(
           "This transfer is no longer pending.",
         );
       }
+      const senderSnap = await tx.get(senderRef);
 
       tx.update(gridRef, rewrittenGrid);
 
-      const senderRef = db.collection("users").doc(transfer.fromUserId);
-      const senderSnap = await tx.get(senderRef);
       if (senderSnap.data()?.defaultGridId === transfer.gridId) {
         tx.update(senderRef, { defaultGridId: null });
         const senderSlug = senderSnap.data()?.slug ?? transfer.fromSlug;

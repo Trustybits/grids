@@ -122,6 +122,16 @@
             </button>
           </template>
         </GhostSplitButton>
+        <template v-if="pendingTransfer">
+          <div class="transfer-pending-label">
+            Transfer pending — awaiting recipient
+          </div>
+          <MenuItem danger @click="cancelPendingTransfer">
+            Cancel Transfer
+          </MenuItem>
+        </template>
+        <MenuItem v-else @click="openTransferModal"> Transfer Grid </MenuItem>
+
         <MenuItem danger @click="confirmDelete"> Delete Grid </MenuItem>
       </MenuSection>
 
@@ -147,6 +157,13 @@
     </div>
 
     <OgImageModal :show="showOgImageModal" @close="showOgImageModal = false" />
+
+    <TransferGridModal
+      :show="showTransferModal"
+      :grid-id="gridPageId"
+      :grid-name="currentGridName"
+      @close="showTransferModal = false"
+    />
 
     <PromptModal
       :show="showDeleteModal"
@@ -185,8 +202,11 @@ import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
 import OgImageModal from "@/components/modal/OgImageModal.vue";
+import TransferGridModal from "@/components/modal/TransferGridModal.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useGridDuplicateStorage } from "@/composables/useGridDuplicateStorage";
+import { useGridTransfers } from "@/composables/useGridTransfers";
+import { describeCallableError } from "@/utils/CallableError";
 
 const router = useRouter();
 const sessionStore = useGridSessionStore();
@@ -204,11 +224,20 @@ const showBgDropdown = ref(false);
 const showBgColorPicker = ref(false);
 const showDeleteModal = ref(false);
 const showOgImageModal = ref(false);
+const showTransferModal = ref(false);
 const bgImageInput = ref<HTMLInputElement | null>(null);
 const bgSplitRef = ref<InstanceType<typeof GhostSplitButton> | null>(null);
 const bgChevronEl = computed(() => bgSplitRef.value?.chevronRef ?? null);
 const { uploadFileToArchive } = useFileUpload();
 const { resolveStoragePlan } = useGridDuplicateStorage();
+// Sender-side view of transfers: watch this grid's outgoing invitations so the
+// menu can flip to a "cancel pending transfer" affordance.
+const transfers = useGridTransfers({ incoming: false });
+
+const pendingTransfer = computed(() => {
+  const gridId = sessionStore.currentGrid?.id;
+  return gridId ? transfers.pendingOutgoingForGrid(gridId) : undefined;
+});
 
 const isOwner = computed(() => {
   const userId = authProvider.getCurrentUserId();
@@ -382,6 +411,26 @@ const deleteGrid = async () => {
 
 const openOgImageModal = () => {
   showOgImageModal.value = true;
+  closeMenu();
+};
+
+const openTransferModal = () => {
+  showTransferModal.value = true;
+  closeMenu();
+};
+
+const cancelPendingTransfer = async () => {
+  const transfer = pendingTransfer.value;
+  if (!transfer) return;
+  try {
+    await transfers.cancelTransfer(transfer.id);
+    toastStore.addToast("Transfer cancelled", "success");
+  } catch (error) {
+    toastStore.addToast(
+      describeCallableError(error, "Couldn't cancel the transfer. Please try again."),
+      "error",
+    );
+  }
   closeMenu();
 };
 
@@ -561,5 +610,12 @@ const launchPixelRacers = () => {
   font-weight: 800;
   color: var(--color-red);
   margin-left: 4px;
+}
+
+.transfer-pending-label {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-content-low);
+  font-weight: var(--font-weight-medium);
 }
 </style>

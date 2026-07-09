@@ -56,6 +56,13 @@ const mockData: Grid = {
 };
 
 export class MockGridService implements GridServiceInterface {
+  subscribeToGrid(
+    _id: string,
+    _callback: (grid: Grid | null) => void,
+  ): () => void {
+    return () => {};
+  }
+
   async fetchGrid(id: string): Promise<Grid> {
     console.warn(`Fetching grid with id: ${id}`);
     return { ...mockData };

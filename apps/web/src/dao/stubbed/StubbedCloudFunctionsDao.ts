@@ -15,6 +15,7 @@ import {
   createId,
   memoryDatabase,
 } from "./StubbedMemoryDatabase";
+import { emitGridChanged } from "./StubbedGridDao";
 import { emitGridTransfersChanged } from "./StubbedGridTransferDao";
 
 export class StubbedCloudFunctionsDao implements CloudFunctionsDao {
@@ -115,6 +116,7 @@ export class StubbedCloudFunctionsDao implements CloudFunctionsDao {
         rev: (grid.rev || 0) + 1,
         updatedAt: new Date(),
       });
+      emitGridChanged(transfer.gridId);
     }
     emitGridTransfersChanged();
     return {

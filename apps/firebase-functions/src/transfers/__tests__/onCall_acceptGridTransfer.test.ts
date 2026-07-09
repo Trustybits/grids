@@ -97,8 +97,17 @@ vi.mock("../../admin.js", () => {
           },
         }),
         runTransaction: async (callback: (tx: unknown) => Promise<unknown>) => {
+          // Mirror Firestore's hard rule: every read must precede every write.
+          // Once a write is issued, a later `get` throws — matching the emulator
+          // so this suite catches read-after-write regressions.
+          let hasWritten = false;
           const tx = {
             get: async (ref: { path: string }) => {
+              if (hasWritten) {
+                throw new Error(
+                  "Firestore transactions require all reads to be executed before all writes.",
+                );
+              }
               if (ref.path === "grids/grid-1") return adminState.txGridSnap;
               if (ref.path === "gridTransfers/transfer-1") {
                 return adminState.txTransferSnap;
@@ -106,9 +115,11 @@ vi.mock("../../admin.js", () => {
               return adminState.senderSnap;
             },
             update: (ref: unknown, data: Record<string, unknown>) => {
+              hasWritten = true;
               adminState.txUpdates.push({ ref, data });
             },
             set: (ref: unknown, data: Record<string, unknown>, options?: unknown) => {
+              hasWritten = true;
               adminState.txSets.push({ ref, data, options });
             },
           };

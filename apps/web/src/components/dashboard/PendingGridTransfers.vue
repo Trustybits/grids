@@ -89,7 +89,11 @@
 
         <div v-if="preview.files.length" class="pgt-accept__files">
           <div class="pgt-accept__files-label">
-            Files copied to your archive
+            <span>Files copied to your archive</span>
+            <span class="pgt-accept__files-count">
+              {{ preview.files.length }}
+              {{ preview.files.length === 1 ? "file" : "files" }}
+            </span>
           </div>
           <ul class="pgt-accept__file-list scrollable-thin">
             <li
@@ -406,10 +410,20 @@ const confirmAccept = async () => {
 }
 
 .pgt-accept__files-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-content-low);
   margin-bottom: var(--spacing-xs);
+}
+
+.pgt-accept__files-count {
+  flex-shrink: 0;
+  color: var(--color-content-default);
+  font-variant-numeric: tabular-nums;
 }
 
 .pgt-accept__file-list {
@@ -419,7 +433,10 @@ const confirmAccept = async () => {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
-  max-height: 220px;
+  // Cap the visible list at 5 rows; anything beyond scrolls.
+  // Per row ≈ file-name/badge height + vertical padding, plus the inter-row gap.
+  --pgt-file-row: calc(var(--font-size-sm) * 1.2 + var(--spacing-xs) * 2);
+  max-height: calc(var(--pgt-file-row) * 5 + var(--spacing-xs) * 4);
   overflow-y: auto;
 }
 
@@ -478,5 +495,15 @@ const confirmAccept = async () => {
   gap: var(--spacing-sm);
   justify-content: flex-end;
   margin-top: var(--spacing-xl);
+}
+
+// Match the "Accept" and "Confirm Transfer" buttons to the "Send Transfer"
+// button color (the activated toggle purple).
+.pgt__actions,
+.pgt-accept__actions {
+  :deep(.ui-btn--primary) {
+    --primary-color: var(--color-figma-purple);
+    color: var(--color-light-100);
+  }
 }
 </style>

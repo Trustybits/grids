@@ -297,5 +297,11 @@ const handleConfirm = async () => {
   gap: var(--spacing-sm);
   justify-content: flex-end;
   margin-top: var(--spacing-xl);
+
+  // Match the "Send Transfer" button to the activated toggle color above.
+  :deep(.ui-btn--primary) {
+    --primary-color: var(--color-figma-purple);
+    color: var(--color-light-100);
+  }
 }
 </style>

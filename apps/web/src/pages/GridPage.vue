@@ -1,5 +1,9 @@
 <template>
   <div class="grid-page">
+    <div v-if="isResyncing" class="resync-overlay">
+      <div class="spinner"></div>
+    </div>
+
     <div v-if="isLoading" class="loading-state">
       <div class="spinner"></div>
       <p>Loading...</p>
@@ -202,6 +206,22 @@ export default defineComponent({
     const { uploadFileToArchive } = useFileUpload();
 
     const isOwner = computed(() => sessionStore.isOwner);
+    const isResyncing = computed(() => sessionStore.isResyncing);
+
+    // When this tab/window is reactivated, reload the grid if it has been saved
+    // elsewhere (rev mismatch) so this tab never clobbers newer changes.
+    //
+    // Two events are needed to cover both reactivation paths:
+    //  - `visibilitychange` catches switching tabs *within* a window (the old
+    //    tab becomes hidden), where the window keeps focus so `focus` won't fire.
+    //  - window `focus` catches switching *between* windows/monitors, where both
+    //    windows stay `visible` so `visibilitychange` never fires.
+    // resyncIfStale is cheap and idempotent, so firing it on both is safe.
+    const handleReactivate = () => {
+      if (document.visibilityState === "visible") {
+        void controller.resyncIfStale();
+      }
+    };
 
     const canEdit = computed(() =>
       sessionStore.canEditAtBreakpoint(
@@ -408,6 +428,10 @@ export default defineComponent({
     };
 
     onMounted(loadCurrentRoute);
+    onMounted(() => {
+      document.addEventListener("visibilitychange", handleReactivate);
+      window.addEventListener("focus", handleReactivate);
+    });
 
     // Apply the grid's saved theme when the layout finishes loading
     watch(
@@ -448,6 +472,8 @@ export default defineComponent({
     onUnmounted(() => {
       // Drop the realtime ownership listener so it doesn't outlive the page.
       controller.stopWatchingGrid();
+      document.removeEventListener("visibilitychange", handleReactivate);
+      window.removeEventListener("focus", handleReactivate);
       themeStore.resetToAppDefault();
       document.documentElement.style.removeProperty("--bg-contrast-color");
       document.documentElement.style.removeProperty("--bg-contrast-color-low");
@@ -459,6 +485,7 @@ export default defineComponent({
       canEdit,
       rowHeight,
       isLoading,
+      isResyncing,
       error,
       errorTitle,
       errorMessage,
@@ -678,6 +705,21 @@ export default defineComponent({
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
   }
+}
+
+.resync-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(
+    in srgb,
+    var(--color-content-background) 60%,
+    transparent
+  );
+  backdrop-filter: blur(2px);
 }
 
 @keyframes spin {

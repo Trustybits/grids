@@ -242,6 +242,84 @@ describe("createPersistableGridSnapshot", () => {
       "",
     );
   });
+
+  it("resolves a tile duplicated from an in-flight upload via the shared blob URL", () => {
+    // A tile duplicated while its upload is still optimistic shares the source's
+    // blob URL but has a new id, so only the source has a resolved entry. Both
+    // must land the permanent URL (and hash) rather than being stripped to "".
+    const original = makeTile({
+      i: "image",
+      content: {
+        type: ContentType.IMAGE,
+        src: "blob:http://localhost/image",
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0,
+      } as ImageContent,
+    });
+    const duplicate = makeTile({
+      i: "image-copy",
+      content: {
+        type: ContentType.IMAGE,
+        src: "blob:http://localhost/image",
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0,
+      } as ImageContent,
+    });
+
+    const snapshot = createPersistableGridSnapshot(
+      makeGrid({ tiles: [original, duplicate] }),
+      { image: "https://cdn.example/image.png" },
+      {},
+      { image: "hash-image" },
+      {},
+    );
+
+    const dupContent = snapshot.tiles[1]?.content as ImageContent & {
+      srcHash?: string;
+    };
+    expect(dupContent.src).toBe("https://cdn.example/image.png");
+    expect(dupContent.srcHash).toBe("hash-image");
+  });
+
+  it("resolves a duplicated document item via the shared blob URL", () => {
+    const original = makeTile({
+      i: "documents",
+      content: {
+        type: ContentType.DOCUMENT,
+        items: [
+          { id: "one", fileName: "one.pdf", url: "blob:http://localhost/one" },
+        ],
+      } as DocumentsContent,
+    });
+    const duplicate = makeTile({
+      i: "documents-copy",
+      content: {
+        type: ContentType.DOCUMENT,
+        items: [
+          { id: "one", fileName: "one.pdf", url: "blob:http://localhost/one" },
+        ],
+      } as DocumentsContent,
+    });
+
+    const snapshot = createPersistableGridSnapshot(
+      makeGrid({ tiles: [original, duplicate] }),
+      {},
+      { documents: { one: "https://cdn.example/one.pdf" } },
+      {},
+      { documents: { one: "hash-one" } },
+    );
+
+    expect(
+      (snapshot.tiles[1]?.content as DocumentsContent).items[0],
+    ).toEqual({
+      id: "one",
+      fileName: "one.pdf",
+      url: "https://cdn.example/one.pdf",
+      hash: "hash-one",
+    });
+  });
 });
 
 describe("stripBlobUrlsFromTiles", () => {

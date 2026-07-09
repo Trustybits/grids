@@ -447,6 +447,34 @@ describe("GridController", () => {
     expect(gridService.touchLastOpenedAt).not.toHaveBeenCalled();
   });
 
+  it("delegates resyncIfStale to reload the active grid when its stored rev has advanced", async () => {
+    const { controller, stores, gridService } =
+      createControllerHarness();
+    stores.session.setCurrentGrid(makeGrid({ id: "grid-1", rev: 2 }));
+    const latest = makeGrid({ id: "grid-1", rev: 4, name: "Newer" });
+    vi.mocked(gridService.fetchGrid).mockResolvedValueOnce(latest);
+
+    await controller.resyncIfStale();
+
+    expect(gridService.fetchGrid).toHaveBeenCalledWith("grid-1");
+    expect(stores.session.currentGrid).toEqual(latest);
+    expect(stores.session.isResyncing).toBe(false);
+  });
+
+  it("delegates resyncIfStale as a no-op when the stored rev still matches", async () => {
+    const { controller, stores, gridService } =
+      createControllerHarness();
+    stores.session.setCurrentGrid(makeGrid({ id: "grid-1", rev: 2 }));
+    vi.mocked(gridService.fetchGrid).mockResolvedValueOnce(
+      makeGrid({ id: "grid-1", rev: 2, name: "Newer" }),
+    );
+
+    await controller.resyncIfStale();
+
+    expect(stores.session.currentGrid?.name).toBe("Grid");
+    expect(stores.session.isResyncing).toBe(false);
+  });
+
   it("clears the active session and all dependent state", () => {
     const { controller, stores } = createControllerHarness();
     stores.session.setCurrentGrid(makeGrid());

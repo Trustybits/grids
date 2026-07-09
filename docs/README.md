@@ -23,6 +23,7 @@ For internal developers, use the [Dev setup](maintainers/dev-setup.md) guide ins
 - [Storage, uploads, and deduplication](architecture/storage-and-uploads.md)
 - [Grid ownership transfer](architecture/grid-ownership-transfer.md)
 - [Tiles](architecture/tiles.md)
+- [Storage usage accounting](architecture/storage-usage-accounting.md)
 
 ## Contributing
 

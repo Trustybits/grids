@@ -319,6 +319,51 @@ export async function readUploadArchiveDoc(uid: string, hash: string) {
   return snap.exists ? (snap.data() as UploadArchiveDoc) : null;
 }
 
+/**
+ * Atomically delete an upload's archive doc and decrement the owner's
+ * `storageUsed` by that doc's size, in a single Firestore transaction.
+ *
+ * Doing both in one transaction makes deletion accounting exactly-once: if the
+ * archive doc is already gone (a concurrent or retried delete), the transaction
+ * is a no-op and `storageUsed` is never decremented twice. The storage object
+ * itself is deleted separately by the caller (Cloud Storage has no
+ * transactional guarantee); the caller stamps the skip-accounting tag first so
+ * the deferred/absent onDelete event cannot double-count either.
+ */
+export async function deleteUploadArchiveAndDecrementUsage(
+  uid: string,
+  hash: string,
+): Promise<{ deleted: boolean; bytes: number }> {
+  const userRef = admin.firestore().collection("users").doc(uid);
+  const archiveRef = uploadArchiveRef(uid, hash);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const archiveSnap = await tx.get(archiveRef);
+    if (!archiveSnap.exists) {
+      return { deleted: false, bytes: 0 };
+    }
+
+    const data = archiveSnap.data() as Partial<UploadArchiveDoc>;
+    const bytes =
+      typeof data.size === "number" && data.size > 0 ? data.size : 0;
+
+    // Read the user doc (before any write) only when there is usage to adjust.
+    const userSnap = bytes > 0 ? await tx.get(userRef) : null;
+
+    tx.delete(archiveRef);
+
+    if (userSnap?.exists) {
+      const current =
+        typeof userSnap.data()?.storageUsed === "number"
+          ? (userSnap.data()?.storageUsed as number)
+          : 0;
+      tx.update(userRef, { storageUsed: Math.max(0, current - bytes) });
+    }
+
+    return { deleted: true, bytes };
+  });
+}
+
 export function assertArchiveMetadataMatches(
   existing: Partial<UploadArchiveDoc>,
   metadata: UploadMetadata,

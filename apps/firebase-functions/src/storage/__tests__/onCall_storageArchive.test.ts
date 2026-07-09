@@ -24,6 +24,7 @@ const { firestoreState, storageState, FieldValue } = vi.hoisted(() => {
         path: string;
         data: Record<string, unknown>;
       }>,
+      txDeleteCalls: [] as string[],
       directUpdateCalls: [] as Array<{
         path: string;
         data: Record<string, unknown>;
@@ -32,6 +33,9 @@ const { firestoreState, storageState, FieldValue } = vi.hoisted(() => {
     },
     storageState: {
       deleteCalls: [] as Array<{ path: string; options?: unknown }>,
+      setMetadataCalls: [] as Array<{ path: string; metadata: unknown }>,
+      // When set, the next setMetadata call rejects with this error.
+      setMetadataError: null as unknown,
     },
   };
 });
@@ -95,6 +99,9 @@ vi.mock("../../admin.js", () => {
         update: (ref: { path: string }, data: Record<string, unknown>) => {
           firestoreState.txUpdateCalls.push({ path: ref.path, data });
         },
+        delete: (ref: { path: string }) => {
+          firestoreState.txDeleteCalls.push(ref.path);
+        },
       };
       return callback(transaction);
     },
@@ -107,6 +114,14 @@ vi.mock("../../admin.js", () => {
       storage: () => ({
         bucket: () => ({
           file: (path: string) => ({
+            setMetadata: async (metadata: unknown) => {
+              if (storageState.setMetadataError) {
+                const err = storageState.setMetadataError;
+                storageState.setMetadataError = null;
+                throw err;
+              }
+              storageState.setMetadataCalls.push({ path, metadata });
+            },
             delete: async (options?: unknown) => {
               storageState.deleteCalls.push({ path, options });
             },
@@ -166,9 +181,12 @@ beforeEach(() => {
   firestoreState.txGetCalls = [];
   firestoreState.txSetCalls = [];
   firestoreState.txUpdateCalls = [];
+  firestoreState.txDeleteCalls = [];
   firestoreState.directUpdateCalls = [];
   firestoreState.directDeleteCalls = [];
   storageState.deleteCalls = [];
+  storageState.setMetadataCalls = [];
+  storageState.setMetadataError = null;
   resetMaintenanceMock(noopIfMaintenance);
   FieldValue.serverTimestamp.mockClear();
   FieldValue.delete.mockClear();
@@ -506,45 +524,136 @@ describe("storage archive callables", () => {
     await expect(
       remove({ hash: HASH }, { auth: { uid: "user-1" } }),
     ).rejects.toMatchObject({ code: "not-found" });
-    expect(firestoreState.directDeleteCalls).toEqual([]);
+    expect(firestoreState.txDeleteCalls).toEqual([]);
+    expect(storageState.setMetadataCalls).toEqual([]);
     expect(storageState.deleteCalls).toEqual([]);
   });
 
-  it("deletes an unreferenced upload without force", async () => {
+  it("deletes an unreferenced upload without force and decrements usage", async () => {
     firestoreState.docs.set(
       `users/user-1/uploads/${HASH}`,
-      activeArchive({ refCount: 0 }),
+      activeArchive({ refCount: 0, size: 25 }),
+    );
+    firestoreState.docs.set("users/user-1", { storageUsed: 100 });
+
+    await expect(
+      remove({ hash: HASH }, { auth: { uid: "user-1" } }),
+    ).resolves.toEqual({ deleted: true, hash: HASH });
+
+    // Skip-accounting tag is stamped BEFORE the object is deleted so a deferred
+    // (soft-delete) onDelete event never double-decrements.
+    expect(storageState.setMetadataCalls).toEqual([
+      {
+        path: PATH,
+        metadata: { metadata: { gridsStorageSkipAccounting: "true" } },
+      },
+    ]);
+    expect(storageState.deleteCalls).toEqual([
+      { path: PATH, options: { ignoreNotFound: true } },
+    ]);
+    // Archive doc delete + usage decrement happen atomically in a transaction.
+    expect(firestoreState.txDeleteCalls).toEqual([
+      `users/user-1/uploads/${HASH}`,
+    ]);
+    expect(firestoreState.txUpdateCalls).toEqual([
+      { path: "users/user-1", data: { storageUsed: 75 } },
+    ]);
+  });
+
+  it("clamps decremented usage at zero", async () => {
+    firestoreState.docs.set(
+      `users/user-1/uploads/${HASH}`,
+      activeArchive({ refCount: 0, size: 25 }),
+    );
+    firestoreState.docs.set("users/user-1", { storageUsed: 10 });
+
+    await remove({ hash: HASH }, { auth: { uid: "user-1" } });
+
+    expect(firestoreState.txUpdateCalls).toEqual([
+      { path: "users/user-1", data: { storageUsed: 0 } },
+    ]);
+  });
+
+  it("deletes without decrementing when the user doc is missing", async () => {
+    firestoreState.docs.set(
+      `users/user-1/uploads/${HASH}`,
+      activeArchive({ refCount: 0, size: 25 }),
     );
 
     await expect(
       remove({ hash: HASH }, { auth: { uid: "user-1" } }),
     ).resolves.toEqual({ deleted: true, hash: HASH });
-    expect(firestoreState.directDeleteCalls).toEqual([
+    expect(firestoreState.txDeleteCalls).toEqual([
       `users/user-1/uploads/${HASH}`,
     ]);
+    expect(firestoreState.txUpdateCalls).toEqual([]);
+  });
+
+  it("does not delete the object or doc when tagging fails unexpectedly", async () => {
+    firestoreState.docs.set(
+      `users/user-1/uploads/${HASH}`,
+      activeArchive({ refCount: 0, size: 25 }),
+    );
+    firestoreState.docs.set("users/user-1", { storageUsed: 100 });
+    storageState.setMetadataError = Object.assign(new Error("boom"), {
+      code: 500,
+    });
+
+    await expect(
+      remove({ hash: HASH }, { auth: { uid: "user-1" } }),
+    ).rejects.toMatchObject({ code: "internal" });
+    expect(storageState.deleteCalls).toEqual([]);
+    expect(firestoreState.txDeleteCalls).toEqual([]);
+    expect(firestoreState.txUpdateCalls).toEqual([]);
+  });
+
+  it("continues the delete when the object is already gone (404 on tag)", async () => {
+    firestoreState.docs.set(
+      `users/user-1/uploads/${HASH}`,
+      activeArchive({ refCount: 0, size: 25 }),
+    );
+    firestoreState.docs.set("users/user-1", { storageUsed: 100 });
+    storageState.setMetadataError = Object.assign(new Error("not found"), {
+      code: 404,
+    });
+
+    await expect(
+      remove({ hash: HASH }, { auth: { uid: "user-1" } }),
+    ).resolves.toEqual({ deleted: true, hash: HASH });
     expect(storageState.deleteCalls).toEqual([
       { path: PATH, options: { ignoreNotFound: true } },
+    ]);
+    expect(firestoreState.txUpdateCalls).toEqual([
+      { path: "users/user-1", data: { storageUsed: 75 } },
     ]);
   });
 
   it("requires force to permanently delete referenced uploads", async () => {
     firestoreState.docs.set(
       `users/user-1/uploads/${HASH}`,
-      activeArchive({ refCount: 2 }),
+      activeArchive({ refCount: 2, size: 25 }),
     );
+    firestoreState.docs.set("users/user-1", { storageUsed: 100 });
 
     await expect(
       remove({ hash: HASH }, { auth: { uid: "user-1" } }),
     ).rejects.toMatchObject({ code: "failed-precondition" });
+    // Nothing touched on the rejected (non-force) attempt.
+    expect(storageState.setMetadataCalls).toEqual([]);
+    expect(storageState.deleteCalls).toEqual([]);
+    expect(firestoreState.txDeleteCalls).toEqual([]);
 
     await expect(
       remove({ hash: HASH, force: true }, { auth: { uid: "user-1" } }),
     ).resolves.toEqual({ deleted: true, hash: HASH });
-    expect(firestoreState.directDeleteCalls).toEqual([
+    expect(firestoreState.txDeleteCalls).toEqual([
       `users/user-1/uploads/${HASH}`,
     ]);
     expect(storageState.deleteCalls).toEqual([
       { path: PATH, options: { ignoreNotFound: true } },
+    ]);
+    expect(firestoreState.txUpdateCalls).toEqual([
+      { path: "users/user-1", data: { storageUsed: 75 } },
     ]);
   });
 });

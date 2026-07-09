@@ -102,8 +102,12 @@ Goal: add the new backend capabilities while the old client can still exist in l
      - Requires auth.
      - Verifies ownership and archive doc.
      - Requires an explicit `force` flag when `refCount > 0`.
-     - Deletes the archive doc and then the Storage object.
-     - Does not decrement `storageUsed`; the delete trigger owns that.
+     - Stamps the `gridsStorageSkipAccounting` tag on the object, then deletes the Storage object.
+     - Decrements `storageUsed` itself, atomically with the archive-doc delete, via `deleteUploadArchiveAndDecrementUsage`.
+       **The callable owns the delete-time decrement, NOT `onFileDeleted`** — see the "Where the decrement lives" note in
+       `notes/storage-refactor.md`. Cloud Storage soft delete (on by default) suppresses the `OBJECT_DELETE` event the trigger
+       relied on, so the trigger cannot be the decrement point. The pre-delete skip tag makes `onFileDeleted` a no-op if that
+       event ever fires later, preventing a double-decrement.
    - `onCall_setStorageUploadShareable.ts`
      - Requires auth.
      - Accepts `{ hash, shareable }`.
@@ -130,8 +134,11 @@ Goal: add the new backend capabilities while the old client can still exist in l
      - Increment `storageUsed` once for a new unique active object.
      - Be idempotent for retries and duplicate finalize events.
    - `apps/firebase-functions/src/storage/onTrigger_fileDeleted.ts`
+     - Backstop only (not the primary delete-time decrement — see `onCall_deleteStorageUpload.ts` above). Kept for permanent
+       deletions that bypass the callable (console hard-delete, lifecycle rules). Under soft delete it rarely fires for
+       callable deletes, and when it does the object is skip-accounting-tagged so it no-ops.
      - Only decrement for canonical active user uploads.
-     - Ignore backfill/migration-tagged deletes until the authoritative recompute step.
+     - Ignore backfill/migration-tagged deletes (and callable-deleted, skip-accounting-tagged objects) so it never double-counts.
      - Be idempotent and clamp at zero.
    - `apps/firebase-functions/src/storage/utils_storageUsage.ts`
      - Add folder/path filtering and migration skip helpers.

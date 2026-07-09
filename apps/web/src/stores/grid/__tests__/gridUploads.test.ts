@@ -147,6 +147,107 @@ describe("gridUploads store", () => {
     expect(store.uploadingTiles).toEqual({});
   });
 
+  it("reassigns an in-flight upload to a surviving tile sharing its blob instead of cancelling", () => {
+    const store = useGridUploadsStore();
+    const task = { cancel: vi.fn(), done: vi.fn(), onProgress: vi.fn() };
+    const uploadId = store.startUpload({
+      gridId: "grid-1",
+      sessionGeneration: 1,
+      tileId: "original",
+      progress: 0.4,
+      ownedObjectUrl: "blob:shared",
+      task,
+    });
+
+    // Remove the original while the duplicate ("copy") still displays blob:shared.
+    store.clearTileState("original", ["blob:shared"], {
+      "blob:shared": "copy",
+    });
+
+    expect(task.cancel).not.toHaveBeenCalled();
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+    expect(store.uploadRecords[uploadId]).toEqual(
+      expect.objectContaining({ tileId: "copy", status: "active" }),
+    );
+    // Progress and generation follow the reassigned owner so validation and the
+    // spinner keep working, and the original's key is gone.
+    expect(store.uploadingTiles).toEqual({ copy: 0.4 });
+    expect(store.isCurrentUpload(uploadId)).toBe(true);
+
+    // The reassigned upload resolves onto the surviving tile.
+    store.resolveUpload(uploadId, "https://cdn/shared", "hash-shared");
+    expect(store.getResolvedUrl("copy")).toBe("https://cdn/shared");
+    expect(store.getResolvedHash("copy")).toBe("hash-shared");
+    expect(store.getResolvedUrl("original")).toBeUndefined();
+  });
+
+  it("reassigns already-resolved media state to a surviving tile sharing its blob", () => {
+    const store = useGridUploadsStore();
+    const uploadId = store.startUpload({
+      gridId: "grid-1",
+      sessionGeneration: 1,
+      tileId: "original",
+      ownedObjectUrl: "blob:shared",
+    });
+    store.resolveUpload(uploadId, "https://cdn/shared", "hash-shared");
+
+    store.clearTileState("original", ["blob:shared"], {
+      "blob:shared": "copy",
+    });
+
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+    expect(store.getResolvedUrl("copy")).toBe("https://cdn/shared");
+    expect(store.getResolvedHash("copy")).toBe("hash-shared");
+    expect(store.getResolvedUrl("original")).toBeUndefined();
+  });
+
+  it("reassigns a shared document item upload to a surviving tile", () => {
+    const store = useGridUploadsStore();
+    const uploadId = store.startUpload({
+      gridId: "grid-1",
+      sessionGeneration: 1,
+      tileId: "original",
+      documentItemId: "item-1",
+      ownedObjectUrl: "blob:doc",
+    });
+    store.resolveUpload(uploadId, "https://cdn/doc", "hash-doc");
+
+    store.clearTileState("original", ["blob:doc"], { "blob:doc": "copy" });
+
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+    expect(store.uploadRecords[uploadId]).toEqual(
+      expect.objectContaining({ tileId: "copy", documentItemId: "item-1" }),
+    );
+    expect(store.resolvedDocumentItemUrls).toEqual({
+      copy: { "item-1": "https://cdn/doc" },
+    });
+    expect(store.resolvedDocumentItemHashes).toEqual({
+      copy: { "item-1": "hash-doc" },
+    });
+  });
+
+  it("revokes and cancels normally when no surviving tile shares the blob", () => {
+    const store = useGridUploadsStore();
+    const task = { cancel: vi.fn(), done: vi.fn(), onProgress: vi.fn() };
+    const uploadId = store.startUpload({
+      gridId: "grid-1",
+      sessionGeneration: 1,
+      tileId: "original",
+      ownedObjectUrl: "blob:shared",
+      task,
+    });
+
+    // A surviving tile exists but uses a *different* blob, so the removed tile's
+    // blob is genuinely orphaned and must be torn down.
+    store.clearTileState("original", ["blob:shared"], {
+      "blob:other": "copy",
+    });
+
+    expect(task.cancel).toHaveBeenCalledOnce();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:shared");
+    expect(store.uploadRecords[uploadId]).toBeUndefined();
+  });
+
   it("stores, retrieves, and clears resolved media URLs", () => {
     const store = useGridUploadsStore();
 

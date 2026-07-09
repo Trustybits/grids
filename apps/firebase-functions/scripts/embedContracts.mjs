@@ -8,27 +8,27 @@ const repoRoot = path.resolve(functionsDir, "../..");
 const contractsDist = path.join(repoRoot, "packages/contracts/dist");
 const functionsLib = path.join(functionsDir, "lib");
 const embeddedContractsDir = path.join(functionsLib, "contracts");
-const embeddedStorageIndex = path.join(
-  embeddedContractsDir,
-  "storage/index.js",
-);
+const embeddedContractSubpaths = [
+  {
+    specifier: "@grids/contracts/storage",
+    distDir: path.join(contractsDist, "storage"),
+    embeddedDir: path.join(embeddedContractsDir, "storage"),
+    index: path.join(embeddedContractsDir, "storage/index.js"),
+  },
+  {
+    specifier: "@grids/contracts/types",
+    distDir: path.join(contractsDist, "types"),
+    embeddedDir: path.join(embeddedContractsDir, "types"),
+    index: path.join(embeddedContractsDir, "types/index.js"),
+  },
+];
 
 await rm(embeddedContractsDir, { recursive: true, force: true });
-await mkdir(path.join(embeddedContractsDir, "types"), { recursive: true });
+await mkdir(embeddedContractsDir, { recursive: true });
 
-await cp(
-  path.join(contractsDist, "storage"),
-  path.join(embeddedContractsDir, "storage"),
-  { recursive: true },
-);
-await cp(
-  path.join(contractsDist, "types/TileContent.js"),
-  path.join(embeddedContractsDir, "types/TileContent.js"),
-);
-await cp(
-  path.join(contractsDist, "types/TileContent.js.map"),
-  path.join(embeddedContractsDir, "types/TileContent.js.map"),
-);
+for (const subpath of embeddedContractSubpaths) {
+  await cp(subpath.distDir, subpath.embeddedDir, { recursive: true });
+}
 
 await rewriteContractImports(functionsLib);
 
@@ -44,14 +44,23 @@ async function rewriteContractImports(directory) {
     if (!entry.isFile() || !entry.name.endsWith(".js")) continue;
 
     const source = await readFile(entryPath, "utf8");
-    if (!source.includes("@grids/contracts/storage")) continue;
+    if (
+      !embeddedContractSubpaths.some((subpath) =>
+        source.includes(subpath.specifier),
+      )
+    ) {
+      continue;
+    }
 
-    const relativeImport = normalizeImportPath(
-      path.relative(path.dirname(entryPath), embeddedStorageIndex),
-    );
-    const rewritten = source
-      .replaceAll('"@grids/contracts/storage"', `"${relativeImport}"`)
-      .replaceAll("'@grids/contracts/storage'", `'${relativeImport}'`);
+    let rewritten = source;
+    for (const subpath of embeddedContractSubpaths) {
+      const relativeImport = normalizeImportPath(
+        path.relative(path.dirname(entryPath), subpath.index),
+      );
+      rewritten = rewritten
+        .replaceAll(`"${subpath.specifier}"`, `"${relativeImport}"`)
+        .replaceAll(`'${subpath.specifier}'`, `'${relativeImport}'`);
+    }
 
     if (rewritten !== source) {
       await writeFile(entryPath, rewritten);

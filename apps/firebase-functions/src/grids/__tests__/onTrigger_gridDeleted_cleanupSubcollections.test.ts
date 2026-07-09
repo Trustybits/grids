@@ -15,8 +15,12 @@ import * as logger from "firebase-functions/logger";
 import { noopIfMaintenance } from "../../maintenance.js";
 import { resetMaintenanceMock } from "../../__tests__/utils_testMocks.js";
 
-const { recursiveDelete } = vi.hoisted(() => ({
+const { recursiveDelete, transferUpdates, FieldValue } = vi.hoisted(() => ({
   recursiveDelete: vi.fn(),
+  transferUpdates: [] as Array<{ path: string; data: Record<string, unknown> }>,
+  FieldValue: {
+    serverTimestamp: vi.fn(() => ({ __op: "serverTimestamp" })),
+  },
 }));
 
 vi.mock("firebase-functions/v1", () => ({
@@ -34,9 +38,30 @@ vi.mock("firebase-functions/logger", () => ({
 
 vi.mock("../../admin.js", () => ({
   default: {
-    firestore: () => ({
+    firestore: Object.assign(() => ({
       recursiveDelete,
-    }),
+      collection: () => ({
+        where: () => ({
+          where: () => ({
+            get: async () => ({
+              docs: [
+                {
+                  ref: {
+                    path: "gridTransfers/transfer-1",
+                    update: async (data: Record<string, unknown>) => {
+                      transferUpdates.push({
+                        path: "gridTransfers/transfer-1",
+                        data,
+                      });
+                    },
+                  },
+                },
+              ],
+            }),
+          }),
+        }),
+      }),
+    }), { FieldValue }),
   },
 }));
 
@@ -63,6 +88,8 @@ function context(gridId = "grid-1") {
 
 beforeEach(() => {
   recursiveDelete.mockReset().mockResolvedValue(undefined);
+  transferUpdates.length = 0;
+  FieldValue.serverTimestamp.mockClear();
   resetMaintenanceMock(noopIfMaintenance);
   vi.mocked(logger.error).mockClear();
   vi.mocked(logger.info).mockClear();
@@ -91,6 +118,15 @@ describe("cleanupGridSubcollectionsOnDelete", () => {
 
     expect(recursiveDelete).toHaveBeenCalledTimes(1);
     expect(recursiveDelete).toHaveBeenCalledWith(gridRef);
+    expect(transferUpdates).toEqual([
+      {
+        path: "gridTransfers/transfer-1",
+        data: expect.objectContaining({
+          status: "expired",
+          failureReason: "grid-deleted",
+        }) as unknown as Record<string, unknown>,
+      },
+    ]);
     expect(logger.info).toHaveBeenCalledWith(
       "Recursively deleted grid subcollections",
       { gridId: "grid-1" },

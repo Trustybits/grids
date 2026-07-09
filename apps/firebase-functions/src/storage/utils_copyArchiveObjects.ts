@@ -33,6 +33,8 @@ export async function prepareArchiveObjectCopyPlan(params: {
   targetUid: string;
   references: ArchiveObjectCopyReference[];
   requireShareable: boolean;
+  requireActiveSource?: boolean;
+  assertQuota?: boolean;
 }): Promise<ArchiveObjectCopyPlan> {
   const uniqueHashes = [...new Set(params.references.map((ref) => ref.hash))];
   const archiveDocs = await Promise.all(
@@ -46,6 +48,10 @@ export async function prepareArchiveObjectCopyPlan(params: {
   const nonCopiableHashes = new Set<string>();
   for (const entry of archiveDocs) {
     if (!entry.archiveDoc) {
+      nonCopiableHashes.add(entry.hash);
+      continue;
+    }
+    if (params.requireActiveSource === true && entry.archiveDoc.status !== "active") {
       nonCopiableHashes.add(entry.hash);
       continue;
     }
@@ -75,7 +81,9 @@ export async function prepareArchiveObjectCopyPlan(params: {
     (sum, archiveDoc) => sum + archiveDoc.size,
     0,
   );
-  await assertUserHasStorageQuota(params.targetUid, additionalBytesRequired);
+  if (params.assertQuota !== false) {
+    await assertUserHasStorageQuota(params.targetUid, additionalBytesRequired);
+  }
 
   return {
     copiable,

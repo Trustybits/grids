@@ -34,6 +34,22 @@ export const cleanupGridSubcollectionsOnDelete = functions.firestore
     const gridId = context.params.gridId;
 
     try {
+      const pendingTransfers = await admin
+        .firestore()
+        .collection("gridTransfers")
+        .where("gridId", "==", gridId)
+        .where("status", "==", "pending")
+        .get();
+      await Promise.all(
+        pendingTransfers.docs.map((doc) =>
+          doc.ref.update({
+            status: "expired",
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            resolvedAt: admin.firestore.FieldValue.serverTimestamp(),
+            failureReason: "grid-deleted",
+          }),
+        ),
+      );
       await admin.firestore().recursiveDelete(snapshot.ref);
       logger.info("Recursively deleted grid subcollections", { gridId });
     } catch (error) {

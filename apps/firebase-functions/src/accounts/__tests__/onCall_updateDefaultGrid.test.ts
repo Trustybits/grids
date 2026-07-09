@@ -17,9 +17,17 @@ const { firestoreState } = vi.hoisted(() => {
   return { firestoreState };
 });
 
+vi.mock("firebase-functions/v1", () => ({
+  runWith: vi.fn(() => ({
+    https: {
+      onCall: (handler: unknown) => handler,
+    },
+  })),
+}));
+
 vi.mock("firebase-functions/v1/https", async () => {
   const { createHttpsModuleMock } = await import("../../__tests__/utils_testMocks.js");
-  return createHttpsModuleMock({ includeOnCall: true });
+  return createHttpsModuleMock();
 });
 
 vi.mock("firebase-functions/logger", () => ({

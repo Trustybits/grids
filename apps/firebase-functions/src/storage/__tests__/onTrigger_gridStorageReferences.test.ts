@@ -8,13 +8,15 @@ const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
 
 vi.mock("firebase-functions/v1", () => ({
-  firestore: {
-    document: () => ({
-      onCreate: (handler: unknown) => handler,
-      onUpdate: (handler: unknown) => handler,
-      onDelete: (handler: unknown) => handler,
-    }),
-  },
+  runWith: vi.fn(() => ({
+    firestore: {
+      document: () => ({
+        onCreate: (handler: unknown) => handler,
+        onUpdate: (handler: unknown) => handler,
+        onDelete: (handler: unknown) => handler,
+      }),
+    },
+  })),
 }));
 
 vi.mock("firebase-functions/logger", () => ({

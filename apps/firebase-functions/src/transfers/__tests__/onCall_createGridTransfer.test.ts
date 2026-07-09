@@ -45,9 +45,11 @@ const {
 });
 
 vi.mock("firebase-functions/v1", () => ({
-  https: {
-    onCall: (handler: unknown) => handler,
-  },
+  runWith: vi.fn(() => ({
+    https: {
+      onCall: (handler: unknown) => handler,
+    },
+  })),
 }));
 
 vi.mock("firebase-functions/v1/https", async () => {

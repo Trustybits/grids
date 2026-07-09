@@ -127,6 +127,8 @@ describe("gridSession store", () => {
       expect(store.currentGrid).toBeNull();
       expect(store.isOwner).toBe(false);
     });
+  });
+
   it("toggles the resync overlay flag through setResyncing", () => {
     const store = useGridSessionStore();
 

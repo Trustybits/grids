@@ -364,6 +364,9 @@ describe("GridSessionController", () => {
       controller.stopGridSubscription();
 
       expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("resyncIfStale", () => {
     it("does nothing when there is no active grid", async () => {
       await controller.resyncIfStale();

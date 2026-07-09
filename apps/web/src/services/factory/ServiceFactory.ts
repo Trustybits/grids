@@ -4,6 +4,7 @@ import { ChatService } from "../ChatService";
 import { CloudFunctionsService } from "../CloudFunctionsService";
 import { GameDataService } from "../GameDataService";
 import { GridService } from "../GridService";
+import { GridTransferService } from "../GridTransferService";
 import { RoadmapService } from "../RoadmapService";
 import { StorageService } from "../StorageService";
 import { StripeService } from "../StripeService";
@@ -15,6 +16,7 @@ import type { ChatServiceInterface } from "../interfaces/ChatServiceInterface";
 import type { CloudFunctionsServiceInterface } from "../interfaces/CloudFunctionsServiceInterface";
 import type { GameDataServiceInterface } from "../interfaces/GameDataServiceInterface";
 import type { GridServiceInterface } from "../interfaces/GridServiceInterface";
+import type { GridTransferServiceInterface } from "../interfaces/GridTransferServiceInterface";
 import type { RoadmapServiceInterface } from "../interfaces/RoadmapServiceInterface";
 import type { StorageServiceInterface } from "../interfaces/StorageServiceInterface";
 import type { StripeServiceInterface } from "../interfaces/StripeServiceInterface";
@@ -26,6 +28,7 @@ import { MockChatService } from "../mocks/MockChatService";
 import { MockCloudFunctionsService } from "../mocks/MockCloudFunctionsService";
 import { MockGameDataService } from "../mocks/MockGameDataService";
 import { MockGridService } from "../mocks/MockGridService";
+import { MockGridTransferService } from "../mocks/MockGridTransferService";
 import { MockRoadmapService } from "../mocks/MockRoadmapService";
 import { MockStorageService } from "../mocks/MockStorageService";
 import { MockStripeService } from "../mocks/MockStripeService";
@@ -41,6 +44,7 @@ export class ServiceFactory implements ServiceFactoryInterface {
   private cloudFunctionsService: CloudFunctionsServiceInterface;
   private gameDataService: GameDataServiceInterface;
   private gridService: GridServiceInterface;
+  private gridTransferService: GridTransferServiceInterface;
   private roadmapService: RoadmapServiceInterface;
   private storageService: StorageServiceInterface;
   private stripeService: StripeServiceInterface;
@@ -57,6 +61,7 @@ export class ServiceFactory implements ServiceFactoryInterface {
       this.cloudFunctionsService = new MockCloudFunctionsService();
       this.gameDataService = new MockGameDataService();
       this.gridService = new MockGridService();
+      this.gridTransferService = new MockGridTransferService();
       this.roadmapService = new MockRoadmapService();
       this.storageService = new MockStorageService();
       this.stripeService = new MockStripeService();
@@ -69,6 +74,7 @@ export class ServiceFactory implements ServiceFactoryInterface {
       this.cloudFunctionsService = new CloudFunctionsService();
       this.gameDataService = new GameDataService();
       this.gridService = new GridService();
+      this.gridTransferService = new GridTransferService();
       this.roadmapService = new RoadmapService();
       this.storageService = new StorageService();
       this.stripeService = new StripeService();
@@ -99,6 +105,10 @@ export class ServiceFactory implements ServiceFactoryInterface {
 
   public getGridService(): GridServiceInterface {
     return this.gridService;
+  }
+
+  public getGridTransferService(): GridTransferServiceInterface {
+    return this.gridTransferService;
   }
 
   public getRoadmapService(): RoadmapServiceInterface {

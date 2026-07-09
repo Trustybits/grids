@@ -11,6 +11,7 @@ import { ChatService } from "@/services/ChatService";
 import { CloudFunctionsService } from "@/services/CloudFunctionsService";
 import { GameDataService } from "@/services/GameDataService";
 import { GridService } from "@/services/GridService";
+import { GridTransferService } from "@/services/GridTransferService";
 import { RoadmapService } from "@/services/RoadmapService";
 import { StorageService } from "@/services/StorageService";
 import { StripeService } from "@/services/StripeService";
@@ -22,6 +23,7 @@ import { MockChatService } from "@/services/mocks/MockChatService";
 import { MockCloudFunctionsService } from "@/services/mocks/MockCloudFunctionsService";
 import { MockGameDataService } from "@/services/mocks/MockGameDataService";
 import { MockGridService } from "@/services/mocks/MockGridService";
+import { MockGridTransferService } from "@/services/mocks/MockGridTransferService";
 import { MockRoadmapService } from "@/services/mocks/MockRoadmapService";
 import { MockStorageService } from "@/services/mocks/MockStorageService";
 import { MockStripeService } from "@/services/mocks/MockStripeService";
@@ -41,6 +43,9 @@ vi.mock("@/services/CloudFunctionsService", () => ({
 }));
 vi.mock("@/services/GameDataService", () => ({ GameDataService: stub() }));
 vi.mock("@/services/GridService", () => ({ GridService: stub() }));
+vi.mock("@/services/GridTransferService", () => ({
+  GridTransferService: stub(),
+}));
 vi.mock("@/services/RoadmapService", () => ({ RoadmapService: stub() }));
 vi.mock("@/services/StorageService", () => ({ StorageService: stub() }));
 vi.mock("@/services/StripeService", () => ({ StripeService: stub() }));
@@ -58,6 +63,9 @@ vi.mock("@/services/mocks/MockGameDataService", () => ({
   MockGameDataService: stub(),
 }));
 vi.mock("@/services/mocks/MockGridService", () => ({ MockGridService: stub() }));
+vi.mock("@/services/mocks/MockGridTransferService", () => ({
+  MockGridTransferService: stub(),
+}));
 vi.mock("@/services/mocks/MockRoadmapService", () => ({
   MockRoadmapService: stub(),
 }));
@@ -72,7 +80,7 @@ vi.mock("@/services/mocks/MockUpvoteService", () => ({
 }));
 vi.mock("@/services/mocks/MockUserService", () => ({ MockUserService: stub() }));
 
-// (getter, real ctor, mock ctor) tuples cover all 11 services.
+// (getter, real ctor, mock ctor) tuples cover all services.
 const services = [
   ["getBadgeService", BadgeService, MockBadgeService],
   ["getAnalyticsService", AnalyticsService, MockAnalyticsService],
@@ -80,6 +88,11 @@ const services = [
   ["getCloudFunctionsService", CloudFunctionsService, MockCloudFunctionsService],
   ["getGameDataService", GameDataService, MockGameDataService],
   ["getGridService", GridService, MockGridService],
+  [
+    "getGridTransferService",
+    GridTransferService,
+    MockGridTransferService,
+  ],
   ["getRoadmapService", RoadmapService, MockRoadmapService],
   ["getStorageService", StorageService, MockStorageService],
   ["getStripeService", StripeService, MockStripeService],

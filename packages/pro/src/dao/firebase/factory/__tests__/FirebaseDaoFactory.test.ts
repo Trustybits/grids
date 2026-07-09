@@ -22,6 +22,7 @@ import { FirebaseCloudFunctionsDao } from "../../FirebaseCloudFunctionsDao.js";
 import { FirebaseCustomerDao } from "../../FirebaseCustomerDao.js";
 import { FirebaseGridStatsDao } from "../../FirebaseGridStatsDao.js";
 import { FirebaseGridDao } from "../../FirebaseGridDao.js";
+import { FirebaseGridTransferDao } from "../../FirebaseGridTransferDao.js";
 import { FirebaseRoadmapDao } from "../../FirebaseRoadmapDao.js";
 import { FirebaseSlugDao } from "../../FirebaseSlugDao.js";
 import { FirebaseStorageDao } from "../../FirebaseStorageDao.js";
@@ -43,6 +44,9 @@ vi.mock("../../FirebaseCloudFunctionsDao.js", () => ({
 vi.mock("../../FirebaseCustomerDao.js", () => ({ FirebaseCustomerDao: vi.fn() }));
 vi.mock("../../FirebaseGridStatsDao.js", () => ({ FirebaseGridStatsDao: vi.fn() }));
 vi.mock("../../FirebaseGridDao.js", () => ({ FirebaseGridDao: vi.fn() }));
+vi.mock("../../FirebaseGridTransferDao.js", () => ({
+  FirebaseGridTransferDao: vi.fn(),
+}));
 vi.mock("../../FirebaseRoadmapDao.js", () => ({ FirebaseRoadmapDao: vi.fn() }));
 vi.mock("../../FirebaseSlugDao.js", () => ({ FirebaseSlugDao: vi.fn() }));
 vi.mock("../../FirebaseStorageDao.js", () => ({ FirebaseStorageDao: vi.fn() }));
@@ -76,6 +80,7 @@ describe("FirebaseDaoFactory", () => {
     expect(FirebaseCustomerDao).toHaveBeenCalledExactlyOnceWith(db);
     expect(FirebaseGridStatsDao).toHaveBeenCalledExactlyOnceWith(db);
     expect(FirebaseGridDao).toHaveBeenCalledExactlyOnceWith(db);
+    expect(FirebaseGridTransferDao).toHaveBeenCalledExactlyOnceWith(db);
     expect(FirebaseUserDao).toHaveBeenCalledExactlyOnceWith(db);
     expect(FirebaseUserGameDataDao).toHaveBeenCalledExactlyOnceWith(db);
   });
@@ -116,6 +121,7 @@ describe("FirebaseDaoFactory", () => {
       [factory.getCustomerDao(), vi.mocked(FirebaseCustomerDao)],
       [factory.getGridStatsDao(), vi.mocked(FirebaseGridStatsDao)],
       [factory.getGridDao(), vi.mocked(FirebaseGridDao)],
+      [factory.getGridTransferDao(), vi.mocked(FirebaseGridTransferDao)],
       [factory.getRoadmapDao(), vi.mocked(FirebaseRoadmapDao)],
       [factory.getSlugDao(), vi.mocked(FirebaseSlugDao)],
       [factory.getStorageDao(), vi.mocked(FirebaseStorageDao)],

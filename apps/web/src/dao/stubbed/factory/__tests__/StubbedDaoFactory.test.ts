@@ -11,6 +11,7 @@ import { StubbedCloudFunctionsDao } from "../../StubbedCloudFunctionsDao";
 import { StubbedCustomerDao } from "../../StubbedCustomerDao";
 import { StubbedGridStatsDao } from "../../StubbedGridStatsDao";
 import { StubbedGridDao } from "../../StubbedGridDao";
+import { StubbedGridTransferDao } from "../../StubbedGridTransferDao";
 import { StubbedRoadmapDao } from "../../StubbedRoadmapDao";
 import { StubbedSlugDao } from "../../StubbedSlugDao";
 import { StubbedStorageDao } from "../../StubbedStorageDao";
@@ -34,6 +35,7 @@ describe("StubbedDaoFactory", () => {
     ["getCustomerDao", StubbedCustomerDao],
     ["getGridStatsDao", StubbedGridStatsDao],
     ["getGridDao", StubbedGridDao],
+    ["getGridTransferDao", StubbedGridTransferDao],
     ["getRoadmapDao", StubbedRoadmapDao],
     ["getSlugDao", StubbedSlugDao],
     ["getStorageDao", StubbedStorageDao],

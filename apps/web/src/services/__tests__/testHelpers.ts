@@ -19,6 +19,7 @@ export function makeDaoFactory(overrides: Partial<DaoFactory> = {}): DaoFactory 
     getCustomerDao: nullDao,
     getGridStatsDao: nullDao,
     getGridDao: nullDao,
+    getGridTransferDao: nullDao,
     getRoadmapDao: nullDao,
     getSlugDao: nullDao,
     getStorageDao: nullDao,

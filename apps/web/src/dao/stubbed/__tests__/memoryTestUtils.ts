@@ -18,6 +18,7 @@ export function resetMemoryDatabase(): void {
   memoryDatabase.checkoutSessions.clear();
   memoryDatabase.gridDailyStats.clear();
   memoryDatabase.gridStats.clear();
+  memoryDatabase.gridTransfers.clear();
   memoryDatabase.grids.clear();
   memoryDatabase.messages.clear();
   memoryDatabase.payments.clear();

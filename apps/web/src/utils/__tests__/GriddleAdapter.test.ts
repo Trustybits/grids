@@ -254,6 +254,24 @@ describe("buildGridConfig", () => {
     expect(config.snapDuringDrag).toBe(true);
   });
 
+  it.each([
+    ".tile-caption",
+    ".tile-link-indicator",
+    ".tile-title",
+    ".tile-details",
+    ".chat-bubble-wrapper",
+    ".video-main",
+    ".progress-container",
+    ".track-progress",
+    ".yt-video-card",
+    ".avatar",
+    ".map-canvas.is-interactive",
+    ".image-wrapper.crop-active",
+    ".video-wrapper.crop-active",
+  ])("preserves the custom tile interaction surface %s", (selector) => {
+    expect(DEFAULT_DRAG_IGNORE_FROM.split(", ")).toContain(selector);
+  });
+
   it("omits resizeHandles, tileRadius, scroll, and interactive when not provided (uses Griddle defaults)", () => {
     const config = buildGridConfig({ cols: 6, rowHeight: 75, margin: 48 });
     expect(config).not.toHaveProperty("resizeHandles");

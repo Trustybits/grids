@@ -33,6 +33,7 @@ vi.mock("@griddle/vue", async (importOriginal) => {
       props: {
         api: { type: Object, required: true },
         height: { type: String, required: false },
+        selection: { type: Object, required: false },
       },
       emits: ["dragStart", "dragEnd", "resizeStart", "resizeEnd"],
       setup(props, { slots }) {
@@ -176,8 +177,10 @@ describe("Grid canvas characterization", () => {
     ]);
     // Griddle 0.1.1 needs a CSS length on its root because its internal
     // numeric content height is dropped by the browser's style parser. The
-    // 2x2 tile plus Griddle's two-row virtualization buffer is 4 * (75 + 48).
-    expect(griddle(wrapper).props("height")).toBe("492px");
+    // 2x2 tile plus Griddle's two-row virtualization buffer is 4 * (75 + 48),
+    // with one full outer margin restored by the app wrapper.
+    expect(griddle(wrapper).props("height")).toBe("540px");
+    expect(griddle(wrapper).props("selection")).toEqual(new Set());
 
     wrapper.unmount();
   });

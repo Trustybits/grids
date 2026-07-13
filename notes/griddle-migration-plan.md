@@ -5,8 +5,8 @@ Companion to [`griddle-migration-analysis.md`](./griddle-migration-analysis.md) 
 _why_. This document is the _how_: concrete, ordered steps grounded in the current code.
 
 **Prerequisites already done:** `@griddle/vue@^0.1.0` is published to npm (Trustybits org) and installed in
-`apps/web/package.json`; `@griddle/core` resolves transitively. `vue3-grid-layout@^1.0.0` is still listed and
-must stay until the final cleanup step.
+`apps/web/package.json`; `@griddle/core` resolves transitively. The migration is complete and
+`vue3-grid-layout` was removed in Step 9.
 
 **Guiding principle (from the analysis):** we keep the same _feature scope_ (no loop, positioning, group-drag,
 or draw-to-create) but **deliberately adopt Griddle's own collision/repack semantics** — the drag feel changing
@@ -289,6 +289,13 @@ Validate _feel_, not parity with `vue3-grid-layout`:
 - Grep the repo for any lingering `vue-grid`/`vue3-grid-layout` references (comments in `MapContent.vue`,
   `GridLayoutUtils.ts`, `LandingPageGridEmbed.vue`) and clean or update them.
 - Run `npm --prefix apps/web run suite:full` (lint + test + build) green.
+
+> **✅ Done.** Removed the dependency, its 16 transitive packages, the obsolete `patch-package` patch, and
+> the ambient module declaration; `package-lock.json` was regenerated with `npm install`. The live-source
+> grep is clean, including updated comments/docs and the OG-image renderer's tile selector (now
+> `[data-griddle-tile]`). The final web suite is green: lint, 139 test files / 2,575 tests, type-check, and
+> production build. Desktop browser verification at 1938×980 also confirmed a 48px outer inset, no Griddle
+> selection outline, and a suggestion-tile click executing its tile action.
 
 ---
 

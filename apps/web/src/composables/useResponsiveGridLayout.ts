@@ -192,7 +192,14 @@ export function useResponsiveGridLayout({
   });
 
   const gridInnerStyle = computed<CSSProperties>(() => {
-    const base = { width: `${gridWidth.value}px` };
+    // Griddle centers its first/last cells on a half-gap inset. Add the other
+    // half here so the canvas keeps the app's historical full-margin border on
+    // every edge while preserving Griddle's native between-cell gap.
+    const base = {
+      width: `${gridWidth.value}px`,
+      boxSizing: "border-box" as const,
+      padding: `${toValue(margin) / 2}px`,
+    };
     if (mobileScale.value >= 1) return base;
     return {
       ...base,

@@ -12,6 +12,7 @@
       class-name="grid-container"
       :api="api"
       :height="griddleContentHeight"
+      :selection="griddleSelection"
       :show-grid="false"
       :style="gridInnerStyle"
       @drag-start="onDragStart"
@@ -56,10 +57,7 @@ import {
   fromGriddleTiles,
   toGriddleTiles,
 } from "@/utils/GriddleAdapter";
-import {
-  TILE_DRAGGING_ID,
-  TILE_RESIZING_ID,
-} from "@/grid-context/tileInteractionKeys";
+import { TILE_DRAGGING_ID } from "@/grid-context/tileInteractionKeys";
 
 export default {
   components: {
@@ -160,8 +158,14 @@ export default {
     // height from Griddle's own sizing helper; its internal min-height: 100%
     // then restores the full containing block for the governed tiles.
     const griddleContentHeight = computed(
-      () => `${gridContentSize(api.config.value, api.tiles.value).height}px`,
+      () =>
+        `${gridContentSize(api.config.value, api.tiles.value).height + margin}px`,
     );
+
+    // Selection is a controlled Griddle feature. The app only supports
+    // single-tile gestures and owns its hover/edit visuals, so keep Griddle's
+    // selection empty to avoid its built-in blue outline.
+    const griddleSelection = new Set<string>();
 
     // Publish live tile positions so GridMenu and updateBreakpointOverride can
     // snapshot them. Replaces the old deep-watch on the mutable layout array.
@@ -197,13 +201,10 @@ export default {
     });
 
     // --- Gesture wiring ----------------------------------------------------
-    // Grid-level drag/resize events replace Tile.vue's per-<GridItem> handlers.
-    // The dragging/resizing tile id is provided down so Tile.vue can suppress
-    // its click-vs-drag disambiguation and drive its drag visual state.
+    // Grid-level drag/resize events publish the current gesture to Tile.vue so
+    // it can drive its drag visual state.
     const draggingTileId = ref<string | null>(null);
-    const resizingTileId = ref<string | null>(null);
     provide(TILE_DRAGGING_ID, draggingTileId);
-    provide(TILE_RESIZING_ID, resizingTileId);
 
     const onDragStart = (id: string): void => {
       interacting = true;
@@ -220,15 +221,13 @@ export default {
       }
     };
 
-    const onResizeStart = (id: string): void => {
+    const onResizeStart = (_id: string): void => {
       interacting = true;
-      resizingTileId.value = id;
       if (gridView.canEdit) gridView.beginResize();
     };
 
     const onResizeEnd = (_id: string, committed: boolean): void => {
       interacting = false;
-      resizingTileId.value = null;
       if (committed && gridView.canEdit) {
         gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
         gridView.commitResize();
@@ -256,6 +255,7 @@ export default {
       gridView,
       api,
       griddleContentHeight,
+      griddleSelection,
       margin,
       gridWidth,
       projectedLayout,

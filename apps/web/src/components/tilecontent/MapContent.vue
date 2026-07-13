@@ -235,10 +235,9 @@ export default defineComponent({
         null
     );
 
-    // vue3-grid-layout deep-clones every layout item (JSON.parse/stringify),
-    // so props.content is a COPY — mutations to it never reach the store's
-    // canonical tile.  storeContent resolves to the store tile's content so
-    // all writes persist correctly across layout rebuilds.
+    // Resolve writes through the store's canonical tile rather than relying on
+    // render-prop identity. This keeps map mutations persistent across layout
+    // rebuilds and renderer changes.
     const storeContent = computed(() => {
       const tile = gridView.grid?.tiles.find((t) => t.i === resolvedTileId.value);
       return (tile?.content as MapContent | undefined) ?? props.content;

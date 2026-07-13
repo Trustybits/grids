@@ -54,6 +54,9 @@
 
 @mixin grid-layout($theme) {
   background-color: transparent;
+  // Match the pre-Griddle canvas: keep the fixed-width grid centered inside
+  // wide viewports so the surrounding page border is balanced.
+  margin: 0 auto;
 }
 
 @mixin grid-tile($theme) {
@@ -80,8 +83,8 @@
 
 @mixin grid-placeholder($theme) {
   // Griddle's drop indicator ships an inline `2px dashed blue` border; override
-  // it to a solid themed placeholder block matching the old vue3-grid-layout
-  // look. `!important` overrides the inline border.
+  // it with the app's solid themed placeholder block. `!important` overrides
+  // the inline border.
   background: var(--color-content-default);
   border: none !important;
   border-radius: var(--tile-border-radius);

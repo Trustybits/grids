@@ -11,8 +11,8 @@ import type { GridLayoutItem } from "@/types/GridLayout";
 /**
  * Pure mapping layer between the app's grid model and Griddle's engine model.
  *
- * The app speaks `GridLayoutItem` (`{ i, x, y, w, h }`) — the same shape
- * `vue3-grid-layout` used — while Griddle speaks `Tile` (`{ id, col, row, w, h }`).
+ * The app speaks its legacy `GridLayoutItem` shape (`{ i, x, y, w, h }`),
+ * while Griddle speaks `Tile` (`{ id, col, row, w, h }`).
  * Nothing here touches Vue, the DOM, or component state: it is the seam that
  * `Grid.vue` uses to (a) load the projected responsive layout into a Griddle
  * engine and (b) read committed positions back out on drag/resize end.
@@ -24,20 +24,40 @@ import type { GridLayoutItem } from "@/types/GridLayout";
  * `resolveCaps`.
  */
 
-/** Minimum tile footprint in cells — mirrors the old `<GridItem :minW/minH="1">`. */
+/** Minimum tile footprint in cells. */
 export const MIN_TILE_UNITS = 1;
-/** Maximum tile footprint in cells — mirrors the old `<GridItem :maxW/maxH="10">`. */
+/** Maximum tile footprint in cells. */
 export const MAX_TILE_UNITS = 10;
 
 /**
  * Default `dragIgnoreFrom` selector. Extends Griddle's built-in default
- * (`a, button, input, textarea, select, [contenteditable]`) with `.tile-caption`
- * so caption editing keeps working, matching the old
- * `dragIgnoreFrom="a, button, input, .tile-caption"` while also covering the
- * Tiptap contenteditable surfaces and other form controls.
+ * (`a, button, input, textarea, select, [contenteditable]`) with the app's
+ * custom click/gesture surfaces. Griddle captures pointers at the positioned
+ * tile wrapper, so non-native controls must be ignored explicitly to preserve
+ * their click, seek, edit, crop, and map-pan behavior.
  */
 export const DEFAULT_DRAG_IGNORE_FROM =
-  "a, button, input, textarea, select, [contenteditable], .tile-caption";
+  [
+    "a",
+    "button",
+    "input",
+    "textarea",
+    "select",
+    "[contenteditable]",
+    ".tile-caption",
+    ".tile-link-indicator",
+    ".tile-title",
+    ".tile-details",
+    ".chat-bubble-wrapper",
+    ".video-main",
+    ".progress-container",
+    ".track-progress",
+    ".yt-video-card",
+    ".avatar",
+    ".map-canvas.is-interactive",
+    ".image-wrapper.crop-active",
+    ".video-wrapper.crop-active",
+  ].join(", ");
 
 /** Resolved per-tile capabilities handed to the Griddle engine. */
 export interface GriddleTileCaps {
@@ -108,8 +128,7 @@ export interface BuildGridConfigInput {
 
 /**
  * Compute the data-derivable caps for a tile before any per-tile override.
- * Suggestion tiles are never resizable (they existed as non-resizable
- * placeholders under `vue3-grid-layout`); everything is gated on `editable`.
+ * Suggestion tiles are never resizable; everything is gated on `editable`.
  */
 export function defaultTileCaps(
   tile: Tile | undefined,
@@ -189,8 +208,8 @@ export function fromGriddleTiles(
 
 /**
  * Build a Griddle {@link GridConfig} from the app's fixed-cell parameters. The
- * app forces `vue3-grid-layout` into a `rowHeight`×`rowHeight` square-cell model
- * with `margin` gaps; Griddle models that natively via `unitWidth`/`unitHeight`
+ * app uses a `rowHeight`×`rowHeight` square-cell model with `margin` gaps;
+ * Griddle models that natively via `unitWidth`/`unitHeight`
  * (= `rowHeight`) and `gap` (= `margin`).
  */
 export function buildGridConfig({

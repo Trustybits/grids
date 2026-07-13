@@ -215,6 +215,8 @@ describe("useResponsiveGridLayout", () => {
     expect(composable.gridWidth.value).toBe(540);
     expect(composable.gridInnerStyle.value).toEqual({
       width: "540px",
+      boxSizing: "border-box",
+      padding: "24px",
       transformOrigin: "top left",
       transform: `scale(${300 / 540})`,
     });
@@ -227,7 +229,11 @@ describe("useResponsiveGridLayout", () => {
     await nextTick();
 
     expect(composable.mobileScale.value).toBe(1);
-    expect(composable.gridInnerStyle.value).toEqual({ width: "540px" });
+    expect(composable.gridInnerStyle.value).toEqual({
+      width: "540px",
+      boxSizing: "border-box",
+      padding: "24px",
+    });
     expect(composable.scaleWrapperStyle.value).toEqual({});
 
     wrapper.unmount();

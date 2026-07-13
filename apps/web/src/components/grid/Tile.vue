@@ -39,8 +39,7 @@
     ref="gridTileRef"
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"
-    @mousedown="startClick"
-    @mouseup="endClick"
+    @pointerdown="startClick"
   >
     <!-- Visual Frame with Overflow Hidden -->
     <div
@@ -179,10 +178,7 @@ import {
   type Ref,
 } from "vue";
 
-import {
-  TILE_DRAGGING_ID,
-  TILE_RESIZING_ID,
-} from "@/grid-context/tileInteractionKeys";
+import { TILE_DRAGGING_ID } from "@/grid-context/tileInteractionKeys";
 import { type TileChildComponent } from "@/types/Tile";
 import { type Tile } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
@@ -266,37 +262,20 @@ export default defineComponent({
     const isTouchDevice = () =>
       window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 
-    const isMoving = ref(false);
     const isDragging = ref(false);
     const isExiting = ref(false);
     const isActivated = ref(false);
 
     // Griddle drives drag/resize at the grid level; Grid.vue publishes the
-    // active gesture's tile id here. Mirror it into this tile's `isDragging` /
-    // `isMoving` visual + click-suppression flags (replacing the old
-    // `<GridItem>` @move/@moved handlers). `isMoving` keeps a 300ms tail after
-    // the drag ends so a drag-release isn't misread as a short click.
+    // active gesture's tile id here. Mirror it into this tile's drag visual.
     const draggingTileId = inject<Ref<string | null>>(
       TILE_DRAGGING_ID,
       ref(null),
     );
-    inject<Ref<string | null>>(TILE_RESIZING_ID, ref(null));
-    let moveTailTimer: ReturnType<typeof setTimeout> | null = null;
     watch(
       () => draggingTileId.value === props.tile.i,
       (dragging) => {
-        if (dragging) {
-          if (moveTailTimer) clearTimeout(moveTailTimer);
-          isMoving.value = true;
-          isDragging.value = true;
-        } else {
-          isDragging.value = false;
-          if (moveTailTimer) clearTimeout(moveTailTimer);
-          moveTailTimer = setTimeout(() => {
-            isMoving.value = false;
-            moveTailTimer = null;
-          }, 300);
-        }
+        isDragging.value = dragging;
       },
     );
     const isHovered = ref(false);
@@ -350,7 +329,10 @@ export default defineComponent({
     });
 
     const clickStart = ref<number | null>(null);
-    const CLICK_THRESHOLD = 150;
+    let clickStartPosition: { x: number; y: number } | null = null;
+    let clickStartEvent: PointerEvent | null = null;
+    const LONG_PRESS_THRESHOLD = 150;
+    const CLICK_MOVE_THRESHOLD = 6;
     let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 
     const isSuggestion = computed(
@@ -394,9 +376,14 @@ export default defineComponent({
       headerComponent.value = await getOptionComponent(props.tile.content);
     };
 
-    const startClick = (event: MouseEvent) => {
-      if (event.button === 0) {
+    const startClick = (event: PointerEvent) => {
+      // Touch keeps its existing two-tap activation path below. Capture mouse
+      // pointer-down before Griddle's parent handler takes pointer capture;
+      // the later compatibility mousedown may otherwise never reach this tile.
+      if (event.pointerType === "mouse" && event.button === 0) {
         clickStart.value = Date.now();
+        clickStartPosition = { x: event.clientX, y: event.clientY };
+        clickStartEvent = event;
         // Only preventDefault when the child doesn't handle short clicks
         // (e.g. text tiles need the default focus behavior on mousedown)
         if (gridView.canEdit && !isEditing.value && !isSuggestion.value) {
@@ -410,13 +397,17 @@ export default defineComponent({
           longPressTimer = setTimeout(() => {
             isDragging.value = true;
             longPressTimer = null;
-          }, CLICK_THRESHOLD);
+          }, LONG_PRESS_THRESHOLD);
         }
       }
     };
 
     const endClick = (event: MouseEvent) => {
-      if (event.button !== 0) {
+      if (
+        event.button !== 0 ||
+        clickStart.value === null ||
+        clickStartPosition === null
+      ) {
         return;
       }
 
@@ -427,14 +418,22 @@ export default defineComponent({
       }
       isDragging.value = false;
 
-      const clickDuration = Date.now() - (clickStart.value || 0);
+      const clickDistance = clickStartPosition
+        ? Math.hypot(
+            event.clientX - clickStartPosition.x,
+            event.clientY - clickStartPosition.y,
+          )
+        : Infinity;
 
-      if (clickDuration < CLICK_THRESHOLD && !isMoving.value) {
+      // Griddle starts its gesture state on pointer-down, even for a click.
+      // Distance—not press duration—is the reliable distinction: a deliberate
+      // stationary click must still reach text editors and tile actions.
+      if (clickDistance <= CLICK_MOVE_THRESHOLD) {
         if (isSuggestion.value) {
           onSuggestionShortClick();
         } else {
           if (childComponent.value?.onShortClick) {
-            childComponent.value.onShortClick(event);
+            childComponent.value.onShortClick(clickStartEvent ?? event);
           }
           if (childComponent.value?.onExitClick) {
             addClickListener();
@@ -443,6 +442,8 @@ export default defineComponent({
       }
 
       clickStart.value = null;
+      clickStartPosition = null;
+      clickStartEvent = null;
     };
 
     // Drag/resize begin+commit now live at the grid level (Grid.vue's Griddle
@@ -697,7 +698,7 @@ export default defineComponent({
       const touchDuration = Date.now() - (clickStart.value || Date.now());
 
       // Only fire short-click if it was a quick tap (not a scroll)
-      if (touchDuration < CLICK_THRESHOLD) {
+      if (touchDuration < LONG_PRESS_THRESHOLD) {
         if (isSuggestion.value) {
           onSuggestionShortClick();
         } else {
@@ -834,6 +835,11 @@ export default defineComponent({
     onMounted(() => {
       loadComponent();
 
+      // Griddle captures the pointer on its positioning wrapper, so mouseup is
+      // retargeted away from `.tile-wrapper`. Listen at window scope and let
+      // only the tile with an active mousedown process the release.
+      window.addEventListener("mouseup", endClick);
+
       if (gridTileRef.value) {
         gridTileRef.value.addEventListener("dragstart", handleDragStart);
         // Use non-passive touchstart so we can conditionally preventDefault on second tap
@@ -851,6 +857,7 @@ export default defineComponent({
         clearTimeout(longPressTimer);
         longPressTimer = null;
       }
+      window.removeEventListener("mouseup", endClick);
       stopChildEditingWatch?.();
       stopChildEditingWatch = null;
       removeClickListener();

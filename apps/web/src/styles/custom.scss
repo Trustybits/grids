@@ -57,57 +57,59 @@
 }
 
 @mixin grid-tile($theme) {
-  // vue-grid-item should be completely transparent - just a positioning wrapper
-  // All visual styling is handled by .card-body inside
+  // The Griddle tile is a transparent positioning wrapper — all visual styling
+  // is handled by .card-body inside our slotted .grid-item-container.
   background: transparent;
-  
+
   // Prevent text selection during drag operations
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
-  
-  // Hide the default resize handle from vue3-grid-layout
-  .vue-resizable-handle {
-    // display: none !important;
-    opacity: 0 !important;
-  }
-}
 
-@mixin grid-dragging($theme) {
-  // Minimal styling for drag state - applied to wrapper
-  opacity: 0.5;
-  
-  .card-body {
-    border-color: var(--color-content-high) !important;
+  // Hide Griddle's default (inline-styled) resize handle square and enlarge its
+  // hit area. The visible affordance is our own `.resize-indicator` nubbin; the
+  // handle stays interactive (opacity: 0 keeps hit-testing). `!important` is
+  // required because Griddle sizes the handle with inline styles.
+  [data-griddle-handle] {
+    opacity: 0;
+    width: 32px !important;
+    height: 32px !important;
   }
 }
 
 @mixin grid-placeholder($theme) {
+  // Griddle's drop indicator ships an inline `2px dashed blue` border; override
+  // it to a solid themed placeholder block matching the old vue3-grid-layout
+  // look. `!important` overrides the inline border.
   background: var(--color-content-default);
+  border: none !important;
   border-radius: var(--tile-border-radius);
-  // Placeholder styling
-  
   z-index: var(--z-grid-placeholder);
   user-select: none;
 }
 
 body.theme-light,
 body.theme-dark {
-  .vue-grid-layout {
+  // `.grid-container` is the class Grid.vue passes to <GriddleGrid>; the engine
+  // applies `.griddle-tile` / `.griddle-drop-indicator` to its own elements.
+  .grid-container {
     @include grid-layout(null);
   }
 
-  .vue-grid-layout .vue-grid-item {
+  .griddle-tile {
     @include grid-tile(null);
   }
 
-  .vue-grid-layout .vue-draggable-dragging {
-    @include grid-dragging(null);
+  .griddle-drop-indicator {
+    @include grid-placeholder(null);
   }
 
-  .vue-grid-layout .vue-grid-placeholder {
-    @include grid-placeholder(null);
+  // Keep the resize nubbin visible while the cursor is over Griddle's (invisible)
+  // resize handle, which sits as a sibling of our slotted content inside
+  // `.griddle-tile`. Global because the handle is outside Tile.vue's subtree.
+  .griddle-tile:has([data-griddle-handle]:hover) .resize-indicator {
+    opacity: 1;
   }
 }
 

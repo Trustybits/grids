@@ -230,12 +230,47 @@ exactly as-is (Griddle renders at natural pixel size, so our `transform: scale()
 - Wire `tileRadius` in `GridConfig` to our `--tile-border-radius` token and have tile content read
   `--griddle-tile-radius` where it currently reads the old radius, so corners stay in sync.
 
+> **✅ Done.** All grid-layer styling moved off the (now-dead) `.vue-grid-*` selectors onto Griddle's classes.
+> Concrete changes:
+> - **`custom.scss`**: repointed the theme block — `.grid-container` (grid root), `.griddle-tile` (transparent
+>   positioning wrapper + `user-select: none`), and `.griddle-drop-indicator` (solid themed placeholder;
+>   `border: none !important` overrides Griddle's inline `2px dashed blue`). Griddle's default `[data-griddle-handle]`
+>   square is hidden (`opacity: 0`, keeps hit area) and enlarged to a 32px grab target; a global
+>   `.griddle-tile:has([data-griddle-handle]:hover) .resize-indicator` keeps the nubbin lit over the handle.
+>   Dropped the `grid-dragging` mixin (its old `opacity: 0.5` was already overridden back to 1; drag visuals now
+>   come from Tile.vue's `.is-dragging` + Griddle's inline drop-shadow).
+> - **`Tile.vue`**: deleted the dead `:deep(.vue-resizable-handle)` and `:deep(.vue-grid-item)` blocks — Griddle
+>   renders those elements *outside* this component's subtree (so scoped `:deep()` can't reach them) and does its
+>   own FLIP settle animation (re-adding transform transitions would double-animate). Fixed the stale
+>   `vue-grid-layout` comment on `handleDragStart`.
+> - **`touch-action`**: no rule needed — `buildGridConfig({ scroll: 'none' })` makes Griddle's root
+>   `overflow: visible` with **no** `touch-action` lock (verified in the compiled engine), so vertical page
+>   scroll on touch works.
+>
+> **Deviation from plan (`tileRadius`):** deliberately did *not* pass a numeric `tileRadius` to Griddle nor
+> switch content to `--griddle-tile-radius`. `--tile-border-radius` (→ `--radius-xl`) is already the app-wide
+> radius token read by ~10 content components; Griddle's tile wrapper is transparent (its rounding is invisible)
+> and the only surface that needed the token — the drop indicator — is styled with `border-radius:
+> var(--tile-border-radius)` directly. Keeping the CSS token as the single source of truth avoids duplicating it
+> as a JS magic number (the token resolves to a `var()`, not a statically-known px), and corners stay in sync.
+> Build (SCSS compile) + full suite + type-check green. Remaining `vue3-grid-layout` comment references in
+> `MapContent.vue` / `GridLayoutUtils.ts` are left for Step 9's grep sweep.
+
 ## Step 7 — Rewrite the three mocked tests
 - `Grid.test.ts` / `Tile.test.ts` / `LandingPageGridEmbed.canvas.test.ts`: drop `vi.mock("vue3-grid-layout")`.
   Either mock `@griddle/vue`'s `GriddleGrid`/`useGriddle` with a light stub that lets you drive
   `dragEnd`/`resizeEnd`, or test against the real component. Assert on the **new commit seam**: dragEnd →
   `commitMove`, resizeEnd → `commitResize`, and that `setDisplayPositions` receives the mapped full set.
 - Add coverage for the new adapter (Step 1) and the readiness re-wire (Step 4).
+
+> **✅ Done** (landed with Steps 2–4; verified here). No test references `vue3-grid-layout`. All three canvas
+> tests (`Grid`, `Tile`, `LandingPageGridEmbed.canvas`) mock only the visual `GriddleGrid` component over the
+> **real** `useGriddle` engine and drive the grid-level `dragStart`/`dragEnd`/`resizeStart`/`resizeEnd` events;
+> `Grid.test.ts` asserts the new commit seam (dragEnd → `commitMove`, resizeEnd → `commitResize`,
+> `setDisplayPositions` gets the mapped full set) plus gravity-compaction routing. Adapter coverage is thorough
+> (`GriddleAdapter.test.ts`: caps/`resolveCaps`, round-trips, every `buildGridConfig` branch incl.
+> `scroll`/`drawToCreate`/`gravity`, snapshot). Readiness re-wire is covered in `useResponsiveGridLayout.test.ts`
+> via `markLayoutReady` (rewritten off the removed `reportRenderedLayout` DOM-diff). Full suite: 2560 passed.
 
 ## Step 8 — Manual validation on real grids (behavior is intended to differ)
 Validate _feel_, not parity with `vue3-grid-layout`:

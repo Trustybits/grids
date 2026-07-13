@@ -718,7 +718,8 @@ export default defineComponent({
     };
 
     const handleDragStart = (event: Event) => {
-      // Prevent default browser drag behavior which interferes with vue-grid-layout
+      // Prevent the native browser image/text drag, which would otherwise
+      // interfere with Griddle's pointer-driven tile drag.
       if (gridView.canEdit && !isEditing.value) {
         event.preventDefault();
       }
@@ -1450,70 +1451,10 @@ export default defineComponent({
   opacity: 1;
 }
 
-/* Also show nubbin when hovering the resize handle (extended hit area) */
-/* This keeps the nubbin visible even when cursor moves into the resize zone beyond the tile */
-.grid-item-container:has(.vue-resizable-handle:hover) .resize-indicator {
-  opacity: 1;
-}
-
-/* Increase the resize handle hit area for vue3-grid-layout */
-/* The library uses .vue-resizable-handle class for the resize handle */
-:deep(.vue-resizable-handle) {
-  /* Increase the hit area from default small corner to a larger area */
-  width: 32px !important;
-  height: 32px !important;
-  bottom: -8px !important;
-  right: -8px !important;
-
-  /* Make the handle itself invisible but keep the hit area */
-  background-image: none !important;
-  background-color: transparent !important;
-
-  /* Ensure it's above other content but below toolbar */
-  z-index: 4 !important;
-
-  /* Cursor customization - use diagonal double arrow for bottom-right resize */
-  /* Options: nwse-resize (diagonal \), nesw-resize (diagonal /), 
-     nw-resize, ne-resize, sw-resize, se-resize (directional arrows) */
-  cursor: nwse-resize !important;
-
-  /* Scale up cursor when actively resizing (clicking and holding) */
-  &:active {
-    cursor: nwse-resize !important;
-    /* Use a larger cursor size - browsers support cursor scaling via image */
-    // cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'%3E%3Cpath fill='white' stroke='black' stroke-width='1' d='M22 2L2 22M22 2v6M22 2h-6M2 22v-6M2 22h6'/%3E%3C/svg%3E") 16 16, nwse-resize !important;
-  }
-}
-
-/* Smooth animations for tile resizing */
-/* Animate the actual tile (grid-item) during and after resize */
-:deep(.vue-grid-item) {
-  /* Disable transitions during resize for immediate snapping feedback */
-  &.resizing {
-    transition: none !important;
-    /* Keep tile visible and stable during resize */
-    opacity: 1 !important;
-  }
-
-  /* Light, fast spring during drag — keeps a hint of fluidity without
-     the heavy 400ms spring that causes perceptible cursor lag. */
-  &.vue-draggable-dragging {
-    transition: transform 80ms ease-out !important;
-    // transition: transform 80ms var(--easing-spring) !important;
-    opacity: 1 !important;
-  }
-
-  /* Full spring animation when resize/drag completes and tiles settle */
-  &:not(.resizing):not(.vue-draggable-dragging) {
-    transition:
-      width var(--duration-slow) var(--easing-spring),
-      height var(--duration-slow) var(--easing-spring),
-      transform var(--duration-slow) var(--easing-spring),
-      opacity var(--duration-fast) var(--easing-ease-out) !important;
-    opacity: 1 !important;
-  }
-}
-
-/* Placeholder styling is handled globally in Grid.vue's unscoped <style> block
-   so it can properly hide/show based on drag state via :has(.vue-draggable-dragging). */
+/* Griddle owns tile positioning, drag/resize handles, the drop indicator, and
+   the settle (FLIP) animation. Those concerns are styled globally in
+   styles/custom.scss (targeting `.griddle-tile` / `[data-griddle-handle]` /
+   `.griddle-drop-indicator`) rather than here, because Griddle renders those
+   elements outside this component's subtree — a scoped `:deep()` can't reach
+   them, and re-adding transform transitions here would fight Griddle's FLIP. */
 </style>

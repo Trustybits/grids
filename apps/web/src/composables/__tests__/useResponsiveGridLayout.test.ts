@@ -20,7 +20,6 @@ const layoutUtils = vi.hoisted(() => ({
   calculateViewportColumnCount: vi.fn(),
   columnCountToBreakpoint: vi.fn(),
   projectGridLayout: vi.fn(),
-  reconcileGridLayout: vi.fn(),
 }));
 
 vi.mock("@/utils/GridLayoutUtils", () => layoutUtils);
@@ -158,9 +157,6 @@ describe("useResponsiveGridLayout", () => {
     layoutUtils.projectGridLayout.mockImplementation(() => [
       layoutItem("tile-1", 0, 0, 2, 2),
     ]);
-    layoutUtils.reconcileGridLayout.mockImplementation(
-      (_current: GridLayoutItem[], projected: GridLayoutItem[]) => projected,
-    );
   });
 
   it("derives viewport and active breakpoints and reports them", () => {
@@ -262,7 +258,7 @@ describe("useResponsiveGridLayout", () => {
     expect(browser.observer.disconnect).toHaveBeenCalled();
   });
 
-  it("projects and reconciles position-only layouts", async () => {
+  it("projects position-only layouts and reprojects on tile change", async () => {
     const browser = createEnvironment();
     const { composable, tiles, wrapper } = mountComposable(
       browser.environment,
@@ -274,20 +270,22 @@ describe("useResponsiveGridLayout", () => {
       columns: 8,
       overrides: {},
     });
-    expect(composable.renderedLayout.value).toEqual([
+    expect(composable.projectedLayout.value).toEqual([
       layoutItem("tile-1", 0, 0, 2, 2),
     ]);
 
+    layoutUtils.projectGridLayout.mockClear();
     tiles.value = [{ i: "tile-2" } as Tile];
     await nextTick();
 
-    expect(layoutUtils.reconcileGridLayout).toHaveBeenCalled();
-    expect(composable.layoutRevision.value).toBeGreaterThan(1);
+    expect(layoutUtils.projectGridLayout).toHaveBeenCalledWith(
+      expect.objectContaining({ tiles: [{ i: "tile-2" }] }),
+    );
 
     wrapper.unmount();
   });
 
-  it("resolves layout readiness only after the projected breakpoint is reported as rendered", async () => {
+  it("resolves layout readiness only after the breakpoint is marked ready", async () => {
     const browser = createEnvironment();
     const forcedBreakpoint = ref<Breakpoint | null>(null);
     const { composable, wrapper } = mountComposable(browser.environment, {
@@ -307,13 +305,9 @@ describe("useResponsiveGridLayout", () => {
     expect(resolved).toBe(false);
     expect(composable.layoutReadyBreakpoint.value).toBeNull();
 
-    composable.reportRenderedLayout([
-      layoutItem("different-tile", 0, 0, 2, 2),
-    ]);
-    await nextTick();
-    expect(resolved).toBe(false);
-
-    composable.reportRenderedLayout(composable.renderedLayout.value);
+    // markLayoutReady is what Grid.vue calls once it has loaded the projected
+    // tiles into the Griddle engine for the active breakpoint.
+    composable.markLayoutReady();
     await readiness;
 
     expect(resolved).toBe(true);

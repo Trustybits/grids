@@ -17,26 +17,6 @@ vi.mock("@/grid-context/useGridViewContext", () => ({
   useGridViewContext: () => storeHolder.current,
 }));
 
-vi.mock("vue3-grid-layout", async () => {
-  const { defineComponent, h } = await import("vue");
-  return {
-    GridItem: defineComponent({
-      name: "GridItemStub",
-      emits: ["move", "moved", "resize", "resized"],
-      props: {
-        i: String,
-        x: Number,
-        y: Number,
-        w: Number,
-        h: Number,
-      },
-      setup(_props, { slots }) {
-        return () => h("div", slots.default?.());
-      },
-    }),
-  };
-});
-
 vi.mock("@/utils/TileUtils", async () => {
   const { defineComponent, h } = await import("vue");
   const ContentStub = defineComponent({
@@ -134,10 +114,7 @@ async function mountGridTile(
     },
   });
   await flushPromises();
-  return {
-    gridItem: wrapper.findComponent({ name: "GridItemStub" }),
-    wrapper,
-  };
+  return { wrapper };
 }
 
 describe("GridTile position-only rendering", () => {
@@ -163,17 +140,10 @@ describe("GridTile position-only rendering", () => {
       w: 5,
       h: 6,
     };
-    const { gridItem, wrapper } = await mountGridTile(store, layout);
+    const { wrapper } = await mountGridTile(store, layout);
 
-    expect(gridItem.props()).toEqual(
-      expect.objectContaining({
-        i: "tile-1",
-        x: 3,
-        y: 4,
-        w: 5,
-        h: 6,
-      }),
-    );
+    // Tile geometry (data-tile-w/h) is sourced from the layout slot prop that
+    // Grid.vue derives from the Griddle tile — not a <GridItem> wrapper.
     expect(wrapper.find(".tile-wrapper").attributes()).toEqual(
       expect.objectContaining({
         "data-tile-type": ContentType.LINK,
@@ -182,6 +152,7 @@ describe("GridTile position-only rendering", () => {
       }),
     );
 
+    // Content is read live from the canonical tile, independent of geometry.
     (store.currentGrid.tiles[0] as Tile).content = {
       type: ContentType.IMAGE,
       src: "https://cdn.example/image.png",
@@ -194,91 +165,36 @@ describe("GridTile position-only rendering", () => {
     expect(wrapper.find(".tile-wrapper").attributes("data-tile-type")).toBe(
       ContentType.IMAGE,
     );
-    expect(gridItem.props()).toEqual(
-      expect.objectContaining({ x: 3, y: 4, w: 5, h: 6 }),
+    expect(wrapper.find(".tile-wrapper").attributes()).toEqual(
+      expect.objectContaining({ "data-tile-w": "5", "data-tile-h": "6" }),
     );
 
     wrapper.unmount();
   });
 
-  it("leaves canonical dimensions unchanged during live desktop resize and commits once", async () => {
+  it("reflows child content when the tile footprint changes", async () => {
+    const onResize = vi.fn();
     const tile = makeTile();
     const store = makeStore(tile);
-    store.activeBreakpoint = "lg";
-    store.canEdit = true;
-    const layout: GridLayoutItem = {
-      i: "tile-1",
-      x: 0,
-      y: 0,
-      w: 2,
-      h: 2,
-    };
-    const { gridItem, wrapper } = await mountGridTile(store, layout);
+    const layout: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
+    const { wrapper } = await mountGridTile(store, layout);
 
-    gridItem.vm.$emit("resize", "tile-1", 5.6, 4.4, 560, 440);
-    gridItem.vm.$emit("resized");
+    // Stand in for the resolved content component's onResize hook.
+    (
+      wrapper.vm as unknown as {
+        childComponent: { onResize: () => void } | null;
+      }
+    ).childComponent = { onResize };
+
+    await wrapper.setProps({
+      layout: { i: "tile-1", x: 0, y: 0, w: 5, h: 6 },
+    });
     await flushPromises();
 
-    expect(store.beginResize).toHaveBeenCalledTimes(1);
-    expect(store.currentGrid.tiles[0]).toEqual(
-      expect.objectContaining({ w: 2, h: 2 }),
+    expect(onResize).toHaveBeenCalled();
+    expect(wrapper.find(".tile-wrapper").attributes()).toEqual(
+      expect.objectContaining({ "data-tile-w": "5", "data-tile-h": "6" }),
     );
-    expect(store.commitResize).toHaveBeenCalledTimes(1);
-
-    wrapper.unmount();
-  });
-
-  it("keeps canonical dimensions unchanged during a non-desktop resize and commits rendered geometry", async () => {
-    const tile = makeTile();
-    const store = makeStore(tile);
-    store.activeBreakpoint = "md";
-    store.canEdit = true;
-    const layout: GridLayoutItem = {
-      i: "tile-1",
-      x: 3,
-      y: 4,
-      w: 2,
-      h: 2,
-    };
-    const { gridItem, wrapper } = await mountGridTile(store, layout);
-
-    layout.w = 5;
-    layout.h = 6;
-    gridItem.vm.$emit("resize", "tile-1", 6, 5, 600, 500);
-    gridItem.vm.$emit("resized");
-    await flushPromises();
-
-    expect(store.beginResize).toHaveBeenCalledTimes(1);
-    expect(store.currentGrid.tiles[0]).toEqual(
-      expect.objectContaining({ w: 2, h: 2 }),
-    );
-    expect(layout).toEqual(
-      expect.objectContaining({ x: 3, y: 4, w: 5, h: 6 }),
-    );
-    expect(store.commitResize).toHaveBeenCalledTimes(1);
-
-    wrapper.unmount();
-  });
-
-  it("commits a completed move", async () => {
-    const tile = makeTile();
-    const store = makeStore(tile);
-    store.canEdit = true;
-    const layout: GridLayoutItem = {
-      i: "tile-1",
-      x: 0,
-      y: 0,
-      w: 2,
-      h: 2,
-    };
-    const { gridItem, wrapper } = await mountGridTile(store, layout);
-
-    gridItem.vm.$emit("move");
-    gridItem.vm.$emit("moved");
-    await flushPromises();
-
-    expect(store.beginMove).toHaveBeenCalledTimes(1);
-    expect(store.commitMove).toHaveBeenCalledTimes(1);
 
     wrapper.unmount();
   });

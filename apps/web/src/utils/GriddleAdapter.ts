@@ -90,6 +90,20 @@ export interface BuildGridConfigInput {
   dragIgnoreFrom?: string;
   /** Whether tiles snap to cells during drag. Defaults to true. */
   snapDuringDrag?: boolean;
+  /**
+   * Scroll-container mode (Griddle ≥0.1.1). `'none'` makes the grid size to its
+   * content and lets the host page own scrolling/panning (no `overflow: auto`,
+   * no `touch-action: none`) — which is how `grids.so` uses it (page scroll +
+   * outer `transform: scale()`). Omitted → Griddle default (`'container'`).
+   */
+  scroll?: "container" | "none";
+  /**
+   * Draw-to-create gate (Griddle ≥0.1.1). `false` makes empty-space
+   * pointer-downs a no-op (no draw ghost, no pointer capture, no selection
+   * clear). We never handle `drawCreate`, so pass `false`. Omitted → Griddle
+   * default (on).
+   */
+  drawToCreate?: boolean;
 }
 
 /**
@@ -189,6 +203,8 @@ export function buildGridConfig({
   tileRadius,
   dragIgnoreFrom = DEFAULT_DRAG_IGNORE_FROM,
   snapDuringDrag = true,
+  scroll,
+  drawToCreate,
 }: BuildGridConfigInput): GridConfig {
   const gravity: Gravity = verticalCompact ? "top" : "none";
   return {
@@ -202,6 +218,10 @@ export function buildGridConfig({
     dragIgnoreFrom,
     ...(resizeHandles ? { resizeHandles } : {}),
     ...(tileRadius !== undefined ? { tileRadius } : {}),
+    ...(scroll ? { scroll } : {}),
+    ...(drawToCreate !== undefined
+      ? { interactive: { drawToCreate } }
+      : {}),
   };
 }
 

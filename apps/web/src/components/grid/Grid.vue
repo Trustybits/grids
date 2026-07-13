@@ -1,56 +1,65 @@
-<!-- eslint-disable vue/multi-word-component-names, vue/no-unused-components -->
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <p v-if="gridView.isLoading">Loading layout...</p>
   <div
-    v-else-if="displayLayout.length"
+    v-else-if="projectedLayout.length"
     ref="scaleWrapperRef"
     class="grid-scale-wrapper"
     :style="scaleWrapperStyle"
   >
-    <GridLayout
+    <GriddleGrid
       ref="gridLayoutRef"
-      class="grid-container"
-      :layout="displayLayout"
-      :col-num="responsiveColNum"
-      :row-height="rowHeight"
-      :is-draggable="isEditable"
-      :is-resizable="isEditable"
-      :vertical-compact="gridView.verticalCompact"
-      :prevent-collision="false"
-      :restore-on-drag="true"
-      :use-css-transforms="true"
-      :margin="[margin, margin]"
+      class-name="grid-container"
+      :api="api"
+      :show-grid="false"
       :style="gridInnerStyle"
-      @layout-ready="reportRenderedLayout"
-      @layout-updated="reportRenderedLayout"
+      @drag-start="onDragStart"
+      @drag-end="onDragEnd"
+      @resize-start="onResizeStart"
+      @resize-end="onResizeEnd"
     >
-      <GridTile
-        v-for="entry in renderedTiles"
-        :key="entry.tile.i"
-        :tile="entry.tile"
-        :layout="entry.layout"
-      />
-    </GridLayout>
+      <template #tile="{ tile: griddleTile }">
+        <GridTile
+          v-if="tilesById.get(griddleTile.id)"
+          :tile="tilesById.get(griddleTile.id)!"
+          :layout="fromGriddleTile(griddleTile)"
+        />
+      </template>
+    </GriddleGrid>
   </div>
   <p v-else class="empty-grid-message">No tiles yet</p>
 </template>
 
 <script lang="ts">
-import { proxyRefs, computed, nextTick, onUnmounted, watch } from "vue";
-import { GridLayout, GridItem } from "vue3-grid-layout";
-// import VueGridLayout from "vue-grid-layout-v3";
+import {
+  proxyRefs,
+  computed,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  provide,
+  ref,
+  watch,
+} from "vue";
+import { GriddleGrid, useGriddle } from "@griddle/vue";
+import type { Tile as GriddleTile } from "@griddle/core";
 import GridTile from "./Tile.vue";
 import { useResponsiveGridLayout } from "@/composables/useResponsiveGridLayout";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import {
-  compactGridLayout,
-  reconcileGridLayout,
-} from "@/utils/GridLayoutUtils";
+  buildGridConfig,
+  fromGriddleTile,
+  fromGriddleTiles,
+  toGriddleTiles,
+} from "@/utils/GriddleAdapter";
+import {
+  TILE_DRAGGING_ID,
+  TILE_RESIZING_ID,
+} from "@/grid-context/tileInteractionKeys";
 
 export default {
   components: {
-    GridLayout,
-    GridItem, // eslint-disable-line vue/no-unused-components -- used internally by vue3-grid-layout
+    GriddleGrid,
     GridTile,
   },
   props: {
@@ -77,16 +86,15 @@ export default {
 
     const {
       activeBreakpoint,
-      renderedLayout: displayLayout,
+      projectedLayout,
       gridInnerStyle,
       gridLayoutRef,
       gridWidth,
-      layoutRevision,
-      reportRenderedLayout,
       responsiveColumnCount: responsiveColNum,
       scaleWrapperRef,
       scaleWrapperStyle,
       waitForLayoutReady,
+      markLayoutReady,
     } = useResponsiveGridLayout({
       baseColumnCount: baseColNum,
       forcedBreakpoint: () => gridView.forcedBreakpoint,
@@ -107,64 +115,124 @@ export default {
       });
     onUnmounted(disposeLayoutReadiness);
 
-    watch(
-      layoutRevision,
-      async () => {
-        if (displayLayout.value.length > 0) return;
-        await nextTick();
-        reportRenderedLayout([]);
-      },
-      { immediate: true, flush: "post" },
+    // --- Griddle engine ----------------------------------------------------
+    // Griddle owns tile state; we feed it the projected responsive layout and
+    // read committed positions back on drag/resize end. `contractTiles` maps a
+    // Griddle tile id back to our `Tile` for the #tile slot.
+    const contractTiles = computed(() => gridView.grid?.tiles ?? []);
+    const tilesById = computed(
+      () => new Map(contractTiles.value.map((tile) => [tile.i, tile])),
     );
 
-    const renderedTiles = computed(() => {
-      const tilesById = new Map(
-        (gridView.grid?.tiles ?? []).map((tile) => [tile.i, tile]),
-      );
-      return displayLayout.value.flatMap((layout) => {
-        const tile = tilesById.get(layout.i);
-        return tile ? [{ tile, layout }] : [];
-      });
+    const griddleTiles = computed(() =>
+      toGriddleTiles(projectedLayout.value, contractTiles.value, {
+        editable: gridView.canEdit,
+      }),
+    );
+
+    const gridConfig = computed(() =>
+      buildGridConfig({
+        cols: responsiveColNum.value,
+        rowHeight: props.rowHeight,
+        margin,
+        verticalCompact: gridView.verticalCompact,
+        // grids.so owns page scroll + outer transform:scale(); the grid must
+        // size to content and not lock touch-action. And we never handle
+        // draw-to-create, so gate it off.
+        scroll: "none",
+        drawToCreate: false,
+      }),
+    );
+
+    const api = useGriddle({
+      config: gridConfig.value,
+      tiles: griddleTiles.value,
     });
 
-    // Publish rendered tile positions so GridMenu and updateBreakpointOverride
-    // can snapshot them. Deep watch is needed because vue3-grid-layout mutates
-    // tile x/y/w/h in-place during drag/resize.
-    watch(
-      displayLayout,
-      (tiles) => {
-        gridView.setDisplayPositions(
-          tiles.map((t) => ({ i: t.i, x: t.x, y: t.y, w: t.w, h: t.h })),
-        );
-      },
-      { immediate: true, deep: true },
-    );
+    // Publish live tile positions so GridMenu and updateBreakpointOverride can
+    // snapshot them. Replaces the old deep-watch on the mutable layout array.
+    watch(api.version, () => {
+      gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
+    });
 
-    // Delegates to gridView.canEdit — the single source of truth for
-    // whether grid manipulation (drag/resize) is allowed right now.
-    const isEditable = computed(() => gridView.canEdit);
+    // Load the projected layout + config into the engine whenever they change
+    // (breakpoint switch, tile add/remove, edit-gate change, compaction
+    // toggle, or reconciliation after a committed gesture). Guarded so a
+    // reactive reload can never fight a live drag/resize.
+    let interacting = false;
+    const syncEngine = async (): Promise<void> => {
+      api.loadJSON({
+        version: 1,
+        config: gridConfig.value,
+        tiles: griddleTiles.value,
+      });
+      // loadJSON/updateConfig don't apply gravity; compact explicitly so a
+      // gravity:'top' layout settles immediately.
+      if (gridView.verticalCompact) api.grid.compactAll();
+      await nextTick();
+      markLayoutReady();
+    };
 
-    // When gravity is toggled on, compact tiles and publish the positions
-    // through the view context.
+    watch([griddleTiles, gridConfig], () => {
+      if (interacting) return;
+      void syncEngine();
+    });
+
+    onMounted(() => {
+      void syncEngine();
+    });
+
+    // --- Gesture wiring ----------------------------------------------------
+    // Grid-level drag/resize events replace Tile.vue's per-<GridItem> handlers.
+    // The dragging/resizing tile id is provided down so Tile.vue can suppress
+    // its click-vs-drag disambiguation and drive its drag visual state.
+    const draggingTileId = ref<string | null>(null);
+    const resizingTileId = ref<string | null>(null);
+    provide(TILE_DRAGGING_ID, draggingTileId);
+    provide(TILE_RESIZING_ID, resizingTileId);
+
+    const onDragStart = (id: string): void => {
+      interacting = true;
+      draggingTileId.value = id;
+      if (gridView.canEdit) gridView.beginMove();
+    };
+
+    const onDragEnd = (_id: string, committed: boolean): void => {
+      interacting = false;
+      draggingTileId.value = null;
+      if (committed && gridView.canEdit) {
+        gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
+        gridView.commitMove();
+      }
+    };
+
+    const onResizeStart = (id: string): void => {
+      interacting = true;
+      resizingTileId.value = id;
+      if (gridView.canEdit) gridView.beginResize();
+    };
+
+    const onResizeEnd = (_id: string, committed: boolean): void => {
+      interacting = false;
+      resizingTileId.value = null;
+      if (committed && gridView.canEdit) {
+        gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
+        gridView.commitResize();
+      }
+    };
+
+    // When gravity is toggled on, compact tiles through the engine and persist.
+    // The controller routes positions to canonical tiles (lg) or per-breakpoint
+    // overrides (md/sm).
     watch(
       () => gridView.verticalCompact,
       (isCompact, wasCompact) => {
         if (!gridView.grid || !gridView.canEdit) return;
-
-        // Only act when gravity is turned ON (false -> true)
         if (isCompact && !wasCompact) {
-          const compacted = compactGridLayout(
-            displayLayout.value,
-            responsiveColNum.value,
-          );
-
-          displayLayout.value = reconcileGridLayout(
-            displayLayout.value,
-            compacted,
-          );
-
-          // Commit the compacted positions and persist. The controller routes
-          // them to canonical tiles (lg) or per-breakpoint overrides (md/sm).
+          api.updateConfig({ gravity: "top" });
+          api.grid.compactAll();
+          const compacted = fromGriddleTiles(api.tiles.value);
+          gridView.setDisplayPositions(compacted);
           gridView.commitCompactedLayout(compacted);
         }
       },
@@ -172,35 +240,23 @@ export default {
 
     return {
       gridView,
-      gridWidth,
+      api,
       margin,
-      displayLayout,
-      renderedTiles,
-      responsiveColNum,
+      gridWidth,
+      projectedLayout,
+      tilesById,
+      fromGriddleTile: (tile: GriddleTile) => fromGriddleTile(tile),
       activeBreakpoint,
-      isEditable,
       scaleWrapperStyle,
       gridInnerStyle,
       gridLayoutRef,
-      reportRenderedLayout,
       scaleWrapperRef,
+      onDragStart,
+      onDragEnd,
+      onResizeStart,
+      onResizeEnd,
     };
   },
-
-  // mounted() {
-  //   document.body.style.backgroundImage = 'url("https://images.pexels.com/photos/247599/pexels-photo-247599.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1")';
-  //   document.body.style.backgroundRepeat = 'no-repeat';
-  //   // document.body.style.backgroundColor = 'lightblue';
-  //   // document.body.style.fontFamily = 'Arial';
-  //   // Add more styles as needed
-  // },
-  // beforeUnmount() {
-  //   // Reset styles when the component is destroyed (optional)
-  //   // document.body.style.backgroundColor = '#ffffff00';
-  //   document.body.style.backgroundImage = 'none';
-  //   // document.body.style.backgroundColor = 'blue';
-  //   // document.body.style.fontFamily = 'Inter';
-  // }
 };
 </script>
 
@@ -219,38 +275,6 @@ export default {
   color: var(--bg-contrast-color-low, var(--color-content-low));
   margin: 0;
   pointer-events: none;
-}
-
-.vue-grid-layout {
-  background-color: #ffffff00;
-  position: relative;
-  left: auto;
-  margin: 0 auto;
-}
-
-/* Visual styling handled by custom.scss globally */
-/* Grid only handles animation behavior */
-.vue-grid-item {
-  /* Smooth snap-back animation when tile is released after dragging */
-  &:not(.resizing):not(.vue-draggable-dragging) {
-    transition:
-      transform var(--duration-slow) var(--easing-spring),
-      width var(--duration-slow) var(--easing-spring),
-      height var(--duration-slow) var(--easing-spring) !important;
-  }
-
-  /* Dragging state handled in custom.scss with !important to override inline styles */
-  &.vue-draggable-dragging {
-    transition: none !important;
-    z-index: var(--z-grid-dragging) !important;
-    cursor: grabbing !important;
-  }
-
-  /* Disable transitions while resizing for immediate feedback */
-  &.resizing {
-    transition: none !important;
-    opacity: 0.85 !important;
-  }
 }
 
 .suggestion-grid-tile {
@@ -297,49 +321,5 @@ export default {
 
 .suggestion-grid-tile:hover .suggestion-label {
   opacity: 0.9;
-}
-</style>
-
-<style>
-/* Global styles for vue3-grid-layout placeholder - must be unscoped to work */
-.vue-grid-placeholder {
-  /* Remove all transitions and animations to prevent flickering */
-  transition: none !important;
-  animation: none !important;
-
-  /* Visual styling */
-  background: rgba(255, 255, 255, 0.15) !important;
-  border-radius: var(--tile-border-radius) !important;
-
-  /* Hidden by default — prevents the phantom circle on page load and
-     the stale placeholder lingering at the wrong position after drop. */
-  display: none !important;
-
-  position: absolute !important;
-  z-index: var(--z-grid-placeholder) !important;
-  pointer-events: none !important;
-}
-
-/* Only show the placeholder while a tile is actively being dragged.
-   :has(.vue-draggable-dragging) matches when any child grid-item is mid-drag. */
-.vue-grid-layout:has(.vue-draggable-dragging) .vue-grid-placeholder {
-  display: block !important;
-  opacity: 0.3 !important;
-}
-
-/* Elevate the grid-item-container when its child grid-item is being dragged,
-   so the dragged tile renders above all sibling tile containers.
-   Without this, the z-index on .vue-draggable-dragging is trapped inside its
-   parent container and can't rise above other tiles' containers. */
-.grid-item-container:has(.vue-draggable-dragging) {
-  z-index: var(--z-grid-dragging) !important;
-}
-
-/* Allow native vertical scroll when touch starts on a grid item.
-   vue3-grid-layout sets touch-action: none on items, which blocks scroll.
-   Restoring pan-y lets the browser handle vertical swipe-to-scroll normally.
-   When a tile is actively being dragged we override back to none so drag works. */
-.vue-grid-item:not(.vue-draggable-dragging) {
-  touch-action: pan-y !important;
 }
 </style>

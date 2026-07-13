@@ -10,30 +10,12 @@
 
   <div
     class="grid-item-container"
+    :style="tileStyle"
     :class="{
       'crop-mode-elevated': (isEditing || isExitingCropMode) && isCroppable,
     }"
   >
-    <GridItem
-      :i="tile.i"
-      :x="layout.x"
-      :y="layout.y"
-      :w="layout.w"
-      :h="layout.h"
-      :style="tileStyle"
-      :minW="1"
-      :minH="1"
-      :maxW="10"
-      :maxH="10"
-      :isDraggable="isTileDraggable"
-      :isResizable="isTileResizable"
-      dragIgnoreFrom="a, button, input, .tile-caption"
-      @move="onMove"
-      @moved="onMoved"
-      @resize="onResize"
-      @resized="onResized"
-    >
-      <div
+    <div
         class="tile-wrapper"
         :class="{
           'crop-mode-active': isEditing && isCroppable,
@@ -165,7 +147,6 @@
           <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
         </div>
       </div>
-    </GridItem>
   </div>
   <FloatingInputModal
     :show="showSuggestionLinkModal"
@@ -192,6 +173,7 @@
 import {
   proxyRefs,
   defineComponent,
+  inject,
   onMounted,
   onUnmounted,
   ref,
@@ -200,9 +182,13 @@ import {
   provide,
   watch,
   type Component,
+  type Ref,
 } from "vue";
 
-import { GridItem } from "vue3-grid-layout";
+import {
+  TILE_DRAGGING_ID,
+  TILE_RESIZING_ID,
+} from "@/grid-context/tileInteractionKeys";
 import { type TileChildComponent } from "@/types/Tile";
 import { type Tile } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
@@ -236,7 +222,6 @@ import { useTileInput } from "@/composables/useTileInput";
 
 export default defineComponent({
   components: {
-    GridItem,
     TileCaption,
     TileToolbar,
     TileActions,
@@ -291,6 +276,35 @@ export default defineComponent({
     const isDragging = ref(false);
     const isExiting = ref(false);
     const isActivated = ref(false);
+
+    // Griddle drives drag/resize at the grid level; Grid.vue publishes the
+    // active gesture's tile id here. Mirror it into this tile's `isDragging` /
+    // `isMoving` visual + click-suppression flags (replacing the old
+    // `<GridItem>` @move/@moved handlers). `isMoving` keeps a 300ms tail after
+    // the drag ends so a drag-release isn't misread as a short click.
+    const draggingTileId = inject<Ref<string | null>>(
+      TILE_DRAGGING_ID,
+      ref(null),
+    );
+    inject<Ref<string | null>>(TILE_RESIZING_ID, ref(null));
+    let moveTailTimer: ReturnType<typeof setTimeout> | null = null;
+    watch(
+      () => draggingTileId.value === props.tile.i,
+      (dragging) => {
+        if (dragging) {
+          if (moveTailTimer) clearTimeout(moveTailTimer);
+          isMoving.value = true;
+          isDragging.value = true;
+        } else {
+          isDragging.value = false;
+          if (moveTailTimer) clearTimeout(moveTailTimer);
+          moveTailTimer = setTimeout(() => {
+            isMoving.value = false;
+            moveTailTimer = null;
+          }, 300);
+        }
+      },
+    );
     const isHovered = ref(false);
     const hoveredToolbarZone = ref<string | null>(null);
     provide("hoveredToolbarZone", hoveredToolbarZone);
@@ -437,45 +451,16 @@ export default defineComponent({
       clickStart.value = null;
     };
 
-    const onMove = () => {
-      gridView.beginMove();
-      isMoving.value = true;
-      isDragging.value = true;
-      setTimeout(() => (isMoving.value = false), 300);
-    };
-
-    const onMoved = () => {
-      // Called when drag operation completes - save the final positions
-      isDragging.value = false;
-      if (!gridView.canEdit) return;
-      gridView.commitMove();
-    };
-
-    const onResize = (
-      _i: string,
-      _newH: number,
-      _newW: number,
-      _newHPx: number,
-      _newWPx: number,
-    ) => {
-      // Capture the pre-resize snapshot once; repeated begin calls do not
-      // replace it. Live resize feedback is provided by the position-only
-      // layout — vue3-grid-layout mutates displayLayout in place and the deep
-      // watcher in Grid.vue publishes it to displayPositions. commitResize()
-      // synchronizes the final canonical desktop geometry or breakpoint
-      // override, so this handler never writes canonical tile w/h directly.
-      gridView.beginResize();
-    };
-
-    const onResized = () => {
-      // Called when resize operation completes
-      if (childComponent.value?.onResize) {
-        childComponent.value.onResize();
-      }
-      if (gridView.canEdit) {
-        gridView.commitResize();
-      }
-    };
+    // Drag/resize begin+commit now live at the grid level (Grid.vue's Griddle
+    // gesture handlers). Content still needs to reflow when its cell size
+    // changes — whether from a user resize or a breakpoint reprojection — so
+    // reach the child component's onResize hook by watching the tile footprint.
+    watch(
+      () => [props.layout.w, props.layout.h],
+      () => {
+        childComponent.value?.onResize?.();
+      },
+    );
 
     const onSuggestionShortClick = () => {
       if (!gridView.canEdit) return;
@@ -890,7 +875,6 @@ export default defineComponent({
       childComponent,
       removeElement,
       tileStyle,
-      onMove,
       startClick,
       endClick,
       gridTileRef,
@@ -901,9 +885,6 @@ export default defineComponent({
       isActivated,
       isHovered,
       hoveredToolbarZone,
-      onMoved,
-      onResize,
-      onResized,
       showCaption,
       borderVisible,
       linkBackgroundEnabled,

@@ -14,13 +14,11 @@ import type {
   Tile,
   TilePosition,
 } from "@grids/contracts/types";
-import type { GridLayoutItem } from "@/types/GridLayout";
 import {
   breakpointToColumnCount,
   calculateViewportColumnCount,
   columnCountToBreakpoint,
   projectGridLayout,
-  reconcileGridLayout,
 } from "@/utils/GridLayoutUtils";
 
 type GridLayoutElement =
@@ -95,7 +93,7 @@ const defaultEnvironment: ResponsiveGridLayoutEnvironment = {
 export function measureViewportGridRow({
   rowHeight = 75,
   margin = 48,
-  selector = ".vue-grid-grid",
+  selector = ".grid-container",
   documentRef = typeof document === "undefined" ? null : document,
   viewportHeight = typeof window === "undefined" ? 0 : window.innerHeight,
 }: ViewportGridMeasurementInput = {}): number {
@@ -125,8 +123,6 @@ export function useResponsiveGridLayout({
   const gridLayoutRef = ref<GridLayoutElement>(null);
   const scaleWrapperRef = ref<HTMLElement | null>(null);
   const naturalGridHeight = ref(0);
-  const renderedLayout = ref<GridLayoutItem[]>([]);
-  const layoutRevision = ref(0);
   const layoutReadyBreakpoint = ref<Breakpoint | null>(null);
   const layoutWaiters = new Map<
     Breakpoint,
@@ -228,25 +224,12 @@ export function useResponsiveGridLayout({
     });
   };
 
-  const reportRenderedLayout = (
-    layout: readonly GridLayoutItem[],
-  ): void => {
-    if (layout.length !== renderedLayout.value.length) return;
-
-    const renderedById = new Map(
-      renderedLayout.value.map((item) => [item.i, item]),
-    );
-    const matchesProjection = layout.every((item) => {
-      const rendered = renderedById.get(item.i);
-      return (
-        rendered?.x === item.x &&
-        rendered.y === item.y &&
-        rendered.w === item.w &&
-        rendered.h === item.h
-      );
-    });
-    if (!matchesProjection) return;
-
+  // Griddle owns its own layout, so we can't DOM-diff a rendered layout array
+  // against the projection. Instead, Grid.vue calls this after it has loaded the
+  // projected tiles into the engine and waited a tick for the render, signalling
+  // that the current active breakpoint has settled. Undo/redo and
+  // breakpoint-forcing await this via `waitForLayoutReady`.
+  const markLayoutReady = (): void => {
     const breakpoint = activeBreakpoint.value;
     layoutReadyBreakpoint.value = breakpoint;
     resolveLayoutWaiters(breakpoint);
@@ -287,13 +270,8 @@ export function useResponsiveGridLayout({
 
   watch(
     [activeBreakpoint, projectedLayout],
-    ([, projected]) => {
-      renderedLayout.value = reconcileGridLayout(
-        renderedLayout.value,
-        projected,
-      );
+    () => {
       layoutReadyBreakpoint.value = null;
-      layoutRevision.value += 1;
       void nextTick(observeGridHeight);
     },
     { immediate: true },
@@ -325,12 +303,10 @@ export function useResponsiveGridLayout({
     gridLayoutRef,
     gridWidth,
     layoutReadyBreakpoint,
-    layoutRevision,
+    markLayoutReady,
     mobileScale,
     naturalGridHeight,
     projectedLayout,
-    reportRenderedLayout,
-    renderedLayout,
     responsiveColumnCount,
     scaleWrapperRef,
     scaleWrapperStyle,

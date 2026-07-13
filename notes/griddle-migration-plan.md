@@ -115,11 +115,23 @@ Create a pure, unit-testable adapter (no Vue) so the mapping is tested in isolat
     engine tolerates it for repack. Verify against `@griddle/core` `grid.ts` repack code.
 - Unit-test this module first (pure functions, fast).
 
-> **⏸ Paused pending decision.** Step-2 prep surfaced three `GriddleGrid` v0.1.0 integration
-> mismatches (draw-to-create can't be disabled; hardcoded inner-scroll + `touch-action: none`;
-> click-to-select). See the **Addendum (§6)** in `griddle-migration-analysis.md`. Resolve
-> "enhance Griddle vs. app-side workarounds" before writing `Grid.vue` — it decides whether
-> `buildGridConfig` grows new fields and whether `custom.scss` carries suppression hacks.
+> **✅ Done (Griddle 0.1.1).** Landed together with Steps 3 (Tile.vue) and 4 (readiness) — they're
+> inseparable (a `<GridItem>` can't render outside a `<GridLayout>`). The integration mismatches from
+> Addendum §6 were fixed in Griddle 0.1.1 and are consumed via `buildGridConfig({ scroll: 'none',
+> drawToCreate: false })`. Grid/Tile/LandingPageGridEmbed tests were rewritten against a `GriddleGrid`
+> stub over the real `useGriddle` engine. Full suite (2560) + type-check + build green.
+>
+> **Deferred (validate/finish later):**
+> - **Per-tile dynamic draggability lift** — `isEditing`/`isActivated`/touch-activation gating is NOT
+>   yet reflected onto the engine tiles (only coarse `canEdit` + suggestion-not-resizable via the
+>   adapter, plus `dragIgnoreFrom` for `[contenteditable]`). The `resolveCaps` seam is ready for it if
+>   Step-8 manual testing shows the gaps matter (e.g. resize handles showing while editing).
+> - **`tileStyle` cross-tile elevation** — Tile's edit/hover z-index now sits on `.grid-item-container`
+>   inside Griddle's positioned `.griddle-tile`; may not lift above neighbors. Validate toolbar/overflow
+>   during edit (Step 6/8).
+> - **Post-drop re-render** — after a committed gesture the projected layout reloads the engine
+>   (identical positions); confirm no flicker / cut FLIP animation (Step 8).
+> - CSS port (Step 6), `LandingPageGridEmbed.vue` component itself (Step 5), dependency removal (Step 9).
 
 ## Step 2 — Rewrite `Grid.vue` around `<GriddleGrid>`
 Replace `<GridLayout>` with `<GriddleGrid :api>`. Keep the `scaleWrapperRef` / `gridInnerStyle` scale wrapper
@@ -187,6 +199,23 @@ exactly as-is (Griddle renders at natural pixel size, so our `transform: scale()
 - Verify the demo's fixed `col-num` per device maps to `updateConfig({ cols })`, and that the scroll-sizer div
   (line 505) still matches Griddle's natural content size. Update the `.vue-grid-*` container notes/selectors
   (lines ~685) to Griddle's.
+
+> **✅ Done.** No structural swap was needed here: `LandingPageGridEmbed.vue` already renders the shared
+> `<Grid>` component (not `<GridLayout>/<GridItem>` directly), so Steps 2–4 migrated it to Griddle
+> transitively. Verified the remaining seams: the per-device `col-num` maps correctly
+> (`setForcedBreakpoint` → `useResponsiveGridLayout.responsiveColumnCount` → `buildGridConfig({cols})` →
+> `loadJSON`/`updateConfig`), and the scroll-sizer width matches the rendered box (both derive from
+> `cols·rowHeight + (cols+1)·margin`, which `Grid.vue`'s `gridInnerStyle` force-applies to the `GriddleGrid`).
+> The `:deep()` selectors (`.grid-scale-wrapper`, `.grid-container`) are still valid — `.grid-container` is the
+> class Grid.vue passes to `GriddleGrid`. Updated the two stale `vue3-grid-layout` comments (scale layer +
+> container notes). Canvas test + type-check green.
+>
+> **Validate later (Step 8, visual only):** Griddle's *internal* content box is tighter than the old library's
+> by one `gap` per axis — it packs cells at `cols·unitWidth + cols·gap` rather than `+ (cols+1)·gap`. Width is
+> unaffected in practice (the outer box is force-sized to the `gridWidth` formula), but `DEMO_GRID_DIMENSIONS`
+> height is ~one `gap` (48px) more generous than Griddle's natural content height, leaving a little extra
+> bottom scroll runway inside each device frame. Harmless; confirm it looks right and trim
+> `DEMO_GRID_DIMENSIONS` only if the whitespace reads poorly.
 
 ## Step 6 — CSS cleanup (`custom.scss` + `Grid.vue` + `Tile.vue`)
 - Port the 5 `.vue-grid-*` rules in `custom.scss` to Griddle equivalents:

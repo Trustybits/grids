@@ -254,10 +254,30 @@ describe("buildGridConfig", () => {
     expect(config.snapDuringDrag).toBe(true);
   });
 
-  it("omits resizeHandles and tileRadius when not provided (uses Griddle defaults)", () => {
+  it("omits resizeHandles, tileRadius, scroll, and interactive when not provided (uses Griddle defaults)", () => {
     const config = buildGridConfig({ cols: 6, rowHeight: 75, margin: 48 });
     expect(config).not.toHaveProperty("resizeHandles");
     expect(config).not.toHaveProperty("tileRadius");
+    expect(config).not.toHaveProperty("scroll");
+    expect(config).not.toHaveProperty("interactive");
+  });
+
+  it("passes through scroll mode", () => {
+    expect(
+      buildGridConfig({ cols: 6, rowHeight: 75, margin: 48, scroll: "none" })
+        .scroll,
+    ).toBe("none");
+  });
+
+  it("wraps drawToCreate in an interactive config", () => {
+    expect(
+      buildGridConfig({
+        cols: 6,
+        rowHeight: 75,
+        margin: 48,
+        drawToCreate: false,
+      }).interactive,
+    ).toEqual({ drawToCreate: false });
   });
 
   it("passes through explicit resizeHandles, tileRadius, rows, and overrides", () => {

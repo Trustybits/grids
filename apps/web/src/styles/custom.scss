@@ -58,7 +58,7 @@
 
 @mixin grid-tile($theme) {
   // The Griddle tile is a transparent positioning wrapper — all visual styling
-  // is handled by .card-body inside our slotted .grid-item-container.
+  // is handled by .card-body inside our slotted .tile-wrapper.
   background: transparent;
 
   // Prevent text selection during drag operations

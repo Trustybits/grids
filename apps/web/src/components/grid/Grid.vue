@@ -11,6 +11,7 @@
       ref="gridLayoutRef"
       class-name="grid-container"
       :api="api"
+      :height="griddleContentHeight"
       :show-grid="false"
       :style="gridInnerStyle"
       @drag-start="onDragStart"
@@ -42,7 +43,10 @@ import {
   watch,
 } from "vue";
 import { GriddleGrid, useGriddle } from "@griddle/vue";
-import type { Tile as GriddleTile } from "@griddle/core";
+import {
+  gridContentSize,
+  type Tile as GriddleTile,
+} from "@griddle/core";
 import GridTile from "./Tile.vue";
 import { useResponsiveGridLayout } from "@/composables/useResponsiveGridLayout";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
@@ -149,6 +153,16 @@ export default {
       tiles: griddleTiles.value,
     });
 
+    // @griddle/vue@0.1.1 passes its numeric content height directly to a Vue
+    // style binding, which browsers reject instead of treating as pixels. Since
+    // every Griddle tile is absolutely positioned, that collapses both the
+    // content layer and grid root to zero height. Give the root an explicit CSS
+    // height from Griddle's own sizing helper; its internal min-height: 100%
+    // then restores the full containing block for the governed tiles.
+    const griddleContentHeight = computed(
+      () => `${gridContentSize(api.config.value, api.tiles.value).height}px`,
+    );
+
     // Publish live tile positions so GridMenu and updateBreakpointOverride can
     // snapshot them. Replaces the old deep-watch on the mutable layout array.
     watch(api.version, () => {
@@ -241,6 +255,7 @@ export default {
     return {
       gridView,
       api,
+      griddleContentHeight,
       margin,
       gridWidth,
       projectedLayout,

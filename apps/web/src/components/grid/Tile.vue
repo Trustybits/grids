@@ -9,144 +9,138 @@
   ></div>
 
   <div
-    class="grid-item-container"
-    :style="tileStyle"
+    class="tile-wrapper"
     :class="{
-      'crop-mode-elevated': (isEditing || isExitingCropMode) && isCroppable,
+      'crop-mode-elevated':
+        (isEditing || isExitingCropMode) && isCroppable,
+      'crop-mode-active': isEditing && isCroppable,
+      'crop-mode-exiting': isExitingCropMode && isCroppable,
+      'is-dragging': isDragging,
+      'is-exiting': isExiting,
+      'is-activated': isActivated,
+      'embed-is-interactive': isEmbedInteractive,
     }"
+    :data-border="borderVisible ? 'on' : 'off'"
+    :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
+    :data-suggestion="isSuggestion ? 'true' : 'false'"
+    :data-active-zone="hoveredToolbarZone || ''"
+    :data-tile-type="tile.content.type"
+    :data-tile-w="layout.w"
+    :data-tile-h="layout.h"
+    :style="[
+      tileStyle,
+      {
+        '--tile-resize-handle-color':
+          hasCustomTileColor && contentTextColor
+            ? contentTextColor
+            : undefined,
+      },
+    ]"
+    ref="gridTileRef"
+    @mouseenter="isHovered = true"
+    @mouseleave="isHovered = false"
+    @mousedown="startClick"
+    @mouseup="endClick"
   >
+    <!-- Visual Frame with Overflow Hidden -->
     <div
-        class="tile-wrapper"
-        :class="{
-          'crop-mode-active': isEditing && isCroppable,
-          'crop-mode-exiting': isExitingCropMode && isCroppable,
-          'is-dragging': isDragging,
-          'is-exiting': isExiting,
-          'is-activated': isActivated,
-          'embed-is-interactive': isEmbedInteractive,
-        }"
-        :data-border="borderVisible ? 'on' : 'off'"
-        :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
-        :data-suggestion="isSuggestion ? 'true' : 'false'"
-        :data-active-zone="hoveredToolbarZone || ''"
-        :data-tile-type="tile.content.type"
-        :data-tile-w="layout.w"
-        :data-tile-h="layout.h"
-        :style="{
-          '--tile-resize-handle-color':
-            hasCustomTileColor && contentTextColor
-              ? contentTextColor
-              : undefined,
-        }"
-        ref="gridTileRef"
-        @mouseenter="isHovered = true"
-        @mouseleave="isHovered = false"
-        @mousedown="startClick"
-        @mouseup="endClick"
-      >
-        <!-- Visual Frame with Overflow Hidden -->
-        <div
-          class="card-body"
-          :style="{
-            '--tile-bg': !!contentBackgroundColor
-              ? contentBackgroundColor
-              : 'var(--color-tile-background)',
-            '--tile-text-color': !!contentTextColor
-              ? contentTextColor
-              : 'var(--color-text-primary)',
-          }"
-        >
-          <template v-if="!isSuggestion">
-            <component
-              :is="currentComponent"
-              v-bind="contentProps"
-              ref="childComponent"
-              @background-color-change="onContentBackgroundColorChange"
-              @text-color-change="onContentTextColorChange"
-            />
-          </template>
-          <template v-else>
-            <div class="suggestion-cta">
-              <div class="suggestion-icon">
-                <TextIcon v-if="suggestionAction === 'text'" :size="48" />
-                <ImageIcon
-                  v-else-if="suggestionAction === 'media'"
-                  :size="48"
-                />
-                <LinkIcon v-else-if="suggestionAction === 'link'" :size="48" />
-                <EmbedIcon
-                  v-else-if="suggestionAction === 'embed'"
-                  :size="48"
-                />
-                <ProfileIcon
-                  v-else-if="suggestionAction === 'profile'"
-                  :size="48"
-                />
-              </div>
-              <span class="suggestion-label">{{ suggestionLabel }}</span>
-            </div>
-            <input
-              v-if="gridView.canEdit"
-              type="file"
-              ref="mediaInput"
-              style="display: none"
-              accept="image/*,video/*"
-              @change.stop="onMediaSelected"
-            />
-          </template>
-        </div>
-
-        <!-- UI Layer -->
-        <div
-          v-if="gridView.canEdit && headerComponent"
-          class="header-options"
-        >
-          <component :is="headerComponent" :content="tile.content" />
-        </div>
-
-        <div v-if="gridView.showMetaData" class="meta-data">
-          <p class="meta-data__compact">{{ compactMetadata }}</p>
-          <template v-if="gridView.showMetaDataVerbose">
-            <p
-              class="meta-data__verbose"
-              v-for="line in verboseMetadataLines"
-              :key="line"
-            >
-              {{ line }}
-            </p>
-          </template>
-        </div>
-
-        <div
-          v-if="gridView.canEdit"
-          class="tile-actions-layer"
-          :class="{ 'z-priority': hoveredLayer === 'actions' }"
-          @mouseenter="hoveredLayer = 'actions'"
-          @mouseleave="hoveredLayer = null"
-          @touchstart="hoveredLayer = 'actions'"
-        >
-          <TileActions :tile="tile" @delete="removeElement" />
-        </div>
-
-        <TileCaption
-          v-if="showCaption && (gridView.canEdit || tile.caption)"
-          :tile="tile"
+      class="card-body"
+      :style="{
+        '--tile-bg': !!contentBackgroundColor
+          ? contentBackgroundColor
+          : 'var(--color-tile-background)',
+        '--tile-text-color': !!contentTextColor
+          ? contentTextColor
+          : 'var(--color-text-primary)',
+      }"
+    >
+      <template v-if="!isSuggestion">
+        <component
+          :is="currentComponent"
+          v-bind="contentProps"
+          ref="childComponent"
+          @background-color-change="onContentBackgroundColorChange"
+          @text-color-change="onContentTextColorChange"
         />
-
-        <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
-        <div v-if="isTileResizable" class="resize-indicator"></div>
-
-        <div
-          v-if="gridView.canEdit && !isSuggestion"
-          class="tile-toolbar-layer"
-          :class="{ 'z-priority': hoveredLayer !== 'actions' }"
-          @mouseenter="hoveredLayer = 'toolbar'"
-          @mouseleave="hoveredLayer = null"
-          @touchstart="hoveredLayer = 'toolbar'"
-        >
-          <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
+      </template>
+      <template v-else>
+        <div class="suggestion-cta">
+          <div class="suggestion-icon">
+            <TextIcon v-if="suggestionAction === 'text'" :size="48" />
+            <ImageIcon
+              v-else-if="suggestionAction === 'media'"
+              :size="48"
+            />
+            <LinkIcon v-else-if="suggestionAction === 'link'" :size="48" />
+            <EmbedIcon
+              v-else-if="suggestionAction === 'embed'"
+              :size="48"
+            />
+            <ProfileIcon
+              v-else-if="suggestionAction === 'profile'"
+              :size="48"
+            />
+          </div>
+          <span class="suggestion-label">{{ suggestionLabel }}</span>
         </div>
-      </div>
+        <input
+          v-if="gridView.canEdit"
+          type="file"
+          ref="mediaInput"
+          style="display: none"
+          accept="image/*,video/*"
+          @change.stop="onMediaSelected"
+        />
+      </template>
+    </div>
+
+    <!-- UI Layer -->
+    <div v-if="gridView.canEdit && headerComponent" class="header-options">
+      <component :is="headerComponent" :content="tile.content" />
+    </div>
+
+    <div v-if="gridView.showMetaData" class="meta-data">
+      <p class="meta-data__compact">{{ compactMetadata }}</p>
+      <template v-if="gridView.showMetaDataVerbose">
+        <p
+          class="meta-data__verbose"
+          v-for="line in verboseMetadataLines"
+          :key="line"
+        >
+          {{ line }}
+        </p>
+      </template>
+    </div>
+
+    <div
+      v-if="gridView.canEdit"
+      class="tile-actions-layer"
+      :class="{ 'z-priority': hoveredLayer === 'actions' }"
+      @mouseenter="hoveredLayer = 'actions'"
+      @mouseleave="hoveredLayer = null"
+      @touchstart="hoveredLayer = 'actions'"
+    >
+      <TileActions :tile="tile" @delete="removeElement" />
+    </div>
+
+    <TileCaption
+      v-if="showCaption && (gridView.canEdit || tile.caption)"
+      :tile="tile"
+    />
+
+    <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
+    <div v-if="isTileResizable" class="resize-indicator"></div>
+
+    <div
+      v-if="gridView.canEdit && !isSuggestion"
+      class="tile-toolbar-layer"
+      :class="{ 'z-priority': hoveredLayer !== 'actions' }"
+      @mouseenter="hoveredLayer = 'toolbar'"
+      @mouseleave="hoveredLayer = null"
+      @touchstart="hoveredLayer = 'toolbar'"
+    >
+      <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
+    </div>
   </div>
   <FloatingInputModal
     :show="showSuggestionLinkModal"
@@ -925,17 +919,6 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
-/* Grid Item Container - wraps grid-item */
-.grid-item-container {
-  position: relative;
-
-  &.crop-mode-elevated {
-    position: relative;
-    z-index: 1000;
-    isolation: isolate;
-  }
-}
-
 /* Crop Mode Overlay - blurs background */
 .crop-mode-overlay {
   position: fixed;
@@ -984,8 +967,12 @@ export default defineComponent({
 }
 
 .tile-wrapper {
+  // Griddle sizes its `.griddle-tile` wrapper but does not stretch slot
+  // content. Fill that box directly so the card's percentage height resolves
+  // against the governed tile dimensions.
   width: 100%;
   height: 100%;
+  box-sizing: border-box;
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   border-radius: var(--tile-border-radius);
@@ -993,6 +980,11 @@ export default defineComponent({
   /* turn off shadow when border is off */
   &[data-border="off"] {
     box-shadow: none;
+  }
+
+  &.crop-mode-elevated {
+    z-index: 1000;
+    isolation: isolate;
   }
 
   /* Animate tiles when they first appear */

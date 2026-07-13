@@ -115,6 +115,12 @@ Create a pure, unit-testable adapter (no Vue) so the mapping is tested in isolat
     engine tolerates it for repack. Verify against `@griddle/core` `grid.ts` repack code.
 - Unit-test this module first (pure functions, fast).
 
+> **⏸ Paused pending decision.** Step-2 prep surfaced three `GriddleGrid` v0.1.0 integration
+> mismatches (draw-to-create can't be disabled; hardcoded inner-scroll + `touch-action: none`;
+> click-to-select). See the **Addendum (§6)** in `griddle-migration-analysis.md`. Resolve
+> "enhance Griddle vs. app-side workarounds" before writing `Grid.vue` — it decides whether
+> `buildGridConfig` grows new fields and whether `custom.scss` carries suppression hacks.
+
 ## Step 2 — Rewrite `Grid.vue` around `<GriddleGrid>`
 Replace `<GridLayout>` with `<GriddleGrid :api>`. Keep the `scaleWrapperRef` / `gridInnerStyle` scale wrapper
 exactly as-is (Griddle renders at natural pixel size, so our `transform: scale()` still works).

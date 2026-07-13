@@ -335,3 +335,84 @@ Don't commit tarballs or `file:../griddle` paths into this open-source repo.
    `lg`/`md`/`sm` (validate it feels right — not that it matches `vue3-grid-layout`).
 8. Remove the `vue3-grid-layout`-specific CSS in `Grid.vue`/`custom.scss`/`Tile.vue` and the
    dependency.
+
+---
+
+## 6. Addendum — `GriddleGrid` v0.1.0 integration mismatches (found during Step 2 prep)
+
+While preparing the `Grid.vue` rewrite (Step 2 of the plan), inspection of the **published**
+`@griddle/vue@0.1.0` / `@griddle/core@0.1.0` (installed in `node_modules/@griddle/`) surfaced three
+behaviors baked into `GriddleGrid.vue` that the earlier analysis got wrong or didn't cover. Each
+assumes `GriddleGrid` is the top-level *scroller* of a canvas-style app — which is **not** how
+`grids.so` uses it (the page scrolls; the grid grows naturally and is scaled via an outer
+`transform: scale()`). None is a hard blocker, but all three shape how Step 2 must be built, and
+because the Griddle library is ours (`../griddle`, org `Trustybits`), gating them behind config there
+is cleaner than working around them in `apps/web`.
+
+**Status: not yet resolved.** Step 2 (`Grid.vue` rewrite) is paused pending a decision on
+Griddle-side config gates vs. app-side workarounds. Steps 1 (adapter) remains done and valid.
+
+### Finding 1 — draw-to-create is always on and cannot be disabled
+- **Evidence:** `GriddleGrid.vue` `onBackgroundPointerDown` (~L339) fires on *any* empty-grid
+  pointer-down: it clears selection, `setPointerCapture`s the scroll element, and seeds `drawState`.
+  `onPointerMove` (~L376) renders a dashed `.griddle-draw-ghost`; `onPointerUp` (~L466) emits
+  `drawCreate` and returns. There is **no `GridConfig` flag** to gate any of this — the full
+  `GridConfig` (`core/src/types.ts` L173+) exposes `loop` and `enablePositioning` but nothing for
+  draw.
+- **Correction to §3 item 6:** the earlier claim that draw-to-create is "config-gated and default
+  off" is **incorrect for v0.1.0** — it is unconditionally on.
+- **Impact:** dragging on empty grid space shows a phantom draw ghost and clears selection, even
+  though we never handle `drawCreate`. Cosmetic but visible on an editable grid with empty cells.
+- **Options:** (a) _Griddle fix (preferred):_ add e.g. `interactive.drawToCreate?: boolean` (default
+  `true`) to `GridConfig` and early-return from `onBackgroundPointerDown` when off.
+
+### Finding 2 — hardcoded inner scroll container with `touch-action: none`
+- **Evidence:** `scrollStyle` (~L150) is `{ position: relative; overflow: auto; height: props.height
+  ?? '100%'; touch-action: none }` — `overflow` and `touch-action` are **literal, not
+  configurable**. The component expects to own scrolling and all pointer/touch panning.
+- **Impact:** conflicts with our layout model. `grids.so` scrolls the *page*, grows the grid to its
+  natural height, and (critically) the old code restored `touch-action: pan-y` on tiles
+  (`Grid.vue` `.vue-grid-item:not(.vue-draggable-dragging)`) so **mobile users can swipe-scroll over
+  the grid**. `touch-action: none` on the Griddle container would swallow that vertical scroll on the
+  read-only mobile view. `height: '100%'` + `overflow: auto` also makes it an independent scroll box
+  rather than a content-sized element.
+- **Options:** (a) _Griddle fix (preferred):_ make `overflow`/`touch-action`/`height` configurable
+  (e.g. a `scroll: 'container' | 'none'` mode that drops `overflow:auto`/`touch-action:none` and
+  sizes to content). 
+
+### Finding 3 — every tile pointer-down selects the tile; group-drag is always live
+- **Evidence:** `onTilePointerDown` always `setSelection(new Set([tile.id]))` on a plain press
+  (~L300), adding `.griddle-selected`; a meta/ctrl press toggles multi-select; when the effective
+  selection is >1, the press starts a **group drag** (`GroupDragController`, ~L305). None of this is
+  gated by config.
+- **Correction to §3 item 6:** group-drag is **not** "config-gated and default off" — it's driven by
+  selection size, so it is reachable today via cmd/ctrl-click.
+- **Impact:** mostly benign for us — single-tile use selects one (unstyled) tile and drags normally.
+  But it's new behavior (`vue3-grid-layout` had no selection concept), and cmd-click multi-select +
+  group-drag are now reachable with no UI for them.
+- **Options:** (a) _Accept:_ leave `.griddle-selected` unstyled; ignore `selectionChange`. Lowest
+  effort, probably fine. 
+
+### Related (already known, restated) — lifting dynamic per-tile draggability
+`GriddleGrid` reads `tile.draggable`/`tile.resizable` from `api.tiles` at pointer-down (~L296) and
+renders resize handles from the same source (~L85, `tileHandles`). The per-tile gates that today live
+*inside* each `Tile.vue` — `isEditing` (don't drag/resize while editing content) and `isActivated`
+(touch: tap-to-activate before drag), plus the touch-device check — must therefore be **lifted to the
+grid level** and reflected onto the engine tiles (e.g. via a grid-owned reactive registry fed by an
+injected setter, with the tile set re-`loadJSON`'d — guarded against mid-gesture). This is the
+"one real architectural question" flagged in the Step-1 notes; the `GriddleAdapter.resolveCaps` hook
+(shipped in Step 1) is the seam where it plugs in. `dragIgnoreFrom` (now including
+`textarea, select, [contenteditable]`) covers the *content-editing* drag-suppression case for the
+common Tiptap surfaces, reducing — but not fully replacing — the need to lift `isEditing`.
+
+### Recommended resolution
+Preferred path is **enhance `../griddle` first** with a small set of config gates, republish, then do
+Step 2 cleanly:
+- `GridConfig.interactive.drawToCreate?: boolean` (default `true`) — gate Finding 1.
+- A scroll/overflow mode + configurable `touch-action` (or a `scroll: 'none'` that sizes to content
+  and drops `touch-action: none`) — gate Finding 2.
+- Optional `selectable`/`multiSelect` gate — Finding 3, only if we want to forbid selection.
+
+The alternative (app-side CSS/handler workarounds) is viable for #1/#3 but hacky for #2. Decide before
+resuming Step 2, since the choice determines whether `buildGridConfig` grows new fields and whether
+`custom.scss` carries suppression hacks.

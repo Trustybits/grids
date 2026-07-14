@@ -285,11 +285,17 @@ export default {
     };
 
     onMounted(() => {
-      window.addEventListener("pointerup", onGridPointerUp);
+      // Resolve the app's short-click before Griddle finalizes its gesture.
+      // Published Griddle versions refresh their tile slot on pointer-up even
+      // when the pointer never moved, which can invalidate `gridTileRefs`
+      // before a bubble-phase listener reaches it. Newer Griddle versions do
+      // not start a drag until movement crosses the threshold, but capture
+      // keeps this integration correct while that package update rolls out.
+      window.addEventListener("pointerup", onGridPointerUp, true);
       window.addEventListener("pointercancel", clearGridClickCandidate);
     });
     onUnmounted(() => {
-      window.removeEventListener("pointerup", onGridPointerUp);
+      window.removeEventListener("pointerup", onGridPointerUp, true);
       window.removeEventListener("pointercancel", clearGridClickCandidate);
       gridTileRefs.clear();
     });

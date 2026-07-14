@@ -251,6 +251,7 @@ describe("buildGridConfig", () => {
   it("defaults dragIgnoreFrom and snapDuringDrag", () => {
     const config = buildGridConfig({ cols: 6, rowHeight: 75, margin: 48 });
     expect(config.dragIgnoreFrom).toBe(DEFAULT_DRAG_IGNORE_FROM);
+    expect(config.dragIgnoreFrom).not.toContain("[contenteditable]");
     expect(config.snapDuringDrag).toBe(true);
   });
 

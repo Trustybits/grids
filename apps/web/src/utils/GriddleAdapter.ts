@@ -30,11 +30,11 @@ export const MIN_TILE_UNITS = 1;
 export const MAX_TILE_UNITS = 10;
 
 /**
- * Default `dragIgnoreFrom` selector. Extends Griddle's built-in default
- * (`a, button, input, textarea, select, [contenteditable]`) with the app's
- * custom click/gesture surfaces. Griddle captures pointers at the positioned
- * tile wrapper, so non-native controls must be ignored explicitly to preserve
- * their click, seek, edit, crop, and map-pan behavior.
+ * App-specific `dragIgnoreFrom` selector. Unlike Griddle's built-in default,
+ * this intentionally does not exclude `[contenteditable]`: rich-text tiles
+ * must be draggable from their text while Griddle's movement threshold keeps
+ * a stationary pointer gesture available as a native/editing click. The other
+ * custom gesture surfaces remain ignored so their controls keep working.
  */
 export const DEFAULT_DRAG_IGNORE_FROM =
   [
@@ -43,7 +43,6 @@ export const DEFAULT_DRAG_IGNORE_FROM =
     "input",
     "textarea",
     "select",
-    "[contenteditable]",
     ".tile-caption",
     ".tile-link-indicator",
     ".tile-title",

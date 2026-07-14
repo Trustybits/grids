@@ -81,6 +81,21 @@ describe("MobileAppBar", () => {
     ).toBe("Old name");
   });
 
+  it("selects the whole title on focus so typing replaces it", async () => {
+    const removeAllRanges = vi.fn();
+    const addRange = vi.fn();
+    vi.spyOn(window, "getSelection").mockReturnValue({
+      removeAllRanges,
+      addRange,
+    } as unknown as Selection);
+
+    const wrapper = await mountBar();
+    await wrapper.find(".mab-title").trigger("focus");
+
+    expect(removeAllRanges).toHaveBeenCalled();
+    expect(addRange).toHaveBeenCalledTimes(1);
+  });
+
   it("does not rename when editing is not permitted", async () => {
     (
       holder.session as { canEditAtBreakpoint: ReturnType<typeof vi.fn> }

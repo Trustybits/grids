@@ -31,6 +31,7 @@
         :contenteditable="canEdit"
         spellcheck="false"
         data-placeholder="Grid Name"
+        @focus="selectAll"
         @blur="saveName"
         @keydown.enter.prevent="blurOnEnter"
       >
@@ -97,6 +98,20 @@ watch(
     editableName.value = name || "";
   },
 );
+
+// Select the whole title on focus so a tap-to-edit lets the user immediately
+// type a replacement (mirrors the desktop rename modal's select-on-open). Also
+// guarantees selection is reachable even where a tap would otherwise just drop
+// a caret.
+const selectAll = () => {
+  const el = titleRef.value;
+  if (!el || !canEdit.value) return;
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+};
 
 const saveName = (event: FocusEvent) => {
   if (!canEdit.value) return;
@@ -182,9 +197,15 @@ const blurOnEnter = (event: KeyboardEvent) => {
   outline: none;
   border-radius: var(--radius-sm);
   cursor: text;
+  /* Text selection must stay enabled here — the grid canvas disables it. */
+  user-select: text;
+  -webkit-user-select: text;
 
   &:focus {
     background: var(--color-base-8);
+    /* While editing, don't clip: let the caret and selection reach the end. */
+    overflow-x: auto;
+    text-overflow: clip;
   }
 
   &.mab-title--readonly {

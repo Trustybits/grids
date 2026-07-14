@@ -44,8 +44,10 @@ import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import type { AuthUser } from '@grids/contracts/auth';
 import { usePostHog } from '@/composables/usePostHog';
+import { useFeatureFlags } from '@/composables/useFeatureFlags';
 import { initTier } from '@/composables/useTier';
 import { initContributions } from '@/composables/useContributions';
+import { initMobileExperience } from '@/composables/useMobileExperience';
 import { isMarketingPath, isNonGridPath } from '@/constants/marketing';
 
 withDefaults(
@@ -58,6 +60,7 @@ withDefaults(
 );
 
 const { identify, reset: resetPostHog } = usePostHog();
+const { reloadFlags } = useFeatureFlags();
 
 const route = useRoute();
 const sessionStore = useGridSessionStore();
@@ -75,6 +78,7 @@ onMounted(() => {
   // public and may be needed for visited profile pages, not just self.)
   initTier();
   initContributions();
+  initMobileExperience();
 
   getAuthProvider().onAuthStateChanged(async (currentUser) => {
     // Track login for existing users (not new signups on page load)
@@ -97,6 +101,9 @@ onMounted(() => {
         email: currentUser.email ?? undefined,
         name: currentUser.displayName ?? undefined,
       });
+      // Refresh flags now that PostHog knows who this is — user-targeted
+      // rollouts (e.g. beta-mobile-2) don't apply until flags reload.
+      void reloadFlags();
     } else if (previousUser.value) {
       // Only reset if we're transitioning from signed-in to signed-out,
       // so anonymous visitors aren't reset on every page load.

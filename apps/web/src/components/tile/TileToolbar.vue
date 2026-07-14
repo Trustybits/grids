@@ -220,6 +220,7 @@ import type {
   ToolbarMenuItem,
   ToolbarContext,
 } from "@/types/TileToolbar";
+import { TILE_RESIZE_REQUEST } from "@/grid-context/tileInteractionKeys";
 import { getTileToolbarButtons } from "@/registries/tileToolbar";
 import { computeTextColor } from "@/composables/useColorPicker";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
@@ -265,6 +266,7 @@ export default defineComponent({
   },
   setup(props) {
     const gridView = proxyRefs(useGridViewContext());
+    const resizeTile = inject(TILE_RESIZE_REQUEST, gridView.resizeTile);
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
     // Provided by Tile.vue — mirrors the hover/activation/crop visibility that
     // used to be expressed as `.tile-wrapper:hover :deep(.tile-toolbar)` CSS,
@@ -371,6 +373,7 @@ export default defineComponent({
       tile: props.tile,
       childComponent: props.toolbarRefs.childComponent,
       gridView,
+      resizeTile,
       isEditing: props.toolbarRefs.isEditing,
       isExitingCropMode: props.toolbarRefs.isExitingCropMode,
     }));

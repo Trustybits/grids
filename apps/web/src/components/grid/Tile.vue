@@ -332,7 +332,7 @@ export default defineComponent({
     let clickStartPosition: { x: number; y: number } | null = null;
     let clickStartEvent: PointerEvent | null = null;
     const LONG_PRESS_THRESHOLD = 150;
-    const CLICK_MOVE_THRESHOLD = 6;
+    const CLICK_MOVE_THRESHOLD = 12;
     let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 
     const isSuggestion = computed(
@@ -378,8 +378,7 @@ export default defineComponent({
 
     const startClick = (event: PointerEvent) => {
       // Touch keeps its existing two-tap activation path below. Capture mouse
-      // pointer-down before Griddle's parent handler takes pointer capture;
-      // the later compatibility mousedown may otherwise never reach this tile.
+      // pointer-down before Griddle's parent handler takes pointer capture.
       if (event.pointerType === "mouse" && event.button === 0) {
         clickStart.value = Date.now();
         clickStartPosition = { x: event.clientX, y: event.clientY };
@@ -402,8 +401,9 @@ export default defineComponent({
       }
     };
 
-    const endClick = (event: MouseEvent) => {
+    const endClick = (event: PointerEvent) => {
       if (
+        event.pointerType !== "mouse" ||
         event.button !== 0 ||
         clickStart.value === null ||
         clickStartPosition === null
@@ -425,9 +425,10 @@ export default defineComponent({
           )
         : Infinity;
 
-      // Griddle starts its gesture state on pointer-down, even for a click.
-      // Distance—not press duration—is the reliable distinction: a deliberate
-      // stationary click must still reach text editors and tile actions.
+      // Griddle starts its gesture state and captures the pointer on
+      // pointer-down, even for a click. Listen for pointerup (not the optional
+      // compatibility mouseup) so clicks on the whole card reach text editors
+      // even when Griddle retargets the release to its positioning wrapper.
       if (clickDistance <= CLICK_MOVE_THRESHOLD) {
         if (isSuggestion.value) {
           onSuggestionShortClick();
@@ -835,10 +836,10 @@ export default defineComponent({
     onMounted(() => {
       loadComponent();
 
-      // Griddle captures the pointer on its positioning wrapper, so mouseup is
-      // retargeted away from `.tile-wrapper`. Listen at window scope and let
-      // only the tile with an active mousedown process the release.
-      window.addEventListener("mouseup", endClick);
+      // Griddle captures the pointer on its positioning wrapper, so pointerup
+      // is retargeted away from `.tile-wrapper`. Listen at window scope and let
+      // only the tile with an active pointer-down process the release.
+      window.addEventListener("pointerup", endClick);
 
       if (gridTileRef.value) {
         gridTileRef.value.addEventListener("dragstart", handleDragStart);
@@ -857,7 +858,7 @@ export default defineComponent({
         clearTimeout(longPressTimer);
         longPressTimer = null;
       }
-      window.removeEventListener("mouseup", endClick);
+      window.removeEventListener("pointerup", endClick);
       stopChildEditingWatch?.();
       stopChildEditingWatch = null;
       removeClickListener();

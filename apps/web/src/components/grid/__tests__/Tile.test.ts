@@ -231,11 +231,14 @@ describe("GridTile position-only rendering", () => {
     draggingTileId.value = "tile-1";
     await nextTick();
     window.dispatchEvent(
-      new MouseEvent("mouseup", {
-        button: 0,
-        clientX: 102,
-        clientY: 101,
-      }),
+      Object.assign(
+        new MouseEvent("pointerup", {
+          button: 0,
+          clientX: 102,
+          clientY: 101,
+        }),
+        { pointerType: "mouse" },
+      ),
     );
 
     expect(store.setTileContent).toHaveBeenCalledTimes(1);
@@ -250,11 +253,14 @@ describe("GridTile position-only rendering", () => {
       clientY: 100,
     });
     window.dispatchEvent(
-      new MouseEvent("mouseup", {
-        button: 0,
-        clientX: 120,
-        clientY: 100,
-      }),
+      Object.assign(
+        new MouseEvent("pointerup", {
+          button: 0,
+          clientX: 120,
+          clientY: 100,
+        }),
+        { pointerType: "mouse" },
+      ),
     );
 
     expect(store.setTileContent).toHaveBeenCalledTimes(1);
@@ -278,11 +284,14 @@ describe("GridTile position-only rendering", () => {
     draggingTileId.value = "tile-1";
     await nextTick();
     window.dispatchEvent(
-      new MouseEvent("mouseup", {
-        button: 0,
-        clientX: 52,
-        clientY: 61,
-      }),
+      Object.assign(
+        new MouseEvent("pointerup", {
+          button: 0,
+          clientX: 52,
+          clientY: 61,
+        }),
+        { pointerType: "mouse" },
+      ),
     );
 
     expect(contentHooks.onShortClick).toHaveBeenCalledTimes(1);

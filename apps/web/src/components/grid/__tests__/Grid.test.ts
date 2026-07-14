@@ -324,6 +324,55 @@ describe("Grid canvas characterization", () => {
     wrapper.unmount();
   });
 
+  it("resolves toolbar resize collisions through Griddle before committing", async () => {
+    const first = makeTile({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 });
+    const second = makeTile({ i: "tile-2", x: 2, y: 0, w: 2, h: 2 });
+    const grid = makeGrid(first);
+    grid.tiles = [first, second];
+    const { store } = makeStore(grid);
+    store.verticalCompact = false;
+    storeHolder.current = store;
+    const wrapper = await mountGrid();
+    await flushPromises();
+    store.setDisplayPositions.mockClear();
+
+    (
+      wrapper.vm as unknown as {
+        resizeTileThroughEngine: (
+          id: string,
+          width: number,
+          height: number,
+        ) => void;
+      }
+    ).resizeTileThroughEngine("tile-1", 4, 2);
+    await flushPromises();
+
+    const lastDisplayCall =
+      store.setDisplayPositions.mock.calls[
+        store.setDisplayPositions.mock.calls.length - 1
+      ];
+    const resolved = lastDisplayCall?.[0] as
+      | GridLayoutItem[]
+      | undefined;
+    expect(resolved).toBeDefined();
+    const resized = resolved?.find((tile) => tile.i === "tile-1");
+    const displaced = resolved?.find((tile) => tile.i === "tile-2");
+    expect(resized).toEqual(
+      expect.objectContaining({ x: 0, y: 0, w: 4, h: 2 }),
+    );
+    expect(displaced).toBeDefined();
+    expect(
+      resized!.x < displaced!.x + displaced!.w &&
+        resized!.x + resized!.w > displaced!.x &&
+        resized!.y < displaced!.y + displaced!.h &&
+        resized!.y + resized!.h > displaced!.y,
+    ).toBe(false);
+    expect(store.beginResize).toHaveBeenCalledTimes(1);
+    expect(store.commitResize).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+  });
+
   it("compacts through the engine and commits when gravity is enabled (desktop)", async () => {
     // tile-2 sits below an empty gap; enabling gravity pulls it up beneath
     // tile-1 (which is h:2 at y:0 → tile-2 lands at y:2).

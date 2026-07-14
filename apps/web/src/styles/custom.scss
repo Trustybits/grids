@@ -82,13 +82,16 @@
 }
 
 @mixin grid-placeholder($theme) {
-  // Griddle's drop indicator ships an inline `2px dashed blue` border; override
-  // it with the app's solid themed placeholder block. `!important` overrides
-  // the inline border.
-  background: var(--color-content-default);
+  // Match the pre-migration vue3-grid-layout drop placeholder exactly. Griddle
+  // supplies blue border/background inline, so both overrides need !important.
+  background: rgba(255, 255, 255, 0.15) !important;
   border: none !important;
-  border-radius: var(--tile-border-radius);
+  border-radius: var(--tile-border-radius) !important;
+  opacity: 0.3 !important;
+  transition: none !important;
+  animation: none !important;
   z-index: var(--z-grid-placeholder);
+  pointer-events: none !important;
   user-select: none;
 }
 

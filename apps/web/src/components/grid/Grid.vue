@@ -57,7 +57,10 @@ import {
   fromGriddleTiles,
   toGriddleTiles,
 } from "@/utils/GriddleAdapter";
-import { TILE_DRAGGING_ID } from "@/grid-context/tileInteractionKeys";
+import {
+  TILE_DRAGGING_ID,
+  TILE_RESIZE_REQUEST,
+} from "@/grid-context/tileInteractionKeys";
 
 export default {
   components: {
@@ -206,6 +209,47 @@ export default {
     const draggingTileId = ref<string | null>(null);
     provide(TILE_DRAGGING_ID, draggingTileId);
 
+    const resizeTileThroughEngine = (
+      id: string,
+      width: number,
+      height: number,
+    ): void => {
+      if (!gridView.canEdit) return;
+
+      const tile = api.grid.getTile(id);
+      if (!tile) return;
+      const targetWidth = Math.min(width, responsiveColNum.value);
+      if (tile.w === targetWidth && tile.h === height) return;
+
+      // Toolbar resizes are programmatic gestures. Run the mutation through
+      // Griddle (rather than bulk-loading an overlapping projected layout) so
+      // collision displacement and structural repacking complete atomically.
+      gridView.beginResize();
+      const targetCol = Math.min(
+        tile.col,
+        responsiveColNum.value - targetWidth,
+      );
+      if (targetCol !== tile.col) {
+        api.moveTile(id, { col: targetCol, row: tile.row });
+      }
+      const committed = api.resizeTile(id, {
+        w: targetWidth,
+        h: height,
+      });
+      if (!committed) {
+        // Valid presets are expected to fit after the responsive width clamp.
+        // Close the pending history gesture defensively if Griddle rejects it
+        // so a later resize cannot inherit stale pending history state.
+        gridView.commitResize();
+        return;
+      }
+
+      const resolved = fromGriddleTiles(api.tiles.value);
+      gridView.setDisplayPositions(resolved);
+      gridView.commitResize();
+    };
+    provide(TILE_RESIZE_REQUEST, resizeTileThroughEngine);
+
     const onDragStart = (id: string): void => {
       interacting = true;
       draggingTileId.value = id;
@@ -270,6 +314,7 @@ export default {
       onDragEnd,
       onResizeStart,
       onResizeEnd,
+      resizeTileThroughEngine,
     };
   },
 };

@@ -19,7 +19,13 @@
     </div>
 
     <!-- Global bottom-left buttons (Share, Discord, UserMenu, GridMenu) -->
-    <BottomLeftButtons v-if="!hideBottomCornerButtons" />
+    <BottomLeftButtons
+      v-if="!hideBottomCornerButtons"
+      :compact="mobile2GridActive"
+    />
+
+    <!-- Mobile 2.0 bottom command bar (owner editing chrome on mobile) -->
+    <MobileGridBar v-if="mobile2GridActive" />
 
     <!-- Toast Notifications -->
     <ToastContainer />
@@ -34,6 +40,7 @@ import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import LeftNavBar from './components/grid/LeftNavBar.vue';
 import BottomLeftButtons from './components/app/AppBar.vue';
+import MobileGridBar from './components/app/MobileGridBar.vue';
 import GridNameEditor from './components/grid/GridNameEditor.vue';
 import ToastContainer from './components/ui-controls/ToastContainer.vue';
 import PixelRacersGame from './components/grid/PixelRacersGame.vue';
@@ -47,7 +54,7 @@ import { usePostHog } from '@/composables/usePostHog';
 import { useFeatureFlags } from '@/composables/useFeatureFlags';
 import { initTier } from '@/composables/useTier';
 import { initContributions } from '@/composables/useContributions';
-import { initMobileExperience } from '@/composables/useMobileExperience';
+import { initMobileExperience, useMobileExperience } from '@/composables/useMobileExperience';
 import { isMarketingPath, isNonGridPath } from '@/constants/marketing';
 
 withDefaults(
@@ -61,6 +68,7 @@ withDefaults(
 
 const { identify, reset: resetPostHog } = usePostHog();
 const { reloadFlags } = useFeatureFlags();
+const { isMobile2 } = useMobileExperience();
 
 const route = useRoute();
 const sessionStore = useGridSessionStore();
@@ -128,6 +136,12 @@ const isOnGridPage = computed(() => {
   // Slug routes (/:slug) that loaded a real grid
   return !!sessionStore.currentGrid && !sessionStore.isDemoGrid;
 });
+
+// Mobile 2.0 owner editing chrome: the redesigned bottom bar replaces the
+// desktop tile toolbar + bottom corner buttons for enrolled owners on mobile.
+const mobile2GridActive = computed(
+  () => isMobile2.value && isOnGridPage.value && sessionStore.isOwner,
+);
 
 // Clear stale layout state when navigating away from a grid page.
 // Lives here (not BottomLeftButtons) so it fires even when that

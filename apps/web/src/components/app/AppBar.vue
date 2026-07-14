@@ -10,24 +10,24 @@
   -->
   <div class="bottom-left-buttons">
     <FloatingTooltip
-      v-if="showDiscordButton"
+      v-if="!compact && showDiscordButton"
       text="Join our Discord"
       placement="right"
     >
       <DiscordButton />
     </FloatingTooltip>
-    <FloatingTooltip v-if="isOnGridPage" text="Share" placement="right">
+    <FloatingTooltip v-if="!compact && isOnGridPage" text="Share" placement="right">
       <ShareButton />
     </FloatingTooltip>
     <FloatingTooltip
-      v-if="isOnGridPage && !isOwner && isDuplicatable"
+      v-if="!compact && isOnGridPage && !isOwner && isDuplicatable"
       text="Use this Grid as a Template"
       placement="right"
     >
       <UseTemplateButton />
     </FloatingTooltip>
     <!-- GridMenu and UserMenu render their own FloatingTooltip internally -->
-    <GridMenu v-if="isOnGridPage && isOwner" />
+    <GridMenu v-if="!compact && isOnGridPage && isOwner" />
     <UserMenu v-if="isAuthenticated" />
   </div>
 </template>
@@ -44,6 +44,11 @@ import UseTemplateButton from "@/components/grid/UseTemplateButton.vue";
 import UserMenu from "@/components/app/UserMenu.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import { isNonGridPath } from "@/constants/marketing";
+
+// When `compact` is set (Mobile 2.0 grid chrome), collapse to just the user
+// menu so the redesigned bottom bar owns the other actions — while keeping the
+// user menu reachable (it hosts the Mobile 2.0 opt-out) until the Phase 3 drawer.
+withDefaults(defineProps<{ compact?: boolean }>(), { compact: false });
 
 const route = useRoute();
 const sessionStore = useGridSessionStore();

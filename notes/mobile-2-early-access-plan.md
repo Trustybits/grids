@@ -1,6 +1,6 @@
 # Mobile 2.0 — Early Access Implementation Plan
 
-Status: **in progress — Phase 1 (early-access plumbing) complete; UI build not yet started.**
+Status: **in progress — Phases 1–2 complete (early-access plumbing + working bottom command bar); Phases 3+ pending.**
 
 Mobile 2.0 is a redesign of the Grids editing chrome on mobile: the app bar and toolbars are
 combined and collapsed to modernize the interface, minimize on-screen elements, and make the app
@@ -20,17 +20,22 @@ Design source (Figma `grids.so`):
 2. **Enrollment is open to everyone eligible** — no per-user targeting gate on who may opt in.
 3. **The opt-in toggle is available on all devices, including desktop/web.** Users can enroll ahead
    of time; the redesigned chrome still only renders when they are actually on a mobile device.
+   Opt-out placement: on desktop/web the toggle lives in the `UserMenu`; on mobile the updated
+   Figma places an **Early Access [Beta]** toggle inside the Grid Settings menu (built in Phase 6).
 4. **"Mobile" = touch-primary device **and** a small viewport** (grid `sm` breakpoint, derived from
    the existing responsive grid layout utilities). Both conditions must hold for the chrome to show.
 5. **Add-a-Tile list behavior.** Backspacing the type filter (e.g. "Link") shows the full list of
    tile types. Searching a term (e.g. "youtube") surfaces every matching subtype (both the YouTube
    Link subtype and the YouTube Embed subtype).
 6. **"N times used" counts are scoped to the current grid.**
-7. **`/TILE` input** uses a rotating, typed-then-backspaced placeholder cycling through:
-   `paste a URL`, `paste embed code`, `type to filter/search`, `paste text or md`, `paste files`,
-   `paste videos/images`, `paste color values`. Pasting a supported payload may show additional UI,
-   but in most cases pressing ENTER creates the tile on the grid canvas. More payload types will be
-   added later.
+7. **Context-aware command input.** The bottom input carries a mode chip and filters the surface it
+   belongs to:
+   - **`/TILE`** (tile carousel) uses a rotating, typed-then-backspaced placeholder cycling through:
+     `paste a URL`, `paste embed code`, `type to filter/search`, `paste text or md`, `paste files`,
+     `paste videos/images`, `paste color values`. Pasting a supported payload may show additional UI,
+     but in most cases pressing ENTER creates the tile on the grid canvas. More payload types later.
+   - **`/GRID`** (grid settings menu) filters the settings list as you type (e.g. typing "gravity"
+     narrows the sheet to the Grid Gravity toggle), per the updated Figma.
 8. **Omitted desktop menu items** (those reachable from other buttons/interactions) are removed from
    the mobile menu list — **except Debug**, which remains available for Trustybits developers as it
    is today.
@@ -87,11 +92,28 @@ Recent layouts, Discord support link, Account), **New Tile Carousel**, **Grid Se
 Exposed API (the single gate the chrome branches on): `isMobile2 = isMobileDevice && enrolled`.
 `canUseMobile2` (toggle availability) is now always true; `isMobile2Enabled` reflects enrollment.
 
-### Phase 2 — Shared mobile chrome foundation ⬜ NOT STARTED
+### Phase 2 — Shared mobile chrome foundation + working bottom bar ✅ COMPLETE
 
-- [ ] Extract the reusable `MobileCommandBar` pattern (shared by the tile carousel and grid settings)
-- [ ] Wire `isMobile2` into the app shell so chrome swaps behind the gate
-- [ ] Audit design tokens needed for the new chrome; reuse existing tokens, flag any new ones
+Scope was pulled forward (maintainer decision): rather than an empty shell, Phase 2 ships a working
+bottom command bar that hides the desktop tile toolbar + bottom corner buttons for enrolled owners.
+
+- [x] Reusable `MobileCommandBar` pill primitive + tests
+      (`apps/web/src/components/ui-collections/MobileCommandBar.vue`)
+- [x] Design-token audit — reuse existing theme-aware toolbar tokens for the pill (no new tokens;
+      maintainer chose `--color-toolbar-background` over an always-dark token)
+- [x] `MobileGridBar` bottom command bar (`apps/web/src/components/app/MobileGridBar.vue`) wired to
+      existing destinations as an interim (each replaced in its own phase):
+  - AddTile → popover with existing `GridToolbar` (→ Tile Carousel, Phase 5)
+  - GridSettings → existing `GridSettings` menu, dropdown repositioned via scoped `:deep` (→ Phase 6)
+  - Preview → popover with existing `BreakpointSwitcher` (→ Toolbar:Top, Phase 7)
+  - Share → copy grid link (→ Share modal, Phase 9)
+- [x] Gate wired: `App.vue` renders `MobileGridBar` and passes `compact` to `BottomLeftButtons`
+      (keeps only `UserMenu` so the opt-out stays reachable); `GridPage.vue` hides the desktop
+      `.toolbar` + floating breakpoint switcher when `mobile2Active`
+- [x] typecheck + lint + tests green
+
+Interim notes to revisit in later phases: `UserMenu` is kept visible on mobile for account/opt-out
+until the Phase 3 drawer hosts it; `UndoRedoControls` still renders until the Phase 3 AppBar owns Undo.
 
 ### Phase 3 — AppBar + Menu drawer ⬜ NOT STARTED
 
@@ -115,6 +137,11 @@ Exposed API (the single gate the chrome branches on): `isMobile2 = isMobileDevic
 ### Phase 6 — Grid Settings sheet ⬜ NOT STARTED
 
 - [ ] Grid Settings menu (Figma `1497-9949`); omit desktop-only items reachable elsewhere (keep Debug)
+- [ ] Sheet contents per updated Figma: Grid ID + copy, Default Grid toggle, Publish Template,
+      Duplicate Grid, Transfer Grid, Grid Gravity / Dark Mode toggles, **Early Access [Beta] toggle**
+      (the mobile Mobile-2.0 opt-out), Delete Grid
+- [ ] Filterable via the `/GRID` command input (typing narrows the settings list)
+- [ ] Move/mirror the Mobile 2.0 opt-out here from the interim `UserMenu` placement on mobile
 
 ### Phase 7 — Preview mode transition ⬜ NOT STARTED
 

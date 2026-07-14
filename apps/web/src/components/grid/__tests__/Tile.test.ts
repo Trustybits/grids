@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
-import { nextTick, reactive, ref } from "vue";
+import { reactive, ref } from "vue";
 import {
   ContentType,
   type ImageContent,
@@ -210,7 +210,7 @@ describe("GridTile position-only rendering", () => {
     wrapper.unmount();
   });
 
-  it("runs a short-click action after Griddle starts a drag gesture", async () => {
+  it("executes a short-click action recognized by the Griddle wrapper", async () => {
     const tile = makeTile();
     tile.content = {
       type: ContentType.SUGGESTION,
@@ -220,79 +220,47 @@ describe("GridTile position-only rendering", () => {
     const store = makeStore(tile);
     store.canEdit = true;
     const layout: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
-    const { wrapper, draggingTileId } = await mountGridTile(store, layout);
-
-    await wrapper.find(".tile-wrapper").trigger("pointerdown", {
-      pointerType: "mouse",
-      button: 0,
-      clientX: 100,
-      clientY: 100,
-    });
-    draggingTileId.value = "tile-1";
-    await nextTick();
-    window.dispatchEvent(
-      Object.assign(
-        new MouseEvent("pointerup", {
-          button: 0,
-          clientX: 102,
-          clientY: 101,
-        }),
-        { pointerType: "mouse" },
-      ),
+    const { wrapper } = await mountGridTile(store, layout);
+    const pointerEvent = Object.assign(
+      new MouseEvent("pointerdown", { button: 0 }),
+      { pointerType: "mouse" },
     );
+    (
+      wrapper.vm as unknown as {
+        handleGridShortClick: (event: PointerEvent) => void;
+      }
+    ).handleGridShortClick(pointerEvent as PointerEvent);
 
     expect(store.setTileContent).toHaveBeenCalledTimes(1);
     expect(store.setTileContent).toHaveBeenCalledWith("tile-1", {
       type: ContentType.PROFILE,
     });
 
-    await wrapper.find(".tile-wrapper").trigger("pointerdown", {
-      pointerType: "mouse",
-      button: 0,
-      clientX: 100,
-      clientY: 100,
-    });
-    window.dispatchEvent(
-      Object.assign(
-        new MouseEvent("pointerup", {
-          button: 0,
-          clientX: 120,
-          clientY: 100,
-        }),
-        { pointerType: "mouse" },
-      ),
-    );
-
-    expect(store.setTileContent).toHaveBeenCalledTimes(1);
     wrapper.unmount();
   });
 
-  it("forwards the original content target through Griddle pointer capture", async () => {
+  it("forwards the original content target from the Griddle hitbox", async () => {
     const tile = makeTile();
     const store = makeStore(tile);
     store.canEdit = true;
     const layout: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
-    const { wrapper, draggingTileId } = await mountGridTile(store, layout);
+    const { wrapper } = await mountGridTile(store, layout);
     const content = wrapper.find('[data-test="content"]');
-
-    await content.trigger("pointerdown", {
-      pointerType: "mouse",
-      button: 0,
-      clientX: 50,
-      clientY: 60,
-    });
-    draggingTileId.value = "tile-1";
-    await nextTick();
-    window.dispatchEvent(
-      Object.assign(
-        new MouseEvent("pointerup", {
-          button: 0,
-          clientX: 52,
-          clientY: 61,
-        }),
-        { pointerType: "mouse" },
-      ),
+    const pointerEvent = Object.assign(
+      new MouseEvent("pointerdown", {
+        bubbles: true,
+        button: 0,
+        clientX: 50,
+        clientY: 60,
+      }),
+      { pointerType: "mouse" },
     );
+    content.element.dispatchEvent(pointerEvent);
+    (
+      wrapper.vm as unknown as {
+        handleGridShortClick: (event: PointerEvent) => void;
+      }
+    ).handleGridShortClick(pointerEvent as PointerEvent);
 
     expect(contentHooks.onShortClick).toHaveBeenCalledTimes(1);
     const forwardedEvent = contentHooks.onShortClick.mock.calls[0]![0];

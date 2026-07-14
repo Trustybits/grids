@@ -1,8 +1,9 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { computed } from "vue";
+import { computed, nextTick, ref } from "vue";
 import { ContentType, type Grid, type Tile } from "@grids/contracts/types";
 import TileActions from "../TileActions.vue";
+import { TILE_GEOMETRY_VERSION } from "@/grid-context/tileInteractionKeys";
 
 const getShareableArchiveDownloadUrl = vi.fn();
 
@@ -111,5 +112,36 @@ describe("TileActions archive downloads", () => {
     expect(click).toHaveBeenCalledTimes(1);
     expect(appendChild).toHaveBeenCalled();
     expect(removeChild).toHaveBeenCalled();
+  });
+
+  it("repositions teleported actions when Griddle geometry changes", async () => {
+    const geometryVersion = ref(0);
+    const actionsVisible = ref(true);
+    const wrapper = mount(TileActions, {
+      props: { tile: imageTile() },
+      global: {
+        provide: {
+          [TILE_GEOMETRY_VERSION as symbol]: geometryVersion,
+          tileActionsVisible: actionsVisible,
+        },
+        stubs: { FloatingTooltip: { template: "<slot />" } },
+      },
+    });
+    await nextTick();
+    const anchor = wrapper.find(".tile-actions-anchor").element;
+    vi.spyOn(anchor, "getBoundingClientRect").mockReturnValue({
+      top: 125,
+      right: 450,
+    } as DOMRect);
+
+    geometryVersion.value++;
+    await nextTick();
+    await nextTick();
+
+    expect(
+      (wrapper.vm as unknown as { floatingStyle: Record<string, string> })
+        .floatingStyle,
+    ).toEqual({ top: "125px", left: "450px" });
+    wrapper.unmount();
   });
 });

@@ -28,3 +28,11 @@ export type TileResizeRequest = (
 export const TILE_RESIZE_REQUEST: InjectionKey<TileResizeRequest> = Symbol(
   "tileResizeRequest",
 );
+
+/**
+ * Increments whenever Griddle changes rendered tile geometry. Teleported tile
+ * chrome uses this signal to follow resize/repack FLIP animations.
+ */
+export const TILE_GEOMETRY_VERSION: InjectionKey<Ref<number>> = Symbol(
+  "tileGeometryVersion",
+);

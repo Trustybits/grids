@@ -6,6 +6,7 @@
     ref="scaleWrapperRef"
     class="grid-scale-wrapper"
     :style="scaleWrapperStyle"
+    @pointerdown.capture="onGridPointerDown"
   >
     <GriddleGrid
       ref="gridLayoutRef"
@@ -23,6 +24,7 @@
       <template #tile="{ tile: griddleTile }">
         <GridTile
           v-if="tilesById.get(griddleTile.id)"
+          :ref="(instance) => setGridTileRef(griddleTile.id, instance)"
           :tile="tilesById.get(griddleTile.id)!"
           :layout="fromGriddleTile(griddleTile)"
         />
@@ -59,6 +61,7 @@ import {
 } from "@/utils/GriddleAdapter";
 import {
   TILE_DRAGGING_ID,
+  TILE_GEOMETRY_VERSION,
   TILE_RESIZE_REQUEST,
 } from "@/grid-context/tileInteractionKeys";
 
@@ -153,6 +156,7 @@ export default {
       config: gridConfig.value,
       tiles: griddleTiles.value,
     });
+    provide(TILE_GEOMETRY_VERSION, api.version);
 
     // @griddle/vue@0.1.1 passes its numeric content height directly to a Vue
     // style binding, which browsers reject instead of treating as pixels. Since
@@ -204,6 +208,92 @@ export default {
     });
 
     // --- Gesture wiring ----------------------------------------------------
+    type GridTileClickTarget = {
+      handleGridShortClick(event: PointerEvent): void;
+    };
+    type GridClickCandidate = {
+      tileId: string;
+      pointerId: number;
+      startX: number;
+      startY: number;
+      event: PointerEvent;
+    };
+
+    const gridTileRefs = new Map<string, GridTileClickTarget>();
+    const setGridTileRef = (id: string, instance: unknown): void => {
+      const target = instance as GridTileClickTarget | null;
+      if (target?.handleGridShortClick) {
+        gridTileRefs.set(id, target);
+      } else {
+        gridTileRefs.delete(id);
+      }
+    };
+
+    const CLICK_MOVE_THRESHOLD = 12;
+    let gridClickCandidate: GridClickCandidate | null = null;
+
+    const onGridPointerDown = (event: PointerEvent): void => {
+      if (event.pointerType !== "mouse" || event.button !== 0) return;
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (
+        target.closest(
+          'button, a, input, textarea, select, [role="button"], [data-griddle-handle]',
+        )
+      ) {
+        return;
+      }
+
+      const tileElement = target.closest<HTMLElement>("[data-griddle-tile]");
+      const tileId = tileElement?.dataset.griddleTile;
+      if (!tileId) return;
+
+      gridClickCandidate = {
+        tileId,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        event,
+      };
+    };
+
+    const clearGridClickCandidate = (): void => {
+      gridClickCandidate = null;
+    };
+
+    const onGridPointerUp = (event: PointerEvent): void => {
+      const candidate = gridClickCandidate;
+      clearGridClickCandidate();
+      if (
+        !candidate ||
+        event.pointerType !== "mouse" ||
+        event.pointerId !== candidate.pointerId ||
+        event.button !== 0
+      ) {
+        return;
+      }
+
+      const distance = Math.hypot(
+        event.clientX - candidate.startX,
+        event.clientY - candidate.startY,
+      );
+      if (distance <= CLICK_MOVE_THRESHOLD) {
+        gridTileRefs
+          .get(candidate.tileId)
+          ?.handleGridShortClick(candidate.event);
+      }
+    };
+
+    onMounted(() => {
+      window.addEventListener("pointerup", onGridPointerUp);
+      window.addEventListener("pointercancel", clearGridClickCandidate);
+    });
+    onUnmounted(() => {
+      window.removeEventListener("pointerup", onGridPointerUp);
+      window.removeEventListener("pointercancel", clearGridClickCandidate);
+      gridTileRefs.clear();
+    });
+
     // Grid-level drag/resize events publish the current gesture to Tile.vue so
     // it can drive its drag visual state.
     const draggingTileId = ref<string | null>(null);
@@ -310,6 +400,8 @@ export default {
       gridInnerStyle,
       gridLayoutRef,
       scaleWrapperRef,
+      setGridTileRef,
+      onGridPointerDown,
       onDragStart,
       onDragEnd,
       onResizeStart,

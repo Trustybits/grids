@@ -220,7 +220,10 @@ import type {
   ToolbarMenuItem,
   ToolbarContext,
 } from "@/types/TileToolbar";
-import { TILE_RESIZE_REQUEST } from "@/grid-context/tileInteractionKeys";
+import {
+  TILE_GEOMETRY_VERSION,
+  TILE_RESIZE_REQUEST,
+} from "@/grid-context/tileInteractionKeys";
 import { getTileToolbarButtons } from "@/registries/tileToolbar";
 import { computeTextColor } from "@/composables/useColorPicker";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
@@ -267,6 +270,7 @@ export default defineComponent({
   setup(props) {
     const gridView = proxyRefs(useGridViewContext());
     const resizeTile = inject(TILE_RESIZE_REQUEST, gridView.resizeTile);
+    const tileGeometryVersion = inject(TILE_GEOMETRY_VERSION, ref(0));
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
     // Provided by Tile.vue — mirrors the hover/activation/crop visibility that
     // used to be expressed as `.tile-wrapper:hover :deep(.tile-toolbar)` CSS,
@@ -756,6 +760,8 @@ export default defineComponent({
     // visible (the tile can move on scroll/resize). Listeners are only active
     // while shown, mirroring the menu's positioning strategy above.
     let toolbarRafId: number | null = null;
+    let toolbarSettleRafId: number | null = null;
+    let toolbarSettleUntil = 0;
     const scheduleToolbarPosition = () => {
       if (toolbarRafId != null) return;
       toolbarRafId = requestAnimationFrame(() => {
@@ -763,6 +769,31 @@ export default defineComponent({
         updateFloatingPosition();
       });
     };
+
+    // Griddle settles displaced tiles with a 220ms FLIP transform. Follow the
+    // anchor through that animation instead of measuring only its first/last
+    // frame, which would strand teleported chrome until another mouse event.
+    const followToolbarDuringSettle = () => {
+      toolbarSettleUntil = performance.now() + 280;
+      if (toolbarSettleRafId != null) return;
+      const followFrame = () => {
+        updateFloatingPosition();
+        if (menuOpen.value) positionMenu();
+        if (performance.now() < toolbarSettleUntil) {
+          toolbarSettleRafId = requestAnimationFrame(followFrame);
+        } else {
+          toolbarSettleRafId = null;
+        }
+      };
+      toolbarSettleRafId = requestAnimationFrame(followFrame);
+    };
+
+    watch(tileGeometryVersion, async () => {
+      if (!toolbarShown.value) return;
+      await nextTick();
+      updateFloatingPosition();
+      followToolbarDuringSettle();
+    });
 
     watch(toolbarShown, (shown, _prev, onCleanup) => {
       if (!shown) return;
@@ -778,6 +809,10 @@ export default defineComponent({
       onCleanup(() => {
         if (toolbarRafId != null) cancelAnimationFrame(toolbarRafId);
         toolbarRafId = null;
+        if (toolbarSettleRafId != null) {
+          cancelAnimationFrame(toolbarSettleRafId);
+        }
+        toolbarSettleRafId = null;
         window.removeEventListener("resize", scheduleToolbarPosition);
         window.removeEventListener("scroll", scheduleToolbarPosition, {
           capture: true,
@@ -791,6 +826,12 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
+      if (toolbarRafId != null) cancelAnimationFrame(toolbarRafId);
+      toolbarRafId = null;
+      if (toolbarSettleRafId != null) {
+        cancelAnimationFrame(toolbarSettleRafId);
+      }
+      toolbarSettleRafId = null;
       document.removeEventListener("click", handleClickOutside);
       document.removeEventListener("contextmenu", handleClickOutside);
     });

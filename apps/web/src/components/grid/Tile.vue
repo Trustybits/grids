@@ -39,7 +39,6 @@
     ref="gridTileRef"
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"
-    @pointerdown="startClick"
   >
     <!-- Visual Frame with Overflow Hidden -->
     <div
@@ -329,11 +328,7 @@ export default defineComponent({
     });
 
     const clickStart = ref<number | null>(null);
-    let clickStartPosition: { x: number; y: number } | null = null;
-    let clickStartEvent: PointerEvent | null = null;
     const LONG_PRESS_THRESHOLD = 150;
-    const CLICK_MOVE_THRESHOLD = 12;
-    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 
     const isSuggestion = computed(
       () => props.tile.content.type === ContentType.SUGGESTION,
@@ -376,75 +371,17 @@ export default defineComponent({
       headerComponent.value = await getOptionComponent(props.tile.content);
     };
 
-    const startClick = (event: PointerEvent) => {
-      // Touch keeps its existing two-tap activation path below. Capture mouse
-      // pointer-down before Griddle's parent handler takes pointer capture.
-      if (event.pointerType === "mouse" && event.button === 0) {
-        clickStart.value = Date.now();
-        clickStartPosition = { x: event.clientX, y: event.clientY };
-        clickStartEvent = event;
-        // Only preventDefault when the child doesn't handle short clicks
-        // (e.g. text tiles need the default focus behavior on mousedown)
-        if (gridView.canEdit && !isEditing.value && !isSuggestion.value) {
-          if (!childComponent.value?.onShortClick) {
-            event.preventDefault();
-          }
-        }
-        // Start long-press timer: activate isDragging after threshold
-        if (gridView.isOwner && !isEditing.value) {
-          if (longPressTimer) clearTimeout(longPressTimer);
-          longPressTimer = setTimeout(() => {
-            isDragging.value = true;
-            longPressTimer = null;
-          }, LONG_PRESS_THRESHOLD);
-        }
-      }
-    };
-
-    const endClick = (event: PointerEvent) => {
-      if (
-        event.pointerType !== "mouse" ||
-        event.button !== 0 ||
-        clickStart.value === null ||
-        clickStartPosition === null
-      ) {
+    const handleGridShortClick = (event: PointerEvent | TouchEvent) => {
+      if (isSuggestion.value) {
+        onSuggestionShortClick();
         return;
       }
-
-      // Cancel long-press timer if still pending
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
+      childComponent.value?.onShortClick?.(
+        event as unknown as MouseEvent,
+      );
+      if (childComponent.value?.onExitClick) {
+        addClickListener();
       }
-      isDragging.value = false;
-
-      const clickDistance = clickStartPosition
-        ? Math.hypot(
-            event.clientX - clickStartPosition.x,
-            event.clientY - clickStartPosition.y,
-          )
-        : Infinity;
-
-      // Griddle starts its gesture state and captures the pointer on
-      // pointer-down, even for a click. Listen for pointerup (not the optional
-      // compatibility mouseup) so clicks on the whole card reach text editors
-      // even when Griddle retargets the release to its positioning wrapper.
-      if (clickDistance <= CLICK_MOVE_THRESHOLD) {
-        if (isSuggestion.value) {
-          onSuggestionShortClick();
-        } else {
-          if (childComponent.value?.onShortClick) {
-            childComponent.value.onShortClick(clickStartEvent ?? event);
-          }
-          if (childComponent.value?.onExitClick) {
-            addClickListener();
-          }
-        }
-      }
-
-      clickStart.value = null;
-      clickStartPosition = null;
-      clickStartEvent = null;
     };
 
     // Drag/resize begin+commit now live at the grid level (Grid.vue's Griddle
@@ -700,16 +637,7 @@ export default defineComponent({
 
       // Only fire short-click if it was a quick tap (not a scroll)
       if (touchDuration < LONG_PRESS_THRESHOLD) {
-        if (isSuggestion.value) {
-          onSuggestionShortClick();
-        } else {
-          if (childComponent.value?.onShortClick) {
-            childComponent.value.onShortClick(event as unknown as MouseEvent);
-          }
-          if (childComponent.value?.onExitClick) {
-            addClickListener();
-          }
-        }
+        handleGridShortClick(event);
       }
     };
 
@@ -836,11 +764,6 @@ export default defineComponent({
     onMounted(() => {
       loadComponent();
 
-      // Griddle captures the pointer on its positioning wrapper, so pointerup
-      // is retargeted away from `.tile-wrapper`. Listen at window scope and let
-      // only the tile with an active pointer-down process the release.
-      window.addEventListener("pointerup", endClick);
-
       if (gridTileRef.value) {
         gridTileRef.value.addEventListener("dragstart", handleDragStart);
         // Use non-passive touchstart so we can conditionally preventDefault on second tap
@@ -854,11 +777,6 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-      window.removeEventListener("pointerup", endClick);
       stopChildEditingWatch?.();
       stopChildEditingWatch = null;
       removeClickListener();
@@ -878,8 +796,7 @@ export default defineComponent({
       childComponent,
       removeElement,
       tileStyle,
-      startClick,
-      endClick,
+      handleGridShortClick,
       gridTileRef,
       gridView,
       isEditing,

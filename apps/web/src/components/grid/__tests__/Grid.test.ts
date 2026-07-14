@@ -13,6 +13,9 @@ import type { GridLayoutReadinessAdapter } from "@/controllers/GridController";
 const storeHolder = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
 }));
+const gridTileHooks = vi.hoisted(() => ({
+  handleGridShortClick: vi.fn(),
+}));
 
 vi.mock("@/grid-context/useGridViewContext", () => ({
   useGridViewContext: () => storeHolder.current,
@@ -48,7 +51,11 @@ vi.mock("@griddle/vue", async (importOriginal) => {
             ).tiles.value.map((tile) =>
               h(
                 "div",
-                { key: tile.id },
+                {
+                  key: tile.id,
+                  class: "griddle-tile",
+                  "data-griddle-tile": tile.id,
+                },
                 slots.tile?.({ tile, selected: false }),
               ),
             ),
@@ -67,7 +74,10 @@ vi.mock("@/components/grid/Tile.vue", async () => {
         tile: { type: Object, required: true },
         layout: { type: Object, required: true },
       },
-      setup(props) {
+      setup(props, { expose }) {
+        expose({
+          handleGridShortClick: gridTileHooks.handleGridShortClick,
+        });
         return () =>
           h("div", {
             "data-test": "grid-tile",
@@ -155,6 +165,7 @@ function griddle(wrapper: ReturnType<typeof mount>) {
 
 describe("Grid canvas characterization", () => {
   beforeEach(() => {
+    gridTileHooks.handleGridShortClick.mockReset();
     vi.spyOn(window, "innerWidth", "get").mockReturnValue(1800);
     class ResizeObserverStub {
       observe = vi.fn();
@@ -288,6 +299,65 @@ describe("Grid canvas characterization", () => {
     expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
       { i: "tile-1", x: 0, y: 0, w: 2, h: 2 },
     ]);
+
+    wrapper.unmount();
+  });
+
+  it("uses the full Griddle tile wrapper as the mouse click hitbox", async () => {
+    const { store } = makeStore();
+    storeHolder.current = store;
+    const wrapper = await mountGrid();
+    await flushPromises();
+    const tileWrapper = wrapper.find('[data-griddle-tile="tile-1"]');
+
+    const pointerDown = Object.assign(
+      new MouseEvent("pointerdown", {
+        bubbles: true,
+        button: 0,
+        clientX: 100,
+        clientY: 200,
+      }),
+      { pointerId: 7, pointerType: "mouse" },
+    );
+    tileWrapper.element.dispatchEvent(pointerDown);
+    window.dispatchEvent(
+      Object.assign(
+        new MouseEvent("pointerup", {
+          button: 0,
+          clientX: 104,
+          clientY: 203,
+        }),
+        { pointerId: 7, pointerType: "mouse" },
+      ),
+    );
+
+    expect(gridTileHooks.handleGridShortClick).toHaveBeenCalledOnce();
+    expect(gridTileHooks.handleGridShortClick).toHaveBeenCalledWith(
+      pointerDown,
+    );
+
+    tileWrapper.element.dispatchEvent(
+      Object.assign(
+        new MouseEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          clientX: 100,
+          clientY: 200,
+        }),
+        { pointerId: 8, pointerType: "mouse" },
+      ),
+    );
+    window.dispatchEvent(
+      Object.assign(
+        new MouseEvent("pointerup", {
+          button: 0,
+          clientX: 140,
+          clientY: 200,
+        }),
+        { pointerId: 8, pointerType: "mouse" },
+      ),
+    );
+    expect(gridTileHooks.handleGridShortClick).toHaveBeenCalledOnce();
 
     wrapper.unmount();
   });

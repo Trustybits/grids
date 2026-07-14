@@ -6,10 +6,19 @@
     />
 
     <!-- Left Navigation Bar (hidden on marketing pages like /pricing) -->
-    <LeftNavBar v-if="isAuthenticated && !isMarketingPage" />
+    <LeftNavBar v-if="isAuthenticated && !isMarketingPage && !mobile2GridActive" />
+
+    <!-- Mobile 2.0 top app bar + menu drawer (replaces the desktop top-bar) -->
+    <template v-if="mobile2GridActive">
+      <MobileAppBar @open-menu="isMobileMenuOpen = true" />
+      <MobileMenuDrawer
+        :open="isMobileMenuOpen"
+        @close="isMobileMenuOpen = false"
+      />
+    </template>
 
     <!-- Top Bar for Grid Name Editor -->
-    <div ref="topBarRef" class="top-bar" v-if="showTopBar">
+    <div ref="topBarRef" class="top-bar" v-else-if="showTopBar">
       <GridNameEditor v-if="showTitleEditor" :isAuthenticated="isAuthenticated" />
     </div>
 
@@ -19,10 +28,7 @@
     </div>
 
     <!-- Global bottom-left buttons (Share, Discord, UserMenu, GridMenu) -->
-    <BottomLeftButtons
-      v-if="!hideBottomCornerButtons"
-      :compact="mobile2GridActive"
-    />
+    <BottomLeftButtons v-if="!hideBottomCornerButtons && !mobile2GridActive" />
 
     <!-- Mobile 2.0 bottom command bar (owner editing chrome on mobile) -->
     <MobileGridBar v-if="mobile2GridActive" />
@@ -41,6 +47,8 @@ import { useRoute } from 'vue-router';
 import LeftNavBar from './components/grid/LeftNavBar.vue';
 import BottomLeftButtons from './components/app/AppBar.vue';
 import MobileGridBar from './components/app/MobileGridBar.vue';
+import MobileAppBar from './components/app/MobileAppBar.vue';
+import MobileMenuDrawer from './components/app/MobileMenuDrawer.vue';
 import GridNameEditor from './components/grid/GridNameEditor.vue';
 import ToastContainer from './components/ui-controls/ToastContainer.vue';
 import PixelRacersGame from './components/grid/PixelRacersGame.vue';
@@ -79,6 +87,7 @@ const hideBottomCornerButtons = isMarketingPage;
 const user = ref<AuthUser | null>(null);
 const previousUser = ref<AuthUser | null>(null);
 const isInitialLoad = ref(true);
+const isMobileMenuOpen = ref(false);
 
 onMounted(() => {
   // Boot global tier + contribution listeners once for the app session.

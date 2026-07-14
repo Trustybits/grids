@@ -1,6 +1,6 @@
 # Mobile 2.0 — Early Access Implementation Plan
 
-Status: **in progress — Phases 1–2 complete (early-access plumbing + working bottom command bar); Phases 3+ pending.**
+Status: **in progress — Phases 1–3 complete (early-access plumbing + bottom command bar + top AppBar & menu drawer); Phases 4+ pending.**
 
 Mobile 2.0 is a redesign of the Grids editing chrome on mobile: the app bar and toolbars are
 combined and collapsed to modernize the interface, minimize on-screen elements, and make the app
@@ -112,15 +112,36 @@ bottom command bar that hides the desktop tile toolbar + bottom corner buttons f
       `.toolbar` + floating breakpoint switcher when `mobile2Active`
 - [x] typecheck + lint + tests green
 
-Interim notes to revisit in later phases: `UserMenu` is kept visible on mobile for account/opt-out
-until the Phase 3 drawer hosts it; `UndoRedoControls` still renders until the Phase 3 AppBar owns Undo.
+### Phase 3 — AppBar + Menu drawer ✅ COMPLETE
 
-### Phase 3 — AppBar + Menu drawer ⬜ NOT STARTED
+- [x] Redesigned top `MobileAppBar` (`apps/web/src/components/app/MobileAppBar.vue`): GridMenu
+      hamburger, editable grid title (reuses `renameCurrentGrid` + breakpoint edit-permission checks),
+      Undo (reuses `gridHistory` + `controller.undo`) — replaces the desktop Layout Title top-bar and
+      the floating Undo-redo-wrapper on mobile-2 grid pages
+- [x] New icons `MenuIcon` (hamburger) + `UndoIcon` (`apps/web/src/components/icons/`)
+- [x] Consolidated `MobileMenuDrawer` (`apps/web/src/components/app/MobileMenuDrawer.vue`), slide-in
+      from the hamburger, merging LeftNavBar + grid-stats + user-menu essentials:
+  - Home → `/dashboard`
+  - Analytics → reuses the existing `GridStats` component (owner-only)
+  - Recent Grid Pages → recent grids (mirrors `LeftNavBar`'s `valueToMillis` recency logic)
+  - Need Support? → Discord link
+  - Account → the two essentials for now: **Mobile 2.0 opt-out toggle** + **Logout**
+- [x] Gate wired in `App.vue`: renders `MobileAppBar` + `MobileMenuDrawer` and hides `LeftNavBar`,
+      the desktop `.top-bar` (title editor), and `BottomLeftButtons` entirely when `mobile2GridActive`
+- [x] Retired the Phase 2 interim: removed the `compact` prop from `AppBar.vue` (the drawer now owns
+      account/opt-out, so the bottom-left bar is fully hidden on mobile-2 grid pages)
+- [x] Tests: `MobileAppBar.test.ts` (hamburger emit, rename, undo state) + `MobileMenuDrawer.test.ts`
+      (open/close, recent grids, opt-out toggle, owner-gated analytics)
+- [x] typecheck + lint + full suite (2562 tests) green
 
-- [ ] Redesigned top `AppBar`: GridMenu button, editable grid title, Undo (replaces Layout Title +
-      Undo-redo-wrapper on mobile)
-- [ ] Consolidated Menu drawer merging LeftNavBar, grid-stats/analytics, and the user menu
-      (Home, Analytics, Recent layouts, Discord support, Account); Debug retained for developers
+Interim notes to revisit in later phases:
+- The drawer **Account** row is minimal (opt-out + Logout). Full account management (handle, billing,
+  file archive) still lives in the desktop `UserMenu`; reconcile the two in Phase 6/10.
+- The **Mobile 2.0 opt-out now lives in the drawer** on mobile (resolving the Phase 2 interim). The
+  updated Figma still places an Early Access toggle in the Grid Settings sheet (Phase 6) — decide
+  then whether the drawer keeps its copy or defers to Grid Settings.
+- Analytics is the whole `GridStats` bar embedded in a drawer row; Phase 8/10 may extract a shared
+  `useGridStats` composable if the desktop bar and drawer diverge.
 
 ### Phase 4 — Mobile GridToolbar (bottom pill) ⬜ NOT STARTED
 

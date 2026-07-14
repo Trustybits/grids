@@ -102,6 +102,9 @@ defineEmits([
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .grid-arrow {
@@ -121,5 +124,46 @@ defineEmits([
 .grid-card.is-drag-over .grid-link {
   outline: 1px dashed var(--color-content-default);
   outline-offset: 2px;
+}
+
+/*
+  On phones the single row (star + name + timestamp + four action buttons) has
+  no room for the name, so it wrapped mid-word. Reflow into two rows: star +
+  name on top, timestamp + actions beneath, giving the name a full line.
+*/
+@media (max-width: 600px) {
+  .grid-link {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "star name"
+      "meta actions";
+    column-gap: var(--spacing-sm);
+    row-gap: var(--spacing-xs);
+    align-items: center;
+  }
+
+  .grid-link > :first-child {
+    grid-area: star;
+  }
+
+  .grid-name {
+    grid-area: name;
+    font-size: var(--font-size-base);
+  }
+
+  /* Hover-only affordance; irrelevant on touch and it breaks the ellipsis. */
+  .grid-arrow {
+    display: none;
+  }
+
+  .grid-link > :nth-child(3) {
+    grid-area: meta;
+  }
+
+  .grid-link :deep(.grid-actions) {
+    grid-area: actions;
+    justify-self: end;
+  }
 }
 </style>

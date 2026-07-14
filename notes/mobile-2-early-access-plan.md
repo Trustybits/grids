@@ -1,6 +1,6 @@
 # Mobile 2.0 — Early Access Implementation Plan
 
-Status: **in progress — Phases 1–3 complete (early-access plumbing + bottom command bar + top AppBar & menu drawer); Phases 4+ pending.**
+Status: **in progress — Phases 1–3 complete (early-access plumbing + bottom command bar + top AppBar & menu drawer, now extended to the home screen); Phases 4+ pending.**
 
 Mobile 2.0 is a redesign of the Grids editing chrome on mobile: the app bar and toolbars are
 combined and collapsed to modernize the interface, minimize on-screen elements, and make the app
@@ -20,8 +20,10 @@ Design source (Figma `grids.so`):
 2. **Enrollment is open to everyone eligible** — no per-user targeting gate on who may opt in.
 3. **The opt-in toggle is available on all devices, including desktop/web.** Users can enroll ahead
    of time; the redesigned chrome still only renders when they are actually on a mobile device.
-   Opt-out placement: on desktop/web the toggle lives in the `UserMenu`; on mobile the updated
-   Figma places an **Early Access [Beta]** toggle inside the Grid Settings menu (built in Phase 6).
+   Opt-out placement: on desktop/web the toggle lives in the `UserMenu`; on mobile it lives in the
+   **app-level menu drawer** (hamburger → Account). **Decision (updated):** the opt-out stays at the
+   app level — it is *not* duplicated into the per-grid Grid Settings sheet, because early access is
+   an account-level preference, not a property of an individual grid page.
 4. **"Mobile" = touch-primary device **and** a small viewport** (grid `sm` breakpoint, derived from
    the existing responsive grid layout utilities). Both conditions must hold for the chrome to show.
 5. **Add-a-Tile list behavior.** Backspacing the type filter (e.g. "Link") shows the full list of
@@ -137,11 +139,28 @@ bottom command bar that hides the desktop tile toolbar + bottom corner buttons f
 Interim notes to revisit in later phases:
 - The drawer **Account** row is minimal (opt-out + Logout). Full account management (handle, billing,
   file archive) still lives in the desktop `UserMenu`; reconcile the two in Phase 6/10.
-- The **Mobile 2.0 opt-out now lives in the drawer** on mobile (resolving the Phase 2 interim). The
-  updated Figma still places an Early Access toggle in the Grid Settings sheet (Phase 6) — decide
-  then whether the drawer keeps its copy or defers to Grid Settings.
+- The **Mobile 2.0 opt-out lives in the app-level drawer** (maintainer decision) — it is *not*
+  mirrored into the per-grid Grid Settings sheet.
 - Analytics is the whole `GridStats` bar embedded in a drawer row; Phase 8/10 may extract a shared
   `useGridStats` composable if the desktop bar and drawer diverge.
+
+#### Phase 3.1 — Home chrome + fixes (follow-up)
+
+- [x] **Bug fix:** removed the `backdrop-filter: blur()` from the drawer scrim. A full-viewport
+      backdrop-filter forced the browser to re-rasterize the whole grid behind it on open/close,
+      which read as the tiles "redrawing/reloading". The drawer is now a pure overlay (plain scrim).
+      Also made the drawer's `fetchGrids()` idempotent (only when the collection is empty).
+- [x] **AppBar on the home screen:** the `MobileAppBar` + drawer now also render on `/dashboard`
+      (`mobile2HomeActive`), not just owned grid pages. New `mode` prop:
+  - `grid` → editable title + Undo (as before)
+  - `home` → static **"Your Grids"** title (non-editable) + a **New Grid** button in place of Undo
+- [x] `App.vue` hides `LeftNavBar` + `BottomLeftButtons` whenever the mobile chrome is active
+      (`mobile2ChromeActive = mobile2GridActive || mobile2HomeActive`); `DashboardPage` hides its own
+      in-page "Your Grids" header on mobile 2.0 and pads for the fixed bar. New Grid creates a grid
+      with a default name and routes to it (rename-in-place via the grid AppBar title).
+- [x] **Dashboard list on mobile:** `DashboardGridCard` reflows to two rows under 600px (star + name
+      on top, timestamp + actions beneath) and the name truncates instead of wrapping mid-word.
+- [x] Tests updated (`MobileAppBar` home mode, drawer idempotent fetch); full suite green.
 
 ### Phase 4 — Mobile GridToolbar (bottom pill) ⬜ NOT STARTED
 
@@ -159,10 +178,10 @@ Interim notes to revisit in later phases:
 
 - [ ] Grid Settings menu (Figma `1497-9949`); omit desktop-only items reachable elsewhere (keep Debug)
 - [ ] Sheet contents per updated Figma: Grid ID + copy, Default Grid toggle, Publish Template,
-      Duplicate Grid, Transfer Grid, Grid Gravity / Dark Mode toggles, **Early Access [Beta] toggle**
-      (the mobile Mobile-2.0 opt-out), Delete Grid
+      Duplicate Grid, Transfer Grid, Grid Gravity / Dark Mode toggles, Delete Grid
 - [ ] Filterable via the `/GRID` command input (typing narrows the settings list)
-- [ ] Move/mirror the Mobile 2.0 opt-out here from the interim `UserMenu` placement on mobile
+- [ ] **Note:** the Mobile 2.0 opt-out is intentionally *not* here — it lives in the app-level menu
+      drawer (Account), since early access is an account preference, not a per-grid setting
 
 ### Phase 7 — Preview mode transition ⬜ NOT STARTED
 

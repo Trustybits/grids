@@ -100,6 +100,16 @@ describe("MobileMenuDrawer", () => {
     expect(wrapper.text()).toContain("Recent Grid Pages");
     expect(wrapper.text()).toContain("Alpha");
     expect(wrapper.text()).toContain("Beta");
+  });
+
+  it("does not refetch grids when the collection is already loaded", async () => {
+    await mountDrawer(true);
+    expect(holder.fetchGrids).not.toHaveBeenCalled();
+  });
+
+  it("fetches grids on open only when the collection is empty", async () => {
+    holder.collection = { grids: [] };
+    await mountDrawer(true);
     expect(holder.fetchGrids).toHaveBeenCalled();
   });
 

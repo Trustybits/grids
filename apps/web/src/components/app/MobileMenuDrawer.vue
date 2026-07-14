@@ -125,13 +125,16 @@ const recentGrids = computed<Grid[]>(() => {
     .slice(0, 4);
 });
 
-// Load the recent-grid list lazily the first time the drawer opens.
-watch(
-  () => props.open,
-  (open) => {
-    if (open) controller.fetchGrids();
-  },
-);
+// Populate the recent-grid list lazily, but only when it hasn't been loaded
+// yet — refetching on every open is wasteful and would reorder the list while
+// the user is looking at it.
+const ensureGridsLoaded = () => {
+  if (props.open && (collectionStore.grids?.length ?? 0) === 0) {
+    controller.fetchGrids();
+  }
+};
+
+watch(() => props.open, ensureGridsLoaded);
 
 // Close when navigating away so the drawer never lingers over a new route.
 watch(
@@ -139,9 +142,7 @@ watch(
   () => emit("close"),
 );
 
-onMounted(() => {
-  if (props.open) controller.fetchGrids();
-});
+onMounted(ensureGridsLoaded);
 
 const onMobile2Toggle = async (value: boolean) => {
   try {
@@ -167,8 +168,13 @@ const logout = async () => {
   position: fixed;
   inset: 0;
   z-index: calc(var(--z-topbar) + 10);
-  background: color-mix(in srgb, var(--color-content-background) 40%, transparent);
-  backdrop-filter: blur(2px);
+  /*
+    Plain semi-transparent scrim only. A `backdrop-filter` here would force the
+    browser to re-rasterize the entire grid painted behind it every time the
+    drawer opens/closes, which reads as the tiles "redrawing". The drawer is a
+    pure overlay, so it must not touch the background compositing.
+  */
+  background: color-mix(in srgb, var(--color-content-background) 55%, transparent);
 }
 
 .mmd-panel {

@@ -6,11 +6,15 @@
     />
 
     <!-- Left Navigation Bar (hidden on marketing pages like /pricing) -->
-    <LeftNavBar v-if="isAuthenticated && !isMarketingPage && !mobile2GridActive" />
+    <LeftNavBar v-if="isAuthenticated && !isMarketingPage && !mobile2ChromeActive" />
 
-    <!-- Mobile 2.0 top app bar + menu drawer (replaces the desktop top-bar) -->
-    <template v-if="mobile2GridActive">
-      <MobileAppBar @open-menu="isMobileMenuOpen = true" />
+    <!-- Mobile 2.0 top app bar + menu drawer (replaces desktop top-bar / dashboard header) -->
+    <template v-if="mobile2ChromeActive">
+      <MobileAppBar
+        :mode="mobile2HomeActive ? 'home' : 'grid'"
+        @open-menu="isMobileMenuOpen = true"
+        @new-grid="handleNewGrid"
+      />
       <MobileMenuDrawer
         :open="isMobileMenuOpen"
         @close="isMobileMenuOpen = false"
@@ -28,7 +32,7 @@
     </div>
 
     <!-- Global bottom-left buttons (Share, Discord, UserMenu, GridMenu) -->
-    <BottomLeftButtons v-if="!hideBottomCornerButtons && !mobile2GridActive" />
+    <BottomLeftButtons v-if="!hideBottomCornerButtons && !mobile2ChromeActive" />
 
     <!-- Mobile 2.0 bottom command bar (owner editing chrome on mobile) -->
     <MobileGridBar v-if="mobile2GridActive" />
@@ -43,7 +47,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import LeftNavBar from './components/grid/LeftNavBar.vue';
 import BottomLeftButtons from './components/app/AppBar.vue';
 import MobileGridBar from './components/app/MobileGridBar.vue';
@@ -79,6 +83,7 @@ const { reloadFlags } = useFeatureFlags();
 const { isMobile2 } = useMobileExperience();
 
 const route = useRoute();
+const router = useRouter();
 const sessionStore = useGridSessionStore();
 const controller = useGridController();
 const isMarketingPage = computed(() => isMarketingPath(route.path));
@@ -146,11 +151,30 @@ const isOnGridPage = computed(() => {
   return !!sessionStore.currentGrid && !sessionStore.isDemoGrid;
 });
 
+const isOnDashboard = computed(() => route.path.startsWith("/dashboard"));
+
 // Mobile 2.0 owner editing chrome: the redesigned bottom bar replaces the
 // desktop tile toolbar + bottom corner buttons for enrolled owners on mobile.
 const mobile2GridActive = computed(
   () => isMobile2.value && isOnGridPage.value && sessionStore.isOwner,
 );
+
+// The mobile home chrome (dashboard): the AppBar + drawer replace the
+// LeftNavBar, bottom corner buttons, and the dashboard's own header.
+const mobile2HomeActive = computed(
+  () => isMobile2.value && isAuthenticated.value && isOnDashboard.value,
+);
+
+// Any page where the Mobile 2.0 top AppBar + menu drawer are shown.
+const mobile2ChromeActive = computed(
+  () => mobile2GridActive.value || mobile2HomeActive.value,
+);
+
+const handleNewGrid = async () => {
+  isMobileMenuOpen.value = false;
+  const id = await controller.createGrid("Untitled Grid");
+  if (id) router.push(`/grid/${id}`);
+};
 
 // Clear stale layout state when navigating away from a grid page.
 // Lives here (not BottomLeftButtons) so it fires even when that

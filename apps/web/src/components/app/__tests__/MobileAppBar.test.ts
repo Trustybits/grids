@@ -35,9 +35,15 @@ vi.mock("@/components/icons/UndoIcon.vue", () => ({
   default: { template: "<span />" },
 }));
 
-async function mountBar() {
+vi.mock("@/components/ui-elements/Button.vue", () => ({
+  default: {
+    template: '<button class="app-button"><slot /></button>',
+  },
+}));
+
+async function mountBar(props: Record<string, unknown> = {}) {
   const { default: MobileAppBar } = await import("../MobileAppBar.vue");
-  return mount(MobileAppBar);
+  return mount(MobileAppBar, { props });
 }
 
 describe("MobileAppBar", () => {
@@ -106,5 +112,20 @@ describe("MobileAppBar", () => {
     expect(
       wrapper.get('[aria-label="Undo"]').attributes("disabled"),
     ).toBeDefined();
+  });
+
+  it("shows a static 'Your Grids' title and New Grid button in home mode", async () => {
+    const wrapper = await mountBar({ mode: "home" });
+    const title = wrapper.get(".mab-title");
+    expect(title.text()).toBe("Your Grids");
+    expect(title.attributes("contenteditable")).toBeUndefined();
+    expect(wrapper.find('[aria-label="Undo"]').exists()).toBe(false);
+    expect(wrapper.get(".app-button").text()).toBe("New Grid");
+  });
+
+  it("emits new-grid when the New Grid button is tapped in home mode", async () => {
+    const wrapper = await mountBar({ mode: "home" });
+    await wrapper.get(".app-button").trigger("click");
+    expect(wrapper.emitted("new-grid")).toHaveLength(1);
   });
 });

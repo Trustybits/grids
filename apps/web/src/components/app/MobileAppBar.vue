@@ -1,9 +1,12 @@
 <!--
   MobileAppBar.vue
 
-  Mobile 2.0 top app bar: [GridMenu hamburger] [editable Grid Name] … [Undo].
-  Replaces the desktop top-bar (title editor) + floating undo on mobile. Emits
-  `open-menu` so the shell can open the MobileMenuDrawer.
+  Mobile 2.0 top app bar. Two modes:
+    - `grid` (default): [hamburger] [editable Grid Name] … [Undo]
+    - `home`:           [hamburger] [static "Your Grids"] … [New Grid]
+
+  Replaces the desktop top-bar (title editor / dashboard header) + floating undo
+  on mobile. Emits `open-menu` (open the drawer) and `new-grid` (home mode).
 -->
 <template>
   <header class="mobile-app-bar">
@@ -17,7 +20,11 @@
         <MenuIcon :size="24" />
       </button>
 
+      <h1 v-if="mode === 'home'" class="mab-title mab-title--static">
+        Your Grids
+      </h1>
       <h1
+        v-else
         ref="titleRef"
         class="mab-title"
         :class="{ 'mab-title--readonly': !canEdit }"
@@ -31,7 +38,16 @@
       </h1>
     </div>
 
+    <AppButton
+      v-if="mode === 'home'"
+      variant="secondary"
+      size="sm"
+      @click="emit('new-grid')"
+    >
+      New Grid
+    </AppButton>
     <button
+      v-else
       type="button"
       class="mab-btn"
       aria-label="Undo"
@@ -51,8 +67,14 @@ import { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import { useGridController } from "@/controllers/useGridController";
 import MenuIcon from "@/components/icons/MenuIcon.vue";
 import UndoIcon from "@/components/icons/UndoIcon.vue";
+import AppButton from "@/components/ui-elements/Button.vue";
 
-const emit = defineEmits<{ (e: "open-menu"): void }>();
+withDefaults(defineProps<{ mode?: "grid" | "home" }>(), { mode: "grid" });
+
+const emit = defineEmits<{
+  (e: "open-menu"): void;
+  (e: "new-grid"): void;
+}>();
 
 const sessionStore = useGridSessionStore();
 const viewportStore = useGridViewportStore();
@@ -166,6 +188,10 @@ const blurOnEnter = (event: KeyboardEvent) => {
   }
 
   &.mab-title--readonly {
+    cursor: default;
+  }
+
+  &.mab-title--static {
     cursor: default;
   }
 

@@ -151,12 +151,13 @@ export function useMobileExperience() {
   );
 
   /**
-   * Whether the Mobile 2.0 opt-in is offered on this device. Enrollment is
-   * open to everyone eligible, so this is the device gate today; kept as a
-   * distinct name so availability can be tightened later without touching
-   * call sites.
+   * Whether the Mobile 2.0 opt-in is offered to the user. Available on every
+   * device (including desktop/web) so users can enroll ahead of using their
+   * phone — the chrome itself still only renders on a mobile device (see
+   * `isMobile2`). Kept as a computed so availability can be tightened later
+   * without touching call sites.
    */
-  const canUseMobile2 = computed(() => isMobileDevice.value);
+  const canUseMobile2 = computed(() => true);
 
   /** Whether the user is enrolled in the Mobile 2.0 early access feature. */
   const isMobile2Enabled = readonly(_enrolled);

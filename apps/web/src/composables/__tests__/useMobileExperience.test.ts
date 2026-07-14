@@ -151,10 +151,10 @@ describe("canUseMobile2 — availability", () => {
     expect(canUseMobile2.value).toBe(true);
   });
 
-  it("does not offer the opt-in on desktop", () => {
+  it("also offers the opt-in on desktop so users can enroll ahead of time", () => {
     init({ width: DESKTOP_WIDTH, touch: false });
     const { canUseMobile2 } = useMobileExperience();
-    expect(canUseMobile2.value).toBe(false);
+    expect(canUseMobile2.value).toBe(true);
   });
 });
 

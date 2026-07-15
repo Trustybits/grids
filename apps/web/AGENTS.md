@@ -17,7 +17,7 @@ This package (`apps/web`) is the Vue front end. Its backend (data access + auth)
 
 ## Tech stack
 
-- **Frontend:** Vue 3 + Vite + TypeScript, Pinia stores, Vue Router (`src/router/index.ts`). Tiptap for rich text. `vue3-grid-layout` for the grid. `vuedraggable` for reordering. Mapbox GL for map tiles. Bootstrap 5 + SCSS tokens for styling.
+- **Frontend:** Vue 3 + Vite + TypeScript, Pinia stores, Vue Router (`src/router/index.ts`). Tiptap for rich text. `@griddle/vue` for the grid. `vuedraggable` for reordering. Mapbox GL for map tiles. Bootstrap 5 + SCSS tokens for styling.
 - **Data & auth boundary:** `apps/web` never talks to a database or auth SDK directly. It depends on DAO and `AuthProvider` interfaces from `@grids/contracts`, resolved at runtime through a factory/singleton. Production-oriented implementations come from `@grids/pro`, selected at boot in `src/main.ts` via `src/pro/loadProRuntime.ts`. When Firebase config is absent or invalid, the app falls back to the local stubs in `src/dao/stubbed/` and `src/auth/stubbed/`.
 - **Shared contracts:** cross-package types and interfaces (`Grid`, `Tile`, `TileContent`, `UserProfile`, the DAO interfaces, `AuthProvider`, etc.) live in `@grids/contracts` so both the app and its backend implementations agree on shapes.
 - **Client integrations:** Stripe (subscriptions — `src/services/StripeService.ts`, `useStripeCheckout`, `useSubscription`), PostHog (analytics + feature flags — `usePostHog`, `useFeatureFlags`), Notion OAuth (`NotionCallback.vue`, roadmap feed).

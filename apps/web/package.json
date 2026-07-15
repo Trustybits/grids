@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.7.2",
+    "@griddle/vue": "^0.1.4",
     "@grids/contracts": "file:../../packages/contracts",
     "@grids/pro": "file:../../packages/pro",
     "@sparticuz/chromium-min": "^147.0.0",
@@ -57,7 +58,6 @@
     "uuid": "^11.0.3",
     "vue": "^3.5.12",
     "vue-router": "^4.5.0",
-    "vue3-grid-layout": "^1.0.0",
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {

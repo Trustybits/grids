@@ -516,7 +516,7 @@ const interceptOutboundClick = (event: MouseEvent) => {
 
 /*
   Inner scaling layer. The grid is rendered at its natural pixel size so
-  vue3-grid-layout's positioning maths stay valid; we scale the entire
+  the Griddle engine's positioning maths stay valid; we scale the entire
   block with transform so all child sizes follow proportionally.
   Positioned absolutely inside the scroll-sizer so its un-transformed
   layout dimensions don't create unwanted overflow.
@@ -682,9 +682,9 @@ const interceptOutboundClick = (event: MouseEvent) => {
 }
 
 /*
-  vue3-grid-layout inserts its own container; make sure it doesn't pick up
-  any external margins, and that the grid wrapper's internal "p: No tiles
-  yet." fallback doesn't render with weird default margins.
+  Grid.vue renders GriddleGrid inside its own `.grid-container`; make sure
+  it doesn't pick up any external margins, and that the grid wrapper's
+  internal "No tiles yet" fallback doesn't render with weird default margins.
 
   text-align is force-reset to `left` here because the grid is embedded
   inside .mkt__hero which sets `text-align: center`, and that cascades

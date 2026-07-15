@@ -161,10 +161,9 @@ export function packGridLayout(
  * Applies vertical "gravity" to a layout: every item falls upward until it
  * rests on the top of the grid or on another item. Unlike {@link packGridLayout}
  * (which only resolves overlaps and out-of-bounds items, leaving vertical gaps
- * intact), this closes the empty space above tiles. It mirrors the compaction
- * that vue3-grid-layout performs when `verticalCompact` is enabled, so it can be
- * used to reposition tiles the instant gravity is toggled on. Items are returned
- * in their original input order.
+ * intact), this closes the empty space above tiles. It preserves the app's
+ * historical `verticalCompact` behavior, so it can reposition tiles the instant
+ * gravity is toggled on. Items are returned in their original input order.
  */
 export function compactGridLayout(
   items: readonly GridLayoutItem[],

@@ -421,6 +421,72 @@ describe("useColorPicker — fill vs overlay separation", () => {
   });
 });
 
+// ── "No fill" renders truly transparent ─────────────────────────────────────
+// The "no fill" swatch persists var(--color-content-background) — the opaque
+// page-background token. Rendered as-is it hides a grid background image, so it
+// must resolve to a transparent fill wherever it is applied.
+
+describe("useColorPicker — no-fill transparency", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    useGridSessionStore().setOwner(true);
+    vi.spyOn(useGridController(), "patchTileContent").mockImplementation(
+      () => {},
+    );
+  });
+
+  it("renders a stored no-fill background as transparent (text tile)", () => {
+    const content = makeTextContent("var(--color-content-background)");
+    const { backgroundColor } = useColorPicker(
+      null,
+      content,
+      noopEmit,
+    );
+
+    expect(backgroundColor.value).toBe("transparent");
+  });
+
+  it("emits transparent to the tile shell when no fill is chosen", async () => {
+    const events: Array<[string, string]> = [];
+    const emit = (type: "background-color-change" | "text-color-change", v: string) =>
+      events.push([type, v]);
+    const content = reactive(makeTextContent(""));
+
+    const { handleBackgroundColorChange } = useColorPicker(null, content, emit);
+    handleBackgroundColorChange("var(--color-content-background)");
+    await nextTick();
+
+    expect(events).toContainEqual([
+      "background-color-change",
+      "transparent",
+    ]);
+  });
+
+  it("renders a no-fill image fill as transparent (letterbox drops out)", () => {
+    const content = makeImageContent({
+      backgroundColor: "var(--color-content-background)",
+    });
+    const { backgroundColor, overlayColor } = useColorPicker(
+      null,
+      content,
+      noopEmit,
+      imageOptions,
+    );
+
+    expect(backgroundColor.value).toBe("transparent");
+    expect(overlayColor.value).toBeNull();
+  });
+
+  it("keeps the opaque default fill distinct from no fill", () => {
+    // An unset background falls back to the default tile background, which stays
+    // opaque — only the explicit "no fill" choice becomes transparent.
+    const content = makeTextContent("");
+    const { backgroundColor } = useColorPicker(null, content, noopEmit);
+
+    expect(backgroundColor.value).toBe("var(--color-tile-background)");
+  });
+});
+
 // ── computeTextColor ────────────────────────────────────────────────────────
 // Picks black or white text for legibility against a background, via relative
 // luminance. Structural CSS-variable backgrounds resolve through the theme
@@ -477,6 +543,15 @@ describe("computeTextColor", () => {
       expect(computeTextColor("var(--color-content-background)")).toBe(
         "#000000",
       );
+    });
+
+    it("resolves a transparent (no-fill) tile against the page background", () => {
+      // Text on a transparent tile must contrast with the page/grid background
+      // it reveals, not the (absent) tile fill.
+      useThemeStore().currentThemeId = "dark";
+      expect(computeTextColor("transparent")).toBe("#FFFFFF");
+      useThemeStore().currentThemeId = "light";
+      expect(computeTextColor("transparent")).toBe("#000000");
     });
   });
 

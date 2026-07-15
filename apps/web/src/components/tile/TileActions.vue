@@ -114,6 +114,7 @@ import DownloadCloudIcon from "@/components/icons/tile-actionbar/DownloadCloudIc
 import CloseIcon from "@/components/icons/tile-actionbar/CloseIcon.vue";
 import LogOutIcon from "@/components/icons/tile-actionbar/LogOutIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
+import { TILE_GEOMETRY_VERSION } from "@/grid-context/tileInteractionKeys";
 
 // Cache server-approved download URLs per `ownerId:hash` so many tiles
 // referencing the same file (and re-renders) don't each call the function.
@@ -139,6 +140,7 @@ export default defineComponent({
   emits: ["delete"],
   setup(props, { emit }) {
     const gridView = proxyRefs(useGridViewContext());
+    const tileGeometryVersion = inject(TILE_GEOMETRY_VERSION, ref(0));
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
     const isEmbedInteractive = inject<Ref<boolean>>("isEmbedInteractive", ref(false));
     // Provided by Tile.vue — mirrors the hover/activation/embed visibility that
@@ -195,6 +197,8 @@ export default defineComponent({
     };
 
     let rafId: number | null = null;
+    let settleRafId: number | null = null;
+    let settleUntil = 0;
     const schedulePosition = () => {
       if (rafId != null) return;
       rafId = requestAnimationFrame(() => {
@@ -202,6 +206,27 @@ export default defineComponent({
         updateFloatingPosition();
       });
     };
+
+    const followPositionDuringSettle = () => {
+      settleUntil = performance.now() + 280;
+      if (settleRafId != null) return;
+      const followFrame = () => {
+        updateFloatingPosition();
+        if (performance.now() < settleUntil) {
+          settleRafId = requestAnimationFrame(followFrame);
+        } else {
+          settleRafId = null;
+        }
+      };
+      settleRafId = requestAnimationFrame(followFrame);
+    };
+
+    watch(tileGeometryVersion, async () => {
+      if (!actionsShown.value) return;
+      await nextTick();
+      updateFloatingPosition();
+      followPositionDuringSettle();
+    });
 
     // Keep the teleported bar pinned to its tile while visible (the tile can
     // move on scroll/resize). Listeners are only active while shown.
@@ -216,6 +241,8 @@ export default defineComponent({
       onCleanup(() => {
         if (rafId != null) cancelAnimationFrame(rafId);
         rafId = null;
+        if (settleRafId != null) cancelAnimationFrame(settleRafId);
+        settleRafId = null;
         window.removeEventListener("resize", schedulePosition);
         window.removeEventListener("scroll", schedulePosition, {
           capture: true,
@@ -226,6 +253,7 @@ export default defineComponent({
     onMounted(updateFloatingPosition);
     onBeforeUnmount(() => {
       if (rafId != null) cancelAnimationFrame(rafId);
+      if (settleRafId != null) cancelAnimationFrame(settleRafId);
     });
 
     const isSuggestionTile = computed(

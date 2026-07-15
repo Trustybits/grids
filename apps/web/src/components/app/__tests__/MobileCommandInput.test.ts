@@ -61,6 +61,35 @@ describe("MobileCommandInput", () => {
     expect(updates[updates.length - 1]).toEqual(["world"]);
   });
 
+  it("emits unpin after two backspaces on an empty field, but not with content or a single press", async () => {
+    const empty = mountInput({ filterLabel: "/MAP", modelValue: "" });
+    const input = empty.get(".mci-input");
+
+    await input.trigger("keydown", { key: "Backspace" });
+    expect(empty.emitted("unpin")).toBeUndefined();
+    await input.trigger("keydown", { key: "Backspace" });
+    expect(empty.emitted("unpin")).toHaveLength(1);
+
+    // With content, backspaces delete text and never unpin.
+    const withText = mountInput({ filterLabel: "/MAP", modelValue: "japan" });
+    const textInput = withText.get(".mci-input");
+    await textInput.trigger("keydown", { key: "Backspace" });
+    await textInput.trigger("keydown", { key: "Backspace" });
+    expect(withText.emitted("unpin")).toBeUndefined();
+  });
+
+  it("resets the empty-backspace counter when the user types", async () => {
+    const wrapper = mountInput({ filterLabel: "/MAP", modelValue: "" });
+    const input = wrapper.get(".mci-input");
+
+    await input.trigger("keydown", { key: "Backspace" });
+    await input.setValue("a");
+    await wrapper.setProps({ modelValue: "" });
+    await input.trigger("keydown", { key: "Backspace" });
+    // Only one empty backspace since typing reset the counter.
+    expect(wrapper.emitted("unpin")).toBeUndefined();
+  });
+
   it("exposes focus() that focuses the input", () => {
     const wrapper = mount(MobileCommandInput, {
       props: { modelValue: "", placeholders: [], filterLabel: "/TILE" },

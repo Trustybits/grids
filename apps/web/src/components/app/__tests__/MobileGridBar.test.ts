@@ -217,6 +217,29 @@ describe("MobileGridBar", () => {
     expect(holder.submitCommand).toHaveBeenCalledWith("japan", "map");
   });
 
+  it("un-pins the type (chip → /TILE) after two backspaces on an empty field", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Add a tile"]').trigger("click");
+    await flush(wrapper);
+
+    const mapCard = wrapper
+      .findAll(".tile-carousel__card")
+      .find((card) => card.text() === "Map");
+    await mapCard?.trigger("click");
+    await flush(wrapper);
+    expect(wrapper.get(".mci-chip").text()).toBe("/MAP");
+
+    const input = wrapper.get(".mci-input");
+    await input.trigger("keydown", { key: "Backspace" });
+    await input.trigger("keydown", { key: "Backspace" });
+    await flush(wrapper);
+
+    // Still in add mode, but the type is cleared back to the generic chip.
+    expect(wrapper.find(".mci").exists()).toBe(true);
+    expect(wrapper.get(".mci-chip").text()).toBe("/TILE");
+    expect(wrapper.find(".tile-carousel__card--selected").exists()).toBe(false);
+  });
+
   it("copies the grid link when Share is tapped", async () => {
     const wrapper = await mountBar();
     await wrapper.get('[aria-label="Share"]').trigger("click");

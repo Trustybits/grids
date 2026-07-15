@@ -215,6 +215,9 @@ Post-review polish (from maintainer feedback):
       `useTileCreation.matchCommandPrefix` / `submitCommand`; `MobileGridBar` watches the query and
       strips the recognized prefix live so the field shows only the content. Matches on the type's
       id/label (command-kind only); a trailing space alone pins with empty content.
+- [x] Un-pin via keyboard: two backspaces on an empty field revert a pinned type back to `/TILE`
+      (chip + highlight clear) instead of closing the surface. `MobileCommandInput` counts the empty
+      backspaces and emits `unpin`; `MobileGridBar` clears `activeType`.
 - [x] The map tile's rough first-load appearance (compact Mapbox attribution "ℹ" button + default
       framing) is tracked separately as [#183](https://github.com/Trustybits/grids/issues/183); it
       is pre-existing and unrelated to the Mobile 2.0 chrome (same creation path as desktop).

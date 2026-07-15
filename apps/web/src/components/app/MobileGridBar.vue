@@ -90,6 +90,7 @@
         @submit="onSubmit"
         @toggle-view="toggleView"
         @close="closeAdd"
+        @unpin="onUnpin"
       />
     </MobileCommandBar>
 
@@ -286,6 +287,12 @@ const onSelectType = (id: string) => {
 const onSubmit = async (value: string) => {
   const tileId = await submitCommand(value, activeType.value);
   if (tileId) closeAdd();
+};
+
+// Two backspaces on an empty field un-pin the active command type (chip reverts
+// to `/TILE`) rather than closing the whole surface.
+const onUnpin = () => {
+  if (activeType.value) activeType.value = null;
 };
 
 const onImageFile = async (event: Event) => {

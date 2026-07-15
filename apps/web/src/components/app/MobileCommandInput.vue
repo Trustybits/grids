@@ -28,7 +28,7 @@
       autocorrect="off"
       spellcheck="false"
       @input="onInput"
-      @keydown.enter.prevent="onSubmit"
+      @keydown="onKeydown"
     />
 
     <button
@@ -89,6 +89,8 @@ const emit = defineEmits<{
   submit: [value: string];
   "toggle-view": [];
   close: [];
+  /** Two backspaces on an empty field — the parent clears any pinned type. */
+  unpin: [];
 }>();
 
 const inputRef = ref<HTMLInputElement | null>(null);
@@ -170,13 +172,36 @@ const startTypewriter = () => {
   tick();
 };
 
+// Counts consecutive Backspace presses while the field is empty; two in a row
+// clear the active type filter (chip → the generic `/TILE`). Any other key or
+// input resets it.
+const emptyBackspaces = ref(0);
+
 const onInput = (event: Event) => {
   const value = (event.target as HTMLInputElement).value;
+  emptyBackspaces.value = 0;
   emit("update:modelValue", value);
   syncPlaceholder();
 };
 
 const onSubmit = () => emit("submit", props.modelValue);
+
+const onKeydown = (event: KeyboardEvent) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    onSubmit();
+    return;
+  }
+  if (event.key === "Backspace" && !props.modelValue) {
+    emptyBackspaces.value += 1;
+    if (emptyBackspaces.value >= 2) {
+      emptyBackspaces.value = 0;
+      emit("unpin");
+    }
+    return;
+  }
+  emptyBackspaces.value = 0;
+};
 
 // Selecting a tile type swaps in its fixed prompt; clearing it resumes rotation.
 watch(

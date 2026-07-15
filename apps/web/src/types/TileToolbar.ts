@@ -7,6 +7,7 @@ export interface ToolbarContext {
   tile: Tile;
   childComponent: Ref<TileChildComponent | null>;
   gridView: ShallowUnwrapRef<GridViewContext>;
+  resizeTile?: (tileId: string, width: number, height: number) => void;
   isEditing: Ref<boolean>;
   isExitingCropMode: Ref<boolean>;
 }

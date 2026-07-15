@@ -57,22 +57,37 @@ vi.mock("@/utils/TileUtils", async (importActual) => {
   };
 });
 
-vi.mock("vue3-grid-layout", async () => {
+// Stub only the visual GriddleGrid component (keep the real useGriddle engine)
+// so it renders every demo tile via the #tile slot without virtualization —
+// jsdom has no layout, so the real component would cull all tiles.
+vi.mock("@griddle/vue", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@griddle/vue")>();
   const { defineComponent, h } = await import("vue");
 
   return {
-    GridLayout: defineComponent({
-      name: "GridLayoutStub",
-      emits: ["layout-ready", "layout-updated"],
-      setup(_props, { slots }) {
-        return () => h("div", { "data-test": "grid-layout" }, slots.default?.());
+    ...actual,
+    GriddleGrid: defineComponent({
+      name: "GriddleGridStub",
+      props: {
+        api: { type: Object, required: true },
       },
-    }),
-    GridItem: defineComponent({
-      name: "GridItemStub",
-      emits: ["move", "moved", "resize", "resized"],
-      setup(_props, { slots }) {
-        return () => h("div", { "data-test": "grid-item" }, slots.default?.());
+      emits: ["dragStart", "dragEnd", "resizeStart", "resizeEnd"],
+      setup(props, { slots }) {
+        return () =>
+          h(
+            "div",
+            { "data-test": "griddle-grid" },
+            (
+              props.api as { tiles: { value: { id: string }[] } }
+            ).tiles.value.map((tile) =>
+              h(
+                "div",
+                { key: tile.id, "data-test": "grid-item" },
+                slots.tile?.({ tile, selected: false }),
+              ),
+            ),
+          );
       },
     }),
   };
@@ -182,7 +197,7 @@ describe("LandingPageGridEmbed canvas isolation", () => {
     await flushPromises();
     await flushPromises();
 
-    expect(wrapper.find('[data-test="grid-layout"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="griddle-grid"]').exists()).toBe(true);
     expect(wrapper.findAll('[data-test="grid-item"]').length).toBeGreaterThan(0);
     expect(dependencySpies.createLiveGridViewContext).not.toHaveBeenCalled();
     expect(dependencySpies.getServiceFactory).not.toHaveBeenCalled();

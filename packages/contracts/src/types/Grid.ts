@@ -13,6 +13,15 @@ export type ResponsiveLayoutVersion =
   (typeof RESPONSIVE_LAYOUT_VERSIONS)[number];
 
 /**
+ * Read-time classification of the stored responsive-layout value. This is
+ * transient domain metadata: persistence payloads must never write it.
+ */
+export type ResponsiveLayoutVersionStatus =
+  | "missing"
+  | "supported"
+  | "unsupported";
+
+/**
  * Eventual launch default for newly created grids. Production creation remains
  * separately gated until the finalized Griddle strategy is launch-ready.
  */
@@ -40,13 +49,28 @@ export function resolveResponsiveLayoutVersion(
     : LEGACY_RESPONSIVE_LAYOUT_VERSION;
 }
 
+export function getResponsiveLayoutVersionStatus(
+  value: unknown,
+): ResponsiveLayoutVersionStatus {
+  if (value === undefined) return "missing";
+  return isResponsiveLayoutVersion(value) ? "supported" : "unsupported";
+}
+
 /**
  * Only an unstamped grid or one explicitly pinned to legacy-v1 may use the
  * irreversible legacy-to-Griddle upgrade command. Unknown future versions are
  * rendered defensively as legacy but must never be overwritten automatically.
+ * DAO-normalized callers must pass the accompanying read status so an
+ * unsupported stored value remains distinguishable from true legacy.
  */
-export function isResponsiveLayoutUpgradeEligible(value: unknown): boolean {
-  return value === undefined || value === LEGACY_RESPONSIVE_LAYOUT_VERSION;
+export function isResponsiveLayoutUpgradeEligible(
+  value: unknown,
+  status?: ResponsiveLayoutVersionStatus,
+): boolean {
+  return (
+    status !== "unsupported" &&
+    (value === undefined || value === LEGACY_RESPONSIVE_LAYOUT_VERSION)
+  );
 }
 
 // Controls how much content is carried over when duplicating a grid.
@@ -61,6 +85,8 @@ export interface Grid {
   name: string;
   colNum: number;
   responsiveLayoutVersion?: ResponsiveLayoutVersion;
+  /** Transient read metadata; never persisted to the grid document. */
+  responsiveLayoutVersionStatus?: ResponsiveLayoutVersionStatus;
   verticalCompact: boolean;
   backgroundImageSrc: string;
   backgroundImageHash?: string;

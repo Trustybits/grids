@@ -58,7 +58,7 @@ export class StubbedGridDao implements GridDao {
       | Record<string, unknown>
       | undefined;
     this.assertExpectedRev(id, existing, expectedRev);
-    memoryDatabase.grids.set(id, toGrid(id, mergeRecord(existing, data)));
+    memoryDatabase.grids.set(id, toGrid(id, mergeGridRecord(existing, data)));
     emitGridChanged(id);
   }
 
@@ -71,7 +71,7 @@ export class StubbedGridDao implements GridDao {
       | Record<string, unknown>
       | undefined;
     this.assertExpectedRev(id, existing, expectedRev);
-    memoryDatabase.grids.set(id, toGrid(id, mergeRecord(existing, data)));
+    memoryDatabase.grids.set(id, toGrid(id, mergeGridRecord(existing, data)));
     emitGridChanged(id);
   }
 
@@ -109,4 +109,15 @@ export class StubbedGridDao implements GridDao {
       );
     }
   }
+}
+
+function mergeGridRecord(
+  existing: Record<string, unknown> | undefined,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged = mergeRecord(existing, patch);
+  if (Object.prototype.hasOwnProperty.call(patch, "responsiveLayoutVersion")) {
+    delete merged.responsiveLayoutVersionStatus;
+  }
+  return merged;
 }

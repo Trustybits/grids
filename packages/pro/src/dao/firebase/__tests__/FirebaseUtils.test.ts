@@ -62,6 +62,7 @@ describe("mapFirestoreToGrid", () => {
       name: "My Grid",
       colNum: 6,
       responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersionStatus: "supported",
       verticalCompact: false,
       tiles,
       backgroundImageSrc: "https://img.png",
@@ -88,6 +89,7 @@ describe("mapFirestoreToGrid", () => {
       name: "Untitled",
       colNum: 12,
       responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersionStatus: "missing",
       verticalCompact: true,
       tiles: [],
       backgroundImageSrc: "",
@@ -149,5 +151,6 @@ describe("mapFirestoreToGrid", () => {
     expect(grid.responsiveLayoutVersion).toBe(
       LEGACY_RESPONSIVE_LAYOUT_VERSION,
     );
+    expect(grid.responsiveLayoutVersionStatus).toBe("unsupported");
   });
 });

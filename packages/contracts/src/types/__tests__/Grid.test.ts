@@ -4,6 +4,7 @@ import {
   LEGACY_RESPONSIVE_LAYOUT_VERSION,
   NEW_GRID_RESPONSIVE_LAYOUT_VERSION,
   RESPONSIVE_LAYOUT_VERSIONS,
+  getResponsiveLayoutVersionStatus,
   isResponsiveLayoutUpgradeEligible,
   isResponsiveLayoutVersion,
   resolveResponsiveLayoutVersion,
@@ -45,5 +46,28 @@ describe("responsive layout version contract", () => {
     expect(isResponsiveLayoutUpgradeEligible("griddle-v2")).toBe(false);
     expect(isResponsiveLayoutUpgradeEligible(null)).toBe(false);
     expect(isResponsiveLayoutUpgradeEligible("")).toBe(false);
+  });
+
+  it("retains unsupported read status after defensive normalization", () => {
+    expect(getResponsiveLayoutVersionStatus(undefined)).toBe("missing");
+    expect(getResponsiveLayoutVersionStatus("legacy-v1")).toBe("supported");
+    expect(getResponsiveLayoutVersionStatus("griddle-v1")).toBe("supported");
+    expect(getResponsiveLayoutVersionStatus("griddle-v2")).toBe(
+      "unsupported",
+    );
+    expect(getResponsiveLayoutVersionStatus(null)).toBe("unsupported");
+
+    expect(
+      isResponsiveLayoutUpgradeEligible("legacy-v1", "missing"),
+    ).toBe(true);
+    expect(
+      isResponsiveLayoutUpgradeEligible("legacy-v1", "supported"),
+    ).toBe(true);
+    expect(
+      isResponsiveLayoutUpgradeEligible("legacy-v1", "unsupported"),
+    ).toBe(false);
+    expect(
+      isResponsiveLayoutUpgradeEligible("griddle-v1", "supported"),
+    ).toBe(false);
   });
 });

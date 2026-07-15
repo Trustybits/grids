@@ -246,13 +246,10 @@ export class GridService implements GridServiceInterface {
     mode: "save" | "update",
     nextRev: number,
   ): Record<string, unknown> {
-    const editableFields = {
+    const editableFields: Record<string, unknown> = {
       rev: nextRev,
       name: grid.name,
       colNum: grid.colNum,
-      responsiveLayoutVersion: resolveResponsiveLayoutVersion(
-        grid.responsiveLayoutVersion,
-      ),
       verticalCompact: grid.verticalCompact,
       // Safety net: strip any blob: URLs that weren't already resolved
       tiles: stripBlobUrlsFromTiles(grid.tiles as unknown[]),
@@ -266,6 +263,14 @@ export class GridService implements GridServiceInterface {
       duplicatable: grid.duplicatable ?? false,
       updatedAt: this.dbUtils.serverTimestamp(),
     };
+
+    // An older client must render an unknown future version defensively as
+    // legacy without downgrading the stored compatibility marker on save.
+    if (grid.responsiveLayoutVersionStatus !== "unsupported") {
+      editableFields.responsiveLayoutVersion = resolveResponsiveLayoutVersion(
+        grid.responsiveLayoutVersion,
+      );
+    }
 
     if (mode === "update") {
       return this.dbUtils.sanitizeValue(editableFields) as Record<

@@ -288,6 +288,21 @@ describe('saveGrid', () => {
     )
   })
 
+  it('does not overwrite an unsupported stored responsive layout version on save', async () => {
+    const grid = makeGrid({
+      responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersionStatus: 'unsupported',
+    })
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    await service.saveGrid(grid)
+
+    const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('responsiveLayoutVersion')
+    expect(payload).not.toHaveProperty('responsiveLayoutVersionStatus')
+  })
+
   it('defaults themeId to "dark" when not set', async () => {
     const grid = makeGrid({ themeId: undefined })
     mockGridDao.save.mockResolvedValueOnce(undefined)
@@ -436,6 +451,21 @@ describe('updateGrid', () => {
     )
     expect(payload.updatedAt).toBe('SERVER_TS')
     expect(mockGridDao.update).toHaveBeenCalledWith('grid-1', expect.any(Object), 0)
+  })
+
+  it('does not overwrite an unsupported stored responsive layout version on update', async () => {
+    const grid = makeGrid({
+      responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersionStatus: 'unsupported',
+    })
+    mockGridDao.update.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    await service.updateGrid(grid)
+
+    const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('responsiveLayoutVersion')
+    expect(payload).not.toHaveProperty('responsiveLayoutVersionStatus')
   })
 
   it('bumps rev on update payloads', async () => {
@@ -672,6 +702,26 @@ describe('duplicateGrid', () => {
     const result = await service.duplicateGrid('user-2', source, [], {})
 
     expect(result.responsiveLayoutVersion).toBe(
+      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+    )
+  })
+
+  it('normalizes an unsupported source to legacy-v1 for the new duplicate', async () => {
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+    const source = makeGrid({
+      responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersionStatus: 'unsupported',
+    })
+
+    const service = await getService()
+    const result = await service.duplicateGrid('user-2', source, [], {})
+
+    expect(result.responsiveLayoutVersion).toBe(
+      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+    )
+    expect(result.responsiveLayoutVersionStatus).toBeUndefined()
+    const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
+    expect(payload.responsiveLayoutVersion).toBe(
       LEGACY_RESPONSIVE_LAYOUT_VERSION,
     )
   })

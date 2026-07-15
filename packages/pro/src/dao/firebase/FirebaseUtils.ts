@@ -1,4 +1,5 @@
 import {
+  getResponsiveLayoutVersionStatus,
   resolveResponsiveLayoutVersion,
   type Grid,
 } from "@grids/contracts/types";
@@ -16,6 +17,9 @@ export function mapFirestoreToGrid(
     name: data.name || "Untitled",
     colNum: data.colNum || 12,
     responsiveLayoutVersion: resolveResponsiveLayoutVersion(
+      data.responsiveLayoutVersion,
+    ),
+    responsiveLayoutVersionStatus: getResponsiveLayoutVersionStatus(
       data.responsiveLayoutVersion,
     ),
     verticalCompact:

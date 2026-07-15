@@ -56,6 +56,7 @@ describe("MockGridService responsive layout normalization", () => {
     expect(grid.responsiveLayoutVersion).toBe(
       LEGACY_RESPONSIVE_LAYOUT_VERSION,
     );
+    expect(grid.responsiveLayoutVersionStatus).toBe("supported");
   });
 
   it("normalizes an unstamped saved grid to legacy-v1", async () => {
@@ -67,6 +68,7 @@ describe("MockGridService responsive layout normalization", () => {
     expect(grid.responsiveLayoutVersion).toBe(
       LEGACY_RESPONSIVE_LAYOUT_VERSION,
     );
+    expect(grid.responsiveLayoutVersionStatus).toBe("missing");
   });
 
   it("preserves griddle-v1 when duplicating", async () => {
@@ -83,5 +85,20 @@ describe("MockGridService responsive layout normalization", () => {
     expect(grid.responsiveLayoutVersion).toBe(
       GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     );
+    expect(grid.responsiveLayoutVersionStatus).toBe("supported");
+  });
+
+  it("retains unsupported read status while rendering as legacy-v1", async () => {
+    const service = new MockGridService();
+    const grid = await service.saveGrid(
+      makeGrid({
+        responsiveLayoutVersion: "griddle-v2" as never,
+      }),
+    );
+
+    expect(grid.responsiveLayoutVersion).toBe(
+      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+    );
+    expect(grid.responsiveLayoutVersionStatus).toBe("unsupported");
   });
 });

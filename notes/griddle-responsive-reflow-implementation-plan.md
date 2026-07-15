@@ -1,6 +1,6 @@
 # Griddle Responsive Reflow and Projection Versioning — Implementation Plan
 
-**Status:** Implementation in progress. Steps 0 through 4 are complete; Step 5
+**Status:** Implementation in progress. Steps 0 through 5 are complete; Step 6
 has not started. Bootstrap parity and final-algorithm launch remain
 intentionally separate phases.
 
@@ -438,7 +438,9 @@ production.
 
 - Normalized missing, malformed, and unsupported responsive-layout values to
   `legacy-v1` in the Firebase mapper, stubbed database mapper, and mock grid
-  service while preserving explicit supported values.
+  service while preserving explicit supported values. Read-time status remains
+  transiently available so unknown future values stay ineligible for upgrade
+  and ordinary saves do not overwrite them with `legacy-v1`.
 - Made `createDefaultGrid()` use the eventual `griddle-v1` new-grid default,
   but routed real `GridService.createGrid()` calls through the single
   deployment-wide creation gate, which remains pinned to `legacy-v1` during
@@ -487,6 +489,34 @@ production.
 
 **Exit criterion:** maintainers can prove the candidate count, safely stamp only
 missing documents, and rerun the operation with zero additional writes.
+
+**Step 5 implementation record (2026-07-15):**
+
+- Added the compiled `backfillResponsiveLayoutVersion` maintainer CLI and the
+  `responsive-layout:backfill` package command.
+- Required an explicit `--project`; dry-run remains the default, and writes
+  require both `--commit` and an exact `--confirm <project>`. Existing Firebase
+  project environment variables must also match the selected project.
+- Added deterministic document-ID pagination in 300-document pages and stable
+  counters for scanned pages/documents, missing candidates, explicit supported
+  values, unknown values, proposed/actual writes, and concurrent skips.
+- Selected only documents where `responsiveLayoutVersion` is truly absent.
+  Explicit `legacy-v1`, `griddle-v1`, null/malformed, and unknown future values
+  are counted but never rewritten.
+- Re-read each commit candidate inside a Firestore transaction and update only
+  `{ responsiveLayoutVersion: "legacy-v1" }` if the field is still absent.
+  Concurrent field additions and document deletion are skipped; interrupted
+  runs remain safe to resume and completed runs are idempotent.
+- Added 20 isolated tests covering argument/confirmation guards, project
+  mismatch protection, pagination, default dry-run, missing-only selection,
+  Firestore query/update shape, concurrent changes, idempotent reruns, cursor
+  safety, and deterministic summaries.
+- Verification: the compiled CLI returned exit code 1 before Firebase access
+  for missing-project and unconfirmed-commit invocations. Contracts passed 25
+  tests, Pro passed 242 tests, Firebase Functions passed 914 tests, and web
+  passed 2,615 tests across 142 files; all builds, type-checks, and lints passed.
+- The backfill was not run against any Firebase project, so no documents were
+  changed.
 
 ## Step 6 — Route projection by effective version in the web app
 

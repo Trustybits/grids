@@ -1,4 +1,5 @@
 import {
+  getResponsiveLayoutVersionStatus,
   resolveResponsiveLayoutVersion,
   type AnalyticsEvent,
   type BusinessStats,
@@ -154,6 +155,13 @@ export function todayIsoDate(): string {
 }
 
 export function toGrid(id: string, data: Record<string, unknown>): Grid {
+  const responsiveLayoutVersionStatus =
+    data.responsiveLayoutVersionStatus === "missing" ||
+    data.responsiveLayoutVersionStatus === "supported" ||
+    data.responsiveLayoutVersionStatus === "unsupported"
+      ? data.responsiveLayoutVersionStatus
+      : getResponsiveLayoutVersionStatus(data.responsiveLayoutVersion);
+
   return {
     id,
     userId: typeof data.userId === "string" ? data.userId : "",
@@ -163,6 +171,7 @@ export function toGrid(id: string, data: Record<string, unknown>): Grid {
     responsiveLayoutVersion: resolveResponsiveLayoutVersion(
       data.responsiveLayoutVersion,
     ),
+    responsiveLayoutVersionStatus,
     verticalCompact:
       typeof data.verticalCompact === "boolean" ? data.verticalCompact : true,
     backgroundImageSrc:

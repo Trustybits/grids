@@ -243,6 +243,7 @@ describe("toGrid", () => {
       name: "Untitled",
       colNum: 12,
       responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersionStatus: "missing",
       verticalCompact: true,
       backgroundImageSrc: "",
       backgroundImageHash: undefined,
@@ -265,6 +266,7 @@ describe("toGrid", () => {
       name: "My Grid",
       colNum: 6,
       responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersionStatus: "supported",
       verticalCompact: false,
       duplicatable: true,
       themeId: "dark",
@@ -297,7 +299,23 @@ describe("toGrid", () => {
     expect(result.responsiveLayoutVersion).toBe(
       LEGACY_RESPONSIVE_LAYOUT_VERSION,
     );
+    expect(result.responsiveLayoutVersionStatus).toBe("unsupported");
     expect(result.tiles).toEqual([]);
+  });
+
+  it("retains unsupported status across stubbed database remapping", () => {
+    const first = toGrid("grid-future", {
+      responsiveLayoutVersion: "griddle-v2",
+    });
+    const second = toGrid(
+      "grid-future",
+      first as unknown as Record<string, unknown>,
+    );
+
+    expect(second.responsiveLayoutVersion).toBe(
+      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+    );
+    expect(second.responsiveLayoutVersionStatus).toBe("unsupported");
   });
 
   it("clones tiles instead of holding the source reference", () => {

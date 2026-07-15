@@ -1,4 +1,5 @@
 import {
+  getResponsiveLayoutVersionStatus,
   LEGACY_RESPONSIVE_LAYOUT_VERSION,
   resolveResponsiveLayoutVersion,
   type Grid,
@@ -66,6 +67,9 @@ function normalizeMockGrid(grid: Grid): Grid {
     responsiveLayoutVersion: resolveResponsiveLayoutVersion(
       grid.responsiveLayoutVersion,
     ),
+    responsiveLayoutVersionStatus:
+      grid.responsiveLayoutVersionStatus ??
+      getResponsiveLayoutVersionStatus(grid.responsiveLayoutVersion),
   };
 }
 

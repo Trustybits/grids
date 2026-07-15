@@ -21,6 +21,7 @@
       'embed-is-interactive': isEmbedInteractive,
     }"
     :data-border="borderVisible ? 'on' : 'off'"
+    :data-no-fill="isTransparentBackground ? 'on' : 'off'"
     :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
     :data-suggestion="isSuggestion ? 'true' : 'false'"
     :data-active-zone="hoveredToolbarZone || ''"
@@ -310,6 +311,13 @@ export default defineComponent({
       const bg = contentBackgroundColor.value;
       return !!bg && bg !== "var(--color-tile-background)";
     });
+
+    // A no-fill tile resolves its background to `transparent`. The card body's
+    // backdrop blur must be dropped in that case, otherwise it frosts the grid
+    // background showing through and leaves a visible edge at the tile bounds.
+    const isTransparentBackground = computed(
+      () => contentBackgroundColor.value === "transparent",
+    );
 
     const showCaption = computed(() => {
       const def = getTileDefinition(props.tile.content.type);
@@ -813,6 +821,7 @@ export default defineComponent({
       contentBackgroundColor,
       contentTextColor,
       hasCustomTileColor,
+      isTransparentBackground,
       onContentBackgroundColorChange,
       onContentTextColorChange,
 
@@ -1028,6 +1037,14 @@ export default defineComponent({
   .card-body {
     background-color: var(--tile-bg);
   }
+}
+
+/* No-fill tiles render truly transparent so the grid background shows through.
+   Drop the backdrop blur too — otherwise it frosts that background and leaves a
+   visible edge where the blur boundary meets the tile bounds. */
+.tile-wrapper[data-no-fill="on"] .card-body {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .meta-data {

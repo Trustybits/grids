@@ -292,7 +292,9 @@ export const computeTextColor = (backgroundColor: string, modifier: string = "no
   } else if (bg === "var(--color-tile-background)") {
     const ts = useThemeStore();
     hex = ts.isDarkMode ? "#000000" : "#FFFEF5";
-  } else if (bg === "var(--color-content-background)") {
+  } else if (bg === "var(--color-content-background)" || bg === "transparent") {
+    // A transparent (no-fill) tile shows the page/grid background behind it, so
+    // pick legible text against that page background rather than the tile fill.
     const ts = useThemeStore();
     hex = ts.isDarkMode ? "#10100E" : "#FFFEF5";
   } else {
@@ -315,10 +317,20 @@ const getLuminance = (hex: string): number => {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 };
 
+// The "no fill" swatch persists the page-background token as its sentinel.
+// That token is an opaque, theme-dependent color (the same one painted behind
+// the whole page), so it only *looks* fill-less while no grid background image
+// is set. With a grid background active it covers the image instead of dropping
+// out. Render it as a truly transparent fill so "no fill" removes the tile
+// background everywhere and the grid background shows through.
+const NO_FILL_COLOR = "var(--color-content-background)";
+const TRANSPARENT_FILL = "transparent";
+
 const resolveBackgroundColor = (
   backgroundColor?: string,
   fallback: string = "var(--color-tile-background)",
 ): string => {
   // Treat an empty string (a cleared fill) the same as an unset one.
-  return backgroundColor || fallback;
+  const resolved = backgroundColor || fallback;
+  return resolved === NO_FILL_COLOR ? TRANSPARENT_FILL : resolved;
 };

@@ -9,164 +9,137 @@
   ></div>
 
   <div
-    class="grid-item-container"
+    class="tile-wrapper"
     :class="{
-      'crop-mode-elevated': (isEditing || isExitingCropMode) && isCroppable,
+      'crop-mode-elevated':
+        (isEditing || isExitingCropMode) && isCroppable,
+      'crop-mode-active': isEditing && isCroppable,
+      'crop-mode-exiting': isExitingCropMode && isCroppable,
+      'is-dragging': isDragging,
+      'is-exiting': isExiting,
+      'is-activated': isActivated,
+      'embed-is-interactive': isEmbedInteractive,
     }"
+    :data-border="borderVisible ? 'on' : 'off'"
+    :data-no-fill="isTransparentBackground ? 'on' : 'off'"
+    :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
+    :data-suggestion="isSuggestion ? 'true' : 'false'"
+    :data-active-zone="hoveredToolbarZone || ''"
+    :data-tile-type="tile.content.type"
+    :data-tile-w="layout.w"
+    :data-tile-h="layout.h"
+    :style="[
+      tileStyle,
+      {
+        '--tile-resize-handle-color':
+          hasCustomTileColor && contentTextColor
+            ? contentTextColor
+            : undefined,
+      },
+    ]"
+    ref="gridTileRef"
+    @mouseenter="isHovered = true"
+    @mouseleave="isHovered = false"
   >
-    <GridItem
-      :i="tile.i"
-      :x="layout.x"
-      :y="layout.y"
-      :w="layout.w"
-      :h="layout.h"
-      :style="tileStyle"
-      :minW="1"
-      :minH="1"
-      :maxW="10"
-      :maxH="10"
-      :isDraggable="isTileDraggable"
-      :isResizable="isTileResizable"
-      dragIgnoreFrom="a, button, input, .tile-caption"
-      @move="onMove"
-      @moved="onMoved"
-      @resize="onResize"
-      @resized="onResized"
+    <!-- Visual Frame with Overflow Hidden -->
+    <div
+      class="card-body"
+      :style="{
+        '--tile-bg': !!contentBackgroundColor
+          ? contentBackgroundColor
+          : 'var(--color-tile-background)',
+        '--tile-text-color': !!contentTextColor
+          ? contentTextColor
+          : 'var(--color-text-primary)',
+      }"
     >
-      <div
-        class="tile-wrapper"
-        :class="{
-          'crop-mode-active': isEditing && isCroppable,
-          'crop-mode-exiting': isExitingCropMode && isCroppable,
-          'is-dragging': isDragging,
-          'is-exiting': isExiting,
-          'is-activated': isActivated,
-          'embed-is-interactive': isEmbedInteractive,
-        }"
-        :data-border="borderVisible ? 'on' : 'off'"
-        :data-no-fill="isTransparentBackground ? 'on' : 'off'"
-        :data-link-background="linkBackgroundEnabled ? 'on' : 'off'"
-        :data-suggestion="isSuggestion ? 'true' : 'false'"
-        :data-active-zone="hoveredToolbarZone || ''"
-        :data-tile-type="tile.content.type"
-        :data-tile-w="layout.w"
-        :data-tile-h="layout.h"
-        :style="{
-          '--tile-resize-handle-color':
-            hasCustomTileColor && contentTextColor
-              ? contentTextColor
-              : undefined,
-        }"
-        ref="gridTileRef"
-        @mouseenter="isHovered = true"
-        @mouseleave="isHovered = false"
-        @mousedown="startClick"
-        @mouseup="endClick"
-      >
-        <!-- Visual Frame with Overflow Hidden -->
-        <div
-          class="card-body"
-          :style="{
-            '--tile-bg': !!contentBackgroundColor
-              ? contentBackgroundColor
-              : 'var(--color-tile-background)',
-            '--tile-text-color': !!contentTextColor
-              ? contentTextColor
-              : 'var(--color-text-primary)',
-          }"
-        >
-          <template v-if="!isSuggestion">
-            <component
-              :is="currentComponent"
-              v-bind="contentProps"
-              ref="childComponent"
-              @background-color-change="onContentBackgroundColorChange"
-              @text-color-change="onContentTextColorChange"
-            />
-          </template>
-          <template v-else>
-            <div class="suggestion-cta">
-              <div class="suggestion-icon">
-                <TextIcon v-if="suggestionAction === 'text'" :size="48" />
-                <ImageIcon
-                  v-else-if="suggestionAction === 'media'"
-                  :size="48"
-                />
-                <LinkIcon v-else-if="suggestionAction === 'link'" :size="48" />
-                <EmbedIcon
-                  v-else-if="suggestionAction === 'embed'"
-                  :size="48"
-                />
-                <ProfileIcon
-                  v-else-if="suggestionAction === 'profile'"
-                  :size="48"
-                />
-              </div>
-              <span class="suggestion-label">{{ suggestionLabel }}</span>
-            </div>
-            <input
-              v-if="gridView.canEdit"
-              type="file"
-              ref="mediaInput"
-              style="display: none"
-              accept="image/*,video/*"
-              @change.stop="onMediaSelected"
-            />
-          </template>
-        </div>
-
-        <!-- UI Layer -->
-        <div
-          v-if="gridView.canEdit && headerComponent"
-          class="header-options"
-        >
-          <component :is="headerComponent" :content="tile.content" />
-        </div>
-
-        <div v-if="gridView.showMetaData" class="meta-data">
-          <p class="meta-data__compact">{{ compactMetadata }}</p>
-          <template v-if="gridView.showMetaDataVerbose">
-            <p
-              class="meta-data__verbose"
-              v-for="line in verboseMetadataLines"
-              :key="line"
-            >
-              {{ line }}
-            </p>
-          </template>
-        </div>
-
-        <div
-          v-if="gridView.canEdit"
-          class="tile-actions-layer"
-          :class="{ 'z-priority': hoveredLayer === 'actions' }"
-          @mouseenter="hoveredLayer = 'actions'"
-          @mouseleave="hoveredLayer = null"
-          @touchstart="hoveredLayer = 'actions'"
-        >
-          <TileActions :tile="tile" @delete="removeElement" />
-        </div>
-
-        <TileCaption
-          v-if="showCaption && (gridView.canEdit || tile.caption)"
-          :tile="tile"
+      <template v-if="!isSuggestion">
+        <component
+          :is="currentComponent"
+          v-bind="contentProps"
+          ref="childComponent"
+          @background-color-change="onContentBackgroundColorChange"
+          @text-color-change="onContentTextColorChange"
         />
-
-        <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
-        <div v-if="isTileResizable" class="resize-indicator"></div>
-
-        <div
-          v-if="gridView.canEdit && !isSuggestion"
-          class="tile-toolbar-layer"
-          :class="{ 'z-priority': hoveredLayer !== 'actions' }"
-          @mouseenter="hoveredLayer = 'toolbar'"
-          @mouseleave="hoveredLayer = null"
-          @touchstart="hoveredLayer = 'toolbar'"
-        >
-          <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
+      </template>
+      <template v-else>
+        <div class="suggestion-cta">
+          <div class="suggestion-icon">
+            <TextIcon v-if="suggestionAction === 'text'" :size="48" />
+            <ImageIcon
+              v-else-if="suggestionAction === 'media'"
+              :size="48"
+            />
+            <LinkIcon v-else-if="suggestionAction === 'link'" :size="48" />
+            <EmbedIcon
+              v-else-if="suggestionAction === 'embed'"
+              :size="48"
+            />
+            <ProfileIcon
+              v-else-if="suggestionAction === 'profile'"
+              :size="48"
+            />
+          </div>
+          <span class="suggestion-label">{{ suggestionLabel }}</span>
         </div>
-      </div>
-    </GridItem>
+        <input
+          v-if="gridView.canEdit"
+          type="file"
+          ref="mediaInput"
+          style="display: none"
+          accept="image/*,video/*"
+          @change.stop="onMediaSelected"
+        />
+      </template>
+    </div>
+
+    <!-- UI Layer -->
+    <div v-if="gridView.canEdit && headerComponent" class="header-options">
+      <component :is="headerComponent" :content="tile.content" />
+    </div>
+
+    <div v-if="gridView.showMetaData" class="meta-data">
+      <p class="meta-data__compact">{{ compactMetadata }}</p>
+      <template v-if="gridView.showMetaDataVerbose">
+        <p
+          class="meta-data__verbose"
+          v-for="line in verboseMetadataLines"
+          :key="line"
+        >
+          {{ line }}
+        </p>
+      </template>
+    </div>
+
+    <div
+      v-if="gridView.canEdit"
+      class="tile-actions-layer"
+      :class="{ 'z-priority': hoveredLayer === 'actions' }"
+      @mouseenter="hoveredLayer = 'actions'"
+      @mouseleave="hoveredLayer = null"
+      @touchstart="hoveredLayer = 'actions'"
+    >
+      <TileActions :tile="tile" @delete="removeElement" />
+    </div>
+
+    <TileCaption
+      v-if="showCaption && (gridView.canEdit || tile.caption)"
+      :tile="tile"
+    />
+
+    <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
+    <div v-if="isTileResizable" class="resize-indicator"></div>
+
+    <div
+      v-if="gridView.canEdit && !isSuggestion"
+      class="tile-toolbar-layer"
+      :class="{ 'z-priority': hoveredLayer !== 'actions' }"
+      @mouseenter="hoveredLayer = 'toolbar'"
+      @mouseleave="hoveredLayer = null"
+      @touchstart="hoveredLayer = 'toolbar'"
+    >
+      <TileToolbar :tile="tile" :toolbarRefs="toolbarRefs" />
+    </div>
   </div>
   <FloatingInputModal
     :show="showSuggestionLinkModal"
@@ -193,6 +166,7 @@
 import {
   proxyRefs,
   defineComponent,
+  inject,
   onMounted,
   onUnmounted,
   ref,
@@ -201,9 +175,10 @@ import {
   provide,
   watch,
   type Component,
+  type Ref,
 } from "vue";
 
-import { GridItem } from "vue3-grid-layout";
+import { TILE_DRAGGING_ID } from "@/grid-context/tileInteractionKeys";
 import { type TileChildComponent } from "@/types/Tile";
 import { type Tile } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
@@ -237,7 +212,6 @@ import { useTileInput } from "@/composables/useTileInput";
 
 export default defineComponent({
   components: {
-    GridItem,
     TileCaption,
     TileToolbar,
     TileActions,
@@ -288,10 +262,22 @@ export default defineComponent({
     const isTouchDevice = () =>
       window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 
-    const isMoving = ref(false);
     const isDragging = ref(false);
     const isExiting = ref(false);
     const isActivated = ref(false);
+
+    // Griddle drives drag/resize at the grid level; Grid.vue publishes the
+    // active gesture's tile id here. Mirror it into this tile's drag visual.
+    const draggingTileId = inject<Ref<string | null>>(
+      TILE_DRAGGING_ID,
+      ref(null),
+    );
+    watch(
+      () => draggingTileId.value === props.tile.i,
+      (dragging) => {
+        isDragging.value = dragging;
+      },
+    );
     const isHovered = ref(false);
     const hoveredToolbarZone = ref<string | null>(null);
     provide("hoveredToolbarZone", hoveredToolbarZone);
@@ -350,8 +336,7 @@ export default defineComponent({
     });
 
     const clickStart = ref<number | null>(null);
-    const CLICK_THRESHOLD = 150;
-    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+    const LONG_PRESS_THRESHOLD = 150;
 
     const isSuggestion = computed(
       () => props.tile.content.type === ContentType.SUGGESTION,
@@ -394,96 +379,29 @@ export default defineComponent({
       headerComponent.value = await getOptionComponent(props.tile.content);
     };
 
-    const startClick = (event: MouseEvent) => {
-      if (event.button === 0) {
-        clickStart.value = Date.now();
-        // Only preventDefault when the child doesn't handle short clicks
-        // (e.g. text tiles need the default focus behavior on mousedown)
-        if (gridView.canEdit && !isEditing.value && !isSuggestion.value) {
-          if (!childComponent.value?.onShortClick) {
-            event.preventDefault();
-          }
-        }
-        // Start long-press timer: activate isDragging after threshold
-        if (gridView.isOwner && !isEditing.value) {
-          if (longPressTimer) clearTimeout(longPressTimer);
-          longPressTimer = setTimeout(() => {
-            isDragging.value = true;
-            longPressTimer = null;
-          }, CLICK_THRESHOLD);
-        }
-      }
-    };
-
-    const endClick = (event: MouseEvent) => {
-      if (event.button !== 0) {
+    const handleGridShortClick = (event: PointerEvent | TouchEvent) => {
+      if (isSuggestion.value) {
+        onSuggestionShortClick();
         return;
       }
-
-      // Cancel long-press timer if still pending
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-      isDragging.value = false;
-
-      const clickDuration = Date.now() - (clickStart.value || 0);
-
-      if (clickDuration < CLICK_THRESHOLD && !isMoving.value) {
-        if (isSuggestion.value) {
-          onSuggestionShortClick();
-        } else {
-          if (childComponent.value?.onShortClick) {
-            childComponent.value.onShortClick(event);
-          }
-          if (childComponent.value?.onExitClick) {
-            addClickListener();
-          }
-        }
-      }
-
-      clickStart.value = null;
-    };
-
-    const onMove = () => {
-      gridView.beginMove();
-      isMoving.value = true;
-      isDragging.value = true;
-      setTimeout(() => (isMoving.value = false), 300);
-    };
-
-    const onMoved = () => {
-      // Called when drag operation completes - save the final positions
-      isDragging.value = false;
-      if (!gridView.canEdit) return;
-      gridView.commitMove();
-    };
-
-    const onResize = (
-      _i: string,
-      _newH: number,
-      _newW: number,
-      _newHPx: number,
-      _newWPx: number,
-    ) => {
-      // Capture the pre-resize snapshot once; repeated begin calls do not
-      // replace it. Live resize feedback is provided by the position-only
-      // layout — vue3-grid-layout mutates displayLayout in place and the deep
-      // watcher in Grid.vue publishes it to displayPositions. commitResize()
-      // synchronizes the final canonical desktop geometry or breakpoint
-      // override, so this handler never writes canonical tile w/h directly.
-      gridView.beginResize();
-    };
-
-    const onResized = () => {
-      // Called when resize operation completes
-      if (childComponent.value?.onResize) {
-        childComponent.value.onResize();
-      }
-      if (gridView.canEdit) {
-        gridView.commitResize();
+      childComponent.value?.onShortClick?.(
+        event as unknown as MouseEvent,
+      );
+      if (childComponent.value?.onExitClick) {
+        addClickListener();
       }
     };
+
+    // Drag/resize begin+commit now live at the grid level (Grid.vue's Griddle
+    // gesture handlers). Content still needs to reflow when its cell size
+    // changes — whether from a user resize or a breakpoint reprojection — so
+    // reach the child component's onResize hook by watching the tile footprint.
+    watch(
+      () => [props.layout.w, props.layout.h],
+      () => {
+        childComponent.value?.onResize?.();
+      },
+    );
 
     const onSuggestionShortClick = () => {
       if (!gridView.canEdit) return;
@@ -726,22 +644,14 @@ export default defineComponent({
       const touchDuration = Date.now() - (clickStart.value || Date.now());
 
       // Only fire short-click if it was a quick tap (not a scroll)
-      if (touchDuration < CLICK_THRESHOLD) {
-        if (isSuggestion.value) {
-          onSuggestionShortClick();
-        } else {
-          if (childComponent.value?.onShortClick) {
-            childComponent.value.onShortClick(event as unknown as MouseEvent);
-          }
-          if (childComponent.value?.onExitClick) {
-            addClickListener();
-          }
-        }
+      if (touchDuration < LONG_PRESS_THRESHOLD) {
+        handleGridShortClick(event);
       }
     };
 
     const handleDragStart = (event: Event) => {
-      // Prevent default browser drag behavior which interferes with vue-grid-layout
+      // Prevent the native browser image/text drag, which would otherwise
+      // interfere with Griddle's pointer-driven tile drag.
       if (gridView.canEdit && !isEditing.value) {
         event.preventDefault();
       }
@@ -875,10 +785,6 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
       stopChildEditingWatch?.();
       stopChildEditingWatch = null;
       removeClickListener();
@@ -898,9 +804,7 @@ export default defineComponent({
       childComponent,
       removeElement,
       tileStyle,
-      onMove,
-      startClick,
-      endClick,
+      handleGridShortClick,
       gridTileRef,
       gridView,
       isEditing,
@@ -909,9 +813,6 @@ export default defineComponent({
       isActivated,
       isHovered,
       hoveredToolbarZone,
-      onMoved,
-      onResize,
-      onResized,
       showCaption,
       borderVisible,
       linkBackgroundEnabled,
@@ -952,17 +853,6 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
-/* Grid Item Container - wraps grid-item */
-.grid-item-container {
-  position: relative;
-
-  &.crop-mode-elevated {
-    position: relative;
-    z-index: 1000;
-    isolation: isolate;
-  }
-}
-
 /* Crop Mode Overlay - blurs background */
 .crop-mode-overlay {
   position: fixed;
@@ -1011,8 +901,12 @@ export default defineComponent({
 }
 
 .tile-wrapper {
+  // Griddle sizes its `.griddle-tile` wrapper but does not stretch slot
+  // content. Fill that box directly so the card's percentage height resolves
+  // against the governed tile dimensions.
   width: 100%;
   height: 100%;
+  box-sizing: border-box;
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   border-radius: var(--tile-border-radius);
@@ -1020,6 +914,11 @@ export default defineComponent({
   /* turn off shadow when border is off */
   &[data-border="off"] {
     box-shadow: none;
+  }
+
+  &.crop-mode-elevated {
+    z-index: 1000;
+    isolation: isolate;
   }
 
   /* Animate tiles when they first appear */
@@ -1486,70 +1385,10 @@ export default defineComponent({
   opacity: 1;
 }
 
-/* Also show nubbin when hovering the resize handle (extended hit area) */
-/* This keeps the nubbin visible even when cursor moves into the resize zone beyond the tile */
-.grid-item-container:has(.vue-resizable-handle:hover) .resize-indicator {
-  opacity: 1;
-}
-
-/* Increase the resize handle hit area for vue3-grid-layout */
-/* The library uses .vue-resizable-handle class for the resize handle */
-:deep(.vue-resizable-handle) {
-  /* Increase the hit area from default small corner to a larger area */
-  width: 32px !important;
-  height: 32px !important;
-  bottom: -8px !important;
-  right: -8px !important;
-
-  /* Make the handle itself invisible but keep the hit area */
-  background-image: none !important;
-  background-color: transparent !important;
-
-  /* Ensure it's above other content but below toolbar */
-  z-index: 4 !important;
-
-  /* Cursor customization - use diagonal double arrow for bottom-right resize */
-  /* Options: nwse-resize (diagonal \), nesw-resize (diagonal /), 
-     nw-resize, ne-resize, sw-resize, se-resize (directional arrows) */
-  cursor: nwse-resize !important;
-
-  /* Scale up cursor when actively resizing (clicking and holding) */
-  &:active {
-    cursor: nwse-resize !important;
-    /* Use a larger cursor size - browsers support cursor scaling via image */
-    // cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'%3E%3Cpath fill='white' stroke='black' stroke-width='1' d='M22 2L2 22M22 2v6M22 2h-6M2 22v-6M2 22h6'/%3E%3C/svg%3E") 16 16, nwse-resize !important;
-  }
-}
-
-/* Smooth animations for tile resizing */
-/* Animate the actual tile (grid-item) during and after resize */
-:deep(.vue-grid-item) {
-  /* Disable transitions during resize for immediate snapping feedback */
-  &.resizing {
-    transition: none !important;
-    /* Keep tile visible and stable during resize */
-    opacity: 1 !important;
-  }
-
-  /* Light, fast spring during drag — keeps a hint of fluidity without
-     the heavy 400ms spring that causes perceptible cursor lag. */
-  &.vue-draggable-dragging {
-    transition: transform 80ms ease-out !important;
-    // transition: transform 80ms var(--easing-spring) !important;
-    opacity: 1 !important;
-  }
-
-  /* Full spring animation when resize/drag completes and tiles settle */
-  &:not(.resizing):not(.vue-draggable-dragging) {
-    transition:
-      width var(--duration-slow) var(--easing-spring),
-      height var(--duration-slow) var(--easing-spring),
-      transform var(--duration-slow) var(--easing-spring),
-      opacity var(--duration-fast) var(--easing-ease-out) !important;
-    opacity: 1 !important;
-  }
-}
-
-/* Placeholder styling is handled globally in Grid.vue's unscoped <style> block
-   so it can properly hide/show based on drag state via :has(.vue-draggable-dragging). */
+/* Griddle owns tile positioning, drag/resize handles, the drop indicator, and
+   the settle (FLIP) animation. Those concerns are styled globally in
+   styles/custom.scss (targeting `.griddle-tile` / `[data-griddle-handle]` /
+   `.griddle-drop-indicator`) rather than here, because Griddle renders those
+   elements outside this component's subtree — a scoped `:deep()` can't reach
+   them, and re-adding transform transitions here would fight Griddle's FLIP. */
 </style>

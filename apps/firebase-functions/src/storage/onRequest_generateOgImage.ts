@@ -1082,12 +1082,11 @@ async function captureGridTiles(
     const sx = window.scrollX || 0;
     const sy = window.scrollY || 0;
     const items = Array.from(
-      document.querySelectorAll(".vue-grid-item")
+      document.querySelectorAll("[data-griddle-tile]")
     ) as HTMLElement[];
 
-    // First pass: find the smallest non-trivial tile rect. Vue3-grid-layout
-    // sizes tiles as `cols * unitW + (cols-1) * marginX` so the smallest
-    // rect should be a 1×1 tile. We use that as the cell unit when the
+    // First pass: find the smallest non-trivial governed tile rect. The
+    // smallest rect should be a 1×1 tile, which serves as the cell unit when
     // explicit data-tile-w/h attributes are missing.
     let unitW = Infinity;
     let unitH = Infinity;
@@ -1140,8 +1139,8 @@ async function captureGridTiles(
 
       const colsAttr = Number(wrapper?.dataset.tileW ?? 0) || 0;
       const rowsAttr = Number(wrapper?.dataset.tileH ?? 0) || 0;
-      // Estimate cols/rows from the rendered .vue-grid-item rect when the
-      // explicit attributes aren't deployed yet. Round to nearest int.
+      // Estimate cols/rows from the rendered Griddle tile rect when explicit
+      // attributes aren't deployed yet. Round to nearest int.
       const itemRect = item.getBoundingClientRect();
       const colsEst =
         unitW > 0 ? Math.max(1, Math.round(itemRect.width / unitW)) : 0;

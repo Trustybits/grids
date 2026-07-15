@@ -195,7 +195,7 @@ export const createStarterTiles = (): Tile[] => {
       ContentType.EMBED,
       uuidv4(),
       startX + 9,
-      2,
+      3,
       3,
       2,
       { src: "https://www.youtube.com/embed/7ccH8u8fj8Y?si=hnB1rbMIsMCWpPO8" },

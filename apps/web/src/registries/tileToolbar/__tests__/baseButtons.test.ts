@@ -90,6 +90,17 @@ describe("resize button factory (RESIZE_* presets)", () => {
     expect(gridView.resizeTile).toHaveBeenCalledWith("tile-1", 1, 1);
   });
 
+  it("uses the mounted grid resize command when one is provided", () => {
+    const { ctx, gridView } = makeCtx({ tile: { i: "tile-1" } });
+    const resizeTile = vi.fn();
+    ctx.resizeTile = resizeTile;
+
+    RESIZE_4x2.action(ctx);
+
+    expect(resizeTile).toHaveBeenCalledWith("tile-1", 4, 2);
+    expect(gridView.resizeTile).not.toHaveBeenCalled();
+  });
+
   it("isActive is true only when the tile dimensions match the button", () => {
     const { ctx: match } = makeCtx({ tile: { w: 4, h: 4 } });
     const { ctx: noMatch } = makeCtx({ tile: { w: 4, h: 2 } });

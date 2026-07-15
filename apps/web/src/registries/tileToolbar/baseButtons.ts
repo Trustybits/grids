@@ -25,7 +25,10 @@ function makeResizeButton(
     title,
     group: "resize",
     action: (ctx) => {
-      ctx.gridView.resizeTile(ctx.tile.i, w, h);
+      // Live grids route preset resizes through Griddle so neighboring tiles
+      // are displaced before the new footprint paints. The context fallback
+      // keeps isolated/demo toolbar consumers working without a mounted grid.
+      (ctx.resizeTile ?? ctx.gridView.resizeTile)(ctx.tile.i, w, h);
       ctx.childComponent.value?.onResize?.();
     },
     // Compare against the size actually rendered at the active breakpoint, not

@@ -15,6 +15,8 @@ import {
   defaultTileCaps,
   fromGriddleTile,
   fromGriddleTiles,
+  toCanonicalLayoutItems,
+  toGriddlePlacements,
   toGriddleTile,
   toGriddleTiles,
   type GriddleTileCaps,
@@ -68,6 +70,29 @@ const FULL_CAPS: GriddleTileCaps = {
   maxW: MAX_TILE_UNITS,
   maxH: MAX_TILE_UNITS,
 };
+
+describe("responsive geometry mappings", () => {
+  it("extracts canonical layout geometry without tile content", () => {
+    expect(toCanonicalLayoutItems([tile("a", 3, 4, 2, 5)])).toEqual([
+      { i: "a", x: 3, y: 4, w: 2, h: 5 },
+    ]);
+  });
+
+  it("maps app breakpoint overrides to Griddle placements", () => {
+    expect(
+      toGriddlePlacements({
+        a: { x: 3, y: 4, w: 2, h: 5 },
+      }),
+    ).toEqual({
+      a: { col: 3, row: 4, w: 2, h: 5 },
+    });
+  });
+
+  it("omits absent and empty placement maps", () => {
+    expect(toGriddlePlacements(undefined)).toBeUndefined();
+    expect(toGriddlePlacements({})).toBeUndefined();
+  });
+});
 
 describe("defaultTileCaps", () => {
   it("gates draggable/resizable on editability", () => {

@@ -9,16 +9,11 @@ import {
   type CSSProperties,
   type MaybeRefOrGetter,
 } from "vue";
-import type {
-  Breakpoint,
-  Tile,
-  TilePosition,
-} from "@grids/contracts/types";
+import type { Breakpoint } from "@grids/contracts/types";
 import {
   breakpointToColumnCount,
   calculateViewportColumnCount,
   columnCountToBreakpoint,
-  projectGridLayout,
 } from "@/utils/GridLayoutUtils";
 
 type GridLayoutElement =
@@ -49,10 +44,6 @@ export interface ResponsiveGridLayoutEnvironment {
 export interface UseResponsiveGridLayoutInput {
   baseColumnCount: MaybeRefOrGetter<number>;
   forcedBreakpoint: MaybeRefOrGetter<Breakpoint | null>;
-  tiles: MaybeRefOrGetter<readonly Tile[]>;
-  overrides: MaybeRefOrGetter<
-    Partial<Record<Breakpoint, Record<string, TilePosition>>> | undefined
-  >;
   rowHeight: MaybeRefOrGetter<number>;
   margin: MaybeRefOrGetter<number>;
   disableAutoScale?: MaybeRefOrGetter<boolean>;
@@ -111,8 +102,6 @@ export function measureViewportGridRow({
 export function useResponsiveGridLayout({
   baseColumnCount,
   forcedBreakpoint,
-  tiles,
-  overrides,
   rowHeight,
   margin,
   disableAutoScale = false,
@@ -152,15 +141,6 @@ export function useResponsiveGridLayout({
 
   const activeBreakpoint = computed<Breakpoint>(
     () => toValue(forcedBreakpoint) ?? viewportBreakpoint.value,
-  );
-
-  const projectedLayout = computed(() =>
-    projectGridLayout({
-      tiles: toValue(tiles),
-      breakpoint: activeBreakpoint.value,
-      columns: responsiveColumnCount.value,
-      overrides: toValue(overrides),
-    }),
   );
 
   const gridWidth = computed(
@@ -231,11 +211,15 @@ export function useResponsiveGridLayout({
     });
   };
 
-  // Griddle owns its own layout, so we can't DOM-diff a rendered layout array
-  // against the projection. Instead, Grid.vue calls this after it has loaded the
-  // projected tiles into the engine and waited a tick for the render, signalling
-  // that the current active breakpoint has settled. Undo/redo and
-  // breakpoint-forcing await this via `waitForLayoutReady`.
+  // Grid.vue owns responsive algorithm selection and the Griddle transaction.
+  // It marks readiness pending before that transaction and ready only after the
+  // final engine event has rendered. Undo/redo and breakpoint-forcing await the
+  // settled breakpoint through `waitForLayoutReady`.
+  const markLayoutPending = (): void => {
+    layoutReadyBreakpoint.value = null;
+    void nextTick(observeGridHeight);
+  };
+
   const markLayoutReady = (): void => {
     const breakpoint = activeBreakpoint.value;
     layoutReadyBreakpoint.value = breakpoint;
@@ -275,14 +259,7 @@ export function useResponsiveGridLayout({
     { immediate: true },
   );
 
-  watch(
-    [activeBreakpoint, projectedLayout],
-    () => {
-      layoutReadyBreakpoint.value = null;
-      void nextTick(observeGridHeight);
-    },
-    { immediate: true },
-  );
+  watch(activeBreakpoint, markLayoutPending, { immediate: true });
 
   watch(gridLayoutRef, (element) => {
     if (element) void nextTick(observeGridHeight);
@@ -310,10 +287,10 @@ export function useResponsiveGridLayout({
     gridLayoutRef,
     gridWidth,
     layoutReadyBreakpoint,
+    markLayoutPending,
     markLayoutReady,
     mobileScale,
     naturalGridHeight,
-    projectedLayout,
     responsiveColumnCount,
     scaleWrapperRef,
     scaleWrapperStyle,

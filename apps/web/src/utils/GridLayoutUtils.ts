@@ -230,6 +230,12 @@ export function calculateViewportColumnCount({
   return fittingColumnCount ?? Math.min(4, baseColumnCount);
 }
 
+/**
+ * Frozen legacy-v1 responsive projection.
+ *
+ * New responsive-layout versions must route through Griddle at the engine
+ * integration seam instead of changing this compatibility algorithm.
+ */
 export function projectGridLayout({
   tiles,
   breakpoint,

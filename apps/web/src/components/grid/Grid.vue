@@ -2,7 +2,7 @@
 <template>
   <p v-if="gridView.isLoading">Loading layout...</p>
   <div
-    v-else-if="projectedLayout.length"
+    v-else-if="contractTiles.length"
     ref="scaleWrapperRef"
     class="grid-scale-wrapper"
     :style="scaleWrapperStyle"
@@ -50,6 +50,7 @@ import {
   gridContentSize,
   type Tile as GriddleTile,
 } from "@griddle/core";
+import { resolveResponsiveLayoutVersion } from "@grids/contracts/types";
 import GridTile from "./Tile.vue";
 import { useResponsiveGridLayout } from "@/composables/useResponsiveGridLayout";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
@@ -57,8 +58,12 @@ import {
   buildGridConfig,
   fromGriddleTile,
   fromGriddleTiles,
+  toCanonicalLayoutItems,
+  toGriddlePlacements,
   toGriddleTiles,
 } from "@/utils/GriddleAdapter";
+import { projectGridLayout } from "@/utils/GridLayoutUtils";
+import { getGriddleResponsiveReflowStrategy } from "@/utils/ResponsiveLayoutStrategy";
 import {
   TILE_DRAGGING_ID,
   TILE_GEOMETRY_VERSION,
@@ -94,7 +99,6 @@ export default {
 
     const {
       activeBreakpoint,
-      projectedLayout,
       gridInnerStyle,
       gridLayoutRef,
       gridWidth,
@@ -102,12 +106,11 @@ export default {
       scaleWrapperRef,
       scaleWrapperStyle,
       waitForLayoutReady,
+      markLayoutPending,
       markLayoutReady,
     } = useResponsiveGridLayout({
       baseColumnCount: baseColNum,
       forcedBreakpoint: () => gridView.forcedBreakpoint,
-      tiles: () => gridView.grid?.tiles ?? [],
-      overrides: () => gridView.grid?.overrides,
       rowHeight: () => props.rowHeight,
       margin,
       disableAutoScale: () => props.disableAutoScale,
@@ -124,16 +127,58 @@ export default {
     onUnmounted(disposeLayoutReadiness);
 
     // --- Griddle engine ----------------------------------------------------
-    // Griddle owns tile state; we feed it the projected responsive layout and
-    // read committed positions back on drag/resize end. `contractTiles` maps a
-    // Griddle tile id back to our `Tile` for the #tile slot.
+    // Griddle owns tile state; responsive algorithm selection happens at this
+    // engine seam. `contractTiles` maps a Griddle tile id back to our `Tile`
+    // for the #tile slot.
     const contractTiles = computed(() => gridView.grid?.tiles ?? []);
     const tilesById = computed(
       () => new Map(contractTiles.value.map((tile) => [tile.i, tile])),
     );
 
+    const effectiveResponsiveLayoutVersion = computed(() =>
+      resolveResponsiveLayoutVersion(
+        gridView.grid?.responsiveLayoutVersion,
+      ),
+    );
+
+    const griddleReflowStrategy = computed(() =>
+      getGriddleResponsiveReflowStrategy(
+        effectiveResponsiveLayoutVersion.value,
+      ),
+    );
+
+    const canonicalLayout = computed(() =>
+      toCanonicalLayoutItems(contractTiles.value),
+    );
+
+    // This computed is intentionally conditional: griddle-v1 must never run
+    // the frozen legacy projection before entering Griddle's reflow path.
+    const engineSourceLayout = computed(() => {
+      if (griddleReflowStrategy.value) return canonicalLayout.value;
+
+      return projectGridLayout({
+        tiles: contractTiles.value,
+        breakpoint: activeBreakpoint.value,
+        columns: responsiveColNum.value,
+        overrides: gridView.grid?.overrides,
+      });
+    });
+
+    const activeGriddlePlacements = computed(() => {
+      if (
+        !griddleReflowStrategy.value ||
+        activeBreakpoint.value === "lg"
+      ) {
+        return undefined;
+      }
+
+      return toGriddlePlacements(
+        gridView.grid?.overrides?.[activeBreakpoint.value],
+      );
+    });
+
     const griddleTiles = computed(() =>
-      toGriddleTiles(projectedLayout.value, contractTiles.value, {
+      toGriddleTiles(engineSourceLayout.value, contractTiles.value, {
         editable: gridView.canEdit,
       }),
     );
@@ -174,34 +219,56 @@ export default {
     // selection empty to avoid its built-in blue outline.
     const griddleSelection = new Set<string>();
 
-    // Publish live tile positions so GridMenu and updateBreakpointOverride can
-    // snapshot them. Replaces the old deep-watch on the mutable layout array.
-    watch(api.version, () => {
-      gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
-    });
-
-    // Load the projected layout + config into the engine whenever they change
-    // (breakpoint switch, tile add/remove, edit-gate change, compaction
-    // toggle, or reconciliation after a committed gesture). Guarded so a
-    // reactive reload can never fight a live drag/resize.
+    // Load the selected responsive source + config into the engine whenever
+    // they change (breakpoint switch, tile add/remove, edit-gate change,
+    // compaction toggle, version switch, or reconciliation after a committed
+    // gesture). Guarded so a reactive reload can never fight a live gesture.
+    // Intermediate load/reflow/compaction events are deliberately not
+    // published: GridMenu and gesture commits see only the settled engine.
     let interacting = false;
+    let syncGeneration = 0;
     const syncEngine = async (): Promise<void> => {
+      const generation = ++syncGeneration;
+      markLayoutPending();
       api.loadJSON({
         version: 1,
         config: gridConfig.value,
         tiles: griddleTiles.value,
       });
-      // loadJSON/updateConfig don't apply gravity; compact explicitly so a
-      // gravity:'top' layout settles immediately.
+
+      const strategy = griddleReflowStrategy.value;
+      if (strategy) {
+        api.reflow({
+          cols: responsiveColNum.value,
+          strategy,
+          ...(activeGriddlePlacements.value
+            ? { placements: activeGriddlePlacements.value }
+            : {}),
+        });
+      }
+
+      // Reflow and loadJSON do not apply gravity; compact explicitly only
+      // after the selected responsive algorithm has settled.
       if (gridView.verticalCompact) api.grid.compactAll();
       await nextTick();
+      if (generation !== syncGeneration) return;
+
+      gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
       markLayoutReady();
     };
 
-    watch([griddleTiles, gridConfig], () => {
-      if (interacting) return;
-      void syncEngine();
-    });
+    watch(
+      [
+        griddleTiles,
+        gridConfig,
+        griddleReflowStrategy,
+        activeGriddlePlacements,
+      ],
+      () => {
+        if (interacting) return;
+        void syncEngine();
+      },
+    );
 
     onMounted(() => {
       void syncEngine();
@@ -398,7 +465,7 @@ export default {
       griddleSelection,
       margin,
       gridWidth,
-      projectedLayout,
+      contractTiles,
       tilesById,
       fromGriddleTile: (tile: GriddleTile) => fromGriddleTile(tile),
       activeBreakpoint,

@@ -3,6 +3,8 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { nextTick, reactive } from "vue";
 import {
   ContentType,
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+  LEGACY_RESPONSIVE_LAYOUT_VERSION,
   type Grid,
   type LinkContent,
   type Tile,
@@ -15,6 +17,9 @@ const storeHolder = vi.hoisted(() => ({
 }));
 const gridTileHooks = vi.hoisted(() => ({
   handleGridShortClick: vi.fn(),
+}));
+const griddleHooks = vi.hoisted(() => ({
+  reflow: vi.fn(),
 }));
 
 vi.mock("@/grid-context/useGridViewContext", () => ({
@@ -31,6 +36,17 @@ vi.mock("@griddle/vue", async (importOriginal) => {
   const { defineComponent, h } = await import("vue");
   return {
     ...actual,
+    useGriddle: (...args: Parameters<typeof actual.useGriddle>) => {
+      const api = actual.useGriddle(...args);
+      const reflow = api.reflow;
+      return {
+        ...api,
+        reflow: (options: Parameters<typeof reflow>[0]) => {
+          griddleHooks.reflow(options);
+          return reflow(options);
+        },
+      };
+    },
     GriddleGrid: defineComponent({
       name: "GriddleGridStub",
       props: {
@@ -166,6 +182,7 @@ function griddle(wrapper: ReturnType<typeof mount>) {
 describe("Grid canvas characterization", () => {
   beforeEach(() => {
     gridTileHooks.handleGridShortClick.mockReset();
+    griddleHooks.reflow.mockReset();
     vi.spyOn(window, "innerWidth", "get").mockReturnValue(1800);
     class ResizeObserverStub {
       observe = vi.fn();
@@ -192,8 +209,103 @@ describe("Grid canvas characterization", () => {
     // with one full outer margin restored by the app wrapper.
     expect(griddle(wrapper).props("height")).toBe("540px");
     expect(griddle(wrapper).props("selection")).toEqual(new Set());
+    expect(griddleHooks.reflow).not.toHaveBeenCalled();
 
     wrapper.unmount();
+  });
+
+  it("routes griddle-v1 through explicit reflow with converted breakpoint placements", async () => {
+    const grid = makeGrid();
+    grid.responsiveLayoutVersion = GRIDDLE_RESPONSIVE_LAYOUT_VERSION;
+    grid.overrides = {
+      md: {
+        "tile-1": { x: 3, y: 4, w: 5, h: 6 },
+      },
+    };
+    const { store } = makeStore(grid);
+    store.forcedBreakpoint = "md";
+    store.verticalCompact = false;
+    storeHolder.current = store;
+
+    const wrapper = await mountGrid();
+    await flushPromises();
+
+    expect(griddleHooks.reflow).toHaveBeenCalledWith({
+      cols: 8,
+      strategy: "preserve-v1",
+      placements: {
+        "tile-1": { col: 3, row: 4, w: 5, h: 6 },
+      },
+    });
+    expect(store.setDisplayPositions).toHaveBeenCalledTimes(1);
+    expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
+      { i: "tile-1", x: 3, y: 4, w: 5, h: 6 },
+    ]);
+    expect(store.currentGrid.tiles[0]).toEqual(
+      expect.objectContaining({ x: 0, y: 0, w: 2, h: 2 }),
+    );
+    expect(store.currentGrid.overrides?.md?.["tile-1"]).toEqual({
+      x: 3,
+      y: 4,
+      w: 5,
+      h: 6,
+    });
+
+    wrapper.unmount();
+  });
+
+  it("produces differential parity between frozen legacy and bootstrap Griddle paths", async () => {
+    const renderVersion = async (
+      responsiveLayoutVersion:
+        | typeof LEGACY_RESPONSIVE_LAYOUT_VERSION
+        | typeof GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+    ) => {
+      const first = makeTile({
+        i: "tile-1",
+        x: 0,
+        y: 0,
+        w: 3,
+        h: 2,
+      });
+      const second = makeTile({
+        i: "tile-2",
+        x: 6,
+        y: 0,
+        w: 2,
+        h: 2,
+      });
+      const grid = makeGrid(first);
+      grid.tiles = [first, second];
+      grid.responsiveLayoutVersion = responsiveLayoutVersion;
+      grid.overrides = {
+        md: {
+          "tile-1": { x: 2, y: 3, w: 3, h: 2 },
+        },
+      };
+      const { store } = makeStore(grid);
+      store.forcedBreakpoint = "md";
+      store.verticalCompact = false;
+      storeHolder.current = store;
+
+      const wrapper = await mountGrid();
+      await flushPromises();
+      const rendered = store.setDisplayPositions.mock.lastCall?.[0];
+      wrapper.unmount();
+      return rendered;
+    };
+
+    const legacy = await renderVersion(
+      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+    );
+    const griddle = await renderVersion(
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+    );
+
+    expect(griddle).toEqual(legacy);
+    expect(griddle).toEqual([
+      { i: "tile-1", x: 2, y: 3, w: 3, h: 2 },
+      { i: "tile-2", x: 0, y: 0, w: 2, h: 2 },
+    ]);
   });
 
   it("passes canonical tile data separately from non-desktop layout geometry", async () => {

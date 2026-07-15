@@ -1,5 +1,10 @@
-import { ContentType, type Tile } from "@grids/contracts/types";
+import {
+  ContentType,
+  type Tile,
+  type TilePosition,
+} from "@grids/contracts/types";
 import type {
+  CellRect,
   Corner,
   Gravity,
   GridConfig,
@@ -85,6 +90,30 @@ export interface ToGriddleTilesOptions {
     tile: Tile | undefined,
     defaults: GriddleTileCaps,
   ) => Partial<GriddleTileCaps>;
+}
+
+/** Map canonical contract tile geometry into the app's layout-only shape. */
+export function toCanonicalLayoutItems(
+  tiles: readonly Tile[],
+): GridLayoutItem[] {
+  return tiles.map(({ i, x, y, w, h }) => ({ i, x, y, w, h }));
+}
+
+/**
+ * Translate a breakpoint override map to Griddle's generic placement shape.
+ * Undefined and empty maps stay undefined so reflow takes its automatic path.
+ */
+export function toGriddlePlacements(
+  positions: Readonly<Record<string, TilePosition>> | undefined,
+): Readonly<Record<string, CellRect>> | undefined {
+  if (!positions || Object.keys(positions).length === 0) return undefined;
+
+  return Object.fromEntries(
+    Object.entries(positions).map(([id, { x, y, w, h }]) => [
+      id,
+      { col: x, row: y, w, h },
+    ]),
+  );
 }
 
 export interface BuildGridConfigInput {

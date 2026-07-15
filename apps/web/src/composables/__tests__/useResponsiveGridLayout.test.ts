@@ -7,8 +7,7 @@ import {
   ref,
   type Ref,
 } from "vue";
-import type { Breakpoint, Tile } from "@grids/contracts/types";
-import type { GridLayoutItem } from "@/types/GridLayout";
+import type { Breakpoint } from "@grids/contracts/types";
 import {
   measureViewportGridRow,
   useResponsiveGridLayout,
@@ -19,20 +18,9 @@ const layoutUtils = vi.hoisted(() => ({
   breakpointToColumnCount: vi.fn(),
   calculateViewportColumnCount: vi.fn(),
   columnCountToBreakpoint: vi.fn(),
-  projectGridLayout: vi.fn(),
 }));
 
 vi.mock("@/utils/GridLayoutUtils", () => layoutUtils);
-
-function layoutItem(
-  i: string,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-): GridLayoutItem {
-  return { i, x, y, w, h };
-}
 
 function createEnvironment(initialWidth = 1000) {
   let viewportWidth = initialWidth;
@@ -82,8 +70,6 @@ function mountComposable(
   const baseColumnCount = options.baseColumnCount ?? ref(12);
   const forcedBreakpoint = options.forcedBreakpoint ?? ref(null);
   const disableAutoScale = options.disableAutoScale ?? ref(false);
-  const tiles = ref<Tile[]>([]);
-  const overrides = ref({});
   const onBreakpointsChanged = vi.fn();
   let composable:
     | ReturnType<typeof useResponsiveGridLayout>
@@ -95,8 +81,6 @@ function mountComposable(
         composable = useResponsiveGridLayout({
           baseColumnCount,
           forcedBreakpoint,
-          tiles,
-          overrides,
           rowHeight: 75,
           margin: 48,
           disableAutoScale,
@@ -114,8 +98,6 @@ function mountComposable(
     disableAutoScale,
     forcedBreakpoint,
     onBreakpointsChanged,
-    overrides,
-    tiles,
     wrapper,
   };
 }
@@ -154,9 +136,6 @@ describe("useResponsiveGridLayout", () => {
         breakpoint === "sm" ? 4 : breakpoint === "md" ? 8 : 12,
     );
     layoutUtils.columnCountToBreakpoint.mockReturnValue("md");
-    layoutUtils.projectGridLayout.mockImplementation(() => [
-      layoutItem("tile-1", 0, 0, 2, 2),
-    ]);
   });
 
   it("derives viewport and active breakpoints and reports them", () => {
@@ -183,8 +162,8 @@ describe("useResponsiveGridLayout", () => {
     forcedBreakpoint.value = "sm";
     await nextTick();
 
-    expect(layoutUtils.breakpointToColumnCount).toHaveBeenCalledWith("sm", 12);
     expect(composable.responsiveColumnCount.value).toBe(4);
+    expect(layoutUtils.breakpointToColumnCount).toHaveBeenCalledWith("sm", 12);
     expect(composable.activeBreakpoint.value).toBe("sm");
 
     wrapper.unmount();
@@ -264,33 +243,6 @@ describe("useResponsiveGridLayout", () => {
     expect(browser.observer.disconnect).toHaveBeenCalled();
   });
 
-  it("projects position-only layouts and reprojects on tile change", async () => {
-    const browser = createEnvironment();
-    const { composable, tiles, wrapper } = mountComposable(
-      browser.environment,
-    );
-
-    expect(layoutUtils.projectGridLayout).toHaveBeenCalledWith({
-      tiles: [],
-      breakpoint: "md",
-      columns: 8,
-      overrides: {},
-    });
-    expect(composable.projectedLayout.value).toEqual([
-      layoutItem("tile-1", 0, 0, 2, 2),
-    ]);
-
-    layoutUtils.projectGridLayout.mockClear();
-    tiles.value = [{ i: "tile-2" } as Tile];
-    await nextTick();
-
-    expect(layoutUtils.projectGridLayout).toHaveBeenCalledWith(
-      expect.objectContaining({ tiles: [{ i: "tile-2" }] }),
-    );
-
-    wrapper.unmount();
-  });
-
   it("resolves layout readiness only after the breakpoint is marked ready", async () => {
     const browser = createEnvironment();
     const forcedBreakpoint = ref<Breakpoint | null>(null);
@@ -311,13 +263,38 @@ describe("useResponsiveGridLayout", () => {
     expect(resolved).toBe(false);
     expect(composable.layoutReadyBreakpoint.value).toBeNull();
 
-    // markLayoutReady is what Grid.vue calls once it has loaded the projected
-    // tiles into the Griddle engine for the active breakpoint.
+    // markLayoutReady is what Grid.vue calls once its selected projection or
+    // reflow transaction has rendered for the active breakpoint.
     composable.markLayoutReady();
     await readiness;
 
     expect(resolved).toBe(true);
     expect(composable.layoutReadyBreakpoint.value).toBe("sm");
+
+    wrapper.unmount();
+  });
+
+  it("returns a ready breakpoint to pending during a same-breakpoint engine sync", async () => {
+    const browser = createEnvironment();
+    const { composable, wrapper } = mountComposable(browser.environment);
+
+    composable.markLayoutReady();
+    await expect(
+      composable.waitForLayoutReady("md"),
+    ).resolves.toBeUndefined();
+
+    composable.markLayoutPending();
+    let resolved = false;
+    const readiness = composable.waitForLayoutReady("md").then(() => {
+      resolved = true;
+    });
+    await nextTick();
+    expect(resolved).toBe(false);
+    expect(composable.layoutReadyBreakpoint.value).toBeNull();
+
+    composable.markLayoutReady();
+    await readiness;
+    expect(resolved).toBe(true);
 
     wrapper.unmount();
   });

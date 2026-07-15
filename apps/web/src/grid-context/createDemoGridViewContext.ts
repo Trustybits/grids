@@ -1,23 +1,16 @@
 import { computed, readonly, ref, shallowRef } from "vue";
 import type { Breakpoint, Grid } from "@grids/contracts/types";
 import type { GridViewContext } from "@/grid-context/GridViewContext";
-import { projectGridLayout } from "@/utils/GridLayoutUtils";
-
-function projectInitialDisplayPositions(grid: Grid) {
-  return projectGridLayout({
-    tiles: grid.tiles,
-    breakpoint: "lg",
-    columns: grid.colNum,
-    overrides: grid.overrides,
-  });
-}
+import { toCanonicalLayoutItems } from "@/utils/GriddleAdapter";
 
 export function createDemoGridViewContext(grid: Grid): GridViewContext {
   const gridRef = shallowRef(grid);
   const forcedBreakpoint = ref<Breakpoint | null>(null);
   const activeBreakpoint = ref<Breakpoint>("lg");
   const viewportBreakpoint = ref<Breakpoint>("lg");
-  const displayPositions = ref(projectInitialDisplayPositions(grid));
+  // Grid.vue owns version-aware responsive projection. Seed the context with
+  // canonical geometry until the engine publishes its final rendered state.
+  const displayPositions = ref(toCanonicalLayoutItems(grid.tiles));
   const pendingFocusTileId = ref<string | null>(null);
   const noop = () => {};
 

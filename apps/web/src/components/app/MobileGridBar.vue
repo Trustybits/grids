@@ -147,7 +147,7 @@ const TYPE_PROMPTS: Record<string, string> = {
 };
 
 const toastStore = useToastStore();
-const { tileTypes, filterTileTypes, createTile, submitCommand } =
+const { tileTypes, filterTileTypes, matchCommandPrefix, createTile, submitCommand } =
   useTileCreation();
 const { uploadFileOptimistic, uploadDocumentsOptimistic } = useFileUpload();
 
@@ -212,6 +212,17 @@ const animatePillWidth = async () => {
 watch(mode, async () => {
   await animatePillWidth();
   if (mode.value === "add") cmdRef.value?.focus();
+});
+
+// Quick command: while nothing is pinned, typing a command-type name followed
+// by a space (e.g. "map japan") pins that type — the same as tapping its card —
+// and strips the prefix so only the content ("japan") remains in the field.
+watch(query, (value) => {
+  if (activeType.value) return;
+  const parsed = matchCommandPrefix(value);
+  if (!parsed) return;
+  activeType.value = parsed.type;
+  query.value = parsed.rest;
 });
 
 // ── Default-mode commands ────────────────────────────────────────────────────

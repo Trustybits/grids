@@ -209,6 +209,12 @@ Post-review polish (from maintainer feedback):
       (map location, link URL, or embed URL) — this fixes "ENTER does nothing" after switching types.
       Note: for now only link / embed / map pin the chip (they require input before creating). When
       the 3D "coverflow" carousel lands, every type will pin its prefix.
+- [x] Inline quick command: typing a command-type name + space in the generic `/TILE` input (e.g.
+      `map japan`, `link example.com`, `embed <url>`) pins that type and keeps the rest as content —
+      identical to tapping the card then typing. Parsing lives in
+      `useTileCreation.matchCommandPrefix` / `submitCommand`; `MobileGridBar` watches the query and
+      strips the recognized prefix live so the field shows only the content. Matches on the type's
+      id/label (command-kind only); a trailing space alone pins with empty content.
 - [x] The map tile's rough first-load appearance (compact Mapbox attribution "ℹ" button + default
       framing) is tracked separately as [#183](https://github.com/Trustybits/grids/issues/183); it
       is pre-existing and unrelated to the Mobile 2.0 chrome (same creation path as desktop).

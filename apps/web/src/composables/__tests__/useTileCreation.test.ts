@@ -151,4 +151,38 @@ describe("useTileCreation", () => {
     expect(holder.submitLink).not.toHaveBeenCalled();
     expect(holder.submitEmbed).not.toHaveBeenCalled();
   });
+
+  it("recognizes an inline '<type> <content>' prefix (e.g. 'map japan')", async () => {
+    const { submitCommand } = await load();
+    const result = await submitCommand("map japan");
+    // Routed to a MAP tile without any URL validation on the content.
+    expect(holder.isValidLink).not.toHaveBeenCalled();
+    expect(holder.addTile).toHaveBeenCalledTimes(1);
+    expect(result).toBe("tile-1");
+  });
+
+  it("routes 'link <url>' and 'embed <url>' prefixes to the right handler", async () => {
+    const { submitCommand } = await load();
+    await submitCommand("link example.com");
+    expect(holder.submitLink).toHaveBeenCalledWith("example.com", {
+      mode: "add",
+    });
+    await submitCommand("embed https://youtu.be/x");
+    expect(holder.submitEmbed).toHaveBeenCalledWith("https://youtu.be/x", {
+      mode: "add",
+    });
+  });
+
+  it("matchCommandPrefix parses the type and content, or returns null", async () => {
+    const { matchCommandPrefix } = await load();
+    expect(matchCommandPrefix("map japan")).toEqual({
+      type: "map",
+      rest: "japan",
+    });
+    // A trailing space alone pins the type with empty content.
+    expect(matchCommandPrefix("map ")).toEqual({ type: "map", rest: "" });
+    // No space, or a non-command first word → no prefix.
+    expect(matchCommandPrefix("map")).toBeNull();
+    expect(matchCommandPrefix("chat hello")).toBeNull();
+  });
 });

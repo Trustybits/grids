@@ -155,6 +155,30 @@ export const useTileCreation = () => {
   const filterTileTypes = (query: string): TileTypeDescriptor[] =>
     tileTypes.value.filter((type) => matchesQuery(type, query));
 
+  /**
+   * Recognizes a `"<type> <content>"` quick command in the generic `/TILE`
+   * input: if `text` starts with a command-type name (its id or label) followed
+   * by whitespace, returns that type id and the remaining content. This lets
+   * "map japan" behave exactly like tapping the Map card and typing "japan".
+   *
+   * Only command-kind types (link / embed / map) qualify — they are the ones
+   * that need typed input before the tile can be created. A trailing space with
+   * no content yet (e.g. "map ") still matches, so the space alone pins the type.
+   */
+  const matchCommandPrefix = (
+    text: string,
+  ): { type: string; rest: string } | null => {
+    const parts = /^(\S+)\s+([\s\S]*)$/.exec(text);
+    if (!parts) return null;
+    const token = parts[1].toLowerCase();
+    const descriptor = tileTypes.value.find(
+      (type) =>
+        type.kind === "command" &&
+        (type.id === token || type.label.toLowerCase() === token),
+    );
+    return descriptor ? { type: descriptor.id, rest: parts[2] } : null;
+  };
+
   const createTile = (
     contentType: ContentType,
     options: Record<string, unknown> = {},
@@ -184,15 +208,29 @@ export const useTileCreation = () => {
   ): Promise<string | null> => {
     const text = (raw || "").trim();
 
-    if (forcedType === "map") {
+    // Resolve the effective command type: an explicitly pinned type (from
+    // tapping a card) takes priority; otherwise an inline "<type> <content>"
+    // prefix (e.g. "map japan") is recognized so the generic input doubles as
+    // a quick command.
+    let type = forcedType;
+    let content = text;
+    if (!type) {
+      const parsed = matchCommandPrefix(text);
+      if (parsed) {
+        type = parsed.type;
+        content = parsed.rest.trim();
+      }
+    }
+
+    if (type === "map") {
       // Empty location is valid — the map tile falls back to current location.
-      return createTile(ContentType.MAP, { searchQuery: text || undefined });
+      return createTile(ContentType.MAP, { searchQuery: content || undefined });
     }
-    if (forcedType === "link") {
-      return text ? submitLink(text, { mode: "add" }) : null;
+    if (type === "link") {
+      return content ? submitLink(content, { mode: "add" }) : null;
     }
-    if (forcedType === "embed") {
-      return text ? submitEmbed(text, { mode: "add" }) : null;
+    if (type === "embed") {
+      return content ? submitEmbed(content, { mode: "add" }) : null;
     }
 
     if (!text) return null;
@@ -201,7 +239,7 @@ export const useTileCreation = () => {
       return submitLink(text, { mode: "add" });
     }
 
-    const match = filterTileTypes(text).find((type) => type.kind === "create");
+    const match = filterTileTypes(text).find((matchType) => matchType.kind === "create");
     if (match?.contentType) {
       return createTile(match.contentType);
     }
@@ -212,6 +250,7 @@ export const useTileCreation = () => {
   return {
     tileTypes,
     filterTileTypes,
+    matchCommandPrefix,
     createTile,
     submitCommand,
   };

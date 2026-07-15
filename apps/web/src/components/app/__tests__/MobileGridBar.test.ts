@@ -18,6 +18,17 @@ vi.mock("@/composables/useTileCreation", () => ({
   useTileCreation: () => ({
     tileTypes: { value: holder.types },
     filterTileTypes: () => holder.types,
+    matchCommandPrefix: (text: string) => {
+      const parts = /^(\S+)\s+([\s\S]*)$/.exec(text);
+      if (!parts) return null;
+      const token = parts[1].toLowerCase();
+      const descriptor = holder.types.find(
+        (type) =>
+          type.kind === "command" &&
+          (type.id === token || String(type.label).toLowerCase() === token),
+      );
+      return descriptor ? { type: descriptor.id, rest: parts[2] } : null;
+    },
     createTile: holder.createTile,
     submitCommand: holder.submitCommand,
   }),
@@ -186,6 +197,24 @@ describe("MobileGridBar", () => {
     const selected = wrapper.find(".tile-carousel__card--selected");
     expect(selected.exists()).toBe(true);
     expect(selected.text()).toBe("Map");
+  });
+
+  it("pins the type from an inline prefix: typing 'map ' becomes /MAP with the rest as content", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Add a tile"]').trigger("click");
+    await flush(wrapper);
+
+    const input = wrapper.get(".mci-input");
+    await input.setValue("map japan");
+    await flush(wrapper);
+
+    // The prefix is consumed: chip pins to /MAP and only the content remains.
+    expect(wrapper.get(".mci-chip").text()).toBe("/MAP");
+    expect((input.element as HTMLInputElement).value).toBe("japan");
+
+    await input.trigger("keydown", { key: "Enter" });
+    await flush(wrapper);
+    expect(holder.submitCommand).toHaveBeenCalledWith("japan", "map");
   });
 
   it("copies the grid link when Share is tapped", async () => {

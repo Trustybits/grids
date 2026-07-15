@@ -123,27 +123,47 @@ describe("MobileGridBar", () => {
     expect(wrapper.find(".mci").exists()).toBe(false);
   });
 
-  it("creates a map from the typed location after tapping the Map card", async () => {
+  it("pins the type in the chip and submits the location after tapping Map", async () => {
     const wrapper = await mountBar();
     await wrapper.get('[aria-label="Add a tile"]').trigger("click");
     await flush(wrapper);
+    expect(wrapper.get(".mci-chip").text()).toBe("/TILE");
 
     const mapCard = wrapper
       .findAll(".tile-carousel__card")
       .find((card) => card.text() === "Map");
     await mapCard?.trigger("click");
     await flush(wrapper);
-    // The Map card focuses the input rather than creating immediately.
+    // The Map card focuses the input rather than creating immediately, and the
+    // chip prefix now reflects the pinned type.
     expect(holder.createTile).not.toHaveBeenCalled();
+    expect(wrapper.get(".mci-chip").text()).toBe("/MAP");
 
     const input = wrapper.get(".mci-input");
     await input.setValue("Paris");
     await input.trigger("keydown", { key: "Enter" });
     await flush(wrapper);
 
-    expect(holder.createTile).toHaveBeenCalledWith(ContentType.MAP, {
-      searchQuery: "Paris",
-    });
+    // Creation is routed through the composable with the pinned type.
+    expect(holder.submitCommand).toHaveBeenCalledWith("Paris", "map");
+  });
+
+  it("toggles the pinned type off (chip reverts to /TILE) when the card is re-tapped", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Add a tile"]').trigger("click");
+    await flush(wrapper);
+
+    const findMap = () =>
+      wrapper.findAll(".tile-carousel__card").find((c) => c.text() === "Map");
+
+    await findMap()?.trigger("click");
+    await flush(wrapper);
+    expect(wrapper.get(".mci-chip").text()).toBe("/MAP");
+
+    await findMap()?.trigger("click");
+    await flush(wrapper);
+    expect(wrapper.get(".mci-chip").text()).toBe("/TILE");
+    expect(wrapper.find(".tile-carousel__card--selected").exists()).toBe(false);
   });
 
   it("keeps the carousel unfiltered with the type highlighted after selecting a command card", async () => {

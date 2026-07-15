@@ -78,11 +78,11 @@
         </button>
       </template>
 
-      <MobileCommandInput
+        <MobileCommandInput
         v-else
         ref="cmdRef"
         v-model="query"
-        :filter-label="TILE_FILTER"
+        :filter-label="chipLabel"
         :placeholders="PLACEHOLDERS"
         :static-placeholder="activePrompt"
         :view-mode="viewMode"
@@ -113,7 +113,6 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { ContentType } from "@grids/contracts/types";
 import MobileCommandBar from "@/components/ui-collections/MobileCommandBar.vue";
 import MobileCommandInput from "@/components/app/MobileCommandInput.vue";
 import MobileTileCarousel from "@/components/app/MobileTileCarousel.vue";
@@ -175,6 +174,12 @@ const filteredTypes = computed(() =>
 );
 const activePrompt = computed(() =>
   activeType.value ? (TYPE_PROMPTS[activeType.value] ?? null) : null,
+);
+// The chip prefix reflects the pinned command type (`/MAP`, `/LINK`, `/EMBED`)
+// so the user always sees which context ENTER will act on; it falls back to
+// the generic `/TILE` when nothing is selected.
+const chipLabel = computed(() =>
+  activeType.value ? `/${activeType.value.toUpperCase()}` : TILE_FILTER,
 );
 
 // ── Grow the pill (FLIP) instead of fading it out/in ─────────────────────────
@@ -259,20 +264,16 @@ const onSelectType = (id: string) => {
     return;
   }
 
-  // "command" types (Link / Embed / Map): focus the input so the user can type
-  // (this opens the mobile keyboard since it runs inside the tap gesture).
-  activeType.value = descriptor.id;
+  // "command" types (Link / Embed / Map): tapping pins the type (chip → `/MAP`
+  // etc.) and focuses the input so the mobile keyboard opens inside the tap
+  // gesture. Tapping the already-pinned card again toggles it off (chip → the
+  // generic `/TILE`). The typed text is left intact either way.
+  activeType.value = activeType.value === descriptor.id ? null : descriptor.id;
   cmdRef.value?.focus();
 };
 
 const onSubmit = async (value: string) => {
-  if (activeType.value === "map") {
-    createTile(ContentType.MAP, { searchQuery: value.trim() || undefined });
-    closeAdd();
-    return;
-  }
-
-  const tileId = await submitCommand(value);
+  const tileId = await submitCommand(value, activeType.value);
   if (tileId) closeAdd();
 };
 

@@ -145,7 +145,7 @@ const matchesQuery = (descriptor: TileTypeDescriptor, query: string): boolean =>
 export const useTileCreation = () => {
   const controller = useGridController();
   const uiStore = useGridUiStore();
-  const { submitLink } = useTileInput();
+  const { submitLink, submitEmbed } = useTileInput();
   const { isEnabled } = useFeatureFlags();
 
   const tileTypes = computed(() =>
@@ -168,13 +168,33 @@ export const useTileCreation = () => {
   };
 
   /**
-   * ENTER handler for the `/TILE` input. A pasted URL / embed becomes the
-   * matching rich tile; otherwise a keyword that resolves to a "create" tile
-   * type creates it. Returns the new tile id, or null when nothing was created
-   * (e.g. the text is only being used to filter the carousel).
+   * ENTER handler for the `/TILE` input.
+   *
+   * When a command-type card is selected (`forcedType` is "link" / "embed" /
+   * "map"), the chip prefix (`/LINK`, `/EMBED`, `/MAP`) pins the tile type and
+   * the typed text becomes that tile's content — a map location, or a link /
+   * embed URL. Otherwise (generic `/TILE`) a pasted URL / embed becomes the
+   * matching rich tile, and a keyword that resolves to a "create" type creates
+   * it. Returns the new tile id, or null when nothing was created (e.g. the
+   * text is only filtering the carousel, or a pinned type has no input yet).
    */
-  const submitCommand = async (raw: string): Promise<string | null> => {
+  const submitCommand = async (
+    raw: string,
+    forcedType: string | null = null,
+  ): Promise<string | null> => {
     const text = (raw || "").trim();
+
+    if (forcedType === "map") {
+      // Empty location is valid — the map tile falls back to current location.
+      return createTile(ContentType.MAP, { searchQuery: text || undefined });
+    }
+    if (forcedType === "link") {
+      return text ? submitLink(text, { mode: "add" }) : null;
+    }
+    if (forcedType === "embed") {
+      return text ? submitEmbed(text, { mode: "add" }) : null;
+    }
+
     if (!text) return null;
 
     if (isValidLink(text) || isValidEmbed(text)) {

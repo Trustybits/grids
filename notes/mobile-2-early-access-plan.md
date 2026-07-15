@@ -202,6 +202,13 @@ Post-review polish (from maintainer feedback):
 - [x] Selecting a command-type card (link / embed / map) no longer filters the carousel — the full
       list stays visible with the active type highlighted, and the typed text populates that tile's
       content instead of searching.
+- [x] Selecting a command-type card **pins** it: the chip prefix switches from `/TILE` to `/MAP` /
+      `/LINK` / `/EMBED` so the user sees which context ENTER acts on. Re-tapping the pinned card
+      toggles it off (chip reverts to `/TILE`); the typed text is preserved. ENTER is routed through
+      `useTileCreation.submitCommand(text, forcedType)` so the pinned type builds the correct tile
+      (map location, link URL, or embed URL) — this fixes "ENTER does nothing" after switching types.
+      Note: for now only link / embed / map pin the chip (they require input before creating). When
+      the 3D "coverflow" carousel lands, every type will pin its prefix.
 - [x] The map tile's rough first-load appearance (compact Mapbox attribution "ℹ" button + default
       framing) is tracked separately as [#183](https://github.com/Trustybits/grids/issues/183); it
       is pre-existing and unrelated to the Mobile 2.0 chrome (same creation path as desktop).

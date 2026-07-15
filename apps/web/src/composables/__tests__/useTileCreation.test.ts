@@ -5,6 +5,7 @@ const holder = vi.hoisted(() => ({
   addTile: vi.fn<(content: unknown) => string | null>(() => "tile-1"),
   setPendingFocusTileId: vi.fn(),
   submitLink: vi.fn(async () => "link-1"),
+  submitEmbed: vi.fn(() => "embed-1"),
   flags: {} as Record<string, boolean>,
   isValidLink: vi.fn(() => false),
   isValidEmbed: vi.fn(() => false),
@@ -19,7 +20,10 @@ vi.mock("@/stores/grid/gridUi", () => ({
 }));
 
 vi.mock("@/composables/useTileInput", () => ({
-  useTileInput: () => ({ submitLink: holder.submitLink }),
+  useTileInput: () => ({
+    submitLink: holder.submitLink,
+    submitEmbed: holder.submitEmbed,
+  }),
 }));
 
 vi.mock("@/composables/useFeatureFlags", () => ({
@@ -104,5 +108,47 @@ describe("useTileCreation", () => {
     const result = await submitCommand("zzzzzz");
     expect(result).toBeNull();
     expect(holder.addTile).not.toHaveBeenCalled();
+  });
+
+  it("pins the map type: forcedType=map builds a MAP tile from any text", async () => {
+    const { submitCommand } = await load();
+    const result = await submitCommand("Paris", "map");
+    // No URL validation needed — a location string always builds a map.
+    expect(holder.isValidLink).not.toHaveBeenCalled();
+    expect(holder.addTile).toHaveBeenCalledTimes(1);
+    expect(result).toBe("tile-1");
+  });
+
+  it("pins the map type: empty input still creates (current location)", async () => {
+    const { submitCommand } = await load();
+    const result = await submitCommand("   ", "map");
+    expect(holder.addTile).toHaveBeenCalledTimes(1);
+    expect(result).toBe("tile-1");
+  });
+
+  it("pins the link type: forcedType=link routes to submitLink", async () => {
+    const { submitCommand } = await load();
+    const result = await submitCommand("example.com", "link");
+    expect(holder.submitLink).toHaveBeenCalledWith("example.com", {
+      mode: "add",
+    });
+    expect(result).toBe("link-1");
+  });
+
+  it("pins the embed type: forcedType=embed routes to submitEmbed", async () => {
+    const { submitCommand } = await load();
+    const result = await submitCommand("https://youtu.be/x", "embed");
+    expect(holder.submitEmbed).toHaveBeenCalledWith("https://youtu.be/x", {
+      mode: "add",
+    });
+    expect(result).toBe("embed-1");
+  });
+
+  it("pinned link/embed with empty input creates nothing", async () => {
+    const { submitCommand } = await load();
+    expect(await submitCommand("  ", "link")).toBeNull();
+    expect(await submitCommand("  ", "embed")).toBeNull();
+    expect(holder.submitLink).not.toHaveBeenCalled();
+    expect(holder.submitEmbed).not.toHaveBeenCalled();
   });
 });

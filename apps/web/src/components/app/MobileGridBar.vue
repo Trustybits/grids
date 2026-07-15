@@ -23,6 +23,7 @@
         <MobileTileCarousel
           :types="filteredTypes"
           :layout="viewMode"
+          :selected-id="activeType"
           @select="onSelectType"
         />
       </div>
@@ -165,7 +166,13 @@ const viewMode = ref<"carousel" | "list">("carousel");
 // what to build from the typed text. null → generic smart-paste / keyword.
 const activeType = ref<string | null>(null);
 
-const filteredTypes = computed(() => filterTileTypes(query.value));
+// Once a command-type card is selected (link / embed / map), the typed text
+// populates that tile's content — it must NOT filter the carousel. Keep the
+// full list visible with the active type highlighted. Only the generic `/TILE`
+// search (no active type) filters as you type.
+const filteredTypes = computed(() =>
+  activeType.value ? tileTypes.value : filterTileTypes(query.value),
+);
 const activePrompt = computed(() =>
   activeType.value ? (TYPE_PROMPTS[activeType.value] ?? null) : null,
 );

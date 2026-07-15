@@ -35,4 +35,14 @@ describe("MobileTileCarousel", () => {
     });
     expect(wrapper.find(".tile-carousel--list").exists()).toBe(true);
   });
+
+  it("marks the selected type card", () => {
+    const wrapper = mount(MobileTileCarousel, {
+      props: { types, selectedId: "chat" },
+    });
+    const selected = wrapper.findAll(".tile-carousel__card--selected");
+    expect(selected).toHaveLength(1);
+    expect(selected[0].text()).toContain("Chat");
+    expect(selected[0].attributes("aria-selected")).toBe("true");
+  });
 });

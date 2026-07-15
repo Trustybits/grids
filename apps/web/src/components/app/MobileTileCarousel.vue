@@ -22,6 +22,8 @@
       type="button"
       role="option"
       class="tile-carousel__card"
+      :class="{ 'tile-carousel__card--selected': type.id === selectedId }"
+      :aria-selected="type.id === selectedId"
       :aria-label="type.label"
       @click="emit('select', type.id)"
     >
@@ -42,9 +44,11 @@ withDefaults(
   defineProps<{
     types: TileTypeDescriptor[];
     layout?: "carousel" | "list";
+    selectedId?: string | null;
   }>(),
   {
     layout: "carousel",
+    selectedId: null,
   },
 );
 
@@ -131,6 +135,13 @@ const emit = defineEmits<{
   &:active {
     transform: translateY(0);
   }
+}
+
+// Active command type (link / embed / map): stays highlighted while the user
+// types the tile's content into the command input.
+.tile-carousel__card--selected {
+  border-color: var(--color-content-default);
+  background: var(--color-base-8);
 }
 
 .tile-carousel__icon {

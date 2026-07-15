@@ -146,6 +146,28 @@ describe("MobileGridBar", () => {
     });
   });
 
+  it("keeps the carousel unfiltered with the type highlighted after selecting a command card", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Add a tile"]').trigger("click");
+    await flush(wrapper);
+
+    const mapCard = wrapper
+      .findAll(".tile-carousel__card")
+      .find((card) => card.text() === "Map");
+    await mapCard?.trigger("click");
+    await flush(wrapper);
+
+    const input = wrapper.get(".mci-input");
+    await input.setValue("something that matches nothing");
+    await flush(wrapper);
+
+    const cards = wrapper.findAll(".tile-carousel__card");
+    expect(cards).toHaveLength(holder.types.length);
+    const selected = wrapper.find(".tile-carousel__card--selected");
+    expect(selected.exists()).toBe(true);
+    expect(selected.text()).toBe("Map");
+  });
+
   it("copies the grid link when Share is tapped", async () => {
     const wrapper = await mountBar();
     await wrapper.get('[aria-label="Share"]').trigger("click");

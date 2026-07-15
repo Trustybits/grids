@@ -44,7 +44,7 @@ withDefaults(
   align-items: center;
   gap: var(--spacing-xs);
   padding: var(--spacing-xs);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   background-color: var(--color-toolbar-background);
   border: var(--border-width) solid var(--color-stroke);
   box-shadow: var(--shadow-lg);

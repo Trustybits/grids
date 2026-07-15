@@ -196,6 +196,16 @@ from the current grid's tiles).
 - [x] New icons `CloseIcon` + `ListIcon`; tests for the composable + all three components
       (2587 tests green); typecheck + lint clean.
 
+Post-review polish (from maintainer feedback):
+- [x] Pill radius is `--radius-md` for both the default gridbar and the add-mode command input
+      (single change in `MobileCommandBar`).
+- [x] Selecting a command-type card (link / embed / map) no longer filters the carousel — the full
+      list stays visible with the active type highlighted, and the typed text populates that tile's
+      content instead of searching.
+- [x] The map tile's rough first-load appearance (compact Mapbox attribution "ℹ" button + default
+      framing) is tracked separately as [#183](https://github.com/Trustybits/grids/issues/183); it
+      is pre-existing and unrelated to the Mobile 2.0 chrome (same creation path as desktop).
+
 Deferred polish: the Figma 3D "coverflow" fan is a clean scroll-snap row for now.
 
 #### Phase 5.2 — Subtype list + usage counts ⬜ NOT STARTED

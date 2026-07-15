@@ -78,7 +78,7 @@
           the toolbar is scrolled off-screen.
         -->
         <BreakpointSwitcher
-          v-if="isOwner && switcherVariant === 'floating'"
+          v-if="isOwner && switcherVariant === 'floating' && !mobile2Active"
           variant="floating"
         />
         <UndoRedoControls v-if="isOwner" />
@@ -88,7 +88,7 @@
           (canEdit), but the breakpoint switcher stays visible for owners
           (isOwner) so they can switch back.
         -->
-        <div v-if="canEdit" class="toolbar">
+        <div v-if="canEdit && !mobile2Active" class="toolbar">
           <!--
             Option A: Inline — switcher sits inside the toolbar row,
             right next to the tile-add buttons.
@@ -154,6 +154,7 @@ import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
+import { useMobileExperience } from "@/composables/useMobileExperience";
 import { useUndoRedoKeys } from "@/composables/useUndoRedoKeys";
 import { useAnalytics } from "@/composables/useAnalytics";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
@@ -207,6 +208,11 @@ export default defineComponent({
 
     const isOwner = computed(() => sessionStore.isOwner);
     const isResyncing = computed(() => sessionStore.isResyncing);
+
+    // Mobile 2.0 owner chrome swaps the desktop tile toolbar + floating
+    // breakpoint switcher for the bottom command bar (rendered in App.vue).
+    const { isMobile2 } = useMobileExperience();
+    const mobile2Active = computed(() => isMobile2.value && isOwner.value);
 
     // When this tab/window is reactivated, reload the grid if it has been saved
     // elsewhere (rev mismatch) so this tab never clobbers newer changes.
@@ -501,6 +507,7 @@ export default defineComponent({
       layoutContainer,
       isDraggingOver,
       isOwner,
+      mobile2Active,
       switcherVariant,
     };
   },

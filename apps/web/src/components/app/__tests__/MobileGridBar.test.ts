@@ -65,6 +65,14 @@ describe("MobileGridBar", () => {
         contentType: ContentType.CHAT,
       },
       { id: "link", label: "Link", icon: Icon, keywords: ["link"], kind: "command" },
+      {
+        id: "map",
+        label: "Map",
+        icon: Icon,
+        keywords: ["map"],
+        kind: "command",
+        contentType: ContentType.MAP,
+      },
     ];
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: holder.writeText },
@@ -113,6 +121,29 @@ describe("MobileGridBar", () => {
     await flush(wrapper);
     expect(wrapper.find('[aria-label="Add a tile"]').exists()).toBe(true);
     expect(wrapper.find(".mci").exists()).toBe(false);
+  });
+
+  it("creates a map from the typed location after tapping the Map card", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Add a tile"]').trigger("click");
+    await flush(wrapper);
+
+    const mapCard = wrapper
+      .findAll(".tile-carousel__card")
+      .find((card) => card.text() === "Map");
+    await mapCard?.trigger("click");
+    await flush(wrapper);
+    // The Map card focuses the input rather than creating immediately.
+    expect(holder.createTile).not.toHaveBeenCalled();
+
+    const input = wrapper.get(".mci-input");
+    await input.setValue("Paris");
+    await input.trigger("keydown", { key: "Enter" });
+    await flush(wrapper);
+
+    expect(holder.createTile).toHaveBeenCalledWith(ContentType.MAP, {
+      searchQuery: "Paris",
+    });
   });
 
   it("copies the grid link when Share is tapped", async () => {

@@ -28,6 +28,18 @@ describe("MobileCommandInput", () => {
     expect(wrapper.emitted("toggle-view")).toHaveLength(1);
   });
 
+  it("shows a fixed prompt (no rotation) when staticPlaceholder is set", async () => {
+    const wrapper = mountInput({
+      filterLabel: "/TILE",
+      placeholders: ["paste a URL", "paste embed code"],
+      staticPlaceholder: "Type a location (leave blank for current)",
+    });
+    await wrapper.vm.$nextTick();
+    expect(wrapper.get(".mci-input").attributes("placeholder")).toBe(
+      "Type a location (leave blank for current)",
+    );
+  });
+
   it("emits close when the close button (far right) is tapped", async () => {
     const wrapper = mountInput({
       filterLabel: "/TILE",

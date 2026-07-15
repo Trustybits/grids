@@ -99,7 +99,9 @@ const ALL_TILE_TYPES: readonly TileTypeDescriptor[] = [
     label: "Map",
     icon: markRaw(MapIcon),
     keywords: ["map", "location", "place", "address"],
-    kind: "create",
+    // "command": tapping focuses the input so the user can type a location;
+    // ENTER creates the map tile with that location (empty = current location).
+    kind: "command",
     contentType: ContentType.MAP,
   },
   {
@@ -153,8 +155,11 @@ export const useTileCreation = () => {
   const filterTileTypes = (query: string): TileTypeDescriptor[] =>
     tileTypes.value.filter((type) => matchesQuery(type, query));
 
-  const createTile = (contentType: ContentType): string | null => {
-    const content = createTileContent(contentType, {});
+  const createTile = (
+    contentType: ContentType,
+    options: Record<string, unknown> = {},
+  ): string | null => {
+    const content = createTileContent(contentType, options);
     const tileId = controller.addTile(content);
     if (tileId && AUTO_FOCUS_TYPES.has(contentType)) {
       uiStore.setPendingFocusTileId(tileId);

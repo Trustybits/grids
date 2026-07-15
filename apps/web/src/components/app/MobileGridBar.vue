@@ -83,6 +83,7 @@
         v-model="query"
         :filter-label="TILE_FILTER"
         :placeholders="PLACEHOLDERS"
+        :static-placeholder="activePrompt"
         :view-mode="viewMode"
         close-label="Close add a tile"
         @submit="onSubmit"
@@ -111,6 +112,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { ContentType } from "@grids/contracts/types";
 import MobileCommandBar from "@/components/ui-collections/MobileCommandBar.vue";
 import MobileCommandInput from "@/components/app/MobileCommandInput.vue";
 import MobileTileCarousel from "@/components/app/MobileTileCarousel.vue";
@@ -132,8 +134,17 @@ const PLACEHOLDERS = [
   "paste files",
   "paste videos/images",
   "paste color values",
+  "type map [location]",
 ];
 const TILE_FILTER = "/TILE";
+
+// Once a command-type card is tapped, the placeholder asks for exactly what that
+// tile type needs (and stops rotating).
+const TYPE_PROMPTS: Record<string, string> = {
+  link: "type or paste in a URL",
+  embed: "Paste a URL or embed code (Youtube, Spotify)",
+  map: "Type a location (leave blank for current)",
+};
 
 const toastStore = useToastStore();
 const { tileTypes, filterTileTypes, createTile, submitCommand } =
@@ -150,8 +161,14 @@ const mode = ref<"default" | "add">("default");
 const showPreview = ref(false);
 const query = ref("");
 const viewMode = ref<"carousel" | "list">("carousel");
+// The command-type card the user tapped (link / embed / map), so ENTER knows
+// what to build from the typed text. null → generic smart-paste / keyword.
+const activeType = ref<string | null>(null);
 
 const filteredTypes = computed(() => filterTileTypes(query.value));
+const activePrompt = computed(() =>
+  activeType.value ? (TYPE_PROMPTS[activeType.value] ?? null) : null,
+);
 
 // ── Grow the pill (FLIP) instead of fading it out/in ─────────────────────────
 // The shell stays mounted; only its width animates between the measured
@@ -204,6 +221,7 @@ const shareLink = async () => {
 const openAdd = () => {
   showPreview.value = false;
   query.value = "";
+  activeType.value = null;
   viewMode.value = "carousel";
   mode.value = "add";
 };
@@ -211,6 +229,7 @@ const openAdd = () => {
 const closeAdd = () => {
   mode.value = "default";
   query.value = "";
+  activeType.value = null;
 };
 
 const toggleView = () => {
@@ -233,11 +252,19 @@ const onSelectType = (id: string) => {
     return;
   }
 
-  // "command" types (Link / Embed): focus the input so the user can paste.
+  // "command" types (Link / Embed / Map): focus the input so the user can type
+  // (this opens the mobile keyboard since it runs inside the tap gesture).
+  activeType.value = descriptor.id;
   cmdRef.value?.focus();
 };
 
 const onSubmit = async (value: string) => {
+  if (activeType.value === "map") {
+    createTile(ContentType.MAP, { searchQuery: value.trim() || undefined });
+    closeAdd();
+    return;
+  }
+
   const tileId = await submitCommand(value);
   if (tileId) closeAdd();
 };

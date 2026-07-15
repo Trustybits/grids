@@ -54,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import CloseIcon from "@/components/icons/CloseIcon.vue";
 import ListIcon from "@/components/icons/ListIcon.vue";
 
@@ -65,6 +65,11 @@ const props = withDefaults(
     filterLabel?: string | null;
     /** Phrases cycled through the typewriter placeholder while empty. */
     placeholders?: string[];
+    /**
+     * A fixed placeholder that overrides the rotating one (no animation). Used
+     * once a specific tile type is selected to prompt for exactly what it needs.
+     */
+    staticPlaceholder?: string | null;
     viewMode?: "carousel" | "list";
     ariaLabel?: string;
     closeLabel?: string;
@@ -72,6 +77,7 @@ const props = withDefaults(
   {
     filterLabel: null,
     placeholders: () => [],
+    staticPlaceholder: null,
     viewMode: "carousel",
     ariaLabel: "Add a tile",
     closeLabel: "Close",
@@ -108,7 +114,11 @@ const stopTypewriter = () => {
 };
 
 const syncPlaceholder = () => {
-  placeholder.value = props.modelValue ? "" : typed.value;
+  if (props.modelValue) {
+    placeholder.value = "";
+    return;
+  }
+  placeholder.value = props.staticPlaceholder ?? typed.value;
 };
 
 const tick = () => {
@@ -143,6 +153,11 @@ const tick = () => {
 
 const startTypewriter = () => {
   stopTypewriter();
+  // A fixed prompt takes over once a tile type is chosen — no rotation.
+  if (props.staticPlaceholder) {
+    syncPlaceholder();
+    return;
+  }
   if (!props.placeholders.length) return;
   if (reducedMotion) {
     typed.value = props.placeholders[0];
@@ -162,6 +177,12 @@ const onInput = (event: Event) => {
 };
 
 const onSubmit = () => emit("submit", props.modelValue);
+
+// Selecting a tile type swaps in its fixed prompt; clearing it resumes rotation.
+watch(
+  () => props.staticPlaceholder,
+  () => startTypewriter(),
+);
 
 const focus = () => inputRef.value?.focus();
 defineExpose({ focus });

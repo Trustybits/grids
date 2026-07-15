@@ -1,53 +1,72 @@
 <!--
   MobileGridBar.vue
 
-  Mobile 2.0 bottom command pill for grid owners. Built on MobileCommandBar.
+  Mobile 2.0 bottom command pill for grid owners. Two modes that morph into one
+  another (Figma "New Tile Carousel", 1497-9533):
 
-  INTERIM WIRING (Phase 2): each command reuses the existing desktop component
-  so nothing is lost while the redesigned surfaces are built:
-    - Add a tile  → popover hosting the existing GridToolbar   (→ Tile Carousel, Phase 5)
-    - Grid menu   → existing GridSettings menu                 (→ Grid Settings sheet, Phase 6)
-    - Preview     → popover hosting the existing BreakpointSwitcher (→ Toolbar:Top, Phase 7)
-    - Share       → copy grid link                             (→ Share modal, Phase 9)
+    default : the four commands — Add Tile · Grid Settings · Preview | Share.
+    add     : tapping Add Tile grows the pill (the shell never fades — it
+              transforms via a FLIP width animation); the commands are replaced
+              by the `/TILE` command input, and a tile-type carousel slides up
+              from behind the pill. (MobileCommandInput is reused for the
+              `/GRID` settings input in Phase 6.)
+
+  STILL INTERIM: Grid Settings reuses the desktop GridSettings menu (→ Phase 6),
+  Preview reuses BreakpointSwitcher (→ Phase 7), Share copies the link (→ Phase 9).
+  The Add-a-Tile subtype list with per-grid "N times used" counts is Phase 5.2.
 -->
 <template>
   <div ref="rootRef" class="mobile-grid-bar">
-    <transition name="mgb-pop">
-      <div v-if="openPanel" class="mobile-grid-bar__popover">
-        <GridToolbar v-if="openPanel === 'add'" />
-        <BreakpointSwitcher
-          v-else-if="openPanel === 'preview'"
-          variant="toolbar-row"
+    <!-- Tile carousel / list — slides up from behind the pill while adding. -->
+    <transition name="mgb-rise">
+      <div v-if="mode === 'add'" class="mobile-grid-bar__panel">
+        <MobileTileCarousel
+          :types="filteredTypes"
+          :layout="viewMode"
+          @select="onSelectType"
         />
       </div>
     </transition>
 
-    <MobileCommandBar aria-label="Grid commands">
-      <button
-        type="button"
-        class="mgb-btn"
-        :class="{ 'is-active': openPanel === 'add' }"
-        aria-label="Add a tile"
-        @click.stop="togglePanel('add')"
-      >
-        <PlusIcon :size="24" />
-      </button>
+    <!-- Interim Preview popover (default mode only). -->
+    <transition name="mgb-pop">
+      <div v-if="mode === 'default' && showPreview" class="mobile-grid-bar__popover">
+        <BreakpointSwitcher variant="toolbar-row" />
+      </div>
+    </transition>
 
-      <span class="mgb-settings">
-        <GridSettings />
-      </span>
+    <MobileCommandBar
+      ref="pillRef"
+      class="mgb-pill"
+      :class="{ 'mgb-pill--add': mode === 'add' }"
+      :aria-label="mode === 'add' ? 'Add a tile' : 'Grid commands'"
+    >
+      <template v-if="mode === 'default'">
+        <button
+          type="button"
+          class="mgb-btn"
+          aria-label="Add a tile"
+          @click.stop="openAdd"
+        >
+          <PlusIcon :size="24" />
+        </button>
 
-      <button
-        type="button"
-        class="mgb-btn"
-        :class="{ 'is-active': openPanel === 'preview' }"
-        aria-label="Preview"
-        @click.stop="togglePanel('preview')"
-      >
-        <EyeIcon :size="24" />
-      </button>
+        <span class="mgb-settings">
+          <GridSettings />
+        </span>
 
-      <template #end>
+        <button
+          type="button"
+          class="mgb-btn"
+          :class="{ 'is-active': showPreview }"
+          aria-label="Preview"
+          @click.stop="togglePreview"
+        >
+          <EyeIcon :size="24" />
+        </button>
+
+        <span class="mgb-divider" aria-hidden="true" />
+
         <button
           type="button"
           class="mgb-btn"
@@ -57,33 +76,122 @@
           <ShareIcon :size="24" />
         </button>
       </template>
+
+      <MobileCommandInput
+        v-else
+        ref="cmdRef"
+        v-model="query"
+        :filter-label="TILE_FILTER"
+        :placeholders="PLACEHOLDERS"
+        :view-mode="viewMode"
+        close-label="Close add a tile"
+        @submit="onSubmit"
+        @toggle-view="toggleView"
+        @close="closeAdd"
+      />
     </MobileCommandBar>
+
+    <input
+      ref="imageInput"
+      type="file"
+      class="mgb-file"
+      accept="image/*,video/*"
+      @change.stop="onImageFile"
+    />
+    <input
+      ref="documentInput"
+      type="file"
+      class="mgb-file"
+      accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+      multiple
+      @change.stop="onDocumentFiles"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import MobileCommandBar from "@/components/ui-collections/MobileCommandBar.vue";
-import GridToolbar from "@/components/grid/GridToolbar.vue";
+import MobileCommandInput from "@/components/app/MobileCommandInput.vue";
+import MobileTileCarousel from "@/components/app/MobileTileCarousel.vue";
 import GridSettings from "@/components/grid/GridSettings.vue";
 import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
 import PlusIcon from "@/components/icons/PlusIcon.vue";
 import EyeIcon from "@/components/icons/EyeIcon.vue";
 import ShareIcon from "@/components/icons/ShareIcon.vue";
 import { useToastStore } from "@/stores/toast";
+import { useTileCreation } from "@/composables/useTileCreation";
+import { useFileUpload } from "@/composables/useFileUpload";
 
-type Panel = "add" | "preview";
+// Rotating typewriter hints for the `/TILE` input (product-specified order).
+const PLACEHOLDERS = [
+  "paste a URL",
+  "paste embed code",
+  "type to filter/search",
+  "paste text or md",
+  "paste files",
+  "paste videos/images",
+  "paste color values",
+];
+const TILE_FILTER = "/TILE";
 
 const toastStore = useToastStore();
-const rootRef = ref<HTMLElement | null>(null);
-const openPanel = ref<Panel | null>(null);
+const { tileTypes, filterTileTypes, createTile, submitCommand } =
+  useTileCreation();
+const { uploadFileOptimistic, uploadDocumentsOptimistic } = useFileUpload();
 
-const togglePanel = (panel: Panel) => {
-  openPanel.value = openPanel.value === panel ? null : panel;
+const rootRef = ref<HTMLElement | null>(null);
+const pillRef = ref<InstanceType<typeof MobileCommandBar> | null>(null);
+const cmdRef = ref<InstanceType<typeof MobileCommandInput> | null>(null);
+const imageInput = ref<HTMLInputElement | null>(null);
+const documentInput = ref<HTMLInputElement | null>(null);
+
+const mode = ref<"default" | "add">("default");
+const showPreview = ref(false);
+const query = ref("");
+const viewMode = ref<"carousel" | "list">("carousel");
+
+const filteredTypes = computed(() => filterTileTypes(query.value));
+
+// ── Grow the pill (FLIP) instead of fading it out/in ─────────────────────────
+// The shell stays mounted; only its width animates between the measured
+// default width and the (wider) add-mode width so it reads as "growing".
+const animatePillWidth = async () => {
+  const el = pillRef.value?.$el as HTMLElement | undefined;
+  if (!el) return;
+
+  const start = el.getBoundingClientRect().width;
+  await nextTick(); // the swapped-in content is now laid out
+  el.style.width = ""; // let CSS / content decide the target width
+  const end = el.getBoundingClientRect().width;
+  if (Math.abs(start - end) < 1) return;
+
+  el.style.width = `${start}px`;
+  void el.offsetWidth; // force reflow so the next change transitions
+  el.style.transition = "width var(--duration-normal) var(--easing-spring)";
+  el.style.width = `${end}px`;
+
+  const cleanup = (event: TransitionEvent) => {
+    if (event.propertyName !== "width") return;
+    el.style.transition = "";
+    el.style.width = "";
+    el.removeEventListener("transitionend", cleanup);
+  };
+  el.addEventListener("transitionend", cleanup);
+};
+
+watch(mode, async () => {
+  await animatePillWidth();
+  if (mode.value === "add") cmdRef.value?.focus();
+});
+
+// ── Default-mode commands ────────────────────────────────────────────────────
+const togglePreview = () => {
+  showPreview.value = !showPreview.value;
 };
 
 const shareLink = async () => {
-  openPanel.value = null;
+  showPreview.value = false;
   try {
     await navigator.clipboard.writeText(window.location.href);
     toastStore.addToast("Link to Grid copied to the clipboard", "success");
@@ -92,17 +200,97 @@ const shareLink = async () => {
   }
 };
 
-const handlePointerDown = (event: MouseEvent) => {
-  if (!openPanel.value) return;
-  if (rootRef.value && !rootRef.value.contains(event.target as Node)) {
-    openPanel.value = null;
+// ── Add-a-tile mode ──────────────────────────────────────────────────────────
+const openAdd = () => {
+  showPreview.value = false;
+  query.value = "";
+  viewMode.value = "carousel";
+  mode.value = "add";
+};
+
+const closeAdd = () => {
+  mode.value = "default";
+  query.value = "";
+};
+
+const toggleView = () => {
+  viewMode.value = viewMode.value === "carousel" ? "list" : "carousel";
+};
+
+const onSelectType = (id: string) => {
+  const descriptor = tileTypes.value.find((type) => type.id === id);
+  if (!descriptor) return;
+
+  if (descriptor.kind === "create" && descriptor.contentType) {
+    createTile(descriptor.contentType);
+    closeAdd();
+    return;
+  }
+
+  if (descriptor.kind === "file") {
+    if (descriptor.id === "document") documentInput.value?.click();
+    else imageInput.value?.click();
+    return;
+  }
+
+  // "command" types (Link / Embed): focus the input so the user can paste.
+  cmdRef.value?.focus();
+};
+
+const onSubmit = async (value: string) => {
+  const tileId = await submitCommand(value);
+  if (tileId) closeAdd();
+};
+
+const onImageFile = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+  closeAdd();
+  try {
+    await uploadFileOptimistic(file);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    toastStore.addToast(`Failed to upload file: ${message}`, "error");
   }
 };
 
-onMounted(() => document.addEventListener("pointerdown", handlePointerDown));
-onBeforeUnmount(() =>
-  document.removeEventListener("pointerdown", handlePointerDown),
-);
+const onDocumentFiles = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files || []);
+  input.value = "";
+  if (!files.length) return;
+  closeAdd();
+  try {
+    await uploadDocumentsOptimistic(files);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    toastStore.addToast(`Failed to upload documents: ${message}`, "error");
+  }
+};
+
+// ── Dismissal ────────────────────────────────────────────────────────────────
+const handlePointerDown = (event: MouseEvent) => {
+  if (!rootRef.value || rootRef.value.contains(event.target as Node)) return;
+  showPreview.value = false;
+  if (mode.value === "add") closeAdd();
+};
+
+const handleKeydown = (event: KeyboardEvent) => {
+  if (event.key !== "Escape") return;
+  if (mode.value === "add") closeAdd();
+  showPreview.value = false;
+};
+
+onMounted(() => {
+  document.addEventListener("pointerdown", handlePointerDown);
+  document.addEventListener("keydown", handleKeydown);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener("pointerdown", handlePointerDown);
+  document.removeEventListener("keydown", handleKeydown);
+});
 </script>
 
 <style lang="scss" scoped>
@@ -116,11 +304,50 @@ onBeforeUnmount(() =>
   flex-direction: column;
   align-items: center;
   gap: var(--spacing-sm);
+  max-width: 100vw;
 }
 
+// The pill sits above the carousel so the carousel appears to emerge from
+// behind it as it slides up.
+.mgb-pill {
+  position: relative;
+  z-index: 1;
+}
+
+.mgb-pill--add {
+  width: min(360px, calc(100vw - var(--spacing-lg) * 2));
+
+  // Stretch the command bar's inner group (inline-flex by default) so the input
+  // fills the pill and the toggle/close icons sit flush at the right edge —
+  // otherwise the group stays content-sized and leaves a gap on the right.
+  :deep(.mobile-command-bar__group) {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+
+  :deep(.mci) {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+.mobile-grid-bar__panel,
 .mobile-grid-bar__popover {
   display: flex;
   justify-content: center;
+  max-width: calc(100vw - var(--spacing-lg) * 2);
+}
+
+.mobile-grid-bar__panel {
+  z-index: 0;
+  border-radius: var(--radius-2xl, var(--radius-lg));
+  background-color: var(--color-toolbar-background);
+  border: var(--border-width) solid var(--color-stroke);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(20px);
+  overflow: hidden;
 }
 
 .mgb-btn {
@@ -129,6 +356,7 @@ onBeforeUnmount(() =>
   justify-content: center;
   width: 40px;
   height: 40px;
+  flex: 0 0 auto;
   padding: 0;
   border: none;
   border-radius: var(--radius-full);
@@ -145,6 +373,17 @@ onBeforeUnmount(() =>
     background: var(--color-base-8);
     color: var(--color-text-primary);
   }
+}
+
+.mgb-divider {
+  width: var(--border-width);
+  align-self: stretch;
+  margin: var(--spacing-xs) 2px;
+  background: var(--color-stroke);
+}
+
+.mgb-file {
+  display: none;
 }
 
 /*
@@ -171,6 +410,20 @@ onBeforeUnmount(() =>
     transform: translateX(-50%);
     max-width: calc(100vw - var(--spacing-lg) * 2);
   }
+}
+
+// Carousel/list rising up from behind the pill.
+.mgb-rise-enter-active,
+.mgb-rise-leave-active {
+  transition:
+    opacity var(--duration-normal) var(--easing-smooth),
+    transform var(--duration-normal) var(--easing-spring);
+}
+
+.mgb-rise-enter-from,
+.mgb-rise-leave-to {
+  opacity: 0;
+  transform: translateY(100%);
 }
 
 .mgb-pop-enter-active,

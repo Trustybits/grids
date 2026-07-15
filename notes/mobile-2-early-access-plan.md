@@ -162,17 +162,48 @@ Interim notes to revisit in later phases:
       on top, timestamp + actions beneath) and the name truncates instead of wrapping mid-word.
 - [x] Tests updated (`MobileAppBar` home mode, drawer idempotent fetch); full suite green.
 
-### Phase 4 — Mobile GridToolbar (bottom pill) ⬜ NOT STARTED
+### Phase 4 — Mobile GridToolbar (bottom pill) ✅ COMPLETE (delivered in Phase 2)
 
-- [ ] Bottom-center pill: AddTile, GridSettings, Preview, divider, Share
-- [ ] Reconcile with existing `GridToolbar` / `bottom-left-buttons`
+- [x] Bottom-center pill: AddTile, GridSettings, Preview, divider, Share
+      (`MobileGridBar` on `MobileCommandBar`)
+- [x] Reconcile with existing `GridToolbar` / `bottom-left-buttons` (bottom-left bar hidden
+      on mobile-2; the pill is the single command surface)
 
-### Phase 5 — Add-a-Tile carousel + `/TILE` input ⬜ NOT STARTED
+### Phase 5 — Add-a-Tile carousel + `/TILE` input 🟡 IN PROGRESS (5.1 done, 5.2 next)
 
-- [ ] Tile carousel (Figma `1497-9533`)
-- [ ] `/TILE` input with rotating typed placeholder + smart paste → tile on ENTER
-- [ ] Tile-type filter/search (full list on empty; matching subtypes on search)
-- [ ] Per-grid "N times used" counts
+Product decisions (confirmed): the pill **is** the command input — one morphing component.
+Tapping **Add Tile** grows the pill (the shell never fades — it transforms via a FLIP width
+animation); the four commands are replaced by the `/TILE` input, and a tile-type carousel
+slides up **from behind** the pill. The `/TILE` chip is a **static, non-removable** label for
+now (`x | /TILE` removal is deferred until the general "omni" search is designed), and the
+**close button sits at the far right** of the input. `MobileCommandInput` is built to be reused
+for the `/GRID` settings input in Phase 6. "N times used" counts are **per-grid** (computed live
+from the current grid's tiles).
+
+#### Phase 5.1 — Command input + tile-type carousel ✅ COMPLETE
+
+- [x] `useTileCreation` composable (`apps/web/src/composables/useTileCreation.ts`): single
+      tile-type registry (flag-gated, mirrors `GridToolbar`) + `createTile` / `submitCommand`
+      (smart-paste via `useTileInput`). Keeps creation logic in one place.
+- [x] `MobileCommandInput.vue` (reusable): static `/TILE` chip, animated typewriter placeholder
+      (product-specified phrases, respects `prefers-reduced-motion`), carousel/list view toggle,
+      far-right close button, `submit` on ENTER.
+- [x] `MobileTileCarousel.vue`: scroll-snap row of tile-type cards (+ vertical `list` layout for
+      the view toggle); filtered live by the input query.
+- [x] `MobileGridBar.vue` reworked: morphs default ↔ add mode; carousel select creates the tile
+      (create-kind), opens the file picker (image/document), or focuses the input (link/embed);
+      ENTER smart-pastes a URL/embed or creates a keyword-matched tile.
+- [x] New icons `CloseIcon` + `ListIcon`; tests for the composable + all three components
+      (2587 tests green); typecheck + lint clean.
+
+Deferred polish: the Figma 3D "coverflow" fan is a clean scroll-snap row for now.
+
+#### Phase 5.2 — Subtype list + usage counts ⬜ NOT STARTED
+
+- [ ] List view rows for link/embed **subtypes** (Music, YouTube, Twitter, Instagram, …) with
+      icons (Figma `1534-7792`) — needs a curated subtype registry (no such registry today)
+- [ ] Per-grid **"N times used"** counts, computed from the current grid's tiles
+- [ ] `/TILE` (tile types) vs general-search (subtypes/content) semantics once the list exists
 
 ### Phase 6 — Grid Settings sheet ⬜ NOT STARTED
 

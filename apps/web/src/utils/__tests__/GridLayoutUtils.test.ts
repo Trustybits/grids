@@ -18,6 +18,11 @@ import {
   reconcileGridLayout,
   scaleLayoutItemToFit,
 } from "../GridLayoutUtils";
+import {
+  legacyProjectionParityMatrix,
+  realGridProjectionFixtures,
+  type LegacyProjectionParityFixture,
+} from "./fixtures/legacyProjectionParity";
 
 function layoutItem(
   i: string,
@@ -317,74 +322,6 @@ describe("projectGridLayout", () => {
     ]);
   });
 
-  it("uses saved non-desktop overrides", () => {
-    expect(
-      projectGridLayout({
-        tiles: [tile("a", 0, 0, 2, 2)],
-        breakpoint: "md",
-        columns: 8,
-        overrides: {
-          md: {
-            a: { x: 3, y: 4, w: 5, h: 6 },
-          },
-        },
-      }),
-    ).toEqual([layoutItem("a", 3, 4, 5, 6)]);
-  });
-
-  it("places tiles missing from a partial override around customized tiles", () => {
-    expect(
-      projectGridLayout({
-        tiles: [
-          tile("custom", 0, 0, 2, 2),
-          tile("missing", 0, 0, 10, 5),
-        ],
-        breakpoint: "md",
-        columns: 8,
-        overrides: {
-          md: {
-            custom: { x: 0, y: 0, w: 4, h: 4 },
-          },
-        },
-      }),
-    ).toEqual([
-      layoutItem("custom", 0, 0, 4, 4),
-      layoutItem("missing", 0, 4, 8, 4),
-    ]);
-  });
-
-  it("automatically scales and packs a non-desktop layout without overrides", () => {
-    expect(
-      projectGridLayout({
-        tiles: [
-          tile("a", 0, 0, 8, 4),
-          tile("b", 0, 0, 2, 2),
-        ],
-        breakpoint: "sm",
-        columns: 4,
-      }),
-    ).toEqual([
-      layoutItem("a", 0, 0, 4, 2),
-      layoutItem("b", 0, 2, 2, 2),
-    ]);
-  });
-
-  it("automatically scales and packs a tablet layout without overrides", () => {
-    expect(
-      projectGridLayout({
-        tiles: [
-          tile("a", 0, 0, 10, 5),
-          tile("b", 0, 0, 3, 2),
-        ],
-        breakpoint: "md",
-        columns: 8,
-      }),
-    ).toEqual([
-      layoutItem("a", 0, 0, 8, 4),
-      layoutItem("b", 0, 4, 3, 2),
-    ]);
-  });
-
   it("does not mutate canonical tiles or overrides", () => {
     const tiles = [tile("a", 0, 0, 8, 4)];
     const overrides = {
@@ -406,6 +343,54 @@ describe("projectGridLayout", () => {
     expect(overrides).toEqual(originalOverrides);
   });
 });
+
+function verifyProjectionFixture(
+  fixture: LegacyProjectionParityFixture,
+): GridLayoutItem[] {
+  return projectGridLayout({
+    tiles: fixture.tiles.map(({ i, x, y, w, h }) =>
+      tile(i, x, y, w, h),
+    ),
+    breakpoint: fixture.breakpoint,
+    columns: fixture.columns,
+    overrides: fixture.overrides,
+  });
+}
+
+function describeProjectionFixtures(
+  title: string,
+  fixtures: readonly LegacyProjectionParityFixture[],
+): void {
+  describe(title, () => {
+    for (const fixture of fixtures) {
+      describe(fixture.name, () => {
+        it("matches legacy-v1 before gravity", () => {
+          expect(verifyProjectionFixture(fixture)).toEqual(
+            fixture.expectedProjection,
+          );
+        });
+
+        it("matches legacy-v1 with top gravity", () => {
+          const projected = verifyProjectionFixture(fixture);
+
+          expect(
+            compactGridLayout(projected, fixture.columns),
+          ).toEqual(fixture.expectedWithTopGravity);
+        });
+      });
+    }
+  });
+}
+
+describeProjectionFixtures(
+  "legacy-v1 responsive projection parity matrix",
+  legacyProjectionParityMatrix,
+);
+
+describeProjectionFixtures(
+  "legacy-v1 real-grid compatibility fixtures",
+  realGridProjectionFixtures,
+);
 
 describe("reconcileGridLayout", () => {
   it("retains object identity when an item's position is unchanged", () => {

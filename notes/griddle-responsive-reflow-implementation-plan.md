@@ -1,7 +1,8 @@
 # Griddle Responsive Reflow and Projection Versioning — Implementation Plan
 
-**Status:** Planning only. No implementation has started. Bootstrap parity and
-final-algorithm launch are intentionally separate phases.
+**Status:** Implementation in progress. Step 0 is complete; Step 1 has not
+started. Bootstrap parity and final-algorithm launch remain intentionally
+separate phases.
 
 **Repositories in scope:**
 
@@ -224,6 +225,21 @@ packing. This avoids making ordinary desktop loads a new automatic reflow event.
 
 **Exit criterion:** current behavior is represented by stable expected outputs
 before code is moved.
+
+**Step 0 implementation record (2026-07-15):**
+
+- Both worktrees were clean at baseline on
+  `moving-breakpoint-tile-repositioning-to-griddle` (Grids) and
+  `implementing-reflow-mechanics` (Griddle).
+- Griddle core baseline: 55 tests passed with `node test/run.mjs` from
+  `packages/core`.
+- Grids focused baseline: 61 tests passed across `GridLayoutUtils.test.ts`,
+  `useResponsiveGridLayout.test.ts`, and `Grid.test.ts`.
+- The projection cases now use ten explicit golden fixtures: seven focused
+  contract cases and three real-grid-shaped cases. Every fixture records both
+  the frozen pre-gravity result and the result with top gravity.
+- Focused verification after the fixture expansion: 77 tests passed, plus web
+  type checking and targeted linting.
 
 ## Step 1 — Add a generic, versioned reflow primitive to Griddle core
 

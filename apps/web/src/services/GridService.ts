@@ -1,4 +1,5 @@
 import {
+  resolveResponsiveLayoutVersion,
   type Grid,
   type ConfirmedGridDuplicateStorage,
   type CopyDepth,
@@ -20,7 +21,10 @@ import { getDbUtils } from "@/dao/DbUtilsSingleton";
 import type { DbUtils } from "@grids/contracts/dao";
 import type { GridDao } from "@grids/contracts/dao";
 import type { UserDao } from "@grids/contracts/dao";
-import { createDefaultGrid } from "@/utils/GridUtils";
+import {
+  ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION,
+  createDefaultGrid,
+} from "@/utils/GridUtils";
 import { createTile, createTileContent } from "@/utils/TileUtils";
 import { stripBlobUrlsFromTiles } from "@/utils/GridPersistenceUtils";
 import { v4 as uuidv4 } from "uuid";
@@ -246,6 +250,9 @@ export class GridService implements GridServiceInterface {
       rev: nextRev,
       name: grid.name,
       colNum: grid.colNum,
+      responsiveLayoutVersion: resolveResponsiveLayoutVersion(
+        grid.responsiveLayoutVersion,
+      ),
       verticalCompact: grid.verticalCompact,
       // Safety net: strip any blob: URLs that weren't already resolved
       tiles: stripBlobUrlsFromTiles(grid.tiles as unknown[]),
@@ -365,7 +372,11 @@ export class GridService implements GridServiceInterface {
     starterTiles: Grid["tiles"] = [],
   ): Promise<Grid> {
     try {
-      const newGrid = createDefaultGrid(userId, name);
+      const newGrid = createDefaultGrid(
+        userId,
+        name,
+        ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION,
+      );
       newGrid.tiles = starterTiles;
       newGrid.id = this.gridDao.generateId();
 
@@ -395,6 +406,9 @@ export class GridService implements GridServiceInterface {
         rev: 0,
         name: `Copy of ${sourceGrid.name || "Untitled"}`,
         colNum: sourceGrid.colNum,
+        responsiveLayoutVersion: resolveResponsiveLayoutVersion(
+          sourceGrid.responsiveLayoutVersion,
+        ),
         verticalCompact: sourceGrid.verticalCompact,
         tiles: clonedTiles,
         backgroundImageSrc: background.backgroundImageSrc,

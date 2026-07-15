@@ -12,6 +12,10 @@
 
 import { describe, it, expect } from "vitest";
 import { mapFirestoreToGrid } from "../FirebaseUtils.js";
+import {
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+  LEGACY_RESPONSIVE_LAYOUT_VERSION,
+} from "@grids/contracts/types";
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 
 /** Build a minimal QueryDocumentSnapshot stand-in. */
@@ -34,6 +38,7 @@ describe("mapFirestoreToGrid", () => {
         rev: 3,
         name: "My Grid",
         colNum: 6,
+        responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
         verticalCompact: false,
         tiles,
         backgroundImageSrc: "https://img.png",
@@ -56,6 +61,7 @@ describe("mapFirestoreToGrid", () => {
       rev: 3,
       name: "My Grid",
       colNum: 6,
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
       verticalCompact: false,
       tiles,
       backgroundImageSrc: "https://img.png",
@@ -81,6 +87,7 @@ describe("mapFirestoreToGrid", () => {
       rev: 0,
       name: "Untitled",
       colNum: 12,
+      responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
       verticalCompact: true,
       tiles: [],
       backgroundImageSrc: "",
@@ -133,5 +140,14 @@ describe("mapFirestoreToGrid", () => {
   it("defaults a missing rev to 0 for legacy grids", () => {
     const grid = mapFirestoreToGrid(fakeDoc("legacy", { name: "Legacy" }));
     expect(grid.rev).toBe(0);
+  });
+
+  it("falls back to legacy-v1 for an unsupported responsive layout version", () => {
+    const grid = mapFirestoreToGrid(
+      fakeDoc("future", { responsiveLayoutVersion: "griddle-v2" }),
+    );
+    expect(grid.responsiveLayoutVersion).toBe(
+      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+    );
   });
 });

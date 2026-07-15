@@ -1,8 +1,8 @@
 # Griddle Responsive Reflow and Projection Versioning — Implementation Plan
 
-**Status:** Implementation in progress. Step 0 is complete; Step 1 has not
-started. Bootstrap parity and final-algorithm launch remain intentionally
-separate phases.
+**Status:** Implementation in progress. Steps 0 through 4 are complete; Step 5
+has not started. Bootstrap parity and final-algorithm launch remain
+intentionally separate phases.
 
 **Repositories in scope:**
 
@@ -293,6 +293,22 @@ Repository: `../griddle`
 by strategy name, and it independently proves the legacy geometry contract
 without claiming to be the final product algorithm.
 
+**Step 1 implementation record (2026-07-15):**
+
+- Added the dependency-free `reflowTiles()` primitive, immutable
+  `preserve-v1` strategy, `ReflowOptions`, and public exports in Griddle core.
+- Added atomic `Grid.reflow()`: it reflows only in-flow tiles, installs finite
+  columns and geometry before notification, leaves out-of-flow tiles untouched,
+  emits one `reflow` event, and keeps gravity and dense packing separate.
+- Mirrored all ten Step 0 pre-gravity fixtures in Griddle and added coverage for
+  determinism, metadata, rounding, invalid-input rollback, event atomicity,
+  out-of-flow behavior, finite conversion, renderability, gravity separation,
+  and unchanged `pack()` behavior.
+- Verification: 79 Griddle core tests passed, all existing adapter tests passed,
+  and the complete Griddle package build succeeded.
+- No adapter API/demo/documentation or package-version changes were made; those
+  remain Step 2 work.
+
 ## Step 2 — Expose reflow consistently through Griddle adapters and demos
 
 1. Add `reflow(options)` to Vue, React, and Svelte adapter APIs so consumers do
@@ -319,6 +335,26 @@ demo tiles disappear when the explicit reflow operation is used. Publishing
 this reusable primitive does not authorize launching it as persisted
 `griddle-v1` in Grids.
 
+**Step 2 implementation record (2026-07-15):**
+
+- Added the same `api.reflow(options)` method to the React, Vue, and Svelte
+  adapters and verified that one completed core event refreshes adapter tiles,
+  config, and version exactly once.
+- Replaced React's tile-count/config-string snapshot with a monotonic revision
+  source so geometry-only events cannot be dropped.
+- Updated all three demos' finite column controls to call
+  `reflow({ strategy: "preserve-v1" })`; infinite-axis controls continue using
+  `updateConfig()`.
+- Added `docs/reflow.md`, linked reflow guidance from the root and package
+  READMEs, and added the `0.1.5` changelog entry.
+- Coordinated the `0.1.5` bump across core/react/vue/svelte, all adapter core
+  peer/dev ranges, and `package-lock.json`.
+- Verification: full package build and tests passed (79 core tests and 6 tests
+  per adapter), all three demos built, Vue demo type checking passed, and all
+  four `npm pack --dry-run` tarballs contained the expected `0.1.5` artifacts.
+- Griddle `0.1.5` was subsequently published by the maintainer. Grids remains
+  on `@griddle/vue` `0.1.4` until the planned runtime integration in Step 6.
+
 ## Step 3 — Add the responsive-layout version contract to Grids
 
 1. In `packages/contracts/src/types/Grid.ts`, add:
@@ -340,6 +376,30 @@ this reusable primitive does not authorize launching it as persisted
 
 **Exit criterion:** version names and fallback semantics have one shared source
 of truth.
+
+**Step 3 implementation record (2026-07-15):**
+
+- Added the shared `ResponsiveLayoutVersion` vocabulary, exact `legacy-v1` and
+  `griddle-v1` constants, supported-value validator, and optional
+  `Grid.responsiveLayoutVersion` field in `@grids/contracts`.
+- Added a defensive resolver that maps missing, malformed, and unsupported
+  future runtime values to `legacy-v1` for rendering.
+- Kept `NEW_GRID_RESPONSIVE_LAYOUT_VERSION` (`griddle-v1`) separate from that
+  read fallback. Production creation remains gated until the final Griddle
+  strategy is launch-ready.
+- Added centralized upgrade eligibility: only an absent value or exact
+  `legacy-v1` is eligible; unknown future values render as legacy but cannot be
+  automatically overwritten.
+- Added the web's single strategy-mapping seam. During bootstrap verification,
+  resolved `griddle-v1` maps there to Griddle `preserve-v1`; `legacy-v1`
+  continues to select the app-owned projection path.
+- Kept persistence normalization, creation/duplication behavior, runtime
+  projection routing, and the Griddle dependency upgrade in their later
+  planned steps.
+- Verification: contracts build/tests/type-check/lint passed (24 tests), Pro
+  build/tests/type-check/lint passed (241 tests), Firebase Functions
+  build/tests/type-check/lint passed (894 tests), and the complete web suite
+  passed (141 files / 2,599 tests plus type-check and production build).
 
 ## Step 4 — Normalize, create, duplicate, and persist versions
 
@@ -373,6 +433,30 @@ preservation.
 and duplicate creation paths implement and test their intentionally different
 launch behavior without yet writing temporary `griddle-v1` documents in
 production.
+
+**Step 4 implementation record (2026-07-15):**
+
+- Normalized missing, malformed, and unsupported responsive-layout values to
+  `legacy-v1` in the Firebase mapper, stubbed database mapper, and mock grid
+  service while preserving explicit supported values.
+- Made `createDefaultGrid()` use the eventual `griddle-v1` new-grid default,
+  but routed real `GridService.createGrid()` calls through the single
+  deployment-wide creation gate, which remains pinned to `legacy-v1` during
+  bootstrap.
+- Added `responsiveLayoutVersion` to both create/save and update payloads.
+- Made duplicates inherit the normalized source version rather than the fresh
+  grid default, and verified both `legacy-v1` and `griddle-v1` inheritance
+  alongside breakpoint override ID remapping.
+- Marked the homepage demo explicitly as `griddle-v1` for the future routed
+  demo path and the maintained mock fixture explicitly as `legacy-v1` for
+  compatibility coverage.
+- Verified ownership transfer continues using a partial grid update that omits
+  `responsiveLayoutVersion`, preserving the stored value unchanged.
+- Added no Firestore rule or Griddle dependency changes.
+- Verification: contracts build/tests/type-check/lint passed (24 tests), Pro
+  build/tests/type-check/lint passed (242 tests), Firebase Functions
+  build/tests/type-check/lint passed (894 tests), and the complete web suite
+  passed (142 files / 2,608 tests plus type-check and production build).
 
 ## Step 5 — Add the maintainer backfill script
 

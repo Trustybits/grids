@@ -17,7 +17,11 @@ import {
   todayIsoDate,
   toGrid,
 } from "../StubbedMemoryDatabase";
-import type { UserGameData } from "@grids/contracts/types";
+import {
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+  LEGACY_RESPONSIVE_LAYOUT_VERSION,
+  type UserGameData,
+} from "@grids/contracts/types";
 import { resetMemoryDatabase, flushMicrotasks } from "./memoryTestUtils";
 
 beforeEach(() => {
@@ -238,6 +242,7 @@ describe("toGrid", () => {
       rev: 0,
       name: "Untitled",
       colNum: 12,
+      responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
       verticalCompact: true,
       backgroundImageSrc: "",
       backgroundImageHash: undefined,
@@ -259,6 +264,7 @@ describe("toGrid", () => {
       userId: "user-1",
       name: "My Grid",
       colNum: 6,
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
       verticalCompact: false,
       duplicatable: true,
       themeId: "dark",
@@ -269,6 +275,7 @@ describe("toGrid", () => {
       userId: "user-1",
       name: "My Grid",
       colNum: 6,
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
       verticalCompact: false,
       duplicatable: true,
       themeId: "dark",
@@ -280,12 +287,16 @@ describe("toGrid", () => {
       userId: 123,
       colNum: "not-a-number",
       verticalCompact: "yes",
+      responsiveLayoutVersion: "griddle-v2",
       tiles: "not-an-array",
     });
 
     expect(result.userId).toBe("");
     expect(result.colNum).toBe(12);
     expect(result.verticalCompact).toBe(true);
+    expect(result.responsiveLayoutVersion).toBe(
+      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+    );
     expect(result.tiles).toEqual([]);
   });
 

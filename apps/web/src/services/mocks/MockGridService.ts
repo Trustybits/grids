@@ -1,4 +1,8 @@
-import { type Grid } from "@grids/contracts/types";
+import {
+  LEGACY_RESPONSIVE_LAYOUT_VERSION,
+  resolveResponsiveLayoutVersion,
+  type Grid,
+} from "@grids/contracts/types";
 import type { GridServiceInterface } from "../interfaces/GridServiceInterface";
 import { ContentType } from "@grids/contracts/types";
 import { createTile, createTileContent } from "@/utils/TileUtils";
@@ -7,6 +11,7 @@ const mockData: Grid = {
   id: "mock-grid-id",
   name: "Mock Grid",
   colNum: 16,
+  responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
   verticalCompact: false,
   userId: "me",
   rev: 0,
@@ -55,6 +60,15 @@ const mockData: Grid = {
   backgroundEmbed: false,
 };
 
+function normalizeMockGrid(grid: Grid): Grid {
+  return {
+    ...grid,
+    responsiveLayoutVersion: resolveResponsiveLayoutVersion(
+      grid.responsiveLayoutVersion,
+    ),
+  };
+}
+
 export class MockGridService implements GridServiceInterface {
   subscribeToGrid(
     _id: string,
@@ -65,17 +79,17 @@ export class MockGridService implements GridServiceInterface {
 
   async fetchGrid(id: string): Promise<Grid> {
     console.warn(`Fetching grid with id: ${id}`);
-    return { ...mockData };
+    return normalizeMockGrid(mockData);
   }
 
   async saveGrid(grid: Grid): Promise<Grid> {
     console.warn(`Saving grid`);
-    return { ...grid, rev: (grid.rev ?? 0) + 1 };
+    return normalizeMockGrid({ ...grid, rev: (grid.rev ?? 0) + 1 });
   }
 
   async updateGrid(grid: Grid): Promise<Grid> {
     console.warn(`Updating grid`);
-    return { ...grid, rev: (grid.rev ?? 0) + 1 };
+    return normalizeMockGrid({ ...grid, rev: (grid.rev ?? 0) + 1 });
   }
 
   async deleteGrid(id: string): Promise<void> {
@@ -95,16 +109,21 @@ export class MockGridService implements GridServiceInterface {
     _name: string,
     _starterTiles?: Grid["tiles"],
   ): Promise<Grid> {
-    return { ...mockData };
+    return normalizeMockGrid(mockData);
   }
 
   async duplicateGrid(
     _userId: string,
-    _sourceGrid: Grid,
+    sourceGrid: Grid,
     _clonedTiles: Grid["tiles"],
     _newOverrides: Grid["overrides"],
   ): Promise<Grid> {
-    return { ...mockData };
+    return normalizeMockGrid({
+      ...mockData,
+      responsiveLayoutVersion: resolveResponsiveLayoutVersion(
+        sourceGrid.responsiveLayoutVersion,
+      ),
+    });
   }
 
   async touchLastOpenedAt(_gridId: string): Promise<void> {}
@@ -119,14 +138,19 @@ export class MockGridService implements GridServiceInterface {
     _userId: string,
     _name: string,
   ): Promise<Grid> {
-    return { ...mockData };
+    return normalizeMockGrid(mockData);
   }
 
   async cloneAndPersistGrid(
     _userId: string,
-    _sourceGrid: Grid,
+    sourceGrid: Grid,
     _copyDepth?: import("@grids/contracts/types").CopyDepth,
   ): Promise<Grid> {
-    return { ...mockData };
+    return normalizeMockGrid({
+      ...mockData,
+      responsiveLayoutVersion: resolveResponsiveLayoutVersion(
+        sourceGrid.responsiveLayoutVersion,
+      ),
+    });
   }
 }

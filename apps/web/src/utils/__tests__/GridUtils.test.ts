@@ -7,8 +7,17 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { ContentType, type Tile } from "@grids/contracts/types";
-import { createDefaultGrid, findTileById } from "../GridUtils";
+import {
+  ContentType,
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+  LEGACY_RESPONSIVE_LAYOUT_VERSION,
+  type Tile,
+} from "@grids/contracts/types";
+import {
+  ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION,
+  createDefaultGrid,
+  findTileById,
+} from "../GridUtils";
 
 function makeTile(i: string, x = 0, y = 0): Tile {
   return {
@@ -48,12 +57,29 @@ describe("createDefaultGrid", () => {
       id: "",
       rev: 0,
       colNum: 12,
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
       verticalCompact: true,
       tiles: [],
       backgroundImageSrc: "",
       backgroundEmbed: false,
       duplicatable: false,
     });
+  });
+
+  it("keeps persisted production creation on legacy-v1 while launch is gated", () => {
+    expect(ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION).toBe(
+      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+    );
+  });
+
+  it("accepts an explicit compatibility version", () => {
+    expect(
+      createDefaultGrid(
+        "user-1",
+        "Legacy",
+        LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      ).responsiveLayoutVersion,
+    ).toBe(LEGACY_RESPONSIVE_LAYOUT_VERSION);
   });
 
   it("starts with an empty, fresh tiles array", () => {

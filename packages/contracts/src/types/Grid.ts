@@ -1,6 +1,54 @@
 import type { Tile } from "./Tile.js";
 import type { Breakpoint, TilePosition } from "./Tile.js";
 
+export const LEGACY_RESPONSIVE_LAYOUT_VERSION = "legacy-v1" as const;
+export const GRIDDLE_RESPONSIVE_LAYOUT_VERSION = "griddle-v1" as const;
+
+export const RESPONSIVE_LAYOUT_VERSIONS = [
+  LEGACY_RESPONSIVE_LAYOUT_VERSION,
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+] as const;
+
+export type ResponsiveLayoutVersion =
+  (typeof RESPONSIVE_LAYOUT_VERSIONS)[number];
+
+/**
+ * Eventual launch default for newly created grids. Production creation remains
+ * separately gated until the finalized Griddle strategy is launch-ready.
+ */
+export const NEW_GRID_RESPONSIVE_LAYOUT_VERSION =
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION;
+
+export function isResponsiveLayoutVersion(
+  value: unknown,
+): value is ResponsiveLayoutVersion {
+  return (
+    value === LEGACY_RESPONSIVE_LAYOUT_VERSION ||
+    value === GRIDDLE_RESPONSIVE_LAYOUT_VERSION
+  );
+}
+
+/**
+ * Resolve untrusted stored data for rendering. Missing, malformed, and unknown
+ * future values stay on the frozen legacy projection for compatibility.
+ */
+export function resolveResponsiveLayoutVersion(
+  value: unknown,
+): ResponsiveLayoutVersion {
+  return isResponsiveLayoutVersion(value)
+    ? value
+    : LEGACY_RESPONSIVE_LAYOUT_VERSION;
+}
+
+/**
+ * Only an unstamped grid or one explicitly pinned to legacy-v1 may use the
+ * irreversible legacy-to-Griddle upgrade command. Unknown future versions are
+ * rendered defensively as legacy but must never be overwritten automatically.
+ */
+export function isResponsiveLayoutUpgradeEligible(value: unknown): boolean {
+  return value === undefined || value === LEGACY_RESPONSIVE_LAYOUT_VERSION;
+}
+
 // Controls how much content is carried over when duplicating a grid.
 //   'full'      — clone all tile content (media URLs kept, chat cleared)
 //   'structure' — keep tile type/size/position only, reset content to defaults
@@ -12,6 +60,7 @@ export interface Grid {
   rev?: number;
   name: string;
   colNum: number;
+  responsiveLayoutVersion?: ResponsiveLayoutVersion;
   verticalCompact: boolean;
   backgroundImageSrc: string;
   backgroundImageHash?: string;

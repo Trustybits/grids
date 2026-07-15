@@ -1,15 +1,16 @@
-import type {
-  AnalyticsEvent,
-  BusinessStats,
-  ChatMessage,
-  DailyBusinessStats,
-  DailyGridStats,
-  Grid,
-  GridTransfer,
-  GridStats,
-  LeaderboardEntry,
-  UserBadges,
-  UserGameData,
+import {
+  resolveResponsiveLayoutVersion,
+  type AnalyticsEvent,
+  type BusinessStats,
+  type ChatMessage,
+  type DailyBusinessStats,
+  type DailyGridStats,
+  type Grid,
+  type GridTransfer,
+  type GridStats,
+  type LeaderboardEntry,
+  type UserBadges,
+  type UserGameData,
 } from "@grids/contracts/types";
 import type { StorageUploadMetadata } from "@grids/contracts/dao";
 
@@ -159,6 +160,9 @@ export function toGrid(id: string, data: Record<string, unknown>): Grid {
     rev: typeof data.rev === "number" ? data.rev : 0,
     name: typeof data.name === "string" ? data.name : "Untitled",
     colNum: typeof data.colNum === "number" ? data.colNum : 12,
+    responsiveLayoutVersion: resolveResponsiveLayoutVersion(
+      data.responsiveLayoutVersion,
+    ),
     verticalCompact:
       typeof data.verticalCompact === "boolean" ? data.verticalCompact : true,
     backgroundImageSrc:

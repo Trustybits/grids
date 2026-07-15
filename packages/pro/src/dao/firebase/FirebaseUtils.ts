@@ -1,4 +1,7 @@
-import type { Grid } from "@grids/contracts/types";
+import {
+  resolveResponsiveLayoutVersion,
+  type Grid,
+} from "@grids/contracts/types";
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 
 // Mapper function to ensure Firestore data matches the Grid type
@@ -12,6 +15,9 @@ export function mapFirestoreToGrid(
     rev: typeof data.rev === "number" ? data.rev : 0,
     name: data.name || "Untitled",
     colNum: data.colNum || 12,
+    responsiveLayoutVersion: resolveResponsiveLayoutVersion(
+      data.responsiveLayoutVersion,
+    ),
     verticalCompact:
       data.verticalCompact !== undefined ? data.verticalCompact : true,
     tiles: Array.isArray(data.tiles) ? data.tiles : [], // Validate tiles is an array

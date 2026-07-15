@@ -826,6 +826,38 @@ describe('createStarterTiles', () => {
     expect((tiles[5].content as unknown as { action: string }).action).toBe('link')
   })
 
+  it('keeps every starter tile in bounds without overlaps', async () => {
+    const tiles = await getStarterTiles()
+
+    expect(tiles[3]).toEqual(
+      expect.objectContaining({ x: 9, y: 3, w: 3, h: 2 }),
+    )
+
+    for (const tile of tiles) {
+      expect(tile.x).toBeGreaterThanOrEqual(0)
+      expect(tile.x + tile.w).toBeLessThanOrEqual(12)
+      expect(tile.y).toBeGreaterThanOrEqual(0)
+    }
+
+    for (let leftIndex = 0; leftIndex < tiles.length; leftIndex += 1) {
+      const left = tiles[leftIndex]
+      for (
+        let rightIndex = leftIndex + 1;
+        rightIndex < tiles.length;
+        rightIndex += 1
+      ) {
+        const right = tiles[rightIndex]
+        const overlaps =
+          left.x < right.x + right.w &&
+          left.x + left.w > right.x &&
+          left.y < right.y + right.h &&
+          left.y + left.h > right.y
+
+        expect(overlaps, `${left.i} overlaps ${right.i}`).toBe(false)
+      }
+    }
+  })
+
   it('renders the welcome text tile as a Tiptap doc with parsed markdown structure', async () => {
     const tiles = await getStarterTiles()
     const doc = JSON.parse((tiles[2].content as unknown as { text: string }).text)

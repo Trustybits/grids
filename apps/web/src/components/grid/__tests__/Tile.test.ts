@@ -1,48 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
-import { reactive } from "vue";
+import { reactive, ref } from "vue";
 import {
   ContentType,
   type ImageContent,
   type LinkContent,
+  type SuggestionContent,
   type Tile,
 } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
+import { TILE_DRAGGING_ID } from "@/grid-context/tileInteractionKeys";
 
 const storeHolder = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
+}));
+const contentHooks = vi.hoisted(() => ({
+  onShortClick: vi.fn(),
 }));
 
 vi.mock("@/grid-context/useGridViewContext", () => ({
   useGridViewContext: () => storeHolder.current,
 }));
 
-vi.mock("vue3-grid-layout", async () => {
-  const { defineComponent, h } = await import("vue");
-  return {
-    GridItem: defineComponent({
-      name: "GridItemStub",
-      emits: ["move", "moved", "resize", "resized"],
-      props: {
-        i: String,
-        x: Number,
-        y: Number,
-        w: Number,
-        h: Number,
-      },
-      setup(_props, { slots }) {
-        return () => h("div", slots.default?.());
-      },
-    }),
-  };
-});
-
 vi.mock("@/utils/TileUtils", async () => {
   const { defineComponent, h } = await import("vue");
   const ContentStub = defineComponent({
     name: "ContentStub",
     props: { content: Object },
-    setup(props) {
+    setup(props, { expose }) {
+      expose({ onShortClick: contentHooks.onShortClick });
       return () =>
         h("span", {
           "data-test": "content",
@@ -121,10 +107,14 @@ async function mountGridTile(
   layout: GridLayoutItem,
 ) {
   storeHolder.current = store;
+  const draggingTileId = ref<string | null>(null);
   const { default: GridTile } = await import("@/components/grid/Tile.vue");
   const wrapper = mount(GridTile, {
     props: { tile: store.currentGrid.tiles[0]!, layout },
     global: {
+      provide: {
+        [TILE_DRAGGING_ID as symbol]: draggingTileId,
+      },
       stubs: {
         TileActions: true,
         TileCaption: true,
@@ -134,14 +124,12 @@ async function mountGridTile(
     },
   });
   await flushPromises();
-  return {
-    gridItem: wrapper.findComponent({ name: "GridItemStub" }),
-    wrapper,
-  };
+  return { wrapper, draggingTileId };
 }
 
 describe("GridTile position-only rendering", () => {
   beforeEach(() => {
+    contentHooks.onShortClick.mockReset();
     vi.stubGlobal(
       "matchMedia",
       vi.fn(() => ({
@@ -163,17 +151,10 @@ describe("GridTile position-only rendering", () => {
       w: 5,
       h: 6,
     };
-    const { gridItem, wrapper } = await mountGridTile(store, layout);
+    const { wrapper } = await mountGridTile(store, layout);
 
-    expect(gridItem.props()).toEqual(
-      expect.objectContaining({
-        i: "tile-1",
-        x: 3,
-        y: 4,
-        w: 5,
-        h: 6,
-      }),
-    );
+    // Tile geometry (data-tile-w/h) is sourced from the layout slot prop that
+    // Grid.vue derives from the Griddle tile rather than a positioning wrapper.
     expect(wrapper.find(".tile-wrapper").attributes()).toEqual(
       expect.objectContaining({
         "data-tile-type": ContentType.LINK,
@@ -182,6 +163,7 @@ describe("GridTile position-only rendering", () => {
       }),
     );
 
+    // Content is read live from the canonical tile, independent of geometry.
     (store.currentGrid.tiles[0] as Tile).content = {
       type: ContentType.IMAGE,
       src: "https://cdn.example/image.png",
@@ -194,91 +176,95 @@ describe("GridTile position-only rendering", () => {
     expect(wrapper.find(".tile-wrapper").attributes("data-tile-type")).toBe(
       ContentType.IMAGE,
     );
-    expect(gridItem.props()).toEqual(
-      expect.objectContaining({ x: 3, y: 4, w: 5, h: 6 }),
+    expect(wrapper.find(".tile-wrapper").attributes()).toEqual(
+      expect.objectContaining({ "data-tile-w": "5", "data-tile-h": "6" }),
     );
 
     wrapper.unmount();
   });
 
-  it("leaves canonical dimensions unchanged during live desktop resize and commits once", async () => {
+  it("reflows child content when the tile footprint changes", async () => {
+    const onResize = vi.fn();
     const tile = makeTile();
     const store = makeStore(tile);
-    store.activeBreakpoint = "lg";
-    store.canEdit = true;
-    const layout: GridLayoutItem = {
-      i: "tile-1",
-      x: 0,
-      y: 0,
-      w: 2,
-      h: 2,
-    };
-    const { gridItem, wrapper } = await mountGridTile(store, layout);
+    const layout: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
+    const { wrapper } = await mountGridTile(store, layout);
 
-    gridItem.vm.$emit("resize", "tile-1", 5.6, 4.4, 560, 440);
-    gridItem.vm.$emit("resized");
+    // Stand in for the resolved content component's onResize hook.
+    (
+      wrapper.vm as unknown as {
+        childComponent: { onResize: () => void } | null;
+      }
+    ).childComponent = { onResize };
+
+    await wrapper.setProps({
+      layout: { i: "tile-1", x: 0, y: 0, w: 5, h: 6 },
+    });
     await flushPromises();
 
-    expect(store.beginResize).toHaveBeenCalledTimes(1);
-    expect(store.currentGrid.tiles[0]).toEqual(
-      expect.objectContaining({ w: 2, h: 2 }),
+    expect(onResize).toHaveBeenCalled();
+    expect(wrapper.find(".tile-wrapper").attributes()).toEqual(
+      expect.objectContaining({ "data-tile-w": "5", "data-tile-h": "6" }),
     );
-    expect(store.commitResize).toHaveBeenCalledTimes(1);
 
     wrapper.unmount();
   });
 
-  it("keeps canonical dimensions unchanged during a non-desktop resize and commits rendered geometry", async () => {
+  it("executes a short-click action recognized by the Griddle wrapper", async () => {
     const tile = makeTile();
+    tile.content = {
+      type: ContentType.SUGGESTION,
+      action: "profile",
+      label: "Add Profile",
+    } as SuggestionContent;
     const store = makeStore(tile);
-    store.activeBreakpoint = "md";
     store.canEdit = true;
-    const layout: GridLayoutItem = {
-      i: "tile-1",
-      x: 3,
-      y: 4,
-      w: 2,
-      h: 2,
-    };
-    const { gridItem, wrapper } = await mountGridTile(store, layout);
-
-    layout.w = 5;
-    layout.h = 6;
-    gridItem.vm.$emit("resize", "tile-1", 6, 5, 600, 500);
-    gridItem.vm.$emit("resized");
-    await flushPromises();
-
-    expect(store.beginResize).toHaveBeenCalledTimes(1);
-    expect(store.currentGrid.tiles[0]).toEqual(
-      expect.objectContaining({ w: 2, h: 2 }),
+    const layout: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
+    const { wrapper } = await mountGridTile(store, layout);
+    const pointerEvent = Object.assign(
+      new MouseEvent("pointerdown", { button: 0 }),
+      { pointerType: "mouse" },
     );
-    expect(layout).toEqual(
-      expect.objectContaining({ x: 3, y: 4, w: 5, h: 6 }),
-    );
-    expect(store.commitResize).toHaveBeenCalledTimes(1);
+    (
+      wrapper.vm as unknown as {
+        handleGridShortClick: (event: PointerEvent) => void;
+      }
+    ).handleGridShortClick(pointerEvent as PointerEvent);
+
+    expect(store.setTileContent).toHaveBeenCalledTimes(1);
+    expect(store.setTileContent).toHaveBeenCalledWith("tile-1", {
+      type: ContentType.PROFILE,
+    });
 
     wrapper.unmount();
   });
 
-  it("commits a completed move", async () => {
+  it("forwards the original content target from the Griddle hitbox", async () => {
     const tile = makeTile();
     const store = makeStore(tile);
     store.canEdit = true;
-    const layout: GridLayoutItem = {
-      i: "tile-1",
-      x: 0,
-      y: 0,
-      w: 2,
-      h: 2,
-    };
-    const { gridItem, wrapper } = await mountGridTile(store, layout);
+    const layout: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
+    const { wrapper } = await mountGridTile(store, layout);
+    const content = wrapper.find('[data-test="content"]');
+    const pointerEvent = Object.assign(
+      new MouseEvent("pointerdown", {
+        bubbles: true,
+        button: 0,
+        clientX: 50,
+        clientY: 60,
+      }),
+      { pointerType: "mouse" },
+    );
+    content.element.dispatchEvent(pointerEvent);
+    (
+      wrapper.vm as unknown as {
+        handleGridShortClick: (event: PointerEvent) => void;
+      }
+    ).handleGridShortClick(pointerEvent as PointerEvent);
 
-    gridItem.vm.$emit("move");
-    gridItem.vm.$emit("moved");
-    await flushPromises();
-
-    expect(store.beginMove).toHaveBeenCalledTimes(1);
-    expect(store.commitMove).toHaveBeenCalledTimes(1);
+    expect(contentHooks.onShortClick).toHaveBeenCalledTimes(1);
+    const forwardedEvent = contentHooks.onShortClick.mock.calls[0]![0];
+    expect((forwardedEvent.target as HTMLElement).dataset.test).toBe("content");
 
     wrapper.unmount();
   });

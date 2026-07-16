@@ -162,7 +162,7 @@
           spellcheck="false"
           maxlength="7"
           aria-label="Hex color value"
-          @keydown.enter.prevent="commitHexInput"
+          @keydown="onHexKeydown"
           @blur="commitHexInput"
         />
         <div class="mgb-hex__actions">
@@ -323,6 +323,10 @@ const swatches = computed(() => {
 // before the single commit so that commit's undo snapshot captures the pre-drag
 // state (live previews in between are history-free). null when not dragging.
 const colorDragBase = ref<string | null>(null);
+// Consecutive Backspace presses while the hex field is empty — two in a row
+// step up one level (`/HEX` → `/GRID`), mirroring the `/TILE` sub-command
+// un-pin. Any edit resets it (see onHexKeydown).
+const emptyHexBackspaces = ref(0);
 // The command-type card the user tapped (link / embed / map), so ENTER knows
 // what to build from the typed text. null → generic smart-paste / keyword.
 const activeType = ref<string | null>(null);
@@ -431,6 +435,7 @@ const openColor = () => {
   const base = normalizeHex(backgroundColor.value) || DEFAULT_COLOR;
   colorHex.value = base;
   hexInput.value = base.slice(1);
+  emptyHexBackspaces.value = 0;
   void loadSavedColors();
   showPreview.value = false;
   mode.value = "color";
@@ -481,6 +486,26 @@ const commitHexInput = () => {
   colorHex.value = norm;
   onColorCommit(norm);
   hexInputRef.value?.blur();
+};
+
+// Enter commits; two Backspaces on an already-empty field step up one level
+// (`/HEX` → `/GRID`), matching the `/TILE` sub-command un-pin. Any other key —
+// or a Backspace that actually deletes a character — resets the counter.
+const onHexKeydown = (event: KeyboardEvent) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    commitHexInput();
+    return;
+  }
+  if (event.key === "Backspace" && !hexInput.value) {
+    emptyHexBackspaces.value += 1;
+    if (emptyHexBackspaces.value >= 2) {
+      emptyHexBackspaces.value = 0;
+      closeColor();
+    }
+    return;
+  }
+  emptyHexBackspaces.value = 0;
 };
 
 // Typing a full 6-digit hex live-updates the pad + hue (UI only — the grid

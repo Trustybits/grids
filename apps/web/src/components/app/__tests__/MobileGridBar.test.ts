@@ -378,6 +378,29 @@ describe("MobileGridBar", () => {
     expect(holder.setBackgroundColor).toHaveBeenCalledWith("#00FF00");
   });
 
+  it("steps back up to /GRID after two Backspaces on an empty hex field", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Grid settings"]').trigger("click");
+    await flush(wrapper);
+    await wrapper.get(".open-color-stub").trigger("click");
+    await flush(wrapper);
+    expect(wrapper.get(".mgb-hex__chip").text()).toBe("/HEX");
+
+    const input = wrapper.get(".mgb-hex__input");
+    // Clear the field, then a single empty Backspace should NOT step up yet.
+    await input.setValue("");
+    await input.trigger("keydown", { key: "Backspace" });
+    await flush(wrapper);
+    expect(wrapper.find(".mgb-hex__chip").exists()).toBe(true);
+
+    // The second consecutive empty Backspace steps up one level to /GRID.
+    await input.trigger("keydown", { key: "Backspace" });
+    await flush(wrapper);
+    expect(wrapper.find(".mgb-hex").exists()).toBe(false);
+    expect(wrapper.get(".mci-chip").text()).toBe("/GRID");
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(true);
+  });
+
   it("copies the grid link when Share is tapped", async () => {
     const wrapper = await mountBar();
     await wrapper.get('[aria-label="Share"]').trigger("click");

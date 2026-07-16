@@ -51,6 +51,15 @@ export function getResponsiveLayoutVersionStatus(
 //   'structure' — keep tile type/size/position only, reset content to defaults
 export type CopyDepth = "full" | "structure";
 
+/**
+ * Which background source is currently rendered. A grid can retain BOTH an
+ * uploaded image and a custom color at once; this flag decides which one wins
+ * so the user can toggle between them without losing the other. When absent
+ * (legacy grids), the renderer falls back to presence-based precedence
+ * (color over image over none).
+ */
+export type BackgroundActiveSource = "image" | "color" | "default";
+
 export interface Grid {
   id: string;
   userId: string;
@@ -65,6 +74,9 @@ export interface Grid {
   backgroundImageHash?: string;
   backgroundEmbed: boolean;
   backgroundColor?: string;
+  // Which retained background source (image vs. color) is active. Absent on
+  // legacy grids — see BackgroundActiveSource.
+  backgroundActiveSource?: BackgroundActiveSource;
   // User-uploaded social share (Open Graph) image URL. When set, it is used
   // as the page's og:image instead of the auto-generated screenshot.
   ogImageSrc?: string;

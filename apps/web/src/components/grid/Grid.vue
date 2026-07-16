@@ -48,6 +48,7 @@ import {
 import { GriddleGrid, useGriddle } from "@griddle/vue";
 import {
   gridContentSize,
+  reflowTiles,
   type Tile as GriddleTile,
 } from "@griddle/core";
 import GridTile from "./Tile.vue";
@@ -181,7 +182,9 @@ export default {
 
     const api = useGriddle({
       config: engineLoadConfig.value,
-      tiles: griddleTiles.value,
+      // Enter all app geometry through the guarded sync transaction below.
+      // This keeps construction safe even if persisted geometry is invalid.
+      tiles: [],
     });
     provide(TILE_GEOMETRY_VERSION, api.version);
 
@@ -219,35 +222,73 @@ export default {
         lastSyncedBreakpoint !== breakpoint;
       lastSyncedBreakpoint = breakpoint;
       markLayoutPending();
-      api.loadJSON({
-        version: 1,
-        config: engineLoadConfig.value,
-        tiles: griddleTiles.value,
-      });
-
-      // The canonical target is loaded as-is. A narrower target always takes
-      // exactly one route through Griddle's sole responsive algorithm.
-      if (isDerivedLayout.value) {
-        api.reflow({
-          cols: responsiveColNum.value,
-          strategy: "griddle-v1",
-          ...(activeGriddlePlacements.value
-            ? { placements: activeGriddlePlacements.value }
-            : {}),
-        });
-      }
-
-      // Reflow and loadJSON do not apply gravity. Preserve placements during
-      // ordinary reconciliation, but a real breakpoint transition must settle
-      // gravity after reflow so structural changes made at another breakpoint
-      // cannot leave stale gaps behind.
-      const hasAuthoritativePlacements =
+      const previousSnapshot = api.toJSON();
+      let usedAuthoritativePlacements =
         activeGriddlePlacements.value !== undefined;
-      const shouldApplyGravity =
-        gridView.verticalCompact &&
-        (!hasAuthoritativePlacements || breakpointChanged);
-      if (shouldApplyGravity) {
-        api.grid.compactAll();
+      let keptPreviousState = false;
+
+      const loadTarget = (
+        placements: typeof activeGriddlePlacements.value,
+        sourceTiles: GriddleTile[] = griddleTiles.value,
+      ): void => {
+        api.loadJSON({
+          version: 1,
+          config: engineLoadConfig.value,
+          tiles: sourceTiles,
+        });
+
+        // The canonical target is loaded as-is. A narrower target always takes
+        // exactly one explicit route through Griddle's responsive algorithm.
+        if (isDerivedLayout.value) {
+          api.reflow({
+            cols: responsiveColNum.value,
+            strategy: "griddle-v1",
+            ...(placements ? { placements } : {}),
+          });
+        }
+
+        // Reflow and loadJSON do not apply gravity. Preserve placements during
+        // ordinary reconciliation, but a real breakpoint transition must
+        // settle gravity after reflow so structural changes made elsewhere
+        // cannot leave stale gaps behind.
+        const shouldApplyGravity =
+          gridView.verticalCompact &&
+          (placements === undefined || breakpointChanged);
+        if (shouldApplyGravity) api.grid.compactAll();
+      };
+
+      try {
+        loadTarget(activeGriddlePlacements.value);
+      } catch (initialError) {
+        try {
+          // One bounded recovery stays entirely inside Griddle: repair the
+          // canonical snapshot with the same immutable strategy, discard any
+          // rejected saved placements, then use automatic target reflow.
+          const repairedCanonical = reflowTiles(griddleTiles.value, {
+            cols: baseColNum.value,
+            strategy: "griddle-v1",
+          });
+          loadTarget(undefined, repairedCanonical);
+          usedAuthoritativePlacements = false;
+          console.warn(
+            "Grids: Griddle rejected a layout; recovered with automatic reflow.",
+            initialError,
+          );
+        } catch (recoveryError) {
+          keptPreviousState = true;
+          try {
+            api.loadJSON(previousSnapshot);
+          } catch (restoreError) {
+            console.error(
+              "Grids: failed to restore the last legal Griddle state.",
+              restoreError,
+            );
+          }
+          console.error(
+            "Grids: Griddle rejected both the selected layout and its automatic recovery; keeping the last legal engine state.",
+            { initialError, recoveryError },
+          );
+        }
       }
       await nextTick();
       if (generation !== syncGeneration) return;
@@ -255,9 +296,10 @@ export default {
       const settled = fromGriddleTiles(api.tiles.value);
       gridView.setDisplayPositions(settled);
       if (
+        !keptPreviousState &&
         breakpointChanged &&
         gridView.verticalCompact &&
-        hasAuthoritativePlacements
+        usedAuthoritativePlacements
       ) {
         gridView.commitCompactedLayout(settled);
       }

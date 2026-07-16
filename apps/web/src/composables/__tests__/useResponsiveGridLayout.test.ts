@@ -218,6 +218,25 @@ describe("useResponsiveGridLayout", () => {
     wrapper.unmount();
   });
 
+  it("can auto-scale a forced lg layout in a narrower viewport", () => {
+    const browser = createEnvironment(900);
+    const forcedBreakpoint = ref<Breakpoint | null>("lg");
+    const { composable, wrapper } = mountComposable(browser.environment, {
+      forcedBreakpoint,
+    });
+
+    const lgGridWidth = 12 * 75 + 13 * 48;
+    expect(composable.activeBreakpoint.value).toBe("lg");
+    expect(composable.gridWidth.value).toBe(lgGridWidth);
+    expect(composable.mobileScale.value).toBe(900 / lgGridWidth);
+    expect(composable.gridInnerStyle.value).toMatchObject({
+      transformOrigin: "top left",
+      transform: `scale(${900 / lgGridWidth})`,
+    });
+
+    wrapper.unmount();
+  });
+
   it("observes the grid when its element ref becomes available after mounting", async () => {
     const browser = createEnvironment(300);
     const { composable, wrapper } = mountComposable(browser.environment);

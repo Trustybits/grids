@@ -20,6 +20,7 @@ const gridTileHooks = vi.hoisted(() => ({
 }));
 const griddleHooks = vi.hoisted(() => ({
   loadJSON: vi.fn(),
+  loadJSONFailuresRemaining: 0,
   reflow: vi.fn(),
 }));
 
@@ -45,6 +46,10 @@ vi.mock("@griddle/vue", async (importOriginal) => {
         ...api,
         loadJSON: (snapshot: Parameters<typeof loadJSON>[0]) => {
           griddleHooks.loadJSON(snapshot);
+          if (griddleHooks.loadJSONFailuresRemaining > 0) {
+            griddleHooks.loadJSONFailuresRemaining -= 1;
+            throw new RangeError("injected Griddle load rejection");
+          }
           return loadJSON(snapshot);
         },
         reflow: (options: Parameters<typeof reflow>[0]) => {
@@ -202,6 +207,7 @@ describe("Grid canvas characterization", () => {
   beforeEach(() => {
     gridTileHooks.handleGridShortClick.mockReset();
     griddleHooks.loadJSON.mockReset();
+    griddleHooks.loadJSONFailuresRemaining = 0;
     griddleHooks.reflow.mockReset();
     vi.spyOn(window, "innerWidth", "get").mockReturnValue(1800);
     class ResizeObserverStub {
@@ -360,6 +366,82 @@ describe("Grid canvas characterization", () => {
       wrapper.unmount();
     },
   );
+
+  it("recovers invalid saved placements through automatic Griddle reflow", async () => {
+    const first = makeTile({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 });
+    const second = makeTile({ i: "tile-2", x: 2, y: 0, w: 2, h: 2 });
+    const grid = makeGrid(first);
+    grid.tiles = [first, second];
+    grid.overrides = {
+      sm: {
+        "tile-1": { x: 3, y: -1, w: 2, h: 2 },
+        "tile-2": { x: 3, y: -1, w: 2, h: 2 },
+      },
+    };
+    const { store } = makeStore(grid);
+    store.forcedBreakpoint = "sm";
+    store.verticalCompact = false;
+    storeHolder.current = store;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const wrapper = await mountGrid();
+    await flushPromises();
+
+    expect(griddleHooks.reflow).toHaveBeenLastCalledWith({
+      cols: 4,
+      strategy: "griddle-v1",
+    });
+    expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
+      { i: "tile-1", x: 0, y: 0, w: 2, h: 2 },
+      { i: "tile-2", x: 2, y: 0, w: 2, h: 2 },
+    ]);
+    expect(warn).toHaveBeenCalledOnce();
+
+    warn.mockRestore();
+    wrapper.unmount();
+  });
+
+  it("repairs invalid canonical geometry with Griddle before loading", async () => {
+    const first = makeTile({ i: "tile-1", x: 0, y: -1, w: 2, h: 2 });
+    const second = makeTile({ i: "tile-2", x: 0, y: -1, w: 2, h: 2 });
+    const grid = makeGrid(first);
+    grid.tiles = [first, second];
+    const { store } = makeStore(grid);
+    store.verticalCompact = false;
+    storeHolder.current = store;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const wrapper = await mountGrid();
+    await flushPromises();
+
+    expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
+      { i: "tile-1", x: 0, y: 0, w: 2, h: 2 },
+      { i: "tile-2", x: 2, y: 0, w: 2, h: 2 },
+    ]);
+    expect(warn).toHaveBeenCalledOnce();
+
+    warn.mockRestore();
+    wrapper.unmount();
+  });
+
+  it("bounds recovery to one attempt and restores the last legal engine state", async () => {
+    const { store, registerLayoutReadinessAdapter } = makeStore();
+    storeHolder.current = store;
+    griddleHooks.loadJSONFailuresRemaining = 2;
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const wrapper = await mountGrid();
+    await flushPromises();
+
+    expect(griddleHooks.loadJSON).toHaveBeenCalledTimes(3);
+    expect(error).toHaveBeenCalledOnce();
+    expect(store.setDisplayPositions).toHaveBeenLastCalledWith([]);
+    const adapter = registerLayoutReadinessAdapter.mock.calls[0]![0];
+    await expect(adapter.waitForLayoutReady("lg")).resolves.toBeUndefined();
+
+    error.mockRestore();
+    wrapper.unmount();
+  });
 
   it("keeps a canonical target unreflowed even when its breakpoint label is md", async () => {
     const grid = makeGrid();
@@ -802,6 +884,38 @@ describe("Grid canvas characterization", () => {
         resized!.y < displaced!.y + displaced!.h &&
         resized!.y + resized!.h > displaced!.y,
     ).toBe(false);
+    expect(store.beginResize).toHaveBeenCalledTimes(1);
+    expect(store.commitResize).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+  });
+
+  it("trims a toolbar resize at the right edge without moving the tile", async () => {
+    const edge = makeTile({ i: "tile-1", x: 9, y: 0, w: 1, h: 2 });
+    const { store } = makeStore(makeGrid(edge));
+    store.verticalCompact = false;
+    storeHolder.current = store;
+    const wrapper = await mountGrid();
+    await flushPromises();
+    store.setDisplayPositions.mockClear();
+
+    (
+      wrapper.vm as unknown as {
+        resizeTileThroughEngine: (
+          id: string,
+          width: number,
+          height: number,
+        ) => void;
+      }
+    ).resizeTileThroughEngine("tile-1", 3, 2);
+    await flushPromises();
+
+    const resolved = store.setDisplayPositions.mock.lastCall?.[0] as
+      | GridLayoutItem[]
+      | undefined;
+    expect(resolved?.find((tile) => tile.i === "tile-1")).toEqual(
+      expect.objectContaining({ x: 9, y: 0, w: 3, h: 2 }),
+    );
     expect(store.beginResize).toHaveBeenCalledTimes(1);
     expect(store.commitResize).toHaveBeenCalledTimes(1);
 

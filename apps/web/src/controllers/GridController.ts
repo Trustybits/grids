@@ -764,9 +764,19 @@ export class GridController {
     this.settingsController.setBackgroundColor(color);
   }
 
+  previewBackgroundColor(color: string): void {
+    this.settingsController.previewBackgroundColor(color);
+  }
+
   removeBackgroundColor(): void {
     if (this.blocksCurrentGridMutation()) return;
     this.settingsController.removeBackgroundColor();
+  }
+
+  setBackgroundActiveSource(
+    source: "image" | "color" | "default",
+  ): void {
+    this.settingsController.setBackgroundActiveSource(source);
   }
 
   getViewportGridY(): number {

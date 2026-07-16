@@ -1,8 +1,12 @@
 <template>
-  <div class="dashboard">
+  <div class="dashboard" :class="{ 'dashboard--mobile2': isMobile2 }">
     <div class="dashboard-sections">
       <PendingGridTransfers @accepted="onTransferAccepted" />
-      <div class="dashboard-header">
+      <!--
+        On mobile 2.0 the "Your Grids" title and "New Grid" action live in the
+        global MobileAppBar, so the in-page header is hidden to avoid duplication.
+      -->
+      <div v-if="!isMobile2" class="dashboard-header">
         <h2>Your Grids</h2>
         <Button variant="secondary" @click="promptAndCreateGrid" class="new-grid-button">
           New Grid
@@ -99,6 +103,7 @@ import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
 import { useGridController } from "@/controllers/useGridController";
+import { useMobileExperience } from "@/composables/useMobileExperience";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
@@ -117,6 +122,7 @@ const collectionStore = useGridCollectionStore();
 const controller = useGridController();
 const router = useRouter();
 const { resolveStoragePlan } = useGridDuplicateStorage();
+const { isMobile2 } = useMobileExperience();
 
 const pageTitle = ref("Dashboard");
 usePageTitle(pageTitle);
@@ -438,6 +444,14 @@ const handleDeleteGrid = async () => {
   font-family: var(--font-family-base);
   color: var(--color-text-primary);
   background-color: var(--color-content-background);
+}
+
+/* Clear the fixed MobileAppBar (which hosts the dashboard title + New Grid). */
+.dashboard--mobile2 {
+  align-items: flex-start;
+  padding-top: calc(
+    var(--app-status-banners-height, 0px) + var(--spacing-3xl)
+  );
 }
 
 .dashboard-sections {

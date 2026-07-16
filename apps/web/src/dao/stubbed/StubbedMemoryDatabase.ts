@@ -186,6 +186,12 @@ export function toGrid(id: string, data: Record<string, unknown>): Grid {
       typeof data.backgroundEmbed === "boolean" ? data.backgroundEmbed : false,
     backgroundColor:
       typeof data.backgroundColor === "string" ? data.backgroundColor : "",
+    backgroundActiveSource:
+      data.backgroundActiveSource === "image" ||
+      data.backgroundActiveSource === "color" ||
+      data.backgroundActiveSource === "default"
+        ? data.backgroundActiveSource
+        : undefined,
     ogImageSrc: typeof data.ogImageSrc === "string" ? data.ogImageSrc : "",
     themeId: typeof data.themeId === "string" ? data.themeId : undefined,
     tiles: Array.isArray(data.tiles) ? cloneValue(data.tiles) : [],

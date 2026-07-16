@@ -29,6 +29,8 @@ export const FEATURE_FLAGS = {
   BETA_ROADMAP_FEED: 'beta-roadmap-feed',
   BETA_ANALYTICS_DASHBOARD: 'beta-analytics-dashboard',
   BETA_DOCUMENTS: 'beta-documents',
+  /** Mobile 2.0 chrome early access — controls who can see the opt-in toggle */
+  BETA_MOBILE_2: 'beta-mobile-2',
 
   // ── Editor features ──────────────────────────────────────────────────────
   EDITOR_SMART_TEXT: 'editor-smart-text',

@@ -209,6 +209,7 @@ import {
   onUnmounted,
   watch,
   inject,
+  type CSSProperties,
   type PropType,
   type Ref,
   type Component,
@@ -288,7 +289,7 @@ export default defineComponent({
     // Anchor lives inside the tile; its rect tells us where to pin the
     // teleported floating toolbar (centered below the tile's bottom edge).
     const anchorRef = ref<HTMLElement | null>(null);
-    const floatingPos = ref({ top: 0, left: 0 });
+    const floatingPos = ref<{ top: number; left: number } | null>(null);
 
     const toolbarRef = ref<HTMLDivElement | null>(null);
     const menuAnchorRef = ref<HTMLButtonElement | null>(null);
@@ -346,14 +347,22 @@ export default defineComponent({
       DIM_ZONES.includes(hoveredToolbarZone?.value ?? ""),
     );
 
-    const floatingStyle = computed(() => ({
-      top: `${floatingPos.value.top}px`,
-      left: `${floatingPos.value.left}px`,
-    }));
+    const floatingStyle = computed<CSSProperties>(() => {
+      const position = floatingPos.value;
+      if (!position) return { visibility: "hidden" };
+      return {
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+        visibility: "visible",
+      };
+    });
 
     const updateFloatingPosition = () => {
       const el = anchorRef.value;
-      if (!el) return;
+      if (!el) {
+        floatingPos.value = null;
+        return;
+      }
       const r = el.getBoundingClientRect();
       // Anchor spans the tile's full width at its bottom edge, so this pins the
       // floating wrapper to the tile's bottom-center (in viewport coordinates).
@@ -795,30 +804,37 @@ export default defineComponent({
       followToolbarDuringSettle();
     });
 
-    watch(toolbarShown, (shown, _prev, onCleanup) => {
-      if (!shown) return;
-
-      nextTick(updateFloatingPosition);
-
-      window.addEventListener("resize", scheduleToolbarPosition);
-      window.addEventListener("scroll", scheduleToolbarPosition, {
-        capture: true,
-        passive: true,
-      });
-
-      onCleanup(() => {
-        if (toolbarRafId != null) cancelAnimationFrame(toolbarRafId);
-        toolbarRafId = null;
-        if (toolbarSettleRafId != null) {
-          cancelAnimationFrame(toolbarSettleRafId);
+    watch(
+      toolbarShown,
+      (shown, _prev, onCleanup) => {
+        if (!shown) {
+          floatingPos.value = null;
+          return;
         }
-        toolbarSettleRafId = null;
-        window.removeEventListener("resize", scheduleToolbarPosition);
-        window.removeEventListener("scroll", scheduleToolbarPosition, {
+
+        nextTick(updateFloatingPosition);
+
+        window.addEventListener("resize", scheduleToolbarPosition);
+        window.addEventListener("scroll", scheduleToolbarPosition, {
           capture: true,
+          passive: true,
         });
-      });
-    });
+
+        onCleanup(() => {
+          if (toolbarRafId != null) cancelAnimationFrame(toolbarRafId);
+          toolbarRafId = null;
+          if (toolbarSettleRafId != null) {
+            cancelAnimationFrame(toolbarSettleRafId);
+          }
+          toolbarSettleRafId = null;
+          window.removeEventListener("resize", scheduleToolbarPosition);
+          window.removeEventListener("scroll", scheduleToolbarPosition, {
+            capture: true,
+          });
+        });
+      },
+      { immediate: true },
+    );
 
     onMounted(() => {
       document.addEventListener("click", handleClickOutside);

@@ -32,11 +32,6 @@
 
     <div v-else class="background-image-container">
       <div :style="backgroundStyle" class="background-image-overlay"></div>
-      <div
-        v-if="backgroundOverlayColor"
-        class="background-color-overlay"
-        :style="{ backgroundColor: backgroundOverlayColor }"
-      />
 
       <input
         v-if="canEdit"
@@ -47,7 +42,7 @@
         @change.stop="addBackgroundImage"
       />
       <iframe
-        v-if="currentGrid?.backgroundEmbed"
+        v-if="currentGrid?.backgroundEmbed && activeBackgroundSource === 'image'"
         style="width: 100%; height: 100%; position: fixed; top: 0; z-index: 0"
         scrolling="no"
         :src="currentGrid?.backgroundImageSrc"
@@ -78,7 +73,7 @@
           the toolbar is scrolled off-screen.
         -->
         <BreakpointSwitcher
-          v-if="isOwner && switcherVariant === 'floating'"
+          v-if="isOwner && switcherVariant === 'floating' && !mobile2Active"
           variant="floating"
         />
         <UndoRedoControls v-if="isOwner" />
@@ -88,7 +83,7 @@
           (canEdit), but the breakpoint switcher stays visible for owners
           (isOwner) so they can switch back.
         -->
-        <div v-if="canEdit" class="toolbar">
+        <div v-if="canEdit && !mobile2Active" class="toolbar">
           <!--
             Option A: Inline — switcher sits inside the toolbar row,
             right next to the tile-add buttons.
@@ -153,6 +148,7 @@ import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
 import { useDragAndPaste } from "@/composables/useDragAndPaste";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
+import { useMobileExperience } from "@/composables/useMobileExperience";
 import { useUndoRedoKeys } from "@/composables/useUndoRedoKeys";
 import { useAnalytics } from "@/composables/useAnalytics";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
@@ -206,6 +202,11 @@ export default defineComponent({
     const isOwner = computed(() => sessionStore.isOwner);
     const isResyncing = computed(() => sessionStore.isResyncing);
 
+    // Mobile 2.0 owner chrome swaps the desktop tile toolbar + floating
+    // breakpoint switcher for the bottom command bar (rendered in App.vue).
+    const { isMobile2 } = useMobileExperience();
+    const mobile2Active = computed(() => isMobile2.value && isOwner.value);
+
     // When this tab/window is reactivated, reload the grid if it has been saved
     // elsewhere (rev mismatch) so this tab never clobbers newer changes.
     //
@@ -228,18 +229,36 @@ export default defineComponent({
       imageInput.value?.click();
     };
 
+    // Which retained background source renders. Honors the grid's explicit
+    // `backgroundActiveSource` when it points at a value that actually exists;
+    // otherwise (legacy grids, or a stale flag) falls back to presence-based
+    // precedence: color over image over none.
+    const activeBackgroundSource = computed<"image" | "color" | "default">(
+      () => {
+        const layout = currentGrid.value;
+        if (!layout) return "default";
+        const explicit = layout.backgroundActiveSource;
+        if (explicit === "image" && layout.backgroundImageSrc) return "image";
+        if (explicit === "color" && layout.backgroundColor) return "color";
+        if (explicit === "default") return "default";
+        if (layout.backgroundColor) return "color";
+        if (layout.backgroundImageSrc) return "image";
+        return "default";
+      },
+    );
+
     const backgroundStyle = computed(() => {
       const layout = currentGrid.value;
-      const hasImage = !!layout?.backgroundImageSrc;
-      const hasColor = !!layout?.backgroundColor;
+      const source = activeBackgroundSource.value;
+      const showImage = source === "image" && !!layout?.backgroundImageSrc;
+      const showColor = source === "color" && !!layout?.backgroundColor;
       return {
-        backgroundImage: hasImage
+        backgroundImage: showImage
           ? `url(${layout?.backgroundImageSrc})`
           : "none",
-        backgroundColor:
-          hasColor && !hasImage
-            ? (layout?.backgroundColor ?? "transparent")
-            : "transparent",
+        backgroundColor: showColor
+          ? (layout?.backgroundColor ?? "transparent")
+          : "transparent",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -262,14 +281,6 @@ export default defineComponent({
         (slug.value ? `@${slug.value}` : undefined),
     );
     usePageTitle(pageTitle, "|");
-
-    const backgroundOverlayColor = computed(() => {
-      const layout = currentGrid.value;
-      if (layout?.backgroundImageSrc && layout?.backgroundColor) {
-        return layout.backgroundColor;
-      }
-      return null;
-    });
 
     // Dynamic favicon from first profile tile's photo
     const profilePhotoUrl = computed(() => {
@@ -434,8 +445,14 @@ export default defineComponent({
       },
     );
 
+    // Drive the background-contrast CSS vars from the color only while the color
+    // is the active source — when an image (or the default) is active there is
+    // no known solid surface color to contrast against.
     watch(
-      () => currentGrid.value?.backgroundColor,
+      () =>
+        activeBackgroundSource.value === "color"
+          ? (currentGrid.value?.backgroundColor ?? "")
+          : "",
       (bgColor) => {
         const el = document.documentElement;
         if (bgColor) {
@@ -485,7 +502,7 @@ export default defineComponent({
       slug,
       isSlugRoute,
       backgroundStyle,
-      backgroundOverlayColor,
+      activeBackgroundSource,
       addBackgroundImage,
       selectImage,
       embedBackground,
@@ -494,6 +511,7 @@ export default defineComponent({
       layoutContainer,
       isDraggingOver,
       isOwner,
+      mobile2Active,
       switcherVariant,
     };
   },
@@ -549,14 +567,6 @@ export default defineComponent({
 .toolbar-with-switcher {
   display: flex;
   align-items: center;
-}
-
-.background-color-overlay {
-  position: fixed;
-  inset: 0;
-  mix-blend-mode: color;
-  pointer-events: none;
-  z-index: 0;
 }
 
 .layout-container {

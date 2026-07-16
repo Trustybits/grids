@@ -32,6 +32,12 @@ export function mapFirestoreToGrid(
         : undefined,
     backgroundEmbed: !!data.backgroundEmbed,
     backgroundColor: data.backgroundColor || "",
+    backgroundActiveSource:
+      data.backgroundActiveSource === "image" ||
+      data.backgroundActiveSource === "color" ||
+      data.backgroundActiveSource === "default"
+        ? data.backgroundActiveSource
+        : undefined,
     ogImageSrc: data.ogImageSrc || "",
     themeId: data.themeId || undefined,
     overrides:

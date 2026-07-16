@@ -489,7 +489,13 @@ export default defineComponent({
     // touch-side stand-in for hover — see `avatarControlsVisible`.
     const tileActivated = inject<Ref<boolean>>("tileActivated", ref(false));
 
+    // Guarded because this is reachable from plain method calls (setAvatarShape,
+    // openUrlInput) rather than only from real pointer events — jsdom has no
+    // matchMedia, so an unguarded call throws under test. Mirrors the same
+    // defence in useMobileExperience's `matchTouchMedia`.
     const isTouchDevice = () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
       window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 
     const layoutMode = computed((): string => {
@@ -1453,6 +1459,20 @@ export default defineComponent({
       hoveredToolbarZone.value = dragging ? "sides" : null;
     });
 
+    // Gap between the trigger and its flyout, in the trigger's own scale.
+    const FLYOUT_GAP_PX = 4;
+
+    // The flyouts are teleported to <body> to escape `.profile-bio`'s
+    // overflow:hidden — which also lifts them out of the grid's viewport-fit
+    // transform (`mobileScale` in useResponsiveGridLayout, < 1 whenever the
+    // viewport is narrower than the grid). Left alone they render at their true
+    // 32px while the action bar that spawned them is scaled down with the grid,
+    // so the flyout buttons come out visibly larger than their own trigger.
+    //
+    // Rather than reach for `mobileScale` and couple this tile to grid
+    // internals, derive the trigger's own visual/layout ratio and apply it. That
+    // self-corrects for any ancestor transform — grid auto-scale, the landing
+    // embed's fit scale, or the tile enter animation.
     const getFlyoutStyle = (triggerRef: Ref<HTMLElement | null>) => {
       const el = triggerRef.value;
       if (!el)
@@ -1463,10 +1483,15 @@ export default defineComponent({
           visibility: "hidden" as const,
         };
       const rect = el.getBoundingClientRect();
+      const scale = el.offsetWidth > 0 ? rect.width / el.offsetWidth : 1;
       return {
         position: "fixed" as const,
         top: `${rect.top}px`,
-        left: `${rect.right + 4}px`,
+        left: `${rect.right + FLYOUT_GAP_PX * scale}px`,
+        // Anchored top-left so the flyout's top edge stays aligned with the
+        // trigger's, which is where `top: rect.top` places it.
+        transform: `scale(${scale})`,
+        transformOrigin: "top left" as const,
       };
     };
 

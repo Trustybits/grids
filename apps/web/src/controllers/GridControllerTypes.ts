@@ -6,6 +6,7 @@ import type { GridServiceInterface } from "@/services/interfaces/GridServiceInte
 import type { GridPersistenceSchedulerInterface } from "@/services/interfaces/GridPersistenceSchedulerInterface";
 import type { useGridCollectionStore } from "@/stores/grid/gridCollection";
 import type { useGridHistoryStore } from "@/stores/grid/gridHistory";
+import type { useGridPreviewStore } from "@/stores/grid/gridPreview";
 import type { useGridSessionStore } from "@/stores/grid/gridSession";
 import type { useGridUiStore } from "@/stores/grid/gridUi";
 import type { useGridUploadsStore } from "@/stores/grid/gridUploads";
@@ -17,6 +18,7 @@ import type { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
 export interface GridControllerStores {
   collection: ReturnType<typeof useGridCollectionStore>;
   history: ReturnType<typeof useGridHistoryStore>;
+  preview: ReturnType<typeof useGridPreviewStore>;
   session: ReturnType<typeof useGridSessionStore>;
   ui: ReturnType<typeof useGridUiStore>;
   uploads: ReturnType<typeof useGridUploadsStore>;

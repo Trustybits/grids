@@ -1,6 +1,4 @@
 import { onMounted, onUnmounted } from "vue";
-import { useGridSessionStore } from "@/stores/grid/gridSession";
-import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridController } from "@/controllers/useGridController";
 
 function isEditorOrInput(target: EventTarget | null): boolean {
@@ -11,15 +9,10 @@ function isEditorOrInput(target: EventTarget | null): boolean {
 }
 
 export function useUndoRedoKeys() {
-  const sessionStore = useGridSessionStore();
-  const viewportStore = useGridViewportStore();
   const controller = useGridController();
 
   const handleKeydown = async (e: KeyboardEvent) => {
-    const canEdit = sessionStore.canEditAtBreakpoint(
-      viewportStore.forcedBreakpoint,
-      viewportStore.viewportBreakpoint,
-    );
+    const canEdit = controller.canEditCurrentGrid();
     if (!canEdit) return;
     if (isEditorOrInput(e.target)) return;
 

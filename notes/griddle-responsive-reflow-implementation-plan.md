@@ -1,6 +1,6 @@
 # Griddle Responsive Reflow and Projection Versioning — Implementation Plan
 
-**Status:** Implementation in progress. Steps 0 through 5 are complete; Step 6
+**Status:** Implementation in progress. Steps 0 through 8 are complete; Step 9
 has not started. Bootstrap parity and final-algorithm launch remain
 intentionally separate phases.
 
@@ -98,14 +98,15 @@ Consequences for this plan:
 ## Current code-grounded flow
 
 1. `apps/web/src/composables/useResponsiveGridLayout.ts` measures the viewport,
-   selects the active breakpoint, maps it to a column count, and currently calls
-   `projectGridLayout()`.
+   selects the active breakpoint, maps it to a column count, manages scaling,
+   and exposes the layout-readiness contract.
 2. `apps/web/src/utils/GridLayoutUtils.ts` owns today's automatic projection:
    width/height scaling, collision checks, first-free placement, and application
    of partial or complete breakpoint overrides.
-3. `apps/web/src/components/grid/Grid.vue` converts the projected geometry into
-   Griddle tiles, calls `loadJSON()`, optionally calls `compactAll()` for gravity,
-   publishes final engine positions, and marks the layout ready.
+3. `apps/web/src/components/grid/Grid.vue` resolves the effective version and
+   routes either frozen app projection or explicit Griddle reflow, then applies
+   optional gravity, publishes only final engine positions, and marks the
+   layout ready after render.
 4. Desktop gesture geometry is persisted back onto `Grid.tiles`; `md`/`sm`
    gesture geometry is persisted into `Grid.overrides` by
    `GridLayoutController`.
@@ -552,6 +553,31 @@ frozen legacy path or bootstrap Griddle path, and selecting the effective path
 does not alter persisted data. The strategy mapping is isolated for the
 follow-up algorithm change.
 
+**Step 6 implementation record (2026-07-15):**
+
+- Upgraded the web app and lockfile to published `@griddle/vue` 0.1.5 and its
+  `@griddle/core` 0.1.5 peer.
+- Removed tile projection from `useResponsiveGridLayout`; it now owns only
+  viewport measurement, breakpoint/column selection, scaling, height
+  observation, and pending/ready coordination.
+- Routed rendering in `Grid.vue` from the defensively resolved effective
+  version. Missing, malformed, unknown, and explicit `legacy-v1` values use the
+  frozen `projectGridLayout()` path. Explicit `griddle-v1` loads canonical
+  geometry and calls Griddle `reflow()` with the centralized `preserve-v1`
+  strategy, target columns, and converted active `md`/`sm` placements.
+- Kept gravity after projection/reflow for both paths. Removed the broad engine
+  version publisher so canonical, pre-reflow, and pre-compaction events cannot
+  escape through `displayPositions`; only the generation-current final engine
+  state is published after Vue's render tick.
+- Added explicit same-breakpoint pending readiness and retained the existing
+  breakpoint waiter contract. Demo contexts now seed canonical geometry rather
+  than precomputing a legacy projection for their `griddle-v1` grid.
+- Added focused coverage for routing, placement conversion, final-only
+  publication, data-neutral viewing, differential legacy/bootstrap parity, and
+  readiness reset. The focused matrix passed 122 tests across six files.
+- Verification: the complete web suite passed 2,620 tests across 142 files;
+  web lint, type-check, dependency builds, and production build all passed.
+
 ## Step 7 — Create the shared transient preview-state foundation
 
 1. Add a focused `gridPreview` Pinia store rather than putting preview into the
@@ -605,6 +631,42 @@ project must not redefine `isOwner` to mean both.
 **Exit criterion:** preview is session-local, non-persistent, read-only at the
 controller boundary, and safely extensible.
 
+**Step 7 implementation record (2026-07-15):**
+
+- Added the focused `gridPreview` Pinia store with an extensible
+  `responsive-layout` discriminated union. All state queries require the current
+  grid ID, so a stale preview is inert for another grid or an empty session.
+- Added scoped `isActive`, `blocksGridMutation`, and responsive-layout override
+  getters plus idempotent start, stop, and reset actions. Preview state remains
+  session-local and is never added to a grid or persistence snapshot.
+- Exposed active preview, mutation blocking, and the effective responsive
+  layout version through `GridViewContext`. Live contexts combine the scoped
+  preview override with the defensively resolved persisted version; demo
+  contexts expose the same contract without importing live stores.
+- Kept `gridSession.isOwner` as actual identity. Preview makes `canEdit` false
+  through the controller's edit predicate while owner-only navigation controls
+  can remain visible.
+- Added a controller-level user-mutation boundary covering tile gestures,
+  history, content, layout/breakpoint writes, tile structure, settings, rename,
+  and active-grid deletion. Breakpoint inspection and preview exit remain
+  allowed. Upload resolution and the persistence scheduler retain their
+  ownership/breakpoint authorization path so work started before preview can
+  settle and save. Valid pre-preview upload failures use a narrow, upload-record
+  scoped rollback path so their optimistic tile can be removed or restored
+  without reopening general mutation during preview.
+- Preview entry clears pending edit/move/resize transactions and active tile
+  menus before changing effective geometry. `Grid.vue` now queues an engine
+  resync requested during a live gesture, rejects the gesture commit once
+  preview is read-only, and renders the preview immediately after gesture end.
+- Reset preview during session replacement/clear/navigation, stale-grid passive
+  reload, and realtime ownership loss. The same stop/reset action is available
+  for Step 8 to invoke only after a successful irreversible upgrade save.
+- Added focused store, context, controller, lifecycle, canvas, and interaction
+  coverage, including grid scoping, persisted-versus-effective version
+  separation, mutation taxonomy, upload settlement, and mid-gesture preview.
+- Verification: the complete web suite passed 2,632 tests across 143 files;
+  web lint, type-check, dependency builds, and production build all passed.
+
 ## Step 8 — Add legacy preview and irreversible upgrade UX
 
 1. Add a responsive-projection section to `GridSettings.vue` for actual owners
@@ -644,6 +706,39 @@ controller boundary, and safely extensible.
 
 **Exit criterion:** preview is reversible and data-neutral; upgrade is explicit,
 atomic from the user's perspective, non-undoable, and preserves overrides.
+
+**Step 8 implementation record (2026-07-15):**
+
+- Added a responsive-layout section to `GridSettings.vue` through the focused
+  `ResponsiveLayoutSettings.vue` component. It is shown only to actual owners
+  of missing or explicit `legacy-v1` grids in non-production environments;
+  visitors, unsupported versions, upgraded grids, and production builds have
+  no upgrade controls.
+- Added separate preview/stop and irreversible switch actions. Preview remains
+  grid-scoped and data-neutral and does not change the selected breakpoint.
+- Added an explicit confirmation modal stating that saved mobile/tablet
+  overrides remain, automatic layouts use `griddle-v1`, and UI/undo cannot
+  revert the switch. Success is acknowledged only after persistence completes.
+- Added `GridController.upgradeResponsiveLayout()` as the single upgrade
+  command. It requires actual ownership and persisted legacy eligibility,
+  rejects concurrent/repeated calls, drains earlier queued saves, changes only
+  `responsiveLayoutVersion`, schedules and flushes the upgrade snapshot, and
+  revalidates the session before crossing the boundary.
+- On persistence failure the controller restores the exact prior in-memory
+  version, retains preview and history, and leaves the failed persistence lane
+  ready for an immediate retry. On success it clears preview, preserves the
+  current breakpoint, initializes a fresh history manager, and refreshes the
+  stable snapshot so undo cannot cross the version boundary.
+- Added a non-dismissible read-only preview banner to `AppStatusBanners` with a
+  direct stop action. It is independent of the larger-breakpoint warning, and
+  `App.vue` scopes it to the active grid preview.
+- Added focused controller and component coverage for missing/legacy
+  eligibility, visitors, unsupported and upgraded versions, production
+  hiding, preview/stop, confirmation copy, success, rollback and retry,
+  idempotency, history reset, breakpoint preservation, toast timing, and
+  simultaneous status banners.
+- Verification: the complete web suite passed 2,644 tests across 144 files;
+  web lint, type-check, dependency builds, and production build all passed.
 
 ## Step 9 — Verification matrix
 

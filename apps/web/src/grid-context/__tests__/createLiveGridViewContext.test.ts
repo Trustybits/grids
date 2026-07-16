@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { isReadonly, reactive } from "vue";
-import type {
-  AnyTileContent,
-  Breakpoint,
-  DocumentItem,
-  Grid,
+import {
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+  LEGACY_RESPONSIVE_LAYOUT_VERSION,
+  type AnyTileContent,
+  type Breakpoint,
+  type DocumentItem,
+  type Grid,
 } from "@grids/contracts/types";
 import type { GridHistoryUrlMaps } from "@/controllers/GridController";
 import { createLiveGridViewContext } from "@/grid-context/createLiveGridViewContext";
@@ -18,6 +20,7 @@ const h = vi.hoisted(() => ({
   ui: null as unknown,
   uploads: null as unknown,
   collection: null as unknown,
+  preview: null as unknown,
   controller: null as unknown,
 }));
 
@@ -35,6 +38,9 @@ vi.mock("@/stores/grid/gridUploads", () => ({
 }));
 vi.mock("@/stores/grid/gridCollection", () => ({
   useGridCollectionStore: () => h.collection,
+}));
+vi.mock("@/stores/grid/gridPreview", () => ({
+  useGridPreviewStore: () => h.preview,
 }));
 vi.mock("@/controllers/useGridController", () => ({
   useGridController: () => h.controller,
@@ -93,24 +99,58 @@ function installStores() {
     uploadingTiles: { "tile-1": 0.25 } as Record<string, number>,
   });
   const collection = reactive({ isLoading: false });
+  const preview = reactive({
+    activePreview: null as null | {
+      kind: "responsive-layout";
+      gridId: string;
+      responsiveLayoutVersion: typeof GRIDDLE_RESPONSIVE_LAYOUT_VERSION;
+    },
+    previewForGrid(gridId: string | undefined) {
+      return preview.activePreview?.gridId === gridId
+        ? preview.activePreview
+        : null;
+    },
+    isActive(gridId: string | undefined) {
+      return preview.previewForGrid(gridId) !== null;
+    },
+    blocksGridMutation(gridId: string | undefined) {
+      return preview.previewForGrid(gridId) !== null;
+    },
+    responsiveLayoutVersionOverride(gridId: string | undefined) {
+      return preview.previewForGrid(gridId)?.responsiveLayoutVersion;
+    },
+  });
 
   h.session = session;
   h.viewport = viewport;
   h.ui = ui;
   h.uploads = uploads;
   h.collection = collection;
+  h.preview = preview;
 
-  return { session, viewport, ui, uploads, collection };
+  return { session, viewport, ui, uploads, collection, preview };
 }
 
 function installController() {
   const controller = {
+    canEditCurrentGrid: vi.fn(() => {
+      const session = h.session as ReturnType<typeof installStores>["session"];
+      const viewport = h.viewport as ReturnType<typeof installStores>["viewport"];
+      const preview = h.preview as ReturnType<typeof installStores>["preview"];
+      if (preview.blocksGridMutation(session.currentGrid?.id)) return false;
+      return session.canEditAtBreakpoint(
+        viewport.forcedBreakpoint,
+        viewport.viewportBreakpoint,
+      );
+    }),
     registerLayoutReadinessAdapter: vi.fn(() => vi.fn()),
     setActiveBreakpoint: vi.fn(),
     setViewportBreakpoint: vi.fn(),
     setForcedBreakpoint: vi.fn(),
     setDisplayPositions: vi.fn(),
     commitCompactedLayout: vi.fn(),
+    startResponsiveLayoutPreview: vi.fn(() => true),
+    stopPreview: vi.fn(),
     beginMove: vi.fn(),
     commitMove: vi.fn(),
     beginResize: vi.fn(),
@@ -140,7 +180,7 @@ function installController() {
 
 describe("createLiveGridViewContext", () => {
   it("maps read state from the focused stores", () => {
-    const { session, viewport, ui } = installStores();
+    const { session, viewport, ui, preview } = installStores();
     installController();
 
     const ctx = createLiveGridViewContext();
@@ -151,6 +191,12 @@ describe("createLiveGridViewContext", () => {
     expect(isReadonly(ctx.grid.value)).toBe(true);
     expect(ctx.isOwner.value).toBe(true);
     expect(ctx.canEdit.value).toBe(true);
+    expect(ctx.activePreview.value).toBeNull();
+    expect(ctx.isPreviewActive.value).toBe(false);
+    expect(ctx.blocksGridMutation.value).toBe(false);
+    expect(ctx.effectiveResponsiveLayoutVersion.value).toBe(
+      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+    );
     expect(ctx.isLoading.value).toBe(false);
     expect(ctx.verticalCompact.value).toBe(true);
     expect(ctx.activeBreakpoint.value).toBe("lg");
@@ -163,6 +209,19 @@ describe("createLiveGridViewContext", () => {
     expect(ctx.activeTileId.value).toBe("tile-1");
     expect(ctx.activePanelId.value).toBe("settings");
 
+    preview.activePreview = {
+      kind: "responsive-layout",
+      gridId: "grid-1",
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+    };
+    expect(ctx.isOwner.value).toBe(true);
+    expect(ctx.canEdit.value).toBe(false);
+    expect(ctx.isPreviewActive.value).toBe(true);
+    expect(ctx.blocksGridMutation.value).toBe(true);
+    expect(ctx.effectiveResponsiveLayoutVersion.value).toBe(
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+    );
+
     // Reads stay reactive against the underlying stores.
     session.currentGrid = makeGrid("grid-2");
     session.isOwner = false; // flips canEdit through canEditAtBreakpoint
@@ -172,6 +231,10 @@ describe("createLiveGridViewContext", () => {
     expect(ctx.grid.value?.id).toBe("grid-2");
     expect(ctx.isOwner.value).toBe(false);
     expect(ctx.canEdit.value).toBe(false);
+    expect(ctx.isPreviewActive.value).toBe(false);
+    expect(ctx.effectiveResponsiveLayoutVersion.value).toBe(
+      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+    );
     expect(ctx.activeBreakpoint.value).toBe("md");
     expect(ctx.pendingFocusTileId.value).toBe("tile-2");
 
@@ -190,6 +253,24 @@ describe("createLiveGridViewContext", () => {
     viewport.forcedBreakpoint = "lg";
     viewport.viewportBreakpoint = "sm";
     expect(ctx.canEdit.value).toBe(false);
+  });
+
+  it("uses the persisted responsive version for a visitor without a preview override", () => {
+    const { session } = installStores();
+    installController();
+    session.currentGrid = {
+      ...makeGrid("grid-visitor"),
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+    };
+    session.isOwner = false;
+
+    const ctx = createLiveGridViewContext();
+
+    expect(ctx.isOwner.value).toBe(false);
+    expect(ctx.isPreviewActive.value).toBe(false);
+    expect(ctx.effectiveResponsiveLayoutVersion.value).toBe(
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+    );
   });
 
   it("ORs collection and session loading for isLoading", () => {
@@ -231,6 +312,8 @@ describe("createLiveGridViewContext", () => {
     ctx.setForcedBreakpoint("md");
     ctx.setDisplayPositions(positions);
     ctx.commitCompactedLayout(positions);
+    const startedPreview = ctx.startResponsiveLayoutPreview();
+    ctx.stopPreview();
     ctx.beginMove(urlMaps);
     ctx.commitMove(urlMaps);
     ctx.beginResize(urlMaps);
@@ -263,6 +346,11 @@ describe("createLiveGridViewContext", () => {
     expect(controller.setForcedBreakpoint).toHaveBeenCalledWith("md");
     expect(controller.setDisplayPositions).toHaveBeenCalledWith(positions);
     expect(controller.commitCompactedLayout).toHaveBeenCalledWith(positions);
+    expect(startedPreview).toBe(true);
+    expect(
+      controller.startResponsiveLayoutPreview,
+    ).toHaveBeenCalledTimes(1);
+    expect(controller.stopPreview).toHaveBeenCalledTimes(1);
     expect(controller.beginMove).toHaveBeenCalledWith(urlMaps);
     expect(controller.commitMove).toHaveBeenCalledWith(urlMaps);
     expect(controller.beginResize).toHaveBeenCalledWith(urlMaps);

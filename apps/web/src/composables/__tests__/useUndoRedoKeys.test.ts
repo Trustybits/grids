@@ -21,6 +21,7 @@ const mockViewport = vi.hoisted(() => ({
   viewportBreakpoint: "lg",
 }));
 const mockController = vi.hoisted(() => ({
+  canEditCurrentGrid: vi.fn(),
   undo: vi.fn(),
   redo: vi.fn(),
 }));
@@ -71,6 +72,10 @@ function dispatchKey(
 beforeEach(() => {
   mockSession.canEditAtBreakpoint.mockReset();
   mockSession.canEditAtBreakpoint.mockReturnValue(true);
+  mockController.canEditCurrentGrid.mockReset();
+  mockController.canEditCurrentGrid.mockImplementation(() =>
+    mockSession.canEditAtBreakpoint(),
+  );
   mockController.undo.mockReset();
   mockController.redo.mockReset();
 });

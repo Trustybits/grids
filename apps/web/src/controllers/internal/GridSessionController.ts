@@ -31,6 +31,7 @@ export class GridSessionController {
     this.flushChatCleanup();
     this.stopGridSubscription();
     this.stores.history.reset();
+    this.stores.preview.reset();
     this.stores.viewport.reset();
     this.stores.uploads.reset();
     this.stores.ui.resetSessionState();
@@ -263,6 +264,7 @@ export class GridSessionController {
     if (!currentUserId || grid.userId === currentUserId) return;
 
     this.stores.session.markOwnershipRevoked(grid.userId);
+    this.stores.preview.reset();
     // Close any open tile menus/editors so no edit affordance lingers.
     this.stores.ui.resetSessionState();
     this.stores.toast.addToast(

@@ -138,6 +138,9 @@ function makeSession() {
 
 function makeController(session: ReturnType<typeof makeSession>) {
   return {
+    canEditCurrentGrid: vi.fn(() =>
+      session.canEditAtBreakpoint(),
+    ),
     clearSession: vi.fn(() => {
       session.currentGrid = null;
     }),

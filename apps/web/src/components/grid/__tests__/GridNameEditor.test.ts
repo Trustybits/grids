@@ -51,6 +51,7 @@ describe("GridNameEditor characterization", () => {
       canEditAtBreakpoint: vi.fn(() => true),
     });
     const controller = reactive({
+      canEditCurrentGrid: vi.fn(() => true),
       renameCurrentGrid: vi.fn(),
       saveGrid: vi.fn(),
       pushUndoSnapshot: vi.fn(),
@@ -82,6 +83,7 @@ describe("GridNameEditor characterization", () => {
       canEditAtBreakpoint: vi.fn(() => false),
     });
     const controller = reactive({
+      canEditCurrentGrid: vi.fn(() => false),
       renameCurrentGrid: vi.fn(),
       saveGrid: vi.fn(),
     });

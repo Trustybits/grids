@@ -4,6 +4,7 @@ import type {
   Breakpoint,
   DocumentItem,
   Grid,
+  ResponsiveLayoutVersion,
   TileContent,
 } from "@grids/contracts/types";
 import type {
@@ -12,6 +13,7 @@ import type {
 } from "@/controllers/GridController";
 import type { UpdateCaptionInput } from "@/controllers/GridCommands";
 import type { GridLayoutItem } from "@/types/GridLayout";
+import type { GridPreview } from "@/stores/grid/gridPreview";
 
 export type GridViewMode = "live" | "demo";
 
@@ -21,6 +23,10 @@ export interface GridViewContext {
   grid: ComputedRef<DeepReadonly<Grid> | null>;
   isOwner: ComputedRef<boolean>;
   canEdit: ComputedRef<boolean>;
+  activePreview: ComputedRef<GridPreview>;
+  isPreviewActive: ComputedRef<boolean>;
+  blocksGridMutation: ComputedRef<boolean>;
+  effectiveResponsiveLayoutVersion: ComputedRef<ResponsiveLayoutVersion>;
   isLoading: ComputedRef<boolean>;
   verticalCompact: ComputedRef<boolean>;
   activeBreakpoint: ComputedRef<Breakpoint>;
@@ -42,6 +48,8 @@ export interface GridViewContext {
   setForcedBreakpoint(breakpoint: Breakpoint | null): void;
   setDisplayPositions(positions: GridLayoutItem[]): void;
   commitCompactedLayout(layout: GridLayoutItem[]): void;
+  startResponsiveLayoutPreview(): boolean;
+  stopPreview(): void;
 
   beginMove(urlMaps?: GridHistoryUrlMaps): void;
   commitMove(urlMaps?: GridHistoryUrlMaps): void;

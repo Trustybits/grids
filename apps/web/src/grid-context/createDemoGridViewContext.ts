@@ -1,5 +1,9 @@
 import { computed, readonly, ref, shallowRef } from "vue";
-import type { Breakpoint, Grid } from "@grids/contracts/types";
+import {
+  resolveResponsiveLayoutVersion,
+  type Breakpoint,
+  type Grid,
+} from "@grids/contracts/types";
 import type { GridViewContext } from "@/grid-context/GridViewContext";
 import { toCanonicalLayoutItems } from "@/utils/GriddleAdapter";
 
@@ -20,6 +24,14 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
     grid: computed(() => readonly(gridRef.value)),
     isOwner: computed(() => false),
     canEdit: computed(() => false),
+    activePreview: computed(() => null),
+    isPreviewActive: computed(() => false),
+    blocksGridMutation: computed(() => false),
+    effectiveResponsiveLayoutVersion: computed(() =>
+      resolveResponsiveLayoutVersion(
+        gridRef.value.responsiveLayoutVersion,
+      ),
+    ),
     isLoading: computed(() => false),
     verticalCompact: computed(() => gridRef.value.verticalCompact),
     activeBreakpoint: computed(() => activeBreakpoint.value),
@@ -49,6 +61,8 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
       }));
     },
     commitCompactedLayout: noop,
+    startResponsiveLayoutPreview: () => false,
+    stopPreview: noop,
 
     beginMove: noop,
     commitMove: noop,

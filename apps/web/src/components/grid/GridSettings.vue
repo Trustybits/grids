@@ -37,6 +37,8 @@
         />
       </MenuSection>
 
+      <ResponsiveLayoutSettings />
+
       <!-- Breakpoint Layout -->
       <template v-if="isOwner && viewportStore.activeBreakpoint !== 'lg'">
         <MenuSection>
@@ -209,6 +211,7 @@ import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
 import OgImageModal from "@/components/modal/OgImageModal.vue";
 import TransferGridModal from "@/components/modal/TransferGridModal.vue";
+import ResponsiveLayoutSettings from "@/components/grid/ResponsiveLayoutSettings.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useGridDuplicateStorage } from "@/composables/useGridDuplicateStorage";
 import { useGridTransfers } from "@/composables/useGridTransfers";
@@ -268,16 +271,22 @@ const currentGridName = computed(() => {
   return sessionStore.currentGrid?.name?.trim() || "Untitled Grid";
 });
 
+const canMutateGrid = () => controller.canEditCurrentGrid();
+
 // Computed property with setter to handle gravity toggle
 const verticalCompact = computed({
   get: () => sessionStore.verticalCompact,
-  set: (value: boolean) => controller.setVerticalCompact(value),
+  set: (value: boolean) => {
+    if (!canMutateGrid()) return;
+    controller.setVerticalCompact(value);
+  },
 });
 
 // Computed property with setter to handle dark mode toggle for the grid
 const isDarkMode = computed({
   get: () => themeStore.isDarkMode,
   set: (value: boolean) => {
+    if (!canMutateGrid()) return;
     const newThemeId = value ? "dark" : "light";
     themeStore.setTheme(newThemeId);
     controller.setGridTheme(newThemeId);
@@ -340,6 +349,7 @@ const breakpointLabel = computed(() =>
 );
 
 const saveBreakpoint = () => {
+  if (!canMutateGrid()) return;
   const bp = viewportStore.activeBreakpoint;
   if (bp === "lg") return;
 
@@ -355,6 +365,7 @@ const saveBreakpoint = () => {
 };
 
 const resetBreakpoint = () => {
+  if (!canMutateGrid()) return;
   const bp = viewportStore.activeBreakpoint;
   if (bp === "lg") return;
   controller.resetBreakpoint(bp);
@@ -368,7 +379,10 @@ const resetBreakpoint = () => {
 // Computed property with setter to handle the public duplication toggle
 const duplicatable = computed({
   get: () => sessionStore.currentGrid?.duplicatable ?? false,
-  set: (value: boolean) => controller.setDuplicatable(value),
+  set: (value: boolean) => {
+    if (!canMutateGrid()) return;
+    controller.setDuplicatable(value);
+  },
 });
 
 // Duplicate the current grid and navigate to the new copy.
@@ -401,14 +415,26 @@ const duplicateGrid = async (copyDepth: CopyDepth = "full") => {
 };
 
 const confirmDelete = () => {
-  if (!sessionStore.isOwner || !sessionStore.currentGrid) return;
+  if (
+    !canMutateGrid() ||
+    !sessionStore.isOwner ||
+    !sessionStore.currentGrid
+  ) {
+    return;
+  }
   showDeleteModal.value = true;
   closeMenu();
 };
 
 // Handle grid deletion directly — no need to bubble up through parent components
 const deleteGrid = async () => {
-  if (!sessionStore.isOwner || !sessionStore.currentGrid) return;
+  if (
+    !canMutateGrid() ||
+    !sessionStore.isOwner ||
+    !sessionStore.currentGrid
+  ) {
+    return;
+  }
 
   await controller.deleteGrid(sessionStore.currentGrid.id);
   showDeleteModal.value = false;
@@ -417,16 +443,19 @@ const deleteGrid = async () => {
 };
 
 const openOgImageModal = () => {
+  if (!canMutateGrid()) return;
   showOgImageModal.value = true;
   closeMenu();
 };
 
 const openTransferModal = () => {
+  if (!canMutateGrid()) return;
   showTransferModal.value = true;
   closeMenu();
 };
 
 const cancelPendingTransfer = async () => {
+  if (!canMutateGrid()) return;
   const transfer = pendingTransfer.value;
   if (!transfer || isCancellingTransfer.value) return;
   isCancellingTransfer.value = true;
@@ -445,10 +474,12 @@ const cancelPendingTransfer = async () => {
 };
 
 const triggerBackgroundImagePicker = () => {
+  if (!canMutateGrid()) return;
   bgImageInput.value?.click();
 };
 
 const handleBackgroundImageUpload = async (event: Event) => {
+  if (!canMutateGrid()) return;
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
   try {
@@ -467,21 +498,25 @@ const handleBackgroundImageUpload = async (event: Event) => {
 };
 
 const openBgColorPicker = () => {
+  if (!canMutateGrid()) return;
   showBgDropdown.value = false;
   showBgColorPicker.value = true;
 };
 
 const handleBackgroundColorChange = (color: string) => {
+  if (!canMutateGrid()) return;
   controller.setBackgroundColor(color);
   showBgColorPicker.value = false;
 };
 
 const removeBackgroundImage = () => {
+  if (!canMutateGrid()) return;
   controller.removeBackgroundImage();
   showBgDropdown.value = false;
 };
 
 const removeBackgroundColor = () => {
+  if (!canMutateGrid()) return;
   controller.removeBackgroundColor();
   showBgDropdown.value = false;
 };

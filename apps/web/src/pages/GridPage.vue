@@ -147,7 +147,6 @@ import GridButtons from "@/components/grid/GridToolbar.vue";
 import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
 import UndoRedoControls from "@/components/grid/UndoRedoControls.vue";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
-import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridController } from "@/controllers/useGridController";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
@@ -183,7 +182,6 @@ export default defineComponent({
   },
   setup() {
     const sessionStore = useGridSessionStore();
-    const viewportStore = useGridViewportStore();
     const controller = useGridController();
     const currentGrid = computed(() => sessionStore.currentGrid);
     const themeStore = useThemeStore();
@@ -223,12 +221,7 @@ export default defineComponent({
       }
     };
 
-    const canEdit = computed(() =>
-      sessionStore.canEditAtBreakpoint(
-        viewportStore.forcedBreakpoint,
-        viewportStore.viewportBreakpoint,
-      ),
-    );
+    const canEdit = computed(() => controller.canEditCurrentGrid());
 
     const selectImage = () => {
       if (!canEdit.value) return;

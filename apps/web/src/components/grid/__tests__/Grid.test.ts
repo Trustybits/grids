@@ -5,6 +5,8 @@ import {
   ContentType,
   GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
   LEGACY_RESPONSIVE_LAYOUT_VERSION,
+  resolveResponsiveLayoutVersion,
+  type Breakpoint,
   type Grid,
   type LinkContent,
   type Tile,
@@ -150,6 +152,9 @@ function makeStore(grid = makeGrid()) {
     undoRedoVersion: 0,
     canEdit: true,
     verticalCompact: true,
+    effectiveResponsiveLayoutVersion: resolveResponsiveLayoutVersion(
+      grid.responsiveLayoutVersion,
+    ),
     setActiveBreakpoint: vi.fn(),
     setViewportBreakpoint: vi.fn(),
     setDisplayPositions: vi.fn(),
@@ -254,6 +259,69 @@ describe("Grid canvas characterization", () => {
     wrapper.unmount();
   });
 
+  it("routes a transient effective-version override without mutating the persisted version", async () => {
+    const grid = makeGrid();
+    grid.responsiveLayoutVersion = LEGACY_RESPONSIVE_LAYOUT_VERSION;
+    const { store } = makeStore(grid);
+    store.effectiveResponsiveLayoutVersion =
+      LEGACY_RESPONSIVE_LAYOUT_VERSION;
+    store.verticalCompact = false;
+    storeHolder.current = store;
+
+    const wrapper = await mountGrid();
+    await flushPromises();
+    expect(griddleHooks.reflow).not.toHaveBeenCalled();
+
+    store.effectiveResponsiveLayoutVersion =
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION;
+    await flushPromises();
+
+    expect(griddleHooks.reflow).toHaveBeenCalledWith({
+      cols: 12,
+      strategy: "preserve-v1",
+    });
+    expect(store.currentGrid.responsiveLayoutVersion).toBe(
+      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+    );
+    expect(store.currentGrid.tiles[0]).toEqual(
+      expect.objectContaining({ x: 0, y: 0, w: 2, h: 2 }),
+    );
+
+    wrapper.unmount();
+  });
+
+  it("settles a preview requested during a gesture without committing gesture geometry", async () => {
+    const grid = makeGrid();
+    grid.responsiveLayoutVersion = LEGACY_RESPONSIVE_LAYOUT_VERSION;
+    const { store } = makeStore(grid);
+    store.verticalCompact = false;
+    storeHolder.current = store;
+    const wrapper = await mountGrid();
+    await flushPromises();
+    griddleHooks.reflow.mockClear();
+
+    griddle(wrapper).vm.$emit("dragStart", "tile-1");
+    store.canEdit = false;
+    store.effectiveResponsiveLayoutVersion =
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION;
+    await nextTick();
+    expect(griddleHooks.reflow).not.toHaveBeenCalled();
+
+    griddle(wrapper).vm.$emit("dragEnd", "tile-1", true);
+    await flushPromises();
+
+    expect(store.commitMove).not.toHaveBeenCalled();
+    expect(griddleHooks.reflow).toHaveBeenCalledWith({
+      cols: 12,
+      strategy: "preserve-v1",
+    });
+    expect(store.currentGrid.responsiveLayoutVersion).toBe(
+      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+    );
+
+    wrapper.unmount();
+  });
+
   it("produces differential parity between frozen legacy and bootstrap Griddle paths", async () => {
     const renderVersion = async (
       responsiveLayoutVersion:
@@ -307,6 +375,103 @@ describe("Grid canvas characterization", () => {
       { i: "tile-2", x: 0, y: 0, w: 2, h: 2 },
     ]);
   });
+
+  const responsiveParityMatrix: Array<
+    [Breakpoint, boolean, "none" | "partial" | "full"]
+  > = (["lg", "md", "sm"] as const).flatMap((breakpoint) =>
+    [false, true].flatMap((verticalCompact) =>
+      (["none", "partial", "full"] as const).map(
+        (overrideMode): [Breakpoint, boolean, "none" | "partial" | "full"] =>
+          [breakpoint, verticalCompact, overrideMode],
+      ),
+    ),
+  );
+
+  it.each(responsiveParityMatrix)(
+    "keeps bootstrap parity at %s with gravity=%s and %s overrides",
+    async (breakpoint, verticalCompact, overrideMode) => {
+      const columns = breakpoint === "lg" ? 12 : breakpoint === "md" ? 8 : 4;
+      const tiles = [
+        makeTile({ i: "tile-a", x: 0, y: 0, w: 4, h: 2 }),
+        makeTile({ i: "tile-b", x: 4, y: 0, w: 4, h: 2 }),
+        makeTile({ i: "tile-c", x: 8, y: 3, w: 4, h: 2 }),
+      ];
+      const overrides: Grid["overrides"] = {};
+
+      if (overrideMode === "partial") {
+        overrides[breakpoint] = {
+          "tile-a": { x: 0, y: 3, w: Math.min(4, columns), h: 2 },
+        };
+      } else if (overrideMode === "full") {
+        overrides[breakpoint] = {
+          "tile-a": { x: 0, y: 3, w: 2, h: 2 },
+          "tile-b": { x: 2, y: 3, w: 2, h: 2 },
+          "tile-c": { x: 0, y: 5, w: Math.min(4, columns), h: 2 },
+        };
+      }
+
+      const renderState = async (
+        persistedVersion: Grid["responsiveLayoutVersion"],
+        effectiveVersion: Grid["responsiveLayoutVersion"],
+      ): Promise<GridLayoutItem[]> => {
+        const grid = makeGrid(tiles[0]);
+        grid.tiles = structuredClone(tiles);
+        grid.overrides = structuredClone(overrides);
+        grid.verticalCompact = verticalCompact;
+        grid.responsiveLayoutVersion = persistedVersion;
+        const originalGrid = structuredClone(grid);
+        const { store } = makeStore(grid);
+        store.forcedBreakpoint = breakpoint;
+        store.verticalCompact = verticalCompact;
+        store.effectiveResponsiveLayoutVersion = resolveResponsiveLayoutVersion(
+          effectiveVersion,
+        );
+        storeHolder.current = store;
+
+        const wrapper = await mountGrid();
+        await flushPromises();
+        const rendered = structuredClone(
+          (store.setDisplayPositions.mock.lastCall?.[0] ?? []) as GridLayoutItem[],
+        );
+
+        expect(grid).toEqual(originalGrid);
+        expect(rendered.map(({ i }) => i).sort()).toEqual([
+          "tile-a",
+          "tile-b",
+          "tile-c",
+        ]);
+        wrapper.unmount();
+        return rendered;
+      };
+
+      const missing = await renderState(
+        undefined,
+        LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      );
+      const explicitLegacy = await renderState(
+        LEGACY_RESPONSIVE_LAYOUT_VERSION,
+        LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      );
+      const preview = await renderState(
+        LEGACY_RESPONSIVE_LAYOUT_VERSION,
+        GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+      );
+      const explicitGriddle = await renderState(
+        GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+        GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+      );
+
+      expect(explicitLegacy).toEqual(missing);
+      expect(preview).toEqual(explicitLegacy);
+      expect(explicitGriddle).toEqual(preview);
+
+      if (!verticalCompact && overrideMode === "full" && breakpoint !== "lg") {
+        expect(explicitGriddle).toEqual(
+          tiles.map(({ i }) => ({ i, ...overrides[breakpoint]![i]! })),
+        );
+      }
+    },
+  );
 
   it("passes canonical tile data separately from non-desktop layout geometry", async () => {
     const canonicalTile = makeTile();

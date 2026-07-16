@@ -50,7 +50,6 @@ import {
   gridContentSize,
   type Tile as GriddleTile,
 } from "@griddle/core";
-import { resolveResponsiveLayoutVersion } from "@grids/contracts/types";
 import GridTile from "./Tile.vue";
 import { useResponsiveGridLayout } from "@/composables/useResponsiveGridLayout";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
@@ -135,15 +134,9 @@ export default {
       () => new Map(contractTiles.value.map((tile) => [tile.i, tile])),
     );
 
-    const effectiveResponsiveLayoutVersion = computed(() =>
-      resolveResponsiveLayoutVersion(
-        gridView.grid?.responsiveLayoutVersion,
-      ),
-    );
-
     const griddleReflowStrategy = computed(() =>
       getGriddleResponsiveReflowStrategy(
-        effectiveResponsiveLayoutVersion.value,
+        gridView.effectiveResponsiveLayoutVersion,
       ),
     );
 
@@ -226,6 +219,7 @@ export default {
     // Intermediate load/reflow/compaction events are deliberately not
     // published: GridMenu and gesture commits see only the settled engine.
     let interacting = false;
+    let engineSyncPending = false;
     let syncGeneration = 0;
     const syncEngine = async (): Promise<void> => {
       const generation = ++syncGeneration;
@@ -265,10 +259,21 @@ export default {
         activeGriddlePlacements,
       ],
       () => {
-        if (interacting) return;
+        if (interacting) {
+          engineSyncPending = true;
+          markLayoutPending();
+          return;
+        }
         void syncEngine();
       },
     );
+
+    const finishInteraction = (): void => {
+      interacting = false;
+      if (!engineSyncPending) return;
+      engineSyncPending = false;
+      void syncEngine();
+    };
 
     onMounted(() => {
       void syncEngine();
@@ -426,6 +431,7 @@ export default {
         gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
         gridView.commitMove();
       }
+      finishInteraction();
     };
 
     const onResizeStart = (_id: string): void => {
@@ -439,6 +445,7 @@ export default {
         gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
         gridView.commitResize();
       }
+      finishInteraction();
     };
 
     // When gravity is toggled on, compact tiles through the engine and persist.

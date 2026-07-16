@@ -1,10 +1,12 @@
 import { computed, readonly } from "vue";
+import { resolveResponsiveLayoutVersion } from "@grids/contracts/types";
 import type { GridViewContext } from "@/grid-context/GridViewContext";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridUploadsStore } from "@/stores/grid/gridUploads";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
+import { useGridPreviewStore } from "@/stores/grid/gridPreview";
 import { useGridController } from "@/controllers/useGridController";
 
 export function createLiveGridViewContext(): GridViewContext {
@@ -15,7 +17,9 @@ export function createLiveGridViewContext(): GridViewContext {
   const ui = useGridUiStore();
   const uploads = useGridUploadsStore();
   const collection = useGridCollectionStore();
+  const preview = useGridPreviewStore();
   const controller = useGridController();
+  const currentGridId = computed(() => session.currentGrid?.id);
 
   return {
     mode: "live",
@@ -24,11 +28,22 @@ export function createLiveGridViewContext(): GridViewContext {
       session.currentGrid === null ? null : readonly(session.currentGrid),
     ),
     isOwner: computed(() => session.isOwner),
-    canEdit: computed(() =>
-      session.canEditAtBreakpoint(
-        viewport.forcedBreakpoint,
-        viewport.viewportBreakpoint,
-      ),
+    canEdit: computed(() => controller.canEditCurrentGrid()),
+    activePreview: computed(() =>
+      preview.previewForGrid(currentGridId.value),
+    ),
+    isPreviewActive: computed(() =>
+      preview.isActive(currentGridId.value),
+    ),
+    blocksGridMutation: computed(() =>
+      preview.blocksGridMutation(currentGridId.value),
+    ),
+    effectiveResponsiveLayoutVersion: computed(
+      () =>
+        preview.responsiveLayoutVersionOverride(currentGridId.value) ??
+        resolveResponsiveLayoutVersion(
+          session.currentGrid?.responsiveLayoutVersion,
+        ),
     ),
     // Loading stays true until every tracked operation finishes: a grid load
     // (session) or a collection fetch can independently gate the canvas.
@@ -59,6 +74,9 @@ export function createLiveGridViewContext(): GridViewContext {
       controller.setDisplayPositions.bind(controller),
     commitCompactedLayout:
       controller.commitCompactedLayout.bind(controller),
+    startResponsiveLayoutPreview:
+      controller.startResponsiveLayoutPreview.bind(controller),
+    stopPreview: controller.stopPreview.bind(controller),
 
     beginMove: controller.beginMove.bind(controller),
     commitMove: controller.commitMove.bind(controller),

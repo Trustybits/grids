@@ -3,6 +3,8 @@
     <AppStatusBanners
       :is-stubbed-mode="isStubbedMode"
       :show-viewport-warning="!isMarketingPage"
+      :show-responsive-layout-preview="showResponsiveLayoutPreview"
+      @stop-responsive-layout-preview="controller.stopPreview()"
     />
 
     <!-- Left Navigation Bar (hidden on marketing pages like /pricing) -->
@@ -39,6 +41,7 @@ import ToastContainer from './components/ui-controls/ToastContainer.vue';
 import PixelRacersGame from './components/grid/PixelRacersGame.vue';
 import AppStatusBanners from './components/app/AppStatusBanners.vue';
 import { useGridSessionStore } from '@/stores/grid/gridSession';
+import { useGridPreviewStore } from '@/stores/grid/gridPreview';
 import { useGridController } from '@/controllers/useGridController';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
@@ -61,9 +64,13 @@ const { identify, reset: resetPostHog } = usePostHog();
 
 const route = useRoute();
 const sessionStore = useGridSessionStore();
+const previewStore = useGridPreviewStore();
 const controller = useGridController();
 const isMarketingPage = computed(() => isMarketingPath(route.path));
 const hideBottomCornerButtons = isMarketingPage;
+const showResponsiveLayoutPreview = computed(() =>
+  previewStore.isActive(sessionStore.currentGrid?.id),
+);
 
 const user = ref<AuthUser | null>(null);
 const previousUser = ref<AuthUser | null>(null);

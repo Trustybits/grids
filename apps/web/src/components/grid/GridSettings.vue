@@ -102,7 +102,7 @@
           v-if="showBgColorPicker"
           :buttonEl="bgChevronEl"
           :onColorChange="handleBackgroundColorChange"
-          :currentColor="sessionStore.currentGrid?.backgroundColor ?? ''"
+          :currentColor="backgroundColor"
         />
 
         <MenuItem @click="openOgImageModal"> Social Share Image </MenuItem>
@@ -190,13 +190,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
-import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridController } from "@/controllers/useGridController";
 import { useGridSettings } from "@/composables/useGridSettings";
 import type { CopyDepth } from "@grids/contracts/types";
-import { useToastStore } from "@/stores/toast";
 import MenuItem from "@/components/ui-controls/MenuItem.vue";
 import Toggle from "@/components/ui-controls/Toggle.vue";
 import Accordion from "@/components/ui-controls/Accordion.vue";
@@ -210,13 +208,10 @@ import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
 import OgImageModal from "@/components/modal/OgImageModal.vue";
 import TransferGridModal from "@/components/modal/TransferGridModal.vue";
-import { useFileUpload } from "@/composables/useFileUpload";
 
-const sessionStore = useGridSessionStore();
 const viewportStore = useGridViewportStore();
 const uiStore = useGridUiStore();
 const controller = useGridController();
-const toastStore = useToastStore();
 
 // Shared grid-settings state + actions (also used by the Mobile 2.0 sheet).
 const {
@@ -226,6 +221,7 @@ const {
   currentGridName,
   hasBackgroundImage,
   hasBackgroundColor,
+  backgroundColor,
   pendingTransfer,
   isCancellingTransfer,
   verticalCompact,
@@ -246,6 +242,10 @@ const {
   launchPixelRacers: launchPixelRacersAction,
   saveBreakpoint: saveBreakpointAction,
   resetBreakpoint: resetBreakpointAction,
+  uploadBackgroundImage,
+  setBackgroundColor: setBackgroundColorAction,
+  removeBackgroundImage: removeBackgroundImageAction,
+  removeBackgroundColor: removeBackgroundColorAction,
 } = useGridSettings();
 
 const showMenu = ref(false);
@@ -256,7 +256,6 @@ const showBgColorPicker = ref(false);
 const bgImageInput = ref<HTMLInputElement | null>(null);
 const bgSplitRef = ref<InstanceType<typeof GhostSplitButton> | null>(null);
 const bgChevronEl = computed(() => bgSplitRef.value?.chevronRef ?? null);
-const { uploadFileToArchive } = useFileUpload();
 
 watch(showBgDropdown, (open) => {
   if (open) {
@@ -351,18 +350,7 @@ const triggerBackgroundImagePicker = () => {
 const handleBackgroundImageUpload = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
-  try {
-    const { url, hash } = await uploadFileToArchive(file, {
-      fileType: "images",
-    });
-    controller.addBackgroundImage(url, false, hash);
-  } catch (error: unknown) {
-    console.error("Failed to upload background image:", error);
-    toastStore.addToast(
-      error instanceof Error ? error.message : "Failed to upload image",
-      "error",
-    );
-  }
+  await uploadBackgroundImage(file);
   if (bgImageInput.value) bgImageInput.value.value = "";
 };
 
@@ -372,17 +360,17 @@ const openBgColorPicker = () => {
 };
 
 const handleBackgroundColorChange = (color: string) => {
-  controller.setBackgroundColor(color);
+  setBackgroundColorAction(color);
   showBgColorPicker.value = false;
 };
 
 const removeBackgroundImage = () => {
-  controller.removeBackgroundImage();
+  removeBackgroundImageAction();
   showBgDropdown.value = false;
 };
 
 const removeBackgroundColor = () => {
-  controller.removeBackgroundColor();
+  removeBackgroundColorAction();
   showBgDropdown.value = false;
 };
 

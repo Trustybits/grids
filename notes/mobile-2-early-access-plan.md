@@ -231,7 +231,7 @@ Deferred polish: the Figma 3D "coverflow" fan is a clean scroll-snap row for now
 - [ ] Per-grid **"N times used"** counts, computed from the current grid's tiles
 - [ ] `/TILE` (tile types) vs general-search (subtypes/content) semantics once the list exists
 
-### Phase 6 — Grid Settings sheet 🟡 IN PROGRESS (6.1 done, 6.2 next)
+### Phase 6 — Grid Settings sheet 🟡 IN PROGRESS (6.1 + 6.2 + 6.3 done)
 
 Product decisions (confirmed): extract a shared `useGridSettings` composable so the desktop
 `GridSettings` dropdown and the mobile sheet share one implementation (same pattern as
@@ -288,12 +288,77 @@ Motion / layout polish (applies to the whole mobile bar, Phase 5 + 6):
 - [x] Settings sheet body (excludes the `/GRID` bar) capped at **~190px on an iPhone SE** (`33.5vh`),
       scaling up on larger screens; the row list scrolls when it overflows.
 
-#### Phase 6.2 — Grid Background + theme cards ⬜ NOT STARTED
+#### Phase 6.2 — Grid Background + theme cards ✅ COMPLETE
 
-- [ ] Grid Background: image upload + background color (move the desktop handlers into
-      `useGridSettings` and add mobile UI)
-- [ ] `GRID THEME` light/dark **theme-card** visual (currently a plain Dark Mode toggle)
-- [ ] Consider a "Save Mobile Layout" affordance (breakpoint override) if wanted on mobile
+- [x] **Background handlers moved into `useGridSettings`** — `uploadBackgroundImage(file)` (wraps
+      `useFileUpload` + `controller.addBackgroundImage`, toasts on failure), `setBackgroundColor`,
+      `removeBackgroundImage`, `removeBackgroundColor`, plus a `backgroundColor` getter. Desktop
+      `GridSettings.vue` now consumes these (its file input / `ColorPicker` / dropdown DOM unchanged),
+      so the two surfaces share one implementation and can't drift. Dropped the now-unused
+      `useFileUpload` / `useGridSessionStore` / `useToastStore` imports from the desktop component.
+- [x] **`GRID THEME` light/dark theme-card visual** — two selectable preview cards (a small 2×2 tile
+      mock) replace the old Dark Mode toggle on mobile; tapping a card drives the shared `isDarkMode`.
+      The mock surfaces use fixed light/dark neutrals (`--color-light-100` / `--color-dark-0` +
+      `color-mix`) so each card always reads as its theme regardless of the active app theme. The
+      selected card gets a `--color-purple` outline.
+- [x] **`GRID BACKGROUND` selector** — three tiles: **image** (opens the hidden file picker →
+      `uploadBackgroundImage`), **Default** (dashed; resets by clearing image + color, selected when
+      neither is set), and **color** (rainbow swatch; shows the current color when one is set).
+      Selection is shown with the purple emphasis border. The color tile originally opened the desktop
+      `ColorPicker` popover; **6.3** replaced that with the dedicated mobile `/HEX` picker (the tile now
+      emits `open-color` up to the bar).
+- [x] **New token `--border-width-lg` (2px)** for the selected/active swatch + preview-card outlines.
+- [x] Sheet tests extended (theme/background sections render, light-card selected by default, Default
+      tile selected when no bg, reset clears image+color, color tile opens the picker) and the
+      `useGridSettings` mock updated with the new background surface. Suite green; typecheck clean.
+
+Deferred: a "Save Mobile Layout" affordance (breakpoint override) — revisit if wanted on mobile.
+
+#### Phase 6.3 — `/HEX` color picker sheet ✅ COMPLETE
+
+Figma "Grid Settings — Color" (1588-7129). Selecting the background **color** tile morphs the pill into
+a `/HEX` command input and raises a full HSB picker sheet — the same morph/rise/flush pattern as the
+`/GRID` settings sheet and the add-a-tile carousel.
+
+Product decisions (confirmed): **live** apply, **per-user** saved swatches, close returns **back to
+the Grid Settings sheet**, SLIDERS-only. The **eyedropper** and the **VALUE BOX** numeric-entry tab are
+deferred (see below).
+
+- [x] **Color utilities** `src/utils/color.ts` — pure `normalizeHex` / `isValidHex` / `hexToRgb` /
+      `rgbToHex` / `rgbToHsv` / `hsvToRgb` / `hexToHsv` / `hsvToHex` (hue 0–360, s/v 0–1). 12 unit tests.
+- [x] **Per-user saved colors** — new optional `savedColors: string[]` on the `UserProfile` contract;
+      `useSavedColors` composable loads them (module-level shared state), and `addColor` prepends /
+      de-dupes case-insensitively / caps at 24 / persists via `userService.updateUserProfile`
+      (optimistic with rollback). 7 unit tests.
+- [x] **`MobileColorPicker.vue`** — saturation/brightness HSB pad + hue slider (pointer-drag, HSV kept
+      as the source of truth so a channel bottoming out doesn't lose the hue) + a horizontally
+      -scrollable swatch row (**saved customs newest-first, then the preset brand palette** so a freshly
+      added color lands at the far left). Emits `update:modelValue` continuously, `preview` continuously
+      during a pad/hue drag (drives the **live** grid background, history-free), and `commit` once at the
+      end of a gesture (pad/hue pointer-up, swatch tap). The pad/hue gradients are clipped with
+      `background-clip: padding-box` so they don't bleed under the translucent border as a colored rim.
+- [x] **`/HEX` bar mode** in `MobileGridBar` — static `/HEX` chip, hex input (typing a full 6-digit
+      value live-updates the pad/hue; Enter/blur commits), and right-anchored **Add color (+)** +
+      **Close (×)**. **Live drag apply**: `preview` calls a new history-free
+      `previewBackgroundColor` controller op each frame for immediate feedback; on release the pre-drag
+      color is restored and `setBackgroundColor` is called once, so the drag collapses to a **single**
+      undo entry + one save. Swatch taps / typed hex commit directly (one entry each). Close returns to
+      the Grid Settings sheet, Escape mirrors it, an outside tap dismisses the whole surface. The
+      connected flush-surface styling (squared top corners / dynamic width) is shared with settings mode.
+- [x] Bar + sheet + controller tests updated (color mode morph + back-to-settings, Add saves, typed hex
+      commits, **live-drag preview + single commit**, `previewBackgroundColor` writes no history/save;
+      the sheet asserts it emits `open-color`). Suites green; typecheck + lint clean.
+
+Deferred follow-ups:
+
+- **Grid eyedropper** — the native `EyeDropper` API is Chromium-desktop only (absent on mobile), and
+  sampling arbitrary grid pixels requires rasterizing the DOM to a canvas (cross-origin images taint
+  it; embeds/iframes + Mapbox WebGL can't be captured), so it's its own sub-phase. Options captured:
+  snapshot-loupe (html-to-image, graceful degradation) vs element-color loupe (reliable, solid colors
+  only). No client-side grid snapshot exists to reuse (OG images are generated server-side).
+- **VALUE BOX tab** — the SLIDERS/VALUE BOX segmented toggle + numeric entry fields are deferred; only
+  the SLIDERS pad/slider ship now (the toggle is omitted until VALUE BOX exists rather than shipping a
+  no-op control).
 
 ### Phase 7 — Preview mode transition ⬜ NOT STARTED
 

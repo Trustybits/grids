@@ -12,9 +12,10 @@
   separator, and a scrollable, live-filterable list of settings (filtered by the
   `query` the parent feeds down from the `/GRID` input). All behavior comes from
   the shared `useGridSettings` composable so this and the desktop menu never
-  drift. Scope (Phase 6.1): GRID ID + copy, Dark Mode, Gravity, Default Grid,
-  Publish Template, Duplicate, Transfer, Delete, Debug. Grid Background
-  (image/color) + the theme-card visuals are Phase 6.2.
+  drift. Scope: GRID ID + copy, GRID THEME (light/dark preview cards), GRID
+  BACKGROUND (image / default / color), Gravity, Default Grid, Publish Template,
+  Duplicate, Transfer, Delete, Debug. The theme cards replace the old Dark Mode
+  toggle — selecting a card drives the shared `isDarkMode` state.
 -->
 <template>
   <div class="mgs-panel" role="dialog" aria-label="Grid settings">
@@ -35,9 +36,90 @@
 
     <div class="mgs-body">
       <template v-if="isOwner">
-        <div v-if="isVisible('darkMode')" class="mgs-row mgs-row--toggle">
-          <Toggle label="Dark Mode" v-model="isDarkMode" />
-        </div>
+        <!-- GRID THEME — light/dark preview cards drive the per-grid theme
+             (replaces the old Dark Mode toggle). -->
+        <section v-if="isVisible('theme')" class="mgs-section">
+          <span class="mgs-section__label">GRID THEME</span>
+          <div class="mgs-theme">
+            <button
+              type="button"
+              class="mgs-theme-card mgs-theme-card--dark"
+              :class="{ 'is-selected': isDarkMode }"
+              :aria-pressed="isDarkMode"
+              aria-label="Dark theme"
+              @click="isDarkMode = true"
+            >
+              <span class="mgs-mock" aria-hidden="true">
+                <span class="mgs-mock__tile mgs-mock__tile--a" />
+                <span class="mgs-mock__tile mgs-mock__tile--b" />
+                <span class="mgs-mock__tile mgs-mock__tile--c" />
+                <span class="mgs-mock__tile mgs-mock__tile--d" />
+              </span>
+            </button>
+            <button
+              type="button"
+              class="mgs-theme-card mgs-theme-card--light"
+              :class="{ 'is-selected': !isDarkMode }"
+              :aria-pressed="!isDarkMode"
+              aria-label="Light theme"
+              @click="isDarkMode = false"
+            >
+              <span class="mgs-mock" aria-hidden="true">
+                <span class="mgs-mock__tile mgs-mock__tile--a" />
+                <span class="mgs-mock__tile mgs-mock__tile--b" />
+                <span class="mgs-mock__tile mgs-mock__tile--c" />
+                <span class="mgs-mock__tile mgs-mock__tile--d" />
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <!-- GRID BACKGROUND — image upload / reset to default / solid color. -->
+        <section v-if="isVisible('background')" class="mgs-section">
+          <span class="mgs-section__label">GRID BACKGROUND</span>
+          <div class="mgs-bg">
+            <button
+              type="button"
+              class="mgs-bg-tile mgs-bg-tile--image"
+              :class="{ 'is-selected': hasBackgroundImage }"
+              :aria-pressed="hasBackgroundImage"
+              :aria-label="
+                hasBackgroundImage
+                  ? 'Change background image'
+                  : 'Add background image'
+              "
+              @click="onPickImage"
+            >
+              <ImageIcon :size="22" />
+            </button>
+            <button
+              type="button"
+              class="mgs-bg-tile mgs-bg-tile--default"
+              :class="{ 'is-selected': isDefaultBackground }"
+              :aria-pressed="isDefaultBackground"
+              aria-label="Use default background"
+              @click="onUseDefaultBackground"
+            >
+              <span class="mgs-bg-tile__text">Default</span>
+            </button>
+            <button
+              type="button"
+              class="mgs-bg-tile mgs-bg-tile--color"
+              :class="{ 'is-selected': hasBackgroundColor }"
+              :aria-pressed="hasBackgroundColor"
+              aria-label="Set background color"
+              @click="onOpenColor"
+            >
+              <span
+                class="mgs-bg-tile__swatch"
+                :style="
+                  hasBackgroundColor ? { background: backgroundColor } : undefined
+                "
+              />
+            </button>
+          </div>
+        </section>
+
         <div v-if="isVisible('gravity')" class="mgs-row mgs-row--toggle">
           <Toggle label="Gravity" v-model="verticalCompact" />
         </div>
@@ -126,6 +208,14 @@
 
       <p v-if="!anyVisible" class="mgs-empty">No settings match “{{ query }}”.</p>
     </div>
+
+    <input
+      ref="bgImageInput"
+      type="file"
+      class="mgs-file-input"
+      accept="image/*,image/svg+xml"
+      @change.stop="onImageChange"
+    />
   </div>
 
   <PromptModal
@@ -156,10 +246,14 @@ import PromptModal from "@/components/modal/PromptModal.vue";
 import TransferGridModal from "@/components/modal/TransferGridModal.vue";
 import ClipboardIcon from "@/components/icons/ClipboardIcon.vue";
 import ChevronRightIcon from "@/components/icons/ChevronRightIcon.vue";
+import ImageIcon from "@/components/icons/ImageIcon.vue";
 import SpinnerIcon from "@/components/icons/SpinnerIcon.vue";
 
 const props = withDefaults(defineProps<{ query?: string }>(), { query: "" });
-const emit = defineEmits<{ (e: "close"): void }>();
+const emit = defineEmits<{
+  (e: "close"): void;
+  (e: "open-color"): void;
+}>();
 
 const {
   isOwner,
@@ -176,6 +270,12 @@ const {
   isDefaultGrid,
   refreshDefaultGrid,
   toggleDefaultGrid,
+  hasBackgroundImage,
+  hasBackgroundColor,
+  backgroundColor,
+  uploadBackgroundImage,
+  removeBackgroundImage,
+  removeBackgroundColor,
   showDeleteModal,
   showTransferModal,
   copyGridLink,
@@ -186,11 +286,42 @@ const {
   cancelPendingTransfer,
 } = useGridSettings();
 
+// GRID BACKGROUND — image picker + color picker wiring.
+const bgImageInput = ref<HTMLInputElement | null>(null);
+
+// "Default" is the resting state: no custom image and no custom color.
+const isDefaultBackground = computed(
+  () => !hasBackgroundImage.value && !hasBackgroundColor.value,
+);
+
+const onPickImage = () => {
+  bgImageInput.value?.click();
+};
+
+const onImageChange = async (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  await uploadBackgroundImage(file);
+  if (bgImageInput.value) bgImageInput.value.value = "";
+};
+
+const onUseDefaultBackground = () => {
+  if (hasBackgroundImage.value) removeBackgroundImage();
+  if (hasBackgroundColor.value) removeBackgroundColor();
+};
+
+// The color tile hands off to the bar, which morphs the pill into the `/HEX`
+// command input and raises the full HSB color-picker sheet.
+const onOpenColor = () => {
+  emit("open-color");
+};
+
 // Each settings row's search terms. The parent's `/GRID` input narrows the list
 // to rows whose id/label/keywords contain the query. The GRID ID header is not
 // filterable — it is a fixed header, always visible.
 const SETTINGS_INDEX: Record<string, string> = {
-  darkMode: "dark mode light theme appearance",
+  theme: "theme dark mode light appearance color scheme",
+  background: "background image color wallpaper backdrop",
   gravity: "gravity compact pack fill layout",
   default: "default grid home landing",
   publish: "publish template public duplicatable share",
@@ -318,6 +449,139 @@ const onTransfer = () => {
   min-height: 0;
   overflow-y: auto;
   padding: 0 var(--spacing-xs);
+}
+
+.mgs-file-input {
+  display: none;
+}
+
+/* ── GRID THEME / GRID BACKGROUND sections ─────────────────────────────────── */
+.mgs-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-md);
+}
+
+.mgs-section__label {
+  color: var(--color-content-low);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.04em;
+}
+
+.mgs-theme {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+}
+
+.mgs-theme-card {
+  padding: var(--spacing-xs);
+  border: var(--border-width-lg) solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--easing-smooth);
+
+  &.is-selected {
+    border-color: var(--color-purple);
+  }
+}
+
+/* Neutral light/dark preview surfaces that stay light/dark regardless of the
+   active app theme, so both cards always read as their respective theme. */
+.mgs-theme-card--dark {
+  --mock-surface: var(--color-dark-0);
+  --mock-shape: color-mix(in srgb, var(--color-light-100) 12%, transparent);
+  --mock-shape-strong: color-mix(
+    in srgb,
+    var(--color-light-100) 26%,
+    transparent
+  );
+}
+
+.mgs-theme-card--light {
+  --mock-surface: var(--color-light-100);
+  --mock-shape: color-mix(in srgb, var(--color-dark-0) 12%, transparent);
+  --mock-shape-strong: color-mix(in srgb, var(--color-dark-0) 26%, transparent);
+}
+
+.mgs-mock {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+  width: 100%;
+  height: 64px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--mock-surface);
+}
+
+.mgs-mock__tile {
+  border-radius: 3px;
+  background: var(--mock-shape);
+}
+
+.mgs-mock__tile--c,
+.mgs-mock__tile--d {
+  background: var(--mock-shape-strong);
+}
+
+.mgs-bg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-sm);
+}
+
+.mgs-bg-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 56px;
+  padding: 0;
+  border: var(--border-width-lg) solid var(--color-stroke);
+  border-radius: var(--radius-md);
+  background: var(--color-base-8);
+  color: var(--color-content-low);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--duration-fast) var(--easing-smooth);
+
+  &.is-selected {
+    border-color: var(--color-purple);
+  }
+}
+
+.mgs-bg-tile--default {
+  border-style: dashed;
+  background: transparent;
+}
+
+.mgs-bg-tile__text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.mgs-bg-tile--color {
+  border-style: solid;
+  padding: 4px;
+}
+
+.mgs-bg-tile__swatch {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    135deg,
+    var(--color-red),
+    var(--color-yellow),
+    var(--color-green),
+    var(--color-cyan),
+    var(--color-blue),
+    var(--color-purple),
+    var(--color-pink)
+  );
 }
 
 .mgs-row {

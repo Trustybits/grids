@@ -124,6 +124,18 @@ describe("GridSettingsController", () => {
     });
   });
 
+  describe("previewBackgroundColor (live, history-free)", () => {
+    it("mutates the color for immediate feedback without history or a save", () => {
+      const grid = seedGrid();
+      controller.previewBackgroundColor("#123456");
+      expect(grid.backgroundColor).toBe("#123456");
+      // Live previews must never touch undo history or schedule persistence —
+      // the caller commits once (setBackgroundColor) at the end of the drag.
+      expect(pushUndoSnapshot).not.toHaveBeenCalled();
+      expect(scheduleSave).not.toHaveBeenCalled();
+    });
+  });
+
   describe("non-history commands", () => {
     it("renameCurrentGrid renames the grid and syncs the collection without history", () => {
       const grid = seedGrid();

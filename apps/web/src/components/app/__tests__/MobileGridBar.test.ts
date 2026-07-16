@@ -11,6 +11,10 @@ const holder = vi.hoisted(() => ({
   uploadDocumentsOptimistic: vi.fn(),
   addToast: vi.fn(),
   writeText: vi.fn().mockResolvedValue(undefined),
+  setBackgroundColor: vi.fn(),
+  previewBackgroundColor: vi.fn(),
+  loadSavedColors: vi.fn(async () => undefined),
+  addSavedColor: vi.fn(async () => undefined),
   types: [] as Array<Record<string, unknown>>,
 }));
 
@@ -45,10 +49,39 @@ vi.mock("@/stores/toast", () => ({
   useToastStore: () => ({ addToast: holder.addToast }),
 }));
 
+vi.mock("@/composables/useGridSettings", () => ({
+  useGridSettings: () => ({
+    backgroundColor: { value: "" },
+    setBackgroundColor: holder.setBackgroundColor,
+    previewBackgroundColor: holder.previewBackgroundColor,
+  }),
+}));
+
+vi.mock("@/composables/useSavedColors", () => ({
+  useSavedColors: () => ({
+    savedColors: { value: [] as string[] },
+    load: holder.loadSavedColors,
+    addColor: holder.addSavedColor,
+  }),
+}));
+
 vi.mock("@/components/app/MobileGridSettingsSheet.vue", () => ({
   default: {
     props: ["query"],
-    template: "<div class='grid-settings-sheet-stub' :data-query='query' />",
+    emits: ["close", "open-color"],
+    template:
+      "<div class='grid-settings-sheet-stub' :data-query='query'>" +
+      "<button class='open-color-stub' @click=\"$emit('open-color')\" /></div>",
+  },
+}));
+
+vi.mock("@/components/app/MobileColorPicker.vue", () => ({
+  default: {
+    name: "MobileColorPicker",
+    props: ["modelValue", "swatches"],
+    emits: ["update:modelValue", "preview", "commit"],
+    template:
+      "<div class='color-picker-stub' :data-swatches='swatches.length' />",
   },
 }));
 
@@ -269,6 +302,80 @@ describe("MobileGridBar", () => {
     expect(wrapper.find(".mci").exists()).toBe(true);
     expect(wrapper.get(".mci-chip").text()).toBe("/TILE");
     expect(wrapper.find(".tile-carousel__card--selected").exists()).toBe(false);
+  });
+
+  it("morphs into /HEX color mode when the settings sheet requests it, and closes back to settings", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Grid settings"]').trigger("click");
+    await flush(wrapper);
+
+    // The settings sheet's color tile asks the bar to open the color picker.
+    await wrapper.get(".open-color-stub").trigger("click");
+    await flush(wrapper);
+
+    expect(wrapper.find(".color-picker-stub").exists()).toBe(true);
+    expect(wrapper.get(".mgb-hex__chip").text()).toBe("/HEX");
+    expect(wrapper.find('[aria-label="Save color"]').exists()).toBe(true);
+    expect(wrapper.find('[aria-label="Close color picker"]').exists()).toBe(true);
+    // The settings sheet is replaced by the color sheet while picking.
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(false);
+
+    // Closing the color picker returns to the Grid Settings sheet (one level up).
+    await wrapper.get('[aria-label="Close color picker"]').trigger("click");
+    await flush(wrapper);
+    expect(wrapper.find(".color-picker-stub").exists()).toBe(false);
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(true);
+  });
+
+  it("saves the working color via the Add button", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Grid settings"]').trigger("click");
+    await flush(wrapper);
+    await wrapper.get(".open-color-stub").trigger("click");
+    await flush(wrapper);
+
+    await wrapper.get('[aria-label="Save color"]').trigger("click");
+    await flush(wrapper);
+    expect(holder.addSavedColor).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies color live while dragging and commits once on release", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Grid settings"]').trigger("click");
+    await flush(wrapper);
+    await wrapper.get(".open-color-stub").trigger("click");
+    await flush(wrapper);
+
+    const picker = wrapper.findComponent({ name: "MobileColorPicker" });
+    // Dragging emits preview repeatedly — the grid updates live (history-free).
+    picker.vm.$emit("preview", "#123456");
+    picker.vm.$emit("preview", "#654321");
+    await flush(wrapper);
+    expect(holder.previewBackgroundColor).toHaveBeenCalledWith("#123456");
+    expect(holder.previewBackgroundColor).toHaveBeenCalledWith("#654321");
+    // No committed change yet.
+    expect(holder.setBackgroundColor).not.toHaveBeenCalled();
+
+    // Pointer-up commits exactly one history entry.
+    picker.vm.$emit("commit", "#654321");
+    await flush(wrapper);
+    expect(holder.setBackgroundColor).toHaveBeenCalledTimes(1);
+    expect(holder.setBackgroundColor).toHaveBeenCalledWith("#654321");
+  });
+
+  it("commits a typed hex to the grid background on Enter", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Grid settings"]').trigger("click");
+    await flush(wrapper);
+    await wrapper.get(".open-color-stub").trigger("click");
+    await flush(wrapper);
+
+    const input = wrapper.get(".mgb-hex__input");
+    await input.setValue("00ff00");
+    await input.trigger("keydown", { key: "Enter" });
+    await flush(wrapper);
+
+    expect(holder.setBackgroundColor).toHaveBeenCalledWith("#00FF00");
   });
 
   it("copies the grid link when Share is tapped", async () => {

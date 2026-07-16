@@ -111,6 +111,22 @@ export class GridSettingsController {
     });
   }
 
+  /**
+   * Live preview used while dragging the mobile color picker — mutates the
+   * background color for immediate visual feedback WITHOUT recording undo
+   * history or scheduling a save. The caller commits the final value once (via
+   * `setBackgroundColor`) on gesture end so the drag collapses to a single
+   * history entry.
+   */
+  previewBackgroundColor(color: string): void {
+    this.runGridCommand({
+      mutate: (grid) => {
+        grid.backgroundColor = color;
+      },
+      persist: false,
+    });
+  }
+
   removeBackgroundColor(): void {
     this.runGridCommand({
       captureHistory: "Remove background color",

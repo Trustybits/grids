@@ -11,6 +11,7 @@ import { useToastStore } from "@/stores/toast";
 import { usePixelRacersStore } from "@/stores/pixelRacers";
 import { useGridTransfers } from "@/composables/useGridTransfers";
 import { useGridDuplicateStorage } from "@/composables/useGridDuplicateStorage";
+import { useFileUpload } from "@/composables/useFileUpload";
 import { describeCallableError } from "@/utils/CallableError";
 import type { CopyDepth } from "@grids/contracts/types";
 
@@ -36,6 +37,7 @@ export const useGridSettings = () => {
   const authProvider = getAuthProvider();
   const userService = getServiceFactory().getUserService();
   const { resolveStoragePlan } = useGridDuplicateStorage();
+  const { uploadFileToArchive } = useFileUpload();
   // Sender-side transfers: watch this grid's outgoing invitations so a surface
   // can flip to a "cancel pending transfer" affordance.
   const transfers = useGridTransfers({ incoming: false });
@@ -70,6 +72,10 @@ export const useGridSettings = () => {
   );
   const hasBackgroundColor = computed(
     () => !!sessionStore.currentGrid?.backgroundColor,
+  );
+
+  const backgroundColor = computed(
+    () => sessionStore.currentGrid?.backgroundColor ?? "",
   );
 
   const pendingTransfer = computed(() => {
@@ -245,6 +251,37 @@ export const useGridSettings = () => {
     gameStore.startGame();
   };
 
+  // ── Grid background (image + color) ─────────────────────────────────────────
+  const uploadBackgroundImage = async (file: File): Promise<void> => {
+    try {
+      const { url, hash } = await uploadFileToArchive(file, {
+        fileType: "images",
+      });
+      controller.addBackgroundImage(url, false, hash);
+    } catch (error: unknown) {
+      toastStore.addToast(
+        error instanceof Error ? error.message : "Failed to upload image",
+        "error",
+      );
+    }
+  };
+
+  const setBackgroundColor = (color: string): void => {
+    controller.setBackgroundColor(color);
+  };
+
+  const previewBackgroundColor = (color: string): void => {
+    controller.previewBackgroundColor(color);
+  };
+
+  const removeBackgroundImage = (): void => {
+    controller.removeBackgroundImage();
+  };
+
+  const removeBackgroundColor = (): void => {
+    controller.removeBackgroundColor();
+  };
+
   return {
     // state
     isOwner,
@@ -253,6 +290,7 @@ export const useGridSettings = () => {
     currentGridName,
     hasBackgroundImage,
     hasBackgroundColor,
+    backgroundColor,
     pendingTransfer,
     isCancellingTransfer,
     // toggles
@@ -283,5 +321,11 @@ export const useGridSettings = () => {
     openTransferModal,
     cancelPendingTransfer,
     launchPixelRacers,
+    // background
+    uploadBackgroundImage,
+    setBackgroundColor,
+    previewBackgroundColor,
+    removeBackgroundImage,
+    removeBackgroundColor,
   };
 };

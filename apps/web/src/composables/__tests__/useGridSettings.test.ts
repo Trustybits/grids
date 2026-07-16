@@ -17,7 +17,9 @@ const holder = vi.hoisted(() => ({
   resetBreakpoint: vi.fn(),
   deleteGrid: vi.fn(async () => undefined),
   duplicateGrid: vi.fn(async () => "new-grid"),
-  resolveStoragePlan: vi.fn(async () => ({})),
+  resolveStoragePlan: vi.fn(
+    async (): Promise<Record<string, unknown> | null> => ({}),
+  ),
   setTheme: vi.fn(),
   startGame: vi.fn(),
   pendingOutgoingForGrid: vi.fn(() => undefined as unknown),

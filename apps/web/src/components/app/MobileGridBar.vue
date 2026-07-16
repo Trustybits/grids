@@ -22,14 +22,31 @@
   <div
     ref="rootRef"
     class="mobile-grid-bar"
-    :class="{ 'mgb--connected': mode === 'settings' }"
+    :class="{ 'mgb--connected': mode === 'settings' || mode === 'color' }"
     :style="barStyle"
   >
     <!-- Grid settings sheet — slides up from behind the pill and rests flush on
          top of the morphed `/GRID` command input. -->
     <transition name="mgb-rise">
       <div v-if="mode === 'settings'" class="mgb-settings-panel">
-        <MobileGridSettingsSheet :query="query" @close="closeSettings" />
+        <MobileGridSettingsSheet
+          :query="query"
+          @close="closeSettings"
+          @open-color="openColor"
+        />
+      </div>
+    </transition>
+
+    <!-- Color picker sheet — same rise/flush pattern; the pill below is the
+         `/HEX` command input. -->
+    <transition name="mgb-rise">
+      <div v-if="mode === 'color'" class="mgb-settings-panel">
+        <MobileColorPicker
+          v-model="colorHex"
+          :swatches="swatches"
+          @preview="onColorPreview"
+          @commit="onColorCommit"
+        />
       </div>
     </transition>
 
@@ -55,7 +72,11 @@
     <MobileCommandBar
       ref="pillRef"
       class="mgb-pill"
-      :class="{ 'mgb-pill--add': mode === 'add', 'mgb-pill--settings': mode === 'settings' }"
+      :class="{
+        'mgb-pill--add': mode === 'add',
+        'mgb-pill--settings': mode === 'settings',
+        'mgb-pill--color': mode === 'color',
+      }"
       :aria-label="pillAriaLabel"
     >
       <template v-if="mode === 'default'">
@@ -115,7 +136,7 @@
       />
 
       <MobileCommandInput
-        v-else
+        v-else-if="mode === 'settings'"
         v-model="query"
         filter-label="/GRID"
         :placeholders="GRID_PLACEHOLDERS"
@@ -124,6 +145,45 @@
         close-label="Close grid settings"
         @close="closeSettings"
       />
+
+      <!-- Color (`/HEX`) mode: static `/HEX` chip, the hex value input, then the
+           right-anchored Add-color and Close actions. (Eyedropper is a deferred
+           follow-up.) -->
+      <div v-else class="mgb-hex" role="group" aria-label="Pick a color">
+        <span class="mgb-hex__chip">/HEX</span>
+        <input
+          ref="hexInputRef"
+          v-model="hexInput"
+          class="mgb-hex__input"
+          type="text"
+          inputmode="text"
+          autocapitalize="characters"
+          autocomplete="off"
+          spellcheck="false"
+          maxlength="7"
+          aria-label="Hex color value"
+          @keydown.enter.prevent="commitHexInput"
+          @blur="commitHexInput"
+        />
+        <div class="mgb-hex__actions">
+          <button
+            type="button"
+            class="mgb-btn mgb-btn--sm"
+            aria-label="Save color"
+            @click.stop="saveColor"
+          >
+            <PlusIcon :size="20" />
+          </button>
+          <button
+            type="button"
+            class="mgb-btn mgb-btn--sm"
+            aria-label="Close color picker"
+            @click.stop="closeColor"
+          >
+            <CloseIcon :size="20" />
+          </button>
+        </div>
+      </div>
     </MobileCommandBar>
 
     <input
@@ -150,14 +210,19 @@ import MobileCommandBar from "@/components/ui-collections/MobileCommandBar.vue";
 import MobileCommandInput from "@/components/app/MobileCommandInput.vue";
 import MobileTileCarousel from "@/components/app/MobileTileCarousel.vue";
 import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vue";
+import MobileColorPicker from "@/components/app/MobileColorPicker.vue";
 import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
 import GridMenuIcon from "@/components/icons/GridMenuIcon.vue";
 import PlusIcon from "@/components/icons/PlusIcon.vue";
 import EyeIcon from "@/components/icons/EyeIcon.vue";
 import ShareIcon from "@/components/icons/ShareIcon.vue";
+import CloseIcon from "@/components/icons/CloseIcon.vue";
 import { useToastStore } from "@/stores/toast";
 import { useTileCreation } from "@/composables/useTileCreation";
 import { useFileUpload } from "@/composables/useFileUpload";
+import { useGridSettings } from "@/composables/useGridSettings";
+import { useSavedColors } from "@/composables/useSavedColors";
+import { normalizeHex } from "@/utils/color";
 
 // Rotating typewriter hints for the `/TILE` input (product-specified order).
 const PLACEHOLDERS = [
@@ -193,14 +258,35 @@ const toastStore = useToastStore();
 const { tileTypes, filterTileTypes, matchCommandPrefix, createTile, submitCommand } =
   useTileCreation();
 const { uploadFileOptimistic, uploadDocumentsOptimistic } = useFileUpload();
+const { backgroundColor, setBackgroundColor, previewBackgroundColor } =
+  useGridSettings();
+const { savedColors, load: loadSavedColors, addColor: addSavedColor } =
+  useSavedColors();
+
+// Built-in preset swatches (the brand palette), shown before the user's saved
+// customs in the picker's swatch row.
+const PRESET_SWATCHES = [
+  "#FFAFA3",
+  "#FFD3A8",
+  "#FFE299",
+  "#B3EFBD",
+  "#B3F4EF",
+  "#A8DAFF",
+  "#D3BDFF",
+  "#FFA8DB",
+  "#FFFFFF",
+  "#33312C",
+];
+const DEFAULT_COLOR = "#FF0000";
 
 const rootRef = ref<HTMLElement | null>(null);
 const pillRef = ref<InstanceType<typeof MobileCommandBar> | null>(null);
 const cmdRef = ref<InstanceType<typeof MobileCommandInput> | null>(null);
+const hexInputRef = ref<HTMLInputElement | null>(null);
 const imageInput = ref<HTMLInputElement | null>(null);
 const documentInput = ref<HTMLInputElement | null>(null);
 
-const mode = ref<"default" | "add" | "settings">("default");
+const mode = ref<"default" | "add" | "settings" | "color">("default");
 const showPreview = ref(false);
 const query = ref("");
 
@@ -215,6 +301,28 @@ const barStyle = computed(() => ({
       : "var(--spacing-sm)",
 }));
 const viewMode = ref<"carousel" | "list">("carousel");
+
+// ── Color (`/HEX`) mode state ────────────────────────────────────────────────
+// `colorHex` is the canonical working color (#RRGGBB) shared with the picker;
+// `hexInput` is the raw text field (digits, may be mid-edit). The swatch row is
+// the preset palette followed by the user's saved customs, de-duped.
+const colorHex = ref(DEFAULT_COLOR);
+const hexInput = ref(DEFAULT_COLOR.slice(1));
+// Saved customs first (newest-first) so a freshly added color lands at the far
+// left, then the built-in presets. De-duped case-insensitively.
+const swatches = computed(() => {
+  const seen = new Set<string>();
+  return [...savedColors.value, ...PRESET_SWATCHES].filter((color) => {
+    const hex = normalizeHex(color);
+    if (!hex || seen.has(hex)) return false;
+    seen.add(hex);
+    return true;
+  });
+});
+// The committed background color at the start of a pad/hue drag — restored just
+// before the single commit so that commit's undo snapshot captures the pre-drag
+// state (live previews in between are history-free). null when not dragging.
+const colorDragBase = ref<string | null>(null);
 // The command-type card the user tapped (link / embed / map), so ENTER knows
 // what to build from the typed text. null → generic smart-paste / keyword.
 const activeType = ref<string | null>(null);
@@ -236,13 +344,18 @@ const chipLabel = computed(() =>
   activeType.value ? `/${activeType.value.toUpperCase()}` : TILE_FILTER,
 );
 
-const pillAriaLabel = computed(() =>
-  mode.value === "add"
-    ? "Add a tile"
-    : mode.value === "settings"
-      ? "Grid settings"
-      : "Grid commands",
-);
+const pillAriaLabel = computed(() => {
+  switch (mode.value) {
+    case "add":
+      return "Add a tile";
+    case "settings":
+      return "Grid settings";
+    case "color":
+      return "Color picker";
+    default:
+      return "Grid commands";
+  }
+});
 
 // ── Grow the pill (FLIP) instead of fading it out/in ─────────────────────────
 // The shell stays mounted; only its width animates between the measured
@@ -309,6 +422,84 @@ const toggleSettings = () => {
   if (mode.value === "settings") closeSettings();
   else openSettings();
 };
+
+// ── Color (`/HEX`) mode ──────────────────────────────────────────────────────
+// Opened from the Grid Settings background selector's color tile. Seeds the
+// working color from the grid's current background (or a sensible default) and
+// loads the user's saved swatches.
+const openColor = () => {
+  const base = normalizeHex(backgroundColor.value) || DEFAULT_COLOR;
+  colorHex.value = base;
+  hexInput.value = base.slice(1);
+  void loadSavedColors();
+  showPreview.value = false;
+  mode.value = "color";
+};
+
+// Close returns to the Grid Settings sheet (one level up), not all the way out.
+const closeColor = () => {
+  mode.value = "settings";
+  query.value = "";
+};
+
+// Live feedback while dragging the pad/hue: apply the color to the grid
+// immediately, history-free. The first preview of a gesture records the
+// pre-drag color so the eventual commit can snapshot it.
+const onColorPreview = (hex: string) => {
+  const norm = normalizeHex(hex);
+  if (!norm) return;
+  if (colorDragBase.value === null) colorDragBase.value = backgroundColor.value;
+  previewBackgroundColor(norm);
+};
+
+// Commit a chosen color to the grid background. Fired once per picker gesture
+// (pad/hue pointer-up, swatch tap) and on hex submit — so a drag is a single
+// undo entry, matching the desktop picker. When ending a drag, restore the
+// pre-drag color first so the commit's undo snapshot captures the right base.
+const onColorCommit = (hex: string) => {
+  const norm = normalizeHex(hex);
+  if (!norm) return;
+  if (colorDragBase.value !== null) {
+    previewBackgroundColor(colorDragBase.value);
+    colorDragBase.value = null;
+  }
+  setBackgroundColor(norm);
+};
+
+const saveColor = async () => {
+  await addSavedColor(colorHex.value);
+  toastStore.addToast("Color saved", "success");
+};
+
+const commitHexInput = () => {
+  const norm = normalizeHex(hexInput.value);
+  if (!norm) {
+    // Revert an invalid entry to the last valid color.
+    hexInput.value = colorHex.value.slice(1);
+    return;
+  }
+  colorHex.value = norm;
+  onColorCommit(norm);
+  hexInputRef.value?.blur();
+};
+
+// Typing a full 6-digit hex live-updates the pad + hue (UI only — the grid
+// commits on Enter/blur so partial 3-digit shorthand can't apply prematurely).
+watch(hexInput, (value) => {
+  const digits = value.replace(/[^0-9a-fA-F]/g, "");
+  if (digits.length !== 6) return;
+  const norm = normalizeHex(digits);
+  if (norm && norm !== colorHex.value) colorHex.value = norm;
+});
+
+// Reflect external color changes (pad/hue drag, swatch tap) back into the field
+// without clobbering what the user is actively typing.
+watch(colorHex, (hex) => {
+  const digits = hex.slice(1);
+  if (hexInput.value.replace(/[^0-9a-fA-F]/g, "").toUpperCase() !== digits) {
+    hexInput.value = digits;
+  }
+});
 
 const shareLink = async () => {
   showPreview.value = false;
@@ -412,13 +603,16 @@ const handlePointerDown = (event: MouseEvent) => {
   if (!rootRef.value || rootRef.value.contains(target)) return;
   showPreview.value = false;
   if (mode.value === "add") closeAdd();
-  if (mode.value === "settings") closeSettings();
+  else if (mode.value === "settings") closeSettings();
+  // Tapping outside dismisses the whole surface (not just back to settings).
+  else if (mode.value === "color") mode.value = "default";
 };
 
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.key !== "Escape") return;
   if (mode.value === "add") closeAdd();
-  if (mode.value === "settings") closeSettings();
+  else if (mode.value === "settings") closeSettings();
+  else if (mode.value === "color") closeColor();
   showPreview.value = false;
 };
 
@@ -505,7 +699,8 @@ onBeforeUnmount(() => {
   width: var(--mgb-connected-width);
 }
 
-.mgb-pill.mgb-pill--settings {
+.mgb-pill.mgb-pill--settings,
+.mgb-pill.mgb-pill--color {
   width: var(--mgb-connected-width);
   // Square the top corners so the sheet resting above lines up flush; the
   // bottom corners keep --radius-md.
@@ -523,6 +718,58 @@ onBeforeUnmount(() => {
     min-width: 0;
     width: 100%;
   }
+}
+
+// ── `/HEX` color command input ───────────────────────────────────────────────
+.mgb-hex {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  min-width: 0;
+}
+
+.mgb-hex__chip {
+  flex: 0 0 auto;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-base-8);
+  color: var(--color-content-default);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold, 600);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mgb-hex__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 var(--spacing-xs);
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--font-size-base);
+  text-transform: uppercase;
+  outline: none;
+
+  &::placeholder {
+    color: var(--color-content-low);
+  }
+}
+
+.mgb-hex__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.mgb-btn--sm {
+  width: 32px;
+  height: 32px;
 }
 
 .mobile-grid-bar__panel,

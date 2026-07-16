@@ -13,8 +13,15 @@ const gsHolder = vi.hoisted(() => ({
   openTransferModal: vi.fn(),
   cancelPendingTransfer: vi.fn(async () => undefined),
   launchPixelRacers: vi.fn(),
+  uploadBackgroundImage: vi.fn(async () => undefined),
+  setBackgroundColor: vi.fn(),
+  removeBackgroundImage: vi.fn(),
+  removeBackgroundColor: vi.fn(),
   isOwner: true,
   isStaff: true,
+  isDarkMode: false,
+  hasBackgroundImage: false,
+  hasBackgroundColor: false,
   pendingTransfer: undefined as unknown,
 }));
 
@@ -27,13 +34,20 @@ vi.mock("@/composables/useGridSettings", () => ({
     pendingTransfer: ref(gsHolder.pendingTransfer),
     isCancellingTransfer: ref(false),
     verticalCompact: ref(false),
-    isDarkMode: ref(false),
+    isDarkMode: ref(gsHolder.isDarkMode),
     duplicatable: ref(false),
     showMetaData: ref(false),
     showMetaDataVerbose: ref(false),
     isDefaultGrid: ref(false),
     refreshDefaultGrid: gsHolder.refreshDefaultGrid,
     toggleDefaultGrid: gsHolder.toggleDefaultGrid,
+    hasBackgroundImage: ref(gsHolder.hasBackgroundImage),
+    hasBackgroundColor: ref(gsHolder.hasBackgroundColor),
+    backgroundColor: ref(""),
+    uploadBackgroundImage: gsHolder.uploadBackgroundImage,
+    setBackgroundColor: gsHolder.setBackgroundColor,
+    removeBackgroundImage: gsHolder.removeBackgroundImage,
+    removeBackgroundColor: gsHolder.removeBackgroundColor,
     showDeleteModal: ref(false),
     showTransferModal: ref(false),
     copyGridLink: gsHolder.copyGridLink,
@@ -62,6 +76,7 @@ const mountSheet = (query = "") =>
         TransferGridModal: true,
         ClipboardIcon: true,
         ChevronRightIcon: true,
+        ImageIcon: true,
         SpinnerIcon: true,
       },
     },
@@ -75,6 +90,9 @@ describe("MobileGridSettingsSheet", () => {
     vi.clearAllMocks();
     gsHolder.isOwner = true;
     gsHolder.isStaff = true;
+    gsHolder.isDarkMode = false;
+    gsHolder.hasBackgroundImage = false;
+    gsHolder.hasBackgroundColor = false;
     gsHolder.pendingTransfer = undefined;
   });
 
@@ -82,7 +100,6 @@ describe("MobileGridSettingsSheet", () => {
     const wrapper = mountSheet();
     expect(wrapper.find(".mgs-header").text()).toContain("grid-1");
     for (const label of [
-      "Dark Mode",
       "Gravity",
       "Default Grid",
       "Publish Template",
@@ -94,13 +111,56 @@ describe("MobileGridSettingsSheet", () => {
     }
   });
 
+  it("renders the GRID THEME and GRID BACKGROUND sections", () => {
+    const wrapper = mountSheet();
+    const labels = wrapper.findAll(".mgs-section__label").map((n) => n.text());
+    expect(labels).toContain("GRID THEME");
+    expect(labels).toContain("GRID BACKGROUND");
+    expect(wrapper.findAll(".mgs-theme-card")).toHaveLength(2);
+    expect(wrapper.findAll(".mgs-bg-tile")).toHaveLength(3);
+  });
+
+  it("marks the light theme card selected when the grid is not dark", () => {
+    const wrapper = mountSheet();
+    expect(
+      wrapper.find(".mgs-theme-card--light").classes(),
+    ).toContain("is-selected");
+    expect(
+      wrapper.find(".mgs-theme-card--dark").classes(),
+    ).not.toContain("is-selected");
+  });
+
+  it("selects the Default background tile when no image or color is set", () => {
+    const wrapper = mountSheet();
+    expect(
+      wrapper.find(".mgs-bg-tile--default").classes(),
+    ).toContain("is-selected");
+  });
+
+  it("resets to the default background, clearing image and color", async () => {
+    gsHolder.hasBackgroundImage = true;
+    gsHolder.hasBackgroundColor = true;
+    const wrapper = mountSheet();
+    await wrapper.get(".mgs-bg-tile--default").trigger("click");
+    expect(gsHolder.removeBackgroundImage).toHaveBeenCalledTimes(1);
+    expect(gsHolder.removeBackgroundColor).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits open-color when the color tile is tapped (bar owns the /HEX picker)", async () => {
+    const wrapper = mountSheet();
+    await wrapper.get(".mgs-bg-tile--color").trigger("click");
+    expect(wrapper.emitted("open-color")).toHaveLength(1);
+  });
+
   it("filters the rows live from the query prop", async () => {
     const wrapper = mountSheet();
     await wrapper.setProps({ query: "gravity" });
 
     expect(rowByText(wrapper, "Gravity")).toBeTruthy();
     expect(rowByText(wrapper, "Delete Grid")).toBeUndefined();
-    expect(rowByText(wrapper, "Dark Mode")).toBeUndefined();
+    // The theme/background sections are filtered out for an unrelated query.
+    expect(wrapper.find(".mgs-theme").exists()).toBe(false);
+    expect(wrapper.find(".mgs-bg").exists()).toBe(false);
     // The GRID ID header is fixed — never filtered out.
     expect(wrapper.find(".mgs-header").exists()).toBe(true);
   });

@@ -678,6 +678,10 @@ export class GridController {
     this.settingsController.setBackgroundColor(color);
   }
 
+  previewBackgroundColor(color: string): void {
+    this.settingsController.previewBackgroundColor(color);
+  }
+
   removeBackgroundColor(): void {
     this.settingsController.removeBackgroundColor();
   }

@@ -20,9 +20,9 @@ vi.mock("@/registries/tileToolbar", () => ({
 }));
 
 describe("TileToolbar positioning", () => {
-  it("repositions the teleported toolbar when Griddle geometry changes", async () => {
+  it("stays hidden until measured and follows Griddle geometry changes", async () => {
     const geometryVersion = ref(0);
-    const toolbarVisible = ref(true);
+    const toolbarVisible = ref(false);
     const tile: Tile = {
       i: "tile-1",
       x: 0,
@@ -53,6 +53,11 @@ describe("TileToolbar positioning", () => {
       },
     });
     await nextTick();
+    expect(
+      (wrapper.vm as unknown as { floatingStyle: Record<string, string> })
+        .floatingStyle,
+    ).toEqual({ visibility: "hidden" });
+
     const anchor = wrapper.find(".tile-toolbar-anchor").element;
     vi.spyOn(anchor, "getBoundingClientRect").mockReturnValue({
       bottom: 500,
@@ -60,6 +65,24 @@ describe("TileToolbar positioning", () => {
       width: 300,
     } as DOMRect);
 
+    toolbarVisible.value = true;
+    await nextTick();
+    await nextTick();
+
+    expect(
+      (wrapper.vm as unknown as { floatingStyle: Record<string, string> })
+        .floatingStyle,
+    ).toEqual({
+      top: "500px",
+      left: "350px",
+      visibility: "visible",
+    });
+
+    vi.mocked(anchor.getBoundingClientRect).mockReturnValue({
+      bottom: 640,
+      left: 240,
+      width: 320,
+    } as DOMRect);
     geometryVersion.value++;
     await nextTick();
     await nextTick();
@@ -67,7 +90,11 @@ describe("TileToolbar positioning", () => {
     expect(
       (wrapper.vm as unknown as { floatingStyle: Record<string, string> })
         .floatingStyle,
-    ).toEqual({ top: "500px", left: "350px" });
+    ).toEqual({
+      top: "640px",
+      left: "400px",
+      visibility: "visible",
+    });
     wrapper.unmount();
   });
 });

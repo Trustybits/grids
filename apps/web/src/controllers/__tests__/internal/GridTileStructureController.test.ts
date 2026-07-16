@@ -189,6 +189,45 @@ describe("GridTileStructureController", () => {
       );
     });
 
+    it("uses the same viewport-first placement behavior as adding a tile", () => {
+      const source = makeLinkTile({ i: "src", x: 0, y: 0, w: 2, h: 2 });
+      h.stores.session.setCurrentGrid(makeGrid({ tiles: [source] }));
+      getViewportGridY.mockReturnValue(6);
+
+      const newId = controller.duplicateTile("src")!;
+      const clone = h.stores.session.currentGrid!.tiles.find(
+        (tile) => tile.i === newId,
+      );
+
+      expect(clone).toEqual(expect.objectContaining({ x: 0, y: 6 }));
+    });
+
+    it("repairs pre-existing overlap and keeps every duplicate in bounds", () => {
+      const first = makeLinkTile({ i: "a", x: 0, y: 0, w: 7, h: 2 });
+      const source = makeLinkTile({ i: "src", x: 0, y: 0, w: 7, h: 2 });
+      h.stores.session.setCurrentGrid(
+        makeGrid({ colNum: 12, tiles: [first, source] }),
+      );
+
+      controller.duplicateTile("src");
+
+      const tiles = h.stores.session.currentGrid!.tiles;
+      expect(tiles.every((tile) => tile.x >= 0 && tile.y >= 0)).toBe(true);
+      expect(tiles.every((tile) => tile.x + tile.w <= 12)).toBe(true);
+      for (let left = 0; left < tiles.length; left += 1) {
+        for (let right = left + 1; right < tiles.length; right += 1) {
+          const a = tiles[left]!;
+          const b = tiles[right]!;
+          expect(
+            a.x < b.x + b.w &&
+              a.x + a.w > b.x &&
+              a.y < b.y + b.h &&
+              a.y + a.h > b.y,
+          ).toBe(false);
+        }
+      }
+    });
+
     it("copies resolved document item urls onto the duplicate", () => {
       const source = makeDocumentTile({ i: "src" });
       h.stores.session.setCurrentGrid(makeGrid({ tiles: [source] }));
@@ -220,11 +259,14 @@ describe("GridTileStructureController", () => {
         (t) => t.i === newId,
       );
 
-      // Override w/h (3x3) drive the clone size rather than the base tile.
-      expect(clone?.w).toBe(3);
-      expect(clone?.h).toBe(3);
-      // The override map gets a matching entry for the new tile.
-      expect(h.stores.session.currentGrid!.overrides?.sm?.[newId]).toBeDefined();
+      // Canonical geometry remains canonical; the responsive copy keeps the
+      // source override size and receives its own collision-free placement.
+      expect(clone?.w).toBe(2);
+      expect(clone?.h).toBe(2);
+      const cloneOverride =
+        h.stores.session.currentGrid!.overrides?.sm?.[newId];
+      expect(cloneOverride).toEqual({ x: 0, y: 4, w: 3, h: 3 });
+      expect(cloneOverride!.x + cloneOverride!.w).toBeLessThanOrEqual(4);
     });
   });
 

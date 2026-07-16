@@ -189,16 +189,17 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   height: 140px;
-  border: var(--border-width) solid var(--color-stroke);
   border-radius: var(--radius-md);
   touch-action: none;
   // White fades left→right, black fades bottom→top, over the base hue color.
   background-image:
     linear-gradient(to top, #000, rgba(0, 0, 0, 0)),
     linear-gradient(to right, #fff, rgba(255, 255, 255, 0));
-  // Clip the vivid gradient to the padding box so it doesn't bleed under the
-  // translucent border and paint a white→hue→dark rim around the pad.
-  background-clip: padding-box;
+  // Stroke as an inset ring rather than a real border: it sits on top of the
+  // gradient inside the rounded corners, so there's no vivid-gradient bleed
+  // under a translucent border and no corner tearing from clipping the
+  // background to a smaller (padding-box) radius than the border.
+  box-shadow: inset 0 0 0 var(--border-width) var(--color-stroke);
   cursor: crosshair;
 }
 
@@ -206,10 +207,9 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   height: 24px;
-  border: var(--border-width) solid var(--color-stroke);
   border-radius: var(--radius-full);
   touch-action: none;
-  background-clip: padding-box;
+  box-shadow: inset 0 0 0 var(--border-width) var(--color-stroke);
   background-image: linear-gradient(
     to right,
     #ff0000 0%,

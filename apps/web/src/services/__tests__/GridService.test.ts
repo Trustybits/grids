@@ -30,7 +30,7 @@ vi.mock('uuid', () => ({
 vi.mock('@/assets/images/hero.gif', () => ({ default: 'hero.gif' }))
 
 vi.mock('@/utils/GridUtils', () => ({
-  ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION: 'legacy-v1',
+  ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION: 'griddle-v1',
   createDefaultGrid: (
     userId: string,
     name: string,
@@ -599,7 +599,7 @@ describe('createGrid', () => {
     expect(result.name).toBe('My Grid')
     expect(result.tiles).toEqual(tiles)
     expect(result.responsiveLayoutVersion).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     )
     expect(mockGridDao.save).toHaveBeenCalled()
   })

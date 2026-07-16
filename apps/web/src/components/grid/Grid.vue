@@ -190,8 +190,19 @@ export default {
       }),
     );
 
+    // Griddle validates a snapshot before installing it. The griddle-v1
+    // responsive path starts from canonical desktop geometry, so load that
+    // geometry in its persisted column space before reflowing to the active
+    // breakpoint. Loading it directly into an 8/4-column config rejects valid
+    // desktop tiles before `reflow()` has a chance to reposition them.
+    const engineLoadConfig = computed(() =>
+      griddleReflowStrategy.value
+        ? { ...gridConfig.value, cols: baseColNum.value }
+        : gridConfig.value,
+    );
+
     const api = useGriddle({
-      config: gridConfig.value,
+      config: engineLoadConfig.value,
       tiles: griddleTiles.value,
     });
     provide(TILE_GEOMETRY_VERSION, api.version);
@@ -226,12 +237,14 @@ export default {
       markLayoutPending();
       api.loadJSON({
         version: 1,
-        config: gridConfig.value,
+        config: engineLoadConfig.value,
         tiles: griddleTiles.value,
       });
 
       const strategy = griddleReflowStrategy.value;
-      if (strategy) {
+      // Desktop is the canonical user-authored layout. Product reflow only
+      // derives narrower breakpoint geometry from that source.
+      if (strategy && activeBreakpoint.value !== "lg") {
         api.reflow({
           cols: responsiveColNum.value,
           strategy,
@@ -241,9 +254,16 @@ export default {
         });
       }
 
-      // Reflow and loadJSON do not apply gravity; compact explicitly only
-      // after the selected responsive algorithm has settled.
-      if (gridView.verticalCompact) api.grid.compactAll();
+      // Reflow and loadJSON do not apply gravity. Explicit breakpoint
+      // placements are immutable user-authored anchors, so never compact them
+      // away from their stored positions; the griddle-v1 strategy already
+      // packs every automatic tile around those anchors.
+      const hasAuthoritativePlacements =
+        strategy === "griddle-v1" &&
+        activeGriddlePlacements.value !== undefined;
+      if (gridView.verticalCompact && !hasAuthoritativePlacements) {
+        api.grid.compactAll();
+      }
       await nextTick();
       if (generation !== syncGeneration) return;
 

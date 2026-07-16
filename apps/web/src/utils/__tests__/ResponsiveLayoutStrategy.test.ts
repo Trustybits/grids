@@ -12,9 +12,9 @@ describe("getGriddleResponsiveReflowStrategy", () => {
     ).toBeUndefined();
   });
 
-  it("maps bootstrap griddle-v1 routing in one place", () => {
+  it("maps persisted griddle-v1 to its immutable Griddle strategy", () => {
     expect(
       getGriddleResponsiveReflowStrategy(GRIDDLE_RESPONSIVE_LAYOUT_VERSION),
-    ).toBe("preserve-v1");
+    ).toBe("griddle-v1");
   });
 });

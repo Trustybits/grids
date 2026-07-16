@@ -1,17 +1,13 @@
 import {
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
   NEW_GRID_RESPONSIVE_LAYOUT_VERSION,
   type Grid,
   type ResponsiveLayoutVersion,
   type Tile,
 } from "@grids/contracts/types";
 
-/**
- * Deployment-wide launch gate for persisted fresh-grid creation. Keep this on
- * legacy until the final griddle-v1 strategy is installed and launch-ready.
- */
+/** Deployment-wide strategy used for persisted fresh-grid creation. */
 export const ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION:
-  ResponsiveLayoutVersion = LEGACY_RESPONSIVE_LAYOUT_VERSION;
+  ResponsiveLayoutVersion = NEW_GRID_RESPONSIVE_LAYOUT_VERSION;
 
 // Mapper for new grids
 export function createDefaultGrid(

@@ -66,9 +66,9 @@ describe("createDefaultGrid", () => {
     });
   });
 
-  it("keeps persisted production creation on legacy-v1 while launch is gated", () => {
+  it("creates persisted production grids with the launched griddle-v1 strategy", () => {
     expect(ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     );
   });
 

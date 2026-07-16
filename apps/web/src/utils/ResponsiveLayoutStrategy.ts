@@ -3,17 +3,13 @@ import {
   type ResponsiveLayoutVersion,
 } from "@grids/contracts/types";
 
-/**
- * Temporary bootstrap mapping used to verify the Griddle projection path
- * without changing geometry. The final griddle-v1 algorithm phase replaces
- * this value here and nowhere else in the app.
- */
-export type GriddleResponsiveReflowStrategy = "preserve-v1";
+/** Griddle's immutable product reflow strategy for persisted griddle-v1 grids. */
+export type GriddleResponsiveReflowStrategy = "griddle-v1";
 
 const GRIDDLE_REFLOW_STRATEGY_BY_LAYOUT_VERSION: Partial<
   Record<ResponsiveLayoutVersion, GriddleResponsiveReflowStrategy>
 > = {
-  [GRIDDLE_RESPONSIVE_LAYOUT_VERSION]: "preserve-v1",
+  [GRIDDLE_RESPONSIVE_LAYOUT_VERSION]: "griddle-v1",
 };
 
 /**

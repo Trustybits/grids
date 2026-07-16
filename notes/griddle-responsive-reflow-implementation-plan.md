@@ -771,17 +771,16 @@ atomic from the user's perspective, non-undoable, and preserves overrides.
 For each of `lg`, `md`, and `sm`, verify gravity on/off and overrides
 none/partial/full across:
 
-The Griddle duplicate and fresh-grid rows below verify the eventual launch
-contract behind the launch boundary. During this plan, production creation
-continues to use `legacy-v1`; only tests and disposable non-production data may
-exercise those rows.
+The Griddle duplicate and fresh-grid rows below verify the launched
+`griddle-v1` contract. The final Griddle strategy is now distinct from the
+bootstrap parity strategy.
 
 | Grid state | Expected projection | Persisted changes on view |
 | --- | --- | --- |
 | Missing version | `legacy-v1` | None |
 | Explicit `legacy-v1` | App legacy code | None |
-| Legacy + bootstrap preview (non-production) | Griddle `preserve-v1` | None |
-| Explicit test `griddle-v1` during bootstrap | Griddle `preserve-v1` | None |
+| Legacy + `griddle-v1` preview | Griddle `griddle-v1` | None |
+| Explicit `griddle-v1` | Griddle `griddle-v1` | None |
 | Duplicate of legacy | Legacy | New document carries `legacy-v1` |
 | Duplicate of Griddle | Griddle | New document carries `griddle-v1` |
 | Fresh grid | Griddle | New document carries `griddle-v1` |
@@ -798,9 +797,8 @@ Also verify:
 - undo/redo cannot restore `legacy-v1` after upgrade;
 - thumbnail/OG browser captures naturally follow each grid's persisted version.
 
-The equality assertions in this step are bootstrap-only. The follow-up final
-`griddle-v1` phase must intentionally replace them with explicit expected
-differences while keeping the same persistence and preview invariants.
+Final `griddle-v1` assertions must use explicit expected differences from
+legacy while keeping the same persistence and preview invariants.
 
 ### Workspace verification
 
@@ -850,6 +848,29 @@ differences while keeping the same persistence and preview invariants.
    commit it after the compatible client is live, rerun to zero, and sample old,
    fresh, duplicated, previewed, and upgraded grids.
 
+**Final `griddle-v1` algorithm implementation record (2026-07-16):**
+
+- Added a new immutable Griddle core strategy named `griddle-v1`; the bootstrap
+  `preserve-v1` implementation remains unchanged as a compatibility reference.
+- Chose Griddle's dense packer as the gesture-independent reflow behavior.
+  Directional movement and add-displacement were not reused because breakpoint
+  changes have no user gesture origin, target direction, or privileged new
+  tile from which to derive those rules.
+- Automatic tiles trim widths at the finite edge without proportionally
+  changing height, matching Griddle's finite creation/resize footprint rule,
+  then use the same exact-search/greedy dense packing model as `Grid.pack()`.
+- Caller placements are validated and installed as immutable anchors. Missing
+  tiles use largest-first top-left packing around occupied anchor cells;
+  unknown placement IDs remain ignored.
+- Grids maps persisted `griddle-v1` directly to Griddle `griddle-v1`, leaves
+  canonical desktop geometry unreflowed, and skips post-reflow gravity whenever
+  active breakpoint placements exist so saved positions and sizes stay exact.
+- Replaced bootstrap parity expectations with versioned golden behavior and an
+  `lg`/`md`/`sm` matrix covering gravity plus empty, partial, and full overrides.
+- Prepared coordinated Griddle 0.1.9 packages and updated Grids to require
+  `@griddle/vue`/`@griddle/core` 0.1.9. Publish Griddle 0.1.9 before deploying
+  the corresponding Grids lockfile; publishing remains a maintainer action.
+
 ## Eventual production rollback model
 
 - Before a grid is upgraded, rollback is straightforward: deploy a client that
@@ -869,13 +890,13 @@ differences while keeping the same persistence and preview invariants.
 
 This project is complete when:
 
-1. Griddle exposes an explicit, breakpoint-agnostic, immutable `preserve-v1`
-   reflow operation.
-2. Differential tests prove app `legacy-v1` and bootstrap Griddle
-   `preserve-v1` produce the same geometry for the compatibility matrix.
+1. Griddle exposes explicit, breakpoint-agnostic, immutable `preserve-v1` and
+   final `griddle-v1` reflow operations.
+2. Differential tests preserve bootstrap parity while golden tests prove final
+   `griddle-v1` produces its intentional dense-packing differences.
 3. Existing and missing-version grids remain on frozen legacy behavior.
-4. Fresh-grid `griddle-v1` creation and duplicate inheritance are implemented
-   and tested behind the launch boundary.
+4. Fresh grids launch on `griddle-v1`; duplicate inheritance remains explicit
+   and tested for both persisted versions.
 5. The backfill script is ready to safely stamp every missing production field
    as `legacy-v1`; production execution remains in the final-algorithm phase.
 6. Legacy owners can exercise preview and irreversible upgrade without writes
@@ -885,5 +906,5 @@ This project is complete when:
    visitor-preview mode without conflating presentation with authorization.
 8. Both repositories pass their full tests, type checks, builds, and release
    preflights.
-9. The follow-up has a narrow handoff: replace the centralized strategy mapping
-   and parity fixtures with the final `griddle-v1` algorithm, then launch.
+9. The centralized mapping and fixtures use final `griddle-v1`; coordinated
+   Griddle 0.1.9 artifacts are release-ready before the matching Grids deploy.

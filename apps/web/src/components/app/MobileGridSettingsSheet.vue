@@ -96,19 +96,36 @@
 
       <template v-if="isVisible('debug')">
         <div class="mgs-divider" aria-hidden="true" />
-        <div class="mgs-row mgs-row--toggle">
-          <Toggle label="Metadata" v-model="showMetaData" />
-        </div>
-        <div class="mgs-row mgs-row--toggle">
-          <Toggle label="Verbose Metadata" v-model="showMetaDataVerbose" />
-        </div>
         <button
           type="button"
           class="mgs-row mgs-row--action"
-          @click="onPixelRacers"
+          :aria-expanded="debugExpanded"
+          @click="debugOpen = !debugOpen"
         >
-          <span class="mgs-row__label">🏍️ Pixel Racers</span>
+          <span class="mgs-row__label">Debug</span>
+          <span
+            class="mgs-row__icon mgs-row__icon--chevron"
+            :class="{ 'is-open': debugExpanded }"
+          >
+            <ChevronRightIcon :size="18" />
+          </span>
         </button>
+
+        <template v-if="debugExpanded">
+          <div class="mgs-row mgs-row--toggle">
+            <Toggle label="Metadata" v-model="showMetaData" />
+          </div>
+          <div class="mgs-row mgs-row--toggle">
+            <Toggle label="Verbose Metadata" v-model="showMetaDataVerbose" />
+          </div>
+          <button
+            type="button"
+            class="mgs-row mgs-row--action"
+            @click="onPixelRacers"
+          >
+            <span class="mgs-row__label">🏍️ Pixel Racers</span>
+          </button>
+        </template>
       </template>
 
       <p v-if="!anyVisible" class="mgs-empty">No settings match “{{ query }}”.</p>
@@ -136,7 +153,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useGridSettings } from "@/composables/useGridSettings";
 import Toggle from "@/components/ui-controls/Toggle.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
@@ -197,6 +214,13 @@ const matchingIds = computed(() => {
 const isVisible = (id: string): boolean => matchingIds.value.has(id);
 
 const anyVisible = computed(() => matchingIds.value.size > 0);
+
+// Debug tools are collapsed by default (mirrors the desktop "Debug" accordion),
+// but auto-expand while a filter query is active so matches aren't hidden.
+const debugOpen = ref(false);
+const debugExpanded = computed(
+  () => debugOpen.value || props.query.trim().length > 0,
+);
 
 // The panel is mounted fresh each time settings opens, so refresh the (async)
 // default-grid flag on mount rather than watching an `open` prop.
@@ -340,7 +364,9 @@ const onPixelRacers = () => {
 }
 
 .mgs-row--toggle {
-  padding: var(--spacing-xs) var(--spacing-sm);
+  // The nested Toggle supplies its own --spacing-sm padding, so zero the row's
+  // padding — otherwise toggle labels sit 8px further right than action rows.
+  padding: 0;
 
   :deep(.toggle) {
     width: 100%;
@@ -362,6 +388,14 @@ const onPixelRacers = () => {
   justify-content: center;
   flex: 0 0 auto;
   color: var(--color-content-low);
+}
+
+.mgs-row__icon--chevron {
+  transition: transform var(--duration-fast) var(--easing-smooth);
+
+  &.is-open {
+    transform: rotate(90deg);
+  }
 }
 
 .mgs-divider {

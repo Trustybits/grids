@@ -252,8 +252,10 @@ menu drawer (Account), since early access is an account preference, not a per-gr
 - [x] `MobileGridSettingsSheet.vue`: the sheet contents mirroring the Figma menu (`1497-9949`) — a
       fixed **GRID ID + copy** header, a separator, then a scrollable, live-filterable list: Dark Mode,
       Gravity, Default Grid, Publish Template, Duplicate, Transfer (or Cancel Transfer when pending),
-      Delete, and the Debug section (kept for all users, as today). Renders the shared delete/transfer
-      modals. `min-height: 320px`, bottom corners squared, no scrim.
+      Delete, and a **collapsed "Debug"** disclosure (Metadata / Verbose Metadata / Pixel Racers,
+      hidden by default and auto-expanded while filtering — mirrors the desktop Debug accordion).
+      Renders the shared delete/transfer modals. Bottom corners squared, no scrim. Toggle rows carry
+      no padding of their own so their labels line up flush-left with the action rows.
 - [x] **Grid Settings uses the exact Add-a-tile morph** (per feedback): tapping Grid Settings morphs
       the pill into the `/GRID` command input (top corners squared, `radius-md` bottom), and the sheet
       rises from behind and rests **flush** on top of the bar as one connected surface. The `/GRID`

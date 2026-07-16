@@ -129,6 +129,23 @@ describe("MobileGridSettingsSheet", () => {
     expect(gsHolder.openTransferModal).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps debug tools collapsed by default and reveals them on tap", async () => {
+    const wrapper = mountSheet();
+    // The Debug header is present, but its tools are hidden until expanded.
+    expect(rowByText(wrapper, "Debug")).toBeTruthy();
+    expect(rowByText(wrapper, "Metadata")).toBeUndefined();
+    expect(rowByText(wrapper, "Pixel Racers")).toBeUndefined();
+
+    await rowByText(wrapper, "Debug")?.trigger("click");
+    expect(rowByText(wrapper, "Metadata")).toBeTruthy();
+    expect(rowByText(wrapper, "Pixel Racers")).toBeTruthy();
+  });
+
+  it("auto-expands the debug tools while a query is active", () => {
+    const wrapper = mountSheet("metadata");
+    expect(rowByText(wrapper, "Verbose Metadata")).toBeTruthy();
+  });
+
   it("refreshes the default-grid flag on mount", () => {
     mountSheet();
     expect(gsHolder.refreshDefaultGrid).toHaveBeenCalledTimes(1);

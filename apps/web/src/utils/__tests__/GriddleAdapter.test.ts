@@ -261,7 +261,6 @@ describe("buildGridConfig", () => {
     ".tile-title",
     ".tile-details",
     ".chat-bubble-wrapper",
-    ".video-main",
     ".progress-container",
     ".track-progress",
     ".yt-video-card",
@@ -271,6 +270,16 @@ describe("buildGridConfig", () => {
     ".video-wrapper.crop-active",
   ])("preserves the custom tile interaction surface %s", (selector) => {
     expect(DEFAULT_DRAG_IGNORE_FROM.split(", ")).toContain(selector);
+  });
+
+  it("allows dragging from the video surface while preserving video controls and crop mode", () => {
+    const selectors = DEFAULT_DRAG_IGNORE_FROM.split(", ");
+
+    expect(selectors).not.toContain(".video-main");
+    expect(selectors).toContain("button");
+    expect(selectors).toContain("input");
+    expect(selectors).toContain(".progress-container");
+    expect(selectors).toContain(".video-wrapper.crop-active");
   });
 
   it("omits resizeHandles, tileRadius, scroll, and interactive when not provided (uses Griddle defaults)", () => {

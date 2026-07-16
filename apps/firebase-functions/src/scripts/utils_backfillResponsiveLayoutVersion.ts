@@ -21,14 +21,18 @@ export interface ResponsiveLayoutBackfillDocument {
   data: Record<string, unknown>;
 }
 
-export type ResponsiveLayoutStampResult = "updated" | "skipped-concurrent";
+export type ResponsiveLayoutStampResult =
+  | "updated"
+  | "skipped-concurrent-current"
+  | "skipped-concurrent-deleted"
+  | "blocked-concurrent-unknown";
 
 export interface ResponsiveLayoutBackfillDependencies {
   fetchPage(
     afterId: string | undefined,
     pageSize: number,
   ): Promise<ResponsiveLayoutBackfillDocument[]>;
-  stampIfAbsent(id: string): Promise<ResponsiveLayoutStampResult>;
+  stampIfEligible(id: string): Promise<ResponsiveLayoutStampResult>;
 }
 
 export interface ResponsiveLayoutBackfillSummary {
@@ -38,10 +42,20 @@ export interface ResponsiveLayoutBackfillSummary {
   explicitLegacy: number;
   explicitGriddle: number;
   unknown: number;
+  unknownDocumentIds: string[];
   wouldUpdate: number;
   updated: number;
-  skippedConcurrent: number;
+  skippedConcurrentCurrent: number;
+  skippedConcurrentDeleted: number;
+  concurrentUnknown: number;
+  concurrentUnknownDocumentIds: string[];
 }
+
+type ResponsiveLayoutValueClassification =
+  | "missing"
+  | "legacy"
+  | "griddle"
+  | "unknown";
 
 export function parseResponsiveLayoutBackfillArgs(
   argv: string[],
@@ -112,20 +126,25 @@ export function createFirestoreResponsiveLayoutBackfillDependencies(
       return snapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() }));
     },
 
-    async stampIfAbsent(id) {
+    async stampIfEligible(id) {
       const ref = grids.doc(id);
       return firestore.runTransaction(async (transaction) => {
         const latest = await transaction.get(ref);
-        if (
-          !latest.exists ||
-          hasOwn(latest.data() ?? {}, RESPONSIVE_LAYOUT_VERSION_FIELD)
-        ) {
-          return "skipped-concurrent";
+        if (!latest.exists) return "skipped-concurrent-deleted";
+
+        const classification = classifyResponsiveLayoutValue(
+          latest.data() ?? {},
+        );
+        if (classification === "griddle") {
+          return "skipped-concurrent-current";
+        }
+        if (classification === "unknown") {
+          return "blocked-concurrent-unknown";
         }
 
         transaction.update(ref, {
           [RESPONSIVE_LAYOUT_VERSION_FIELD]:
-            LEGACY_RESPONSIVE_LAYOUT_VERSION,
+            GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
         });
         return "updated";
       });
@@ -146,9 +165,13 @@ export async function runResponsiveLayoutBackfill(
     explicitLegacy: 0,
     explicitGriddle: 0,
     unknown: 0,
+    unknownDocumentIds: [],
     wouldUpdate: 0,
     updated: 0,
-    skippedConcurrent: 0,
+    skippedConcurrentCurrent: 0,
+    skippedConcurrentDeleted: 0,
+    concurrentUnknown: 0,
+    concurrentUnknownDocumentIds: [],
   };
 
   let afterId: string | undefined;
@@ -162,26 +185,41 @@ export async function runResponsiveLayoutBackfill(
 
     for (const doc of page) {
       summary.scanned += 1;
-      if (!hasOwn(doc.data, RESPONSIVE_LAYOUT_VERSION_FIELD)) {
-        summary.missing += 1;
-        if (!args.commit) {
-          summary.wouldUpdate += 1;
-          continue;
-        }
+      const classification = classifyResponsiveLayoutValue(doc.data);
 
-        const result = await dependencies.stampIfAbsent(doc.id);
-        if (result === "updated") summary.updated += 1;
-        else summary.skippedConcurrent += 1;
+      if (classification === "griddle") {
+        summary.explicitGriddle += 1;
+        continue;
+      }
+      if (classification === "unknown") {
+        summary.unknown += 1;
+        summary.unknownDocumentIds.push(doc.id);
         continue;
       }
 
-      const version = doc.data[RESPONSIVE_LAYOUT_VERSION_FIELD];
-      if (version === LEGACY_RESPONSIVE_LAYOUT_VERSION) {
-        summary.explicitLegacy += 1;
-      } else if (version === GRIDDLE_RESPONSIVE_LAYOUT_VERSION) {
-        summary.explicitGriddle += 1;
-      } else {
-        summary.unknown += 1;
+      if (classification === "missing") summary.missing += 1;
+      else summary.explicitLegacy += 1;
+
+      if (!args.commit) {
+        summary.wouldUpdate += 1;
+        continue;
+      }
+
+      const result = await dependencies.stampIfEligible(doc.id);
+      switch (result) {
+        case "updated":
+          summary.updated += 1;
+          break;
+        case "skipped-concurrent-current":
+          summary.skippedConcurrentCurrent += 1;
+          break;
+        case "skipped-concurrent-deleted":
+          summary.skippedConcurrentDeleted += 1;
+          break;
+        case "blocked-concurrent-unknown":
+          summary.concurrentUnknown += 1;
+          summary.concurrentUnknownDocumentIds.push(doc.id);
+          break;
       }
     }
 
@@ -199,19 +237,62 @@ export function formatResponsiveLayoutBackfillSummary(
   args: ResponsiveLayoutBackfillArgs,
   summary: ResponsiveLayoutBackfillSummary,
 ): string[] {
+  const blockingUnknown = countBlockingUnknown(summary);
   return [
-    "=== Responsive layout version backfill summary ===",
+    "=== Responsive layout griddle-v1 migration summary ===",
     `Mode:                       ${args.commit ? "COMMIT" : "dry-run"}`,
     `Pages scanned:              ${summary.pages}`,
     `Grid documents scanned:     ${summary.scanned}`,
     `Missing field:              ${summary.missing}`,
     `Explicit legacy-v1:         ${summary.explicitLegacy}`,
     `Explicit griddle-v1:        ${summary.explicitGriddle}`,
-    `Unknown/invalid value:      ${summary.unknown}`,
+    `Unknown at scan:            ${summary.unknown}`,
+    `Unknown after re-read:      ${summary.concurrentUnknown}`,
+    `Blocking unknown total:     ${blockingUnknown}`,
+    `Unknown document IDs:       ${formatDocumentIds(summary.unknownDocumentIds)}`,
+    `Concurrent unknown IDs:     ${formatDocumentIds(summary.concurrentUnknownDocumentIds)}`,
     `Would update:               ${summary.wouldUpdate}`,
     `Updated:                    ${summary.updated}`,
-    `Skipped after re-read:      ${summary.skippedConcurrent}`,
+    `Skipped already current:    ${summary.skippedConcurrentCurrent}`,
+    `Skipped concurrently gone:  ${summary.skippedConcurrentDeleted}`,
+    `Outcome:                    ${blockingUnknown > 0 ? "BLOCKED" : "unblocked"}`,
   ];
+}
+
+export function assertResponsiveLayoutMigrationUnblocked(
+  summary: ResponsiveLayoutBackfillSummary,
+): void {
+  const blockingUnknown = countBlockingUnknown(summary);
+  if (blockingUnknown === 0) return;
+
+  const ids = [
+    ...summary.unknownDocumentIds,
+    ...summary.concurrentUnknownDocumentIds,
+  ];
+  throw new Error(
+    `Responsive layout migration blocked by ${blockingUnknown} unknown ` +
+      `value(s): ${formatDocumentIds(ids)}.`,
+  );
+}
+
+function classifyResponsiveLayoutValue(
+  data: Record<string, unknown>,
+): ResponsiveLayoutValueClassification {
+  if (!hasOwn(data, RESPONSIVE_LAYOUT_VERSION_FIELD)) return "missing";
+  const version = data[RESPONSIVE_LAYOUT_VERSION_FIELD];
+  if (version === LEGACY_RESPONSIVE_LAYOUT_VERSION) return "legacy";
+  if (version === GRIDDLE_RESPONSIVE_LAYOUT_VERSION) return "griddle";
+  return "unknown";
+}
+
+function countBlockingUnknown(
+  summary: ResponsiveLayoutBackfillSummary,
+): number {
+  return summary.unknown + summary.concurrentUnknown;
+}
+
+function formatDocumentIds(ids: readonly string[]): string {
+  return ids.length > 0 ? ids.join(", ") : "none";
 }
 
 function readFlagValue(argv: string[], index: number, name: string): string {

@@ -182,20 +182,8 @@ export class GridController {
     });
   }
 
-  startResponsiveLayoutPreview(): boolean {
-    // Step 3 leaves this staged API inert until Step 5 removes the obsolete
-    // responsive-layout preview surface. There is only one runtime algorithm,
-    // so there is no alternate version to preview.
-    return false;
-  }
-
   stopPreview(): void {
     this.stores.preview.stopPreview();
-  }
-
-  async upgradeResponsiveLayout(): Promise<boolean> {
-    // Retained only until Step 5 removes the obsolete UI and view-context API.
-    return false;
   }
 
   /**

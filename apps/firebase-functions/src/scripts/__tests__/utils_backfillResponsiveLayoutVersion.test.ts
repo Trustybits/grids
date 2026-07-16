@@ -4,6 +4,7 @@ import {
 } from "@grids/contracts/types";
 import {
   RESPONSIVE_LAYOUT_BACKFILL_PAGE_SIZE,
+  assertResponsiveLayoutMigrationUnblocked,
   configureResponsiveLayoutBackfillProject,
   createFirestoreResponsiveLayoutBackfillDependencies,
   formatResponsiveLayoutBackfillSummary,
@@ -112,7 +113,7 @@ describe("runResponsiveLayoutBackfill", () => {
   it("refuses an unconfirmed commit before reading any documents", async () => {
     const dependencies: ResponsiveLayoutBackfillDependencies = {
       fetchPage: vi.fn(),
-      stampIfAbsent: vi.fn(),
+      stampIfEligible: vi.fn(),
     };
 
     await expect(
@@ -122,10 +123,10 @@ describe("runResponsiveLayoutBackfill", () => {
       ),
     ).rejects.toThrow("--commit requires --confirm grids-dev");
     expect(dependencies.fetchPage).not.toHaveBeenCalled();
-    expect(dependencies.stampIfAbsent).not.toHaveBeenCalled();
+    expect(dependencies.stampIfEligible).not.toHaveBeenCalled();
   });
 
-  it("paginates every grid and dry-runs only documents with an absent field", async () => {
+  it("paginates every grid and dry-runs missing and legacy candidates", async () => {
     const pages = new Map<string | undefined, ResponsiveLayoutBackfillDocument[]>([
       [
         undefined,
@@ -151,11 +152,11 @@ describe("runResponsiveLayoutBackfill", () => {
     const fetchPage = vi.fn(async (afterId: string | undefined) =>
       pages.get(afterId) ?? [],
     );
-    const stampIfAbsent = vi.fn();
+    const stampIfEligible = vi.fn();
 
     const summary = await runResponsiveLayoutBackfill(
       { project: "grids-dev", commit: false },
-      { fetchPage, stampIfAbsent },
+      { fetchPage, stampIfEligible },
     );
 
     expect(fetchPage.mock.calls).toEqual([
@@ -163,7 +164,7 @@ describe("runResponsiveLayoutBackfill", () => {
       ["b", RESPONSIVE_LAYOUT_BACKFILL_PAGE_SIZE],
       ["e", RESPONSIVE_LAYOUT_BACKFILL_PAGE_SIZE],
     ]);
-    expect(stampIfAbsent).not.toHaveBeenCalled();
+    expect(stampIfEligible).not.toHaveBeenCalled();
     expect(summary).toEqual({
       pages: 2,
       scanned: 5,
@@ -171,13 +172,17 @@ describe("runResponsiveLayoutBackfill", () => {
       explicitLegacy: 1,
       explicitGriddle: 1,
       unknown: 2,
-      wouldUpdate: 1,
+      unknownDocumentIds: ["d", "e"],
+      wouldUpdate: 2,
       updated: 0,
-      skippedConcurrent: 0,
+      skippedConcurrentCurrent: 0,
+      skippedConcurrentDeleted: 0,
+      concurrentUnknown: 0,
+      concurrentUnknownDocumentIds: [],
     });
   });
 
-  it("commits only scan-time missing documents", async () => {
+  it("commits both missing and legacy candidates", async () => {
     const dependencies = singlePageDependencies([
       doc("missing", {}),
       doc("legacy", {
@@ -186,52 +191,52 @@ describe("runResponsiveLayoutBackfill", () => {
       doc("griddle", {
         responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
       }),
-      doc("future", { responsiveLayoutVersion: "griddle-v2" }),
     ]);
-    vi.mocked(dependencies.stampIfAbsent).mockResolvedValue("updated");
+    vi.mocked(dependencies.stampIfEligible).mockResolvedValue("updated");
 
     const summary = await runResponsiveLayoutBackfill(
-      {
-        project: "grids-dev",
-        commit: true,
-        confirm: "grids-dev",
-      },
+      commitArgs,
       dependencies,
     );
 
-    expect(dependencies.stampIfAbsent).toHaveBeenCalledExactlyOnceWith(
-      "missing",
-    );
+    expect(dependencies.stampIfEligible).toHaveBeenCalledTimes(2);
+    expect(dependencies.stampIfEligible).toHaveBeenNthCalledWith(1, "missing");
+    expect(dependencies.stampIfEligible).toHaveBeenNthCalledWith(2, "legacy");
     expect(summary).toMatchObject({
       missing: 1,
       explicitLegacy: 1,
       explicitGriddle: 1,
-      unknown: 1,
       wouldUpdate: 0,
-      updated: 1,
-      skippedConcurrent: 0,
+      updated: 2,
     });
   });
 
-  it("counts a field that appears concurrently without overwriting it", async () => {
-    const dependencies = singlePageDependencies([doc("grid-1", {})]);
-    vi.mocked(dependencies.stampIfAbsent).mockResolvedValue(
-      "skipped-concurrent",
-    );
+  it("classifies concurrent current, deleted, and unknown outcomes", async () => {
+    const dependencies = singlePageDependencies([
+      doc("current", {}),
+      doc("deleted", {}),
+      doc("unknown", {
+        responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      }),
+    ]);
+    vi.mocked(dependencies.stampIfEligible)
+      .mockResolvedValueOnce("skipped-concurrent-current")
+      .mockResolvedValueOnce("skipped-concurrent-deleted")
+      .mockResolvedValueOnce("blocked-concurrent-unknown");
 
     const summary = await runResponsiveLayoutBackfill(
-      {
-        project: "grids-dev",
-        commit: true,
-        confirm: "grids-dev",
-      },
+      commitArgs,
       dependencies,
     );
 
     expect(summary).toMatchObject({
-      missing: 1,
+      missing: 2,
+      explicitLegacy: 1,
       updated: 0,
-      skippedConcurrent: 1,
+      skippedConcurrentCurrent: 1,
+      skippedConcurrentDeleted: 1,
+      concurrentUnknown: 1,
+      concurrentUnknownDocumentIds: ["unknown"],
     });
   });
 
@@ -239,25 +244,29 @@ describe("runResponsiveLayoutBackfill", () => {
     const records = new Map<string, Record<string, unknown>>([
       ["missing", {}],
       [
+        "legacy",
+        { responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION },
+      ],
+      [
         "griddle",
         { responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION },
       ],
     ]);
     const dependencies = mapBackedDependencies(records);
-    const args = {
-      project: "grids-dev",
-      commit: true,
-      confirm: "grids-dev",
-    } as const;
 
-    const first = await runResponsiveLayoutBackfill(args, dependencies);
-    const second = await runResponsiveLayoutBackfill(args, dependencies);
+    const first = await runResponsiveLayoutBackfill(commitArgs, dependencies);
+    const second = await runResponsiveLayoutBackfill(commitArgs, dependencies);
 
-    expect(first).toMatchObject({ missing: 1, updated: 1 });
-    expect(second).toMatchObject({
-      missing: 0,
+    expect(first).toMatchObject({
+      missing: 1,
       explicitLegacy: 1,
       explicitGriddle: 1,
+      updated: 2,
+    });
+    expect(second).toMatchObject({
+      missing: 0,
+      explicitLegacy: 0,
+      explicitGriddle: 3,
       updated: 0,
     });
   });
@@ -265,7 +274,7 @@ describe("runResponsiveLayoutBackfill", () => {
   it("rejects a page whose cursor does not advance", async () => {
     const dependencies: ResponsiveLayoutBackfillDependencies = {
       fetchPage: vi.fn(async () => [doc("same", {})]),
-      stampIfAbsent: vi.fn(),
+      stampIfEligible: vi.fn(),
     };
 
     await expect(
@@ -274,6 +283,27 @@ describe("runResponsiveLayoutBackfill", () => {
         dependencies,
       ),
     ).rejects.toThrow("Grid pagination did not advance.");
+  });
+});
+
+describe("unknown-value blocking", () => {
+  it("throws with actionable IDs for scan-time and concurrent unknowns", () => {
+    const summary = makeSummary({
+      unknown: 1,
+      unknownDocumentIds: ["future"],
+      concurrentUnknown: 1,
+      concurrentUnknownDocumentIds: ["raced"],
+    });
+
+    expect(() => assertResponsiveLayoutMigrationUnblocked(summary)).toThrow(
+      "blocked by 2 unknown value(s): future, raced",
+    );
+  });
+
+  it("accepts a zero-unknown summary", () => {
+    expect(() =>
+      assertResponsiveLayoutMigrationUnblocked(makeSummary()),
+    ).not.toThrow();
   });
 });
 
@@ -294,56 +324,89 @@ describe("createFirestoreResponsiveLayoutBackfillDependencies", () => {
     expect(harness.startAfter).toHaveBeenCalledWith("grid-0");
   });
 
-  it("transactionally updates only responsiveLayoutVersion when still absent", async () => {
-    const harness = firestoreHarness({});
+  it.each([
+    ["missing", {}],
+    [
+      "legacy",
+      { responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION },
+    ],
+  ])("writes only griddle-v1 for an eligible %s value", async (_label, data) => {
+    const harness = firestoreHarness(data);
     const dependencies = createFirestoreResponsiveLayoutBackfillDependencies(
       harness.firestore,
       harness.documentIdField,
     );
 
-    await expect(dependencies.stampIfAbsent("grid-1")).resolves.toBe("updated");
+    await expect(dependencies.stampIfEligible("grid-1")).resolves.toBe(
+      "updated",
+    );
     expect(harness.transactionGet).toHaveBeenCalledWith(harness.documentRef);
     expect(harness.transactionUpdate).toHaveBeenCalledExactlyOnceWith(
       harness.documentRef,
-      { responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION },
+      { responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION },
     );
   });
 
-  it.each([
-    [false, {}],
-    [true, { responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION }],
-    [true, { responsiveLayoutVersion: "griddle-v2" }],
-  ])(
-    "skips a missing or concurrently changed document (exists=%s, data=%j)",
-    async (exists, data) => {
-      const harness = firestoreHarness(data, exists);
+  it("safely skips a concurrent griddle-v1 write", async () => {
+    const harness = firestoreHarness({
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+    });
+    const dependencies = createFirestoreResponsiveLayoutBackfillDependencies(
+      harness.firestore,
+      harness.documentIdField,
+    );
+
+    await expect(dependencies.stampIfEligible("grid-1")).resolves.toBe(
+      "skipped-concurrent-current",
+    );
+    expect(harness.transactionUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each(["griddle-v2", null, 1])(
+    "blocks a concurrent unknown value %j without overwriting it",
+    async (responsiveLayoutVersion) => {
+      const harness = firestoreHarness({ responsiveLayoutVersion });
       const dependencies =
         createFirestoreResponsiveLayoutBackfillDependencies(
           harness.firestore,
           harness.documentIdField,
         );
 
-      await expect(dependencies.stampIfAbsent("grid-1")).resolves.toBe(
-        "skipped-concurrent",
+      await expect(dependencies.stampIfEligible("grid-1")).resolves.toBe(
+        "blocked-concurrent-unknown",
       );
       expect(harness.transactionUpdate).not.toHaveBeenCalled();
     },
   );
+
+  it("safely skips a concurrently deleted document", async () => {
+    const harness = firestoreHarness({}, false);
+    const dependencies = createFirestoreResponsiveLayoutBackfillDependencies(
+      harness.firestore,
+      harness.documentIdField,
+    );
+
+    await expect(dependencies.stampIfEligible("grid-1")).resolves.toBe(
+      "skipped-concurrent-deleted",
+    );
+    expect(harness.transactionUpdate).not.toHaveBeenCalled();
+  });
 });
 
 describe("formatResponsiveLayoutBackfillSummary", () => {
-  it("formats counters in a deterministic order", () => {
-    const summary: ResponsiveLayoutBackfillSummary = {
+  it("formats counters, IDs, and a blocking outcome deterministically", () => {
+    const summary = makeSummary({
       pages: 2,
       scanned: 5,
       missing: 1,
       explicitLegacy: 1,
       explicitGriddle: 1,
-      unknown: 2,
-      wouldUpdate: 1,
-      updated: 0,
-      skippedConcurrent: 0,
-    };
+      unknown: 1,
+      unknownDocumentIds: ["future"],
+      wouldUpdate: 2,
+      concurrentUnknown: 1,
+      concurrentUnknownDocumentIds: ["raced"],
+    });
 
     expect(
       formatResponsiveLayoutBackfillSummary(
@@ -351,20 +414,53 @@ describe("formatResponsiveLayoutBackfillSummary", () => {
         summary,
       ),
     ).toEqual([
-      "=== Responsive layout version backfill summary ===",
+      "=== Responsive layout griddle-v1 migration summary ===",
       "Mode:                       dry-run",
       "Pages scanned:              2",
       "Grid documents scanned:     5",
       "Missing field:              1",
       "Explicit legacy-v1:         1",
       "Explicit griddle-v1:        1",
-      "Unknown/invalid value:      2",
-      "Would update:               1",
+      "Unknown at scan:            1",
+      "Unknown after re-read:      1",
+      "Blocking unknown total:     2",
+      "Unknown document IDs:       future",
+      "Concurrent unknown IDs:     raced",
+      "Would update:               2",
       "Updated:                    0",
-      "Skipped after re-read:      0",
+      "Skipped already current:    0",
+      "Skipped concurrently gone:  0",
+      "Outcome:                    BLOCKED",
     ]);
   });
 });
+
+const commitArgs = {
+  project: "grids-dev",
+  commit: true,
+  confirm: "grids-dev",
+} as const;
+
+function makeSummary(
+  overrides: Partial<ResponsiveLayoutBackfillSummary> = {},
+): ResponsiveLayoutBackfillSummary {
+  return {
+    pages: 0,
+    scanned: 0,
+    missing: 0,
+    explicitLegacy: 0,
+    explicitGriddle: 0,
+    unknown: 0,
+    unknownDocumentIds: [],
+    wouldUpdate: 0,
+    updated: 0,
+    skippedConcurrentCurrent: 0,
+    skippedConcurrentDeleted: 0,
+    concurrentUnknown: 0,
+    concurrentUnknownDocumentIds: [],
+    ...overrides,
+  };
+}
 
 function singlePageDependencies(
   documents: ResponsiveLayoutBackfillDocument[],
@@ -373,7 +469,7 @@ function singlePageDependencies(
     fetchPage: vi.fn(async (afterId: string | undefined) =>
       afterId === undefined ? documents : [],
     ),
-    stampIfAbsent: vi.fn(),
+    stampIfEligible: vi.fn(),
   };
 }
 
@@ -386,18 +482,21 @@ function mapBackedDependencies(
         ? [...records.entries()].map(([id, data]) => doc(id, { ...data }))
         : [],
     ),
-    stampIfAbsent: vi.fn(async (id: string) => {
+    stampIfEligible: vi.fn(async (id: string) => {
       const data = records.get(id);
-      if (
-        !data ||
-        Object.prototype.hasOwnProperty.call(
-          data,
-          "responsiveLayoutVersion",
-        )
-      ) {
-        return "skipped-concurrent" as const;
+      if (!data) return "skipped-concurrent-deleted" as const;
+      const hasVersion = Object.prototype.hasOwnProperty.call(
+        data,
+        "responsiveLayoutVersion",
+      );
+      const version = data.responsiveLayoutVersion;
+      if (version === GRIDDLE_RESPONSIVE_LAYOUT_VERSION) {
+        return "skipped-concurrent-current" as const;
       }
-      data.responsiveLayoutVersion = LEGACY_RESPONSIVE_LAYOUT_VERSION;
+      if (hasVersion && version !== LEGACY_RESPONSIVE_LAYOUT_VERSION) {
+        return "blocked-concurrent-unknown" as const;
+      }
+      data.responsiveLayoutVersion = GRIDDLE_RESPONSIVE_LAYOUT_VERSION;
       return "updated" as const;
     }),
   };

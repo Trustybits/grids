@@ -61,8 +61,6 @@ import {
   toGriddlePlacements,
   toGriddleTiles,
 } from "@/utils/GriddleAdapter";
-import { projectGridLayout } from "@/utils/GridLayoutUtils";
-import { getGriddleResponsiveReflowStrategy } from "@/utils/ResponsiveLayoutStrategy";
 import {
   TILE_DRAGGING_ID,
   TILE_GEOMETRY_VERSION,
@@ -126,44 +124,23 @@ export default {
     onUnmounted(disposeLayoutReadiness);
 
     // --- Griddle engine ----------------------------------------------------
-    // Griddle owns tile state; responsive algorithm selection happens at this
-    // engine seam. `contractTiles` maps a Griddle tile id back to our `Tile`
-    // for the #tile slot.
+    // Griddle owns tile state and all responsive geometry. `contractTiles`
+    // maps a Griddle tile id back to our `Tile` for the #tile slot.
     const contractTiles = computed(() => gridView.grid?.tiles ?? []);
     const tilesById = computed(
       () => new Map(contractTiles.value.map((tile) => [tile.i, tile])),
-    );
-
-    const griddleReflowStrategy = computed(() =>
-      getGriddleResponsiveReflowStrategy(
-        gridView.effectiveResponsiveLayoutVersion,
-      ),
     );
 
     const canonicalLayout = computed(() =>
       toCanonicalLayoutItems(contractTiles.value),
     );
 
-    // This computed is intentionally conditional: griddle-v1 must never run
-    // the frozen legacy projection before entering Griddle's reflow path.
-    const engineSourceLayout = computed(() => {
-      if (griddleReflowStrategy.value) return canonicalLayout.value;
-
-      return projectGridLayout({
-        tiles: contractTiles.value,
-        breakpoint: activeBreakpoint.value,
-        columns: responsiveColNum.value,
-        overrides: gridView.grid?.overrides,
-      });
-    });
+    const isDerivedLayout = computed(
+      () => responsiveColNum.value < baseColNum.value,
+    );
 
     const activeGriddlePlacements = computed(() => {
-      if (
-        !griddleReflowStrategy.value ||
-        activeBreakpoint.value === "lg"
-      ) {
-        return undefined;
-      }
+      if (!isDerivedLayout.value) return undefined;
 
       return toGriddlePlacements(
         gridView.grid?.overrides?.[activeBreakpoint.value],
@@ -171,7 +148,7 @@ export default {
     });
 
     const griddleTiles = computed(() =>
-      toGriddleTiles(engineSourceLayout.value, contractTiles.value, {
+      toGriddleTiles(canonicalLayout.value, contractTiles.value, {
         editable: gridView.canEdit,
       }),
     );
@@ -181,7 +158,13 @@ export default {
         cols: responsiveColNum.value,
         rowHeight: props.rowHeight,
         margin,
-        verticalCompact: gridView.verticalCompact,
+        // Griddle automatically applies configured gravity after later
+        // move/resize mutations. Saved breakpoint placements are authoritative,
+        // so disable engine gravity for the whole placement-backed session,
+        // not only during the initial reflow transaction.
+        verticalCompact:
+          gridView.verticalCompact &&
+          activeGriddlePlacements.value === undefined,
         // grids.so owns page scroll + outer transform:scale(); the grid must
         // size to content and not lock touch-action. And we never handle
         // draw-to-create, so gate it off.
@@ -190,16 +173,13 @@ export default {
       }),
     );
 
-    // Griddle validates a snapshot before installing it. The griddle-v1
-    // responsive path starts from canonical desktop geometry, so load that
-    // geometry in its persisted column space before reflowing to the active
-    // breakpoint. Loading it directly into an 8/4-column config rejects valid
-    // desktop tiles before `reflow()` has a chance to reposition them.
-    const engineLoadConfig = computed(() =>
-      griddleReflowStrategy.value
-        ? { ...gridConfig.value, cols: baseColNum.value }
-        : gridConfig.value,
-    );
+    // Griddle validates a snapshot before installing it. Always load canonical
+    // geometry in its persisted column space; a narrower target is installed
+    // only by the explicit reflow transaction below.
+    const engineLoadConfig = computed(() => ({
+      ...gridConfig.value,
+      cols: baseColNum.value,
+    }));
 
     const api = useGriddle({
       config: engineLoadConfig.value,
@@ -223,10 +203,10 @@ export default {
     // selection empty to avoid its built-in blue outline.
     const griddleSelection = new Set<string>();
 
-    // Load the selected responsive source + config into the engine whenever
-    // they change (breakpoint switch, tile add/remove, edit-gate change,
-    // compaction toggle, version switch, or reconciliation after a committed
-    // gesture). Guarded so a reactive reload can never fight a live gesture.
+    // Load canonical source + config into the engine whenever they change
+    // (breakpoint switch, tile add/remove, edit-gate change, compaction toggle,
+    // or reconciliation after a committed gesture). Guarded so a reactive
+    // reload can never fight a live gesture.
     // Intermediate load/reflow/compaction events are deliberately not
     // published: GridMenu and gesture commits see only the settled engine.
     let interacting = false;
@@ -241,13 +221,12 @@ export default {
         tiles: griddleTiles.value,
       });
 
-      const strategy = griddleReflowStrategy.value;
-      // Desktop is the canonical user-authored layout. Product reflow only
-      // derives narrower breakpoint geometry from that source.
-      if (strategy && activeBreakpoint.value !== "lg") {
+      // The canonical target is loaded as-is. A narrower target always takes
+      // exactly one route through Griddle's sole responsive algorithm.
+      if (isDerivedLayout.value) {
         api.reflow({
           cols: responsiveColNum.value,
-          strategy,
+          strategy: "griddle-v1",
           ...(activeGriddlePlacements.value
             ? { placements: activeGriddlePlacements.value }
             : {}),
@@ -259,7 +238,6 @@ export default {
       // away from their stored positions; the griddle-v1 strategy already
       // packs every automatic tile around those anchors.
       const hasAuthoritativePlacements =
-        strategy === "griddle-v1" &&
         activeGriddlePlacements.value !== undefined;
       if (gridView.verticalCompact && !hasAuthoritativePlacements) {
         api.grid.compactAll();
@@ -275,7 +253,6 @@ export default {
       [
         griddleTiles,
         gridConfig,
-        griddleReflowStrategy,
         activeGriddlePlacements,
       ],
       () => {
@@ -475,7 +452,11 @@ export default {
       () => gridView.verticalCompact,
       (isCompact, wasCompact) => {
         if (!gridView.grid || !gridView.canEdit) return;
-        if (isCompact && !wasCompact) {
+        if (
+          isCompact &&
+          !wasCompact &&
+          activeGriddlePlacements.value === undefined
+        ) {
           api.updateConfig({ gravity: "top" });
           api.grid.compactAll();
           const compacted = fromGriddleTiles(api.tiles.value);

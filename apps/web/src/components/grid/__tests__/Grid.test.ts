@@ -4,7 +4,6 @@ import { nextTick, reactive } from "vue";
 import {
   ContentType,
   GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  resolveResponsiveLayoutVersion,
   type Breakpoint,
   type Grid,
   type LinkContent,
@@ -12,7 +11,6 @@ import {
 } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
 import type { GridLayoutReadinessAdapter } from "@/controllers/GridController";
-import { gridItemsOverlap } from "@/utils/GridLayoutUtils";
 
 const storeHolder = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
@@ -21,6 +19,7 @@ const gridTileHooks = vi.hoisted(() => ({
   handleGridShortClick: vi.fn(),
 }));
 const griddleHooks = vi.hoisted(() => ({
+  loadJSON: vi.fn(),
   reflow: vi.fn(),
 }));
 
@@ -40,9 +39,14 @@ vi.mock("@griddle/vue", async (importOriginal) => {
     ...actual,
     useGriddle: (...args: Parameters<typeof actual.useGriddle>) => {
       const api = actual.useGriddle(...args);
+      const loadJSON = api.loadJSON;
       const reflow = api.reflow;
       return {
         ...api,
+        loadJSON: (snapshot: Parameters<typeof loadJSON>[0]) => {
+          griddleHooks.loadJSON(snapshot);
+          return loadJSON(snapshot);
+        },
         reflow: (options: Parameters<typeof reflow>[0]) => {
           griddleHooks.reflow(options);
           return reflow(options);
@@ -152,9 +156,6 @@ function makeStore(grid = makeGrid()) {
     undoRedoVersion: 0,
     canEdit: true,
     verticalCompact: true,
-    effectiveResponsiveLayoutVersion: resolveResponsiveLayoutVersion(
-      grid.responsiveLayoutVersion,
-    ),
     setActiveBreakpoint: vi.fn(),
     setViewportBreakpoint: vi.fn(),
     setDisplayPositions: vi.fn(),
@@ -184,9 +185,22 @@ function griddle(wrapper: ReturnType<typeof mount>) {
   return wrapper.findComponent({ name: "GriddleGridStub" });
 }
 
+function gridItemsOverlap(
+  left: Pick<GridLayoutItem, "x" | "y" | "w" | "h">,
+  right: Pick<GridLayoutItem, "x" | "y" | "w" | "h">,
+): boolean {
+  return (
+    left.x < right.x + right.w &&
+    left.x + left.w > right.x &&
+    left.y < right.y + right.h &&
+    left.y + left.h > right.y
+  );
+}
+
 describe("Grid canvas characterization", () => {
   beforeEach(() => {
     gridTileHooks.handleGridShortClick.mockReset();
+    griddleHooks.loadJSON.mockReset();
     griddleHooks.reflow.mockReset();
     vi.spyOn(window, "innerWidth", "get").mockReturnValue(1800);
     class ResizeObserverStub {
@@ -196,7 +210,7 @@ describe("Grid canvas characterization", () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverStub);
   });
 
-  it("publishes the projected positions and reports the active breakpoint", async () => {
+  it("publishes settled positions and reports the active breakpoint", async () => {
     const { store } = makeStore();
     storeHolder.current = store;
 
@@ -242,6 +256,11 @@ describe("Grid canvas characterization", () => {
         "tile-1": { col: 3, row: 4, w: 5, h: 6 },
       },
     });
+    expect(griddleHooks.loadJSON).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({ cols: 12 }),
+      }),
+    );
     expect(store.setDisplayPositions).toHaveBeenCalledTimes(1);
     expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
       { i: "tile-1", x: 3, y: 4, w: 5, h: 6 },
@@ -278,6 +297,7 @@ describe("Grid canvas characterization", () => {
 
     store.forcedBreakpoint = "md";
     await flushPromises();
+    expect(griddleHooks.reflow).toHaveBeenCalledTimes(1);
     expect(griddleHooks.reflow).toHaveBeenLastCalledWith({
       cols: 8,
       strategy: "griddle-v1",
@@ -289,6 +309,7 @@ describe("Grid canvas characterization", () => {
 
     store.forcedBreakpoint = "sm";
     await flushPromises();
+    expect(griddleHooks.reflow).toHaveBeenCalledTimes(2);
     expect(griddleHooks.reflow).toHaveBeenLastCalledWith({
       cols: 4,
       strategy: "griddle-v1",
@@ -305,13 +326,35 @@ describe("Grid canvas characterization", () => {
     wrapper.unmount();
   });
 
+  it("keeps a canonical target unreflowed even when its breakpoint label is md", async () => {
+    const grid = makeGrid();
+    grid.colNum = 6;
+    const { store } = makeStore(grid);
+    store.forcedBreakpoint = "md";
+    store.verticalCompact = false;
+    storeHolder.current = store;
+
+    const wrapper = await mountGrid();
+    await flushPromises();
+
+    expect(griddleHooks.loadJSON).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({ cols: 6 }),
+      }),
+    );
+    expect(griddleHooks.reflow).not.toHaveBeenCalled();
+    expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
+      { i: "tile-1", x: 0, y: 0, w: 2, h: 2 },
+    ]);
+
+    wrapper.unmount();
+  });
+
   it("routes an unknown raw stamp through griddle-v1 without mutating persisted data", async () => {
     const grid = makeGrid();
     grid.responsiveLayoutVersion = "griddle-v2" as never;
     const { store } = makeStore(grid);
     store.forcedBreakpoint = "md";
-    store.effectiveResponsiveLayoutVersion =
-      resolveResponsiveLayoutVersion("griddle-v2");
     store.verticalCompact = false;
     storeHolder.current = store;
 
@@ -356,8 +399,6 @@ describe("Grid canvas characterization", () => {
       const { store } = makeStore(grid);
       store.forcedBreakpoint = "md";
       store.verticalCompact = false;
-      store.effectiveResponsiveLayoutVersion =
-        resolveResponsiveLayoutVersion(responsiveLayoutVersion);
       storeHolder.current = store;
 
       const wrapper = await mountGrid();
@@ -377,10 +418,6 @@ describe("Grid canvas characterization", () => {
     expect(missing).toEqual(griddle);
     expect(malformed).toEqual(griddle);
     expect(future).toEqual(griddle);
-    expect(griddle).toEqual([
-      { i: "tile-1", x: 0, y: 0, w: 3, h: 2 },
-      { i: "tile-2", x: 3, y: 0, w: 2, h: 2 },
-    ]);
   });
 
   const responsiveVersionMatrix: Array<
@@ -429,9 +466,6 @@ describe("Grid canvas characterization", () => {
         const { store } = makeStore(grid);
         store.forcedBreakpoint = breakpoint;
         store.verticalCompact = verticalCompact;
-        store.effectiveResponsiveLayoutVersion = resolveResponsiveLayoutVersion(
-          persistedVersion,
-        );
         storeHolder.current = store;
 
         const wrapper = await mountGrid();
@@ -773,7 +807,7 @@ describe("Grid canvas characterization", () => {
     wrapper.unmount();
   });
 
-  it("compacts the active breakpoint's override layout when gravity is enabled", async () => {
+  it("does not compact authoritative breakpoint placements when gravity is enabled", async () => {
     const first = makeTile({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 });
     const second = makeTile({ i: "tile-2", x: 2, y: 0, w: 2, h: 2 });
     const grid = makeGrid(first);
@@ -795,9 +829,15 @@ describe("Grid canvas characterization", () => {
     await nextTick();
     await flushPromises();
 
-    expect(store.commitCompactedLayout).toHaveBeenCalledWith([
-      expect.objectContaining({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 }),
-      expect.objectContaining({ i: "tile-2", x: 0, y: 2, w: 2, h: 2 }),
+    expect(store.commitCompactedLayout).not.toHaveBeenCalled();
+    expect(griddleHooks.loadJSON).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({ gravity: "none" }),
+      }),
+    );
+    expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
+      { i: "tile-1", x: 0, y: 0, w: 2, h: 2 },
+      { i: "tile-2", x: 0, y: 5, w: 2, h: 2 },
     ]);
 
     wrapper.unmount();

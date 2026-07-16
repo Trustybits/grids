@@ -1,7 +1,8 @@
 # Griddle-Owned Responsive Reflow Refactor Plan
 
-**Status:** Implementation in progress. Steps 1 through 3 are complete; Steps
-4 through 8 have not started.
+**Status:** Implementation and verification are complete through Step 8 except
+for Step 7's final registry dependency and lockfile refresh, which intentionally
+waits for the maintainer to publish Griddle 0.1.10.
 
 **Created:** 2026-07-16
 
@@ -178,7 +179,7 @@ out-of-flow behavior, and separation from gravity and `pack()`.
 
 ### Step 2 — Make `griddle-v1` the sole Griddle reflow implementation
 
-**Status:** Complete locally (2026-07-16); package version 0.1.9 is prepared but
+**Status:** Complete locally (2026-07-16); package version 0.1.10 is prepared but
 has not been published.
 
 1. In `packages/core/src/reflow.ts`, reduce `ReflowStrategy` to
@@ -210,8 +211,8 @@ historical gap-preserving projection previously named `preserve-v1`. The dense
 responsive implementation and its anchor-aware `computePackAround()` helper
 were removed without changing ordinary loop `pack()`. Core and adapter tests,
 demos, public reflow documentation, the root README, and the changelog now use
-the sole strategy. All four packages remain aligned at 0.1.9 with adapter
-`@griddle/core` ranges at `^0.1.9`; build, tests, demo builds, Vue template type
+the sole strategy. All four packages are aligned at 0.1.10 with adapter
+`@griddle/core` ranges at `^0.1.10`; build, tests, demo builds, Vue template type
 checking, and four-package dry-run packing pass locally.
 
 ### Step 3 — Collapse the Grids version model to one supported stamp
@@ -246,6 +247,8 @@ their full deletion in Step 5.
 
 ### Step 4 — Replace Grids' dual projection route with one Griddle call
 
+**Status:** Complete (2026-07-16).
+
 1. In `apps/web/src/components/grid/Grid.vue`, always map canonical contract
    tiles to Griddle tiles and load them under their canonical/base column count.
 2. For a derived narrower breakpoint, call `api.reflow()` exactly once with the
@@ -270,7 +273,24 @@ their full deletion in Step 5.
 **Exit criterion:** Grids chooses only a breakpoint, target columns, and input
 placements; all responsive geometry is returned by Griddle.
 
+**Implementation record:** `Grid.vue` now always loads canonical tile geometry
+under the grid's base column count. Targets narrower than that base make
+exactly one explicit `api.reflow()` call with `strategy: "griddle-v1"` and the
+active saved placements when present; an equal-width target remains canonical
+and unreflowed. Settled geometry is still published only after the complete
+load, optional reflow, and optional gravity transaction. Gravity is skipped
+whenever authoritative placements are active, including when gravity is
+toggled on. The version-to-strategy adapter, app-owned projection algorithm,
+projection-only helpers, parity fixtures, and their tests were deleted;
+`GridLayoutUtils.ts` now owns only breakpoint and viewport column calculations.
+Component tests keep collision checks local and verify canonical loading,
+single-call reflow, placement forwarding, equal-width behavior, settled-state
+publication, and gravity isolation. Publishing and consuming the prepared
+Griddle package remains Step 7.
+
 ### Step 5 — Remove responsive preview and upgrade product surfaces
+
+**Status:** Complete (2026-07-16).
 
 1. Remove `ResponsiveLayoutSettings.vue`, its tests, and its inclusion in
    `GridSettings.vue`.
@@ -292,7 +312,19 @@ placements; all responsive geometry is returned by Griddle.
 or upgrade feature, while generic preview state remains tested and usable by a
 future feature.
 
+**Implementation record:** The responsive-layout settings component, grid-menu
+inclusion, app banner, stop event, confirmation/toast surface, controller
+start/upgrade commands, view-context start command, effective-version override,
+and their dedicated tests were removed. `gridPreview.ts` now stores only a
+neutral `{ kind, gridId }` descriptor through a generic `startPreview()` entry
+point. Grid-scoped reads, mutation blocking, scoped and unscoped stop behavior,
+idempotent reset, controller mutation guards, and session cleanup remain in
+place and covered. The live and demo contexts continue to expose neutral
+preview state and stop behavior without any responsive-layout semantics.
+
 ### Step 6 — Convert the maintainer backfill into the `griddle-v1` migration
+
+**Status:** Complete (2026-07-16).
 
 1. Keep the existing dry-run-by-default, explicit `--project`, `--commit`, and
    typed `--confirm` safety model.
@@ -314,7 +346,21 @@ future feature.
 **Exit criterion:** a zero-unknown successful run guarantees all preexisting
 grid documents are stamped `griddle-v1` without geometry or revision changes.
 
+**Implementation record:** The existing dry-run, explicit-project, commit, and
+typed-confirmation safeguards remain intact. The migration now scans every grid
+and classifies missing, exact `legacy-v1`, current `griddle-v1`, and unknown
+values. Commit mode transactionally re-reads missing and legacy candidates and
+writes only `responsiveLayoutVersion: "griddle-v1"`; concurrent current writes
+and deletions are safe skips, while scan-time or concurrent unknown values are
+reported by document ID and produce a blocking nonzero exit. Pagination,
+authorization, exact write shape, concurrency, idempotency, and blocking
+outcomes are covered by the functions test suite. No migration was run against
+a Firebase project during implementation.
+
 ### Step 7 — Update dependency and release wiring
+
+**Status:** Release prepared and locally verified (2026-07-16); final Grids
+dependency and lockfile update awaits publication of 0.1.10.
 
 1. Consume the coordinated Griddle release in `apps/web/package.json` and the
    root lockfile only after the Griddle tarballs pass preflight.
@@ -326,7 +372,20 @@ grid documents are stamped `griddle-v1` without geometry or revision changes.
 **Exit criterion:** a clean Grids install resolves a published, verified
 Griddle release containing the expected algorithm.
 
+**Implementation record:** `@griddle/core`, `@griddle/react`, `@griddle/vue`,
+and `@griddle/svelte` are prepared in lockstep at 0.1.10, with adapter peer and
+development ranges on `@griddle/core` updated to `^0.1.10`. The release
+changelog preserves the already-published 0.1.9 history and records the sole
+parity strategy under 0.1.10. All four dry-run tarballs passed package preflight.
+Grids was then verified against actual locally packed and unpacked 0.1.10 core
+and Vue artifacts. Its committed manifest and lockfile intentionally remain on
+published 0.1.9 until the maintainer publishes 0.1.10; refreshing those files
+and proving a clean registry install is the only unfinished action in this
+step.
+
 ### Step 8 — Run the verification matrix
+
+**Status:** Complete (2026-07-16).
 
 #### Griddle contract matrix
 
@@ -407,6 +466,21 @@ npm --prefix apps/firebase-functions run build
 Also run `git diff --check` and verify both worktrees contain only intentional
 changes. Perform a live browser pass across desktop, tablet, and phone widths
 after the automated matrix passes.
+
+**Implementation record:** Griddle build, 116 package tests, all three adapter
+demo builds, Vue demo template type checking, and four-package dry-run packing
+passed at 0.1.10. Grids web passed 143 files and 2,605 tests plus type checking,
+lint, and production build; Firebase Functions passed 65 files and 919 tests
+plus type checking, lint, and build. The cross-repository ownership searches
+found no app-owned responsive projection/runtime strategy route, no supported
+`preserve-v1`, no responsive preview/upgrade surface, no responsive dense
+packing path, and no Grids breakpoint or persistence concepts in Griddle. A
+live desktop/tablet/phone pass, including a phone-to-desktop round trip, kept
+all 12 demo tiles present, in bounds, and non-overlapping with no browser
+console errors. The audit found and fixed one placement edge case: Griddle
+gravity is now disabled for the entire session whenever authoritative
+breakpoint placements are active, preventing a later move or resize from
+compacting user-authored overrides. Component coverage locks that behavior.
 
 ## Rollout order
 

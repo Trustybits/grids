@@ -37,8 +37,6 @@
         />
       </MenuSection>
 
-      <ResponsiveLayoutSettings />
-
       <!-- Breakpoint Layout -->
       <template v-if="isOwner && viewportStore.activeBreakpoint !== 'lg'">
         <MenuSection>
@@ -211,7 +209,6 @@ import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
 import OgImageModal from "@/components/modal/OgImageModal.vue";
 import TransferGridModal from "@/components/modal/TransferGridModal.vue";
-import ResponsiveLayoutSettings from "@/components/grid/ResponsiveLayoutSettings.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useGridDuplicateStorage } from "@/composables/useGridDuplicateStorage";
 import { useGridTransfers } from "@/composables/useGridTransfers";

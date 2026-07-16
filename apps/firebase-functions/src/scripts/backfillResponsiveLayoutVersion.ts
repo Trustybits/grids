@@ -1,5 +1,5 @@
 /**
- * Admin script: stamp unversioned grid documents as responsive legacy-v1.
+ * Admin script: migrate known responsive-layout stamps to griddle-v1.
  *
  * The script is dry-run by default. A write run requires an explicit project,
  * --commit, and a matching --confirm value:
@@ -9,11 +9,13 @@
  *   node lib/scripts/backfillResponsiveLayoutVersion.js \
  *     --project <project> --commit --confirm <project>
  *
- * Only documents where responsiveLayoutVersion is absent are candidates.
- * Existing legacy-v1, griddle-v1, and unknown values are never rewritten. Each
- * committed candidate is re-read in a transaction so a value added during the
- * scan wins. The update contains only responsiveLayoutVersion, with no revision
- * or timestamp changes. Interrupted runs are safe to resume.
+ * Documents where responsiveLayoutVersion is absent or exactly legacy-v1 are
+ * candidates. Existing griddle-v1 documents are skipped. Unknown values block
+ * successful completion and are never overwritten. Each committed candidate
+ * is re-read in a transaction so a concurrent current or unknown value wins.
+ * The update contains only responsiveLayoutVersion, with no revision,
+ * timestamp, geometry, or override changes. Interrupted runs are safe to
+ * resume.
  *
  * Authentication uses Application Default Credentials. The caller needs read
  * and update access to the target project's grids collection.
@@ -21,6 +23,7 @@
 
 import admin from "firebase-admin";
 import {
+  assertResponsiveLayoutMigrationUnblocked,
   configureResponsiveLayoutBackfillProject,
   createFirestoreResponsiveLayoutBackfillDependencies,
   formatResponsiveLayoutBackfillSummary,
@@ -49,6 +52,8 @@ async function main(): Promise<void> {
   for (const line of formatResponsiveLayoutBackfillSummary(args, summary)) {
     console.warn(line);
   }
+
+  assertResponsiveLayoutMigrationUnblocked(summary);
 
   if (!args.commit) {
     console.warn(

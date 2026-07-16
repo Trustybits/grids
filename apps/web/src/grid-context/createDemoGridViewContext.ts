@@ -1,6 +1,5 @@
 import { computed, readonly, ref, shallowRef } from "vue";
 import {
-  resolveResponsiveLayoutVersion,
   type Breakpoint,
   type Grid,
 } from "@grids/contracts/types";
@@ -12,8 +11,8 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
   const forcedBreakpoint = ref<Breakpoint | null>(null);
   const activeBreakpoint = ref<Breakpoint>("lg");
   const viewportBreakpoint = ref<Breakpoint>("lg");
-  // Grid.vue owns version-aware responsive projection. Seed the context with
-  // canonical geometry until the engine publishes its final rendered state.
+  // Seed the context with canonical geometry until Griddle publishes its final
+  // rendered state.
   const displayPositions = ref(toCanonicalLayoutItems(grid.tiles));
   const pendingFocusTileId = ref<string | null>(null);
   const noop = () => {};
@@ -27,11 +26,6 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
     activePreview: computed(() => null),
     isPreviewActive: computed(() => false),
     blocksGridMutation: computed(() => false),
-    effectiveResponsiveLayoutVersion: computed(() =>
-      resolveResponsiveLayoutVersion(
-        gridRef.value.responsiveLayoutVersion,
-      ),
-    ),
     isLoading: computed(() => false),
     verticalCompact: computed(() => gridRef.value.verticalCompact),
     activeBreakpoint: computed(() => activeBreakpoint.value),
@@ -61,7 +55,6 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
       }));
     },
     commitCompactedLayout: noop,
-    startResponsiveLayoutPreview: () => false,
     stopPreview: noop,
 
     beginMove: noop,

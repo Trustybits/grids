@@ -19,8 +19,8 @@ import type { GridLayoutItem } from "@/types/GridLayout";
  * The app speaks its legacy `GridLayoutItem` shape (`{ i, x, y, w, h }`),
  * while Griddle speaks `Tile` (`{ id, col, row, w, h }`).
  * Nothing here touches Vue, the DOM, or component state: it is the seam that
- * `Grid.vue` uses to (a) load the projected responsive layout into a Griddle
- * engine and (b) read committed positions back out on drag/resize end.
+ * `Grid.vue` uses to (a) load canonical geometry into a Griddle engine and
+ * (b) read settled or committed positions back out.
  *
  * Dynamic, per-instance capabilities that live in `Tile.vue` (touch activation,
  * editing state) are intentionally NOT modelled here. This module only knows the
@@ -81,7 +81,7 @@ export interface ToGriddleTilesOptions {
   editable?: boolean;
   /**
    * Optional per-tile override. Receives the source contract tile (or
-   * `undefined` if the projected item has no matching tile) and the
+   * `undefined` if the layout item has no matching tile) and the
    * data-derived defaults, and returns a partial patch merged over them.
    * Use this from the Vue layer to fold in dynamic state (touch activation,
    * in-place editing) that this pure module cannot see.
@@ -194,9 +194,8 @@ export function toGriddleTile(
 }
 
 /**
- * Map the projected responsive layout to Griddle tiles, attaching caps derived
- * from the matching contract tiles (looked up by id) plus any `resolveCaps`
- * override.
+ * Map app layout geometry to Griddle tiles, attaching caps derived from the
+ * matching contract tiles (looked up by id) plus any `resolveCaps` override.
  */
 export function toGriddleTiles(
   items: readonly GridLayoutItem[],
@@ -273,8 +272,8 @@ export function buildGridConfig({
 }
 
 /**
- * Assemble a full Griddle snapshot for `api.loadJSON(...)` — the projected
- * layout mapped to tiles, paired with a freshly built config.
+ * Assemble a full Griddle snapshot for `api.loadJSON(...)` by mapping app
+ * layout geometry to tiles and pairing it with a freshly built config.
  */
 export function buildGridSnapshot(
   items: readonly GridLayoutItem[],

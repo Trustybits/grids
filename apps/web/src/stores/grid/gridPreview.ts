@@ -1,16 +1,12 @@
 import { defineStore } from "pinia";
-import {
-  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  type ResponsiveLayoutVersion,
-} from "@grids/contracts/types";
 
-export type GridPreview =
-  | {
-      readonly kind: "responsive-layout";
-      readonly gridId: string;
-      readonly responsiveLayoutVersion: typeof GRIDDLE_RESPONSIVE_LAYOUT_VERSION;
-    }
-  | null;
+/** Neutral descriptor for a future, session-local grid preview feature. */
+export interface GridPreviewDescriptor {
+  readonly kind: string;
+  readonly gridId: string;
+}
+
+export type GridPreview = GridPreviewDescriptor | null;
 
 function previewForGrid(
   preview: GridPreview,
@@ -46,23 +42,11 @@ export const useGridPreviewStore = defineStore("gridPreview", {
       (state) =>
       (gridId: string | null | undefined): boolean =>
         previewForGrid(state.activePreview, gridId) !== null,
-
-    responsiveLayoutVersionOverride:
-      (state) =>
-      (
-        gridId: string | null | undefined,
-      ): ResponsiveLayoutVersion | undefined =>
-        previewForGrid(state.activePreview, gridId)
-          ?.responsiveLayoutVersion,
   },
 
   actions: {
-    startResponsiveLayoutPreview(gridId: string): void {
-      this.activePreview = {
-        kind: "responsive-layout",
-        gridId,
-        responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-      };
+    startPreview(preview: GridPreviewDescriptor): void {
+      this.activePreview = { ...preview };
     },
 
     stopPreview(gridId?: string): void {

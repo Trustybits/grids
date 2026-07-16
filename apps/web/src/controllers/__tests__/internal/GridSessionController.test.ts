@@ -295,7 +295,7 @@ describe("GridSessionController", () => {
         makeGrid({ id: "g2", userId: "user-1" }),
       );
       const resetSessionState = vi.spyOn(h.stores.ui, "resetSessionState");
-      h.stores.preview.startResponsiveLayoutPreview("g2");
+      h.stores.preview.startPreview({ kind: "test-preview", gridId: "g2" });
 
       emit(makeGrid({ id: "g2", userId: "recipient" }));
 
@@ -406,7 +406,7 @@ describe("GridSessionController", () => {
 
     it("reloads to the latest grid when the stored rev has advanced", async () => {
       h.stores.session.setCurrentGrid(makeGrid({ id: "g1", rev: 3 }));
-      h.stores.preview.startResponsiveLayoutPreview("g1");
+      h.stores.preview.startPreview({ kind: "test-preview", gridId: "g1" });
       const latest = makeGrid({ id: "g1", rev: 5, name: "Newer" });
       vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(latest);
 

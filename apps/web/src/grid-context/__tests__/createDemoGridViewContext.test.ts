@@ -63,9 +63,6 @@ describe("createDemoGridViewContext", () => {
     expect(ctx.activePreview.value).toBeNull();
     expect(ctx.isPreviewActive.value).toBe(false);
     expect(ctx.blocksGridMutation.value).toBe(false);
-    expect(ctx.effectiveResponsiveLayoutVersion.value).toBe(
-      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-    );
     expect(ctx.isLoading.value).toBe(false);
     expect(ctx.verticalCompact.value).toBe(true);
     expect(ctx.activeBreakpoint.value).toBe("lg");
@@ -151,7 +148,6 @@ describe("createDemoGridViewContext", () => {
     dispose();
 
     expect(ctx.duplicateTile("tile-1")).toBeNull();
-    expect(ctx.startResponsiveLayoutPreview()).toBe(false);
     expect(ctx.getCookieValue("showMetaData")).toBeNull();
     expect(adapter.waitForLayoutReady).not.toHaveBeenCalled();
     expect(grid).toEqual(originalGrid);

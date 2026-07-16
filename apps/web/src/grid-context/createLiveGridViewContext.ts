@@ -1,5 +1,4 @@
 import { computed, readonly } from "vue";
-import { resolveResponsiveLayoutVersion } from "@grids/contracts/types";
 import type { GridViewContext } from "@/grid-context/GridViewContext";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridViewportStore } from "@/stores/grid/gridViewport";
@@ -38,13 +37,6 @@ export function createLiveGridViewContext(): GridViewContext {
     blocksGridMutation: computed(() =>
       preview.blocksGridMutation(currentGridId.value),
     ),
-    effectiveResponsiveLayoutVersion: computed(
-      () =>
-        preview.responsiveLayoutVersionOverride(currentGridId.value) ??
-        resolveResponsiveLayoutVersion(
-          session.currentGrid?.responsiveLayoutVersion,
-        ),
-    ),
     // Loading stays true until every tracked operation finishes: a grid load
     // (session) or a collection fetch can independently gate the canvas.
     isLoading: computed(
@@ -74,8 +66,6 @@ export function createLiveGridViewContext(): GridViewContext {
       controller.setDisplayPositions.bind(controller),
     commitCompactedLayout:
       controller.commitCompactedLayout.bind(controller),
-    startResponsiveLayoutPreview:
-      controller.startResponsiveLayoutPreview.bind(controller),
     stopPreview: controller.stopPreview.bind(controller),
 
     beginMove: controller.beginMove.bind(controller),

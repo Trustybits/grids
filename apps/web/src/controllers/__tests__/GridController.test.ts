@@ -250,7 +250,7 @@ describe("GridController", () => {
     stores.history.beginResize(
       makeSnapshot({ actionLabel: "Old resize" }),
     );
-    stores.preview.startResponsiveLayoutPreview("old-grid");
+    stores.preview.startPreview({ kind: "test-preview", gridId: "old-grid" });
     stores.viewport.setForcedBreakpoint("sm");
     stores.viewport.setDisplayPositions([
       { i: "tile-1", x: 1, y: 2, w: 3, h: 4 },
@@ -317,40 +317,6 @@ describe("GridController", () => {
     );
   });
 
-  it("keeps the obsolete responsive-layout preview entry inert", () => {
-    const { controller, stores } = createControllerHarness();
-    stores.session.setCurrentGrid(makeGrid());
-    stores.session.setOwner(true);
-    stores.history.beginEdit("tile-1", makeSnapshot());
-    stores.history.beginMove(makeSnapshot());
-    stores.history.beginResize(makeSnapshot());
-    stores.ui.setPanelActive("tile-1", "settings");
-
-    expect(controller.startResponsiveLayoutPreview()).toBe(false);
-    expect(stores.preview.activePreview).toBeNull();
-    expect(stores.session.isOwner).toBe(true);
-    expect(controller.canEditCurrentGrid()).toBe(true);
-    expect(stores.history.editingTileId).toBe("tile-1");
-    expect(stores.history.pendingMoveSnapshot).not.toBeNull();
-    expect(stores.history.pendingResizeSnapshot).not.toBeNull();
-    expect(stores.ui.activeTileId).toBe("tile-1");
-    expect(stores.ui.activePanelId).toBe("settings");
-  });
-
-  it("keeps the obsolete responsive-layout upgrade entry inert", async () => {
-    const { controller, stores, persistenceScheduler } =
-      createControllerHarness();
-    const grid = makeGrid();
-    stores.session.setCurrentGrid(grid);
-    stores.session.setOwner(true);
-
-    await expect(controller.upgradeResponsiveLayout()).resolves.toBe(false);
-    expect(grid.responsiveLayoutVersion).toBeUndefined();
-    expect(stores.preview.activePreview).toBeNull();
-    expect(persistenceScheduler.schedule).not.toHaveBeenCalled();
-    expect(persistenceScheduler.flush).not.toHaveBeenCalled();
-  });
-
   it("blocks user mutation categories and pending gesture commits during preview", async () => {
     const { controller, stores, persistenceScheduler } =
       createControllerHarness();
@@ -379,7 +345,7 @@ describe("GridController", () => {
       { i: "tile-1", x: 3, y: 4, w: 1, h: 1 },
     ]);
 
-    stores.preview.startResponsiveLayoutPreview("grid-1");
+    stores.preview.startPreview({ kind: "test-preview", gridId: "grid-1" });
     controller.commitMove();
     controller.setTileContent("tile-1", {
       type: ContentType.IMAGE,
@@ -453,7 +419,7 @@ describe("GridController", () => {
     });
     expect(uploadId).toBe("upload-1");
 
-    stores.preview.startResponsiveLayoutPreview("grid-1");
+    stores.preview.startPreview({ kind: "test-preview", gridId: "grid-1" });
     controller.setForcedBreakpoint("sm");
     expect(controller.startUpload({ tileId: "tile-1" })).toBeNull();
     expect(
@@ -501,7 +467,7 @@ describe("GridController", () => {
       ownedObjectUrl: "blob:media",
     });
 
-    stores.preview.startResponsiveLayoutPreview("grid-1");
+    stores.preview.startPreview({ kind: "test-preview", gridId: "grid-1" });
 
     expect(controller.failUploadAndRemoveTile(uploadId!)).toBe(true);
     expect(stores.session.currentGrid?.tiles).toEqual([]);

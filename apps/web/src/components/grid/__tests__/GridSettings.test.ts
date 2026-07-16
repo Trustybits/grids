@@ -129,7 +129,6 @@ async function mountOpenMenu() {
         OgImageModal: true,
         TransferGridModal: true,
         PromptModal: PromptModalStub,
-        ResponsiveLayoutSettings: true,
       },
     },
   });

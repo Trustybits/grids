@@ -269,6 +269,16 @@ menu drawer (Account), since early access is an account preference, not a per-gr
       mount refresh) + the new `showViewToggle`; `MobileGridBar` test covers the settings morph + close.
       Full suite green (excluding the pre-existing `@griddle/*` dependency gap); typecheck + lint clean.
 
+Motion / layout polish (applies to the whole mobile bar, Phase 5 + 6):
+
+- [x] **New design token `--easing-gentle`** (`cubic-bezier(0.32, 0.72, 0, 1)`) — a soft, no-overshoot
+      ease-out approximating Figma's "Gentle" preset. The pill width morph and the settings/carousel
+      rise now use it at `--duration-slow` (400ms) instead of the bouncy `--easing-spring`.
+- [x] The bar rests **8px** (`--spacing-sm`) above the viewport bottom, but hugs the on-screen
+      keyboard flush when it opens (visual-viewport-driven `keyboardInset` → inline `bottom`).
+- [x] Settings sheet body (excludes the `/GRID` bar) capped at **~190px on an iPhone SE** (`33.5vh`),
+      scaling up on larger screens; the row list scrolls when it overflows.
+
 #### Phase 6.2 — Grid Background + theme cards ⬜ NOT STARTED
 
 - [ ] Grid Background: image upload + background color (move the desktop handlers into

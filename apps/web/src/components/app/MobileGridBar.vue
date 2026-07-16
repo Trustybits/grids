@@ -23,6 +23,7 @@
     ref="rootRef"
     class="mobile-grid-bar"
     :class="{ 'mgb--connected': mode === 'settings' }"
+    :style="barStyle"
   >
     <!-- Grid settings sheet — slides up from behind the pill and rests flush on
          top of the morphed `/GRID` command input. -->
@@ -202,6 +203,17 @@ const documentInput = ref<HTMLInputElement | null>(null);
 const mode = ref<"default" | "add" | "settings">("default");
 const showPreview = ref(false);
 const query = ref("");
+
+// On-screen keyboard height (0 when closed). The bar normally floats 8px above
+// the viewport bottom, but when a soft keyboard opens it rests flush on top of
+// it so the `/TILE` · `/GRID` input is never hidden.
+const keyboardInset = ref(0);
+const barStyle = computed(() => ({
+  bottom:
+    keyboardInset.value > 0
+      ? `${keyboardInset.value}px`
+      : "var(--spacing-sm)",
+}));
 const viewMode = ref<"carousel" | "list">("carousel");
 // The command-type card the user tapped (link / embed / map), so ENTER knows
 // what to build from the typed text. null → generic smart-paste / keyword.
@@ -247,7 +259,7 @@ const animatePillWidth = async () => {
 
   el.style.width = `${start}px`;
   void el.offsetWidth; // force reflow so the next change transitions
-  el.style.transition = "width var(--duration-normal) var(--easing-spring)";
+  el.style.transition = "width var(--duration-slow) var(--easing-gentle)";
   el.style.width = `${end}px`;
 
   const cleanup = (event: TransitionEvent) => {
@@ -410,20 +422,39 @@ const handleKeydown = (event: KeyboardEvent) => {
   showPreview.value = false;
 };
 
+// Track the soft-keyboard height via the visual viewport: the gap between the
+// layout viewport bottom and the (shrunken) visual viewport bottom is the
+// keyboard's height. ~0 when the keyboard is closed or on desktop.
+const updateKeyboardInset = () => {
+  const vv = window.visualViewport;
+  if (!vv) {
+    keyboardInset.value = 0;
+    return;
+  }
+  const inset = window.innerHeight - vv.height - vv.offsetTop;
+  keyboardInset.value = inset > 1 ? inset : 0;
+};
+
 onMounted(() => {
   document.addEventListener("pointerdown", handlePointerDown);
   document.addEventListener("keydown", handleKeydown);
+  window.visualViewport?.addEventListener("resize", updateKeyboardInset);
+  window.visualViewport?.addEventListener("scroll", updateKeyboardInset);
+  updateKeyboardInset();
 });
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", handlePointerDown);
   document.removeEventListener("keydown", handleKeydown);
+  window.visualViewport?.removeEventListener("resize", updateKeyboardInset);
+  window.visualViewport?.removeEventListener("scroll", updateKeyboardInset);
 });
 </script>
 
 <style lang="scss" scoped>
 .mobile-grid-bar {
   position: fixed;
-  bottom: var(--spacing-lg);
+  // Default resting gap; overridden inline to hug the keyboard when it opens.
+  bottom: var(--spacing-sm);
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--z-fixed);
@@ -551,8 +582,8 @@ onBeforeUnmount(() => {
 .mgb-rise-enter-active,
 .mgb-rise-leave-active {
   transition:
-    opacity var(--duration-normal) var(--easing-smooth),
-    transform var(--duration-normal) var(--easing-spring);
+    opacity var(--duration-slow) var(--easing-gentle),
+    transform var(--duration-slow) var(--easing-gentle);
 }
 
 .mgb-rise-enter-from,

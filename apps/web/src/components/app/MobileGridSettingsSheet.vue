@@ -227,8 +227,11 @@ const onPixelRacers = () => {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 320px;
-  max-height: 70vh;
+  // Sheet body (excludes the `/GRID` command bar beneath it). Caps at ~190px on
+  // an iPhone SE (568px tall) and scales up with taller screens; the row list
+  // scrolls if it overflows. Never taller than the space above the bar.
+  height: 33.5vh;
+  max-height: 33.5vh;
   padding: var(--spacing-sm) var(--spacing-xs) var(--spacing-xs);
   background-color: var(--color-toolbar-background);
   border: var(--border-width) solid var(--color-stroke);

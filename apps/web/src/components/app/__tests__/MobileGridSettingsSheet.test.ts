@@ -14,12 +14,14 @@ const gsHolder = vi.hoisted(() => ({
   cancelPendingTransfer: vi.fn(async () => undefined),
   launchPixelRacers: vi.fn(),
   isOwner: true,
+  isStaff: true,
   pendingTransfer: undefined as unknown,
 }));
 
 vi.mock("@/composables/useGridSettings", () => ({
   useGridSettings: () => ({
     isOwner: ref(gsHolder.isOwner),
+    isStaff: ref(gsHolder.isStaff),
     gridPageId: ref("grid-1"),
     currentGridName: ref("My Grid"),
     pendingTransfer: ref(gsHolder.pendingTransfer),
@@ -72,6 +74,7 @@ describe("MobileGridSettingsSheet", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     gsHolder.isOwner = true;
+    gsHolder.isStaff = true;
     gsHolder.pendingTransfer = undefined;
   });
 
@@ -129,21 +132,33 @@ describe("MobileGridSettingsSheet", () => {
     expect(gsHolder.openTransferModal).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps debug tools collapsed by default and reveals them on tap", async () => {
+  it("keeps the staff debug tools collapsed by default and reveals them on tap", async () => {
     const wrapper = mountSheet();
-    // The Debug header is present, but its tools are hidden until expanded.
+    // The Debug header is present (staff), but its tools are hidden until expanded.
     expect(rowByText(wrapper, "Debug")).toBeTruthy();
     expect(rowByText(wrapper, "Metadata")).toBeUndefined();
-    expect(rowByText(wrapper, "Pixel Racers")).toBeUndefined();
 
     await rowByText(wrapper, "Debug")?.trigger("click");
     expect(rowByText(wrapper, "Metadata")).toBeTruthy();
-    expect(rowByText(wrapper, "Pixel Racers")).toBeTruthy();
+    expect(rowByText(wrapper, "Verbose Metadata")).toBeTruthy();
   });
 
   it("auto-expands the debug tools while a query is active", () => {
     const wrapper = mountSheet("metadata");
     expect(rowByText(wrapper, "Verbose Metadata")).toBeTruthy();
+  });
+
+  it("hides the entire Debug section from non-staff", () => {
+    gsHolder.isStaff = false;
+    const wrapper = mountSheet();
+    expect(rowByText(wrapper, "Debug")).toBeUndefined();
+    expect(rowByText(wrapper, "Metadata")).toBeUndefined();
+  });
+
+  it("never surfaces Pixel Racers on mobile (desktop-only easter egg)", async () => {
+    const wrapper = mountSheet();
+    await rowByText(wrapper, "Debug")?.trigger("click");
+    expect(rowByText(wrapper, "Pixel Racers")).toBeUndefined();
   });
 
   it("refreshes the default-grid flag on mount", () => {

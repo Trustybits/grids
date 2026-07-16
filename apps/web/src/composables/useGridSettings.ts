@@ -52,6 +52,13 @@ export const useGridSettings = () => {
     return !!(userId && grid && userId === grid.userId);
   });
 
+  // Internal Trustybits staff — gates the developer debug tooling (Metadata /
+  // Verbose Metadata). Pixel Racers stays open to everyone.
+  const isStaff = computed(() => {
+    const email = authProvider.getCurrentUser()?.email ?? "";
+    return email.toLowerCase().endsWith("@trustybits.com");
+  });
+
   const gridPageId = computed(() => sessionStore.currentGrid?.id || "");
 
   const currentGridName = computed(
@@ -241,6 +248,7 @@ export const useGridSettings = () => {
   return {
     // state
     isOwner,
+    isStaff,
     gridPageId,
     currentGridName,
     hasBackgroundImage,

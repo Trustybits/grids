@@ -94,7 +94,10 @@
         </button>
       </template>
 
-      <template v-if="isVisible('debug')">
+      <!-- Debug is developer-only metadata tooling, gated to Trustybits staff.
+           (Pixel Racers is desktop-only — it's a keyboard easter egg — so it is
+           intentionally absent here.) -->
+      <template v-if="isStaff && isVisible('debug')">
         <div class="mgs-divider" aria-hidden="true" />
         <button
           type="button"
@@ -118,13 +121,6 @@
           <div class="mgs-row mgs-row--toggle">
             <Toggle label="Verbose Metadata" v-model="showMetaDataVerbose" />
           </div>
-          <button
-            type="button"
-            class="mgs-row mgs-row--action"
-            @click="onPixelRacers"
-          >
-            <span class="mgs-row__label">🏍️ Pixel Racers</span>
-          </button>
         </template>
       </template>
 
@@ -167,6 +163,7 @@ const emit = defineEmits<{ (e: "close"): void }>();
 
 const {
   isOwner,
+  isStaff,
   gridPageId,
   currentGridName,
   pendingTransfer,
@@ -187,7 +184,6 @@ const {
   performDelete,
   openTransferModal,
   cancelPendingTransfer,
-  launchPixelRacers,
 } = useGridSettings();
 
 // Each settings row's search terms. The parent's `/GRID` input narrows the list
@@ -201,7 +197,7 @@ const SETTINGS_INDEX: Record<string, string> = {
   duplicate: "duplicate copy clone",
   transfer: "transfer move ownership give",
   delete: "delete remove trash",
-  debug: "debug metadata developer pixel racers",
+  debug: "debug metadata verbose developer",
 };
 
 const matchingIds = computed(() => {
@@ -238,11 +234,6 @@ const onDuplicate = async () => {
 
 const onTransfer = () => {
   openTransferModal();
-};
-
-const onPixelRacers = () => {
-  launchPixelRacers();
-  emit("close");
 };
 </script>
 

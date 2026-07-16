@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const holder = vi.hoisted(() => ({
   userId: "user-1" as string | null,
+  email: "user@example.com" as string | null,
   push: vi.fn(),
   addToast: vi.fn(),
   getUserProfile: vi.fn(async () => ({ defaultGridId: null as string | null })),
@@ -37,7 +38,11 @@ const holder = vi.hoisted(() => ({
 vi.mock("vue-router", () => ({ useRouter: () => ({ push: holder.push }) }));
 
 vi.mock("@/auth/AuthProviderSingleton", () => ({
-  getAuthProvider: () => ({ getCurrentUserId: () => holder.userId }),
+  getAuthProvider: () => ({
+    getCurrentUserId: () => holder.userId,
+    getCurrentUser: () =>
+      holder.email === null ? null : { id: holder.userId, email: holder.email },
+  }),
 }));
 
 vi.mock("@/services/ServiceFactorySingleton", () => ({
@@ -110,6 +115,7 @@ describe("useGridSettings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     holder.userId = "user-1";
+    holder.email = "user@example.com";
     holder.session = {
       currentGrid: { id: "grid-1", userId: "user-1", duplicatable: false },
       verticalCompact: false,
@@ -136,6 +142,20 @@ describe("useGridSettings", () => {
     holder.userId = "someone-else";
     const notOwned = await load();
     expect(notOwned.isOwner.value).toBe(false);
+  });
+
+  it("flags Trustybits staff by email domain", async () => {
+    holder.email = "matt@trustybits.com";
+    expect((await load()).isStaff.value).toBe(true);
+
+    holder.email = "matt@TRUSTYBITS.COM";
+    expect((await load()).isStaff.value).toBe(true);
+
+    holder.email = "someone@example.com";
+    expect((await load()).isStaff.value).toBe(false);
+
+    holder.email = null;
+    expect((await load()).isStaff.value).toBe(false);
   });
 
   it("routes toggle setters through the controller", async () => {

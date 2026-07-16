@@ -144,13 +144,17 @@
       <Divider />
       <MenuSection>
         <Accordion title="Debug" class="debug-accordion">
+          <!-- Developer metadata tooling is Trustybits-staff only; Pixel Racers
+               stays available to everyone. -->
           <Toggle
+            v-if="isStaff"
             label="Metadata"
             :modelValue="uiStore.showMetaData"
             @update:modelValue="controller.setShowMetaData"
             tooltip="Show compact metadata on each tile"
           />
           <Toggle
+            v-if="isStaff"
             label="Verbose Metadata"
             :modelValue="uiStore.showMetaDataVerbose"
             @update:modelValue="controller.setShowMetaDataVerbose"
@@ -217,6 +221,7 @@ const toastStore = useToastStore();
 // Shared grid-settings state + actions (also used by the Mobile 2.0 sheet).
 const {
   isOwner,
+  isStaff,
   gridPageId,
   currentGridName,
   hasBackgroundImage,

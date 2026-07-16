@@ -778,9 +778,9 @@ export class GridController {
     return this.tileStructureController.duplicateTile(id);
   }
 
-  removeTile(id: string): void {
+  removeTile(id: string, settledLayout?: GridLayoutItem[]): void {
     if (this.blocksCurrentGridMutation()) return;
-    this.tileStructureController.removeTile(id);
+    this.tileStructureController.removeTile(id, settledLayout);
   }
 
   resizeTile(id: string, width: number, height: number): void {

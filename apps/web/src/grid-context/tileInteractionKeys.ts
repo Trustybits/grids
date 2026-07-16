@@ -30,6 +30,18 @@ export const TILE_RESIZE_REQUEST: InjectionKey<TileResizeRequest> = Symbol(
 );
 
 /**
+ * Tile action bar -> Grid channel for deletion requests.
+ *
+ * Deletion has to pass through Griddle so configured gravity can compact the
+ * remaining rendered layout before Grids persists the structural mutation.
+ */
+export type TileRemoveRequest = (tileId: string) => void;
+
+export const TILE_REMOVE_REQUEST: InjectionKey<TileRemoveRequest> = Symbol(
+  "tileRemoveRequest",
+);
+
+/**
  * Increments whenever Griddle changes rendered tile geometry. Teleported tile
  * chrome uses this signal to follow resize/repack FLIP animations.
  */

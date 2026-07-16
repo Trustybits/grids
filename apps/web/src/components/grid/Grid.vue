@@ -64,6 +64,7 @@ import {
 import {
   TILE_DRAGGING_ID,
   TILE_GEOMETRY_VERSION,
+  TILE_REMOVE_REQUEST,
   TILE_RESIZE_REQUEST,
 } from "@/grid-context/tileInteractionKeys";
 
@@ -158,13 +159,10 @@ export default {
         cols: responsiveColNum.value,
         rowHeight: props.rowHeight,
         margin,
-        // Griddle automatically applies configured gravity after later
-        // move/resize mutations. Saved breakpoint placements are authoritative,
-        // so disable engine gravity for the whole placement-backed session,
-        // not only during the initial reflow transaction.
-        verticalCompact:
-          gridView.verticalCompact &&
-          activeGriddlePlacements.value === undefined,
+        // Saved breakpoint placements remain exact during the initial reflow
+        // transaction below. Keep engine gravity configured, though, so later
+        // user moves and resizes compact normally at every breakpoint.
+        verticalCompact: gridView.verticalCompact,
         // grids.so owns page scroll + outer transform:scale(); the grid must
         // size to content and not lock touch-action. And we never handle
         // draw-to-create, so gate it off.
@@ -212,8 +210,14 @@ export default {
     let interacting = false;
     let engineSyncPending = false;
     let syncGeneration = 0;
+    let lastSyncedBreakpoint: typeof activeBreakpoint.value | null = null;
     const syncEngine = async (): Promise<void> => {
       const generation = ++syncGeneration;
+      const breakpoint = activeBreakpoint.value;
+      const breakpointChanged =
+        lastSyncedBreakpoint !== null &&
+        lastSyncedBreakpoint !== breakpoint;
+      lastSyncedBreakpoint = breakpoint;
       markLayoutPending();
       api.loadJSON({
         version: 1,
@@ -233,19 +237,30 @@ export default {
         });
       }
 
-      // Reflow and loadJSON do not apply gravity. Explicit breakpoint
-      // placements are immutable user-authored anchors, so never compact them
-      // away from their stored positions; the griddle-v1 strategy already
-      // packs every automatic tile around those anchors.
+      // Reflow and loadJSON do not apply gravity. Preserve placements during
+      // ordinary reconciliation, but a real breakpoint transition must settle
+      // gravity after reflow so structural changes made at another breakpoint
+      // cannot leave stale gaps behind.
       const hasAuthoritativePlacements =
         activeGriddlePlacements.value !== undefined;
-      if (gridView.verticalCompact && !hasAuthoritativePlacements) {
+      const shouldApplyGravity =
+        gridView.verticalCompact &&
+        (!hasAuthoritativePlacements || breakpointChanged);
+      if (shouldApplyGravity) {
         api.grid.compactAll();
       }
       await nextTick();
       if (generation !== syncGeneration) return;
 
-      gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
+      const settled = fromGriddleTiles(api.tiles.value);
+      gridView.setDisplayPositions(settled);
+      if (
+        breakpointChanged &&
+        gridView.verticalCompact &&
+        hasAuthoritativePlacements
+      ) {
+        gridView.commitCompactedLayout(settled);
+      }
       markLayoutReady();
     };
 
@@ -415,6 +430,35 @@ export default {
     };
     provide(TILE_RESIZE_REQUEST, resizeTileThroughEngine);
 
+    const removeTileThroughEngine = (id: string): void => {
+      if (!gridView.canEdit) return;
+
+      const tileExists = api.grid.getTile(id) !== undefined;
+      const hadAuthoritativePlacements =
+        activeGriddlePlacements.value !== undefined;
+
+      if (!tileExists) {
+        gridView.removeTile(id);
+        return;
+      }
+
+      api.removeTile(id);
+      const settled = fromGriddleTiles(api.tiles.value);
+      gridView.setDisplayPositions(settled);
+
+      // The controller still owns the structural mutation, undo snapshot, and
+      // cleanup. Passing the settled layout lets it persist post-removal
+      // gravity in the same transaction without creating overrides for a
+      // breakpoint that was already automatic.
+      gridView.removeTile(
+        id,
+        gridView.verticalCompact && hadAuthoritativePlacements
+          ? settled
+          : undefined,
+      );
+    };
+    provide(TILE_REMOVE_REQUEST, removeTileThroughEngine);
+
     const onDragStart = (id: string): void => {
       interacting = true;
       draggingTileId.value = id;
@@ -452,11 +496,7 @@ export default {
       () => gridView.verticalCompact,
       (isCompact, wasCompact) => {
         if (!gridView.grid || !gridView.canEdit) return;
-        if (
-          isCompact &&
-          !wasCompact &&
-          activeGriddlePlacements.value === undefined
-        ) {
+        if (isCompact && !wasCompact) {
           api.updateConfig({ gravity: "top" });
           api.grid.compactAll();
           const compacted = fromGriddleTiles(api.tiles.value);
@@ -487,6 +527,7 @@ export default {
       onDragEnd,
       onResizeStart,
       onResizeEnd,
+      removeTileThroughEngine,
       resizeTileThroughEngine,
     };
   },

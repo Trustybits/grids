@@ -164,6 +164,7 @@ function makeStore(grid = makeGrid()) {
     commitMove: vi.fn(),
     beginResize: vi.fn(),
     commitResize: vi.fn(),
+    removeTile: vi.fn(),
     updateGrid: vi.fn(),
     registerLayoutReadinessAdapter,
   });
@@ -325,6 +326,40 @@ describe("Grid canvas characterization", () => {
     ]);
     wrapper.unmount();
   });
+
+  it.each<Breakpoint>(["md", "sm"])(
+    "runs and persists gravity after switching to %s placements",
+    async (breakpoint) => {
+      const first = makeTile({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 });
+      const second = makeTile({ i: "tile-2", x: 2, y: 0, w: 2, h: 2 });
+      const grid = makeGrid(first);
+      grid.tiles = [first, second];
+      grid.overrides = {
+        [breakpoint]: {
+          "tile-1": { x: 0, y: 0, w: 2, h: 2 },
+          "tile-2": { x: 0, y: 5, w: 2, h: 2 },
+        },
+      };
+      const { store } = makeStore(grid);
+      store.verticalCompact = true;
+      storeHolder.current = store;
+      const wrapper = await mountGrid();
+      await flushPromises();
+      store.commitCompactedLayout.mockClear();
+
+      store.forcedBreakpoint = breakpoint;
+      await flushPromises();
+
+      const expected = [
+        { i: "tile-1", x: 0, y: 0, w: 2, h: 2 },
+        { i: "tile-2", x: 0, y: 2, w: 2, h: 2 },
+      ];
+      expect(store.setDisplayPositions).toHaveBeenLastCalledWith(expected);
+      expect(store.commitCompactedLayout).toHaveBeenCalledWith(expected);
+
+      wrapper.unmount();
+    },
+  );
 
   it("keeps a canonical target unreflowed even when its breakpoint label is md", async () => {
     const grid = makeGrid();
@@ -773,6 +808,46 @@ describe("Grid canvas characterization", () => {
     wrapper.unmount();
   });
 
+  it.each<Breakpoint>(["md", "sm"])(
+    "applies and persists gravity after deleting a tile from %s placements",
+    async (breakpoint) => {
+      const first = makeTile({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 });
+      const second = makeTile({ i: "tile-2", x: 0, y: 2, w: 2, h: 2 });
+      const third = makeTile({ i: "tile-3", x: 0, y: 4, w: 2, h: 2 });
+      const grid = makeGrid(first);
+      grid.tiles = [first, second, third];
+      grid.overrides = {
+        [breakpoint]: {
+          "tile-1": { x: 0, y: 0, w: 2, h: 2 },
+          "tile-2": { x: 0, y: 2, w: 2, h: 2 },
+          "tile-3": { x: 0, y: 4, w: 2, h: 2 },
+        },
+      };
+      const { store } = makeStore(grid);
+      store.forcedBreakpoint = breakpoint;
+      store.verticalCompact = true;
+      storeHolder.current = store;
+      const wrapper = await mountGrid();
+      await flushPromises();
+
+      (
+        wrapper.vm as unknown as {
+          removeTileThroughEngine: (id: string) => void;
+        }
+      ).removeTileThroughEngine("tile-1");
+      await flushPromises();
+
+      const expected = [
+        { i: "tile-2", x: 0, y: 0, w: 2, h: 2 },
+        { i: "tile-3", x: 0, y: 2, w: 2, h: 2 },
+      ];
+      expect(store.removeTile).toHaveBeenCalledWith("tile-1", expected);
+      expect(store.setDisplayPositions).toHaveBeenLastCalledWith(expected);
+
+      wrapper.unmount();
+    },
+  );
+
   it("compacts through the engine and commits when gravity is enabled (desktop)", async () => {
     // tile-2 sits below an empty gap; enabling gravity pulls it up beneath
     // tile-1 (which is h:2 at y:0 → tile-2 lands at y:2).
@@ -807,41 +882,43 @@ describe("Grid canvas characterization", () => {
     wrapper.unmount();
   });
 
-  it("does not compact authoritative breakpoint placements when gravity is enabled", async () => {
-    const first = makeTile({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 });
-    const second = makeTile({ i: "tile-2", x: 2, y: 0, w: 2, h: 2 });
-    const grid = makeGrid(first);
-    grid.tiles = [first, second];
-    grid.overrides = {
-      md: {
-        "tile-1": { x: 0, y: 0, w: 2, h: 2 },
-        "tile-2": { x: 0, y: 5, w: 2, h: 2 },
-      },
-    };
-    const { store } = makeStore(grid);
-    store.forcedBreakpoint = "md";
-    store.verticalCompact = false;
-    storeHolder.current = store;
-    const wrapper = await mountGrid();
-    await flushPromises();
+  it.each<Breakpoint>(["md", "sm"])(
+    "enables gravity and persists compaction for %s breakpoint placements",
+    async (breakpoint) => {
+      const first = makeTile({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 });
+      const second = makeTile({ i: "tile-2", x: 2, y: 0, w: 2, h: 2 });
+      const grid = makeGrid(first);
+      grid.tiles = [first, second];
+      grid.overrides = {
+        [breakpoint]: {
+          "tile-1": { x: 0, y: 0, w: 2, h: 2 },
+          "tile-2": { x: 0, y: 5, w: 2, h: 2 },
+        },
+      };
+      const { store } = makeStore(grid);
+      store.forcedBreakpoint = breakpoint;
+      store.verticalCompact = false;
+      storeHolder.current = store;
+      const wrapper = await mountGrid();
+      await flushPromises();
 
-    store.verticalCompact = true;
-    await nextTick();
-    await flushPromises();
+      store.verticalCompact = true;
+      await nextTick();
+      await flushPromises();
 
-    expect(store.commitCompactedLayout).not.toHaveBeenCalled();
-    expect(griddleHooks.loadJSON).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        config: expect.objectContaining({ gravity: "none" }),
-      }),
-    );
-    expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
-      { i: "tile-1", x: 0, y: 0, w: 2, h: 2 },
-      { i: "tile-2", x: 0, y: 5, w: 2, h: 2 },
-    ]);
+      expect(griddleHooks.loadJSON).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({ gravity: "top" }),
+        }),
+      );
+      expect(store.commitCompactedLayout).toHaveBeenCalledWith([
+        expect.objectContaining({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 }),
+        expect.objectContaining({ i: "tile-2", x: 0, y: 2, w: 2, h: 2 }),
+      ]);
 
-    wrapper.unmount();
-  });
+      wrapper.unmount();
+    },
+  );
 
   it("reports an empty grid as ready and renders no GriddleGrid", async () => {
     const grid = makeGrid();

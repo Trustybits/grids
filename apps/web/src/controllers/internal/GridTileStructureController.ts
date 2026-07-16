@@ -6,6 +6,7 @@ import {
   type TileContent,
 } from "@grids/contracts/types";
 import { getTileDefinition } from "@/registries/tileRegistry";
+import type { GridLayoutItem } from "@/types/GridLayout";
 import {
   adjustTilePosition,
   findBestXAtRow,
@@ -16,6 +17,7 @@ import { createTile } from "@/utils/TileUtils";
 import {
   createPositionMap,
   getTileObjectUrls,
+  syncPositionOnlyLayout,
 } from "../GridControllerHelpers";
 import type {
   GridControllerDependencies,
@@ -180,7 +182,7 @@ export class GridTileStructureController {
     return newId;
   }
 
-  removeTile(id: string): void {
+  removeTile(id: string, settledLayout?: GridLayoutItem[]): void {
     const grid = this.stores.session.currentGrid;
     if (!grid) return;
 
@@ -213,6 +215,16 @@ export class GridTileStructureController {
       }
     }
     grid.tiles = grid.tiles.filter((candidate) => candidate.i !== id);
+
+    if (settledLayout) {
+      const breakpoint = this.stores.viewport.activeBreakpoint;
+      if (breakpoint === "lg") {
+        syncPositionOnlyLayout(grid, settledLayout);
+      } else {
+        grid.overrides ??= {};
+        grid.overrides[breakpoint] = createPositionMap(settledLayout);
+      }
+    }
 
     if (tile) {
       // Defer chat message cleanup so an undo can restore the tile (and its

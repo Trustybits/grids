@@ -73,7 +73,7 @@ export interface GridViewContext {
     patch: Partial<DocumentItem>,
   ): void;
   updateCaption(input: UpdateCaptionInput): void;
-  removeTile(tileId: string): void;
+  removeTile(tileId: string, settledLayout?: GridLayoutItem[]): void;
   duplicateTile(tileId: string): string | null;
   resizeTile(tileId: string, width: number, height: number): void;
   toggleTileBorder(tileId: string): void;

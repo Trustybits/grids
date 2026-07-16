@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import {
   AnalyticsEventType,
   ContentType,
+  type Breakpoint,
   type ChatContent,
   type Tile,
   type TileContent,
@@ -259,6 +260,37 @@ describe("GridTileStructureController", () => {
         }),
       );
     });
+
+    it.each<Breakpoint>(["md", "sm"])(
+      "persists Griddle's settled %s layout in the removal transaction",
+      (breakpoint) => {
+        const first = makeLinkTile({ i: "t1" });
+        const second = makeLinkTile({ i: "t2" });
+        h.stores.session.setCurrentGrid(
+          makeGrid({
+            tiles: [first, second],
+            overrides: {
+              [breakpoint]: {
+                t1: { x: 0, y: 0, w: 2, h: 2 },
+                t2: { x: 0, y: 4, w: 2, h: 2 },
+              },
+            },
+          }),
+        );
+        h.stores.viewport.setActiveBreakpoint(breakpoint);
+
+        controller.removeTile("t1", [
+          { i: "t2", x: 0, y: 0, w: 2, h: 2 },
+        ]);
+
+        expect(h.stores.session.currentGrid?.overrides?.[breakpoint]).toEqual({
+          t2: { x: 0, y: 0, w: 2, h: 2 },
+        });
+        expect(pushUndoSnapshot).toHaveBeenCalledWith("Remove tile");
+        expect(scheduleSave).toHaveBeenCalledTimes(1);
+        expect(refreshStableSnapshot).toHaveBeenCalledTimes(1);
+      },
+    );
 
     it("passes blob object urls of the removed tile to clearTileState", () => {
       const tile = makeImageTile({ i: "t1" });

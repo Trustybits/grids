@@ -77,10 +77,11 @@ The sole final Griddle strategy, named `griddle-v1`, must behave as follows.
 5. Preserve authoritative placement position and size exactly.
 
 The existing requirement that user-authored breakpoint overrides have priority
-remains in force. When an active breakpoint has saved placements, Grids must
-not invoke a later gravity pass that would move those anchors. Gravity remains
-a separate Griddle operation for layouts without authoritative placements; it
-is not part of the reflow algorithm.
+remains in force inside the reflow algorithm. Saved placements are installed
+exactly before any separate gravity operation. On an actual breakpoint switch,
+enabled gravity then compacts the settled reflow result and persists that result
+as the breakpoint's new override state. Gravity also remains configured for
+subsequent user moves, resizes, deletions, and gravity toggles.
 
 ## Target ownership boundary
 
@@ -258,9 +259,12 @@ their full deletion in Step 5.
    canonical column count.
 4. Keep the settled-state publication and layout-readiness transaction: no
    intermediate load/reflow event may be published to app state.
-5. Apply Griddle gravity only when enabled and no authoritative placements are
-   active. Continue to persist desktop gestures to `tiles` and narrower
-   breakpoint gestures to `overrides`.
+5. After an actual breakpoint transition, apply enabled Griddle gravity to the
+   settled reflow result and persist any compacted saved placements. During
+   ordinary reconciliation, apply an explicit gravity pass only when no
+   authoritative placements are active. Keep engine gravity configured for
+   later edits at every breakpoint. Continue to persist desktop gestures to
+   `tiles` and narrower breakpoint gestures to `overrides`.
 6. Delete `apps/web/src/utils/ResponsiveLayoutStrategy.ts` and its tests; there
    is no version-to-algorithm map with one unconditional path.
 7. Remove `projectGridLayout()` and every helper used only by that app-owned
@@ -278,15 +282,18 @@ under the grid's base column count. Targets narrower than that base make
 exactly one explicit `api.reflow()` call with `strategy: "griddle-v1"` and the
 active saved placements when present; an equal-width target remains canonical
 and unreflowed. Settled geometry is still published only after the complete
-load, optional reflow, and optional gravity transaction. Gravity is skipped
-whenever authoritative placements are active, including when gravity is
-toggled on. The version-to-strategy adapter, app-owned projection algorithm,
+load, optional reflow, and optional gravity transaction. A real breakpoint
+transition applies configured gravity after reflow and persists the settled
+`md` or `sm` placements, while ordinary placement reconciliation remains
+stable. Configured gravity also applies to later moves, resizes, deletions, and
+gravity toggles. The version-to-strategy adapter, app-owned projection
+algorithm,
 projection-only helpers, parity fixtures, and their tests were deleted;
 `GridLayoutUtils.ts` now owns only breakpoint and viewport column calculations.
 Component tests keep collision checks local and verify canonical loading,
 single-call reflow, placement forwarding, equal-width behavior, settled-state
-publication, and gravity isolation. Publishing and consuming the prepared
-Griddle package remains Step 7.
+publication, and the reflow-versus-edit gravity boundary. Publishing and
+consuming the prepared Griddle package remains Step 7.
 
 ### Step 5 — Remove responsive preview and upgrade product surfaces
 
@@ -412,7 +419,8 @@ For each case verify:
 - desktop canonical geometry is unchanged;
 - every narrower layout matches the frozen historical app fixture;
 - every tile is present, in bounds, and non-overlapping;
-- saved overrides remain exact, including when gravity is enabled;
+- saved overrides remain exact inside reflow, after which breakpoint-switch or
+  edit-driven gravity persists the settled positions;
 - repeated breakpoint switching is deterministic and does not mutate canonical
   tiles or unrelated override maps;
 - fresh grids and duplicates carry `griddle-v1`;
@@ -469,7 +477,7 @@ after the automated matrix passes.
 
 **Implementation record:** Griddle build, 116 package tests, all three adapter
 demo builds, Vue demo template type checking, and four-package dry-run packing
-passed at 0.1.10. Grids web passed 143 files and 2,605 tests plus type checking,
+passed at 0.1.10. Grids web passed 143 files and 2,613 tests plus type checking,
 lint, and production build; Firebase Functions passed 65 files and 919 tests
 plus type checking, lint, and build. The cross-repository ownership searches
 found no app-owned responsive projection/runtime strategy route, no supported
@@ -477,10 +485,15 @@ found no app-owned responsive projection/runtime strategy route, no supported
 packing path, and no Grids breakpoint or persistence concepts in Griddle. A
 live desktop/tablet/phone pass, including a phone-to-desktop round trip, kept
 all 12 demo tiles present, in bounds, and non-overlapping with no browser
-console errors. The audit found and fixed one placement edge case: Griddle
-gravity is now disabled for the entire session whenever authoritative
-breakpoint placements are active, preventing a later move or resize from
-compacting user-authored overrides. Component coverage locks that behavior.
+console errors. Follow-up verification corrected the placement/gravity boundary:
+authoritative placements remain exact inside reflow, while Griddle gravity runs
+after actual breakpoint transitions and remains enabled for later moves,
+resizes, and gravity toggles at `md` and `sm`. Switch-driven compaction is
+persisted so cross-breakpoint structural changes cannot leave stale gaps.
+Tile deletion also routes through Griddle so post-removal gravity is persisted
+with the structural mutation instead of being lost to a placement-backed
+reload. Component and controller coverage lock both breakpoint paths, Tile
+action wiring, and the single undo/save transaction.
 
 ## Rollout order
 

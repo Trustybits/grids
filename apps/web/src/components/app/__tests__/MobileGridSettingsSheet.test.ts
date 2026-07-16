@@ -15,13 +15,17 @@ const gsHolder = vi.hoisted(() => ({
   launchPixelRacers: vi.fn(),
   uploadBackgroundImage: vi.fn(async () => undefined),
   setBackgroundColor: vi.fn(),
-  removeBackgroundImage: vi.fn(),
-  removeBackgroundColor: vi.fn(),
+  activateImageBackground: vi.fn(),
+  activateColorBackground: vi.fn(),
+  activateDefaultBackground: vi.fn(),
   isOwner: true,
   isStaff: true,
   isDarkMode: false,
   hasBackgroundImage: false,
   hasBackgroundColor: false,
+  backgroundImageSrc: "",
+  // Which retained background source is active: 'image' | 'color' | 'default'.
+  activeBg: "default" as "image" | "color" | "default",
   pendingTransfer: undefined as unknown,
 }));
 
@@ -44,10 +48,15 @@ vi.mock("@/composables/useGridSettings", () => ({
     hasBackgroundImage: ref(gsHolder.hasBackgroundImage),
     hasBackgroundColor: ref(gsHolder.hasBackgroundColor),
     backgroundColor: ref(""),
+    backgroundImageSrc: ref(gsHolder.backgroundImageSrc),
+    isImageBackgroundActive: ref(gsHolder.activeBg === "image"),
+    isColorBackgroundActive: ref(gsHolder.activeBg === "color"),
+    isDefaultBackgroundActive: ref(gsHolder.activeBg === "default"),
+    activateImageBackground: gsHolder.activateImageBackground,
+    activateColorBackground: gsHolder.activateColorBackground,
+    activateDefaultBackground: gsHolder.activateDefaultBackground,
     uploadBackgroundImage: gsHolder.uploadBackgroundImage,
     setBackgroundColor: gsHolder.setBackgroundColor,
-    removeBackgroundImage: gsHolder.removeBackgroundImage,
-    removeBackgroundColor: gsHolder.removeBackgroundColor,
     showDeleteModal: ref(false),
     showTransferModal: ref(false),
     copyGridLink: gsHolder.copyGridLink,
@@ -76,7 +85,6 @@ const mountSheet = (query = "") =>
         TransferGridModal: true,
         ClipboardIcon: true,
         ChevronRightIcon: true,
-        ImageIcon: true,
         SpinnerIcon: true,
       },
     },
@@ -93,6 +101,8 @@ describe("MobileGridSettingsSheet", () => {
     gsHolder.isDarkMode = false;
     gsHolder.hasBackgroundImage = false;
     gsHolder.hasBackgroundColor = false;
+    gsHolder.backgroundImageSrc = "";
+    gsHolder.activeBg = "default";
     gsHolder.pendingTransfer = undefined;
   });
 
@@ -137,19 +147,57 @@ describe("MobileGridSettingsSheet", () => {
     ).toContain("is-selected");
   });
 
-  it("resets to the default background, clearing image and color", async () => {
+  it("activates the default background without discarding image or color", async () => {
     gsHolder.hasBackgroundImage = true;
     gsHolder.hasBackgroundColor = true;
+    gsHolder.activeBg = "color";
     const wrapper = mountSheet();
     await wrapper.get(".mgs-bg-tile--default").trigger("click");
-    expect(gsHolder.removeBackgroundImage).toHaveBeenCalledTimes(1);
-    expect(gsHolder.removeBackgroundColor).toHaveBeenCalledTimes(1);
+    expect(gsHolder.activateDefaultBackground).toHaveBeenCalledTimes(1);
   });
 
-  it("emits open-color when the color tile is tapped (bar owns the /HEX picker)", async () => {
+  it("shows the image thumbnail (not the illustration) once an image exists", () => {
+    gsHolder.hasBackgroundImage = true;
+    gsHolder.backgroundImageSrc = "https://cdn/bg.png";
+    gsHolder.activeBg = "image";
+    const wrapper = mountSheet();
+    const imageTile = wrapper.find(".mgs-bg-tile--image");
+    expect(imageTile.find(".mgs-bg-tile__thumb").exists()).toBe(true);
+    expect(imageTile.find(".mgs-bg-tile__illustration").exists()).toBe(false);
+    expect(imageTile.classes()).toContain("is-selected");
+  });
+
+  it("re-activates a retained image when its (inactive) tile is tapped", async () => {
+    gsHolder.hasBackgroundImage = true;
+    gsHolder.backgroundImageSrc = "https://cdn/bg.png";
+    gsHolder.activeBg = "color";
+    const wrapper = mountSheet();
+    await wrapper.get(".mgs-bg-tile--image").trigger("click");
+    expect(gsHolder.activateImageBackground).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits open-color when the color tile is tapped with no color yet", async () => {
     const wrapper = mountSheet();
     await wrapper.get(".mgs-bg-tile--color").trigger("click");
     expect(wrapper.emitted("open-color")).toHaveLength(1);
+  });
+
+  it("re-activates a retained color when its (inactive) tile is tapped", async () => {
+    gsHolder.hasBackgroundColor = true;
+    gsHolder.activeBg = "image";
+    const wrapper = mountSheet();
+    await wrapper.get(".mgs-bg-tile--color").trigger("click");
+    expect(gsHolder.activateColorBackground).toHaveBeenCalledTimes(1);
+    expect(wrapper.emitted("open-color")).toBeUndefined();
+  });
+
+  it("opens the /HEX picker when the active color tile is tapped again", async () => {
+    gsHolder.hasBackgroundColor = true;
+    gsHolder.activeBg = "color";
+    const wrapper = mountSheet();
+    await wrapper.get(".mgs-bg-tile--color").trigger("click");
+    expect(wrapper.emitted("open-color")).toHaveLength(1);
+    expect(gsHolder.activateColorBackground).not.toHaveBeenCalled();
   });
 
   it("filters the rows live from the query prop", async () => {

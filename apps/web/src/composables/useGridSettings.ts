@@ -78,6 +78,44 @@ export const useGridSettings = () => {
     () => sessionStore.currentGrid?.backgroundColor ?? "",
   );
 
+  const backgroundImageSrc = computed(
+    () => sessionStore.currentGrid?.backgroundImageSrc ?? "",
+  );
+
+  // Which retained source is active. Mirrors the renderer's resolution
+  // (GridPage): honor the explicit flag when its value exists, else fall back
+  // to presence precedence (color over image over default) for legacy grids.
+  const activeBackgroundSource = computed<"image" | "color" | "default">(() => {
+    const grid = sessionStore.currentGrid;
+    if (!grid) return "default";
+    const explicit = grid.backgroundActiveSource;
+    if (explicit === "image" && grid.backgroundImageSrc) return "image";
+    if (explicit === "color" && grid.backgroundColor) return "color";
+    if (explicit === "default") return "default";
+    if (grid.backgroundColor) return "color";
+    if (grid.backgroundImageSrc) return "image";
+    return "default";
+  });
+
+  const isImageBackgroundActive = computed(
+    () => activeBackgroundSource.value === "image",
+  );
+  const isColorBackgroundActive = computed(
+    () => activeBackgroundSource.value === "color",
+  );
+  const isDefaultBackgroundActive = computed(
+    () => activeBackgroundSource.value === "default",
+  );
+
+  // Radio-style activation between the retained image / color / default — never
+  // discards the other stored value, so the user can toggle back and forth.
+  const activateImageBackground = (): void =>
+    controller.setBackgroundActiveSource("image");
+  const activateColorBackground = (): void =>
+    controller.setBackgroundActiveSource("color");
+  const activateDefaultBackground = (): void =>
+    controller.setBackgroundActiveSource("default");
+
   const pendingTransfer = computed(() => {
     const gridId = sessionStore.currentGrid?.id;
     return gridId ? transfers.pendingOutgoingForGrid(gridId) : undefined;
@@ -322,6 +360,14 @@ export const useGridSettings = () => {
     cancelPendingTransfer,
     launchPixelRacers,
     // background
+    backgroundImageSrc,
+    activeBackgroundSource,
+    isImageBackgroundActive,
+    isColorBackgroundActive,
+    isDefaultBackgroundActive,
+    activateImageBackground,
+    activateColorBackground,
+    activateDefaultBackground,
     uploadBackgroundImage,
     setBackgroundColor,
     previewBackgroundColor,

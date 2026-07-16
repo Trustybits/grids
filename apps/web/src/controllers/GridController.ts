@@ -686,6 +686,12 @@ export class GridController {
     this.settingsController.removeBackgroundColor();
   }
 
+  setBackgroundActiveSource(
+    source: "image" | "color" | "default",
+  ): void {
+    this.settingsController.setBackgroundActiveSource(source);
+  }
+
   getViewportGridY(): number {
     return this.layoutController.getViewportGridY();
   }

@@ -69,6 +69,9 @@ export class GridSettingsController {
         grid.backgroundEmbed = embed;
         // Only archive-backed (non-embed) uploads carry a hash.
         grid.backgroundImageHash = !embed && hash ? hash : "";
+        // Applying an image makes it the active source (the color, if any, is
+        // retained and can be re-activated later).
+        grid.backgroundActiveSource = "image";
       },
     });
   }
@@ -80,6 +83,26 @@ export class GridSettingsController {
         grid.backgroundImageSrc = "";
         grid.backgroundEmbed = false;
         grid.backgroundImageHash = "";
+        // Fall back to the color if one is retained, otherwise the default.
+        if (grid.backgroundActiveSource === "image") {
+          grid.backgroundActiveSource = grid.backgroundColor
+            ? "color"
+            : "default";
+        }
+      },
+    });
+  }
+
+  /**
+   * Toggle which retained background source (image / color / default) renders,
+   * without touching the stored image or color values — this is the radio-style
+   * switch behind the mobile GRID BACKGROUND tiles.
+   */
+  setBackgroundActiveSource(source: Grid["backgroundActiveSource"]): void {
+    this.runGridCommand({
+      captureHistory: "Change background",
+      mutate: (grid) => {
+        grid.backgroundActiveSource = source;
       },
     });
   }
@@ -107,6 +130,9 @@ export class GridSettingsController {
       captureHistory: "Change background color",
       mutate: (grid) => {
         grid.backgroundColor = color;
+        // Applying a color makes it the active source (the image, if any, is
+        // retained and can be re-activated later).
+        grid.backgroundActiveSource = "color";
       },
     });
   }
@@ -122,6 +148,8 @@ export class GridSettingsController {
     this.runGridCommand({
       mutate: (grid) => {
         grid.backgroundColor = color;
+        // Keep the color visible live even if the image was the active source.
+        grid.backgroundActiveSource = "color";
       },
       persist: false,
     });
@@ -132,6 +160,12 @@ export class GridSettingsController {
       captureHistory: "Remove background color",
       mutate: (grid) => {
         grid.backgroundColor = "";
+        // Fall back to the image if one is retained, otherwise the default.
+        if (grid.backgroundActiveSource === "color") {
+          grid.backgroundActiveSource = grid.backgroundImageSrc
+            ? "image"
+            : "default";
+        }
       },
     });
   }

@@ -360,6 +360,49 @@ Deferred follow-ups:
   the SLIDERS pad/slider ship now (the toggle is omitted until VALUE BOX exists rather than shipping a
   no-op control).
 
+#### Phase 6.4 — Theme / background buttons (Figma match) + active-source model ✅ COMPLETE
+
+Figma "Grid Settings" theme cards (1516-10776 / 1529-911 / 1529-913) and background tiles
+(Upload 1529-907 / Default 1529-908 / Custom Color 1529-909). Matches the designed visuals and
+introduces a retained, toggleable active background source.
+
+- [x] **Retained active background source** — new optional `backgroundActiveSource`
+      (`'image' | 'color' | 'default'`) on the `Grid` contract (mapped in both `FirebaseUtils` and the
+      stubbed DB). A grid keeps **both** an uploaded image and a custom color at once; this flag decides
+      which renders, so the user can switch back and forth without losing either. Absent on legacy grids
+      → renderer falls back to presence precedence (color over image over none).
+- [x] **Controller** — `GridSettingsController.setBackgroundActiveSource(source)` (history + save, no
+      value mutation); `setBackgroundColor` / `previewBackgroundColor` now mark **color** active and
+      `addBackgroundImage` marks **image** active; `removeBackground{Color,Image}` fall back to the other
+      retained source, else default. Facaded on `GridController`.
+- [x] **Rendering (`GridPage`)** — an `activeBackgroundSource` computed resolves the flag (with the
+      legacy fallback); `backgroundStyle` paints only the active source, the embed iframe is gated to an
+      active image, and the background-contrast CSS vars are driven only while **color** is active. The
+      old image+color blend overlay (`background-color-overlay`) is retired — sources are now exclusive.
+- [x] **`useGridSettings`** — exposes `backgroundImageSrc`, `activeBackgroundSource`, the
+      `is{Image,Color,Default}BackgroundActive` computeds, and `activate{Image,Color,Default}Background`
+      actions (which never discard the other stored value).
+- [x] **GRID THEME cards** — rebuilt as faithful CSS/inline-SVG mini-grid mockups (Profile / Document /
+      tall Chat / wide Image-with-mountains tiles) matching the Figma thumbnail, with fixed light/dark
+      neutrals so each card always reads as its theme. No external image assets committed.
+- [x] **GRID BACKGROUND tiles** — Upload shows a framed-photo illustration, replaced by the image
+      **thumbnail** once one exists (optimistic object-URL while uploading); Default is dashed; Color
+      fills with the chosen color (rainbow when unset). Tap logic: inactive tile → activate that source;
+      active **color** tile → open `/HEX`; no color yet → open `/HEX`; active **image** tile → (interim)
+      re-open the file picker.
+- [x] **Selected ring** — the active choice gets a **2px** `--color-purple` ring sitting **2px** off the
+      illustration, implemented with `outline` + `outline-offset` (no layout shift, follows the radius),
+      per the Figma spec.
+- [x] Tests updated/added (contract active-source on controller commits/removes/toggle, sheet tile
+      activate + thumbnail + `/HEX` open paths). Suites green; typecheck + lint clean.
+
+Deferred to the next phase:
+
+- **`/background` image-swap sheet** — tapping the **active** image tile should open a dedicated sheet
+  that previews the current image, shows a thumbnail carousel of the user's file archive to swap, offers
+  "upload new", and morphs the bar into a `/background` command input with helper text to paste an image
+  URL instead of uploading. Interim behavior re-opens the file picker until this ships.
+
 ### Phase 7 — Preview mode transition ⬜ NOT STARTED
 
 - [ ] `Toolbar:Top` breakpoint switcher (Desktop/Tablet/Mobile) + Close (replaces Breakpoint-Switcher)

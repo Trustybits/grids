@@ -186,16 +186,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
-import { useRouter } from "vue-router";
-import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridController } from "@/controllers/useGridController";
+import { useGridSettings } from "@/composables/useGridSettings";
 import type { CopyDepth } from "@grids/contracts/types";
-import { useThemeStore } from "@/stores/theme";
 import { useToastStore } from "@/stores/toast";
-import { usePixelRacersStore } from "@/stores/pixelRacers";
 import MenuItem from "@/components/ui-controls/MenuItem.vue";
 import Toggle from "@/components/ui-controls/Toggle.vue";
 import Accordion from "@/components/ui-controls/Accordion.vue";
@@ -210,79 +207,51 @@ import PromptModal from "@/components/modal/PromptModal.vue";
 import OgImageModal from "@/components/modal/OgImageModal.vue";
 import TransferGridModal from "@/components/modal/TransferGridModal.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
-import { useGridDuplicateStorage } from "@/composables/useGridDuplicateStorage";
-import { useGridTransfers } from "@/composables/useGridTransfers";
-import { describeCallableError } from "@/utils/CallableError";
 
-const router = useRouter();
 const sessionStore = useGridSessionStore();
 const viewportStore = useGridViewportStore();
 const uiStore = useGridUiStore();
 const controller = useGridController();
-const themeStore = useThemeStore();
 const toastStore = useToastStore();
-const gameStore = usePixelRacersStore();
-const authProvider = getAuthProvider();
+
+// Shared grid-settings state + actions (also used by the Mobile 2.0 sheet).
+const {
+  isOwner,
+  gridPageId,
+  currentGridName,
+  hasBackgroundImage,
+  hasBackgroundColor,
+  pendingTransfer,
+  isCancellingTransfer,
+  verticalCompact,
+  isDarkMode,
+  duplicatable,
+  hasOverride,
+  breakpointLabel,
+  showDeleteModal,
+  showTransferModal,
+  showOgImageModal,
+  copyGridLink,
+  duplicateGrid: duplicateGridAction,
+  requestDelete,
+  performDelete,
+  openTransferModal: openTransferModalAction,
+  cancelPendingTransfer: cancelPendingTransferAction,
+  openOgImageModal: openOgImageModalAction,
+  launchPixelRacers: launchPixelRacersAction,
+  saveBreakpoint: saveBreakpointAction,
+  resetBreakpoint: resetBreakpointAction,
+} = useGridSettings();
+
 const showMenu = ref(false);
 const showDuplicateDropdown = ref(false);
 const menuRef = ref<HTMLElement | null>(null);
 const showBgDropdown = ref(false);
 const showBgColorPicker = ref(false);
-const showDeleteModal = ref(false);
-const showOgImageModal = ref(false);
-const showTransferModal = ref(false);
-const isCancellingTransfer = ref(false);
 const bgImageInput = ref<HTMLInputElement | null>(null);
 const bgSplitRef = ref<InstanceType<typeof GhostSplitButton> | null>(null);
 const bgChevronEl = computed(() => bgSplitRef.value?.chevronRef ?? null);
 const { uploadFileToArchive } = useFileUpload();
-const { resolveStoragePlan } = useGridDuplicateStorage();
-// Sender-side view of transfers: watch this grid's outgoing invitations so the
-// menu can flip to a "cancel pending transfer" affordance.
-const transfers = useGridTransfers({ incoming: false });
-
-const pendingTransfer = computed(() => {
-  const gridId = sessionStore.currentGrid?.id;
-  return gridId ? transfers.pendingOutgoingForGrid(gridId) : undefined;
-});
-
-const isOwner = computed(() => {
-  const userId = authProvider.getCurrentUserId();
-  const layout = sessionStore.currentGrid;
-  return userId && layout && userId === layout.userId;
-});
-
-const gridPageId = computed(() => {
-  return sessionStore.currentGrid?.id || "";
-});
-
-const hasBackgroundImage = computed(() => {
-  return !!sessionStore.currentGrid?.backgroundImageSrc;
-});
-
-const hasBackgroundColor = computed(() => {
-  return !!sessionStore.currentGrid?.backgroundColor;
-});
-
-const currentGridName = computed(() => {
-  return sessionStore.currentGrid?.name?.trim() || "Untitled Grid";
-});
-
-// Computed property with setter to handle gravity toggle
-const verticalCompact = computed({
-  get: () => sessionStore.verticalCompact,
-  set: (value: boolean) => controller.setVerticalCompact(value),
-});
-
-// Computed property with setter to handle dark mode toggle for the grid
-const isDarkMode = computed({
-  get: () => themeStore.isDarkMode,
-  set: (value: boolean) => {
-    const newThemeId = value ? "dark" : "light";
-    themeStore.setTheme(newThemeId);
-    controller.setGridTheme(newThemeId);
-  },
-});
 
 watch(showBgDropdown, (open) => {
   if (open) {
@@ -328,120 +297,46 @@ onUnmounted(() => {
   document.removeEventListener("click", handleClickOutside);
 });
 
-const hasOverride = computed(() => {
-  return controller.hasBreakpointOverride(
-    sessionStore.currentGrid,
-    viewportStore.activeBreakpoint,
-  );
-});
-
-const breakpointLabel = computed(() =>
-  viewportStore.activeBreakpoint === "sm" ? "Mobile" : "Tablet",
-);
-
+// Thin wrappers keep the dropdown's close-on-action behavior while the shared
+// composable owns the actual logic.
 const saveBreakpoint = () => {
-  const bp = viewportStore.activeBreakpoint;
-  if (bp === "lg") return;
-
-  // Use the display positions published by Grid.vue — these reflect the
-  // actual rendered positions at the current breakpoint (auto-repacked or
-  // previously saved overrides after user edits).
-  const positions = viewportStore.displayPositions;
-  if (!positions.length) return;
-
-  controller.saveBreakpointPositions(bp, positions);
-  toastStore.addToast(`${breakpointLabel.value} layout saved`, "success");
+  saveBreakpointAction();
   closeMenu();
 };
 
 const resetBreakpoint = () => {
-  const bp = viewportStore.activeBreakpoint;
-  if (bp === "lg") return;
-  controller.resetBreakpoint(bp);
-  toastStore.addToast(
-    `${breakpointLabel.value} layout reset to auto`,
-    "success",
-  );
+  resetBreakpointAction();
   closeMenu();
 };
 
-// Computed property with setter to handle the public duplication toggle
-const duplicatable = computed({
-  get: () => sessionStore.currentGrid?.duplicatable ?? false,
-  set: (value: boolean) => controller.setDuplicatable(value),
-});
-
-// Duplicate the current grid and navigate to the new copy.
-// copyDepth controls how much tile content is carried over.
 const duplicateGrid = async (copyDepth: CopyDepth = "full") => {
-  if (!sessionStore.currentGrid) return;
-
-  try {
-    const storagePlan = await resolveStoragePlan(
-      sessionStore.currentGrid,
-      copyDepth,
-    );
-    if (storagePlan === null) return;
-
-    const newId = await controller.duplicateGrid(
-      sessionStore.currentGrid,
-      copyDepth,
-      storagePlan,
-    );
-    closeMenu();
-    if (newId) {
-      router.push(`/grid/${newId}`);
-    }
-  } catch (error) {
-    toastStore.addToast(
-      error instanceof Error ? error.message : "Failed to duplicate grid.",
-      "error",
-    );
-  }
+  const newId = await duplicateGridAction(copyDepth);
+  if (newId) closeMenu();
 };
 
 const confirmDelete = () => {
-  if (!sessionStore.isOwner || !sessionStore.currentGrid) return;
-  showDeleteModal.value = true;
+  requestDelete();
   closeMenu();
 };
 
-// Handle grid deletion directly — no need to bubble up through parent components
 const deleteGrid = async () => {
-  if (!sessionStore.isOwner || !sessionStore.currentGrid) return;
-
-  await controller.deleteGrid(sessionStore.currentGrid.id);
-  showDeleteModal.value = false;
+  await performDelete();
   closeMenu();
-  router.push("/dashboard");
 };
 
 const openOgImageModal = () => {
-  showOgImageModal.value = true;
+  openOgImageModalAction();
   closeMenu();
 };
 
 const openTransferModal = () => {
-  showTransferModal.value = true;
+  openTransferModalAction();
   closeMenu();
 };
 
 const cancelPendingTransfer = async () => {
-  const transfer = pendingTransfer.value;
-  if (!transfer || isCancellingTransfer.value) return;
-  isCancellingTransfer.value = true;
-  try {
-    await transfers.cancelTransfer(transfer.id);
-    toastStore.addToast("Transfer cancelled", "success");
-    closeMenu();
-  } catch (error) {
-    toastStore.addToast(
-      describeCallableError(error, "Couldn't cancel the transfer. Please try again."),
-      "error",
-    );
-  } finally {
-    isCancellingTransfer.value = false;
-  }
+  await cancelPendingTransferAction();
+  if (!pendingTransfer.value) closeMenu();
 };
 
 const triggerBackgroundImagePicker = () => {
@@ -487,19 +382,12 @@ const removeBackgroundColor = () => {
 };
 
 const shareGrid = async () => {
-  const currentUrl = window.location.href;
-  try {
-    await navigator.clipboard.writeText(currentUrl);
-    toastStore.addToast("Link to Grid copied to the clipboard", "success");
-  } catch {
-    toastStore.addToast("Failed to copy link", "error");
-  }
+  await copyGridLink();
   closeMenu();
 };
 
-// Launch the Pixel Racers game
 const launchPixelRacers = () => {
-  gameStore.startGame();
+  launchPixelRacersAction();
   closeMenu();
 };
 </script>

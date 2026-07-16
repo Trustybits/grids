@@ -231,14 +231,50 @@ Deferred polish: the Figma 3D "coverflow" fan is a clean scroll-snap row for now
 - [ ] Per-grid **"N times used"** counts, computed from the current grid's tiles
 - [ ] `/TILE` (tile types) vs general-search (subtypes/content) semantics once the list exists
 
-### Phase 6 — Grid Settings sheet ⬜ NOT STARTED
+### Phase 6 — Grid Settings sheet 🟡 IN PROGRESS (6.1 done, 6.2 next)
 
-- [ ] Grid Settings menu (Figma `1497-9949`); omit desktop-only items reachable elsewhere (keep Debug)
-- [ ] Sheet contents per updated Figma: Grid ID + copy, Default Grid toggle, Publish Template,
-      Duplicate Grid, Transfer Grid, Grid Gravity / Dark Mode toggles, Delete Grid
-- [ ] Filterable via the `/GRID` command input (typing narrows the settings list)
-- [ ] **Note:** the Mobile 2.0 opt-out is intentionally *not* here — it lives in the app-level menu
-      drawer (Account), since early access is an account preference, not a per-grid setting
+Product decisions (confirmed): extract a shared `useGridSettings` composable so the desktop
+`GridSettings` dropdown and the mobile sheet share one implementation (same pattern as
+`useTileCreation`). Ship the **core sheet (6.1)** first and defer the heavy Grid Background tools +
+theme-card visuals to **6.2**. "Publish Template" maps to the existing **Allow Public Template**
+(`duplicatable`) toggle for now. The GRID ID copy button copies the **grid link/URL** (matches the
+desktop behavior). The Mobile 2.0 opt-out is intentionally *not* here — it lives in the app-level
+menu drawer (Account), since early access is an account preference, not a per-grid setting.
+
+#### Phase 6.1 — Core sheet + `/GRID` filter ✅ COMPLETE
+
+- [x] `useGridSettings` composable (`apps/web/src/composables/useGridSettings.ts`): shared
+      state + actions — ownership, GRID ID, dark-mode / gravity / publish-template toggles,
+      default-grid (per-user profile) toggle, duplicate (+ storage plan) / delete / transfer flows,
+      breakpoint save/reset, debug toggles, Pixel Racers, and the delete/transfer modal visibility.
+- [x] Desktop `GridSettings.vue` refactored to consume the composable (template + background /
+      color-picker / debug DOM unchanged), so the two surfaces can't drift.
+- [x] `MobileGridSettingsSheet.vue`: the sheet contents mirroring the Figma menu (`1497-9949`) — a
+      fixed **GRID ID + copy** header, a separator, then a scrollable, live-filterable list: Dark Mode,
+      Gravity, Default Grid, Publish Template, Duplicate, Transfer (or Cancel Transfer when pending),
+      Delete, and the Debug section (kept for all users, as today). Renders the shared delete/transfer
+      modals. `min-height: 320px`, bottom corners squared, no scrim.
+- [x] **Grid Settings uses the exact Add-a-tile morph** (per feedback): tapping Grid Settings morphs
+      the pill into the `/GRID` command input (top corners squared, `radius-md` bottom), and the sheet
+      rises from behind and rests **flush** on top of the bar as one connected surface. The `/GRID`
+      filter lives in the pill (reuses `MobileCommandInput` with the new `showViewToggle=false` prop);
+      typing narrows the rows live. Both the sheet and the bar share a dynamic width
+      (`min(520px, 100vw − var(--spacing-md))` → 8px either side, 304px on iPhone SE) so the grid stays
+      visible behind.
+- [x] `MobileGridBar` reworked: `settings` is now a third pill mode alongside `default`/`add` (same
+      FLIP width morph, same rise-from-behind panel). Opening it dismisses Preview/Add and vice-versa;
+      Escape/outside-tap closes it — but taps inside a teleported `.modal-overlay` are ignored so the
+      delete/transfer confirmation can't unmount itself.
+- [x] Tests for the composable + the sheet (`query`-driven filtering, copy/duplicate/delete/transfer,
+      mount refresh) + the new `showViewToggle`; `MobileGridBar` test covers the settings morph + close.
+      Full suite green (excluding the pre-existing `@griddle/*` dependency gap); typecheck + lint clean.
+
+#### Phase 6.2 — Grid Background + theme cards ⬜ NOT STARTED
+
+- [ ] Grid Background: image upload + background color (move the desktop handlers into
+      `useGridSettings` and add mobile UI)
+- [ ] `GRID THEME` light/dark **theme-card** visual (currently a plain Dark Mode toggle)
+- [ ] Consider a "Save Mobile Layout" affordance (breakpoint override) if wanted on mobile
 
 ### Phase 7 — Preview mode transition ⬜ NOT STARTED
 

@@ -32,6 +32,7 @@
     />
 
     <button
+      v-if="showViewToggle"
       type="button"
       class="mci-btn"
       :class="{ 'mci-btn--active': viewMode === 'list' }"
@@ -71,6 +72,8 @@ const props = withDefaults(
      */
     staticPlaceholder?: string | null;
     viewMode?: "carousel" | "list";
+    /** Show the carousel/list view toggle. Hidden for `/GRID` (no list view). */
+    showViewToggle?: boolean;
     ariaLabel?: string;
     closeLabel?: string;
   }>(),
@@ -79,6 +82,7 @@ const props = withDefaults(
     placeholders: () => [],
     staticPlaceholder: null,
     viewMode: "carousel",
+    showViewToggle: true,
     ariaLabel: "Add a tile",
     closeLabel: "Close",
   },

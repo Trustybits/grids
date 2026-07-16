@@ -1,22 +1,37 @@
 <!--
   MobileGridBar.vue
 
-  Mobile 2.0 bottom command pill for grid owners. Two modes that morph into one
-  another (Figma "New Tile Carousel", 1497-9533):
+  Mobile 2.0 bottom command pill for grid owners. Three modes that morph into
+  one another (Figma "New Tile Carousel" 1497-9533, "Grid Settings" 1497-9949):
 
-    default : the four commands — Add Tile · Grid Settings · Preview | Share.
-    add     : tapping Add Tile grows the pill (the shell never fades — it
-              transforms via a FLIP width animation); the commands are replaced
-              by the `/TILE` command input, and a tile-type carousel slides up
-              from behind the pill. (MobileCommandInput is reused for the
-              `/GRID` settings input in Phase 6.)
+    default  : the four commands — Add Tile · Grid Settings · Preview | Share.
+    add      : tapping Add Tile grows the pill (the shell never fades — it
+               transforms via a FLIP width animation); the commands are replaced
+               by the `/TILE` command input, and a tile-type carousel slides up
+               from behind the pill.
+    settings : tapping Grid Settings morphs the pill the same way into the
+               `/GRID` command input (top corners squared), while the
+               MobileGridSettingsSheet rises from behind and rests flush on top
+               of the bar as one connected surface.
 
-  STILL INTERIM: Grid Settings reuses the desktop GridSettings menu (→ Phase 6),
-  Preview reuses BreakpointSwitcher (→ Phase 7), Share copies the link (→ Phase 9).
-  The Add-a-Tile subtype list with per-grid "N times used" counts is Phase 5.2.
+  STILL INTERIM: Preview reuses BreakpointSwitcher (→ Phase 7), Share copies the
+  link (→ Phase 9). The Add-a-Tile subtype list with per-grid "N times used"
+  counts is Phase 5.2; Grid Background + theme cards are Phase 6.2.
 -->
 <template>
-  <div ref="rootRef" class="mobile-grid-bar">
+  <div
+    ref="rootRef"
+    class="mobile-grid-bar"
+    :class="{ 'mgb--connected': mode === 'settings' }"
+  >
+    <!-- Grid settings sheet — slides up from behind the pill and rests flush on
+         top of the morphed `/GRID` command input. -->
+    <transition name="mgb-rise">
+      <div v-if="mode === 'settings'" class="mgb-settings-panel">
+        <MobileGridSettingsSheet :query="query" @close="closeSettings" />
+      </div>
+    </transition>
+
     <!-- Tile carousel / list — slides up from behind the pill while adding. -->
     <transition name="mgb-rise">
       <div v-if="mode === 'add'" class="mobile-grid-bar__panel">
@@ -39,8 +54,8 @@
     <MobileCommandBar
       ref="pillRef"
       class="mgb-pill"
-      :class="{ 'mgb-pill--add': mode === 'add' }"
-      :aria-label="mode === 'add' ? 'Add a tile' : 'Grid commands'"
+      :class="{ 'mgb-pill--add': mode === 'add', 'mgb-pill--settings': mode === 'settings' }"
+      :aria-label="pillAriaLabel"
     >
       <template v-if="mode === 'default'">
         <button
@@ -52,9 +67,14 @@
           <PlusIcon :size="24" />
         </button>
 
-        <span class="mgb-settings">
-          <GridSettings />
-        </span>
+        <button
+          type="button"
+          class="mgb-btn"
+          aria-label="Grid settings"
+          @click.stop="toggleSettings"
+        >
+          <GridMenuIcon />
+        </button>
 
         <button
           type="button"
@@ -78,8 +98,8 @@
         </button>
       </template>
 
-        <MobileCommandInput
-        v-else
+      <MobileCommandInput
+        v-else-if="mode === 'add'"
         ref="cmdRef"
         v-model="query"
         :filter-label="chipLabel"
@@ -91,6 +111,17 @@
         @toggle-view="toggleView"
         @close="closeAdd"
         @unpin="onUnpin"
+      />
+
+      <MobileCommandInput
+        v-else
+        v-model="query"
+        filter-label="/GRID"
+        :placeholders="GRID_PLACEHOLDERS"
+        :show-view-toggle="false"
+        aria-label="Filter grid settings"
+        close-label="Close grid settings"
+        @close="closeSettings"
       />
     </MobileCommandBar>
 
@@ -117,8 +148,9 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import MobileCommandBar from "@/components/ui-collections/MobileCommandBar.vue";
 import MobileCommandInput from "@/components/app/MobileCommandInput.vue";
 import MobileTileCarousel from "@/components/app/MobileTileCarousel.vue";
-import GridSettings from "@/components/grid/GridSettings.vue";
+import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vue";
 import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
+import GridMenuIcon from "@/components/icons/GridMenuIcon.vue";
 import PlusIcon from "@/components/icons/PlusIcon.vue";
 import EyeIcon from "@/components/icons/EyeIcon.vue";
 import ShareIcon from "@/components/icons/ShareIcon.vue";
@@ -139,6 +171,15 @@ const PLACEHOLDERS = [
 ];
 const TILE_FILTER = "/TILE";
 
+// Rotating hints for the `/GRID` settings filter input.
+const GRID_PLACEHOLDERS = [
+  "search settings",
+  "type to filter",
+  "gravity",
+  "duplicate",
+  "transfer",
+];
+
 // Once a command-type card is tapped, the placeholder asks for exactly what that
 // tile type needs (and stops rotating).
 const TYPE_PROMPTS: Record<string, string> = {
@@ -158,7 +199,7 @@ const cmdRef = ref<InstanceType<typeof MobileCommandInput> | null>(null);
 const imageInput = ref<HTMLInputElement | null>(null);
 const documentInput = ref<HTMLInputElement | null>(null);
 
-const mode = ref<"default" | "add">("default");
+const mode = ref<"default" | "add" | "settings">("default");
 const showPreview = ref(false);
 const query = ref("");
 const viewMode = ref<"carousel" | "list">("carousel");
@@ -181,6 +222,14 @@ const activePrompt = computed(() =>
 // the generic `/TILE` when nothing is selected.
 const chipLabel = computed(() =>
   activeType.value ? `/${activeType.value.toUpperCase()}` : TILE_FILTER,
+);
+
+const pillAriaLabel = computed(() =>
+  mode.value === "add"
+    ? "Add a tile"
+    : mode.value === "settings"
+      ? "Grid settings"
+      : "Grid commands",
 );
 
 // ── Grow the pill (FLIP) instead of fading it out/in ─────────────────────────
@@ -229,6 +278,24 @@ watch(query, (value) => {
 // ── Default-mode commands ────────────────────────────────────────────────────
 const togglePreview = () => {
   showPreview.value = !showPreview.value;
+};
+
+// Grid Settings mirrors Add-a-tile: the pill morphs into the `/GRID` command
+// input and the settings sheet rises from behind it.
+const openSettings = () => {
+  showPreview.value = false;
+  query.value = "";
+  mode.value = "settings";
+};
+
+const closeSettings = () => {
+  mode.value = "default";
+  query.value = "";
+};
+
+const toggleSettings = () => {
+  if (mode.value === "settings") closeSettings();
+  else openSettings();
 };
 
 const shareLink = async () => {
@@ -325,14 +392,21 @@ const onDocumentFiles = async (event: Event) => {
 
 // ── Dismissal ────────────────────────────────────────────────────────────────
 const handlePointerDown = (event: MouseEvent) => {
-  if (!rootRef.value || rootRef.value.contains(event.target as Node)) return;
+  const target = event.target as HTMLElement | null;
+  // Clicks inside a teleported modal (delete / transfer confirmation) must not
+  // dismiss the bar — that would unmount the settings sheet and the modal with
+  // it, aborting the action.
+  if (target?.closest(".modal-overlay")) return;
+  if (!rootRef.value || rootRef.value.contains(target)) return;
   showPreview.value = false;
   if (mode.value === "add") closeAdd();
+  if (mode.value === "settings") closeSettings();
 };
 
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.key !== "Escape") return;
   if (mode.value === "add") closeAdd();
+  if (mode.value === "settings") closeSettings();
   showPreview.value = false;
 };
 
@@ -373,6 +447,40 @@ onBeforeUnmount(() => {
   // Stretch the command bar's inner group (inline-flex by default) so the input
   // fills the pill and the toggle/close icons sit flush at the right edge —
   // otherwise the group stays content-sized and leaves a gap on the right.
+  :deep(.mobile-command-bar__group) {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+
+  :deep(.mci) {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+// ── Connected settings surface ───────────────────────────────────────────────
+// In settings mode the sheet + morphed `/GRID` bar read as one connected
+// surface, so drop the gap and give both the same dynamic width (fills the
+// viewport leaving 8px / --spacing-sm either side so the grid stays visible).
+.mgb--connected {
+  --mgb-connected-width: min(520px, calc(100vw - var(--spacing-md)));
+  gap: 0;
+}
+
+.mgb-settings-panel {
+  z-index: 0;
+  width: var(--mgb-connected-width);
+}
+
+.mgb-pill.mgb-pill--settings {
+  width: var(--mgb-connected-width);
+  // Square the top corners so the sheet resting above lines up flush; the
+  // bottom corners keep --radius-md.
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+
   :deep(.mobile-command-bar__group) {
     flex: 1 1 auto;
     min-width: 0;
@@ -437,32 +545,6 @@ onBeforeUnmount(() => {
 
 .mgb-file {
   display: none;
-}
-
-/*
-  Reposition the reused GridSettings dropdown (pinned to the bottom-left corner
-  in its own styles) so it opens above and centered on the pill. Scoped :deep
-  override keeps GridSettings itself untouched until the Phase 6 sheet.
-*/
-.mgb-settings {
-  display: inline-flex;
-
-  :deep(.grid-menu-button) {
-    border-radius: var(--radius-full);
-    background: transparent;
-
-    &:hover {
-      background: var(--color-base-8);
-    }
-  }
-
-  :deep(.grid-menu-dropdown) {
-    bottom: calc(100% + var(--spacing-sm));
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    max-width: calc(100vw - var(--spacing-lg) * 2);
-  }
 }
 
 // Carousel/list rising up from behind the pill.

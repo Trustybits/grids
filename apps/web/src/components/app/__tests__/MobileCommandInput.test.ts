@@ -28,6 +28,13 @@ describe("MobileCommandInput", () => {
     expect(wrapper.emitted("toggle-view")).toHaveLength(1);
   });
 
+  it("hides the view toggle when showViewToggle is false (e.g. /GRID)", () => {
+    const wrapper = mountInput({ filterLabel: "/GRID", showViewToggle: false });
+    expect(wrapper.find('[aria-label="Toggle list view"]').exists()).toBe(false);
+    // The close button remains available.
+    expect(wrapper.find(".mci-close").exists()).toBe(true);
+  });
+
   it("shows a fixed prompt (no rotation) when staticPlaceholder is set", async () => {
     const wrapper = mountInput({
       filterLabel: "/TILE",

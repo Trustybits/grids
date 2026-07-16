@@ -45,8 +45,11 @@ vi.mock("@/stores/toast", () => ({
   useToastStore: () => ({ addToast: holder.addToast }),
 }));
 
-vi.mock("@/components/grid/GridSettings.vue", () => ({
-  default: { template: "<div class='grid-settings-stub' />" },
+vi.mock("@/components/app/MobileGridSettingsSheet.vue", () => ({
+  default: {
+    props: ["query"],
+    template: "<div class='grid-settings-sheet-stub' :data-query='query' />",
+  },
 }));
 
 vi.mock("@/components/grid/ViewControls.vue", () => ({
@@ -94,9 +97,37 @@ describe("MobileGridBar", () => {
   it("shows the four default commands", async () => {
     const wrapper = await mountBar();
     expect(wrapper.find('[aria-label="Add a tile"]').exists()).toBe(true);
-    expect(wrapper.find(".grid-settings-stub").exists()).toBe(true);
+    expect(wrapper.find('[aria-label="Grid settings"]').exists()).toBe(true);
     expect(wrapper.find('[aria-label="Preview"]').exists()).toBe(true);
     expect(wrapper.find('[aria-label="Share"]').exists()).toBe(true);
+  });
+
+  it("morphs into settings mode (/GRID input + rising sheet) when Grid settings is tapped", async () => {
+    const wrapper = await mountBar();
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(false);
+
+    await wrapper.get('[aria-label="Grid settings"]').trigger("click");
+    await flush(wrapper);
+
+    // The sheet rises and the pill morphs into the /GRID command input,
+    // mirroring the Add-a-tile pattern.
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(true);
+    expect(wrapper.get(".mci-chip").text()).toBe("/GRID");
+    expect(wrapper.find('[aria-label="Close grid settings"]').exists()).toBe(true);
+    // Default commands are hidden while settings is open.
+    expect(wrapper.find('[aria-label="Share"]').exists()).toBe(false);
+  });
+
+  it("closes settings mode via the far-right close button", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Grid settings"]').trigger("click");
+    await flush(wrapper);
+
+    await wrapper.get('[aria-label="Close grid settings"]').trigger("click");
+    await flush(wrapper);
+
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(false);
+    expect(wrapper.find('[aria-label="Grid settings"]').exists()).toBe(true);
   });
 
   it("morphs into add mode when Add a tile is tapped", async () => {

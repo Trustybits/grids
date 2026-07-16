@@ -381,23 +381,20 @@ export default {
 
       const tile = api.grid.getTile(id);
       if (!tile) return;
-      const targetWidth = Math.min(width, responsiveColNum.value);
-      if (tile.w === targetWidth && tile.h === height) return;
+      const targetWidth = Math.min(
+        Math.max(1, Math.floor(width)),
+        responsiveColNum.value - tile.col,
+      );
+      const targetHeight = Math.max(1, Math.floor(height));
+      if (tile.w === targetWidth && tile.h === targetHeight) return;
 
       // Toolbar resizes are programmatic gestures. Run the mutation through
       // Griddle (rather than bulk-loading an overlapping projected layout) so
       // collision displacement and structural repacking complete atomically.
       gridView.beginResize();
-      const targetCol = Math.min(
-        tile.col,
-        responsiveColNum.value - targetWidth,
-      );
-      if (targetCol !== tile.col) {
-        api.moveTile(id, { col: targetCol, row: tile.row });
-      }
       const committed = api.resizeTile(id, {
         w: targetWidth,
-        h: height,
+        h: targetHeight,
       });
       if (!committed) {
         // Valid presets are expected to fit after the responsive width clamp.

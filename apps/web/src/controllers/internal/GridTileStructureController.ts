@@ -7,7 +7,6 @@ import {
 } from "@grids/contracts/types";
 import { getTileDefinition } from "@/registries/tileRegistry";
 import {
-  adjustTilePosition,
   findBestXAtRow,
   findFirstAvailableSpot,
   pushTilesForNewItem,
@@ -109,9 +108,10 @@ export class GridTileStructureController {
       }
     }
 
-    const width = definition?.defaultSize?.w ?? 2;
+    const requestedWidth = definition?.defaultSize?.w ?? 2;
     const height = definition?.defaultSize?.h ?? 2;
     const columns = grid.colNum || 12;
+    const width = Math.min(requestedWidth, columns);
 
     this.pushUndoSnapshot("Add tile");
     const position = this.placeNewTile(
@@ -150,7 +150,7 @@ export class GridTileStructureController {
 
     this.pushUndoSnapshot("Duplicate tile");
     const columns = grid.colNum || 12;
-    const width = source.w;
+    const width = Math.min(source.w, columns);
     const height = source.h;
     const position = this.placeNewTile(
       grid.tiles,
@@ -295,16 +295,17 @@ export class GridTileStructureController {
 
     const breakpoint = this.stores.viewport.activeBreakpoint;
     if (breakpoint === "lg") {
-      tile.w = width;
-      tile.h = height;
-      adjustTilePosition(tile, grid.colNum);
+      const columns = grid.colNum || 12;
+      tile.x = Math.min(Math.max(0, tile.x), columns - 1);
+      tile.w = Math.min(Math.max(1, Math.floor(width)), columns - tile.x);
+      tile.h = Math.max(1, Math.floor(height));
       const displayPosition =
         this.stores.viewport.displayPositions.find(
           (position) => position.i === id,
         );
       if (displayPosition) {
-        displayPosition.w = width;
-        displayPosition.h = height;
+        displayPosition.w = tile.w;
+        displayPosition.h = tile.h;
         displayPosition.x = tile.x;
       }
       this.scheduleSave();
@@ -312,7 +313,6 @@ export class GridTileStructureController {
     }
 
     const columns = breakpoint === "sm" ? 4 : 8;
-    const clampedWidth = Math.min(width, columns);
     grid.overrides ??= {};
     grid.overrides[breakpoint] ??= createPositionMap(
       this.stores.viewport.displayPositions,
@@ -321,14 +321,18 @@ export class GridTileStructureController {
     if (!positions) return;
     const existing = positions[id];
     const clampedX = Math.min(
-      existing?.x ?? tile.x,
-      columns - clampedWidth,
+      Math.max(0, existing?.x ?? tile.x),
+      columns - 1,
+    );
+    const clampedWidth = Math.min(
+      Math.max(1, Math.floor(width)),
+      columns - clampedX,
     );
     positions[id] = {
-      x: Math.max(0, clampedX),
+      x: clampedX,
       y: existing?.y ?? tile.y,
       w: clampedWidth,
-      h: height,
+      h: Math.max(1, Math.floor(height)),
     };
     this.scheduleSave();
   }

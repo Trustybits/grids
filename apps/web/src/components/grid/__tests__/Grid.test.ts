@@ -622,6 +622,38 @@ describe("Grid canvas characterization", () => {
     wrapper.unmount();
   });
 
+  it("trims a toolbar resize at the right edge without moving the tile", async () => {
+    const edge = makeTile({ i: "tile-1", x: 9, y: 0, w: 1, h: 2 });
+    const { store } = makeStore(makeGrid(edge));
+    store.verticalCompact = false;
+    storeHolder.current = store;
+    const wrapper = await mountGrid();
+    await flushPromises();
+    store.setDisplayPositions.mockClear();
+
+    (
+      wrapper.vm as unknown as {
+        resizeTileThroughEngine: (
+          id: string,
+          width: number,
+          height: number,
+        ) => void;
+      }
+    ).resizeTileThroughEngine("tile-1", 6, 2);
+    await flushPromises();
+
+    const resolved = store.setDisplayPositions.mock.lastCall?.[0] as
+      | GridLayoutItem[]
+      | undefined;
+    expect(resolved?.find((tile) => tile.i === "tile-1")).toEqual(
+      expect.objectContaining({ x: 9, y: 0, w: 3, h: 2 }),
+    );
+    expect(store.beginResize).toHaveBeenCalledTimes(1);
+    expect(store.commitResize).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+  });
+
   it("compacts through the engine and commits when gravity is enabled (desktop)", async () => {
     // tile-2 sits below an empty gap; enabling gravity pulls it up beneath
     // tile-1 (which is h:2 at y:0 → tile-2 lands at y:2).

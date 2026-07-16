@@ -79,6 +79,22 @@ describe("GridTileStructureController", () => {
       );
     });
 
+    it("trims a new tile width to a narrow canonical grid", () => {
+      h.stores.session.setCurrentGrid(
+        makeGrid({ colNum: 3, tiles: [] }),
+      );
+
+      const id = controller.addTile(
+        createTileContent(ContentType.PROFILE),
+      );
+
+      const created = h.stores.session.currentGrid?.tiles.find(
+        (tile) => tile.i === id,
+      );
+      expect(created).toMatchObject({ x: 0, w: 3, h: 4 });
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+    });
+
     it("enforces a tile type's maxPerGrid and toasts instead of adding", () => {
       // Campfire is registered with maxPerGrid: 1.
       h.stores.session.setCurrentGrid(
@@ -396,9 +412,7 @@ describe("GridTileStructureController", () => {
       expect(scheduleSave).toHaveBeenCalledTimes(1);
     });
 
-    it("syncs the lg display position x to the clamped tile x", () => {
-      // x:10 with new w:4 overflows the 12-col grid; adjustTilePosition clamps
-      // the tile to x = 8 and the display position must follow.
+    it("trims lg width at the right edge without moving the tile left", () => {
       const tile = makeLinkTile({ i: "t1", x: 10, y: 0, w: 2, h: 2 });
       h.stores.session.setCurrentGrid(makeGrid({ tiles: [tile] }));
       h.stores.viewport.setActiveBreakpoint("lg");
@@ -408,10 +422,10 @@ describe("GridTileStructureController", () => {
 
       controller.resizeTile("t1", 4, 4);
 
-      expect(tile.x).toBe(8);
+      expect(tile.x).toBe(10);
       expect(h.stores.viewport.displayPositions[0]).toMatchObject({
-        x: 8,
-        w: 4,
+        x: 10,
+        w: 2,
         h: 4,
       });
     });
@@ -433,7 +447,7 @@ describe("GridTileStructureController", () => {
       expect(scheduleSave).toHaveBeenCalledTimes(1);
     });
 
-    it("clamps the override x to columns minus the clamped width", () => {
+    it("trims override width at the right edge without moving it left", () => {
       const tile = makeLinkTile({ i: "t1", x: 3, y: 1, w: 1, h: 1 });
       h.stores.session.setCurrentGrid(makeGrid({ tiles: [tile] }));
       h.stores.viewport.setActiveBreakpoint("sm");
@@ -441,13 +455,12 @@ describe("GridTileStructureController", () => {
         { i: "t1", x: 3, y: 1, w: 1, h: 1 },
       ]);
 
-      // sm has 4 columns; width 2 → clampedX = min(3, 4-2) = 2.
       controller.resizeTile("t1", 2, 2);
 
       expect(h.stores.session.currentGrid!.overrides?.sm?.t1).toEqual({
-        x: 2,
+        x: 3,
         y: 1,
-        w: 2,
+        w: 1,
         h: 2,
       });
     });

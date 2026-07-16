@@ -231,14 +231,177 @@ Deferred polish: the Figma 3D "coverflow" fan is a clean scroll-snap row for now
 - [ ] Per-grid **"N times used"** counts, computed from the current grid's tiles
 - [ ] `/TILE` (tile types) vs general-search (subtypes/content) semantics once the list exists
 
-### Phase 6 — Grid Settings sheet ⬜ NOT STARTED
+### Phase 6 — Grid Settings sheet 🟡 IN PROGRESS (6.1 + 6.2 + 6.3 done)
 
-- [ ] Grid Settings menu (Figma `1497-9949`); omit desktop-only items reachable elsewhere (keep Debug)
-- [ ] Sheet contents per updated Figma: Grid ID + copy, Default Grid toggle, Publish Template,
-      Duplicate Grid, Transfer Grid, Grid Gravity / Dark Mode toggles, Delete Grid
-- [ ] Filterable via the `/GRID` command input (typing narrows the settings list)
-- [ ] **Note:** the Mobile 2.0 opt-out is intentionally *not* here — it lives in the app-level menu
-      drawer (Account), since early access is an account preference, not a per-grid setting
+Product decisions (confirmed): extract a shared `useGridSettings` composable so the desktop
+`GridSettings` dropdown and the mobile sheet share one implementation (same pattern as
+`useTileCreation`). Ship the **core sheet (6.1)** first and defer the heavy Grid Background tools +
+theme-card visuals to **6.2**. "Publish Template" maps to the existing **Allow Public Template**
+(`duplicatable`) toggle for now. The GRID ID copy button copies the **grid link/URL** (matches the
+desktop behavior). The Mobile 2.0 opt-out is intentionally *not* here — it lives in the app-level
+menu drawer (Account), since early access is an account preference, not a per-grid setting.
+
+#### Phase 6.1 — Core sheet + `/GRID` filter ✅ COMPLETE
+
+- [x] `useGridSettings` composable (`apps/web/src/composables/useGridSettings.ts`): shared
+      state + actions — ownership, GRID ID, dark-mode / gravity / publish-template toggles,
+      default-grid (per-user profile) toggle, duplicate (+ storage plan) / delete / transfer flows,
+      breakpoint save/reset, debug toggles, Pixel Racers, and the delete/transfer modal visibility.
+- [x] Desktop `GridSettings.vue` refactored to consume the composable (template + background /
+      color-picker / debug DOM unchanged), so the two surfaces can't drift.
+- [x] `MobileGridSettingsSheet.vue`: the sheet contents mirroring the Figma menu (`1497-9949`) — a
+      fixed **GRID ID + copy** header, a separator, then a scrollable, live-filterable list: Dark Mode,
+      Gravity, Default Grid, Publish Template, Duplicate, Transfer (or Cancel Transfer when pending),
+      Delete, and a **collapsed "Debug"** disclosure (hidden by default, auto-expanded while filtering
+      — mirrors the desktop Debug accordion). Renders the shared delete/transfer modals. Bottom corners
+      squared, no scrim. Toggle rows carry no padding of their own so their labels line up flush-left
+      with the action rows.
+- [x] **Debug gating (`isStaff`):** a shared `isStaff` computed on `useGridSettings` (signed-in email
+      ends with `@trustybits.com`) gates the developer **Metadata / Verbose Metadata** toggles. On
+      **mobile** the whole Debug section is staff-only (its only contents are those toggles), and
+      **Pixel Racers is omitted entirely** — it's a keyboard easter egg that doesn't work on touch.
+      On **desktop**, Pixel Racers stays available to all users under the Debug accordion, while the
+      metadata toggles are staff-gated. Note: this is the *first* real gate — the metadata tooling was
+      previously visible to everyone (just collapsed).
+- [x] **Grid Settings uses the exact Add-a-tile morph** (per feedback): tapping Grid Settings morphs
+      the pill into the `/GRID` command input (top corners squared, `radius-md` bottom), and the sheet
+      rises from behind and rests **flush** on top of the bar as one connected surface. The `/GRID`
+      filter lives in the pill (reuses `MobileCommandInput` with the new `showViewToggle=false` prop);
+      typing narrows the rows live. Both the sheet and the bar share a dynamic width
+      (`min(520px, 100vw − var(--spacing-md))` → 8px either side, 304px on iPhone SE) so the grid stays
+      visible behind.
+- [x] `MobileGridBar` reworked: `settings` is now a third pill mode alongside `default`/`add` (same
+      FLIP width morph, same rise-from-behind panel). Opening it dismisses Preview/Add and vice-versa;
+      Escape/outside-tap closes it — but taps inside a teleported `.modal-overlay` are ignored so the
+      delete/transfer confirmation can't unmount itself.
+- [x] Tests for the composable + the sheet (`query`-driven filtering, copy/duplicate/delete/transfer,
+      mount refresh) + the new `showViewToggle`; `MobileGridBar` test covers the settings morph + close.
+      Full suite green (excluding the pre-existing `@griddle/*` dependency gap); typecheck + lint clean.
+
+Motion / layout polish (applies to the whole mobile bar, Phase 5 + 6):
+
+- [x] **New design token `--easing-gentle`** (`cubic-bezier(0.32, 0.72, 0, 1)`) — a soft, no-overshoot
+      ease-out approximating Figma's "Gentle" preset. The pill width morph and the settings/carousel
+      rise now use it at `--duration-slow` (400ms) instead of the bouncy `--easing-spring`.
+- [x] The bar rests **8px** (`--spacing-sm`) above the viewport bottom, but hugs the on-screen
+      keyboard flush when it opens (visual-viewport-driven `keyboardInset` → inline `bottom`).
+- [x] Settings sheet body (excludes the `/GRID` bar) capped at **~190px on an iPhone SE** (`33.5vh`),
+      scaling up on larger screens; the row list scrolls when it overflows.
+
+#### Phase 6.2 — Grid Background + theme cards ✅ COMPLETE
+
+- [x] **Background handlers moved into `useGridSettings`** — `uploadBackgroundImage(file)` (wraps
+      `useFileUpload` + `controller.addBackgroundImage`, toasts on failure), `setBackgroundColor`,
+      `removeBackgroundImage`, `removeBackgroundColor`, plus a `backgroundColor` getter. Desktop
+      `GridSettings.vue` now consumes these (its file input / `ColorPicker` / dropdown DOM unchanged),
+      so the two surfaces share one implementation and can't drift. Dropped the now-unused
+      `useFileUpload` / `useGridSessionStore` / `useToastStore` imports from the desktop component.
+- [x] **`GRID THEME` light/dark theme-card visual** — two selectable preview cards (a small 2×2 tile
+      mock) replace the old Dark Mode toggle on mobile; tapping a card drives the shared `isDarkMode`.
+      The mock surfaces use fixed light/dark neutrals (`--color-light-100` / `--color-dark-0` +
+      `color-mix`) so each card always reads as its theme regardless of the active app theme. The
+      selected card gets a `--color-purple` outline.
+- [x] **`GRID BACKGROUND` selector** — three tiles: **image** (opens the hidden file picker →
+      `uploadBackgroundImage`), **Default** (dashed; resets by clearing image + color, selected when
+      neither is set), and **color** (rainbow swatch; shows the current color when one is set).
+      Selection is shown with the purple emphasis border. The color tile originally opened the desktop
+      `ColorPicker` popover; **6.3** replaced that with the dedicated mobile `/HEX` picker (the tile now
+      emits `open-color` up to the bar).
+- [x] **New token `--border-width-lg` (2px)** for the selected/active swatch + preview-card outlines.
+- [x] Sheet tests extended (theme/background sections render, light-card selected by default, Default
+      tile selected when no bg, reset clears image+color, color tile opens the picker) and the
+      `useGridSettings` mock updated with the new background surface. Suite green; typecheck clean.
+
+Deferred: a "Save Mobile Layout" affordance (breakpoint override) — revisit if wanted on mobile.
+
+#### Phase 6.3 — `/HEX` color picker sheet ✅ COMPLETE
+
+Figma "Grid Settings — Color" (1588-7129). Selecting the background **color** tile morphs the pill into
+a `/HEX` command input and raises a full HSB picker sheet — the same morph/rise/flush pattern as the
+`/GRID` settings sheet and the add-a-tile carousel.
+
+Product decisions (confirmed): **live** apply, **per-user** saved swatches, close returns **back to
+the Grid Settings sheet**, SLIDERS-only. The **eyedropper** and the **VALUE BOX** numeric-entry tab are
+deferred (see below).
+
+- [x] **Color utilities** `src/utils/color.ts` — pure `normalizeHex` / `isValidHex` / `hexToRgb` /
+      `rgbToHex` / `rgbToHsv` / `hsvToRgb` / `hexToHsv` / `hsvToHex` (hue 0–360, s/v 0–1). 12 unit tests.
+- [x] **Per-user saved colors** — new optional `savedColors: string[]` on the `UserProfile` contract;
+      `useSavedColors` composable loads them (module-level shared state), and `addColor` prepends /
+      de-dupes case-insensitively / caps at 24 / persists via `userService.updateUserProfile`
+      (optimistic with rollback). 7 unit tests.
+- [x] **`MobileColorPicker.vue`** — saturation/brightness HSB pad + hue slider (pointer-drag, HSV kept
+      as the source of truth so a channel bottoming out doesn't lose the hue) + a horizontally
+      -scrollable swatch row (**saved customs newest-first, then the preset brand palette** so a freshly
+      added color lands at the far left). Emits `update:modelValue` continuously, `preview` continuously
+      during a pad/hue drag (drives the **live** grid background, history-free), and `commit` once at the
+      end of a gesture (pad/hue pointer-up, swatch tap). The pad/hue gradients are clipped with
+      `background-clip: padding-box` so they don't bleed under the translucent border as a colored rim.
+- [x] **`/HEX` bar mode** in `MobileGridBar` — static `/HEX` chip, hex input (typing a full 6-digit
+      value live-updates the pad/hue; Enter/blur commits), and right-anchored **Add color (+)** +
+      **Close (×)**. **Live drag apply**: `preview` calls a new history-free
+      `previewBackgroundColor` controller op each frame for immediate feedback; on release the pre-drag
+      color is restored and `setBackgroundColor` is called once, so the drag collapses to a **single**
+      undo entry + one save. Swatch taps / typed hex commit directly (one entry each). Close returns to
+      the Grid Settings sheet, Escape mirrors it, an outside tap dismisses the whole surface. The
+      connected flush-surface styling (squared top corners / dynamic width) is shared with settings mode.
+- [x] Bar + sheet + controller tests updated (color mode morph + back-to-settings, Add saves, typed hex
+      commits, **live-drag preview + single commit**, `previewBackgroundColor` writes no history/save;
+      the sheet asserts it emits `open-color`). Suites green; typecheck + lint clean.
+
+Deferred follow-ups:
+
+- **Grid eyedropper** — the native `EyeDropper` API is Chromium-desktop only (absent on mobile), and
+  sampling arbitrary grid pixels requires rasterizing the DOM to a canvas (cross-origin images taint
+  it; embeds/iframes + Mapbox WebGL can't be captured), so it's its own sub-phase. Options captured:
+  snapshot-loupe (html-to-image, graceful degradation) vs element-color loupe (reliable, solid colors
+  only). No client-side grid snapshot exists to reuse (OG images are generated server-side).
+- **VALUE BOX tab** — the SLIDERS/VALUE BOX segmented toggle + numeric entry fields are deferred; only
+  the SLIDERS pad/slider ship now (the toggle is omitted until VALUE BOX exists rather than shipping a
+  no-op control).
+
+#### Phase 6.4 — Theme / background buttons (Figma match) + active-source model ✅ COMPLETE
+
+Figma "Grid Settings" theme cards (1516-10776 / 1529-911 / 1529-913) and background tiles
+(Upload 1529-907 / Default 1529-908 / Custom Color 1529-909). Matches the designed visuals and
+introduces a retained, toggleable active background source.
+
+- [x] **Retained active background source** — new optional `backgroundActiveSource`
+      (`'image' | 'color' | 'default'`) on the `Grid` contract (mapped in both `FirebaseUtils` and the
+      stubbed DB). A grid keeps **both** an uploaded image and a custom color at once; this flag decides
+      which renders, so the user can switch back and forth without losing either. Absent on legacy grids
+      → renderer falls back to presence precedence (color over image over none).
+- [x] **Controller** — `GridSettingsController.setBackgroundActiveSource(source)` (history + save, no
+      value mutation); `setBackgroundColor` / `previewBackgroundColor` now mark **color** active and
+      `addBackgroundImage` marks **image** active; `removeBackground{Color,Image}` fall back to the other
+      retained source, else default. Facaded on `GridController`.
+- [x] **Rendering (`GridPage`)** — an `activeBackgroundSource` computed resolves the flag (with the
+      legacy fallback); `backgroundStyle` paints only the active source, the embed iframe is gated to an
+      active image, and the background-contrast CSS vars are driven only while **color** is active. The
+      old image+color blend overlay (`background-color-overlay`) is retired — sources are now exclusive.
+- [x] **`useGridSettings`** — exposes `backgroundImageSrc`, `activeBackgroundSource`, the
+      `is{Image,Color,Default}BackgroundActive` computeds, and `activate{Image,Color,Default}Background`
+      actions (which never discard the other stored value).
+- [x] **GRID THEME cards** — rebuilt as faithful CSS/inline-SVG mini-grid mockups (Profile / Document /
+      tall Chat / wide Image-with-mountains tiles) matching the Figma thumbnail, with fixed light/dark
+      neutrals so each card always reads as its theme. No external image assets committed.
+- [x] **GRID BACKGROUND tiles** — Upload shows a framed-photo illustration, replaced by the image
+      **thumbnail** once one exists (optimistic object-URL while uploading); Default is dashed; Color
+      fills with the chosen color (rainbow when unset). Tap logic: inactive tile → activate that source;
+      active **color** tile → open `/HEX`; no color yet → open `/HEX`; active **image** tile → (interim)
+      re-open the file picker.
+- [x] **Selected ring** — the active choice gets a **2px** `--color-purple` ring sitting **2px** off the
+      illustration, implemented with `outline` + `outline-offset` (no layout shift, follows the radius),
+      per the Figma spec.
+- [x] Tests updated/added (contract active-source on controller commits/removes/toggle, sheet tile
+      activate + thumbnail + `/HEX` open paths). Suites green; typecheck + lint clean.
+
+Deferred to the next phase:
+
+- **`/background` image-swap sheet** — tapping the **active** image tile should open a dedicated sheet
+  that previews the current image, shows a thumbnail carousel of the user's file archive to swap, offers
+  "upload new", and morphs the bar into a `/background` command input with helper text to paste an image
+  URL instead of uploading. Interim behavior re-opens the file picker until this ships.
 
 ### Phase 7 — Preview mode transition ⬜ NOT STARTED
 

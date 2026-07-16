@@ -87,12 +87,49 @@ describe("GridSettingsController", () => {
       controller.addBackgroundImage("https://cdn/bg", true);
       expect(grid.backgroundImageSrc).toBe("https://cdn/bg");
       expect(grid.backgroundEmbed).toBe(true);
+      // Applying an image marks it the active source.
+      expect(grid.backgroundActiveSource).toBe("image");
       expect(pushUndoSnapshot).toHaveBeenCalledWith("Change background image");
 
       controller.removeBackgroundImage();
       expect(grid.backgroundImageSrc).toBe("");
       expect(grid.backgroundEmbed).toBe(false);
+      // No color retained → falls back to default.
+      expect(grid.backgroundActiveSource).toBe("default");
       expect(pushUndoSnapshot).toHaveBeenCalledWith("Remove background image");
+    });
+
+    it("removeBackgroundImage falls back to a retained color", () => {
+      const grid = seedGrid();
+      controller.setBackgroundColor("#abcdef");
+      controller.addBackgroundImage("https://cdn/bg", false, "hash");
+      expect(grid.backgroundActiveSource).toBe("image");
+
+      controller.removeBackgroundImage();
+      expect(grid.backgroundImageSrc).toBe("");
+      // The color is retained, so it becomes active again.
+      expect(grid.backgroundColor).toBe("#abcdef");
+      expect(grid.backgroundActiveSource).toBe("color");
+    });
+
+    it("setBackgroundActiveSource toggles the active source without touching values", () => {
+      const grid = seedGrid();
+      controller.setBackgroundColor("#abcdef");
+      controller.addBackgroundImage("https://cdn/bg", false, "hash");
+      // Both values retained; image is currently active.
+      expect(grid.backgroundActiveSource).toBe("image");
+
+      controller.setBackgroundActiveSource("color");
+      expect(grid.backgroundActiveSource).toBe("color");
+      // Neither stored value is discarded when toggling.
+      expect(grid.backgroundColor).toBe("#abcdef");
+      expect(grid.backgroundImageSrc).toBe("https://cdn/bg");
+      expect(pushUndoSnapshot).toHaveBeenCalledWith("Change background");
+
+      controller.setBackgroundActiveSource("default");
+      expect(grid.backgroundActiveSource).toBe("default");
+      expect(grid.backgroundColor).toBe("#abcdef");
+      expect(grid.backgroundImageSrc).toBe("https://cdn/bg");
     });
 
     it("setCustomOgImage / removeCustomOgImage set and clear the og image", () => {
@@ -114,13 +151,31 @@ describe("GridSettingsController", () => {
       const grid = seedGrid();
       controller.setBackgroundColor("#abcdef");
       expect(grid.backgroundColor).toBe("#abcdef");
+      // Applying a color marks it the active source.
+      expect(grid.backgroundActiveSource).toBe("color");
       expect(pushUndoSnapshot).toHaveBeenCalledWith("Change background color");
       expect(scheduleSave).toHaveBeenCalledTimes(1);
 
       controller.removeBackgroundColor();
       expect(grid.backgroundColor).toBe("");
+      // No image retained → falls back to default.
+      expect(grid.backgroundActiveSource).toBe("default");
       expect(pushUndoSnapshot).toHaveBeenCalledWith("Remove background color");
       expect(scheduleSave).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("previewBackgroundColor (live, history-free)", () => {
+    it("mutates the color for immediate feedback without history or a save", () => {
+      const grid = seedGrid();
+      controller.previewBackgroundColor("#123456");
+      expect(grid.backgroundColor).toBe("#123456");
+      // Keeps the color visible live by making it the active source.
+      expect(grid.backgroundActiveSource).toBe("color");
+      // Live previews must never touch undo history or schedule persistence —
+      // the caller commits once (setBackgroundColor) at the end of the drag.
+      expect(pushUndoSnapshot).not.toHaveBeenCalled();
+      expect(scheduleSave).not.toHaveBeenCalled();
     });
   });
 

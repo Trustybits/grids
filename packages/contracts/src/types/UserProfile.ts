@@ -15,6 +15,12 @@ export interface UserProfile {
   /** Dashboard favorites; order is preserved in the Starred section */
   starredGridIds?: string[];
   profilePhotoUrl?: string;
+  /**
+   * Custom colors the user saved from the color picker, newest first. Shared
+   * across all of the user's grids (appended after the built-in preset swatches
+   * in the mobile picker). Stored as `#RRGGBB` hex strings.
+   */
+  savedColors?: string[];
 }
 
 /**

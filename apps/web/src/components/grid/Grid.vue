@@ -60,6 +60,12 @@ import {
   toGriddleTiles,
 } from "@/utils/GriddleAdapter";
 import {
+  findFirstAvailableLayoutSpot,
+  packGridLayout,
+  scaleLayoutItemToFit,
+} from "@/utils/GridLayoutUtils";
+import type { GridLayoutItem } from "@/types/GridLayout";
+import {
   TILE_DRAGGING_ID,
   TILE_GEOMETRY_VERSION,
   TILE_RESIZE_REQUEST,
@@ -132,11 +138,40 @@ export default {
       () => new Map(contractTiles.value.map((tile) => [tile.i, tile])),
     );
 
+    const safeProjectedLayout = computed(() =>
+      packGridLayout(projectedLayout.value, responsiveColNum.value),
+    );
+
     const griddleTiles = computed(() =>
-      toGriddleTiles(projectedLayout.value, contractTiles.value, {
+      toGriddleTiles(safeProjectedLayout.value, contractTiles.value, {
         editable: gridView.canEdit,
       }),
     );
+
+    // Emergency recovery uses an independent, conservative placement pass:
+    // keep each projected footprint, but rebuild every position from the first
+    // available cell. That gives a rejected normal layout one meaningful retry
+    // without trusting the same persisted coordinates again.
+    const buildRepairedGriddleTiles = () => {
+      const repaired: GridLayoutItem[] = [];
+      for (const item of projectedLayout.value) {
+        const fitted = scaleLayoutItemToFit(
+          item,
+          responsiveColNum.value,
+        );
+        const position = findFirstAvailableLayoutSpot(
+          repaired,
+          fitted.w,
+          fitted.h,
+          responsiveColNum.value,
+        );
+        repaired.push({ ...fitted, ...position });
+      }
+
+      return toGriddleTiles(repaired, contractTiles.value, {
+        editable: gridView.canEdit,
+      });
+    };
 
     const gridConfig = computed(() =>
       buildGridConfig({
@@ -154,7 +189,9 @@ export default {
 
     const api = useGriddle({
       config: gridConfig.value,
-      tiles: griddleTiles.value,
+      // Start from an always-valid state so initial app geometry enters through
+      // the same guarded load/retry boundary as later breakpoint changes.
+      tiles: [],
     });
     provide(TILE_GEOMETRY_VERSION, api.version);
 
@@ -185,16 +222,46 @@ export default {
     // toggle, or reconciliation after a committed gesture). Guarded so a
     // reactive reload can never fight a live drag/resize.
     let interacting = false;
-    const syncEngine = async (): Promise<void> => {
+    let syncGeneration = 0;
+    const loadEngineLayout = (tiles: GriddleTile[]): void => {
       api.loadJSON({
         version: 1,
         config: gridConfig.value,
-        tiles: griddleTiles.value,
+        tiles,
       });
       // loadJSON/updateConfig don't apply gravity; compact explicitly so a
       // gravity:'top' layout settles immediately.
       if (gridView.verticalCompact) api.grid.compactAll();
+    };
+
+    const syncEngine = async (): Promise<void> => {
+      const generation = ++syncGeneration;
+      let keptPreviousState = false;
+      try {
+        loadEngineLayout(griddleTiles.value);
+      } catch (initialError) {
+        try {
+          loadEngineLayout(buildRepairedGriddleTiles());
+          console.warn(
+            "Grids: Griddle rejected a layout; recovered with one repaired retry.",
+            initialError,
+          );
+        } catch (repairError) {
+          keptPreviousState = true;
+          // Fixed one-retry budget: never recurse or feed the failure back into
+          // the watcher. Griddle mutations are atomic, so this remains legal.
+          console.error(
+            "Grids: Griddle rejected both the selected layout and its one repaired retry; keeping the last legal engine state.",
+            { initialError, repairError },
+          );
+        }
+      }
+
       await nextTick();
+      if (generation !== syncGeneration) return;
+      if (keptPreviousState) {
+        gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
+      }
       markLayoutReady();
     };
 
@@ -314,23 +381,20 @@ export default {
 
       const tile = api.grid.getTile(id);
       if (!tile) return;
-      const targetWidth = Math.min(width, responsiveColNum.value);
-      if (tile.w === targetWidth && tile.h === height) return;
+      const targetWidth = Math.min(
+        Math.max(1, Math.floor(width)),
+        responsiveColNum.value - tile.col,
+      );
+      const targetHeight = Math.max(1, Math.floor(height));
+      if (tile.w === targetWidth && tile.h === targetHeight) return;
 
       // Toolbar resizes are programmatic gestures. Run the mutation through
       // Griddle (rather than bulk-loading an overlapping projected layout) so
       // collision displacement and structural repacking complete atomically.
       gridView.beginResize();
-      const targetCol = Math.min(
-        tile.col,
-        responsiveColNum.value - targetWidth,
-      );
-      if (targetCol !== tile.col) {
-        api.moveTile(id, { col: targetCol, row: tile.row });
-      }
       const committed = api.resizeTile(id, {
         w: targetWidth,
-        h: height,
+        h: targetHeight,
       });
       if (!committed) {
         // Valid presets are expected to fit after the responsive width clamp.

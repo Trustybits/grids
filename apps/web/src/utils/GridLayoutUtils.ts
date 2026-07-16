@@ -103,15 +103,29 @@ export function scaleLayoutItemToFit(
 ): GridLayoutItem {
   assertPositiveInteger(columns, "columns");
 
-  if (item.w <= columns) {
-    return { ...item };
+  const width = Number.isFinite(item.w)
+    ? Math.max(1, Math.round(item.w))
+    : 1;
+  const height = Number.isFinite(item.h)
+    ? Math.max(1, Math.round(item.h))
+    : 1;
+  const normalized = {
+    ...item,
+    x: Number.isFinite(item.x) ? Math.round(item.x) : 0,
+    y: Number.isFinite(item.y) ? Math.round(item.y) : 0,
+    w: width,
+    h: height,
+  };
+
+  if (width <= columns) {
+    return normalized;
   }
 
-  const scale = columns / item.w;
+  const scale = columns / width;
   return {
-    ...item,
+    ...normalized,
     w: columns,
-    h: Math.max(1, Math.round(item.h * scale)),
+    h: Math.max(1, Math.round(height * scale)),
   };
 }
 
@@ -131,7 +145,9 @@ export function packGridLayout(
   for (const item of ordered) {
     const scaledItem = scaleLayoutItemToFit(item, columns);
     const withinBounds =
-      scaledItem.x >= 0 && scaledItem.x + scaledItem.w <= columns;
+      scaledItem.x >= 0 &&
+      scaledItem.y >= 0 &&
+      scaledItem.x + scaledItem.w <= columns;
     const canKeepPosition =
       withinBounds &&
       !placed.some((placedItem) =>
@@ -241,13 +257,10 @@ export function projectGridLayout({
   const layoutItems = tiles.map(toLayoutItem);
 
   if (breakpoint === "lg") {
-    const needsRepacking = layoutItems.some(
-      (item) =>
-        item.w > columns || item.x < 0 || item.x + item.w > columns,
-    );
-    return needsRepacking
-      ? packGridLayout(layoutItems, columns)
-      : layoutItems;
+    // Stored desktop geometry is untrusted input. Packing is identity-preserving
+    // for a valid layout, while also repairing negative/out-of-bounds positions
+    // and saved overlaps before Griddle renders its first frame.
+    return packGridLayout(layoutItems, columns);
   }
 
   const breakpointOverrides = overrides?.[breakpoint];
@@ -277,7 +290,10 @@ export function projectGridLayout({
       );
       projected.push({ ...item, ...position });
     }
-    return projected;
+    // Breakpoint overrides are persisted independently and may be stale or
+    // internally inconsistent. Keep valid authoritative positions, but repair
+    // any overlap/out-of-bounds geometry before it reaches the renderer.
+    return packGridLayout(projected, columns);
   }
 
   return packGridLayout(

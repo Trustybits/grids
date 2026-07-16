@@ -116,6 +116,12 @@ describe("scaleLayoutItemToFit", () => {
       scaleLayoutItemToFit(layoutItem("a", 0, 0, 12, 1), 4).h,
     ).toBe(1);
   });
+
+  it("normalizes non-integer and non-positive persisted geometry", () => {
+    expect(
+      scaleLayoutItemToFit(layoutItem("a", 1.6, 2.4, 0, -3), 4),
+    ).toEqual(layoutItem("a", 2, 2, 1, 1));
+  });
 });
 
 describe("packGridLayout", () => {
@@ -138,6 +144,12 @@ describe("packGridLayout", () => {
       layoutItem("b", 2, 0, 2, 2),
       layoutItem("a", 0, 0, 2, 2),
     ]);
+  });
+
+  it("moves negative rows into the contained grid", () => {
+    expect(
+      packGridLayout([layoutItem("a", 1, -2, 2, 2)], 4),
+    ).toEqual([layoutItem("a", 0, 0, 2, 2)]);
   });
 
   it("scales and repositions out-of-bounds items", () => {
@@ -315,6 +327,48 @@ describe("projectGridLayout", () => {
       layoutItem("a", 2, 0, 3, 2),
       layoutItem("b", 0, 0, 2, 2),
     ]);
+  });
+
+  it("repacks a desktop grid containing saved overlaps", () => {
+    const tiles = [
+      tile("a", 0, 0, 2, 2),
+      tile("b", 0, 0, 2, 2),
+    ];
+
+    const result = projectGridLayout({
+      tiles,
+      breakpoint: "lg",
+      columns: 12,
+    });
+
+    expect(gridItemsOverlap(result[0]!, result[1]!)).toBe(false);
+    expect(result).toEqual([
+      layoutItem("a", 0, 0, 2, 2),
+      layoutItem("b", 2, 0, 2, 2),
+    ]);
+  });
+
+  it("repacks overlapping and out-of-bounds breakpoint overrides", () => {
+    const tiles = [
+      tile("a", 0, 0, 2, 2),
+      tile("b", 2, 0, 2, 2),
+    ];
+
+    const result = projectGridLayout({
+      tiles,
+      breakpoint: "sm",
+      columns: 4,
+      overrides: {
+        sm: {
+          a: { x: 3, y: -1, w: 2, h: 2 },
+          b: { x: 3, y: -1, w: 2, h: 2 },
+        },
+      },
+    });
+
+    expect(result.every((item) => item.x >= 0 && item.y >= 0)).toBe(true);
+    expect(result.every((item) => item.x + item.w <= 4)).toBe(true);
+    expect(gridItemsOverlap(result[0]!, result[1]!)).toBe(false);
   });
 
   it("uses saved non-desktop overrides", () => {

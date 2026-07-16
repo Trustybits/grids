@@ -48,7 +48,6 @@ export const DEFAULT_DRAG_IGNORE_FROM =
     ".tile-title",
     ".tile-details",
     ".chat-bubble-wrapper",
-    ".video-main",
     ".progress-container",
     ".track-progress",
     ".yt-video-card",

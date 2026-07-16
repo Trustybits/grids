@@ -7,11 +7,17 @@ import {
 } from "@grids/contracts/types";
 import { getTileDefinition } from "@/registries/tileRegistry";
 import {
-  adjustTilePosition,
   findBestXAtRow,
   findFirstAvailableSpot,
   pushTilesForNewItem,
 } from "@/utils/GridPlacementUtils";
+import {
+  breakpointToColumnCount,
+  findFirstAvailableLayoutSpot,
+  packGridLayout,
+  projectGridLayout,
+  scaleLayoutItemToFit,
+} from "@/utils/GridLayoutUtils";
 import { createTile } from "@/utils/TileUtils";
 import {
   createPositionMap,
@@ -36,6 +42,54 @@ export class GridTileStructureController {
     ) => void,
   ) {}
 
+  private placeNewTile(
+    tiles: Tile[],
+    columns: number,
+    width: number,
+    height: number,
+  ): { x: number; y: number } {
+    const viewportY = this.getViewportGridY();
+    const position =
+      viewportY > 0
+        ? findBestXAtRow(
+            tiles,
+            columns,
+            width,
+            height,
+            viewportY,
+          )
+        : findFirstAvailableSpot(tiles, columns, width, height);
+
+    pushTilesForNewItem(
+      tiles,
+      position.x,
+      position.y,
+      width,
+      height,
+    );
+    return position;
+  }
+
+  private normalizeCanonicalLayout(tiles: Tile[], columns: number): void {
+    const packedById = new Map(
+      packGridLayout(tiles, columns).map((position) => [
+        position.i,
+        position,
+      ]),
+    );
+
+    for (const tile of tiles) {
+      const position = packedById.get(tile.i);
+      if (!position) continue;
+      Object.assign(tile, {
+        x: position.x,
+        y: position.y,
+        w: position.w,
+        h: position.h,
+      });
+    }
+  }
+
   addTile(content: TileContent): string | null {
     const grid = this.stores.session.currentGrid;
     if (!grid) return null;
@@ -54,31 +108,15 @@ export class GridTileStructureController {
       }
     }
 
-    const width = definition?.defaultSize?.w ?? 2;
+    const requestedWidth = definition?.defaultSize?.w ?? 2;
     const height = definition?.defaultSize?.h ?? 2;
     const columns = grid.colNum || 12;
-    const viewportY = this.getViewportGridY();
-    const position =
-      viewportY > 0
-        ? findBestXAtRow(
-            grid.tiles,
-            columns,
-            width,
-            height,
-            viewportY,
-          )
-        : findFirstAvailableSpot(
-            grid.tiles,
-            columns,
-            width,
-            height,
-          );
+    const width = Math.min(requestedWidth, columns);
 
     this.pushUndoSnapshot("Add tile");
-    pushTilesForNewItem(
+    const position = this.placeNewTile(
       grid.tiles,
-      position.x,
-      position.y,
+      columns,
       width,
       height,
     );
@@ -94,6 +132,7 @@ export class GridTileStructureController {
       "",
     );
     grid.tiles.push(tile);
+    this.normalizeCanonicalLayout(grid.tiles, columns);
     this.scheduleSave();
     this.logTileEvent(
       AnalyticsEventType.TILE_ADDED,
@@ -111,21 +150,11 @@ export class GridTileStructureController {
 
     this.pushUndoSnapshot("Duplicate tile");
     const columns = grid.colNum || 12;
-    const breakpoint = this.stores.viewport.activeBreakpoint;
-    const override = grid.overrides?.[breakpoint]?.[id];
-    const width = override?.w ?? source.w;
-    const height = override?.h ?? source.h;
-    const position = findBestXAtRow(
+    const width = Math.min(source.w, columns);
+    const height = source.h;
+    const position = this.placeNewTile(
       grid.tiles,
       columns,
-      width,
-      height,
-      (override?.y ?? source.y) + height,
-    );
-    pushTilesForNewItem(
-      grid.tiles,
-      position.x,
-      position.y,
       width,
       height,
     );
@@ -142,6 +171,7 @@ export class GridTileStructureController {
       content: JSON.parse(JSON.stringify(source.content)) as TileContent,
     };
     grid.tiles.push(tile);
+    this.normalizeCanonicalLayout(grid.tiles, columns);
 
     const resolvedItems =
       this.stores.uploads.resolvedDocumentItemUrls[id];
@@ -160,13 +190,40 @@ export class GridTileStructureController {
         grid.overrides,
       ) as Breakpoint[]) {
         const positions = grid.overrides[overrideBreakpoint];
-        if (positions?.[id]) {
-          positions[newId] = {
-            ...positions[id],
-            x: position.x,
-            y: position.y,
-          };
+        const sourcePosition = positions?.[id];
+        if (!positions || !sourcePosition || overrideBreakpoint === "lg") {
+          continue;
         }
+
+        const breakpointColumns = breakpointToColumnCount(
+          overrideBreakpoint,
+          columns,
+        );
+        const duplicateLayout = scaleLayoutItemToFit(
+          { i: newId, ...sourcePosition },
+          breakpointColumns,
+        );
+        const projectedExisting = projectGridLayout({
+          tiles: grid.tiles.filter((candidate) => candidate.i !== newId),
+          breakpoint: overrideBreakpoint,
+          columns: breakpointColumns,
+          overrides: grid.overrides,
+        });
+        const breakpointPosition = findFirstAvailableLayoutSpot(
+          projectedExisting,
+          duplicateLayout.w,
+          duplicateLayout.h,
+          breakpointColumns,
+          overrideBreakpoint === this.stores.viewport.activeBreakpoint
+            ? this.getViewportGridY()
+            : 0,
+        );
+        positions[newId] = {
+          x: breakpointPosition.x,
+          y: breakpointPosition.y,
+          w: duplicateLayout.w,
+          h: duplicateLayout.h,
+        };
       }
     }
 
@@ -238,16 +295,17 @@ export class GridTileStructureController {
 
     const breakpoint = this.stores.viewport.activeBreakpoint;
     if (breakpoint === "lg") {
-      tile.w = width;
-      tile.h = height;
-      adjustTilePosition(tile, grid.colNum);
+      const columns = grid.colNum || 12;
+      tile.x = Math.min(Math.max(0, tile.x), columns - 1);
+      tile.w = Math.min(Math.max(1, Math.floor(width)), columns - tile.x);
+      tile.h = Math.max(1, Math.floor(height));
       const displayPosition =
         this.stores.viewport.displayPositions.find(
           (position) => position.i === id,
         );
       if (displayPosition) {
-        displayPosition.w = width;
-        displayPosition.h = height;
+        displayPosition.w = tile.w;
+        displayPosition.h = tile.h;
         displayPosition.x = tile.x;
       }
       this.scheduleSave();
@@ -255,7 +313,6 @@ export class GridTileStructureController {
     }
 
     const columns = breakpoint === "sm" ? 4 : 8;
-    const clampedWidth = Math.min(width, columns);
     grid.overrides ??= {};
     grid.overrides[breakpoint] ??= createPositionMap(
       this.stores.viewport.displayPositions,
@@ -264,14 +321,18 @@ export class GridTileStructureController {
     if (!positions) return;
     const existing = positions[id];
     const clampedX = Math.min(
-      existing?.x ?? tile.x,
-      columns - clampedWidth,
+      Math.max(0, existing?.x ?? tile.x),
+      columns - 1,
+    );
+    const clampedWidth = Math.min(
+      Math.max(1, Math.floor(width)),
+      columns - clampedX,
     );
     positions[id] = {
-      x: Math.max(0, clampedX),
+      x: clampedX,
       y: existing?.y ?? tile.y,
       w: clampedWidth,
-      h: height,
+      h: Math.max(1, Math.floor(height)),
     };
     this.scheduleSave();
   }

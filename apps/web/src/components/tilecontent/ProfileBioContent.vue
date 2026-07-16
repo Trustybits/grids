@@ -79,8 +79,7 @@
               (effectiveAvatarShape === 'polygon' ||
                 effectiveAvatarShape === 'square') &&
               avatarSrc &&
-              gridView.canEdit &&
-              (isEditing || isHovered)
+              avatarControlsVisible
             "
             class="radius-knob"
             :class="{ 'radius-knob--active': isDraggingRadius }"
@@ -100,8 +99,7 @@
               !isCompactProfileLayout &&
               effectiveAvatarShape === 'polygon' &&
               avatarSrc &&
-              gridView.canEdit &&
-              (isEditing || isHovered)
+              avatarControlsVisible
             "
             class="sides-slider"
             @mouseenter="sidesSliderHovered = true"
@@ -133,14 +131,10 @@
 
           <!-- Avatar Action Bar — positioned on the avatar itself -->
           <div
-            v-if="
-              !isCompactProfileLayout &&
-              avatarSrc &&
-              gridView.canEdit &&
-              (isEditing || isHovered)
-            "
+            v-if="!isCompactProfileLayout && avatarSrc && avatarControlsVisible"
             class="avatar-action-bar"
             :class="{
+              'avatar-action-bar--activated': tileActivated,
               'avatar-action-bar--dimmed': isDraggingRadius,
               'avatar-action-bar--flyout-open': hoveredQuickAction !== null,
               'avatar-action-bar--zone-dimmed':
@@ -167,16 +161,13 @@
               <div
                 v-if="avatarSrc"
                 class="quick-action-menu"
-                @mouseenter="
-                  cancelQuickActionClose();
-                  hoveredQuickAction = 'shape';
-                "
-                @mouseleave="scheduleQuickActionClose()"
+                @mouseenter="onQuickActionEnter('shape')"
+                @mouseleave="onQuickActionLeave()"
               >
                 <button
                   ref="shapeTriggerRef"
                   class="avatar-action-btn avatar-action-btn--active"
-                  @click.stop
+                  @click.stop="onShapeTriggerClick"
                 >
                   <ShapeCircleIcon v-if="effectiveAvatarShape === 'circle'" />
                   <ShapeSquareIcon
@@ -190,17 +181,14 @@
               <div
                 v-if="avatarSrc"
                 class="quick-action-menu"
-                @mouseenter="
-                  cancelQuickActionClose();
-                  hoveredQuickAction = 'avatar';
-                "
-                @mouseleave="scheduleQuickActionClose()"
+                @mouseenter="onQuickActionEnter('avatar')"
+                @mouseleave="onQuickActionLeave()"
               >
                 <button
                   ref="avatarTriggerRef"
                   class="avatar-action-btn"
                   :class="{ 'avatar-action-btn--active': avatarSrc }"
-                  @click.stop="onLastAvatarMethod"
+                  @click.stop="onAvatarTriggerClick"
                 >
                   <UploadMediaIcon v-if="lastAvatarMethod === 'upload'" />
                   <UrlSourceIcon v-else />
@@ -339,13 +327,11 @@
   <Teleport to="body">
     <div
       v-show="hoveredQuickAction === 'shape'"
+      ref="shapeFlyoutRef"
       class="sub-actions-flyout"
       :style="shapeFlyoutStyle"
-      @mouseenter="
-        cancelQuickActionClose();
-        hoveredQuickAction = 'shape';
-      "
-      @mouseleave="scheduleQuickActionClose()"
+      @mouseenter="onQuickActionEnter('shape')"
+      @mouseleave="onQuickActionLeave()"
       @mousedown.stop
       @click.stop
     >
@@ -383,13 +369,11 @@
   <Teleport to="body">
     <div
       v-show="hoveredQuickAction === 'avatar'"
+      ref="avatarFlyoutRef"
       class="sub-actions-flyout"
       :style="avatarFlyoutStyle"
-      @mouseenter="
-        cancelQuickActionClose();
-        hoveredQuickAction = 'avatar';
-      "
-      @mouseleave="scheduleQuickActionClose()"
+      @mouseenter="onQuickActionEnter('avatar')"
+      @mouseleave="onQuickActionLeave()"
       @mousedown.stop
       @click.stop
     >
@@ -501,6 +485,12 @@ export default defineComponent({
     const gridTileW = inject<ComputedRef<number> | null>("gridTileW", null);
     const gridTileH = inject<ComputedRef<number> | null>("gridTileH", null);
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
+    // Tile.vue sets this on first tap and clears it on a tap outside. It is the
+    // touch-side stand-in for hover — see `avatarControlsVisible`.
+    const tileActivated = inject<Ref<boolean>>("tileActivated", ref(false));
+
+    const isTouchDevice = () =>
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 
     const layoutMode = computed((): string => {
       const w = gridTileW?.value ?? 4;
@@ -560,6 +550,8 @@ export default defineComponent({
     const lastAvatarMethod = ref<"upload" | "url">("upload");
     const shapeTriggerRef = ref<HTMLElement | null>(null);
     const avatarTriggerRef = ref<HTMLElement | null>(null);
+    const shapeFlyoutRef = ref<HTMLElement | null>(null);
+    const avatarFlyoutRef = ref<HTMLElement | null>(null);
     let quickActionCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleQuickActionClose = () => {
@@ -579,6 +571,46 @@ export default defineComponent({
         clearTimeout(quickActionCloseTimer);
         quickActionCloseTimer = null;
       }
+    };
+
+    // ── Quick-action flyouts ──────────────────────────────────────────
+    // On a mouse the flyouts open on hover. Touch has no hover, so they open
+    // on tap instead. The two models can't both be live: tapping a <button>
+    // still emits a synthesized mouseenter *before* the click, so leaving the
+    // hover handlers active on touch would open the flyout on mouseenter and
+    // then immediately have the click toggle it shut again.
+    const onQuickActionEnter = (action: "shape" | "avatar") => {
+      if (isTouchDevice()) return;
+      cancelQuickActionClose();
+      hoveredQuickAction.value = action;
+    };
+
+    const onQuickActionLeave = () => {
+      if (isTouchDevice()) return;
+      scheduleQuickActionClose();
+    };
+
+    const toggleQuickAction = (action: "shape" | "avatar") => {
+      hoveredQuickAction.value =
+        hoveredQuickAction.value === action ? null : action;
+    };
+
+    // The shape trigger has no mouse click behaviour — it exists purely to
+    // reveal its flyout, which on touch only a tap can do.
+    const onShapeTriggerClick = () => {
+      if (!isTouchDevice()) return;
+      toggleQuickAction("shape");
+    };
+
+    // On a mouse this button applies the last-used method and hover reveals the
+    // alternatives. On touch that flyout is unreachable, and the shortcut would
+    // strand the URL option, so the tap opens the flyout instead.
+    const onAvatarTriggerClick = () => {
+      if (isTouchDevice()) {
+        toggleQuickAction("avatar");
+        return;
+      }
+      onLastAvatarMethod();
     };
 
     const clipPathId = `avatar-clip-${Math.random().toString(36).slice(2, 9)}`;
@@ -656,6 +688,15 @@ export default defineComponent({
     );
     const effectiveAvatarShape = computed<AvatarShape>(() =>
       isCompactProfileLayout.value ? "square" : avatarShape.value,
+    );
+
+    // Gates every avatar-editing control. `isHovered` never becomes true on a
+    // touch device, so tile activation stands in for it there — otherwise the
+    // controls for an existing photo would be unreachable once one is set.
+    const avatarControlsVisible = computed(
+      () =>
+        gridView.canEdit &&
+        (isEditing.value || isHovered.value || tileActivated.value),
     );
 
     // Profile photo URL is stored in tile content.
@@ -791,29 +832,55 @@ export default defineComponent({
       isEditing.value = false;
     };
 
+    // ─── Avatar measurement ────────────────────────────────────────────
+    //
+    // `avatarSize` feeds the polygon geometry, and the clip path is declared
+    // `clipPathUnits="userSpaceOnUse"` — untransformed layout coordinates. So
+    // this must be measured in *layout* space. `getBoundingClientRect()` is
+    // transform-aware and reports visual size, which is wrong here twice over:
+    //
+    //   1. Tile.vue's `tileEnter` animation scales every tile 0.75 → 1 over
+    //      250ms on mount, and this runs inside that window — so the avatar
+    //      measures ~0.75× its real size and the polygon is drawn undersized.
+    //   2. Any grid-level fit scale (e.g. the landing page's `grid-jack__scale`)
+    //      multiplies the error again.
+    //
+    // ResizeObserver reports the border box in layout pixels — transform-
+    // independent — and fires on each frame of `.avatar`'s 400ms width/height
+    // transition, so the geometry tracks the box instead of sampling it at
+    // `nextTick` and freezing on a value the box is about to leave.
+    let avatarResizeObserver: ResizeObserver | null = null;
+
     const updateAvatarSize = () => {
-      if (!avatarRef.value) return;
-      const rect = avatarRef.value.getBoundingClientRect();
-      if (rect.width > 0) {
-        avatarSize.value = rect.width;
-      }
+      // offsetWidth, not getBoundingClientRect — see above.
+      const width = avatarRef.value?.offsetWidth ?? 0;
+      if (width > 0) avatarSize.value = width;
     };
-
-    const onResize = () => {
-      nextTick(() => updateAvatarSize());
-    };
-
-    watch(layoutMode, () => {
-      nextTick(() => updateAvatarSize());
-    });
 
     onMounted(() => {
       updateAvatarSize();
-      document.addEventListener("mousedown", onClickOutside);
+
+      if (typeof ResizeObserver !== "undefined") {
+        avatarResizeObserver = new ResizeObserver((entries) => {
+          const inlineSize = entries[0]?.borderBoxSize?.[0]?.inlineSize;
+          if (typeof inlineSize === "number" && inlineSize > 0) {
+            avatarSize.value = inlineSize;
+          } else {
+            // borderBoxSize is absent on older Safari; contentRect there is
+            // still layout-space, but offsetWidth matches our box model.
+            updateAvatarSize();
+          }
+        });
+        if (avatarRef.value) avatarResizeObserver.observe(avatarRef.value);
+      }
+
+      document.addEventListener("pointerdown", onPointerDownOutside);
     });
 
     onBeforeUnmount(() => {
-      document.removeEventListener("mousedown", onClickOutside);
+      avatarResizeObserver?.disconnect();
+      avatarResizeObserver = null;
+      document.removeEventListener("pointerdown", onPointerDownOutside);
       cancelQuickActionClose();
     });
 
@@ -838,6 +905,8 @@ export default defineComponent({
     const setAvatarShape = (shape: AvatarShape) => {
       if (!gridView.canEdit) return;
       patchContent({ avatarShape: shape });
+      // A mouse dismisses the flyout by leaving it; a tap has to say so.
+      if (isTouchDevice()) hoveredQuickAction.value = null;
     };
 
     const isDraggingRadius = ref(false);
@@ -1187,6 +1256,7 @@ export default defineComponent({
     const openCustomImagePicker = () => {
       if (!gridView.canEdit || isCompactProfileLayout.value) return;
       lastAvatarMethod.value = "upload";
+      if (isTouchDevice()) hoveredQuickAction.value = null;
       avatarInput.value?.click();
     };
 
@@ -1208,12 +1278,29 @@ export default defineComponent({
       };
     };
 
-    const onClickOutside = (e: MouseEvent) => {
-      if (!showUrlInput.value) return;
+    // Listens on pointerdown rather than mousedown so it fires for touch too:
+    // Tile.vue preventDefaults the touchstart on non-interactive targets, which
+    // suppresses the synthesized mousedown that used to drive this.
+    const onPointerDownOutside = (e: PointerEvent) => {
       const target = e.target as Node;
-      if (popoverRef.value?.contains(target)) return;
-      if (avatarRef.value?.contains(target)) return;
-      showUrlInput.value = false;
+      const insideAvatar = avatarRef.value?.contains(target) ?? false;
+
+      if (showUrlInput.value) {
+        if (!insideAvatar && !popoverRef.value?.contains(target)) {
+          showUrlInput.value = false;
+        }
+      }
+
+      // The flyouts are teleported to <body>, so they aren't inside the avatar
+      // and need their own containment check.
+      if (hoveredQuickAction.value) {
+        const insideFlyout =
+          (shapeFlyoutRef.value?.contains(target) ?? false) ||
+          (avatarFlyoutRef.value?.contains(target) ?? false);
+        if (!insideAvatar && !insideFlyout) {
+          hoveredQuickAction.value = null;
+        }
+      }
     };
 
     const onAvatarClick = () => {
@@ -1232,6 +1319,7 @@ export default defineComponent({
     const openUrlInput = () => {
       if (!gridView.canEdit || isCompactProfileLayout.value) return;
       lastAvatarMethod.value = "url";
+      if (isTouchDevice()) hoveredQuickAction.value = null;
       draftAvatarUrl.value = avatarSrc.value || "";
       urlError.value = "";
       updatePopoverPos();
@@ -1428,7 +1516,6 @@ export default defineComponent({
       textColor,
       onShortClick,
       onExitClick,
-      onResize,
       openCustomImagePicker,
       openUrlInput,
       cancelUrlInput,
@@ -1456,12 +1543,18 @@ export default defineComponent({
       onLastAvatarMethod,
       layoutClasses,
       hoveredToolbarZone,
+      tileActivated,
+      avatarControlsVisible,
       shapeTriggerRef,
       avatarTriggerRef,
+      shapeFlyoutRef,
+      avatarFlyoutRef,
       shapeFlyoutStyle,
       avatarFlyoutStyle,
-      scheduleQuickActionClose,
-      cancelQuickActionClose,
+      onQuickActionEnter,
+      onQuickActionLeave,
+      onShapeTriggerClick,
+      onAvatarTriggerClick,
       earnedBadges,
       formatBadgeDate,
     };
@@ -2138,9 +2231,14 @@ export default defineComponent({
   opacity: 0.34;
 }
 
+/* `--activated` is the touch counterpart to the hover selectors: a tap can't
+   trigger :hover, so tile activation reveals the bar instead. Deliberately a
+   single class so it sits below `--dimmed`/`--zone-dimmed` in specificity and
+   the drag-dimming rules below still win, exactly as they do on hover. */
 .avatar:hover .avatar-action-bar,
 .avatar-action-bar:hover,
-.avatar-action-bar--flyout-open {
+.avatar-action-bar--flyout-open,
+.avatar-action-bar--activated {
   opacity: 1;
   pointer-events: auto;
 }

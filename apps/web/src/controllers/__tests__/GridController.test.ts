@@ -7,8 +7,6 @@ import {
 import type { AuthProvider } from "@grids/contracts/auth";
 import {
   ContentType,
-  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
   type ChatContent,
   type Grid,
   type ImageContent,
@@ -319,219 +317,38 @@ describe("GridController", () => {
     );
   });
 
-  it("enters and exits a grid-scoped preview without redefining ownership", () => {
+  it("keeps the obsolete responsive-layout preview entry inert", () => {
     const { controller, stores } = createControllerHarness();
-    stores.session.setCurrentGrid(
-      makeGrid({
-        responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
-      }),
-    );
+    stores.session.setCurrentGrid(makeGrid());
     stores.session.setOwner(true);
     stores.history.beginEdit("tile-1", makeSnapshot());
     stores.history.beginMove(makeSnapshot());
     stores.history.beginResize(makeSnapshot());
     stores.ui.setPanelActive("tile-1", "settings");
 
-    expect(controller.startResponsiveLayoutPreview()).toBe(true);
-
-    expect(stores.preview.activePreview).toEqual({
-      kind: "responsive-layout",
-      gridId: "grid-1",
-      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-    });
+    expect(controller.startResponsiveLayoutPreview()).toBe(false);
+    expect(stores.preview.activePreview).toBeNull();
     expect(stores.session.isOwner).toBe(true);
-    expect(controller.canEditCurrentGrid()).toBe(false);
-    expect(stores.history.editingTileId).toBeNull();
-    expect(stores.history.pendingMoveSnapshot).toBeNull();
-    expect(stores.history.pendingResizeSnapshot).toBeNull();
-    expect(stores.ui.activeTileId).toBeNull();
-    expect(stores.ui.activePanelId).toBeNull();
-    expect(stores.session.currentGrid?.responsiveLayoutVersion).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
-    );
-
-    controller.stopPreview();
-    expect(stores.preview.activePreview).toBeNull();
     expect(controller.canEditCurrentGrid()).toBe(true);
+    expect(stores.history.editingTileId).toBe("tile-1");
+    expect(stores.history.pendingMoveSnapshot).not.toBeNull();
+    expect(stores.history.pendingResizeSnapshot).not.toBeNull();
+    expect(stores.ui.activeTileId).toBe("tile-1");
+    expect(stores.ui.activePanelId).toBe("settings");
   });
 
-  it("rejects preview entry for viewers and an empty session", () => {
-    const { controller, stores } = createControllerHarness();
-
-    expect(controller.startResponsiveLayoutPreview()).toBe(false);
-
-    stores.session.setCurrentGrid(makeGrid());
-    stores.session.setOwner(false);
-    expect(controller.startResponsiveLayoutPreview()).toBe(false);
-    expect(stores.preview.activePreview).toBeNull();
-  });
-
-  it("rejects preview entry for upgraded and unsupported persisted versions", () => {
-    const { controller, stores } = createControllerHarness();
-    stores.session.setOwner(true);
-    stores.session.setCurrentGrid(
-      makeGrid({
-        responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-      }),
-    );
-
-    expect(controller.startResponsiveLayoutPreview()).toBe(false);
-
-    stores.session.setCurrentGrid(
-      makeGrid({
-        responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
-        responsiveLayoutVersionStatus: "unsupported",
-      }),
-    );
-    expect(controller.startResponsiveLayoutPreview()).toBe(false);
-    expect(stores.preview.activePreview).toBeNull();
-  });
-
-  it("persists an eligible responsive-layout upgrade and creates a new history boundary", async () => {
+  it("keeps the obsolete responsive-layout upgrade entry inert", async () => {
     const { controller, stores, persistenceScheduler } =
       createControllerHarness();
-    const overrides = {
-      sm: { "tile-1": { x: 1, y: 2, w: 2, h: 3 } },
-    };
-    const tiles: Tile[] = [
-      {
-        i: "tile-1",
-        x: 0,
-        y: 0,
-        w: 2,
-        h: 3,
-        caption: "Preserved",
-        content: {
-          type: ContentType.IMAGE,
-          src: "https://cdn/image.png",
-        } as ImageContent,
-      },
-    ];
-    const grid = makeGrid({
-      responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
-      responsiveLayoutVersionStatus: "supported",
-      tiles,
-      overrides,
-    });
+    const grid = makeGrid();
     stores.session.setCurrentGrid(grid);
     stores.session.setOwner(true);
-    stores.viewport.setForcedBreakpoint("sm");
-    stores.history.initializeManager();
-    stores.history.pushSnapshot(makeSnapshot({ actionLabel: "Before" }));
-    controller.startResponsiveLayoutPreview();
 
-    await expect(controller.upgradeResponsiveLayout()).resolves.toBe(
-      true,
-    );
-
-    expect(grid.responsiveLayoutVersion).toBe(
-      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-    );
-    expect(grid.tiles).toEqual(tiles);
-    expect(grid.overrides).toEqual(overrides);
-    expect(stores.viewport.forcedBreakpoint).toBe("sm");
+    await expect(controller.upgradeResponsiveLayout()).resolves.toBe(false);
+    expect(grid.responsiveLayoutVersion).toBeUndefined();
     expect(stores.preview.activePreview).toBeNull();
-    expect(stores.history.canUndo).toBe(false);
-    expect(stores.history.canRedo).toBe(false);
-    expect(stores.history.stableSnapshot).toEqual(
-      expect.objectContaining({ forcedBreakpoint: "sm" }),
-    );
-    expect(stores.history.stableSnapshot).not.toHaveProperty(
-      "responsiveLayoutVersion",
-    );
-    expect(persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
-    expect(persistenceScheduler.schedule).toHaveBeenCalledWith(
-      expect.objectContaining({ gridId: "grid-1" }),
-      expect.objectContaining({
-        responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-        tiles,
-        overrides,
-      }),
-    );
-  });
-
-  it("restores the legacy version and retains preview/history when the upgrade save fails", async () => {
-    const { controller, stores, persistenceScheduler } =
-      createControllerHarness();
-    const grid = makeGrid({
-      responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
-    });
-    stores.session.setCurrentGrid(grid);
-    stores.session.setOwner(true);
-    stores.history.initializeManager();
-    stores.history.pushSnapshot(makeSnapshot({ actionLabel: "Before" }));
-    controller.startResponsiveLayoutPreview();
-    vi.mocked(persistenceScheduler.flush)
-      .mockResolvedValueOnce(null)
-      .mockRejectedValueOnce(new Error("save failed"))
-      .mockRejectedValueOnce(new Error("save failed"));
-
-    await expect(controller.upgradeResponsiveLayout()).resolves.toBe(
-      false,
-    );
-
-    expect(grid.responsiveLayoutVersion).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
-    );
-    expect(stores.preview.isActive("grid-1")).toBe(true);
-    expect(stores.history.canUndo).toBe(true);
-    expect(stores.session.persistenceError).toBe(
-      "Failed to save grid.",
-    );
-
-    await expect(controller.upgradeResponsiveLayout()).resolves.toBe(
-      true,
-    );
-    expect(grid.responsiveLayoutVersion).toBe(
-      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-    );
-    expect(stores.preview.activePreview).toBeNull();
-    expect(stores.history.canUndo).toBe(false);
-  });
-
-  it("rejects ineligible and concurrent responsive-layout upgrades idempotently", async () => {
-    const { controller, stores, persistenceScheduler } =
-      createControllerHarness();
-    stores.session.setCurrentGrid(
-      makeGrid({
-        responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-      }),
-    );
-    stores.session.setOwner(true);
-
-    await expect(controller.upgradeResponsiveLayout()).resolves.toBe(
-      false,
-    );
     expect(persistenceScheduler.schedule).not.toHaveBeenCalled();
-
-    stores.session.setCurrentGrid(
-      makeGrid({
-        responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
-        responsiveLayoutVersionStatus: "unsupported",
-      }),
-    );
-    await expect(controller.upgradeResponsiveLayout()).resolves.toBe(
-      false,
-    );
-
-    stores.session.setCurrentGrid(
-      makeGrid({
-        responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
-      }),
-    );
-    const pendingSave = deferred<Grid | null>();
-    vi.mocked(persistenceScheduler.flush)
-      .mockResolvedValueOnce(null)
-      .mockReturnValueOnce(pendingSave.promise);
-
-    const first = controller.upgradeResponsiveLayout();
-    await Promise.resolve();
-    await expect(controller.upgradeResponsiveLayout()).resolves.toBe(
-      false,
-    );
-    pendingSave.resolve(null);
-    await expect(first).resolves.toBe(true);
-    expect(persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+    expect(persistenceScheduler.flush).not.toHaveBeenCalled();
   });
 
   it("blocks user mutation categories and pending gesture commits during preview", async () => {
@@ -562,7 +379,7 @@ describe("GridController", () => {
       { i: "tile-1", x: 3, y: 4, w: 1, h: 1 },
     ]);
 
-    controller.startResponsiveLayoutPreview();
+    stores.preview.startResponsiveLayoutPreview("grid-1");
     controller.commitMove();
     controller.setTileContent("tile-1", {
       type: ContentType.IMAGE,
@@ -636,7 +453,7 @@ describe("GridController", () => {
     });
     expect(uploadId).toBe("upload-1");
 
-    controller.startResponsiveLayoutPreview();
+    stores.preview.startResponsiveLayoutPreview("grid-1");
     controller.setForcedBreakpoint("sm");
     expect(controller.startUpload({ tileId: "tile-1" })).toBeNull();
     expect(
@@ -684,7 +501,7 @@ describe("GridController", () => {
       ownedObjectUrl: "blob:media",
     });
 
-    controller.startResponsiveLayoutPreview();
+    stores.preview.startResponsiveLayoutPreview("grid-1");
 
     expect(controller.failUploadAndRemoveTile(uploadId!)).toBe(true);
     expect(stores.session.currentGrid?.tiles).toEqual([]);

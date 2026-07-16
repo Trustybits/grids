@@ -1,13 +1,19 @@
 # Griddle Responsive Reflow and Projection Versioning — Implementation Plan
 
-**Status:** Implementation in progress. Steps 0 through 8 are complete; Step 9
-has not started. Bootstrap parity and final-algorithm launch remain
-intentionally separate phases.
+> [!WARNING]
+> **DEPRECATED — HISTORICAL RECORD ONLY.** This plan is old, is no longer the
+> current implementation direction, and must not be used for further work.
+> It is retained only to record the decisions and implementation history that
+> led to the pivot. The current plan is
+> [`griddle-owned-responsive-reflow-refactor-plan.md`](./griddle-owned-responsive-reflow-refactor-plan.md).
+
+**Status:** Deprecated and superseded on 2026-07-16. Do not execute any
+remaining steps or treat the architecture below as current guidance.
 
 **Repositories in scope:**
 
-- Grids app: `/Users/tylerbartschi/Documents/GitHub/grids`
-- Griddle library: `/Users/tylerbartschi/Documents/GitHub/griddle`
+- Grids app: this repository (`grids`)
+- Griddle library: the sibling repository (`../griddle`)
 
 ## Objective
 

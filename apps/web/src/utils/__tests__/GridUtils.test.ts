@@ -10,7 +10,6 @@ import { describe, it, expect } from "vitest";
 import {
   ContentType,
   GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
   type Tile,
 } from "@grids/contracts/types";
 import {
@@ -72,14 +71,14 @@ describe("createDefaultGrid", () => {
     );
   });
 
-  it("accepts an explicit compatibility version", () => {
+  it("accepts the explicit griddle-v1 version", () => {
     expect(
       createDefaultGrid(
         "user-1",
-        "Legacy",
-        LEGACY_RESPONSIVE_LAYOUT_VERSION,
+        "Explicit",
+        GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
       ).responsiveLayoutVersion,
-    ).toBe(LEGACY_RESPONSIVE_LAYOUT_VERSION);
+    ).toBe(GRIDDLE_RESPONSIVE_LAYOUT_VERSION);
   });
 
   it("starts with an empty, fresh tiles array", () => {

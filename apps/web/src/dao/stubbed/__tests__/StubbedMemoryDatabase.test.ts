@@ -19,7 +19,6 @@ import {
 } from "../StubbedMemoryDatabase";
 import {
   GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
   type UserGameData,
 } from "@grids/contracts/types";
 import { resetMemoryDatabase, flushMicrotasks } from "./memoryTestUtils";
@@ -242,7 +241,7 @@ describe("toGrid", () => {
       rev: 0,
       name: "Untitled",
       colNum: 12,
-      responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
       responsiveLayoutVersionStatus: "missing",
       verticalCompact: true,
       backgroundImageSrc: "",
@@ -297,7 +296,7 @@ describe("toGrid", () => {
     expect(result.colNum).toBe(12);
     expect(result.verticalCompact).toBe(true);
     expect(result.responsiveLayoutVersion).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     );
     expect(result.responsiveLayoutVersionStatus).toBe("unsupported");
     expect(result.tiles).toEqual([]);
@@ -313,7 +312,7 @@ describe("toGrid", () => {
     );
 
     expect(second.responsiveLayoutVersion).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     );
     expect(second.responsiveLayoutVersionStatus).toBe("unsupported");
   });

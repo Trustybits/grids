@@ -4,7 +4,6 @@ import { nextTick, reactive } from "vue";
 import {
   ContentType,
   GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
   resolveResponsiveLayoutVersion,
   type Breakpoint,
   type Grid,
@@ -306,22 +305,17 @@ describe("Grid canvas characterization", () => {
     wrapper.unmount();
   });
 
-  it("routes a transient effective-version override without mutating the persisted version", async () => {
+  it("routes an unknown raw stamp through griddle-v1 without mutating persisted data", async () => {
     const grid = makeGrid();
-    grid.responsiveLayoutVersion = LEGACY_RESPONSIVE_LAYOUT_VERSION;
+    grid.responsiveLayoutVersion = "griddle-v2" as never;
     const { store } = makeStore(grid);
     store.forcedBreakpoint = "md";
     store.effectiveResponsiveLayoutVersion =
-      LEGACY_RESPONSIVE_LAYOUT_VERSION;
+      resolveResponsiveLayoutVersion("griddle-v2");
     store.verticalCompact = false;
     storeHolder.current = store;
 
     const wrapper = await mountGrid();
-    await flushPromises();
-    expect(griddleHooks.reflow).not.toHaveBeenCalled();
-
-    store.effectiveResponsiveLayoutVersion =
-      GRIDDLE_RESPONSIVE_LAYOUT_VERSION;
     await flushPromises();
 
     expect(griddleHooks.reflow).toHaveBeenCalledWith({
@@ -329,7 +323,7 @@ describe("Grid canvas characterization", () => {
       strategy: "griddle-v1",
     });
     expect(store.currentGrid.responsiveLayoutVersion).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      "griddle-v2",
     );
     expect(store.currentGrid.tiles[0]).toEqual(
       expect.objectContaining({ x: 0, y: 0, w: 2, h: 2 }),
@@ -338,44 +332,9 @@ describe("Grid canvas characterization", () => {
     wrapper.unmount();
   });
 
-  it("settles a preview requested during a gesture without committing gesture geometry", async () => {
-    const grid = makeGrid();
-    grid.responsiveLayoutVersion = LEGACY_RESPONSIVE_LAYOUT_VERSION;
-    const { store } = makeStore(grid);
-    store.forcedBreakpoint = "md";
-    store.verticalCompact = false;
-    storeHolder.current = store;
-    const wrapper = await mountGrid();
-    await flushPromises();
-    griddleHooks.reflow.mockClear();
-
-    griddle(wrapper).vm.$emit("dragStart", "tile-1");
-    store.canEdit = false;
-    store.effectiveResponsiveLayoutVersion =
-      GRIDDLE_RESPONSIVE_LAYOUT_VERSION;
-    await nextTick();
-    expect(griddleHooks.reflow).not.toHaveBeenCalled();
-
-    griddle(wrapper).vm.$emit("dragEnd", "tile-1", true);
-    await flushPromises();
-
-    expect(store.commitMove).not.toHaveBeenCalled();
-    expect(griddleHooks.reflow).toHaveBeenCalledWith({
-      cols: 8,
-      strategy: "griddle-v1",
-    });
-    expect(store.currentGrid.responsiveLayoutVersion).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
-    );
-
-    wrapper.unmount();
-  });
-
-  it("uses Griddle packing instead of preserving legacy automatic gaps", async () => {
+  it("renders missing, malformed, future, and current stamps through the same Griddle path", async () => {
     const renderVersion = async (
-      responsiveLayoutVersion:
-        | typeof LEGACY_RESPONSIVE_LAYOUT_VERSION
-        | typeof GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersion: unknown,
     ) => {
       const first = makeTile({
         i: "tile-1",
@@ -393,10 +352,12 @@ describe("Grid canvas characterization", () => {
       });
       const grid = makeGrid(first);
       grid.tiles = [first, second];
-      grid.responsiveLayoutVersion = responsiveLayoutVersion;
+      grid.responsiveLayoutVersion = responsiveLayoutVersion as never;
       const { store } = makeStore(grid);
       store.forcedBreakpoint = "md";
       store.verticalCompact = false;
+      store.effectiveResponsiveLayoutVersion =
+        resolveResponsiveLayoutVersion(responsiveLayoutVersion);
       storeHolder.current = store;
 
       const wrapper = await mountGrid();
@@ -406,17 +367,16 @@ describe("Grid canvas characterization", () => {
       return rendered;
     };
 
-    const legacy = await renderVersion(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
-    );
+    const missing = await renderVersion(undefined);
+    const malformed = await renderVersion("invalid");
+    const future = await renderVersion("griddle-v2");
     const griddle = await renderVersion(
       GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     );
 
-    expect(legacy).toEqual([
-      { i: "tile-1", x: 0, y: 0, w: 3, h: 2 },
-      { i: "tile-2", x: 6, y: 0, w: 2, h: 2 },
-    ]);
+    expect(missing).toEqual(griddle);
+    expect(malformed).toEqual(griddle);
+    expect(future).toEqual(griddle);
     expect(griddle).toEqual([
       { i: "tile-1", x: 0, y: 0, w: 3, h: 2 },
       { i: "tile-2", x: 3, y: 0, w: 2, h: 2 },
@@ -458,20 +418,19 @@ describe("Grid canvas characterization", () => {
       }
 
       const renderState = async (
-        persistedVersion: Grid["responsiveLayoutVersion"],
-        effectiveVersion: Grid["responsiveLayoutVersion"],
+        persistedVersion: unknown,
       ): Promise<GridLayoutItem[]> => {
         const grid = makeGrid(tiles[0]);
         grid.tiles = structuredClone(tiles);
         grid.overrides = structuredClone(overrides);
         grid.verticalCompact = verticalCompact;
-        grid.responsiveLayoutVersion = persistedVersion;
+        grid.responsiveLayoutVersion = persistedVersion as never;
         const originalGrid = structuredClone(grid);
         const { store } = makeStore(grid);
         store.forcedBreakpoint = breakpoint;
         store.verticalCompact = verticalCompact;
         store.effectiveResponsiveLayoutVersion = resolveResponsiveLayoutVersion(
-          effectiveVersion,
+          persistedVersion,
         );
         storeHolder.current = store;
 
@@ -503,33 +462,16 @@ describe("Grid canvas characterization", () => {
         return rendered;
       };
 
-      const missing = await renderState(
-        undefined,
-        LEGACY_RESPONSIVE_LAYOUT_VERSION,
-      );
-      const explicitLegacy = await renderState(
-        LEGACY_RESPONSIVE_LAYOUT_VERSION,
-        LEGACY_RESPONSIVE_LAYOUT_VERSION,
-      );
-      const preview = await renderState(
-        LEGACY_RESPONSIVE_LAYOUT_VERSION,
-        GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-      );
+      const missing = await renderState(undefined);
+      const malformed = await renderState("invalid");
+      const future = await renderState("griddle-v2");
       const explicitGriddle = await renderState(
         GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-        GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
       );
 
-      expect(explicitLegacy).toEqual(missing);
-      expect(explicitGriddle).toEqual(preview);
-
-      if (breakpoint === "lg") {
-        expect(explicitGriddle).toEqual(explicitLegacy);
-      }
-
-      if (breakpoint === "md" && overrideMode === "none") {
-        expect(explicitGriddle).not.toEqual(explicitLegacy);
-      }
+      expect(malformed).toEqual(missing);
+      expect(future).toEqual(missing);
+      expect(explicitGriddle).toEqual(missing);
 
       if (breakpoint !== "lg" && overrideMode !== "none") {
         for (const [id, placement] of Object.entries(
@@ -833,7 +775,7 @@ describe("Grid canvas characterization", () => {
 
   it("compacts the active breakpoint's override layout when gravity is enabled", async () => {
     const first = makeTile({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 });
-    const second = makeTile({ i: "tile-2", x: 0, y: 0, w: 2, h: 2 });
+    const second = makeTile({ i: "tile-2", x: 2, y: 0, w: 2, h: 2 });
     const grid = makeGrid(first);
     grid.tiles = [first, second];
     grid.overrides = {

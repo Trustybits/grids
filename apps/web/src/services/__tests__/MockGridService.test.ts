@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
   type Grid,
 } from "@grids/contracts/types";
 
@@ -49,24 +48,24 @@ afterEach(() => {
 });
 
 describe("MockGridService responsive layout normalization", () => {
-  it("returns an explicit legacy-v1 compatibility fixture", async () => {
+  it("returns an explicit griddle-v1 fixture", async () => {
     const service = new MockGridService();
     const grid = await service.fetchGrid("mock-grid-id");
 
     expect(grid.responsiveLayoutVersion).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     );
     expect(grid.responsiveLayoutVersionStatus).toBe("supported");
   });
 
-  it("normalizes an unstamped saved grid to legacy-v1", async () => {
+  it("normalizes an unstamped saved grid to griddle-v1", async () => {
     const service = new MockGridService();
     const grid = await service.saveGrid(
       makeGrid({ responsiveLayoutVersion: undefined }),
     );
 
     expect(grid.responsiveLayoutVersion).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     );
     expect(grid.responsiveLayoutVersionStatus).toBe("missing");
   });
@@ -88,7 +87,7 @@ describe("MockGridService responsive layout normalization", () => {
     expect(grid.responsiveLayoutVersionStatus).toBe("supported");
   });
 
-  it("retains unsupported read status while rendering as legacy-v1", async () => {
+  it("retains unsupported read status while rendering as griddle-v1", async () => {
     const service = new MockGridService();
     const grid = await service.saveGrid(
       makeGrid({
@@ -97,7 +96,7 @@ describe("MockGridService responsive layout normalization", () => {
     );
 
     expect(grid.responsiveLayoutVersion).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     );
     expect(grid.responsiveLayoutVersionStatus).toBe("unsupported");
   });

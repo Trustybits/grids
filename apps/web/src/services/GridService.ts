@@ -264,8 +264,8 @@ export class GridService implements GridServiceInterface {
       updatedAt: this.dbUtils.serverTimestamp(),
     };
 
-    // An older client must render an unknown future version defensively as
-    // legacy without downgrading the stored compatibility marker on save.
+    // Every current value renders through Griddle v1, but an older client must
+    // not downgrade an unknown future compatibility marker on ordinary save.
     if (grid.responsiveLayoutVersionStatus !== "unsupported") {
       editableFields.responsiveLayoutVersion = resolveResponsiveLayoutVersion(
         grid.responsiveLayoutVersion,

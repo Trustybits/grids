@@ -1,7 +1,10 @@
 import {
   GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
 } from "@grids/contracts/types";
+
+// Old-data sentinel used only by the maintainer migration. It is intentionally
+// not part of the supported responsive-layout contract.
+const LEGACY_RESPONSIVE_LAYOUT_VERSION = "legacy-v1";
 
 export const RESPONSIVE_LAYOUT_VERSION_FIELD =
   "responsiveLayoutVersion" as const;

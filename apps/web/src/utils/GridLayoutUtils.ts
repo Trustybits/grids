@@ -231,7 +231,7 @@ export function calculateViewportColumnCount({
 }
 
 /**
- * Frozen legacy-v1 responsive projection.
+ * Frozen historical responsive projection.
  *
  * New responsive-layout versions must route through Griddle at the engine
  * integration seam instead of changing this compatibility algorithm.

@@ -1,6 +1,6 @@
 import {
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
   getResponsiveLayoutVersionStatus,
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
   resolveResponsiveLayoutVersion,
   type Grid,
 } from "@grids/contracts/types";
@@ -12,7 +12,7 @@ const mockData: Grid = {
   id: "mock-grid-id",
   name: "Mock Grid",
   colNum: 16,
-  responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
+  responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
   verticalCompact: false,
   userId: "me",
   rev: 0,

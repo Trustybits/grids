@@ -59,7 +59,6 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { isResponsiveLayoutUpgradeEligible } from "@grids/contracts/types";
 import { useGridController } from "@/controllers/useGridController";
 import { useGridPreviewStore } from "@/stores/grid/gridPreview";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
@@ -78,18 +77,9 @@ const toastStore = useToastStore();
 const showUpgradeModal = ref(false);
 const isUpgrading = ref(false);
 
-const showSettings = computed(() => {
-  const grid = sessionStore.currentGrid;
-  return (
-    !import.meta.env.PROD &&
-    sessionStore.isOwner &&
-    !!grid &&
-    isResponsiveLayoutUpgradeEligible(
-      grid.responsiveLayoutVersion,
-      grid.responsiveLayoutVersionStatus,
-    )
-  );
-});
+// There is no alternate responsive algorithm to preview or upgrade to. Step 5
+// removes this dormant surface while preserving the generic preview foundation.
+const showSettings = computed(() => false);
 
 const isPreviewActive = computed(() =>
   previewStore.isActive(sessionStore.currentGrid?.id),

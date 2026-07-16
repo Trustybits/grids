@@ -81,7 +81,7 @@ describe("FirebaseGridDao", () => {
         rev: 2,
         name: "My Grid",
         colNum: 6,
-        responsiveLayoutVersion: "legacy-v1",
+        responsiveLayoutVersion: "griddle-v1",
         responsiveLayoutVersionStatus: "missing",
         verticalCompact: false,
         tiles: [{ id: "t1" }],

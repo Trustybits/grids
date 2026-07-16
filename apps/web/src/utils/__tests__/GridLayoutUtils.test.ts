@@ -364,13 +364,13 @@ function describeProjectionFixtures(
   describe(title, () => {
     for (const fixture of fixtures) {
       describe(fixture.name, () => {
-        it("matches legacy-v1 before gravity", () => {
+        it("matches the historical projection before gravity", () => {
           expect(verifyProjectionFixture(fixture)).toEqual(
             fixture.expectedProjection,
           );
         });
 
-        it("matches legacy-v1 with top gravity", () => {
+        it("matches the historical projection with top gravity", () => {
           const projected = verifyProjectionFixture(fixture);
 
           expect(
@@ -383,12 +383,12 @@ function describeProjectionFixtures(
 }
 
 describeProjectionFixtures(
-  "legacy-v1 responsive projection parity matrix",
+  "historical responsive projection parity matrix",
   legacyProjectionParityMatrix,
 );
 
 describeProjectionFixtures(
-  "legacy-v1 real-grid compatibility fixtures",
+  "historical real-grid compatibility fixtures",
   realGridProjectionFixtures,
 );
 

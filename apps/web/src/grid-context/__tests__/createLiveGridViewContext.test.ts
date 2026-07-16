@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { isReadonly, reactive } from "vue";
 import {
   GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
   type AnyTileContent,
   type Breakpoint,
   type DocumentItem,
@@ -195,7 +194,7 @@ describe("createLiveGridViewContext", () => {
     expect(ctx.isPreviewActive.value).toBe(false);
     expect(ctx.blocksGridMutation.value).toBe(false);
     expect(ctx.effectiveResponsiveLayoutVersion.value).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     );
     expect(ctx.isLoading.value).toBe(false);
     expect(ctx.verticalCompact.value).toBe(true);
@@ -233,7 +232,7 @@ describe("createLiveGridViewContext", () => {
     expect(ctx.canEdit.value).toBe(false);
     expect(ctx.isPreviewActive.value).toBe(false);
     expect(ctx.effectiveResponsiveLayoutVersion.value).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     );
     expect(ctx.activeBreakpoint.value).toBe("md");
     expect(ctx.pendingFocusTileId.value).toBe("tile-2");

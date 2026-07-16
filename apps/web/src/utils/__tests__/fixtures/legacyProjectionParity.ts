@@ -24,8 +24,8 @@ function item(
 }
 
 /**
- * Frozen geometry examples for the app-owned legacy-v1 projection. The
- * pre-gravity expectations are the compatibility contract that preserve-v1
+ * Frozen geometry examples for the app-owned historical projection. The
+ * pre-gravity expectations are the compatibility contract that Griddle v1
  * must reproduce. The gravity expectations characterize the existing, later
  * top-gravity pass and are intentionally kept separate.
  */

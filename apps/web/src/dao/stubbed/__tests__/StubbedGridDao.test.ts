@@ -3,7 +3,7 @@
 // merge over any existing record; updateLastOpenedAt only touches existing grids.
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
   type Grid,
 } from "@grids/contracts/types";
 import { GridRevisionConflictError } from "@grids/contracts/dao";
@@ -102,7 +102,7 @@ describe("StubbedGridDao.save", () => {
     ).toBe("missing");
 
     await dao.save("grid-1", {
-      responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     });
 
     expect(
@@ -147,7 +147,7 @@ describe("StubbedGridDao.update", () => {
 
     const stored = memoryDatabase.grids.get("grid-1");
     expect(stored?.responsiveLayoutVersion).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     );
     expect(stored?.responsiveLayoutVersionStatus).toBe("unsupported");
   });

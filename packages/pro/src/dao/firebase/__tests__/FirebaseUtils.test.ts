@@ -14,7 +14,6 @@ import { describe, it, expect } from "vitest";
 import { mapFirestoreToGrid } from "../FirebaseUtils.js";
 import {
   GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
 } from "@grids/contracts/types";
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 
@@ -88,7 +87,7 @@ describe("mapFirestoreToGrid", () => {
       rev: 0,
       name: "Untitled",
       colNum: 12,
-      responsiveLayoutVersion: LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
       responsiveLayoutVersionStatus: "missing",
       verticalCompact: true,
       tiles: [],
@@ -144,12 +143,12 @@ describe("mapFirestoreToGrid", () => {
     expect(grid.rev).toBe(0);
   });
 
-  it("falls back to legacy-v1 for an unsupported responsive layout version", () => {
+  it("renders an unsupported responsive layout version through griddle-v1", () => {
     const grid = mapFirestoreToGrid(
       fakeDoc("future", { responsiveLayoutVersion: "griddle-v2" }),
     );
     expect(grid.responsiveLayoutVersion).toBe(
-      LEGACY_RESPONSIVE_LAYOUT_VERSION,
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     );
     expect(grid.responsiveLayoutVersionStatus).toBe("unsupported");
   });

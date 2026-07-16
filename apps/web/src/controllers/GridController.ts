@@ -1,6 +1,4 @@
 import {
-  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  isResponsiveLayoutUpgradeEligible,
   type AnyTileContent,
   type Breakpoint,
   type ConfirmedGridDuplicateStorage,
@@ -56,7 +54,6 @@ export class GridController {
   private readonly uploadController: GridUploadController;
   private readonly uiController: GridUiController;
   private readonly viewportController: GridViewportController;
-  private responsiveLayoutUpgradeInFlight = false;
 
   /**
    * Removed chat tiles awaiting Firestore message cleanup, keyed per grid
@@ -186,25 +183,10 @@ export class GridController {
   }
 
   startResponsiveLayoutPreview(): boolean {
-    const grid = this.stores.session.currentGrid;
-    if (
-      !grid ||
-      !this.stores.session.isOwner ||
-      !isResponsiveLayoutUpgradeEligible(
-        grid.responsiveLayoutVersion,
-        grid.responsiveLayoutVersionStatus,
-      )
-    ) {
-      return false;
-    }
-
-    // Preview entry is a hard boundary for user mutations. Clear pending
-    // transactions before changing effective geometry so a gesture/editor that
-    // started on the persisted layout cannot commit preview state afterward.
-    this.stores.history.clearTransactions();
-    this.stores.ui.resetSessionState();
-    this.stores.preview.startResponsiveLayoutPreview(grid.id);
-    return true;
+    // Step 3 leaves this staged API inert until Step 5 removes the obsolete
+    // responsive-layout preview surface. There is only one runtime algorithm,
+    // so there is no alternate version to preview.
+    return false;
   }
 
   stopPreview(): void {
@@ -212,63 +194,8 @@ export class GridController {
   }
 
   async upgradeResponsiveLayout(): Promise<boolean> {
-    const grid = this.stores.session.currentGrid;
-    if (
-      this.responsiveLayoutUpgradeInFlight ||
-      !grid ||
-      !this.stores.session.isOwner ||
-      !isResponsiveLayoutUpgradeEligible(
-        grid.responsiveLayoutVersion,
-        grid.responsiveLayoutVersionStatus,
-      )
-    ) {
-      return false;
-    }
-
-    this.responsiveLayoutUpgradeInFlight = true;
-    let priorVersion = grid.responsiveLayoutVersion;
-    let versionChanged = false;
-
-    try {
-      // Settle older queued edits before creating the irreversible boundary so
-      // their failure cannot be confused with the version upgrade write.
-      await this.persistenceController.flushSaves();
-
-      if (
-        this.stores.session.currentGrid !== grid ||
-        !this.stores.session.isOwner ||
-        !isResponsiveLayoutUpgradeEligible(
-          grid.responsiveLayoutVersion,
-          grid.responsiveLayoutVersionStatus,
-        )
-      ) {
-        return false;
-      }
-
-      priorVersion = grid.responsiveLayoutVersion;
-      grid.responsiveLayoutVersion =
-        GRIDDLE_RESPONSIVE_LAYOUT_VERSION;
-      versionChanged = true;
-      await this.persistenceController.saveCurrentGridOrThrow(
-        undefined,
-        undefined,
-        true,
-      );
-
-      if (this.stores.session.currentGrid !== grid) return true;
-
-      this.stores.preview.stopPreview(grid.id);
-      this.stores.history.initializeManager();
-      this.refreshStableSnapshot();
-      return true;
-    } catch {
-      if (versionChanged && this.stores.session.currentGrid === grid) {
-        grid.responsiveLayoutVersion = priorVersion;
-      }
-      return false;
-    } finally {
-      this.responsiveLayoutUpgradeInFlight = false;
-    }
+    // Retained only until Step 5 removes the obsolete UI and view-context API.
+    return false;
   }
 
   /**

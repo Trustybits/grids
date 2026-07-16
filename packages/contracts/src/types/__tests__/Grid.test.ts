@@ -1,73 +1,45 @@
 import { describe, expect, it } from "vitest";
 import {
   GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
   NEW_GRID_RESPONSIVE_LAYOUT_VERSION,
   RESPONSIVE_LAYOUT_VERSIONS,
   getResponsiveLayoutVersionStatus,
-  isResponsiveLayoutUpgradeEligible,
   isResponsiveLayoutVersion,
   resolveResponsiveLayoutVersion,
 } from "../index.js";
 
 describe("responsive layout version contract", () => {
-  it("publishes the exact supported version vocabulary", () => {
-    expect(RESPONSIVE_LAYOUT_VERSIONS).toEqual(["legacy-v1", "griddle-v1"]);
-    expect(LEGACY_RESPONSIVE_LAYOUT_VERSION).toBe("legacy-v1");
+  it("publishes griddle-v1 as the sole supported version", () => {
+    expect(RESPONSIVE_LAYOUT_VERSIONS).toEqual(["griddle-v1"]);
     expect(GRIDDLE_RESPONSIVE_LAYOUT_VERSION).toBe("griddle-v1");
   });
 
-  it("keeps the new-grid default separate from the defensive read fallback", () => {
+  it("uses griddle-v1 for new grids and every defensive read fallback", () => {
     expect(NEW_GRID_RESPONSIVE_LAYOUT_VERSION).toBe("griddle-v1");
-    expect(resolveResponsiveLayoutVersion(undefined)).toBe("legacy-v1");
+    expect(resolveResponsiveLayoutVersion(undefined)).toBe("griddle-v1");
   });
 
-  it.each(["legacy-v1", "griddle-v1"])(
-    "accepts the supported value %s",
+  it("accepts only griddle-v1 as a supported stamp", () => {
+    expect(isResponsiveLayoutVersion("griddle-v1")).toBe(true);
+    expect(isResponsiveLayoutVersion("griddle-v2")).toBe(false);
+  });
+
+  it.each([undefined, null, "griddle-v2", "invalid", "", 1, {}])(
+    "resolves runtime value %j to griddle-v1",
     (value) => {
-      expect(isResponsiveLayoutVersion(value)).toBe(true);
-      expect(resolveResponsiveLayoutVersion(value)).toBe(value);
+      expect(resolveResponsiveLayoutVersion(value)).toBe("griddle-v1");
     },
   );
 
-  it.each([undefined, null, "griddle-v2", "", 1, {}])(
-    "resolves unsupported runtime value %j to legacy-v1",
-    (value) => {
-      expect(isResponsiveLayoutVersion(value)).toBe(false);
-      expect(resolveResponsiveLayoutVersion(value)).toBe("legacy-v1");
-    },
-  );
-
-  it("limits upgrade eligibility to absent and exact legacy-v1 values", () => {
-    expect(isResponsiveLayoutUpgradeEligible(undefined)).toBe(true);
-    expect(isResponsiveLayoutUpgradeEligible("legacy-v1")).toBe(true);
-
-    expect(isResponsiveLayoutUpgradeEligible("griddle-v1")).toBe(false);
-    expect(isResponsiveLayoutUpgradeEligible("griddle-v2")).toBe(false);
-    expect(isResponsiveLayoutUpgradeEligible(null)).toBe(false);
-    expect(isResponsiveLayoutUpgradeEligible("")).toBe(false);
-  });
-
-  it("retains unsupported read status after defensive normalization", () => {
+  it("classifies raw stamps independently from rendering normalization", () => {
     expect(getResponsiveLayoutVersionStatus(undefined)).toBe("missing");
-    expect(getResponsiveLayoutVersionStatus("legacy-v1")).toBe("supported");
     expect(getResponsiveLayoutVersionStatus("griddle-v1")).toBe("supported");
     expect(getResponsiveLayoutVersionStatus("griddle-v2")).toBe(
       "unsupported",
     );
+    expect(getResponsiveLayoutVersionStatus("griddle-v2")).toBe(
+      "unsupported",
+    );
     expect(getResponsiveLayoutVersionStatus(null)).toBe("unsupported");
-
-    expect(
-      isResponsiveLayoutUpgradeEligible("legacy-v1", "missing"),
-    ).toBe(true);
-    expect(
-      isResponsiveLayoutUpgradeEligible("legacy-v1", "supported"),
-    ).toBe(true);
-    expect(
-      isResponsiveLayoutUpgradeEligible("legacy-v1", "unsupported"),
-    ).toBe(false);
-    expect(
-      isResponsiveLayoutUpgradeEligible("griddle-v1", "supported"),
-    ).toBe(false);
   });
 });

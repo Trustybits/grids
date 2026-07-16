@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
-  LEGACY_RESPONSIVE_LAYOUT_VERSION,
 } from "@grids/contracts/types";
 import {
   RESPONSIVE_LAYOUT_BACKFILL_PAGE_SIZE,
@@ -14,6 +13,8 @@ import {
   type ResponsiveLayoutBackfillDocument,
   type ResponsiveLayoutBackfillSummary,
 } from "../utils_backfillResponsiveLayoutVersion.js";
+
+const LEGACY_RESPONSIVE_LAYOUT_VERSION = "legacy-v1";
 
 const doc = (
   id: string,

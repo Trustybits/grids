@@ -568,7 +568,10 @@ export default defineComponent({
 .background-color-overlay {
   position: fixed;
   inset: 0;
-  mix-blend-mode: color;
+  // Paint the chosen background color as an opaque solid fill over the image so
+  // it matches the picked hex exactly (white stays white, black stays black).
+  // A previous `mix-blend-mode: color` recolored the image instead, which can
+  // never produce white/black (both have zero saturation → always grey).
   pointer-events: none;
   z-index: 0;
 }

@@ -834,8 +834,17 @@ onBeforeUnmount(() => {
 }
 
 .mgb-settings-panel {
+  // Anchored flush above the pill and taken OUT of the flex column (absolute) so
+  // that while one sub-sheet is leaving and the next is entering, the two
+  // momentarily-mounted panels don't stack and grow the bottom-anchored column —
+  // otherwise the surviving sheet would render high up, then visibly drop as the
+  // column collapses. Width tracks the pill (the only in-flow child) via
+  // left/right:0, so it always matches the connected surface below it.
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
   z-index: 0;
-  width: var(--mgb-connected-width);
 }
 
 .mgb-pill.mgb-pill--settings,

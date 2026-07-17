@@ -388,20 +388,35 @@ introduces a retained, toggleable active background source.
 - [x] **GRID BACKGROUND tiles** — Upload shows a framed-photo illustration, replaced by the image
       **thumbnail** once one exists (optimistic object-URL while uploading); Default is dashed; Color
       fills with the chosen color (rainbow when unset). Tap logic: inactive tile → activate that source;
-      active **color** tile → open `/HEX`; no color yet → open `/HEX`; active **image** tile → (interim)
-      re-open the file picker.
+      active **color** tile → open `/HEX`; no color yet → open `/HEX`; active **image** tile → open the
+      `/background` image-swap sheet (Phase 6.5).
 - [x] **Selected ring** — the active choice gets a **2px** `--color-purple` ring sitting **2px** off the
       illustration, implemented with `outline` + `outline-offset` (no layout shift, follows the radius),
       per the Figma spec.
 - [x] Tests updated/added (contract active-source on controller commits/removes/toggle, sheet tile
       activate + thumbnail + `/HEX` open paths). Suites green; typecheck + lint clean.
 
-Deferred to the next phase:
+#### Phase 6.5 — `/background` image-swap sheet ✅ COMPLETE
 
-- **`/background` image-swap sheet** — tapping the **active** image tile should open a dedicated sheet
-  that previews the current image, shows a thumbnail carousel of the user's file archive to swap, offers
-  "upload new", and morphs the bar into a `/background` command input with helper text to paste an image
-  URL instead of uploading. Interim behavior re-opens the file picker until this ships.
+Tapping the **active** image tile now opens a dedicated swap sheet instead of re-opening the OS file
+picker, following the same morph/rise/flush pattern as `/GRID` and `/HEX`.
+
+- [x] **`MobileImageSwapSheet.vue`** — rises flush behind the morphed `/background` pill. Previews the
+      current background image, then a horizontally-scrollable strip of the user's archive images
+      (newest-first, images-only, failed uploads skipped) plus a dashed **Upload** tile. Tapping a
+      thumbnail sets it as the background; the active image is ringed (matched by hash, URL fallback).
+      Uploading a new image applies it and refreshes the strip. Reads the archive via `useFileArchive`.
+- [x] **`/background` bar mode** in `MobileGridBar` — new `image` mode: static `/BACKGROUND` chip + a URL
+      field to **link** an external image (paste-a-URL, Enter commits and clears, sheet preview updates)
+      + right-anchored **Close (×)**. Two Backspaces on an empty field step up to `/GRID`; Escape mirrors
+      it; an outside tap dismisses the whole surface. Shares the connected flush-surface styling.
+- [x] **`useGridSettings`** — `setBackgroundImageFromArchive(doc)` (resolves a fresh download URL for the
+      archive path, URL fallback, sets it archive-backed with its hash) and `linkBackgroundImage(url)`
+      (links an external URL, non-embed, **no hash** — not re-hosted). Exposes `backgroundImageHash` for
+      the active-tile match. The Grid Settings sheet's active image tile now emits `open-image`.
+- [x] Tests added/updated (composable link + archive-resolve + URL fallback; sheet renders/selects/
+      highlights/uploads; bar `/background` morph + link-on-Enter + double-backspace step-up; settings
+      sheet emits `open-image`). Suites green; typecheck + lint clean.
 
 ### Phase 7 — Preview mode transition ⬜ NOT STARTED
 

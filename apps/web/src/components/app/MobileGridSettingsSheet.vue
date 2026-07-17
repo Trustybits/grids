@@ -298,6 +298,7 @@ const props = withDefaults(defineProps<{ query?: string }>(), { query: "" });
 const emit = defineEmits<{
   (e: "close"): void;
   (e: "open-color"): void;
+  (e: "open-image"): void;
 }>();
 
 const {
@@ -397,9 +398,8 @@ const onImageChange = async (event: Event) => {
 };
 
 // Image tile: upload the first image → re-activate a retained image → (when
-// already active) re-open the picker to change it. The richer image-swap sheet
-// (`/background`: preview + archive carousel + paste URL) is the next phase; for
-// now the active-tile tap falls back to the file picker.
+// already active) open the `/background` image-swap sheet (preview + archive
+// carousel + paste-a-URL) so the user can change it.
 const onImageTile = () => {
   if (!hasBackgroundImage.value) {
     onPickImage();
@@ -409,7 +409,7 @@ const onImageTile = () => {
     activateImageBackground();
     return;
   }
-  onPickImage();
+  emit("open-image");
 };
 
 // Color tile: pick the first color (opens the `/HEX` picker) → re-activate a
@@ -579,7 +579,7 @@ const onTransfer = () => {
 .mgs-theme {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-md);
+  gap: var(--spacing-2xl);
 }
 
 /* The active choice gets a 2px purple ring sitting 2px off the illustration —
@@ -750,7 +750,7 @@ const onTransfer = () => {
 .mgs-bg {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-md);
+  gap: var(--spacing-2xl);
 }
 
 .mgs-bg-tile {

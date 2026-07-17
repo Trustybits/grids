@@ -22,7 +22,10 @@
   <div
     ref="rootRef"
     class="mobile-grid-bar"
-    :class="{ 'mgb--connected': mode === 'settings' || mode === 'color' }"
+    :class="{
+      'mgb--connected':
+        mode === 'settings' || mode === 'color' || mode === 'image',
+    }"
     :style="barStyle"
   >
     <!-- Grid settings sheet — slides up from behind the pill and rests flush on
@@ -33,6 +36,7 @@
           :query="query"
           @close="closeSettings"
           @open-color="openColor"
+          @open-image="openImage"
         />
       </div>
     </transition>
@@ -47,6 +51,14 @@
           @preview="onColorPreview"
           @commit="onColorCommit"
         />
+      </div>
+    </transition>
+
+    <!-- Background image swap sheet — same rise/flush pattern; the pill below is
+         the `/background` command input (paste an image URL to link). -->
+    <transition name="mgb-rise">
+      <div v-if="mode === 'image'" class="mgb-settings-panel">
+        <MobileImageSwapSheet />
       </div>
     </transition>
 
@@ -76,6 +88,7 @@
         'mgb-pill--add': mode === 'add',
         'mgb-pill--settings': mode === 'settings',
         'mgb-pill--color': mode === 'color',
+        'mgb-pill--image': mode === 'image',
       }"
       :aria-label="pillAriaLabel"
     >
@@ -149,7 +162,12 @@
       <!-- Color (`/HEX`) mode: static `/HEX` chip, the hex value input, then the
            right-anchored Add-color and Close actions. (Eyedropper is a deferred
            follow-up.) -->
-      <div v-else class="mgb-hex" role="group" aria-label="Pick a color">
+      <div
+        v-else-if="mode === 'color'"
+        class="mgb-hex"
+        role="group"
+        aria-label="Pick a color"
+      >
         <span class="mgb-hex__chip">/HEX</span>
         <input
           ref="hexInputRef"
@@ -184,6 +202,41 @@
           </button>
         </div>
       </div>
+
+      <!-- Background image (`/background`) mode: static chip + a URL field to
+           link an external image (paste-a-URL), then the right-anchored Close
+           action. Uploading / swapping happens in the sheet above. -->
+      <div
+        v-else-if="mode === 'image'"
+        class="mgb-hex mgb-url"
+        role="group"
+        aria-label="Background image"
+      >
+        <span class="mgb-hex__chip">/BACKGROUND</span>
+        <input
+          ref="urlInputRef"
+          v-model="urlInput"
+          class="mgb-hex__input"
+          type="url"
+          inputmode="url"
+          autocapitalize="off"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Paste an image URL to link"
+          aria-label="Background image URL"
+          @keydown="onUrlKeydown"
+        />
+        <div class="mgb-hex__actions">
+          <button
+            type="button"
+            class="mgb-btn mgb-btn--sm"
+            aria-label="Close background image"
+            @click.stop="closeImage"
+          >
+            <CloseIcon :size="20" />
+          </button>
+        </div>
+      </div>
     </MobileCommandBar>
 
     <input
@@ -211,6 +264,7 @@ import MobileCommandInput from "@/components/app/MobileCommandInput.vue";
 import MobileTileCarousel from "@/components/app/MobileTileCarousel.vue";
 import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vue";
 import MobileColorPicker from "@/components/app/MobileColorPicker.vue";
+import MobileImageSwapSheet from "@/components/app/MobileImageSwapSheet.vue";
 import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
 import GridMenuIcon from "@/components/icons/GridMenuIcon.vue";
 import PlusIcon from "@/components/icons/PlusIcon.vue";
@@ -258,8 +312,12 @@ const toastStore = useToastStore();
 const { tileTypes, filterTileTypes, matchCommandPrefix, createTile, submitCommand } =
   useTileCreation();
 const { uploadFileOptimistic, uploadDocumentsOptimistic } = useFileUpload();
-const { backgroundColor, setBackgroundColor, previewBackgroundColor } =
-  useGridSettings();
+const {
+  backgroundColor,
+  setBackgroundColor,
+  previewBackgroundColor,
+  linkBackgroundImage,
+} = useGridSettings();
 const { savedColors, load: loadSavedColors, addColor: addSavedColor } =
   useSavedColors();
 
@@ -283,10 +341,11 @@ const rootRef = ref<HTMLElement | null>(null);
 const pillRef = ref<InstanceType<typeof MobileCommandBar> | null>(null);
 const cmdRef = ref<InstanceType<typeof MobileCommandInput> | null>(null);
 const hexInputRef = ref<HTMLInputElement | null>(null);
+const urlInputRef = ref<HTMLInputElement | null>(null);
 const imageInput = ref<HTMLInputElement | null>(null);
 const documentInput = ref<HTMLInputElement | null>(null);
 
-const mode = ref<"default" | "add" | "settings" | "color">("default");
+const mode = ref<"default" | "add" | "settings" | "color" | "image">("default");
 const showPreview = ref(false);
 const query = ref("");
 
@@ -331,6 +390,12 @@ const emptyHexBackspaces = ref(0);
 // what to build from the typed text. null → generic smart-paste / keyword.
 const activeType = ref<string | null>(null);
 
+// ── Background image (`/background`) mode state ───────────────────────────────
+// The URL field for linking an external image; two Backspaces on an empty field
+// step up one level (`/background` → `/GRID`), mirroring the `/HEX` un-pin.
+const urlInput = ref("");
+const emptyUrlBackspaces = ref(0);
+
 // Once a command-type card is selected (link / embed / map), the typed text
 // populates that tile's content — it must NOT filter the carousel. Keep the
 // full list visible with the active type highlighted. Only the generic `/TILE`
@@ -356,6 +421,8 @@ const pillAriaLabel = computed(() => {
       return "Grid settings";
     case "color":
       return "Color picker";
+    case "image":
+      return "Background image";
     default:
       return "Grid commands";
   }
@@ -445,6 +512,51 @@ const openColor = () => {
 const closeColor = () => {
   mode.value = "settings";
   query.value = "";
+};
+
+// ── Background image (`/background`) mode ─────────────────────────────────────
+// Opened from the Grid Settings background selector's (active) image tile. The
+// image-swap sheet rises behind the morphed `/background` input; the input links
+// an external image URL, the sheet swaps/uploads archive images.
+const openImage = () => {
+  urlInput.value = "";
+  emptyUrlBackspaces.value = 0;
+  showPreview.value = false;
+  mode.value = "image";
+};
+
+// Close returns to the Grid Settings sheet (one level up), not all the way out.
+const closeImage = () => {
+  mode.value = "settings";
+  query.value = "";
+};
+
+// Link the pasted URL as the grid background, then clear the field (the sheet
+// preview above reflects the change). Enter commits; two Backspaces on an empty
+// field step up one level (`/background` → `/GRID`).
+const linkImage = () => {
+  const url = urlInput.value.trim();
+  if (!url) return;
+  linkBackgroundImage(url);
+  urlInput.value = "";
+  emptyUrlBackspaces.value = 0;
+};
+
+const onUrlKeydown = (event: KeyboardEvent) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    linkImage();
+    return;
+  }
+  if (event.key === "Backspace" && !urlInput.value) {
+    emptyUrlBackspaces.value += 1;
+    if (emptyUrlBackspaces.value >= 2) {
+      emptyUrlBackspaces.value = 0;
+      closeImage();
+    }
+    return;
+  }
+  emptyUrlBackspaces.value = 0;
 };
 
 // Live feedback while dragging the pad/hue: apply the color to the grid
@@ -630,7 +742,8 @@ const handlePointerDown = (event: MouseEvent) => {
   if (mode.value === "add") closeAdd();
   else if (mode.value === "settings") closeSettings();
   // Tapping outside dismisses the whole surface (not just back to settings).
-  else if (mode.value === "color") mode.value = "default";
+  else if (mode.value === "color" || mode.value === "image")
+    mode.value = "default";
 };
 
 const handleKeydown = (event: KeyboardEvent) => {
@@ -638,6 +751,7 @@ const handleKeydown = (event: KeyboardEvent) => {
   if (mode.value === "add") closeAdd();
   else if (mode.value === "settings") closeSettings();
   else if (mode.value === "color") closeColor();
+  else if (mode.value === "image") closeImage();
   showPreview.value = false;
 };
 
@@ -725,7 +839,8 @@ onBeforeUnmount(() => {
 }
 
 .mgb-pill.mgb-pill--settings,
-.mgb-pill.mgb-pill--color {
+.mgb-pill.mgb-pill--color,
+.mgb-pill.mgb-pill--image {
   width: var(--mgb-connected-width);
   // Square the top corners so the sheet resting above lines up flush; the
   // bottom corners keep --radius-md.

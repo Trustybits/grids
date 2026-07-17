@@ -12,6 +12,8 @@ const holder = vi.hoisted(() => ({
   setDuplicatable: vi.fn(),
   setShowMetaData: vi.fn(),
   setShowMetaDataVerbose: vi.fn(),
+  addBackgroundImage: vi.fn(),
+  getDownloadUrl: vi.fn(async () => "https://cdn/resolved.png"),
   hasBreakpointOverride: vi.fn(() => false),
   saveBreakpointPositions: vi.fn(),
   resetBreakpoint: vi.fn(),
@@ -53,6 +55,9 @@ vi.mock("@/services/ServiceFactorySingleton", () => ({
       getUserProfile: holder.getUserProfile,
       setDefaultGrid: holder.setDefaultGrid,
     }),
+    getStorageService: () => ({
+      getDownloadUrl: holder.getDownloadUrl,
+    }),
   }),
 }));
 
@@ -92,6 +97,7 @@ vi.mock("@/controllers/useGridController", () => ({
     resetBreakpoint: holder.resetBreakpoint,
     deleteGrid: holder.deleteGrid,
     duplicateGrid: holder.duplicateGrid,
+    addBackgroundImage: holder.addBackgroundImage,
   }),
 }));
 
@@ -232,5 +238,54 @@ describe("useGridSettings", () => {
     const gs = await load();
     gs.launchPixelRacers();
     expect(holder.startGame).toHaveBeenCalledTimes(1);
+  });
+
+  it("links an external image URL as a non-hosted background (no hash)", async () => {
+    const gs = await load();
+    gs.linkBackgroundImage("  https://cdn/pic.png  ");
+    expect(holder.addBackgroundImage).toHaveBeenCalledWith(
+      "https://cdn/pic.png",
+      false,
+    );
+  });
+
+  it("ignores an empty linked image URL", async () => {
+    const gs = await load();
+    gs.linkBackgroundImage("   ");
+    expect(holder.addBackgroundImage).not.toHaveBeenCalled();
+  });
+
+  it("sets an archive image as the background, resolving a fresh URL + hash", async () => {
+    const gs = await load();
+    await gs.setBackgroundImageFromArchive({
+      hash: "abc123",
+      path: "users/user-1/uploads/abc123",
+      url: "https://cdn/stale.png",
+      kind: "images",
+    } as never);
+    expect(holder.getDownloadUrl).toHaveBeenCalledWith(
+      "users/user-1/uploads/abc123",
+    );
+    expect(holder.addBackgroundImage).toHaveBeenCalledWith(
+      "https://cdn/resolved.png",
+      false,
+      "abc123",
+    );
+  });
+
+  it("falls back to the stored URL when the path cannot be resolved", async () => {
+    holder.getDownloadUrl.mockRejectedValueOnce(new Error("nope"));
+    const gs = await load();
+    await gs.setBackgroundImageFromArchive({
+      hash: "abc123",
+      path: "users/user-1/uploads/abc123",
+      url: "https://cdn/stored.png",
+      kind: "images",
+    } as never);
+    expect(holder.addBackgroundImage).toHaveBeenCalledWith(
+      "https://cdn/stored.png",
+      false,
+      "abc123",
+    );
   });
 });

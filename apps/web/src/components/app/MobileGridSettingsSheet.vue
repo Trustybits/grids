@@ -298,6 +298,7 @@ const props = withDefaults(defineProps<{ query?: string }>(), { query: "" });
 const emit = defineEmits<{
   (e: "close"): void;
   (e: "open-color"): void;
+  (e: "open-image"): void;
 }>();
 
 const {
@@ -397,9 +398,8 @@ const onImageChange = async (event: Event) => {
 };
 
 // Image tile: upload the first image → re-activate a retained image → (when
-// already active) re-open the picker to change it. The richer image-swap sheet
-// (`/background`: preview + archive carousel + paste URL) is the next phase; for
-// now the active-tile tap falls back to the file picker.
+// already active) open the `/background` image-swap sheet (preview + archive
+// carousel + paste-a-URL) so the user can change it.
 const onImageTile = () => {
   if (!hasBackgroundImage.value) {
     onPickImage();
@@ -409,7 +409,7 @@ const onImageTile = () => {
     activateImageBackground();
     return;
   }
-  onPickImage();
+  emit("open-image");
 };
 
 // Color tile: pick the first color (opens the `/HEX` picker) → re-activate a
@@ -579,7 +579,7 @@ const onTransfer = () => {
 .mgs-theme {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-md);
+  gap: var(--spacing-2xl);
 }
 
 /* The active choice gets a 2px purple ring sitting 2px off the illustration —
@@ -592,43 +592,45 @@ const onTransfer = () => {
   transition: outline-color var(--duration-fast) var(--easing-smooth);
 
   &.is-selected {
-    outline: var(--border-width-lg) solid var(--color-purple);
-    outline-offset: var(--border-width-lg);
+    outline: var(--border-width-lg) solid var(--grids-brand-purple);
+    outline-offset: var(--border-width-xl);
   }
 }
 
 .mgs-theme-card {
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 
 /* Neutral light/dark preview surfaces that stay light/dark regardless of the
    active app theme, so both cards always read as their respective theme. */
 .mgs-theme-card--dark {
-  --mock-bg: var(--color-dark-0);
-  --mock-tile: color-mix(in srgb, var(--color-light-100) 7%, var(--color-dark-0));
+  --mock-bg: color-mix(in srgb, var(--color-black-0) 100%, var(--grids-surface-raised) 100%);
+  --mock-tile: var(--color-black-55);
   --mock-line: color-mix(in srgb, var(--color-light-100) 22%, transparent);
   --mock-line-weak: color-mix(in srgb, var(--color-light-100) 10%, transparent);
   --mock-accent: color-mix(in srgb, var(--color-light-100) 34%, transparent);
+  --mock-border: var(--color-light-100-13);
 }
 
 .mgs-theme-card--light {
-  --mock-bg: color-mix(in srgb, var(--color-dark-0) 7%, var(--color-light-100));
+  --mock-bg: color-mix(in srgb, var(--color-dark-0) 0%, var(--color-light-100));
   --mock-tile: var(--color-light-100);
   --mock-line: color-mix(in srgb, var(--color-dark-0) 24%, transparent);
-  --mock-line-weak: color-mix(in srgb, var(--color-dark-0) 11%, transparent);
+  --mock-line-weak: color-mix(in srgb, var(--color-dark-0) 76%, transparent);
   --mock-accent: color-mix(in srgb, var(--color-dark-0) 34%, transparent);
+  --mock-border: var(--color-dark-0-21);
 }
 
 .mgs-mock {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: 4px;
+  gap: 6px;
   width: 100%;
   height: 76px;
-  padding: 5px;
-  border-radius: var(--radius-md);
+  padding: 6px;
+  border-radius: var(--radius-sm);
   background: var(--mock-bg);
 }
 
@@ -637,6 +639,7 @@ const onTransfer = () => {
   overflow: hidden;
   border-radius: 4px;
   background: var(--mock-tile);
+  border: 1px solid var(--mock-border);
 }
 
 .mgs-mock__tile--profile {
@@ -747,7 +750,7 @@ const onTransfer = () => {
 .mgs-bg {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-md);
+  gap: var(--spacing-2xl);
 }
 
 .mgs-bg-tile {
@@ -755,21 +758,26 @@ const onTransfer = () => {
   align-items: center;
   justify-content: center;
   height: 56px;
-  border: var(--border-width) solid var(--color-stroke);
-  border-radius: var(--radius-md);
+  // No stroke border: the only ring on a selected tile is the purple outline,
+  // and the 2px `outline-offset` gap shows the sheet background through it
+  // (white in light mode, dark in dark mode) — never a white edge.
+  border: none;
+  border-radius: var(--radius-sm);
   background: var(--color-base-8);
   color: var(--color-content-low);
   overflow: hidden;
 }
 
+/* The Default tile keeps its own dashed outline (its resting design, per
+   Figma) — this is intentional, not the selection ring. */
 .mgs-bg-tile--default {
-  border-style: dashed;
+  border: var(--border-width-lg) dashed var(--color-content-low);
   background: transparent;
 }
 
 .mgs-bg-tile__text {
   font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
+  color: var(--color-text-default);
 }
 
 .mgs-bg-tile__thumb {
@@ -842,7 +850,7 @@ const onTransfer = () => {
 }
 
 .mgs-row--danger {
-  color: var(--color-red);
+  color: var(--grids-brand-error-default);
 }
 
 .mgs-row--toggle {

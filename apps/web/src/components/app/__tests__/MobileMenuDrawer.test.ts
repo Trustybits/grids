@@ -52,9 +52,17 @@ vi.mock("@/utils/TimeConversion", () => ({
   valueToMillis: (v: unknown) => (typeof v === "number" ? v : 0),
 }));
 
-vi.mock("@/components/grid/GridStats.vue", () => ({
-  default: { template: '<span data-test="grid-stats" />' },
-}));
+vi.mock("@/composables/useGridStats", async () => {
+  const { ref } = await import("vue");
+  return {
+    useGridStats: () => ({
+      lifetimeViews: ref(42),
+      uniqueViewers: ref(7),
+      yesterdayViews: ref(5),
+      averageTimeSpent: ref("1m 3s"),
+    }),
+  };
+});
 
 vi.mock("@/components/ui-controls/Toggle.vue", () => ({
   default: { template: '<span data-test="toggle" />' },
@@ -127,6 +135,42 @@ describe("MobileMenuDrawer", () => {
   it("hides the analytics section for non-owners", async () => {
     holder.isOwner = false;
     const wrapper = await mountDrawer(true);
-    expect(wrapper.find('[data-test="grid-stats"]').exists()).toBe(false);
+    expect(wrapper.find(".mmd-analytics").exists()).toBe(false);
+  });
+
+  it("shows the collapsed analytics summary and expands it inline on tap", async () => {
+    const wrapper = await mountDrawer(true);
+    const analytics = wrapper.get(".mmd-analytics");
+    // Collapsed: the summary shows yesterday's views and the body is closed.
+    expect(analytics.find(".mmd-analytics__summary").text()).toContain(
+      "5 views yesterday",
+    );
+    expect(analytics.find(".mmd-analytics__body").classes()).not.toContain(
+      "is-open",
+    );
+
+    await analytics.get(".mmd-analytics__trigger").trigger("click");
+
+    // Expanded: the summary is hidden and the stat rows are revealed inline.
+    expect(analytics.find(".mmd-analytics__summary").exists()).toBe(false);
+    expect(analytics.find(".mmd-analytics__body").classes()).toContain(
+      "is-open",
+    );
+    const stats = analytics.findAll(".mmd-stat");
+    expect(stats).toHaveLength(4);
+    expect(analytics.text()).toContain("Total views");
+    expect(analytics.text()).toContain("42");
+  });
+
+  it("anchors the account/support group after the recent grids", async () => {
+    const wrapper = await mountDrawer(true);
+    const order = wrapper
+      .findAll(".mmd-panel > *")
+      .map((el) => el.classes().join(" "));
+    const recentsIdx = order.findIndex((c) => c.includes("mmd-recents"));
+    const toggleIdx = order.findIndex((c) => c.includes("mmd-account-toggle"));
+    // The recents block precedes the bottom-anchored account toggle.
+    expect(recentsIdx).toBeGreaterThanOrEqual(0);
+    expect(toggleIdx).toBeGreaterThan(recentsIdx);
   });
 });

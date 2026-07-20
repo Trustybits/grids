@@ -13,7 +13,10 @@ import { useGridTransfers } from "@/composables/useGridTransfers";
 import { useGridDuplicateStorage } from "@/composables/useGridDuplicateStorage";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { describeCallableError } from "@/utils/CallableError";
-import type { CopyDepth } from "@grids/contracts/types";
+import type {
+  CopyDepth,
+  UploadArchiveDocument,
+} from "@grids/contracts/types";
 
 /**
  * Shared orchestration for the Grid Settings surfaces — the desktop
@@ -36,6 +39,7 @@ export const useGridSettings = () => {
   const gameStore = usePixelRacersStore();
   const authProvider = getAuthProvider();
   const userService = getServiceFactory().getUserService();
+  const storageService = getServiceFactory().getStorageService();
   const { resolveStoragePlan } = useGridDuplicateStorage();
   const { uploadFileToArchive } = useFileUpload();
   // Sender-side transfers: watch this grid's outgoing invitations so a surface
@@ -80,6 +84,10 @@ export const useGridSettings = () => {
 
   const backgroundImageSrc = computed(
     () => sessionStore.currentGrid?.backgroundImageSrc ?? "",
+  );
+
+  const backgroundImageHash = computed(
+    () => sessionStore.currentGrid?.backgroundImageHash ?? "",
   );
 
   // Which retained source is active. Mirrors the renderer's resolution
@@ -304,6 +312,43 @@ export const useGridSettings = () => {
     }
   };
 
+  // Resolve the URL to render for an archive doc: prefer a freshly SDK-resolved
+  // URL for the canonical path (its download token is guaranteed valid), falling
+  // back to the doc's stored URL. Mirrors useFileArchive.resolveDisplayUrl.
+  const resolveArchiveUrl = async (
+    doc: UploadArchiveDocument,
+  ): Promise<string | null> => {
+    if (doc.path) {
+      try {
+        return await storageService.getDownloadUrl(doc.path);
+      } catch {
+        // Fall through to the stored URL.
+      }
+    }
+    return doc.url ?? null;
+  };
+
+  // Set the grid background to an image already in the user's archive (archive
+  // -backed, so it carries its hash). Marks the image the active source.
+  const setBackgroundImageFromArchive = async (
+    doc: UploadArchiveDocument,
+  ): Promise<void> => {
+    const url = await resolveArchiveUrl(doc);
+    if (!url) {
+      toastStore.addToast("That image is no longer available", "error");
+      return;
+    }
+    controller.addBackgroundImage(url, false, doc.hash);
+  };
+
+  // Link an external image by URL (not re-hosted, so no hash). Rendered as a CSS
+  // background — the same non-embed path as an uploaded image.
+  const linkBackgroundImage = (url: string): void => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    controller.addBackgroundImage(trimmed, false);
+  };
+
   const setBackgroundColor = (color: string): void => {
     controller.setBackgroundColor(color);
   };
@@ -361,6 +406,7 @@ export const useGridSettings = () => {
     launchPixelRacers,
     // background
     backgroundImageSrc,
+    backgroundImageHash,
     activeBackgroundSource,
     isImageBackgroundActive,
     isColorBackgroundActive,
@@ -369,6 +415,8 @@ export const useGridSettings = () => {
     activateColorBackground,
     activateDefaultBackground,
     uploadBackgroundImage,
+    setBackgroundImageFromArchive,
+    linkBackgroundImage,
     setBackgroundColor,
     previewBackgroundColor,
     removeBackgroundImage,

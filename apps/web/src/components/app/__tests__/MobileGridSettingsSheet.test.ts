@@ -176,6 +176,16 @@ describe("MobileGridSettingsSheet", () => {
     expect(gsHolder.activateImageBackground).toHaveBeenCalledTimes(1);
   });
 
+  it("emits open-image when the active image tile is tapped again", async () => {
+    gsHolder.hasBackgroundImage = true;
+    gsHolder.backgroundImageSrc = "https://cdn/bg.png";
+    gsHolder.activeBg = "image";
+    const wrapper = mountSheet();
+    await wrapper.get(".mgs-bg-tile--image").trigger("click");
+    expect(wrapper.emitted("open-image")).toHaveLength(1);
+    expect(gsHolder.activateImageBackground).not.toHaveBeenCalled();
+  });
+
   it("emits open-color when the color tile is tapped with no color yet", async () => {
     const wrapper = mountSheet();
     await wrapper.get(".mgs-bg-tile--color").trigger("click");

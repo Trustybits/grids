@@ -13,6 +13,7 @@ const holder = vi.hoisted(() => ({
   writeText: vi.fn().mockResolvedValue(undefined),
   setBackgroundColor: vi.fn(),
   previewBackgroundColor: vi.fn(),
+  linkBackgroundImage: vi.fn(),
   loadSavedColors: vi.fn(async () => undefined),
   addSavedColor: vi.fn(async () => undefined),
   types: [] as Array<Record<string, unknown>>,
@@ -54,6 +55,7 @@ vi.mock("@/composables/useGridSettings", () => ({
     backgroundColor: { value: "" },
     setBackgroundColor: holder.setBackgroundColor,
     previewBackgroundColor: holder.previewBackgroundColor,
+    linkBackgroundImage: holder.linkBackgroundImage,
   }),
 }));
 
@@ -68,10 +70,11 @@ vi.mock("@/composables/useSavedColors", () => ({
 vi.mock("@/components/app/MobileGridSettingsSheet.vue", () => ({
   default: {
     props: ["query"],
-    emits: ["close", "open-color"],
+    emits: ["close", "open-color", "open-image"],
     template:
       "<div class='grid-settings-sheet-stub' :data-query='query'>" +
-      "<button class='open-color-stub' @click=\"$emit('open-color')\" /></div>",
+      "<button class='open-color-stub' @click=\"$emit('open-color')\" />" +
+      "<button class='open-image-stub' @click=\"$emit('open-image')\" /></div>",
   },
 }));
 
@@ -82,6 +85,13 @@ vi.mock("@/components/app/MobileColorPicker.vue", () => ({
     emits: ["update:modelValue", "preview", "commit"],
     template:
       "<div class='color-picker-stub' :data-swatches='swatches.length' />",
+  },
+}));
+
+vi.mock("@/components/app/MobileImageSwapSheet.vue", () => ({
+  default: {
+    name: "MobileImageSwapSheet",
+    template: "<div class='image-swap-stub' />",
   },
 }));
 
@@ -397,6 +407,72 @@ describe("MobileGridBar", () => {
     await input.trigger("keydown", { key: "Backspace" });
     await flush(wrapper);
     expect(wrapper.find(".mgb-hex").exists()).toBe(false);
+    expect(wrapper.get(".mci-chip").text()).toBe("/GRID");
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(true);
+  });
+
+  it("morphs into /BACKGROUND image mode when the settings sheet requests it, and closes back to settings", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Grid settings"]').trigger("click");
+    await flush(wrapper);
+
+    // The settings sheet's active image tile asks the bar to open the swap sheet.
+    await wrapper.get(".open-image-stub").trigger("click");
+    await flush(wrapper);
+
+    expect(wrapper.find(".image-swap-stub").exists()).toBe(true);
+    expect(wrapper.get(".mgb-hex__chip").text()).toBe("/BACKGROUND");
+    expect(
+      wrapper.find('[aria-label="Close background image"]').exists(),
+    ).toBe(true);
+    // The settings sheet is replaced by the image sheet while swapping.
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(false);
+
+    // Closing returns to the Grid Settings sheet (one level up).
+    await wrapper.get('[aria-label="Close background image"]').trigger("click");
+    await flush(wrapper);
+    expect(wrapper.find(".image-swap-stub").exists()).toBe(false);
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(true);
+  });
+
+  it("links a pasted image URL on Enter and clears the field", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Grid settings"]').trigger("click");
+    await flush(wrapper);
+    await wrapper.get(".open-image-stub").trigger("click");
+    await flush(wrapper);
+
+    const input = wrapper.get(".mgb-hex__input");
+    await input.setValue("https://cdn/pic.png");
+    await input.trigger("keydown", { key: "Enter" });
+    await flush(wrapper);
+
+    expect(holder.linkBackgroundImage).toHaveBeenCalledWith(
+      "https://cdn/pic.png",
+    );
+    // The field is cleared but the sheet stays open.
+    expect((input.element as HTMLInputElement).value).toBe("");
+    expect(wrapper.find(".image-swap-stub").exists()).toBe(true);
+  });
+
+  it("steps back up to /GRID after two Backspaces on an empty URL field", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Grid settings"]').trigger("click");
+    await flush(wrapper);
+    await wrapper.get(".open-image-stub").trigger("click");
+    await flush(wrapper);
+    expect(wrapper.get(".mgb-hex__chip").text()).toBe("/BACKGROUND");
+
+    const input = wrapper.get(".mgb-hex__input");
+    await input.setValue("");
+    await input.trigger("keydown", { key: "Backspace" });
+    await flush(wrapper);
+    // One empty Backspace should not step up yet.
+    expect(wrapper.find(".image-swap-stub").exists()).toBe(true);
+
+    await input.trigger("keydown", { key: "Backspace" });
+    await flush(wrapper);
+    expect(wrapper.find(".image-swap-stub").exists()).toBe(false);
     expect(wrapper.get(".mci-chip").text()).toBe("/GRID");
     expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(true);
   });

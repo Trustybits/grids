@@ -785,6 +785,14 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .mobile-grid-bar {
+  // Single source of truth for the expanded command-bar width. Every morphed
+  // state — `/TILE` (add), `/GRID` (settings) and its `/HEX` · `/BACKGROUND`
+  // sub-sheets — uses this so they always match. Fills the viewport leaving
+  // --spacing-sm (8px) either side, capped at 520px on larger screens. The
+  // default resting pill (the four command buttons) stays content-sized so the
+  // pill still visibly grows as it morphs open.
+  --mgb-width: min(520px, calc(100vw - var(--spacing-md)));
+
   position: fixed;
   // Default resting gap; overridden inline to hug the keyboard when it opens.
   bottom: var(--spacing-sm);
@@ -806,7 +814,7 @@ onBeforeUnmount(() => {
 }
 
 .mgb-pill--add {
-  width: min(360px, calc(100vw - var(--spacing-lg) * 2));
+  width: var(--mgb-width);
 
   // Stretch the command bar's inner group (inline-flex by default) so the input
   // fills the pill and the toggle/close icons sit flush at the right edge —
@@ -826,10 +834,9 @@ onBeforeUnmount(() => {
 
 // ── Connected settings surface ───────────────────────────────────────────────
 // In settings mode the sheet + morphed `/GRID` bar read as one connected
-// surface, so drop the gap and give both the same dynamic width (fills the
-// viewport leaving 8px / --spacing-sm either side so the grid stays visible).
+// surface, so drop the gap; both use the shared --mgb-width so the pill and the
+// sheet resting on it line up flush.
 .mgb--connected {
-  --mgb-connected-width: min(520px, calc(100vw - var(--spacing-md)));
   gap: 0;
 }
 
@@ -850,7 +857,7 @@ onBeforeUnmount(() => {
 .mgb-pill.mgb-pill--settings,
 .mgb-pill.mgb-pill--color,
 .mgb-pill.mgb-pill--image {
-  width: var(--mgb-connected-width);
+  width: var(--mgb-width);
   // Square the top corners so the sheet resting above lines up flush; the
   // bottom corners keep --radius-md.
   border-top-left-radius: 0;
@@ -925,17 +932,17 @@ onBeforeUnmount(() => {
 .mobile-grid-bar__popover {
   display: flex;
   justify-content: center;
-  max-width: calc(100vw - var(--spacing-lg) * 2);
+  // max-width: calc(100vw - var(--spacing-lg) * 2);
 }
 
 .mobile-grid-bar__panel {
   z-index: 0;
-  border-radius: var(--radius-2xl, var(--radius-lg));
-  background-color: var(--color-toolbar-background);
+  // border-radius: var(--radius-2xl, var(--radius-lg));
+  // background-color: var(--color-toolbar-background);
   border: var(--border-width) solid var(--color-stroke);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(20px);
-  overflow: hidden;
+  // box-shadow: var(--shadow-lg);
+  // backdrop-filter: blur(20px);
+  // overflow: hidden;
 }
 
 .mgb-btn {

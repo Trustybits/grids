@@ -10,12 +10,7 @@
   a clean scroll-snap row keeps it accessible and touch-friendly for 5.1.
 -->
 <template>
-  <div
-    class="tile-carousel"
-    :class="`tile-carousel--${layout}`"
-    role="listbox"
-    aria-label="Tile types"
-  >
+  <div class="tile-carousel" role="listbox" aria-label="Tile types">
     <button
       v-for="type in types"
       :key="type.id"
@@ -43,11 +38,9 @@ import type { TileTypeDescriptor } from "@/composables/useTileCreation";
 withDefaults(
   defineProps<{
     types: TileTypeDescriptor[];
-    layout?: "carousel" | "list";
     selectedId?: string | null;
   }>(),
   {
-    layout: "carousel",
     selectedId: null,
   },
 );
@@ -62,7 +55,7 @@ const emit = defineEmits<{
   display: flex;
   align-items: stretch;
   gap: var(--spacing-sm);
-  max-width: calc(100vw - var(--spacing-lg) * 2);
+  max-width: calc(100vw);
   padding: var(--spacing-xs);
   overflow-x: auto;
   scroll-snap-type: x mandatory;
@@ -71,38 +64,6 @@ const emit = defineEmits<{
 
   &::-webkit-scrollbar {
     display: none;
-  }
-}
-
-// Vertical list variant (view toggle). Rows of icon + label; the per-type
-// "N times used" counts arrive with the subtype list in Phase 5.2.
-.tile-carousel--list {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--spacing-2xs, 2px);
-  max-height: 40vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scroll-snap-type: none;
-
-  .tile-carousel__card {
-    flex-direction: row;
-    justify-content: flex-start;
-    width: 100%;
-    border: none;
-    background: transparent;
-    border-radius: var(--radius-md);
-    scroll-snap-align: none;
-
-    &:hover,
-    &:focus-visible {
-      transform: none;
-      background: var(--color-base-8);
-    }
-  }
-
-  .tile-carousel__label {
-    text-align: left;
   }
 }
 

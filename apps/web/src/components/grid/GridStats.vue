@@ -53,12 +53,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted, nextTick } from "vue";
+import { ref, watch, onUnmounted, nextTick } from "vue";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
-import { getServiceFactory } from "@/services/ServiceFactorySingleton";
-import type { GridStats, DailyGridStats } from "@grids/contracts/types";
+import { useGridStats } from "@/composables/useGridStats";
 import Chevron from "@/components/icons/Chevron.vue";
-import { formatDuration } from "@/utils/RelativeTime";
 
 const sessionStore = useGridSessionStore();
 
@@ -70,51 +68,13 @@ const panelOffsetX = ref(0);
 
 const VIEWPORT_MARGIN = 8;
 
-const aggregate = ref<GridStats | null>(null);
-const yesterday = ref<DailyGridStats | null>(null);
-
-const gridId = computed(() => sessionStore.currentGrid?.id ?? null);
-
-const lifetimeViews = computed(() => aggregate.value?.totalViews ?? 0);
-const uniqueViewers = computed(() => aggregate.value?.uniqueViewers ?? 0);
-const yesterdayViews = computed(() => yesterday.value?.totalViews ?? 0);
-
-const averageTimeSpent = computed(() =>
-  formatDuration(aggregate.value?.averageTimeSpentMs ?? 0),
-);
-
-function utcDateString(daysAgo: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - daysAgo);
-  return d.toISOString().slice(0, 10);
-}
-
-async function loadStats(id: string) {
-  const svc = getServiceFactory().getAnalyticsService();
-  if (!svc) return;
-  const date = utcDateString(1);
-  try {
-    const [agg, yest] = await Promise.all([
-      svc.getGridStats(id),
-      svc.getGridStatsForDate(id, date),
-    ]);
-    if (gridId.value !== id) return;
-    aggregate.value = agg;
-    yesterday.value = yest;
-  } catch (err) {
-    console.error("Failed to load grid stats:", err);
-  }
-}
-
-watch(
+const {
   gridId,
-  (id) => {
-    aggregate.value = null;
-    yesterday.value = null;
-    if (id) void loadStats(id);
-  },
-  { immediate: true },
-);
+  lifetimeViews,
+  uniqueViewers,
+  yesterdayViews,
+  averageTimeSpent,
+} = useGridStats();
 
 const toggleMenu = () => {
   menuOpen.value = !menuOpen.value;

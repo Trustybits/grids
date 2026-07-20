@@ -605,8 +605,8 @@ const onTransfer = () => {
 /* Neutral light/dark preview surfaces that stay light/dark regardless of the
    active app theme, so both cards always read as their respective theme. */
 .mgs-theme-card--dark {
-  --mock-bg: var(--color-content-background);
-  --mock-tile: var(--color-tile-background);
+  --mock-bg: color-mix(in srgb, var(--color-black-0) 100%, var(--grids-surface-raised) 100%);
+  --mock-tile: var(--color-black-55);
   --mock-line: color-mix(in srgb, var(--color-light-100) 22%, transparent);
   --mock-line-weak: color-mix(in srgb, var(--color-light-100) 10%, transparent);
   --mock-accent: color-mix(in srgb, var(--color-light-100) 34%, transparent);

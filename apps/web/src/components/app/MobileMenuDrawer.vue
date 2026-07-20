@@ -24,25 +24,99 @@
 
           <div v-if="isOwner" class="mmd-divider" />
 
+          <!-- Analytics: inline expand/collapse that pushes the recent grids
+               down when open (was a floating popover). -->
           <div v-if="isOwner" class="mmd-analytics">
-            <GridStats />
+            <button
+              type="button"
+              class="mmd-row mmd-row--button mmd-analytics__trigger"
+              :aria-expanded="analyticsOpen"
+              @click="analyticsOpen = !analyticsOpen"
+            >
+              <span class="mmd-row__icon"><AnalyticsIcon /></span>
+              <span class="mmd-row__label">Analytics</span>
+              <span v-if="!analyticsOpen" class="mmd-analytics__summary">
+                <svg
+                  class="mmd-analytics__trend"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M7 17L17 7M17 7H9M17 7V15"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                {{ yesterdayViews }} views yesterday
+              </span>
+              <Chevron
+                class="mmd-analytics__chevron"
+                :class="{ 'is-open': analyticsOpen }"
+                :size="16"
+              />
+            </button>
+
+            <div
+              class="mmd-analytics__body"
+              :class="{ 'is-open': analyticsOpen }"
+            >
+              <div class="mmd-analytics__body-inner">
+                <div class="mmd-stat">
+                  <span class="mmd-stat__label">Views yesterday</span>
+                  <span class="mmd-stat__value">{{ yesterdayViews }}</span>
+                </div>
+                <div class="mmd-stat">
+                  <span class="mmd-stat__label">Total views</span>
+                  <span class="mmd-stat__value">{{ lifetimeViews }}</span>
+                </div>
+                <div class="mmd-stat">
+                  <span class="mmd-stat__label">Unique viewers</span>
+                  <span class="mmd-stat__value">{{ uniqueViewers }}</span>
+                </div>
+                <div class="mmd-stat">
+                  <span class="mmd-stat__label">Average time spent</span>
+                  <span class="mmd-stat__value">{{ averageTimeSpent }}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="mmd-divider" />
 
-          <template v-if="recentGrids.length">
-            <span class="mmd-section-label">Recent Grid Pages</span>
-            <router-link
-              v-for="g in recentGrids"
-              :key="g.id"
-              :to="`/grid/${g.id}`"
-              class="mmd-row"
-              @click="emit('close')"
-            >
-              <span class="mmd-row__icon"><GridSquaresIcon /></span>
-              <span class="mmd-row__label">{{ g.name || "Untitled Grid" }}</span>
-            </router-link>
-          </template>
+          <!-- Recent grids grow to fill the free space so the account/support
+               group stays anchored to the bottom of the panel. -->
+          <div class="mmd-recents">
+            <template v-if="recentGrids.length">
+              <span class="mmd-section-label">Recent Grid Pages</span>
+              <router-link
+                v-for="g in recentGrids"
+                :key="g.id"
+                :to="`/grid/${g.id}`"
+                class="mmd-row"
+                @click="emit('close')"
+              >
+                <span class="mmd-row__icon"><GridSquaresIcon /></span>
+                <span class="mmd-row__label">{{
+                  g.name || "Untitled Grid"
+                }}</span>
+              </router-link>
+            </template>
+          </div>
+
+          <!-- Bottom-anchored group. -->
+          <div v-if="canUseMobile2" class="mmd-account-toggle">
+            <Toggle
+              label="Mobile 2.0"
+              :modelValue="isMobile2Enabled"
+              @update:modelValue="onMobile2Toggle"
+              tooltip="Try the redesigned mobile experience. You can switch back anytime."
+            />
+          </div>
 
           <a
             class="mmd-row"
@@ -57,15 +131,6 @@
 
           <div class="mmd-divider" />
 
-          <div v-if="canUseMobile2" class="mmd-account-toggle">
-            <Toggle
-              label="Mobile 2.0"
-              :modelValue="isMobile2Enabled"
-              @update:modelValue="onMobile2Toggle"
-              tooltip="Try the redesigned mobile experience. You can switch back anytime."
-            />
-          </div>
-
           <button type="button" class="mmd-row mmd-row--button" @click="logout">
             <span class="mmd-row__icon"><ProfileIcon :size="20" /></span>
             <span class="mmd-row__label">Logout</span>
@@ -77,22 +142,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridController } from "@/controllers/useGridController";
 import { useMobileExperience } from "@/composables/useMobileExperience";
+import { useGridStats } from "@/composables/useGridStats";
 import { useToastStore } from "@/stores/toast";
 import { valueToMillis } from "@/utils/TimeConversion";
 import type { Grid } from "@grids/contracts/types";
-import GridStats from "@/components/grid/GridStats.vue";
 import Toggle from "@/components/ui-controls/Toggle.vue";
 import HomeIcon from "@/components/icons/HomeIcon.vue";
+import AnalyticsIcon from "@/components/icons/AnalyticsIcon.vue";
 import GridSquaresIcon from "@/components/icons/GridSquaresIcon.vue";
 import DiscordIcon from "@/components/icons/DiscordIcon.vue";
 import ProfileIcon from "@/components/icons/ProfileIcon.vue";
+import Chevron from "@/components/icons/Chevron.vue";
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: "close"): void }>();
@@ -107,6 +174,10 @@ const { canUseMobile2, isMobile2Enabled, setMobile2Enabled } =
   useMobileExperience();
 
 const isOwner = computed(() => sessionStore.isOwner);
+
+const analyticsOpen = ref(false);
+const { lifetimeViews, uniqueViewers, yesterdayViews, averageTimeSpent } =
+  useGridStats();
 
 const recentGrids = computed<Grid[]>(() => {
   const scored = (collectionStore.grids || []).map((g) => ({
@@ -182,14 +253,19 @@ const logout = async () => {
   top: 0;
   left: 0;
   bottom: 0;
-  width: min(280px, 82vw);
+  width: min(320px, 88vw);
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: var(--spacing-md) var(--spacing-sm);
   overflow-y: auto;
+  // Content is sized to fit the panel; clip any incidental sub-pixel overflow
+  // so the drawer never shows a horizontal scrollbar.
+  overflow-x: hidden;
   background-color: var(--color-toolbar-background);
   border-right: var(--border-width) solid var(--color-stroke);
+  // Rounded outer (right) edge; the left edge is flush with the viewport.
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   box-shadow: var(--shadow-xl);
 }
 
@@ -239,8 +315,82 @@ const logout = async () => {
   color: var(--color-content-low);
 }
 
+// ── Recent grids fill the free space so the bottom group stays anchored ──────
+.mmd-recents {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+// ── Analytics inline expand/collapse ─────────────────────────────────────────
 .mmd-analytics {
-  padding: var(--spacing-xs) var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+}
+
+.mmd-analytics__summary {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--font-size-sm);
+  color: var(--color-content-low);
+  white-space: nowrap;
+}
+
+.mmd-analytics__trend {
+  flex: 0 0 auto;
+  color: var(--grids-brand-purple);
+}
+
+.mmd-analytics__chevron {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--color-content-low);
+  transition: transform var(--duration-fast) var(--easing-smooth);
+
+  &.is-open {
+    transform: rotate(180deg);
+  }
+}
+
+// Animate open/closed by transitioning the grid row track from 0fr → 1fr; the
+// inner wrapper's overflow is clipped so the rows reveal without a fixed height.
+.mmd-analytics__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration-normal) var(--easing-gentle);
+
+  &.is-open {
+    grid-template-rows: 1fr;
+  }
+}
+
+.mmd-analytics__body-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mmd-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  // Indent the label to line up under the Analytics row label (past its icon).
+  padding: var(--spacing-xs) var(--spacing-sm) var(--spacing-xs)
+    calc(var(--spacing-sm) + 24px + var(--spacing-sm));
+  font-size: var(--font-size-sm);
+  color: var(--color-content-default);
+
+  &__label {
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__value {
+    color: var(--color-content-high);
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 .mmd-account-toggle {

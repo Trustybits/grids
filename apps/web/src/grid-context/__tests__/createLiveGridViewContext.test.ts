@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { isReadonly, reactive } from "vue";
-import type {
-  AnyTileContent,
-  Breakpoint,
-  DocumentItem,
-  Grid,
+import {
+  type AnyTileContent,
+  type Breakpoint,
+  type DocumentItem,
+  type Grid,
 } from "@grids/contracts/types";
 import type { GridHistoryUrlMaps } from "@/controllers/GridController";
 import { createLiveGridViewContext } from "@/grid-context/createLiveGridViewContext";
@@ -18,6 +18,7 @@ const h = vi.hoisted(() => ({
   ui: null as unknown,
   uploads: null as unknown,
   collection: null as unknown,
+  preview: null as unknown,
   controller: null as unknown,
 }));
 
@@ -35,6 +36,9 @@ vi.mock("@/stores/grid/gridUploads", () => ({
 }));
 vi.mock("@/stores/grid/gridCollection", () => ({
   useGridCollectionStore: () => h.collection,
+}));
+vi.mock("@/stores/grid/gridPreview", () => ({
+  useGridPreviewStore: () => h.preview,
 }));
 vi.mock("@/controllers/useGridController", () => ({
   useGridController: () => h.controller,
@@ -93,24 +97,53 @@ function installStores() {
     uploadingTiles: { "tile-1": 0.25 } as Record<string, number>,
   });
   const collection = reactive({ isLoading: false });
+  const preview = reactive({
+    activePreview: null as null | {
+      kind: string;
+      gridId: string;
+    },
+    previewForGrid(gridId: string | undefined) {
+      return preview.activePreview?.gridId === gridId
+        ? preview.activePreview
+        : null;
+    },
+    isActive(gridId: string | undefined) {
+      return preview.previewForGrid(gridId) !== null;
+    },
+    blocksGridMutation(gridId: string | undefined) {
+      return preview.previewForGrid(gridId) !== null;
+    },
+  });
 
   h.session = session;
   h.viewport = viewport;
   h.ui = ui;
   h.uploads = uploads;
   h.collection = collection;
+  h.preview = preview;
 
-  return { session, viewport, ui, uploads, collection };
+  return { session, viewport, ui, uploads, collection, preview };
 }
 
 function installController() {
   const controller = {
+    canEditCurrentGrid: vi.fn(() => {
+      const session = h.session as ReturnType<typeof installStores>["session"];
+      const viewport = h.viewport as ReturnType<typeof installStores>["viewport"];
+      const preview = h.preview as ReturnType<typeof installStores>["preview"];
+      if (preview.blocksGridMutation(session.currentGrid?.id)) return false;
+      return session.canEditAtBreakpoint(
+        viewport.forcedBreakpoint,
+        viewport.viewportBreakpoint,
+      );
+    }),
     registerLayoutReadinessAdapter: vi.fn(() => vi.fn()),
     setActiveBreakpoint: vi.fn(),
     setViewportBreakpoint: vi.fn(),
     setForcedBreakpoint: vi.fn(),
     setDisplayPositions: vi.fn(),
     commitCompactedLayout: vi.fn(),
+    stopPreview: vi.fn(),
     beginMove: vi.fn(),
     commitMove: vi.fn(),
     beginResize: vi.fn(),
@@ -140,7 +173,7 @@ function installController() {
 
 describe("createLiveGridViewContext", () => {
   it("maps read state from the focused stores", () => {
-    const { session, viewport, ui } = installStores();
+    const { session, viewport, ui, preview } = installStores();
     installController();
 
     const ctx = createLiveGridViewContext();
@@ -151,6 +184,9 @@ describe("createLiveGridViewContext", () => {
     expect(isReadonly(ctx.grid.value)).toBe(true);
     expect(ctx.isOwner.value).toBe(true);
     expect(ctx.canEdit.value).toBe(true);
+    expect(ctx.activePreview.value).toBeNull();
+    expect(ctx.isPreviewActive.value).toBe(false);
+    expect(ctx.blocksGridMutation.value).toBe(false);
     expect(ctx.isLoading.value).toBe(false);
     expect(ctx.verticalCompact.value).toBe(true);
     expect(ctx.activeBreakpoint.value).toBe("lg");
@@ -163,6 +199,15 @@ describe("createLiveGridViewContext", () => {
     expect(ctx.activeTileId.value).toBe("tile-1");
     expect(ctx.activePanelId.value).toBe("settings");
 
+    preview.activePreview = {
+      kind: "test-preview",
+      gridId: "grid-1",
+    };
+    expect(ctx.isOwner.value).toBe(true);
+    expect(ctx.canEdit.value).toBe(false);
+    expect(ctx.isPreviewActive.value).toBe(true);
+    expect(ctx.blocksGridMutation.value).toBe(true);
+
     // Reads stay reactive against the underlying stores.
     session.currentGrid = makeGrid("grid-2");
     session.isOwner = false; // flips canEdit through canEditAtBreakpoint
@@ -172,6 +217,7 @@ describe("createLiveGridViewContext", () => {
     expect(ctx.grid.value?.id).toBe("grid-2");
     expect(ctx.isOwner.value).toBe(false);
     expect(ctx.canEdit.value).toBe(false);
+    expect(ctx.isPreviewActive.value).toBe(false);
     expect(ctx.activeBreakpoint.value).toBe("md");
     expect(ctx.pendingFocusTileId.value).toBe("tile-2");
 
@@ -231,6 +277,7 @@ describe("createLiveGridViewContext", () => {
     ctx.setForcedBreakpoint("md");
     ctx.setDisplayPositions(positions);
     ctx.commitCompactedLayout(positions);
+    ctx.stopPreview();
     ctx.beginMove(urlMaps);
     ctx.commitMove(urlMaps);
     ctx.beginResize(urlMaps);
@@ -263,6 +310,7 @@ describe("createLiveGridViewContext", () => {
     expect(controller.setForcedBreakpoint).toHaveBeenCalledWith("md");
     expect(controller.setDisplayPositions).toHaveBeenCalledWith(positions);
     expect(controller.commitCompactedLayout).toHaveBeenCalledWith(positions);
+    expect(controller.stopPreview).toHaveBeenCalledTimes(1);
     expect(controller.beginMove).toHaveBeenCalledWith(urlMaps);
     expect(controller.commitMove).toHaveBeenCalledWith(urlMaps);
     expect(controller.beginResize).toHaveBeenCalledWith(urlMaps);

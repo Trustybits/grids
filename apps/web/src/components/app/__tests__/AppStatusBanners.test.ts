@@ -36,4 +36,5 @@ describe("AppStatusBanners", () => {
 
     expect(wrapper.findComponent(ViewportWarning).exists()).toBe(true);
   });
+
 });

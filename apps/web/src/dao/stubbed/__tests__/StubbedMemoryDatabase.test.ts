@@ -17,7 +17,10 @@ import {
   todayIsoDate,
   toGrid,
 } from "../StubbedMemoryDatabase";
-import type { UserGameData } from "@grids/contracts/types";
+import {
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+  type UserGameData,
+} from "@grids/contracts/types";
 import { resetMemoryDatabase, flushMicrotasks } from "./memoryTestUtils";
 
 beforeEach(() => {
@@ -238,6 +241,8 @@ describe("toGrid", () => {
       rev: 0,
       name: "Untitled",
       colNum: 12,
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersionStatus: "missing",
       verticalCompact: true,
       backgroundImageSrc: "",
       backgroundImageHash: undefined,
@@ -259,6 +264,8 @@ describe("toGrid", () => {
       userId: "user-1",
       name: "My Grid",
       colNum: 6,
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+      responsiveLayoutVersionStatus: "supported",
       verticalCompact: false,
       duplicatable: true,
       themeId: "dark",
@@ -269,6 +276,7 @@ describe("toGrid", () => {
       userId: "user-1",
       name: "My Grid",
       colNum: 6,
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
       verticalCompact: false,
       duplicatable: true,
       themeId: "dark",
@@ -280,13 +288,33 @@ describe("toGrid", () => {
       userId: 123,
       colNum: "not-a-number",
       verticalCompact: "yes",
+      responsiveLayoutVersion: "griddle-v2",
       tiles: "not-an-array",
     });
 
     expect(result.userId).toBe("");
     expect(result.colNum).toBe(12);
     expect(result.verticalCompact).toBe(true);
+    expect(result.responsiveLayoutVersion).toBe(
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+    );
+    expect(result.responsiveLayoutVersionStatus).toBe("unsupported");
     expect(result.tiles).toEqual([]);
+  });
+
+  it("retains unsupported status across stubbed database remapping", () => {
+    const first = toGrid("grid-future", {
+      responsiveLayoutVersion: "griddle-v2",
+    });
+    const second = toGrid(
+      "grid-future",
+      first as unknown as Record<string, unknown>,
+    );
+
+    expect(second.responsiveLayoutVersion).toBe(
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+    );
+    expect(second.responsiveLayoutVersionStatus).toBe("unsupported");
   });
 
   it("clones tiles instead of holding the source reference", () => {

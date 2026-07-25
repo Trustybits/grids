@@ -29,6 +29,7 @@ const { mockUploadFileOptimistic, mockUploadDocumentsOptimistic } = vi.hoisted(
 );
 const mockGridStore = vi.hoisted(() => ({
   canEdit: true,
+  canEditCurrentGrid: vi.fn(),
   addTile: vi.fn<() => string | null>(() => "tile-1"),
   patchTileContent: vi.fn(),
   pendingFocusTileId: null as string | null,
@@ -188,6 +189,9 @@ beforeEach(() => {
   mockGridStore.pendingFocusTileId = null;
   // canEdit is rebuilt at the consumer from the session getter.
   mockSessionStore.canEditAtBreakpoint = vi.fn(() => mockGridStore.canEdit);
+  mockGridStore.canEditCurrentGrid = vi.fn(() =>
+    mockSessionStore.canEditAtBreakpoint(),
+  );
   // The focus escape hatch now routes through a gridUi action; mirror it onto
   // the tracked field so the existing pendingFocusTileId assertions hold.
   mockUiStore.setPendingFocusTileId = vi.fn((tileId: string | null) => {

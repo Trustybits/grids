@@ -5,23 +5,24 @@ import {
   type Tile,
   type TileContent,
 } from "@grids/contracts/types";
+import {
+  reflowTiles,
+  type CellRect,
+  type Tile as GriddleTile,
+} from "@griddle/core";
 import { getTileDefinition } from "@/registries/tileRegistry";
+import type { GridLayoutItem } from "@/types/GridLayout";
 import {
   findBestXAtRow,
   findFirstAvailableSpot,
   pushTilesForNewItem,
 } from "@/utils/GridPlacementUtils";
-import {
-  breakpointToColumnCount,
-  findFirstAvailableLayoutSpot,
-  packGridLayout,
-  projectGridLayout,
-  scaleLayoutItemToFit,
-} from "@/utils/GridLayoutUtils";
+import { breakpointToColumnCount } from "@/utils/GridLayoutUtils";
 import { createTile } from "@/utils/TileUtils";
 import {
   createPositionMap,
   getTileObjectUrls,
+  syncPositionOnlyLayout,
 } from "../GridControllerHelpers";
 import type {
   GridControllerDependencies,
@@ -72,22 +73,34 @@ export class GridTileStructureController {
 
   private normalizeCanonicalLayout(tiles: Tile[], columns: number): void {
     const packedById = new Map(
-      packGridLayout(tiles, columns).map((position) => [
-        position.i,
-        position,
-      ]),
+      reflowTiles(
+        tiles.map((tile) => this.toGriddleTile(tile)),
+        { cols: columns, strategy: "griddle-v1" },
+      ).map((tile) => [tile.id, tile]),
     );
 
     for (const tile of tiles) {
       const position = packedById.get(tile.i);
       if (!position) continue;
       Object.assign(tile, {
-        x: position.x,
-        y: position.y,
+        x: position.col,
+        y: position.row,
         w: position.w,
         h: position.h,
       });
     }
+  }
+
+  private toGriddleTile(
+    tile: Pick<Tile, "i" | "x" | "y" | "w" | "h">,
+  ): GriddleTile {
+    return {
+      id: tile.i,
+      col: tile.x,
+      row: tile.y,
+      w: tile.w,
+      h: tile.h,
+    };
   }
 
   addTile(content: TileContent): string | null {
@@ -199,28 +212,49 @@ export class GridTileStructureController {
           overrideBreakpoint,
           columns,
         );
-        const duplicateLayout = scaleLayoutItemToFit(
-          { i: newId, ...sourcePosition },
-          breakpointColumns,
-        );
-        const projectedExisting = projectGridLayout({
-          tiles: grid.tiles.filter((candidate) => candidate.i !== newId),
-          breakpoint: overrideBreakpoint,
-          columns: breakpointColumns,
-          overrides: grid.overrides,
+        const breakpointTiles = grid.tiles.map((candidate) => {
+          const projected = this.toGriddleTile(candidate);
+          return candidate.i === newId
+            ? {
+                ...projected,
+                w: sourcePosition.w,
+                h: sourcePosition.h,
+              }
+            : projected;
         });
-        const breakpointPosition = findFirstAvailableLayoutSpot(
-          projectedExisting,
-          duplicateLayout.w,
-          duplicateLayout.h,
-          breakpointColumns,
-          overrideBreakpoint === this.stores.viewport.activeBreakpoint
-            ? this.getViewportGridY()
-            : 0,
+        const placements: Record<string, CellRect> = Object.fromEntries(
+          Object.entries(positions)
+            .filter(([tileId]) => tileId !== newId)
+            .map(([tileId, position]) => [
+              tileId,
+              {
+                col: position.x,
+                row: position.y,
+                w: position.w,
+                h: position.h,
+              },
+            ]),
         );
+        let projected: GriddleTile[];
+        try {
+          projected = reflowTiles(breakpointTiles, {
+            cols: breakpointColumns,
+            strategy: "griddle-v1",
+            placements,
+          });
+        } catch {
+          projected = reflowTiles(breakpointTiles, {
+            cols: breakpointColumns,
+            strategy: "griddle-v1",
+          });
+        }
+        const duplicateLayout = projected.find(
+          (candidate) => candidate.id === newId,
+        );
+        if (!duplicateLayout) continue;
         positions[newId] = {
-          x: breakpointPosition.x,
-          y: breakpointPosition.y,
+          x: duplicateLayout.col,
+          y: duplicateLayout.row,
           w: duplicateLayout.w,
           h: duplicateLayout.h,
         };
@@ -237,7 +271,7 @@ export class GridTileStructureController {
     return newId;
   }
 
-  removeTile(id: string): void {
+  removeTile(id: string, settledLayout?: GridLayoutItem[]): void {
     const grid = this.stores.session.currentGrid;
     if (!grid) return;
 
@@ -270,6 +304,16 @@ export class GridTileStructureController {
       }
     }
     grid.tiles = grid.tiles.filter((candidate) => candidate.i !== id);
+
+    if (settledLayout) {
+      const breakpoint = this.stores.viewport.activeBreakpoint;
+      if (breakpoint === "lg") {
+        syncPositionOnlyLayout(grid, settledLayout);
+      } else {
+        grid.overrides ??= {};
+        grid.overrides[breakpoint] = createPositionMap(settledLayout);
+      }
+    }
 
     if (tile) {
       // Defer chat message cleanup so an undo can restore the tile (and its

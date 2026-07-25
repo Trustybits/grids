@@ -1,5 +1,3 @@
-import { useGridSessionStore } from "@/stores/grid/gridSession";
-import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridController } from "@/controllers/useGridController";
 import { useThemeStore } from "@/stores/theme";
 import type {
@@ -86,15 +84,8 @@ export const useColorPicker = (
   emit: (type: "background-color-change" | "text-color-change", value: string) => void,
   options: ColorPickerOptions = {},
 ): ColorPickerValues => {
-  const sessionStore = useGridSessionStore();
-  const viewportStore = useGridViewportStore();
   const controller = useGridController();
-  const canEdit = computed(() =>
-    sessionStore.canEditAtBreakpoint(
-      viewportStore.forcedBreakpoint,
-      viewportStore.viewportBreakpoint,
-    ),
-  );
+  const canEdit = computed(() => controller.canEditCurrentGrid());
   const {
     overlayCapable = false,
     legacyBackgroundAsOverlay = false,

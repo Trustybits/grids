@@ -8,8 +8,6 @@ import {
   type Ref,
 } from "vue";
 import type { Editor } from "@tiptap/vue-3";
-import { useGridSessionStore } from "@/stores/grid/gridSession";
-import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridController } from "@/controllers/useGridController";
 
@@ -34,16 +32,9 @@ export function useEditingLifecycle(options: EditingLifecycleOptions) {
     shouldBlockExit,
   } = options;
 
-  const sessionStore = useGridSessionStore();
-  const viewportStore = useGridViewportStore();
   const uiStore = useGridUiStore();
   const controller = useGridController();
-  const canEdit = computed(() =>
-    sessionStore.canEditAtBreakpoint(
-      viewportStore.forcedBreakpoint,
-      viewportStore.viewportBreakpoint,
-    ),
-  );
+  const canEdit = computed(() => controller.canEditCurrentGrid());
   const tileId = inject<string | null>("tileId", null);
 
   // ── Edit mode watcher ──────────────────────────────────────

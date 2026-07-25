@@ -1,4 +1,5 @@
 import {
+  resolveResponsiveLayoutVersion,
   type Grid,
   type ConfirmedGridDuplicateStorage,
   type CopyDepth,
@@ -20,7 +21,10 @@ import { getDbUtils } from "@/dao/DbUtilsSingleton";
 import type { DbUtils } from "@grids/contracts/dao";
 import type { GridDao } from "@grids/contracts/dao";
 import type { UserDao } from "@grids/contracts/dao";
-import { createDefaultGrid } from "@/utils/GridUtils";
+import {
+  ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION,
+  createDefaultGrid,
+} from "@/utils/GridUtils";
 import { createTile, createTileContent } from "@/utils/TileUtils";
 import { stripBlobUrlsFromTiles } from "@/utils/GridPersistenceUtils";
 import { v4 as uuidv4 } from "uuid";
@@ -242,7 +246,7 @@ export class GridService implements GridServiceInterface {
     mode: "save" | "update",
     nextRev: number,
   ): Record<string, unknown> {
-    const editableFields = {
+    const editableFields: Record<string, unknown> = {
       rev: nextRev,
       name: grid.name,
       colNum: grid.colNum,
@@ -259,6 +263,14 @@ export class GridService implements GridServiceInterface {
       duplicatable: grid.duplicatable ?? false,
       updatedAt: this.dbUtils.serverTimestamp(),
     };
+
+    // Every current value renders through Griddle v1, but an older client must
+    // not downgrade an unknown future compatibility marker on ordinary save.
+    if (grid.responsiveLayoutVersionStatus !== "unsupported") {
+      editableFields.responsiveLayoutVersion = resolveResponsiveLayoutVersion(
+        grid.responsiveLayoutVersion,
+      );
+    }
 
     if (mode === "update") {
       return this.dbUtils.sanitizeValue(editableFields) as Record<
@@ -365,7 +377,11 @@ export class GridService implements GridServiceInterface {
     starterTiles: Grid["tiles"] = [],
   ): Promise<Grid> {
     try {
-      const newGrid = createDefaultGrid(userId, name);
+      const newGrid = createDefaultGrid(
+        userId,
+        name,
+        ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION,
+      );
       newGrid.tiles = starterTiles;
       newGrid.id = this.gridDao.generateId();
 
@@ -395,6 +411,9 @@ export class GridService implements GridServiceInterface {
         rev: 0,
         name: `Copy of ${sourceGrid.name || "Untitled"}`,
         colNum: sourceGrid.colNum,
+        responsiveLayoutVersion: resolveResponsiveLayoutVersion(
+          sourceGrid.responsiveLayoutVersion,
+        ),
         verticalCompact: sourceGrid.verticalCompact,
         tiles: clonedTiles,
         backgroundImageSrc: background.backgroundImageSrc,

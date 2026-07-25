@@ -20,6 +20,7 @@ import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
 import type { Snapshot } from "@/undo/UndoTypes";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
+import { useGridPreviewStore } from "@/stores/grid/gridPreview";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridUploadsStore } from "@/stores/grid/gridUploads";
@@ -97,6 +98,7 @@ function createStores(pinia: Pinia): GridControllerStores {
   return {
     collection: useGridCollectionStore(pinia),
     history: useGridHistoryStore(pinia),
+    preview: useGridPreviewStore(pinia),
     session: useGridSessionStore(pinia),
     ui: useGridUiStore(pinia),
     uploads: useGridUploadsStore(pinia),
@@ -192,6 +194,9 @@ describe("GridController", () => {
     vi.spyOn(stores.history, "reset").mockImplementation(() => {
       resetOrder.push("history");
     });
+    vi.spyOn(stores.preview, "reset").mockImplementation(() => {
+      resetOrder.push("preview");
+    });
     vi.spyOn(stores.viewport, "reset").mockImplementation(() => {
       resetOrder.push("viewport");
     });
@@ -211,6 +216,7 @@ describe("GridController", () => {
 
     expect(resetOrder).toEqual([
       "history",
+      "preview",
       "viewport",
       "uploads",
       "ui",
@@ -244,6 +250,7 @@ describe("GridController", () => {
     stores.history.beginResize(
       makeSnapshot({ actionLabel: "Old resize" }),
     );
+    stores.preview.startPreview({ kind: "test-preview", gridId: "old-grid" });
     stores.viewport.setForcedBreakpoint("sm");
     stores.viewport.setDisplayPositions([
       { i: "tile-1", x: 1, y: 2, w: 3, h: 4 },
@@ -263,6 +270,7 @@ describe("GridController", () => {
     const loading = controller.loadGrid("new-grid");
 
     expect(stores.session.currentGrid).toBeNull();
+    expect(stores.preview.activePreview).toBeNull();
     expect(stores.session.isLoading).toBe(true);
     expect(stores.history.manager).not.toBe(oldManager);
     expect(stores.history.manager).not.toBeNull();
@@ -307,6 +315,164 @@ describe("GridController", () => {
     expect(stores.history.stableSnapshot?.actionLabel).not.toBe(
       "Old stable",
     );
+  });
+
+  it("blocks user mutation categories and pending gesture commits during preview", async () => {
+    const { controller, stores, persistenceScheduler } =
+      createControllerHarness();
+    const tile: Tile = {
+      i: "tile-1",
+      x: 0,
+      y: 0,
+      w: 2,
+      h: 2,
+      caption: "Before",
+      content: { type: ContentType.IMAGE, src: "before" } as ImageContent,
+    };
+    const grid = makeGrid({
+      name: "Before",
+      backgroundColor: "#000000",
+      tiles: [tile],
+      overrides: {
+        sm: { "tile-1": { x: 0, y: 0, w: 2, h: 2 } },
+      },
+    });
+    stores.session.setCurrentGrid(grid);
+    stores.session.setOwner(true);
+    stores.history.initializeManager();
+    controller.beginMove();
+    stores.viewport.setDisplayPositions([
+      { i: "tile-1", x: 3, y: 4, w: 1, h: 1 },
+    ]);
+
+    stores.preview.startPreview({ kind: "test-preview", gridId: "grid-1" });
+    controller.commitMove();
+    controller.setTileContent("tile-1", {
+      type: ContentType.IMAGE,
+      src: "after",
+    } as ImageContent);
+    controller.updateCaption({ tileId: "tile-1", caption: "After" });
+    controller.renameCurrentGrid("After");
+    controller.setGridTheme("theme-b");
+    controller.setBackgroundColor("#ffffff");
+    controller.setVerticalCompact(false);
+    controller.resizeTile("tile-1", 1, 1);
+    controller.saveBreakpointPositions("sm", [
+      { i: "tile-1", x: 2, y: 2, w: 1, h: 1 },
+    ]);
+    controller.resetBreakpoint("sm");
+    await controller.undo();
+
+    expect(grid).toEqual(
+      expect.objectContaining({
+        name: "Before",
+        backgroundColor: "#000000",
+        themeId: "theme-a",
+        verticalCompact: true,
+      }),
+    );
+    expect(grid.tiles[0]).toEqual(
+      expect.objectContaining({
+        x: 0,
+        y: 0,
+        w: 2,
+        h: 2,
+        caption: "Before",
+        content: expect.objectContaining({ src: "before" }),
+      }),
+    );
+    expect(grid.overrides?.sm?.["tile-1"]).toEqual({
+      x: 0,
+      y: 0,
+      w: 2,
+      h: 2,
+    });
+    expect(persistenceScheduler.schedule).not.toHaveBeenCalled();
+  });
+
+  it("allows breakpoint inspection and an active upload to settle during preview", async () => {
+    const { controller, stores, persistenceScheduler } =
+      createControllerHarness();
+    stores.session.setCurrentGrid(
+      makeGrid({
+        tiles: [
+          {
+            i: "tile-1",
+            x: 0,
+            y: 0,
+            w: 2,
+            h: 2,
+            caption: "",
+            content: {
+              type: ContentType.IMAGE,
+              src: "blob:media",
+            } as ImageContent,
+          },
+        ],
+      }),
+    );
+    stores.session.setOwner(true);
+    const uploadId = controller.startUpload({
+      uploadId: "upload-1",
+      tileId: "tile-1",
+      ownedObjectUrl: "blob:media",
+    });
+    expect(uploadId).toBe("upload-1");
+
+    stores.preview.startPreview({ kind: "test-preview", gridId: "grid-1" });
+    controller.setForcedBreakpoint("sm");
+    expect(controller.startUpload({ tileId: "tile-1" })).toBeNull();
+    expect(
+      controller.resolveUpload(
+        "upload-1",
+        "https://cdn/media.png",
+        "hash-1",
+      ),
+    ).toBe(true);
+
+    expect(stores.viewport.forcedBreakpoint).toBe("sm");
+    expect(stores.uploads.resolvedUrls["tile-1"]).toBe(
+      "https://cdn/media.png",
+    );
+    expect(persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    expect(stores.session.persistenceError).toBeNull();
+  });
+
+  it("allows a failed pre-preview upload to roll back its optimistic tile", () => {
+    const { controller, stores, persistenceScheduler } =
+      createControllerHarness();
+    stores.session.setCurrentGrid(
+      makeGrid({
+        tiles: [
+          {
+            i: "tile-1",
+            x: 0,
+            y: 0,
+            w: 2,
+            h: 2,
+            caption: "",
+            content: {
+              type: ContentType.IMAGE,
+              src: "blob:media",
+            } as ImageContent,
+          },
+        ],
+      }),
+    );
+    stores.session.setOwner(true);
+    const uploadId = controller.startUpload({
+      uploadId: "upload-1",
+      tileId: "tile-1",
+      ownedObjectUrl: "blob:media",
+    });
+
+    stores.preview.startPreview({ kind: "test-preview", gridId: "grid-1" });
+
+    expect(controller.failUploadAndRemoveTile(uploadId!)).toBe(true);
+    expect(stores.session.currentGrid?.tiles).toEqual([]);
+    expect(stores.uploads.uploadRecords[uploadId!]).toBeUndefined();
+    expect(persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
   it("ignores an obsolete load response while a replacement load is pending", async () => {

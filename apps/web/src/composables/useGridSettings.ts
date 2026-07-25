@@ -34,6 +34,7 @@ export const useGridSettings = () => {
   const viewportStore = useGridViewportStore();
   const uiStore = useGridUiStore();
   const controller = useGridController();
+  const canMutateGrid = (): boolean => controller.canEditCurrentGrid();
   const themeStore = useThemeStore();
   const toastStore = useToastStore();
   const gameStore = usePixelRacersStore();
@@ -117,12 +118,18 @@ export const useGridSettings = () => {
 
   // Radio-style activation between the retained image / color / default — never
   // discards the other stored value, so the user can toggle back and forth.
-  const activateImageBackground = (): void =>
+  const activateImageBackground = (): void => {
+    if (!canMutateGrid()) return;
     controller.setBackgroundActiveSource("image");
-  const activateColorBackground = (): void =>
+  };
+  const activateColorBackground = (): void => {
+    if (!canMutateGrid()) return;
     controller.setBackgroundActiveSource("color");
-  const activateDefaultBackground = (): void =>
+  };
+  const activateDefaultBackground = (): void => {
+    if (!canMutateGrid()) return;
     controller.setBackgroundActiveSource("default");
+  };
 
   const pendingTransfer = computed(() => {
     const gridId = sessionStore.currentGrid?.id;
@@ -132,12 +139,16 @@ export const useGridSettings = () => {
   // ── Toggles ────────────────────────────────────────────────────────────────
   const verticalCompact = computed({
     get: () => sessionStore.verticalCompact,
-    set: (value: boolean) => controller.setVerticalCompact(value),
+    set: (value: boolean) => {
+      if (!canMutateGrid()) return;
+      controller.setVerticalCompact(value);
+    },
   });
 
   const isDarkMode = computed({
     get: () => themeStore.isDarkMode,
     set: (value: boolean) => {
+      if (!canMutateGrid()) return;
       const newThemeId = value ? "dark" : "light";
       themeStore.setTheme(newThemeId);
       controller.setGridTheme(newThemeId);
@@ -146,7 +157,10 @@ export const useGridSettings = () => {
 
   const duplicatable = computed({
     get: () => sessionStore.currentGrid?.duplicatable ?? false,
-    set: (value: boolean) => controller.setDuplicatable(value),
+    set: (value: boolean) => {
+      if (!canMutateGrid()) return;
+      controller.setDuplicatable(value);
+    },
   });
 
   const showMetaData = computed({
@@ -203,6 +217,7 @@ export const useGridSettings = () => {
   );
 
   const saveBreakpoint = (): void => {
+    if (!canMutateGrid()) return;
     const bp = viewportStore.activeBreakpoint;
     if (bp === "lg") return;
     const positions = viewportStore.displayPositions;
@@ -212,6 +227,7 @@ export const useGridSettings = () => {
   };
 
   const resetBreakpoint = (): void => {
+    if (!canMutateGrid()) return;
     const bp = viewportStore.activeBreakpoint;
     if (bp === "lg") return;
     controller.resetBreakpoint(bp);
@@ -236,6 +252,7 @@ export const useGridSettings = () => {
   const duplicateGrid = async (
     copyDepth: CopyDepth = "full",
   ): Promise<string | null> => {
+    if (!canMutateGrid()) return null;
     const grid = sessionStore.currentGrid;
     if (!grid) return null;
     try {
@@ -254,11 +271,13 @@ export const useGridSettings = () => {
   };
 
   const requestDelete = (): void => {
+    if (!canMutateGrid()) return;
     if (!sessionStore.isOwner || !sessionStore.currentGrid) return;
     showDeleteModal.value = true;
   };
 
   const performDelete = async (): Promise<void> => {
+    if (!canMutateGrid()) return;
     if (!sessionStore.isOwner || !sessionStore.currentGrid) return;
     await controller.deleteGrid(sessionStore.currentGrid.id);
     showDeleteModal.value = false;
@@ -266,14 +285,17 @@ export const useGridSettings = () => {
   };
 
   const openOgImageModal = (): void => {
+    if (!canMutateGrid()) return;
     showOgImageModal.value = true;
   };
 
   const openTransferModal = (): void => {
+    if (!canMutateGrid()) return;
     showTransferModal.value = true;
   };
 
   const cancelPendingTransfer = async (): Promise<void> => {
+    if (!canMutateGrid()) return;
     const transfer = pendingTransfer.value;
     if (!transfer || isCancellingTransfer.value) return;
     isCancellingTransfer.value = true;
@@ -299,6 +321,7 @@ export const useGridSettings = () => {
 
   // ── Grid background (image + color) ─────────────────────────────────────────
   const uploadBackgroundImage = async (file: File): Promise<void> => {
+    if (!canMutateGrid()) return;
     try {
       const { url, hash } = await uploadFileToArchive(file, {
         fileType: "images",
@@ -350,18 +373,22 @@ export const useGridSettings = () => {
   };
 
   const setBackgroundColor = (color: string): void => {
+    if (!canMutateGrid()) return;
     controller.setBackgroundColor(color);
   };
 
   const previewBackgroundColor = (color: string): void => {
+    if (!canMutateGrid()) return;
     controller.previewBackgroundColor(color);
   };
 
   const removeBackgroundImage = (): void => {
+    if (!canMutateGrid()) return;
     controller.removeBackgroundImage();
   };
 
   const removeBackgroundColor = (): void => {
+    if (!canMutateGrid()) return;
     controller.removeBackgroundColor();
   };
 

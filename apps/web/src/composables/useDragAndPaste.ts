@@ -1,7 +1,5 @@
 import { ref, computed, onMounted, onUnmounted, watch, type Ref } from "vue";
 import { useFileUpload } from "./useFileUpload";
-import { useGridSessionStore } from "@/stores/grid/gridSession";
-import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridController } from "@/controllers/useGridController";
 import {
@@ -23,16 +21,9 @@ interface LinkPreviewResponse {
 }
 
 export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
-  const sessionStore = useGridSessionStore();
-  const viewportStore = useGridViewportStore();
   const uiStore = useGridUiStore();
   const controller = useGridController();
-  const canEdit = computed(() =>
-    sessionStore.canEditAtBreakpoint(
-      viewportStore.forcedBreakpoint,
-      viewportStore.viewportBreakpoint,
-    ),
-  );
+  const canEdit = computed(() => controller.canEditCurrentGrid());
   const { uploadFileOptimistic, uploadDocumentsOptimistic } =
     useFileUpload();
   const isDraggingOver = ref(false);

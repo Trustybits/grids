@@ -38,6 +38,7 @@ const mockViewportStore = vi.hoisted(() => ({
   viewportBreakpoint: "lg",
 }));
 const mockController = vi.hoisted(() => ({
+  canEditCurrentGrid: vi.fn(),
   beginEditing: vi.fn(),
   commitEditing: vi.fn(),
 }));
@@ -138,6 +139,9 @@ beforeEach(() => {
   // canEdit is rebuilt at the consumer from the session getter; reading the
   // reactive holder keeps the composable's canEdit computed tracking per-test.
   mockSessionStore.canEditAtBreakpoint = vi.fn(() => holder.canEdit);
+  mockController.canEditCurrentGrid = vi.fn(() =>
+    mockSessionStore.canEditAtBreakpoint(),
+  );
   // Atomic pending-focus consume mirrors gridUi.consumePendingFocus.
   mockUiStore.consumePendingFocus = vi.fn((tileId: string) => {
     if (holder.pendingFocusTileId !== tileId) return false;

@@ -22,10 +22,7 @@
   <div
     ref="rootRef"
     class="mobile-grid-bar"
-    :class="{
-      'mgb--connected':
-        mode === 'settings' || mode === 'color' || mode === 'image',
-    }"
+    :class="{ 'mgb--connected': isConnected }"
     :style="barStyle"
   >
     <!-- Grid settings sheet — slides up from behind the pill and rests flush on
@@ -62,12 +59,29 @@
       </div>
     </transition>
 
-    <!-- Tile carousel / list — slides up from behind the pill while adding. -->
+    <!-- Add-a-Tile carousel — floats above the pill (with a gap) while adding. -->
     <transition name="mgb-rise">
-      <div v-if="mode === 'add'" class="mobile-grid-bar__panel">
+      <div
+        v-if="mode === 'add' && viewMode === 'carousel'"
+        class="mobile-grid-bar__panel"
+      >
         <MobileTileCarousel
           :types="filteredTypes"
-          :layout="viewMode"
+          :selected-id="activeType"
+          @select="onSelectType"
+        />
+      </div>
+    </transition>
+
+    <!-- Add-a-Tile list — same rise/flush pattern as the other sheets: rises
+         from behind the `/TILE` command input and rests flush on top of it. -->
+    <transition name="mgb-rise">
+      <div
+        v-if="mode === 'add' && viewMode === 'list'"
+        class="mgb-settings-panel"
+      >
+        <MobileTileListSheet
+          :types="filteredTypes"
           :selected-id="activeType"
           @select="onSelectType"
         />
@@ -89,6 +103,7 @@
         'mgb-pill--settings': mode === 'settings',
         'mgb-pill--color': mode === 'color',
         'mgb-pill--image': mode === 'image',
+        'mgb-pill--flush': isConnected,
       }"
       :aria-label="pillAriaLabel"
     >
@@ -262,6 +277,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import MobileCommandBar from "@/components/ui-collections/MobileCommandBar.vue";
 import MobileCommandInput from "@/components/app/MobileCommandInput.vue";
 import MobileTileCarousel from "@/components/app/MobileTileCarousel.vue";
+import MobileTileListSheet from "@/components/app/MobileTileListSheet.vue";
 import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vue";
 import MobileColorPicker from "@/components/app/MobileColorPicker.vue";
 import MobileImageSwapSheet from "@/components/app/MobileImageSwapSheet.vue";
@@ -360,6 +376,17 @@ const barStyle = computed(() => ({
       : "var(--spacing-sm)",
 }));
 const viewMode = ref<"carousel" | "list">("carousel");
+
+// Modes where a sheet rests flush on top of the morphed command input as one
+// connected surface: the `/GRID` settings sheet and its `/HEX` · `/background`
+// sub-sheets, plus the Add-a-Tile *list* view (the carousel floats with a gap).
+const isConnected = computed(
+  () =>
+    mode.value === "settings" ||
+    mode.value === "color" ||
+    mode.value === "image" ||
+    (mode.value === "add" && viewMode.value === "list"),
+);
 
 // ── Color (`/HEX`) mode state ────────────────────────────────────────────────
 // `colorHex` is the canonical working color (#RRGGBB) shared with the picker;
@@ -785,6 +812,14 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .mobile-grid-bar {
+  // Single source of truth for the expanded command-bar width. Every morphed
+  // state — `/TILE` (add), `/GRID` (settings) and its `/HEX` · `/BACKGROUND`
+  // sub-sheets — uses this so they always match. Fills the viewport leaving
+  // --spacing-sm (8px) either side, capped at 520px on larger screens. The
+  // default resting pill (the four command buttons) stays content-sized so the
+  // pill still visibly grows as it morphs open.
+  --mgb-width: min(520px, calc(100vw - var(--spacing-md)));
+
   position: fixed;
   // Default resting gap; overridden inline to hug the keyboard when it opens.
   bottom: var(--spacing-sm);
@@ -806,7 +841,7 @@ onBeforeUnmount(() => {
 }
 
 .mgb-pill--add {
-  width: min(360px, calc(100vw - var(--spacing-lg) * 2));
+  width: var(--mgb-width);
 
   // Stretch the command bar's inner group (inline-flex by default) so the input
   // fills the pill and the toggle/close icons sit flush at the right edge —
@@ -826,10 +861,9 @@ onBeforeUnmount(() => {
 
 // ── Connected settings surface ───────────────────────────────────────────────
 // In settings mode the sheet + morphed `/GRID` bar read as one connected
-// surface, so drop the gap and give both the same dynamic width (fills the
-// viewport leaving 8px / --spacing-sm either side so the grid stays visible).
+// surface, so drop the gap; both use the shared --mgb-width so the pill and the
+// sheet resting on it line up flush.
 .mgb--connected {
-  --mgb-connected-width: min(520px, calc(100vw - var(--spacing-md)));
   gap: 0;
 }
 
@@ -850,11 +884,7 @@ onBeforeUnmount(() => {
 .mgb-pill.mgb-pill--settings,
 .mgb-pill.mgb-pill--color,
 .mgb-pill.mgb-pill--image {
-  width: var(--mgb-connected-width);
-  // Square the top corners so the sheet resting above lines up flush; the
-  // bottom corners keep --radius-md.
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
+  width: var(--mgb-width);
 
   :deep(.mobile-command-bar__group) {
     flex: 1 1 auto;
@@ -867,6 +897,14 @@ onBeforeUnmount(() => {
     min-width: 0;
     width: 100%;
   }
+}
+
+// Square the top corners whenever a sheet rests flush above the pill (settings,
+// color, image and the Add-a-Tile list) so the two surfaces line up seamlessly;
+// the bottom corners keep --radius-md.
+.mgb-pill.mgb-pill--flush {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 
 // ── `/HEX` color command input ───────────────────────────────────────────────
@@ -925,17 +963,17 @@ onBeforeUnmount(() => {
 .mobile-grid-bar__popover {
   display: flex;
   justify-content: center;
-  max-width: calc(100vw - var(--spacing-lg) * 2);
+  // max-width: calc(100vw - var(--spacing-lg) * 2);
 }
 
 .mobile-grid-bar__panel {
   z-index: 0;
-  border-radius: var(--radius-2xl, var(--radius-lg));
-  background-color: var(--color-toolbar-background);
+  // border-radius: var(--radius-2xl, var(--radius-lg));
+  // background-color: var(--color-toolbar-background);
   border: var(--border-width) solid var(--color-stroke);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(20px);
-  overflow: hidden;
+  // box-shadow: var(--shadow-lg);
+  // backdrop-filter: blur(20px);
+  // overflow: hidden;
 }
 
 .mgb-btn {

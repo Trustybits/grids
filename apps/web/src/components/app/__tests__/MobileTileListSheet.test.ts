@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
-import MobileTileCarousel from "../MobileTileCarousel.vue";
+import MobileTileListSheet from "../MobileTileListSheet.vue";
 import type { TileTypeDescriptor } from "@/composables/useTileCreation";
 
 const Icon = { template: "<span class='icon' />" };
@@ -10,30 +10,30 @@ const types: TileTypeDescriptor[] = [
   { id: "chat", label: "Chat", icon: Icon, keywords: ["chat"], kind: "create" },
 ];
 
-describe("MobileTileCarousel", () => {
-  it("renders a card per tile type", () => {
-    const wrapper = mount(MobileTileCarousel, { props: { types } });
-    expect(wrapper.findAll(".tile-carousel__card")).toHaveLength(2);
+describe("MobileTileListSheet", () => {
+  it("renders a row per tile type", () => {
+    const wrapper = mount(MobileTileListSheet, { props: { types } });
+    expect(wrapper.findAll(".mtl-row")).toHaveLength(2);
     expect(wrapper.text()).toContain("Text");
     expect(wrapper.text()).toContain("Chat");
   });
 
-  it("emits select with the tile id when a card is tapped", async () => {
-    const wrapper = mount(MobileTileCarousel, { props: { types } });
-    await wrapper.findAll(".tile-carousel__card")[1].trigger("click");
+  it("emits select with the tile id when a row is tapped", async () => {
+    const wrapper = mount(MobileTileListSheet, { props: { types } });
+    await wrapper.findAll(".mtl-row")[1].trigger("click");
     expect(wrapper.emitted("select")?.[0]).toEqual(["chat"]);
   });
 
   it("shows an empty message when no types match", () => {
-    const wrapper = mount(MobileTileCarousel, { props: { types: [] } });
-    expect(wrapper.find(".tile-carousel__empty").exists()).toBe(true);
+    const wrapper = mount(MobileTileListSheet, { props: { types: [] } });
+    expect(wrapper.find(".mtl-empty").exists()).toBe(true);
   });
 
-  it("marks the selected type card", () => {
-    const wrapper = mount(MobileTileCarousel, {
+  it("marks the selected type row", () => {
+    const wrapper = mount(MobileTileListSheet, {
       props: { types, selectedId: "chat" },
     });
-    const selected = wrapper.findAll(".tile-carousel__card--selected");
+    const selected = wrapper.findAll(".mtl-row--selected");
     expect(selected).toHaveLength(1);
     expect(selected[0].text()).toContain("Chat");
     expect(selected[0].attributes("aria-selected")).toBe("true");

@@ -605,52 +605,87 @@ export default defineComponent({
       }
     };
 
-    let touchWasActivating = false;
+    // Targets that own their own touch behaviour — native cursor placement and
+    // the on-screen keyboard. Rich-text tiles (profile, text) render
+    // contenteditable `.ProseMirror` regions rather than <input>/<textarea>, so
+    // they are exempted here too, mirroring native form fields.
+    const INTERACTIVE_TOUCH_TARGET =
+      'button, a, input, select, textarea, [role="button"], [contenteditable="true"], .ProseMirror';
 
+    // How far a touch may travel and still count as a tap rather than a pan.
+    const TAP_SLOP_PX = 10;
+
+    let touchWasActivating = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchDidPan = false;
+    let touchTargetIsInteractive = false;
+
+    // Nothing here may cancel `touchstart`. Cancelling it opts the *whole*
+    // gesture out of the browser's default handling, so a swipe that merely
+    // began on a tile could never scroll the page — the tap/pan decision has to
+    // be deferred until we have seen whether the finger actually moved.
     const handleTouchStart = (event: TouchEvent) => {
       if (!isTouchDevice()) return;
 
+      const touch = event.touches[0];
+      touchStartX = touch?.clientX ?? 0;
+      touchStartY = touch?.clientY ?? 0;
+      touchDidPan = false;
+      clickStart.value = Date.now();
+      touchTargetIsInteractive = !!(event.target as HTMLElement).closest(
+        INTERACTIVE_TOUCH_TARGET,
+      );
+
       if (!isActivated.value) {
-        // First touch: activate the tile, allow scroll to continue
+        // First touch activates the tile; the gesture itself stays the
+        // browser's to interpret.
         isActivated.value = true;
         touchWasActivating = true;
-        clickStart.value = Date.now();
         document.addEventListener("touchstart", handleTouchOutside, {
           passive: true,
         });
-        // Do NOT preventDefault — let the browser scroll naturally
       } else {
         touchWasActivating = false;
-        clickStart.value = Date.now();
-        const target = event.target as HTMLElement;
-        // Don't preventDefault when the tap lands on an interactive/editable
-        // element — doing so would suppress native cursor placement and the
-        // on-screen keyboard. Rich-text tiles (profile, text) render
-        // contenteditable `.ProseMirror` regions rather than <input>/<textarea>,
-        // so they must be exempted here too, mirroring native form fields.
-        if (
-          !target.closest(
-            'button, a, input, select, textarea, [role="button"], [contenteditable="true"], .ProseMirror',
-          )
-        ) {
-          event.preventDefault();
-        }
       }
+    };
+
+    // Passive: this only classifies the gesture, it never suppresses it.
+    const handleTouchMove = (event: TouchEvent) => {
+      if (touchDidPan) return;
+      const touch = event.touches[0];
+      if (!touch) return;
+      const distance = Math.hypot(
+        touch.clientX - touchStartX,
+        touch.clientY - touchStartY,
+      );
+      if (distance > TAP_SLOP_PX) touchDidPan = true;
     };
 
     const handleTouchEnd = (event: TouchEvent) => {
       if (!isTouchDevice()) return;
       if (!isActivated.value) return;
 
-      // Skip interaction on the tap that just activated the tile
-      if (touchWasActivating) {
-        touchWasActivating = false;
-        return;
+      const wasActivating = touchWasActivating;
+      touchWasActivating = false;
+
+      // The finger travelled, so this was a scroll — not an interaction.
+      if (touchDidPan) return;
+
+      // A settled tap on non-interactive tile content: suppress the synthesized
+      // mouse cascade so tile handlers don't also see a compatibility mousedown.
+      // Safe to cancel at `touchend` — the browser has already decided whether
+      // to scroll, so this can no longer strand the gesture.
+      if (!wasActivating && !touchTargetIsInteractive && event.cancelable) {
+        event.preventDefault();
       }
+
+      // Skip interaction on the tap that just activated the tile
+      if (wasActivating) return;
 
       const touchDuration = Date.now() - (clickStart.value || Date.now());
 
-      // Only fire short-click if it was a quick tap (not a scroll)
+      // Only fire short-click if it was a quick tap (not a long press)
       if (touchDuration < LONG_PRESS_THRESHOLD) {
         handleGridShortClick(event);
       }
@@ -781,12 +816,17 @@ export default defineComponent({
 
       if (gridTileRef.value) {
         gridTileRef.value.addEventListener("dragstart", handleDragStart);
-        // Use non-passive touchstart so we can conditionally preventDefault on second tap
+        // touchstart/touchmove only observe the gesture, so both stay passive —
+        // that also guarantees neither can block scrolling. Only touchend is
+        // non-passive, since a settled tap cancels the mouse cascade there.
         gridTileRef.value.addEventListener("touchstart", handleTouchStart, {
-          passive: false,
+          passive: true,
+        });
+        gridTileRef.value.addEventListener("touchmove", handleTouchMove, {
+          passive: true,
         });
         gridTileRef.value.addEventListener("touchend", handleTouchEnd, {
-          passive: true,
+          passive: false,
         });
       }
     });
@@ -800,6 +840,7 @@ export default defineComponent({
       if (gridTileRef.value) {
         gridTileRef.value.removeEventListener("dragstart", handleDragStart);
         gridTileRef.value.removeEventListener("touchstart", handleTouchStart);
+        gridTileRef.value.removeEventListener("touchmove", handleTouchMove);
         gridTileRef.value.removeEventListener("touchend", handleTouchEnd);
       }
     });

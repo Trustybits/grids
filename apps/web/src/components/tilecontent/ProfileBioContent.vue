@@ -2,7 +2,7 @@
   <div
     class="profile-bio"
     ref="profileRoot"
-    :class="layoutClasses"
+    :class="[layoutClasses, { 'profile-bio--no-fill': hasNoFill }]"
     @mouseenter="isHovered = true"
     @mouseleave="if (!hoveredQuickAction) isHovered = false;"
   >
@@ -1449,6 +1449,10 @@ export default defineComponent({
     const { backgroundColor, textColor, handleBackgroundColorChange } =
       useColorPicker(tileId, toRef(props, "content"), emit);
 
+    // The title's luminosity blend needs an opaque fill underneath to tint
+    // against; with no fill it composites over nothing and renders raw green.
+    const hasNoFill = computed(() => backgroundColor.value === "transparent");
+
     watch(isDraggingRadius, (dragging) => {
       if (!hoveredToolbarZone) return;
       hoveredToolbarZone.value = dragging ? "radius" : null;
@@ -1539,6 +1543,7 @@ export default defineComponent({
       bioEditor,
       backgroundColor,
       textColor,
+      hasNoFill,
       onShortClick,
       onExitClick,
       openCustomImagePicker,
@@ -2185,12 +2190,17 @@ export default defineComponent({
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #0C0;
-    mix-blend-mode: luminosity;
+  color: #0c0;
+  mix-blend-mode: luminosity;
   line-height: 1.3;
   font-family:
     "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
+}
+
+.profile-bio--no-fill .profile-title :deep(.ProseMirror) {
+  color: color-mix(in srgb, var(--tile-text-color) 65%, transparent);
+  mix-blend-mode: normal;
 }
 
 .profile-bio-text {

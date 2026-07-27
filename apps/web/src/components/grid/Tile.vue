@@ -1088,6 +1088,22 @@ export default defineComponent({
   -webkit-backdrop-filter: none;
 }
 
+/* A tile with neither a fill nor a border has no visible edge, so resizing it
+   drags an invisible footprint. Unlike a drag, Griddle renders no drop
+   indicator during a resize (its indicator is derived from drag state only),
+   so there is nothing else standing in for the bounds.
+
+   Restore the tile's own border overlay for the duration of the gesture rather
+   than introducing separate resize chrome: it already carries the right stroke
+   token and radius, and its `opacity` transition eases the outline in and back
+   out on its own. `.griddle-resizing` is set by Griddle on the tile element
+   owning the active resize. */
+.griddle-resizing
+  .tile-wrapper[data-border="off"][data-no-fill="on"]
+  .card-body::after {
+  opacity: 1;
+}
+
 .meta-data {
   position: absolute;
   font-size: 10px;

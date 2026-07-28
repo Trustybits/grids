@@ -25,6 +25,15 @@ import { createDefaultGrid } from "@/utils/GridUtils";
 import { createTile } from "@/utils/TileUtils";
 import { ContentType } from "@grids/contracts/types";
 import heroGif from "@/assets/images/hero.gif";
+// Demo media is bundled, never referenced out of a user's storage archive. The
+// archive is migration-managed (paths are content-addressed and rewritten in
+// Firestore), and this file is source — so a storage URL here silently rots the
+// first time the archive moves. See notes/storage-refactor-grid-url-inventory.md,
+// which classifies demo assets as "Not archive".
+import demoAvatar from "@/assets/images/demo-avatar.png";
+// Kept at full 3072x768 rather than downscaled: the image tile re-crops as the
+// grid reflows across breakpoints, so the extra pixels are the crop headroom.
+import demoCover from "@/assets/images/demo-cover.png";
 
 export const DEMO_GRID_ID = "__homepage_demo__";
 export const DEMO_USER_ID = "__homepage_demo_user__";
@@ -82,8 +91,7 @@ const createDesktopBaseTiles = () => [
         avatarShape: "square",
         avatarRadius: 12,
         avatarSides: 6,
-        profilePhotoUrl:
-          "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/users%2FetuFqcE7nsPsrbo4KiVZD4KVbtr2%2Fimages%2F1778778883084_YoungLink_Squared.png?alt=media&token=f6950e93-2acc-410d-8203-26209bab8c08",
+        profilePhotoUrl: demoAvatar,
       },
       "",
     ),
@@ -169,7 +177,7 @@ const createDesktopBaseTiles = () => [
     ID.COVER,
     8, 3, 3, 1,
     {
-      src: "https://firebasestorage.googleapis.com/v0/b/grids-one.firebasestorage.app/o/users%2FetuFqcE7nsPsrbo4KiVZD4KVbtr2%2Fimages%2F1778780234666_Cover.png?alt=media&token=1bda389a-3699-48a2-b141-7259a4871cd6",
+      src: demoCover,
     },
     "",
   ),

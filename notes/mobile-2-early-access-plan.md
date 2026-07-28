@@ -179,6 +179,20 @@ Interim notes to revisit in later phases:
       them white at 76% opacity — that is its stand-in for the content color, so the paths use
       `currentColor` and inherit `--color-content-default` from `.mgb-btn`, which keeps them correct
       in light mode.
+- [x] **View toggle** from Figma `addTile` (`1728-11055`): `ListViewIcon` + `CarouselIcon`, same
+      construction as above. The toggle shows the view it switches **to** — the list icon while the
+      carousel is up, the carousel icon while the list is up — so it stopped being a pressed-state
+      button: `aria-pressed` and the `--active` highlight are gone (they would have said "carousel is
+      on" while showing the carousel icon), and the `aria-label` names the destination
+      ("Switch to list view" / "Switch to carousel view"). The old stroked `ListIcon` was the only
+      thing the toggle used and no glyph reuse was possible, so it is deleted rather than left dead.
+      **Considered and rejected:** an `aria-live` region announcing the new view. Name changes on the
+      focused element are announced less reliably than `aria-pressed` state changes, but modern
+      VoiceOver and TalkBack do announce them, and the consequence here is not subtle — the whole
+      sheet above the pill swaps. A live region would frequently produce a second announcement for
+      one tap, and chatter is how users learn to tune live regions out. Live regions are worth
+      spending where nothing else announces at all; the app-wide review of those cases is
+      `notes/accessibility-audit-plan.md`.
 - [x] **Share is platform-conventional**: the tray-and-arrow (`grids_shareApple`) on Apple
       platforms, the three-node graph (`grids_shareDefault`) elsewhere, so the button reads as the
       share sheet the OS will actually open. `isApplePlatform()` (`utils/Platform.ts`) sniffs the
@@ -212,7 +226,8 @@ from the current grid's tiles).
       (create-kind), opens the file picker (image/document), or focuses the input (link/embed);
       ENTER smart-pastes a URL/embed or creates a keyword-matched tile.
 - [x] New icons `CloseIcon` + `ListIcon`; tests for the composable + all three components
-      (2587 tests green); typecheck + lint clean.
+      (2587 tests green); typecheck + lint clean. `ListIcon` was later replaced by the Figma
+      view-toggle pair — see the icon set note in Phase 4.
 
 Post-review polish (from maintainer feedback):
 - [x] Pill radius is `--radius-md` for both the default gridbar and the add-mode command input
@@ -526,6 +541,12 @@ picker, following the same morph/rise/flush pattern as `/GRID` and `/HEX`.
 - [ ] Inventory old UI superseded by Mobile 2.0; remove after validation
 - [ ] Confirm tests, separation of concerns, and token usage across all phases
 - [ ] Retire the `beta-mobile-2` gate at GA
+- [ ] Accessibility items overlapping the mobile chrome, tracked in
+      `notes/accessibility-audit-plan.md`: the carousel's `role="listbox"` never announcing its
+      centered card (wants `aria-activedescendant`), and `MobileImageSwapSheet`'s `aria-live` region
+      that announces nothing (it is `v-if`'d, so it does not pre-exist its content, and holds only an
+      icon). Fix these alongside the phases that own those components rather than as a separate pass
+      — but the audit must not gate the GA cutover.
 
 ---
 

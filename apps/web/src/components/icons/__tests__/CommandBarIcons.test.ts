@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import AddTileIcon from "../AddTileIcon.vue";
+import CarouselIcon from "../CarouselIcon.vue";
 import GridSettingsIcon from "../GridSettingsIcon.vue";
+import ListViewIcon from "../ListViewIcon.vue";
 import PreviewIcon from "../PreviewIcon.vue";
 import ShareAppleIcon from "../ShareAppleIcon.vue";
 import ShareDefaultIcon from "../ShareDefaultIcon.vue";
 
 /**
- * The Mobile 2.0 command-bar icon set (Figma `mobileGridBar` 1727:11044).
+ * The Mobile 2.0 command-bar icon set (Figma `mobileGridBar` 1727:11044 and
+ * `addTile` 1728:11055).
  *
  * Each icon is Figma's exported path(s) placed in a 24x24 box via a nested
  * `<svg>` carrying the inset Figma laid it out at. That inset is hand-converted
@@ -17,7 +20,9 @@ import ShareDefaultIcon from "../ShareDefaultIcon.vue";
  */
 const icons = {
   AddTileIcon,
+  CarouselIcon,
   GridSettingsIcon,
+  ListViewIcon,
   PreviewIcon,
   ShareAppleIcon,
   ShareDefaultIcon,

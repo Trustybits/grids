@@ -843,26 +843,42 @@ onBeforeUnmount(() => {
 .mobile-grid-bar {
   // Single source of truth for the expanded command-bar width. Every morphed
   // state — `/TILE` (add), `/GRID` (settings) and its `/HEX` · `/BACKGROUND`
-  // sub-sheets — uses this so they always match. Fills the viewport leaving
+  // sub-sheets — uses this so they always match. Fills the bar leaving
   // --spacing-sm (8px) either side, capped at 520px on larger screens. The
   // default resting pill (the four command buttons) stays content-sized so the
   // pill still visibly grows as it morphs open.
-  --mgb-width: min(520px, calc(100vw - var(--spacing-md)));
+  //
+  // Deliberately a percentage of the bar rather than `100vw`: `vw` ignores a
+  // classic scrollbar and does not necessarily match the box a fixed element is
+  // actually laid out in, so anything sized off it drifts out of step with the
+  // rest of the mobile chrome. MobileAppBar spans edge to edge for the same
+  // reason — it stretches between left:0 and right:0 and never names a width.
+  --mgb-width: min(520px, calc(100% - var(--spacing-md)));
   // How far the Add-a-Tile fan sits behind the pill. The cards are bottom
   // -aligned, so this is the same slice hidden off the bottom of each of them.
-  --mgb-tuck: 24px;
+  --mgb-tuck: var(--spacing-md);
 
   position: fixed;
   // Default resting gap; overridden inline to hug the keyboard when it opens.
-  bottom: var(--spacing-sm);
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: var(--spacing-md);
+  // Stretched rather than centered on `left: 50%`. Anchored at one edge the bar
+  // is shrink-to-fit, and a shrink-to-fit flex column is only as wide as its
+  // items can be squeezed — so the pill was shrinking below --mgb-width, by a
+  // margin that changed with the chip text. Stretching makes the width definite.
+  left: 0;
+  right: 0;
   z-index: var(--z-fixed);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--spacing-sm);
-  max-width: 100vw;
+  // The bar now spans the screen, but only its surfaces should catch taps —
+  // everything either side of the pill has to fall through to the grid.
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
 }
 
 // The pill sits above the carousel so the carousel appears to emerge from
@@ -904,13 +920,16 @@ onBeforeUnmount(() => {
   // that while one sub-sheet is leaving and the next is entering, the two
   // momentarily-mounted panels don't stack and grow the bottom-anchored column —
   // otherwise the surviving sheet would render high up, then visibly drop as the
-  // column collapses. Width tracks the pill (the only in-flow child) via
-  // left/right:0, so it always matches the connected surface below it.
+  // column collapses. Takes --mgb-width directly (the bar itself is now full
+  // width) so it still matches the connected surface below it, centered by auto
+  // margins rather than a transform — mgb-rise animates `transform`.
   position: absolute;
   bottom: 100%;
   left: 0;
   right: 0;
   z-index: 0;
+  width: var(--mgb-width);
+  margin: 0 auto;
 }
 
 .mgb-pill.mgb-pill--settings,
@@ -1001,18 +1020,15 @@ onBeforeUnmount(() => {
 // grid. Taken out of the flex column and pushed down past the top of the pill
 // so the bottom of every card is tucked behind the bar (z-index: 0, under the
 // pill's 1) — the fan peeks out from behind it rather than floating above it.
-// Full-bleed via left/margin rather than a transform, because the mgb-rise
-// transition animates `transform` and would overwrite a centering one.
 .mobile-grid-bar__panel {
   position: absolute;
   bottom: calc(100% - var(--mgb-tuck));
-  left: 50%;
+  // Unlike the pill this takes the bar's full width rather than --mgb-width, so
+  // the fan spreads edge to edge and its outer cards are cut off by the screen
+  // rather than stopping short of it.
+  left: 0;
+  right: 0;
   z-index: 0;
-  // Unlike the pill, the fan runs the full width of the screen, so it spreads
-  // edge to edge and its outer cards are cut off by the screen rather than
-  // stopping short of it.
-  width: 100vw;
-  margin-left: -50vw;
 }
 
 .mgb-btn {

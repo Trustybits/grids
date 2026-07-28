@@ -370,8 +370,8 @@ onBeforeUnmount(stopAnimation);
 .tile-carousel {
   position: relative;
   width: 100%;
-  // Clearance for the centered card's selection ring, which is drawn outside
-  // its border and would otherwise be shaved off by the clip below.
+  // A little headroom above the centered card, so it does not sit hard against
+  // the clip below.
   padding-top: var(--spacing-xs);
   // The fan runs the full width of the screen and its outer cards are cut off
   // by the screen edge. Clipping here rather than letting them truly overflow
@@ -420,7 +420,9 @@ onBeforeUnmount(stopAnimation);
     outline: none;
 
     .tile-carousel__art {
-      border-color: var(--color-content-default);
+      box-shadow:
+        inset 0 0 0 var(--border-width-lg) var(--color-content-default),
+        var(--shadow-xl);
     }
   }
 }
@@ -433,14 +435,23 @@ onBeforeUnmount(stopAnimation);
   display: block;
   width: var(--tc-card);
   height: var(--tc-card);
-  border: var(--border-width) solid var(--color-stroke);
   // Figma uses a 30px radius on a 150px tile; the same ratio at our card size.
   border-radius: var(--radius-lg);
   background: var(--color-tile-background);
-  // Static, so it never repaints mid-drag; box-shadow is expensive to animate.
-  box-shadow: var(--shadow-xl);
+  // The 1px stroke is an inset shadow, not a border. A border on a card that is
+  // rotated in 3D is rasterized as its own pass and gets no antialiasing along
+  // the edges the rotation has put on a slant, so it steps like a staircase —
+  // worst on the far cards, where the slant is steepest. Drawn as an inset
+  // shadow it is part of the card's own surface and antialiases with it. Same
+  // reason .mcp-pad in MobileColorPicker draws its stroke this way.
+  //
+  // Both shadows are static so they never repaint mid-drag; box-shadow is
+  // expensive to animate, which is also why there is no transition here — the
+  // selected card changes on every focus change while the fan is being dragged.
+  box-shadow:
+    inset 0 0 0 var(--border-width) var(--color-stroke),
+    var(--shadow-xl);
   overflow: hidden;
-  transition: border-color var(--duration-fast) var(--easing-smooth);
 }
 
 .tile-carousel__ink {
@@ -448,10 +459,13 @@ onBeforeUnmount(stopAnimation);
   inset: 0;
 }
 
-// The active tile type — the one whose `/command` the input is showing.
+// The active tile type — the one whose `/command` the input is showing. Inset
+// like the resting stroke, so it can neither step nor be clipped by the panel
+// edge the way an outer ring was.
 .tile-carousel__card--selected .tile-carousel__art {
-  border-color: var(--color-content-default);
-  box-shadow: 0 0 0 var(--border-width) var(--color-content-default);
+  box-shadow:
+    inset 0 0 0 var(--border-width-lg) var(--color-content-default),
+    var(--shadow-xl);
 }
 
 .tile-carousel__empty {

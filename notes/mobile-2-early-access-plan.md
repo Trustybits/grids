@@ -257,6 +257,15 @@ centered card live**. Subtypes (`/SPOTIFY` et al.) stay in 5.2.
       (unlike the pill, which keeps `--mgb-width`), so the fan spreads edge to edge and its outer
       cards are cut off by the screen rather than stopping short of it. The clip stays on the
       carousel so no stray horizontal scrollbar reaches the document.
+- [x] The bar **stretches between `left: 0` and `right: 0`** instead of being centered on
+      `left: 50%`, and `--mgb-width` is a percentage of it rather than of `100vw`. Anchored at one
+      edge the bar was shrink-to-fit, and a shrink-to-fit flex column is only as wide as its items
+      can be squeezed — so the pill sat narrower than `--mgb-width` by an amount that changed with
+      the chip text (`/IMAGE` vs `/DOCUMENT`). `100vw` compounded it: it ignores a classic
+      scrollbar and is not necessarily the box a fixed element is laid out in. MobileAppBar goes
+      edge to edge precisely because it never names a width. The bar is now `pointer-events: none`
+      with its surfaces re-enabling, so the full-width bar still lets taps beside the pill through
+      to the grid.
 - [x] The fan **peeks out from behind the pill** rather than floating above it: the panel is taken
       out of the bar's flex column and pushed down past the pill's top edge by `--mgb-tuck` (24px),
       so the bottom of every card is hidden behind the bar.
@@ -268,6 +277,13 @@ centered card live**. Subtypes (`/SPOTIFY` et al.) stay in 5.2.
 - [x] Cards stack by their **unclamped** distance from center. Off the `REACH`-clamped value every
       card past the limit tied on one layer and DOM order broke the tie rightwards, so the right of
       the fan stacked outermost-in-front — mirroring the left instead of matching it.
+- [x] Card strokes (resting, selected and focus) are **inset box-shadows, not borders**. A border on
+      a card rotated in 3D is rasterized as its own pass with no antialiasing along the edges the
+      rotation has put on a slant, so it steps like a staircase — worst on the far cards, where the
+      slant is steepest. As an inset shadow the stroke is part of the card's surface and
+      antialiases with it. Same fix as `.mcp-pad`. If any stepping remains, the next lever is
+      dropping `will-change: transform` from the cards (composited layers rasterize once and get
+      resampled by the compositor) — measure the drag first, since that is what promotion buys.
 - [x] Depth is **never** carried by card transparency. Fading the whole card let the grid show
       through and read as muddy rather than distant, badly so over a busy or light background. The
       card surface is always opaque; the fall-off (100 / 89 / 76 / … floored at 55%) applies to the

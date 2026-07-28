@@ -10,6 +10,7 @@ presentation; the redesigned chrome only renders on a mobile device (see the gat
 Design source (Figma `grids.so`):
 - App bar / toolbars / menu / preview: node `1497-9435`
 - New Tile Carousel: node `1497-9533`
+- Tile thumbnails (coverflow card artwork): node `1605-7314`
 - Grid Settings Menu: node `1497-9949`
 
 ## Product decisions (confirmed with the maintainer)
@@ -169,7 +170,7 @@ Interim notes to revisit in later phases:
 - [x] Reconcile with existing `GridToolbar` / `bottom-left-buttons` (bottom-left bar hidden
       on mobile-2; the pill is the single command surface)
 
-### Phase 5 — Add-a-Tile carousel + `/TILE` input 🟡 IN PROGRESS (5.1 done, 5.2 next)
+### Phase 5 — Add-a-Tile carousel + `/TILE` input 🟡 IN PROGRESS (5.1 + 5.1.1 done, 5.2 next)
 
 Product decisions (confirmed): the pill **is** the command input — one morphing component.
 Tapping **Add Tile** grows the pill (the shell never fades — it transforms via a FLIP width
@@ -207,8 +208,7 @@ Post-review polish (from maintainer feedback):
       toggles it off (chip reverts to `/TILE`); the typed text is preserved. ENTER is routed through
       `useTileCreation.submitCommand(text, forcedType)` so the pinned type builds the correct tile
       (map location, link URL, or embed URL) — this fixes "ENTER does nothing" after switching types.
-      Note: for now only link / embed / map pin the chip (they require input before creating). When
-      the 3D "coverflow" carousel lands, every type will pin its prefix.
+      Superseded by 5.1.1: every type now pins its prefix, and the pin follows the centered card.
 - [x] Inline quick command: typing a command-type name + space in the generic `/TILE` input (e.g.
       `map japan`, `link example.com`, `embed <url>`) pins that type and keeps the rest as content —
       identical to tapping the card then typing. Parsing lives in
@@ -222,7 +222,42 @@ Post-review polish (from maintainer feedback):
       framing) is tracked separately as [#183](https://github.com/Trustybits/grids/issues/183); it
       is pre-existing and unrelated to the Mobile 2.0 chrome (same creation path as desktop).
 
-Deferred polish: the Figma 3D "coverflow" fan is a clean scroll-snap row for now.
+#### Phase 5.1.1 — 3D coverflow carousel ✅ COMPLETE
+
+Figma "Tiles" (`1605-7314`). Product decisions (confirmed): use the **Figma wireframe thumbnails**
+rebuilt as token-driven markup rather than live tile renders — Map needs a Mapbox instance and
+Embed needs a third-party iframe plus content that does not exist at carousel time, and mounting
+those in a surface being dragged would cost the 60fps swipe. The `/command` chip **tracks the
+centered card live**. Subtypes (`/SPOTIFY` et al.) stay in 5.2.
+
+- [x] `MobileTileThumbnail.vue`: the per-type wireframe artwork (heading/body bars for Text,
+      message bubbles for Chat, crossing roads for Map, dashed webpage for Embed, …). Geometry is
+      transcribed from Figma's 150x150 tile box and emitted as percentages so it scales to any card
+      size; fills are `currentColor` at two "ink" opacities (Figma's #222 / #333) so the artwork
+      follows the theme instead of hard-coding greys. The type's **registry icon** stands in for
+      Figma's bespoke glyph, so the carousel can never drift from the types the toolbar offers.
+- [x] `MobileTileCarousel.vue` rebuilt as a coverflow: cards are absolutely positioned and
+      transformed from a continuous `scroll` position (`translateX` + `translateZ` + `rotateY`
+      under a 700px perspective), so the tilt tracks the finger frame-by-frame rather than easing
+      after it. Pointer drag with rubber-banded ends, velocity projection capped at
+      `MAX_FLING = 2` cards, and an ease-out settle; `prefers-reduced-motion` skips the settle.
+- [x] Interaction: drag/swipe spins the fan, tapping a side card centers it, tapping the centered
+      card commits it, ← / → step the center. The logical center is tracked separately from the
+      animated position so selection never waits on the animation.
+- [x] The centered card **is** the active type: it drives the chip (`/TEXT`, `/MAP`), the
+      placeholder, and what ENTER builds. The carousel emits `focus-type` only for user-driven
+      movement, so typing still filters until the user touches the fan; it also renders a frozen
+      copy of the list while dragging so a parent-driven list change can't reshuffle the fan
+      mid-gesture. Re-tapping no longer toggles a type off — releasing is Backspace-Backspace.
+- [x] `useTileCreation.submitCommand` extended: a pinned create-kind type adds that tile on ENTER
+      with an empty field, while text present still falls through to smart-paste so a pasted URL
+      never becomes an empty tile of the wrong kind. Placeholders for non-command types are derived
+      from the descriptor's kind ("Press enter to add a Chat tile" / "Tap … to choose a file").
+- [x] The carousel panel lost its stray debug border and now takes the tokenized `--mgb-width`, so
+      the fan spans the same width as the pill below it.
+- [x] Tests: new `MobileTileThumbnail` suite, rewritten `MobileTileCarousel` suite (geometry, drag,
+      tap-to-center vs tap-to-commit, keyboard, list re-sync), and `MobileGridBar` coverage for
+      chip tracking + the create-type prompt. Full suite green; typecheck + lint clean.
 
 #### Phase 5.2 — Subtype list + usage counts ⬜ NOT STARTED
 

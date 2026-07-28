@@ -69,6 +69,7 @@
           :types="filteredTypes"
           :selected-id="activeType"
           @select="onSelectType"
+          @focus-type="onFocusType"
         />
       </div>
     </transition>
@@ -316,8 +317,9 @@ const GRID_PLACEHOLDERS = [
   "transfer",
 ];
 
-// Once a command-type card is tapped, the placeholder asks for exactly what that
-// tile type needs (and stops rotating).
+// Once a tile type is active, the placeholder asks for exactly what that type
+// needs (and stops rotating). Types that need typed content before they can be
+// built get a bespoke prompt; the rest fall back to a kind-derived one.
 const TYPE_PROMPTS: Record<string, string> = {
   link: "type or paste in a URL",
   embed: "Paste a URL or embed code (Youtube, Spotify)",
@@ -423,21 +425,38 @@ const activeType = ref<string | null>(null);
 const urlInput = ref("");
 const emptyUrlBackspaces = ref(0);
 
-// Once a command-type card is selected (link / embed / map), the typed text
-// populates that tile's content — it must NOT filter the carousel. Keep the
-// full list visible with the active type highlighted. Only the generic `/TILE`
-// search (no active type) filters as you type.
+// Once a tile type is active, the typed text populates that tile's content — it
+// must NOT filter the carousel. Keep the full list visible with the active type
+// highlighted. Only the generic `/TILE` search (no active type) filters as you
+// type.
 const filteredTypes = computed(() =>
   activeType.value ? tileTypes.value : filterTileTypes(query.value),
 );
-const activePrompt = computed(() =>
-  activeType.value ? (TYPE_PROMPTS[activeType.value] ?? null) : null,
+
+const activeDescriptor = computed(() =>
+  activeType.value
+    ? (tileTypes.value.find((type) => type.id === activeType.value) ?? null)
+    : null,
 );
-// The chip prefix reflects the pinned command type (`/MAP`, `/LINK`, `/EMBED`)
-// so the user always sees which context ENTER will act on; it falls back to
-// the generic `/TILE` when nothing is selected.
+
+const activePrompt = computed(() => {
+  const descriptor = activeDescriptor.value;
+  if (!descriptor) return null;
+  const prompt = TYPE_PROMPTS[descriptor.id];
+  if (prompt) return prompt;
+  // Centering a card that needs no typed content still pins its prefix, so say
+  // what the two remaining paths do rather than leaving the hints rotating.
+  return descriptor.kind === "file"
+    ? `Tap the ${descriptor.label} tile to choose a file`
+    : `Press enter to add a ${descriptor.label} tile`;
+});
+// The chip prefix reflects the active tile type (`/MAP`, `/TEXT`, `/EMBED`) so
+// the user always sees which context ENTER will act on; it falls back to the
+// generic `/TILE` when nothing is active.
 const chipLabel = computed(() =>
-  activeType.value ? `/${activeType.value.toUpperCase()}` : TILE_FILTER,
+  activeType.value
+    ? `/${activeType.value.replace(/_/g, " ").toUpperCase()}`
+    : TILE_FILTER,
 );
 
 const pillAriaLabel = computed(() => {
@@ -694,9 +713,21 @@ const toggleView = () => {
   viewMode.value = viewMode.value === "carousel" ? "list" : "carousel";
 };
 
+// Bringing a card to the center of the carousel makes it the active type: the
+// chip, the placeholder and what ENTER builds all follow it. The carousel only
+// emits this for user-driven movement, so typing still filters until the user
+// actually touches the fan.
+const onFocusType = (id: string) => {
+  activeType.value = id;
+};
+
+// Committing the centered card. Types that need typed content first (Link /
+// Embed / Map) hand off to the input; the rest act immediately.
 const onSelectType = (id: string) => {
   const descriptor = tileTypes.value.find((type) => type.id === id);
   if (!descriptor) return;
+
+  activeType.value = descriptor.id;
 
   if (descriptor.kind === "create" && descriptor.contentType) {
     createTile(descriptor.contentType);
@@ -710,11 +741,9 @@ const onSelectType = (id: string) => {
     return;
   }
 
-  // "command" types (Link / Embed / Map): tapping pins the type (chip → `/MAP`
-  // etc.) and focuses the input so the mobile keyboard opens inside the tap
-  // gesture. Tapping the already-pinned card again toggles it off (chip → the
-  // generic `/TILE`). The typed text is left intact either way.
-  activeType.value = activeType.value === descriptor.id ? null : descriptor.id;
+  // Focus inside the tap gesture so the mobile keyboard opens; the typed text
+  // is left intact. Releasing the type is Backspace-Backspace on an empty
+  // field — a re-tap can't toggle it off now that the chip tracks the center.
   cmdRef.value?.focus();
 };
 
@@ -963,17 +992,14 @@ onBeforeUnmount(() => {
 .mobile-grid-bar__popover {
   display: flex;
   justify-content: center;
-  // max-width: calc(100vw - var(--spacing-lg) * 2);
 }
 
+// The coverflow floats free above the pill — no surface of its own, so the fan
+// reads as hovering over the grid. It takes the pill's width so the cards have
+// the same room to spread as the bar below them.
 .mobile-grid-bar__panel {
   z-index: 0;
-  // border-radius: var(--radius-2xl, var(--radius-lg));
-  // background-color: var(--color-toolbar-background);
-  border: var(--border-width) solid var(--color-stroke);
-  // box-shadow: var(--shadow-lg);
-  // backdrop-filter: blur(20px);
-  // overflow: hidden;
+  width: var(--mgb-width);
 }
 
 .mgb-btn {

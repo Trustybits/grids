@@ -233,7 +233,7 @@ describe("MobileGridBar", () => {
     expect(holder.submitCommand).toHaveBeenCalledWith("Paris", "map");
   });
 
-  it("toggles the pinned type off (chip reverts to /TILE) when the card is re-tapped", async () => {
+  it("keeps the type pinned when the centered card is tapped again", async () => {
     const wrapper = await mountBar();
     await wrapper.get('[aria-label="Add a tile"]').trigger("click");
     await flush(wrapper);
@@ -241,14 +241,53 @@ describe("MobileGridBar", () => {
     const findMap = () =>
       wrapper.findAll(".tile-carousel__card").find((c) => c.text() === "Map");
 
+    // First tap brings Map to the center, which pins it.
     await findMap()?.trigger("click");
     await flush(wrapper);
     expect(wrapper.get(".mci-chip").text()).toBe("/MAP");
 
+    // A second tap commits the centered card rather than toggling it off — the
+    // chip now tracks the center, so there is no un-centered state to fall to.
     await findMap()?.trigger("click");
     await flush(wrapper);
+    expect(wrapper.get(".mci-chip").text()).toBe("/MAP");
+    expect(holder.createTile).not.toHaveBeenCalled();
+  });
+
+  it("tracks the centered card in the chip as the carousel moves", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Add a tile"]').trigger("click");
+    await flush(wrapper);
     expect(wrapper.get(".mci-chip").text()).toBe("/TILE");
-    expect(wrapper.find(".tile-carousel__card--selected").exists()).toBe(false);
+
+    // Moving one card along lands on Link, and the chip follows the center.
+    await wrapper.get(".tile-carousel__track").trigger("keydown", {
+      key: "ArrowRight",
+    });
+    await flush(wrapper);
+
+    expect(wrapper.get(".mci-chip").text()).toBe("/LINK");
+    expect(wrapper.get(".tile-carousel__card--selected").text()).toContain("Link");
+  });
+
+  it("prompts to press enter for a centered create-type card, and adds it", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Add a tile"]').trigger("click");
+    await flush(wrapper);
+
+    // Chat is centered on open but not yet pinned, so step away and back.
+    const track = wrapper.get(".tile-carousel__track");
+    await track.trigger("keydown", { key: "ArrowRight" });
+    await track.trigger("keydown", { key: "ArrowLeft" });
+    await flush(wrapper);
+
+    expect(wrapper.get(".mci-chip").text()).toBe("/CHAT");
+    const input = wrapper.get(".mci-input");
+    expect(input.attributes("placeholder")).toBe("Press enter to add a Chat tile");
+
+    await input.trigger("keydown", { key: "Enter" });
+    await flush(wrapper);
+    expect(holder.submitCommand).toHaveBeenCalledWith("", "chat");
   });
 
   it("keeps the carousel unfiltered with the type highlighted after selecting a command card", async () => {

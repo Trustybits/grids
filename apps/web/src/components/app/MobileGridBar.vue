@@ -59,7 +59,7 @@
       </div>
     </transition>
 
-    <!-- Add-a-Tile carousel — floats above the pill (with a gap) while adding. -->
+    <!-- Add-a-Tile carousel — peeks out from behind the pill while adding. -->
     <transition name="mgb-rise">
       <div
         v-if="mode === 'add' && viewMode === 'carousel'"
@@ -69,6 +69,7 @@
           :types="filteredTypes"
           :selected-id="activeType"
           @select="onSelectType"
+          @focus-type="onFocusType"
         />
       </div>
     </transition>
@@ -114,7 +115,7 @@
           aria-label="Add a tile"
           @click.stop="openAdd"
         >
-          <PlusIcon :size="24" />
+          <AddTileIcon :size="24" />
         </button>
 
         <button
@@ -123,7 +124,7 @@
           aria-label="Grid settings"
           @click.stop="toggleSettings"
         >
-          <GridMenuIcon />
+          <GridSettingsIcon :size="24" />
         </button>
 
         <button
@@ -133,7 +134,7 @@
           aria-label="Preview"
           @click.stop="togglePreview"
         >
-          <EyeIcon :size="24" />
+          <PreviewIcon :size="24" />
         </button>
 
         <span class="mgb-divider" aria-hidden="true" />
@@ -144,7 +145,7 @@
           aria-label="Share"
           @click.stop="shareLink"
         >
-          <ShareIcon :size="24" />
+          <component :is="shareIcon" :size="24" />
         </button>
       </template>
 
@@ -282,11 +283,15 @@ import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vu
 import MobileColorPicker from "@/components/app/MobileColorPicker.vue";
 import MobileImageSwapSheet from "@/components/app/MobileImageSwapSheet.vue";
 import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
-import GridMenuIcon from "@/components/icons/GridMenuIcon.vue";
+import AddTileIcon from "@/components/icons/AddTileIcon.vue";
+import GridSettingsIcon from "@/components/icons/GridSettingsIcon.vue";
+import PreviewIcon from "@/components/icons/PreviewIcon.vue";
+import ShareAppleIcon from "@/components/icons/ShareAppleIcon.vue";
+import ShareDefaultIcon from "@/components/icons/ShareDefaultIcon.vue";
+// Not part of the command-bar icon set — the `/HEX` save-color affordance.
 import PlusIcon from "@/components/icons/PlusIcon.vue";
-import EyeIcon from "@/components/icons/EyeIcon.vue";
-import ShareIcon from "@/components/icons/ShareIcon.vue";
 import CloseIcon from "@/components/icons/CloseIcon.vue";
+import { isApplePlatform } from "@/utils/Platform";
 import { useToastStore } from "@/stores/toast";
 import { useTileCreation } from "@/composables/useTileCreation";
 import { useFileUpload } from "@/composables/useFileUpload";
@@ -316,8 +321,9 @@ const GRID_PLACEHOLDERS = [
   "transfer",
 ];
 
-// Once a command-type card is tapped, the placeholder asks for exactly what that
-// tile type needs (and stops rotating).
+// Once a tile type is active, the placeholder asks for exactly what that type
+// needs (and stops rotating). Types that need typed content before they can be
+// built get a bespoke prompt; the rest fall back to a kind-derived one.
 const TYPE_PROMPTS: Record<string, string> = {
   link: "type or paste in a URL",
   embed: "Paste a URL or embed code (Youtube, Spotify)",
@@ -364,6 +370,11 @@ const documentInput = ref<HTMLInputElement | null>(null);
 const mode = ref<"default" | "add" | "settings" | "color" | "image">("default");
 const showPreview = ref(false);
 const query = ref("");
+
+// Share uses each platform's own glyph, so the button reads as the share sheet
+// the user expects: the tray-and-arrow on Apple platforms, the three-node graph
+// everywhere else. Resolved once — the user agent cannot change mid-session.
+const shareIcon = isApplePlatform() ? ShareAppleIcon : ShareDefaultIcon;
 
 // On-screen keyboard height (0 when closed). The bar normally floats 8px above
 // the viewport bottom, but when a soft keyboard opens it rests flush on top of
@@ -423,21 +434,38 @@ const activeType = ref<string | null>(null);
 const urlInput = ref("");
 const emptyUrlBackspaces = ref(0);
 
-// Once a command-type card is selected (link / embed / map), the typed text
-// populates that tile's content — it must NOT filter the carousel. Keep the
-// full list visible with the active type highlighted. Only the generic `/TILE`
-// search (no active type) filters as you type.
+// Once a tile type is active, the typed text populates that tile's content — it
+// must NOT filter the carousel. Keep the full list visible with the active type
+// highlighted. Only the generic `/TILE` search (no active type) filters as you
+// type.
 const filteredTypes = computed(() =>
   activeType.value ? tileTypes.value : filterTileTypes(query.value),
 );
-const activePrompt = computed(() =>
-  activeType.value ? (TYPE_PROMPTS[activeType.value] ?? null) : null,
+
+const activeDescriptor = computed(() =>
+  activeType.value
+    ? (tileTypes.value.find((type) => type.id === activeType.value) ?? null)
+    : null,
 );
-// The chip prefix reflects the pinned command type (`/MAP`, `/LINK`, `/EMBED`)
-// so the user always sees which context ENTER will act on; it falls back to
-// the generic `/TILE` when nothing is selected.
+
+const activePrompt = computed(() => {
+  const descriptor = activeDescriptor.value;
+  if (!descriptor) return null;
+  const prompt = TYPE_PROMPTS[descriptor.id];
+  if (prompt) return prompt;
+  // Centering a card that needs no typed content still pins its prefix, so say
+  // what the two remaining paths do rather than leaving the hints rotating.
+  return descriptor.kind === "file"
+    ? `Tap the ${descriptor.label} tile to choose a file`
+    : `Press enter to add a ${descriptor.label} tile`;
+});
+// The chip prefix reflects the active tile type (`/MAP`, `/TEXT`, `/EMBED`) so
+// the user always sees which context ENTER will act on; it falls back to the
+// generic `/TILE` when nothing is active.
 const chipLabel = computed(() =>
-  activeType.value ? `/${activeType.value.toUpperCase()}` : TILE_FILTER,
+  activeType.value
+    ? `/${activeType.value.replace(/_/g, " ").toUpperCase()}`
+    : TILE_FILTER,
 );
 
 const pillAriaLabel = computed(() => {
@@ -694,9 +722,21 @@ const toggleView = () => {
   viewMode.value = viewMode.value === "carousel" ? "list" : "carousel";
 };
 
+// Bringing a card to the center of the carousel makes it the active type: the
+// chip, the placeholder and what ENTER builds all follow it. The carousel only
+// emits this for user-driven movement, so typing still filters until the user
+// actually touches the fan.
+const onFocusType = (id: string) => {
+  activeType.value = id;
+};
+
+// Committing the centered card. Types that need typed content first (Link /
+// Embed / Map) hand off to the input; the rest act immediately.
 const onSelectType = (id: string) => {
   const descriptor = tileTypes.value.find((type) => type.id === id);
   if (!descriptor) return;
+
+  activeType.value = descriptor.id;
 
   if (descriptor.kind === "create" && descriptor.contentType) {
     createTile(descriptor.contentType);
@@ -710,11 +750,9 @@ const onSelectType = (id: string) => {
     return;
   }
 
-  // "command" types (Link / Embed / Map): tapping pins the type (chip → `/MAP`
-  // etc.) and focuses the input so the mobile keyboard opens inside the tap
-  // gesture. Tapping the already-pinned card again toggles it off (chip → the
-  // generic `/TILE`). The typed text is left intact either way.
-  activeType.value = activeType.value === descriptor.id ? null : descriptor.id;
+  // Focus inside the tap gesture so the mobile keyboard opens; the typed text
+  // is left intact. Releasing the type is Backspace-Backspace on an empty
+  // field — a re-tap can't toggle it off now that the chip tracks the center.
   cmdRef.value?.focus();
 };
 
@@ -782,17 +820,28 @@ const handleKeydown = (event: KeyboardEvent) => {
   showPreview.value = false;
 };
 
+/**
+ * Smallest visual-viewport gap taken to be a keyboard. The gap is a difference
+ * of fractional CSS pixel values, so it sits slightly off zero even with
+ * nothing open — a fraction of a pixel on a device, a couple of whole pixels
+ * under a scaled device emulator. Treating any gap at all as a keyboard let
+ * that noise pull the bar down to rest "flush" on a keyboard that wasn't there.
+ * No real keyboard — or even a bare keyboard accessory bar — is this short.
+ */
+const MIN_KEYBOARD_INSET = 40;
+
 // Track the soft-keyboard height via the visual viewport: the gap between the
 // layout viewport bottom and the (shrunken) visual viewport bottom is the
-// keyboard's height. ~0 when the keyboard is closed or on desktop.
+// keyboard's height. 0 when the keyboard is closed or on desktop.
 const updateKeyboardInset = () => {
   const vv = window.visualViewport;
   if (!vv) {
     keyboardInset.value = 0;
     return;
   }
-  const inset = window.innerHeight - vv.height - vv.offsetTop;
-  keyboardInset.value = inset > 1 ? inset : 0;
+  const gap = window.innerHeight - vv.height - vv.offsetTop;
+  // Rounded so a fractional gap cannot end up as a `bottom: 2.99988px`.
+  keyboardInset.value = gap >= MIN_KEYBOARD_INSET ? Math.round(gap) : 0;
 };
 
 onMounted(() => {
@@ -814,23 +863,42 @@ onBeforeUnmount(() => {
 .mobile-grid-bar {
   // Single source of truth for the expanded command-bar width. Every morphed
   // state — `/TILE` (add), `/GRID` (settings) and its `/HEX` · `/BACKGROUND`
-  // sub-sheets — uses this so they always match. Fills the viewport leaving
+  // sub-sheets — uses this so they always match. Fills the bar leaving
   // --spacing-sm (8px) either side, capped at 520px on larger screens. The
   // default resting pill (the four command buttons) stays content-sized so the
   // pill still visibly grows as it morphs open.
-  --mgb-width: min(520px, calc(100vw - var(--spacing-md)));
+  //
+  // Deliberately a percentage of the bar rather than `100vw`: `vw` ignores a
+  // classic scrollbar and does not necessarily match the box a fixed element is
+  // actually laid out in, so anything sized off it drifts out of step with the
+  // rest of the mobile chrome. MobileAppBar spans edge to edge for the same
+  // reason — it stretches between left:0 and right:0 and never names a width.
+  --mgb-width: min(520px, calc(100% - var(--spacing-md)));
+  // How far the Add-a-Tile fan sits behind the pill. The cards are bottom
+  // -aligned, so this is the same slice hidden off the bottom of each of them.
+  --mgb-tuck: var(--spacing-md);
 
   position: fixed;
   // Default resting gap; overridden inline to hug the keyboard when it opens.
-  bottom: var(--spacing-sm);
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: var(--spacing-md);
+  // Stretched rather than centered on `left: 50%`. Anchored at one edge the bar
+  // is shrink-to-fit, and a shrink-to-fit flex column is only as wide as its
+  // items can be squeezed — so the pill was shrinking below --mgb-width, by a
+  // margin that changed with the chip text. Stretching makes the width definite.
+  left: 0;
+  right: 0;
   z-index: var(--z-fixed);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--spacing-sm);
-  max-width: 100vw;
+  // The bar now spans the screen, but only its surfaces should catch taps —
+  // everything either side of the pill has to fall through to the grid.
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
 }
 
 // The pill sits above the carousel so the carousel appears to emerge from
@@ -872,13 +940,16 @@ onBeforeUnmount(() => {
   // that while one sub-sheet is leaving and the next is entering, the two
   // momentarily-mounted panels don't stack and grow the bottom-anchored column —
   // otherwise the surviving sheet would render high up, then visibly drop as the
-  // column collapses. Width tracks the pill (the only in-flow child) via
-  // left/right:0, so it always matches the connected surface below it.
+  // column collapses. Takes --mgb-width directly (the bar itself is now full
+  // width) so it still matches the connected surface below it, centered by auto
+  // margins rather than a transform — mgb-rise animates `transform`.
   position: absolute;
   bottom: 100%;
   left: 0;
   right: 0;
   z-index: 0;
+  width: var(--mgb-width);
+  margin: 0 auto;
 }
 
 .mgb-pill.mgb-pill--settings,
@@ -963,17 +1034,21 @@ onBeforeUnmount(() => {
 .mobile-grid-bar__popover {
   display: flex;
   justify-content: center;
-  // max-width: calc(100vw - var(--spacing-lg) * 2);
 }
 
+// The coverflow has no surface of its own, so the fan reads as sitting on the
+// grid. Taken out of the flex column and pushed down past the top of the pill
+// so the bottom of every card is tucked behind the bar (z-index: 0, under the
+// pill's 1) — the fan peeks out from behind it rather than floating above it.
 .mobile-grid-bar__panel {
+  position: absolute;
+  bottom: calc(100% - var(--mgb-tuck));
+  // Unlike the pill this takes the bar's full width rather than --mgb-width, so
+  // the fan spreads edge to edge and its outer cards are cut off by the screen
+  // rather than stopping short of it.
+  left: 0;
+  right: 0;
   z-index: 0;
-  // border-radius: var(--radius-2xl, var(--radius-lg));
-  // background-color: var(--color-toolbar-background);
-  border: var(--border-width) solid var(--color-stroke);
-  // box-shadow: var(--shadow-lg);
-  // backdrop-filter: blur(20px);
-  // overflow: hidden;
 }
 
 .mgb-btn {

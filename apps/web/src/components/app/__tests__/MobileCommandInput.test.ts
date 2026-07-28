@@ -24,15 +24,40 @@ describe("MobileCommandInput", () => {
 
   it("emits toggle-view when the view toggle is tapped", async () => {
     const wrapper = mountInput({ filterLabel: "/TILE" });
-    await wrapper.get('[aria-label="Toggle list view"]').trigger("click");
+    await wrapper.get('[aria-label="Switch to list view"]').trigger("click");
     expect(wrapper.emitted("toggle-view")).toHaveLength(1);
   });
 
   it("hides the view toggle when showViewToggle is false (e.g. /GRID)", () => {
     const wrapper = mountInput({ filterLabel: "/GRID", showViewToggle: false });
-    expect(wrapper.find('[aria-label="Toggle list view"]').exists()).toBe(false);
+    expect(wrapper.find('[aria-label="Switch to list view"]').exists()).toBe(
+      false,
+    );
+    expect(
+      wrapper.find('[aria-label="Switch to carousel view"]').exists(),
+    ).toBe(false);
     // The close button remains available.
     expect(wrapper.find(".mci-close").exists()).toBe(true);
+  });
+
+  // The toggle offers the view you are not in, so both the icon and the label
+  // name the destination rather than the current state.
+  it("offers the list view while the carousel is up", () => {
+    const wrapper = mountInput({ filterLabel: "/TILE", viewMode: "carousel" });
+    expect(wrapper.findComponent({ name: "ListViewIcon" }).exists()).toBe(true);
+    expect(wrapper.findComponent({ name: "CarouselIcon" }).exists()).toBe(false);
+    expect(wrapper.find('[aria-label="Switch to list view"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it("offers the carousel while the list is up", () => {
+    const wrapper = mountInput({ filterLabel: "/TILE", viewMode: "list" });
+    expect(wrapper.findComponent({ name: "CarouselIcon" }).exists()).toBe(true);
+    expect(wrapper.findComponent({ name: "ListViewIcon" }).exists()).toBe(false);
+    expect(
+      wrapper.find('[aria-label="Switch to carousel view"]').exists(),
+    ).toBe(true);
   });
 
   it("shows a fixed prompt (no rotation) when staticPlaceholder is set", async () => {

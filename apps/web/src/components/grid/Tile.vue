@@ -19,6 +19,7 @@
       'is-exiting': isExiting,
       'is-activated': isActivated,
       'embed-is-interactive': isEmbedInteractive,
+      'suggestion-hidden': isHiddenSuggestion,
     }"
     :data-border="borderVisible ? 'on' : 'off'"
     :data-no-fill="isTransparentBackground ? 'on' : 'off'"
@@ -62,7 +63,7 @@
           @text-color-change="onContentTextColorChange"
         />
       </template>
-      <template v-else>
+      <template v-else-if="gridView.canEdit">
         <div class="suggestion-cta">
           <div class="suggestion-icon">
             <TextIcon v-if="suggestionAction === 'text'" :size="48" />
@@ -340,6 +341,15 @@ export default defineComponent({
 
     const isSuggestion = computed(
       () => props.tile.content.type === ContentType.SUGGESTION,
+    );
+
+    // Suggestion tiles are owner-only affordances ("Add Profile", "Add Link"),
+    // but `createStarterTiles()` persists two of them into every new grid — so
+    // a visitor saw them until the owner replaced them. The OG image renderer
+    // already drops them as "internal-only chrome"; this is the client-side
+    // half of that rule.
+    const isHiddenSuggestion = computed(
+      () => isSuggestion.value && !gridView.canEdit,
     );
     const contentProps = computed(() => {
       const def = getTileDefinition(props.tile.content.type);
@@ -867,6 +877,7 @@ export default defineComponent({
       onContentTextColorChange,
 
       isSuggestion,
+      isHiddenSuggestion,
       suggestionAction,
       suggestionLabel,
       isTileDraggable,
@@ -1302,6 +1313,17 @@ export default defineComponent({
 .tile-wrapper[data-suggestion="true"] .card-body {
   border: 2px dashed var(--color-tile-stroke);
   background: rgba(255, 255, 255, 0.02);
+}
+
+/* Visitor-facing suggestion tile: the CTA is already withheld from the DOM, but
+   the dashed frame above lives on `.card-body`, so the cell would still read as
+   an empty placeholder. `visibility: hidden` removes every visual trace while
+   the tile keeps its footprint — dropping it from the layout instead would let
+   compaction reflow the neighbouring tiles, so a visitor would see a different
+   arrangement than the owner. */
+.tile-wrapper.suggestion-hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .tile-wrapper[data-suggestion="true"] .card-body::after {

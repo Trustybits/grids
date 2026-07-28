@@ -210,6 +210,52 @@ describe("GridTile position-only rendering", () => {
     wrapper.unmount();
   });
 
+  it("withholds a suggestion tile from a visitor who cannot edit", async () => {
+    const tile = makeTile();
+    tile.content = {
+      type: ContentType.SUGGESTION,
+      action: "profile",
+      label: "Add Profile",
+    } as SuggestionContent;
+    const store = makeStore(tile);
+    store.canEdit = false;
+    const layout: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
+    const { wrapper } = await mountGridTile(store, layout);
+
+    // The CTA must not reach the DOM at all — hiding it in CSS alone would
+    // still expose "Add Profile" to the accessibility tree and page source.
+    expect(wrapper.find(".suggestion-cta").exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("Add Profile");
+    // ...and the tile keeps its footprint so the visitor's layout matches the
+    // owner's, with the dashed `.card-body` frame hidden by the class.
+    expect(wrapper.find(".tile-wrapper").classes()).toContain(
+      "suggestion-hidden",
+    );
+
+    wrapper.unmount();
+  });
+
+  it("renders a suggestion tile for an owner who can edit", async () => {
+    const tile = makeTile();
+    tile.content = {
+      type: ContentType.SUGGESTION,
+      action: "profile",
+      label: "Add Profile",
+    } as SuggestionContent;
+    const store = makeStore(tile);
+    store.canEdit = true;
+    const layout: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
+    const { wrapper } = await mountGridTile(store, layout);
+
+    expect(wrapper.find(".suggestion-cta").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Add Profile");
+    expect(wrapper.find(".tile-wrapper").classes()).not.toContain(
+      "suggestion-hidden",
+    );
+
+    wrapper.unmount();
+  });
+
   it("executes a short-click action recognized by the Griddle wrapper", async () => {
     const tile = makeTile();
     tile.content = {

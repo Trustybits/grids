@@ -43,6 +43,15 @@
   z-index: 1;
   padding: 56px var(--mkt-section-x) 40px;
   text-align: center;
+  /* Matches `.mkt__section` below. Without an explicit width this is a column
+     flex item sized by fit-content, so its min-content becomes a floor — and
+     the showcase marquee nested inside carries a ~5300px track, which pinned
+     the hero at its 1120px max-width on phones. `.mkt` then clipped the
+     overflow (`overflow-x: clip`), amputating the headline and URL pill with
+     no way to scroll to them. An explicit width removes the floor.
+     Interim: the page still has no mobile breakpoints — see
+     notes/landing-page-responsive-prd.md. */
+  width: 100%;
   max-width: var(--mkt-section-max);
   margin: 0 auto;
 }

@@ -811,17 +811,28 @@ const handleKeydown = (event: KeyboardEvent) => {
   showPreview.value = false;
 };
 
+/**
+ * Smallest visual-viewport gap taken to be a keyboard. The gap is a difference
+ * of fractional CSS pixel values, so it sits slightly off zero even with
+ * nothing open — a fraction of a pixel on a device, a couple of whole pixels
+ * under a scaled device emulator. Treating any gap at all as a keyboard let
+ * that noise pull the bar down to rest "flush" on a keyboard that wasn't there.
+ * No real keyboard — or even a bare keyboard accessory bar — is this short.
+ */
+const MIN_KEYBOARD_INSET = 40;
+
 // Track the soft-keyboard height via the visual viewport: the gap between the
 // layout viewport bottom and the (shrunken) visual viewport bottom is the
-// keyboard's height. ~0 when the keyboard is closed or on desktop.
+// keyboard's height. 0 when the keyboard is closed or on desktop.
 const updateKeyboardInset = () => {
   const vv = window.visualViewport;
   if (!vv) {
     keyboardInset.value = 0;
     return;
   }
-  const inset = window.innerHeight - vv.height - vv.offsetTop;
-  keyboardInset.value = inset > 1 ? inset : 0;
+  const gap = window.innerHeight - vv.height - vv.offsetTop;
+  // Rounded so a fractional gap cannot end up as a `bottom: 2.99988px`.
+  keyboardInset.value = gap >= MIN_KEYBOARD_INSET ? Math.round(gap) : 0;
 };
 
 onMounted(() => {

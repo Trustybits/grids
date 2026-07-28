@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import { ContentType } from "@grids/contracts/types";
 
@@ -516,6 +516,48 @@ describe("MobileGridBar", () => {
     expect(wrapper.find(".image-swap-stub").exists()).toBe(false);
     expect(wrapper.get(".mci-chip").text()).toBe("/GRID");
     expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(true);
+  });
+
+  describe("keyboard inset", () => {
+    const setVisualViewport = (height: number) => {
+      Object.defineProperty(window, "visualViewport", {
+        value: { height, offsetTop: 0, addEventListener() {}, removeEventListener() {} },
+        configurable: true,
+      });
+    };
+
+    afterEach(() => {
+      Object.defineProperty(window, "visualViewport", {
+        value: undefined,
+        configurable: true,
+      });
+    });
+
+    it("rests at the default gap when no keyboard is open", async () => {
+      setVisualViewport(window.innerHeight);
+      const wrapper = await mountBar();
+      expect(wrapper.get(".mobile-grid-bar").attributes("style")).toContain(
+        "bottom: var(--spacing-sm)",
+      );
+    });
+
+    it("ignores a sub-pixel viewport gap rather than reading it as a keyboard", async () => {
+      // A real measurement off a scaled device emulator, which used to land the
+      // bar at `bottom: 2.99988px` instead of the intended 8px.
+      setVisualViewport(window.innerHeight - 2.99988);
+      const wrapper = await mountBar();
+      expect(wrapper.get(".mobile-grid-bar").attributes("style")).toContain(
+        "bottom: var(--spacing-sm)",
+      );
+    });
+
+    it("rests flush on top of a real keyboard", async () => {
+      setVisualViewport(window.innerHeight - 291.4);
+      const wrapper = await mountBar();
+      expect(wrapper.get(".mobile-grid-bar").attributes("style")).toContain(
+        "bottom: 291px",
+      );
+    });
   });
 
   it("copies the grid link when Share is tapped", async () => {

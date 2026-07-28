@@ -518,6 +518,38 @@ describe("MobileGridBar", () => {
     expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(true);
   });
 
+  describe("share icon", () => {
+    const realUserAgent = navigator.userAgent;
+    const setUserAgent = (value: string) => {
+      Object.defineProperty(navigator, "userAgent", {
+        value,
+        configurable: true,
+      });
+    };
+
+    afterEach(() => setUserAgent(realUserAgent));
+
+    it("uses Apple's tray-and-arrow glyph on an Apple platform", async () => {
+      setUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)");
+      const wrapper = await mountBar();
+      expect(wrapper.findComponent({ name: "ShareAppleIcon" }).exists()).toBe(true);
+      expect(wrapper.findComponent({ name: "ShareDefaultIcon" }).exists()).toBe(
+        false,
+      );
+    });
+
+    it("uses the three-node glyph everywhere else", async () => {
+      setUserAgent("Mozilla/5.0 (Linux; Android 14; Pixel 8)");
+      const wrapper = await mountBar();
+      expect(wrapper.findComponent({ name: "ShareDefaultIcon" }).exists()).toBe(
+        true,
+      );
+      expect(wrapper.findComponent({ name: "ShareAppleIcon" }).exists()).toBe(
+        false,
+      );
+    });
+  });
+
   describe("keyboard inset", () => {
     const setVisualViewport = (height: number) => {
       Object.defineProperty(window, "visualViewport", {

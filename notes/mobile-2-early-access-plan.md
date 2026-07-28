@@ -169,6 +169,23 @@ Interim notes to revisit in later phases:
       (`MobileGridBar` on `MobileCommandBar`)
 - [x] Reconcile with existing `GridToolbar` / `bottom-left-buttons` (bottom-left bar hidden
       on mobile-2; the pill is the single command surface)
+- [x] **Icon set** from Figma `mobileGridBar` (`1727-11044`): `AddTileIcon`, `GridSettingsIcon`,
+      `PreviewIcon`, `ShareAppleIcon`, `ShareDefaultIcon`. These are **filled** glyphs, where the
+      desktop set (`PlusIcon`, `GridMenuIcon`, `EyeIcon`, `ShareIcon`) is stroked outlines — no glyph
+      matched closely enough to reuse, so they are new components and the old four stay for desktop.
+      Each is Figma's exported path placed in a 24x24 box by a nested `<svg>` carrying the inset
+      Figma laid it out at, so the leaf keeps its own geometry rather than being re-drawn by hand;
+      `CommandBarIcons.test.ts` pins that arithmetic (every leaf 1:1 and inside the box). Figma fills
+      them white at 76% opacity — that is its stand-in for the content color, so the paths use
+      `currentColor` and inherit `--color-content-default` from `.mgb-btn`, which keeps them correct
+      in light mode.
+- [x] **Share is platform-conventional**: the tray-and-arrow (`grids_shareApple`) on Apple
+      platforms, the three-node graph (`grids_shareDefault`) elsewhere, so the button reads as the
+      share sheet the OS will actually open. `isApplePlatform()` (`utils/Platform.ts`) sniffs the
+      user-agent string rather than `navigator.userAgentData`, which Safari — the browser most Apple
+      users are on — does not implement; iPadOS 13+ reports itself as "Macintosh" and matches on the
+      Mac branch. Resolved once at setup (the UA cannot change mid-session). Sniffing is confined to
+      cosmetics: a wrong guess only shows a slightly foreign glyph, never changes behavior.
 
 ### Phase 5 — Add-a-Tile carousel + `/TILE` input 🟡 IN PROGRESS (5.1 + 5.1.1 done, 5.2 next)
 

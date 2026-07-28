@@ -115,7 +115,7 @@
           aria-label="Add a tile"
           @click.stop="openAdd"
         >
-          <PlusIcon :size="24" />
+          <AddTileIcon :size="24" />
         </button>
 
         <button
@@ -124,7 +124,7 @@
           aria-label="Grid settings"
           @click.stop="toggleSettings"
         >
-          <GridMenuIcon />
+          <GridSettingsIcon :size="24" />
         </button>
 
         <button
@@ -134,7 +134,7 @@
           aria-label="Preview"
           @click.stop="togglePreview"
         >
-          <EyeIcon :size="24" />
+          <PreviewIcon :size="24" />
         </button>
 
         <span class="mgb-divider" aria-hidden="true" />
@@ -145,7 +145,7 @@
           aria-label="Share"
           @click.stop="shareLink"
         >
-          <ShareIcon :size="24" />
+          <component :is="shareIcon" :size="24" />
         </button>
       </template>
 
@@ -283,11 +283,15 @@ import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vu
 import MobileColorPicker from "@/components/app/MobileColorPicker.vue";
 import MobileImageSwapSheet from "@/components/app/MobileImageSwapSheet.vue";
 import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
-import GridMenuIcon from "@/components/icons/GridMenuIcon.vue";
+import AddTileIcon from "@/components/icons/AddTileIcon.vue";
+import GridSettingsIcon from "@/components/icons/GridSettingsIcon.vue";
+import PreviewIcon from "@/components/icons/PreviewIcon.vue";
+import ShareAppleIcon from "@/components/icons/ShareAppleIcon.vue";
+import ShareDefaultIcon from "@/components/icons/ShareDefaultIcon.vue";
+// Not part of the command-bar icon set — the `/HEX` save-color affordance.
 import PlusIcon from "@/components/icons/PlusIcon.vue";
-import EyeIcon from "@/components/icons/EyeIcon.vue";
-import ShareIcon from "@/components/icons/ShareIcon.vue";
 import CloseIcon from "@/components/icons/CloseIcon.vue";
+import { isApplePlatform } from "@/utils/Platform";
 import { useToastStore } from "@/stores/toast";
 import { useTileCreation } from "@/composables/useTileCreation";
 import { useFileUpload } from "@/composables/useFileUpload";
@@ -366,6 +370,11 @@ const documentInput = ref<HTMLInputElement | null>(null);
 const mode = ref<"default" | "add" | "settings" | "color" | "image">("default");
 const showPreview = ref(false);
 const query = ref("");
+
+// Share uses each platform's own glyph, so the button reads as the share sheet
+// the user expects: the tray-and-arrow on Apple platforms, the three-node graph
+// everywhere else. Resolved once — the user agent cannot change mid-session.
+const shareIcon = isApplePlatform() ? ShareAppleIcon : ShareDefaultIcon;
 
 // On-screen keyboard height (0 when closed). The bar normally floats 8px above
 // the viewport bottom, but when a soft keyboard opens it rests flush on top of

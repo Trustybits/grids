@@ -14,6 +14,13 @@ const types: TileTypeDescriptor[] = [
 const mountCarousel = (props: Record<string, unknown> = {}) =>
   mount(MobileTileCarousel, { props: { types, ...props } });
 
+/**
+ * Cards carry no visible name — the command chip names the centered type — so
+ * the type is read off the accessible label.
+ */
+const nameOf = (card: { attributes: (name: string) => string | undefined }) =>
+  card.attributes("aria-label");
+
 /** A drag of `distance` px, in enough steps to clear the tap threshold. */
 const drag = async (
   wrapper: ReturnType<typeof mountCarousel>,
@@ -27,11 +34,13 @@ const drag = async (
 };
 
 describe("MobileTileCarousel", () => {
-  it("renders a card per tile type", () => {
+  it("renders a card per tile type, named only for assistive tech", () => {
     const wrapper = mountCarousel();
-    expect(wrapper.findAll(".tile-carousel__card")).toHaveLength(3);
-    expect(wrapper.text()).toContain("Text");
-    expect(wrapper.text()).toContain("Chat");
+    const cards = wrapper.findAll(".tile-carousel__card");
+    expect(cards).toHaveLength(3);
+    expect(cards.map(nameOf)).toEqual(["Text", "Chat", "Map"]);
+    // The names are not drawn on the cards themselves.
+    expect(wrapper.text()).not.toContain("Text");
   });
 
   it("shows an empty message when no types match", () => {
@@ -43,7 +52,7 @@ describe("MobileTileCarousel", () => {
     const wrapper = mountCarousel({ selectedId: "chat" });
     const selected = wrapper.findAll(".tile-carousel__card--selected");
     expect(selected).toHaveLength(1);
-    expect(selected[0].text()).toContain("Chat");
+    expect(nameOf(selected[0])).toBe("Chat");
     expect(selected[0].attributes("aria-selected")).toBe("true");
   });
 
@@ -63,7 +72,7 @@ describe("MobileTileCarousel", () => {
     expect(cards[1].attributes("style")).toContain("translateZ(-140px)");
   });
 
-  it("steps the opacity down from the center and floors the far cards", () => {
+  it("steps the artwork opacity down from the center and floors the far cards", () => {
     const many = ["a", "b", "c", "d", "e"].map((id) => ({
       id,
       label: id.toUpperCase(),
@@ -74,11 +83,39 @@ describe("MobileTileCarousel", () => {
     const wrapper = mountCarousel({ types: many });
 
     const opacities = wrapper
-      .findAll(".tile-carousel__card")
-      .map((card) => card.attributes("style")?.match(/opacity:\s*([\d.]+)/)?.[1]);
+      .findAll(".tile-carousel__ink")
+      .map((ink) => ink.attributes("style")?.match(/opacity:\s*([\d.]+)/)?.[1]);
 
     // Uncapped the fourth card would sit at 0.50, so the floor holds it up.
     expect(opacities).toEqual(["1", "0.89", "0.76", "0.63", "0.55"]);
+  });
+
+  it("stacks every card behind the one nearer the center", () => {
+    const many = ["a", "b", "c", "d", "e"].map((id) => ({
+      id,
+      label: id.toUpperCase(),
+      icon: Icon,
+      keywords: [],
+      kind: "create" as const,
+    }));
+    const wrapper = mountCarousel({ types: many });
+
+    const layers = wrapper
+      .findAll(".tile-carousel__card")
+      .map((card) =>
+        Number(card.attributes("style")?.match(/z-index:\s*(\d+)/)?.[1]),
+      );
+
+    // Off the REACH-clamped distance the last three tied, and DOM order then
+    // put the outermost card in front of its inner neighbour.
+    expect(layers).toEqual([100, 90, 80, 70, 60]);
+  });
+
+  it("keeps the card surfaces opaque so the grid never shows through them", () => {
+    const wrapper = mountCarousel();
+    for (const card of wrapper.findAll(".tile-carousel__card")) {
+      expect(card.attributes("style")).not.toContain("opacity");
+    }
   });
 
   it("emits select when the centered card is tapped", async () => {
@@ -154,8 +191,7 @@ describe("MobileTileCarousel", () => {
       ],
     });
 
-    const centered = wrapper.find(".tile-carousel__card--center");
-    expect(centered.text()).toContain("Map");
+    expect(nameOf(wrapper.find(".tile-carousel__card--center"))).toBe("Map");
     // Re-syncing the list is not the user choosing a card.
     expect(wrapper.emitted("focus-type")).toHaveLength(1);
   });
@@ -164,7 +200,6 @@ describe("MobileTileCarousel", () => {
     const wrapper = mountCarousel();
     await wrapper.setProps({ types: [types[1]] });
 
-    const centered = wrapper.find(".tile-carousel__card--center");
-    expect(centered.text()).toContain("Chat");
+    expect(nameOf(wrapper.find(".tile-carousel__card--center"))).toBe("Chat");
   });
 });

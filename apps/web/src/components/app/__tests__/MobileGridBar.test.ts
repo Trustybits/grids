@@ -109,6 +109,18 @@ const flush = async (wrapper: { vm: { $nextTick: () => Promise<unknown> } }) => 
   await wrapper.vm.$nextTick();
 };
 
+/**
+ * Carousel cards carry no visible name — the command chip is what names the
+ * centered type — so they are located by their accessible label.
+ */
+const cardNamed = (
+  wrapper: Awaited<ReturnType<typeof mountBar>>,
+  name: string,
+) =>
+  wrapper
+    .findAll(".tile-carousel__card")
+    .find((card) => card.attributes("aria-label") === name);
+
 describe("MobileGridBar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -214,10 +226,7 @@ describe("MobileGridBar", () => {
     await flush(wrapper);
     expect(wrapper.get(".mci-chip").text()).toBe("/TILE");
 
-    const mapCard = wrapper
-      .findAll(".tile-carousel__card")
-      .find((card) => card.text() === "Map");
-    await mapCard?.trigger("click");
+    await cardNamed(wrapper, "Map")?.trigger("click");
     await flush(wrapper);
     // The Map card focuses the input rather than creating immediately, and the
     // chip prefix now reflects the pinned type.
@@ -238,17 +247,14 @@ describe("MobileGridBar", () => {
     await wrapper.get('[aria-label="Add a tile"]').trigger("click");
     await flush(wrapper);
 
-    const findMap = () =>
-      wrapper.findAll(".tile-carousel__card").find((c) => c.text() === "Map");
-
     // First tap brings Map to the center, which pins it.
-    await findMap()?.trigger("click");
+    await cardNamed(wrapper, "Map")?.trigger("click");
     await flush(wrapper);
     expect(wrapper.get(".mci-chip").text()).toBe("/MAP");
 
     // A second tap commits the centered card rather than toggling it off — the
     // chip now tracks the center, so there is no un-centered state to fall to.
-    await findMap()?.trigger("click");
+    await cardNamed(wrapper, "Map")?.trigger("click");
     await flush(wrapper);
     expect(wrapper.get(".mci-chip").text()).toBe("/MAP");
     expect(holder.createTile).not.toHaveBeenCalled();
@@ -267,7 +273,9 @@ describe("MobileGridBar", () => {
     await flush(wrapper);
 
     expect(wrapper.get(".mci-chip").text()).toBe("/LINK");
-    expect(wrapper.get(".tile-carousel__card--selected").text()).toContain("Link");
+    expect(
+      wrapper.get(".tile-carousel__card--selected").attributes("aria-label"),
+    ).toBe("Link");
   });
 
   it("prompts to press enter for a centered create-type card, and adds it", async () => {
@@ -295,10 +303,7 @@ describe("MobileGridBar", () => {
     await wrapper.get('[aria-label="Add a tile"]').trigger("click");
     await flush(wrapper);
 
-    const mapCard = wrapper
-      .findAll(".tile-carousel__card")
-      .find((card) => card.text() === "Map");
-    await mapCard?.trigger("click");
+    await cardNamed(wrapper, "Map")?.trigger("click");
     await flush(wrapper);
 
     const input = wrapper.get(".mci-input");
@@ -309,7 +314,7 @@ describe("MobileGridBar", () => {
     expect(cards).toHaveLength(holder.types.length);
     const selected = wrapper.find(".tile-carousel__card--selected");
     expect(selected.exists()).toBe(true);
-    expect(selected.text()).toBe("Map");
+    expect(selected.attributes("aria-label")).toBe("Map");
   });
 
   it("pins the type from an inline prefix: typing 'map ' becomes /MAP with the rest as content", async () => {
@@ -335,10 +340,7 @@ describe("MobileGridBar", () => {
     await wrapper.get('[aria-label="Add a tile"]').trigger("click");
     await flush(wrapper);
 
-    const mapCard = wrapper
-      .findAll(".tile-carousel__card")
-      .find((card) => card.text() === "Map");
-    await mapCard?.trigger("click");
+    await cardNamed(wrapper, "Map")?.trigger("click");
     await flush(wrapper);
     expect(wrapper.get(".mci-chip").text()).toBe("/MAP");
 

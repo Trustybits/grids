@@ -253,8 +253,28 @@ centered card live**. Subtypes (`/SPOTIFY` et al.) stay in 5.2.
       with an empty field, while text present still falls through to smart-paste so a pasted URL
       never becomes an empty tile of the wrong kind. Placeholders for non-command types are derived
       from the descriptor's kind ("Press enter to add a Chat tile" / "Tap … to choose a file").
-- [x] The carousel panel lost its stray debug border and now takes the tokenized `--mgb-width`, so
-      the fan spans the same width as the pill below it.
+- [x] The carousel panel lost its stray debug border and runs the **full width of the screen**
+      (unlike the pill, which keeps `--mgb-width`), so the fan spreads edge to edge and its outer
+      cards are cut off by the screen rather than stopping short of it. The clip stays on the
+      carousel so no stray horizontal scrollbar reaches the document.
+- [x] The fan **peeks out from behind the pill** rather than floating above it: the panel is taken
+      out of the bar's flex column and pushed down past the pill's top edge by `--mgb-tuck` (24px),
+      so the bottom of every card is hidden behind the bar.
+- [x] Cards are **bottom-aligned**, via a `perspective-origin` on the track's bottom edge — the
+      vanishing point sits on that line, so receding cards shrink towards it instead of towards the
+      middle. With the tuck above, every card is cut off at the same line.
+- [x] No card carries a **visible name** — the command chip already names the centered type. The
+      label survives as each card's `aria-label`, which is what the tests locate cards by.
+- [x] Cards stack by their **unclamped** distance from center. Off the `REACH`-clamped value every
+      card past the limit tied on one layer and DOM order broke the tie rightwards, so the right of
+      the fan stacked outermost-in-front — mirroring the left instead of matching it.
+- [x] Depth is **never** carried by card transparency. Fading the whole card let the grid show
+      through and read as muddy rather than distant, badly so over a busy or light background. The
+      card surface is always opaque; the fall-off (100 / 89 / 76 / … floored at 55%) applies to the
+      **artwork inside**, alongside a static shadow. Considered and rejected: `backdrop-filter`
+      blur (per-element GPU cost across ~10 cards being dragged would cost the 60fps swipe) and
+      backing each card with the grid's own background color (breaks down for image backgrounds,
+      where any fallback can clash with the photo).
 - [x] Tests: new `MobileTileThumbnail` suite, rewritten `MobileTileCarousel` suite (geometry, drag,
       tap-to-center vs tap-to-commit, keyboard, list re-sync), and `MobileGridBar` coverage for
       chip tracking + the create-type prompt. Full suite green; typecheck + lint clean.

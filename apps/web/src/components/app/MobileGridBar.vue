@@ -59,7 +59,7 @@
       </div>
     </transition>
 
-    <!-- Add-a-Tile carousel — floats above the pill (with a gap) while adding. -->
+    <!-- Add-a-Tile carousel — peeks out from behind the pill while adding. -->
     <transition name="mgb-rise">
       <div
         v-if="mode === 'add' && viewMode === 'carousel'"
@@ -848,6 +848,9 @@ onBeforeUnmount(() => {
   // default resting pill (the four command buttons) stays content-sized so the
   // pill still visibly grows as it morphs open.
   --mgb-width: min(520px, calc(100vw - var(--spacing-md)));
+  // How far the Add-a-Tile fan sits behind the pill. The cards are bottom
+  // -aligned, so this is the same slice hidden off the bottom of each of them.
+  --mgb-tuck: 24px;
 
   position: fixed;
   // Default resting gap; overridden inline to hug the keyboard when it opens.
@@ -994,12 +997,22 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-// The coverflow floats free above the pill — no surface of its own, so the fan
-// reads as hovering over the grid. It takes the pill's width so the cards have
-// the same room to spread as the bar below them.
+// The coverflow has no surface of its own, so the fan reads as sitting on the
+// grid. Taken out of the flex column and pushed down past the top of the pill
+// so the bottom of every card is tucked behind the bar (z-index: 0, under the
+// pill's 1) — the fan peeks out from behind it rather than floating above it.
+// Full-bleed via left/margin rather than a transform, because the mgb-rise
+// transition animates `transform` and would overwrite a centering one.
 .mobile-grid-bar__panel {
+  position: absolute;
+  bottom: calc(100% - var(--mgb-tuck));
+  left: 50%;
   z-index: 0;
-  width: var(--mgb-width);
+  // Unlike the pill, the fan runs the full width of the screen, so it spreads
+  // edge to edge and its outer cards are cut off by the screen rather than
+  // stopping short of it.
+  width: 100vw;
+  margin-left: -50vw;
 }
 
 .mgb-btn {

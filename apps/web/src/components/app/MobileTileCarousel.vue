@@ -16,7 +16,9 @@
   The centered card is the active tile type, so the carousel emits `focus`
   whenever the *user* moves it (never on a programmatic re-sync). The parent
   turns that into the command chip's `/TEXT` · `/MAP` prefix, which keeps the
-  chip honest about what ENTER will act on.
+  chip honest about what ENTER will act on — and is also why no card carries a
+  visible name: the chip already names the centered type. The name stays on
+  each card as its accessible label.
 
   Card artwork lives in MobileTileThumbnail; this component owns only motion,
   geometry and selection. Filtering happens in the parent — the already-filtered
@@ -55,10 +57,9 @@
         @click="onCardClick(index)"
       >
         <span class="tile-carousel__art">
-          <MobileTileThumbnail :type-id="type.id" :icon="type.icon" />
-        </span>
-        <span class="tile-carousel__label" :style="labelStyle(index)">
-          {{ type.label }}
+          <span class="tile-carousel__ink" :style="inkStyle(index)">
+            <MobileTileThumbnail :type-id="type.id" :icon="type.icon" />
+          </span>
         </span>
       </button>
     </div>
@@ -139,8 +140,9 @@ const clampIndex = (index: number): number =>
 let reducedMotion = false;
 
 // ── Per-card transform ───────────────────────────────────────────────────────
-// Opacity runs off the *unclamped* distance so the floor is reachable, unlike
-// the depth and z-order which saturate at REACH.
+// How faint a card's artwork is, by distance from center. Runs off the
+// *unclamped* distance so the floor is reachable, unlike the depth and z-order
+// which saturate at REACH.
 const opacityAt = (distance: number): number => {
   const perCard = NEIGHBOUR_OPACITY - SECOND_OPACITY;
   const value =
@@ -163,15 +165,21 @@ const cardStyle = (index: number) => {
       `translateZ(${-distance * DEPTH}px)`,
       `rotateY(${-tilt * ANGLE}deg)`,
     ].join(" "),
-    opacity: opacityAt(Math.abs(delta)),
-    zIndex: String(100 - Math.round(distance * 10)),
+    // Stacked by the *unclamped* distance so both sides of the fan order the
+    // same way. Off the REACH-clamped value every card past the limit landed on
+    // one layer, and DOM order then broke the tie in the right-hand cards'
+    // favour — so on that side the outermost card sat in front of its inner
+    // neighbour, mirroring the left instead of matching it.
+    zIndex: String(100 - Math.round(Math.abs(delta) * 10)),
     pointerEvents: distance >= REACH ? ("none" as const) : ("auto" as const),
   };
 };
 
-// The label is only legible while the card is close to square-on to the user.
-const labelStyle = (index: number) => ({
-  opacity: String(Math.max(0, 1 - Math.abs(index - scroll.value) * 2.2)),
+// Only the artwork fades — never the card itself. Fading the whole card would
+// make the grid behind it show straight through, which reads as muddy rather
+// than distant (and gets worse over a busy or light background).
+const inkStyle = (index: number) => ({
+  opacity: String(opacityAt(Math.abs(index - scroll.value))),
 });
 
 // ── Settle animation ─────────────────────────────────────────────────────────
@@ -362,16 +370,25 @@ onBeforeUnmount(stopAnimation);
 .tile-carousel {
   position: relative;
   width: 100%;
+  // Clearance for the centered card's selection ring, which is drawn outside
+  // its border and would otherwise be shaved off by the clip below.
+  padding-top: var(--spacing-xs);
+  // The fan runs the full width of the screen and its outer cards are cut off
+  // by the screen edge. Clipping here rather than letting them truly overflow
+  // keeps a stray horizontal scrollbar off the document; the parent sizes this
+  // to the viewport, so the two are the same edge.
   overflow: hidden;
 }
 
 .tile-carousel__track {
   position: relative;
-  // Room for the card plus its label underneath.
-  height: calc(var(--tc-card) + 30px);
+  height: var(--tc-card);
   // Applies to the cards, which are its direct children — this is what turns
-  // their translateZ into depth.
+  // their translateZ into depth. The vanishing point sits on the bottom edge
+  // rather than the middle, so cards shrink towards that line as they recede
+  // and the whole fan stays bottom-aligned instead of center-aligned.
   perspective: 700px;
+  perspective-origin: 50% 100%;
   touch-action: pan-y;
   cursor: grab;
 
@@ -382,13 +399,11 @@ onBeforeUnmount(stopAnimation);
 
 .tile-carousel__card {
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-xs);
+  display: block;
   width: var(--tc-card);
+  height: var(--tc-card);
   // Centers the card on the track before its own transform is applied; the
   // per-card translateX then measures from the middle of the fan.
   margin-left: calc(var(--tc-card) / -2);
@@ -399,7 +414,7 @@ onBeforeUnmount(stopAnimation);
   cursor: pointer;
   // No transform transition: the tilt is driven frame-by-frame from the drag
   // position, so a transition here would lag the finger.
-  will-change: transform, opacity;
+  will-change: transform;
 
   &:focus-visible {
     outline: none;
@@ -410,6 +425,9 @@ onBeforeUnmount(stopAnimation);
   }
 }
 
+// Always fully opaque, at every distance — this is the surface that stops the
+// grid showing through. Depth is carried by the transform, the static shadow,
+// and the artwork inside fading.
 .tile-carousel__art {
   position: relative;
   display: block;
@@ -419,24 +437,21 @@ onBeforeUnmount(stopAnimation);
   // Figma uses a 30px radius on a 150px tile; the same ratio at our card size.
   border-radius: var(--radius-lg);
   background: var(--color-tile-background);
+  // Static, so it never repaints mid-drag; box-shadow is expensive to animate.
+  box-shadow: var(--shadow-xl);
   overflow: hidden;
   transition: border-color var(--duration-fast) var(--easing-smooth);
+}
+
+.tile-carousel__ink {
+  position: absolute;
+  inset: 0;
 }
 
 // The active tile type — the one whose `/command` the input is showing.
 .tile-carousel__card--selected .tile-carousel__art {
   border-color: var(--color-content-default);
   box-shadow: 0 0 0 var(--border-width) var(--color-content-default);
-}
-
-.tile-carousel__label {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
 }
 
 .tile-carousel__empty {

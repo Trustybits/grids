@@ -427,6 +427,70 @@ picker, following the same morph/rise/flush pattern as `/GRID` and `/HEX`.
 
 - [ ] Mobile treatment of the Tile Toolbar and TileAction Toolbar
 
+#### Phase 8.1 — Touch gesture model (hold-to-drag) ⬜ NOT STARTED
+
+**The core problem.** A tile drag arms on a *movement threshold*, not on intent. `@griddle/vue`'s
+`onTilePointerDown` records a pending drag on every pointer-down that isn't excluded by
+`dragIgnoreFrom`, and promotes it to a real drag as soon as the pointer travels
+`DRAG_START_THRESHOLD_PX = 12` in **any** direction. There is no axis lock, no hold delay, and no
+touch-vs-mouse distinction. A vertical scroll clears 12px immediately, so on touch a scroll gesture
+and a drag gesture are indistinguishable at the moment the engine commits.
+
+Today this only mostly works because of a race we don't control: when the browser decides to scroll
+the page it claims the gesture and fires `pointercancel`, which Griddle maps to `onPointerUp` and
+uses to drop the pending drag. Whenever that claim doesn't happen — or happens too late — the tile
+moves instead. That is the single root cause behind the reported "scrolling over a tile moves it".
+
+**Target model:** a tile should move only on press-and-hold, so scroll is the default interpretation
+of a swipe and drag is an explicit, deliberate gesture.
+
+**Constraint — this is not configurable from the app.** `@griddle/core`'s config surface exposes
+only `dragIgnoreFrom` (`core/dist/types.d.ts`). There is no `dragDelay`, `axisLock`, or threshold
+option, and the 12px constant is hard-coded in `@griddle/vue`. Implementing hold-to-drag means either
+a Griddle change or an app-side wrapper that withholds pointer events from the engine until a hold
+timer fires. Decide which before starting.
+
+**Interim fixes already shipped (revisit / likely retire when 8.1 lands):**
+
+- `Tile.vue` — `touchstart` no longer calls `preventDefault`. It used to cancel the whole touch
+  sequence on any already-activated tile, killing native scroll outright for every tile type whose
+  content isn't in the interactive-target exemption list (image, video, embed, youtube, music, map,
+  documents, games). The tap/pan decision is now deferred: passive `touchstart`/`touchmove` classify
+  the gesture and only a settled tap cancels at `touchend`.
+- `ChatContent.vue` — `.chat-messages` uses `overscroll-behavior: auto` rather than `contain`.
+  `contain` removed the page-scroll rescue described above, making chat the one tile type that
+  dragged deterministically rather than intermittently. The effect was worst on sparse chats, where
+  `.messages-spacer` (`flex: 1`) covers most of the tile and is not in `dragIgnoreFrom` — so the drag
+  was armed over the same surface where the list had nothing left to scroll.
+  **Not yet applied to** the other scroll regions with `overscroll-behavior: contain`
+  (`TextContent`, `SmartTextContent`, `LinkContent`, `ProfileBioContent`) — same latent trap, less
+  exposed because those areas are smaller and usually full of content. Confirm on hardware before
+  generalizing.
+- The old `touch-action: pan-y` guard on grid items (commit `6115554`) was tied to vue3-grid-layout
+  and was dropped in the Griddle migration. Reinstating something equivalent on non-activated tiles
+  is a cheaper stopgap than hold-to-drag if 8.1 slips.
+
+#### Phase 8.2 — Known tile-chrome issues to fold in ⬜ NOT STARTED
+
+- [ ] **Tile toolbar goes off-frame at viewport edges.** `TileToolbar.vue`'s floating position is
+      `left: rect.left + rect.width / 2` with no bounds check, so a tile near a screen edge pushes its
+      toolbar out of frame and out of reach. The dropdown *menu* below it already has a
+      `clampToViewport` helper — the toolbar itself just never got the same treatment. Cheap to fix
+      standalone, but likely throwaway work if this phase re-sites the toolbar anyway.
+- [ ] **Long-press on a video/image tile opens the browser's native media menu** ("Download",
+      "Copy frame"). Nothing suppresses it: there is no `-webkit-touch-callout: none` anywhere in the
+      codebase and no `contextmenu` handler on the media elements. Two lines on the media tiles,
+      but it belongs with whatever long-press means in the new gesture model — long-press is a
+      candidate trigger for hold-to-drag, so the two decisions are coupled.
+- [ ] **No resize feedback on tiles with no visible edge** — *partially addressed.* Griddle renders
+      no drop indicator during a resize (its `indicatorRect` derives from drag state only), so a
+      transparent, border-off tile resized to an invisible footprint. `Tile.vue` now re-fades that
+      tile's own border overlay in for the duration of the gesture
+      (`.griddle-resizing .tile-wrapper[data-border="off"][data-no-fill="on"] .card-body::after`).
+      Not covered: the same blind spot while *dragging* a transparent tile (the drop indicator
+      partly stands in), and toolbar **preset** resizes, which bypass Griddle's pointer resize via
+      `resizeTileThroughEngine` and so never get `.griddle-resizing`.
+
 ### Phase 9 — Share modal ⬜ NOT STARTED
 
 - [ ] New Share modal: message text area, copy-link, big-4 platform selectors with per-platform

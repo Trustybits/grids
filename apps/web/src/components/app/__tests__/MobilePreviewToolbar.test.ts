@@ -52,10 +52,14 @@ describe("MobilePreviewToolbar", () => {
 
   it("offers the three device widths and a way out", async () => {
     const wrapper = await mountToolbar();
-    expect(button(wrapper, "Preview at desktop width").exists()).toBe(true);
-    expect(button(wrapper, "Preview at tablet width").exists()).toBe(true);
-    expect(button(wrapper, "Preview at mobile width").exists()).toBe(true);
-    expect(button(wrapper, "Close preview").exists()).toBe(true);
+    expect(
+      wrapper.findAll("button").map((btn) => btn.attributes("aria-label")),
+    ).toEqual([
+      "Preview at desktop width",
+      "Preview at tablet width",
+      "Preview at mobile width",
+      "Close preview",
+    ]);
   });
 
   it("marks the breakpoint the canvas is actually rendering", async () => {

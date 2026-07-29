@@ -576,10 +576,22 @@ the **raw forced breakpoint** (no scaled device frame); **Close resets to auto**
       preview. Now guarded.
 - [x] Removed the interim Preview popover, its `mgb-pop` transition, the now-unused
       `.mobile-grid-bar__popover` rule, and `MobileGridBar`'s `ViewControls` import.
+- [x] **Redundant banner suppressed.** `ViewportWarning`'s "Previewing … view only" bar restated what
+      the preview toolbar already shows, so it is silent while a preview is active for the current
+      grid. It still fires on desktop, where forcing a wide breakpoint is not self-evidently a preview.
+- [x] **Suggestion tiles hide when editing is off** (`isHiddenSuggestion` in `TileUtils`). Preview is
+      meant to be what a visitor sees, and the seeded "Add Profile" / "Add Link" scaffolding was
+      showing through. It turned out **no such rule existed anywhere** — visitors on a shared URL saw
+      the dashed placeholders too — so the rule is keyed on `canEdit` rather than on preview, which
+      fixes the public view and keeps preview honest by construction. Hidden suggestions leave
+      `Grid.vue`'s render map but stay in the Griddle layout: the reserved cell reads as empty space
+      and the tiles around it keep the placement the owner arranged (maintainer's call over reflowing).
 - [x] Tests: new `MobilePreviewToolbar` suite (breakpoint set, active highlight tracking, no-op re-tap,
       close/Escape, listener teardown), `GridController.startPreview` coverage asserting
-      `canEditCurrentGrid()` flips to false and back, and `MobileAppBar` / `MobileGridBar` coverage for
-      sliding out plus the sheet collapse. Full suite green (2843); typecheck + lint clean.
+      `canEditCurrentGrid()` flips to false and back, `MobileAppBar` / `MobileGridBar` coverage for
+      sliding out plus the sheet collapse, a `ViewportWarning` suite, and `isHiddenSuggestion` unit +
+      `Grid.vue` render coverage (cell emptied, neighbours unmoved). Full suite green (2852);
+      typecheck + lint clean.
 
 Deferred follow-up:
 

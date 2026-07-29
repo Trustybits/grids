@@ -7,6 +7,12 @@
     @mousemove="onTileMouseMove"
   >
     <div v-if="!content.src" class="spinner"></div>
+    <MediaUnavailable
+      v-else-if="mediaFailed"
+      label="Video unavailable"
+      :can-edit="gridView.canEdit"
+      @remove="removeThisTile"
+    />
     <div
       v-else
       class="video-wrapper"
@@ -47,6 +53,7 @@
           @timeupdate="onTimeUpdate"
           @ended="onVideoEnded"
           @click="onVideoClick"
+          @error="onVideoError"
         ></video>
         <div
           v-if="overlayColor"
@@ -177,6 +184,7 @@ import { useTileLink } from "@/composables/useTileLink";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
+import MediaUnavailable from "./MediaUnavailable.vue";
 import ReplayIcon from "../icons/media/ReplayIcon.vue";
 import PlayFilledIcon from "../icons/media/PlayFilledIcon.vue";
 import PauseFilledIcon from "../icons/media/PauseFilledIcon.vue";
@@ -193,6 +201,7 @@ export default defineComponent({
   components: {
     FloatingInputModal,
     LinkIndicatorIcon,
+    MediaUnavailable,
     ReplayIcon,
     PlayFilledIcon,
     PauseFilledIcon,
@@ -547,7 +556,33 @@ export default defineComponent({
       },
     );
 
+    // A source that will not load: deleted file, abandoned upload, or a URL
+    // that rotted. Mirrors the same state in ImageContent.
+    const mediaFailed = ref(false);
+
+    const onVideoError = () => {
+      // An in-flight upload renders an optimistic blob: URL that is revoked
+      // once the permanent URL lands, which fires `error` spuriously.
+      if (isUploading.value) return;
+      mediaFailed.value = true;
+    };
+
+    // Re-arm on every source change so replacing a dead video recovers, and so
+    // undo/redo swapping content back to a good URL clears the state.
+    watch(
+      () => props.content.src,
+      () => {
+        mediaFailed.value = false;
+      },
+    );
+
+    const removeThisTile = () => {
+      if (!gridView.canEdit || !tileId) return;
+      gridView.removeTile(tileId);
+    };
+
     const onVideoLoaded = () => {
+      mediaFailed.value = false;
       if (videoElement.value) {
         duration.value = videoElement.value.duration;
         // Keep video muted on load
@@ -767,6 +802,9 @@ export default defineComponent({
       videoEnded,
       onVideoClick,
       onVideoLoaded,
+      onVideoError,
+      mediaFailed,
+      removeThisTile,
       onVideoEnded,
       onTimeUpdate,
       seek,

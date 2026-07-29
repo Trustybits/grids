@@ -1,6 +1,12 @@
 <template>
   <div class="image-container" ref="imageWrapper">
     <div v-if="!content.src" class="spinner"></div>
+    <MediaUnavailable
+      v-else-if="mediaFailed"
+      label="Image unavailable"
+      :can-edit="gridView.canEdit"
+      @remove="removeThisTile"
+    />
     <div
       v-else
       class="image-wrapper"
@@ -35,6 +41,7 @@
           :style="imageStyle"
           draggable="false"
           @load="onImageLoad"
+          @error="onImageError"
         />
         <div
           v-if="overlayColor"
@@ -96,11 +103,13 @@ import { useTileLink } from "@/composables/useTileLink";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
+import MediaUnavailable from "./MediaUnavailable.vue";
 
 export default defineComponent({
   components: {
     FloatingInputModal,
     LinkIndicatorIcon,
+    MediaUnavailable,
   },
   emits: ["background-color-change", "text-color-change"],
   props: {
@@ -277,8 +286,15 @@ export default defineComponent({
       };
     });
 
+    // A source that will not load: deleted file, abandoned upload, or a URL
+    // that rotted (a storage migration to content-addressed paths breaks any
+    // reference that was not rewritten). Without this the tile just showed the
+    // browser's broken-image glyph.
+    const mediaFailed = ref(false);
+
     // Track image dimensions when loaded
     const onImageLoad = () => {
+      mediaFailed.value = false;
       if (imageElement.value) {
         imageDimensions.value = {
           width: imageElement.value.naturalWidth,
@@ -287,6 +303,28 @@ export default defineComponent({
             imageElement.value.naturalWidth / imageElement.value.naturalHeight,
         };
       }
+    };
+
+    const onImageError = () => {
+      // An in-flight upload renders an optimistic blob: URL that is revoked
+      // when the permanent URL lands, which fires `error` spuriously. The
+      // upload is not a failure, so don't report one.
+      if (isUploading.value) return;
+      mediaFailed.value = true;
+    };
+
+    // Re-arm on every source change so replacing a dead image recovers, and so
+    // undo/redo swapping content back to a good URL clears the state.
+    watch(
+      () => props.content.src,
+      () => {
+        mediaFailed.value = false;
+      },
+    );
+
+    const removeThisTile = () => {
+      if (!gridView.canEdit || !tileId) return;
+      gridView.removeTile(tileId);
     };
 
     onMounted(() => {
@@ -361,6 +399,9 @@ export default defineComponent({
       imageWrapper,
       imageElement,
       onImageLoad,
+      onImageError,
+      mediaFailed,
+      removeThisTile,
       imageDimensions,
       tileDimensions,
       overlayColor,

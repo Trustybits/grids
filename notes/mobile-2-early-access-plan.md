@@ -612,6 +612,24 @@ Deferred follow-up:
 
 ### Phase 10 — Housekeeping & GA cutover ⬜ NOT STARTED
 
+- [x] **Dividers standardized (cross-cutting).** Every hairline that separates content now goes
+      through the shared `ui-elements/Divider.vue` in one of two orientations, rather than being
+      restated per component. Three things came out of this:
+  - **Color: `--color-divider`**, a new semantic token set to `--color-black-13` / `--color-white-13`
+      per theme. All six mobile dividers had been on `--color-stroke`, which is the **8%** step, so a
+      divider was indistinguishable from a container edge. `--color-stroke` itself was left alone —
+      33 files reference it, nearly all desktop borders.
+  - **Length: fill the space, minus `--divider-inset` (12px) at each end**, rather than a declared
+      size. A vertical divider in a 40px command pill lands at 16px on its own, and the same rule
+      gives horizontal dividers their side inset. 12px is its own token because the spacing scale
+      jumps 8 → 16.
+  - Callers keep the cross-axis rhythm (the gap *around* a divider is layout, not the divider):
+      horizontal carries a default `--spacing-xs` block margin, and verticals take their side spacing
+      from the row's existing flex `gap` — which retired an untokenized 2px margin. The one override
+      is the settings-sheet header separator, held flush against the fixed header for the height
+      budget. Desktop `GridSettings` shares the component and follows the same rules.
+  - Deleted the dead `MobileCommandBar` `end`-slot divider: `MobileGridBar` had always inlined its
+      own, so that slot and its CSS never rendered.
 - [ ] Inventory old UI superseded by Mobile 2.0; remove after validation
 - [ ] Confirm tests, separation of concerns, and token usage across all phases
 - [ ] Retire the `beta-mobile-2` gate at GA

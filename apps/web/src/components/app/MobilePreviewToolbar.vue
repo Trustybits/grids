@@ -31,7 +31,7 @@
       </button>
     </div>
 
-    <span class="mpt-divider" aria-hidden="true" />
+    <Divider orientation="vertical" />
 
     <button
       type="button"
@@ -54,6 +54,7 @@ import PreviewDesktopIcon from "@/components/icons/PreviewDesktopIcon.vue";
 import PreviewTabletIcon from "@/components/icons/PreviewTabletIcon.vue";
 import PreviewMobileIcon from "@/components/icons/PreviewMobileIcon.vue";
 import CloseIcon from "@/components/icons/CloseIcon.vue";
+import Divider from "@/components/ui-elements/Divider.vue";
 
 // Widest first, matching the Figma order and the desktop switcher.
 const BREAKPOINTS = [
@@ -159,16 +160,6 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
   &.is-active {
     color: var(--color-figma-purple);
   }
-}
-
-// A short centered tick rather than a full-height rule, per the Figma: it
-// separates Close from the breakpoints without reading as a second border.
-.mpt-divider {
-  width: var(--border-width);
-  height: var(--spacing-md);
-  flex: 0 0 auto;
-  margin: 0 2px;
-  background: var(--color-stroke);
 }
 
 // Drops in from above as the app bar slides up out of the same space. Declared

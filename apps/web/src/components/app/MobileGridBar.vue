@@ -134,7 +134,7 @@
           <PreviewIcon :size="24" />
         </button>
 
-        <span class="mgb-divider" aria-hidden="true" />
+        <Divider orientation="vertical" />
 
         <button
           type="button"
@@ -287,6 +287,7 @@ import ShareDefaultIcon from "@/components/icons/ShareDefaultIcon.vue";
 // Not part of the command-bar icon set — the `/HEX` save-color affordance.
 import PlusIcon from "@/components/icons/PlusIcon.vue";
 import CloseIcon from "@/components/icons/CloseIcon.vue";
+import Divider from "@/components/ui-elements/Divider.vue";
 import { isApplePlatform } from "@/utils/Platform";
 import { useToastStore } from "@/stores/toast";
 import { useTileCreation } from "@/composables/useTileCreation";
@@ -1072,13 +1073,6 @@ onBeforeUnmount(() => {
     background: var(--color-base-8);
     color: var(--color-text-primary);
   }
-}
-
-.mgb-divider {
-  width: var(--border-width);
-  align-self: stretch;
-  margin: var(--spacing-xs) 2px;
-  background: var(--color-stroke);
 }
 
 .mgb-file {

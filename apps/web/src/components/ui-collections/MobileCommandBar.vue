@@ -3,26 +3,14 @@
 
   Reusable presentational "pill" used by the Mobile 2.0 chrome (bottom grid bar,
   tile carousel, grid settings sheet). It is a container only: it renders a
-  rounded, floating bar and owns spacing, surface, and the optional group
-  divider. Consumers provide the buttons/content via slots.
-
-  Slots:
-    - default : the primary group of command items.
-    - end     : an optional trailing group. When present, a divider is drawn
-                between the default group and this group (matches the Figma
-                "… | Share" layout).
+  rounded, floating bar and owns spacing and surface. Consumers provide the
+  buttons/content — and any `Divider` between groups — via the default slot.
 -->
 <template>
   <div class="mobile-command-bar" role="toolbar" :aria-label="ariaLabel">
     <div class="mobile-command-bar__group">
       <slot />
     </div>
-    <template v-if="$slots.end">
-      <span class="mobile-command-bar__divider" aria-hidden="true" />
-      <div class="mobile-command-bar__group">
-        <slot name="end" />
-      </div>
-    </template>
   </div>
 </template>
 
@@ -55,12 +43,5 @@ withDefaults(
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-xs);
-}
-
-.mobile-command-bar__divider {
-  width: var(--border-width);
-  align-self: stretch;
-  margin: var(--spacing-xs) 2px;
-  background-color: var(--color-stroke);
 }
 </style>

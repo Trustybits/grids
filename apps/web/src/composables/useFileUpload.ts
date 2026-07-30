@@ -2,6 +2,8 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { ContentType } from "@grids/contracts/types";
 import { createTileContent } from "@/utils/TileUtils";
+import { hasTransparentPixels } from "@/utils/imageAlpha";
+import { NO_FILL_COLOR } from "@/composables/useColorPicker";
 import type { TileContent } from "@grids/contracts/types";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridController } from "@/controllers/useGridController";
@@ -164,6 +166,26 @@ export function useFileUpload() {
   };
 
   /**
+   * An image tile defaults to an opaque fill, which silently discards whatever
+   * transparency the uploaded file carried — the artwork sat on a solid card
+   * instead of on the grid behind it. When the file really is see-through,
+   * start the tile with no fill so the alpha reads as intended. The owner can
+   * still pick a fill afterwards; this only changes what it starts as.
+   *
+   * Returns an empty patch for opaque images, video, and any file whose alpha
+   * could not be determined, so the previous default stands untouched.
+   */
+  const transparentFillPatch = async (
+    file: File,
+    isImage: boolean,
+  ): Promise<{ backgroundColor?: string }> => {
+    if (!isImage) return {};
+    return (await hasTransparentPixels(file))
+      ? { backgroundColor: NO_FILL_COLOR }
+      : {};
+  };
+
+  /**
    * Upload a file to storage and return TileContent (non-optimistic path).
    */
   const uploadFile = async (
@@ -177,6 +199,7 @@ export function useFileUpload() {
     return createTileContent(contentType, {
       src: result.url,
       srcHash: result.hash,
+      ...(await transparentFillPatch(file, isImage)),
     });
   };
 
@@ -203,7 +226,14 @@ export function useFileUpload() {
     // Immediately show a local preview via blob URL
     const blobUrl = URL.createObjectURL(file);
     const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-    const content = createTileContent(contentType, { src: blobUrl });
+    // Resolved before the tile is created so a transparent image never renders
+    // one frame against the opaque default and then pops to no-fill. The probe
+    // decodes at most 64x64, so the added latency is negligible.
+    const fillPatch = await transparentFillPatch(file, isImage);
+    const content = createTileContent(contentType, {
+      src: blobUrl,
+      ...fillPatch,
+    });
     const tileId = controller.addTile(content);
 
     if (!tileId) {
@@ -277,7 +307,11 @@ export function useFileUpload() {
     // Immediately show a local preview via blob URL
     const blobUrl = URL.createObjectURL(file);
     const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-    const content = createTileContent(contentType, { src: blobUrl });
+    const fillPatch = await transparentFillPatch(file, isImage);
+    const content = createTileContent(contentType, {
+      src: blobUrl,
+      ...fillPatch,
+    });
     controller.setTileContent(tileId, content);
 
     let uploadId: string | null = null;

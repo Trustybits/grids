@@ -46,7 +46,10 @@ export const imageDefinition: TileDefinition<ImageContent> = {
     externalUrl: (content) => content.tileLink || null,
   },
 
-  toolbar: [...RESIZE_PRESETS, BORDER_TOGGLE, CROP_BUTTON, COLOR_BUTTON, TILE_LINK],
+  // Border and colour stay adjacent — they are the two appearance controls
+  // every other tile type pairs, and crop was splitting them. Crop is an
+  // edit-mode action rather than a style, so it sits after them.
+  toolbar: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON, CROP_BUTTON, TILE_LINK],
 
   matchUrl: (url) => isDirectImageUrl(url),
   parseUrl: (url) => ({ src: url }),

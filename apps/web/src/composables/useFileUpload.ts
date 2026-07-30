@@ -169,11 +169,11 @@ export function useFileUpload() {
    * An image tile defaults to an opaque fill, which silently discards whatever
    * transparency the uploaded file carried — the artwork sat on a solid card
    * instead of on the grid behind it. When the file really is see-through,
-   * start the tile with no fill so the alpha reads as intended. The owner can
-   * still pick a fill afterwards; this only changes what it starts as.
+   * give the tile no fill so the alpha reads as intended. The owner can still
+   * pick a fill afterwards; this only changes what it starts as.
    *
-   * Returns an empty patch for opaque images, video, and any file whose alpha
-   * could not be determined, so the previous default stands untouched.
+   * Does nothing for opaque images, video, and any file whose alpha could not
+   * be determined, so the previous default stands untouched.
    */
   const transparentFillPatch = async (
     file: File,
@@ -183,6 +183,31 @@ export function useFileUpload() {
     return (await hasTransparentPixels(file))
       ? { backgroundColor: NO_FILL_COLOR }
       : {};
+  };
+
+  /**
+   * Fire-and-forget variant for the optimistic paths, where the tile must exist
+   * synchronously and cannot wait on an image decode.
+   *
+   * Written silently: the fill is an automatic consequence of what was
+   * uploaded, not an edit the owner made, so it must not land its own undo
+   * entry between the tile's creation and the upload resolving.
+   */
+  const applyTransparentFillWhenReady = (
+    file: File,
+    isImage: boolean,
+    tileId: string,
+    controller: GridController,
+  ): void => {
+    void transparentFillPatch(file, isImage)
+      .then((patch) => {
+        if (patch.backgroundColor) {
+          controller.patchTileContentSilently(tileId, patch);
+        }
+      })
+      .catch(() => {
+        // Alpha detection is a nicety; never let it disturb the upload.
+      });
   };
 
   /**
@@ -226,20 +251,18 @@ export function useFileUpload() {
     // Immediately show a local preview via blob URL
     const blobUrl = URL.createObjectURL(file);
     const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-    // Resolved before the tile is created so a transparent image never renders
-    // one frame against the opaque default and then pops to no-fill. The probe
-    // decodes at most 64x64, so the added latency is negligible.
-    const fillPatch = await transparentFillPatch(file, isImage);
-    const content = createTileContent(contentType, {
-      src: blobUrl,
-      ...fillPatch,
-    });
+    const content = createTileContent(contentType, { src: blobUrl });
     const tileId = controller.addTile(content);
 
     if (!tileId) {
       controller.revokeOwnedObjectUrl(blobUrl);
       return;
     }
+
+    // Deliberately not awaited: this path's whole contract is that the tile
+    // exists the moment the caller returns, and an image decode cannot sit in
+    // front of that.
+    applyTransparentFillWhenReady(file, isImage, tileId, controller);
 
     let uploadId: string | null = null;
     try {
@@ -307,12 +330,11 @@ export function useFileUpload() {
     // Immediately show a local preview via blob URL
     const blobUrl = URL.createObjectURL(file);
     const contentType = isImage ? ContentType.IMAGE : ContentType.VIDEO;
-    const fillPatch = await transparentFillPatch(file, isImage);
-    const content = createTileContent(contentType, {
-      src: blobUrl,
-      ...fillPatch,
-    });
+    const content = createTileContent(contentType, { src: blobUrl });
     controller.setTileContent(tileId, content);
+
+    // Not awaited — see uploadFileOptimistic.
+    applyTransparentFillWhenReady(file, isImage, tileId, controller);
 
     let uploadId: string | null = null;
     try {

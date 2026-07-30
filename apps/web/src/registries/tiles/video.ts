@@ -46,7 +46,8 @@ export const videoDefinition: TileDefinition<VideoContent> = {
     externalUrl: (content) => content.tileLink || null,
   },
 
-  toolbar: [...RESIZE_PRESETS, BORDER_TOGGLE, CROP_BUTTON, COLOR_BUTTON, TILE_LINK],
+  // Matches image.ts — border and colour adjacent, crop after them.
+  toolbar: [...RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON, CROP_BUTTON, TILE_LINK],
 
   matchUrl: (url) => isDirectVideoUrl(url),
   parseUrl: (url) => ({ src: url }),

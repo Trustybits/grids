@@ -32,13 +32,30 @@
       :aria-label="displayTitle || displaySubtitle || 'Open link'"
     ></a>
 
-    <div v-if="backgroundImageUrl" class="tile-background" aria-hidden="true">
+    <div
+      v-if="backgroundImageUrl && !backgroundImageFailed"
+      class="tile-background"
+      aria-hidden="true"
+    >
       <img
         class="tile-background-image"
         :src="backgroundImageUrl"
         :alt="content.metaTitle || content.domain"
+        @error="onBackgroundImageError"
       />
       <div class="tile-background-overlay"></div>
+    </div>
+
+    <!-- Owner-only marker for a preview image that will not load.
+         Deliberately a corner badge rather than the full-card `MediaUnavailable`
+         used by the image/video tiles: here the image is a *backdrop* at z-index
+         0, sitting behind the favicon, title, and description at z-index 1. A
+         full-card takeover would render underneath that text rather than
+         replacing it. Dropping the dead layer (above) already restores the
+         card's normal no-image appearance, so this only has to explain why. -->
+    <div v-if="showMissingImageBadge" class="link-image-missing">
+      <AlertCircleIcon :size="12" />
+      <span>Image unavailable</span>
     </div>
 
     <!-- Full-card color wash — renders with or without a preview image. -->
@@ -263,6 +280,7 @@ import { resolveInternalGridRoute } from "@/utils/InternalLink";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import EmailIcon from "../icons/EmailIcon.vue";
 import PhoneIcon from "../icons/PhoneIcon.vue";
+import AlertCircleIcon from "../icons/AlertCircleIcon.vue";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
 import { useTileContentWriter } from "@/composables/useTileContentWriter";
 
@@ -272,6 +290,7 @@ export default defineComponent({
     LinkIndicatorIcon,
     EmailIcon,
     PhoneIcon,
+    AlertCircleIcon,
   },
   props: {
     content: {
@@ -384,6 +403,29 @@ export default defineComponent({
     );
     const backgroundImageUrl = computed(
       () => props.content.customImageUrl || props.content.metaImageUrl || "",
+    );
+
+    const backgroundImageFailed = ref(false);
+    const onBackgroundImageError = () => {
+      backgroundImageFailed.value = true;
+    };
+
+    // Re-arm whenever the source changes, so replacing a dead preview recovers
+    // and undo/redo back to a working URL clears the state.
+    watch(backgroundImageUrl, () => {
+      backgroundImageFailed.value = false;
+    });
+
+    // Only flag the owner's *own* uploaded image. `customImageUrl` is an
+    // archive-backed file they picked, so a failure means an orphan they can
+    // act on. `metaImageUrl` is a scraped OG image on someone else's CDN — it
+    // rots routinely, isn't their file, and isn't fixable from here, so warning
+    // about it would put an unactionable badge on every stale link preview.
+    const showMissingImageBadge = computed(
+      () =>
+        backgroundImageFailed.value &&
+        gridView.canEdit &&
+        !!props.content.customImageUrl,
     );
 
     const contextMenuStyle = computed(() => ({
@@ -854,6 +896,9 @@ export default defineComponent({
       displayDescription,
       displaySubtitle,
       backgroundImageUrl,
+      backgroundImageFailed,
+      onBackgroundImageError,
+      showMissingImageBadge,
       contextMenuStyle,
       draftTitle,
       draftDescription,
@@ -912,6 +957,38 @@ export default defineComponent({
 }
 
 .tile-wrapper[data-link-background="off"] .tile-background {
+  display: none;
+}
+
+/* Owner-only "this preview image is gone" marker. Sits above the card
+   background but is deliberately small and corner-anchored so it never
+   competes with the favicon, title, or description. */
+.link-image-missing {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 16px);
+  padding: 3px 7px;
+  border-radius: var(--radius-sm, 8px);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+  color: color-mix(in srgb, var(--tile-text-color, currentColor) 70%, transparent);
+  background: color-mix(in srgb, var(--tile-text-color, currentColor) 10%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--tile-text-color, currentColor) 20%, transparent);
+}
+
+/* The 1x1 and 1-high layouts have no room for the label beside the icon. */
+.is-tall-1-wide .link-image-missing span,
+.is-wide-1-high .link-image-missing span {
   display: none;
 }
 

@@ -43,6 +43,8 @@ const {
     progressUpload: vi.fn(),
     resolveUpload: vi.fn(() => true),
     failUpload: vi.fn(() => true),
+    failUploadAndRemoveTile: vi.fn(() => true),
+    failUploadAndRestoreTileContent: vi.fn(() => true),
     revokeOwnedObjectUrl: vi.fn(() => true),
     setTileUploading: vi.fn(),
     clearTileUploading: vi.fn(),
@@ -368,10 +370,12 @@ describe("uploadFileOptimistic", () => {
     rejectDone(new Error("upload failed"));
 
     await expect(promise).rejects.toThrow("upload failed");
-    expect(controllerMock.failUpload).toHaveBeenCalledWith("upload-1");
+    expect(controllerMock.failUploadAndRemoveTile).toHaveBeenCalledWith(
+      "upload-1",
+    );
     expect(controllerMock.revokeOwnedObjectUrl).not.toHaveBeenCalled();
     expect(globalThis.URL.revokeObjectURL).not.toHaveBeenCalled();
-    expect(controllerMock.removeTile).toHaveBeenCalledWith("tile-1");
+    expect(controllerMock.removeTile).not.toHaveBeenCalled();
     errSpy.mockRestore();
   });
 });
@@ -415,15 +419,17 @@ describe("uploadFileOptimisticForTile", () => {
     rejectDone(new Error("boom"));
 
     await expect(promise).rejects.toThrow("boom");
-    expect(controllerMock.failUpload).toHaveBeenCalledWith("upload-1");
+    expect(
+      controllerMock.failUploadAndRestoreTileContent,
+    ).toHaveBeenCalledWith(
+      "upload-1",
+      expect.objectContaining({ type: ContentType.SUGGESTION }),
+    );
     expect(mockCreateTileContent).toHaveBeenCalledWith(ContentType.SUGGESTION, {
       action: "media",
       label: "Add Media",
     });
-    expect(controllerMock.setTileContent).toHaveBeenLastCalledWith(
-      "tile-9",
-      expect.objectContaining({ type: ContentType.SUGGESTION }),
-    );
+    expect(controllerMock.setTileContent).toHaveBeenCalledTimes(1);
     errSpy.mockRestore();
   });
 });
@@ -546,8 +552,10 @@ describe("uploadDocumentsOptimistic", () => {
     rejectDone(new Error("doc failed"));
 
     await expect(promise).rejects.toThrow("doc failed");
-    expect(controllerMock.failUpload).toHaveBeenCalledWith("upload-1");
-    expect(controllerMock.removeTile).toHaveBeenCalledWith("tile-1");
+    expect(controllerMock.failUploadAndRemoveTile).toHaveBeenCalledWith(
+      "upload-1",
+    );
+    expect(controllerMock.removeTile).not.toHaveBeenCalled();
     errSpy.mockRestore();
   });
 

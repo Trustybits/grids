@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { isReadonly } from "vue";
-import type { AnyTileContent, Grid } from "@grids/contracts/types";
+import {
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+  type AnyTileContent,
+  type Grid,
+} from "@grids/contracts/types";
 import { createDemoGridViewContext } from "@/grid-context/createDemoGridViewContext";
 import type { GridLayoutItem } from "@/types/GridLayout";
 
@@ -10,6 +14,7 @@ function makeGrid(): Grid {
     userId: "demo-user",
     name: "Demo",
     colNum: 12,
+    responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
     verticalCompact: true,
     backgroundImageSrc: "",
     backgroundEmbed: false,
@@ -55,6 +60,9 @@ describe("createDemoGridViewContext", () => {
     expect(isReadonly(ctx.grid.value)).toBe(true);
     expect(ctx.isOwner.value).toBe(false);
     expect(ctx.canEdit.value).toBe(false);
+    expect(ctx.activePreview.value).toBeNull();
+    expect(ctx.isPreviewActive.value).toBe(false);
+    expect(ctx.blocksGridMutation.value).toBe(false);
     expect(ctx.isLoading.value).toBe(false);
     expect(ctx.verticalCompact.value).toBe(true);
     expect(ctx.activeBreakpoint.value).toBe("lg");
@@ -136,6 +144,7 @@ describe("createDemoGridViewContext", () => {
     ctx.toggleMenuActive("tile-1");
     ctx.togglePanelActive("tile-1", "settings");
     ctx.closeMenus();
+    ctx.stopPreview();
     dispose();
 
     expect(ctx.duplicateTile("tile-1")).toBeNull();

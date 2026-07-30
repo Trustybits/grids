@@ -22,7 +22,7 @@
             <span class="mmd-row__label">Home</span>
           </router-link>
 
-          <div v-if="isOwner" class="mmd-divider" />
+          <Divider v-if="isOwner" />
 
           <!-- Analytics: inline expand/collapse that pushes the recent grids
                down when open (was a floating popover). -->
@@ -86,7 +86,7 @@
             </div>
           </div>
 
-          <div class="mmd-divider" />
+          <Divider />
 
           <!-- Recent grids grow to fill the free space so the account/support
                group stays anchored to the bottom of the panel. -->
@@ -129,7 +129,7 @@
             <span class="mmd-row__label">Need Support?</span>
           </a>
 
-          <div class="mmd-divider" />
+          <Divider />
 
           <button type="button" class="mmd-row mmd-row--button" @click="logout">
             <span class="mmd-row__icon"><ProfileIcon :size="20" /></span>
@@ -153,6 +153,7 @@ import { useGridStats } from "@/composables/useGridStats";
 import { useToastStore } from "@/stores/toast";
 import { valueToMillis } from "@/utils/TimeConversion";
 import type { Grid } from "@grids/contracts/types";
+import Divider from "@/components/ui-elements/Divider.vue";
 import Toggle from "@/components/ui-controls/Toggle.vue";
 import HomeIcon from "@/components/icons/HomeIcon.vue";
 import AnalyticsIcon from "@/components/icons/AnalyticsIcon.vue";
@@ -395,12 +396,6 @@ const logout = async () => {
 
 .mmd-account-toggle {
   padding: var(--spacing-xs) var(--spacing-sm);
-}
-
-.mmd-divider {
-  height: var(--border-width);
-  margin: var(--spacing-xs) var(--spacing-sm);
-  background: var(--color-stroke);
 }
 
 .mmd-fade-enter-active,

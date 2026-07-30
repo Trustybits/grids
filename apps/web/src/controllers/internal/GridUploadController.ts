@@ -72,11 +72,17 @@ export class GridUploadController {
   }
 
   failUpload(uploadId: string): boolean {
-    if (!this.validateUpload(uploadId)) {
+    return this.failUploadForCleanup(uploadId) !== null;
+  }
+
+  failUploadForCleanup(uploadId: string): GridUploadRecord | null {
+    const record = this.validateUpload(uploadId);
+    if (!record) {
       this.stores.uploads.abandonUpload(uploadId);
-      return false;
+      return null;
     }
-    return this.stores.uploads.failUpload(uploadId);
+    if (!this.stores.uploads.failUpload(uploadId)) return null;
+    return record;
   }
 
   abandonUpload(uploadId: string): boolean {

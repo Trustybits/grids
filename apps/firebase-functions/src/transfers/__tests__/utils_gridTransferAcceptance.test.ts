@@ -225,6 +225,7 @@ describe("rewriteGridForTransfer", () => {
       nonCopiableHashes: new Set([blockedHash, "c".repeat(64)]),
       grid: {
         rev: 4,
+        responsiveLayoutVersion: "griddle-v1",
         backgroundImageSrc: "old-bg",
         backgroundImageHash: "c".repeat(64),
         tiles: [
@@ -264,6 +265,7 @@ describe("rewriteGridForTransfer", () => {
       upvotePropertyName: "",
       statusMapping: {},
     });
+    expect(result).not.toHaveProperty("responsiveLayoutVersion");
     expect(contractsStorage.rewriteBackgroundImage).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ removeBackgroundImage: true }),

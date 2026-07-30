@@ -19,7 +19,10 @@ body.theme-light,
   --color-input-edit: var(--color-dark-0-8);
 
   --color-stroke: #00000014;
-  
+  // Dividers sit one step stronger than a container edge so a line separating
+  // content reads differently from a line enclosing it.
+  --color-divider: var(--color-black-13);
+
   --color-editable-hover: rgba(0, 0, 0, 0.03);
 
   --primary-color: #009688;
@@ -50,7 +53,8 @@ body.theme-dark,
   --color-input-edit: var(--color-light-100-8);
 
   --color-stroke: #FFFFFF14;
-  
+  --color-divider: var(--color-white-13);
+
   --color-editable-hover: rgba(255, 255, 255, 0.05);
 
   --primary-color: #9e4db6;

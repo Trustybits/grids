@@ -60,28 +60,59 @@ export class GridPersistenceController {
       Record<string, string>
     > = this.stores.uploads.resolvedDocumentItemUrls,
   ): Promise<void> {
+    try {
+      await this.saveCurrentGridOrThrow(
+        resolvedUrls,
+        resolvedDocumentItemUrls,
+      );
+    } catch {
+      // Legacy callers observe save failures through store state.
+    }
+  }
+
+  async saveCurrentGridOrThrow(
+    resolvedUrls: Record<string, string> =
+      this.stores.uploads.resolvedUrls,
+    resolvedDocumentItemUrls: Record<
+      string,
+      Record<string, string>
+    > = this.stores.uploads.resolvedDocumentItemUrls,
+    bypassEditPermission = false,
+  ): Promise<void> {
     const scope = this.enqueueSave(
       resolvedUrls,
       resolvedDocumentItemUrls,
+      bypassEditPermission,
     );
-    if (!scope) return;
+    if (!scope) {
+      throw new Error("The grid could not be scheduled for saving.");
+    }
+
     try {
       await this.flushPersistenceScope(scope);
-    } catch {
-      // Legacy callers observe save failures through store state.
+    } catch (error) {
+      // GridPersistenceScheduler retains a drained failed lane so a later
+      // generic flush can observe it. This command already observed the
+      // failure, so consume that retained result and leave an immediate retry
+      // with a fresh lane.
+      await this.dependencies.persistenceScheduler
+        .flush(scope)
+        .catch(() => undefined);
+      throw error;
     }
   }
 
   private enqueueSave(
     resolvedUrls: Record<string, string>,
     resolvedDocumentItemUrls: Record<string, Record<string, string>>,
+    bypassEditPermission = false,
   ): GridPersistenceScope | null {
     const grid = this.stores.session.currentGrid;
     if (!grid) {
       console.warn("No grid to save.");
       return null;
     }
-    if (!this.canSaveCurrentGrid()) {
+    if (!bypassEditPermission && !this.canSaveCurrentGrid()) {
       return null;
     }
 

@@ -9,7 +9,10 @@ import {
   type Tile,
 } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
-import { TILE_DRAGGING_ID } from "@/grid-context/tileInteractionKeys";
+import {
+  TILE_DRAGGING_ID,
+  TILE_REMOVE_REQUEST,
+} from "@/grid-context/tileInteractionKeys";
 
 const storeHolder = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
@@ -105,16 +108,21 @@ function makeStore(tile: Tile) {
 async function mountGridTile(
   store: ReturnType<typeof makeStore>,
   layout: GridLayoutItem,
+  removeTileRequest?: (tileId: string) => void,
 ) {
   storeHolder.current = store;
   const draggingTileId = ref<string | null>(null);
+  const provided: Record<symbol, unknown> = {
+    [TILE_DRAGGING_ID as symbol]: draggingTileId,
+  };
+  if (removeTileRequest) {
+    provided[TILE_REMOVE_REQUEST as symbol] = removeTileRequest;
+  }
   const { default: GridTile } = await import("@/components/grid/Tile.vue");
   const wrapper = mount(GridTile, {
     props: { tile: store.currentGrid.tiles[0]!, layout },
     global: {
-      provide: {
-        [TILE_DRAGGING_ID as symbol]: draggingTileId,
-      },
+      provide: provided,
       stubs: {
         TileActions: true,
         TileCaption: true,
@@ -181,6 +189,30 @@ describe("GridTile position-only rendering", () => {
     );
 
     wrapper.unmount();
+  });
+
+  it("routes delayed deletion through the grid engine removal request", async () => {
+    const tile = makeTile();
+    const store = makeStore(tile);
+    const removeTileRequest = vi.fn();
+    const { wrapper } = await mountGridTile(
+      store,
+      { i: tile.i, x: 0, y: 0, w: 2, h: 2 },
+      removeTileRequest,
+    );
+    vi.useFakeTimers();
+
+    (
+      wrapper.vm as unknown as { removeElement: () => void }
+    ).removeElement();
+    expect(removeTileRequest).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(250);
+    expect(removeTileRequest).toHaveBeenCalledWith("tile-1");
+    expect(store.removeTile).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+    vi.useRealTimers();
   });
 
   it("reflows child content when the tile footprint changes", async () => {

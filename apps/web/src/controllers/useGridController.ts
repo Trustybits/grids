@@ -6,6 +6,7 @@ import { GridPersistenceScheduler } from "@/services/GridPersistenceScheduler";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
+import { useGridPreviewStore } from "@/stores/grid/gridPreview";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridUploadsStore } from "@/stores/grid/gridUploads";
@@ -75,6 +76,7 @@ export function useGridController(pinia?: Pinia): GridController {
     {
       collection: useGridCollectionStore(resolvedPinia),
       history: useGridHistoryStore(resolvedPinia),
+      preview: useGridPreviewStore(resolvedPinia),
       session: useGridSessionStore(resolvedPinia),
       ui: useGridUiStore(resolvedPinia),
       uploads: useGridUploadsStore(resolvedPinia),

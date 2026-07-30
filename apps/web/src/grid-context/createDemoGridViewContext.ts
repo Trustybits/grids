@@ -1,23 +1,19 @@
 import { computed, readonly, ref, shallowRef } from "vue";
-import type { Breakpoint, Grid } from "@grids/contracts/types";
+import {
+  type Breakpoint,
+  type Grid,
+} from "@grids/contracts/types";
 import type { GridViewContext } from "@/grid-context/GridViewContext";
-import { projectGridLayout } from "@/utils/GridLayoutUtils";
-
-function projectInitialDisplayPositions(grid: Grid) {
-  return projectGridLayout({
-    tiles: grid.tiles,
-    breakpoint: "lg",
-    columns: grid.colNum,
-    overrides: grid.overrides,
-  });
-}
+import { toCanonicalLayoutItems } from "@/utils/GriddleAdapter";
 
 export function createDemoGridViewContext(grid: Grid): GridViewContext {
   const gridRef = shallowRef(grid);
   const forcedBreakpoint = ref<Breakpoint | null>(null);
   const activeBreakpoint = ref<Breakpoint>("lg");
   const viewportBreakpoint = ref<Breakpoint>("lg");
-  const displayPositions = ref(projectInitialDisplayPositions(grid));
+  // Seed the context with canonical geometry until Griddle publishes its final
+  // rendered state.
+  const displayPositions = ref(toCanonicalLayoutItems(grid.tiles));
   const pendingFocusTileId = ref<string | null>(null);
   const noop = () => {};
 
@@ -27,6 +23,9 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
     grid: computed(() => readonly(gridRef.value)),
     isOwner: computed(() => false),
     canEdit: computed(() => false),
+    activePreview: computed(() => null),
+    isPreviewActive: computed(() => false),
+    blocksGridMutation: computed(() => false),
     isLoading: computed(() => false),
     verticalCompact: computed(() => gridRef.value.verticalCompact),
     activeBreakpoint: computed(() => activeBreakpoint.value),
@@ -56,6 +55,7 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
       }));
     },
     commitCompactedLayout: noop,
+    stopPreview: noop,
 
     beginMove: noop,
     commitMove: noop,

@@ -33,6 +33,21 @@ describe("CROP_BUTTON", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it("titles itself by what the press will do, not by what the button is", () => {
+    const resolve = (editing: boolean) => {
+      const ctx = makeCtx({});
+      ctx.isEditing.value = editing;
+      return typeof CROP_BUTTON.title === "function"
+        ? CROP_BUTTON.title(ctx)
+        : CROP_BUTTON.title;
+    };
+
+    expect(resolve(false)).toBe("Crop & zoom");
+    // Without this the tooltip stayed "Crop & zoom" while already cropping,
+    // leaving nothing to say how to get out.
+    expect(resolve(true)).toBe("Finish cropping");
+  });
+
   it("returns early when the child has no toggleEditMode", () => {
     const ctx = makeCtx({});
     expect(() => CROP_BUTTON.action(ctx)).not.toThrow();

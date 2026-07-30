@@ -314,7 +314,7 @@ const getLuminance = (hex: string): number => {
 // is set. With a grid background active it covers the image instead of dropping
 // out. Render it as a truly transparent fill so "no fill" removes the tile
 // background everywhere and the grid background shows through.
-const NO_FILL_COLOR = "var(--color-content-background)";
+export const NO_FILL_COLOR = "var(--color-content-background)";
 const TRANSPARENT_FILL = "transparent";
 
 const resolveBackgroundColor = (

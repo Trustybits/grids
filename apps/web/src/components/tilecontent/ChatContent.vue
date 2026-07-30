@@ -699,7 +699,16 @@ export default defineComponent({
   overflow-anchor: none;
   margin: 0 -10px;
   padding: 0 10px;
-  overscroll-behavior: contain;
+  /* Deliberately `auto`, not `contain`. `contain` blocks scroll chaining to the
+     page, so once this list has nothing left to scroll — few messages, or
+     already at an edge — the browser finds no scroll target and never claims
+     the gesture. Without that claim it fires no `pointercancel`, which is the
+     only signal that makes Griddle abandon a pending tile drag, so a swipe
+     meant to scroll the page picks the tile up instead. Chaining lets the page
+     take over at the list's limits and Griddle backs off.
+     Interim: the underlying cause is drag arming on a movement threshold — see
+     Phase 8 in notes/mobile-2-early-access-plan.md. */
+  overscroll-behavior: auto;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   position: relative;

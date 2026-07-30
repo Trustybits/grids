@@ -50,9 +50,9 @@ import type { Breakpoint } from "@grids/contracts/types";
 import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridController } from "@/controllers/useGridController";
 import { useGridPreview } from "@/composables/useGridPreview";
-import DeviceDesktopIcon from "@/components/icons/DeviceDesktopIcon.vue";
-import DeviceTabletIcon from "@/components/icons/DeviceTabletIcon.vue";
-import DeviceMobileIcon from "@/components/icons/DeviceMobileIcon.vue";
+import PreviewDesktopIcon from "@/components/icons/PreviewDesktopIcon.vue";
+import PreviewTabletIcon from "@/components/icons/PreviewTabletIcon.vue";
+import PreviewMobileIcon from "@/components/icons/PreviewMobileIcon.vue";
 import CloseIcon from "@/components/icons/CloseIcon.vue";
 
 // Widest first, matching the Figma order and the desktop switcher.
@@ -60,17 +60,17 @@ const BREAKPOINTS = [
   {
     key: "lg" as Breakpoint,
     label: "desktop",
-    icon: markRaw(DeviceDesktopIcon),
+    icon: markRaw(PreviewDesktopIcon),
   },
   {
     key: "md" as Breakpoint,
     label: "tablet",
-    icon: markRaw(DeviceTabletIcon),
+    icon: markRaw(PreviewTabletIcon),
   },
   {
     key: "sm" as Breakpoint,
     label: "mobile",
-    icon: markRaw(DeviceMobileIcon),
+    icon: markRaw(PreviewMobileIcon),
   },
 ];
 
@@ -128,7 +128,7 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
 .mpt-group {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xxs, 4px);
+  gap: var(--spacing-xs);
 }
 
 // 40x40 to match the app bar and command pill — the whole mobile chrome shares
@@ -161,10 +161,13 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
   }
 }
 
+// A short centered tick rather than a full-height rule, per the Figma: it
+// separates Close from the breakpoints without reading as a second border.
 .mpt-divider {
   width: var(--border-width);
-  align-self: stretch;
-  margin: var(--spacing-xs) 2px;
+  height: var(--spacing-md);
+  flex: 0 0 auto;
+  margin: 0 2px;
   background: var(--color-stroke);
 }
 

@@ -4,13 +4,17 @@ import AddTileIcon from "../AddTileIcon.vue";
 import CarouselIcon from "../CarouselIcon.vue";
 import GridSettingsIcon from "../GridSettingsIcon.vue";
 import ListViewIcon from "../ListViewIcon.vue";
+import PreviewDesktopIcon from "../PreviewDesktopIcon.vue";
 import PreviewIcon from "../PreviewIcon.vue";
+import PreviewMobileIcon from "../PreviewMobileIcon.vue";
+import PreviewTabletIcon from "../PreviewTabletIcon.vue";
 import ShareAppleIcon from "../ShareAppleIcon.vue";
 import ShareDefaultIcon from "../ShareDefaultIcon.vue";
 
 /**
- * The Mobile 2.0 command-bar icon set (Figma `mobileGridBar` 1727:11044 and
- * `addTile` 1728:11055).
+ * The Mobile 2.0 chrome icon set: the command bar (Figma `mobileGridBar`
+ * 1727:11044 and `addTile` 1728:11055) plus the preview toolbar (`preview`
+ * 1765:11379).
  *
  * Each icon is Figma's exported path(s) placed in a 24x24 box via a nested
  * `<svg>` carrying the inset Figma laid it out at. That inset is hand-converted
@@ -24,11 +28,14 @@ const icons = {
   GridSettingsIcon,
   ListViewIcon,
   PreviewIcon,
+  PreviewDesktopIcon,
+  PreviewTabletIcon,
+  PreviewMobileIcon,
   ShareAppleIcon,
   ShareDefaultIcon,
 };
 
-describe("command bar icons", () => {
+describe("mobile chrome icons", () => {
   for (const [name, component] of Object.entries(icons)) {
     describe(name, () => {
       it("draws into a 24x24 box at the requested size", () => {

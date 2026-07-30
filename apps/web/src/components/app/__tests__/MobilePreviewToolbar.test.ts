@@ -27,9 +27,9 @@ vi.mock("@/composables/useGridPreview", () => ({
 }));
 
 const iconStub = { default: { template: "<span class='icon' />" } };
-vi.mock("@/components/icons/DeviceDesktopIcon.vue", () => iconStub);
-vi.mock("@/components/icons/DeviceTabletIcon.vue", () => iconStub);
-vi.mock("@/components/icons/DeviceMobileIcon.vue", () => iconStub);
+vi.mock("@/components/icons/PreviewDesktopIcon.vue", () => iconStub);
+vi.mock("@/components/icons/PreviewTabletIcon.vue", () => iconStub);
+vi.mock("@/components/icons/PreviewMobileIcon.vue", () => iconStub);
 vi.mock("@/components/icons/CloseIcon.vue", () => iconStub);
 
 const mountToolbar = async () => {

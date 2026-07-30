@@ -62,6 +62,7 @@ import {
   toGriddlePlacements,
   toGriddleTiles,
 } from "@/utils/GriddleAdapter";
+import { isHiddenSuggestion } from "@/utils/TileUtils";
 import {
   TILE_DRAGGING_ID,
   TILE_GEOMETRY_VERSION,
@@ -129,8 +130,15 @@ export default {
     // Griddle owns tile state and all responsive geometry. `contractTiles`
     // maps a Griddle tile id back to our `Tile` for the #tile slot.
     const contractTiles = computed(() => gridView.grid?.tiles ?? []);
+    // Hidden suggestions leave the render map but stay in the layout below, so
+    // the cell they reserved reads as empty space without reflowing neighbours.
     const tilesById = computed(
-      () => new Map(contractTiles.value.map((tile) => [tile.i, tile])),
+      () =>
+        new Map(
+          contractTiles.value
+            .filter((tile) => !isHiddenSuggestion(tile, gridView.canEdit))
+            .map((tile) => [tile.i, tile]),
+        ),
     );
 
     const canonicalLayout = computed(() =>

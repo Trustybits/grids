@@ -7,6 +7,7 @@ import {
   type Breakpoint,
   type Grid,
   type LinkContent,
+  type SuggestionContent,
   type Tile,
 } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
@@ -1033,6 +1034,49 @@ describe("Grid canvas characterization", () => {
       wrapper.unmount();
     },
   );
+
+  it("empties a suggestion tile's cell when editing is off, without reflowing", async () => {
+    const real = makeTile({ i: "tile-1", x: 0, y: 0, w: 2, h: 2 });
+    const suggestion = makeTile({
+      i: "tile-2",
+      x: 2,
+      y: 0,
+      w: 2,
+      h: 2,
+      content: {
+        type: ContentType.SUGGESTION,
+        action: "profile",
+        label: "Add Profile",
+      } as SuggestionContent,
+    });
+    const grid = makeGrid(real);
+    grid.tiles = [real, suggestion];
+    const { store } = makeStore(grid);
+    store.verticalCompact = false;
+    storeHolder.current = store;
+
+    const wrapper = await mountGrid();
+    await flushPromises();
+    const renderedIds = () =>
+      wrapper
+        .findAll('[data-test="grid-tile"]')
+        .map((tile) => tile.attributes("data-tile-id"));
+
+    expect(renderedIds()).toEqual(["tile-1", "tile-2"]);
+
+    store.canEdit = false;
+    await nextTick();
+
+    expect(renderedIds()).toEqual(["tile-1"]);
+    // Griddle still owns the cell, so neighbours keep their placements.
+    expect(wrapper.find('[data-griddle-tile="tile-2"]').exists()).toBe(true);
+    expect(store.setDisplayPositions).toHaveBeenLastCalledWith([
+      { i: "tile-1", x: 0, y: 0, w: 2, h: 2 },
+      { i: "tile-2", x: 2, y: 0, w: 2, h: 2 },
+    ]);
+
+    wrapper.unmount();
+  });
 
   it("reports an empty grid as ready and renders no GriddleGrid", async () => {
     const grid = makeGrid();

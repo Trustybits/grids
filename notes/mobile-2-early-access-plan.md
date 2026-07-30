@@ -1,6 +1,12 @@
 # Mobile 2.0 — Early Access Implementation Plan
 
-Status: **in progress — Phases 1–3 complete (early-access plumbing + bottom command bar + top AppBar & menu drawer, now extended to the home screen); Phases 4+ pending.**
+Status: **in progress — Phases 1–4 complete (early-access plumbing, bottom command bar, top AppBar &
+menu drawer extended to the home screen, and the command pill itself), plus Phase 5.1/5.1.1 (the
+`/TILE` input and coverflow carousel), all of Phase 6 (the Grid Settings sheet, 6.1–6.5), and Phase 7
+(preview mode). Outstanding: 5.2, then Phases 8–10.**
+
+One of the four command-pill buttons is still **interim**: **Share** copies the link to the clipboard
+rather than opening the new modal (Phase 9).
 
 Mobile 2.0 is a redesign of the Grids editing chrome on mobile: the app bar and toolbars are
 combined and collapsed to modernize the interface, minimize on-screen elements, and make the app
@@ -201,7 +207,10 @@ Interim notes to revisit in later phases:
       Mac branch. Resolved once at setup (the UA cannot change mid-session). Sniffing is confined to
       cosmetics: a wrong guess only shows a slightly foreign glyph, never changes behavior.
 
-### Phase 5 — Add-a-Tile carousel + `/TILE` input 🟡 IN PROGRESS (5.1 + 5.1.1 done, 5.2 next)
+### Phase 5 — Add-a-Tile carousel + `/TILE` input 🟡 IN PROGRESS (5.1 + 5.1.1 done; 5.2 outstanding)
+
+> Phase 6 was completed ahead of 5.2 — 5.2 is the one piece leapfrogged, not dropped. It needs a
+> curated subtype registry that does not exist yet, which is why it did not block the settings work.
 
 Product decisions (confirmed): the pill **is** the command input — one morphing component.
 Tapping **Add Tile** grows the pill (the shell never fades — it transforms via a FLIP width
@@ -334,7 +343,7 @@ centered card live**. Subtypes (`/SPOTIFY` et al.) stay in 5.2.
 - [ ] Per-grid **"N times used"** counts, computed from the current grid's tiles
 - [ ] `/TILE` (tile types) vs general-search (subtypes/content) semantics once the list exists
 
-### Phase 6 — Grid Settings sheet 🟡 IN PROGRESS (6.1 + 6.2 + 6.3 done)
+### Phase 6 — Grid Settings sheet ✅ COMPLETE (6.1–6.5; eyedropper + VALUE BOX tab deferred)
 
 Product decisions (confirmed): extract a shared `useGridSettings` composable so the desktop
 `GridSettings` dropdown and the mobile sheet share one implementation (same pattern as
@@ -521,10 +530,75 @@ picker, following the same morph/rise/flush pattern as `/GRID` and `/HEX`.
       highlights/uploads; bar `/background` morph + link-on-Enter + double-backspace step-up; settings
       sheet emits `open-image`). Suites green; typecheck + lint clean.
 
-### Phase 7 — Preview mode transition ⬜ NOT STARTED
+### Phase 7 — Preview mode transition ✅ COMPLETE
 
-- [ ] `Toolbar:Top` breakpoint switcher (Desktop/Tablet/Mobile) + Close (replaces Breakpoint-Switcher)
-- [ ] Animated transition between `MobileCommandBar`, `AppBar`, and `Toolbar:Top`
+Figma "PreviewMode" (`1474-9178`), whose `Toolbar:Top` is `1474-9257`. The frame draws the AppBar at
+`top: -48px` and the bottom pill at `bottom: -64px` — both off-canvas — which is the spec for the
+motion: the two editing bars leave and the preview toolbar takes the space they vacate.
+
+Product decisions (confirmed): preview is **read-only at every breakpoint**; Desktop/Tablet render at
+the **raw forced breakpoint** (no scaled device frame); **Close resets to auto**.
+
+- [x] **Preview reuses the existing `gridPreview` store**, which was built for exactly this and until
+      now had nothing starting a preview. Its `blocksGridMutation` was already consulted by
+      `GridController.canEdit`, so entering a preview turns *every* editing affordance and mutation
+      path off in one move — the read-only guarantee is structural, not a list of things remembered to
+      disable. The store scopes previews by grid id, so one left behind by an unloaded grid cannot
+      suppress editing on the next.
+- [x] **`GridController.startPreview(kind)`** — the missing counterpart to the existing `stopPreview`.
+      No-ops without a loaded grid. Breakpoint inspection deliberately still works while previewing
+      (`setForcedBreakpoint` bypasses the mutation predicate), since that is what preview is *for*.
+- [x] **`useGridPreview` composable** — `isPreviewActive` / `enterPreview` / `exitPreview`, shared by
+      the four surfaces that care. Exiting also clears the forced breakpoint: preview is a temporary
+      lens, and leaving a wider-than-viewport breakpoint forced would otherwise leave the grid
+      silently uneditable.
+- [x] **`MobilePreviewToolbar.vue`** — top-center pill, flush to the top edge with only its bottom
+      corners rounded (no top border), 40x40 buttons matching the rest of the mobile chrome. Highlights
+      `renderedBreakpoint` rather than `forcedBreakpoint`, so opening preview lands on the current
+      device without having to force anything first. Tapping the active breakpoint is a **no-op** —
+      unlike the desktop switcher, clearing the override would fall back to the same breakpoint while
+      dropping the highlight, which reads as the button breaking. Close and Escape both exit. Drops
+      `ViewControls`' dimmed "eye" and saved-override dot: everything is view-only in here, and there
+      is nothing to save.
+- [x] **The transition** runs all three surfaces on `--duration-slow` / `--easing-gentle`, matching the
+      pill morph. The AppBar and command bar are **translated out rather than unmounted**, so they
+      travel in step with the toolbar dropping in instead of popping. The AppBar subtracts
+      `--app-status-banners-height` from its travel or it stops short and peeks under the banners; the
+      command bar adds its resting gap so the pill fully clears the bottom edge. The toolbar's own
+      enter/leave classes live in **its** scoped style block, since that is where its root element's
+      scope id comes from, and they restate the `translateX(-50%)` centering because `transform` is a
+      single property.
+- [x] Entering preview collapses the pill back to `default`. The bar slides away regardless, but an
+      open sheet would otherwise still be open when preview closes and the bar slides back up.
+- [x] **Bug fixed along the way:** `UndoRedoControls` was the one floating control in `GridPage` not
+      guarded by `mobile2Active` (its neighbors on the two adjacent lines both are), so on Mobile 2.0
+      it rendered on top of the app bar's own Undo in the same corner — and would have floated over
+      preview. Now guarded.
+- [x] Removed the interim Preview popover, its `mgb-pop` transition, the now-unused
+      `.mobile-grid-bar__popover` rule, and `MobileGridBar`'s `ViewControls` import.
+- [x] **Redundant banner suppressed.** `ViewportWarning`'s "Previewing … view only" bar restated what
+      the preview toolbar already shows, so it is silent while a preview is active for the current
+      grid. It still fires on desktop, where forcing a wide breakpoint is not self-evidently a preview.
+- [x] **Suggestion tiles hide when editing is off** (`isHiddenSuggestion` in `TileUtils`). Preview is
+      meant to be what a visitor sees, and the seeded "Add Profile" / "Add Link" scaffolding was
+      showing through. It turned out **no such rule existed anywhere** — visitors on a shared URL saw
+      the dashed placeholders too — so the rule is keyed on `canEdit` rather than on preview, which
+      fixes the public view and keeps preview honest by construction. Hidden suggestions leave
+      `Grid.vue`'s render map but stay in the Griddle layout: the reserved cell reads as empty space
+      and the tiles around it keep the placement the owner arranged (maintainer's call over reflowing).
+- [x] Tests: new `MobilePreviewToolbar` suite (breakpoint set, active highlight tracking, no-op re-tap,
+      close/Escape, listener teardown), `GridController.startPreview` coverage asserting
+      `canEditCurrentGrid()` flips to false and back, `MobileAppBar` / `MobileGridBar` coverage for
+      sliding out plus the sheet collapse, a `ViewportWarning` suite, and `isHiddenSuggestion` unit +
+      `Grid.vue` render coverage (cell emptied, neighbours unmoved). Full suite green (2852);
+      typecheck + lint clean.
+
+Deferred follow-up:
+
+- **Editing at a breakpoint other than the current one.** Preview is strictly read-only, so there is
+  still no way to adjust the tablet or desktop layout from a phone. The maintainer wants this, as its
+  own phase — it needs a real answer for how a 12-column layout is manipulated on a 320px screen,
+  which is the same question the scaled device frame rejected above would have to answer.
 
 ### Phase 8 — Tile Toolbar + TileAction Toolbar ⬜ NOT STARTED
 
@@ -538,6 +612,24 @@ picker, following the same morph/rise/flush pattern as `/GRID` and `/HEX`.
 
 ### Phase 10 — Housekeeping & GA cutover ⬜ NOT STARTED
 
+- [x] **Dividers standardized (cross-cutting).** Every hairline that separates content now goes
+      through the shared `ui-elements/Divider.vue` in one of two orientations, rather than being
+      restated per component. Three things came out of this:
+  - **Color: `--color-divider`**, a new semantic token set to `--color-black-13` / `--color-white-13`
+      per theme. All six mobile dividers had been on `--color-stroke`, which is the **8%** step, so a
+      divider was indistinguishable from a container edge. `--color-stroke` itself was left alone —
+      33 files reference it, nearly all desktop borders.
+  - **Length: fill the space, minus `--divider-inset` (12px) at each end**, rather than a declared
+      size. A vertical divider in a 40px command pill lands at 16px on its own, and the same rule
+      gives horizontal dividers their side inset. 12px is its own token because the spacing scale
+      jumps 8 → 16.
+  - Callers keep the cross-axis rhythm (the gap *around* a divider is layout, not the divider):
+      horizontal carries a default `--spacing-xs` block margin, and verticals take their side spacing
+      from the row's existing flex `gap` — which retired an untokenized 2px margin. The one override
+      is the settings-sheet header separator, held flush against the fixed header for the height
+      budget. Desktop `GridSettings` shares the component and follows the same rules.
+  - Deleted the dead `MobileCommandBar` `end`-slot divider: `MobileGridBar` had always inlined its
+      own, so that slot and its CSS never rendered.
 - [ ] Inventory old UI superseded by Mobile 2.0; remove after validation
 - [ ] Confirm tests, separation of concerns, and token usage across all phases
 - [ ] Retire the `beta-mobile-2` gate at GA

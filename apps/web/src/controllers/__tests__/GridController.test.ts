@@ -691,6 +691,58 @@ describe("GridController", () => {
     expect(stores.ui.showMetaData).toBe(true);
   });
 
+  describe("startPreview", () => {
+    it("previews the current grid and makes it read-only", () => {
+      const { controller, stores } = createControllerHarness();
+      stores.session.setCurrentGrid(makeGrid({ id: "grid-1" }));
+      stores.session.setOwner(true);
+      expect(controller.canEditCurrentGrid()).toBe(true);
+
+      controller.startPreview("mobile-breakpoint");
+
+      expect(stores.preview.activePreview).toEqual({
+        kind: "mobile-breakpoint",
+        gridId: "grid-1",
+      });
+      // The whole point of preview: read-only at every breakpoint, not just the
+      // ones wider than the viewport.
+      expect(controller.canEditCurrentGrid()).toBe(false);
+    });
+
+    it("restores editing when the preview stops", () => {
+      const { controller, stores } = createControllerHarness();
+      stores.session.setCurrentGrid(makeGrid());
+      stores.session.setOwner(true);
+      controller.startPreview("mobile-breakpoint");
+
+      controller.stopPreview();
+
+      expect(stores.preview.activePreview).toBeNull();
+      expect(controller.canEditCurrentGrid()).toBe(true);
+    });
+
+    it("ignores a preview request with no grid loaded", () => {
+      const { controller, stores } = createControllerHarness();
+
+      controller.startPreview("mobile-breakpoint");
+
+      expect(stores.preview.activePreview).toBeNull();
+    });
+
+    it("keeps breakpoint inspection working while previewing", () => {
+      // Forcing a breakpoint is how preview does its job, so it has to stay
+      // available even though preview blocks user mutations.
+      const { controller, stores } = createControllerHarness();
+      stores.session.setCurrentGrid(makeGrid());
+      stores.session.setOwner(true);
+      controller.startPreview("mobile-breakpoint");
+
+      controller.setForcedBreakpoint("sm");
+
+      expect(stores.viewport.forcedBreakpoint).toBe("sm");
+    });
+  });
+
   it("refreshes stable history when forcing a breakpoint", () => {
     const { controller, stores } = createControllerHarness();
     const grid = makeGrid();

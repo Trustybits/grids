@@ -371,6 +371,17 @@ export function validateTileContent(content: TileContent): boolean {
   return false;
 }
 
+/**
+ * Suggestion tiles are authoring scaffolding rather than content: they invite
+ * the owner to fill a cell they are already occupying. Anyone who cannot edit
+ * — a visitor on a shared URL, or the owner inside a read-only preview — sees
+ * that cell as empty space instead, so preview and the public view agree by
+ * construction.
+ */
+export function isHiddenSuggestion(tile: Tile, canEdit: boolean): boolean {
+  return !canEdit && tile.content.type === ContentType.SUGGESTION;
+}
+
 export function getContentComponent(content: TileContent): Component | null {
   const def = getTileDefinition(content.type);
   if (!def) {

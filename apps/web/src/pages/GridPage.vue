@@ -76,7 +76,11 @@
           v-if="isOwner && switcherVariant === 'floating' && !mobile2Active"
           variant="floating"
         />
-        <UndoRedoControls v-if="isOwner" />
+        <!--
+          Mobile 2.0 moves undo into the app bar, so this floating control would
+          otherwise sit on top of it in the same corner — and float over preview.
+        -->
+        <UndoRedoControls v-if="isOwner && !mobile2Active" />
 
         <!--
           Toolbar area: tile-add buttons are hidden during view-only preview

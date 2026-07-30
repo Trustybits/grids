@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
+import { ref } from "vue";
 import { ContentType } from "@grids/contracts/types";
 
 const Icon = { template: "<span class='icon' />" };
+
+// Module scope rather than `vi.hoisted`, because `ref` is not available that
+// early. The mock factory below only runs when the component is imported inside
+// a test, by which point this is initialized.
+const isPreviewActive = ref(false);
 
 const holder = vi.hoisted(() => ({
   createTile: vi.fn(() => "tile-1"),
@@ -16,6 +22,7 @@ const holder = vi.hoisted(() => ({
   linkBackgroundImage: vi.fn(),
   loadSavedColors: vi.fn(async () => undefined),
   addSavedColor: vi.fn(async () => undefined),
+  enterPreview: vi.fn(),
   types: [] as Array<Record<string, unknown>>,
 }));
 
@@ -95,8 +102,11 @@ vi.mock("@/components/app/MobileImageSwapSheet.vue", () => ({
   },
 }));
 
-vi.mock("@/components/grid/ViewControls.vue", () => ({
-  default: { template: "<div class='view-controls-stub' />" },
+vi.mock("@/composables/useGridPreview", () => ({
+  useGridPreview: () => ({
+    isPreviewActive,
+    enterPreview: holder.enterPreview,
+  }),
 }));
 
 const mountBar = async () => {
@@ -124,6 +134,7 @@ const cardNamed = (
 describe("MobileGridBar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isPreviewActive.value = false;
     holder.types = [
       {
         id: "chat",
@@ -155,6 +166,36 @@ describe("MobileGridBar", () => {
     expect(wrapper.find('[aria-label="Grid settings"]').exists()).toBe(true);
     expect(wrapper.find('[aria-label="Preview"]').exists()).toBe(true);
     expect(wrapper.find('[aria-label="Share"]').exists()).toBe(true);
+  });
+
+  it("enters preview when Preview is tapped", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Preview"]').trigger("click");
+    expect(holder.enterPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("slides out of view while previewing", async () => {
+    const wrapper = await mountBar();
+    expect(wrapper.classes()).not.toContain("mgb--preview");
+
+    isPreviewActive.value = true;
+    await flush(wrapper);
+
+    expect(wrapper.classes()).toContain("mgb--preview");
+  });
+
+  it("collapses an open sheet when preview starts", async () => {
+    // The bar slides away either way, but a sheet left open would still be open
+    // when preview closes and the bar slides back up.
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Grid settings"]').trigger("click");
+    await flush(wrapper);
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(true);
+
+    isPreviewActive.value = true;
+    await flush(wrapper);
+
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(false);
   });
 
   it("morphs into settings mode (/GRID input + rising sheet) when Grid settings is tapped", async () => {

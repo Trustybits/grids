@@ -182,6 +182,19 @@ export class GridController {
     });
   }
 
+  /**
+   * Enter a session-local preview of the current grid.
+   *
+   * Read-only by construction rather than by convention: `canEdit` consults
+   * `blocksCurrentGridMutation`, so starting a preview closes every editing
+   * affordance and mutation path for as long as it is active.
+   */
+  startPreview(kind: string): void {
+    const gridId = this.stores.session.currentGrid?.id;
+    if (!gridId) return;
+    this.stores.preview.startPreview({ kind, gridId });
+  }
+
   stopPreview(): void {
     this.stores.preview.stopPreview();
   }

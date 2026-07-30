@@ -26,23 +26,16 @@ describe("MobileCommandBar", () => {
     );
   });
 
-  it("omits the divider when no end slot is provided", () => {
-    const wrapper = mount(MobileCommandBar, {
-      slots: { default: "<button>A</button>" },
-    });
-    expect(wrapper.find(".mobile-command-bar__divider").exists()).toBe(false);
-  });
-
-  it("renders a divider and second group when the end slot is used", () => {
+  // The bar is a container only: consumers place their own `Divider` between
+  // groups, so everything they pass lands in the single default group.
+  it("keeps all slot content in one group", () => {
     const wrapper = mount(MobileCommandBar, {
       slots: {
-        default: '<button class="main">A</button>',
-        end: '<button class="trailing">S</button>',
+        default: '<button class="main">A</button><button class="two">B</button>',
       },
     });
 
-    expect(wrapper.find(".mobile-command-bar__divider").exists()).toBe(true);
-    expect(wrapper.findAll(".mobile-command-bar__group")).toHaveLength(2);
-    expect(wrapper.find("button.trailing").exists()).toBe(true);
+    expect(wrapper.findAll(".mobile-command-bar__group")).toHaveLength(1);
+    expect(wrapper.findAll("button")).toHaveLength(2);
   });
 });

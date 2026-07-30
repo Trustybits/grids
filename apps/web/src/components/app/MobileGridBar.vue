@@ -14,15 +14,20 @@
                MobileGridSettingsSheet rises from behind and rests flush on top
                of the bar as one connected surface.
 
-  STILL INTERIM: Preview reuses BreakpointSwitcher (→ Phase 7), Share copies the
-  link (→ Phase 9). The Add-a-Tile subtype list with per-grid "N times used"
-  counts is Phase 5.2; Grid Background + theme cards are Phase 6.2.
+  Preview hands off to MobilePreviewToolbar: tapping it slides this bar down out
+  of view and the app bar up, leaving the preview toolbar as the only chrome.
+
+  STILL INTERIM: Share copies the link (→ Phase 9). The Add-a-Tile subtype list
+  with per-grid "N times used" counts is Phase 5.2.
 -->
 <template>
   <div
     ref="rootRef"
     class="mobile-grid-bar"
-    :class="{ 'mgb--connected': isConnected }"
+    :class="{
+      'mgb--connected': isConnected,
+      'mgb--preview': isPreviewActive,
+    }"
     :style="barStyle"
   >
     <!-- Grid settings sheet — slides up from behind the pill and rests flush on
@@ -89,13 +94,6 @@
       </div>
     </transition>
 
-    <!-- Interim Preview popover (default mode only). -->
-    <transition name="mgb-pop">
-      <div v-if="mode === 'default' && showPreview" class="mobile-grid-bar__popover">
-        <BreakpointSwitcher variant="toolbar-row" />
-      </div>
-    </transition>
-
     <MobileCommandBar
       ref="pillRef"
       class="mgb-pill"
@@ -130,14 +128,13 @@
         <button
           type="button"
           class="mgb-btn"
-          :class="{ 'is-active': showPreview }"
           aria-label="Preview"
-          @click.stop="togglePreview"
+          @click.stop="enterPreview"
         >
           <PreviewIcon :size="24" />
         </button>
 
-        <span class="mgb-divider" aria-hidden="true" />
+        <Divider orientation="vertical" />
 
         <button
           type="button"
@@ -282,7 +279,6 @@ import MobileTileListSheet from "@/components/app/MobileTileListSheet.vue";
 import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vue";
 import MobileColorPicker from "@/components/app/MobileColorPicker.vue";
 import MobileImageSwapSheet from "@/components/app/MobileImageSwapSheet.vue";
-import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
 import AddTileIcon from "@/components/icons/AddTileIcon.vue";
 import GridSettingsIcon from "@/components/icons/GridSettingsIcon.vue";
 import PreviewIcon from "@/components/icons/PreviewIcon.vue";
@@ -291,11 +287,13 @@ import ShareDefaultIcon from "@/components/icons/ShareDefaultIcon.vue";
 // Not part of the command-bar icon set — the `/HEX` save-color affordance.
 import PlusIcon from "@/components/icons/PlusIcon.vue";
 import CloseIcon from "@/components/icons/CloseIcon.vue";
+import Divider from "@/components/ui-elements/Divider.vue";
 import { isApplePlatform } from "@/utils/Platform";
 import { useToastStore } from "@/stores/toast";
 import { useTileCreation } from "@/composables/useTileCreation";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useGridSettings } from "@/composables/useGridSettings";
+import { useGridPreview } from "@/composables/useGridPreview";
 import { useSavedColors } from "@/composables/useSavedColors";
 import { normalizeHex } from "@/utils/color";
 
@@ -342,6 +340,7 @@ const {
 } = useGridSettings();
 const { savedColors, load: loadSavedColors, addColor: addSavedColor } =
   useSavedColors();
+const { isPreviewActive, enterPreview } = useGridPreview();
 
 // Built-in preset swatches (the brand palette), shown before the user's saved
 // customs in the picker's swatch row.
@@ -368,7 +367,6 @@ const imageInput = ref<HTMLInputElement | null>(null);
 const documentInput = ref<HTMLInputElement | null>(null);
 
 const mode = ref<"default" | "add" | "settings" | "color" | "image">("default");
-const showPreview = ref(false);
 const query = ref("");
 
 // Share uses each platform's own glyph, so the button reads as the share sheet
@@ -515,6 +513,13 @@ watch(mode, async () => {
   if (mode.value === "add") cmdRef.value?.focus();
 });
 
+// Entering preview collapses the pill back to its resting state. The bar slides
+// out of view either way, but an open sheet would otherwise still be open when
+// the user closes preview and the bar slides back up.
+watch(isPreviewActive, (previewing) => {
+  if (previewing) mode.value = "default";
+});
+
 // Quick command: while nothing is pinned, typing a command-type name followed
 // by a space (e.g. "map japan") pins that type — the same as tapping its card —
 // and strips the prefix so only the content ("japan") remains in the field.
@@ -526,15 +531,9 @@ watch(query, (value) => {
   query.value = parsed.rest;
 });
 
-// ── Default-mode commands ────────────────────────────────────────────────────
-const togglePreview = () => {
-  showPreview.value = !showPreview.value;
-};
-
 // Grid Settings mirrors Add-a-tile: the pill morphs into the `/GRID` command
 // input and the settings sheet rises from behind it.
 const openSettings = () => {
-  showPreview.value = false;
   query.value = "";
   mode.value = "settings";
 };
@@ -559,7 +558,6 @@ const openColor = () => {
   hexInput.value = base.slice(1);
   emptyHexBackspaces.value = 0;
   void loadSavedColors();
-  showPreview.value = false;
   mode.value = "color";
 };
 
@@ -576,7 +574,6 @@ const closeColor = () => {
 const openImage = () => {
   urlInput.value = "";
   emptyUrlBackspaces.value = 0;
-  showPreview.value = false;
   mode.value = "image";
 };
 
@@ -694,7 +691,6 @@ watch(colorHex, (hex) => {
 });
 
 const shareLink = async () => {
-  showPreview.value = false;
   try {
     await navigator.clipboard.writeText(window.location.href);
     toastStore.addToast("Link to Grid copied to the clipboard", "success");
@@ -705,7 +701,6 @@ const shareLink = async () => {
 
 // ── Add-a-tile mode ──────────────────────────────────────────────────────────
 const openAdd = () => {
-  showPreview.value = false;
   query.value = "";
   activeType.value = null;
   viewMode.value = "carousel";
@@ -803,7 +798,6 @@ const handlePointerDown = (event: MouseEvent) => {
   // it, aborting the action.
   if (target?.closest(".modal-overlay")) return;
   if (!rootRef.value || rootRef.value.contains(target)) return;
-  showPreview.value = false;
   if (mode.value === "add") closeAdd();
   else if (mode.value === "settings") closeSettings();
   // Tapping outside dismisses the whole surface (not just back to settings).
@@ -817,7 +811,6 @@ const handleKeydown = (event: KeyboardEvent) => {
   else if (mode.value === "settings") closeSettings();
   else if (mode.value === "color") closeColor();
   else if (mode.value === "image") closeImage();
-  showPreview.value = false;
 };
 
 /**
@@ -899,6 +892,16 @@ onBeforeUnmount(() => {
   > * {
     pointer-events: auto;
   }
+
+  transition: transform var(--duration-slow) var(--easing-gentle);
+}
+
+// Preview slides the whole bar down past the bottom edge, in step with the app
+// bar sliding up, leaving the preview toolbar as the only chrome on screen. The
+// resting gap is added on so the pill clears the edge rather than half-showing.
+.mgb--preview {
+  transform: translateY(calc(100% + var(--spacing-md)));
+  pointer-events: none;
 }
 
 // The pill sits above the carousel so the carousel appears to emerge from
@@ -1030,17 +1033,13 @@ onBeforeUnmount(() => {
   height: 32px;
 }
 
-.mobile-grid-bar__panel,
-.mobile-grid-bar__popover {
-  display: flex;
-  justify-content: center;
-}
-
 // The coverflow has no surface of its own, so the fan reads as sitting on the
 // grid. Taken out of the flex column and pushed down past the top of the pill
 // so the bottom of every card is tucked behind the bar (z-index: 0, under the
 // pill's 1) — the fan peeks out from behind it rather than floating above it.
 .mobile-grid-bar__panel {
+  display: flex;
+  justify-content: center;
   position: absolute;
   bottom: calc(100% - var(--mgb-tuck));
   // Unlike the pill this takes the bar's full width rather than --mgb-width, so
@@ -1076,13 +1075,6 @@ onBeforeUnmount(() => {
   }
 }
 
-.mgb-divider {
-  width: var(--border-width);
-  align-self: stretch;
-  margin: var(--spacing-xs) 2px;
-  background: var(--color-stroke);
-}
-
 .mgb-file {
   display: none;
 }
@@ -1101,16 +1093,4 @@ onBeforeUnmount(() => {
   transform: translateY(100%);
 }
 
-.mgb-pop-enter-active,
-.mgb-pop-leave-active {
-  transition:
-    opacity var(--duration-fast) var(--easing-smooth),
-    transform var(--duration-fast) var(--easing-smooth);
-}
-
-.mgb-pop-enter-from,
-.mgb-pop-leave-to {
-  opacity: 0;
-  transform: translateY(var(--spacing-sm));
-}
 </style>

@@ -1,11 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
-import { reactive } from "vue";
+import { reactive, ref } from "vue";
 
 const holder = vi.hoisted(() => ({
   session: null as Record<string, unknown> | null,
   history: null as Record<string, unknown> | null,
   controller: null as Record<string, unknown> | null,
+}));
+
+// Module scope rather than `vi.hoisted`, because `ref` is not available that
+// early. The mock factory below only runs when the component is imported inside
+// a test, by which point this is initialized.
+const isPreviewActive = ref(false);
+
+vi.mock("@/composables/useGridPreview", () => ({
+  useGridPreview: () => ({ isPreviewActive }),
 }));
 
 vi.mock("@/stores/grid/gridSession", () => ({
@@ -49,6 +58,7 @@ async function mountBar(props: Record<string, unknown> = {}) {
 describe("MobileAppBar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isPreviewActive.value = false;
     holder.session = reactive({
       currentGrid: { id: "grid-1", name: "Old name" },
       canEditAtBreakpoint: vi.fn(() => true),
@@ -58,6 +68,16 @@ describe("MobileAppBar", () => {
       renameCurrentGrid: vi.fn(),
       undo: vi.fn(),
     });
+  });
+
+  it("slides up out of view while previewing", async () => {
+    const wrapper = await mountBar();
+    expect(wrapper.classes()).not.toContain("mobile-app-bar--hidden");
+
+    isPreviewActive.value = true;
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.classes()).toContain("mobile-app-bar--hidden");
   });
 
   it("emits open-menu when the hamburger is tapped", async () => {

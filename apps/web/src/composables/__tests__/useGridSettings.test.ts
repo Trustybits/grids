@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const holder = vi.hoisted(() => ({
+  canEdit: true,
   userId: "user-1" as string | null,
   email: "user@example.com" as string | null,
   push: vi.fn(),
@@ -87,6 +88,7 @@ vi.mock("@/stores/pixelRacers", () => ({
 
 vi.mock("@/controllers/useGridController", () => ({
   useGridController: () => ({
+    canEditCurrentGrid: () => holder.canEdit,
     setVerticalCompact: holder.setVerticalCompact,
     setGridTheme: holder.setGridTheme,
     setDuplicatable: holder.setDuplicatable,
@@ -122,6 +124,7 @@ const load = async () => {
 describe("useGridSettings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    holder.canEdit = true;
     holder.userId = "user-1";
     holder.email = "user@example.com";
     holder.session = {
@@ -175,6 +178,32 @@ describe("useGridSettings", () => {
     expect(holder.setDuplicatable).toHaveBeenCalledWith(true);
     expect(holder.setTheme).toHaveBeenCalledWith("dark");
     expect(holder.setGridTheme).toHaveBeenCalledWith("dark");
+  });
+
+  it("blocks grid mutations and local theme state while preview is read-only", async () => {
+    holder.canEdit = false;
+    const gs = await load();
+
+    gs.verticalCompact.value = true;
+    gs.duplicatable.value = true;
+    gs.isDarkMode.value = true;
+    gs.saveBreakpoint();
+    gs.resetBreakpoint();
+    gs.requestDelete();
+    const duplicate = await gs.duplicateGrid("full");
+    await gs.performDelete();
+
+    expect(holder.setVerticalCompact).not.toHaveBeenCalled();
+    expect(holder.setDuplicatable).not.toHaveBeenCalled();
+    expect(holder.setTheme).not.toHaveBeenCalled();
+    expect(holder.setGridTheme).not.toHaveBeenCalled();
+    expect(holder.saveBreakpointPositions).not.toHaveBeenCalled();
+    expect(holder.resetBreakpoint).not.toHaveBeenCalled();
+    expect(gs.showDeleteModal.value).toBe(false);
+    expect(duplicate).toBeNull();
+    expect(holder.duplicateGrid).not.toHaveBeenCalled();
+    expect(holder.deleteGrid).not.toHaveBeenCalled();
+    expect(holder.push).not.toHaveBeenCalled();
   });
 
   it("reflects and toggles the default-grid preference", async () => {

@@ -1,8 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
+import { ref } from "vue";
 import { ContentType } from "@grids/contracts/types";
 
 const Icon = { template: "<span class='icon' />" };
+
+// Module scope rather than `vi.hoisted`, because `ref` is not available that
+// early. The mock factory below only runs when the component is imported inside
+// a test, by which point this is initialized.
+const isPreviewActive = ref(false);
 
 const holder = vi.hoisted(() => ({
   createTile: vi.fn(() => "tile-1"),
@@ -16,6 +22,7 @@ const holder = vi.hoisted(() => ({
   linkBackgroundImage: vi.fn(),
   loadSavedColors: vi.fn(async () => undefined),
   addSavedColor: vi.fn(async () => undefined),
+  enterPreview: vi.fn(),
   types: [] as Array<Record<string, unknown>>,
 }));
 
@@ -95,8 +102,11 @@ vi.mock("@/components/app/MobileImageSwapSheet.vue", () => ({
   },
 }));
 
-vi.mock("@/components/grid/ViewControls.vue", () => ({
-  default: { template: "<div class='view-controls-stub' />" },
+vi.mock("@/composables/useGridPreview", () => ({
+  useGridPreview: () => ({
+    isPreviewActive,
+    enterPreview: holder.enterPreview,
+  }),
 }));
 
 const mountBar = async () => {
@@ -109,9 +119,22 @@ const flush = async (wrapper: { vm: { $nextTick: () => Promise<unknown> } }) => 
   await wrapper.vm.$nextTick();
 };
 
+/**
+ * Carousel cards carry no visible name — the command chip is what names the
+ * centered type — so they are located by their accessible label.
+ */
+const cardNamed = (
+  wrapper: Awaited<ReturnType<typeof mountBar>>,
+  name: string,
+) =>
+  wrapper
+    .findAll(".tile-carousel__card")
+    .find((card) => card.attributes("aria-label") === name);
+
 describe("MobileGridBar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isPreviewActive.value = false;
     holder.types = [
       {
         id: "chat",
@@ -143,6 +166,36 @@ describe("MobileGridBar", () => {
     expect(wrapper.find('[aria-label="Grid settings"]').exists()).toBe(true);
     expect(wrapper.find('[aria-label="Preview"]').exists()).toBe(true);
     expect(wrapper.find('[aria-label="Share"]').exists()).toBe(true);
+  });
+
+  it("enters preview when Preview is tapped", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Preview"]').trigger("click");
+    expect(holder.enterPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("slides out of view while previewing", async () => {
+    const wrapper = await mountBar();
+    expect(wrapper.classes()).not.toContain("mgb--preview");
+
+    isPreviewActive.value = true;
+    await flush(wrapper);
+
+    expect(wrapper.classes()).toContain("mgb--preview");
+  });
+
+  it("collapses an open sheet when preview starts", async () => {
+    // The bar slides away either way, but a sheet left open would still be open
+    // when preview closes and the bar slides back up.
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Grid settings"]').trigger("click");
+    await flush(wrapper);
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(true);
+
+    isPreviewActive.value = true;
+    await flush(wrapper);
+
+    expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(false);
   });
 
   it("morphs into settings mode (/GRID input + rising sheet) when Grid settings is tapped", async () => {
@@ -214,10 +267,7 @@ describe("MobileGridBar", () => {
     await flush(wrapper);
     expect(wrapper.get(".mci-chip").text()).toBe("/TILE");
 
-    const mapCard = wrapper
-      .findAll(".tile-carousel__card")
-      .find((card) => card.text() === "Map");
-    await mapCard?.trigger("click");
+    await cardNamed(wrapper, "Map")?.trigger("click");
     await flush(wrapper);
     // The Map card focuses the input rather than creating immediately, and the
     // chip prefix now reflects the pinned type.
@@ -233,22 +283,60 @@ describe("MobileGridBar", () => {
     expect(holder.submitCommand).toHaveBeenCalledWith("Paris", "map");
   });
 
-  it("toggles the pinned type off (chip reverts to /TILE) when the card is re-tapped", async () => {
+  it("keeps the type pinned when the centered card is tapped again", async () => {
     const wrapper = await mountBar();
     await wrapper.get('[aria-label="Add a tile"]').trigger("click");
     await flush(wrapper);
 
-    const findMap = () =>
-      wrapper.findAll(".tile-carousel__card").find((c) => c.text() === "Map");
-
-    await findMap()?.trigger("click");
+    // First tap brings Map to the center, which pins it.
+    await cardNamed(wrapper, "Map")?.trigger("click");
     await flush(wrapper);
     expect(wrapper.get(".mci-chip").text()).toBe("/MAP");
 
-    await findMap()?.trigger("click");
+    // A second tap commits the centered card rather than toggling it off — the
+    // chip now tracks the center, so there is no un-centered state to fall to.
+    await cardNamed(wrapper, "Map")?.trigger("click");
+    await flush(wrapper);
+    expect(wrapper.get(".mci-chip").text()).toBe("/MAP");
+    expect(holder.createTile).not.toHaveBeenCalled();
+  });
+
+  it("tracks the centered card in the chip as the carousel moves", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Add a tile"]').trigger("click");
     await flush(wrapper);
     expect(wrapper.get(".mci-chip").text()).toBe("/TILE");
-    expect(wrapper.find(".tile-carousel__card--selected").exists()).toBe(false);
+
+    // Moving one card along lands on Link, and the chip follows the center.
+    await wrapper.get(".tile-carousel__track").trigger("keydown", {
+      key: "ArrowRight",
+    });
+    await flush(wrapper);
+
+    expect(wrapper.get(".mci-chip").text()).toBe("/LINK");
+    expect(
+      wrapper.get(".tile-carousel__card--selected").attributes("aria-label"),
+    ).toBe("Link");
+  });
+
+  it("prompts to press enter for a centered create-type card, and adds it", async () => {
+    const wrapper = await mountBar();
+    await wrapper.get('[aria-label="Add a tile"]').trigger("click");
+    await flush(wrapper);
+
+    // Chat is centered on open but not yet pinned, so step away and back.
+    const track = wrapper.get(".tile-carousel__track");
+    await track.trigger("keydown", { key: "ArrowRight" });
+    await track.trigger("keydown", { key: "ArrowLeft" });
+    await flush(wrapper);
+
+    expect(wrapper.get(".mci-chip").text()).toBe("/CHAT");
+    const input = wrapper.get(".mci-input");
+    expect(input.attributes("placeholder")).toBe("Press enter to add a Chat tile");
+
+    await input.trigger("keydown", { key: "Enter" });
+    await flush(wrapper);
+    expect(holder.submitCommand).toHaveBeenCalledWith("", "chat");
   });
 
   it("keeps the carousel unfiltered with the type highlighted after selecting a command card", async () => {
@@ -256,10 +344,7 @@ describe("MobileGridBar", () => {
     await wrapper.get('[aria-label="Add a tile"]').trigger("click");
     await flush(wrapper);
 
-    const mapCard = wrapper
-      .findAll(".tile-carousel__card")
-      .find((card) => card.text() === "Map");
-    await mapCard?.trigger("click");
+    await cardNamed(wrapper, "Map")?.trigger("click");
     await flush(wrapper);
 
     const input = wrapper.get(".mci-input");
@@ -270,7 +355,7 @@ describe("MobileGridBar", () => {
     expect(cards).toHaveLength(holder.types.length);
     const selected = wrapper.find(".tile-carousel__card--selected");
     expect(selected.exists()).toBe(true);
-    expect(selected.text()).toBe("Map");
+    expect(selected.attributes("aria-label")).toBe("Map");
   });
 
   it("pins the type from an inline prefix: typing 'map ' becomes /MAP with the rest as content", async () => {
@@ -296,10 +381,7 @@ describe("MobileGridBar", () => {
     await wrapper.get('[aria-label="Add a tile"]').trigger("click");
     await flush(wrapper);
 
-    const mapCard = wrapper
-      .findAll(".tile-carousel__card")
-      .find((card) => card.text() === "Map");
-    await mapCard?.trigger("click");
+    await cardNamed(wrapper, "Map")?.trigger("click");
     await flush(wrapper);
     expect(wrapper.get(".mci-chip").text()).toBe("/MAP");
 
@@ -475,6 +557,80 @@ describe("MobileGridBar", () => {
     expect(wrapper.find(".image-swap-stub").exists()).toBe(false);
     expect(wrapper.get(".mci-chip").text()).toBe("/GRID");
     expect(wrapper.find(".grid-settings-sheet-stub").exists()).toBe(true);
+  });
+
+  describe("share icon", () => {
+    const realUserAgent = navigator.userAgent;
+    const setUserAgent = (value: string) => {
+      Object.defineProperty(navigator, "userAgent", {
+        value,
+        configurable: true,
+      });
+    };
+
+    afterEach(() => setUserAgent(realUserAgent));
+
+    it("uses Apple's tray-and-arrow glyph on an Apple platform", async () => {
+      setUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)");
+      const wrapper = await mountBar();
+      expect(wrapper.findComponent({ name: "ShareAppleIcon" }).exists()).toBe(true);
+      expect(wrapper.findComponent({ name: "ShareDefaultIcon" }).exists()).toBe(
+        false,
+      );
+    });
+
+    it("uses the three-node glyph everywhere else", async () => {
+      setUserAgent("Mozilla/5.0 (Linux; Android 14; Pixel 8)");
+      const wrapper = await mountBar();
+      expect(wrapper.findComponent({ name: "ShareDefaultIcon" }).exists()).toBe(
+        true,
+      );
+      expect(wrapper.findComponent({ name: "ShareAppleIcon" }).exists()).toBe(
+        false,
+      );
+    });
+  });
+
+  describe("keyboard inset", () => {
+    const setVisualViewport = (height: number) => {
+      Object.defineProperty(window, "visualViewport", {
+        value: { height, offsetTop: 0, addEventListener() {}, removeEventListener() {} },
+        configurable: true,
+      });
+    };
+
+    afterEach(() => {
+      Object.defineProperty(window, "visualViewport", {
+        value: undefined,
+        configurable: true,
+      });
+    });
+
+    it("rests at the default gap when no keyboard is open", async () => {
+      setVisualViewport(window.innerHeight);
+      const wrapper = await mountBar();
+      expect(wrapper.get(".mobile-grid-bar").attributes("style")).toContain(
+        "bottom: var(--spacing-sm)",
+      );
+    });
+
+    it("ignores a sub-pixel viewport gap rather than reading it as a keyboard", async () => {
+      // A real measurement off a scaled device emulator, which used to land the
+      // bar at `bottom: 2.99988px` instead of the intended 8px.
+      setVisualViewport(window.innerHeight - 2.99988);
+      const wrapper = await mountBar();
+      expect(wrapper.get(".mobile-grid-bar").attributes("style")).toContain(
+        "bottom: var(--spacing-sm)",
+      );
+    });
+
+    it("rests flush on top of a real keyboard", async () => {
+      setVisualViewport(window.innerHeight - 291.4);
+      const wrapper = await mountBar();
+      expect(wrapper.get(".mobile-grid-bar").attributes("style")).toContain(
+        "bottom: 291px",
+      );
+    });
   });
 
   it("copies the grid link when Share is tapped", async () => {

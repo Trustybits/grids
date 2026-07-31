@@ -76,7 +76,11 @@
           v-if="isOwner && switcherVariant === 'floating' && !mobile2Active"
           variant="floating"
         />
-        <UndoRedoControls v-if="isOwner" />
+        <!--
+          Mobile 2.0 moves undo into the app bar, so this floating control would
+          otherwise sit on top of it in the same corner — and float over preview.
+        -->
+        <UndoRedoControls v-if="isOwner && !mobile2Active" />
 
         <!--
           Toolbar area: tile-add buttons are hidden during view-only preview
@@ -142,7 +146,6 @@ import GridButtons from "@/components/grid/GridToolbar.vue";
 import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
 import UndoRedoControls from "@/components/grid/UndoRedoControls.vue";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
-import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridController } from "@/controllers/useGridController";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useDynamicFavicon } from "@/composables/useDynamicFavicon";
@@ -179,7 +182,6 @@ export default defineComponent({
   },
   setup() {
     const sessionStore = useGridSessionStore();
-    const viewportStore = useGridViewportStore();
     const controller = useGridController();
     const currentGrid = computed(() => sessionStore.currentGrid);
     const themeStore = useThemeStore();
@@ -224,12 +226,7 @@ export default defineComponent({
       }
     };
 
-    const canEdit = computed(() =>
-      sessionStore.canEditAtBreakpoint(
-        viewportStore.forcedBreakpoint,
-        viewportStore.viewportBreakpoint,
-      ),
-    );
+    const canEdit = computed(() => controller.canEditCurrentGrid());
 
     const selectImage = () => {
       if (!canEdit.value) return;

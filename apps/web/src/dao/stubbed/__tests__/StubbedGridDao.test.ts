@@ -2,7 +2,10 @@
 // return normalized, cloned Grid objects; save/update normalize via toGrid and
 // merge over any existing record; updateLastOpenedAt only touches existing grids.
 import { describe, it, expect, beforeEach } from "vitest";
-import type { Grid } from "@grids/contracts/types";
+import {
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+  type Grid,
+} from "@grids/contracts/types";
 import { GridRevisionConflictError } from "@grids/contracts/dao";
 import { StubbedGridDao } from "../StubbedGridDao";
 import { memoryDatabase, toGrid } from "../StubbedMemoryDatabase";
@@ -92,6 +95,21 @@ describe("StubbedGridDao.save", () => {
     expect(stored?.userId).toBe("user-1");
   });
 
+  it("reclassifies a missing version after an explicit version write", async () => {
+    await dao.save("grid-1", { userId: "user-1" });
+    expect(
+      memoryDatabase.grids.get("grid-1")?.responsiveLayoutVersionStatus,
+    ).toBe("missing");
+
+    await dao.save("grid-1", {
+      responsiveLayoutVersion: GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+    });
+
+    expect(
+      memoryDatabase.grids.get("grid-1")?.responsiveLayoutVersionStatus,
+    ).toBe("supported");
+  });
+
   it("checks the expected rev and writes the next rev", async () => {
     await dao.save("grid-1", { userId: "user-1", name: "Original", rev: 0 });
     await dao.save("grid-1", { name: "Renamed", rev: 1 }, 0);
@@ -117,6 +135,21 @@ describe("StubbedGridDao.update", () => {
     const stored = memoryDatabase.grids.get("grid-1");
     expect(stored?.name).toBe("Updated");
     expect(stored?.userId).toBe("user-1");
+  });
+
+  it("retains unsupported status when an update omits the version field", async () => {
+    memoryDatabase.grids.set(
+      "grid-1",
+      toGrid("grid-1", { responsiveLayoutVersion: "griddle-v2" }),
+    );
+
+    await dao.update("grid-1", { name: "Safe update" });
+
+    const stored = memoryDatabase.grids.get("grid-1");
+    expect(stored?.responsiveLayoutVersion).toBe(
+      GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+    );
+    expect(stored?.responsiveLayoutVersionStatus).toBe("unsupported");
   });
 
   it("creates the grid when it does not yet exist", async () => {

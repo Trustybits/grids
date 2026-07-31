@@ -9,7 +9,10 @@
   on mobile. Emits `open-menu` (open the drawer) and `new-grid` (home mode).
 -->
 <template>
-  <header class="mobile-app-bar">
+  <header
+    class="mobile-app-bar"
+    :class="{ 'mobile-app-bar--hidden': isPreviewActive }"
+  >
     <div class="mobile-app-bar__left">
       <button
         type="button"
@@ -66,6 +69,7 @@ import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import { useGridController } from "@/controllers/useGridController";
+import { useGridPreview } from "@/composables/useGridPreview";
 import MenuIcon from "@/components/icons/MenuIcon.vue";
 import UndoIcon from "@/components/icons/UndoIcon.vue";
 import AppButton from "@/components/ui-elements/Button.vue";
@@ -81,6 +85,7 @@ const sessionStore = useGridSessionStore();
 const viewportStore = useGridViewportStore();
 const historyStore = useGridHistoryStore();
 const controller = useGridController();
+const { isPreviewActive } = useGridPreview();
 
 const titleRef = ref<HTMLElement | null>(null);
 const editableName = ref(sessionStore.currentGrid?.name || "");
@@ -145,6 +150,15 @@ const blurOnEnter = (event: KeyboardEvent) => {
   border-bottom-left-radius: var(--radius-md);
   border-bottom-right-radius: var(--radius-md);
   backdrop-filter: blur(20px);
+  transition: transform var(--duration-slow) var(--easing-gentle);
+}
+
+// Preview slides the bar up out of view rather than unmounting it, so it travels
+// in step with the preview toolbar dropping into the space it leaves. The banner
+// offset is subtracted too, or the bar stops short and peeks under them.
+.mobile-app-bar--hidden {
+  transform: translateY(calc(-100% - var(--app-status-banners-height, 0px)));
+  pointer-events: none;
 }
 
 .mobile-app-bar__left {

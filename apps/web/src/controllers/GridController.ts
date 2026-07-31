@@ -120,7 +120,7 @@ export class GridController {
       stores,
       dependencies,
       () =>
-        this.canEdit({
+        this.viewportController.canEdit({
           isOwner: this.stores.session.isOwner,
           forcedBreakpoint: this.stores.viewport.forcedBreakpoint,
           viewportBreakpoint: this.stores.viewport.viewportBreakpoint,
@@ -166,6 +166,7 @@ export class GridController {
     forcedBreakpoint,
     viewportBreakpoint,
   }: GridEditPermissionInput): boolean {
+    if (this.blocksCurrentGridMutation()) return false;
     return this.viewportController.canEdit({
       isOwner,
       forcedBreakpoint,
@@ -173,19 +174,59 @@ export class GridController {
     });
   }
 
+  canEditCurrentGrid(): boolean {
+    return this.canEdit({
+      isOwner: this.stores.session.isOwner,
+      forcedBreakpoint: this.stores.viewport.forcedBreakpoint,
+      viewportBreakpoint: this.stores.viewport.viewportBreakpoint,
+    });
+  }
+
+  /**
+   * Enter a session-local preview of the current grid.
+   *
+   * Read-only by construction rather than by convention: `canEdit` consults
+   * `blocksCurrentGridMutation`, so starting a preview closes every editing
+   * affordance and mutation path for as long as it is active.
+   */
+  startPreview(kind: string): void {
+    const gridId = this.stores.session.currentGrid?.id;
+    if (!gridId) return;
+    this.stores.preview.startPreview({ kind, gridId });
+  }
+
+  stopPreview(): void {
+    this.stores.preview.stopPreview();
+  }
+
+  /**
+   * Controller-level user-mutation boundary for transient previews.
+   * Breakpoint inspection, preview exit, display publication, and background
+   * upload/persistence settlement intentionally bypass this predicate.
+   */
+  private blocksCurrentGridMutation(): boolean {
+    return this.stores.preview.blocksGridMutation(
+      this.stores.session.currentGrid?.id,
+    );
+  }
+
   setMenuActive(tileId: string): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.uiController.setMenuActive(tileId);
   }
 
   setPanelActive(tileId: string, panelId: string): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.uiController.setPanelActive(tileId, panelId);
   }
 
   toggleMenuActive(tileId: string): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.uiController.toggleMenuActive(tileId);
   }
 
   togglePanelActive(tileId: string, panelId: string): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.uiController.togglePanelActive(tileId, panelId);
   }
 
@@ -295,6 +336,12 @@ export class GridController {
     newName: string,
     activeGrid: Grid | null = this.stores.session.currentGrid,
   ): Promise<void> {
+    if (
+      activeGrid &&
+      this.stores.preview.blocksGridMutation(activeGrid.id)
+    ) {
+      return;
+    }
     await this.collectionController.renameGrid(
       id,
       newName,
@@ -364,6 +411,7 @@ export class GridController {
     activeGrid: Grid | null = this.stores.session.currentGrid,
     clearActiveGrid?: () => void,
   ): Promise<void> {
+    if (this.stores.preview.blocksGridMutation(id)) return;
     await this.collectionController.deleteGrid(
       id,
       activeGrid,
@@ -393,14 +441,17 @@ export class GridController {
     actionLabel: string,
     urlMaps?: GridHistoryUrlMaps,
   ): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.historyController.pushUndoSnapshot(actionLabel, urlMaps);
   }
 
   async undo(urlMaps?: GridHistoryUrlMaps): Promise<void> {
+    if (this.blocksCurrentGridMutation()) return;
     await this.historyController.undo(urlMaps);
   }
 
   async redo(urlMaps?: GridHistoryUrlMaps): Promise<void> {
+    if (this.blocksCurrentGridMutation()) return;
     await this.historyController.redo(urlMaps);
   }
 
@@ -408,6 +459,7 @@ export class GridController {
     snapshotId: number,
     urlMaps?: GridHistoryUrlMaps,
   ): Promise<void> {
+    if (this.blocksCurrentGridMutation()) return;
     await this.historyController.undoRedoUntil(snapshotId, urlMaps);
   }
 
@@ -415,6 +467,7 @@ export class GridController {
     snapshot: Snapshot,
     urlMaps?: GridHistoryUrlMaps,
   ): Promise<void> {
+    if (this.blocksCurrentGridMutation()) return;
     await this.historyController.applySnapshot(snapshot, urlMaps);
   }
 
@@ -422,30 +475,36 @@ export class GridController {
     tileId: string,
     urlMaps?: GridHistoryUrlMaps,
   ): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.historyController.beginEditing(tileId, urlMaps);
   }
 
   commitEditing(urlMaps?: GridHistoryUrlMaps): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.historyController.commitEditing(urlMaps);
   }
 
   beginMove(urlMaps?: GridHistoryUrlMaps): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.historyController.beginMove(urlMaps);
   }
 
   commitMove(
     urlMaps?: GridHistoryUrlMaps,
   ): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.historyController.commitMove(urlMaps);
   }
 
   beginResize(urlMaps?: GridHistoryUrlMaps): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.historyController.beginResize(urlMaps);
   }
 
   commitResize(
     urlMaps?: GridHistoryUrlMaps,
   ): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.historyController.commitResize(urlMaps);
   }
 
@@ -523,6 +582,7 @@ export class GridController {
   }
 
   startUpload(input: StartUploadInput): string | null {
+    if (this.blocksCurrentGridMutation()) return null;
     return this.uploadController.startUpload(input);
   }
 
@@ -541,6 +601,29 @@ export class GridController {
 
   failUpload(uploadId: string): boolean {
     return this.uploadController.failUpload(uploadId);
+  }
+
+  /**
+   * Settle an optimistic upload that started before preview entered. The
+   * validated upload record supplies the tile id so this narrow background
+   * completion path cannot be used to remove an unrelated tile.
+   */
+  failUploadAndRemoveTile(uploadId: string): boolean {
+    const record = this.uploadController.failUploadForCleanup(uploadId);
+    if (!record) return false;
+    this.tileStructureController.removeTile(record.tileId);
+    return true;
+  }
+
+  /** Restore an existing optimistic tile after its upload fails. */
+  failUploadAndRestoreTileContent(
+    uploadId: string,
+    content: TileContent,
+  ): boolean {
+    const record = this.uploadController.failUploadForCleanup(uploadId);
+    if (!record) return false;
+    this.tileContentController.setTileContent(record.tileId, content);
+    return true;
   }
 
   abandonUpload(uploadId: string): boolean {
@@ -598,14 +681,17 @@ export class GridController {
   }
 
   setVerticalCompact(value: boolean): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.setVerticalCompact(value);
   }
 
   addTile(content: TileContent): string | null {
+    if (this.blocksCurrentGridMutation()) return null;
     return this.tileStructureController.addTile(content);
   }
 
   setTileContent(id: string, content: TileContent): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.tileContentController.setTileContent(id, content);
   }
 
@@ -613,6 +699,7 @@ export class GridController {
     id: string,
     patch: Partial<AnyTileContent>,
   ): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.tileContentController.patchTileContent(id, patch);
   }
 
@@ -620,6 +707,7 @@ export class GridController {
     id: string,
     patch: Partial<AnyTileContent>,
   ): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.tileContentController.patchTileContentSilently(id, patch);
   }
 
@@ -627,6 +715,7 @@ export class GridController {
     id: string,
     patch: Partial<AnyTileContent>,
   ): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.tileContentController.autosaveTileContent(id, patch);
   }
 
@@ -635,6 +724,7 @@ export class GridController {
     itemId: string,
     itemPatch: Partial<DocumentItem>,
   ): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.tileContentController.patchDocumentItem(
       tileId,
       itemId,
@@ -643,38 +733,47 @@ export class GridController {
   }
 
   updateCaption({ tileId, caption }: UpdateCaptionInput): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.updateCaption({ tileId, caption });
   }
 
   renameCurrentGrid(name: string): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.renameCurrentGrid(name);
   }
 
   setGridTheme(themeId: string): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.setGridTheme(themeId);
   }
 
   setDuplicatable(value: boolean): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.setDuplicatable(value);
   }
 
   addBackgroundImage(url: string, embed: boolean, hash?: string): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.addBackgroundImage(url, embed, hash);
   }
 
   removeBackgroundImage(): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.removeBackgroundImage();
   }
 
   setCustomOgImage(url: string): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.setCustomOgImage(url);
   }
 
   removeCustomOgImage(): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.removeCustomOgImage();
   }
 
   setBackgroundColor(color: string): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.setBackgroundColor(color);
   }
 
@@ -683,6 +782,7 @@ export class GridController {
   }
 
   removeBackgroundColor(): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.removeBackgroundColor();
   }
 
@@ -697,36 +797,44 @@ export class GridController {
   }
 
   duplicateTile(id: string): string | null {
+    if (this.blocksCurrentGridMutation()) return null;
     return this.tileStructureController.duplicateTile(id);
   }
 
-  removeTile(id: string): void {
-    this.tileStructureController.removeTile(id);
+  removeTile(id: string, settledLayout?: GridLayoutItem[]): void {
+    if (this.blocksCurrentGridMutation()) return;
+    this.tileStructureController.removeTile(id, settledLayout);
   }
 
   resizeTile(id: string, width: number, height: number): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.tileStructureController.resizeTile(id, width, height);
   }
 
   toggleTileBorder(id: string): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.toggleTileBorder(id);
   }
 
   toggleLinkBackground(id: string): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.settingsController.toggleLinkBackground(id);
   }
 
   commitRenderedDesktopLayout(
     layout: GridLayoutItem[] = this.stores.viewport.displayPositions,
   ): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.layoutController.commitRenderedDesktopLayout(layout);
   }
 
   commitCompactedLayout(layout: GridLayoutItem[]): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.layoutController.commitCompactedLayout(layout);
   }
 
   updateBreakpointOverride(): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.layoutController.updateBreakpointOverride();
   }
 
@@ -734,10 +842,12 @@ export class GridController {
     breakpoint: Breakpoint,
     tiles: GridLayoutItem[],
   ): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.layoutController.saveBreakpointPositions(breakpoint, tiles);
   }
 
   resetBreakpoint(breakpoint: Breakpoint): void {
+    if (this.blocksCurrentGridMutation()) return;
     this.layoutController.resetBreakpoint(breakpoint);
   }
 }

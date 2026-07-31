@@ -179,7 +179,10 @@ import {
   type Ref,
 } from "vue";
 
-import { TILE_DRAGGING_ID } from "@/grid-context/tileInteractionKeys";
+import {
+  TILE_DRAGGING_ID,
+  TILE_REMOVE_REQUEST,
+} from "@/grid-context/tileInteractionKeys";
 import { type TileChildComponent } from "@/types/Tile";
 import { type Tile } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
@@ -236,6 +239,10 @@ export default defineComponent({
   },
   setup(props) {
     const gridView = proxyRefs(useGridViewContext());
+    const requestTileRemoval = inject(
+      TILE_REMOVE_REQUEST,
+      gridView.removeTile,
+    );
     const { uploadFileOptimisticForTile } = useFileUpload();
     const { submitLink, submitEmbed } = useTileInput();
 
@@ -486,7 +493,7 @@ export default defineComponent({
 
       // Wait for animation to complete before actually removing the tile
       setTimeout(() => {
-        gridView.removeTile(props.tile.i);
+        requestTileRemoval(props.tile.i);
       }, 250); // var(--duration-normal) = 250ms
     };
 

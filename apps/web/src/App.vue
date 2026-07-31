@@ -37,6 +37,14 @@
     <!-- Mobile 2.0 bottom command bar (owner editing chrome on mobile) -->
     <MobileGridBar v-if="mobile2GridActive" />
 
+    <!--
+      Mobile 2.0 preview toolbar. Drops in from the top as the app bar slides up
+      and the command bar slides down, so it takes over the space they vacate.
+    -->
+    <transition name="mpt-drop">
+      <MobilePreviewToolbar v-if="mobile2PreviewActive" />
+    </transition>
+
     <!-- Toast Notifications -->
     <ToastContainer />
 
@@ -52,6 +60,7 @@ import LeftNavBar from './components/grid/LeftNavBar.vue';
 import BottomLeftButtons from './components/app/AppBar.vue';
 import MobileGridBar from './components/app/MobileGridBar.vue';
 import MobileAppBar from './components/app/MobileAppBar.vue';
+import MobilePreviewToolbar from './components/app/MobilePreviewToolbar.vue';
 import MobileMenuDrawer from './components/app/MobileMenuDrawer.vue';
 import GridNameEditor from './components/grid/GridNameEditor.vue';
 import ToastContainer from './components/ui-controls/ToastContainer.vue';
@@ -67,6 +76,7 @@ import { useFeatureFlags } from '@/composables/useFeatureFlags';
 import { initTier } from '@/composables/useTier';
 import { initContributions } from '@/composables/useContributions';
 import { initMobileExperience, useMobileExperience } from '@/composables/useMobileExperience';
+import { useGridPreview } from '@/composables/useGridPreview';
 import { isMarketingPath, isNonGridPath } from '@/constants/marketing';
 
 withDefaults(
@@ -81,6 +91,7 @@ withDefaults(
 const { identify, reset: resetPostHog } = usePostHog();
 const { reloadFlags } = useFeatureFlags();
 const { isMobile2 } = useMobileExperience();
+const { isPreviewActive } = useGridPreview();
 
 const route = useRoute();
 const router = useRouter();
@@ -168,6 +179,13 @@ const mobile2HomeActive = computed(
 // Any page where the Mobile 2.0 top AppBar + menu drawer are shown.
 const mobile2ChromeActive = computed(
   () => mobile2GridActive.value || mobile2HomeActive.value,
+);
+
+// Preview replaces the whole mobile chrome with the preview toolbar. Gated on
+// the grid chrome too, so a preview left behind by an unloaded grid can never
+// strand the toolbar on a page that has no bars for it to have replaced.
+const mobile2PreviewActive = computed(
+  () => mobile2GridActive.value && isPreviewActive.value,
 );
 
 const handleNewGrid = async () => {

@@ -305,9 +305,7 @@ export function useFileUpload() {
       controller.resolveUpload(currentUploadId, result.url, result.hash);
     } catch (error) {
       console.error("File upload failed:", error);
-      if (uploadId && controller.failUpload(uploadId)) {
-        controller.removeTile(tileId);
-      }
+      if (uploadId) controller.failUploadAndRemoveTile(uploadId);
       throw error; // Re-throw so callers can display their own error UI
     }
   };
@@ -377,12 +375,15 @@ export function useFileUpload() {
       console.error("File upload failed:", error);
 
       // Revert to suggestion tile on failure
-      if (uploadId && controller.failUpload(uploadId)) {
+      if (uploadId) {
         const revertContent = createTileContent(ContentType.SUGGESTION, {
           action: "media",
           label: "Add Media",
         });
-        controller.setTileContent(tileId, revertContent);
+        controller.failUploadAndRestoreTileContent(
+          uploadId,
+          revertContent,
+        );
       }
       throw error;
     }
@@ -505,8 +506,8 @@ export function useFileUpload() {
       }
     } catch (error) {
       console.error("Document upload failed:", error);
-      if (activeUploadId && controller.failUpload(activeUploadId)) {
-        controller.removeTile(tileId);
+      if (activeUploadId) {
+        controller.failUploadAndRemoveTile(activeUploadId);
       }
       throw error;
     }

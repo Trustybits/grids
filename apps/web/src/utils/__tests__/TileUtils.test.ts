@@ -25,6 +25,7 @@ import {
   createTile,
   getContentComponent,
   getOptionComponent,
+  isHiddenSuggestion,
 } from "@/utils/TileUtils";
 import { ContentType } from "@grids/contracts/types";
 import type {
@@ -709,5 +710,28 @@ describe("getOptionComponent", () => {
   it("returns null (no per-type option components are defined)", () => {
     const content = createTileContent(ContentType.TEXT) as TextContent;
     expect(getOptionComponent(content)).toBeNull();
+  });
+});
+
+// ── isHiddenSuggestion ─────────────────────────────────────────────────────
+
+describe("isHiddenSuggestion", () => {
+  const tileOfType = (type: ContentType) =>
+    createTile(type, "tile-1", 0, 0, 2, 2, undefined, "");
+
+  it("hides a suggestion tile from anyone who cannot edit", () => {
+    const tile = tileOfType(ContentType.SUGGESTION);
+    expect(isHiddenSuggestion(tile, false)).toBe(true);
+  });
+
+  it("keeps a suggestion tile visible while editing is allowed", () => {
+    const tile = tileOfType(ContentType.SUGGESTION);
+    expect(isHiddenSuggestion(tile, true)).toBe(false);
+  });
+
+  it("never hides real content, editable or not", () => {
+    const tile = tileOfType(ContentType.TEXT);
+    expect(isHiddenSuggestion(tile, false)).toBe(false);
+    expect(isHiddenSuggestion(tile, true)).toBe(false);
   });
 });

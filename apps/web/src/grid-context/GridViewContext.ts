@@ -12,6 +12,7 @@ import type {
 } from "@/controllers/GridController";
 import type { UpdateCaptionInput } from "@/controllers/GridCommands";
 import type { GridLayoutItem } from "@/types/GridLayout";
+import type { GridPreview } from "@/stores/grid/gridPreview";
 
 export type GridViewMode = "live" | "demo";
 
@@ -21,6 +22,9 @@ export interface GridViewContext {
   grid: ComputedRef<DeepReadonly<Grid> | null>;
   isOwner: ComputedRef<boolean>;
   canEdit: ComputedRef<boolean>;
+  activePreview: ComputedRef<GridPreview>;
+  isPreviewActive: ComputedRef<boolean>;
+  blocksGridMutation: ComputedRef<boolean>;
   isLoading: ComputedRef<boolean>;
   verticalCompact: ComputedRef<boolean>;
   activeBreakpoint: ComputedRef<Breakpoint>;
@@ -42,6 +46,7 @@ export interface GridViewContext {
   setForcedBreakpoint(breakpoint: Breakpoint | null): void;
   setDisplayPositions(positions: GridLayoutItem[]): void;
   commitCompactedLayout(layout: GridLayoutItem[]): void;
+  stopPreview(): void;
 
   beginMove(urlMaps?: GridHistoryUrlMaps): void;
   commitMove(urlMaps?: GridHistoryUrlMaps): void;
@@ -68,7 +73,7 @@ export interface GridViewContext {
     patch: Partial<DocumentItem>,
   ): void;
   updateCaption(input: UpdateCaptionInput): void;
-  removeTile(tileId: string): void;
+  removeTile(tileId: string, settledLayout?: GridLayoutItem[]): void;
   duplicateTile(tileId: string): string | null;
   resizeTile(tileId: string, width: number, height: number): void;
   toggleTileBorder(tileId: string): void;

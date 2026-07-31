@@ -32,7 +32,7 @@
       </button>
     </div>
 
-    <div class="mgs-separator" aria-hidden="true" />
+    <Divider class="mgs-separator" />
 
     <div class="mgs-body">
       <template v-if="isOwner">
@@ -226,7 +226,7 @@
            (Pixel Racers is desktop-only — it's a keyboard easter egg — so it is
            intentionally absent here.) -->
       <template v-if="isStaff && isVisible('debug')">
-        <div class="mgs-divider" aria-hidden="true" />
+        <Divider />
         <button
           type="button"
           class="mgs-row mgs-row--action"
@@ -287,6 +287,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useGridSettings } from "@/composables/useGridSettings";
+import Divider from "@/components/ui-elements/Divider.vue";
 import Toggle from "@/components/ui-controls/Toggle.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
 import TransferGridModal from "@/components/modal/TransferGridModal.vue";
@@ -540,11 +541,11 @@ const onTransfer = () => {
   }
 }
 
-.mgs-separator {
-  flex: 0 0 auto;
-  height: var(--border-width);
-  margin: 0 var(--spacing-sm) var(--spacing-xs);
-  background: var(--color-stroke);
+// Flush under the fixed header rather than taking the divider's default top
+// rhythm: the sheet's height budget is tight on a 320x568 phone. Selector is
+// deliberately specific enough to beat the shorthand `margin` it overrides.
+.mgs-panel > .mgs-separator {
+  margin-top: 0;
 }
 
 .mgs-body {
@@ -886,12 +887,6 @@ const onTransfer = () => {
   &.is-open {
     transform: rotate(90deg);
   }
-}
-
-.mgs-divider {
-  height: var(--border-width);
-  margin: var(--spacing-xs) var(--spacing-sm);
-  background: var(--color-stroke);
 }
 
 .mgs-empty {

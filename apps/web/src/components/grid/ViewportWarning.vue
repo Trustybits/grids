@@ -5,6 +5,8 @@
   Currently handles breakpoint preview warnings, built to support future cases
   like fixed-dimension grids viewed on smaller-than-intended screens.
 
+  Stays silent while a deliberate preview is active — see the note in `warning`.
+
   Usage:
     <ViewportWarning
       type="breakpoint-preview"
@@ -32,6 +34,8 @@
 <script setup lang="ts">
 import { computed, watch, onMounted, onUnmounted, nextTick, ref } from "vue";
 import { useGridViewportStore } from "@/stores/grid/gridViewport";
+import { useGridPreviewStore } from "@/stores/grid/gridPreview";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
 import type { Breakpoint } from "@grids/contracts/types";
 import Banner from "@/components/ui-elements/Banner.vue";
 import EyeIcon from "@/components/icons/EyeIcon.vue";
@@ -46,6 +50,13 @@ const props = withDefaults(
 );
 
 const viewportStore = useGridViewportStore();
+// Read straight from the stores rather than through `useGridPreview`, to keep
+// this banner — which mounts at the app root, before any grid — clear of the
+// controller and the services behind it. Passing the grid id in is the preview
+// store's own API: it scopes every read so a stale preview can't answer for a
+// grid that has since been replaced.
+const previewStore = useGridPreviewStore();
+const sessionStore = useGridSessionStore();
 const bannerComponent = ref<InstanceType<typeof Banner> | null>(null);
 
 const breakpointRank = (bp: Breakpoint): number => {
@@ -72,6 +83,12 @@ const warning = computed<WarningState | null>(() => {
 
     if (!forced) return null;
     if (breakpointRank(forced) <= breakpointRank(viewport)) return null;
+    // Silent in a deliberate preview. The banner exists to explain editing
+    // going away as a *side effect* of forcing a wider breakpoint from the
+    // desktop switcher, which has nothing else to say so. In preview, read-only
+    // is the point, the toolbar already names the device, and a banner is
+    // precisely the chrome a preview is meant to be showing the grid without.
+    if (previewStore.isActive(sessionStore.currentGrid?.id)) return null;
 
     return {
       message: `Previewing ${breakpointLabel(forced)} layout — view only (your screen is ${breakpointLabel(viewport)} sized)`,

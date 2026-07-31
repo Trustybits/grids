@@ -43,6 +43,9 @@ describe("GridSessionController", () => {
       vi.spyOn(h.stores.history, "reset").mockImplementation(() => {
         order.push("history");
       });
+      vi.spyOn(h.stores.preview, "reset").mockImplementation(() => {
+        order.push("preview");
+      });
       vi.spyOn(h.stores.viewport, "reset").mockImplementation(() => {
         order.push("viewport");
       });
@@ -60,6 +63,7 @@ describe("GridSessionController", () => {
 
       expect(order).toEqual([
         "history",
+        "preview",
         "viewport",
         "uploads",
         "ui",
@@ -323,11 +327,13 @@ describe("GridSessionController", () => {
         makeGrid({ id: "g2", userId: "user-1" }),
       );
       const resetSessionState = vi.spyOn(h.stores.ui, "resetSessionState");
+      h.stores.preview.startPreview({ kind: "test-preview", gridId: "g2" });
 
       emit(makeGrid({ id: "g2", userId: "recipient" }));
 
       expect(h.stores.session.isOwner).toBe(false);
       expect(h.stores.session.currentGrid?.userId).toBe("recipient");
+      expect(h.stores.preview.activePreview).toBeNull();
       expect(resetSessionState).toHaveBeenCalled();
       const toasts = h.stores.toast.toasts;
       expect(toasts[toasts.length - 1]?.message).toContain("read-only");
@@ -432,12 +438,14 @@ describe("GridSessionController", () => {
 
     it("reloads to the latest grid when the stored rev has advanced", async () => {
       h.stores.session.setCurrentGrid(makeGrid({ id: "g1", rev: 3 }));
+      h.stores.preview.startPreview({ kind: "test-preview", gridId: "g1" });
       const latest = makeGrid({ id: "g1", rev: 5, name: "Newer" });
       vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(latest);
 
       await controller.resyncIfStale();
 
       expect(h.stores.session.currentGrid).toEqual(latest);
+      expect(h.stores.preview.activePreview).toBeNull();
       expect(h.stores.session.isOwner).toBe(true);
       // The overlay is lowered once the reload settles.
       expect(h.stores.session.isResyncing).toBe(false);

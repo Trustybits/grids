@@ -20,7 +20,12 @@
 //   • Tile IDs are stable for the lifetime of the grid instance so the
 //     overrides correctly map onto the same tiles.
 
-import type { Grid, Breakpoint, TilePosition } from "@grids/contracts/types";
+import {
+  GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+  type Grid,
+  type Breakpoint,
+  type TilePosition,
+} from "@grids/contracts/types";
 import { createDefaultGrid } from "@/utils/GridUtils";
 import { createTile } from "@/utils/TileUtils";
 import { ContentType } from "@grids/contracts/types";
@@ -328,7 +333,11 @@ export const DEMO_GRID_DIMENSIONS: Record<
 };
 
 export function createDemoGrid(): Grid {
-  const grid = createDefaultGrid(DEMO_USER_ID, "Demo");
+  const grid = createDefaultGrid(
+    DEMO_USER_ID,
+    "Demo",
+    GRIDDLE_RESPONSIVE_LAYOUT_VERSION,
+  );
   grid.id = DEMO_GRID_ID;
   grid.tiles = createDesktopBaseTiles();
   grid.overrides = {

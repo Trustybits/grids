@@ -35,7 +35,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
-import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridController } from "@/controllers/useGridController";
 import ExploreIcon from "@/components/icons/ExploreIcon.vue";
 import GridStats from "@/components/grid/GridStats.vue";
@@ -49,17 +48,11 @@ defineProps({
 });
 
 const sessionStore = useGridSessionStore();
-const viewportStore = useGridViewportStore();
 const controller = useGridController();
 const editableName = ref(sessionStore.currentGrid?.name || "");
 const ctaRef = ref<HTMLElement | null>(null);
 
-const canEdit = computed(() =>
-  sessionStore.canEditAtBreakpoint(
-    viewportStore.forcedBreakpoint,
-    viewportStore.viewportBreakpoint,
-  ),
-);
+const canEdit = computed(() => controller.canEditCurrentGrid());
 
 watch(
   () => sessionStore.currentGrid?.name,

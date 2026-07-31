@@ -1,6 +1,12 @@
 # Mobile 2.0 — Early Access Implementation Plan
 
-Status: **in progress — Phases 1–3 complete (early-access plumbing + bottom command bar + top AppBar & menu drawer, now extended to the home screen); Phases 4+ pending.**
+Status: **in progress — Phases 1–4 complete (early-access plumbing, bottom command bar, top AppBar &
+menu drawer extended to the home screen, and the command pill itself), plus Phase 5.1/5.1.1 (the
+`/TILE` input and coverflow carousel), all of Phase 6 (the Grid Settings sheet, 6.1–6.5), and Phase 7
+(preview mode). Outstanding: 5.2, then Phases 8–10.**
+
+One of the four command-pill buttons is still **interim**: **Share** copies the link to the clipboard
+rather than opening the new modal (Phase 9).
 
 Mobile 2.0 is a redesign of the Grids editing chrome on mobile: the app bar and toolbars are
 combined and collapsed to modernize the interface, minimize on-screen elements, and make the app
@@ -10,6 +16,7 @@ presentation; the redesigned chrome only renders on a mobile device (see the gat
 Design source (Figma `grids.so`):
 - App bar / toolbars / menu / preview: node `1497-9435`
 - New Tile Carousel: node `1497-9533`
+- Tile thumbnails (coverflow card artwork): node `1605-7314`
 - Grid Settings Menu: node `1497-9949`
 
 ## Product decisions (confirmed with the maintainer)
@@ -168,8 +175,42 @@ Interim notes to revisit in later phases:
       (`MobileGridBar` on `MobileCommandBar`)
 - [x] Reconcile with existing `GridToolbar` / `bottom-left-buttons` (bottom-left bar hidden
       on mobile-2; the pill is the single command surface)
+- [x] **Icon set** from Figma `mobileGridBar` (`1727-11044`): `AddTileIcon`, `GridSettingsIcon`,
+      `PreviewIcon`, `ShareAppleIcon`, `ShareDefaultIcon`. These are **filled** glyphs, where the
+      desktop set (`PlusIcon`, `GridMenuIcon`, `EyeIcon`, `ShareIcon`) is stroked outlines — no glyph
+      matched closely enough to reuse, so they are new components and the old four stay for desktop.
+      Each is Figma's exported path placed in a 24x24 box by a nested `<svg>` carrying the inset
+      Figma laid it out at, so the leaf keeps its own geometry rather than being re-drawn by hand;
+      `CommandBarIcons.test.ts` pins that arithmetic (every leaf 1:1 and inside the box). Figma fills
+      them white at 76% opacity — that is its stand-in for the content color, so the paths use
+      `currentColor` and inherit `--color-content-default` from `.mgb-btn`, which keeps them correct
+      in light mode.
+- [x] **View toggle** from Figma `addTile` (`1728-11055`): `ListViewIcon` + `CarouselIcon`, same
+      construction as above. The toggle shows the view it switches **to** — the list icon while the
+      carousel is up, the carousel icon while the list is up — so it stopped being a pressed-state
+      button: `aria-pressed` and the `--active` highlight are gone (they would have said "carousel is
+      on" while showing the carousel icon), and the `aria-label` names the destination
+      ("Switch to list view" / "Switch to carousel view"). The old stroked `ListIcon` was the only
+      thing the toggle used and no glyph reuse was possible, so it is deleted rather than left dead.
+      **Considered and rejected:** an `aria-live` region announcing the new view. Name changes on the
+      focused element are announced less reliably than `aria-pressed` state changes, but modern
+      VoiceOver and TalkBack do announce them, and the consequence here is not subtle — the whole
+      sheet above the pill swaps. A live region would frequently produce a second announcement for
+      one tap, and chatter is how users learn to tune live regions out. Live regions are worth
+      spending where nothing else announces at all; the app-wide review of those cases is
+      `notes/accessibility-audit-plan.md`.
+- [x] **Share is platform-conventional**: the tray-and-arrow (`grids_shareApple`) on Apple
+      platforms, the three-node graph (`grids_shareDefault`) elsewhere, so the button reads as the
+      share sheet the OS will actually open. `isApplePlatform()` (`utils/Platform.ts`) sniffs the
+      user-agent string rather than `navigator.userAgentData`, which Safari — the browser most Apple
+      users are on — does not implement; iPadOS 13+ reports itself as "Macintosh" and matches on the
+      Mac branch. Resolved once at setup (the UA cannot change mid-session). Sniffing is confined to
+      cosmetics: a wrong guess only shows a slightly foreign glyph, never changes behavior.
 
-### Phase 5 — Add-a-Tile carousel + `/TILE` input 🟡 IN PROGRESS (5.1 done, 5.2 next)
+### Phase 5 — Add-a-Tile carousel + `/TILE` input 🟡 IN PROGRESS (5.1 + 5.1.1 done; 5.2 outstanding)
+
+> Phase 6 was completed ahead of 5.2 — 5.2 is the one piece leapfrogged, not dropped. It needs a
+> curated subtype registry that does not exist yet, which is why it did not block the settings work.
 
 Product decisions (confirmed): the pill **is** the command input — one morphing component.
 Tapping **Add Tile** grows the pill (the shell never fades — it transforms via a FLIP width
@@ -194,7 +235,8 @@ from the current grid's tiles).
       (create-kind), opens the file picker (image/document), or focuses the input (link/embed);
       ENTER smart-pastes a URL/embed or creates a keyword-matched tile.
 - [x] New icons `CloseIcon` + `ListIcon`; tests for the composable + all three components
-      (2587 tests green); typecheck + lint clean.
+      (2587 tests green); typecheck + lint clean. `ListIcon` was later replaced by the Figma
+      view-toggle pair — see the icon set note in Phase 4.
 
 Post-review polish (from maintainer feedback):
 - [x] Pill radius is `--radius-md` for both the default gridbar and the add-mode command input
@@ -207,8 +249,7 @@ Post-review polish (from maintainer feedback):
       toggles it off (chip reverts to `/TILE`); the typed text is preserved. ENTER is routed through
       `useTileCreation.submitCommand(text, forcedType)` so the pinned type builds the correct tile
       (map location, link URL, or embed URL) — this fixes "ENTER does nothing" after switching types.
-      Note: for now only link / embed / map pin the chip (they require input before creating). When
-      the 3D "coverflow" carousel lands, every type will pin its prefix.
+      Superseded by 5.1.1: every type now pins its prefix, and the pin follows the centered card.
 - [x] Inline quick command: typing a command-type name + space in the generic `/TILE` input (e.g.
       `map japan`, `link example.com`, `embed <url>`) pins that type and keeps the rest as content —
       identical to tapping the card then typing. Parsing lives in
@@ -222,7 +263,78 @@ Post-review polish (from maintainer feedback):
       framing) is tracked separately as [#183](https://github.com/Trustybits/grids/issues/183); it
       is pre-existing and unrelated to the Mobile 2.0 chrome (same creation path as desktop).
 
-Deferred polish: the Figma 3D "coverflow" fan is a clean scroll-snap row for now.
+#### Phase 5.1.1 — 3D coverflow carousel ✅ COMPLETE
+
+Figma "Tiles" (`1605-7314`). Product decisions (confirmed): use the **Figma wireframe thumbnails**
+rebuilt as token-driven markup rather than live tile renders — Map needs a Mapbox instance and
+Embed needs a third-party iframe plus content that does not exist at carousel time, and mounting
+those in a surface being dragged would cost the 60fps swipe. The `/command` chip **tracks the
+centered card live**. Subtypes (`/SPOTIFY` et al.) stay in 5.2.
+
+- [x] `MobileTileThumbnail.vue`: the per-type wireframe artwork (heading/body bars for Text,
+      message bubbles for Chat, crossing roads for Map, dashed webpage for Embed, …). Geometry is
+      transcribed from Figma's 150x150 tile box and emitted as percentages so it scales to any card
+      size; fills are `currentColor` at two "ink" opacities (Figma's #222 / #333) so the artwork
+      follows the theme instead of hard-coding greys. The type's **registry icon** stands in for
+      Figma's bespoke glyph, so the carousel can never drift from the types the toolbar offers.
+- [x] `MobileTileCarousel.vue` rebuilt as a coverflow: cards are absolutely positioned and
+      transformed from a continuous `scroll` position (`translateX` + `translateZ` + `rotateY`
+      under a 700px perspective), so the tilt tracks the finger frame-by-frame rather than easing
+      after it. Pointer drag with rubber-banded ends, velocity projection capped at
+      `MAX_FLING = 2` cards, and an ease-out settle; `prefers-reduced-motion` skips the settle.
+- [x] Interaction: drag/swipe spins the fan, tapping a side card centers it, tapping the centered
+      card commits it, ← / → step the center. The logical center is tracked separately from the
+      animated position so selection never waits on the animation.
+- [x] The centered card **is** the active type: it drives the chip (`/TEXT`, `/MAP`), the
+      placeholder, and what ENTER builds. The carousel emits `focus-type` only for user-driven
+      movement, so typing still filters until the user touches the fan; it also renders a frozen
+      copy of the list while dragging so a parent-driven list change can't reshuffle the fan
+      mid-gesture. Re-tapping no longer toggles a type off — releasing is Backspace-Backspace.
+- [x] `useTileCreation.submitCommand` extended: a pinned create-kind type adds that tile on ENTER
+      with an empty field, while text present still falls through to smart-paste so a pasted URL
+      never becomes an empty tile of the wrong kind. Placeholders for non-command types are derived
+      from the descriptor's kind ("Press enter to add a Chat tile" / "Tap … to choose a file").
+- [x] The carousel panel lost its stray debug border and runs the **full width of the screen**
+      (unlike the pill, which keeps `--mgb-width`), so the fan spreads edge to edge and its outer
+      cards are cut off by the screen rather than stopping short of it. The clip stays on the
+      carousel so no stray horizontal scrollbar reaches the document.
+- [x] The bar **stretches between `left: 0` and `right: 0`** instead of being centered on
+      `left: 50%`, and `--mgb-width` is a percentage of it rather than of `100vw`. Anchored at one
+      edge the bar was shrink-to-fit, and a shrink-to-fit flex column is only as wide as its items
+      can be squeezed — so the pill sat narrower than `--mgb-width` by an amount that changed with
+      the chip text (`/IMAGE` vs `/DOCUMENT`). `100vw` compounded it: it ignores a classic
+      scrollbar and is not necessarily the box a fixed element is laid out in. MobileAppBar goes
+      edge to edge precisely because it never names a width. The bar is now `pointer-events: none`
+      with its surfaces re-enabling, so the full-width bar still lets taps beside the pill through
+      to the grid.
+- [x] The fan **peeks out from behind the pill** rather than floating above it: the panel is taken
+      out of the bar's flex column and pushed down past the pill's top edge by `--mgb-tuck` (24px),
+      so the bottom of every card is hidden behind the bar.
+- [x] Cards are **bottom-aligned**, via a `perspective-origin` on the track's bottom edge — the
+      vanishing point sits on that line, so receding cards shrink towards it instead of towards the
+      middle. With the tuck above, every card is cut off at the same line.
+- [x] No card carries a **visible name** — the command chip already names the centered type. The
+      label survives as each card's `aria-label`, which is what the tests locate cards by.
+- [x] Cards stack by their **unclamped** distance from center. Off the `REACH`-clamped value every
+      card past the limit tied on one layer and DOM order broke the tie rightwards, so the right of
+      the fan stacked outermost-in-front — mirroring the left instead of matching it.
+- [x] Card strokes (resting, selected and focus) are **inset box-shadows, not borders**. A border on
+      a card rotated in 3D is rasterized as its own pass with no antialiasing along the edges the
+      rotation has put on a slant, so it steps like a staircase — worst on the far cards, where the
+      slant is steepest. As an inset shadow the stroke is part of the card's surface and
+      antialiases with it. Same fix as `.mcp-pad`. If any stepping remains, the next lever is
+      dropping `will-change: transform` from the cards (composited layers rasterize once and get
+      resampled by the compositor) — measure the drag first, since that is what promotion buys.
+- [x] Depth is **never** carried by card transparency. Fading the whole card let the grid show
+      through and read as muddy rather than distant, badly so over a busy or light background. The
+      card surface is always opaque; the fall-off (100 / 89 / 76 / … floored at 55%) applies to the
+      **artwork inside**, alongside a static shadow. Considered and rejected: `backdrop-filter`
+      blur (per-element GPU cost across ~10 cards being dragged would cost the 60fps swipe) and
+      backing each card with the grid's own background color (breaks down for image backgrounds,
+      where any fallback can clash with the photo).
+- [x] Tests: new `MobileTileThumbnail` suite, rewritten `MobileTileCarousel` suite (geometry, drag,
+      tap-to-center vs tap-to-commit, keyboard, list re-sync), and `MobileGridBar` coverage for
+      chip tracking + the create-type prompt. Full suite green; typecheck + lint clean.
 
 #### Phase 5.2 — Subtype list + usage counts ⬜ NOT STARTED
 
@@ -231,7 +343,7 @@ Deferred polish: the Figma 3D "coverflow" fan is a clean scroll-snap row for now
 - [ ] Per-grid **"N times used"** counts, computed from the current grid's tiles
 - [ ] `/TILE` (tile types) vs general-search (subtypes/content) semantics once the list exists
 
-### Phase 6 — Grid Settings sheet 🟡 IN PROGRESS (6.1 + 6.2 + 6.3 done)
+### Phase 6 — Grid Settings sheet ✅ COMPLETE (6.1–6.5; eyedropper + VALUE BOX tab deferred)
 
 Product decisions (confirmed): extract a shared `useGridSettings` composable so the desktop
 `GridSettings` dropdown and the mobile sheet share one implementation (same pattern as
@@ -418,10 +530,75 @@ picker, following the same morph/rise/flush pattern as `/GRID` and `/HEX`.
       highlights/uploads; bar `/background` morph + link-on-Enter + double-backspace step-up; settings
       sheet emits `open-image`). Suites green; typecheck + lint clean.
 
-### Phase 7 — Preview mode transition ⬜ NOT STARTED
+### Phase 7 — Preview mode transition ✅ COMPLETE
 
-- [ ] `Toolbar:Top` breakpoint switcher (Desktop/Tablet/Mobile) + Close (replaces Breakpoint-Switcher)
-- [ ] Animated transition between `MobileCommandBar`, `AppBar`, and `Toolbar:Top`
+Figma "PreviewMode" (`1474-9178`), whose `Toolbar:Top` is `1474-9257`. The frame draws the AppBar at
+`top: -48px` and the bottom pill at `bottom: -64px` — both off-canvas — which is the spec for the
+motion: the two editing bars leave and the preview toolbar takes the space they vacate.
+
+Product decisions (confirmed): preview is **read-only at every breakpoint**; Desktop/Tablet render at
+the **raw forced breakpoint** (no scaled device frame); **Close resets to auto**.
+
+- [x] **Preview reuses the existing `gridPreview` store**, which was built for exactly this and until
+      now had nothing starting a preview. Its `blocksGridMutation` was already consulted by
+      `GridController.canEdit`, so entering a preview turns *every* editing affordance and mutation
+      path off in one move — the read-only guarantee is structural, not a list of things remembered to
+      disable. The store scopes previews by grid id, so one left behind by an unloaded grid cannot
+      suppress editing on the next.
+- [x] **`GridController.startPreview(kind)`** — the missing counterpart to the existing `stopPreview`.
+      No-ops without a loaded grid. Breakpoint inspection deliberately still works while previewing
+      (`setForcedBreakpoint` bypasses the mutation predicate), since that is what preview is *for*.
+- [x] **`useGridPreview` composable** — `isPreviewActive` / `enterPreview` / `exitPreview`, shared by
+      the four surfaces that care. Exiting also clears the forced breakpoint: preview is a temporary
+      lens, and leaving a wider-than-viewport breakpoint forced would otherwise leave the grid
+      silently uneditable.
+- [x] **`MobilePreviewToolbar.vue`** — top-center pill, flush to the top edge with only its bottom
+      corners rounded (no top border), 40x40 buttons matching the rest of the mobile chrome. Highlights
+      `renderedBreakpoint` rather than `forcedBreakpoint`, so opening preview lands on the current
+      device without having to force anything first. Tapping the active breakpoint is a **no-op** —
+      unlike the desktop switcher, clearing the override would fall back to the same breakpoint while
+      dropping the highlight, which reads as the button breaking. Close and Escape both exit. Drops
+      `ViewControls`' dimmed "eye" and saved-override dot: everything is view-only in here, and there
+      is nothing to save.
+- [x] **The transition** runs all three surfaces on `--duration-slow` / `--easing-gentle`, matching the
+      pill morph. The AppBar and command bar are **translated out rather than unmounted**, so they
+      travel in step with the toolbar dropping in instead of popping. The AppBar subtracts
+      `--app-status-banners-height` from its travel or it stops short and peeks under the banners; the
+      command bar adds its resting gap so the pill fully clears the bottom edge. The toolbar's own
+      enter/leave classes live in **its** scoped style block, since that is where its root element's
+      scope id comes from, and they restate the `translateX(-50%)` centering because `transform` is a
+      single property.
+- [x] Entering preview collapses the pill back to `default`. The bar slides away regardless, but an
+      open sheet would otherwise still be open when preview closes and the bar slides back up.
+- [x] **Bug fixed along the way:** `UndoRedoControls` was the one floating control in `GridPage` not
+      guarded by `mobile2Active` (its neighbors on the two adjacent lines both are), so on Mobile 2.0
+      it rendered on top of the app bar's own Undo in the same corner — and would have floated over
+      preview. Now guarded.
+- [x] Removed the interim Preview popover, its `mgb-pop` transition, the now-unused
+      `.mobile-grid-bar__popover` rule, and `MobileGridBar`'s `ViewControls` import.
+- [x] **Redundant banner suppressed.** `ViewportWarning`'s "Previewing … view only" bar restated what
+      the preview toolbar already shows, so it is silent while a preview is active for the current
+      grid. It still fires on desktop, where forcing a wide breakpoint is not self-evidently a preview.
+- [x] **Suggestion tiles hide when editing is off** (`isHiddenSuggestion` in `TileUtils`). Preview is
+      meant to be what a visitor sees, and the seeded "Add Profile" / "Add Link" scaffolding was
+      showing through. It turned out **no such rule existed anywhere** — visitors on a shared URL saw
+      the dashed placeholders too — so the rule is keyed on `canEdit` rather than on preview, which
+      fixes the public view and keeps preview honest by construction. Hidden suggestions leave
+      `Grid.vue`'s render map but stay in the Griddle layout: the reserved cell reads as empty space
+      and the tiles around it keep the placement the owner arranged (maintainer's call over reflowing).
+- [x] Tests: new `MobilePreviewToolbar` suite (breakpoint set, active highlight tracking, no-op re-tap,
+      close/Escape, listener teardown), `GridController.startPreview` coverage asserting
+      `canEditCurrentGrid()` flips to false and back, `MobileAppBar` / `MobileGridBar` coverage for
+      sliding out plus the sheet collapse, a `ViewportWarning` suite, and `isHiddenSuggestion` unit +
+      `Grid.vue` render coverage (cell emptied, neighbours unmoved). Full suite green (2852);
+      typecheck + lint clean.
+
+Deferred follow-up:
+
+- **Editing at a breakpoint other than the current one.** Preview is strictly read-only, so there is
+  still no way to adjust the tablet or desktop layout from a phone. The maintainer wants this, as its
+  own phase — it needs a real answer for how a 12-column layout is manipulated on a 320px screen,
+  which is the same question the scaled device frame rejected above would have to answer.
 
 ### Phase 8 — Tile Toolbar + TileAction Toolbar ⬜ NOT STARTED
 
@@ -499,9 +676,33 @@ timer fires. Decide which before starting.
 
 ### Phase 10 — Housekeeping & GA cutover ⬜ NOT STARTED
 
+- [x] **Dividers standardized (cross-cutting).** Every hairline that separates content now goes
+      through the shared `ui-elements/Divider.vue` in one of two orientations, rather than being
+      restated per component. Three things came out of this:
+  - **Color: `--color-divider`**, a new semantic token set to `--color-black-13` / `--color-white-13`
+      per theme. All six mobile dividers had been on `--color-stroke`, which is the **8%** step, so a
+      divider was indistinguishable from a container edge. `--color-stroke` itself was left alone —
+      33 files reference it, nearly all desktop borders.
+  - **Length: fill the space, minus `--divider-inset` (12px) at each end**, rather than a declared
+      size. A vertical divider in a 40px command pill lands at 16px on its own, and the same rule
+      gives horizontal dividers their side inset. 12px is its own token because the spacing scale
+      jumps 8 → 16.
+  - Callers keep the cross-axis rhythm (the gap *around* a divider is layout, not the divider):
+      horizontal carries a default `--spacing-xs` block margin, and verticals take their side spacing
+      from the row's existing flex `gap` — which retired an untokenized 2px margin. The one override
+      is the settings-sheet header separator, held flush against the fixed header for the height
+      budget. Desktop `GridSettings` shares the component and follows the same rules.
+  - Deleted the dead `MobileCommandBar` `end`-slot divider: `MobileGridBar` had always inlined its
+      own, so that slot and its CSS never rendered.
 - [ ] Inventory old UI superseded by Mobile 2.0; remove after validation
 - [ ] Confirm tests, separation of concerns, and token usage across all phases
 - [ ] Retire the `beta-mobile-2` gate at GA
+- [ ] Accessibility items overlapping the mobile chrome, tracked in
+      `notes/accessibility-audit-plan.md`: the carousel's `role="listbox"` never announcing its
+      centered card (wants `aria-activedescendant`), and `MobileImageSwapSheet`'s `aria-live` region
+      that announces nothing (it is `v-if`'d, so it does not pre-exist its content, and holds only an
+      icon). Fix these alongside the phases that own those components rather than as a separate pass
+      — but the audit must not gate the GA cutover.
 
 ---
 

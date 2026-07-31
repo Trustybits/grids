@@ -31,16 +31,21 @@
       @keydown="onKeydown"
     />
 
+    <!--
+      Shows the view it switches *to*, not the one you are in — so it needs no
+      pressed state, and naming the destination is what the label says too.
+    -->
     <button
       v-if="showViewToggle"
       type="button"
       class="mci-btn"
-      :class="{ 'mci-btn--active': viewMode === 'list' }"
-      :aria-pressed="viewMode === 'list'"
-      aria-label="Toggle list view"
+      :aria-label="
+        viewMode === 'list' ? 'Switch to carousel view' : 'Switch to list view'
+      "
       @click="emit('toggle-view')"
     >
-      <ListIcon :size="24" />
+      <CarouselIcon v-if="viewMode === 'list'" :size="24" />
+      <ListViewIcon v-else :size="24" />
     </button>
 
     <button
@@ -56,8 +61,9 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import CarouselIcon from "@/components/icons/CarouselIcon.vue";
 import CloseIcon from "@/components/icons/CloseIcon.vue";
-import ListIcon from "@/components/icons/ListIcon.vue";
+import ListViewIcon from "@/components/icons/ListViewIcon.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -283,8 +289,7 @@ onBeforeUnmount(stopTypewriter);
     background-color var(--duration-fast) var(--easing-smooth),
     color var(--duration-fast) var(--easing-smooth);
 
-  &:hover,
-  &--active {
+  &:hover {
     background: var(--color-base-8);
     color: var(--color-text-primary);
   }

@@ -21,6 +21,7 @@ import { GridSnapshotCodec } from "@/undo/GridSnapshotCodec";
 import type { Snapshot } from "@/undo/UndoTypes";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
+import { useGridPreviewStore } from "@/stores/grid/gridPreview";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridUploadsStore } from "@/stores/grid/gridUploads";
@@ -144,6 +145,7 @@ export function createStores(pinia: Pinia): GridControllerStores {
   return {
     collection: useGridCollectionStore(pinia),
     history: useGridHistoryStore(pinia),
+    preview: useGridPreviewStore(pinia),
     session: useGridSessionStore(pinia),
     ui: useGridUiStore(pinia),
     uploads: useGridUploadsStore(pinia),

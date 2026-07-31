@@ -91,10 +91,20 @@ export class GridSessionController {
           });
       }
 
-      await gridService.touchLastOpenedAt(id);
-      this.stores.collection.updateGrid(id, {
-        lastOpenedAt: this.dependencies.now(),
-      });
+      // Owners only, for the same reason as the subscription above. This field
+      // feeds the owner's own "recent grids" ordering, and only the owner may
+      // write it — a visitor's attempt is rejected by security rules and
+      // surfaces as a permission-denied error on every public page view. It is
+      // also awaited, so an anonymous visit used to block on a round-trip that
+      // could never succeed. The local patch is gated with it: the collection
+      // store holds the signed-in user's own grids, so stamping someone else's
+      // grid there is meaningless even when it happens to be present.
+      if (isOwner) {
+        await gridService.touchLastOpenedAt(id);
+        this.stores.collection.updateGrid(id, {
+          lastOpenedAt: this.dependencies.now(),
+        });
+      }
       this.refreshStableSnapshot();
     } catch (error) {
       if (this.stores.session.sessionGeneration !== sessionGeneration) {

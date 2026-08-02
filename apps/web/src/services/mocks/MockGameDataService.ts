@@ -9,6 +9,9 @@ export class MockGameDataService implements GameDataServiceInterface {
   getOrCreateUserGameData(_userId: string): Promise<UserGameData> {
     throw new Error("Method not implemented.");
   }
+  getUserGameData(_userId: string): Promise<UserGameData | null> {
+    throw new Error("Method not implemented.");
+  }
   checkDailyClickLimit(_userId: string): Promise<DailyClickLimit> {
     throw new Error("Method not implemented.");
   }

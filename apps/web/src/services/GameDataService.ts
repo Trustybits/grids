@@ -36,6 +36,10 @@ export class GameDataService implements GameDataServiceInterface {
     return false;
   }
 
+  async getUserGameData(userId: string): Promise<UserGameData | null> {
+    return await getDao().getById(userId);
+  }
+
   async getOrCreateUserGameData(userId: string): Promise<UserGameData> {
     const dao = getDao();
     const data = await dao.getById(userId);

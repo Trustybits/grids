@@ -6,6 +6,13 @@ import type {
 
 export interface GameDataServiceInterface {
   getOrCreateUserGameData(userId: string): Promise<UserGameData>;
+  /**
+   * Read-only counterpart to `getOrCreateUserGameData`, for callers who are not
+   * the record's owner. Creating `userGameData/{userId}` is gated on
+   * `request.auth.uid == userId`, so a viewer must never take the create path
+   * for someone else's record. Resolves `null` when none exists.
+   */
+  getUserGameData(userId: string): Promise<UserGameData | null>;
   checkDailyClickLimit(userId: string): Promise<DailyClickLimit>;
   incrementUserClicks(userId: string, amount: number): Promise<boolean>;
   subscribeToUserGameData(

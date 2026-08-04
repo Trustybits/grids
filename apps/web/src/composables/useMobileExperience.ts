@@ -181,6 +181,13 @@ export function useMobileExperience() {
   }
 
   return {
+    /**
+     * Touch-primary device, regardless of viewport size — unlike
+     * `isMobileDevice`, which also requires a small viewport. Tile gestures key
+     * off this alone: a touch-primary tablet at a wide viewport still has no
+     * hover and still needs tap-to-activate before a drag.
+     */
+    isTouchDevice: readonly(_isTouchDevice),
     isMobileDevice,
     isSmallViewport,
     canUseMobile2,

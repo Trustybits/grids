@@ -61,14 +61,17 @@ import {
   toCanonicalLayoutItems,
   toGriddlePlacements,
   toGriddleTiles,
+  touchActivationCaps,
 } from "@/utils/GriddleAdapter";
 import { isHiddenSuggestion } from "@/utils/TileUtils";
 import {
+  TILE_ACTIVATED_ID,
   TILE_DRAGGING_ID,
   TILE_GEOMETRY_VERSION,
   TILE_REMOVE_REQUEST,
   TILE_RESIZE_REQUEST,
 } from "@/grid-context/tileInteractionKeys";
+import { useMobileExperience } from "@/composables/useMobileExperience";
 
 export default {
   components: {
@@ -157,9 +160,27 @@ export default {
       );
     });
 
+    // Touch has no hover, so a tile is tapped once to activate before it can be
+    // dragged or resized. `Tile.vue` has always computed that gate, but it was
+    // never handed to the engine, so Griddle armed a drag on any pointer-down
+    // and a swipe across a tile was read as a drag instead of a scroll.
+    // Folding it into the caps here lets Griddle bail in `onTilePointerDown`
+    // (it returns early on `draggable: false`), which leaves the gesture to the
+    // browser. `resolveCaps` exists for exactly this.
+    const activatedTileId = ref<string | null>(null);
+    provide(TILE_ACTIVATED_ID, activatedTileId);
+
+    const { isTouchDevice } = useMobileExperience();
+
     const griddleTiles = computed(() =>
       toGriddleTiles(canonicalLayout.value, contractTiles.value, {
         editable: gridView.canEdit,
+        resolveCaps: (tile) =>
+          touchActivationCaps(
+            tile?.i,
+            activatedTileId.value,
+            isTouchDevice.value,
+          ),
       }),
     );
 

@@ -180,6 +180,7 @@ import {
 } from "vue";
 
 import {
+  TILE_ACTIVATED_ID,
   TILE_DRAGGING_ID,
   TILE_REMOVE_REQUEST,
 } from "@/grid-context/tileInteractionKeys";
@@ -272,7 +273,23 @@ export default defineComponent({
 
     const isDragging = ref(false);
     const isExiting = ref(false);
-    const isActivated = ref(false);
+    // Activation is grid-level state, not tile-local: `Grid.vue` folds it into
+    // the Griddle tile caps so a non-activated tile reports `draggable: false`
+    // and the engine leaves the gesture alone. Only one tile is activated at a
+    // time, so a single shared id models it. Kept as a writable computed so the
+    // existing `isActivated.value = true/false` call sites are unchanged.
+    // Falls back to a local ref when no grid provides the channel (isolated
+    // tile mounts in tests).
+    const activatedTileId = inject<Ref<string | null>>(
+      TILE_ACTIVATED_ID,
+      ref(null),
+    );
+    const isActivated = computed<boolean>({
+      get: () => activatedTileId.value === props.tile.i,
+      set: (value) => {
+        activatedTileId.value = value ? props.tile.i : null;
+      },
+    });
 
     // Griddle drives drag/resize at the grid level; Grid.vue publishes the
     // active gesture's tile id here. Mirror it into this tile's drag visual.

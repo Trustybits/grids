@@ -2,8 +2,8 @@
   <MarketingLayout>
     <section class="mkt__section mkt__page mkt__pricing-page">
       <div class="mkt__kicker">Pricing</div>
-      <h1>Simple, <span>honest pricing.</span></h1>
-      <p>Grids is free to build with. Pay what you want to support the project, or go Pro for advanced features.</p>
+      <h1>Grids is <span>free.</span></h1>
+      <p>Pay to get hosting and a few extra features — pay what you want, whenever you want.</p>
 
       <!-- Temporarily disabled for now until we have pro tier ready -->
       <!-- <div class="mkt__billing-toggle" role="group" aria-label="Billing interval">
@@ -22,21 +22,77 @@
         </button>
       </div> -->
 
-      <div class="mkt__pricing mkt__pricing--duo">
-        <!-- Supporter (Pay what you want) -->
+      <div class="mkt__pricing mkt__pricing--trio">
+        <!-- Free (always active for everyone) -->
         <article
-          :class="[
-            'mkt__plan',
-            'mkt__plan--supporter',
-            { 'is-current': hasSupporterBadge && tier !== 'pro' },
-          ]"
+          :class="['mkt__plan', 'mkt__plan--free', { 'is-current': tier !== 'pro' }]"
         >
-          <div class="mkt__ribbon mkt__ribbon--supporter">Support the project</div>
+          <header>
+            <h3>Free</h3>
+          </header>
+          <h4 class="mkt__plan-title--supporter">Free forever</h4>
+          <p>
+            Everything you need to build and share your grid. No credit card, no
+            trial — it's free for everyone.
+          </p>
+
+          <div class="mkt__plan-cta">
+            <div class="mkt__current">
+              <span aria-hidden="true">✓</span> This is already active
+            </div>
+          </div>
+
+          <div class="mkt__unlocks">
+            <div class="mkt__unlock-group">
+              <div class="mkt__plan-section">Included</div>
+              <ul>
+                <li v-for="item in freeIncludes" :key="item">{{ item }}</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- Pro -->
+        <article
+          :class="['mkt__plan', 'mkt__plan--pro', { 'is-current': isProOrAbove }]"
+        >
+          <header>
+            <h3>Pro</h3>
+          </header>
+          <h4>
+            ${{
+              billingInterval === 'month'
+                ? proMonthlyPrice
+                : proAnnualMonthlyPrice
+            }}
+            <small>/ mo</small>
+          </h4>
+          <p v-if="billingInterval === 'year'" class="mkt__annual-note">
+            Billed ${{ proAnnualPrice }} annually
+          </p>
+          <p>For power users and professionals.</p>
+
+          <div class="mkt__plan-cta">
+            <Button variant="outline" disabled block size="lg">
+              Coming Soon
+            </Button>
+          </div>
+
+          <ul>
+            <li class="mkt__plan-section">Everything in Supporter, plus:</li>
+            <li v-for="f in proFeatures" :key="f">{{ f }}</li>
+          </ul>
+        </article>
+
+        <!-- Supporter — pay-what-you-want, 3rd card -->
+        <article
+          :class="['mkt__plan', 'mkt__plan--donate', { 'is-current': hasSupporterBadge }]"
+        >
           <header>
             <h3>Supporter</h3>
           </header>
-          <h4 class="mkt__plan-title--supporter">Donate to Support</h4>
-          <p>One-time. No subscription. Unlock the Supporter badge.</p>
+          <h4 class="mkt__plan-title--supporter">Donate to support</h4>
+          <p>One-time, pay what you want — no subscription.</p>
 
           <div class="mkt__plan-cta">
             <div v-if="hasSupporterBadge" class="mkt__current">
@@ -53,8 +109,7 @@
                   :class="[
                     'mkt__pwyw-btn',
                     {
-                      'is-active':
-                        selectedAmount === preset && !customAmountMode,
+                      'is-active': selectedAmount === preset && !customAmountMode,
                     },
                   ]"
                   @click="selectPreset(preset)"
@@ -102,15 +157,15 @@
 
             <Button
               variant="brand"
-              :disabled="checkout.loading.value"
+              :disabled="checkout.loading.value || effectiveAmount === 0"
               block
               size="lg"
               @click="handleSupporterCheckout"
             >
               <span v-if="checkout.loading.value">Processing...</span>
-              <span v-else-if="effectiveAmount === 0">Continue for Free</span>
-              <span v-else-if="hasSupporterBadge">Contribute Again (${{ effectiveAmount }})</span>
-              <span v-else>Support for ${{ effectiveAmount }}</span>
+              <span v-else-if="effectiveAmount === 0">Choose an amount</span>
+              <span v-else-if="hasSupporterBadge">Contribute again (${{ effectiveAmount }})</span>
+              <span v-else>Donate ${{ effectiveAmount }}</span>
             </Button>
             <p v-if="checkout.error.value" class="mkt__plan-error">
               {{ checkout.error.value }}
@@ -119,7 +174,7 @@
 
           <div class="mkt__unlocks">
             <div
-              v-for="group in supporterUnlocks"
+              v-for="group in donateUnlocks"
               :key="group.label"
               class="mkt__unlock-group"
             >
@@ -129,39 +184,6 @@
               </ul>
             </div>
           </div>
-        </article>
-
-        <!-- Pro -->
-        <article
-          :class="['mkt__plan', 'mkt__plan--pro', { 'is-current': isProOrAbove }]"
-        >
-          <div class="mkt__ribbon mkt__ribbon--pro">Premium Features</div>
-          <header>
-            <h3>Pro</h3>
-          </header>
-          <h4>
-            ${{
-              billingInterval === 'month'
-                ? proMonthlyPrice
-                : proAnnualMonthlyPrice
-            }}
-            <small>/ mo</small>
-          </h4>
-          <p v-if="billingInterval === 'year'" class="mkt__annual-note">
-            Billed ${{ proAnnualPrice }} annually
-          </p>
-          <p>For power users and professionals.</p>
-
-          <div class="mkt__plan-cta">
-            <Button variant="outline" disabled block size="lg">
-              Coming Soon
-            </Button>
-          </div>
-
-          <ul>
-            <li class="mkt__plan-section">Everything in Supporter, plus:</li>
-            <li v-for="f in proFeatures" :key="f">{{ f }}</li>
-          </ul>
         </article>
       </div>
 
@@ -219,11 +241,20 @@
       <!-- Feature comparison -->
       <div class="mkt__comparison">
         <button
-          class="mkt__comparison-toggle"
+          type="button"
+          class="mkt__comparison-switch"
+          :aria-expanded="showComparison"
           @click="showComparison = !showComparison"
         >
-          {{ showComparison ? 'Hide' : 'See full' }} feature comparison
-          <span :class="{ 'is-rotated': showComparison }">▾</span>
+          <span class="mkt__comparison-switch-text">
+            <strong>See full feature comparison</strong>
+            <small>Compare Community, Supporter and Pro side by side</small>
+          </span>
+          <span
+            class="mkt__comparison-chevron"
+            :class="{ 'is-open': showComparison }"
+            aria-hidden="true"
+          >▾</span>
         </button>
         <div v-if="showComparison" class="mkt__comparison-wrap">
           <table class="mkt__comparison-table">
@@ -260,11 +291,25 @@
 
       <!-- FAQ -->
       <div class="mkt__faq">
-        <h2>Common questions</h2>
-        <div class="mkt__faq-grid">
-          <div v-for="item in faqItems" :key="item.q" class="mkt__faq-item">
-            <h3>{{ item.q }}</h3>
-            <p>{{ item.a }}</p>
+        <h2>Frequently asked questions</h2>
+        <div class="mkt__faq-list">
+          <div
+            v-for="(item, index) in faqItems"
+            :key="item.q"
+            :class="['mkt__faq-item', { 'is-open': openFaq === index }]"
+          >
+            <button
+              type="button"
+              class="mkt__faq-q"
+              :aria-expanded="openFaq === index"
+              @click="toggleFaq(index)"
+            >
+              <span>{{ item.q }}</span>
+              <span class="mkt__faq-icon" aria-hidden="true"></span>
+            </button>
+            <div v-show="openFaq === index" class="mkt__faq-a">
+              <p>{{ item.a }}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -345,35 +390,33 @@ async function handleSupporterCheckout() {
   await checkout.checkoutSupporter(effectiveAmount.value);
 }
 
-const communityFeatures = [
-  'Unlimited grids',
+const freeIncludes = [
+  'Two grid pages',
   'Unlimited tiles',
-  'Drag-and-drop editor',
-  'Mobile-responsive layouts',
-  'Basic page analytics',
+  'Custom handle URL (grids.so/yourhandle)',
 ];
 
-const supporterUnlocks = [
-  {
-    label: 'Always Free',
-    items: [
-      'Two grid pages',
-      'Unlimited tiles',
-      'Custom handle URL (grids.so/yourhandle)',
-    ],
-  },
+const donateUnlocks = [
   {
     label: '$1+ unlocks',
     items: [
       'Supporter badge on your profile',
       'Early access to new features',
-      'Warm fuzzy feeling of supporting an amazing open-source product',
+      'Warm fuzzy feeling of supporting open source',
     ],
   },
   {
     label: '$10+ unlocks',
     items: ['Remove Grids branding'],
   },
+];
+
+const communityFeatures = [
+  'Unlimited grids',
+  'Unlimited tiles',
+  'Drag-and-drop editor',
+  'Mobile-responsive layouts',
+  'Basic page analytics',
 ];
 
 function onCustomAmountInput(event: Event) {
@@ -417,6 +460,13 @@ const proFeatures = [
 ];
 
 const showComparison = ref(false);
+
+// FAQ accordion — a single item open at a time; click an open item to close it.
+const openFaq = ref<number | null>(0);
+function toggleFaq(index: number) {
+  openFaq.value = openFaq.value === index ? null : index;
+}
+
 type ComparisonCell = boolean | string;
 
 function comparisonCellLabel(value: ComparisonCell) {

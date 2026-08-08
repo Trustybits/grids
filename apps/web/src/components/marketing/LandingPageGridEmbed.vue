@@ -92,9 +92,6 @@
             {{ bp.label }}
           </button>
         </div>
-        <span v-if="!scrollDisabled" class="grid-jack__legend-hint">
-          scroll to morph ↓
-        </span>
       </div>
     </div>
   </div>
@@ -480,8 +477,13 @@ const interceptOutboundClick = (event: MouseEvent) => {
   position: relative;
   width: 100%;
   height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
+  /* Inner scroll is disabled so the device screen never captures the page
+     scroll that drives the breakpoint morph. We deliberately do NOT set
+     overscroll-behavior here: with the viewport non-scrollable, the wheel
+     must be free to chain up to the page so scrolling works even when the
+     cursor is inside the frame. Grid content taller than the frame is
+     cropped rather than scrolled. */
+  overflow: hidden;
   background: #050507;
   transition: border-radius var(--duration-slow, 420ms) cubic-bezier(0.22, 1, 0.36, 1);
   scrollbar-width: thin;

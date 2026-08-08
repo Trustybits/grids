@@ -1,21 +1,29 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Orbitron:wght@500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Orbitron:wght@400;500;600;700;800;900&display=swap");
 
 :root {
-  /* Brand */
-  --mkt-brand-cyan: #8dd8fc;
-  --mkt-brand-blue: #6da6fd;
-  --mkt-brand-indigo: #838bfb;
-  --mkt-brand-violet: #a47cf9;
-  --mkt-brand-magenta: #ef6fc4;
-  --mkt-brand-pink: #ef4dbd;
+  /* Brand — shades of #6C4DFE (single-hue purple system) */
+  --mkt-brand-500: #6c4dfe; /* primary */
+  --mkt-brand-400: #8a72ff;
+  --mkt-brand-300: #a897ff;
+  --mkt-brand-200: #c6bcff;
+  --mkt-brand-600: #593cdf;
+  --mkt-brand-700: #472fb4;
+
+  /* Legacy accent aliases now mapped onto the purple ramp so the whole
+     page reads as one hue instead of the old rainbow. */
+  --mkt-brand-cyan: var(--mkt-brand-200);
+  --mkt-brand-blue: var(--mkt-brand-300);
+  --mkt-brand-indigo: var(--mkt-brand-500);
+  --mkt-brand-violet: var(--mkt-brand-600);
+  --mkt-brand-magenta: var(--mkt-brand-400);
+  --mkt-brand-pink: var(--mkt-brand-300);
 
   --mkt-brand-gradient: linear-gradient(
     135deg,
-    var(--mkt-brand-cyan) 0%,
-    var(--mkt-brand-blue) 25%,
-    var(--mkt-brand-indigo) 50%,
-    var(--mkt-brand-violet) 72%,
-    var(--mkt-brand-magenta) 100%
+    var(--mkt-brand-300) 0%,
+    var(--mkt-brand-400) 42%,
+    var(--mkt-brand-500) 72%,
+    var(--mkt-brand-600) 100%
   );
 
   /* Dark canvas + text */
@@ -54,7 +62,7 @@
   /* Typography */
   --mkt-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mkt-font-serif: "Instrument Serif", ui-serif, Georgia, "Times New Roman", serif;
-  --mkt-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --mkt-font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --mkt-font-brand: "Orbitron", var(--mkt-font-sans);
 }
 

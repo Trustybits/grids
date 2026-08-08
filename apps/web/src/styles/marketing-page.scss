@@ -28,19 +28,14 @@
 .mkt__body > :last-child {
   margin-bottom: auto;
 }
-.mkt::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 45% 24% at 50% 14%, rgba(131, 139, 251, 0.2), transparent 70%),
-    radial-gradient(ellipse 55% 26% at 50% 96%, rgba(131, 139, 251, 0.16), transparent 72%);
-  z-index: 0;
-}
+/* Plain flat canvas: the page background comes from `.mkt`'s own solid
+   background (below). The old decorative `.mkt::before` glow overlay was
+   removed — as an opaque fixed layer it painted over any content without a
+   stacking z-index (e.g. the pricing FAQ / comparison), hiding it. */
 .mkt__hero {
   position: relative;
   z-index: 1;
+  isolation: isolate;
   padding: 56px var(--mkt-section-x) 40px;
   text-align: center;
   /* Matches `.mkt__section` below. Without an explicit width this is a column
@@ -54,6 +49,92 @@
   width: 100%;
   max-width: var(--mkt-section-max);
   margin: 0 auto;
+}
+/* Full-bleed dot grid behind everything BELOW the hero. It's held clear of the
+   hero itself (which carries the line grid) and faded in from the top so the
+   transition between the two grids is smooth. A cursor-tracked layer makes the
+   dots shine a little near the pointer. */
+.mkt__hero-dots {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  top: 0;
+  bottom: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1.5px);
+  background-size: 26px 26px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 700px, #000 1040px);
+  mask-image: linear-gradient(to bottom, transparent 0, transparent 700px, #000 1040px);
+}
+/* Faint purple wash that follows the cursor (vars set in LandingPage.vue). */
+.mkt__hero-dots::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    260px 260px at var(--dot-mx, -999px) var(--dot-my, -999px),
+    rgba(108, 77, 254, 0.06),
+    transparent 70%
+  );
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 700px, #000 1040px);
+  mask-image: linear-gradient(to bottom, transparent 0, transparent 700px, #000 1040px);
+}
+/* Brighter dots that light up only within a soft radius around the cursor
+   (and only below the hero) — the "spark" shine, revealed on hover. */
+.mkt__hero-dots::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(198, 188, 255, 0.55) 1px, transparent 1.5px);
+  background-size: 26px 26px;
+  /* Always painted, but the cursor radial keeps it invisible until the pointer
+     moves in (the vars default off-screen), so the dots shine only near the
+     cursor and only below the hero. */
+  -webkit-mask-image:
+    radial-gradient(190px 190px at var(--dot-mx, -999px) var(--dot-my, -999px), #000 0%, transparent 66%),
+    linear-gradient(to bottom, transparent 0, transparent 700px, #000 1040px);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(190px 190px at var(--dot-mx, -999px) var(--dot-my, -999px), #000 0%, transparent 66%),
+    linear-gradient(to bottom, transparent 0, transparent 700px, #000 1040px);
+  mask-composite: intersect;
+}
+/* Hero stage: holds the interactive tile backdrop (<LandingHeroTiles>, a
+   full-bleed gutter grid + draggable tiles) behind the centred hero copy. The
+   min-height reserves vertical room for the side tiles; the copy is centred
+   within it and sits above the tiles via z-index. */
+.mkt__hero-stage {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 520px;
+}
+/* Headline is set as three short lines (see template) so it stays narrow and
+   leaves the side gutters free for the tile backdrop on typical desktops.
+   `width: fit-content` shrinks the box to the actual text so the tiles can
+   anchor to the real headline width (keeping a constant gap as the font
+   scales), rather than to the wider max-width box. */
+.mkt__hero-stage .mkt__hero-title {
+  max-width: 720px;
+  width: fit-content;
+}
+.mkt__hero-stage > .mkt__hero-container {
+  position: relative;
+  z-index: 5;
+  /* The centred copy sits above the tile backdrop but spans the full section
+     width, so let pointer events fall through its empty gutters to the tiles
+     below — only the interactive claim pill re-captures them. */
+  pointer-events: none;
+  /* Don't let a tile drag that passes over the headline select its text. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+.mkt__hero-stage .mkt__url-pill {
+  pointer-events: auto;
 }
 .mkt__section {
   width: 100%;
@@ -77,17 +158,11 @@
 .mkt__hero-title span {
   font: 800 clamp(3rem, 7.2vw, 5rem) / .98 var(--mkt-font-sans);
   letter-spacing: -0.045em;
-  background: var(--mkt-brand-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--mkt-brand-400);
 }
 
 .mkt__cta h2 span {
-  background: var(--mkt-brand-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--mkt-brand-400);
 }
 .mkt__hero-sub {
   font: 400 20px/1.45 var(--mkt-font-sans);
@@ -96,6 +171,7 @@
   margin: 22px auto 30px;
 }
 .mkt__url-pill {
+  position: relative;
   display: inline-flex;
   align-items: center;
   background: var(--mkt-bg-2);
@@ -103,52 +179,133 @@
   border-radius: 999px;
   padding: 5px 6px 5px 16px;
   margin-bottom: 52px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
-.mkt__url-pill span {
+.mkt__url-pill.is-available {
+  border-color: color-mix(in srgb, #58e0a3 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, #58e0a3 12%, transparent);
+}
+.mkt__url-pill.is-taken {
+  border-color: color-mix(in srgb, #ff6b7a 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, #ff6b7a 12%, transparent);
+}
+.mkt__url-pill.is-taken .mkt__url-pill-input {
+  color: #ff8a94;
+}
+.mkt__url-status {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 18px;
+  font: 500 12px/1 var(--mkt-font-mono);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.mkt__url-status--ok {
+  color: #7cf0c0;
+}
+.mkt__url-status--bad {
+  color: #ff8a94;
+}
+.mkt__url-pill-prefix {
   color: var(--mkt-fg-4);
   font: 400 15px/1 var(--mkt-font-mono);
+  white-space: nowrap;
+  user-select: none;
 }
-.mkt__url-pill input {
+.mkt__url-pill-input {
   background: transparent;
   border: 0;
   outline: 0;
   color: var(--mkt-fg-1);
-  font: 600 15px/1 var(--mkt-font-sans);
-  padding-right: 10px;
-  width: 120px;
+  font: 400 15px/1 var(--mkt-font-mono);
+  padding: 0 10px 0 0;
+  width: clamp(96px, 22vw, 156px);
+  caret-color: var(--mkt-brand-300);
+  transition: color 0.2s ease;
 }
-.mkt__url-pill-text {
+.mkt__url-pill-input::placeholder {
+  color: var(--mkt-fg-4);
+  opacity: 1;
+}
+.mkt__url-pill.is-available .mkt__url-pill-input {
+  color: #7cf0c0;
+}
+.mkt__url-pill-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  color: var(--mkt-fg-1);
-  font: 600 15px/1 var(--mkt-font-sans);
-  padding-right: 10px;
-  min-width: 120px;
-  white-space: pre;
-}
-.mkt__url-pill-text-value {
-  display: inline-block;
-}
-.mkt__url-pill-caret {
-  display: inline-block;
-  width: 1.5px;
-  height: 1em;
-  background: currentColor;
-  margin-left: 1px;
-  vertical-align: -0.12em;
-  animation: mkt-caret-blink 1.05s steps(1) infinite;
-}
-@keyframes mkt-caret-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
-}
-.mkt__url-pill button {
+  justify-content: center;
+  gap: 8px;
   border: 0;
   border-radius: 999px;
-  background: var(--mkt-brand-gradient);
+  background: var(--mkt-brand-500);
   padding: 11px 18px;
+  min-width: 132px;
   font: 600 14px/1 var(--mkt-font-sans);
-  color: #000;
+  color: #fff;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease, box-shadow 300ms ease;
+}
+.mkt__url-pill-btn:hover:not(:disabled) {
+  background: var(--mkt-brand-400);
+}
+.mkt__url-pill-btn:disabled {
+  cursor: default;
+}
+.mkt__url-pill-btn.is-hit {
+  transform: scale(1.06);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--mkt-brand-400) 35%, transparent),
+    0 0 26px 4px color-mix(in srgb, var(--mkt-brand-400) 55%, transparent);
+}
+.mkt__url-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-right-color: #fff;
+  animation: mkt-spin 0.6s linear infinite;
+}
+@keyframes mkt-spin {
+  to { transform: rotate(360deg); }
+}
+/* Live availability indicator sitting inside the pill, right of the input. */
+.mkt__url-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  flex: none;
+  font: 700 13px/1 var(--mkt-font-sans);
+}
+.mkt__url-spinner--sm {
+  width: 13px;
+  height: 13px;
+  border-color: color-mix(in srgb, var(--mkt-brand-300) 40%, transparent);
+  border-right-color: var(--mkt-brand-300);
+}
+.mkt__url-mark-ok {
+  color: #58e0a3;
+}
+.mkt__url-mark-bad {
+  color: #ff8a94;
+}
+/* The beam that shoots from the typed handle toward the button on success. */
+.mkt__url-beam {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 30px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--mkt-brand-300) 40%, #ffffff);
+  box-shadow: 0 0 10px 1px var(--mkt-brand-400);
+  opacity: 0;
+  transform: translate(0, -50%);
+  pointer-events: none;
 }
 .mkt__hero-grid {
   max-width: 610px;
@@ -426,10 +583,11 @@
   font: 600 11px/1 var(--mkt-font-sans);
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: var(--color-yellow);
+  color: var(--mkt-brand-300);
   padding: 6px 12px;
   border-radius: 999px;
-  background: rgba(255, 226, 153, .12);
+  background: color-mix(in srgb, var(--mkt-brand-500) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mkt-brand-500) 30%, transparent);
   margin-bottom: 20px;
 }
 .mkt__own h2 { font: 700 48px/1.02 var(--mkt-font-sans); margin: 0; }
@@ -493,6 +651,61 @@
   text-align: center;
   position: relative;
   z-index: 1;
+  isolation: isolate;
+  --cta-mx: 50%;
+  --cta-my: 50%;
+}
+/* Faint grid rendered as a soft, rounded blob. A single elliptical mask with a
+   long, gradual falloff — the horizontal radius stays inside the viewport so the
+   side fade is actually visible, and the wide 6%→86% transition blurs every edge
+   (and corner) smoothly out to black instead of hard-cutting into a rectangle. */
+.mkt__cta-grid {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  top: -40px;
+  bottom: -40px;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, .05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(
+    46% 62% at 50% 50%,
+    #000 6%,
+    rgba(0, 0, 0, .5) 44%,
+    transparent 86%
+  );
+  mask-image: radial-gradient(
+    46% 62% at 50% 50%,
+    #000 6%,
+    rgba(0, 0, 0, .5) 44%,
+    transparent 86%
+  );
+}
+/* Purple spotlight that tracks the cursor (vars set in LandingPage.vue).
+   The layer itself is feathered toward its edges with a soft mask, so as the
+   cursor nears a side the glow dissolves smoothly instead of getting clipped
+   by the section's straight edge (which is what exposed the rectangle). */
+.mkt__cta-spot {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(
+    240px 240px at var(--cta-mx) var(--cta-my),
+    color-mix(in srgb, var(--mkt-brand-400) 30%, transparent),
+    transparent 70%
+  );
+  -webkit-mask-image: radial-gradient(closest-side at 50% 50%, #000 48%, transparent 100%);
+  mask-image: radial-gradient(closest-side at 50% 50%, #000 48%, transparent 100%);
+  transition: background .08s linear;
+}
+.mkt__cta-inner {
+  position: relative;
+  z-index: 3;
 }
 .mkt__cta h2 {
   font: 400 64px/1 var(--mkt-font-sans);
@@ -507,6 +720,42 @@
   color: rgba(255, 255, 255, .6);
   max-width: 500px;
   margin: 20px auto 30px;
+}
+/* Shine sweep + lift on the CTA button (class passed through to <Button>). */
+.mkt__cta-btn {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform .18s ease,
+    box-shadow .3s ease,
+    background-color var(--duration-fast) var(--easing-smooth);
+}
+.mkt__cta-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .5), transparent);
+  transform: skewX(-18deg);
+  animation: mkt-cta-shine 3.4s ease-in-out infinite;
+}
+.mkt__cta-btn:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--mkt-brand-400) 28%, transparent),
+    0 12px 40px -6px color-mix(in srgb, var(--mkt-brand-500) 70%, transparent);
+}
+@keyframes mkt-cta-shine {
+  0%, 62% { left: -120%; }
+  100% { left: 130%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mkt__cta-spot { transition: none; }
+  .mkt__cta-btn::after { animation: none; opacity: 0; }
+  .mkt__cta-btn { transition: none; }
 }
 .mkt__page, .mkt__placeholder {
   padding-top: 56px;
@@ -565,10 +814,7 @@
   margin: 14px 0 10px;
 }
 .mkt__landing-showcase-head h2 span {
-  background: var(--mkt-brand-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--mkt-brand-400);
 }
 .mkt__landing-showcase-head p {
   font: 400 18px/1.45 var(--mkt-font-sans);
@@ -679,10 +925,7 @@
 }
 .mkt__pricing-page { text-align: center; }
 .mkt__pricing-page h1 span {
-  background: var(--mkt-brand-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--mkt-brand-400);
 }
 .mkt__pricing-page > p {
   max-width: 560px;
@@ -721,8 +964,8 @@
   font: 700 10px/1 var(--mkt-font-sans);
   padding: 3px 7px;
   border-radius: 999px;
-  background: #58e0a3;
-  color: #052e1f;
+  background: var(--mkt-brand-500);
+  color: #fff;
   text-transform: uppercase;
   letter-spacing: .04em;
 }
@@ -734,15 +977,14 @@
   margin-top: 20px;
   text-align: left;
 }
-.mkt__pricing--duo {
+.mkt__pricing--trio {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
   margin-top: 0;
   width: 100%;
   box-sizing: border-box;
-  /* Top padding clears ribbon badges; horizontal inset is desktop-only — see breakpoints */
-  padding: 96px 96px 0;
+  padding: 24px 0 0;
 }
 
 .mkt__plan {
@@ -757,7 +999,7 @@
   flex-direction: column;
 }
 .mkt__plan.is-current {
-  box-shadow: inset 0 0 0 1px rgba(88, 224, 163, .35);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mkt-brand-400) 40%, transparent);
 }
 .mkt__plan--supporter {
   z-index: 3;
@@ -883,10 +1125,10 @@
   text-align: center;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(88, 224, 163, .12);
-  color: #7cf0c0;
+  background: color-mix(in srgb, var(--mkt-brand-400) 14%, transparent);
+  color: var(--mkt-brand-200);
   font: 600 13px/1 var(--mkt-font-sans);
-  border: 1px solid rgba(88, 224, 163, .22);
+  border: 1px solid color-mix(in srgb, var(--mkt-brand-400) 30%, transparent);
 }
 .mkt__contribution-total {
   margin: 0;
@@ -977,17 +1219,49 @@
 }
 
 /* â”€â”€ Community / open source card (horizontal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Mirrors the landing page's open-source panel (`.mkt__own`): a purple corner
+   glow, a faint dot texture, and a solid panel — so it reads as its own moment
+   rather than a bare dashed outline. */
 .mkt__plan--community {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   margin-top: 20px;
-  background: transparent;
-  border: 1px dashed rgba(255, 255, 255, .18);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: var(--mkt-radius-xl);
+  background:
+    radial-gradient(
+      120% 130% at 100% 0%,
+      color-mix(in srgb, var(--mkt-brand-600) 26%, transparent),
+      transparent 52%
+    ),
+    var(--mkt-bg-1);
   display: grid;
   grid-template-columns: 1.2fr 1.4fr auto;
   gap: 36px;
   align-items: center;
-  padding: 28px 32px;
+  padding: clamp(28px, 4vw, 44px);
   width: 100%;
   box-sizing: border-box;
+}
+.mkt__plan--community::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 1.4px
+  );
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 80% at 90% 10%, #000, transparent 70%);
+  mask-image: radial-gradient(ellipse 70% 80% at 90% 10%, #000, transparent 70%);
+}
+.mkt__plan--community > * {
+  position: relative;
+  z-index: 1;
 }
 .mkt__plan--community h3 {
   font: 700 20px/1 var(--mkt-font-sans);
@@ -1004,24 +1278,37 @@
   list-style: none !important;
   padding: 0 !important;
   margin: 0 !important;
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 24px !important;
+  display: flex !important;
+  flex-flow: row wrap !important;
+  gap: 8px !important;
   width: 100%;
-  color: rgba(255, 255, 255, .75);
-  font-size: 13px;
 }
 .mkt__community-features li {
-  position: relative;
-  padding-left: 20px;
-  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px 7px 9px !important;
+  border-radius: 999px;
+  background: color-mix(in srgb, #fff 4%, transparent);
+  border: 1px solid rgba(255, 255, 255, .08);
+  color: rgba(255, 255, 255, .82);
+  font: 500 13px/1 var(--mkt-font-sans);
+  white-space: nowrap;
 }
 .mkt__community-features li::before {
   content: "\2713";
-  position: absolute;
-  left: 0;
-  top: 0.1em;
-  color: #58e0a3;
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--mkt-brand-400) 20%, transparent);
+  color: var(--mkt-brand-300);
+  font-size: 10px;
+  font-weight: 700;
 }
 .mkt__community-cta {
   display: flex;
@@ -1030,12 +1317,27 @@
   min-width: 200px;
 }
 
+/* ── Supporter / donate — 3rd plan card ────────────────────────────────── */
+.mkt__plan--donate {
+  background:
+    radial-gradient(
+      120% 130% at 50% 0%,
+      color-mix(in srgb, var(--mkt-brand-600) 16%, transparent),
+      transparent 55%
+    ),
+    #0a0a0b;
+}
+
 /* ── Feature comparison ───────────────────────────────────────────────── */
-.mkt__pricing-footnote {
-  margin: 8px 0 0;
+/* Scoped under `.mkt__pricing-page` so it out-specifies `.mkt__page p`.
+   `auto` side margins center the (max-width-capped) box on the page — without
+   them it inherits the 560px cap from `.mkt__pricing-page > p` and hugs left. */
+.mkt__pricing-page .mkt__pricing-footnote {
+  max-width: 640px;
+  margin: 8px auto 0;
   text-align: center;
-  font: 400 14px/1.5 var(--mkt-font-sans);
-  color: rgba(255, 255, 255, .5);
+  font: 400 12px/1.5 var(--mkt-font-sans);
+  color: rgba(255, 255, 255, .38);
 }
 .mkt__pricing-footnote-link {
   border: 0;
@@ -1054,23 +1356,50 @@
   margin-top: 40px;
   text-align: center;
 }
-.mkt__comparison-toggle {
-  display: inline-flex;
+/* The comparison reveal is a real toggle box you flip on, not a plain link. */
+.mkt__comparison-switch {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid rgba(255, 255, 255, .12);
-  background: var(--mkt-bg-2);
-  color: var(--mkt-fg-2);
-  padding: 8px 16px;
-  border-radius: 999px;
-  font: 500 13px/1 var(--mkt-font-sans);
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, .1);
+  background: var(--mkt-bg-1);
+  color: var(--mkt-fg-1);
+  padding: 18px 22px;
+  border-radius: var(--mkt-radius-lg);
   cursor: pointer;
+  transition: border-color .2s ease, background .2s ease;
 }
-.mkt__comparison-toggle span {
-  transition: transform .2s;
+.mkt__comparison-switch:hover {
+  border-color: color-mix(in srgb, var(--mkt-brand-500) 40%, rgba(255, 255, 255, .1));
+  background: color-mix(in srgb, var(--mkt-bg-1) 82%, var(--mkt-brand-700) 18%);
 }
-.mkt__comparison-toggle span.is-rotated {
+.mkt__comparison-switch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.mkt__comparison-switch-text strong {
+  font: 700 15px/1.2 var(--mkt-font-sans);
+  color: var(--mkt-fg-1);
+}
+.mkt__comparison-switch-text small {
+  font: 400 13px/1.35 var(--mkt-font-sans);
+  color: rgba(255, 255, 255, .5);
+}
+.mkt__comparison-chevron {
+  flex: none;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--mkt-fg-2);
+  transition: transform .25s ease, color .2s ease;
+}
+.mkt__comparison-chevron.is-open {
   transform: rotate(180deg);
+  color: var(--mkt-brand-300);
 }
 .mkt__comparison-wrap {
   overflow-x: auto;
@@ -1125,20 +1454,78 @@
   margin: 0 0 20px;
   text-align: center;
 }
-.mkt__faq-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px 32px;
+.mkt__faq-list {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.mkt__faq-item h3 {
-  font: 700 15px/1.2 var(--mkt-font-sans);
-  margin: 0 0 8px;
+.mkt__faq-item {
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: var(--mkt-radius-md);
+  background: var(--mkt-bg-1);
+  overflow: hidden;
+  transition: border-color .2s ease, background .2s ease;
+}
+.mkt__faq-item.is-open {
+  border-color: color-mix(in srgb, var(--mkt-brand-500) 35%, rgba(255, 255, 255, .08));
+  background: color-mix(in srgb, var(--mkt-bg-1) 82%, var(--mkt-brand-700) 18%);
+}
+.mkt__faq-q {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+  border: 0;
+  background: transparent;
   color: var(--mkt-fg-1);
+  padding: 18px 20px;
+  font: 700 15px/1.3 var(--mkt-font-sans);
+  cursor: pointer;
 }
-.mkt__faq-item p {
-  color: rgba(255, 255, 255, .6);
-  font: 400 14px/1.6 var(--mkt-font-sans);
+.mkt__faq-icon {
+  position: relative;
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.mkt__faq-icon::before,
+.mkt__faq-icon::after {
+  content: "";
+  position: absolute;
+  background: var(--mkt-fg-2);
+  border-radius: 2px;
+  transition: transform .25s ease, opacity .25s ease, background .25s ease;
+}
+.mkt__faq-icon::before {
+  top: 7px;
+  left: 0;
+  width: 16px;
+  height: 2px;
+}
+.mkt__faq-icon::after {
+  top: 0;
+  left: 7px;
+  width: 2px;
+  height: 16px;
+}
+.mkt__faq-item.is-open .mkt__faq-icon::before {
+  background: var(--mkt-brand-300);
+}
+.mkt__faq-item.is-open .mkt__faq-icon::after {
+  transform: scaleY(0);
+  opacity: 0;
+}
+.mkt__faq-a {
+  padding: 0 20px 18px;
+}
+.mkt__faq-a p {
   margin: 0;
+  color: rgba(255, 255, 255, .62);
+  font: 400 14px/1.6 var(--mkt-font-sans);
 }
 .mkt__placeholder {
   text-align: center;
@@ -1163,21 +1550,16 @@
   .mkt__feature h2 { white-space: normal; }
   .mkt__cards { grid-template-columns: repeat(2, 1fr); }
   .mkt__pricing { flex-direction: column; }
-  .mkt__pricing--duo {
+  .mkt__pricing--trio {
     grid-template-columns: 1fr;
-    padding: 56px 0 0;
+    padding: 24px 0 0;
   }
   .mkt__plan--community {
     grid-template-columns: 1fr;
     gap: 20px;
     text-align: left;
   }
-  .mkt__community-features {
-    grid-template-columns: 1fr !important;
-    gap: 10px !important;
-  }
   .mkt__community-cta { min-width: 0; }
-  .mkt__faq-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 800px) {
   .mkt {
@@ -1190,7 +1572,7 @@
   .mkt__feature, .mkt__page, .mkt__cta, .mkt__own { padding-left: 14px; padding-right: 14px; }
   .mkt__page h1 { font-size: 40px; }
   .mkt__cards { grid-template-columns: 1fr; }
-  .mkt__pricing--duo { padding: 44px 0 0; }
+  .mkt__pricing--trio { padding: 20px 0 0; }
   .mkt__plan { padding: 24px; }
   .mkt__plan h4 { font-size: 30px; }
   .mkt__plan h4.mkt__plan-title--supporter { font-size: 30px; }
@@ -1212,4 +1594,124 @@
     flex: initial;
     min-width: 0;
   }
+}
+
+/* ══ Orbitron display headings ═══════════════════════════════════════════
+   Marketing headings use Orbitron; body copy stays on Inter and numeric /
+   URL contexts use Geist Mono (both wired in claude-tokens.scss). Orbitron
+   is a wide geometric face, so we relax the tight negative tracking the old
+   Inter headings used. */
+.mkt__hero-title,
+.mkt__hero-title span,
+.mkt__feature h2,
+.mkt__own h2,
+.mkt__cta h2,
+.mkt__cta h2 span,
+.mkt__landing-showcase-head h2,
+.mkt__landing-showcase-head h2 span {
+  font-family: var(--mkt-font-brand);
+  letter-spacing: -0.005em;
+}
+.mkt__hero-title,
+.mkt__hero-title span {
+  font-weight: 800;
+}
+
+/* ══ Showcase "Open" affordance (#5) ══════════════════════════════════════ */
+.mkt__card--showcase {
+  cursor: pointer;
+}
+.mkt__card--showcase .mkt__og-image {
+  position: relative;
+}
+.mkt__card--showcase .mkt__og-image::after {
+  content: "Open ↗";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 14px/1 var(--mkt-font-brand);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #fff;
+  background: color-mix(in srgb, var(--mkt-brand-700) 60%, rgba(0, 0, 0, 0.5));
+  opacity: 0;
+  transition: opacity 240ms ease;
+  pointer-events: none;
+}
+.mkt__card--showcase:hover .mkt__og-image::after,
+.mkt__card--showcase:focus-visible .mkt__og-image::after {
+  opacity: 1;
+}
+
+/* ══ CTA "Ready to show off?" — larger (#7) ══════════════════════════════ */
+.mkt__cta {
+  padding-bottom: 40px;
+}
+.mkt__cta h2 {
+  font-size: clamp(3.25rem, 7vw, 5.5rem);
+  line-height: 1.02;
+}
+
+/* ══ Open-source section (#3) — distinct panel treatment ═════════════════
+   Reworked from a bare two-column band into a contained panel: a purple
+   corner glow, a faint dot texture, and a refined terminal, so it reads as
+   its own moment rather than another plain section. */
+.mkt__own {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--mkt-radius-xl);
+  background:
+    radial-gradient(
+      120% 130% at 100% 0%,
+      color-mix(in srgb, var(--mkt-brand-600) 26%, transparent),
+      transparent 52%
+    ),
+    var(--mkt-bg-1);
+  padding: clamp(36px, 5vw, 64px);
+  margin: var(--mkt-section-y) auto;
+  gap: clamp(32px, 5vw, 72px);
+}
+.mkt__own::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 1.4px
+  );
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 80% at 90% 10%, #000, transparent 70%);
+  mask-image: radial-gradient(ellipse 70% 80% at 90% 10%, #000, transparent 70%);
+}
+.mkt__own > * {
+  position: relative;
+  z-index: 1;
+}
+/* Refined terminal: purple prompt + brand-tinted top bar. */
+.mkt__own .mkt__terminal {
+  border-color: color-mix(in srgb, var(--mkt-brand-500) 24%, rgba(255, 255, 255, 0.08));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 24px 60px -34px rgba(0, 0, 0, 0.9);
+}
+.mkt__own .mkt__terminal-top {
+  background: color-mix(in srgb, var(--mkt-brand-700) 16%, var(--mkt-bg-1));
+}
+.mkt__own .mkt__terminal-prompt {
+  color: var(--mkt-brand-300);
+}
+/* Repo button picks up a subtle purple wash instead of a flat grey. */
+.mkt__repo-btn {
+  border-color: color-mix(in srgb, var(--mkt-brand-500) 28%, rgba(255, 255, 255, 0.12));
+}
+.mkt__repo-btn:hover {
+  background: color-mix(in srgb, var(--mkt-bg-2) 60%, var(--mkt-brand-600) 40%);
+  border-color: color-mix(in srgb, var(--mkt-brand-400) 55%, transparent);
 }

@@ -126,6 +126,38 @@ describe("GridSessionController", () => {
       );
     });
 
+    it("does not touch last-opened when a visitor views someone else's grid", async () => {
+      const grid = makeGrid({ id: "g2", userId: "someone-else" });
+      vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(grid);
+      h.getCurrentUserId.mockReturnValue(null);
+
+      await controller.loadGrid("g2");
+
+      expect(h.stores.session.isOwner).toBe(false);
+      // Security rules reject this write, so attempting it only produced a
+      // permission-denied error on every public page view — and it was awaited,
+      // so the visitor waited on a round-trip that could never succeed.
+      expect(h.gridService.touchLastOpenedAt).not.toHaveBeenCalled();
+      // The rest of the load still completes normally.
+      expect(h.stores.session.currentGrid).toEqual(grid);
+      expect(h.stores.session.loadError).toBeNull();
+      expect(refreshStableSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not touch last-opened when a signed-in non-owner views a grid", async () => {
+      const grid = makeGrid({ id: "g2", userId: "someone-else" });
+      vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(grid);
+
+      await controller.loadGrid("g2");
+
+      expect(h.stores.session.isOwner).toBe(false);
+      expect(h.gridService.touchLastOpenedAt).not.toHaveBeenCalled();
+      // Recents are the viewer's own document, so they are still written.
+      expect(h.gridService.saveRecentGridIds).toHaveBeenCalledWith("user-1", [
+        "g2",
+      ]);
+    });
+
     it("flows non-default metadata preferences into the ui store", async () => {
       vi.mocked(h.dependencies.readMetadataPreferences).mockReturnValue({
         showMetaData: false,

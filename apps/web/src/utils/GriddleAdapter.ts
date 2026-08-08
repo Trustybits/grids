@@ -157,6 +157,28 @@ export interface BuildGridConfigInput {
  * Compute the data-derivable caps for a tile before any per-tile override.
  * Suggestion tiles are never resizable; everything is gated on `editable`.
  */
+/**
+ * Touch-only activation gate, layered over the data-derived caps.
+ *
+ * Touch has no hover, so a tile is tapped once to activate before it can be
+ * dragged or resized. The engine has to know: Griddle returns early from
+ * `onTilePointerDown` when a tile reports `draggable: false`, and that early
+ * return is what leaves a swipe to the browser instead of arming a drag on a
+ * 12px movement threshold.
+ *
+ * Returns an empty patch on pointer devices (which activate on hover) and for
+ * the activated tile itself, so the defaults stand untouched in both cases.
+ */
+export function touchActivationCaps(
+  tileId: string | undefined,
+  activatedTileId: string | null,
+  isTouchDevice: boolean,
+): Partial<GriddleTileCaps> {
+  if (!isTouchDevice || !tileId) return {};
+  if (activatedTileId === tileId) return {};
+  return { draggable: false, resizable: false };
+}
+
 export function defaultTileCaps(
   tile: Tile | undefined,
   editable: boolean,

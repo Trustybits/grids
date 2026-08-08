@@ -22,6 +22,10 @@ export default defineConfig({
     globals: true,
     // Run this setup file before each test suite
     setupFiles: ["./src/test/setup.ts"],
+    // Default 5000ms is tight for the heaviest component mounts under
+    // parallel-worker CPU contention (e.g. LandingPageGridEmbed, Tile) —
+    // they pass in isolation but flake under full-suite load.
+    testTimeout: 10000,
     // Where to look for tests
     include: ["src/**/__tests__/**/*.test.ts", "api/**/__tests__/**/*.test.ts"],
     exclude: ["node_modules/**", "dist/**"],

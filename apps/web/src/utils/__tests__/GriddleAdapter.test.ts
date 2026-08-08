@@ -13,6 +13,7 @@ import {
   buildGridConfig,
   buildGridSnapshot,
   defaultTileCaps,
+  touchActivationCaps,
   fromGriddleTile,
   fromGriddleTiles,
   toCanonicalLayoutItems,
@@ -124,6 +125,34 @@ describe("defaultTileCaps", () => {
   it("treats a missing tile as non-suggestion", () => {
     const caps = defaultTileCaps(undefined, true);
     expect(caps.resizable).toBe(true);
+  });
+});
+
+describe("touchActivationCaps", () => {
+  it("locks a non-activated tile on touch so the engine leaves the gesture alone", () => {
+    // Griddle returns early from onTilePointerDown on `draggable: false`, which
+    // is what stops a swipe across a tile being read as a drag.
+    expect(touchActivationCaps("a", null, true)).toEqual({
+      draggable: false,
+      resizable: false,
+    });
+    expect(touchActivationCaps("a", "other-tile", true)).toEqual({
+      draggable: false,
+      resizable: false,
+    });
+  });
+
+  it("leaves the activated tile's defaults untouched", () => {
+    expect(touchActivationCaps("a", "a", true)).toEqual({});
+  });
+
+  it("does not gate pointer devices, which activate on hover", () => {
+    expect(touchActivationCaps("a", null, false)).toEqual({});
+    expect(touchActivationCaps("a", "other-tile", false)).toEqual({});
+  });
+
+  it("leaves a layout item with no matching tile alone", () => {
+    expect(touchActivationCaps(undefined, null, true)).toEqual({});
   });
 });
 

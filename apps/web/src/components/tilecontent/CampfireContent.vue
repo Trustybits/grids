@@ -365,58 +365,85 @@ export default defineComponent({
         return;
       }
 
-      // Initialize owner's game data if it doesn't exist
-      const gameData = await gameDataService.getOrCreateUserGameData(ownerId.value);
-      
-      // Claim any passive clicks earned since last visit
-      const passiveClaimed = await gameDataService.claimPassiveClicks(ownerId.value);
-      if (passiveClaimed > 0) {
-        passiveClicksClaimed.value = passiveClaimed;
-        showPassiveMessage.value = true;
-        setTimeout(() => {
-          showPassiveMessage.value = false;
-        }, 4000);
-      }
+      try {
+        // `ownerId` is the grid owner, never the viewer. Creating
+        // `userGameData/{userId}` is gated on `request.auth.uid == userId`, so
+        // only the owner may take the create path — a visitor landing on a grid
+        // whose owner had never opened their own campfire used to attempt it,
+        // get permission-denied, and (this hook being async and previously
+        // unguarded) abort every step below, leaving the tile half-initialised.
+        // Reads are public, so a visitor still sees the real campfire state.
+        const gameData = gridView.isOwner
+          ? await gameDataService.getOrCreateUserGameData(ownerId.value)
+          : await gameDataService.getUserGameData(ownerId.value);
 
-      // Update boost tier based on current total clicks
-      currentBoostTier.value = getCurrentBoostTier(gameData.totalClicks);
-      nextBoostTier.value = getNextBoostTier(gameData.totalClicks);
+        // No record yet and we are not allowed to make one: show a cold
+        // campfire rather than nothing.
+        const totalClicks = gameData?.totalClicks ?? 0;
 
-      // Seed serverDailyClicks with today's authoritative count. checkDailyClickLimit
-      // already handles the day-rollover case (returns dailyClicks: 0 when
-      // lastClickDate is stale), so we can use its value directly.
-      const limitCheck = await gameDataService.checkDailyClickLimit(ownerId.value);
-      serverDailyClicks.value = limitCheck.dailyClicks;
-
-      // Subscribe to real-time updates for owner's game data
-      unsubscribeOwnerData = gameDataService.subscribeToUserGameData(ownerId.value, (data) => {
-        ownerGameData.value = data;
-        // The stored dailyClicks counter is only meaningful when lastClickDate
-        // matches today; otherwise it's stale from a previous day and will be
-        // reset on the next successful click.
-        const today = new Date().toISOString().split("T")[0];
-        const nextServerClicks =
-          data.lastClickDate === today ? data.dailyClicks ?? 0 : 0;
-        const delta = nextServerClicks - serverDailyClicks.value;
-        serverDailyClicks.value = nextServerClicks;
-        // Drain inFlightClicks by the delta — our chunks (and any concurrent
-        // writes from other viewers) just landed on the server.
-        if (delta > 0) {
-          inFlightClicks.value = Math.max(0, inFlightClicks.value - delta);
+        // Claim any passive clicks earned since last visit. Owner-only: the
+        // rules gate this update behind `isValidPassive()`, which requires
+        // `request.auth.uid == userId`, so a visitor's claim is rejected. It is
+        // also owner-facing by nature — the "you earned N while away" message
+        // is meaningless to someone else's visitor.
+        if (gridView.isOwner) {
+          const passiveClaimed = await gameDataService.claimPassiveClicks(
+            ownerId.value,
+          );
+          if (passiveClaimed > 0) {
+            passiveClicksClaimed.value = passiveClaimed;
+            showPassiveMessage.value = true;
+            setTimeout(() => {
+              showPassiveMessage.value = false;
+            }, 4000);
+          }
         }
-        // Update boost tier when total clicks change
-        currentBoostTier.value = getCurrentBoostTier(data.totalClicks);
-        nextBoostTier.value = getNextBoostTier(data.totalClicks);
-      });
 
-      // Flush any queued clicks before the user navigates away or hides the tab.
-      window.addEventListener("beforeunload", handleFlushOnLeave);
-      document.addEventListener("visibilitychange", handleFlushOnLeave);
+        // Update boost tier based on current total clicks
+        currentBoostTier.value = getCurrentBoostTier(totalClicks);
+        nextBoostTier.value = getNextBoostTier(totalClicks);
 
-      // Subscribe to leaderboard updates
-      unsubscribeLeaderboard = gameDataService.subscribeToLeaderboard(20, (data) => {
-        leaderboard.value = data;
-      });
+        // Seed serverDailyClicks with today's authoritative count. checkDailyClickLimit
+        // already handles the day-rollover case (returns dailyClicks: 0 when
+        // lastClickDate is stale), so we can use its value directly.
+        const limitCheck = await gameDataService.checkDailyClickLimit(ownerId.value);
+        serverDailyClicks.value = limitCheck.dailyClicks;
+
+        // Subscribe to real-time updates for owner's game data
+        unsubscribeOwnerData = gameDataService.subscribeToUserGameData(ownerId.value, (data) => {
+          ownerGameData.value = data;
+          // The stored dailyClicks counter is only meaningful when lastClickDate
+          // matches today; otherwise it's stale from a previous day and will be
+          // reset on the next successful click.
+          const today = new Date().toISOString().split("T")[0];
+          const nextServerClicks =
+            data.lastClickDate === today ? data.dailyClicks ?? 0 : 0;
+          const delta = nextServerClicks - serverDailyClicks.value;
+          serverDailyClicks.value = nextServerClicks;
+          // Drain inFlightClicks by the delta — our chunks (and any concurrent
+          // writes from other viewers) just landed on the server.
+          if (delta > 0) {
+            inFlightClicks.value = Math.max(0, inFlightClicks.value - delta);
+          }
+          // Update boost tier when total clicks change
+          currentBoostTier.value = getCurrentBoostTier(data.totalClicks);
+          nextBoostTier.value = getNextBoostTier(data.totalClicks);
+        });
+
+        // Flush any queued clicks before the user navigates away or hides the tab.
+        window.addEventListener("beforeunload", handleFlushOnLeave);
+        document.addEventListener("visibilitychange", handleFlushOnLeave);
+
+        // Subscribe to leaderboard updates
+        unsubscribeLeaderboard = gameDataService.subscribeToLeaderboard(20, (data) => {
+          leaderboard.value = data;
+        });
+      } catch (error) {
+        // A campfire that fails to reach its data should sit cold, not take the
+        // whole tile down. Unhandled, this rejected out of the async hook and
+        // Vue reported it as an app-level error.
+        console.error("Campfire tile failed to initialise:", error);
+      }
     });
 
     onUnmounted(() => {

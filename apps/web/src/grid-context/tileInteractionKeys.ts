@@ -13,6 +13,24 @@ export const TILE_DRAGGING_ID: InjectionKey<Ref<string | null>> = Symbol(
 );
 
 /**
+ * Grid → Tile channel for the id of the tile currently activated by touch.
+ *
+ * Touch has no hover, so a tile must be tapped once before it can be dragged or
+ * resized. That gate is only meaningful if the grid engine knows about it:
+ * Griddle bails out of `onTilePointerDown` when a tile reports
+ * `draggable: false`, which is what stops a swipe over a tile from being read
+ * as a drag. So activation is owned here at the grid level and folded into the
+ * tile caps, rather than living privately inside each `Tile.vue`.
+ *
+ * Only one tile is activated at a time — tapping outside clears it — so a
+ * single id models it exactly. `null` when nothing is activated, and always
+ * `null` on pointer devices, which activate on hover instead.
+ */
+export const TILE_ACTIVATED_ID: InjectionKey<Ref<string | null>> = Symbol(
+  "tileActivatedId",
+);
+
+/**
  * Tile toolbar -> Grid channel for preset resize requests.
  *
  * A preset resize has to enter through Griddle so its collision solver moves

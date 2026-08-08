@@ -202,13 +202,13 @@ const handleClick = (event: MouseEvent) => {
   }
 
   &--brand {
-    background: var(--mkt-brand-gradient, var(--color-figma-purple));
-    color: #000;
+    background: var(--mkt-brand-500, var(--color-figma-purple));
+    color: #fff;
     font-weight: var(--font-weight-bold);
     letter-spacing: -0.01em;
 
     &:hover:not(.ui-btn--disabled) {
-      opacity: 0.9;
+      background: var(--mkt-brand-400, var(--color-figma-purple));
     }
   }
 

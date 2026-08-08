@@ -2,7 +2,7 @@
   <header class="mkt__nav">
     <router-link to="/" class="mkt__brand">
       <span class="mkt__brand-mark" aria-hidden="true">
-        <img src="/grids_logo.png" alt="" />
+        <GridsMark />
       </span>
       <span class="mkt__brand-word">grids</span>
     </router-link>
@@ -64,6 +64,7 @@ import { ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { MARKETING_NAV_ITEMS } from '@/constants/marketing';
 import DiscordIcon from '@/components/icons/DiscordIcon.vue';
+import GridsMark from '@/components/icons/GridsMark.vue';
 import MobileMenu from '@/components/ui-collections/MobileMenu.vue';
 import Button from '@/components/ui-elements/Button.vue';
 
@@ -113,19 +114,16 @@ const menuOpen = ref(false);
   text-transform: lowercase;
 }
 .mkt__brand-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  color: var(--mkt-fg-1);
 }
-.mkt__brand-mark img {
+.mkt__brand-mark :deep(svg) {
   width: 100%;
   height: 100%;
-  border-radius: inherit;
-  object-fit: cover;
   display: block;
 }
 .mkt__menu {

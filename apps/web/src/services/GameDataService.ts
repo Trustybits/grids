@@ -37,7 +37,7 @@ export class GameDataService implements GameDataServiceInterface {
   }
 
   async getUserGameData(userId: string): Promise<UserGameData | null> {
-    return await getDao().getById(userId);
+    return getDao().getById(userId);
   }
 
   async getOrCreateUserGameData(userId: string): Promise<UserGameData> {

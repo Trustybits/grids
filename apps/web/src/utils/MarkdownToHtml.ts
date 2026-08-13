@@ -1,3 +1,11 @@
+// Turn heading text into a URL-safe id so table-of-contents anchors can link
+// to it. Must match the slug used when authoring `[label](#slug)` TOC links.
+const slugify = (input: string): string =>
+  input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 const escapeHtml = (input: string): string =>
   input
     .replace(/&/g, '&amp;')
@@ -21,6 +29,11 @@ const renderInline = (input: string): string => {
   // backticks neutralized so they can't break out of the quoted attribute.
   out = out.replace(/\[([^\]]+?)\]\(([^)]+?)\)/g, (_, text, href) => {
     const safeHref = String(href).replace(/`/g, '&#96;');
+    // In-page anchors (table of contents) scroll within the page; only real
+    // external links open in a new tab.
+    if (safeHref.startsWith('#')) {
+      return `<a href="${safeHref}">${text}</a>`;
+    }
     return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${text}</a>`;
   });
 
@@ -121,7 +134,8 @@ const parseMarkdown = (markdown: string): string => {
       html += closeLists(listStack);
       const level = headingMatch[1].length;
       const content = headingMatch[2];
-      html += `<h${level}>${renderInline(content)}</h${level}>`;
+      const id = slugify(content);
+      html += `<h${level} id="${id}">${renderInline(content)}</h${level}>`;
       continue;
     }
 

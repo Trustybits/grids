@@ -43,82 +43,113 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Styled to match the marketing/landing design (dark, brand typography).
+   Only used by the Privacy and Terms pages, which render inside MarketingLayout. */
 .md-section {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 24px;
-  border-radius: var(--radius-lg);
-  background: var(--color-tile-background);
-  border: var(--border-width) solid var(--color-stroke);
+  margin-top: 28px;
 }
 
 .md-section__status {
-  color: var(--color-content-default);
-  font-size: 14px;
+  color: var(--mkt-fg-3);
+  font: 400 15px/1.4 var(--mkt-font-sans);
 }
 
 .md-section__status--error {
-  color: var(--destructive-color, #ff4d4d);
+  color: #ff8a94;
 }
 
+.md-section__content {
+  color: var(--mkt-fg-2);
+  font: 400 16px/1.75 var(--mkt-font-sans);
+}
+
+/* Table-of-contents anchors jump to a heading id; offset the landing so the
+   heading clears the sticky nav instead of hiding under it. */
 .md-section__content :deep(h1),
 .md-section__content :deep(h2),
 .md-section__content :deep(h3),
 .md-section__content :deep(h4),
 .md-section__content :deep(h5),
 .md-section__content :deep(h6) {
-  margin: 18px 0 10px;
-  color: var(--color-text-primary);
+  scroll-margin-top: 96px;
+}
+
+.md-section__content :deep(h1),
+.md-section__content :deep(h2) {
+  font: 700 clamp(1.35rem, 3vw, 1.9rem) / 1.2 var(--mkt-font-sans);
+  letter-spacing: -0.02em;
+  color: var(--mkt-fg-1);
+  margin: 44px 0 14px;
+}
+
+.md-section__content :deep(h3) {
+  font: 700 1.2rem/1.25 var(--mkt-font-sans);
+  color: var(--mkt-fg-1);
+  margin: 32px 0 10px;
+}
+
+.md-section__content :deep(h4),
+.md-section__content :deep(h5),
+.md-section__content :deep(h6) {
+  font: 600 1rem/1.3 var(--mkt-font-sans);
+  color: var(--mkt-fg-1);
+  margin: 24px 0 8px;
 }
 
 .md-section__content :deep(p) {
-  margin: 10px 0;
-  color: var(--color-text-primary);
-  line-height: 1.55;
+  margin: 14px 0;
+  line-height: 1.75;
+}
+
+.md-section__content :deep(strong) {
+  color: var(--mkt-fg-1);
+  font-weight: 600;
 }
 
 .md-section__content :deep(ul),
 .md-section__content :deep(ol) {
-  margin: 10px 0;
+  margin: 14px 0;
   padding-left: 22px;
-  color: var(--color-text-primary);
 }
 
 .md-section__content :deep(li) {
-  margin: 6px 0;
+  margin: 8px 0;
+}
+
+.md-section__content :deep(li::marker) {
+  color: var(--mkt-fg-4);
 }
 
 .md-section__content :deep(hr) {
   border: none;
-  border-top: 1px solid var(--color-tile-stroke);
-  margin: 18px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 36px 0;
 }
 
 .md-section__content :deep(blockquote) {
-  margin: 12px 0;
-  padding: 10px 12px;
-  border-left: 3px solid var(--color-content-high);
-  background: color-mix(
-    in srgb,
-    var(--color-content-background) 85%,
-    transparent
-  );
-  border-radius: var(--radius-md);
+  margin: 18px 0;
+  padding: 4px 0 4px 16px;
+  border-left: 3px solid var(--mkt-brand-500);
+  color: var(--mkt-fg-3);
 }
 
 .md-section__content :deep(code) {
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
-  font-size: 0.95em;
+  font-family: var(--mkt-font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-size: 0.9em;
   padding: 2px 6px;
   border-radius: 6px;
-  border: 1px solid var(--color-tile-stroke);
-  background: var(--color-content-background);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--mkt-fg-1);
 }
 
 .md-section__content :deep(a) {
-  color: var(--color-content-high);
+  color: var(--mkt-brand-300);
   text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease;
+}
+.md-section__content :deep(a:hover) {
+  color: var(--mkt-brand-200);
 }
 </style>

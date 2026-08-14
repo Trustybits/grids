@@ -97,10 +97,20 @@
         >
           {{ isCustom ? "Replace Image" : "Upload Image" }}
         </Button>
+        <Button variant="secondary" :disabled="busy" @click="showStudio = true">
+          Customize OG
+        </Button>
       </div>
       <Button variant="secondary" :disabled="busy" @click="handleClose">Close</Button>
     </div>
   </BaseModal>
+
+  <OGStudio
+    v-if="showStudio"
+    :grid-id="gridId"
+    :grid-tiles="studioGridTiles"
+    @close="showStudio = false"
+  />
 
   <teleport to="body">
     <transition name="og-lightbox-fade">
@@ -135,6 +145,7 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import BaseModal from "./BaseModal.vue";
 import Button from "@/components/ui-elements/Button.vue";
 import CloseXIcon from "@/components/icons/CloseXIcon.vue";
+import OGStudio from "@/components/og/OGStudio.vue";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridController } from "@/controllers/useGridController";
 import { useToastStore } from "@/stores/toast";
@@ -150,6 +161,37 @@ import {
 
 const props = defineProps<{ show: boolean }>();
 const emit = defineEmits<{ close: [] }>();
+
+// Fallback swatch palette for tiles with no color of their own (image/video/
+// embed/etc.) so the OG Studio picker always shows something distinguishable.
+const TILE_COLOR_PALETTE = [
+  "#6366f1",
+  "#8b5cf6",
+  "#ec4899",
+  "#f59e0b",
+  "#10b981",
+  "#06b6d4",
+  "#ef4444",
+  "#84cc16",
+];
+
+const contentTypeLabel: Record<string, string> = {
+  text: "Text",
+  smart_text: "Text",
+  chat: "Chat",
+  image: "Image",
+  video: "Video",
+  link: "Link",
+  embed: "Embed",
+  map: "Map",
+  campfire: "Campfire",
+  suggestion: "Suggestion",
+  profile: "Profile",
+  youtube: "YouTube",
+  roadmap_feed: "Roadmap",
+  music: "Music",
+  document: "Document",
+};
 
 const sessionStore = useGridSessionStore();
 const controller = useGridController();
@@ -181,6 +223,25 @@ const isCustom = computed(() => !!customUrl.value);
 const isNeverGenerated = computed(
   () => !isCustom.value && generatedState.value === "none",
 );
+
+const showStudio = ref(false);
+
+// OG Studio's tile picker just needs an id/label/color per tile — most
+// content types don't carry an explicit color, so fall back to a rotating
+// palette keyed by tile order for anything without one.
+const studioGridTiles = computed(() => {
+  const tiles = sessionStore.currentGrid?.tiles ?? [];
+  return tiles.map((tile, index) => {
+    const content = tile.content as unknown as Record<string, unknown>;
+    const color =
+      (typeof content.backgroundColor === "string" && content.backgroundColor) ||
+      (typeof content.color === "string" && content.color) ||
+      TILE_COLOR_PALETTE[index % TILE_COLOR_PALETTE.length];
+    const label =
+      tile.caption?.trim() || contentTypeLabel[tile.content.type] || "Tile";
+    return { id: tile.i, label, color };
+  });
+});
 
 // Effective preview: custom upload > generated image > site-wide default
 // (for grids whose image has never been generated — loading the generated

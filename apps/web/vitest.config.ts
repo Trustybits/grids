@@ -2,6 +2,14 @@ import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
 
+// Node 25 enables an incomplete native Web Storage by default that shadows
+// jsdom's localStorage (clear/getItem become undefined). Disable it so jsdom
+// can provide a real Storage implementation. The flag does not exist on the
+// Node 22 CI image, so only pass it where it is recognized.
+// See https://github.com/vitest-dev/vitest/issues/8757
+const nodeMajor = Number.parseInt(process.versions.node.split(".")[0] ?? "0", 10);
+const execArgv = nodeMajor >= 25 ? ["--no-webstorage"] : [];
+
 export default defineConfig({
   plugins: [
     // Disable asset-URL transformation in tests. Outside a dev server,
@@ -18,6 +26,7 @@ export default defineConfig({
   test: {
     // Use jsdom to simulate a browser environment
     environment: "jsdom",
+    execArgv,
     // Make describe/it/expect available globally without imports
     globals: true,
     // Run this setup file before each test suite

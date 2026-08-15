@@ -217,13 +217,16 @@ function onCtaPointerMove(event: PointerEvent) {
 }
 
 // Track the cursor over the whole page so the dot-grid backdrop shines a little
-// near the pointer. Coords are relative to the (tall, scrolling) hero section
-// the `.mkt__hero-dots` layer fills.
+// near the pointer. Coords must be relative to the full-bleed `.mkt__hero-dots`
+// layer (100vw) — not the narrower hero — or the spark drifts off the cursor on
+// wide screens.
 function onDotsPointerMove(event: PointerEvent) {
-  const el = event.currentTarget as HTMLElement;
-  const rect = el.getBoundingClientRect();
-  el.style.setProperty('--dot-mx', `${event.clientX - rect.left}px`);
-  el.style.setProperty('--dot-my', `${event.clientY - rect.top}px`);
+  const hero = event.currentTarget as HTMLElement;
+  const dots = hero.querySelector('.mkt__hero-dots') as HTMLElement | null;
+  if (!dots) return;
+  const rect = dots.getBoundingClientRect();
+  dots.style.setProperty('--dot-mx', `${event.clientX - rect.left}px`);
+  dots.style.setProperty('--dot-my', `${event.clientY - rect.top}px`);
 }
 
 // ── Interactive handle claim ────────────────────────────────────────────

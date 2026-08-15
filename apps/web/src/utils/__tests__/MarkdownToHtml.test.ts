@@ -52,12 +52,12 @@ describe("markdownToHtml", () => {
 
   describe("headings", () => {
     it.each([
-      ["# H1", "<h1>H1</h1>"],
-      ["## H2", "<h2>H2</h2>"],
-      ["### H3", "<h3>H3</h3>"],
-      ["#### H4", "<h4>H4</h4>"],
-      ["##### H5", "<h5>H5</h5>"],
-      ["###### H6", "<h6>H6</h6>"],
+      ["# H1", '<h1 id="h1">H1</h1>'],
+      ["## H2", '<h2 id="h2">H2</h2>'],
+      ["### H3", '<h3 id="h3">H3</h3>'],
+      ["#### H4", '<h4 id="h4">H4</h4>'],
+      ["##### H5", '<h5 id="h5">H5</h5>'],
+      ["###### H6", '<h6 id="h6">H6</h6>'],
     ])("renders %s", (input, expected) => {
       expect(markdownToHtml(input)).toBe(expected);
     });
@@ -68,8 +68,10 @@ describe("markdownToHtml", () => {
     });
 
     it("renders inline formatting inside a heading", () => {
+      // Slug ids are derived from the raw heading text (markdown markers
+      // collapse into hyphens) so TOC anchors stay stable.
       expect(markdownToHtml("# **big** title")).toBe(
-        "<h1><strong>big</strong> title</h1>",
+        '<h1 id="big-title"><strong>big</strong> title</h1>',
       );
     });
 
@@ -106,6 +108,12 @@ describe("markdownToHtml", () => {
     it("renders a link with target/rel and the visible text", () => {
       expect(markdownToHtml("[grids](https://grids.so)")).toBe(
         '<p><a href="https://grids.so" target="_blank" rel="noopener noreferrer">grids</a></p>',
+      );
+    });
+
+    it("keeps in-page hash links same-tab (no target/rel)", () => {
+      expect(markdownToHtml("[Section](#section)")).toBe(
+        '<p><a href="#section">Section</a></p>',
       );
     });
 
@@ -170,7 +178,7 @@ describe("markdownToHtml", () => {
 
     it("closes an open list when a heading interrupts it", () => {
       expect(markdownToHtml("- a\n# H")).toBe(
-        "<ul><li>a</li></ul><h1>H</h1>",
+        '<ul><li>a</li></ul><h1 id="h">H</h1>',
       );
     });
 

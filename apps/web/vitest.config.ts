@@ -18,6 +18,11 @@ export default defineConfig({
   test: {
     // Use jsdom to simulate a browser environment
     environment: "jsdom",
+    // Node 25 enables an incomplete native Web Storage by default that
+    // shadows jsdom's localStorage (clear/getItem become undefined). Disable
+    // it so jsdom can provide a real Storage implementation.
+    // See https://github.com/vitest-dev/vitest/issues/8757
+    execArgv: ["--no-webstorage"],
     // Make describe/it/expect available globally without imports
     globals: true,
     // Run this setup file before each test suite

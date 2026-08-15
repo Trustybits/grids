@@ -157,7 +157,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  consoleWarnSpy.mockRestore();
+  consoleWarnSpy?.mockRestore();
   vi.restoreAllMocks();
 });
 

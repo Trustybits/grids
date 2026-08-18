@@ -162,8 +162,13 @@ export function useMobileExperience() {
   /** Whether the user is enrolled in the Mobile 2.0 early access feature. */
   const isMobile2Enabled = readonly(_enrolled);
 
-  /** The single gate the app chrome branches on. */
-  const isMobile2 = computed(() => isMobileDevice.value && _enrolled.value);
+  /**
+   * The single gate the app chrome branches on. Mobile 2.0 is now the universal
+   * design for every device and viewport, so this is always on. The page/route
+   * gating in App.vue (grid ownership, dashboard) still decides *where* the
+   * chrome renders; this only removes the touch-device + beta-enrollment gate.
+   */
+  const isMobile2 = computed(() => true);
 
   /**
    * Opt the user in/out of the Mobile 2.0 early access feature. Drives

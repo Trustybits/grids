@@ -100,18 +100,6 @@
           Upgrade
         </router-link>
       </div>
-      <template v-if="canUseMobile2">
-        <div class="menu-divider"></div>
-        <div class="early-access-section">
-          <span class="early-access-label">Early Access</span>
-          <Toggle
-            label="Mobile 2.0"
-            :modelValue="isMobile2Enabled"
-            @update:modelValue="onMobile2Toggle"
-            tooltip="Try the redesigned mobile experience. You can switch back anytime."
-          />
-        </div>
-      </template>
       <div class="menu-divider"></div>
       <button @click="openFileArchive" class="menu-action-item">
         File Archive
@@ -167,9 +155,6 @@ import FileArchiveModal from "@/components/modal/FileArchiveModal.vue";
 import ProfileIcon from "@/components/icons/ProfileIcon.vue";
 import EditIcon from "@/components/icons/EditIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
-import Toggle from "@/components/ui-controls/Toggle.vue";
-import { useMobileExperience } from "@/composables/useMobileExperience";
-import { useToastStore } from "@/stores/toast";
 
 const MENU_AVATAR_SIZE = 24;
 const MENU_AVATAR_POLYGON_INSET = 0.5;
@@ -182,28 +167,10 @@ export default defineComponent({
     ProfileIcon,
     EditIcon,
     FloatingTooltip,
-    Toggle,
   },
   setup() {
     const router = useRouter();
     const { isProOrAbove } = useTier();
-    const { canUseMobile2, isMobile2Enabled, setMobile2Enabled } =
-      useMobileExperience();
-    const toastStore = useToastStore();
-
-    const onMobile2Toggle = async (value: boolean) => {
-      try {
-        await setMobile2Enabled(value);
-        toastStore.addToast(
-          value
-            ? "Mobile 2.0 enabled — welcome to early access"
-            : "Mobile 2.0 disabled",
-          "success",
-        );
-      } catch {
-        toastStore.addToast("Couldn't update Mobile 2.0 setting", "error");
-      }
-    };
     const user = ref<AuthUser | null>(null);
     const userId = computed(() => user.value?.uid ?? null);
     const { hasBadge } = useBadges(userId);
@@ -426,9 +393,6 @@ export default defineComponent({
       isProOrAbove,
       checkout,
       openBillingPortal,
-      canUseMobile2,
-      isMobile2Enabled,
-      onMobile2Toggle,
     };
   },
 });
@@ -651,19 +615,6 @@ export default defineComponent({
       opacity: 0.6;
       cursor: not-allowed;
     }
-  }
-
-  .early-access-section {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .early-access-label {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-content-low);
-    padding: var(--spacing-xs) var(--spacing-sm) 0;
   }
 
   .menu-action-item {

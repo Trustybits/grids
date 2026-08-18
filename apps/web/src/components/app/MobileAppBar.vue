@@ -15,6 +15,16 @@
   >
     <div class="mobile-app-bar__left">
       <button
+        v-if="mode === 'grid'"
+        type="button"
+        class="mab-btn"
+        aria-label="Back to your grids"
+        @click="goToGrids"
+      >
+        <ChevronLeftIcon :size="24" />
+      </button>
+
+      <button
         type="button"
         class="mab-btn"
         aria-label="Open menu"
@@ -42,6 +52,15 @@
       </h1>
     </div>
 
+    <!-- Viewport (breakpoint) preview switcher — always visible while editing a
+         grid on tablet and desktop widths; hidden on phone where there's no room
+         and the preview lives in the command bar instead. -->
+    <BreakpointSwitcher
+      v-if="mode === 'grid' && showViewportSwitcher"
+      variant="toolbar-row"
+      class="mab-viewport-switcher"
+    />
+
     <AppButton
       v-if="mode === 'home'"
       variant="secondary"
@@ -65,6 +84,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
@@ -72,7 +92,9 @@ import { useGridController } from "@/controllers/useGridController";
 import { useGridPreview } from "@/composables/useGridPreview";
 import MenuIcon from "@/components/icons/MenuIcon.vue";
 import UndoIcon from "@/components/icons/UndoIcon.vue";
+import ChevronLeftIcon from "@/components/icons/ChevronLeftIcon.vue";
 import AppButton from "@/components/ui-elements/Button.vue";
+import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
 
 withDefaults(defineProps<{ mode?: "grid" | "home" }>(), { mode: "grid" });
 
@@ -85,6 +107,7 @@ const sessionStore = useGridSessionStore();
 const viewportStore = useGridViewportStore();
 const historyStore = useGridHistoryStore();
 const controller = useGridController();
+const router = useRouter();
 const { isPreviewActive } = useGridPreview();
 
 const titleRef = ref<HTMLElement | null>(null);
@@ -96,6 +119,18 @@ const canEdit = computed(() =>
     viewportStore.viewportBreakpoint,
   ),
 );
+
+// The viewport switcher only makes sense for the owner, and only where there's
+// room to show it: tablet (`md`) and desktop (`lg`) — never on a phone (`sm`).
+const showViewportSwitcher = computed(
+  () =>
+    sessionStore.isOwner && viewportStore.viewportBreakpoint !== "sm",
+);
+
+// Back to the grid-selection dashboard.
+const goToGrids = () => {
+  void router.push("/dashboard");
+};
 
 watch(
   () => sessionStore.currentGrid?.name,
@@ -166,6 +201,12 @@ const blurOnEnter = (event: KeyboardEvent) => {
   align-items: center;
   gap: var(--spacing-xs);
   min-width: 0;
+}
+
+// Sits between the title group and the trailing action; never squished — the
+// grid title (min-width: 0, ellipsis) absorbs any shortfall instead.
+.mab-viewport-switcher {
+  flex: 0 0 auto;
 }
 
 .mab-btn {

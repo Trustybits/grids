@@ -33,6 +33,7 @@ export interface GridViewContext {
   displayPositions: ComputedRef<GridLayoutItem[]>;
   showMetaData: ComputedRef<boolean>;
   showMetaDataVerbose: ComputedRef<boolean>;
+  showGridGuide: ComputedRef<boolean>;
   uploadingTiles: ComputedRef<Record<string, number>>;
   activeTileId: ComputedRef<string | null>;
   activePanelId: ComputedRef<string | null>;

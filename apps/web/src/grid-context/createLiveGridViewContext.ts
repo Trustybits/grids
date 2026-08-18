@@ -49,6 +49,7 @@ export function createLiveGridViewContext(): GridViewContext {
     displayPositions: computed(() => viewport.displayPositions),
     showMetaData: computed(() => ui.showMetaData),
     showMetaDataVerbose: computed(() => ui.showMetaDataVerbose),
+    showGridGuide: computed(() => ui.showGridGuide),
     uploadingTiles: computed(() => uploads.uploadingTiles),
     activeTileId: computed(() => ui.activeTileId),
     activePanelId: computed(() => ui.activePanelId),

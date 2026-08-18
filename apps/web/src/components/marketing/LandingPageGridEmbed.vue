@@ -700,6 +700,7 @@ const interceptOutboundClick = (event: MouseEvent) => {
 }
 
 .home-grid-embed :deep(.grid-scale-wrapper),
+.home-grid-embed :deep(.grid-canvas-container),
 .home-grid-embed :deep(.grid-container) {
   margin: 0;
 }

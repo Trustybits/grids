@@ -30,6 +30,12 @@
           tooltip="When enabled, tiles automatically move up to fill empty space"
         />
         <Toggle
+          label="Grid Guide"
+          :modelValue="uiStore.showGridGuide"
+          @update:modelValue="uiStore.setShowGridGuide"
+          tooltip="Show placeholder grid slots while editing (only visible to you)"
+        />
+        <Toggle
           v-if="isOwner"
           label="Allow Public Template"
           v-model="duplicatable"

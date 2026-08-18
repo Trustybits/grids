@@ -60,6 +60,8 @@ vi.mock("@/stores/grid/gridUi", () => ({
   useGridUiStore: () => ({
     showMetaData: false,
     showMetaDataVerbose: false,
+    showGridGuide: true,
+    setShowGridGuide: vi.fn(),
   }),
 }));
 vi.mock("@/controllers/useGridController", () => ({

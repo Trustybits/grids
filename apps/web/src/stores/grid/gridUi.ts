@@ -1,5 +1,18 @@
 import { defineStore } from "pinia";
 
+const GRID_GUIDE_STORAGE_KEY = "grids.showGridGuide";
+
+// The editor's grid guide defaults on, but the owner's choice to hide it should
+// survive reloads, so it is persisted locally rather than kept session-only.
+function readShowGridGuide(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.localStorage.getItem(GRID_GUIDE_STORAGE_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
 export const useGridUiStore = defineStore("gridUi", {
   state: () => ({
     activeTileId: null as string | null,
@@ -7,6 +20,7 @@ export const useGridUiStore = defineStore("gridUi", {
     pendingFocusTileId: null as string | null,
     showMetaData: false,
     showMetaDataVerbose: false,
+    showGridGuide: readShowGridGuide(),
   }),
 
   actions: {
@@ -67,6 +81,21 @@ export const useGridUiStore = defineStore("gridUi", {
 
     setShowMetaDataVerbose(value: boolean) {
       this.showMetaDataVerbose = value;
+    },
+
+    setShowGridGuide(value: boolean) {
+      this.showGridGuide = value;
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(
+            GRID_GUIDE_STORAGE_KEY,
+            value ? "1" : "0",
+          );
+        } catch {
+          // Ignore storage failures (private mode, quota); the in-memory
+          // preference still applies for this session.
+        }
+      }
     },
 
     resetSessionState() {

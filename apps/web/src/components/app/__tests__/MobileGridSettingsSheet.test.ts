@@ -93,6 +93,20 @@ const mountSheet = (query = "") =>
 const rowByText = (wrapper: ReturnType<typeof mountSheet>, text: string) =>
   wrapper.findAll(".mgs-row").find((row) => row.text().includes(text));
 
+// A segment button inside the named `.mgs-segment` group (theme / background),
+// found by its visible label. Throws if absent so callers get a definite handle.
+const segButton = (
+  wrapper: ReturnType<typeof mountSheet>,
+  group: string,
+  text: string,
+) => {
+  const btn = wrapper
+    .findAll(`.mgs-segment[aria-label="${group}"] .mgs-segment__btn`)
+    .find((candidate) => candidate.text() === text);
+  if (!btn) throw new Error(`segment button not found: ${group} / ${text}`);
+  return btn;
+};
+
 describe("MobileGridSettingsSheet", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -126,25 +140,33 @@ describe("MobileGridSettingsSheet", () => {
     const labels = wrapper.findAll(".mgs-section__label").map((n) => n.text());
     expect(labels).toContain("GRID THEME");
     expect(labels).toContain("GRID BACKGROUND");
-    expect(wrapper.findAll(".mgs-theme-card")).toHaveLength(2);
-    expect(wrapper.findAll(".mgs-bg-tile")).toHaveLength(3);
+    expect(
+      wrapper
+        .get('.mgs-segment[aria-label="Grid theme"]')
+        .findAll(".mgs-segment__btn"),
+    ).toHaveLength(2);
+    expect(
+      wrapper
+        .get('.mgs-segment[aria-label="Grid background"]')
+        .findAll(".mgs-segment__btn"),
+    ).toHaveLength(3);
   });
 
-  it("marks the light theme card selected when the grid is not dark", () => {
+  it("marks the Light theme segment active when the grid is not dark", () => {
     const wrapper = mountSheet();
+    expect(segButton(wrapper, "Grid theme", "Light").classes()).toContain(
+      "is-active",
+    );
     expect(
-      wrapper.find(".mgs-theme-card--light").classes(),
-    ).toContain("is-selected");
-    expect(
-      wrapper.find(".mgs-theme-card--dark").classes(),
-    ).not.toContain("is-selected");
+      segButton(wrapper, "Grid theme", "Dark").classes(),
+    ).not.toContain("is-active");
   });
 
-  it("selects the Default background tile when no image or color is set", () => {
+  it("marks the Default background segment active when no image or color is set", () => {
     const wrapper = mountSheet();
     expect(
-      wrapper.find(".mgs-bg-tile--default").classes(),
-    ).toContain("is-selected");
+      segButton(wrapper, "Grid background", "Default").classes(),
+    ).toContain("is-active");
   });
 
   it("activates the default background without discarding image or color", async () => {
@@ -152,60 +174,56 @@ describe("MobileGridSettingsSheet", () => {
     gsHolder.hasBackgroundColor = true;
     gsHolder.activeBg = "color";
     const wrapper = mountSheet();
-    await wrapper.get(".mgs-bg-tile--default").trigger("click");
+    await segButton(wrapper, "Grid background", "Default").trigger("click");
     expect(gsHolder.activateDefaultBackground).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the image thumbnail (not the illustration) once an image exists", () => {
+  it("marks the Image segment active when an image background is set", () => {
     gsHolder.hasBackgroundImage = true;
-    gsHolder.backgroundImageSrc = "https://cdn/bg.png";
     gsHolder.activeBg = "image";
     const wrapper = mountSheet();
-    const imageTile = wrapper.find(".mgs-bg-tile--image");
-    expect(imageTile.find(".mgs-bg-tile__thumb").exists()).toBe(true);
-    expect(imageTile.find(".mgs-bg-tile__illustration").exists()).toBe(false);
-    expect(imageTile.classes()).toContain("is-selected");
+    expect(
+      segButton(wrapper, "Grid background", "Image").classes(),
+    ).toContain("is-active");
   });
 
-  it("re-activates a retained image when its (inactive) tile is tapped", async () => {
+  it("re-activates a retained image when its (inactive) segment is tapped", async () => {
     gsHolder.hasBackgroundImage = true;
-    gsHolder.backgroundImageSrc = "https://cdn/bg.png";
     gsHolder.activeBg = "color";
     const wrapper = mountSheet();
-    await wrapper.get(".mgs-bg-tile--image").trigger("click");
+    await segButton(wrapper, "Grid background", "Image").trigger("click");
     expect(gsHolder.activateImageBackground).toHaveBeenCalledTimes(1);
   });
 
-  it("emits open-image when the active image tile is tapped again", async () => {
+  it("emits open-image when the active image segment is tapped again", async () => {
     gsHolder.hasBackgroundImage = true;
-    gsHolder.backgroundImageSrc = "https://cdn/bg.png";
     gsHolder.activeBg = "image";
     const wrapper = mountSheet();
-    await wrapper.get(".mgs-bg-tile--image").trigger("click");
+    await segButton(wrapper, "Grid background", "Image").trigger("click");
     expect(wrapper.emitted("open-image")).toHaveLength(1);
     expect(gsHolder.activateImageBackground).not.toHaveBeenCalled();
   });
 
-  it("emits open-color when the color tile is tapped with no color yet", async () => {
+  it("emits open-color when the color segment is tapped with no color yet", async () => {
     const wrapper = mountSheet();
-    await wrapper.get(".mgs-bg-tile--color").trigger("click");
+    await segButton(wrapper, "Grid background", "Color").trigger("click");
     expect(wrapper.emitted("open-color")).toHaveLength(1);
   });
 
-  it("re-activates a retained color when its (inactive) tile is tapped", async () => {
+  it("re-activates a retained color when its (inactive) segment is tapped", async () => {
     gsHolder.hasBackgroundColor = true;
     gsHolder.activeBg = "image";
     const wrapper = mountSheet();
-    await wrapper.get(".mgs-bg-tile--color").trigger("click");
+    await segButton(wrapper, "Grid background", "Color").trigger("click");
     expect(gsHolder.activateColorBackground).toHaveBeenCalledTimes(1);
     expect(wrapper.emitted("open-color")).toBeUndefined();
   });
 
-  it("opens the /HEX picker when the active color tile is tapped again", async () => {
+  it("opens the /HEX picker when the active color segment is tapped again", async () => {
     gsHolder.hasBackgroundColor = true;
     gsHolder.activeBg = "color";
     const wrapper = mountSheet();
-    await wrapper.get(".mgs-bg-tile--color").trigger("click");
+    await segButton(wrapper, "Grid background", "Color").trigger("click");
     expect(wrapper.emitted("open-color")).toHaveLength(1);
     expect(gsHolder.activateColorBackground).not.toHaveBeenCalled();
   });
@@ -216,9 +234,13 @@ describe("MobileGridSettingsSheet", () => {
 
     expect(rowByText(wrapper, "Gravity")).toBeTruthy();
     expect(rowByText(wrapper, "Delete Grid")).toBeUndefined();
-    // The theme/background sections are filtered out for an unrelated query.
-    expect(wrapper.find(".mgs-theme").exists()).toBe(false);
-    expect(wrapper.find(".mgs-bg").exists()).toBe(false);
+    // The theme/background segments are filtered out for an unrelated query.
+    expect(
+      wrapper.find('.mgs-segment[aria-label="Grid theme"]').exists(),
+    ).toBe(false);
+    expect(
+      wrapper.find('.mgs-segment[aria-label="Grid background"]').exists(),
+    ).toBe(false);
     // The GRID ID header is fixed — never filtered out.
     expect(wrapper.find(".mgs-header").exists()).toBe(true);
   });

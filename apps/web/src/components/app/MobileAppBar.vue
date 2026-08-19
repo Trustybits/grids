@@ -54,31 +54,33 @@
 
     <!-- Viewport (breakpoint) preview switcher — always visible while editing a
          grid on tablet and desktop widths; hidden on phone where there's no room
-         and the preview lives in the command bar instead. -->
+         and the preview lives in the command bar instead. Centered in the bar. -->
     <BreakpointSwitcher
       v-if="mode === 'grid' && showViewportSwitcher"
-      variant="toolbar-row"
+      variant="bar"
       class="mab-viewport-switcher"
     />
 
-    <AppButton
-      v-if="mode === 'home'"
-      variant="secondary"
-      size="sm"
-      @click="emit('new-grid')"
-    >
-      New Grid
-    </AppButton>
-    <button
-      v-else
-      type="button"
-      class="mab-btn"
-      aria-label="Undo"
-      :disabled="!historyStore.canUndo"
-      @click="controller.undo()"
-    >
-      <UndoIcon :size="24" />
-    </button>
+    <div class="mobile-app-bar__right">
+      <AppButton
+        v-if="mode === 'home'"
+        variant="secondary"
+        size="sm"
+        @click="emit('new-grid')"
+      >
+        New Grid
+      </AppButton>
+      <button
+        v-else
+        type="button"
+        class="mab-btn"
+        aria-label="Undo"
+        :disabled="!historyStore.canUndo"
+        @click="controller.undo()"
+      >
+        <UndoIcon :size="24" />
+      </button>
+    </div>
   </header>
 </template>
 
@@ -169,11 +171,13 @@ const blurOnEnter = (event: KeyboardEvent) => {
 </script>
 
 <style lang="scss" scoped>
+// Solid card: an opaque, fully bordered and rounded panel, inset from the edges
+// with a soft shadow so it reads as a distinct surface floating over the canvas.
 .mobile-app-bar {
   position: fixed;
-  top: var(--app-status-banners-height, 0px);
-  left: 0;
-  right: 0;
+  top: calc(var(--app-status-banners-height, 0px) + var(--spacing-sm));
+  left: var(--spacing-sm);
+  right: var(--spacing-sm);
   z-index: var(--z-topbar);
   display: flex;
   align-items: center;
@@ -181,30 +185,43 @@ const blurOnEnter = (event: KeyboardEvent) => {
   gap: var(--spacing-xs);
   padding: var(--spacing-xs) var(--spacing-sm);
   background-color: var(--color-toolbar-background);
-  border-bottom: var(--border-width) solid var(--color-stroke);
-  border-bottom-left-radius: var(--radius-md);
-  border-bottom-right-radius: var(--radius-md);
+  border: var(--border-width) solid var(--color-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
   backdrop-filter: blur(20px);
   transition: transform var(--duration-slow) var(--easing-gentle);
 }
 
 // Preview slides the bar up out of view rather than unmounting it, so it travels
-// in step with the preview toolbar dropping into the space it leaves. The banner
-// offset is subtracted too, or the bar stops short and peeks under them.
+// in step with the preview toolbar dropping into the space it leaves. Clears the
+// banner offset, the inset top gap, and the shadow so nothing peeks back through.
 .mobile-app-bar--hidden {
-  transform: translateY(calc(-100% - var(--app-status-banners-height, 0px)));
+  transform: translateY(
+    calc(-100% - var(--app-status-banners-height, 0px) - var(--spacing-xl))
+  );
   pointer-events: none;
 }
 
+// Left and right zones each take an equal share of the free space so the
+// centered switcher between them lands dead-center regardless of title length.
 .mobile-app-bar__left {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-sm);
   min-width: 0;
+  flex: 1 1 0;
 }
 
-// Sits between the title group and the trailing action; never squished — the
-// grid title (min-width: 0, ellipsis) absorbs any shortfall instead.
+.mobile-app-bar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex: 1 1 0;
+  justify-content: flex-end;
+}
+
+// Centered between the two zones; never squished — the grid title
+// (min-width: 0, ellipsis) absorbs any shortfall instead.
 .mab-viewport-switcher {
   flex: 0 0 auto;
 }

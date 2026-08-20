@@ -70,16 +70,19 @@
       >
         New Grid
       </AppButton>
-      <button
-        v-else
-        type="button"
-        class="mab-btn"
-        aria-label="Undo"
-        :disabled="!historyStore.canUndo"
-        @click="controller.undo()"
-      >
-        <UndoIcon :size="24" />
-      </button>
+      <template v-else>
+        <!-- Publish control (owner + flag on); renders nothing otherwise. -->
+        <PublishPopover />
+        <button
+          type="button"
+          class="mab-btn"
+          aria-label="Undo"
+          :disabled="!historyStore.canUndo"
+          @click="controller.undo()"
+        >
+          <UndoIcon :size="24" />
+        </button>
+      </template>
     </div>
   </header>
 </template>
@@ -97,6 +100,7 @@ import UndoIcon from "@/components/icons/UndoIcon.vue";
 import ChevronLeftIcon from "@/components/icons/ChevronLeftIcon.vue";
 import AppButton from "@/components/ui-elements/Button.vue";
 import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
+import PublishPopover from "@/components/app/PublishPopover.vue";
 
 withDefaults(defineProps<{ mode?: "grid" | "home" }>(), { mode: "grid" });
 

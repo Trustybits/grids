@@ -45,6 +45,12 @@ export function mapFirestoreToGrid(
         ? data.overrides
         : undefined,
     duplicatable: !!data.duplicatable,
+    status:
+      data.status === "draft" || data.status === "published"
+        ? data.status
+        : undefined,
+    draftOf: typeof data.draftOf === "string" ? data.draftOf : undefined,
+    publishedAt: data.publishedAt ?? null,
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,
     lastOpenedAt: data.lastOpenedAt ?? null,

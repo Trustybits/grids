@@ -13,6 +13,7 @@ import {
   memoryDatabase,
   mergeRecord,
   sanitizeStubbedValue,
+  STUBBED_DELETE_FIELD,
   subscribeToValue,
   todayIsoDate,
   toGrid,
@@ -201,6 +202,16 @@ describe("mergeRecord", () => {
 
     expect(existing.nested.a).toBe(1);
   });
+
+  it("removes a key whose patch value is the delete-field sentinel", () => {
+    const merged = mergeRecord(
+      { draftOf: "grid-1", status: "draft" },
+      { status: "published", draftOf: STUBBED_DELETE_FIELD as never },
+    );
+
+    expect(merged).toEqual({ status: "published" });
+    expect(Object.prototype.hasOwnProperty.call(merged, "draftOf")).toBe(false);
+  });
 });
 
 describe("channel", () => {
@@ -253,6 +264,9 @@ describe("toGrid", () => {
       tiles: [],
       overrides: undefined,
       duplicatable: false,
+      status: undefined,
+      draftOf: undefined,
+      publishedAt: null,
       createdAt: null,
       updatedAt: null,
       lastOpenedAt: null,

@@ -30,6 +30,18 @@ type Subscription = {
 
 let idCounter = 0;
 
+// Sentinel returned by StubbedDbUtils.deleteField(). When it appears as a field
+// value in a merge patch, mergeRecord removes that key from the stored record —
+// the in-memory analogue of Firestore's deleteField() FieldValue. A dedicated
+// class instance (not a plain object / Symbol) so it survives sanitizeValue and
+// is comparable by identity.
+class StubbedDeleteFieldSentinel {}
+export const STUBBED_DELETE_FIELD: unknown = new StubbedDeleteFieldSentinel();
+
+export function isStubbedDeleteField(value: unknown): boolean {
+  return value === STUBBED_DELETE_FIELD;
+}
+
 export const memoryDatabase = {
   analyticsEvents: [] as AnalyticsEvent[],
   badges: new Map<string, UserBadges>(),
@@ -96,10 +108,17 @@ export function mergeRecord(
   existing: Record<string, unknown> | undefined,
   patch: Record<string, unknown>,
 ): Record<string, unknown> {
-  return {
+  const sanitizedPatch = sanitizeStubbedValue(patch) as Record<string, unknown>;
+  const merged: Record<string, unknown> = {
     ...(existing ? cloneValue(existing) : {}),
-    ...(sanitizeStubbedValue(patch) as Record<string, unknown>),
+    ...sanitizedPatch,
   };
+  // Honor delete-field sentinels: a patched key whose value is the sentinel is
+  // removed from the merged record rather than stored.
+  for (const [key, value] of Object.entries(sanitizedPatch)) {
+    if (isStubbedDeleteField(value)) delete merged[key];
+  }
+  return merged;
 }
 
 export function channel(...parts: string[]): string {

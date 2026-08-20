@@ -1,4 +1,4 @@
-import { serverTimestamp } from "firebase/firestore";
+import { deleteField, serverTimestamp } from "firebase/firestore";
 import type { DbUtils } from "@grids/contracts/dao";
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
@@ -28,5 +28,9 @@ export class FirebaseDbUtils implements DbUtils {
 
   serverTimestamp(): unknown {
     return serverTimestamp();
+  }
+
+  deleteField(): unknown {
+    return deleteField();
   }
 }

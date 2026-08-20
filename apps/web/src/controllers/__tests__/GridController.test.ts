@@ -124,6 +124,10 @@ function createGridServiceMock(): GridServiceInterface {
     saveRecentGridIds: vi.fn(),
     createGridWithStarterTiles: vi.fn(),
     cloneAndPersistGrid: vi.fn(),
+    createDraft: vi.fn(),
+    getOrCreateDraft: vi.fn(),
+    publishDraft: vi.fn(),
+    publishAsCopy: vi.fn(),
   };
 }
 

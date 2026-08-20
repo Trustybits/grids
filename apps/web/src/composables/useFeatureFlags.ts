@@ -34,6 +34,9 @@ export const FEATURE_FLAGS = {
   EDITOR_SMART_TEXT: 'editor-smart-text',
   EDITOR_AI_SUGGESTIONS: 'editor-ai-suggestions',
   EDITOR_CUSTOM_CSS: 'editor-custom-css',
+  // Draft/publish: edit a published grid via a hidden draft, then publish.
+  // Off = today's live-autosave behavior with zero user-facing change.
+  EDITOR_DRAFT_PUBLISH: 'editor-draft-publish',
 
   // ── Marketplace ──────────────────────────────────────────────────────────
   MARKETPLACE_PUBLISH: 'marketplace-publish',

@@ -1533,3 +1533,24 @@ describe('publishAsCopy', () => {
     expect(result.name).toBe('Branch')
   })
 })
+
+// ── unpublishGrid ──────────────────────────────────────────────────────
+
+describe('unpublishGrid', () => {
+  it('flips a published grid to draft at its rev, leaving content untouched', async () => {
+    const grid = makeGrid({ id: 'grid-1', rev: 4, status: 'published' })
+    mockGridDao.getById.mockResolvedValueOnce(grid)
+    mockGridDao.update.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    await service.unpublishGrid('grid-1')
+
+    expect(mockGridDao.update).toHaveBeenCalledWith(
+      'grid-1',
+      expect.objectContaining({ rev: 5, status: 'draft' }),
+      4,
+    )
+    const payload = mockGridDao.update.mock.calls[0][1] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('tiles')
+  })
+})

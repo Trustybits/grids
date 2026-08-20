@@ -730,4 +730,21 @@ export class GridService implements GridServiceInterface {
       name: name ?? draft.name,
     };
   }
+
+  // Take a published grid private again by flipping its status to "draft".
+  // Respects the grid's rev (surfaces GridRevisionConflictError on a concurrent
+  // edit). Content is untouched.
+  async unpublishGrid(gridId: string): Promise<void> {
+    const grid = await this.fetchGrid(gridId);
+    const expectedRev = this.readGridRev(grid);
+    const nextRev = expectedRev + 1;
+
+    const payload = this.dbUtils.sanitizeValue({
+      rev: nextRev,
+      status: "draft",
+      updatedAt: this.dbUtils.serverTimestamp(),
+    }) as Record<string, unknown>;
+
+    await this.gridDao.update(gridId, payload, expectedRev);
+  }
 }

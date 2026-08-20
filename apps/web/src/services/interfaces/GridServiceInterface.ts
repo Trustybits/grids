@@ -58,4 +58,6 @@ export interface GridServiceInterface {
   publishDraft(draftId: string): Promise<void>;
   /** Promote a draft into its own listed public grid (clears draftOf). */
   publishAsCopy(draftId: string, name?: string): Promise<Grid>;
+  /** Take a published grid private again (status:"draft"). */
+  unpublishGrid(gridId: string): Promise<void>;
 }

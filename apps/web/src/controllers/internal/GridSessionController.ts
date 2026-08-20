@@ -61,15 +61,46 @@ export class GridSessionController {
 
       const userId =
         this.dependencies.getAuthProvider().getCurrentUserId();
-
-      this.stores.session.setCurrentGrid(grid);
-      committedGrid = true;
       const isOwner = !!(userId && grid.userId && userId === grid.userId);
+
+      // Draft/publish: an owner editing a PUBLISHED grid edits a hidden draft
+      // duplicate, while the public identity (URL, sharing, default grid,
+      // analytics, deletion) stays this original id. Resolve the draft BEFORE
+      // committing so there is a single setCurrentGrid and the generation guard
+      // works like the fetch guard above. On failure, fall back to editing the
+      // published grid directly rather than blocking the editor.
+      let editable = grid;
+      let publishedOriginal: Grid | null = null;
+      if (
+        isOwner &&
+        this.dependencies.isDraftPublishEnabled() &&
+        (grid.status ?? "published") === "published"
+      ) {
+        try {
+          const draft = await this.dependencies
+            .getGridService()
+            .getOrCreateDraft(id);
+          if (this.stores.session.sessionGeneration !== sessionGeneration) {
+            return;
+          }
+          editable = draft;
+          publishedOriginal = grid;
+        } catch (error) {
+          console.error("Failed to open draft for editing:", error);
+        }
+      }
+
+      this.stores.session.setCurrentGrid(editable);
+      committedGrid = true;
       this.stores.session.setOwner(isOwner);
       this.stores.session.setDemoGrid(false);
+      if (publishedOriginal) {
+        this.stores.session.setDraftEditing(id, publishedOriginal);
+      }
       // Only owners need the ownership listener — it exists to catch losing the
       // grid (e.g. an accepted transfer). Skipping it for viewers avoids opening
-      // a realtime listener on every anonymous public-page view.
+      // a realtime listener on every anonymous public-page view. It watches the
+      // PUBLIC grid id (the original), not the draft.
       if (isOwner) {
         this.startGridSubscription(id, userId);
       }
@@ -194,6 +225,12 @@ export class GridSessionController {
       forcedBreakpoint,
     } = this.stores.viewport;
 
+    // A resync while editing a draft must keep the draft-editing context (the
+    // public original's id and content baseline), which resetSessionDependents
+    // would otherwise clear. The reloaded grid here is the draft itself, so the
+    // published baseline is unchanged — capture and restore it.
+    const { publishedId, publishedGrid } = this.stores.session;
+
     this.resetSessionDependents();
     this.stores.history.initializeManager();
 
@@ -207,6 +244,9 @@ export class GridSessionController {
       !!(userId && grid.userId && userId === grid.userId),
     );
     this.stores.session.setDemoGrid(false);
+    if (publishedId && publishedGrid) {
+      this.stores.session.setDraftEditing(publishedId, publishedGrid);
+    }
 
     const preferences = this.dependencies.readMetadataPreferences();
     this.stores.ui.setShowMetaData(preferences.showMetaData);
@@ -251,9 +291,11 @@ export class GridSessionController {
     grid: Grid | null,
   ): void {
     // Ignore snapshots from a superseded session (another grid has loaded).
+    // Compare against the PUBLIC grid id: in draft-editing mode currentGrid is
+    // the draft while the listener watches the original (public) id.
     if (
       this.stores.session.sessionGeneration !== generation ||
-      this.stores.session.currentGrid?.id !== gridId
+      this.stores.session.publicGridId !== gridId
     ) {
       return;
     }

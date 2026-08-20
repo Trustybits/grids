@@ -66,7 +66,11 @@ export const useGridSettings = () => {
     return email.toLowerCase().endsWith("@trustybits.com");
   });
 
-  const gridPageId = computed(() => sessionStore.currentGrid?.id || "");
+  // Public identity of the open grid — the original when editing a hidden
+  // draft, else the open grid itself. Used everywhere the grid's shareable /
+  // owned identity matters (sharing, default grid, deletion) so a draft never
+  // leaks out.
+  const gridPageId = computed(() => sessionStore.publicGridId || "");
 
   const currentGridName = computed(
     () => sessionStore.currentGrid?.name?.trim() || "Untitled Grid",
@@ -178,7 +182,7 @@ export const useGridSettings = () => {
 
   const refreshDefaultGrid = async (): Promise<void> => {
     const userId = authProvider.getCurrentUserId();
-    const gridId = sessionStore.currentGrid?.id;
+    const gridId = sessionStore.publicGridId;
     if (!userId || !gridId) {
       isDefaultGrid.value = false;
       return;
@@ -193,7 +197,7 @@ export const useGridSettings = () => {
 
   const toggleDefaultGrid = async (): Promise<void> => {
     const userId = authProvider.getCurrentUserId();
-    const gridId = sessionStore.currentGrid?.id;
+    const gridId = sessionStore.publicGridId;
     if (!userId || !gridId) return;
     const nextDefaultId = isDefaultGrid.value ? null : gridId;
     try {
@@ -279,7 +283,16 @@ export const useGridSettings = () => {
   const performDelete = async (): Promise<void> => {
     if (!canMutateGrid()) return;
     if (!sessionStore.isOwner || !sessionStore.currentGrid) return;
-    await controller.deleteGrid(sessionStore.currentGrid.id);
+    // Delete the PUBLIC grid (the original), and clean up the hidden draft
+    // first so editing a draft then deleting doesn't orphan it.
+    const publicId = sessionStore.publicGridId;
+    const draftId = sessionStore.isDraftEditing
+      ? sessionStore.currentGrid.id
+      : null;
+    if (draftId && draftId !== publicId) {
+      await controller.deleteDraft(draftId);
+    }
+    await controller.deleteGrid(publicId);
     showDeleteModal.value = false;
     router.push("/dashboard");
   };

@@ -261,8 +261,21 @@ export class GridService implements GridServiceInterface {
       themeId: grid.themeId ?? "dark",
       overrides: grid.overrides ?? {},
       duplicatable: grid.duplicatable ?? false,
+      // Publish lifecycle. Default to "published" so legacy/unspecified grids
+      // stay publicly readable — the draft/publish feature only ever writes
+      // "draft" through the explicit draft lifecycle in GridService.
+      status: grid.status ?? "published",
       updatedAt: this.dbUtils.serverTimestamp(),
     };
+
+    // Hidden-draft marker + publish timestamp are only written when present, so
+    // ordinary published grids never carry these fields.
+    if (grid.draftOf) {
+      editableFields.draftOf = grid.draftOf;
+    }
+    if (grid.publishedAt) {
+      editableFields.publishedAt = grid.publishedAt;
+    }
 
     // Every current value renders through Griddle v1, but an older client must
     // not downgrade an unknown future compatibility marker on ordinary save.

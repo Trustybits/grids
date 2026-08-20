@@ -200,6 +200,12 @@ export function toGrid(id: string, data: Record<string, unknown>): Grid {
       : undefined,
     duplicatable:
       typeof data.duplicatable === "boolean" ? data.duplicatable : false,
+    status:
+      data.status === "draft" || data.status === "published"
+        ? data.status
+        : undefined,
+    draftOf: typeof data.draftOf === "string" ? data.draftOf : undefined,
+    publishedAt: (data.publishedAt as Grid["publishedAt"]) ?? null,
     createdAt: (data.createdAt as Grid["createdAt"]) ?? null,
     updatedAt: (data.updatedAt as Grid["updatedAt"]) ?? null,
     lastOpenedAt: (data.lastOpenedAt as Grid["lastOpenedAt"]) ?? null,

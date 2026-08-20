@@ -136,7 +136,9 @@ export const useGridSettings = () => {
   };
 
   const pendingTransfer = computed(() => {
-    const gridId = sessionStore.currentGrid?.id;
+    // Transfers act on the public grid (see gridPageId), so match the pending
+    // lookup to the same id — not the draft when editing one.
+    const gridId = sessionStore.publicGridId;
     return gridId ? transfers.pendingOutgoingForGrid(gridId) : undefined;
   });
 

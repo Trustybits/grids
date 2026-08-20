@@ -19,6 +19,15 @@
         <ChevronRightIcon class="grid-arrow" :size="16" />
       </span>
 
+      <span
+        v-if="showStatus"
+        class="grid-status"
+        :class="isPublished ? 'grid-status--published' : 'grid-status--draft'"
+      >
+        <span class="grid-status__dot" aria-hidden="true" />
+        {{ isPublished ? "Published" : "Draft" }}
+      </span>
+
       <DashboardGridUpdatedLabel :grid="grid" />
 
       <DashboardGridCardActions
@@ -36,13 +45,15 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import DashboardGridStarButton from "./DashboardGridStarButton.vue";
 import ChevronRightIcon from "@/components/icons/ChevronRightIcon.vue";
 import DashboardGridUpdatedLabel from "./DashboardGridUpdatedLabel.vue";
 import DashboardGridCardActions from "./DashboardGridCardActions.vue";
+import { useFeatureFlags } from "@/composables/useFeatureFlags";
 import type { Grid } from "@grids/contracts/types";
 
-defineProps<{
+const props = defineProps<{
   grid: Grid,
   isDefaultGrid?: boolean,
   isStarred?: boolean,
@@ -63,6 +74,17 @@ defineEmits([
   "drop",
   "dragend",
 ]);
+
+const { isEnabled, FEATURE_FLAGS } = useFeatureFlags();
+
+// The published/draft badge is only meaningful once the draft/publish feature
+// is on — without it every grid is public, so the badge would be noise.
+const showStatus = computed(() =>
+  isEnabled(FEATURE_FLAGS.EDITOR_DRAFT_PUBLISH),
+);
+
+// Absent/legacy status is treated as published (public), matching persistence.
+const isPublished = computed(() => props.grid.status !== "draft");
 </script>
 
 <style scoped>
@@ -116,6 +138,37 @@ defineEmits([
   flex-shrink: 0;
 }
 
+/* Published / Draft badge */
+.grid-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 2px var(--spacing-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.grid-status__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+
+.grid-status--published {
+  background: color-mix(in srgb, var(--color-success, #22c55e) 16%, transparent);
+  color: var(--color-success, #16a34a);
+}
+
+.grid-status--draft {
+  background: var(--color-base-8);
+  color: var(--color-content-default);
+}
+
 .grid-link:hover .grid-arrow {
   opacity: 1;
   transform: translateX(0);
@@ -134,10 +187,10 @@ defineEmits([
 @media (max-width: 600px) {
   .grid-link {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      "star name"
-      "meta actions";
+      "star name name"
+      "status meta actions";
     column-gap: var(--spacing-sm);
     row-gap: var(--spacing-xs);
     align-items: center;
@@ -157,7 +210,14 @@ defineEmits([
     display: none;
   }
 
-  .grid-link > :nth-child(3) {
+  /* Class-based placement so the layout is robust to the optional status badge
+     (the "status" cell is simply empty when the flag is off). */
+  .grid-status {
+    grid-area: status;
+    justify-self: start;
+  }
+
+  .grid-link :deep(.grid-updated) {
     grid-area: meta;
   }
 

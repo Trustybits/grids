@@ -113,6 +113,9 @@
         <div v-if="isVisible('gravity')" class="mgs-row mgs-row--toggle">
           <Toggle label="Gravity" v-model="verticalCompact" />
         </div>
+        <div v-if="isVisible('guide')" class="mgs-row mgs-row--toggle">
+          <Toggle label="Grid Guide" v-model="showGridGuide" />
+        </div>
         <div v-if="isVisible('default')" class="mgs-row mgs-row--toggle">
           <Toggle
             label="Default Grid"
@@ -231,6 +234,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useGridSettings } from "@/composables/useGridSettings";
+import { useGridUiStore } from "@/stores/grid/gridUi";
 import Divider from "@/components/ui-elements/Divider.vue";
 import Toggle from "@/components/ui-controls/Toggle.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
@@ -280,6 +284,15 @@ const {
   openTransferModal,
   cancelPendingTransfer,
 } = useGridSettings();
+
+// ── GRID GUIDE ───────────────────────────────────────────────────────────────
+// The placeholder-slot overlay shown while editing (owner-only). Backed by the
+// persisted gridUi flag; its toggle lives only here in the Mobile 2.0 sheet.
+const uiStore = useGridUiStore();
+const showGridGuide = computed({
+  get: () => uiStore.showGridGuide,
+  set: (value: boolean) => uiStore.setShowGridGuide(value),
+});
 
 // ── GRID THEME ───────────────────────────────────────────────────────────────
 const isThemeSelected = (id: "dark" | "light"): boolean =>
@@ -362,6 +375,7 @@ const SETTINGS_INDEX: Record<string, string> = {
   theme: "theme dark mode light appearance color scheme",
   background: "background image color wallpaper backdrop",
   gravity: "gravity compact pack fill layout",
+  guide: "guide grid guide slots placeholder helpline overlay",
   default: "default grid home landing",
   publish: "publish template public duplicatable share",
   duplicate: "duplicate copy clone",

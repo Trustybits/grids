@@ -5,6 +5,11 @@ export const useGridUiStore = defineStore("gridUi", {
     activeTileId: null as string | null,
     activePanelId: null as string | null,
     pendingFocusTileId: null as string | null,
+    // Mobile 2.0: the tile whose `/EDIT` sheet is open. Deliberately separate
+    // from `activeTileId`, which means "this tile's desktop toolbar panel is
+    // open" — the desktop toolbar is gated off under Mobile 2.0, and one field
+    // meaning two things would leave neither safe to reason about.
+    mobileEditTileId: null as string | null,
     showMetaData: false,
     showMetaDataVerbose: false,
   }),
@@ -51,6 +56,10 @@ export const useGridUiStore = defineStore("gridUi", {
       this.activePanelId = null;
     },
 
+    setMobileEditTile(tileId: string | null) {
+      this.mobileEditTileId = tileId;
+    },
+
     setPendingFocusTileId(tileId: string | null) {
       this.pendingFocusTileId = tileId;
     },
@@ -73,6 +82,7 @@ export const useGridUiStore = defineStore("gridUi", {
       this.activeTileId = null;
       this.activePanelId = null;
       this.pendingFocusTileId = null;
+      this.mobileEditTileId = null;
     },
 
     reset() {

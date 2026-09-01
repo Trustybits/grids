@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mount } from "@vue/test-utils";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { ref } from "vue";
 import { ContentType } from "@grids/contracts/types";
 
@@ -23,6 +23,7 @@ const holder = vi.hoisted(() => ({
   loadSavedColors: vi.fn(async () => undefined),
   addSavedColor: vi.fn(async () => undefined),
   enterPreview: vi.fn(),
+  closeEdit: vi.fn(),
   types: [] as Array<Record<string, unknown>>,
 }));
 
@@ -109,6 +110,29 @@ vi.mock("@/composables/useGridPreview", () => ({
   }),
 }));
 
+// Tile editing is entered from a tile, not from this bar, so the bar's side is
+// driven here by moving the edit target the way an activated tile would.
+const editTileId = ref<string | null>(null);
+const editTile = ref<Record<string, unknown> | null>(null);
+const editQuery = ref("");
+
+vi.mock("@/composables/useMobileTileEdit", () => ({
+  useMobileTileEdit: () => ({
+    editTileId,
+    editTile,
+    closeEdit: holder.closeEdit,
+    query: editQuery,
+  }),
+}));
+
+vi.mock("@/components/app/MobileTileEditSheet.vue", () => ({
+  default: {
+    name: "MobileTileEditSheet",
+    props: ["tile"],
+    template: "<div class='tile-edit-stub' :data-tile='tile.i' />",
+  },
+}));
+
 const mountBar = async () => {
   const { default: MobileGridBar } = await import("../MobileGridBar.vue");
   return mount(MobileGridBar, { attachTo: document.body });
@@ -131,10 +155,17 @@ const cardNamed = (
     .findAll(".tile-carousel__card")
     .find((card) => card.attributes("aria-label") === name);
 
+// The bar keeps document-level Escape and tap-outside listeners while mounted,
+// so wrappers left behind would keep answering later tests' events.
+enableAutoUnmount(afterEach);
+
 describe("MobileGridBar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     isPreviewActive.value = false;
+    editTileId.value = null;
+    editTile.value = null;
+    editQuery.value = "";
     holder.types = [
       {
         id: "chat",
@@ -637,5 +668,87 @@ describe("MobileGridBar", () => {
     const wrapper = await mountBar();
     await wrapper.get('[aria-label="Share"]').trigger("click");
     expect(holder.writeText).toHaveBeenCalledWith(window.location.href);
+  });
+
+  describe("tile editing", () => {
+    /** Stands in for a tile being tapped on the canvas. */
+    const activateTile = async (
+      wrapper: Awaited<ReturnType<typeof mountBar>>,
+      tileId: string | null,
+    ) => {
+      editTileId.value = tileId;
+      editTile.value = tileId ? { i: tileId } : null;
+      await flush(wrapper);
+    };
+
+    it("morphs into the /EDIT input and raises the sheet when a tile is tapped", async () => {
+      const wrapper = await mountBar();
+      expect(wrapper.find(".tile-edit-stub").exists()).toBe(false);
+
+      await activateTile(wrapper, "tile-1");
+
+      expect(wrapper.get(".tile-edit-stub").attributes("data-tile")).toBe(
+        "tile-1",
+      );
+      expect(wrapper.find('[aria-label="Filter tile controls"]').exists()).toBe(
+        true,
+      );
+      // The default commands are gone; the pill is now the input.
+      expect(wrapper.find('[aria-label="Add a tile"]').exists()).toBe(false);
+    });
+
+    it("returns to the default commands when the tile is deactivated", async () => {
+      const wrapper = await mountBar();
+      await activateTile(wrapper, "tile-1");
+      await activateTile(wrapper, null);
+
+      expect(wrapper.find(".tile-edit-stub").exists()).toBe(false);
+      expect(wrapper.find('[aria-label="Add a tile"]').exists()).toBe(true);
+    });
+
+    it("follows the target straight across when another tile is tapped", async () => {
+      const wrapper = await mountBar();
+      await activateTile(wrapper, "tile-1");
+      await activateTile(wrapper, "tile-2");
+
+      expect(wrapper.get(".tile-edit-stub").attributes("data-tile")).toBe(
+        "tile-2",
+      );
+    });
+
+    it("closes the sheet from the input's close button", async () => {
+      const wrapper = await mountBar();
+      await activateTile(wrapper, "tile-1");
+      await wrapper.get('[aria-label="Close tile editing"]').trigger("click");
+
+      // Deactivating the tile is the composable's job — the bar only asks.
+      expect(holder.closeEdit).toHaveBeenCalledTimes(1);
+    });
+
+    it("closes the sheet on Escape", async () => {
+      const wrapper = await mountBar();
+      await activateTile(wrapper, "tile-1");
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      await flush(wrapper);
+
+      expect(holder.closeEdit).toHaveBeenCalledTimes(1);
+      wrapper.unmount();
+    });
+
+    it("keeps the sheet open on a tap outside, unlike the other modes", async () => {
+      const wrapper = await mountBar();
+      await activateTile(wrapper, "tile-1");
+      // jsdom has no PointerEvent constructor; the handler only reads `target`.
+      document.body.dispatchEvent(
+        new MouseEvent("pointerdown", { bubbles: true }),
+      );
+      await flush(wrapper);
+
+      // A tap outside is the tile's own deactivation gesture; dismissing here
+      // too would race it and close the sheet the tap was meant to move.
+      expect(holder.closeEdit).not.toHaveBeenCalled();
+      expect(wrapper.find(".tile-edit-stub").exists()).toBe(true);
+      wrapper.unmount();
+    });
   });
 });

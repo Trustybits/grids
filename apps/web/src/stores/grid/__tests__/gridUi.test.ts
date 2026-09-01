@@ -83,10 +83,24 @@ describe("gridUi store", () => {
     expect(store.consumePendingFocus("tile-1")).toBe(false);
   });
 
+  it("holds one mobile edit target at a time", () => {
+    const store = useGridUiStore();
+
+    store.setMobileEditTile("tile-1");
+    expect(store.mobileEditTileId).toBe("tile-1");
+
+    store.setMobileEditTile("tile-2");
+    expect(store.mobileEditTileId).toBe("tile-2");
+
+    store.setMobileEditTile(null);
+    expect(store.mobileEditTileId).toBeNull();
+  });
+
   it("session reset closes menus and focus while retaining preferences", () => {
     const store = useGridUiStore();
     store.setPanelActive("tile-1", "settings");
     store.setPendingFocusTileId("tile-1");
+    store.setMobileEditTile("tile-1");
     store.setShowMetaData(true);
     store.setShowMetaDataVerbose(true);
 
@@ -95,6 +109,9 @@ describe("gridUi store", () => {
     expect(store.activeTileId).toBeNull();
     expect(store.activePanelId).toBeNull();
     expect(store.pendingFocusTileId).toBeNull();
+    // Leaving the grid drops the edit target, so it can never point at a tile
+    // that is no longer on screen.
+    expect(store.mobileEditTileId).toBeNull();
     expect(store.showMetaData).toBe(true);
     expect(store.showMetaDataVerbose).toBe(true);
   });

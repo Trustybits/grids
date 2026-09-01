@@ -45,16 +45,11 @@ import { computed, defineComponent, ref, type PropType } from "vue";
 import type { TileChildComponent } from "@/types/Tile";
 import Chevron from "@/components/icons/Chevron.vue";
 import { useFloatingSelector } from "@/composables/useFloatingSelector";
-
-const FONT_SIZES = ["Small", "Medium", "Large", "Larger"] as const;
-type FontSizeOption = (typeof FONT_SIZES)[number];
-
-const normalizeSize = (value: string | undefined | null): FontSizeOption => {
-  const normalized = value?.trim().toLowerCase();
-  return (
-    FONT_SIZES.find((size) => size.toLowerCase() === normalized) ?? "Medium"
-  );
-};
+import {
+  FONT_SIZES,
+  normalizeFontSize,
+  type FontSizeOption,
+} from "@/constants/textStyles";
 
 export default defineComponent({
   components: {
@@ -74,7 +69,7 @@ export default defineComponent({
     const pos = ref({ top: 0, left: 0, width: 0 });
 
     const currentFontSize = computed<FontSizeOption>(() =>
-      normalizeSize(props.childComponent?.getCurrentFontSize?.()),
+      normalizeFontSize(props.childComponent?.getCurrentFontSize?.()),
     );
     const selectedIndex = computed(() =>
       FONT_SIZES.indexOf(currentFontSize.value),

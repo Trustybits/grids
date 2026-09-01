@@ -729,6 +729,19 @@ describe("GridController", () => {
       expect(stores.preview.activePreview).toBeNull();
     });
 
+    it("refuses to open a tile's mobile edit sheet while previewing", () => {
+      const { controller, stores } = createControllerHarness();
+      stores.session.setCurrentGrid(makeGrid());
+      stores.session.setOwner(true);
+      controller.startPreview("mobile-breakpoint");
+
+      controller.setMobileEditTile("tile-1");
+
+      // Preview shows what a visitor sees, so the guard sits here rather than in
+      // each control the sheet would have offered.
+      expect(stores.ui.mobileEditTileId).toBeNull();
+    });
+
     it("keeps breakpoint inspection working while previewing", () => {
       // Forcing a breakpoint is how preview does its job, so it has to stay
       // available even though preview blocks user mutations.
@@ -740,6 +753,43 @@ describe("GridController", () => {
       controller.setForcedBreakpoint("sm");
 
       expect(stores.viewport.forcedBreakpoint).toBe("sm");
+    });
+  });
+
+  describe("setMobileEditTile", () => {
+    it("opens and closes the edit sheet on an editable grid", () => {
+      const { controller, stores } = createControllerHarness();
+      stores.session.setCurrentGrid(makeGrid());
+      stores.session.setOwner(true);
+
+      controller.setMobileEditTile("tile-1");
+      expect(stores.ui.mobileEditTileId).toBe("tile-1");
+
+      controller.setMobileEditTile(null);
+      expect(stores.ui.mobileEditTileId).toBeNull();
+    });
+
+    it("refuses to open for a visitor, who still activates tiles by tapping", () => {
+      const { controller, stores } = createControllerHarness();
+      stores.session.setCurrentGrid(makeGrid());
+      stores.session.setOwner(false);
+
+      controller.setMobileEditTile("tile-1");
+
+      expect(stores.ui.mobileEditTileId).toBeNull();
+    });
+
+    it("always allows closing, even once editing is blocked", () => {
+      const { controller, stores } = createControllerHarness();
+      stores.session.setCurrentGrid(makeGrid());
+      stores.session.setOwner(true);
+      controller.setMobileEditTile("tile-1");
+
+      // Losing edit rights mid-session must not strand an open sheet.
+      stores.session.setOwner(false);
+      controller.setMobileEditTile(null);
+
+      expect(stores.ui.mobileEditTileId).toBeNull();
     });
   });
 

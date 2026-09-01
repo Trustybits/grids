@@ -331,15 +331,21 @@ const onPointerUp = (event: PointerEvent) => {
 
 // ── Selection ────────────────────────────────────────────────────────────────
 const onCardClick = (index: number) => {
-  // A drag ends with a click on whatever card is under the finger; ignore it.
+  // A drag ends with a click on whatever card is under the finger; ignore it —
+  // the drag guard (suppressClick) is what still separates browsing from
+  // picking now that a genuine tap commits directly.
   if (suppressClick) {
     suppressClick = false;
     return;
   }
+  // A deliberate tap on any card picks that tile type. Off-center taps still
+  // slide the card to the middle (keeping the fan geometry and the command
+  // chip's /TYPE prefix in step) but no longer require a second tap to commit —
+  // users read a single tap as "add this tile", and the old tap-to-center /
+  // tap-again-to-select coverflow read as broken.
   if (index !== centerIndex.value) {
     animateTo(index);
     focusIndex(index);
-    return;
   }
   const type = cards.value[index];
   if (type) emit("select", type.id);

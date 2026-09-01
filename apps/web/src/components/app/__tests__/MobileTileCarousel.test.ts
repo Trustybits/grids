@@ -124,22 +124,14 @@ describe("MobileTileCarousel", () => {
     expect(wrapper.emitted("select")?.[0]).toEqual(["text"]);
   });
 
-  it("centers an off-center card instead of committing it", async () => {
+  it("commits an off-center card on a single tap and brings it to center", async () => {
     const wrapper = mountCarousel();
     await wrapper.findAll(".tile-carousel__card")[1].trigger("click");
 
-    expect(wrapper.emitted("select")).toBeUndefined();
-    expect(wrapper.emitted("focus-type")?.[0]).toEqual(["chat"]);
-  });
-
-  it("commits the card once it has been centered", async () => {
-    const wrapper = mountCarousel();
-    const card = () => wrapper.findAll(".tile-carousel__card")[1];
-
-    await card().trigger("click");
-    await card().trigger("click");
-
+    // A deliberate tap picks the tile directly (no second tap needed), while
+    // still centering it so the fan and command chip stay in step.
     expect(wrapper.emitted("select")?.[0]).toEqual(["chat"]);
+    expect(wrapper.emitted("focus-type")?.[0]).toEqual(["chat"]);
   });
 
   it("emits focus-type as a drag carries a new card past the center", async () => {

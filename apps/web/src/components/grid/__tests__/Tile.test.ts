@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { reactive, ref } from "vue";
 import {
@@ -12,6 +12,7 @@ import type { GridLayoutItem } from "@/types/GridLayout";
 import {
   TILE_DRAGGING_ID,
   TILE_REMOVE_REQUEST,
+  TILE_RESIZE_REQUEST,
 } from "@/grid-context/tileInteractionKeys";
 
 const storeHolder = vi.hoisted(() => ({
@@ -65,6 +66,32 @@ vi.mock("@/composables/useTileInput", () => ({
   }),
 }));
 
+const mobile = vi.hoisted(() => ({
+  isMobile2: false,
+  openEdit: vi.fn(),
+  closeEdit: vi.fn(),
+}));
+
+vi.mock("@/composables/useMobileExperience", async () => {
+  const { computed } = await import("vue");
+  return {
+    useMobileExperience: () => ({
+      isMobile2: computed(() => mobile.isMobile2),
+    }),
+  };
+});
+
+const editTileId = ref<string | null>(null);
+
+vi.mock("@/composables/useMobileTileEdit", () => ({
+  useMobileTileEdit: () => ({
+    editTileId,
+    openEdit: mobile.openEdit,
+    closeEdit: mobile.closeEdit,
+    isEditTarget: (tileId: string) => editTileId.value === tileId,
+  }),
+}));
+
 function makeTile(): Tile {
   return {
     i: "tile-1",
@@ -109,6 +136,7 @@ async function mountGridTile(
   store: ReturnType<typeof makeStore>,
   layout: GridLayoutItem,
   removeTileRequest?: (tileId: string) => void,
+  resizeTileRequest?: (tileId: string, w: number, h: number) => void,
 ) {
   storeHolder.current = store;
   const draggingTileId = ref<string | null>(null);
@@ -117,6 +145,9 @@ async function mountGridTile(
   };
   if (removeTileRequest) {
     provided[TILE_REMOVE_REQUEST as symbol] = removeTileRequest;
+  }
+  if (resizeTileRequest) {
+    provided[TILE_RESIZE_REQUEST as symbol] = resizeTileRequest;
   }
   const { default: GridTile } = await import("@/components/grid/Tile.vue");
   const wrapper = mount(GridTile, {
@@ -343,6 +374,150 @@ describe("GridTile position-only rendering", () => {
     expect(contentHooks.onShortClick).toHaveBeenCalledTimes(1);
     const forwardedEvent = contentHooks.onShortClick.mock.calls[0]![0];
     expect((forwardedEvent.target as HTMLElement).dataset.test).toBe("content");
+
+    wrapper.unmount();
+  });
+});
+
+describe("GridTile Mobile 2.0 editing", () => {
+  const LAYOUT: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
+
+  /** Drives activation directly; the touch handler that flips it is not the subject. */
+  const activate = async (
+    wrapper: Awaited<ReturnType<typeof mountGridTile>>["wrapper"],
+    activated: boolean,
+  ) => {
+    (wrapper.vm as unknown as { isActivated: boolean }).isActivated = activated;
+    await flushPromises();
+  };
+
+  beforeEach(() => {
+    mobile.isMobile2 = true;
+    mobile.openEdit.mockReset();
+    mobile.closeEdit.mockReset();
+    editTileId.value = null;
+  });
+
+  afterEach(() => {
+    mobile.isMobile2 = false;
+  });
+
+  it("replaces the desktop toolbar and action bar with the /EDIT sheet", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    // Both are hover-oriented and land on top of the bottom command pill.
+    expect(wrapper.find(".tile-actions-layer").exists()).toBe(false);
+    expect(wrapper.find(".tile-toolbar-layer").exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it("keeps the desktop toolbar and action bar outside Mobile 2.0", async () => {
+    mobile.isMobile2 = false;
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    expect(wrapper.find(".tile-actions-layer").exists()).toBe(true);
+    expect(wrapper.find(".tile-toolbar-layer").exists()).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it("opens the sheet on activation with a handle only the tile can supply", async () => {
+    const resizeTileRequest = vi.fn();
+    const removeTileRequest = vi.fn();
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(
+      store,
+      LAYOUT,
+      removeTileRequest,
+      resizeTileRequest,
+    );
+
+    await activate(wrapper, true);
+
+    expect(mobile.openEdit).toHaveBeenCalledTimes(1);
+    const [tileId, handle] = mobile.openEdit.mock.calls[0]!;
+    expect(tileId).toBe("tile-1");
+
+    // Resize goes through the injected Griddle request, so a preset tap from
+    // the sheet displaces neighbours exactly as the desktop toolbar's does.
+    handle.resizeTile("tile-1", 4, 1);
+    expect(resizeTileRequest).toHaveBeenCalledWith("tile-1", 4, 1);
+
+    // Delete runs the tile's own removal path, keeping the exit animation.
+    vi.useFakeTimers();
+    handle.remove();
+    vi.advanceTimersByTime(250);
+    expect(removeTileRequest).toHaveBeenCalledWith("tile-1");
+    vi.useRealTimers();
+
+    wrapper.unmount();
+  });
+
+  it("leaves suggestion tiles alone", async () => {
+    const tile = makeTile();
+    tile.content = {
+      type: ContentType.SUGGESTION,
+      action: "profile",
+      label: "Add Profile",
+    } as SuggestionContent;
+    const store = makeStore(tile);
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    // A suggestion is an invitation to add content, not content to style.
+    await activate(wrapper, true);
+    expect(mobile.openEdit).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it("closes the sheet when the tile deactivates", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    await activate(wrapper, true);
+    editTileId.value = "tile-1";
+    await activate(wrapper, false);
+
+    expect(mobile.closeEdit).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+  });
+
+  it("deactivates when another tile becomes the edit target", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    await activate(wrapper, true);
+    editTileId.value = "tile-2";
+    await flushPromises();
+
+    // Only one tile is ever the target, so this one steps down — and does not
+    // then close the sheet that now belongs to tile-2.
+    expect(
+      (wrapper.vm as unknown as { isActivated: boolean }).isActivated,
+    ).toBe(false);
+    expect(mobile.closeEdit).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it("ignores activation outside Mobile 2.0", async () => {
+    mobile.isMobile2 = false;
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    await activate(wrapper, true);
+    expect(mobile.openEdit).not.toHaveBeenCalled();
 
     wrapper.unmount();
   });

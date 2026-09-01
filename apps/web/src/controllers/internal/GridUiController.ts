@@ -29,6 +29,10 @@ export class GridUiController {
     this.stores.ui.closeMenus();
   }
 
+  setMobileEditTile(tileId: string | null): void {
+    this.stores.ui.setMobileEditTile(tileId);
+  }
+
   setShowMetaData(value: boolean): void {
     this.stores.ui.setShowMetaData(value);
     this.dependencies.setCookieValue(

@@ -13,6 +13,11 @@
                `/GRID` command input (top corners squared), while the
                MobileGridSettingsSheet rises from behind and rests flush on top
                of the bar as one connected surface.
+    edit     : tapping a *tile* morphs the pill into the `/EDIT` command input
+               and raises MobileTileEditSheet — the mobile replacement for the
+               desktop TileToolbar + TileActions. Entered from the tile rather
+               than from a button here, so the bar follows the activated tile
+               (see useMobileTileEdit) instead of owning that state.
 
   Preview hands off to MobilePreviewToolbar: tapping it slides this bar down out
   of view and the app bar up, leaving the preview toolbar as the only chrome.
@@ -40,6 +45,15 @@
           @open-color="openColor"
           @open-image="openImage"
         />
+      </div>
+    </transition>
+
+    <!-- Tile edit sheet — same rise/flush pattern; the pill below is the
+         `/EDIT` command input. `handle` carries what only the activated tile can
+         provide (its live content component, Griddle-routed resize, removal). -->
+    <transition name="mgb-rise">
+      <div v-if="mode === 'edit' && editTile" class="mgb-settings-panel">
+        <MobileTileEditSheet :tile="editTile" />
       </div>
     </transition>
 
@@ -102,6 +116,7 @@
         'mgb-pill--settings': mode === 'settings',
         'mgb-pill--color': mode === 'color',
         'mgb-pill--image': mode === 'image',
+        'mgb-pill--edit': mode === 'edit',
         'mgb-pill--flush': isConnected,
       }"
       :aria-label="pillAriaLabel"
@@ -170,6 +185,17 @@
         aria-label="Filter grid settings"
         close-label="Close grid settings"
         @close="closeSettings"
+      />
+
+      <MobileCommandInput
+        v-else-if="mode === 'edit'"
+        v-model="editQuery"
+        filter-label="/EDIT"
+        :placeholders="EDIT_PLACEHOLDERS"
+        :show-view-toggle="false"
+        aria-label="Filter tile controls"
+        close-label="Close tile editing"
+        @close="closeEdit"
       />
 
       <!-- Color (`/HEX`) mode: static `/HEX` chip, the hex value input, then the
@@ -277,6 +303,7 @@ import MobileCommandInput from "@/components/app/MobileCommandInput.vue";
 import MobileTileCarousel from "@/components/app/MobileTileCarousel.vue";
 import MobileTileListSheet from "@/components/app/MobileTileListSheet.vue";
 import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vue";
+import MobileTileEditSheet from "@/components/app/MobileTileEditSheet.vue";
 import MobileColorPicker from "@/components/app/MobileColorPicker.vue";
 import MobileImageSwapSheet from "@/components/app/MobileImageSwapSheet.vue";
 import AddTileIcon from "@/components/icons/AddTileIcon.vue";
@@ -294,6 +321,7 @@ import { useTileCreation } from "@/composables/useTileCreation";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useGridSettings } from "@/composables/useGridSettings";
 import { useGridPreview } from "@/composables/useGridPreview";
+import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
 import { useSavedColors } from "@/composables/useSavedColors";
 import { normalizeHex } from "@/utils/color";
 
@@ -319,6 +347,16 @@ const GRID_PLACEHOLDERS = [
   "transfer",
 ];
 
+// Rotating hints for the `/EDIT` tile filter input.
+const EDIT_PLACEHOLDERS = [
+  "search controls",
+  "size",
+  "border",
+  "font",
+  "align",
+  "delete",
+];
+
 // Once a tile type is active, the placeholder asks for exactly what that type
 // needs (and stops rotating). Types that need typed content before they can be
 // built get a bespoke prompt; the rest fall back to a kind-derived one.
@@ -341,6 +379,10 @@ const {
 const { savedColors, load: loadSavedColors, addColor: addSavedColor } =
   useSavedColors();
 const { isPreviewActive, enterPreview } = useGridPreview();
+// Tile editing is entered by tapping a tile, so the bar follows that state
+// rather than owning it: `mode` mirrors it (see the watcher below).
+const { editTileId, editTile, closeEdit, query: editQuery } =
+  useMobileTileEdit();
 
 // Built-in preset swatches (the brand palette), shown before the user's saved
 // customs in the picker's swatch row.
@@ -366,7 +408,9 @@ const urlInputRef = ref<HTMLInputElement | null>(null);
 const imageInput = ref<HTMLInputElement | null>(null);
 const documentInput = ref<HTMLInputElement | null>(null);
 
-const mode = ref<"default" | "add" | "settings" | "color" | "image">("default");
+const mode = ref<
+  "default" | "add" | "settings" | "color" | "image" | "edit"
+>("default");
 const query = ref("");
 
 // Share uses each platform's own glyph, so the button reads as the share sheet
@@ -394,6 +438,7 @@ const isConnected = computed(
     mode.value === "settings" ||
     mode.value === "color" ||
     mode.value === "image" ||
+    mode.value === "edit" ||
     (mode.value === "add" && viewMode.value === "list"),
 );
 
@@ -476,6 +521,8 @@ const pillAriaLabel = computed(() => {
       return "Color picker";
     case "image":
       return "Background image";
+    case "edit":
+      return "Edit tile";
     default:
       return "Grid commands";
   }
@@ -518,6 +565,14 @@ watch(mode, async () => {
 // the user closes preview and the bar slides back up.
 watch(isPreviewActive, (previewing) => {
   if (previewing) mode.value = "default";
+});
+
+// Activating a tile takes over the pill; deactivating it hands the pill back.
+// Only `edit` is cleared here, so a tile going away cannot close a `/TILE` or
+// `/GRID` surface the user opened afterwards.
+watch(editTileId, (tileId) => {
+  if (tileId) mode.value = "edit";
+  else if (mode.value === "edit") mode.value = "default";
 });
 
 // Quick command: while nothing is pinned, typing a command-type name followed
@@ -803,6 +858,9 @@ const handlePointerDown = (event: MouseEvent) => {
   // Tapping outside dismisses the whole surface (not just back to settings).
   else if (mode.value === "color" || mode.value === "image")
     mode.value = "default";
+  // `edit` is deliberately absent: the tile owns its own activation lifecycle
+  // (including its outside-tap handler), and the tap that *activates* a tile is
+  // itself outside this bar — closing here would cancel every entry.
 };
 
 const handleKeydown = (event: KeyboardEvent) => {
@@ -811,6 +869,7 @@ const handleKeydown = (event: KeyboardEvent) => {
   else if (mode.value === "settings") closeSettings();
   else if (mode.value === "color") closeColor();
   else if (mode.value === "image") closeImage();
+  else if (mode.value === "edit") closeEdit();
 };
 
 /**
@@ -957,7 +1016,8 @@ onBeforeUnmount(() => {
 
 .mgb-pill.mgb-pill--settings,
 .mgb-pill.mgb-pill--color,
-.mgb-pill.mgb-pill--image {
+.mgb-pill.mgb-pill--image,
+.mgb-pill.mgb-pill--edit {
   width: var(--mgb-width);
 
   :deep(.mobile-command-bar__group) {

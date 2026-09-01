@@ -3,7 +3,8 @@
 Status: **in progress — Phases 1–4 complete (early-access plumbing, bottom command bar, top AppBar &
 menu drawer extended to the home screen, and the command pill itself), plus Phase 5.1/5.1.1 (the
 `/TILE` input and coverflow carousel), all of Phase 6 (the Grid Settings sheet, 6.1–6.5), and Phase 7
-(preview mode). Outstanding: 5.2, then Phases 8–10.**
+(preview mode). Phase 8 (the `/EDIT` tile sheet) is wired end-to-end for the text tile. Outstanding:
+5.2, the remaining tile types in 8, then Phases 9–10.**
 
 One of the four command-pill buttons is still **interim**: **Share** copies the link to the clipboard
 rather than opening the new modal (Phase 9).
@@ -600,9 +601,59 @@ Deferred follow-up:
   own phase — it needs a real answer for how a 12-column layout is manipulated on a 320px screen,
   which is the same question the scaled device frame rejected above would have to answer.
 
-### Phase 8 — Tile Toolbar + TileAction Toolbar ⬜ NOT STARTED
+### Phase 8 — Tile Toolbar + TileAction Toolbar 🟡 IN PROGRESS (text tile end-to-end)
 
-- [ ] Mobile treatment of the Tile Toolbar and TileAction Toolbar
+The desktop pair is hover-oriented, dense, and lands on top of the bottom command pill on a phone.
+Both are gated off under Mobile 2.0 and replaced by the same morph-and-rise pattern as `/TILE` and
+`/GRID`: tapping a tile turns the pill into an `/EDIT` command input and raises a sheet behind it.
+The text tile is wired end-to-end first, because it exercises every mechanism (presets, a toggle,
+controls that act through the live content component, a link, and the destructive action).
+
+- [x] **Controls come from the desktop registry, not a second list.** `mobileEditSections.ts` maps
+      `getTileToolbarButtons` output into sheet rows: it flattens the "More" overflow container (a
+      sheet has room, so there is nothing left for a "More" row to reveal), assigns each row a
+      section, and **promotes `tooltip` to `label`**. That last one closes a real accessibility gap —
+      overflow items carried hover-only text and were unnamed to a screen reader. A control added for
+      either surface now shows up on both.
+- [x] **The activated tile registers a handle** (`useMobileTileEdit`). The sheet renders in
+      `MobileGridBar`, which is app chrome outside the grid canvas, so three things cannot be reached
+      from there: the live content-component instance behind bold/italic, the Griddle-routed resize
+      that displaces neighbours, and the tile's own exit animation on delete. The tile hands those
+      over on activation and withdraws them on deactivate. The handle is a `shallowRef` — a deep one
+      unwraps the tile's refs and silently breaks the reactive link.
+- [x] **Target id lives in the `gridUi` store**, separate from `activeTileId` (which means "this
+      tile's desktop panel is open"). Leaving the grid clears it via `resetSessionState`, so it can
+      never point at a tile that is no longer on screen.
+- [x] **One read-only control point.** `GridController.setMobileEditTile` refuses to open while
+      `canEditCurrentGrid()` is false, and always allows closing. This is the *full* `canEdit`
+      predicate rather than the narrower preview check the mutations use, because tapping a tile is
+      not itself a mutation — a visitor activates tiles too, and only the sheet is withheld.
+- [x] Activation and the sheet are kept in step in both directions, and only one tile can be the
+      target: another tile becoming it deactivates the previous one. Suggestion tiles are excluded —
+      a suggestion is an invitation to add content, not content to style.
+- [x] Shared logic extracted rather than copied: `useTileActions` (link/copy/download availability +
+      the actions themselves, out of `TileActions.vue`) and `constants/textStyles.ts` (font families,
+      sizes, alignments, previously inlined in the two desktop selectors).
+
+Product decisions (maintainer):
+
+- **Sizing: presets only.** No width/height stepper. On a 4-column phone grid the presets already
+  cover every width the grid can express.
+- **Preview: passive and geometry-only.** It mirrors the tile's footprint, fill, and border at the
+  *active breakpoint* (not the base `lg` size — `resizeTile` writes per-breakpoint overrides), plus
+  its text via the tile type's own plain-text extraction. It is not a second live instance: that
+  would put a second map/video/editor on the page fighting the real one. Its job is to make an
+  otherwise abstract preset icon legible and to show a tall tile whole.
+- **`/EDIT`, not `/TEXT`**, with the tile type named in the sheet header. Typing filters rows live.
+- Backspacing twice in `/HEX` returns to `/EDIT`, matching the existing sub-command pattern.
+
+Outstanding:
+
+- [ ] **Tile fill color.** Deferred, not shown inert: the desktop `color` button only opens a
+      floating panel via `panelId` and its registry `action` is a no-op, so a row built from it would
+      do nothing when tapped. It returns once `/HEX` can take a tile as its target the way it already
+      takes the grid background.
+- [ ] Remaining tile types beyond text (image/video crop, map style, link, document, embed).
 
 #### Phase 8.1 — Touch gesture model (hold-to-drag) ⬜ NOT STARTED
 

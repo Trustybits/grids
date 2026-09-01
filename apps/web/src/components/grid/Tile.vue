@@ -112,8 +112,11 @@
       </template>
     </div>
 
+    <!-- Both the action bar and the toolbar are hover-oriented and land on top
+         of the bottom command pill on a phone. Under Mobile 2.0 the `/EDIT`
+         sheet replaces them, so they are gated off rather than stacked. -->
     <div
-      v-if="gridView.canEdit"
+      v-if="gridView.canEdit && !isMobile2"
       class="tile-actions-layer"
       :class="{ 'z-priority': hoveredLayer === 'actions' }"
       @mouseenter="hoveredLayer = 'actions'"
@@ -132,7 +135,7 @@
     <div v-if="isTileResizable" class="resize-indicator"></div>
 
     <div
-      v-if="gridView.canEdit && !isSuggestion"
+      v-if="gridView.canEdit && !isSuggestion && !isMobile2"
       class="tile-toolbar-layer"
       :class="{ 'z-priority': hoveredLayer !== 'actions' }"
       @mouseenter="hoveredLayer = 'toolbar'"
@@ -183,6 +186,7 @@ import {
   TILE_ACTIVATED_ID,
   TILE_DRAGGING_ID,
   TILE_REMOVE_REQUEST,
+  TILE_RESIZE_REQUEST,
 } from "@/grid-context/tileInteractionKeys";
 import { type TileChildComponent } from "@/types/Tile";
 import { type Tile } from "@grids/contracts/types";
@@ -214,6 +218,8 @@ import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
 import FloatingInputModal from "@/components/modal/FloatingInputModal.vue";
 import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
 import { useTileInput } from "@/composables/useTileInput";
+import { useMobileExperience } from "@/composables/useMobileExperience";
+import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
 
 export default defineComponent({
   components: {
@@ -244,8 +250,16 @@ export default defineComponent({
       TILE_REMOVE_REQUEST,
       gridView.removeTile,
     );
+    const requestTileResize = inject(TILE_RESIZE_REQUEST, gridView.resizeTile);
     const { uploadFileOptimisticForTile } = useFileUpload();
     const { submitLink, submitEmbed } = useTileInput();
+    const { isMobile2 } = useMobileExperience();
+    const {
+      openEdit,
+      closeEdit,
+      isEditTarget,
+      editTileId,
+    } = useMobileTileEdit();
 
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).
@@ -618,8 +632,12 @@ export default defineComponent({
       },
     );
 
+    // Drops the outside-touch listener too, so this is safe to call from
+    // anywhere — including the Mobile 2.0 watcher that deactivates a tile when
+    // another one becomes the edit target.
     const deactivateTile = () => {
       isActivated.value = false;
+      document.removeEventListener("touchstart", handleTouchOutside);
     };
 
     const handleTouchOutside = (event: TouchEvent) => {
@@ -628,7 +646,6 @@ export default defineComponent({
         !gridTileRef.value.contains(event.target as Node)
       ) {
         deactivateTile();
-        document.removeEventListener("touchstart", handleTouchOutside);
       }
     };
 
@@ -828,6 +845,39 @@ export default defineComponent({
 
     const toolbarRefs = { childComponent, isEditing, isExitingCropMode };
 
+    // ── Mobile 2.0 `/EDIT` sheet ──────────────────────────────────────────────
+    // Under Mobile 2.0 the desktop toolbar and action bar are replaced by a
+    // sheet rendered in the bottom command bar, which is outside the grid
+    // canvas. Activation and that sheet are one state seen from two places, so
+    // they are kept in step in both directions: activating a tile opens the
+    // sheet, and closing the sheet (its Close button, Escape) deactivates the
+    // tile. Both watchers only act when the two disagree, so they settle rather
+    // than loop.
+    //
+    // Suggestion tiles are excluded: they are an invitation to add content, not
+    // content to style, and the desktop toolbar skips them for the same reason.
+    const mobileEditHandle = () => ({
+      ...toolbarRefs,
+      resizeTile: requestTileResize,
+      remove: removeElement,
+    });
+
+    watch(isActivated, (activated) => {
+      if (!isMobile2.value) return;
+      if (activated) {
+        if (!isSuggestion.value) openEdit(props.tile.i, mobileEditHandle());
+      } else if (isEditTarget(props.tile.i)) {
+        closeEdit();
+      }
+    });
+
+    // Another tile becoming the target deactivates this one, so only one tile is
+    // ever activated at a time.
+    watch(editTileId, (tileId) => {
+      if (!isMobile2.value) return;
+      if (tileId !== props.tile.i && isActivated.value) deactivateTile();
+    });
+
     // Re-load the dynamic component whenever the content type changes
     // (e.g. suggestion -> profile). Without this, currentComponent stays
     // null after the tile type switches away from SUGGESTION.
@@ -923,6 +973,7 @@ export default defineComponent({
       toolbarRefs,
       hoveredLayer,
       isEmbedInteractive,
+      isMobile2,
     };
   },
 });

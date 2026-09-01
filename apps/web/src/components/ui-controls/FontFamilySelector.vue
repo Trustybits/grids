@@ -47,6 +47,7 @@ import type { TileChildComponent } from "@/types/Tile";
 import FontStyleIcon from "@/components/icons/toolbar/FontStyleIcon.vue";
 import Chevron from "@/components/icons/Chevron.vue";
 import { useFloatingSelector } from "@/composables/useFloatingSelector";
+import { FONT_FAMILIES } from "@/constants/textStyles";
 
 export default defineComponent({
   components: { FontStyleIcon, Chevron },
@@ -66,13 +67,6 @@ export default defineComponent({
     const currentFont = computed(() =>
       props.childComponent?.getCurrentFont?.(),
     );
-
-    const FONT_TYPES = ref([
-      "Inter",
-      "Times New Roman",
-      "Geist Mono",
-      "Lobster",
-    ]);
 
     const positionMenu = () => {
       const btn = fontSelectButtonRef.value;
@@ -106,7 +100,7 @@ export default defineComponent({
       pos,
       // growOrigin,
       isActive,
-      fontTypes: FONT_TYPES,
+      fontTypes: FONT_FAMILIES,
     };
   },
 });

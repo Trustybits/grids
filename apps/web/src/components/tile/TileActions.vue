@@ -90,7 +90,6 @@
 
 <script lang="ts">
 import {
-  proxyRefs,
   defineComponent,
   computed,
   inject,
@@ -103,10 +102,7 @@ import {
   type Ref,
 } from "vue";
 import { ContentType, type Tile } from "@grids/contracts/types";
-import { getTileDefinition } from "@/registries/tileRegistry";
-import { useGridViewContext } from "@/grid-context/useGridViewContext";
-import { useToastStore } from "@/stores/toast";
-import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import { useTileActions } from "@/composables/useTileActions";
 import ArrowUpRightIcon from "@/components/icons/tile-actionbar/ArrowUpRightIcon.vue";
 import DuplicateIcon from "@/components/icons/DuplicateIcon.vue";
 import ClipboardIcon from "@/components/icons/tile-actionbar/ClipboardIcon.vue";
@@ -115,11 +111,6 @@ import CloseIcon from "@/components/icons/tile-actionbar/CloseIcon.vue";
 import LogOutIcon from "@/components/icons/tile-actionbar/LogOutIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
 import { TILE_GEOMETRY_VERSION } from "@/grid-context/tileInteractionKeys";
-
-// Cache server-approved download URLs per `ownerId:hash` so many tiles
-// referencing the same file (and re-renders) don't each call the function.
-// Cleared on reload.
-const shareableDownloadUrlCache = new Map<string, string>();
 
 export default defineComponent({
   components: {
@@ -139,7 +130,15 @@ export default defineComponent({
   },
   emits: ["delete"],
   setup(props, { emit }) {
-    const gridView = proxyRefs(useGridViewContext());
+    const {
+      resolvedTileUrl,
+      hasLink,
+      hasCopyable,
+      hasDownload,
+      duplicate,
+      copyToClipboard,
+      download,
+    } = useTileActions(() => props.tile);
     const tileGeometryVersion = inject(TILE_GEOMETRY_VERSION, ref(0));
     const hoveredToolbarZone = inject<Ref<string | null>>("hoveredToolbarZone");
     const isEmbedInteractive = inject<Ref<boolean>>("isEmbedInteractive", ref(false));
@@ -151,7 +150,6 @@ export default defineComponent({
       ref(false),
     );
     const justExitedInteractive = ref(false);
-    const toastStore = useToastStore();
 
     // Tracks hover over the (teleported) action bar itself so it doesn't vanish
     // as the cursor moves onto it — it's no longer a DOM descendant of the tile.
@@ -274,137 +272,8 @@ export default defineComponent({
       window.addEventListener("mousemove", onMouseMove);
     };
 
-    // --- Computed: which actions are available per tile type ---
-
-    const tileDef = computed(() => getTileDefinition(props.tile.content.type));
-
-    const tileUrl = computed<string | null>(() => {
-      return tileDef.value?.actions?.externalUrl?.(props.tile.content as never) ?? null;
-    });
-
-    const resolvedTileUrl = computed<string>(() => {
-      const url = (tileUrl.value || "").trim();
-      if (!url) return "";
-      if (/^[a-z][a-z0-9+.-]*:/i.test(url)) return url;
-      return `https://${url}`;
-    });
-
-    const hasLink = computed(() => !!resolvedTileUrl.value);
-
-    const hasCopyable = computed(() => {
-      return !!tileDef.value?.actions?.copyContent;
-    });
-
-    // Archive-backed media (an image/video whose bytes live in the source
-    // owner's upload archive) exposes a download only when the owner has marked
-    // the file `shareable`. Non-archive sources (external URLs, legacy
-    // `src`-only tiles) keep their existing download behaviour.
-    const archiveHash = computed<string | null>(() => {
-      const content = props.tile.content as { srcHash?: unknown };
-      return typeof content.srcHash === "string" && content.srcHash
-        ? content.srcHash
-        : null;
-    });
-    const archiveOwnerId = computed<string | null>(
-      () => gridView.grid?.userId ?? null,
-    );
-
-    const archiveDownloadUrl = ref<string | null>(null);
-    let archiveDownloadRequestId = 0;
-
-    const resolveArchiveDownloadUrl = async (
-      ownerId: string,
-      hash: string,
-      requestId: number,
-    ) => {
-      const cacheKey = `${ownerId}:${hash}`;
-      const cached = shareableDownloadUrlCache.get(cacheKey);
-      if (cached !== undefined) {
-        archiveDownloadUrl.value = cached;
-        return;
-      }
-      try {
-        const url = await getServiceFactory()
-          .getStorageService()
-          .getShareableArchiveDownloadUrl(ownerId, hash);
-        shareableDownloadUrlCache.set(cacheKey, url);
-        if (requestId === archiveDownloadRequestId) {
-          archiveDownloadUrl.value = url;
-        }
-      } catch {
-        if (requestId === archiveDownloadRequestId) {
-          archiveDownloadUrl.value = null;
-        }
-      }
-    };
-
-    watch(
-      [archiveOwnerId, archiveHash],
-      ([ownerId, hash]) => {
-        archiveDownloadRequestId += 1;
-        archiveDownloadUrl.value = null;
-        if (ownerId && hash) {
-          void resolveArchiveDownloadUrl(
-            ownerId,
-            hash,
-            archiveDownloadRequestId,
-          );
-        }
-      },
-      { immediate: true },
-    );
-
-    const hasDownload = computed(() => {
-      if (!tileDef.value?.actions?.downloadUrl) return false;
-      // Non-archive sources are always downloadable; archive-backed files only
-      // once the server has returned a shareable download URL.
-      if (archiveHash.value === null) return true;
-      return !!archiveDownloadUrl.value;
-    });
-
-    // --- Actions ---
-
     const onDelete = () => {
       emit("delete");
-    };
-
-    const onDuplicate = () => {
-      const newId = gridView.duplicateTile(props.tile.i);
-      if (newId) {
-        toastStore.addToast("Tile duplicated", "success");
-      }
-    };
-
-    const onCopyToClipboard = async () => {
-      const text = tileDef.value?.actions?.copyContent?.(props.tile.content as never) ?? "";
-      if (!text) return;
-
-      try {
-        await navigator.clipboard.writeText(text);
-        toastStore.addToast("Copied to clipboard", "success");
-      } catch {
-        toastStore.addToast("Failed to copy", "error");
-      }
-    };
-
-    const onDownload = async () => {
-      const src = archiveHash.value
-        ? archiveDownloadUrl.value ?? ""
-        : tileDef.value?.actions?.downloadUrl?.(props.tile.content as never) ?? "";
-      if (!src) return;
-
-      try {
-        const a = document.createElement("a");
-        a.href = src;
-        a.download = "";
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } catch {
-        toastStore.addToast("Failed to download", "error");
-      }
     };
 
     return {
@@ -413,9 +282,9 @@ export default defineComponent({
       hasCopyable,
       hasDownload,
       onDelete,
-      onDuplicate,
-      onCopyToClipboard,
-      onDownload,
+      onDuplicate: duplicate,
+      onCopyToClipboard: copyToClipboard,
+      onDownload: download,
       hoveredToolbarZone,
       isEmbedInteractive,
       justExitedInteractive,

@@ -234,6 +234,23 @@ export class GridController {
     this.uiController.closeMenus();
   }
 
+  /**
+   * Target of the Mobile 2.0 `/EDIT` sheet.
+   *
+   * Opening one is an editing affordance, so it is refused whenever the grid is
+   * read-only — a visitor, or the owner inside a preview. That is the full
+   * `canEdit` predicate rather than the narrower preview check other mutations
+   * use, because tapping a tile is not itself a mutation: a visitor activates
+   * tiles too, and only the sheet has to be withheld from them.
+   *
+   * Clearing always goes through, so a sheet cannot outlive the permission that
+   * opened it.
+   */
+  setMobileEditTile(tileId: string | null): void {
+    if (tileId !== null && !this.canEditCurrentGrid()) return;
+    this.uiController.setMobileEditTile(tileId);
+  }
+
   setShowMetaData(value: boolean): void {
     this.uiController.setShowMetaData(value);
   }

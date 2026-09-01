@@ -1,5 +1,8 @@
 import type { DbUtils } from "@grids/contracts/dao";
-import { sanitizeStubbedValue } from "./StubbedMemoryDatabase";
+import {
+  STUBBED_DELETE_FIELD,
+  sanitizeStubbedValue,
+} from "./StubbedMemoryDatabase";
 
 export class StubbedDbUtils implements DbUtils {
   sanitizeValue(value: unknown): unknown {
@@ -8,5 +11,9 @@ export class StubbedDbUtils implements DbUtils {
 
   serverTimestamp(): unknown {
     return new Date();
+  }
+
+  deleteField(): unknown {
+    return STUBBED_DELETE_FIELD;
   }
 }

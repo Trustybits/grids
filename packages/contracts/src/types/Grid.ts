@@ -60,6 +60,13 @@ export type CopyDepth = "full" | "structure";
  */
 export type BackgroundActiveSource = "image" | "color" | "default";
 
+/**
+ * Publish lifecycle of a grid document. A grid that is not "published" is
+ * private (readable only by its owner). Absent on legacy documents — treat a
+ * missing value as "published" so existing public grids stay public.
+ */
+export type GridStatus = "draft" | "published";
+
 export interface Grid {
   id: string;
   userId: string;
@@ -89,6 +96,15 @@ export interface Grid {
   // another. Used to prevent duplicates from auto-becoming the user's default
   // grid (only fresh grids should).
   clonedFrom?: string;
+  // Publish lifecycle. Absent on legacy grids — treat missing as "published".
+  // A non-"published" doc is private (owner-only) via the Firestore read rule.
+  status?: GridStatus;
+  // Set on a hidden draft to the id of the published grid it shadows. Distinct
+  // from clonedFrom: a draft is hidden and written back on publish, whereas a
+  // normal duplicate keeps clonedFrom and stays listed. Never set both.
+  draftOf?: string;
+  // When the grid was last published (set on publish / publish-as-copy).
+  publishedAt?: Date | { toDate(): Date } | null;
   createdAt?: Date | { toDate(): Date } | null;
   updatedAt?: Date | { toDate(): Date } | null;
   lastOpenedAt?: Date | { toDate(): Date } | null;

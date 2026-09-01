@@ -171,6 +171,11 @@ export function createGridServiceMock(): GridServiceInterface {
     saveRecentGridIds: vi.fn(),
     createGridWithStarterTiles: vi.fn(),
     cloneAndPersistGrid: vi.fn(),
+    createDraft: vi.fn(),
+    getOrCreateDraft: vi.fn(),
+    publishDraft: vi.fn(),
+    publishAsCopy: vi.fn(),
+    unpublishGrid: vi.fn(),
   };
 }
 
@@ -231,6 +236,7 @@ export function createHarness(): InternalHarness {
     getCookieValue: vi.fn(() => null),
     setCookieValue: vi.fn(),
     snapshotCodec: new GridSnapshotCodec(),
+    isDraftPublishEnabled: vi.fn(() => false),
   };
 
   return {

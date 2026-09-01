@@ -40,134 +40,81 @@
              (replaces the old Dark Mode toggle). Each card is a mini grid mock
              (profile / document / chat / image tiles); the active one gets the
              2px purple ring sitting 2px off the thumbnail. -->
+        <!-- GRID THEME — segmented Dark / Light control driving the per-grid
+             theme (replaces the old preview cards). -->
         <section v-if="isVisible('theme')" class="mgs-section">
           <span class="mgs-section__label">GRID THEME</span>
-          <div class="mgs-theme">
+          <div class="mgs-segment" role="group" aria-label="Grid theme">
             <button
-              v-for="card in THEME_CARDS"
-              :key="card.id"
               type="button"
-              class="mgs-theme-card"
-              :class="[
-                `mgs-theme-card--${card.id}`,
-                { 'is-selected': isThemeSelected(card.id) },
-              ]"
-              :aria-pressed="isThemeSelected(card.id)"
-              :aria-label="card.label"
-              @click="selectTheme(card.id)"
+              class="mgs-segment__btn"
+              :class="{ 'is-active': isThemeSelected('dark') }"
+              :aria-pressed="isThemeSelected('dark')"
+              @click="selectTheme('dark')"
             >
-              <span class="mgs-mock" aria-hidden="true">
-                <span class="mgs-mock__tile mgs-mock__tile--profile">
-                  <span class="mgs-mock__avatar" />
-                  <span class="mgs-mock__bar mgs-mock__bar--name" />
-                  <span class="mgs-mock__bar mgs-mock__bar--title" />
-                  <span class="mgs-mock__bar mgs-mock__bar--desc" />
-                </span>
-                <span class="mgs-mock__tile mgs-mock__tile--doc">
-                  <span class="mgs-mock__doc-tab" />
-                  <span class="mgs-mock__bar" />
-                  <span class="mgs-mock__bar" />
-                  <span class="mgs-mock__bar mgs-mock__bar--short" />
-                </span>
-                <span class="mgs-mock__tile mgs-mock__tile--chat">
-                  <span class="mgs-mock__bubble mgs-mock__bubble--in" />
-                  <span class="mgs-mock__bubble mgs-mock__bubble--out" />
-                  <span class="mgs-mock__bubble mgs-mock__bubble--in" />
-                  <span
-                    class="mgs-mock__bubble mgs-mock__bubble--out mgs-mock__bubble--sm"
-                  />
-                  <span class="mgs-mock__chatbar" />
-                </span>
-                <span class="mgs-mock__tile mgs-mock__tile--image">
-                  <svg
-                    class="mgs-mock__scene"
-                    viewBox="0 0 48 22"
-                    preserveAspectRatio="xMidYMax meet"
-                    aria-hidden="true"
-                  >
-                    <circle class="mgs-mock__sun" cx="34" cy="6" r="3" />
-                    <path
-                      class="mgs-mock__hill mgs-mock__hill--back"
-                      d="M-2 22 L12 8 L26 22 Z"
-                    />
-                    <path
-                      class="mgs-mock__hill mgs-mock__hill--front"
-                      d="M16 22 L31 6 L50 22 Z"
-                    />
-                  </svg>
-                </span>
-              </span>
+              Dark
+            </button>
+            <button
+              type="button"
+              class="mgs-segment__btn"
+              :class="{ 'is-active': isThemeSelected('light') }"
+              :aria-pressed="isThemeSelected('light')"
+              @click="selectTheme('light')"
+            >
+              Light
             </button>
           </div>
         </section>
 
-        <!-- GRID BACKGROUND — retained image / default / solid color. Selecting
-             a tile activates that source (the others keep their stored value so
-             the user can toggle back). Active tile gets the 2px purple ring. -->
+        <!-- GRID BACKGROUND — segmented Image / Default / Color control. Selecting
+             a segment activates that source (the others keep their stored value so
+             the user can toggle back); the active segment is highlighted. The
+             Color segment shows the current colour as a live dot. -->
         <section v-if="isVisible('background')" class="mgs-section">
           <span class="mgs-section__label">GRID BACKGROUND</span>
-          <div class="mgs-bg">
+          <div class="mgs-segment" role="group" aria-label="Grid background">
             <button
               type="button"
-              class="mgs-bg-tile mgs-bg-tile--image"
-              :class="{ 'is-selected': isImageBackgroundActive }"
+              class="mgs-segment__btn"
+              :class="{ 'is-active': isImageBackgroundActive }"
               :aria-pressed="isImageBackgroundActive"
               :aria-label="imageTileLabel"
               @click="onImageTile"
             >
-              <span
-                v-if="imageThumb"
-                class="mgs-bg-tile__thumb"
-                :style="{ backgroundImage: `url(${imageThumb})` }"
-              />
-              <svg
-                v-else
-                class="mgs-bg-tile__illustration"
-                viewBox="0 0 48 30"
-                preserveAspectRatio="xMidYMid meet"
-                aria-hidden="true"
-              >
-                <circle class="mgs-bg-tile__sun" cx="34" cy="9" r="3.5" />
-                <path
-                  class="mgs-bg-tile__hill mgs-bg-tile__hill--back"
-                  d="M-2 30 L13 13 L28 30 Z"
-                />
-                <path
-                  class="mgs-bg-tile__hill mgs-bg-tile__hill--front"
-                  d="M15 30 L31 10 L50 30 Z"
-                />
-              </svg>
+              Image
             </button>
             <button
               type="button"
-              class="mgs-bg-tile mgs-bg-tile--default"
-              :class="{ 'is-selected': isDefaultBackgroundActive }"
+              class="mgs-segment__btn"
+              :class="{ 'is-active': isDefaultBackgroundActive }"
               :aria-pressed="isDefaultBackgroundActive"
               aria-label="Use default background"
               @click="activateDefaultBackground"
             >
-              <span class="mgs-bg-tile__text">Default</span>
+              Default
             </button>
             <button
               type="button"
-              class="mgs-bg-tile mgs-bg-tile--color"
-              :class="{ 'is-selected': isColorBackgroundActive }"
+              class="mgs-segment__btn"
+              :class="{ 'is-active': isColorBackgroundActive }"
               :aria-pressed="isColorBackgroundActive"
               :aria-label="colorTileLabel"
               @click="onColorTile"
             >
               <span
-                class="mgs-bg-tile__swatch"
-                :style="
-                  hasBackgroundColor ? { background: backgroundColor } : undefined
-                "
+                class="mgs-segment__dot"
+                :style="hasBackgroundColor ? { background: backgroundColor } : undefined"
               />
+              Color
             </button>
           </div>
         </section>
 
         <div v-if="isVisible('gravity')" class="mgs-row mgs-row--toggle">
           <Toggle label="Gravity" v-model="verticalCompact" />
+        </div>
+        <div v-if="isVisible('guide')" class="mgs-row mgs-row--toggle">
+          <Toggle label="Grid Guide" v-model="showGridGuide" />
         </div>
         <div v-if="isVisible('default')" class="mgs-row mgs-row--toggle">
           <Toggle
@@ -287,6 +234,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useGridSettings } from "@/composables/useGridSettings";
+import { useGridUiStore } from "@/stores/grid/gridUi";
 import Divider from "@/components/ui-elements/Divider.vue";
 import Toggle from "@/components/ui-controls/Toggle.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
@@ -320,7 +268,6 @@ const {
   hasBackgroundImage,
   hasBackgroundColor,
   backgroundColor,
-  backgroundImageSrc,
   isImageBackgroundActive,
   isColorBackgroundActive,
   isDefaultBackgroundActive,
@@ -338,12 +285,16 @@ const {
   cancelPendingTransfer,
 } = useGridSettings();
 
-// ── GRID THEME ───────────────────────────────────────────────────────────────
-const THEME_CARDS = [
-  { id: "dark", label: "Dark theme" },
-  { id: "light", label: "Light theme" },
-] as const;
+// ── GRID GUIDE ───────────────────────────────────────────────────────────────
+// The placeholder-slot overlay shown while editing (owner-only). Backed by the
+// persisted gridUi flag; its toggle lives only here in the Mobile 2.0 sheet.
+const uiStore = useGridUiStore();
+const showGridGuide = computed({
+  get: () => uiStore.showGridGuide,
+  set: (value: boolean) => uiStore.setShowGridGuide(value),
+});
 
+// ── GRID THEME ───────────────────────────────────────────────────────────────
 const isThemeSelected = (id: "dark" | "light"): boolean =>
   (id === "dark") === isDarkMode.value;
 
@@ -354,15 +305,9 @@ const selectTheme = (id: "dark" | "light") => {
 // ── GRID BACKGROUND ──────────────────────────────────────────────────────────
 const bgImageInput = ref<HTMLInputElement | null>(null);
 
-// Local object-URL preview shown the instant a file is chosen, before the
-// upload resolves and the real `backgroundImageSrc` takes over.
+// Local object-URL preview held during an upload so it can be revoked once the
+// upload resolves.
 const uploadingThumb = ref<string | null>(null);
-
-// The image tile shows a thumbnail once an image exists (or is uploading);
-// otherwise it shows the framed-photo illustration.
-const imageThumb = computed(
-  () => uploadingThumb.value ?? (backgroundImageSrc.value || null),
-);
 
 const imageTileLabel = computed(() => {
   if (!hasBackgroundImage.value) return "Add background image";
@@ -430,6 +375,7 @@ const SETTINGS_INDEX: Record<string, string> = {
   theme: "theme dark mode light appearance color scheme",
   background: "background image color wallpaper backdrop",
   gravity: "gravity compact pack fill layout",
+  guide: "guide grid guide slots placeholder helpline overlay",
   default: "default grid home landing",
   publish: "publish template public duplicatable share",
   duplicate: "duplicate copy clone",
@@ -577,246 +523,64 @@ const onTransfer = () => {
   letter-spacing: 0.04em;
 }
 
-.mgs-theme {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-2xl);
-}
-
-/* The active choice gets a 2px purple ring sitting 2px off the illustration —
-   an outline with a matching offset (no layout shift, follows the radius). */
-.mgs-theme-card,
-.mgs-bg-tile {
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-  transition: outline-color var(--duration-fast) var(--easing-smooth);
-
-  &.is-selected {
-    outline: var(--border-width-lg) solid var(--grids-brand-purple);
-    outline-offset: var(--border-width-xl);
-  }
-}
-
-.mgs-theme-card {
-  border: none;
-  border-radius: var(--radius-sm);
-}
-
-/* Neutral light/dark preview surfaces that stay light/dark regardless of the
-   active app theme, so both cards always read as their respective theme. */
-.mgs-theme-card--dark {
-  --mock-bg: color-mix(in srgb, var(--color-black-0) 100%, var(--grids-surface-raised) 100%);
-  --mock-tile: var(--color-black-55);
-  --mock-line: color-mix(in srgb, var(--color-light-100) 22%, transparent);
-  --mock-line-weak: color-mix(in srgb, var(--color-light-100) 10%, transparent);
-  --mock-accent: color-mix(in srgb, var(--color-light-100) 34%, transparent);
-  --mock-border: var(--color-light-100-13);
-}
-
-.mgs-theme-card--light {
-  --mock-bg: color-mix(in srgb, var(--color-dark-0) 0%, var(--color-light-100));
-  --mock-tile: var(--color-light-100);
-  --mock-line: color-mix(in srgb, var(--color-dark-0) 24%, transparent);
-  --mock-line-weak: color-mix(in srgb, var(--color-dark-0) 76%, transparent);
-  --mock-accent: color-mix(in srgb, var(--color-dark-0) 34%, transparent);
-  --mock-border: var(--color-dark-0-21);
-}
-
-.mgs-mock {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 6px;
-  width: 100%;
-  height: 76px;
-  padding: 6px;
-  border-radius: var(--radius-sm);
-  background: var(--mock-bg);
-}
-
-.mgs-mock__tile {
-  position: relative;
-  overflow: hidden;
-  border-radius: 4px;
-  background: var(--mock-tile);
-  border: 1px solid var(--mock-border);
-}
-
-.mgs-mock__tile--profile {
-  grid-area: 1 / 1 / 2 / 2;
-}
-.mgs-mock__tile--doc {
-  grid-area: 1 / 2 / 2 / 3;
-}
-.mgs-mock__tile--chat {
-  grid-area: 1 / 3 / 3 / 4;
-}
-.mgs-mock__tile--image {
-  grid-area: 2 / 1 / 3 / 3;
-  padding: 0;
-}
-
-.mgs-mock__tile--profile,
-.mgs-mock__tile--doc,
-.mgs-mock__tile--chat {
+/* Inset-pill segmented control: a subtle track with a floating raised pill
+   marking the active option. A hairline border would vanish on the near-black
+   sheet, so the track and pill are set with translucent-white washes instead. */
+.mgs-segment {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 4px;
-}
-
-.mgs-mock__avatar {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-full);
-  background: var(--mock-line);
-}
-
-.mgs-mock__bar {
-  height: 2px;
-  border-radius: 1px;
-  background: var(--mock-line-weak);
-}
-.mgs-mock__bar--name {
-  width: 72%;
-  background: var(--mock-line);
-}
-.mgs-mock__bar--title {
-  width: 44%;
-}
-.mgs-mock__bar--desc {
-  width: 86%;
-}
-.mgs-mock__bar--short {
-  width: 52%;
-}
-.mgs-mock__tile--doc .mgs-mock__bar {
-  width: 86%;
-}
-
-.mgs-mock__doc-tab {
-  width: 58%;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--mock-line-weak);
-}
-
-/* Chat bubbles alternate sides; a text-box bar pins to the bottom. */
-.mgs-mock__tile--chat {
   gap: 3px;
-}
-.mgs-mock__bubble {
-  height: 6px;
-  border-radius: 3px;
-}
-.mgs-mock__bubble--in {
-  width: 68%;
-  align-self: flex-start;
-  border-bottom-left-radius: 1px;
-  background: var(--mock-line-weak);
-}
-.mgs-mock__bubble--out {
-  width: 80%;
-  align-self: flex-end;
-  border-bottom-right-radius: 1px;
-  background: var(--mock-accent);
-}
-.mgs-mock__bubble--sm {
-  width: 54%;
-}
-.mgs-mock__chatbar {
-  margin-top: auto;
-  height: 7px;
-  border-radius: 3px;
-  border: 0.5px solid var(--mock-line-weak);
+  padding: 3px;
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+  border-radius: var(--radius-md);
 }
 
-.mgs-mock__scene {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.mgs-mock__sun {
-  fill: var(--mock-accent);
-}
-.mgs-mock__hill--back {
-  fill: var(--mock-line-weak);
-}
-.mgs-mock__hill--front {
-  fill: var(--mock-line);
-}
-
-.mgs-bg {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-2xl);
-}
-
-.mgs-bg-tile {
+.mgs-segment__btn {
+  flex: 1 1 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 56px;
-  // No stroke border: the only ring on a selected tile is the purple outline,
-  // and the 2px `outline-offset` gap shows the sheet background through it
-  // (white in light mode, dark in dark mode) — never a white edge.
+  gap: var(--spacing-xs);
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 var(--spacing-sm);
   border: none;
-  border-radius: var(--radius-sm);
-  background: var(--color-base-8);
-  color: var(--color-content-low);
-  overflow: hidden;
-}
-
-/* The Default tile keeps its own dashed outline (its resting design, per
-   Figma) — this is intentional, not the selection ring. */
-.mgs-bg-tile--default {
-  border: var(--border-width-lg) dashed var(--color-content-low);
+  border-radius: calc(var(--radius-md) - 3px);
   background: transparent;
-}
-
-.mgs-bg-tile__text {
+  color: var(--color-content-default);
+  font-family: var(--font-family-base);
   font-size: var(--font-size-sm);
-  color: var(--color-text-default);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-smooth),
+    color var(--duration-fast) var(--easing-smooth);
 }
 
-.mgs-bg-tile__thumb {
-  width: 100%;
-  height: 100%;
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
+.mgs-segment__btn:hover:not(.is-active) {
+  color: var(--color-text-primary);
 }
 
-.mgs-bg-tile__illustration {
-  width: 62%;
-  height: 62%;
-  color: var(--color-content-low);
-}
-.mgs-bg-tile__sun {
-  fill: currentColor;
-  opacity: 0.85;
-}
-.mgs-bg-tile__hill {
-  fill: currentColor;
-}
-.mgs-bg-tile__hill--back {
-  opacity: 0.5;
+.mgs-segment__btn.is-active {
+  background: color-mix(in srgb, var(--color-text-primary) 13%, transparent);
+  color: var(--color-text-primary);
 }
 
-.mgs-bg-tile__swatch {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    135deg,
+/* Live preview of the chosen background colour; falls back to a spectrum dot
+   that reads as "pick a colour" when none is set yet. */
+.mgs-segment__dot {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: conic-gradient(
+    from 90deg,
     var(--color-red),
     var(--color-yellow),
     var(--color-green),
     var(--color-cyan),
     var(--color-blue),
     var(--color-purple),
-    var(--color-pink)
+    var(--color-red)
   );
 }
 

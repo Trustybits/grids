@@ -8,9 +8,9 @@
 
   Interim notes:
     - Analytics reuses the existing <GridStats> component (owner-only data).
-    - Account currently exposes the two essentials — the Mobile 2.0 opt-out and
-      Logout. Full account management (handle, billing, file archive) still
-      lives in the desktop UserMenu and will be reconciled in a later pass.
+    - Account currently exposes Logout only. Full account management (handle,
+      billing, file archive) still lives in the desktop UserMenu and will be
+      reconciled in a later pass.
 -->
 <template>
   <transition name="mmd-fade">
@@ -109,15 +109,6 @@
           </div>
 
           <!-- Bottom-anchored group. -->
-          <div v-if="canUseMobile2" class="mmd-account-toggle">
-            <Toggle
-              label="Mobile 2.0"
-              :modelValue="isMobile2Enabled"
-              @update:modelValue="onMobile2Toggle"
-              tooltip="Try the redesigned mobile experience. You can switch back anytime."
-            />
-          </div>
-
           <a
             class="mmd-row"
             href="https://discord.gg/DBscN5NUN6"
@@ -148,13 +139,10 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridController } from "@/controllers/useGridController";
-import { useMobileExperience } from "@/composables/useMobileExperience";
 import { useGridStats } from "@/composables/useGridStats";
-import { useToastStore } from "@/stores/toast";
 import { valueToMillis } from "@/utils/TimeConversion";
 import type { Grid } from "@grids/contracts/types";
 import Divider from "@/components/ui-elements/Divider.vue";
-import Toggle from "@/components/ui-controls/Toggle.vue";
 import HomeIcon from "@/components/icons/HomeIcon.vue";
 import AnalyticsIcon from "@/components/icons/AnalyticsIcon.vue";
 import GridSquaresIcon from "@/components/icons/GridSquaresIcon.vue";
@@ -170,9 +158,6 @@ const router = useRouter();
 const collectionStore = useGridCollectionStore();
 const sessionStore = useGridSessionStore();
 const controller = useGridController();
-const toastStore = useToastStore();
-const { canUseMobile2, isMobile2Enabled, setMobile2Enabled } =
-  useMobileExperience();
 
 const isOwner = computed(() => sessionStore.isOwner);
 
@@ -215,18 +200,6 @@ watch(
 );
 
 onMounted(ensureGridsLoaded);
-
-const onMobile2Toggle = async (value: boolean) => {
-  try {
-    await setMobile2Enabled(value);
-    toastStore.addToast(
-      value ? "Mobile 2.0 enabled" : "Mobile 2.0 disabled",
-      "success",
-    );
-  } catch {
-    toastStore.addToast("Couldn't update Mobile 2.0 setting", "error");
-  }
-};
 
 const logout = async () => {
   emit("close");
@@ -392,10 +365,6 @@ const logout = async () => {
     color: var(--color-content-high);
     font-variant-numeric: tabular-nums;
   }
-}
-
-.mmd-account-toggle {
-  padding: var(--spacing-xs) var(--spacing-sm);
 }
 
 .mmd-fade-enter-active,

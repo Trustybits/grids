@@ -51,6 +51,20 @@ describe("GridCollectionController", () => {
       expect(h.stores.collection.error).toBeNull();
     });
 
+    it("hides hidden drafts (draftOf set) from the collection", async () => {
+      const grids = [
+        makeGrid({ id: "g1" }),
+        makeGrid({ id: "draft__g1", draftOf: "g1", status: "draft" }),
+        makeGrid({ id: "g2" }),
+      ];
+      vi.mocked(h.gridService.fetchGridsByUserId).mockResolvedValue(grids);
+      vi.mocked(h.gridService.loadRecentGridIds).mockResolvedValue([]);
+
+      await controller.fetchGrids();
+
+      expect(h.stores.collection.grids.map((g) => g.id)).toEqual(["g1", "g2"]);
+    });
+
     it("records an error and clears loading when fetching throws", async () => {
       vi.mocked(h.gridService.fetchGridsByUserId).mockRejectedValue(
         new Error("boom"),

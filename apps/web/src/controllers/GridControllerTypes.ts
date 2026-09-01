@@ -46,6 +46,8 @@ export interface GridControllerDependencies {
   getCookieValue(name: string): string | null;
   setCookieValue(name: string, value: string, days?: number): void;
   snapshotCodec: GridSnapshotCodec;
+  /** Whether the draft/publish editing model is enabled (feature-flagged). */
+  isDraftPublishEnabled(): boolean;
 }
 
 export interface GridLayoutReadinessAdapter {

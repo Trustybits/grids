@@ -39,8 +39,13 @@ export class GridCollectionController {
 
     try {
       const gridService = this.dependencies.getGridService();
+      const grids = await gridService.fetchGridsByUserId(userId);
+      // Hide the feature's hidden drafts (shadow docs of a published grid).
+      // A draft carries `draftOf`; a net-new unpublished grid does not, so it
+      // stays listed. This keeps drafts out of the dashboard, recents, and any
+      // default-grid/slug resolution that reads from the collection.
       this.stores.collection.setGrids(
-        await gridService.fetchGridsByUserId(userId),
+        grids.filter((grid) => grid.draftOf == null),
       );
       await this.loadRecents();
       return true;

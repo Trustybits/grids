@@ -21,6 +21,7 @@ import { getDbUtils } from "@/dao/DbUtilsSingleton";
 import type { DbUtils } from "@grids/contracts/dao";
 import type { GridDao } from "@grids/contracts/dao";
 import type { UserDao } from "@grids/contracts/dao";
+import { isGridRevisionConflictError } from "@grids/contracts/dao";
 import {
   ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION,
   createDefaultGrid,
@@ -261,8 +262,21 @@ export class GridService implements GridServiceInterface {
       themeId: grid.themeId ?? "dark",
       overrides: grid.overrides ?? {},
       duplicatable: grid.duplicatable ?? false,
+      // Publish lifecycle. Default to "published" so legacy/unspecified grids
+      // stay publicly readable — the draft/publish feature only ever writes
+      // "draft" through the explicit draft lifecycle in GridService.
+      status: grid.status ?? "published",
       updatedAt: this.dbUtils.serverTimestamp(),
     };
+
+    // Hidden-draft marker + publish timestamp are only written when present, so
+    // ordinary published grids never carry these fields.
+    if (grid.draftOf) {
+      editableFields.draftOf = grid.draftOf;
+    }
+    if (grid.publishedAt) {
+      editableFields.publishedAt = grid.publishedAt;
+    }
 
     // Every current value renders through Griddle v1, but an older client must
     // not downgrade an unknown future compatibility marker on ordinary save.
@@ -561,5 +575,176 @@ export class GridService implements GridServiceInterface {
       newOverrides,
       storagePlan,
     );
+  }
+
+  // ── Draft / publish lifecycle ─────────────────────────────────────────
+  //
+  // A published grid stays the public document. Editing it opens a hidden
+  // DRAFT duplicate (a real grids/{id} doc marked status:"draft" + draftOf).
+  // Publishing copies the draft's content back into the original and deletes
+  // the draft; publishing as a copy promotes the draft into its own listed
+  // public grid instead. See the implementation brief for the full model.
+
+  // Deterministic id for a grid's hidden draft. Keying the draft on its
+  // original's id (rather than a fresh auto-id) makes getOrCreateDraft a single
+  // point read and guarantees at most one draft per original even under a
+  // create race — concurrent creates collide on the same doc/rev instead of
+  // producing two drafts.
+  private draftIdFor(originalId: string): string {
+    return `draft__${originalId}`;
+  }
+
+  // Create a hidden draft duplicate of a published grid. Unlike a normal
+  // duplicate this PRESERVES tile ids (no UUID reassignment) and the name (no
+  // "Copy of" rename) so publishing is a clean whole-content write-back. It
+  // sets draftOf + status:"draft" and never sets clonedFrom. Background images
+  // are shared by reference (same owner) — not re-uploaded.
+  async createDraft(original: Grid): Promise<Grid> {
+    const draft: Grid = {
+      id: this.draftIdFor(original.id),
+      userId: original.userId,
+      rev: 0,
+      name: original.name,
+      colNum: original.colNum,
+      responsiveLayoutVersion: resolveResponsiveLayoutVersion(
+        original.responsiveLayoutVersion,
+      ),
+      verticalCompact: original.verticalCompact,
+      // Deep-clone so draft edits never mutate the original in memory; tile ids
+      // are intentionally kept identical for a clean write-back on publish.
+      tiles: JSON.parse(JSON.stringify(original.tiles)) as Grid["tiles"],
+      backgroundImageSrc: original.backgroundImageSrc,
+      backgroundImageHash: original.backgroundImageHash,
+      backgroundEmbed: original.backgroundEmbed,
+      backgroundColor: original.backgroundColor,
+      backgroundActiveSource: original.backgroundActiveSource,
+      ogImageSrc: original.ogImageSrc,
+      themeId: original.themeId,
+      overrides: original.overrides
+        ? (JSON.parse(JSON.stringify(original.overrides)) as Grid["overrides"])
+        : undefined,
+      duplicatable: original.duplicatable,
+      status: "draft",
+      draftOf: original.id,
+    };
+
+    return this.saveGrid(draft);
+  }
+
+  // Idempotently return the hidden draft for a published grid, creating it on
+  // first edit. Enforces one draft per original: a point read on the
+  // deterministic draft id, then a guarded create that tolerates losing a race
+  // to a concurrent creator.
+  async getOrCreateDraft(originalId: string): Promise<Grid> {
+    const draftId = this.draftIdFor(originalId);
+    const existing = await this.gridDao.getById(draftId);
+    if (existing && existing.draftOf === originalId) {
+      return existing;
+    }
+
+    const original = await this.fetchGrid(originalId);
+    try {
+      return await this.createDraft(original);
+    } catch (error) {
+      // Lost the create race — another caller created the draft between our
+      // point read and save (both saved at rev 0). Adopt the winner's draft.
+      if (isGridRevisionConflictError(error)) {
+        const raced = await this.gridDao.getById(draftId);
+        if (raced && raced.draftOf === originalId) return raced;
+      }
+      throw error;
+    }
+  }
+
+  // Publish a draft: overwrite the original document's content with the draft's
+  // (whole-content, no merge — so no stale tiles remain), stamp it published,
+  // then delete the draft. Respects the ORIGINAL's rev so a concurrent edit of
+  // the original surfaces as GridRevisionConflictError; on conflict the draft
+  // is left intact for a retry.
+  async publishDraft(draftId: string): Promise<void> {
+    const draft = await this.fetchGrid(draftId);
+    const originalId = draft.draftOf;
+    if (!originalId) {
+      throw new Error(`Grid ${draftId} is not a draft (no draftOf).`);
+    }
+
+    const original = await this.fetchGrid(originalId);
+    const expectedRev = this.readGridRev(original);
+    const nextRev = expectedRev + 1;
+
+    const payload = this.dbUtils.sanitizeValue({
+      rev: nextRev,
+      name: draft.name,
+      colNum: draft.colNum,
+      responsiveLayoutVersion: resolveResponsiveLayoutVersion(
+        draft.responsiveLayoutVersion,
+      ),
+      verticalCompact: draft.verticalCompact,
+      tiles: stripBlobUrlsFromTiles(draft.tiles as unknown[]),
+      backgroundImageSrc: draft.backgroundImageSrc,
+      backgroundImageHash: draft.backgroundImageHash ?? "",
+      backgroundEmbed: draft.backgroundEmbed,
+      backgroundColor: draft.backgroundColor ?? "",
+      backgroundActiveSource: draft.backgroundActiveSource,
+      ogImageSrc: draft.ogImageSrc ?? "",
+      themeId: draft.themeId ?? "dark",
+      overrides: draft.overrides ?? {},
+      duplicatable: draft.duplicatable ?? false,
+      status: "published",
+      publishedAt: this.dbUtils.serverTimestamp(),
+      updatedAt: this.dbUtils.serverTimestamp(),
+    }) as Record<string, unknown>;
+
+    // Write-back first; only reclaim the draft once the original is safely
+    // updated. A rev conflict here throws before the draft is touched.
+    await this.gridDao.update(originalId, payload, expectedRev);
+    await this.gridDao.delete(draftId);
+  }
+
+  // Promote a draft into its own listed public grid (today's "duplicate"
+  // outcome). Keeps the document but clears draftOf and flips it to published,
+  // so it appears in the dashboard and never resolves as a draft again.
+  async publishAsCopy(draftId: string, name?: string): Promise<Grid> {
+    const draft = await this.fetchGrid(draftId);
+    const expectedRev = this.readGridRev(draft);
+    const nextRev = expectedRev + 1;
+
+    const payload = this.dbUtils.sanitizeValue({
+      rev: nextRev,
+      status: "published",
+      // Remove the hidden-draft marker entirely so the doc becomes a normal
+      // listed grid (a blanked-but-present draftOf would still read as a draft).
+      draftOf: this.dbUtils.deleteField(),
+      publishedAt: this.dbUtils.serverTimestamp(),
+      updatedAt: this.dbUtils.serverTimestamp(),
+      ...(name ? { name } : {}),
+    }) as Record<string, unknown>;
+
+    await this.gridDao.update(draftId, payload, expectedRev);
+
+    return {
+      ...draft,
+      rev: nextRev,
+      status: "published",
+      draftOf: undefined,
+      name: name ?? draft.name,
+    };
+  }
+
+  // Take a published grid private again by flipping its status to "draft".
+  // Respects the grid's rev (surfaces GridRevisionConflictError on a concurrent
+  // edit). Content is untouched.
+  async unpublishGrid(gridId: string): Promise<void> {
+    const grid = await this.fetchGrid(gridId);
+    const expectedRev = this.readGridRev(grid);
+    const nextRev = expectedRev + 1;
+
+    const payload = this.dbUtils.sanitizeValue({
+      rev: nextRev,
+      status: "draft",
+      updatedAt: this.dbUtils.serverTimestamp(),
+    }) as Record<string, unknown>;
+
+    await this.gridDao.update(gridId, payload, expectedRev);
   }
 }

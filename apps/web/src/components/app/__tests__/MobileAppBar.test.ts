@@ -50,6 +50,12 @@ vi.mock("@/components/ui-elements/Button.vue", () => ({
   },
 }));
 
+// The Publish control is exercised by its own tests; stub it here so mounting
+// the bar doesn't pull in usePublish's service/auth/router dependencies.
+vi.mock("@/components/app/PublishPopover.vue", () => ({
+  default: { template: "<div class='publish-popover-stub' />" },
+}));
+
 async function mountBar(props: Record<string, unknown> = {}) {
   const { default: MobileAppBar } = await import("../MobileAppBar.vue");
   return mount(MobileAppBar, { props });

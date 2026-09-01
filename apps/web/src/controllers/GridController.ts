@@ -440,6 +440,76 @@ export class GridController {
     this.sessionController.clearSessionIfGridDeleted(id);
   }
 
+  // ── Draft / publish (feature-flagged) ─────────────────────────────────
+  //
+  // These orchestrate async, multi-document service operations, so unlike the
+  // settings toggles they don't go through runGridCommand — they flush the
+  // draft's pending edits, call GridService, and re-establish the session.
+
+  /**
+   * Publish the open draft back into its public original, then re-open the
+   * published grid so a fresh draft backs continued editing. No-op when not
+   * editing a draft.
+   */
+  async publish(): Promise<void> {
+    const session = this.stores.session;
+    if (!session.isDraftEditing || !session.currentGrid) return;
+    const draftId = session.currentGrid.id;
+    const publishedId = session.publicGridId;
+    await this.flushSaves();
+    await this.dependencies.getGridService().publishDraft(draftId);
+    // publishDraft deletes the draft; reloading re-creates one from the freshly
+    // published original and resets hasUnpublishedChanges.
+    await this.loadGrid(publishedId);
+  }
+
+  /**
+   * Promote the open draft into its own listed public grid (a branch), leaving
+   * the original untouched. Returns the promoted grid's id (for navigation) or
+   * null when not editing a draft.
+   */
+  async publishAsCopy(name?: string): Promise<string | null> {
+    const session = this.stores.session;
+    if (!session.isDraftEditing || !session.currentGrid) return null;
+    const draftId = session.currentGrid.id;
+    await this.flushSaves();
+    const promoted = await this.dependencies
+      .getGridService()
+      .publishAsCopy(draftId, name);
+    return promoted.id;
+  }
+
+  /**
+   * Best-effort delete of a hidden draft document (used when its public
+   * original is being deleted, to avoid orphaning the draft). Never throws —
+   * the server-side orphan sweep is the backstop.
+   */
+  async deleteDraft(draftId: string): Promise<void> {
+    try {
+      await this.dependencies.getGridService().deleteGrid(draftId);
+    } catch (error) {
+      console.error("Failed to delete orphaned draft:", error);
+    }
+  }
+
+  /**
+   * Take the public grid private again (status:"draft"). Patches the in-memory
+   * baseline so the UI reflects the change without a reload. No-op without a
+   * public grid.
+   */
+  async unpublish(): Promise<void> {
+    const session = this.stores.session;
+    const publishedId = session.publicGridId;
+    if (!publishedId) return;
+    await this.flushSaves();
+    await this.dependencies.getGridService().unpublishGrid(publishedId);
+    if (session.isDraftEditing) {
+      if (session.publishedGrid) session.publishedGrid.status = "draft";
+    } else if (session.currentGrid) {
+      session.currentGrid.status = "draft";
+    }
+  }
+
   captureSnapshot(
     actionLabel: string,
     urlMaps?: GridHistoryUrlMaps,

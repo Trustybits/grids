@@ -1,36 +1,28 @@
 /**
- * useMobileExperience — Mobile 2.0 early-access gating composable
+ * useMobileExperience — app-chrome + device signals
  *
- * Decides whether the Mobile 2.0 chrome should render. Two parts:
+ * The Mobile 2.0 chrome (top app bar, bottom command bar, sheets) is now the
+ * universal design for every device and viewport, so `isMobile2` is always on;
+ * the touch + beta-enrollment gate has been retired. Where the chrome renders is
+ * still decided by the page/route gating in App.vue (grid ownership, dashboard).
  *
- *   1. Device — touch-primary (`(hover: none) and (pointer: coarse)`) AND a
- *      small viewport (the grid `sm` breakpoint, same column math the grid
- *      canvas uses). This gates whether the opt-in is even offered.
- *   2. Opt-in — the user is enrolled in the `beta-mobile-2` PostHog early
- *      access feature. Enrollment is the single source of truth: the flag is
- *      evaluated against the `$feature_enrollment/beta-mobile-2` person
- *      property, and the in-app toggle drives PostHog enrollment directly.
+ * This composable also still exposes the genuine device signals `isMobileDevice`
+ * and `isSmallViewport`, which other consumers (tile creation, profile/chat
+ * content, grid stats) use to tailor real touch behavior — independent of which
+ * chrome is shown.
  *
  * `initMobileExperience()` must be called once in App.vue (same pattern as
- * `initTier`). State is module-level so every consumer shares one set of
- * listeners.
- *
- * At GA this collapses to just the device check — see the Mobile 2.0 plan's
- * housekeeping section.
+ * `initTier`) to wire the shared device listeners. State is module-level so
+ * every consumer shares one set of listeners.
  */
 
-import { computed, readonly, ref } from "vue";
-import posthog from "posthog-js";
-import {
-  FEATURE_FLAGS,
-  useFeatureFlags,
-} from "@/composables/useFeatureFlags";
+import { computed, ref } from "vue";
 import {
   calculateViewportColumnCount,
   columnCountToBreakpoint,
 } from "@/utils/GridLayoutUtils";
 
-// Default grid metrics (Grid.vue) — the chrome gate uses the same column
+// Default grid metrics (Grid.vue) — the device check uses the same column
 // math as the canvas so "mobile" here matches the `sm` breakpoint users see.
 const DEFAULT_BASE_COLUMN_COUNT = 12;
 const DEFAULT_ROW_HEIGHT = 75;
@@ -75,30 +67,23 @@ const defaultEnvironment: MobileExperienceEnvironment = {
   },
 };
 
-function hasPostHogKey(): boolean {
-  return !!import.meta.env.VITE_POSTHOG_KEY;
-}
-
 // ── Module-level reactive state ────────────────────────────────────────────
 
 const _isTouchDevice = ref(false);
 const _viewportWidth = ref(0);
-const _enrolled = ref(false);
 
 let _cleanup: (() => void) | null = null;
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 
 /**
- * Bootstrap device listeners and the PostHog enrollment sync.
- * Call once in App.vue.
+ * Bootstrap the shared device listeners (touch-primary media query + viewport
+ * width). Call once in App.vue.
  */
 export function initMobileExperience(
   environment: MobileExperienceEnvironment = defaultEnvironment,
 ): void {
   _cleanup?.();
-
-  const flags = useFeatureFlags();
 
   const touchMedia = environment.matchTouchMedia();
   _isTouchDevice.value = touchMedia.matches;
@@ -113,16 +98,6 @@ export function initMobileExperience(
     _viewportWidth.value = environment.getViewportWidth();
   };
   environment.addResizeListener(syncViewport);
-
-  // Enrollment is reflected by the flag value. Sync now and whenever PostHog
-  // (re)loads flags — updateEarlyAccessFeatureEnrollment triggers a reload.
-  const syncEnrollment = () => {
-    _enrolled.value = flags.isEnabled(FEATURE_FLAGS.BETA_MOBILE_2);
-  };
-  syncEnrollment();
-  if (hasPostHogKey()) {
-    posthog.onFeatureFlags(syncEnrollment);
-  }
 
   _cleanup = () => {
     stopTouchListener();
@@ -151,34 +126,12 @@ export function useMobileExperience() {
   );
 
   /**
-   * Whether the Mobile 2.0 opt-in is offered to the user. Available on every
-   * device (including desktop/web) so users can enroll ahead of using their
-   * phone — the chrome itself still only renders on a mobile device (see
-   * `isMobile2`). Kept as a computed so availability can be tightened later
-   * without touching call sites.
+   * The single gate the app chrome branches on. Mobile 2.0 is the universal
+   * design for every device and viewport, so this is always on. The page/route
+   * gating in App.vue (grid ownership, dashboard) still decides *where* the
+   * chrome renders.
    */
-  const canUseMobile2 = computed(() => true);
-
-  /** Whether the user is enrolled in the Mobile 2.0 early access feature. */
-  const isMobile2Enabled = readonly(_enrolled);
-
-  /** The single gate the app chrome branches on. */
-  const isMobile2 = computed(() => isMobileDevice.value && _enrolled.value);
-
-  /**
-   * Opt the user in/out of the Mobile 2.0 early access feature. Drives
-   * PostHog enrollment (the source of truth); applied optimistically so the
-   * UI responds immediately while PostHog reloads flags.
-   */
-  async function setMobile2Enabled(value: boolean): Promise<void> {
-    _enrolled.value = value;
-    if (hasPostHogKey()) {
-      posthog.updateEarlyAccessFeatureEnrollment(
-        FEATURE_FLAGS.BETA_MOBILE_2,
-        value,
-      );
-    }
-  }
+  const isMobile2 = computed(() => true);
 
   return {
     /**
@@ -190,9 +143,6 @@ export function useMobileExperience() {
     isTouchDevice: readonly(_isTouchDevice),
     isMobileDevice,
     isSmallViewport,
-    canUseMobile2,
-    isMobile2Enabled,
     isMobile2,
-    setMobile2Enabled,
   };
 }

@@ -34,6 +34,9 @@ const holder = vi.hoisted(() => ({
       | null,
     verticalCompact: false,
     isOwner: true,
+    // Non-draft session: public identity is the open grid itself.
+    publicGridId: "grid-1",
+    isDraftEditing: false,
   },
   viewport: { activeBreakpoint: "sm", displayPositions: [{ i: "a" }] },
   ui: { showMetaData: false, showMetaDataVerbose: false },
@@ -131,6 +134,8 @@ describe("useGridSettings", () => {
       currentGrid: { id: "grid-1", userId: "user-1", duplicatable: false },
       verticalCompact: false,
       isOwner: true,
+      publicGridId: "grid-1",
+      isDraftEditing: false,
     };
     holder.getUserProfile.mockResolvedValue({ defaultGridId: null });
     holder.duplicateGrid.mockResolvedValue("new-grid");

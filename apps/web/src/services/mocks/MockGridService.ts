@@ -157,4 +157,37 @@ export class MockGridService implements GridServiceInterface {
       ),
     });
   }
+
+  async createDraft(original: Grid): Promise<Grid> {
+    return normalizeMockGrid({
+      ...original,
+      id: `draft__${original.id}`,
+      rev: 0,
+      status: "draft",
+      draftOf: original.id,
+    });
+  }
+
+  async getOrCreateDraft(originalId: string): Promise<Grid> {
+    return normalizeMockGrid({
+      ...mockData,
+      id: `draft__${originalId}`,
+      status: "draft",
+      draftOf: originalId,
+    });
+  }
+
+  async publishDraft(_draftId: string): Promise<void> {}
+
+  async unpublishGrid(_gridId: string): Promise<void> {}
+
+  async publishAsCopy(draftId: string, name?: string): Promise<Grid> {
+    return normalizeMockGrid({
+      ...mockData,
+      id: draftId,
+      status: "published",
+      draftOf: undefined,
+      name: name ?? mockData.name,
+    });
+  }
 }

@@ -15,6 +15,16 @@
   >
     <div class="mobile-app-bar__left">
       <button
+        v-if="mode === 'grid'"
+        type="button"
+        class="mab-btn"
+        aria-label="Back to your grids"
+        @click="goToGrids"
+      >
+        <ChevronLeftIcon :size="24" />
+      </button>
+
+      <button
         type="button"
         class="mab-btn"
         aria-label="Open menu"
@@ -42,29 +52,44 @@
       </h1>
     </div>
 
-    <AppButton
-      v-if="mode === 'home'"
-      variant="secondary"
-      size="sm"
-      @click="emit('new-grid')"
-    >
-      New Grid
-    </AppButton>
-    <button
-      v-else
-      type="button"
-      class="mab-btn"
-      aria-label="Undo"
-      :disabled="!historyStore.canUndo"
-      @click="controller.undo()"
-    >
-      <UndoIcon :size="24" />
-    </button>
+    <!-- Viewport (breakpoint) preview switcher — always visible while editing a
+         grid on tablet and desktop widths; hidden on phone where there's no room
+         and the preview lives in the command bar instead. Centered in the bar. -->
+    <BreakpointSwitcher
+      v-if="mode === 'grid' && showViewportSwitcher"
+      variant="bar"
+      class="mab-viewport-switcher"
+    />
+
+    <div class="mobile-app-bar__right">
+      <AppButton
+        v-if="mode === 'home'"
+        variant="secondary"
+        size="sm"
+        @click="emit('new-grid')"
+      >
+        New Grid
+      </AppButton>
+      <template v-else>
+        <!-- Publish control (owner + flag on); renders nothing otherwise. -->
+        <PublishPopover />
+        <button
+          type="button"
+          class="mab-btn"
+          aria-label="Undo"
+          :disabled="!historyStore.canUndo"
+          @click="controller.undo()"
+        >
+          <UndoIcon :size="24" />
+        </button>
+      </template>
+    </div>
   </header>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridViewportStore } from "@/stores/grid/gridViewport";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
@@ -72,7 +97,10 @@ import { useGridController } from "@/controllers/useGridController";
 import { useGridPreview } from "@/composables/useGridPreview";
 import MenuIcon from "@/components/icons/MenuIcon.vue";
 import UndoIcon from "@/components/icons/UndoIcon.vue";
+import ChevronLeftIcon from "@/components/icons/ChevronLeftIcon.vue";
 import AppButton from "@/components/ui-elements/Button.vue";
+import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
+import PublishPopover from "@/components/app/PublishPopover.vue";
 
 withDefaults(defineProps<{ mode?: "grid" | "home" }>(), { mode: "grid" });
 
@@ -85,6 +113,7 @@ const sessionStore = useGridSessionStore();
 const viewportStore = useGridViewportStore();
 const historyStore = useGridHistoryStore();
 const controller = useGridController();
+const router = useRouter();
 const { isPreviewActive } = useGridPreview();
 
 const titleRef = ref<HTMLElement | null>(null);
@@ -96,6 +125,18 @@ const canEdit = computed(() =>
     viewportStore.viewportBreakpoint,
   ),
 );
+
+// The viewport switcher only makes sense for the owner, and only where there's
+// room to show it: tablet (`md`) and desktop (`lg`) — never on a phone (`sm`).
+const showViewportSwitcher = computed(
+  () =>
+    sessionStore.isOwner && viewportStore.viewportBreakpoint !== "sm",
+);
+
+// Back to the grid-selection dashboard.
+const goToGrids = () => {
+  void router.push("/dashboard");
+};
 
 watch(
   () => sessionStore.currentGrid?.name,
@@ -134,11 +175,13 @@ const blurOnEnter = (event: KeyboardEvent) => {
 </script>
 
 <style lang="scss" scoped>
+// Solid card: an opaque, fully bordered and rounded panel, inset from the edges
+// with a soft shadow so it reads as a distinct surface floating over the canvas.
 .mobile-app-bar {
   position: fixed;
-  top: var(--app-status-banners-height, 0px);
-  left: 0;
-  right: 0;
+  top: calc(var(--app-status-banners-height, 0px) + var(--spacing-sm));
+  left: var(--spacing-sm);
+  right: var(--spacing-sm);
   z-index: var(--z-topbar);
   display: flex;
   align-items: center;
@@ -146,26 +189,45 @@ const blurOnEnter = (event: KeyboardEvent) => {
   gap: var(--spacing-xs);
   padding: var(--spacing-xs) var(--spacing-sm);
   background-color: var(--color-toolbar-background);
-  border-bottom: var(--border-width) solid var(--color-stroke);
-  border-bottom-left-radius: var(--radius-md);
-  border-bottom-right-radius: var(--radius-md);
+  border: var(--border-width) solid var(--color-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
   backdrop-filter: blur(20px);
   transition: transform var(--duration-slow) var(--easing-gentle);
 }
 
 // Preview slides the bar up out of view rather than unmounting it, so it travels
-// in step with the preview toolbar dropping into the space it leaves. The banner
-// offset is subtracted too, or the bar stops short and peeks under them.
+// in step with the preview toolbar dropping into the space it leaves. Clears the
+// banner offset, the inset top gap, and the shadow so nothing peeks back through.
 .mobile-app-bar--hidden {
-  transform: translateY(calc(-100% - var(--app-status-banners-height, 0px)));
+  transform: translateY(
+    calc(-100% - var(--app-status-banners-height, 0px) - var(--spacing-xl))
+  );
   pointer-events: none;
 }
 
+// Left and right zones each take an equal share of the free space so the
+// centered switcher between them lands dead-center regardless of title length.
 .mobile-app-bar__left {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-sm);
   min-width: 0;
+  flex: 1 1 0;
+}
+
+.mobile-app-bar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex: 1 1 0;
+  justify-content: flex-end;
+}
+
+// Centered between the two zones; never squished — the grid title
+// (min-width: 0, ellipsis) absorbs any shortfall instead.
+.mab-viewport-switcher {
+  flex: 0 0 auto;
 }
 
 .mab-btn {

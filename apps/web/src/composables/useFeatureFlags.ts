@@ -29,13 +29,14 @@ export const FEATURE_FLAGS = {
   BETA_ROADMAP_FEED: 'beta-roadmap-feed',
   BETA_ANALYTICS_DASHBOARD: 'beta-analytics-dashboard',
   BETA_DOCUMENTS: 'beta-documents',
-  /** Mobile 2.0 chrome early access — controls who can see the opt-in toggle */
-  BETA_MOBILE_2: 'beta-mobile-2',
 
   // ── Editor features ──────────────────────────────────────────────────────
   EDITOR_SMART_TEXT: 'editor-smart-text',
   EDITOR_AI_SUGGESTIONS: 'editor-ai-suggestions',
   EDITOR_CUSTOM_CSS: 'editor-custom-css',
+  // Draft/publish: edit a published grid via a hidden draft, then publish.
+  // Off = today's live-autosave behavior with zero user-facing change.
+  EDITOR_DRAFT_PUBLISH: 'editor-draft-publish',
 
   // ── Marketplace ──────────────────────────────────────────────────────────
   MARKETPLACE_PUBLISH: 'marketplace-publish',

@@ -3,6 +3,7 @@
 // serverTimestamp returns a fresh Date.
 import { describe, it, expect } from "vitest";
 import { StubbedDbUtils } from "../StubbedDbUtils";
+import { STUBBED_DELETE_FIELD } from "../StubbedMemoryDatabase";
 
 describe("StubbedDbUtils", () => {
   describe("sanitizeValue", () => {
@@ -42,6 +43,13 @@ describe("StubbedDbUtils", () => {
     it("returns a new Date on each call", () => {
       const utils = new StubbedDbUtils();
       expect(utils.serverTimestamp()).not.toBe(utils.serverTimestamp());
+    });
+  });
+
+  describe("deleteField", () => {
+    it("returns the shared delete-field sentinel", () => {
+      const utils = new StubbedDbUtils();
+      expect(utils.deleteField()).toBe(STUBBED_DELETE_FIELD);
     });
   });
 });

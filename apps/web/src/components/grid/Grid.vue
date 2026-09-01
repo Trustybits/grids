@@ -8,28 +8,44 @@
     :style="scaleWrapperStyle"
     @pointerdown.capture="onGridPointerDown"
   >
-    <GriddleGrid
-      ref="gridLayoutRef"
-      class-name="grid-container"
-      :api="api"
-      :height="griddleContentHeight"
-      :selection="griddleSelection"
-      :show-grid="false"
-      :style="gridInnerStyle"
-      @drag-start="onDragStart"
-      @drag-end="onDragEnd"
-      @resize-start="onResizeStart"
-      @resize-end="onResizeEnd"
-    >
-      <template #tile="{ tile: griddleTile }">
-        <GridTile
-          v-if="tilesById.get(griddleTile.id)"
-          :ref="(instance) => setGridTileRef(griddleTile.id, instance)"
-          :tile="tilesById.get(griddleTile.id)!"
-          :layout="fromGriddleTile(griddleTile)"
-        />
-      </template>
-    </GriddleGrid>
+    <!--
+      Shared canvas container: the visual guide overlay and the interactive
+      tile engine share one top-left origin here so centering and the mobile
+      transform: scale() can never diverge between the two layers.
+    -->
+    <div class="grid-canvas-container">
+      <GridVisualGuide
+        v-if="gridView.canEdit && gridView.showGridGuide"
+        :style="guideTransformStyle"
+        :cols="responsiveColNum"
+        :row-height="rowHeight"
+        :margin="margin"
+        :tiles="gridView.displayPositions"
+        :is-interacting="isInteracting"
+      />
+      <GriddleGrid
+        ref="gridLayoutRef"
+        class-name="grid-container"
+        :api="api"
+        :height="griddleContentHeight"
+        :selection="griddleSelection"
+        :show-grid="false"
+        :style="gridInnerStyle"
+        @drag-start="onDragStart"
+        @drag-end="onDragEnd"
+        @resize-start="onResizeStart"
+        @resize-end="onResizeEnd"
+      >
+        <template #tile="{ tile: griddleTile }">
+          <GridTile
+            v-if="tilesById.get(griddleTile.id)"
+            :ref="(instance) => setGridTileRef(griddleTile.id, instance)"
+            :tile="tilesById.get(griddleTile.id)!"
+            :layout="fromGriddleTile(griddleTile)"
+          />
+        </template>
+      </GriddleGrid>
+    </div>
   </div>
   <p v-else class="empty-grid-message">No tiles yet</p>
 </template>
@@ -44,6 +60,7 @@ import {
   provide,
   ref,
   watch,
+  type CSSProperties,
 } from "vue";
 import { GriddleGrid, useGriddle } from "@griddle/vue";
 import {
@@ -52,6 +69,7 @@ import {
   type Tile as GriddleTile,
 } from "@griddle/core";
 import GridTile from "./Tile.vue";
+import GridVisualGuide from "./GridVisualGuide.vue";
 import { useResponsiveGridLayout } from "@/composables/useResponsiveGridLayout";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import {
@@ -77,6 +95,7 @@ export default {
   components: {
     GriddleGrid,
     GridTile,
+    GridVisualGuide,
   },
   props: {
     rowHeight: {
@@ -105,6 +124,7 @@ export default {
       gridInnerStyle,
       gridLayoutRef,
       gridWidth,
+      mobileScale,
       responsiveColumnCount: responsiveColNum,
       scaleWrapperRef,
       scaleWrapperStyle,
@@ -128,6 +148,23 @@ export default {
         waitForLayoutReady,
       });
     onUnmounted(disposeLayoutReadiness);
+
+    // The visual guide overlays the grid engine at the same origin. Under the
+    // mobile viewport fit it must scale by the same factor as the tile layer
+    // (which receives its transform through gridInnerStyle) to stay aligned.
+    const guideTransformStyle = computed<CSSProperties>(() =>
+      mobileScale.value >= 1
+        ? {}
+        : {
+            transformOrigin: "top left",
+            transform: `scale(${mobileScale.value})`,
+          },
+    );
+
+    // Reactive interaction flag for the visual guide (brighten while dragging or
+    // resizing). Kept separate from the non-reactive `interacting` sync latch
+    // below, which gates engine reloads.
+    const isInteracting = ref(false);
 
     // --- Griddle engine ----------------------------------------------------
     // Griddle owns tile state and all responsive geometry. `contractTiles`
@@ -532,12 +569,14 @@ export default {
 
     const onDragStart = (id: string): void => {
       interacting = true;
+      isInteracting.value = true;
       draggingTileId.value = id;
       if (gridView.canEdit) gridView.beginMove();
     };
 
     const onDragEnd = (_id: string, committed: boolean): void => {
       interacting = false;
+      isInteracting.value = false;
       draggingTileId.value = null;
       if (committed && gridView.canEdit) {
         gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
@@ -548,11 +587,13 @@ export default {
 
     const onResizeStart = (_id: string): void => {
       interacting = true;
+      isInteracting.value = true;
       if (gridView.canEdit) gridView.beginResize();
     };
 
     const onResizeEnd = (_id: string, committed: boolean): void => {
       interacting = false;
+      isInteracting.value = false;
       if (committed && gridView.canEdit) {
         gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
         gridView.commitResize();
@@ -586,6 +627,9 @@ export default {
       gridWidth,
       contractTiles,
       tilesById,
+      responsiveColNum,
+      guideTransformStyle,
+      isInteracting,
       fromGriddleTile: (tile: GriddleTile) => fromGriddleTile(tile),
       activeBreakpoint,
       scaleWrapperStyle,
@@ -608,6 +652,20 @@ export default {
 <style scoped>
 .grid-scale-wrapper {
   overflow: hidden;
+}
+
+/*
+  Shared origin for the visual guide overlay and the tile engine. The container
+  shrink-wraps the grid (`max-content`) and centers itself, so the grid keeps
+  its centered placement while the absolutely-positioned guide — pinned to this
+  container's top-left — lands on the exact same origin as the grid. This is
+  what keeps guide slots and real tiles from diverging horizontally.
+*/
+.grid-canvas-container {
+  position: relative;
+  width: max-content;
+  max-width: 100%;
+  margin-inline: auto;
 }
 
 .empty-grid-message {

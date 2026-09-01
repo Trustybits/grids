@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { registerDbUtils } from '@/dao/DbUtilsSingleton'
 import type { GridDao } from '@grids/contracts/dao'
 import type { UserDao } from '@grids/contracts/dao'
+import { GridRevisionConflictError } from '@grids/contracts/dao'
 import type { Grid, ResponsiveLayoutVersion, Tile } from '@grids/contracts/types'
 import {
   ContentType,
@@ -1287,5 +1288,269 @@ describe('cloneAndPersistGrid', () => {
     const content = result.tiles[0].content as ChatContent
     expect(content.type).toBe(ContentType.CHAT)
     expect(content.messages).toEqual([])
+  })
+})
+
+// ── createDraft ────────────────────────────────────────────────────────
+
+describe('createDraft', () => {
+  it('preserves tile ids, sets draftOf/status, and never renames or clones provenance', async () => {
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+    const original = makeGrid({
+      id: 'grid-1',
+      name: 'My Page',
+      tiles: [makeTile({ i: 'tile-a' }), makeTile({ i: 'tile-b' })],
+    })
+
+    const service = await getService()
+    const draft = await service.createDraft(original)
+
+    // Deterministic draft id keyed on the original.
+    expect(draft.id).toBe('draft__grid-1')
+    expect(draft.draftOf).toBe('grid-1')
+    expect(draft.status).toBe('draft')
+    // No "Copy of" rename, no clonedFrom provenance.
+    expect(draft.name).toBe('My Page')
+    expect(draft.clonedFrom).toBeUndefined()
+    // Tile ids are preserved (not reassigned) for a clean write-back.
+    expect(draft.tiles.map((t) => t.i)).toEqual(['tile-a', 'tile-b'])
+
+    const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
+    expect(payload).toMatchObject({ status: 'draft', draftOf: 'grid-1', name: 'My Page' })
+    expect(payload).not.toHaveProperty('clonedFrom')
+    expect(mockGridDao.save).toHaveBeenCalledWith('draft__grid-1', expect.any(Object), 0)
+  })
+
+  it('shares the background image by reference (no re-upload / rewrite)', async () => {
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+    const original = makeGrid({
+      backgroundImageSrc: 'https://cdn/bg.png',
+      backgroundImageHash: 'c'.repeat(64),
+    })
+
+    const service = await getService()
+    const draft = await service.createDraft(original)
+
+    expect(draft.backgroundImageSrc).toBe('https://cdn/bg.png')
+    expect(draft.backgroundImageHash).toBe('c'.repeat(64))
+  })
+
+  it('deep-clones tiles so draft edits do not mutate the original', async () => {
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+    const original = makeGrid({ tiles: [makeTile({ i: 'tile-a', x: 0 })] })
+
+    const service = await getService()
+    const draft = await service.createDraft(original)
+    draft.tiles[0].x = 99
+
+    expect(original.tiles[0].x).toBe(0)
+  })
+})
+
+// ── getOrCreateDraft ───────────────────────────────────────────────────
+
+describe('getOrCreateDraft', () => {
+  it('returns the existing draft without creating a second one', async () => {
+    const existing = makeGrid({
+      id: 'draft__grid-1',
+      draftOf: 'grid-1',
+      status: 'draft',
+      rev: 3,
+    })
+    mockGridDao.getById.mockResolvedValueOnce(existing)
+
+    const service = await getService()
+    const result = await service.getOrCreateDraft('grid-1')
+
+    expect(result).toEqual(existing)
+    expect(mockGridDao.save).not.toHaveBeenCalled()
+    // Only the point read on the draft id — no original fetch needed.
+    expect(mockGridDao.getById).toHaveBeenCalledTimes(1)
+    expect(mockGridDao.getById).toHaveBeenCalledWith('draft__grid-1')
+  })
+
+  it('creates the draft from the original when none exists', async () => {
+    mockGridDao.getById
+      .mockResolvedValueOnce(null) // draft point read
+      .mockResolvedValueOnce(makeGrid({ id: 'grid-1', name: 'Src' })) // fetchGrid(original)
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    const result = await service.getOrCreateDraft('grid-1')
+
+    expect(result.id).toBe('draft__grid-1')
+    expect(result.draftOf).toBe('grid-1')
+    expect(result.status).toBe('draft')
+    expect(mockGridDao.save).toHaveBeenCalledWith('draft__grid-1', expect.any(Object), 0)
+  })
+
+  it('adopts the winner draft when it loses a create race (rev conflict)', async () => {
+    const raced = makeGrid({
+      id: 'draft__grid-1',
+      draftOf: 'grid-1',
+      status: 'draft',
+      rev: 1,
+    })
+    mockGridDao.getById
+      .mockResolvedValueOnce(null) // draft point read: none yet
+      .mockResolvedValueOnce(makeGrid({ id: 'grid-1' })) // fetchGrid(original)
+      .mockResolvedValueOnce(raced) // re-read after conflict
+    mockGridDao.save.mockRejectedValueOnce(
+      new GridRevisionConflictError('draft__grid-1', 0, 1),
+    )
+
+    const service = await getService()
+    const result = await service.getOrCreateDraft('grid-1')
+
+    expect(result).toEqual(raced)
+  })
+
+  it('rethrows a non-conflict save error', async () => {
+    mockGridDao.getById
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(makeGrid({ id: 'grid-1' }))
+    mockGridDao.save.mockRejectedValueOnce(new Error('disk full'))
+
+    const service = await getService()
+    await expect(service.getOrCreateDraft('grid-1')).rejects.toThrow('disk full')
+  })
+})
+
+// ── publishDraft ───────────────────────────────────────────────────────
+
+describe('publishDraft', () => {
+  it('writes draft content into the original at the original rev and deletes the draft', async () => {
+    const draft = makeGrid({
+      id: 'draft__grid-1',
+      userId: 'user-1',
+      draftOf: 'grid-1',
+      status: 'draft',
+      rev: 9,
+      name: 'Edited Name',
+      tiles: [makeTile({ i: 'kept-tile' })],
+    })
+    const original = makeGrid({ id: 'grid-1', userId: 'user-1', rev: 5 })
+    mockGridDao.getById
+      .mockResolvedValueOnce(draft) // fetchGrid(draftId)
+      .mockResolvedValueOnce(original) // fetchGrid(originalId)
+    mockGridDao.update.mockResolvedValueOnce(undefined)
+    mockGridDao.delete.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    await service.publishDraft('draft__grid-1')
+
+    // Original's rev (5) is respected; content comes from the draft.
+    expect(mockGridDao.update).toHaveBeenCalledWith(
+      'grid-1',
+      expect.objectContaining({
+        rev: 6,
+        name: 'Edited Name',
+        status: 'published',
+        publishedAt: 'SERVER_TS',
+      }),
+      5,
+    )
+    const payload = mockGridDao.update.mock.calls[0][1] as Record<string, unknown>
+    // Whole-content overwrite carries the draft's tiles; never rewrites identity.
+    expect(payload.tiles).toEqual(draft.tiles)
+    expect(payload).not.toHaveProperty('userId')
+    expect(payload).not.toHaveProperty('draftOf')
+    // Draft is reclaimed only after a successful write-back.
+    expect(mockGridDao.delete).toHaveBeenCalledWith('draft__grid-1')
+  })
+
+  it('throws when the target grid is not a draft', async () => {
+    const notADraft = makeGrid({ id: 'grid-1', draftOf: undefined })
+    mockGridDao.getById.mockResolvedValueOnce(notADraft)
+
+    const service = await getService()
+    await expect(service.publishDraft('grid-1')).rejects.toThrow('is not a draft')
+    expect(mockGridDao.update).not.toHaveBeenCalled()
+    expect(mockGridDao.delete).not.toHaveBeenCalled()
+  })
+
+  it('surfaces a revision conflict and leaves the draft intact', async () => {
+    const draft = makeGrid({ id: 'draft__grid-1', draftOf: 'grid-1', status: 'draft' })
+    const original = makeGrid({ id: 'grid-1', rev: 5 })
+    mockGridDao.getById
+      .mockResolvedValueOnce(draft)
+      .mockResolvedValueOnce(original)
+    mockGridDao.update.mockRejectedValueOnce(
+      new GridRevisionConflictError('grid-1', 5, 7),
+    )
+
+    const service = await getService()
+    await expect(service.publishDraft('draft__grid-1')).rejects.toBeInstanceOf(
+      GridRevisionConflictError,
+    )
+    // Conflict before the draft is reclaimed → draft survives for a retry.
+    expect(mockGridDao.delete).not.toHaveBeenCalled()
+  })
+})
+
+// ── publishAsCopy ──────────────────────────────────────────────────────
+
+describe('publishAsCopy', () => {
+  it('clears draftOf, publishes in place, and keeps the document', async () => {
+    const draft = makeGrid({
+      id: 'draft__grid-1',
+      draftOf: 'grid-1',
+      status: 'draft',
+      rev: 3,
+    })
+    mockGridDao.getById.mockResolvedValueOnce(draft)
+    mockGridDao.update.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    const result = await service.publishAsCopy('draft__grid-1')
+
+    expect(mockGridDao.update).toHaveBeenCalledWith(
+      'draft__grid-1',
+      expect.objectContaining({
+        rev: 4,
+        status: 'published',
+        draftOf: 'DELETE_FIELD', // delete sentinel from mocked DbUtils
+        publishedAt: 'SERVER_TS',
+      }),
+      3,
+    )
+    // The promoted grid stays listed — never deleted.
+    expect(mockGridDao.delete).not.toHaveBeenCalled()
+    expect(result.status).toBe('published')
+    expect(result.draftOf).toBeUndefined()
+  })
+
+  it('applies an explicit name when provided', async () => {
+    const draft = makeGrid({ id: 'draft__grid-1', draftOf: 'grid-1', status: 'draft', rev: 1 })
+    mockGridDao.getById.mockResolvedValueOnce(draft)
+    mockGridDao.update.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    const result = await service.publishAsCopy('draft__grid-1', 'Branch')
+
+    const payload = mockGridDao.update.mock.calls[0][1] as Record<string, unknown>
+    expect(payload.name).toBe('Branch')
+    expect(result.name).toBe('Branch')
+  })
+})
+
+// ── unpublishGrid ──────────────────────────────────────────────────────
+
+describe('unpublishGrid', () => {
+  it('flips a published grid to draft at its rev, leaving content untouched', async () => {
+    const grid = makeGrid({ id: 'grid-1', rev: 4, status: 'published' })
+    mockGridDao.getById.mockResolvedValueOnce(grid)
+    mockGridDao.update.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    await service.unpublishGrid('grid-1')
+
+    expect(mockGridDao.update).toHaveBeenCalledWith(
+      'grid-1',
+      expect.objectContaining({ rev: 5, status: 'draft' }),
+      4,
+    )
+    const payload = mockGridDao.update.mock.calls[0][1] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('tiles')
   })
 })

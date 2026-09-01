@@ -79,8 +79,10 @@ defineProps<{
    *   "inline"      — blends into the tile-add toolbar row (Option A)
    *   "floating"    — fixed pill near the top of the page (Option B)
    *   "toolbar-row" — second row below the tile-add toolbar (Option D)
+   *   "bar"         — bare device toggles, no container chrome, for hosting
+   *                   inside another surface (the Mobile 2.0 top app bar)
    */
-  variant: "inline" | "floating" | "toolbar-row";
+  variant: "inline" | "floating" | "toolbar-row" | "bar";
 }>();
 
 const viewportStore = useGridViewportStore();
@@ -298,5 +300,13 @@ const toggle = (bp: Breakpoint) => {
   border: var(--border-width) solid var(--color-stroke);
   backdrop-filter: blur(20px);
   justify-content: center;
+}
+
+/* ── Variant: bar ────────────────────────────────────────────── */
+/* Bare device toggles with no container chrome, so the switcher reads as part
+   of whatever surface hosts it (the Mobile 2.0 top app bar) rather than a
+   separate floating pill. */
+.breakpoint-switcher--bar {
+  gap: 2px;
 }
 </style>

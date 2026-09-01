@@ -7,6 +7,7 @@ const nullDao = () => null as never;
 export type MockDbUtils = DbUtils & {
   sanitizeValue: ReturnType<typeof vi.fn>;
   serverTimestamp: ReturnType<typeof vi.fn>;
+  deleteField: ReturnType<typeof vi.fn>;
 };
 
 export function makeDaoFactory(overrides: Partial<DaoFactory> = {}): DaoFactory {
@@ -43,6 +44,7 @@ export function makeDbUtils(overrides: Partial<DbUtils> = {}): MockDbUtils {
   return {
     sanitizeValue: vi.fn((value: unknown) => value),
     serverTimestamp: vi.fn(() => "SERVER_TIMESTAMP"),
+    deleteField: vi.fn(() => "DELETE_FIELD"),
     ...overrides,
   } as unknown as MockDbUtils;
 }

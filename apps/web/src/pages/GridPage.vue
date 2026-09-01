@@ -367,7 +367,9 @@ export default defineComponent({
         setError(notFoundTitle, sessionStore.loadError ?? notFoundMessage);
         return false;
       }
-      trackGridEnter(currentGrid.value.id);
+      // Track the public grid id, not the draft — in draft-editing mode
+      // currentGrid is the hidden draft.
+      trackGridEnter(sessionStore.publicGridId || gridId);
       return true;
     };
 

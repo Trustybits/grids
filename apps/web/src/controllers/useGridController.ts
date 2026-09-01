@@ -4,6 +4,7 @@ import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { measureViewportGridRow } from "@/composables/useResponsiveGridLayout";
 import { GridPersistenceScheduler } from "@/services/GridPersistenceScheduler";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+import { useFeatureFlags } from "@/composables/useFeatureFlags";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import { useGridPreviewStore } from "@/stores/grid/gridPreview";
@@ -58,6 +59,10 @@ export function createDefaultGridControllerDependencies(): GridControllerDepende
     setCookieValue: (name, value, days) =>
       writeCookie(name, value, days),
     snapshotCodec: new GridSnapshotCodec(),
+    isDraftPublishEnabled: () => {
+      const { isEnabled, FEATURE_FLAGS } = useFeatureFlags();
+      return isEnabled(FEATURE_FLAGS.EDITOR_DRAFT_PUBLISH);
+    },
   };
 }
 

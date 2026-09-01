@@ -160,4 +160,72 @@ describe("gridSession store", () => {
     expect(store.persistenceError).toBeNull();
     expect(store.verticalCompact).toBe(true);
   });
+
+  describe("draft editing", () => {
+    it("collapses publicGridId to the open grid when not editing a draft", () => {
+      const store = useGridSessionStore();
+      store.setCurrentGrid(makeGrid({ id: "grid-1" }));
+
+      expect(store.isDraftEditing).toBe(false);
+      expect(store.publicGridId).toBe("grid-1");
+      expect(store.hasUnpublishedChanges).toBe(false);
+    });
+
+    it("exposes the original id as publicGridId while editing a draft", () => {
+      const store = useGridSessionStore();
+      const original = makeGrid({ id: "grid-1", name: "Page" });
+      store.setCurrentGrid(makeGrid({ id: "draft__grid-1", name: "Page" }));
+      store.setDraftEditing("grid-1", original);
+
+      expect(store.isDraftEditing).toBe(true);
+      expect(store.publicGridId).toBe("grid-1");
+      expect(store.hasUnpublishedChanges).toBe(false);
+    });
+
+    it("flags unpublished changes when the draft content diverges", () => {
+      const store = useGridSessionStore();
+      const original = makeGrid({ id: "grid-1", name: "Page" });
+      store.setCurrentGrid(makeGrid({ id: "draft__grid-1", name: "Page" }));
+      store.setDraftEditing("grid-1", original);
+
+      expect(store.hasUnpublishedChanges).toBe(false);
+      // Edit the draft in place.
+      store.currentGrid!.name = "Page (edited)";
+      expect(store.hasUnpublishedChanges).toBe(true);
+    });
+
+    it("snapshots the baseline so later original mutation can't hide changes", () => {
+      const store = useGridSessionStore();
+      const original = makeGrid({ id: "grid-1", name: "Page" });
+      store.setCurrentGrid(makeGrid({ id: "draft__grid-1", name: "Page (edited)" }));
+      store.setDraftEditing("grid-1", original);
+      // Mutating the caller's original object must not affect the stored baseline.
+      original.name = "Page (edited)";
+
+      expect(store.hasUnpublishedChanges).toBe(true);
+    });
+
+    it("clearDraftEditing returns to the plain (non-draft) identity", () => {
+      const store = useGridSessionStore();
+      store.setCurrentGrid(makeGrid({ id: "draft__grid-1" }));
+      store.setDraftEditing("grid-1", makeGrid({ id: "grid-1" }));
+
+      store.clearDraftEditing();
+
+      expect(store.isDraftEditing).toBe(false);
+      expect(store.publicGridId).toBe("draft__grid-1");
+    });
+
+    it("reset clears draft-editing state", () => {
+      const store = useGridSessionStore();
+      store.setCurrentGrid(makeGrid({ id: "draft__grid-1" }));
+      store.setDraftEditing("grid-1", makeGrid({ id: "grid-1" }));
+
+      store.reset();
+
+      expect(store.isDraftEditing).toBe(false);
+      expect(store.publishedId).toBeNull();
+      expect(store.publishedGrid).toBeNull();
+    });
+  });
 });

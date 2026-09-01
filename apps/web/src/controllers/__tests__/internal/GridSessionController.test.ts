@@ -195,6 +195,80 @@ describe("GridSessionController", () => {
       expect(h.stores.session.isOwner).toBe(false);
     });
 
+    describe("draft/publish editing", () => {
+      it("edits a hidden draft while keeping the original as the public id", async () => {
+        vi.mocked(h.dependencies.isDraftPublishEnabled).mockReturnValue(true);
+        const original = makeGrid({
+          id: "g2",
+          userId: "user-1",
+          status: "published",
+          name: "Public",
+        });
+        const draft = makeGrid({
+          id: "draft__g2",
+          userId: "user-1",
+          status: "draft",
+          draftOf: "g2",
+          name: "Public",
+        });
+        vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(original);
+        vi.mocked(h.gridService.getOrCreateDraft).mockResolvedValueOnce(draft);
+
+        await controller.loadGrid("g2");
+
+        expect(h.gridService.getOrCreateDraft).toHaveBeenCalledWith("g2");
+        // The editable session grid is the draft…
+        expect(h.stores.session.currentGrid?.id).toBe("draft__g2");
+        // …but the public identity stays the original.
+        expect(h.stores.session.isDraftEditing).toBe(true);
+        expect(h.stores.session.publicGridId).toBe("g2");
+        expect(h.stores.session.isOwner).toBe(true);
+        // Recents / lastOpened key on the public original, not the draft.
+        expect(h.gridService.touchLastOpenedAt).toHaveBeenCalledWith("g2");
+      });
+
+      it("does not open a draft when the flag is off", async () => {
+        vi.mocked(h.dependencies.isDraftPublishEnabled).mockReturnValue(false);
+        vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(
+          makeGrid({ id: "g2", userId: "user-1", status: "published" }),
+        );
+
+        await controller.loadGrid("g2");
+
+        expect(h.gridService.getOrCreateDraft).not.toHaveBeenCalled();
+        expect(h.stores.session.currentGrid?.id).toBe("g2");
+        expect(h.stores.session.isDraftEditing).toBe(false);
+      });
+
+      it("does not open a draft for a non-owner", async () => {
+        vi.mocked(h.dependencies.isDraftPublishEnabled).mockReturnValue(true);
+        vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(
+          makeGrid({ id: "g2", userId: "other", status: "published" }),
+        );
+
+        await controller.loadGrid("g2");
+
+        expect(h.gridService.getOrCreateDraft).not.toHaveBeenCalled();
+        expect(h.stores.session.isDraftEditing).toBe(false);
+      });
+
+      it("falls back to editing the published grid when draft creation fails", async () => {
+        vi.mocked(h.dependencies.isDraftPublishEnabled).mockReturnValue(true);
+        vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(
+          makeGrid({ id: "g2", userId: "user-1", status: "published" }),
+        );
+        vi.mocked(h.gridService.getOrCreateDraft).mockRejectedValueOnce(
+          new Error("offline"),
+        );
+
+        await controller.loadGrid("g2");
+
+        expect(h.stores.session.currentGrid?.id).toBe("g2");
+        expect(h.stores.session.isDraftEditing).toBe(false);
+        expect(h.stores.session.isOwner).toBe(true);
+      });
+    });
+
     it("does not persist recents when there is no authenticated user", async () => {
       h.getCurrentUserId.mockReturnValue(null);
       vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(

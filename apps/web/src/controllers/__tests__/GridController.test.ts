@@ -124,6 +124,11 @@ function createGridServiceMock(): GridServiceInterface {
     saveRecentGridIds: vi.fn(),
     createGridWithStarterTiles: vi.fn(),
     cloneAndPersistGrid: vi.fn(),
+    createDraft: vi.fn(),
+    getOrCreateDraft: vi.fn(),
+    publishDraft: vi.fn(),
+    publishAsCopy: vi.fn(),
+    unpublishGrid: vi.fn(),
   };
 }
 
@@ -166,6 +171,7 @@ function createControllerHarness() {
     getCookieValue: vi.fn(() => null),
     setCookieValue: vi.fn(),
     snapshotCodec: new GridSnapshotCodec(),
+    isDraftPublishEnabled: vi.fn(() => false),
   };
   const controller = new GridController(stores, dependencies);
 
@@ -1340,6 +1346,68 @@ describe("GridController", () => {
     expect(stores.collection.grids).toEqual([owned]);
     expect(stores.session.currentGrid).toEqual(owned);
     expect(stores.collection.error).toBe("Failed to delete grid.");
+  });
+});
+
+describe("GridController draft/publish", () => {
+  function enterDraftEditing(stores: ReturnType<typeof createControllerHarness>["stores"]) {
+    const original = makeGrid({ id: "g1", userId: "user-1", status: "published" });
+    const draft = makeGrid({
+      id: "draft__g1",
+      userId: "user-1",
+      status: "draft",
+      draftOf: "g1",
+    });
+    stores.session.setCurrentGrid(draft);
+    stores.session.setOwner(true);
+    stores.session.setDraftEditing("g1", original);
+  }
+
+  it("publish() flushes, publishes the draft, and reloads the public grid", async () => {
+    const { controller, stores, gridService } = createControllerHarness();
+    enterDraftEditing(stores);
+    vi.mocked(gridService.publishDraft).mockResolvedValueOnce(undefined);
+    // loadGrid('g1') runs after publish; give it a grid to load.
+    vi.mocked(gridService.fetchGrid).mockResolvedValue(
+      makeGrid({ id: "g1", userId: "user-1", status: "published" }),
+    );
+
+    await controller.publish();
+
+    expect(gridService.publishDraft).toHaveBeenCalledWith("draft__g1");
+  });
+
+  it("publish() is a no-op when not editing a draft", async () => {
+    const { controller, stores, gridService } = createControllerHarness();
+    stores.session.setCurrentGrid(makeGrid({ id: "g1" }));
+
+    await controller.publish();
+
+    expect(gridService.publishDraft).not.toHaveBeenCalled();
+  });
+
+  it("publishAsCopy() promotes the draft and returns the new grid id", async () => {
+    const { controller, stores, gridService } = createControllerHarness();
+    enterDraftEditing(stores);
+    vi.mocked(gridService.publishAsCopy).mockResolvedValueOnce(
+      makeGrid({ id: "draft__g1", status: "published" }),
+    );
+
+    const newId = await controller.publishAsCopy("Branch");
+
+    expect(gridService.publishAsCopy).toHaveBeenCalledWith("draft__g1", "Branch");
+    expect(newId).toBe("draft__g1");
+  });
+
+  it("unpublish() takes the public grid private and updates the baseline", async () => {
+    const { controller, stores, gridService } = createControllerHarness();
+    enterDraftEditing(stores);
+    vi.mocked(gridService.unpublishGrid).mockResolvedValueOnce(undefined);
+
+    await controller.unpublish();
+
+    expect(gridService.unpublishGrid).toHaveBeenCalledWith("g1");
+    expect(stores.session.publishedGrid?.status).toBe("draft");
   });
 });
 

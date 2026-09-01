@@ -34,6 +34,7 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
     displayPositions: computed(() => displayPositions.value),
     showMetaData: computed(() => false),
     showMetaDataVerbose: computed(() => false),
+    showGridGuide: computed(() => false),
     uploadingTiles: computed(() => ({})),
     activeTileId: computed(() => null),
     activePanelId: computed(() => null),

@@ -1,28 +1,49 @@
 /**
- * useMobileExperience — app-chrome + device signals
+ * useMobileExperience — Grids 2.0 early-access gating + device signals
  *
- * The Mobile 2.0 chrome (top app bar, bottom command bar, sheets) is now the
- * universal design for every device and viewport, so `isMobile2` is always on;
- * the touch + beta-enrollment gate has been retired. Where the chrome renders is
- * still decided by the page/route gating in App.vue (grid ownership, dashboard).
+ * Decides which chrome the app renders. Three parts:
  *
- * This composable also still exposes the genuine device signals `isMobileDevice`
- * and `isSmallViewport`, which other consumers (tile creation, profile/chat
- * content, grid stats) use to tailor real touch behavior — independent of which
- * chrome is shown.
+ *   1. Device — touch-primary (`(hover: none) and (pointer: coarse)`) AND a
+ *      small viewport (the grid `sm` breakpoint, same column math the grid
+ *      canvas uses) selects the *mobile* variant of the new chrome.
+ *   2. Opt-in — the user is enrolled in the `beta-early-access` PostHog early
+ *      access feature ("Early Access"). Enrollment is the single source of
+ *      truth: the flag is evaluated against the
+ *      `$feature_enrollment/beta-early-access` person property, and the
+ *      in-app toggle drives PostHog enrollment directly.
+ *   3. Desktop kill switch — on non-mobile devices the new chrome is
+ *      additionally gated by the internal `beta-desktop-2` flag, so the newer
+ *      desktop chrome can be turned off for everyone without un-enrolling
+ *      anyone from the stable mobile chrome.
+ *
+ * Gates exposed:
+ *   - `isMobile2`    — enrolled AND mobile device → phone chrome (sheets,
+ *                      tile toolbars hidden).
+ *   - `isDesktop2`   — enrolled AND NOT mobile device AND `beta-desktop-2` →
+ *                      desktop chrome (app bar + pill; TileToolbar and
+ *                      TileActions remain, no sheets).
+ *   - `chromeActive` — either of the above; what App.vue branches on.
  *
  * `initMobileExperience()` must be called once in App.vue (same pattern as
- * `initTier`) to wire the shared device listeners. State is module-level so
- * every consumer shares one set of listeners.
+ * `initTier`). State is module-level so every consumer shares one set of
+ * listeners.
+ *
+ * At GA this collapses to just the device check — see the Mobile 2.0 plan's
+ * housekeeping section.
  */
 
-import { computed, ref } from "vue";
+import { computed, readonly, ref } from "vue";
+import posthog from "posthog-js";
+import {
+  FEATURE_FLAGS,
+  useFeatureFlags,
+} from "@/composables/useFeatureFlags";
 import {
   calculateViewportColumnCount,
   columnCountToBreakpoint,
 } from "@/utils/GridLayoutUtils";
 
-// Default grid metrics (Grid.vue) — the device check uses the same column
+// Default grid metrics (Grid.vue) — the chrome gate uses the same column
 // math as the canvas so "mobile" here matches the `sm` breakpoint users see.
 const DEFAULT_BASE_COLUMN_COUNT = 12;
 const DEFAULT_ROW_HEIGHT = 75;
@@ -67,23 +88,31 @@ const defaultEnvironment: MobileExperienceEnvironment = {
   },
 };
 
+function hasPostHogKey(): boolean {
+  return !!import.meta.env.VITE_POSTHOG_KEY;
+}
+
 // ── Module-level reactive state ────────────────────────────────────────────
 
 const _isTouchDevice = ref(false);
 const _viewportWidth = ref(0);
+const _enrolled = ref(false);
+const _desktop2FlagOn = ref(false);
 
 let _cleanup: (() => void) | null = null;
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 
 /**
- * Bootstrap the shared device listeners (touch-primary media query + viewport
- * width). Call once in App.vue.
+ * Bootstrap device listeners and the PostHog enrollment sync.
+ * Call once in App.vue.
  */
 export function initMobileExperience(
   environment: MobileExperienceEnvironment = defaultEnvironment,
 ): void {
   _cleanup?.();
+
+  const flags = useFeatureFlags();
 
   const touchMedia = environment.matchTouchMedia();
   _isTouchDevice.value = touchMedia.matches;
@@ -98,6 +127,17 @@ export function initMobileExperience(
     _viewportWidth.value = environment.getViewportWidth();
   };
   environment.addResizeListener(syncViewport);
+
+  // Enrollment is reflected by the flag value. Sync now and whenever PostHog
+  // (re)loads flags — updateEarlyAccessFeatureEnrollment triggers a reload.
+  const syncFlags = () => {
+    _enrolled.value = flags.isEnabled(FEATURE_FLAGS.BETA_EARLY_ACCESS);
+    _desktop2FlagOn.value = flags.isEnabled(FEATURE_FLAGS.BETA_DESKTOP_2);
+  };
+  syncFlags();
+  if (hasPostHogKey()) {
+    posthog.onFeatureFlags(syncFlags);
+  }
 
   _cleanup = () => {
     stopTouchListener();
@@ -126,12 +166,43 @@ export function useMobileExperience() {
   );
 
   /**
-   * The single gate the app chrome branches on. Mobile 2.0 is the universal
-   * design for every device and viewport, so this is always on. The page/route
-   * gating in App.vue (grid ownership, dashboard) still decides *where* the
-   * chrome renders.
+   * Whether the Early Access opt-in is offered to the user. Available on
+   * every device so users can enroll anywhere. Kept as a computed so
+   * availability can be tightened later without touching call sites.
    */
-  const isMobile2 = computed(() => true);
+  const canUseEarlyAccess = computed(() => true);
+
+  /** Whether the user is enrolled in the Early Access feature. */
+  const isEarlyAccessEnrolled = readonly(_enrolled);
+
+  /** Enrolled + mobile device → the phone chrome (sheets, no tile toolbars). */
+  const isMobile2 = computed(() => isMobileDevice.value && _enrolled.value);
+
+  /**
+   * Enrolled + desktop/tablet + internal `beta-desktop-2` kill switch → the
+   * desktop chrome (app bar + pill; TileToolbar/TileActions remain).
+   */
+  const isDesktop2 = computed(
+    () => !isMobileDevice.value && _enrolled.value && _desktop2FlagOn.value,
+  );
+
+  /** The single gate App.vue branches on: any Grids 2.0 chrome active. */
+  const chromeActive = computed(() => isMobile2.value || isDesktop2.value);
+
+  /**
+   * Opt the user in/out of the Early Access feature. Drives PostHog
+   * enrollment (the source of truth); applied optimistically so the UI
+   * responds immediately while PostHog reloads flags.
+   */
+  async function setEarlyAccessEnrolled(value: boolean): Promise<void> {
+    _enrolled.value = value;
+    if (hasPostHogKey()) {
+      posthog.updateEarlyAccessFeatureEnrollment(
+        FEATURE_FLAGS.BETA_EARLY_ACCESS,
+        value,
+      );
+    }
+  }
 
   return {
     /**
@@ -143,6 +214,11 @@ export function useMobileExperience() {
     isTouchDevice: readonly(_isTouchDevice),
     isMobileDevice,
     isSmallViewport,
+    canUseEarlyAccess,
+    isEarlyAccessEnrolled,
     isMobile2,
+    isDesktop2,
+    chromeActive,
+    setEarlyAccessEnrolled,
   };
 }

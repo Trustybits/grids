@@ -68,6 +68,7 @@ vi.mock("@/composables/useTileInput", () => ({
 
 const mobile = vi.hoisted(() => ({
   isMobile2: false,
+  isDesktop2: false,
   openEdit: vi.fn(),
   closeEdit: vi.fn(),
 }));
@@ -77,6 +78,8 @@ vi.mock("@/composables/useMobileExperience", async () => {
   return {
     useMobileExperience: () => ({
       isMobile2: computed(() => mobile.isMobile2),
+      isDesktop2: computed(() => mobile.isDesktop2),
+      chromeActive: computed(() => mobile.isMobile2 || mobile.isDesktop2),
     }),
   };
 });
@@ -393,6 +396,7 @@ describe("GridTile Mobile 2.0 editing", () => {
 
   beforeEach(() => {
     mobile.isMobile2 = true;
+    mobile.isDesktop2 = false;
     mobile.openEdit.mockReset();
     mobile.closeEdit.mockReset();
     editTileId.value = null;
@@ -400,6 +404,7 @@ describe("GridTile Mobile 2.0 editing", () => {
 
   afterEach(() => {
     mobile.isMobile2 = false;
+    mobile.isDesktop2 = false;
   });
 
   it("replaces the desktop toolbar and action bar with the /EDIT sheet", async () => {
@@ -517,6 +522,103 @@ describe("GridTile Mobile 2.0 editing", () => {
     const { wrapper } = await mountGridTile(store, LAYOUT);
 
     await activate(wrapper, true);
+    expect(mobile.openEdit).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+});
+
+describe("GridTile desktop chrome (/EDIT without a sheet)", () => {
+  const LAYOUT: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
+
+  const clickTile = async (
+    wrapper: Awaited<ReturnType<typeof mountGridTile>>["wrapper"],
+    down: { x: number; y: number },
+    up: { x: number; y: number } = down,
+  ) => {
+    await wrapper
+      .find(".tile-wrapper")
+      .trigger("mousedown", { clientX: down.x, clientY: down.y });
+    await wrapper
+      .find(".tile-wrapper")
+      .trigger("click", { clientX: up.x, clientY: up.y });
+    await flushPromises();
+  };
+
+  beforeEach(() => {
+    mobile.isMobile2 = false;
+    mobile.isDesktop2 = true;
+    mobile.openEdit.mockReset();
+    mobile.closeEdit.mockReset();
+    editTileId.value = null;
+  });
+
+  afterEach(() => {
+    mobile.isDesktop2 = false;
+  });
+
+  it("keeps the desktop toolbar and action bar", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    // Unlike the phone chrome, desktop keeps its hover surfaces — the /EDIT
+    // pill is additive, not a replacement.
+    expect(wrapper.find(".tile-actions-layer").exists()).toBe(true);
+    expect(wrapper.find(".tile-toolbar-layer").exists()).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it("targets the /EDIT pill on a settled click", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    await clickTile(wrapper, { x: 50, y: 50 });
+
+    expect(mobile.openEdit).toHaveBeenCalledTimes(1);
+    expect(mobile.openEdit.mock.calls[0]![0]).toBe("tile-1");
+
+    wrapper.unmount();
+  });
+
+  it("ignores the click that trails a drag", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    // Pointer travelled well past the slop between down and click.
+    await clickTile(wrapper, { x: 50, y: 50 }, { x: 120, y: 50 });
+
+    expect(mobile.openEdit).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it("ignores clicks on suggestion tiles", async () => {
+    const tile = makeTile();
+    tile.content = {
+      type: ContentType.SUGGESTION,
+      action: "profile",
+      label: "Add Profile",
+    } as SuggestionContent;
+    const store = makeStore(tile);
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    await clickTile(wrapper, { x: 50, y: 50 });
+    expect(mobile.openEdit).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it("ignores clicks for visitors without edit permission", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = false;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    await clickTile(wrapper, { x: 50, y: 50 });
     expect(mobile.openEdit).not.toHaveBeenCalled();
 
     wrapper.unmount();

@@ -149,3 +149,36 @@ export function toMobileEditEntries(
     )
     .filter((entry) => !DEFERRED_IDS.has(entry.id));
 }
+
+/**
+ * Extra search terms per entry id, so filtering "align" or "typeface" finds the
+ * inline controls whose labels alone would not match. Shared by the sheet's
+ * live filter and the `/EDIT` input's Enter-to-execute matching.
+ */
+export const ENTRY_SEARCH_TERMS: Record<string, string> = {
+  "text-align": "align text alignment",
+  "font-family": "font family typeface",
+  "font-size": "font size text",
+};
+
+/** An entry's accessible name, resolved against the toolbar context. */
+export function resolveEntryLabel(
+  entry: MobileEditEntry,
+  ctx: ToolbarContext | null,
+): string {
+  if (typeof entry.label !== "function") return entry.label;
+  return ctx ? entry.label(ctx) : entry.id;
+}
+
+/** Case-insensitive match of a filter query against an entry's label + terms. */
+export function entryMatchesQuery(
+  entry: MobileEditEntry,
+  ctx: ToolbarContext | null,
+  query: string,
+): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  const haystack =
+    `${resolveEntryLabel(entry, ctx)} ${ENTRY_SEARCH_TERMS[entry.id] ?? ""}`.toLowerCase();
+  return haystack.includes(needle);
+}

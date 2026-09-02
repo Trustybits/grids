@@ -3,6 +3,8 @@ import { ref } from "vue";
 import type { ToolbarButton, ToolbarContext } from "@/types/TileToolbar";
 import {
   MOBILE_EDIT_SECTIONS,
+  entryMatchesQuery,
+  resolveEntryLabel,
   toMobileEditEntries,
 } from "../mobileEditSections";
 
@@ -209,5 +211,81 @@ describe("toMobileEditEntries", () => {
     for (const entry of toMobileEditEntries(buttons)) {
       expect(known).toContain(entry.section);
     }
+  });
+});
+
+describe("resolveEntryLabel / entryMatchesQuery", () => {
+  const makeEntry = (buttons: ToolbarButton[]) => toMobileEditEntries(buttons);
+
+  it("resolves function-valued labels against the context", () => {
+    const [entry] = makeEntry([
+      {
+        id: "border-toggle",
+        icon: IconStub,
+        title: (ctx: ToolbarContext) =>
+          (ctx.tile.content as { borderEnabled?: boolean }).borderEnabled
+            ? "Hide border"
+            : "Show border",
+        group: "appearance",
+        action: vi.fn(),
+      } as unknown as ToolbarButton,
+    ]);
+
+    expect(resolveEntryLabel(entry!, makeCtx({ borderEnabled: true }))).toBe(
+      "Hide border",
+    );
+    // Without a context the id is the only safe name.
+    expect(resolveEntryLabel(entry!, null)).toBe("border-toggle");
+  });
+
+  it("matches case-insensitively on the label", () => {
+    const [entry] = makeEntry([
+      {
+        id: "border-toggle",
+        icon: IconStub,
+        title: "Border",
+        group: "appearance",
+        action: vi.fn(),
+      },
+    ]);
+    const ctx = makeCtx();
+
+    expect(entryMatchesQuery(entry!, ctx, "bor")).toBe(true);
+    expect(entryMatchesQuery(entry!, ctx, "BORDER")).toBe(true);
+    expect(entryMatchesQuery(entry!, ctx, "font")).toBe(false);
+  });
+
+  it("matches everything on an empty or whitespace query", () => {
+    const [entry] = makeEntry([
+      {
+        id: "border-toggle",
+        icon: IconStub,
+        title: "Border",
+        group: "appearance",
+        action: vi.fn(),
+      },
+    ]);
+    const ctx = makeCtx();
+
+    expect(entryMatchesQuery(entry!, ctx, "")).toBe(true);
+    expect(entryMatchesQuery(entry!, ctx, "   ")).toBe(true);
+  });
+
+  it("matches inline controls on their extra search terms", () => {
+    const [entry] = makeEntry([
+      {
+        id: "more-menu",
+        icon: IconStub,
+        title: "More",
+        action: vi.fn(),
+        menuItems: [
+          { id: "font-family", tooltip: "Change Font", action: vi.fn() },
+        ],
+      },
+    ]);
+    const ctx = makeCtx();
+
+    // "typeface" appears only in the search terms, never in the label.
+    expect(entryMatchesQuery(entry!, ctx, "typeface")).toBe(true);
   });
 });

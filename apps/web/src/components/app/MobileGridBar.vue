@@ -50,9 +50,15 @@
 
     <!-- Tile edit sheet — same rise/flush pattern; the pill below is the
          `/EDIT` command input. `handle` carries what only the activated tile can
-         provide (its live content component, Griddle-routed resize, removal). -->
+         provide (its live content component, Griddle-routed resize, removal).
+         Mobile-only: on the desktop chrome the TileToolbar + TileActions stay
+         on the tile itself, so the pill's `/EDIT` input (typing filters, Enter
+         executes) is the whole surface — no sheet rises. -->
     <transition name="mgb-rise">
-      <div v-if="mode === 'edit' && editTile" class="mgb-settings-panel">
+      <div
+        v-if="mode === 'edit' && editTile && isMobileDevice"
+        class="mgb-settings-panel"
+      >
         <MobileTileEditSheet :tile="editTile" />
       </div>
     </transition>
@@ -195,6 +201,7 @@
         :show-view-toggle="false"
         aria-label="Filter tile controls"
         close-label="Close tile editing"
+        @submit="onEditSubmit"
         @close="closeEdit"
       />
 
@@ -297,7 +304,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  proxyRefs,
+  ref,
+  watch,
+} from "vue";
 import MobileCommandBar from "@/components/ui-collections/MobileCommandBar.vue";
 import MobileCommandInput from "@/components/app/MobileCommandInput.vue";
 import MobileTileCarousel from "@/components/app/MobileTileCarousel.vue";
@@ -322,8 +337,16 @@ import { useFileUpload } from "@/composables/useFileUpload";
 import { useGridSettings } from "@/composables/useGridSettings";
 import { useGridPreview } from "@/composables/useGridPreview";
 import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
+import { useMobileExperience } from "@/composables/useMobileExperience";
 import { useSavedColors } from "@/composables/useSavedColors";
 import { normalizeHex } from "@/utils/color";
+import type { ToolbarContext } from "@/types/TileToolbar";
+import { getTileToolbarButtons } from "@/registries/tileToolbar";
+import {
+  entryMatchesQuery,
+  toMobileEditEntries,
+} from "@/registries/tileToolbar/mobileEditSections";
+import { useGridViewContext } from "@/grid-context/useGridViewContext";
 
 // Rotating typewriter hints for the `/TILE` input (product-specified order).
 const PLACEHOLDERS = [
@@ -381,8 +404,46 @@ const { savedColors, load: loadSavedColors, addColor: addSavedColor } =
 const { isPreviewActive, enterPreview } = useGridPreview();
 // Tile editing is entered by tapping a tile, so the bar follows that state
 // rather than owning it: `mode` mirrors it (see the watcher below).
-const { editTileId, editTile, closeEdit, query: editQuery } =
+const { editTileId, editTile, closeEdit, query: editQuery, handle: editHandle } =
   useMobileTileEdit();
+// The sheet is the mobile presentation of `/EDIT`; on the desktop chrome the
+// tile keeps its own toolbars and only the pill input renders.
+const { isMobileDevice } = useMobileExperience();
+const editGridView = proxyRefs(useGridViewContext());
+
+// Enter in the `/EDIT` input executes the first control matching the typed
+// filter — the same registry rows the sheet renders, so desktop (where no
+// sheet rises) gets the full control set through the keyboard. Inline rows
+// (alignment, font pickers) need a rendered control and are skipped; an empty
+// query executes nothing rather than whatever row happens to sort first.
+const onEditSubmit = () => {
+  const tile = editTile.value;
+  const tileHandle = editHandle.value;
+  if (!tile || !tileHandle) return;
+  if (!editQuery.value.trim()) return;
+
+  const context: ToolbarContext = {
+    tile,
+    childComponent: tileHandle.childComponent,
+    gridView: editGridView,
+    resizeTile: tileHandle.resizeTile,
+    isEditing: tileHandle.isEditing,
+    isExitingCropMode: tileHandle.isExitingCropMode,
+  };
+
+  const entry = toMobileEditEntries(
+    getTileToolbarButtons(tile.content.type, context),
+  )
+    .filter(
+      (candidate) =>
+        !candidate.inline && (candidate.visible?.(context) ?? true),
+    )
+    .find((candidate) => entryMatchesQuery(candidate, context, editQuery.value));
+  if (!entry) return;
+
+  entry.action(context);
+  editQuery.value = "";
+};
 
 // Built-in preset swatches (the brand palette), shown before the user's saved
 // customs in the picker's swatch row.

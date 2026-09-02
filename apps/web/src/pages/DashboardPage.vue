@@ -122,7 +122,7 @@ const collectionStore = useGridCollectionStore();
 const controller = useGridController();
 const router = useRouter();
 const { resolveStoragePlan } = useGridDuplicateStorage();
-const { isMobile2 } = useMobileExperience();
+const { chromeActive: isMobile2 } = useMobileExperience();
 
 const pageTitle = ref("Dashboard");
 usePageTitle(pageTitle);

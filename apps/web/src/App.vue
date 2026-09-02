@@ -90,7 +90,7 @@ withDefaults(
 
 const { identify, reset: resetPostHog } = usePostHog();
 const { reloadFlags } = useFeatureFlags();
-const { isMobile2 } = useMobileExperience();
+const { chromeActive } = useMobileExperience();
 const { isPreviewActive } = useGridPreview();
 
 const route = useRoute();
@@ -135,7 +135,7 @@ onMounted(() => {
         name: currentUser.displayName ?? undefined,
       });
       // Refresh flags now that PostHog knows who this is — user-targeted
-      // rollouts (e.g. beta-mobile-2) don't apply until flags reload.
+      // rollouts (e.g. beta-early-access) don't apply until flags reload.
       void reloadFlags();
     } else if (previousUser.value) {
       // Only reset if we're transitioning from signed-in to signed-out,
@@ -164,16 +164,18 @@ const isOnGridPage = computed(() => {
 
 const isOnDashboard = computed(() => route.path.startsWith("/dashboard"));
 
-// Mobile 2.0 owner editing chrome: the redesigned bottom bar replaces the
-// desktop tile toolbar + bottom corner buttons for enrolled owners on mobile.
+// Grids 2.0 owner editing chrome: the redesigned app bar + bottom bar replace
+// the desktop tile toolbar + bottom corner buttons for enrolled owners.
+// `chromeActive` covers both variants: mobile (enrolled + phone) and desktop
+// (enrolled + `beta-desktop-2` kill switch).
 const mobile2GridActive = computed(
-  () => isMobile2.value && isOnGridPage.value && sessionStore.isOwner,
+  () => chromeActive.value && isOnGridPage.value && sessionStore.isOwner,
 );
 
-// The mobile home chrome (dashboard): the AppBar + drawer replace the
-// LeftNavBar, bottom corner buttons, and the dashboard's own header.
+// The home chrome (dashboard): the AppBar + drawer replace the LeftNavBar,
+// bottom corner buttons, and the dashboard's own header.
 const mobile2HomeActive = computed(
-  () => isMobile2.value && isAuthenticated.value && isOnDashboard.value,
+  () => chromeActive.value && isAuthenticated.value && isOnDashboard.value,
 );
 
 // Any page where the Mobile 2.0 top AppBar + menu drawer are shown.

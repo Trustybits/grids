@@ -100,6 +100,17 @@
           Upgrade
         </router-link>
       </div>
+      <template v-if="canUseEarlyAccess">
+        <div class="menu-divider"></div>
+        <div class="early-access-section">
+          <Toggle
+            label="Early Access"
+            :modelValue="isEarlyAccessEnrolled"
+            @update:modelValue="onEarlyAccessToggle"
+            tooltip="Try the new Grids experience early. You can switch back anytime."
+          />
+        </div>
+      </template>
       <div class="menu-divider"></div>
       <button @click="openFileArchive" class="menu-action-item">
         File Archive
@@ -155,6 +166,9 @@ import FileArchiveModal from "@/components/modal/FileArchiveModal.vue";
 import ProfileIcon from "@/components/icons/ProfileIcon.vue";
 import EditIcon from "@/components/icons/EditIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
+import Toggle from "@/components/ui-controls/Toggle.vue";
+import { useMobileExperience } from "@/composables/useMobileExperience";
+import { useToastStore } from "@/stores/toast";
 
 const MENU_AVATAR_SIZE = 24;
 const MENU_AVATAR_POLYGON_INSET = 0.5;
@@ -167,10 +181,28 @@ export default defineComponent({
     ProfileIcon,
     EditIcon,
     FloatingTooltip,
+    Toggle,
   },
   setup() {
     const router = useRouter();
     const { isProOrAbove } = useTier();
+    const { canUseEarlyAccess, isEarlyAccessEnrolled, setEarlyAccessEnrolled } =
+      useMobileExperience();
+    const toastStore = useToastStore();
+
+    const onEarlyAccessToggle = async (value: boolean) => {
+      try {
+        await setEarlyAccessEnrolled(value);
+        toastStore.addToast(
+          value
+            ? "Early Access enabled — welcome to the new Grids"
+            : "Early Access disabled",
+          "success",
+        );
+      } catch {
+        toastStore.addToast("Couldn't update Early Access setting", "error");
+      }
+    };
     const user = ref<AuthUser | null>(null);
     const userId = computed(() => user.value?.uid ?? null);
     const { hasBadge } = useBadges(userId);
@@ -393,6 +425,9 @@ export default defineComponent({
       isProOrAbove,
       checkout,
       openBillingPortal,
+      canUseEarlyAccess,
+      isEarlyAccessEnrolled,
+      onEarlyAccessToggle,
     };
   },
 });
@@ -615,6 +650,12 @@ export default defineComponent({
       opacity: 0.6;
       cursor: not-allowed;
     }
+  }
+
+  .early-access-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
   .menu-action-item {

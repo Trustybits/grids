@@ -25,6 +25,7 @@ const holder = vi.hoisted(() => ({
   enterPreview: vi.fn(),
   closeEdit: vi.fn(),
   types: [] as Array<Record<string, unknown>>,
+  toolbarButtons: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock("@/composables/useTileCreation", () => ({
@@ -115,6 +116,7 @@ vi.mock("@/composables/useGridPreview", () => ({
 const editTileId = ref<string | null>(null);
 const editTile = ref<Record<string, unknown> | null>(null);
 const editQuery = ref("");
+const editHandle = ref<Record<string, unknown> | null>(null);
 
 vi.mock("@/composables/useMobileTileEdit", () => ({
   useMobileTileEdit: () => ({
@@ -122,7 +124,26 @@ vi.mock("@/composables/useMobileTileEdit", () => ({
     editTile,
     closeEdit: holder.closeEdit,
     query: editQuery,
+    handle: editHandle,
   }),
+}));
+
+// The edit sheet is the mobile presentation of `/EDIT`; on desktop only the
+// pill input renders. Defaults to phone so the existing sheet tests hold.
+const isMobileDevice = ref(true);
+
+vi.mock("@/composables/useMobileExperience", () => ({
+  useMobileExperience: () => ({
+    isMobileDevice,
+  }),
+}));
+
+vi.mock("@/grid-context/useGridViewContext", () => ({
+  useGridViewContext: () => ({}),
+}));
+
+vi.mock("@/registries/tileToolbar", () => ({
+  getTileToolbarButtons: () => holder.toolbarButtons,
 }));
 
 vi.mock("@/components/app/MobileTileEditSheet.vue", () => ({
@@ -166,6 +187,9 @@ describe("MobileGridBar", () => {
     editTileId.value = null;
     editTile.value = null;
     editQuery.value = "";
+    editHandle.value = null;
+    isMobileDevice.value = true;
+    holder.toolbarButtons = [];
     holder.types = [
       {
         id: "chat",
@@ -677,7 +701,16 @@ describe("MobileGridBar", () => {
       tileId: string | null,
     ) => {
       editTileId.value = tileId;
-      editTile.value = tileId ? { i: tileId } : null;
+      editTile.value = tileId ? { i: tileId, content: { type: "text" } } : null;
+      editHandle.value = tileId
+        ? {
+            childComponent: ref(null),
+            isEditing: ref(false),
+            isExitingCropMode: ref(false),
+            resizeTile: vi.fn(),
+            remove: vi.fn(),
+          }
+        : null;
       await flush(wrapper);
     };
 
@@ -749,6 +782,77 @@ describe("MobileGridBar", () => {
       expect(holder.closeEdit).not.toHaveBeenCalled();
       expect(wrapper.find(".tile-edit-stub").exists()).toBe(true);
       wrapper.unmount();
+    });
+
+    it("morphs the pill but raises no sheet on desktop", async () => {
+      isMobileDevice.value = false;
+      const wrapper = await mountBar();
+      await activateTile(wrapper, "tile-1");
+
+      // The pill is still the /EDIT input, but the tile keeps its own
+      // toolbars on desktop — no sheet rises behind the bar.
+      expect(wrapper.find('[aria-label="Filter tile controls"]').exists()).toBe(
+        true,
+      );
+      expect(wrapper.find(".tile-edit-stub").exists()).toBe(false);
+    });
+
+    it("executes the first control matching the typed filter on Enter", async () => {
+      const action = vi.fn();
+      const other = vi.fn();
+      holder.toolbarButtons = [
+        { id: "resize", title: "Resize", group: "resize", action: other },
+        { id: "border", title: "Border", group: "appearance", action },
+      ];
+      isMobileDevice.value = false;
+      const wrapper = await mountBar();
+      await activateTile(wrapper, "tile-1");
+
+      const input = wrapper.get(".mci-input");
+      await input.setValue("border");
+      await input.trigger("keydown", { key: "Enter" });
+      await flush(wrapper);
+
+      expect(action).toHaveBeenCalledTimes(1);
+      expect(other).not.toHaveBeenCalled();
+      // The filter clears so the next command starts fresh.
+      expect((input.element as HTMLInputElement).value).toBe("");
+    });
+
+    it("executes nothing on Enter with an empty filter", async () => {
+      const action = vi.fn();
+      holder.toolbarButtons = [
+        { id: "resize", title: "Resize", group: "resize", action },
+      ];
+      const wrapper = await mountBar();
+      await activateTile(wrapper, "tile-1");
+
+      await wrapper.get(".mci-input").trigger("keydown", { key: "Enter" });
+      await flush(wrapper);
+
+      expect(action).not.toHaveBeenCalled();
+    });
+
+    it("skips inline rows (font, alignment) that need a rendered control", async () => {
+      const inlineAction = vi.fn();
+      holder.toolbarButtons = [
+        {
+          id: "font-family",
+          title: "Font family",
+          group: "appearance",
+          action: inlineAction,
+        },
+      ];
+      isMobileDevice.value = false;
+      const wrapper = await mountBar();
+      await activateTile(wrapper, "tile-1");
+
+      const input = wrapper.get(".mci-input");
+      await input.setValue("font");
+      await input.trigger("keydown", { key: "Enter" });
+      await flush(wrapper);
+
+      expect(inlineAction).not.toHaveBeenCalled();
     });
   });
 });

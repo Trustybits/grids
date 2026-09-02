@@ -5,7 +5,9 @@ import { reactive } from "vue";
 const holder = vi.hoisted(() => ({
   collection: { grids: [] as Array<Record<string, unknown>> },
   isOwner: true,
+  canUseEarlyAccess: true,
   fetchGrids: vi.fn(),
+  addToast: vi.fn(),
   signOut: vi.fn(),
 }));
 
@@ -30,6 +32,18 @@ vi.mock("@/controllers/useGridController", () => ({
   useGridController: () => ({ fetchGrids: holder.fetchGrids }),
 }));
 
+vi.mock("@/composables/useMobileExperience", () => ({
+  useMobileExperience: () => ({
+    canUseEarlyAccess: holder.canUseEarlyAccess,
+    isEarlyAccessEnrolled: false,
+    setEarlyAccessEnrolled: vi.fn(),
+  }),
+}));
+
+vi.mock("@/stores/toast", () => ({
+  useToastStore: () => ({ addToast: holder.addToast }),
+}));
+
 vi.mock("@/auth/AuthProviderSingleton", () => ({
   getAuthProvider: () => ({ signOut: holder.signOut }),
 }));
@@ -46,9 +60,13 @@ vi.mock("@/composables/useGridStats", async () => {
       uniqueViewers: ref(7),
       yesterdayViews: ref(5),
       averageTimeSpent: ref("1m 3s"),
-    }),
+    }    ),
   };
 });
+
+vi.mock("@/components/ui-controls/Toggle.vue", () => ({
+  default: { template: '<span data-test="toggle" />' },
+}));
 
 // The global test setup stubs RouterLink as `true` (no slot). Override it with
 // an object stub so the row labels inside <router-link> actually render.
@@ -76,6 +94,7 @@ describe("MobileMenuDrawer", () => {
       ],
     };
     holder.isOwner = true;
+    holder.canUseEarlyAccess = true;
   });
 
   it("renders nothing until opened", async () => {
@@ -106,6 +125,11 @@ describe("MobileMenuDrawer", () => {
     const wrapper = await mountDrawer(true);
     await wrapper.get(".mmd-backdrop").trigger("click");
     expect(wrapper.emitted("close")).toHaveLength(1);
+  });
+
+  it("exposes the Early Access opt-out toggle when eligible", async () => {
+    const wrapper = await mountDrawer(true);
+    expect(wrapper.find('[data-test="toggle"]').exists()).toBe(true);
   });
 
   it("hides the analytics section for non-owners", async () => {
@@ -144,9 +168,9 @@ describe("MobileMenuDrawer", () => {
       .findAll(".mmd-panel > *")
       .map((el) => el.classes().join(" "));
     const recentsIdx = order.findIndex((c) => c.includes("mmd-recents"));
-    // Logout is the bottom-anchored account action, after the recents block.
-    const logoutIdx = order.findIndex((c) => c.includes("mmd-row--button"));
+    const toggleIdx = order.findIndex((c) => c.includes("mmd-account-toggle"));
+    // The recents block precedes the bottom-anchored account toggle.
     expect(recentsIdx).toBeGreaterThanOrEqual(0);
-    expect(logoutIdx).toBeGreaterThan(recentsIdx);
+    expect(toggleIdx).toBeGreaterThan(recentsIdx);
   });
 });

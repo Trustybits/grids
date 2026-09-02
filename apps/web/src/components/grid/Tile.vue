@@ -41,6 +41,8 @@
     ref="gridTileRef"
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"
+    @mousedown="handleTileMouseDown"
+    @click="handleDesktopEditClick"
   >
     <!-- Visual Frame with Overflow Hidden -->
     <div
@@ -253,7 +255,7 @@ export default defineComponent({
     const requestTileResize = inject(TILE_RESIZE_REQUEST, gridView.resizeTile);
     const { uploadFileOptimisticForTile } = useFileUpload();
     const { submitLink, submitEmbed } = useTileInput();
-    const { isMobile2 } = useMobileExperience();
+    const { isMobile2, isDesktop2, chromeActive } = useMobileExperience();
     const {
       openEdit,
       closeEdit,
@@ -863,7 +865,7 @@ export default defineComponent({
     });
 
     watch(isActivated, (activated) => {
-      if (!isMobile2.value) return;
+      if (!chromeActive.value) return;
       if (activated) {
         if (!isSuggestion.value) openEdit(props.tile.i, mobileEditHandle());
       } else if (isEditTarget(props.tile.i)) {
@@ -871,10 +873,35 @@ export default defineComponent({
       }
     });
 
+    // ── Desktop chrome `/EDIT` targeting ─────────────────────────────────────
+    // On the desktop Grids 2.0 chrome the tile toolbars stay, but a plain
+    // click still points the bottom pill's `/EDIT` input at this tile —
+    // touch activation never fires with a mouse, so the click is the desktop
+    // analog of tap-to-activate. A movement guard keeps the click that
+    // trails a Griddle drag from re-targeting the pill.
+    const DESKTOP_EDIT_CLICK_SLOP_PX = 8;
+    let mouseDownPoint: { x: number; y: number } | null = null;
+    const handleTileMouseDown = (event: MouseEvent) => {
+      mouseDownPoint = { x: event.clientX, y: event.clientY };
+    };
+    const handleDesktopEditClick = (event: MouseEvent) => {
+      if (!isDesktop2.value || !gridView.canEdit || isSuggestion.value) return;
+      if (
+        mouseDownPoint &&
+        (Math.abs(event.clientX - mouseDownPoint.x) >
+          DESKTOP_EDIT_CLICK_SLOP_PX ||
+          Math.abs(event.clientY - mouseDownPoint.y) >
+            DESKTOP_EDIT_CLICK_SLOP_PX)
+      ) {
+        return;
+      }
+      openEdit(props.tile.i, mobileEditHandle());
+    };
+
     // Another tile becoming the target deactivates this one, so only one tile is
     // ever activated at a time.
     watch(editTileId, (tileId) => {
-      if (!isMobile2.value) return;
+      if (!chromeActive.value) return;
       if (tileId !== props.tile.i && isActivated.value) deactivateTile();
     });
 
@@ -974,6 +1001,8 @@ export default defineComponent({
       hoveredLayer,
       isEmbedInteractive,
       isMobile2,
+      handleTileMouseDown,
+      handleDesktopEditClick,
     };
   },
 });

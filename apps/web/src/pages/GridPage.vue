@@ -206,10 +206,11 @@ export default defineComponent({
     const isOwner = computed(() => sessionStore.isOwner);
     const isResyncing = computed(() => sessionStore.isResyncing);
 
-    // Mobile 2.0 owner chrome swaps the desktop tile toolbar + floating
-    // breakpoint switcher for the bottom command bar (rendered in App.vue).
-    const { isMobile2 } = useMobileExperience();
-    const mobile2Active = computed(() => isMobile2.value && isOwner.value);
+    // Grids 2.0 owner chrome swaps the desktop grid toolbar + floating
+    // breakpoint switcher + undo controls for the app bar and bottom command
+    // bar (rendered in App.vue) — on mobile and desktop variants alike.
+    const { chromeActive } = useMobileExperience();
+    const mobile2Active = computed(() => chromeActive.value && isOwner.value);
 
     // When this tab/window is reactivated, reload the grid if it has been saved
     // elsewhere (rev mismatch) so this tab never clobbers newer changes.

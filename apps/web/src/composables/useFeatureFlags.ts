@@ -29,6 +29,20 @@ export const FEATURE_FLAGS = {
   BETA_ROADMAP_FEED: 'beta-roadmap-feed',
   BETA_ANALYTICS_DASHBOARD: 'beta-analytics-dashboard',
   BETA_DOCUMENTS: 'beta-documents',
+  /**
+   * "Early Access" enrollment (PostHog Early Access Feature) — the single
+   * user-facing opt-in for the Grids 2.0 chrome (mobile + desktop) and the
+   * features that ride with it. Successor to the retired `beta-mobile-2`
+   * feature; enrollments are migrated via scripts/migrateEarlyAccessEnrollment.
+   */
+  BETA_EARLY_ACCESS: 'beta-early-access',
+  /**
+   * Internal kill switch for the desktop/tablet Grids 2.0 chrome. Not
+   * user-facing: it only bites for users already enrolled in
+   * `beta-early-access`, letting the newer desktop chrome be disabled without
+   * un-enrolling anyone from the (stable) mobile chrome.
+   */
+  BETA_DESKTOP_2: 'beta-desktop-2',
 
   // ── Editor features ──────────────────────────────────────────────────────
   EDITOR_SMART_TEXT: 'editor-smart-text',

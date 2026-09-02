@@ -233,6 +233,8 @@ import type { ToolbarContext } from "@/types/TileToolbar";
 import { getTileToolbarButtons } from "@/registries/tileToolbar";
 import {
   MOBILE_EDIT_SECTIONS,
+  entryMatchesQuery,
+  resolveEntryLabel,
   toMobileEditEntries,
   type MobileEditEntry,
 } from "@/registries/tileToolbar/mobileEditSections";
@@ -307,10 +309,8 @@ const entries = computed(() => {
   ).filter((entry) => entry.visible?.(context) ?? true);
 });
 
-const resolveLabel = (entry: MobileEditEntry): string => {
-  if (typeof entry.label !== "function") return entry.label;
-  return ctx.value ? entry.label(ctx.value) : entry.id;
-};
+const resolveLabel = (entry: MobileEditEntry): string =>
+  resolveEntryLabel(entry, ctx.value);
 
 // An icon is either a component (an object) or a factory taking the context —
 // the same test the desktop toolbar uses.
@@ -336,21 +336,16 @@ const runEntry = (entry: MobileEditEntry) => {
 };
 
 // ── Filtering ────────────────────────────────────────────────────────────────
-// The `/EDIT` input narrows the sheet live. Inline controls match on the word
-// the row shows ("Align", "Font", "Size") rather than the registry id.
-const INLINE_SEARCH_TERMS: Record<string, string> = {
-  "text-align": "align text alignment",
-  "font-family": "font family typeface",
-  "font-size": "font size text",
-};
-
+// The `/EDIT` input narrows the sheet live. Matching (label + per-id search
+// terms) is shared with the input's Enter-to-execute path in MobileGridBar —
+// see entryMatchesQuery in mobileEditSections.
 const needle = computed(() => query.value.trim().toLowerCase());
 
 const matches = (haystack: string) =>
   !needle.value || haystack.toLowerCase().includes(needle.value);
 
 const entryMatches = (entry: MobileEditEntry) =>
-  matches(`${resolveLabel(entry)} ${INLINE_SEARCH_TERMS[entry.id] ?? ""}`);
+  entryMatchesQuery(entry, ctx.value, query.value);
 
 /** Built-in ACTIONS rows are filtered by their visible label. */
 const showAction = (label: string) => {

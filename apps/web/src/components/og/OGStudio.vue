@@ -1,6 +1,15 @@
 <template>
   <teleport to="body">
-    <div class="og-studio" role="dialog" aria-modal="true" aria-label="OpenGraph Editor">
+    <div
+      class="og-studio modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="OpenGraph Editor"
+      @click.stop
+      @pointerdown.stop
+      @mousedown.stop
+      @touchstart.stop
+    >
       <header class="og-studio__header">
         <div class="og-studio__brand">
           <h3 class="og-studio__title">OpenGraph Editor</h3>

@@ -14,7 +14,7 @@
         :style="{ background: tile.color }"
         :title="tile.label"
         :disabled="activeTileIds.includes(tile.id)"
-        @click="$emit('add-tile', tile.id)"
+        @click.stop="$emit('add-tile', tile.id)"
       >
         <span class="tile-picker__label">{{ tile.label }}</span>
       </button>

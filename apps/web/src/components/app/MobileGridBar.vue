@@ -912,7 +912,7 @@ const handlePointerDown = (event: MouseEvent) => {
   // Clicks inside a teleported modal (delete / transfer confirmation) must not
   // dismiss the bar — that would unmount the settings sheet and the modal with
   // it, aborting the action.
-  if (target?.closest(".modal-overlay")) return;
+  if (target?.closest(".modal-overlay, .og-studio")) return;
   if (!rootRef.value || rootRef.value.contains(target)) return;
   if (mode.value === "add") closeAdd();
   else if (mode.value === "settings") closeSettings();

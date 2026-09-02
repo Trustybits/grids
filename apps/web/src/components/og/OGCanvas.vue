@@ -42,7 +42,8 @@
           tileAnimationClass(placement),
         ]"
         :style="tileStyle(placement, index)"
-        @pointerdown="onTilePointerDown($event, placement)"
+        @pointerdown.stop="onTilePointerDown($event, placement)"
+        @click.stop
       >
         <span class="og-canvas__tile-label">{{ tileLabel(placement.tileId) }}</span>
       </div>
@@ -195,6 +196,7 @@ const updatePlacement = (tileId: string, x: number, y: number) => {
 };
 
 const onTilePointerDown = (event: PointerEvent, placement: OGTilePlacement) => {
+  event.stopPropagation();
   const target = event.currentTarget as HTMLElement;
   draggingId.value = placement.tileId;
   activePointerId = event.pointerId;

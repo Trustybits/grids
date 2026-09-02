@@ -93,6 +93,8 @@ describe("FirebaseGridDao", () => {
         themeId: "dark",
         overrides: undefined,
         duplicatable: true,
+        // Draft/publish: absent on this doc — publishedAt maps to an explicit null.
+        publishedAt: null,
         createdAt: null,
         updatedAt: null,
         lastOpenedAt: null,

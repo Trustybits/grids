@@ -72,6 +72,8 @@ describe("mapFirestoreToGrid", () => {
       themeId: "midnight",
       overrides,
       duplicatable: true,
+      // Draft/publish: absent on this doc — publishedAt maps to an explicit null.
+      publishedAt: null,
       createdAt,
       updatedAt: "ts2",
       lastOpenedAt: "ts3",
@@ -99,6 +101,7 @@ describe("mapFirestoreToGrid", () => {
       themeId: undefined,
       overrides: undefined,
       duplicatable: false,
+      publishedAt: null,
       createdAt: null,
       updatedAt: null,
       lastOpenedAt: null,

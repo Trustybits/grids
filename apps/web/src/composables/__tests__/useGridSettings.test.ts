@@ -41,7 +41,17 @@ const holder = vi.hoisted(() => ({
   viewport: { activeBreakpoint: "sm", displayPositions: [{ i: "a" }] },
   ui: { showMetaData: false, showMetaDataVerbose: false },
   theme: { isDarkMode: false },
+  earlyAccessEnrolled: false,
 }));
+
+vi.mock("@/composables/useMobileExperience", async () => {
+  const { computed } = await import("vue");
+  return {
+    useMobileExperience: () => ({
+      isEarlyAccessEnrolled: computed(() => holder.earlyAccessEnrolled),
+    }),
+  };
+});
 
 vi.mock("vue-router", () => ({ useRouter: () => ({ push: holder.push }) }));
 
@@ -321,5 +331,27 @@ describe("useGridSettings", () => {
       false,
       "abc123",
     );
+  });
+
+  it("blocks openOgStudio and shows toast when early access is not enrolled", async () => {
+    holder.earlyAccessEnrolled = false;
+    const gs = await load();
+    expect(gs.showOgStudio.value).toBe(false);
+    gs.openOgStudio();
+    expect(gs.showOgStudio.value).toBe(false);
+    expect(holder.addToast).toHaveBeenCalledWith(
+      expect.stringContaining("Early Access"),
+      "info",
+    );
+  });
+
+  it("allows openOgStudio when early access is enrolled", async () => {
+    holder.earlyAccessEnrolled = true;
+    const gs = await load();
+    expect(gs.showOgStudio.value).toBe(false);
+    gs.openOgStudio();
+    expect(gs.showOgStudio.value).toBe(true);
+    gs.closeOgStudio();
+    expect(gs.showOgStudio.value).toBe(false);
   });
 });

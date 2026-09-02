@@ -212,6 +212,9 @@ export function toGrid(id: string, data: Record<string, unknown>): Grid {
         ? data.backgroundActiveSource
         : undefined,
     ogImageSrc: typeof data.ogImageSrc === "string" ? data.ogImageSrc : "",
+    ogConfig: isPlainObject(data.ogConfig)
+      ? cloneValue(data.ogConfig as Record<string, unknown>)
+      : undefined,
     themeId: typeof data.themeId === "string" ? data.themeId : undefined,
     tiles: Array.isArray(data.tiles) ? cloneValue(data.tiles) : [],
     overrides: isPlainObject(data.overrides)

@@ -125,6 +125,19 @@ export class GridSettingsController {
     });
   }
 
+  /**
+   * Persists the OG Image Studio layout (tile placement, background,
+   * visibility toggles). Not part of undo/redo history — it's studio
+   * configuration, not grid layout content.
+   */
+  setOgConfig(config: Record<string, unknown>): void {
+    this.runGridCommand({
+      mutate: (grid) => {
+        grid.ogConfig = config;
+      },
+    });
+  }
+
   setBackgroundColor(color: string): void {
     this.runGridCommand({
       captureHistory: "Change background color",

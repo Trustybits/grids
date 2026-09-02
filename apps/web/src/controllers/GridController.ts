@@ -859,6 +859,11 @@ export class GridController {
     this.settingsController.removeCustomOgImage();
   }
 
+  setOgConfig(config: Record<string, unknown>): void {
+    if (this.blocksCurrentGridMutation()) return;
+    this.settingsController.setOgConfig(config);
+  }
+
   setBackgroundColor(color: string): void {
     if (this.blocksCurrentGridMutation()) return;
     this.settingsController.setBackgroundColor(color);

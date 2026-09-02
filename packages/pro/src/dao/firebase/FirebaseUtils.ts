@@ -39,6 +39,10 @@ export function mapFirestoreToGrid(
         ? data.backgroundActiveSource
         : undefined,
     ogImageSrc: data.ogImageSrc || "",
+    ogConfig:
+      data.ogConfig && typeof data.ogConfig === "object"
+        ? (data.ogConfig as Record<string, unknown>)
+        : undefined,
     themeId: data.themeId || undefined,
     overrides:
       data.overrides && typeof data.overrides === "object"

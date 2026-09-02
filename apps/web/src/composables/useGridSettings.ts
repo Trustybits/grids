@@ -12,6 +12,7 @@ import { usePixelRacersStore } from "@/stores/pixelRacers";
 import { useGridTransfers } from "@/composables/useGridTransfers";
 import { useGridDuplicateStorage } from "@/composables/useGridDuplicateStorage";
 import { useFileUpload } from "@/composables/useFileUpload";
+import { useMobileExperience } from "@/composables/useMobileExperience";
 import { describeCallableError } from "@/utils/CallableError";
 import type {
   CopyDepth,
@@ -47,10 +48,13 @@ export const useGridSettings = () => {
   // can flip to a "cancel pending transfer" affordance.
   const transfers = useGridTransfers({ incoming: false });
 
+  const { isEarlyAccessEnrolled } = useMobileExperience();
+
   // ── Shared modal visibility (surfaces render the modals) ───────────────────
   const showDeleteModal = ref(false);
   const showTransferModal = ref(false);
   const showOgImageModal = ref(false);
+  const showOgStudio = ref(false);
   const isCancellingTransfer = ref(false);
 
   const isOwner = computed(() => {
@@ -304,6 +308,22 @@ export const useGridSettings = () => {
     showOgImageModal.value = true;
   };
 
+  const openOgStudio = (): void => {
+    if (!canMutateGrid()) return;
+    if (!isEarlyAccessEnrolled.value) {
+      toastStore.addToast(
+        "OpenGraph Editor is an Early Access feature. Enable Early Access in your account menu to unlock it.",
+        "info",
+      );
+      return;
+    }
+    showOgStudio.value = true;
+  };
+
+  const closeOgStudio = (): void => {
+    showOgStudio.value = false;
+  };
+
   const openTransferModal = (): void => {
     if (!canMutateGrid()) return;
     showTransferModal.value = true;
@@ -437,12 +457,16 @@ export const useGridSettings = () => {
     showDeleteModal,
     showTransferModal,
     showOgImageModal,
+    showOgStudio,
+    isEarlyAccessEnrolled,
     // actions
     copyGridLink,
     duplicateGrid,
     requestDelete,
     performDelete,
     openOgImageModal,
+    openOgStudio,
+    closeOgStudio,
     openTransferModal,
     cancelPendingTransfer,
     launchPixelRacers,

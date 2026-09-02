@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   resetBreakpoint: vi.fn(),
   requestDelete: vi.fn(),
   performDelete: vi.fn(async () => undefined),
+  openOgStudio: vi.fn(),
   showDeleteModal: null as Ref<boolean> | null,
 }));
 
@@ -34,6 +35,8 @@ vi.mock("@/composables/useGridSettings", async () => {
         showDeleteModal,
         showTransferModal: ref(false),
         showOgImageModal: ref(false),
+        showOgStudio: ref(false),
+        isEarlyAccessEnrolled: ref(false),
         copyGridLink: vi.fn(async () => undefined),
         duplicateGrid: vi.fn(async () => null),
         requestDelete: h.requestDelete,
@@ -41,6 +44,8 @@ vi.mock("@/composables/useGridSettings", async () => {
         openTransferModal: vi.fn(),
         cancelPendingTransfer: vi.fn(async () => undefined),
         openOgImageModal: vi.fn(),
+        openOgStudio: h.openOgStudio,
+        closeOgStudio: vi.fn(),
         launchPixelRacers: vi.fn(),
         saveBreakpoint: h.saveBreakpoint,
         resetBreakpoint: h.resetBreakpoint,
@@ -111,6 +116,8 @@ async function mountOpenMenu() {
         GhostSplitButton: PassthroughStub,
         ColorPicker: true,
         OgImageModal: true,
+        OGStudio: true,
+        LockIcon: true,
         TransferGridModal: true,
         PromptModal: PromptModalStub,
       },
@@ -149,5 +156,12 @@ describe("GridSettings shared action wiring", () => {
     expect(h.requestDelete).toHaveBeenCalledOnce();
     await wrapper.get('[data-testid="prompt-confirm"]').trigger("click");
     expect(h.performDelete).toHaveBeenCalledOnce();
+  });
+
+  it("routes openOgStudio through the shared settings composable when clicking OpenGraph Editor", async () => {
+    const wrapper = await mountOpenMenu();
+
+    await findButton(wrapper, "OpenGraph Editor").trigger("click");
+    expect(h.openOgStudio).toHaveBeenCalledOnce();
   });
 });

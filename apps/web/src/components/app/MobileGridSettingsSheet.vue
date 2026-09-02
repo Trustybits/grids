@@ -128,6 +128,23 @@
         </div>
 
         <button
+          v-if="isVisible('opengraph')"
+          type="button"
+          class="mgs-row mgs-row--action"
+          :class="{ 'is-locked': !isEarlyAccessEnrolled }"
+          @click="onOpenGraphEditor"
+        >
+          <span class="mgs-row__label mgs-row__label--with-badge">
+            <span>OpenGraph Editor</span>
+            <span class="mgs-early-access-badge" :class="{ 'is-locked': !isEarlyAccessEnrolled }">
+              <LockIcon v-if="!isEarlyAccessEnrolled" :size="12" />
+              Early Access
+            </span>
+          </span>
+          <span class="mgs-row__icon"><ChevronRightIcon :size="18" /></span>
+        </button>
+
+        <button
           v-if="isVisible('duplicate')"
           type="button"
           class="mgs-row mgs-row--action"
@@ -229,6 +246,13 @@
     :grid-name="currentGridName"
     @close="showTransferModal = false"
   />
+
+  <OGStudio
+    v-if="showOgStudio"
+    :grid-id="gridPageId"
+    :grid-tiles="studioGridTiles"
+    @close="closeOgStudio"
+  />
 </template>
 
 <script setup lang="ts">
@@ -242,6 +266,9 @@ import TransferGridModal from "@/components/modal/TransferGridModal.vue";
 import ClipboardIcon from "@/components/icons/ClipboardIcon.vue";
 import ChevronRightIcon from "@/components/icons/ChevronRightIcon.vue";
 import SpinnerIcon from "@/components/icons/SpinnerIcon.vue";
+import LockIcon from "@/components/icons/LockIcon.vue";
+import OGStudio from "@/components/og/OGStudio.vue";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
 
 const props = withDefaults(defineProps<{ query?: string }>(), { query: "" });
 const emit = defineEmits<{
@@ -277,13 +304,51 @@ const {
   uploadBackgroundImage,
   showDeleteModal,
   showTransferModal,
+  showOgStudio,
+  isEarlyAccessEnrolled,
   copyGridLink,
   duplicateGrid,
   requestDelete,
   performDelete,
   openTransferModal,
   cancelPendingTransfer,
+  openOgStudio,
+  closeOgStudio,
 } = useGridSettings();
+
+const sessionStore = useGridSessionStore();
+
+const TILE_COLOR_PALETTE = [
+  "#6366f1",
+  "#8b5cf6",
+  "#ec4899",
+  "#f59e0b",
+  "#10b981",
+  "#06b6d4",
+  "#ef4444",
+  "#84cc16",
+];
+
+const studioGridTiles = computed(() => {
+  const tiles = sessionStore.currentGrid?.tiles ?? [];
+  return tiles.map((tile, index) => {
+    const content = tile.content as unknown as Record<string, unknown>;
+    const color =
+      (typeof content?.backgroundColor === "string" && content.backgroundColor) ||
+      (typeof content?.color === "string" && content.color) ||
+      TILE_COLOR_PALETTE[index % TILE_COLOR_PALETTE.length];
+    const label =
+      tile.caption?.trim() ||
+      (typeof content?.title === "string" && content.title) ||
+      tile.content?.type ||
+      "Tile";
+    return { id: tile.i, label, color };
+  });
+});
+
+const onOpenGraphEditor = () => {
+  openOgStudio();
+};
 
 // ── GRID GUIDE ───────────────────────────────────────────────────────────────
 // The placeholder-slot overlay shown while editing (owner-only). Backed by the
@@ -376,6 +441,7 @@ const SETTINGS_INDEX: Record<string, string> = {
   background: "background image color wallpaper backdrop",
   gravity: "gravity compact pack fill layout",
   guide: "guide grid guide slots placeholder helpline overlay",
+  opengraph: "opengraph og editor social share preview card meta image banner early access",
   default: "default grid home landing",
   publish: "publish template public duplicatable share",
   duplicate: "duplicate copy clone",
@@ -635,6 +701,34 @@ const onTransfer = () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mgs-row__label--with-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.mgs-early-access-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs, 11px);
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-figma-purple, #7b61ff);
+  color: #fff;
+
+  &.is-locked {
+    background: var(--color-content-low, #6b7280);
+    opacity: 0.85;
+  }
+}
+
+.mgs-row--action.is-locked {
+  opacity: 0.85;
 }
 
 .mgs-row__icon {

@@ -113,6 +113,20 @@
 
         <MenuItem @click="openOgImageModal"> Social Share Image </MenuItem>
 
+        <MenuItem
+          class="opengraph-editor-menu-item"
+          :class="{ 'is-locked': !isEarlyAccessEnrolled }"
+          @click="openOgStudio"
+        >
+          <div class="og-menu-item-row">
+            <span>OpenGraph Editor</span>
+            <span class="og-menu-item-badge" :class="{ 'is-locked': !isEarlyAccessEnrolled }">
+              <LockIcon v-if="!isEarlyAccessEnrolled" :size="12" class="og-lock-icon" />
+              Early Access
+            </span>
+          </div>
+        </MenuItem>
+
         <GhostSplitButton
           :open="showDuplicateDropdown"
           @update:open="showDuplicateDropdown = $event"
@@ -173,6 +187,13 @@
 
     <OgImageModal :show="showOgImageModal" @close="showOgImageModal = false" />
 
+    <OGStudio
+      v-if="showOgStudio"
+      :grid-id="gridPageId"
+      :grid-tiles="studioGridTiles"
+      @close="closeOgStudio"
+    />
+
     <TransferGridModal
       :show="showTransferModal"
       :grid-id="gridPageId"
@@ -214,6 +235,9 @@ import ColorPicker from "@/components/ui-controls/ColorPicker.vue";
 import PromptModal from "@/components/modal/PromptModal.vue";
 import OgImageModal from "@/components/modal/OgImageModal.vue";
 import TransferGridModal from "@/components/modal/TransferGridModal.vue";
+import LockIcon from "@/components/icons/LockIcon.vue";
+import OGStudio from "@/components/og/OGStudio.vue";
+import { useGridSessionStore } from "@/stores/grid/gridSession";
 
 const viewportStore = useGridViewportStore();
 const uiStore = useGridUiStore();
@@ -238,6 +262,8 @@ const {
   showDeleteModal,
   showTransferModal,
   showOgImageModal,
+  showOgStudio,
+  isEarlyAccessEnrolled,
   copyGridLink,
   duplicateGrid: duplicateGridAction,
   requestDelete,
@@ -245,6 +271,8 @@ const {
   openTransferModal: openTransferModalAction,
   cancelPendingTransfer: cancelPendingTransferAction,
   openOgImageModal: openOgImageModalAction,
+  openOgStudio: openOgStudioAction,
+  closeOgStudio,
   launchPixelRacers: launchPixelRacersAction,
   saveBreakpoint: saveBreakpointAction,
   resetBreakpoint: resetBreakpointAction,
@@ -334,8 +362,43 @@ const deleteGrid = async () => {
   closeMenu();
 };
 
+const sessionStore = useGridSessionStore();
+
+const TILE_COLOR_PALETTE = [
+  "#6366f1",
+  "#8b5cf6",
+  "#ec4899",
+  "#f59e0b",
+  "#10b981",
+  "#06b6d4",
+  "#ef4444",
+  "#84cc16",
+];
+
+const studioGridTiles = computed(() => {
+  const tiles = sessionStore.currentGrid?.tiles ?? [];
+  return tiles.map((tile, index) => {
+    const content = tile.content as unknown as Record<string, unknown>;
+    const color =
+      (typeof content?.backgroundColor === "string" && content.backgroundColor) ||
+      (typeof content?.color === "string" && content.color) ||
+      TILE_COLOR_PALETTE[index % TILE_COLOR_PALETTE.length];
+    const label =
+      tile.caption?.trim() ||
+      (typeof content?.title === "string" && content.title) ||
+      tile.content?.type ||
+      "Tile";
+    return { id: tile.i, label, color };
+  });
+});
+
 const openOgImageModal = () => {
   openOgImageModalAction();
+  closeMenu();
+};
+
+const openOgStudio = () => {
+  openOgStudioAction();
   closeMenu();
 };
 
@@ -514,5 +577,34 @@ const launchPixelRacers = () => {
   font-size: var(--font-size-sm);
   color: var(--color-content-low);
   font-weight: var(--font-weight-medium);
+}
+
+.og-menu-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--spacing-sm);
+}
+
+.og-menu-item-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs, 11px);
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-figma-purple, #7b61ff);
+  color: #fff;
+
+  &.is-locked {
+    background: var(--color-content-low, #6b7280);
+    opacity: 0.85;
+  }
+}
+
+.opengraph-editor-menu-item.is-locked {
+  opacity: 0.85;
 }
 </style>

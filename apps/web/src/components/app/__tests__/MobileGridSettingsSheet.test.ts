@@ -12,6 +12,7 @@ const gsHolder = vi.hoisted(() => ({
   performDelete: vi.fn(async () => undefined),
   openTransferModal: vi.fn(),
   cancelPendingTransfer: vi.fn(async () => undefined),
+  openOgStudio: vi.fn(),
   launchPixelRacers: vi.fn(),
   uploadBackgroundImage: vi.fn(async () => undefined),
   setBackgroundColor: vi.fn(),
@@ -21,6 +22,7 @@ const gsHolder = vi.hoisted(() => ({
   isOwner: true,
   isStaff: true,
   isDarkMode: false,
+  isEarlyAccessEnrolled: true,
   hasBackgroundImage: false,
   hasBackgroundColor: false,
   backgroundImageSrc: "",
@@ -59,12 +61,16 @@ vi.mock("@/composables/useGridSettings", () => ({
     setBackgroundColor: gsHolder.setBackgroundColor,
     showDeleteModal: ref(false),
     showTransferModal: ref(false),
+    showOgStudio: ref(false),
+    isEarlyAccessEnrolled: ref(gsHolder.isEarlyAccessEnrolled),
     copyGridLink: gsHolder.copyGridLink,
     duplicateGrid: gsHolder.duplicateGrid,
     requestDelete: gsHolder.requestDelete,
     performDelete: gsHolder.performDelete,
     openTransferModal: gsHolder.openTransferModal,
     cancelPendingTransfer: gsHolder.cancelPendingTransfer,
+    openOgStudio: gsHolder.openOgStudio,
+    closeOgStudio: vi.fn(),
     launchPixelRacers: gsHolder.launchPixelRacers,
   }),
 }));
@@ -86,6 +92,8 @@ const mountSheet = (query = "") =>
         ClipboardIcon: true,
         ChevronRightIcon: true,
         SpinnerIcon: true,
+        LockIcon: true,
+        OGStudio: true,
       },
     },
   });
@@ -311,5 +319,21 @@ describe("MobileGridSettingsSheet", () => {
     const wrapper = mountSheet();
     expect(wrapper.find(".mgs-header").text()).toContain("grid-1");
     expect(rowByText(wrapper, "Delete Grid")).toBeUndefined();
+  });
+
+  it("renders OpenGraph Editor and triggers openOgStudio when clicked", async () => {
+    const wrapper = mountSheet();
+    const row = rowByText(wrapper, "OpenGraph Editor");
+    expect(row).toBeDefined();
+    await row?.trigger("click");
+    expect(gsHolder.openOgStudio).toHaveBeenCalledOnce();
+  });
+
+  it("filters OpenGraph Editor by query 'og' and 'opengraph'", async () => {
+    const wrapper = mountSheet("opengraph");
+    expect(rowByText(wrapper, "OpenGraph Editor")).toBeDefined();
+
+    const wrapperOg = mountSheet("og");
+    expect(rowByText(wrapperOg, "OpenGraph Editor")).toBeDefined();
   });
 });

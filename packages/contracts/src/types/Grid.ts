@@ -87,6 +87,10 @@ export interface Grid {
   // User-uploaded social share (Open Graph) image URL. When set, it is used
   // as the page's og:image instead of the auto-generated screenshot.
   ogImageSrc?: string;
+  // Saved OG Image Studio layout (tile placement + background + visibility
+  // toggles) used to re-open the studio with the last export's setup. Opaque
+  // to this package — typed and validated by apps/web (see src/types/og.ts).
+  ogConfig?: Record<string, unknown>;
   themeId?: string;
   tiles: Tile[];
   overrides?: Partial<Record<Breakpoint, Record<string, TilePosition>>>;

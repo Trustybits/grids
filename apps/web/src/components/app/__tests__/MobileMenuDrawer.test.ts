@@ -45,7 +45,44 @@ vi.mock("@/stores/toast", () => ({
 }));
 
 vi.mock("@/auth/AuthProviderSingleton", () => ({
-  getAuthProvider: () => ({ signOut: holder.signOut }),
+  getAuthProvider: () => ({
+    signOut: holder.signOut,
+    getCurrentUserId: () => "user-1",
+  }),
+}));
+
+// Account settings pulled in by the drawer. The modals' own setup reaches for
+// the service factory, so stub them; the tier/checkout composables are mocked
+// so the account rows render without a real Stripe/service runtime.
+vi.mock("@/components/modal/SlugClaimModal.vue", () => ({
+  default: { template: "<div data-test=\"slug-modal\" />" },
+}));
+
+vi.mock("@/components/modal/FileArchiveModal.vue", () => ({
+  default: { template: "<div data-test=\"file-archive-modal\" />" },
+}));
+
+vi.mock("@/composables/useTier", async () => {
+  const { ref } = await import("vue");
+  return { useTier: () => ({ isProOrAbove: ref(false) }) };
+});
+
+vi.mock("@/composables/useStripeCheckout", async () => {
+  const { ref } = await import("vue");
+  return {
+    useStripeCheckout: () => ({
+      loading: ref(false),
+      openCustomerPortal: vi.fn(),
+    }),
+  };
+});
+
+vi.mock("@/services/ServiceFactorySingleton", () => ({
+  getServiceFactory: () => ({
+    getUserService: () => ({
+      getUserProfile: vi.fn(async () => ({ slug: "me" })),
+    }),
+  }),
 }));
 
 vi.mock("@/utils/TimeConversion", () => ({

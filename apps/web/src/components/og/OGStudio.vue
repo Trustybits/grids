@@ -50,10 +50,14 @@
           <Button
             variant="primary"
             size="sm"
+            class="og-apply-hero-btn"
             :loading="applyingToGrid"
             @click="handleApplyAsShareImage"
           >
-            Set as Share Image
+            <template #icon-left>
+              <CheckIcon :size="16" />
+            </template>
+            Apply to Grid
           </Button>
           <Button variant="ghost" size="sm" icon-only @click="$emit('close')">
             <template #icon-left><CloseXIcon :size="18" /></template>
@@ -85,7 +89,9 @@
           <OGInspector
             :config="config"
             :selected-tile-id="selectedTileId"
+            :is-applying="applyingToGrid"
             @update:config="onUpdateConfig"
+            @apply="handleApplyAsShareImage"
           />
         </aside>
       </div>
@@ -97,6 +103,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, toRef } from "vue";
 import Button from "@/components/ui-elements/Button.vue";
 import CloseXIcon from "@/components/icons/CloseXIcon.vue";
+import CheckIcon from "@/components/icons/CheckIcon.vue";
 import TilePicker from "./TilePicker.vue";
 import OGCanvas from "./OGCanvas.vue";
 import OGInspector from "./OGInspector.vue";
@@ -112,7 +119,7 @@ import { customOgImagePath, withVersionParam } from "@/utils/OgImageUtils";
 
 const props = defineProps<{
   gridId: string;
-  gridTiles: Array<{ id: string; label: string; color: string }>;
+  gridTiles: Array<any>;
 }>();
 
 const emit = defineEmits<{

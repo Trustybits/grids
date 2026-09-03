@@ -246,17 +246,7 @@ const handleCustomizeOg = () => {
 // content types don't carry an explicit color, so fall back to a rotating
 // palette keyed by tile order for anything without one.
 const studioGridTiles = computed(() => {
-  const tiles = sessionStore.currentGrid?.tiles ?? [];
-  return tiles.map((tile, index) => {
-    const content = tile.content as unknown as Record<string, unknown>;
-    const color =
-      (typeof content.backgroundColor === "string" && content.backgroundColor) ||
-      (typeof content.color === "string" && content.color) ||
-      TILE_COLOR_PALETTE[index % TILE_COLOR_PALETTE.length];
-    const label =
-      tile.caption?.trim() || contentTypeLabel[tile.content.type] || "Tile";
-    return { id: tile.i, label, color };
-  });
+  return sessionStore.currentGrid?.tiles ?? [];
 });
 
 // Effective preview: custom upload > generated image > site-wide default

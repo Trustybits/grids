@@ -5,7 +5,7 @@
  * tile/grid background that wants one of these presets.
  */
 
-export type BackgroundCategory = "solid" | "gradient" | "animated" | "pattern";
+export type BackgroundCategory = "solid" | "gradient" | "image" | "animated" | "pattern";
 
 export type GradientType = "linear" | "radial" | "conic";
 
@@ -19,6 +19,13 @@ export interface BackgroundConfig {
 
   // Solid
   color?: string;
+
+  // Image
+  imageUrl?: string;
+  imageFit?: "cover" | "contain";
+  imageBlur?: number; // px blur
+  imageOverlayOpacity?: number; // 0 to 1
+  imageOverlayColor?: string; // hex color tint
 
   // Gradient (linear / radial / conic)
   gradientType?: GradientType;
@@ -56,6 +63,11 @@ export interface BackgroundPreset {
 export const DEFAULT_BACKGROUND_CONFIG: BackgroundConfig = {
   presetId: "solid",
   color: "#18181b",
+  imageUrl: "",
+  imageFit: "cover",
+  imageBlur: 0,
+  imageOverlayOpacity: 0.35,
+  imageOverlayColor: "#000000",
   gradientType: "linear",
   stops: [
     { color: "#6366f1", offset: 0 },
@@ -99,6 +111,41 @@ const solid: BackgroundPreset = {
   render(config) {
     const c = withDefaults(config);
     return { css: `background: ${c.color};` };
+  },
+};
+
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = (hex || "#000000").replace("#", "");
+  if (clean.length === 3) {
+    const r = parseInt(clean[0] + clean[0], 16) || 0;
+    const g = parseInt(clean[1] + clean[1], 16) || 0;
+    const b = parseInt(clean[2] + clean[2], 16) || 0;
+    return [r, g, b];
+  }
+  const r = parseInt(clean.slice(0, 2), 16) || 0;
+  const g = parseInt(clean.slice(2, 4), 16) || 0;
+  const b = parseInt(clean.slice(4, 6), 16) || 0;
+  return [r, g, b];
+}
+
+const imageBackground: BackgroundPreset = {
+  id: "image-background",
+  label: "Image",
+  category: "image",
+  render(config) {
+    const c = withDefaults(config);
+    const url = c.imageUrl?.trim() || "";
+    if (!url) {
+      return { css: `background-color: ${c.color || "#18181b"};` };
+    }
+    const [r, g, b] = hexToRgb(c.imageOverlayColor || "#000000");
+    const alpha = c.imageOverlayOpacity ?? 0.35;
+    const blur = c.imageBlur ?? 0;
+    const fit = c.imageFit ?? "cover";
+    const filter = blur > 0 ? `filter: blur(${blur}px);` : "";
+    return {
+      css: `background: linear-gradient(rgba(${r}, ${g}, ${b}, ${alpha}), rgba(${r}, ${g}, ${b}, ${alpha})), url("${url}"); background-size: ${fit}; background-position: center; background-repeat: no-repeat; ${filter}`,
+    };
   },
 };
 
@@ -263,11 +310,20 @@ const pulse: BackgroundPreset = {
 
 // ─── Patterns ───────────────────────────────────────────────────────────
 
-function patternWrapper(id: string, size: number, animated: boolean, speed: number, body: string, extraDefs = ""): BackgroundRenderResult {
+function patternWrapper(
+  id: string,
+  size: number,
+  animated: boolean,
+  speed: number,
+  body: string,
+  bgColor = "#18181b",
+  extraDefs = "",
+): BackgroundRenderResult {
   const animAttr = animated
     ? `<animateTransform attributeName="patternTransform" type="translate" from="0 0" to="${size} ${size}" dur="${speed}s" repeatCount="indefinite" />`
     : "";
   return {
+    css: `background-color: ${bgColor};`,
     svgPattern: `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
       <defs>
         <pattern id="${id}" x="0" y="0" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
@@ -276,6 +332,7 @@ function patternWrapper(id: string, size: number, animated: boolean, speed: numb
         </pattern>
         ${extraDefs}
       </defs>
+      <rect width="100%" height="100%" fill="${bgColor}" />
       <rect width="100%" height="100%" fill="url(#${id})" />
     </svg>`,
   };
@@ -295,6 +352,7 @@ const dotGrid: BackgroundPreset = {
       c.animated,
       c.speed,
       `<circle cx="${c.patternSize / 2}" cy="${c.patternSize / 2}" r="${r}" fill="${c.patternColor}" />`,
+      c.patternBackground || "#18181b",
     );
   },
 };
@@ -312,7 +370,7 @@ const lineGrid: BackgroundPreset = {
       <line x1="0" y1="0" x2="${s}" y2="0" stroke="${c.patternColor}" stroke-width="${sw}" />
       <line x1="0" y1="0" x2="0" y2="${s}" stroke="${c.patternColor}" stroke-width="${sw}" />
     `;
-    return patternWrapper(id, s, c.animated, c.speed, body);
+    return patternWrapper(id, s, c.animated, c.speed, body, c.patternBackground || "#18181b");
   },
 };
 
@@ -331,6 +389,7 @@ const lineGridDiagonal: BackgroundPreset = {
       c.animated,
       c.speed,
       `<line x1="0" y1="${s}" x2="${s}" y2="0" stroke="${c.patternColor}" stroke-width="${sw}" />`,
+      c.patternBackground || "#18181b",
     );
   },
 };
@@ -348,7 +407,7 @@ const crosshatch: BackgroundPreset = {
       <line x1="0" y1="${s}" x2="${s}" y2="0" stroke="${c.patternColor}" stroke-width="${sw}" />
       <line x1="0" y1="0" x2="${s}" y2="${s}" stroke="${c.patternColor}" stroke-width="${sw}" />
     `;
-    return patternWrapper(id, s, c.animated, c.speed, body);
+    return patternWrapper(id, s, c.animated, c.speed, body, c.patternBackground || "#18181b");
   },
 };
 
@@ -380,6 +439,7 @@ const hexagons: BackgroundPreset = {
       c.animated,
       c.speed,
       `<polygon points="${points}" fill="none" stroke="${c.patternColor}" stroke-width="${sw}" />`,
+      c.patternBackground || "#18181b",
     );
   },
 };
@@ -400,7 +460,7 @@ const plusCross: BackgroundPreset = {
       <rect x="${cx - armThick / 2}" y="${cy - armLen / 2}" width="${armThick}" height="${armLen}" fill="${c.patternColor}" />
       <rect x="${cx - armLen / 2}" y="${cy - armThick / 2}" width="${armLen}" height="${armThick}" fill="${c.patternColor}" />
     `;
-    return patternWrapper(id, s, c.animated, c.speed, body);
+    return patternWrapper(id, s, c.animated, c.speed, body, c.patternBackground || "#18181b");
   },
 };
 
@@ -425,6 +485,7 @@ const triangles: BackgroundPreset = {
       c.animated,
       c.speed,
       `<polygon points="${points}" fill="none" stroke="${c.patternColor}" stroke-width="${c.patternStrokeWidth}" />`,
+      c.patternBackground || "#18181b",
     );
   },
 };
@@ -451,6 +512,7 @@ const noiseGrain: BackgroundPreset = {
         </filter>
       </svg>`,
       svgPattern: `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+        <rect width="100%" height="100%" fill="${c.patternBackground || "#18181b"}" />
         <rect width="100%" height="100%" filter="url(#${filterId})" />
       </svg>`,
     };
@@ -464,6 +526,7 @@ const PRESETS: BackgroundPreset[] = [
   linearGradient,
   radialGradient,
   conicGradient,
+  imageBackground,
   aurora,
   shimmer,
   spotlight,

@@ -45,7 +45,11 @@
         @pointerdown.stop="onTilePointerDown($event, placement)"
         @click.stop
       >
-        <span class="og-canvas__tile-label">{{ tileLabel(placement.tileId) }}</span>
+        <OGTileCard
+          v-if="getTile(placement.tileId)"
+          :tile="getTile(placement.tileId)!"
+        />
+        <span v-else class="og-canvas__tile-label">{{ tileLabel(placement.tileId) }}</span>
       </div>
     </div>
   </div>
@@ -54,6 +58,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { BackgroundLayer } from "@/lib/animate";
+import OGTileCard from "./OGTileCard.vue";
+import type { Tile } from "@grids/contracts/types";
 import {
   OG_CANVAS_WIDTH,
   OG_CANVAS_HEIGHT,
@@ -66,7 +72,7 @@ import { useGridSessionStore } from "@/stores/grid/gridSession";
 
 const props = defineProps<{
   config: OGConfig;
-  gridTiles: Array<{ id: string; color: string; label?: string }>;
+  gridTiles: Array<any>;
   selectedTileId?: string | null;
 }>();
 
@@ -122,18 +128,32 @@ const safeZoneStyle = computed(() => ({
   width: `${OG_SAFE_ZONE_END - OG_SAFE_ZONE_START}%`,
 }));
 
-const TILE_BASE_PX = 96;
-
-const tileWidthPercent = (scaleFactor: number) =>
-  ((TILE_BASE_PX * scaleFactor) / OG_CANVAS_WIDTH) * 100;
-const tileHeightPercent = (scaleFactor: number) =>
-  ((TILE_BASE_PX * scaleFactor) / OG_CANVAS_HEIGHT) * 100;
-
-const colorForTile = (tileId: string): string =>
-  props.gridTiles.find((t) => t.id === tileId)?.color ?? "#6366f1";
+const getTile = (tileId: string): Tile | null => {
+  const match = props.gridTiles.find((t: any) => t.i === tileId || t.id === tileId);
+  if (!match) return null;
+  if (match.content) return match as Tile;
+  return {
+    i: match.id || tileId,
+    x: 0,
+    y: 0,
+    w: 2,
+    h: 2,
+    content: {
+      type: "text" as any,
+      text: match.label || "Tile",
+      backgroundColor: match.color,
+    } as any,
+  } as Tile;
+};
 
 const tileLabel = (tileId: string): string => {
-  const match = props.gridTiles.find((t) => t.id === tileId);
+  const tile = getTile(tileId);
+  if (tile) {
+    const c = tile.content as any;
+    const label = tile.caption?.trim() || c?.title || c?.label || c?.name || tile.content.type;
+    if (label) return label.length > 14 ? `${label.slice(0, 13)}…` : label;
+  }
+  const match = props.gridTiles.find((t: any) => t.id === tileId || t.i === tileId);
   const label = match?.label ?? tileId;
   return label.length > 10 ? `${label.slice(0, 9)}…` : label;
 };
@@ -155,14 +175,19 @@ const tileAnimationClass = (placement: OGTilePlacement) => {
 const tileStyle = (placement: OGTilePlacement, index: number) => {
   const speed = props.config.animation?.tileSpeed ?? 3;
   const delay = ((index * 0.35) % 2).toFixed(2);
+  const tile = getTile(placement.tileId);
+  const baseW = 140 * (tile?.w ? Math.max(1, tile.w / 2) : 1);
+  const baseH = 140 * (tile?.h ? Math.max(1, tile.h / 2) : 1);
+  const wPct = ((baseW * placement.scale) / OG_CANVAS_WIDTH) * 100;
+  const hPct = ((baseH * placement.scale) / OG_CANVAS_HEIGHT) * 100;
+
   return {
     left: `${placement.x}%`,
     top: `${placement.y}%`,
-    width: `${tileWidthPercent(placement.scale)}%`,
-    height: `${tileHeightPercent(placement.scale)}%`,
+    width: `${wPct}%`,
+    height: `${hPct}%`,
     opacity: placement.opacity,
     transform: `translate(-50%, -50%) rotate(${placement.rotation}deg)`,
-    background: colorForTile(placement.tileId),
     "--tile-rot": `${placement.rotation}deg`,
     "--tile-speed": `${speed}s`,
     "--tile-delay": `${delay}s`,
@@ -362,20 +387,25 @@ defineExpose({ getStageEl: () => stageRef.value });
 
 .og-canvas__tile {
   position: absolute;
-  border-radius: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: var(--tile-border-radius, 18px);
   cursor: grab;
   touch-action: none;
   user-select: none;
-}
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  transition: outline 0.15s ease;
 
-.og-canvas__tile.is-selected {
-  outline: 2px solid var(--color-figma-purple);
-  outline-offset: 2px;
+  &.is-selected {
+    outline: 3px solid var(--color-figma-purple, #a855f7);
+    outline-offset: 4px;
+    z-index: 15;
+  }
+
+  &.is-dragging {
+    cursor: grabbing;
+    z-index: 25;
+  }
 }
 
 .og-canvas__tile.is-dragging {

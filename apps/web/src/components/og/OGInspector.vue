@@ -31,6 +31,29 @@
         <Divider class="og-card-panel__divider" />
 
         <div class="og-card-panel__body">
+          <!-- Per-Tile Theme: Dark / Light Mode -->
+          <div class="og-field">
+            <span class="mgs-section__label">TILE THEME</span>
+            <div class="mgs-segment">
+              <button
+                type="button"
+                class="mgs-segment__btn"
+                :class="{ 'is-active': (selectedPlacement.theme ?? 'dark') === 'dark' }"
+                @click="updateSelectedPlacement({ theme: 'dark' })"
+              >
+                Dark
+              </button>
+              <button
+                type="button"
+                class="mgs-segment__btn"
+                :class="{ 'is-active': selectedPlacement.theme === 'light' }"
+                @click="updateSelectedPlacement({ theme: 'light' })"
+              >
+                Light
+              </button>
+            </div>
+          </div>
+
           <div class="og-field">
             <div class="og-control-row">
               <span class="mgs-section__label">SCALE</span>
@@ -40,7 +63,7 @@
               type="range"
               class="og-range-slider"
               min="50"
-              max="200"
+              max="220"
               :value="Math.round((selectedPlacement.scale ?? 1) * 100)"
               @input="(e) => updateSelectedPlacement({ scale: Number((e.target as HTMLInputElement).value) / 100 })"
             />
@@ -112,25 +135,133 @@
 
       <!-- ── INFO SAFE ZONE ─────────────────────────────────────────── -->
       <section class="mgs-section">
-        <span class="mgs-section__label">INFO SAFE ZONE</span>
-        <div class="og-toggles-group">
-          <Toggle
-            label="Avatar Initials"
-            :model-value="config.visibility.avatar"
-            @update:model-value="(v) => updateVisibility({ avatar: v })"
+        <div class="og-control-row">
+          <span class="mgs-section__label">INFO SAFE ZONE</span>
+          <button
+            type="button"
+            class="og-tpl-quick-btn"
+            title="Change layout arrangement"
+            @click="$emit('open-templates')"
+          >
+            Templates
+          </button>
+        </div>
+
+        <!-- Avatar Customization -->
+        <div class="og-field">
+          <div class="og-control-row">
+            <span class="og-sub-label">Avatar Badge</span>
+            <Toggle
+              label=""
+              :model-value="config.visibility.avatar"
+              @update:model-value="(v) => updateVisibility({ avatar: v })"
+            />
+          </div>
+
+          <template v-if="config.visibility.avatar">
+            <!-- Mode Switcher: Initials vs Photo -->
+            <div class="mgs-segment">
+              <button
+                type="button"
+                class="mgs-segment__btn"
+                :class="{ 'is-active': !config.customAvatarImage }"
+                @click="clearAvatarImage"
+              >
+                Initials
+              </button>
+              <button
+                type="button"
+                class="mgs-segment__btn"
+                :class="{ 'is-active': !!config.customAvatarImage }"
+                @click="triggerAvatarUpload"
+              >
+                Photo
+              </button>
+            </div>
+
+            <!-- Initials Input -->
+            <div v-if="!config.customAvatarImage" class="og-avatar-initials-row">
+              <span class="og-val-desc">Initials (max 3)</span>
+              <input
+                type="text"
+                class="og-hex-input og-initials-input"
+                maxlength="3"
+                placeholder="e.g. RK"
+                :value="config.customAvatarInitials ?? ''"
+                @input="(e) => updateConfigPatch({ customAvatarInitials: (e.target as HTMLInputElement).value })"
+              />
+            </div>
+
+            <!-- Photo Upload & Thumbnail -->
+            <div v-else class="og-avatar-photo-controls">
+              <div class="og-avatar-preview-box">
+                <img :src="config.customAvatarImage" class="og-avatar-preview-thumb" />
+                <div class="og-avatar-photo-btns">
+                  <button type="button" class="og-avatar-change-btn" @click="triggerAvatarUpload">
+                    Change
+                  </button>
+                  <button type="button" class="og-avatar-del-btn" @click="clearAvatarImage">
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <input
+              ref="avatarFileInput"
+              type="file"
+              accept="image/*"
+              style="display: none"
+              @change="onAvatarFileSelected"
+            />
+          </template>
+        </div>
+
+        <!-- Grid Title & Custom Title Override -->
+        <div class="og-field">
+          <div class="og-control-row">
+            <span class="og-sub-label">Grid Title</span>
+            <Toggle
+              label=""
+              :model-value="config.visibility.name"
+              @update:model-value="(v) => updateVisibility({ name: v })"
+            />
+          </div>
+          <input
+            v-if="config.visibility.name"
+            type="text"
+            class="og-hex-input og-hex-input--full"
+            placeholder="Custom title (leave blank for grid name)"
+            :value="config.customTitle ?? ''"
+            @input="(e) => updateConfigPatch({ customTitle: (e.target as HTMLInputElement).value })"
           />
-          <Toggle
-            label="Grid Name"
-            :model-value="config.visibility.name"
-            @update:model-value="(v) => updateVisibility({ name: v })"
+        </div>
+
+        <!-- Subtitle & Custom Subtitle Override -->
+        <div class="og-field">
+          <div class="og-control-row">
+            <span class="og-sub-label">Subtitle / Bio</span>
+            <Toggle
+              label=""
+              :model-value="config.visibility.subtitle"
+              @update:model-value="(v) => updateVisibility({ subtitle: v })"
+            />
+          </div>
+          <input
+            v-if="config.visibility.subtitle"
+            type="text"
+            class="og-hex-input og-hex-input--full"
+            placeholder="Custom bio or tagline..."
+            :value="config.customSubtitle ?? ''"
+            @input="(e) => updateConfigPatch({ customSubtitle: (e.target as HTMLInputElement).value })"
           />
+        </div>
+
+        <!-- Handle Badge Toggle -->
+        <div class="og-control-row">
+          <span class="og-sub-label">Handle Badge (@handle)</span>
           <Toggle
-            label="Subtitle"
-            :model-value="config.visibility.subtitle"
-            @update:model-value="(v) => updateVisibility({ subtitle: v })"
-          />
-          <Toggle
-            label="Handle Badge"
+            label=""
             :model-value="config.visibility.handle"
             @update:model-value="(v) => updateVisibility({ handle: v })"
           />
@@ -224,7 +355,6 @@
           </div>
 
           <div class="og-color-picker-row">
-            <!-- Fully Circular Color Swatch Button -->
             <div
               class="og-circle-color-picker"
               :style="{ backgroundColor: config.background.color }"
@@ -246,7 +376,7 @@
             />
           </div>
 
-          <!-- Quick Palette Circles: STRICTLY 100% CIRCULAR -->
+          <!-- Quick Palette Circles -->
           <div class="og-swatches-grid">
             <button
               v-for="swatch in SOLID_SWATCHES"
@@ -263,7 +393,6 @@
 
         <!-- ── Gradient Controls ───────────────────────────────────── -->
         <template v-if="activeCategory === 'gradient'">
-          <!-- Gradient Preset Pills -->
           <div v-if="presetsInCategory.length > 1" class="mgs-segment">
             <button
               v-for="preset in presetsInCategory"
@@ -503,7 +632,6 @@
         <template v-if="activeCategory === 'pattern'">
           <div class="og-field">
             <span class="mgs-section__label">TEXTURE STYLE</span>
-            <!-- Custom Dropdown: NO white-on-white text bug! -->
             <div class="og-custom-dropdown" @click.stop>
               <button
                 type="button"
@@ -530,7 +658,7 @@
             </div>
           </div>
 
-          <!-- Background Fill Color (Fully Circular) -->
+          <!-- Background Fill Color -->
           <div class="og-field">
             <div class="og-control-row">
               <span class="mgs-section__label">BACKGROUND FILL COLOR</span>
@@ -558,7 +686,7 @@
             </div>
           </div>
 
-          <!-- Texture / Line Color (Fully Circular) -->
+          <!-- Texture / Line Color -->
           <div class="og-field">
             <div class="og-control-row">
               <span class="mgs-section__label">TEXTURE / LINE COLOR</span>
@@ -692,8 +820,20 @@
       </section>
     </div>
 
-    <!-- ── DEDICATED APPLY BUTTON FOOTER ──────────────────────────── -->
+    <!-- ── DEDICATED PREVIEW & APPLY BUTTON FOOTER ──────────────────── -->
     <div class="og-footer">
+      <Button
+        variant="secondary"
+        size="md"
+        class="og-preview-btn"
+        @click="$emit('preview')"
+      >
+        <template #icon-left>
+          <EyeIcon :size="16" />
+        </template>
+        Preview
+      </Button>
+
       <Button
         variant="primary"
         size="md"
@@ -705,7 +845,7 @@
           <SpinnerIcon v-if="isApplying" :size="16" />
           <CheckIcon v-else :size="16" />
         </template>
-        {{ isApplying ? "Applying to Grid…" : "Apply to Grid" }}
+        {{ isApplying ? "Applying…" : "Apply to Grid" }}
       </Button>
     </div>
   </div>
@@ -721,6 +861,7 @@ import CheckIcon from "@/components/icons/CheckIcon.vue";
 import SpinnerIcon from "@/components/icons/SpinnerIcon.vue";
 import Chevron from "@/components/icons/Chevron.vue";
 import CloseXIcon from "@/components/icons/CloseXIcon.vue";
+import EyeIcon from "@/components/icons/EyeIcon.vue";
 import { getTileDefinition } from "@/registries/tileRegistry";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import {
@@ -742,7 +883,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   "update:config": [config: OGConfig];
   "select-tile": [tileId: string | null];
+  "preview": [];
   "apply": [];
+  "open-templates": [];
 }>();
 
 const sessionStore = useGridSessionStore();
@@ -848,6 +991,13 @@ const updateVisibility = (patch: Partial<OGVisibility>) => {
   });
 };
 
+const updateConfigPatch = (patch: Partial<OGConfig>) => {
+  emit("update:config", {
+    ...props.config,
+    ...patch,
+  });
+};
+
 const updateBackground = (patch: Partial<BackgroundConfig>) => {
   emit("update:config", {
     ...props.config,
@@ -883,6 +1033,32 @@ const addStop = () => {
 const removeStop = (index: number) => {
   const stops = (props.config.background.stops ?? []).filter((_, i) => i !== index);
   updateBackground({ stops });
+};
+
+// Avatar Upload handling
+const avatarFileInput = ref<HTMLInputElement | null>(null);
+
+const triggerAvatarUpload = () => {
+  avatarFileInput.value?.click();
+};
+
+const onAvatarFileSelected = (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const dataUrl = event.target?.result as string;
+    if (dataUrl) {
+      updateConfigPatch({ customAvatarImage: dataUrl });
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+const clearAvatarImage = () => {
+  updateConfigPatch({ customAvatarImage: undefined });
 };
 
 // Image Background Handling
@@ -970,6 +1146,8 @@ const selectedPlacement = computed<OGTilePlacement | undefined>(() =>
 
 const selectedTileData = computed(() => {
   if (!props.selectedTileId) return null;
+  const custom = props.config.customTiles?.find((t: any) => (t.i ?? t.id) === props.selectedTileId);
+  if (custom) return custom;
   return props.gridTiles?.find((t: any) => (t.i ?? t.id) === props.selectedTileId) ?? null;
 });
 
@@ -1054,7 +1232,7 @@ const removeSelectedTile = () => {
   gap: 16px;
 }
 
-/* ── MGS Section Style (Matching MobileGridSettingsSheet.vue) ───────────── */
+/* ── MGS Section Style ─────────────────────────────────────────────────── */
 .mgs-section {
   display: flex;
   flex-direction: column;
@@ -1073,6 +1251,12 @@ const removeSelectedTile = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.og-sub-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e4e4e7;
 }
 
 .og-val-text {
@@ -1103,13 +1287,90 @@ const removeSelectedTile = () => {
   gap: 8px;
 }
 
-.og-toggles-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.og-tpl-quick-btn {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-figma-purple, #a855f7);
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: rgba(168, 85, 247, 0.25);
+  }
 }
 
-/* ── Custom Dark Dropdown (No white-on-white text bug!) ────────────────── */
+/* ── Avatar Initial & Photo Controls ───────────────────────────────────── */
+.og-avatar-initials-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.og-initials-input {
+  width: 90px !important;
+  flex: none !important;
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.og-avatar-photo-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.og-avatar-preview-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #141417;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.og-avatar-preview-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--color-figma-purple, #a855f7);
+}
+
+.og-avatar-photo-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.og-avatar-change-btn,
+.og-avatar-del-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1e1e24;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #2a2a32;
+  }
+}
+
+.og-avatar-del-btn:hover {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* ── Custom Dark Dropdown ───────────────────────────────────────────────── */
 .og-custom-dropdown {
   position: relative;
   width: 100%;
@@ -1209,7 +1470,7 @@ const removeSelectedTile = () => {
   color: var(--color-figma-purple, #a855f7);
 }
 
-/* ── Segmented Control (Matching Image 2) ───────────────────────────────── */
+/* ── Segmented Control ──────────────────────────────────────────────────── */
 .mgs-segment {
   display: flex;
   gap: 3px;
@@ -1264,20 +1525,12 @@ const removeSelectedTile = () => {
     );
   }
 
-  &--image {
-    background: #3b82f6;
-  }
-
-  &--anim {
-    background: #ec4899;
-  }
-
-  &--pattern {
-    background: #eab308;
-  }
+  &--image { background: #3b82f6; }
+  &--anim { background: #ec4899; }
+  &--pattern { background: #eab308; }
 }
 
-/* ── Truly Circular Color Picker (36x36 Perfect Circle) ─────────────────── */
+/* ── Truly Circular Color Picker & Swatches ─────────────────────────────── */
 .og-color-picker-row {
   display: flex;
   align-items: center;
@@ -1357,7 +1610,6 @@ const removeSelectedTile = () => {
   }
 }
 
-/* ── Truly Circular Swatches (Strictly 28x28 Geometric Circles) ─────────── */
 .og-swatches-grid {
   display: flex;
   flex-wrap: wrap;
@@ -1395,7 +1647,7 @@ const removeSelectedTile = () => {
   }
 }
 
-/* ── Sleek Range Slider (Dark Grids style) ──────────────────────────────── */
+/* ── Sleek Range Slider ─────────────────────────────────────────────────── */
 .og-range-slider {
   width: 100%;
   height: 6px;
@@ -1492,7 +1744,7 @@ const removeSelectedTile = () => {
   }
 }
 
-/* ── Standalone Card Panel for Selected Tile (No Purple Highlight Box) ───── */
+/* ── Standalone Card Panel for Selected Tile ────────────────────────────── */
 .og-card-panel {
   background: #141416;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1615,15 +1867,24 @@ const removeSelectedTile = () => {
   padding-top: 8px;
 }
 
-/* ── Footer / Apply Button ──────────────────────────────────────────────── */
+/* ── Footer ─────────────────────────────────────────────────────────────── */
 .og-footer {
   padding: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   background: #000000;
+  display: flex;
+  gap: 10px;
+}
+
+.og-preview-btn {
+  flex: 1;
+  justify-content: center;
+  min-height: 42px;
+  font-weight: 600;
 }
 
 .og-apply-btn {
-  width: 100%;
+  flex: 1.5;
   font-weight: 700;
   justify-content: center;
   min-height: 42px;

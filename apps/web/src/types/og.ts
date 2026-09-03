@@ -11,6 +11,7 @@ export interface OGTilePlacement {
   scale: number;
   opacity: number;
   animation?: TileAnimationType;
+  theme?: "dark" | "light";
 }
 
 export interface OGVisibility {
@@ -31,6 +32,12 @@ export interface OGConfig {
   background: BackgroundConfig;
   visibility: OGVisibility;
   animation?: OGAnimationConfig;
+  layoutTemplate?: "center" | "split" | "hero" | "gallery" | "orbits" | string;
+  customAvatarInitials?: string;
+  customAvatarImage?: string;
+  customTitle?: string;
+  customSubtitle?: string;
+  customTiles?: Array<any>;
   version: 1;
 }
 

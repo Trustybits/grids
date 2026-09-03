@@ -1,7 +1,7 @@
 <template>
   <div
     class="og-tile-card"
-    :class="[`og-tile-card--${tile.content.type}`]"
+    :class="[`og-tile-card--${tile.content.type}`, `theme-${theme || 'dark'}`]"
     :style="cardStyle"
   >
     <div class="og-tile-card__inner">
@@ -27,9 +27,15 @@ import type { Tile } from "@grids/contracts/types";
 import { getContentComponent } from "@/utils/TileUtils";
 import { getTileDefinition } from "@/registries/tileRegistry";
 
-const props = defineProps<{
-  tile: Tile;
-}>();
+const props = withDefaults(
+  defineProps<{
+    tile: Tile;
+    theme?: "dark" | "light";
+  }>(),
+  {
+    theme: "dark",
+  },
+);
 
 // Provide standard tile layout context needed by tile content components
 provide(
@@ -69,6 +75,7 @@ const contentProps = computed(() => {
 });
 
 const tileBg = computed(() => {
+  if (props.theme === "light") return "#ffffff";
   const c = props.tile.content as unknown as Record<string, unknown>;
   return (
     (typeof c?.backgroundColor === "string" && c.backgroundColor) ||
@@ -78,6 +85,7 @@ const tileBg = computed(() => {
 });
 
 const tileTextColor = computed(() => {
+  if (props.theme === "light") return "#18181b";
   const c = props.tile.content as unknown as Record<string, unknown>;
   return (
     (typeof c?.textColor === "string" && c.textColor) ||
@@ -119,6 +127,20 @@ const tileLabel = computed(() => {
   pointer-events: none;
   user-select: none;
   transform: translateZ(0);
+
+  &.theme-light {
+    background-color: #ffffff !important;
+    color: #18181b !important;
+
+    &::after {
+      border-color: rgba(0, 0, 0, 0.12) !important;
+    }
+
+    :deep(*) {
+      --color-text-primary: #18181b;
+      --color-content-low: #71717a;
+    }
+  }
 
   /* Subtle border overlay */
   &::after {

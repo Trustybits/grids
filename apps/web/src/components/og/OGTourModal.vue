@@ -87,7 +87,7 @@ const dismiss = () => {
   inset: 0;
   background: rgba(0, 0, 0, 0.84);
   backdrop-filter: blur(12px);
-  z-index: calc(var(--z-modal, 1050) + 60);
+  z-index: calc(var(--z-topbar, 2000) + 160);
   display: flex;
   align-items: center;
   justify-content: center;

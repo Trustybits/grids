@@ -180,7 +180,7 @@ const activePlatform = ref("twitter");
   inset: 0;
   background: rgba(0, 0, 0, 0.82);
   backdrop-filter: blur(10px);
-  z-index: calc(var(--z-modal, 1050) + 50);
+  z-index: calc(var(--z-topbar, 2000) + 150);
   display: flex;
   align-items: center;
   justify-content: center;

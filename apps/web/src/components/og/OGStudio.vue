@@ -1,7 +1,7 @@
 <template>
   <teleport to="body">
     <div
-      class="og-studio modal-overlay"
+      class="og-studio"
       role="dialog"
       aria-modal="true"
       aria-label="OpenGraph Editor"
@@ -544,7 +544,7 @@ const handleApplyAsShareImage = async () => {
 .og-studio {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--z-modal, 1050) + 10);
+  z-index: calc(var(--z-topbar, 2000) + 100);
   display: flex;
   flex-direction: column;
   height: 100vh;

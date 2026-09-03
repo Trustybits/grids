@@ -136,11 +136,8 @@
           </div>
           <TilePicker
             :grid-tiles="gridTiles"
-            :custom-tiles="config.customTiles"
             :active-tile-ids="activeTileIds"
             @add-tile="addTile"
-            @create-custom-tile="handleCreateCustomTile"
-            @delete-custom-tile="handleDeleteCustomTile"
           />
         </aside>
 
@@ -323,9 +320,7 @@ onMounted(() => {
   }
 });
 
-const totalCardsCount = computed(
-  () => props.gridTiles.length + (config.value.customTiles?.length || 0),
-);
+const totalCardsCount = computed(() => props.gridTiles.length);
 
 const activeTileIds = computed(() => config.value.tiles.map((t) => t.tileId));
 
@@ -383,29 +378,6 @@ const addTile = (tileId: string) => {
   activeMobileTab.value = "canvas";
 };
 
-const handleCreateCustomTile = (tile: any) => {
-  const currentCustom = config.value.customTiles ?? [];
-  config.value = {
-    ...config.value,
-    customTiles: [...currentCustom, tile],
-  };
-  addTile(tile.i);
-  toastStore.addToast("Custom card added to canvas!", "success");
-};
-
-const handleDeleteCustomTile = (tileId: string) => {
-  const customTiles = (config.value.customTiles ?? []).filter((t: any) => t.i !== tileId);
-  const tiles = config.value.tiles.filter((t) => t.tileId !== tileId);
-  config.value = {
-    ...config.value,
-    customTiles,
-    tiles,
-  };
-  if (selectedTileId.value === tileId) {
-    selectedTileId.value = null;
-  }
-  toastStore.addToast("Custom card removed", "info");
-};
 
 const handleSelectTemplate = (templateId: string) => {
   config.value = applyLayoutTemplate(config.value, templateId);

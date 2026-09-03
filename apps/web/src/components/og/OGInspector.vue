@@ -1146,8 +1146,6 @@ const selectedPlacement = computed<OGTilePlacement | undefined>(() =>
 
 const selectedTileData = computed(() => {
   if (!props.selectedTileId) return null;
-  const custom = props.config.customTiles?.find((t: any) => (t.i ?? t.id) === props.selectedTileId);
-  if (custom) return custom;
   return props.gridTiles?.find((t: any) => (t.i ?? t.id) === props.selectedTileId) ?? null;
 });
 

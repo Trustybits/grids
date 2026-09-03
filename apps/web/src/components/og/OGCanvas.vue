@@ -209,10 +209,6 @@ const safeZoneStyle = computed(() => {
 });
 
 const getTile = (tileId: string): Tile | null => {
-  // Support custom virtual tiles first
-  const custom = props.config.customTiles?.find((t: any) => t.i === tileId || t.id === tileId);
-  if (custom) return custom as Tile;
-
   const match = props.gridTiles.find((t: any) => t.i === tileId || t.id === tileId);
   if (!match) return null;
   if (match.content) return match as Tile;

@@ -37,7 +37,6 @@ export interface OGConfig {
   customAvatarImage?: string;
   customTitle?: string;
   customSubtitle?: string;
-  customTiles?: Array<any>;
   version: 1;
 }
 

@@ -16,14 +16,18 @@
           <h3 class="og-studio__title">OpenGraph Studio</h3>
           <span class="og-studio__badge">Early Access</span>
 
-          <!-- Tour Help Button -->
+          <!-- Tour / Guide Trigger Pill -->
           <button
             type="button"
-            class="og-help-icon-btn"
-            title="What is OpenGraph? Take a quick tour"
+            class="og-guide-pill-btn"
+            title="OpenGraph Guide & Tour"
             @click="showTourModal = true"
           >
-            <InfoCircleIcon :size="16" />
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="og-guide-pill-btn__icon">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            <span>Guide</span>
           </button>
         </div>
 
@@ -115,8 +119,12 @@
             <span>Apply to Grid</span>
           </Button>
 
-          <Button variant="ghost" size="sm" icon-only @click="$emit('close')">
-            <template #icon-left><CloseXIcon :size="18" /></template>
+          <Button variant="ghost" size="sm" icon-only aria-label="Close" @click="$emit('close')">
+            <template #icon-left>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </template>
           </Button>
         </div>
       </header>
@@ -130,8 +138,10 @@
         >
           <div class="og-drawer-mobile-header">
             <h4>Cards & Tiles</h4>
-            <button type="button" class="og-drawer-close-btn" @click="activeMobileTab = 'canvas'">
-              <CloseXIcon :size="16" />
+            <button type="button" class="og-drawer-close-btn" aria-label="Close" @click="activeMobileTab = 'canvas'">
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
             </button>
           </div>
           <TilePicker
@@ -160,8 +170,10 @@
         >
           <div class="og-drawer-mobile-header">
             <h4>Settings & Theme</h4>
-            <button type="button" class="og-drawer-close-btn" @click="activeMobileTab = 'canvas'">
-              <CloseXIcon :size="16" />
+            <button type="button" class="og-drawer-close-btn" aria-label="Close" @click="activeMobileTab = 'canvas'">
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
             </button>
           </div>
           <OGInspector
@@ -193,7 +205,10 @@
           :class="{ 'is-active': activeMobileTab === 'canvas' }"
           @click="activeMobileTab = 'canvas'"
         >
-          <span class="og-mobile-tab__icon">🎨</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="og-mobile-tab__icon">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8" />
+            <path d="M3 9h18M9 21V9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
           <span>Canvas</span>
         </button>
 
@@ -203,7 +218,7 @@
           :class="{ 'is-active': activeMobileTab === 'tiles' }"
           @click="activeMobileTab = 'tiles'"
         >
-          <span class="og-mobile-tab__icon">📦</span>
+          <FolderIcon :size="18" class="og-mobile-tab__icon" />
           <span>Cards ({{ totalCardsCount }})</span>
         </button>
 
@@ -213,7 +228,7 @@
           :class="{ 'is-active': activeMobileTab === 'inspector' }"
           @click="activeMobileTab = 'inspector'"
         >
-          <span class="og-mobile-tab__icon">⚙️</span>
+          <GearIcon :size="18" class="og-mobile-tab__icon" />
           <span>Settings</span>
         </button>
 
@@ -222,7 +237,7 @@
           class="og-mobile-tab"
           @click="showTemplateModal = true"
         >
-          <span class="og-mobile-tab__icon">📐</span>
+          <GridSquaresIcon :size="18" class="og-mobile-tab__icon" />
           <span>Templates</span>
         </button>
       </nav>
@@ -242,8 +257,10 @@
         :author-handle="authorHandle"
         :author-initials="effectiveInitials"
         :is-applying="applyingToGrid"
+        :refreshing="refreshingPreview"
         @close="showPreviewModal = false"
         @apply="handleApplyAsShareImage"
+        @refresh="refreshPreview"
       />
 
       <OGTemplateModal
@@ -257,13 +274,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, toRef } from "vue";
+import { computed, nextTick, onMounted, ref, toRef } from "vue";
 import Button from "@/components/ui-elements/Button.vue";
 import CloseXIcon from "@/components/icons/CloseXIcon.vue";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
 import EyeIcon from "@/components/icons/EyeIcon.vue";
 import GridSquaresIcon from "@/components/icons/GridSquaresIcon.vue";
 import InfoCircleIcon from "@/components/icons/InfoCircleIcon.vue";
+import FolderIcon from "@/components/icons/FolderIcon.vue";
+import GearIcon from "@/components/icons/GearIcon.vue";
 import TilePicker from "./TilePicker.vue";
 import OGCanvas from "./OGCanvas.vue";
 import OGInspector from "./OGInspector.vue";
@@ -376,12 +395,17 @@ const addTile = (tileId: string) => {
   selectedTileId.value = tileId;
   // If on mobile/tablet, switch back to canvas so user sees the newly placed card!
   activeMobileTab.value = "canvas";
+  if (showPreviewModal.value) {
+    capturePreviewSnapshot();
+  }
 };
 
-
 const handleSelectTemplate = (templateId: string) => {
-  config.value = applyLayoutTemplate(config.value, templateId);
+  config.value = applyLayoutTemplate(config.value, templateId, props.gridTiles);
   toastStore.addToast(`Applied ${templateId} layout template`, "info");
+  if (showPreviewModal.value) {
+    capturePreviewSnapshot();
+  }
 };
 
 const storageService = getServiceFactory().getStorageService();
@@ -458,20 +482,83 @@ const handleExportGif = async () => {
   }
 };
 
-const openPreview = async () => {
+const refreshingPreview = ref(false);
+
+function sanitizeClonedDocForHtml2Canvas(clonedDoc: Document) {
+  const elements = clonedDoc.querySelectorAll<HTMLElement>("*");
+  const colorProps = ["color", "backgroundColor", "borderColor", "outlineColor"] as const;
+  elements.forEach((el) => {
+    if (el.tagName === "IFRAME") {
+      el.remove();
+      return;
+    }
+    if (el.tagName === "HR") {
+      el.style.backgroundColor = "rgba(255, 255, 255, 0.2)";
+      el.style.borderColor = "transparent";
+      return;
+    }
+    try {
+      const style = window.getComputedStyle(el);
+      for (const p of colorProps) {
+        const val = (style as any)[p];
+        if (val && typeof val === "string" && val.includes("color(")) {
+          const match = val.match(/color\([^ ]+\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/);
+          if (match) {
+            const r = Math.round(parseFloat(match[1]) * 255);
+            const g = Math.round(parseFloat(match[2]) * 255);
+            const b = Math.round(parseFloat(match[3]) * 255);
+            const a = match[4] !== undefined ? parseFloat(match[4]) : 1;
+            (el.style as any)[p] = `rgba(${r}, ${g}, ${b}, ${a})`;
+          } else {
+            (el.style as any)[p] = "rgba(255, 255, 255, 0.2)";
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  });
+}
+
+const capturePreviewSnapshot = async () => {
   const el = stageEl.value;
-  if (!el) {
-    showPreviewModal.value = true;
-    return;
-  }
+  if (!el) return;
   try {
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 120));
     const { default: html2canvas } = await import("html2canvas");
-    const canvas = await html2canvas(el, { backgroundColor: null, useCORS: true });
+    const canvas = await html2canvas(el, {
+      backgroundColor: null,
+      useCORS: true,
+      allowTaint: true,
+      ignoreElements: (element) => element.tagName === "IFRAME",
+      onclone: sanitizeClonedDocForHtml2Canvas,
+      logging: false,
+    });
     previewImageSrc.value = canvas.toDataURL("image/png");
-  } catch (err) {
-    console.error("Failed to rasterize preview canvas", err);
+  } catch (err: any) {
+    console.error("Failed to rasterize preview canvas:", err?.message, err?.stack || err);
   }
+};
+
+const openPreview = async () => {
   showPreviewModal.value = true;
+  refreshingPreview.value = true;
+  try {
+    await capturePreviewSnapshot();
+  } finally {
+    refreshingPreview.value = false;
+  }
+};
+
+const refreshPreview = async () => {
+  refreshingPreview.value = true;
+  try {
+    await capturePreviewSnapshot();
+    toastStore.addToast("Preview refreshed!", "info");
+  } finally {
+    refreshingPreview.value = false;
+  }
 };
 
 const handleApplyAsShareImage = async () => {
@@ -485,7 +572,14 @@ const handleApplyAsShareImage = async () => {
   applyingToGrid.value = true;
   try {
     const { default: html2canvas } = await import("html2canvas");
-    const canvas = await html2canvas(el, { backgroundColor: null, useCORS: true });
+    const canvas = await html2canvas(el, {
+      backgroundColor: null,
+      useCORS: true,
+      allowTaint: true,
+      ignoreElements: (element) => element.tagName === "IFRAME",
+      onclone: sanitizeClonedDocForHtml2Canvas,
+      logging: false,
+    });
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob((b) => resolve(b), "image/png"),
     );
@@ -567,23 +661,34 @@ const handleApplyAsShareImage = async () => {
   white-space: nowrap;
 }
 
-.og-help-icon-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #a1a1aa;
-  display: flex;
+.og-guide-pill-btn {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e4e4e7;
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &__icon {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    color: var(--color-figma-purple, #a855f7);
+  }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.25);
     color: #ffffff;
-    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
   }
 }
 
@@ -785,15 +890,22 @@ const handleApplyAsShareImage = async () => {
     height: 28px;
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.08);
-    border: none;
-    color: #a1a1aa;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
 
+    svg {
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+      display: block;
+    }
+
     &:hover {
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.2);
       color: #ffffff;
     }
   }

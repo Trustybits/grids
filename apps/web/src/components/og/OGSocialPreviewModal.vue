@@ -8,9 +8,23 @@
             See how your grid appears when links are shared across messaging apps and social platforms.
           </p>
         </div>
-        <button type="button" class="og-dialog-close-btn" @click="$emit('close')">
-          <CloseXIcon :size="18" />
-        </button>
+        <div class="og-preview-dialog__header-actions">
+          <button
+            type="button"
+            class="og-preview-refresh-btn"
+            :disabled="refreshing"
+            title="Refresh preview snapshot from canvas"
+            @click="$emit('refresh')"
+          >
+            <RefreshIcon :size="13" class="og-preview-refresh-btn__icon" :class="{ 'is-spinning': refreshing }" />
+            <span>{{ refreshing ? 'Refreshing…' : 'Refresh' }}</span>
+          </button>
+          <button type="button" class="og-dialog-close-btn" aria-label="Close" @click="$emit('close')">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       <!-- Platform Tabs -->
@@ -23,7 +37,16 @@
           :class="{ 'is-active': activePlatform === platform.id }"
           @click="activePlatform = platform.id"
         >
-          <span class="og-platform-tab__icon">{{ platform.icon }}</span>
+          <span class="og-platform-tab__icon">
+            <svg v-if="platform.id === 'twitter'" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+            <ChatIcon v-else-if="platform.id === 'imessage'" :size="14" />
+            <DiscordIcon v-else-if="platform.id === 'discord'" style="width: 14px; height: 14px;" />
+            <svg v-else-if="platform.id === 'whatsapp'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+            </svg>
+          </span>
           <span>{{ platform.label }}</span>
         </button>
       </div>
@@ -146,8 +169,10 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import Button from "@/components/ui-elements/Button.vue";
-import CloseXIcon from "@/components/icons/CloseXIcon.vue";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
+import RefreshIcon from "@/components/icons/RefreshIcon.vue";
+import ChatIcon from "@/components/icons/ChatIcon.vue";
+import DiscordIcon from "@/components/icons/DiscordIcon.vue";
 
 defineProps<{
   previewImageSrc?: string;
@@ -157,18 +182,20 @@ defineProps<{
   authorHandle: string;
   authorInitials: string;
   isApplying?: boolean;
+  refreshing?: boolean;
 }>();
 
 defineEmits<{
   close: [];
   apply: [];
+  refresh: [];
 }>();
 
 const platforms = [
-  { id: "twitter", label: "Twitter / X", icon: "𝕏" },
-  { id: "imessage", label: "iMessage", icon: "💬" },
-  { id: "discord", label: "Discord", icon: "🎮" },
-  { id: "whatsapp", label: "WhatsApp", icon: "📱" },
+  { id: "twitter", label: "Twitter / X" },
+  { id: "imessage", label: "iMessage" },
+  { id: "discord", label: "Discord" },
+  { id: "whatsapp", label: "WhatsApp" },
 ];
 
 const activePlatform = ref("twitter");
@@ -223,22 +250,82 @@ const activePlatform = ref("twitter");
   line-height: 1.4;
 }
 
+.og-preview-dialog__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.og-preview-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &__icon {
+    flex-shrink: 0;
+    color: var(--color-figma-purple, #a855f7);
+
+    &.is-spinning {
+      animation: og-spin 0.8s linear infinite;
+    }
+  }
+}
+
+@keyframes og-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .og-dialog-close-btn {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border: none;
-  color: #a1a1aa;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.15s ease;
 
+  svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    display: block;
+  }
+
   &:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.2);
     color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.3);
   }
 }
 

@@ -196,8 +196,8 @@ const rightWingStyle = computed(() => ({
 
 const safeZoneStyle = computed(() => {
   const tpl = props.config.layoutTemplate || "center";
-  if (tpl === "split") {
-    return { left: "4%", width: "42%" };
+  if (tpl === "split" || tpl === "hero") {
+    return { left: "4%", width: "40%" };
   }
   if (tpl === "gallery") {
     return { left: "12%", width: "76%" };
@@ -277,10 +277,20 @@ const tileStyle = (placement: OGTilePlacement, index: number) => {
   const speed = props.config.animation?.tileSpeed ?? 3;
   const delay = ((index * 0.35) % 2).toFixed(2);
   const tile = getTile(placement.tileId);
-  const baseW = 140 * (tile?.w ? Math.max(1, tile.w / 2) : 1);
-  const baseH = 140 * (tile?.h ? Math.max(1, tile.h / 2) : 1);
-  const wPct = ((baseW * placement.scale) / OG_CANVAS_WIDTH) * 100;
-  const hPct = ((baseH * placement.scale) / OG_CANVAS_HEIGHT) * 100;
+
+  // Normalize multi-unit tiles (e.g. 2x2, 4x2, 4x4) into elegant preview proportions.
+  // Standard 2x2 tile base size: 180px width, 160px height.
+  // Multi-unit tiles scale moderately rather than doubling/tripling so they never spill over.
+  const rawWFactor = tile?.w ? tile.w / 2 : 1;
+  const rawHFactor = tile?.h ? tile.h / 2 : 1;
+  const widthFactor = Math.min(1.35, Math.max(0.85, 0.85 + (rawWFactor - 1) * 0.35));
+  const heightFactor = Math.min(1.3, Math.max(0.85, 0.85 + (rawHFactor - 1) * 0.3));
+
+  const baseW = 180 * widthFactor;
+  const baseH = 160 * heightFactor;
+  const scale = Math.min(1.25, Math.max(0.7, placement.scale || 1));
+  const wPct = ((baseW * scale) / OG_CANVAS_WIDTH) * 100;
+  const hPct = ((baseH * scale) / OG_CANVAS_HEIGHT) * 100;
 
   return {
     left: `${placement.x}%`,
@@ -506,9 +516,10 @@ defineExpose({ getStageEl: () => stageRef.value });
   z-index: 2;
   transition: all 0.3s ease;
 
-  &.og-layout--split {
+  &.og-layout--split,
+  &.og-layout--hero {
     left: 4% !important;
-    width: 44% !important;
+    width: 42% !important;
     align-items: flex-start !important;
     text-align: left !important;
     padding-left: 20px;
@@ -753,6 +764,11 @@ defineExpose({ getStageEl: () => stageRef.value });
   animation-delay: var(--tile-delay, 0s);
 }
 
+.og-anim--orbit {
+  animation: ogTileOrbit var(--tile-speed, 4s) ease-in-out infinite;
+  animation-delay: var(--tile-delay, 0s);
+}
+
 @keyframes ogTileFloat {
   0% { transform: translate(-50%, -50%) rotate(var(--tile-rot, 0deg)) translateY(0); }
   100% { transform: translate(-50%, -50%) rotate(var(--tile-rot, 0deg)) translateY(-16px); }
@@ -771,5 +787,13 @@ defineExpose({ getStageEl: () => stageRef.value });
 @keyframes ogTileTilt {
   0% { transform: translate(-50%, -50%) rotate(calc(var(--tile-rot, 0deg) - 6deg)); }
   100% { transform: translate(-50%, -50%) rotate(calc(var(--tile-rot, 0deg) + 6deg)); }
+}
+
+@keyframes ogTileOrbit {
+  0% { transform: translate(-50%, -50%) rotate(var(--tile-rot, 0deg)) translate(0, 0); }
+  25% { transform: translate(-50%, -50%) rotate(var(--tile-rot, 0deg)) translate(6px, -8px); }
+  50% { transform: translate(-50%, -50%) rotate(var(--tile-rot, 0deg)) translate(0, -12px); }
+  75% { transform: translate(-50%, -50%) rotate(var(--tile-rot, 0deg)) translate(-6px, -6px); }
+  100% { transform: translate(-50%, -50%) rotate(var(--tile-rot, 0deg)) translate(0, 0); }
 }
 </style>

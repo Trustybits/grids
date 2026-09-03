@@ -24,7 +24,9 @@
             title="Deselect tile"
             @click="$emit('select-tile', null)"
           >
-            <CloseXIcon :size="14" />
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
           </button>
         </div>
 
@@ -179,17 +181,25 @@
               </button>
             </div>
 
-            <!-- Initials Input -->
+            <!-- Initials Display & Pencil Edit Button -->
             <div v-if="!config.customAvatarImage" class="og-avatar-initials-row">
-              <span class="og-val-desc">Initials (max 3)</span>
-              <input
-                type="text"
-                class="og-hex-input og-initials-input"
-                maxlength="3"
-                placeholder="e.g. RK"
-                :value="config.customAvatarInitials ?? ''"
-                @input="(e) => updateConfigPatch({ customAvatarInitials: (e.target as HTMLInputElement).value })"
-              />
+              <span class="og-val-desc">Initials</span>
+              <div
+                class="og-text-entry-box og-text-entry-box--compact"
+                @click="openTextEditModal('initials')"
+              >
+                <span class="og-text-entry-box__val">
+                  {{ config.customAvatarInitials || 'Default' }}
+                </span>
+                <button
+                  type="button"
+                  class="og-pencil-btn"
+                  title="Edit initials"
+                  @click.stop="openTextEditModal('initials')"
+                >
+                  <EditIcon :size="13" />
+                </button>
+              </div>
             </div>
 
             <!-- Photo Upload & Thumbnail -->
@@ -227,14 +237,23 @@
               @update:model-value="(v) => updateVisibility({ name: v })"
             />
           </div>
-          <input
+          <div
             v-if="config.visibility.name"
-            type="text"
-            class="og-hex-input og-hex-input--full"
-            placeholder="Custom title (leave blank for grid name)"
-            :value="config.customTitle ?? ''"
-            @input="(e) => updateConfigPatch({ customTitle: (e.target as HTMLInputElement).value })"
-          />
+            class="og-text-entry-box"
+            @click="openTextEditModal('title')"
+          >
+            <span class="og-text-entry-box__val">
+              {{ config.customTitle?.trim() ? config.customTitle : 'Default (Grid name)' }}
+            </span>
+            <button
+              type="button"
+              class="og-pencil-btn"
+              title="Edit title"
+              @click.stop="openTextEditModal('title')"
+            >
+              <EditIcon :size="13" />
+            </button>
+          </div>
         </div>
 
         <!-- Subtitle & Custom Subtitle Override -->
@@ -247,14 +266,23 @@
               @update:model-value="(v) => updateVisibility({ subtitle: v })"
             />
           </div>
-          <input
+          <div
             v-if="config.visibility.subtitle"
-            type="text"
-            class="og-hex-input og-hex-input--full"
-            placeholder="Custom bio or tagline..."
-            :value="config.customSubtitle ?? ''"
-            @input="(e) => updateConfigPatch({ customSubtitle: (e.target as HTMLInputElement).value })"
-          />
+            class="og-text-entry-box"
+            @click="openTextEditModal('subtitle')"
+          >
+            <span class="og-text-entry-box__val">
+              {{ config.customSubtitle?.trim() ? config.customSubtitle : 'Default tagline' }}
+            </span>
+            <button
+              type="button"
+              class="og-pencil-btn"
+              title="Edit subtitle / bio"
+              @click.stop="openTextEditModal('subtitle')"
+            >
+              <EditIcon :size="13" />
+            </button>
+          </div>
         </div>
 
         <!-- Handle Badge Toggle -->
@@ -770,53 +798,56 @@
       <!-- ── MOTION & PHYSICS ───────────────────────────────────────── -->
       <Divider />
       <section class="mgs-section">
-        <Accordion title="Motion & Animations">
-          <div class="og-accordion-inner">
-            <div class="og-field">
-              <span class="mgs-section__label">GLOBAL TILE MOTION</span>
-              <div class="og-custom-dropdown" @click.stop>
-                <button
-                  type="button"
-                  class="og-custom-dropdown__trigger"
-                  :class="{ 'is-open': activeDropdown === 'global-anim' }"
-                  @click="toggleDropdown('global-anim')"
-                >
-                  <span>{{ getGlobalMotionLabel(config.animation?.tileAnimation) }}</span>
-                  <Chevron :size="14" class="og-custom-dropdown__chevron" :class="{ 'is-open': activeDropdown === 'global-anim' }" />
-                </button>
-                <div v-if="activeDropdown === 'global-anim'" class="og-custom-dropdown__menu">
-                  <button
-                    v-for="opt in GLOBAL_MOTION_OPTIONS"
-                    :key="opt.value"
-                    type="button"
-                    class="og-custom-dropdown__item"
-                    :class="{ 'is-active': (config.animation?.tileAnimation ?? 'none') === opt.value }"
-                    @click="updateAnimation({ tileAnimation: opt.value as any }); activeDropdown = null;"
-                  >
-                    <span>{{ opt.label }}</span>
-                    <CheckIcon v-if="(config.animation?.tileAnimation ?? 'none') === opt.value" :size="14" class="og-custom-dropdown__check" />
-                  </button>
-                </div>
-              </div>
-            </div>
+        <div class="mgs-section__header">
+          <span class="mgs-section__label">MOTION & ANIMATIONS</span>
+          <span v-if="(config.animation?.tileAnimation ?? 'none') !== 'none'" class="og-motion-active-tag">
+            Active
+          </span>
+        </div>
 
-            <div v-if="(config.animation?.tileAnimation ?? 'none') !== 'none'" class="og-field">
-              <div class="og-control-row">
-                <span class="mgs-section__label">CYCLE SPEED</span>
-                <span class="og-val-text">{{ config.animation?.tileSpeed ?? 3 }}s</span>
-              </div>
-              <input
-                type="range"
-                class="og-range-slider"
-                min="1"
-                max="6"
-                step="0.5"
-                :value="config.animation?.tileSpeed ?? 3"
-                @input="(e) => updateAnimation({ tileSpeed: Number((e.target as HTMLInputElement).value) })"
-              />
+        <div class="og-field">
+          <span class="mgs-section__label">GLOBAL TILE MOTION</span>
+          <div class="og-custom-dropdown" @click.stop>
+            <button
+              type="button"
+              class="og-custom-dropdown__trigger"
+              :class="{ 'is-open': activeDropdown === 'global-anim' }"
+              @click="toggleDropdown('global-anim')"
+            >
+              <span>{{ getGlobalMotionLabel(config.animation?.tileAnimation) }}</span>
+              <Chevron :size="14" class="og-custom-dropdown__chevron" :class="{ 'is-open': activeDropdown === 'global-anim' }" />
+            </button>
+            <div v-if="activeDropdown === 'global-anim'" class="og-custom-dropdown__menu og-custom-dropdown__menu--up">
+              <button
+                v-for="opt in GLOBAL_MOTION_OPTIONS"
+                :key="opt.value"
+                type="button"
+                class="og-custom-dropdown__item"
+                :class="{ 'is-active': (config.animation?.tileAnimation ?? 'none') === opt.value }"
+                @click="updateAnimation({ tileAnimation: opt.value as any }); activeDropdown = null;"
+              >
+                <span>{{ opt.label }}</span>
+                <CheckIcon v-if="(config.animation?.tileAnimation ?? 'none') === opt.value" :size="14" class="og-custom-dropdown__check" />
+              </button>
             </div>
           </div>
-        </Accordion>
+        </div>
+
+        <div v-if="(config.animation?.tileAnimation ?? 'none') !== 'none'" class="og-field">
+          <div class="og-control-row">
+            <span class="mgs-section__label">CYCLE SPEED</span>
+            <span class="og-val-text">{{ config.animation?.tileSpeed ?? 3 }}s</span>
+          </div>
+          <input
+            type="range"
+            class="og-range-slider"
+            min="1"
+            max="6"
+            step="0.5"
+            :value="config.animation?.tileSpeed ?? 3"
+            @input="(e) => updateAnimation({ tileSpeed: Number((e.target as HTMLInputElement).value) })"
+          />
+        </div>
       </section>
     </div>
 
@@ -848,6 +879,77 @@
         {{ isApplying ? "Applying…" : "Apply to Grid" }}
       </Button>
     </div>
+
+    <!-- Edit Text Popup Modal -->
+    <div
+      v-if="activeTextModal"
+      class="og-text-modal-backdrop"
+      @click.self="closeTextEditModal"
+    >
+      <div class="og-text-modal-dialog" role="dialog" aria-modal="true">
+        <header class="og-text-modal-header">
+          <div class="og-text-modal-title-group">
+            <h4 class="og-text-modal-title">
+              {{
+                activeTextModal === 'title'
+                  ? 'Edit Grid Title'
+                  : activeTextModal === 'subtitle'
+                  ? 'Edit Subtitle / Bio'
+                  : 'Edit Avatar Initials'
+              }}
+            </h4>
+            <p class="og-text-modal-desc">
+              {{
+                activeTextModal === 'title'
+                  ? 'Customize the title displayed on your social share preview. Leave blank to use your grid name.'
+                  : activeTextModal === 'subtitle'
+                  ? 'Provide a custom bio or tagline to appear below the grid title.'
+                  : 'Custom initials to display on the avatar badge (up to 3 uppercase letters).'
+              }}
+            </p>
+          </div>
+          <button type="button" class="og-dialog-close-btn" aria-label="Close" @click="closeTextEditModal">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </header>
+
+        <div class="og-text-modal-body">
+          <label class="og-text-modal-label">
+            {{
+              activeTextModal === 'title'
+                ? 'Title'
+                : activeTextModal === 'subtitle'
+                ? 'Bio / Tagline'
+                : 'Initials (max 3)'
+            }}
+          </label>
+          <textarea
+            v-if="activeTextModal === 'subtitle'"
+            v-model="tempTextValue"
+            class="og-text-modal-textarea"
+            rows="3"
+            placeholder="Curated links, stories & media..."
+            @keydown.enter.ctrl.prevent="saveTextEditModal"
+          />
+          <input
+            v-else
+            v-model="tempTextValue"
+            type="text"
+            class="og-text-modal-input"
+            :maxlength="activeTextModal === 'initials' ? 3 : 80"
+            :placeholder="activeTextModal === 'title' ? 'e.g. Designer & Developer' : 'e.g. RK'"
+            @keydown.enter.prevent="saveTextEditModal"
+          />
+        </div>
+
+        <footer class="og-text-modal-footer">
+          <Button variant="secondary" size="sm" @click="closeTextEditModal">Cancel</Button>
+          <Button variant="primary" size="sm" @click="saveTextEditModal">Save Changes</Button>
+        </footer>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -862,6 +964,7 @@ import SpinnerIcon from "@/components/icons/SpinnerIcon.vue";
 import Chevron from "@/components/icons/Chevron.vue";
 import CloseXIcon from "@/components/icons/CloseXIcon.vue";
 import EyeIcon from "@/components/icons/EyeIcon.vue";
+import EditIcon from "@/components/icons/EditIcon.vue";
 import { getTileDefinition } from "@/registries/tileRegistry";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import {
@@ -909,16 +1012,18 @@ const MOTION_OPTIONS = [
   { value: "none", label: "None (Static)" },
   { value: "float", label: "Float & Bob" },
   { value: "pulse", label: "Breathing Pulse" },
-  { value: "shimmer", label: "Neon Shimmer" },
   { value: "tilt", label: "Dynamic Tilt" },
+  { value: "shimmer", label: "Neon Shimmer" },
+  { value: "orbit", label: "Orbit & Drift" },
 ];
 
 const GLOBAL_MOTION_OPTIONS = [
   { value: "none", label: "None (Static)" },
   { value: "float", label: "Float & Bob" },
   { value: "pulse", label: "Breathing Pulse" },
-  { value: "shimmer", label: "Neon Shimmer" },
   { value: "tilt", label: "Dynamic Tilt" },
+  { value: "shimmer", label: "Neon Shimmer" },
+  { value: "orbit", label: "Orbit & Drift" },
 ];
 
 const getMotionLabel = (val?: string) =>
@@ -926,6 +1031,36 @@ const getMotionLabel = (val?: string) =>
 
 const getGlobalMotionLabel = (val?: string) =>
   GLOBAL_MOTION_OPTIONS.find((o) => o.value === (val ?? "none"))?.label ?? "None (Static)";
+
+const activeTextModal = ref<"title" | "subtitle" | "initials" | null>(null);
+const tempTextValue = ref("");
+
+const openTextEditModal = (type: "title" | "subtitle" | "initials") => {
+  activeTextModal.value = type;
+  if (type === "title") {
+    tempTextValue.value = props.config.customTitle ?? "";
+  } else if (type === "subtitle") {
+    tempTextValue.value = props.config.customSubtitle ?? "";
+  } else if (type === "initials") {
+    tempTextValue.value = props.config.customAvatarInitials ?? "";
+  }
+};
+
+const closeTextEditModal = () => {
+  activeTextModal.value = null;
+  tempTextValue.value = "";
+};
+
+const saveTextEditModal = () => {
+  if (activeTextModal.value === "title") {
+    updateConfigPatch({ customTitle: tempTextValue.value.trim() });
+  } else if (activeTextModal.value === "subtitle") {
+    updateConfigPatch({ customSubtitle: tempTextValue.value.trim() });
+  } else if (activeTextModal.value === "initials") {
+    updateConfigPatch({ customAvatarInitials: tempTextValue.value.trim().toUpperCase().slice(0, 3) });
+  }
+  closeTextEditModal();
+};
 
 const categoryLabel = (cat: BackgroundCategory) => {
   switch (cat) {
@@ -1183,9 +1318,14 @@ const updateSelectedPlacement = (patch: Partial<OGTilePlacement>) => {
 };
 
 const updateAnimation = (patch: Partial<NonNullable<OGConfig["animation"]>>) => {
+  const current = props.config.animation ?? {};
+  const next = { ...current, ...patch };
+  if (patch.tileAnimation && patch.tileAnimation !== "none") {
+    next.livePlay = true;
+  }
   emit("update:config", {
     ...props.config,
-    animation: { ...(props.config.animation ?? {}), ...patch },
+    animation: next,
   });
 };
 
@@ -1429,6 +1569,23 @@ const removeSelectedTile = () => {
   gap: 2px;
   max-height: 240px;
   overflow-y: auto;
+
+  &--up {
+    top: auto;
+    bottom: calc(100% + 6px);
+    box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.75);
+  }
+}
+
+.og-motion-active-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.14);
+  padding: 2px 8px;
+  border-radius: 9999px;
 }
 
 .og-custom-dropdown__item {
@@ -1886,5 +2043,171 @@ const removeSelectedTile = () => {
   font-weight: 700;
   justify-content: center;
   min-height: 42px;
+}
+
+/* ── Text Entry Preview & Pencil Edit Button ────────────────────────────── */
+.og-text-entry-box {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &--compact {
+    padding: 4px 8px;
+    width: auto;
+    min-width: 90px;
+  }
+
+  &__val {
+    font-size: 12px;
+    color: #ffffff;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.18);
+
+    .og-pencil-btn {
+      background: var(--color-figma-purple, #a855f7);
+      border-color: var(--color-figma-purple, #a855f7);
+      color: #ffffff;
+    }
+  }
+}
+
+.og-pencil-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #e4e4e7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    display: block;
+  }
+
+  &:hover {
+    background: var(--color-figma-purple, #a855f7);
+    border-color: var(--color-figma-purple, #a855f7);
+    color: #ffffff;
+  }
+}
+
+/* ── Edit Text Popup Modal ──────────────────────────────────────────────── */
+.og-text-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-topbar, 2000) + 180);
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.og-text-modal-dialog {
+  width: 100%;
+  max-width: 440px;
+  background: #141417;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #ffffff;
+}
+
+.og-text-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 12px;
+}
+
+.og-text-modal-title-group {
+  flex: 1;
+}
+
+.og-text-modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.og-text-modal-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #a1a1aa;
+  line-height: 1.4;
+}
+
+.og-text-modal-body {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.og-text-modal-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.og-text-modal-input,
+.og-text-modal-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  padding: 10px 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    border-color: var(--color-figma-purple, #a855f7);
+    background: rgba(255, 255, 255, 0.09);
+  }
+}
+
+.og-text-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0d0d10;
 }
 </style>

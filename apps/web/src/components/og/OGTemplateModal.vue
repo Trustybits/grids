@@ -8,8 +8,10 @@
             Choose a curated layout style for your cards and branding. You can freely customize or switch back anytime.
           </p>
         </div>
-        <button type="button" class="og-dialog-close-btn" @click="$emit('close')">
-          <CloseXIcon :size="18" />
+        <button type="button" class="og-dialog-close-btn" aria-label="Close" @click="$emit('close')">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
         </button>
       </header>
 
@@ -26,8 +28,8 @@
             <!-- Center Stage -->
             <div v-if="tpl.id === 'center'" class="tpl-center-diagram">
               <div class="tpl-col tpl-col--tiles">
-                <div class="tpl-mini-tile" />
-                <div class="tpl-mini-tile" />
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
               </div>
               <div class="tpl-col tpl-col--center">
                 <div class="tpl-mini-avatar" />
@@ -35,8 +37,8 @@
                 <div class="tpl-mini-line tpl-mini-line--sub" />
               </div>
               <div class="tpl-col tpl-col--tiles">
-                <div class="tpl-mini-tile" />
-                <div class="tpl-mini-tile" />
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
               </div>
             </div>
 
@@ -46,13 +48,13 @@
                 <div class="tpl-mini-avatar tpl-mini-avatar--lg" />
                 <div class="tpl-mini-line tpl-mini-line--name" />
                 <div class="tpl-mini-line tpl-mini-line--sub" />
-                <div class="tpl-mini-line tpl-mini-line--handle" />
+                <div class="tpl-mini-pill" />
               </div>
               <div class="tpl-split-right">
-                <div class="tpl-mini-tile" />
-                <div class="tpl-mini-tile" />
-                <div class="tpl-mini-tile" />
-                <div class="tpl-mini-tile" />
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
               </div>
             </div>
 
@@ -61,37 +63,41 @@
               <div class="tpl-hero-left">
                 <div class="tpl-mini-avatar" />
                 <div class="tpl-mini-line tpl-mini-line--name" />
+                <div class="tpl-mini-pill" />
               </div>
               <div class="tpl-hero-main">
-                <div class="tpl-mini-tile tpl-mini-tile--hero" />
+                <div class="tpl-mini-tile tpl-mini-tile--hero">
+                  <div class="tpl-hero-media" />
+                  <div class="tpl-tile-bar" />
+                </div>
               </div>
               <div class="tpl-hero-right">
-                <div class="tpl-mini-tile" />
-                <div class="tpl-mini-tile" />
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
               </div>
             </div>
 
             <!-- Bottom Gallery -->
             <div v-else-if="tpl.id === 'gallery'" class="tpl-gallery-diagram">
               <div class="tpl-gallery-top">
-                <div class="tpl-mini-tile" />
-                <div class="tpl-mini-tile" />
-                <div class="tpl-mini-tile" />
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
+                <div class="tpl-mini-tile"><div class="tpl-tile-bar" /></div>
               </div>
               <div class="tpl-gallery-bottom">
                 <div class="tpl-mini-avatar tpl-mini-avatar--sm" />
                 <div class="tpl-mini-line tpl-mini-line--name" />
-                <div class="tpl-mini-line tpl-mini-line--handle" />
+                <div class="tpl-mini-pill" />
               </div>
             </div>
 
             <!-- Orbiting Cascade -->
             <div v-else class="tpl-orbit-diagram">
               <div class="tpl-mini-avatar" />
-              <div class="tpl-mini-tile tpl-orbit-1" />
-              <div class="tpl-mini-tile tpl-orbit-2" />
-              <div class="tpl-mini-tile tpl-orbit-3" />
-              <div class="tpl-mini-tile tpl-orbit-4" />
+              <div class="tpl-mini-tile tpl-orbit-1"><div class="tpl-tile-bar" /></div>
+              <div class="tpl-mini-tile tpl-orbit-2"><div class="tpl-tile-bar" /></div>
+              <div class="tpl-mini-tile tpl-orbit-3"><div class="tpl-tile-bar" /></div>
+              <div class="tpl-mini-tile tpl-orbit-4"><div class="tpl-tile-bar" /></div>
             </div>
           </div>
 
@@ -219,21 +225,29 @@ const confirmTemplate = () => {
 }
 
 .og-dialog-close-btn {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border: none;
-  color: #a1a1aa;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.15s ease;
 
+  svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    display: block;
+  }
+
   &:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.2);
     color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.3);
   }
 }
 
@@ -273,15 +287,16 @@ const confirmTemplate = () => {
 .og-template-card__preview {
   width: 100%;
   aspect-ratio: 1.91 / 1;
-  background: #18181c;
+  background: radial-gradient(ellipse at 50% 50%, #201c30 0%, #0d0d12 100%);
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   position: relative;
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.6);
 }
 
 .og-template-card__header-row {
@@ -316,23 +331,51 @@ const confirmTemplate = () => {
 
 /* ── Diagrams ────────────────────────────────────────────────────────────── */
 .tpl-mini-tile {
-  width: 24px;
+  width: 26px;
   height: 24px;
-  border-radius: 4px;
-  background: rgba(168, 85, 247, 0.4);
-  border: 1px solid rgba(168, 85, 247, 0.6);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 3px;
+  box-sizing: border-box;
 
   &--hero {
-    width: 46px;
-    height: 46px;
+    width: 52px;
+    height: 48px;
+    padding: 4px;
+    background: rgba(168, 85, 247, 0.15);
+    border-color: rgba(168, 85, 247, 0.4);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6), 0 0 12px rgba(168, 85, 247, 0.2);
   }
 }
 
+.tpl-tile-bar {
+  width: 80%;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.tpl-hero-media {
+  flex: 1;
+  width: 100%;
+  border-radius: 3px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(99, 102, 241, 0.3));
+  margin-bottom: 3px;
+}
+
 .tpl-mini-avatar {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: #ffffff;
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.4);
+  flex-shrink: 0;
 
   &--lg {
     width: 24px;
@@ -340,27 +383,33 @@ const confirmTemplate = () => {
   }
 
   &--sm {
-    width: 14px;
-    height: 14px;
+    width: 15px;
+    height: 15px;
   }
 }
 
 .tpl-mini-line {
-  height: 4px;
+  height: 3.5px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.6);
 
   &--name {
-    width: 32px;
+    width: 34px;
+    background: #ffffff;
   }
 
   &--sub {
-    width: 22px;
+    width: 24px;
+    background: rgba(255, 255, 255, 0.45);
   }
+}
 
-  &--handle {
-    width: 28px;
-  }
+.tpl-mini-pill {
+  width: 26px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .tpl-center-diagram {
@@ -394,7 +443,7 @@ const confirmTemplate = () => {
 .tpl-split-right {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
+  gap: 5px;
 }
 
 .tpl-hero-diagram {
@@ -432,22 +481,22 @@ const confirmTemplate = () => {
 
 .tpl-orbit-diagram {
   position: relative;
-  width: 70px;
-  height: 70px;
+  width: 76px;
+  height: 76px;
   display: flex;
   align-items: center;
   justify-content: center;
 
   .tpl-mini-tile {
     position: absolute;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 19px;
   }
 
-  .tpl-orbit-1 { top: 0; left: 6px; transform: rotate(-8deg); }
-  .tpl-orbit-2 { top: 6px; right: 0; transform: rotate(12deg); }
-  .tpl-orbit-3 { bottom: 0; right: 6px; transform: rotate(-6deg); }
-  .tpl-orbit-4 { bottom: 6px; left: 0; transform: rotate(10deg); }
+  .tpl-orbit-1 { top: 0; left: 4px; transform: rotate(-7deg); }
+  .tpl-orbit-2 { top: 4px; right: 0; transform: rotate(10deg); }
+  .tpl-orbit-3 { bottom: 0; right: 4px; transform: rotate(-6deg); }
+  .tpl-orbit-4 { bottom: 4px; left: 0; transform: rotate(9deg); }
 }
 
 .og-template-dialog__footer {

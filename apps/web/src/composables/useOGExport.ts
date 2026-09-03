@@ -20,12 +20,55 @@ function downloadBlob(blob: Blob, filename: string): void {
  * GIF. `html2canvas` and `gif.js` are dynamically imported so their (~200kb
  * combined) weight only loads when a user actually exports.
  */
+function sanitizeClonedDocForHtml2Canvas(clonedDoc: Document) {
+  const elements = clonedDoc.querySelectorAll<HTMLElement>("*");
+  const colorProps = ["color", "backgroundColor", "borderColor", "outlineColor"] as const;
+  elements.forEach((el) => {
+    if (el.tagName === "IFRAME") {
+      el.remove();
+      return;
+    }
+    if (el.tagName === "HR") {
+      el.style.backgroundColor = "rgba(255, 255, 255, 0.2)";
+      el.style.borderColor = "transparent";
+      return;
+    }
+    try {
+      const style = window.getComputedStyle(el);
+      for (const p of colorProps) {
+        const val = (style as any)[p];
+        if (val && typeof val === "string" && val.includes("color(")) {
+          const match = val.match(/color\([^ ]+\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/);
+          if (match) {
+            const r = Math.round(parseFloat(match[1]) * 255);
+            const g = Math.round(parseFloat(match[2]) * 255);
+            const b = Math.round(parseFloat(match[3]) * 255);
+            const a = match[4] !== undefined ? parseFloat(match[4]) : 1;
+            (el.style as any)[p] = `rgba(${r}, ${g}, ${b}, ${a})`;
+          } else {
+            (el.style as any)[p] = "rgba(255, 255, 255, 0.2)";
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  });
+}
+
 export function useOGExport(canvasEl: Ref<HTMLElement | null>) {
   async function exportPNG(): Promise<void> {
     const el = canvasEl.value;
     if (!el) return;
     const { default: html2canvas } = await import("html2canvas");
-    const canvas = await html2canvas(el, { backgroundColor: null, useCORS: true });
+    const canvas = await html2canvas(el, {
+      backgroundColor: null,
+      useCORS: true,
+      allowTaint: true,
+      ignoreElements: (element) => element.tagName === "IFRAME",
+      onclone: sanitizeClonedDocForHtml2Canvas,
+      logging: false,
+    });
     downloadUrl(canvas.toDataURL("image/png"), "og-image.png");
   }
 
@@ -62,8 +105,14 @@ export function useOGExport(canvasEl: Ref<HTMLElement | null>) {
         };
 
         if (shouldCapture) {
-          lastCapture = now;
-          void html2canvas(el, { backgroundColor: null, useCORS: true }).then((frame) => {
+          void html2canvas(el, {
+            backgroundColor: null,
+            useCORS: true,
+            allowTaint: true,
+            ignoreElements: (element) => element.tagName === "IFRAME",
+            onclone: sanitizeClonedDocForHtml2Canvas,
+            logging: false,
+          }).then((frame) => {
             gif.addFrame(frame, { delay: frameInterval, copy: true });
             scheduleNext();
           });

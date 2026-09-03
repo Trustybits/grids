@@ -1,6 +1,6 @@
 import type { BackgroundConfig } from "@/lib/animate/backgrounds";
 
-export type TileAnimationType = "none" | "float" | "pulse" | "shimmer" | "tilt";
+export type TileAnimationType = "none" | "float" | "pulse" | "shimmer" | "tilt" | "orbit";
 
 export interface OGTilePlacement {
   tileId: string;

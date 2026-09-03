@@ -24,6 +24,7 @@ For internal developers, use the [Dev setup](maintainers/dev-setup.md) guide ins
 - [Grid ownership transfer](architecture/grid-ownership-transfer.md)
 - [Tiles](architecture/tiles.md)
 - [Storage usage accounting](architecture/storage-usage-accounting.md)
+- [OpenGraph system & studio](architecture/opengraph-system.md)
 
 ## Contributing
 

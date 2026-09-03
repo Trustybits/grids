@@ -391,10 +391,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .og-studio__inspector {
-  width: 300px;
+  width: 320px;
   flex-shrink: 0;
-  border-left: var(--border-width) solid var(--color-stroke);
-  overflow-y: auto;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  background: #000000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (max-width: 900px) {

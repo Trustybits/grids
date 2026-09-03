@@ -1,99 +1,165 @@
 <template>
   <div class="og-inspector">
     <div class="og-inspector__scroll">
-      <!-- ── Content / Info Safe Zone ─────────────────────────────────── -->
-      <MenuSection class="og-inspector__section">
-        <h4 class="og-inspector__title">Info Safe Zone</h4>
-        <p class="og-inspector__subtitle">Display live grid profile badge and titles</p>
-        <Toggle
-          label="Avatar Initials"
-          :model-value="config.visibility.avatar"
-          @update:model-value="(v) => updateVisibility({ avatar: v })"
-        />
-        <Toggle
-          label="Grid Name"
-          :model-value="config.visibility.name"
-          @update:model-value="(v) => updateVisibility({ name: v })"
-        />
-        <Toggle
-          label="Subtitle"
-          :model-value="config.visibility.subtitle"
-          @update:model-value="(v) => updateVisibility({ subtitle: v })"
-        />
-        <Toggle
-          label="Handle Badge"
-          :model-value="config.visibility.handle"
-          @update:model-value="(v) => updateVisibility({ handle: v })"
-        />
-      </MenuSection>
+      <!-- ── INFO SAFE ZONE ─────────────────────────────────────────── -->
+      <section class="mgs-section">
+        <span class="mgs-section__label">INFO SAFE ZONE</span>
+        <div class="og-toggles-group">
+          <Toggle
+            label="Avatar Initials"
+            :model-value="config.visibility.avatar"
+            @update:model-value="(v) => updateVisibility({ avatar: v })"
+          />
+          <Toggle
+            label="Grid Name"
+            :model-value="config.visibility.name"
+            @update:model-value="(v) => updateVisibility({ name: v })"
+          />
+          <Toggle
+            label="Subtitle"
+            :model-value="config.visibility.subtitle"
+            @update:model-value="(v) => updateVisibility({ subtitle: v })"
+          />
+          <Toggle
+            label="Handle Badge"
+            :model-value="config.visibility.handle"
+            @update:model-value="(v) => updateVisibility({ handle: v })"
+          />
+        </div>
+      </section>
 
       <Divider />
 
-      <!-- ── Background ──────────────────────────────────────────────── -->
-      <MenuSection class="og-inspector__section">
-        <h4 class="og-inspector__title">Background</h4>
+      <!-- ── GRID BACKGROUND ────────────────────────────────────────── -->
+      <section class="mgs-section">
+        <span class="mgs-section__label">GRID BACKGROUND</span>
 
-        <div class="og-inspector__tabs" role="tablist">
+        <!-- Background Type Dropdown -->
+        <div class="og-custom-dropdown" @click.stop>
           <button
-            v-for="cat in categories"
-            :key="cat"
             type="button"
-            class="og-inspector__tab"
-            role="tab"
-            :aria-selected="activeCategory === cat"
-            :class="{ 'is-active': activeCategory === cat }"
-            @click="setCategory(cat)"
+            class="og-custom-dropdown__trigger"
+            :class="{ 'is-open': activeDropdown === 'background' }"
+            @click="toggleDropdown('background')"
           >
-            {{ categoryLabel(cat) }}
+            <div class="og-custom-dropdown__trigger-content">
+              <span
+                v-if="activeCategory === 'solid'"
+                class="og-segment__dot"
+                :style="{ background: config.background.color }"
+              />
+              <span
+                v-else-if="activeCategory === 'gradient'"
+                class="og-segment__dot og-segment__dot--rainbow"
+              />
+              <span
+                v-else-if="activeCategory === 'image'"
+                class="og-segment__dot og-segment__dot--image"
+              />
+              <span
+                v-else-if="activeCategory === 'animated'"
+                class="og-segment__dot og-segment__dot--anim"
+              />
+              <span
+                v-else-if="activeCategory === 'pattern'"
+                class="og-segment__dot og-segment__dot--pattern"
+              />
+              <span class="og-custom-dropdown__trigger-label">{{ categoryLabel(activeCategory) }}</span>
+            </div>
+            <Chevron :size="14" class="og-custom-dropdown__chevron" :class="{ 'is-open': activeDropdown === 'background' }" />
           </button>
+
+          <div v-if="activeDropdown === 'background'" class="og-custom-dropdown__menu">
+            <button
+              v-for="cat in categories"
+              :key="cat"
+              type="button"
+              class="og-custom-dropdown__item"
+              :class="{ 'is-active': activeCategory === cat }"
+              @click="setCategory(cat); activeDropdown = null;"
+            >
+              <div class="og-custom-dropdown__item-left">
+                <span
+                  v-if="cat === 'solid'"
+                  class="og-segment__dot"
+                  :style="{ background: config.background.color }"
+                />
+                <span
+                  v-else-if="cat === 'gradient'"
+                  class="og-segment__dot og-segment__dot--rainbow"
+                />
+                <span
+                  v-else-if="cat === 'image'"
+                  class="og-segment__dot og-segment__dot--image"
+                />
+                <span
+                  v-else-if="cat === 'animated'"
+                  class="og-segment__dot og-segment__dot--anim"
+                />
+                <span
+                  v-else-if="cat === 'pattern'"
+                  class="og-segment__dot og-segment__dot--pattern"
+                />
+                <span>{{ categoryLabel(cat) }}</span>
+              </div>
+              <CheckIcon v-if="activeCategory === cat" :size="14" class="og-custom-dropdown__check" />
+            </button>
+          </div>
         </div>
 
-        <!-- Solid -->
+        <!-- ── Solid Controls ──────────────────────────────────────── -->
         <template v-if="activeCategory === 'solid'">
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Color</label>
-              <span class="og-inspector__color-code">{{ config.background.color }}</span>
-            </div>
-            <div class="og-inspector__color-row">
-              <input
-                type="color"
-                class="og-inspector__color"
-                :value="config.background.color"
-                @input="onColorInput"
-              />
-              <input
-                type="text"
-                class="og-inspector__input"
-                :value="config.background.color"
-                @input="onColorInput"
-              />
-            </div>
+          <div class="og-control-row">
+            <span class="mgs-section__label">COLOR</span>
+            <span class="og-val-text">{{ config.background.color }}</span>
           </div>
 
-          <!-- Quick Palette -->
-          <div class="og-inspector__swatches">
+          <div class="og-color-picker-row">
+            <!-- Fully Circular Color Swatch Button -->
+            <div
+              class="og-circle-color-picker"
+              :style="{ backgroundColor: config.background.color }"
+              title="Click to change color"
+            >
+              <input
+                type="color"
+                class="og-circle-color-picker__input"
+                :value="config.background.color"
+                @input="onColorInput"
+              />
+            </div>
+
+            <input
+              type="text"
+              class="og-hex-input"
+              :value="config.background.color"
+              @input="onColorInput"
+            />
+          </div>
+
+          <!-- Quick Palette Circles -->
+          <div class="og-swatches-grid">
             <button
               v-for="swatch in SOLID_SWATCHES"
               :key="swatch"
               type="button"
-              class="og-inspector__swatch"
+              class="og-swatch-circle"
               :style="{ background: swatch }"
-              :class="{ 'is-selected': config.background.color === swatch }"
+              :class="{ 'is-selected': config.background.color.toLowerCase() === swatch.toLowerCase() }"
               @click="updateBackground({ color: swatch, presetId: 'solid' })"
             />
           </div>
         </template>
 
-        <!-- Gradient -->
+        <!-- ── Gradient Controls ───────────────────────────────────── -->
         <template v-if="activeCategory === 'gradient'">
-          <!-- Preset picker for Gradient -->
-          <div v-if="presetsInCategory.length > 1" class="og-inspector__preset-grid">
+          <!-- Gradient Preset Pills -->
+          <div v-if="presetsInCategory.length > 1" class="mgs-segment">
             <button
               v-for="preset in presetsInCategory"
               :key="preset.id"
               type="button"
-              class="og-inspector__preset"
+              class="mgs-segment__btn"
               :class="{ 'is-active': config.background.presetId === preset.id }"
               @click="selectPreset(preset.id)"
             >
@@ -101,13 +167,14 @@
             </button>
           </div>
 
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Angle</label>
-              <span class="og-inspector__val">{{ config.background.angle ?? 135 }}°</span>
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">ANGLE</span>
+              <span class="og-val-text">{{ config.background.angle ?? 135 }}°</span>
             </div>
             <input
               type="range"
+              class="og-range-slider"
               min="0"
               max="360"
               :value="config.background.angle ?? 135"
@@ -115,21 +182,23 @@
             />
           </div>
 
-          <div v-if="config.background.presetId !== 'linear-gradient'" class="og-inspector__row">
-            <div class="og-inspector__field">
-              <label class="og-inspector__label">Center X</label>
+          <div v-if="config.background.presetId !== 'linear-gradient'" class="og-row-duo">
+            <div class="og-field">
+              <span class="mgs-section__label">CENTER X</span>
               <input
                 type="range"
+                class="og-range-slider"
                 min="0"
                 max="100"
                 :value="config.background.centerX ?? 50"
                 @input="(e) => updateBackground({ centerX: Number((e.target as HTMLInputElement).value) })"
               />
             </div>
-            <div class="og-inspector__field">
-              <label class="og-inspector__label">Center Y</label>
+            <div class="og-field">
+              <span class="mgs-section__label">CENTER Y</span>
               <input
                 type="range"
+                class="og-range-slider"
                 min="0"
                 max="100"
                 :value="config.background.centerY ?? 50"
@@ -138,53 +207,56 @@
             </div>
           </div>
 
-          <div class="og-inspector__stops">
-            <label class="og-inspector__label">Color Stops</label>
+          <div class="og-stops-section">
+            <span class="mgs-section__label">COLOR STOPS</span>
             <div
               v-for="(stop, i) in config.background.stops ?? []"
               :key="i"
-              class="og-inspector__stop"
+              class="og-stop-row"
             >
-              <input
-                type="color"
-                class="og-inspector__color-sm"
-                :value="stop.color"
-                @input="(e) => updateStop(i, { color: (e.target as HTMLInputElement).value })"
-              />
+              <div class="og-circle-color-picker og-circle-color-picker--sm" :style="{ backgroundColor: stop.color }">
+                <input
+                  type="color"
+                  class="og-circle-color-picker__input"
+                  :value="stop.color"
+                  @input="(e) => updateStop(i, { color: (e.target as HTMLInputElement).value })"
+                />
+              </div>
               <input
                 type="range"
+                class="og-range-slider"
                 min="0"
                 max="100"
                 :value="stop.offset"
                 @input="(e) => updateStop(i, { offset: Number((e.target as HTMLInputElement).value) })"
               />
-              <span class="og-inspector__stop-val">{{ stop.offset }}%</span>
+              <span class="og-stop-percent">{{ stop.offset }}%</span>
               <button
                 type="button"
-                class="og-inspector__stop-remove"
+                class="og-stop-del-btn"
                 :disabled="(config.background.stops ?? []).length <= 2"
                 @click="removeStop(i)"
               >
                 &times;
               </button>
             </div>
-            <button type="button" class="og-inspector__add-stop" @click="addStop">
+            <button type="button" class="og-add-stop-btn" @click="addStop">
               + Add color stop
             </button>
           </div>
 
           <Toggle
-            label="Animated Rotation"
+            label="Animate Rotation"
             :model-value="!!config.background.animated"
             @update:model-value="(v) => updateBackground({ animated: v })"
           />
         </template>
 
-        <!-- Image Background -->
+        <!-- ── Image Controls ──────────────────────────────────────── -->
         <template v-if="activeCategory === 'image'">
-          <div class="og-inspector__field">
-            <label class="og-inspector__label">Image Source</label>
-            <div class="og-inspector__btn-group">
+          <div class="og-field">
+            <span class="mgs-section__label">IMAGE SOURCE</span>
+            <div class="og-btn-duo">
               <Button variant="secondary" size="sm" @click="triggerImageFileInput">
                 Upload Image
               </Button>
@@ -194,7 +266,7 @@
                 size="sm"
                 @click="useGridBackground"
               >
-                Use Grid Background
+                Use Grid Image
               </Button>
             </div>
             <input
@@ -206,24 +278,25 @@
             />
           </div>
 
-          <div class="og-inspector__field" v-if="config.background.imageUrl">
-            <label class="og-inspector__label">Image URL / Path</label>
+          <div v-if="config.background.imageUrl" class="og-field">
+            <span class="mgs-section__label">IMAGE PATH / URL</span>
             <input
               type="text"
-              class="og-inspector__input"
+              class="og-hex-input og-hex-input--full"
               :value="config.background.imageUrl"
               placeholder="https://... or data:..."
               @input="(e) => updateBackground({ imageUrl: (e.target as HTMLInputElement).value, presetId: 'image-background' })"
             />
           </div>
 
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Blur</label>
-              <span class="og-inspector__val">{{ config.background.imageBlur ?? 0 }}px</span>
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">BLUR</span>
+              <span class="og-val-text">{{ config.background.imageBlur ?? 0 }}px</span>
             </div>
             <input
               type="range"
+              class="og-range-slider"
               min="0"
               max="24"
               :value="config.background.imageBlur ?? 0"
@@ -231,15 +304,16 @@
             />
           </div>
 
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Overlay Darkness</label>
-              <span class="og-inspector__val">
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">OVERLAY DARKNESS</span>
+              <span class="og-val-text">
                 {{ Math.round((config.background.imageOverlayOpacity ?? 0.35) * 100) }}%
               </span>
             </div>
             <input
               type="range"
+              class="og-range-slider"
               min="0"
               max="100"
               :value="Math.round((config.background.imageOverlayOpacity ?? 0.35) * 100)"
@@ -247,54 +321,66 @@
             />
           </div>
 
-          <div class="og-inspector__field">
-            <label class="og-inspector__label">Overlay Tint Color</label>
-            <div class="og-inspector__color-row">
-              <input
-                type="color"
-                class="og-inspector__color"
-                :value="config.background.imageOverlayColor ?? '#000000'"
-                @input="(e) => updateBackground({ imageOverlayColor: (e.target as HTMLInputElement).value })"
-              />
-              <span class="og-inspector__color-code">{{ config.background.imageOverlayColor ?? '#000000' }}</span>
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">TINT COLOR</span>
+              <span class="og-val-text">{{ config.background.imageOverlayColor ?? '#000000' }}</span>
             </div>
-          </div>
-
-          <div class="og-inspector__field">
-            <label class="og-inspector__label">Fit</label>
-            <select
-              class="og-inspector__select"
-              :value="config.background.imageFit ?? 'cover'"
-              @change="(e) => updateBackground({ imageFit: (e.target as HTMLSelectElement).value as any })"
-            >
-              <option value="cover">Cover (Fill canvas)</option>
-              <option value="contain">Contain (Fit inside)</option>
-            </select>
+            <div class="og-color-picker-row">
+              <div
+                class="og-circle-color-picker og-circle-color-picker--sm"
+                :style="{ backgroundColor: config.background.imageOverlayColor ?? '#000000' }"
+              >
+                <input
+                  type="color"
+                  class="og-circle-color-picker__input"
+                  :value="config.background.imageOverlayColor ?? '#000000'"
+                  @input="(e) => updateBackground({ imageOverlayColor: (e.target as HTMLInputElement).value })"
+                />
+              </div>
+              <span class="og-val-desc">Color wash applied over the photo</span>
+            </div>
           </div>
         </template>
 
-        <!-- Animated Backgrounds -->
+        <!-- ── Animated Background Controls ────────────────────────── -->
         <template v-if="activeCategory === 'animated'">
-          <div class="og-inspector__field">
-            <label class="og-inspector__label">Preset</label>
-            <select
-              class="og-inspector__select"
-              :value="config.background.presetId"
-              @change="(e) => selectPreset((e.target as HTMLSelectElement).value)"
-            >
-              <option v-for="preset in presetsInCategory" :key="preset.id" :value="preset.id">
-                {{ preset.label }}
-              </option>
-            </select>
+          <div class="og-field">
+            <span class="mgs-section__label">ANIMATION PRESET</span>
+            <div class="og-custom-dropdown" @click.stop>
+              <button
+                type="button"
+                class="og-custom-dropdown__trigger"
+                :class="{ 'is-open': activeDropdown === 'animated-preset' }"
+                @click="toggleDropdown('animated-preset')"
+              >
+                <span>{{ currentPresetLabel }}</span>
+                <Chevron :size="14" class="og-custom-dropdown__chevron" :class="{ 'is-open': activeDropdown === 'animated-preset' }" />
+              </button>
+              <div v-if="activeDropdown === 'animated-preset'" class="og-custom-dropdown__menu">
+                <button
+                  v-for="preset in presetsInCategory"
+                  :key="preset.id"
+                  type="button"
+                  class="og-custom-dropdown__item"
+                  :class="{ 'is-active': config.background.presetId === preset.id }"
+                  @click="selectPreset(preset.id); activeDropdown = null;"
+                >
+                  <span>{{ preset.label }}</span>
+                  <CheckIcon v-if="config.background.presetId === preset.id" :size="14" class="og-custom-dropdown__check" />
+                </button>
+              </div>
+            </div>
           </div>
-          <div class="og-inspector__preview" :style="animatedPreviewStyle" />
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Speed</label>
-              <span class="og-inspector__val">{{ config.background.speed ?? 12 }}s</span>
+
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">SPEED</span>
+              <span class="og-val-text">{{ config.background.speed ?? 12 }}s</span>
             </div>
             <input
               type="range"
+              class="og-range-slider"
               min="2"
               max="30"
               :value="config.background.speed ?? 12"
@@ -303,60 +389,101 @@
           </div>
         </template>
 
-        <!-- Patterns / Textures -->
+        <!-- ── Pattern / Texture Controls ──────────────────────────── -->
         <template v-if="activeCategory === 'pattern'">
-          <div class="og-inspector__field">
-            <label class="og-inspector__label">Texture Style</label>
-            <select
-              class="og-inspector__select"
-              :value="config.background.presetId"
-              @change="(e) => selectPreset((e.target as HTMLSelectElement).value)"
-            >
-              <option v-for="preset in presetsInCategory" :key="preset.id" :value="preset.id">
-                {{ preset.label }}
-              </option>
-            </select>
+          <div class="og-field">
+            <span class="mgs-section__label">TEXTURE STYLE</span>
+            <!-- Custom Dropdown: NO white-on-white text bug! -->
+            <div class="og-custom-dropdown" @click.stop>
+              <button
+                type="button"
+                class="og-custom-dropdown__trigger"
+                :class="{ 'is-open': activeDropdown === 'texture-style' }"
+                @click="toggleDropdown('texture-style')"
+              >
+                <span>{{ currentPresetLabel }}</span>
+                <Chevron :size="14" class="og-custom-dropdown__chevron" :class="{ 'is-open': activeDropdown === 'texture-style' }" />
+              </button>
+              <div v-if="activeDropdown === 'texture-style'" class="og-custom-dropdown__menu">
+                <button
+                  v-for="preset in presetsInCategory"
+                  :key="preset.id"
+                  type="button"
+                  class="og-custom-dropdown__item"
+                  :class="{ 'is-active': config.background.presetId === preset.id }"
+                  @click="selectPreset(preset.id); activeDropdown = null;"
+                >
+                  <span>{{ preset.label }}</span>
+                  <CheckIcon v-if="config.background.presetId === preset.id" :size="14" class="og-custom-dropdown__check" />
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Background Fill Color</label>
-              <span class="og-inspector__color-code">{{ config.background.patternBackground ?? '#18181b' }}</span>
+          <!-- Background Fill Color (Fully Circular) -->
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">BACKGROUND FILL COLOR</span>
+              <span class="og-val-text">{{ config.background.patternBackground ?? '#18181b' }}</span>
             </div>
-            <div class="og-inspector__color-row">
+            <div class="og-color-picker-row">
+              <div
+                class="og-circle-color-picker"
+                :style="{ backgroundColor: config.background.patternBackground ?? '#18181b' }"
+                title="Change background fill"
+              >
+                <input
+                  type="color"
+                  class="og-circle-color-picker__input"
+                  :value="config.background.patternBackground ?? '#18181b'"
+                  @input="(e) => updateBackground({ patternBackground: (e.target as HTMLInputElement).value })"
+                />
+              </div>
               <input
-                type="color"
-                class="og-inspector__color"
+                type="text"
+                class="og-hex-input"
                 :value="config.background.patternBackground ?? '#18181b'"
                 @input="(e) => updateBackground({ patternBackground: (e.target as HTMLInputElement).value })"
               />
-              <span class="og-inspector__val-desc">Color behind the pattern</span>
             </div>
           </div>
 
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Line / Texture Color</label>
-              <span class="og-inspector__color-code">{{ patternColorHex }}</span>
+          <!-- Texture / Line Color (Fully Circular) -->
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">TEXTURE / LINE COLOR</span>
+              <span class="og-val-text">{{ patternColorHex }}</span>
             </div>
-            <div class="og-inspector__color-row">
+            <div class="og-color-picker-row">
+              <div
+                class="og-circle-color-picker"
+                :style="{ backgroundColor: patternColorHex }"
+                title="Change line color"
+              >
+                <input
+                  type="color"
+                  class="og-circle-color-picker__input"
+                  :value="patternColorHex"
+                  @input="onPatternColorInput"
+                />
+              </div>
               <input
-                type="color"
-                class="og-inspector__color"
+                type="text"
+                class="og-hex-input"
                 :value="patternColorHex"
                 @input="onPatternColorInput"
               />
-              <span class="og-inspector__val-desc">Pattern stroke color</span>
             </div>
           </div>
 
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Pattern Opacity</label>
-              <span class="og-inspector__val">{{ patternOpacityPercent }}%</span>
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">PATTERN OPACITY</span>
+              <span class="og-val-text">{{ patternOpacityPercent }}%</span>
             </div>
             <input
               type="range"
+              class="og-range-slider"
               min="0"
               max="100"
               :value="patternOpacityPercent"
@@ -364,13 +491,14 @@
             />
           </div>
 
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Stroke Thickness</label>
-              <span class="og-inspector__val">{{ config.background.patternStrokeWidth ?? 1 }}px</span>
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">STROKE THICKNESS</span>
+              <span class="og-val-text">{{ config.background.patternStrokeWidth ?? 1 }}px</span>
             </div>
             <input
               type="range"
+              class="og-range-slider"
               min="1"
               max="8"
               :value="config.background.patternStrokeWidth ?? 1"
@@ -378,13 +506,14 @@
             />
           </div>
 
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Spacing & Density</label>
-              <span class="og-inspector__val">{{ config.background.patternSize ?? 28 }}px</span>
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">SPACING & DENSITY</span>
+              <span class="og-val-text">{{ config.background.patternSize ?? 28 }}px</span>
             </div>
             <input
               type="range"
+              class="og-range-slider"
               min="8"
               max="80"
               :value="config.background.patternSize ?? 28"
@@ -393,29 +522,30 @@
           </div>
 
           <Toggle
-            label="Animate Pattern Flow"
+            label="Animate Texture Movement"
             :model-value="!!config.background.animated"
             @update:model-value="(v) => updateBackground({ animated: v })"
           />
         </template>
-      </MenuSection>
+      </section>
 
-      <!-- ── Selected Tile Controls ───────────────────────────────────── -->
+      <!-- ── SELECTED CARD ──────────────────────────────────────────── -->
       <template v-if="selectedPlacement">
         <Divider />
-        <MenuSection class="og-inspector__section og-inspector__section--selected">
-          <div class="og-inspector__selected-header">
-            <h4 class="og-inspector__title">Selected Card</h4>
-            <span class="og-inspector__badge">Card {{ selectedPlacement.tileId }}</span>
+        <section class="mgs-section og-selected-section">
+          <div class="og-control-row">
+            <span class="mgs-section__label">SELECTED CARD</span>
+            <span class="og-card-pill">#{{ selectedPlacement.tileId }}</span>
           </div>
 
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Scale</label>
-              <span class="og-inspector__val">{{ Math.round((selectedPlacement.scale ?? 1) * 100) }}%</span>
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">SCALE</span>
+              <span class="og-val-text">{{ Math.round((selectedPlacement.scale ?? 1) * 100) }}%</span>
             </div>
             <input
               type="range"
+              class="og-range-slider"
               min="50"
               max="200"
               :value="Math.round((selectedPlacement.scale ?? 1) * 100)"
@@ -423,13 +553,14 @@
             />
           </div>
 
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Opacity</label>
-              <span class="og-inspector__val">{{ Math.round(selectedPlacement.opacity * 100) }}%</span>
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">OPACITY</span>
+              <span class="og-val-text">{{ Math.round(selectedPlacement.opacity * 100) }}%</span>
             </div>
             <input
               type="range"
+              class="og-range-slider"
               min="0"
               max="100"
               :value="Math.round(selectedPlacement.opacity * 100)"
@@ -437,13 +568,14 @@
             />
           </div>
 
-          <div class="og-inspector__field">
-            <div class="og-inspector__field-header">
-              <label class="og-inspector__label">Rotation</label>
-              <span class="og-inspector__val">{{ selectedPlacement.rotation }}°</span>
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">ROTATION</span>
+              <span class="og-val-text">{{ selectedPlacement.rotation }}°</span>
             </div>
             <input
               type="range"
+              class="og-range-slider"
               min="-180"
               max="180"
               :value="selectedPlacement.rotation"
@@ -451,55 +583,81 @@
             />
           </div>
 
-          <div class="og-inspector__field">
-            <label class="og-inspector__label">Motion Override</label>
-            <select
-              class="og-inspector__select"
-              :value="selectedPlacement.animation ?? ''"
-              @change="(e) => updateSelectedPlacement({ animation: ((e.target as HTMLSelectElement).value || undefined) as any })"
-            >
-              <option value="">Use Global Motion</option>
-              <option value="none">None (Static)</option>
-              <option value="float">Float & Bob</option>
-              <option value="pulse">Breathing Pulse</option>
-              <option value="shimmer">Neon Shimmer</option>
-              <option value="tilt">Dynamic Tilt</option>
-            </select>
+          <div class="og-field">
+            <span class="mgs-section__label">MOTION OVERRIDE</span>
+            <div class="og-custom-dropdown" @click.stop>
+              <button
+                type="button"
+                class="og-custom-dropdown__trigger"
+                :class="{ 'is-open': activeDropdown === 'tile-anim' }"
+                @click="toggleDropdown('tile-anim')"
+              >
+                <span>{{ getMotionLabel(selectedPlacement.animation) }}</span>
+                <Chevron :size="14" class="og-custom-dropdown__chevron" :class="{ 'is-open': activeDropdown === 'tile-anim' }" />
+              </button>
+              <div v-if="activeDropdown === 'tile-anim'" class="og-custom-dropdown__menu">
+                <button
+                  v-for="opt in MOTION_OPTIONS"
+                  :key="opt.value"
+                  type="button"
+                  class="og-custom-dropdown__item"
+                  :class="{ 'is-active': (selectedPlacement.animation ?? '') === opt.value }"
+                  @click="updateSelectedPlacement({ animation: opt.value as any }); activeDropdown = null;"
+                >
+                  <span>{{ opt.label }}</span>
+                  <CheckIcon v-if="(selectedPlacement.animation ?? '') === opt.value" :size="14" class="og-custom-dropdown__check" />
+                </button>
+              </div>
+            </div>
           </div>
 
           <Button variant="danger" size="sm" @click="removeSelectedTile">
             Remove from Canvas
           </Button>
-        </MenuSection>
+        </section>
       </template>
 
-      <!-- ── Motion & Animations Accordion ───────────────────────────── -->
+      <!-- ── MOTION & PHYSICS ───────────────────────────────────────── -->
       <Divider />
-      <MenuSection class="og-inspector__section">
-        <Accordion title="Motion & Physics" class="og-inspector__accordion">
-          <div class="og-inspector__accordion-body">
-            <div class="og-inspector__field">
-              <label class="og-inspector__label">Global Tile Motion</label>
-              <select
-                class="og-inspector__select"
-                :value="config.animation?.tileAnimation ?? 'none'"
-                @change="(e) => updateAnimation({ tileAnimation: (e.target as HTMLSelectElement).value as any })"
-              >
-                <option value="none">None (Static)</option>
-                <option value="float">Float & Bob</option>
-                <option value="pulse">Breathing Pulse</option>
-                <option value="shimmer">Neon Shimmer</option>
-                <option value="tilt">Dynamic Tilt</option>
-              </select>
+      <section class="mgs-section">
+        <Accordion title="Motion & Animations">
+          <div class="og-accordion-inner">
+            <div class="og-field">
+              <span class="mgs-section__label">GLOBAL TILE MOTION</span>
+              <div class="og-custom-dropdown" @click.stop>
+                <button
+                  type="button"
+                  class="og-custom-dropdown__trigger"
+                  :class="{ 'is-open': activeDropdown === 'global-anim' }"
+                  @click="toggleDropdown('global-anim')"
+                >
+                  <span>{{ getGlobalMotionLabel(config.animation?.tileAnimation) }}</span>
+                  <Chevron :size="14" class="og-custom-dropdown__chevron" :class="{ 'is-open': activeDropdown === 'global-anim' }" />
+                </button>
+                <div v-if="activeDropdown === 'global-anim'" class="og-custom-dropdown__menu">
+                  <button
+                    v-for="opt in GLOBAL_MOTION_OPTIONS"
+                    :key="opt.value"
+                    type="button"
+                    class="og-custom-dropdown__item"
+                    :class="{ 'is-active': (config.animation?.tileAnimation ?? 'none') === opt.value }"
+                    @click="updateAnimation({ tileAnimation: opt.value as any }); activeDropdown = null;"
+                  >
+                    <span>{{ opt.label }}</span>
+                    <CheckIcon v-if="(config.animation?.tileAnimation ?? 'none') === opt.value" :size="14" class="og-custom-dropdown__check" />
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div v-if="(config.animation?.tileAnimation ?? 'none') !== 'none'" class="og-inspector__field">
-              <div class="og-inspector__field-header">
-                <label class="og-inspector__label">Cycle Speed</label>
-                <span class="og-inspector__val">{{ config.animation?.tileSpeed ?? 3 }}s</span>
+            <div v-if="(config.animation?.tileAnimation ?? 'none') !== 'none'" class="og-field">
+              <div class="og-control-row">
+                <span class="mgs-section__label">CYCLE SPEED</span>
+                <span class="og-val-text">{{ config.animation?.tileSpeed ?? 3 }}s</span>
               </div>
               <input
                 type="range"
+                class="og-range-slider"
                 min="1"
                 max="6"
                 step="0.5"
@@ -509,15 +667,15 @@
             </div>
           </div>
         </Accordion>
-      </MenuSection>
+      </section>
     </div>
 
-    <!-- ── Dedicated Apply Footer ────────────────────────────────────── -->
-    <div class="og-inspector__footer">
+    <!-- ── DEDICATED APPLY BUTTON FOOTER ──────────────────────────── -->
+    <div class="og-footer">
       <Button
         variant="primary"
         size="md"
-        class="og-inspector__apply-btn"
+        class="og-apply-btn"
         :disabled="isApplying"
         @click="$emit('apply')"
       >
@@ -532,19 +690,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import MenuSection from "@/components/ui-collections/MenuSection.vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import Toggle from "@/components/ui-controls/Toggle.vue";
 import Divider from "@/components/ui-elements/Divider.vue";
 import Button from "@/components/ui-elements/Button.vue";
 import Accordion from "@/components/ui-controls/Accordion.vue";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
 import SpinnerIcon from "@/components/icons/SpinnerIcon.vue";
+import Chevron from "@/components/icons/Chevron.vue";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import {
   getAllBackgroundPresets,
   getBackgroundPresetsByCategory,
-  renderBackground,
   type BackgroundCategory,
   type BackgroundConfig,
   type GradientStop,
@@ -578,13 +735,63 @@ const SOLID_SWATCHES = [
   "#312e81",
 ];
 
-const categoryLabel = (cat: BackgroundCategory) =>
-  cat.charAt(0).toUpperCase() + cat.slice(1);
+const MOTION_OPTIONS = [
+  { value: "", label: "Use Global Motion" },
+  { value: "none", label: "None (Static)" },
+  { value: "float", label: "Float & Bob" },
+  { value: "pulse", label: "Breathing Pulse" },
+  { value: "shimmer", label: "Neon Shimmer" },
+  { value: "tilt", label: "Dynamic Tilt" },
+];
+
+const GLOBAL_MOTION_OPTIONS = [
+  { value: "none", label: "None (Static)" },
+  { value: "float", label: "Float & Bob" },
+  { value: "pulse", label: "Breathing Pulse" },
+  { value: "shimmer", label: "Neon Shimmer" },
+  { value: "tilt", label: "Dynamic Tilt" },
+];
+
+const getMotionLabel = (val?: string) =>
+  MOTION_OPTIONS.find((o) => o.value === (val ?? ""))?.label ?? "Use Global Motion";
+
+const getGlobalMotionLabel = (val?: string) =>
+  GLOBAL_MOTION_OPTIONS.find((o) => o.value === (val ?? "none"))?.label ?? "None (Static)";
+
+const categoryLabel = (cat: BackgroundCategory) => {
+  switch (cat) {
+    case "solid": return "Solid Color";
+    case "gradient": return "Gradient";
+    case "image": return "Image";
+    case "animated": return "Animated";
+    case "pattern": return "Pattern / Texture";
+    default: return cat;
+  }
+};
 
 const categoryForPreset = (presetId: string): BackgroundCategory =>
   getAllBackgroundPresets().find((p) => p.id === presetId)?.category ?? "solid";
 
 const activeCategory = ref<BackgroundCategory>(categoryForPreset(props.config.background.presetId));
+
+// Dropdown State Management (Click outside auto-dismisses)
+const activeDropdown = ref<string | null>(null);
+
+const toggleDropdown = (name: string) => {
+  activeDropdown.value = activeDropdown.value === name ? null : name;
+};
+
+const handleDocumentClick = () => {
+  activeDropdown.value = null;
+};
+
+onMounted(() => {
+  document.addEventListener("click", handleDocumentClick);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", handleDocumentClick);
+});
 
 watch(
   () => props.config.background.presetId,
@@ -595,10 +802,11 @@ watch(
 
 const presetsInCategory = computed(() => getBackgroundPresetsByCategory(activeCategory.value));
 
-/**
- * Ensures that switching category tabs immediately updates `presetId` to an active preset
- * in that category, solving the solid vs gradient switching bug.
- */
+const currentPresetLabel = computed(() => {
+  const match = getAllBackgroundPresets().find((p) => p.id === props.config.background.presetId);
+  return match?.label ?? "Select Preset";
+});
+
 const setCategory = (cat: BackgroundCategory) => {
   activeCategory.value = cat;
   const presets = getBackgroundPresetsByCategory(cat);
@@ -651,9 +859,7 @@ const removeStop = (index: number) => {
   updateBackground({ stops });
 };
 
-const animatedPreviewStyle = computed(() => renderBackground(props.config.background).css ?? "");
-
-// Image Background handling
+// Image Background Handling
 const imageFileInput = ref<HTMLInputElement | null>(null);
 
 const triggerImageFileInput = () => {
@@ -775,290 +981,434 @@ const removeSelectedTile = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-content-background, #121215);
+  background: #000000; /* Deep pitch black matching Image 2 */
+  color: #ffffff;
   overflow: hidden;
+  user-select: none;
 }
 
 .og-inspector__scroll {
   flex: 1;
   overflow-y: auto;
-  padding: var(--spacing-md);
+  padding: 16px 14px;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: 16px;
 }
 
-.og-inspector__section {
+/* ── MGS Section Style (Matching MobileGridSettingsSheet.vue) ───────────── */
+.mgs-section {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: 10px;
 }
 
-.og-inspector__title {
-  margin: 0;
-  font-size: var(--font-size-xs);
+.mgs-section__label {
+  color: #71717a;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--color-text-primary);
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
-.og-inspector__subtitle {
-  margin: -4px 0 4px 0;
-  font-size: 11px;
-  color: var(--color-content-low);
-  line-height: 1.4;
-}
-
-.og-inspector__tabs {
-  display: flex;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 3px;
-  border-radius: var(--radius-sm);
-  gap: 2px;
-  margin-bottom: var(--spacing-xs);
-}
-
-.og-inspector__tab {
-  flex: 1;
-  padding: 6px 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-content-low);
-  background: transparent;
-  border: none;
-  border-radius: calc(var(--radius-sm) - 2px);
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--easing-smooth);
-  text-align: center;
-
-  &:hover {
-    color: var(--color-text-primary);
-  }
-
-  &.is-active {
-    background: var(--color-input-edit, rgba(255, 255, 255, 0.14));
-    color: var(--color-text-primary);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  }
-}
-
-.og-inspector__preset-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-  margin-bottom: var(--spacing-xs);
-}
-
-.og-inspector__preset {
-  padding: 6px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--color-content-low);
-  border: 1px solid var(--color-stroke, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--easing-smooth);
-  text-align: center;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--color-text-primary);
-  }
-
-  &.is-active {
-    border-color: var(--color-figma-purple);
-    background: rgba(168, 85, 247, 0.12);
-    color: var(--color-text-primary);
-  }
-}
-
-.og-inspector__field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.og-inspector__field-header {
+.og-control-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.og-inspector__label {
+.og-val-text {
   font-size: 11px;
   font-weight: 600;
-  color: var(--color-content-low);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  color: #ffffff;
 }
 
-.og-inspector__val {
+.og-val-desc {
   font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-primary);
+  color: #71717a;
 }
 
-.og-inspector__val-desc {
-  font-size: 11px;
-  color: var(--color-content-low);
+.og-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.og-inspector__color-code {
-  font-size: 11px;
-  font-family: monospace;
-  color: var(--color-content-low);
+.og-row-duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
-.og-inspector__color-row {
+.og-btn-duo {
+  display: flex;
+  gap: 8px;
+}
+
+.og-toggles-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ── Custom Dark Dropdown (No white-on-white text bug!) ────────────────── */
+.og-custom-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.og-custom-dropdown__trigger {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover,
+  &.is-open {
+    border-color: var(--color-figma-purple, #a855f7);
+    background: #202024;
+  }
+}
+
+.og-custom-dropdown__trigger-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.og-custom-dropdown__chevron {
+  color: #71717a;
+  transition: transform 0.2s ease;
+
+  &.is-open {
+    transform: rotate(180deg);
+    color: #ffffff;
+  }
+}
+
+.og-custom-dropdown__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  z-index: 50;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.og-custom-dropdown__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #ffffff !important;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background: rgba(168, 85, 247, 0.2);
+    color: #ffffff !important;
+  }
+
+  &.is-active {
+    background: rgba(168, 85, 247, 0.15);
+    color: var(--color-figma-purple, #a855f7) !important;
+    font-weight: 600;
+  }
+}
+
+.og-custom-dropdown__item-left {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.og-inspector__color {
+.og-custom-dropdown__check {
+  color: var(--color-figma-purple, #a855f7);
+}
+
+/* ── Segmented Control (Matching Image 2) ───────────────────────────────── */
+.mgs-segment {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.mgs-segment__btn {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #71717a;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(.is-active) {
+    color: #ffffff;
+  }
+
+  &.is-active {
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+  }
+}
+
+.og-segment__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &--rainbow {
+    background: conic-gradient(
+      from 90deg,
+      #ef4444,
+      #eab308,
+      #22c55e,
+      #06b6d4,
+      #3b82f6,
+      #a855f7,
+      #ef4444
+    );
+  }
+
+  &--image {
+    background: #3b82f6;
+  }
+
+  &--anim {
+    background: #ec4899;
+  }
+
+  &--pattern {
+    background: #eab308;
+  }
+}
+
+/* ── Fully Circular Color Picker ────────────────────────────────────────── */
+.og-color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.og-circle-color-picker {
+  position: relative;
   width: 36px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--color-stroke, rgba(255, 255, 255, 0.15));
-  border-radius: var(--radius-sm);
-  background: transparent;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1 !important;
+  overflow: hidden;
   cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    transform: scale(1.08);
+    border-color: #ffffff;
+  }
+
+  &--sm {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+  }
+
+  &__input {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    cursor: pointer;
+    opacity: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
 }
 
-.og-inspector__color-sm {
-  width: 28px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.og-inspector__input {
+.og-hex-input {
   flex: 1;
-  height: 32px;
-  padding: 0 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--color-stroke, rgba(255, 255, 255, 0.1));
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  font-size: 12px;
+  height: 36px;
+  padding: 0 12px;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  font-family: monospace;
+  font-size: 13px;
 
   &:focus {
     outline: none;
-    border-color: var(--color-figma-purple);
+    border-color: var(--color-figma-purple, #a855f7);
+  }
+
+  &--full {
+    width: 100%;
   }
 }
 
-.og-inspector__select {
-  height: 34px;
-  padding: 0 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--color-stroke, rgba(255, 255, 255, 0.1));
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  font-size: 12px;
-  cursor: pointer;
-
-  &:focus {
-    outline: none;
-    border-color: var(--color-figma-purple);
-  }
-}
-
-.og-inspector__swatches {
+.og-swatches-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 10px;
   margin-top: 4px;
 }
 
-.og-inspector__swatch {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
+.og-swatch-circle {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1 !important;
+  flex-shrink: 0;
   border: 2px solid transparent;
   cursor: pointer;
-  transition: transform 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   &:hover {
     transform: scale(1.15);
   }
 
   &.is-selected {
-    border-color: #ffffff;
-    box-shadow: 0 0 0 1px var(--color-figma-purple);
+    border-color: #ffffff !important;
+    box-shadow: 0 0 0 2px var(--color-figma-purple, #a855f7) !important;
   }
 }
 
-.og-inspector__btn-group {
-  display: flex;
-  gap: 8px;
-}
-
-.og-inspector__preview {
+/* ── Sleek Range Slider (Dark Grids style) ──────────────────────────────── */
+.og-range-slider {
   width: 100%;
-  height: 54px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  overflow: hidden;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    transition: transform 0.1s ease;
+
+    &:hover {
+      transform: scale(1.2);
+    }
+  }
+
+  &::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  }
 }
 
-.og-inspector__stops {
+/* ── Stops Controls ─────────────────────────────────────────────────────── */
+.og-stops-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-.og-inspector__stop {
+.og-stop-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 
-  input[type="range"] {
+  .og-range-slider {
     flex: 1;
   }
 }
 
-.og-inspector__stop-val {
+.og-stop-percent {
   font-size: 11px;
   font-weight: 600;
-  color: var(--color-content-low);
+  color: #71717a;
   width: 32px;
   text-align: right;
 }
 
-.og-inspector__stop-remove {
+.og-stop-del-btn {
   background: transparent;
   border: none;
-  color: var(--color-content-low);
-  font-size: 16px;
+  color: #71717a;
+  font-size: 18px;
   cursor: pointer;
   padding: 0 4px;
 
   &:hover:not(:disabled) {
-    color: var(--color-figma-red);
+    color: #ef4444;
   }
 
   &:disabled {
-    opacity: 0.3;
+    opacity: 0.2;
     cursor: default;
   }
 }
 
-.og-inspector__add-stop {
+.og-add-stop-btn {
   background: transparent;
   border: 1px dashed rgba(255, 255, 255, 0.2);
-  color: var(--color-text-primary);
-  font-size: 11px;
+  color: #ffffff;
+  font-size: 12px;
   font-weight: 600;
-  padding: 6px;
-  border-radius: var(--radius-sm);
+  padding: 8px;
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s ease;
 
@@ -1067,37 +1417,41 @@ const removeSelectedTile = () => {
   }
 }
 
-.og-inspector__selected-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* ── Selected Section ───────────────────────────────────────────────────── */
+.og-selected-section {
+  background: rgba(168, 85, 247, 0.06);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 12px;
+  padding: 12px;
 }
 
-.og-inspector__badge {
-  font-size: 10px;
+.og-card-pill {
+  font-size: 11px;
   font-weight: 700;
+  color: var(--color-figma-purple, #a855f7);
   padding: 2px 6px;
   background: rgba(168, 85, 247, 0.15);
-  color: var(--color-figma-purple);
-  border-radius: var(--radius-xs);
+  border-radius: 4px;
 }
 
-.og-inspector__accordion-body {
+.og-accordion-inner {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
-  padding-top: var(--spacing-sm);
+  gap: 12px;
+  padding-top: 8px;
 }
 
-.og-inspector__footer {
-  padding: var(--spacing-md);
-  border-top: 1px solid var(--color-stroke, rgba(255, 255, 255, 0.08));
-  background: var(--color-content-background, #121215);
+/* ── Footer / Apply Button ──────────────────────────────────────────────── */
+.og-footer {
+  padding: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #000000;
 }
 
-.og-inspector__apply-btn {
+.og-apply-btn {
   width: 100%;
   font-weight: 700;
   justify-content: center;
+  min-height: 42px;
 }
 </style>

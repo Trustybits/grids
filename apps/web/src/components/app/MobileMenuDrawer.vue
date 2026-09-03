@@ -108,7 +108,8 @@
             </template>
           </div>
 
-          <!-- Bottom-anchored group. -->
+          <!-- Bottom-anchored group. Early Access sits on top, separated by a
+               divider from the account settings below. -->
           <div v-if="canUseEarlyAccess" class="mmd-account-toggle">
             <Toggle
               label="Early Access"
@@ -117,6 +118,42 @@
               tooltip="Try the new Grids experience early. You can switch back anytime."
             />
           </div>
+
+          <!-- Account settings. Brought over from the desktop UserMenu, which is
+               hidden in the Mobile 2.0 chrome, so these were otherwise
+               unreachable in Early Access. -->
+          <Divider />
+
+          <button
+            type="button"
+            class="mmd-row mmd-row--button"
+            @click="openSlugModal"
+          >
+            <span class="mmd-row__icon"><GlobeIcon :size="20" /></span>
+            <span class="mmd-row__label">Handle</span>
+            <span class="mmd-row__meta">{{ currentSlug || "Not set" }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="mmd-row mmd-row--button"
+            @click="openFileArchive"
+          >
+            <span class="mmd-row__icon"><FolderIcon :size="20" /></span>
+            <span class="mmd-row__label">File Archive</span>
+          </button>
+
+          <button
+            type="button"
+            class="mmd-row mmd-row--button"
+            :disabled="checkout.loading.value"
+            @click="openBilling"
+          >
+            <span class="mmd-row__icon"><StarIcon :size="20" /></span>
+            <span class="mmd-row__label">{{
+              isProOrAbove ? "Manage Billing" : "Upgrade"
+            }}</span>
+          </button>
 
           <a
             class="mmd-row"
@@ -139,27 +176,50 @@
       </transition>
     </div>
   </transition>
+
+  <!-- Account modals live outside the drawer transition so they stay mounted
+       (and visible) after the drawer closes on open. -->
+  <SlugClaimModal
+    :is-open="showSlugModal"
+    :current-slug="currentSlug"
+    @close="showSlugModal = false"
+    @success="handleSlugSuccess"
+    @skip="showSlugModal = false"
+  />
+
+  <FileArchiveModal
+    :is-open="showFileArchiveModal"
+    @close="showFileArchiveModal = false"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
+import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridCollectionStore } from "@/stores/grid/gridCollection";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridController } from "@/controllers/useGridController";
 import { useMobileExperience } from "@/composables/useMobileExperience";
 import { useGridStats } from "@/composables/useGridStats";
+import { useTier } from "@/composables/useTier";
+import { useStripeCheckout } from "@/composables/useStripeCheckout";
 import { useToastStore } from "@/stores/toast";
 import { valueToMillis } from "@/utils/TimeConversion";
 import type { Grid } from "@grids/contracts/types";
 import Divider from "@/components/ui-elements/Divider.vue";
 import Toggle from "@/components/ui-controls/Toggle.vue";
+import SlugClaimModal from "@/components/modal/SlugClaimModal.vue";
+import FileArchiveModal from "@/components/modal/FileArchiveModal.vue";
 import HomeIcon from "@/components/icons/HomeIcon.vue";
 import AnalyticsIcon from "@/components/icons/AnalyticsIcon.vue";
 import GridSquaresIcon from "@/components/icons/GridSquaresIcon.vue";
 import DiscordIcon from "@/components/icons/DiscordIcon.vue";
 import ProfileIcon from "@/components/icons/ProfileIcon.vue";
+import GlobeIcon from "@/components/icons/GlobeIcon.vue";
+import FolderIcon from "@/components/icons/FolderIcon.vue";
+import StarIcon from "@/components/icons/StarIcon.vue";
 import Chevron from "@/components/icons/Chevron.vue";
 
 const props = defineProps<{ open: boolean }>();
@@ -173,8 +233,50 @@ const controller = useGridController();
 const toastStore = useToastStore();
 const { canUseEarlyAccess, isEarlyAccessEnrolled, setEarlyAccessEnrolled } =
   useMobileExperience();
+const { isProOrAbove } = useTier();
+const checkout = useStripeCheckout();
 
 const isOwner = computed(() => sessionStore.isOwner);
+
+// ── Account settings (handle, file archive, billing) ────────────────────────
+const showSlugModal = ref(false);
+const showFileArchiveModal = ref(false);
+const currentSlug = ref<string | undefined>(undefined);
+
+const loadAccount = async () => {
+  const uid = getAuthProvider().getCurrentUserId();
+  if (!uid) return;
+  try {
+    const profile = await getServiceFactory().getUserService().getUserProfile(uid);
+    currentSlug.value = profile?.slug;
+  } catch (error) {
+    console.error("Error loading account profile:", error);
+  }
+};
+
+const openSlugModal = async () => {
+  emit("close");
+  await loadAccount();
+  showSlugModal.value = true;
+};
+
+const handleSlugSuccess = (slug: string) => {
+  currentSlug.value = slug;
+};
+
+const openFileArchive = () => {
+  emit("close");
+  showFileArchiveModal.value = true;
+};
+
+const openBilling = async () => {
+  emit("close");
+  if (isProOrAbove.value) {
+    await checkout.openCustomerPortal();
+  } else {
+    router.push("/pricing");
+  }
+};
 
 const analyticsOpen = ref(false);
 const { lifetimeViews, uniqueViewers, yesterdayViews, averageTimeSpent } =
@@ -207,6 +309,14 @@ const ensureGridsLoaded = () => {
 };
 
 watch(() => props.open, ensureGridsLoaded);
+
+// Refresh the handle whenever the drawer opens so it reflects the latest slug.
+watch(
+  () => props.open,
+  (open) => {
+    if (open) loadAccount();
+  },
+);
 
 // Close when navigating away so the drawer never lingers over a new route.
 watch(
@@ -307,6 +417,24 @@ const logout = async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+// Secondary value pushed to the right of a row (e.g. the current handle).
+.mmd-row__meta {
+  margin-left: auto;
+  padding-left: var(--spacing-sm);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  color: var(--color-content-low);
+}
+
+.mmd-row--button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .mmd-section-label {

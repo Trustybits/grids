@@ -51,6 +51,7 @@
           'tile-carousel__card--center': index === centerIndex,
         }"
         :style="cardStyle(index)"
+        :data-index="index"
         :aria-selected="type.id === selectedId"
         :aria-current="index === centerIndex"
         :aria-label="type.label"
@@ -312,6 +313,43 @@ const onPointerMove = (event: PointerEvent) => {
   focusIndex(Math.round(scroll.value));
 };
 
+// Timestamp of the last pointer-gesture end. A `click` that lands within this
+// window of a pointer gesture is that gesture's synthetic echo (fired by the
+// browser after a touch/mouse tap) and is ignored, so pointer selection and the
+// keyboard `@click` path can never double-fire. Comfortably longer than the
+// gap between pointerup and its echo click, but far shorter than the gap before
+// any deliberate keyboard activation.
+const CLICK_ECHO_MS = 500;
+let lastPointerUp = -Infinity;
+
+/**
+ * Which card sits under a viewport point, by its `data-index`. Resolved by
+ * hit-test (front-most card wins, since the fan overlaps and far cards are
+ * `pointer-events: none`) rather than by a click target — the track holds
+ * pointer capture during the gesture, so the tap's click is delivered to the
+ * track, not the card. Returns null when the point misses every card.
+ */
+const cardIndexAtPoint = (x: number, y: number): number | null => {
+  const hit = document.elementFromPoint(x, y);
+  const card = (hit?.closest?.(".tile-carousel__card") as HTMLElement | null) ?? null;
+  const raw = card?.dataset.index;
+  if (raw === undefined) return null;
+  const index = Number(raw);
+  return Number.isInteger(index) ? index : null;
+};
+
+// Commit a card: an off-center pick still slides to the middle first (keeping
+// the fan geometry and the command chip's /TYPE prefix in step), then selects.
+const selectCardAt = (index: number) => {
+  const target = clampIndex(index);
+  if (target !== centerIndex.value) {
+    animateTo(target);
+    focusIndex(target);
+  }
+  const type = cards.value[target];
+  if (type) emit("select", type.id);
+};
+
 const onPointerUp = (event: PointerEvent) => {
   if (!dragging.value) return;
   dragging.value = false;
@@ -327,28 +365,27 @@ const onPointerUp = (event: PointerEvent) => {
   animateTo(target);
   focusIndex(target);
   if (pendingSync) syncCards();
+
+  // Selection happens here, on the track, because pointer capture routes the
+  // tap's click to the track rather than the card — so the card's `@click`
+  // cannot be relied on for touch/mouse. This is a tap (commit) only when the
+  // gesture was a real release with no meaningful travel; a drag (suppressClick)
+  // or a cancel just settles the fan. Marking the time suppresses the synthetic
+  // echo click either way.
+  lastPointerUp = performance.now();
+  if (event.type !== "pointerup" || suppressClick) return;
+  const tapped = cardIndexAtPoint(event.clientX, event.clientY);
+  selectCardAt(tapped ?? centerIndex.value);
 };
 
 // ── Selection ────────────────────────────────────────────────────────────────
+// Keyboard / assistive-tech activation only. Pointer taps are handled in
+// onPointerUp; a click arriving right after a pointer gesture is that gesture's
+// synthetic echo and is dropped. A click with no recent pointer gesture is a
+// real Enter/Space (or AT) activation on the focused card, which must select.
 const onCardClick = (index: number) => {
-  // A drag ends with a click on whatever card is under the finger; ignore it —
-  // the drag guard (suppressClick) is what still separates browsing from
-  // picking now that a genuine tap commits directly.
-  if (suppressClick) {
-    suppressClick = false;
-    return;
-  }
-  // A deliberate tap on any card picks that tile type. Off-center taps still
-  // slide the card to the middle (keeping the fan geometry and the command
-  // chip's /TYPE prefix in step) but no longer require a second tap to commit —
-  // users read a single tap as "add this tile", and the old tap-to-center /
-  // tap-again-to-select coverflow read as broken.
-  if (index !== centerIndex.value) {
-    animateTo(index);
-    focusIndex(index);
-  }
-  const type = cards.value[index];
-  if (type) emit("select", type.id);
+  if (performance.now() - lastPointerUp < CLICK_ECHO_MS) return;
+  selectCardAt(index);
 };
 
 const onKeydown = (event: KeyboardEvent) => {

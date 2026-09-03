@@ -331,7 +331,7 @@ const activeTileIds = computed(() => config.value.tiles.map((t) => t.tileId));
 
 const authorName = computed(() => sessionStore.currentGrid?.name || "My Grid");
 const authorHandle = computed(
-  () => sessionStore.currentGrid?.slug || sessionStore.publicGridId || "grids.so",
+  () => (sessionStore.currentGrid as any)?.slug || sessionStore.publicGridId || "grids.so",
 );
 const effectiveTitle = computed(() => config.value.customTitle?.trim() || authorName.value);
 const effectiveSubtitle = computed(

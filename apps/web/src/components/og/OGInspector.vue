@@ -384,7 +384,7 @@
               type="button"
               class="og-swatch-circle"
               :style="{ background: swatch }"
-              :class="{ 'is-selected': config.background.color.toLowerCase() === swatch.toLowerCase() }"
+              :class="{ 'is-selected': config.background.color?.toLowerCase() === swatch.toLowerCase() }"
               :title="swatch"
               @click="updateBackground({ color: swatch, presetId: 'solid' })"
             />

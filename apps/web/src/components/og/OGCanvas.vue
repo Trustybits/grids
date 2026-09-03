@@ -245,7 +245,7 @@ const tileLabel = (tileId: string): string => {
 const sessionStore = useGridSessionStore();
 const gridTitle = computed(() => sessionStore.currentGrid?.name || "My Grid");
 const gridSubtitle = computed(() => "Curated links, stories & media");
-const gridHandle = computed(() => sessionStore.currentGrid?.slug || sessionStore.publicGridId || "grids.so");
+const gridHandle = computed(() => (sessionStore.currentGrid as any)?.slug || sessionStore.publicGridId || "grids.so");
 const gridInitials = computed(() => (gridTitle.value.slice(0, 2) || "G").toUpperCase());
 
 const avatarDisplayInitials = computed(() => {

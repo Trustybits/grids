@@ -19,16 +19,22 @@
         <ChevronRightIcon class="grid-arrow" :size="16" />
       </span>
 
-      <span
-        v-if="showStatus"
-        class="grid-status"
-        :class="isPublished ? 'grid-status--published' : 'grid-status--draft'"
-      >
-        <span class="grid-status__dot" aria-hidden="true" />
-        {{ isPublished ? "Published" : "Draft" }}
-      </span>
+      <!-- Badge + timestamp are wrapped so they can drop to a single second row
+           on mobile without the badge's width bleeding into the star/name
+           column (which was truncating short names). On desktop the wrapper is
+           `display: contents`, so both stay inline in the flex row as before. -->
+      <div class="grid-meta">
+        <span
+          v-if="showStatus"
+          class="grid-status"
+          :class="isPublished ? 'grid-status--published' : 'grid-status--draft'"
+        >
+          <span class="grid-status__dot" aria-hidden="true" />
+          {{ isPublished ? "Published" : "Draft" }}
+        </span>
 
-      <DashboardGridUpdatedLabel :grid="grid" />
+        <DashboardGridUpdatedLabel :grid="grid" />
+      </div>
 
       <DashboardGridCardActions
         :grid="grid"
@@ -138,6 +144,12 @@ const isPublished = computed(() => props.grid.status !== "draft");
   flex-shrink: 0;
 }
 
+/* Wrapper around the badge + timestamp. Transparent on desktop (both stay
+   inline in the flex row); becomes the full-width second row on mobile. */
+.grid-meta {
+  display: contents;
+}
+
 /* Published / Draft badge */
 .grid-status {
   display: inline-flex;
@@ -181,16 +193,19 @@ const isPublished = computed(() => props.grid.status !== "draft");
 
 /*
   On phones the single row (star + name + timestamp + four action buttons) has
-  no room for the name, so it wrapped mid-word. Reflow into two rows: star +
-  name on top, timestamp + actions beneath, giving the name a full line.
+  no room for the name, so it wrapped mid-word. Reflow into two rows: star + name
+  + actions on top, status badge + timestamp beneath. The action cluster is
+  compact on mobile (just the default-grid toggle plus an overflow "⋯" menu — see
+  DashboardGridCardActions), so it fits on the name row and the name keeps a
+  near-full line.
 */
 @media (max-width: 600px) {
   .grid-link {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      "star name name"
-      "status meta actions";
+      "star name actions"
+      "meta meta meta";
     column-gap: var(--spacing-sm);
     row-gap: var(--spacing-xs);
     align-items: center;
@@ -210,15 +225,16 @@ const isPublished = computed(() => props.grid.status !== "draft");
     display: none;
   }
 
-  /* Class-based placement so the layout is robust to the optional status badge
-     (the "status" cell is simply empty when the flag is off). */
-  .grid-status {
-    grid-area: status;
-    justify-self: start;
-  }
-
-  .grid-link :deep(.grid-updated) {
+  /* Badge + timestamp share a single full-width second row. Only the star
+     occupies the first column, so short names no longer get truncated. The
+     badge anchors to the card's left edge and the timestamp to its right. */
+  .grid-meta {
     grid-area: meta;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    min-width: 0;
   }
 
   .grid-link :deep(.grid-actions) {

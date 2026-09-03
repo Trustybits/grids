@@ -343,6 +343,7 @@ const handleCreateGrid = async (name: string) => {
 };
 
 const openRenameModal = (grid: Grid) => {
+  splitMenuOpenFor.value = null;
   gridToRename.value = grid;
   showRenameModal.value = true;
 };

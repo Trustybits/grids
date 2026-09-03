@@ -88,9 +88,11 @@
         <aside class="og-studio__inspector">
           <OGInspector
             :config="config"
+            :grid-tiles="gridTiles"
             :selected-tile-id="selectedTileId"
             :is-applying="applyingToGrid"
             @update:config="onUpdateConfig"
+            @select-tile="selectedTileId = $event"
             @apply="handleApplyAsShareImage"
           />
         </aside>

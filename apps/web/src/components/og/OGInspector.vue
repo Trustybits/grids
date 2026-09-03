@@ -1,6 +1,115 @@
 <template>
   <div class="og-inspector">
     <div class="og-inspector__scroll">
+      <!-- ── DEDICATED SELECTED TILE CARD (Separate Standalone Card) ──── -->
+      <div v-if="selectedPlacement" class="og-card-panel">
+        <div class="og-card-panel__header">
+          <div class="og-card-panel__title-group">
+            <div class="og-card-panel__icon-box">
+              <component
+                :is="selectedTileDef?.icon"
+                v-if="selectedTileDef?.icon"
+                class="og-card-panel__icon"
+              />
+              <span v-else class="og-card-panel__type-char">{{ selectedTileType.slice(0, 1) }}</span>
+            </div>
+            <div class="og-card-panel__title-meta">
+              <span class="og-card-panel__tag">SELECTED TILE</span>
+              <h4 class="og-card-panel__title">{{ selectedTileTitle }}</h4>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="og-card-panel__close-btn"
+            title="Deselect tile"
+            @click="$emit('select-tile', null)"
+          >
+            <CloseXIcon :size="14" />
+          </button>
+        </div>
+
+        <Divider class="og-card-panel__divider" />
+
+        <div class="og-card-panel__body">
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">SCALE</span>
+              <span class="og-val-text">{{ Math.round((selectedPlacement.scale ?? 1) * 100) }}%</span>
+            </div>
+            <input
+              type="range"
+              class="og-range-slider"
+              min="50"
+              max="200"
+              :value="Math.round((selectedPlacement.scale ?? 1) * 100)"
+              @input="(e) => updateSelectedPlacement({ scale: Number((e.target as HTMLInputElement).value) / 100 })"
+            />
+          </div>
+
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">OPACITY</span>
+              <span class="og-val-text">{{ Math.round(selectedPlacement.opacity * 100) }}%</span>
+            </div>
+            <input
+              type="range"
+              class="og-range-slider"
+              min="0"
+              max="100"
+              :value="Math.round(selectedPlacement.opacity * 100)"
+              @input="onOpacityInput"
+            />
+          </div>
+
+          <div class="og-field">
+            <div class="og-control-row">
+              <span class="mgs-section__label">ROTATION</span>
+              <span class="og-val-text">{{ selectedPlacement.rotation }}°</span>
+            </div>
+            <input
+              type="range"
+              class="og-range-slider"
+              min="-180"
+              max="180"
+              :value="selectedPlacement.rotation"
+              @input="onRotationInput"
+            />
+          </div>
+
+          <div class="og-field">
+            <span class="mgs-section__label">MOTION OVERRIDE</span>
+            <div class="og-custom-dropdown" @click.stop>
+              <button
+                type="button"
+                class="og-custom-dropdown__trigger"
+                :class="{ 'is-open': activeDropdown === 'tile-anim' }"
+                @click="toggleDropdown('tile-anim')"
+              >
+                <span>{{ getMotionLabel(selectedPlacement.animation) }}</span>
+                <Chevron :size="14" class="og-custom-dropdown__chevron" :class="{ 'is-open': activeDropdown === 'tile-anim' }" />
+              </button>
+              <div v-if="activeDropdown === 'tile-anim'" class="og-custom-dropdown__menu">
+                <button
+                  v-for="opt in MOTION_OPTIONS"
+                  :key="opt.value"
+                  type="button"
+                  class="og-custom-dropdown__item"
+                  :class="{ 'is-active': (selectedPlacement.animation ?? '') === opt.value }"
+                  @click="updateSelectedPlacement({ animation: opt.value as any }); activeDropdown = null;"
+                >
+                  <span>{{ opt.label }}</span>
+                  <CheckIcon v-if="(selectedPlacement.animation ?? '') === opt.value" :size="14" class="og-custom-dropdown__check" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <Button variant="danger" size="sm" class="og-remove-tile-btn" @click="removeSelectedTile">
+            Remove from Canvas
+          </Button>
+        </div>
+      </div>
+
       <!-- ── INFO SAFE ZONE ─────────────────────────────────────────── -->
       <section class="mgs-section">
         <span class="mgs-section__label">INFO SAFE ZONE</span>
@@ -137,7 +246,7 @@
             />
           </div>
 
-          <!-- Quick Palette Circles -->
+          <!-- Quick Palette Circles: STRICTLY 100% CIRCULAR -->
           <div class="og-swatches-grid">
             <button
               v-for="swatch in SOLID_SWATCHES"
@@ -146,6 +255,7 @@
               class="og-swatch-circle"
               :style="{ background: swatch }"
               :class="{ 'is-selected': config.background.color.toLowerCase() === swatch.toLowerCase() }"
+              :title="swatch"
               @click="updateBackground({ color: swatch, presetId: 'solid' })"
             />
           </div>
@@ -529,94 +639,6 @@
         </template>
       </section>
 
-      <!-- ── SELECTED CARD ──────────────────────────────────────────── -->
-      <template v-if="selectedPlacement">
-        <Divider />
-        <section class="mgs-section og-selected-section">
-          <div class="og-control-row">
-            <span class="mgs-section__label">SELECTED CARD</span>
-            <span class="og-card-pill">#{{ selectedPlacement.tileId }}</span>
-          </div>
-
-          <div class="og-field">
-            <div class="og-control-row">
-              <span class="mgs-section__label">SCALE</span>
-              <span class="og-val-text">{{ Math.round((selectedPlacement.scale ?? 1) * 100) }}%</span>
-            </div>
-            <input
-              type="range"
-              class="og-range-slider"
-              min="50"
-              max="200"
-              :value="Math.round((selectedPlacement.scale ?? 1) * 100)"
-              @input="(e) => updateSelectedPlacement({ scale: Number((e.target as HTMLInputElement).value) / 100 })"
-            />
-          </div>
-
-          <div class="og-field">
-            <div class="og-control-row">
-              <span class="mgs-section__label">OPACITY</span>
-              <span class="og-val-text">{{ Math.round(selectedPlacement.opacity * 100) }}%</span>
-            </div>
-            <input
-              type="range"
-              class="og-range-slider"
-              min="0"
-              max="100"
-              :value="Math.round(selectedPlacement.opacity * 100)"
-              @input="onOpacityInput"
-            />
-          </div>
-
-          <div class="og-field">
-            <div class="og-control-row">
-              <span class="mgs-section__label">ROTATION</span>
-              <span class="og-val-text">{{ selectedPlacement.rotation }}°</span>
-            </div>
-            <input
-              type="range"
-              class="og-range-slider"
-              min="-180"
-              max="180"
-              :value="selectedPlacement.rotation"
-              @input="onRotationInput"
-            />
-          </div>
-
-          <div class="og-field">
-            <span class="mgs-section__label">MOTION OVERRIDE</span>
-            <div class="og-custom-dropdown" @click.stop>
-              <button
-                type="button"
-                class="og-custom-dropdown__trigger"
-                :class="{ 'is-open': activeDropdown === 'tile-anim' }"
-                @click="toggleDropdown('tile-anim')"
-              >
-                <span>{{ getMotionLabel(selectedPlacement.animation) }}</span>
-                <Chevron :size="14" class="og-custom-dropdown__chevron" :class="{ 'is-open': activeDropdown === 'tile-anim' }" />
-              </button>
-              <div v-if="activeDropdown === 'tile-anim'" class="og-custom-dropdown__menu">
-                <button
-                  v-for="opt in MOTION_OPTIONS"
-                  :key="opt.value"
-                  type="button"
-                  class="og-custom-dropdown__item"
-                  :class="{ 'is-active': (selectedPlacement.animation ?? '') === opt.value }"
-                  @click="updateSelectedPlacement({ animation: opt.value as any }); activeDropdown = null;"
-                >
-                  <span>{{ opt.label }}</span>
-                  <CheckIcon v-if="(selectedPlacement.animation ?? '') === opt.value" :size="14" class="og-custom-dropdown__check" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <Button variant="danger" size="sm" @click="removeSelectedTile">
-            Remove from Canvas
-          </Button>
-        </section>
-      </template>
-
       <!-- ── MOTION & PHYSICS ───────────────────────────────────────── -->
       <Divider />
       <section class="mgs-section">
@@ -698,6 +720,8 @@ import Accordion from "@/components/ui-controls/Accordion.vue";
 import CheckIcon from "@/components/icons/CheckIcon.vue";
 import SpinnerIcon from "@/components/icons/SpinnerIcon.vue";
 import Chevron from "@/components/icons/Chevron.vue";
+import CloseXIcon from "@/components/icons/CloseXIcon.vue";
+import { getTileDefinition } from "@/registries/tileRegistry";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import {
   getAllBackgroundPresets,
@@ -710,12 +734,14 @@ import type { OGConfig, OGVisibility, OGTilePlacement } from "@/types/og";
 
 const props = defineProps<{
   config: OGConfig;
+  gridTiles?: Array<any>;
   selectedTileId?: string | null;
   isApplying?: boolean;
 }>();
 
 const emit = defineEmits<{
   "update:config": [config: OGConfig];
+  "select-tile": [tileId: string | null];
   "apply": [];
 }>();
 
@@ -942,6 +968,36 @@ const selectedPlacement = computed<OGTilePlacement | undefined>(() =>
   props.config.tiles.find((t) => t.tileId === props.selectedTileId),
 );
 
+const selectedTileData = computed(() => {
+  if (!props.selectedTileId) return null;
+  return props.gridTiles?.find((t: any) => (t.i ?? t.id) === props.selectedTileId) ?? null;
+});
+
+const selectedTileDef = computed(() => {
+  const type = selectedTileData.value?.content?.type;
+  if (!type) return null;
+  return getTileDefinition(type);
+});
+
+const selectedTileTitle = computed(() => {
+  const t = selectedTileData.value;
+  if (!t) return `Card ${props.selectedTileId?.slice(0, 8)}`;
+  const c = t.content;
+  return (
+    t.caption?.trim() ||
+    c?.title ||
+    c?.label ||
+    c?.name ||
+    selectedTileDef.value?.label ||
+    "Tile"
+  );
+});
+
+const selectedTileType = computed(() => {
+  const type = selectedTileData.value?.content?.type || "Tile";
+  return type.replace(/_/g, " ").toUpperCase();
+});
+
 const updateSelectedPlacement = (patch: Partial<OGTilePlacement>) => {
   if (!props.selectedTileId) return;
   const tiles = props.config.tiles.map((t) =>
@@ -969,9 +1025,11 @@ const onRotationInput = (e: Event) => {
 
 const removeSelectedTile = () => {
   if (!props.selectedTileId) return;
+  const tileId = props.selectedTileId;
+  emit("select-tile", null);
   emit("update:config", {
     ...props.config,
-    tiles: props.config.tiles.filter((t) => t.tileId !== props.selectedTileId),
+    tiles: props.config.tiles.filter((t) => t.tileId !== tileId),
   });
 };
 </script>
@@ -981,7 +1039,7 @@ const removeSelectedTile = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #000000; /* Deep pitch black matching Image 2 */
+  background: #000000;
   color: #ffffff;
   overflow: hidden;
   user-select: none;
@@ -1219,7 +1277,7 @@ const removeSelectedTile = () => {
   }
 }
 
-/* ── Fully Circular Color Picker ────────────────────────────────────────── */
+/* ── Truly Circular Color Picker (36x36 Perfect Circle) ─────────────────── */
 .og-color-picker-row {
   display: flex;
   align-items: center;
@@ -1228,20 +1286,25 @@ const removeSelectedTile = () => {
 
 .og-circle-color-picker {
   position: relative;
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  min-height: 36px;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  padding: 0 !important;
+  margin: 0 !important;
   border-radius: 50% !important;
   aspect-ratio: 1 / 1 !important;
+  box-sizing: border-box !important;
+  flex: 0 0 36px !important;
   overflow: hidden;
   cursor: pointer;
   border: 2px solid rgba(255, 255, 255, 0.3);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   transition: transform 0.15s ease, border-color 0.15s ease;
 
   &:hover {
@@ -1250,10 +1313,13 @@ const removeSelectedTile = () => {
   }
 
   &--sm {
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
-    min-height: 28px;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    max-width: 28px !important;
+    min-height: 28px !important;
+    max-height: 28px !important;
+    flex: 0 0 28px !important;
   }
 
   &__input {
@@ -1291,32 +1357,41 @@ const removeSelectedTile = () => {
   }
 }
 
+/* ── Truly Circular Swatches (Strictly 28x28 Geometric Circles) ─────────── */
 .og-swatches-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   margin-top: 4px;
 }
 
 .og-swatch-circle {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 2px solid transparent !important;
   border-radius: 50% !important;
   aspect-ratio: 1 / 1 !important;
-  flex-shrink: 0;
-  border: 2px solid transparent;
+  box-sizing: border-box !important;
+  display: inline-block !important;
+  flex: 0 0 28px !important;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+  transition: transform 0.15s ease;
 
   &:hover {
     transform: scale(1.15);
   }
 
   &.is-selected {
-    border-color: #ffffff !important;
-    box-shadow: 0 0 0 2px var(--color-figma-purple, #a855f7) !important;
+    border: 2px solid #ffffff !important;
+    outline: 2px solid var(--color-figma-purple, #a855f7) !important;
+    outline-offset: 2px !important;
   }
 }
 
@@ -1417,21 +1492,120 @@ const removeSelectedTile = () => {
   }
 }
 
-/* ── Selected Section ───────────────────────────────────────────────────── */
-.og-selected-section {
-  background: rgba(168, 85, 247, 0.06);
-  border: 1px solid rgba(168, 85, 247, 0.2);
-  border-radius: 12px;
-  padding: 12px;
+/* ── Standalone Card Panel for Selected Tile (No Purple Highlight Box) ───── */
+.og-card-panel {
+  background: #141416;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.og-card-pill {
-  font-size: 11px;
+.og-card-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.og-card-panel__title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.og-card-panel__icon-box {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.og-card-panel__icon {
+  width: 18px;
+  height: 18px;
+  color: #ffffff;
+}
+
+.og-card-panel__type-char {
+  font-size: 12px;
   font-weight: 700;
-  color: var(--color-figma-purple, #a855f7);
-  padding: 2px 6px;
-  background: rgba(168, 85, 247, 0.15);
-  border-radius: 4px;
+  color: #ffffff;
+}
+
+.og-card-panel__title-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.og-card-panel__tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #71717a;
+  text-transform: uppercase;
+}
+
+.og-card-panel__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.og-card-panel__close-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #71717a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+  }
+}
+
+.og-card-panel__divider {
+  margin: 2px 0 0 0;
+  opacity: 0.6;
+}
+
+.og-card-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.og-remove-tile-btn {
+  width: 100%;
+  justify-content: center;
+  min-height: 36px;
+  font-weight: 600;
+  margin-top: 4px;
 }
 
 .og-accordion-inner {

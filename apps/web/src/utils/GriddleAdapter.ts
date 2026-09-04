@@ -40,6 +40,14 @@ export const MAX_TILE_UNITS = 10;
  * must be draggable from their text while Griddle's movement threshold keeps
  * a stationary pointer gesture available as a native/editing click. The other
  * custom gesture surfaces remain ignored so their controls keep working.
+ *
+ * `.chat-messages` (the scrollable message list, which wraps the bubbles, the
+ * `.messages-spacer`, and the date separators) is ignored as a whole rather
+ * than just `.chat-bubble-wrapper`. On a touch device an activated chat tile
+ * reports `draggable: true`, so without this a vertical scroll swipe clears
+ * Griddle's 12px movement threshold and arms a tile drag — Griddle then
+ * captures the pointer and the message history can never be scrolled. Ignoring
+ * the container leaves the vertical pan to the browser's native scroll.
  */
 export const DEFAULT_DRAG_IGNORE_FROM =
   [
@@ -52,7 +60,7 @@ export const DEFAULT_DRAG_IGNORE_FROM =
     ".tile-link-indicator",
     ".tile-title",
     ".tile-details",
-    ".chat-bubble-wrapper",
+    ".chat-messages",
     ".progress-container",
     ".track-progress",
     ".yt-video-card",

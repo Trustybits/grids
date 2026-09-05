@@ -242,6 +242,37 @@ describe("GridTile position-only rendering", () => {
     wrapper.unmount();
   });
 
+  it("does not reflow child content when the layout object changes but w/h do not", async () => {
+    const onResize = vi.fn();
+    const tile = makeTile();
+    const store = makeStore(tile);
+    const layout: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
+    const { wrapper } = await mountGridTile(store, layout);
+
+    (
+      wrapper.vm as unknown as {
+        childComponent: { onResize: () => void } | null;
+      }
+    ).childComponent = { onResize };
+
+    // Griddle re-renders its tiles on every scroll event, handing Tile a fresh
+    // layout object each time. A position-only change (or an identical copy)
+    // must not fire onResize — for chat tiles that snaps the message list to
+    // the bottom while the user is scrolling through history.
+    await wrapper.setProps({
+      layout: { i: "tile-1", x: 3, y: 4, w: 2, h: 2 },
+    });
+    await flushPromises();
+    await wrapper.setProps({
+      layout: { i: "tile-1", x: 3, y: 4, w: 2, h: 2 },
+    });
+    await flushPromises();
+
+    expect(onResize).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
   it("withholds a suggestion tile from a visitor who cannot edit", async () => {
     const tile = makeTile();
     tile.content = {

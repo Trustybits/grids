@@ -50,4 +50,12 @@ defineEmits(["toggle-star"]);
 .star-lead.is-starred:hover {
   color: #facc15;
 }
+
+/* Match the 44px thumb target used by the other on-card controls on phones. */
+@media (max-width: 600px) {
+  .star-lead {
+    width: 44px;
+    height: 44px;
+  }
+}
 </style>

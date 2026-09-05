@@ -30,13 +30,16 @@ import { useThemeStore } from "@/stores/theme";
 // Initialize PostHog
 if (import.meta.env.VITE_POSTHOG_KEY) {
   posthog.init(import.meta.env.VITE_POSTHOG_KEY, {
-    // In production, PostHog traffic goes through a same-origin reverse proxy
-    // (`/relay` rewrites in vercel.json) so tracker blockers don't kill flag
-    // evaluation and Early Access enrollment. Dev has no such rewrite, so it
-    // talks to PostHog Cloud directly. VITE_POSTHOG_HOST overrides both.
-    api_host:
-      import.meta.env.VITE_POSTHOG_HOST ||
-      (import.meta.env.PROD ? "/relay" : "https://us.i.posthog.com"),
+    // Production builds ALWAYS route PostHog through the same-origin reverse
+    // proxy (`/relay` rewrites in vercel.json) so tracker blockers don't kill
+    // flag evaluation and Early Access enrollment. This deliberately ignores
+    // VITE_POSTHOG_HOST in production: the deploy env defines it as the direct
+    // PostHog URL, which would silently bypass the proxy (and did). Dev has no
+    // rewrite, so it talks to PostHog Cloud directly; the env override applies
+    // there only.
+    api_host: import.meta.env.PROD
+      ? "/relay"
+      : import.meta.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com",
     // Required when api_host is a proxy: links back to the PostHog app
     // (toolbar, surveys) must still point at PostHog Cloud.
     ui_host: "https://us.posthog.com",

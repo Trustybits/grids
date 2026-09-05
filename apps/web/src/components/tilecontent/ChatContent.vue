@@ -582,10 +582,13 @@ export default defineComponent({
       }
     };
 
+    // Keep the newest messages in view through a resize only when the user was
+    // already reading them; a reader scrolled up into history keeps their place.
     const onResize = () => {
+      const wasNearBottom = isNearBottom();
       nextTick(() => {
         scheduleVisitorBubbleResize();
-        scrollToBottom("auto");
+        if (wasNearBottom) scrollToBottom("auto");
       });
     };
 

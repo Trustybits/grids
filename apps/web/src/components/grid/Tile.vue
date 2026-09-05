@@ -446,8 +446,13 @@ export default defineComponent({
     // gesture handlers). Content still needs to reflow when its cell size
     // changes — whether from a user resize or a breakpoint reprojection — so
     // reach the child component's onResize hook by watching the tile footprint.
+    // Watch w and h as separate sources: a single getter returning `[w, h]`
+    // yields a new array on every evaluation, so Vue treats every parent
+    // re-render (Griddle re-renders on any scroll event) as a change and
+    // fires onResize spuriously — which, for chat tiles, snapped the message
+    // list back to the bottom while the user was scrolling.
     watch(
-      () => [props.layout.w, props.layout.h],
+      [() => props.layout.w, () => props.layout.h],
       () => {
         childComponent.value?.onResize?.();
       },

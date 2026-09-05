@@ -314,7 +314,7 @@ describe("buildGridConfig", () => {
     ".tile-link-indicator",
     ".tile-title",
     ".tile-details",
-    ".chat-bubble-wrapper",
+    ".chat-messages",
     ".progress-container",
     ".track-progress",
     ".yt-video-card",

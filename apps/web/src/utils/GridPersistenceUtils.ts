@@ -198,6 +198,18 @@ export function stripBlobUrlsFromTiles(tiles: unknown[]): unknown[] {
       }
     }
 
+    // Profile tiles keep their avatar under a different key than media tiles.
+    const profilePhotoUrl = c.profilePhotoUrl;
+    if (
+      typeof profilePhotoUrl === "string" &&
+      profilePhotoUrl.startsWith("blob:")
+    ) {
+      contentOut = { ...contentOut, profilePhotoUrl: "" };
+      if ("profilePhotoHash" in contentOut) {
+        contentOut = { ...contentOut, profilePhotoHash: "" };
+      }
+    }
+
     if (c.type === "document" && Array.isArray(c.items)) {
       const items = c.items.map((item) => {
         if (!item || typeof item !== "object") return item;

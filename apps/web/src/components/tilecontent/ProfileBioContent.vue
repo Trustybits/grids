@@ -709,11 +709,22 @@ export default defineComponent({
     // Look up by the injected tile ID — this is stable and unique, unlike
     // content-field matching which breaks when multiple profile tiles share
     // the same default text or when text fields are edited mid-session.
-    const avatarSrc = computed(() => {
+    const persistedAvatarSrc = computed(() => {
       if (!tileId) return props.content.profilePhotoUrl ?? "";
       const tile = gridView.grid?.tiles.find((t) => t.i === tileId);
       return (tile?.content as ProfileBioContent | undefined)?.profilePhotoUrl ?? "";
     });
+
+    // Local-only optimistic preview for an in-flight avatar upload. Kept out of
+    // tile content on purpose: a `blob:` URL written through `patchContent`
+    // lands in the scheduled save (and in undo history), and if the tab closes
+    // before the upload resolves the grid document is left pointing at a blob
+    // that no longer exists — every later page load then 404s on it.
+    const pendingAvatarPreviewUrl = ref<string | null>(null);
+
+    const avatarSrc = computed(
+      () => pendingAvatarPreviewUrl.value ?? persistedAvatarSrc.value,
+    );
 
     const { patchContent, autosaveContent } = useTileContentWriter(
       tileId,
@@ -721,8 +732,8 @@ export default defineComponent({
     );
 
     const saveProfilePhoto = async (url: string, hash?: string) => {
-      // Only archive-backed uploads carry a hash; clear it for blob previews,
-      // removals, and external URLs so a stale hash never trails the photo.
+      // Only archive-backed uploads carry a hash; clear it for removals and
+      // external URLs so a stale hash never trails the photo.
       patchContent({ profilePhotoUrl: url, profilePhotoHash: hash ?? "" });
     };
 
@@ -1326,7 +1337,7 @@ export default defineComponent({
       if (!gridView.canEdit || isCompactProfileLayout.value) return;
       lastAvatarMethod.value = "url";
       if (isTouchDevice()) hoveredQuickAction.value = null;
-      draftAvatarUrl.value = avatarSrc.value || "";
+      draftAvatarUrl.value = persistedAvatarSrc.value || "";
       urlError.value = "";
       updatePopoverPos();
       showUrlInput.value = true;
@@ -1378,10 +1389,10 @@ export default defineComponent({
         return;
       }
 
-      const previousUrl = avatarSrc.value;
-
+      // Show the local file immediately, but only in component state — the
+      // persisted photo URL is left untouched until the archive URL lands.
       const blobUrl = URL.createObjectURL(file);
-      await saveProfilePhoto(blobUrl);
+      pendingAvatarPreviewUrl.value = blobUrl;
 
       isUploadingAvatar.value = true;
       uploadPercent.value = 0;
@@ -1396,14 +1407,17 @@ export default defineComponent({
             },
           );
 
-        URL.revokeObjectURL(blobUrl);
         await saveProfilePhoto(permanentUrl, hash);
       } catch (error: unknown) {
         console.error("Avatar upload failed:", error);
-        URL.revokeObjectURL(blobUrl);
-        await saveProfilePhoto(previousUrl);
         alert(error instanceof Error ? error.message : "Failed to upload image. Please try again.");
       } finally {
+        // Drop the preview before revoking so the <img> is already pointed at
+        // the persisted URL (new or previous) when the blob goes away.
+        if (pendingAvatarPreviewUrl.value === blobUrl) {
+          pendingAvatarPreviewUrl.value = null;
+        }
+        URL.revokeObjectURL(blobUrl);
         isUploadingAvatar.value = false;
         uploadPercent.value = 0;
       }

@@ -161,11 +161,16 @@ export function useAnalytics() {
     // Defense-in-depth: contract is "call after the grid loads", but if the
     // store hasn't caught up (or the gridId doesn't match the loaded one)
     // we skip rather than guess at ownership and emit a misattributed event.
+    //
+    // Compare against the PUBLIC id: when an owner edits a published grid,
+    // `currentGrid` is the hidden `draft__…` doc while callers (and analytics)
+    // address the grid by its original id.
     const loaded = sessionStore.currentGrid;
-    if (!loaded || loaded.id !== gridId) {
+    const loadedPublicId = loaded ? sessionStore.publicGridId : null;
+    if (!loaded || loadedPublicId !== gridId) {
       console.warn(
         "useAnalytics.trackGridEnter called before grid store is ready — skipping",
-        { requested: gridId, loaded: loaded?.id ?? null },
+        { requested: gridId, loaded: loadedPublicId },
       );
       return;
     }
@@ -206,10 +211,10 @@ export function useAnalytics() {
 
     if (document.visibilityState !== "visible" || activeSession) return;
 
-    const loaded = sessionStore.currentGrid;
     if (
       lastViewerGridId &&
-      loaded?.id === lastViewerGridId &&
+      sessionStore.currentGrid &&
+      sessionStore.publicGridId === lastViewerGridId &&
       !sessionStore.isOwner
     ) {
       startSession(lastViewerGridId);

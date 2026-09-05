@@ -354,6 +354,38 @@ describe("stripBlobUrlsFromTiles", () => {
     expect(c1.items[1]?.url).toBe("https://ok");
   });
 
+  it("clears a blob profilePhotoUrl (and its hash) on a profile tile", () => {
+    const tile = {
+      i: "1",
+      content: {
+        type: ContentType.PROFILE,
+        name: "Matt",
+        profilePhotoUrl: "blob:https://www.grids.so/abc",
+        profilePhotoHash: "stale",
+      },
+    };
+    const out = stripBlobUrlsFromTiles([tile]) as Array<{
+      content: { name: string; profilePhotoUrl: string; profilePhotoHash: string };
+    }>;
+    expect(out[0].content.profilePhotoUrl).toBe("");
+    expect(out[0].content.profilePhotoHash).toBe("");
+    expect(out[0].content.name).toBe("Matt");
+    expect(tile.content.profilePhotoUrl).toBe("blob:https://www.grids.so/abc");
+  });
+
+  it("leaves a non-blob profilePhotoUrl untouched", () => {
+    const tile = {
+      i: "1",
+      content: {
+        type: ContentType.PROFILE,
+        profilePhotoUrl: "https://cdn/avatar.png",
+        profilePhotoHash: "h1",
+      },
+    };
+    const out = stripBlobUrlsFromTiles([tile]);
+    expect(out[0]).toBe(tile);
+  });
+
   it("returns an empty array unchanged for empty input", () => {
     expect(stripBlobUrlsFromTiles([])).toEqual([]);
   });

@@ -49,6 +49,7 @@ const {
       mockGetAnalyticsService: vi.fn(() => mockAnalyticsService),
       mockLayoutStore: {
         currentGrid: null as { id: string } | null,
+        publicGridId: "",
         isOwner: false,
       },
     };
@@ -86,8 +87,15 @@ let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
 type EventInput<T extends AnalyticsEventType> = LogEventInput<T>;
 
-function setLayoutLoaded(id: string | null, isOwner = false): void {
+function setLayoutLoaded(
+  id: string | null,
+  isOwner = false,
+  publicGridId: string | null = id,
+): void {
   mockLayoutStore.currentGrid = id ? { id } : null;
+  // Mirrors the real store getter: the draft's original id when editing a
+  // draft, else the loaded grid's own id, else "".
+  mockLayoutStore.publicGridId = id ? (publicGridId ?? id) : "";
   mockLayoutStore.isOwner = isOwner;
 }
 
@@ -195,6 +203,25 @@ describe("trackGridEnter — owner branch", () => {
 
     trackGridEnter("grid-1");
 
+    expect(mockLogEvent).toHaveBeenCalledTimes(1);
+    expect(mockLogEvent).toHaveBeenCalledWith({
+      eventType: AnalyticsEventType.OWNER_GRID_ENTER,
+      userId: "owner-1",
+      gridId: "grid-1",
+      metadata: {},
+    });
+  });
+
+  it("logs OWNER_GRID_ENTER for the public id while the store holds the hidden draft", () => {
+    // Draft/publish: the owner of a published grid edits `draft__<id>`, but the
+    // page (and analytics) address the grid by its public id.
+    setLayoutLoaded("draft__grid-1", true, "grid-1");
+    mockGetCurrentUserId.mockReturnValue("owner-1");
+    const { trackGridEnter } = useAnalytics();
+
+    trackGridEnter("grid-1");
+
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
     expect(mockLogEvent).toHaveBeenCalledTimes(1);
     expect(mockLogEvent).toHaveBeenCalledWith({
       eventType: AnalyticsEventType.OWNER_GRID_ENTER,

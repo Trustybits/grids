@@ -6,6 +6,14 @@
   looks like once it is on the grid — heading/body bars for Text, message
   bubbles for Chat, crossing roads for Map, and so on.
 
+  Since Figma "Animated icons" (1933-555) this is the fallback half of the pair:
+  the nine types that set covers now draw themselves through MobileTileArt, and
+  this component renders the static wireframe for everything it does not — today
+  Smart Text, and tomorrow any tile type added before it has been designed. The
+  ARTWORK entries for the superseded types are deliberately kept: they are what
+  a type falls back to if it ever leaves the animated set, and they are the
+  reference the animated ink levels were matched against.
+
   Deliberately artwork, not a live render: several types (Map, Embed) would need
   a Mapbox instance or a third-party iframe plus content that does not exist yet
   at carousel time, and mounting those in a surface the user is dragging would
@@ -18,7 +26,11 @@
   artwork follows the active theme instead of hard-coding greys.
 -->
 <template>
-  <div class="mtt" aria-hidden="true">
+  <!-- Types the Figma "Animated icons" set covers draw themselves; see
+       MobileTileArt. Everything else keeps the static wireframe below. -->
+  <MobileTileArt v-if="animated" :type-id="typeId" :active="active" />
+
+  <div v-else class="mtt" aria-hidden="true">
     <span
       v-if="artwork.frame"
       class="mtt-frame"
@@ -41,6 +53,9 @@
 
 <script setup lang="ts">
 import { computed, type Component } from "vue";
+import MobileTileArt, {
+  hasAnimatedTileArt,
+} from "@/components/app/MobileTileArt.vue";
 
 /** A positioned block in Figma's 150x150 tile space. */
 interface Shape {
@@ -70,10 +85,20 @@ interface Artwork {
   frame?: Shape;
 }
 
-const props = defineProps<{
-  typeId: string;
-  icon: Component;
-}>();
+const props = withDefaults(
+  defineProps<{
+    typeId: string;
+    icon: Component;
+    /**
+     * Run the animated artwork's loop. Only meaningful for types MobileTileArt
+     * covers; the static wireframe has nothing to play.
+     */
+    active?: boolean;
+  }>(),
+  { active: false },
+);
+
+const animated = computed(() => hasAnimatedTileArt(props.typeId));
 
 const BOX = 150;
 const pct = (value: number): string =>

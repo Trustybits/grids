@@ -59,7 +59,14 @@
       >
         <span class="tile-carousel__art">
           <span class="tile-carousel__ink" :style="inkStyle(index)">
-            <MobileTileThumbnail :type-id="type.id" :icon="type.icon" />
+            <!-- Only the centered card's artwork animates: the loop is the
+                 reward for navigating to a tile type, not ambient motion
+                 behind a drag. -->
+            <MobileTileThumbnail
+              :type-id="type.id"
+              :icon="type.icon"
+              :active="index === centerIndex"
+            />
           </span>
         </span>
       </button>

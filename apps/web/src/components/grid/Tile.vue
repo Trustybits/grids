@@ -202,6 +202,7 @@ import {
 } from "@/utils/TileUtils";
 import {
   ContentType,
+  isRichTextContentType,
   type LinkContent,
   type SuggestionContent,
   type AnyTileContent,
@@ -221,6 +222,7 @@ import FloatingInputModal from "@/components/modal/FloatingInputModal.vue";
 import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
 import { useTileInput } from "@/composables/useTileInput";
 import { useMobileExperience } from "@/composables/useMobileExperience";
+import { isUnifiedTextActive } from "@/composables/earlyAccessState";
 import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
 
 export default defineComponent({
@@ -914,8 +916,17 @@ export default defineComponent({
     // Re-load the dynamic component whenever the content type changes
     // (e.g. suggestion -> profile). Without this, currentComponent stays
     // null after the tile type switches away from SUGGESTION.
+    // Text tiles also pick their component from the unified text gate, so
+    // reload when it flips (for example once PostHog flags arrive). Separate
+    // sources, not one getter returning an array: a fresh array compares as
+    // changed on every parent re-render and would remount the tile each time.
     watch(
-      () => props.tile.content.type,
+      [
+        () => props.tile.content.type,
+        () =>
+          isRichTextContentType(props.tile.content.type) &&
+          isUnifiedTextActive(),
+      ],
       () => {
         loadComponent();
       },

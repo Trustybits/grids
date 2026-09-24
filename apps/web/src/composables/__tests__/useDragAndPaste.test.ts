@@ -11,6 +11,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  earlyAccessEnrolled,
+  unifiedTextFlagOn,
+} from "@/composables/earlyAccessState";
 import { defineComponent, h, nextTick, ref, type Ref } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { ContentType } from "@grids/contracts/types";
@@ -409,6 +413,23 @@ describe("handlePaste — URL detection", () => {
       link: "mailto:a@b.com",
     });
     expect(mockCallFunction).not.toHaveBeenCalled();
+  });
+
+  it("creates a text tile from plain text for unified text users", async () => {
+    earlyAccessEnrolled.value = true;
+    unifiedTextFlagOn.value = true;
+    try {
+      setup();
+      document.body.dispatchEvent(pasteEvent({ text: "hello world" }));
+      await tick();
+      expect(mockCreateTileContent).toHaveBeenCalledWith(
+        ContentType.TEXT,
+        expect.objectContaining({ text: expect.stringContaining("hello world") }),
+      );
+    } finally {
+      earlyAccessEnrolled.value = false;
+      unifiedTextFlagOn.value = false;
+    }
   });
 
   it("treats multi-word text containing a domain as plain text, not a URL", async () => {

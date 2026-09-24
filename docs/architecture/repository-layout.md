@@ -171,6 +171,7 @@ apps/web/
 - `src/components/icons/toolbar/` - Tile toolbar icons.
 - `src/components/marketing/` - Marketing and landing page components.
 - `src/components/modal/` - Modal primitives and modal variants.
+- `src/components/richtext/` - Floating UI for the unified rich-text editor: slash menu, table toolbar, and inline field popover.
 - `src/components/tile/` - Shared tile shell/chrome components.
 - `src/components/tilecontent/` - Tile content renderers.
 - `src/components/tilecontent/__tests__/` - Tile content component tests.
@@ -189,7 +190,8 @@ apps/web/
 - `src/dao/stubbed/factory/` - Stubbed DAO factory implementation.
 - `src/data/` - Static seed/demo data used by the app.
 - `src/extensions/` - Custom extension code.
-- `src/extensions/tiptap/` - Custom Tiptap extensions.
+- `src/extensions/tiptap/` - Custom Tiptap extensions, including the shared rich-text schema (`richTextExtensions.ts`).
+- `src/extensions/tiptap/__tests__/` - Tiptap extension and schema tests.
 - `src/grid-context/` - The `GridViewContext` seam: a flat interface that grid-canvas and tile-content components inject, plus the live and demo factories that back it (reads wrap stores, writes delegate to the controller). Keeps rendered grid contents swappable between live and demo modes.
 - `src/grid-context/__tests__/` - Grid context tests.
 - `src/notes/` - App-local notes. Prefer `docs/` for durable documentation.
@@ -216,6 +218,8 @@ apps/web/
 - `src/undo/__tests__/` - Undo/redo tests.
 - `src/utils/` - Pure and app utility functions.
 - `src/utils/__tests__/` - Utility tests.
+- `src/utils/richText/` - Rich-text editor profiles and the slash command registry.
+- `src/utils/richText/__tests__/` - Rich-text profile and command tests.
 
 Generated folders you may see:
 

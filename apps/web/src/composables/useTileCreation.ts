@@ -5,6 +5,7 @@ import { useGridController } from "@/controllers/useGridController";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useTileInput } from "@/composables/useTileInput";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
+import { useMobileExperience } from "@/composables/useMobileExperience";
 import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
 import TextLegacyIcon from "@/components/icons/appbar/TextLegacyIcon.vue";
 import AppBarTextIcon from "@/components/icons/appbar/TextIcon.vue";
@@ -37,6 +38,8 @@ export interface TileTypeDescriptor {
   contentType?: ContentType;
   /** Optional feature flag gating visibility (mirrors GridToolbar). */
   flag?: string;
+  /** Hidden for users on the unified text editor, which replaces it. */
+  retiredByUnifiedText?: boolean;
 }
 
 // Order mirrors the Figma "New Tile Carousel" (1497-9533).
@@ -120,6 +123,7 @@ const ALL_TILE_TYPES: readonly TileTypeDescriptor[] = [
     kind: "create",
     contentType: ContentType.SMART_TEXT,
     flag: FEATURE_FLAGS.EDITOR_SMART_TEXT,
+    retiredByUnifiedText: true,
   },
 ];
 
@@ -147,9 +151,14 @@ export const useTileCreation = () => {
   const uiStore = useGridUiStore();
   const { submitLink, submitEmbed } = useTileInput();
   const { isEnabled } = useFeatureFlags();
+  const { isUnifiedText } = useMobileExperience();
 
   const tileTypes = computed(() =>
-    ALL_TILE_TYPES.filter((type) => !type.flag || isEnabled(type.flag)),
+    ALL_TILE_TYPES.filter(
+      (type) =>
+        (!type.flag || isEnabled(type.flag)) &&
+        !(type.retiredByUnifiedText && isUnifiedText.value),
+    ),
   );
 
   const filterTileTypes = (query: string): TileTypeDescriptor[] =>

@@ -9,9 +9,21 @@
 
   Interaction (standard coverflow):
     drag / swipe   — spins the fan; flick velocity carries into a snap
+    pull a card up — lifts it out of the fan to be dropped on the grid
     tap a side card — brings it to the center
     tap the center  — commits it (`select`)
     ← / →           — steps the center one card
+
+  A gesture that clears the slop mostly upwards lifts the card under the
+  finger; mostly sideways spins the fan. A spin still turns into a lift the
+  moment the finger rises clear of the fan (LIFT_RISE), so a grab that starts
+  with some sideways drift — as a real hand's usually does — is never trapped
+  in the carousel. Once lifted the carousel only relays the pointer
+  (`lift-move` / `lift-end`); the parent owns the floating card and the drop.
+  A lift is followed through window listeners rather than the track's pointer
+  capture alone: capture can be lost mid-drag, and a lift that never hears
+  its release would strand the card on the grid. `liftedId` hides the fan's copy of the card
+  for as long as the parent has it out.
 
   The centered card is the active tile type, so the carousel emits `focus`
   whenever the *user* moves it (never on a programmatic re-sync). The parent
@@ -32,6 +44,7 @@
     aria-label="Tile types"
   >
     <div
+      ref="trackRef"
       class="tile-carousel__track"
       :class="{ 'is-dragging': dragging }"
       @pointerdown="onPointerDown"
@@ -49,6 +62,7 @@
         :class="{
           'tile-carousel__card--selected': type.id === selectedId,
           'tile-carousel__card--center': index === centerIndex,
+          'tile-carousel__card--lifted': type.id === liftedId,
         }"
         :style="cardStyle(index)"
         :data-index="index"
@@ -81,13 +95,30 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import MobileTileThumbnail from "@/components/app/MobileTileThumbnail.vue";
 import type { TileTypeDescriptor } from "@/composables/useTileCreation";
 
+/** Where a lift gesture's pointer is, in viewport pixels. */
+export interface CarouselLiftPoint {
+  x: number;
+  y: number;
+}
+
+/** A lifted card's artwork surface: its viewport rect and corner radius. */
+export interface CarouselLiftCard {
+  rect: DOMRect;
+  radius: number;
+  /** Where on the card the finger pressed, as fractions of its size. */
+  grab: { x: number; y: number };
+}
+
 const props = withDefaults(
   defineProps<{
     types: TileTypeDescriptor[];
     selectedId?: string | null;
+    /** The card the parent currently has lifted out of the fan, if any. */
+    liftedId?: string | null;
   }>(),
   {
     selectedId: null,
+    liftedId: null,
   },
 );
 
@@ -96,6 +127,11 @@ const emit = defineEmits<{
   select: [id: string];
   /** The user moved a different card to the center. */
   "focus-type": [id: string];
+  /** A card was pulled up out of the fan, as it looked there at that moment. */
+  "lift-start": [id: string, point: CarouselLiftPoint, card: CarouselLiftCard];
+  "lift-move": [point: CarouselLiftPoint];
+  /** The lift gesture ended; `cancelled` when the browser took the pointer. */
+  "lift-end": [point: CarouselLiftPoint, cancelled: boolean];
 }>();
 
 // ── Geometry ─────────────────────────────────────────────────────────────────
@@ -121,6 +157,11 @@ const REACH = 2.4;
 
 /** Pointer travel (px) that turns a tap into a drag. */
 const DRAG_SLOP = 6;
+/**
+ * Rise (px) above the press point at which any drag — even one that began as a
+ * spin — lifts the grabbed card. Browsing swipes stay well inside it.
+ */
+const LIFT_RISE = 36;
 /** How far a flick's velocity is projected when picking the snap target. */
 const PROJECT_MS = 110;
 /** Cards a single flick can carry past where the finger let go. */
@@ -269,6 +310,20 @@ watch(typeKey, () => {
 });
 
 // ── Drag ─────────────────────────────────────────────────────────────────────
+/** Which way the current gesture went, decided once it clears the slop. */
+let axis: "pending" | "spin" | "lift" = "pending";
+/**
+ * The card the finger went down on. A spin carries the fan with the finger, so
+ * this card stays under it and is still the one a later lift picks up.
+ */
+let pressedIndex: number | null = null;
+/** The pointer driving the current gesture; a lift follows only it. */
+let activePointerId: number | null = null;
+/** Where the lift's pointer last was — where a lost lift ends. */
+let liftPoint: CarouselLiftPoint = { x: 0, y: 0 };
+/** Where on the pressed card the finger went down, as fractions of its size. */
+let pressedGrab = { x: 0.5, y: 0.5 };
+let startY = 0;
 let startX = 0;
 let startScroll = 0;
 let travelled = 0;
@@ -296,15 +351,112 @@ const onPointerDown = (event: PointerEvent) => {
   travelled = 0;
   velocity = 0;
   startX = event.clientX;
+  startY = event.clientY;
   lastX = event.clientX;
   lastTime = event.timeStamp;
   startScroll = scroll.value;
+  axis = "pending";
+  activePointerId = event.pointerId;
+  pressedIndex = cardIndexAtPoint(event.clientX, event.clientY);
+  const pressedRect =
+    pressedIndex === null ? null : cardArtRect(pressedIndex);
+  pressedGrab = pressedRect?.width
+    ? {
+        x: (event.clientX - pressedRect.left) / pressedRect.width,
+        y: (event.clientY - pressedRect.top) / pressedRect.height,
+      }
+    : { x: 0.5, y: 0.5 };
   (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
 };
 
+const trackRef = ref<HTMLElement | null>(null);
+
+const cardArt = (index: number): HTMLElement | null =>
+  trackRef.value?.querySelector<HTMLElement>(
+    `.tile-carousel__card[data-index="${index}"] .tile-carousel__art`,
+  ) ?? null;
+
+const cardArtRect = (index: number): DOMRect | null =>
+  cardArt(index)?.getBoundingClientRect() ?? null;
+
+const startLift = (event: PointerEvent): boolean => {
+  // Pressing the gap between cards falls back to the centered one.
+  const index = pressedIndex ?? Math.round(scroll.value);
+  const type = index === null ? undefined : cards.value[index];
+  const art = index === null ? null : cardArt(index);
+  if (index === null || !type || !art) return false;
+  const card: CarouselLiftCard = {
+    rect: art.getBoundingClientRect(),
+    radius: parseFloat(getComputedStyle(art).borderTopLeftRadius) || 0,
+    // The press point, not where the finger is by the time the lift is
+    // recognised — so the card stays held exactly where it was grabbed.
+    grab: index === pressedIndex ? pressedGrab : { x: 0.5, y: 0.5 },
+  };
+  axis = "lift";
+  suppressClick = true;
+  // The lifted card becomes the active type, same as centering it would; the
+  // fan settles there underneath while the card is out.
+  animateTo(clampIndex(index));
+  focusIndex(index);
+  liftPoint = { x: event.clientX, y: event.clientY };
+  window.addEventListener("pointermove", onLiftMove, true);
+  window.addEventListener("pointerup", onLiftRelease, true);
+  window.addEventListener("pointercancel", onLiftRelease, true);
+  window.addEventListener("blur", onLiftLost);
+  emit("lift-start", type.id, liftPoint, card);
+  return true;
+};
+
+const stopFollowingLift = () => {
+  window.removeEventListener("pointermove", onLiftMove, true);
+  window.removeEventListener("pointerup", onLiftRelease, true);
+  window.removeEventListener("pointercancel", onLiftRelease, true);
+  window.removeEventListener("blur", onLiftLost);
+};
+
+const endLift = (point: CarouselLiftPoint, cancelled: boolean) => {
+  if (axis !== "lift") return;
+  stopFollowingLift();
+  const track = trackRef.value;
+  if (activePointerId !== null && track?.hasPointerCapture?.(activePointerId)) {
+    track.releasePointerCapture(activePointerId);
+  }
+  dragging.value = false;
+  axis = "pending";
+  activePointerId = null;
+  lastPointerUp = performance.now();
+  if (pendingSync) syncCards();
+  emit("lift-end", point, cancelled);
+};
+
+function onLiftMove(event: PointerEvent) {
+  if (event.pointerId !== activePointerId) return;
+  liftPoint = { x: event.clientX, y: event.clientY };
+  emit("lift-move", liftPoint);
+}
+
+function onLiftRelease(event: PointerEvent) {
+  if (event.pointerId !== activePointerId) return;
+  endLift({ x: event.clientX, y: event.clientY }, event.type !== "pointerup");
+}
+
+// The window lost focus mid-lift (alt-tab, a system dialog): the release
+// will never arrive, so the lift is abandoned rather than left hanging.
+function onLiftLost() {
+  endLift(liftPoint, true);
+}
+
 const onPointerMove = (event: PointerEvent) => {
-  if (!dragging.value) return;
+  // A lift is followed by the window listeners (see startLift).
+  if (!dragging.value || axis === "lift") return;
   const shift = event.clientX - startX;
+  const rise = startY - event.clientY;
+  if (axis === "pending") {
+    if (Math.hypot(shift, rise) <= DRAG_SLOP) return;
+    axis = rise > Math.abs(shift) && startLift(event) ? "lift" : "spin";
+    if (axis === "lift") return;
+  }
+  if (rise > LIFT_RISE && startLift(event)) return;
   travelled = Math.max(travelled, Math.abs(shift));
   if (travelled > DRAG_SLOP) suppressClick = true;
 
@@ -337,7 +489,8 @@ let lastPointerUp = -Infinity;
  * track, not the card. Returns null when the point misses every card.
  */
 const cardIndexAtPoint = (x: number, y: number): number | null => {
-  const hit = document.elementFromPoint(x, y);
+  // Absent without a layout engine (jsdom).
+  const hit = document.elementFromPoint?.(x, y);
   const card = (hit?.closest?.(".tile-carousel__card") as HTMLElement | null) ?? null;
   const raw = card?.dataset.index;
   if (raw === undefined) return null;
@@ -358,9 +511,12 @@ const selectCardAt = (index: number) => {
 };
 
 const onPointerUp = (event: PointerEvent) => {
-  if (!dragging.value) return;
+  // A lift is ended by the window listeners (see startLift).
+  if (!dragging.value || axis === "lift") return;
   dragging.value = false;
   (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
+  axis = "pending";
+  activePointerId = null;
 
   // Capping the carry keeps a hard flick from spinning to the far end of the
   // fan — it advances a couple of cards and settles, like a physical dial.
@@ -404,6 +560,14 @@ const onKeydown = (event: KeyboardEvent) => {
   focusIndex(next);
 };
 
+defineExpose({
+  /** Viewport rect of a card's artwork — where a returning lifted card lands. */
+  cardRect: (id: string): DOMRect | null => {
+    const index = cards.value.findIndex((type) => type.id === id);
+    return index < 0 ? null : cardArtRect(index);
+  },
+});
+
 onMounted(() => {
   reducedMotion =
     typeof window !== "undefined" &&
@@ -411,7 +575,10 @@ onMounted(() => {
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 });
 
-onBeforeUnmount(stopAnimation);
+onBeforeUnmount(() => {
+  stopAnimation();
+  stopFollowingLift();
+});
 </script>
 
 <style lang="scss" scoped>
@@ -439,7 +606,9 @@ onBeforeUnmount(stopAnimation);
   // and the whole fan stays bottom-aligned instead of center-aligned.
   perspective: 700px;
   perspective-origin: 50% 100%;
-  touch-action: pan-y;
+  // Vertical travel is the lift gesture now, so the browser must not claim it
+  // as a scroll (which would cancel the pointer mid-lift).
+  touch-action: none;
   cursor: grab;
 
   &.is-dragging {
@@ -516,6 +685,12 @@ onBeforeUnmount(stopAnimation);
   box-shadow:
     inset 0 0 0 var(--border-width-lg) var(--color-content-default),
     var(--shadow-xl);
+}
+
+// The parent's floating copy stands in for this card while it is lifted. It
+// stays laid out (the fan's geometry and the return flight both measure it).
+.tile-carousel__card--lifted {
+  opacity: 0;
 }
 
 .tile-carousel__empty {

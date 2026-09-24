@@ -11,7 +11,7 @@ import {
   type Tile as GriddleTile,
 } from "@griddle/core";
 import { getTileDefinition } from "@/registries/tileRegistry";
-import type { GridLayoutItem } from "@/types/GridLayout";
+import type { GridLayoutItem, TilePlacement } from "@/types/GridLayout";
 import {
   findBestXAtRow,
   findFirstAvailableSpot,
@@ -103,7 +103,10 @@ export class GridTileStructureController {
     };
   }
 
-  addTile(content: TileContent): string | null {
+  addTile(
+    content: TileContent,
+    placement: TilePlacement | null = null,
+  ): string | null {
     const grid = this.stores.session.currentGrid;
     if (!grid) return null;
 
@@ -122,17 +125,34 @@ export class GridTileStructureController {
     }
 
     const requestedWidth = definition?.defaultSize?.w ?? 2;
-    const height = definition?.defaultSize?.h ?? 2;
     const columns = grid.colNum || 12;
-    const width = Math.min(requestedWidth, columns);
+    // A placement is only meaningful in the column space it was measured in;
+    // one left over from before a breakpoint change falls back to auto-placement.
+    const dropped =
+      placement?.breakpoint === this.stores.viewport.activeBreakpoint
+        ? placement
+        : null;
+    const droppedOnCanonical = dropped?.breakpoint === "lg";
+    // A dropped tile keeps the footprint the user saw while dragging it.
+    const width = Math.min(
+      droppedOnCanonical ? dropped.w : requestedWidth,
+      columns,
+    );
+    const height = droppedOnCanonical
+      ? dropped.h
+      : (definition?.defaultSize?.h ?? 2);
 
     this.pushUndoSnapshot("Add tile");
-    const position = this.placeNewTile(
-      grid.tiles,
-      columns,
-      width,
-      height,
-    );
+    let position: { x: number; y: number };
+    if (droppedOnCanonical) {
+      // The engine already moved every tile out of the dropped cell's way.
+      // Adopt that layout as-is: re-running placement or normalization here
+      // would move the tile off the cell it was dropped on.
+      syncPositionOnlyLayout(grid, dropped.layout);
+      position = { x: dropped.x, y: dropped.y };
+    } else {
+      position = this.placeNewTile(grid.tiles, columns, width, height);
+    }
 
     const tile = createTile(
       content.type,
@@ -145,7 +165,19 @@ export class GridTileStructureController {
       "",
     );
     grid.tiles.push(tile);
-    this.normalizeCanonicalLayout(grid.tiles, columns);
+    if (!droppedOnCanonical) {
+      this.normalizeCanonicalLayout(grid.tiles, columns);
+    }
+    if (dropped && !droppedOnCanonical) {
+      // md/sm positions live in per-breakpoint overrides, so the drop is
+      // honoured there — the same place a tile drag at this breakpoint writes.
+      // The canonical (lg) position above stays auto-placed.
+      grid.overrides ??= {};
+      grid.overrides[dropped.breakpoint] = createPositionMap([
+        ...dropped.layout,
+        { i: tile.i, x: dropped.x, y: dropped.y, w: dropped.w, h: dropped.h },
+      ]);
+    }
     this.scheduleSave();
     this.logTileEvent(
       AnalyticsEventType.TILE_ADDED,

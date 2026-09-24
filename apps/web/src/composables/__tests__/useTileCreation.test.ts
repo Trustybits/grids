@@ -37,7 +37,10 @@ vi.mock("@/composables/useFeatureFlags", () => ({
 }));
 
 vi.mock("@/utils/TileUtils", () => ({
-  createTileContent: (type: ContentType) => ({ type }),
+  createTileContent: (type: ContentType, options: object = {}) => ({
+    type,
+    ...options,
+  }),
 }));
 
 vi.mock("@/utils/UrlValidation", () => ({
@@ -184,5 +187,40 @@ describe("useTileCreation", () => {
     // No space, or a non-command first word → no prefix.
     expect(matchCommandPrefix("map")).toBeNull();
     expect(matchCommandPrefix("chat hello")).toBeNull();
+  });
+
+  describe("createDroppedTile", () => {
+    it("creates instant types as themselves", async () => {
+      const { createDroppedTile } = await load();
+      expect(createDroppedTile("chat")).toBe("tile-1");
+      expect(holder.addTile).toHaveBeenCalledWith({ type: ContentType.CHAT });
+    });
+
+    it.each([
+      ["link", "link", "Add Link"],
+      ["embed", "embed", "Add Embed"],
+      ["image", "media", "Add Image / Video"],
+    ])("lands %s as a fill-in placeholder", async (id, action, label) => {
+      const { createDroppedTile } = await load();
+      expect(createDroppedTile(id)).toBe("tile-1");
+      expect(holder.addTile).toHaveBeenCalledWith({
+        type: ContentType.SUGGESTION,
+        action,
+        label,
+      });
+    });
+
+    it("starts a dropped map at the current location", async () => {
+      const { createDroppedTile } = await load();
+      expect(createDroppedTile("map")).toBe("tile-1");
+      expect(holder.addTile).toHaveBeenCalledWith({ type: ContentType.MAP });
+    });
+
+    it("creates nothing for a document, which needs its files first", async () => {
+      holder.flags = { "beta-documents": true };
+      const { createDroppedTile } = await load();
+      expect(createDroppedTile("document")).toBeNull();
+      expect(holder.addTile).not.toHaveBeenCalled();
+    });
   });
 });

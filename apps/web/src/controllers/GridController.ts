@@ -8,7 +8,7 @@ import {
   type TileContent,
   type TilePosition,
 } from "@grids/contracts/types";
-import type { GridLayoutItem } from "@/types/GridLayout";
+import type { GridLayoutItem, TilePlacement } from "@/types/GridLayout";
 import type { Snapshot } from "@/undo/UndoTypes";
 import type {
   StartUploadInput,
@@ -63,6 +63,15 @@ export class GridController {
    * `flushChatCleanup`.
    */
   private readonly pendingChatDeletions = new Map<string, Set<string>>();
+
+  /**
+   * A cell held for the next added tile — set when a tile type is dropped on
+   * the grid, consumed by the next successful `addTile`. Held here rather than
+   * threaded through each creation path because a dropped type may still need
+   * a file, URL or location before its tile exists, and every one of those
+   * paths ends in `addTile`.
+   */
+  private reservedPlacement: TilePlacement | null = null;
 
   constructor(
     private readonly stores: GridControllerStores,
@@ -774,7 +783,17 @@ export class GridController {
 
   addTile(content: TileContent): string | null {
     if (this.blocksCurrentGridMutation()) return null;
-    return this.tileStructureController.addTile(content);
+    const tileId = this.tileStructureController.addTile(
+      content,
+      this.reservedPlacement,
+    );
+    if (tileId) this.reservedPlacement = null;
+    return tileId;
+  }
+
+  /** Hold (or with `null`, release) the cell the next added tile lands on. */
+  reserveTilePlacement(placement: TilePlacement | null): void {
+    this.reservedPlacement = placement;
   }
 
   setTileContent(id: string, content: TileContent): void {

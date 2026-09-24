@@ -481,6 +481,32 @@ describe("GridController", () => {
     expect(persistenceScheduler.schedule).toHaveBeenCalledTimes(1);
   });
 
+  it("lands the next added tile on a reserved placement, once", () => {
+    const { controller, stores, dependencies } = createControllerHarness();
+    vi.mocked(dependencies.generateUuid)
+      .mockReturnValueOnce("dropped")
+      .mockReturnValueOnce("next");
+    stores.session.setCurrentGrid(makeGrid());
+    stores.session.setOwner(true);
+    stores.viewport.setActiveBreakpoint("lg");
+
+    controller.reserveTilePlacement({
+      breakpoint: "lg",
+      x: 4,
+      y: 3,
+      w: 2,
+      h: 2,
+      layout: [],
+    });
+    const dropped = controller.addTile({ type: ContentType.TEXT } as Tile["content"]);
+    const next = controller.addTile({ type: ContentType.TEXT } as Tile["content"]);
+
+    const tiles = stores.session.currentGrid!.tiles;
+    expect(tiles.find((tile) => tile.i === dropped)).toMatchObject({ x: 4, y: 3 });
+    // Consumed by the first add: the second is auto-placed as usual.
+    expect(tiles.find((tile) => tile.i === next)).not.toMatchObject({ x: 4, y: 3 });
+  });
+
   it("ignores an obsolete load response while a replacement load is pending", async () => {
     const { controller, stores, gridService } =
       createControllerHarness();

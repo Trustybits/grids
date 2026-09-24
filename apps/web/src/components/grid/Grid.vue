@@ -43,6 +43,14 @@
             :tile="tilesById.get(griddleTile.id)!"
             :layout="fromGriddleTile(griddleTile)"
           />
+          <!-- Where a dragged-in tile type will land. It is a real engine
+               tile, so the tiles around it move aside exactly as they do for a
+               tile drag. -->
+          <div
+            v-else-if="griddleTile.id === DROP_SLOT_ID"
+            class="grid-drop-slot"
+            aria-hidden="true"
+          />
         </template>
       </GriddleGrid>
     </div>
@@ -64,6 +72,7 @@ import {
 } from "vue";
 import { GriddleGrid, useGriddle } from "@griddle/vue";
 import {
+  DragController,
   gridContentSize,
   reflowTiles,
   type Tile as GriddleTile,
@@ -90,6 +99,14 @@ import {
   TILE_RESIZE_REQUEST,
 } from "@/grid-context/tileInteractionKeys";
 import { useMobileExperience } from "@/composables/useMobileExperience";
+import {
+  registerTileDropTarget,
+  type ViewportRect,
+} from "@/composables/useTileDropTarget";
+import type { TilePlacement } from "@/types/GridLayout";
+
+/** Engine id of the placeholder that holds a dragged-in tile type's cell. */
+const DROP_SLOT_ID = "__grid-drop-slot__";
 
 export default {
   components: {
@@ -601,6 +618,178 @@ export default {
       finishInteraction();
     };
 
+    // --- Drop target --------------------------------------------------------
+    // A tile type dragged in from the Add-a-Tile carousel is previewed as a
+    // placeholder tile driven by Griddle's own DragController, so tiles make
+    // room for it with the same displacement rules and reposition animation
+    // as a tile drag, and the placeholder draws where the tile will land. It
+    // never reaches the saved layout: on release the engine rebuilds from
+    // source, which by then either holds the new tile at the placeholder's
+    // cell or never gained one.
+    const dropDrag = new DragController(api.grid);
+    let dropSlotOpen = false;
+
+    const gridElement = (): HTMLElement | null =>
+      scaleWrapperRef.value?.querySelector<HTMLElement>(".grid-container") ??
+      null;
+
+    // Griddle lays a cell out at `margin + index * (rowHeight + margin)` from
+    // the container's edge, in unscaled pixels; the mobile fit then scales the
+    // whole container from its top-left corner.
+    const cellToViewport = (
+      tile: Pick<GriddleTile, "col" | "row" | "w" | "h">,
+      box: DOMRect,
+    ): ViewportRect => {
+      const unit = props.rowHeight + margin;
+      const scale = mobileScale.value;
+      return {
+        left: box.left + (margin + tile.col * unit) * scale,
+        top: box.top + (margin + tile.row * unit) * scale,
+        width: (tile.w * unit - margin) * scale,
+        height: (tile.h * unit - margin) * scale,
+      };
+    };
+
+    const openDropSlot = (w: number, h: number): boolean => {
+      interacting = true;
+      isInteracting.value = true;
+      // Enter below everything, so nothing is displaced until the first
+      // candidate cell is tried.
+      const bottom = api.tiles.value.reduce(
+        (max, tile) => Math.max(max, tile.row + tile.h),
+        0,
+      );
+      api.grid.addTile({
+        id: DROP_SLOT_ID,
+        col: 0,
+        row: bottom,
+        w,
+        h,
+        draggable: false,
+        resizable: false,
+      });
+      if (!dropDrag.start(DROP_SLOT_ID)) {
+        api.grid.removeTile(DROP_SLOT_ID);
+        interacting = false;
+        isInteracting.value = false;
+        return false;
+      }
+      dropSlotOpen = true;
+      return true;
+    };
+
+    const closeDropSlot = (): void => {
+      if (!dropSlotOpen) return;
+      if (dropDrag.isActive()) dropDrag.cancel();
+      dropSlotOpen = false;
+      isInteracting.value = false;
+      // Rebuild from source rather than removing the placeholder in place:
+      // that restores the pre-drop layout exactly (removal alone would leave
+      // displaced tiles where the preview pushed them), and picks up the new
+      // tile when the drop created one.
+      engineSyncPending = true;
+      finishInteraction();
+    };
+
+    const dropSlotRect = (): ViewportRect | null => {
+      const box = gridElement()?.getBoundingClientRect();
+      const slot = dropSlotOpen ? api.grid.getTile(DROP_SLOT_ID) : undefined;
+      return box && slot ? cellToViewport(slot, box) : null;
+    };
+
+    const dropTarget = {
+      preview(
+        point: { x: number; y: number },
+        size: { w: number; h: number },
+      ): ViewportRect | null {
+        const box = gridElement()?.getBoundingClientRect();
+        // A tile drag or resize already owns the engine; never interleave.
+        if (!box || !gridView.canEdit || (!dropSlotOpen && interacting)) {
+          return null;
+        }
+        const unit = props.rowHeight + margin;
+        const scale = mobileScale.value;
+        const cols = responsiveColNum.value;
+        const w = Math.min(size.w, cols);
+        const h = size.h;
+        // Over the grid, with a cell's worth of slack below the last row so a
+        // tile can be dropped onto the end.
+        const overGrid =
+          point.x >= box.left &&
+          point.x <= box.right &&
+          point.y >= box.top &&
+          point.y <= box.bottom + unit * scale;
+        if (!overGrid) {
+          closeDropSlot();
+          return null;
+        }
+        if (!dropSlotOpen && !openDropSlot(w, h)) return null;
+
+        // The cell whose footprint is centred nearest the point, kept inside
+        // the columns and no further down than the row after the last tile.
+        const localX = (point.x - box.left) / scale;
+        const localY = (point.y - box.top) / scale;
+        const contentRows = api.tiles.value.reduce(
+          (max, tile) =>
+            tile.id === DROP_SLOT_ID ? max : Math.max(max, tile.row + tile.h),
+          0,
+        );
+        const col = Math.round(
+          (localX - margin - (w * unit - margin) / 2) / unit,
+        );
+        const row = Math.round(
+          (localY - margin - (h * unit - margin) / 2) / unit,
+        );
+        // A no-op unless the cell changed, so the grid only rearranges when
+        // the pointer crosses into a new cell — not on every frame.
+        dropDrag.update({
+          col: Math.max(0, Math.min(cols - w, col)),
+          row: Math.max(0, Math.min(contentRows, row)),
+        });
+        // Reuses this frame's measurement: this runs every animation frame of
+        // the drag, and each extra read would force another layout.
+        const slot = api.grid.getTile(DROP_SLOT_ID);
+        return slot ? cellToViewport(slot, box) : null;
+      },
+
+      slotRect: dropSlotRect,
+
+      tileSize(size: { w: number; h: number }): number {
+        const w = Math.min(size.w, responsiveColNum.value);
+        return (w * (props.rowHeight + margin) - margin) * mobileScale.value;
+      },
+
+      hold(): TilePlacement | null {
+        if (!dropSlotOpen) return null;
+        if (dropDrag.isActive()) dropDrag.end();
+        const slot = api.grid.getTile(DROP_SLOT_ID);
+        if (!slot) {
+          closeDropSlot();
+          return null;
+        }
+        // Stays open (and `interacting` latched, deferring engine reloads) so
+        // the cell is still there while the user picks a file or types a URL.
+        return {
+          breakpoint: activeBreakpoint.value,
+          x: slot.col,
+          y: slot.row,
+          w: slot.w,
+          h: slot.h,
+          layout: fromGriddleTiles(
+            api.tiles.value.filter((tile) => tile.id !== DROP_SLOT_ID),
+          ),
+        };
+      },
+
+      release: closeDropSlot,
+    };
+
+    const unregisterDropTarget = registerTileDropTarget(dropTarget);
+    onUnmounted(() => {
+      unregisterDropTarget();
+      if (dropDrag.isActive()) dropDrag.cancel();
+    });
+
     // When gravity is toggled on, compact tiles through the engine and persist.
     // The controller routes positions to canonical tiles (lg) or per-breakpoint
     // overrides (md/sm).
@@ -644,6 +833,7 @@ export default {
       onResizeEnd,
       removeTileThroughEngine,
       resizeTileThroughEngine,
+      DROP_SLOT_ID,
     };
   },
 };
@@ -666,6 +856,41 @@ export default {
   width: max-content;
   max-width: 100%;
   margin-inline: auto;
+}
+
+/*
+  The held cell for a dragged-in tile type. Same footprint and radius as a
+  tile, but only an outline on a faint wash, so it reads as a space being made
+  rather than a tile that already exists.
+*/
+/*
+  Griddle glides every tile to its new cell (an inline `translate`
+  transition). The landing spot follows the pointer instead, so it snaps: a
+  spot still gliding towards the cell under the pointer reads as lag. The
+  tiles it displaces keep their glide.
+*/
+.grid-canvas-container :deep([data-griddle-tile="__grid-drop-slot__"]) {
+  transition: none !important;
+  translate: none !important;
+}
+
+/*
+  Where a dragged-in tile type will land. Same footprint and radius as a tile,
+  but only an outline on a faint wash, so it reads as a space being made
+  rather than a tile that already exists.
+*/
+.grid-drop-slot {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--tile-border-radius);
+  background: color-mix(
+    in srgb,
+    var(--bg-contrast-color-low, #fff) 12%,
+    transparent
+  );
+  box-shadow: inset 0 0 0 2px
+    var(--bg-contrast-color-low, rgba(255, 255, 255, 0.3));
+  pointer-events: none;
 }
 
 .empty-grid-message {

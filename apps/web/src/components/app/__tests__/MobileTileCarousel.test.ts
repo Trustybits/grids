@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import MobileTileCarousel from "../MobileTileCarousel.vue";
 import type { TileTypeDescriptor } from "@/composables/useTileCreation";
@@ -193,5 +193,93 @@ describe("MobileTileCarousel", () => {
     await wrapper.setProps({ types: [types[1]] });
 
     expect(nameOf(wrapper.find(".tile-carousel__card--center"))).toBe("Chat");
+  });
+
+  describe("lifting a card", () => {
+    /** Hit-testing resolves every point to the card at `index` (jsdom has no layout). */
+    const pressOn = (wrapper: ReturnType<typeof mountCarousel>, index: number) => {
+      const card = wrapper.findAll(".tile-carousel__card")[index].element;
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: vi.fn(() => card),
+      });
+    };
+
+    afterEach(() => {
+      delete (document as { elementFromPoint?: unknown }).elementFromPoint;
+    });
+
+    const pull = async (
+      wrapper: ReturnType<typeof mountCarousel>,
+      moves: { x: number; y: number }[],
+    ) => {
+      const track = wrapper.get(".tile-carousel__track");
+      await track.trigger("pointerdown", { clientX: 0, clientY: 0, button: 0, pointerId: 1 });
+      for (const { x, y } of moves) {
+        await track.trigger("pointermove", { clientX: x, clientY: y, pointerId: 1 });
+      }
+      const last = moves[moves.length - 1];
+      await track.trigger("pointerup", { clientX: last.x, clientY: last.y, pointerId: 1 });
+    };
+
+    it("lifts the pressed card on an upward pull and relays the gesture", async () => {
+      // In the document, so the window listeners that follow a lift hear it.
+      const wrapper = mount(MobileTileCarousel, {
+        props: { types },
+        attachTo: document.body,
+      });
+      pressOn(wrapper, 1);
+
+      await pull(wrapper, [
+        { x: 2, y: -20 },
+        { x: 10, y: -120 },
+      ]);
+
+      const [id, point] = wrapper.emitted("lift-start")![0] as [string, unknown];
+      expect(id).toBe("chat");
+      expect(point).toEqual({ x: 2, y: -20 });
+      expect(wrapper.emitted("lift-move")).toEqual([[{ x: 10, y: -120 }]]);
+      expect(wrapper.emitted("lift-end")).toEqual([[{ x: 10, y: -120 }, false]]);
+      // The lifted card becomes the active type, and is not committed by a tap.
+      expect(wrapper.emitted("focus-type")).toEqual([["chat"]]);
+      expect(wrapper.emitted("select")).toBeUndefined();
+      wrapper.unmount();
+    });
+
+    it("abandons a lift when the window loses focus mid-drag", async () => {
+      const wrapper = mount(MobileTileCarousel, {
+        props: { types },
+        attachTo: document.body,
+      });
+      pressOn(wrapper, 0);
+      const track = wrapper.get(".tile-carousel__track");
+      await track.trigger("pointerdown", { clientX: 0, clientY: 0, button: 0, pointerId: 1 });
+      await track.trigger("pointermove", { clientX: 0, clientY: -60, pointerId: 1 });
+
+      window.dispatchEvent(new Event("blur"));
+
+      expect(wrapper.emitted("lift-end")).toEqual([[{ x: 0, y: -60 }, true]]);
+      wrapper.unmount();
+    });
+
+    it("still spins the fan on a mostly sideways drag", async () => {
+      const wrapper = mountCarousel();
+      pressOn(wrapper, 0);
+
+      await pull(wrapper, [
+        { x: -40, y: -10 },
+        { x: -90, y: -20 },
+      ]);
+
+      expect(wrapper.emitted("lift-start")).toBeUndefined();
+      expect(wrapper.emitted("focus-type")?.[0]).toEqual(["chat"]);
+    });
+
+    it("hides the card the parent has lifted out", () => {
+      const wrapper = mountCarousel({ liftedId: "map" });
+      const lifted = wrapper.findAll(".tile-carousel__card--lifted");
+      expect(lifted).toHaveLength(1);
+      expect(nameOf(lifted[0])).toBe("Map");
+    });
   });
 });

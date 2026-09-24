@@ -18,3 +18,16 @@ export const unifiedTextFlagOn = ref(false);
 export function isUnifiedTextActive(): boolean {
   return earlyAccessEnrolled.value && unifiedTextFlagOn.value;
 }
+
+const TOUCH_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
+
+/**
+ * Whether text formatting lives in the floating toolbar instead of the tile
+ * toolbar's "More" menu: the unified editor on a pointer device. Touch devices
+ * keep the menu (and the Mobile 2.0 sheet) until the keyboard-docked bar.
+ */
+export function isFloatingFormatToolbarActive(): boolean {
+  if (!isUnifiedTextActive()) return false;
+  if (typeof window === "undefined" || !window.matchMedia) return true;
+  return !window.matchMedia(TOUCH_MEDIA_QUERY).matches;
+}

@@ -11,8 +11,19 @@ const paragraph = (text: string) => ({
 const SMART_TEXT_DOC = {
   type: "doc",
   content: [
-    { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Title" }] },
+    {
+      type: "heading",
+      attrs: { level: 1, textAlign: "center" },
+      content: [{ type: "text", text: "Title" }],
+    },
     paragraph("Intro"),
+    {
+      type: "paragraph",
+      attrs: { textAlign: "right" },
+      content: [
+        { type: "text", text: "code", marks: [{ type: "code" }] },
+      ],
+    },
     {
       type: "paragraph",
       content: [
@@ -22,6 +33,8 @@ const SMART_TEXT_DOC = {
           marks: [
             { type: "bold" },
             { type: "italic" },
+            { type: "underline" },
+            { type: "strike" },
             {
               type: "textStyle",
               attrs: { color: "#ff0000", fontFamily: "Lobster", fontSize: "20px" },
@@ -117,5 +130,16 @@ describe("richTextSchemaExtensions", () => {
     expect(json).toContain('"href":"https://grids.so"');
     expect(json).toContain('"label":"Visit"');
     expect(json).toContain('"hash":"abc"');
+    expect(json).toContain('{"type":"underline"}');
+    expect(json).toContain('{"type":"strike"}');
+    expect(json).toContain('{"type":"code"}');
+    expect(json).toContain('"textAlign":"center"');
+    expect(json).toContain('"textAlign":"right"');
+  });
+
+  it("leaves unaligned blocks without an alignment so the tile default applies", () => {
+    const editor = load({ type: "doc", content: [paragraph("plain")] });
+    expect(editor.getJSON().content?.[0]?.attrs?.textAlign).toBeNull();
+    expect(editor.getHTML()).not.toContain("text-align");
   });
 });

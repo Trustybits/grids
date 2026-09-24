@@ -121,7 +121,8 @@ const submit = () => {
 <style scoped>
 .rt-inline-fields {
   position: fixed;
-  z-index: 10000;
+  /* Above the other editor overlays (10010). */
+  z-index: 10020;
   display: flex;
   flex-direction: column;
   gap: 8px;

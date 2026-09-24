@@ -9,7 +9,11 @@
  *        whether the tile content already has a tileLink
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import {
+  earlyAccessEnrolled,
+  unifiedTextFlagOn,
+} from "@/composables/earlyAccessState";
 import type { ToolbarContext } from "@/types/TileToolbar";
 import {
   TEXT_ALIGN_BUTTON,
@@ -139,5 +143,42 @@ describe("TEXT_MORE_MENU tile-link", () => {
   it("treats an empty-string tileLink as no link", () => {
     expect(dangerFn(makeCtx({ tileLink: "" }))).toBe(false);
     expect(tooltipFn(makeCtx({ tileLink: "" }))).toBe("Add a Link");
+  });
+});
+
+describe("TEXT_MORE_MENU with the floating format toolbar", () => {
+  const formattingIds = ["font-family", "font-size", "bold-toggle", "italic-toggle"];
+  const visibleIds = () =>
+    items.filter((i) => i.visible?.(makeCtx()) ?? true).map((i) => i.id);
+
+  const setTouch = (touch: boolean) =>
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({ matches: touch }) as unknown as MediaQueryList),
+    );
+
+  afterEach(() => {
+    earlyAccessEnrolled.value = false;
+    unifiedTextFlagOn.value = false;
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps every formatting item for the classic editor", () => {
+    setTouch(false);
+    expect(visibleIds()).toEqual([...formattingIds, "tile-link"]);
+  });
+
+  it("leaves only the tile link for unified text on a pointer device", () => {
+    earlyAccessEnrolled.value = true;
+    unifiedTextFlagOn.value = true;
+    setTouch(false);
+    expect(visibleIds()).toEqual(["tile-link"]);
+  });
+
+  it("keeps formatting in the menu on touch devices until the docked bar", () => {
+    earlyAccessEnrolled.value = true;
+    unifiedTextFlagOn.value = true;
+    setTouch(true);
+    expect(visibleIds()).toEqual([...formattingIds, "tile-link"]);
   });
 });

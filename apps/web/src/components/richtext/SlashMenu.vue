@@ -59,7 +59,8 @@ watch(
 <style scoped>
 .rt-slash-menu {
   position: fixed;
-  z-index: 9999;
+  /* Above the tile toolbar and action bar (10000). */
+  z-index: 10010;
   display: flex;
   flex-direction: column;
   min-width: 220px;

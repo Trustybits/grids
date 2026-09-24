@@ -207,11 +207,49 @@ toolbar, the slash menu on `text` tiles, auto size and the new size menu.
   - `SmartTextHelpers.ts` stays as it is (the classic SmartTextContent still uses it) until
     Phase 5. Its unused `SLASH_COMMAND_DEFS` duplicate goes then.
 
-### Phase 2: Floating toolbar (desktop, gated)
-- [ ] Anchored toolbar: font family, size menu (presets, Auto, manual input), marks, text color
-      with Auto, per-block alignment, link.
-- [ ] Changes apply to the selection, or from the caret onward (stored marks).
-- [ ] Take font and size out of the tile toolbar's "More" menu when the flag is on.
+### Phase 2: Floating toolbar (desktop, gated) ✅
+- [x] Schema (shared by every text editor): `Underline`, plus `TextAlign` on paragraphs and
+      headings (left, center, right). TextAlign has no default, so an unaligned block renders no
+      style and follows the tile-level `textAlign`. Inline code and strikethrough were already in
+      StarterKit.
+- [x] `utils/richText/formatting.ts` reads the formatting at the selection or caret, and applies it:
+      marks, font family, size in px, text color (`null` means Auto), block alignment and links.
+      Commands chain from `focus()`, so with only a caret they set stored marks and the change
+      applies to what's typed next. Choosing a block's current alignment again clears it, handing
+      the block back to the tile default.
+- [x] `components/richtext/FloatingFormatToolbar.vue` holds:
+      - font family
+      - the size menu: presets with their px values, then a custom px input clamped to 8–200. Auto
+        joins it in Phase 4.
+      - B / I / U / S / inline code
+      - text color: Auto, the ten theme swatches stored as `var(--color-…)`, and a hex input
+      - left / center / right alignment
+      - link
+      Buttons use `mousedown.prevent` so the editor keeps focus and the selection. Clicks don't
+      propagate, so using the toolbar never counts as a click outside the tile.
+- [x] `composables/useFloatingToolbar.ts`: the toolbar shows over a selection right away, hides
+      while typing, and returns over the caret after a 900 ms pause. It centers above the selection
+      (flipping below at the top edge, clamped to the viewport) and follows scroll and resize. It's
+      suppressed while the slash menu or the inline form is open.
+- [x] The link button reuses the inline form: edit the current link, clear the field to remove it,
+      or with only a caret, insert the URL as linked text.
+- [x] Tile toolbar: font family, size, bold and italic leave the "More" menu when
+      `isFloatingFormatToolbarActive()` (unified text on a non-touch device). Touch devices keep the
+      menu and the Mobile 2.0 sheet until Phase 3. Tile link stays.
+- [x] Stacking: editor overlays sit above the tile toolbar and action bar (z-index 10000). The
+      browser check found the tile action bar covering the color button; the overlays are now at
+      10010, with the inline form at 10020.
+- [x] Tests:
+      - `utils/richText/__tests__/formatting.test.ts` (16), including caret formatting that only
+        affects new text
+      - `components/richtext/__tests__/FloatingFormatToolbar.test.ts` (14)
+      - toolbar and link flows in `RichTextContent.test.ts`
+      - menu gating in `textButtons.test.ts`
+      - schema round-trip for the new marks and attributes
+      - browser check (desktop): toolbar at the caret, hidden while typing, back after the pause,
+        above the selection. Bold, underline, size preset, custom size, color, alignment, font and
+        link all apply with edit mode and the selection kept. Italic at the caret formats only new
+        text. No toolbar on touch. #238 interactions are unchanged.
 
 ### Phase 3: Mobile (gated)
 - [ ] A formatting bar docked above the keyboard, positioned with `visualViewport`.

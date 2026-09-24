@@ -86,6 +86,7 @@ import {
   type VerticalAlign,
 } from "@/utils/textTileAlign";
 import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
+import { resolveShortClickPosition } from "@/utils/editorClickPosition";
 import type { TextContent } from "@grids/contracts/types";
 import { useTileLink } from "@/composables/useTileLink";
 import { useColorPicker } from "@/composables/useColorPicker";
@@ -273,11 +274,20 @@ export default defineComponent({
         isScrollableOverflow.value && !isScrolledToBottom.value,
     );
 
+    // Caret target captured from the click that enters edit mode, consumed by
+    // the lifecycle when it focuses the editor. null falls back to "end".
+    let pendingFocusPosition: number | null = null;
+
     const { tileId } = useEditingLifecycle({
       editor,
       isEditing,
       containerRef: textContentDiv,
       flushPersist,
+      resolveFocusPosition: () => {
+        const position = pendingFocusPosition ?? "end";
+        pendingFocusPosition = null;
+        return position;
+      },
     });
     const { patchContent, autosaveContent } = useTileContentWriter(
       tileId,
@@ -286,7 +296,11 @@ export default defineComponent({
 
     useEditorContentSync(editor, () => props.content.text);
 
-    const onShortClick = () => {
+    // Only reached for a settled click or tap: Grid.vue drops mouse gestures
+    // that travel past its drag threshold, and Tile.vue drops touch pans and
+    // the tap that first activates the tile. Drag and swipe-to-scroll never
+    // get here, so entering edit mode on this call can't capture them.
+    const onShortClick = (event?: MouseEvent | TouchEvent) => {
       if (!gridView.canEdit) {
         if (tileLinkExists.value) {
           handleFollowLink();
@@ -296,6 +310,12 @@ export default defineComponent({
       if (!editor?.value) return;
 
       if (!isEditing.value) {
+        // Enter edit mode with the caret under the click, so one click is
+        // enough to start typing where the user pointed.
+        pendingFocusPosition = resolveShortClickPosition(
+          editor.value.view,
+          event,
+        );
         isEditing.value = true;
         return;
       }

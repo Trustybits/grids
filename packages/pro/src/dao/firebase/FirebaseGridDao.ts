@@ -79,7 +79,7 @@ export class FirebaseGridDao implements GridDao {
       await this.writeWithRevision(id, "save", data, revision);
       return;
     }
-    await setDoc(docRef, data, { merge: true });
+    await setDoc(docRef, data, this.topLevelMerge(data));
   }
 
   public async update(
@@ -115,6 +115,21 @@ export class FirebaseGridDao implements GridDao {
     await deleteDoc(docRef);
   }
 
+  // Merge options for `save`: every field in `data` is replaced as a whole,
+  // while fields absent from `data` (e.g. clonedFrom) are left untouched. A
+  // plain `merge: true` deep-merges nested maps instead, so keys removed from a
+  // map such as `overrides` (a reset breakpoint, a deleted tile's positions)
+  // would survive the save and reappear on the next load. Grid payload keys
+  // are plain identifiers, so they are safe to pass as field paths. Undefined
+  // values are skipped: Firestore rejects a merge field missing from the data.
+  private topLevelMerge(data: Record<string, unknown>): {
+    mergeFields: string[];
+  } {
+    return {
+      mergeFields: Object.keys(data).filter((key) => data[key] !== undefined),
+    };
+  }
+
   private readExpectedRev(value: unknown): number | null {
     return typeof value === "number" && Number.isFinite(value) ? value : null;
   }
@@ -145,7 +160,7 @@ export class FirebaseGridDao implements GridDao {
       }
 
       if (mode === "save") {
-        transaction.set(docRef, data, { merge: true });
+        transaction.set(docRef, data, this.topLevelMerge(data));
       } else {
         transaction.update(docRef, data);
       }

@@ -661,8 +661,14 @@ export class GridService implements GridServiceInterface {
   // then delete the draft. Respects the ORIGINAL's rev so a concurrent edit of
   // the original surfaces as GridRevisionConflictError; on conflict the draft
   // is left intact for a retry.
-  async publishDraft(draftId: string): Promise<void> {
-    const draft = await this.fetchGrid(draftId);
+  //
+  // `content` is the editor's in-memory draft. When given it is published as-is
+  // instead of re-reading the stored draft: the stored copy is written with a
+  // merge, so it can still carry breakpoint overrides the user has since reset
+  // or removed, and it may already be gone (published or discarded from another
+  // tab), which must not block publishing what the user is looking at.
+  async publishDraft(draftId: string, content?: Grid): Promise<void> {
+    const draft = content ?? (await this.fetchGrid(draftId));
     const originalId = draft.draftOf;
     if (!originalId) {
       throw new Error(`Grid ${draftId} is not a draft (no draftOf).`);

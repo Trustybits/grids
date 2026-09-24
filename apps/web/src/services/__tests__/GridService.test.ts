@@ -1459,6 +1459,33 @@ describe('publishDraft', () => {
     expect(mockGridDao.delete).toHaveBeenCalledWith('draft__grid-1')
   })
 
+  it('publishes the given in-memory draft without re-reading the stored draft', async () => {
+    const inMemory = makeGrid({
+      id: 'draft__grid-1',
+      userId: 'user-1',
+      draftOf: 'grid-1',
+      status: 'draft',
+      rev: 9,
+      overrides: { sm: { 'kept-tile': { x: 0, y: 3, w: 1, h: 1 } } },
+    })
+    const original = makeGrid({ id: 'grid-1', userId: 'user-1', rev: 5 })
+    mockGridDao.getById.mockResolvedValueOnce(original) // fetchGrid(originalId)
+    mockGridDao.update.mockResolvedValueOnce(undefined)
+    mockGridDao.delete.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    await service.publishDraft('draft__grid-1', inMemory)
+
+    expect(mockGridDao.getById).toHaveBeenCalledTimes(1)
+    expect(mockGridDao.getById).toHaveBeenCalledWith('grid-1')
+    expect(mockGridDao.update).toHaveBeenCalledWith(
+      'grid-1',
+      expect.objectContaining({ rev: 6, overrides: inMemory.overrides }),
+      5,
+    )
+    expect(mockGridDao.delete).toHaveBeenCalledWith('draft__grid-1')
+  })
+
   it('throws when the target grid is not a draft', async () => {
     const notADraft = makeGrid({ id: 'grid-1', draftOf: undefined })
     mockGridDao.getById.mockResolvedValueOnce(notADraft)

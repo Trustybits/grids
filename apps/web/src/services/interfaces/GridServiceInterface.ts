@@ -54,8 +54,12 @@ export interface GridServiceInterface {
   createDraft(original: Grid): Promise<Grid>;
   /** Idempotently get-or-create the hidden draft for a published grid. */
   getOrCreateDraft(originalId: string): Promise<Grid>;
-  /** Publish a draft back into its original document and delete the draft. */
-  publishDraft(draftId: string): Promise<void>;
+  /**
+   * Publish a draft back into its original document and delete the draft.
+   * Pass `content` to publish the editor's in-memory draft instead of the
+   * stored copy.
+   */
+  publishDraft(draftId: string, content?: Grid): Promise<void>;
   /** Promote a draft into its own listed public grid (clears draftOf). */
   publishAsCopy(draftId: string, name?: string): Promise<Grid>;
   /** Take a published grid private again (status:"draft"). */

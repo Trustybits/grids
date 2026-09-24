@@ -182,6 +182,9 @@ function extractReferences(grid: GridRecordLike): GridStorageReference[] {
           hash: c.profilePhotoHash,
         });
         break;
+      // Text tiles carry the same Tiptap schema as smart text, so either can
+      // hold inline images. The location keeps its original name.
+      case ContentType.TEXT:
       case ContentType.SMART_TEXT:
         if (typeof c.text === "string") {
           for (const image of extractSmartTextImages(c.text)) {

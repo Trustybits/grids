@@ -434,6 +434,36 @@ describe("processGrid — cross-user (foreign-owner) rewriting", () => {
     expect(parsed.content[0].attrs.src).toBe("INLINE_COPY");
     expect(parsed.content[0].attrs.hash).toBe(HASH_A);
   });
+  it("rewrites a foreign inline image inside a text tile", () => {
+    const grid = {
+      userId: UID,
+      backgroundImageSrc: "",
+      tiles: [
+        {
+          i: "t1",
+          content: {
+            type: "text",
+            text: JSON.stringify({
+              type: "doc",
+              content: [
+                { type: "image", attrs: { src: downloadUrl("other-user", "images", "inline.png") } },
+              ],
+            }),
+          },
+        },
+      ],
+    };
+    const foreignMap = new Map<string, MigrationTarget>([
+      [
+        foreignMigrationKey(UID, foreignInline),
+        { newUrl: "INLINE_COPY", newHash: HASH_A, newPath: `users/${UID}/images/${HASH_A}.png` },
+      ],
+    ]);
+    const result = processGrid(grid, new Map(), foreignMap);
+    expect(result.changed).toBe(true);
+    const text = (result.newTiles[0] as { content: { text: string } }).content;
+    expect(JSON.parse(text.text).content[0].attrs.src).toBe("INLINE_COPY");
+  });
 });
 
 describe("classifyObject + isObjectReferenced", () => {

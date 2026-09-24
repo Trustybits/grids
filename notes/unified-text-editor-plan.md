@@ -164,16 +164,48 @@ toolbar, the slash menu on `text` tiles, auto size and the new size menu.
   styles. Their CSS still lives in SmartTextContent.vue. The content is safe; the styling gets
   unified with the component.
 
-### Phase 1: `RichText` component, text tile only (gated)
-- [ ] Build `RichText.vue` with the `full` profile, merging TextContent and SmartTextContent. Keep
-      `.text-container` (the OG renderer depends on it), vertical align and overflow behavior.
-- [ ] Render `text` and `smart_text` tiles through it, with the old components as the fallback when
-      the flag is off.
-- [ ] Creation (flag on): the toolbar, mobile carousel, paste and suggestion tile all create `text`.
-      Hide "Smart Text" in the add-tile UI.
-- [ ] Slash menu available on `text` tiles. `/link` and `/button` use inline inputs.
-- [ ] Component tests (none exist today): editing entry, caret-at-click, slash commands, autosave,
-      and no content lost between the old and new component.
+### Phase 1: `RichTextContent` component, text tile only (gated) ✅
+- [x] Gate: `FEATURE_FLAGS.EDITOR_UNIFIED_TEXT` (`editor-unified-text`). `useMobileExperience`
+      exposes `isUnifiedText` (Early Access enrolled **and** flag on), synced like `beta-desktop-2`.
+      The state lives in `composables/earlyAccessState.ts`, which doesn't import PostHog, so the
+      tile registry can read it without pulling in the PostHog client.
+- [x] `components/tilecontent/RichTextContent.vue` merges TextContent and SmartTextContent with the
+      `FULL_PROFILE`. It keeps:
+      - `.text-container`, vertical align, and the overflow and center-lock rules
+      - caret-at-click from #238
+      - tile link, background color, and the toolbar methods (font, size, bold, italic, alignment)
+      It adds the slash menu, the table toolbar, `DragHandle` and inline-link styling. Legacy
+      plain-text tiles load as a paragraph instead of throwing.
+- [x] `registries/tiles/text.ts` and `smartText.ts` load `RichTextContent` when the gate is on.
+      `Tile.vue` reloads the component when the gate flips. It watches separate sources: a single
+      getter returning an array remounted the tile on every grid re-render, which ended edit mode on
+      the first click.
+- [x] Creation when the gate is on:
+      - paste creates `text`
+      - the Smart Text button (desktop) and carousel card (mobile) are hidden
+      - the Text button and the suggestion tile already create `text`
+- [x] Slash commands: `utils/richText/slashCommands.ts` is the single registry, filtered by
+      `TextEditorProfile.features` (`utils/richText/profiles.ts`). Each command removes its own
+      `/query` text.
+- [x] `/link` and `/button` use `components/richtext/InlineFieldsPopover.vue` (validated URL, Enter
+      to insert, Esc or clicking outside to cancel) instead of `window.prompt`. Edit mode stays open
+      while it waits.
+- [x] Node styles (smart button, tables, drag handle) moved to the global `styles/_rich-text.scss`,
+      so classic text tiles that contain them are styled too. That closes the Phase 0 styling gap.
+- [x] Tests:
+      - `components/tilecontent/__tests__/RichTextContent.test.ts` (16)
+      - `utils/richText/__tests__/slashCommands.test.ts` (29)
+      - gate tests in `useMobileExperience.test.ts`
+      - a `Tile.test.ts` regression for the reload and remount bug, confirmed to fail without the fix
+      - creation-path tests in `useTileCreation` and `useDragAndPaste`
+      - browser check (stubbed runtime, flag on): first click edits, the slash menu filters, `/h1`,
+        `/link` validation and insert, `/button` cancel, and `/table` with its toolbar all work, with
+        no console errors
+- Decisions made while building:
+  - Editing a `smart_text` tile does **not** rewrite its type to `text`. Changing the type makes
+    `Tile.vue` remount the component mid-edit, and both types render identically anyway.
+  - `SmartTextHelpers.ts` stays as it is (the classic SmartTextContent still uses it) until
+    Phase 5. Its unused `SLASH_COMMAND_DEFS` duplicate goes then.
 
 ### Phase 2: Floating toolbar (desktop, gated)
 - [ ] Anchored toolbar: font family, size menu (presets, Auto, manual input), marks, text color

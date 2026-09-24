@@ -16,6 +16,15 @@ export enum ContentType {
   DOCUMENT = "document",
 }
 
+/**
+ * Whether a tile's `text` field is a Tiptap document. `smart_text` is the
+ * legacy name for the same content: the two tile types are being merged into
+ * `text`, and existing `smart_text` tiles are read as text rather than
+ * migrated, so anything that inspects text content must handle both.
+ */
+export const isRichTextContentType = (type: unknown): boolean =>
+  type === ContentType.TEXT || type === ContentType.SMART_TEXT;
+
 export interface TileContent {
   type: ContentType;
 }

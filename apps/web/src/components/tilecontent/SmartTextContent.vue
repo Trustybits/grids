@@ -209,21 +209,8 @@ import {
   onUnmounted,
 } from "vue";
 import { useEditor, EditorContent, type Editor } from "@tiptap/vue-3";
-import StarterKit from "@tiptap/starter-kit";
-import TextStyle from "@tiptap/extension-text-style";
-import FontFamily from "@tiptap/extension-font-family";
-import Color from "@tiptap/extension-color";
-import Link from "@tiptap/extension-link";
-import { ResizableImage } from "@/extensions/tiptap/ResizableImage";
-import { FontSize } from "@/extensions/tiptap/FontSize";
-import { SmartButton } from "@/extensions/tiptap/SmartButton";
+import { richTextSchemaExtensions } from "@/extensions/tiptap/richTextExtensions";
 import { DragHandle } from "@/extensions/tiptap/DragHandle";
-import TaskList from "@tiptap/extension-task-list";
-import TaskItem from "@tiptap/extension-task-item";
-import Table from "@tiptap/extension-table";
-import TableRow from "@tiptap/extension-table-row";
-import TableHeader from "@tiptap/extension-table-header";
-import TableCell from "@tiptap/extension-table-cell";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
@@ -704,27 +691,7 @@ export default defineComponent({
     const editor = useEditor({
       editable: true,
       extensions: [
-        StarterKit,
-        TextStyle,
-        Color,
-        FontFamily,
-        FontSize,
-        TaskList,
-        TaskItem,
-        SmartButton,
-        Link.configure({
-          autolink: true,
-          openOnClick: true,
-        }),
-        ResizableImage.configure({ inline: true }),
-        Table.configure({
-          resizable: true,
-          cellMinWidth: 40,
-          allowTableNodeSelection: true,
-        }),
-        TableRow,
-        TableHeader,
-        TableCell,
+        ...richTextSchemaExtensions(),
         DragHandle.configure({ isEditing }),
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",

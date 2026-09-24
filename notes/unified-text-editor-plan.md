@@ -28,20 +28,17 @@ tile toolbar.
    Mobile 2.0 `/EDIT` sheet keeps only tile-level controls.
 7. **`/link` and `/button` get inline inputs** instead of `window.prompt()`.
 8. **Rollout.** Behind a new feature flag that also requires Early Access enrollment (see *Gating*).
-
-## Decisions still to confirm
-
-- **Alignment.** Notion doesn't offer left/center/right text alignment, so there is no Notion
-  behavior to copy. Proposal: alignment becomes **per block** and applies to every block the
-  selection touches, like Google Docs or Craft. It lives in the floating toolbar. The existing
-  tile-level `textAlign` becomes the default for blocks with no alignment of their own, so current
-  tiles look the same. **Vertical** alignment stays per tile, in the tile toolbar.
-- **How the size menu interacts with Auto.** Proposal: Auto is a tile-level switch
-  (`autoSize: true`). While it's on, the presets still set relative sizes, which Auto then scales.
-  The manual input shows the rendered size, and typing a number turns Auto off. Picking a preset or
-  typing a size applies to the selection or caret (decision 3).
-- **Which marks the text tile offers.** Today it has bold and italic. Should underline, strikethrough
-  and inline code be added to the floating toolbar?
+9. **Alignment is per block.** Notion has no left/center/right alignment, so this follows Google
+   Docs or Craft instead. It applies to every block the selection touches and lives in the floating
+   toolbar. The existing tile-level `textAlign` becomes the default for blocks with no alignment of
+   their own, so current tiles look the same. **Vertical** alignment stays per tile, in the tile
+   toolbar.
+10. **Size menu vs Auto.** Auto is a tile-level switch (`autoSize: true`). While it's on, the
+    presets still set relative sizes, which Auto then scales. The manual input shows the rendered
+    size, and typing a number turns Auto off. Picking a preset or typing a size applies to the
+    selection or caret (decision 3).
+11. **Marks.** The floating toolbar offers bold, italic, **underline, strikethrough and inline
+    code**.
 
 ## Gating
 
@@ -148,14 +145,24 @@ toolbar, the slash menu on `text` tiles, auto size and the new size menu.
 
 ## Phases
 
-### Phase 0: Foundations (no visible change, not gated)
-- [ ] Shared extension builder. `TextContent.vue` registers the full schema, so opening a
-      `smart_text`-style doc in a text tile no longer drops nodes. Tests: load each node type, then
-      check that serializing gives back the same content.
-- [ ] Contracts: `GridStorageReferences` and `GridStorageRewrite` scan **both** `text` and
-      `smart_text` for inline images, as does `utils_storageMigration.ts`. Update the tests.
-- [ ] A shared `isTextContentType()` helper replaces scattered `TEXT` / `SMART_TEXT` checks: OG
-      category, suggestion-action mapping on client and server, thumbnails, `copyContent`.
+### Phase 0: Foundations (no visible change, not gated) ✅
+- [x] Shared schema builder `extensions/tiptap/richTextExtensions.ts`, used by both
+      `TextContent.vue` and `SmartTextContent.vue`. A text tile now loads smart-text docs intact.
+      `extensions/tiptap/__tests__/richTextExtensions.test.ts` checks that every node smart text can
+      insert survives a load/save/reload round trip.
+- [x] Contracts: `GridStorageReferences` and `GridStorageRewrite` scan `text` as well as
+      `smart_text` for inline images. The reference location keeps its original name,
+      `tile.smartText.inlineImage`. The same applies to `utils_storageMigration.ts`. Tests added in
+      all three suites.
+- [x] Audited every `TEXT` / `SMART_TEXT` branch. OG category, suggestion-action mapping (client
+      and server) and `copyContent` already treat both alike. The only gap was the `Tile.vue` debug
+      meta. The shared `isRichTextContentType()` helper is deferred to Phase 1, where the renderer
+      and flag logic will use it.
+- Note: the root `.gitignore` rule `extensions/` also matches `apps/web/src/extensions/`, so new
+  files there need `git add -f`, as the existing Tiptap extensions were added.
+- Known gap until Phase 1: a text tile holding tables, images or buttons renders them with default
+  styles. Their CSS still lives in SmartTextContent.vue. The content is safe; the styling gets
+  unified with the component.
 
 ### Phase 1: `RichText` component, text tile only (gated)
 - [ ] Build `RichText.vue` with the `full` profile, merging TextContent and SmartTextContent. Keep
@@ -170,7 +177,7 @@ toolbar, the slash menu on `text` tiles, auto size and the new size menu.
 
 ### Phase 2: Floating toolbar (desktop, gated)
 - [ ] Anchored toolbar: font family, size menu (presets, Auto, manual input), marks, text color
-      with Auto, per-block alignment (pending confirmation), link.
+      with Auto, per-block alignment, link.
 - [ ] Changes apply to the selection, or from the caret onward (stored marks).
 - [ ] Take font and size out of the tile toolbar's "More" menu when the flag is on.
 

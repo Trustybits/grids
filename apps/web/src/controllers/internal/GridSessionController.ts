@@ -44,9 +44,24 @@ export class GridSessionController {
     this.gridSubscription = null;
   }
 
-  async loadGrid(id: string): Promise<void> {
+  /**
+   * `preserveViewport` keeps the measured and user-forced breakpoints across the
+   * reset. Use it when re-opening the grid underneath a still-mounted editor
+   * (publish / discard): the grid does not remount, so the responsive layout
+   * never re-pushes its breakpoints, and the store would otherwise be stuck at
+   * the "lg" defaults — routing edits at md/sm into the desktop layout and
+   * dropping the breakpoint the user was editing.
+   */
+  async loadGrid(
+    id: string,
+    { preserveViewport = false }: { preserveViewport?: boolean } = {},
+  ): Promise<void> {
     this.stores.session.setLoadError(null);
+    const restoreViewport = preserveViewport
+      ? this.captureViewport()
+      : null;
     this.resetSessionDependents();
+    restoreViewport?.();
     const sessionGeneration = this.stores.session.sessionGeneration;
     let committedGrid = false;
     this.stores.history.initializeManager();
@@ -229,11 +244,7 @@ export class GridSessionController {
     // a resync keeps the grid mounted, so nothing would restore it — leaving
     // the store stuck at "lg" and the grid rendering the wrong breakpoint's
     // positions. Preserve the measured (and any user-forced) breakpoint here.
-    const {
-      activeBreakpoint,
-      viewportBreakpoint,
-      forcedBreakpoint,
-    } = this.stores.viewport;
+    const restoreViewport = this.captureViewport();
 
     // A resync while editing a draft must keep the draft-editing context (the
     // public original's id and content baseline), which resetSessionDependents
@@ -243,10 +254,7 @@ export class GridSessionController {
 
     this.resetSessionDependents();
     this.stores.history.initializeManager();
-
-    this.stores.viewport.setActiveBreakpoint(activeBreakpoint);
-    this.stores.viewport.setViewportBreakpoint(viewportBreakpoint);
-    this.stores.viewport.setForcedBreakpoint(forcedBreakpoint);
+    restoreViewport();
 
     const userId = this.dependencies.getAuthProvider().getCurrentUserId();
     this.stores.session.setCurrentGrid(grid);
@@ -263,6 +271,20 @@ export class GridSessionController {
     this.stores.ui.setShowMetaDataVerbose(preferences.showMetaDataVerbose);
 
     this.refreshStableSnapshot();
+  }
+
+  /** Snapshot the viewport breakpoints; the returned callback restores them. */
+  private captureViewport(): () => void {
+    const {
+      activeBreakpoint,
+      viewportBreakpoint,
+      forcedBreakpoint,
+    } = this.stores.viewport;
+    return () => {
+      this.stores.viewport.setActiveBreakpoint(activeBreakpoint);
+      this.stores.viewport.setViewportBreakpoint(viewportBreakpoint);
+      this.stores.viewport.setForcedBreakpoint(forcedBreakpoint);
+    };
   }
 
   private readRev(value: unknown): number {

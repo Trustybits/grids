@@ -51,12 +51,19 @@ export interface GridServiceInterface {
 
   // ── Draft / publish lifecycle ────────────────────────────────────────
   /** Create a hidden draft duplicate of a published grid (preserves tile ids). */
-  createDraft(original: Grid): Promise<Grid>;
+  createDraft(original: Grid, draftId?: string): Promise<Grid>;
   /** Idempotently get-or-create the hidden draft for a published grid. */
   getOrCreateDraft(originalId: string): Promise<Grid>;
-  /** Publish a draft back into its original document and delete the draft. */
-  publishDraft(draftId: string): Promise<void>;
-  /** Promote a draft into its own listed public grid (clears draftOf). */
+  /**
+   * Publish a draft back into its original document and delete the draft.
+   * Pass `content` to publish the editor's in-memory draft instead of the
+   * stored copy.
+   */
+  publishDraft(draftId: string, content?: Grid): Promise<void>;
+  /**
+   * Promote a draft into its own listed public grid under a new id, then
+   * delete the draft. Resolves with the new grid.
+   */
   publishAsCopy(draftId: string, name?: string): Promise<Grid>;
   /** Take a published grid private again (status:"draft"). */
   unpublishGrid(gridId: string): Promise<void>;

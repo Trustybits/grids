@@ -4,7 +4,7 @@
   Draft/Publish surface (Framer-style). A trigger button whose label reflects
   publish state (Publish / Update / Published) with a dot when the open draft
   has unpublished changes, plus a popover panel showing the public URL, publish
-  state, and the publish actions.
+  state, and the publish actions (including discarding unpublished changes).
 
   Fully gated behind the EDITOR_DRAFT_PUBLISH flag via usePublish — renders
   nothing unless the feature is enabled and the viewer owns the grid.
@@ -58,7 +58,7 @@
             variant="brand"
             block
             :loading="isPublishing"
-            :disabled="!canPublish"
+            :disabled="!canPublish || isDiscarding"
             @click="onPublish"
           >
             {{ primaryLabel }}
@@ -66,10 +66,20 @@
           <AppButton
             variant="secondary"
             block
-            :disabled="isPublishing || !isDraftEditing"
+            :disabled="isPublishing || isDiscarding || !isDraftEditing"
             @click="onPublishAsCopy"
           >
             Publish as a copy
+          </AppButton>
+          <AppButton
+            v-if="hasUnpublishedChanges"
+            variant="secondary"
+            block
+            :loading="isDiscarding"
+            :disabled="isPublishing"
+            @click="onDiscard"
+          >
+            Discard changes
           </AppButton>
         </div>
 
@@ -118,11 +128,13 @@ const {
   hasUnpublishedChanges,
   isPublishing,
   isUnpublishing,
+  isDiscarding,
   publicUrl,
   isDefaultGrid,
   refreshPublicIdentity,
   publish,
   publishAsCopy,
+  discardChanges,
   unpublish,
   copyPublicUrl,
   openPublicUrl,
@@ -211,6 +223,10 @@ const onPublish = async () => {
 const onPublishAsCopy = async () => {
   await publishAsCopy();
   close();
+};
+const onDiscard = async () => {
+  await discardChanges();
+  if (!hasUnpublishedChanges.value) close();
 };
 const onUnpublish = async () => {
   await unpublish();

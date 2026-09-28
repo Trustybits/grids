@@ -1,4 +1,5 @@
 import { isGridRevisionConflictError } from "@grids/contracts/dao";
+import type { Grid } from "@grids/contracts/types";
 import type {
   GridPersistenceFlushResult,
   GridPersistenceScope,
@@ -50,6 +51,22 @@ export class GridPersistenceController {
     if (!scope) return;
 
     await this.flushPersistenceScope(scope);
+  }
+
+  /**
+   * The open grid as it would be persisted (blob URLs swapped for their
+   * resolved uploads), or null without a grid.
+   */
+  createPersistableSnapshot(): Grid | null {
+    const grid = this.stores.session.currentGrid;
+    if (!grid) return null;
+    return createPersistableGridSnapshot(
+      grid,
+      this.stores.uploads.resolvedUrls,
+      this.stores.uploads.resolvedDocumentItemUrls,
+      this.currentResolvedHashes(),
+      this.currentResolvedDocumentItemHashes(),
+    );
   }
 
   async saveGrid(

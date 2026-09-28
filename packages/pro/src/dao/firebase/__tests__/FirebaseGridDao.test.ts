@@ -164,7 +164,7 @@ describe("FirebaseGridDao", () => {
   // ── save ──────────────────────────────────────────────────────────────────
 
   describe("save", () => {
-    it("calls setDoc with merge: true", async () => {
+    it("replaces each saved field whole (no deep merge of nested maps)", async () => {
       vi.mocked(doc).mockReturnValue("docRef" as any);
       vi.mocked(setDoc).mockResolvedValue(undefined);
 
@@ -172,7 +172,21 @@ describe("FirebaseGridDao", () => {
       await dao.save("grid-1", data);
 
       expect(doc).toHaveBeenCalledWith(fakeDb, "grids", "grid-1");
-      expect(setDoc).toHaveBeenCalledWith("docRef", data, { merge: true });
+      expect(setDoc).toHaveBeenCalledWith("docRef", data, {
+        mergeFields: ["name", "tiles"],
+      });
+    });
+
+    it("leaves undefined fields out of the merge field list", async () => {
+      vi.mocked(doc).mockReturnValue("docRef" as any);
+      vi.mocked(setDoc).mockResolvedValue(undefined);
+
+      const data = { name: "Updated", overrides: {}, ogImageSrc: undefined };
+      await dao.save("grid-1", data);
+
+      expect(setDoc).toHaveBeenCalledWith("docRef", data, {
+        mergeFields: ["name", "overrides"],
+      });
     });
 
     it("uses a transaction when an expected rev is provided", async () => {
@@ -191,7 +205,7 @@ describe("FirebaseGridDao", () => {
 
       expect(transaction.get).toHaveBeenCalledWith("docRef");
       expect(transaction.set).toHaveBeenCalledWith("docRef", data, {
-        merge: true,
+        mergeFields: ["name", "rev"],
       });
       expect(setDoc).not.toHaveBeenCalled();
     });

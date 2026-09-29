@@ -62,6 +62,11 @@
     :suppressed="slashMenu.visible.value || !!inlineFields.current.value"
     @edit-link="editLink"
   />
+  <DockedFormatBar
+    :editor="editor"
+    :active="isEditing && gridView.canEdit && showDockedBar"
+    @edit-link="editLink"
+  />
   <TableToolbar
     :editor="editor"
     :active="isEditing && gridView.canEdit"
@@ -121,6 +126,7 @@ import SlashMenu from "../richtext/SlashMenu.vue";
 import TableToolbar from "../richtext/TableToolbar.vue";
 import InlineFieldsPopover from "../richtext/InlineFieldsPopover.vue";
 import FloatingFormatToolbar from "../richtext/FloatingFormatToolbar.vue";
+import DockedFormatBar from "../richtext/DockedFormatBar.vue";
 import { isValidLink } from "@/utils/UrlValidation";
 import {
   resolveVerticalAlignJustify,
@@ -149,7 +155,7 @@ import { useTileContentWriter } from "@/composables/useTileContentWriter";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { placeBelowOrAbove, useSlashMenu } from "@/composables/useSlashMenu";
 import { useInlineFields } from "@/composables/useInlineFields";
-import { isFloatingFormatToolbarActive } from "@/composables/earlyAccessState";
+import { useMobileExperience } from "@/composables/useMobileExperience";
 import { setLink } from "@/utils/richText/formatting";
 import {
   useEditingLifecycle,
@@ -186,6 +192,7 @@ export default defineComponent({
     TableToolbar,
     InlineFieldsPopover,
     FloatingFormatToolbar,
+    DockedFormatBar,
   },
   emits: ["background-color-change", "text-color-change"],
   props: {
@@ -295,9 +302,15 @@ export default defineComponent({
     const isBusyOutsideTile = () =>
       slashMenu.running.value || inlineFields.current.value !== null;
 
-    // Formatting moves to a floating toolbar on pointer devices; touch keeps
-    // the tile toolbar until the keyboard-docked bar (Phase 3).
-    const showFormatToolbar = isFloatingFormatToolbarActive();
+    // Pointer devices get the floating toolbar over the text. Touch devices
+    // get a bar docked on the keyboard: in the Mobile 2.0 chrome the command
+    // bar hosts it (it already rests on the keyboard), elsewhere this tile
+    // docks its own.
+    const { isTouchDevice, isMobile2 } = useMobileExperience();
+    const showFormatToolbar = computed(() => !isTouchDevice.value);
+    const showDockedBar = computed(
+      () => isTouchDevice.value && !isMobile2.value,
+    );
 
     /**
      * The toolbar's link button: edit the link under the selection, or link
@@ -598,6 +611,7 @@ export default defineComponent({
       slashMenu,
       inlineFields,
       showFormatToolbar,
+      showDockedBar,
       editLink,
       schedulePersist,
       onShortClick,

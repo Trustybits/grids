@@ -58,8 +58,18 @@
       <div
         v-if="mode === 'edit' && editTile && isMobileDevice"
         class="mgb-settings-panel"
+        :class="{ 'mgb-settings-panel--format': textEditingEditor }"
       >
-        <MobileTileEditSheet :tile="editTile" />
+        <!-- While a unified text tile is being typed in, formatting takes the
+             sheet's place: this surface already rests on the keyboard. -->
+        <DockedFormatBar
+          v-if="textEditingEditor"
+          inline
+          active
+          :editor="textEditingEditor"
+          @edit-link="(href) => editHandle?.childComponent.value?.editLink?.(href)"
+        />
+        <MobileTileEditSheet v-else :tile="editTile" />
       </div>
     </transition>
 
@@ -319,6 +329,9 @@ import MobileTileCarousel from "@/components/app/MobileTileCarousel.vue";
 import MobileTileListSheet from "@/components/app/MobileTileListSheet.vue";
 import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vue";
 import MobileTileEditSheet from "@/components/app/MobileTileEditSheet.vue";
+import DockedFormatBar from "@/components/richtext/DockedFormatBar.vue";
+import { useKeyboardInset } from "@/composables/useKeyboardInset";
+import { isRichTextContentType } from "@grids/contracts/types";
 import MobileColorPicker from "@/components/app/MobileColorPicker.vue";
 import MobileImageSwapSheet from "@/components/app/MobileImageSwapSheet.vue";
 import AddTileIcon from "@/components/icons/AddTileIcon.vue";
@@ -408,7 +421,18 @@ const { editTileId, editTile, closeEdit, query: editQuery, handle: editHandle } 
   useMobileTileEdit();
 // The sheet is the mobile presentation of `/EDIT`; on the desktop chrome the
 // tile keeps its own toolbars and only the pill input renders.
-const { isMobileDevice } = useMobileExperience();
+const { isMobileDevice, isUnifiedText } = useMobileExperience();
+
+// The live editor of a unified text tile while its owner is typing in it.
+// The keyboard is up, so the sheet gives way to the formatting bar.
+const textEditingEditor = computed(() => {
+  const tile = editTile.value;
+  const tileHandle = editHandle.value;
+  if (!isUnifiedText.value || !tile || !tileHandle) return undefined;
+  if (!isRichTextContentType(tile.content.type)) return undefined;
+  if (!tileHandle.isEditing.value) return undefined;
+  return tileHandle.childComponent.value?.editor;
+});
 const editGridView = proxyRefs(useGridViewContext());
 
 // Enter in the `/EDIT` input executes the first control matching the typed
@@ -482,7 +506,7 @@ const shareIcon = isApplePlatform() ? ShareAppleIcon : ShareDefaultIcon;
 // On-screen keyboard height (0 when closed). The bar normally floats 8px above
 // the viewport bottom, but when a soft keyboard opens it rests flush on top of
 // it so the `/TILE` · `/GRID` input is never hidden.
-const keyboardInset = ref(0);
+const { keyboardInset } = useKeyboardInset();
 const barStyle = computed(() => ({
   bottom:
     keyboardInset.value > 0
@@ -933,42 +957,13 @@ const handleKeydown = (event: KeyboardEvent) => {
   else if (mode.value === "edit") closeEdit();
 };
 
-/**
- * Smallest visual-viewport gap taken to be a keyboard. The gap is a difference
- * of fractional CSS pixel values, so it sits slightly off zero even with
- * nothing open — a fraction of a pixel on a device, a couple of whole pixels
- * under a scaled device emulator. Treating any gap at all as a keyboard let
- * that noise pull the bar down to rest "flush" on a keyboard that wasn't there.
- * No real keyboard — or even a bare keyboard accessory bar — is this short.
- */
-const MIN_KEYBOARD_INSET = 40;
-
-// Track the soft-keyboard height via the visual viewport: the gap between the
-// layout viewport bottom and the (shrunken) visual viewport bottom is the
-// keyboard's height. 0 when the keyboard is closed or on desktop.
-const updateKeyboardInset = () => {
-  const vv = window.visualViewport;
-  if (!vv) {
-    keyboardInset.value = 0;
-    return;
-  }
-  const gap = window.innerHeight - vv.height - vv.offsetTop;
-  // Rounded so a fractional gap cannot end up as a `bottom: 2.99988px`.
-  keyboardInset.value = gap >= MIN_KEYBOARD_INSET ? Math.round(gap) : 0;
-};
-
 onMounted(() => {
   document.addEventListener("pointerdown", handlePointerDown);
   document.addEventListener("keydown", handleKeydown);
-  window.visualViewport?.addEventListener("resize", updateKeyboardInset);
-  window.visualViewport?.addEventListener("scroll", updateKeyboardInset);
-  updateKeyboardInset();
 });
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", handlePointerDown);
   document.removeEventListener("keydown", handleKeydown);
-  window.visualViewport?.removeEventListener("resize", updateKeyboardInset);
-  window.visualViewport?.removeEventListener("scroll", updateKeyboardInset);
 });
 </script>
 
@@ -1073,6 +1068,13 @@ onBeforeUnmount(() => {
   z-index: 0;
   width: var(--mgb-width);
   margin: 0 auto;
+}
+
+// The formatting bar joins the `/EDIT` pill below it the way a sheet does.
+.mgb-settings-panel--format :deep(.rt-docked-bar) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: none;
 }
 
 .mgb-pill.mgb-pill--settings,

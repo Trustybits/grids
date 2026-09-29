@@ -7,14 +7,15 @@ import BoldIcon from "@/components/icons/toolbar/BoldIcon.vue";
 import ItalicIcon from "@/components/icons/toolbar/ItalicIcon.vue";
 import LinkIcon from "@/components/icons/LinkIcon.vue";
 import ClearLinkIcon from "@/components/icons/ClearLinkIcon.vue";
-import { isFloatingFormatToolbarActive } from "@/composables/earlyAccessState";
+import { isUnifiedTextActive } from "@/composables/earlyAccessState";
 
 const _linkIcon = markRaw(LinkIcon);
 const _clearLinkIcon = markRaw(ClearLinkIcon);
 
-// Text formatting moves to the floating toolbar for unified text users on a
-// pointer device; the tile toolbar keeps tile-level controls only.
-const inTileMenu = () => !isFloatingFormatToolbarActive();
+// Unified text users format inside the editor (the floating toolbar on
+// desktop, the keyboard-docked bar on touch), so the tile toolbar and the
+// Mobile 2.0 sheet keep tile-level controls only.
+const inTileMenu = () => !isUnifiedTextActive();
 
 const hasTileLink = (ctx: ToolbarContext) =>
   !!(ctx.tile.content as { tileLink?: string })?.tileLink;

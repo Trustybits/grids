@@ -146,39 +146,23 @@ describe("TEXT_MORE_MENU tile-link", () => {
   });
 });
 
-describe("TEXT_MORE_MENU with the floating format toolbar", () => {
+describe("TEXT_MORE_MENU with the unified text editor", () => {
   const formattingIds = ["font-family", "font-size", "bold-toggle", "italic-toggle"];
   const visibleIds = () =>
     items.filter((i) => i.visible?.(makeCtx()) ?? true).map((i) => i.id);
 
-  const setTouch = (touch: boolean) =>
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn(() => ({ matches: touch }) as unknown as MediaQueryList),
-    );
-
   afterEach(() => {
     earlyAccessEnrolled.value = false;
     unifiedTextFlagOn.value = false;
-    vi.unstubAllGlobals();
   });
 
   it("keeps every formatting item for the classic editor", () => {
-    setTouch(false);
     expect(visibleIds()).toEqual([...formattingIds, "tile-link"]);
   });
 
-  it("leaves only the tile link for unified text on a pointer device", () => {
+  it("leaves only the tile link: formatting lives in the editor's own bar", () => {
     earlyAccessEnrolled.value = true;
     unifiedTextFlagOn.value = true;
-    setTouch(false);
     expect(visibleIds()).toEqual(["tile-link"]);
-  });
-
-  it("keeps formatting in the menu on touch devices until the docked bar", () => {
-    earlyAccessEnrolled.value = true;
-    unifiedTextFlagOn.value = true;
-    setTouch(true);
-    expect(visibleIds()).toEqual([...formattingIds, "tile-link"]);
   });
 });

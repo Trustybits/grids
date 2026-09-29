@@ -21,6 +21,7 @@ import {
   earlyAccessEnrolled,
   unifiedTextFlagOn,
 } from "@/composables/earlyAccessState";
+import { initMobileExperience } from "@/composables/useMobileExperience";
 
 const storeHolder = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
@@ -439,5 +440,48 @@ describe("RichTextContent floating format toolbar", () => {
     await pending;
 
     expect(JSON.stringify(vm(wrapper).editor.getJSON())).not.toContain("a.b");
+  });
+});
+
+describe("RichTextContent on touch devices", () => {
+  const touchEnvironment = (width: number) => ({
+    getViewportWidth: () => width,
+    matchTouchMedia: () => ({ matches: true, onChange: () => () => {} }),
+    addResizeListener: () => {},
+    removeResizeListener: () => {},
+  });
+
+  beforeEach(() => {
+    earlyAccessEnrolled.value = true;
+    unifiedTextFlagOn.value = true;
+  });
+
+  afterEach(() => {
+    earlyAccessEnrolled.value = false;
+    unifiedTextFlagOn.value = false;
+    initMobileExperience({
+      ...touchEnvironment(1400),
+      matchTouchMedia: () => ({ matches: false, onChange: () => () => {} }),
+    });
+  });
+
+  it("docks its own bar on a touch tablet instead of floating one", async () => {
+    initMobileExperience(touchEnvironment(1400));
+    const wrapper = await mountTile(makeContent(doc(paragraph("Hello"))));
+    vm(wrapper).onShortClick();
+    await flushPromises();
+
+    expect(document.body.querySelector(".rt-docked-bar")).not.toBeNull();
+    expect(document.body.querySelector(".rt-format-toolbar")).toBeNull();
+  });
+
+  it("leaves the bar to the Mobile 2.0 command bar on a phone", async () => {
+    initMobileExperience(touchEnvironment(390));
+    const wrapper = await mountTile(makeContent(doc(paragraph("Hello"))));
+    vm(wrapper).onShortClick();
+    await flushPromises();
+
+    expect(document.body.querySelector(".rt-docked-bar")).toBeNull();
+    expect(document.body.querySelector(".rt-format-toolbar")).toBeNull();
   });
 });

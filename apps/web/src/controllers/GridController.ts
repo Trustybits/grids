@@ -799,6 +799,11 @@ export class GridController {
     this.settingsController.setVerticalCompact(value);
   }
 
+  setColumnCount(value: number): void {
+    if (this.blocksCurrentGridMutation()) return;
+    this.settingsController.setColumnCount(value);
+  }
+
   addTile(content: TileContent): string | null {
     if (this.blocksCurrentGridMutation()) return null;
     return this.tileStructureController.addTile(content);

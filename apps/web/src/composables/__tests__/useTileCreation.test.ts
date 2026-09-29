@@ -7,6 +7,7 @@ const holder = vi.hoisted(() => ({
   submitLink: vi.fn(async () => "link-1"),
   submitEmbed: vi.fn(() => "embed-1"),
   flags: {} as Record<string, boolean>,
+  unifiedText: { value: false },
   isValidLink: vi.fn(() => false),
   isValidEmbed: vi.fn(() => false),
 }));
@@ -36,6 +37,10 @@ vi.mock("@/composables/useFeatureFlags", () => ({
   }),
 }));
 
+vi.mock("@/composables/useMobileExperience", () => ({
+  useMobileExperience: () => ({ isUnifiedText: holder.unifiedText }),
+}));
+
 vi.mock("@/utils/TileUtils", () => ({
   createTileContent: (type: ContentType) => ({ type }),
 }));
@@ -54,6 +59,7 @@ describe("useTileCreation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     holder.flags = {};
+    holder.unifiedText.value = false;
     holder.isValidLink.mockReturnValue(false);
     holder.isValidEmbed.mockReturnValue(false);
     holder.addTile.mockReturnValue("tile-1");
@@ -71,6 +77,15 @@ describe("useTileCreation", () => {
     const enabledIds = enabled.tileTypes.value.map((t) => t.id);
     expect(enabledIds).toContain("smart_text");
     expect(enabledIds).toContain("document");
+  });
+
+  it("retires Smart Text for users on the unified text editor", async () => {
+    holder.flags = { "editor-smart-text": true };
+    holder.unifiedText.value = true;
+    const { tileTypes } = await load();
+    const ids = tileTypes.value.map((t) => t.id);
+    expect(ids).not.toContain("smart_text");
+    expect(ids).toContain("text");
   });
 
   it("auto-focuses newly created text tiles but not other types", async () => {

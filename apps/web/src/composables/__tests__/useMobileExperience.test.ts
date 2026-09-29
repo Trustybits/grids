@@ -19,6 +19,7 @@ import {
   useMobileExperience,
   type MobileExperienceEnvironment,
 } from "@/composables/useMobileExperience";
+import { isUnifiedTextActive } from "@/composables/earlyAccessState";
 
 vi.mock("posthog-js", () => ({
   default: {
@@ -301,5 +302,44 @@ describe("setEarlyAccessEnrolled", () => {
       mockedPosthog.updateEarlyAccessFeatureEnrollment,
     ).not.toHaveBeenCalled();
     expect(isEarlyAccessEnrolled.value).toBe(true);
+  });
+});
+
+describe("unified text gate — isUnifiedText", () => {
+  it("is on only when enrolled and the flag is on", () => {
+    flagState["beta-early-access"] = true;
+    flagState["editor-unified-text"] = true;
+    init({ width: DESKTOP_WIDTH, touch: false });
+    expect(useMobileExperience().isUnifiedText.value).toBe(true);
+    expect(isUnifiedTextActive()).toBe(true);
+  });
+
+  it("stays off for users who are not enrolled", () => {
+    flagState["editor-unified-text"] = true;
+    init({ width: DESKTOP_WIDTH, touch: false });
+    expect(useMobileExperience().isUnifiedText.value).toBe(false);
+  });
+
+  it("stays off when enrolled but the flag is off", () => {
+    flagState["beta-early-access"] = true;
+    init({ width: PHONE_WIDTH, touch: true });
+    expect(useMobileExperience().isUnifiedText.value).toBe(false);
+  });
+
+  it("does not depend on the device", () => {
+    flagState["beta-early-access"] = true;
+    flagState["editor-unified-text"] = true;
+    init({ width: PHONE_WIDTH, touch: true });
+    expect(useMobileExperience().isUnifiedText.value).toBe(true);
+  });
+
+  it("follows the flag mid-session", () => {
+    flagState["beta-early-access"] = true;
+    init({ width: DESKTOP_WIDTH, touch: false });
+    const { isUnifiedText } = useMobileExperience();
+    expect(isUnifiedText.value).toBe(false);
+
+    setFlags({ "editor-unified-text": true });
+    expect(isUnifiedText.value).toBe(true);
   });
 });

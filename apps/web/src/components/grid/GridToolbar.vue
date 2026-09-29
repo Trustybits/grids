@@ -153,6 +153,7 @@ import { createTileContent } from "@/utils/TileUtils";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useThemeStore } from "@/stores/theme";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
+import { useMobileExperience } from "@/composables/useMobileExperience";
 import { useTileInput } from "@/composables/useTileInput";
 import FloatingInputModal from "@/components/modal/FloatingInputModal.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
@@ -188,7 +189,12 @@ export default {
     const isDarkMode = computed(() => themeStore.isDarkMode);
 
     const { isEnabled } = useFeatureFlags();
-    const smartTextEnabled = computed(() => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT));
+    const { isUnifiedText } = useMobileExperience();
+    // The unified text tile does everything smart text did, so its button
+    // retires for users on the unified editor.
+    const smartTextEnabled = computed(
+      () => isEnabled(FEATURE_FLAGS.EDITOR_SMART_TEXT) && !isUnifiedText.value,
+    );
     const documentsEnabled = computed(() => isEnabled(FEATURE_FLAGS.BETA_DOCUMENTS));
 
     const uiStore = useGridUiStore();

@@ -7,6 +7,7 @@ import {
   createTileContentFromEmbedUrl,
 } from "@/utils/TileUtils";
 import { ContentType } from "@grids/contracts/types";
+import { isUnifiedTextActive } from "@/composables/earlyAccessState";
 import { classifyFileForUpload } from "@/utils/UploadFileClassification";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 
@@ -117,11 +118,14 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
               },
             ],
           };
-          const textContent = createTileContent(ContentType.SMART_TEXT, {
-            text: JSON.stringify(tiptapDoc),
-          });
+          // Unified text users get a text tile; the classic editor keeps
+          // pasting into smart text, which is what it has always done.
+          const textContent = createTileContent(
+            isUnifiedTextActive() ? ContentType.TEXT : ContentType.SMART_TEXT,
+            { text: JSON.stringify(tiptapDoc) },
+          );
           const tileId = controller.addTile(textContent);
-          // Signal TextContent to auto-enter edit mode with cursor at end
+          // Signal the text tile to auto-enter edit mode with cursor at end
           if (tileId) {
             uiStore.setPendingFocusTileId(tileId);
           }

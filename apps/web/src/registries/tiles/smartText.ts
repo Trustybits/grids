@@ -1,5 +1,6 @@
 import { ContentType, type SmartTextContent } from "@grids/contracts/types";
 import type { TileDefinition } from "@/types/TileDefinition";
+import { isUnifiedTextActive } from "@/composables/earlyAccessState";
 import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/tileToolbar/baseButtons";
 import { TEXT_ALIGN_BUTTON, TEXT_MORE_MENU } from "@/registries/tileToolbar/textButtons";
 
@@ -9,7 +10,12 @@ export const smartTextDefinition: TileDefinition<SmartTextContent> = {
   category: "text",
   featureFlag: "editor-smart-text",
 
-  component: () => import("@/components/tilecontent/SmartTextContent.vue"),
+  // Early Access users with `editor-unified-text` get the unified component;
+  // everyone else keeps the classic one. Tile.vue reloads when the gate flips.
+  component: () =>
+    isUnifiedTextActive()
+      ? import("@/components/tilecontent/RichTextContent.vue")
+      : import("@/components/tilecontent/SmartTextContent.vue"),
 
   defaultContent: (data) => ({
     type: ContentType.SMART_TEXT,

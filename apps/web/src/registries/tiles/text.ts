@@ -1,5 +1,6 @@
 import { ContentType, type TextContent } from "@grids/contracts/types";
 import type { TileDefinition } from "@/types/TileDefinition";
+import { isUnifiedTextActive } from "@/composables/earlyAccessState";
 import { RESIZE_PRESETS, BORDER_TOGGLE, COLOR_BUTTON } from "@/registries/tileToolbar/baseButtons";
 import { TEXT_ALIGN_BUTTON, TEXT_MORE_MENU } from "@/registries/tileToolbar/textButtons";
 
@@ -8,7 +9,12 @@ export const textDefinition: TileDefinition<TextContent> = {
   label: "Text",
   category: "text",
 
-  component: () => import("@/components/tilecontent/TextContent.vue"),
+  // Early Access users with `editor-unified-text` get the unified component;
+  // everyone else keeps the classic one. Tile.vue reloads when the gate flips.
+  component: () =>
+    isUnifiedTextActive()
+      ? import("@/components/tilecontent/RichTextContent.vue")
+      : import("@/components/tilecontent/TextContent.vue"),
 
   defaultContent: (data) => ({
     type: ContentType.TEXT,

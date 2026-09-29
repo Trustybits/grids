@@ -46,6 +46,12 @@ export const FEATURE_FLAGS = {
 
   // ── Editor features ──────────────────────────────────────────────────────
   EDITOR_SMART_TEXT: 'editor-smart-text',
+  /**
+   * Unified text editor: one rich-text component for text and smart text,
+   * with slash commands on every text tile. Only bites for users enrolled in
+   * `beta-early-access` (see `useMobileExperience().isUnifiedText`).
+   */
+  EDITOR_UNIFIED_TEXT: 'editor-unified-text',
   EDITOR_AI_SUGGESTIONS: 'editor-ai-suggestions',
   EDITOR_CUSTOM_CSS: 'editor-custom-css',
   // Draft/publish: edit a published grid via a hidden draft, then publish.

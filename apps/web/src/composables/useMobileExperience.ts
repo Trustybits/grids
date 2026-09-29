@@ -39,6 +39,11 @@ import {
   useFeatureFlags,
 } from "@/composables/useFeatureFlags";
 import {
+  earlyAccessEnrolled,
+  isUnifiedTextActive,
+  unifiedTextFlagOn,
+} from "@/composables/earlyAccessState";
+import {
   calculateViewportColumnCount,
   columnCountToBreakpoint,
 } from "@/utils/GridLayoutUtils";
@@ -96,8 +101,11 @@ function hasPostHogKey(): boolean {
 
 const _isTouchDevice = ref(false);
 const _viewportWidth = ref(0);
-const _enrolled = ref(false);
+// Enrollment and the unified text flag live in earlyAccessState so the tile
+// registry can read the text gate without importing this module.
+const _enrolled = earlyAccessEnrolled;
 const _desktop2FlagOn = ref(false);
+const _unifiedTextFlagOn = unifiedTextFlagOn;
 
 let _cleanup: (() => void) | null = null;
 
@@ -133,6 +141,9 @@ export function initMobileExperience(
   const syncFlags = () => {
     _enrolled.value = flags.isEnabled(FEATURE_FLAGS.BETA_EARLY_ACCESS);
     _desktop2FlagOn.value = flags.isEnabled(FEATURE_FLAGS.BETA_DESKTOP_2);
+    _unifiedTextFlagOn.value = flags.isEnabled(
+      FEATURE_FLAGS.EDITOR_UNIFIED_TEXT,
+    );
   };
   syncFlags();
   if (hasPostHogKey()) {
@@ -186,6 +197,12 @@ export function useMobileExperience() {
     () => !isMobileDevice.value && _enrolled.value && _desktop2FlagOn.value,
   );
 
+  /**
+   * Enrolled + `editor-unified-text` → text and smart text tiles render
+   * through the unified rich-text component. Device-independent.
+   */
+  const isUnifiedText = computed(() => isUnifiedTextActive());
+
   /** The single gate App.vue branches on: any Grids 2.0 chrome active. */
   const chromeActive = computed(() => isMobile2.value || isDesktop2.value);
 
@@ -219,6 +236,7 @@ export function useMobileExperience() {
     isMobile2,
     isDesktop2,
     chromeActive,
+    isUnifiedText,
     setEarlyAccessEnrolled,
   };
 }

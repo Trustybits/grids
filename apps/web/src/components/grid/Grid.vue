@@ -742,10 +742,19 @@ export default {
         );
         // A no-op unless the cell changed, so the grid only rearranges when
         // the pointer crosses into a new cell — not on every frame.
-        dropDrag.update({
+        const moved = dropDrag.update({
           col: Math.max(0, Math.min(cols - w, col)),
           row: Math.max(0, Math.min(contentRows, row)),
         });
+        // Returning to the pickup cell (the slot opens bottom-left, on the row
+        // after the last tile) rewinds the engine silently, with no change
+        // event — so without this the slot and any displaced tiles stay drawn
+        // where the previous cell put them. Griddle's own drag adapter
+        // republishes the same way after every changed candidate.
+        if (moved.changed) {
+          api.tiles.value = api.grid.tiles;
+          api.version.value++;
+        }
         // Reuses this frame's measurement: this runs every animation frame of
         // the drag, and each extra read would force another layout.
         const slot = api.grid.getTile(DROP_SLOT_ID);

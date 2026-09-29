@@ -14,9 +14,10 @@
     tap the center  — commits it (`select`)
     ← / →           — steps the center one card
 
-  A gesture that clears the slop mostly upwards lifts the card under the
-  finger; mostly sideways spins the fan. A spin still turns into a lift the
-  moment the finger rises clear of the fan (LIFT_RISE), so a grab that starts
+  A gesture that clears the slop steeply upwards (LIFT_STEEPNESS) lifts the
+  card under the finger; anything shallower spins the fan. A spin still turns
+  into a lift the moment the finger rises clear of the fan (LIFT_RISE, and
+  above the fan's top edge), so a grab that starts
   with some sideways drift — as a real hand's usually does — is never trapped
   in the carousel. Once lifted the carousel only relays the pointer
   (`lift-move` / `lift-end`); the parent owns the floating card and the drop.
@@ -158,10 +159,16 @@ const REACH = 2.4;
 /** Pointer travel (px) that turns a tap into a drag. */
 const DRAG_SLOP = 6;
 /**
- * Rise (px) above the press point at which any drag — even one that began as a
- * spin — lifts the grabbed card. Browsing swipes stay well inside it.
+ * Rise (px) above the press point at which a drag that began as a spin lifts
+ * the grabbed card — and only once the finger is also above the fan, so a
+ * swipe that drifts upwards while browsing keeps spinning.
  */
 const LIFT_RISE = 36;
+/**
+ * How much steeper than sideways a fresh drag must go to lift rather than
+ * spin (1 = 45°; 1.5 ≈ 56°). A browsing swipe is rarely that steep.
+ */
+const LIFT_STEEPNESS = 1.5;
 /** How far a flick's velocity is projected when picking the snap target. */
 const PROJECT_MS = 110;
 /** Cards a single flick can carry past where the finger let go. */
@@ -325,6 +332,8 @@ let liftPoint: CarouselLiftPoint = { x: 0, y: 0 };
 let pressedGrab = { x: 0.5, y: 0.5 };
 let startY = 0;
 let startX = 0;
+/** Top edge of the fan when the gesture began; a spin lifts only above it. */
+let fanTop = 0;
 let startScroll = 0;
 let travelled = 0;
 let lastX = 0;
@@ -352,6 +361,7 @@ const onPointerDown = (event: PointerEvent) => {
   velocity = 0;
   startX = event.clientX;
   startY = event.clientY;
+  fanTop = trackRef.value?.getBoundingClientRect().top ?? 0;
   lastX = event.clientX;
   lastTime = event.timeStamp;
   startScroll = scroll.value;
@@ -453,10 +463,13 @@ const onPointerMove = (event: PointerEvent) => {
   const rise = startY - event.clientY;
   if (axis === "pending") {
     if (Math.hypot(shift, rise) <= DRAG_SLOP) return;
-    axis = rise > Math.abs(shift) && startLift(event) ? "lift" : "spin";
+    axis =
+      rise > Math.abs(shift) * LIFT_STEEPNESS && startLift(event)
+        ? "lift"
+        : "spin";
     if (axis === "lift") return;
   }
-  if (rise > LIFT_RISE && startLift(event)) return;
+  if (rise > LIFT_RISE && event.clientY < fanTop && startLift(event)) return;
   travelled = Math.max(travelled, Math.abs(shift));
   if (travelled > DRAG_SLOP) suppressClick = true;
 

@@ -39,6 +39,11 @@ export interface TileDragGhost {
   opacity: number;
   /** Over a cell: drawn as the tile it is about to become. */
   overGrid: boolean;
+  /**
+   * Pulled clear of the carousel (ARM_RISE): only now does the grid open a
+   * landing spot, and only now does letting go drop the tile.
+   */
+  armed: boolean;
 }
 
 export interface TileDragToAddOptions {
@@ -51,6 +56,13 @@ export interface TileDragToAddOptions {
   barRect: () => DOMRect | null;
 }
 
+/**
+ * How far up (as a fraction of the carousel card) the card must be pulled
+ * before it can land. Short of that it is still being picked up: it keeps its
+ * card size, the grid stays put, and letting go puts it back — so a swipe
+ * that twitches upwards never drops a tile into the cells behind the fan.
+ */
+const ARM_RISE = 0.5;
 /** Fraction of the remaining distance covered per 60fps frame when flying. */
 const FLY = 0.3;
 /** Within this many px of its target on every edge, a flight has arrived. */
@@ -90,6 +102,7 @@ export const useTileDragToAdd = ({ barRect }: TileDragToAddOptions) => {
     radius: 0,
     opacity: 1,
     overGrid: false,
+    armed: false,
   });
 
   let phase: Phase = "drag";
@@ -134,8 +147,16 @@ export const useTileDragToAdd = ({ barRect }: TileDragToAddOptions) => {
     if (step) scroller.scrollTop += step * MAX_SCROLL_STEP * frames;
   };
 
+  /** Where the finger went down; the card arms once it rises ARM_RISE above. */
+  let pressY = 0;
+
   /** Where the card should be this frame while it is on the finger. */
   const dragTarget = (): ViewportRect & { radius: number } => {
+    // Once armed it stays armed, so a card carried down to the bottom rows
+    // (or the corners beside the bar) can still be dropped there.
+    if (!ghost.armed && pressY - pointer.y >= cardSize * ARM_RISE) {
+      ghost.armed = true;
+    }
     const bar = barRect();
     const overBar =
       !!bar &&
@@ -153,7 +174,8 @@ export const useTileDragToAdd = ({ barRect }: TileDragToAddOptions) => {
       x: pointer.x + (0.5 - grab.x) * probeSize,
       y: pointer.y + (0.5 - grab.y) * probeSize,
     };
-    const slot = overBar || !target ? null : target.preview(probe, cells);
+    const slot =
+      overBar || !ghost.armed || !target ? null : target.preview(probe, cells);
     ghost.overGrid = !!slot;
     if (slot && tileRadius === null) tileRadius = measureTileRadius();
 
@@ -244,6 +266,7 @@ export const useTileDragToAdd = ({ barRect }: TileDragToAddOptions) => {
     returnRect = null;
     ghost.visible = false;
     ghost.overGrid = false;
+    ghost.armed = false;
     ghost.opacity = 1;
   };
 
@@ -264,6 +287,9 @@ export const useTileDragToAdd = ({ barRect }: TileDragToAddOptions) => {
     tileRadius = null;
     grab = { ...grabAt };
     pointer = { ...point };
+    // The press point — where the grab sits on the card as it rested in the
+    // fan, not where the finger is by the time the lift was recognised.
+    pressY = rect.top + grab.y * rect.height;
     bottomScrollArmed = false;
     Object.assign(ghost, {
       visible: true,
@@ -275,6 +301,7 @@ export const useTileDragToAdd = ({ barRect }: TileDragToAddOptions) => {
       radius,
       opacity: 1,
       overGrid: false,
+      armed: false,
     });
     run();
   };

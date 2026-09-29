@@ -89,7 +89,7 @@
       <div
         v-if="mode === 'add' && viewMode === 'carousel'"
         class="mobile-grid-bar__panel"
-        :class="{ 'is-carrying': carrying }"
+        :class="{ 'is-carrying': carrying && dragGhost.armed }"
       >
         <MobileTileCarousel
           ref="carouselRef"
@@ -926,7 +926,10 @@ const onUnpin = () => {
 const carouselRef = ref<InstanceType<typeof MobileTileCarousel> | null>(null);
 /** The type whose card is out of the carousel — carried, or held on the grid. */
 const liftedId = ref<string | null>(null);
-/** The card is on the finger: the fan steps aside so the grid shows. */
+/**
+ * The card is on the finger. Once it is pulled clear (`dragGhost.armed`) the
+ * fan steps aside so the grid shows.
+ */
 const carrying = ref(false);
 
 const pillRect = (): DOMRect | null =>
@@ -1003,7 +1006,8 @@ const onLiftEnd = (point: CarouselLiftPoint, cancelled: boolean) => {
   carrying.value = false;
   moveCarry(point);
   const descriptor = tileTypes.value.find((type) => type.id === liftedId.value);
-  if (cancelled || !descriptor) {
+  // Never pulled clear of the fan: still being picked up, so it goes back.
+  if (cancelled || !descriptor || !dragGhost.armed) {
     flyHome();
     return;
   }

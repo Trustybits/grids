@@ -275,6 +275,25 @@ describe("MobileTileCarousel", () => {
       expect(wrapper.emitted("focus-type")?.[0]).toEqual(["chat"]);
     });
 
+    it("keeps spinning on a diagonal swipe that drifts up inside the fan", async () => {
+      const wrapper = mountCarousel();
+      pressOn(wrapper, 0);
+      // The fan's top edge sits above everything this swipe reaches.
+      const track = wrapper.get(".tile-carousel__track").element;
+      vi.spyOn(track, "getBoundingClientRect").mockReturnValue({
+        top: -100,
+      } as DOMRect);
+
+      await pull(wrapper, [
+        // Upwards, but not steeply enough to read as a pull.
+        { x: -8, y: -10 },
+        // Risen past LIFT_RISE, yet still within the fan.
+        { x: -60, y: -50 },
+      ]);
+
+      expect(wrapper.emitted("lift-start")).toBeUndefined();
+    });
+
     it("hides the card the parent has lifted out", () => {
       const wrapper = mountCarousel({ liftedId: "map" });
       const lifted = wrapper.findAll(".tile-carousel__card--lifted");

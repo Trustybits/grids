@@ -54,6 +54,7 @@ export const usePublish = () => {
   // In-flight guards so the UI can disable buttons and we never double-fire.
   const isPublishing = ref(false);
   const isUnpublishing = ref(false);
+  const isDiscarding = ref(false);
 
   // ── Public URL (slug page when this is the default grid, else /grid/:id) ────
   const slug = ref<string | null>(null);
@@ -129,6 +130,28 @@ export const usePublish = () => {
     }
   };
 
+  const discardChanges = async (): Promise<void> => {
+    if (!isFeatureEnabled.value || !isDraftEditing.value) return;
+    if (!hasUnpublishedChanges.value) return;
+    if (isDiscarding.value || isPublishing.value) return;
+    const confirmed = confirm(
+      "Discard all unpublished changes? The grid will go back to its published version.",
+    );
+    if (!confirmed) return;
+    isDiscarding.value = true;
+    try {
+      await controller.discardChanges();
+      toastStore.addToast("Unpublished changes discarded", "info");
+    } catch (error) {
+      toastStore.addToast(
+        error instanceof Error ? error.message : "Failed to discard changes.",
+        "error",
+      );
+    } finally {
+      isDiscarding.value = false;
+    }
+  };
+
   const unpublish = async (): Promise<void> => {
     if (!isFeatureEnabled.value) return;
     if (isUnpublishing.value) return;
@@ -186,6 +209,7 @@ export const usePublish = () => {
     hasUnpublishedChanges,
     isPublishing,
     isUnpublishing,
+    isDiscarding,
     publicUrl,
     isDefaultGrid,
     // lifecycle
@@ -193,6 +217,7 @@ export const usePublish = () => {
     // actions
     publish,
     publishAsCopy,
+    discardChanges,
     unpublish,
     copyPublicUrl,
     openPublicUrl,

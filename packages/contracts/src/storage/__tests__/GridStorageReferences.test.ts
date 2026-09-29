@@ -8,6 +8,7 @@ import {
   type LinkContent,
   type ProfileBioContent,
   type SmartTextContent,
+  type TextContent,
   type Tile,
   type TileContent,
   type VideoContent,
@@ -212,6 +213,51 @@ describe("extractGridStorageReferences", () => {
       {
         location: "tile.smartText.inlineImage",
         tileId: "smart",
+        hash: INLINE_HASH,
+        kind: "images",
+      },
+    ]);
+  });
+
+  it("scans text tiles for inline images, since they share the smart text schema", () => {
+    const textTile = (i: string, text: string) =>
+      makeTile({
+        i,
+        content: {
+          type: ContentType.TEXT,
+          text,
+          font: "Inter",
+          fontSize: 16,
+          isBold: false,
+          isItalic: false,
+          textType: "paragraph",
+          color: "#000",
+        } as TextContent,
+      });
+    const withImage = JSON.stringify({
+      type: "doc",
+      content: [
+        {
+          type: "image",
+          attrs: {
+            src: `users/user-1/images/${INLINE_HASH}.png`,
+            hash: INLINE_HASH,
+          },
+        },
+      ],
+    });
+    const grid = makeGrid({
+      tiles: [
+        textTile("text-image", withImage),
+        textTile("text-empty", ""),
+        textTile("text-legacy", "plain text, not JSON"),
+      ],
+    });
+
+    expect(extractGridStorageReferences(grid)).toMatchObject([
+      {
+        location: "tile.smartText.inlineImage",
+        tileId: "text-image",
         hash: INLINE_HASH,
         kind: "images",
       },

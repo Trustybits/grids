@@ -106,6 +106,7 @@ export const rewriteArchiveBackedContent = (
       }
       break;
     }
+    case ContentType.TEXT:
     case ContentType.SMART_TEXT:
       if (typeof content.text === "string") {
         content.text = rewriteTiptapImages(content.text, storagePlan);

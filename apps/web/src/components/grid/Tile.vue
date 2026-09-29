@@ -795,7 +795,8 @@ export default defineComponent({
       const content = props.tile.content as AnyTileContent &
         Record<string, unknown>;
       switch (props.tile.content.type) {
-        case ContentType.TEXT: {
+        case ContentType.TEXT:
+        case ContentType.SMART_TEXT: {
           const rawText = typeof content.text === "string" ? content.text : "";
           return `textChars: ${rawText.length}`;
         }

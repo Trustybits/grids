@@ -56,6 +56,17 @@
     :position="slashMenu.position.value"
     @select="slashMenu.execute"
   />
+  <FloatingFormatToolbar
+    :editor="editor"
+    :active="isEditing && gridView.canEdit && showFormatToolbar"
+    :suppressed="slashMenu.visible.value || !!inlineFields.current.value"
+    @edit-link="editLink"
+  />
+  <DockedFormatBar
+    :editor="editor"
+    :active="isEditing && gridView.canEdit && showDockedBar"
+    @edit-link="editLink"
+  />
   <TableToolbar
     :editor="editor"
     :active="isEditing && gridView.canEdit"
@@ -114,6 +125,8 @@ import LinkIndicatorIcon from "../icons/LinkIndicatorIcon.vue";
 import SlashMenu from "../richtext/SlashMenu.vue";
 import TableToolbar from "../richtext/TableToolbar.vue";
 import InlineFieldsPopover from "../richtext/InlineFieldsPopover.vue";
+import FloatingFormatToolbar from "../richtext/FloatingFormatToolbar.vue";
+import DockedFormatBar from "../richtext/DockedFormatBar.vue";
 import { isValidLink } from "@/utils/UrlValidation";
 import {
   resolveVerticalAlignJustify,
@@ -130,6 +143,8 @@ import {
 import { FULL_PROFILE, type TextEditorProfile } from "@/utils/richText/profiles";
 import {
   commandsForProfile,
+  normalizeHttpUrl,
+  requireUrl,
   type InlineFieldsRequest,
   type InsertedImage,
 } from "@/utils/richText/slashCommands";
@@ -140,6 +155,8 @@ import { useTileContentWriter } from "@/composables/useTileContentWriter";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { placeBelowOrAbove, useSlashMenu } from "@/composables/useSlashMenu";
 import { useInlineFields } from "@/composables/useInlineFields";
+import { useMobileExperience } from "@/composables/useMobileExperience";
+import { setLink } from "@/utils/richText/formatting";
 import {
   useEditingLifecycle,
   useEditorContentSync,
@@ -174,6 +191,8 @@ export default defineComponent({
     SlashMenu,
     TableToolbar,
     InlineFieldsPopover,
+    FloatingFormatToolbar,
+    DockedFormatBar,
   },
   emits: ["background-color-change", "text-color-change"],
   props: {
@@ -278,6 +297,60 @@ export default defineComponent({
         request,
         placeBelowOrAbove(caret, INLINE_FIELDS_SIZE),
       );
+    };
+
+    const isBusyOutsideTile = () =>
+      slashMenu.running.value || inlineFields.current.value !== null;
+
+    // Pointer devices get the floating toolbar over the text. Touch devices
+    // get a bar docked on the keyboard: in the Mobile 2.0 chrome the command
+    // bar hosts it (it already rests on the keyboard), elsewhere this tile
+    // docks its own.
+    const { isTouchDevice, isMobile2 } = useMobileExperience();
+    const showFormatToolbar = computed(() => !isTouchDevice.value);
+    const showDockedBar = computed(
+      () => isTouchDevice.value && !isMobile2.value,
+    );
+
+    /**
+     * The toolbar's link button: edit the link under the selection, or link
+     * the selection. With only a caret and no link, the URL is inserted as
+     * linked text. Clearing the field removes the link.
+     */
+    const editLink = async (currentHref: string | null) => {
+      const values = await requestFields({
+        title: currentHref ? "Edit link" : "Add link",
+        submitLabel: currentHref ? "Update" : "Apply",
+        fields: [
+          {
+            key: "url",
+            label: "Link",
+            placeholder: "Paste or type a link",
+            inputmode: "url",
+            initialValue: currentHref ?? "",
+            // Empty is allowed when editing: it removes the link.
+            validate: (value) =>
+              !value.trim() && currentHref ? null : requireUrl(value),
+          },
+        ],
+      });
+      const e = editor.value;
+      if (!values || !e) {
+        e?.commands.focus(undefined, { scrollIntoView: false });
+        return;
+      }
+      const href = values.url?.trim() ? normalizeHttpUrl(values.url) : null;
+      if (href && e.state.selection.empty && !currentHref) {
+        e.chain()
+          .focus()
+          .insertContent([
+            { type: "text", text: href, marks: [{ type: "link", attrs: { href } }] },
+            { type: "text", text: " " },
+          ])
+          .run();
+        return;
+      }
+      setLink(e, href);
     };
 
     const slashCommands = computed(() => commandsForProfile(props.profile));
@@ -385,8 +458,8 @@ export default defineComponent({
         inlineFields.cancel();
       },
       // Picking an image or filling in a link happens outside the tile; those
-      // clicks must not end the edit session that started the command.
-      shouldBlockExit: () => slashMenu.running.value,
+      // clicks must not end the edit session that started them.
+      shouldBlockExit: () => isBusyOutsideTile(),
     });
     const { patchContent, autosaveContent } = useTileContentWriter(
       tileId,
@@ -417,7 +490,7 @@ export default defineComponent({
     };
 
     const onExitClick = () => {
-      if (slashMenu.running.value) return;
+      if (isBusyOutsideTile()) return;
       isEditing.value = false;
     };
 
@@ -537,6 +610,9 @@ export default defineComponent({
       verticalAlignJustify,
       slashMenu,
       inlineFields,
+      showFormatToolbar,
+      showDockedBar,
+      editLink,
       schedulePersist,
       onShortClick,
       onExitClick,

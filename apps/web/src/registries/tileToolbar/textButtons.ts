@@ -7,9 +7,15 @@ import BoldIcon from "@/components/icons/toolbar/BoldIcon.vue";
 import ItalicIcon from "@/components/icons/toolbar/ItalicIcon.vue";
 import LinkIcon from "@/components/icons/LinkIcon.vue";
 import ClearLinkIcon from "@/components/icons/ClearLinkIcon.vue";
+import { isUnifiedTextActive } from "@/composables/earlyAccessState";
 
 const _linkIcon = markRaw(LinkIcon);
 const _clearLinkIcon = markRaw(ClearLinkIcon);
+
+// Unified text users format inside the editor (the floating toolbar on
+// desktop, the keyboard-docked bar on touch), so the tile toolbar and the
+// Mobile 2.0 sheet keep tile-level controls only.
+const inTileMenu = () => !isUnifiedTextActive();
 
 const hasTileLink = (ctx: ToolbarContext) =>
   !!(ctx.tile.content as { tileLink?: string })?.tileLink;
@@ -35,18 +41,21 @@ export const TEXT_MORE_MENU: ToolbarButton = {
   menuItems: [
     {
       id: "font-family",
+      visible: inTileMenu,
       panelId: "font-family",
       tooltip: "Change Font",
       action: (_ctx) => {},
     },
     {
       id: "font-size",
+      visible: inTileMenu,
       panelId: "font-select",
       tooltip: "Change Font Size",
       action: (_ctx) => {},
     },
     {
       id: "bold-toggle",
+      visible: inTileMenu,
       icon: markRaw(BoldIcon),
       tooltip: "Bold",
       isActive: (ctx) => !!ctx.childComponent.value?.isBoldActive,
@@ -54,6 +63,7 @@ export const TEXT_MORE_MENU: ToolbarButton = {
     },
     {
       id: "italic-toggle",
+      visible: inTileMenu,
       icon: markRaw(ItalicIcon),
       tooltip: "Italic",
       isActive: (ctx) => !!ctx.childComponent.value?.isItalicActive,

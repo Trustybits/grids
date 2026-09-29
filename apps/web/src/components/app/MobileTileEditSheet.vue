@@ -77,8 +77,34 @@
           <template v-for="entry in section.entries" :key="entry.id">
             <!-- Inline controls: the registry only declares that the tile
                  offers these; the presentation is ours. -->
+            <!-- Unified text aligns paragraphs in the editor's own bar, so
+                 the sheet keeps the tile-level vertical alignment. -->
             <div
-              v-if="entry.id === 'text-align'"
+              v-if="entry.id === 'text-align' && isUnifiedText"
+              class="mte-control"
+              role="group"
+              aria-label="Vertical alignment"
+            >
+              <span class="mte-control__label">Vertical</span>
+              <div class="mte-segmented">
+                <button
+                  v-for="option in VERTICAL_ALIGNMENTS"
+                  :key="option"
+                  type="button"
+                  class="mte-segment"
+                  :class="{ 'is-selected': activeVerticalAlign === option }"
+                  :aria-pressed="activeVerticalAlign === option"
+                  :aria-label="`Align ${option}`"
+                  :disabled="option !== 'center' && !!child?.disableTopBottomAlign"
+                  @click="setVerticalAlign(option)"
+                >
+                  <component :is="VERTICAL_ALIGN_ICONS[option]" />
+                </button>
+              </div>
+            </div>
+
+            <div
+              v-else-if="entry.id === 'text-align'"
               class="mte-control"
               role="group"
               aria-label="Text alignment"
@@ -246,13 +272,19 @@ import {
   FONT_FAMILIES,
   FONT_SIZES,
   HORIZONTAL_ALIGNMENTS,
+  VERTICAL_ALIGNMENTS,
   normalizeFontSize,
   type HorizontalAlignment,
+  type VerticalAlignment,
 } from "@/constants/textStyles";
 import Divider from "@/components/ui-elements/Divider.vue";
 import AlignLeftIcon from "@/components/icons/toolbar/AlignLeftIcon.vue";
 import AlignCenterIcon from "@/components/icons/toolbar/AlignCenterIcon.vue";
 import AlignRightIcon from "@/components/icons/toolbar/AlignRightIcon.vue";
+import AlignTopIcon from "@/components/icons/toolbar/AlignTopIcon.vue";
+import AlignMiddleIcon from "@/components/icons/toolbar/AlignMiddleIcon.vue";
+import AlignBottomIcon from "@/components/icons/toolbar/AlignBottomIcon.vue";
+import { useMobileExperience } from "@/composables/useMobileExperience";
 import TrashIcon from "@/components/icons/toolbar/TrashIcon.vue";
 import DuplicateIcon from "@/components/icons/DuplicateIcon.vue";
 import ArrowUpRightIcon from "@/components/icons/tile-actionbar/ArrowUpRightIcon.vue";
@@ -268,6 +300,14 @@ const ALIGN_ICONS = {
   center: AlignCenterIcon,
   right: AlignRightIcon,
 } as const;
+
+const VERTICAL_ALIGN_ICONS = {
+  top: AlignTopIcon,
+  center: AlignMiddleIcon,
+  bottom: AlignBottomIcon,
+} as const;
+
+const { isUnifiedText } = useMobileExperience();
 
 const gridView = proxyRefs(useGridViewContext());
 const { query, handle } = useMobileTileEdit();
@@ -388,6 +428,14 @@ const setAlign = (align: HorizontalAlignment) => {
   child.value?.handleTextAlignChange?.(align);
 };
 
+const activeVerticalAlign = computed<VerticalAlignment>(
+  () =>
+    (props.tile.content as { verticalAlign?: VerticalAlignment })
+      ?.verticalAlign ?? "top",
+);
+const setVerticalAlign = (align: VerticalAlignment) => {
+  child.value?.handleVerticalAlignChange?.(align);
+};
 const activeFont = computed(() => child.value?.getCurrentFont?.());
 
 const setFont = (font: string) => {

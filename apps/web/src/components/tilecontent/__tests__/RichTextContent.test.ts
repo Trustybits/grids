@@ -17,6 +17,11 @@ import RichTextContent, {
   parseStoredText,
 } from "@/components/tilecontent/RichTextContent.vue";
 import type { TextEditorProfile } from "@/utils/richText/profiles";
+import {
+  earlyAccessEnrolled,
+  unifiedTextFlagOn,
+} from "@/composables/earlyAccessState";
+import { initMobileExperience } from "@/composables/useMobileExperience";
 
 const storeHolder = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
@@ -115,6 +120,7 @@ type Exposed = {
   isEditing: boolean;
   onShortClick(event?: MouseEvent): void;
   onExitClick(): void;
+  editLink(href: string | null): Promise<void>;
   handleVerticalAlignChange(align: string): void;
   handleTextAlignChange(align: string): void;
 };
@@ -347,5 +353,135 @@ describe("RichTextContent slash menu", () => {
     expect(vm(wrapper).editor.getText()).toBe("");
     vm(wrapper).onExitClick();
     expect(vm(wrapper).isEditing).toBe(false);
+  });
+});
+
+describe("RichTextContent floating format toolbar", () => {
+  beforeEach(() => {
+    earlyAccessEnrolled.value = true;
+    unifiedTextFlagOn.value = true;
+  });
+
+  afterEach(() => {
+    earlyAccessEnrolled.value = false;
+    unifiedTextFlagOn.value = false;
+  });
+
+  const toolbar = () => document.body.querySelector(".rt-format-toolbar");
+
+  it("appears only while editing", async () => {
+    const wrapper = await mountTile(makeContent(doc(paragraph("Hello"))));
+    expect(toolbar()).toBeNull();
+
+    vm(wrapper).onShortClick();
+    await flushPromises();
+    expect(toolbar()).not.toBeNull();
+
+    vm(wrapper).onExitClick();
+    await flushPromises();
+    expect(toolbar()).toBeNull();
+  });
+
+  it("links the selection through the inline form and keeps edit mode", async () => {
+    const wrapper = await mountTile(makeContent(doc(paragraph("Hello"))));
+    vm(wrapper).onShortClick();
+    await flushPromises();
+    (vm(wrapper).editor as unknown as {
+      commands: { setTextSelection(range: { from: number; to: number }): void };
+    }).commands.setTextSelection({ from: 1, to: 6 });
+
+    const pending = vm(wrapper).editLink(null);
+    await flushPromises();
+    expect(document.body.querySelector(".rt-inline-fields")).not.toBeNull();
+    vm(wrapper).onExitClick();
+    expect(vm(wrapper).isEditing).toBe(true);
+
+    const input = document.body.querySelector<HTMLInputElement>(".rt-inline-field-input")!;
+    input.value = "grids.so";
+    input.dispatchEvent(new Event("input"));
+    document.body
+      .querySelector<HTMLFormElement>(".rt-inline-fields")!
+      .dispatchEvent(new Event("submit", { cancelable: true }));
+    await pending;
+    await flushPromises();
+
+    expect(JSON.stringify(vm(wrapper).editor.getJSON())).toContain(
+      '"href":"https://grids.so"',
+    );
+    expect(vm(wrapper).isEditing).toBe(true);
+  });
+
+  it("removes a link when the field is cleared", async () => {
+    const wrapper = await mountTile(
+      makeContent(
+        doc({
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Hi", marks: [{ type: "link", attrs: { href: "https://a.b" } }] },
+          ],
+        }),
+      ),
+    );
+    vm(wrapper).onShortClick();
+    await flushPromises();
+    (vm(wrapper).editor as unknown as {
+      commands: { setTextSelection(pos: number): void };
+    }).commands.setTextSelection(2);
+
+    const pending = vm(wrapper).editLink("https://a.b");
+    await flushPromises();
+    const input = document.body.querySelector<HTMLInputElement>(".rt-inline-field-input")!;
+    expect(input.value).toBe("https://a.b");
+    input.value = "";
+    input.dispatchEvent(new Event("input"));
+    document.body
+      .querySelector<HTMLFormElement>(".rt-inline-fields")!
+      .dispatchEvent(new Event("submit", { cancelable: true }));
+    await pending;
+
+    expect(JSON.stringify(vm(wrapper).editor.getJSON())).not.toContain("a.b");
+  });
+});
+
+describe("RichTextContent on touch devices", () => {
+  const touchEnvironment = (width: number) => ({
+    getViewportWidth: () => width,
+    matchTouchMedia: () => ({ matches: true, onChange: () => () => {} }),
+    addResizeListener: () => {},
+    removeResizeListener: () => {},
+  });
+
+  beforeEach(() => {
+    earlyAccessEnrolled.value = true;
+    unifiedTextFlagOn.value = true;
+  });
+
+  afterEach(() => {
+    earlyAccessEnrolled.value = false;
+    unifiedTextFlagOn.value = false;
+    initMobileExperience({
+      ...touchEnvironment(1400),
+      matchTouchMedia: () => ({ matches: false, onChange: () => () => {} }),
+    });
+  });
+
+  it("docks its own bar on a touch tablet instead of floating one", async () => {
+    initMobileExperience(touchEnvironment(1400));
+    const wrapper = await mountTile(makeContent(doc(paragraph("Hello"))));
+    vm(wrapper).onShortClick();
+    await flushPromises();
+
+    expect(document.body.querySelector(".rt-docked-bar")).not.toBeNull();
+    expect(document.body.querySelector(".rt-format-toolbar")).toBeNull();
+  });
+
+  it("leaves the bar to the Mobile 2.0 command bar on a phone", async () => {
+    initMobileExperience(touchEnvironment(390));
+    const wrapper = await mountTile(makeContent(doc(paragraph("Hello"))));
+    vm(wrapper).onShortClick();
+    await flushPromises();
+
+    expect(document.body.querySelector(".rt-docked-bar")).toBeNull();
+    expect(document.body.querySelector(".rt-format-toolbar")).toBeNull();
   });
 });

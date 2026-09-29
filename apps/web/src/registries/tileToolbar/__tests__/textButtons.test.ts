@@ -9,7 +9,11 @@
  *        whether the tile content already has a tileLink
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import {
+  earlyAccessEnrolled,
+  unifiedTextFlagOn,
+} from "@/composables/earlyAccessState";
 import type { ToolbarContext } from "@/types/TileToolbar";
 import {
   TEXT_ALIGN_BUTTON,
@@ -139,5 +143,26 @@ describe("TEXT_MORE_MENU tile-link", () => {
   it("treats an empty-string tileLink as no link", () => {
     expect(dangerFn(makeCtx({ tileLink: "" }))).toBe(false);
     expect(tooltipFn(makeCtx({ tileLink: "" }))).toBe("Add a Link");
+  });
+});
+
+describe("TEXT_MORE_MENU with the unified text editor", () => {
+  const formattingIds = ["font-family", "font-size", "bold-toggle", "italic-toggle"];
+  const visibleIds = () =>
+    items.filter((i) => i.visible?.(makeCtx()) ?? true).map((i) => i.id);
+
+  afterEach(() => {
+    earlyAccessEnrolled.value = false;
+    unifiedTextFlagOn.value = false;
+  });
+
+  it("keeps every formatting item for the classic editor", () => {
+    expect(visibleIds()).toEqual([...formattingIds, "tile-link"]);
+  });
+
+  it("leaves only the tile link: formatting lives in the editor's own bar", () => {
+    earlyAccessEnrolled.value = true;
+    unifiedTextFlagOn.value = true;
+    expect(visibleIds()).toEqual(["tile-link"]);
   });
 });

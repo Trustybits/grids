@@ -207,18 +207,88 @@ toolbar, the slash menu on `text` tiles, auto size and the new size menu.
   - `SmartTextHelpers.ts` stays as it is (the classic SmartTextContent still uses it) until
     Phase 5. Its unused `SLASH_COMMAND_DEFS` duplicate goes then.
 
-### Phase 2: Floating toolbar (desktop, gated)
-- [ ] Anchored toolbar: font family, size menu (presets, Auto, manual input), marks, text color
-      with Auto, per-block alignment, link.
-- [ ] Changes apply to the selection, or from the caret onward (stored marks).
-- [ ] Take font and size out of the tile toolbar's "More" menu when the flag is on.
+### Phase 2: Floating toolbar (desktop, gated) ✅
+- [x] Schema (shared by every text editor): `Underline`, plus `TextAlign` on paragraphs and
+      headings (left, center, right). TextAlign has no default, so an unaligned block renders no
+      style and follows the tile-level `textAlign`. Inline code and strikethrough were already in
+      StarterKit.
+- [x] `utils/richText/formatting.ts` reads the formatting at the selection or caret, and applies it:
+      marks, font family, size in px, text color (`null` means Auto), block alignment and links.
+      Commands chain from `focus()`, so with only a caret they set stored marks and the change
+      applies to what's typed next. Choosing a block's current alignment again clears it, handing
+      the block back to the tile default.
+- [x] `components/richtext/FloatingFormatToolbar.vue` holds:
+      - font family
+      - the size menu: presets with their px values, then a custom px input clamped to 8–200. Auto
+        joins it in Phase 4.
+      - B / I / U / S / inline code
+      - text color: Auto, the ten theme swatches stored as `var(--color-…)`, and a hex input
+      - left / center / right alignment
+      - link
+      Buttons use `mousedown.prevent` so the editor keeps focus and the selection. Clicks don't
+      propagate, so using the toolbar never counts as a click outside the tile.
+- [x] `composables/useFloatingToolbar.ts`: the toolbar shows over a selection right away, hides
+      while typing, and returns over the caret after a 900 ms pause. It centers above the selection
+      (flipping below at the top edge, clamped to the viewport) and follows scroll and resize. It's
+      suppressed while the slash menu or the inline form is open.
+- [x] The link button reuses the inline form: edit the current link, clear the field to remove it,
+      or with only a caret, insert the URL as linked text.
+- [x] Tile toolbar: font family, size, bold and italic leave the "More" menu when
+      `isFloatingFormatToolbarActive()` (unified text on a non-touch device). Touch devices keep the
+      menu and the Mobile 2.0 sheet until Phase 3. Tile link stays.
+- [x] Stacking: editor overlays sit above the tile toolbar and action bar (z-index 10000). The
+      browser check found the tile action bar covering the color button; the overlays are now at
+      10010, with the inline form at 10020.
+- [x] Tests:
+      - `utils/richText/__tests__/formatting.test.ts` (16), including caret formatting that only
+        affects new text
+      - `components/richtext/__tests__/FloatingFormatToolbar.test.ts` (14)
+      - toolbar and link flows in `RichTextContent.test.ts`
+      - menu gating in `textButtons.test.ts`
+      - schema round-trip for the new marks and attributes
+      - browser check (desktop): toolbar at the caret, hidden while typing, back after the pause,
+        above the selection. Bold, underline, size preset, custom size, color, alignment, font and
+        link all apply with edit mode and the selection kept. Italic at the caret formats only new
+        text. No toolbar on touch. #238 interactions are unchanged.
 
-### Phase 3: Mobile (gated)
-- [ ] A formatting bar docked above the keyboard, positioned with `visualViewport`.
-- [ ] The `/EDIT` sheet keeps only tile-level controls: size, border, background, vertical align
-      and link.
-- [ ] Check on real iOS and Android devices: the native selection menu, keyboard behavior, and
-      swipe-to-scroll over a tile being edited.
+### Phase 3: Mobile (gated) ✅
+- [x] Shared controls: the buttons and menus moved from `FloatingFormatToolbar` into
+      `components/richtext/FormatControls.vue`, so the floating toolbar and the docked bar offer the
+      same set. Menus render outside the button row (a sideways-scrolling row would clip them) and
+      can open above or below.
+- [x] `components/richtext/DockedFormatBar.vue`: a bar sitting on top of the keyboard. Its controls
+      scroll sideways, its menus open upward, and its buttons are 40 px. Touch, pointer and click
+      events stop at the bar, so a tap on it never counts as a tap outside the tile (which would
+      deactivate it or end editing). Formatting state comes from
+      `composables/useFormattingState.ts`.
+- [x] `composables/useKeyboardInset.ts`: the keyboard-height tracking, taken out of `MobileGridBar`
+      (which now uses it) with a pure `measureKeyboardInset` helper.
+- [x] Phone (Mobile 2.0): while a unified text or smart text tile is being typed in, the formatting
+      bar takes the `/EDIT` sheet's slot and joins the pill, which already rests on the keyboard.
+      The bar reaches the editor through the edit handle (`RichTextTileChild.editor`, typed
+      `Raw<Editor>` so the tile's deep ref doesn't mangle it). Link editing goes back to the tile
+      via `editLink`. The sheet returns when editing ends.
+- [x] Other touch devices (tablets without the phone chrome): `RichTextContent` docks its own bar
+      on the keyboard. Pointer devices keep the floating toolbar.
+- [x] The `/EDIT` sheet and the tile toolbar's "More" menu drop font, size, bold and italic for
+      unified text users **on every device** (`inTileMenu = !isUnifiedTextActive()`). In the sheet
+      the `text-align` row becomes **vertical** alignment (top, center, bottom), with top and bottom
+      disabled when the tile locks text to the center. `isFloatingFormatToolbarActive` is gone.
+- [x] Tests:
+      - `DockedFormatBar.test.ts` (7)
+      - `useKeyboardInset.test.ts` (5)
+      - `MobileGridBar.test.ts`: sheet↔bar swap, smart text, classic editor, other tile types,
+        editing ends, link hand-off
+      - `MobileTileEditSheet.test.ts`: vertical alignment
+      - `RichTextContent.test.ts`: tablet docks its own bar, phone leaves it to the command bar
+      - menu gating updated
+      - browser check (390×780 touch emulation, Mobile 2.0 chrome): the first tap shows a sheet with
+        tile-level controls only. The second tap edits and the bar replaces the sheet. Bold and
+        Large apply to a selection with edit mode kept, and the size menu opens above the bar. No
+        console errors.
+- Still needs a real device: the keyboard itself isn't emulated. Check that the bar sits flush on
+  the iOS and Android keyboards, that tapping bar buttons doesn't dismiss the keyboard, and how the
+  bar and the system text-selection menu interact.
 
 ### Phase 4: Auto size (gated)
 - [ ] Pretext measuring and scale-factor search, with the DOM fallback, as described above.

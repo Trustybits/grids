@@ -61,7 +61,8 @@ export const normalizeHttpUrl = (input: string): string => {
   return `https://${trimmed}`;
 };
 
-const requireUrl = (value: string): string | null => {
+/** Error message for a link field, or null when it is a usable URL. */
+export const requireUrl = (value: string): string | null => {
   const href = normalizeHttpUrl(value);
   if (!href) return "Enter a link";
   try {

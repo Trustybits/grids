@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
-import { ref } from "vue";
+import { markRaw, ref } from "vue";
 import { ContentType } from "@grids/contracts/types";
 
 const Icon = { template: "<span class='icon' />" };
@@ -131,11 +131,23 @@ vi.mock("@/composables/useMobileTileEdit", () => ({
 // The edit sheet is the mobile presentation of `/EDIT`; on desktop only the
 // pill input renders. Defaults to phone so the existing sheet tests hold.
 const isMobileDevice = ref(true);
+const isUnifiedText = ref(false);
 
 vi.mock("@/composables/useMobileExperience", () => ({
   useMobileExperience: () => ({
     isMobileDevice,
+    isUnifiedText,
   }),
+}));
+
+vi.mock("@/components/richtext/DockedFormatBar.vue", () => ({
+  default: {
+    name: "DockedFormatBar",
+    props: ["editor", "active", "inline"],
+    emits: ["edit-link"],
+    template:
+      "<div class='docked-bar-stub' :data-inline='inline' @click=\"$emit('edit-link', 'https://a.b')\" />",
+  },
 }));
 
 vi.mock("@/grid-context/useGridViewContext", () => ({
@@ -189,6 +201,7 @@ describe("MobileGridBar", () => {
     editQuery.value = "";
     editHandle.value = null;
     isMobileDevice.value = true;
+    isUnifiedText.value = false;
     holder.toolbarButtons = [];
     holder.types = [
       {
@@ -713,6 +726,75 @@ describe("MobileGridBar", () => {
         : null;
       await flush(wrapper);
     };
+
+    describe("while a unified text tile is being typed in", () => {
+      const editLink = vi.fn();
+      const startTyping = async (
+        wrapper: Awaited<ReturnType<typeof mountBar>>,
+        type = "text",
+      ) => {
+        await activateTile(wrapper, "tile-1");
+        editTile.value = { i: "tile-1", content: { type } };
+        // Raw, like the real composable's shallowRef: the handle's refs must
+        // stay refs rather than being unwrapped by this harness's deep ref.
+        editHandle.value = markRaw({
+          ...editHandle.value,
+          childComponent: ref({ editor: { id: "editor" }, editLink }),
+          isEditing: ref(true),
+        });
+        await flush(wrapper);
+      };
+
+      it("swaps the sheet for the formatting bar above the /EDIT input", async () => {
+        isUnifiedText.value = true;
+        const wrapper = await mountBar();
+        await startTyping(wrapper);
+
+        expect(wrapper.find(".tile-edit-stub").exists()).toBe(false);
+        // Rendered in place: this surface already rests on the keyboard.
+        expect(wrapper.get(".docked-bar-stub").attributes("data-inline")).toBeDefined();
+        expect(wrapper.find('[aria-label="Filter tile controls"]').exists()).toBe(true);
+      });
+
+      it("hands link editing back to the tile", async () => {
+        isUnifiedText.value = true;
+        const wrapper = await mountBar();
+        await startTyping(wrapper);
+        await wrapper.get(".docked-bar-stub").trigger("click");
+        expect(editLink).toHaveBeenCalledWith("https://a.b");
+      });
+
+      it("covers smart text tiles too", async () => {
+        isUnifiedText.value = true;
+        const wrapper = await mountBar();
+        await startTyping(wrapper, "smart_text");
+        expect(wrapper.find(".docked-bar-stub").exists()).toBe(true);
+      });
+
+      it("keeps the sheet for the classic editor", async () => {
+        const wrapper = await mountBar();
+        await startTyping(wrapper);
+        expect(wrapper.find(".docked-bar-stub").exists()).toBe(false);
+        expect(wrapper.find(".tile-edit-stub").exists()).toBe(true);
+      });
+
+      it("keeps the sheet for other tile types", async () => {
+        isUnifiedText.value = true;
+        const wrapper = await mountBar();
+        await startTyping(wrapper, "chat");
+        expect(wrapper.find(".docked-bar-stub").exists()).toBe(false);
+      });
+
+      it("brings the sheet back once editing ends", async () => {
+        isUnifiedText.value = true;
+        const wrapper = await mountBar();
+        await startTyping(wrapper);
+        (editHandle.value!.isEditing as { value: boolean }).value = false;
+        await flush(wrapper);
+        expect(wrapper.find(".docked-bar-stub").exists()).toBe(false);
+        expect(wrapper.find(".tile-edit-stub").exists()).toBe(true);
+      });
+    });
 
     it("morphs into the /EDIT input and raises the sheet when a tile is tapped", async () => {
       const wrapper = await mountBar();

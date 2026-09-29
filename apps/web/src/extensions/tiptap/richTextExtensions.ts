@@ -6,6 +6,8 @@ import FontFamily from "@tiptap/extension-font-family";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Link from "@tiptap/extension-link";
+import Underline from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
 import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
@@ -36,6 +38,13 @@ export function richTextSchemaExtensions(): AnyExtension[] {
     FontSize,
     TaskList,
     TaskItem,
+    Underline,
+    // Per-block alignment. No default: a block without its own alignment
+    // renders no style and follows the tile-level `textAlign`.
+    TextAlign.configure({
+      types: ["heading", "paragraph"],
+      alignments: ["left", "center", "right"],
+    }),
     SmartButton,
     Link.configure({
       autolink: true,

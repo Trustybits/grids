@@ -1416,6 +1416,43 @@ describe('getOrCreateDraft', () => {
   })
 })
 
+describe('getOrCreateDraft with an occupied draft id', () => {
+  it('uses the fallback draft id when a listed grid holds draft__{id}', async () => {
+    const squatter = makeGrid({ id: 'draft__grid-1', status: 'published' })
+    const original = makeGrid({ id: 'grid-1', userId: 'user-1', rev: 2 })
+    mockGridDao.getById
+      .mockResolvedValueOnce(squatter) // draft__grid-1
+      .mockResolvedValueOnce(null) // draft__grid-1__2
+      .mockResolvedValueOnce(original) // fetchGrid(original)
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    const result = await service.getOrCreateDraft('grid-1')
+
+    expect(mockGridDao.save).toHaveBeenCalledWith(
+      'draft__grid-1__2',
+      expect.objectContaining({ draftOf: 'grid-1', status: 'draft' }),
+      0,
+    )
+    expect(result.id).toBe('draft__grid-1__2')
+    expect(result.draftOf).toBe('grid-1')
+  })
+
+  it('reuses an existing draft in the fallback slot', async () => {
+    const squatter = makeGrid({ id: 'draft__grid-1', status: 'published' })
+    const fallback = makeGrid({ id: 'draft__grid-1__2', draftOf: 'grid-1', status: 'draft' })
+    mockGridDao.getById
+      .mockResolvedValueOnce(squatter)
+      .mockResolvedValueOnce(fallback)
+
+    const service = await getService()
+    const result = await service.getOrCreateDraft('grid-1')
+
+    expect(result).toBe(fallback)
+    expect(mockGridDao.save).not.toHaveBeenCalled()
+  })
+})
+
 // ── publishDraft ───────────────────────────────────────────────────────
 
 describe('publishDraft', () => {
@@ -1459,6 +1496,33 @@ describe('publishDraft', () => {
     expect(mockGridDao.delete).toHaveBeenCalledWith('draft__grid-1')
   })
 
+  it('publishes the given in-memory draft without re-reading the stored draft', async () => {
+    const inMemory = makeGrid({
+      id: 'draft__grid-1',
+      userId: 'user-1',
+      draftOf: 'grid-1',
+      status: 'draft',
+      rev: 9,
+      overrides: { sm: { 'kept-tile': { x: 0, y: 3, w: 1, h: 1 } } },
+    })
+    const original = makeGrid({ id: 'grid-1', userId: 'user-1', rev: 5 })
+    mockGridDao.getById.mockResolvedValueOnce(original) // fetchGrid(originalId)
+    mockGridDao.update.mockResolvedValueOnce(undefined)
+    mockGridDao.delete.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    await service.publishDraft('draft__grid-1', inMemory)
+
+    expect(mockGridDao.getById).toHaveBeenCalledTimes(1)
+    expect(mockGridDao.getById).toHaveBeenCalledWith('grid-1')
+    expect(mockGridDao.update).toHaveBeenCalledWith(
+      'grid-1',
+      expect.objectContaining({ rev: 6, overrides: inMemory.overrides }),
+      5,
+    )
+    expect(mockGridDao.delete).toHaveBeenCalledWith('draft__grid-1')
+  })
+
   it('throws when the target grid is not a draft', async () => {
     const notADraft = makeGrid({ id: 'grid-1', draftOf: undefined })
     mockGridDao.getById.mockResolvedValueOnce(notADraft)
@@ -1491,31 +1555,40 @@ describe('publishDraft', () => {
 // ── publishAsCopy ──────────────────────────────────────────────────────
 
 describe('publishAsCopy', () => {
-  it('clears draftOf, publishes in place, and keeps the document', async () => {
+  it('writes the draft to a new grid id, then deletes the draft', async () => {
     const draft = makeGrid({
       id: 'draft__grid-1',
+      userId: 'user-1',
       draftOf: 'grid-1',
       status: 'draft',
       rev: 3,
+      tiles: [makeTile({ i: 'kept-tile' })],
     })
     mockGridDao.getById.mockResolvedValueOnce(draft)
-    mockGridDao.update.mockResolvedValueOnce(undefined)
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+    mockGridDao.delete.mockResolvedValueOnce(undefined)
 
     const service = await getService()
     const result = await service.publishAsCopy('draft__grid-1')
 
-    expect(mockGridDao.update).toHaveBeenCalledWith(
-      'draft__grid-1',
+    // New document, created fresh (rev 0 -> 1), never touching the draft id.
+    expect(mockGridDao.save).toHaveBeenCalledWith(
+      'generated-id',
       expect.objectContaining({
-        rev: 4,
+        rev: 1,
+        userId: 'user-1',
         status: 'published',
-        draftOf: 'DELETE_FIELD', // delete sentinel from mocked DbUtils
         publishedAt: 'SERVER_TS',
+        tiles: draft.tiles,
       }),
-      3,
+      0,
     )
-    // The promoted grid stays listed — never deleted.
-    expect(mockGridDao.delete).not.toHaveBeenCalled()
+    const payload = mockGridDao.save.mock.calls[0][1] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('draftOf')
+    expect(mockGridDao.update).not.toHaveBeenCalled()
+    // The draft id is freed so the original can open a draft again.
+    expect(mockGridDao.delete).toHaveBeenCalledWith('draft__grid-1')
+    expect(result.id).toBe('generated-id')
     expect(result.status).toBe('published')
     expect(result.draftOf).toBeUndefined()
   })
@@ -1523,14 +1596,28 @@ describe('publishAsCopy', () => {
   it('applies an explicit name when provided', async () => {
     const draft = makeGrid({ id: 'draft__grid-1', draftOf: 'grid-1', status: 'draft', rev: 1 })
     mockGridDao.getById.mockResolvedValueOnce(draft)
-    mockGridDao.update.mockResolvedValueOnce(undefined)
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+    mockGridDao.delete.mockResolvedValueOnce(undefined)
 
     const service = await getService()
     const result = await service.publishAsCopy('draft__grid-1', 'Branch')
 
-    const payload = mockGridDao.update.mock.calls[0][1] as Record<string, unknown>
+    const payload = mockGridDao.save.mock.calls[0][1] as Record<string, unknown>
     expect(payload.name).toBe('Branch')
     expect(result.name).toBe('Branch')
+  })
+
+  it('still resolves with the copy when the draft cannot be deleted', async () => {
+    const draft = makeGrid({ id: 'draft__grid-1', draftOf: 'grid-1', status: 'draft', rev: 1 })
+    mockGridDao.getById.mockResolvedValueOnce(draft)
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+    mockGridDao.delete.mockRejectedValueOnce(new Error('offline'))
+
+    const service = await getService()
+    const result = await service.publishAsCopy('draft__grid-1')
+
+    expect(result.id).toBe('generated-id')
+    expect(consoleErrorSpy).toHaveBeenCalled()
   })
 })
 

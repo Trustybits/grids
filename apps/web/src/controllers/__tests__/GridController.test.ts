@@ -1374,7 +1374,98 @@ describe("GridController draft/publish", () => {
 
     await controller.publish();
 
-    expect(gridService.publishDraft).toHaveBeenCalledWith("draft__g1");
+    expect(gridService.publishDraft).toHaveBeenCalledWith(
+      "draft__g1",
+      expect.objectContaining({ id: "draft__g1" }),
+    );
+  });
+
+  // Re-opening after publish/discard resolves a fresh draft of "g1".
+  function stubDraftReload(
+    harness: ReturnType<typeof createControllerHarness>,
+  ) {
+    vi.mocked(harness.dependencies.isDraftPublishEnabled).mockReturnValue(true);
+    vi.mocked(harness.gridService.fetchGrid).mockResolvedValue(
+      makeGrid({ id: "g1", userId: "user-1", status: "published" }),
+    );
+    vi.mocked(harness.gridService.getOrCreateDraft).mockResolvedValue(
+      makeGrid({
+        id: "draft__g1",
+        userId: "user-1",
+        status: "draft",
+        draftOf: "g1",
+      }),
+    );
+  }
+
+  it("publish() publishes the in-memory draft, including every breakpoint", async () => {
+    const harness = createControllerHarness();
+    const { controller, stores, gridService } = harness;
+    enterDraftEditing(stores);
+    stubDraftReload(harness);
+    stores.session.currentGrid!.overrides = {
+      sm: { "tile-1": { x: 0, y: 4, w: 2, h: 2 } },
+      md: { "tile-1": { x: 1, y: 2, w: 2, h: 2 } },
+    };
+
+    await controller.publish();
+
+    expect(gridService.publishDraft).toHaveBeenCalledWith(
+      "draft__g1",
+      expect.objectContaining({
+        id: "draft__g1",
+        draftOf: "g1",
+        overrides: {
+          sm: { "tile-1": { x: 0, y: 4, w: 2, h: 2 } },
+          md: { "tile-1": { x: 1, y: 2, w: 2, h: 2 } },
+        },
+      }),
+    );
+  });
+
+  it("publish() keeps the breakpoint the user is editing across the reload", async () => {
+    const harness = createControllerHarness();
+    const { controller, stores } = harness;
+    enterDraftEditing(stores);
+    stubDraftReload(harness);
+    stores.viewport.setViewportBreakpoint("md");
+    stores.viewport.setActiveBreakpoint("sm");
+    stores.viewport.setForcedBreakpoint("sm");
+
+    await controller.publish();
+
+    expect(stores.session.isDraftEditing).toBe(true);
+    expect(stores.session.currentGrid?.id).toBe("draft__g1");
+    expect(stores.viewport.viewportBreakpoint).toBe("md");
+    expect(stores.viewport.activeBreakpoint).toBe("sm");
+    expect(stores.viewport.forcedBreakpoint).toBe("sm");
+  });
+
+  it("discardChanges() deletes the draft and reopens a fresh one from the published grid", async () => {
+    const harness = createControllerHarness();
+    const { controller, stores, gridService } = harness;
+    enterDraftEditing(stores);
+    stubDraftReload(harness);
+    stores.session.currentGrid!.name = "Unpublished edit";
+    stores.viewport.setForcedBreakpoint("md");
+
+    await controller.discardChanges();
+
+    expect(gridService.deleteGrid).toHaveBeenCalledWith("draft__g1");
+    expect(gridService.publishDraft).not.toHaveBeenCalled();
+    expect(gridService.getOrCreateDraft).toHaveBeenCalledWith("g1");
+    expect(stores.session.currentGrid?.name).toBe("Grid");
+    expect(stores.session.hasUnpublishedChanges).toBe(false);
+    expect(stores.viewport.forcedBreakpoint).toBe("md");
+  });
+
+  it("discardChanges() is a no-op when not editing a draft", async () => {
+    const { controller, stores, gridService } = createControllerHarness();
+    stores.session.setCurrentGrid(makeGrid({ id: "g1" }));
+
+    await controller.discardChanges();
+
+    expect(gridService.deleteGrid).not.toHaveBeenCalled();
   });
 
   it("publish() is a no-op when not editing a draft", async () => {

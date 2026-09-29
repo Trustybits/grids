@@ -109,7 +109,8 @@ const run = (command: (chain: ChainedCommands) => ChainedCommands) => {
 <style scoped>
 .rt-table-toolbar {
   position: fixed;
-  z-index: 9999;
+  /* Above the tile toolbar and action bar (10000). */
+  z-index: 10010;
   display: flex;
   align-items: center;
   flex-wrap: wrap;

@@ -94,6 +94,12 @@
       @close="closeDeleteModal"
       @confirm="handleDeleteGrid"
     />
+
+    <SlugClaimModal
+      :is-open="showHandlePrompt"
+      @success="showHandlePrompt = false"
+      @skip="showHandlePrompt = false"
+    />
   </div>
 </template>
 
@@ -114,6 +120,8 @@ import { valueToMillis } from "@/utils/TimeConversion";
 import type { Grid } from "@grids/contracts/types";
 import type { CopyDepth } from "@grids/contracts/types";
 import PromptModal from "@/components/modal/PromptModal.vue";
+import SlugClaimModal from "@/components/modal/SlugClaimModal.vue";
+import { wasHandlePromptSkipped } from "@/utils/handlePrompt";
 import DashboardGridCard from "@/components/dashboard/DashboardGridCard.vue";
 import PendingGridTransfers from "@/components/dashboard/PendingGridTransfers.vue";
 import Button from "@/components/ui-elements/Button.vue";
@@ -132,6 +140,7 @@ const { grids, isLoading } = storeToRefs(collectionStore);
 const showCreateModal = ref(false);
 const showRenameModal = ref(false);
 const showDeleteModal = ref(false);
+const showHandlePrompt = ref(false);
 const gridToRename = ref<Grid | null>(null);
 const gridToDelete = ref<Grid | null>(null);
 const defaultGridId = ref<string | null>(null);
@@ -181,6 +190,12 @@ const loadUserProfile = async () => {
         starredGridIds.value = Array.isArray(raw)
           ? raw.filter((id) => typeof id === "string")
           : [];
+      }
+      // Anyone without a handle is held on the dashboard by the router guard,
+      // including new users who closed the tab before claiming one on the
+      // sign-in page. Ask here so they aren't stuck without a prompt.
+      if (!profile?.slug && !wasHandlePromptSkipped()) {
+        showHandlePrompt.value = true;
       }
     } catch (error) {
       console.error("Error loading user profile:", error);

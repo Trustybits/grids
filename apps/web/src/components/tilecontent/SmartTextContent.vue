@@ -689,14 +689,18 @@ export default defineComponent({
     };
 
     const editor = useEditor({
-      editable: true,
+      // Start read-only; useEditingLifecycle turns editing on. Doing this here
+      // rather than in onCreate matters: Tiptap emits `create` from a
+      // setTimeout, so a tile that auto-enters edit mode on mount (a freshly
+      // added tile with pending focus) had already been made editable by the
+      // lifecycle when onCreate ran and switched it back to read-only.
+      editable: false,
       extensions: [
         ...richTextSchemaExtensions(),
         DragHandle.configure({ isEditing }),
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",
-      onCreate({ editor: createdEditor }) {
-        createdEditor.setEditable(false);
+      onCreate() {
         nextTick(() => {
           checkOverflow();
           const container = textContentDiv.value;

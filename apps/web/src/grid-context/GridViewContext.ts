@@ -20,6 +20,15 @@ export interface GridViewContext {
   mode: GridViewMode;
 
   grid: ComputedRef<DeepReadonly<Grid> | null>;
+  /**
+   * The grid's public identity. Under draft/publish an owner edits a hidden
+   * draft document, so `grid.id` is the draft's id while the shareable URL,
+   * analytics, and per-grid Firestore subcollections (chat messages, upvotes)
+   * all live under the original. Tiles that key data by grid id must use this
+   * rather than `grid.id`. Equals `grid.id` outside draft editing; empty when
+   * no grid is loaded.
+   */
+  publicGridId: ComputedRef<string>;
   isOwner: ComputedRef<boolean>;
   canEdit: ComputedRef<boolean>;
   activePreview: ComputedRef<GridPreview>;

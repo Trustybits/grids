@@ -973,6 +973,43 @@ describe("GridController", () => {
       );
     });
 
+    it("never deletes messages while editing a draft — the removal is not live until publish", async () => {
+      const { controller, stores, chatService } = createControllerHarness();
+      const original = makeGrid({
+        id: "grid-1",
+        status: "published",
+        tiles: [chatTile("chat-1")],
+      });
+      const draft = makeGrid({
+        id: "draft__grid-1",
+        status: "draft",
+        draftOf: "grid-1",
+        tiles: [chatTile("chat-1")],
+      });
+      stores.session.setCurrentGrid(draft);
+      stores.session.setOwner(true);
+      stores.session.setDraftEditing("grid-1", original);
+      stores.history.initializeManager();
+
+      controller.removeTile("chat-1");
+      await Promise.resolve();
+      await Promise.resolve();
+      controller.clearSession();
+
+      // Messages live under the public grid (`grid-1`), which still serves the
+      // tile until publish. Neither the draft id (nothing there) nor the public
+      // id (live conversation) may be targeted; the server sweep reclaims the
+      // orphan once a publish actually drops the tile.
+      expect(chatService.deleteAllMessages).not.toHaveBeenCalled();
+
+      // The pending entry must not leak into a later session on the same id.
+      stores.session.setCurrentGrid(makeGrid({ id: "draft__grid-1", tiles: [] }));
+      stores.session.setOwner(true);
+      stores.history.initializeManager();
+      controller.clearSession();
+      expect(chatService.deleteAllMessages).not.toHaveBeenCalled();
+    });
+
     it("swallows a rejected message deletion at teardown without throwing", async () => {
       const errorSpy = vi
         .spyOn(console, "error")

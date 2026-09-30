@@ -21,6 +21,7 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
     mode: "demo",
 
     grid: computed(() => readonly(gridRef.value)),
+    publicGridId: computed(() => gridRef.value.id),
     isOwner: computed(() => false),
     canEdit: computed(() => false),
     activePreview: computed(() => null),

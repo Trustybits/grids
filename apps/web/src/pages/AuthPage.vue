@@ -6,58 +6,161 @@
 
     <main class="auth-landing__content">
       <div class="auth-container">
-        <div class="auth-header">
-          <h1 class="auth-title">Welcome to Grids</h1>
-          <p class="auth-subtitle">Sign in with Google or continue with your email.</p>
-        </div>
+        <Transition name="auth-step" mode="out-in" @after-enter="handleStepEntered">
+          <div v-if="!linkSentTo" key="entry" class="auth-step auth-entry">
+            <div class="auth-intro">
+              <GridsMark class="auth-intro__icon" />
+              <h1 class="auth-heading">Welcome to Grids</h1>
+              <p class="auth-lead">Sign in or create your page of links, work, and media.</p>
+            </div>
 
-        <Button variant="secondary" block :disabled="isBusy" @click="handleGoogleAuth">
-          <template #icon-left>
-            <i class="fab fa-google"></i>
-          </template>
-          Continue with Google
-        </Button>
+            <Button
+              class="auth-google"
+              variant="secondary"
+              block
+              :disabled="isBusy"
+              @click="handleGoogleAuth"
+            >
+              <template #icon-left>
+                <img :src="googleColorIcon" width="20" height="20" alt="" />
+              </template>
+              Continue with Google
+            </Button>
 
-        <div class="or-block">
-          <hr class="solidDivider" />
-          <p>OR</p>
-          <hr class="solidDivider" />
-        </div>
+            <div class="or-block" aria-hidden="true">
+              <span class="or-block__line"></span>
+              <span>OR</span>
+              <span class="or-block__line"></span>
+            </div>
 
-        <div class="email-row">
-          <input
-            v-model="email"
-            inputmode="email"
-            autocomplete="off"
-            name="grids-email"
-            autocapitalize="none"
-            autocorrect="off"
-            spellcheck="false"
-            data-lpignore="true"
-            data-1p-ignore="true"
-            data-bwignore="true"
-            data-form-type="other"
-            placeholder="Email address"
-            :disabled="isBusy || isCompletingLink"
-            @keydown.enter.prevent="isEmailValid && handleEmailContinue()"
-          />
-          <button
-            class="email-continue-btn"
-            :class="{ 'email-continue-btn--visible': isEmailValid }"
-            type="button"
-            aria-label="Continue"
-            :aria-hidden="!isEmailValid"
-            :tabindex="isEmailValid ? 0 : -1"
-            @click="handleEmailContinue"
-            :disabled="isBusy || isCompletingLink"
-          >
-            <ArrowRightIcon aria-hidden="true" />
-          </button>
-        </div>
+            <div class="email-row">
+              <input
+                ref="emailInputRef"
+                v-model="email"
+                inputmode="email"
+                autocomplete="off"
+                name="grids-email"
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck="false"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-bwignore="true"
+                data-form-type="other"
+                placeholder="Email address"
+                :disabled="isBusy || isCompletingLink"
+                @keydown.enter.prevent="isEmailValid && handleEmailContinue()"
+              />
+              <button
+                class="email-continue-btn"
+                :class="{ 'email-continue-btn--visible': isEmailValid }"
+                type="button"
+                aria-label="Continue"
+                :aria-hidden="!isEmailValid"
+                :tabindex="isEmailValid ? 0 : -1"
+                @click="handleEmailContinue"
+                :disabled="isBusy || isCompletingLink"
+              >
+                <ArrowRightIcon aria-hidden="true" />
+              </button>
+            </div>
 
-        <p v-if="statusText" class="status" :class="{ error: statusTone === 'error' }">
-          {{ statusText }}
-        </p>
+            <p v-if="statusText" class="status" :class="{ error: statusTone === 'error' }">
+              {{ statusText }}
+            </p>
+          </div>
+
+          <div v-else key="sent" class="auth-step auth-sent">
+            <div class="auth-intro">
+              <img class="auth-intro__icon" :src="mailboxIcon" width="40" height="40" alt="" />
+              <h1 ref="sentHeadingRef" class="auth-heading" tabindex="-1">Check Your Inbox</h1>
+              <p class="auth-lead">We have sent a sign-in link to</p>
+            </div>
+
+            <p class="auth-sent__email">{{ linkSentTo }}</p>
+
+            <div class="auth-sent__main">
+              <Button
+                v-if="mailProviderLink"
+                class="auth-sent__cta"
+                variant="brand"
+                block
+                :href="mailProviderLink.url"
+              >
+                <template #icon-left>
+                  <img
+                    v-if="mailProviderLink.id === 'gmail'"
+                    :src="googleMonoIcon"
+                    width="20"
+                    height="20"
+                    alt=""
+                  />
+                  <i v-else :class="mailProviderLink.iconClass"></i>
+                </template>
+                {{ mailProviderLink.label }}
+              </Button>
+
+              <p class="auth-sent__hint">Not seeing it? Check your spam or junk folder.</p>
+
+              <p v-if="resendStatus" class="status" role="status" :class="{ error: resendTone === 'error' }">
+                {{ resendStatus }}
+              </p>
+            </div>
+
+            <div class="auth-sent__actions">
+              <button
+                type="button"
+                class="resend-btn"
+                :class="{
+                  'resend-btn--waiting': resendSecondsLeft > 0,
+                  'resend-btn--sending': isResending,
+                }"
+                :disabled="isResending || resendSecondsLeft > 0"
+                @click="handleResend"
+              >
+                <svg
+                  v-if="resendSecondsLeft > 0"
+                  class="resend-btn__ring"
+                  viewBox="0 0 20 20"
+                  width="16"
+                  height="16"
+                  aria-hidden="true"
+                >
+                  <circle class="resend-btn__ring-track" cx="10" cy="10" r="8" />
+                  <circle
+                    class="resend-btn__ring-progress"
+                    cx="10"
+                    cy="10"
+                    r="8"
+                    :style="{ strokeDashoffset: resendRingOffset }"
+                  />
+                </svg>
+                <svg
+                  v-else
+                  class="resend-btn__icon"
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                  <path d="M21 3v6h-6" />
+                </svg>
+                <span v-if="isResending">Sending…</span>
+                <span v-else-if="resendSecondsLeft > 0">Resend in {{ resendSecondsLeft }}s</span>
+                <span v-else>Resend link</span>
+              </button>
+              <button type="button" class="link-btn" @click="handleChangeEmail">
+                Wrong email? <span class="link-btn__accent">Change it</span>
+              </button>
+            </div>
+          </div>
+        </Transition>
       </div>
     </main>
 
@@ -77,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import GriddleAnimation from '@/components/marketing/GriddleAnimation.vue';
 import SlugClaimModal from '@/components/modal/SlugClaimModal.vue';
@@ -88,6 +191,11 @@ import { useGridController } from '@/controllers/useGridController';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import ArrowRightIcon from '@/components/icons/ArrowRightIcon.vue';
+import GridsMark from '@/components/icons/GridsMark.vue';
+import { getMailProviderLink } from '@/utils/mailProviderLinks';
+import mailboxIcon from '@/assets/images/mailbox.svg';
+import googleMonoIcon from '@/assets/images/google-mono.svg';
+import googleColorIcon from '@/assets/images/google-g.svg';
 
 const authProvider = getAuthProvider();
 const userService = getServiceFactory().getUserService();
@@ -110,6 +218,53 @@ const showSlugModal = ref(false);
 const pendingRedirect = ref<string | null>(null);
 
 const AUTH_EMAIL_STORAGE_KEY = 'grids.auth.emailForSignIn';
+const RESEND_COOLDOWN_SECONDS = 30;
+
+// "Check your inbox" state: set once a link has been sent to this address.
+const linkSentTo = ref<string | null>(null);
+const isResending = ref(false);
+const resendSecondsLeft = ref(0);
+const resendStatus = ref<string | null>(null);
+const resendTone = ref<'info' | 'error'>('info');
+const emailInputRef = ref<HTMLInputElement | null>(null);
+const sentHeadingRef = ref<HTMLElement | null>(null);
+let resendTimer: ReturnType<typeof setInterval> | null = null;
+
+const mailProviderLink = computed(() =>
+  linkSentTo.value ? getMailProviderLink(linkSentTo.value) : null,
+);
+
+// Countdown ring around the resend button: full at the start of the cooldown,
+// drains to empty as it runs out. 2πr for r = 8 in a 20×20 viewBox.
+const RESEND_RING_CIRCUMFERENCE = 2 * Math.PI * 8;
+const resendRingOffset = computed(
+  () => RESEND_RING_CIRCUMFERENCE * (1 - resendSecondsLeft.value / RESEND_COOLDOWN_SECONDS),
+);
+
+const stopResendCooldown = () => {
+  if (resendTimer) clearInterval(resendTimer);
+  resendTimer = null;
+  resendSecondsLeft.value = 0;
+};
+
+const startResendCooldown = () => {
+  stopResendCooldown();
+  resendSecondsLeft.value = RESEND_COOLDOWN_SECONDS;
+  resendTimer = setInterval(() => {
+    resendSecondsLeft.value -= 1;
+    if (resendSecondsLeft.value <= 0) stopResendCooldown();
+  }, 1000);
+};
+
+onBeforeUnmount(stopResendCooldown);
+
+const describeSendError = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/too-many-requests|quota-exceeded/i.test(message)) {
+    return 'Too many sign-in emails were requested. Wait a few minutes and try again.';
+  }
+  return message || 'Could not send sign-in link.';
+};
 
 const isEmailValid = computed(() => {
   // Keep validation light; the server will validate server-side.
@@ -256,14 +411,54 @@ const handleEmailContinue = async () => {
     window.localStorage.setItem(AUTH_EMAIL_STORAGE_KEY, trimmedEmail);
 
     await authProvider.sendEmailSignInLink(trimmedEmail, `${window.location.origin}/login`);
-    statusText.value = `Check ${trimmedEmail} for your sign-in link.`;
+    resendStatus.value = null;
+    linkSentTo.value = trimmedEmail;
+    startResendCooldown();
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Send email link error:', errorMessage);
+    console.error('Send email link error:', error);
     statusTone.value = 'error';
-    statusText.value = errorMessage ?? 'Could not send sign-in link.';
+    statusText.value = describeSendError(error);
   } finally {
     isBusy.value = false;
+  }
+};
+
+const handleResend = async () => {
+  const sentTo = linkSentTo.value;
+  if (!sentTo || isResending.value || resendSecondsLeft.value > 0) return;
+
+  try {
+    isResending.value = true;
+    resendStatus.value = null;
+    window.localStorage.setItem(AUTH_EMAIL_STORAGE_KEY, sentTo);
+    await authProvider.sendEmailSignInLink(sentTo, `${window.location.origin}/login`);
+    resendTone.value = 'info';
+    resendStatus.value = 'Sent a new link. It can take a minute to arrive.';
+    startResendCooldown();
+  } catch (error) {
+    console.error('Resend email link error:', error);
+    resendTone.value = 'error';
+    resendStatus.value = describeSendError(error);
+  } finally {
+    isResending.value = false;
+  }
+};
+
+const handleChangeEmail = () => {
+  stopResendCooldown();
+  resendStatus.value = null;
+  statusText.value = null;
+  linkSentTo.value = null;
+};
+
+// Move focus with the step swap so keyboard and screen-reader users land on
+// the new content instead of a removed element.
+const handleStepEntered = () => {
+  if (linkSentTo.value) {
+    sentHeadingRef.value?.focus();
+  } else {
+    emailInputRef.value?.focus();
+    emailInputRef.value?.select();
   }
 };
 
@@ -335,117 +530,379 @@ const handleSlugSkipped = () => {
   padding: clamp(var(--spacing-xl), 6vw, 90px) var(--spacing-lg);
 }
 
+/* Sign-in card, styled after Figma grids.so node 2074:5789. */
 .auth-container {
   position: relative;
-  padding: clamp(20px, 4vw, var(--spacing-xl));
-  border-radius: var(--radius-lg);
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
   width: min(520px, calc(100vw - 32px));
-  background-color: color-mix(in srgb, var(--color-tile-background) 86%, transparent);
-  border: var(--border-width) solid var(--color-stroke);
-  backdrop-filter: blur(20px);
+  padding: 36px 32px 24px;
+  border-radius: 24px;
+  background-color: var(--color-content-background);
 }
 
-.auth-header {
+.auth-step {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  font-family: var(--mkt-font-sans);
+  font-weight: 500;
+  line-height: normal;
+  color: #6c6c6c;
 }
 
-.auth-title {
-  margin: 0;
-  font-size: 22px;
-  line-height: 1.2;
-  color: var(--color-text-primary);
+.auth-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
 }
 
-.auth-subtitle {
+.auth-intro__icon {
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 4px;
+  color: #fff;
+}
+
+.auth-heading {
   margin: 0;
-  color: var(--color-content-default);
+  font-family: var(--mkt-font-brand);
+  font-size: clamp(24px, 6vw, 28px);
+  font-weight: 600;
+  line-height: normal;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.auth-heading:focus {
+  outline: none;
+}
+
+.auth-lead {
+  margin: 0;
+  font-size: 15px;
+}
+
+.auth-step-enter-active,
+.auth-step-leave-active {
+  transition:
+    opacity 160ms var(--easing-smooth),
+    transform 160ms var(--easing-smooth);
+}
+
+.auth-step-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.auth-step-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-step-enter-active,
+  .auth-step-leave-active {
+    transition: opacity 120ms linear;
+  }
+
+  .auth-step-enter-from,
+  .auth-step-leave-to {
+    transform: none;
+  }
+}
+
+/* "Check your inbox" state */
+.auth-sent {
+  align-items: center;
+  text-align: center;
+}
+
+.auth-sent__email {
+  margin: 16px 0 0;
+  max-width: 100%;
+  padding: 6px 16px;
+  border: 1px solid #fff;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+
+.auth-sent__main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 28px;
+}
+
+/* Two-class selector so these win over Button's own variant/size rules. */
+.auth-sent .auth-sent__cta {
+  --btn-icon-size: 20px;
+  height: 52px;
+  gap: 12px;
+  border-radius: 12px;
+  background: var(--mkt-brand-500);
+  font-family: var(--mkt-font-sans);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: normal;
+}
+
+.auth-sent__hint {
+  margin: 0;
   font-size: 14px;
 }
 
-input {
-  display: block;
-  width: 100%;
-  height: 40px;
-  padding: var(--spacing-sm);
-  border: var(--border-width) solid var(--color-stroke);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  background-color: var(--color-content-background);
-  font-family: var(--font-family-base);
+.auth-sent__actions {
+  align-self: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 0.5px solid #6c6c6c;
+  font-size: 14px;
 }
 
-input:focus {
-  outline: none;
-  border-color: var(--color-content-high);
-}
-
-button {
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-sm);
+/* Pill-style resend action. */
+.resend-btn {
+  width: auto;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 0 10px;
+  border: 1px solid color-mix(in srgb, #6c6c6c 60%, transparent);
+  border-radius: 999px;
+  background: transparent;
   color: var(--color-text-primary);
-  background-color: var(--primary-color);
-  font-size: var(--font-size-base);
-  font-family: var(--font-family-base);
+  font: inherit;
+  font-weight: 500;
   cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--easing-smooth),
+    background-color var(--duration-fast) var(--easing-smooth),
+    color var(--duration-fast) var(--easing-smooth);
+}
+
+.resend-btn:hover:not(:disabled) {
+  border-color: var(--mkt-brand-500);
+  background: color-mix(in srgb, var(--mkt-brand-500) 14%, transparent);
+  color: #fff;
+}
+
+.resend-btn:hover:not(:disabled) .resend-btn__icon {
+  transform: rotate(90deg);
+}
+
+.resend-btn:disabled {
+  opacity: 1;
+  background: transparent;
+  cursor: default;
+}
+
+.resend-btn--waiting {
+  border-color: color-mix(in srgb, #6c6c6c 30%, transparent);
+  color: #6c6c6c;
+  font-variant-numeric: tabular-nums;
+}
+
+.resend-btn__icon {
+  flex-shrink: 0;
+  transition: transform 240ms var(--easing-smooth);
+}
+
+.resend-btn--sending .resend-btn__icon {
+  animation: resend-spin 800ms linear infinite;
+}
+
+@keyframes resend-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.resend-btn__ring {
+  flex-shrink: 0;
+  transform: rotate(-90deg);
+}
+
+.resend-btn__ring-track,
+.resend-btn__ring-progress {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.resend-btn__ring-track {
+  stroke: color-mix(in srgb, #6c6c6c 35%, transparent);
+}
+
+.resend-btn__ring-progress {
+  stroke: var(--mkt-brand-500);
+  stroke-linecap: round;
+  stroke-dasharray: 50.27;
+  transition: stroke-dashoffset 1s linear;
+}
+
+.resend-btn:focus-visible {
+  outline: 2px solid var(--mkt-brand-400);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resend-btn__icon,
+  .resend-btn__ring-progress {
+    transition: none;
+  }
+
+  .resend-btn--sending .resend-btn__icon {
+    animation: none;
+  }
+}
+
+/* Text-style actions. */
+.link-btn {
+  padding: 0;
   border: none;
-  transition: background-color var(--duration-fast) var(--easing-smooth);
+  background: none;
+  cursor: pointer;
+  color: #6c6c6c;
+  font: inherit;
 }
 
-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.link-btn:hover:not(:disabled) {
+  background: none;
+  color: var(--color-text-primary);
 }
 
-button:hover {
-  background-color: var(--color-content-high);
+.link-btn__accent {
+  color: var(--mkt-brand-500);
+  font-weight: 600;
+}
+
+.link-btn:hover .link-btn__accent {
+  color: var(--mkt-brand-400);
+}
+
+.link-btn:disabled {
+  opacity: 1;
+  color: #6c6c6c;
+  font-variant-numeric: tabular-nums;
+}
+
+.link-btn:focus-visible {
+  outline: 2px solid var(--mkt-brand-400);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* Entry state */
+.auth-entry .auth-intro {
+  margin-bottom: 28px;
+}
+
+/* Google's light "Sign in with Google" button colours (per their branding
+   guidelines). Two-class selector so these win over Button's own rules. */
+.auth-entry .auth-google {
+  --btn-icon-size: 20px;
+  height: 52px;
+  gap: 12px;
+  border-radius: 12px;
+  outline: none;
+  border: 1px solid #747775;
+  background: #fff;
+  color: #1f1f1f;
+  font-family: var(--mkt-font-sans);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.auth-entry .auth-google:hover:not(.ui-btn--disabled) {
+  background: #f2f2f2;
+  box-shadow:
+    0 1px 2px rgba(60, 64, 67, 0.3),
+    0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
+.auth-entry .auth-google:active:not(.ui-btn--disabled) {
+  background: #e8e8e8;
+}
+
+.auth-entry .auth-google:focus-visible {
+  outline: 2px solid var(--mkt-brand-400);
+  outline-offset: 2px;
 }
 
 .or-block {
-  width: 100%;
-  padding: var(--spacing-xs) 0;
   display: flex;
-  flex-direction: row;
-  justify-content: center;
   align-items: center;
-  gap: var(--spacing-md);
-  color: var(--color-content-default);
+  gap: 16px;
+  margin: 20px 0;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+.or-block__line {
+  flex: 1;
+  border-top: 0.5px solid #6c6c6c;
 }
 
 .email-row {
   display: flex;
-  gap: var(--spacing-xs);
+  gap: 8px;
   align-items: center;
+}
 
-  input {
-    flex: 1;
-    min-width: 0;
-  }
+.email-row input {
+  flex: 1;
+  min-width: 0;
+  height: 52px;
+  padding: 0 16px;
+  border: 1px solid color-mix(in srgb, #6c6c6c 60%, transparent);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #fff;
+  font-family: var(--mkt-font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  transition:
+    border-color var(--duration-fast) var(--easing-smooth),
+    box-shadow var(--duration-fast) var(--easing-smooth);
+}
+
+.email-row input::placeholder {
+  color: #6c6c6c;
+}
+
+.email-row input:focus {
+  outline: none;
+  border-color: var(--mkt-brand-500);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mkt-brand-500) 25%, transparent);
+}
+
+.email-row input:disabled {
+  opacity: 0.6;
 }
 
 .email-continue-btn {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
+  width: 52px;
+  height: 52px;
   flex-shrink: 0;
-  aspect-ratio: 1;
   padding: 0;
   display: none;
   align-items: center;
   justify-content: center;
-  background-color: transparent;
-  border: var(--border-width) solid var(--color-stroke);
-  color: var(--color-text-primary);
-  border-radius: var(--radius-sm);
+  border: none;
+  border-radius: 12px;
+  background-color: var(--mkt-brand-500);
+  color: #fff;
   cursor: pointer;
-  box-sizing: border-box;
   line-height: 0;
   opacity: 0;
   transform: translateX(-6px) scale(0.96);
@@ -453,32 +910,38 @@ button:hover {
   transition:
     transform var(--duration-fast) var(--easing-smooth),
     background-color var(--duration-fast) var(--easing-smooth),
-    border-color var(--duration-fast) var(--easing-smooth),
     opacity 160ms var(--easing-smooth);
 }
 
 .email-continue-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: block;
 }
 
 .email-continue-btn--visible {
   display: inline-flex;
-  width: 40px;
   opacity: 1;
   transform: translateX(0) scale(1);
   pointer-events: auto;
 }
 
 .email-continue-btn:hover:not(:disabled) {
-  background-color: color-mix(in srgb, var(--color-tile-background) 35%, transparent);
-  border-color: var(--color-content-high);
+  background-color: var(--mkt-brand-400);
+}
+
+.email-continue-btn:focus-visible {
+  outline: 2px solid var(--mkt-brand-400);
+  outline-offset: 2px;
 }
 
 .email-continue-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.auth-entry .status {
+  margin-top: 12px;
 }
 
 .status {
@@ -516,12 +979,6 @@ button:hover {
 .legal-links__separator {
   margin: 0 8px;
   opacity: 0.7;
-}
-
-.solidDivider {
-  border: 1px solid var(--color-stroke);
-  border-radius: 1px;
-  width: 100%;
 }
 
 .auth-landing__footer {

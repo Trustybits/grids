@@ -165,6 +165,7 @@ export class MockGridService implements GridServiceInterface {
       rev: 0,
       status: "draft",
       draftOf: original.id,
+      draftOfRev: original.rev ?? 0,
     });
   }
 

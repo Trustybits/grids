@@ -28,6 +28,7 @@ import {
 } from "@/utils/GridUtils";
 import { createTile, createTileContent } from "@/utils/TileUtils";
 import { stripBlobUrlsFromTiles } from "@/utils/GridPersistenceUtils";
+import { valueToMillis } from "@/utils/TimeConversion";
 import { v4 as uuidv4 } from "uuid";
 import heroGif from "@/assets/images/hero.gif";
 import type { GridServiceInterface } from "./interfaces/GridServiceInterface";
@@ -273,6 +274,9 @@ export class GridService implements GridServiceInterface {
     // ordinary published grids never carry these fields.
     if (grid.draftOf) {
       editableFields.draftOf = grid.draftOf;
+      if (typeof grid.draftOfRev === "number") {
+        editableFields.draftOfRev = grid.draftOfRev;
+      }
     }
     if (grid.publishedAt) {
       editableFields.publishedAt = grid.publishedAt;
@@ -600,10 +604,17 @@ export class GridService implements GridServiceInterface {
   // sets draftOf + status:"draft" and never sets clonedFrom. Background images
   // are shared by reference (same owner) — not re-uploaded.
   async createDraft(original: Grid): Promise<Grid> {
-    const draft: Grid = {
+    return this.saveGrid(this.buildDraft(original, 0));
+  }
+
+  // Build the in-memory draft document for `original`. `rev` is the draft
+  // doc's own current revision: 0 for a brand-new draft, or the existing
+  // draft's rev when re-basing so the guarded save replaces it in place.
+  private buildDraft(original: Grid, rev: number): Grid {
+    return {
       id: this.draftIdFor(original.id),
       userId: original.userId,
-      rev: 0,
+      rev,
       name: original.name,
       colNum: original.colNum,
       responsiveLayoutVersion: resolveResponsiveLayoutVersion(
@@ -626,28 +637,57 @@ export class GridService implements GridServiceInterface {
       duplicatable: original.duplicatable,
       status: "draft",
       draftOf: original.id,
+      // Baseline for staleness detection in getOrCreateDraft.
+      draftOfRev: this.readGridRev(original),
     };
+  }
 
-    return this.saveGrid(draft);
+  // Whether `draft` was taken from an older version of `original` than the one
+  // now stored. The original only advances outside the draft when it is edited
+  // directly (draft/publish disabled — e.g. the flag is tied to an opt-in the
+  // user toggled off), so a stale draft means the public grid has content the
+  // draft lacks, and publishing the draft would silently roll it back.
+  //
+  // Drafts written before `draftOfRev` existed have no baseline; for those the
+  // best available signal is the write clock: an original saved after the
+  // draft's last save has diverged. Missing timestamps are treated as fresh.
+  private isDraftStale(draft: Grid, original: Grid): boolean {
+    if (typeof draft.draftOfRev === "number") {
+      return this.readGridRev(original) > draft.draftOfRev;
+    }
+    const draftSavedAt = valueToMillis(draft.updatedAt);
+    const originalSavedAt = valueToMillis(original.updatedAt);
+    if (!draftSavedAt || !originalSavedAt) return false;
+    return originalSavedAt > draftSavedAt;
   }
 
   // Idempotently return the hidden draft for a published grid, creating it on
-  // first edit. Enforces one draft per original: a point read on the
-  // deterministic draft id, then a guarded create that tolerates losing a race
-  // to a concurrent creator.
+  // first edit and re-basing it when the original has moved on since the draft
+  // was taken. Enforces one draft per original: a point read on the
+  // deterministic draft id, then a guarded save that tolerates losing a race
+  // to a concurrent creator/re-baser.
   async getOrCreateDraft(originalId: string): Promise<Grid> {
     const draftId = this.draftIdFor(originalId);
-    const existing = await this.gridDao.getById(draftId);
-    if (existing && existing.draftOf === originalId) {
+    const [existing, original] = await Promise.all([
+      this.gridDao.getById(draftId),
+      this.fetchGrid(originalId),
+    ]);
+
+    const hasDraft = !!existing && existing.draftOf === originalId;
+    const stale = hasDraft && this.isDraftStale(existing, original);
+    if (hasDraft && !stale) {
       return existing;
     }
 
-    const original = await this.fetchGrid(originalId);
     try {
-      return await this.createDraft(original);
+      // Re-basing replaces the stale draft in place, guarded by its current rev;
+      // a fresh create saves at rev 0.
+      return await this.saveGrid(
+        this.buildDraft(original, hasDraft ? this.readGridRev(existing) : 0),
+      );
     } catch (error) {
-      // Lost the create race — another caller created the draft between our
-      // point read and save (both saved at rev 0). Adopt the winner's draft.
+      // Lost the save race — another caller created or re-based the draft
+      // between our point read and save. Adopt the winner's draft.
       if (isGridRevisionConflictError(error)) {
         const raced = await this.gridDao.getById(draftId);
         if (raced && raced.draftOf === originalId) return raced;

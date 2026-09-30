@@ -50,6 +50,10 @@ export function mapFirestoreToGrid(
         ? data.status
         : undefined,
     draftOf: typeof data.draftOf === "string" ? data.draftOf : undefined,
+    draftOfRev:
+      typeof data.draftOfRev === "number" && Number.isFinite(data.draftOfRev)
+        ? data.draftOfRev
+        : undefined,
     publishedAt: data.publishedAt ?? null,
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,

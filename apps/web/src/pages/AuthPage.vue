@@ -48,8 +48,13 @@
                 data-bwignore="true"
                 data-form-type="other"
                 placeholder="Email address"
+                aria-label="Email address"
+                :class="{ 'email-input--invalid': emailError }"
+                :aria-invalid="emailError ? 'true' : 'false'"
+                :aria-describedby="emailError ? 'auth-email-error' : undefined"
                 :disabled="isBusy || isCompletingLink"
-                @keydown.enter.prevent="isEmailValid && handleEmailContinue()"
+                @blur="revealEmailError"
+                @keydown.enter.prevent="handleEmailEnter"
               />
               <button
                 class="email-continue-btn"
@@ -63,6 +68,14 @@
               >
                 <ArrowRightIcon aria-hidden="true" />
               </button>
+            </div>
+
+            <div class="email-error-region" aria-live="polite">
+              <Transition name="email-error">
+                <p v-if="emailError" id="auth-email-error" class="status error email-error">
+                  {{ emailError }}
+                </p>
+              </Transition>
             </div>
 
             <p v-if="statusText" class="status" :class="{ error: statusTone === 'error' }">
@@ -180,7 +193,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import GriddleAnimation from '@/components/marketing/GriddleAnimation.vue';
 import SlugClaimModal from '@/components/modal/SlugClaimModal.vue';
@@ -193,6 +206,7 @@ import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import ArrowRightIcon from '@/components/icons/ArrowRightIcon.vue';
 import GridsMark from '@/components/icons/GridsMark.vue';
 import { getMailProviderLink } from '@/utils/mailProviderLinks';
+import { getEmailProblem, isValidEmail } from '@/utils/emailValidation';
 import mailboxIcon from '@/assets/images/mailbox.svg';
 import googleMonoIcon from '@/assets/images/google-mono.svg';
 import googleColorIcon from '@/assets/images/google-g.svg';
@@ -266,10 +280,45 @@ const describeSendError = (error: unknown): string => {
   return message || 'Could not send sign-in link.';
 };
 
-const isEmailValid = computed(() => {
-  // Keep validation light; the server will validate server-side.
-  return /\S+@\S+\.[\S]+/.test(email.value.trim());
+// Live email validation. Kept light; the auth provider validates for real.
+// The hint waits until the user pauses typing, leaves the field or presses
+// Enter, so it doesn't nag mid-word; once shown it tracks every keystroke and
+// clears the moment the address becomes valid.
+const EMAIL_ERROR_DELAY_MS = 800;
+const isEmailValid = computed(() => isValidEmail(email.value));
+const emailProblem = computed(() => getEmailProblem(email.value));
+const isEmailErrorRevealed = ref(false);
+const emailError = computed(() => (isEmailErrorRevealed.value ? emailProblem.value : null));
+let emailErrorTimer: ReturnType<typeof setTimeout> | null = null;
+
+const clearEmailErrorTimer = () => {
+  if (emailErrorTimer) clearTimeout(emailErrorTimer);
+  emailErrorTimer = null;
+};
+
+const revealEmailError = () => {
+  clearEmailErrorTimer();
+  if (emailProblem.value) isEmailErrorRevealed.value = true;
+};
+
+watch(email, () => {
+  clearEmailErrorTimer();
+  if (!emailProblem.value) {
+    isEmailErrorRevealed.value = false;
+  } else if (!isEmailErrorRevealed.value) {
+    emailErrorTimer = setTimeout(revealEmailError, EMAIL_ERROR_DELAY_MS);
+  }
 });
+
+onBeforeUnmount(clearEmailErrorTimer);
+
+const handleEmailEnter = () => {
+  if (isEmailValid.value) {
+    void handleEmailContinue();
+  } else {
+    revealEmailError();
+  }
+};
 
 /**
  * Check if user is new and needs to claim a slug
@@ -527,13 +576,16 @@ const handleSlugSkipped = () => {
   flex: 1;
   display: grid;
   place-items: center;
-  padding: clamp(var(--spacing-xl), 6vw, 90px) var(--spacing-lg);
+  /* Symmetric block padding, at least the footer's height, so the card sits in
+     the true centre of the viewport and never slides under the footer. */
+  padding: max(80px, clamp(var(--spacing-xl), 6vw, 90px)) var(--spacing-lg);
 }
 
 /* Sign-in card, styled after Figma grids.so node 2074:5789. */
 .auth-container {
   position: relative;
-  width: min(520px, calc(100vw - 32px));
+  width: 100%;
+  max-width: 520px;
   padding: 36px 32px 24px;
   border-radius: 24px;
   background-color: var(--color-content-background);
@@ -890,6 +942,45 @@ const handleSlugSkipped = () => {
   opacity: 0.6;
 }
 
+.email-row input.email-input--invalid,
+.email-row input.email-input--invalid:focus {
+  border-color: var(--destructive-color, #ff4d4d);
+}
+
+.email-row input.email-input--invalid:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive-color, #ff4d4d) 25%, transparent);
+}
+
+.auth-entry .email-error {
+  margin-top: 8px;
+  padding-left: 4px;
+}
+
+.email-error-enter-active,
+.email-error-leave-active {
+  transition:
+    opacity 140ms var(--easing-smooth),
+    transform 140ms var(--easing-smooth);
+}
+
+.email-error-enter-from,
+.email-error-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .email-error-enter-active,
+  .email-error-leave-active {
+    transition: opacity 120ms linear;
+  }
+
+  .email-error-enter-from,
+  .email-error-leave-to {
+    transform: none;
+  }
+}
+
 .email-continue-btn {
   width: 52px;
   height: 52px;
@@ -981,8 +1072,12 @@ const handleSlugSkipped = () => {
   opacity: 0.7;
 }
 
+/* Overlaid rather than in flow, so it doesn't push the centred card upward. */
 .auth-landing__footer {
-  position: relative;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 1;
   display: flex;
   justify-content: center;

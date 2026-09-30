@@ -122,6 +122,79 @@ describe("GridTileStructureController", () => {
       expect(h.stores.session.currentGrid?.tiles).toHaveLength(1);
     });
 
+    describe("with a dropped placement", () => {
+      const placeAt = (
+        breakpoint: Breakpoint,
+        layout: { i: string; x: number; y: number; w: number; h: number }[],
+      ) => ({ breakpoint, x: 0, y: 0, w: 2, h: 2, layout });
+
+      it("lands on the dropped cell and adopts the settled lg layout", () => {
+        h.stores.session.setCurrentGrid(
+          makeGrid({ tiles: [makeLinkTile({ i: "a", x: 0, y: 0, w: 2, h: 2 })] }),
+        );
+        h.stores.viewport.setActiveBreakpoint("lg");
+
+        const id = controller.addTile(
+          textContent(),
+          placeAt("lg", [{ i: "a", x: 0, y: 2, w: 2, h: 2 }]),
+        );
+
+        const tiles = h.stores.session.currentGrid!.tiles;
+        expect(tiles.find((tile) => tile.i === id)).toMatchObject({
+          x: 0,
+          y: 0,
+          w: 2,
+          h: 2,
+        });
+        // The tile the drop displaced stays where the engine moved it.
+        expect(tiles.find((tile) => tile.i === "a")).toMatchObject({
+          x: 0,
+          y: 2,
+        });
+        expect(pushUndoSnapshot).toHaveBeenCalledWith("Add tile");
+      });
+
+      it("writes a drop at a narrower breakpoint to that breakpoint's override", () => {
+        h.stores.session.setCurrentGrid(
+          makeGrid({ tiles: [makeLinkTile({ i: "a", x: 0, y: 0, w: 2, h: 2 })] }),
+        );
+        h.stores.viewport.setActiveBreakpoint("sm");
+
+        const id = controller.addTile(
+          textContent(),
+          placeAt("sm", [{ i: "a", x: 0, y: 2, w: 2, h: 2 }]),
+        )!;
+
+        expect(h.stores.session.currentGrid!.overrides?.sm).toEqual({
+          a: { x: 0, y: 2, w: 2, h: 2 },
+          [id]: { x: 0, y: 0, w: 2, h: 2 },
+        });
+      });
+
+      it("falls back to auto-placement when the breakpoint has since changed", () => {
+        h.stores.session.setCurrentGrid(
+          makeGrid({ tiles: [makeLinkTile({ i: "a", x: 0, y: 0, w: 2, h: 2 })] }),
+        );
+        h.stores.viewport.setActiveBreakpoint("lg");
+
+        const id = controller.addTile(
+          textContent(),
+          placeAt("sm", [{ i: "a", x: 0, y: 2, w: 2, h: 2 }]),
+        );
+
+        const tiles = h.stores.session.currentGrid!.tiles;
+        expect(tiles.find((tile) => tile.i === "a")).toMatchObject({
+          x: 0,
+          y: 0,
+        });
+        expect(tiles.find((tile) => tile.i === id)).not.toMatchObject({
+          x: 0,
+          y: 0,
+        });
+        expect(h.stores.session.currentGrid!.overrides?.sm).toBeUndefined();
+      });
+    });
+
     it("stores normalized content built from the requested type", () => {
       h.stores.session.setCurrentGrid(makeGrid({ tiles: [] }));
 

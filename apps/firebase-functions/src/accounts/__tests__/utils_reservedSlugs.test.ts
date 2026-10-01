@@ -30,6 +30,20 @@ describe("RESERVED_SLUGS", () => {
     );
   });
 
+  it("reserves the web app's own top-level routes so a handle can't be shadowed", () => {
+    // /templates, /showcase and /notion-callback are matched before /:slug, so a
+    // user who claimed one of these would get a link that never shows their grid.
+    expect(RESERVED_SLUGS).toEqual(
+      expect.arrayContaining([
+        "blog",
+        "notion-callback",
+        "pricing",
+        "showcase",
+        "templates",
+      ]),
+    );
+  });
+
   it("contains file-like reserved paths that are intentionally invalid slug formats", () => {
     expect(RESERVED_SLUGS).toEqual(
       expect.arrayContaining(["favicon.ico", "robots.txt", "sitemap.xml"]),

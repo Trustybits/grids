@@ -94,6 +94,12 @@
       @close="closeDeleteModal"
       @confirm="handleDeleteGrid"
     />
+
+    <SlugClaimModal
+      :is-open="showHandlePrompt"
+      @success="openStartingGrid"
+      @skip="openStartingGrid"
+    />
   </div>
 </template>
 
@@ -114,6 +120,8 @@ import { valueToMillis } from "@/utils/TimeConversion";
 import type { Grid } from "@grids/contracts/types";
 import type { CopyDepth } from "@grids/contracts/types";
 import PromptModal from "@/components/modal/PromptModal.vue";
+import SlugClaimModal from "@/components/modal/SlugClaimModal.vue";
+import { wasHandlePromptSkipped } from "@/utils/handlePrompt";
 import DashboardGridCard from "@/components/dashboard/DashboardGridCard.vue";
 import PendingGridTransfers from "@/components/dashboard/PendingGridTransfers.vue";
 import Button from "@/components/ui-elements/Button.vue";
@@ -132,6 +140,7 @@ const { grids, isLoading } = storeToRefs(collectionStore);
 const showCreateModal = ref(false);
 const showRenameModal = ref(false);
 const showDeleteModal = ref(false);
+const showHandlePrompt = ref(false);
 const gridToRename = ref<Grid | null>(null);
 const gridToDelete = ref<Grid | null>(null);
 const defaultGridId = ref<string | null>(null);
@@ -181,6 +190,12 @@ const loadUserProfile = async () => {
         starredGridIds.value = Array.isArray(raw)
           ? raw.filter((id) => typeof id === "string")
           : [];
+      }
+      // Anyone without a handle is held on the dashboard by the router guard,
+      // including new users who closed the tab before claiming one on the
+      // sign-in page. Ask here so they aren't stuck without a prompt.
+      if (!profile?.slug && !wasHandlePromptSkipped()) {
+        showHandlePrompt.value = true;
       }
     } catch (error) {
       console.error("Error loading user profile:", error);
@@ -340,6 +355,27 @@ const handleCreateGrid = async (name: string) => {
   } catch (error) {
     console.error("Error creating grid:", error);
   }
+};
+
+/**
+ * After the dashboard handle prompt ("Start designing" or "Skip for now"):
+ * open the grid their handle shows (the default), else their grid, else a
+ * first grid — the same place the sign-in flow takes new accounts.
+ */
+const openStartingGrid = async () => {
+  showHandlePrompt.value = false;
+  if (defaultGridId.value) {
+    router.push(`/grid/${defaultGridId.value}`);
+    return;
+  }
+  // A failed read must not look like "no grids" and create a duplicate.
+  if (!grids.value.length && !(await controller.fetchGrids())) return;
+  const existing = grids.value[0];
+  if (existing) {
+    router.push(`/grid/${existing.id}`);
+    return;
+  }
+  await handleCreateGrid("My First Grid");
 };
 
 const openRenameModal = (grid: Grid) => {

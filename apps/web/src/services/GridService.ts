@@ -30,7 +30,6 @@ import {
 import { createTile, createTileContent } from "@/utils/TileUtils";
 import { stripBlobUrlsFromTiles } from "@/utils/GridPersistenceUtils";
 import { v4 as uuidv4 } from "uuid";
-import heroGif from "@/assets/images/hero.gif";
 import type { GridServiceInterface } from "./interfaces/GridServiceInterface";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -67,8 +66,10 @@ const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
 //
 // Every new account's first grid is a copy of the tutorial grid
 // (grids.so/grid/Bh34nAGEgvlubksnEOMS). Its media are shared static files —
-// the bundled hero GIF and the docs in `public/starter/` — so each new grid
-// stores the same URL instead of uploading its own copy to the user's Storage.
+// the hero GIF and the docs in `public/starter/` — so each new grid stores the
+// same URL instead of uploading its own copy to the user's Storage. They live
+// in `public/` rather than being imported so the URL has no build hash and
+// keeps working for existing grids if a file is ever updated.
 // Items carry no `hash`, so refCount/quota/duplication skip them (see
 // GridStorageReferences), and the PDF ships a pre-rendered `thumbnailUrl` so
 // DocumentsContent never asks the server to render a per-user thumbnail.
@@ -76,6 +77,11 @@ const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
 // "How to Build Your First Grid (Walkthrough)" on the Grids App channel.
 export const STARTER_VIDEO_EMBED_URL =
   "https://www.youtube.com/embed/5L_cA92tI8Y";
+
+export const STARTER_HERO_IMAGE_URL = "/starter/hero.gif";
+
+// The permanent server invite (same as the site nav); never-expiring.
+export const STARTER_DISCORD_INVITE_URL = "https://discord.gg/DBscN5NUN6";
 
 export const STARTER_DOCUMENT_ITEMS: DocumentItem[] = [
   {
@@ -117,7 +123,7 @@ const STARTER_WELCOME_DOC = JSON.stringify({
           "This page is yours. Every tile on it is a small lesson, and all of it can go.",
         ),
         hardBreak,
-        text("Start with the video, then open the documents in the corner."),
+        text("Start with the video, then open the documents tile."),
         hardBreak,
         hardBreak,
         text("When you're ready, delete what you don't need and make it yours."),
@@ -196,14 +202,14 @@ export const createStarterLayout = (): StarterLayout => {
       }),
       borderEnabled: false,
     },
-    tile("hero", ContentType.IMAGE, 9, 0, 3, 3, { src: heroGif }, "Swap me out."),
+    tile("hero", ContentType.IMAGE, 9, 0, 3, 3, { src: STARTER_HERO_IMAGE_URL }, "Swap me out."),
     tile("video", ContentType.EMBED, 0, 3, 5, 4, {
       src: STARTER_VIDEO_EMBED_URL,
     }),
     tile("chat", ContentType.CHAT, 5, 3, 3, 4, {}),
     tile("profile", ContentType.PROFILE, 8, 3, 4, 4, {}),
     tile("community", ContentType.LINK, 0, 7, 6, 3, {
-      link: "https://discord.com/invite/5ZJGHcQyu",
+      link: STARTER_DISCORD_INVITE_URL,
       metaTitle: "Join the grids.so Discord Server!",
       metaSiteName: "Discord",
       customTitle: "Join the Grids community",

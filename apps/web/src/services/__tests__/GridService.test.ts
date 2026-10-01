@@ -27,8 +27,6 @@ vi.mock('uuid', () => ({
   v4: () => `uuid-${++uuidCounter}`,
 }))
 
-vi.mock('@/assets/images/hero.gif', () => ({ default: 'hero.gif' }))
-
 vi.mock('@/utils/GridUtils', () => ({
   ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION: 'griddle-v1',
   createDefaultGrid: (
@@ -932,7 +930,7 @@ describe('createStarterLayout', () => {
     const byType = (type: ContentType) =>
       tiles.find((t) => t.content.type === type)!.content as unknown as Record<string, unknown>
 
-    expect(byType(ContentType.IMAGE).src).toBe('hero.gif')
+    expect(byType(ContentType.IMAGE).src).toBe('/starter/hero.gif')
     expect(byType(ContentType.IMAGE).srcHash).toBeUndefined()
     expect(byType(ContentType.EMBED).src).toContain('youtube.com/embed')
 
@@ -949,6 +947,30 @@ describe('createStarterLayout', () => {
     // A pre-rendered thumbnail stops the client asking the server to render
     // (and store) a per-user copy.
     expect(items[0].thumbnailUrl).toBe('/starter/grids-getting-started-thumb.png')
+  })
+
+  it('only references starter files that ship in public/', async () => {
+    // Only the keys are used, so nothing is loaded.
+    const shipped = Object.keys(import.meta.glob('../../../public/starter/*')).map((path) =>
+      path.replace('../../../public', ''),
+    )
+    const { tiles } = await getStarterLayout()
+    const urls = JSON.stringify(tiles).match(/\/starter\/[^"]+/g) ?? []
+
+    expect(urls.length).toBeGreaterThan(0)
+    for (const url of urls) {
+      expect(shipped, url).toContain(url)
+    }
+  })
+
+  it('links the community tile to the permanent Discord invite', async () => {
+    const { tiles } = await getStarterLayout()
+    const link = tiles.find((t) => t.content.type === ContentType.LINK)!
+      .content as unknown as { link: string }
+
+    // Temporary invites (discord.com/invite/…) expire and would leave every
+    // new account with a dead link.
+    expect(link.link).toBe('https://discord.gg/DBscN5NUN6')
   })
 
   it('has no archive-backed storage references', async () => {

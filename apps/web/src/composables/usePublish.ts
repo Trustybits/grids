@@ -10,6 +10,7 @@ import { useGridController } from "@/controllers/useGridController";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useToastStore } from "@/stores/toast";
 import { useFeatureFlags } from "@/composables/useFeatureFlags";
+import { describeGridChanges, summarizeGridChanges } from "@/utils/GridDiff";
 import type { Grid, GridStatus } from "@grids/contracts/types";
 
 /**
@@ -55,6 +56,17 @@ export const usePublish = () => {
   const publishedAt = computed(() => publicGrid.value?.publishedAt ?? null);
 
   const hasUnpublishedChanges = computed(() => session.hasUnpublishedChanges);
+
+  // What a publish would push live, as short display lines ("2 tiles added",
+  // "Name, Background changed"). Empty unless editing a draft that diverged
+  // from its published baseline.
+  const unpublishedChangeLines = computed<string[]>(() => {
+    if (!hasUnpublishedChanges.value) return [];
+    const published = session.publishedGrid;
+    const draft = session.currentGrid;
+    if (!published || !draft) return [];
+    return describeGridChanges(summarizeGridChanges(published, draft));
+  });
 
   // In-flight guards so the UI can disable buttons and we never double-fire.
   const isPublishing = ref(false);
@@ -223,6 +235,7 @@ export const usePublish = () => {
     isPublished,
     publishedAt,
     hasUnpublishedChanges,
+    unpublishedChangeLines,
     isPublishing,
     isUnpublishing,
     isDiscarding,

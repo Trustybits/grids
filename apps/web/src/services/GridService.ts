@@ -73,9 +73,9 @@ const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
 // GridStorageReferences), and the PDF ships a pre-rendered `thumbnailUrl` so
 // DocumentsContent never asks the server to render a per-user thumbnail.
 
-// Swap for the tutorial video once it is on YouTube.
+// "How to Build Your First Grid (Walkthrough)" on the Grids App channel.
 export const STARTER_VIDEO_EMBED_URL =
-  "https://www.youtube.com/embed/7ccH8u8fj8Y";
+  "https://www.youtube.com/embed/5L_cA92tI8Y";
 
 export const STARTER_DOCUMENT_ITEMS: DocumentItem[] = [
   {

@@ -691,10 +691,10 @@ export class GridService implements GridServiceInterface {
       existing = await this.gridDao.getById(draftId);
     }
 
-    const hasDraft = !!existing && existing.draftOf === originalId;
-    const stale = hasDraft && this.isDraftStale(existing, original);
-    if (hasDraft && !stale) {
-      return existing;
+    const draft =
+      existing && existing.draftOf === originalId ? existing : null;
+    if (draft && !this.isDraftStale(draft, original)) {
+      return draft;
     }
 
     try {
@@ -703,7 +703,7 @@ export class GridService implements GridServiceInterface {
       return await this.saveGrid(
         this.buildDraft(
           original,
-          hasDraft ? this.readGridRev(existing) : 0,
+          draft ? this.readGridRev(draft) : 0,
           draftId,
         ),
       );

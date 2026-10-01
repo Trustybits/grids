@@ -209,21 +209,8 @@ import {
   onUnmounted,
 } from "vue";
 import { useEditor, EditorContent, type Editor } from "@tiptap/vue-3";
-import StarterKit from "@tiptap/starter-kit";
-import TextStyle from "@tiptap/extension-text-style";
-import FontFamily from "@tiptap/extension-font-family";
-import Color from "@tiptap/extension-color";
-import Link from "@tiptap/extension-link";
-import { ResizableImage } from "@/extensions/tiptap/ResizableImage";
-import { FontSize } from "@/extensions/tiptap/FontSize";
-import { SmartButton } from "@/extensions/tiptap/SmartButton";
+import { richTextSchemaExtensions } from "@/extensions/tiptap/richTextExtensions";
 import { DragHandle } from "@/extensions/tiptap/DragHandle";
-import TaskList from "@tiptap/extension-task-list";
-import TaskItem from "@tiptap/extension-task-item";
-import Table from "@tiptap/extension-table";
-import TableRow from "@tiptap/extension-table-row";
-import TableHeader from "@tiptap/extension-table-header";
-import TableCell from "@tiptap/extension-table-cell";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import FloatingInputModal from "../modal/FloatingInputModal.vue";
 import { isValidLink } from "@/utils/UrlValidation";
@@ -704,27 +691,7 @@ export default defineComponent({
     const editor = useEditor({
       editable: true,
       extensions: [
-        StarterKit,
-        TextStyle,
-        Color,
-        FontFamily,
-        FontSize,
-        TaskList,
-        TaskItem,
-        SmartButton,
-        Link.configure({
-          autolink: true,
-          openOnClick: true,
-        }),
-        ResizableImage.configure({ inline: true }),
-        Table.configure({
-          resizable: true,
-          cellMinWidth: 40,
-          allowTableNodeSelection: true,
-        }),
-        TableRow,
-        TableHeader,
-        TableCell,
+        ...richTextSchemaExtensions(),
         DragHandle.configure({ isEditing }),
       ],
       content: props.content.text ? JSON.parse(props.content.text) : "",
@@ -1232,7 +1199,8 @@ export default defineComponent({
 }
 </style>
 
-<!-- Unscoped styles for the Teleported slash menu + SmartButton (rendered inside ProseMirror) -->
+<!-- Unscoped styles for the Teleported slash menu and table toolbar. Node styles
+     (smart button, tables, drag handle) live in styles/_rich-text.scss. -->
 <style>
 .slash-menu {
   position: fixed;
@@ -1285,82 +1253,6 @@ export default defineComponent({
 .slash-menu-hint {
   font-size: 11px;
   opacity: 0.7;
-}
-
-a[data-smart-button="true"].smart-button {
-  display: inline-block;
-  appearance: none;
-  border: 1px solid var(--color-tile-stroke);
-  border-radius: 9999px;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.08);
-  color: inherit;
-  text-decoration: none;
-  font-weight: 600;
-  cursor: pointer;
-  user-select: none;
-}
-
-a[data-smart-button="true"].smart-button:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-/* ── Table styles ── */
-.ProseMirror table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 0;
-  table-layout: fixed;
-  overflow: hidden;
-}
-
-.ProseMirror th,
-.ProseMirror td {
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 6px 8px;
-  vertical-align: top;
-  position: relative;
-  min-width: 1em;
-  box-sizing: border-box;
-  text-align: left;
-}
-
-.ProseMirror th {
-  background: rgba(255, 255, 255, 0.08);
-  font-weight: 600;
-}
-
-.ProseMirror td {
-  background: transparent;
-}
-
-.ProseMirror th > p,
-.ProseMirror td > p {
-  margin: 0;
-}
-
-.ProseMirror .selectedCell {
-  background: rgba(100, 150, 255, 0.15);
-}
-
-.ProseMirror .column-resize-handle {
-  position: absolute;
-  top: 0;
-  right: -2px;
-  bottom: -2px;
-  width: 4px;
-  background: rgba(100, 160, 255, 0.6);
-  pointer-events: none;
-  z-index: 20;
-}
-
-.ProseMirror.resize-cursor {
-  cursor: col-resize !important;
-}
-
-.ProseMirror .tableWrapper {
-  overflow-x: auto;
-  margin: 8px 0;
 }
 
 /* ── Table toolbar ── */
@@ -1441,43 +1333,4 @@ a[data-smart-button="true"].smart-button:hover {
   font-weight: 500;
 }
 
-/* ── Drag handle ── */
-.drag-handle {
-  position: absolute;
-  left: -20px;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  color: rgba(255, 255, 255, 0.2);
-  cursor: grab;
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    opacity 0.15s ease,
-    background 0.15s ease,
-    color 0.15s ease;
-  z-index: 5;
-  user-select: none;
-}
-
-.drag-handle.visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.drag-handle:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.drag-handle:active {
-  cursor: grabbing;
-}
-
-.drag-handle-dragging {
-  opacity: 0.4;
-}
 </style>

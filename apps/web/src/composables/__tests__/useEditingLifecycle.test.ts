@@ -89,6 +89,7 @@ interface MountOpts {
   onEnter?: () => void;
   onExit?: () => void;
   shouldBlockExit?: () => boolean;
+  resolveFocusPosition?: () => number | "end";
   tileId?: string | null;
 }
 
@@ -104,6 +105,7 @@ function mountLifecycle(opts: MountOpts) {
           onEnter: opts.onEnter,
           onExit: opts.onExit,
           shouldBlockExit: opts.shouldBlockExit,
+          resolveFocusPosition: opts.resolveFocusPosition,
         });
         return () => h("div");
       },
@@ -195,6 +197,26 @@ describe("useEditingLifecycle — entering edit mode", () => {
     expect(editor.value.commands.focus).toHaveBeenCalledWith("end");
     expect(flushPersist).toHaveBeenCalled();
     expect(store().beginEditing).toHaveBeenCalledWith("tile-1");
+  });
+
+  it("focuses at the position the tile resolves for this entry", async () => {
+    const editor = ref(makeEditor());
+    const isEditing = ref(false);
+    const resolveFocusPosition = vi.fn(() => 12);
+
+    mountLifecycle({
+      editor,
+      isEditing,
+      containerRef: ref(null),
+      resolveFocusPosition,
+      tileId: "tile-1",
+    });
+
+    isEditing.value = true;
+    await flushAll();
+
+    expect(resolveFocusPosition).toHaveBeenCalledTimes(1);
+    expect(editor.value.commands.focus).toHaveBeenCalledWith(12);
   });
 
   it("enters edit mode but does not call beginEditing when tileId is null", async () => {

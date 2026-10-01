@@ -7,6 +7,7 @@ const holder = vi.hoisted(() => ({
   submitLink: vi.fn(async () => "link-1"),
   submitEmbed: vi.fn(() => "embed-1"),
   flags: {} as Record<string, boolean>,
+  unifiedText: { value: false },
   isValidLink: vi.fn(() => false),
   isValidEmbed: vi.fn(() => false),
 }));
@@ -36,8 +37,15 @@ vi.mock("@/composables/useFeatureFlags", () => ({
   }),
 }));
 
+vi.mock("@/composables/useMobileExperience", () => ({
+  useMobileExperience: () => ({ isUnifiedText: holder.unifiedText }),
+}));
+
 vi.mock("@/utils/TileUtils", () => ({
-  createTileContent: (type: ContentType) => ({ type }),
+  createTileContent: (type: ContentType, options: object = {}) => ({
+    type,
+    ...options,
+  }),
 }));
 
 vi.mock("@/utils/UrlValidation", () => ({
@@ -54,6 +62,7 @@ describe("useTileCreation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     holder.flags = {};
+    holder.unifiedText.value = false;
     holder.isValidLink.mockReturnValue(false);
     holder.isValidEmbed.mockReturnValue(false);
     holder.addTile.mockReturnValue("tile-1");
@@ -71,6 +80,15 @@ describe("useTileCreation", () => {
     const enabledIds = enabled.tileTypes.value.map((t) => t.id);
     expect(enabledIds).toContain("smart_text");
     expect(enabledIds).toContain("document");
+  });
+
+  it("retires Smart Text for users on the unified text editor", async () => {
+    holder.flags = { "editor-smart-text": true };
+    holder.unifiedText.value = true;
+    const { tileTypes } = await load();
+    const ids = tileTypes.value.map((t) => t.id);
+    expect(ids).not.toContain("smart_text");
+    expect(ids).toContain("text");
   });
 
   it("auto-focuses newly created text tiles but not other types", async () => {
@@ -184,5 +202,40 @@ describe("useTileCreation", () => {
     // No space, or a non-command first word → no prefix.
     expect(matchCommandPrefix("map")).toBeNull();
     expect(matchCommandPrefix("chat hello")).toBeNull();
+  });
+
+  describe("createDroppedTile", () => {
+    it("creates instant types as themselves", async () => {
+      const { createDroppedTile } = await load();
+      expect(createDroppedTile("chat")).toBe("tile-1");
+      expect(holder.addTile).toHaveBeenCalledWith({ type: ContentType.CHAT });
+    });
+
+    it.each([
+      ["link", "link", "Add Link"],
+      ["embed", "embed", "Add Embed"],
+      ["image", "media", "Add Image / Video"],
+    ])("lands %s as a fill-in placeholder", async (id, action, label) => {
+      const { createDroppedTile } = await load();
+      expect(createDroppedTile(id)).toBe("tile-1");
+      expect(holder.addTile).toHaveBeenCalledWith({
+        type: ContentType.SUGGESTION,
+        action,
+        label,
+      });
+    });
+
+    it("starts a dropped map at the current location", async () => {
+      const { createDroppedTile } = await load();
+      expect(createDroppedTile("map")).toBe("tile-1");
+      expect(holder.addTile).toHaveBeenCalledWith({ type: ContentType.MAP });
+    });
+
+    it("creates nothing for a document, which needs its files first", async () => {
+      holder.flags = { "beta-documents": true };
+      const { createDroppedTile } = await load();
+      expect(createDroppedTile("document")).toBeNull();
+      expect(holder.addTile).not.toHaveBeenCalled();
+    });
   });
 });

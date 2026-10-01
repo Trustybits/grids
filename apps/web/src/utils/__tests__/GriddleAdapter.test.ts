@@ -309,6 +309,19 @@ describe("buildGridConfig", () => {
     expect(config.snapDuringDrag).toBe(true);
   });
 
+  it("ignores drags from rich text only while it is being edited", () => {
+    const tile = document.createElement("div");
+    tile.innerHTML =
+      '<div class="ProseMirror" contenteditable="false"><p>hi</p></div>';
+    const editor = tile.querySelector<HTMLElement>(".ProseMirror")!;
+    const paragraph = tile.querySelector("p")!;
+
+    expect(paragraph.closest(DEFAULT_DRAG_IGNORE_FROM)).toBeNull();
+
+    editor.setAttribute("contenteditable", "true");
+    expect(paragraph.closest(DEFAULT_DRAG_IGNORE_FROM)).toBe(editor);
+  });
+
   it.each([
     ".tile-caption",
     ".tile-link-indicator",

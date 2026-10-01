@@ -373,6 +373,8 @@ export function processGrid(
           },
         });
         break;
+      // Text tiles share the smart text schema, so either can hold images.
+      case "text":
       case "smart_text":
         if (typeof c.text === "string") {
           const result = processSmartText(

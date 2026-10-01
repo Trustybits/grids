@@ -8,6 +8,7 @@ import {
   type Ref,
 } from "vue";
 import type { Editor } from "@tiptap/vue-3";
+import type { FocusPosition } from "@tiptap/core";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridController } from "@/controllers/useGridController";
 
@@ -19,6 +20,11 @@ interface EditingLifecycleOptions {
   onEnter?: () => void;
   onExit?: () => void;
   shouldBlockExit?: () => boolean;
+  /**
+   * Where to put the caret on entering edit mode. Read once per entry; lets a
+   * tile place it under the click that opened the editor. Defaults to "end".
+   */
+  resolveFocusPosition?: () => FocusPosition;
 }
 
 export function useEditingLifecycle(options: EditingLifecycleOptions) {
@@ -30,6 +36,7 @@ export function useEditingLifecycle(options: EditingLifecycleOptions) {
     onEnter,
     onExit,
     shouldBlockExit,
+    resolveFocusPosition,
   } = options;
 
   const uiStore = useGridUiStore();
@@ -48,7 +55,7 @@ export function useEditingLifecycle(options: EditingLifecycleOptions) {
 
       if (shouldBeEditable) {
         onEnter?.();
-        editor.value.commands.focus("end");
+        editor.value.commands.focus(resolveFocusPosition?.() ?? "end");
         nextTick(() => {
           flushPersist();
           if (tileId) controller.beginEditing(tileId);

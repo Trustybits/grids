@@ -1,9 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { reactive, ref, shallowRef } from "vue";
 import { ContentType, type Tile } from "@grids/contracts/types";
 import type { ToolbarButton, ToolbarContext } from "@/types/TileToolbar";
 import MobileTileEditSheet from "../MobileTileEditSheet.vue";
+import {
+  earlyAccessEnrolled,
+  unifiedTextFlagOn,
+} from "@/composables/earlyAccessState";
 
 const IconStub = { template: "<span class='icon' />" };
 
@@ -19,6 +23,7 @@ const actions = vi.hoisted(() => ({
   handleFontChange: vi.fn(),
   handleFontSizeChange: vi.fn(),
   handleTextAlignChange: vi.fn(),
+  handleVerticalAlignChange: vi.fn(),
 }));
 
 const capabilities = vi.hoisted(() => ({
@@ -249,6 +254,53 @@ describe("MobileTileEditSheet", () => {
     const sizes = wrapper.findAll(".mte-segment--text");
     await sizes[0]!.trigger("click");
     expect(actions.handleFontSizeChange).toHaveBeenCalledWith("Small");
+  });
+
+  describe("with the unified text editor", () => {
+    beforeEach(() => {
+      earlyAccessEnrolled.value = true;
+      unifiedTextFlagOn.value = true;
+      childComponent.value = {
+        ...childComponent.value,
+        handleVerticalAlignChange: actions.handleVerticalAlignChange,
+      };
+    });
+
+    afterEach(() => {
+      earlyAccessEnrolled.value = false;
+      unifiedTextFlagOn.value = false;
+    });
+
+    it("offers tile-level vertical alignment instead of horizontal", async () => {
+      const wrapper = mountSheet(
+        makeTile({
+          content: {
+            type: ContentType.TEXT,
+            text: "Hi",
+            verticalAlign: "center",
+          } as Tile["content"],
+        }),
+      );
+
+      expect(wrapper.find('[aria-label="Vertical alignment"]').exists()).toBe(true);
+      expect(wrapper.find('[aria-label="Text alignment"]').exists()).toBe(false);
+      expect(
+        wrapper.get('[aria-label="Align center"]').attributes("aria-pressed"),
+      ).toBe("true");
+
+      await wrapper.get('[aria-label="Align bottom"]').trigger("click");
+      expect(actions.handleVerticalAlignChange).toHaveBeenCalledWith("bottom");
+    });
+
+    it("disables top and bottom when the tile locks text to the center", () => {
+      childComponent.value = {
+        ...childComponent.value,
+        disableTopBottomAlign: true,
+      };
+      const wrapper = mountSheet();
+      expect(wrapper.get('[aria-label="Align top"]').attributes("disabled")).toBeDefined();
+      expect(wrapper.get('[aria-label="Align center"]').attributes("disabled")).toBeUndefined();
+    });
   });
 
   it("offers only the tile actions the tile actually supports", async () => {

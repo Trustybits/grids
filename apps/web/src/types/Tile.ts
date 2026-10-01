@@ -1,3 +1,6 @@
+import type { Raw } from "vue";
+import type { Editor } from "@tiptap/vue-3";
+
 // ─── Composition interfaces ────────────────────────────────────────
 // Each interface represents a capability group. Content components
 // implement only the interfaces that match their behavior.
@@ -58,6 +61,18 @@ export interface TextEditableTileChild {
   disableTopBottomAlign?: boolean;
 }
 
+/**
+ * The unified rich-text tile. Chrome outside the tile (the Mobile 2.0 command
+ * bar) docks the formatting bar against its live editor, and hands link
+ * editing back to the tile, which owns the inline link form.
+ */
+export interface RichTextTileChild {
+  // Raw: Tile.vue holds its child in a deep ref, and unwrapping the Editor
+  // class type would no longer match Editor.
+  editor?: Raw<Editor>;
+  editLink?: (href: string | null) => void;
+}
+
 export interface ColorThemableTileChild {
   handleBackgroundColorChange?: (color: string) => void;
   // Present only on tiles that support a color overlay separate from the fill
@@ -84,4 +99,5 @@ export type TileChildComponent =
   Partial<LinkableTileChild> &
   Partial<LinkTileChild> &
   Partial<TextEditableTileChild> &
+  Partial<RichTextTileChild> &
   Partial<ColorThemableTileChild>;

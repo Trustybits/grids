@@ -7,6 +7,7 @@ import {
   type LinkContent,
   type ProfileBioContent,
   type SmartTextContent,
+  type TextContent,
   type Tile,
   type TileContent,
   type VideoContent,
@@ -195,6 +196,28 @@ describe("GridStorageRewrite", () => {
           },
         },
       ],
+    });
+  });
+
+  it("rewrites text tile image attrs by hash", () => {
+    const tile = makeTile({
+      type: ContentType.TEXT,
+      text: JSON.stringify({
+        type: "doc",
+        content: [{ type: "image", attrs: { src: OLD_URL, hash: OLD_HASH } }],
+      }),
+      font: "Inter",
+      fontSize: 16,
+      isBold: false,
+      isItalic: false,
+      textType: "paragraph",
+      color: "#000",
+    } as TextContent);
+
+    rewriteArchiveBackedContent(tile, rewritePlan);
+
+    expect(JSON.parse((tile.content as TextContent).text)).toMatchObject({
+      content: [{ attrs: { src: NEW_URL, hash: NEW_HASH } }],
     });
   });
 

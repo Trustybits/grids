@@ -9,6 +9,11 @@ import {
   type Tile,
 } from "@grids/contracts/types";
 import type { GridLayoutItem } from "@/types/GridLayout";
+import { getContentComponent } from "@/utils/TileUtils";
+import {
+  earlyAccessEnrolled,
+  unifiedTextFlagOn,
+} from "@/composables/earlyAccessState";
 import {
   TILE_DRAGGING_ID,
   TILE_REMOVE_REQUEST,
@@ -304,6 +309,32 @@ describe("GridTile position-only rendering", () => {
 
     expect(onResize).not.toHaveBeenCalled();
 
+    wrapper.unmount();
+  });
+
+  it("reloads a text tile's component when the unified text gate flips, not on re-render", async () => {
+    const tile = makeTile();
+    tile.content = { type: ContentType.TEXT, text: "" } as Tile["content"];
+    const store = makeStore(tile);
+    const layout: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
+    const { wrapper } = await mountGridTile(store, layout);
+    const loads = vi.mocked(getContentComponent);
+    const initialLoads = loads.mock.calls.length;
+
+    // Parent re-renders hand the tile fresh objects; that alone must not
+    // remount the content (it would drop an in-progress edit session).
+    await wrapper.setProps({ tile: { ...tile }, layout: { ...layout } });
+    await flushPromises();
+    expect(loads.mock.calls.length).toBe(initialLoads);
+
+    earlyAccessEnrolled.value = true;
+    unifiedTextFlagOn.value = true;
+    await flushPromises();
+    expect(loads.mock.calls.length).toBe(initialLoads + 1);
+
+    earlyAccessEnrolled.value = false;
+    unifiedTextFlagOn.value = false;
+    await flushPromises();
     wrapper.unmount();
   });
 

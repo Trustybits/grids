@@ -1,0 +1,121 @@
+// Styles for content rendered *inside* ProseMirror by the shared rich-text
+// schema (extensions/tiptap/richTextExtensions.ts): smart buttons, tables and
+// the block drag handle. Global because ProseMirror renders these nodes
+// outside any component's scoped-style boundary, and every text tile can hold
+// them, whichever component renders it.
+
+a[data-smart-button="true"].smart-button {
+  display: inline-block;
+  appearance: none;
+  border: 1px solid var(--color-tile-stroke);
+  border-radius: 9999px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+a[data-smart-button="true"].smart-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ── Table styles ── */
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0;
+  table-layout: fixed;
+  overflow: hidden;
+}
+
+.ProseMirror th,
+.ProseMirror td {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 6px 8px;
+  vertical-align: top;
+  position: relative;
+  min-width: 1em;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.ProseMirror th {
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+}
+
+.ProseMirror td {
+  background: transparent;
+}
+
+.ProseMirror th > p,
+.ProseMirror td > p {
+  margin: 0;
+}
+
+.ProseMirror .selectedCell {
+  background: rgba(100, 150, 255, 0.15);
+}
+
+.ProseMirror .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: -2px;
+  width: 4px;
+  background: rgba(100, 160, 255, 0.6);
+  pointer-events: none;
+  z-index: 20;
+}
+
+.ProseMirror.resize-cursor {
+  cursor: col-resize !important;
+}
+
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+/* ── Drag handle ── */
+.drag-handle {
+  position: absolute;
+  left: -20px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.2);
+  cursor: grab;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+  z-index: 5;
+  user-select: none;
+}
+
+.drag-handle.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drag-handle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-handle-dragging {
+  opacity: 0.4;
+}

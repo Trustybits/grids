@@ -48,6 +48,12 @@ export const MAX_TILE_UNITS = 10;
  * Griddle's 12px movement threshold and arms a tile drag — Griddle then
  * captures the pointer and the message history can never be scrolled. Ignoring
  * the container leaves the vertical pan to the browser's native scroll.
+ *
+ * `.ProseMirror[contenteditable="true"]` matches rich text only while its tile
+ * is in edit mode (the editor is `contenteditable="false"` otherwise), so text
+ * stays a drag origin at rest but a press-and-drag inside an open editor
+ * selects text instead of moving the tile. `Tile.vue` already treats an
+ * editing tile as non-draggable; this hands that rule to the engine.
  */
 export const DEFAULT_DRAG_IGNORE_FROM =
   [
@@ -68,6 +74,7 @@ export const DEFAULT_DRAG_IGNORE_FROM =
     ".map-canvas.is-interactive",
     ".image-wrapper.crop-active",
     ".video-wrapper.crop-active",
+    '.ProseMirror[contenteditable="true"]',
   ].join(", ");
 
 /** Resolved per-tile capabilities handed to the Griddle engine. */

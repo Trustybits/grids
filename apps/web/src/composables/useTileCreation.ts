@@ -1,10 +1,12 @@
 import { computed, markRaw, type Component } from "vue";
-import { ContentType } from "@grids/contracts/types";
+import { ContentType, type SuggestionAction } from "@grids/contracts/types";
 import { createTileContent } from "@/utils/TileUtils";
+import { getTileDefinition } from "@/registries/tileRegistry";
 import { useGridController } from "@/controllers/useGridController";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useTileInput } from "@/composables/useTileInput";
 import { useFeatureFlags, FEATURE_FLAGS } from "@/composables/useFeatureFlags";
+import { useMobileExperience } from "@/composables/useMobileExperience";
 import { isValidLink, isValidEmbed } from "@/utils/UrlValidation";
 import TextLegacyIcon from "@/components/icons/appbar/TextLegacyIcon.vue";
 import AppBarTextIcon from "@/components/icons/appbar/TextIcon.vue";
@@ -37,6 +39,8 @@ export interface TileTypeDescriptor {
   contentType?: ContentType;
   /** Optional feature flag gating visibility (mirrors GridToolbar). */
   flag?: string;
+  /** Hidden for users on the unified text editor, which replaces it. */
+  retiredByUnifiedText?: boolean;
 }
 
 // Order mirrors the Figma "New Tile Carousel" (1497-9533).
@@ -120,8 +124,23 @@ const ALL_TILE_TYPES: readonly TileTypeDescriptor[] = [
     kind: "create",
     contentType: ContentType.SMART_TEXT,
     flag: FEATURE_FLAGS.EDITOR_SMART_TEXT,
+    retiredByUnifiedText: true,
   },
 ];
+
+/**
+ * What a dropped card becomes for types that need a URL or file before their
+ * real tile can exist: the grid's own fill-in placeholder — the same kind of
+ * "Add Link" tile a new grid starts with — which the owner completes on the
+ * tile itself, and which visitors never see.
+ */
+const DROP_PLACEHOLDERS: Partial<
+  Record<string, { action: SuggestionAction; label: string }>
+> = {
+  link: { action: "link", label: "Add Link" },
+  embed: { action: "embed", label: "Add Embed" },
+  image: { action: "media", label: "Add Image / Video" },
+};
 
 /** Text/Smart Text tiles get auto-focused so the user can type immediately. */
 const AUTO_FOCUS_TYPES = new Set<ContentType>([
@@ -147,9 +166,14 @@ export const useTileCreation = () => {
   const uiStore = useGridUiStore();
   const { submitLink, submitEmbed } = useTileInput();
   const { isEnabled } = useFeatureFlags();
+  const { isUnifiedText } = useMobileExperience();
 
   const tileTypes = computed(() =>
-    ALL_TILE_TYPES.filter((type) => !type.flag || isEnabled(type.flag)),
+    ALL_TILE_TYPES.filter(
+      (type) =>
+        (!type.flag || isEnabled(type.flag)) &&
+        !(type.retiredByUnifiedText && isUnifiedText.value),
+    ),
   );
 
   const filterTileTypes = (query: string): TileTypeDescriptor[] =>
@@ -179,6 +203,19 @@ export const useTileCreation = () => {
     return descriptor ? { type: descriptor.id, rest: parts[2] } : null;
   };
 
+  /**
+   * The cells a type's tile takes when added — what a dragged card shrinks to
+   * over the grid. Types whose content type is only known once there is a file
+   * or URL use the registry's standard 2x2, as the add itself would.
+   */
+  const tileFootprint = (id: string): { w: number; h: number } => {
+    const descriptor = tileTypes.value.find((type) => type.id === id);
+    const size = descriptor?.contentType
+      ? getTileDefinition(descriptor.contentType)?.defaultSize
+      : undefined;
+    return { w: size?.w ?? 2, h: size?.h ?? 2 };
+  };
+
   const createTile = (
     contentType: ContentType,
     options: Record<string, unknown> = {},
@@ -189,6 +226,25 @@ export const useTileCreation = () => {
       uiStore.setPendingFocusTileId(tileId);
     }
     return tileId;
+  };
+
+  /**
+   * Adds the tile a card dropped on the grid stands for, straight away — even
+   * for types that would otherwise ask for something first. Link, Embed and
+   * Image land as fill-in placeholders (see DROP_PLACEHOLDERS) and a map
+   * starts at the current location. Returns null for a type that cannot exist
+   * without its input (Document), so the caller can ask for it instead.
+   */
+  const createDroppedTile = (id: string): string | null => {
+    const descriptor = tileTypes.value.find((type) => type.id === id);
+    if (!descriptor) return null;
+    if (descriptor.kind === "create" && descriptor.contentType) {
+      return createTile(descriptor.contentType);
+    }
+    const placeholder = DROP_PLACEHOLDERS[id];
+    if (placeholder) return createTile(ContentType.SUGGESTION, placeholder);
+    if (id === "map") return createTile(ContentType.MAP);
+    return null;
   };
 
   /**
@@ -265,7 +321,9 @@ export const useTileCreation = () => {
     tileTypes,
     filterTileTypes,
     matchCommandPrefix,
+    tileFootprint,
     createTile,
+    createDroppedTile,
     submitCommand,
   };
 };

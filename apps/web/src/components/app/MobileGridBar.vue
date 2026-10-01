@@ -58,8 +58,18 @@
       <div
         v-if="mode === 'edit' && editTile && isMobileDevice"
         class="mgb-settings-panel"
+        :class="{ 'mgb-settings-panel--format': textEditingEditor }"
       >
-        <MobileTileEditSheet :tile="editTile" />
+        <!-- While a unified text tile is being typed in, formatting takes the
+             sheet's place: this surface already rests on the keyboard. -->
+        <DockedFormatBar
+          v-if="textEditingEditor"
+          inline
+          active
+          :editor="textEditingEditor"
+          @edit-link="(href) => editHandle?.childComponent.value?.editLink?.(href)"
+        />
+        <MobileTileEditSheet v-else :tile="editTile" />
       </div>
     </transition>
 
@@ -89,12 +99,18 @@
       <div
         v-if="mode === 'add' && viewMode === 'carousel'"
         class="mobile-grid-bar__panel"
+        :class="{ 'is-carrying': carrying && dragGhost.armed }"
       >
         <MobileTileCarousel
+          ref="carouselRef"
           :types="filteredTypes"
           :selected-id="activeType"
+          :lifted-id="liftedId"
           @select="onSelectType"
           @focus-type="onFocusType"
+          @lift-start="onLiftStart"
+          @lift-move="onLiftMove"
+          @lift-end="onLiftEnd"
         />
       </div>
     </transition>
@@ -299,7 +315,18 @@
       accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
       multiple
       @change.stop="onDocumentFiles"
+      @cancel="onFilePickerCancel"
     />
+
+    <!-- The card being carried from the carousel to the grid. On <body> so no
+         ancestor's transform or overflow can clip or offset it. -->
+    <Teleport to="body">
+      <MobileTileDragGhost
+        v-if="dragGhost.visible"
+        :ghost="dragGhost"
+        :icon="dragGhostIcon"
+      />
+    </Teleport>
   </div>
 </template>
 
@@ -315,10 +342,17 @@ import {
 } from "vue";
 import MobileCommandBar from "@/components/ui-collections/MobileCommandBar.vue";
 import MobileCommandInput from "@/components/app/MobileCommandInput.vue";
-import MobileTileCarousel from "@/components/app/MobileTileCarousel.vue";
+import MobileTileCarousel, {
+  type CarouselLiftCard,
+  type CarouselLiftPoint,
+} from "@/components/app/MobileTileCarousel.vue";
+import MobileTileDragGhost from "@/components/app/MobileTileDragGhost.vue";
 import MobileTileListSheet from "@/components/app/MobileTileListSheet.vue";
 import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vue";
 import MobileTileEditSheet from "@/components/app/MobileTileEditSheet.vue";
+import DockedFormatBar from "@/components/richtext/DockedFormatBar.vue";
+import { useKeyboardInset } from "@/composables/useKeyboardInset";
+import { isRichTextContentType } from "@grids/contracts/types";
 import MobileColorPicker from "@/components/app/MobileColorPicker.vue";
 import MobileImageSwapSheet from "@/components/app/MobileImageSwapSheet.vue";
 import AddTileIcon from "@/components/icons/AddTileIcon.vue";
@@ -333,6 +367,9 @@ import Divider from "@/components/ui-elements/Divider.vue";
 import { isApplePlatform } from "@/utils/Platform";
 import { useToastStore } from "@/stores/toast";
 import { useTileCreation } from "@/composables/useTileCreation";
+import { useTileDragToAdd } from "@/composables/useTileDragToAdd";
+import { getTileDropTarget } from "@/composables/useTileDropTarget";
+import { useGridController } from "@/controllers/useGridController";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useGridSettings } from "@/composables/useGridSettings";
 import { useGridPreview } from "@/composables/useGridPreview";
@@ -390,8 +427,16 @@ const TYPE_PROMPTS: Record<string, string> = {
 };
 
 const toastStore = useToastStore();
-const { tileTypes, filterTileTypes, matchCommandPrefix, createTile, submitCommand } =
-  useTileCreation();
+const {
+  tileTypes,
+  filterTileTypes,
+  matchCommandPrefix,
+  tileFootprint,
+  createTile,
+  createDroppedTile,
+  submitCommand,
+} = useTileCreation();
+const gridController = useGridController();
 const { uploadFileOptimistic, uploadDocumentsOptimistic } = useFileUpload();
 const {
   backgroundColor,
@@ -408,7 +453,18 @@ const { editTileId, editTile, closeEdit, query: editQuery, handle: editHandle } 
   useMobileTileEdit();
 // The sheet is the mobile presentation of `/EDIT`; on the desktop chrome the
 // tile keeps its own toolbars and only the pill input renders.
-const { isMobileDevice } = useMobileExperience();
+const { isMobileDevice, isUnifiedText } = useMobileExperience();
+
+// The live editor of a unified text tile while its owner is typing in it.
+// The keyboard is up, so the sheet gives way to the formatting bar.
+const textEditingEditor = computed(() => {
+  const tile = editTile.value;
+  const tileHandle = editHandle.value;
+  if (!isUnifiedText.value || !tile || !tileHandle) return undefined;
+  if (!isRichTextContentType(tile.content.type)) return undefined;
+  if (!tileHandle.isEditing.value) return undefined;
+  return tileHandle.childComponent.value?.editor;
+});
 const editGridView = proxyRefs(useGridViewContext());
 
 // Enter in the `/EDIT` input executes the first control matching the typed
@@ -482,7 +538,7 @@ const shareIcon = isApplePlatform() ? ShareAppleIcon : ShareDefaultIcon;
 // On-screen keyboard height (0 when closed). The bar normally floats 8px above
 // the viewport bottom, but when a soft keyboard opens it rests flush on top of
 // it so the `/TILE` · `/GRID` input is never hidden.
-const keyboardInset = ref(0);
+const { keyboardInset } = useKeyboardInset();
 const barStyle = computed(() => ({
   bottom:
     keyboardInset.value > 0
@@ -847,6 +903,8 @@ const onSelectType = (id: string) => {
   const descriptor = tileTypes.value.find((type) => type.id === id);
   if (!descriptor) return;
 
+  // Tapping a card supersedes a card still held on the grid from a drop.
+  if (liftedId.value) flyHome();
   activeType.value = descriptor.id;
 
   if (descriptor.kind === "create" && descriptor.contentType) {
@@ -875,17 +933,168 @@ const onSubmit = async (value: string) => {
 // Two backspaces on an empty field un-pin the active command type (chip reverts
 // to `/TILE`) rather than closing the whole surface.
 const onUnpin = () => {
-  if (activeType.value) activeType.value = null;
+  if (!activeType.value) return;
+  activeType.value = null;
+  // Un-pinning the type also gives back the cell it was holding.
+  if (liftedId.value) flyHome();
 };
+
+// ── Drag a card onto the grid ────────────────────────────────────────────────
+// Pulling a card up out of the carousel lifts it (see MobileTileCarousel); the
+// card is then carried over the grid, which opens a cell under it, and letting
+// go drops the tile into that cell. Every type becomes its tile as the card
+// lands (see useTileCreation.createDroppedTile) except Document, which keeps
+// the cell held — the card sits in it — while the file picker is open;
+// `addTile` then fills the held cell (see GridController.reserveTilePlacement).
+// Letting go anywhere else, or abandoning the add, flies the card home.
+const carouselRef = ref<InstanceType<typeof MobileTileCarousel> | null>(null);
+/** The type whose card is out of the carousel — carried, or held on the grid. */
+const liftedId = ref<string | null>(null);
+/**
+ * The card is on the finger. Once it is pulled clear (`dragGhost.armed`) the
+ * fan steps aside so the grid shows.
+ */
+const carrying = ref(false);
+
+const pillRect = (): DOMRect | null =>
+  (pillRef.value?.$el as HTMLElement | undefined)?.getBoundingClientRect() ??
+  null;
+
+const {
+  ghost: dragGhost,
+  begin: beginCarry,
+  move: moveCarry,
+  drop: dropCarry,
+  dock: dockCarry,
+  returnHome: returnCarry,
+  dismiss: dismissCarry,
+} = useTileDragToAdd({ barRect: pillRect });
+
+const dragGhostIcon = computed(
+  () =>
+    tileTypes.value.find((type) => type.id === dragGhost.typeId)?.icon ??
+    AddTileIcon,
+);
+
+/** Give the held cell back and let the grid settle. */
+const releaseDropSlot = () => {
+  gridController.reserveTilePlacement(null);
+  getTileDropTarget()?.release();
+};
+
+/** Abandon the drop: the card flies back into its place in the fan. */
+const flyHome = () => {
+  const id = liftedId.value;
+  releaseDropSlot();
+  if (!id) return;
+  returnCarry(
+    () => carouselRef.value?.cardRect(id) ?? null,
+    () => {
+      if (liftedId.value === id) liftedId.value = null;
+    },
+  );
+};
+
+/** The tile now exists in the held cell: reveal it and let the card go. */
+const completeDrop = () => {
+  releaseDropSlot();
+  dismissCarry();
+  liftedId.value = null;
+};
+
+const onLiftStart = (
+  id: string,
+  point: CarouselLiftPoint,
+  card: CarouselLiftCard,
+) => {
+  // A new lift replaces a card still held on the grid from the last one.
+  releaseDropSlot();
+  liftedId.value = id;
+  activeType.value = id;
+  carrying.value = true;
+  beginCarry(
+    id,
+    point,
+    card.rect,
+    tileFootprint(id),
+    card.radius,
+    card.grab,
+  );
+};
+
+const onLiftMove = (point: CarouselLiftPoint) => {
+  moveCarry(point);
+};
+
+const onLiftEnd = (point: CarouselLiftPoint, cancelled: boolean) => {
+  carrying.value = false;
+  moveCarry(point);
+  const descriptor = tileTypes.value.find((type) => type.id === liftedId.value);
+  // Never pulled clear of the fan: still being picked up, so it goes back.
+  if (cancelled || !descriptor || !dragGhost.armed) {
+    flyHome();
+    return;
+  }
+
+  const { placement, hadTarget } = dropCarry();
+  if (!placement) {
+    // An empty grid renders nothing to aim at, so a drop anywhere above the
+    // bar there is simply an add, placed as a tap would place it.
+    if (!hadTarget && point.y < (pillRect()?.top ?? window.innerHeight)) {
+      completeDrop();
+      onSelectType(descriptor.id);
+      return;
+    }
+    flyHome();
+    return;
+  }
+
+  gridController.reserveTilePlacement(placement);
+
+  // A dropped card becomes its tile immediately — Link / Embed / Image as a
+  // fill-in placeholder, Map at the current location — created now, while the
+  // grid is still holding the cell, and shown when the card has settled into
+  // it and the grid lets go.
+  if (descriptor.id !== "document") {
+    if (!createDroppedTile(descriptor.id)) {
+      flyHome();
+      return;
+    }
+    dockCarry(() => closeAdd());
+    return;
+  }
+
+  // A document tile cannot exist without its files, so the cell stays held
+  // while the picker is open. Opened inside the release gesture, which is what
+  // allows the browser to show it.
+  dockCarry();
+  documentInput.value?.click();
+};
+
+const onFilePickerCancel = () => {
+  if (liftedId.value) flyHome();
+};
+
+// Leaving the add surface by any route (closing, a created tile, tapping a
+// tile to edit it) ends a drop: whatever the held cell was for has happened or
+// been abandoned.
+watch(mode, (next) => {
+  if (next === "add") return;
+  carrying.value = false;
+  if (liftedId.value) completeDrop();
+});
 
 const onImageFile = async (event: Event) => {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   input.value = "";
   if (!file) return;
+  // Started before closing, so the tile is added (synchronously, into any
+  // held cell) before closing gives that cell back.
+  const upload = uploadFileOptimistic(file);
   closeAdd();
   try {
-    await uploadFileOptimistic(file);
+    await upload;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     toastStore.addToast(`Failed to upload file: ${message}`, "error");
@@ -897,9 +1106,10 @@ const onDocumentFiles = async (event: Event) => {
   const files = Array.from(input.files || []);
   input.value = "";
   if (!files.length) return;
+  const upload = uploadDocumentsOptimistic(files);
   closeAdd();
   try {
-    await uploadDocumentsOptimistic(files);
+    await upload;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     toastStore.addToast(`Failed to upload documents: ${message}`, "error");
@@ -933,42 +1143,13 @@ const handleKeydown = (event: KeyboardEvent) => {
   else if (mode.value === "edit") closeEdit();
 };
 
-/**
- * Smallest visual-viewport gap taken to be a keyboard. The gap is a difference
- * of fractional CSS pixel values, so it sits slightly off zero even with
- * nothing open — a fraction of a pixel on a device, a couple of whole pixels
- * under a scaled device emulator. Treating any gap at all as a keyboard let
- * that noise pull the bar down to rest "flush" on a keyboard that wasn't there.
- * No real keyboard — or even a bare keyboard accessory bar — is this short.
- */
-const MIN_KEYBOARD_INSET = 40;
-
-// Track the soft-keyboard height via the visual viewport: the gap between the
-// layout viewport bottom and the (shrunken) visual viewport bottom is the
-// keyboard's height. 0 when the keyboard is closed or on desktop.
-const updateKeyboardInset = () => {
-  const vv = window.visualViewport;
-  if (!vv) {
-    keyboardInset.value = 0;
-    return;
-  }
-  const gap = window.innerHeight - vv.height - vv.offsetTop;
-  // Rounded so a fractional gap cannot end up as a `bottom: 2.99988px`.
-  keyboardInset.value = gap >= MIN_KEYBOARD_INSET ? Math.round(gap) : 0;
-};
-
 onMounted(() => {
   document.addEventListener("pointerdown", handlePointerDown);
   document.addEventListener("keydown", handleKeydown);
-  window.visualViewport?.addEventListener("resize", updateKeyboardInset);
-  window.visualViewport?.addEventListener("scroll", updateKeyboardInset);
-  updateKeyboardInset();
 });
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", handlePointerDown);
   document.removeEventListener("keydown", handleKeydown);
-  window.visualViewport?.removeEventListener("resize", updateKeyboardInset);
-  window.visualViewport?.removeEventListener("scroll", updateKeyboardInset);
 });
 </script>
 
@@ -1075,6 +1256,13 @@ onBeforeUnmount(() => {
   margin: 0 auto;
 }
 
+// The formatting bar joins the `/EDIT` pill below it the way a sheet does.
+.mgb-settings-panel--format :deep(.rt-docked-bar) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: none;
+}
+
 .mgb-pill.mgb-pill--settings,
 .mgb-pill.mgb-pill--color,
 .mgb-pill.mgb-pill--image,
@@ -1152,6 +1340,20 @@ onBeforeUnmount(() => {
 .mgb-btn--sm {
   width: 32px;
   height: 32px;
+}
+
+// While a card is carried, the fan sinks back behind the bar so the grid it is
+// being dropped onto shows through. Opacity only — the track keeps the
+// gesture's pointer capture, so it has to stay mounted and laid out.
+.mobile-grid-bar__panel {
+  transition:
+    opacity var(--duration-slow) var(--easing-gentle),
+    translate var(--duration-slow) var(--easing-gentle);
+
+  &.is-carrying {
+    opacity: 0;
+    translate: 0 40%;
+  }
 }
 
 // The coverflow has no surface of its own, so the fan reads as sitting on the

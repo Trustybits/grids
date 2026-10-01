@@ -136,7 +136,10 @@ export function useResponsiveGridLayout({
   });
 
   const viewportBreakpoint = computed<Breakpoint>(() =>
-    columnCountToBreakpoint(viewportColumnCount.value),
+    columnCountToBreakpoint(
+      viewportColumnCount.value,
+      toValue(baseColumnCount),
+    ),
   );
 
   const activeBreakpoint = computed<Breakpoint>(

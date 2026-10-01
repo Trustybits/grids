@@ -74,6 +74,47 @@ describe("GridSettingsController", () => {
       expect(scheduleSave).toHaveBeenCalledTimes(1);
     });
 
+    it("setColumnCount widens the grid without moving tiles", () => {
+      const grid = seedGrid([makeLinkTile({ i: "a", x: 10, y: 0, w: 2 })]);
+      controller.setColumnCount(16);
+      expect(grid.colNum).toBe(16);
+      expect(grid.tiles[0]).toMatchObject({ x: 10, y: 0, w: 2, h: 2 });
+      expect(pushUndoSnapshot).toHaveBeenCalledWith("Change grid columns");
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("setColumnCount reflows only tiles that no longer fit", () => {
+      const grid = seedGrid([
+        makeLinkTile({ i: "keep", x: 0, y: 0, w: 2, h: 2 }),
+        makeLinkTile({ i: "moved", x: 10, y: 0, w: 2, h: 2 }),
+        makeLinkTile({ i: "wide", x: 0, y: 2, w: 10, h: 2 }),
+      ]);
+      controller.setColumnCount(8);
+      expect(grid.colNum).toBe(8);
+      const byId = Object.fromEntries(grid.tiles.map((t) => [t.i, t]));
+      expect(byId.keep).toMatchObject({ x: 0, y: 0, w: 2, h: 2 });
+      expect(byId.moved.x + byId.moved.w).toBeLessThanOrEqual(8);
+      expect(byId.wide.w).toBe(8);
+      for (const tile of grid.tiles) {
+        expect(tile.x + tile.w).toBeLessThanOrEqual(8);
+      }
+    });
+
+    it("setColumnCount clamps to the supported range", () => {
+      const grid = seedGrid();
+      controller.setColumnCount(40);
+      expect(grid.colNum).toBe(16);
+      controller.setColumnCount(2);
+      expect(grid.colNum).toBe(8);
+    });
+
+    it("setColumnCount is a no-op when the count is unchanged", () => {
+      seedGrid();
+      controller.setColumnCount(12);
+      expect(pushUndoSnapshot).not.toHaveBeenCalled();
+      expect(scheduleSave).not.toHaveBeenCalled();
+    });
+
     it("setGridTheme captures history and updates the theme id", () => {
       const grid = seedGrid();
       controller.setGridTheme("theme-b");

@@ -3,6 +3,11 @@ import {
   type Grid,
   type LinkContent,
 } from "@grids/contracts/types";
+import { reflowTiles } from "@griddle/core";
+import {
+  clampGridColumnCount,
+  DEFAULT_GRID_COLUMNS,
+} from "@/utils/GridLayoutUtils";
 import type { UpdateCaptionInput } from "../GridCommands";
 import type { GridControllerStores } from "../GridControllerTypes";
 
@@ -18,6 +23,45 @@ export class GridSettingsController {
       captureHistory: "Set gravity",
       mutate: (grid) => {
         grid.verticalCompact = value;
+      },
+    });
+  }
+
+  /**
+   * Change the desktop column count. Tiles that no longer fit are moved (and,
+   * if wider than the grid, scaled down) by Griddle's `griddle-v1` reflow,
+   * which leaves every tile that still fits exactly where it was. Tablet and
+   * mobile breakpoint overrides live in their own fixed column spaces and are
+   * untouched.
+   */
+  setColumnCount(value: number): void {
+    const columns = clampGridColumnCount(value);
+    this.runGridCommand({
+      validate: (grid) => (grid.colNum || DEFAULT_GRID_COLUMNS) !== columns,
+      captureHistory: "Change grid columns",
+      mutate: (grid) => {
+        const reflowed = reflowTiles(
+          grid.tiles.map((tile) => ({
+            id: tile.i,
+            col: tile.x,
+            row: tile.y,
+            w: tile.w,
+            h: tile.h,
+          })),
+          { cols: columns, strategy: "griddle-v1" },
+        );
+        const geometryById = new Map(
+          reflowed.map((tile) => [tile.id, tile]),
+        );
+        for (const tile of grid.tiles) {
+          const geometry = geometryById.get(tile.i);
+          if (!geometry) continue;
+          tile.x = geometry.col;
+          tile.y = geometry.row;
+          tile.w = geometry.w;
+          tile.h = geometry.h;
+        }
+        grid.colNum = columns;
       },
     });
   }

@@ -13,6 +13,7 @@ import { useGridTransfers } from "@/composables/useGridTransfers";
 import { useGridDuplicateStorage } from "@/composables/useGridDuplicateStorage";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { describeCallableError } from "@/utils/CallableError";
+import { DEFAULT_GRID_COLUMNS } from "@/utils/GridLayoutUtils";
 import type {
   CopyDepth,
   UploadArchiveDocument,
@@ -148,6 +149,14 @@ export const useGridSettings = () => {
     set: (value: boolean) => {
       if (!canMutateGrid()) return;
       controller.setVerticalCompact(value);
+    },
+  });
+
+  const columnCount = computed({
+    get: () => sessionStore.currentGrid?.colNum || DEFAULT_GRID_COLUMNS,
+    set: (value: number) => {
+      if (!canMutateGrid()) return;
+      controller.setColumnCount(value);
     },
   });
 
@@ -420,6 +429,7 @@ export const useGridSettings = () => {
     isCancellingTransfer,
     // toggles
     verticalCompact,
+    columnCount,
     isDarkMode,
     duplicatable,
     showMetaData,

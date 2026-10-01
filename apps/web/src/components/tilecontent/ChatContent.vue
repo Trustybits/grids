@@ -200,7 +200,11 @@ export default defineComponent({
     let dragStartPos: { x: number; y: number } | null = null;
     const DRAG_THRESHOLD = 5;
 
-    const gridId = computed(() => gridView.grid?.id ?? "");
+    // Messages live under the PUBLIC grid (`grids/{id}/tiles/{tileId}/messages`).
+    // In draft editing `gridView.grid` is the hidden draft, whose id has no
+    // message subcollection — subscribing there shows the owner an empty chat
+    // and strands anything they send in a doc that is deleted on publish.
+    const gridId = computed(() => gridView.publicGridId || "");
 
     const sortedMessages = computed(() =>
       [...messages.value].sort((a, b) => a.createdAt - b.createdAt),

@@ -1387,25 +1387,29 @@ describe('getOrCreateDraft', () => {
     const existing = makeGrid({
       id: 'draft__grid-1',
       draftOf: 'grid-1',
+      draftOfRev: 5,
       status: 'draft',
       rev: 3,
     })
-    mockGridDao.getById.mockResolvedValueOnce(existing)
+    mockGridDao.getById
+      .mockResolvedValueOnce(existing) // draft point read
+      .mockResolvedValueOnce(makeGrid({ id: 'grid-1', rev: 5 })) // original (same baseline)
 
     const service = await getService()
     const result = await service.getOrCreateDraft('grid-1')
 
     expect(result).toEqual(existing)
     expect(mockGridDao.save).not.toHaveBeenCalled()
-    // Only the point read on the draft id — no original fetch needed.
-    expect(mockGridDao.getById).toHaveBeenCalledTimes(1)
+    // A point read on the draft id plus the original, to compare baselines.
+    expect(mockGridDao.getById).toHaveBeenCalledTimes(2)
     expect(mockGridDao.getById).toHaveBeenCalledWith('draft__grid-1')
+    expect(mockGridDao.getById).toHaveBeenCalledWith('grid-1')
   })
 
-  it('creates the draft from the original when none exists', async () => {
+  it('creates the draft from the original when none exists, stamping draftOfRev', async () => {
     mockGridDao.getById
       .mockResolvedValueOnce(null) // draft point read
-      .mockResolvedValueOnce(makeGrid({ id: 'grid-1', name: 'Src' })) // fetchGrid(original)
+      .mockResolvedValueOnce(makeGrid({ id: 'grid-1', name: 'Src', rev: 4 })) // original
     mockGridDao.save.mockResolvedValueOnce(undefined)
 
     const service = await getService()
@@ -1413,8 +1417,116 @@ describe('getOrCreateDraft', () => {
 
     expect(result.id).toBe('draft__grid-1')
     expect(result.draftOf).toBe('grid-1')
+    expect(result.draftOfRev).toBe(4)
     expect(result.status).toBe('draft')
     expect(mockGridDao.save).toHaveBeenCalledWith('draft__grid-1', expect.any(Object), 0)
+    const payload = mockDbUtils.sanitizeValue.mock.calls[0][0] as Record<string, unknown>
+    expect(payload).toMatchObject({ draftOf: 'grid-1', draftOfRev: 4 })
+  })
+
+  it('re-bases a stale draft in place when the original has advanced past its baseline', async () => {
+    // Draft taken at original rev 5; original has since been edited directly
+    // (e.g. draft/publish toggled off) up to rev 7 with different content.
+    const stale = makeGrid({
+      id: 'draft__grid-1',
+      draftOf: 'grid-1',
+      draftOfRev: 5,
+      status: 'draft',
+      rev: 13,
+      name: 'Old name',
+      tiles: [makeTile({ i: 'old-tile' })],
+    })
+    const original = makeGrid({
+      id: 'grid-1',
+      rev: 7,
+      name: 'New name',
+      tiles: [makeTile({ i: 'tile-a' }), makeTile({ i: 'tile-b' })],
+    })
+    mockGridDao.getById
+      .mockResolvedValueOnce(stale)
+      .mockResolvedValueOnce(original)
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    const result = await service.getOrCreateDraft('grid-1')
+
+    // Content now mirrors the original and the baseline is refreshed.
+    expect(result.id).toBe('draft__grid-1')
+    expect(result.name).toBe('New name')
+    expect(result.tiles.map((t) => t.i)).toEqual(['tile-a', 'tile-b'])
+    expect(result.draftOfRev).toBe(7)
+    expect(result.status).toBe('draft')
+    // Replaced in place: the guarded save expects the stale draft's own rev.
+    expect(mockGridDao.save).toHaveBeenCalledWith('draft__grid-1', expect.any(Object), 13)
+    expect(result.rev).toBe(14)
+  })
+
+  it('keeps a draft whose baseline matches the original even if the draft has edits', async () => {
+    const edited = makeGrid({
+      id: 'draft__grid-1',
+      draftOf: 'grid-1',
+      draftOfRev: 5,
+      status: 'draft',
+      rev: 9,
+      name: 'Draft edits',
+    })
+    mockGridDao.getById
+      .mockResolvedValueOnce(edited)
+      .mockResolvedValueOnce(makeGrid({ id: 'grid-1', rev: 5, name: 'Live' }))
+
+    const service = await getService()
+    const result = await service.getOrCreateDraft('grid-1')
+
+    expect(result).toEqual(edited)
+    expect(mockGridDao.save).not.toHaveBeenCalled()
+  })
+
+  it('falls back to updatedAt for legacy drafts without draftOfRev', async () => {
+    const legacyStale = makeGrid({
+      id: 'draft__grid-1',
+      draftOf: 'grid-1',
+      status: 'draft',
+      rev: 2,
+      updatedAt: new Date('2026-09-17T00:00:00Z'),
+    })
+    const original = makeGrid({
+      id: 'grid-1',
+      rev: 6,
+      name: 'Newer',
+      updatedAt: new Date('2026-09-30T00:00:00Z'),
+    })
+    mockGridDao.getById
+      .mockResolvedValueOnce(legacyStale)
+      .mockResolvedValueOnce(original)
+    mockGridDao.save.mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    const result = await service.getOrCreateDraft('grid-1')
+
+    expect(result.name).toBe('Newer')
+    expect(result.draftOfRev).toBe(6)
+    expect(mockGridDao.save).toHaveBeenCalledWith('draft__grid-1', expect.any(Object), 2)
+  })
+
+  it('treats a legacy draft as fresh when the original was not saved after it', async () => {
+    const legacy = makeGrid({
+      id: 'draft__grid-1',
+      draftOf: 'grid-1',
+      status: 'draft',
+      rev: 2,
+      updatedAt: new Date('2026-09-30T00:00:00Z'),
+    })
+    mockGridDao.getById
+      .mockResolvedValueOnce(legacy)
+      .mockResolvedValueOnce(
+        makeGrid({ id: 'grid-1', rev: 6, updatedAt: new Date('2026-09-17T00:00:00Z') }),
+      )
+
+    const service = await getService()
+    const result = await service.getOrCreateDraft('grid-1')
+
+    expect(result).toEqual(legacy)
+    expect(mockGridDao.save).not.toHaveBeenCalled()
   })
 
   it('adopts the winner draft when it loses a create race (rev conflict)', async () => {
@@ -1455,8 +1567,8 @@ describe('getOrCreateDraft with an occupied draft id', () => {
     const original = makeGrid({ id: 'grid-1', userId: 'user-1', rev: 2 })
     mockGridDao.getById
       .mockResolvedValueOnce(squatter) // draft__grid-1
+      .mockResolvedValueOnce(original) // fetchGrid(original), read in parallel
       .mockResolvedValueOnce(null) // draft__grid-1__2
-      .mockResolvedValueOnce(original) // fetchGrid(original)
     mockGridDao.save.mockResolvedValueOnce(undefined)
 
     const service = await getService()
@@ -1464,7 +1576,7 @@ describe('getOrCreateDraft with an occupied draft id', () => {
 
     expect(mockGridDao.save).toHaveBeenCalledWith(
       'draft__grid-1__2',
-      expect.objectContaining({ draftOf: 'grid-1', status: 'draft' }),
+      expect.objectContaining({ draftOf: 'grid-1', status: 'draft', draftOfRev: 2 }),
       0,
     )
     expect(result.id).toBe('draft__grid-1__2')
@@ -1473,9 +1585,15 @@ describe('getOrCreateDraft with an occupied draft id', () => {
 
   it('reuses an existing draft in the fallback slot', async () => {
     const squatter = makeGrid({ id: 'draft__grid-1', status: 'published' })
-    const fallback = makeGrid({ id: 'draft__grid-1__2', draftOf: 'grid-1', status: 'draft' })
+    const fallback = makeGrid({
+      id: 'draft__grid-1__2',
+      draftOf: 'grid-1',
+      draftOfRev: 2,
+      status: 'draft',
+    })
     mockGridDao.getById
       .mockResolvedValueOnce(squatter)
+      .mockResolvedValueOnce(makeGrid({ id: 'grid-1', rev: 2 })) // original
       .mockResolvedValueOnce(fallback)
 
     const service = await getService()

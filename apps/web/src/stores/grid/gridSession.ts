@@ -52,6 +52,10 @@ export const useGridSessionStore = defineStore("gridSession", {
     // `publicGridId` collapses to `currentGrid.id` and behavior is unchanged.
     publishedId: null as string | null,
     publishedGrid: null as Grid | null,
+    // Published view: the owner opened their own grid as visitors see it. The
+    // session is read-only (`isOwner` is false so nothing autosaves) and this
+    // flag lets the chrome offer a way back to the editor.
+    isViewingPublished: false,
   }),
 
   getters: {
@@ -108,6 +112,10 @@ export const useGridSessionStore = defineStore("gridSession", {
 
     setOwner(isOwner: boolean) {
       this.isOwner = isOwner;
+    },
+
+    setViewingPublished(value: boolean) {
+      this.isViewingPublished = value;
     },
 
     /**

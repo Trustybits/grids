@@ -131,6 +131,8 @@ function makeSession() {
   return reactive({
     currentGrid: null as Grid | null,
     isOwner: false,
+    isViewingPublished: false,
+    publicGridId: "",
     loadError: null as string | null,
     canEditAtBreakpoint: vi.fn(() => false),
   });
@@ -157,6 +159,7 @@ describe("GridPage route loading", () => {
     holders.route = reactive({
       path: "/grid/grid-1",
       params: { id: "grid-1", slug: undefined },
+      query: {},
     });
     const session = makeSession();
     holders.session = session;
@@ -176,10 +179,50 @@ describe("GridPage route loading", () => {
     await flushPromises();
 
     expect(controller.clearSession).toHaveBeenCalledTimes(1);
-    expect(controller.loadGrid).toHaveBeenCalledWith("grid-1");
+    expect(controller.loadGrid).toHaveBeenCalledWith("grid-1", {
+      viewPublished: false,
+    });
     expect(holders.trackGridEnter).toHaveBeenCalledWith("grid-1");
     expect(wrapper.find(".loading-state").exists()).toBe(false);
     expect(wrapper.find(".background-image-container").exists()).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it("loads the published view from the route query and skips analytics for the owner", async () => {
+    const route = holders.route as {
+      query: Record<string, string>;
+    };
+    route.query = { view: "published" };
+    const session = holders.session as ReturnType<typeof makeSession>;
+    const controller = holders.controller as ReturnType<typeof makeController>;
+    controller.loadGrid.mockImplementation(async (id: string) => {
+      session.currentGrid = makeGrid(id);
+      session.isViewingPublished = true;
+    });
+    const { default: GridPage } = await import("@/pages/GridPage.vue");
+
+    const wrapper = mount(GridPage);
+    await flushPromises();
+
+    expect(controller.loadGrid).toHaveBeenCalledWith("grid-1", {
+      viewPublished: true,
+    });
+    expect(holders.trackGridEnter).not.toHaveBeenCalled();
+    expect(wrapper.find(".background-image-container").exists()).toBe(true);
+
+    // Dropping the query returns to the editor: the route reloads normally.
+    route.query = {};
+    controller.loadGrid.mockImplementation(async (id: string) => {
+      session.currentGrid = makeGrid(id);
+      session.isViewingPublished = false;
+    });
+    await flushPromises();
+
+    expect(controller.loadGrid).toHaveBeenLastCalledWith("grid-1", {
+      viewPublished: false,
+    });
+    expect(holders.trackGridEnter).toHaveBeenCalledWith("grid-1");
 
     wrapper.unmount();
   });
@@ -208,7 +251,9 @@ describe("GridPage route loading", () => {
     route.path = "/grid/grid-2";
     route.params.id = "grid-2";
     await flushPromises();
-    expect(controller.loadGrid).toHaveBeenNthCalledWith(2, "grid-2");
+    expect(controller.loadGrid).toHaveBeenNthCalledWith(2, "grid-2", {
+      viewPublished: false,
+    });
 
     second.resolve();
     await flushPromises();
@@ -229,6 +274,7 @@ describe("GridPage route loading", () => {
     holders.route = reactive({
       path: "/ada",
       params: { id: undefined, slug: "ada" },
+      query: {},
     });
     const session = holders.session as ReturnType<typeof makeSession>;
     const controller = holders.controller as ReturnType<typeof makeController>;
@@ -244,7 +290,9 @@ describe("GridPage route loading", () => {
     await flushPromises();
 
     expect(holders.getSlugData).toHaveBeenCalledWith("ada");
-    expect(controller.loadGrid).toHaveBeenCalledWith("default-grid");
+    expect(controller.loadGrid).toHaveBeenCalledWith("default-grid", {
+      viewPublished: false,
+    });
     expect(holders.trackGridEnter).toHaveBeenCalledWith("default-grid");
     expect(wrapper.find(".background-image-container").exists()).toBe(true);
 
@@ -255,6 +303,7 @@ describe("GridPage route loading", () => {
     holders.route = reactive({
       path: "/missing",
       params: { id: undefined, slug: "missing" },
+      query: {},
     });
     holders.getSlugData.mockResolvedValueOnce(null);
     const { default: GridPage } = await import("@/pages/GridPage.vue");
@@ -273,6 +322,7 @@ describe("GridPage route loading", () => {
     holders.route = reactive({
       path: "/ada",
       params: { id: undefined, slug: "ada" },
+      query: {},
     });
     holders.getSlugData.mockResolvedValueOnce({ defaultGridId: null });
 

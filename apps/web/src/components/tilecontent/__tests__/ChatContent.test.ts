@@ -7,9 +7,29 @@ import ChatContentComponent from "@/components/tilecontent/ChatContent.vue";
 const storeHolder = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
 }));
-const chatHolder = vi.hoisted(() => ({
-  onMessages: null as ((msgs: ChatMessage[]) => void) | null,
-}));
+const chatHolder = vi.hoisted(() => {
+  const holder = {
+    onMessages: null as ((msgs: ChatMessage[]) => void) | null,
+    service: {
+      subscribeToMessages: vi.fn(
+        (
+          _gridId: string,
+          _tileId: string,
+          onMessages: (msgs: ChatMessage[]) => void,
+        ) => {
+          holder.onMessages = onMessages;
+          return () => {
+            holder.onMessages = null;
+          };
+        },
+      ),
+      sendMessage: vi.fn(async () => "new-msg"),
+      editMessage: vi.fn(async () => undefined),
+      deleteMessage: vi.fn(async () => undefined),
+    },
+  };
+  return holder;
+});
 
 vi.mock("@/grid-context/useGridViewContext", () => ({
   useGridViewContext: () => storeHolder.current,
@@ -17,32 +37,18 @@ vi.mock("@/grid-context/useGridViewContext", () => ({
 
 vi.mock("@/services/ServiceFactorySingleton", () => ({
   getServiceFactory: () => ({
-    getChatService: () => ({
-      subscribeToMessages: vi.fn(
-        (
-          _gridId: string,
-          _tileId: string,
-          onMessages: (msgs: ChatMessage[]) => void,
-        ) => {
-          chatHolder.onMessages = onMessages;
-          return () => {
-            chatHolder.onMessages = null;
-          };
-        },
-      ),
-      sendMessage: vi.fn(),
-      editMessage: vi.fn(),
-      deleteMessage: vi.fn(),
-    }),
+    getChatService: () => chatHolder.service,
   }),
 }));
 
-function makeStore() {
+function makeStore(overrides: Record<string, unknown> = {}) {
   return reactive({
     mode: "live",
     canEdit: true,
     isOwner: true,
     grid: { id: "grid-1", userId: "user-1" },
+    publicGridId: "grid-1",
+    ...overrides,
   });
 }
 
@@ -109,6 +115,88 @@ async function mountChat(): Promise<{
   if (!container) throw new Error("messagesContainer did not mount");
   return { wrapper, vm, container };
 }
+
+describe("ChatContent message store identity under draft editing", () => {
+  beforeEach(() => {
+    chatHolder.onMessages = null;
+    chatHolder.service.subscribeToMessages.mockClear();
+    chatHolder.service.sendMessage.mockClear();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((cb: FrameRequestCallback) => {
+        cb(0);
+        return 1;
+      }),
+    );
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("subscribes under the public grid id, not the hidden draft the owner is editing", async () => {
+    // Draft/publish: the open grid is `draft__grid-1`, but the message
+    // subcollection lives under the original `grid-1`. Subscribing to the
+    // draft's id shows the owner an empty history.
+    storeHolder.current = makeStore({
+      grid: { id: "draft__grid-1", userId: "user-1" },
+      publicGridId: "grid-1",
+    });
+
+    const { wrapper } = await mountChat();
+
+    expect(chatHolder.service.subscribeToMessages).toHaveBeenCalledTimes(1);
+    expect(chatHolder.service.subscribeToMessages).toHaveBeenCalledWith(
+      "grid-1",
+      "tile-1",
+      expect.any(Function),
+      expect.any(Function),
+    );
+
+    wrapper.unmount();
+  });
+
+  it("sends new messages to the public grid so they survive the draft being published", async () => {
+    storeHolder.current = makeStore({
+      grid: { id: "draft__grid-1", userId: "user-1" },
+      publicGridId: "grid-1",
+    });
+
+    const { wrapper, container } = await mountChat();
+    // jsdom has no scrollTo; the post-send smooth scroll needs one.
+    fakeScrollGeometry(container, { scrollHeight: 400, clientHeight: 400 });
+    const textarea = wrapper.find("textarea");
+    await textarea.setValue("hello from the editor");
+    await wrapper.find("form").trigger("submit");
+    await flushPromises();
+
+    expect(chatHolder.service.sendMessage).toHaveBeenCalledWith(
+      "grid-1",
+      "tile-1",
+      "hello from the editor",
+    );
+
+    wrapper.unmount();
+  });
+
+  it("uses the grid's own id when not editing a draft", async () => {
+    storeHolder.current = makeStore();
+
+    const { wrapper } = await mountChat();
+
+    expect(chatHolder.service.subscribeToMessages).toHaveBeenCalledWith(
+      "grid-1",
+      "tile-1",
+      expect.any(Function),
+      expect.any(Function),
+    );
+
+    wrapper.unmount();
+  });
+});
 
 describe("ChatContent scroll behaviour on resize", () => {
   beforeEach(() => {

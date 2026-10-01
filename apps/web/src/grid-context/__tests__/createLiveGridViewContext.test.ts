@@ -63,6 +63,10 @@ const rank = (bp: Breakpoint): number =>
 function installStores() {
   const session = reactive({
     currentGrid: makeGrid("grid-1") as Grid | null,
+    publishedId: null as string | null,
+    get publicGridId(): string {
+      return this.publishedId ?? this.currentGrid?.id ?? "";
+    },
     isOwner: true,
     isLoading: false,
     verticalCompact: true,
@@ -224,6 +228,26 @@ describe("createLiveGridViewContext", () => {
     // pendingFocusTileId is read-only; focus writes go through the command.
     ctx.setPendingFocusTileId("tile-3");
     expect(ui.pendingFocusTileId).toBe("tile-3");
+  });
+
+  it("exposes the public grid id, resolving to the original while editing a draft", () => {
+    const { session } = installStores();
+    installController();
+
+    const ctx = createLiveGridViewContext();
+    // Ordinary editing: the open grid is its own public identity.
+    expect(ctx.publicGridId.value).toBe("grid-1");
+
+    // Draft editing: currentGrid is the hidden draft, but the public identity
+    // (and every per-grid subcollection keyed by it) stays the original.
+    session.currentGrid = makeGrid("draft__grid-1");
+    session.publishedId = "grid-1";
+    expect(ctx.grid.value?.id).toBe("draft__grid-1");
+    expect(ctx.publicGridId.value).toBe("grid-1");
+
+    session.publishedId = null;
+    session.currentGrid = null;
+    expect(ctx.publicGridId.value).toBe("");
   });
 
   it("derives canEdit as view-only when forced beyond the viewport", () => {

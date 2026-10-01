@@ -10,6 +10,7 @@ import {
 import {
   ContentType,
   type ChatContent,
+  type DocumentItem,
   type SuggestionAction,
 } from "@grids/contracts/types";
 import {
@@ -29,7 +30,6 @@ import {
 import { createTile, createTileContent } from "@/utils/TileUtils";
 import { stripBlobUrlsFromTiles } from "@/utils/GridPersistenceUtils";
 import { v4 as uuidv4 } from "uuid";
-import heroGif from "@/assets/images/hero.gif";
 import type { GridServiceInterface } from "./interfaces/GridServiceInterface";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -62,163 +62,182 @@ const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
   }
 };
 
-const createTextDoc = (lines: string[]) => {
-  const parseInlineMarkdown = (text: string) => {
-    const nodes: Array<{
-      type: string;
-      text?: string;
-      marks?: Array<{ type: string }>;
-    }> = [];
-    const regex = /(\*|_)([^*_]+?)\1/;
-    let remaining = text;
+// ── Starter grid ────────────────────────────────────────────────────────
+//
+// Every new account's first grid is a copy of the tutorial grid
+// (grids.so/grid/Bh34nAGEgvlubksnEOMS). Its media are shared static files —
+// the hero GIF and the docs in `public/starter/` — so each new grid stores the
+// same URL instead of uploading its own copy to the user's Storage. They live
+// in `public/` rather than being imported so the URL has no build hash and
+// keeps working for existing grids if a file is ever updated.
+// Items carry no `hash`, so refCount/quota/duplication skip them (see
+// GridStorageReferences), and the PDF ships a pre-rendered `thumbnailUrl` so
+// DocumentsContent never asks the server to render a per-user thumbnail.
 
-    while (remaining.length > 0) {
-      const match = regex.exec(remaining);
-      if (!match) {
-        if (remaining) {
-          nodes.push({ type: "text", text: remaining });
-        }
-        break;
-      }
+// "How to Build Your First Grid (Walkthrough)" on the Grids App channel.
+export const STARTER_VIDEO_EMBED_URL =
+  "https://www.youtube.com/embed/5L_cA92tI8Y";
 
-      const [fullMatch, , italicText] = match;
-      const matchIndex = match.index;
-      if (matchIndex > 0) {
-        nodes.push({ type: "text", text: remaining.slice(0, matchIndex) });
-      }
-      nodes.push({
-        type: "text",
-        text: italicText,
-        marks: [{ type: "italic" }],
-      });
-      remaining = remaining.slice(matchIndex + fullMatch.length);
-    }
+export const STARTER_HERO_IMAGE_URL = "/starter/hero.gif";
 
-    return nodes;
+// The permanent server invite (same as the site nav); never-expiring.
+export const STARTER_DISCORD_INVITE_URL = "https://discord.gg/DBscN5NUN6";
+
+export const STARTER_DOCUMENT_ITEMS: DocumentItem[] = [
+  {
+    id: "starter-getting-started-pdf",
+    fileName: "grids-getting-started.pdf",
+    mimeType: "application/pdf",
+    url: "/starter/grids-getting-started.pdf",
+    thumbnailUrl: "/starter/grids-getting-started-thumb.png",
+  },
+  {
+    id: "starter-grid-recipes-docx",
+    fileName: "grids-grid-recipes.docx",
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    url: "/starter/grids-grid-recipes.docx",
+  },
+  {
+    id: "starter-sizes-cheatsheet-md",
+    fileName: "grids-sizes-cheatsheet.md",
+    mimeType: "text/markdown",
+    url: "/starter/grids-sizes-cheatsheet.md",
+  },
+];
+
+const text = (value: string) => ({ type: "text", text: value });
+const hardBreak = { type: "hardBreak" };
+
+const STARTER_WELCOME_DOC = JSON.stringify({
+  type: "doc",
+  content: [
+    { type: "heading", attrs: { level: 1 }, content: [text("👋")] },
+    {
+      type: "heading",
+      attrs: { level: 4 },
+      content: [
+        text("Welcome to your Grid."),
+        hardBreak,
+        text(
+          "This page is yours. Every tile on it is a small lesson, and all of it can go.",
+        ),
+        hardBreak,
+        text("Start with the video, then open the documents tile."),
+        hardBreak,
+        hardBreak,
+        text("When you're ready, delete what you don't need and make it yours."),
+      ],
+    },
+    {
+      type: "paragraph",
+      content: [
+        text("Below are some resources to give you a jumpstart."),
+        hardBreak,
+      ],
+    },
+  ],
+});
+
+type StarterTileKey =
+  | "welcome"
+  | "hero"
+  | "video"
+  | "profile"
+  | "chat"
+  | "community"
+  | "documents";
+
+// Tablet (md) and phone (sm) placements from the tutorial grid.
+const STARTER_OVERRIDES: Record<
+  Exclude<Breakpoint, "lg">,
+  Record<StarterTileKey, TilePosition>
+> = {
+  md: {
+    hero: { x: 0, y: 0, w: 2, h: 2 },
+    welcome: { x: 2, y: 0, w: 6, h: 2 },
+    profile: { x: 0, y: 2, w: 3, h: 3 },
+    video: { x: 3, y: 2, w: 5, h: 3 },
+    chat: { x: 0, y: 5, w: 4, h: 3 },
+    community: { x: 4, y: 5, w: 2, h: 3 },
+    documents: { x: 6, y: 5, w: 2, h: 3 },
+  },
+  sm: {
+    welcome: { x: 0, y: 0, w: 4, h: 3 },
+    hero: { x: 0, y: 3, w: 4, h: 3 },
+    video: { x: 0, y: 6, w: 4, h: 3 },
+    profile: { x: 0, y: 9, w: 4, h: 3 },
+    chat: { x: 0, y: 12, w: 4, h: 3 },
+    community: { x: 0, y: 15, w: 2, h: 3 },
+    documents: { x: 2, y: 15, w: 2, h: 3 },
+  },
+};
+
+export interface StarterLayout {
+  tiles: Tile[];
+  overrides: NonNullable<Grid["overrides"]>;
+}
+
+export const createStarterLayout = (): StarterLayout => {
+  const ids = {} as Record<StarterTileKey, string>;
+  const tile = (
+    key: StarterTileKey,
+    type: ContentType,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    contentData: Parameters<typeof createTile>[6],
+    caption = "",
+  ) => {
+    ids[key] = uuidv4();
+    return createTile(type, ids[key], x, y, w, h, contentData, caption);
   };
 
-  const content = lines.flatMap((line) => {
-    if (line.trim() === "") {
-      return [
-        {
-          type: "paragraph",
-          content: [{ type: "hardBreak" }],
-        },
-      ];
-    }
-
-    const headingMatch = /^(#{1,6})\s+(.*)$/.exec(line);
-    if (headingMatch) {
-      const level = headingMatch[1].length;
-      const text = headingMatch[2];
-      return [
-        {
-          type: "heading",
-          attrs: { level },
-          content: text ? [{ type: "text", text }] : [],
-        },
-      ];
-    }
-
-    if (line.trim() === "---") {
-      return [
-        {
-          type: "horizontalRule",
-        },
-      ];
-    }
-
-    const parts = line.split("\n");
-    const paragraphContent = parts.flatMap((part, index) => {
-      const nodes = parseInlineMarkdown(part);
-      if (index < parts.length - 1) {
-        nodes.push({ type: "hardBreak" });
-      }
-      return nodes;
-    });
-
-    return [
-      {
-        type: "paragraph",
-        content: paragraphContent,
-      },
-    ];
-  });
-
-  return JSON.stringify({
-    type: "doc",
-    content,
-  });
-};
-
-export const createStarterTiles = (): Tile[] => {
-  const startX = 0;
-
-  return [
-    createTile(
-      ContentType.SUGGESTION,
-      uuidv4(),
-      startX,
-      6,
-      4,
-      4,
-      { action: "profile", label: "Add Profile" },
-      "",
-    ),
-    createTile(
-      ContentType.IMAGE,
-      uuidv4(),
-      startX + 4,
-      0,
-      5,
-      5,
-      { src: heroGif },
-      "",
-    ),
+  const tiles: Tile[] = [
     {
-      ...createTile(
-        ContentType.TEXT,
-        uuidv4(),
-        startX + 9,
-        0,
-        2,
-        3,
-        {
-          text: createTextDoc([
-            "# 👋",
-            "#### Welcome to grids.so!",
-            "Enjoy your new home.\n\n",
-            "---",
-            "*you can find more tile types below.*👇",
-          ]),
-        },
-        "",
-      ),
+      ...tile("welcome", ContentType.TEXT, 0, 0, 9, 3, {
+        text: STARTER_WELCOME_DOC,
+        backgroundColor: "var(--color-tile-background)",
+      }),
       borderEnabled: false,
     },
-    createTile(
-      ContentType.EMBED,
-      uuidv4(),
-      startX + 9,
-      3,
-      3,
-      2,
-      { src: "https://www.youtube.com/embed/7ccH8u8fj8Y?si=hnB1rbMIsMCWpPO8" },
-      "",
-    ),
-    createTile(ContentType.CHAT, uuidv4(), startX + 4, 5, 3, 4, {}, ""),
-    createTile(
-      ContentType.SUGGESTION,
-      uuidv4(),
-      startX + 7,
-      5,
-      2,
-      2,
-      { action: "link", label: "Add Link" },
-      "",
-    ),
+    tile("hero", ContentType.IMAGE, 9, 0, 3, 3, { src: STARTER_HERO_IMAGE_URL }, "Swap me out."),
+    tile("video", ContentType.EMBED, 0, 3, 5, 4, {
+      src: STARTER_VIDEO_EMBED_URL,
+    }),
+    tile("chat", ContentType.CHAT, 5, 3, 3, 4, {}),
+    tile("profile", ContentType.PROFILE, 8, 3, 4, 4, {}),
+    tile("community", ContentType.LINK, 0, 7, 6, 3, {
+      link: STARTER_DISCORD_INVITE_URL,
+      metaTitle: "Join the grids.so Discord Server!",
+      metaSiteName: "Discord",
+      customTitle: "Join the Grids community",
+      customSubtitle: "@discord.com/grids.so",
+      customDescription:
+        "Get help, share your grid, see what others are building.",
+    }),
+    tile("documents", ContentType.DOCUMENT, 6, 7, 6, 3, {
+      items: STARTER_DOCUMENT_ITEMS.map((item) => ({ ...item })),
+      customTitle: "Start here",
+      customDescription: "Guide, sizes & ideas · 3 files",
+    }),
   ];
+
+  const overrides: StarterLayout["overrides"] = {};
+  for (const [bp, positions] of Object.entries(STARTER_OVERRIDES)) {
+    overrides[bp as Breakpoint] = Object.fromEntries(
+      Object.entries(positions).map(([key, pos]) => [
+        ids[key as StarterTileKey],
+        { ...pos },
+      ]),
+    );
+  }
+
+  return { tiles, overrides };
 };
+
+export const createStarterTiles = (): Tile[] => createStarterLayout().tiles;
 
 // ── GridService ───────────────────────────────────────────────────────
 
@@ -383,12 +402,13 @@ export class GridService implements GridServiceInterface {
   }
 
   // Create a new grid for a user.
-  // Accepts pre-built tiles so the store can inject starter content.
-  // Returns the new grid object with its generated ID.
+  // Accepts pre-built tiles (and their breakpoint overrides) so the store can
+  // inject starter content. Returns the new grid object with its generated ID.
   async createGrid(
     userId: string,
     name: string,
     starterTiles: Grid["tiles"] = [],
+    starterOverrides?: Grid["overrides"],
   ): Promise<Grid> {
     try {
       const newGrid = createDefaultGrid(
@@ -397,6 +417,9 @@ export class GridService implements GridServiceInterface {
         ACTIVE_NEW_GRID_RESPONSIVE_LAYOUT_VERSION,
       );
       newGrid.tiles = starterTiles;
+      if (starterOverrides) {
+        newGrid.overrides = starterOverrides;
+      }
       newGrid.id = this.gridDao.generateId();
 
       await this.saveGrid(newGrid);
@@ -499,7 +522,8 @@ export class GridService implements GridServiceInterface {
     userId: string,
     name: string,
   ): Promise<Grid> {
-    return this.createGrid(userId, name, createStarterTiles());
+    const { tiles, overrides } = createStarterLayout();
+    return this.createGrid(userId, name, tiles, overrides);
   }
 
   // ── Duplication with full clone logic ─────────────────────────────

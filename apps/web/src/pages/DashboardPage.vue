@@ -97,8 +97,8 @@
 
     <SlugClaimModal
       :is-open="showHandlePrompt"
-      @success="showHandlePrompt = false"
-      @skip="showHandlePrompt = false"
+      @success="openStartingGrid"
+      @skip="openStartingGrid"
     />
   </div>
 </template>
@@ -355,6 +355,27 @@ const handleCreateGrid = async (name: string) => {
   } catch (error) {
     console.error("Error creating grid:", error);
   }
+};
+
+/**
+ * After the dashboard handle prompt ("Start designing" or "Skip for now"):
+ * open the grid their handle shows (the default), else their grid, else a
+ * first grid — the same place the sign-in flow takes new accounts.
+ */
+const openStartingGrid = async () => {
+  showHandlePrompt.value = false;
+  if (defaultGridId.value) {
+    router.push(`/grid/${defaultGridId.value}`);
+    return;
+  }
+  // A failed read must not look like "no grids" and create a duplicate.
+  if (!grids.value.length && !(await controller.fetchGrids())) return;
+  const existing = grids.value[0];
+  if (existing) {
+    router.push(`/grid/${existing.id}`);
+    return;
+  }
+  await handleCreateGrid("My First Grid");
 };
 
 const openRenameModal = (grid: Grid) => {

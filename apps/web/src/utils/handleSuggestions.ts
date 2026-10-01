@@ -28,7 +28,8 @@ export function getHandleFormatIssue(handle: string): HandleFormatIssue | null {
 export function toHandle(raw: string, separator: "-" | "" = "-"): string {
   const handle = raw
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    // Drop the accents NFKD split off (e.g. é -> e + U+0301).
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, separator)
     .replace(/-+/g, "-")

@@ -41,7 +41,7 @@
         <h2 ref="successHeading" class="handle-success__title" tabindex="-1">
           grids.so/<span>{{ claimedHandle }}</span> is yours!
         </h2>
-        <p class="handle-success__lead">Time to build your success page.</p>
+        <p class="handle-success__lead">Time to build your page.</p>
 
         <div class="handle-success__actions">
           <button type="button" class="handle-success__primary" @click="finishClaim">
@@ -730,6 +730,14 @@ onBeforeUnmount(() => {
   background-color: var(--color-content-background);
 }
 
+/* BaseModal pads its content box via `.modal-overlay:not(.is-floating)
+   .modal-content`, which outranks the rule above. The card brings its own
+   padding, so match that selector to drop the box's; otherwise the two stack
+   and squeeze the handle field to a sliver on phones. */
+:global(.modal-overlay:not(.is-floating) .modal-content.slug-modal-content) {
+  padding: 0;
+}
+
 @media (max-width: 600px) {
   :deep(.slug-modal-content) {
     width: calc(100% - var(--spacing-md) * 2);
@@ -1274,7 +1282,11 @@ onBeforeUnmount(() => {
   outline: none;
 }
 
+/* Inline-block keeps the handle on one line (moving it below "grids.so/"
+   when needed) instead of splitting it at a hyphen; it only wraps inside
+   when it's wider than the card. */
 .handle-success__title span {
+  display: inline-block;
   color: var(--mkt-brand-300);
 }
 
@@ -1357,6 +1369,14 @@ onBeforeUnmount(() => {
 
   .handle-claim__noun {
     display: none;
+  }
+}
+
+/* Small phones: shrink the fixed "grids.so/" so the typed handle gets the
+   room (about 11 characters at 320px). */
+@media (max-width: 400px) {
+  .handle-input__prefix {
+    font-size: 14px;
   }
 }
 

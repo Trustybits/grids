@@ -112,6 +112,7 @@ export class MockGridService implements GridServiceInterface {
     _userId: string,
     _name: string,
     _starterTiles?: Grid["tiles"],
+    _starterOverrides?: Grid["overrides"],
   ): Promise<Grid> {
     return normalizeMockGrid(mockData);
   }

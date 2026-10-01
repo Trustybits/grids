@@ -386,7 +386,7 @@ export default defineComponent({
     );
 
     // Suggestion tiles are owner-only affordances ("Add Profile", "Add Link"),
-    // but `createStarterTiles()` persists two of them into every new grid — so
+    // but older starter grids persisted two of them into every new grid — so
     // a visitor saw them until the owner replaced them. The OG image renderer
     // already drops them as "internal-only chrome"; this is the client-side
     // half of that rule.

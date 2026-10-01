@@ -905,103 +905,114 @@ describe('createGridWithStarterTiles', () => {
   })
 })
 
-// ── createStarterTiles (+ createTextDoc markdown parsing) ──────────────────
+// ── createStarterLayout ───────────────────────────────────────────────────
 
-describe('createStarterTiles', () => {
-  async function getStarterTiles() {
-    const { createStarterTiles } = await import('@/services/GridService')
-    return createStarterTiles()
+describe('createStarterLayout', () => {
+  async function getStarterLayout() {
+    const { createStarterLayout } = await import('@/services/GridService')
+    return createStarterLayout()
   }
 
-  it('builds the six starter tiles in order with the expected content types', async () => {
-    const tiles = await getStarterTiles()
+  it('builds the tutorial grid tiles in order with the expected content types', async () => {
+    const { tiles } = await getStarterLayout()
 
-    expect(tiles).toHaveLength(6)
     expect(tiles.map((t) => t.content.type)).toEqual([
-      ContentType.SUGGESTION,
-      ContentType.IMAGE,
       ContentType.TEXT,
+      ContentType.IMAGE,
       ContentType.EMBED,
       ContentType.CHAT,
-      ContentType.SUGGESTION,
+      ContentType.PROFILE,
+      ContentType.LINK,
+      ContentType.DOCUMENT,
     ])
   })
 
-  it('wires the image, embed, and suggestion tile content', async () => {
-    const tiles = await getStarterTiles()
+  it('points media at shared static files so new grids never copy uploads', async () => {
+    const { tiles } = await getStarterLayout()
+    const byType = (type: ContentType) =>
+      tiles.find((t) => t.content.type === type)!.content as unknown as Record<string, unknown>
 
-    expect((tiles[0].content as unknown as { action: string }).action).toBe('profile')
-    expect((tiles[1].content as unknown as { src: string }).src).toBe('hero.gif')
-    expect((tiles[3].content as unknown as { src: string }).src).toContain(
-      'youtube.com/embed',
-    )
-    expect((tiles[5].content as unknown as { action: string }).action).toBe('link')
+    expect(byType(ContentType.IMAGE).src).toBe('hero.gif')
+    expect(byType(ContentType.IMAGE).srcHash).toBeUndefined()
+    expect(byType(ContentType.EMBED).src).toContain('youtube.com/embed')
+
+    const items = byType(ContentType.DOCUMENT).items as Array<Record<string, unknown>>
+    expect(items.map((item) => item.fileName)).toEqual([
+      'grids-getting-started.pdf',
+      'grids-grid-recipes.docx',
+      'grids-sizes-cheatsheet.md',
+    ])
+    for (const item of items) {
+      expect(item.url).toMatch(/^\/starter\//)
+      expect(item.hash).toBeUndefined()
+    }
+    // A pre-rendered thumbnail stops the client asking the server to render
+    // (and store) a per-user copy.
+    expect(items[0].thumbnailUrl).toBe('/starter/grids-getting-started-thumb.png')
   })
 
-  it('keeps every starter tile in bounds without overlaps', async () => {
-    const tiles = await getStarterTiles()
+  it('has no archive-backed storage references', async () => {
+    const { extractGridStorageReferences } = await import('@grids/contracts/storage')
+    const { tiles } = await getStarterLayout()
 
-    expect(tiles[3]).toEqual(
-      expect.objectContaining({ x: 9, y: 3, w: 3, h: 2 }),
-    )
+    expect(
+      extractGridStorageReferences({ userId: 'user-1', tiles } as never),
+    ).toEqual([])
+  })
 
-    for (const tile of tiles) {
-      expect(tile.x).toBeGreaterThanOrEqual(0)
-      expect(tile.x + tile.w).toBeLessThanOrEqual(12)
-      expect(tile.y).toBeGreaterThanOrEqual(0)
-    }
+  it('keeps every breakpoint layout in bounds without overlaps', async () => {
+    const { tiles, overrides } = await getStarterLayout()
+    const layouts: Array<[string, number, Array<{ i: string; x: number; y: number; w: number; h: number }>]> = [
+      ['lg', 12, tiles],
+      ['md', 8, Object.entries(overrides.md!).map(([i, pos]) => ({ i, ...pos }))],
+      ['sm', 4, Object.entries(overrides.sm!).map(([i, pos]) => ({ i, ...pos }))],
+    ]
 
-    for (let leftIndex = 0; leftIndex < tiles.length; leftIndex += 1) {
-      const left = tiles[leftIndex]
-      for (
-        let rightIndex = leftIndex + 1;
-        rightIndex < tiles.length;
-        rightIndex += 1
-      ) {
-        const right = tiles[rightIndex]
-        const overlaps =
-          left.x < right.x + right.w &&
-          left.x + left.w > right.x &&
-          left.y < right.y + right.h &&
-          left.y + left.h > right.y
-
-        expect(overlaps, `${left.i} overlaps ${right.i}`).toBe(false)
+    for (const [bp, cols, layout] of layouts) {
+      expect(layout.map((t) => t.i).sort(), bp).toEqual(tiles.map((t) => t.i).sort())
+      for (const tile of layout) {
+        expect(tile.x).toBeGreaterThanOrEqual(0)
+        expect(tile.x + tile.w, `${bp} ${tile.i}`).toBeLessThanOrEqual(cols)
+        expect(tile.y).toBeGreaterThanOrEqual(0)
+      }
+      for (let a = 0; a < layout.length; a += 1) {
+        for (let b = a + 1; b < layout.length; b += 1) {
+          const left = layout[a]
+          const right = layout[b]
+          const overlaps =
+            left.x < right.x + right.w &&
+            left.x + left.w > right.x &&
+            left.y < right.y + right.h &&
+            left.y + left.h > right.y
+          expect(overlaps, `${bp}: ${left.i} overlaps ${right.i}`).toBe(false)
+        }
       }
     }
   })
 
-  it('renders the welcome text tile as a Tiptap doc with parsed markdown structure', async () => {
-    const tiles = await getStarterTiles()
-    const doc = JSON.parse((tiles[2].content as unknown as { text: string }).text)
+  it('renders the welcome text tile as a Tiptap doc', async () => {
+    const { tiles } = await getStarterLayout()
+    const doc = JSON.parse((tiles[0].content as unknown as { text: string }).text)
 
     expect(doc.type).toBe('doc')
-    expect(doc.content).toHaveLength(5)
-
-    expect(doc.content[0]).toMatchObject({
-      type: 'heading',
-      attrs: { level: 1 },
-    })
-    expect(doc.content[1]).toMatchObject({
-      type: 'heading',
-      attrs: { level: 4 },
-    })
-    expect(doc.content[2].content.map((node: { type: string }) => node.type)).toEqual([
-      'text',
-      'hardBreak',
-      'hardBreak',
+    expect(doc.content.map((node: { type: string }) => node.type)).toEqual([
+      'heading',
+      'heading',
+      'paragraph',
     ])
-    expect(doc.content[3]).toEqual({ type: 'horizontalRule' })
-    expect(doc.content[4].content[0]).toMatchObject({
+    expect(doc.content[1].content[0]).toEqual({
       type: 'text',
-      marks: [{ type: 'italic' }],
+      text: 'Welcome to your Grid.',
     })
   })
 
-  it('assigns a unique generated id to each starter tile', async () => {
-    const tiles = await getStarterTiles()
-    const ids = tiles.map((t) => t.i)
+  it('assigns fresh unique ids on every call', async () => {
+    const first = await getStarterLayout()
+    const second = await getStarterLayout()
+    const ids = first.tiles.map((t) => t.i)
 
     expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).not.toEqual(second.tiles.map((t) => t.i))
   })
 })
 

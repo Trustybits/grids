@@ -26,6 +26,7 @@ export interface GridServiceInterface {
     userId: string,
     name: string,
     starterTiles?: Grid["tiles"],
+    starterOverrides?: Grid["overrides"],
   ): Promise<Grid>;
   duplicateGrid(
     userId: string,

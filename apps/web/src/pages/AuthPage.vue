@@ -18,7 +18,7 @@
               class="auth-google"
               variant="secondary"
               block
-              :disabled="isBusy"
+              :disabled="isBusy || isCompletingLink"
               @click="handleGoogleAuth"
             >
               <template #icon-left>
@@ -90,7 +90,11 @@
               <p class="auth-lead">We have sent a sign-in link to</p>
             </div>
 
-            <p class="auth-sent__email">{{ linkSentTo }}</p>
+            <!-- <wbr> lets a long address wrap after the "@" rather than mid-word. -->
+            <p class="auth-sent__email">
+              <template v-if="sentEmailParts">{{ sentEmailParts.local }}@<wbr />{{ sentEmailParts.domain }}</template>
+              <template v-else>{{ linkSentTo }}</template>
+            </p>
 
             <div class="auth-sent__main">
               <Button
@@ -247,6 +251,12 @@ let resendTimer: ReturnType<typeof setInterval> | null = null;
 const mailProviderLink = computed(() =>
   linkSentTo.value ? getMailProviderLink(linkSentTo.value) : null,
 );
+
+const sentEmailParts = computed(() => {
+  const at = linkSentTo.value?.lastIndexOf('@') ?? -1;
+  if (!linkSentTo.value || at <= 0) return null;
+  return { local: linkSentTo.value.slice(0, at), domain: linkSentTo.value.slice(at + 1) };
+});
 
 // Countdown ring around the resend button: full at the start of the cooldown,
 // drains to empty as it runs out. 2πr for r = 8 in a 20×20 viewBox.
@@ -575,6 +585,10 @@ const handleSlugSkipped = () => {
   z-index: 1;
   flex: 1;
   display: grid;
+  /* minmax(0, …) stops the column growing to the card's min-content width
+     (e.g. the email input + continue button), which pushed the card off the
+     right edge on narrow phones. */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   /* Symmetric block padding, at least the footer's height, so the card sits in
      the true centre of the viewport and never slides under the footer. */
@@ -722,6 +736,15 @@ const handleSlugSkipped = () => {
   font-size: 14px;
 }
 
+/* Too narrow for both actions on one line (iPhone SE and smaller): stack them
+   centred to match the rest of the card instead of wrapping flush-left. */
+@media (max-width: 429px) {
+  .auth-sent__actions {
+    flex-direction: column;
+    justify-content: center;
+  }
+}
+
 /* Pill-style resend action. */
 .resend-btn {
   width: auto;
@@ -820,6 +843,8 @@ const handleSlugSkipped = () => {
 
 /* Text-style actions. */
 .link-btn {
+  /* Text-sized, but with a touch-friendly hit area. */
+  min-height: 32px;
   padding: 0;
   border: none;
   background: none;
@@ -1091,6 +1116,31 @@ const handleSlugSkipped = () => {
   color: var(--color-content-low);
   text-decoration: none;
   transition: color var(--duration-fast) var(--easing-smooth);
+}
+
+/* Short screens (e.g. 320×568 iPhone SE): the card nearly fills the height, so
+   slim the footer and shrink the reserved block padding to match it. The card
+   stays centred and still clears the footer. */
+@media (max-height: 640px) {
+  .auth-landing__content {
+    padding-block: 48px;
+  }
+
+  .auth-landing__footer {
+    padding: 12px var(--spacing-lg);
+  }
+}
+
+/* Very narrow phones: give the card's content more of the width. */
+@media (max-width: 359px) {
+  .auth-container {
+    padding: 28px 20px 20px;
+  }
+
+  .auth-sent__main,
+  .auth-sent__actions {
+    margin-top: 20px;
+  }
 }
 
 .auth-landing__footer-link:hover {

@@ -5,7 +5,7 @@
     </div>
 
     <main class="auth-landing__content">
-      <div class="auth-container">
+      <div class="auth-container" :class="{ 'auth-container--entry': !linkSentTo }">
         <Transition name="auth-step" mode="out-in" @after-enter="handleStepEntered">
           <div v-if="!linkSentTo" key="entry" class="auth-step auth-entry">
             <div class="auth-intro">
@@ -90,9 +90,12 @@
               <p class="auth-lead">We have sent a sign-in link to</p>
             </div>
 
-            <!-- <wbr> lets a long address wrap after the "@" rather than mid-word. -->
+            <!-- <wbr> lets a long address wrap after the "@" or a dot rather than
+                 mid-word. -->
             <p class="auth-sent__email">
-              <template v-if="sentEmailParts">{{ sentEmailParts.local }}@<wbr />{{ sentEmailParts.domain }}</template>
+              <template v-if="sentEmailParts">
+                <template v-for="(segment, index) in sentEmailParts.local" :key="index">{{ segment }}<wbr /></template>@<wbr />{{ sentEmailParts.domain }}
+              </template>
               <template v-else>{{ linkSentTo }}</template>
             </p>
 
@@ -255,7 +258,11 @@ const mailProviderLink = computed(() =>
 const sentEmailParts = computed(() => {
   const at = linkSentTo.value?.lastIndexOf('@') ?? -1;
   if (!linkSentTo.value || at <= 0) return null;
-  return { local: linkSentTo.value.slice(0, at), domain: linkSentTo.value.slice(at + 1) };
+  return {
+    // Split after separators so each piece ends at a natural break point.
+    local: linkSentTo.value.slice(0, at).split(/(?<=[._+-])/),
+    domain: linkSentTo.value.slice(at + 1),
+  };
 });
 
 // Countdown ring around the resend button: full at the start of the cooldown,
@@ -1056,8 +1063,20 @@ const handleSlugSkipped = () => {
   cursor: not-allowed;
 }
 
-.auth-entry .status {
-  margin-top: 12px;
+/* The send-error line, not the inline email hint (also a .status). */
+.auth-entry > .status {
+  margin: 12px 0 24px;
+}
+
+/* The error region below holds one line of space even when empty, so the hint
+   appearing doesn't grow (and re-centre) the card. It stands in for the card's
+   bottom padding in this step. */
+.auth-container.auth-container--entry {
+  padding-bottom: 0;
+}
+
+.email-error-region {
+  min-height: 26px;
 }
 
 .status {
@@ -1122,8 +1141,10 @@ const handleSlugSkipped = () => {
    slim the footer and shrink the reserved block padding to match it. The card
    stays centred and still clears the footer. */
 @media (max-height: 640px) {
+  /* The bottom padding stays taller than the ~54px footer, so a card taller
+     than the screen (landscape phones) scrolls clear of it. */
   .auth-landing__content {
-    padding-block: 48px;
+    padding-block: 40px 64px;
   }
 
   .auth-landing__footer {
@@ -1140,6 +1161,10 @@ const handleSlugSkipped = () => {
   .auth-sent__main,
   .auth-sent__actions {
     margin-top: 20px;
+  }
+
+  .auth-sent__email {
+    font-size: 14px;
   }
 }
 

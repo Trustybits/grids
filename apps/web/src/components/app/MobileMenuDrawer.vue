@@ -135,6 +135,17 @@
           </button>
 
           <button
+            v-if="canChangeEmail"
+            type="button"
+            class="mmd-row mmd-row--button"
+            @click="openChangeEmailModal"
+          >
+            <span class="mmd-row__icon"><EmailIcon width="20" height="20" /></span>
+            <span class="mmd-row__label">Email</span>
+            <span class="mmd-row__meta">{{ currentEmail || "Not set" }}</span>
+          </button>
+
+          <button
             type="button"
             class="mmd-row mmd-row--button"
             @click="openFileArchive"
@@ -191,6 +202,13 @@
     :is-open="showFileArchiveModal"
     @close="showFileArchiveModal = false"
   />
+
+  <ChangeEmailModal
+    v-if="canChangeEmail"
+    :is-open="showChangeEmailModal"
+    :current-email="currentEmail"
+    @close="showChangeEmailModal = false"
+  />
 </template>
 
 <script setup lang="ts">
@@ -212,6 +230,9 @@ import Divider from "@/components/ui-elements/Divider.vue";
 import Toggle from "@/components/ui-controls/Toggle.vue";
 import SlugClaimModal from "@/components/modal/SlugClaimModal.vue";
 import FileArchiveModal from "@/components/modal/FileArchiveModal.vue";
+import ChangeEmailModal from "@/components/modal/ChangeEmailModal.vue";
+import EmailIcon from "@/components/icons/EmailIcon.vue";
+import { useFeatureFlags } from "@/composables/useFeatureFlags";
 import HomeIcon from "@/components/icons/HomeIcon.vue";
 import AnalyticsIcon from "@/components/icons/AnalyticsIcon.vue";
 import GridSquaresIcon from "@/components/icons/GridSquaresIcon.vue";
@@ -242,8 +263,17 @@ const isOwner = computed(() => sessionStore.isOwner);
 const showSlugModal = ref(false);
 const showFileArchiveModal = ref(false);
 const currentSlug = ref<string | undefined>(undefined);
+const showChangeEmailModal = ref(false);
+const currentEmail = ref<string | null>(
+  getAuthProvider().getCurrentUser()?.email ?? null,
+);
+const { isEnabled, FEATURE_FLAGS } = useFeatureFlags();
+const canChangeEmail = computed(() =>
+  isEnabled(FEATURE_FLAGS.ACCOUNT_EMAIL_CHANGE),
+);
 
 const loadAccount = async () => {
+  currentEmail.value = getAuthProvider().getCurrentUser()?.email ?? null;
   const uid = getAuthProvider().getCurrentUserId();
   if (!uid) return;
   try {
@@ -262,6 +292,12 @@ const openSlugModal = async () => {
 
 const handleSlugSuccess = (slug: string) => {
   currentSlug.value = slug;
+};
+
+const openChangeEmailModal = () => {
+  emit("close");
+  currentEmail.value = getAuthProvider().getCurrentUser()?.email ?? null;
+  showChangeEmailModal.value = true;
 };
 
 const openFileArchive = () => {

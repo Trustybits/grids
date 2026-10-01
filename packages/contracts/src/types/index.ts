@@ -1,3 +1,4 @@
+export * from "./AccountRecovery.js";
 export * from "./Analytics.js";
 export * from "./Badge.js";
 export * from "./GameData.js";

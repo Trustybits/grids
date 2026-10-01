@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { reactive } from "vue";
 
 const holder = vi.hoisted(() => ({
@@ -9,6 +9,7 @@ const holder = vi.hoisted(() => ({
   fetchGrids: vi.fn(),
   addToast: vi.fn(),
   signOut: vi.fn(),
+  emailChangeEnabled: true,
 }));
 
 vi.mock("vue-router", () => ({
@@ -48,7 +49,23 @@ vi.mock("@/auth/AuthProviderSingleton", () => ({
   getAuthProvider: () => ({
     signOut: holder.signOut,
     getCurrentUserId: () => "user-1",
+    getCurrentUser: () => ({ uid: "user-1", email: "me@example.com" }),
   }),
+}));
+
+vi.mock("@/composables/useFeatureFlags", () => ({
+  useFeatureFlags: () => ({
+    isEnabled: () => holder.emailChangeEnabled,
+    FEATURE_FLAGS: { ACCOUNT_EMAIL_CHANGE: "account-email-change" },
+  }),
+}));
+
+vi.mock("@/components/modal/ChangeEmailModal.vue", () => ({
+  default: {
+    props: ["isOpen", "currentEmail"],
+    template:
+      '<div data-test="change-email-modal" :data-open="String(isOpen)" :data-email="currentEmail" />',
+  },
 }));
 
 // Account settings pulled in by the drawer. The modals' own setup reaches for
@@ -209,5 +226,33 @@ describe("MobileMenuDrawer", () => {
     // The recents block precedes the bottom-anchored account toggle.
     expect(recentsIdx).toBeGreaterThanOrEqual(0);
     expect(toggleIdx).toBeGreaterThan(recentsIdx);
+  });
+
+  it("shows the account email and opens the change-email modal", async () => {
+    holder.emailChangeEnabled = true;
+    const wrapper = await mountDrawer(true);
+    await flushPromises();
+
+    const row = wrapper
+      .findAll("button.mmd-row--button")
+      .find((b) => b.text().includes("Email"));
+    expect(row).toBeDefined();
+    expect(row!.text()).toContain("me@example.com");
+
+    const modal = () => wrapper.find('[data-test="change-email-modal"]');
+    expect(modal().attributes("data-open")).toBe("false");
+    await row!.trigger("click");
+    expect(wrapper.emitted("close")).toBeTruthy();
+    expect(modal().attributes("data-open")).toBe("true");
+    expect(modal().attributes("data-email")).toBe("me@example.com");
+  });
+
+  it("hides the Email row when the flag is off", async () => {
+    holder.emailChangeEnabled = false;
+    const wrapper = await mountDrawer(true);
+    const labels = wrapper.findAll(".mmd-row__label").map((el) => el.text());
+    expect(labels).not.toContain("Email");
+    expect(wrapper.find('[data-test="change-email-modal"]').exists()).toBe(false);
+    holder.emailChangeEnabled = true;
   });
 });

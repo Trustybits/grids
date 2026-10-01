@@ -66,7 +66,19 @@
           <span class="info-value">{{ defaultGridName }}</span>
         </div>
       </button>
-      <div class="info-item">
+      <button
+        v-if="canChangeEmail"
+        type="button"
+        @click="openChangeEmailModal"
+        class="info-item clickable"
+      >
+        <div class="info-content">
+          <span class="info-label">Email</span>
+          <span class="info-value">{{ user.email }}</span>
+        </div>
+        <EditIcon class="edit-icon" :size="14" />
+      </button>
+      <div v-else class="info-item">
         <div class="info-content">
           <span class="info-label">Email</span>
           <span class="info-value">{{ user.email }}</span>
@@ -129,6 +141,14 @@
     @skip="closeSlugModal"
   />
 
+  <!-- Change Email Modal -->
+  <ChangeEmailModal
+    v-if="canChangeEmail"
+    :is-open="showChangeEmailModal"
+    :current-email="user?.email ?? null"
+    @close="showChangeEmailModal = false"
+  />
+
   <!-- File Archive Modal -->
   <FileArchiveModal
     :is-open="showFileArchiveModal"
@@ -163,6 +183,8 @@ import {
 } from "@/utils/AvatarShape";
 import SlugClaimModal from "@/components/modal/SlugClaimModal.vue";
 import FileArchiveModal from "@/components/modal/FileArchiveModal.vue";
+import ChangeEmailModal from "@/components/modal/ChangeEmailModal.vue";
+import { useFeatureFlags } from "@/composables/useFeatureFlags";
 import ProfileIcon from "@/components/icons/ProfileIcon.vue";
 import EditIcon from "@/components/icons/EditIcon.vue";
 import FloatingTooltip from "@/components/ui-elements/FloatingTooltip.vue";
@@ -178,6 +200,7 @@ export default defineComponent({
   components: {
     SlugClaimModal,
     FileArchiveModal,
+    ChangeEmailModal,
     ProfileIcon,
     EditIcon,
     FloatingTooltip,
@@ -212,6 +235,11 @@ export default defineComponent({
     const showUserMenu = ref(false);
     const showSlugModal = ref(false);
     const showFileArchiveModal = ref(false);
+    const showChangeEmailModal = ref(false);
+    const { isEnabled, FEATURE_FLAGS } = useFeatureFlags();
+    const canChangeEmail = computed(() =>
+      isEnabled(FEATURE_FLAGS.ACCOUNT_EMAIL_CHANGE),
+    );
     const currentSlug = ref<string | undefined>(undefined);
     const defaultGridId = ref<string | undefined>(undefined);
     const defaultGridProfileImageUrl = ref<string | undefined>(undefined);
@@ -376,6 +404,11 @@ export default defineComponent({
       showSlugModal.value = true;
     };
 
+    const openChangeEmailModal = () => {
+      showUserMenu.value = false;
+      showChangeEmailModal.value = true;
+    };
+
     const openFileArchive = () => {
       showUserMenu.value = false;
       showFileArchiveModal.value = true;
@@ -409,6 +442,9 @@ export default defineComponent({
       showSlugModal,
       showFileArchiveModal,
       openFileArchive,
+      showChangeEmailModal,
+      openChangeEmailModal,
+      canChangeEmail,
       currentSlug,
       defaultGridId,
       defaultGridProfileImageUrl,

@@ -5,6 +5,7 @@
 // each getter returns the constructed instance, and that instances are cached.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ServiceFactory } from "@/services/factory/ServiceFactory";
+import { AccountRecoveryService } from "@/services/AccountRecoveryService";
 import { BadgeService } from "@/services/BadgeService";
 import { AnalyticsService } from "@/services/AnalyticsService";
 import { ChatService } from "@/services/ChatService";
@@ -17,6 +18,7 @@ import { StorageService } from "@/services/StorageService";
 import { StripeService } from "@/services/StripeService";
 import { UpvoteService } from "@/services/UpvoteService";
 import { UserService } from "@/services/UserService";
+import { MockAccountRecoveryService } from "@/services/mocks/MockAccountRecoveryService";
 import { MockBadgeService } from "@/services/mocks/MockBadgeService";
 import { MockAnalyticsService } from "@/services/mocks/MockAnalyticsService";
 import { MockChatService } from "@/services/mocks/MockChatService";
@@ -35,6 +37,9 @@ import { MockUserService } from "@/services/mocks/MockUserService";
 function stub() {
   return class {};
 }
+vi.mock("@/services/AccountRecoveryService", () => ({
+  AccountRecoveryService: stub(),
+}));
 vi.mock("@/services/BadgeService", () => ({ BadgeService: stub() }));
 vi.mock("@/services/AnalyticsService", () => ({ AnalyticsService: stub() }));
 vi.mock("@/services/ChatService", () => ({ ChatService: stub() }));
@@ -51,6 +56,9 @@ vi.mock("@/services/StorageService", () => ({ StorageService: stub() }));
 vi.mock("@/services/StripeService", () => ({ StripeService: stub() }));
 vi.mock("@/services/UpvoteService", () => ({ UpvoteService: stub() }));
 vi.mock("@/services/UserService", () => ({ UserService: stub() }));
+vi.mock("@/services/mocks/MockAccountRecoveryService", () => ({
+  MockAccountRecoveryService: stub(),
+}));
 vi.mock("@/services/mocks/MockBadgeService", () => ({ MockBadgeService: stub() }));
 vi.mock("@/services/mocks/MockAnalyticsService", () => ({
   MockAnalyticsService: stub(),
@@ -82,6 +90,11 @@ vi.mock("@/services/mocks/MockUserService", () => ({ MockUserService: stub() }))
 
 // (getter, real ctor, mock ctor) tuples cover all services.
 const services = [
+  [
+    "getAccountRecoveryService",
+    AccountRecoveryService,
+    MockAccountRecoveryService,
+  ],
   ["getBadgeService", BadgeService, MockBadgeService],
   ["getAnalyticsService", AnalyticsService, MockAnalyticsService],
   ["getChatService", ChatService, MockChatService],

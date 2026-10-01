@@ -1,3 +1,4 @@
+import { AccountRecoveryService } from "../AccountRecoveryService";
 import { BadgeService } from "../BadgeService";
 import { AnalyticsService } from "../AnalyticsService";
 import { ChatService } from "../ChatService";
@@ -10,6 +11,7 @@ import { StorageService } from "../StorageService";
 import { StripeService } from "../StripeService";
 import { UpvoteService } from "../UpvoteService";
 import { UserService } from "../UserService";
+import type { AccountRecoveryServiceInterface } from "../interfaces/AccountRecoveryServiceInterface";
 import type { BadgeServiceInterface } from "../interfaces/BadgeServiceInterface";
 import type { AnalyticsServiceInterface } from "../interfaces/AnalyticsServiceInterface";
 import type { ChatServiceInterface } from "../interfaces/ChatServiceInterface";
@@ -22,6 +24,7 @@ import type { StorageServiceInterface } from "../interfaces/StorageServiceInterf
 import type { StripeServiceInterface } from "../interfaces/StripeServiceInterface";
 import type { UpvoteServiceInterface } from "../interfaces/UpvoteServiceInterface";
 import type { UserServiceInterface } from "../interfaces/UserServiceInterface";
+import { MockAccountRecoveryService } from "../mocks/MockAccountRecoveryService";
 import { MockBadgeService } from "../mocks/MockBadgeService";
 import { MockAnalyticsService } from "../mocks/MockAnalyticsService";
 import { MockChatService } from "../mocks/MockChatService";
@@ -38,6 +41,7 @@ import type { ServiceFactoryInterface } from "./ServiceFactoryInterface";
 
 export class ServiceFactory implements ServiceFactoryInterface {
   private useMocks: boolean;
+  private accountRecoveryService: AccountRecoveryServiceInterface;
   private badgeService: BadgeServiceInterface;
   private analyticsService: AnalyticsServiceInterface;
   private chatService: ChatServiceInterface;
@@ -55,6 +59,7 @@ export class ServiceFactory implements ServiceFactoryInterface {
     this.useMocks = useMocks;
 
     if (this.useMocks) {
+      this.accountRecoveryService = new MockAccountRecoveryService();
       this.badgeService = new MockBadgeService();
       this.analyticsService = new MockAnalyticsService();
       this.chatService = new MockChatService();
@@ -68,6 +73,7 @@ export class ServiceFactory implements ServiceFactoryInterface {
       this.upvoteService = new MockUpvoteService();
       this.userService = new MockUserService();
     } else {
+      this.accountRecoveryService = new AccountRecoveryService();
       this.badgeService = new BadgeService();
       this.analyticsService = new AnalyticsService();
       this.chatService = new ChatService();
@@ -81,6 +87,10 @@ export class ServiceFactory implements ServiceFactoryInterface {
       this.upvoteService = new UpvoteService();
       this.userService = new UserService();
     }
+  }
+
+  public getAccountRecoveryService(): AccountRecoveryServiceInterface {
+    return this.accountRecoveryService;
   }
 
   public getBadgeService(): BadgeServiceInterface {

@@ -1,1 +1,7 @@
-export type { AuthUser, AuthProvider } from "./AuthProvider.js";
+export type {
+  AuthUser,
+  AuthProvider,
+  AuthSignInMethod,
+  AuthProviderErrorCode,
+} from "./AuthProvider.js";
+export { AuthProviderError, isAuthProviderError } from "./AuthProvider.js";

@@ -23,8 +23,16 @@ vi.mock('firebase/auth', () => ({
   sendSignInLinkToEmail: vi.fn(),
   isSignInWithEmailLink: vi.fn(),
   signOut: vi.fn(),
-  GoogleAuthProvider: vi.fn(),
+  GoogleAuthProvider: Object.assign(vi.fn(), { PROVIDER_ID: 'google.com' }),
+  EmailAuthProvider: {
+    PROVIDER_ID: 'password',
+    credentialWithLink: vi.fn((email: string, url: string) => ({ email, url })),
+  },
   signInWithPopup: vi.fn(),
+  signInWithCustomToken: vi.fn(),
+  verifyBeforeUpdateEmail: vi.fn(),
+  reauthenticateWithPopup: vi.fn(),
+  reauthenticateWithCredential: vi.fn(),
 }))
 
 // ── Firebase Firestore mock ────────────────────────────────────────────────

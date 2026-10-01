@@ -58,6 +58,11 @@ export const FEATURE_FLAGS = {
   // Off = today's live-autosave behavior with zero user-facing change.
   EDITOR_DRAFT_PUBLISH: 'editor-draft-publish',
 
+  // ── Account ─────────────────────────────────────────────────────────────
+  // Verified email change from the account menu, plus the lost-inbox
+  // recovery path (request a code / redeem a staff-issued code).
+  ACCOUNT_EMAIL_CHANGE: 'account-email-change',
+
   // ── Marketplace ──────────────────────────────────────────────────────────
   MARKETPLACE_PUBLISH: 'marketplace-publish',
   MARKETPLACE_FEATURED_PLACEMENT: 'marketplace-featured-placement',

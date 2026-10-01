@@ -1,3 +1,4 @@
+import type { AccountRecoveryServiceInterface } from "../interfaces/AccountRecoveryServiceInterface";
 import type { BadgeServiceInterface } from "../interfaces/BadgeServiceInterface";
 import type { AnalyticsServiceInterface } from "../interfaces/AnalyticsServiceInterface";
 import type { ChatServiceInterface } from "../interfaces/ChatServiceInterface";
@@ -12,6 +13,7 @@ import type { UpvoteServiceInterface } from "../interfaces/UpvoteServiceInterfac
 import type { UserServiceInterface } from "../interfaces/UserServiceInterface";
 
 export interface ServiceFactoryInterface {
+  getAccountRecoveryService: () => AccountRecoveryServiceInterface;
   getBadgeService: () => BadgeServiceInterface;
   getAnalyticsService: () => AnalyticsServiceInterface;
   getChatService: () => ChatServiceInterface;

@@ -598,21 +598,32 @@ export class GridService implements GridServiceInterface {
     return `draft__${originalId}`;
   }
 
+  // Where the draft lives when the primary draft id is already taken by a
+  // regular grid. Older clients promoted "publish as a copy" in place, turning
+  // `draft__{id}` into a listed grid; the original's drafts move here instead
+  // of failing (which silently fell back to editing the live grid).
+  private fallbackDraftIdFor(originalId: string): string {
+    return `draft__${originalId}__2`;
+  }
+
   // Create a hidden draft duplicate of a published grid. Unlike a normal
   // duplicate this PRESERVES tile ids (no UUID reassignment) and the name (no
   // "Copy of" rename) so publishing is a clean whole-content write-back. It
   // sets draftOf + status:"draft" and never sets clonedFrom. Background images
   // are shared by reference (same owner) — not re-uploaded.
-  async createDraft(original: Grid): Promise<Grid> {
-    return this.saveGrid(this.buildDraft(original, 0));
+  async createDraft(
+    original: Grid,
+    draftId: string = this.draftIdFor(original.id),
+  ): Promise<Grid> {
+    return this.saveGrid(this.buildDraft(original, 0, draftId));
   }
 
   // Build the in-memory draft document for `original`. `rev` is the draft
   // doc's own current revision: 0 for a brand-new draft, or the existing
   // draft's rev when re-basing so the guarded save replaces it in place.
-  private buildDraft(original: Grid, rev: number): Grid {
+  private buildDraft(original: Grid, rev: number, draftId: string): Grid {
     return {
-      id: this.draftIdFor(original.id),
+      id: draftId,
       userId: original.userId,
       rev,
       name: original.name,
@@ -667,11 +678,18 @@ export class GridService implements GridServiceInterface {
   // deterministic draft id, then a guarded save that tolerates losing a race
   // to a concurrent creator/re-baser.
   async getOrCreateDraft(originalId: string): Promise<Grid> {
-    const draftId = this.draftIdFor(originalId);
-    const [existing, original] = await Promise.all([
+    let draftId = this.draftIdFor(originalId);
+    const [primary, original] = await Promise.all([
       this.gridDao.getById(draftId),
       this.fetchGrid(originalId),
     ]);
+    let existing = primary;
+    if (existing && existing.draftOf !== originalId) {
+      // The primary id is occupied by an unrelated grid (see
+      // fallbackDraftIdFor); use the fallback slot.
+      draftId = this.fallbackDraftIdFor(originalId);
+      existing = await this.gridDao.getById(draftId);
+    }
 
     const hasDraft = !!existing && existing.draftOf === originalId;
     const stale = hasDraft && this.isDraftStale(existing, original);
@@ -683,7 +701,11 @@ export class GridService implements GridServiceInterface {
       // Re-basing replaces the stale draft in place, guarded by its current rev;
       // a fresh create saves at rev 0.
       return await this.saveGrid(
-        this.buildDraft(original, hasDraft ? this.readGridRev(existing) : 0),
+        this.buildDraft(
+          original,
+          hasDraft ? this.readGridRev(existing) : 0,
+          draftId,
+        ),
       );
     } catch (error) {
       // Lost the save race — another caller created or re-based the draft
@@ -701,8 +723,14 @@ export class GridService implements GridServiceInterface {
   // then delete the draft. Respects the ORIGINAL's rev so a concurrent edit of
   // the original surfaces as GridRevisionConflictError; on conflict the draft
   // is left intact for a retry.
-  async publishDraft(draftId: string): Promise<void> {
-    const draft = await this.fetchGrid(draftId);
+  //
+  // `content` is the editor's in-memory draft. When given it is published as-is
+  // instead of re-reading the stored draft: the stored copy is written with a
+  // merge, so it can still carry breakpoint overrides the user has since reset
+  // or removed, and it may already be gone (published or discarded from another
+  // tab), which must not block publishing what the user is looking at.
+  async publishDraft(draftId: string, content?: Grid): Promise<void> {
+    const draft = content ?? (await this.fetchGrid(draftId));
     const originalId = draft.draftOf;
     if (!originalId) {
       throw new Error(`Grid ${draftId} is not a draft (no draftOf).`);
@@ -742,33 +770,37 @@ export class GridService implements GridServiceInterface {
   }
 
   // Promote a draft into its own listed public grid (today's "duplicate"
-  // outcome). Keeps the document but clears draftOf and flips it to published,
-  // so it appears in the dashboard and never resolves as a draft again.
+  // outcome). The content is written to a NEW grid id and the draft is then
+  // removed. Promoting in place would leave a listed grid squatting on the
+  // original's deterministic draft id, so the original could never open a
+  // draft again.
   async publishAsCopy(draftId: string, name?: string): Promise<Grid> {
     const draft = await this.fetchGrid(draftId);
-    const expectedRev = this.readGridRev(draft);
-    const nextRev = expectedRev + 1;
-
-    const payload = this.dbUtils.sanitizeValue({
-      rev: nextRev,
-      status: "published",
-      // Remove the hidden-draft marker entirely so the doc becomes a normal
-      // listed grid (a blanked-but-present draftOf would still read as a draft).
-      draftOf: this.dbUtils.deleteField(),
-      publishedAt: this.dbUtils.serverTimestamp(),
-      updatedAt: this.dbUtils.serverTimestamp(),
-      ...(name ? { name } : {}),
-    }) as Record<string, unknown>;
-
-    await this.gridDao.update(draftId, payload, expectedRev);
-
-    return {
+    const copy: Grid = {
       ...draft,
-      rev: nextRev,
+      id: this.gridDao.generateId(),
+      rev: 0,
+      name: name ?? draft.name,
       status: "published",
       draftOf: undefined,
-      name: name ?? draft.name,
+      publishedAt: this.dbUtils.serverTimestamp() as Grid["publishedAt"],
+      createdAt: undefined,
+      updatedAt: undefined,
+      lastOpenedAt: undefined,
     };
+
+    const saved = await this.saveGrid(copy);
+
+    // The copy is already live; failing to reclaim the draft must not report
+    // the publish as failed (a retry would create a second copy). A leftover
+    // draft only means the original reopens with these changes unpublished.
+    try {
+      await this.gridDao.delete(draftId);
+    } catch (error) {
+      console.error(`Failed to delete draft ${draftId} after copy:`, error);
+    }
+
+    return saved;
   }
 
   // Take a published grid private again by flipping its status to "draft".

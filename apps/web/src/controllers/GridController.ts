@@ -457,10 +457,37 @@ export class GridController {
     const draftId = session.currentGrid.id;
     const publishedId = session.publicGridId;
     await this.flushSaves();
-    await this.dependencies.getGridService().publishDraft(draftId);
+    // Publish exactly what the editor shows (every breakpoint's layout), not a
+    // re-read of the stored draft — see GridService.publishDraft.
+    const content = this.persistenceController.createPersistableSnapshot();
+    await this.dependencies
+      .getGridService()
+      .publishDraft(draftId, content ?? undefined);
     // publishDraft deletes the draft; reloading re-creates one from the freshly
-    // published original and resets hasUnpublishedChanges.
-    await this.loadGrid(publishedId);
+    // published original and resets hasUnpublishedChanges. The editor stays
+    // mounted, so keep the breakpoint the user is on.
+    await this.sessionController.loadGrid(publishedId, {
+      preserveViewport: true,
+    });
+  }
+
+  /**
+   * Throw away the open draft's unpublished changes: delete the draft and
+   * re-open the public grid, which starts a fresh draft from the published
+   * content. No-op when not editing a draft.
+   */
+  async discardChanges(): Promise<void> {
+    const session = this.stores.session;
+    if (!session.isDraftEditing || !session.currentGrid) return;
+    const draftId = session.currentGrid.id;
+    const publishedId = session.publicGridId;
+    // Let any in-flight save settle before the delete so it can't race it. A
+    // failed save is moot — its changes are being discarded.
+    await this.flushSaves().catch(() => undefined);
+    await this.dependencies.getGridService().deleteGrid(draftId);
+    await this.sessionController.loadGrid(publishedId, {
+      preserveViewport: true,
+    });
   }
 
   /**

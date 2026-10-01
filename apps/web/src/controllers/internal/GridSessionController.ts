@@ -51,10 +51,19 @@ export class GridSessionController {
    * never re-pushes its breakpoints, and the store would otherwise be stuck at
    * the "lg" defaults — routing edits at md/sm into the desktop layout and
    * dropping the breakpoint the user was editing.
+   *
+   * `viewPublished` opens the grid exactly as a visitor sees it, even for the
+   * owner: no draft is resolved and the session is read-only (`isOwner` false),
+   * so nothing can autosave into the live grid. `isViewingPublished` records
+   * that the viewer actually owns the grid so the chrome can offer a way back
+   * to the editor. Non-owners are unaffected by the option.
    */
   async loadGrid(
     id: string,
-    { preserveViewport = false }: { preserveViewport?: boolean } = {},
+    {
+      preserveViewport = false,
+      viewPublished = false,
+    }: { preserveViewport?: boolean; viewPublished?: boolean } = {},
   ): Promise<void> {
     this.stores.session.setLoadError(null);
     const restoreViewport = preserveViewport
@@ -76,7 +85,10 @@ export class GridSessionController {
 
       const userId =
         this.dependencies.getAuthProvider().getCurrentUserId();
-      const isOwner = !!(userId && grid.userId && userId === grid.userId);
+      const ownsGrid = !!(userId && grid.userId && userId === grid.userId);
+      const isViewingPublished = ownsGrid && viewPublished;
+      // Everything below treats a published view as a plain visitor session.
+      const isOwner = ownsGrid && !viewPublished;
 
       // Draft/publish: an owner editing a PUBLISHED grid edits a hidden draft
       // duplicate, while the public identity (URL, sharing, default grid,
@@ -108,6 +120,7 @@ export class GridSessionController {
       this.stores.session.setCurrentGrid(editable);
       committedGrid = true;
       this.stores.session.setOwner(isOwner);
+      this.stores.session.setViewingPublished(isViewingPublished);
       this.stores.session.setDemoGrid(false);
       if (publishedOriginal) {
         this.stores.session.setDraftEditing(id, publishedOriginal);
@@ -250,17 +263,21 @@ export class GridSessionController {
     // public original's id and content baseline), which resetSessionDependents
     // would otherwise clear. The reloaded grid here is the draft itself, so the
     // published baseline is unchanged — capture and restore it.
-    const { publishedId, publishedGrid } = this.stores.session;
+    // Likewise a published view must stay read-only across a resync: the
+    // loaded grid IS the live original, so re-granting ownership here would
+    // let autosave write straight into it.
+    const { publishedId, publishedGrid, isViewingPublished } =
+      this.stores.session;
 
     this.resetSessionDependents();
     this.stores.history.initializeManager();
     restoreViewport();
 
     const userId = this.dependencies.getAuthProvider().getCurrentUserId();
+    const ownsGrid = !!(userId && grid.userId && userId === grid.userId);
     this.stores.session.setCurrentGrid(grid);
-    this.stores.session.setOwner(
-      !!(userId && grid.userId && userId === grid.userId),
-    );
+    this.stores.session.setOwner(ownsGrid && !isViewingPublished);
+    this.stores.session.setViewingPublished(ownsGrid && isViewingPublished);
     this.stores.session.setDemoGrid(false);
     if (publishedId && publishedGrid) {
       this.stores.session.setDraftEditing(publishedId, publishedGrid);

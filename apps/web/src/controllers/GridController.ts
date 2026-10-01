@@ -370,8 +370,15 @@ export class GridController {
     this.sessionController.resetSessionDependents();
   }
 
-  async loadGrid(id: string): Promise<void> {
-    await this.sessionController.loadGrid(id);
+  /**
+   * `viewPublished` opens the grid read-only as visitors see it (no draft
+   * resolution), letting an owner inspect the live version in-app.
+   */
+  async loadGrid(
+    id: string,
+    options: { viewPublished?: boolean } = {},
+  ): Promise<void> {
+    await this.sessionController.loadGrid(id, options);
   }
 
   async resyncIfStale(): Promise<void> {

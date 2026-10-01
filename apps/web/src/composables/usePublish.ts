@@ -1,5 +1,9 @@
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import {
+  publishedViewUrl,
+  withPublishedView,
+} from "@/constants/publishedView";
 import { getAuthProvider } from "@/auth/AuthProviderSingleton";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridController } from "@/controllers/useGridController";
@@ -22,6 +26,7 @@ import type { Grid, GridStatus } from "@grids/contracts/types";
  */
 export const usePublish = () => {
   const router = useRouter();
+  const route = useRoute();
   const session = useGridSessionStore();
   const controller = useGridController();
   const toastStore = useToastStore();
@@ -180,9 +185,20 @@ export const usePublish = () => {
     }
   };
 
+  // The owner's plain public URL would just reopen the editor (and its draft),
+  // so "open public page" requests the published view, which renders the live
+  // grid read-only exactly as visitors see it. The copied share link stays
+  // clean — visitors never need the query.
   const openPublicUrl = (): void => {
     const url = publicUrl.value;
-    if (url) window.open(url, "_blank", "noopener");
+    if (url) window.open(publishedViewUrl(url), "_blank", "noopener");
+  };
+
+  // Switch the current tab into the published view; the grid page reloads the
+  // route and the banner offers the way back to the editor.
+  const viewPublished = (): void => {
+    if (!session.publicGridId) return;
+    void router.push({ query: withPublishedView(route.query) });
   };
 
   const setAsDefaultGrid = async (): Promise<void> => {
@@ -221,6 +237,7 @@ export const usePublish = () => {
     unpublish,
     copyPublicUrl,
     openPublicUrl,
+    viewPublished,
     setAsDefaultGrid,
   };
 };

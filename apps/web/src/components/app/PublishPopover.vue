@@ -4,7 +4,8 @@
   Draft/Publish surface (Framer-style). A trigger button whose label reflects
   publish state (Publish / Update / Published) with a dot when the open draft
   has unpublished changes, plus a popover panel showing the public URL, publish
-  state, and the publish actions (including discarding unpublished changes).
+  state, and the publish actions (including discarding unpublished changes and
+  switching to the read-only published view).
 
   Fully gated behind the EDITOR_DRAFT_PUBLISH flag via usePublish — renders
   nothing unless the feature is enabled and the viewer owns the grid.
@@ -87,6 +88,14 @@
 
         <div class="pp-footer">
           <button
+            v-if="isPublished"
+            type="button"
+            class="pp-link"
+            @click="onViewPublished"
+          >
+            View published version
+          </button>
+          <button
             v-if="!isDefaultGrid"
             type="button"
             class="pp-link"
@@ -138,6 +147,7 @@ const {
   unpublish,
   copyPublicUrl,
   openPublicUrl,
+  viewPublished,
   setAsDefaultGrid,
 } = usePublish();
 
@@ -233,6 +243,10 @@ const onUnpublish = async () => {
 };
 const onSetDefault = async () => {
   await setAsDefaultGrid();
+};
+const onViewPublished = () => {
+  close();
+  viewPublished();
 };
 
 // Close on outside click / Escape.

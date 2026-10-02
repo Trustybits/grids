@@ -504,3 +504,40 @@ describe("StubbedAuthProvider.signOut", () => {
     expect(callback).toHaveBeenCalledWith(null);
   });
 });
+
+describe("StubbedAuthProvider email change", () => {
+  it("reports the email-link sign-in method while signed in", async () => {
+    expect(provider.getSignInMethods()).toEqual(["emailLink"]);
+    await provider.signOut();
+    expect(provider.getSignInMethods()).toEqual([]);
+  });
+
+  it("applies the new email immediately and notifies subscribers", async () => {
+    const callback = vi.fn();
+    provider.onAuthStateChanged(callback);
+    await flushMicrotasks();
+    callback.mockClear();
+
+    await provider.requestEmailChange("new@example.com", "/account/change-email");
+    await flushMicrotasks();
+
+    expect(provider.getCurrentUser()?.email).toBe("new@example.com");
+    expect(callback).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "new@example.com" }),
+    );
+  });
+
+  it("rejects when signed out", async () => {
+    await provider.signOut();
+    await expect(
+      provider.requestEmailChange("new@example.com", "/x"),
+    ).rejects.toMatchObject({ code: "not-signed-in" });
+  });
+
+  it("signs the stub user back in with a recovery token", async () => {
+    await provider.signOut();
+    const user = await provider.signInWithRecoveryToken("token");
+    expect(user).toEqual(STUBBED_USER);
+    expect(provider.getCurrentUser()).toEqual(STUBBED_USER);
+  });
+});

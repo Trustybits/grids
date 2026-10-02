@@ -9,6 +9,8 @@ import DashboardPage from '@/pages/DashboardPage.vue';
 import PrivacyPage from '@/pages/PrivacyPage.vue';
 import TermsPage from '@/pages/TermsPage.vue';
 import NotionCallback from '@/pages/NotionCallback.vue';
+import ChangeEmailPage from '@/pages/ChangeEmailPage.vue';
+import AccountRecoveryPage from '@/pages/AccountRecoveryPage.vue';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { MARKETING_PATHS } from '@/constants/marketing';
@@ -56,6 +58,20 @@ const routes = [
   {
     path: "/blog",
     component: BlogPage,
+    meta: { requiresAuth: false },
+  },
+  {
+    // Email-change landing (re-auth link return / post-verification sync).
+    // Like every fixed path here, it must stay before /:slug.
+    path: "/account/change-email",
+    component: ChangeEmailPage,
+    meta: { requiresAuth: true },
+  },
+  {
+    // Lost-inbox recovery: request or redeem a code. Public on purpose — the
+    // user may be signed out because they can't receive sign-in links.
+    path: "/account/recover",
+    component: AccountRecoveryPage,
     meta: { requiresAuth: false },
   },
   {

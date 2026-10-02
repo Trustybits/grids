@@ -5,6 +5,8 @@ import "./admin.js";
 export { assignDefaultGridOnCreate } from "./accounts/onTrigger_gridCreated_assignDefaultGrid.js";
 export { checkSlugAvailability } from "./accounts/onCall_checkSlugAvailability.js";
 export { claimSlug } from "./accounts/onCall_claimSlug.js";
+export { redeemEmailRecoveryCode } from "./accounts/onCall_redeemEmailRecoveryCode.js";
+export { requestEmailRecovery } from "./accounts/onCall_requestEmailRecovery.js";
 export { updateDefaultGrid } from "./accounts/onCall_updateDefaultGrid.js";
 
 // analytics
@@ -35,6 +37,7 @@ export { upvoteRoadmapItem } from "./integrations/onCall_upvoteRoadmapItem.js";
 
 // notifications
 
+export { onEmailRecoveryRequestCreated } from "./notifications/onTrigger_emailRecoveryRequestCreated.js";
 export { onGridCreated } from "./notifications/onTrigger_gridCreated.js";
 export { onGridDeleted } from "./notifications/onTrigger_gridDeleted.js";
 export { onGridUpdated } from "./notifications/onTrigger_gridUpdated.js";

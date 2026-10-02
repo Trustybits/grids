@@ -6,6 +6,8 @@ const { exportsByModule, adminImportSpy } = vi.hoisted(() => {
     assignDefaultGridOnCreate: { functionName: "assignDefaultGridOnCreate" },
     checkSlugAvailability: { functionName: "checkSlugAvailability" },
     claimSlug: { functionName: "claimSlug" },
+    redeemEmailRecoveryCode: { functionName: "redeemEmailRecoveryCode" },
+    requestEmailRecovery: { functionName: "requestEmailRecovery" },
     updateDefaultGrid: { functionName: "updateDefaultGrid" },
     trackGridViewEndBeacon: { functionName: "trackGridViewEndBeacon" },
     onAnalyticsEventCreated: { functionName: "onAnalyticsEventCreated" },
@@ -27,6 +29,9 @@ const { exportsByModule, adminImportSpy } = vi.hoisted(() => {
       functionName: "previewGridTransferAcceptance",
     },
     sweepExpiredGridTransfers: { functionName: "sweepExpiredGridTransfers" },
+    onEmailRecoveryRequestCreated: {
+      functionName: "onEmailRecoveryRequestCreated",
+    },
     onGridCreated: { functionName: "onGridCreated" },
     onGridDeleted: { functionName: "onGridDeleted" },
     onGridUpdated: { functionName: "onGridUpdated" },
@@ -68,6 +73,12 @@ vi.mock("../accounts/onCall_checkSlugAvailability.js", () => ({
 }));
 vi.mock("../accounts/onCall_claimSlug.js", () => ({
   claimSlug: exportsByModule.claimSlug,
+}));
+vi.mock("../accounts/onCall_redeemEmailRecoveryCode.js", () => ({
+  redeemEmailRecoveryCode: exportsByModule.redeemEmailRecoveryCode,
+}));
+vi.mock("../accounts/onCall_requestEmailRecovery.js", () => ({
+  requestEmailRecovery: exportsByModule.requestEmailRecovery,
 }));
 vi.mock("../accounts/onCall_updateDefaultGrid.js", () => ({
   updateDefaultGrid: exportsByModule.updateDefaultGrid,
@@ -115,6 +126,9 @@ vi.mock("../transfers/onCall_previewGridTransferAcceptance.js", () => ({
 }));
 vi.mock("../transfers/onSchedule_sweepExpiredGridTransfers.js", () => ({
   sweepExpiredGridTransfers: exportsByModule.sweepExpiredGridTransfers,
+}));
+vi.mock("../notifications/onTrigger_emailRecoveryRequestCreated.js", () => ({
+  onEmailRecoveryRequestCreated: exportsByModule.onEmailRecoveryRequestCreated,
 }));
 vi.mock("../notifications/onTrigger_gridCreated.js", () => ({
   onGridCreated: exportsByModule.onGridCreated,

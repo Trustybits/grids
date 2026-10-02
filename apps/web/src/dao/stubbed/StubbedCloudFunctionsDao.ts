@@ -18,6 +18,8 @@ import {
 import { emitGridChanged } from "./StubbedGridDao";
 import { emitGridTransfersChanged } from "./StubbedGridTransferDao";
 
+const STUBBED_RECOVERY_CODE = "STUB0000CODE";
+
 export class StubbedCloudFunctionsDao implements CloudFunctionsDao {
   public async callFunction<TRequest = unknown, TResponse = unknown>(
     functionName: string,
@@ -53,12 +55,30 @@ export class StubbedCloudFunctionsDao implements CloudFunctionsDao {
           data,
           "cancelled",
         ) as TResponse;
+      case "requestEmailRecovery":
+        return { ok: true } as TResponse;
+      case "redeemEmailRecoveryCode":
+        return this.redeemEmailRecoveryCode(data) as TResponse;
       case "getYouTubeMetadata":
       case "getMusicTrackMetadata":
         return {} as TResponse;
       default:
         return {} as TResponse;
     }
+  }
+
+  /**
+   * Local mode has no staff to issue codes, so one fixed code always works:
+   * STUB-0000-CODE (any case or spacing).
+   */
+  private redeemEmailRecoveryCode(data: unknown): { token: string } {
+    const raw = (data as { code?: unknown } | null)?.code;
+    const code =
+      typeof raw === "string" ? raw.toUpperCase().replace(/[\s-]/g, "") : "";
+    if (code !== STUBBED_RECOVERY_CODE) {
+      throw new Error("That code is invalid or has expired.");
+    }
+    return { token: "stubbed-recovery-token" };
   }
 
   private createGridTransfer(data: unknown): CreateGridTransferResponse {

@@ -42,6 +42,7 @@ These docs are for repository maintainers. They should describe procedures, not 
 - [Infra sync](maintainers/infra-sync.md)
 - [Workflows](maintainers/workflows.md)
 - [Storage migration](maintainers/storage-migration.md)
+- [Account email change and recovery](maintainers/account-email-recovery.md)
 
 ## Where New Docs Should Go
 

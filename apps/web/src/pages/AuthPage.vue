@@ -14,6 +14,10 @@
               <p class="auth-lead">Sign in or create your page of links, work, and media.</p>
             </div>
 
+            <p v-if="emailChanged" class="status status--notice" role="status">
+              Your email was updated. Sign in with your new address.
+            </p>
+
             <Button
               class="auth-google"
               variant="secondary"
@@ -81,6 +85,14 @@
             <p v-if="statusText" class="status" :class="{ error: statusTone === 'error' }">
               {{ statusText }}
             </p>
+
+            <router-link
+              v-if="canRecoverEmail"
+              class="auth-recover-link"
+              :to="ACCOUNT_RECOVERY_PATH"
+            >
+              Can't access your email?
+            </router-link>
           </div>
 
           <div v-else key="sent" class="auth-step auth-sent">
@@ -211,6 +223,8 @@ import { useGridController } from '@/controllers/useGridController';
 import { getServiceFactory } from '@/services/ServiceFactorySingleton';
 import { getAuthProvider } from '@/auth/AuthProviderSingleton';
 import ArrowRightIcon from '@/components/icons/ArrowRightIcon.vue';
+import { useFeatureFlags } from '@/composables/useFeatureFlags';
+import { ACCOUNT_RECOVERY_PATH } from '@/utils/emailChange';
 import GridsMark from '@/components/icons/GridsMark.vue';
 import { getMailProviderLink } from '@/utils/mailProviderLinks';
 import { getEmailProblem, isValidEmail } from '@/utils/emailValidation';
@@ -237,6 +251,11 @@ const statusText = ref<string | null>(null);
 const statusTone = ref<'info' | 'error'>('info');
 const showSlugModal = ref(false);
 const pendingRedirect = ref<string | null>(null);
+
+const { isEnabled, FEATURE_FLAGS } = useFeatureFlags();
+const canRecoverEmail = computed(() => isEnabled(FEATURE_FLAGS.ACCOUNT_EMAIL_CHANGE));
+// Set by /account/change-email when a verified change ended the old session.
+const emailChanged = computed(() => route.query.emailChanged === '1');
 
 const AUTH_EMAIL_STORAGE_KEY = 'grids.auth.emailForSignIn';
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -1087,6 +1106,25 @@ const handleSlugSkipped = () => {
 
 .status.error {
   color: var(--destructive-color, #ff4d4d);
+}
+
+.status--notice {
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-content-background);
+  text-align: center;
+}
+
+.auth-recover-link {
+  align-self: center;
+  font-size: 13px;
+  color: var(--color-content-default);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.auth-recover-link:hover {
+  color: var(--color-text-primary);
 }
 
 .fineprint {

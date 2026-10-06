@@ -29,6 +29,13 @@
           v-model="verticalCompact"
           tooltip="When enabled, tiles automatically move up to fill empty space"
         />
+        <NumberStepper
+          label="Desktop Columns"
+          v-model="columnCount"
+          :min="MIN_GRID_COLUMNS"
+          :max="MAX_GRID_COLUMNS"
+          tooltip="Number of grid columns on desktop. Tiles that no longer fit are moved to the nearest open space."
+        />
         <Toggle
           label="Grid Guide"
           :modelValue="uiStore.showGridGuide"
@@ -203,6 +210,11 @@ import { useGridSettings } from "@/composables/useGridSettings";
 import type { CopyDepth } from "@grids/contracts/types";
 import MenuItem from "@/components/ui-controls/MenuItem.vue";
 import Toggle from "@/components/ui-controls/Toggle.vue";
+import NumberStepper from "@/components/ui-controls/NumberStepper.vue";
+import {
+  MAX_GRID_COLUMNS,
+  MIN_GRID_COLUMNS,
+} from "@/utils/GridLayoutUtils";
 import Accordion from "@/components/ui-controls/Accordion.vue";
 import MenuSection from "@/components/ui-collections/MenuSection.vue";
 import Divider from "@/components/ui-elements/Divider.vue";
@@ -231,6 +243,7 @@ const {
   pendingTransfer,
   isCancellingTransfer,
   verticalCompact,
+  columnCount,
   isDarkMode,
   duplicatable,
   hasOverride,

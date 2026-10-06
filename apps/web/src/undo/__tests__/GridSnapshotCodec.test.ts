@@ -89,6 +89,7 @@ describe("GridSnapshotCodec", () => {
         },
       },
       verticalCompact: false,
+      colNum: 12,
       themeId: "theme-a",
       backgroundImageSrc: "background",
       backgroundEmbed: true,
@@ -97,6 +98,15 @@ describe("GridSnapshotCodec", () => {
       forcedBreakpoint: "md",
       actionLabel: "Before change",
     });
+  });
+
+  it("restores the desktop column count, keeping it when absent", () => {
+    const target = grid({ colNum: 16 });
+    codec.apply(target, snapshot({ colNum: 10 }));
+    expect(target.colNum).toBe(10);
+
+    codec.apply(target, snapshot());
+    expect(target.colNum).toBe(10);
   });
 
   it("normalizes optional undoable strings when capturing", () => {

@@ -68,6 +68,7 @@ export class GridSnapshotCodec {
       tiles,
       overrides: this.deepClone(grid.overrides ?? {}),
       verticalCompact: grid.verticalCompact,
+      colNum: grid.colNum,
       themeId: grid.themeId ?? "",
       backgroundImageSrc: grid.backgroundImageSrc,
       backgroundEmbed: grid.backgroundEmbed,
@@ -82,6 +83,7 @@ export class GridSnapshotCodec {
     grid.tiles = this.deepClone(snapshot.tiles);
     grid.overrides = this.deepClone(snapshot.overrides);
     grid.verticalCompact = snapshot.verticalCompact;
+    if (snapshot.colNum !== undefined) grid.colNum = snapshot.colNum;
     grid.themeId = snapshot.themeId;
     grid.backgroundImageSrc = snapshot.backgroundImageSrc;
     grid.backgroundEmbed = snapshot.backgroundEmbed;
@@ -139,6 +141,7 @@ export class GridSnapshotCodec {
       tiles: snapshot.tiles,
       overrides: snapshot.overrides,
       verticalCompact: snapshot.verticalCompact,
+      colNum: snapshot.colNum,
       themeId: snapshot.themeId,
       backgroundImageSrc: snapshot.backgroundImageSrc,
       backgroundEmbed: snapshot.backgroundEmbed,

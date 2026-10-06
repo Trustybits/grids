@@ -3,7 +3,10 @@ import type { Breakpoint } from "@grids/contracts/types";
 import {
   breakpointToColumnCount,
   calculateViewportColumnCount,
+  clampGridColumnCount,
   columnCountToBreakpoint,
+  MAX_GRID_COLUMNS,
+  MIN_GRID_COLUMNS,
 } from "../GridLayoutUtils";
 
 describe("breakpoint and viewport column mapping", () => {
@@ -12,6 +15,8 @@ describe("breakpoint and viewport column mapping", () => {
     ["md", 12, 8],
     ["lg", 12, 12],
     ["md", 6, 6],
+    ["lg", 16, 16],
+    ["lg", 8, 8],
   ] satisfies Array<[Breakpoint, number, number]>)(
     "maps %s against a %i-column grid to %i columns",
     (breakpoint, baseColumnCount, expected) => {
@@ -66,5 +71,37 @@ describe("breakpoint and viewport column mapping", () => {
         margin: 48,
       }),
     ).toBe(3);
+  });
+
+  it("maps a full-width viewport to lg for non-default grids", () => {
+    expect(columnCountToBreakpoint(8, 8)).toBe("lg");
+    expect(columnCountToBreakpoint(16, 16)).toBe("lg");
+    expect(columnCountToBreakpoint(8, 16)).toBe("md");
+  });
+
+  it("keeps wide grids on desktop wherever a default grid fits", () => {
+    expect(
+      calculateViewportColumnCount({
+        baseColumnCount: 16,
+        viewportWidth: 1600,
+        rowHeight: 75,
+        margin: 48,
+      }),
+    ).toBe(16);
+    expect(
+      calculateViewportColumnCount({
+        baseColumnCount: 16,
+        viewportWidth: 1052,
+        rowHeight: 75,
+        margin: 48,
+      }),
+    ).toBe(8);
+  });
+
+  it("clamps user-selected column counts", () => {
+    expect(clampGridColumnCount(3)).toBe(MIN_GRID_COLUMNS);
+    expect(clampGridColumnCount(99)).toBe(MAX_GRID_COLUMNS);
+    expect(clampGridColumnCount(10.4)).toBe(10);
+    expect(clampGridColumnCount(Number.NaN)).toBe(12);
   });
 });

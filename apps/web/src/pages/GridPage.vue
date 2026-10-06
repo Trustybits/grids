@@ -157,6 +157,7 @@ import { useUndoRedoKeys } from "@/composables/useUndoRedoKeys";
 import { useAnalytics } from "@/composables/useAnalytics";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { computeTextColor } from "@/composables/useColorPicker";
+import { isPublishedViewQuery } from "@/constants/publishedView";
 import type { ProfileBioContent } from "@grids/contracts/types";
 import AppButton from "@/components/ui-elements/Button.vue";
 import AlertCircleIcon from "@/components/icons/AlertCircleIcon.vue";
@@ -360,7 +361,9 @@ export default defineComponent({
       notFoundTitle = "Grid Not Found",
       notFoundMessage = "This grid could not be loaded.",
     ) => {
-      await controller.loadGrid(gridId);
+      await controller.loadGrid(gridId, {
+        viewPublished: isPublishedViewQuery(route.query),
+      });
       if (requestId !== loadRequestId) {
         return false;
       }
@@ -368,6 +371,9 @@ export default defineComponent({
         setError(notFoundTitle, sessionStore.loadError ?? notFoundMessage);
         return false;
       }
+      // An owner previewing their own published grid is neither a visitor
+      // (no view session) nor a fresh editor entry — skip analytics entirely.
+      if (sessionStore.isViewingPublished) return true;
       // Track the public grid id, not the draft — in draft-editing mode
       // currentGrid is the hidden draft.
       trackGridEnter(sessionStore.publicGridId || gridId);
@@ -481,7 +487,14 @@ export default defineComponent({
       { immediate: true },
     );
 
-    watch(() => [route.params.id, route.params.slug], loadCurrentRoute);
+    watch(
+      () => [
+        route.params.id,
+        route.params.slug,
+        isPublishedViewQuery(route.query),
+      ],
+      loadCurrentRoute,
+    );
 
     // Expose the switcher variant so the template can gate rendering
     const switcherVariant = SWITCHER_VARIANT;

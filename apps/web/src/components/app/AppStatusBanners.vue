@@ -1,6 +1,7 @@
 <template>
   <div ref="bannerStack" class="app-status-banners">
     <StubbedModeBanner v-if="isStubbedMode" />
+    <PublishedViewBanner v-if="showPublishedView" />
     <ViewportWarning
       v-if="showViewportWarning"
       type="breakpoint-preview"
@@ -11,13 +12,18 @@
 
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import PublishedViewBanner from "@/components/app/PublishedViewBanner.vue";
 import StubbedModeBanner from "@/components/app/StubbedModeBanner.vue";
 import ViewportWarning from "@/components/grid/ViewportWarning.vue";
 
-const props = defineProps<{
-  isStubbedMode: boolean;
-  showViewportWarning: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    isStubbedMode: boolean;
+    showViewportWarning: boolean;
+    showPublishedView?: boolean;
+  }>(),
+  { showPublishedView: false },
+);
 
 const bannerStack = ref<HTMLElement | null>(null);
 let resizeObserver: ResizeObserver | null = null;
@@ -33,7 +39,11 @@ const updateBannerStackHeight = () => {
 };
 
 watch(
-  () => [props.isStubbedMode, props.showViewportWarning],
+  () => [
+    props.isStubbedMode,
+    props.showViewportWarning,
+    props.showPublishedView,
+  ],
   updateBannerStackHeight,
 );
 

@@ -103,6 +103,12 @@ export interface Grid {
   // from clonedFrom: a draft is hidden and written back on publish, whereas a
   // normal duplicate keeps clonedFrom and stays listed. Never set both.
   draftOf?: string;
+  // The published original's `rev` this draft was created (or last re-based)
+  // from. Lets a loader detect that the original has moved on since the draft
+  // was taken — e.g. it was edited directly while the draft/publish model was
+  // disabled — so the stale draft can be re-based instead of resurfacing old
+  // content under the original's id. Only set alongside `draftOf`.
+  draftOfRev?: number;
   // When the grid was last published (set on publish / publish-as-copy).
   publishedAt?: Date | { toDate(): Date } | null;
   createdAt?: Date | { toDate(): Date } | null;

@@ -26,6 +26,7 @@ export function createLiveGridViewContext(): GridViewContext {
     grid: computed(() =>
       session.currentGrid === null ? null : readonly(session.currentGrid),
     ),
+    publicGridId: computed(() => session.publicGridId),
     isOwner: computed(() => session.isOwner),
     canEdit: computed(() => controller.canEditCurrentGrid()),
     activePreview: computed(() =>

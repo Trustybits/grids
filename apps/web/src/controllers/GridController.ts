@@ -379,8 +379,15 @@ export class GridController {
     this.sessionController.resetSessionDependents();
   }
 
-  async loadGrid(id: string): Promise<void> {
-    await this.sessionController.loadGrid(id);
+  /**
+   * `viewPublished` opens the grid read-only as visitors see it (no draft
+   * resolution), letting an owner inspect the live version in-app.
+   */
+  async loadGrid(
+    id: string,
+    options: { viewPublished?: boolean } = {},
+  ): Promise<void> {
+    await this.sessionController.loadGrid(id, options);
   }
 
   async resyncIfStale(): Promise<void> {
@@ -669,6 +676,14 @@ export class GridController {
    * Deletes are fire-and-forget; any that miss this pass (e.g. the client dies
    * first, or a removed tile is still parked in the undo stack at teardown of a
    * grid that is kept) are reclaimed by the server-side sweep.
+   *
+   * Draft editing is left entirely to that sweep. Messages live under the
+   * PUBLIC grid, not the draft, and removing a tile from the draft is not final
+   * — the public tile keeps serving its chat until publish, and the draft may be
+   * abandoned. Deleting under the draft id would be a no-op (nothing lives
+   * there); deleting under the public id would destroy a live conversation
+   * before the removal is published. Once a publish drops the tile from the
+   * original, the sweep sees the orphaned subcollection and reclaims it.
    */
   private flushChatCleanup(discardingHistory = false): void {
     const grid = this.stores.session.currentGrid;
@@ -676,6 +691,11 @@ export class GridController {
 
     const pending = this.pendingChatDeletions.get(grid.id);
     if (!pending || pending.size === 0) return;
+
+    if (this.stores.session.isDraftEditing) {
+      if (discardingHistory) this.pendingChatDeletions.delete(grid.id);
+      return;
+    }
 
     const reachable = new Set(grid.tiles.map((tile) => tile.i));
     if (!discardingHistory) {

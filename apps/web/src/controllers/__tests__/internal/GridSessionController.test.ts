@@ -252,6 +252,57 @@ describe("GridSessionController", () => {
         expect(h.stores.session.isDraftEditing).toBe(false);
       });
 
+      it("opens the live original read-only for the owner in the published view", async () => {
+        vi.mocked(h.dependencies.isDraftPublishEnabled).mockReturnValue(true);
+        const original = makeGrid({
+          id: "g2",
+          userId: "user-1",
+          status: "published",
+        });
+        vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(original);
+
+        await controller.loadGrid("g2", { viewPublished: true });
+
+        // No draft is resolved; the session holds the published document…
+        expect(h.gridService.getOrCreateDraft).not.toHaveBeenCalled();
+        expect(h.stores.session.currentGrid?.id).toBe("g2");
+        expect(h.stores.session.isDraftEditing).toBe(false);
+        // …as a visitor would see it (read-only, no owner-only writes)…
+        expect(h.stores.session.isOwner).toBe(false);
+        expect(h.gridService.touchLastOpenedAt).not.toHaveBeenCalled();
+        // …while remembering the viewer really owns it.
+        expect(h.stores.session.isViewingPublished).toBe(true);
+      });
+
+      it("ignores the published-view option for a non-owner", async () => {
+        vi.mocked(h.dependencies.isDraftPublishEnabled).mockReturnValue(true);
+        vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(
+          makeGrid({ id: "g2", userId: "other", status: "published" }),
+        );
+
+        await controller.loadGrid("g2", { viewPublished: true });
+
+        expect(h.stores.session.isOwner).toBe(false);
+        expect(h.stores.session.isViewingPublished).toBe(false);
+      });
+
+      it("keeps the published view read-only across a resync", async () => {
+        vi.mocked(h.dependencies.isDraftPublishEnabled).mockReturnValue(true);
+        vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(
+          makeGrid({ id: "g2", userId: "user-1", status: "published", rev: 1 }),
+        );
+        await controller.loadGrid("g2", { viewPublished: true });
+
+        vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(
+          makeGrid({ id: "g2", userId: "user-1", status: "published", rev: 2 }),
+        );
+        await controller.resyncIfStale();
+
+        expect(h.stores.session.currentGrid?.rev).toBe(2);
+        expect(h.stores.session.isOwner).toBe(false);
+        expect(h.stores.session.isViewingPublished).toBe(true);
+      });
+
       it("falls back to editing the published grid when draft creation fails", async () => {
         vi.mocked(h.dependencies.isDraftPublishEnabled).mockReturnValue(true);
         vi.mocked(h.gridService.fetchGrid).mockResolvedValueOnce(

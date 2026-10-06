@@ -58,6 +58,8 @@ describe("createDemoGridViewContext", () => {
     // Demo grid is exposed deeply readonly, mirroring the live context.
     expect(ctx.grid.value).toEqual(grid);
     expect(isReadonly(ctx.grid.value)).toBe(true);
+    // Demo grids are never drafts, so the public id is the grid's own id.
+    expect(ctx.publicGridId.value).toBe("demo-grid");
     expect(ctx.isOwner.value).toBe(false);
     expect(ctx.canEdit.value).toBe(false);
     expect(ctx.activePreview.value).toBeNull();

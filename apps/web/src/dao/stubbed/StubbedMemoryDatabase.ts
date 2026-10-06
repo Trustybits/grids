@@ -224,6 +224,10 @@ export function toGrid(id: string, data: Record<string, unknown>): Grid {
         ? data.status
         : undefined,
     draftOf: typeof data.draftOf === "string" ? data.draftOf : undefined,
+    draftOfRev:
+      typeof data.draftOfRev === "number" && Number.isFinite(data.draftOfRev)
+        ? data.draftOfRev
+        : undefined,
     publishedAt: (data.publishedAt as Grid["publishedAt"]) ?? null,
     createdAt: (data.createdAt as Grid["createdAt"]) ?? null,
     updatedAt: (data.updatedAt as Grid["updatedAt"]) ?? null,

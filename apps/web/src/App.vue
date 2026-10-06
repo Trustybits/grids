@@ -3,6 +3,7 @@
     <AppStatusBanners
       :is-stubbed-mode="isStubbedMode"
       :show-viewport-warning="!isMarketingPage"
+      :show-published-view="sessionStore.isViewingPublished"
     />
 
     <!-- Left Navigation Bar (hidden on marketing pages like /pricing) -->

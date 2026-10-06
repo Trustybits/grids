@@ -4,7 +4,8 @@
   Draft/Publish surface (Framer-style). A trigger button whose label reflects
   publish state (Publish / Update / Published) with a dot when the open draft
   has unpublished changes, plus a popover panel showing the public URL, publish
-  state, and the publish actions (including discarding unpublished changes).
+  state, a summary of what the draft changes, and the publish actions (including discarding unpublished changes and
+  switching to the read-only published view).
 
   Fully gated behind the EDITOR_DRAFT_PUBLISH flag via usePublish — renders
   nothing unless the feature is enabled and the viewer owns the grid.
@@ -53,6 +54,19 @@
           </button>
         </div>
 
+        <div
+          v-if="unpublishedChangeLines.length"
+          class="pp-changes"
+          aria-label="Unpublished changes"
+        >
+          <span class="pp-changes__title">Unpublished changes</span>
+          <ul class="pp-changes__list">
+            <li v-for="line in unpublishedChangeLines" :key="line">
+              {{ line }}
+            </li>
+          </ul>
+        </div>
+
         <div class="pp-actions">
           <AppButton
             variant="brand"
@@ -86,6 +100,14 @@
         <div class="pp-divider" />
 
         <div class="pp-footer">
+          <button
+            v-if="isPublished"
+            type="button"
+            class="pp-link"
+            @click="onViewPublished"
+          >
+            View published version
+          </button>
           <button
             v-if="!isDefaultGrid"
             type="button"
@@ -126,6 +148,7 @@ const {
   isPublished,
   publishedAt,
   hasUnpublishedChanges,
+  unpublishedChangeLines,
   isPublishing,
   isUnpublishing,
   isDiscarding,
@@ -138,6 +161,7 @@ const {
   unpublish,
   copyPublicUrl,
   openPublicUrl,
+  viewPublished,
   setAsDefaultGrid,
 } = usePublish();
 
@@ -233,6 +257,10 @@ const onUnpublish = async () => {
 };
 const onSetDefault = async () => {
   await setAsDefaultGrid();
+};
+const onViewPublished = () => {
+  close();
+  viewPublished();
 };
 
 // Close on outside click / Escape.
@@ -422,6 +450,30 @@ watch(visible, (now) => {
     background: var(--color-stroke);
     color: var(--color-text-primary);
   }
+}
+
+.pp-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-left: 2px solid var(--primary-color, var(--color-brand, #6c5ce7));
+}
+
+.pp-changes__title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-content-low);
+}
+
+.pp-changes__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
 }
 
 .pp-actions {

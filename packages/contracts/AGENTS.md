@@ -24,7 +24,7 @@ Consumers import from subpaths, each backed by a barrel (`index.ts`) and mapped 
 Most exports are type-only, but a few are real runtime values: the `ContentType` enum (`types/TileContent.ts`), the `AnalyticsEventType` enum (`types/Analytics.ts`), and the `BADGE_IDS` const (`types/Badge.ts`). Because of these:
 
 - `src/types/index.ts` and the root `src/index.ts` use `export *` (value-preserving), so these values are reachable from both `@grids/contracts/types` and the bare `@grids/contracts` specifier.
-- `src/dao/index.ts` and `src/auth/index.ts` are interface-only and use `export type`.
+- `src/dao/index.ts` and `src/auth/index.ts` are mostly interface-only and use `export type`; their few runtime values (the `GridRevisionConflictError` / `AuthProviderError` classes and their `is*` guards) are re-exported with a plain `export { … }`.
 - If you add a new runtime value, re-export it with `export *` (not `export type`) so it survives through the barrels.
 
 ## Build & tooling

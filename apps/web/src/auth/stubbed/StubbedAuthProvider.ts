@@ -1,4 +1,9 @@
-import type { AuthProvider, AuthUser } from "@grids/contracts/auth";
+import {
+  AuthProviderError,
+  type AuthProvider,
+  type AuthSignInMethod,
+  type AuthUser,
+} from "@grids/contracts/auth";
 
 export class StubbedAuthProvider implements AuthProvider {
   private currentUser: AuthUser | null;
@@ -76,6 +81,39 @@ export class StubbedAuthProvider implements AuthProvider {
   public async signOut(): Promise<void> {
     this.currentUser = null;
     this.notify();
+  }
+
+  public getSignInMethods(): AuthSignInMethod[] {
+    return this.currentUser ? ["emailLink"] : [];
+  }
+
+  /**
+   * There is no inbox locally, so the change is applied immediately rather
+   * than after a verification link is opened.
+   */
+  public async requestEmailChange(
+    newEmail: string,
+    _continueUrl: string,
+  ): Promise<void> {
+    if (!this.currentUser) {
+      throw new AuthProviderError("not-signed-in", "Sign in required.");
+    }
+    this.currentUser = { ...this.currentUser, email: newEmail };
+    this.notify();
+  }
+
+  public async reauthenticateWithGoogle(): Promise<void> {}
+
+  public async reauthenticateWithEmailLink(_url: string): Promise<void> {}
+
+  public async reloadCurrentUser(): Promise<AuthUser | null> {
+    return this.currentUser;
+  }
+
+  public async signInWithRecoveryToken(_token: string): Promise<AuthUser> {
+    this.currentUser = this.currentUser ?? this.stubbedUser;
+    this.notify();
+    return this.currentUser;
   }
 
   private notify(): void {

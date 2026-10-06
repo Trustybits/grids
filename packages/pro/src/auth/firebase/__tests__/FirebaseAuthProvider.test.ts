@@ -12,18 +12,29 @@
  *  - isEmailSignInLink: SDK delegation
  *  - completeEmailSignIn: mapped user, throws when no user returned
  *  - signOut: SDK delegation
+ *  - getSignInMethods: providerData -> google / emailLink
+ *  - requestEmailChange: verifyBeforeUpdateEmail + error-code mapping
+ *  - reauthenticateWithGoogle / reauthenticateWithEmailLink
+ *  - reloadCurrentUser: reload + forced token refresh, fans out to listeners
+ *  - signInWithRecoveryToken: custom-token sign-in
  */
 
 import { describe, it, expect, vi } from "vitest";
 import {
+  EmailAuthProvider,
   GoogleAuthProvider,
   isSignInWithEmailLink,
   onAuthStateChanged,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
   sendSignInLinkToEmail,
+  signInWithCustomToken,
   signInWithEmailLink,
   signInWithPopup,
   signOut,
+  verifyBeforeUpdateEmail,
 } from "firebase/auth";
+import { AuthProviderError } from "@grids/contracts/auth";
 import { FirebaseAuthProvider } from "../FirebaseAuthProvider.js";
 import type { Auth, User } from "firebase/auth";
 
@@ -122,12 +133,15 @@ describe("FirebaseAuthProvider", () => {
       expect(callback).toHaveBeenNthCalledWith(2, null);
     });
 
-    it("returns the SDK unsubscribe function", () => {
+    it("returns an unsubscribe that detaches the SDK listener", () => {
       const unsubFn = vi.fn();
       vi.mocked(onAuthStateChanged).mockReturnValue(unsubFn as any);
       const provider = new FirebaseAuthProvider(makeAuth());
 
-      expect(provider.onAuthStateChanged(vi.fn())).toBe(unsubFn);
+      const unsubscribe = provider.onAuthStateChanged(vi.fn());
+      expect(unsubFn).not.toHaveBeenCalled();
+      unsubscribe();
+      expect(unsubFn).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -311,6 +325,201 @@ describe("FirebaseAuthProvider", () => {
       vi.mocked(signOut).mockRejectedValue(new Error("network"));
 
       await expect(provider.signOut()).rejects.toThrow("network");
+    });
+  });
+
+  // ── getSignInMethods ──────────────────────────────────────────────────────
+
+  describe("getSignInMethods", () => {
+    it("maps google.com and password providers", () => {
+      const user = {
+        ...fullUser,
+        providerData: [
+          { providerId: "google.com" },
+          { providerId: "password" },
+          { providerId: "password" },
+        ],
+      } as unknown as User;
+      const provider = new FirebaseAuthProvider(makeAuth(user));
+      expect(provider.getSignInMethods()).toEqual(["google", "emailLink"]);
+    });
+
+    it("returns an empty list when signed out", () => {
+      const provider = new FirebaseAuthProvider(makeAuth(null));
+      expect(provider.getSignInMethods()).toEqual([]);
+    });
+  });
+
+  // ── requestEmailChange ────────────────────────────────────────────────────
+
+  describe("requestEmailChange", () => {
+    it("sends a verify-before-update email with the continue URL", async () => {
+      const provider = new FirebaseAuthProvider(makeAuth(fullUser));
+      vi.mocked(verifyBeforeUpdateEmail).mockResolvedValue(undefined);
+
+      await provider.requestEmailChange("new@example.com", "https://app/x");
+
+      expect(verifyBeforeUpdateEmail).toHaveBeenCalledWith(
+        fullUser,
+        "new@example.com",
+        { url: "https://app/x" },
+      );
+    });
+
+    it("maps requires-recent-login to the contract error code", async () => {
+      const provider = new FirebaseAuthProvider(makeAuth(fullUser));
+      vi.mocked(verifyBeforeUpdateEmail).mockRejectedValue(
+        Object.assign(new Error("stale"), {
+          code: "auth/requires-recent-login",
+        }),
+      );
+
+      const error = await provider
+        .requestEmailChange("new@example.com", "https://app/x")
+        .catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(AuthProviderError);
+      expect((error as AuthProviderError).code).toBe("requires-recent-login");
+    });
+
+    it("maps unknown SDK errors to 'unknown'", async () => {
+      const provider = new FirebaseAuthProvider(makeAuth(fullUser));
+      vi.mocked(verifyBeforeUpdateEmail).mockRejectedValue(
+        Object.assign(new Error("boom"), { code: "auth/whatever" }),
+      );
+
+      await expect(
+        provider.requestEmailChange("new@example.com", "https://app/x"),
+      ).rejects.toMatchObject({ code: "unknown", message: "boom" });
+    });
+
+    it("rejects with not-signed-in when there is no user", async () => {
+      const provider = new FirebaseAuthProvider(makeAuth(null));
+      await expect(
+        provider.requestEmailChange("new@example.com", "https://app/x"),
+      ).rejects.toMatchObject({ code: "not-signed-in" });
+      expect(verifyBeforeUpdateEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── re-authentication ─────────────────────────────────────────────────────
+
+  describe("reauthenticateWithGoogle", () => {
+    it("re-authenticates the current user with a Google popup", async () => {
+      const provider = new FirebaseAuthProvider(makeAuth(fullUser));
+      vi.mocked(reauthenticateWithPopup).mockResolvedValue({} as any);
+
+      await provider.reauthenticateWithGoogle();
+
+      expect(GoogleAuthProvider).toHaveBeenCalled();
+      expect(reauthenticateWithPopup).toHaveBeenCalledWith(
+        fullUser,
+        expect.any(Object),
+      );
+    });
+
+    it("maps a closed popup to popup-closed", async () => {
+      const provider = new FirebaseAuthProvider(makeAuth(fullUser));
+      vi.mocked(reauthenticateWithPopup).mockRejectedValue({
+        code: "auth/popup-closed-by-user",
+      });
+
+      await expect(provider.reauthenticateWithGoogle()).rejects.toMatchObject({
+        code: "popup-closed",
+      });
+    });
+  });
+
+  describe("reauthenticateWithEmailLink", () => {
+    it("builds an email-link credential for the current email", async () => {
+      const provider = new FirebaseAuthProvider(makeAuth(fullUser));
+      vi.mocked(reauthenticateWithCredential).mockResolvedValue({} as any);
+
+      await provider.reauthenticateWithEmailLink("https://app/link");
+
+      expect(EmailAuthProvider.credentialWithLink).toHaveBeenCalledWith(
+        "alice@example.com",
+        "https://app/link",
+      );
+      expect(reauthenticateWithCredential).toHaveBeenCalledWith(fullUser, {
+        email: "alice@example.com",
+        url: "https://app/link",
+      });
+    });
+
+    it("maps an expired link to invalid-link", async () => {
+      const provider = new FirebaseAuthProvider(makeAuth(fullUser));
+      vi.mocked(reauthenticateWithCredential).mockRejectedValue({
+        code: "auth/expired-action-code",
+      });
+
+      await expect(
+        provider.reauthenticateWithEmailLink("https://app/link"),
+      ).rejects.toMatchObject({ code: "invalid-link" });
+    });
+  });
+
+  // ── reloadCurrentUser ─────────────────────────────────────────────────────
+
+  describe("reloadCurrentUser", () => {
+    it("reloads, refreshes the token, and notifies listeners", async () => {
+      const reload = vi.fn().mockResolvedValue(undefined);
+      const getIdToken = vi.fn().mockResolvedValue("token");
+      const user = { ...fullUser, reload, getIdToken } as unknown as User;
+      const provider = new FirebaseAuthProvider(makeAuth(user));
+      vi.mocked(onAuthStateChanged).mockReturnValue(vi.fn() as any);
+      const listener = vi.fn();
+      provider.onAuthStateChanged(listener);
+
+      const result = await provider.reloadCurrentUser();
+
+      expect(reload).toHaveBeenCalled();
+      expect(getIdToken).toHaveBeenCalledWith(true);
+      expect(result).toEqual(mappedUser);
+      expect(listener).toHaveBeenCalledWith(mappedUser);
+    });
+
+    it("rejects with not-signed-in when the session was revoked", async () => {
+      const user = {
+        ...fullUser,
+        reload: vi.fn().mockRejectedValue({ code: "auth/user-token-expired" }),
+        getIdToken: vi.fn(),
+      } as unknown as User;
+      const provider = new FirebaseAuthProvider(makeAuth(user));
+
+      await expect(provider.reloadCurrentUser()).rejects.toMatchObject({
+        code: "not-signed-in",
+      });
+    });
+
+    it("returns null when signed out", async () => {
+      const provider = new FirebaseAuthProvider(makeAuth(null));
+      expect(await provider.reloadCurrentUser()).toBeNull();
+    });
+  });
+
+  // ── signInWithRecoveryToken ───────────────────────────────────────────────
+
+  describe("signInWithRecoveryToken", () => {
+    it("signs in with the custom token and returns the mapped user", async () => {
+      const auth = makeAuth();
+      const provider = new FirebaseAuthProvider(auth);
+      vi.mocked(signInWithCustomToken).mockResolvedValue({
+        user: fullUser,
+      } as any);
+
+      expect(await provider.signInWithRecoveryToken("tok")).toEqual(mappedUser);
+      expect(signInWithCustomToken).toHaveBeenCalledWith(auth, "tok");
+    });
+
+    it("maps an invalid token to invalid-link", async () => {
+      const provider = new FirebaseAuthProvider(makeAuth());
+      vi.mocked(signInWithCustomToken).mockRejectedValue({
+        code: "auth/invalid-custom-token",
+      });
+
+      await expect(
+        provider.signInWithRecoveryToken("tok"),
+      ).rejects.toMatchObject({ code: "invalid-link" });
     });
   });
 });

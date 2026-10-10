@@ -113,6 +113,23 @@ export default defineComponent({
   line-height: 1.5;
 }
 
+/* Phones: centered above the bottom bar (MobileGridBar publishes its height)
+   rather than in the corner, where it would cover the bar. */
+@media (max-width: 640px) {
+  .toast-container {
+    left: var(--spacing-sm);
+    right: var(--spacing-sm);
+    bottom: calc(var(--mobile-bottom-chrome-h, 12px) + var(--spacing-sm));
+    align-items: center;
+  }
+
+  .toast {
+    min-width: 0;
+    width: 100%;
+    max-width: 420px;
+  }
+}
+
 .toast-action {
   margin-left: auto;
   padding: var(--spacing-xs) var(--spacing-sm);

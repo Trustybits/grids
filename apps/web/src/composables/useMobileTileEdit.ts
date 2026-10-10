@@ -46,6 +46,10 @@ const _query = ref("");
 // Shallow: the handle is a bag of refs the tile already owns. A deep ref would
 // unwrap them, which both loses the reactive link and changes the type.
 const _handle = shallowRef<MobileTileEditHandle | null>(null);
+// Which tile registered the handle. The selection can move without a tap (a
+// duplicate's copy is selected before it mounts), and acting on the previous
+// tile's handle would edit — or delete — the wrong tile.
+const _handleTileId = ref<string | null>(null);
 
 export function useMobileTileEdit() {
   const sessionStore = useGridSessionStore();
@@ -71,12 +75,14 @@ export function useMobileTileEdit() {
   const openEdit = (tileId: string, handle: MobileTileEditHandle) => {
     _query.value = "";
     _handle.value = handle;
+    _handleTileId.value = tileId;
     controller.setMobileEditTile(tileId);
   };
 
   const closeEdit = () => {
     _query.value = "";
     _handle.value = null;
+    _handleTileId.value = null;
     controller.setMobileEditTile(null);
   };
 
@@ -86,7 +92,10 @@ export function useMobileTileEdit() {
     isEditTarget,
     openEdit,
     closeEdit,
-    handle: computed(() => _handle.value),
+    // Only the selected tile's own handle; null until it has registered.
+    handle: computed(() =>
+      _handleTileId.value === editTileId.value ? _handle.value : null,
+    ),
     query: _query,
   };
 }

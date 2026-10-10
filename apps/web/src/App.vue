@@ -13,9 +13,13 @@
     <template v-if="mobile2ChromeActive">
       <MobileAppBar
         :mode="mobile2HomeActive ? 'home' : 'grid'"
+        :tucked="appBarTucked"
         @open-menu="isMobileMenuOpen = true"
         @new-grid="handleNewGrid"
       />
+      <!-- Floating phone toolbars: Multi edit pill + Undo/Redo circles that
+           take the app bar's place while a tile is edited. -->
+      <MobileTopChrome v-if="mobile2GridActive && isMobileToolbar" />
       <MobileMenuDrawer
         :open="isMobileMenuOpen"
         @close="isMobileMenuOpen = false"
@@ -61,6 +65,8 @@ import LeftNavBar from './components/grid/LeftNavBar.vue';
 import BottomLeftButtons from './components/app/AppBar.vue';
 import MobileGridBar from './components/app/MobileGridBar.vue';
 import MobileAppBar from './components/app/MobileAppBar.vue';
+import MobileTopChrome from './components/app/mobile-editor/MobileTopChrome.vue';
+import { useMobileEditorView } from '@/composables/useMobileEditorView';
 import MobilePreviewToolbar from './components/app/MobilePreviewToolbar.vue';
 import MobileMenuDrawer from './components/app/MobileMenuDrawer.vue';
 import GridNameEditor from './components/grid/GridNameEditor.vue';
@@ -91,7 +97,8 @@ withDefaults(
 
 const { identify, reset: resetPostHog } = usePostHog();
 const { reloadFlags } = useFeatureFlags();
-const { chromeActive } = useMobileExperience();
+const { chromeActive, isMobileToolbar } = useMobileExperience();
+const { view: mobileEditorView } = useMobileEditorView();
 const { isPreviewActive } = useGridPreview();
 
 const route = useRoute();
@@ -190,6 +197,20 @@ const mobile2ChromeActive = computed(
 const mobile2PreviewActive = computed(
   () => mobile2GridActive.value && isPreviewActive.value,
 );
+
+// Floating phone toolbars: while a tile is edited the app bar tucks away and
+// MobileTopChrome's pill + circles take its place.
+const appBarTucked = computed(
+  () =>
+    mobile2GridActive.value &&
+    isMobileToolbar.value &&
+    mobileEditorView.value.kind !== "home",
+);
+
+// Opening the menu drawer leaves the grid's editing behind.
+watch(isMobileMenuOpen, (open) => {
+  if (open && isMobileToolbar.value) controller.clearMobileEditor();
+});
 
 const handleNewGrid = async () => {
   isMobileMenuOpen.value = false;

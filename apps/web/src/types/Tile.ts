@@ -37,6 +37,11 @@ export interface LinkableTileChild {
   openUrlInput?: () => void;
 }
 
+export interface DocumentsTileChild {
+  /** Open the full-screen document viewer. */
+  openPreview?: (event?: MouseEvent) => void;
+}
+
 export interface LinkTileChild {
   openCustomImagePicker?: () => void;
   removeImage?: () => void;
@@ -98,6 +103,7 @@ export type TileChildComponent =
   Partial<MapTileChild> &
   Partial<LinkableTileChild> &
   Partial<LinkTileChild> &
+  Partial<DocumentsTileChild> &
   Partial<TextEditableTileChild> &
   Partial<RichTextTileChild> &
   Partial<ColorThemableTileChild>;

@@ -56,7 +56,12 @@
          executes) is the whole surface — no sheet rises. -->
     <transition name="mgb-rise">
       <div
-        v-if="mode === 'edit' && editTile && isMobileDevice"
+        v-if="
+          mode === 'edit' &&
+          editTile &&
+          isMobileDevice &&
+          !isMobileToolbar
+        "
         class="mgb-settings-panel"
         :class="{ 'mgb-settings-panel--format': textEditingEditor }"
       >
@@ -138,7 +143,10 @@
         'mgb-pill--settings': mode === 'settings',
         'mgb-pill--color': mode === 'color',
         'mgb-pill--image': mode === 'image',
-        'mgb-pill--edit': mode === 'edit',
+        'mgb-pill--edit': mode === 'edit' && !isMobileToolbar,
+        'mgb-pill--toolbar': mode === 'edit' && isMobileToolbar,
+        'mgb-pill--format': mode === 'edit' && isMobileToolbar && !!textEditingEditor,
+        'mgb-pill--glass': isMobileToolbar,
         'mgb-pill--flush': isConnected,
       }"
       :aria-label="pillAriaLabel"
@@ -207,6 +215,23 @@
         aria-label="Filter grid settings"
         close-label="Close grid settings"
         @close="closeSettings"
+      />
+
+      <!-- Floating toolbars: the pill itself becomes the selected tile's
+           toolbar (no `/EDIT` input, no sheet). Keyed by tile so switching
+           tiles morphs the pill to the new tile's tools. -->
+      <!-- Typing in a text tile: the whole toolbar morphs into the
+           font-styling bar (one bar, riding on the keyboard). -->
+      <MobileFormatToolbar
+        v-else-if="mode === 'edit' && isMobileToolbar && textEditingEditor"
+        :editor="textEditingEditor"
+        @done="stopTyping"
+        @edit-link="(href) => editHandle?.childComponent.value?.editLink?.(href)"
+      />
+      <MobileTileToolbar
+        v-else-if="mode === 'edit' && isMobileToolbar && editTile"
+        :key="editTile.i"
+        :tile="editTile"
       />
 
       <MobileCommandInput
@@ -333,7 +358,6 @@
 <script setup lang="ts">
 import {
   computed,
-  nextTick,
   onBeforeUnmount,
   onMounted,
   proxyRefs,
@@ -350,6 +374,9 @@ import MobileTileDragGhost from "@/components/app/MobileTileDragGhost.vue";
 import MobileTileListSheet from "@/components/app/MobileTileListSheet.vue";
 import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vue";
 import MobileTileEditSheet from "@/components/app/MobileTileEditSheet.vue";
+import MobileTileToolbar from "@/components/app/mobile-editor/MobileTileToolbar.vue";
+import MobileFormatToolbar from "@/components/app/mobile-editor/MobileFormatToolbar.vue";
+import { useMorphFlip } from "@/composables/useMorphFlip";
 import DockedFormatBar from "@/components/richtext/DockedFormatBar.vue";
 import { useKeyboardInset } from "@/composables/useKeyboardInset";
 import { isRichTextContentType } from "@grids/contracts/types";
@@ -453,7 +480,8 @@ const { editTileId, editTile, closeEdit, query: editQuery, handle: editHandle } 
   useMobileTileEdit();
 // The sheet is the mobile presentation of `/EDIT`; on the desktop chrome the
 // tile keeps its own toolbars and only the pill input renders.
-const { isMobileDevice, isUnifiedText } = useMobileExperience();
+const { isMobileDevice, isUnifiedText, isMobileToolbar } =
+  useMobileExperience();
 
 // The live editor of a unified text tile while its owner is typing in it.
 // The keyboard is up, so the sheet gives way to the formatting bar.
@@ -555,7 +583,7 @@ const isConnected = computed(
     mode.value === "settings" ||
     mode.value === "color" ||
     mode.value === "image" ||
-    mode.value === "edit" ||
+    (mode.value === "edit" && !isMobileToolbar.value) ||
     (mode.value === "add" && viewMode.value === "list"),
 );
 
@@ -646,36 +674,55 @@ const pillAriaLabel = computed(() => {
 });
 
 // ── Grow the pill (FLIP) instead of fading it out/in ─────────────────────────
-// The shell stays mounted; only its width animates between the measured
-// default width and the (wider) add-mode width so it reads as "growing".
-const animatePillWidth = async () => {
-  const el = pillRef.value?.$el as HTMLElement | undefined;
-  if (!el) return;
+// The shell stays mounted; its box animates from the old content's size to the
+// new one's, so it reads as one surface growing. The floating tile toolbar
+// morphs snappily (height and radius too); the command modes keep their
+// gentler grow.
+const pillEl = computed(
+  () => (pillRef.value?.$el as HTMLElement | undefined) ?? null,
+);
+const { morph } = useMorphFlip(pillEl);
+const morphOptions = () =>
+  isMobileToolbar.value
+    ? {}
+    : { duration: "var(--duration-slow)", easing: "var(--easing-gentle)" };
 
-  const start = el.getBoundingClientRect().width;
-  await nextTick(); // the swapped-in content is now laid out
-  el.style.width = ""; // let CSS / content decide the target width
-  const end = el.getBoundingClientRect().width;
-  if (Math.abs(start - end) < 1) return;
+// The pill's previous box is measured synchronously when the source changes
+// (`flush: "pre"` runs before the DOM updates), then animated once it has.
+watch(
+  mode,
+  async () => {
+    await morph(undefined, morphOptions());
+    if (mode.value === "add") cmdRef.value?.focus();
+  },
+  { flush: "pre" },
+);
 
-  el.style.width = `${start}px`;
-  void el.offsetWidth; // force reflow so the next change transitions
-  el.style.transition = "width var(--duration-slow) var(--easing-gentle)";
-  el.style.width = `${end}px`;
-
-  const cleanup = (event: TransitionEvent) => {
-    if (event.propertyName !== "width") return;
-    el.style.transition = "";
-    el.style.width = "";
-    el.removeEventListener("transitionend", cleanup);
-  };
-  el.addEventListener("transitionend", cleanup);
+// Done on the format bar: stop typing (the tile's own exit, as a tap outside
+// would) and drop the keyboard. The pill morphs back to the tile toolbar.
+const stopTyping = () => {
+  const child = editHandle.value?.childComponent.value;
+  child?.editor?.commands.blur();
+  child?.onExitClick?.();
 };
 
-watch(mode, async () => {
-  await animatePillWidth();
-  if (mode.value === "add") cmdRef.value?.focus();
-});
+// Typing starting or ending swaps the pill's content: morph it.
+watch(
+  () => isMobileToolbar.value && !!textEditingEditor.value,
+  () => void morph(undefined, morphOptions()),
+  { flush: "pre" },
+);
+
+// Switching tiles keeps `edit` mode but swaps the tools: morph that too.
+watch(
+  () => (mode.value === "edit" ? editTileId.value : null),
+  (next, previous) => {
+    if (next && previous && next !== previous && isMobileToolbar.value) {
+      void morph(undefined, morphOptions());
+    }
+  },
+  { flush: "pre" },
+);
 
 // Entering preview collapses the pill back to its resting state. The bar slides
 // out of view either way, but an open sheet would otherwise still be open when
@@ -1143,13 +1190,33 @@ const handleKeydown = (event: KeyboardEvent) => {
   else if (mode.value === "edit") closeEdit();
 };
 
+// The pill's height from the bottom edge, for chrome that must clear it
+// (toasts, the quick menu, scrolling a tile above the toolbar).
+let pillResize: ResizeObserver | null = null;
+const publishBottomChrome = () => {
+  const el = pillEl.value;
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  document.documentElement.style.setProperty(
+    "--mobile-bottom-chrome-h",
+    `${Math.max(0, window.innerHeight - rect.top)}px`,
+  );
+};
+
 onMounted(() => {
   document.addEventListener("pointerdown", handlePointerDown);
   document.addEventListener("keydown", handleKeydown);
+  if (typeof ResizeObserver !== "undefined" && pillEl.value) {
+    pillResize = new ResizeObserver(publishBottomChrome);
+    pillResize.observe(pillEl.value);
+  }
+  publishBottomChrome();
 });
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", handlePointerDown);
   document.removeEventListener("keydown", handleKeydown);
+  pillResize?.disconnect();
+  document.documentElement.style.removeProperty("--mobile-bottom-chrome-h");
 });
 </script>
 
@@ -1276,6 +1343,33 @@ onBeforeUnmount(() => {
   }
 
   :deep(.mci) {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+// ── Floating tile toolbar (`editor-mobile-toolbar`) ─────────────────────────
+// Figma "Toolbar": cheap glass, 24px corners, 46px header over the tools row.
+// The pill is the same element in every mode, so these only restyle it; the
+// FLIP morph animates the box between them.
+.mgb-pill.mgb-pill--glass {
+  background-color: var(--color-glass-bar);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-color: var(--color-stroke);
+  box-shadow:
+    0 -6px 24px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.mgb-pill.mgb-pill--toolbar {
+  width: var(--mgb-width);
+  padding: 0;
+  border-radius: var(--radius-lg);
+
+  :deep(.mobile-command-bar__group) {
+    display: flex;
     flex: 1 1 auto;
     min-width: 0;
     width: 100%;

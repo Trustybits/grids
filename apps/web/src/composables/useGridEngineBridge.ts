@@ -9,6 +9,8 @@
  *
  * Same lifecycle as `useTileDropTarget`: one mounted, editable grid at a time.
  */
+import type { ViewportRect } from "@/composables/useTileDropTarget";
+
 export interface GridEngineBridge {
   /**
    * Remove tiles through the engine, each one settling its neighbours. Wrap
@@ -21,6 +23,12 @@ export interface GridEngineBridge {
   tileElement(tileId: string): HTMLElement | null;
   /** Rendered size / layout size of the grid (≈0.72 on phones). */
   gridScale(): number;
+  /**
+   * Where a tile sits on screen, from the engine's geometry. Works for tiles
+   * Griddle hasn't rendered — it only renders tiles near the viewport — so it
+   * can bring an off-screen tile (a fresh duplicate) into view.
+   */
+  tileRect(tileId: string): ViewportRect | null;
 }
 
 let current: GridEngineBridge | null = null;

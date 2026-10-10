@@ -11,7 +11,12 @@
 <template>
   <header
     class="mobile-app-bar"
-    :class="{ 'mobile-app-bar--hidden': isPreviewActive }"
+    :class="{
+      'mobile-app-bar--hidden': isPreviewActive,
+      'mobile-app-bar--tucked': tucked && !isPreviewActive,
+    }"
+    :aria-hidden="tucked ? 'true' : undefined"
+    :inert="tucked || undefined"
   >
     <div class="mobile-app-bar__left">
       <button
@@ -102,7 +107,17 @@ import AppButton from "@/components/ui-elements/Button.vue";
 import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
 import PublishPopover from "@/components/app/PublishPopover.vue";
 
-withDefaults(defineProps<{ mode?: "grid" | "home" }>(), { mode: "grid" });
+withDefaults(
+  defineProps<{
+    mode?: "grid" | "home";
+    /**
+     * A tile is being edited (floating phone toolbars): the bar collapses away
+     * and the floating Multi edit pill + Undo circle take its place.
+     */
+    tucked?: boolean;
+  }>(),
+  { mode: "grid", tucked: false },
+);
 
 const emit = defineEmits<{
   (e: "open-menu"): void;
@@ -199,6 +214,16 @@ const blurOnEnter = (event: KeyboardEvent) => {
 // Preview slides the bar up out of view rather than unmounting it, so it travels
 // in step with the preview toolbar dropping into the space it leaves. Clears the
 // banner offset, the inset top gap, and the shadow so nothing peeks back through.
+.mobile-app-bar--tucked {
+  opacity: 0;
+  transform: scaleX(0.4) scaleY(0.9);
+  transform-origin: left center;
+  pointer-events: none;
+  transition:
+    opacity var(--duration-fast) var(--easing-smooth),
+    transform var(--duration-morph) var(--easing-snap);
+}
+
 .mobile-app-bar--hidden {
   transform: translateY(
     calc(-100% - var(--app-status-banners-height, 0px) - var(--spacing-xl))

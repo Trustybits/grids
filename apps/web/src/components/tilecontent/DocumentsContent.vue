@@ -687,6 +687,8 @@ export default defineComponent({
       onTileClick,
       onShortClick,
       startEditing,
+      // The phone toolbar's Preview tool opens the viewer without a tap event.
+      openPreview,
     };
   },
 });

@@ -132,11 +132,14 @@ vi.mock("@/composables/useMobileTileEdit", () => ({
 // pill input renders. Defaults to phone so the existing sheet tests hold.
 const isMobileDevice = ref(true);
 const isUnifiedText = ref(false);
+const isMobileToolbar = ref(false);
 
 vi.mock("@/composables/useMobileExperience", () => ({
   useMobileExperience: () => ({
     isMobileDevice,
     isUnifiedText,
+    // The floating-toolbar path has its own tests; these cover the /EDIT sheet.
+    isMobileToolbar,
   }),
 }));
 

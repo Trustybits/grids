@@ -18,6 +18,8 @@
       'is-dragging': isDragging,
       'is-exiting': isExiting,
       'is-activated': isActivated,
+      'is-edit-selected': isEditSelected,
+      'is-focus-dimmed': isFocusDimmed,
       'embed-is-interactive': isEmbedInteractive,
       'suggestion-hidden': isHiddenSuggestion,
     }"
@@ -224,6 +226,7 @@ import { useTileInput } from "@/composables/useTileInput";
 import { useMobileExperience } from "@/composables/useMobileExperience";
 import { isUnifiedTextActive } from "@/composables/earlyAccessState";
 import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
+import { useMobileEditorView } from "@/composables/useMobileEditorView";
 
 export default defineComponent({
   components: {
@@ -257,13 +260,26 @@ export default defineComponent({
     const requestTileResize = inject(TILE_RESIZE_REQUEST, gridView.resizeTile);
     const { uploadFileOptimisticForTile } = useFileUpload();
     const { submitLink, submitEmbed } = useTileInput();
-    const { isMobile2, isDesktop2, chromeActive } = useMobileExperience();
+    const { isMobile2, isDesktop2, chromeActive, isMobileToolbar } =
+      useMobileExperience();
     const {
       openEdit,
       closeEdit,
       isEditTarget,
       editTileId,
     } = useMobileTileEdit();
+    // Floating phone toolbars: the ring on the tile(s) being edited and the
+    // step-back of every other tile both follow the one shared editor view.
+    const { editedIds, dimsOthers } = useMobileEditorView();
+    const isEditSelected = computed(
+      () => isMobileToolbar.value && editedIds.value.has(props.tile.i),
+    );
+    const isFocusDimmed = computed(
+      () =>
+        isMobileToolbar.value &&
+        dimsOthers.value &&
+        !editedIds.value.has(props.tile.i),
+    );
 
     // Expose the tile's current grid height to content components.
     // This is used for responsive content rendering (e.g. title line clamping).
@@ -678,6 +694,40 @@ export default defineComponent({
     // gesture out of the browser's default handling, so a swipe that merely
     // began on a tile could never scroll the page — the tap/pan decision has to
     // be deferred until we have seen whether the finger actually moved.
+    // ── Floating phone toolbars: tap to select ──────────────────────────────
+    // Selection waits for the finger to lift, so a scroll that merely starts
+    // on a tile never selects it, and a hold is left for move/resize. A tap is
+    // a release before the hold time with under TAP_SLOP_PX of travel.
+    const TAP_MAX_MS = 420;
+    const usesToolbarTaps = () => isMobileToolbar.value && gridView.canEdit;
+
+    const handleToolbarTap = (event: TouchEvent) => {
+      if (touchDidPan) return;
+      if (Date.now() - (clickStart.value ?? 0) >= TAP_MAX_MS) return;
+
+      // A suggestion turns into its real tile on the first tap.
+      if (isSuggestion.value) {
+        if (event.cancelable) event.preventDefault();
+        handleGridShortClick(event);
+        return;
+      }
+
+      if (!isActivated.value) {
+        // The selecting tap reaches nothing inside the tile: it must not
+        // follow a link, start an embed, play music or focus a field.
+        if (event.cancelable) event.preventDefault();
+        isActivated.value = true;
+        return;
+      }
+
+      // Second tap on the selected tile. Rich text starts typing; any other
+      // tile only lets its own buttons and fields act (a YouTube card doesn't
+      // open YouTube, a document doesn't open its viewer — those are tools).
+      const editMode = getTileDefinition(props.tile.content.type)?.editMode;
+      if (!touchTargetIsInteractive && event.cancelable) event.preventDefault();
+      if (editMode === "richtext") handleGridShortClick(event);
+    };
+
     const handleTouchStart = (event: TouchEvent) => {
       if (!isTouchDevice()) return;
 
@@ -689,6 +739,9 @@ export default defineComponent({
       touchTargetIsInteractive = !!(event.target as HTMLElement).closest(
         INTERACTIVE_TOUCH_TARGET,
       );
+
+      // Toolbar mode decides on release (handleToolbarTap); nothing here.
+      if (usesToolbarTaps()) return;
 
       if (!isActivated.value) {
         // First touch activates the tile; the gesture itself stays the
@@ -717,6 +770,10 @@ export default defineComponent({
 
     const handleTouchEnd = (event: TouchEvent) => {
       if (!isTouchDevice()) return;
+      if (usesToolbarTaps()) {
+        handleToolbarTap(event);
+        return;
+      }
       if (!isActivated.value) return;
 
       const wasActivating = touchWasActivating;
@@ -911,6 +968,16 @@ export default defineComponent({
     watch(editTileId, (tileId) => {
       if (!chromeActive.value) return;
       if (tileId !== props.tile.i && isActivated.value) deactivateTile();
+      // Toolbar mode can select a tile from outside it (a duplicate's copy);
+      // activating it registers its handle like a tap would.
+      if (
+        isMobileToolbar.value &&
+        tileId === props.tile.i &&
+        !isActivated.value &&
+        !isSuggestion.value
+      ) {
+        isActivated.value = true;
+      }
     });
 
     // Re-load the dynamic component whenever the content type changes
@@ -934,6 +1001,14 @@ export default defineComponent({
 
     onMounted(() => {
       loadComponent();
+
+      // Still the selection when (re)mounted — undo rebuilt this tile, or a
+      // just-duplicated copy mounted after being selected. Register the handle
+      // again, or the toolbar would act on the unmounted instance.
+      if (isMobileToolbar.value && isEditTarget(props.tile.i)) {
+        if (isActivated.value) openEdit(props.tile.i, mobileEditHandle());
+        else isActivated.value = true;
+      }
 
       if (gridTileRef.value) {
         gridTileRef.value.addEventListener("dragstart", handleDragStart);
@@ -1018,6 +1093,8 @@ export default defineComponent({
       hoveredLayer,
       isEmbedInteractive,
       isMobile2,
+      isEditSelected,
+      isFocusDimmed,
       handleTileMouseDown,
       handleDesktopEditClick,
     };
@@ -1548,6 +1625,52 @@ export default defineComponent({
   to {
     opacity: 0;
     border-color: rgba(255, 255, 255, 0);
+  }
+}
+
+/* ── Floating phone toolbars: selection ring + focus ───────────────────────
+   The ring sits on the wrapper because the card's mask would clip an outline.
+   Other tiles step back (dim + blur) while one is edited — per tile, since
+   Griddle's scaled root is its own stacking context and no single overlay can
+   sit between tiles. `.no-focus-blur` on <html> is the dim-only fallback for
+   phones that can't afford the blur. */
+.tile-wrapper.is-edit-selected::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--color-selection-ring);
+  border-radius: calc(var(--tile-border-radius) + 4px);
+  pointer-events: none;
+  z-index: 6;
+  animation: editRingIn var(--duration-morph) var(--easing-snap);
+}
+
+.tile-wrapper.is-focus-dimmed {
+  opacity: 0.4;
+  filter: blur(6px) saturate(0.7);
+  transition:
+    opacity var(--duration-normal) var(--easing-smooth),
+    filter var(--duration-normal) var(--easing-smooth);
+}
+
+:global(.no-focus-blur) .tile-wrapper.is-focus-dimmed {
+  filter: saturate(0.7);
+}
+
+@keyframes editRingIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-wrapper.is-edit-selected::after {
+    animation: none;
   }
 }
 

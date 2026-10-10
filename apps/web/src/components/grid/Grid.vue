@@ -15,7 +15,7 @@
     -->
     <div class="grid-canvas-container">
       <GridVisualGuide
-        v-if="gridView.canEdit && gridView.showGridGuide"
+        v-if="gridView.canEdit && gridView.showGridGuide && !hidesGuide"
         :style="guideTransformStyle"
         :cols="responsiveColNum"
         :row-height="rowHeight"
@@ -99,6 +99,7 @@ import {
   TILE_RESIZE_REQUEST,
 } from "@/grid-context/tileInteractionKeys";
 import { useMobileExperience } from "@/composables/useMobileExperience";
+import { useMobileEditorView } from "@/composables/useMobileEditorView";
 import {
   registerTileDropTarget,
   type ViewportRect,
@@ -225,7 +226,15 @@ export default {
     const activatedTileId = ref<string | null>(null);
     provide(TILE_ACTIVATED_ID, activatedTileId);
 
-    const { isTouchDevice } = useMobileExperience();
+    const { isTouchDevice, isMobileToolbar } = useMobileExperience();
+
+    // While a tile is being edited the others are dimmed and blurred, and the
+    // empty-cell guide behind them would show through as ghost squares — so
+    // it steps out too. Arranging keeps it: that is when the cells matter.
+    const { dimsOthers } = useMobileEditorView();
+    const hidesGuide = computed(
+      () => isMobileToolbar.value && dimsOthers.value,
+    );
 
     const griddleTiles = computed(() =>
       toGriddleTiles(canonicalLayout.value, contractTiles.value, {
@@ -811,6 +820,12 @@ export default {
           `[data-griddle-tile="${CSS.escape(tileId)}"]`,
         ) ?? null,
       gridScale: () => mobileScale.value,
+      tileRect: (tileId) => {
+        const tile = api.grid.getTile(tileId);
+        const grid = gridElement();
+        if (!tile || !grid) return null;
+        return cellToViewport(tile, grid.getBoundingClientRect());
+      },
     });
     onUnmounted(() => {
       unregisterDropTarget();
@@ -837,6 +852,7 @@ export default {
 
     return {
       gridView,
+      hidesGuide,
       api,
       griddleContentHeight,
       griddleSelection,

@@ -255,6 +255,29 @@ describe("GridTileStructureController", () => {
       expect(controller.duplicateTile("missing")).toBeNull();
     });
 
+    it("refuses to copy a one-per-grid tile and says why", () => {
+      // Campfire is registered with maxPerGrid: 1, so a copy would be a second.
+      h.stores.session.setCurrentGrid(
+        makeGrid({
+          tiles: [
+            makeLinkTile({
+              i: "fire",
+              content: { type: ContentType.CAMPFIRE } as TileContent,
+            }),
+          ],
+        }),
+      );
+      const addToast = vi.spyOn(h.stores.toast, "addToast");
+
+      expect(controller.duplicateTile("fire")).toBeNull();
+      expect(addToast).toHaveBeenCalledWith(
+        expect.stringContaining("allowed per grid"),
+        "error",
+      );
+      expect(h.stores.session.currentGrid?.tiles).toHaveLength(1);
+      expect(pushUndoSnapshot).not.toHaveBeenCalled();
+    });
+
     it("deep-clones the source content into a new tile", () => {
       const source = makeLinkTile({ i: "src", x: 0, y: 0, w: 2, h: 2 });
       h.stores.session.setCurrentGrid(makeGrid({ tiles: [source] }));

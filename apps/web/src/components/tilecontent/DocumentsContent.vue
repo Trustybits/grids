@@ -262,10 +262,7 @@ export default defineComponent({
       setColorMode,
       handleBackgroundColorChange,
       handleOverlayColorChange,
-    } = useColorPicker(props.tileId, toRef(props, "content"), emit, {
-      overlayCapable: true,
-      legacyBackgroundAlsoOverlay: true,
-    });
+    } = useColorPicker(props.tileId, toRef(props, "content"), emit);
 
     const items = computed(() => props.content.items ?? []);
     const primary = computed(() => items.value[0]);

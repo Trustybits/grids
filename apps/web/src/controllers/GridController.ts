@@ -260,6 +260,47 @@ export class GridController {
     this.uiController.setMobileEditTile(tileId);
   }
 
+  // ── Phone floating toolbars (`editor-mobile-toolbar`) ──────────────────────
+  // Same rule as the sheet target above: opening anything is an editing
+  // affordance and needs the full `canEdit`; closing always goes through.
+
+  /** Enter move/resize mode on a tile (selecting it), or leave it (null). */
+  setMobileArrangeTile(tileId: string | null): void {
+    if (tileId !== null && !this.canEditCurrentGrid()) return;
+    this.uiController.setMobileArrangeTile(tileId);
+  }
+
+  /** Open a tool's popover for the current selection, or close it (null). */
+  setMobileOpenTool(toolId: string | null): void {
+    if (toolId !== null && !this.canEditCurrentGrid()) return;
+    this.uiController.setMobileOpenTool(toolId);
+  }
+
+  setMobileSheetExpanded(expanded: boolean): void {
+    if (expanded && !this.canEditCurrentGrid()) return;
+    this.uiController.setMobileSheetExpanded(expanded);
+  }
+
+  enterMobileMultiSelect(): void {
+    if (!this.canEditCurrentGrid()) return;
+    this.uiController.enterMobileMultiSelect();
+  }
+
+  toggleMobileMultiSelectTile(tileId: string): void {
+    if (!this.canEditCurrentGrid()) return;
+    this.uiController.toggleMobileMultiSelectTile(tileId);
+  }
+
+  /** Back to nothing selected, from any phone editing state. */
+  clearMobileEditor(): void {
+    this.uiController.clearMobileEditor();
+  }
+
+  /** Forget selections pointing at tiles that are gone. */
+  pruneMobileEditor(existingIds: ReadonlySet<string>): void {
+    this.uiController.pruneMobileEditor(existingIds);
+  }
+
   setShowMetaData(value: boolean): void {
     this.uiController.setShowMetaData(value);
   }
@@ -572,16 +613,50 @@ export class GridController {
     urlMaps?: GridHistoryUrlMaps,
   ): void {
     if (this.blocksCurrentGridMutation()) return;
+    // Every sub-controller's undo push funnels through here, so an open batch
+    // only has to mute this one call to merge its commands into one step.
+    if (this.stores.history.isBatching) return;
     this.historyController.pushUndoSnapshot(actionLabel, urlMaps);
+  }
+
+  /**
+   * Group the commands that follow into one undo step (a popover visit, a
+   * bulk edit across tiles). Returns whether this call opened the batch; only
+   * the opener should commit it.
+   */
+  beginHistoryBatch(
+    actionLabel: string,
+    urlMaps?: GridHistoryUrlMaps,
+  ): boolean {
+    if (this.blocksCurrentGridMutation()) return false;
+    return this.historyController.beginHistoryBatch(actionLabel, urlMaps);
+  }
+
+  commitHistoryBatch(urlMaps?: GridHistoryUrlMaps): void {
+    this.historyController.commitHistoryBatch(urlMaps);
+  }
+
+  /** Discard a move whose gesture ended without committing. */
+  cancelMove(): void {
+    this.historyController.cancelMove();
+  }
+
+  /** Discard a resize whose gesture ended without committing. */
+  cancelResize(): void {
+    this.historyController.cancelResize();
   }
 
   async undo(urlMaps?: GridHistoryUrlMaps): Promise<void> {
     if (this.blocksCurrentGridMutation()) return;
+    // An open batch is unfinished work: settle it so undo steps back over it
+    // rather than restoring a stale "before" later.
+    this.historyController.commitHistoryBatch(urlMaps);
     await this.historyController.undo(urlMaps);
   }
 
   async redo(urlMaps?: GridHistoryUrlMaps): Promise<void> {
     if (this.blocksCurrentGridMutation()) return;
+    this.historyController.commitHistoryBatch(urlMaps);
     await this.historyController.redo(urlMaps);
   }
 
@@ -972,6 +1047,11 @@ export class GridController {
   toggleTileBorder(id: string): void {
     if (this.blocksCurrentGridMutation()) return;
     this.settingsController.toggleTileBorder(id);
+  }
+
+  setTileBorder(id: string, enabled: boolean): void {
+    if (this.blocksCurrentGridMutation()) return;
+    this.settingsController.setTileBorder(id, enabled);
   }
 
   toggleLinkBackground(id: string): void {

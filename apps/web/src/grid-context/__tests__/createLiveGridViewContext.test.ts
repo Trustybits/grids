@@ -150,8 +150,12 @@ function installController() {
     stopPreview: vi.fn(),
     beginMove: vi.fn(),
     commitMove: vi.fn(),
+    cancelMove: vi.fn(),
     beginResize: vi.fn(),
     commitResize: vi.fn(),
+    cancelResize: vi.fn(),
+    beginHistoryBatch: vi.fn(() => true),
+    commitHistoryBatch: vi.fn(),
     beginEditing: vi.fn(),
     commitEditing: vi.fn(),
     setTileContent: vi.fn(),
@@ -164,6 +168,7 @@ function installController() {
     duplicateTile: vi.fn(() => "tile-copy"),
     resizeTile: vi.fn(),
     toggleTileBorder: vi.fn(),
+    setTileBorder: vi.fn(),
     toggleLinkBackground: vi.fn(),
     setPanelActive: vi.fn(),
     toggleMenuActive: vi.fn(),
@@ -304,8 +309,12 @@ describe("createLiveGridViewContext", () => {
     ctx.stopPreview();
     ctx.beginMove(urlMaps);
     ctx.commitMove(urlMaps);
+    ctx.cancelMove();
     ctx.beginResize(urlMaps);
     ctx.commitResize(urlMaps);
+    ctx.cancelResize();
+    const openedBatch = ctx.beginHistoryBatch("Edit 2 tiles", urlMaps);
+    ctx.commitHistoryBatch(urlMaps);
     ctx.beginEditing("tile-1", urlMaps);
     ctx.commitEditing(urlMaps);
     ctx.setTileContent("tile-1", content);
@@ -318,6 +327,7 @@ describe("createLiveGridViewContext", () => {
     const duplicateId = ctx.duplicateTile("tile-1");
     ctx.resizeTile("tile-1", 4, 5);
     ctx.toggleTileBorder("tile-1");
+    ctx.setTileBorder("tile-1", false);
     ctx.toggleLinkBackground("tile-1");
     ctx.setPanelActive("tile-1", "settings");
     ctx.toggleMenuActive("tile-1");
@@ -337,8 +347,16 @@ describe("createLiveGridViewContext", () => {
     expect(controller.stopPreview).toHaveBeenCalledTimes(1);
     expect(controller.beginMove).toHaveBeenCalledWith(urlMaps);
     expect(controller.commitMove).toHaveBeenCalledWith(urlMaps);
+    expect(controller.cancelMove).toHaveBeenCalledTimes(1);
     expect(controller.beginResize).toHaveBeenCalledWith(urlMaps);
     expect(controller.commitResize).toHaveBeenCalledWith(urlMaps);
+    expect(controller.cancelResize).toHaveBeenCalledTimes(1);
+    expect(openedBatch).toBe(true);
+    expect(controller.beginHistoryBatch).toHaveBeenCalledWith(
+      "Edit 2 tiles",
+      urlMaps,
+    );
+    expect(controller.commitHistoryBatch).toHaveBeenCalledWith(urlMaps);
     expect(controller.beginEditing).toHaveBeenCalledWith("tile-1", urlMaps);
     expect(controller.commitEditing).toHaveBeenCalledWith(urlMaps);
     expect(controller.setTileContent).toHaveBeenCalledWith("tile-1", content);
@@ -365,6 +383,7 @@ describe("createLiveGridViewContext", () => {
     expect(controller.duplicateTile).toHaveBeenCalledWith("tile-1");
     expect(controller.resizeTile).toHaveBeenCalledWith("tile-1", 4, 5);
     expect(controller.toggleTileBorder).toHaveBeenCalledWith("tile-1");
+    expect(controller.setTileBorder).toHaveBeenCalledWith("tile-1", false);
     expect(controller.toggleLinkBackground).toHaveBeenCalledWith("tile-1");
     expect(controller.setPanelActive).toHaveBeenCalledWith(
       "tile-1",

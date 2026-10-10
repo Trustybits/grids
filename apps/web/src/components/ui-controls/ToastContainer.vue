@@ -13,6 +13,14 @@
         <ErrorCircleIcon v-else-if="toast.type === 'error'" :size="20" />
         <InfoCircleIcon v-else :size="20" />
         <span style="display: inline !important;">{{ toast.message }}</span>
+        <button
+          v-if="toast.action"
+          type="button"
+          class="toast-action"
+          @click.stop="toastStore.runToastAction(toast.id)"
+        >
+          {{ toast.action.label }}
+        </button>
       </div>
     </div>
   </div>
@@ -103,6 +111,18 @@ export default defineComponent({
   font-size: var(--font-size-sm);
   font-family: var(--font-family-base);
   line-height: 1.5;
+}
+
+.toast-action {
+  margin-left: auto;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-input-edit);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 @keyframes slideInUp {

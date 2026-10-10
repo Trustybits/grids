@@ -174,10 +174,12 @@ describe("gridHistory store", () => {
     const edit = makeSnapshot("Edit");
     const move = makeSnapshot("Move");
     const resize = makeSnapshot("Resize");
+    const batch = makeSnapshot("Batch");
     store.setStableSnapshot(stable);
     store.beginEdit("tile-1", edit);
     store.beginMove(move);
     store.beginResize(resize);
+    store.beginBatch(batch);
 
     store.replaceBlobUrl(
       "tile-1",
@@ -195,6 +197,7 @@ describe("gridHistory store", () => {
       [edit, "tile-1", "https://example.com/file", "item-1"],
       [move, "tile-1", "https://example.com/file", "item-1"],
       [resize, "tile-1", "https://example.com/file", "item-1"],
+      [batch, "tile-1", "https://example.com/file", "item-1"],
     ]);
 
     store.replaceBlobUrl(

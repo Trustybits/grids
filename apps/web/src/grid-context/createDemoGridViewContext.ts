@@ -61,8 +61,12 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
 
     beginMove: noop,
     commitMove: noop,
+    cancelMove: noop,
     beginResize: noop,
     commitResize: noop,
+    cancelResize: noop,
+    beginHistoryBatch: () => false,
+    commitHistoryBatch: noop,
     beginEditing: noop,
     commitEditing: noop,
     setTileContent: noop,
@@ -75,6 +79,7 @@ export function createDemoGridViewContext(grid: Grid): GridViewContext {
     duplicateTile: () => null,
     resizeTile: noop,
     toggleTileBorder: noop,
+    setTileBorder: noop,
     toggleLinkBackground: noop,
 
     setPendingFocusTileId: (tileId) => {

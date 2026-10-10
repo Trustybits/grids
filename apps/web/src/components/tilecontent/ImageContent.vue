@@ -365,10 +365,7 @@ export default defineComponent({
       setColorMode,
       handleBackgroundColorChange,
       handleOverlayColorChange,
-    } = useColorPicker(tileId, toRef(props, "content"), emit, {
-        overlayCapable: true,
-        legacyBackgroundAsOverlay: true,
-      });
+    } = useColorPicker(tileId, toRef(props, "content"), emit);
 
     const {
       showLinkModal,

@@ -825,6 +825,99 @@ describe("GridController", () => {
     });
   });
 
+  describe("history batches", () => {
+    function seedTwoTiles() {
+      const harness = createControllerHarness();
+      const tiles: Tile[] = ["a", "b"].map((i) => ({
+        i,
+        x: 0,
+        y: 0,
+        w: 2,
+        h: 2,
+        caption: "",
+        borderEnabled: true,
+        content: { type: ContentType.IMAGE, src: i } as ImageContent,
+      }));
+      const grid = makeGrid({ tiles });
+      harness.stores.session.setCurrentGrid(grid);
+      harness.stores.session.setOwner(true);
+      harness.stores.history.initializeManager();
+      return { ...harness, grid };
+    }
+
+    it("merges every command inside a batch into one undo step", async () => {
+      const { controller, stores, grid } = seedTwoTiles();
+
+      expect(controller.beginHistoryBatch("Edit 2 tiles")).toBe(true);
+      controller.setTileBorder("a", false);
+      controller.setTileBorder("b", false);
+      controller.updateCaption({ tileId: "a", caption: "Hi" });
+      controller.commitHistoryBatch();
+
+      expect(stores.history.undoRedoStacks.undoStack).toHaveLength(1);
+      expect(stores.history.undoActionLabel).toBe("Edit 2 tiles");
+
+      await controller.undo();
+
+      expect(grid.tiles.map((t) => t.borderEnabled)).toEqual([true, true]);
+      expect(grid.tiles[0]?.caption).toBe("");
+    });
+
+    it("undo settles an open batch first instead of losing it", async () => {
+      const { controller, stores, grid } = seedTwoTiles();
+
+      controller.beginHistoryBatch("Popover");
+      controller.setTileBorder("a", false);
+      await controller.undo();
+
+      expect(stores.history.isBatching).toBe(false);
+      expect(grid.tiles[0]?.borderEnabled).toBe(true);
+    });
+
+    it("pushes normally again once the batch is closed", () => {
+      const { controller, stores } = seedTwoTiles();
+
+      controller.beginHistoryBatch("Batch");
+      controller.setTileBorder("a", false);
+      controller.commitHistoryBatch();
+      controller.setTileBorder("b", false);
+
+      expect(stores.history.undoRedoStacks.undoStack).toHaveLength(2);
+    });
+  });
+
+  describe("phone toolbar editor state", () => {
+    it("opens the editor states only on an editable grid", () => {
+      const { controller, stores } = createControllerHarness();
+      stores.session.setCurrentGrid(makeGrid());
+      stores.session.setOwner(false);
+
+      controller.setMobileArrangeTile("tile-1");
+      controller.setMobileOpenTool("fill");
+      controller.setMobileSheetExpanded(true);
+      controller.enterMobileMultiSelect();
+
+      expect(stores.ui.mobileArrangeTileId).toBeNull();
+      expect(stores.ui.mobileOpenToolId).toBeNull();
+      expect(stores.ui.mobileSheetExpanded).toBe(false);
+      expect(stores.ui.mobileMultiSelectIds).toBeNull();
+    });
+
+    it("always lets everything close", () => {
+      const { controller, stores } = createControllerHarness();
+      stores.session.setCurrentGrid(makeGrid());
+      stores.session.setOwner(true);
+      controller.setMobileEditTile("tile-1");
+      controller.setMobileOpenTool("fill");
+
+      stores.session.setOwner(false);
+      controller.clearMobileEditor();
+
+      expect(stores.ui.mobileEditTileId).toBeNull();
+      expect(stores.ui.mobileOpenToolId).toBeNull();
+    });
+  });
+
   it("refreshes stable history when forcing a breakpoint", () => {
     const { controller, stores } = createControllerHarness();
     const grid = makeGrid();

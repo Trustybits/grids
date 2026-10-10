@@ -10,6 +10,19 @@ import type {
   DocumentsContent,
 } from "@grids/contracts/types";
 import { computed, unref, watch, type ComputedRef, type Ref } from "vue";
+import {
+  colorModePatch,
+  fillOptionsFor,
+  fillPatch,
+  overlayPatch,
+  readPickerFill,
+  readPickerOverlay,
+  resolveColorMode,
+  resolveOverlayColor,
+  storedFillColor,
+  type FillContent,
+  type FillOptions,
+} from "@/utils/tileFill";
 
 type ColorPickerContent =
   | TextContent
@@ -38,144 +51,64 @@ export interface ColorPickerValues {
   handleOverlayColorChange: (color: string) => void;
 }
 
-export interface ColorPickerOptions {
-  /**
-   * The tile renders a `mix-blend-mode: color` overlay layer fed by
-   * `overlayColor`, so the color picker should expose a separate overlay target.
-   */
-  overlayCapable?: boolean;
-  /**
-   * Legacy media tiles (image/video) historically stored the blend tint in
-   * `backgroundColor`. When set, a chromatic `backgroundColor` is interpreted as
-   * the overlay tint (and the fill falls back to the default) until an explicit
-   * `overlayColor` is chosen.
-   */
-  legacyBackgroundAsOverlay?: boolean;
-  /**
-   * Legacy preview tiles (link/document) historically tinted their preview with
-   * the fill color. When set, a chromatic `backgroundColor` also drives the
-   * overlay tint until an explicit `overlayColor` is chosen, while the fill keeps
-   * its color.
-   */
-  legacyBackgroundAlsoOverlay?: boolean;
-}
-
-const STRUCTURAL_COLORS = new Set([
-  "var(--color-tile-background)",
-  "var(--color-light-100)",
-  "var(--color-dark-0)",
-  "var(--color-content-background)",
-]);
-
-const isStructuralColor = (color: string): boolean =>
-  STRUCTURAL_COLORS.has(color);
+/** How a tile type stores its fill — see `utils/tileFill`. */
+export type ColorPickerOptions = FillOptions;
 
 // Reads/writes for the optional overlay fields. The shared ColorPickerContent
 // union includes non-overlay tiles, so access is narrowed through this shape
 // rather than the union directly.
-type OverlayContent = ColorPickerContent & {
-  overlayColor?: string;
-  colorMode?: "fill" | "overlay";
-};
+type OverlayContent = ColorPickerContent & FillContent;
 
 export const useColorPicker = (
   tileId: string | null,
   content: ColorPickerContentSource,
   emit: (type: "background-color-change" | "text-color-change", value: string) => void,
-  options: ColorPickerOptions = {},
+  // Defaults to the tile type's own fill rules, the same table the phone
+  // toolbars read, so the two surfaces can't drift apart.
+  options: ColorPickerOptions = fillOptionsFor(
+    (unref(content) as { type: string }).type,
+  ) ?? {},
 ): ColorPickerValues => {
   const controller = useGridController();
   const canEdit = computed(() => controller.canEditCurrentGrid());
-  const {
-    overlayCapable = false,
-    legacyBackgroundAsOverlay = false,
-    legacyBackgroundAlsoOverlay = false,
-  } = options;
 
   // `content` may be a ref whose identity is swapped by undo/redo, so always
   // read and write through the unwrapped current value.
   const currentContent = computed(() => unref(content) as OverlayContent);
-  const backgroundColorRef = computed(() => currentContent.value?.backgroundColor);
-  const overlayColorRef = computed(() => currentContent.value?.overlayColor);
-
-  const storedMode = computed(() => currentContent.value?.colorMode);
 
   // The remembered overlay tint, independent of whether the overlay is the
-  // active treatment. Resolves the legacy interpretation of a chromatic
-  // background color so existing grids keep their tint.
-  const resolvedOverlayColor = computed((): string | null => {
-    if (!overlayCapable) return null;
+  // active treatment (legacy chromatic backgrounds included).
+  const resolvedOverlayColor = computed(() =>
+    resolveOverlayColor(currentContent.value ?? {}, options),
+  );
 
-    const explicit = overlayColorRef.value;
-    if (explicit !== undefined) {
-      // Explicitly set (possibly "" to clear). Empty or structural = no overlay.
-      if (!explicit || isStructuralColor(explicit)) return null;
-      return explicit;
-    }
-
-    const bg = backgroundColorRef.value;
-    if (
-      bg &&
-      !isStructuralColor(bg) &&
-      (legacyBackgroundAsOverlay || legacyBackgroundAlsoOverlay)
-    ) {
-      return bg;
-    }
-    return null;
-  });
-
-  // Which treatment is active on the tile. For data without an explicit mode
-  // (older grids), default to overlay when a tint exists, otherwise fill.
-  const colorMode = computed<"fill" | "overlay">(() => {
-    const mode = storedMode.value;
-    if (mode === "fill" || mode === "overlay") return mode;
-    return resolvedOverlayColor.value ? "overlay" : "fill";
-  });
+  // Which treatment is active on the tile.
+  const colorMode = computed(() =>
+    resolveColorMode(currentContent.value ?? {}, options),
+  );
 
   // The overlay actually rendered — only when the overlay treatment is active.
   const overlayColor = computed((): string | null =>
     colorMode.value === "overlay" ? resolvedOverlayColor.value : null,
   );
 
-  const backgroundColor = computed(() => {
-    const color = backgroundColorRef.value;
-    // Legacy image/video stored the tint in backgroundColor. Only treat it as a
-    // tint (fill resolves to default) while overlayColor has never been set;
-    // once the user touches either color we persist an explicit overlayColor and
-    // backgroundColor becomes a true fill.
-    if (
-      legacyBackgroundAsOverlay &&
-      overlayColorRef.value === undefined &&
-      color &&
-      !isStructuralColor(color)
-    ) {
-      return resolveBackgroundColor(undefined);
-    }
-    return resolveBackgroundColor(color);
-  });
+  // A legacy image/video tint in backgroundColor renders as the default fill
+  // until the user first edits a color (which persists an explicit overlay).
+  const backgroundColor = computed(() =>
+    resolveBackgroundColor(storedFillColor(currentContent.value ?? {}, options)),
+  );
 
   const textColor = computed(() => {
     return computeTextColor(backgroundColor.value);
   });
 
-  // The fill the picker should show as current. Empty when a legacy chromatic
-  // background is actually rendering as a tint (so Fill reads as "none").
-  const pickerFillColor = computed(() => {
-    const bg = backgroundColorRef.value;
-    if (
-      legacyBackgroundAsOverlay &&
-      overlayColorRef.value === undefined &&
-      bg &&
-      !isStructuralColor(bg)
-    ) {
-      return "";
-    }
-    return bg ?? "";
-  });
-
-  // The overlay color the picker should show as current — the remembered tint,
-  // shown even while the fill treatment is active.
-  const pickerOverlayColor = computed(() => resolvedOverlayColor.value ?? "");
+  // What the picker shows as current for each target.
+  const pickerFillColor = computed(() =>
+    readPickerFill(currentContent.value ?? {}, options),
+  );
+  const pickerOverlayColor = computed(() =>
+    readPickerOverlay(currentContent.value ?? {}, options),
+  );
 
   const persist = (patch: Partial<OverlayContent>) => {
     if (tileId) {
@@ -191,51 +124,17 @@ export const useColorPicker = (
   // Toggle which treatment is active without losing either color.
   const setColorMode = (mode: "fill" | "overlay") => {
     if (!canEdit.value) return;
-    persist({ colorMode: mode });
+    persist(colorModePatch(mode));
   };
 
   const handleBackgroundColorChange = (color: string) => {
     if (!canEdit.value) return;
-
-    // Editing the fill activates the fill treatment (only meaningful for
-    // overlay-capable tiles; non-overlay tiles never carry a colorMode).
-    const patch: Partial<OverlayContent> = { backgroundColor: color };
-    if (overlayCapable) patch.colorMode = "fill";
-
-    // image/video only: backgroundColor is the fill, but legacy tiles stored the
-    // tint here. Settle the ambiguity on first edit by persisting an explicit
-    // overlayColor — promoting any pre-existing chromatic tint, or marking "no
-    // overlay" ("") — so the fill is never re-read as a tint.
-    if (legacyBackgroundAsOverlay && overlayColorRef.value === undefined) {
-      const bg = backgroundColorRef.value;
-      patch.overlayColor = bg && !isStructuralColor(bg) ? bg : "";
-    }
-
-    persist(patch);
+    persist(fillPatch(currentContent.value ?? {}, color, options));
   };
 
   const handleOverlayColorChange = (color: string) => {
     if (!canEdit.value) return;
-
-    // Structural picks (default / light / dark / no-fill) clear the overlay.
-    const next = isStructuralColor(color) ? "" : color;
-    // Editing the overlay activates the overlay treatment.
-    const patch: Partial<OverlayContent> = {
-      overlayColor: next,
-      colorMode: "overlay",
-    };
-
-    // Legacy image/video: the chromatic backgroundColor was actually the tint.
-    // Now that the overlay is explicit, clear that legacy value so it isn't
-    // re-read as a fill.
-    if (legacyBackgroundAsOverlay && overlayColorRef.value === undefined) {
-      const bg = backgroundColorRef.value;
-      if (bg && !isStructuralColor(bg)) {
-        patch.backgroundColor = "";
-      }
-    }
-
-    persist(patch);
+    persist(overlayPatch(currentContent.value ?? {}, color, options));
   };
 
   watch(backgroundColor, (color) => emit("background-color-change", color), {

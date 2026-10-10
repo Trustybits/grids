@@ -203,6 +203,38 @@ describe("enrollment state", () => {
   });
 });
 
+describe("isMobileToolbar — floating phone toolbars", () => {
+  it("needs the phone chrome and the editor-mobile-toolbar flag", () => {
+    flagState["beta-early-access"] = true;
+    flagState["editor-mobile-toolbar"] = true;
+    init({ width: PHONE_WIDTH, touch: true });
+    expect(useMobileExperience().isMobileToolbar.value).toBe(true);
+  });
+
+  it("stays off without the flag (today's /EDIT sheet)", () => {
+    flagState["beta-early-access"] = true;
+    init({ width: PHONE_WIDTH, touch: true });
+    expect(useMobileExperience().isMobileToolbar.value).toBe(false);
+  });
+
+  it("stays off on desktop even with the flag", () => {
+    flagState["beta-early-access"] = true;
+    flagState["editor-mobile-toolbar"] = true;
+    init({ width: DESKTOP_WIDTH, touch: false });
+    expect(useMobileExperience().isMobileToolbar.value).toBe(false);
+  });
+
+  it("turns on when PostHog loads the flag later", () => {
+    flagState["beta-early-access"] = true;
+    init({ width: PHONE_WIDTH, touch: true });
+    const { isMobileToolbar } = useMobileExperience();
+    expect(isMobileToolbar.value).toBe(false);
+
+    setFlags({ "editor-mobile-toolbar": true });
+    expect(isMobileToolbar.value).toBe(true);
+  });
+});
+
 describe("chrome gates — isMobile2 / isDesktop2 / chromeActive", () => {
   it("enrolled on a phone: mobile chrome, not desktop chrome", () => {
     flagState["beta-early-access"] = true;

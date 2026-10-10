@@ -96,11 +96,117 @@ describe("gridUi store", () => {
     expect(store.mobileEditTileId).toBeNull();
   });
 
+  describe("phone toolbar editor state", () => {
+    it("switching tiles closes the popover, the sheet and arrange", () => {
+      const store = useGridUiStore();
+      store.setMobileEditTile("a");
+      store.setMobileOpenTool("fill");
+      store.setMobileEditTile("b");
+      expect(store.mobileOpenToolId).toBeNull();
+
+      store.setMobileSheetExpanded(true);
+      store.setMobileEditTile("a");
+      expect(store.mobileSheetExpanded).toBe(false);
+
+      store.setMobileArrangeTile("a");
+      store.setMobileEditTile("b");
+      expect(store.mobileArrangeTileId).toBeNull();
+    });
+
+    it("re-selecting the same tile keeps what's open", () => {
+      const store = useGridUiStore();
+      store.setMobileEditTile("a");
+      store.setMobileOpenTool("fill");
+      store.setMobileEditTile("a");
+      expect(store.mobileOpenToolId).toBe("fill");
+    });
+
+    it("keeps only one of popover / sheet / arrange open", () => {
+      const store = useGridUiStore();
+      store.setMobileArrangeTile("a");
+      // Arranging selects the tile.
+      expect(store.mobileEditTileId).toBe("a");
+
+      store.setMobileOpenTool("border");
+      expect(store.mobileArrangeTileId).toBeNull();
+
+      store.setMobileSheetExpanded(true);
+      expect(store.mobileOpenToolId).toBeNull();
+
+      store.setMobileArrangeTile("a");
+      expect(store.mobileSheetExpanded).toBe(false);
+      expect(store.mobileArrangeTileId).toBe("a");
+    });
+
+    it("starts multi-edit with the selected tile and toggles picks", () => {
+      const store = useGridUiStore();
+      store.setMobileEditTile("a");
+      store.setMobileOpenTool("fill");
+
+      store.enterMobileMultiSelect();
+      expect(store.mobileMultiSelectIds).toEqual(["a"]);
+      expect(store.mobileOpenToolId).toBeNull();
+
+      store.toggleMobileMultiSelectTile("b");
+      expect(store.mobileMultiSelectIds).toEqual(["a", "b"]);
+      store.toggleMobileMultiSelectTile("a");
+      expect(store.mobileMultiSelectIds).toEqual(["b"]);
+    });
+
+    it("leaves multi-edit when the last pick is removed", () => {
+      const store = useGridUiStore();
+      store.setMobileEditTile("a");
+      store.enterMobileMultiSelect();
+      store.toggleMobileMultiSelectTile("a");
+
+      expect(store.mobileMultiSelectIds).toBeNull();
+      expect(store.mobileEditTileId).toBeNull();
+    });
+
+    it("ignores picks outside multi-edit", () => {
+      const store = useGridUiStore();
+      store.toggleMobileMultiSelectTile("a");
+      expect(store.mobileMultiSelectIds).toBeNull();
+    });
+
+    it("prunes state that points at deleted tiles", () => {
+      const store = useGridUiStore();
+      store.setMobileEditTile("a");
+      store.enterMobileMultiSelect();
+      store.toggleMobileMultiSelectTile("b");
+
+      store.pruneMobileEditor(new Set(["b"]));
+      expect(store.mobileMultiSelectIds).toEqual(["b"]);
+
+      store.pruneMobileEditor(new Set());
+      expect(store.mobileMultiSelectIds).toBeNull();
+      expect(store.mobileEditTileId).toBeNull();
+    });
+
+    it("prunes a selection and arrange whose tile is gone", () => {
+      const store = useGridUiStore();
+      store.setMobileArrangeTile("a");
+      store.pruneMobileEditor(new Set(["z"]));
+      expect(store.mobileEditTileId).toBeNull();
+      expect(store.mobileArrangeTileId).toBeNull();
+    });
+
+    it("clearing the selection also ends multi-edit", () => {
+      const store = useGridUiStore();
+      store.setMobileEditTile("a");
+      store.enterMobileMultiSelect();
+      store.setMobileEditTile(null);
+      expect(store.mobileMultiSelectIds).toBeNull();
+    });
+  });
+
   it("session reset closes menus and focus while retaining preferences", () => {
     const store = useGridUiStore();
     store.setPanelActive("tile-1", "settings");
     store.setPendingFocusTileId("tile-1");
     store.setMobileEditTile("tile-1");
+    store.enterMobileMultiSelect();
+    store.setMobileOpenTool("fill");
     store.setShowMetaData(true);
     store.setShowMetaDataVerbose(true);
 
@@ -112,6 +218,8 @@ describe("gridUi store", () => {
     // Leaving the grid drops the edit target, so it can never point at a tile
     // that is no longer on screen.
     expect(store.mobileEditTileId).toBeNull();
+    expect(store.mobileMultiSelectIds).toBeNull();
+    expect(store.mobileOpenToolId).toBeNull();
     expect(store.showMetaData).toBe(true);
     expect(store.showMetaDataVerbose).toBe(true);
   });

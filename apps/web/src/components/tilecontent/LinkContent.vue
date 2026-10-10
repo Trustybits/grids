@@ -854,10 +854,7 @@ export default defineComponent({
       setColorMode,
       handleBackgroundColorChange,
       handleOverlayColorChange,
-    } = useColorPicker(tileId, toRef(props, "content"), emit, {
-      overlayCapable: true,
-      legacyBackgroundAlsoOverlay: true,
-    });
+    } = useColorPicker(tileId, toRef(props, "content"), emit);
 
     const handleRemoveFavicon = () => {
       patchContent({ faviconUrl: undefined });

@@ -185,6 +185,49 @@ export class GridHistoryController {
     }
   }
 
+  /**
+   * Open a history batch: every command until `commitHistoryBatch` lands as a
+   * single undo step labelled `actionLabel`. Returns false when a batch is
+   * already open (the caller should then not commit) or there is no grid.
+   */
+  beginHistoryBatch(
+    actionLabel: string,
+    urlMaps?: GridHistoryUrlMaps,
+  ): boolean {
+    return this.stores.history.beginBatch(
+      this.captureSnapshot(actionLabel, urlMaps),
+    );
+  }
+
+  /** Close the batch; pushes its "before" state only if anything changed. */
+  commitHistoryBatch(urlMaps?: GridHistoryUrlMaps): void {
+    const pending = this.stores.history.takeBatchSnapshot();
+    if (!pending) return;
+
+    const current = this.captureSnapshot("", urlMaps);
+    if (
+      current &&
+      !this.dependencies.snapshotCodec.equals(pending, current)
+    ) {
+      this.stores.history.pushSnapshot(pending);
+      this.scheduleSave();
+    }
+    this.refreshStableSnapshot(urlMaps);
+  }
+
+  /**
+   * Drop a gesture's pending snapshot without pushing it — for a move or
+   * resize that ended uncommitted. Leaving it would make the next gesture's
+   * begin a no-op and the next undo restore stale state.
+   */
+  cancelMove(): void {
+    this.stores.history.takeMoveSnapshot();
+  }
+
+  cancelResize(): void {
+    this.stores.history.takeResizeSnapshot();
+  }
+
   beginMove(urlMaps?: GridHistoryUrlMaps): void {
     this.stores.history.beginMove(
       this.captureSnapshot("Move tile", urlMaps),

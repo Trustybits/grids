@@ -106,6 +106,9 @@ const _viewportWidth = ref(0);
 const _enrolled = earlyAccessEnrolled;
 const _desktop2FlagOn = ref(false);
 const _unifiedTextFlagOn = unifiedTextFlagOn;
+// Synced with the other flags so the gate stays reactive when PostHog loads;
+// `isEnabled()` on its own is a plain read with no reactivity.
+const _mobileToolbarFlagOn = ref(false);
 
 let _cleanup: (() => void) | null = null;
 
@@ -143,6 +146,9 @@ export function initMobileExperience(
     _desktop2FlagOn.value = flags.isEnabled(FEATURE_FLAGS.BETA_DESKTOP_2);
     _unifiedTextFlagOn.value = flags.isEnabled(
       FEATURE_FLAGS.EDITOR_UNIFIED_TEXT,
+    );
+    _mobileToolbarFlagOn.value = flags.isEnabled(
+      FEATURE_FLAGS.EDITOR_MOBILE_TOOLBAR,
     );
   };
   syncFlags();
@@ -207,6 +213,15 @@ export function useMobileExperience() {
   const chromeActive = computed(() => isMobile2.value || isDesktop2.value);
 
   /**
+   * Phone chrome + `editor-mobile-toolbar` → floating per-tile toolbars
+   * instead of the `/EDIT` sheet. The only way the new phone editor should
+   * read the flag, so test mocks of this composable keep old paths intact.
+   */
+  const isMobileToolbar = computed(
+    () => isMobile2.value && _mobileToolbarFlagOn.value,
+  );
+
+  /**
    * Opt the user in/out of the Early Access feature. Drives PostHog
    * enrollment (the source of truth); applied optimistically so the UI
    * responds immediately while PostHog reloads flags.
@@ -236,6 +251,7 @@ export function useMobileExperience() {
     isMobile2,
     isDesktop2,
     chromeActive,
+    isMobileToolbar,
     isUnifiedText,
     setEarlyAccessEnrolled,
   };

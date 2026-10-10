@@ -409,10 +409,13 @@ describe("useColorPicker — fill vs overlay separation", () => {
 
   it("never exposes an overlay for non-overlay-capable tiles", () => {
     const content = makeImageContent({ backgroundColor: "var(--color-red)" });
+    // Explicit rules without overlay: omitted options would use the image
+    // type's own (overlay-capable) rules.
     const { backgroundColor, overlayColor } = useColorPicker(
       null,
       content,
       noopEmit,
+      {},
     );
 
     expect(overlayColor.value).toBeNull();

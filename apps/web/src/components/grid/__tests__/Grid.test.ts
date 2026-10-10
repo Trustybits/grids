@@ -168,8 +168,10 @@ function makeStore(grid = makeGrid()) {
     commitCompactedLayout: vi.fn(),
     beginMove: vi.fn(),
     commitMove: vi.fn(),
+    cancelMove: vi.fn(),
     beginResize: vi.fn(),
     commitResize: vi.fn(),
+    cancelResize: vi.fn(),
     removeTile: vi.fn(),
     updateGrid: vi.fn(),
     registerLayoutReadinessAdapter,
@@ -822,6 +824,25 @@ describe("Grid canvas characterization", () => {
 
     expect(store.beginMove).toHaveBeenCalledTimes(1);
     expect(store.commitMove).not.toHaveBeenCalled();
+    // The pending snapshot is released so the next gesture can take one.
+    expect(store.cancelMove).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+  });
+
+  it("releases the pending snapshot when a resize is not committed", async () => {
+    const { store } = makeStore();
+    storeHolder.current = store;
+    const wrapper = await mountGrid();
+    await flushPromises();
+
+    griddle(wrapper).vm.$emit("resizeStart", "tile-1");
+    griddle(wrapper).vm.$emit("resizeEnd", "tile-1", false);
+    await flushPromises();
+
+    expect(store.beginResize).toHaveBeenCalledTimes(1);
+    expect(store.commitResize).not.toHaveBeenCalled();
+    expect(store.cancelResize).toHaveBeenCalledTimes(1);
 
     wrapper.unmount();
   });

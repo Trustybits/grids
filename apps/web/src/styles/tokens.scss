@@ -67,6 +67,23 @@
   --grids-brand-purple: #9f40ff;
   --grids-brand-error-default: #E13F60;
 
+  // Primary scale — the design system's OKLCH palette (hue 283, 13 tones), from
+  // Figma "Color Scale · OKLCH Palette (Primary)". Only 500 matches the
+  // marketing `--mkt-brand-500`; the marketing 200–700 are separate values.
+  --color-primary-25: #ECEDFE;
+  --color-primary-50: #D3D5FF;
+  --color-primary-100: #BCBDFF;
+  --color-primary-200: #A5A5FF;
+  --color-primary-300: #908BFF;
+  --color-primary-400: #7D6FFE;
+  --color-primary-500: #6C4DFE;
+  --color-primary-600: #5E1BF7;
+  --color-primary-700: #4C16CC;
+  --color-primary-800: #3B0EA3;
+  --color-primary-900: #2B087B;
+  --color-primary-950: #1B0456;
+  --color-primary-975: #0D0134;
+
   --grids-surface-raised: var(--color-white-21);
 
   --spacing-xs: 4px;
@@ -131,7 +148,11 @@
   // motion preset — for surfaces that should settle calmly (e.g. the mobile
   // command pill morph + settings/carousel rise).
   --easing-gentle: cubic-bezier(0.32, 0.72, 0, 1);
-  
+  // Snappy surface morph for the phone floating bars: quick, with the slightest
+  // settle past the target so it lands rather than drifts.
+  --duration-morph: 240ms;
+  --easing-snap: cubic-bezier(0.2, 0.9, 0.25, 1.05);
+
   /* Legacy combined tokens for backward compatibility */
   --transition-fast: 150ms ease-in-out;
   --transition-normal: 250ms ease-in-out;

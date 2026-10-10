@@ -25,6 +25,15 @@ body.theme-light,
 
   --color-editable-hover: rgba(0, 0, 0, 0.03);
 
+  // Phone floating toolbars. Active = the primary tone legible on this theme
+  // (500 is 5.1:1 on white). Selected sits on a see-through grey, never solid.
+  --color-tool-active: var(--color-primary-500);
+  --color-tool-selected-bg: rgba(0, 0, 0, 0.06);
+  --color-tool-on-bg: color-mix(in srgb, var(--color-tool-active) 14%, transparent);
+  --color-tool-danger: var(--grids-brand-error-default);
+  --color-glass-bar: rgba(255, 255, 255, 0.72);
+  --color-selection-ring: var(--color-primary-500);
+
   --primary-color: #009688;
   --secondary-color: #bfc2c462;
   --destructive-color: #e91e63;
@@ -56,6 +65,15 @@ body.theme-dark,
   --color-divider: var(--color-white-13);
 
   --color-editable-hover: rgba(255, 255, 255, 0.05);
+
+  // Phone floating toolbars. 400 is 5.6:1 on black (Figma's #7D7BFE was a
+  // near-copy of it).
+  --color-tool-active: var(--color-primary-400);
+  --color-tool-selected-bg: rgba(255, 255, 255, 0.1);
+  --color-tool-on-bg: color-mix(in srgb, var(--color-tool-active) 16%, transparent);
+  --color-tool-danger: var(--grids-brand-error-default);
+  --color-glass-bar: rgba(12, 12, 12, 0.72);
+  --color-selection-ring: var(--color-primary-400);
 
   --primary-color: #9e4db6;
   --secondary-color: #312a354b;

@@ -103,6 +103,7 @@ import {
   registerTileDropTarget,
   type ViewportRect,
 } from "@/composables/useTileDropTarget";
+import { registerGridEngineBridge } from "@/composables/useGridEngineBridge";
 import type { TilePlacement } from "@/types/GridLayout";
 
 /** Engine id of the placeholder that holds a dragged-in tile type's cell. */
@@ -598,6 +599,10 @@ export default {
       if (committed && gridView.canEdit) {
         gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
         gridView.commitMove();
+      } else {
+        // A drag that changed nothing (or was cancelled) must still release
+        // its pending snapshot, or the next gesture can't take one.
+        gridView.cancelMove();
       }
       finishInteraction();
     };
@@ -614,6 +619,8 @@ export default {
       if (committed && gridView.canEdit) {
         gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
         gridView.commitResize();
+      } else {
+        gridView.cancelResize();
       }
       finishInteraction();
     };
@@ -794,8 +801,20 @@ export default {
     };
 
     const unregisterDropTarget = registerTileDropTarget(dropTarget);
+    const unregisterEngineBridge = registerGridEngineBridge({
+      removeTiles: (tileIds) => {
+        for (const id of tileIds) removeTileThroughEngine(id);
+      },
+      resizeTile: resizeTileThroughEngine,
+      tileElement: (tileId) =>
+        scaleWrapperRef.value?.querySelector<HTMLElement>(
+          `[data-griddle-tile="${CSS.escape(tileId)}"]`,
+        ) ?? null,
+      gridScale: () => mobileScale.value,
+    });
     onUnmounted(() => {
       unregisterDropTarget();
+      unregisterEngineBridge();
       if (dropDrag.isActive()) dropDrag.cancel();
     });
 

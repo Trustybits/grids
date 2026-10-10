@@ -2,6 +2,7 @@ import {
   AnalyticsEventType,
   ContentType,
   type Breakpoint,
+  type Grid,
   type Tile,
   type TileContent,
 } from "@grids/contracts/types";
@@ -111,18 +112,7 @@ export class GridTileStructureController {
     if (!grid) return null;
 
     const definition = getTileDefinition(content.type);
-    if (definition?.maxPerGrid) {
-      const count = grid.tiles.filter(
-        (tile) => tile.content.type === content.type,
-      ).length;
-      if (count >= definition.maxPerGrid) {
-        this.stores.toast.addToast(
-          `Only ${definition.maxPerGrid} ${definition.label ?? content.type} tile${definition.maxPerGrid > 1 ? "s" : ""} allowed per grid`,
-          "error",
-        );
-        return null;
-      }
-    }
+    if (this.isAtTypeLimit(grid, content.type)) return null;
 
     const requestedWidth = definition?.defaultSize?.w ?? 2;
     const columns = grid.colNum || 12;
@@ -188,10 +178,30 @@ export class GridTileStructureController {
     return tile.i;
   }
 
+  /**
+   * Whether the grid already holds as many tiles of `type` as its definition
+   * allows (e.g. one Campfire). Tells the user when it does, since both adding
+   * and duplicating stop here.
+   */
+  private isAtTypeLimit(grid: Grid, type: TileContent["type"]): boolean {
+    const definition = getTileDefinition(type);
+    if (!definition?.maxPerGrid) return false;
+    const count = grid.tiles.filter(
+      (tile) => tile.content.type === type,
+    ).length;
+    if (count < definition.maxPerGrid) return false;
+    this.stores.toast.addToast(
+      `Only ${definition.maxPerGrid} ${definition.label ?? type} tile${definition.maxPerGrid > 1 ? "s" : ""} allowed per grid`,
+      "error",
+    );
+    return true;
+  }
+
   duplicateTile(id: string): string | null {
     const grid = this.stores.session.currentGrid;
     const source = grid?.tiles.find((tile) => tile.i === id);
     if (!grid || !source) return null;
+    if (this.isAtTypeLimit(grid, source.content.type)) return null;
 
     this.pushUndoSnapshot("Duplicate tile");
     const columns = grid.colNum || 12;

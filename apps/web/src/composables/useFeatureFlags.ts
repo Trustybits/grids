@@ -57,6 +57,13 @@ export const FEATURE_FLAGS = {
   // Draft/publish: edit a published grid via a hidden draft, then publish.
   // Off = today's live-autosave behavior with zero user-facing change.
   EDITOR_DRAFT_PUBLISH: 'editor-draft-publish',
+  /**
+   * Phone tile editing with floating, morphing toolbars (tap → per-tile
+   * toolbar, hold → arrange, multi-edit). Replaces the Mobile 2.0 `/EDIT`
+   * sheet, so it only bites inside `isMobile2`. Read it through
+   * `useMobileExperience().isMobileToolbar`, never directly.
+   */
+  EDITOR_MOBILE_TOOLBAR: 'editor-mobile-toolbar',
 
   // ── Account ─────────────────────────────────────────────────────────────
   // Verified email change from the account menu, plus the lost-inbox

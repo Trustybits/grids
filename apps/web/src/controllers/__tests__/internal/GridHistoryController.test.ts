@@ -374,5 +374,64 @@ describe("GridHistoryController", () => {
       controller.commitResize();
       expect(commitGestureGeometry).not.toHaveBeenCalled();
     });
+
+    it("cancelMove / cancelResize release a gesture's pending snapshot", () => {
+      seedGrid();
+      controller.beginMove();
+      controller.beginResize();
+      const push = vi.spyOn(h.stores.history, "pushSnapshot");
+
+      controller.cancelMove();
+      controller.cancelResize();
+
+      expect(push).not.toHaveBeenCalled();
+      expect(h.stores.history.pendingMoveSnapshot).toBeNull();
+      expect(h.stores.history.pendingResizeSnapshot).toBeNull();
+      // The next gesture can take its own snapshot again.
+      controller.beginMove();
+      expect(h.stores.history.pendingMoveSnapshot).not.toBeNull();
+    });
+  });
+
+  describe("history batches", () => {
+    it("opens once: a nested begin reports it didn't open", () => {
+      seedGrid();
+      expect(controller.beginHistoryBatch("Edit 2 tiles")).toBe(true);
+      expect(controller.beginHistoryBatch("Nested")).toBe(false);
+      expect(h.stores.history.isBatching).toBe(true);
+    });
+
+    it("commits one undo step when the grid changed", () => {
+      seedGrid();
+      controller.beginHistoryBatch("Edit 2 tiles");
+      h.stores.session.currentGrid!.verticalCompact = false;
+      const push = vi.spyOn(h.stores.history, "pushSnapshot");
+
+      controller.commitHistoryBatch();
+
+      expect(push).toHaveBeenCalledTimes(1);
+      expect(push.mock.calls[0]?.[0]).toMatchObject({
+        actionLabel: "Edit 2 tiles",
+      });
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+      expect(h.stores.history.isBatching).toBe(false);
+    });
+
+    it("commits no step when nothing changed, but still closes", () => {
+      seedGrid();
+      controller.beginHistoryBatch("Popover");
+      const push = vi.spyOn(h.stores.history, "pushSnapshot");
+
+      controller.commitHistoryBatch();
+
+      expect(push).not.toHaveBeenCalled();
+      expect(scheduleSave).not.toHaveBeenCalled();
+      expect(h.stores.history.isBatching).toBe(false);
+    });
+
+    it("won't open without a grid", () => {
+      expect(controller.beginHistoryBatch("x")).toBe(false);
+      expect(h.stores.history.isBatching).toBe(false);
+    });
   });
 });

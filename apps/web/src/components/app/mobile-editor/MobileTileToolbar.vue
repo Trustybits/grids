@@ -65,20 +65,17 @@ import { getTileDefinition } from "@/registries/tileRegistry";
 import { getTileToolbarButtons } from "@/registries/tileToolbar";
 import type { ToolbarContext } from "@/types/TileToolbar";
 import { useGridUiStore } from "@/stores/grid/gridUi";
-import { useGridHistoryStore } from "@/stores/grid/gridHistory";
-import { useToastStore } from "@/stores/toast";
 import { useGridController } from "@/controllers/useGridController";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useMobileExperience } from "@/composables/useMobileExperience";
 import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
 import { useTileActions } from "@/composables/useTileActions";
-import { getGridEngineBridge } from "@/composables/useGridEngineBridge";
+import { useMobileTileCommands } from "@/composables/useMobileTileCommands";
+import { arrangeLiveSize } from "@/composables/useTouchTileGestures";
 
 const props = defineProps<{ tile: Tile }>();
 
 const ui = useGridUiStore();
-const history = useGridHistoryStore();
-const toastStore = useToastStore();
 const controller = useGridController();
 const gridView = proxyRefs(useGridViewContext());
 const { isUnifiedText } = useMobileExperience();
@@ -95,6 +92,11 @@ const title = computed(() => {
 
 /** The size as laid out right now (the phone breakpoint), not the desktop one. */
 const sizeLabel = computed(() => {
+  // A corner drag in progress shows the size it would land at.
+  const live = arrangeLiveSize.value;
+  if (live && ui.mobileArrangeTileId === props.tile.i) {
+    return `${live.w}×${live.h}`;
+  }
   const placed = gridView.displayPositions.find(
     (item) => item.i === props.tile.i,
   );
@@ -160,61 +162,14 @@ const runRegistryAction = (buttonId: string) => {
     ?.action(context);
 };
 
-/**
- * Scroll a tile so it sits in the band between the top chrome and the bottom
- * bar. Griddle only renders tiles near the viewport, so a fresh copy below the
- * fold doesn't exist yet — bringing it into view is what mounts it (and lets
- * it register as the selection).
- */
-const scrollTileIntoView = (tileId: string) => {
-  const rect = getGridEngineBridge()?.tileRect(tileId);
-  if (!rect) return;
-  const top = 96;
-  const bottomChrome =
-    parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue(
-        "--mobile-bottom-chrome-h",
-      ),
-    ) || 160;
-  const bottom = window.innerHeight - bottomChrome - 16;
-  if (rect.top >= top && rect.top + rect.height <= bottom) return;
-  window.scrollBy({ top: rect.top - top, behavior: "smooth" });
-};
-
-const duplicate = async () => {
-  const newId = gridView.duplicateTile(props.tile.i);
-  if (!newId) return;
-  // You usually duplicate in order to change the copy, so it becomes the
-  // selection; it registers its handle once it mounts.
-  controller.setMobileEditTile(newId);
-  toastStore.addToast("Tile duplicated", "success");
-  await nextTick();
-  scrollTileIntoView(newId);
-};
-
-const remove = () => {
-  const tileId = props.tile.i;
-  // The tile's own exit animation when its handle is live; otherwise straight
-  // through the engine (a selection that hasn't mounted yet).
-  const handleRemove = handle.value?.remove;
-  if (handleRemove) handleRemove();
-  else getGridEngineBridge()?.removeTiles([tileId]);
-  toastStore.addToast("Tile deleted", "info", 5000, {
-    label: "Undo",
-    // Only while the delete is still the latest step; anything newer would
-    // be undone instead.
-    run: () => {
-      if (history.undoActionLabel === "Remove tile") void controller.undo();
-    },
-  });
-};
+const commands = useMobileTileCommands();
 
 const onSelect = (tool: MobileTool) => {
   switch (tool.id) {
     case "duplicate":
-      return void duplicate();
+      return void commands.duplicate(props.tile);
     case "delete":
-      return remove();
+      return commands.remove(props.tile);
     case "open":
       // A real link; the browser follows it.
       return;

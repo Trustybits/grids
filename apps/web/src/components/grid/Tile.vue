@@ -19,6 +19,9 @@
       'is-exiting': isExiting,
       'is-activated': isActivated,
       'is-edit-selected': isEditSelected,
+      'is-arranged': isArranged,
+      'is-pressing': isPressing,
+      'is-lifted': isLifted,
       'is-focus-dimmed': isFocusDimmed,
       'embed-is-interactive': isEmbedInteractive,
       'suggestion-hidden': isHiddenSuggestion,
@@ -137,6 +140,16 @@
 
     <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
     <div v-if="isTileResizable" class="resize-indicator"></div>
+    <!-- Arrange: phone-home-screen outline; each dot marks Griddle's own
+         (invisible, enlarged) resize handle for that corner. -->
+    <div v-if="isArranged" class="arrange-outline" aria-hidden="true">
+      <span
+        v-for="corner in ARRANGE_CORNERS"
+        :key="corner"
+        class="arrange-outline__handle"
+        :class="`arrange-outline__handle--${corner}`"
+      ></span>
+    </div>
 
     <div
       v-if="gridView.canEdit && !isSuggestion && !isMobile2"
@@ -188,6 +201,7 @@ import {
 
 import {
   TILE_ACTIVATED_ID,
+  TILE_ARRANGE_GESTURE,
   TILE_DRAGGING_ID,
   TILE_REMOVE_REQUEST,
   TILE_RESIZE_REQUEST,
@@ -227,6 +241,8 @@ import { useMobileExperience } from "@/composables/useMobileExperience";
 import { isUnifiedTextActive } from "@/composables/earlyAccessState";
 import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
 import { useMobileEditorView } from "@/composables/useMobileEditorView";
+import { ARRANGE_RESIZE_HANDLES } from "@/composables/useTouchTileGestures";
+import { useGridUiStore } from "@/stores/grid/gridUi";
 
 export default defineComponent({
   components: {
@@ -279,6 +295,25 @@ export default defineComponent({
         isMobileToolbar.value &&
         dimsOthers.value &&
         !editedIds.value.has(props.tile.i),
+    );
+
+    // Hold to arrange: the arranged tile (store) and the grid's gesture state.
+    const uiStore = useGridUiStore();
+    const arrangeGesture = inject(TILE_ARRANGE_GESTURE, {
+      pressingId: ref(null),
+      lifted: ref(false),
+    });
+    const isArranged = computed(
+      () =>
+        isMobileToolbar.value && uiStore.mobileArrangeTileId === props.tile.i,
+    );
+    const isPressing = computed(
+      () =>
+        isMobileToolbar.value &&
+        arrangeGesture.pressingId.value === props.tile.i,
+    );
+    const isLifted = computed(
+      () => isArranged.value && arrangeGesture.lifted.value,
     );
 
     // Expose the tile's current grid height to content components.
@@ -426,7 +461,9 @@ export default defineComponent({
     );
     const isTileDraggable = computed(() => {
       if (!gridView.canEdit || isEditing.value) return false;
-      if (isTouchDevice()) return isActivated.value;
+      if (isTouchDevice()) {
+        return isMobileToolbar.value ? isArranged.value : isActivated.value;
+      }
       return true;
     });
 
@@ -434,7 +471,12 @@ export default defineComponent({
       if (!gridView.canEdit || isSuggestion.value) {
         return false;
       }
-      if (isTouchDevice()) return isActivated.value && !isEditing.value;
+      if (isTouchDevice()) {
+        return (
+          (isMobileToolbar.value ? isArranged.value : isActivated.value) &&
+          !isEditing.value
+        );
+      }
       return !isEditing.value;
     });
 
@@ -709,6 +751,13 @@ export default defineComponent({
       if (isSuggestion.value) {
         if (event.cancelable) event.preventDefault();
         handleGridShortClick(event);
+        return;
+      }
+
+      // A tap on the arranged tile ends arranging: back to its toolbar.
+      if (isArranged.value) {
+        if (event.cancelable) event.preventDefault();
+        uiStore.setMobileArrangeTile(null);
         return;
       }
 
@@ -1095,6 +1144,10 @@ export default defineComponent({
       isMobile2,
       isEditSelected,
       isFocusDimmed,
+      isArranged,
+      isPressing,
+      isLifted,
+      ARRANGE_CORNERS: ARRANGE_RESIZE_HANDLES,
       handleTileMouseDown,
       handleDesktopEditClick,
     };
@@ -1671,6 +1724,102 @@ export default defineComponent({
 @media (prefers-reduced-motion: reduce) {
   .tile-wrapper.is-edit-selected::after {
     animation: none;
+  }
+}
+
+/* ── Hold to arrange ───────────────────────────────────────────────────────
+   On the slotted wrapper, never the Griddle element, so Griddle's inline drag
+   transform and settle animation are left alone. */
+.tile-wrapper.is-pressing {
+  transform: scale(0.97);
+  filter: brightness(0.82);
+  transition:
+    transform 260ms var(--easing-ease-out),
+    filter 260ms var(--easing-ease-out);
+}
+
+.tile-wrapper.is-lifted {
+  transform: scale(1.05);
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.3));
+  transition:
+    transform var(--duration-normal) var(--easing-spring),
+    filter var(--duration-normal) var(--easing-ease-out);
+}
+
+/* Arranging shows the outline instead of the selection ring. */
+.tile-wrapper.is-arranged.is-edit-selected::after {
+  display: none;
+}
+
+.arrange-outline {
+  --arrange-outline-gap: 6px;
+  position: absolute;
+  inset: calc(var(--arrange-outline-gap) * -1);
+  border: 2px solid var(--color-selection-ring);
+  border-radius: calc(var(--tile-border-radius) + var(--arrange-outline-gap));
+  pointer-events: none;
+  z-index: 7;
+  animation: arrangeOutlineIn var(--duration-morph) var(--easing-snap);
+  transition: opacity var(--duration-fast) var(--easing-ease-out);
+}
+
+/* The lifted tile carries no outline — the drop slot shows where it lands. */
+.tile-wrapper.is-lifted .arrange-outline {
+  opacity: 0;
+}
+
+/* One dot on each rounded corner of the outline, over Griddle's handle for
+   that corner. 0.293 = 1 − cos 45°: where the corner arc bends. */
+.arrange-outline__handle {
+  --handle-size: 16px;
+  --handle-inset: calc(
+    (var(--tile-border-radius) + var(--arrange-outline-gap)) * 0.293 -
+      var(--handle-size) / 2 - 1px
+  );
+  position: absolute;
+  width: var(--handle-size);
+  height: var(--handle-size);
+  border-radius: 50%;
+  background: var(--color-text-primary);
+  border: 2px solid var(--color-selection-ring);
+  box-sizing: border-box;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  transition: opacity var(--duration-fast) var(--easing-ease-out);
+}
+
+.arrange-outline__handle--nw {
+  top: var(--handle-inset);
+  left: var(--handle-inset);
+}
+
+.arrange-outline__handle--ne {
+  top: var(--handle-inset);
+  right: var(--handle-inset);
+}
+
+.arrange-outline__handle--sw {
+  bottom: var(--handle-inset);
+  left: var(--handle-inset);
+}
+
+.arrange-outline__handle--se {
+  bottom: var(--handle-inset);
+  right: var(--handle-inset);
+}
+
+/* The outline replaces the hover nubbin while arranging. */
+.tile-wrapper.is-arranged .resize-indicator {
+  display: none;
+}
+
+@keyframes arrangeOutlineIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

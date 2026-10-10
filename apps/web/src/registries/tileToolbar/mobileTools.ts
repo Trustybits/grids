@@ -532,7 +532,8 @@ export const MOBILE_TOOLS: Record<MobileToolId, MobileTool> = {
       // Text: Copy text · Open link. Link: Remove favicon.
       (isText(ctx.tile) &&
         !!definitionActions(ctx.tile)?.copyContent?.(ctx.tile.content)) ||
-      ctx.tile.content.type === ContentType.LINK,
+      (ctx.tile.content.type === ContentType.LINK &&
+        !!contentOf(ctx.tile).faviconUrl),
   },
   arrange: {
     id: "arrange",

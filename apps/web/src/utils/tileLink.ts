@@ -7,13 +7,16 @@ import { ContentType } from "@grids/contracts/types";
  */
 export function normalizeTileLink(link: string): string {
   const trimmed = link.trim();
-  if (!trimmed) return "";
+  // Browsers happily encode spaces into a "host", so "not a link" would pass.
+  if (!trimmed || /\s/.test(trimmed)) return "";
   const normalized =
     trimmed.startsWith("http://") || trimmed.startsWith("https://")
       ? trimmed
       : `https://${trimmed}`;
   try {
-    new URL(normalized);
+    const { hostname } = new URL(normalized);
+    // A real host has a dot ("example.com"); localhost is the exception.
+    if (!hostname.includes(".") && hostname !== "localhost") return "";
     return normalized;
   } catch {
     return "";

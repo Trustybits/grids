@@ -73,11 +73,23 @@ describe("getMobileTools — per-tile toolbars (plan §5)", () => {
 
   it("link, embed, youtube, music", () => {
     expect(
-      ids(ctx(makeTile({ type: ContentType.LINK, link: "https://a.com" }))),
+      ids(
+        ctx(
+          makeTile({
+            type: ContentType.LINK,
+            link: "https://a.com",
+            faviconUrl: "https://a.com/favicon.ico",
+          }),
+        ),
+      ),
     ).toEqual([
       "edit", "image", "fill", "arrange", "open", "copy", "border", "more",
       "duplicate", "delete",
     ]);
+    // More only holds Remove favicon on a link tile.
+    expect(
+      ids(ctx(makeTile({ type: ContentType.LINK, link: "https://a.com" }))),
+    ).not.toContain("more");
     expect(
       ids(ctx(makeTile({ type: ContentType.EMBED, src: "https://a.com" }))),
     ).toEqual([

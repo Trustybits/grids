@@ -8,9 +8,10 @@
   Lives inside the bottom bar's pill, so the pill itself morphs from the home
   buttons into this — no second surface appears.
 
-  Tool behaviour today: instant tools act (Duplicate, Delete, Open, Copy,
-  Download, Re-center, Preview); Arrange enters move/resize; popover and mode
-  tools show as selected and their panels arrive with the popover step.
+  Tool behaviour: instant tools act (Duplicate, Delete, Open, Copy, Download,
+  Re-center, Preview); Arrange enters move/resize; popover tools open their
+  card above the bar (`MobileToolPopover`, mounted by the bottom bar). Mode
+  tools (crop, pan, interact, edit) show as selected until the modes step.
 -->
 <template>
   <div class="mtt" data-tile-edit-surface>
@@ -186,8 +187,7 @@ const onSelect = (tool: MobileTool) => {
         ui.mobileArrangeTileId === props.tile.i ? null : props.tile.i,
       );
     default:
-      // Popover and mode tools: selecting is the visible state; their panels
-      // come with the popover step. A second tap closes.
+      // Popover tools open their card; a second tap closes it.
       return controller.setMobileOpenTool(
         ui.mobileOpenToolId === tool.id ? null : tool.id,
       );
@@ -199,6 +199,8 @@ const onSelect = (tool: MobileTool) => {
 /* Figma "Toolbar": header 46px over a 76px tools row, min 376 wide. */
 .mtt {
   display: flex;
+  /* Taps act at once: no double-tap zoom wait on our controls. */
+  touch-action: manipulation;
   flex-direction: column;
   width: 100%;
   min-width: 0;

@@ -135,6 +135,27 @@
       </div>
     </transition>
 
+    <!-- While a tile's toolbar is up, a dark band sits behind it (and
+         under any popover) so the bar reads cleanly over busy tiles. -->
+    <transition name="mgb-scrim">
+      <div
+        v-if="isMobileToolbar && mode === 'edit'"
+        class="mgb-scrim"
+        aria-hidden="true"
+      />
+    </transition>
+
+    <!-- A tool's popover floats 8px above the tile toolbar; the toolbar stays
+         below it with the tool selected. -->
+    <transition name="mgb-pop">
+      <MobileToolPopover
+        v-if="popoverToolId && editTile"
+        class="mgb-popover"
+        :tile="editTile"
+        :tool-id="popoverToolId"
+      />
+    </transition>
+
     <MobileCommandBar
       ref="pillRef"
       class="mgb-pill"
@@ -376,6 +397,10 @@ import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vu
 import MobileTileEditSheet from "@/components/app/MobileTileEditSheet.vue";
 import MobileTileToolbar from "@/components/app/mobile-editor/MobileTileToolbar.vue";
 import MobileFormatToolbar from "@/components/app/mobile-editor/MobileFormatToolbar.vue";
+import MobileToolPopover from "@/components/app/mobile-editor/MobileToolPopover.vue";
+import { MOBILE_POPOVER_BODIES } from "@/components/app/mobile-editor/popovers";
+import { MOBILE_TOOLS } from "@/registries/tileToolbar/mobileTools";
+import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useMorphFlip } from "@/composables/useMorphFlip";
 import DockedFormatBar from "@/components/richtext/DockedFormatBar.vue";
 import { useKeyboardInset } from "@/composables/useKeyboardInset";
@@ -494,6 +519,26 @@ const textEditingEditor = computed(() => {
   return tileHandle.childComponent.value?.editor;
 });
 const editGridView = proxyRefs(useGridViewContext());
+
+// The open tool's popover, when it is one that has a card. Typing replaces the
+// toolbar with the format bar, so no popover shows over it.
+const gridUi = useGridUiStore();
+const popoverToolId = computed(() => {
+  const id = gridUi.mobileOpenToolId;
+  if (!isMobileToolbar.value || mode.value !== "edit") return null;
+  if (!id || textEditingEditor.value) return null;
+  const tool = MOBILE_TOOLS[id as keyof typeof MOBILE_TOOLS];
+  if (tool?.kind !== "popover" || !MOBILE_POPOVER_BODIES[tool.id]) return null;
+  return tool.id;
+});
+
+// Starting to type closes any popover (one layer at a time).
+watch(
+  () => !!textEditingEditor.value,
+  (typing) => {
+    if (typing && gridUi.mobileOpenToolId) gridController.setMobileOpenTool(null);
+  },
+);
 
 // Enter in the `/EDIT` input executes the first control matching the typed
 // filter — the same registry rows the sheet renders, so desktop (where no
@@ -1187,7 +1232,8 @@ const handleKeydown = (event: KeyboardEvent) => {
   else if (mode.value === "settings") closeSettings();
   else if (mode.value === "color") closeColor();
   else if (mode.value === "image") closeImage();
-  else if (mode.value === "edit") closeEdit();
+  // The floating toolbars peel one layer per Escape (the editor lifecycle).
+  else if (mode.value === "edit" && !isMobileToolbar.value) closeEdit();
 };
 
 // The pill's height from the bottom edge, for chrome that must clear it
@@ -1373,6 +1419,85 @@ onBeforeUnmount(() => {
     flex: 1 1 auto;
     min-width: 0;
     width: 100%;
+  }
+}
+
+// The band behind the floating toolbar: the page colour, nearly opaque, with a
+// small blur, from just above the bar down past the screen edge. A soft top
+// edge keeps it from reading as a hard box.
+.mgb-scrim {
+  position: absolute;
+  top: calc(-1 * var(--spacing-lg));
+  bottom: -64px;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  background: color-mix(in srgb, var(--color-content-background) 90%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--spacing-lg));
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--spacing-lg));
+}
+
+// Less transparency (the phone asks for it, or it is a low-end phone — the
+// same switch that turns the tile blur into dim-only): the band and the
+// toolbar go solid, with no blur.
+:global(.no-focus-blur) .mgb-scrim {
+  background: var(--color-content-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:global(.no-focus-blur) .mgb-pill.mgb-pill--glass {
+  background-color: var(--color-toolbar-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.mgb-scrim-enter-active,
+.mgb-scrim-leave-active {
+  transition: opacity var(--duration-morph) ease;
+}
+
+.mgb-scrim-enter-from,
+.mgb-scrim-leave-to {
+  opacity: 0;
+}
+
+// The popover floats above the toolbar, out of the column so it never moves
+// the pill, at the toolbar's width.
+.mgb-popover {
+  position: absolute;
+  bottom: calc(100% + var(--spacing-sm));
+  left: 0;
+  right: 0;
+  z-index: 2;
+  width: var(--mgb-width);
+  margin: 0 auto;
+}
+
+.mgb-pop-enter-active {
+  transition:
+    opacity 180ms ease-out,
+    transform 180ms var(--easing-snap);
+}
+
+.mgb-pop-leave-active {
+  transition:
+    opacity 120ms ease-in,
+    transform 120ms ease-in;
+}
+
+.mgb-pop-enter-from,
+.mgb-pop-leave-to {
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mgb-pop-enter-from,
+  .mgb-pop-leave-to {
+    transform: none;
   }
 }
 

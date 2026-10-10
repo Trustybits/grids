@@ -7,7 +7,10 @@ import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useToastStore } from "@/stores/toast";
 
 const h = vi.hoisted(() => ({
-  handle: null as null | { remove: () => void },
+  handle: null as null | {
+    remove: () => void;
+    enterToolMode?: (mode: string) => void;
+  },
   duplicateTile: vi.fn(() => "copy-1"),
   removeTiles: vi.fn(),
   displayPositions: [] as { i: string; x: number; y: number; w: number; h: number }[],
@@ -123,6 +126,15 @@ describe("MobileTileToolbar", () => {
 
     await tool(wrapper, "fill").trigger("click");
     expect(ui.mobileOpenToolId).toBeNull();
+  });
+
+  it("Crop puts the tile in its crop mode instead of opening a card", async () => {
+    const enterToolMode = vi.fn();
+    h.handle = { remove: vi.fn(), enterToolMode };
+    const wrapper = await mountToolbar();
+    await tool(wrapper, "crop").trigger("click");
+    expect(enterToolMode).toHaveBeenCalledWith("crop");
+    expect(useGridUiStore().mobileOpenToolId).toBeNull();
   });
 
   it("Arrange toggles move/resize for this tile", async () => {

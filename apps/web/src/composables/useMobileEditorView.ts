@@ -45,9 +45,15 @@ export function useMobileEditorView() {
   /** The selected tile is in crop / map pan / embed interact. */
   const isInToolMode = computed(() => {
     const tile = editTile.value;
-    if (!tile || !handle.value?.isEditing.value) return false;
+    const tileHandle = handle.value;
+    if (!tile || !tileHandle) return false;
+    if (tileHandle.toolMode?.value) return true;
+    if (!tileHandle.isEditing.value) return false;
     return !TYPING_TYPES.has(tile.content.type);
   });
+
+  /** Which mode, for the mode bar. */
+  const toolMode = computed(() => handle.value?.toolMode?.value ?? null);
 
   const view = computed(() =>
     deriveMobileEditorView({
@@ -66,5 +72,5 @@ export function useMobileEditorView() {
   /** Whether the other tiles step back (dim/blur). */
   const dimsOthers = computed(() => dimsOtherTiles(view.value));
 
-  return { view, editedIds, dimsOthers, editTile, handle };
+  return { view, editedIds, dimsOthers, editTile, handle, toolMode };
 }

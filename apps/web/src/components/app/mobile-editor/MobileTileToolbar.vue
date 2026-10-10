@@ -10,8 +10,9 @@
 
   Tool behaviour: instant tools act (Duplicate, Delete, Open, Copy, Download,
   Re-center, Preview); Arrange enters move/resize; popover tools open their
-  card above the bar (`MobileToolPopover`, mounted by the bottom bar). Mode
-  tools (crop, pan, interact, edit) show as selected until the modes step.
+  card above the bar (`MobileToolPopover`, mounted by the bottom bar); Crop,
+  Pan and Interact put the tile in its mode and the bar becomes the mode bar
+  (`MobileModeBar`). Edit (link, documents, profile) arrives with typing.
 -->
 <template>
   <div class="mtt" data-tile-edit-surface>
@@ -73,6 +74,7 @@ import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
 import { useTileActions } from "@/composables/useTileActions";
 import { useMobileTileCommands } from "@/composables/useMobileTileCommands";
 import { arrangeLiveSize } from "@/composables/useTouchTileGestures";
+import { toolModeFor } from "@/composables/useTileToolModes";
 
 const props = defineProps<{ tile: Tile }>();
 
@@ -182,6 +184,14 @@ const onSelect = (tool: MobileTool) => {
       return runRegistryAction("map-recenter");
     case "preview":
       return handle.value?.childComponent.value?.openPreview?.();
+    case "crop":
+    case "pan":
+    case "interact": {
+      // The tile enters the mode; the bar becomes the mode bar.
+      const mode = toolModeFor(tool.id, props.tile.content.type);
+      if (mode) handle.value?.enterToolMode?.(mode);
+      return;
+    }
     case "arrange":
       return controller.setMobileArrangeTile(
         ui.mobileArrangeTileId === props.tile.i ? null : props.tile.i,

@@ -16,10 +16,10 @@
         'viewer-view': !gridView.isOwner,
         'has-link': tileLinkExists,
       }"
-      @mousedown="startDragging"
-      @mouseup="stopDragging"
-      @mouseleave="stopDragging"
-      @mousemove="dragImage"
+      @pointerdown="startDragging"
+      @pointerup="stopDragging"
+      @pointercancel="stopDragging"
+      @pointermove="dragImage"
     >
       <!-- Dimmed overflow layer - full image at reduced opacity -->
       <img
@@ -222,8 +222,13 @@ export default defineComponent({
       offsetY.value = Math.min(maxY, Math.max(-maxY, offsetY.value));
     };
 
-    const startDragging = (event: MouseEvent) => {
+    // Pointer events, so a finger crops as well as a mouse. The pointer is
+    // captured for the drag, so it keeps tracking past the tile's edge.
+    const startDragging = (event: PointerEvent) => {
       if (!isEditing.value) return;
+      (event.currentTarget as Element | null)?.setPointerCapture?.(
+        event.pointerId,
+      );
       isDragging.value = true;
       dragStart.value = { x: event.clientX, y: event.clientY };
     };
@@ -232,7 +237,7 @@ export default defineComponent({
       isDragging.value = false;
     };
 
-    const dragImage = (event: MouseEvent) => {
+    const dragImage = (event: PointerEvent) => {
       if (!isDragging.value || !isEditing.value) return;
 
       const deltaX = event.clientX - dragStart.value.x;
@@ -436,6 +441,11 @@ export default defineComponent({
   position: relative;
   width: 100%;
   height: 100%;
+}
+
+/* Cropping with a finger drags the picture, not the page. */
+.image-wrapper.crop-active {
+  touch-action: none;
 }
 
 .image {

@@ -23,10 +23,10 @@
         'is-tiny': isTiny,
         'controls-visible': controlsVisible,
       }"
-      @mousedown="startDragging"
-      @mouseup="stopDragging"
-      @mouseleave="stopDragging"
-      @mousemove="dragVideo"
+      @pointerdown="startDragging"
+      @pointerup="stopDragging"
+      @pointercancel="stopDragging"
+      @pointermove="dragVideo"
     >
       <!-- Dimmed overflow layer - full video at reduced opacity -->
       <video
@@ -384,8 +384,13 @@ export default defineComponent({
       offsetY.value = Math.min(maxY, Math.max(-maxY, offsetY.value));
     };
 
-    const startDragging = (event: MouseEvent) => {
+    // Pointer events, so a finger crops as well as a mouse. The pointer is
+    // captured for the drag, so it keeps tracking past the tile's edge.
+    const startDragging = (event: PointerEvent) => {
       if (!isEditing.value) return;
+      (event.currentTarget as Element | null)?.setPointerCapture?.(
+        event.pointerId,
+      );
       isDragging.value = true;
       dragStart.value = { x: event.clientX, y: event.clientY };
     };
@@ -394,7 +399,7 @@ export default defineComponent({
       isDragging.value = false;
     };
 
-    const dragVideo = (event: MouseEvent) => {
+    const dragVideo = (event: PointerEvent) => {
       if (!isDragging.value || !isEditing.value) return;
 
       const deltaX = event.clientX - dragStart.value.x;
@@ -849,6 +854,11 @@ export default defineComponent({
 
 .video-wrapper.controls-visible {
   cursor: default;
+}
+
+/* Cropping with a finger drags the picture, not the page. */
+.video-wrapper.crop-active {
+  touch-action: none;
 }
 
 .video {

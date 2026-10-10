@@ -19,6 +19,7 @@ import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridController } from "@/controllers/useGridController";
 import { useGridPreview } from "@/composables/useGridPreview";
+import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
 import type { MobileEditorView } from "@/utils/mobileEditorView";
 
 const TAP_SLOP_PX = 10;
@@ -51,6 +52,7 @@ export function useMobileEditorLifecycle(view: Readonly<Ref<MobileEditorView>>) 
   const session = useGridSessionStore();
   const controller = useGridController();
   const { isPreviewActive } = useGridPreview();
+  const { handle } = useMobileTileEdit();
 
   // ── 1. Peel on empty-space taps ──────────────────────────────────────────
   const peel = () => {
@@ -60,9 +62,11 @@ export function useMobileEditorLifecycle(view: Readonly<Ref<MobileEditorView>>) 
     // Multi-edit keeps its picks; it ends with its ✕ so nothing is lost by
     // accident.
     if (ui.mobileMultiSelectIds) return;
-    // Typing and tool modes end through the tile's own outside handling; this
-    // tap is that layer, so the selection stays.
-    if (view.value.kind === "typing" || view.value.kind === "mode") return;
+    // A tool mode is a layer of its own: the tap ends it, the tile stays.
+    if (view.value.kind === "mode") return handle.value?.exitToolMode?.();
+    // Typing ends through the tile's own outside handling; this tap is that
+    // layer, so the selection stays.
+    if (view.value.kind === "typing") return;
     controller.clearMobileEditor();
   };
 

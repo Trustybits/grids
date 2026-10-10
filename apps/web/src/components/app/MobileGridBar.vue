@@ -243,6 +243,12 @@
            tiles morphs the pill to the new tile's tools. -->
       <!-- Typing in a text tile: the whole toolbar morphs into the
            font-styling bar (one bar, riding on the keyboard). -->
+      <!-- Crop / pan / interact: the toolbar becomes a slim mode bar. -->
+      <MobileModeBar
+        v-else-if="mode === 'edit' && isMobileToolbar && activeToolMode"
+        :mode="activeToolMode"
+        @done="editHandle?.exitToolMode?.()"
+      />
       <MobileFormatToolbar
         v-else-if="mode === 'edit' && isMobileToolbar && textEditingEditor"
         :editor="textEditingEditor"
@@ -398,6 +404,7 @@ import MobileTileEditSheet from "@/components/app/MobileTileEditSheet.vue";
 import MobileTileToolbar from "@/components/app/mobile-editor/MobileTileToolbar.vue";
 import MobileFormatToolbar from "@/components/app/mobile-editor/MobileFormatToolbar.vue";
 import MobileToolPopover from "@/components/app/mobile-editor/MobileToolPopover.vue";
+import MobileModeBar from "@/components/app/mobile-editor/MobileModeBar.vue";
 import { MOBILE_POPOVER_BODIES } from "@/components/app/mobile-editor/popovers";
 import { MOBILE_TOOLS } from "@/registries/tileToolbar/mobileTools";
 import { useGridUiStore } from "@/stores/grid/gridUi";
@@ -520,13 +527,25 @@ const textEditingEditor = computed(() => {
 });
 const editGridView = proxyRefs(useGridViewContext());
 
+// The tool mode the selected tile is in (crop / pan / interact), if any.
+const activeToolMode = computed(() =>
+  isMobileToolbar.value ? (editHandle.value?.toolMode?.value ?? null) : null,
+);
+
+// Entering or leaving a mode swaps the pill's content: morph it.
+watch(
+  activeToolMode,
+  () => void morph(undefined, morphOptions()),
+  { flush: "pre" },
+);
+
 // The open tool's popover, when it is one that has a card. Typing replaces the
 // toolbar with the format bar, so no popover shows over it.
 const gridUi = useGridUiStore();
 const popoverToolId = computed(() => {
   const id = gridUi.mobileOpenToolId;
   if (!isMobileToolbar.value || mode.value !== "edit") return null;
-  if (!id || textEditingEditor.value) return null;
+  if (!id || textEditingEditor.value || activeToolMode.value) return null;
   const tool = MOBILE_TOOLS[id as keyof typeof MOBILE_TOOLS];
   if (tool?.kind !== "popover" || !MOBILE_POPOVER_BODIES[tool.id]) return null;
   return tool.id;

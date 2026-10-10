@@ -241,6 +241,7 @@ import { useMobileExperience } from "@/composables/useMobileExperience";
 import { isUnifiedTextActive } from "@/composables/earlyAccessState";
 import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
 import { useMobileEditorView } from "@/composables/useMobileEditorView";
+import { useTileToolModes } from "@/composables/useTileToolModes";
 import { ARRANGE_RESIZE_HANDLES } from "@/composables/useTouchTileGestures";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 
@@ -961,6 +962,20 @@ export default defineComponent({
 
     const toolbarRefs = { childComponent, isEditing, isExitingCropMode };
 
+    // Crop / Pan / Interact on the phone toolbar: entered from its tools, left
+    // from the mode bar's Done, an empty-space tap, or deselecting the tile.
+    const toolModes = useTileToolModes({
+      type: () => props.tile.content.type,
+      childComponent,
+      isEditing,
+      isExitingCropMode,
+      isEmbedInteractive,
+      toggleCropMode,
+    });
+    watch(isActivated, (activated) => {
+      if (!activated && isMobileToolbar.value) toolModes.exitMode();
+    });
+
     // ── Mobile 2.0 `/EDIT` sheet ──────────────────────────────────────────────
     // Under Mobile 2.0 the desktop toolbar and action bar are replaced by a
     // sheet rendered in the bottom command bar, which is outside the grid
@@ -976,6 +991,9 @@ export default defineComponent({
       ...toolbarRefs,
       resizeTile: requestTileResize,
       remove: removeElement,
+      toolMode: toolModes.activeMode,
+      enterToolMode: toolModes.enterMode,
+      exitToolMode: toolModes.exitMode,
     });
 
     watch(isActivated, (activated) => {

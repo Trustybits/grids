@@ -28,6 +28,7 @@ import { nextTick, onUnmounted, readonly, ref, watch, type Ref } from "vue";
 import type { Corner } from "@griddle/core";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridController } from "@/controllers/useGridController";
+import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
 
 /** How long a finger must rest on a tile before it lifts. */
 export const ARRANGE_HOLD_MS = 420;
@@ -94,6 +95,7 @@ export function useTouchTileGestures(options: TouchTileGesturesOptions) {
   const { active, rootRef, isEngineDraggable } = options;
   const ui = useGridUiStore();
   const controller = useGridController();
+  const { handle: editHandle } = useMobileTileEdit();
 
   /** The tile a finger is pressing (for the dip feedback). */
   const pressingId = ref<string | null>(null);
@@ -307,6 +309,8 @@ export function useTouchTileGestures(options: TouchTileGesturesOptions) {
     // Engine placeholders (the drag-to-add slot) start with `__`.
     if (!id || id.startsWith("__")) return;
     if (isFocusedEditable(target)) return;
+    // A tile in crop / pan / interact owns its touches: no hold-to-arrange.
+    if (id === ui.mobileEditTileId && editHandle.value?.toolMode?.value) return;
 
     const p = newPress(id);
     track(p);

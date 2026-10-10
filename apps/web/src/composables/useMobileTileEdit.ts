@@ -24,6 +24,7 @@
 
 import { computed, ref, shallowRef, type Ref } from "vue";
 import type { TileChildComponent } from "@/types/Tile";
+import type { TileToolMode } from "@/composables/useTileToolModes";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridController } from "@/controllers/useGridController";
@@ -40,6 +41,10 @@ export interface MobileTileEditHandle {
   resizeTile: (tileId: string, width: number, height: number) => void;
   /** Runs the tile's exit animation, then removes it. */
   remove: () => void;
+  /** Crop / pan / interact, when the tile is in one (phone toolbar). */
+  toolMode?: Readonly<Ref<TileToolMode | null>>;
+  enterToolMode?: (mode: TileToolMode) => void;
+  exitToolMode?: () => void;
 }
 
 const _query = ref("");

@@ -140,7 +140,20 @@ defineExpose({ close });
   flex-direction: column;
   gap: 14px;
   width: 100%;
-  max-height: min(60vh, 460px);
+  /* On a short phone the card gives up height so the tile fits above it
+     (--mobile-tile-room, from useKeepEditedTileInView), but never below a
+     usable minimum; its body scrolls. */
+  max-height: min(
+    60vh,
+    460px,
+    max(
+      180px,
+      calc(
+        var(--mobile-tile-room, 100vh) - var(--mobile-bottom-chrome-h, 0px) -
+          8px
+      )
+    )
+  );
   padding: 12px 14px 16px;
   overflow-y: auto;
   overscroll-behavior: contain;

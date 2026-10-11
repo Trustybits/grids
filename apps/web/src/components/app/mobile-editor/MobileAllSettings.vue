@@ -306,7 +306,13 @@ const applyPreset = (value: string) => {
   display: flex;
   flex-direction: column;
   gap: 22px;
-  max-height: min(56vh, 520px);
+  /* Likewise the sheet: room for the tile above it, less the toolbar header
+     and edge it grows from, but never below a usable minimum. */
+  max-height: min(
+    56vh,
+    520px,
+    max(200px, calc(var(--mobile-tile-room, 100vh) - 64px))
+  );
   padding: 14px 14px 18px;
   overflow-y: auto;
   overscroll-behavior: contain;

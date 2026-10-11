@@ -12,6 +12,10 @@
  *    editing ends the page glides back before the spacer goes, so nothing
  *    jumps.
  *
+ *  - it publishes `--mobile-tile-room`, the height left below the tile once
+ *    it sits under the top chrome, so the card and All settings can give up
+ *    height to fit it (down to a usable minimum; they scroll inside);
+ *
  * It runs when what's open changes (a tile is picked, a card opens or swaps,
  * All settings grows, a mode starts) and when those surfaces change size —
  * never while the person is scrolling, so it doesn't fight them. Typing (the
@@ -109,6 +113,23 @@ function measureBand(): Band {
   return { top: top + GAP_PX, bottom: bottom - GAP_PX };
 }
 
+/** A tall tile shows its top; it never takes more than this of the screen. */
+const MAX_TILE_SHARE = 0.45;
+const ROOM_VAR = "--mobile-tile-room";
+
+/**
+ * The height left under the tile once it sits just below the top chrome — the
+ * most the toolbar plus a card or the sheet may take without covering it.
+ */
+export function roomBelowTile(
+  bandTop: number,
+  tileHeight: number,
+  viewportHeight: number,
+): number {
+  const tile = Math.min(tileHeight, viewportHeight * MAX_TILE_SHARE);
+  return Math.max(0, Math.round(viewportHeight - bandTop - tile - GAP_PX));
+}
+
 const prefersReducedMotion = () =>
   typeof window.matchMedia === "function" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -157,12 +178,29 @@ export function useKeepEditedTileInView(options: {
     releaseTimer = window.setTimeout(() => setSpacer(0), 450);
   };
 
+  // ── Room for the tile ─────────────────────────────────────────────────────
+  const publishRoom = (tileId: string | null) => {
+    const root = document.documentElement;
+    const rect = tileId ? getGridEngineBridge()?.tileRect(tileId) : null;
+    if (!rect) {
+      root.style.removeProperty(ROOM_VAR);
+      return;
+    }
+    const room = roomBelowTile(
+      measureBand().top,
+      rect.height,
+      window.innerHeight,
+    );
+    root.style.setProperty(ROOM_VAR, `${room}px`);
+  };
+
   // ── Keeping the tile in view ──────────────────────────────────────────────
   const reveal = () => {
     const tileId = options.enabled.value ? keptTileId(options.view.value) : null;
     if (!tileId) return;
     const rect = getGridEngineBridge()?.tileRect(tileId);
     if (!rect) return;
+    publishRoom(tileId);
     const by = scrollToFit(rect.top, rect.top + rect.height, measureBand());
     if (Math.abs(by) < MIN_SCROLL_PX) return;
 
@@ -207,6 +245,8 @@ export function useKeepEditedTileInView(options: {
       const tileId = options.enabled.value
         ? keptTileId(options.view.value)
         : null;
+      // Before the card or sheet paints, so it opens at the right height.
+      publishRoom(tileId);
       if (!tileId) {
         window.clearTimeout(settleTimer);
         surfaces?.disconnect();
@@ -239,5 +279,6 @@ export function useKeepEditedTileInView(options: {
     surfaces?.disconnect();
     window.visualViewport?.removeEventListener("resize", onViewportResize);
     setSpacer(0);
+    document.documentElement.style.removeProperty(ROOM_VAR);
   });
 }

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { keptTileId, scrollToFit } from "../useKeepEditedTileInView";
+import {
+  keptTileId,
+  roomBelowTile,
+  scrollToFit,
+} from "../useKeepEditedTileInView";
 
 describe("keptTileId", () => {
   it("keeps the selected tile while its toolbar, a card, the sheet or a mode is up", () => {
@@ -42,5 +46,20 @@ describe("scrollToFit", () => {
   it("shows the top of a tile taller than the space", () => {
     expect(scrollToFit(250, 700, band)).toBe(150);
     expect(scrollToFit(20, 500, band)).toBe(-80);
+  });
+});
+
+describe("roomBelowTile", () => {
+  it("leaves what is under the tile once it sits below the top chrome", () => {
+    // 700 tall, chrome ends at 105, a 214px tile, 12px gap.
+    expect(roomBelowTile(105, 214, 700)).toBe(369);
+  });
+
+  it("never lets a tall tile take more than about half the screen", () => {
+    expect(roomBelowTile(105, 900, 700)).toBe(700 - 105 - 315 - 12);
+  });
+
+  it("is never negative", () => {
+    expect(roomBelowTile(600, 300, 700)).toBe(0);
   });
 });

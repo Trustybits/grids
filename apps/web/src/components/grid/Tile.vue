@@ -1868,6 +1868,41 @@ export default defineComponent({
   right: var(--handle-inset);
 }
 
+/* The dots pop in one after another, clockwise from the top left, once the
+   tile has settled (after a hold or a drop; a lifted tile hides its
+   outline, so a pop then would go unseen). Size only (never opacity), so
+   hiding the other three during a corner drag still works. */
+.tile-wrapper:not(.is-lifted) .arrange-outline__handle {
+  animation: arrangeHandlePop 220ms var(--easing-spring) backwards;
+}
+
+.tile-wrapper:not(.is-lifted) .arrange-outline__handle--ne {
+  animation-delay: 40ms;
+}
+
+.tile-wrapper:not(.is-lifted) .arrange-outline__handle--se {
+  animation-delay: 80ms;
+}
+
+.tile-wrapper:not(.is-lifted) .arrange-outline__handle--sw {
+  animation-delay: 120ms;
+}
+
+@keyframes arrangeHandlePop {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-wrapper:not(.is-lifted) .arrange-outline__handle {
+    animation: none;
+  }
+}
+
 /* The outline replaces the hover nubbin while arranging. */
 .tile-wrapper.is-arranged .resize-indicator {
   display: none;

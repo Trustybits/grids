@@ -79,6 +79,30 @@ describe("useTopBarMorph", () => {
     expect(bar.style.visibility).toBe("");
   });
 
+  it("with the floating bar, morphs only its left pill", async () => {
+    const { bar, pill, shown } = setup();
+    bar.innerHTML = "";
+    const lead = sized(document.createElement("div"), 242, 48);
+    lead.className = "mobile-app-bar__left mab-piece mab-piece--lead";
+    lead.textContent = "Untitled Grid";
+    const undo = document.createElement("button");
+    bar.append(lead, undo);
+    Object.defineProperty(lead, "offsetLeft", { configurable: true, value: 0 });
+    Object.defineProperty(lead, "offsetTop", { configurable: true, value: 0 });
+
+    shown.value = true;
+    await nextTick();
+    await nextTick();
+
+    const copy = standIn();
+    expect(copy?.classList.contains("mab-piece--lead")).toBe(true);
+    expect(copy?.style.width).toBe("242px");
+    // Only the pill hides; the circles tuck away as usual.
+    expect(lead.style.visibility).toBe("hidden");
+    expect(bar.style.visibility).toBe("");
+    expect(pill.style.opacity).toBe("0");
+  });
+
   it("does nothing with reduced motion", async () => {
     window.matchMedia = vi.fn(() => ({ matches: true })) as never;
     const { shown } = setup();

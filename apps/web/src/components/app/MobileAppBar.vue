@@ -7,18 +7,26 @@
 
   Replaces the desktop top-bar (title editor / dashboard header) + floating undo
   on mobile. Emits `open-menu` (open the drawer) and `new-grid` (home mode).
+
+  `floating` (grid mode with the floating phone toolbars): no bar behind it —
+  a glass pill [‹ ☰ name] on the left and glass circles [publish] [undo] on
+  the right, the same pieces the editing state's pill and circles are.
 -->
 <template>
   <header
     class="mobile-app-bar"
     :class="{
+      'mobile-app-bar--floating': isFloating,
       'mobile-app-bar--hidden': isPreviewActive,
       'mobile-app-bar--tucked': tucked && !isPreviewActive,
     }"
     :aria-hidden="tucked ? 'true' : undefined"
     :inert="tucked || undefined"
   >
-    <div class="mobile-app-bar__left">
+    <div
+      class="mobile-app-bar__left"
+      :class="{ 'mab-piece mab-piece--lead': isFloating }"
+    >
       <button
         v-if="mode === 'grid'"
         type="button"
@@ -77,10 +85,11 @@
       </AppButton>
       <template v-else>
         <!-- Publish control (owner + flag on); renders nothing otherwise. -->
-        <PublishPopover />
+        <PublishPopover :compact="isFloating" />
         <button
           type="button"
           class="mab-btn"
+          :class="{ 'mab-piece mab-piece--circle': isFloating }"
           aria-label="Undo"
           :disabled="!historyStore.canUndo"
           @click="controller.undo()"
@@ -107,7 +116,7 @@ import AppButton from "@/components/ui-elements/Button.vue";
 import BreakpointSwitcher from "@/components/grid/ViewControls.vue";
 import PublishPopover from "@/components/app/PublishPopover.vue";
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     mode?: "grid" | "home";
     /**
@@ -115,14 +124,18 @@ withDefaults(
      * and the floating Multi edit pill + Undo circle take its place.
      */
     tucked?: boolean;
+    /** Floating pieces instead of one bar (grid mode only). */
+    floating?: boolean;
   }>(),
-  { mode: "grid", tucked: false },
+  { mode: "grid", tucked: false, floating: false },
 );
 
 const emit = defineEmits<{
   (e: "open-menu"): void;
   (e: "new-grid"): void;
 }>();
+
+const isFloating = computed(() => props.floating && props.mode === "grid");
 
 const sessionStore = useGridSessionStore();
 const viewportStore = useGridViewportStore();
@@ -222,6 +235,63 @@ const blurOnEnter = (event: KeyboardEvent) => {
   transition:
     opacity var(--duration-fast) var(--easing-smooth),
     transform var(--duration-morph) var(--easing-snap);
+}
+
+.mobile-app-bar--floating {
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  // Only the pieces take taps; the gaps between them reach the grid.
+  pointer-events: none;
+}
+
+// A glass piece, the same surface as the editing state's pill and circles.
+.mab-piece {
+  pointer-events: auto;
+  height: 48px;
+  border: var(--border-width) solid var(--color-stroke);
+  background: var(--color-glass-bar);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+:global(.no-focus-blur) .mab-piece {
+  background: var(--color-toolbar-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.mab-piece--lead {
+  flex: 0 1 auto;
+  gap: 0;
+  padding: 0 var(--spacing-sm) 0 var(--spacing-xs);
+  border-radius: var(--radius-md);
+}
+
+// Beats `.mab-btn`'s own size and see-through background.
+.mab-btn.mab-piece--circle {
+  width: 48px;
+  height: 48px;
+  border: var(--border-width) solid var(--color-stroke);
+  border-radius: var(--radius-full);
+  background: var(--color-glass-bar);
+}
+
+:global(.no-focus-blur) .mab-btn.mab-piece--circle {
+  background: var(--color-toolbar-background);
+}
+
+.mobile-app-bar--floating .mobile-app-bar__right {
+  flex: 0 0 auto;
+  gap: var(--spacing-sm);
+}
+
+.mobile-app-bar--floating .mobile-app-bar__right > * {
+  pointer-events: auto;
 }
 
 .mobile-app-bar--hidden {

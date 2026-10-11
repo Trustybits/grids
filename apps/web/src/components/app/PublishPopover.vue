@@ -11,16 +11,22 @@
   nothing unless the feature is enabled and the viewer owns the grid.
 -->
 <template>
-  <div v-if="visible" ref="rootRef" class="publish-popover">
+  <div
+    v-if="visible"
+    ref="rootRef"
+    class="publish-popover"
+    :class="{ 'publish-popover--compact': compact }"
+  >
     <button
       type="button"
       class="pp-trigger"
       :class="{ 'pp-trigger--open': open, 'pp-trigger--primary': triggerIsPrimary }"
       :aria-expanded="open"
+      :aria-label="compact ? triggerLabel : undefined"
       @click="toggle"
     >
       <span v-if="hasUnpublishedChanges" class="pp-dot" aria-hidden="true" />
-      <UploadIcon :size="16" />
+      <UploadIcon :size="compact ? 22 : 16" />
       <span class="pp-trigger__label">{{ triggerLabel }}</span>
     </button>
 
@@ -139,6 +145,19 @@ import GlobeIcon from "@/components/icons/GlobeIcon.vue";
 import LinkIcon from "@/components/icons/LinkIcon.vue";
 import EyeIcon from "@/components/icons/EyeIcon.vue";
 import { usePublish } from "@/composables/usePublish";
+
+const props = withDefaults(
+  defineProps<{
+    /**
+     * A round, icon-only trigger (the phone's floating top bar). The state
+     * still shows — the dot, and the brand fill when there's something to
+     * publish — and the label is its accessible name.
+     */
+    compact?: boolean;
+  }>(),
+  { compact: false },
+);
+const compact = computed(() => props.compact);
 
 const {
   isFeatureEnabled,
@@ -332,6 +351,53 @@ watch(visible, (now) => {
 
 .pp-trigger__label {
   white-space: nowrap;
+}
+
+// Compact: a 48px glass circle like the floating top pieces. The panel
+// anchors to the bar (the nearest positioned ancestor) rather than the
+// circle, so it never runs off the left of a phone screen.
+.publish-popover--compact {
+  position: static;
+}
+
+.publish-popover--compact .pp-trigger {
+  position: relative;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  background: var(--color-glass-bar);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+// Something to publish: the brand fill still shows, as on the full trigger.
+.publish-popover--compact .pp-trigger.pp-trigger--primary {
+  background: var(--primary-color, var(--color-brand, #6c5ce7));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.publish-popover--compact .pp-trigger__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.publish-popover--compact .pp-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+}
+
+:global(.no-focus-blur) .publish-popover--compact .pp-trigger:not(.pp-trigger--primary) {
+  background: var(--color-toolbar-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 // Pulsing dot marking unpublished changes.

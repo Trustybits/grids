@@ -14,6 +14,7 @@
       <MobileAppBar
         :mode="mobile2HomeActive ? 'home' : 'grid'"
         :tucked="appBarTucked"
+        :floating="isMobileToolbar"
         @open-menu="isMobileMenuOpen = true"
         @new-grid="handleNewGrid"
       />

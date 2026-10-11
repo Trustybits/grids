@@ -17,6 +17,8 @@ import { nextTick, onBeforeUnmount, watch, type Ref } from "vue";
 const APP_BAR = ".mobile-app-bar";
 const APP_BAR_HIDDEN = "mobile-app-bar--hidden";
 const APP_BAR_TUCKED = "mobile-app-bar--tucked";
+/** The floating app bar's left pill [‹ ☰ name]: the piece that morphs. */
+const APP_BAR_LEAD = ".mab-piece--lead";
 const PILL_TUCKED = "mtc-pill--tucked";
 
 /** A damped spring (ζ 0.7) for `linear()`, as the bottom bar's morph uses. */
@@ -53,22 +55,35 @@ const springEasing = () =>
     : SNAP_EASING;
 
 /**
- * The app bar's resting box. It is fixed, so its used `left` / `top` place it
- * on screen; those and its layout size ignore the scale it tucks away with
- * (whose origin changes as it tucks and untucks).
+ * The part of the app bar that turns into the pill: the whole bar, or its
+ * left pill when the bar floats as separate pieces.
+ */
+const surfaceOf = (bar: HTMLElement): HTMLElement =>
+  bar.querySelector<HTMLElement>(APP_BAR_LEAD) ?? bar;
+
+/**
+ * The resting box of the app bar's surface. The bar is fixed, so its used
+ * `left` / `top` place it on screen, and a piece inside it sits at its offset
+ * within; neither, nor the layout sizes, include the scale the bar tucks away
+ * with (whose origin changes as it tucks and untucks).
  */
 function appBarBox(bar: HTMLElement): Box | null {
-  if (!bar.offsetWidth || !bar.offsetHeight) return null;
+  const surface = surfaceOf(bar);
+  if (!surface.offsetWidth || !surface.offsetHeight) return null;
   const style = getComputedStyle(bar);
-  const left = parseFloat(style.left);
-  const top = parseFloat(style.top);
+  let left = parseFloat(style.left);
+  let top = parseFloat(style.top);
   if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+  if (surface !== bar) {
+    left += bar.clientLeft + surface.offsetLeft;
+    top += bar.clientTop + surface.offsetTop;
+  }
   return {
     left,
     top,
-    width: bar.offsetWidth,
-    height: bar.offsetHeight,
-    radius: style.borderRadius,
+    width: surface.offsetWidth,
+    height: surface.offsetHeight,
+    radius: getComputedStyle(surface).borderRadius,
   };
 }
 
@@ -86,9 +101,9 @@ function pillBox(pill: HTMLElement): Box | null {
   };
 }
 
-/** A non-interactive copy of the app bar, as it looks at rest. */
+/** A non-interactive copy of the app bar's surface, as it looks at rest. */
 function makeStandIn(bar: HTMLElement, box: Box): HTMLElement {
-  const copy = bar.cloneNode(true) as HTMLElement;
+  const copy = surfaceOf(bar).cloneNode(true) as HTMLElement;
   copy.classList.remove(APP_BAR_TUCKED, APP_BAR_HIDDEN);
   copy.removeAttribute("id");
   for (const node of copy.querySelectorAll("[id]")) node.removeAttribute("id");
@@ -154,8 +169,8 @@ export function useTopBarMorph(options: {
 
     // The incoming element stays invisible until the copy reaches it — by
     // opacity, so it can already be tapped; the outgoing one is gone.
-    const incoming = toPill ? pill : bar;
-    const outgoing = toPill ? bar : pill;
+    const incoming = toPill ? pill : surfaceOf(bar);
+    const outgoing = toPill ? surfaceOf(bar) : pill;
     outgoing.style.visibility = "hidden";
     incoming.style.opacity = "0";
     // The spring's overshoot stays clear of the screen's right edge.

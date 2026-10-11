@@ -558,7 +558,7 @@ const isPlainTyping = computed(
 );
 
 // Plain typing starting or ending swaps the pill's content too.
-watch(isPlainTyping, () => void morph(undefined, morphOptions()), {
+watch(isPlainTyping, () => void morph(undefined, morphOptions(true)), {
   flush: "pre",
 });
 
@@ -570,7 +570,7 @@ const activeToolMode = computed(() =>
 // Entering or leaving a mode swaps the pill's content: morph it.
 watch(
   activeToolMode,
-  () => void morph(undefined, morphOptions()),
+  () => void morph(undefined, morphOptions(true)),
   { flush: "pre" },
 );
 
@@ -589,7 +589,7 @@ const multi = useMobileMultiEdit();
 // Entering or leaving multi-edit swaps the toolbar for the multi one.
 watch(
   () => isMobileToolbar.value && multi.active.value,
-  () => void morph(undefined, morphOptions()),
+  () => void morph(undefined, morphOptions(true)),
   { flush: "pre" },
 );
 
@@ -806,10 +806,13 @@ const pillEl = computed(
   () => (pillRef.value?.$el as HTMLElement | undefined) ?? null,
 );
 const { morph } = useMorphFlip(pillEl);
-// The floating toolbars spring.
-const morphOptions = () =>
+// The floating toolbars spring; with `crossfade` the old content also fades
+// out as the new fades in (used where the content really changes — not when
+// All settings grows, or between two tiles with the same tools, where most
+// of it stays put and fading would only make it flicker).
+const morphOptions = (crossfade = false) =>
   isMobileToolbar.value
-    ? { spring: true }
+    ? { spring: true, crossfade }
     : { duration: "var(--duration-slow)", easing: "var(--easing-gentle)" };
 
 // The pill's previous box is measured synchronously when the source changes
@@ -817,7 +820,7 @@ const morphOptions = () =>
 watch(
   mode,
   async () => {
-    await morph(undefined, morphOptions());
+    await morph(undefined, morphOptions(true));
     if (mode.value === "add") cmdRef.value?.focus();
   },
   { flush: "pre" },
@@ -831,17 +834,21 @@ const stopTyping = () => stopTileTyping(editHandle.value);
 // Typing starting or ending swaps the pill's content: morph it.
 watch(
   () => isMobileToolbar.value && !!textEditingEditor.value,
-  () => void morph(undefined, morphOptions()),
+  () => void morph(undefined, morphOptions(true)),
   { flush: "pre" },
 );
 
-// Switching tiles keeps `edit` mode but swaps the tools: morph that too.
+// Switching tiles keeps `edit` mode but swaps the tools: morph that too,
+// cross-fading only when the tools change (a different type of tile).
 watch(
-  () => (mode.value === "edit" ? editTileId.value : null),
+  () =>
+    mode.value === "edit"
+      ? { id: editTileId.value, type: editTile.value?.content.type }
+      : null,
   (next, previous) => {
-    if (next && previous && next !== previous && isMobileToolbar.value) {
-      void morph(undefined, morphOptions());
-    }
+    if (!next?.id || !previous?.id || next.id === previous.id) return;
+    if (!isMobileToolbar.value) return;
+    void morph(undefined, morphOptions(next.type !== previous.type));
   },
   { flush: "pre" },
 );

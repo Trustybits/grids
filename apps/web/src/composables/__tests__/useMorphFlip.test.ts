@@ -97,4 +97,44 @@ describe("useMorphFlip", () => {
     expect(bar.el.style.transition).toContain("var(--easing-snap)");
   });
 
+  it("cross-fades through an untappable copy of the old content", async () => {
+    const useMorphFlip = await load();
+    const bar = makeBar({ width: 200, height: 50 }, { width: 340, height: 120 });
+    const { morph } = useMorphFlip(ref(bar.el));
+    await morph(bar.grow, { crossfade: true });
+
+    const ghost = bar.el.querySelector<HTMLElement>("[data-morph-ghost]");
+    expect(ghost).not.toBeNull();
+    expect(ghost!.textContent).toBe("Old");
+    expect(ghost!.getAttribute("aria-hidden")).toBe("true");
+    expect(ghost!.hasAttribute("inert")).toBe(true);
+    expect(ghost!.style.pointerEvents).toBe("none");
+    expect(ghost!.querySelector("[id]")).toBeNull();
+
+    // The new content fades in, the copy fades out and is removed.
+    expect(animations[0].keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+    expect(animations[1].keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+    animations[1].onfinish?.();
+    expect(bar.el.querySelector("[data-morph-ghost]")).toBeNull();
+  });
+
+  it("with reduced motion, only fades — the box doesn't animate", async () => {
+    window.matchMedia = vi.fn(() => ({ matches: true })) as never;
+    const useMorphFlip = await load();
+    const bar = makeBar({ width: 200, height: 50 }, { width: 340, height: 120 });
+    const { morph } = useMorphFlip(ref(bar.el));
+    await morph(bar.grow, { spring: true, crossfade: true });
+    expect(bar.el.style.transition).toBe("");
+    expect(bar.el.style.width).toBe("");
+    expect(animations).toHaveLength(2);
+  });
+
+  it("a new morph clears the previous copy at once", async () => {
+    const useMorphFlip = await load();
+    const bar = makeBar({ width: 200, height: 50 }, { width: 340, height: 120 });
+    const { morph } = useMorphFlip(ref(bar.el));
+    await morph(bar.grow, { crossfade: true });
+    await morph(undefined, { crossfade: true });
+    expect(bar.el.querySelectorAll("[data-morph-ghost]")).toHaveLength(1);
+  });
 });

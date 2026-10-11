@@ -62,7 +62,7 @@ const mountPopover = async (toolId: string) => {
     "../MobileToolPopover.vue"
   );
   const wrapper = mount(MobileToolPopover, {
-    props: { tile: textTile(), toolId: toolId as never },
+    props: { tiles: [textTile()], toolId: toolId as never },
     attachTo: document.body,
   });
   await flushPromises();

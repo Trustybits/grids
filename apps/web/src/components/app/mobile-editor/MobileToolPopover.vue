@@ -62,7 +62,8 @@ import { provideToolPopoverVisit } from "@/composables/useToolPopoverVisit";
 import { getGridEngineBridge } from "@/composables/useGridEngineBridge";
 import { MOBILE_POPOVER_BODIES } from "./popovers";
 
-const props = defineProps<{ tile: Tile; toolId: MobileToolId }>();
+/** One tile when a tile is selected; several in multi-edit. */
+const props = defineProps<{ tiles: Tile[]; toolId: MobileToolId }>();
 
 const controller = useGridController();
 
@@ -78,7 +79,7 @@ const body = computed<Component | undefined>(
 );
 
 const visit = provideToolPopoverVisit(
-  () => [props.tile],
+  () => props.tiles,
   () => `Edit ${title.value.toLowerCase()}`,
 );
 
@@ -118,7 +119,9 @@ const GAP_PX = 12;
 
 const revealTile = () => {
   const card = cardRef.value;
-  const rect = getGridEngineBridge()?.tileRect(props.tile.i);
+  // In multi-edit the picks can be anywhere; keep the first one in view.
+  const first = props.tiles[0];
+  const rect = first ? getGridEngineBridge()?.tileRect(first.i) : null;
   if (!card || !rect) return;
   const limit = card.getBoundingClientRect().top - GAP_PX;
   const overlap = rect.top + rect.height - limit;

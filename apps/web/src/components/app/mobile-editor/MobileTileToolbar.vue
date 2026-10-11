@@ -42,7 +42,14 @@
       </button>
     </header>
 
-    <MobileAllSettings v-if="expanded" id="mtt-all-settings" :tile="tile" />
+    <MobileAllSettings
+      v-if="expanded"
+      id="mtt-all-settings"
+      :tiles="[tile]"
+      :tools="tools"
+      :open-href="openHref"
+      @action="run"
+    />
 
     <div
       v-else

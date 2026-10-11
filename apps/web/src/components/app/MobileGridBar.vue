@@ -149,9 +149,9 @@
          below it with the tool selected. -->
     <transition name="mgb-pop">
       <MobileToolPopover
-        v-if="popoverToolId && editTile"
+        v-if="popoverToolId && popoverTiles.length"
         class="mgb-popover"
-        :tile="editTile"
+        :tiles="popoverTiles"
         :tool-id="popoverToolId"
       />
     </transition>
@@ -243,6 +243,10 @@
            tiles morphs the pill to the new tile's tools. -->
       <!-- Typing in a text tile: the whole toolbar morphs into the
            font-styling bar (one bar, riding on the keyboard). -->
+      <!-- Multi-edit: the picks' shared tools. -->
+      <MobileMultiToolbar
+        v-else-if="mode === 'edit' && isMobileToolbar && multi.active.value"
+      />
       <!-- Crop / pan / interact: the toolbar becomes a slim mode bar. -->
       <MobileModeBar
         v-else-if="mode === 'edit' && isMobileToolbar && activeToolMode"
@@ -412,6 +416,8 @@ import MobileTileToolbar from "@/components/app/mobile-editor/MobileTileToolbar.
 import MobileFormatToolbar from "@/components/app/mobile-editor/MobileFormatToolbar.vue";
 import MobileToolPopover from "@/components/app/mobile-editor/MobileToolPopover.vue";
 import MobileModeBar from "@/components/app/mobile-editor/MobileModeBar.vue";
+import MobileMultiToolbar from "@/components/app/mobile-editor/MobileMultiToolbar.vue";
+import { useMobileMultiEdit } from "@/composables/useMobileMultiEdit";
 import { useMobileEditorView } from "@/composables/useMobileEditorView";
 import { MOBILE_POPOVER_BODIES } from "@/components/app/mobile-editor/popovers";
 import { MOBILE_TOOLS } from "@/registries/tileToolbar/mobileTools";
@@ -572,6 +578,22 @@ watch(
   () => void morph(undefined, morphOptions()),
   { flush: "pre" },
 );
+
+// Multi-edit: the picked tiles and their shared tools.
+const multi = useMobileMultiEdit();
+
+// Entering or leaving multi-edit swaps the toolbar for the multi one.
+watch(
+  () => isMobileToolbar.value && multi.active.value,
+  () => void morph(undefined, morphOptions()),
+  { flush: "pre" },
+);
+
+/** What an open popover edits: every pick in multi-edit, else the tile. */
+const popoverTiles = computed(() => {
+  if (multi.active.value) return multi.tiles.value;
+  return editTile.value ? [editTile.value] : [];
+});
 
 // The open tool's popover, when it is one that has a card. Typing replaces the
 // toolbar with the format bar, so no popover shows over it.
@@ -829,10 +851,14 @@ watch(isPreviewActive, (previewing) => {
 // Activating a tile takes over the pill; deactivating it hands the pill back.
 // Only `edit` is cleared here, so a tile going away cannot close a `/TILE` or
 // `/GRID` surface the user opened afterwards.
-watch(editTileId, (tileId) => {
-  if (tileId) mode.value = "edit";
-  else if (mode.value === "edit") mode.value = "default";
-});
+// Multi-edit keeps the pill too, even once its first pick is gone.
+watch(
+  () => !!editTileId.value || multi.active.value,
+  (editing) => {
+    if (editing) mode.value = "edit";
+    else if (mode.value === "edit") mode.value = "default";
+  },
+);
 
 // Quick command: while nothing is pinned, typing a command-type name followed
 // by a space (e.g. "map japan") pins that type — the same as tapping its card —

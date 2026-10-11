@@ -621,7 +621,10 @@ export default defineComponent({
     });
 
     onMounted(() => {
-      handleBackgroundColorChange(props.content.backgroundColor ?? "");
+      // No colour write here: useColorPicker already reports the fill up to
+      // the tile. Writing it back on mount saved and added an undo step every
+      // time the tile mounted (scrolling it into view, undo), and settled
+      // older tiles' overlay tint into a plain fill.
 
       // Find the tile-wrapper ancestor for the narrow-tall teleport target.
       if (tileRef.value) {

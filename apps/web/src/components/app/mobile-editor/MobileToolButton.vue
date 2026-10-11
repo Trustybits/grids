@@ -9,6 +9,8 @@
               solid Figma grey) and the active primary color
     on        a toggle that is enabled (Border shown, link set): primary tint
     danger    destructive (Delete): red
+    mixed     multi-edit, the tiles disagree: a half tint and a small dash
+              under the icon
 
   Renders an <a> when given `href`, so Open is a real link the phone follows
   without a popup blocker getting in the way.
@@ -22,7 +24,13 @@
     :href="href"
     :target="href ? '_blank' : undefined"
     :rel="href ? 'noopener noreferrer' : undefined"
-    :aria-pressed="state === 'on' || state === 'selected' ? 'true' : undefined"
+    :aria-pressed="
+      state === 'mixed'
+        ? 'mixed'
+        : state === 'on' || state === 'selected'
+          ? 'true'
+          : undefined
+    "
     :aria-disabled="disabled ? 'true' : undefined"
     :data-tool-id="toolId"
     @click="onClick"
@@ -35,7 +43,12 @@
 <script setup lang="ts">
 import MobileToolIcon from "./MobileToolIcon.vue";
 
-export type MobileToolState = "default" | "selected" | "on" | "danger";
+export type MobileToolState =
+  | "default"
+  | "selected"
+  | "on"
+  | "danger"
+  | "mixed";
 
 const props = withDefaults(
   defineProps<{
@@ -113,6 +126,24 @@ const onClick = (event: MouseEvent) => {
 
 .mtb--on .mtb__label {
   color: var(--color-tool-on);
+}
+
+.mtb--mixed {
+  position: relative;
+  background: color-mix(in srgb, var(--color-tool-on-bg) 50%, transparent);
+}
+
+/* The dash under the icon that says "some on, some off". */
+.mtb--mixed::after {
+  content: "";
+  position: absolute;
+  top: 34px;
+  left: 50%;
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-tool-on);
+  transform: translateX(-50%);
 }
 
 .mtb--danger,

@@ -15,11 +15,15 @@
   like a card: closing it commits. Size changes go through the grid engine
   and are their own steps.
 
+  In multi-edit it shows only the shared, bulk-safe controls (no Size) and
+  its actions are the bulk ones; the parent passes the tools and runs the
+  actions either way.
+
   Sizes apply to the phone layout only (the grid's `sm` breakpoint).
 -->
 <template>
   <div class="mas pp-scope" role="region" aria-label="All settings">
-    <section class="mas__section" aria-labelledby="mas-size">
+    <section v-if="single" class="mas__section" aria-labelledby="mas-size">
       <h3 id="mas-size" class="mas__heading">Size</h3>
       <PopoverChoices
         v-if="presets.length"
@@ -136,11 +140,27 @@ import type { ToolbarContext } from "@/types/TileToolbar";
 import { useGridController } from "@/controllers/useGridController";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
-import { useMobileToolActions } from "@/composables/useMobileToolActions";
+import { mobileToolIcon as iconFor } from "@/composables/useMobileToolActions";
 import { useMobileTileCommands } from "@/composables/useMobileTileCommands";
 import { provideToolPopoverVisit } from "@/composables/useToolPopoverVisit";
 
-const props = defineProps<{ tile: Tile }>();
+const props = withDefaults(
+  defineProps<{
+    /** One tile, or the picks in multi-edit. */
+    tiles: Tile[];
+    /** The tools on offer (the tile's, or the shared ones). */
+    tools: MobileTool[];
+    /** Where Open goes, for a single tile with a link. */
+    openHref?: string;
+  }>(),
+  { openHref: undefined },
+);
+
+const emit = defineEmits<{ action: [tool: MobileTool] }>();
+
+/** Size and live-tile controls only make sense for one tile. */
+const single = computed(() => props.tiles.length === 1);
+const tile = computed(() => props.tiles[0]);
 
 /** The phone grid is 4 columns wide. */
 const MAX_W = 4;
@@ -159,18 +179,15 @@ const controller = useGridController();
 const gridView = proxyRefs(useGridViewContext());
 const { handle } = useMobileTileEdit();
 const commands = useMobileTileCommands();
-const { tools, run, iconFor, openHref } = useMobileToolActions(
-  () => props.tile,
-);
 
 const visit = provideToolPopoverVisit(
-  () => [props.tile],
-  () => "Edit tile settings",
+  () => props.tiles,
+  () => (single.value ? "Edit tile settings" : "Edit tiles"),
 );
 
 // ── Groups ──────────────────────────────────────────────────────────────────
 const pick = (ids: MobileToolId[]) =>
-  tools.value.filter(
+  props.tools.filter(
     (tool) => ids.includes(tool.id) && MOBILE_POPOVER_BODIES[tool.id],
   );
 
@@ -183,7 +200,7 @@ const groups = computed(() =>
 
 /** Everything that acts rather than sets a value. */
 const actionTools = computed(() =>
-  tools.value.filter((tool) => tool.kind !== "popover"),
+  props.tools.filter((tool) => tool.kind !== "popover"),
 );
 
 const toolTitle = (tool: MobileTool) =>
@@ -203,7 +220,11 @@ const ACTION_LABELS: Partial<Record<MobileToolId, string>> = {
   duplicate: "Duplicate",
   delete: "Delete tile",
 };
-const actionLabel = (tool: MobileTool) => ACTION_LABELS[tool.id] ?? tool.label;
+const actionLabel = (tool: MobileTool) => {
+  if (!single.value && tool.id === "duplicate") return "Duplicate all";
+  if (!single.value && tool.id === "delete") return "Delete all";
+  return ACTION_LABELS[tool.id] ?? tool.label;
+};
 
 /** Modes, typing and arrange take over the bar: close the sheet first. */
 const TAKES_OVER: ReadonlySet<MobileToolId> = new Set([
@@ -215,21 +236,21 @@ const runAction = (tool: MobileTool) => {
     visit.commit();
     controller.setMobileSheetExpanded(false);
   }
-  run(tool);
+  emit("action", tool);
 };
 
 // ── Size ────────────────────────────────────────────────────────────────────
 /** The size on screen now (the phone layout), not the desktop one. */
 const size = computed(() => {
   const placed = gridView.displayPositions.find(
-    (item) => item.i === props.tile.i,
+    (item) => item.i === tile.value.i,
   );
-  return { w: placed?.w ?? props.tile.w, h: placed?.h ?? props.tile.h };
+  return { w: placed?.w ?? tile.value.w, h: placed?.h ?? tile.value.h };
 });
 
 /** The tile type's own presets that fit a phone row. */
 const presets = computed(() =>
-  getTileToolbarButtons(props.tile.content.type, toolbarContext())
+  getTileToolbarButtons(tile.value.content.type, toolbarContext())
     .filter((button) => button.group === "resize")
     .map((button) => {
       const title =
@@ -248,7 +269,7 @@ const toolbarContext = (): ToolbarContext | undefined => {
   const tileHandle = handle.value;
   if (!tileHandle) return undefined;
   return {
-    tile: props.tile,
+    tile: tile.value,
     childComponent: tileHandle.childComponent,
     gridView,
     resizeTile: tileHandle.resizeTile,
@@ -271,7 +292,7 @@ const resizeTo = (w: number, h: number) => {
   // A resize is its own undo step, not part of the sheet's look edits.
   visit.commit();
   const resize = handle.value?.resizeTile ?? gridView.resizeTile;
-  resize(props.tile.i, width, height);
+  resize(tile.value.i, width, height);
   handle.value?.childComponent.value?.onResize?.();
 };
 
@@ -283,7 +304,10 @@ const applyPreset = (value: string) => {
 // Keep the tile in view above the grown sheet once it has settled.
 onMounted(async () => {
   await nextTick();
-  window.setTimeout(() => commands.scrollTileIntoView(props.tile.i), 280);
+  const first = tile.value;
+  if (first) {
+    window.setTimeout(() => commands.scrollTileIntoView(first.i), 280);
+  }
 });
 </script>
 

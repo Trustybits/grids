@@ -140,6 +140,10 @@
 
     <!-- Resize indicator nubbin - shows on hover to indicate drag-to-resize capability -->
     <div v-if="isTileResizable" class="resize-indicator"></div>
+    <!-- Multi-edit: a check on each picked tile, beside its ring. -->
+    <span v-if="isMultiPicked" class="multi-pick-badge" aria-hidden="true">
+      <CheckIcon :size="14" />
+    </span>
     <!-- Arrange: phone-home-screen outline; each dot marks Griddle's own
          (invisible, enlarged) resize handle for that corner. -->
     <div v-if="isArranged" class="arrange-outline" aria-hidden="true">
@@ -230,6 +234,7 @@ import ImageIcon from "@/components/icons/ImageIcon.vue";
 import LinkIcon from "@/components/icons/LinkIcon.vue";
 import EmbedIcon from "@/components/icons/EmbedIcon.vue";
 import ProfileIcon from "@/components/icons/ProfileIcon.vue";
+import CheckIcon from "@/components/icons/CheckIcon.vue";
 import TileToolbar from "@/components/tile/TileToolbar.vue";
 import TileActions from "@/components/tile/TileActions.vue";
 import { useFileUpload } from "@/composables/useFileUpload";
@@ -258,6 +263,7 @@ export default defineComponent({
     ProfileIcon,
     ColorPicker,
     FloatingInputModal,
+    CheckIcon,
   },
   props: {
     tile: {
@@ -291,6 +297,12 @@ export default defineComponent({
     const { editedIds, dimsOthers } = useMobileEditorView();
     const isEditSelected = computed(
       () => isMobileToolbar.value && editedIds.value.has(props.tile.i),
+    );
+    /** Picked in multi-edit (it also has the ring). */
+    const isMultiPicked = computed(
+      () =>
+        isMobileToolbar.value &&
+        !!uiStore.mobileMultiSelectIds?.includes(props.tile.i),
     );
     const isFocusDimmed = computed(
       () =>
@@ -749,6 +761,15 @@ export default defineComponent({
       if (touchDidPan) return;
       if (Date.now() - (clickStart.value ?? 0) >= TAP_MAX_MS) return;
 
+      // Multi-edit: a tap picks or unpicks the tile and reaches nothing in it.
+      if (uiStore.mobileMultiSelectIds) {
+        if (event.cancelable) event.preventDefault();
+        if (!isSuggestion.value) {
+          uiStore.toggleMobileMultiSelectTile(props.tile.i);
+        }
+        return;
+      }
+
       // A suggestion turns into its real tile on the first tap.
       if (isSuggestion.value) {
         if (event.cancelable) event.preventDefault();
@@ -1164,6 +1185,7 @@ export default defineComponent({
       isEmbedInteractive,
       isMobile2,
       isEditSelected,
+      isMultiPicked,
       isFocusDimmed,
       isArranged,
       isPressing,
@@ -1716,6 +1738,24 @@ export default defineComponent({
   border-radius: calc(var(--tile-border-radius) + 4px);
   pointer-events: none;
   z-index: 6;
+  animation: editRingIn var(--duration-morph) var(--easing-snap);
+}
+
+.multi-pick-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-content-background);
+  border-radius: var(--radius-full);
+  background: var(--color-selection-ring);
+  color: #fff;
+  pointer-events: none;
   animation: editRingIn var(--duration-morph) var(--easing-snap);
 }
 

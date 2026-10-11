@@ -5,7 +5,8 @@
   bar tucks away (its back button and grid name have no job here) and these
   pop in where it was:
 
-    left   the "Multi edit" pill (Figma 164:17221)
+    left   the "Multi edit" pill (Figma 164:17221); in multi-edit it grows
+           into "✕ Multi edit · N selected", and ✕ leaves multi-edit
     right  an Undo circle, with a Redo circle sliding out beside it only when
            there is something to redo
 
@@ -19,15 +20,28 @@
     :aria-hidden="shown ? undefined : 'true'"
   >
     <button
+      ref="pillRef"
       type="button"
       class="mtc-pill"
-      :class="{ 'mtc-pill--tucked': !showsMultiEdit }"
+      :class="{
+        'mtc-pill--tucked': !showsMultiEdit,
+        'mtc-pill--multi': multi.active.value,
+      }"
       :tabindex="showsMultiEdit ? 0 : -1"
-      aria-label="Multi edit"
+      :aria-label="multi.active.value ? 'Leave multi edit' : 'Multi edit'"
+      :aria-pressed="multi.active.value ? 'true' : 'false'"
       @click="onMultiEdit"
     >
-      <MobileToolIcon name="multi-edit" class="mtc-pill__icon" />
+      <CloseIcon v-if="multi.active.value" :size="22" class="mtc-pill__icon" />
+      <MobileToolIcon v-else name="multi-edit" class="mtc-pill__icon" />
       <span class="mtc-pill__label">Multi edit</span>
+      <span
+        v-if="multi.active.value"
+        class="mtc-pill__count"
+        aria-live="polite"
+      >
+        {{ multi.tiles.value.length }} selected
+      </span>
     </button>
 
     <div class="mtc-history">
@@ -58,9 +72,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import MobileToolIcon from "./MobileToolIcon.vue";
 import UndoIcon from "@/components/icons/UndoIcon.vue";
+import CloseIcon from "@/components/icons/CloseIcon.vue";
+import { useMobileMultiEdit } from "@/composables/useMobileMultiEdit";
+import { useMorphFlip } from "@/composables/useMorphFlip";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import { useGridController } from "@/controllers/useGridController";
 import { useMobileEditorView } from "@/composables/useMobileEditorView";
@@ -78,9 +95,28 @@ const showsMultiEdit = computed(
   () => shown.value && view.value.kind !== "typing" && view.value.kind !== "mode",
 );
 
-// Multi-edit lands in its own step; the pill is in place so the top reads as
-// designed, and starts multi-select once that bottom toolbar exists.
-const onMultiEdit = () => {};
+const multi = useMobileMultiEdit();
+
+// The pill starts multi-edit with the selected tile as the first pick; in
+// multi-edit it is the way out (empty-space taps don't end it).
+const onMultiEdit = () => {
+  if (multi.active.value) multi.exit();
+  else multi.enter();
+};
+
+// Growing into the multi-edit bar (and back) morphs the same pill.
+const pillRef = ref<HTMLElement | null>(null);
+const { morph } = useMorphFlip(pillRef);
+watch(
+  () => multi.active.value,
+  () => void morph(),
+  { flush: "pre" },
+);
+watch(
+  () => multi.tiles.value.length,
+  () => void morph(),
+  { flush: "pre" },
+);
 </script>
 
 <style scoped>
@@ -138,6 +174,18 @@ const onMultiEdit = () => {};
   font-size: 18px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.mtc-pill__count {
+  font-family: "Inter", sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-content-default);
+  white-space: nowrap;
+}
+
+.mtc-pill--multi {
+  gap: 10px;
 }
 
 .mtc-history {

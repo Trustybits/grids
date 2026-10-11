@@ -78,6 +78,7 @@ import UndoIcon from "@/components/icons/UndoIcon.vue";
 import CloseIcon from "@/components/icons/CloseIcon.vue";
 import { useMobileMultiEdit } from "@/composables/useMobileMultiEdit";
 import { useMorphFlip } from "@/composables/useMorphFlip";
+import { useTopBarMorph } from "@/composables/useTopBarMorph";
 import { useGridHistoryStore } from "@/stores/grid/gridHistory";
 import { useGridController } from "@/controllers/useGridController";
 import { useMobileEditorView } from "@/composables/useMobileEditorView";
@@ -106,6 +107,9 @@ const onMultiEdit = () => {
 
 // Growing into the multi-edit bar (and back) morphs the same pill.
 const pillRef = ref<HTMLElement | null>(null);
+
+// The app bar morphs into the pill when a tile is picked, and back.
+useTopBarMorph({ shown, pill: pillRef });
 const { morph } = useMorphFlip(pillRef);
 watch(
   () => multi.active.value,

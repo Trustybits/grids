@@ -41,10 +41,6 @@ vi.mock("@/composables/useMobileTileEdit", () => ({
   useMobileTileEdit: () => ({ handle: computed(() => null) }),
 }));
 
-vi.mock("@/composables/useGridEngineBridge", () => ({
-  getGridEngineBridge: () => ({ tileRect: () => null }),
-}));
-
 const textTile = (): Tile =>
   ({
     i: "tile-1",

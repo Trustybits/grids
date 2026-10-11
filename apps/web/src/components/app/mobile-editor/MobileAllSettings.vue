@@ -124,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, proxyRefs } from "vue";
+import { computed, proxyRefs } from "vue";
 import type { Tile } from "@grids/contracts/types";
 import MobileToolIcon from "./MobileToolIcon.vue";
 import PopoverChoices, {
@@ -141,7 +141,6 @@ import { useGridController } from "@/controllers/useGridController";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
 import { mobileToolIcon as iconFor } from "@/composables/useMobileToolActions";
-import { useMobileTileCommands } from "@/composables/useMobileTileCommands";
 import { provideToolPopoverVisit } from "@/composables/useToolPopoverVisit";
 
 const props = withDefaults(
@@ -178,7 +177,6 @@ const SELF_LABELLED: ReadonlySet<MobileToolId> = new Set(["font", "style"]);
 const controller = useGridController();
 const gridView = proxyRefs(useGridViewContext());
 const { handle } = useMobileTileEdit();
-const commands = useMobileTileCommands();
 
 const visit = provideToolPopoverVisit(
   () => props.tiles,
@@ -301,14 +299,6 @@ const applyPreset = (value: string) => {
   resizeTo(w, h);
 };
 
-// Keep the tile in view above the grown sheet once it has settled.
-onMounted(async () => {
-  await nextTick();
-  const first = tile.value;
-  if (first) {
-    window.setTimeout(() => commands.scrollTileIntoView(first.i), 280);
-  }
-});
 </script>
 
 <style scoped>

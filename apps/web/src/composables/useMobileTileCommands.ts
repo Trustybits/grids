@@ -10,7 +10,7 @@
  *    delete is still the latest step.
  */
 
-import { nextTick, proxyRefs } from "vue";
+import { proxyRefs } from "vue";
 import type { Tile } from "@grids/contracts/types";
 import { useGridController } from "@/controllers/useGridController";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
@@ -19,9 +19,6 @@ import { useToastStore } from "@/stores/toast";
 import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
 import { getGridEngineBridge } from "@/composables/useGridEngineBridge";
 
-/** Clear space under the floating top pieces. */
-const TOP_CHROME_PX = 96;
-
 export function useMobileTileCommands() {
   const controller = useGridController();
   const gridView = proxyRefs(useGridViewContext());
@@ -29,28 +26,12 @@ export function useMobileTileCommands() {
   const toastStore = useToastStore();
   const { handle } = useMobileTileEdit();
 
-  /** Scroll so the tile sits between the top chrome and the bottom bar. */
-  const scrollTileIntoView = (tileId: string) => {
-    const rect = getGridEngineBridge()?.tileRect(tileId);
-    if (!rect) return;
-    const bottomChrome =
-      parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue(
-          "--mobile-bottom-chrome-h",
-        ),
-      ) || 160;
-    const bottom = window.innerHeight - bottomChrome - 16;
-    if (rect.top >= TOP_CHROME_PX && rect.top + rect.height <= bottom) return;
-    window.scrollBy({ top: rect.top - TOP_CHROME_PX, behavior: "smooth" });
-  };
-
   const duplicate = async (tile: Tile): Promise<string | null> => {
     const newId = gridView.duplicateTile(tile.i);
     if (!newId) return null;
     controller.setMobileEditTile(newId);
     toastStore.addToast("Tile duplicated", "success");
-    await nextTick();
-    scrollTileIntoView(newId);
+    // Selecting the copy brings it into view (useKeepEditedTileInView).
     return newId;
   };
 
@@ -66,5 +47,5 @@ export function useMobileTileCommands() {
     });
   };
 
-  return { duplicate, remove, scrollTileIntoView };
+  return { duplicate, remove };
 }

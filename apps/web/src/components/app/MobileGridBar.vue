@@ -419,6 +419,7 @@ import MobileModeBar from "@/components/app/mobile-editor/MobileModeBar.vue";
 import MobileMultiToolbar from "@/components/app/mobile-editor/MobileMultiToolbar.vue";
 import { useMobileMultiEdit } from "@/composables/useMobileMultiEdit";
 import { useMobileEditorView } from "@/composables/useMobileEditorView";
+import { useKeepEditedTileInView } from "@/composables/useKeepEditedTileInView";
 import { MOBILE_POPOVER_BODIES } from "@/components/app/mobile-editor/popovers";
 import { MOBILE_TOOLS } from "@/registries/tileToolbar/mobileTools";
 import { useGridUiStore } from "@/stores/grid/gridUi";
@@ -546,6 +547,9 @@ const editGridView = proxyRefs(useGridViewContext());
 
 // Typing with no format bar to show (anything but unified rich text).
 const { view: editorView } = useMobileEditorView();
+
+// Keep the tile being edited on screen above the toolbar, card or sheet.
+useKeepEditedTileInView({ enabled: isMobileToolbar, view: editorView });
 const isPlainTyping = computed(
   () =>
     isMobileToolbar.value &&

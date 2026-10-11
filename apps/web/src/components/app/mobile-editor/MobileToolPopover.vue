@@ -10,8 +10,7 @@
   - Changes show on the tile live and the visit is one undo step
     (`provideToolPopoverVisit`): Done, another tool, deselecting and unmounting
     all close it.
-  - If the card would cover the tile, the page scrolls just enough to keep the
-    tile in view above it. It doesn't scroll back on close.
+  - The tile stays in view above it (useKeepEditedTileInView, run by the bar).
   - Rides on the keyboard with the rest of the bottom bar.
 -->
 <template>
@@ -45,7 +44,6 @@
 <script setup lang="ts">
 import {
   computed,
-  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -60,7 +58,6 @@ import {
 import { useGridController } from "@/controllers/useGridController";
 import { useMorphFlip } from "@/composables/useMorphFlip";
 import { provideToolPopoverVisit } from "@/composables/useToolPopoverVisit";
-import { getGridEngineBridge } from "@/composables/useGridEngineBridge";
 import { MOBILE_POPOVER_BODIES } from "./popovers";
 
 /** One tile when a tile is selected; several in multi-edit. */
@@ -113,57 +110,17 @@ const updateOrigin = () => {
   originX.value = `${Math.round(Math.min(Math.max(x, 0), cardRect.width))}px`;
 };
 
-// ── Keep the tile in view above the card ────────────────────────────────────
-/** Clear space under the floating top pieces. */
-const TOP_CHROME_PX = 96;
-const GAP_PX = 12;
-
-const revealTile = () => {
-  const card = cardRef.value;
-  // In multi-edit the picks can be anywhere; keep the first one in view.
-  const first = props.tiles[0];
-  const rect = first ? getGridEngineBridge()?.tileRect(first.i) : null;
-  if (!card || !rect) return;
-  const limit = card.getBoundingClientRect().top - GAP_PX;
-  const overlap = rect.top + rect.height - limit;
-  if (overlap <= 0) return;
-  // Never push the tile's top under the top chrome; a tall tile shows its top.
-  const room = rect.top - TOP_CHROME_PX;
-  const by = Math.min(overlap, room);
-  if (by > 0) window.scrollBy({ top: by, behavior: "smooth" });
-};
-
-// Re-check whenever the card changes height (opening, a body swap, a body
-// growing a row), once per frame.
-let revealFrame = 0;
-const scheduleReveal = () => {
-  if (revealFrame) return;
-  revealFrame = requestAnimationFrame(() => {
-    revealFrame = 0;
-    revealTile();
-  });
-};
-let cardResize: ResizeObserver | null = null;
-
-onMounted(async () => {
+onMounted(() => {
   updateOrigin();
   // Opened from a focused tool (keyboard, screen reader): focus follows into
   // the card, and returns to the tool when it closes.
   if (document.activeElement?.closest(".mtt")) {
     cardRef.value?.focus({ preventScroll: true });
   }
-  await nextTick();
-  scheduleReveal();
-  if (typeof ResizeObserver !== "undefined" && cardRef.value) {
-    cardResize = new ResizeObserver(scheduleReveal);
-    cardResize.observe(cardRef.value);
-  }
 });
 
 // Focus returns to the tool that opened the card.
 onBeforeUnmount(() => {
-  cardResize?.disconnect();
-  if (revealFrame) cancelAnimationFrame(revealFrame);
   if (!cardRef.value?.contains(document.activeElement)) return;
   document
     .querySelector<HTMLElement>(`.mtt [data-tool-id="${props.toolId}"]`)

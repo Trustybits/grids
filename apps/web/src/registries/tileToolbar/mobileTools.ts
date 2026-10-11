@@ -537,7 +537,8 @@ export const MOBILE_TOOLS: Record<MobileToolId, MobileTool> = {
   },
   arrange: {
     id: "arrange",
-    label: "Arrange",
+    // Shown as "Adjust": move and resize on the canvas.
+    label: "Adjust",
     kind: "arrange",
     visible: (ctx) => ctx.tile.content.type !== ContentType.SUGGESTION,
   },

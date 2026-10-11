@@ -209,7 +209,7 @@ const ACTION_LABELS: Partial<Record<MobileToolId, string>> = {
   crop: "Crop",
   pan: "Pan the map",
   interact: "Interact with the embed",
-  arrange: "Move and resize",
+  arrange: "Adjust size and position",
   open: "Open link",
   copy: "Copy",
   download: "Download",

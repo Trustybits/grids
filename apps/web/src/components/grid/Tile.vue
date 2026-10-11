@@ -1803,8 +1803,15 @@ export default defineComponent({
   transform: scale(1.05);
   filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.3));
   transition:
-    transform var(--duration-normal) var(--easing-spring),
-    filter var(--duration-normal) var(--easing-ease-out);
+    transform var(--duration-fast) var(--easing-spring),
+    filter var(--duration-fast) var(--easing-ease-out);
+}
+
+/* Reduced motion: the lift still shows, without the spring's overshoot. */
+@media (prefers-reduced-motion: reduce) {
+  .tile-wrapper.is-lifted {
+    transition-timing-function: var(--easing-ease-out);
+  }
 }
 
 /* Arranging shows the outline instead of the selection ring. */

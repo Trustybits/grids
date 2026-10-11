@@ -59,7 +59,7 @@
         :label="quickMenuLabel"
         :can-duplicate="quickMenuCanDuplicate"
         :geometry-version="api.version.value"
-        @edit="onQuickMenuEdit"
+        @done="onQuickMenuDone"
         @duplicate="onQuickMenuDuplicate"
         @remove="onQuickMenuRemove"
       />
@@ -307,9 +307,10 @@ export default {
       const type = quickMenuTile.value?.content.type;
       return !type || !getTileDefinition(type)?.maxPerGrid;
     });
-    // Edit: stop arranging; the tile stays selected with its toolbar.
-    const onQuickMenuEdit = (): void => {
-      controller.setMobileArrangeTile(null);
+    // Done: finish arranging, back where it began (the grid after a hold,
+    // else the tile's toolbar).
+    const onQuickMenuDone = (): void => {
+      controller.finishMobileArrange();
     };
     const onQuickMenuDuplicate = (): void => {
       const tile = quickMenuTile.value;
@@ -1038,7 +1039,7 @@ export default {
       quickMenuAnchor,
       quickMenuLabel,
       quickMenuCanDuplicate,
-      onQuickMenuEdit,
+      onQuickMenuDone,
       onQuickMenuDuplicate,
       onQuickMenuRemove,
       api,

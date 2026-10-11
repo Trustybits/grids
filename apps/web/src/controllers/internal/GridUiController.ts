@@ -37,6 +37,10 @@ export class GridUiController {
     this.stores.ui.setMobileArrangeTile(tileId);
   }
 
+  finishMobileArrange(): void {
+    this.stores.ui.finishMobileArrange();
+  }
+
   setMobileOpenTool(toolId: string | null): void {
     this.stores.ui.setMobileOpenTool(toolId);
   }

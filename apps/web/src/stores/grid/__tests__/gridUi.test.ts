@@ -138,6 +138,31 @@ describe("gridUi store", () => {
       expect(store.mobileArrangeTileId).toBe("a");
     });
 
+    it("finishes arranging back where it began", () => {
+      const store = useGridUiStore();
+      // A hold on the grid (nothing selected): back to the grid.
+      store.setMobileArrangeTile("a");
+      store.finishMobileArrange();
+      expect(store.mobileArrangeTileId).toBeNull();
+      expect(store.mobileEditTileId).toBeNull();
+
+      // From the tile's toolbar (the Arrange tool, or a hold on the
+      // selected tile): back to that toolbar.
+      store.setMobileEditTile("a");
+      store.setMobileArrangeTile("a");
+      store.finishMobileArrange();
+      expect(store.mobileArrangeTileId).toBeNull();
+      expect(store.mobileEditTileId).toBe("a");
+
+      // Leaving arrange any other way forgets where it began.
+      store.clearMobileEditor();
+      store.setMobileArrangeTile("b");
+      store.setMobileOpenTool("fill");
+      store.setMobileArrangeTile("b");
+      store.finishMobileArrange();
+      expect(store.mobileEditTileId).toBe("b");
+    });
+
     it("starts multi-edit with the selected tile and toggles picks", () => {
       const store = useGridUiStore();
       store.setMobileEditTile("a");

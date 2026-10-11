@@ -31,6 +31,11 @@ export const useGridUiStore = defineStore("gridUi", {
     mobileMultiSelectIds: null as string[] | null,
     /** Tile in move/resize mode (hold or the Arrange tool). */
     mobileArrangeTileId: null as string | null,
+    /**
+     * Arrange began with nothing selected (a hold on the grid), so finishing
+     * it goes back to the grid; otherwise back to the tile's toolbar.
+     */
+    mobileArrangeFromGrid: false,
     /** Tool whose popover is open. */
     mobileOpenToolId: null as string | null,
     /** The toolbar grown into the "All settings" sheet. */
@@ -97,6 +102,10 @@ export const useGridUiStore = defineStore("gridUi", {
 
     /** Enter (id) or leave (null) move/resize mode. Arranging selects. */
     setMobileArrangeTile(tileId: string | null) {
+      if (tileId !== null && this.mobileArrangeTileId === null) {
+        this.mobileArrangeFromGrid = this.mobileEditTileId === null;
+      }
+      if (tileId === null) this.mobileArrangeFromGrid = false;
       if (tileId !== null) {
         this.mobileMultiSelectIds = null;
         this.setMobileEditTile(tileId);
@@ -104,6 +113,16 @@ export const useGridUiStore = defineStore("gridUi", {
         this.mobileSheetExpanded = false;
       }
       this.mobileArrangeTileId = tileId;
+    },
+
+    /**
+     * Finish move/resize, back where it started: the grid after a hold made
+     * with nothing selected, else the tile's toolbar.
+     */
+    finishMobileArrange() {
+      if (this.mobileArrangeTileId === null) return;
+      if (this.mobileArrangeFromGrid) this.clearMobileEditor();
+      else this.setMobileArrangeTile(null);
     },
 
     /** Open a tool's popover (or close it with null). Leaves arrange/sheet. */
@@ -152,6 +171,7 @@ export const useGridUiStore = defineStore("gridUi", {
       this.mobileEditTileId = null;
       this.mobileMultiSelectIds = null;
       this.mobileArrangeTileId = null;
+      this.mobileArrangeFromGrid = false;
       this.mobileOpenToolId = null;
       this.mobileSheetExpanded = false;
     },

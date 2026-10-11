@@ -61,7 +61,7 @@ export function useMobileEditorLifecycle(view: Readonly<Ref<MobileEditorView>>) 
   const peel = () => {
     if (ui.mobileOpenToolId) return controller.setMobileOpenTool(null);
     if (ui.mobileSheetExpanded) return controller.setMobileSheetExpanded(false);
-    if (ui.mobileArrangeTileId) return controller.setMobileArrangeTile(null);
+    if (ui.mobileArrangeTileId) return controller.finishMobileArrange();
     // Multi-edit keeps its picks; it ends with its ✕ so nothing is lost by
     // accident.
     if (ui.mobileMultiSelectIds) return;

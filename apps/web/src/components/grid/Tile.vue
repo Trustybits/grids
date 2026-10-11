@@ -777,10 +777,10 @@ export default defineComponent({
         return;
       }
 
-      // A tap on the arranged tile ends arranging: back to its toolbar.
+      // A tap on the arranged tile finishes arranging, back where it began.
       if (isArranged.value) {
         if (event.cancelable) event.preventDefault();
-        uiStore.setMobileArrangeTile(null);
+        uiStore.finishMobileArrange();
         return;
       }
 

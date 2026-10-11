@@ -2,10 +2,10 @@
   TileQuickMenu.vue
 
   The small menu that pops up beside a tile in Arrange (hold or the Arrange
-  tool): Edit · Duplicate · Delete. Floats above the tile like a phone home
-  screen's widget menu — below it when there's no room, over its top edge when
-  the tile is taller than the free space — and keeps clear of the floating top
-  pieces and the bottom bar.
+  tool): Done · Duplicate · Delete. Done finishes arranging, back where it
+  began. Floats above the tile like a phone home screen's widget menu — below
+  it when there's no room, over its top edge when the tile is taller than the
+  free space — and keeps clear of the floating top pieces and the bottom bar.
 
   Teleported to <body>: Griddle tiles are transformed layers, which would trap
   a fixed element inside the tile.
@@ -28,10 +28,10 @@
         type="button"
         class="tqm__action"
         role="menuitem"
-        @click="$emit('edit')"
+        @click="$emit('done')"
       >
-        <MobileToolIcon name="edit" />
-        <span>Edit</span>
+        <CheckIcon :size="21" />
+        <span>Done</span>
       </button>
       <button
         v-if="canDuplicate"
@@ -59,6 +59,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import MobileToolIcon from "@/components/app/mobile-editor/MobileToolIcon.vue";
+import CheckIcon from "@/components/icons/CheckIcon.vue";
 
 const props = defineProps<{
   /** The tile's Griddle element the menu floats against. */
@@ -71,7 +72,7 @@ const props = defineProps<{
 }>();
 
 defineEmits<{
-  edit: [];
+  done: [];
   duplicate: [];
   remove: [];
 }>();

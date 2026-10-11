@@ -270,6 +270,11 @@ export class GridController {
     this.uiController.setMobileArrangeTile(tileId);
   }
 
+  /** Finish move/resize, back where it started (the grid or the toolbar). */
+  finishMobileArrange(): void {
+    this.uiController.finishMobileArrange();
+  }
+
   /** Open a tool's popover for the current selection, or close it (null). */
   setMobileOpenTool(toolId: string | null): void {
     if (toolId !== null && !this.canEditCurrentGrid()) return;

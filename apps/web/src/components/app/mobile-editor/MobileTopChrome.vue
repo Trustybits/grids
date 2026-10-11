@@ -5,8 +5,10 @@
   bar tucks away (its back button and grid name have no job here) and these
   pop in where it was:
 
-    left   the "Multi edit" pill (Figma 164:17221); in multi-edit it grows
-           into "✕ Multi edit · N selected", and ✕ leaves multi-edit
+    left   a ✕ circle that deselects (back to the grid), then the "Multi
+           edit" pill (Figma 164:17221); in multi-edit the pill grows into
+           "✕ Multi edit · N selected" (its ✕ leaves multi-edit) and the
+           circle steps aside
     right  an Undo circle, with a Redo circle sliding out beside it only when
            there is something to redo
 
@@ -19,30 +21,42 @@
     :class="{ 'mobile-top-chrome--shown': shown }"
     :aria-hidden="shown ? undefined : 'true'"
   >
-    <button
-      ref="pillRef"
-      type="button"
-      class="mtc-pill"
-      :class="{
-        'mtc-pill--tucked': !showsMultiEdit,
-        'mtc-pill--multi': multi.active.value,
-      }"
-      :tabindex="showsMultiEdit ? 0 : -1"
-      :aria-label="multi.active.value ? 'Leave multi edit' : 'Multi edit'"
-      :aria-pressed="multi.active.value ? 'true' : 'false'"
-      @click="onMultiEdit"
-    >
-      <CloseIcon v-if="multi.active.value" :size="22" class="mtc-pill__icon" />
-      <MobileToolIcon v-else name="multi-edit" class="mtc-pill__icon" />
-      <span class="mtc-pill__label">Multi edit</span>
-      <span
-        v-if="multi.active.value"
-        class="mtc-pill__count"
-        aria-live="polite"
+    <div class="mtc-lead">
+      <button
+        type="button"
+        class="mtc-circle mtc-close"
+        :class="{ 'mtc-close--tucked': !showsClose }"
+        aria-label="Close"
+        :tabindex="showsClose ? 0 : -1"
+        @click="controller.clearMobileEditor()"
       >
-        {{ multi.tiles.value.length }} selected
-      </span>
-    </button>
+        <CloseIcon :size="22" />
+      </button>
+      <button
+        ref="pillRef"
+        type="button"
+        class="mtc-pill"
+        :class="{
+          'mtc-pill--tucked': !showsMultiEdit,
+          'mtc-pill--multi': multi.active.value,
+        }"
+        :tabindex="showsMultiEdit ? 0 : -1"
+        :aria-label="multi.active.value ? 'Leave multi edit' : 'Multi edit'"
+        :aria-pressed="multi.active.value ? 'true' : 'false'"
+        @click="onMultiEdit"
+      >
+        <CloseIcon v-if="multi.active.value" :size="22" class="mtc-pill__icon" />
+        <MobileToolIcon v-else name="multi-edit" class="mtc-pill__icon" />
+        <span class="mtc-pill__label">Multi edit</span>
+        <span
+          v-if="multi.active.value"
+          class="mtc-pill__count"
+          aria-live="polite"
+        >
+          {{ multi.tiles.value.length }} selected
+        </span>
+      </button>
+    </div>
 
     <div class="mtc-history">
       <transition name="mtc-redo">
@@ -97,6 +111,9 @@ const showsMultiEdit = computed(
 );
 
 const multi = useMobileMultiEdit();
+
+/** The ✕ shows with the pill, except in multi-edit (the pill has its own). */
+const showsClose = computed(() => showsMultiEdit.value && !multi.active.value);
 
 // The pill starts multi-edit with the selected tile as the first pick; in
 // multi-edit it is the way out (empty-space taps don't end it).
@@ -200,6 +217,32 @@ watch(
   gap: 10px;
 }
 
+.mtc-lead {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.mtc-close {
+  transform-origin: left center;
+  /* Steps aside smoothly, so the pill slides over rather than jumping. */
+  transition:
+    opacity var(--duration-fast) var(--easing-smooth),
+    transform var(--duration-morph) var(--easing-snap),
+    width var(--duration-morph) var(--easing-snap),
+    margin var(--duration-morph) var(--easing-snap),
+    border-width var(--duration-morph) var(--easing-snap);
+}
+
+.mobile-top-chrome--shown .mtc-circle.mtc-close--tucked {
+  width: 0;
+  margin-right: calc(var(--spacing-sm) * -1);
+  border-width: 0;
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+}
+
 .mtc-history {
   display: flex;
   align-items: center;
@@ -230,6 +273,13 @@ watch(
 .mobile-top-chrome--shown .mtc-circle {
   opacity: 1;
   transform: none;
+}
+
+/* Hidden pieces can't be tapped (the app bar's pieces float in their row,
+   with gaps between them). */
+.mobile-top-chrome:not(.mobile-top-chrome--shown) .mtc-pill,
+.mobile-top-chrome:not(.mobile-top-chrome--shown) .mtc-circle {
+  pointer-events: none;
 }
 
 .mobile-top-chrome--shown .mtc-pill.mtc-pill--tucked {

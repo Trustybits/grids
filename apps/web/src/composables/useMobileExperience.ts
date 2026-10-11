@@ -177,9 +177,16 @@ export function useMobileExperience() {
     return columnCountToBreakpoint(columns) === "sm";
   });
 
-  /** Touch-primary device with a small (grid `sm`) viewport. */
+  /**
+   * A small (grid `sm`) viewport that gets the phone chrome: a touch-primary
+   * device — or, with the floating phone toolbars on, any phone-sized
+   * window, so a narrow desktop window edits like a phone rather than
+   * falling back to the desktop chrome's `/EDIT` bar and tile toolbars.
+   */
   const isMobileDevice = computed(
-    () => _isTouchDevice.value && isSmallViewport.value,
+    () =>
+      isSmallViewport.value &&
+      (_isTouchDevice.value || _mobileToolbarFlagOn.value),
   );
 
   /**

@@ -224,6 +224,26 @@ describe("isMobileToolbar — floating phone toolbars", () => {
     expect(useMobileExperience().isMobileToolbar.value).toBe(false);
   });
 
+  it("turns on in a narrow non-touch window (no /EDIT bar there)", () => {
+    flagState["beta-early-access"] = true;
+    flagState["editor-mobile-toolbar"] = true;
+    init({ width: PHONE_WIDTH, touch: false });
+    const { isMobileDevice, isMobile2, isDesktop2, isMobileToolbar } =
+      useMobileExperience();
+    expect(isMobileDevice.value).toBe(true);
+    expect(isMobile2.value).toBe(true);
+    expect(isDesktop2.value).toBe(false);
+    expect(isMobileToolbar.value).toBe(true);
+  });
+
+  it("leaves a narrow non-touch window on the desktop chrome without the flag", () => {
+    flagState["beta-early-access"] = true;
+    init({ width: PHONE_WIDTH, touch: false });
+    const { isMobileDevice, isMobileToolbar } = useMobileExperience();
+    expect(isMobileDevice.value).toBe(false);
+    expect(isMobileToolbar.value).toBe(false);
+  });
+
   it("turns on when PostHog loads the flag later", () => {
     flagState["beta-early-access"] = true;
     init({ width: PHONE_WIDTH, touch: true });

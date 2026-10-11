@@ -46,7 +46,8 @@
     ref="gridTileRef"
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"
-    @mousedown="handleTileMouseDown"
+    @mousedown.capture="handleTileMouseDown"
+    @click.capture="handleToolbarClickCapture"
     @click="handleDesktopEditClick"
   >
     <!-- Visual Frame with Overflow Hidden -->
@@ -475,6 +476,7 @@ export default defineComponent({
     );
     const isTileDraggable = computed(() => {
       if (!gridView.canEdit || isEditing.value) return false;
+      if (isMobileToolbar.value) return isArranged.value;
       if (isTouchDevice()) {
         return isMobileToolbar.value ? isArranged.value : isActivated.value;
       }
@@ -485,6 +487,7 @@ export default defineComponent({
       if (!gridView.canEdit || isSuggestion.value) {
         return false;
       }
+      if (isMobileToolbar.value) return isArranged.value && !isEditing.value;
       if (isTouchDevice()) {
         return (
           (isMobileToolbar.value ? isArranged.value : isActivated.value) &&
@@ -760,7 +763,17 @@ export default defineComponent({
     const handleToolbarTap = (event: TouchEvent) => {
       if (touchDidPan) return;
       if (Date.now() - (clickStart.value ?? 0) >= TAP_MAX_MS) return;
+      toolbarSelect(event, touchTargetIsInteractive);
+    };
 
+    /**
+     * A tap (touch) or a click (a narrow pointer window, which gets the
+     * phone editor too) on this tile under the floating toolbars.
+     */
+    const toolbarSelect = (
+      event: TouchEvent | MouseEvent,
+      targetIsInteractive: boolean,
+    ) => {
       // Multi-edit: a tap picks or unpicks the tile and reaches nothing in it.
       if (uiStore.mobileMultiSelectIds) {
         if (event.cancelable) event.preventDefault();
@@ -773,7 +786,7 @@ export default defineComponent({
       // A suggestion turns into its real tile on the first tap.
       if (isSuggestion.value) {
         if (event.cancelable) event.preventDefault();
-        handleGridShortClick(event);
+        handleGridShortClick(event as TouchEvent);
         return;
       }
 
@@ -796,8 +809,8 @@ export default defineComponent({
       // tile only lets its own buttons and fields act (a YouTube card doesn't
       // open YouTube, a document doesn't open its viewer — those are tools).
       const editMode = getTileDefinition(props.tile.content.type)?.editMode;
-      if (!touchTargetIsInteractive && event.cancelable) event.preventDefault();
-      if (editMode === "richtext") handleGridShortClick(event);
+      if (!targetIsInteractive && event.cancelable) event.preventDefault();
+      if (editMode === "richtext") handleGridShortClick(event as TouchEvent);
     };
 
     const handleTouchStart = (event: TouchEvent) => {
@@ -1037,10 +1050,62 @@ export default defineComponent({
     // trails a Griddle drag from re-targeting the pill.
     const DESKTOP_EDIT_CLICK_SLOP_PX = 8;
     let mouseDownPoint: { x: number; y: number } | null = null;
+    /**
+     * Phone editor with a mouse (a narrow pointer window): a click that only
+     * selects — the first click, or any click in multi-edit or while
+     * adjusting — reaches nothing inside the tile, as a first tap doesn't.
+     */
+    const isSelectingClick = (event: MouseEvent) =>
+      isMobileToolbar.value &&
+      !isTouchDevice() &&
+      gridView.canEdit &&
+      event.button === 0 &&
+      (!isActivated.value ||
+        isArranged.value ||
+        !!uiStore.mobileMultiSelectIds);
+
+    const clickMoved = (event: MouseEvent) =>
+      !!mouseDownPoint &&
+      Math.hypot(
+        event.clientX - mouseDownPoint.x,
+        event.clientY - mouseDownPoint.y,
+      ) > DESKTOP_EDIT_CLICK_SLOP_PX;
+
+    // The selecting click is handled on the way down, before the tile's
+    // content (a text editor starts typing on a click) can see it.
+    const handleToolbarClickCapture = (event: MouseEvent) => {
+      if (!isSelectingClick(event)) return;
+      event.stopPropagation();
+      if (clickMoved(event)) return;
+      toolbarSelect(event, false);
+    };
+
     const handleTileMouseDown = (event: MouseEvent) => {
       mouseDownPoint = { x: event.clientX, y: event.clientY };
+      // Phone editor with a mouse: the selecting click (and any click in
+      // multi-edit or while adjusting) reaches nothing inside the tile, as a
+      // first tap doesn't — a pressed mouse button would otherwise focus the
+      // text (the editor acts on the press, before any click). Caught on the
+      // way down; Griddle drags on pointer events, which this leaves alone.
+      if (isSelectingClick(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
     };
     const handleDesktopEditClick = (event: MouseEvent) => {
+      // A narrow pointer window gets the phone editor: a later click on the
+      // selected tile works like a second tap (the selecting click was taken
+      // on the way down; touch taps are handled on touchend).
+      if (isMobileToolbar.value && !isTouchDevice()) {
+        if (!gridView.canEdit || clickMoved(event)) return;
+        toolbarSelect(
+          event,
+          !!(event.target as HTMLElement | null)?.closest(
+            INTERACTIVE_TOUCH_TARGET,
+          ),
+        );
+        return;
+      }
       if (!isDesktop2.value || !gridView.canEdit || isSuggestion.value) return;
       if (
         mouseDownPoint &&
@@ -1193,6 +1258,7 @@ export default defineComponent({
       ARRANGE_CORNERS: ARRANGE_RESIZE_HANDLES,
       handleTileMouseDown,
       handleDesktopEditClick,
+      handleToolbarClickCapture,
     };
   },
 });

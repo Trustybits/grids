@@ -110,6 +110,29 @@ export function useMobileEditorLifecycle(view: Readonly<Ref<MobileEditorView>>) 
     peel();
   };
 
+  // A mouse click on empty space peels the same way (a narrow desktop window
+  // gets the phone editor too). Mouse only: touches already went through above.
+  const onPointerDown = (event: PointerEvent) => {
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
+    const target = event.target as Element | null;
+    start = {
+      x: event.clientX,
+      y: event.clientY,
+      at: performance.now(),
+      outside: !target?.closest(NOT_OUTSIDE),
+    };
+  };
+
+  const onPointerUp = (event: PointerEvent) => {
+    if (event.pointerType !== "mouse") return;
+    const began = start;
+    start = null;
+    if (!began?.outside || view.value.kind === "home") return;
+    const moved = Math.hypot(event.clientX - began.x, event.clientY - began.y);
+    if (moved > TAP_SLOP_PX) return;
+    peel();
+  };
+
   const onKeydown = (event: KeyboardEvent) => {
     if (event.key === "Escape" && view.value.kind !== "home") peel();
   };
@@ -181,6 +204,8 @@ export function useMobileEditorLifecycle(view: Readonly<Ref<MobileEditorView>>) 
       capture: true,
       passive: true,
     });
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("pointerup", onPointerUp, true);
     window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("keydown", onKeydown);
   });
@@ -188,6 +213,8 @@ export function useMobileEditorLifecycle(view: Readonly<Ref<MobileEditorView>>) 
   onBeforeUnmount(() => {
     document.removeEventListener("touchstart", onTouchStart, true);
     document.removeEventListener("touchend", onTouchEnd, true);
+    document.removeEventListener("pointerdown", onPointerDown, true);
+    document.removeEventListener("pointerup", onPointerUp, true);
     window.removeEventListener("scroll", onScroll);
     document.removeEventListener("keydown", onKeydown);
   });

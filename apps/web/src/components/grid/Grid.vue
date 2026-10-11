@@ -265,11 +265,14 @@ export default {
     // ── Hold to arrange (floating toolbars) ─────────────────────────────────
     const ui = useGridUiStore();
     const controller = useGridController();
+    // The phone editor — on a touch phone or in a narrow pointer window —
+    // arranges with the Adjust tool, its quick menu and corner handles; the
+    // hold gesture that also starts it is touch-only.
     const arrangeActive = computed(
-      () => isMobileToolbar.value && isTouchDevice.value && gridView.canEdit,
+      () => isMobileToolbar.value && gridView.canEdit,
     );
     const arrangeGesture = useTouchTileGestures({
-      active: arrangeActive,
+      active: computed(() => arrangeActive.value && isTouchDevice.value),
       rootRef: scaleWrapperRef,
       isEngineDraggable: (id) => api.grid.getTile(id)?.draggable !== false,
     });
@@ -328,11 +331,12 @@ export default {
           // Floating toolbars: being selected never unlocks a tile — only
           // arranging does (a hold or the Arrange tool). Otherwise a scroll
           // that starts on the selected tile would turn into a drag.
+          // With a mouse too: only the tile being adjusted moves.
           if (arrangeActive.value) {
             const caps = touchActivationCaps(
               tile?.i,
               ui.mobileArrangeTileId,
-              isTouchDevice.value,
+              true,
             );
             return tile?.i && tile.i === ui.mobileArrangeTileId
               ? { ...caps, resizeHandles: ARRANGE_RESIZE_HANDLES }
@@ -553,6 +557,9 @@ export default {
     const onGridPointerDown = (event: PointerEvent): void => {
       arrangeGesture.onPointerDown(event);
       if (event.pointerType !== "mouse" || event.button !== 0) return;
+      // The phone editor (also in a narrow pointer window) handles its own
+      // clicks: the first selects, the next one types (Tile.vue).
+      if (isMobileToolbar.value) return;
       const target = event.target as HTMLElement | null;
       if (!target) return;
       if (

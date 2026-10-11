@@ -19,7 +19,10 @@ import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridController } from "@/controllers/useGridController";
 import { useGridPreview } from "@/composables/useGridPreview";
-import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
+import {
+  stopTileTyping,
+  useMobileTileEdit,
+} from "@/composables/useMobileTileEdit";
 import type { MobileEditorView } from "@/utils/mobileEditorView";
 
 const TAP_SLOP_PX = 10;
@@ -64,9 +67,9 @@ export function useMobileEditorLifecycle(view: Readonly<Ref<MobileEditorView>>) 
     if (ui.mobileMultiSelectIds) return;
     // A tool mode is a layer of its own: the tap ends it, the tile stays.
     if (view.value.kind === "mode") return handle.value?.exitToolMode?.();
-    // Typing ends through the tile's own outside handling; this tap is that
-    // layer, so the selection stays.
-    if (view.value.kind === "typing") return;
+    // So is typing: the tap stops it (each tile's exit is idempotent, so its
+    // own outside handling may run too) and the tile stays selected.
+    if (view.value.kind === "typing") return stopTileTyping(handle.value);
     controller.clearMobileEditor();
   };
 

@@ -12,7 +12,8 @@
   Re-center, Preview); Arrange enters move/resize; popover tools open their
   card above the bar (`MobileToolPopover`, mounted by the bottom bar); Crop,
   Pan and Interact put the tile in its mode and the bar becomes the mode bar
-  (`MobileModeBar`). Edit (link, documents, profile) arrives with typing.
+  (`MobileModeBar`); Edit (link, documents, profile) starts typing in the
+  tile's fields.
 -->
 <template>
   <div class="mtt" data-tile-edit-surface>
@@ -70,7 +71,10 @@ import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridController } from "@/controllers/useGridController";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useMobileExperience } from "@/composables/useMobileExperience";
-import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
+import {
+  startTileTyping,
+  useMobileTileEdit,
+} from "@/composables/useMobileTileEdit";
 import { useTileActions } from "@/composables/useTileActions";
 import { useMobileTileCommands } from "@/composables/useMobileTileCommands";
 import { arrangeLiveSize } from "@/composables/useTouchTileGestures";
@@ -192,6 +196,9 @@ const onSelect = (tool: MobileTool) => {
       if (mode) handle.value?.enterToolMode?.(mode);
       return;
     }
+    case "edit":
+      // Start typing in the tile's fields; the bar becomes the typing bar.
+      return startTileTyping(handle.value);
     case "arrange":
       return controller.setMobileArrangeTile(
         ui.mobileArrangeTileId === props.tile.i ? null : props.tile.i,

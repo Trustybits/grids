@@ -59,10 +59,16 @@ const emit = defineEmits<{
   animation: mft-in var(--duration-morph) var(--easing-snap) both;
 }
 
+/* Shrinks so the controls scroll sideways inside the pill, but doesn't clip:
+   the Font / Size / Color menus open upward, above the bar (the row itself
+   scrolls, so nothing spills sideways). */
 .mft__controls {
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
+}
+
+.mft__controls :deep(.rt-docked-bar) {
+  min-width: 0;
 }
 
 /* The pill is the surface; the docked bar's own card styling would double it. */

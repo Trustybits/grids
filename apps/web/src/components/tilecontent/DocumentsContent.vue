@@ -222,6 +222,7 @@ import {
   ensureDocumentItemThumbnailOnServer,
 } from "@/composables/useDocumentThumbnail";
 import { classifyDocumentItem } from "@/utils/DocumentTypeKind";
+import { isOnTileEditSurface } from "@/utils/tileEditSurface";
 
 const ILLUSTRATION_BY_KIND: Record<string, string> = {
   pdf: "/illustrations/file-pdf.png",
@@ -486,6 +487,7 @@ export default defineComponent({
             focusTarget === "description" ? descriptionInputRef : titleInputRef;
           targetRef.value?.focus();
           exitClickHandler = (event: MouseEvent) => {
+            if (isOnTileEditSurface(event.target)) return;
             if (
               tileRef.value &&
               !tileRef.value.contains(event.target as Node)
@@ -687,6 +689,8 @@ export default defineComponent({
       onTileClick,
       onShortClick,
       startEditing,
+      // The phone typing bar's Done ends editing (this tile has no onExitClick).
+      stopEditing,
       // The phone toolbar's Preview tool opens the viewer without a tap event.
       openPreview,
     };

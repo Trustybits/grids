@@ -249,6 +249,13 @@
         :mode="activeToolMode"
         @done="editHandle?.exitToolMode?.()"
       />
+      <!-- Typing in a tile without formatting (profile, link, documents,
+           classic text): a plain typing bar with Done. -->
+      <MobileModeBar
+        v-else-if="mode === 'edit' && isMobileToolbar && isPlainTyping"
+        mode="edit"
+        @done="stopTyping"
+      />
       <MobileFormatToolbar
         v-else-if="mode === 'edit' && isMobileToolbar && textEditingEditor"
         :editor="textEditingEditor"
@@ -405,6 +412,7 @@ import MobileTileToolbar from "@/components/app/mobile-editor/MobileTileToolbar.
 import MobileFormatToolbar from "@/components/app/mobile-editor/MobileFormatToolbar.vue";
 import MobileToolPopover from "@/components/app/mobile-editor/MobileToolPopover.vue";
 import MobileModeBar from "@/components/app/mobile-editor/MobileModeBar.vue";
+import { useMobileEditorView } from "@/composables/useMobileEditorView";
 import { MOBILE_POPOVER_BODIES } from "@/components/app/mobile-editor/popovers";
 import { MOBILE_TOOLS } from "@/registries/tileToolbar/mobileTools";
 import { useGridUiStore } from "@/stores/grid/gridUi";
@@ -432,7 +440,10 @@ import { useGridController } from "@/controllers/useGridController";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useGridSettings } from "@/composables/useGridSettings";
 import { useGridPreview } from "@/composables/useGridPreview";
-import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
+import {
+  stopTileTyping,
+  useMobileTileEdit,
+} from "@/composables/useMobileTileEdit";
 import { useMobileExperience } from "@/composables/useMobileExperience";
 import { useSavedColors } from "@/composables/useSavedColors";
 import { normalizeHex } from "@/utils/color";
@@ -527,6 +538,20 @@ const textEditingEditor = computed(() => {
 });
 const editGridView = proxyRefs(useGridViewContext());
 
+// Typing with no format bar to show (anything but unified rich text).
+const { view: editorView } = useMobileEditorView();
+const isPlainTyping = computed(
+  () =>
+    isMobileToolbar.value &&
+    editorView.value.kind === "typing" &&
+    !textEditingEditor.value,
+);
+
+// Plain typing starting or ending swaps the pill's content too.
+watch(isPlainTyping, () => void morph(undefined, morphOptions()), {
+  flush: "pre",
+});
+
 // The tool mode the selected tile is in (crop / pan / interact), if any.
 const activeToolMode = computed(() =>
   isMobileToolbar.value ? (editHandle.value?.toolMode?.value ?? null) : null,
@@ -546,6 +571,7 @@ const popoverToolId = computed(() => {
   const id = gridUi.mobileOpenToolId;
   if (!isMobileToolbar.value || mode.value !== "edit") return null;
   if (!id || textEditingEditor.value || activeToolMode.value) return null;
+  if (isPlainTyping.value) return null;
   const tool = MOBILE_TOOLS[id as keyof typeof MOBILE_TOOLS];
   if (tool?.kind !== "popover" || !MOBILE_POPOVER_BODIES[tool.id]) return null;
   return tool.id;
@@ -762,13 +788,10 @@ watch(
   { flush: "pre" },
 );
 
-// Done on the format bar: stop typing (the tile's own exit, as a tap outside
-// would) and drop the keyboard. The pill morphs back to the tile toolbar.
-const stopTyping = () => {
-  const child = editHandle.value?.childComponent.value;
-  child?.editor?.commands.blur();
-  child?.onExitClick?.();
-};
+// Done on the format or typing bar: stop typing (the tile's own exit, as a
+// tap outside would) and drop the keyboard. The pill morphs back to the tile
+// toolbar.
+const stopTyping = () => stopTileTyping(editHandle.value);
 
 // Typing starting or ending swaps the pill's content: morph it.
 watch(

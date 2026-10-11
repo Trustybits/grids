@@ -244,6 +244,7 @@ import { useMobileEditorView } from "@/composables/useMobileEditorView";
 import { useTileToolModes } from "@/composables/useTileToolModes";
 import { ARRANGE_RESIZE_HANDLES } from "@/composables/useTouchTileGestures";
 import { useGridUiStore } from "@/stores/grid/gridUi";
+import { isOnTileEditSurface } from "@/utils/tileEditSurface";
 
 export default defineComponent({
   components: {
@@ -860,6 +861,8 @@ export default defineComponent({
     };
 
     const handleClickOutside = (event: MouseEvent) => {
+      // Our floating bars act on this tile; they are not "outside" it.
+      if (isOnTileEditSurface(event.target)) return;
       if (
         gridTileRef.value &&
         !gridTileRef.value.contains(event.target as Node) &&

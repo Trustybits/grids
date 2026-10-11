@@ -64,3 +64,41 @@ describe("useMobileTileEdit — handle belongs to its tile", () => {
     expect(edit.editTileId.value).toBeNull();
   });
 });
+
+describe("startTileTyping / stopTileTyping", () => {
+  const withChild = (child: Record<string, unknown>): MobileTileEditHandle => ({
+    ...makeHandle(),
+    childComponent: ref(child as never),
+  });
+
+  it("opens a field tile on its title, otherwise starts like a tap", async () => {
+    const { startTileTyping } = await import("../useMobileTileEdit");
+    const startEditing = vi.fn();
+    startTileTyping(withChild({ startEditing }));
+    expect(startEditing).toHaveBeenCalledWith("title");
+
+    const onShortClick = vi.fn();
+    startTileTyping(withChild({ onShortClick }));
+    expect(onShortClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops through the tile's own exit, else its stopEditing", async () => {
+    const { stopTileTyping } = await import("../useMobileTileEdit");
+    const onExitClick = vi.fn();
+    const stopEditing = vi.fn();
+    stopTileTyping(withChild({ onExitClick, stopEditing }));
+    expect(onExitClick).toHaveBeenCalledTimes(1);
+    expect(stopEditing).not.toHaveBeenCalled();
+
+    stopTileTyping(withChild({ stopEditing }));
+    expect(stopEditing).toHaveBeenCalledTimes(1);
+  });
+
+  it("does nothing without a live tile", async () => {
+    const { startTileTyping, stopTileTyping } = await import(
+      "../useMobileTileEdit"
+    );
+    expect(() => startTileTyping(null)).not.toThrow();
+    expect(() => stopTileTyping(makeHandle())).not.toThrow();
+  });
+});

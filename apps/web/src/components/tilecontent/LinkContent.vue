@@ -283,6 +283,7 @@ import PhoneIcon from "../icons/PhoneIcon.vue";
 import AlertCircleIcon from "../icons/AlertCircleIcon.vue";
 import { useEditorAutosave } from "@/composables/useEditorAutosave";
 import { useTileContentWriter } from "@/composables/useTileContentWriter";
+import { isOnTileEditSurface } from "@/utils/tileEditSurface";
 
 export default defineComponent({
   emits: ["background-color-change", "text-color-change"],
@@ -737,6 +738,7 @@ export default defineComponent({
           targetRef.value?.focus();
           // Register exit listener since @mousedown.stop bypasses GridTile's addClickListener
           exitClickHandler = (event: MouseEvent) => {
+            if (isOnTileEditSurface(event.target)) return;
             if (
               linkTileRef.value &&
               !linkTileRef.value.contains(event.target as Node)

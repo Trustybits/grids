@@ -104,3 +104,35 @@ export function useMobileTileEdit() {
     query: _query,
   };
 }
+
+/** What starting and stopping typing needs from a tile, beyond the base. */
+type TypingChild = TileChildComponent & {
+  startEditing?: (focus?: "title") => void;
+  stopEditing?: () => void;
+};
+
+/**
+ * Start typing in the selected tile, as its Edit tool: the field tiles (link,
+ * documents) open on their title, a profile on its name. Rich-text tiles start
+ * with a second tap on the text itself.
+ */
+export function startTileTyping(handle: MobileTileEditHandle | null): void {
+  const child = handle?.childComponent.value as TypingChild | null | undefined;
+  if (!child) return;
+  if (child.startEditing) child.startEditing("title");
+  else child.onShortClick?.(new MouseEvent("click"));
+}
+
+/**
+ * Stop typing in the selected tile — the typing bar's Done, or an empty-space
+ * tap. Each tile's own exit saves and ends its edit session; the keyboard
+ * goes down with the focus.
+ */
+export function stopTileTyping(handle: MobileTileEditHandle | null): void {
+  const child = handle?.childComponent.value as TypingChild | null | undefined;
+  if (!child) return;
+  child.editor?.commands.blur();
+  if (child.onExitClick) child.onExitClick();
+  else child.stopEditing?.();
+  (document.activeElement as HTMLElement | null)?.blur?.();
+}

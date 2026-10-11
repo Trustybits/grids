@@ -153,6 +153,14 @@ watch(
     transform var(--duration-morph) var(--easing-snap);
 }
 
+/* Less transparency (asked for, or a low-end phone): solid, no blur. */
+:global(.no-focus-blur) .mtc-pill,
+:global(.no-focus-blur) .mtc-circle {
+  background: var(--color-toolbar-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .mtc-pill {
   display: inline-flex;
   align-items: center;

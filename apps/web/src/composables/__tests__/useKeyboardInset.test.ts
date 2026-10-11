@@ -24,6 +24,17 @@ describe("measureKeyboardInset", () => {
     expect(measureKeyboardInset(800, { height: 479.6, offsetTop: 0 })).toBe(320);
   });
 
+  it("doesn't mistake pinch-zoom for a keyboard", () => {
+    // Zoomed 2×: the visual viewport is half the layout height.
+    expect(
+      measureKeyboardInset(800, { height: 400, offsetTop: 120, scale: 2 }),
+    ).toBe(0);
+    // Unzoomed (scale 1) still measures the keyboard.
+    expect(
+      measureKeyboardInset(800, { height: 480, offsetTop: 0, scale: 1 }),
+    ).toBe(320);
+  });
+
   it("is 0 without a visual viewport", () => {
     expect(measureKeyboardInset(800, null)).toBe(0);
   });

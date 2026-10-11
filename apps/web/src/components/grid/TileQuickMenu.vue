@@ -197,6 +197,13 @@ onUnmounted(() => {
   animation: tqm-in var(--duration-morph) var(--easing-snap);
 }
 
+/* Less transparency (asked for, or a low-end phone): solid, no blur. */
+:global(.no-focus-blur) .tqm {
+  background: var(--color-toolbar-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .tqm--above {
   transform-origin: 50% 100%;
 }

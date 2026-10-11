@@ -19,6 +19,7 @@
     ref="cardRef"
     class="mtp pp-scope"
     role="dialog"
+    tabindex="-1"
     :aria-label="title"
     :style="{ '--mtp-origin-x': originX }"
     data-tile-edit-surface
@@ -146,6 +147,11 @@ let cardResize: ResizeObserver | null = null;
 
 onMounted(async () => {
   updateOrigin();
+  // Opened from a focused tool (keyboard, screen reader): focus follows into
+  // the card, and returns to the tool when it closes.
+  if (document.activeElement?.closest(".mtt")) {
+    cardRef.value?.focus({ preventScroll: true });
+  }
   await nextTick();
   scheduleReveal();
   if (typeof ResizeObserver !== "undefined" && cardRef.value) {
@@ -187,6 +193,15 @@ defineExpose({ close });
   box-shadow: var(--shadow-xl);
   color: var(--color-text-primary);
   transform-origin: var(--mtp-origin-x, 50%) 100%;
+}
+
+.mtp:focus {
+  outline: none;
+}
+
+.mtp:focus-visible {
+  outline: 2px solid var(--color-tool-active);
+  outline-offset: 2px;
 }
 
 .mtp__header {

@@ -90,7 +90,7 @@ watch(
   () => {
     // One undo step per tool.
     visit.commit();
-    void morph();
+    void morph(undefined, { spring: true });
     updateOrigin();
   },
   { flush: "pre" },

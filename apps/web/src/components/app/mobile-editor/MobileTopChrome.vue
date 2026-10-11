@@ -109,12 +109,12 @@ const pillRef = ref<HTMLElement | null>(null);
 const { morph } = useMorphFlip(pillRef);
 watch(
   () => multi.active.value,
-  () => void morph(),
+  () => void morph(undefined, { spring: true }),
   { flush: "pre" },
 );
 watch(
   () => multi.tiles.value.length,
-  () => void morph(),
+  () => void morph(undefined, { spring: true }),
   { flush: "pre" },
 );
 </script>

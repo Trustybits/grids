@@ -8,6 +8,10 @@
  * reads as one surface growing into the next — the home pill into a tile
  * toolbar, a toolbar into the format bar.
  *
+ * Options for the floating phone toolbars:
+ *  - `spring`: a gentle spring (≈5% overshoot) instead of the snappy curve,
+ *    never growing wider than the screen less a small margin.
+ *
  * Generalises `MobileGridBar`'s earlier width-only pill morph. Respects
  * `prefers-reduced-motion` by skipping the animation.
  */
@@ -19,11 +23,33 @@ export interface MorphOptions {
   duration?: string;
   /** CSS easing; defaults to the snappy morph token. */
   easing?: string;
+  /** Spring the size change (overrides `duration` / `easing`). */
+  spring?: boolean;
 }
+
+/** A damped spring (ζ 0.7) sampled for `linear()`: peaks ~4.6% past. */
+const SPRING_EASING =
+  "linear(0, 0.051, 0.171, 0.323, 0.48, 0.626, 0.751, 0.851, 0.927, 0.98, " +
+  "1.015, 1.035, 1.044, 1.046, 1.042, 1.036, 1.029, 1.022, 1.015, 1.01, " +
+  "1.006, 1.003, 1, 0.999, 1)";
+const SPRING_DURATION = "320ms";
+/** A springing surface may overshoot to within this of the screen edges. */
+const EDGE_MARGIN_PX = 4;
 
 const prefersReducedMotion = (): boolean =>
   typeof window !== "undefined" &&
   !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+let springSupported: boolean | null = null;
+const supportsSpring = (): boolean => {
+  if (springSupported === null) {
+    springSupported =
+      typeof CSS !== "undefined" &&
+      typeof CSS.supports === "function" &&
+      CSS.supports("transition-timing-function", "linear(0, 1)");
+  }
+  return springSupported;
+};
 
 export function useMorphFlip(target: Ref<HTMLElement | null | undefined>) {
   let cleanup: (() => void) | null = null;
@@ -51,13 +77,22 @@ export function useMorphFlip(target: Ref<HTMLElement | null | undefined>) {
       Math.abs(start.height - end.height) < 1;
     if (sameSize && startRadius === endRadius) return;
 
-    const duration = options.duration ?? "var(--duration-morph)";
-    const easing = options.easing ?? "var(--easing-snap)";
+    const spring = options.spring && supportsSpring();
+    const duration = spring
+      ? SPRING_DURATION
+      : (options.duration ?? "var(--duration-morph)");
+    const easing = spring
+      ? SPRING_EASING
+      : (options.easing ?? "var(--easing-snap)");
 
     el.style.width = `${start.width}px`;
     el.style.height = `${start.height}px`;
     el.style.borderRadius = startRadius;
     el.style.overflow = "hidden"; // clip only while morphing
+    if (spring) {
+      // The overshoot never pushes the surface past the screen edges.
+      el.style.maxWidth = `${Math.max(end.width, window.innerWidth - EDGE_MARGIN_PX * 2)}px`;
+    }
     void el.offsetWidth; // commit the start box before transitioning
     el.style.transition = [
       `width ${duration} ${easing}`,
@@ -76,6 +111,7 @@ export function useMorphFlip(target: Ref<HTMLElement | null | undefined>) {
       el.style.height = "";
       el.style.borderRadius = "";
       el.style.overflow = "";
+      el.style.maxWidth = "";
       cleanup = null;
     };
     const onEnd = (event: TransitionEvent) => {

@@ -806,9 +806,10 @@ const pillEl = computed(
   () => (pillRef.value?.$el as HTMLElement | undefined) ?? null,
 );
 const { morph } = useMorphFlip(pillEl);
+// The floating toolbars spring.
 const morphOptions = () =>
   isMobileToolbar.value
-    ? {}
+    ? { spring: true }
     : { duration: "var(--duration-slow)", easing: "var(--easing-gentle)" };
 
 // The pill's previous box is measured synchronously when the source changes

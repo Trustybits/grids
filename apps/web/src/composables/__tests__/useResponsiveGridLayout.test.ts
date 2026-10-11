@@ -59,6 +59,18 @@ function createEnvironment(initialWidth = 1000) {
   };
 }
 
+/** A grid element `height` px tall in layout, drawn at half size on screen. */
+function gridElement(height: number, padding = 0) {
+  const element = document.createElement("div");
+  element.style.padding = `${padding}px`;
+  Object.defineProperty(element, "clientHeight", {
+    configurable: true,
+    get: () => height,
+  });
+  element.getBoundingClientRect = () => ({ height: height / 2 }) as DOMRect;
+  return element;
+}
+
 function mountComposable(
   environment: ResponsiveGridLayoutEnvironment,
   options: {
@@ -240,9 +252,7 @@ describe("useResponsiveGridLayout", () => {
   it("observes the grid when its element ref becomes available after mounting", async () => {
     const browser = createEnvironment(300);
     const { composable, wrapper } = mountComposable(browser.environment);
-    const element = {
-      getBoundingClientRect: () => ({ height: 200 }),
-    } as HTMLElement;
+    const element = gridElement(200);
 
     await nextTick();
     await nextTick();
@@ -260,6 +270,26 @@ describe("useResponsiveGridLayout", () => {
 
     wrapper.unmount();
     expect(browser.observer.disconnect).toHaveBeenCalled();
+  });
+
+  it("measures the grid's own height, not its scaled size on screen", async () => {
+    const browser = createEnvironment(300);
+    const { composable, wrapper } = mountComposable(browser.environment);
+    const element = gridElement(2754, 24);
+    composable.gridLayoutRef.value = element;
+    await nextTick();
+    await nextTick();
+    expect(composable.naturalGridHeight.value).toBe(2706);
+
+    // Every engine sync observes the grid again; the height must not dip.
+    composable.markLayoutPending();
+    await nextTick();
+    expect(composable.naturalGridHeight.value).toBe(2706);
+    expect(composable.scaleWrapperStyle.value.height).toBe(
+      `${2706 * composable.mobileScale.value}px`,
+    );
+
+    wrapper.unmount();
   });
 
   it("resolves layout readiness only after the breakpoint is marked ready", async () => {

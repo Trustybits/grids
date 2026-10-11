@@ -18,7 +18,12 @@
   toggle — selecting a card drives the shared `isDarkMode` state.
 -->
 <template>
-  <div class="mgs-panel" role="dialog" aria-label="Grid settings">
+  <div
+    class="mgs-panel"
+    :class="{ 'mgs-panel--card': card }"
+    :role="card ? 'group' : 'dialog'"
+    aria-label="Grid settings"
+  >
     <div class="mgs-header">
       <span class="mgs-header__label">GRID ID:</span>
       <span class="mgs-header__value">{{ gridPageId }}</span>
@@ -243,7 +248,18 @@ import ClipboardIcon from "@/components/icons/ClipboardIcon.vue";
 import ChevronRightIcon from "@/components/icons/ChevronRightIcon.vue";
 import SpinnerIcon from "@/components/icons/SpinnerIcon.vue";
 
-const props = withDefaults(defineProps<{ query?: string }>(), { query: "" });
+const props = withDefaults(
+  defineProps<{
+    query?: string;
+    /**
+     * Inside the floating phone toolbars' Grid settings card, which supplies
+     * the surface: no sheet chrome of its own, and the tool cards' section
+     * labels, segmented buttons and rows.
+     */
+    card?: boolean;
+  }>(),
+  { query: "", card: false },
+);
 const emit = defineEmits<{
   (e: "close"): void;
   (e: "open-color"): void;
@@ -651,6 +667,94 @@ const onTransfer = () => {
   &.is-open {
     transform: rotate(90deg);
   }
+}
+
+/* ── Inside the Grid settings card (floating phone toolbars) ──────────────── */
+.mgs-panel--card {
+  height: auto;
+  max-height: none;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.mgs-panel--card .mgs-header {
+  min-height: 44px;
+  padding: 0 4px 0 12px;
+  border-radius: 10px;
+  background: var(--color-input-edit);
+}
+
+.mgs-panel--card .mgs-header__label {
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.mgs-panel--card > .mgs-separator {
+  display: none;
+}
+
+/* The card scrolls; the body just lays out. */
+.mgs-panel--card .mgs-body {
+  gap: 4px;
+  padding: 0;
+  overflow: visible;
+}
+
+.mgs-panel--card .mgs-section {
+  gap: 10px;
+  padding: 14px 0 6px;
+}
+
+/* All settings' section heading. */
+.mgs-panel--card .mgs-section__label {
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The tool cards' segmented buttons (PopoverChoices). */
+.mgs-panel--card .mgs-segment {
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--color-tool-selected-bg);
+}
+
+.mgs-panel--card .mgs-segment__btn {
+  min-height: 46px;
+  border-radius: 8px;
+  color: var(--color-content-high);
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mgs-panel--card .mgs-segment__btn.is-active {
+  background: var(--color-toolbar-background);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.mgs-panel--card .mgs-row {
+  min-height: 48px;
+  border-radius: 10px;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+}
+
+.mgs-panel--card .mgs-row--action:hover {
+  background: transparent;
+}
+
+.mgs-panel--card .mgs-row--action:active {
+  background: var(--color-input-edit);
 }
 
 .mgs-empty {

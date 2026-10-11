@@ -38,7 +38,7 @@
     <!-- Grid settings sheet — slides up from behind the pill and rests flush on
          top of the morphed `/GRID` command input. -->
     <transition name="mgb-rise">
-      <div v-if="mode === 'settings'" class="mgb-settings-panel">
+      <div v-if="mode === 'settings' && !isMobileToolbar" class="mgb-settings-panel">
         <MobileGridSettingsSheet
           :query="query"
           @close="closeSettings"
@@ -81,7 +81,7 @@
     <!-- Color picker sheet — same rise/flush pattern; the pill below is the
          `/HEX` command input. -->
     <transition name="mgb-rise">
-      <div v-if="mode === 'color'" class="mgb-settings-panel">
+      <div v-if="mode === 'color' && !isMobileToolbar" class="mgb-settings-panel">
         <MobileColorPicker
           v-model="colorHex"
           :swatches="swatches"
@@ -94,7 +94,7 @@
     <!-- Background image swap sheet — same rise/flush pattern; the pill below is
          the `/background` command input (paste an image URL to link). -->
     <transition name="mgb-rise">
-      <div v-if="mode === 'image'" class="mgb-settings-panel">
+      <div v-if="mode === 'image' && !isMobileToolbar" class="mgb-settings-panel">
         <MobileImageSwapSheet />
       </div>
     </transition>
@@ -156,14 +156,87 @@
       />
     </transition>
 
+    <!-- Floating toolbars: Grid settings is a solid card above the home bar,
+         like a tool's card above the tile toolbar. The background colour and
+         image open as pages inside it. -->
+    <transition name="mgb-pop">
+      <MobileSettingsCard
+        v-if="settingsCardPage"
+        class="mgb-popover mgb-settings-card"
+        :title="settingsCardTitle"
+        :back="settingsCardPage !== 'settings'"
+        @back="settingsCardPage === 'color' ? closeColor() : closeImage()"
+        @done="closeSettings"
+      >
+        <MobileGridSettingsSheet
+          v-if="settingsCardPage === 'settings'"
+          card
+          @close="closeSettings"
+          @open-color="openColor"
+          @open-image="openImage"
+        />
+        <template v-else-if="settingsCardPage === 'color'">
+          <MobileColorPicker
+            v-model="colorHex"
+            :swatches="swatches"
+            @preview="onColorPreview"
+            @commit="onColorCommit"
+          />
+          <div class="pp-field">
+            <span class="mgb-card-hash" aria-hidden="true">#</span>
+            <input
+              ref="hexInputRef"
+              v-model="hexInput"
+              class="pp-field__input"
+              type="text"
+              inputmode="text"
+              autocapitalize="characters"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="7"
+              aria-label="Hex color value"
+              @keydown="onHexKeydown"
+              @blur="commitHexInput"
+            />
+            <button type="button" class="pp-pill" @click="saveColor">
+              Save color
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <MobileImageSwapSheet />
+          <form class="pp-field" novalidate @submit.prevent="linkImage">
+            <input
+              v-model="urlInput"
+              class="pp-field__input"
+              type="url"
+              inputmode="url"
+              autocapitalize="off"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Paste an image URL"
+              aria-label="Background image URL"
+            />
+            <button
+              type="submit"
+              class="pp-pill pp-pill--primary"
+              :disabled="!urlInput.trim()"
+            >
+              Link
+            </button>
+          </form>
+        </template>
+      </MobileSettingsCard>
+    </transition>
+
     <MobileCommandBar
       ref="pillRef"
       class="mgb-pill"
       :class="{
         'mgb-pill--add': mode === 'add',
-        'mgb-pill--settings': mode === 'settings',
-        'mgb-pill--color': mode === 'color',
-        'mgb-pill--image': mode === 'image',
+        'mgb-pill--settings': mode === 'settings' && !isMobileToolbar,
+        'mgb-pill--color': mode === 'color' && !isMobileToolbar,
+        'mgb-pill--image': mode === 'image' && !isMobileToolbar,
         'mgb-pill--edit': mode === 'edit' && !isMobileToolbar,
         'mgb-pill--toolbar': mode === 'edit' && isMobileToolbar,
         'mgb-pill--format': mode === 'edit' && isMobileToolbar && !!textEditingEditor,
@@ -172,7 +245,7 @@
       }"
       :aria-label="pillAriaLabel"
     >
-      <template v-if="mode === 'default'">
+      <template v-if="mode === 'default' || settingsCardPage">
         <button
           type="button"
           class="mgb-btn"
@@ -186,6 +259,8 @@
           type="button"
           class="mgb-btn"
           aria-label="Grid settings"
+          :class="{ 'mgb-btn--selected': !!settingsCardPage }"
+          :aria-pressed="isMobileToolbar ? !!settingsCardPage : undefined"
           @click.stop="toggleSettings"
         >
           <GridSettingsIcon :size="24" />
@@ -415,6 +490,7 @@ import MobileTileEditSheet from "@/components/app/MobileTileEditSheet.vue";
 import MobileTileToolbar from "@/components/app/mobile-editor/MobileTileToolbar.vue";
 import MobileFormatToolbar from "@/components/app/mobile-editor/MobileFormatToolbar.vue";
 import MobileToolPopover from "@/components/app/mobile-editor/MobileToolPopover.vue";
+import MobileSettingsCard from "@/components/app/mobile-editor/MobileSettingsCard.vue";
 import MobileModeBar from "@/components/app/mobile-editor/MobileModeBar.vue";
 import MobileMultiToolbar from "@/components/app/mobile-editor/MobileMultiToolbar.vue";
 import { useMobileMultiEdit } from "@/composables/useMobileMultiEdit";
@@ -704,12 +780,29 @@ const viewMode = ref<"carousel" | "list">("carousel");
 // sub-sheets, plus the Add-a-Tile *list* view (the carousel floats with a gap).
 const isConnected = computed(
   () =>
-    mode.value === "settings" ||
-    mode.value === "color" ||
-    mode.value === "image" ||
+    ((mode.value === "settings" ||
+      mode.value === "color" ||
+      mode.value === "image") &&
+      !isMobileToolbar.value) ||
     (mode.value === "edit" && !isMobileToolbar.value) ||
     (mode.value === "add" && viewMode.value === "list"),
 );
+
+// Floating toolbars: Grid settings (and its colour / image pages) is a card
+// above the home bar rather than a sheet on a `/GRID` input.
+const SETTINGS_PAGES = ["settings", "color", "image"] as const;
+type SettingsPage = (typeof SETTINGS_PAGES)[number];
+const settingsCardPage = computed<SettingsPage | null>(() =>
+  isMobileToolbar.value &&
+  (SETTINGS_PAGES as readonly string[]).includes(mode.value)
+    ? (mode.value as SettingsPage)
+    : null,
+);
+const settingsCardTitle = computed(() => {
+  if (settingsCardPage.value === "color") return "Background color";
+  if (settingsCardPage.value === "image") return "Background image";
+  return "Grid settings";
+});
 
 // ── Color (`/HEX`) mode state ────────────────────────────────────────────────
 // `colorHex` is the canonical working color (#RRGGBB) shared with the picker;
@@ -781,6 +874,8 @@ const chipLabel = computed(() =>
 );
 
 const pillAriaLabel = computed(() => {
+  // With the settings card open the pill is still the home bar.
+  if (settingsCardPage.value) return "Grid commands";
   switch (mode.value) {
     case "add":
       return "Add a tile";
@@ -817,10 +912,22 @@ const morphOptions = (crossfade = false) =>
 
 // The pill's previous box is measured synchronously when the source changes
 // (`flush: "pre"` runs before the DOM updates), then animated once it has.
+// The settings card's pages sit above an unchanged home bar: nothing in the
+// pill changes, so no cross-fade (it would only flicker).
+const HOME_BAR_MODES: ReadonlySet<string> = new Set([
+  "default",
+  "settings",
+  "color",
+  "image",
+]);
 watch(
   mode,
-  async () => {
-    await morph(undefined, morphOptions(true));
+  async (next, previous) => {
+    const sameBar =
+      isMobileToolbar.value &&
+      HOME_BAR_MODES.has(next) &&
+      HOME_BAR_MODES.has(previous);
+    await morph(undefined, morphOptions(!sameBar));
     if (mode.value === "add") cmdRef.value?.focus();
   },
   { flush: "pre" },
@@ -896,7 +1003,7 @@ const closeSettings = () => {
 };
 
 const toggleSettings = () => {
-  if (mode.value === "settings") closeSettings();
+  if (mode.value === "settings" || settingsCardPage.value) closeSettings();
   else openSettings();
 };
 
@@ -1540,6 +1647,31 @@ onBeforeUnmount(() => {
   background-color: var(--color-toolbar-background);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+// Grid settings open as a card: the Settings command reads as selected, like
+// a tool whose card is open.
+.mgb-btn.mgb-btn--selected {
+  background: var(--color-tool-selected-bg);
+  color: var(--color-tool-active);
+}
+
+// The colour and image pages bring their own sheet chrome; the card is the
+// surface now.
+.mgb-settings-card :deep(.mcp-panel),
+.mgb-settings-card :deep(.mis-panel) {
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.mgb-card-hash {
+  color: var(--color-content-low);
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .mgb-scrim-enter-active,

@@ -31,7 +31,7 @@
     </div>
 
     <div class="pp-section">
-      <p class="pp-label">Size</p>
+      <p class="pp-label">Text size</p>
       <PopoverChoices
         label="Text size"
         :options="sizeOptions"

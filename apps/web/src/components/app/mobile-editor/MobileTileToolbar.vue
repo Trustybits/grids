@@ -8,7 +8,11 @@
   Lives inside the bottom bar's pill, so the pill itself morphs from the home
   buttons into this — no second surface appears.
 
-  Tool behaviour: instant tools act (Duplicate, Delete, Open, Copy, Download,
+  "All settings" (or a swipe up on the header) grows the toolbar into the All
+  settings sheet in place of the tools row; a swipe down or the chevron
+  shrinks it back.
+
+  Tool behaviour (`useMobileToolActions`): instant tools act (Duplicate, Delete, Open, Copy, Download,
   Re-center, Preview); Arrange enters move/resize; popover tools open their
   card above the bar (`MobileToolPopover`, mounted by the bottom bar); Crop,
   Pan and Interact put the tile in its mode and the bar becomes the mode bar
@@ -16,24 +20,32 @@
   tile's fields.
 -->
 <template>
-  <div class="mtt" data-tile-edit-surface>
-    <header class="mtt__header">
+  <div class="mtt" :class="{ 'mtt--sheet': expanded }" data-tile-edit-surface>
+    <!-- Swipe up on the header opens All settings, swipe down closes it. -->
+    <header
+      class="mtt__header"
+      @touchstart.passive="onHeaderTouchStart"
+      @touchend="onHeaderTouchEnd"
+    >
       <span class="mtt__title">{{ title }}</span>
       <span class="mtt__size">{{ sizeLabel }}</span>
       <span class="mtt__spacer"></span>
       <button
         type="button"
         class="mtt__settings"
-        aria-label="All settings"
-        :aria-expanded="ui.mobileSheetExpanded ? 'true' : 'false'"
-        disabled
+        aria-controls="mtt-all-settings"
+        :aria-expanded="expanded ? 'true' : 'false'"
+        @click="toggleSheet"
       >
         All settings
         <MobileToolIcon name="chevron" class="mtt__chevron" />
       </button>
     </header>
 
+    <MobileAllSettings v-if="expanded" id="mtt-all-settings" :tile="tile" />
+
     <div
+      v-else
       ref="rowRef"
       class="mtt__tools"
       role="toolbar"
@@ -46,8 +58,8 @@
         :icon="iconFor(tool.id)"
         :label="tool.label"
         :state="stateFor(tool)"
-        :href="tool.id === 'open' ? actions.resolvedTileUrl.value : undefined"
-        @select="onSelect(tool)"
+        :href="tool.id === 'open' ? openHref : undefined"
+        @select="run(tool)"
       />
     </div>
   </div>
@@ -56,38 +68,24 @@
 <script setup lang="ts">
 import { computed, nextTick, proxyRefs, ref, watch } from "vue";
 import type { Tile } from "@grids/contracts/types";
-import MobileToolButton, { type MobileToolState } from "./MobileToolButton.vue";
+import MobileToolButton from "./MobileToolButton.vue";
 import MobileToolIcon from "./MobileToolIcon.vue";
-import {
-  getMobileTools,
-  WRITERS,
-  type MobileTool,
-  type MobileToolId,
-} from "@/registries/tileToolbar/mobileTools";
+import MobileAllSettings from "./MobileAllSettings.vue";
 import { getTileDefinition } from "@/registries/tileRegistry";
-import { getTileToolbarButtons } from "@/registries/tileToolbar";
-import type { ToolbarContext } from "@/types/TileToolbar";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridController } from "@/controllers/useGridController";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
-import { useMobileExperience } from "@/composables/useMobileExperience";
-import {
-  startTileTyping,
-  useMobileTileEdit,
-} from "@/composables/useMobileTileEdit";
-import { useTileActions } from "@/composables/useTileActions";
-import { useMobileTileCommands } from "@/composables/useMobileTileCommands";
+import { useMobileToolActions } from "@/composables/useMobileToolActions";
 import { arrangeLiveSize } from "@/composables/useTouchTileGestures";
-import { toolModeFor } from "@/composables/useTileToolModes";
 
 const props = defineProps<{ tile: Tile }>();
 
 const ui = useGridUiStore();
 const controller = useGridController();
 const gridView = proxyRefs(useGridViewContext());
-const { isUnifiedText } = useMobileExperience();
-const { handle } = useMobileTileEdit();
-const actions = useTileActions(() => props.tile);
+const { tools, stateFor, run, iconFor, openHref } = useMobileToolActions(
+  () => props.tile,
+);
 
 const rowRef = ref<HTMLElement | null>(null);
 
@@ -112,34 +110,29 @@ const sizeLabel = computed(() => {
   return `${w}×${h}`;
 });
 
+// ── All settings ────────────────────────────────────────────────────────────
+// The toolbar grows into a sheet of every control for the tile (plan S3).
+const expanded = computed(() => ui.mobileSheetExpanded);
+const toggleSheet = () => controller.setMobileSheetExpanded(!expanded.value);
+
+const SWIPE_PX = 36;
+let headerTouchY: number | null = null;
+const onHeaderTouchStart = (event: TouchEvent) => {
+  headerTouchY = event.touches[0]?.clientY ?? null;
+};
+const onHeaderTouchEnd = (event: TouchEvent) => {
+  const startY = headerTouchY;
+  headerTouchY = null;
+  const endY = event.changedTouches[0]?.clientY;
+  if (startY === null || endY === undefined) return;
+  const dy = endY - startY;
+  if (dy < -SWIPE_PX && !expanded.value) controller.setMobileSheetExpanded(true);
+  else if (dy > SWIPE_PX && expanded.value) {
+    controller.setMobileSheetExpanded(false);
+  }
+};
+
 // ── Tools ───────────────────────────────────────────────────────────────────
-const tools = computed(() =>
-  getMobileTools({
-    tile: props.tile,
-    unifiedText: isUnifiedText.value,
-    canDownload: actions.hasDownload.value,
-  }),
-);
-
-const ICON_BY_TOOL: Partial<Record<MobileToolId, string>> = {
-  mapStyle: "map-style",
-};
-const iconFor = (id: MobileToolId) => ICON_BY_TOOL[id] ?? id;
-
-const stateFor = (tool: MobileTool): MobileToolState => {
-  if (tool.danger) return "danger";
-  if (ui.mobileOpenToolId === tool.id) return "selected";
-  if (tool.id === "arrange" && ui.mobileArrangeTileId === props.tile.i) {
-    return "selected";
-  }
-  // Toggles that are on read as "on" while their panel is closed.
-  if (tool.id === "border" && WRITERS.border.read(props.tile) === true) {
-    return "on";
-  }
-  if (tool.id === "link" && WRITERS.link.read(props.tile)) return "on";
-  return "default";
-};
-
 // Keep the active tool in view as the row scrolls sideways.
 watch(
   () => ui.mobileOpenToolId,
@@ -151,65 +144,6 @@ watch(
       ?.scrollIntoView?.({ inline: "nearest", block: "nearest", behavior: "smooth" });
   },
 );
-
-/** Run a desktop registry action against the live tile (map re-center). */
-const runRegistryAction = (buttonId: string) => {
-  const tileHandle = handle.value;
-  if (!tileHandle) return;
-  const context: ToolbarContext = {
-    tile: props.tile,
-    childComponent: tileHandle.childComponent,
-    gridView,
-    resizeTile: tileHandle.resizeTile,
-    isEditing: tileHandle.isEditing,
-    isExitingCropMode: tileHandle.isExitingCropMode,
-  };
-  getTileToolbarButtons(props.tile.content.type, context)
-    .find((button) => button.id === buttonId)
-    ?.action(context);
-};
-
-const commands = useMobileTileCommands();
-
-const onSelect = (tool: MobileTool) => {
-  switch (tool.id) {
-    case "duplicate":
-      return void commands.duplicate(props.tile);
-    case "delete":
-      return commands.remove(props.tile);
-    case "open":
-      // A real link; the browser follows it.
-      return;
-    case "copy":
-      return void actions.copyToClipboard();
-    case "download":
-      return void actions.download();
-    case "recenter":
-      return runRegistryAction("map-recenter");
-    case "preview":
-      return handle.value?.childComponent.value?.openPreview?.();
-    case "crop":
-    case "pan":
-    case "interact": {
-      // The tile enters the mode; the bar becomes the mode bar.
-      const mode = toolModeFor(tool.id, props.tile.content.type);
-      if (mode) handle.value?.enterToolMode?.(mode);
-      return;
-    }
-    case "edit":
-      // Start typing in the tile's fields; the bar becomes the typing bar.
-      return startTileTyping(handle.value);
-    case "arrange":
-      return controller.setMobileArrangeTile(
-        ui.mobileArrangeTileId === props.tile.i ? null : props.tile.i,
-      );
-    default:
-      // Popover tools open their card; a second tap closes it.
-      return controller.setMobileOpenTool(
-        ui.mobileOpenToolId === tool.id ? null : tool.id,
-      );
-  }
-};
 </script>
 
 <style scoped>
@@ -273,11 +207,17 @@ const onSelect = (tool: MobileTool) => {
   opacity: 0.45;
 }
 
-/* Figma's chevron points down and is rotated to read "expand up". */
+/* Figma's chevron points down and is rotated to read "expand up"; open, it
+   points down again ("collapse"). */
 .mtt__chevron {
   width: 16px;
   height: 16px;
   transform: rotate(180deg);
+  transition: transform var(--duration-morph) var(--easing-snap);
+}
+
+.mtt--sheet .mtt__chevron {
+  transform: none;
 }
 
 .mtt__tools {

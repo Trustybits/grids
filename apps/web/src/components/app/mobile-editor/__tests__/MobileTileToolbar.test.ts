@@ -23,6 +23,8 @@ vi.mock("@/controllers/useGridController", () => ({
       setMobileEditTile: (id: string | null) => ui.setMobileEditTile(id),
       setMobileOpenTool: (id: string | null) => ui.setMobileOpenTool(id),
       setMobileArrangeTile: (id: string | null) => ui.setMobileArrangeTile(id),
+      setMobileSheetExpanded: (expanded: boolean) =>
+        ui.setMobileSheetExpanded(expanded),
       undo: vi.fn(),
     };
   },
@@ -135,6 +137,35 @@ describe("MobileTileToolbar", () => {
     await tool(wrapper, "crop").trigger("click");
     expect(enterToolMode).toHaveBeenCalledWith("crop");
     expect(useGridUiStore().mobileOpenToolId).toBeNull();
+  });
+
+  it("All settings grows the toolbar into the sheet and back", async () => {
+    const wrapper = await mountToolbar();
+    const ui = useGridUiStore();
+    const settings = wrapper.get(".mtt__settings");
+    expect(settings.attributes("aria-expanded")).toBe("false");
+
+    await settings.trigger("click");
+    expect(ui.mobileSheetExpanded).toBe(true);
+    expect(wrapper.find(".mas").exists()).toBe(true);
+    expect(wrapper.find(".mtt__tools").exists()).toBe(false);
+    expect(settings.attributes("aria-expanded")).toBe("true");
+    expect(wrapper.findAll(".mas__heading").map((h) => h.text())).toEqual([
+      "Size", "Look", "Content", "Actions",
+    ]);
+
+    await settings.trigger("click");
+    expect(ui.mobileSheetExpanded).toBe(false);
+    expect(wrapper.find(".mtt__tools").exists()).toBe(true);
+  });
+
+  it("Move and resize in the sheet closes it and arranges", async () => {
+    const wrapper = await mountToolbar();
+    const ui = useGridUiStore();
+    await wrapper.get(".mtt__settings").trigger("click");
+    await wrapper.get('.mas [data-tool-id="arrange"]').trigger("click");
+    expect(ui.mobileSheetExpanded).toBe(false);
+    expect(ui.mobileArrangeTileId).toBe("tile-1");
   });
 
   it("Arrange toggles move/resize for this tile", async () => {

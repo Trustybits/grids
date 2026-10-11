@@ -564,9 +564,17 @@ watch(
   { flush: "pre" },
 );
 
+const gridUi = useGridUiStore();
+
+// All settings growing out of (or back into) the toolbar: morph the pill.
+watch(
+  () => isMobileToolbar.value && gridUi.mobileSheetExpanded,
+  () => void morph(undefined, morphOptions()),
+  { flush: "pre" },
+);
+
 // The open tool's popover, when it is one that has a card. Typing replaces the
 // toolbar with the format bar, so no popover shows over it.
-const gridUi = useGridUiStore();
 const popoverToolId = computed(() => {
   const id = gridUi.mobileOpenToolId;
   if (!isMobileToolbar.value || mode.value !== "edit") return null;

@@ -25,6 +25,7 @@ import './styles/themes.scss';
 import './styles/custom.scss';
 import "./styles/_tooltips.scss";
 import "./styles/_rich-text.scss";
+import "./styles/_mobile-tool-bodies.scss";
 
 import { useThemeStore } from "@/stores/theme";
 

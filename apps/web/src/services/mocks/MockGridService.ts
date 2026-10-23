@@ -183,7 +183,11 @@ export class MockGridService implements GridServiceInterface {
 
   async unpublishGrid(_gridId: string): Promise<void> {}
 
-  async publishAsCopy(draftId: string, name?: string): Promise<Grid> {
+  async publishAsCopy(
+    draftId: string,
+    name?: string,
+    _content?: Grid,
+  ): Promise<Grid> {
     return normalizeMockGrid({
       ...mockData,
       id: draftId,

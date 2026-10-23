@@ -472,7 +472,10 @@ export class GridController {
     if (!session.isDraftEditing || !session.currentGrid) return;
     const draftId = session.currentGrid.id;
     const publishedId = session.publicGridId;
-    await this.flushSaves();
+    // Let any in-flight draft save settle before publishDraft deletes the draft
+    // document. A failed draft save is moot because publishDraft writes the
+    // editor's in-memory snapshot directly into the public original.
+    await this.flushSaves().catch(() => undefined);
     // Publish exactly what the editor shows (every breakpoint's layout), not a
     // re-read of the stored draft — see GridService.publishDraft.
     const content = this.persistenceController.createPersistableSnapshot();
@@ -500,7 +503,7 @@ export class GridController {
     // Let any in-flight save settle before the delete so it can't race it. A
     // failed save is moot — its changes are being discarded.
     await this.flushSaves().catch(() => undefined);
-    await this.dependencies.getGridService().deleteGrid(draftId);
+    await this.deleteDraft(draftId);
     await this.sessionController.loadGrid(publishedId, {
       preserveViewport: true,
     });
@@ -515,10 +518,11 @@ export class GridController {
     const session = this.stores.session;
     if (!session.isDraftEditing || !session.currentGrid) return null;
     const draftId = session.currentGrid.id;
-    await this.flushSaves();
+    await this.flushSaves().catch(() => undefined);
+    const content = this.persistenceController.createPersistableSnapshot();
     const promoted = await this.dependencies
       .getGridService()
-      .publishAsCopy(draftId, name);
+      .publishAsCopy(draftId, name, content ?? undefined);
     return promoted.id;
   }
 

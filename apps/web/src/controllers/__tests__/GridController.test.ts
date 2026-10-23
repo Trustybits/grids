@@ -1504,6 +1504,23 @@ describe("GridController draft/publish", () => {
     expect(stores.viewport.forcedBreakpoint).toBe("sm");
   });
 
+  it("publish() still publishes the in-memory draft when flushing an earlier draft save rejects", async () => {
+    const harness = createControllerHarness();
+    const { controller, stores, gridService, dependencies } = harness;
+    enterDraftEditing(stores);
+    stubDraftReload(harness);
+    vi.mocked(dependencies.persistenceScheduler.flush).mockRejectedValueOnce(
+      new Error("Missing or insufficient permissions."),
+    );
+
+    await expect(controller.publish()).resolves.toBeUndefined();
+
+    expect(gridService.publishDraft).toHaveBeenCalledWith(
+      "draft__g1",
+      expect.objectContaining({ id: "draft__g1" }),
+    );
+  });
+
   it("discardChanges() deletes the draft and reopens a fresh one from the published grid", async () => {
     const harness = createControllerHarness();
     const { controller, stores, gridService } = harness;
@@ -1520,6 +1537,23 @@ describe("GridController draft/publish", () => {
     expect(stores.session.currentGrid?.name).toBe("Grid");
     expect(stores.session.hasUnpublishedChanges).toBe(false);
     expect(stores.viewport.forcedBreakpoint).toBe("md");
+  });
+
+  it("discardChanges() still reloads the published grid when the stored draft is already gone", async () => {
+    const harness = createControllerHarness();
+    const { controller, stores, gridService } = harness;
+    enterDraftEditing(stores);
+    stubDraftReload(harness);
+    stores.session.currentGrid!.name = "Unpublished edit";
+    vi.mocked(gridService.deleteGrid).mockRejectedValueOnce(
+      new Error("Missing or insufficient permissions."),
+    );
+
+    await expect(controller.discardChanges()).resolves.toBeUndefined();
+
+    expect(gridService.getOrCreateDraft).toHaveBeenCalledWith("g1");
+    expect(stores.session.currentGrid?.name).toBe("Grid");
+    expect(stores.session.hasUnpublishedChanges).toBe(false);
   });
 
   it("discardChanges() is a no-op when not editing a draft", async () => {
@@ -1549,7 +1583,11 @@ describe("GridController draft/publish", () => {
 
     const newId = await controller.publishAsCopy("Branch");
 
-    expect(gridService.publishAsCopy).toHaveBeenCalledWith("draft__g1", "Branch");
+    expect(gridService.publishAsCopy).toHaveBeenCalledWith(
+      "draft__g1",
+      "Branch",
+      expect.objectContaining({ id: "draft__g1" }),
+    );
     expect(newId).toBe("draft__g1");
   });
 

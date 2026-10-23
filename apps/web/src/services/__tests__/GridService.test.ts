@@ -429,6 +429,58 @@ describe('saveGrid', () => {
       expect.any(Error),
     )
   })
+
+  it('recreates a hidden draft at rev 1 when its backing document was removed (actualRev 0)', async () => {
+    const draft = makeGrid({
+      id: 'draft__grid-1',
+      draftOf: 'grid-1',
+      status: 'draft',
+      rev: 3,
+      overrides: { sm: { 'tile-1': { x: 0, y: 2, w: 4, h: 2 } } },
+    })
+    mockGridDao.save
+      .mockRejectedValueOnce(
+        new GridRevisionConflictError('draft__grid-1', 3, 0, null),
+      )
+      .mockResolvedValueOnce(undefined)
+
+    const service = await getService()
+    const saved = await service.saveGrid(draft)
+
+    expect(mockGridDao.save).toHaveBeenCalledTimes(2)
+    expect(mockGridDao.save).toHaveBeenNthCalledWith(
+      1,
+      'draft__grid-1',
+      expect.objectContaining({ rev: 4 }),
+      3,
+    )
+    expect(mockGridDao.save).toHaveBeenNthCalledWith(
+      2,
+      'draft__grid-1',
+      expect.objectContaining({ rev: 1, overrides: draft.overrides }),
+      0,
+    )
+    expect(saved.rev).toBe(1)
+    expect(draft.rev).toBe(1)
+  })
+
+  it('still surfaces a revision conflict on a hidden draft when actualRev > 0', async () => {
+    const draft = makeGrid({
+      id: 'draft__grid-1',
+      draftOf: 'grid-1',
+      status: 'draft',
+      rev: 3,
+    })
+    mockGridDao.save.mockRejectedValueOnce(
+      new GridRevisionConflictError('draft__grid-1', 3, 5, null),
+    )
+
+    const service = await getService()
+    await expect(service.saveGrid(draft)).rejects.toBeInstanceOf(
+      GridRevisionConflictError,
+    )
+    expect(mockGridDao.save).toHaveBeenCalledTimes(1)
+  })
 })
 
 // ── updateGrid ─────────────────────────────────────────────────────────
@@ -1700,6 +1752,39 @@ describe('publishDraft', () => {
     )
     // Conflict before the draft is reclaimed → draft survives for a retry.
     expect(mockGridDao.delete).not.toHaveBeenCalled()
+  })
+
+  it('still resolves when the stored draft is already gone and delete fails with permission denied', async () => {
+    const inMemory = makeGrid({
+      id: 'draft__grid-1',
+      userId: 'user-1',
+      draftOf: 'grid-1',
+      status: 'draft',
+      rev: 9,
+      overrides: { sm: { 'kept-tile': { x: 0, y: 3, w: 1, h: 1 } } },
+    })
+    const original = makeGrid({ id: 'grid-1', userId: 'user-1', rev: 5 })
+    mockGridDao.getById.mockResolvedValueOnce(original)
+    mockGridDao.update.mockResolvedValueOnce(undefined)
+    mockGridDao.delete.mockRejectedValueOnce(
+      new Error('Missing or insufficient permissions.'),
+    )
+
+    const service = await getService()
+    await expect(
+      service.publishDraft('draft__grid-1', inMemory),
+    ).resolves.toBeUndefined()
+
+    expect(mockGridDao.update).toHaveBeenCalledWith(
+      'grid-1',
+      expect.objectContaining({ rev: 6, overrides: inMemory.overrides }),
+      5,
+    )
+    expect(mockGridDao.delete).toHaveBeenCalledWith('draft__grid-1')
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to delete draft draft__grid-1 after publish:',
+      expect.any(Error),
+    )
   })
 })
 

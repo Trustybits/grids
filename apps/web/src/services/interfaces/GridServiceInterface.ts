@@ -63,9 +63,10 @@ export interface GridServiceInterface {
   publishDraft(draftId: string, content?: Grid): Promise<void>;
   /**
    * Promote a draft into its own listed public grid under a new id, then
-   * delete the draft. Resolves with the new grid.
+   * delete the draft. Pass `content` to promote the editor's in-memory draft
+   * instead of the stored copy. Resolves with the new grid.
    */
-  publishAsCopy(draftId: string, name?: string): Promise<Grid>;
+  publishAsCopy(draftId: string, name?: string, content?: Grid): Promise<Grid>;
   /** Take a published grid private again (status:"draft"). */
   unpublishGrid(gridId: string): Promise<void>;
 }
